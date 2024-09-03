@@ -2,18 +2,19 @@ package org.opentaint.ir.api
 
 import java.io.File
 
-interface DatabaseClass {
+interface ClassId {
 
     val location: ByteCodeLocation
 
     val name: String
     val simpleName: String
 
-    val methods: List<DatabaseClassMethod>
+    val methods: List<MethodId>
 
-    val parents: List<DatabaseClass>
-    val interfaces: List<DatabaseClass>
-    val annotations: List<DatabaseClass>
+    val parents: List<ClassId>
+    val interfaces: List<ClassId>
+    val annotations: List<ClassId>
+
 }
 
 interface ByteCodeLocation {
@@ -23,12 +24,14 @@ interface ByteCodeLocation {
     val file: File
 }
 
-interface DatabaseClassMethod {
-
+interface MethodId {
     val name: String
-    val signature: Any // todo return something meaning full
 
-    val annotations: List<DatabaseClass>
+    val classId: ClassId
+    val returnType: ClassId
+    val parameters: List<ClassId>
+    val annotations: List<ClassId>
+
     suspend fun readBody(): Any //TODO return something
 
 }
@@ -37,7 +40,7 @@ interface ClasspathSet {
 
     val locations: List<ByteCodeLocation>
 
-    suspend fun findClass(name: String): DatabaseClass?
+    suspend fun findClass(name: String): ClassId?
 }
 
 
@@ -45,10 +48,10 @@ interface CompilationDatabase {
 
     suspend fun classpathSet(locations: List<File>): ClasspathSet
 
-    suspend fun load(dirOrJar: File)
-    suspend fun load(dirOrJars: List<File>)
+    suspend fun load(dirOrJar: File): CompilationDatabase
+    suspend fun load(dirOrJars: List<File>): CompilationDatabase
 
-    suspend fun refresh()
+    suspend fun refresh(): CompilationDatabase
 
-    fun watchFileSystemChanges()
+    fun watchFileSystemChanges(): CompilationDatabase
 }

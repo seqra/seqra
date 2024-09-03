@@ -4,7 +4,7 @@ import org.opentaint.ir.api.CompilationDatabase
 
 object CompilationDatabaseFactory {
 
-    suspend fun newDatabase(isPersisted: Boolean): CompilationDatabase {
+    suspend fun newDatabase(persistent: Boolean): CompilationDatabase {
         TODO("implement me")
     }
 
