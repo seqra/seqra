@@ -1,5 +1,6 @@
 package org.opentaint.ir.api
 
+import java.io.Closeable
 import java.io.File
 
 interface ClassId {
@@ -11,7 +12,7 @@ interface ClassId {
 
     val methods: List<MethodId>
 
-    val parents: List<ClassId>
+    val superclass: ClassId?
     val interfaces: List<ClassId>
     val annotations: List<ClassId>
 
@@ -28,7 +29,7 @@ interface MethodId {
     val name: String
 
     val classId: ClassId
-    val returnType: ClassId
+    val returnType: ClassId?
     val parameters: List<ClassId>
     val annotations: List<ClassId>
 
@@ -36,7 +37,7 @@ interface MethodId {
 
 }
 
-interface ClasspathSet {
+interface ClasspathSet: Closeable {
 
     val locations: List<ByteCodeLocation>
 
