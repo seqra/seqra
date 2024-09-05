@@ -1,18 +1,19 @@
 package org.opentaint.ir.impl.tree
 
 import org.opentaint.ir.api.ByteCodeLocation
+import org.opentaint.ir.impl.reader.ClassMetaInfo
 import java.util.concurrent.ConcurrentHashMap
 
 class ClassTree {
 
     private val rootNode = PackageNode(null, null)
 
-    fun addClass(codeLocation: ByteCodeLocation, fullName: String): ClassNode {
+    fun addClass(codeLocation: ByteCodeLocation, fullName: String, info: ClassMetaInfo): ClassNode {
         val splitted = fullName.splitted
         val simpleClassName = splitted[splitted.size - 1]
         val version = codeLocation.version
         if (splitted.size == 1) {
-            return rootNode.findClassOrNew(simpleClassName, version, codeLocation)
+            return rootNode.findClassOrNew(simpleClassName, version, codeLocation, info)
         }
         var node = rootNode
         var index = 0
@@ -21,7 +22,7 @@ class ClassTree {
             node = node.findPackageOrNew(subfolderName)
             index++
         }
-        return node.findClassOrNew(simpleClassName, version, codeLocation)
+        return node.findClassOrNew(simpleClassName, version, codeLocation, info)
     }
 
     fun findClassNodeOrNull(codeLocation: ByteCodeLocation, fullName: String): ClassNode? {
@@ -77,11 +78,11 @@ class PackageNode(val folderName: String?, val parent: PackageNode?) {
         return subpackages.get(subfolderName)
     }
 
-    fun findClassOrNew(simpleClassName: String, version: String, location: ByteCodeLocation): ClassNode {
+    fun findClassOrNew(simpleClassName: String, version: String, location: ByteCodeLocation, info: ClassMetaInfo): ClassNode {
         val nameIndex = classes.getOrPut(simpleClassName) {
             ConcurrentHashMap()
         }
-        return nameIndex.getOrPut(version) { ClassNode(simpleClassName, this, location ) }
+        return nameIndex.getOrPut(version) { ClassNode(simpleClassName, this, location, info) }
     }
 
     fun findClassOrNull(className: String, version: String): ClassNode? {
@@ -95,7 +96,7 @@ class PackageNode(val folderName: String?, val parent: PackageNode?) {
 }
 
 
-data class ClassNode(val simpleName: String, val packageNode: PackageNode, val location: ByteCodeLocation) {
+data class ClassNode(val simpleName: String, val packageNode: PackageNode, val location: ByteCodeLocation, val info: ClassMetaInfo) {
 
     val fullName: String by lazy(LazyThreadSafetyMode.NONE) {
         val reversedNames = arrayListOf(simpleName)

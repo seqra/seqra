@@ -35,7 +35,8 @@ dependencies {
     implementation group: 'org.ow2.asm', name: 'asm', version: asm_version
 
     testImplementation(platform('org.junit:junit-bom:5.8.2'))
-    testImplementation('org.junit.jupiter:junit-jupiter')
+    testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter'
+    testImplementation group: 'com.google.guava', name: 'guava', version: '31.1-jre'
 }
 
 compileKotlin {

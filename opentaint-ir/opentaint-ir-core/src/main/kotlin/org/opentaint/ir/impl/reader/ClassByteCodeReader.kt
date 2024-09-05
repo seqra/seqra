@@ -2,8 +2,6 @@ package org.opentaint.ir.impl.reader
 
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.toPersistentList
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.objectweb.asm.*
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
@@ -16,14 +14,13 @@ class ClassByteCodeReader(private val jar: JarFile, private val jarEntry: JarEnt
     private val annotations: ArrayList<AnnotationMetaInfo> = arrayListOf()
     private var bytecode: ByteArray? = null
 
-    suspend fun readClassMeta(): ClassMetaInfo {
-        val bytes = withContext(Dispatchers.IO) {
-            jar.getInputStream(jarEntry)
+    fun readClassMeta(): ClassMetaInfo {
+        val bytes = jar.getInputStream(jarEntry)
                 .use { it.readBytes() }
                 .also { bytecode = it }
-        }
+
         val reader = ClassReader(bytes).also {
-            it.accept(newClassVisitor(), ClassReader.SKIP_CODE and ClassReader.SKIP_DEBUG and ClassReader.SKIP_FRAMES)
+            it.accept(newClassVisitor(), ClassReader.SKIP_CODE or ClassReader.SKIP_DEBUG or ClassReader.SKIP_FRAMES)
         }
         return ClassMetaInfo(
             name = Type.getObjectType(reader.className).className,
