@@ -22,6 +22,7 @@ interface ByteCodeLocation {
 
     val isJar: Boolean
 
+    val version: String
     val file: File
 }
 
@@ -41,7 +42,7 @@ interface ClasspathSet: Closeable {
 
     val locations: List<ByteCodeLocation>
 
-    suspend fun findClass(name: String): ClassId?
+    suspend fun findClassOrNull(name: String): ClassId?
 }
 
 
