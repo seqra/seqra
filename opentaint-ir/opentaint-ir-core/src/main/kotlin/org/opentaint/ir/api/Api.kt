@@ -2,6 +2,7 @@ package org.opentaint.ir.api
 
 import java.io.Closeable
 import java.io.File
+import java.io.InputStream
 
 interface ClassId {
 
@@ -20,10 +21,16 @@ interface ClassId {
 
 interface ByteCodeLocation {
 
-    val isJar: Boolean
-
     val version: String
-    val file: File
+    val currentVersion: String
+
+    fun isChanged(): Boolean {
+        return version != currentVersion
+    }
+
+    suspend fun resolve(classFullName: String): InputStream?
+
+    suspend fun classesByteCode(): Sequence<InputStream>
 }
 
 interface MethodId {

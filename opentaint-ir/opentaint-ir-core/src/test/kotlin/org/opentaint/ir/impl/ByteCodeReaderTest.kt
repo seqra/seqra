@@ -1,6 +1,6 @@
 package org.opentaint.ir.impl
 
-import org.opentaint.ir.impl.reader.ByteCodeReader
+import org.opentaint.ir.impl.reader.readClasses
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -14,7 +14,9 @@ class ByteCodeReaderTest {
     fun `read byte-code benchmark`() {
         val lib = guavaLib
         benchmark(20, "read bytecode") {
-            ByteCodeReader().readJar(lib).toList()
+            runBlocking {
+                lib.byteCodeLocation.readClasses().toList()
+            }
         }
     }
 
@@ -58,6 +60,6 @@ class ByteCodeReaderTest {
         get() {
             val cl = ClassLoader.getSystemClassLoader()
             val jars = (cl as URLClassLoader).urLs.filter { it.path.endsWith(".jar") }
-            return jars.map{ File(it.file)}
+            return jars.map { File(it.file) }
         }
 }

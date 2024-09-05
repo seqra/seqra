@@ -48,7 +48,7 @@ class ClassTreeTest {
 
     @Test
     fun `handle classes at limited tree`() {
-        val limitedTree = LimitedClassTree(classTree, persistentListOf(lib1))
+        val limitedTree = ClasspathClassTree(classTree, persistentListOf(lib1))
         classTree.addClass(lib2, "xxx.Simple", info)
         classTree.addClass(lib1, "xxx.Simple", info)
         classTree.addClass(lib2, "xxx.zzz.Simple", info)

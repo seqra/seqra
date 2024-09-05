@@ -1,23 +1,19 @@
 package org.opentaint.ir.impl.reader
 
-import kotlinx.collections.immutable.PersistentList
+import org.opentaint.ir.api.ByteCodeLocation
 import kotlinx.collections.immutable.toPersistentList
 import org.objectweb.asm.*
-import java.util.jar.JarEntry
-import java.util.jar.JarFile
+import java.io.InputStream
 
 // todo inner/outer classes?
-class ClassByteCodeReader(private val jar: JarFile, private val jarEntry: JarEntry) {
+class ClassByteCodeReader(private val input: InputStream) {
 
     private val methods: ArrayList<MethodMetaInfo> = arrayListOf()
     private val fields: ArrayList<FieldMetaInfo> = arrayListOf()
     private val annotations: ArrayList<AnnotationMetaInfo> = arrayListOf()
-    private var bytecode: ByteArray? = null
 
     fun readClassMeta(): ClassMetaInfo {
-        val bytes = jar.getInputStream(jarEntry)
-                .use { it.readBytes() }
-                .also { bytecode = it }
+        val bytes = input.use { it.readBytes() }
 
         val reader = ClassReader(bytes).also {
             it.accept(newClassVisitor(), ClassReader.SKIP_CODE or ClassReader.SKIP_DEBUG or ClassReader.SKIP_FRAMES)
@@ -33,14 +29,36 @@ class ClassByteCodeReader(private val jar: JarFile, private val jarEntry: JarEnt
         )
     }
 
+    fun readMethod(methodName: String, methodSignature: String): Any {
+        val bytes = input.use { it.readBytes() }
+
+        return ClassReader(bytes).also {
+            it.accept(object : ClassVisitor(Opcodes.ASM8) {
+                override fun visitMethod(
+                    access: Int,
+                    name: String?,
+                    descriptor: String?,
+                    signature: String?,
+                    exceptions: Array<out String>?
+                ): MethodVisitor {
+                    if (methodName == name && methodSignature == signature) {
+                        return object : MethodVisitor(Opcodes.ASM8) {
+                            override fun visitCode() {
+                                super.visitCode()
+                            }
+                        }
+                    }
+                    return super.visitMethod(access, name, descriptor, signature, exceptions)
+                }
+            }, ClassReader.SKIP_DEBUG or ClassReader.SKIP_FRAMES)
+        }
+    }
+
     private fun newClassVisitor() = object : ClassVisitor(Opcodes.ASM8) {
 
         override fun visitAnnotation(descriptor: String?, visible: Boolean): AnnotationVisitor? {
             annotations.add(
-                AnnotationMetaInfo(
-                    type = Type.getType(descriptor).className,
-                    visible = visible
-                )
+                descriptor.asAnnotation(visible)
             )
             return super.visitAnnotation(descriptor, visible)
         }
@@ -68,46 +86,41 @@ class ClassByteCodeReader(private val jar: JarFile, private val jarEntry: JarEnt
             descriptor: String?,
             signature: String?,
             exceptions: Array<out String>?
-        ): MethodVisitor? {
+        ): MethodVisitor {
+            val list = arrayListOf<AnnotationMetaInfo>()
             methods.add(
                 MethodMetaInfo(
                     name = name,
                     access = access,
                     returnType = Type.getReturnType(descriptor).className,
                     parameters = Type.getArgumentTypes(descriptor).map { it.className }.toPersistentList()
-                )
+                ) {
+                    list.toPersistentList()
+                }
             )
-            return super.visitMethod(access, name, descriptor, signature, exceptions)
+            return object : MethodVisitor(Opcodes.ASM8) {
+
+                override fun visitAnnotation(descriptor: String?, visible: Boolean): AnnotationVisitor? {
+                    list.add(descriptor.asAnnotation(visible))
+                    return super.visitAnnotation(descriptor, visible)
+                }
+            }
         }
     }
+
+    private fun String?.asAnnotation(
+        visible: Boolean
+    ) = AnnotationMetaInfo(
+        type = Type.getType(this).className,
+        visible = visible
+    )
 }
 
-class ClassMetaInfo(
-    var name: String,
-    var access: Int = 0,
+suspend fun ByteCodeLocation.readClasses(): Sequence<ClassMetaInfo> {
+    return classesByteCode().map { ClassByteCodeReader(it).readClassMeta() }
+}
 
-    var methods: PersistentList<MethodMetaInfo>,
-    var fields: PersistentList<FieldMetaInfo>,
-
-    var superClass: String? = null,
-    var interfaces: PersistentList<String>,
-    var annotations: PersistentList<AnnotationMetaInfo>
-)
-
-class MethodMetaInfo(
-    var name: String,
-    var access: Int,
-    var returnType: String,
-    var parameters: PersistentList<String>
-)
-
-class FieldMetaInfo(
-    var name: String,
-    var access: Int,
-    var type: String
-)
-
-class AnnotationMetaInfo(
-    var visible: Boolean,
-    var type: String
-)
+suspend fun ByteCodeLocation.reader(fullName: String): ClassByteCodeReader {
+    val input = resolve(fullName) ?: throw IllegalStateException("can't find bytecode for class $fullName")
+    return ClassByteCodeReader(input)
+}

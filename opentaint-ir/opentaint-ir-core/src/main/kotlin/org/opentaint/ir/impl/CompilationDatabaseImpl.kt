@@ -2,7 +2,7 @@ package org.opentaint.ir.impl
 
 import org.opentaint.ir.api.ClasspathSet
 import org.opentaint.ir.api.CompilationDatabase
-import org.opentaint.ir.impl.reader.ByteCodeReader
+import org.opentaint.ir.impl.reader.readClasses
 import org.opentaint.ir.impl.tree.ClassTree
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.Dispatchers
@@ -14,11 +14,10 @@ import java.io.File
 class CompilationDatabaseImpl : CompilationDatabase {
 
     private val classTree = ClassTree()
-    private val byteCodeReader = ByteCodeReader()
 
     override suspend fun classpathSet(locations: List<File>): ClasspathSet {
         load(locations)
-        return ClasspathSetImpl(locations.map { ByteCodeLocationImpl(it) }.toPersistentList(), classTree)
+        return ClasspathSetImpl(locations.map { it.byteCodeLocation }.toPersistentList(), classTree)
     }
 
     override suspend fun load(dirOrJar: File) = apply {
@@ -34,8 +33,9 @@ class CompilationDatabaseImpl : CompilationDatabase {
         withContext(Dispatchers.IO) {
             dirOrJars.map { dirOrJar ->
                 launch(Dispatchers.IO) {
-                    byteCodeReader.readJar(dirOrJar).forEach {
-                        classTree.addClass(ByteCodeLocationImpl(dirOrJar), it.name, it)
+                    val location = dirOrJar.byteCodeLocation
+                    location.readClasses().forEach {
+                        classTree.addClass(location, it.name, it)
                     }
                 }
             }
