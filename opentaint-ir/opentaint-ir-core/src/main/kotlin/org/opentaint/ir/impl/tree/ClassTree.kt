@@ -12,16 +12,16 @@ class ClassTree {
         val simpleClassName = splitted[splitted.size - 1]
         val version = codeLocation.version
         if (splitted.size == 1) {
-            return rootNode.findClassOrNew(simpleClassName, version)
+            return rootNode.findClassOrNew(simpleClassName, version, codeLocation)
         }
         var node = rootNode
         var index = 0
         while (index < splitted.size - 1) {
             val subfolderName = splitted[index]
-            node = node.findPackageOrNew(subfolderName, version)
+            node = node.findPackageOrNew(subfolderName)
             index++
         }
-        return node.findClassOrNew(simpleClassName, version)
+        return node.findClassOrNew(simpleClassName, version, codeLocation)
     }
 
     fun findClassNodeOrNull(codeLocation: ByteCodeLocation, fullName: String): ClassNode? {
@@ -35,10 +35,26 @@ class ClassTree {
                 return null
             }
             val subfolderName = splitted[index]
-            node = node.findPackageOrNull(subfolderName, version)
+            node = node.findPackageOrNull(subfolderName)
             index++
         }
         return node?.findClassOrNull(simpleClassName, version)
+    }
+
+    fun firstClassNodeOrNull(fullName: String, predicate: (String) -> Boolean): ClassNode? {
+        val splitted = fullName.splitted
+        val simpleClassName = splitted[splitted.size - 1]
+        var node: PackageNode? = rootNode
+        var index = 0
+        while (index < (splitted.size - 1)) {
+            if (node == null) {
+                return null
+            }
+            val subfolderName = splitted[index]
+            node = node.findPackageOrNull(subfolderName)
+            index++
+        }
+        return node?.firstClassOrNull(simpleClassName, predicate)
     }
 
     private val String.splitted get() = this.split(".")
@@ -46,35 +62,40 @@ class ClassTree {
 
 class PackageNode(val folderName: String?, val parent: PackageNode?) {
 
-    private val subpackages = ConcurrentHashMap<NodeKey, PackageNode>()
-    private val classes = ConcurrentHashMap<NodeKey, ClassNode>()
+    private val subpackages = ConcurrentHashMap<String, PackageNode>()
 
-    fun findPackageOrNew(subfolderName: String, version: String): PackageNode {
-        val key = NodeKey(subfolderName, version)
-        return subpackages.getOrPut(key) {
+    // simpleName -> (version -> node)
+    private val classes = ConcurrentHashMap<String, ConcurrentHashMap<String, ClassNode>>()
+
+    fun findPackageOrNew(subfolderName: String): PackageNode {
+        return subpackages.getOrPut(subfolderName) {
             PackageNode(subfolderName, this)
         }
     }
 
-    fun findPackageOrNull(subfolderName: String, version: String): PackageNode? {
-        val key = NodeKey(subfolderName, version)
-        return subpackages.get(key)
+    fun findPackageOrNull(subfolderName: String): PackageNode? {
+        return subpackages.get(subfolderName)
     }
 
-    fun findClassOrNew(className: String, version: String): ClassNode {
-        val key = NodeKey(className, version)
-        return classes.getOrPut(key) {
-            ClassNode(className, this)
+    fun findClassOrNew(simpleClassName: String, version: String, location: ByteCodeLocation): ClassNode {
+        val nameIndex = classes.getOrPut(simpleClassName) {
+            ConcurrentHashMap()
         }
+        return nameIndex.getOrPut(version) { ClassNode(simpleClassName, this, location ) }
     }
 
     fun findClassOrNull(className: String, version: String): ClassNode? {
-        return classes.get(NodeKey(className, version))
+        return classes[className]?.get(version)
+    }
+
+    fun firstClassOrNull(className: String, predicate: (String) -> Boolean): ClassNode? {
+        val versioned = classes[className] ?: return null
+        return versioned.search(1L) { version, node -> node.takeIf { predicate(version) } }
     }
 }
 
 
-data class ClassNode(val simpleName: String, val packageNode: PackageNode) {
+data class ClassNode(val simpleName: String, val packageNode: PackageNode, val location: ByteCodeLocation) {
 
     val fullName: String by lazy(LazyThreadSafetyMode.NONE) {
         val reversedNames = arrayListOf(simpleName)

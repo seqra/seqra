@@ -1,8 +1,8 @@
 package org.opentaint.ir.impl.tree
 
 import org.opentaint.ir.api.ByteCodeLocation
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
+import kotlinx.collections.immutable.persistentListOf
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class ClassTreeTest {
@@ -34,7 +34,23 @@ class ClassTreeTest {
             assertEquals("xxx.yyy.Simple", it?.fullName)
         }
     }
-    
+
+    @Test
+    fun `handle classes at limited tree`() {
+        val limitedTree = LimitedClassTree(classTree, persistentListOf(lib1))
+        classTree.addClass(lib2, "xxx.Simple")
+        classTree.addClass(lib1, "xxx.Simple")
+        classTree.addClass(lib2, "xxx.zzz.Simple")
+
+        with(limitedTree.findClassOrNull("xxx.Simple")) {
+            assertNotNull(this!!)
+            assertEquals("Simple", simpleName)
+            assertEquals(lib1, location)
+        }
+
+        assertNull(limitedTree.findClassOrNull("xxx.zzz.Simple"))
+    }
+
     private fun ByteCodeLocation.findNode(name: String): ClassNode? {
         return classTree.findClassNodeOrNull(this, name)
     }

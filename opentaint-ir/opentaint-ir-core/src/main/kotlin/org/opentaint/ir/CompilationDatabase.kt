@@ -1,12 +1,13 @@
 package org.opentaint.ir
 
 import org.opentaint.ir.api.CompilationDatabase
+import org.opentaint.ir.impl.CompilationDatabaseImpl
 import kotlinx.coroutines.runBlocking
 import java.io.File
 
 fun compilationDatabase(builder: CompilationDatabaseSettings.() -> Unit): CompilationDatabase {
     val settings = CompilationDatabaseSettings().also(builder)
-    val database: CompilationDatabase = TODO("create instance")
+    val database: CompilationDatabase = CompilationDatabaseImpl()
     if (settings.watchFileSystemChanges) {
         database.watchFileSystemChanges()
     }
@@ -31,14 +32,4 @@ class CompilationDatabaseSettings {
 class CompilationDatabasePersistentSettings {
     var location: String? = null
     var clearOnStart: Boolean = false
-}
-
-fun main() {
-    val db = compilationDatabase {
-        watchFileSystemChanges = true
-        persistent {
-            location = ""
-            clearOnStart = true
-        }
-    }
 }
