@@ -10,17 +10,17 @@ interface ClassId {
     val name: String
     val simpleName: String
 
-    val methods: List<MethodId>
+    suspend fun methods(): List<MethodId>
 
-    val superclass: ClassId?
-    val interfaces: List<ClassId>
-    val annotations: List<ClassId>
+    suspend fun superclass(): ClassId?
+    suspend fun interfaces(): List<ClassId>
+    suspend fun annotations(): List<ClassId>
 
 }
 
 interface ByteCodeLocation {
 
-    var isJar: Boolean
+    val isJar: Boolean
 
     val file: File
 }
@@ -29,9 +29,9 @@ interface MethodId {
     val name: String
 
     val classId: ClassId
-    val returnType: ClassId?
-    val parameters: List<ClassId>
-    val annotations: List<ClassId>
+    suspend fun returnType(): ClassId?
+    suspend fun parameters(): List<ClassId>
+    suspend fun annotations(): List<ClassId>
 
     suspend fun readBody(): Any //TODO return something
 
