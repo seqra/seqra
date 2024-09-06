@@ -3,16 +3,19 @@ package org.opentaint.ir.impl.meta
 import org.opentaint.ir.api.ClassId
 import org.opentaint.ir.api.MethodId
 import org.opentaint.ir.impl.ClassIdService
-import org.opentaint.ir.impl.reader.MethodMetaInfo
-import org.opentaint.ir.impl.reader.reader
+import org.opentaint.ir.impl.fs.MethodMetaInfo
+import org.opentaint.ir.impl.tree.ClassNode
+import org.objectweb.asm.tree.MethodNode
 
 class MethodIdImpl(
     private val methodInfo: MethodMetaInfo,
+    private val classNode: ClassNode,
     override val classId: ClassId,
     private val classIdService: ClassIdService
 ) : MethodId {
 
     override val name: String get() = methodInfo.name
+    override suspend fun access() = methodInfo.access
 
     private val lazyParameters by lazy {
         methodInfo.parameters.mapNotNull {
@@ -21,7 +24,7 @@ class MethodIdImpl(
     }
     private val lazyAnnotations by lazy {
         methodInfo.annotations.mapNotNull {
-            classIdService.toClassId(it.type)
+            classIdService.toClassId(it.className)
         }
     }
 
@@ -31,11 +34,11 @@ class MethodIdImpl(
 
     override suspend fun annotations() = lazyAnnotations
 
-    override suspend fun readBody(): Any {
+    override suspend fun readBody(): MethodNode {
         val location = classId.location
-        if (location.isChanged()) {
+        if (location?.isChanged() == true) {
             throw IllegalStateException("bytecode is changed")
         }
-        return location.reader(classId.name).readClassMeta()
+        return classNode.source.loadMethod(name, methodInfo.desc)
     }
 }

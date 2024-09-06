@@ -9,7 +9,7 @@ class ClassIdImpl(private val node: ClassNode, private val classIdService: Class
 
     override val location: ByteCodeLocation get() = node.location
     override val name: String get() = node.fullName
-    override val simpleName: String get() = node.simpleName
+    override val simpleName: String get() = node.name
 
     private val lazyInterfaces by lazy {
         node.info.interfaces.mapNotNull {
@@ -23,16 +23,22 @@ class ClassIdImpl(private val node: ClassNode, private val classIdService: Class
 
     private val lazyMethods by lazy {
         node.info.methods.map {
-            classIdService.toMethodId(this, it)
+            classIdService.toMethodId(this, it, node)
         }
     }
 
     private val lazyAnnotations by lazy {
         node.info.annotations.mapNotNull {
-            val targetNode = classIdService.classpathClassTree.findClassOrNull(it.type)
+            val targetNode = classIdService.classpathClassTree.findClassOrNull(it.className)
             classIdService.toClassId(targetNode)
         }
     }
+
+    private val lazyFields by lazy {
+        node.info.fields.map { FieldIdImpl(it, classIdService) }
+    }
+
+    override suspend fun access() = node.info.access
 
     override suspend fun methods() = lazyMethods
 
@@ -41,4 +47,6 @@ class ClassIdImpl(private val node: ClassNode, private val classIdService: Class
     override suspend fun interfaces() = lazyInterfaces
 
     override suspend fun annotations() = lazyAnnotations
+
+    override suspend fun fields() = lazyFields
 }

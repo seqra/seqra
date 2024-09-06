@@ -1,19 +1,20 @@
 package org.opentaint.ir.impl.tree
 
 import org.opentaint.ir.api.ByteCodeLocation
-import org.opentaint.ir.impl.reader.ClassMetaInfo
+import org.opentaint.ir.impl.fs.ClassByteCodeSource
+import org.opentaint.ir.impl.fs.ClassMetaInfo
 import java.util.concurrent.ConcurrentHashMap
 
 class ClassTree {
 
     private val rootNode = PackageNode(null, null)
 
-    fun addClass(codeLocation: ByteCodeLocation, fullName: String, info: ClassMetaInfo): ClassNode {
-        val splitted = fullName.splitted
+    fun addClass(source: ClassByteCodeSource): ClassNode {
+        val splitted = source.className.splitted
         val simpleClassName = splitted[splitted.size - 1]
-        val version = codeLocation.version
+        val version = source.location.version
         if (splitted.size == 1) {
-            return rootNode.findClassOrNew(simpleClassName, version, codeLocation, info)
+            return rootNode.findClassOrNew(simpleClassName, version, source)
         }
         var node = rootNode
         var index = 0
@@ -22,29 +23,22 @@ class ClassTree {
             node = node.findPackageOrNew(subfolderName)
             index++
         }
-        return node.findClassOrNew(simpleClassName, version, codeLocation, info)
+        return node.findClassOrNew(simpleClassName, version, source)
     }
 
     fun findClassNodeOrNull(codeLocation: ByteCodeLocation, fullName: String): ClassNode? {
-        val version = codeLocation.version
         val splitted = fullName.splitted
         val simpleClassName = splitted[splitted.size - 1]
-        var node: PackageNode? = rootNode
-        var index = 0
-        while (index < (splitted.size - 1)) {
-            if (node == null) {
-                return null
-            }
-            val subfolderName = splitted[index]
-            node = node.findPackageOrNull(subfolderName)
-            index++
-        }
-        return node?.findClassOrNull(simpleClassName, version)
+        return findPackage(splitted)?.findClassOrNull(simpleClassName, codeLocation.version)
     }
 
     fun firstClassNodeOrNull(fullName: String, predicate: (String) -> Boolean): ClassNode? {
         val splitted = fullName.splitted
         val simpleClassName = splitted[splitted.size - 1]
+        return findPackage(splitted)?.firstClassOrNull(simpleClassName, predicate)
+    }
+
+    private fun findPackage(splitted: List<String>): PackageNode? {
         var node: PackageNode? = rootNode
         var index = 0
         while (index < (splitted.size - 1)) {
@@ -55,13 +49,29 @@ class ClassTree {
             node = node.findPackageOrNull(subfolderName)
             index++
         }
-        return node?.firstClassOrNull(simpleClassName, predicate)
+        return node
     }
 
     private val String.splitted get() = this.split(".")
 }
 
-class PackageNode(val folderName: String?, val parent: PackageNode?) {
+
+abstract class AbstractNode(open val name: String?, val parent: PackageNode?) {
+
+    val fullName: String by lazy(LazyThreadSafetyMode.NONE) {
+        val reversedNames = arrayListOf(name)
+        var node: PackageNode? = parent
+        while (node != null) {
+            node.name?.let {
+                reversedNames.add(it)
+            }
+            node = node.parent
+        }
+        reversedNames.reversed().joinToString(".")
+    }
+}
+
+class PackageNode(folderName: String?, parent: PackageNode?) : AbstractNode(folderName, parent) {
 
     private val subpackages = ConcurrentHashMap<String, PackageNode>()
 
@@ -78,11 +88,11 @@ class PackageNode(val folderName: String?, val parent: PackageNode?) {
         return subpackages.get(subfolderName)
     }
 
-    fun findClassOrNew(simpleClassName: String, version: String, location: ByteCodeLocation, info: ClassMetaInfo): ClassNode {
+    fun findClassOrNew(simpleClassName: String, version: String, source: ClassByteCodeSource): ClassNode {
         val nameIndex = classes.getOrPut(simpleClassName) {
             ConcurrentHashMap()
         }
-        return nameIndex.getOrPut(version) { ClassNode(simpleClassName, this, location, info) }
+        return nameIndex.getOrPut(version) { ClassNode(simpleClassName, this, source) }
     }
 
     fun findClassOrNull(className: String, version: String): ClassNode? {
@@ -96,19 +106,15 @@ class PackageNode(val folderName: String?, val parent: PackageNode?) {
 }
 
 
-data class ClassNode(val simpleName: String, val packageNode: PackageNode, val location: ByteCodeLocation, val info: ClassMetaInfo) {
+class ClassNode(
+    simpleName: String,
+    packageNode: PackageNode,
+    val source: ClassByteCodeSource
+) : AbstractNode(simpleName, packageNode) {
 
-    val fullName: String by lazy(LazyThreadSafetyMode.NONE) {
-        val reversedNames = arrayListOf(simpleName)
-        var node: PackageNode? = packageNode
-        while (node != null) {
-            node.folderName?.let {
-                reversedNames.add(it)
-            }
-            node = node.parent
-        }
-        reversedNames.reversed().joinToString(".")
-    }
+    override val name: String = simpleName
+
+    val location get() = source.location
+    val info: ClassMetaInfo get() = source.meta
+
 }
-
-data class NodeKey(val name: String, val version: String)

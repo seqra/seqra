@@ -1,23 +1,30 @@
 package org.opentaint.ir.impl
 
+import org.opentaint.ir.ApiLevel
 import org.opentaint.ir.api.ClasspathSet
 import org.opentaint.ir.api.CompilationDatabase
-import org.opentaint.ir.impl.reader.readClasses
+import org.opentaint.ir.impl.fs.asByteCodeLocation
+import org.opentaint.ir.impl.fs.filterExisted
+import org.opentaint.ir.impl.fs.sources
 import org.opentaint.ir.impl.tree.ClassTree
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import mu.KLogging
 import java.io.File
 
-class CompilationDatabaseImpl : CompilationDatabase {
+class CompilationDatabaseImpl(private val apiLevel: ApiLevel) : CompilationDatabase {
+
+    companion object : KLogging()
 
     private val classTree = ClassTree()
 
     override suspend fun classpathSet(locations: List<File>): ClasspathSet {
-        load(locations)
-        return ClasspathSetImpl(locations.map { it.byteCodeLocation }.toPersistentList(), classTree)
+        val existedLocations = locations.filterExisted()
+        load(existedLocations)
+        return ClasspathSetImpl(existedLocations.map { it.asByteCodeLocation(apiLevel) }.toPersistentList(), classTree)
     }
 
     override suspend fun load(dirOrJar: File) = apply {
@@ -25,17 +32,13 @@ class CompilationDatabaseImpl : CompilationDatabase {
     }
 
     override suspend fun load(dirOrJars: List<File>) = apply {
-        dirOrJars.forEach {
-            if (!it.exists()) {
-                throw IllegalStateException("file or folder does not exists: ${it.absolutePath}")
-            }
-        }
+        val validSources = dirOrJars.filterExisted()
         withContext(Dispatchers.IO) {
-            dirOrJars.map { dirOrJar ->
+            validSources.map { dirOrJar ->
                 launch(Dispatchers.IO) {
-                    val location = dirOrJar.byteCodeLocation
-                    location.readClasses().forEach {
-                        classTree.addClass(location, it.name, it)
+                    val location = dirOrJar.asByteCodeLocation(apiLevel)
+                    location.sources().forEach {
+                        classTree.addClass(it)
                     }
                 }
             }

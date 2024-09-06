@@ -1,12 +1,19 @@
 package org.opentaint.ir.api
 
+import org.opentaint.ir.ApiLevel
+import org.objectweb.asm.tree.MethodNode
 import java.io.Closeable
 import java.io.File
 import java.io.InputStream
 
-interface ClassId {
+interface Accessible {
+    suspend fun access(): Int
 
-    val location: ByteCodeLocation
+}
+
+interface ClassId: Accessible {
+
+    val location: ByteCodeLocation?
 
     val name: String
     val simpleName: String
@@ -16,11 +23,13 @@ interface ClassId {
     suspend fun superclass(): ClassId?
     suspend fun interfaces(): List<ClassId>
     suspend fun annotations(): List<ClassId>
+    suspend fun fields(): List<FieldId>
 
 }
 
 interface ByteCodeLocation {
 
+    val apiLevel: ApiLevel
     val version: String
     val currentVersion: String
 
@@ -30,10 +39,10 @@ interface ByteCodeLocation {
 
     suspend fun resolve(classFullName: String): InputStream?
 
-    suspend fun classesByteCode(): Sequence<InputStream>
+    suspend fun classesByteCode(): Sequence<Pair<String, InputStream>>
 }
 
-interface MethodId {
+interface MethodId: Accessible {
     val name: String
 
     val classId: ClassId
@@ -41,7 +50,15 @@ interface MethodId {
     suspend fun parameters(): List<ClassId>
     suspend fun annotations(): List<ClassId>
 
-    suspend fun readBody(): Any //TODO return something
+    suspend fun readBody(): MethodNode
+
+}
+
+interface FieldId: Accessible {
+
+    val name: String
+
+    suspend fun type(): ClassId?
 
 }
 

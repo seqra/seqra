@@ -27,12 +27,13 @@ apply plugin: 'kotlin'
 apply plugin: 'maven-publish'
 
 dependencies {
-    implementation group: 'io.github.microutils', name: 'kotlin-logging', version: kotlin_logging_version
+    implementation group: 'io.github.microutils', name: 'kotlin-logging', version: "1.8.3"
     implementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core', version: coroutines_version
     implementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-collections-immutable-jvm', version: collections_version
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-jdk8', version: kotlin_version
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-reflect', version: kotlin_version
     implementation group: 'org.ow2.asm', name: 'asm', version: asm_version
+    implementation group: 'org.ow2.asm', name: 'asm-tree', version: asm_version
 
     testImplementation(platform('org.junit:junit-bom:5.8.2'))
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter'

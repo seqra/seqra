@@ -3,11 +3,12 @@ package org.opentaint.ir
 import org.opentaint.ir.api.CompilationDatabase
 import org.opentaint.ir.impl.CompilationDatabaseImpl
 import kotlinx.coroutines.runBlocking
+import org.objectweb.asm.Opcodes
 import java.io.File
 
 fun compilationDatabase(builder: CompilationDatabaseSettings.() -> Unit): CompilationDatabase {
     val settings = CompilationDatabaseSettings().also(builder)
-    val database: CompilationDatabase = CompilationDatabaseImpl()
+    val database: CompilationDatabase = CompilationDatabaseImpl(settings.apiLevel)
     if (settings.watchFileSystemChanges) {
         database.watchFileSystemChanges()
     }
@@ -22,11 +23,20 @@ fun compilationDatabase(builder: CompilationDatabaseSettings.() -> Unit): Compil
 class CompilationDatabaseSettings {
     var watchFileSystemChanges: Boolean = false
     var persistentSettings: (CompilationDatabasePersistentSettings.() -> Unit)? = null
-    val predefinedJars: List<File> = emptyList()
-
+    var predefinedJars: List<File> = emptyList()
+    var apiLevel = ApiLevel.ASM8
     fun persistent(settings: (CompilationDatabasePersistentSettings.() -> Unit) = {}) {
         persistentSettings = settings
     }
+}
+
+enum class ApiLevel(val code: Int) {
+    ASM4(Opcodes.ASM4),
+    ASM5(Opcodes.ASM5),
+    ASM6(Opcodes.ASM6),
+    ASM7(Opcodes.ASM7),
+    ASM8(Opcodes.ASM8),
+    ASM9(Opcodes.ASM9)
 }
 
 class CompilationDatabasePersistentSettings {
