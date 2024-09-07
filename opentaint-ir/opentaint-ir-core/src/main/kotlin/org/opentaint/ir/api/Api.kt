@@ -39,7 +39,7 @@ interface ByteCodeLocation {
 
     suspend fun resolve(classFullName: String): InputStream?
 
-    suspend fun classesByteCode(): Sequence<Pair<String, InputStream>>
+    suspend fun classesByteCode(): Sequence<Pair<String, InputStream?>>
 }
 
 interface MethodId: Accessible {
@@ -72,7 +72,7 @@ interface ClasspathSet: Closeable {
 
 interface CompilationDatabase {
 
-    suspend fun classpathSet(locations: List<File>): ClasspathSet
+    suspend fun classpathSet(dirOrJars: List<File>): ClasspathSet
 
     suspend fun load(dirOrJar: File): CompilationDatabase
     suspend fun load(dirOrJars: List<File>): CompilationDatabase

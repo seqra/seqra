@@ -1,6 +1,7 @@
 package org.opentaint.ir.impl
 
 import org.opentaint.ir.ApiLevel
+import org.opentaint.ir.compilationDatabase
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.sources
 import kotlinx.coroutines.runBlocking
@@ -22,13 +23,28 @@ class ByteCodeReaderTest {
         }
     }
 
-
     @Test
     fun `read all classpath byte-code benchmark`() {
         val jars = allJars
         benchmark(10, "reading libraries bytecode") {
             runBlocking {
-                CompilationDatabaseImpl(ApiLevel.ASM8).load(jars)
+                val db = compilationDatabase {
+                    apiLevel = ApiLevel.ASM8
+                    useJavaHomeJRE()
+                }
+                db.load(jars)
+            }
+        }
+    }
+
+    @Test
+    fun `read jre libraries  benchmark`() {
+        benchmark(10, "reading libraries bytecode") {
+            runBlocking {
+                compilationDatabase {
+                    apiLevel = ApiLevel.ASM8
+                    useJavaHomeJRE()
+                }
             }
         }
     }

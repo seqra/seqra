@@ -5,10 +5,9 @@ import org.opentaint.ir.api.ClassId
 import org.opentaint.ir.api.ClasspathSet
 import org.opentaint.ir.impl.tree.ClassTree
 import org.opentaint.ir.impl.tree.ClasspathClassTree
-import kotlinx.collections.immutable.PersistentList
 
 class ClasspathSetImpl(
-    override val locations: PersistentList<ByteCodeLocation>,
+    override val locations: List<ByteCodeLocation>,
     classTree: ClassTree
 ) : ClasspathSet {
 

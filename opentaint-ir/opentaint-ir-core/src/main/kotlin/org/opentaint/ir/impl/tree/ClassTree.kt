@@ -2,7 +2,6 @@ package org.opentaint.ir.impl.tree
 
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.impl.fs.ClassByteCodeSource
-import org.opentaint.ir.impl.fs.ClassMetaInfo
 import java.util.concurrent.ConcurrentHashMap
 
 class ClassTree {
@@ -115,6 +114,7 @@ class ClassNode(
     override val name: String = simpleName
 
     val location get() = source.location
-    val info: ClassMetaInfo get() = source.meta
+
+    suspend fun info() = source.meta()
 
 }

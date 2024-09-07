@@ -8,7 +8,7 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.streams.asSequence
 
-class BuildFolderLocationImpl(private val folder: File, override val apiLevel: ApiLevel) : ByteCodeLocation {
+class BuildFolderLocationImpl(private val folder: File, override val apiLevel: ApiLevel, private val loadClassesOnlyFrom: List<String>?) : ByteCodeLocation {
 
     override val version = currentVersion
 
@@ -25,12 +25,20 @@ class BuildFolderLocationImpl(private val folder: File, override val apiLevel: A
             return folder.absolutePath + lastModifiedDate
         }
 
-    override suspend fun classesByteCode(): Sequence<Pair<String, InputStream>> {
+    override suspend fun classesByteCode(): Sequence<Pair<String, InputStream?>> {
         val folderPath = folder.toPath().toAbsolutePath().toString()
         return Files.find(folder.toPath(), Int.MAX_VALUE, { path, _ -> path.toString().endsWith(".class") })
             .asSequence()
             .map {
-                it.toAbsolutePath().toString().substringAfter(folderPath + File.separator).replace(File.separator, ".").removeSuffix(".class") to Files.newInputStream(it)
+                val className = it.toAbsolutePath().toString()
+                    .substringAfter(folderPath + File.separator)
+                    .replace(File.separator, ".")
+                    .removeSuffix(".class")
+                val stream = when (className.matchesOneOf(loadClassesOnlyFrom)) {
+                    true -> Files.newInputStream(it)
+                    else -> null
+                }
+                className to stream
             }
     }
 

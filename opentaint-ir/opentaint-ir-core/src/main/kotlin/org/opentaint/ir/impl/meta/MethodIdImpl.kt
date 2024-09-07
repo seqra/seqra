@@ -17,12 +17,12 @@ class MethodIdImpl(
     override val name: String get() = methodInfo.name
     override suspend fun access() = methodInfo.access
 
-    private val lazyParameters by lazy {
+    private val lazyParameters by lazy(LazyThreadSafetyMode.NONE) {
         methodInfo.parameters.mapNotNull {
             classIdService.toClassId(it)
         }
     }
-    private val lazyAnnotations by lazy {
+    private val lazyAnnotations by lazy(LazyThreadSafetyMode.NONE) {
         methodInfo.annotations.mapNotNull {
             classIdService.toClassId(it.className)
         }

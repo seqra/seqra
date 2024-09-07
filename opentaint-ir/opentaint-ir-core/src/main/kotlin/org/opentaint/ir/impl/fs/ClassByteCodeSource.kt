@@ -2,7 +2,7 @@ package org.opentaint.ir.impl.fs
 
 import org.opentaint.ir.ApiLevel
 import org.opentaint.ir.api.ByteCodeLocation
-import kotlinx.collections.immutable.toPersistentList
+import kotlinx.collections.immutable.toImmutableList
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.AnnotationNode
@@ -19,8 +19,13 @@ class ClassByteCodeSource(
     val className: String
 ) {
 
-    private var fullNodeRef: SoftReference<ClassNode>? = null
-    lateinit var meta: ClassMetaInfo
+    private var fullNodeRef: SoftReference<ClassNode>? = null // this is a soft reference to fully loaded ASM class node
+    private var preloadedNode: ClassNode? = null  // this is a preloaded instance loaded only for
+
+    suspend fun meta(): ClassMetaInfo {
+        val node = preloadedNode ?: getOrLoadFullClassNode()
+        return node.asClassInfo()
+    }
 
     private suspend fun getOrLoadFullClassNode(): ClassNode {
         val cached = fullNodeRef?.get()
@@ -40,23 +45,22 @@ class ClassByteCodeSource(
         return location.resolve(className)
     }
 
-    fun loadLightInfo(initialInput: InputStream): ClassMetaInfo {
+    fun preLoad(initialInput: InputStream) {
         val bytes = initialInput.use { it.readBytes() }
         val classNode = ClassNode(apiLevel.code)
         ClassReader(bytes).accept(classNode, ClassReader.SKIP_CODE)
-
-        return ClassMetaInfo(
-            name = Type.getObjectType(classNode.name).className,
-            access = classNode.access,
-            superClass = classNode.superName?.let { Type.getObjectType(it).className },
-            interfaces = classNode.interfaces.map { Type.getObjectType(it).className }.toPersistentList(),
-            methods = classNode.methods.map { it.asMethodInfo() }.toPersistentList(),
-            fields = classNode.fields.map { it.asFieldInfo() }.toPersistentList(),
-            annotations = classNode.visibleAnnotations.orEmpty().map { it.asAnnotationInfo() }.toPersistentList()
-        ).also {
-            meta  = it
-        }
+        preloadedNode = classNode
     }
+
+    private fun ClassNode.asClassInfo() = ClassMetaInfo(
+        name = Type.getObjectType(name).className,
+        access = access,
+        superClass = superName?.let { Type.getObjectType(it).className },
+        interfaces = interfaces.map { Type.getObjectType(it).className }.toImmutableList(),
+        methods = methods.map { it.asMethodInfo() }.toImmutableList(),
+        fields = fields.map { it.asFieldInfo() }.toImmutableList(),
+        annotations = visibleAnnotations.orEmpty().map { it.asAnnotationInfo() }.toImmutableList()
+    )
 
     suspend fun loadMethod(methodName: String, methodDesc: String): MethodNode {
         val classNode = getOrLoadFullClassNode()
@@ -72,8 +76,8 @@ class ClassByteCodeSource(
         desc = desc,
         access = access,
         returnType = Type.getReturnType(desc).className,
-        parameters = Type.getArgumentTypes(desc).map { it.className }.toPersistentList(),
-        annotations = visibleAnnotations.orEmpty().map { it.asAnnotationInfo() }.toPersistentList()
+        parameters = Type.getArgumentTypes(desc).map { it.className }.toImmutableList(),
+        annotations = visibleAnnotations.orEmpty().map { it.asAnnotationInfo() }.toImmutableList()
     )
 
     private fun FieldNode.asFieldInfo() = FieldMetaInfo(
@@ -86,8 +90,10 @@ class ClassByteCodeSource(
 
 suspend fun ByteCodeLocation.sources(): Sequence<ClassByteCodeSource> {
     return classesByteCode().map {
-        ClassByteCodeSource(apiLevel, location = this, it.first).also { reader ->
-            reader.loadLightInfo(it.second)
+        ClassByteCodeSource(apiLevel, location = this, it.first).also { source ->
+            it.second?.let {
+                source.preLoad(it)
+            }
         }
     }
 }

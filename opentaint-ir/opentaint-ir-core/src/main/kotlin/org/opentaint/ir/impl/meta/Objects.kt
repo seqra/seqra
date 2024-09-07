@@ -1,18 +1,16 @@
 package org.opentaint.ir.impl.fs
 
-import kotlinx.collections.immutable.PersistentList
-
 
 class ClassMetaInfo(
     val name: String,
     val access: Int,
 
-    val methods: PersistentList<MethodMetaInfo>,
-    val fields: PersistentList<FieldMetaInfo>,
+    val methods: List<MethodMetaInfo>,
+    val fields: List<FieldMetaInfo>,
 
     val superClass: String? = null,
-    val interfaces: PersistentList<String>,
-    val annotations: PersistentList<AnnotationMetaInfo>
+    val interfaces: List<String>,
+    val annotations: List<AnnotationMetaInfo>
 )
 
 class MethodMetaInfo(
@@ -20,8 +18,8 @@ class MethodMetaInfo(
     val desc: String,
     val access: Int,
     val returnType: String,
-    val parameters: PersistentList<String>,
-    val annotations: PersistentList<AnnotationMetaInfo>
+    val parameters: List<String>,
+    val annotations: List<AnnotationMetaInfo>
 )
 
 class FieldMetaInfo(
@@ -33,3 +31,5 @@ class FieldMetaInfo(
 class AnnotationMetaInfo(
     val className: String
 )
+
+

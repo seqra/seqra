@@ -5,7 +5,7 @@ import org.opentaint.ir.impl.ClassIdService
 import org.opentaint.ir.impl.fs.FieldMetaInfo
 
 class FieldIdImpl(
-    val info: FieldMetaInfo,
+    private val info: FieldMetaInfo,
     private val classIdService: ClassIdService
 ) : FieldId {
 

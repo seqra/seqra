@@ -7,7 +7,8 @@ import java.io.InputStream
 import java.util.jar.JarFile
 import kotlin.streams.asSequence
 
-class JarFileLocationImpl(private val file: File, override val apiLevel: ApiLevel) : ByteCodeLocation {
+class JarFileLocationImpl(val file: File, override val apiLevel: ApiLevel, private val loadClassesOnlyFrom: List<String>?) :
+    ByteCodeLocation {
 
     private val jarFile = JarFile(file)
 
@@ -16,9 +17,14 @@ class JarFileLocationImpl(private val file: File, override val apiLevel: ApiLeve
 
     override val version = currentVersion
 
-    override suspend fun classesByteCode(): Sequence<Pair<String, InputStream>> {
+    override suspend fun classesByteCode(): Sequence<Pair<String, InputStream?>> {
         return jarFile.stream().filter { it.name.endsWith(".class") }.asSequence().map {
-            it.name.removeSuffix(".class").replace("/", ".") to jarFile.getInputStream(it)
+            val className = it.name.removeSuffix(".class").replace("/", ".")
+            val stream = when (className.matchesOneOf(loadClassesOnlyFrom)) {
+                true -> jarFile.getInputStream(it)
+                else -> null
+            }
+            className to stream
         }
     }
 
