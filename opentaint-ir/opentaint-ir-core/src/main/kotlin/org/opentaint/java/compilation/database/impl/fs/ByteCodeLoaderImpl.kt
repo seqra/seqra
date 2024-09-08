@@ -11,7 +11,7 @@ interface ByteCodeLoader {
 class ByteCodeLoaderImpl(
     private val location: ByteCodeLocation,
     private val sync: LoadingPortion,
-    private val async: suspend () -> LoadingPortion
+    private val async: suspend () -> LoadingPortion?
 ) : ByteCodeLoader {
 
     constructor(
@@ -26,17 +26,17 @@ class ByteCodeLoaderImpl(
     override suspend fun load(classTree: ClassTree): suspend () -> Unit {
         sync.classes.forEach {
             ClassByteCodeSource(location.apiLevel, location = location, it.key).also { source ->
+                val node = classTree.addClass(source)
                 it.value?.let {
                     source.preLoad(it)
+                    classTree.notifyOnMetaLoaded(node)
                 }
-                val node = classTree.addClass(source)
-                classTree.notifyOnMetaLoaded(node)
             }
         }
         sync.onPortionFinish()
         return {
             val portion = async()
-            portion.classes.forEach { entry ->
+            portion?.classes?.forEach { entry ->
                 val node = classTree.firstClassNodeOrNull(entry.key)
                 val stream = entry.value
                 if (stream != null && node != null) {
@@ -44,7 +44,7 @@ class ByteCodeLoaderImpl(
                     classTree.notifyOnMetaLoaded(node)
                 }
             }
-            portion.onPortionFinish()
+            portion?.onPortionFinish?.invoke()
         }
     }
 

@@ -13,7 +13,7 @@ class ByteCodeReaderTest : LibrariesMixin {
     @Test
     fun `read byte-code benchmark`() {
         val lib = guavaLib
-        benchmark(20, "read bytecode") {
+        benchmark(name = "read bytecode") {
             runBlocking {
                 lib.asByteCodeLocation(ApiLevel.ASM8).loader()!!.load(ClassTree())
             }
@@ -23,7 +23,7 @@ class ByteCodeReaderTest : LibrariesMixin {
     @Test
     fun `read all classpath byte-code benchmark`() {
         val jars = allJars
-        benchmark(10, "reading libraries bytecode") {
+        benchmark(5, "reading libraries bytecode") {
             runBlocking {
                 val db = compilationDatabase {
                     apiLevel = ApiLevel.ASM8
@@ -36,7 +36,7 @@ class ByteCodeReaderTest : LibrariesMixin {
 
     @Test
     fun `read jre libraries  benchmark`() {
-        benchmark(10, "reading libraries bytecode") {
+        benchmark(5, "reading libraries bytecode") {
             runBlocking {
                 compilationDatabase {
                     apiLevel = ApiLevel.ASM8
@@ -49,6 +49,7 @@ class ByteCodeReaderTest : LibrariesMixin {
     private fun benchmark(repeats: Int = 10, name: String, action: () -> Unit) {
         // warmup
         repeat(repeats / 2) {
+            println("warmup $it")
             action()
         }
 
@@ -60,7 +61,16 @@ class ByteCodeReaderTest : LibrariesMixin {
             println("$it: $name took: ${end - start}ms")
             Thread.sleep(1_000)
         }
-
     }
-
 }
+//
+//val db = runBlocking {
+//    compilationDatabase {
+//        apiLevel = ApiLevel.ASM8
+//        useJavaHomeJRE()
+//    }
+//}
+//fun main() {
+//    println(db)
+//    Thread.sleep(Long.MAX_VALUE)
+//}

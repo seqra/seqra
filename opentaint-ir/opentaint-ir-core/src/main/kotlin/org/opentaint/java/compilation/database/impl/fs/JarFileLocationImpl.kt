@@ -13,7 +13,7 @@ import kotlin.streams.toList
 class JarFileLocationImpl(
     val file: File,
     override val apiLevel: ApiLevel,
-    private val loadClassesOnlyFrom: List<String>?
+    private val syncLoadClassesOnlyFrom: List<String>?
 ) : ByteCodeLocation {
     companion object : KLogging()
 
@@ -21,26 +21,26 @@ class JarFileLocationImpl(
         get() = (file.absolutePath + file.lastModified()).md5()
 
     override val version = currentVersion
-    override fun refreshed() = JarFileLocationImpl(file, apiLevel, loadClassesOnlyFrom)
+    override fun refreshed() = JarFileLocationImpl(file, apiLevel, syncLoadClassesOnlyFrom)
 
     override suspend fun loader(): ByteCodeLoader? {
         try {
             val sync = jarClasses() ?: return null
             val classes = sync.second.mapValues { (className, jar) ->
-                when (className.matchesOneOf(loadClassesOnlyFrom)) {
+                when (className.matchesOneOf(syncLoadClassesOnlyFrom)) {
                     true -> jar.first.getInputStream(jar.second)
                     else -> null // lazy
                 }
             }
 
             return ByteCodeLoaderImpl(this, LoadingPortion(classes) { sync.first.close() }) {
-                val async = jarClasses()
-                LoadingPortion(async?.second?.filterKeys { className ->
-                    !className.matchesOneOf(loadClassesOnlyFrom)
-                }.orEmpty().mapValues { (_, jar) ->
+                val (jar, foundClasses) = jarClasses() ?: return@ByteCodeLoaderImpl null
+                LoadingPortion(foundClasses.filterKeys { className ->
+                    !className.matchesOneOf(syncLoadClassesOnlyFrom)
+                }.mapValues { (_, jar) ->
                     jar.first.getInputStream(jar.second)
                 }) {
-                    async?.first?.close()
+                    jar.close()
                 }
             }
         } catch (e: Exception) {

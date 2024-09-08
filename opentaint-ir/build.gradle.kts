@@ -58,6 +58,7 @@ compileTestKotlin {
 
 test {
     useJUnitPlatform()
+    jvmArgs = ['-Xmx2g']
     testLogging {
         events "passed", "skipped", "failed"
     }
