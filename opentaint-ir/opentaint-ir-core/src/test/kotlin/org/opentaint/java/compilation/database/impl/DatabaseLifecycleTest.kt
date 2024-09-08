@@ -57,16 +57,20 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
         db.refresh()
 
-        assertEquals(1, db.registry.snapshots.size)
-        assertEquals(1, db.registry.usedButOutdated.size)
-        assertEquals(1, db.registry.locations.filterIsInstance<BuildFolderLocationImpl>().size)
+        withRegistry {
+            assertEquals(1, snapshots.size)
+            assertEquals(1, usedButOutdated.size)
+            assertEquals(1, locations.filterIsInstance<BuildFolderLocationImpl>().size)
+        }
 
         assertNotNull(cp.findClassOrNull(Foo::class.java.name))
         cp.close()
         db.refresh()
-        assertTrue(db.registry.snapshots.isEmpty())
-        assertTrue(db.registry.usedButOutdated.isEmpty())
-        assertTrue(db.registry.locations.all { it !is BuildFolderLocationImpl })
+        withRegistry {
+            assertTrue(snapshots.isEmpty())
+            assertTrue(usedButOutdated.isEmpty())
+            assertTrue(locations.all { it !is BuildFolderLocationImpl })
+        }
     }
 
     @Test
@@ -97,15 +101,19 @@ class DatabaseLifecycleTest : LibrariesMixin {
         }
 
         db.refresh()
-        assertEquals(1, db.registry.snapshots.size)
-        assertEquals(1, db.registry.usedButOutdated.size)
+        withRegistry {
+            assertEquals(1, snapshots.size)
+            assertEquals(1, usedButOutdated.size)
+        }
 
         assertNotNull(cp.findClassOrNull(AbstractCache::class.java.name))
         cp.close()
         db.refresh()
-        assertTrue(db.registry.snapshots.isEmpty())
-        assertTrue(db.registry.usedButOutdated.isEmpty())
-        assertEquals(db.javaRuntime.allLocations.size, db.registry.locations.size)
+        withRegistry {
+            assertTrue(snapshots.isEmpty())
+            assertTrue(usedButOutdated.isEmpty())
+            assertEquals(db.javaRuntime.allLocations.size, locations.size)
+        }
     }
 
     @Test
@@ -114,11 +122,9 @@ class DatabaseLifecycleTest : LibrariesMixin {
         val abstractCacheClass = cp.findClassOrNull(AbstractCache::class.java.name)
         assertNotNull(abstractCacheClass!!)
 
-        assertNotNull {
-            runBlocking {
-                abstractCacheClass.methods().first().readBody()
-            }
-        }
+        assertNotNull(
+            abstractCacheClass.methods().first().readBody()
+        )
     }
 
     @Test
@@ -144,12 +150,18 @@ class DatabaseLifecycleTest : LibrariesMixin {
         }.join()
         db.refresh()
 
-        assertTrue(db.registry.snapshots.isEmpty())
-        assertTrue(db.registry.usedButOutdated.isEmpty())
+        withRegistry {
+            assertTrue(snapshots.isEmpty())
+            assertTrue(usedButOutdated.isEmpty())
+        }
     }
 
     @AfterEach
     fun cleanup() {
         tempFolder.deleteRecursively()
+    }
+
+    private fun withRegistry(action: LocationsRegistry.() -> Unit) {
+        db.registry.action()
     }
 }

@@ -30,7 +30,7 @@ class ClassTree(private val listeners: List<ClassTreeListener>? = null) {
         return findPackage(splitted)?.firstClassOrNull(simpleClassName, codeLocation.version)
     }
 
-    fun firstClassNodeOrNull(fullName: String, predicate: (String) -> Boolean): ClassNode? {
+    fun firstClassNodeOrNull(fullName: String, predicate: (String) -> Boolean = { true }): ClassNode? {
         val splitted = fullName.splitted
         val simpleClassName = splitted[splitted.size - 1]
         return findPackage(splitted)?.firstClassOrNull(simpleClassName, predicate)

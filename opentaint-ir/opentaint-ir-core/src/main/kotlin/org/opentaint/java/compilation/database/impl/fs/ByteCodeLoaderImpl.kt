@@ -10,29 +10,47 @@ interface ByteCodeLoader {
 
 class ByteCodeLoaderImpl(
     private val location: ByteCodeLocation,
-    private val loadSync: List<Pair<String, InputStream>>,
-    private val loadAsync: List<Pair<String, () -> InputStream>>
+    private val sync: LoadingPortion,
+    private val async: suspend () -> LoadingPortion
 ) : ByteCodeLoader {
 
+    constructor(
+        location: ByteCodeLocation,
+        sync: Map<String, InputStream?>,
+        async: suspend () -> Map<String, InputStream?>
+    ) : this(location, LoadingPortion(sync), {
+        LoadingPortion(async())
+    })
+
+
     override suspend fun load(classTree: ClassTree): suspend () -> Unit {
-        loadSync.forEach {
-            ClassByteCodeSource(location.apiLevel, location = location, it.first).also { source ->
-                source.preLoad(it.second)
+        sync.classes.forEach {
+            ClassByteCodeSource(location.apiLevel, location = location, it.key).also { source ->
+                it.value?.let {
+                    source.preLoad(it)
+                }
                 val node = classTree.addClass(source)
                 classTree.notifyOnMetaLoaded(node)
             }
         }
-        val asyncSources = loadAsync.map {
-            val source = ClassByteCodeSource(location.apiLevel, location = location, it.first)
-            val node = classTree.addClass(source)
-            node to it.second
-        }
+        sync.onPortionFinish()
         return {
-            asyncSources.forEach {
-                it.first.source.preLoad(it.second())
-                classTree.notifyOnMetaLoaded(it.first)
+            val portion = async()
+            portion.classes.forEach { entry ->
+                val node = classTree.firstClassNodeOrNull(entry.key)
+                val stream = entry.value
+                if (stream != null && node != null) {
+                    node.source.preLoad(stream)
+                    classTree.notifyOnMetaLoaded(node)
+                }
             }
+            portion.onPortionFinish()
         }
     }
 
 }
+
+class LoadingPortion(
+    val classes: Map<String, InputStream?>,
+    val onPortionFinish: () -> Unit = {}
+)

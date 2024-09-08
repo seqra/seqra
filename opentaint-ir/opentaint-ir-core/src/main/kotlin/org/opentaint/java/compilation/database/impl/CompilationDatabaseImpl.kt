@@ -12,7 +12,6 @@ import org.opentaint.java.compilation.database.impl.fs.filterExisted
 import org.opentaint.java.compilation.database.impl.tree.ClassTree
 import org.opentaint.java.compilation.database.impl.tree.RemoveVersionsVisitor
 import org.opentaint.java.compilation.database.impl.tree.SubTypesInstallationListener
-import java.io.Closeable
 import java.io.File
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -75,7 +74,6 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
             actions.map { action ->
                 async {
                     action.second()
-                    (action.first as? Closeable)?.close()
                 }
             }.joinAll()
         })

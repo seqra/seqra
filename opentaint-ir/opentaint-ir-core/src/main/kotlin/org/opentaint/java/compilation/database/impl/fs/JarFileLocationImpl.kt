@@ -4,20 +4,18 @@ import mu.KLogging
 import org.opentaint.java.compilation.database.ApiLevel
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
 import org.opentaint.java.compilation.database.api.md5
-import java.io.Closeable
 import java.io.File
 import java.io.InputStream
-import java.util.concurrent.atomic.AtomicReference
+import java.util.jar.JarEntry
 import java.util.jar.JarFile
+import kotlin.streams.toList
 
 class JarFileLocationImpl(
     val file: File,
     override val apiLevel: ApiLevel,
     private val loadClassesOnlyFrom: List<String>?
-) : ByteCodeLocation, Closeable {
+) : ByteCodeLocation {
     companion object : KLogging()
-
-    private val jarFile = AtomicReference(jarFile())
 
     override val currentVersion: String
         get() = (file.absolutePath + file.lastModified()).md5()
@@ -26,19 +24,25 @@ class JarFileLocationImpl(
     override fun refreshed() = JarFileLocationImpl(file, apiLevel, loadClassesOnlyFrom)
 
     override suspend fun loader(): ByteCodeLoader? {
-        val jar = jarFile.get() ?: return null
-        val loadedSync = arrayListOf<Pair<String, InputStream>>()
-        val loadedAsync = arrayListOf<Pair<String, () -> InputStream>>()
-
         try {
-            jar.stream().filter { it.name.endsWith(".class") }.forEach {
-                val className = it.name.removeSuffix(".class").replace("/", ".")
+            val sync = jarClasses() ?: return null
+            val classes = sync.second.mapValues { (className, jar) ->
                 when (className.matchesOneOf(loadClassesOnlyFrom)) {
-                    true -> loadedSync.add(className to jar.getInputStream(it))
-                    else -> loadedAsync.add(className to { jar.getInputStream(it) })
+                    true -> jar.first.getInputStream(jar.second)
+                    else -> null // lazy
                 }
             }
-            return ByteCodeLoaderImpl(this, loadedSync, loadedAsync)
+
+            return ByteCodeLoaderImpl(this, LoadingPortion(classes) { sync.first.close() }) {
+                val async = jarClasses()
+                LoadingPortion(async?.second?.filterKeys { className ->
+                    !className.matchesOneOf(loadClassesOnlyFrom)
+                }.orEmpty().mapValues { (_, jar) ->
+                    jar.first.getInputStream(jar.second)
+                }) {
+                    async?.first?.close()
+                }
+            }
         } catch (e: Exception) {
             logger.warn(e) { "error loading classes from build folder: ${file.absolutePath}. returning empty loader" }
             return null
@@ -46,21 +50,26 @@ class JarFileLocationImpl(
     }
 
     override suspend fun resolve(classFullName: String): InputStream? {
-        val jar = jarFile.get() ?: return null
+        val jar = jarFile() ?: return null
         val jarEntryName = classFullName.replace(".", "/") + ".class"
         val jarEntry = jar.getJarEntry(jarEntryName)
         return jar.getInputStream(jarEntry)
     }
 
-    override fun close() {
-        val jar = jarFile.get()
-        if (jar != null) {
-            jar.close()
-            jarFile.compareAndSet(jar, jarFile())
-        }
+    private fun jarClasses(): Pair<JarFile, Map<String, Pair<JarFile, JarEntry>>>? {
+        val jarFile = jarFile() ?: return null
+
+        return jarFile to jarFile.stream().filter { it.name.endsWith(".class") }.map {
+            val className = it.name.removeSuffix(".class").replace("/", ".")
+            className to (jarFile to it)
+        }.toList().toMap()
     }
 
     private fun jarFile(): JarFile? {
+        if (!file.exists() || !file.isFile) {
+            return null
+        }
+
         try {
             return JarFile(file)
         } catch (e: Exception) {

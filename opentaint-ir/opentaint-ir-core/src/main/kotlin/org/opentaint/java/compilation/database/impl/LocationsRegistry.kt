@@ -55,11 +55,10 @@ class LocationsRegistry {
             val forRemoval = hashSetOf<ByteCodeLocation>()
             usedButOutdated.forEach {
                 if (!it.hasReferences()) {
-                    locations.remove(it)
+                    forRemoval.add(it)
                 }
             }
             usedButOutdated.removeAll(forRemoval)
-            locations.removeAll(forRemoval)
             return forRemoval
         }
     }

@@ -5,7 +5,7 @@ import org.opentaint.java.compilation.database.api.ByteCodeLocation
 import java.io.File
 import java.nio.file.Paths
 
-class JavaRuntime(val apiLevel: ApiLevel, val javaHome: File) {
+class JavaRuntime(val apiLevel: ApiLevel, private val javaHome: File) {
 
     companion object {
         private val loadedPackages = listOf("java.", "javax.")
@@ -13,13 +13,23 @@ class JavaRuntime(val apiLevel: ApiLevel, val javaHome: File) {
 
     val allLocations: List<ByteCodeLocation> = bootstrapJars + extJars
 
-    val bootstrapJars: List<ByteCodeLocation> get() {
-        return locations("jre", "lib")
-    }
+    private val bootstrapJars: List<ByteCodeLocation>
+        get() {
+            return when (isJDK) {
+                true -> locations("jre", "lib")
+                else -> locations("lib")
+            }
+        }
 
-    val extJars: List<ByteCodeLocation> get() {
-        return locations( "jre", "lib", "ext")
-    }
+    private val extJars: List<ByteCodeLocation>
+        get() {
+            return when (isJDK) {
+                true -> locations("jre", "lib", "ext")
+                else -> locations("lib", "ext")
+            }
+        }
+
+    private val isJDK: Boolean get() = !javaHome.endsWith("jre")
 
     private fun locations(vararg subFolders: String): List<ByteCodeLocation> {
         return Paths.get(javaHome.toPath().toString(), *subFolders).toFile()

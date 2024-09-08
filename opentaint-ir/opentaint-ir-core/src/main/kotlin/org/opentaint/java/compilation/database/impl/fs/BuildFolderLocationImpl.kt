@@ -36,23 +36,18 @@ class BuildFolderLocationImpl(
     override fun refreshed() = BuildFolderLocationImpl(folder, apiLevel, loadClassesOnlyFrom)
 
     override suspend fun loader(): ByteCodeLoader? {
-        val folderPath = folder.toPath().toAbsolutePath().toString()
-
-        val loadedSync = arrayListOf<Pair<String, InputStream>>()
-        val loadedAsync = arrayListOf<Pair<String, () -> InputStream>>()
         try {
-            Files.find(folder.toPath(), Int.MAX_VALUE, { path, _ -> path.toString().endsWith(".class") })
-                .asSequence().forEach {
-                    val className = it.toAbsolutePath().toString()
-                        .substringAfter(folderPath + File.separator)
-                        .replace(File.separator, ".")
-                        .removeSuffix(".class")
-                    when (className.matchesOneOf(loadClassesOnlyFrom)) {
-                        true -> loadedSync.add(className to Files.newInputStream(it))
-                        else -> loadedAsync.add(className to { Files.newInputStream(it) })
-                    }
+            val classes = dirClasses()?.mapValues { (className, file) ->
+                Files.newInputStream(file.toPath()).takeIf { className.matchesOneOf(loadClassesOnlyFrom) }
+            } ?: return null
+
+            return ByteCodeLoaderImpl(this, classes) {
+                dirClasses()?.filterKeys { className ->
+                    !className.matchesOneOf(loadClassesOnlyFrom)
+                }.orEmpty().mapValues { (_, file) ->
+                    Files.newInputStream(file.toPath())
                 }
-            return ByteCodeLoaderImpl(this, loadedSync, loadedAsync)
+            }
         } catch (e: Exception) {
             logger.warn(e) { "error loading classes from build folder: ${folder.absolutePath}. returning empty loader" }
             return null
@@ -65,6 +60,23 @@ class BuildFolderLocationImpl(
             return null
         }
         return Files.newInputStream(filePath)
+    }
+
+    private fun dirClasses(): Map<String, File>? {
+        if (!folder.exists() || folder.isFile) {
+            return null
+        }
+        val folderPath = folder.toPath().toAbsolutePath().toString()
+
+        return Files.find(folder.toPath(), Int.MAX_VALUE, { path, _ -> path.toString().endsWith(".class") })
+            .asSequence().map {
+                val className = it.toAbsolutePath().toString()
+                    .substringAfter(folderPath + File.separator)
+                    .replace(File.separator, ".")
+                    .removeSuffix(".class")
+                className to it.toFile()
+            }.toMap()
+
     }
 
     override fun toString() = folder.absolutePath
