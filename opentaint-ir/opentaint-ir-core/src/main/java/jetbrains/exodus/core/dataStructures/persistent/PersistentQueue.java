@@ -1,0 +1,78 @@
+
+package jetbrains.exodus.core.dataStructures.persistent;
+
+import org.jetbrains.annotations.NotNull;
+
+import java.util.NoSuchElementException;
+
+@SuppressWarnings({"rawtypes", "unchecked"})
+public class PersistentQueue<T> {
+
+    public static final PersistentQueue EMPTY = new PersistentQueue();
+
+    @NotNull
+    private final PersistentStack<T> incoming;
+    @NotNull
+    // invariant: if outgoing is empty then incoming is also empty
+    private final PersistentStack<T> outgoing;
+
+    private PersistentQueue() {
+        incoming = PersistentStack.EMPTY_STACK;
+        outgoing = PersistentStack.EMPTY_STACK;
+    }
+
+    private PersistentQueue(@NotNull PersistentStack<T> in, @NotNull PersistentStack<T> out) {
+        incoming = in;
+        outgoing = out;
+    }
+
+    public int size() {
+        return incoming.size() + outgoing.size();
+    }
+
+    public PersistentQueue<T> add(T element) {
+        if (isEmpty()) {
+            return new PersistentQueue<>(PersistentStack.EMPTY_STACK, PersistentStack.EMPTY_STACK.push(element));
+        }
+        return new PersistentQueue<>(incoming.push(element), outgoing);
+    }
+
+    public boolean isEmpty() {
+        return outgoing.isEmpty();
+    }
+
+    public T peek() {
+        if (isEmpty()) {
+            throw new NoSuchElementException();
+        }
+        return outgoing.peek();
+    }
+
+    public PersistentQueue<T> skip() {
+        if (isEmpty()) {
+            throw new NoSuchElementException();
+        }
+        final PersistentStack<T> out = outgoing.skip();
+        if (out.isEmpty()) {
+            return new PersistentQueue<>(PersistentStack.EMPTY_STACK, incoming.reverse());
+        }
+        return new PersistentQueue<>(incoming, out);
+    }
+
+    @Override
+    public int hashCode() {
+        return incoming.hashCode() + outgoing.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (!(obj instanceof PersistentQueue)) {
+            return false;
+        }
+        PersistentQueue<T> queue = (PersistentQueue<T>) obj;
+        return incoming.equals(queue.incoming) && outgoing.equals(queue.outgoing);
+    }
+}

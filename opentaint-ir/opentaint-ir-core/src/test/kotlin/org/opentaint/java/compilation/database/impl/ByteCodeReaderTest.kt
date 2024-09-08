@@ -1,7 +1,6 @@
 package org.opentaint.java.compilation.database.impl
 
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.Test
 import org.opentaint.java.compilation.database.ApiLevel
 import org.opentaint.java.compilation.database.compilationDatabase
 import org.opentaint.java.compilation.database.impl.fs.asByteCodeLocation
@@ -10,7 +9,7 @@ import org.opentaint.java.compilation.database.impl.tree.ClassTree
 
 class ByteCodeReaderTest : LibrariesMixin {
 
-    @Test
+//    @Test
     fun `read byte-code benchmark`() {
         val lib = guavaLib
         benchmark(name = "read bytecode") {
@@ -20,7 +19,7 @@ class ByteCodeReaderTest : LibrariesMixin {
         }
     }
 
-    @Test
+//    @Test
     fun `read all classpath byte-code benchmark`() {
         val jars = allJars
         benchmark(5, "reading libraries bytecode") {
@@ -34,7 +33,7 @@ class ByteCodeReaderTest : LibrariesMixin {
         }
     }
 
-    @Test
+//    @Test
     fun `read jre libraries  benchmark`() {
         benchmark(5, "reading libraries bytecode") {
             runBlocking {
@@ -63,14 +62,14 @@ class ByteCodeReaderTest : LibrariesMixin {
         }
     }
 }
-//
-//val db = runBlocking {
-//    compilationDatabase {
-//        apiLevel = ApiLevel.ASM8
-//        useJavaHomeJRE()
-//    }
-//}
-//fun main() {
-//    println(db)
-//    Thread.sleep(Long.MAX_VALUE)
-//}
+
+val db = runBlocking {
+    compilationDatabase {
+        apiLevel = ApiLevel.ASM8
+        useJavaHomeJRE()
+    }
+}
+fun main() {
+    println(db)
+    Thread.sleep(Long.MAX_VALUE)
+}
