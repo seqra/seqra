@@ -1,6 +1,7 @@
 package org.opentaint.java.compilation.database.impl
 
 import com.google.common.cache.AbstractCache
+import com.google.common.collect.Iterators
 import kotlinx.coroutines.async
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
@@ -154,6 +155,15 @@ class DatabaseLifecycleTest : LibrariesMixin {
             assertTrue(snapshots.isEmpty())
             assertTrue(usedButOutdated.isEmpty())
         }
+    }
+
+    @Test
+    fun `jar should not be blocked after method read`() = runBlocking {
+        val cp = db.classpathSet(listOf(guavaLibClone))
+        val clazz = cp.findClassOrNull(Iterators::class.java.name)
+        assertNotNull(clazz!!)
+        assertNotNull(clazz.methods().first().readBody())
+        assertTrue(guavaLibClone.delete())
     }
 
     @AfterEach

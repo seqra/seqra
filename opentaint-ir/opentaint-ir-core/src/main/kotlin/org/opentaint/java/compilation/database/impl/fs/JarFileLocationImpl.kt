@@ -4,6 +4,7 @@ import mu.KLogging
 import org.opentaint.java.compilation.database.ApiLevel
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
 import org.opentaint.java.compilation.database.api.md5
+import java.io.BufferedInputStream
 import java.io.File
 import java.io.InputStream
 import java.util.jar.JarEntry
@@ -53,7 +54,12 @@ class JarFileLocationImpl(
         val jar = jarFile() ?: return null
         val jarEntryName = classFullName.replace(".", "/") + ".class"
         val jarEntry = jar.getJarEntry(jarEntryName)
-        return jar.getInputStream(jarEntry)
+        return object : BufferedInputStream(jar.getInputStream(jarEntry)) {
+            override fun close() {
+                super.close()
+                jar.close()
+            }
+        }
     }
 
     private fun jarClasses(): Pair<JarFile, Map<String, Pair<JarFile, JarEntry>>>? {
