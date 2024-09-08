@@ -7,10 +7,12 @@ import org.opentaint.java.compilation.database.impl.tree.ClassTree
 import org.opentaint.java.compilation.database.impl.tree.ClasspathClassTree
 
 class ClasspathSetImpl(
-    override val locations: List<ByteCodeLocation>,
+    private val locationsRegistrySnapshot: LocationsRegistrySnapshot,
     private val db: CompilationDatabaseImpl,
     classTree: ClassTree
 ) : ClasspathSet {
+
+    override val locations: List<ByteCodeLocation> = locationsRegistrySnapshot.locations
 
     private val classpathClassTree = ClasspathClassTree(classTree, locations)
     private val classIdService = ClassIdService(classpathClassTree)
@@ -27,6 +29,8 @@ class ClasspathSetImpl(
     }
 
     override fun close() {
-        TODO("Not yet implemented")
+        locationsRegistrySnapshot.close()
     }
+
+
 }

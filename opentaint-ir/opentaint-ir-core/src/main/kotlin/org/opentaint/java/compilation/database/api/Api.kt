@@ -38,9 +38,11 @@ interface ByteCodeLocation {
         return version != currentVersion
     }
 
+    fun refreshed(): ByteCodeLocation
+
     suspend fun resolve(classFullName: String): InputStream?
 
-    suspend fun loader(): ByteCodeLoader
+    suspend fun loader(): ByteCodeLoader?
 }
 
 interface MethodId : Accessible {

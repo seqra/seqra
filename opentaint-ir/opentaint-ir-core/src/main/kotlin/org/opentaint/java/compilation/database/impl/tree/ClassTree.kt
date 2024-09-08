@@ -2,8 +2,6 @@ package org.opentaint.java.compilation.database.impl.tree
 
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
 import org.opentaint.java.compilation.database.impl.fs.ClassByteCodeSource
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.CopyOnWriteArrayList
 
 class ClassTree(private val listeners: List<ClassTreeListener>? = null) {
 
@@ -58,6 +56,10 @@ class ClassTree(private val listeners: List<ClassTreeListener>? = null) {
         return node
     }
 
+    fun visit(visitor: NodeVisitor) {
+        rootNode.visit(visitor)
+    }
+
     suspend fun notifyOnMetaLoaded(classNodeWithLoadedMeta: ClassNode) {
         listeners?.forEach {
             it.notifyOnMetaLoaded(classNodeWithLoadedMeta, this)
@@ -65,81 +67,4 @@ class ClassTree(private val listeners: List<ClassTreeListener>? = null) {
     }
 
     private val String.splitted get() = this.split(".")
-}
-
-
-abstract class AbstractNode(open val name: String?, val parent: PackageNode?) {
-
-    val fullName: String by lazy(LazyThreadSafetyMode.NONE) {
-        val reversedNames = arrayListOf(name)
-        var node: PackageNode? = parent
-        while (node != null) {
-            node.name?.let {
-                reversedNames.add(it)
-            }
-            node = node.parent
-        }
-        reversedNames.reversed().joinToString(".")
-    }
-}
-
-class PackageNode(folderName: String?, parent: PackageNode?) : AbstractNode(folderName, parent) {
-
-    private val subpackages = ConcurrentHashMap<String, PackageNode>()
-
-    // simpleName -> (version -> node)
-    private val classes = ConcurrentHashMap<String, ConcurrentHashMap<String, ClassNode>>()
-
-    fun findPackageOrNew(subfolderName: String): PackageNode {
-        return subpackages.getOrPut(subfolderName) {
-            PackageNode(subfolderName, this)
-        }
-    }
-
-    fun findPackageOrNull(subfolderName: String): PackageNode? {
-        return subpackages.get(subfolderName)
-    }
-
-    fun findClassOrNew(simpleClassName: String, version: String, source: ClassByteCodeSource): ClassNode {
-        val nameIndex = classes.getOrPut(simpleClassName) {
-            ConcurrentHashMap()
-        }
-        return nameIndex.getOrPut(version) { ClassNode(simpleClassName, this, source) }
-    }
-
-    fun firstClassOrNull(className: String, version: String): ClassNode? {
-        return classes[className]?.get(version)
-    }
-
-    fun filterClassNodes(className: String, predicate: (ClassNode) -> Boolean): List<ClassNode> {
-        return classes[className]?.filterValues(predicate).orEmpty().values.toList()
-    }
-
-    fun firstClassOrNull(className: String, predicate: (String) -> Boolean): ClassNode? {
-        val versioned = classes[className] ?: return null
-        return versioned.search(1L) { version, node -> node.takeIf { predicate(version) } }
-    }
-}
-
-
-class ClassNode(
-    simpleName: String,
-    packageNode: PackageNode,
-    val source: ClassByteCodeSource
-) : AbstractNode(simpleName, packageNode) {
-
-    override val name: String = simpleName
-
-    val location get() = source.location
-
-    private val _subTypes = CopyOnWriteArrayList<ClassNode>()
-
-    val subTypes: List<ClassNode> get() = _subTypes.toList()
-
-    fun addSubType(subTypeNode: ClassNode) {
-        _subTypes.add(subTypeNode)
-    }
-
-    suspend fun info() = source.meta()
-
 }

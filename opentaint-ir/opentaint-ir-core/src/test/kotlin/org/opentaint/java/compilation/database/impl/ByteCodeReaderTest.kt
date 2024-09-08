@@ -1,24 +1,21 @@
 package org.opentaint.java.compilation.database.impl
 
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.opentaint.java.compilation.database.ApiLevel
 import org.opentaint.java.compilation.database.compilationDatabase
 import org.opentaint.java.compilation.database.impl.fs.asByteCodeLocation
 import org.opentaint.java.compilation.database.impl.tree.ClassTree
-import java.io.File
-import java.net.URLClassLoader
 
 
-class ByteCodeReaderTest {
+class ByteCodeReaderTest : LibrariesMixin {
 
     @Test
     fun `read byte-code benchmark`() {
         val lib = guavaLib
         benchmark(20, "read bytecode") {
             runBlocking {
-                lib.asByteCodeLocation(ApiLevel.ASM8).loader().load(ClassTree())
+                lib.asByteCodeLocation(ApiLevel.ASM8).loader()!!.load(ClassTree())
             }
         }
     }
@@ -66,21 +63,4 @@ class ByteCodeReaderTest {
 
     }
 
-    private val guavaLib: File
-        get() {
-            val cl = ClassLoader.getSystemClassLoader()
-            val guavaUrl = (cl as URLClassLoader).urLs.first { it.path.contains("guava-31.1-jre.jar") }
-            return File(guavaUrl.file).also {
-                assertTrue(it.isFile && it.exists())
-            }
-        }
-
-    private val allJars: List<File>
-        get() {
-            val cl = ClassLoader.getSystemClassLoader()
-            val jars = (cl as URLClassLoader).urLs.filter { it.path.endsWith(".jar") }
-//            val jdks = File(System.getenv("JAVA_HOME") + "\\jre\\lib\\").listFiles { file -> file.name.endsWith(".jar") }
-//                .orEmpty().toList()
-            return jars.map { File(it.file) } //+ jdks
-        }
 }

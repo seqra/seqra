@@ -10,7 +10,9 @@ import org.opentaint.java.compilation.database.impl.fs.JavaRuntime
 import org.opentaint.java.compilation.database.impl.fs.asByteCodeLocation
 import org.opentaint.java.compilation.database.impl.fs.filterExisted
 import org.opentaint.java.compilation.database.impl.tree.ClassTree
+import org.opentaint.java.compilation.database.impl.tree.RemoveVersionsVisitor
 import org.opentaint.java.compilation.database.impl.tree.SubTypesInstallationListener
+import java.io.Closeable
 import java.io.File
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -23,9 +25,10 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
     companion object : KLogging()
 
     private val classTree = ClassTree(listeners = listOf(SubTypesInstallationListener))
-    private val javaRuntime = JavaRuntime(settings.apiLevel, settings.jre)
-
+    internal val javaRuntime = JavaRuntime(settings.apiLevel, settings.jre)
     private val apiLevel = settings.apiLevel
+
+    internal val registry = LocationsRegistry()
 
     private val backgroundJobs: Queue<Job> = ConcurrentLinkedQueue()
 
@@ -37,7 +40,11 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
         val existedLocations = dirOrJars.filterExisted().map { it.asByteCodeLocation(apiLevel) }.also {
             it.loadAll()
         }
-        return ClasspathSetImpl(existedLocations.toList() + javaRuntime.allLocations, this, classTree)
+        return ClasspathSetImpl(
+            registry.snapshot(existedLocations.toList() + javaRuntime.allLocations),
+            this,
+            classTree
+        )
     }
 
     override suspend fun load(dirOrJar: File) = apply {
@@ -49,20 +56,26 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
     }
 
     private suspend fun List<ByteCodeLocation>.loadAll() = apply {
-        val actions = ConcurrentLinkedQueue<suspend () -> Unit>()
+        val actions = ConcurrentLinkedQueue<Pair<ByteCodeLocation, suspend () -> Unit>>()
 
         withContext(Dispatchers.IO) {
             map { location ->
                 async {
-                    val asyncJob = location.loader().load(classTree)
-                    actions.add(asyncJob)
+                    val loader = location.loader()
+                    // here something may go wrong
+                    if (loader != null) {
+                        val asyncJob = loader.load(classTree)
+                        actions.add(location to asyncJob)
+                        registry.addLocation(location)
+                    }
                 }
             }
         }.joinAll()
         backgroundJobs.add(BackgroundScope.launch {
             actions.map { action ->
                 async {
-                    action()
+                    action.second()
+                    (action.first as? Closeable)?.close()
                 }
             }.joinAll()
         })
@@ -70,6 +83,11 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
 
     override suspend fun refresh(): CompilationDatabase {
         awaitBackgroundJobs()
+        registry.refresh {
+            listOf(it).loadAll()
+        }
+        val outdatedLocations = registry.cleanup()
+        classTree.visit(RemoveVersionsVisitor(outdatedLocations))
         return this
     }
 

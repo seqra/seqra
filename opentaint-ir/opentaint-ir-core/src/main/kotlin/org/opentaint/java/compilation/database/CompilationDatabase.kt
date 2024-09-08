@@ -35,10 +35,20 @@ class CompilationDatabaseSettings {
 
     fun useJavaHomeJRE() {
         val javaHome = System.getenv("JAVA_HOME") ?: throw IllegalArgumentException("JAVA_HOME is not set")
-        jre = File(javaHome)
-        if (!jre.exists()) {
-            throw IllegalArgumentException("JAVA_HOME: $javaHome points to folder that do not exists")
+        jre = javaHome.asValidJRE()
+    }
+
+    fun useProcessJRE() {
+        val javaHome = System.getProperty("java.home") ?: throw IllegalArgumentException("java.home is not set")
+        jre = javaHome.asValidJRE()
+    }
+
+    private fun String.asValidJRE(): File {
+        val file = File(this)
+        if (!file.exists()) {
+            throw IllegalArgumentException("$this points to folder that do not exists")
         }
+        return file
     }
 }
 
@@ -55,6 +65,7 @@ class CompilationDatabasePersistentSettings {
     var location: String? = null
     var clearOnStart: Boolean = false
 }
+
 class CompilationDatabaseWatchFileSystemSettings {
     var delay: Long? = 10_000 // 10 seconds
 }

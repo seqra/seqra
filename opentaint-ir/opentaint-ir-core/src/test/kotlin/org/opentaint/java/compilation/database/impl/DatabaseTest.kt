@@ -10,16 +10,8 @@ import org.opentaint.java.compilation.database.api.isPrivate
 import org.opentaint.java.compilation.database.api.isPublic
 import org.opentaint.java.compilation.database.compilationDatabase
 import org.w3c.dom.DocumentType
-import java.io.File
-import java.net.URLClassLoader
 
-class DatabaseTest {
-
-    private val allClasspath: List<File>
-        get() {
-            val cl = ClassLoader.getSystemClassLoader()
-            return (cl as URLClassLoader).urLs.map { File(it.file) }
-        }
+class DatabaseTest: LibrariesMixin {
 
     @Test
     fun `find class from build dir folder`() = runBlocking {
@@ -110,13 +102,3 @@ class DatabaseTest {
     }
 }
 
-@Nested
-class Foo {
-
-    var foo: Int = 0
-    private var bar: String = ""
-
-    fun smthPublic(foo: Int) = foo
-
-    private fun smthPrivate(): Int = foo
-}

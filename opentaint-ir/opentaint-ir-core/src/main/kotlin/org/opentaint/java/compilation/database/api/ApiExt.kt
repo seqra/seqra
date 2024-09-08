@@ -1,6 +1,7 @@
 package org.opentaint.java.compilation.database.api
 
 import org.objectweb.asm.Opcodes
+import java.security.MessageDigest
 
 suspend fun Accessible.isPublic(): Boolean {
     return access() and Opcodes.ACC_PUBLIC != 0
@@ -49,3 +50,12 @@ suspend fun Accessible.isAbstract(): Boolean {
 suspend fun Accessible.isStrict(): Boolean {
     return access() and Opcodes.ACC_STRICT != 0
 }
+
+
+fun String.md5(): String {
+    return MessageDigest
+        .getInstance("MD5")
+        .digest(toByteArray())
+        .fold("") { str, it -> str + "%02x".format(it) }
+}
+
