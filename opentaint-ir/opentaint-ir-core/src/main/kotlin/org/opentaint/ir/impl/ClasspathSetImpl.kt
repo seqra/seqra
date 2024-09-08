@@ -8,6 +8,7 @@ import org.opentaint.ir.impl.tree.ClasspathClassTree
 
 class ClasspathSetImpl(
     override val locations: List<ByteCodeLocation>,
+    private val db: CompilationDatabaseImpl,
     classTree: ClassTree
 ) : ClasspathSet {
 
@@ -15,7 +16,14 @@ class ClasspathSetImpl(
     private val classIdService = ClassIdService(classpathClassTree)
 
     override suspend fun findClassOrNull(name: String): ClassId? {
-        return classIdService.toClassId(classpathClassTree.findClassOrNull(name))
+        return classIdService.toClassId(classpathClassTree.firstClassOrNull(name))
+    }
+
+    override suspend fun findSubTypesOf(name: String): List<ClassId> {
+        db.awaitBackgroundJobs()
+        return classpathClassTree.findSubTypesOf(name)
+            .map { classIdService.toClassId(it) }
+            .filterNotNull()
     }
 
     override fun close() {

@@ -3,7 +3,6 @@ package org.opentaint.ir.impl.fs
 import org.opentaint.ir.ApiLevel
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.impl.CompilationDatabaseImpl
-import kotlinx.collections.immutable.toPersistentList
 import java.io.File
 
 
@@ -12,7 +11,7 @@ fun File.asByteCodeLocation(apiLevel: ApiLevel, loadClassesOnlyFrom: List<String
         throw IllegalArgumentException("file $absolutePath doesn't exist")
     }
     if (isFile && name.endsWith(".jar")) {
-        return JarFileLocationImpl(this, apiLevel, loadClassesOnlyFrom?.toPersistentList())
+        return JarFileLocationImpl(this, apiLevel, loadClassesOnlyFrom?.toList())
     } else if (!isFile) {
         return BuildFolderLocationImpl(this, apiLevel, loadClassesOnlyFrom)
     }

@@ -3,8 +3,9 @@ package org.opentaint.ir.impl.tree
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.impl.fs.ClassByteCodeSource
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 
-class ClassTree {
+class ClassTree(private val listeners: List<ClassTreeListener>? = null) {
 
     private val rootNode = PackageNode(null, null)
 
@@ -28,13 +29,19 @@ class ClassTree {
     fun findClassNodeOrNull(codeLocation: ByteCodeLocation, fullName: String): ClassNode? {
         val splitted = fullName.splitted
         val simpleClassName = splitted[splitted.size - 1]
-        return findPackage(splitted)?.findClassOrNull(simpleClassName, codeLocation.version)
+        return findPackage(splitted)?.firstClassOrNull(simpleClassName, codeLocation.version)
     }
 
     fun firstClassNodeOrNull(fullName: String, predicate: (String) -> Boolean): ClassNode? {
         val splitted = fullName.splitted
         val simpleClassName = splitted[splitted.size - 1]
         return findPackage(splitted)?.firstClassOrNull(simpleClassName, predicate)
+    }
+
+    fun filterClassNodes(fullName: String, predicate: (ClassNode) -> Boolean = { true } ): List<ClassNode> {
+        val splitted = fullName.splitted
+        val simpleClassName = splitted[splitted.size - 1]
+        return findPackage(splitted)?.filterClassNodes(simpleClassName, predicate).orEmpty()
     }
 
     private fun findPackage(splitted: List<String>): PackageNode? {
@@ -49,6 +56,12 @@ class ClassTree {
             index++
         }
         return node
+    }
+
+    suspend fun notifyOnMetaLoaded(classNodeWithLoadedMeta: ClassNode) {
+        listeners?.forEach {
+            it.notifyOnMetaLoaded(classNodeWithLoadedMeta, this)
+        }
     }
 
     private val String.splitted get() = this.split(".")
@@ -94,8 +107,12 @@ class PackageNode(folderName: String?, parent: PackageNode?) : AbstractNode(fold
         return nameIndex.getOrPut(version) { ClassNode(simpleClassName, this, source) }
     }
 
-    fun findClassOrNull(className: String, version: String): ClassNode? {
+    fun firstClassOrNull(className: String, version: String): ClassNode? {
         return classes[className]?.get(version)
+    }
+
+    fun filterClassNodes(className: String,  predicate: (ClassNode) -> Boolean): List<ClassNode> {
+        return classes[className]?.filterValues(predicate).orEmpty().values.toList()
     }
 
     fun firstClassOrNull(className: String, predicate: (String) -> Boolean): ClassNode? {
@@ -114,6 +131,14 @@ class ClassNode(
     override val name: String = simpleName
 
     val location get() = source.location
+
+    private val _subTypes = CopyOnWriteArrayList<ClassNode>()
+
+    val subTypes: List<ClassNode> get() = _subTypes.toList()
+
+    fun addSubType(subTypeNode: ClassNode) {
+        _subTypes.add(subTypeNode)
+    }
 
     suspend fun info() = source.meta()
 

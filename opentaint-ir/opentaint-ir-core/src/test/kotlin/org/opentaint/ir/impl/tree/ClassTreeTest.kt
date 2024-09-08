@@ -43,13 +43,13 @@ class ClassTreeTest {
         classTree.addClass(lib1.classSource("xxx.Simple"))
         classTree.addClass(lib2.classSource("xxx.zzz.Simple"))
 
-        with(limitedTree.findClassOrNull("xxx.Simple")) {
+        with(limitedTree.firstClassOrNull("xxx.Simple")) {
             assertNotNull(this!!)
             assertEquals("Simple", name)
             assertEquals(lib1, location)
         }
 
-        assertNull(limitedTree.findClassOrNull("xxx.zzz.Simple"))
+        assertNull(limitedTree.firstClassOrNull("xxx.zzz.Simple"))
     }
 
     private fun ByteCodeLocation.findNode(name: String): ClassNode? {

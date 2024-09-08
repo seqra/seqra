@@ -2,6 +2,7 @@ package org.opentaint.ir.impl.fs
 
 import org.opentaint.ir.ApiLevel
 import org.opentaint.ir.api.ByteCodeLocation
+import org.opentaint.ir.impl.suspendableLazy
 import kotlinx.collections.immutable.toImmutableList
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.Type
@@ -22,10 +23,11 @@ class ClassByteCodeSource(
     private var fullNodeRef: SoftReference<ClassNode>? = null // this is a soft reference to fully loaded ASM class node
     private var preloadedNode: ClassNode? = null  // this is a preloaded instance loaded only for
 
-    suspend fun meta(): ClassMetaInfo {
+    private val lazyMeta = suspendableLazy {
         val node = preloadedNode ?: getOrLoadFullClassNode()
-        return node.asClassInfo()
+        node.asClassInfo()
     }
+    suspend fun meta() = lazyMeta()
 
     private suspend fun getOrLoadFullClassNode(): ClassNode {
         val cached = fullNodeRef?.get()
@@ -88,12 +90,3 @@ class ClassByteCodeSource(
 
 }
 
-suspend fun ByteCodeLocation.sources(): Sequence<ClassByteCodeSource> {
-    return classesByteCode().map {
-        ClassByteCodeSource(apiLevel, location = this, it.first).also { source ->
-            it.second?.let {
-                source.preLoad(it)
-            }
-        }
-    }
-}

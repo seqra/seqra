@@ -7,29 +7,35 @@ import org.opentaint.ir.api.CompilationDatabase
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.filterExisted
-import org.opentaint.ir.impl.fs.sources
 import org.opentaint.ir.impl.tree.ClassTree
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.joinAll
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import org.opentaint.ir.impl.tree.SubTypesInstallationListener
+import kotlinx.coroutines.*
 import mu.KLogging
 import java.io.File
+import java.util.*
+import java.util.concurrent.ConcurrentLinkedQueue
+
+object BackgroundScope : CoroutineScope {
+    override val coroutineContext = Dispatchers.IO + SupervisorJob()
+}
 
 class CompilationDatabaseImpl(private val apiLevel: ApiLevel, javaLocation: File) : CompilationDatabase {
     companion object : KLogging()
 
-    private val classTree = ClassTree()
+    private val classTree = ClassTree(listeners = listOf(SubTypesInstallationListener))
     private val javaRuntime = JavaRuntime(apiLevel, javaLocation)
+
+    private val backgroundJobs: Queue<Job> = ConcurrentLinkedQueue()
 
     suspend fun loadJavaLibraries() {
         javaRuntime.allLocations.loadAll()
     }
 
     override suspend fun classpathSet(dirOrJars: List<File>): ClasspathSet {
-        val existedLocations = dirOrJars.filterExisted()
-        load(existedLocations)
-        return ClasspathSetImpl(existedLocations.map { it.asByteCodeLocation(apiLevel) }.toList() + javaRuntime.allLocations, classTree)
+        val existedLocations = dirOrJars.filterExisted().map { it.asByteCodeLocation(apiLevel) }.also {
+            it.loadAll()
+        }
+        return ClasspathSetImpl(existedLocations.toList() + javaRuntime.allLocations, this, classTree)
     }
 
     override suspend fun load(dirOrJar: File) = apply {
@@ -40,16 +46,24 @@ class CompilationDatabaseImpl(private val apiLevel: ApiLevel, javaLocation: File
         dirOrJars.filterExisted().map { it.asByteCodeLocation(apiLevel) }.loadAll()
     }
 
-    private suspend fun List<ByteCodeLocation>.loadAll() = this@CompilationDatabaseImpl.apply {
+    private suspend fun List<ByteCodeLocation>.loadAll() = apply {
+        val actions = ConcurrentLinkedQueue<suspend () -> Unit>()
+
         withContext(Dispatchers.IO) {
             map { location ->
-                launch(Dispatchers.IO) {
-                    location.sources().forEach {
-                        classTree.addClass(it)
-                    }
+                async {
+                    val asyncJob = location.loader().load(classTree)
+                    actions.add(asyncJob)
                 }
             }
         }.joinAll()
+        backgroundJobs.add(BackgroundScope.launch {
+            actions.map { action ->
+                async {
+                    action()
+                }
+            }.joinAll()
+        })
     }
 
     override suspend fun refresh(): CompilationDatabase {
@@ -60,4 +74,7 @@ class CompilationDatabaseImpl(private val apiLevel: ApiLevel, javaLocation: File
         TODO("Not yet implemented")
     }
 
+    suspend fun awaitBackgroundJobs() {
+        backgroundJobs.toList().joinAll()
+    }
 }

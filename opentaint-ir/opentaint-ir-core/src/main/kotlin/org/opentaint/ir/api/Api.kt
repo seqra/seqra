@@ -1,6 +1,7 @@
 package org.opentaint.ir.api
 
 import org.opentaint.ir.ApiLevel
+import org.opentaint.ir.impl.fs.ByteCodeLoader
 import org.objectweb.asm.tree.MethodNode
 import java.io.Closeable
 import java.io.File
@@ -11,7 +12,7 @@ interface Accessible {
 
 }
 
-interface ClassId: Accessible {
+interface ClassId : Accessible {
 
     val location: ByteCodeLocation?
 
@@ -39,10 +40,10 @@ interface ByteCodeLocation {
 
     suspend fun resolve(classFullName: String): InputStream?
 
-    suspend fun classesByteCode(): Sequence<Pair<String, InputStream?>>
+    suspend fun loader(): ByteCodeLoader
 }
 
-interface MethodId: Accessible {
+interface MethodId : Accessible {
     val name: String
 
     val classId: ClassId
@@ -54,7 +55,7 @@ interface MethodId: Accessible {
 
 }
 
-interface FieldId: Accessible {
+interface FieldId : Accessible {
 
     val name: String
 
@@ -62,11 +63,12 @@ interface FieldId: Accessible {
 
 }
 
-interface ClasspathSet: Closeable {
+interface ClasspathSet : Closeable {
 
     val locations: List<ByteCodeLocation>
 
     suspend fun findClassOrNull(name: String): ClassId?
+    suspend fun findSubTypesOf(name: String): List<ClassId>
 }
 
 

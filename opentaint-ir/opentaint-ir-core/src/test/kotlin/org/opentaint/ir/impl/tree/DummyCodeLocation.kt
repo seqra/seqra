@@ -2,6 +2,7 @@ package org.opentaint.ir.impl.tree
 
 import org.opentaint.ir.ApiLevel
 import org.opentaint.ir.api.ByteCodeLocation
+import org.opentaint.ir.impl.fs.ByteCodeLoader
 import java.io.InputStream
 
 open class DummyCodeLocation(override val version: String) : ByteCodeLocation{
@@ -10,9 +11,10 @@ open class DummyCodeLocation(override val version: String) : ByteCodeLocation{
 
         override val currentVersion: String
                 get() = version
-        override suspend fun classesByteCode() = emptySequence<Pair<String,InputStream>>()
         override suspend fun resolve(classFullName: String): InputStream? {
                 TODO("Not yet implemented")
         }
+
+        override suspend fun loader() = ByteCodeLoader(this, emptyList(), emptyList())
 }
 

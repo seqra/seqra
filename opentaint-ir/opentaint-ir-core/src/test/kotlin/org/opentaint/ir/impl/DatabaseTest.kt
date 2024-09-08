@@ -90,6 +90,24 @@ class DatabaseTest {
         }
     }
 
+    @Test
+    fun `find sub-types from lazy loaded classes`() = runBlocking {
+        val db = compilationDatabase {
+            useJavaHomeJRE()
+        }
+
+        val cp = db.classpathSet(emptyList())
+        val domClass = cp.findClassOrNull(org.w3c.dom.Document::class.java.name)
+        assertNotNull(domClass!!)
+
+        with(cp.findSubTypesOf(java.util.AbstractMap::class.java.name)) {
+            assertTrue(size > 10)
+        }
+
+        with(cp.findSubTypesOf(org.w3c.dom.Document::class.java.name)) {
+            assertEquals(3, size)
+        }
+    }
 }
 
 @Nested

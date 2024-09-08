@@ -3,7 +3,7 @@ package org.opentaint.ir.impl
 import org.opentaint.ir.ApiLevel
 import org.opentaint.ir.compilationDatabase
 import org.opentaint.ir.impl.fs.asByteCodeLocation
-import org.opentaint.ir.impl.fs.sources
+import org.opentaint.ir.impl.tree.ClassTree
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -18,7 +18,7 @@ class ByteCodeReaderTest {
         val lib = guavaLib
         benchmark(20, "read bytecode") {
             runBlocking {
-                lib.asByteCodeLocation(ApiLevel.ASM8).sources().toList()
+                lib.asByteCodeLocation(ApiLevel.ASM8).loader().load(ClassTree())
             }
         }
     }
@@ -61,6 +61,7 @@ class ByteCodeReaderTest {
             action()
             val end = System.currentTimeMillis()
             println("$it: $name took: ${end - start}ms")
+            Thread.sleep(1_000)
         }
 
     }

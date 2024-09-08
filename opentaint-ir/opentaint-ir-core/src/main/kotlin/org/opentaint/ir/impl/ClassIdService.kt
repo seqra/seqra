@@ -28,7 +28,7 @@ class ClassIdService(internal val classpathClassTree: ClasspathClassTree) {
         if (predefinedClass != null) {
             return predefinedClass
         }
-        return toClassId(classpathClassTree.findClassOrNull(fullName))
+        return toClassId(classpathClassTree.firstClassOrNull(fullName))
     }
 
     fun toMethodId(classId: ClassId, methodInfo: MethodMetaInfo, node: ClassNode): MethodId {

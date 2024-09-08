@@ -30,10 +30,3 @@ class JavaRuntime(val apiLevel: ApiLevel, val javaHome: File) {
     }
 
 }
-
-fun main() {
-    val javaHome = File(System.getenv("JAVA_HOME"))
-    JavaRuntime(ApiLevel.ASM8, javaHome).extJars.filterIsInstance<JarFileLocationImpl>().forEach {
-        println(it.file.absolutePath)
-    }
-}

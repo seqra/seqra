@@ -5,10 +5,12 @@ import org.opentaint.ir.api.ByteCodeLocation
 import java.io.File
 import java.io.InputStream
 import java.util.jar.JarFile
-import kotlin.streams.asSequence
 
-class JarFileLocationImpl(val file: File, override val apiLevel: ApiLevel, private val loadClassesOnlyFrom: List<String>?) :
-    ByteCodeLocation {
+class JarFileLocationImpl(
+    val file: File,
+    override val apiLevel: ApiLevel,
+    private val loadClassesOnlyFrom: List<String>?
+) : ByteCodeLocation {
 
     private val jarFile = JarFile(file)
 
@@ -17,15 +19,18 @@ class JarFileLocationImpl(val file: File, override val apiLevel: ApiLevel, priva
 
     override val version = currentVersion
 
-    override suspend fun classesByteCode(): Sequence<Pair<String, InputStream?>> {
-        return jarFile.stream().filter { it.name.endsWith(".class") }.asSequence().map {
+    override suspend fun loader(): ByteCodeLoader {
+        val loadedSync = arrayListOf<Pair<String, InputStream>>()
+        val loadedAsync = arrayListOf<Pair<String, () -> InputStream>>()
+
+        jarFile.stream().filter { it.name.endsWith(".class") }.forEach {
             val className = it.name.removeSuffix(".class").replace("/", ".")
-            val stream = when (className.matchesOneOf(loadClassesOnlyFrom)) {
-                true -> jarFile.getInputStream(it)
-                else -> null
+            when (className.matchesOneOf(loadClassesOnlyFrom)) {
+                true -> loadedSync.add(className to jarFile.getInputStream(it))
+                else -> loadedAsync.add(className to { jarFile.getInputStream(it) })
             }
-            className to stream
         }
+        return ByteCodeLoader(this, loadedSync, loadedAsync)
     }
 
     override suspend fun resolve(classFullName: String): InputStream? {
