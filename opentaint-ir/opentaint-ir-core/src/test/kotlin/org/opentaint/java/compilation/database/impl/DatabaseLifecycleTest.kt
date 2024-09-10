@@ -10,7 +10,6 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 import org.opentaint.java.compilation.database.api.ClasspathSet
 import org.opentaint.java.compilation.database.compilationDatabase
 import org.opentaint.java.compilation.database.impl.fs.BuildFolderLocationImpl
@@ -50,11 +49,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
         assertNotNull(fooClass!!)
 
         assertTrue(testDirClone.deleteRecursively())
-        assertThrows<IllegalStateException> {
-            runBlocking {
-                fooClass.methods().first().readBody()
-            }
-        }
+        assertNull(fooClass.methods().first().readBody())
 
         db.refresh()
 
@@ -95,11 +90,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
         db.awaitBackgroundJobs() // is required for deleting jar
 
         assertTrue(guavaLibClone.delete())
-        assertThrows<IllegalStateException> {
-            runBlocking {
-                abstractCacheClass.methods().first().readBody()
-            }
-        }
+        assertNull(abstractCacheClass.methods().first().readBody())
 
         db.refresh()
         withRegistry {

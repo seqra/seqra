@@ -50,7 +50,7 @@ class PackageNode(folderName: String?, parent: PackageNode?) : AbstractNode(fold
     fun firstClassOrNull(className: String, predicate: (String) -> Boolean): ClassNode? {
         val versioned = classes.beginRead().get(className) ?: return null
         return versioned.read {
-            asSequence().first { predicate(it.key) }
+            asSequence().firstOrNull { predicate(it.key) }
         }?.value
     }
 
