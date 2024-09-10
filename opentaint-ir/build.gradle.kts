@@ -1,4 +1,4 @@
-group 'org.opentaint.opentaint'
+group 'org.opentaint'
 
 apply plugin: 'java'
 
@@ -10,9 +10,8 @@ if (project.hasProperty('semVer')) {
 
 buildscript {
     repositories {
-        maven {
-            url "http://10.198.126.224:8081/repository/opentaint-uber/"
-            allowInsecureProtocol true
+        repositories {
+            mavenCentral()
         }
     }
 
@@ -34,7 +33,6 @@ dependencies {
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-reflect', version: kotlin_version
     implementation group: 'org.ow2.asm', name: 'asm', version: asm_version
     implementation group: 'org.ow2.asm', name: 'asm-tree', version: asm_version
-    implementation group: 'org.jetbrains.xodus', name: 'xodus-utils', version: "2.0.1"
 
     testImplementation(platform('org.junit:junit-bom:5.8.2'))
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter'
@@ -74,22 +72,14 @@ publishing {
     publications {
         jar(MavenPublication) {
             from components.java
-            groupId 'org.opentaint.ir'
+            groupId 'org.opentaint'
             artifactId project.name
-        }
-    }
-    repositories {
-        maven {
-            name = 'InternalNexusRepository'
-            url "http://10.198.126.224:8081/repository/opentaint-external/"
-            credentials(PasswordCredentials)
         }
     }
 }
 
 repositories {
-    maven {
-        url "http://10.198.126.224:8081/repository/opentaint-uber/"
-        allowInsecureProtocol true
+    repositories {
+        mavenCentral()
     }
 }
