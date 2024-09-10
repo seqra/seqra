@@ -1,6 +1,9 @@
 package org.opentaint.java.compilation.database.impl.tree
 
 import jetbrains.exodus.core.dataStructures.persistent.Persistent23TreeMap
+import jetbrains.exodus.core.dataStructures.persistent.read
+import jetbrains.exodus.core.dataStructures.persistent.write
+import jetbrains.exodus.core.dataStructures.persistent.writeFinally
 import org.opentaint.java.compilation.database.impl.fs.ClassByteCodeSource
 
 class PackageNode(folderName: String?, parent: PackageNode?) : AbstractNode(folderName, parent) {
@@ -91,20 +94,4 @@ private fun <T> Persistent23TreeMap<String, T>.getOrPut(key: String, default: ()
         return newNode
     }
     return getOrPut(key, default)
-}
-
-
-inline fun <K : Comparable<K>, V, R> Persistent23TreeMap<K, V>.read(block: Persistent23TreeMap.ImmutableMap<K, V>.() -> R): R {
-    return beginRead().block()
-}
-
-inline fun <K : Comparable<K>, V> Persistent23TreeMap<K, V>.write(block: Persistent23TreeMap.MutableMap<K, V>.() -> Unit): Boolean {
-    val mutableMap = beginWrite()
-    mutableMap.block()
-    return mutableMap.endWrite()
-}
-
-inline fun <K : Comparable<K>, V> Persistent23TreeMap<K, V>.writeFinally(block: Persistent23TreeMap.MutableMap<K, V>.() -> Unit) {
-    while (!write(block)) {
-    }
 }
