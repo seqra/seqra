@@ -4,9 +4,7 @@ import org.opentaint.java.compilation.database.api.ByteCodeLocation
 import org.opentaint.java.compilation.database.impl.fs.ByteCodeLoaderImpl
 
 open class DummyCodeLocation(override val id: String) : ByteCodeLocation {
-
-    override val calculatedId: String
-        get() = id
+    override fun isChanged() = false
 
     override fun createRefreshed() = this
 

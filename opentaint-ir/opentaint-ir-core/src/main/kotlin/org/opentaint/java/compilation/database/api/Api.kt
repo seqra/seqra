@@ -150,7 +150,10 @@ interface MethodId : Accessible {
     suspend fun annotations(): List<ClassId>
 
     /**
-     * @return asm method node
+     * Return ASM method node with byte-code instructions. If byte-code location is differs from
+     * file system then method will return null.
+     *
+     * @return ASM method node
      */
     suspend fun readBody(): MethodNode?
 

@@ -33,10 +33,10 @@ class MethodIdImpl(
 
     override suspend fun annotations() = lazyAnnotations
 
-    override suspend fun readBody(): MethodNode {
+    override suspend fun readBody(): MethodNode? {
         val location = classId.location
         if (location?.isChanged() == true) {
-            throw IllegalStateException("bytecode is changed")
+            return null
         }
         return classNode.source.loadMethod(name, methodInfo.desc)
     }

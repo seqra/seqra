@@ -79,14 +79,13 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
         })
     }
 
-    override suspend fun refresh(): CompilationDatabase {
+    override suspend fun refresh() {
         awaitBackgroundJobs()
         registry.refresh {
             listOf(it).loadAll()
         }
         val outdatedLocations = registry.cleanup()
         classTree.visit(RemoveVersionsVisitor(outdatedLocations))
-        return this
     }
 
     override fun watchFileSystemChanges(): CompilationDatabase {

@@ -4,6 +4,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.opentaint.java.compilation.database.compilationDatabase
 import org.opentaint.java.compilation.database.impl.fs.asByteCodeLocation
+import org.opentaint.java.compilation.database.impl.fs.load
 import org.opentaint.java.compilation.database.impl.tree.ClassTree
 
 
