@@ -1,11 +1,10 @@
 package org.opentaint.java.compilation.database.impl.fs
 
-import org.opentaint.java.compilation.database.ApiLevel
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
 import java.io.File
 import java.nio.file.Paths
 
-class JavaRuntime(val apiLevel: ApiLevel, private val javaHome: File) {
+class JavaRuntime(private val javaHome: File) {
 
     companion object {
         private val loadedPackages = listOf("java.", "javax.")
@@ -36,7 +35,7 @@ class JavaRuntime(val apiLevel: ApiLevel, private val javaHome: File) {
             .listFiles { file -> file.name.endsWith(".jar") }
             .orEmpty()
             .toList()
-            .map { it.asByteCodeLocation(apiLevel, loadedPackages) }
+            .map { it.asByteCodeLocation(loadedPackages) }
     }
 
 }

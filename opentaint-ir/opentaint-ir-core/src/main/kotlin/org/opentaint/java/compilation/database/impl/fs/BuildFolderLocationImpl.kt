@@ -1,8 +1,7 @@
 package org.opentaint.java.compilation.database.impl.fs
 
 import mu.KLogging
-import org.opentaint.java.compilation.database.ApiLevel
-import org.opentaint.java.compilation.database.api.ByteCodeLocation
+import org.opentaint.java.compilation.database.api.ByteCodeLoader
 import org.opentaint.java.compilation.database.api.md5
 import java.io.File
 import java.io.InputStream
@@ -12,28 +11,24 @@ import kotlin.streams.asSequence
 
 class BuildFolderLocationImpl(
     private val folder: File,
-    override val apiLevel: ApiLevel,
     private val loadClassesOnlyFrom: List<String>?
-) : ByteCodeLocation {
+) : AbstractByteCodeLocation() {
 
     companion object : KLogging()
 
-    override val version = currentVersion
-
-    override val currentVersion: String
-        get() {
-            var lastModifiedDate = folder.lastModified()
-            folder.walk().onEnter {
-                val lastModified = it.lastModified()
-                if (lastModifiedDate < lastModified) {
-                    lastModifiedDate = lastModified
-                }
-                true
+    override fun getCurrentId(): String {
+        var lastModifiedDate = folder.lastModified()
+        folder.walk().onEnter {
+            val lastModified = it.lastModified()
+            if (lastModifiedDate < lastModified) {
+                lastModifiedDate = lastModified
             }
-            return (folder.absolutePath + lastModifiedDate).md5()
+            true
         }
+        return (folder.absolutePath + lastModifiedDate).md5()
+    }
 
-    override fun refreshed() = BuildFolderLocationImpl(folder, apiLevel, loadClassesOnlyFrom)
+    override fun createRefreshed() = BuildFolderLocationImpl(folder, loadClassesOnlyFrom)
 
     override suspend fun loader(): ByteCodeLoader? {
         try {

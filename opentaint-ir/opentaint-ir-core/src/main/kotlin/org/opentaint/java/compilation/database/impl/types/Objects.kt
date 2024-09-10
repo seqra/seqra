@@ -1,4 +1,4 @@
-package org.opentaint.java.compilation.database.impl.meta
+package org.opentaint.java.compilation.database.impl.types
 
 
 class ClassMetaInfo(
@@ -25,7 +25,8 @@ class MethodMetaInfo(
 class FieldMetaInfo(
     val name: String,
     val access: Int,
-    val type: String
+    val type: String,
+    val annotations: List<AnnotationMetaInfo>
 )
 
 class AnnotationMetaInfo(

@@ -1,4 +1,4 @@
-package org.opentaint.java.compilation.database.impl.meta
+package org.opentaint.java.compilation.database.impl.types
 
 import org.objectweb.asm.tree.MethodNode
 import org.opentaint.java.compilation.database.api.ClassId

@@ -14,7 +14,7 @@ class ClasspathSetImpl(
 
     override val locations: List<ByteCodeLocation> = locationsRegistrySnapshot.locations
 
-    private val classpathClassTree = ClasspathClassTree(classTree, locations)
+    private val classpathClassTree = ClasspathClassTree(classTree, locationsRegistrySnapshot)
     private val classIdService = ClassIdService(classpathClassTree)
 
     override suspend fun findClassOrNull(name: String): ClassId? {

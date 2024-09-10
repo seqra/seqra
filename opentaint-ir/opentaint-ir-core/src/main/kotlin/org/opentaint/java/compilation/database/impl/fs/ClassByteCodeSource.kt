@@ -2,24 +2,23 @@ package org.opentaint.java.compilation.database.impl.fs
 
 import kotlinx.collections.immutable.toImmutableList
 import org.objectweb.asm.ClassReader
+import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.AnnotationNode
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldNode
 import org.objectweb.asm.tree.MethodNode
-import org.opentaint.java.compilation.database.ApiLevel
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
-import org.opentaint.java.compilation.database.impl.meta.AnnotationMetaInfo
-import org.opentaint.java.compilation.database.impl.meta.ClassMetaInfo
-import org.opentaint.java.compilation.database.impl.meta.FieldMetaInfo
-import org.opentaint.java.compilation.database.impl.meta.MethodMetaInfo
 import org.opentaint.java.compilation.database.impl.suspendableLazy
+import org.opentaint.java.compilation.database.impl.types.AnnotationMetaInfo
+import org.opentaint.java.compilation.database.impl.types.ClassMetaInfo
+import org.opentaint.java.compilation.database.impl.types.FieldMetaInfo
+import org.opentaint.java.compilation.database.impl.types.MethodMetaInfo
 import java.io.InputStream
 import java.lang.ref.SoftReference
 
 // todo inner/outer classes?
 class ClassByteCodeSource(
-    private val apiLevel: ApiLevel,
     val location: ByteCodeLocation,
     val className: String
 ) {
@@ -31,14 +30,15 @@ class ClassByteCodeSource(
         val node = preloadedNode ?: getOrLoadFullClassNode()
         node.asClassInfo()
     }
+
     suspend fun meta() = lazyMeta()
 
     private suspend fun getOrLoadFullClassNode(): ClassNode {
         val cached = fullNodeRef?.get()
         if (cached == null) {
             val bytes = classInputStream()?.use { it.readBytes() }
-            bytes ?: throw IllegalStateException("can't find bytecode for class $className in ${location.version}")
-            val classNode = ClassNode(apiLevel.code).also {
+            bytes ?: throw IllegalStateException("can't find bytecode for class $className in ${location.id}")
+            val classNode = ClassNode(Opcodes.ASM9).also {
                 ClassReader(bytes).accept(it, ClassReader.EXPAND_FRAMES)
             }
             fullNodeRef = SoftReference(classNode)
@@ -53,7 +53,7 @@ class ClassByteCodeSource(
 
     fun preLoad(initialInput: InputStream) {
         val bytes = initialInput.use { it.readBytes() }
-        val classNode = ClassNode(apiLevel.code)
+        val classNode = ClassNode(Opcodes.ASM9)
         ClassReader(bytes).accept(classNode, ClassReader.SKIP_CODE)
         preloadedNode = classNode
     }
@@ -89,7 +89,8 @@ class ClassByteCodeSource(
     private fun FieldNode.asFieldInfo() = FieldMetaInfo(
         name = name,
         access = access,
-        type = Type.getType(desc).className
+        type = Type.getType(desc).className,
+        annotations = visibleAnnotations.orEmpty().map { it.asAnnotationInfo() }.toImmutableList()
     )
 
 }

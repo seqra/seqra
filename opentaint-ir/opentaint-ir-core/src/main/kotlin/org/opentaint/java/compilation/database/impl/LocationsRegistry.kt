@@ -4,6 +4,9 @@ import kotlinx.collections.immutable.toImmutableList
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
 import java.io.Closeable
 
+/**
+ * registry of locations for CompilationDatabase
+ */
 class LocationsRegistry {
 
     // all loaded locations
@@ -22,7 +25,7 @@ class LocationsRegistry {
     suspend fun refresh(location: ByteCodeLocation, onRefresh: suspend (ByteCodeLocation) -> Unit) {
         if (location.isChanged()) {
             val refreshedLocation = synchronized(this) {
-                val refreshedLocation = location.refreshed()
+                val refreshedLocation = location.createRefreshed()
                 // let's check snapshots
                 val hasReferences = location.hasReferences()
                 if (!hasReferences) {

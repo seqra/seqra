@@ -25,7 +25,7 @@ interface NodeVisitor {
 class RemoveVersionsVisitor(private val locations: Set<ByteCodeLocation>) : NodeVisitor {
     override fun visitPackageNode(packageNode: PackageNode) {
         locations.forEach {
-            packageNode.dropVersion(it.version)
+            packageNode.dropVersion(it.id)
         }
     }
 

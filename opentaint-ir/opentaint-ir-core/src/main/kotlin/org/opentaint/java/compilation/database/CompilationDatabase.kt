@@ -1,6 +1,5 @@
 package org.opentaint.java.compilation.database
 
-import org.objectweb.asm.Opcodes
 import org.opentaint.java.compilation.database.api.CompilationDatabase
 import org.opentaint.java.compilation.database.impl.CompilationDatabaseImpl
 import java.io.File
@@ -9,8 +8,8 @@ suspend fun compilationDatabase(builder: CompilationDatabaseSettings.() -> Unit)
     val settings = CompilationDatabaseSettings().also(builder)
     val database = CompilationDatabaseImpl(settings)
     database.loadJavaLibraries()
-    if (settings.predefinedJars.isNotEmpty()) {
-        database.load(settings.predefinedJars)
+    if (settings.predefinedDirOrJars.isNotEmpty()) {
+        database.load(settings.predefinedDirOrJars)
     }
     if (settings.watchFileSystemChanges != null) {
         database.watchFileSystemChanges()
@@ -18,26 +17,40 @@ suspend fun compilationDatabase(builder: CompilationDatabaseSettings.() -> Unit)
     return database
 }
 
+/**
+ * Settings for database
+ */
 class CompilationDatabaseSettings {
+    /** watch file system changes setting */
     var watchFileSystemChanges: CompilationDatabaseWatchFileSystemSettings? = null
 
+    /** persisted  */
     var persistentSettings: CompilationDatabasePersistentSettings? = null
-    var predefinedJars: List<File> = emptyList()
+    /** jar files which should be loaded right after database is created */
+    var predefinedDirOrJars: List<File> = emptyList()
+    /** mandatory setting for java location */
     lateinit var jre: File
-    var apiLevel = ApiLevel.ASM8
+    /** builder for persistent settings */
     fun persistent(settings: (CompilationDatabasePersistentSettings.() -> Unit) = {}) {
         persistentSettings = CompilationDatabasePersistentSettings().also(settings)
     }
 
+    /** builder for watching file system changes */
     fun watchFileSystem(settings: (CompilationDatabaseWatchFileSystemSettings.() -> Unit) = {}) {
         watchFileSystemChanges = CompilationDatabaseWatchFileSystemSettings().also(settings)
     }
 
+    /**
+     * use java from JAVA_HOME env variable
+     */
     fun useJavaHomeJRE() {
         val javaHome = System.getenv("JAVA_HOME") ?: throw IllegalArgumentException("JAVA_HOME is not set")
         jre = javaHome.asValidJRE()
     }
 
+    /**
+     * use java from current system process
+     */
     fun useProcessJRE() {
         val javaHome = System.getProperty("java.home") ?: throw IllegalArgumentException("java.home is not set")
         jre = javaHome.asValidJRE()
@@ -52,20 +65,14 @@ class CompilationDatabaseSettings {
     }
 }
 
-enum class ApiLevel(val code: Int) {
-    ASM4(Opcodes.ASM4),
-    ASM5(Opcodes.ASM5),
-    ASM6(Opcodes.ASM6),
-    ASM7(Opcodes.ASM7),
-    ASM8(Opcodes.ASM8),
-    ASM9(Opcodes.ASM9)
-}
-
 class CompilationDatabasePersistentSettings {
+    /** location folder for persisting data */
     var location: String? = null
+    /** if true old data from this folder will be dropped */
     var clearOnStart: Boolean = false
 }
 
 class CompilationDatabaseWatchFileSystemSettings {
+    /** delay between looking up for new changes */
     var delay: Long? = 10_000 // 10 seconds
 }

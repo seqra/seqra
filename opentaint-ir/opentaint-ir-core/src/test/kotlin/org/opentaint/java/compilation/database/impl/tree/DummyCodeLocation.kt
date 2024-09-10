@@ -1,16 +1,14 @@
 package org.opentaint.java.compilation.database.impl.tree
 
-import org.opentaint.java.compilation.database.ApiLevel
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
 import org.opentaint.java.compilation.database.impl.fs.ByteCodeLoaderImpl
 
-open class DummyCodeLocation(override val version: String) : ByteCodeLocation {
-    override val apiLevel = ApiLevel.ASM8
+open class DummyCodeLocation(override val id: String) : ByteCodeLocation {
 
-    override val currentVersion: String
-        get() = version
+    override val calculatedId: String
+        get() = id
 
-    override fun refreshed() = this
+    override fun createRefreshed() = this
 
     override suspend fun resolve(classFullName: String) = null
 

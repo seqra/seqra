@@ -10,7 +10,7 @@ class ClassTree(private val listeners: List<ClassTreeListener>? = null) {
     fun addClass(source: ClassByteCodeSource): ClassNode {
         val splitted = source.className.splitted
         val simpleClassName = splitted[splitted.size - 1]
-        val version = source.location.version
+        val version = source.location.id
         if (splitted.size == 1) {
             return rootNode.findClassOrNew(simpleClassName, version, source)
         }
@@ -27,7 +27,7 @@ class ClassTree(private val listeners: List<ClassTreeListener>? = null) {
     fun findClassNodeOrNull(codeLocation: ByteCodeLocation, fullName: String): ClassNode? {
         val splitted = fullName.splitted
         val simpleClassName = splitted[splitted.size - 1]
-        return findPackage(splitted)?.firstClassOrNull(simpleClassName, codeLocation.version)
+        return findPackage(splitted)?.firstClassOrNull(simpleClassName, codeLocation.id)
     }
 
     fun firstClassNodeOrNull(fullName: String, predicate: (String) -> Boolean = { true }): ClassNode? {

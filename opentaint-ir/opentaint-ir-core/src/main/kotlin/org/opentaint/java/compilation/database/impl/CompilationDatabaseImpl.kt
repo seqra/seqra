@@ -9,6 +9,7 @@ import org.opentaint.java.compilation.database.api.CompilationDatabase
 import org.opentaint.java.compilation.database.impl.fs.JavaRuntime
 import org.opentaint.java.compilation.database.impl.fs.asByteCodeLocation
 import org.opentaint.java.compilation.database.impl.fs.filterExisted
+import org.opentaint.java.compilation.database.impl.fs.load
 import org.opentaint.java.compilation.database.impl.tree.ClassTree
 import org.opentaint.java.compilation.database.impl.tree.RemoveVersionsVisitor
 import org.opentaint.java.compilation.database.impl.tree.SubTypesInstallationListener
@@ -24,8 +25,7 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
     companion object : KLogging()
 
     private val classTree = ClassTree(listeners = listOf(SubTypesInstallationListener))
-    internal val javaRuntime = JavaRuntime(settings.apiLevel, settings.jre)
-    private val apiLevel = settings.apiLevel
+    internal val javaRuntime = JavaRuntime(settings.jre)
 
     internal val registry = LocationsRegistry()
 
@@ -36,7 +36,7 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
     }
 
     override suspend fun classpathSet(dirOrJars: List<File>): ClasspathSet {
-        val existedLocations = dirOrJars.filterExisted().map { it.asByteCodeLocation(apiLevel) }.also {
+        val existedLocations = dirOrJars.filterExisted().map { it.asByteCodeLocation() }.also {
             it.loadAll()
         }
         return ClasspathSetImpl(
@@ -51,7 +51,7 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
     }
 
     override suspend fun load(dirOrJars: List<File>) = apply {
-        dirOrJars.filterExisted().map { it.asByteCodeLocation(apiLevel) }.loadAll()
+        dirOrJars.filterExisted().map { it.asByteCodeLocation() }.loadAll()
     }
 
     private suspend fun List<ByteCodeLocation>.loadAll() = apply {

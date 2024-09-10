@@ -16,7 +16,7 @@ class DatabaseTest: LibrariesMixin {
     @Test
     fun `find class from build dir folder`() = runBlocking {
         val db = compilationDatabase {
-            predefinedJars = allClasspath
+            predefinedDirOrJars = allClasspath
             useJavaHomeJRE()
         }
 

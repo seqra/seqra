@@ -89,7 +89,6 @@ class ClassTreeTest {
 
     private fun ByteCodeLocation.classSource(name: String): ClassByteCodeSource {
         return ClassByteCodeSource(
-            apiLevel = apiLevel,
             className = name,
             location = this
         )

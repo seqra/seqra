@@ -2,7 +2,6 @@ package org.opentaint.java.compilation.database.impl
 
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
-import org.opentaint.java.compilation.database.ApiLevel
 import org.opentaint.java.compilation.database.compilationDatabase
 import org.opentaint.java.compilation.database.impl.fs.asByteCodeLocation
 import org.opentaint.java.compilation.database.impl.tree.ClassTree
@@ -15,7 +14,7 @@ class ByteCodeReaderTest : LibrariesMixin {
         val lib = guavaLib
         benchmark(name = "read bytecode") {
             runBlocking {
-                lib.asByteCodeLocation(ApiLevel.ASM8).loader()!!.load(ClassTree())
+                lib.asByteCodeLocation().loader()!!.load(ClassTree())
             }
         }
     }
@@ -26,7 +25,6 @@ class ByteCodeReaderTest : LibrariesMixin {
         benchmark(5, "reading libraries bytecode") {
             runBlocking {
                 val db = compilationDatabase {
-                    apiLevel = ApiLevel.ASM8
                     useJavaHomeJRE()
                 }
                 db.load(jars)
@@ -39,7 +37,6 @@ class ByteCodeReaderTest : LibrariesMixin {
         benchmark(5, "reading libraries bytecode") {
             runBlocking {
                 compilationDatabase {
-                    apiLevel = ApiLevel.ASM8
                     useJavaHomeJRE()
                 }
             }
