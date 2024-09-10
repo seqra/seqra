@@ -31,10 +31,10 @@ class JarFileLocationImpl(
                     else -> null // lazy
                 }
             }
-            val allClasses = LoadingContainerImpl(classes) { sync.first.close() }
+            val allClasses = ClassLoadingContainerImpl(classes) { sync.first.close() }
             return ByteCodeLoaderImpl(this, allClasses) {
                 val (jar, foundClasses) = jarClasses() ?: return@ByteCodeLoaderImpl null
-                LoadingContainerImpl(foundClasses.filterKeys { className ->
+                ClassLoadingContainerImpl(foundClasses.filterKeys { className ->
                     !className.matchesOneOf(syncLoadClassesOnlyFrom)
                 }.mapValues { (_, jar) ->
                     jar.first.getInputStream(jar.second)

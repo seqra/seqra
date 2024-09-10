@@ -14,7 +14,7 @@ object SubTypesInstallationListener : ClassTreeListener {
     }
 
 
-    private fun ClassTree.addSubtypeOf(classNodeWithLoadedMeta: ClassNode, className: String){
+    private fun ClassTree.addSubtypeOf(classNodeWithLoadedMeta: ClassNode, className: String) {
         val allNodes = filterClassNodes(className)
         allNodes.forEach {
             it.addSubType(classNodeWithLoadedMeta)

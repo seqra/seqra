@@ -100,7 +100,7 @@ interface ByteCodeLoader {
      *
      * @return map className -> byte-code stream
      */
-    suspend fun allResources(): LoadingContainer
+    suspend fun allResources(): ClassLoadingContainer
 
     /**
      * map with resources: class full name -> stream with byte code.
@@ -109,16 +109,16 @@ interface ByteCodeLoader {
      *
      * @return map className -> byte-code stream
      */
-    suspend fun asyncResources(): suspend () -> LoadingContainer?
+    suspend fun asyncResources(): suspend () -> ClassLoadingContainer?
 }
 
 /**
  * Classes container
  */
-interface LoadingContainer: Closeable {
+interface ClassLoadingContainer: Closeable {
 
     /** map name -> resources */
-    val classes: Map<String, InputStream?>
+    val classesToLoad: Map<String, InputStream?>
 
     override fun close() {
     }
