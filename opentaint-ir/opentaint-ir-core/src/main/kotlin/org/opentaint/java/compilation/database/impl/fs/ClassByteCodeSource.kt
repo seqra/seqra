@@ -37,7 +37,7 @@ class ClassByteCodeSource(
         val cached = fullNodeRef?.get()
         if (cached == null) {
             val bytes = classInputStream()?.use { it.readBytes() }
-            bytes ?: throw IllegalStateException("can't find bytecode for class $className in ${location.id}")
+            bytes ?: throw IllegalStateException("can't find bytecode for class $className in $location")
             val classNode = ClassNode(Opcodes.ASM9).also {
                 ClassReader(bytes).accept(it, ClassReader.EXPAND_FRAMES)
             }

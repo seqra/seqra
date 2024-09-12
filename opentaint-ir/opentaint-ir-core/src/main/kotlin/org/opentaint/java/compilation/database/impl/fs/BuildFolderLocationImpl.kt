@@ -50,7 +50,9 @@ class BuildFolderLocationImpl(
     }
 
     override suspend fun resolve(classFullName: String): InputStream? {
-        val filePath = Paths.get(folder.absolutePath, *classFullName.split(".").toTypedArray())
+        val pathArray = classFullName.split(".").toTypedArray()
+        pathArray[pathArray.size - 1] = pathArray[pathArray.size - 1] + ".class"
+        val filePath = Paths.get(folder.absolutePath, *pathArray)
         if (!Files.exists(filePath)) {
             return null
         }
