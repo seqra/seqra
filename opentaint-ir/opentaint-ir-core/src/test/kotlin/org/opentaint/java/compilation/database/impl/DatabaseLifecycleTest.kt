@@ -21,7 +21,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
     private val db = runBlocking {
         compilationDatabase {
-            useProcessJRE()
+            useProcessJavaRuntime()
         } as CompilationDatabaseImpl
     }
     private val tempFolder = Files.createTempDirectory("classpath-copy-" + UUID.randomUUID()).toFile()

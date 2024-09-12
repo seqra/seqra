@@ -26,7 +26,7 @@ class ByteCodeReaderTest : LibrariesMixin {
         benchmark(5, "reading libraries bytecode") {
             runBlocking {
                 val db = compilationDatabase {
-                    useJavaHomeJRE()
+                    useProcessJavaRuntime()
                 }
                 db.load(jars)
             }
@@ -38,7 +38,7 @@ class ByteCodeReaderTest : LibrariesMixin {
         benchmark(5, "reading libraries bytecode") {
             runBlocking {
                 compilationDatabase {
-                    useJavaHomeJRE()
+                    useProcessJavaRuntime()
                 }
             }
         }

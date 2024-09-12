@@ -43,7 +43,7 @@ class CompilationDatabaseSettings {
     /**
      * use java from JAVA_HOME env variable
      */
-    fun useJavaHomeJRE() {
+    fun useJavaHomeJavaRuntime() {
         val javaHome = System.getenv("JAVA_HOME") ?: throw IllegalArgumentException("JAVA_HOME is not set")
         jre = javaHome.asValidJRE()
     }
@@ -51,7 +51,7 @@ class CompilationDatabaseSettings {
     /**
      * use java from current system process
      */
-    fun useProcessJRE() {
+    fun useProcessJavaRuntime() {
         val javaHome = System.getProperty("java.home") ?: throw IllegalArgumentException("java.home is not set")
         jre = javaHome.asValidJRE()
     }

@@ -10,7 +10,9 @@ class JavaRuntime(private val javaHome: File) {
         private val loadedPackages = listOf("java.", "javax.")
     }
 
-    val allLocations: List<ByteCodeLocation> = bootstrapJars + extJars
+    val allLocations: List<ByteCodeLocation> = modules.takeIf { it.isNotEmpty() } ?: (bootstrapJars + extJars)
+
+    val modules: List<ByteCodeLocation> get() = locations("jmods")
 
     private val bootstrapJars: List<ByteCodeLocation>
         get() {

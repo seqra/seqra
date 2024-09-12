@@ -17,7 +17,7 @@ class DatabaseTest: LibrariesMixin {
     fun `find class from build dir folder`() = runBlocking {
         val db = compilationDatabase {
             predefinedDirOrJars = allClasspath
-            useJavaHomeJRE()
+            useProcessJavaRuntime()
         }
 
 
@@ -62,7 +62,7 @@ class DatabaseTest: LibrariesMixin {
     @Test
     fun `find lazy-loaded class`() = runBlocking {
         val db = compilationDatabase {
-            useJavaHomeJRE()
+            useProcessJavaRuntime()
         }
 
 
@@ -85,7 +85,7 @@ class DatabaseTest: LibrariesMixin {
     @Test
     fun `find sub-types from lazy loaded classes`() = runBlocking {
         val db = compilationDatabase {
-            useProcessJRE()
+            useProcessJavaRuntime()
         }
 
         val cp = db.classpathSet(emptyList())
