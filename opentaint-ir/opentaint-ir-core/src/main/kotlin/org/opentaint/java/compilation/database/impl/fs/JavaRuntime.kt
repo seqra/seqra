@@ -34,7 +34,7 @@ class JavaRuntime(private val javaHome: File) {
 
     private fun locations(vararg subFolders: String): List<ByteCodeLocation> {
         return Paths.get(javaHome.toPath().toString(), *subFolders).toFile()
-            .listFiles { file -> file.name.endsWith(".jar") }
+            .listFiles { file -> file.name.endsWith(".jar") || file.name.endsWith(".jmod") }
             .orEmpty()
             .toList()
             .map { it.asByteCodeLocation(loadedPackages) }
