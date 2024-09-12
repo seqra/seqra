@@ -9,8 +9,10 @@ fun File.asByteCodeLocation(loadClassesOnlyFrom: List<String>? = null): ByteCode
     if (!exists()) {
         throw IllegalArgumentException("file $absolutePath doesn't exist")
     }
-    if (isFile && (name.endsWith(".jar") || name.endsWith(".jmod")) ) {
+    if (isFile && name.endsWith(".jar")) {
         return JarFileLocationImpl(this, loadClassesOnlyFrom?.toList())
+    } else if (isFile && name.endsWith(".jmod")) {
+        return JmodByteCodeLocation(this, loadClassesOnlyFrom?.toList())
     } else if (!isFile) {
         return BuildFolderLocationImpl(this, loadClassesOnlyFrom)
     }

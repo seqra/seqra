@@ -10,9 +10,9 @@ import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import kotlin.streams.toList
 
-class JarFileLocationImpl(
-    val file: File,
-    private val syncLoadClassesOnlyFrom: List<String>?
+open class JarFileLocationImpl(
+    protected val file: File,
+    protected val syncLoadClassesOnlyFrom: List<String>?
 ) : AbstractByteCodeLocation() {
     companion object : KLogging()
 
@@ -31,10 +31,10 @@ class JarFileLocationImpl(
                     else -> null // lazy
                 }
             }
-            val allClasses = ClassLoadingContainerImpl(classes) { sync.first.close() }
+            val allClasses = LoadingContainerImpl(classes) { sync.first.close() }
             return ByteCodeLoaderImpl(this, allClasses) {
                 val (jar, foundClasses) = jarClasses() ?: return@ByteCodeLoaderImpl null
-                ClassLoadingContainerImpl(foundClasses.filterKeys { className ->
+                LoadingContainerImpl(foundClasses.filterKeys { className ->
                     !className.matchesOneOf(syncLoadClassesOnlyFrom)
                 }.mapValues { (_, jar) ->
                     jar.first.getInputStream(jar.second)
@@ -60,7 +60,7 @@ class JarFileLocationImpl(
         }
     }
 
-    private fun jarClasses(): Pair<JarFile, Map<String, Pair<JarFile, JarEntry>>>? {
+    protected open fun jarClasses(): Pair<JarFile, Map<String, Pair<JarFile, JarEntry>>>? {
         val jarFile = jarFile() ?: return null
 
         return jarFile to jarFile.stream().filter { it.name.endsWith(".class") }.map {

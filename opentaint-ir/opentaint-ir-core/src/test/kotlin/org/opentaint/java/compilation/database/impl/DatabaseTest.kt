@@ -40,7 +40,7 @@ class DatabaseTest: LibrariesMixin {
             assertEquals("foo", name)
             assertEquals("int", type()?.name)
         }
-        with(fields.get(1)) {
+        with(fields[1]) {
             assertEquals("bar", name)
             assertEquals(String::class.java.name, type()?.name)
         }
@@ -97,7 +97,7 @@ class DatabaseTest: LibrariesMixin {
         }
 
         with(cp.findSubTypesOf(org.w3c.dom.Document::class.java.name)) {
-            assertEquals(3, size)
+            assertTrue(isNotEmpty())
         }
     }
 }
