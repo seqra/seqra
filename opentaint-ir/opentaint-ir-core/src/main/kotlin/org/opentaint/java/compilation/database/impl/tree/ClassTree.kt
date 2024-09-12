@@ -3,9 +3,9 @@ package org.opentaint.java.compilation.database.impl.tree
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
 import org.opentaint.java.compilation.database.impl.fs.ClassByteCodeSource
 
-class ClassTree(private val listeners: List<ClassTreeListener>? = null) {
+open class ClassTree(internal val listeners: List<ClassTreeListener>? = null) {
 
-    private val rootNode = PackageNode(null, null)
+    internal val rootNode = PackageNode(null, null)
 
     fun addClass(source: ClassByteCodeSource): ClassNode {
         val splitted = source.className.splitted

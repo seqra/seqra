@@ -4,6 +4,7 @@ import org.opentaint.java.compilation.database.api.ByteCodeLoader
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
 import org.opentaint.java.compilation.database.api.ClassLoadingContainer
 import org.opentaint.java.compilation.database.impl.tree.ClassTree
+import org.opentaint.java.compilation.database.impl.tree.LibraryClassTree
 import java.io.InputStream
 
 class ByteCodeLoaderImpl(
@@ -40,26 +41,27 @@ class ClassLoadingContainerImpl(
 /**
  * load sync part into the tree and returns lambda that will do async part
  */
-suspend fun ByteCodeLoader.load(classTree: ClassTree): suspend () -> Unit {
+suspend fun ByteCodeLoader.load(classTree: ClassTree): Pair<LibraryClassTree, suspend () -> Unit> {
+    val libraryTree = LibraryClassTree(location, classTree.listeners)
     val sync = allResources()
     sync.classesToLoad.forEach {
         ClassByteCodeSource(location = location, it.key).also { source ->
-            val node = classTree.addClass(source)
-            it.value?.let {
-                source.preLoad(it)
-                classTree.notifyOnMetaLoaded(node)
-            }
+            libraryTree.addClass(source)
+//            it.value?.let {
+//                source.preLoad(it)
+////                classTree.notifyOnMetaLoaded(node)
+//            }
         }
     }
     sync.close()
-    return {
+    return libraryTree to {
         val async = asyncResources()()
         async?.classesToLoad?.forEach { entry ->
             val node = classTree.firstClassNodeOrNull(entry.key)
             val stream = entry.value
             if (stream != null && node != null) {
                 node.source.preLoad(stream)
-                classTree.notifyOnMetaLoaded(node)
+//                classTree.notifyOnMetaLoaded(node)
             }
         }
         async?.close()

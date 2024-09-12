@@ -6,13 +6,13 @@ import jetbrains.exodus.core.dataStructures.persistent.write
 import jetbrains.exodus.core.dataStructures.persistent.writeFinally
 import org.opentaint.java.compilation.database.impl.fs.ClassByteCodeSource
 
-class PackageNode(folderName: String?, parent: PackageNode?) : AbstractNode(folderName, parent) {
+class PackageNode(folderName: String?, parent: PackageNode?) : AbstractNode<PackageNode>(folderName, parent) {
 
     // folderName -> subpackage
-    private val subpackages = Persistent23TreeMap<String, PackageNode>()
+    internal val subpackages = Persistent23TreeMap<String, PackageNode>()
 
     // simpleName -> (version -> node)
-    private val classes = Persistent23TreeMap<String, Persistent23TreeMap<String, ClassNode>>()
+    internal val classes = Persistent23TreeMap<String, Persistent23TreeMap<String, ClassNode>>()
 
     fun findPackageOrNew(subfolderName: String): PackageNode {
         return subpackages.getOrPut(subfolderName) {

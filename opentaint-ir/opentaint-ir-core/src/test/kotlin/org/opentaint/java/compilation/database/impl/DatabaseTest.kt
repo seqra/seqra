@@ -85,7 +85,7 @@ class DatabaseTest: LibrariesMixin {
     @Test
     fun `find sub-types from lazy loaded classes`() = runBlocking {
         val db = compilationDatabase {
-            useJavaHomeJRE()
+            useProcessJRE()
         }
 
         val cp = db.classpathSet(emptyList())

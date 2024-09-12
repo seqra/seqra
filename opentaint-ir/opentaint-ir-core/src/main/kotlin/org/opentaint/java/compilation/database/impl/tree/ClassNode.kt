@@ -7,7 +7,7 @@ class ClassNode(
     simpleName: String,
     packageNode: PackageNode,
     val source: ClassByteCodeSource
-) : AbstractNode(simpleName, packageNode) {
+) : AbstractNode<PackageNode>(simpleName, packageNode) {
 
     override val name: String = simpleName
 
