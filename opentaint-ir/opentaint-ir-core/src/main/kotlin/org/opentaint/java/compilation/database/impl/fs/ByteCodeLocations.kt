@@ -1,9 +1,10 @@
 package org.opentaint.java.compilation.database.impl.fs
 
+import mu.KLogging
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
-import org.opentaint.java.compilation.database.impl.CompilationDatabaseImpl
 import java.io.File
 
+val logger = object : KLogging() {}.logger
 
 fun File.asByteCodeLocation(loadClassesOnlyFrom: List<String>? = null): ByteCodeLocation {
     if (!exists()) {
@@ -22,7 +23,7 @@ fun File.asByteCodeLocation(loadClassesOnlyFrom: List<String>? = null): ByteCode
 fun List<File>.filterExisted(): List<File> = filter { file ->
     file.exists().also {
         if (!it) {
-            CompilationDatabaseImpl.logger.warn("${file.absolutePath} doesn't exists. make sure there is no mistake")
+            logger.warn("${file.absolutePath} doesn't exists. make sure there is no mistake")
         }
     }
 }
