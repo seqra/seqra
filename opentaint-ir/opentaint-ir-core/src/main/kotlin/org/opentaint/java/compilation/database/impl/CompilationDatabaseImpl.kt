@@ -73,15 +73,19 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
                 }
             }
         }.awaitAll().filterNotNull()
-        libraryTrees.forEach {
-            it.pushInto(classTree)
+        val addedClasses = libraryTrees.flatMap {
+            it.pushInto(classTree).values
         }
+
         backgroundJobs.add(BackgroundScope.launch {
             actions.map { action ->
                 async {
                     action.second()
                 }
             }.joinAll()
+            addedClasses.forEach {
+                classTree.notifyOnByteCodeLoaded(it)
+            }
         })
     }
 

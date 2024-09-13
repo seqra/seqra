@@ -1,7 +1,8 @@
 package org.opentaint.java.compilation.database.impl.tree
 
+import jetbrains.exodus.core.dataStructures.persistent.PersistentHashSet
+import jetbrains.exodus.core.dataStructures.persistent.writeFinally
 import org.opentaint.java.compilation.database.impl.fs.ClassByteCodeSource
-import java.util.concurrent.ConcurrentLinkedQueue
 
 class ClassNode(
     simpleName: String,
@@ -13,17 +14,24 @@ class ClassNode(
 
     val location get() = source.location
 
-    private val _subTypes = ConcurrentLinkedQueue<ClassNode>()
+    private val _subTypes = PersistentHashSet<ClassNode>()
 
     val subTypes: List<ClassNode> get() = _subTypes.toList()
 
     fun addSubType(subTypeNode: ClassNode) {
-        _subTypes.add(subTypeNode)
+        _subTypes.writeFinally {
+            add(subTypeNode)
+        }
     }
 
     fun removeSubTypesOfVersion(version: String) {
         val toBeRemoved = subTypes.filter { it.location.id == version }.toSet()
-        _subTypes.removeAll(toBeRemoved)
+        _subTypes.writeFinally {
+            toBeRemoved.forEach {
+                remove(it)
+            }
+        }
+
     }
 
     suspend fun info() = source.meta()

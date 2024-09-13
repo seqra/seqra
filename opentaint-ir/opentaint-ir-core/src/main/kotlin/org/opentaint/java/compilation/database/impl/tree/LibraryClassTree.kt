@@ -9,7 +9,7 @@ import org.opentaint.java.compilation.database.impl.fs.ClassByteCodeSource
 /**
  * this class tree is not THREAD SAFE
  */
-class LibraryClassTree(private val location: ByteCodeLocation, listeners: List<ClassTreeListener>? = null) :
+class LibraryClassTree(private val location: ByteCodeLocation) :
     AbstractClassTree<LibraryPackageNode, LibraryClassNode>() {
 
     override val rootNode = LibraryPackageNode(null, null, location.id)
@@ -30,8 +30,8 @@ class LibraryClassTree(private val location: ByteCodeLocation, listeners: List<C
         }
     }
 
-    fun pushInto(classTree: ClassTree) {
-        rootNode.mergeInto(classTree.rootNode)
+    fun pushInto(classTree: ClassTree): Map<String, ClassNode> {
+        return rootNode.mergeInto(classTree.rootNode)
     }
 
 }
@@ -45,38 +45,41 @@ class LibraryPackageNode(folderName: String?, parent: LibraryPackageNode?, priva
     // simpleName -> (version -> node)
     internal val classes = HashMap<String, LibraryClassNode>()
 
-    fun asPackageNode(parent: PackageNode): PackageNode {
+    fun asPackageNode(parent: PackageNode, loadedClasses: MutableMap<String, ClassNode>): PackageNode {
         return PackageNode(name, parent).also { packageNode ->
             packageNode.subpackages.writeFinally {
                 subpackages.forEach { (key, node) ->
-                    put(key, node.asPackageNode(packageNode))
+                    put(key, node.asPackageNode(packageNode, loadedClasses))
                 }
             }
             packageNode.classes.writeFinally {
                 classes.forEach { (key, node) ->
-                    put(key, newClassMap(node, packageNode))
+                    put(key, newClassMap(node, packageNode, loadedClasses))
                 }
             }
         }
     }
 
-    private fun newClassMap(node: LibraryClassNode, packageNode: PackageNode): Persistent23TreeMap<String, ClassNode> {
+    private fun newClassMap(node: LibraryClassNode, packageNode: PackageNode, loadedClasses: MutableMap<String, ClassNode>): Persistent23TreeMap<String, ClassNode> {
         return Persistent23TreeMap<String, ClassNode>().also {
             it.writeFinally {
-                put(version, node.asClassNode(packageNode))
+                node.asClassNode(packageNode).also {
+                    put(version, it)
+                    loadedClasses[it.fullName] = it
+                }
             }
         }
     }
 
-    fun mergeInto(global: PackageNode) {
+    fun mergeInto(global: PackageNode, loadedClasses: MutableMap<String, ClassNode> = hashMapOf()): Map<String, ClassNode> {
         val library = this
         global.subpackages.writeFinally {
             library.subpackages.forEach { (name, subNode) ->
                 val globalSubPackage = get(name)
                 if (globalSubPackage == null) {
-                    put(name, subNode.asPackageNode(global))
+                    put(name, subNode.asPackageNode(global, loadedClasses))
                 } else {
-                    subNode.mergeInto(globalSubPackage)
+                    subNode.mergeInto(globalSubPackage, loadedClasses)
                 }
             }
         }
@@ -84,14 +87,18 @@ class LibraryPackageNode(folderName: String?, parent: LibraryPackageNode?, priva
             library.classes.forEach { (name, subNode) ->
                 val classNode = get(name)
                 if (classNode == null) {
-                    put(name, newClassMap(subNode, global))
+                    put(name, newClassMap(subNode, global, loadedClasses))
                 } else {
+                    val asClassNode = subNode.asClassNode(global).also {
+                        loadedClasses[it.fullName] = it
+                    }
                     classNode.writeFinally {
-                        put(subNode.version, subNode.asClassNode(global))
+                        put(subNode.version, asClassNode)
                     }
                 }
             }
         }
+        return loadedClasses
     }
 }
 

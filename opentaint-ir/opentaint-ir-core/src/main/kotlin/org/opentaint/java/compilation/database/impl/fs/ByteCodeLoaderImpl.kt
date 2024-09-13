@@ -42,15 +42,11 @@ class ClassLoadingContainerImpl(
  * load sync part into the tree and returns lambda that will do async part
  */
 suspend fun ByteCodeLoader.load(classTree: ClassTree): Pair<LibraryClassTree, suspend () -> Unit> {
-    val libraryTree = LibraryClassTree(location, classTree.listeners)
+    val libraryTree = LibraryClassTree(location)
     val sync = allResources()
     sync.classesToLoad.forEach {
         ClassByteCodeSource(location = location, it.key).also { source ->
             libraryTree.addClass(source)
-//            it.value?.let {
-//                source.preLoad(it)
-////                classTree.notifyOnMetaLoaded(node)
-//            }
         }
     }
     sync.close()
@@ -61,7 +57,6 @@ suspend fun ByteCodeLoader.load(classTree: ClassTree): Pair<LibraryClassTree, su
             val stream = entry.value
             if (stream != null && node != null) {
                 node.source.preLoad(stream)
-//                classTree.notifyOnMetaLoaded(node)
             }
         }
         async?.close()

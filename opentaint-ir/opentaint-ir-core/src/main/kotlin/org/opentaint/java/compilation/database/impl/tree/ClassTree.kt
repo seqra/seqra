@@ -60,9 +60,9 @@ open class ClassTree(internal val listeners: List<ClassTreeListener>? = null) {
         rootNode.visit(visitor)
     }
 
-    suspend fun notifyOnMetaLoaded(classNodeWithLoadedMeta: ClassNode) {
+    suspend fun notifyOnByteCodeLoaded(classNodeWithLoadedByteCode: ClassNode) {
         listeners?.forEach {
-            it.notifyOnMetaLoaded(classNodeWithLoadedMeta, this)
+            it.notifyOnByteCodeLoaded(classNodeWithLoadedByteCode, this)
         }
     }
 
