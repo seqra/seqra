@@ -105,7 +105,7 @@ class LibraryPackageNode(folderName: String?, parent: LibraryPackageNode?, priva
 class LibraryClassNode(
     simpleName: String,
     packageNode: LibraryPackageNode,
-    private val source: ClassByteCodeSource
+    val source: ClassByteCodeSource
 ) : AbstractNode<LibraryPackageNode>(simpleName, packageNode) {
 
     override val name: String = simpleName

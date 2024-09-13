@@ -24,20 +24,20 @@ open class JarFileLocationImpl(
 
     override suspend fun loader(): ByteCodeLoader? {
         try {
-            val sync = jarClasses() ?: return null
-            val classes = sync.second.mapValues { (className, jar) ->
+            val content = jarWithClasses ?: return null
+            val jar = content.jar
+            val classes = content.classes.mapValues { (className, entry) ->
                 when (className.matchesOneOf(syncLoadClassesOnlyFrom)) {
-                    true -> jar.first.getInputStream(jar.second)
+                    true -> jar.getInputStream(entry)
                     else -> null // lazy
                 }
             }
-            val allClasses = LoadingContainerImpl(classes) { sync.first.close() }
+            val allClasses = ClassLoadingContainerImpl(classes)
             return ByteCodeLoaderImpl(this, allClasses) {
-                val (jar, foundClasses) = jarClasses() ?: return@ByteCodeLoaderImpl null
-                LoadingContainerImpl(foundClasses.filterKeys { className ->
+                ClassLoadingContainerImpl(content.classes.filterKeys { className ->
                     !className.matchesOneOf(syncLoadClassesOnlyFrom)
-                }.mapValues { (_, jar) ->
-                    jar.first.getInputStream(jar.second)
+                }.mapValues { (_, entry) ->
+                    jar.getInputStream(entry)
                 }) {
                     jar.close()
                 }
@@ -60,14 +60,17 @@ open class JarFileLocationImpl(
         }
     }
 
-    protected open fun jarClasses(): Pair<JarFile, Map<String, Pair<JarFile, JarEntry>>>? {
-        val jarFile = jarFile() ?: return null
-
-        return jarFile to jarFile.stream().filter { it.name.endsWith(".class") }.map {
-            val className = it.name.removeSuffix(".class").replace("/", ".")
-            className to (jarFile to it)
-        }.toList().toMap()
-    }
+    protected open val jarWithClasses: JarWithClasses?
+        get() {
+            val jarFile = jarFile() ?: return null
+            return JarWithClasses(
+                jar = jarFile,
+                classes = jarFile.stream().filter { it.name.endsWith(".class") }.map {
+                    val className = it.name.removeSuffix(".class").replace("/", ".")
+                    className to it
+                }.toList().toMap()
+            )
+        }
 
     private fun jarFile(): JarFile? {
         if (!file.exists() || !file.isFile) {
@@ -84,3 +87,8 @@ open class JarFileLocationImpl(
 
     override fun toString(): String = file.absolutePath
 }
+
+class JarWithClasses(
+    val jar: JarFile,
+    val classes: Map<String, JarEntry>
+)

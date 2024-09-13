@@ -46,7 +46,10 @@ suspend fun ByteCodeLoader.load(classTree: ClassTree): Pair<LibraryClassTree, su
     val sync = allResources()
     sync.classesToLoad.forEach {
         ClassByteCodeSource(location = location, it.key).also { source ->
-            libraryTree.addClass(source)
+            val libraryNode = libraryTree.addClass(source)
+            it.value?.let {
+                libraryNode.source.preLoad(it)
+            }
         }
     }
     sync.close()
