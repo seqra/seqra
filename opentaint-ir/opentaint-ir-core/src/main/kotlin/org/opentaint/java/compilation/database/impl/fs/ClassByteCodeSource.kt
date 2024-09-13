@@ -10,10 +10,10 @@ import org.objectweb.asm.tree.FieldNode
 import org.objectweb.asm.tree.MethodNode
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
 import org.opentaint.java.compilation.database.impl.suspendableLazy
-import org.opentaint.java.compilation.database.impl.types.AnnotationMetaInfo
-import org.opentaint.java.compilation.database.impl.types.ClassMetaInfo
-import org.opentaint.java.compilation.database.impl.types.FieldMetaInfo
-import org.opentaint.java.compilation.database.impl.types.MethodMetaInfo
+import org.opentaint.java.compilation.database.impl.types.AnnotationInfo
+import org.opentaint.java.compilation.database.impl.types.ClassInfo
+import org.opentaint.java.compilation.database.impl.types.FieldInfo
+import org.opentaint.java.compilation.database.impl.types.MethodInfo
 import java.io.InputStream
 import java.lang.ref.SoftReference
 
@@ -26,12 +26,12 @@ class ClassByteCodeSource(
     private var fullNodeRef: SoftReference<ClassNode>? = null // this is a soft reference to fully loaded ASM class node
     private var preloadedNode: ClassNode? = null  // this is a preloaded instance loaded only for
 
-    private val lazyMeta = suspendableLazy {
+    private val lazyClassInfo = suspendableLazy {
         val node = preloadedNode ?: getOrLoadFullClassNode()
         node.asClassInfo()
     }
 
-    suspend fun meta() = lazyMeta()
+    suspend fun info() = lazyClassInfo()
 
     private suspend fun getOrLoadFullClassNode(): ClassNode {
         val cached = fullNodeRef?.get()
@@ -58,7 +58,7 @@ class ClassByteCodeSource(
         preloadedNode = classNode
     }
 
-    private fun ClassNode.asClassInfo() = ClassMetaInfo(
+    private fun ClassNode.asClassInfo() = ClassInfo(
         name = Type.getObjectType(name).className,
         access = access,
         superClass = superName?.let { Type.getObjectType(it).className },
@@ -73,11 +73,11 @@ class ClassByteCodeSource(
         return classNode.methods.first { it.name == methodName && it.desc == methodDesc }
     }
 
-    private fun AnnotationNode.asAnnotationInfo() = AnnotationMetaInfo(
+    private fun AnnotationNode.asAnnotationInfo() = AnnotationInfo(
         className = Type.getType(desc).className
     )
 
-    private fun MethodNode.asMethodInfo() = MethodMetaInfo(
+    private fun MethodNode.asMethodInfo() = MethodInfo(
         name = name,
         desc = desc,
         access = access,
@@ -86,7 +86,7 @@ class ClassByteCodeSource(
         annotations = visibleAnnotations.orEmpty().map { it.asAnnotationInfo() }.toImmutableList()
     )
 
-    private fun FieldNode.asFieldInfo() = FieldMetaInfo(
+    private fun FieldNode.asFieldInfo() = FieldInfo(
         name = name,
         access = access,
         type = Type.getType(desc).className,

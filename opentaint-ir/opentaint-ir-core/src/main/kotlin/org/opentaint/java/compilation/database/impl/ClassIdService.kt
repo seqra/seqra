@@ -7,7 +7,7 @@ import org.opentaint.java.compilation.database.impl.tree.ClassNode
 import org.opentaint.java.compilation.database.impl.tree.ClasspathClassTree
 import org.opentaint.java.compilation.database.impl.types.ClassIdImpl
 import org.opentaint.java.compilation.database.impl.types.MethodIdImpl
-import org.opentaint.java.compilation.database.impl.types.MethodMetaInfo
+import org.opentaint.java.compilation.database.impl.types.MethodInfo
 import org.opentaint.java.compilation.database.impl.types.PredefinedPrimitive
 
 class ClassIdService(private val classpathClassTree: ClasspathClassTree) {
@@ -30,7 +30,7 @@ class ClassIdService(private val classpathClassTree: ClasspathClassTree) {
         return toClassId(classpathClassTree.firstClassOrNull(fullName))
     }
 
-    fun toMethodId(classId: ClassId, methodInfo: MethodMetaInfo, node: ClassNode): MethodId {
+    fun toMethodId(classId: ClassId, methodInfo: MethodInfo, node: ClassNode): MethodId {
         return MethodIdImpl(methodInfo, node, classId, this)
     }
 

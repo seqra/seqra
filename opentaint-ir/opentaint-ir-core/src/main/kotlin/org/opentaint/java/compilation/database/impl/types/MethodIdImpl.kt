@@ -7,7 +7,7 @@ import org.opentaint.java.compilation.database.impl.ClassIdService
 import org.opentaint.java.compilation.database.impl.tree.ClassNode
 
 class MethodIdImpl(
-    private val methodInfo: MethodMetaInfo,
+    private val methodInfo: MethodInfo,
     private val classNode: ClassNode,
     override val classId: ClassId,
     private val classIdService: ClassIdService

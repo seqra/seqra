@@ -2,14 +2,14 @@ package org.opentaint.java.compilation.database.impl.tree
 
 object SubTypesInstallationListener : ClassTreeListener {
 
-    override suspend fun notifyOnByteCodeLoaded(classNodeWithLoadedMeta: ClassNode, classTree: ClassTree) {
-        val superClass = classNodeWithLoadedMeta.info().superClass?.takeIf {
+    override suspend fun notifyOnByteCodeLoaded(nodeWithLoadedByteCode: ClassNode, classTree: ClassTree) {
+        val superClass = nodeWithLoadedByteCode.info().superClass?.takeIf {
             it != "java.lang.Object"
         } ?: return
-        classTree.addSubtypeOf(classNodeWithLoadedMeta, superClass)
+        classTree.addSubtypeOf(nodeWithLoadedByteCode, superClass)
 
-        classNodeWithLoadedMeta.info().interfaces.forEach {
-            classTree.addSubtypeOf(classNodeWithLoadedMeta, it)
+        nodeWithLoadedByteCode.info().interfaces.forEach {
+            classTree.addSubtypeOf(nodeWithLoadedByteCode, it)
         }
     }
 

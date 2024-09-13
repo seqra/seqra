@@ -15,7 +15,6 @@ class ClassNode(
     val location get() = source.location
 
     private val _subTypes = PersistentHashSet<ClassNode>()
-
     val subTypes: List<ClassNode> get() = _subTypes.toList()
 
     fun addSubType(subTypeNode: ClassNode) {
@@ -34,6 +33,6 @@ class ClassNode(
 
     }
 
-    suspend fun info() = source.meta()
+    suspend fun info() = source.info()
 
 }
