@@ -43,13 +43,13 @@ open class JarFileLocationImpl(
                 }
             }
         } catch (e: Exception) {
-            logger.warn(e) { "error loading classes from build folder: ${file.absolutePath}. returning empty loader" }
+            logger.warn(e) { "error loading classes from jar: ${file.absolutePath}. returning empty loader" }
             return null
         }
     }
 
     override suspend fun resolve(classFullName: String): InputStream? {
-        val jar = jarFile() ?: return null
+        val jar = jarFile ?: return null
         val jarEntryName = classFullName.replace(".", "/") + ".class"
         val jarEntry = jar.getJarEntry(jarEntryName)
         return object : BufferedInputStream(jar.getInputStream(jarEntry)) {
@@ -62,28 +62,29 @@ open class JarFileLocationImpl(
 
     protected open val jarWithClasses: JarWithClasses?
         get() {
-            val jarFile = jarFile() ?: return null
+            val jar = jarFile ?: return null
             return JarWithClasses(
-                jar = jarFile,
-                classes = jarFile.stream().filter { it.name.endsWith(".class") }.map {
+                jar = jar,
+                classes = jar.stream().filter { it.name.endsWith(".class") }.map {
                     val className = it.name.removeSuffix(".class").replace("/", ".")
                     className to it
                 }.toList().toMap()
             )
         }
 
-    private fun jarFile(): JarFile? {
-        if (!file.exists() || !file.isFile) {
-            return null
-        }
+    private val jarFile: JarFile?
+        get() {
+            if (!file.exists() || !file.isFile) {
+                return null
+            }
 
-        try {
-            return JarFile(file)
-        } catch (e: Exception) {
-            logger.warn(e) { "error processing jar located ${file.absolutePath}" }
-            return null
+            try {
+                return JarFile(file)
+            } catch (e: Exception) {
+                logger.warn(e) { "error processing jar ${file.absolutePath}" }
+                return null
+            }
         }
-    }
 
     override fun toString(): String = file.absolutePath
 }

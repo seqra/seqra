@@ -78,7 +78,7 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
         }
 
         backgroundJobs.add(BackgroundScope.launch {
-            actions.map { (location, action) ->
+            actions.map { (_, action) ->
                 async {
                     action()
                 }
