@@ -1,27 +1,28 @@
 package org.opentaint.java.compilation.database.impl.tree
 
+import jetbrains.exodus.core.dataStructures.persistent.Persistent23TreeMap
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
 import org.opentaint.java.compilation.database.impl.fs.ClassByteCodeSource
 
-open class ClassTree(internal val listeners: List<ClassTreeListener>? = null) {
+open class ClassTree(internal val listeners: List<ClassTreeListener>? = null): AbstractClassTree<PackageNode, ClassNode>() {
 
-    internal val rootNode = PackageNode(null, null)
+    public override val rootNode = PackageNode(null, null)
 
-    fun addClass(source: ClassByteCodeSource): ClassNode {
-        val splitted = source.className.splitted
-        val simpleClassName = splitted[splitted.size - 1]
-        val version = source.location.id
-        if (splitted.size == 1) {
-            return rootNode.findClassOrNew(simpleClassName, version, source)
+    override fun PackageNode.findClassOrNew(
+        simpleClassName: String,
+        version: String,
+        source: ClassByteCodeSource
+    ): ClassNode {
+        val nameIndex = classes.getOrPut(simpleClassName) {
+            Persistent23TreeMap()
         }
-        var node = rootNode
-        var index = 0
-        while (index < splitted.size - 1) {
-            val subfolderName = splitted[index]
-            node = node.findPackageOrNew(subfolderName)
-            index++
+        return nameIndex.getOrPut(version) { ClassNode(simpleClassName, this, source) }
+    }
+
+    override fun PackageNode.findPackageOrNew(subfolderName: String): PackageNode {
+        return subpackages.getOrPut(subfolderName) {
+            PackageNode(subfolderName, this)
         }
-        return node.findClassOrNew(simpleClassName, version, source)
     }
 
     fun findClassNodeOrNull(codeLocation: ByteCodeLocation, fullName: String): ClassNode? {
@@ -66,5 +67,4 @@ open class ClassTree(internal val listeners: List<ClassTreeListener>? = null) {
         }
     }
 
-    private val String.splitted get() = this.split(".")
 }
