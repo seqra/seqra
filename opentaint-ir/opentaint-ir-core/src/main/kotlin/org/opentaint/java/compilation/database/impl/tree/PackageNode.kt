@@ -52,9 +52,6 @@ class PackageNode(folderName: String?, parent: PackageNode?) : AbstractNode<Pack
             forEach {
                 it.value.writeFinally {
                     remove(locationId)
-                    forEach {
-                        it.value.removeSubTypesOf(locationId)
-                    }
                 }
             }
         }

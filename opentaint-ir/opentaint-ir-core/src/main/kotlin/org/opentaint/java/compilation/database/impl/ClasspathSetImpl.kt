@@ -8,6 +8,7 @@ import org.opentaint.java.compilation.database.impl.tree.ClasspathClassTree
 
 class ClasspathSetImpl(
     private val locationsRegistrySnapshot: LocationsRegistrySnapshot,
+    private val indexesRegistry: IndexesRegistry,
     private val db: CompilationDatabaseImpl,
     classTree: ClassTree
 ) : ClasspathSet {
@@ -23,9 +24,8 @@ class ClasspathSetImpl(
 
     override suspend fun findSubTypesOf(name: String): List<ClassId> {
         db.awaitBackgroundJobs()
-        return classpathClassTree.findSubTypesOf(name)
-            .map { classIdService.toClassId(it) }
-            .filterNotNull()
+        val subTypes = locations.flatMap { indexesRegistry.subClassesIndex(it)?.query(name).orEmpty() }
+        return subTypes.mapNotNull { findClassOrNull(it) }
     }
 
     override fun close() {

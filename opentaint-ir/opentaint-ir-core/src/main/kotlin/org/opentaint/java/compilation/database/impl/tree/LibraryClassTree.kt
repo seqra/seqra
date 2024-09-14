@@ -9,7 +9,7 @@ import org.opentaint.java.compilation.database.impl.fs.ClassByteCodeSource
 /**
  * this class tree is NOT THREAD SAFE
  */
-class LibraryClassTree(private val location: ByteCodeLocation) :
+class LibraryClassTree(val location: ByteCodeLocation) :
     AbstractClassTree<LibraryPackageNode, LibraryClassNode>() {
 
     override val rootNode = LibraryPackageNode(null, null, location.id)

@@ -23,15 +23,22 @@ class ClassByteCodeSource(
     val className: String
 ) {
 
-    private var fullNodeRef: SoftReference<ClassNode>? = null // this is a soft reference to fully loaded ASM class node
-    private var preloadedNode: ClassNode? = null  // this is a preloaded instance loaded only for
+    // this is a soft reference to fully loaded ASM class node
+    private var fullNodeRef: SoftReference<ClassNode>? = null
+
+    // this is a preloaded instance loaded only for
+    private var preloadedNode: ClassNode? = null
 
     private val lazyClassInfo = suspendableLazy {
-        val node = preloadedNode ?: getOrLoadFullClassNode()
-        node.asClassInfo()
+        lazyClassNode().asClassInfo()
     }
 
-    suspend fun info() = lazyClassInfo()
+    private val lazyClassNode = suspendableLazy {
+        preloadedNode ?: getOrLoadFullClassNode()
+    }
+
+    suspend fun info(): ClassInfo = lazyClassInfo()
+    suspend fun asmNode() = lazyClassNode()
 
     private suspend fun getOrLoadFullClassNode(): ClassNode {
         val cached = fullNodeRef?.get()

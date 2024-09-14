@@ -4,7 +4,7 @@ import jetbrains.exodus.core.dataStructures.persistent.Persistent23TreeMap
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
 import org.opentaint.java.compilation.database.impl.fs.ClassByteCodeSource
 
-open class ClassTree(internal val listeners: List<ClassTreeListener>? = null): AbstractClassTree<PackageNode, ClassNode>() {
+open class ClassTree: AbstractClassTree<PackageNode, ClassNode>() {
 
     public override val rootNode = PackageNode(null, null)
 
@@ -58,12 +58,6 @@ open class ClassTree(internal val listeners: List<ClassTreeListener>? = null): A
 
     fun visit(visitor: NodeVisitor) {
         rootNode.visit(visitor)
-    }
-
-    suspend fun notifyOnByteCodeLoaded(classNodeWithLoadedByteCode: ClassNode) {
-        listeners?.forEach {
-            it.notifyOnByteCodeLoaded(classNodeWithLoadedByteCode, this)
-        }
     }
 
 }

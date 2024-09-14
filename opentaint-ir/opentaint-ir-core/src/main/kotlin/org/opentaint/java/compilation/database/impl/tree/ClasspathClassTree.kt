@@ -24,10 +24,4 @@ class ClasspathClassTree(
             locationIds.contains(it)
         }
     }
-
-    fun findSubTypesOf(fullName: String): List<ClassNode> {
-        return firstClassOrNull(fullName)?.subTypes.orEmpty().filter {
-            locationIds.contains(it.location.id)
-        }
-    }
 }

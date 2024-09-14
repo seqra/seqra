@@ -7,7 +7,7 @@ import java.io.Closeable
 /**
  * registry of locations for CompilationDatabase
  */
-class LocationsRegistry {
+class LocationsRegistry(private val indexesRegistry: IndexesRegistry) {
 
     // all loaded locations
     internal val locations = HashSet<ByteCodeLocation>()
@@ -30,6 +30,7 @@ class LocationsRegistry {
                 val hasReferences = location.hasReferences()
                 if (!hasReferences) {
                     locations.remove(location)
+                    indexesRegistry.removeIndexes(location)
                 } else {
                     usedButOutdated.add(location)
                 }

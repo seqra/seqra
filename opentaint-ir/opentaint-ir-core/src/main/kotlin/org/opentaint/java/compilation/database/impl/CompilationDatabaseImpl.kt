@@ -12,7 +12,6 @@ import org.opentaint.java.compilation.database.impl.fs.filterExisted
 import org.opentaint.java.compilation.database.impl.fs.load
 import org.opentaint.java.compilation.database.impl.tree.ClassTree
 import org.opentaint.java.compilation.database.impl.tree.RemoveLocationsVisitor
-import org.opentaint.java.compilation.database.impl.tree.SubTypesInstallationListener
 import java.io.File
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -24,10 +23,11 @@ object BackgroundScope : CoroutineScope {
 class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings) : CompilationDatabase {
     companion object : KLogging()
 
-    private val classTree = ClassTree(listeners = listOf(SubTypesInstallationListener))
+    private val classTree = ClassTree()
     internal val javaRuntime = JavaRuntime(settings.jre)
 
-    internal val registry = LocationsRegistry()
+    internal val indexesRegistry = IndexesRegistry()
+    internal val registry = LocationsRegistry(indexesRegistry)
 
     private val backgroundJobs: Queue<Job> = ConcurrentLinkedQueue()
 
@@ -39,8 +39,10 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
         val existedLocations = dirOrJars.filterExisted().map { it.asByteCodeLocation() }.also {
             it.loadAll()
         }
+        val classpathSetLocations = existedLocations.toList() + javaRuntime.allLocations
         return ClasspathSetImpl(
-            registry.snapshot(existedLocations.toList() + javaRuntime.allLocations),
+            registry.snapshot(classpathSetLocations),
+            indexesRegistry,
             this,
             classTree
         )
@@ -73,19 +75,20 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
                 }
             }
         }.awaitAll().filterNotNull()
-        val addedClasses = libraryTrees.flatMap {
-            it.pushInto(classTree).values
-        }
+        val locationClasses = libraryTrees.map {
+            it.location to it.pushInto(classTree).values
+        }.toMap()
 
         backgroundJobs.add(BackgroundScope.launch {
-            actions.map { (_, action) ->
+            actions.map { (location, action) ->
                 async {
                     action()
+                    val addedClasses = locationClasses[location]
+                    if (addedClasses != null) {
+                        indexesRegistry.index(location, addedClasses)
+                    }
                 }
             }.joinAll()
-            addedClasses.forEach {
-                classTree.notifyOnByteCodeLoaded(it)
-            }
         })
     }
 
