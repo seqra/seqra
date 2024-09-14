@@ -23,8 +23,8 @@ class ClassNode(
         }
     }
 
-    fun removeSubTypesOfVersion(version: String) {
-        val toBeRemoved = subTypes.filter { it.location.id == version }.toSet()
+    fun removeSubTypesOf(locationId: String) {
+        val toBeRemoved = subTypes.filter { it.location.id == locationId }.toSet()
         _subTypes.writeFinally {
             toBeRemoved.forEach {
                 remove(it)

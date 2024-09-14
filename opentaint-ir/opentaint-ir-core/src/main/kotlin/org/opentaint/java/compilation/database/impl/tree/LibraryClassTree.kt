@@ -7,7 +7,7 @@ import org.opentaint.java.compilation.database.impl.fs.ClassByteCodeSource
 
 
 /**
- * this class tree is not THREAD SAFE
+ * this class tree is NOT THREAD SAFE
  */
 class LibraryClassTree(private val location: ByteCodeLocation) :
     AbstractClassTree<LibraryPackageNode, LibraryClassNode>() {
@@ -16,7 +16,6 @@ class LibraryClassTree(private val location: ByteCodeLocation) :
 
     override fun LibraryPackageNode.findClassOrNew(
         simpleClassName: String,
-        version: String,
         source: ClassByteCodeSource
     ): LibraryClassNode {
         return classes.getOrPut(simpleClassName) {
@@ -42,7 +41,7 @@ class LibraryPackageNode(folderName: String?, parent: LibraryPackageNode?, priva
     // folderName -> subpackage
     internal val subpackages = HashMap<String, LibraryPackageNode>()
 
-    // simpleName -> (version -> node)
+    // simpleName -> node
     internal val classes = HashMap<String, LibraryClassNode>()
 
     fun asPackageNode(parent: PackageNode, loadedClasses: MutableMap<String, ClassNode>): PackageNode {

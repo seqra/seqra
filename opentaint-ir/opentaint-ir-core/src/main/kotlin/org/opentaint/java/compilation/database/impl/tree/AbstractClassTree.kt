@@ -9,9 +9,8 @@ abstract class AbstractClassTree<PACKAGE_NODE : AbstractNode<PACKAGE_NODE>, CLAS
     fun addClass(source: ClassByteCodeSource): CLASS_NODE {
         val splitted = source.className.splitted
         val simpleClassName = splitted[splitted.size - 1]
-        val version = source.location.id
         if (splitted.size == 1) {
-            return rootNode.findClassOrNew(simpleClassName, version, source)
+            return rootNode.findClassOrNew(simpleClassName, source)
         }
         var node = rootNode
         var index = 0
@@ -20,10 +19,10 @@ abstract class AbstractClassTree<PACKAGE_NODE : AbstractNode<PACKAGE_NODE>, CLAS
             node = node.findPackageOrNew(subfolderName)
             index++
         }
-        return node.findClassOrNew(simpleClassName, version, source)
+        return node.findClassOrNew(simpleClassName, source)
     }
 
-    abstract fun PACKAGE_NODE.findClassOrNew(simpleClassName: String, version: String, source: ClassByteCodeSource): CLASS_NODE
+    abstract fun PACKAGE_NODE.findClassOrNew(simpleClassName: String, source: ClassByteCodeSource): CLASS_NODE
     abstract fun PACKAGE_NODE.findPackageOrNew(subfolderName: String): PACKAGE_NODE
 
     protected val String.splitted get() = this.split(".")

@@ -10,13 +10,12 @@ open class ClassTree(internal val listeners: List<ClassTreeListener>? = null): A
 
     override fun PackageNode.findClassOrNew(
         simpleClassName: String,
-        version: String,
         source: ClassByteCodeSource
     ): ClassNode {
         val nameIndex = classes.getOrPut(simpleClassName) {
             Persistent23TreeMap()
         }
-        return nameIndex.getOrPut(version) { ClassNode(simpleClassName, this, source) }
+        return nameIndex.getOrPut(source.location.id) { ClassNode(simpleClassName, this, source) }
     }
 
     override fun PackageNode.findPackageOrNew(subfolderName: String): PackageNode {

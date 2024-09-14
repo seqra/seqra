@@ -53,14 +53,14 @@ class ClassTreeTest {
     }
 
     @Test
-    fun `dropping versions`() {
+    fun `dropping locations`() {
         val limitedTree = ClasspathClassTree(classTree, persistentListOf(lib1))
 
         classTree.addClass(lib2.classSource("xxx.Simple"))
         classTree.addClass(lib1.classSource("xxx.Simple"))
         classTree.addClass(lib2.classSource("xxx.zzz.Simple"))
 
-        classTree.visit(RemoveVersionsVisitor(setOf(lib2)))
+        classTree.visit(RemoveLocationsVisitor(setOf(lib2)))
 
         with(limitedTree.firstClassOrNull("xxx.Simple")) {
             assertNotNull(this!!)
@@ -71,14 +71,14 @@ class ClassTreeTest {
         assertNull(limitedTree.firstClassOrNull("xxx.zzz.Simple"))
     }
     @Test
-    fun `total version dropping`() {
+    fun `total locations dropping`() {
         val limitedTree = ClasspathClassTree(classTree, persistentListOf(lib1))
 
         classTree.addClass(lib2.classSource("xxx.Simple"))
         classTree.addClass(lib1.classSource("xxx.Simple"))
         classTree.addClass(lib2.classSource("xxx.zzz.Simple"))
 
-        classTree.visit(RemoveVersionsVisitor(setOf(lib1, lib2)))
+        classTree.visit(RemoveLocationsVisitor(setOf(lib1, lib2)))
 
         assertNull(limitedTree.firstClassOrNull("xxx.Simple"))
     }

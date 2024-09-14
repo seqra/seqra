@@ -2,7 +2,6 @@ package org.opentaint.java.compilation.database.impl.fs
 
 import mu.KLogging
 import org.opentaint.java.compilation.database.api.ByteCodeLoader
-import org.opentaint.java.compilation.database.api.md5
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.InputStream
@@ -17,7 +16,7 @@ open class JarFileLocationImpl(
     companion object : KLogging()
 
     override fun getCurrentId(): String {
-        return (file.absolutePath + file.lastModified()).md5()
+        return file.absolutePath + file.lastModified()
     }
 
     override fun createRefreshed() = JarFileLocationImpl(file, syncLoadClassesOnlyFrom)

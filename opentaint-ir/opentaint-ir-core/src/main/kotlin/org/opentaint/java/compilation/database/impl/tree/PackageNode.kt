@@ -10,7 +10,7 @@ class PackageNode(folderName: String?, parent: PackageNode?) : AbstractNode<Pack
     // folderName -> subpackage
     internal val subpackages = Persistent23TreeMap<String, PackageNode>()
 
-    // simpleName -> (version -> node)
+    // simpleName -> (locationId -> node)
     internal val classes = Persistent23TreeMap<String, Persistent23TreeMap<String, ClassNode>>()
 
     fun findPackageOrNull(subfolderName: String): PackageNode? {
@@ -19,10 +19,10 @@ class PackageNode(folderName: String?, parent: PackageNode?) : AbstractNode<Pack
         }
     }
 
-    fun firstClassOrNull(className: String, version: String): ClassNode? {
+    fun firstClassOrNull(className: String, locationId: String): ClassNode? {
         return classes.read {
             get(className)?.read {
-                get(version)
+                get(locationId)
             }
         }
     }
@@ -34,8 +34,8 @@ class PackageNode(folderName: String?, parent: PackageNode?) : AbstractNode<Pack
     }
 
     fun firstClassOrNull(className: String, predicate: (String) -> Boolean): ClassNode? {
-        val versioned = classes.beginRead().get(className) ?: return null
-        return versioned.read {
+        val locationsClasses = classes.beginRead().get(className) ?: return null
+        return locationsClasses.read {
             asSequence().firstOrNull { predicate(it.key) }
         }?.value
     }
@@ -47,17 +47,13 @@ class PackageNode(folderName: String?, parent: PackageNode?) : AbstractNode<Pack
         }
     }
 
-
-    fun dropVersion(version: String) {
-        subpackages.writeFinally {
-            remove(version)
-        }
+    fun dropLocation(locationId: String) {
         classes.writeFinally {
             forEach {
                 it.value.writeFinally {
-                    remove(version)
+                    remove(locationId)
                     forEach {
-                        it.value.removeSubTypesOfVersion(version)
+                        it.value.removeSubTypesOf(locationId)
                     }
                 }
             }

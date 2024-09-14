@@ -11,7 +11,7 @@ import org.opentaint.java.compilation.database.impl.fs.asByteCodeLocation
 import org.opentaint.java.compilation.database.impl.fs.filterExisted
 import org.opentaint.java.compilation.database.impl.fs.load
 import org.opentaint.java.compilation.database.impl.tree.ClassTree
-import org.opentaint.java.compilation.database.impl.tree.RemoveVersionsVisitor
+import org.opentaint.java.compilation.database.impl.tree.RemoveLocationsVisitor
 import org.opentaint.java.compilation.database.impl.tree.SubTypesInstallationListener
 import java.io.File
 import java.util.*
@@ -95,7 +95,7 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
             listOf(it).loadAll()
         }
         val outdatedLocations = registry.cleanup()
-        classTree.visit(RemoveVersionsVisitor(outdatedLocations))
+        classTree.visit(RemoveLocationsVisitor(outdatedLocations))
     }
 
     override fun watchFileSystemChanges(): CompilationDatabase {

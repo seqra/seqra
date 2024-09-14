@@ -2,7 +2,6 @@ package org.opentaint.java.compilation.database.impl.fs
 
 import mu.KLogging
 import org.opentaint.java.compilation.database.api.ByteCodeLoader
-import org.opentaint.java.compilation.database.api.md5
 import java.io.File
 import java.io.InputStream
 import java.nio.file.Files
@@ -25,7 +24,7 @@ class BuildFolderLocationImpl(
             }
             true
         }
-        return (folder.absolutePath + lastModifiedDate).md5()
+        return folder.absolutePath + lastModifiedDate
     }
 
     override fun createRefreshed() = BuildFolderLocationImpl(folder, loadClassesOnlyFrom)

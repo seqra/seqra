@@ -22,10 +22,10 @@ interface NodeVisitor {
     fun visitPackageNode(packageNode: PackageNode) {}
 }
 
-class RemoveVersionsVisitor(private val locations: Set<ByteCodeLocation>) : NodeVisitor {
+class RemoveLocationsVisitor(private val locations: Set<ByteCodeLocation>) : NodeVisitor {
     override fun visitPackageNode(packageNode: PackageNode) {
         locations.forEach {
-            packageNode.dropVersion(it.id)
+            packageNode.dropLocation(it.id)
         }
     }
 
