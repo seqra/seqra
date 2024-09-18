@@ -167,6 +167,9 @@ interface FieldId : Accessible {
     /** field name */
     val name: String
 
+    /** class of this field */
+    val classId: ClassId
+
     /** field type */
     suspend fun type(): ClassId?
 
@@ -200,7 +203,44 @@ interface ClasspathSet : Closeable {
      * @return list of direct subclasses if they are exists in classpath or empty list
      */
     suspend fun findSubTypesOf(name: String): List<ClassId>
+
+    /**
+     * @param classId classId of super class
+     * @return list of direct subclasses if they are exists in classpath or empty list
+     */
+    suspend fun findSubTypesOf(classId: ClassId): List<ClassId>
+
+    /**
+     * find all methods
+     *
+     * @param fieldId field
+     * @param mode mode of search
+     */
+    suspend fun findUsages(fieldId: FieldId, mode: FindUsageMode): List<MethodId>
 }
+
+
+/**
+ * Restrictions on demanded modificators
+ */
+enum class FindUsageMode {
+
+    /**
+     * Search for all field modificators
+     */
+    ALL,
+
+    /**
+     * Search setters and possible direct accesses
+     */
+    SETTERS_AND_DIRECT_ACCESS,
+
+    /**
+     * Search constructors only
+     */
+    CONSTRUCTORS,
+}
+
 
 /**
  * Compilation database for

@@ -35,7 +35,7 @@ class ClassIdImpl(private val node: ClassNode, private val classIdService: Class
     }
 
     private val lazyFields = suspendableLazy {
-        node.info().fields.map { FieldIdImpl(it, classIdService) }
+        node.info().fields.map { FieldIdImpl(this, it, classIdService) }
     }
 
     override suspend fun access() = node.info().access

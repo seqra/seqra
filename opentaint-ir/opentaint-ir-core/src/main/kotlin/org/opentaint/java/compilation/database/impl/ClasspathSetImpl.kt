@@ -1,8 +1,6 @@
 package org.opentaint.java.compilation.database.impl
 
-import org.opentaint.java.compilation.database.api.ByteCodeLocation
-import org.opentaint.java.compilation.database.api.ClassId
-import org.opentaint.java.compilation.database.api.ClasspathSet
+import org.opentaint.java.compilation.database.api.*
 import org.opentaint.java.compilation.database.impl.tree.ClassTree
 import org.opentaint.java.compilation.database.impl.tree.ClasspathClassTree
 
@@ -28,9 +26,16 @@ class ClasspathSetImpl(
         return subTypes.mapNotNull { findClassOrNull(it) }
     }
 
+    override suspend fun findSubTypesOf(classId: ClassId): List<ClassId> {
+        return findSubTypesOf(classId.name)
+    }
+
+    override suspend fun findUsages(fieldId: FieldId, mode: FindUsageMode): List<MethodId> {
+        return emptyList()
+    }
+
     override fun close() {
         locationsRegistrySnapshot.close()
     }
-
 
 }

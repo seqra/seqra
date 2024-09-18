@@ -1,9 +1,11 @@
 package org.opentaint.java.compilation.database.impl.types
 
+import org.opentaint.java.compilation.database.api.ClassId
 import org.opentaint.java.compilation.database.api.FieldId
 import org.opentaint.java.compilation.database.impl.ClassIdService
 
 class FieldIdImpl(
+    override val classId: ClassId,
     private val info: FieldInfo,
     private val classIdService: ClassIdService
 ) : FieldId {
