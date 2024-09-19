@@ -10,8 +10,10 @@ import org.opentaint.java.compilation.database.api.isPrivate
 import org.opentaint.java.compilation.database.api.isPublic
 import org.opentaint.java.compilation.database.compilationDatabase
 import org.w3c.dom.DocumentType
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
-class DatabaseTest: LibrariesMixin {
+class DatabaseTest : LibrariesMixin {
 
     @Test
     fun `find class from build dir folder`() = runBlocking {
@@ -93,7 +95,15 @@ class DatabaseTest: LibrariesMixin {
         assertNotNull(domClass!!)
 
         with(cp.findSubTypesOf(java.util.AbstractMap::class.java.name)) {
-            assertTrue(size > 10)
+            assertTrue(size > 10) {
+                "expected more then 10 but got only: ${joinToString { it.name }}"
+            }
+
+            assertNotNull(firstOrNull { it.name == EnumMap::class.java.name })
+            assertNotNull(firstOrNull { it.name == HashMap::class.java.name })
+            assertNotNull(firstOrNull { it.name == WeakHashMap::class.java.name })
+            assertNotNull(firstOrNull { it.name == TreeMap::class.java.name })
+            assertNotNull(firstOrNull { it.name == ConcurrentHashMap::class.java.name })
         }
 
         with(cp.findSubTypesOf(org.w3c.dom.Document::class.java.name)) {

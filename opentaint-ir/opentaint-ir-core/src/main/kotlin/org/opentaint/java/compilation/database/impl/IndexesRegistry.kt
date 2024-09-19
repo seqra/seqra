@@ -23,15 +23,8 @@ class IndexesRegistry {
         indexes.remove(location)
     }
 
-//    fun snapshot(locations: List<ByteCodeLocation>): Map<ByteCodeLocation, Map<String, ByteCodeLocationIndex<*>>> {
-//        return indexes.filterKeys {
-//            locations.contains(it)
-//        }
-//    }
-
     fun subClassesIndex(location: ByteCodeLocation): ByteCodeLocationIndex<String>? {
         return indexes[location]?.get(SubClassesIndex.KEY) as? ByteCodeLocationIndex<String>
     }
-
 
 }
