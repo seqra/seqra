@@ -15,7 +15,6 @@ import org.opentaint.java.compilation.database.impl.types.ClassInfo
 import org.opentaint.java.compilation.database.impl.types.FieldInfo
 import org.opentaint.java.compilation.database.impl.types.MethodInfo
 import java.io.InputStream
-import java.lang.ref.SoftReference
 
 // todo inner/outer classes?
 class ClassByteCodeSource(
@@ -23,32 +22,31 @@ class ClassByteCodeSource(
     val className: String
 ) {
 
-    // this is a soft reference to fully loaded ASM class node
-    private var fullNodeRef: SoftReference<ClassNode>? = null
+//    // this is a soft reference to fully loaded ASM class node
+//    private var fullNodeRef: SoftReference<ClassNode>? = null
 
-    // this is a preloaded instance loaded only for
-    private var preloadedNode: ClassNode? = null
+    private var cachedClassNode: ClassNode? = null
 
     private val lazyClassInfo = suspendableLazy {
         lazyClassNode().asClassInfo()
     }
 
     private val lazyClassNode = suspendableLazy {
-        preloadedNode ?: getOrLoadFullClassNode()
+        cachedClassNode ?: getOrLoadFullClassNode()
     }
 
     suspend fun info(): ClassInfo = lazyClassInfo()
     suspend fun asmNode() = lazyClassNode()
 
     private suspend fun getOrLoadFullClassNode(): ClassNode {
-        val cached = fullNodeRef?.get()
+        val cached = cachedClassNode
         if (cached == null) {
             val bytes = classInputStream()?.use { it.readBytes() }
             bytes ?: throw IllegalStateException("can't find bytecode for class $className in $location")
             val classNode = ClassNode(Opcodes.ASM9).also {
                 ClassReader(bytes).accept(it, ClassReader.EXPAND_FRAMES)
             }
-            fullNodeRef = SoftReference(classNode)
+            cachedClassNode = classNode
             return classNode
         }
         return cached
@@ -58,11 +56,11 @@ class ClassByteCodeSource(
         return location.resolve(className)
     }
 
-    fun preLoad(initialInput: InputStream) {
+    fun load(initialInput: InputStream) {
         val bytes = initialInput.use { it.readBytes() }
         val classNode = ClassNode(Opcodes.ASM9)
-        ClassReader(bytes).accept(classNode, ClassReader.SKIP_CODE)
-        preloadedNode = classNode
+        ClassReader(bytes).accept(classNode, ClassReader.EXPAND_FRAMES)
+        cachedClassNode = classNode
     }
 
     private fun ClassNode.asClassInfo() = ClassInfo(

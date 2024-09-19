@@ -6,16 +6,16 @@ import java.io.File
 
 val logger = object : KLogging() {}.logger
 
-fun File.asByteCodeLocation(loadClassesOnlyFrom: List<String>? = null): ByteCodeLocation {
+fun File.asByteCodeLocation(loadClassesOnlyFrom: List<String>? = null, isRuntime: Boolean = false): ByteCodeLocation {
     if (!exists()) {
         throw IllegalArgumentException("file $absolutePath doesn't exist")
     }
     if (isFile && name.endsWith(".jar")) {
-        return JarFileLocationImpl(this, loadClassesOnlyFrom?.toList())
+        return JarLocation(this, loadClassesOnlyFrom?.toList(), isRuntime)
     } else if (isFile && name.endsWith(".jmod")) {
-        return JmodByteCodeLocation(this, loadClassesOnlyFrom?.toList())
+        return JmodLocation(this, loadClassesOnlyFrom?.toList())
     } else if (!isFile) {
-        return BuildFolderLocationImpl(this, loadClassesOnlyFrom)
+        return BuildFolderLocation(this, loadClassesOnlyFrom)
     }
     throw IllegalArgumentException("file $absolutePath is not jar-file nor build dir folder")
 }

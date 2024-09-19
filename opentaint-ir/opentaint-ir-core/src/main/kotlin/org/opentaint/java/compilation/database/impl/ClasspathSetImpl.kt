@@ -1,6 +1,7 @@
 package org.opentaint.java.compilation.database.impl
 
 import org.opentaint.java.compilation.database.api.*
+import org.opentaint.java.compilation.database.impl.fs.relevantLocations
 import org.opentaint.java.compilation.database.impl.tree.ClassTree
 import org.opentaint.java.compilation.database.impl.tree.ClasspathClassTree
 
@@ -21,13 +22,17 @@ class ClasspathSetImpl(
     }
 
     override suspend fun findSubTypesOf(name: String): List<ClassId> {
-        db.awaitBackgroundJobs()
-        val subTypes = locations.flatMap { indexesRegistry.subClassesIndex(it)?.query(name).orEmpty() }
-        return subTypes.mapNotNull { findClassOrNull(it) }
+        val classId = findClassOrNull(name) ?: return emptyList()
+        return findSubTypesOf(classId)
     }
 
     override suspend fun findSubTypesOf(classId: ClassId): List<ClassId> {
-        return findSubTypesOf(classId.name)
+        db.awaitBackgroundJobs()
+        val name = classId.name
+        val subTypes = locations.relevantLocations(classId.location).flatMap {
+            indexesRegistry.subClassesIndex(it)?.query(name).orEmpty()
+        }
+        return subTypes.mapNotNull { findClassOrNull(it) }
     }
 
     override suspend fun findUsages(fieldId: FieldId, mode: FindUsageMode): List<MethodId> {

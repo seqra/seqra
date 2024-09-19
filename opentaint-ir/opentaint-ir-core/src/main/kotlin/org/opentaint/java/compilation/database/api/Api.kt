@@ -59,6 +59,8 @@ interface ByteCodeLocation {
      */
     val id: String
 
+    val scope: LocationScope
+
     /**
      * this operation may involve file-system operations and may be expensive
      *
@@ -83,6 +85,11 @@ interface ByteCodeLocation {
      * loader for loading all classes from this location
      */
     suspend fun loader(): ByteCodeLoader?
+}
+
+enum class LocationScope {
+    RUNTIME,
+    APP
 }
 
 /**
@@ -230,7 +237,7 @@ interface ClasspathSet : Closeable {
 
 
 /**
- * Restrictions on demanded modificators
+ * Restrictions on usage findings
  */
 enum class FindUsageMode {
 
@@ -247,7 +254,7 @@ enum class FindUsageMode {
     /**
      * Search constructors only
      */
-    CONSTRUCTORS,
+    CONSTRUCTORS
 }
 
 

@@ -2,6 +2,7 @@ package org.opentaint.java.compilation.database.impl.fs
 
 import mu.KLogging
 import org.opentaint.java.compilation.database.api.ByteCodeLoader
+import org.opentaint.java.compilation.database.api.LocationScope
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.InputStream
@@ -9,17 +10,21 @@ import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import kotlin.streams.toList
 
-open class JarFileLocationImpl(
+open class JarLocation(
     protected val file: File,
-    protected val syncLoadClassesOnlyFrom: List<String>?
+    protected val syncLoadClassesOnlyFrom: List<String>?,
+    private val isRuntime: Boolean
 ) : AbstractByteCodeLocation() {
     companion object : KLogging()
+
+    override val scope: LocationScope
+        get() = LocationScope.RUNTIME.takeIf { isRuntime } ?: LocationScope.RUNTIME
 
     override fun getCurrentId(): String {
         return file.absolutePath + file.lastModified()
     }
 
-    override fun createRefreshed() = JarFileLocationImpl(file, syncLoadClassesOnlyFrom)
+    override fun createRefreshed() = JarLocation(file, syncLoadClassesOnlyFrom, isRuntime)
 
     override suspend fun loader(): ByteCodeLoader? {
         try {

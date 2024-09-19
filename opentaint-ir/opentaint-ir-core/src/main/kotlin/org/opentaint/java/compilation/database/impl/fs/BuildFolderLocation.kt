@@ -2,18 +2,22 @@ package org.opentaint.java.compilation.database.impl.fs
 
 import mu.KLogging
 import org.opentaint.java.compilation.database.api.ByteCodeLoader
+import org.opentaint.java.compilation.database.api.LocationScope
 import java.io.File
 import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.streams.asSequence
 
-class BuildFolderLocationImpl(
+class BuildFolderLocation(
     private val folder: File,
     private val loadClassesOnlyFrom: List<String>?
 ) : AbstractByteCodeLocation() {
 
     companion object : KLogging()
+
+    override val scope: LocationScope
+        get() = LocationScope.APP
 
     override fun getCurrentId(): String {
         var lastModifiedDate = folder.lastModified()
@@ -27,7 +31,7 @@ class BuildFolderLocationImpl(
         return folder.absolutePath + lastModifiedDate
     }
 
-    override fun createRefreshed() = BuildFolderLocationImpl(folder, loadClassesOnlyFrom)
+    override fun createRefreshed() = BuildFolderLocation(folder, loadClassesOnlyFrom)
 
     override suspend fun loader(): ByteCodeLoader? {
         try {

@@ -37,7 +37,7 @@ class JavaRuntime(private val javaHome: File) {
             .listFiles { file -> file.name.endsWith(".jar") || file.name.endsWith(".jmod") }
             .orEmpty()
             .toList()
-            .map { it.asByteCodeLocation(loadedPackages) }
+            .map { it.asByteCodeLocation(loadedPackages, true) }
     }
 
 }

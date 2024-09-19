@@ -3,10 +3,10 @@ package org.opentaint.java.compilation.database.impl.fs
 import java.io.File
 import java.io.InputStream
 
-class JmodByteCodeLocation(file: File, syncLoadClassesOnlyFrom: List<String>?) :
-    JarFileLocationImpl(file, syncLoadClassesOnlyFrom) {
+class JmodLocation(file: File, syncLoadClassesOnlyFrom: List<String>?) :
+    JarLocation(file, syncLoadClassesOnlyFrom, true) {
 
-    override fun createRefreshed() = JmodByteCodeLocation(file, syncLoadClassesOnlyFrom)
+    override fun createRefreshed() = JmodLocation(file, syncLoadClassesOnlyFrom)
 
     override val jarWithClasses: JarWithClasses?
         get() {

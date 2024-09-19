@@ -12,7 +12,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.opentaint.java.compilation.database.api.ClasspathSet
 import org.opentaint.java.compilation.database.compilationDatabase
-import org.opentaint.java.compilation.database.impl.fs.BuildFolderLocationImpl
+import org.opentaint.java.compilation.database.impl.fs.BuildFolderLocation
 import java.io.File
 import java.nio.file.Files
 import java.util.*
@@ -56,7 +56,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
         withRegistry {
             assertEquals(1, snapshots.size)
             assertEquals(1, usedButOutdated.size)
-            assertEquals(1, locations.filterIsInstance<BuildFolderLocationImpl>().size)
+            assertEquals(1, locations.filterIsInstance<BuildFolderLocation>().size)
         }
 
         assertNotNull(cp.findClassOrNull(Foo::class.java.name))
@@ -65,7 +65,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
         withRegistry {
             assertTrue(snapshots.isEmpty())
             assertTrue(usedButOutdated.isEmpty())
-            assertTrue(locations.all { it !is BuildFolderLocationImpl })
+            assertTrue(locations.all { it !is BuildFolderLocation })
         }
     }
 

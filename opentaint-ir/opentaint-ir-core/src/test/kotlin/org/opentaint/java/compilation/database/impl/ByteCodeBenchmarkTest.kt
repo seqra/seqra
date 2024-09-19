@@ -59,7 +59,7 @@ class ByteCodeBenchmarkTest : LibrariesMixin {
 
         // let's count
         repeat(repeats) {
-            measure("$it", action)
+            measure("$name $it", action)
             Thread.sleep(1_000)
         }
     }

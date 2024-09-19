@@ -3,6 +3,7 @@ package org.opentaint.java.compilation.database.impl.fs
 import org.opentaint.java.compilation.database.api.ByteCodeLoader
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
 import org.opentaint.java.compilation.database.api.ClassLoadingContainer
+import org.opentaint.java.compilation.database.api.LocationScope
 import org.opentaint.java.compilation.database.impl.tree.ClassTree
 import org.opentaint.java.compilation.database.impl.tree.LibraryClassTree
 import java.io.InputStream
@@ -48,7 +49,7 @@ suspend fun ByteCodeLoader.load(classTree: ClassTree): Pair<LibraryClassTree, su
         ClassByteCodeSource(location = location, it.key).also { source ->
             val libraryNode = libraryTree.addClass(source)
             it.value?.let {
-                libraryNode.source.preLoad(it)
+                libraryNode.source.load(it)
             }
         }
     }
@@ -59,9 +60,22 @@ suspend fun ByteCodeLoader.load(classTree: ClassTree): Pair<LibraryClassTree, su
             val node = classTree.firstClassNodeOrNull(entry.key)
             val stream = entry.value
             if (stream != null && node != null) {
-                node.source.preLoad(stream)
+                node.source.load(stream)
             }
         }
         async?.close()
     }
+}
+
+/**
+ * limits scope for search base on location. That means that sometimes there is no need to search for subclasses of
+ * library class inside java runtime.
+ *
+ * @param location target location
+ */
+fun Collection<ByteCodeLocation>.relevantLocations(location: ByteCodeLocation?): Collection<ByteCodeLocation> {
+    if (location?.scope != LocationScope.APP) {
+        return this
+    }
+    return filter { it.scope == LocationScope.APP }
 }
