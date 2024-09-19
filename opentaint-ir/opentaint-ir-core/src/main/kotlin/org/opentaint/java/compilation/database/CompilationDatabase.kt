@@ -1,6 +1,7 @@
 package org.opentaint.java.compilation.database
 
 import org.opentaint.java.compilation.database.api.CompilationDatabase
+import org.opentaint.java.compilation.database.api.IndexInstaller
 import org.opentaint.java.compilation.database.impl.CompilationDatabaseImpl
 import java.io.File
 
@@ -30,6 +31,8 @@ class CompilationDatabaseSettings {
     var predefinedDirOrJars: List<File> = emptyList()
     /** mandatory setting for java location */
     lateinit var jre: File
+    /** index installers */
+    var additionalIndexes: List<IndexInstaller<*,*>> = emptyList()
     /** builder for persistent settings */
     fun persistent(settings: (CompilationDatabasePersistentSettings.() -> Unit) = {}) {
         persistentSettings = CompilationDatabasePersistentSettings().also(settings)
@@ -54,6 +57,13 @@ class CompilationDatabaseSettings {
     fun useProcessJavaRuntime() {
         val javaHome = System.getProperty("java.home") ?: throw IllegalArgumentException("java.home is not set")
         jre = javaHome.asValidJRE()
+    }
+
+    /**
+     * install additional indexes
+     */
+    fun installIndexes(vararg indexInstaller: IndexInstaller<*,*>){
+        additionalIndexes  = additionalIndexes + indexInstaller.toList()
     }
 
     private fun String.asValidJRE(): File {

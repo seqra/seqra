@@ -217,6 +217,15 @@ interface ClasspathSet : Closeable {
      * @param mode mode of search
      */
     suspend fun findUsages(fieldId: FieldId, mode: FindUsageMode): List<MethodId>
+
+    /**
+     * query index by specified term
+     *
+     * @param key index key
+     * @param term term for index
+     */
+    suspend fun <T> query(key: String, term: String): List<T>
+
 }
 
 

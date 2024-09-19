@@ -34,6 +34,11 @@ class ClasspathSetImpl(
         return emptyList()
     }
 
+    override suspend fun <T> query(key: String, term: String): List<T> {
+        db.awaitBackgroundJobs()
+        return locations.flatMap { indexesRegistry.findIndex<T>(key, it)?.query(term).orEmpty() }
+    }
+
     override fun close() {
         locationsRegistrySnapshot.close()
     }

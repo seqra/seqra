@@ -1,6 +1,8 @@
 package org.opentaint.java.compilation.database.impl.index
 
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
+import org.opentaint.java.compilation.database.api.ByteCodeLocationIndex
+import org.opentaint.java.compilation.database.api.ByteCodeLocationIndexBuilder
 import org.opentaint.java.compilation.database.impl.tree.ClassNode
 
 suspend fun <T> ByteCodeLocation.index(

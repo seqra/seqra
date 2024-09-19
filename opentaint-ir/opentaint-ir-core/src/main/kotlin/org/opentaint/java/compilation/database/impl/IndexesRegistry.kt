@@ -1,22 +1,27 @@
 package org.opentaint.java.compilation.database.impl
 
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
-import org.opentaint.java.compilation.database.impl.index.*
+import org.opentaint.java.compilation.database.api.ByteCodeLocationIndex
+import org.opentaint.java.compilation.database.api.IndexInstaller
+import org.opentaint.java.compilation.database.impl.index.SubClassesIndex
+import org.opentaint.java.compilation.database.impl.index.index
 import org.opentaint.java.compilation.database.impl.tree.ClassNode
 import java.util.concurrent.ConcurrentHashMap
 
-typealias IndexBuilder<T> = (ByteCodeLocation) -> ByteCodeLocationIndexBuilder<T>
+class IndexesRegistry(private val installers: List<IndexInstaller<*, *>>) {
 
-class IndexesRegistry {
     private val indexes = ConcurrentHashMap<ByteCodeLocation, ConcurrentHashMap<String, ByteCodeLocationIndex<*>>>()
-    private val subtypesIndexBuilder: IndexBuilder<String> = { SubClassesIndexBuilder(it) }
 
     suspend fun index(location: ByteCodeLocation, classes: Collection<ClassNode>) {
-        val subtypesIndex = location.index(classes, subtypesIndexBuilder)
-        val existedIndexes = indexes.getOrPut(location) {
-            ConcurrentHashMap()
+        installers.forEach { installer ->
+            val index = location.index(classes) {
+                installer.indexBuilderOf(it)
+            }
+            val existedIndexes = indexes.getOrPut(location) {
+                ConcurrentHashMap()
+            }
+            existedIndexes[index.key] = index
         }
-        existedIndexes[subtypesIndex.key] = subtypesIndex
     }
 
     fun removeIndexes(location: ByteCodeLocation) {
@@ -25,6 +30,10 @@ class IndexesRegistry {
 
     fun subClassesIndex(location: ByteCodeLocation): ByteCodeLocationIndex<String>? {
         return indexes[location]?.get(SubClassesIndex.KEY) as? ByteCodeLocationIndex<String>
+    }
+
+    fun <T> findIndex(key: String, location: ByteCodeLocation): ByteCodeLocationIndex<T>? {
+        return indexes[location]?.get(key) as? ByteCodeLocationIndex<T>
     }
 
 }

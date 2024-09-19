@@ -1,9 +1,13 @@
-package org.opentaint.java.compilation.database.impl.index
+package org.opentaint.java.compilation.database.api
 
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodNode
-import org.opentaint.java.compilation.database.api.ByteCodeLocation
+import java.io.InputStream
+import java.io.OutputStream
 
+/**
+ * index builder
+ */
 interface ByteCodeLocationIndexBuilder<T> {
 
     val location: ByteCodeLocation
@@ -24,3 +28,12 @@ interface ByteCodeLocationIndex<T> {
     fun query(term: String): Sequence<T>
 }
 
+interface IndexInstaller<T, INDEX: ByteCodeLocationIndex<T>> {
+
+    fun indexBuilderOf(location: ByteCodeLocation) : ByteCodeLocationIndexBuilder<T>
+
+    fun serialize(index: INDEX, out: OutputStream)
+
+    fun deserialize(stream: InputStream): INDEX?
+
+}

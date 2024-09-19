@@ -6,6 +6,11 @@ import org.objectweb.asm.Type
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodNode
 import org.opentaint.java.compilation.database.api.ByteCodeLocation
+import org.opentaint.java.compilation.database.api.ByteCodeLocationIndex
+import org.opentaint.java.compilation.database.api.ByteCodeLocationIndexBuilder
+import org.opentaint.java.compilation.database.api.IndexInstaller
+import java.io.InputStream
+import java.io.OutputStream
 
 class SubClassesIndexBuilder(override val location: ByteCodeLocation) : ByteCodeLocationIndexBuilder<String> {
 
@@ -83,3 +88,14 @@ class SubClassesIndex(
 }
 
 
+object SubClassIndex : IndexInstaller<String, SubClassesIndex> {
+
+    override fun indexBuilderOf(location: ByteCodeLocation) = SubClassesIndexBuilder(location)
+
+    override fun deserialize(stream: InputStream) = null
+
+    override fun serialize(index: SubClassesIndex, out: OutputStream) {
+        TODO()
+    }
+
+}
