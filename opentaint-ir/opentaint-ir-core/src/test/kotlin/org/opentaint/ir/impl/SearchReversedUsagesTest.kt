@@ -40,17 +40,17 @@ class SearchReversedUsagesTest : LibrariesMixin {
         assertEquals(
             sortedMapOf(
                 "a" to setOf(
-                    "org.opentaint.ir.impl.fields.FieldA#<init>",
-                    "org.opentaint.ir.impl.fields.FieldA#isPositive",
-                    "org.opentaint.ir.impl.fields.FieldA#useCPrivate",
-                    "org.opentaint.ir.impl.fields.FieldAImpl#hello"
+                    "org.opentaint.ir.impl.usages.fields.FieldA#<init>",
+                    "org.opentaint.ir.impl.usages.fields.FieldA#isPositive",
+                    "org.opentaint.ir.impl.usages.fields.FieldA#useCPrivate",
+                    "org.opentaint.ir.impl.usages.fields.FieldAImpl#hello"
                 ),
                 "b" to setOf(
-                    "org.opentaint.ir.impl.fields.FieldA#isPositive",
-                    "org.opentaint.ir.impl.fields.FieldA#useA",
+                    "org.opentaint.ir.impl.usages.fields.FieldA#isPositive",
+                    "org.opentaint.ir.impl.usages.fields.FieldA#useA",
                 ),
                 "fieldB" to setOf(
-                    "org.opentaint.ir.impl.fields.FieldA#useCPrivate",
+                    "org.opentaint.ir.impl.usages.fields.FieldA#useCPrivate",
                 )
             ),
             usages
@@ -63,14 +63,14 @@ class SearchReversedUsagesTest : LibrariesMixin {
         assertEquals(
             sortedMapOf(
                 "a" to setOf(
-                    "org.opentaint.ir.impl.fields.FieldA#<init>",
-                    "org.opentaint.ir.impl.fields.FieldA#useA",
+                    "org.opentaint.ir.impl.usages.fields.FieldA#<init>",
+                    "org.opentaint.ir.impl.usages.fields.FieldA#useA",
                 ),
                 "b" to setOf(
-                    "org.opentaint.ir.impl.fields.FieldA#<init>"
+                    "org.opentaint.ir.impl.usages.fields.FieldA#<init>"
                 ),
                 "fieldB" to setOf(
-                    "org.opentaint.ir.impl.fields.FieldA#<init>",
+                    "org.opentaint.ir.impl.usages.fields.FieldA#<init>",
                 )
             ),
             usages
@@ -83,10 +83,10 @@ class SearchReversedUsagesTest : LibrariesMixin {
         assertEquals(
             sortedMapOf(
                 "c" to setOf(
-                    "org.opentaint.ir.impl.fields.FakeFieldA#useCPrivate",
-                    "org.opentaint.ir.impl.fields.FieldA#useCPrivate",
-                    "org.opentaint.ir.impl.fields.FieldB#<init>",
-                    "org.opentaint.ir.impl.fields.FieldB#useCPrivate",
+                    "org.opentaint.ir.impl.usages.fields.FakeFieldA#useCPrivate",
+                    "org.opentaint.ir.impl.usages.fields.FieldA#useCPrivate",
+                    "org.opentaint.ir.impl.usages.fields.FieldB#<init>",
+                    "org.opentaint.ir.impl.usages.fields.FieldB#useCPrivate",
                 )
             ),
             usages
@@ -99,15 +99,15 @@ class SearchReversedUsagesTest : LibrariesMixin {
         assertEquals(
             sortedMapOf(
                 "<init>" to setOf(
-                    "org.opentaint.ir.impl.methods.MethodB#hoho",
-                    "org.opentaint.ir.impl.methods.MethodC#<init>"
+                    "org.opentaint.ir.impl.usages.methods.MethodB#hoho",
+                    "org.opentaint.ir.impl.usages.methods.MethodC#<init>"
                 ),
                 "hello" to setOf(
-                    "org.opentaint.ir.impl.methods.MethodB#hoho",
-                    "org.opentaint.ir.impl.methods.MethodC#hello",
+                    "org.opentaint.ir.impl.usages.methods.MethodB#hoho",
+                    "org.opentaint.ir.impl.usages.methods.MethodC#hello",
                 ),
                 "hello1" to setOf(
-                    "org.opentaint.ir.impl.methods.MethodB#hoho"
+                    "org.opentaint.ir.impl.usages.methods.MethodB#hoho"
                 )
             ),
             usages
