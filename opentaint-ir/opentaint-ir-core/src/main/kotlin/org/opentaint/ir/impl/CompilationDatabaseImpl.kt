@@ -16,6 +16,7 @@ import org.opentaint.ir.impl.tree.RemoveLocationsVisitor
 import java.io.File
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicBoolean
 
 object BackgroundScope : CoroutineScope {
     override val coroutineContext = Dispatchers.IO + SupervisorJob()
@@ -32,11 +33,15 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
 
     private val backgroundJobs: Queue<Job> = ConcurrentLinkedQueue()
 
+    private val isClosed = AtomicBoolean()
+
     suspend fun loadJavaLibraries() {
+        assertNotClosed()
         javaRuntime.allLocations.loadAll()
     }
 
     override suspend fun classpathSet(dirOrJars: List<File>): ClasspathSet {
+        assertNotClosed()
         val existedLocations = dirOrJars.filterExisted().map { it.asByteCodeLocation() }.also {
             it.loadAll()
         }
@@ -50,6 +55,7 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
     }
 
     fun classpathSet(locations: List<ByteCodeLocation>): ClasspathSet {
+        assertNotClosed()
         val classpathSetLocations = locations.toSet() + javaRuntime.allLocations
         return ClasspathSetImpl(
             registry.snapshot(classpathSetLocations.toList()),
@@ -60,10 +66,12 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
     }
 
     override suspend fun load(dirOrJar: File) = apply {
+        assertNotClosed()
         load(listOf(dirOrJar))
     }
 
     override suspend fun load(dirOrJars: List<File>) = apply {
+        assertNotClosed()
         dirOrJars.filterExisted().map { it.asByteCodeLocation() }.loadAll()
     }
 
@@ -127,5 +135,16 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
 
     suspend override fun awaitBackgroundJobs() {
         backgroundJobs.toList().joinAll()
+    }
+
+    override fun close() {
+        isClosed.set(true)
+        registry.close()
+    }
+
+    private fun assertNotClosed() {
+        if (isClosed.get()) {
+            throw IllegalStateException("Database is already closed")
+        }
     }
 }

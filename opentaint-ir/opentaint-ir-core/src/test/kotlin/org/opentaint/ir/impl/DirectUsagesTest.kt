@@ -31,7 +31,7 @@ class DirectUsagesTest : LibrariesMixin {
         @AfterAll
         @JvmStatic
         fun close() {
-            cp.close()
+            db.close()
         }
 
     }

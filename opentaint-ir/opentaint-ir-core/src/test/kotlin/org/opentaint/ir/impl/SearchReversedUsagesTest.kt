@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.CompilationDatabase
 import org.opentaint.ir.api.FieldUsageMode
 import org.opentaint.ir.compilationDatabase
 import org.opentaint.ir.impl.index.ReversedUsagesIndex
@@ -21,11 +22,12 @@ class SearchReversedUsagesTest : LibrariesMixin {
     companion object : LibrariesMixin {
 
         private lateinit var cp: ClasspathSet
+        private lateinit var db: CompilationDatabase
 
         @BeforeAll
         @JvmStatic
         fun setup() = runBlocking {
-            val db = compilationDatabase {
+            db = compilationDatabase {
                 predefinedDirOrJars = allClasspath
                 useProcessJavaRuntime()
                 installIndexes(ReversedUsagesIndex)
@@ -36,7 +38,7 @@ class SearchReversedUsagesTest : LibrariesMixin {
         @AfterAll
         @JvmStatic
         fun close() {
-            cp.close()
+            db.close()
         }
     }
 

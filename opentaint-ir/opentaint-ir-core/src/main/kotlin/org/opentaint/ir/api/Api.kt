@@ -274,8 +274,10 @@ enum class FieldUsageMode {
 
 /**
  * Compilation database for
+ *
+ * `close` method should be called when database is not needed anymore
  */
-interface CompilationDatabase {
+interface CompilationDatabase : Closeable {
 
     /**
      * create classpath instance

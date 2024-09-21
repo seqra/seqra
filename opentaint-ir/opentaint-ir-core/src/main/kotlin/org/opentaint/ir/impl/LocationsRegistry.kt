@@ -7,7 +7,7 @@ import java.io.Closeable
 /**
  * registry of locations for CompilationDatabase
  */
-class LocationsRegistry(private val indexesRegistry: IndexesRegistry) {
+class LocationsRegistry(private val indexesRegistry: IndexesRegistry): Closeable {
 
     // all loaded locations
     internal val locations = HashSet<ByteCodeLocation>()
@@ -75,6 +75,15 @@ class LocationsRegistry(private val indexesRegistry: IndexesRegistry) {
     private fun ByteCodeLocation.hasReferences(): Boolean {
         return snapshots.isNotEmpty() && snapshots.any { it.locations.contains(this) }
     }
+
+    override fun close() {
+        synchronized(this) {
+            locations.clear()
+            usedButOutdated.clear()
+            snapshots.clear()
+        }
+    }
+
 }
 
 class LocationsRegistrySnapshot(
