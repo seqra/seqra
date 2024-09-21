@@ -91,6 +91,17 @@ open class JarLocation(
         }
 
     override fun toString(): String = file.absolutePath
+
+    override fun equals(other: Any?): Boolean {
+        if (other == null || other !is JarLocation) {
+            return false
+        }
+        return other.file == file
+    }
+
+    override fun hashCode(): Int {
+        return file.hashCode()
+    }
 }
 
 class JarWithClasses(

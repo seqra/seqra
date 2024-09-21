@@ -1,4 +1,4 @@
-package org.opentaint.ir.impl.methods;
+package org.opentaint.ir.impl.usages.methods;
 
 public class MethodB {
 

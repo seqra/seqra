@@ -80,4 +80,15 @@ class BuildFolderLocation(
     }
 
     override fun toString() = folder.absolutePath
+
+    override fun equals(other: Any?): Boolean {
+        if (other == null || other !is BuildFolderLocation) {
+            return false
+        }
+        return other.folder == folder
+    }
+
+    override fun hashCode(): Int {
+        return folder.hashCode()
+    }
 }

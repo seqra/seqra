@@ -1,6 +1,7 @@
 package org.opentaint.ir.api
 
 import org.objectweb.asm.Opcodes
+import org.objectweb.asm.tree.MethodNode
 
 /**
  * is item has `public` modifier
@@ -92,3 +93,21 @@ suspend fun MethodId.isStrict(): Boolean {
 fun MethodId.isConstructor(): Boolean {
     return name == "<init>"
 }
+
+/**
+ * find field by name
+ */
+suspend fun ClassId.findFieldOrNull(name: String): FieldId? = fields().firstOrNull { it.name == name }
+
+/**
+ * find method by name and description
+ */
+suspend fun ClassId.findMethodOrNull(name: String, desc: String): MethodId? =
+    methods().firstOrNull { it.name == name && it.description() == desc }
+
+/**
+ * find method by ASM node
+ */
+suspend fun ClassId.findMethodOrNull(methodNode: MethodNode): MethodId? =
+    methods().firstOrNull { it.name == methodNode.name && it.description() == methodNode.desc }
+

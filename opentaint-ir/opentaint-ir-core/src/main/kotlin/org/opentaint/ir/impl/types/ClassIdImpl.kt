@@ -53,4 +53,15 @@ class ClassIdImpl(private val node: ClassNode, private val classIdService: Class
     override suspend fun annotations() = lazyAnnotations()
 
     override suspend fun fields() = lazyFields()
+
+    override fun equals(other: Any?): Boolean {
+        if (other == null || other !is ClassIdImpl) {
+            return false
+        }
+        return other.name == name && other.location == location
+    }
+
+    override fun hashCode(): Int {
+        return 31 * location.hashCode() + name.hashCode()
+    }
 }

@@ -42,4 +42,17 @@ class MethodIdImpl(
         }
         return classNode.source.loadMethod(name, methodInfo.desc)
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (other == null || other !is MethodIdImpl) {
+            return false
+        }
+        return other.name == name && classId == other.classId && methodInfo.desc == other.methodInfo.desc
+    }
+
+    override fun hashCode(): Int {
+        return 31 * classId.hashCode() + name.hashCode()
+    }
+
+
 }

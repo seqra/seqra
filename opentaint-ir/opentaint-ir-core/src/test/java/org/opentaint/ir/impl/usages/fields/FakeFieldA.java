@@ -1,4 +1,4 @@
-package org.opentaint.ir.impl.fields;
+package org.opentaint.ir.impl.usages.fields;
 
 
 public class FakeFieldA {

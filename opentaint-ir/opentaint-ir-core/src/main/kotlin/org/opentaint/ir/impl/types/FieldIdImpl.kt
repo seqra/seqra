@@ -19,7 +19,6 @@ class FieldIdImpl(
 
     private val lazyAnnotations by lazy(LazyThreadSafetyMode.NONE) {
         info.annotations.mapNotNull { classIdService.toClassId(it.className) }
-
     }
 
     override suspend fun access() = info.access
@@ -27,4 +26,14 @@ class FieldIdImpl(
 
     override suspend fun annotations() = lazyAnnotations
 
+    override fun equals(other: Any?): Boolean {
+        if (other == null || other !is FieldIdImpl) {
+            return false
+        }
+        return other.name == name && other.classId == classId
+    }
+
+    override fun hashCode(): Int {
+        return 31 * classId.hashCode() + name.hashCode()
+    }
 }

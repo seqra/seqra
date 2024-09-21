@@ -9,11 +9,11 @@ import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.ClasspathSet
 import org.opentaint.ir.api.FieldUsageMode
 import org.opentaint.ir.compilationDatabase
-import org.opentaint.ir.impl.fields.FieldA
-import org.opentaint.ir.impl.fields.FieldB
 import org.opentaint.ir.impl.index.ReversedUsagesIndex
 import org.opentaint.ir.impl.index.reversedUsagesExt
-import org.opentaint.ir.impl.methods.MethodA
+import org.opentaint.ir.impl.usages.fields.FieldA
+import org.opentaint.ir.impl.usages.fields.FieldB
+import org.opentaint.ir.impl.usages.methods.MethodA
 
 class SearchReversedUsagesTest : LibrariesMixin {
 
@@ -32,7 +32,6 @@ class SearchReversedUsagesTest : LibrariesMixin {
             cp = db.classpathSet(allClasspath)
         }
     }
-
 
     @Test
     fun `classes read fields`() {
@@ -114,10 +113,6 @@ class SearchReversedUsagesTest : LibrariesMixin {
             usages
         )
     }
-
-
-
-
 
     private inline fun <reified T> fieldsUsages(mode: FieldUsageMode = FieldUsageMode.WRITE): Map<String, Set<String>> {
         return runBlocking {

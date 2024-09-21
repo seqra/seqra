@@ -1,9 +1,6 @@
 package org.opentaint.ir.impl.index
 
-import org.opentaint.ir.api.ByteCodeLocation
-import org.opentaint.ir.api.ClassId
-import org.opentaint.ir.api.ClasspathSet
-import org.opentaint.ir.api.CompilationDatabase
+import org.opentaint.ir.api.*
 import org.opentaint.ir.impl.fs.relevantLocations
 
 class SubClassesExtension(private val db: CompilationDatabase, private val cp: ClasspathSet) {
@@ -19,6 +16,15 @@ class SubClassesExtension(private val db: CompilationDatabase, private val cp: C
         val relevantLocations = cp.locations.relevantLocations(classId.location)
 
         return relevantLocations.subClasses(name, allHierarchy).map { cp.findClassOrNull(it) }.filterNotNull()
+    }
+
+    suspend fun findOverrides(methodId: MethodId): List<MethodId> {
+        db.awaitBackgroundJobs()
+        return emptyList()
+//        val name = classId.name
+//        val relevantLocations = cp.locations.relevantLocations(classId.location)
+//
+//        return relevantLocations.subClasses(name, allHierarchy).map { cp.findClassOrNull(it) }.filterNotNull()
     }
 
     private suspend fun Collection<ByteCodeLocation>.subClasses(name: String, allHierarchy: Boolean): List<String> {
