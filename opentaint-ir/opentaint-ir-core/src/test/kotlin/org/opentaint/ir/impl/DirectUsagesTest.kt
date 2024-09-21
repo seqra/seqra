@@ -56,7 +56,7 @@ class DirectUsagesTest : LibrariesMixin {
     @Test
     fun `find methods used in method with broken classpath`() {
         val cp = runBlocking {
-            db.classpathSet(allJars - guavaLib)
+            db.classpathSet(allClasspath - guavaLib)
         }
         val usages = cp.methodsUsages<DirectA>()
 
@@ -74,6 +74,7 @@ class DirectUsagesTest : LibrariesMixin {
             ),
             usages
         )
+        cp.close()
     }
 
     @Test
