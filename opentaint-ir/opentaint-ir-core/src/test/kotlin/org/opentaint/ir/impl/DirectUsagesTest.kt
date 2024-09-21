@@ -2,11 +2,8 @@ package org.opentaint.ir.impl
 
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.ClasspathSet
 import org.opentaint.ir.api.CompilationDatabase
 import org.opentaint.ir.compilationDatabase
@@ -30,6 +27,13 @@ class DirectUsagesTest : LibrariesMixin {
             }
             cp = db.classpathSet(allClasspath)
         }
+
+        @AfterAll
+        @JvmStatic
+        fun close() {
+            cp.close()
+        }
+
     }
 
     @Test
@@ -58,23 +62,24 @@ class DirectUsagesTest : LibrariesMixin {
         val cp = runBlocking {
             db.classpathSet(allClasspath - guavaLib)
         }
-        val usages = cp.methodsUsages<DirectA>()
+        cp.use {
+            val usages = cp.methodsUsages<DirectA>()
 
-        assertEquals(
-            listOf(
-                "<init>" to listOf("java.lang.Object#<init>"),
-                "setCalled" to listOf(
-                    "java.io.PrintStream#println",
+            assertEquals(
+                listOf(
+                    "<init>" to listOf("java.lang.Object#<init>"),
+                    "setCalled" to listOf(
+                        "java.io.PrintStream#println",
+                    ),
+                    "newSmth" to listOf(
+                        "java.lang.Integer#valueOf",
+                        "java.util.ArrayList#add",
+                        "java.io.PrintStream#println",
+                    )
                 ),
-                "newSmth" to listOf(
-                    "java.lang.Integer#valueOf",
-                    "java.util.ArrayList#add",
-                    "java.io.PrintStream#println",
-                )
-            ),
-            usages
-        )
-        cp.close()
+                usages
+            )
+        }
     }
 
     @Test

@@ -1,6 +1,7 @@
 package org.opentaint.ir.impl
 
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -30,6 +31,12 @@ class SearchReversedUsagesTest : LibrariesMixin {
                 installIndexes(ReversedUsagesIndex)
             }
             cp = db.classpathSet(allClasspath)
+        }
+
+        @AfterAll
+        @JvmStatic
+        fun close() {
+            cp.close()
         }
     }
 
