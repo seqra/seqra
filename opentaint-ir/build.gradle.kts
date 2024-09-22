@@ -78,8 +78,18 @@ java {
 }
 
 publishing {
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/Opentaint/java-compilation-database")
+            credentials {
+                username = project.findProperty("gprUser") ?: System.getenv("USERNAME")
+                password = project.findProperty("gprKey") ?: System.getenv("TOKEN")
+            }
+        }
+    }
     publications {
-        jar(MavenPublication) {
+        gpr(MavenPublication) {
             from components.java
             groupId 'org.opentaint'
             artifactId project.name
