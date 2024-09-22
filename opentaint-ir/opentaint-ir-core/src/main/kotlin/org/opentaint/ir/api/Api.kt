@@ -31,6 +31,10 @@ interface ClassId : Accessible {
 
     suspend fun byteCode() : ClassNode?
 
+    suspend fun outerClass(): ClassId?
+
+    suspend fun outerMethod(): MethodId?
+
     /** list of methods */
     suspend fun methods(): List<MethodId>
 

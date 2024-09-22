@@ -32,6 +32,10 @@ abstract class ClassByteCodeSource(val location: ByteCodeLocation, val className
     protected fun ClassNode.asClassInfo() = ClassInfo(
         name = Type.getObjectType(name).className,
         access = access,
+        outerClass = outerClass?.let{ Type.getObjectType(it).className},
+        nestHostClass = nestHostClass?.let{ Type.getObjectType(it).className},
+        outerMethod = outerMethod,
+        outerMethodDesc = outerMethodDesc,
         superClass = superName?.let { Type.getObjectType(it).className },
         interfaces = interfaces.map { Type.getObjectType(it).className }.toImmutableList(),
         methods = methods.map { it.asMethodInfo() }.toImmutableList(),

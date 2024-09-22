@@ -2,6 +2,8 @@ package org.opentaint.ir.impl.types
 
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.ClassId
+import org.opentaint.ir.api.MethodId
+import org.opentaint.ir.api.findMethodOrNull
 import org.opentaint.ir.impl.ClassIdService
 import org.opentaint.ir.impl.suspendableLazy
 import org.opentaint.ir.impl.tree.ClassNode
@@ -20,6 +22,10 @@ class ClassIdImpl(private val node: ClassNode, private val classIdService: Class
 
     private val lazySuperclass = suspendableLazy {
         classIdService.toClassId(node.info().superClass)
+    }
+
+    private val lazyOuterClass = suspendableLazy {
+        classIdService.toClassId(node.info().outerClass)
     }
 
     private val lazyMethods = suspendableLazy {
@@ -43,6 +49,16 @@ class ClassIdImpl(private val node: ClassNode, private val classIdService: Class
     }
 
     override suspend fun access() = node.info().access
+
+    override suspend fun outerClass() = lazyOuterClass()
+
+    override suspend fun outerMethod(): MethodId? {
+        val info = node.info()
+        if (info.outerMethod != null && info.outerMethodDesc != null) {
+            return outerClass()?.findMethodOrNull(info.outerMethod, info.outerMethodDesc)
+        }
+        return null
+    }
 
     override suspend fun methods() = lazyMethods()
 

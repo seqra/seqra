@@ -94,6 +94,18 @@ fun MethodId.isConstructor(): Boolean {
     return name == "<init>"
 }
 
+suspend fun ClassId.isSynthetic(): Boolean {
+    return access() and Opcodes.ACC_SYNTHETIC != 0
+}
+
+//suspend fun ClassId.isInner(): Boolean {
+//    return enclosingClass() != null
+//}
+//
+//suspend fun ClassId.isLocal(): Boolean {
+//    return enclosingClass() != null
+//}
+
 /**
  * find field by name
  */

@@ -5,6 +5,11 @@ class ClassInfo(
     val name: String,
     val access: Int,
 
+    val outerClass: String?,
+    val outerMethod: String?,
+    val outerMethodDesc: String?,
+    val nestHostClass: String?,
+
     val methods: List<MethodInfo>,
     val fields: List<FieldInfo>,
 

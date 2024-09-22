@@ -12,20 +12,27 @@ import org.opentaint.ir.api.MethodId
 class PredefinedPrimitive(override val simpleName: String) : ClassId {
 
     companion object {
-        val values = persistentListOf(
-            PredefinedPrimitive("boolean"),
-            PredefinedPrimitive("char"),
-            PredefinedPrimitive("short"),
-            PredefinedPrimitive("int"),
-            PredefinedPrimitive("long"),
-            PredefinedPrimitive("float"),
-            PredefinedPrimitive("double")
-        )
+        val boolean = PredefinedPrimitive("boolean")
+        val byte = PredefinedPrimitive("byte")
+        val char = PredefinedPrimitive("char")
+        val short = PredefinedPrimitive("short")
+        val int = PredefinedPrimitive("int")
+        val long = PredefinedPrimitive("long")
+        val float = PredefinedPrimitive("float")
+        val double = PredefinedPrimitive("double")
+        val void = PredefinedPrimitive("void")
+
+        val values = persistentListOf(boolean, byte, char, short, int, long, float, double, void)
+
     }
 
 
     override val name: String get() = simpleName
     override val location = null
+
+    override suspend fun outerClass() = null
+
+    override suspend fun outerMethod() = null
 
     override suspend fun byteCode() = null
 
