@@ -1,23 +1,16 @@
 package org.opentaint.ir.impl.index
 
-import org.opentaint.ir.api.ByteCodeLocation
-import org.opentaint.ir.api.ByteCodeLocationIndex
 import org.opentaint.ir.api.ByteCodeLocationIndexBuilder
 import org.opentaint.ir.impl.tree.ClassNode
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
-suspend fun <T> ByteCodeLocation.index(
-    node: ClassNode,
-    builderGetter: () -> ByteCodeLocationIndexBuilder<T>
-): ByteCodeLocationIndex<T> {
-    val builder = builderGetter()
+suspend fun index(node: ClassNode, builder: ByteCodeLocationIndexBuilder<*>) {
     val asmNode = node.fullByteCode()
     builder.index(asmNode)
     asmNode.methods.forEach {
         builder.index(asmNode, it)
     }
-    return builder.build(this)
 }
 
 

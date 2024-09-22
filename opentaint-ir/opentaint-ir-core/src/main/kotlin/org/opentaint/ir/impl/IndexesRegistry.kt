@@ -16,14 +16,21 @@ class IndexesRegistry(private val installers: List<IndexInstaller<*, *>>) : Clos
         val existedIndexes = indexes.getOrPut(location) {
             ConcurrentHashMap()
         }
-        classes.forEach {node ->
+        val builders = installers.associate { it.key to it.newBuilder() }
+        classes.forEach { node ->
             installers.forEach { installer ->
-                val index = location.index(node) {
-                    installer.newBuilder()
+                val builder = builders[installer.key]
+                if (builder != null) {
+                    index(node, builder)
                 }
-                existedIndexes[installer.key] = index
             }
             node.onAfterIndexing()
+        }
+        installers.forEach { installer ->
+            val index = builders[installer.key]?.build(location)
+            if (index != null) {
+                existedIndexes.put(installer.key, index)
+            }
         }
     }
 
