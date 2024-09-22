@@ -1,38 +1,38 @@
 package org.opentaint.ir.impl
 
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.opentaint.ir.api.*
+import org.opentaint.ir.api.isFinal
+import org.opentaint.ir.api.isInterface
+import org.opentaint.ir.api.isPrivate
+import org.opentaint.ir.api.isPublic
 import org.opentaint.ir.compilationDatabase
+import org.opentaint.ir.impl.index.findClassOrNull
 import org.w3c.dom.DocumentType
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 class DatabaseTest : LibrariesMixin {
 
-    companion object : LibrariesMixin {
-        private lateinit var db: CompilationDatabase
-
-        @BeforeAll
-        @JvmStatic
-        fun setup() {
-            db = runBlocking {
-                compilationDatabase {
-                    predefinedDirOrJars = allClasspath
-                    useProcessJavaRuntime()
-                }
-            }
+    private val db = runBlocking {
+        compilationDatabase {
+            predefinedDirOrJars = allClasspath
+            useProcessJavaRuntime()
         }
     }
 
+    @AfterEach
+    fun setup() {
+        db.close()
+    }
 
     @Test
     fun `find class from build dir folder`() = runBlocking {
         val cp = db.classpathSet(allClasspath)
-        val clazz = cp.findClassOrNull(Foo::class.java.name)
+        val clazz = cp.findClassOrNull<Foo>()
         assertNotNull(clazz!!)
         assertEquals(Foo::class.java.name, clazz.name)
         assertTrue(clazz.isFinal())
@@ -72,7 +72,7 @@ class DatabaseTest : LibrariesMixin {
     @Test
     fun `find lazy-loaded class`() = runBlocking {
         val cp = db.classpathSet(emptyList())
-        val domClass = cp.findClassOrNull(org.w3c.dom.Document::class.java.name)
+        val domClass = cp.findClassOrNull<org.w3c.dom.Document>()
         assertNotNull(domClass!!)
 
         assertTrue(domClass.isPublic())
@@ -90,7 +90,7 @@ class DatabaseTest : LibrariesMixin {
     @Test
     fun `find sub-types from lazy loaded classes`() = runBlocking {
         val cp = db.classpathSet(emptyList())
-        val domClass = cp.findClassOrNull(org.w3c.dom.Document::class.java.name)
+        val domClass = cp.findClassOrNull<org.w3c.dom.Document>()
         assertNotNull(domClass!!)
 
         with(cp.findSubClasses(java.util.AbstractMap::class.java.name)) {
@@ -113,7 +113,7 @@ class DatabaseTest : LibrariesMixin {
     @Test
     fun `find sub-types with all hierarchy`() = runBlocking {
         val cp = db.classpathSet(allClasspath)
-        val clazz = cp.findClassOrNull(SuperDuper::class.java.name)
+        val clazz = cp.findClassOrNull<SuperDuper>()
         assertNotNull(clazz!!)
 
         with(cp.findSubClasses(clazz, allHierarchy = true)) {

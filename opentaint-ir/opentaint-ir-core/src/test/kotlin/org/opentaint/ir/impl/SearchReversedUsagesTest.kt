@@ -1,14 +1,10 @@
 package org.opentaint.ir.impl
 
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
-import org.opentaint.ir.api.ClasspathSet
-import org.opentaint.ir.api.CompilationDatabase
 import org.opentaint.ir.api.FieldUsageMode
 import org.opentaint.ir.compilationDatabase
 import org.opentaint.ir.impl.index.ReversedUsagesIndex
@@ -19,28 +15,15 @@ import org.opentaint.ir.impl.usages.methods.MethodA
 
 class SearchReversedUsagesTest : LibrariesMixin {
 
-    companion object : LibrariesMixin {
-
-        private lateinit var cp: ClasspathSet
-        private lateinit var db: CompilationDatabase
-
-        @BeforeAll
-        @JvmStatic
-        fun setup() = runBlocking {
-            db = compilationDatabase {
-                predefinedDirOrJars = allClasspath
-                useProcessJavaRuntime()
-                installIndexes(ReversedUsagesIndex)
-            }
-            cp = db.classpathSet(allClasspath)
-        }
-
-        @AfterAll
-        @JvmStatic
-        fun close() {
-            db.close()
+    private val db = runBlocking {
+        compilationDatabase {
+            predefinedDirOrJars = allClasspath
+            useProcessJavaRuntime()
+            installIndexes(ReversedUsagesIndex)
         }
     }
+
+    private val cp = runBlocking { db.classpathSet(allClasspath) }
 
     @Test
     fun `classes read fields`() {
@@ -158,5 +141,6 @@ class SearchReversedUsagesTest : LibrariesMixin {
     @AfterEach
     fun cleanup() {
         cp.close()
+        db.close()
     }
 }

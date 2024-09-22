@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.ClasspathSet
 import org.opentaint.ir.compilationDatabase
 import org.opentaint.ir.impl.fs.BuildFolderLocation
+import org.opentaint.ir.impl.index.findClassOrNull
 import java.io.File
 import java.nio.file.Files
 import java.util.*
@@ -45,7 +46,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
     @Test
     fun `refresh is working when build dir is removed`() = runBlocking {
         val cp = db.classpathSet(listOf(testDirClone))
-        val fooClass = cp.findClassOrNull(Foo::class.java.name)
+        val fooClass = cp.findClassOrNull<Foo>()
         assertNotNull(fooClass!!)
 
         assertTrue(testDirClone.deleteRecursively())
@@ -72,7 +73,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
     @Test
     fun `method could be read from build dir`() = runBlocking {
         val cp = db.classpathSet(listOf(testDirClone))
-        val fooClass = cp.findClassOrNull(Foo::class.java.name)
+        val fooClass = cp.findClassOrNull<Foo>()
         assertNotNull(fooClass!!)
 
         assertNotNull {
@@ -85,7 +86,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
     @Test
     fun `refresh is working when jar is removed`() = runBlocking {
         val cp = db.classpathSet(listOf(guavaLibClone))
-        val abstractCacheClass = cp.findClassOrNull(AbstractCache::class.java.name)
+        val abstractCacheClass = cp.findClassOrNull<AbstractCache<*,*>>()
         assertNotNull(abstractCacheClass!!)
         db.awaitBackgroundJobs() // is required for deleting jar
 
@@ -98,7 +99,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
             assertEquals(1, usedButOutdated.size)
         }
 
-        assertNotNull(cp.findClassOrNull(AbstractCache::class.java.name))
+        assertNotNull(cp.findClassOrNull<AbstractCache<*,*>>())
         cp.close()
         db.refresh()
         withRegistry {
@@ -111,7 +112,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
     @Test
     fun `method body could be read from jar`() = runBlocking {
         val cp = db.classpathSet(listOf(guavaLibClone))
-        val abstractCacheClass = cp.findClassOrNull(AbstractCache::class.java.name)
+        val abstractCacheClass = cp.findClassOrNull<AbstractCache<*,*>>()
         assertNotNull(abstractCacheClass!!)
 
         assertNotNull(
@@ -124,7 +125,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
         val cps = (1..10).map { db.classpathSet(listOf(guavaLibClone)) }
 
         suspend fun ClasspathSet.accessMethod() {
-            val abstractCacheClass = findClassOrNull(AbstractCache::class.java.name)
+            val abstractCacheClass = findClassOrNull<AbstractCache<*,*>>()
             assertNotNull(abstractCacheClass!!)
 
             assertNotNull(
@@ -151,7 +152,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
     @Test
     fun `jar should not be blocked after method read`() = runBlocking {
         val cp = db.classpathSet(listOf(guavaLibClone))
-        val clazz = cp.findClassOrNull(Iterators::class.java.name)
+        val clazz = cp.findClassOrNull<Iterators>()
         assertNotNull(clazz!!)
         assertNotNull(clazz.methods().first().readBody())
         assertTrue(guavaLibClone.delete())

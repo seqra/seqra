@@ -71,3 +71,8 @@ suspend fun ClasspathSet.findFieldsUsedIn(method: MethodId): FieldUsagesResult {
     )
 
 }
+
+
+suspend inline fun <reified T> ClasspathSet.findClassOrNull(): ClassId? {
+    return findClassOrNull(T::class.java.name)
+}

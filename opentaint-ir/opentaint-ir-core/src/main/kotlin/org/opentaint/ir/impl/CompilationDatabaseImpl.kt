@@ -28,7 +28,7 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
     private val classTree = ClassTree()
     internal val javaRuntime = JavaRuntime(settings.jre)
 
-    internal val indexesRegistry = IndexesRegistry(listOf(SubClassIndex) + settings.additionalIndexes)
+    private val indexesRegistry = IndexesRegistry(listOf(SubClassIndex) + settings.additionalIndexes)
     internal val registry = LocationsRegistry(indexesRegistry)
 
     private val backgroundJobs: Queue<Job> = ConcurrentLinkedQueue()
@@ -133,7 +133,7 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
         return this
     }
 
-    suspend override fun awaitBackgroundJobs() {
+    override suspend fun awaitBackgroundJobs() {
         backgroundJobs.toList().joinAll()
     }
 
