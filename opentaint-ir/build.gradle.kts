@@ -33,6 +33,7 @@ dependencies {
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-reflect', version: kotlin_version
     implementation group: 'org.ow2.asm', name: 'asm', version: asm_version
     implementation group: 'org.ow2.asm', name: 'asm-tree', version: asm_version
+    implementation group: 'org.jetbrains.xodus', name: 'xodus-utils', version: "2.0.1"
 
     testImplementation(platform('org.junit:junit-bom:5.8.2'))
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter'
@@ -57,7 +58,7 @@ compileTestKotlin {
 
 test {
     useJUnitPlatform()
-    jvmArgs = ['-Xmx2g']
+    jvmArgs = ['-Xmx2g', '-XX:+HeapDumpOnOutOfMemoryError', '-XX:HeapDumpPath=heapdump.hprof']
     testLogging {
         events "passed", "skipped", "failed"
     }

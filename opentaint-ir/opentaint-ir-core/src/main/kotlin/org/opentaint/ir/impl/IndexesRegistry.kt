@@ -13,14 +13,17 @@ class IndexesRegistry(private val installers: List<IndexInstaller<*, *>>) : Clos
     private val indexes = ConcurrentHashMap<ByteCodeLocation, ConcurrentHashMap<String, ByteCodeLocationIndex<*>>>()
 
     suspend fun index(location: ByteCodeLocation, classes: Collection<ClassNode>) {
-        installers.forEach { installer ->
-            val index = location.index(classes) {
-                installer.newBuilder()
+        val existedIndexes = indexes.getOrPut(location) {
+            ConcurrentHashMap()
+        }
+        classes.forEach {node ->
+            installers.forEach { installer ->
+                val index = location.index(node) {
+                    installer.newBuilder()
+                }
+                existedIndexes[installer.key] = index
             }
-            val existedIndexes = indexes.getOrPut(location) {
-                ConcurrentHashMap()
-            }
-            existedIndexes[installer.key] = index
+            node.onAfterIndexing()
         }
     }
 

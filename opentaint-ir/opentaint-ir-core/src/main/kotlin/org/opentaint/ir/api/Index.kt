@@ -28,7 +28,6 @@ interface ByteCodeLocationIndex<T> {
 interface IndexInstaller<T, INDEX: ByteCodeLocationIndex<T>> {
 
     val key: String
-    val isIndexMethodBody: Boolean
 
     fun newBuilder() : ByteCodeLocationIndexBuilder<T>
 

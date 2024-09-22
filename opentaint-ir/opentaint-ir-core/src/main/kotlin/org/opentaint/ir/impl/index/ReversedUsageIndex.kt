@@ -74,8 +74,6 @@ object ReversedUsagesIndex : IndexInstaller<String, ReversedUsageIndex> {
 
     override val key = "reversed-usages"
 
-    override val isIndexMethodBody = true
-
     override fun newBuilder() = ReversedUsageIndexBuilder()
 
     override fun deserialize(stream: InputStream) = null

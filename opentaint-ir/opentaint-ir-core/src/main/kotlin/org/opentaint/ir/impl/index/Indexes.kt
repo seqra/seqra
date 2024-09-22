@@ -8,16 +8,14 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 suspend fun <T> ByteCodeLocation.index(
-    nodes: Collection<ClassNode>,
+    node: ClassNode,
     builderGetter: () -> ByteCodeLocationIndexBuilder<T>
 ): ByteCodeLocationIndex<T> {
     val builder = builderGetter()
-    nodes.forEach { clazz ->
-        val asmNode = clazz.asmNode()
-        builder.index(asmNode)
-        asmNode.methods.forEach {
-            builder.index(asmNode, it)
-        }
+    val asmNode = node.fullByteCode()
+    builder.index(asmNode)
+    asmNode.methods.forEach {
+        builder.index(asmNode, it)
     }
     return builder.build(this)
 }
@@ -41,7 +39,6 @@ object GlobalIds {
     fun getName(id: Int): String? {
         return reversed.get(id)
     }
-
 
 }
 

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.impl.fs.ClassByteCodeSource
+import org.opentaint.ir.impl.fs.LazyByteCodeSource
 
 class ClassTreeTest {
 
@@ -88,7 +89,7 @@ class ClassTreeTest {
     }
 
     private fun ByteCodeLocation.classSource(name: String): ClassByteCodeSource {
-        return ClassByteCodeSource(
+        return LazyByteCodeSource(
             className = name,
             location = this
         )

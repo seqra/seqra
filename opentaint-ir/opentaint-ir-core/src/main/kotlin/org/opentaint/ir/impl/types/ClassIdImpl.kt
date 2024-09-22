@@ -39,7 +39,7 @@ class ClassIdImpl(private val node: ClassNode, private val classIdService: Class
     }
 
     override suspend fun byteCode(): org.objectweb.asm.tree.ClassNode {
-        return node.asmNode()
+        return node.fullByteCode()
     }
 
     override suspend fun access() = node.info().access

@@ -14,9 +14,10 @@ import org.opentaint.ir.impl.index.SubClassIndex
 import org.opentaint.ir.impl.tree.ClassTree
 import org.opentaint.ir.impl.tree.RemoveLocationsVisitor
 import java.io.File
-import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 object BackgroundScope : CoroutineScope {
     override val coroutineContext = Dispatchers.IO + SupervisorJob()
@@ -31,9 +32,10 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
     private val indexesRegistry = IndexesRegistry(listOf(SubClassIndex) + settings.additionalIndexes)
     internal val registry = LocationsRegistry(indexesRegistry)
 
-    private val backgroundJobs: Queue<Job> = ConcurrentLinkedQueue()
+    private val backgroundJobs = ConcurrentHashMap<Int, Job>()
 
     private val isClosed = AtomicBoolean()
+    private val jobId = AtomicInteger()
 
     suspend fun loadJavaLibraries() {
         assertNotClosed()
@@ -97,18 +99,24 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
         val locationClasses = libraryTrees.map {
             it.location to it.pushInto(classTree).values
         }.toMap()
-
-        backgroundJobs.add(BackgroundScope.launch {
+        val backgroundJobId = jobId.incrementAndGet()
+        backgroundJobs[backgroundJobId] = BackgroundScope.launch {
+            val parentScope = this
             actions.map { (location, action) ->
                 async {
-                    action()
+                    if (parentScope.isActive) {
+                        action()
+                    }
                     val addedClasses = locationClasses[location]
                     if (addedClasses != null) {
-                        indexesRegistry.index(location, addedClasses)
+                        if (parentScope.isActive) {
+                            indexesRegistry.index(location, addedClasses)
+                        }
                     }
                 }
             }.joinAll()
-        })
+            backgroundJobs.remove(backgroundJobId)
+        }
     }
 
     override suspend fun refresh() {
@@ -134,12 +142,16 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
     }
 
     override suspend fun awaitBackgroundJobs() {
-        backgroundJobs.toList().joinAll()
+        backgroundJobs.values.toList().joinAll()
     }
 
     override fun close() {
         isClosed.set(true)
         registry.close()
+        backgroundJobs.values.forEach {
+            it.cancel()
+        }
+        backgroundJobs.clear()
     }
 
     private fun assertNotClosed() {

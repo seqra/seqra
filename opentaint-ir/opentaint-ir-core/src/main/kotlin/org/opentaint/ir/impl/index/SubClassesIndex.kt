@@ -76,8 +76,6 @@ object SubClassIndex : IndexInstaller<String, SubClassesIndex> {
 
     override val key = "sub-classes"
 
-    override val isIndexMethodBody = false
-
     override fun newBuilder() = SubClassesIndexBuilder()
 
     override fun deserialize(stream: InputStream) = null

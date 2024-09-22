@@ -46,11 +46,13 @@ suspend fun ByteCodeLoader.load(classTree: ClassTree): Pair<LibraryClassTree, su
     val libraryTree = LibraryClassTree(location)
     val sync = allResources()
     sync.classesToLoad.forEach {
-        ClassByteCodeSource(location = location, it.key).also { source ->
-            val libraryNode = libraryTree.addClass(source)
-            it.value?.let {
-                libraryNode.source.load(it)
-            }
+        val source = when {
+            it.value != null -> ExpandedByteCodeSource(location, it.key)
+            else -> LazyByteCodeSource(location, it.key)
+        }
+        val libraryNode = libraryTree.addClass(source)
+        it.value?.let {
+            libraryNode.source.load(it)
         }
     }
     sync.close()
@@ -61,6 +63,8 @@ suspend fun ByteCodeLoader.load(classTree: ClassTree): Pair<LibraryClassTree, su
             val stream = entry.value
             if (stream != null && node != null) {
                 node.source.load(stream)
+            } else {
+                println("GETTING NULL STREAM OR NODE FOR ${entry.key}")
             }
         }
         async?.close()

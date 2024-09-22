@@ -13,6 +13,7 @@ class ClassNode(
     val location get() = source.location
 
     suspend fun info() = source.info()
-    suspend fun asmNode() = source.asmNode()
+    suspend fun fullByteCode() = source.fullByteCode()
+    fun onAfterIndexing() = source.onAfterIndexing()
 
 }

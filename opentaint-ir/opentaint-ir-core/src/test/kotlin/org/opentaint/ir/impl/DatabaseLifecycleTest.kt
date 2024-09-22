@@ -161,6 +161,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
     @AfterEach
     fun cleanup() {
         tempFolder.deleteRecursively()
+        db.close()
     }
 
     private fun withRegistry(action: LocationsRegistry.() -> Unit) {

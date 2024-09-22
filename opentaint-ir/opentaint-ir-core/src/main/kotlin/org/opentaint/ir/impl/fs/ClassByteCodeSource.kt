@@ -16,54 +16,20 @@ import org.opentaint.ir.impl.types.FieldInfo
 import org.opentaint.ir.impl.types.MethodInfo
 import java.io.InputStream
 
-// todo inner/outer classes?
-class ClassByteCodeSource(
-    val location: ByteCodeLocation,
-    val className: String
-) {
+abstract class ClassByteCodeSource(val location: ByteCodeLocation, val className: String) {
 
-//    // this is a soft reference to fully loaded ASM class node
-//    private var fullNodeRef: SoftReference<ClassNode>? = null
+    abstract suspend fun info(): ClassInfo
+    abstract suspend fun fullByteCode(): ClassNode
 
-    private var cachedClassNode: ClassNode? = null
+    abstract fun onAfterIndexing()
 
-    private val lazyClassInfo = suspendableLazy {
-        lazyClassNode().asClassInfo()
-    }
+    abstract fun load(input: InputStream)
 
-    private val lazyClassNode = suspendableLazy {
-        cachedClassNode ?: getOrLoadFullClassNode()
-    }
-
-    suspend fun info(): ClassInfo = lazyClassInfo()
-    suspend fun asmNode() = lazyClassNode()
-
-    private suspend fun getOrLoadFullClassNode(): ClassNode {
-        val cached = cachedClassNode
-        if (cached == null) {
-            val bytes = classInputStream()?.use { it.readBytes() }
-            bytes ?: throw IllegalStateException("can't find bytecode for class $className in $location")
-            val classNode = ClassNode(Opcodes.ASM9).also {
-                ClassReader(bytes).accept(it, ClassReader.EXPAND_FRAMES)
-            }
-            cachedClassNode = classNode
-            return classNode
-        }
-        return cached
-    }
-
-    private suspend fun classInputStream(): InputStream? {
+    protected suspend fun classInputStream(): InputStream? {
         return location.resolve(className)
     }
 
-    fun load(initialInput: InputStream) {
-        val bytes = initialInput.use { it.readBytes() }
-        val classNode = ClassNode(Opcodes.ASM9)
-        ClassReader(bytes).accept(classNode, ClassReader.EXPAND_FRAMES)
-        cachedClassNode = classNode
-    }
-
-    private fun ClassNode.asClassInfo() = ClassInfo(
+    protected fun ClassNode.asClassInfo() = ClassInfo(
         name = Type.getObjectType(name).className,
         access = access,
         superClass = superName?.let { Type.getObjectType(it).className },
@@ -72,11 +38,6 @@ class ClassByteCodeSource(
         fields = fields.map { it.asFieldInfo() }.toImmutableList(),
         annotations = visibleAnnotations.orEmpty().map { it.asAnnotationInfo() }.toImmutableList()
     )
-
-    suspend fun loadMethod(methodName: String, methodDesc: String): MethodNode {
-        val classNode = getOrLoadFullClassNode()
-        return classNode.methods.first { it.name == methodName && it.desc == methodDesc }
-    }
 
     private fun AnnotationNode.asAnnotationInfo() = AnnotationInfo(
         className = Type.getType(desc).className
@@ -98,5 +59,89 @@ class ClassByteCodeSource(
         annotations = visibleAnnotations.orEmpty().map { it.asAnnotationInfo() }.toImmutableList()
     )
 
+    suspend fun loadMethod(name: String, desc: String): MethodNode? {
+        return fullByteCode().methods.first { it.name == name && it.desc == desc }
+    }
+
 }
 
+
+class LazyByteCodeSource(location: ByteCodeLocation, className: String) :
+    ClassByteCodeSource(location, className) {
+
+    private lateinit var classInfo: ClassInfo
+    @Volatile
+    private var classNode: ClassNode? = null
+
+    override fun load(input: InputStream) {
+        val bytes = input.use { it.readBytes() }
+        val classNode = ClassNode(Opcodes.ASM9)
+        ClassReader(bytes).accept(classNode, ClassReader.EXPAND_FRAMES)
+
+        this.classNode = classNode
+        this.classInfo = classNode.asClassInfo()
+    }
+
+    override suspend fun info(): ClassInfo {
+        if (this::classInfo.isInitialized) {
+            return classInfo
+        }
+        return (this.classNode ?: fullByteCode()).asClassInfo().also {
+            classInfo = it
+        }
+    }
+
+    override fun onAfterIndexing() {
+        classNode = null
+    }
+
+    override suspend fun fullByteCode(): ClassNode {
+        val node = classNode
+        if (node != null) {
+            return node
+        }
+        val bytes = classInputStream()?.use { it.readBytes() }
+        bytes ?: throw IllegalStateException("can't find bytecode for class $className in $location")
+        return ClassNode(Opcodes.ASM9).also {
+            ClassReader(bytes).accept(it, ClassReader.EXPAND_FRAMES)
+        }
+    }
+}
+
+class ExpandedByteCodeSource(location: ByteCodeLocation, className: String) :
+    ClassByteCodeSource(location, className) {
+
+    @Volatile
+    private var cachedByteCode: ClassNode? = null
+
+    private val lazyClassInfo = suspendableLazy {
+        fullByteCode().asClassInfo()
+    }
+
+    override fun load(input: InputStream) {
+        val bytes = input.use { it.readBytes() }
+        val classNode = ClassNode(Opcodes.ASM9)
+        ClassReader(bytes).accept(classNode, ClassReader.EXPAND_FRAMES)
+        cachedByteCode = classNode
+    }
+
+    override suspend fun info() = lazyClassInfo()
+    override suspend fun fullByteCode(): ClassNode {
+        val cached = cachedByteCode
+        if (cached == null) {
+            val bytes = classInputStream()?.use { it.readBytes() }
+            bytes ?: throw IllegalStateException("can't find bytecode for class $className in $location")
+            val classNode = ClassNode(Opcodes.ASM9).also {
+                ClassReader(bytes).accept(it, ClassReader.EXPAND_FRAMES)
+            }
+            cachedByteCode = classNode
+            return classNode
+        }
+        return cached
+    }
+
+    override fun onAfterIndexing() {
+        // do nothing. this is expected to be hot code
+    }
+
+}
