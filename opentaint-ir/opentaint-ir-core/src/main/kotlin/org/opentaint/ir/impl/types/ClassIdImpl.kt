@@ -34,6 +34,12 @@ class ClassIdImpl(private val node: ClassNode, private val classIdService: Class
         }
     }
 
+    private val lazyInnerClasses = suspendableLazy {
+        node.info().innerClasses.mapNotNull {
+            classIdService.toClassId(it)
+        }
+    }
+
     private val lazyAnnotations = suspendableLazy {
         node.info().annotations.mapNotNull {
             classIdService.toClassId(it.className)
@@ -59,6 +65,8 @@ class ClassIdImpl(private val node: ClassNode, private val classIdService: Class
         }
         return null
     }
+
+    override suspend fun innerClasses() = lazyInnerClasses()
 
     override suspend fun methods() = lazyMethods()
 

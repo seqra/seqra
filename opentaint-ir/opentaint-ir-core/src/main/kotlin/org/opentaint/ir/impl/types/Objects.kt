@@ -8,12 +8,12 @@ class ClassInfo(
     val outerClass: String?,
     val outerMethod: String?,
     val outerMethodDesc: String?,
-    val nestHostClass: String?,
 
     val methods: List<MethodInfo>,
     val fields: List<FieldInfo>,
 
     val superClass: String? = null,
+    val innerClasses: List<String>,
     val interfaces: List<String>,
     val annotations: List<AnnotationInfo>
 )

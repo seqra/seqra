@@ -34,6 +34,8 @@ class PredefinedPrimitive(override val simpleName: String) : ClassId {
 
     override suspend fun outerMethod() = null
 
+    override suspend fun innerClasses() = emptyList<ClassId>()
+
     override suspend fun byteCode() = null
 
     override suspend fun methods() = emptyList<MethodId>()

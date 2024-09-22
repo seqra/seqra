@@ -32,8 +32,11 @@ abstract class ClassByteCodeSource(val location: ByteCodeLocation, val className
     protected fun ClassNode.asClassInfo() = ClassInfo(
         name = Type.getObjectType(name).className,
         access = access,
-        outerClass = outerClass?.let{ Type.getObjectType(it).className},
-        nestHostClass = nestHostClass?.let{ Type.getObjectType(it).className},
+
+        outerClass = outerClassName(),
+        innerClasses = innerClasses.map {
+            Type.getObjectType(it.name).className
+        },
         outerMethod = outerMethod,
         outerMethodDesc = outerMethodDesc,
         superClass = superName?.let { Type.getObjectType(it).className },
@@ -42,6 +45,17 @@ abstract class ClassByteCodeSource(val location: ByteCodeLocation, val className
         fields = fields.map { it.asFieldInfo() }.toImmutableList(),
         annotations = visibleAnnotations.orEmpty().map { it.asAnnotationInfo() }.toImmutableList()
     )
+
+    private fun ClassNode.outerClassName(): String? {
+        val direct = outerClass?.let { Type.getObjectType(it).className }
+        if (direct == null && innerClasses.size == 1) {
+            val outerClass = innerClasses.firstOrNull { it.name == name }
+            if (outerClass != null) {
+                return Type.getObjectType(outerClass.outerName).className
+            }
+        }
+        return direct
+    }
 
     private fun AnnotationNode.asAnnotationInfo() = AnnotationInfo(
         className = Type.getType(desc).className
@@ -74,6 +88,7 @@ class LazyByteCodeSource(location: ByteCodeLocation, className: String) :
     ClassByteCodeSource(location, className) {
 
     private lateinit var classInfo: ClassInfo
+
     @Volatile
     private var classNode: ClassNode? = null
 
