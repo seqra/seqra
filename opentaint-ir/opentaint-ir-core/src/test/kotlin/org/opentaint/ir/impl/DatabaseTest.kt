@@ -26,7 +26,10 @@ class DatabaseTest : LibrariesMixin {
 
     @AfterEach
     fun setup() {
-        db.close()
+        runBlocking {
+            db.awaitBackgroundJobs()
+            db.close()
+        }
     }
 
     @Test
