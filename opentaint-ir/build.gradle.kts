@@ -1,7 +1,5 @@
 group 'org.opentaint'
 
-apply plugin: 'java'
-
 if (project.hasProperty('semVer')) {
     project.version = project.semVer
 } else {
@@ -12,11 +10,14 @@ buildscript {
     repositories {
         repositories {
             mavenCentral()
+            maven { url "https://plugins.gradle.org/m2/" }
         }
     }
 
     dependencies {
         classpath group: 'org.jetbrains.kotlin', name: 'kotlin-gradle-plugin', version: kotlin_version
+        classpath group: 'org.jetbrains.kotlin', name: 'kotlin-allopen', version: '1.6.20'
+        classpath group: 'org.jetbrains.kotlinx', name: 'kotlinx-benchmark-plugin', version: '0.4.4'
     }
 }
 
@@ -24,6 +25,8 @@ apply plugin: 'base'
 apply plugin: 'java'
 apply plugin: 'kotlin'
 apply plugin: 'maven-publish'
+apply plugin: 'org.jetbrains.kotlin.plugin.allopen'
+apply plugin: 'org.jetbrains.kotlinx.benchmark'
 
 dependencies {
     implementation group: 'io.github.microutils', name: 'kotlin-logging', version: "1.8.3"
@@ -38,6 +41,11 @@ dependencies {
     testImplementation(platform('org.junit:junit-bom:5.8.2'))
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter'
     testImplementation group: 'com.google.guava', name: 'guava', version: '31.1-jre'
+    testImplementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-benchmark-runtime', version: '0.4.4'
+}
+
+allOpen {
+    annotation("org.openjdk.jmh.annotations.State")
 }
 
 compileKotlin {
@@ -82,5 +90,24 @@ publishing {
 repositories {
     repositories {
         mavenCentral()
+    }
+}
+
+
+// Configure benchmark
+benchmark {
+    configurations {
+        main { // main configuration is created automatically, but you can change its defaults
+            warmups = 3 // number of warmup iterations
+            iterations = 5 // number of iterations
+        }
+    }
+
+    // Setup configurations
+    targets {
+        // This one matches sourceSet name above
+        register("test") {
+            jmhVersion = "1.21"
+        }
     }
 }
