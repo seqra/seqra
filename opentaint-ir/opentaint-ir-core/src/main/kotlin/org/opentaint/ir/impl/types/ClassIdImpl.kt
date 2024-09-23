@@ -25,7 +25,7 @@ class ClassIdImpl(private val node: ClassNode, private val classIdService: Class
     }
 
     private val lazyOuterClass = suspendableLazy {
-        classIdService.toClassId(node.info().outerClass)
+        classIdService.toClassId(node.info().outerClass?.className)
     }
 
     private val lazyMethods = suspendableLazy {
@@ -57,6 +57,11 @@ class ClassIdImpl(private val node: ClassNode, private val classIdService: Class
     override suspend fun access() = node.info().access
 
     override suspend fun outerClass() = lazyOuterClass()
+
+    override suspend fun isAnonymous(): Boolean {
+        val outerClass = node.info().outerClass
+        return outerClass != null && outerClass.name == null
+    }
 
     override suspend fun outerMethod(): MethodId? {
         val info = node.info()

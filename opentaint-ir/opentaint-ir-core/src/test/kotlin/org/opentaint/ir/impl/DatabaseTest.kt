@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.*
 import org.opentaint.ir.compilationDatabase
 import org.opentaint.ir.impl.index.findClassOrNull
+import org.opentaint.ir.impl.usages.HelloWorldAnonymousClasses
 import org.opentaint.ir.impl.usages.WithInner
 import org.w3c.dom.DocumentType
 import java.util.*
@@ -77,17 +78,36 @@ class DatabaseTest : LibrariesMixin {
         val inner = cp.findClassOrNull<WithInner.Inner>()
         val staticInner = cp.findClassOrNull<WithInner.StaticInner>()
 
-        val local = cp.findClassOrNull("org.opentaint.ir.impl.usages.WithInner$1")
+        val anon = cp.findClassOrNull("org.opentaint.ir.impl.usages.WithInner$1")
         assertNotNull(withInner!!)
         assertNotNull(inner!!)
         assertNotNull(staticInner!!)
-        assertNotNull(local!!)
+        assertNotNull(anon!!)
 
-        assertEquals(withInner, local.outerClass())
+        assertEquals(withInner, anon.outerClass())
         assertEquals(withInner, inner.outerClass())
         assertEquals(withInner, staticInner.outerClass())
-        assertEquals(withInner.findMethodOrNull("sayHello", "()V"), local.outerMethod())
+        assertEquals(withInner.findMethodOrNull("sayHello", "()V"), anon.outerMethod())
         assertNull(staticInner.outerMethod())
+    }
+
+    @Test
+    fun `local and anonymous classes`() = runBlocking {
+        val cp = db.classpathSet(allClasspath)
+        val withAnonymous = cp.findClassOrNull<HelloWorldAnonymousClasses>()
+
+        assertNotNull(withAnonymous!!)
+        val innerClasses = withAnonymous.innerClasses()
+        assertEquals(4, innerClasses.size)
+        val notHelloWorld = innerClasses.filterNot { it.name.contains("\$HelloWorld") }
+        val englishGreetings = notHelloWorld.first { it.name.contains("EnglishGreeting") }
+        assertTrue(englishGreetings.isLocal())
+        assertFalse(englishGreetings.isAnonymous())
+
+        (notHelloWorld - englishGreetings).forEach {
+            assertFalse(it.isLocal())
+            assertTrue(it.isAnonymous())
+        }
     }
 
     @Test

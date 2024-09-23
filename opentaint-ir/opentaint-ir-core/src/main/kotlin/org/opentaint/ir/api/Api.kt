@@ -35,6 +35,8 @@ interface ClassId : Accessible {
 
     suspend fun outerClass(): ClassId?
 
+    suspend fun isAnonymous(): Boolean
+
     suspend fun outerMethod(): MethodId?
 
     /** list of methods */

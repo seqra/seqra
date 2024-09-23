@@ -98,13 +98,13 @@ suspend fun ClassId.isSynthetic(): Boolean {
     return access() and Opcodes.ACC_SYNTHETIC != 0
 }
 
-//suspend fun ClassId.isInner(): Boolean {
-//    return enclosingClass() != null
-//}
-//
-//suspend fun ClassId.isLocal(): Boolean {
-//    return enclosingClass() != null
-//}
+suspend fun ClassId.isLocalOrAnonymous(): Boolean {
+    return outerMethod() != null
+}
+
+suspend fun ClassId.isLocal(): Boolean {
+    return outerClass() != null && !isAnonymous()
+}
 
 /**
  * find field by name

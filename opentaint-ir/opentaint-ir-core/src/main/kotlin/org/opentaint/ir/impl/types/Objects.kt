@@ -5,7 +5,7 @@ class ClassInfo(
     val name: String,
     val access: Int,
 
-    val outerClass: String?,
+    val outerClass: OuterClassRef?,
     val outerMethod: String?,
     val outerMethodDesc: String?,
 
@@ -16,6 +16,11 @@ class ClassInfo(
     val innerClasses: List<String>,
     val interfaces: List<String>,
     val annotations: List<AnnotationInfo>
+)
+
+class OuterClassRef(
+    val className: String,
+    val name: String?
 )
 
 class MethodInfo(
