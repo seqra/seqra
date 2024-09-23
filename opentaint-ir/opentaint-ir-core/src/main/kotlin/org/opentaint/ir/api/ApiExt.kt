@@ -106,6 +106,21 @@ suspend fun ClassId.isLocal(): Boolean {
     return outerClass() != null && !isAnonymous()
 }
 
+suspend fun ClassId.isMemberClass(): Boolean {
+    return simpleBinaryName() != null && !isLocalOrAnonymous()
+}
+
+private suspend fun ClassId.simpleBinaryName(): String? {
+    // top level class
+    val enclosingClass = outerClass() ?: return null
+    // Otherwise, strip the enclosing class' name
+    return try {
+        name.substring(enclosingClass.name.length)
+    } catch (ex: IndexOutOfBoundsException) {
+        throw InternalError("Malformed class name", ex)
+    }
+}
+
 /**
  * find field by name
  */

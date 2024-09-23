@@ -10,6 +10,7 @@ import org.opentaint.ir.compilationDatabase
 import org.opentaint.ir.impl.index.findClassOrNull
 import org.opentaint.ir.impl.usages.HelloWorldAnonymousClasses
 import org.opentaint.ir.impl.usages.WithInner
+import org.w3c.dom.Document
 import org.w3c.dom.DocumentType
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -95,8 +96,12 @@ class DatabaseTest : LibrariesMixin {
     fun `local and anonymous classes`() = runBlocking {
         val cp = db.classpathSet(allClasspath)
         val withAnonymous = cp.findClassOrNull<HelloWorldAnonymousClasses>()
-
         assertNotNull(withAnonymous!!)
+
+        val helloWorld = cp.findClassOrNull<HelloWorldAnonymousClasses.HelloWorld>()
+        assertNotNull(helloWorld!!)
+        assertTrue(helloWorld.isMemberClass())
+
         val innerClasses = withAnonymous.innerClasses()
         assertEquals(4, innerClasses.size)
         val notHelloWorld = innerClasses.filterNot { it.name.contains("\$HelloWorld") }
@@ -107,13 +112,14 @@ class DatabaseTest : LibrariesMixin {
         (notHelloWorld - englishGreetings).forEach {
             assertFalse(it.isLocal())
             assertTrue(it.isAnonymous())
+            assertFalse(it.isMemberClass())
         }
     }
 
     @Test
     fun `find lazy-loaded class`() = runBlocking {
         val cp = db.classpathSet(emptyList())
-        val domClass = cp.findClassOrNull<org.w3c.dom.Document>()
+        val domClass = cp.findClassOrNull<Document>()
         assertNotNull(domClass!!)
 
         assertTrue(domClass.isPublic())
@@ -131,7 +137,7 @@ class DatabaseTest : LibrariesMixin {
     @Test
     fun `find sub-types from lazy loaded classes`() = runBlocking {
         val cp = db.classpathSet(emptyList())
-        val domClass = cp.findClassOrNull<org.w3c.dom.Document>()
+        val domClass = cp.findClassOrNull<Document>()
         assertNotNull(domClass!!)
 
         with(cp.findSubClasses(java.util.AbstractMap::class.java.name)) {
@@ -146,7 +152,7 @@ class DatabaseTest : LibrariesMixin {
             assertNotNull(firstOrNull { it.name == ConcurrentHashMap::class.java.name })
         }
 
-        with(cp.findSubClasses(org.w3c.dom.Document::class.java.name)) {
+        with(cp.findSubClasses(Document::class.java.name)) {
             assertTrue(isNotEmpty())
         }
     }
