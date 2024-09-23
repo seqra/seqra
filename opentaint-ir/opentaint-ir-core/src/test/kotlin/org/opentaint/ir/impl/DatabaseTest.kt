@@ -93,6 +93,13 @@ class DatabaseTest : LibrariesMixin {
     }
 
     @Test
+    fun `get signature`() = runBlocking {
+        val cp = db.classpathSet(allClasspath)
+        val a = cp.findClassOrNull("org.opentaint.ir.impl.usages.A")
+        assertNotNull(a!!)
+    }
+
+    @Test
     fun `local and anonymous classes`() = runBlocking {
         val cp = db.classpathSet(allClasspath)
         val withAnonymous = cp.findClassOrNull<HelloWorldAnonymousClasses>()

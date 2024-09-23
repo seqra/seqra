@@ -21,6 +21,10 @@ class FieldIdImpl(
         info.annotations.mapNotNull { classIdService.toClassId(it.className) }
     }
 
+    override suspend fun signature(): String? {
+        return info.signature
+    }
+
     override suspend fun access() = info.access
     override suspend fun type() = lazyType
 

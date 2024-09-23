@@ -54,6 +54,10 @@ class ClassIdImpl(private val node: ClassNode, private val classIdService: Class
         return node.fullByteCode()
     }
 
+    override suspend fun signature(): String? {
+        return node.info().signature
+    }
+
     override suspend fun access() = node.info().access
 
     override suspend fun outerClass() = lazyOuterClass()

@@ -1,5 +1,8 @@
 package org.opentaint.ir.impl.usages;
 
+import java.util.Collection;
+import java.util.List;
+
 public class WithInner {
 
     public class Inner {
@@ -25,4 +28,13 @@ public class WithInner {
         }.run();
 
     }
+
+    public static void main(String[] args) {
+        new WithInner1<List<String>>();
+    }
+}
+
+
+class WithInner1<T extends Collection<?>> {
+
 }

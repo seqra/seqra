@@ -30,6 +30,8 @@ class PredefinedPrimitive(override val simpleName: String) : ClassId {
     override val name: String get() = simpleName
     override val location = null
 
+    override suspend fun signature() = null
+
     override suspend fun outerClass() = null
 
     override suspend fun outerMethod() = null

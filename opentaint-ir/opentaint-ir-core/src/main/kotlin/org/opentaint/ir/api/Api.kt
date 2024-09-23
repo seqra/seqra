@@ -37,6 +37,8 @@ interface ClassId : Accessible {
 
     suspend fun isAnonymous(): Boolean
 
+    suspend fun signature(): String?
+
     suspend fun outerMethod(): MethodId?
 
     /** list of methods */
@@ -155,6 +157,8 @@ interface MethodId : Accessible {
     /** reference to class */
     val classId: ClassId
 
+    suspend fun signature(): String?
+
     /**
      * @return return type of the method or null in case of void methods
      */
@@ -195,6 +199,8 @@ interface FieldId : Accessible {
 
     /** class of this field */
     val classId: ClassId
+
+    suspend fun signature(): String?
 
     /** field type */
     suspend fun type(): ClassId?

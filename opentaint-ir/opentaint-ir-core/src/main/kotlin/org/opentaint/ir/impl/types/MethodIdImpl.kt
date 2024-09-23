@@ -16,6 +16,11 @@ class MethodIdImpl(
     override val name: String get() = methodInfo.name
     override suspend fun access() = methodInfo.access
 
+    override suspend fun signature(): String? {
+        return methodInfo.signature
+    }
+
+
     private val lazyParameters by lazy(LazyThreadSafetyMode.NONE) {
         methodInfo.parameters.mapNotNull {
             classIdService.toClassId(it)

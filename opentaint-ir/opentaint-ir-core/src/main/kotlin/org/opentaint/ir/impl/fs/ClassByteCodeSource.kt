@@ -28,6 +28,7 @@ abstract class ClassByteCodeSource(val location: ByteCodeLocation, val className
 
     protected fun ClassNode.asClassInfo() = ClassInfo(
         name = Type.getObjectType(name).className,
+        signature = signature,
         access = access,
 
         outerClass = outerClassName(),
@@ -61,6 +62,7 @@ abstract class ClassByteCodeSource(val location: ByteCodeLocation, val className
 
     private fun MethodNode.asMethodInfo() = MethodInfo(
         name = name,
+        signature = signature,
         desc = desc,
         access = access,
         returnType = Type.getReturnType(desc).className,
@@ -70,6 +72,7 @@ abstract class ClassByteCodeSource(val location: ByteCodeLocation, val className
 
     private fun FieldNode.asFieldInfo() = FieldInfo(
         name = name,
+        signature = signature,
         access = access,
         type = Type.getType(desc).className,
         annotations = visibleAnnotations.orEmpty().map { it.asAnnotationInfo() }.toImmutableList()

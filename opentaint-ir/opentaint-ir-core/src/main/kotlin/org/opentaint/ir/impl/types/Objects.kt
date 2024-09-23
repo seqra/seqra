@@ -3,6 +3,8 @@ package org.opentaint.ir.impl.types
 
 class ClassInfo(
     val name: String,
+
+    val signature: String?,
     val access: Int,
 
     val outerClass: OuterClassRef?,
@@ -26,6 +28,7 @@ class OuterClassRef(
 class MethodInfo(
     val name: String,
     val desc: String,
+    val signature: String?,
     val access: Int,
     val returnType: String,
     val parameters: List<String>,
@@ -34,6 +37,7 @@ class MethodInfo(
 
 class FieldInfo(
     val name: String,
+    val signature: String?,
     val access: Int,
     val type: String,
     val annotations: List<AnnotationInfo>
