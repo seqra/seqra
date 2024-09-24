@@ -20,15 +20,15 @@ class FieldIdImpl(
     }
 
     private val lazyAnnotations by lazy(LazyThreadSafetyMode.NONE) {
-        info.annotations.mapNotNull { classIdService.toClassId(it.className) }
+        info.annotations.map { classIdService.toClassId(it.className) ?: classNotFound(it.className) }
     }
 
     override suspend fun signature(): FieldResolution {
-        return FieldSignature.extract(info.signature, classId.cp)
+        return FieldSignature.extract(info.signature, classId.classpath)
     }
 
     override suspend fun access() = info.access
-    override suspend fun type() = lazyType
+    override suspend fun type() = lazyType ?: classNotFound(info.type)
 
     override suspend fun annotations() = lazyAnnotations
 

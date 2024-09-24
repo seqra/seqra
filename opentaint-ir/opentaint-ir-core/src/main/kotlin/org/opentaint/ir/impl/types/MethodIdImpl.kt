@@ -19,21 +19,22 @@ class MethodIdImpl(
     override suspend fun access() = methodInfo.access
 
     private val lazyParameters by lazy(LazyThreadSafetyMode.NONE) {
-        methodInfo.parameters.mapNotNull {
-            classIdService.toClassId(it)
+        methodInfo.parameters.map {
+            classIdService.toClassId(it)  ?: throw org.opentaint.ir.api.NoClassInClasspathException(it)
         }
     }
     private val lazyAnnotations by lazy(LazyThreadSafetyMode.NONE) {
-        methodInfo.annotations.mapNotNull {
-            classIdService.toClassId(it.className)
+        methodInfo.annotations.map {
+            val className = it.className
+            classIdService.toClassId(className) ?: classNotFound(className)
         }
     }
 
     override suspend fun signature(): MethodResolution {
-        return MethodSignature.of(methodInfo.signature, classId.cp)
+        return MethodSignature.of(methodInfo.signature, classId.classpath)
     }
 
-    override suspend fun returnType() = classIdService.toClassId(methodInfo.returnType)
+    override suspend fun returnType() = classIdService.toClassId(methodInfo.returnType) ?: classNotFound(methodInfo.returnType)
 
     override suspend fun parameters() = lazyParameters
 

@@ -32,7 +32,7 @@ class PredefinedPrimitive(override val simpleName: String) : ClassId {
     override val name: String get() = simpleName
     override val location = null
 
-    override val cp: ClasspathSet get() = throw UnsupportedOperationException()
+    override val classpath: ClasspathSet get() = throw UnsupportedOperationException()
 
     override suspend fun signature() = Raw
 

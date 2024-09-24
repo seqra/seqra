@@ -7,24 +7,38 @@ import org.opentaint.ir.impl.signature.TypeSignature
 import org.opentaint.ir.impl.suspendableLazy
 import org.opentaint.ir.impl.tree.ClassNode
 
-class ClassIdImpl(override val cp: ClasspathSet, private val node: ClassNode, private val classIdService: ClassIdService) : ClassId {
+class ClassIdImpl(
+    override val classpath: ClasspathSet,
+    private val node: ClassNode,
+    private val classIdService: ClassIdService
+) : ClassId {
 
     override val location: ByteCodeLocation get() = node.location
     override val name: String get() = node.fullName
     override val simpleName: String get() = node.name
 
     private val lazyInterfaces = suspendableLazy {
-        node.info().interfaces.mapNotNull {
-            classIdService.toClassId(it)
+        node.info().interfaces.map {
+            classIdService.toClassId(it) ?: classNotFound(it)
         }
     }
 
     private val lazySuperclass = suspendableLazy {
-        classIdService.toClassId(node.info().superClass)
+        val superClass = node.info().superClass
+        if (superClass != null) {
+            classIdService.toClassId(node.info().superClass) ?: classNotFound(superClass)
+        } else {
+            null
+        }
     }
 
     private val lazyOuterClass = suspendableLazy {
-        classIdService.toClassId(node.info().outerClass?.className)
+        val className = node.info().outerClass?.className
+        if (className != null) {
+            classIdService.toClassId(className) ?: classNotFound(className)
+        } else {
+            null
+        }
     }
 
     private val lazyMethods = suspendableLazy {
@@ -34,14 +48,14 @@ class ClassIdImpl(override val cp: ClasspathSet, private val node: ClassNode, pr
     }
 
     private val lazyInnerClasses = suspendableLazy {
-        node.info().innerClasses.mapNotNull {
-            classIdService.toClassId(it)
+        node.info().innerClasses.map {
+            classIdService.toClassId(it) ?: classNotFound(it)
         }
     }
 
     private val lazyAnnotations = suspendableLazy {
-        node.info().annotations.mapNotNull {
-            classIdService.toClassId(it.className)
+        node.info().annotations.map {
+            classIdService.toClassId(it.className) ?: classNotFound(it.className)
         }
     }
 
@@ -54,7 +68,7 @@ class ClassIdImpl(override val cp: ClasspathSet, private val node: ClassNode, pr
     }
 
     override suspend fun signature(): TypeResolution {
-        return TypeSignature.of(node.info().signature, cp)
+        return TypeSignature.of(node.info().signature, classpath)
     }
 
     override suspend fun access() = node.info().access

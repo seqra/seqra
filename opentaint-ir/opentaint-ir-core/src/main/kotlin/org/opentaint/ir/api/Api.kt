@@ -32,7 +32,7 @@ interface ClassId : Accessible {
     /** simple class name */
     val simpleName: String
 
-    val cp: ClasspathSet
+    val classpath: ClasspathSet
 
     suspend fun byteCode(): ClassNode?
 
@@ -167,7 +167,7 @@ interface MethodId : Accessible {
     /**
      * @return return type of the method or null in case of void methods
      */
-    suspend fun returnType(): ClassId?
+    suspend fun returnType(): ClassId
 
     /**
      * @return method parameters
@@ -208,7 +208,7 @@ interface FieldId : Accessible {
     suspend fun signature(): FieldResolution
 
     /** field type */
-    suspend fun type(): ClassId?
+    suspend fun type(): ClassId
 
     /**
      * list of annotations for this field
