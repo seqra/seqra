@@ -95,14 +95,26 @@ class DatabaseTest : LibrariesMixin {
     }
 
     @Test
-    fun `get signature of class and methods`() = runBlocking {
+    fun `get signature of class`() = runBlocking {
         val cp = db.classpathSet(allClasspath)
         val a = cp.findClassOrNull<Generics<*>>()
 
         assertNotNull(a!!)
         val classSignature = a.signature()
+
+        with(classSignature) {
+            this as TypeResolutionImpl
+            assertEquals("java.lang.Object", (superClass as RawType).name)
+        }
+    }
+
+    @Test
+    fun `get signature of methods`() = runBlocking {
+        val cp = db.classpathSet(allClasspath)
+        val a = cp.findClassOrNull<Generics<*>>()
+
+        assertNotNull(a!!)
         val methodSignatures = a.methods().map { it.name to it.signature() }
-        val fieldSignatures = a.fields().map { it.name to it.signature() }
         assertEquals(2, methodSignatures.size)
         with(methodSignatures[0]) {
             val (name, signature) = this
@@ -131,11 +143,15 @@ class DatabaseTest : LibrariesMixin {
             val typeVariable = parameterizedType.parameterTypes.first() as TypeVariable
             assertEquals("T", typeVariable.symbol)
         }
+    }
 
-        with(classSignature) {
-            this as TypeResolutionImpl
-            assertEquals("java.lang.Object", (superClass as RawType).name)
-        }
+    @Test
+    fun `get signature of fields`() = runBlocking {
+        val cp = db.classpathSet(allClasspath)
+        val a = cp.findClassOrNull<Generics<*>>()
+
+        assertNotNull(a!!)
+        val fieldSignatures = a.fields().map { it.name to it.signature() }
 
         assertEquals(2, fieldSignatures.size)
 
