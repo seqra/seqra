@@ -39,7 +39,7 @@ abstract class Signature<T : Resolution>(protected val cp: ClasspathSet) :
     abstract fun resolve(): T
 
     companion object {
-        fun <S : Resolution> extract(genericSignature: String?, visitor: Signature<S>): S {
+        fun <S : Resolution> of(genericSignature: String?, visitor: Signature<S>): S {
             val signatureReader = SignatureReader(genericSignature)
             signatureReader.accept(visitor)
             return visitor.resolve()

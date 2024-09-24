@@ -30,7 +30,7 @@ class MethodIdImpl(
     }
 
     override suspend fun signature(): MethodResolution {
-        return MethodSignature.extract(methodInfo.signature, classId.cp)
+        return MethodSignature.of(methodInfo.signature, classId.cp)
     }
 
     override suspend fun returnType() = classIdService.toClassId(methodInfo.returnType)

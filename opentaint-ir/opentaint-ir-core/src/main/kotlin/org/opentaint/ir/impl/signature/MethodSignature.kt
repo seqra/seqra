@@ -51,10 +51,10 @@ open class MethodSignature(cp: ClasspathSet) : Signature<MethodResolution>(cp) {
     }
 
     companion object {
-        fun extract(signature: String?, cp: ClasspathSet): MethodResolution {
+        fun of(signature: String?, cp: ClasspathSet): MethodResolution {
             signature ?: return Raw
             return try {
-                extract(signature, MethodSignature(cp))
+                of(signature, MethodSignature(cp))
             } catch (ignored: RuntimeException) {
                 Malformed
             }

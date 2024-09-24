@@ -54,7 +54,7 @@ class ClassIdImpl(override val cp: ClasspathSet, private val node: ClassNode, pr
     }
 
     override suspend fun signature(): TypeResolution {
-        return TypeSignature.extract(node.info().signature, cp)
+        return TypeSignature.of(node.info().signature, cp)
     }
 
     override suspend fun access() = node.info().access

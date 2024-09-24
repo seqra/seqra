@@ -16,7 +16,7 @@ class RecordSignature(private val cp: ClasspathSet) : GenericTypeRegistrant {
     }
 
     companion object {
-        fun extract(signature: String?, cp: ClasspathSet): RecordComponentResolution {
+        fun of(signature: String?, cp: ClasspathSet): RecordComponentResolution {
             signature ?: return Raw
             val signatureReader = SignatureReader(signature)
             val visitor = RecordSignature(cp)

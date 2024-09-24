@@ -37,9 +37,9 @@ class TypeSignature(cp: ClasspathSet) : Signature<TypeResolution>(cp) {
 
 
     companion object {
-        fun extract(signature: String?, cp: ClasspathSet): TypeResolution {
+        fun of(signature: String?, cp: ClasspathSet): TypeResolution {
             return try {
-                if (signature == null) Raw else extract(signature, TypeSignature(cp))
+                if (signature == null) Raw else of(signature, TypeSignature(cp))
             } catch (ignored: RuntimeException) {
                 Malformed
             }
