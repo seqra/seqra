@@ -9,6 +9,8 @@ import org.opentaint.ir.api.*
 import org.opentaint.ir.compilationDatabase
 import org.opentaint.ir.impl.index.findClassOrNull
 import org.opentaint.ir.impl.signature.*
+import org.opentaint.ir.impl.types.ArrayClassIdImpl
+import org.opentaint.ir.impl.types.PredefinedPrimitive
 import org.opentaint.ir.impl.usages.Generics
 import org.opentaint.ir.impl.usages.HelloWorldAnonymousClasses
 import org.opentaint.ir.impl.usages.WithInner
@@ -71,6 +73,45 @@ class DatabaseTest : LibrariesMixin {
         with(methods.first { it.name == "smthPrivate" }) {
             assertTrue(parameters().isEmpty())
             assertTrue(isPrivate())
+        }
+    }
+
+    @Test
+    fun `array types`() = runBlocking {
+        val cp = db.classpathSet(allClasspath)
+        val clazz = cp.findClassOrNull<Bar>()
+        assertNotNull(clazz!!)
+        assertEquals(Bar::class.java.name, clazz.name)
+
+        val fields = clazz.fields()
+        assertEquals(3, fields.size)
+
+        with(fields.first()) {
+            assertEquals("byteArray", name)
+            assertEquals("byte[]", type().name)
+            assertEquals(PredefinedPrimitive.byte, (type() as ArrayClassIdImpl).classId)
+        }
+
+        with(fields.get(1)) {
+            assertEquals("objectArray", name)
+            assertEquals("Object[]", type().name)
+            assertEquals(cp.findClassOrNull<Any>(), (type() as ArrayClassIdImpl).classId)
+        }
+
+        with(fields.get(2)) {
+            assertEquals("objectObjectArray", name)
+            assertEquals("Object[][]", type().name)
+            assertEquals(cp.findClassOrNull<Any>(), ((type() as ArrayClassIdImpl).classId as ArrayClassIdImpl).classId)
+        }
+
+        val methods = clazz.methods()
+        assertEquals(2, methods.size)
+
+        with(methods.first { it.name == "smth" }) {
+            val parameters = parameters()
+            assertEquals(1, parameters.size)
+            assertEquals("byte[]", parameters.first().name)
+            assertEquals("byte[]", returnType().name)
         }
     }
 

@@ -2,6 +2,7 @@ package org.opentaint.ir.impl.signature
 
 import org.opentaint.ir.api.ClassId
 import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.classNotFound
 import org.opentaint.ir.impl.types.PredefinedPrimitive
 
 

@@ -3,6 +3,7 @@ package org.opentaint.ir.impl.types
 import org.objectweb.asm.tree.MethodNode
 import org.opentaint.ir.api.ClassId
 import org.opentaint.ir.api.MethodId
+import org.opentaint.ir.api.classNotFound
 import org.opentaint.ir.impl.ClassIdService
 import org.opentaint.ir.impl.signature.MethodResolution
 import org.opentaint.ir.impl.signature.MethodSignature

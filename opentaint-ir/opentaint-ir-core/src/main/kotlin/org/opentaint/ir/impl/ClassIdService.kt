@@ -6,10 +6,7 @@ import org.opentaint.ir.api.ClasspathSet
 import org.opentaint.ir.api.MethodId
 import org.opentaint.ir.impl.tree.ClassNode
 import org.opentaint.ir.impl.tree.ClasspathClassTree
-import org.opentaint.ir.impl.types.ClassIdImpl
-import org.opentaint.ir.impl.types.MethodIdImpl
-import org.opentaint.ir.impl.types.MethodInfo
-import org.opentaint.ir.impl.types.PredefinedPrimitive
+import org.opentaint.ir.impl.types.*
 
 class ClassIdService(private val cp: ClasspathSet, private val classpathClassTree: ClasspathClassTree) {
 
@@ -30,6 +27,13 @@ class ClassIdService(private val cp: ClasspathSet, private val classpathClassTre
         if (predefinedClass != null) {
             return predefinedClass
         }
+        if (fullName.endsWith("[]")) {
+            val targetName = fullName.removeSuffix("[]")
+            return toClassId(targetName)?.let {
+                ArrayClassIdImpl(it)
+            }
+        }
+
         return toClassId(classpathClassTree.firstClassOrNull(fullName))
     }
 

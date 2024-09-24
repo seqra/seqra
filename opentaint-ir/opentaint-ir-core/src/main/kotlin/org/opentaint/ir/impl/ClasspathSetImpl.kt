@@ -6,6 +6,7 @@ import org.opentaint.ir.api.ClasspathSet
 import org.opentaint.ir.impl.index.subClassesExt
 import org.opentaint.ir.impl.tree.ClassTree
 import org.opentaint.ir.impl.tree.ClasspathClassTree
+import org.opentaint.ir.impl.types.ArrayClassIdImpl
 
 class ClasspathSetImpl(
     private val locationsRegistrySnapshot: LocationsRegistrySnapshot,
@@ -28,6 +29,12 @@ class ClasspathSetImpl(
     }
 
     override suspend fun findClassOrNull(name: String): ClassId? {
+        if (name.endsWith("[]")) {
+            val targetName = name.removeSuffix("[]")
+            return findClassOrNull(targetName)?.let {
+                ArrayClassIdImpl(it)
+            }
+        }
         return classIdService.toClassId(classpathClassTree.firstClassOrNull(name))
     }
 

@@ -2,6 +2,7 @@ package org.opentaint.ir.impl.types
 
 import org.opentaint.ir.api.ClassId
 import org.opentaint.ir.api.FieldId
+import org.opentaint.ir.api.classNotFound
 import org.opentaint.ir.impl.ClassIdService
 import org.opentaint.ir.impl.signature.FieldResolution
 import org.opentaint.ir.impl.signature.FieldSignature
