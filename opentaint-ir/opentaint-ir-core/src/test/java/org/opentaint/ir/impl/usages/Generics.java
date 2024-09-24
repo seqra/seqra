@@ -11,4 +11,8 @@ public class Generics<T extends Collection<?>> {
     public <W extends Collection<T>> void merge(Generics<T> generics) {
     }
 
+    public <W extends Collection<T>> W merge1(Generics<T> generics) {
+        return null;
+    }
+
 }

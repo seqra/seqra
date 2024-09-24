@@ -115,7 +115,7 @@ class DatabaseTest : LibrariesMixin {
 
         assertNotNull(a!!)
         val methodSignatures = a.methods().map { it.name to it.signature() }
-        assertEquals(2, methodSignatures.size)
+        assertEquals(3, methodSignatures.size)
         with(methodSignatures[0]) {
             val (name, signature) = this
             assertEquals("<init>", name)
@@ -134,6 +134,34 @@ class DatabaseTest : LibrariesMixin {
                 with(parameterTypes.first()) {
                     this as TypeVariable
                     assertEquals("T", this.symbol)
+                }
+            }
+            assertEquals(1, signature.parameterTypes.size)
+            val parameterizedType = signature.parameterTypes.first() as ParameterizedType
+            assertEquals(1, parameterizedType.parameterTypes.size)
+            assertEquals(Generics::class.java.name, parameterizedType.name)
+            val typeVariable = parameterizedType.parameterTypes.first() as TypeVariable
+            assertEquals("T", typeVariable.symbol)
+        }
+        with(methodSignatures[2]) {
+            val (name, signature) = this
+            assertEquals("merge1", name)
+            signature as MethodResolutionImpl
+            assertEquals("W", (signature.returnType as TypeVariable).symbol)
+
+            assertEquals(1, signature.typeVariables.size)
+            with(signature.typeVariables.first()) {
+                this as Formal
+                assertEquals("W", symbol)
+                assertEquals(1, boundTypeTokens?.size)
+                with(boundTypeTokens!!.first()) {
+                    this as ParameterizedType
+                    assertEquals("java.util.Collection", this.name)
+                    assertEquals(1, parameterTypes.size)
+                    with(parameterTypes.first()) {
+                        this as TypeVariable
+                        assertEquals("T", symbol)
+                    }
                 }
             }
             assertEquals(1, signature.parameterTypes.size)
