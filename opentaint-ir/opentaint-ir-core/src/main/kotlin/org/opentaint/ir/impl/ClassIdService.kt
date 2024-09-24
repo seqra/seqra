@@ -2,6 +2,7 @@ package org.opentaint.ir.impl
 
 import kotlinx.collections.immutable.toImmutableMap
 import org.opentaint.ir.api.ClassId
+import org.opentaint.ir.api.ClasspathSet
 import org.opentaint.ir.api.MethodId
 import org.opentaint.ir.impl.tree.ClassNode
 import org.opentaint.ir.impl.tree.ClasspathClassTree
@@ -10,7 +11,7 @@ import org.opentaint.ir.impl.types.MethodIdImpl
 import org.opentaint.ir.impl.types.MethodInfo
 import org.opentaint.ir.impl.types.PredefinedPrimitive
 
-class ClassIdService(private val classpathClassTree: ClasspathClassTree) {
+class ClassIdService(private val cp: ClasspathSet, private val classpathClassTree: ClasspathClassTree) {
 
     companion object {
         private val predefinedClasses = PredefinedPrimitive.values.associateBy { it.simpleName }.toImmutableMap()
@@ -21,7 +22,7 @@ class ClassIdService(private val classpathClassTree: ClasspathClassTree) {
         return node.asClassId()
     }
 
-    private fun ClassNode.asClassId() = ClassIdImpl(this, this@ClassIdService)
+    private fun ClassNode.asClassId() = ClassIdImpl(cp, this, this@ClassIdService)
 
     fun toClassId(fullName: String?): ClassId? {
         fullName ?: return null

@@ -3,23 +3,23 @@ package org.opentaint.ir.impl.signature
 import org.objectweb.asm.signature.SignatureReader
 import org.opentaint.ir.api.ClasspathSet
 
-class FieldSignature : GenericTypeRegistrant {
+class RecordSignature(private val cp: ClasspathSet) : GenericTypeRegistrant {
 
-    private lateinit var fieldType: GenericType
+    private lateinit var recordComponentType: GenericType
 
     override fun register(token: GenericType) {
-        fieldType = token
+        recordComponentType = token
     }
 
-    protected fun resolve(): FieldResolution {
-        return FieldResolutionImpl(fieldType)
+    protected fun resolve(): RecordComponentResolution {
+        return RecordComponentResolutionImpl(recordComponentType)
     }
 
     companion object {
-        fun extract(signature: String?, cp: ClasspathSet): FieldResolution {
+        fun extract(signature: String?, cp: ClasspathSet): RecordComponentResolution {
             signature ?: return Raw
             val signatureReader = SignatureReader(signature)
-            val visitor = FieldSignature()
+            val visitor = RecordSignature(cp)
             return try {
                 signatureReader.acceptType(GenericTypeExtractor(cp, visitor))
                 visitor.resolve()

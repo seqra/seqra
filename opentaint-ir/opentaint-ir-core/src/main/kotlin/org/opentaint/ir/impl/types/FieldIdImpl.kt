@@ -24,7 +24,7 @@ class FieldIdImpl(
     }
 
     override suspend fun signature(): FieldResolution {
-        return FieldSignature.extract(info.signature)
+        return FieldSignature.extract(info.signature, classId.cp)
     }
 
     override suspend fun access() = info.access

@@ -18,10 +18,6 @@ class MethodIdImpl(
     override val name: String get() = methodInfo.name
     override suspend fun access() = methodInfo.access
 
-    override suspend fun signature(): MethodResolution {
-        return MethodSignature.extract(methodInfo.signature)
-    }
-
     private val lazyParameters by lazy(LazyThreadSafetyMode.NONE) {
         methodInfo.parameters.mapNotNull {
             classIdService.toClassId(it)
@@ -31,6 +27,10 @@ class MethodIdImpl(
         methodInfo.annotations.mapNotNull {
             classIdService.toClassId(it.className)
         }
+    }
+
+    override suspend fun signature(): MethodResolution {
+        return MethodSignature.extract(methodInfo.signature, classId.cp)
     }
 
     override suspend fun returnType() = classIdService.toClassId(methodInfo.returnType)

@@ -1,55 +1,51 @@
 package org.opentaint.ir.impl.signature
 
+import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.impl.types.PredefinedPrimitive
 
-interface GenericType
 
-class GenericArray(val componentType: GenericType) : GenericType
+abstract class GenericType(val cp: ClasspathSet)
+
+class GenericArray(cp: ClasspathSet, val componentType: GenericType) : GenericType(cp)
 
 class ParameterizedType(
+    cp: ClasspathSet,
     val name: String,
     val parameterTypes: List<GenericType>
-) : GenericType {
+) : GenericType(cp) {
 
     class Nested(
+        cp: ClasspathSet,
         val name: String,
         val parameterTypes: List<GenericType>,
         val ownerType: GenericType
-    ) : GenericType
+    ) : GenericType(cp)
 }
 
-class RawType(val name: String) : GenericType
-class TypeVariable(val symbol: String) : GenericType
+class RawType(cp: ClasspathSet, val name: String) : GenericType(cp)
+class TypeVariable(cp: ClasspathSet, val symbol: String) : GenericType(cp)
 
-sealed class BoundWildcard(val boundType: GenericType) : GenericType {
-    class UpperBoundWildcard(boundType: GenericType) : BoundWildcard(boundType)
-    class LowerBoundWildcard(boundType: GenericType) : BoundWildcard(boundType)
+sealed class BoundWildcard(cp: ClasspathSet, val boundType: GenericType) : GenericType(cp) {
+    class UpperBoundWildcard(cp: ClasspathSet, boundType: GenericType) : BoundWildcard(cp, boundType)
+    class LowerBoundWildcard(cp: ClasspathSet, boundType: GenericType) : BoundWildcard(cp, boundType)
 }
 
-object UnboundWildcard : GenericType
+class UnboundWildcard(cp: ClasspathSet) : GenericType(cp)
 
-enum class PrimitiveType(val type: Class<*>?) : GenericType {
-    BOOLEAN(Boolean::class.javaPrimitiveType),
-    BYTE(Byte::class.javaPrimitiveType),
-    SHORT(Short::class.javaPrimitiveType),
-    CHAR(Char::class.javaPrimitiveType),
-    INTEGER(Int::class.javaPrimitiveType),
-    LONG(Long::class.javaPrimitiveType),
-    FLOAT(Float::class.javaPrimitiveType),
-    DOUBLE(Double::class.javaPrimitiveType),
-    VOID(Void.TYPE);
+class PrimitiveType(cp: ClasspathSet, val ref: PredefinedPrimitive) : GenericType(cp) {
 
     companion object {
-        fun of(descriptor: Char): GenericType {
+        fun of(descriptor: Char, cp: ClasspathSet): GenericType {
             return when (descriptor) {
-                'V' -> VOID
-                'Z' -> BOOLEAN
-                'B' -> BYTE
-                'S' -> SHORT
-                'C' -> CHAR
-                'I' -> INTEGER
-                'J' -> LONG
-                'F' -> FLOAT
-                'D' -> DOUBLE
+                'V' -> PrimitiveType(cp, PredefinedPrimitive.void)
+                'Z' -> PrimitiveType(cp, PredefinedPrimitive.boolean)
+                'B' -> PrimitiveType(cp, PredefinedPrimitive.byte)
+                'S' -> PrimitiveType(cp, PredefinedPrimitive.short)
+                'C' -> PrimitiveType(cp, PredefinedPrimitive.char)
+                'I' -> PrimitiveType(cp, PredefinedPrimitive.int)
+                'J' -> PrimitiveType(cp, PredefinedPrimitive.long)
+                'F' -> PrimitiveType(cp, PredefinedPrimitive.float)
+                'D' -> PrimitiveType(cp, PredefinedPrimitive.double)
                 else -> throw IllegalArgumentException("Not a valid primitive type descriptor: $descriptor")
             }
         }

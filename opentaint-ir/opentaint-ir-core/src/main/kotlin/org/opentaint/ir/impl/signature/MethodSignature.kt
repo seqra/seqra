@@ -1,8 +1,9 @@
 package org.opentaint.ir.impl.signature
 
 import org.objectweb.asm.signature.SignatureVisitor
+import org.opentaint.ir.api.ClasspathSet
 
-open class MethodSignature : Signature<MethodResolution>() {
+open class MethodSignature(cp: ClasspathSet) : Signature<MethodResolution>(cp) {
 
     private val parameterTypes = ArrayList<GenericType>()
     private val exceptionTypes = ArrayList<GenericType>()
@@ -10,16 +11,16 @@ open class MethodSignature : Signature<MethodResolution>() {
     private lateinit var returnType: GenericType
 
     override fun visitParameterType(): SignatureVisitor {
-        return GenericTypeExtractor(ParameterTypeRegistrant())
+        return GenericTypeExtractor(cp, ParameterTypeRegistrant())
     }
 
     override fun visitReturnType(): SignatureVisitor {
         collectTypeParameter()
-        return GenericTypeExtractor(ReturnTypeTypeRegistrant())
+        return GenericTypeExtractor(cp, ReturnTypeTypeRegistrant())
     }
 
     override fun visitExceptionType(): SignatureVisitor {
-        return GenericTypeExtractor(ExceptionTypeRegistrant())
+        return GenericTypeExtractor(cp, ExceptionTypeRegistrant())
     }
 
     override fun resolve(): MethodResolution {
@@ -50,9 +51,10 @@ open class MethodSignature : Signature<MethodResolution>() {
     }
 
     companion object {
-        fun extract(genericSignature: String?): MethodResolution {
+        fun extract(signature: String?, cp: ClasspathSet): MethodResolution {
+            signature ?: return Raw
             return try {
-                if (genericSignature == null) Raw else extract(genericSignature, MethodSignature())
+                extract(signature, MethodSignature(cp))
             } catch (ignored: RuntimeException) {
                 Malformed
             }

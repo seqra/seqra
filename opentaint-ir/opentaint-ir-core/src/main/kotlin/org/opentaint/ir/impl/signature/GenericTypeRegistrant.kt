@@ -8,6 +8,7 @@ interface GenericTypeRegistrant {
     fun register(token: GenericType)
 
     open class RejectingSignatureVisitor : SignatureVisitor(Opcodes.ASM9) {
+
         override fun visitFormalTypeParameter(name: String) {
             throw IllegalStateException(MESSAGE)
         }

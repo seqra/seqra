@@ -3,6 +3,7 @@ package org.opentaint.ir.impl.types
 import kotlinx.collections.immutable.persistentListOf
 import org.objectweb.asm.Opcodes
 import org.opentaint.ir.api.ClassId
+import org.opentaint.ir.api.ClasspathSet
 import org.opentaint.ir.api.FieldId
 import org.opentaint.ir.api.MethodId
 import org.opentaint.ir.impl.signature.Raw
@@ -30,6 +31,8 @@ class PredefinedPrimitive(override val simpleName: String) : ClassId {
 
     override val name: String get() = simpleName
     override val location = null
+
+    override val cp: ClasspathSet get() = throw UnsupportedOperationException()
 
     override suspend fun signature() = Raw
 

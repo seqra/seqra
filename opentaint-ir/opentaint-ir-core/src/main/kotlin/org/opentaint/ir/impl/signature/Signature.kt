@@ -2,8 +2,10 @@ package org.opentaint.ir.impl.signature
 
 import org.objectweb.asm.signature.SignatureReader
 import org.objectweb.asm.signature.SignatureVisitor
+import org.opentaint.ir.api.ClasspathSet
 
-abstract class Signature<T : Resolution>: GenericTypeRegistrant.RejectingSignatureVisitor(), GenericTypeRegistrant {
+abstract class Signature<T : Resolution>(protected val cp: ClasspathSet) :
+    GenericTypeRegistrant.RejectingSignatureVisitor(), GenericTypeRegistrant {
 
     protected val typeVariables = ArrayList<FormalTypeVariable>()
     protected var currentTypeParameter: String? = null
@@ -16,11 +18,11 @@ abstract class Signature<T : Resolution>: GenericTypeRegistrant.RejectingSignatu
     }
 
     override fun visitClassBound(): SignatureVisitor {
-        return GenericTypeExtractor(this)
+        return GenericTypeExtractor(cp, this)
     }
 
     override fun visitInterfaceBound(): SignatureVisitor {
-        return GenericTypeExtractor(this)
+        return GenericTypeExtractor(cp, this)
     }
 
     override fun register(token: GenericType) {

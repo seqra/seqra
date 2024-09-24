@@ -17,7 +17,7 @@ class ClasspathSetImpl(
     override val locations: List<ByteCodeLocation> = locationsRegistrySnapshot.locations
 
     private val classpathClassTree = ClasspathClassTree(classTree, locationsRegistrySnapshot)
-    private val classIdService = ClassIdService(classpathClassTree)
+    private val classIdService = ClassIdService(this, classpathClassTree)
 
     override suspend fun refreshed(closeOld: Boolean): ClasspathSet {
         return db.classpathSet(locationsRegistrySnapshot.locations).also {

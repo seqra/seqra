@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.*
 import org.opentaint.ir.compilationDatabase
 import org.opentaint.ir.impl.index.findClassOrNull
+import org.opentaint.ir.impl.signature.*
 import org.opentaint.ir.impl.usages.Generics
 import org.opentaint.ir.impl.usages.HelloWorldAnonymousClasses
 import org.opentaint.ir.impl.usages.WithInner
@@ -100,15 +101,67 @@ class DatabaseTest : LibrariesMixin {
 
         assertNotNull(a!!)
         val classSignature = a.signature()
-        val methodSignatures = a.methods().map { it.signature() }
-        val fieldSignatures = a.fields().map { it.signature() }
-        methodSignatures.forEach {
-            println(it)
+        val methodSignatures = a.methods().map { it.name to it.signature() }
+        val fieldSignatures = a.fields().map { it.name to it.signature() }
+        assertEquals(2, methodSignatures.size)
+        with(methodSignatures[0]) {
+            val (name, signature) = this
+            assertEquals("<init>", name)
+            assertEquals(Raw, signature)
         }
-        fieldSignatures.forEach {
-            println(it)
+        with(methodSignatures[1]) {
+            val (name, signature) = this
+            assertEquals("merge", name)
+            signature as MethodResolutionImpl
+            assertEquals("void", (signature.returnType as PrimitiveType).ref.name)
+            assertEquals(1, signature.parameterTypes.size)
+            with(signature.parameterTypes.first()) {
+                this as ParameterizedType
+                assertEquals(Generics::class.java.name, this.name)
+                assertEquals(1, parameterTypes.size)
+                with(parameterTypes.first()) {
+                    this as TypeVariable
+                    assertEquals("T", this.symbol)
+                }
+            }
+            assertEquals(1, signature.parameterTypes.size)
+            val parameterizedType = signature.parameterTypes.first() as ParameterizedType
+            assertEquals(1, parameterizedType.parameterTypes.size)
+            assertEquals(Generics::class.java.name, parameterizedType.name)
+            val typeVariable = parameterizedType.parameterTypes.first() as TypeVariable
+            assertEquals("T", typeVariable.symbol)
         }
-        println(classSignature)
+
+        with(classSignature) {
+            this as TypeResolutionImpl
+            assertEquals("java.lang.Object", (superClass as RawType).name)
+        }
+
+        assertEquals(2, fieldSignatures.size)
+
+        with(fieldSignatures.first()) {
+            val (name, signature) = this
+            signature as FieldResolutionImpl
+            val fieldType = signature.fieldType as TypeVariable
+            assertEquals("niceField", name)
+            assertEquals("T", fieldType.symbol)
+        }
+        with(fieldSignatures.get(1)) {
+            val (name, signature) = this
+            signature as FieldResolutionImpl
+            val fieldType = signature.fieldType as ParameterizedType
+            assertEquals("niceList", name)
+            assertEquals("java.util.List", fieldType.name)
+            with(fieldType.parameterTypes) {
+                assertEquals(1, size)
+                with(first()) {
+                    this as BoundWildcard.UpperBoundWildcard
+                    val bondType = boundType as TypeVariable
+                    assertEquals("T", bondType.symbol)
+                }
+            }
+            assertEquals("java.util.List", fieldType.name)
+        }
     }
 
     @Test

@@ -32,6 +32,8 @@ interface ClassId : Accessible {
     /** simple class name */
     val simpleName: String
 
+    val cp: ClasspathSet
+
     suspend fun byteCode(): ClassNode?
 
     suspend fun innerClasses(): List<ClassId>

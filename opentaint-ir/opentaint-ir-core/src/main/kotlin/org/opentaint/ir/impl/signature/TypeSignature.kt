@@ -1,29 +1,30 @@
 package org.opentaint.ir.impl.signature
 
 import org.objectweb.asm.signature.SignatureVisitor
+import org.opentaint.ir.api.ClasspathSet
 
-class TypeSignature : Signature<TypeResolution>() {
+class TypeSignature(cp: ClasspathSet) : Signature<TypeResolution>(cp) {
 
     private val interfaceTypes = ArrayList<GenericType>()
-    private lateinit var superClassToken: GenericType
+    private lateinit var superClass: GenericType
 
     override fun visitSuperclass(): SignatureVisitor {
         collectTypeParameter()
-        return GenericTypeExtractor(SuperClassRegistrant())
+        return GenericTypeExtractor(cp, SuperClassRegistrant())
     }
 
     override fun visitInterface(): SignatureVisitor {
-        return GenericTypeExtractor(InterfaceTypeRegistrant())
+        return GenericTypeExtractor(cp, InterfaceTypeRegistrant())
     }
 
     override fun resolve(): TypeResolution {
-        return TypeResolutionImpl(superClassToken, interfaceTypes, typeVariables)
+        return TypeResolutionImpl(superClass, interfaceTypes, typeVariables)
     }
 
     private inner class SuperClassRegistrant : GenericTypeRegistrant {
 
         override fun register(token: GenericType) {
-            superClassToken = token
+            superClass = token
         }
     }
 
@@ -36,9 +37,9 @@ class TypeSignature : Signature<TypeResolution>() {
 
 
     companion object {
-        fun extract( genericSignature: String?): TypeResolution {
+        fun extract(signature: String?, cp: ClasspathSet): TypeResolution {
             return try {
-                if (genericSignature == null) Raw else extract(genericSignature, TypeSignature())
+                if (signature == null) Raw else extract(signature, TypeSignature(cp))
             } catch (ignored: RuntimeException) {
                 Malformed
             }
