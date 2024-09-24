@@ -25,6 +25,13 @@ suspend fun Accessible.isProtected(): Boolean {
 }
 
 /**
+ * is item has `package` modifier
+ */
+suspend fun Accessible.isPackagePrivate(): Boolean {
+    return !isPublic() && !isProtected() && !isPrivate()
+}
+
+/**
  * is item has `static` modifier
  */
 suspend fun Accessible.isStatic(): Boolean {
