@@ -5,6 +5,8 @@ import org.opentaint.ir.api.ClassId
 import org.opentaint.ir.api.MethodId
 import org.opentaint.ir.api.findMethodOrNull
 import org.opentaint.ir.impl.ClassIdService
+import org.opentaint.ir.impl.signature.TypeResolution
+import org.opentaint.ir.impl.signature.TypeSignature
 import org.opentaint.ir.impl.suspendableLazy
 import org.opentaint.ir.impl.tree.ClassNode
 
@@ -54,8 +56,8 @@ class ClassIdImpl(private val node: ClassNode, private val classIdService: Class
         return node.fullByteCode()
     }
 
-    override suspend fun signature(): String? {
-        return node.info().signature
+    override suspend fun signature(): TypeResolution {
+        return TypeSignature.extract(node.info().signature)
     }
 
     override suspend fun access() = node.info().access

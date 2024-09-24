@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.*
 import org.opentaint.ir.compilationDatabase
 import org.opentaint.ir.impl.index.findClassOrNull
+import org.opentaint.ir.impl.usages.Generics
 import org.opentaint.ir.impl.usages.HelloWorldAnonymousClasses
 import org.opentaint.ir.impl.usages.WithInner
 import org.w3c.dom.Document
@@ -93,10 +94,21 @@ class DatabaseTest : LibrariesMixin {
     }
 
     @Test
-    fun `get signature`() = runBlocking {
+    fun `get signature of class and methods`() = runBlocking {
         val cp = db.classpathSet(allClasspath)
-        val a = cp.findClassOrNull("org.opentaint.ir.impl.usages.A")
+        val a = cp.findClassOrNull<Generics<*>>()
+
         assertNotNull(a!!)
+        val classSignature = a.signature()
+        val methodSignatures = a.methods().map { it.signature() }
+        val fieldSignatures = a.fields().map { it.signature() }
+        methodSignatures.forEach {
+            println(it)
+        }
+        fieldSignatures.forEach {
+            println(it)
+        }
+        println(classSignature)
     }
 
     @Test

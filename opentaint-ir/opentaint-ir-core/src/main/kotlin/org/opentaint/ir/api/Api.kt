@@ -2,6 +2,9 @@ package org.opentaint.ir.api
 
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodNode
+import org.opentaint.ir.impl.signature.FieldResolution
+import org.opentaint.ir.impl.signature.MethodResolution
+import org.opentaint.ir.impl.signature.TypeResolution
 import java.io.Closeable
 import java.io.File
 import java.io.InputStream
@@ -29,7 +32,7 @@ interface ClassId : Accessible {
     /** simple class name */
     val simpleName: String
 
-    suspend fun byteCode() : ClassNode?
+    suspend fun byteCode(): ClassNode?
 
     suspend fun innerClasses(): List<ClassId>
 
@@ -37,7 +40,7 @@ interface ClassId : Accessible {
 
     suspend fun isAnonymous(): Boolean
 
-    suspend fun signature(): String?
+    suspend fun signature(): TypeResolution
 
     suspend fun outerMethod(): MethodId?
 
@@ -157,7 +160,7 @@ interface MethodId : Accessible {
     /** reference to class */
     val classId: ClassId
 
-    suspend fun signature(): String?
+    suspend fun signature(): MethodResolution
 
     /**
      * @return return type of the method or null in case of void methods
@@ -200,7 +203,7 @@ interface FieldId : Accessible {
     /** class of this field */
     val classId: ClassId
 
-    suspend fun signature(): String?
+    suspend fun signature(): FieldResolution
 
     /** field type */
     suspend fun type(): ClassId?
@@ -222,8 +225,10 @@ interface ClasspathSet : Closeable {
 
     /** locations of this classpath */
     val locations: List<ByteCodeLocation>
+
     /** reference to database */
     val db: CompilationDatabase
+
     /**
      * in case if some locations are outdated it's required to call this method which will create new instance
      * with refreshed locations. Old instance will be automatically closed.

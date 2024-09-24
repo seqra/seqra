@@ -4,6 +4,8 @@ import org.objectweb.asm.tree.MethodNode
 import org.opentaint.ir.api.ClassId
 import org.opentaint.ir.api.MethodId
 import org.opentaint.ir.impl.ClassIdService
+import org.opentaint.ir.impl.signature.MethodResolution
+import org.opentaint.ir.impl.signature.MethodSignature
 import org.opentaint.ir.impl.tree.ClassNode
 
 class MethodIdImpl(
@@ -16,10 +18,9 @@ class MethodIdImpl(
     override val name: String get() = methodInfo.name
     override suspend fun access() = methodInfo.access
 
-    override suspend fun signature(): String? {
-        return methodInfo.signature
+    override suspend fun signature(): MethodResolution {
+        return MethodSignature.extract(methodInfo.signature)
     }
-
 
     private val lazyParameters by lazy(LazyThreadSafetyMode.NONE) {
         methodInfo.parameters.mapNotNull {

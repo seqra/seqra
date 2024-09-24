@@ -3,6 +3,8 @@ package org.opentaint.ir.impl.types
 import org.opentaint.ir.api.ClassId
 import org.opentaint.ir.api.FieldId
 import org.opentaint.ir.impl.ClassIdService
+import org.opentaint.ir.impl.signature.FieldResolution
+import org.opentaint.ir.impl.signature.FieldSignature
 
 class FieldIdImpl(
     override val classId: ClassId,
@@ -21,8 +23,8 @@ class FieldIdImpl(
         info.annotations.mapNotNull { classIdService.toClassId(it.className) }
     }
 
-    override suspend fun signature(): String? {
-        return info.signature
+    override suspend fun signature(): FieldResolution {
+        return FieldSignature.extract(info.signature)
     }
 
     override suspend fun access() = info.access
