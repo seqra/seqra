@@ -64,6 +64,13 @@ interface ClassId : Accessible {
 }
 
 /**
+ * element representing class for array
+ */
+interface ArrayClassId : ClassId {
+    val elementClass: ClassId
+}
+
+/**
  * Immutable structure represented a file system location of bytecode such as `jar` or build folder.
  *
  * Each location has `unique id` which may be used as unique identifier of location.

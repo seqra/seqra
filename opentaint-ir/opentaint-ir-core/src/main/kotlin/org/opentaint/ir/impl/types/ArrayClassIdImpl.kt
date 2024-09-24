@@ -22,16 +22,16 @@ object PredefinedArrays {
 
 }
 
-class ArrayClassIdImpl(val classId: ClassId) : ClassId {
+class ArrayClassIdImpl(override val elementClass: ClassId) : ArrayClassId {
 
-    override val name = classId.simpleName + "[]"
-    override val simpleName = classId.simpleName + "[]"
+    override val name = elementClass.simpleName + "[]"
+    override val simpleName = elementClass.simpleName + "[]"
 
     override val location: ByteCodeLocation?
-        get() = classId.location
+        get() = elementClass.location
 
     override val classpath: ClasspathSet
-        get() = classId.classpath
+        get() = elementClass.classpath
 
     override suspend fun byteCode(): ClassNode? {
         return null
@@ -49,8 +49,8 @@ class ArrayClassIdImpl(val classId: ClassId) : ClassId {
 
     override suspend fun methods() = emptyList<MethodId>()
 
-    override suspend fun superclass(): ClassId? {
-        return classId.classpath.findClassOrNull<Any>()
+    override suspend fun superclass(): ClassId {
+        return elementClass.classpath.findClassOrNull<Any>() ?: classNotFound("java.lang.Object")
     }
 
     override suspend fun interfaces() = emptyList<ClassId>()
