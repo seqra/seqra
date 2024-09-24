@@ -101,7 +101,7 @@ fun MethodId.isConstructor(): Boolean {
     return name == "<init>"
 }
 
-suspend fun ClassId.isSynthetic(): Boolean {
+suspend fun Accessible.isSynthetic(): Boolean {
     return access() and Opcodes.ACC_SYNTHETIC != 0
 }
 
