@@ -17,7 +17,7 @@ import org.opentaint.ir.impl.types.short
 class ApiExtTest : LibrariesMixin {
 
     companion object : LibrariesMixin {
-        val db = runBlocking {
+        var db: CompilationDatabase? = runBlocking {
             compilationDatabase {
                 useProcessJavaRuntime()
                 predefinedDirOrJars = allClasspath
@@ -27,12 +27,14 @@ class ApiExtTest : LibrariesMixin {
         }
 
         @AfterAll
+        @JvmStatic
         fun cleanup() {
-            db.close()
+            db?.close()
+            db = null
         }
     }
 
-    var cp = runBlocking { db.classpathSet(allClasspath) }
+    var cp = runBlocking { db!!.classpathSet(allClasspath) }
 
     @Test
     fun `unboxing primitive type`() = runBlocking {
@@ -127,7 +129,7 @@ class ApiExtTest : LibrariesMixin {
     }
 
     @AfterEach
-    fun cleanup() {
+    fun close() {
         cp.close()
     }
 }

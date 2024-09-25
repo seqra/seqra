@@ -2,25 +2,25 @@ package org.opentaint.ir.impl.hierarchies;
 
 public interface Creature {
 
-    public static interface Animal extends Creature {
+    interface Animal extends Creature {
     }
 
-    public static interface Fish extends Creature {
+    interface Fish extends Creature {
     }
 
-    public static interface Dinosaur extends Creature, Animal {
+    interface Dinosaur extends Creature, Animal {
     }
 
-    public static interface Bird extends Creature {
+    interface Bird extends Creature {
     }
 
-    public static class DinosaurImpl implements Dinosaur {
+    class DinosaurImpl implements Dinosaur {
     }
 
-    public static class TRex extends DinosaurImpl implements Dinosaur {
+    class TRex extends DinosaurImpl implements Dinosaur {
     }
 
-    public static class Pterodactyl extends DinosaurImpl implements Bird {
+    class Pterodactyl extends DinosaurImpl implements Bird {
     }
 
 

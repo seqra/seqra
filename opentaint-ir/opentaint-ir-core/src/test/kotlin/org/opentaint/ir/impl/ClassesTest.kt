@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 class ClassesTest {
     companion object : LibrariesMixin {
-        val db = runBlocking {
+        var db: CompilationDatabase? = runBlocking {
             compilationDatabase {
                 predefinedDirOrJars = allClasspath
                 useProcessJavaRuntime()
@@ -32,12 +32,14 @@ class ClassesTest {
         }
 
         @AfterAll
+        @JvmStatic
         fun cleanup() {
-            db.close()
+            db?.close()
+            db = null
         }
     }
 
-    private val cp = runBlocking { db.classpathSet(allClasspath) }
+    private val cp = runBlocking { db!!.classpathSet(allClasspath) }
 
     @AfterEach
     fun close() {
