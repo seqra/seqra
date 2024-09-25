@@ -8,31 +8,36 @@ import org.opentaint.ir.api.FieldId
 import org.opentaint.ir.api.MethodId
 import org.opentaint.ir.impl.signature.Raw
 
+object PredefinedPrimitives {
+
+    val boolean = "boolean"
+    val byte = "byte"
+    val char = "char"
+    val short = "short"
+    val int = "int"
+    val long = "long"
+    val float = "float"
+    val double = "double"
+    val void = "void"
+
+    private val values = persistentListOf(boolean, byte, char, short, int, long, float, double, void)
+    private val valueSet = values.toHashSet()
+
+    fun of(name: String, cp: ClasspathSet): ClassId? {
+        if (valueSet.contains(name)) {
+            return PredefinedPrimitive(cp, name)
+        }
+        return null
+    }
+}
+
 /**
  * Predefined primitive types
  */
-class PredefinedPrimitive(override val simpleName: String) : ClassId {
-
-    companion object {
-        val boolean = PredefinedPrimitive("boolean")
-        val byte = PredefinedPrimitive("byte")
-        val char = PredefinedPrimitive("char")
-        val short = PredefinedPrimitive("short")
-        val int = PredefinedPrimitive("int")
-        val long = PredefinedPrimitive("long")
-        val float = PredefinedPrimitive("float")
-        val double = PredefinedPrimitive("double")
-        val void = PredefinedPrimitive("void")
-
-        val values = persistentListOf(boolean, byte, char, short, int, long, float, double, void)
-
-    }
-
+class PredefinedPrimitive(override val classpath: ClasspathSet, override val simpleName: String) : ClassId {
 
     override val name: String get() = simpleName
     override val location = null
-
-    override val classpath: ClasspathSet get() = throw UnsupportedOperationException()
 
     override suspend fun signature() = Raw
 
@@ -57,4 +62,31 @@ class PredefinedPrimitive(override val simpleName: String) : ClassId {
     override suspend fun fields() = emptyList<FieldId>()
 
     override suspend fun access() = Opcodes.ACC_PUBLIC
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as PredefinedPrimitive
+
+        if (name != other.name) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return name.hashCode()
+    }
+
+
 }
+
+val ClasspathSet.void get() = PredefinedPrimitive(this, PredefinedPrimitives.void)
+val ClasspathSet.boolean get() = PredefinedPrimitive(this, PredefinedPrimitives.boolean)
+val ClasspathSet.short get() = PredefinedPrimitive(this, PredefinedPrimitives.short)
+val ClasspathSet.int get() = PredefinedPrimitive(this, PredefinedPrimitives.int)
+val ClasspathSet.long get() = PredefinedPrimitive(this, PredefinedPrimitives.long)
+val ClasspathSet.float get() = PredefinedPrimitive(this, PredefinedPrimitives.float)
+val ClasspathSet.double get() = PredefinedPrimitive(this, PredefinedPrimitives.double)
+val ClasspathSet.byte get() = PredefinedPrimitive(this, PredefinedPrimitives.byte)
+val ClasspathSet.char get() = PredefinedPrimitive(this, PredefinedPrimitives.char)

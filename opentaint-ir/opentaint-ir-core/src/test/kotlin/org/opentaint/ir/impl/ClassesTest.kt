@@ -1,6 +1,7 @@
 package org.opentaint.ir.impl
 
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Nested
@@ -10,7 +11,7 @@ import org.opentaint.ir.compilationDatabase
 import org.opentaint.ir.impl.index.findClassOrNull
 import org.opentaint.ir.impl.signature.*
 import org.opentaint.ir.impl.types.ArrayClassIdImpl
-import org.opentaint.ir.impl.types.PredefinedPrimitive
+import org.opentaint.ir.impl.types.byte
 import org.opentaint.ir.impl.usages.Generics
 import org.opentaint.ir.impl.usages.HelloWorldAnonymousClasses
 import org.opentaint.ir.impl.usages.WithInner
@@ -19,26 +20,32 @@ import org.w3c.dom.DocumentType
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
-class DatabaseTest : LibrariesMixin {
-
-    private val db = runBlocking {
-        compilationDatabase {
-            predefinedDirOrJars = allClasspath
-            useProcessJavaRuntime()
+class ClassesTest {
+    companion object : LibrariesMixin {
+        val db = runBlocking {
+            compilationDatabase {
+                predefinedDirOrJars = allClasspath
+                useProcessJavaRuntime()
+            }.also {
+                it.awaitBackgroundJobs()
+            }
         }
-    }
 
-    @AfterEach
-    fun close() {
-        runBlocking {
-            db.awaitBackgroundJobs()
+        @AfterAll
+        fun cleanup() {
             db.close()
         }
     }
 
+    private val cp = runBlocking { db.classpathSet(allClasspath) }
+
+    @AfterEach
+    fun close() {
+        cp.close()
+    }
+
     @Test
     fun `find class from build dir folder`() = runBlocking {
-        val cp = db.classpathSet(allClasspath)
         val clazz = cp.findClassOrNull<Foo>()
         assertNotNull(clazz!!)
         assertEquals(Foo::class.java.name, clazz.name)
@@ -55,11 +62,11 @@ class DatabaseTest : LibrariesMixin {
 
         with(fields.first()) {
             assertEquals("foo", name)
-            assertEquals("int", type()?.name)
+            assertEquals("int", type().name)
         }
         with(fields[1]) {
             assertEquals("bar", name)
-            assertEquals(String::class.java.name, type()?.name)
+            assertEquals(String::class.java.name, type().name)
         }
 
         val methods = clazz.methods()
@@ -78,7 +85,6 @@ class DatabaseTest : LibrariesMixin {
 
     @Test
     fun `array types`() = runBlocking {
-        val cp = db.classpathSet(allClasspath)
         val clazz = cp.findClassOrNull<Bar>()
         assertNotNull(clazz!!)
         assertEquals(Bar::class.java.name, clazz.name)
@@ -89,19 +95,22 @@ class DatabaseTest : LibrariesMixin {
         with(fields.first()) {
             assertEquals("byteArray", name)
             assertEquals("byte[]", type().name)
-            assertEquals(PredefinedPrimitive.byte, (type() as ArrayClassIdImpl).classId)
+            assertEquals(cp.byte, (type() as ArrayClassIdImpl).elementClass)
         }
 
         with(fields.get(1)) {
             assertEquals("objectArray", name)
             assertEquals("Object[]", type().name)
-            assertEquals(cp.findClassOrNull<Any>(), (type() as ArrayClassIdImpl).classId)
+            assertEquals(cp.findClassOrNull<Any>(), (type() as ArrayClassIdImpl).elementClass)
         }
 
         with(fields.get(2)) {
             assertEquals("objectObjectArray", name)
             assertEquals("Object[][]", type().name)
-            assertEquals(cp.findClassOrNull<Any>(), ((type() as ArrayClassIdImpl).classId as ArrayClassIdImpl).classId)
+            assertEquals(
+                cp.findClassOrNull<Any>(),
+                ((type() as ArrayClassIdImpl).elementClass as ArrayClassIdImpl).elementClass
+            )
         }
 
         val methods = clazz.methods()
@@ -117,7 +126,6 @@ class DatabaseTest : LibrariesMixin {
 
     @Test
     fun `inner and static`() = runBlocking {
-        val cp = db.classpathSet(allClasspath)
         val withInner = cp.findClassOrNull<WithInner>()
         val inner = cp.findClassOrNull<WithInner.Inner>()
         val staticInner = cp.findClassOrNull<WithInner.StaticInner>()
@@ -137,7 +145,6 @@ class DatabaseTest : LibrariesMixin {
 
     @Test
     fun `get signature of class`() = runBlocking {
-        val cp = db.classpathSet(allClasspath)
         val a = cp.findClassOrNull<Generics<*>>()
 
         assertNotNull(a!!)
@@ -151,7 +158,6 @@ class DatabaseTest : LibrariesMixin {
 
     @Test
     fun `get signature of methods`() = runBlocking {
-        val cp = db.classpathSet(allClasspath)
         val a = cp.findClassOrNull<Generics<*>>()
 
         assertNotNull(a!!)
@@ -216,7 +222,6 @@ class DatabaseTest : LibrariesMixin {
 
     @Test
     fun `get signature of fields`() = runBlocking {
-        val cp = db.classpathSet(allClasspath)
         val a = cp.findClassOrNull<Generics<*>>()
 
         assertNotNull(a!!)
@@ -251,7 +256,6 @@ class DatabaseTest : LibrariesMixin {
 
     @Test
     fun `local and anonymous classes`() = runBlocking {
-        val cp = db.classpathSet(allClasspath)
         val withAnonymous = cp.findClassOrNull<HelloWorldAnonymousClasses>()
         assertNotNull(withAnonymous!!)
 
@@ -275,7 +279,6 @@ class DatabaseTest : LibrariesMixin {
 
     @Test
     fun `find lazy-loaded class`() = runBlocking {
-        val cp = db.classpathSet(emptyList())
         val domClass = cp.findClassOrNull<Document>()
         assertNotNull(domClass!!)
 
@@ -286,14 +289,13 @@ class DatabaseTest : LibrariesMixin {
         assertTrue(methods.isNotEmpty())
         with(methods.first { it.name == "getDoctype" }) {
             assertTrue(parameters().isEmpty())
-            assertEquals(DocumentType::class.java.name, returnType()?.name)
+            assertEquals(DocumentType::class.java.name, returnType().name)
             assertTrue(isPublic())
         }
     }
 
     @Test
     fun `find sub-types from lazy loaded classes`() = runBlocking {
-        val cp = db.classpathSet(emptyList())
         val domClass = cp.findClassOrNull<Document>()
         assertNotNull(domClass!!)
 
@@ -316,7 +318,6 @@ class DatabaseTest : LibrariesMixin {
 
     @Test
     fun `find sub-types with all hierarchy`() = runBlocking {
-        val cp = db.classpathSet(allClasspath)
         val clazz = cp.findClassOrNull<SuperDuper>()
         assertNotNull(clazz!!)
 

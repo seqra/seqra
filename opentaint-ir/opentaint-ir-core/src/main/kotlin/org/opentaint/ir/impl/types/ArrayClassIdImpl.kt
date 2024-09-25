@@ -1,29 +1,10 @@
 package org.opentaint.ir.impl.types
 
-import kotlinx.collections.immutable.persistentListOf
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.ClassNode
 import org.opentaint.ir.api.*
 import org.opentaint.ir.impl.index.findClassOrNull
 import org.opentaint.ir.impl.signature.Raw
-
-/**
- * Predefined arrays of primitive types
- */
-object PredefinedArrays {
-
-    val boolean = ArrayClassIdImpl(PredefinedPrimitive.boolean)
-    val byte = ArrayClassIdImpl(PredefinedPrimitive.byte)
-    val char = ArrayClassIdImpl(PredefinedPrimitive.char)
-    val short = ArrayClassIdImpl(PredefinedPrimitive.short)
-    val int = ArrayClassIdImpl(PredefinedPrimitive.int)
-    val long = ArrayClassIdImpl(PredefinedPrimitive.long)
-    val float = ArrayClassIdImpl(PredefinedPrimitive.float)
-    val double = ArrayClassIdImpl(PredefinedPrimitive.double)
-
-    val values = persistentListOf(boolean, byte, char, short, int, long, float, double)
-
-}
 
 class ArrayClassIdImpl(override val elementClass: ClassId) : ArrayClassId {
 
@@ -64,4 +45,31 @@ class ArrayClassIdImpl(override val elementClass: ClassId) : ArrayClassId {
 
     override suspend fun access() = Opcodes.ACC_PUBLIC
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as ArrayClassIdImpl
+
+        if (elementClass != other.elementClass) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return elementClass.hashCode()
+    }
+
 }
+
+/**
+ * Predefined arrays of primitive types
+ */
+val ClasspathSet.booleanArray get() = ArrayClassIdImpl(boolean)
+val ClasspathSet.shortArray get() = ArrayClassIdImpl(short)
+val ClasspathSet.intArray get() = ArrayClassIdImpl(int)
+val ClasspathSet.longArray get() = ArrayClassIdImpl(long)
+val ClasspathSet.floatArray get() = ArrayClassIdImpl(float)
+val ClasspathSet.doubleArray get() = ArrayClassIdImpl(double)
+val ClasspathSet.byteArray get() = ArrayClassIdImpl(byte)
+val ClasspathSet.charArray get() = ArrayClassIdImpl(char)

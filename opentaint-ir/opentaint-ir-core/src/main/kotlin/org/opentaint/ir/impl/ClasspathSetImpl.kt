@@ -7,6 +7,7 @@ import org.opentaint.ir.impl.index.subClassesExt
 import org.opentaint.ir.impl.tree.ClassTree
 import org.opentaint.ir.impl.tree.ClasspathClassTree
 import org.opentaint.ir.impl.types.ArrayClassIdImpl
+import org.opentaint.ir.impl.types.PredefinedPrimitives
 
 class ClasspathSetImpl(
     private val locationsRegistrySnapshot: LocationsRegistrySnapshot,
@@ -34,6 +35,10 @@ class ClasspathSetImpl(
             return findClassOrNull(targetName)?.let {
                 ArrayClassIdImpl(it)
             }
+        }
+        val predefined = PredefinedPrimitives.of(name, this)
+        if (predefined != null) {
+            return predefined
         }
         return classIdService.toClassId(classpathClassTree.firstClassOrNull(name))
     }

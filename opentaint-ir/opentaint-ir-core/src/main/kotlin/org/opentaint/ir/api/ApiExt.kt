@@ -2,7 +2,8 @@ package org.opentaint.ir.api
 
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.MethodNode
-import org.opentaint.ir.impl.types.PredefinedPrimitive
+import org.opentaint.ir.impl.index.findClassOrNull
+import org.opentaint.ir.impl.types.*
 
 /**
  * is item has `public` modifier
@@ -145,14 +146,33 @@ fun ClassId.ifArrayGetElementClass(): ClassId? {
  */
 fun ClassId.unboxIfNeeded(): ClassId {
     return when (name) {
-        "java.lang.Boolean" -> PredefinedPrimitive.boolean
-        "java.lang.Byte" -> PredefinedPrimitive.byte
-        "java.lang.Char" -> PredefinedPrimitive.char
-        "java.lang.Short" -> PredefinedPrimitive.short
-        "java.lang.Integer" -> PredefinedPrimitive.int
-        "java.lang.Long" -> PredefinedPrimitive.long
-        "java.lang.Float" -> PredefinedPrimitive.float
-        "java.lang.Double" -> PredefinedPrimitive.double
+        "java.lang.Boolean" -> classpath.boolean
+        "java.lang.Byte" -> classpath.byte
+        "java.lang.Char" -> classpath.char
+        "java.lang.Short" -> classpath.short
+        "java.lang.Integer" -> classpath.int
+        "java.lang.Long" -> classpath.long
+        "java.lang.Float" -> classpath.float
+        "java.lang.Double" -> classpath.double
+        else -> this
+    }
+}
+
+/**
+ * unboxes `this` class. That means that for 'java.lang.Integet' will be returned `PredefinedPrimitive.int`
+ * and for `java.lang.String` will be returned `java.lang.String`
+ */
+@Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
+suspend fun ClassId.autoboxIfNeeded(): ClassId {
+    return when(this) {
+        classpath.boolean -> classpath.findClassOrNull<java.lang.Boolean>() ?: throwClassNotFound<java.lang.Boolean>()
+        classpath.byte -> classpath.findClassOrNull<java.lang.Byte>() ?: throwClassNotFound<java.lang.Byte>()
+        classpath.char -> classpath.findClassOrNull<Character>() ?: throwClassNotFound<Character>()
+        classpath.short -> classpath.findClassOrNull<java.lang.Short>() ?: throwClassNotFound<java.lang.Short>()
+        classpath.int -> classpath.findClassOrNull<Integer>() ?: throwClassNotFound<Integer>()
+        classpath.long -> classpath.findClassOrNull<java.lang.Long>() ?: throwClassNotFound<java.lang.Long>()
+        classpath.float -> classpath.findClassOrNull<java.lang.Float>() ?: throwClassNotFound<java.lang.Float>()
+        classpath.double -> classpath.findClassOrNull<java.lang.Double>() ?: throwClassNotFound<java.lang.Double>()
         else -> this
     }
 }

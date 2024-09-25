@@ -3,7 +3,7 @@ package org.opentaint.ir.impl.signature
 import org.opentaint.ir.api.ClassId
 import org.opentaint.ir.api.ClasspathSet
 import org.opentaint.ir.api.throwClassNotFound
-import org.opentaint.ir.impl.types.PredefinedPrimitive
+import org.opentaint.ir.impl.types.*
 
 
 abstract class GenericType(val classpath: ClasspathSet) {
@@ -38,11 +38,12 @@ class ParameterizedType(
     }
 }
 
-class RawType(cp: ClasspathSet, val name: String) : GenericType(cp){
+class RawType(cp: ClasspathSet, val name: String) : GenericType(cp) {
     suspend fun findClass(): ClassId {
         return findClass(name)
     }
 }
+
 class TypeVariable(cp: ClasspathSet, val symbol: String) : GenericType(cp)
 
 sealed class BoundWildcard(cp: ClasspathSet, val boundType: GenericType) : GenericType(cp) {
@@ -57,15 +58,15 @@ class PrimitiveType(cp: ClasspathSet, val ref: PredefinedPrimitive) : GenericTyp
     companion object {
         fun of(descriptor: Char, cp: ClasspathSet): GenericType {
             return when (descriptor) {
-                'V' -> PrimitiveType(cp, PredefinedPrimitive.void)
-                'Z' -> PrimitiveType(cp, PredefinedPrimitive.boolean)
-                'B' -> PrimitiveType(cp, PredefinedPrimitive.byte)
-                'S' -> PrimitiveType(cp, PredefinedPrimitive.short)
-                'C' -> PrimitiveType(cp, PredefinedPrimitive.char)
-                'I' -> PrimitiveType(cp, PredefinedPrimitive.int)
-                'J' -> PrimitiveType(cp, PredefinedPrimitive.long)
-                'F' -> PrimitiveType(cp, PredefinedPrimitive.float)
-                'D' -> PrimitiveType(cp, PredefinedPrimitive.double)
+                'V' -> PrimitiveType(cp, cp.void)
+                'Z' -> PrimitiveType(cp, cp.boolean)
+                'B' -> PrimitiveType(cp, cp.byte)
+                'S' -> PrimitiveType(cp, cp.short)
+                'C' -> PrimitiveType(cp, cp.char)
+                'I' -> PrimitiveType(cp, cp.int)
+                'J' -> PrimitiveType(cp, cp.long)
+                'F' -> PrimitiveType(cp, cp.float)
+                'D' -> PrimitiveType(cp, cp.double)
                 else -> throw IllegalArgumentException("Not a valid primitive type descriptor: $descriptor")
             }
         }
