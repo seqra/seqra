@@ -8,6 +8,7 @@ import org.opentaint.ir.impl.signature.TypeResolution
 import java.io.Closeable
 import java.io.File
 import java.io.InputStream
+import java.net.URL
 
 /**
  * represents structure which has access modifiers like field, class, method
@@ -88,6 +89,9 @@ interface ByteCodeLocation {
     val id: String
 
     val scope: LocationScope
+
+    /** url for bytecode location */
+    val locationURL: URL
 
     /**
      * this operation may involve file-system operations and may be expensive

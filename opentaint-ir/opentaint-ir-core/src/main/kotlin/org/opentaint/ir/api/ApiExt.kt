@@ -187,7 +187,7 @@ val ArrayClassId.isPrimitiveArray: Boolean
  * @return all interfaces and classes retrieved recursively from this ClassId
  */
 suspend fun ClassId.allSuperClasses(): List<ClassId> {
-    val parents = (listOf(superclass()) + interfaces()).filterNotNull()
+    val parents = (interfaces() + superclass()).filterNotNull()
     val result = parents.toMutableSet()
     parents.forEach {
         it.allSuperClasses().forEach {
@@ -204,7 +204,9 @@ suspend infix fun ClassId.isSubtypeOf(another: ClassId): Boolean {
         }
         return elementClass isSubtypeOf another.elementClass
     }
-    if (another == classpath.findClassOrNull<Any>()) return true
+    if (another == classpath.findClassOrNull<Any>()) {
+        return true
+    }
     // unbox primitive types
     val left = unboxIfNeeded()
     val right = another.unboxIfNeeded()

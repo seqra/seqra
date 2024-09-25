@@ -12,7 +12,7 @@ import kotlin.streams.asSequence
 class BuildFolderLocation(
     private val folder: File,
     private val loadClassesOnlyFrom: List<String>?
-) : AbstractByteCodeLocation() {
+) : AbstractByteCodeLocation(folder) {
 
     companion object : KLogging()
 

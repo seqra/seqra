@@ -11,10 +11,10 @@ import java.util.jar.JarFile
 import kotlin.streams.toList
 
 open class JarLocation(
-    protected val file: File,
+    file: File,
     protected val syncLoadClassesOnlyFrom: List<String>?,
     private val isRuntime: Boolean
-) : AbstractByteCodeLocation() {
+) : AbstractByteCodeLocation(file) {
     companion object : KLogging()
 
     override val scope: LocationScope
