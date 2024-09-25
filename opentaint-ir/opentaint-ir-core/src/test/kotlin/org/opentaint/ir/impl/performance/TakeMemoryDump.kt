@@ -8,7 +8,7 @@ import java.lang.management.ManagementFactory
 
 val db = runBlocking {
     compilationDatabase {
-        installIndexes(ReversedUsages)
+        installFeatures(ReversedUsages)
         useProcessJavaRuntime()
     }.also {
         it.awaitBackgroundJobs()

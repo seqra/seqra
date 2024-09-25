@@ -25,7 +25,7 @@ interface ByteCodeLocationIndex<T> {
     fun query(term: String): Sequence<T>
 }
 
-interface IndexInstaller<T, INDEX: ByteCodeLocationIndex<T>> {
+interface Feature<T, INDEX: ByteCodeLocationIndex<T>> {
 
     val key: String
 

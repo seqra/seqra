@@ -11,7 +11,7 @@ import org.opentaint.ir.impl.types.PredefinedPrimitives
 
 class ClasspathSetImpl(
     private val locationsRegistrySnapshot: LocationsRegistrySnapshot,
-    private val indexesRegistry: IndexesRegistry,
+    private val featuresRegistry: FeaturesRegistry,
     override val db: CompilationDatabaseImpl,
     classTree: ClassTree
 ) : ClasspathSet {
@@ -53,12 +53,12 @@ class ClasspathSetImpl(
 
     override suspend fun <T> query(key: String, term: String): List<T> {
         db.awaitBackgroundJobs()
-        return locations.flatMap { indexesRegistry.findIndex<T>(key, it)?.query(term).orEmpty() }
+        return locations.flatMap { featuresRegistry.findIndex<T>(key, it)?.query(term).orEmpty() }
     }
 
     override suspend fun <T> query(key: String, location: ByteCodeLocation, term: String): List<T> {
         db.awaitBackgroundJobs()
-        return indexesRegistry.findIndex<T>(key, location)?.query(term).orEmpty().toList()
+        return featuresRegistry.findIndex<T>(key, location)?.query(term).orEmpty().toList()
     }
 
     override fun close() {

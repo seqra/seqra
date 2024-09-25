@@ -1,7 +1,7 @@
 package org.opentaint.ir
 
 import org.opentaint.ir.api.CompilationDatabase
-import org.opentaint.ir.api.IndexInstaller
+import org.opentaint.ir.api.Feature
 import org.opentaint.ir.impl.CompilationDatabaseImpl
 import java.io.File
 
@@ -34,8 +34,8 @@ class CompilationDatabaseSettings {
     /** mandatory setting for java location */
     lateinit var jre: File
 
-    /** index installers */
-    var additionalIndexes: List<IndexInstaller<*, *>> = emptyList()
+    /** feature to add */
+    var features: List<Feature<*, *>> = emptyList()
 
     /** builder for persistent settings */
     fun persistent(settings: (CompilationDatabasePersistentSettings.() -> Unit) = {}) {
@@ -66,8 +66,8 @@ class CompilationDatabaseSettings {
     /**
      * install additional indexes
      */
-    fun installIndexes(vararg indexInstaller: IndexInstaller<*, *>) {
-        additionalIndexes = additionalIndexes + indexInstaller.toList()
+    fun installFeatures(vararg feature: Feature<*, *>) {
+        features = features + feature.toList()
     }
 
     private fun String.asValidJRE(): File {

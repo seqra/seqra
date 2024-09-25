@@ -22,7 +22,7 @@ class DBLifeCycleBenchmarks : LibrariesMixin {
     fun setup() {
         db = runBlocking {
             compilationDatabase {
-                installIndexes(ReversedUsages)
+                installFeatures(ReversedUsages)
                 useProcessJavaRuntime()
             }
         }

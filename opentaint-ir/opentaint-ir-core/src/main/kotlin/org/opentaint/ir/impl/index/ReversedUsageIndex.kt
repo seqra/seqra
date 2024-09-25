@@ -10,7 +10,7 @@ import org.objectweb.asm.tree.MethodNode
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.ByteCodeLocationIndex
 import org.opentaint.ir.api.ByteCodeLocationIndexBuilder
-import org.opentaint.ir.api.IndexInstaller
+import org.opentaint.ir.api.Feature
 import java.io.InputStream
 import java.io.OutputStream
 
@@ -70,7 +70,7 @@ class ReversedUsageIndex(
 }
 
 
-object ReversedUsages : IndexInstaller<String, ReversedUsageIndex> {
+object ReversedUsages : Feature<String, ReversedUsageIndex> {
 
     override val key = "reversed-usages"
 

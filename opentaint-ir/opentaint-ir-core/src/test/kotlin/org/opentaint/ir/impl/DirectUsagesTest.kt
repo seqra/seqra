@@ -19,7 +19,7 @@ class DirectUsagesTest : LibrariesMixin {
         compilationDatabase {
             predefinedDirOrJars = allClasspath
             useProcessJavaRuntime()
-            installIndexes(ReversedUsages)
+            installFeatures(ReversedUsages)
         }
     }
 

@@ -29,8 +29,8 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
     private val classTree = ClassTree()
     internal val javaRuntime = JavaRuntime(settings.jre)
 
-    private val indexesRegistry = IndexesRegistry(listOf(Hierarchy) + settings.additionalIndexes)
-    internal val registry = LocationsRegistry(indexesRegistry)
+    internal val featureRegistry = FeaturesRegistry(listOf(Hierarchy) + settings.features)
+    internal val registry = LocationsRegistry(featureRegistry)
 
     private val backgroundJobs = ConcurrentHashMap<Int, Job>()
 
@@ -50,7 +50,7 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
         val classpathSetLocations = existedLocations.toList() + javaRuntime.allLocations
         return ClasspathSetImpl(
             registry.snapshot(classpathSetLocations),
-            indexesRegistry,
+            featureRegistry,
             this,
             classTree
         )
@@ -61,7 +61,7 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
         val classpathSetLocations = locations.toSet() + javaRuntime.allLocations
         return ClasspathSetImpl(
             registry.snapshot(classpathSetLocations.toList()),
-            indexesRegistry,
+            featureRegistry,
             this,
             classTree
         )
@@ -110,7 +110,7 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
                     val addedClasses = locationClasses[location]
                     if (addedClasses != null) {
                         if (parentScope.isActive) {
-                            indexesRegistry.index(location, addedClasses)
+                            featureRegistry.index(location, addedClasses)
                         }
                     }
                 }

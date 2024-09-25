@@ -37,7 +37,7 @@ class DBBenchmarks : LibrariesMixin {
             compilationDatabase {
                 useProcessJavaRuntime()
 
-                installIndexes(ReversedUsages)
+                installFeatures(ReversedUsages)
             }
         }
     }
@@ -48,7 +48,7 @@ class DBBenchmarks : LibrariesMixin {
             compilationDatabase {
                 useProcessJavaRuntime()
                 predefinedDirOrJars = allJars
-                installIndexes(ReversedUsages)
+                installFeatures(ReversedUsages)
             }
         }
     }

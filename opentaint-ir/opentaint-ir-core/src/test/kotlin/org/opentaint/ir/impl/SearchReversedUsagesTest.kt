@@ -19,7 +19,7 @@ class SearchReversedUsagesTest : LibrariesMixin {
         compilationDatabase {
             predefinedDirOrJars = allClasspath
             useProcessJavaRuntime()
-            installIndexes(ReversedUsages)
+            installFeatures(ReversedUsages)
         }
     }
 
