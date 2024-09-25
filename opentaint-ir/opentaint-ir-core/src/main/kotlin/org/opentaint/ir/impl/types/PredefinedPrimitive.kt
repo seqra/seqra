@@ -29,6 +29,10 @@ object PredefinedPrimitives {
         }
         return null
     }
+
+    fun matches(name: String): Boolean {
+        return valueSet.contains(name)
+    }
 }
 
 /**

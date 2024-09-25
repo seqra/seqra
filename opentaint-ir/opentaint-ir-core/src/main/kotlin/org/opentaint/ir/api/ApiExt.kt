@@ -1,5 +1,6 @@
 package org.opentaint.ir.api
 
+import kotlinx.collections.immutable.toPersistentList
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.MethodNode
 import org.opentaint.ir.impl.index.findClassOrNull
@@ -164,7 +165,7 @@ fun ClassId.unboxIfNeeded(): ClassId {
  */
 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
 suspend fun ClassId.autoboxIfNeeded(): ClassId {
-    return when(this) {
+    return when (this) {
         classpath.boolean -> classpath.findClassOrNull<java.lang.Boolean>() ?: throwClassNotFound<java.lang.Boolean>()
         classpath.byte -> classpath.findClassOrNull<java.lang.Byte>() ?: throwClassNotFound<java.lang.Byte>()
         classpath.char -> classpath.findClassOrNull<Character>() ?: throwClassNotFound<Character>()
@@ -175,6 +176,42 @@ suspend fun ClassId.autoboxIfNeeded(): ClassId {
         classpath.double -> classpath.findClassOrNull<java.lang.Double>() ?: throwClassNotFound<java.lang.Double>()
         else -> this
     }
+}
+
+val ArrayClassId.isPrimitiveArray: Boolean
+    get() {
+        return PredefinedPrimitives.matches(elementClass.name)
+    }
+
+/**
+ * @return all interfaces and classes retrieved recursively from this ClassId
+ */
+suspend fun ClassId.allSuperClasses(): List<ClassId> {
+    val parents = (listOf(superclass()) + interfaces()).filterNotNull()
+    val result = parents.toMutableSet()
+    parents.forEach {
+        it.allSuperClasses().forEach {
+            result.add(it)
+        }
+    }
+    return result.toPersistentList()
+}
+
+suspend infix fun ClassId.isSubtypeOf(another: ClassId): Boolean {
+    if (this is ArrayClassId && another is ArrayClassId) {
+        if ((isPrimitiveArray || another.isPrimitiveArray) && another != this) {
+            return false
+        }
+        return elementClass isSubtypeOf another.elementClass
+    }
+    if (another == classpath.findClassOrNull<Any>()) return true
+    // unbox primitive types
+    val left = unboxIfNeeded()
+    val right = another.unboxIfNeeded()
+    if (left == right) {
+        return true
+    }
+    return right in allSuperClasses()
 }
 
 
