@@ -11,7 +11,7 @@ import org.opentaint.ir.api.IndexInstaller
 import java.io.InputStream
 import java.io.OutputStream
 
-class SubClassesIndexBuilder : ByteCodeLocationIndexBuilder<String> {
+class HierarchyIndexBuilder : ByteCodeLocationIndexBuilder<String> {
 
     // super class -> implementations
     private val parentToSubClasses = hashMapOf<Int, HashSet<Int>>()
@@ -47,8 +47,8 @@ class SubClassesIndexBuilder : ByteCodeLocationIndexBuilder<String> {
             return GlobalIds.getId(pureName)
         }
 
-    override fun build(location: ByteCodeLocation): SubClassesIndex {
-        return SubClassesIndex(
+    override fun build(location: ByteCodeLocation): HierarchyIndex {
+        return HierarchyIndex(
             location = location,
             parentToSubClasses = parentToSubClasses.toImmutableMap()
         )
@@ -57,7 +57,7 @@ class SubClassesIndexBuilder : ByteCodeLocationIndexBuilder<String> {
 }
 
 
-class SubClassesIndex(
+class HierarchyIndex(
     override val location: ByteCodeLocation,
     private val parentToSubClasses: Map<Int, Set<Int>>
 ) : ByteCodeLocationIndex<String> {
@@ -72,15 +72,15 @@ class SubClassesIndex(
 }
 
 
-object SubClassIndex : IndexInstaller<String, SubClassesIndex> {
+object Hierarchy : IndexInstaller<String, HierarchyIndex> {
 
-    override val key = "sub-classes"
+    override val key = "hierarchy"
 
-    override fun newBuilder() = SubClassesIndexBuilder()
+    override fun newBuilder() = HierarchyIndexBuilder()
 
     override fun deserialize(stream: InputStream) = null
 
-    override fun serialize(index: SubClassesIndex, out: OutputStream) {
+    override fun serialize(index: HierarchyIndex, out: OutputStream) {
         TODO()
     }
 

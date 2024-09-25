@@ -5,7 +5,7 @@ import org.openjdk.jmh.annotations.*
 import org.opentaint.ir.api.CompilationDatabase
 import org.opentaint.ir.compilationDatabase
 import org.opentaint.ir.impl.LibrariesMixin
-import org.opentaint.ir.impl.index.ReversedUsagesIndex
+import org.opentaint.ir.impl.index.ReversedUsages
 import java.util.concurrent.TimeUnit
 
 @State(Scope.Benchmark)
@@ -22,7 +22,7 @@ class DBLifeCycleBenchmarks : LibrariesMixin {
     fun setup() {
         db = runBlocking {
             compilationDatabase {
-                installIndexes(ReversedUsagesIndex)
+                installIndexes(ReversedUsages)
                 useProcessJavaRuntime()
             }
         }

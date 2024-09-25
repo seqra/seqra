@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.findClass
 import org.opentaint.ir.compilationDatabase
 import org.opentaint.ir.impl.fs.BuildFolderLocation
 import org.opentaint.ir.impl.index.findClassOrNull
@@ -46,8 +47,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
     @Test
     fun `refresh is working when build dir is removed`() = runBlocking {
         val cp = db.classpathSet(listOf(testDirClone))
-        val fooClass = cp.findClassOrNull<Foo>()
-        assertNotNull(fooClass!!)
+        val fooClass = cp.findClass<Foo>()
 
         assertTrue(testDirClone.deleteRecursively())
         assertNull(fooClass.methods().first().readBody())

@@ -3,11 +3,11 @@ package org.opentaint.ir.impl
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.FieldUsageMode
+import org.opentaint.ir.api.findClass
 import org.opentaint.ir.compilationDatabase
-import org.opentaint.ir.impl.index.ReversedUsagesIndex
+import org.opentaint.ir.impl.index.ReversedUsages
 import org.opentaint.ir.impl.index.reversedUsagesExt
 import org.opentaint.ir.impl.usages.fields.FieldA
 import org.opentaint.ir.impl.usages.fields.FieldB
@@ -19,7 +19,7 @@ class SearchReversedUsagesTest : LibrariesMixin {
         compilationDatabase {
             predefinedDirOrJars = allClasspath
             useProcessJavaRuntime()
-            installIndexes(ReversedUsagesIndex)
+            installIndexes(ReversedUsages)
         }
     }
 
@@ -108,8 +108,8 @@ class SearchReversedUsagesTest : LibrariesMixin {
 
     private inline fun <reified T> fieldsUsages(mode: FieldUsageMode = FieldUsageMode.WRITE): Map<String, Set<String>> {
         return runBlocking {
-            val classId = cp.findClassOrNull(T::class.java.name)
-            assertNotNull(classId!!)
+            val classId = cp.findClass<T>()
+
             val fields = classId.fields()
             val usageExt = cp.reversedUsagesExt
 
@@ -124,8 +124,7 @@ class SearchReversedUsagesTest : LibrariesMixin {
 
     private inline fun <reified T> methodsUsages(): Map<String, Set<String>> {
         return runBlocking {
-            val classId = cp.findClassOrNull(T::class.java.name)
-            assertNotNull(classId!!)
+            val classId = cp.findClass<T>()
             val methods = classId.methods()
             val usageExt = cp.reversedUsagesExt
 

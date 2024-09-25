@@ -9,7 +9,6 @@ import org.opentaint.ir.api.*
 import org.opentaint.ir.compilationDatabase
 import org.opentaint.ir.impl.hierarchies.Creature
 import org.opentaint.ir.impl.hierarchies.Creature.*
-import org.opentaint.ir.impl.index.findClassOrNull
 import org.opentaint.ir.impl.types.boolean
 import org.opentaint.ir.impl.types.short
 
@@ -50,8 +49,8 @@ class ApiExtTest : LibrariesMixin {
 
     @Test
     fun `autoboxing primitive type`() = runBlocking {
-        val clazz = cp.findClassOrNull("short")
-        assertNotNull(clazz!!)
+        val clazz = cp.findClass("short")
+
         assertEquals(classOf<java.lang.Short>(), clazz.autoboxIfNeeded())
     }
 
@@ -66,7 +65,7 @@ class ApiExtTest : LibrariesMixin {
         val clazz = arrayClassOf<String>()
         assertTrue(clazz is ArrayClassId)
         clazz as ArrayClassId
-        assertEquals(cp.findClassOrNull<String>()!!, clazz.elementClass)
+        assertEquals(cp.findClass<String>(), clazz.elementClass)
     }
 
     @Test
@@ -83,8 +82,8 @@ class ApiExtTest : LibrariesMixin {
 
     @Test
     fun `isSubtype for arrays with unboxing`() = runBlocking {
-        assertFalse(cp.findClassOrNull("short[]")!! isSubtypeOf arrayClassOf<java.lang.Short>())
-        assertFalse(arrayClassOf<java.lang.Short>() isSubtypeOf cp.findClassOrNull("short[]")!!)
+        assertFalse(cp.findClass("short[]") isSubtypeOf arrayClassOf<java.lang.Short>())
+        assertFalse(arrayClassOf<java.lang.Short>() isSubtypeOf cp.findClass("short[]"))
 
         assertFalse(arrayClassOf<Any>() isSubtypeOf arrayClassOf<java.lang.Short>())
 
@@ -98,7 +97,7 @@ class ApiExtTest : LibrariesMixin {
 
     @Test
     fun `isSubtype for regular types`() = runBlocking {
-        classOf<Dinosaur>().allSuperClasses().forEach {
+        classOf<Dinosaur>().findAllSuperClasses().forEach {
             println(it.name)
         }
         assertTrue(classOf<Dinosaur>() isSubtypeOf classOf<Creature>())
@@ -113,18 +112,14 @@ class ApiExtTest : LibrariesMixin {
         assertTrue(classOf<Pterodactyl>() isSubtypeOf classOf<Bird>())
     }
 
-    inline fun <reified T> classOf(): ClassId = runBlocking {
-        val clazz = cp.findClassOrNull<T>()
-        assertNotNull(clazz, "Can't find ${T::class.java.name} class")
-        clazz!!
+    private inline fun <reified T> classOf(): ClassId = runBlocking {
+        cp.findClass<T>()
     }
 
-    inline fun <reified T> arrayClassOf(): ClassId {
+    private inline fun <reified T> arrayClassOf(): ClassId {
         val name = T::class.java.name + "[]"
         return runBlocking {
-            val clazz = cp.findClassOrNull(name)
-            assertNotNull(clazz, "Can't find $name class")
-            clazz!!
+            cp.findClass(name)
         }
     }
 

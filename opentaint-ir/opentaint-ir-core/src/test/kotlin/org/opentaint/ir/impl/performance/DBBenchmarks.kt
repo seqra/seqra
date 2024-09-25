@@ -8,7 +8,7 @@ import org.opentaint.ir.compilationDatabase
 import org.opentaint.ir.impl.LibrariesMixin
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.load
-import org.opentaint.ir.impl.index.ReversedUsagesIndex
+import org.opentaint.ir.impl.index.ReversedUsages
 import org.opentaint.ir.impl.tree.ClassTree
 import java.util.concurrent.TimeUnit
 
@@ -37,7 +37,7 @@ class DBBenchmarks : LibrariesMixin {
             compilationDatabase {
                 useProcessJavaRuntime()
 
-                installIndexes(ReversedUsagesIndex)
+                installIndexes(ReversedUsages)
             }
         }
     }
@@ -48,7 +48,7 @@ class DBBenchmarks : LibrariesMixin {
             compilationDatabase {
                 useProcessJavaRuntime()
                 predefinedDirOrJars = allJars
-                installIndexes(ReversedUsagesIndex)
+                installIndexes(ReversedUsages)
             }
         }
     }

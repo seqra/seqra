@@ -3,7 +3,7 @@ package org.opentaint.ir.impl
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.ClassId
 import org.opentaint.ir.api.ClasspathSet
-import org.opentaint.ir.impl.index.subClassesExt
+import org.opentaint.ir.impl.index.hierarchyExt
 import org.opentaint.ir.impl.tree.ClassTree
 import org.opentaint.ir.impl.tree.ClasspathClassTree
 import org.opentaint.ir.impl.types.ArrayClassIdImpl
@@ -44,11 +44,11 @@ class ClasspathSetImpl(
     }
 
     override suspend fun findSubClasses(name: String, allHierarchy: Boolean): List<ClassId> {
-        return subClassesExt.findSubClasses(name, allHierarchy)
+        return hierarchyExt.findSubClasses(name, allHierarchy)
     }
 
     override suspend fun findSubClasses(classId: ClassId, allHierarchy: Boolean): List<ClassId> {
-        return subClassesExt.findSubClasses(classId, allHierarchy)
+        return hierarchyExt.findSubClasses(classId, allHierarchy)
     }
 
     override suspend fun <T> query(key: String, term: String): List<T> {

@@ -99,7 +99,7 @@ class ReversedUsagesExtension(private val db: CompilationDatabase, private val c
         return flatMap { classId ->
             val location = classId.location
             val potentialCandidates = cp.locations.relevantLocations(location).flatMap {
-                cp.query<String>(ReversedUsagesIndex.key, "${classId.name}#$methodOrField")
+                cp.query<String>(ReversedUsages.key, "${classId.name}#$methodOrField")
             }.toHashSet()
             potentialCandidates
         }.toSet()

@@ -2,13 +2,13 @@ package org.opentaint.ir.impl.performance
 
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.compilationDatabase
-import org.opentaint.ir.impl.index.ReversedUsagesIndex
+import org.opentaint.ir.impl.index.ReversedUsages
 import java.lang.management.ManagementFactory
 
 
 val db = runBlocking {
     compilationDatabase {
-        installIndexes(ReversedUsagesIndex)
+        installIndexes(ReversedUsages)
         useProcessJavaRuntime()
     }.also {
         it.awaitBackgroundJobs()

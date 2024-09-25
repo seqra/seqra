@@ -7,6 +7,26 @@ import org.opentaint.ir.impl.index.findClassOrNull
 import org.opentaint.ir.impl.types.*
 
 /**
+ * find class. Tf there are none then throws `NoClassInClasspathException`
+ * @throws NoClassInClasspathException
+ */
+suspend fun ClasspathSet.findClass(name: String): ClassId {
+    return findClassOrNull(name) ?: name.throwClassNotFound()
+}
+
+/**
+ * find class. Tf there are none then throws `NoClassInClasspathException`
+ * @throws NoClassInClasspathException
+ */
+suspend inline fun <reified T> ClasspathSet.findClass(): ClassId {
+    return findClassOrNull<T>() ?: throwClassNotFound<T>()
+}
+
+suspend inline fun <reified T> ClasspathSet.findSubClasses(): List<ClassId> {
+    return findSubClasses(T::class.java.name)
+}
+
+/**
  * is item has `public` modifier
  */
 suspend fun Accessible.isPublic(): Boolean {
@@ -186,13 +206,22 @@ val ArrayClassId.isPrimitiveArray: Boolean
 /**
  * @return all interfaces and classes retrieved recursively from this ClassId
  */
-suspend fun ClassId.allSuperClasses(): List<ClassId> {
+suspend fun ClassId.forEachSuperClasses(action: suspend (ClassId) -> Unit): List<ClassId> {
     val parents = (interfaces() + superclass()).filterNotNull()
+    parents.forEach {
+        action(it)
+    }
     val result = parents.toMutableSet()
     parents.forEach {
-        it.allSuperClasses().forEach {
-            result.add(it)
-        }
+        it.forEachSuperClasses(action)
+    }
+    return result.toPersistentList()
+}
+
+suspend fun ClassId.findAllSuperClasses(): List<ClassId> {
+    val result = hashSetOf<ClassId>()
+    forEachSuperClasses {
+        result.add(it)
     }
     return result.toPersistentList()
 }
@@ -213,7 +242,7 @@ suspend infix fun ClassId.isSubtypeOf(another: ClassId): Boolean {
     if (left == right) {
         return true
     }
-    return right in allSuperClasses()
+    return right in findAllSuperClasses()
 }
 
 

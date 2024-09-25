@@ -70,7 +70,7 @@ class ReversedUsageIndex(
 }
 
 
-object ReversedUsagesIndex : IndexInstaller<String, ReversedUsageIndex> {
+object ReversedUsages : IndexInstaller<String, ReversedUsageIndex> {
 
     override val key = "reversed-usages"
 

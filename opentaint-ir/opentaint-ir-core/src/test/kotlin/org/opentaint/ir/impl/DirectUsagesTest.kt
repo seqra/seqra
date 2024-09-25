@@ -3,13 +3,12 @@ package org.opentaint.ir.impl
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.findClass
 import org.opentaint.ir.compilationDatabase
-import org.opentaint.ir.impl.index.ReversedUsagesIndex
-import org.opentaint.ir.impl.index.findClassOrNull
+import org.opentaint.ir.impl.index.ReversedUsages
 import org.opentaint.ir.impl.index.findFieldsUsedIn
 import org.opentaint.ir.impl.index.findMethodsUsedIn
 import org.opentaint.ir.impl.usages.direct.DirectA
@@ -20,7 +19,7 @@ class DirectUsagesTest : LibrariesMixin {
         compilationDatabase {
             predefinedDirOrJars = allClasspath
             useProcessJavaRuntime()
-            installIndexes(ReversedUsagesIndex)
+            installIndexes(ReversedUsages)
         }
     }
 
@@ -109,8 +108,7 @@ class DirectUsagesTest : LibrariesMixin {
 
     private inline fun <reified T> ClasspathSet.fieldsUsages(): List<Pair<String, List<Pair<String, List<String>>>>> {
         return runBlocking {
-            val classId = cp.findClassOrNull<T>()
-            Assertions.assertNotNull(classId!!)
+            val classId = cp.findClass<T>()
 
             classId.methods().map {
                 val usages = findFieldsUsedIn(it)
@@ -127,8 +125,8 @@ class DirectUsagesTest : LibrariesMixin {
 
     private inline fun <reified T> ClasspathSet.methodsUsages(): List<Pair<String, List<String>>> {
         return runBlocking {
-            val classId = cp.findClassOrNull<T>()
-            Assertions.assertNotNull(classId!!)
+            val classId = cp.findClass<T>()
+
             val methods = classId.methods()
 
             methods.map {

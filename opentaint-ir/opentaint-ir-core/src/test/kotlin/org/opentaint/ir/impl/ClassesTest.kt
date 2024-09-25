@@ -8,7 +8,10 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.*
 import org.opentaint.ir.compilationDatabase
+import org.opentaint.ir.impl.hierarchies.Creature
+import org.opentaint.ir.impl.hierarchies.Creature.*
 import org.opentaint.ir.impl.index.findClassOrNull
+import org.opentaint.ir.impl.index.hierarchyExt
 import org.opentaint.ir.impl.signature.*
 import org.opentaint.ir.impl.types.ArrayClassIdImpl
 import org.opentaint.ir.impl.types.byte
@@ -48,8 +51,7 @@ class ClassesTest {
 
     @Test
     fun `find class from build dir folder`() = runBlocking {
-        val clazz = cp.findClassOrNull<Foo>()
-        assertNotNull(clazz!!)
+        val clazz = cp.findClass<Foo>()
         assertEquals(Foo::class.java.name, clazz.name)
         assertTrue(clazz.isFinal())
         assertTrue(clazz.isPublic())
@@ -87,8 +89,7 @@ class ClassesTest {
 
     @Test
     fun `array types`() = runBlocking {
-        val clazz = cp.findClassOrNull<Bar>()
-        assertNotNull(clazz!!)
+        val clazz = cp.findClass<Bar>()
         assertEquals(Bar::class.java.name, clazz.name)
 
         val fields = clazz.fields()
@@ -103,14 +104,14 @@ class ClassesTest {
         with(fields.get(1)) {
             assertEquals("objectArray", name)
             assertEquals("Object[]", type().name)
-            assertEquals(cp.findClassOrNull<Any>(), (type() as ArrayClassIdImpl).elementClass)
+            assertEquals(cp.findClass<Any>(), (type() as ArrayClassIdImpl).elementClass)
         }
 
         with(fields.get(2)) {
             assertEquals("objectObjectArray", name)
             assertEquals("Object[][]", type().name)
             assertEquals(
-                cp.findClassOrNull<Any>(),
+                cp.findClass<Any>(),
                 ((type() as ArrayClassIdImpl).elementClass as ArrayClassIdImpl).elementClass
             )
         }
@@ -128,15 +129,11 @@ class ClassesTest {
 
     @Test
     fun `inner and static`() = runBlocking {
-        val withInner = cp.findClassOrNull<WithInner>()
-        val inner = cp.findClassOrNull<WithInner.Inner>()
-        val staticInner = cp.findClassOrNull<WithInner.StaticInner>()
+        val withInner = cp.findClass<WithInner>()
+        val inner = cp.findClass<WithInner.Inner>()
+        val staticInner = cp.findClass<WithInner.StaticInner>()
 
-        val anon = cp.findClassOrNull("org.opentaint.ir.impl.usages.WithInner$1")
-        assertNotNull(withInner!!)
-        assertNotNull(inner!!)
-        assertNotNull(staticInner!!)
-        assertNotNull(anon!!)
+        val anon = cp.findClass("org.opentaint.ir.impl.usages.WithInner$1")
 
         assertEquals(withInner, anon.outerClass())
         assertEquals(withInner, inner.outerClass())
@@ -147,9 +144,8 @@ class ClassesTest {
 
     @Test
     fun `get signature of class`() = runBlocking {
-        val a = cp.findClassOrNull<Generics<*>>()
+        val a = cp.findClass<Generics<*>>()
 
-        assertNotNull(a!!)
         val classSignature = a.signature()
 
         with(classSignature) {
@@ -160,9 +156,8 @@ class ClassesTest {
 
     @Test
     fun `get signature of methods`() = runBlocking {
-        val a = cp.findClassOrNull<Generics<*>>()
+        val a = cp.findClass<Generics<*>>()
 
-        assertNotNull(a!!)
         val methodSignatures = a.methods().map { it.name to it.signature() }
         assertEquals(3, methodSignatures.size)
         with(methodSignatures[0]) {
@@ -224,9 +219,8 @@ class ClassesTest {
 
     @Test
     fun `get signature of fields`() = runBlocking {
-        val a = cp.findClassOrNull<Generics<*>>()
+        val a = cp.findClass<Generics<*>>()
 
-        assertNotNull(a!!)
         val fieldSignatures = a.fields().map { it.name to it.signature() }
 
         assertEquals(2, fieldSignatures.size)
@@ -258,11 +252,9 @@ class ClassesTest {
 
     @Test
     fun `local and anonymous classes`() = runBlocking {
-        val withAnonymous = cp.findClassOrNull<HelloWorldAnonymousClasses>()
-        assertNotNull(withAnonymous!!)
+        val withAnonymous = cp.findClass<HelloWorldAnonymousClasses>()
 
-        val helloWorld = cp.findClassOrNull<HelloWorldAnonymousClasses.HelloWorld>()
-        assertNotNull(helloWorld!!)
+        val helloWorld = cp.findClass<HelloWorldAnonymousClasses.HelloWorld>()
         assertTrue(helloWorld.isMemberClass())
 
         val innerClasses = withAnonymous.innerClasses()
@@ -281,8 +273,7 @@ class ClassesTest {
 
     @Test
     fun `find lazy-loaded class`() = runBlocking {
-        val domClass = cp.findClassOrNull<Document>()
-        assertNotNull(domClass!!)
+        val domClass = cp.findClass<Document>()
 
         assertTrue(domClass.isPublic())
         assertTrue(domClass.isInterface())
@@ -298,10 +289,7 @@ class ClassesTest {
 
     @Test
     fun `find sub-types from lazy loaded classes`() = runBlocking {
-        val domClass = cp.findClassOrNull<Document>()
-        assertNotNull(domClass!!)
-
-        with(cp.findSubClasses(java.util.AbstractMap::class.java.name)) {
+        with(cp.findSubClasses<AbstractMap<*,*>>()) {
             assertTrue(size > 10) {
                 "expected more then 10 but got only: ${joinToString { it.name }}"
             }
@@ -315,6 +303,15 @@ class ClassesTest {
 
         with(cp.findSubClasses(Document::class.java.name)) {
             assertTrue(isNotEmpty())
+        }
+    }
+
+    @Test
+    fun `find sub-types of array`() = runBlocking {
+        val stringArray = cp.findClass("java.lang.String[]")
+
+        with(cp.findSubClasses(stringArray, true)) {
+            assertTrue(isEmpty())
         }
     }
 
@@ -334,5 +331,34 @@ class ClassesTest {
             assertNotNull(firstOrNull { it.name == D::class.java.name })
         }
     }
+
+    @Test
+    fun `find method overrides`() = runBlocking {
+        val creatureClass = cp.findClass<Creature>()
+
+        assertEquals(2, creatureClass.methods().size)
+        val sayMethod = creatureClass.methods().first { it.name == "say" }
+        val helloMethod = creatureClass.methods().first { it.name == "hello" }
+
+        var overrides = cp.hierarchyExt.findOverrides(sayMethod)
+
+        with(overrides) {
+            assertEquals(4, size)
+
+            assertNotNull(firstOrNull { it.classId == cp.findClass<DinosaurImpl>() })
+            assertNotNull(firstOrNull { it.classId == cp.findClass<Fish>() })
+            assertNotNull(firstOrNull { it.classId == cp.findClass<TRex>() })
+            assertNotNull(firstOrNull { it.classId == cp.findClass<Pterodactyl>() })
+        }
+        overrides = cp.hierarchyExt.findOverrides(helloMethod)
+        with(overrides) {
+            assertEquals(1, size)
+
+            assertNotNull(firstOrNull { it.classId == cp.findClass<TRex>() })
+
+        }
+    }
+
+
 }
 

@@ -34,7 +34,7 @@ class ArrayClassIdImpl(override val elementClass: ClassId) : ArrayClassId {
     override suspend fun methods() = emptyList<MethodId>()
 
     override suspend fun superclass(): ClassId {
-        return elementClass.classpath.findClassOrNull<Any>() ?: throwClassNotFound<Any>()
+        return classpath.findClassOrNull<Any>() ?: throwClassNotFound<Any>()
     }
 
     override suspend fun interfaces() = emptyList<ClassId>()

@@ -10,7 +10,7 @@ import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.filterExisted
 import org.opentaint.ir.impl.fs.load
-import org.opentaint.ir.impl.index.SubClassIndex
+import org.opentaint.ir.impl.index.Hierarchy
 import org.opentaint.ir.impl.tree.ClassTree
 import org.opentaint.ir.impl.tree.RemoveLocationsVisitor
 import java.io.File
@@ -29,7 +29,7 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
     private val classTree = ClassTree()
     internal val javaRuntime = JavaRuntime(settings.jre)
 
-    private val indexesRegistry = IndexesRegistry(listOf(SubClassIndex) + settings.additionalIndexes)
+    private val indexesRegistry = IndexesRegistry(listOf(Hierarchy) + settings.additionalIndexes)
     internal val registry = LocationsRegistry(indexesRegistry)
 
     private val backgroundJobs = ConcurrentHashMap<Int, Job>()

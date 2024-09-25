@@ -1,9 +1,10 @@
 package org.opentaint.ir.impl.index
 
+import kotlinx.collections.immutable.toPersistentList
 import org.opentaint.ir.api.*
 import org.opentaint.ir.impl.fs.relevantLocations
 
-class SubClassesExtension(private val db: CompilationDatabase, private val cp: ClasspathSet) {
+class HierarchyExtension(private val db: CompilationDatabase, private val cp: ClasspathSet) {
 
     suspend fun findSubClasses(name: String, allHierarchy: Boolean): List<ClassId> {
         val classId = cp.findClassOrNull(name) ?: return emptyList()
@@ -11,6 +12,9 @@ class SubClassesExtension(private val db: CompilationDatabase, private val cp: C
     }
 
     suspend fun findSubClasses(classId: ClassId, allHierarchy: Boolean): List<ClassId> {
+        if (classId is ArrayClassId) {
+            return emptyList()
+        }
         db.awaitBackgroundJobs()
         val name = classId.name
         val relevantLocations = cp.locations.relevantLocations(classId.location)
@@ -19,28 +23,28 @@ class SubClassesExtension(private val db: CompilationDatabase, private val cp: C
     }
 
     suspend fun findOverrides(methodId: MethodId): List<MethodId> {
-        db.awaitBackgroundJobs()
-        return emptyList()
-//        val name = classId.name
-//        val relevantLocations = cp.locations.relevantLocations(classId.location)
-//
-//        return relevantLocations.subClasses(name, allHierarchy).map { cp.findClassOrNull(it) }.filterNotNull()
+        val desc = methodId.description()
+        val name = methodId.name
+        val subClasses = findSubClasses(methodId.classId, allHierarchy = true)
+        return subClasses.mapNotNull {
+            it.findMethodOrNull(name, desc)
+        }
     }
 
     private suspend fun Collection<ByteCodeLocation>.subClasses(name: String, allHierarchy: Boolean): List<String> {
         val subTypes = flatMap {
-            cp.query<String>(SubClassIndex.key, it, name)
-        }
+            cp.query<String>(Hierarchy.key, it, name)
+        }.toHashSet()
         if (allHierarchy) {
-            return subTypes + subTypes.flatMap { subClasses(it, true) }
+            return (subTypes + subTypes.flatMap { subClasses(it, true) }).toPersistentList()
         }
-        return subTypes
+        return subTypes.toPersistentList()
     }
 
 }
 
 
-val ClasspathSet.subClassesExt: SubClassesExtension
+val ClasspathSet.hierarchyExt: HierarchyExtension
     get() {
-        return SubClassesExtension(db, this)
+        return HierarchyExtension(db, this)
     }
