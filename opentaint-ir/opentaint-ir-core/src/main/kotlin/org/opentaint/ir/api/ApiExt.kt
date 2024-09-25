@@ -2,6 +2,7 @@ package org.opentaint.ir.api
 
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.MethodNode
+import org.opentaint.ir.impl.types.PredefinedPrimitive
 
 /**
  * is item has `public` modifier
@@ -127,6 +128,35 @@ private suspend fun ClassId.simpleBinaryName(): String? {
         throw InternalError("Malformed class name", ex)
     }
 }
+
+/**
+ * @return element class in case of `this` is ArrayClass
+ */
+fun ClassId.ifArrayGetElementClass(): ClassId? {
+    return when (this) {
+        is ArrayClassId -> elementClass
+        else -> null
+    }
+}
+
+/**
+ * unboxes `this` class. That means that for 'java.lang.Integet' will be returned `PredefinedPrimitive.int`
+ * and for `java.lang.String` will be returned `java.lang.String`
+ */
+fun ClassId.unboxIfNeeded(): ClassId {
+    return when (name) {
+        "java.lang.Boolean" -> PredefinedPrimitive.boolean
+        "java.lang.Byte" -> PredefinedPrimitive.byte
+        "java.lang.Char" -> PredefinedPrimitive.char
+        "java.lang.Short" -> PredefinedPrimitive.short
+        "java.lang.Integer" -> PredefinedPrimitive.int
+        "java.lang.Long" -> PredefinedPrimitive.long
+        "java.lang.Float" -> PredefinedPrimitive.float
+        "java.lang.Double" -> PredefinedPrimitive.double
+        else -> this
+    }
+}
+
 
 /**
  * find field by name

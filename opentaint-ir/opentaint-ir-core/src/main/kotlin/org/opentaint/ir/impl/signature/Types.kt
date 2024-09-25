@@ -2,19 +2,19 @@ package org.opentaint.ir.impl.signature
 
 import org.opentaint.ir.api.ClassId
 import org.opentaint.ir.api.ClasspathSet
-import org.opentaint.ir.api.classNotFound
+import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.types.PredefinedPrimitive
 
 
 abstract class GenericType(val classpath: ClasspathSet) {
 
     suspend fun findClass(name: String): ClassId {
-        return classpath.findClassOrNull(name) ?: classNotFound(name)
+        return classpath.findClassOrNull(name) ?: name.throwClassNotFound()
     }
 
 }
 
-class GenericArray(cp: ClasspathSet, val componentType: GenericType) : GenericType(cp)
+class GenericArray(cp: ClasspathSet, val elementType: GenericType) : GenericType(cp)
 
 class ParameterizedType(
     cp: ClasspathSet,

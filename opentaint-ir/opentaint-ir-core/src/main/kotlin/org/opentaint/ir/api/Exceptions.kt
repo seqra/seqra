@@ -6,6 +6,10 @@ package org.opentaint.ir.api
 class NoClassInClasspathException(val className: String) : Exception("Class $className not found in classpath")
 
 
-fun classNotFound(className: String) : Nothing {
-    throw NoClassInClasspathException(className)
+fun String.throwClassNotFound(): Nothing {
+    throw NoClassInClasspathException(this)
+}
+
+inline fun <reified T> throwClassNotFound(): Nothing {
+    throw NoClassInClasspathException(T::class.java.name)
 }

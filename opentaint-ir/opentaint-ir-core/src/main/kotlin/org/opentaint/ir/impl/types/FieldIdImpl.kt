@@ -2,7 +2,7 @@ package org.opentaint.ir.impl.types
 
 import org.opentaint.ir.api.ClassId
 import org.opentaint.ir.api.FieldId
-import org.opentaint.ir.api.classNotFound
+import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.ClassIdService
 import org.opentaint.ir.impl.signature.FieldResolution
 import org.opentaint.ir.impl.signature.FieldSignature
@@ -21,7 +21,7 @@ class FieldIdImpl(
     }
 
     private val lazyAnnotations by lazy(LazyThreadSafetyMode.NONE) {
-        info.annotations.map { classIdService.toClassId(it.className) ?: classNotFound(it.className) }
+        info.annotations.map { classIdService.toClassId(it.className) ?: it.className.throwClassNotFound() }
     }
 
     override suspend fun signature(): FieldResolution {
@@ -29,7 +29,7 @@ class FieldIdImpl(
     }
 
     override suspend fun access() = info.access
-    override suspend fun type() = lazyType ?: classNotFound(info.type)
+    override suspend fun type() = lazyType ?: info.type.throwClassNotFound()
 
     override suspend fun annotations() = lazyAnnotations
 

@@ -19,14 +19,14 @@ class ClassIdImpl(
 
     private val lazyInterfaces = suspendableLazy {
         node.info().interfaces.map {
-            classIdService.toClassId(it) ?: classNotFound(it)
+            classIdService.toClassId(it) ?: it.throwClassNotFound()
         }
     }
 
     private val lazySuperclass = suspendableLazy {
         val superClass = node.info().superClass
         if (superClass != null) {
-            classIdService.toClassId(node.info().superClass) ?: classNotFound(superClass)
+            classIdService.toClassId(node.info().superClass) ?: superClass.throwClassNotFound()
         } else {
             null
         }
@@ -35,7 +35,7 @@ class ClassIdImpl(
     private val lazyOuterClass = suspendableLazy {
         val className = node.info().outerClass?.className
         if (className != null) {
-            classIdService.toClassId(className) ?: classNotFound(className)
+            classIdService.toClassId(className) ?: className.throwClassNotFound()
         } else {
             null
         }
@@ -49,13 +49,13 @@ class ClassIdImpl(
 
     private val lazyInnerClasses = suspendableLazy {
         node.info().innerClasses.map {
-            classIdService.toClassId(it) ?: classNotFound(it)
+            classIdService.toClassId(it) ?: it.throwClassNotFound()
         }
     }
 
     private val lazyAnnotations = suspendableLazy {
         node.info().annotations.map {
-            classIdService.toClassId(it.className) ?: classNotFound(it.className)
+            classIdService.toClassId(it.className) ?: it.className.throwClassNotFound()
         }
     }
 
