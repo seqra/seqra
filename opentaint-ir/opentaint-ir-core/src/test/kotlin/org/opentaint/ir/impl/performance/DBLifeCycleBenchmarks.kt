@@ -43,7 +43,7 @@ class DBLifeCycleBenchmarks : LibrariesMixin {
         }
     }
 
-    @TearDown
+    @TearDown(Level.Iteration)
     fun tearDown() {
         runBlocking {
             db.awaitBackgroundJobs()

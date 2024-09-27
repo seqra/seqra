@@ -20,7 +20,7 @@ class GlobalIdStore(private val env: Environment) {
         )
     }
 
-    fun sync() {
+    fun sync() = synchronized(this) {
         val current = counter.get()
         val inMemoryCounter = GlobalIds.count
         if (inMemoryCounter != current) {
@@ -35,6 +35,7 @@ class GlobalIdStore(private val env: Environment) {
                     }
                 }
             }
+            counter.set(GlobalIds.count)
         }
     }
 

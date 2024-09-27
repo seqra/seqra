@@ -42,7 +42,7 @@ class PersistentEnvironment(id: String, location: File? = null) : Closeable {
             return transactional {
                 locationStore.all.mapNotNull {
                     try {
-                        it to File(URL(it.url).file).asByteCodeLocation(isRuntime = it.isRuntime)
+                        it to Paths.get(URL(it.url).toURI()).toFile().asByteCodeLocation(isRuntime = it.isRuntime)
                     } catch (e: Exception) {
                         null
                     }

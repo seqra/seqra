@@ -53,7 +53,7 @@ class DBBenchmarks : LibrariesMixin {
         }
     }
 
-    @TearDown
+    @TearDown(Level.Iteration)
     fun tearDown() {
         db?.let {
             runBlocking {

@@ -16,8 +16,8 @@ buildscript {
 
     dependencies {
         classpath group: 'org.jetbrains.kotlin', name: 'kotlin-gradle-plugin', version: kotlin_version
-        classpath group: 'org.jetbrains.kotlin', name: 'kotlin-allopen', version: '1.6.20'
-        classpath group: 'org.jetbrains.kotlinx', name: 'kotlinx-benchmark-plugin', version: '0.3.1'
+        classpath group: 'org.jetbrains.kotlin', name: 'kotlin-allopen', version: kotlin_version
+        classpath group: 'org.jetbrains.kotlinx', name: 'kotlinx-benchmark-plugin', version: '0.4.4'
     }
 }
 
@@ -43,7 +43,7 @@ dependencies {
     testImplementation(platform('org.junit:junit-bom:5.8.2'))
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter'
     testImplementation group: 'com.google.guava', name: 'guava', version: '31.1-jre'
-    testImplementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-benchmark-runtime', version: '0.3.1'
+    testImplementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-benchmark-runtime', version: '0.4.4'
 }
 
 allOpen {

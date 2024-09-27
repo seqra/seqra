@@ -52,7 +52,6 @@ class FeaturesRegistry(
             persistence?.transactional {
                 entity.index(key, ByteArrayInputStream(out.toByteArray()))
             }
-            persistence?.globalIds?.sync()
         }
     }
 

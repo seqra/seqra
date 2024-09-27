@@ -121,6 +121,7 @@ class CompilationDatabaseImpl(
                     }
                 }
             }.joinAll()
+            persistentEnvironment?.globalIds?.sync()
             backgroundJobs.remove(backgroundJobId)
         }
     }
@@ -169,6 +170,7 @@ class CompilationDatabaseImpl(
 
     internal suspend fun restoreDataFrom(locations: Map<LocationEntity, ByteCodeLocation>) {
         val env = persistentEnvironment ?: return
+        env.globalIds.restore()
         val trees = withContext(Dispatchers.IO) {
             locations.map { (entity, location) ->
                 async {

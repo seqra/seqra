@@ -8,7 +8,6 @@ import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.ByteCodeLocationIndex
 import org.opentaint.ir.api.ByteCodeLocationIndexBuilder
 import org.opentaint.ir.api.Feature
-import org.opentaint.ir.impl.storage.mapper
 import java.io.InputStream
 import java.io.OutputStream
 
@@ -72,8 +71,6 @@ class HierarchyIndex(
 
 }
 
-data class ParentsClasses(val index: Map<Int, Set<Int>>)
-
 object Hierarchy : Feature<String, HierarchyIndex> {
 
     override val key = "hierarchy"
@@ -81,13 +78,31 @@ object Hierarchy : Feature<String, HierarchyIndex> {
     override fun newBuilder() = HierarchyIndexBuilder()
 
     override fun deserialize(location: ByteCodeLocation, stream: InputStream): HierarchyIndex {
-        val data = mapper.readValue(stream, ParentsClasses::class.java)
-        return HierarchyIndex(location, data.index)
+        val reader = stream.reader()
+        val result = hashMapOf<Int, Set<Int>>()
+        reader.use {
+            reader.forEachLine {
+                val splitted = it.split("=")
+                if (splitted.size == 2) {
+                    val key = splitted[0].toInt()
+                    val value = splitted[1].split(",").map { it.toInt() }.toSet()
+                    result[key] = value
+                }
+            }
+        }
+        return HierarchyIndex(location, result)
     }
 
     override fun serialize(index: HierarchyIndex, out: OutputStream) {
-        val data = ParentsClasses(index.parentToSubClasses)
-        mapper.writeValue(out, data)
+        out.writer().use { writer ->
+            index.parentToSubClasses.forEach {
+                writer.write(
+                    it.key.toString()
+                            + "="
+                            + it.value.joinToString(",") + "\n"
+                )
+            }
+        }
     }
 
 }

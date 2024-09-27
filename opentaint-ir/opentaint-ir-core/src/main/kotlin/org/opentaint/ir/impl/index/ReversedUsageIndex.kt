@@ -62,8 +62,8 @@ class ReversedUsageIndex(
 ) : ByteCodeLocationIndex<String> {
 
     override fun query(term: String): Sequence<String> {
-        val usages = fieldsUsages.get(GlobalIds.getId(term)).orEmpty() +
-                methodsUsages.get(GlobalIds.getId(term)).orEmpty()
+        val usages = fieldsUsages[GlobalIds.getId(term)].orEmpty() +
+                methodsUsages[GlobalIds.getId(term)].orEmpty()
         return usages.map { GlobalIds.getName(it) }.asSequence().filterNotNull()
     }
 

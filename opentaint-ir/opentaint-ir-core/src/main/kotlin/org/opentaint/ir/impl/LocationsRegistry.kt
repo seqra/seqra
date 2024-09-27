@@ -22,7 +22,7 @@ class LocationsRegistry(private val featuresRegistry: FeaturesRegistry): Closeab
         locations.add(location)
     }
 
-    suspend fun refresh(location: ByteCodeLocation, onRefresh: suspend (ByteCodeLocation) -> Unit) {
+    private suspend fun refresh(location: ByteCodeLocation, onRefresh: suspend (ByteCodeLocation) -> Unit) {
         if (location.isChanged()) {
             val refreshedLocation = synchronized(this) {
                 val refreshedLocation = location.createRefreshed()
