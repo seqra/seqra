@@ -15,7 +15,7 @@ import java.io.InputStream
 import java.io.OutputStream
 
 
-class ReversedUsageIndexBuilder : ByteCodeLocationIndexBuilder<String> {
+class ReversedUsageIndexBuilder : ByteCodeLocationIndexBuilder<String, ReversedUsageIndex> {
 
     // class method -> usages of methods|fields
     private val fieldsUsages = hashMapOf<Int, HashSet<Int>>()

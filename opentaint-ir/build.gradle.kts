@@ -36,7 +36,9 @@ dependencies {
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-reflect', version: kotlin_version
     implementation group: 'org.ow2.asm', name: 'asm', version: asm_version
     implementation group: 'org.ow2.asm', name: 'asm-tree', version: asm_version
-    implementation group: 'org.jetbrains.xodus', name: 'xodus-utils', version: '1.3.232'
+    implementation group: 'org.jetbrains.xodus', name: 'xodus-entity-store', version: xodus_version
+    implementation group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.13.2'
+    implementation group: 'com.fasterxml.jackson.module', name: 'jackson-module-kotlin', version: '2.13.2'
 
     testImplementation(platform('org.junit:junit-bom:5.8.2'))
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter'
@@ -51,6 +53,8 @@ allOpen {
 compileKotlin {
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_1_8
+        languageVersion = "1.4"
+        apiVersion = "1.4"
         freeCompilerArgs += ["-Xallow-result-return-type", "-Xinline-classes"]
         allWarningsAsErrors = false
     }
@@ -59,6 +63,8 @@ compileKotlin {
 compileTestKotlin {
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_1_8
+        languageVersion = "1.4"
+        apiVersion = "1.4"
         freeCompilerArgs += ["-Xallow-result-return-type", "-Xinline-classes"]
         allWarningsAsErrors = false
     }

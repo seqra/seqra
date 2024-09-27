@@ -11,7 +11,7 @@ import org.opentaint.ir.api.Feature
 import java.io.InputStream
 import java.io.OutputStream
 
-class HierarchyIndexBuilder : ByteCodeLocationIndexBuilder<String> {
+class HierarchyIndexBuilder : ByteCodeLocationIndexBuilder<String, HierarchyIndex> {
 
     // super class -> implementations
     private val parentToSubClasses = hashMapOf<Int, HashSet<Int>>()

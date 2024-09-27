@@ -4,7 +4,7 @@ import org.opentaint.ir.api.ByteCodeLocation
 import java.io.File
 import java.nio.file.Paths
 
-class JavaRuntime(private val javaHome: File) {
+class JavaRuntime(val javaHome: File) {
 
     companion object {
         private val loadedPackages = listOf("java.", "javax.")

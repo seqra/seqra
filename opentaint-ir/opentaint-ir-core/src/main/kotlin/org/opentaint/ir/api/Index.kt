@@ -8,13 +8,13 @@ import java.io.OutputStream
 /**
  * index builder
  */
-interface ByteCodeLocationIndexBuilder<T> {
+interface ByteCodeLocationIndexBuilder<T, INDEX: ByteCodeLocationIndex<T>> {
 
     fun index(classNode: ClassNode)
 
     fun index(classNode: ClassNode, methodNode: MethodNode)
 
-    fun build(location: ByteCodeLocation): ByteCodeLocationIndex<T>
+    fun build(location: ByteCodeLocation): INDEX
 
 }
 
@@ -29,7 +29,7 @@ interface Feature<T, INDEX: ByteCodeLocationIndex<T>> {
 
     val key: String
 
-    fun newBuilder() : ByteCodeLocationIndexBuilder<T>
+    fun newBuilder() : ByteCodeLocationIndexBuilder<T, INDEX>
 
     fun serialize(index: INDEX, out: OutputStream)
 

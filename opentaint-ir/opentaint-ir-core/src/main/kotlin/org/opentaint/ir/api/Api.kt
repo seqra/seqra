@@ -334,6 +334,13 @@ interface CompilationDatabase : Closeable {
     suspend fun load(dirOrJars: List<File>): CompilationDatabase
 
     /**
+     * load locations
+     * @param locations locations to load
+     * @return current database instance
+     */
+    suspend fun loadLocations(locations: List<ByteCodeLocation>): CompilationDatabase
+
+    /**
      * explicitly refreshes the state of resources from file-system.
      * That means that any new classpath created after refresh is done will
      * reference fresh byte-code from file-system. While any classpath created

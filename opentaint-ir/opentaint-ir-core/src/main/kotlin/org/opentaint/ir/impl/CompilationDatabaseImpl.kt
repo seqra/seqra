@@ -10,7 +10,7 @@ import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.filterExisted
 import org.opentaint.ir.impl.fs.load
-import org.opentaint.ir.impl.index.Hierarchy
+import org.opentaint.ir.impl.storage.PersistentEnvironment
 import org.opentaint.ir.impl.tree.ClassTree
 import org.opentaint.ir.impl.tree.RemoveLocationsVisitor
 import java.io.File
@@ -19,17 +19,17 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
-object BackgroundScope : CoroutineScope {
-    override val coroutineContext = Dispatchers.IO + SupervisorJob()
-}
+class CompilationDatabaseImpl(
+    private val persistentEnvironment: PersistentEnvironment? = null,
+    private val settings: CompilationDatabaseSettings,
+    internal val featureRegistry: FeaturesRegistry
+) : CompilationDatabase {
 
-class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings) : CompilationDatabase {
     companion object : KLogging()
 
     private val classTree = ClassTree()
     internal val javaRuntime = JavaRuntime(settings.jre)
 
-    internal val featureRegistry = FeaturesRegistry(listOf(Hierarchy) + settings.features)
     internal val registry = LocationsRegistry(featureRegistry)
 
     private val backgroundJobs = ConcurrentHashMap<Int, Job>()
@@ -77,8 +77,14 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
         dirOrJars.filterExisted().map { it.asByteCodeLocation() }.loadAll()
     }
 
+    override suspend fun loadLocations(locations: List<ByteCodeLocation>) = apply {
+        assertNotClosed()
+        locations.loadAll()
+    }
+
     private suspend fun List<ByteCodeLocation>.loadAll() = apply {
         val actions = ConcurrentLinkedQueue<Pair<ByteCodeLocation, suspend () -> Unit>>()
+        val locationStore = persistentEnvironment?.locationStore
 
         val libraryTrees = withContext(Dispatchers.IO) {
             map { location ->
@@ -89,6 +95,7 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
                         val (libraryTree, asyncJob) = loader.load(classTree)
                         actions.add(location to asyncJob)
                         registry.addLocation(location)
+                        locationStore?.findOrNew(location)
                         libraryTree
                     } else {
                         null
@@ -110,6 +117,7 @@ class CompilationDatabaseImpl(private val settings: CompilationDatabaseSettings)
                     val addedClasses = locationClasses[location]
                     if (addedClasses != null) {
                         if (parentScope.isActive) {
+                            locationStore?.saveClasses(location, addedClasses.map { it.info() })
                             featureRegistry.index(location, addedClasses)
                         }
                     }
