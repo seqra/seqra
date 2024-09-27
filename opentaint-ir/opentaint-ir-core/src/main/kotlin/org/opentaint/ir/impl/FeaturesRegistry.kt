@@ -26,28 +26,25 @@ class FeaturesRegistry(
     }
 
     suspend fun index(location: ByteCodeLocation, classes: Collection<ClassNode>) {
-        val existedIndexes = location.indexes
-        val builders = features.associate { it.key to it.newBuilder() }
-        classes.forEach { node ->
-            features.forEach { installer ->
-                val builder = builders[installer.key]
-                if (builder != null) {
-                    index(node, builder)
-                }
-            }
-            node.onAfterIndexing()
-        }
         features.forEach { feature ->
-            feature.index(location, existedIndexes)
+            feature.index(location, classes)
+        }
+        classes.forEach { node ->
+            node.onAfterIndexing()
         }
     }
 
-    private fun <T, INDEX: ByteCodeLocationIndex<T>> Feature<T, INDEX>.index(
+    private suspend fun <T, INDEX : ByteCodeLocationIndex<T>> Feature<T, INDEX>.index(
         location: ByteCodeLocation,
-        existedIndexes: ConcurrentHashMap<String, ByteCodeLocationIndex<*>>
+        classes: Collection<ClassNode>
     ) {
-        val index = newBuilder().build(location)
-        existedIndexes[key] = index
+        val builder = newBuilder()
+        classes.forEach { node ->
+            index(node, builder)
+            node.onAfterIndexing()
+        }
+        val index = builder.build(location)
+        location.indexes[key] = index
         val entity = persistence?.locationStore?.findOrNew(location)
         if (entity != null) {
             val out = ByteArrayOutputStream()
