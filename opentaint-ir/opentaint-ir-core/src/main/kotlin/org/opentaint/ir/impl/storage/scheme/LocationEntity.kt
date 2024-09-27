@@ -26,12 +26,12 @@ class LocationEntity(internal val entity: Entity) {
 
     var classes: List<ClassInfo>
         get() {
-            val json = entity.getProperty("classes") as String? ?: return emptyList()
+            val json = entity.getBlobString("classes") ?: return emptyList()
             return mapper.readValue(json, object : TypeReference<List<ClassInfo>>() {})
         }
         set(value) {
             val json = mapper.writeValueAsString(value)
-            entity.setProperty("classes", json)
+            entity.setBlobString("classes", json)
         }
 
     var isRuntime: Boolean
@@ -74,6 +74,7 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                 it.id = location.id
                 it.url = location.locationURL.toString()
                 it.isRuntime = location.scope == LocationScope.RUNTIME
+                dbStore.databaseStore.get(tx).addLocation(it)
             }
         } else {
             LocationEntity(found)
@@ -83,7 +84,7 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
     fun findOrNew(location: ByteCodeLocation): LocationEntity {
         return dbStore.transactional {
             val loc = findOrNew(this, location)
-            dbStore.databaseStore.get().addLocation(loc)
+            dbStore.databaseStore.get(this).addLocation(loc)
             loc
         }
     }

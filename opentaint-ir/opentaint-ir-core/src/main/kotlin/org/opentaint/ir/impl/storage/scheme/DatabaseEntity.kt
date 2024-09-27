@@ -1,6 +1,7 @@
 package org.opentaint.ir.impl.storage.scheme
 
 import jetbrains.exodus.entitystore.Entity
+import jetbrains.exodus.entitystore.StoreTransaction
 import mu.KLogging
 import org.opentaint.ir.impl.CompilationDatabaseImpl
 import org.opentaint.ir.impl.storage.PersistentEnvironment
@@ -36,10 +37,9 @@ class DatabaseStore(private val dbStore: PersistentEnvironment) {
         const val type = "CompilationDatabase"
     }
 
-    fun get(): DatabaseEntity {
-        return dbStore.transactional {
-            DatabaseEntity(getAll(type).first ?: throw IllegalStateException("no database found"))
-        }
+    fun get(tx: StoreTransaction): DatabaseEntity {
+        val entity = tx.getAll(type).first ?: tx.newEntity(type)
+        return DatabaseEntity(entity)
     }
 
     fun save(db: CompilationDatabaseImpl, clearOnStart: Boolean): DatabaseEntity {
@@ -57,8 +57,8 @@ class DatabaseStore(private val dbStore: PersistentEnvironment) {
             } else {
                 DatabaseEntity(existed)
             }
-            db.registry.locations.forEach {
-                dbEntity.addLocation(locationEntity = dbStore.locationStore.findOrNew(it))
+            db.locationsRegistry.locations.forEach {
+                dbEntity.addLocation(locationEntity = dbStore.locationStore.findOrNew(this, it))
             }
             dbEntity
         }

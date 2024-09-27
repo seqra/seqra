@@ -3,15 +3,12 @@ package org.opentaint.ir.impl
 import kotlinx.coroutines.*
 import mu.KLogging
 import org.opentaint.ir.CompilationDatabaseSettings
-import org.opentaint.ir.api.ByteCodeLocation
-import org.opentaint.ir.api.ClasspathSet
-import org.opentaint.ir.api.CompilationDatabase
-import org.opentaint.ir.impl.fs.JavaRuntime
-import org.opentaint.ir.impl.fs.asByteCodeLocation
-import org.opentaint.ir.impl.fs.filterExisted
-import org.opentaint.ir.impl.fs.load
+import org.opentaint.ir.api.*
+import org.opentaint.ir.impl.fs.*
 import org.opentaint.ir.impl.storage.PersistentEnvironment
+import org.opentaint.ir.impl.storage.scheme.LocationEntity
 import org.opentaint.ir.impl.tree.ClassTree
+import org.opentaint.ir.impl.tree.LibraryClassTree
 import org.opentaint.ir.impl.tree.RemoveLocationsVisitor
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -21,8 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class CompilationDatabaseImpl(
     private val persistentEnvironment: PersistentEnvironment? = null,
-    private val settings: CompilationDatabaseSettings,
-    internal val featureRegistry: FeaturesRegistry
+    private val settings: CompilationDatabaseSettings
 ) : CompilationDatabase {
 
     companion object : KLogging()
@@ -30,8 +26,8 @@ class CompilationDatabaseImpl(
     private val classTree = ClassTree()
     internal val javaRuntime = JavaRuntime(settings.jre)
 
-    internal val registry = LocationsRegistry(featureRegistry)
-
+    internal val featureRegistry = FeaturesRegistry(persistentEnvironment, settings.fullFeatures)
+    internal val locationsRegistry = LocationsRegistry(featureRegistry)
     private val backgroundJobs = ConcurrentHashMap<Int, Job>()
 
     private val isClosed = AtomicBoolean()
@@ -49,7 +45,7 @@ class CompilationDatabaseImpl(
         }
         val classpathSetLocations = existedLocations.toList() + javaRuntime.allLocations
         return ClasspathSetImpl(
-            registry.snapshot(classpathSetLocations),
+            locationsRegistry.snapshot(classpathSetLocations),
             featureRegistry,
             this,
             classTree
@@ -60,7 +56,7 @@ class CompilationDatabaseImpl(
         assertNotClosed()
         val classpathSetLocations = locations.toSet() + javaRuntime.allLocations
         return ClasspathSetImpl(
-            registry.snapshot(classpathSetLocations.toList()),
+            locationsRegistry.snapshot(classpathSetLocations.toList()),
             featureRegistry,
             this,
             classTree
@@ -94,7 +90,7 @@ class CompilationDatabaseImpl(
                     if (loader != null) {
                         val (libraryTree, asyncJob) = loader.load(classTree)
                         actions.add(location to asyncJob)
-                        registry.addLocation(location)
+                        locationsRegistry.addLocation(location)
                         locationStore?.findOrNew(location)
                         libraryTree
                     } else {
@@ -103,6 +99,8 @@ class CompilationDatabaseImpl(
                 }
             }
         }.awaitAll().filterNotNull()
+        persistentEnvironment?.databaseStore?.save(this@CompilationDatabaseImpl, false)
+
         val locationClasses = libraryTrees.map {
             it.location to it.pushInto(classTree).values
         }.toMap()
@@ -129,10 +127,10 @@ class CompilationDatabaseImpl(
 
     override suspend fun refresh() {
         awaitBackgroundJobs()
-        registry.refresh {
+        locationsRegistry.refresh {
             listOf(it).loadAll()
         }
-        val outdatedLocations = registry.cleanup()
+        val outdatedLocations = locationsRegistry.cleanup()
         classTree.visit(RemoveLocationsVisitor(outdatedLocations))
     }
 
@@ -155,11 +153,12 @@ class CompilationDatabaseImpl(
 
     override fun close() {
         isClosed.set(true)
-        registry.close()
+        locationsRegistry.close()
         backgroundJobs.values.forEach {
             it.cancel()
         }
         backgroundJobs.clear()
+        persistentEnvironment?.close()
     }
 
     private fun assertNotClosed() {
@@ -167,4 +166,50 @@ class CompilationDatabaseImpl(
             throw IllegalStateException("Database is already closed")
         }
     }
+
+    internal suspend fun restoreDataFrom(locations: Map<LocationEntity, ByteCodeLocation>) {
+        val env = persistentEnvironment ?: return
+        val trees = withContext(Dispatchers.IO) {
+            locations.map { (entity, location) ->
+                async {
+                    env.transactional {
+                        val libraryClasses = LibraryClassTree(location)
+                        val classes = entity.classes
+                        classes.forEach { libraryClasses.addClass(LazyByteCodeSource(location, it)) }
+                        restoreIndexes(location, entity)
+                        libraryClasses
+                    }
+                }
+            }
+        }.awaitAll()
+        trees.forEach {
+            it.pushInto(classTree)
+        }
+    }
+
+    private fun restoreIndexes(location: ByteCodeLocation, entity: LocationEntity) {
+        featureRegistry.features.forEach { it.restore(location, entity) }
+    }
+
+    private fun <T, INDEX : ByteCodeLocationIndex<T>> Feature<T, INDEX>.restore(
+        location: ByteCodeLocation,
+        entity: LocationEntity
+    ) {
+        val data = entity.index(key)
+        if (data != null) {
+            val index = try {
+                deserialize(location, data)
+            } catch (e: Exception) {
+                logger.warn(e) { "can't parse location" }
+                null
+            }
+            if (index != null) {
+                featureRegistry.append(location, this, index)
+            } else {
+                logger.warn("index ${key} is not restored for $location")
+            }
+        }
+    }
+
+
 }

@@ -76,7 +76,7 @@ object ReversedUsages : Feature<String, ReversedUsageIndex> {
 
     override fun newBuilder() = ReversedUsageIndexBuilder()
 
-    override fun deserialize(stream: InputStream) = null
+    override fun deserialize(location: ByteCodeLocation, stream: InputStream) = null
 
     override fun serialize(index: ReversedUsageIndex, out: OutputStream) {
         TODO()

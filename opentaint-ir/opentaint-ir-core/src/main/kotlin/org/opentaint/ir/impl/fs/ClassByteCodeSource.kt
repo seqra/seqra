@@ -88,6 +88,10 @@ abstract class ClassByteCodeSource(val location: ByteCodeLocation, val className
 class LazyByteCodeSource(location: ByteCodeLocation, className: String) :
     ClassByteCodeSource(location, className) {
 
+    constructor(location: ByteCodeLocation, classInfo: ClassInfo) : this(location, classInfo.name) {
+        this.classInfo = classInfo
+    }
+
     private lateinit var classInfo: ClassInfo
 
     @Volatile

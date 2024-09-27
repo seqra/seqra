@@ -13,9 +13,9 @@ import java.util.concurrent.ConcurrentHashMap
 
 class FeaturesRegistry(
     private val persistence: PersistentEnvironment? = null,
-    private val features: List<Feature<*, *>>,
-    private val indexes: ConcurrentHashMap<ByteCodeLocation, ConcurrentHashMap<String, ByteCodeLocationIndex<*>>> = ConcurrentHashMap()
+    val features: List<Feature<*, *>>
 ) : Closeable {
+    private val indexes: ConcurrentHashMap<ByteCodeLocation, ConcurrentHashMap<String, ByteCodeLocationIndex<*>>> = ConcurrentHashMap()
 
     fun <T, INDEX : ByteCodeLocationIndex<T>> append(
         location: ByteCodeLocation,

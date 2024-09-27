@@ -169,6 +169,6 @@ class DatabaseLifecycleTest : LibrariesMixin {
     }
 
     private fun withRegistry(action: LocationsRegistry.() -> Unit) {
-        db.registry.action()
+        db.locationsRegistry.action()
     }
 }

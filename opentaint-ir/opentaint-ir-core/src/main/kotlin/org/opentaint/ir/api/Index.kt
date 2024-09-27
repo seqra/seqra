@@ -33,6 +33,6 @@ interface Feature<T, INDEX: ByteCodeLocationIndex<T>> {
 
     fun serialize(index: INDEX, out: OutputStream)
 
-    fun deserialize(stream: InputStream): INDEX?
+    fun deserialize(location: ByteCodeLocation, stream: InputStream): INDEX?
 
 }
