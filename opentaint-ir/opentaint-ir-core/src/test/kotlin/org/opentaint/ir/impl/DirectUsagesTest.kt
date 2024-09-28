@@ -2,10 +2,12 @@ package org.opentaint.ir.impl
 
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.CompilationDatabase
 import org.opentaint.ir.api.findClass
 import org.opentaint.ir.compilationDatabase
 import org.opentaint.ir.impl.index.ReversedUsages
@@ -15,15 +17,32 @@ import org.opentaint.ir.impl.usages.direct.DirectA
 
 class DirectUsagesTest : LibrariesMixin {
 
-    private val db = runBlocking {
-        compilationDatabase {
-            predefinedDirOrJars = allClasspath
-            useProcessJavaRuntime()
-            installFeatures(ReversedUsages)
+    companion object : LibrariesMixin {
+
+        private var db: CompilationDatabase? = runBlocking {
+            compilationDatabase {
+                predefinedDirOrJars = allClasspath
+                useProcessJavaRuntime()
+                installFeatures(ReversedUsages)
+            }
         }
+
+        @JvmStatic
+        @AfterAll
+        fun close() {
+            runBlocking {
+                with(db!!) {
+                    awaitBackgroundJobs()
+                    close()
+                }
+                db = null
+            }
+        }
+
     }
 
-    private val cp = runBlocking { db.classpathSet(allClasspath) }
+
+    private val cp = runBlocking { db!!.classpathSet(allClasspath) }
 
     @Test
     fun `find methods used in method`() {
@@ -49,7 +68,7 @@ class DirectUsagesTest : LibrariesMixin {
     @Test
     fun `find methods used in method with broken classpath`() {
         val cp = runBlocking {
-            db.classpathSet(allClasspath - guavaLib)
+            db!!.classpathSet(allClasspath - guavaLib)
         }
         cp.use {
             val usages = cp.methodsUsages<DirectA>()
@@ -138,7 +157,6 @@ class DirectUsagesTest : LibrariesMixin {
     @AfterEach
     fun cleanup() {
         cp.close()
-        db.close()
     }
 
 }

@@ -97,9 +97,6 @@ class ApiExtTest : LibrariesMixin {
 
     @Test
     fun `isSubtype for regular types`() = runBlocking {
-        classOf<Dinosaur>().findAllSuperClasses().forEach {
-            println(it.name)
-        }
         assertTrue(classOf<Dinosaur>() isSubtypeOf classOf<Creature>())
 
         assertFalse(classOf<Dinosaur>() isSubtypeOf classOf<Fish>())

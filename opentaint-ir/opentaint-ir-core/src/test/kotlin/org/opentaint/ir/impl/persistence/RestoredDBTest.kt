@@ -57,6 +57,9 @@ class RestoredDBTest {
         @AfterAll
         @JvmStatic
         fun cleanup() {
+            runBlocking {
+                db?.awaitBackgroundJobs()
+            }
             db?.close()
             db = null
         }

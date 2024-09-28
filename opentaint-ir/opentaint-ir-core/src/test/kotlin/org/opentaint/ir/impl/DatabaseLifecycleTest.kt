@@ -21,7 +21,7 @@ import java.util.*
 
 class DatabaseLifecycleTest : LibrariesMixin {
 
-    private val db = runBlocking {
+    private var db: CompilationDatabaseImpl? = runBlocking {
         compilationDatabase {
             useProcessJavaRuntime()
         } as CompilationDatabaseImpl
@@ -46,13 +46,13 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
     @Test
     fun `refresh is working when build dir is removed`() = runBlocking {
-        val cp = db.classpathSet(listOf(testDirClone))
+        val cp = db!!.classpathSet(listOf(testDirClone))
         val fooClass = cp.findClass<Foo>()
 
         assertTrue(testDirClone.deleteRecursively())
         assertNull(fooClass.methods().first().readBody())
 
-        db.refresh()
+        db!!.refresh()
 
         withRegistry {
             assertEquals(1, snapshots.size)
@@ -62,7 +62,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
         assertNotNull(cp.findClassOrNull(Foo::class.java.name))
         cp.close()
-        db.refresh()
+        db!!.refresh()
         withRegistry {
             assertTrue(snapshots.isEmpty())
             assertTrue(usedButOutdated.isEmpty())
@@ -72,7 +72,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
     @Test
     fun `method could be read from build dir`() = runBlocking {
-        val cp = db.classpathSet(listOf(testDirClone))
+        val cp = db!!.classpathSet(listOf(testDirClone))
         val fooClass = cp.findClassOrNull<Foo>()
         assertNotNull(fooClass!!)
 
@@ -85,15 +85,15 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
     @Test
     fun `refresh is working when jar is removed`() = runBlocking {
-        val cp = db.classpathSet(listOf(guavaLibClone))
+        val cp = db!!.classpathSet(listOf(guavaLibClone))
         val abstractCacheClass = cp.findClassOrNull<AbstractCache<*,*>>()
         assertNotNull(abstractCacheClass!!)
-        db.awaitBackgroundJobs() // is required for deleting jar
+        db!!.awaitBackgroundJobs() // is required for deleting jar
 
         assertTrue(guavaLibClone.delete())
         assertNull(abstractCacheClass.methods().first().readBody())
 
-        db.refresh()
+        db!!.refresh()
         withRegistry {
             assertEquals(1, snapshots.size)
             assertEquals(1, usedButOutdated.size)
@@ -101,17 +101,17 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
         assertNotNull(cp.findClassOrNull<AbstractCache<*,*>>())
         cp.close()
-        db.refresh()
+        db!!.refresh()
         withRegistry {
             assertTrue(snapshots.isEmpty())
             assertTrue(usedButOutdated.isEmpty())
-            assertEquals(db.javaRuntime.allLocations.size, locations.size)
+            assertEquals(db!!.javaRuntime.allLocations.size, locations.size)
         }
     }
 
     @Test
     fun `method body could be read from jar`() = runBlocking {
-        val cp = db.classpathSet(listOf(guavaLibClone))
+        val cp = db!!.classpathSet(listOf(guavaLibClone))
         val abstractCacheClass = cp.findClassOrNull<AbstractCache<*,*>>()
         assertNotNull(abstractCacheClass!!)
 
@@ -122,7 +122,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
     @Test
     fun `simultaneous access to method body`() = runBlocking {
-        val cps = (1..10).map { db.classpathSet(listOf(guavaLibClone)) }
+        val cps = (1..10).map { db!!.classpathSet(listOf(guavaLibClone)) }
 
         suspend fun ClasspathSet.accessMethod() {
             val abstractCacheClass = findClassOrNull<AbstractCache<*,*>>()
@@ -141,7 +141,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
                 }
             }.joinAll()
         }.join()
-        db.refresh()
+        db!!.refresh()
 
         withRegistry {
             assertTrue(snapshots.isEmpty())
@@ -151,7 +151,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
     @Test
     fun `jar should not be blocked after method read`() = runBlocking {
-        val cp = db.classpathSet(listOf(guavaLibClone))
+        val cp = db!!.classpathSet(listOf(guavaLibClone))
         val clazz = cp.findClassOrNull<Iterators>()
         assertNotNull(clazz!!)
         assertNotNull(clazz.methods().first().readBody())
@@ -163,12 +163,13 @@ class DatabaseLifecycleTest : LibrariesMixin {
         tempFolder.deleteRecursively()
 
         runBlocking {
-            db.awaitBackgroundJobs()
-            db.close()
+            db!!.awaitBackgroundJobs()
+            db!!.close()
         }
+        db = null
     }
 
     private fun withRegistry(action: LocationsRegistry.() -> Unit) {
-        db.locationsRegistry.action()
+        db!!.locationsRegistry.action()
     }
 }
