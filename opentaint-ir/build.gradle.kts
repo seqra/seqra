@@ -33,21 +33,19 @@ apply plugin: 'org.jetbrains.kotlinx.benchmark'
 
 dependencies {
     implementation group: 'io.github.microutils', name: 'kotlin-logging', version: "1.8.3"
-    implementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core', version: coroutines_version
-    implementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-collections-immutable-jvm', version: collections_version
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-jdk8', version: kotlin_version
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-reflect', version: kotlin_version
+    implementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core', version: coroutines_version
+    implementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-collections-immutable-jvm', version: collections_version
+    implementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-serialization-cbor', version: '1.3.3'
+    implementation group: 'org.jetbrains.xodus', name: 'xodus-entity-store', version: xodus_version
     implementation group: 'org.ow2.asm', name: 'asm', version: asm_version
     implementation group: 'org.ow2.asm', name: 'asm-tree', version: asm_version
-    implementation group: 'org.jetbrains.xodus', name: 'xodus-entity-store', version: xodus_version
-    implementation group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.13.2'
-    implementation group: 'com.fasterxml.jackson.module', name: 'jackson-module-kotlin', version: '2.13.2'
-    implementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-serialization-cbor', version: '1.3.3'
 
     testImplementation(platform('org.junit:junit-bom:5.8.2'))
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter'
     testImplementation group: 'com.google.guava', name: 'guava', version: '31.1-jre'
-        testImplementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-benchmark-runtime', version: '0.4.4'
+    testImplementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-benchmark-runtime', version: '0.4.4'
 }
 
 allOpen {
