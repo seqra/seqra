@@ -64,3 +64,18 @@ object GlobalIds {
     val count: Int get() = counter.get()
 }
 
+
+fun Map.Entry<Int, Set<Int>>.asString(): String {
+    return key.toString() + "=" + value.joinToString(",") + "\n"
+}
+
+fun String.asEntry(): Pair<Int, Set<Int>> {
+    val splitted = split("=")
+    if (splitted.size == 2) {
+        val key = splitted[0].toInt()
+        val value = splitted[1].split(",").map { it.toInt() }.toSet()
+        return key to value
+    } else {
+        throw IllegalStateException("can't parse string $this")
+    }
+}

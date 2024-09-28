@@ -82,12 +82,8 @@ object Hierarchy : Feature<String, HierarchyIndex> {
         val result = hashMapOf<Int, Set<Int>>()
         reader.use {
             reader.forEachLine {
-                val splitted = it.split("=")
-                if (splitted.size == 2) {
-                    val key = splitted[0].toInt()
-                    val value = splitted[1].split(",").map { it.toInt() }.toSet()
-                    result[key] = value
-                }
+                val (key, value) = it.asEntry()
+                result[key] = value
             }
         }
         return HierarchyIndex(location, result)
@@ -96,11 +92,7 @@ object Hierarchy : Feature<String, HierarchyIndex> {
     override fun serialize(index: HierarchyIndex, out: OutputStream) {
         out.writer().use { writer ->
             index.parentToSubClasses.forEach {
-                writer.write(
-                    it.key.toString()
-                            + "="
-                            + it.value.joinToString(",") + "\n"
-                )
+                writer.write(it.asString())
             }
         }
     }

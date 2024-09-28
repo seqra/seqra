@@ -2,6 +2,7 @@ package org.opentaint.ir.impl.index
 
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.toImmutableMap
+import kotlinx.collections.immutable.toPersistentMap
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldInsnNode
@@ -57,8 +58,8 @@ class ReversedUsageIndexBuilder : ByteCodeLocationIndexBuilder<String, ReversedU
 
 class ReversedUsageIndex(
     override val location: ByteCodeLocation,
-    private val fieldsUsages: ImmutableMap<Int, Set<Int>>,
-    private val methodsUsages: ImmutableMap<Int, Set<Int>>,
+    internal val fieldsUsages: ImmutableMap<Int, Set<Int>>,
+    internal val methodsUsages: ImmutableMap<Int, Set<Int>>,
 ) : ByteCodeLocationIndex<String> {
 
     override fun query(term: String): Sequence<String> {
@@ -76,10 +77,37 @@ object ReversedUsages : Feature<String, ReversedUsageIndex> {
 
     override fun newBuilder() = ReversedUsageIndexBuilder()
 
-    override fun deserialize(location: ByteCodeLocation, stream: InputStream) = null
+    override fun deserialize(location: ByteCodeLocation, stream: InputStream): ReversedUsageIndex {
+        val reader = stream.reader()
+
+        val fields = hashMapOf<Int, Set<Int>>()
+        val methods = hashMapOf<Int, Set<Int>>()
+        var result = fields
+        reader.use {
+            reader.forEachLine {
+                if (it == "-") {
+                    result = methods
+                } else {
+                    val (key, value) = it.asEntry()
+                    result[key] = value
+                }
+            }
+        }
+        return ReversedUsageIndex(location, fields.toPersistentMap(), methods.toPersistentMap())
+
+    }
 
     override fun serialize(index: ReversedUsageIndex, out: OutputStream) {
-        TODO()
+        out.writer().use { writer ->
+            index.fieldsUsages.forEach {
+                writer.write(it.asString())
+            }
+            writer.write("-\n")
+            index.methodsUsages.forEach {
+                writer.write(it.asString())
+            }
+        }
+
     }
 
 }
