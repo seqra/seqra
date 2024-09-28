@@ -41,7 +41,6 @@ class FeaturesRegistry(
         val builder = newBuilder()
         classes.forEach { node ->
             index(node, builder)
-            node.onAfterIndexing()
         }
         val index = builder.build(location)
         location.indexes[key] = index

@@ -69,7 +69,7 @@ open class JarLocation(
             val jar = jarFile ?: return null
             return JarWithClasses(
                 jar = jar,
-                classes = jar.stream().filter { it.name.endsWith(".class") }.map {
+                classes = jar.stream().filter { it.name.endsWith(".class") && !it.name.contains("module-info") }.map {
                     val className = it.name.removeSuffix(".class").replace("/", ".")
                     className to it
                 }.toList().toMap()

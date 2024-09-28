@@ -1,7 +1,5 @@
 package org.opentaint.ir.impl.storage
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import jetbrains.exodus.entitystore.PersistentEntityStores
 import jetbrains.exodus.entitystore.StoreTransaction
 import jetbrains.exodus.env.EnvironmentConfig
@@ -61,5 +59,3 @@ class PersistentEnvironment(id: String, location: File? = null) : Closeable {
         persistentEntityStore.close()
     }
 }
-
-val mapper = ObjectMapper().registerKotlinModule()

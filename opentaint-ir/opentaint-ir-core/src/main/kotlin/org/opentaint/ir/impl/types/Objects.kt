@@ -1,6 +1,8 @@
 package org.opentaint.ir.impl.types
 
+import kotlinx.serialization.Serializable
 
+@Serializable
 class ClassInfo(
     val name: String,
 
@@ -20,11 +22,13 @@ class ClassInfo(
     val annotations: List<AnnotationInfo>
 )
 
+@Serializable
 class OuterClassRef(
     val className: String,
     val name: String?
 )
 
+@Serializable
 class MethodInfo(
     val name: String,
     val desc: String,
@@ -35,6 +39,7 @@ class MethodInfo(
     val annotations: List<AnnotationInfo>
 )
 
+@Serializable
 class FieldInfo(
     val name: String,
     val signature: String?,
@@ -43,8 +48,12 @@ class FieldInfo(
     val annotations: List<AnnotationInfo>
 )
 
+@Serializable
 class AnnotationInfo(
     val className: String
 )
 
-
+@Serializable
+class LocationClasses(
+    val classes: List<ClassInfo>
+)

@@ -34,7 +34,7 @@ abstract class ClassByteCodeSource(val location: ByteCodeLocation, val className
         outerClass = outerClassName(),
         innerClasses = innerClasses.map {
             Type.getObjectType(it.name).className
-        },
+        }.toImmutableList(),
         outerMethod = outerMethod,
         outerMethodDesc = outerMethodDesc,
         superClass = superName?.let { Type.getObjectType(it).className },

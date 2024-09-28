@@ -58,13 +58,12 @@ suspend fun ByteCodeLoader.load(classTree: ClassTree): Pair<LibraryClassTree, su
     sync.close()
     return libraryTree to {
         val async = asyncResources()()
-        async?.classesToLoad?.forEach { entry ->
-            val node = classTree.firstClassNodeOrNull(entry.key)
-            val stream = entry.value
+        async?.classesToLoad?.forEach { (name, stream) ->
+            val node = classTree.firstClassNodeOrNull(name)
             if (stream != null && node != null) {
                 node.source.load(stream)
             } else {
-                println("GETTING NULL STREAM OR NODE FOR ${entry.key}")
+                println("GETTING NULL STREAM OR NODE FOR $name")
             }
         }
         async?.close()

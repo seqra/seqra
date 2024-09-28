@@ -1,43 +1,53 @@
 package org.opentaint.ir.impl.storage.scheme
 
-import com.fasterxml.jackson.core.type.TypeReference
 import jetbrains.exodus.entitystore.Entity
 import jetbrains.exodus.entitystore.StoreTransaction
+import kotlinx.serialization.cbor.Cbor
+import kotlinx.serialization.decodeFromByteArray
+import kotlinx.serialization.encodeToByteArray
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.LocationScope
 import org.opentaint.ir.impl.storage.PersistentEnvironment
-import org.opentaint.ir.impl.storage.mapper
 import org.opentaint.ir.impl.types.ClassInfo
+import org.opentaint.ir.impl.types.LocationClasses
 import java.io.InputStream
 
 class LocationEntity(internal val entity: Entity) {
 
+    companion object {
+        private const val CLASSES = "classes"
+        private const val URL = "url"
+        private const val ID = "id"
+        private const val IS_RUNTIME = "isRuntime"
+
+    }
+
     var id: String
-        get() = entity.getProperty("id") as String
+        get() = entity.getProperty(ID) as String
         set(value) {
-            entity.setProperty("id", value)
+            entity.setProperty(ID, value)
         }
 
     var url: String
-        get() = entity.getProperty("url") as String
+        get() = entity.getProperty(URL) as String
         set(value) {
-            entity.setProperty("url", value)
+            entity.setProperty(URL, value)
         }
 
     var classes: List<ClassInfo>
         get() {
-            val json = entity.getBlobString("classes") ?: return emptyList()
-            return mapper.readValue(json, object : TypeReference<List<ClassInfo>>() {})
+            val input = entity.getBlob(CLASSES) ?: return emptyList()
+            return Cbor.decodeFromByteArray<LocationClasses>(input.readBytes()).classes
         }
         set(value) {
-            val json = mapper.writeValueAsString(value)
-            entity.setBlobString("classes", json)
+            val binary = Cbor.encodeToByteArray(LocationClasses(value))
+            entity.setBlob(CLASSES, binary.inputStream())
         }
 
     var isRuntime: Boolean
-        get() = entity.getProperty("isRuntime") as? Boolean ?: false
+        get() = entity.getProperty(IS_RUNTIME) as? Boolean ?: false
         set(value) {
-            entity.setProperty("isRuntime", value)
+            entity.setProperty(IS_RUNTIME, value)
         }
 
     fun index(key: String): InputStream? {
