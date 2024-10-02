@@ -50,8 +50,8 @@ class MethodInfo(
         return "$name($params)${returnType};"
     }
 
-    val returnType get() = Type.getReturnType(desc).className
-    val parameters get() = Type.getArgumentTypes(desc).map { it.className }.toImmutableList()
+    val returnType: String get() = Type.getReturnType(desc).className
+    val parameters: List<String> get() = Type.getArgumentTypes(desc).map { it.className }.toImmutableList()
 
 }
 
