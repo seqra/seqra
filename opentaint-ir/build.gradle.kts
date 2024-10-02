@@ -1,4 +1,4 @@
-group 'org.opentaint'
+group 'org.opentaint.ir'
 
 if (project.hasProperty('semVer')) {
     project.version = project.semVer
@@ -86,8 +86,8 @@ subprojects {
     compileKotlin {
         kotlinOptions {
             jvmTarget = JavaVersion.VERSION_1_8
-            languageVersion = "1.4"
-            apiVersion = "1.4"
+            languageVersion = "1.7"
+            apiVersion = "1.7"
             freeCompilerArgs += ["-Xallow-result-return-type", "-Xinline-classes"]
             allWarningsAsErrors = false
         }
@@ -96,8 +96,8 @@ subprojects {
     compileTestKotlin {
         kotlinOptions {
             jvmTarget = JavaVersion.VERSION_1_8
-            languageVersion = "1.4"
-            apiVersion = "1.4"
+            languageVersion = "1.7"
+            apiVersion = "1.7"
             freeCompilerArgs += ["-Xallow-result-return-type", "-Xinline-classes"]
             allWarningsAsErrors = false
         }
