@@ -49,8 +49,6 @@ interface ByteCodeConverter {
         signature = signature,
         desc = desc,
         access = access,
-        returnType = Type.getReturnType(desc).className,
-        parameters = Type.getArgumentTypes(desc).map { it.className }.toImmutableList(),
         annotations = visibleAnnotations.orEmpty().map { it.asAnnotationInfo() }.toImmutableList()
     )
 

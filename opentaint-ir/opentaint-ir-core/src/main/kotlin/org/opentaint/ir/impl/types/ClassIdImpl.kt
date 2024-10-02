@@ -66,7 +66,7 @@ class ClassIdImpl(
         return node.fullByteCode()
     }
 
-    override suspend fun signature(): TypeResolution {
+    override suspend fun resolution(): TypeResolution {
         return TypeSignature.of(node.info().signature, classpath)
     }
 

@@ -24,7 +24,7 @@ class FieldIdImpl(
         info.annotations.map { classIdService.toClassId(it.className) ?: it.className.throwClassNotFound() }
     }
 
-    override suspend fun signature(): FieldResolution {
+    override suspend fun resolution(): FieldResolution {
         return FieldSignature.extract(info.signature, classId.classpath)
     }
 

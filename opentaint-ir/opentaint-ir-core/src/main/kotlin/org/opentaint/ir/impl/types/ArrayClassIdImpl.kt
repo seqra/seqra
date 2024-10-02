@@ -26,7 +26,7 @@ class ArrayClassIdImpl(override val elementClass: ClassId) : ArrayClassId {
 
     override suspend fun isAnonymous() = false
 
-    override suspend fun signature() = Raw
+    override suspend fun resolution() = Raw
 
     override suspend fun outerMethod() = null
 

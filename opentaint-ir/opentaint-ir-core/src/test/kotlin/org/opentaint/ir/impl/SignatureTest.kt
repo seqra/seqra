@@ -42,7 +42,7 @@ class SignatureTest {
     fun `get signature of class`() = runBlocking {
         val a = cp.findClass<Generics<*>>()
 
-        val classSignature = a.signature()
+        val classSignature = a.resolution()
 
         with(classSignature) {
             this as TypeResolutionImpl
@@ -54,7 +54,7 @@ class SignatureTest {
     fun `get signature of methods`() = runBlocking {
         val a = cp.findClass<Generics<*>>()
 
-        val methodSignatures = a.methods().map { it.name to it.signature() }
+        val methodSignatures = a.methods().map { it.name to it.resolution() }
         Assertions.assertEquals(3, methodSignatures.size)
         with(methodSignatures[0]) {
             val (name, signature) = this
@@ -117,7 +117,7 @@ class SignatureTest {
     fun `get signature of fields`() = runBlocking {
         val a = cp.findClass<Generics<*>>()
 
-        val fieldSignatures = a.fields().map { it.name to it.signature() }
+        val fieldSignatures = a.fields().map { it.name to it.resolution() }
 
         Assertions.assertEquals(2, fieldSignatures.size)
 
