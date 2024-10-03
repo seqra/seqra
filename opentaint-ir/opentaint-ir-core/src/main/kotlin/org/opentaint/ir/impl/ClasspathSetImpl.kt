@@ -3,11 +3,11 @@ package org.opentaint.ir.impl
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.ClassId
 import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.impl.index.hierarchyExt
 import org.opentaint.ir.impl.tree.ClassTree
 import org.opentaint.ir.impl.tree.ClasspathClassTree
 import org.opentaint.ir.impl.types.ArrayClassIdImpl
-import org.opentaint.ir.impl.types.PredefinedPrimitives
 import java.io.Serializable
 
 class ClasspathSetImpl(

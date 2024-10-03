@@ -9,8 +9,6 @@ import org.opentaint.ir.api.*
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.impl.hierarchies.Creature
 import org.opentaint.ir.impl.hierarchies.Creature.*
-import org.opentaint.ir.impl.types.boolean
-import org.opentaint.ir.impl.types.short
 import org.opentaint.ir.jirdb
 
 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")

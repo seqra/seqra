@@ -1,9 +1,6 @@
 package org.opentaint.ir.impl.signature
 
-import org.opentaint.ir.api.ClassId
-import org.opentaint.ir.api.ClasspathSet
-import org.opentaint.ir.api.throwClassNotFound
-import org.opentaint.ir.impl.types.*
+import org.opentaint.ir.api.*
 
 
 abstract class GenericType(val classpath: ClasspathSet) {

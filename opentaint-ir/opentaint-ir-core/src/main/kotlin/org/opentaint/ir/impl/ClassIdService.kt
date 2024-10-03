@@ -3,9 +3,13 @@ package org.opentaint.ir.impl
 import org.opentaint.ir.api.ClassId
 import org.opentaint.ir.api.ClasspathSet
 import org.opentaint.ir.api.MethodId
+import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.impl.tree.ClassNode
 import org.opentaint.ir.impl.tree.ClasspathClassTree
-import org.opentaint.ir.impl.types.*
+import org.opentaint.ir.impl.types.ArrayClassIdImpl
+import org.opentaint.ir.impl.types.ClassIdImpl
+import org.opentaint.ir.impl.types.MethodIdImpl
+import org.opentaint.ir.impl.types.MethodInfo
 
 class ClassIdService(private val cp: ClasspathSet, private val classpathClassTree: ClasspathClassTree) {
 
