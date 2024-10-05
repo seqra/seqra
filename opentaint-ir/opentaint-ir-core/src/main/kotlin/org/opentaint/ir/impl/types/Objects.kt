@@ -1,6 +1,7 @@
 package org.opentaint.ir.impl.types
 
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import org.objectweb.asm.Type
 
@@ -39,7 +40,8 @@ class MethodInfo(
     val desc: String,
     val signature: String?,
     val access: Int,
-    val annotations: List<AnnotationInfo>
+    val annotations: List<AnnotationInfo>,
+    val parametersInfo: List<ParameterInfo>,
 ) {
 
     fun signature(internalNames: Boolean): String {
@@ -66,7 +68,18 @@ class FieldInfo(
 
 @Serializable
 class AnnotationInfo(
-    val className: String
+    val className: String,
+    val visible: Boolean,
+    val values: List<@Contextual Any>
+)
+
+@Serializable
+class ParameterInfo(
+    val type: String,
+    val index: Int,
+    val access: Int,
+    val name: String?,
+    val annotations: List<AnnotationInfo>?
 )
 
 @Serializable

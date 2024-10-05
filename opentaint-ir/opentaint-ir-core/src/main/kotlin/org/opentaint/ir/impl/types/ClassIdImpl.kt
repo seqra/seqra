@@ -54,7 +54,7 @@ class ClassIdImpl(
 
     private val lazyAnnotations = suspendableLazy {
         node.info().annotations.map {
-            classIdService.toClassId(it.className) ?: it.className.throwClassNotFound()
+            AnnotationIdImpl(it, classIdService.cp)
         }
     }
 

@@ -22,14 +22,17 @@ class MethodIdImpl(
 
     private val lazyParameters = suspendableLazy {
         methodInfo.parameters.map {
-            classIdService.toClassId(it) ?: throw org.opentaint.ir.api.NoClassInClasspathException(it)
+            classIdService.toClassId(it) ?: it.throwClassNotFound()
         }
     }
     private val lazyAnnotations = suspendableLazy {
         methodInfo.annotations.map {
-            val className = it.className
-            classIdService.toClassId(className) ?: className.throwClassNotFound()
+            AnnotationIdImpl(it, classIdService.cp)
         }
+    }
+
+    private val lazyParamsInfo = suspendableLazy {
+        methodInfo.parametersInfo.map { MethodParameterIdImpl(it, classIdService.cp) }
     }
 
     override suspend fun resolution(): MethodResolution {
@@ -40,6 +43,8 @@ class MethodIdImpl(
         classIdService.toClassId(methodInfo.returnType) ?: methodInfo.returnType.throwClassNotFound()
 
     override suspend fun parameters() = lazyParameters()
+
+    override suspend fun parameterIds() = lazyParamsInfo()
 
     override suspend fun annotations() = lazyAnnotations()
 

@@ -25,7 +25,7 @@ interface ByteCodeConverter {
         interfaces = interfaces.map { Type.getObjectType(it).className }.toImmutableList(),
         methods = methods.map { it.asMethodInfo() }.toImmutableList(),
         fields = fields.map { it.asFieldInfo() }.toImmutableList(),
-        annotations = visibleAnnotations.orEmpty().map { it.asAnnotationInfo() }.toImmutableList()
+        annotations = visibleAnnotations.asAnnotationInfos(true) + invisibleAnnotations.asAnnotationInfos(false)
     )
 
     private fun ClassNode.outerClassName(): OuterClassRef? {
@@ -40,23 +40,44 @@ interface ByteCodeConverter {
         }
     }
 
-    private fun AnnotationNode.asAnnotationInfo() = AnnotationInfo(
-        className = Type.getType(desc).className
+    private fun AnnotationNode.asAnnotationInfo(visible: Boolean) = AnnotationInfo(
+        className = Type.getType(desc).className,
+        visible = visible,
+        values = values.orEmpty()
     )
 
-    private fun MethodNode.asMethodInfo() = MethodInfo(
-        name = name,
-        signature = signature,
-        desc = desc,
-        access = access,
-        annotations = visibleAnnotations.orEmpty().map { it.asAnnotationInfo() }.toImmutableList()
-    )
+    private fun List<AnnotationNode>?.asAnnotationInfos(visible: Boolean): List<AnnotationInfo> =
+        orEmpty().map { it.asAnnotationInfo(visible) }.toImmutableList()
+
+    private fun MethodNode.asMethodInfo(): MethodInfo {
+        val params = Type.getArgumentTypes(desc).map { it.className }.toImmutableList()
+        return MethodInfo(
+            name = name,
+            signature = signature,
+            desc = desc,
+            access = access,
+            annotations = visibleAnnotations.asAnnotationInfos(true) + invisibleAnnotations.asAnnotationInfos(false),
+            parametersInfo = parameters?.mapIndexed { index, node ->
+                ParameterInfo(
+                    index = index,
+                    name = node.name,
+                    access = node.access,
+                    type = params[index],
+                    annotations = (visibleParameterAnnotations?.get(index)?.let { it.asAnnotationInfos(true) }
+                        .orEmpty() +
+                            invisibleParameterAnnotations?.get(index)?.let { it.asAnnotationInfos(false) }
+                                .orEmpty())
+                        .takeIf { it.isNotEmpty() }
+                )
+            }.orEmpty()
+        )
+    }
 
     private fun FieldNode.asFieldInfo() = FieldInfo(
         name = name,
         signature = signature,
         access = access,
         type = Type.getType(desc).className,
-        annotations = visibleAnnotations.orEmpty().map { it.asAnnotationInfo() }.toImmutableList()
+        annotations = visibleAnnotations.asAnnotationInfos(true) + visibleAnnotations.asAnnotationInfos(false)
     )
 }

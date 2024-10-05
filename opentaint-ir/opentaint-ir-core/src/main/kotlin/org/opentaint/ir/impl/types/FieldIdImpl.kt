@@ -22,7 +22,7 @@ class FieldIdImpl(
     }
 
     private val lazyAnnotations = suspendableLazy {
-        info.annotations.map { classIdService.toClassId(it.className) ?: it.className.throwClassNotFound() }
+        info.annotations.map { AnnotationIdImpl(it, classIdService.cp) }
     }
 
     override suspend fun resolution(): FieldResolution {
