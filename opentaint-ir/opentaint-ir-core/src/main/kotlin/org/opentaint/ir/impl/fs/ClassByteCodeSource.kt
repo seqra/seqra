@@ -54,7 +54,7 @@ class LazyByteCodeSource(location: ByteCodeLocation, className: String) :
         if (this::classInfo.isInitialized) {
             return classInfo
         }
-        return (this.classNode ?: fullByteCode()).asClassInfo().also {
+        return (classNode ?: fullByteCode()).asClassInfo().also {
             classInfo = it
         }
     }

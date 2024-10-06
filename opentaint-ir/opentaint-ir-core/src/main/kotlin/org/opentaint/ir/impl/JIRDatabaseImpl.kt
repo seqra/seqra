@@ -1,7 +1,6 @@
 package org.opentaint.ir.impl
 
 import kotlinx.coroutines.*
-import mu.KLogging
 import org.opentaint.ir.JIRDBSettings
 import org.opentaint.ir.api.*
 import org.opentaint.ir.impl.fs.*
@@ -22,12 +21,6 @@ class JIRDBImpl(
     private val settings: JIRDBSettings,
     override val globalIdStore: InMemeoryGlobalIdsStore = InMemeoryGlobalIdsStore()
 ) : JIRDB {
-
-    companion object : KLogging() {
-        private val parallelism: Int = System.getProperty("jirdb.parallelism")?.toInt() ?: (Runtime.getRuntime().availableProcessors() * 2)
-
-        private val ioDispatcher = Dispatchers.IO.limitedParallelism(parallelism)
-    }
 
     private val classTree = ClassTree()
     internal val javaRuntime = JavaRuntime(settings.jre)
@@ -89,7 +82,7 @@ class JIRDBImpl(
         val actions = ConcurrentLinkedQueue<Pair<ByteCodeLocation, suspend () -> Unit>>()
         val locationStore = persistentEnvironment?.locationStore
 
-        val libraryTrees = withContext(ioDispatcher) {
+        val libraryTrees = withContext(Dispatchers.IO) {
             map { location ->
                 async {
                     val loader = location.loader()

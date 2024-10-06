@@ -11,32 +11,46 @@ abstract class GenericType(val classpath: ClasspathSet) {
 
 }
 
-class GenericArray(cp: ClasspathSet, val elementType: GenericType) : GenericType(cp)
+abstract class GenericClassType(classpath: ClasspathSet) : GenericType(classpath) {
+
+    abstract suspend fun findClass(): ClassId
+
+}
+
+class GenericArray(cp: ClasspathSet, val elementType: GenericType) : GenericClassType(cp) {
+
+    override suspend fun findClass(): ClassId {
+        if (elementType is GenericClassType) {
+            return findClass(elementType.findClass().name + "[]")
+        }
+        return findClass("java.lang.Object")
+    }
+}
 
 class ParameterizedType(
     cp: ClasspathSet,
     val name: String,
     val parameterTypes: List<GenericType>
-) : GenericType(cp) {
+) : GenericClassType(cp) {
 
     class Nested(
         cp: ClasspathSet,
         val name: String,
         val parameterTypes: List<GenericType>,
         val ownerType: GenericType
-    ) : GenericType(cp) {
-        suspend fun findClass(): ClassId {
+    ) : GenericClassType(cp) {
+        override suspend fun findClass(): ClassId {
             return findClass(name)
         }
     }
 
-    suspend fun findClass(): ClassId {
+    override suspend fun findClass(): ClassId {
         return findClass(name)
     }
 }
 
-class RawType(cp: ClasspathSet, val name: String) : GenericType(cp) {
-    suspend fun findClass(): ClassId {
+class RawType(cp: ClasspathSet, val name: String) : GenericClassType(cp) {
+    override suspend fun findClass(): ClassId {
         return findClass(name)
     }
 }
@@ -50,7 +64,7 @@ sealed class BoundWildcard(cp: ClasspathSet, val boundType: GenericType) : Gener
 
 class UnboundWildcard(cp: ClasspathSet) : GenericType(cp)
 
-class PrimitiveType(cp: ClasspathSet, val ref: PredefinedPrimitive) : GenericType(cp) {
+class PrimitiveType(cp: ClasspathSet, val ref: PredefinedPrimitive) : GenericClassType(cp) {
 
     companion object {
         fun of(descriptor: Char, cp: ClasspathSet): GenericType {
@@ -68,4 +82,6 @@ class PrimitiveType(cp: ClasspathSet, val ref: PredefinedPrimitive) : GenericTyp
             }
         }
     }
+
+    override suspend fun findClass() = ref
 }
