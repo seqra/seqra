@@ -23,7 +23,11 @@ class JIRDBImpl(
     override val globalIdStore: InMemeoryGlobalIdsStore = InMemeoryGlobalIdsStore()
 ) : JIRDB {
 
-    companion object : KLogging()
+    companion object : KLogging() {
+        private val parallelism: Int = System.getProperty("jirdb.parallelism")?.toInt() ?: (Runtime.getRuntime().availableProcessors() * 2)
+
+        private val ioDispatcher = Dispatchers.IO.limitedParallelism(parallelism)
+    }
 
     private val classTree = ClassTree()
     internal val javaRuntime = JavaRuntime(settings.jre)
@@ -85,7 +89,7 @@ class JIRDBImpl(
         val actions = ConcurrentLinkedQueue<Pair<ByteCodeLocation, suspend () -> Unit>>()
         val locationStore = persistentEnvironment?.locationStore
 
-        val libraryTrees = withContext(Dispatchers.IO) {
+        val libraryTrees = withContext(ioDispatcher) {
             map { location ->
                 async {
                     val loader = location.loader()
