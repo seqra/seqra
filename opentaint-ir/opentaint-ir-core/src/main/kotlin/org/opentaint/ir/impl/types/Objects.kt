@@ -1,8 +1,11 @@
 package org.opentaint.ir.impl.types
 
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.Serializable
+import kotlinx.serialization.*
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.descriptors.serialDescriptor
+import kotlinx.serialization.encoding.*
 import org.objectweb.asm.Type
 
 @Serializable
@@ -70,8 +73,8 @@ class FieldInfo(
 class AnnotationInfo(
     val className: String,
     val visible: Boolean,
-    val values: List<@Contextual Any>
-)
+    val values: List<AnnotationValue>
+) : AnnotationValue()
 
 @Serializable
 class ParameterInfo(
@@ -94,3 +97,69 @@ class PredefinedClassInfo(val name: String) : ClassInfoContainer()
 class ArrayClassInfo(
     val elementInfo: ClassInfoContainer
 ) : ClassInfoContainer()
+
+
+@Serializable
+sealed class AnnotationValue
+
+@Serializable
+open class AnnotationValues(val annotations: List<AnnotationValue>) : AnnotationValue()
+
+@Serializable(with = PrimitiveValueSerializer::class)
+class PrimitiveValue(val dataType: String, val value: Any): AnnotationValue()
+
+object PrimitiveValueSerializer : KSerializer<PrimitiveValue> {
+    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("PrimitiveValue") {
+        element("dataType", serialDescriptor<String>())
+        element("value", buildClassSerialDescriptor("Any"))
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private val dataTypeSerializers: Map<String, KSerializer<Any>> =
+        mapOf(
+            "String" to serializer<String>(),
+            "Short" to serializer<Short>(),
+            "Character" to serializer<Char>(),
+            "Long" to serializer<Long>(),
+            "Integer" to serializer<Int>(),
+            "Float" to serializer<Float>(),
+            "Double" to serializer<Double>(),
+            "Byte" to serializer<Byte>(),
+            "Boolean" to serializer<Boolean>()
+            //list them all
+        ).mapValues { (_, v) -> v as KSerializer<Any> }
+
+    private fun getPayloadSerializer(dataType: String): KSerializer<Any> = dataTypeSerializers[dataType]
+        ?: throw SerializationException("Serializer for class $dataType is not registered in PacketSerializer")
+
+    override fun serialize(encoder: Encoder, value: PrimitiveValue) {
+        encoder.encodeStructure(descriptor) {
+            encodeStringElement(descriptor, 0, value.dataType)
+            encodeSerializableElement(descriptor, 1, getPayloadSerializer(value.dataType), value.value)
+        }
+    }
+
+    @ExperimentalSerializationApi
+    override fun deserialize(decoder: Decoder): PrimitiveValue = decoder.decodeStructure(descriptor) {
+        if (decodeSequentially()) {
+            val dataType = decodeStringElement(descriptor, 0)
+            val payload = decodeSerializableElement(descriptor, 1, getPayloadSerializer(dataType))
+            PrimitiveValue(dataType, payload)
+        } else {
+            require(decodeElementIndex(descriptor) == 0) { "dataType field should precede payload field" }
+            val dataType = decodeStringElement(descriptor, 0)
+            val payload = when (val index = decodeElementIndex(descriptor)) {
+                1 -> decodeSerializableElement(descriptor, 1, getPayloadSerializer(dataType))
+                CompositeDecoder.DECODE_DONE -> throw SerializationException("payload field is missing")
+                else -> error("Unexpected index: $index")
+            }
+            PrimitiveValue(dataType, payload)
+        }
+    }
+}
+
+@Serializable
+class ClassRef(val name: String) : AnnotationValue()
+
+@Serializable
+class EnumRef(val className: String, val name: String) : AnnotationValue()

@@ -1,8 +1,8 @@
 package org.opentaint.ir.impl.types
 
-import org.objectweb.asm.Type
 import org.opentaint.ir.api.AnnotationId
 import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.enumValues
 import org.opentaint.ir.impl.SuspendableLazy
 import org.opentaint.ir.impl.suspendableLazy
 
@@ -34,11 +34,13 @@ class AnnotationIdImpl(
         return info.className == annotationClass
     }
 
-    private suspend fun fixValue(value: Any): Any? {
+    private suspend fun fixValue(value: AnnotationValue): Any? {
         return when (value) {
-            is Type -> classpath.findClassOrNull(value.className)
-            is String, is Short, is Byte, is Boolean, is Long, is Double, is Float -> value
-            else -> throw IllegalStateException("Unsupported type $value")
+            is PrimitiveValue -> value.value
+            is ClassRef -> classpath.findClassOrNull(value.name)
+            is EnumRef -> classpath.findClassOrNull(value.name)?.enumValues()?.firstOrNull { it.name == value.name }
+            is AnnotationInfo -> AnnotationIdImpl(value, classpath)
+            is AnnotationValues -> value.annotations.map { fixValue(it) }
         }
     }
 }

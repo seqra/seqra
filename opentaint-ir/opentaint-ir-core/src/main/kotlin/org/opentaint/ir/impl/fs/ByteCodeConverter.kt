@@ -40,10 +40,21 @@ interface ByteCodeConverter {
         }
     }
 
-    private fun AnnotationNode.asAnnotationInfo(visible: Boolean) = AnnotationInfo(
+    private fun Any.toAnnotationValue(): AnnotationValue {
+        return when (this) {
+            is Type -> ClassRef(className)
+            is AnnotationNode -> asAnnotationInfo(true)
+            is List<*> -> AnnotationValues(mapNotNull { it?.toAnnotationValue() })
+            is Array<*> -> EnumRef(Type.getType((get(0) as String)).className, get(1) as String)
+            is String, is Short, is Byte, is Boolean, is Long, is Double, is Float, is Int -> PrimitiveValue(this::class.java.simpleName, this)
+            else -> throw IllegalStateException("Unknown type: ${javaClass.name}")
+        }
+    }
+
+    private fun AnnotationNode.asAnnotationInfo(visible: Boolean): AnnotationInfo = AnnotationInfo(
         className = Type.getType(desc).className,
         visible = visible,
-        values = values.orEmpty()
+        values = values?.map { it.toAnnotationValue() }.orEmpty()
     )
 
     private fun List<AnnotationNode>?.asAnnotationInfos(visible: Boolean): List<AnnotationInfo> =
