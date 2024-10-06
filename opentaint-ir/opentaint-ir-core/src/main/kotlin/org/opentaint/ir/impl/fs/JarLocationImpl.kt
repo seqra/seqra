@@ -36,14 +36,22 @@ open class JarLocation(
                     else -> null // lazy
                 }
             }
-            val allClasses = ClassLoadingContainerImpl(classes)
+            val allClasses = ClassLoadingContainerImpl(classes) {
+                jar.close()
+            }
             return ByteCodeLoaderImpl(this, allClasses) {
-                ClassLoadingContainerImpl(content.classes.filterKeys { className ->
-                    !className.matchesOneOf(syncLoadClassesOnlyFrom)
-                }.mapValues { (_, entry) ->
-                    jar.getInputStream(entry)
-                }) {
-                    jar.close()
+                val asyncContent = jarWithClasses
+                if (asyncContent != null) {
+                    val asyncJar = asyncContent.jar
+                    ClassLoadingContainerImpl(asyncContent.classes.filterKeys { className ->
+                        !className.matchesOneOf(syncLoadClassesOnlyFrom)
+                    }.mapValues { (_, entry) ->
+                        asyncJar.getInputStream(entry)
+                    }) {
+                        asyncJar.close()
+                    }
+                } else {
+                    ClassLoadingContainerImpl(emptyMap())
                 }
             }
         } catch (e: Exception) {
