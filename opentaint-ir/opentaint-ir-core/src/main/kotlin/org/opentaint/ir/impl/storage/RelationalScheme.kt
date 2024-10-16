@@ -24,7 +24,7 @@ object Packages : IntIdTable() {
     val name = varchar("name", length = 256) // full package name
 }
 
-object ClassNames : IntIdTable() {
+object Symbols : IntIdTable() {
     val name = varchar("name", length = 256)
 
     init {
@@ -36,14 +36,14 @@ object ClassNames : IntIdTable() {
 object ClassInterfaces : IntIdTable() {
 
     val classId = reference("class_id", Classes.id, onDelete = ReferenceOption.CASCADE)
-    val interfaceId = reference("interface_id", ClassNames.id)
+    val interfaceId = reference("interface_id", Symbols.id)
 
 }
 
 object ClassInnerClasses : IntIdTable() {
 
     val classId = reference("class_id", Classes.id, onDelete = ReferenceOption.CASCADE)
-    val innerClassId = reference("inner_class_id", ClassNames.id)
+    val innerClassId = reference("inner_class_id", Symbols.id)
 
 }
 
@@ -56,10 +56,10 @@ object OuterClasses : IntIdTable() {
 
 object Classes : IntIdTable() {
     val access = integer("access")
-    val name = reference("name", ClassNames.id)
+    val name = reference("name", Symbols.id)
     val signature = text("signature").nullable()
 
-    val superClass = reference("super_class", ClassNames.id).nullable()
+    val superClass = reference("super_class", Symbols.id).nullable()
 
     val bytecode = binary("bytecode").nullable()
     val annotations = binary("annotation_data").nullable()
@@ -76,7 +76,7 @@ object Methods : LongIdTable() {
     val signature = text("signature").nullable()
     val desc = text("desc").nullable()
 
-    val returnClass = reference("return_class", ClassNames.id).nullable()
+    val returnClass = reference("return_class", Symbols.id).nullable()
 
     val classId = reference("class_id", Classes.id, onDelete = ReferenceOption.CASCADE)
 
@@ -93,7 +93,7 @@ object Fields : LongIdTable() {
     val name = varchar("name", length = 256)
     val signature = text("signature").nullable()
 
-    val fieldClass = reference("field_class", ClassNames.id)
+    val fieldClass = reference("field_class", Symbols.id)
 
     val classId = reference("class_id", Classes.id, onDelete = ReferenceOption.CASCADE)
     val annotations = binary("annotation_data").nullable()
@@ -109,7 +109,7 @@ object MethodParameters : LongIdTable() {
     val index = integer("index")
     val name = varchar("name", length = 256).nullable()
 
-    val parameterClass = reference("parameter_class", ClassNames.id)
+    val parameterClass = reference("parameter_class", Symbols.id)
 
     val methodId = reference("method_id", Methods.id, onDelete = ReferenceOption.CASCADE)
     val annotations = binary("annotation_data").nullable()

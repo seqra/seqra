@@ -26,10 +26,10 @@ class PackageEntity(id: EntityID<Int>) : IntEntity(id) {
     val classes by ClassEntity referrersOn Classes.packageId
 }
 
-class ClassNameEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<ClassNameEntity>(ClassNames)
+class SymbolEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<SymbolEntity>(Symbols)
 
-    var name by ClassNames.name
+    var name by Symbols.name
 }
 
 class OuterClassEntity(id: EntityID<Int>) : IntEntity(id) {
@@ -43,12 +43,12 @@ class ClassEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<ClassEntity>(Classes)
 
     var access by Classes.access
-    var name by ClassNameEntity referencedOn Classes.name
+    var name by SymbolEntity referencedOn Classes.name
     var signature by Classes.signature
 
-    var superClass by ClassNameEntity optionalReferencedOn Classes.superClass
-    var interfaces: SizedIterable<ClassNameEntity> by ClassNameEntity via ClassInterfaces
-    var innerClasses: SizedIterable<ClassNameEntity> by ClassNameEntity via ClassInnerClasses
+    var superClass by SymbolEntity optionalReferencedOn Classes.superClass
+    var interfaces: SizedIterable<SymbolEntity> by SymbolEntity via ClassInterfaces
+    var innerClasses: SizedIterable<SymbolEntity> by SymbolEntity via ClassInnerClasses
 
     var bytecode by Classes.bytecode
     var annotations by Classes.annotations
@@ -70,7 +70,7 @@ class MethodEntity(id: EntityID<Long>) : LongEntity(id) {
     var signature by Methods.signature
     var desc by Methods.desc
 
-    var returnClass by ClassNameEntity optionalReferencedOn Methods.returnClass
+    var returnClass by SymbolEntity optionalReferencedOn Methods.returnClass
     var declaringClass: ClassEntity by ClassEntity referencedOn Methods.classId
 
     var annotations by Methods.annotations
@@ -84,7 +84,7 @@ class FieldEntity(id: EntityID<Long>) : LongEntity(id) {
     var name by Fields.name
     var signature by Fields.signature
 
-    var fieldClass by ClassNameEntity referencedOn Fields.fieldClass
+    var fieldClass by SymbolEntity referencedOn Fields.fieldClass
 
     var declaringClass by ClassEntity referencedOn Fields.classId
     var annotations by Fields.annotations
@@ -98,7 +98,7 @@ class MethodParameterEntity(id: EntityID<Long>) : LongEntity(id) {
     var access by MethodParameters.access
     var index by MethodParameters.index
 
-    var parameterClass by ClassNameEntity referencedOn MethodParameters.parameterClass
+    var parameterClass by SymbolEntity referencedOn MethodParameters.parameterClass
     var method by MethodEntity referencedOn MethodParameters.methodId
     var annotations by MethodParameters.annotations
 }

@@ -4,7 +4,8 @@ import mu.KLogging
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.sqlite.SQLiteConnection
+import org.sqlite.SQLiteConfig
+import org.sqlite.SQLiteDataSource
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.LocationScope
 import org.opentaint.ir.impl.JIRDBImpl
@@ -15,7 +16,15 @@ import java.io.File
 
 class PersistentEnvironment(id: String, location: File? = null, clearOnStart: Boolean) : Closeable {
 
-    companion object : KLogging()
+    companion object : KLogging() {
+        val ds = SQLiteDataSource(SQLiteConfig().also {
+            it.setSynchronous(SQLiteConfig.SynchronousMode.OFF)
+            it.setPageSize(32_768)
+            it.setCacheSize(-8_000)
+        }).also {
+            it.url = "jdbc:sqlite:jirdb"
+        }
+    }
 
 //    private val home = (location?.toPath() ?: Paths.get(System.getProperty("user.home"), ".jdbc")).let {
 //        val file = it.toFile()
@@ -29,23 +38,22 @@ class PersistentEnvironment(id: String, location: File? = null, clearOnStart: Bo
 //    private val persistentEntityStore = PersistentEntityStores.newInstance(env, id)
 
     init {
-        Database.connect("jdbc:sqlite:jirdb", setupConnection = {
-            it as SQLiteConnection
-        })
+        Database.connect(ds)
         transaction {
             if (clearOnStart) {
                 SchemaUtils.drop(
-                    BytecodeLocations,
+                    Classpaths, ClasspathLocations, BytecodeLocations,
                     Packages,
-                    Classes, ClassNames, ClassInterfaces, ClassInnerClasses, OuterClasses,
+                    Classes, Symbols, ClassInterfaces, ClassInnerClasses, OuterClasses,
                     Methods, MethodParameters,
                     Fields
                 )
             }
             SchemaUtils.create(
+                Classpaths, ClasspathLocations,
                 BytecodeLocations,
                 Packages,
-                Classes, ClassNames, ClassInterfaces, ClassInnerClasses, OuterClasses,
+                Classes, Symbols, ClassInterfaces, ClassInnerClasses, OuterClasses,
                 Methods, MethodParameters,
                 Fields
             )

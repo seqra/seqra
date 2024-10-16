@@ -15,7 +15,6 @@ import org.opentaint.ir.impl.storage.BytecodeLocationEntity
 import org.opentaint.ir.impl.storage.BytecodeLocations
 import org.opentaint.ir.impl.storage.ClassInnerClasses
 import org.opentaint.ir.impl.storage.ClassInterfaces
-import org.opentaint.ir.impl.storage.ClassNames
 import org.opentaint.ir.impl.storage.Classes
 import org.opentaint.ir.impl.storage.Fields
 import org.opentaint.ir.impl.storage.MethodParameters
@@ -23,6 +22,7 @@ import org.opentaint.ir.impl.storage.Methods
 import org.opentaint.ir.impl.storage.OuterClasses
 import org.opentaint.ir.impl.storage.PackageEntity
 import org.opentaint.ir.impl.storage.PersistentEnvironment
+import org.opentaint.ir.impl.storage.Symbols
 import org.opentaint.ir.impl.types.ClassInfo
 
 val classNameCache = HashMap<String, EntityID<Int>>()
@@ -155,8 +155,8 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
 
     private fun String.findClassName(classCache: HashMap<String, EntityID<Int>>): EntityID<Int> {
         return classCache.getOrPut(this) {
-            ClassNames.select { ClassNames.name eq this@findClassName }.firstOrNull()?.get(ClassNames.id)
-                ?: ClassNames.insertAndGetId {
+            Symbols.select { Symbols.name eq this@findClassName }.firstOrNull()?.get(Symbols.id)
+                ?: Symbols.insertAndGetId {
                     it[name] = this@findClassName
                 }
         }
