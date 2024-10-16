@@ -3,6 +3,7 @@ package org.opentaint.ir.impl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.newSingleThreadContext
 
 // block may be called few times
 // like lazy(NONE)
@@ -19,4 +20,8 @@ fun <T> suspendableLazy(block: suspend () -> T) = SuspendableLazy(block)
 
 object BackgroundScope : CoroutineScope {
     override val coroutineContext = Dispatchers.IO + SupervisorJob()
+}
+
+object SQLWriteScope : CoroutineScope {
+    override val coroutineContext = newSingleThreadContext("sql-write") + SupervisorJob()
 }

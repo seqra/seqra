@@ -1,11 +1,19 @@
 package org.opentaint.ir.impl.types
 
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.serialization.*
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
 import kotlinx.serialization.descriptors.serialDescriptor
-import kotlinx.serialization.encoding.*
+import kotlinx.serialization.encoding.CompositeDecoder
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.encoding.decodeStructure
+import kotlinx.serialization.encoding.encodeStructure
+import kotlinx.serialization.serializer
 import org.objectweb.asm.Type
 
 @Serializable
@@ -28,7 +36,8 @@ class ClassInfo(
     val superClass: String? = null,
     val innerClasses: List<String>,
     val interfaces: List<String>,
-    val annotations: List<AnnotationInfo>
+    val annotations: List<AnnotationInfo>,
+    val bytecode: ByteArray
 ) : ClassInfoContainer()
 
 @Serializable

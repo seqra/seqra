@@ -1,45 +1,66 @@
 package org.opentaint.ir.impl.storage
 
-import jetbrains.exodus.entitystore.PersistentEntityStores
-import jetbrains.exodus.entitystore.StoreTransaction
-import jetbrains.exodus.env.EnvironmentConfig
-import jetbrains.exodus.env.Environments
 import mu.KLogging
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.transactions.transaction
+import org.sqlite.SQLiteConnection
 import org.opentaint.ir.api.ByteCodeLocation
+import org.opentaint.ir.api.LocationScope
+import org.opentaint.ir.impl.JIRDBImpl
 import org.opentaint.ir.impl.fs.asByteCodeLocation
-import org.opentaint.ir.impl.storage.scheme.DatabaseStore
-import org.opentaint.ir.impl.storage.scheme.GlobalIdStore
-import org.opentaint.ir.impl.storage.scheme.LocationEntity
 import org.opentaint.ir.impl.storage.scheme.LocationStore
 import java.io.Closeable
 import java.io.File
-import java.nio.file.Paths
 
-class PersistentEnvironment(id: String, location: File? = null) : Closeable {
+class PersistentEnvironment(id: String, location: File? = null, clearOnStart: Boolean) : Closeable {
 
     companion object : KLogging()
 
-    private val home = (location?.toPath() ?: Paths.get(System.getProperty("user.home"), ".jdbc")).let {
-        val file = it.toFile()
-        if (!file.exists() && !file.mkdirs()) {
-            throw DataStorageException("can't create storage in ${file.absolutePath}")
+//    private val home = (location?.toPath() ?: Paths.get(System.getProperty("user.home"), ".jdbc")).let {
+//        val file = it.toFile()
+//        if (!file.exists() && !file.mkdirs()) {
+//            throw DataStorageException("can't create storage in ${file.absolutePath}")
+//        }
+//        file
+//    }
+
+//    private val env = Environments.newInstance(home, EnvironmentConfig().setEnvCloseForcedly(true))
+//    private val persistentEntityStore = PersistentEntityStores.newInstance(env, id)
+
+    init {
+        Database.connect("jdbc:sqlite:jirdb", setupConnection = {
+            it as SQLiteConnection
+        })
+        transaction {
+            if (clearOnStart) {
+                SchemaUtils.drop(
+                    BytecodeLocations,
+                    Packages,
+                    Classes, ClassNames, ClassInterfaces, ClassInnerClasses, OuterClasses,
+                    Methods, MethodParameters,
+                    Fields
+                )
+            }
+            SchemaUtils.create(
+                BytecodeLocations,
+                Packages,
+                Classes, ClassNames, ClassInterfaces, ClassInnerClasses, OuterClasses,
+                Methods, MethodParameters,
+                Fields
+            )
         }
-        file
     }
 
-    private val env = Environments.newInstance(home, EnvironmentConfig().setEnvCloseForcedly(true))
-    private val persistentEntityStore = PersistentEntityStores.newInstance(env, id)
-
     val locationStore = LocationStore(this)
-    val databaseStore = DatabaseStore(this)
-    val globalIds = GlobalIdStore(persistentEntityStore.environment)
+//    val globalIds = GlobalIdStore(persistentEntityStore.environment)
 
-    val allByteCodeLocations: List<Pair<LocationEntity, ByteCodeLocation>>
+    val allByteCodeLocations: List<Pair<BytecodeLocationEntity, ByteCodeLocation>>
         get() {
-            return transactional {
+            return transaction {
                 locationStore.all.mapNotNull {
                     try {
-                        it to File(it.path).asByteCodeLocation(isRuntime = it.isRuntime)
+                        it to File(it.path).asByteCodeLocation(isRuntime = it.runtime)
                     } catch (e: Exception) {
                         null
                     }
@@ -47,14 +68,18 @@ class PersistentEnvironment(id: String, location: File? = null) : Closeable {
             }
         }
 
-    fun <T> transactional(action: StoreTransaction.() -> T): T {
-        return persistentEntityStore.computeInTransaction { tx ->
-            tx.action()
+    fun save(db: JIRDBImpl, clearOnStart: Boolean) {
+        transaction {
+            db.locationsRegistry.locations.forEach { location ->
+                BytecodeLocationEntity.new {
+                    path = location.path
+                    runtime = location.scope == LocationScope.RUNTIME
+                }
+            }
         }
     }
 
     override fun close() {
-        persistentEntityStore.setCloseEnvironment(true)
-        persistentEntityStore.close()
     }
 }
+

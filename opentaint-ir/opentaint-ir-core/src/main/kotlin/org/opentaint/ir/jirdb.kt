@@ -45,6 +45,6 @@ suspend fun jirdb(builder: JIRDBSettings.() -> Unit): JIRDB {
 
 private fun JIRDBPersistentSettings.toEnvironment(): PersistentEnvironment? {
     return this.location?.let {
-        PersistentEnvironment(key, File(it))
+        PersistentEnvironment(key, File(it), clearOnStart)
     }
 }

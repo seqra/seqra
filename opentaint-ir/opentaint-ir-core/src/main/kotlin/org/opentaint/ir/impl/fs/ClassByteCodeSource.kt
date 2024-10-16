@@ -32,29 +32,26 @@ abstract class ClassByteCodeSource(val location: ByteCodeLocation, val className
 class LazyByteCodeSource(location: ByteCodeLocation, className: String) :
     ClassByteCodeSource(location, className) {
 
-    constructor(location: ByteCodeLocation, classInfo: ClassInfo) : this(location, classInfo.name) {
-        this.classInfo = classInfo
-    }
-
     private lateinit var classInfo: ClassInfo
 
     @Volatile
     private var classNode: ClassNode? = null
+    private lateinit var byteCode: ByteArray
 
     override fun load(input: InputStream) {
-        val bytes = input.use { it.readBytes() }
+        byteCode = input.use { it.readBytes() }
         val classNode = ClassNode(Opcodes.ASM9)
-        ClassReader(bytes).accept(classNode, ClassReader.EXPAND_FRAMES)
+        ClassReader(byteCode).accept(classNode, ClassReader.EXPAND_FRAMES)
 
         this.classNode = classNode
-        this.classInfo = classNode.asClassInfo()
+        this.classInfo = classNode.asClassInfo(byteCode)
     }
 
     override suspend fun info(): ClassInfo {
         if (this::classInfo.isInitialized) {
             return classInfo
         }
-        return (classNode ?: fullByteCode()).asClassInfo().also {
+        return (classNode ?: fullByteCode()).asClassInfo(byteCode).also {
             classInfo = it
         }
     }
@@ -82,14 +79,16 @@ class ExpandedByteCodeSource(location: ByteCodeLocation, className: String) :
     @Volatile
     private var cachedByteCode: ClassNode? = null
 
+    private lateinit var byteCode: ByteArray
+
     private val lazyClassInfo = suspendableLazy {
-        fullByteCode().asClassInfo()
+        fullByteCode().asClassInfo(byteCode)
     }
 
     override fun load(input: InputStream) {
-        val bytes = input.use { it.readBytes() }
+        byteCode = input.use { it.readBytes() }
         val classNode = ClassNode(Opcodes.ASM9)
-        ClassReader(bytes).accept(classNode, ClassReader.EXPAND_FRAMES)
+        ClassReader(byteCode).accept(classNode, ClassReader.EXPAND_FRAMES)
         cachedByteCode = classNode
     }
 
