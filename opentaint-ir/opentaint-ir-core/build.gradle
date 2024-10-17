@@ -8,6 +8,10 @@ dependencies {
     implementation group: 'org.jetbrains.xodus', name: 'xodus-utils', version: xodus_version
     implementation group: 'org.xerial', name: 'sqlite-jdbc', version: '3.39.2.1'
 
+    api group: 'org.jetbrains.exposed', name: 'exposed-core', version: exposedVersion
+    api group: 'org.jetbrains.exposed', name: 'exposed-dao', version: exposedVersion
+    api group: 'org.jetbrains.exposed', name: 'exposed-jdbc', version: exposedVersion
+
     testImplementation project(':jirdb-testing')
     testImplementation(platform('org.junit:junit-bom:5.8.2'))
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter'

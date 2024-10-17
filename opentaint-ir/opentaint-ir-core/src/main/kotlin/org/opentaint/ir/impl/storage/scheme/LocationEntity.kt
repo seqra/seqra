@@ -3,7 +3,6 @@ package org.opentaint.ir.impl.storage.scheme
 
 import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.encodeToByteArray
-import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.batchInsert
 import org.jetbrains.exposed.sql.insertAndGetId
@@ -24,8 +23,15 @@ import org.opentaint.ir.impl.storage.OuterClasses
 import org.opentaint.ir.impl.storage.PersistentEnvironment
 import org.opentaint.ir.impl.storage.Symbols
 import org.opentaint.ir.impl.types.ClassInfo
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
-private val symbolsCache = HashMap<String, EntityID<Int>>()
+private val symbolsCache = HashMap<String, Int>()
+val classIdGen = AtomicInteger()
+val classNameIdGen = AtomicInteger()
+val methodIdGen = AtomicLong()
+val fieldIdGen = AtomicLong()
+val methodParamIdGen = AtomicLong()
 
 class LocationStore(private val dbStore: PersistentEnvironment) {
 
@@ -53,55 +59,63 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
 
     fun saveClasses(location: ByteCodeLocation, classes: List<ClassInfo>) {
         transaction {
+            val names = HashSet<String>()
             classes.forEach {
-                it.name.substringBeforeLast('.').findSymbol(symbolsCache)
-                it.name.findSymbol(symbolsCache)
-                it.fields.forEach {
-                    it.name.findSymbol(symbolsCache)
+                names.add(it.name.substringBeforeLast('.'))
+                names.add(it.name)
+                it.superClass?.let {
+                    names.add(it)
                 }
-                it.methods.forEach {
-                    it.name.findSymbol(symbolsCache)
-                }
+                names.addAll(it.interfaces)
+                names.addAll(it.innerClasses)
+                names.addAll(it.methods.map { it.name })
+                names.addAll(it.methods.flatMap { it.parameters })
+                names.addAll(it.fields.map { it.name })
             }
+            names.setup()
         }
-        val classInfoToIds = transaction {
+        val classIds = HashMap<ClassInfo, Int>()
+        transaction {
             val locationEntity = findOrNew(location)
-            val classesResult = Classes.batchInsert(classes) { classInfo ->
+            Classes.batchInsert(classes, shouldReturnGeneratedValues = false) { classInfo ->
+                val id = classIdGen.incrementAndGet()
+                classIds[classInfo] = id
                 val packageName = classInfo.name.substringBeforeLast('.')
                 val pack = symbolsCache[packageName]!!
+                this[Classes.id] = id
                 this[Classes.access] = classInfo.access
                 this[Classes.locationId] = locationEntity.id
-                this[Classes.name] = classInfo.name.findSymbol(symbolsCache)
+                this[Classes.name] = classInfo.name.findSymbol()
                 this[Classes.signature] = classInfo.signature
-                this[Classes.superClass] = classInfo.superClass?.findSymbol(symbolsCache)
+                this[Classes.superClass] = classInfo.superClass?.findSymbol()
                 this[Classes.packageId] = pack
                 this[Classes.bytecode] = classInfo.bytecode
                 this[Classes.annotations] = classInfo.annotations.takeIf { it.isNotEmpty() }?.let {
                     Cbor.encodeToByteArray(it)
                 }
             }
-            val classIds = classesResult.mapIndexed { index, rs -> classes[index] to rs[Classes.id] }.toMap()
 
             classIds.forEach { (classInfo, storedClassId) ->
                 if (classInfo.interfaces.isNotEmpty()) {
-                    ClassInterfaces.batchInsert(classInfo.interfaces) {
+                    ClassInterfaces.batchInsert(classInfo.interfaces, shouldReturnGeneratedValues = false) {
                         this[ClassInterfaces.classId] = storedClassId
-                        this[ClassInterfaces.interfaceId] = it.findSymbol(symbolsCache)
+                        this[ClassInterfaces.interfaceId] = it.findSymbol()
                     }
                 }
                 if (classInfo.innerClasses.isNotEmpty()) {
-                    ClassInnerClasses.batchInsert(classInfo.innerClasses) {
+                    ClassInnerClasses.batchInsert(classInfo.innerClasses, shouldReturnGeneratedValues = false) {
                         this[ClassInnerClasses.classId] = storedClassId
-                        this[ClassInnerClasses.innerClassId] = it.findSymbol(symbolsCache)
+                        this[ClassInnerClasses.innerClassId] = it.findSymbol()
                     }
                 }
-                val methodsResult = Methods.batchInsert(classInfo.methods) {
+                val methodsResult = Methods.batchInsert(classInfo.methods, shouldReturnGeneratedValues = false) {
+                    this[Methods.id] = methodIdGen.incrementAndGet()
                     this[Methods.access] = it.access
                     this[Methods.name] = symbolsCache.get(it.name)!!
                     this[Methods.signature] = it.signature
                     this[Methods.desc] = it.desc
                     this[Methods.classId] = storedClassId
-                    this[Methods.returnClass] = it.returnType.findSymbol(symbolsCache)
+                    this[Methods.returnClass] = it.returnType.findSymbol()
                     this[Methods.annotations] = it.annotations.takeIf { it.isNotEmpty() }?.let {
                         Cbor.encodeToByteArray(it)
                     }
@@ -110,23 +124,25 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                     val methodId = rs[Methods.id]
                     classInfo.methods[index].parametersInfo.map { it to methodId }
                 }
-                MethodParameters.batchInsert(paramsWithMethodId) {
+                MethodParameters.batchInsert(paramsWithMethodId, shouldReturnGeneratedValues = false) {
                     val (param, methodId) = it
+                    this[MethodParameters.id] = methodParamIdGen.incrementAndGet()
                     this[MethodParameters.access] = param.access
                     this[MethodParameters.name] = param.name
                     this[MethodParameters.index] = param.index
                     this[MethodParameters.methodId] = methodId
-                    this[MethodParameters.parameterClass] = param.type.findSymbol(symbolsCache)
+                    this[MethodParameters.parameterClass] = param.type.findSymbol()
                     this[MethodParameters.annotations] = param.annotations.takeIf { !it.isNullOrEmpty() }?.let {
                         Cbor.encodeToByteArray(it)
                     }
                 }
-                Fields.batchInsert(classInfo.fields) {
+                Fields.batchInsert(classInfo.fields, shouldReturnGeneratedValues = false) {
+                    this[Fields.id] = fieldIdGen.incrementAndGet()
                     this[Fields.classId] = storedClassId
                     this[Fields.access] = it.access
                     this[Fields.name] = symbolsCache.get(it.name)!!
                     this[Fields.signature] = it.signature
-                    this[Fields.fieldClass] = it.type.findSymbol(symbolsCache)
+                    this[Fields.fieldClass] = it.type.findSymbol()
                     this[Fields.annotations] = it.annotations.takeIf { it.isNotEmpty() }?.let {
                         Cbor.encodeToByteArray(it)
                     }
@@ -136,8 +152,8 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
         }
         transaction {
             classes.filter { it.outerClass != null }.forEach { classInfo ->
-                val id = classInfoToIds[classInfo]!!
-                val outerClazzId = classInfoToIds.filterKeys { it.name == classInfo.outerClass!!.className }
+                val id = classIds[classInfo]!!
+                val outerClazzId = classIds.filterKeys { it.name == classInfo.outerClass!!.className }
                     .values.first()
                 val refId = OuterClasses.insertAndGetId {
                     it[name] = classInfo.outerClass!!.name
@@ -148,7 +164,7 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                     if (classInfo.outerMethod != null) {
                         it[outerMethod] = Methods.select {
                             (Methods.classId eq outerClazzId) and
-                                    (Methods.name eq classInfo.outerMethod.findSymbol(symbolsCache)) and
+                                    (Methods.name eq classInfo.outerMethod.findSymbol()) and
                                     (Methods.desc eq classInfo.outerMethodDesc)
                         }.firstOrNull()?.get(Methods.id)
                     }
@@ -158,12 +174,27 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
     }
 
 
-    private fun String.findSymbol(classCache: HashMap<String, EntityID<Int>>): EntityID<Int> {
-        return classCache.getOrPut(this) {
-            Symbols.select { Symbols.name eq this@findSymbol }.firstOrNull()?.get(Symbols.id)
-                ?: Symbols.insertAndGetId {
-                    it[name] = this@findSymbol
+    private fun String.findSymbol(): Int {
+        return symbolsCache.getOrPut(this) {
+            Symbols.select { Symbols.name eq this@findSymbol }.firstOrNull()?.get(Symbols.id)?.value
+                ?: kotlin.run {
+                    val id = classNameIdGen.incrementAndGet()
+                    Symbols.batchInsert(listOf(this), shouldReturnGeneratedValues = false) {
+                        this[Symbols.id] = id
+                        this[Symbols.name] = it
+                    }
+                    id
                 }
+        }
+    }
+
+    private fun Collection<String>.setup() {
+        val forCreation = filter { !symbolsCache.containsKey(it) }
+        Symbols.batchInsert(forCreation, shouldReturnGeneratedValues = false) {
+            val id = classNameIdGen.incrementAndGet()
+            symbolsCache[it] = id
+            this[Symbols.id] = id
+            this[Symbols.name] = it
         }
     }
 }
