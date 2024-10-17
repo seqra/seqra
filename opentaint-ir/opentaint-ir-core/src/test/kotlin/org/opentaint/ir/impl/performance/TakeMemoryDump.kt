@@ -40,7 +40,7 @@ fun main() {
     runBlocking {
         jirdb {
             useProcessJavaRuntime()
-            predefinedDirOrJars = allClasspath
+//            predefinedDirOrJars = allClasspath
             persistent {
                 location = "D:\\work\\sqlite-db"
             }

@@ -27,11 +27,11 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 private val symbolsCache = HashMap<String, Int>()
-val classIdGen = AtomicInteger()
-val classNameIdGen = AtomicInteger()
-val methodIdGen = AtomicLong()
-val fieldIdGen = AtomicLong()
-val methodParamIdGen = AtomicLong()
+private val classIdGen = AtomicInteger()
+private val classNameIdGen = AtomicInteger()
+private val methodIdGen = AtomicLong()
+private val fieldIdGen = AtomicLong()
+private val methodParamIdGen = AtomicLong()
 
 class LocationStore(private val dbStore: PersistentEnvironment) {
 
@@ -58,6 +58,7 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
     }
 
     fun saveClasses(location: ByteCodeLocation, classes: List<ClassInfo>) {
+        val classIds = HashMap<ClassInfo, Int>()
         transaction {
             val names = HashSet<String>()
             classes.forEach {
@@ -73,9 +74,6 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                 names.addAll(it.fields.map { it.name })
             }
             names.setup()
-        }
-        val classIds = HashMap<ClassInfo, Int>()
-        transaction {
             val locationEntity = findOrNew(location)
             Classes.batchInsert(classes, shouldReturnGeneratedValues = false) { classInfo ->
                 val id = classIdGen.incrementAndGet()
@@ -148,9 +146,6 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                     }
                 }
             }
-            classIds
-        }
-        transaction {
             classes.filter { it.outerClass != null }.forEach { classInfo ->
                 val id = classIds[classInfo]!!
                 val outerClazzId = classIds.filterKeys { it.name == classInfo.outerClass!!.className }
