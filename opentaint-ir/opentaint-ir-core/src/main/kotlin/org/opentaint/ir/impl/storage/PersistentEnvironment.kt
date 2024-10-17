@@ -43,7 +43,6 @@ class PersistentEnvironment(id: String, location: File? = null, clearOnStart: Bo
             if (clearOnStart) {
                 SchemaUtils.drop(
                     Classpaths, ClasspathLocations, BytecodeLocations,
-                    Packages,
                     Classes, Symbols, ClassInterfaces, ClassInnerClasses, OuterClasses,
                     Methods, MethodParameters,
                     Fields
@@ -52,7 +51,6 @@ class PersistentEnvironment(id: String, location: File? = null, clearOnStart: Bo
             SchemaUtils.create(
                 Classpaths, ClasspathLocations,
                 BytecodeLocations,
-                Packages,
                 Classes, Symbols, ClassInterfaces, ClassInnerClasses, OuterClasses,
                 Methods, MethodParameters,
                 Fields

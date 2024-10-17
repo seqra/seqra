@@ -17,15 +17,6 @@ class BytecodeLocationEntity(id: EntityID<Int>) : IntEntity(id) {
     val classes: SizedIterable<ClassEntity> by ClassEntity referrersOn Classes.locationId
 }
 
-
-class PackageEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<PackageEntity>(Packages)
-
-    var name by Packages.name
-
-    val classes by ClassEntity referrersOn Classes.packageId
-}
-
 class SymbolEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<SymbolEntity>(Symbols)
 
@@ -56,7 +47,7 @@ class ClassEntity(id: EntityID<Int>) : IntEntity(id) {
     val methods by MethodEntity referrersOn Methods.classId
 
     var locationRef by BytecodeLocationEntity referencedOn Classes.locationId
-    var packageRef by PackageEntity referencedOn Classes.packageId
+    var packageRef by SymbolEntity referencedOn Classes.packageId
     var outerClass by OuterClassEntity optionalReferencedOn Classes.outerClass
 
     var outerMethod by MethodEntity optionalReferencedOn Classes.outerMethod

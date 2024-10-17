@@ -1,6 +1,5 @@
 package org.opentaint.ir.impl
 
-import kotlinx.coroutines.async
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.ByteCodeLocationIndex
 import org.opentaint.ir.api.Feature
@@ -47,9 +46,9 @@ class FeaturesRegistry(
         val index = builder.build(location)
         location.indexes[key] = index
 
-        val entity = SQLWriteScope.async {
+        val entity = SQL.write {
             persistence?.locationStore?.findOrNewTx(location)
-        }.await()
+        }
         if (entity != null) {
             val out = ByteArrayOutputStream()
             serialize(index, out)
