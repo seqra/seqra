@@ -16,16 +16,7 @@ import java.io.File
 
 class PersistentEnvironment(id: String, location: File? = null, clearOnStart: Boolean) : Closeable {
 
-    companion object : KLogging() {
-        val ds = SQLiteDataSource(SQLiteConfig().also {
-            it.setSynchronous(SQLiteConfig.SynchronousMode.OFF)
-            it.setPageSize(32_768)
-            it.setCacheSize(-8_000)
-        }).also {
-            it.url = "jdbc:sqlite:jirdb"
-        }
-    }
-
+    companion object : KLogging()
 //    private val home = (location?.toPath() ?: Paths.get(System.getProperty("user.home"), ".jdbc")).let {
 //        val file = it.toFile()
 //        if (!file.exists() && !file.mkdirs()) {
@@ -37,8 +28,16 @@ class PersistentEnvironment(id: String, location: File? = null, clearOnStart: Bo
 //    private val env = Environments.newInstance(home, EnvironmentConfig().setEnvCloseForcedly(true))
 //    private val persistentEntityStore = PersistentEntityStores.newInstance(env, id)
 
+    private val dataSource = SQLiteDataSource(SQLiteConfig().also {
+        it.setSynchronous(SQLiteConfig.SynchronousMode.OFF)
+        it.setPageSize(32_768)
+        it.setCacheSize(-8_000)
+    }).also {
+        it.url = "jdbc:sqlite:$location"
+    }
+
     init {
-        Database.connect(ds)
+        Database.connect(dataSource)
         transaction {
             if (clearOnStart) {
                 SchemaUtils.drop(
@@ -59,7 +58,6 @@ class PersistentEnvironment(id: String, location: File? = null, clearOnStart: Bo
     }
 
     val locationStore = LocationStore(this)
-//    val globalIds = GlobalIdStore(persistentEntityStore.environment)
 
     val allByteCodeLocations: List<Pair<BytecodeLocationEntity, ByteCodeLocation>>
         get() {
@@ -74,7 +72,7 @@ class PersistentEnvironment(id: String, location: File? = null, clearOnStart: Bo
             }
         }
 
-    fun save(db: JIRDBImpl, clearOnStart: Boolean) {
+    fun save(db: JIRDBImpl) {
         transaction {
             db.locationsRegistry.locations.forEach { location ->
                 BytecodeLocationEntity.new {

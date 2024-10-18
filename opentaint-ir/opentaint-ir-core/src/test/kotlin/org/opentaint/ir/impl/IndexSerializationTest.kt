@@ -5,13 +5,17 @@ import kotlinx.collections.immutable.toImmutableMap
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.impl.fs.asByteCodeLocation
-import org.opentaint.ir.impl.index.*
+import org.opentaint.ir.impl.index.Hierarchy
+import org.opentaint.ir.impl.index.HierarchyIndex
+import org.opentaint.ir.impl.index.InMemoryGlobalIdsStore
+import org.opentaint.ir.impl.index.ReversedUsageIndex
+import org.opentaint.ir.impl.index.ReversedUsages
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 
 class IndexSerializationTest : LibrariesMixin {
 
-    val globalIds = InMemeoryGlobalIdsStore()
+    val globalIds = InMemoryGlobalIdsStore()
 
     @Test
     fun `hierarchy index serialization`() {

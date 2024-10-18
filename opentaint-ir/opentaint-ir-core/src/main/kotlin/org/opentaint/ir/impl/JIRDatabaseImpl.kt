@@ -17,7 +17,7 @@ import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.filterExisted
 import org.opentaint.ir.impl.fs.load
-import org.opentaint.ir.impl.index.InMemeoryGlobalIdsStore
+import org.opentaint.ir.impl.index.InMemoryGlobalIdsStore
 import org.opentaint.ir.impl.storage.BytecodeLocationEntity
 import org.opentaint.ir.impl.storage.PersistentEnvironment
 import org.opentaint.ir.impl.tree.ClassTree
@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class JIRDBImpl(
     private val persistentEnvironment: PersistentEnvironment? = null,
     private val settings: JIRDBSettings,
-    override val globalIdStore: InMemeoryGlobalIdsStore = InMemeoryGlobalIdsStore()
+    override val globalIdStore: InMemoryGlobalIdsStore = InMemoryGlobalIdsStore()
 ) : JIRDB {
 
     private val classTree = ClassTree()
@@ -103,7 +103,7 @@ class JIRDBImpl(
                         val (libraryTree, asyncJob) = loader.load(classTree)
                         actions.add(location to asyncJob)
                         locationsRegistry.addLocation(location)
-                        SQL.write {
+                        sql {
                             locationStore?.findOrNewTx(location)
                         }
                         libraryTree
@@ -113,8 +113,8 @@ class JIRDBImpl(
                 }
             }
         }.awaitAll().filterNotNull()
-        SQL.write {
-            persistentEnvironment?.save(this@JIRDBImpl, false)
+        sql {
+            persistentEnvironment?.save(this@JIRDBImpl)
         }
 
         val locationClasses = libraryTrees.map {
@@ -132,7 +132,7 @@ class JIRDBImpl(
                     if (addedClasses != null) {
                         if (parentScope.isActive) {
                             val classes = addedClasses.map { it.info() }
-                            SQL.write {
+                            sql {
                                 locationStore?.saveClasses(location, classes)
                             }
                             featureRegistry.index(location, addedClasses)
@@ -140,7 +140,6 @@ class JIRDBImpl(
                     }
                 }
             }.joinAll()
-//            persistentEnvironment?.globalIds?.sync(globalIdStore)
             backgroundJobs.remove(backgroundJobId)
         }
     }
@@ -152,6 +151,11 @@ class JIRDBImpl(
         }
         val outdatedLocations = locationsRegistry.cleanup()
         classTree.visit(RemoveLocationsVisitor(outdatedLocations))
+    }
+
+    override suspend fun rebuildIndexes() {
+        awaitBackgroundJobs()
+        // todo implement me
     }
 
     override fun watchFileSystemChanges(): JIRDB {

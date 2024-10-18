@@ -1,9 +1,10 @@
 package org.opentaint.ir.impl
 
-import jetbrains.exodus.kotlin.synchronized
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 // block may be called few times
 // like lazy(NONE)
@@ -22,10 +23,8 @@ object BackgroundScope : CoroutineScope {
     override val coroutineContext = Dispatchers.IO + SupervisorJob()
 }
 
-object SQL {
-//    override val coroutineContext = newSingleThreadContext("sql-write") + SupervisorJob()
+private val lock = ReentrantLock()
 
-    fun <T> write(action: () -> T): T = synchronized {
-        action()
-    }
+fun <T> sql(action: () -> T): T = lock.withLock {
+    action()
 }
