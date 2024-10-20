@@ -10,10 +10,11 @@ import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.LocationScope
 import org.opentaint.ir.impl.JIRDBImpl
 import org.opentaint.ir.impl.fs.asByteCodeLocation
+import org.opentaint.ir.impl.index.Calls
 import java.io.Closeable
 import java.io.File
 
-class PersistentEnvironment(id: String, location: File? = null, clearOnStart: Boolean) : Closeable {
+class PersistentEnvironment(location: File? = null, clearOnStart: Boolean) : Closeable {
 
     companion object : KLogging()
 //    private val home = (location?.toPath() ?: Paths.get(System.getProperty("user.home"), ".jdbc")).let {
@@ -43,7 +44,8 @@ class PersistentEnvironment(id: String, location: File? = null, clearOnStart: Bo
                     Classpaths, ClasspathLocations, BytecodeLocations,
                     Classes, Symbols, ClassInterfaces, ClassInnerClasses, OuterClasses,
                     Methods, MethodParameters,
-                    Fields
+                    Fields,
+                    Calls
                 )
             }
             SchemaUtils.create(
@@ -51,7 +53,8 @@ class PersistentEnvironment(id: String, location: File? = null, clearOnStart: Bo
                 BytecodeLocations,
                 Classes, Symbols, ClassInterfaces, ClassInnerClasses, OuterClasses,
                 Methods, MethodParameters,
-                Fields
+                Fields,
+                Calls
             )
         }
     }

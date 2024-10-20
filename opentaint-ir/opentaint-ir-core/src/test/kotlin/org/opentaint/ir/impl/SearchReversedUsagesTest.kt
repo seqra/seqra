@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.FieldUsageMode
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.impl.index.ReversedUsages
+import org.opentaint.ir.impl.index.Usages
 import org.opentaint.ir.impl.index.reversedUsagesExt
 import org.opentaint.ir.impl.usages.fields.FieldA
 import org.opentaint.ir.impl.usages.fields.FieldB
@@ -19,7 +19,7 @@ class SearchReversedUsagesTest : LibrariesMixin {
         jirdb {
             predefinedDirOrJars = allClasspath
             useProcessJavaRuntime()
-            installFeatures(ReversedUsages)
+            installFeatures(Usages)
         }
     }
 

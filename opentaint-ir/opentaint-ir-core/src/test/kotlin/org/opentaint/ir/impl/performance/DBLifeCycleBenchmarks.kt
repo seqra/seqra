@@ -1,10 +1,21 @@
 package org.opentaint.ir.impl.performance
 
 import kotlinx.coroutines.runBlocking
-import org.openjdk.jmh.annotations.*
+import org.openjdk.jmh.annotations.Benchmark
+import org.openjdk.jmh.annotations.BenchmarkMode
+import org.openjdk.jmh.annotations.Fork
+import org.openjdk.jmh.annotations.Level
+import org.openjdk.jmh.annotations.Measurement
+import org.openjdk.jmh.annotations.Mode
+import org.openjdk.jmh.annotations.OutputTimeUnit
+import org.openjdk.jmh.annotations.Scope
+import org.openjdk.jmh.annotations.Setup
+import org.openjdk.jmh.annotations.State
+import org.openjdk.jmh.annotations.TearDown
+import org.openjdk.jmh.annotations.Warmup
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.impl.LibrariesMixin
-import org.opentaint.ir.impl.index.ReversedUsages
+import org.opentaint.ir.impl.index.Usages
 import org.opentaint.ir.jirdb
 import java.util.concurrent.TimeUnit
 
@@ -22,7 +33,7 @@ class DBLifeCycleBenchmarks : LibrariesMixin {
     fun setup() {
         db = runBlocking {
             jirdb {
-                installFeatures(ReversedUsages)
+                installFeatures(Usages)
                 useProcessJavaRuntime()
             }
         }

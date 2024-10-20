@@ -11,7 +11,7 @@ import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findFieldsUsedIn
 import org.opentaint.ir.api.ext.findMethodsUsedIn
-import org.opentaint.ir.impl.index.ReversedUsages
+import org.opentaint.ir.impl.index.Usages
 import org.opentaint.ir.impl.usages.direct.DirectA
 import org.opentaint.ir.jirdb
 
@@ -23,7 +23,7 @@ class DirectUsagesTest : LibrariesMixin {
             jirdb {
                 predefinedDirOrJars = allClasspath
                 useProcessJavaRuntime()
-                installFeatures(ReversedUsages)
+                installFeatures(Usages)
             }
         }
 

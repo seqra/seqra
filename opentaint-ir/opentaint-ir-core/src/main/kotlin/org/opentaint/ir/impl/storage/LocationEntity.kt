@@ -51,8 +51,10 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                 names.addAll(it.interfaces)
                 names.addAll(it.innerClasses)
                 names.addAll(it.methods.map { it.name })
+                names.addAll(it.methods.map { it.returnType })
                 names.addAll(it.methods.flatMap { it.parameters })
                 names.addAll(it.fields.map { it.name })
+                names.addAll(it.fields.map { it.type })
             }
             names.setup()
             val locationEntity = location.findOrNew()

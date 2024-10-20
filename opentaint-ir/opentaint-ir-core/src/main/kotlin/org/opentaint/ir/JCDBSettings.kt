@@ -80,9 +80,6 @@ class JIRDBPersistentSettings {
     /** location folder for persisting data */
     var location: String? = null
 
-    /** key for data */
-    var key: String = "jirdb"
-
     /** if true old data from this folder will be dropped */
     var clearOnStart: Boolean = false
 }

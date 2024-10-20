@@ -14,14 +14,15 @@ class BytecodeLocationEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<BytecodeLocationEntity>(BytecodeLocations) {
 
         fun ByteCodeLocation.findOrNew(): BytecodeLocationEntity {
-            return BytecodeLocationEntity.find { BytecodeLocations.path eq path }.firstOrNull()
-                ?: BytecodeLocationEntity.get(BytecodeLocations.insertAndGetId {
-                    it[path] = this@findOrNew.path
-                    it[runtime] = scope == LocationScope.RUNTIME
-                })
+            return findOrNull() ?: BytecodeLocationEntity[BytecodeLocations.insertAndGetId {
+                it[path] = this@findOrNew.path
+                it[runtime] = scope == LocationScope.RUNTIME
+            }]
         }
 
-
+        fun ByteCodeLocation.findOrNull(): BytecodeLocationEntity? {
+            return BytecodeLocationEntity.find { BytecodeLocations.path eq path }.firstOrNull()
+        }
     }
 
     var path by BytecodeLocations.path

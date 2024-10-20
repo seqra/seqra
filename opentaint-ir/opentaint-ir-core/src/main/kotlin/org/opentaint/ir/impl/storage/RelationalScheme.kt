@@ -67,22 +67,6 @@ object Classes : IntIdTable() {
     val outerMethod = reference("outer_method", Methods.id, onDelete = ReferenceOption.CASCADE).nullable()
 }
 
-object Calls : LongIdTable() {
-    val access = integer("access")
-    val name = reference("name", Symbols.id)
-    val signature = text("signature").nullable()
-
-    val superClass = reference("super_class", Symbols.id).nullable()
-
-    val bytecode = binary("bytecode")
-    val annotations = binary("annotation_data").nullable()
-
-    val locationId = reference("location_id", BytecodeLocations.id, onDelete = ReferenceOption.CASCADE)
-    val packageId = reference("package_id", Symbols.id, onDelete = ReferenceOption.CASCADE)
-    val outerClass = reference("outer_class", OuterClasses.id, onDelete = ReferenceOption.CASCADE).nullable()
-    val outerMethod = reference("outer_method", Methods.id, onDelete = ReferenceOption.CASCADE).nullable()
-}
-
 object Methods : LongIdTable() {
     val access = integer("access")
     val name = reference("name", Symbols.id)

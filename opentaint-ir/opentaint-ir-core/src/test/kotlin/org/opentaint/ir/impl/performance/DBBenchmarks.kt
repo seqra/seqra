@@ -2,13 +2,22 @@ package org.opentaint.ir.impl.performance
 
 
 import kotlinx.coroutines.runBlocking
-import org.openjdk.jmh.annotations.*
+import org.openjdk.jmh.annotations.Benchmark
+import org.openjdk.jmh.annotations.BenchmarkMode
+import org.openjdk.jmh.annotations.Fork
+import org.openjdk.jmh.annotations.Level
+import org.openjdk.jmh.annotations.Measurement
+import org.openjdk.jmh.annotations.Mode
+import org.openjdk.jmh.annotations.OutputTimeUnit
+import org.openjdk.jmh.annotations.Scope
+import org.openjdk.jmh.annotations.State
+import org.openjdk.jmh.annotations.TearDown
+import org.openjdk.jmh.annotations.Warmup
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.impl.LibrariesMixin
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.load
-import org.opentaint.ir.impl.index.ReversedUsages
-import org.opentaint.ir.impl.tree.ClassTree
+import org.opentaint.ir.impl.index.Usages
 import org.opentaint.ir.jirdb
 import java.util.concurrent.TimeUnit
 
@@ -27,7 +36,7 @@ class DBBenchmarks : LibrariesMixin {
     fun readBytecode() {
         val lib = guavaLib
         runBlocking {
-            lib.asByteCodeLocation().loader()!!.load(ClassTree())
+            lib.asByteCodeLocation().loader()!!.load()
         }
     }
 
@@ -37,7 +46,7 @@ class DBBenchmarks : LibrariesMixin {
             jirdb {
                 useProcessJavaRuntime()
 
-                installFeatures(ReversedUsages)
+                installFeatures(Usages)
             }
         }
     }
@@ -48,7 +57,7 @@ class DBBenchmarks : LibrariesMixin {
             jirdb {
                 useProcessJavaRuntime()
                 predefinedDirOrJars = allJars
-                installFeatures(ReversedUsages)
+                installFeatures(Usages)
             }
         }
     }

@@ -5,6 +5,7 @@ import kotlinx.collections.immutable.toImmutableMap
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.batchInsert
+import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.objectweb.asm.Opcodes
@@ -18,7 +19,9 @@ import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.Feature
 import org.opentaint.ir.api.Index
 import org.opentaint.ir.api.IndexRequest
+import org.opentaint.ir.impl.persistentOperation
 import org.opentaint.ir.impl.storage.BytecodeLocationEntity.Companion.findOrNew
+import org.opentaint.ir.impl.storage.BytecodeLocationEntity.Companion.findOrNull
 import org.opentaint.ir.impl.storage.Symbols
 import org.opentaint.ir.impl.storage.longHash
 
@@ -98,7 +101,7 @@ class UsageIndex(
 }
 
 
-object ReversedUsages : Feature<String, UsageIndex> {
+object Usages : Feature<String, UsageIndex> {
 
     override val key = "reversed-usages"
 
@@ -125,6 +128,17 @@ object ReversedUsages : Feature<String, UsageIndex> {
             this[Calls.callerMethodHash] = it.first.second
             this[Calls.ownerClassHash] = it.second
             this[Calls.locationId] = locationEntity.id.value
+        }
+    }
+
+    override fun onLocationRemoved(location: ByteCodeLocation, index: UsageIndex) {
+        persistentOperation {
+            transaction {
+                val loc = location.findOrNull()
+                if (loc != null) {
+                    Calls.deleteWhere { Calls.locationId eq loc.id.value }
+                }
+            }
         }
     }
 }

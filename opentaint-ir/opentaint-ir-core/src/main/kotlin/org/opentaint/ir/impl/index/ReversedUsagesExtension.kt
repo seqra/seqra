@@ -6,7 +6,6 @@ import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.FieldInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
 import org.opentaint.ir.api.*
-import org.opentaint.ir.impl.storage.ClassEntity
 
 class ReversedUsagesExtension(
     private val db: JIRDB,
@@ -27,7 +26,7 @@ class ReversedUsagesExtension(
             else -> cp.findSubClasses(className, true).toHashSet()
         }
 
-        val potentialCandidates = maybeHierarchy.findPotentialCandidates(fieldId.name)
+        val potentialCandidates = maybeHierarchy.findPotentialCandidates(field = fieldId.name)
 
         val isStatic = fieldId.isStatic()
         val opcode = when {
@@ -57,7 +56,7 @@ class ReversedUsagesExtension(
 
         val hierarchy = cp.findSubClasses(className, true).toHashSet() + methodId.classId
 
-        val potentialCandidates = hierarchy.findPotentialCandidates(methodId.name)
+        val potentialCandidates = hierarchy.findPotentialCandidates(method = methodId.name)
         val opcodes = when (methodId.isStatic()) {
             true -> setOf(Opcodes.INVOKESTATIC)
             else -> setOf(Opcodes.INVOKEVIRTUAL, Opcodes.INVOKESPECIAL)
@@ -70,14 +69,14 @@ class ReversedUsagesExtension(
         }
     }
 
-    private suspend fun Set<ClassEntity>.findUsages(
+    private suspend fun Set<ClassId>.findUsages(
         hierarchy: Set<ClassId>,
         matcher: (AbstractInsnNode, Set<String>) -> Boolean
     ): List<MethodId> {
         val result = hashSetOf<MethodId>()
         val hierarchyNames = hierarchy.map { it.name }.toSet()
         forEach {
-            val classId = cp.findClassOrNull(it.name.name)
+            val classId = cp.findClassOrNull(it.name)
             val byteCode = classId?.byteCode()
             byteCode?.methods?.forEach { method ->
                 for (inst in method.instructions) {
@@ -98,18 +97,22 @@ class ReversedUsagesExtension(
     }
 
 
-    private suspend fun Set<ClassId>.findPotentialCandidates(method: String?, field: String?): Set<ClassEntity> {
+    private suspend fun Set<ClassId>.findPotentialCandidates(
+        method: String? = null,
+        field: String? = null
+    ): Set<ClassId> {
         db.awaitBackgroundJobs()
 
         return flatMap { classId ->
             val classNames = cp.query<String, UsageIndexRequest>(
-                ReversedUsages.key, UsageIndexRequest(
+                Usages.key, UsageIndexRequest(
                     method = method,
                     field = field,
                     className = classId.name
                 )
             )
-        }
+            classNames.mapNotNull { cp.findClassOrNull(it) }
+        }.toSet()
     }
 }
 

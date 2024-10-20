@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl
 
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.Feature
 import org.opentaint.ir.api.Index
@@ -41,13 +42,19 @@ class FeaturesRegistry(
         val store = persistence?.locationStore
         if (store != null) {
             persistentOperation {
-                persist(index)
+                transaction {
+                    persist(index)
+                }
             }
         }
     }
 
-    fun <T, REQ: IndexRequest> findIndex(key: String): Index<T, REQ>? {
+    fun <T, REQ : IndexRequest> findIndex(key: String): Index<T, REQ>? {
         return indexes[key] as? Index<T, REQ>?
+    }
+
+    fun onLocationRemove(location: ByteCodeLocation) {
+
     }
 
     override fun close() {

@@ -1,11 +1,12 @@
 package org.opentaint.ir.impl.tree
 
 import kotlinx.collections.immutable.persistentListOf
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.impl.fs.ClassByteCodeSource
-import org.opentaint.ir.impl.fs.LazyByteCodeSource
 
 class ClassTreeTest {
 
@@ -89,9 +90,10 @@ class ClassTreeTest {
     }
 
     private fun ByteCodeLocation.classSource(name: String): ClassByteCodeSource {
-        return LazyByteCodeSource(
+        return ClassByteCodeSource(
             className = name,
-            location = this
+            location = this,
+            bytecode = ByteArray(10)
         )
     }
 

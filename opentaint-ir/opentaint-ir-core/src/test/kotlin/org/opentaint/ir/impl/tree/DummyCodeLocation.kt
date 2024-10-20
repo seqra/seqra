@@ -18,6 +18,6 @@ open class DummyCodeLocation(override val id: String) : ByteCodeLocation {
 
     override suspend fun resolve(classFullName: String) = null
 
-    override suspend fun loader() = ByteCodeLoaderImpl(this, emptyMap()) { emptyMap() }
+    override suspend fun loader() = ByteCodeLoaderImpl(this, emptyMap())
 }
 

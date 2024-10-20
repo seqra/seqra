@@ -30,7 +30,7 @@ class LocationsRegistry(private val featuresRegistry: FeaturesRegistry): Closeab
                 val hasReferences = location.hasReferences()
                 if (!hasReferences) {
                     locations.remove(location)
-                    featuresRegistry.removeIndexes(location)
+                    featuresRegistry.onLocationRemove(location)
                 } else {
                     usedButOutdated.add(location)
                 }
