@@ -1,13 +1,19 @@
 package org.opentaint.ir.impl.types
 
-import org.opentaint.ir.api.*
+import org.opentaint.ir.api.ByteCodeLocation
+import org.opentaint.ir.api.ClassId
+import org.opentaint.ir.api.Classpath
+import org.opentaint.ir.api.MethodId
+import org.opentaint.ir.api.TypeResolution
+import org.opentaint.ir.api.findMethodOrNull
+import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.ClassIdService
 import org.opentaint.ir.impl.signature.TypeSignature
 import org.opentaint.ir.impl.suspendableLazy
 import org.opentaint.ir.impl.tree.ClassNode
 
 class ClassIdImpl(
-    override val classpath: ClasspathSet,
+    override val classpath: Classpath,
     private val node: ClassNode,
     private val classIdService: ClassIdService
 ) : ClassId {

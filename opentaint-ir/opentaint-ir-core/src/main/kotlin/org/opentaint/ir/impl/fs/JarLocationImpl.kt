@@ -10,11 +10,7 @@ import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import kotlin.streams.toList
 
-open class JarLocation(
-    file: File,
-    protected val syncLoadClassesOnlyFrom: List<String>?,
-    private val isRuntime: Boolean
-) : AbstractByteCodeLocation(file) {
+open class JarLocation(file: File, private val isRuntime: Boolean) : AbstractByteCodeLocation(file) {
     companion object : KLogging()
 
     override val scope: LocationScope
@@ -24,36 +20,19 @@ open class JarLocation(
         return file.absolutePath + file.lastModified()
     }
 
-    override fun createRefreshed() = JarLocation(file, syncLoadClassesOnlyFrom, isRuntime)
+    override fun createRefreshed() = JarLocation(file, isRuntime)
 
     override suspend fun loader(): ByteCodeLoader? {
         try {
             val content = jarWithClasses ?: return null
             val jar = content.jar
-            val classes = content.classes.mapValues { (className, entry) ->
-                when (className.matchesOneOf(syncLoadClassesOnlyFrom)) {
-                    true -> jar.getInputStream(entry)
-                    else -> null // lazy
-                }
+            val classes = content.classes.mapValues { (_, entry) ->
+                jar.getInputStream(entry)
             }
             val allClasses = ClassLoadingContainerImpl(classes) {
                 jar.close()
             }
-            return ByteCodeLoaderImpl(this, allClasses) {
-                val asyncContent = jarWithClasses
-                if (asyncContent != null) {
-                    val asyncJar = asyncContent.jar
-                    ClassLoadingContainerImpl(asyncContent.classes.filterKeys { className ->
-                        !className.matchesOneOf(syncLoadClassesOnlyFrom)
-                    }.mapValues { (_, entry) ->
-                        asyncJar.getInputStream(entry)
-                    }) {
-                        asyncJar.close()
-                    }
-                } else {
-                    ClassLoadingContainerImpl(emptyMap())
-                }
-            }
+            return ByteCodeLoaderImpl(this, allClasses)
         } catch (e: Exception) {
             logger.warn(e) { "error loading classes from jar: ${file.absolutePath}. returning empty loader" }
             return null

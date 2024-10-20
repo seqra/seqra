@@ -9,10 +9,7 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.streams.asSequence
 
-class BuildFolderLocation(
-    private val folder: File,
-    private val loadClassesOnlyFrom: List<String>?
-) : AbstractByteCodeLocation(folder) {
+class BuildFolderLocation(private val folder: File) : AbstractByteCodeLocation(folder) {
 
     companion object : KLogging()
 
@@ -31,21 +28,15 @@ class BuildFolderLocation(
         return folder.absolutePath + lastModifiedDate
     }
 
-    override fun createRefreshed() = BuildFolderLocation(folder, loadClassesOnlyFrom)
+    override fun createRefreshed() = BuildFolderLocation(folder)
 
     override suspend fun loader(): ByteCodeLoader? {
         try {
-            val classes = dirClasses()?.mapValues { (className, file) ->
-                Files.newInputStream(file.toPath()).takeIf { className.matchesOneOf(loadClassesOnlyFrom) }
+            val classes = dirClasses()?.mapValues { (_, file) ->
+                Files.newInputStream(file.toPath())
             } ?: return null
 
-            return ByteCodeLoaderImpl(this, classes) {
-                dirClasses()?.filterKeys { className ->
-                    !className.matchesOneOf(loadClassesOnlyFrom)
-                }.orEmpty().mapValues { (_, file) ->
-                    Files.newInputStream(file.toPath())
-                }
-            }
+            return ByteCodeLoaderImpl(this, classes)
         } catch (e: Exception) {
             logger.warn(e) { "error loading classes from build folder: ${folder.absolutePath}. returning empty loader" }
             return null

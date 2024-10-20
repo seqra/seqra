@@ -1,4 +1,4 @@
-package org.opentaint.ir.impl.storage.scheme
+package org.opentaint.ir.impl.storage
 
 
 import kotlinx.serialization.cbor.Cbor
@@ -10,25 +10,15 @@ import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 import org.opentaint.ir.api.ByteCodeLocation
-import org.opentaint.ir.api.LocationScope
-import org.opentaint.ir.impl.storage.BytecodeLocationEntity
-import org.opentaint.ir.impl.storage.BytecodeLocations
-import org.opentaint.ir.impl.storage.ClassInnerClasses
-import org.opentaint.ir.impl.storage.ClassInterfaces
-import org.opentaint.ir.impl.storage.Classes
-import org.opentaint.ir.impl.storage.Fields
-import org.opentaint.ir.impl.storage.MethodParameters
-import org.opentaint.ir.impl.storage.Methods
-import org.opentaint.ir.impl.storage.OuterClasses
-import org.opentaint.ir.impl.storage.PersistentEnvironment
-import org.opentaint.ir.impl.storage.Symbols
+import org.opentaint.ir.impl.storage.BytecodeLocationEntity.Companion.findOrNew
 import org.opentaint.ir.impl.types.ClassInfo
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
-private val symbolsCache = HashMap<String, Int>()
+private val symbolsCache = HashMap<String, Long>()
+
 private val classIdGen = AtomicInteger()
-private val classNameIdGen = AtomicInteger()
+private val classNameIdGen = AtomicLong()
 private val methodIdGen = AtomicLong()
 private val fieldIdGen = AtomicLong()
 private val methodParamIdGen = AtomicLong()
@@ -42,18 +32,9 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
             }.asSequence()
         }
 
-    fun findOrNew(location: ByteCodeLocation): BytecodeLocationEntity {
-        return BytecodeLocationEntity.find { BytecodeLocations.path eq location.path }.firstOrNull()
-            ?: BytecodeLocationEntity.get(BytecodeLocations.insertAndGetId {
-                it[path] = location.path
-                it[runtime] = location.scope == LocationScope.RUNTIME
-            })
-    }
-
     fun findOrNewTx(location: ByteCodeLocation): BytecodeLocationEntity {
         return transaction {
-            val loc = findOrNew(location)
-            loc
+            location.findOrNew()
         }
     }
 
@@ -74,7 +55,7 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                 names.addAll(it.fields.map { it.name })
             }
             names.setup()
-            val locationEntity = findOrNew(location)
+            val locationEntity = location.findOrNew()
             Classes.batchInsert(classes, shouldReturnGeneratedValues = false) { classInfo ->
                 val id = classIdGen.incrementAndGet()
                 classIds[classInfo] = id
@@ -169,7 +150,7 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
     }
 
 
-    private fun String.findSymbol(): Int {
+    private fun String.findSymbol(): Long {
         return symbolsCache.getOrPut(this) {
             Symbols.select { Symbols.name eq this@findSymbol }.firstOrNull()?.get(Symbols.id)?.value
                 ?: kotlin.run {
@@ -190,6 +171,7 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
             symbolsCache[it] = id
             this[Symbols.id] = id
             this[Symbols.name] = it
+            this[Symbols.hash] = it.longHash
         }
     }
 }

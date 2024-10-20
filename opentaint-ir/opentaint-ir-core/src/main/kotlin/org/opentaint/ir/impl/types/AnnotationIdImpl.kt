@@ -1,14 +1,14 @@
 package org.opentaint.ir.impl.types
 
 import org.opentaint.ir.api.AnnotationId
-import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.Classpath
 import org.opentaint.ir.api.enumValues
 import org.opentaint.ir.impl.SuspendableLazy
 import org.opentaint.ir.impl.suspendableLazy
 
 class AnnotationIdImpl(
     private val info: AnnotationInfo,
-    private val classpath: ClasspathSet
+    private val classpath: Classpath
 ) : AnnotationId {
 
     private val lazyAnnotationClass = suspendableLazy {

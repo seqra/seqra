@@ -1,10 +1,10 @@
 package org.opentaint.ir.impl.tree
 
-import jetbrains.exodus.core.dataStructures.persistent.Persistent23TreeMap
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.impl.fs.ClassByteCodeSource
+import java.util.concurrent.ConcurrentHashMap
 
-open class ClassTree: AbstractClassTree<PackageNode, ClassNode>() {
+open class ClassTree : AbstractClassTree<PackageNode, ClassNode>() {
 
     public override val rootNode = PackageNode(null, null)
 
@@ -13,9 +13,11 @@ open class ClassTree: AbstractClassTree<PackageNode, ClassNode>() {
         source: ClassByteCodeSource
     ): ClassNode {
         val nameIndex = classes.getOrPut(simpleClassName) {
-            Persistent23TreeMap()
+            ConcurrentHashMap<String, ClassNode>()
         }
-        return nameIndex.getOrPut(source.location.id) { ClassNode(simpleClassName, this, source) }
+        return nameIndex.getOrPut(source.location.id) {
+            ClassNode(simpleClassName, this, source)
+        }
     }
 
     override fun PackageNode.findPackageOrNew(subfolderName: String): PackageNode {

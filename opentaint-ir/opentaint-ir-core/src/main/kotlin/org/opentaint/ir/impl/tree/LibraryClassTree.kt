@@ -1,9 +1,8 @@
 package org.opentaint.ir.impl.tree
 
-import jetbrains.exodus.core.dataStructures.persistent.Persistent23TreeMap
-import jetbrains.exodus.core.dataStructures.persistent.writeFinally
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.impl.fs.ClassByteCodeSource
+import java.util.concurrent.ConcurrentHashMap
 
 
 /**
@@ -44,57 +43,23 @@ class LibraryPackageNode(folderName: String?, parent: LibraryPackageNode?, priva
     // simpleName -> node
     internal val classes = HashMap<String, LibraryClassNode>()
 
-    fun asPackageNode(parent: PackageNode, loadedClasses: MutableMap<String, ClassNode>): PackageNode {
-        return PackageNode(name, parent).also { packageNode ->
-            packageNode.subpackages.writeFinally {
-                subpackages.forEach { (key, node) ->
-                    put(key, node.asPackageNode(packageNode, loadedClasses))
-                }
-            }
-            packageNode.classes.writeFinally {
-                classes.forEach { (key, node) ->
-                    put(key, newClassMap(node, packageNode, loadedClasses))
-                }
-            }
-        }
-    }
-
-    private fun newClassMap(node: LibraryClassNode, packageNode: PackageNode, loadedClasses: MutableMap<String, ClassNode>): Persistent23TreeMap<String, ClassNode> {
-        return Persistent23TreeMap<String, ClassNode>().also {
-            it.writeFinally {
-                node.asClassNode(packageNode).also {
-                    put(version, it)
-                    loadedClasses[it.fullName] = it
-                }
-            }
-        }
-    }
-
-    fun mergeInto(global: PackageNode, loadedClasses: MutableMap<String, ClassNode> = hashMapOf()): Map<String, ClassNode> {
+    fun mergeInto(
+        global: PackageNode,
+        loadedClasses: MutableMap<String, ClassNode> = hashMapOf()
+    ): Map<String, ClassNode> {
         val library = this
-        global.subpackages.writeFinally {
-            library.subpackages.forEach { (name, subNode) ->
-                val globalSubPackage = get(name)
-                if (globalSubPackage == null) {
-                    put(name, subNode.asPackageNode(global, loadedClasses))
-                } else {
-                    subNode.mergeInto(globalSubPackage, loadedClasses)
-                }
+        library.subpackages.forEach { (name, subNode) ->
+            val globalSubPackage = global.subpackages.getOrPut(name) {
+                PackageNode(name, global)
             }
+            subNode.mergeInto(globalSubPackage, loadedClasses)
         }
-        global.classes.writeFinally {
-            library.classes.forEach { (name, subNode) ->
-                val classNode = get(name)
-                if (classNode == null) {
-                    put(name, newClassMap(subNode, global, loadedClasses))
-                } else {
-                    val asClassNode = subNode.asClassNode(global).also {
-                        loadedClasses[it.fullName] = it
-                    }
-                    classNode.writeFinally {
-                        put(subNode.version, asClassNode)
-                    }
-                }
+        library.classes.forEach { (name, subNode) ->
+            val classVersions = global.classes.getOrPut(name) {
+                ConcurrentHashMap()
+            }
+            classVersions[subNode.version] = subNode.asClassNode(global).also {
+                loadedClasses[it.fullName] = it
             }
         }
         return loadedClasses

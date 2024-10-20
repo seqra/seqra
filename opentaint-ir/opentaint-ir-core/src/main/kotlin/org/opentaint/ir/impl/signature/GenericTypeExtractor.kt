@@ -1,13 +1,13 @@
 package org.opentaint.ir.impl.signature
 
 import org.objectweb.asm.signature.SignatureVisitor
-import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.Classpath
 import org.opentaint.ir.impl.signature.GenericTypeExtractor.IncompleteToken.InnerClass
 import org.opentaint.ir.impl.signature.GenericTypeExtractor.IncompleteToken.TopLevelType
 import org.opentaint.ir.impl.signature.GenericTypeRegistrant.RejectingSignatureVisitor
 import org.opentaint.ir.impl.signature.PrimitiveType.Companion.of
 
-class GenericTypeExtractor(private val cp: ClasspathSet, private val genericTypeRegistrant: GenericTypeRegistrant) : RejectingSignatureVisitor(),
+class GenericTypeExtractor(private val cp: Classpath, private val genericTypeRegistrant: GenericTypeRegistrant) : RejectingSignatureVisitor(),
     GenericTypeRegistrant {
 
     private lateinit var incompleteToken: IncompleteToken
@@ -67,7 +67,7 @@ class GenericTypeExtractor(private val cp: ClasspathSet, private val genericType
 
         fun toToken(): GenericType?
 
-        abstract class AbstractBase(protected val cp: ClasspathSet) : IncompleteToken {
+        abstract class AbstractBase(protected val cp: Classpath) : IncompleteToken {
 
             protected val parameters = ArrayList<GenericType>()
 
@@ -107,7 +107,7 @@ class GenericTypeExtractor(private val cp: ClasspathSet, private val genericType
             }
         }
 
-        class TopLevelType(cp: ClasspathSet, private val internalName: String) : AbstractBase(cp) {
+        class TopLevelType(cp: Classpath, private val internalName: String) : AbstractBase(cp) {
 
             override fun toToken(): GenericType {
                 return if (isParameterized) ParameterizedType(cp, name, parameters) else RawType(cp, name)
@@ -124,7 +124,7 @@ class GenericTypeExtractor(private val cp: ClasspathSet, private val genericType
                 }
         }
 
-        class InnerClass(cp: ClasspathSet, private val internalName: String, private val outerTypeToken: IncompleteToken?) :
+        class InnerClass(cp: Classpath, private val internalName: String, private val outerTypeToken: IncompleteToken?) :
             AbstractBase(cp) {
             override fun toToken(): GenericType {
                 return if (isParameterized || outerTypeToken!!.isParameterized) ParameterizedType.Nested(

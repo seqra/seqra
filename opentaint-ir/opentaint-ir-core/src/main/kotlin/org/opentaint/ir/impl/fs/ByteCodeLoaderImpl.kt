@@ -4,32 +4,25 @@ import org.opentaint.ir.api.ByteCodeLoader
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.ClassLoadingContainer
 import org.opentaint.ir.api.LocationScope
-import org.opentaint.ir.impl.tree.ClassTree
 import org.opentaint.ir.impl.tree.LibraryClassTree
 import java.io.InputStream
 
 class ByteCodeLoaderImpl(
     override val location: ByteCodeLocation,
-    private val sync: ClassLoadingContainer,
-    private val async: suspend () -> ClassLoadingContainer?
+    private val sync: ClassLoadingContainer
 ) : ByteCodeLoader {
 
-    constructor(
-        location: ByteCodeLocation,
-        sync: Map<String, InputStream?>,
-        async: suspend () -> Map<String, InputStream?>
-    ) : this(location, ClassLoadingContainerImpl(sync), {
-        ClassLoadingContainerImpl(async())
-    })
+    constructor(location: ByteCodeLocation, sync: Map<String, InputStream>) :
+            this(location, ClassLoadingContainerImpl(sync))
 
     override suspend fun allResources() = sync
 
-    override suspend fun asyncResources() = async
+    override suspend fun asyncResources(): suspend () -> ClassLoadingContainer? = { null }
 
 }
 
 class ClassLoadingContainerImpl(
-    override val classesToLoad: Map<String, InputStream?>,
+    override val classesToLoad: Map<String, InputStream>,
     val onClose: () -> Unit = {}
 ) : ClassLoadingContainer {
 
@@ -42,32 +35,15 @@ class ClassLoadingContainerImpl(
 /**
  * load sync part into the tree and returns lambda that will do async part
  */
-suspend fun ByteCodeLoader.load(classTree: ClassTree): Pair<LibraryClassTree, suspend () -> Unit> {
+suspend fun ByteCodeLoader.load(): LibraryClassTree {
     val libraryTree = LibraryClassTree(location)
     val sync = allResources()
     sync.classesToLoad.forEach {
-        val source = when {
-            it.value != null -> ExpandedByteCodeSource(location, it.key)
-            else -> LazyByteCodeSource(location, it.key)
-        }
-        val libraryNode = libraryTree.addClass(source)
-        it.value?.let {
-            libraryNode.source.load(it)
-        }
+        val source = ClassByteCodeSource(location, it.key, it.value.readBytes())
+        libraryTree.addClass(source)
     }
     sync.close()
-    return libraryTree to {
-        val async = asyncResources()()
-        async?.classesToLoad?.forEach { (name, stream) ->
-            val node = classTree.firstClassNodeOrNull(name)
-            if (stream != null && node != null) {
-                node.source.load(stream)
-            } else {
-                println("GETTING NULL STREAM OR NODE FOR $name")
-            }
-        }
-        async?.close()
-    }
+    return libraryTree
 }
 
 /**

@@ -10,7 +10,6 @@ import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.LocationScope
 import org.opentaint.ir.impl.JIRDBImpl
 import org.opentaint.ir.impl.fs.asByteCodeLocation
-import org.opentaint.ir.impl.storage.scheme.LocationStore
 import java.io.Closeable
 import java.io.File
 

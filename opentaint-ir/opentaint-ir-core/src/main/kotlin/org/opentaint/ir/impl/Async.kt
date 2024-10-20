@@ -25,6 +25,6 @@ object BackgroundScope : CoroutineScope {
 
 private val lock = ReentrantLock()
 
-fun <T> sql(action: () -> T): T = lock.withLock {
+fun <T> persistentOperation(action: () -> T): T = lock.withLock {
     action()
 }

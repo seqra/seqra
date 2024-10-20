@@ -11,13 +11,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.opentaint.ir.JIRDBSettings
 import org.opentaint.ir.api.ByteCodeLocation
-import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.Classpath
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.filterExisted
 import org.opentaint.ir.impl.fs.load
-import org.opentaint.ir.impl.index.InMemoryGlobalIdsStore
 import org.opentaint.ir.impl.storage.BytecodeLocationEntity
 import org.opentaint.ir.impl.storage.PersistentEnvironment
 import org.opentaint.ir.impl.tree.ClassTree
@@ -30,15 +29,14 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class JIRDBImpl(
     private val persistentEnvironment: PersistentEnvironment? = null,
-    private val settings: JIRDBSettings,
-    override val globalIdStore: InMemoryGlobalIdsStore = InMemoryGlobalIdsStore()
+    private val settings: JIRDBSettings
 ) : JIRDB {
 
     private val classTree = ClassTree()
     internal val javaRuntime = JavaRuntime(settings.jre)
     private val hooks = settings.hooks.map { it(this) }
 
-    internal val featureRegistry = FeaturesRegistry(persistentEnvironment, globalIdStore, settings.fullFeatures)
+    internal val featureRegistry = FeaturesRegistry(persistentEnvironment, settings.fullFeatures)
     internal val locationsRegistry = LocationsRegistry(featureRegistry)
     private val backgroundJobs = ConcurrentHashMap<Int, Job>()
 
@@ -50,13 +48,13 @@ class JIRDBImpl(
         javaRuntime.allLocations.loadAll()
     }
 
-    override suspend fun classpathSet(dirOrJars: List<File>): ClasspathSet {
+    override suspend fun classpathSet(dirOrJars: List<File>): Classpath {
         assertNotClosed()
         val existedLocations = dirOrJars.filterExisted().map { it.asByteCodeLocation() }.also {
             it.loadAll()
         }
         val classpathSetLocations = existedLocations.toList() + javaRuntime.allLocations
-        return ClasspathSetImpl(
+        return ClasspathImpl(
             locationsRegistry.snapshot(classpathSetLocations),
             featureRegistry,
             this,
@@ -64,10 +62,10 @@ class JIRDBImpl(
         )
     }
 
-    fun classpathSet(locations: List<ByteCodeLocation>): ClasspathSet {
+    fun classpathSet(locations: List<ByteCodeLocation>): Classpath {
         assertNotClosed()
         val classpathSetLocations = locations.toSet() + javaRuntime.allLocations
-        return ClasspathSetImpl(
+        return ClasspathImpl(
             locationsRegistry.snapshot(classpathSetLocations.toList()),
             featureRegistry,
             this,
@@ -91,7 +89,7 @@ class JIRDBImpl(
     }
 
     private suspend fun List<ByteCodeLocation>.loadAll() = apply {
-        val actions = ConcurrentLinkedQueue<Pair<ByteCodeLocation, suspend () -> Unit>>()
+        val actions = ConcurrentLinkedQueue<ByteCodeLocation>()
         val locationStore = persistentEnvironment?.locationStore
 
         val libraryTrees = withContext(Dispatchers.IO) {
@@ -100,10 +98,10 @@ class JIRDBImpl(
                     val loader = location.loader()
                     // here something may go wrong
                     if (loader != null) {
-                        val (libraryTree, asyncJob) = loader.load(classTree)
-                        actions.add(location to asyncJob)
+                        val libraryTree = loader.load()
+                        actions.add(location)
                         locationsRegistry.addLocation(location)
-                        sql {
+                        persistentOperation {
                             locationStore?.findOrNewTx(location)
                         }
                         libraryTree
@@ -113,7 +111,7 @@ class JIRDBImpl(
                 }
             }
         }.awaitAll().filterNotNull()
-        sql {
+        persistentOperation {
             persistentEnvironment?.save(this@JIRDBImpl)
         }
 
@@ -123,19 +121,18 @@ class JIRDBImpl(
         val backgroundJobId = jobId.incrementAndGet()
         backgroundJobs[backgroundJobId] = BackgroundScope.launch {
             val parentScope = this
-            actions.map { (location, action) ->
+            actions.map { location ->
                 async {
                     if (parentScope.isActive) {
-                        action()
-                    }
-                    val addedClasses = locationClasses[location]
-                    if (addedClasses != null) {
-                        if (parentScope.isActive) {
-                            val classes = addedClasses.map { it.info() }
-                            sql {
-                                locationStore?.saveClasses(location, classes)
+                        val addedClasses = locationClasses[location]
+                        if (addedClasses != null) {
+                            if (parentScope.isActive) {
+                                val classes = addedClasses.map { it.info() }
+                                persistentOperation {
+                                    locationStore?.saveClasses(location, classes)
+                                }
+                                featureRegistry.index(location, addedClasses)
                             }
-                            featureRegistry.index(location, addedClasses)
                         }
                     }
                 }

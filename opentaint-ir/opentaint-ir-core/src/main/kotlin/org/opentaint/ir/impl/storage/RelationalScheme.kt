@@ -20,8 +20,9 @@ object BytecodeLocations : IntIdTable() {
     val outdated = reference("outdated_id", BytecodeLocations.id).nullable()
 }
 
-object Symbols : IntIdTable() {
+object Symbols : LongIdTable() {
     val name = varchar("name", length = 256)
+    val hash = long("hash")
 
     init {
         uniqueIndex(name)
@@ -57,7 +58,23 @@ object Classes : IntIdTable() {
 
     val superClass = reference("super_class", Symbols.id).nullable()
 
-    val bytecode = binary("bytecode").nullable()
+    val bytecode = binary("bytecode")
+    val annotations = binary("annotation_data").nullable()
+
+    val locationId = reference("location_id", BytecodeLocations.id, onDelete = ReferenceOption.CASCADE)
+    val packageId = reference("package_id", Symbols.id, onDelete = ReferenceOption.CASCADE)
+    val outerClass = reference("outer_class", OuterClasses.id, onDelete = ReferenceOption.CASCADE).nullable()
+    val outerMethod = reference("outer_method", Methods.id, onDelete = ReferenceOption.CASCADE).nullable()
+}
+
+object Calls : LongIdTable() {
+    val access = integer("access")
+    val name = reference("name", Symbols.id)
+    val signature = text("signature").nullable()
+
+    val superClass = reference("super_class", Symbols.id).nullable()
+
+    val bytecode = binary("bytecode")
     val annotations = binary("annotation_data").nullable()
 
     val locationId = reference("location_id", BytecodeLocations.id, onDelete = ReferenceOption.CASCADE)
@@ -108,6 +125,14 @@ object MethodParameters : LongIdTable() {
     val parameterClass = reference("parameter_class", Symbols.id)
 
     val methodId = reference("method_id", Methods.id, onDelete = ReferenceOption.CASCADE)
+    val annotations = binary("annotation_data").nullable()
+
+}
+
+object AnnotationValues : LongIdTable() {
+    val index = integer("index")
+    val name = reference("name", Symbols.id)
+
     val annotations = binary("annotation_data").nullable()
 
 }

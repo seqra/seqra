@@ -11,11 +11,11 @@ fun File.asByteCodeLocation(loadClassesOnlyFrom: List<String>? = null, isRuntime
         throw IllegalArgumentException("file $absolutePath doesn't exist")
     }
     if (isFile && name.endsWith(".jar")) {
-        return JarLocation(this, loadClassesOnlyFrom?.toList(), isRuntime)
+        return JarLocation(this, isRuntime)
     } else if (isFile && name.endsWith(".jmod")) {
-        return JmodLocation(this, loadClassesOnlyFrom?.toList())
+        return JmodLocation(this)
     } else if (!isFile) {
-        return BuildFolderLocation(this, loadClassesOnlyFrom)
+        return BuildFolderLocation(this)
     }
     throw IllegalArgumentException("file $absolutePath is not jar-file nor build dir folder")
 }

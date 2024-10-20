@@ -1,12 +1,12 @@
 package org.opentaint.ir.impl.signature
 
 import org.objectweb.asm.signature.SignatureVisitor
-import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.Classpath
 import org.opentaint.ir.api.Malformed
 import org.opentaint.ir.api.MethodResolution
 import org.opentaint.ir.api.Raw
 
-open class MethodSignature(cp: ClasspathSet) : Signature<MethodResolution>(cp) {
+open class MethodSignature(cp: Classpath) : Signature<MethodResolution>(cp) {
 
     private val parameterTypes = ArrayList<GenericType>()
     private val exceptionTypes = ArrayList<GenericType>()
@@ -54,7 +54,7 @@ open class MethodSignature(cp: ClasspathSet) : Signature<MethodResolution>(cp) {
     }
 
     companion object {
-        fun of(signature: String?, cp: ClasspathSet): MethodResolution {
+        fun of(signature: String?, cp: Classpath): MethodResolution {
             signature ?: return Raw
             return try {
                 of(signature, MethodSignature(cp))

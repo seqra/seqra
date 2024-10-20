@@ -2,10 +2,10 @@ package org.opentaint.ir.impl.signature
 
 import org.objectweb.asm.signature.SignatureReader
 import org.objectweb.asm.signature.SignatureVisitor
-import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.Classpath
 import org.opentaint.ir.api.Resolution
 
-abstract class Signature<T : Resolution>(protected val cp: ClasspathSet) :
+abstract class Signature<T : Resolution>(protected val cp: Classpath) :
     GenericTypeRegistrant.RejectingSignatureVisitor(), GenericTypeRegistrant {
 
     protected val typeVariables = ArrayList<FormalTypeVariable>()

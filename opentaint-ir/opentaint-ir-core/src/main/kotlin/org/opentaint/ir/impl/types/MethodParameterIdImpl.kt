@@ -1,11 +1,11 @@
 package org.opentaint.ir.impl.types
 
-import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.Classpath
 import org.opentaint.ir.api.MethodParameterId
 import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.suspendableLazy
 
-class MethodParameterIdImpl(private val info: ParameterInfo, private val classpath: ClasspathSet) :
+class MethodParameterIdImpl(private val info: ParameterInfo, private val classpath: Classpath) :
     MethodParameterId {
 
     override suspend fun access() = info.access

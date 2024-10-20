@@ -2,7 +2,8 @@ package org.opentaint.ir.impl
 
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.ClassId
-import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.Classpath
+import org.opentaint.ir.api.IndexRequest
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.impl.index.hierarchyExt
 import org.opentaint.ir.impl.tree.ClassTree
@@ -10,19 +11,19 @@ import org.opentaint.ir.impl.tree.ClasspathClassTree
 import org.opentaint.ir.impl.types.ArrayClassIdImpl
 import java.io.Serializable
 
-class ClasspathSetImpl(
+class ClasspathImpl(
     private val locationsRegistrySnapshot: LocationsRegistrySnapshot,
     private val featuresRegistry: FeaturesRegistry,
     override val db: JIRDBImpl,
     classTree: ClassTree
-) : ClasspathSet {
+) : Classpath {
 
     override val locations: List<ByteCodeLocation> = locationsRegistrySnapshot.locations
 
     private val classpathClassTree = ClasspathClassTree(classTree, locationsRegistrySnapshot)
     private val classIdService = ClassIdService(this, classpathClassTree)
 
-    override suspend fun refreshed(closeOld: Boolean): ClasspathSet {
+    override suspend fun refreshed(closeOld: Boolean): Classpath {
         return db.classpathSet(locationsRegistrySnapshot.locations).also {
             if (closeOld) {
                 close()
@@ -52,14 +53,14 @@ class ClasspathSetImpl(
         return hierarchyExt.findSubClasses(classId, allHierarchy)
     }
 
-    override suspend fun <T: Serializable> query(key: String, term: String): List<T> {
+    override suspend fun <T: Serializable, REQ: IndexRequest> query(key: String, term: REQ): List<T> {
         db.awaitBackgroundJobs()
-        return locations.flatMap { featuresRegistry.findIndex<T>(key, it)?.query(term).orEmpty() }
+        return featuresRegistry.findIndex<T, REQ>(key)?.query(term).orEmpty().toList()
     }
 
-    override suspend fun <T: Serializable> query(key: String, location: ByteCodeLocation, term: String): List<T> {
+    override suspend fun <T: Serializable, REQ: IndexRequest> query(key: String, location: ByteCodeLocation, term: REQ): List<T> {
         db.awaitBackgroundJobs()
-        return featuresRegistry.findIndex<T>(key, location)?.query(term).orEmpty().toList()
+        return featuresRegistry.findIndex<T, REQ>(key)?.query(term).orEmpty().toList()
     }
 
     override fun close() {

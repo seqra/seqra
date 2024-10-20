@@ -3,7 +3,6 @@ package org.opentaint.ir
 import org.opentaint.ir.api.Feature
 import org.opentaint.ir.api.Hook
 import org.opentaint.ir.api.JIRDB
-import org.opentaint.ir.impl.index.Hierarchy
 import java.io.File
 
 /**
@@ -27,7 +26,7 @@ class JIRDBSettings {
     /** feature to add */
     var features: List<Feature<*, *>> = emptyList()
 
-    val fullFeatures get() = listOf(Hierarchy) + features
+    val fullFeatures get() = features
 
     /** builder for persistent settings */
     fun persistent(settings: (JIRDBPersistentSettings.() -> Unit) = {}) {

@@ -1,12 +1,12 @@
 package org.opentaint.ir.impl.signature
 
 import org.objectweb.asm.signature.SignatureVisitor
-import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.Classpath
 import org.opentaint.ir.api.Malformed
 import org.opentaint.ir.api.Raw
 import org.opentaint.ir.api.TypeResolution
 
-class TypeSignature(cp: ClasspathSet) : Signature<TypeResolution>(cp) {
+class TypeSignature(cp: Classpath) : Signature<TypeResolution>(cp) {
 
     private val interfaceTypes = ArrayList<GenericType>()
     private lateinit var superClass: GenericType
@@ -40,7 +40,7 @@ class TypeSignature(cp: ClasspathSet) : Signature<TypeResolution>(cp) {
 
 
     companion object {
-        fun of(signature: String?, cp: ClasspathSet): TypeResolution {
+        fun of(signature: String?, cp: Classpath): TypeResolution {
             return try {
                 if (signature == null) Raw else of(signature, TypeSignature(cp))
             } catch (ignored: RuntimeException) {

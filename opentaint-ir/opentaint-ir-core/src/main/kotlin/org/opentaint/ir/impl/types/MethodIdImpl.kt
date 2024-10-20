@@ -57,7 +57,7 @@ class MethodIdImpl(
         if (location?.isChanged() == true) {
             return null
         }
-        return classNode.source.loadMethod(name, methodInfo.desc)
+        return classNode.fullByteCode().methods.firstOrNull { it.name == name && it.desc == methodInfo.desc }
     }
 
     override fun equals(other: Any?): Boolean {

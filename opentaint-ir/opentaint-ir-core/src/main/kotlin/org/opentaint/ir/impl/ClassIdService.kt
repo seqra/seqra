@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl
 
 import org.opentaint.ir.api.ClassId
-import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.Classpath
 import org.opentaint.ir.api.MethodId
 import org.opentaint.ir.impl.tree.ClassNode
 import org.opentaint.ir.impl.tree.ClasspathClassTree
@@ -9,7 +9,7 @@ import org.opentaint.ir.impl.types.ClassIdImpl
 import org.opentaint.ir.impl.types.MethodIdImpl
 import org.opentaint.ir.impl.types.MethodInfo
 
-class ClassIdService(internal val cp: ClasspathSet, private val classpathClassTree: ClasspathClassTree) {
+class ClassIdService(internal val cp: Classpath, private val classpathClassTree: ClasspathClassTree) {
 
     fun toClassId(node: ClassNode?): ClassId? {
         node ?: return null

@@ -7,10 +7,13 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.Classpath
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findClassOrNull
 import org.opentaint.ir.impl.fs.BuildFolderLocation
@@ -125,7 +128,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
     fun `simultaneous access to method body`() = runBlocking {
         val cps = (1..10).map { db!!.classpathSet(listOf(guavaLibClone)) }
 
-        suspend fun ClasspathSet.accessMethod() {
+        suspend fun Classpath.accessMethod() {
             val abstractCacheClass = findClassOrNull<AbstractCache<*,*>>()
             assertNotNull(abstractCacheClass!!)
 

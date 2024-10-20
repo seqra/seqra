@@ -6,7 +6,7 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.opentaint.ir.api.ClasspathSet
+import org.opentaint.ir.api.Classpath
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findFieldsUsedIn
@@ -125,7 +125,7 @@ class DirectUsagesTest : LibrariesMixin {
         )
     }
 
-    private inline fun <reified T> ClasspathSet.fieldsUsages(): List<Pair<String, List<Pair<String, List<String>>>>> {
+    private inline fun <reified T> Classpath.fieldsUsages(): List<Pair<String, List<Pair<String, List<String>>>>> {
         return runBlocking {
             val classId = cp.findClass<T>()
 
@@ -142,7 +142,7 @@ class DirectUsagesTest : LibrariesMixin {
         }
     }
 
-    private inline fun <reified T> ClasspathSet.methodsUsages(): List<Pair<String, List<String>>> {
+    private inline fun <reified T> Classpath.methodsUsages(): List<Pair<String, List<String>>> {
         return runBlocking {
             val classId = cp.findClass<T>()
 

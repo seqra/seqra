@@ -6,9 +6,23 @@ import org.jetbrains.exposed.dao.LongEntity
 import org.jetbrains.exposed.dao.LongEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.sql.SizedIterable
+import org.jetbrains.exposed.sql.insertAndGetId
+import org.opentaint.ir.api.ByteCodeLocation
+import org.opentaint.ir.api.LocationScope
 
 class BytecodeLocationEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<BytecodeLocationEntity>(BytecodeLocations)
+    companion object : IntEntityClass<BytecodeLocationEntity>(BytecodeLocations) {
+
+        fun ByteCodeLocation.findOrNew(): BytecodeLocationEntity {
+            return BytecodeLocationEntity.find { BytecodeLocations.path eq path }.firstOrNull()
+                ?: BytecodeLocationEntity.get(BytecodeLocations.insertAndGetId {
+                    it[path] = this@findOrNew.path
+                    it[runtime] = scope == LocationScope.RUNTIME
+                })
+        }
+
+
+    }
 
     var path by BytecodeLocations.path
     var runtime by BytecodeLocations.runtime
@@ -17,10 +31,11 @@ class BytecodeLocationEntity(id: EntityID<Int>) : IntEntity(id) {
     val classes: SizedIterable<ClassEntity> by ClassEntity referrersOn Classes.locationId
 }
 
-class SymbolEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<SymbolEntity>(Symbols)
+class SymbolEntity(id: EntityID<Long>) : LongEntity(id) {
+    companion object : LongEntityClass<SymbolEntity>(Symbols)
 
     var name by Symbols.name
+    var hash by Symbols.hash
 }
 
 class OuterClassEntity(id: EntityID<Int>) : IntEntity(id) {
@@ -31,7 +46,9 @@ class OuterClassEntity(id: EntityID<Int>) : IntEntity(id) {
 }
 
 class ClassEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<ClassEntity>(Classes)
+    companion object : IntEntityClass<ClassEntity>(Classes) {
+        val eagerColumns = listOf(ClassEntity::superClass, ClassEntity::packageRef, ClassEntity::name)
+    }
 
     var access by Classes.access
     var name by SymbolEntity referencedOn Classes.name
@@ -54,7 +71,9 @@ class ClassEntity(id: EntityID<Int>) : IntEntity(id) {
 }
 
 class MethodEntity(id: EntityID<Long>) : LongEntity(id) {
-    companion object : LongEntityClass<MethodEntity>(Methods)
+    companion object : LongEntityClass<MethodEntity>(Methods) {
+        val eagerColumns = listOf(MethodEntity::name)
+    }
 
     var access by Methods.access
     var name by Methods.name
@@ -69,7 +88,9 @@ class MethodEntity(id: EntityID<Long>) : LongEntity(id) {
 
 class FieldEntity(id: EntityID<Long>) : LongEntity(id) {
 
-    companion object : LongEntityClass<FieldEntity>(Fields)
+    companion object : LongEntityClass<FieldEntity>(Fields) {
+        val eagerColumns = listOf(FieldEntity::name)
+    }
 
     var access by Fields.access
     var name by Fields.name
@@ -83,7 +104,9 @@ class FieldEntity(id: EntityID<Long>) : LongEntity(id) {
 
 class MethodParameterEntity(id: EntityID<Long>) : LongEntity(id) {
 
-    companion object : LongEntityClass<MethodParameterEntity>(MethodParameters)
+    companion object : LongEntityClass<MethodParameterEntity>(MethodParameters) {
+        val eagerColumns = listOf(FieldEntity::name)
+    }
 
     var name by MethodParameters.name
     var access by MethodParameters.access
@@ -94,3 +117,12 @@ class MethodParameterEntity(id: EntityID<Long>) : LongEntity(id) {
     var annotations by MethodParameters.annotations
 }
 
+val String.longHash: Long
+    get() {
+        var h = 1125899906842597L // prime
+        val len = length
+        for (i in 0 until len) {
+            h = 31 * h + this[i].code.toLong()
+        }
+        return h
+    }
