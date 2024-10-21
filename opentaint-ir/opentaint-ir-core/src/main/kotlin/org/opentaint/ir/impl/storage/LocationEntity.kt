@@ -16,7 +16,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 private val symbolsCache = HashMap<String, Long>()
-
 private val classIdGen = AtomicInteger()
 private val classNameIdGen = AtomicLong()
 private val methodIdGen = AtomicLong()
@@ -50,6 +49,7 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                 }
                 names.addAll(it.interfaces)
                 names.addAll(it.innerClasses)
+                names.addAll(listOfNotNull(it.outerClass?.name, it.outerMethod))
                 names.addAll(it.methods.map { it.name })
                 names.addAll(it.methods.map { it.returnType })
                 names.addAll(it.methods.flatMap { it.parameters })
@@ -62,13 +62,13 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                 val id = classIdGen.incrementAndGet()
                 classIds[classInfo] = id
                 val packageName = classInfo.name.substringBeforeLast('.')
-                val pack = symbolsCache[packageName]!!
+                val pack = packageName.findCacheSymbol()
                 this[Classes.id] = id
                 this[Classes.access] = classInfo.access
                 this[Classes.locationId] = locationEntity.id
-                this[Classes.name] = classInfo.name.findSymbol()
+                this[Classes.name] = classInfo.name.findCacheSymbol()
                 this[Classes.signature] = classInfo.signature
-                this[Classes.superClass] = classInfo.superClass?.findSymbol()
+                this[Classes.superClass] = classInfo.superClass?.findCacheSymbol()
                 this[Classes.packageId] = pack
                 this[Classes.bytecode] = classInfo.bytecode
                 this[Classes.annotations] = classInfo.annotations.takeIf { it.isNotEmpty() }?.let {
@@ -80,23 +80,23 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                 if (classInfo.interfaces.isNotEmpty()) {
                     ClassInterfaces.batchInsert(classInfo.interfaces, shouldReturnGeneratedValues = false) {
                         this[ClassInterfaces.classId] = storedClassId
-                        this[ClassInterfaces.interfaceId] = it.findSymbol()
+                        this[ClassInterfaces.interfaceId] = it.findCacheSymbol()
                     }
                 }
                 if (classInfo.innerClasses.isNotEmpty()) {
                     ClassInnerClasses.batchInsert(classInfo.innerClasses, shouldReturnGeneratedValues = false) {
                         this[ClassInnerClasses.classId] = storedClassId
-                        this[ClassInnerClasses.innerClassId] = it.findSymbol()
+                        this[ClassInnerClasses.innerClassId] = it.findCacheSymbol()
                     }
                 }
                 val methodsResult = Methods.batchInsert(classInfo.methods, shouldReturnGeneratedValues = false) {
                     this[Methods.id] = methodIdGen.incrementAndGet()
                     this[Methods.access] = it.access
-                    this[Methods.name] = symbolsCache.get(it.name)!!
+                    this[Methods.name] = it.name.findCacheSymbol()
                     this[Methods.signature] = it.signature
                     this[Methods.desc] = it.desc
                     this[Methods.classId] = storedClassId
-                    this[Methods.returnClass] = it.returnType.findSymbol()
+                    this[Methods.returnClass] = it.returnType.findCacheSymbol()
                     this[Methods.annotations] = it.annotations.takeIf { it.isNotEmpty() }?.let {
                         Cbor.encodeToByteArray(it)
                     }
@@ -112,7 +112,7 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                     this[MethodParameters.name] = param.name
                     this[MethodParameters.index] = param.index
                     this[MethodParameters.methodId] = methodId
-                    this[MethodParameters.parameterClass] = param.type.findSymbol()
+                    this[MethodParameters.parameterClass] = param.type.findCacheSymbol()
                     this[MethodParameters.annotations] = param.annotations.takeIf { !it.isNullOrEmpty() }?.let {
                         Cbor.encodeToByteArray(it)
                     }
@@ -121,9 +121,9 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                     this[Fields.id] = fieldIdGen.incrementAndGet()
                     this[Fields.classId] = storedClassId
                     this[Fields.access] = it.access
-                    this[Fields.name] = symbolsCache.get(it.name)!!
+                    this[Fields.name] = it.name.findCacheSymbol()
                     this[Fields.signature] = it.signature
-                    this[Fields.fieldClass] = it.type.findSymbol()
+                    this[Fields.fieldClass] = it.type.findCacheSymbol()
                     this[Fields.annotations] = it.annotations.takeIf { it.isNotEmpty() }?.let {
                         Cbor.encodeToByteArray(it)
                     }
@@ -142,7 +142,7 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                     if (classInfo.outerMethod != null) {
                         it[outerMethod] = Methods.select {
                             (Methods.classId eq outerClazzId) and
-                                    (Methods.name eq classInfo.outerMethod.findSymbol()) and
+                                    (Methods.name eq classInfo.outerMethod.findCacheSymbol()) and
                                     (Methods.desc eq classInfo.outerMethodDesc)
                         }.firstOrNull()?.get(Methods.id)
                     }
@@ -151,19 +151,8 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
         }
     }
 
-
-    private fun String.findSymbol(): Long {
-        return symbolsCache.getOrPut(this) {
-            Symbols.select { Symbols.name eq this@findSymbol }.firstOrNull()?.get(Symbols.id)?.value
-                ?: kotlin.run {
-                    val id = classNameIdGen.incrementAndGet()
-                    Symbols.batchInsert(listOf(this), shouldReturnGeneratedValues = false) {
-                        this[Symbols.id] = id
-                        this[Symbols.name] = it
-                    }
-                    id
-                }
-        }
+    private fun String.findCacheSymbol(): Long {
+        return symbolsCache[this] ?: throw IllegalStateException("Symbol $this is required in cache. Please setup cache first")
     }
 
     private fun Collection<String>.setup() {

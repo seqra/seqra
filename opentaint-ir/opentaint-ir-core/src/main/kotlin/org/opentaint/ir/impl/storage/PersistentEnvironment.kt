@@ -17,16 +17,6 @@ import java.io.File
 class PersistentEnvironment(location: File? = null, clearOnStart: Boolean) : Closeable {
 
     companion object : KLogging()
-//    private val home = (location?.toPath() ?: Paths.get(System.getProperty("user.home"), ".jdbc")).let {
-//        val file = it.toFile()
-//        if (!file.exists() && !file.mkdirs()) {
-//            throw DataStorageException("can't create storage in ${file.absolutePath}")
-//        }
-//        file
-//    }
-
-//    private val env = Environments.newInstance(home, EnvironmentConfig().setEnvCloseForcedly(true))
-//    private val persistentEntityStore = PersistentEntityStores.newInstance(env, id)
 
     private val dataSource = SQLiteDataSource(SQLiteConfig().also {
         it.setSynchronous(SQLiteConfig.SynchronousMode.OFF)
