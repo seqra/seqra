@@ -1,37 +1,40 @@
 package org.opentaint.ir
 
 import org.opentaint.ir.api.JIRDB
+import org.opentaint.ir.api.JIRDBPersistence
+import org.opentaint.ir.impl.FeaturesRegistry
 import org.opentaint.ir.impl.JIRDBImpl
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.asByteCodeLocation
-import org.opentaint.ir.impl.storage.PersistentEnvironment
+import org.opentaint.ir.impl.storage.SQLitePersistenceImpl
 import java.io.File
 
 suspend fun jirdb(builder: JIRDBSettings.() -> Unit): JIRDB {
     val settings = JIRDBSettings().also(builder)
     val persistentSettings = settings.persistentSettings
+    val featureRegistry = FeaturesRegistry(settings.fullFeatures)
     if (persistentSettings != null) {
-        val environment = persistentSettings.toEnvironment()
+        val environment = persistentSettings.toEnvironment(featureRegistry)
         if (environment != null) {
-            val restoredLocations = environment.allByteCodeLocations
-            val byteCodeLocations = restoredLocations.map { it.second }.toList()
+            val restoredLocations = environment.locations.toSet()
             val notLoaded = (
                     JavaRuntime(settings.jre).allLocations +
                             settings.predefinedDirOrJars
                                 .filter { it.exists() }
                                 .map { it.asByteCodeLocation(isRuntime = false) }
-                    ).toSet() - byteCodeLocations.toSet()
+                    ).toSet() - restoredLocations
             val database = JIRDBImpl(
-                persistentEnvironment = environment,
+                persistence = environment,
+                featureRegistry = featureRegistry,
                 settings = settings
             )
-            database.restoreDataFrom(restoredLocations.toMap())
+            environment.setup()
             database.loadLocations(notLoaded.toList())
             database.afterStart()
             return database
         }
     }
-    val database = JIRDBImpl(null, settings)
+    val database = JIRDBImpl(null, featureRegistry, settings)
     database.loadJavaLibraries()
     if (settings.predefinedDirOrJars.isNotEmpty()) {
         database.load(settings.predefinedDirOrJars)
@@ -43,8 +46,8 @@ suspend fun jirdb(builder: JIRDBSettings.() -> Unit): JIRDB {
     return database
 }
 
-private fun JIRDBPersistentSettings.toEnvironment(): PersistentEnvironment? {
-    return this.location?.let {
-        PersistentEnvironment(File(it), clearOnStart)
+private fun JIRDBPersistentSettings.toEnvironment(featuresRegistry: FeaturesRegistry): JIRDBPersistence? {
+    return location?.let {
+        SQLitePersistenceImpl(featuresRegistry, File(it), clearOnStart)
     }
 }

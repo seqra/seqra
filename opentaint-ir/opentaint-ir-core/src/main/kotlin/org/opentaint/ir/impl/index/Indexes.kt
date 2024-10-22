@@ -1,9 +1,9 @@
 package org.opentaint.ir.impl.index
 
-import org.opentaint.ir.api.ByteCodeIndexBuilder
+import org.opentaint.ir.api.ByteCodeIndexer
 import org.opentaint.ir.impl.tree.ClassNode
 
-suspend fun index(node: ClassNode, builder: ByteCodeIndexBuilder<*, *>) {
+suspend fun index(node: ClassNode, builder: ByteCodeIndexer) {
     val asmNode = node.fullByteCode()
     builder.index(asmNode)
     asmNode.methods.forEach {

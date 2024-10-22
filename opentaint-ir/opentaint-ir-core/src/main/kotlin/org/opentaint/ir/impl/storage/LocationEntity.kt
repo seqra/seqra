@@ -3,10 +3,13 @@ package org.opentaint.ir.impl.storage
 
 import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.encodeToByteArray
+import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.batchInsert
 import org.jetbrains.exposed.sql.insertAndGetId
+import org.jetbrains.exposed.sql.max
 import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 import org.opentaint.ir.api.ByteCodeLocation
@@ -15,25 +18,27 @@ import org.opentaint.ir.impl.types.ClassInfo
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
-private val symbolsCache = HashMap<String, Long>()
-private val classIdGen = AtomicInteger()
-private val classNameIdGen = AtomicLong()
-private val methodIdGen = AtomicLong()
-private val fieldIdGen = AtomicLong()
-private val methodParamIdGen = AtomicLong()
+class PersistenceService(private val persistence: SQLitePersistenceImpl) {
 
-class LocationStore(private val dbStore: PersistentEnvironment) {
+    private val symbolsCache = HashMap<String, Long>()
+    private val classIdGen = AtomicInteger()
+    private val symbolsIdGen = AtomicLong()
+    private val methodIdGen = AtomicLong()
+    private val fieldIdGen = AtomicLong()
+    private val methodParamIdGen = AtomicLong()
 
-    val all: Sequence<BytecodeLocationEntity>
-        get() {
-            return transaction {
-                BytecodeLocationEntity.all()
-            }.asSequence()
-        }
 
-    fun findOrNewTx(location: ByteCodeLocation): BytecodeLocationEntity {
-        return transaction {
-            location.findOrNew()
+    fun setup() {
+        transaction(persistence.db) {
+            SymbolEntity.all().forEach {
+                symbolsCache[it.name] = it.id.value
+            }
+
+            classIdGen.set(Classes.maxId ?: 0)
+            symbolsIdGen.set(Symbols.maxId ?: 0)
+            methodIdGen.set(Methods.maxId ?: 0)
+            fieldIdGen.set(Fields.maxId ?: 0)
+            methodParamIdGen.set(MethodParameters.maxId ?: 0)
         }
     }
 
@@ -62,13 +67,13 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                 val id = classIdGen.incrementAndGet()
                 classIds[classInfo] = id
                 val packageName = classInfo.name.substringBeforeLast('.')
-                val pack = packageName.findCacheSymbol()
+                val pack = packageName.findCachedSymbol()
                 this[Classes.id] = id
                 this[Classes.access] = classInfo.access
                 this[Classes.locationId] = locationEntity.id
-                this[Classes.name] = classInfo.name.findCacheSymbol()
+                this[Classes.name] = classInfo.name.findCachedSymbol()
                 this[Classes.signature] = classInfo.signature
-                this[Classes.superClass] = classInfo.superClass?.findCacheSymbol()
+                this[Classes.superClass] = classInfo.superClass?.findCachedSymbol()
                 this[Classes.packageId] = pack
                 this[Classes.bytecode] = classInfo.bytecode
                 this[Classes.annotations] = classInfo.annotations.takeIf { it.isNotEmpty() }?.let {
@@ -80,23 +85,23 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                 if (classInfo.interfaces.isNotEmpty()) {
                     ClassInterfaces.batchInsert(classInfo.interfaces, shouldReturnGeneratedValues = false) {
                         this[ClassInterfaces.classId] = storedClassId
-                        this[ClassInterfaces.interfaceId] = it.findCacheSymbol()
+                        this[ClassInterfaces.interfaceId] = it.findCachedSymbol()
                     }
                 }
                 if (classInfo.innerClasses.isNotEmpty()) {
                     ClassInnerClasses.batchInsert(classInfo.innerClasses, shouldReturnGeneratedValues = false) {
                         this[ClassInnerClasses.classId] = storedClassId
-                        this[ClassInnerClasses.innerClassId] = it.findCacheSymbol()
+                        this[ClassInnerClasses.innerClassId] = it.findCachedSymbol()
                     }
                 }
                 val methodsResult = Methods.batchInsert(classInfo.methods, shouldReturnGeneratedValues = false) {
                     this[Methods.id] = methodIdGen.incrementAndGet()
                     this[Methods.access] = it.access
-                    this[Methods.name] = it.name.findCacheSymbol()
+                    this[Methods.name] = it.name.findCachedSymbol()
                     this[Methods.signature] = it.signature
                     this[Methods.desc] = it.desc
                     this[Methods.classId] = storedClassId
-                    this[Methods.returnClass] = it.returnType.findCacheSymbol()
+                    this[Methods.returnClass] = it.returnType.findCachedSymbol()
                     this[Methods.annotations] = it.annotations.takeIf { it.isNotEmpty() }?.let {
                         Cbor.encodeToByteArray(it)
                     }
@@ -112,7 +117,7 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                     this[MethodParameters.name] = param.name
                     this[MethodParameters.index] = param.index
                     this[MethodParameters.methodId] = methodId
-                    this[MethodParameters.parameterClass] = param.type.findCacheSymbol()
+                    this[MethodParameters.parameterClass] = param.type.findCachedSymbol()
                     this[MethodParameters.annotations] = param.annotations.takeIf { !it.isNullOrEmpty() }?.let {
                         Cbor.encodeToByteArray(it)
                     }
@@ -121,9 +126,9 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                     this[Fields.id] = fieldIdGen.incrementAndGet()
                     this[Fields.classId] = storedClassId
                     this[Fields.access] = it.access
-                    this[Fields.name] = it.name.findCacheSymbol()
+                    this[Fields.name] = it.name.findCachedSymbol()
                     this[Fields.signature] = it.signature
-                    this[Fields.fieldClass] = it.type.findCacheSymbol()
+                    this[Fields.fieldClass] = it.type.findCachedSymbol()
                     this[Fields.annotations] = it.annotations.takeIf { it.isNotEmpty() }?.let {
                         Cbor.encodeToByteArray(it)
                     }
@@ -142,7 +147,7 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
                     if (classInfo.outerMethod != null) {
                         it[outerMethod] = Methods.select {
                             (Methods.classId eq outerClazzId) and
-                                    (Methods.name eq classInfo.outerMethod.findCacheSymbol()) and
+                                    (Methods.name eq classInfo.outerMethod.findCachedSymbol()) and
                                     (Methods.desc eq classInfo.outerMethodDesc)
                         }.firstOrNull()?.get(Methods.id)
                     }
@@ -151,18 +156,25 @@ class LocationStore(private val dbStore: PersistentEnvironment) {
         }
     }
 
-    private fun String.findCacheSymbol(): Long {
-        return symbolsCache[this] ?: throw IllegalStateException("Symbol $this is required in cache. Please setup cache first")
+    private fun String.findCachedSymbol(): Long {
+        return symbolsCache[this]
+            ?: throw IllegalStateException("Symbol $this is required in cache. Please setup cache first")
     }
 
     private fun Collection<String>.setup() {
         val forCreation = filter { !symbolsCache.containsKey(it) }
         Symbols.batchInsert(forCreation, shouldReturnGeneratedValues = false) {
-            val id = classNameIdGen.incrementAndGet()
+            val id = symbolsIdGen.incrementAndGet()
             symbolsCache[it] = id
             this[Symbols.id] = id
             this[Symbols.name] = it
             this[Symbols.hash] = it.longHash
         }
     }
+
+    private val <T : Comparable<T>> IdTable<T>.maxId: T?
+        get() {
+            val maxId = slice(id.max()).selectAll().firstOrNull() ?: return null
+            return maxId[id.max()]?.value
+        }
 }

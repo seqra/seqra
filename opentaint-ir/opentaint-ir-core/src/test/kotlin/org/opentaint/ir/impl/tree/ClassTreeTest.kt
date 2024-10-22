@@ -93,7 +93,7 @@ class ClassTreeTest {
         return ClassByteCodeSource(
             className = name,
             location = this,
-            bytecode = ByteArray(10)
+            binaryByteCode = ByteArray(10)
         )
     }
 

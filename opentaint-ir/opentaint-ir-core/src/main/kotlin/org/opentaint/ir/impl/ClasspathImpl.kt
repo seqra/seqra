@@ -3,7 +3,6 @@ package org.opentaint.ir.impl
 import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.ClassId
 import org.opentaint.ir.api.Classpath
-import org.opentaint.ir.api.IndexRequest
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.impl.index.hierarchyExt
 import org.opentaint.ir.impl.tree.ClassTree
@@ -53,14 +52,9 @@ class ClasspathImpl(
         return hierarchyExt.findSubClasses(classId, allHierarchy)
     }
 
-    override suspend fun <T: Serializable, REQ: IndexRequest> query(key: String, term: REQ): List<T> {
+    override suspend fun <RES: Serializable, REQ : Serializable> query(key: String, req: REQ): Sequence<RES> {
         db.awaitBackgroundJobs()
-        return featuresRegistry.findIndex<T, REQ>(key)?.query(term).orEmpty().toList()
-    }
-
-    override suspend fun <T: Serializable, REQ: IndexRequest> query(key: String, location: ByteCodeLocation, term: REQ): List<T> {
-        db.awaitBackgroundJobs()
-        return featuresRegistry.findIndex<T, REQ>(key)?.query(term).orEmpty().toList()
+        return featuresRegistry.findIndex<RES, REQ>(key)?.query(req).orEmpty()
     }
 
     override fun close() {

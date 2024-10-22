@@ -43,7 +43,7 @@ fun main() {
             useProcessJavaRuntime()
 //            predefinedDirOrJars = allClasspath
             persistent {
-                location = "D:\\work\\jirdb\\sqlite-db.db"
+                location = "D:\\work\\jirdb\\jirdb.db"
             }
             installFeatures(Usages)
         }.also {

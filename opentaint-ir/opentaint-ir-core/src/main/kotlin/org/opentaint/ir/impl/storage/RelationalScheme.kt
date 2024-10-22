@@ -110,13 +110,29 @@ object MethodParameters : LongIdTable() {
 
     val methodId = reference("method_id", Methods.id, onDelete = ReferenceOption.CASCADE)
     val annotations = binary("annotation_data").nullable()
+}
 
+object Annotations : LongIdTable() {
+    val name = reference("annotation_name", Symbols.id)
 }
 
 object AnnotationValues : LongIdTable() {
-    val index = integer("index")
-    val name = reference("name", Symbols.id)
+    val annotation = reference("annotation_id", Annotations.id)
+    val name = varchar("name", 256)
+    val refValue = reference("ref_annotation_id", Annotations.id).nullable()
+    val type = enumeration<AnnotationValueKind>("kind").nullable()
+    val value = blob("value").nullable()
+}
 
-    val annotations = binary("annotation_data").nullable()
-
+//private val annotationValues = AnnotationValueKind.values().associateBy { it.value }
+enum class AnnotationValueKind {
+    BOOLEAN,
+    BYTE,
+    CHAR,
+    SHORT,
+    INT,
+    FLOAT,
+    LONG,
+    DOUBLE,
+    STRING
 }

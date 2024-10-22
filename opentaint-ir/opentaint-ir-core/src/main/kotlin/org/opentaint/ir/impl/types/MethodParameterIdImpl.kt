@@ -23,7 +23,7 @@ class MethodParameterIdImpl(private val info: ParameterInfo, private val classpa
     }
 
 
-    override suspend fun type() = lazyType()
+    override suspend fun paramClassId() = lazyType()
 
     override suspend fun annotations() = lazyAnnotations().orEmpty()
 }
