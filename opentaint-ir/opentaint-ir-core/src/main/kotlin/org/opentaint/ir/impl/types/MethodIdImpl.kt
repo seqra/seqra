@@ -40,7 +40,7 @@ class MethodIdImpl(
     }
 
     override suspend fun returnType() =
-        classIdService.toClassId(methodInfo.returnType) ?: methodInfo.returnType.throwClassNotFound()
+        classIdService.toClassId(methodInfo.returnClass) ?: methodInfo.returnClass.throwClassNotFound()
 
     override suspend fun parameters() = lazyParameters()
 

@@ -40,7 +40,7 @@ class AnnotationIdImpl(
             is ClassRef -> classpath.findClassOrNull(value.name)
             is EnumRef -> classpath.findClassOrNull(value.name)?.enumValues()?.firstOrNull { it.name == value.name }
             is AnnotationInfo -> AnnotationIdImpl(value, classpath)
-            is AnnotationValues -> value.annotations.map { fixValue(it) }
+            is AnnotationValueList -> value.annotations.map { fixValue(it) }
         }
     }
 }

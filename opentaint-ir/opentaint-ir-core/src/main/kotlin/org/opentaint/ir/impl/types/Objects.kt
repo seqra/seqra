@@ -61,10 +61,10 @@ class MethodInfo(
             return name + desc
         }
         val params = parameters.joinToString(";") + (";".takeIf { parameters.isNotEmpty() } ?: "")
-        return "$name($params)${returnType};"
+        return "$name($params)${returnClass};"
     }
 
-    val returnType: String get() = Type.getReturnType(desc).className
+    val returnClass: String get() = Type.getReturnType(desc).className
     val parameters: List<String> get() = Type.getArgumentTypes(desc).map { it.className }.toImmutableList()
 
 }
@@ -82,7 +82,7 @@ class FieldInfo(
 class AnnotationInfo(
     val className: String,
     val visible: Boolean,
-    val values: List<AnnotationValue>
+    val values: List<Pair<String, AnnotationValue>>
 ) : AnnotationValue()
 
 @Serializable
@@ -91,7 +91,7 @@ class ParameterInfo(
     val index: Int,
     val access: Int,
     val name: String?,
-    val annotations: List<AnnotationInfo>?
+    val annotations: List<AnnotationInfo>
 )
 
 @Serializable
@@ -112,7 +112,7 @@ class ArrayClassInfo(
 sealed class AnnotationValue
 
 @Serializable
-open class AnnotationValues(val annotations: List<AnnotationValue>) : AnnotationValue()
+open class AnnotationValueList(val annotations: List<AnnotationValue>) : AnnotationValue()
 
 @Serializable(with = PrimitiveValueSerializer::class)
 class PrimitiveValue(val dataType: String, val value: Any): AnnotationValue()
@@ -168,7 +168,7 @@ object PrimitiveValueSerializer : KSerializer<PrimitiveValue> {
 }
 
 @Serializable
-class ClassRef(val name: String) : AnnotationValue()
+class ClassRef(val className: String) : AnnotationValue()
 
 @Serializable
-class EnumRef(val className: String, val name: String) : AnnotationValue()
+class EnumRef(val className: String, val enumName: String) : AnnotationValue()

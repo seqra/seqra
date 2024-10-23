@@ -68,7 +68,6 @@ class SQLitePersistenceImpl(
                 it.persistence?.beforeIndexing(clearOnStart)
             }
         }
-
         persistenceService.setup()
     }
 
@@ -106,14 +105,13 @@ class SQLitePersistenceImpl(
     }
 
     override fun persist(location: ByteCodeLocation, classes: List<ByteCodeContainer>) {
-        persistenceService.saveClasses(location, classes.map {
+        persistenceService.persist(location, classes.map {
             it.classNode.asClassInfo(it.binary)
         })
     }
 
     override fun close() {
     }
-
 
 }
 

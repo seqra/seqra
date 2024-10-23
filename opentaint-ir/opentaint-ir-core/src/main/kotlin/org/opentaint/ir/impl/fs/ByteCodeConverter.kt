@@ -8,7 +8,7 @@ import org.objectweb.asm.tree.FieldNode
 import org.objectweb.asm.tree.MethodNode
 import org.opentaint.ir.impl.types.AnnotationInfo
 import org.opentaint.ir.impl.types.AnnotationValue
-import org.opentaint.ir.impl.types.AnnotationValues
+import org.opentaint.ir.impl.types.AnnotationValueList
 import org.opentaint.ir.impl.types.ClassInfo
 import org.opentaint.ir.impl.types.ClassRef
 import org.opentaint.ir.impl.types.EnumRef
@@ -31,20 +31,23 @@ interface ByteCodeConverter {
         }.toImmutableList(),
         outerMethod = outerMethod,
         outerMethodDesc = outerMethodDesc,
-        superClass = superName?.let { Type.getObjectType(it).className },
-        interfaces = interfaces.map { Type.getObjectType(it).className }.toImmutableList(),
+        superClass = superName?.className,
+        interfaces = interfaces.map { it.className }.toImmutableList(),
         methods = methods.map { it.asMethodInfo() }.toImmutableList(),
         fields = fields.map { it.asFieldInfo() }.toImmutableList(),
         annotations = visibleAnnotations.asAnnotationInfos(true) + invisibleAnnotations.asAnnotationInfos(false),
         bytecode = bytecode
     )
 
+    private val String.className: String
+        get() = Type.getObjectType(this).className
+
     private fun ClassNode.outerClassName(): OuterClassRef? {
         val innerRef = innerClasses.firstOrNull { it.name == name }
 
-        val direct = outerClass?.let { Type.getObjectType(it).className }
+        val direct = outerClass?.className
         if (direct == null && innerRef != null) {
-            return OuterClassRef(Type.getObjectType(innerRef.outerName).className, innerRef.innerName)
+            return OuterClassRef(innerRef.outerName.className, innerRef.innerName)
         }
         return direct?.let {
             OuterClassRef(it, innerRef?.innerName)
@@ -55,17 +58,20 @@ interface ByteCodeConverter {
         return when (this) {
             is Type -> ClassRef(className)
             is AnnotationNode -> asAnnotationInfo(true)
-            is List<*> -> AnnotationValues(mapNotNull { it?.toAnnotationValue() })
-            is Array<*> -> EnumRef(Type.getType((get(0) as String)).className, get(1) as String)
-            is String, is Short, is Byte, is Boolean, is Long, is Double, is Float, is Int -> PrimitiveValue(this::class.java.simpleName, this)
+            is List<*> -> AnnotationValueList(mapNotNull { it?.toAnnotationValue() })
+            is Array<*> -> EnumRef((get(0) as String).className, get(1) as String)
+            is String, is Short, is Byte, is Boolean, is Long, is Double, is Float, is Int -> PrimitiveValue(
+                this::class.java.simpleName,
+                this
+            )
             else -> throw IllegalStateException("Unknown type: ${javaClass.name}")
         }
     }
 
-    private fun AnnotationNode.asAnnotationInfo(visible: Boolean): AnnotationInfo = AnnotationInfo(
+    private fun AnnotationNode.asAnnotationInfo(visible: Boolean) = AnnotationInfo(
         className = Type.getType(desc).className,
         visible = visible,
-        values = values?.map { it.toAnnotationValue() }.orEmpty()
+        values = values?.chunked(2)?.map { (it[0] as String) to it[1].toAnnotationValue() }.orEmpty()
     )
 
     private fun List<AnnotationNode>?.asAnnotationInfos(visible: Boolean): List<AnnotationInfo> =
@@ -85,11 +91,8 @@ interface ByteCodeConverter {
                     name = node.name,
                     access = node.access,
                     type = params[index],
-                    annotations = (visibleParameterAnnotations?.get(index)?.let { it.asAnnotationInfos(true) }
-                        .orEmpty() +
-                            invisibleParameterAnnotations?.get(index)?.let { it.asAnnotationInfos(false) }
-                                .orEmpty())
-                        .takeIf { it.isNotEmpty() }
+                    annotations = visibleParameterAnnotations?.get(index)?.asAnnotationInfos(true).orEmpty()
+                            + invisibleParameterAnnotations?.get(index)?.asAnnotationInfos(false).orEmpty()
                 )
             }.orEmpty()
         )
@@ -99,7 +102,7 @@ interface ByteCodeConverter {
         name = name,
         signature = signature,
         access = access,
-        type = Type.getType(desc).className,
+        type = desc.className,
         annotations = visibleAnnotations.asAnnotationInfos(true) + visibleAnnotations.asAnnotationInfos(false)
     )
 }
