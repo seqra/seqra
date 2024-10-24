@@ -15,6 +15,8 @@ import kotlinx.serialization.encoding.decodeStructure
 import kotlinx.serialization.encoding.encodeStructure
 import kotlinx.serialization.serializer
 import org.objectweb.asm.Type
+import org.opentaint.ir.api.TypeName
+import org.opentaint.ir.impl.storage.AnnotationValueKind
 
 @Serializable
 sealed class ClassInfoContainer
@@ -115,7 +117,7 @@ sealed class AnnotationValue
 open class AnnotationValueList(val annotations: List<AnnotationValue>) : AnnotationValue()
 
 @Serializable(with = PrimitiveValueSerializer::class)
-class PrimitiveValue(val dataType: String, val value: Any): AnnotationValue()
+class PrimitiveValue(val dataType: AnnotationValueKind, val value: Any) : AnnotationValue()
 
 object PrimitiveValueSerializer : KSerializer<PrimitiveValue> {
     override val descriptor: SerialDescriptor = buildClassSerialDescriptor("PrimitiveValue") {
@@ -124,39 +126,39 @@ object PrimitiveValueSerializer : KSerializer<PrimitiveValue> {
     }
 
     @Suppress("UNCHECKED_CAST")
-    private val dataTypeSerializers: Map<String, KSerializer<Any>> =
+    private val dataTypeSerializers: Map<AnnotationValueKind, KSerializer<Any>> =
         mapOf(
-            "String" to serializer<String>(),
-            "Short" to serializer<Short>(),
-            "Character" to serializer<Char>(),
-            "Long" to serializer<Long>(),
-            "Integer" to serializer<Int>(),
-            "Float" to serializer<Float>(),
-            "Double" to serializer<Double>(),
-            "Byte" to serializer<Byte>(),
-            "Boolean" to serializer<Boolean>()
+            AnnotationValueKind.STRING to serializer<String>(),
+            AnnotationValueKind.BYTE to serializer<Byte>(),
+            AnnotationValueKind.SHORT to serializer<Short>(),
+            AnnotationValueKind.CHAR to serializer<Char>(),
+            AnnotationValueKind.LONG to serializer<Long>(),
+            AnnotationValueKind.INT to serializer<Int>(),
+            AnnotationValueKind.FLOAT to serializer<Float>(),
+            AnnotationValueKind.DOUBLE to serializer<Double>(),
+            AnnotationValueKind.BYTE to serializer<Byte>(),
+            AnnotationValueKind.BOOLEAN to serializer<Boolean>()
             //list them all
         ).mapValues { (_, v) -> v as KSerializer<Any> }
 
-    private fun getPayloadSerializer(dataType: String): KSerializer<Any> = dataTypeSerializers[dataType]
+    private fun getPayloadSerializer(dataType: AnnotationValueKind): KSerializer<Any> = dataTypeSerializers[dataType]
         ?: throw SerializationException("Serializer for class $dataType is not registered in PacketSerializer")
 
     override fun serialize(encoder: Encoder, value: PrimitiveValue) {
         encoder.encodeStructure(descriptor) {
-            encodeStringElement(descriptor, 0, value.dataType)
+            encodeStringElement(descriptor, 0, value.dataType.name)
             encodeSerializableElement(descriptor, 1, getPayloadSerializer(value.dataType), value.value)
         }
     }
 
     @ExperimentalSerializationApi
     override fun deserialize(decoder: Decoder): PrimitiveValue = decoder.decodeStructure(descriptor) {
+        val dataType = AnnotationValueKind.valueOf(decodeStringElement(descriptor, 0))
         if (decodeSequentially()) {
-            val dataType = decodeStringElement(descriptor, 0)
             val payload = decodeSerializableElement(descriptor, 1, getPayloadSerializer(dataType))
             PrimitiveValue(dataType, payload)
         } else {
             require(decodeElementIndex(descriptor) == 0) { "dataType field should precede payload field" }
-            val dataType = decodeStringElement(descriptor, 0)
             val payload = when (val index = decodeElementIndex(descriptor)) {
                 1 -> decodeSerializableElement(descriptor, 1, getPayloadSerializer(dataType))
                 CompositeDecoder.DECODE_DONE -> throw SerializationException("payload field is missing")
@@ -172,3 +174,6 @@ class ClassRef(val className: String) : AnnotationValue()
 
 @Serializable
 class EnumRef(val className: String, val enumName: String) : AnnotationValue()
+
+@Serializable
+data class TypeNameImpl(override val typeName: String) : TypeName

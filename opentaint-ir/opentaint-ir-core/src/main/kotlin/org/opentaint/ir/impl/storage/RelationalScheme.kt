@@ -15,8 +15,9 @@ object ClasspathLocations : LongIdTable() {
 
 object BytecodeLocations : LongIdTable() {
     val path = varchar("path", length = 1024)
+    val hash = varchar("hash", length = 1024)
     val runtime = bool("runtime").default(false)
-    val outdated = reference("outdated_id", BytecodeLocations.id).nullable()
+    val updated = reference("updated_id", BytecodeLocations.id).nullable()
 }
 
 object Symbols : LongIdTable() {

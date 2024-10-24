@@ -1,12 +1,12 @@
 package org.opentaint.ir.impl.fs
 
 import mu.KLogging
-import org.opentaint.ir.api.ByteCodeLocation
+import org.opentaint.ir.api.JIRByteCodeLocation
 import java.io.File
 
 val logger = object : KLogging() {}.logger
 
-fun File.asByteCodeLocation(loadClassesOnlyFrom: List<String>? = null, isRuntime: Boolean = false): ByteCodeLocation {
+fun File.asByteCodeLocation(isRuntime: Boolean = false): JIRByteCodeLocation {
     if (!exists()) {
         throw IllegalArgumentException("file $absolutePath doesn't exist")
     }

@@ -4,29 +4,32 @@ import org.jetbrains.exposed.dao.LongEntity
 import org.jetbrains.exposed.dao.LongEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.sql.SizedIterable
+import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insertAndGetId
-import org.opentaint.ir.api.ByteCodeLocation
-import org.opentaint.ir.api.LocationScope
+import org.opentaint.ir.api.JIRByteCodeLocation
+import org.opentaint.ir.api.LocationType
 
 class BytecodeLocationEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<BytecodeLocationEntity>(BytecodeLocations) {
 
-        fun ByteCodeLocation.findOrNew(): BytecodeLocationEntity {
+        fun JIRByteCodeLocation.findOrNew(): BytecodeLocationEntity {
             return findOrNull() ?: BytecodeLocationEntity[BytecodeLocations.insertAndGetId {
                 it[path] = this@findOrNew.path
-                it[runtime] = scope == LocationScope.RUNTIME
+                it[hash] = this@findOrNew.hash
+                it[runtime] = type == LocationType.RUNTIME
             }]
         }
 
-        fun ByteCodeLocation.findOrNull(): BytecodeLocationEntity? {
-            return BytecodeLocationEntity.find { BytecodeLocations.path eq path }.firstOrNull()
+        fun JIRByteCodeLocation.findOrNull(): BytecodeLocationEntity? {
+            return BytecodeLocationEntity.find { BytecodeLocations.path eq path and (BytecodeLocations.hash eq hash) }.firstOrNull()
         }
     }
 
     var path by BytecodeLocations.path
+    var hash by BytecodeLocations.hash
     var runtime by BytecodeLocations.runtime
 
-    val outdated by BytecodeLocationEntity optionalReferrersOn BytecodeLocations.outdated
+    var updated by BytecodeLocationEntity optionalReferencedOn BytecodeLocations.updated
     val classes: SizedIterable<ClassEntity> by ClassEntity referrersOn Classes.locationId
 }
 

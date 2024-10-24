@@ -23,7 +23,7 @@ class SearchReversedUsagesTest : LibrariesMixin {
         }
     }
 
-    private val cp = runBlocking { db.classpathSet(allClasspath) }
+    private val cp = runBlocking { db.classpath(allClasspath) }
 
     @Test
     fun `classes read fields`() {
@@ -110,11 +110,11 @@ class SearchReversedUsagesTest : LibrariesMixin {
         return runBlocking {
             val classId = cp.findClass<T>()
 
-            val fields = classId.fields()
+            val fields = classId.fields
             val usageExt = cp.reversedUsagesExt
 
             fields.map {
-                it.name to usageExt.findUsages(it, mode).map { it.classId.name + "#" + it.name }.toSortedSet()
+                it.name to usageExt.findUsages(it, mode).map { it.jirClass.name + "#" + it.name }.toSortedSet()
             }
                 .toMap()
                 .filterNot { it.value.isEmpty() }
@@ -125,11 +125,11 @@ class SearchReversedUsagesTest : LibrariesMixin {
     private inline fun <reified T> methodsUsages(): Map<String, Set<String>> {
         return runBlocking {
             val classId = cp.findClass<T>()
-            val methods = classId.methods()
+            val methods = classId.methods
             val usageExt = cp.reversedUsagesExt
 
             methods.map {
-                it.name to usageExt.findUsages(it).map { it.classId.name + "#" + it.name }.toSortedSet()
+                it.name to usageExt.findUsages(it).map { it.jirClass.name + "#" + it.name }.toSortedSet()
             }
                 .toMap()
                 .filterNot { it.value.isEmpty() }

@@ -2,15 +2,14 @@ package org.opentaint.ir.impl.signature
 
 import org.objectweb.asm.signature.SignatureReader
 import org.objectweb.asm.signature.SignatureVisitor
-import org.opentaint.ir.api.Classpath
 import org.opentaint.ir.api.Resolution
 
-abstract class Signature<T : Resolution>(protected val cp: Classpath) :
-    GenericTypeRegistrant.RejectingSignatureVisitor(), GenericTypeRegistrant {
+internal abstract class Signature<T : Resolution>() :
+    TypeRegistrant.RejectingSignatureVisitor(), TypeRegistrant {
 
     protected val typeVariables = ArrayList<FormalTypeVariable>()
     protected var currentTypeParameter: String? = null
-    protected var currentBounds: MutableList<GenericType>? = null
+    protected var currentBounds: MutableList<SType>? = null
 
     override fun visitFormalTypeParameter(name: String) {
         collectTypeParameter()
@@ -19,14 +18,14 @@ abstract class Signature<T : Resolution>(protected val cp: Classpath) :
     }
 
     override fun visitClassBound(): SignatureVisitor {
-        return GenericTypeExtractor(cp, this)
+        return TypeExtractor(this)
     }
 
     override fun visitInterfaceBound(): SignatureVisitor {
-        return GenericTypeExtractor(cp, this)
+        return TypeExtractor(this)
     }
 
-    override fun register(token: GenericType) {
+    override fun register(token: SType) {
         checkNotNull(currentBounds) { "Did not expect $token before finding formal parameter" }
         currentBounds!!.add(token)
     }

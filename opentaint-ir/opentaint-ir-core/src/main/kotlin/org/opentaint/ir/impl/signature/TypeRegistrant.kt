@@ -3,9 +3,9 @@ package org.opentaint.ir.impl.signature
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.signature.SignatureVisitor
 
-interface GenericTypeRegistrant {
+internal interface TypeRegistrant {
 
-    fun register(token: GenericType)
+    fun register(token: SType)
 
     open class RejectingSignatureVisitor : SignatureVisitor(Opcodes.ASM9) {
 

@@ -6,11 +6,11 @@ import org.opentaint.ir.api.Malformed
 import org.opentaint.ir.api.Raw
 import org.opentaint.ir.api.RecordComponentResolution
 
-class RecordSignature(private val cp: Classpath) : GenericTypeRegistrant {
+class RecordSignature(private val cp: Classpath) : TypeRegistrant {
 
-    private lateinit var recordComponentType: GenericType
+    private lateinit var recordComponentType: SType
 
-    override fun register(token: GenericType) {
+    override fun register(token: SType) {
         recordComponentType = token
     }
 
@@ -24,7 +24,7 @@ class RecordSignature(private val cp: Classpath) : GenericTypeRegistrant {
             val signatureReader = SignatureReader(signature)
             val visitor = RecordSignature(cp)
             return try {
-                signatureReader.acceptType(GenericTypeExtractor(cp, visitor))
+                signatureReader.acceptType(TypeExtractor(cp, visitor))
                 visitor.resolve()
             } catch (ignored: RuntimeException) {
                 Malformed

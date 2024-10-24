@@ -32,7 +32,7 @@ class ApiExtTest : LibrariesMixin {
         }
     }
 
-    var cp = runBlocking { db!!.classpathSet(allClasspath) }
+    var cp = runBlocking { db!!.classpath(allClasspath) }
 
     @Test
     fun `unboxing primitive type`() = runBlocking {

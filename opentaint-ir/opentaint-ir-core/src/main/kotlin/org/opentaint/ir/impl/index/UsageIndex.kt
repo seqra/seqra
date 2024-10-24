@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl.index
 
+import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.and
@@ -14,20 +15,18 @@ import org.objectweb.asm.tree.FieldInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
 import org.objectweb.asm.tree.MethodNode
 import org.opentaint.ir.api.ByteCodeIndexer
-import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.Feature
 import org.opentaint.ir.api.FeaturePersistence
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRDBFeature
 import org.opentaint.ir.api.JIRDBPersistence
-import org.opentaint.ir.impl.storage.BytecodeLocationEntity.Companion.findOrNew
-import org.opentaint.ir.impl.storage.BytecodeLocationEntity.Companion.findOrNull
+import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.storage.SQLitePersistenceImpl
 import org.opentaint.ir.impl.storage.Symbols
 import org.opentaint.ir.impl.storage.longHash
 
 
-class ReversedUsageIndexer(private val jirdb: JIRDB, private val location: ByteCodeLocation) : ByteCodeIndexer {
+class ReversedUsageIndexer(private val jirdb: JIRDB, private val location: RegisteredLocation) : ByteCodeIndexer {
 
     // class method -> usages of methods|fields
     private val fieldsUsages = hashMapOf<Pair<Long, Long>, HashSet<Long>>()
@@ -62,7 +61,6 @@ class ReversedUsageIndexer(private val jirdb: JIRDB, private val location: ByteC
     override fun flush() {
         jirdb.persistence as SQLitePersistenceImpl
         transaction((jirdb.persistence as SQLitePersistenceImpl).db) {
-            val locationEntity = location.findOrNew()
             Calls.batchInsert(
                 fieldsUsages.entries.flatMap { entry -> entry.value.map { Pair(entry.key, it) } },
                 shouldReturnGeneratedValues = false
@@ -70,7 +68,7 @@ class ReversedUsageIndexer(private val jirdb: JIRDB, private val location: ByteC
                 this[Calls.callerClassHash] = it.first.first
                 this[Calls.callerFieldHash] = it.first.second
                 this[Calls.ownerClassHash] = it.second
-                this[Calls.locationId] = locationEntity.id.value
+                this[Calls.locationId] = location.id
             }
             Calls.batchInsert(
                 methodsUsages.entries.flatMap { entry -> entry.value.map { Pair(entry.key, it) } },
@@ -79,18 +77,19 @@ class ReversedUsageIndexer(private val jirdb: JIRDB, private val location: ByteC
                 this[Calls.callerClassHash] = it.first.first
                 this[Calls.callerMethodHash] = it.first.second
                 this[Calls.ownerClassHash] = it.second
-                this[Calls.locationId] = locationEntity.id.value
+                this[Calls.locationId] = location.id
             }
         }
     }
 
 }
 
+@Serializable
 data class UsageIndexRequest(
     val method: String?,
     val field: String?,
     val className: String
-)
+): java.io.Serializable
 
 
 private class JIRDBUsageFeature(override val jirdb: JIRDB) : JIRDBFeature<UsageIndexRequest, String> {
@@ -98,7 +97,8 @@ private class JIRDBUsageFeature(override val jirdb: JIRDB) : JIRDBFeature<UsageI
     override val persistence = object : FeaturePersistence {
 
         override val jirdbPersistence: JIRDBPersistence
-            get() = jirdb.persistence ?: throw IllegalStateException("JIRDB persistence is required for using feature persistence")
+            get() = jirdb.persistence
+                ?: throw IllegalStateException("JIRDB persistence is required for using feature persistence")
 
         override fun beforeIndexing(clearOnStart: Boolean) {
             if (clearOnStart) {
@@ -134,16 +134,12 @@ private class JIRDBUsageFeature(override val jirdb: JIRDB) : JIRDBFeature<UsageI
 
     }
 
-    override fun newIndexer(location: ByteCodeLocation) = ReversedUsageIndexer(jirdb, location)
+    override fun newIndexer(location: RegisteredLocation) = ReversedUsageIndexer(jirdb, location)
 
-    override fun onLocationRemoved(location: ByteCodeLocation) {
+    override fun onLocationRemoved(location: RegisteredLocation) {
         jirdb.persistence?.write {
-            val loc = location.findOrNull()
-            if (loc != null) {
-                Calls.deleteWhere { Calls.locationId eq loc.id.value }
-            }
+            Calls.deleteWhere { Calls.locationId eq location.id }
         }
-
     }
 }
 
@@ -161,7 +157,7 @@ object Calls : Table() {
     val callerFieldHash = long("caller_field_hash").nullable()
     val callerMethodHash = long("caller_method_hash").nullable()
     val ownerClassHash = long("owner_class_hash")
-    val locationId = integer("location_id")
+    val locationId = long("location_id")
 
 }
 

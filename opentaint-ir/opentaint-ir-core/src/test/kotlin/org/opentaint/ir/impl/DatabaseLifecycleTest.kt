@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.opentaint.ir.api.Classpath
+import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findClassOrNull
 import org.opentaint.ir.impl.fs.BuildFolderLocation
@@ -50,11 +50,11 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
     @Test
     fun `refresh is working when build dir is removed`() = runBlocking {
-        val cp = db!!.classpathSet(listOf(testDirClone))
+        val cp = db!!.classpath(listOf(testDirClone))
         val barKt = cp.findClass<BarKt>()
 
         assertTrue(testDirClone.deleteRecursively())
-        assertNull(barKt.methods().first().readBody())
+        assertNull(barKt.methods.first().body())
 
         db!!.refresh()
 
@@ -76,26 +76,26 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
     @Test
     fun `method could be read from build dir`() = runBlocking {
-        val cp = db!!.classpathSet(listOf(testDirClone))
+        val cp = db!!.classpath(listOf(testDirClone))
         val barKt = cp.findClassOrNull<BarKt>()
         assertNotNull(barKt!!)
 
         assertNotNull {
             runBlocking {
-                barKt.methods().first().readBody()
+                barKt.methods.first().body()
             }
         }
     }
 
     @Test
     fun `refresh is working when jar is removed`() = runBlocking {
-        val cp = db!!.classpathSet(listOf(guavaLibClone))
+        val cp = db!!.classpath(listOf(guavaLibClone))
         val abstractCacheClass = cp.findClassOrNull<AbstractCache<*,*>>()
         assertNotNull(abstractCacheClass!!)
         db!!.awaitBackgroundJobs() // is required for deleting jar
 
         assertTrue(guavaLibClone.delete())
-        assertNull(abstractCacheClass.methods().first().readBody())
+        assertNull(abstractCacheClass.methods.first().body())
 
         db!!.refresh()
         withRegistry {
@@ -115,25 +115,25 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
     @Test
     fun `method body could be read from jar`() = runBlocking {
-        val cp = db!!.classpathSet(listOf(guavaLibClone))
+        val cp = db!!.classpath(listOf(guavaLibClone))
         val abstractCacheClass = cp.findClassOrNull<AbstractCache<*,*>>()
         assertNotNull(abstractCacheClass!!)
 
         assertNotNull(
-            abstractCacheClass.methods().first().readBody()
+            abstractCacheClass.methods.first().body()
         )
     }
 
     @Test
     fun `simultaneous access to method body`() = runBlocking {
-        val cps = (1..10).map { db!!.classpathSet(listOf(guavaLibClone)) }
+        val cps = (1..10).map { db!!.classpath(listOf(guavaLibClone)) }
 
-        suspend fun Classpath.accessMethod() {
+        suspend fun JIRClasspath.accessMethod() {
             val abstractCacheClass = findClassOrNull<AbstractCache<*,*>>()
             assertNotNull(abstractCacheClass!!)
 
             assertNotNull(
-                abstractCacheClass.methods().first().readBody()
+                abstractCacheClass.methods.first().body()
             )
         }
 
@@ -155,10 +155,10 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
     @Test
     fun `jar should not be blocked after method read`() = runBlocking {
-        val cp = db!!.classpathSet(listOf(guavaLibClone))
+        val cp = db!!.classpath(listOf(guavaLibClone))
         val clazz = cp.findClassOrNull<Iterators>()
         assertNotNull(clazz!!)
-        assertNotNull(clazz.methods().first().readBody())
+        assertNotNull(clazz.methods.first().body())
         db!!.awaitBackgroundJobs()
         assertTrue(guavaLibClone.delete())
     }
@@ -174,7 +174,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
         db = null
     }
 
-    private fun withRegistry(action: LocationsRegistry.() -> Unit) {
+    private fun withRegistry(action: InMemoryLocationsRegistry.() -> Unit) {
         db!!.locationsRegistry.action()
     }
 }

@@ -1,51 +1,51 @@
-package org.opentaint.ir.impl.tree
+package org.opentaint.ir.impl.vfs
 
-import org.opentaint.ir.api.ByteCodeLocation
+import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.fs.ClassByteCodeSource
 import java.util.concurrent.ConcurrentHashMap
 
-open class ClassTree : AbstractClassTree<PackageNode, ClassNode>() {
+open class GlobalClassesVfs : AbstractClassVfs<PackageVfsItem, ClassVfsItem>() {
 
-    public override val rootNode = PackageNode(null, null)
+    public override val rootItem = PackageVfsItem(null, null)
 
-    override fun PackageNode.findClassOrNew(
+    override fun PackageVfsItem.findClassOrNew(
         simpleClassName: String,
         source: ClassByteCodeSource
-    ): ClassNode {
+    ): ClassVfsItem {
         val nameIndex = classes.getOrPut(simpleClassName) {
-            ConcurrentHashMap<String, ClassNode>()
+            ConcurrentHashMap<Long, ClassVfsItem>()
         }
-        return nameIndex.getOrPut(source.location.id) {
-            ClassNode(simpleClassName, this, source)
+        return nameIndex.getOrPut(source.locationId) {
+            ClassVfsItem(simpleClassName, this, source)
         }
     }
 
-    override fun PackageNode.findPackageOrNew(subfolderName: String): PackageNode {
+    override fun PackageVfsItem.findPackageOrNew(subfolderName: String): PackageVfsItem {
         return subpackages.getOrPut(subfolderName) {
-            PackageNode(subfolderName, this)
+            PackageVfsItem(subfolderName, this)
         }
     }
 
-    fun findClassNodeOrNull(codeLocation: ByteCodeLocation, fullName: String): ClassNode? {
+    fun findClassNodeOrNull(codeLocation: RegisteredLocation, fullName: String): ClassVfsItem? {
         val splitted = fullName.splitted
         val simpleClassName = splitted[splitted.size - 1]
         return findPackage(splitted)?.firstClassOrNull(simpleClassName, codeLocation.id)
     }
 
-    fun firstClassNodeOrNull(fullName: String, predicate: (String) -> Boolean = { true }): ClassNode? {
+    fun firstClassNodeOrNull(fullName: String, predicate: (Long) -> Boolean = { true }): ClassVfsItem? {
         val splitted = fullName.splitted
         val simpleClassName = splitted[splitted.size - 1]
         return findPackage(splitted)?.firstClassOrNull(simpleClassName, predicate)
     }
 
-    fun filterClassNodes(fullName: String, predicate: (ClassNode) -> Boolean = { true }): List<ClassNode> {
+    fun filterClassNodes(fullName: String, predicate: (ClassVfsItem) -> Boolean = { true }): List<ClassVfsItem> {
         val splitted = fullName.splitted
         val simpleClassName = splitted[splitted.size - 1]
         return findPackage(splitted)?.filterClassNodes(simpleClassName, predicate).orEmpty()
     }
 
-    private fun findPackage(splitted: List<String>): PackageNode? {
-        var node: PackageNode? = rootNode
+    private fun findPackage(splitted: List<String>): PackageVfsItem? {
+        var node: PackageVfsItem? = rootItem
         var index = 0
         while (index < (splitted.size - 1)) {
             if (node == null) {
@@ -58,8 +58,8 @@ open class ClassTree : AbstractClassTree<PackageNode, ClassNode>() {
         return node
     }
 
-    fun visit(visitor: NodeVisitor) {
-        rootNode.visit(visitor)
+    fun visit(visitor: VfsVisitor) {
+        rootItem.visit(visitor)
     }
 
 }

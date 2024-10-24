@@ -1,52 +1,53 @@
 package org.opentaint.ir.impl.fs
 
 import mu.KLogging
-import org.opentaint.ir.api.ByteCodeLoader
-import org.opentaint.ir.api.LocationScope
+import org.opentaint.ir.api.LocationType
 import java.io.File
 import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.streams.asSequence
 
-class BuildFolderLocation(private val folder: File) : AbstractByteCodeLocation(folder) {
+class BuildFolderLocation(folder: File) : AbstractByteCodeLocation(folder) {
 
     companion object : KLogging()
 
-    override val scope: LocationScope
-        get() = LocationScope.APP
+    override val type: LocationType
+        get() = LocationType.APP
 
-    override fun getCurrentId(): String {
-        var lastModifiedDate = folder.lastModified()
-        folder.walk().onEnter {
+    override val hash by lazy { currentHash() }
+
+    override fun currentHash(): String {
+        var lastModifiedDate = jarOrFolder.lastModified()
+        jarOrFolder.walk().onEnter {
             val lastModified = it.lastModified()
             if (lastModifiedDate < lastModified) {
                 lastModifiedDate = lastModified
             }
             true
         }
-        return folder.absolutePath + lastModifiedDate
+        return jarOrFolder.absolutePath + lastModifiedDate
     }
 
-    override fun createRefreshed() = BuildFolderLocation(folder)
+    override fun createRefreshed() = BuildFolderLocation(jarOrFolder)
 
-    override suspend fun loader(): ByteCodeLoader? {
+    override suspend fun classes(): Map<String, InputStream> {
         try {
             val classes = dirClasses()?.mapValues { (_, file) ->
                 Files.newInputStream(file.toPath())
-            } ?: return null
+            } ?: return emptyMap()
 
-            return ByteCodeLoaderImpl(this, classes)
+            return classes
         } catch (e: Exception) {
-            logger.warn(e) { "error loading classes from build folder: ${folder.absolutePath}. returning empty loader" }
-            return null
+            logger.warn(e) { "error loading classes from build folder: ${jarOrFolder.absolutePath}. returning empty loader" }
+            return emptyMap()
         }
     }
 
     override suspend fun resolve(classFullName: String): InputStream? {
         val pathArray = classFullName.split(".").toTypedArray()
         pathArray[pathArray.size - 1] = pathArray[pathArray.size - 1] + ".class"
-        val filePath = Paths.get(folder.absolutePath, *pathArray)
+        val filePath = Paths.get(jarOrFolder.absolutePath, *pathArray)
         if (!Files.exists(filePath)) {
             return null
         }
@@ -54,12 +55,12 @@ class BuildFolderLocation(private val folder: File) : AbstractByteCodeLocation(f
     }
 
     private fun dirClasses(): Map<String, File>? {
-        if (!folder.exists() || folder.isFile) {
+        if (!jarOrFolder.exists() || jarOrFolder.isFile) {
             return null
         }
-        val folderPath = folder.toPath().toAbsolutePath().toString()
+        val folderPath = jarOrFolder.toPath().toAbsolutePath().toString()
 
-        return Files.find(folder.toPath(), Int.MAX_VALUE, { path, _ -> path.toString().endsWith(".class") })
+        return Files.find(jarOrFolder.toPath(), Int.MAX_VALUE, { path, _ -> path.toString().endsWith(".class") })
             .asSequence().map {
                 val className = it.toAbsolutePath().toString()
                     .substringAfter(folderPath + File.separator)
@@ -70,16 +71,16 @@ class BuildFolderLocation(private val folder: File) : AbstractByteCodeLocation(f
 
     }
 
-    override fun toString() = folder.absolutePath
+    override fun toString() = jarOrFolder.absolutePath
 
     override fun equals(other: Any?): Boolean {
         if (other == null || other !is BuildFolderLocation) {
             return false
         }
-        return other.folder == folder
+        return other.jarOrFolder == jarOrFolder
     }
 
     override fun hashCode(): Int {
-        return folder.hashCode()
+        return jarOrFolder.hashCode()
     }
 }

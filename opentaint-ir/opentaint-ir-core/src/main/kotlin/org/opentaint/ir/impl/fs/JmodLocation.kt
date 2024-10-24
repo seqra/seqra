@@ -5,7 +5,7 @@ import java.io.InputStream
 
 class JmodLocation(file: File) : JarLocation(file, true) {
 
-    override fun createRefreshed() = JmodLocation(file)
+    override fun createRefreshed() = JmodLocation(jarOrFolder)
 
     override val jarWithClasses: JarWithClasses?
         get() {

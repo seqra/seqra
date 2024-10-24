@@ -1,39 +1,39 @@
 package org.opentaint.ir.impl.signature
 
 import org.objectweb.asm.signature.SignatureVisitor
-import org.opentaint.ir.api.Classpath
-import org.opentaint.ir.impl.signature.GenericTypeExtractor.IncompleteToken.InnerClass
-import org.opentaint.ir.impl.signature.GenericTypeExtractor.IncompleteToken.TopLevelType
-import org.opentaint.ir.impl.signature.GenericTypeRegistrant.RejectingSignatureVisitor
-import org.opentaint.ir.impl.signature.PrimitiveType.Companion.of
+import org.opentaint.ir.impl.signature.SPrimitiveType.Companion.of
+import org.opentaint.ir.impl.signature.TypeExtractor.IncompleteToken.InnerClass
+import org.opentaint.ir.impl.signature.TypeExtractor.IncompleteToken.TopLevelType
+import org.opentaint.ir.impl.signature.TypeRegistrant.RejectingSignatureVisitor
 
-class GenericTypeExtractor(private val cp: Classpath, private val genericTypeRegistrant: GenericTypeRegistrant) : RejectingSignatureVisitor(),
-    GenericTypeRegistrant {
+internal class TypeExtractor(private val typeRegistrant: TypeRegistrant) :
+    RejectingSignatureVisitor(),
+    TypeRegistrant {
 
     private lateinit var incompleteToken: IncompleteToken
 
     override fun visitBaseType(descriptor: Char) {
-        genericTypeRegistrant.register(of(descriptor, cp))
+        typeRegistrant.register(of(descriptor))
     }
 
     override fun visitTypeVariable(name: String) {
-        genericTypeRegistrant.register(TypeVariable(cp, name))
+        typeRegistrant.register(STypeVariable(name))
     }
 
     override fun visitArrayType(): SignatureVisitor {
-        return GenericTypeExtractor(cp, this)
+        return TypeExtractor(this)
     }
 
-    override fun register(token: GenericType) {
-        genericTypeRegistrant.register(GenericArray(cp, token))
+    override fun register(token: SType) {
+        typeRegistrant.register(SArrayType(token))
     }
 
     override fun visitClassType(name: String) {
-        incompleteToken = TopLevelType(cp, name)
+        incompleteToken = TopLevelType(name)
     }
 
     override fun visitInnerClassType(name: String) {
-        incompleteToken = InnerClass(cp, name, incompleteToken)
+        incompleteToken = InnerClass(name, incompleteToken)
     }
 
     override fun visitTypeArgument() {
@@ -51,7 +51,7 @@ class GenericTypeExtractor(private val cp: Classpath, private val genericTypeReg
 
     override fun visitEnd() {
         incompleteToken.toToken()?.let {
-            genericTypeRegistrant.register(it)
+            typeRegistrant.register(it)
         }
     }
 
@@ -65,52 +65,52 @@ class GenericTypeExtractor(private val cp: Classpath, private val genericTypeReg
         val isParameterized: Boolean
         val name: String
 
-        fun toToken(): GenericType?
+        fun toToken(): SType?
 
-        abstract class AbstractBase(protected val cp: Classpath) : IncompleteToken {
+        abstract class AbstractBase() : IncompleteToken {
 
-            protected val parameters = ArrayList<GenericType>()
+            protected val parameters = ArrayList<SType>()
 
 
             override fun appendDirectBound(): SignatureVisitor {
-                return GenericTypeExtractor(cp, DirectBound())
+                return TypeExtractor(DirectBound())
             }
 
             override fun appendUpperBound(): SignatureVisitor {
-                return GenericTypeExtractor(cp, UpperBound())
+                return TypeExtractor(UpperBound())
             }
 
             override fun appendLowerBound(): SignatureVisitor {
-                return GenericTypeExtractor(cp, LowerBound())
+                return TypeExtractor(LowerBound())
             }
 
             override fun appendPlaceholder() {
-                parameters.add(UnboundWildcard(cp))
+                parameters.add(SUnboundWildcard())
             }
 
-            protected inner class DirectBound : GenericTypeRegistrant {
-                override fun register(token: GenericType) {
+            protected inner class DirectBound : TypeRegistrant {
+                override fun register(token: SType) {
                     parameters.add(token)
                 }
             }
 
-            protected inner class UpperBound : GenericTypeRegistrant {
-                override fun register(token: GenericType) {
-                    parameters.add(BoundWildcard.UpperBoundWildcard(cp,token))
+            protected inner class UpperBound : TypeRegistrant {
+                override fun register(token: SType) {
+                    parameters.add(SBoundWildcard.UpperSBoundWildcard(token))
                 }
             }
 
-            protected inner class LowerBound : GenericTypeRegistrant {
-                override fun register(token: GenericType) {
-                    parameters.add(BoundWildcard.LowerBoundWildcard(cp, token))
+            protected inner class LowerBound : TypeRegistrant {
+                override fun register(token: SType) {
+                    parameters.add(SBoundWildcard.LowerSBoundWildcard(token))
                 }
             }
         }
 
-        class TopLevelType(cp: Classpath, private val internalName: String) : AbstractBase(cp) {
+        class TopLevelType(private val internalName: String) : AbstractBase() {
 
-            override fun toToken(): GenericType {
-                return if (isParameterized) ParameterizedType(cp, name, parameters) else RawType(cp, name)
+            override fun toToken(): SType {
+                return if (isParameterized) SParameterizedType(name, parameters) else SClassRefType(name)
             }
 
             override val isParameterized: Boolean
@@ -124,15 +124,14 @@ class GenericTypeExtractor(private val cp: Classpath, private val genericTypeReg
                 }
         }
 
-        class InnerClass(cp: Classpath, private val internalName: String, private val outerTypeToken: IncompleteToken?) :
-            AbstractBase(cp) {
-            override fun toToken(): GenericType {
-                return if (isParameterized || outerTypeToken!!.isParameterized) ParameterizedType.Nested(
-                    cp,
+        class InnerClass(private val internalName: String, private val outerTypeToken: IncompleteToken?) :
+            AbstractBase() {
+            override fun toToken(): SType {
+                return if (isParameterized || outerTypeToken!!.isParameterized) SParameterizedType.SNestedType(
                     name,
                     parameters,
                     outerTypeToken!!.toToken()!!
-                ) else RawType(cp, name)
+                ) else SClassRefType(name)
             }
 
             override val isParameterized: Boolean

@@ -5,20 +5,20 @@ import org.opentaint.ir.api.MethodResolution
 import org.opentaint.ir.api.RecordComponentResolution
 import org.opentaint.ir.api.TypeResolution
 
-class FieldResolutionImpl(val fieldType: GenericType) : FieldResolution
+internal class FieldResolutionImpl(val fieldType: SType) : FieldResolution
 
-class RecordComponentResolutionImpl(val recordComponentType: GenericType) : RecordComponentResolution
+internal class RecordComponentResolutionImpl(val recordComponentType: SType) : RecordComponentResolution
 
-class MethodResolutionImpl(
-    val returnType: GenericType,
-    val parameterTypes: List<GenericType>,
-    val exceptionTypes: List<GenericType>,
+internal class MethodResolutionImpl(
+    val returnType: SType,
+    val parameterTypes: List<SType>,
+    val exceptionTypes: List<SClassRefType>,
     val typeVariables: List<FormalTypeVariable>
 ) : MethodResolution
 
-class TypeResolutionImpl(
-    val superClass: GenericType,
-    val interfaceType: List<GenericType>,
+internal class TypeResolutionImpl(
+    val superClass: SType,
+    val interfaceType: List<SType>,
     val typeVariable: List<FormalTypeVariable>
 ) : TypeResolution
 

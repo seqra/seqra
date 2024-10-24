@@ -1,48 +1,47 @@
 package org.opentaint.ir.impl.signature
 
 import org.objectweb.asm.signature.SignatureVisitor
-import org.opentaint.ir.api.Classpath
 import org.opentaint.ir.api.Malformed
 import org.opentaint.ir.api.Raw
 import org.opentaint.ir.api.TypeResolution
 
-class TypeSignature(cp: Classpath) : Signature<TypeResolution>(cp) {
+internal class TypeSignature : Signature<TypeResolution>() {
 
-    private val interfaceTypes = ArrayList<GenericType>()
-    private lateinit var superClass: GenericType
+    private val interfaceTypes = ArrayList<SType>()
+    private lateinit var superClass: SType
 
     override fun visitSuperclass(): SignatureVisitor {
         collectTypeParameter()
-        return GenericTypeExtractor(cp, SuperClassRegistrant())
+        return TypeExtractor(SuperClassRegistrant())
     }
 
     override fun visitInterface(): SignatureVisitor {
-        return GenericTypeExtractor(cp, InterfaceTypeRegistrant())
+        return TypeExtractor(InterfaceTypeRegistrant())
     }
 
     override fun resolve(): TypeResolution {
         return TypeResolutionImpl(superClass, interfaceTypes, typeVariables)
     }
 
-    private inner class SuperClassRegistrant : GenericTypeRegistrant {
+    private inner class SuperClassRegistrant : TypeRegistrant {
 
-        override fun register(token: GenericType) {
+        override fun register(token: SType) {
             superClass = token
         }
     }
 
-    private inner class InterfaceTypeRegistrant : GenericTypeRegistrant {
+    private inner class InterfaceTypeRegistrant : TypeRegistrant {
 
-        override fun register(token: GenericType) {
+        override fun register(token: SType) {
             interfaceTypes.add(token)
         }
     }
 
 
     companion object {
-        fun of(signature: String?, cp: Classpath): TypeResolution {
+        fun of(signature: String?): TypeResolution {
             return try {
-                if (signature == null) Raw else of(signature, TypeSignature(cp))
+                if (signature == null) Raw else of(signature, TypeSignature())
             } catch (ignored: RuntimeException) {
                 Malformed
             }

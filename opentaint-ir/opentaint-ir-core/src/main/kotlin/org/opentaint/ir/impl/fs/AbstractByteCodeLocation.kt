@@ -1,20 +1,18 @@
 package org.opentaint.ir.impl.fs
 
-import org.opentaint.ir.api.ByteCodeLocation
+import org.opentaint.ir.api.JIRByteCodeLocation
 import java.io.File
 
-abstract class AbstractByteCodeLocation(protected val file: File) : ByteCodeLocation {
 
-    override val id: String by lazy(LazyThreadSafetyMode.NONE) {
-        getCurrentId()
-    }
+abstract class AbstractByteCodeLocation(override val jarOrFolder: File) : JIRByteCodeLocation {
 
     override val path: String
-        get() = file.absolutePath
+        get() = jarOrFolder.absolutePath
 
-    abstract fun getCurrentId(): String
+    abstract fun currentHash(): String
 
     override fun isChanged(): Boolean {
-        return id != getCurrentId()
+        return hash != currentHash()
     }
+
 }

@@ -1,30 +1,29 @@
 package org.opentaint.ir.impl.signature
 
 import org.objectweb.asm.signature.SignatureReader
-import org.opentaint.ir.api.Classpath
 import org.opentaint.ir.api.FieldResolution
 import org.opentaint.ir.api.Malformed
 import org.opentaint.ir.api.Raw
 
-class FieldSignature : GenericTypeRegistrant {
+internal class FieldSignature : TypeRegistrant {
 
-    private lateinit var fieldType: GenericType
+    private lateinit var fieldType: SType
 
-    override fun register(token: GenericType) {
+    override fun register(token: SType) {
         fieldType = token
     }
 
-    protected fun resolve(): FieldResolution {
+    fun resolve(): FieldResolution {
         return FieldResolutionImpl(fieldType)
     }
 
     companion object {
-        fun extract(signature: String?, cp: Classpath): FieldResolution {
+        fun of(signature: String?): FieldResolution {
             signature ?: return Raw
             val signatureReader = SignatureReader(signature)
             val visitor = FieldSignature()
             return try {
-                signatureReader.acceptType(GenericTypeExtractor(cp, visitor))
+                signatureReader.acceptType(TypeExtractor(visitor))
                 visitor.resolve()
             } catch (ignored: RuntimeException) {
                 Malformed

@@ -1,95 +1,34 @@
 package org.opentaint.ir.impl
 
-import kotlinx.collections.immutable.toImmutableList
-import org.opentaint.ir.api.ByteCodeLocation
+import org.opentaint.ir.api.JIRByteCodeLocation
+import org.opentaint.ir.api.RegisteredLocation
 import java.io.Closeable
 
-/**
- * registry of locations for JIRDB
- */
-class LocationsRegistry(private val featuresRegistry: FeaturesRegistry): Closeable {
-
+interface LocationsRegistry : Closeable {
     // all loaded locations
-    internal val locations = HashSet<ByteCodeLocation>()
+    val locations: Set<JIRByteCodeLocation>
+    fun addLocation(location: JIRByteCodeLocation): RegisteredLocation
+    fun addLocations(location: List<JIRByteCodeLocation>): List<RegisteredLocation>
 
-    // loaded but outdated locations. that means that they are used in some snapshots but outdated
-    internal val usedButOutdated = HashSet<ByteCodeLocation>()
+    suspend fun refresh(onRefresh: suspend (RegisteredLocation) -> Unit)
 
-    // all snapshot associated with classpaths
-    internal val snapshots = HashSet<LocationsRegistrySnapshot>()
+    fun snapshot(classpathSetLocations: List<RegisteredLocation>): LocationsRegistrySnapshot
+    fun cleanup(): Set<RegisteredLocation>
+    fun onClose(snapshot: LocationsRegistrySnapshot): Set<RegisteredLocation>
 
-    fun addLocation(location: ByteCodeLocation) = synchronized(this) {
-        locations.add(location)
-    }
-
-    private suspend fun refresh(location: ByteCodeLocation, onRefresh: suspend (ByteCodeLocation) -> Unit) {
-        if (location.isChanged()) {
-            val refreshedLocation = synchronized(this) {
-                val refreshedLocation = location.createRefreshed()
-                // let's check snapshots
-                val hasReferences = location.hasReferences()
-                if (!hasReferences) {
-                    locations.remove(location)
-                    featuresRegistry.onLocationRemove(location)
-                } else {
-                    usedButOutdated.add(location)
-                }
-                refreshedLocation
-            }
-            onRefresh(refreshedLocation)
-        }
-    }
-
-    suspend fun refresh(onRefresh: suspend (ByteCodeLocation) -> Unit) {
-        val currentState = synchronized(this) {
-            locations.toImmutableList()
-        }
-        currentState.forEach { refresh(it, onRefresh) }
-    }
-
-    fun snapshot(classpathSetLocations: List<ByteCodeLocation>): LocationsRegistrySnapshot = synchronized(this) {
-        classpathSetLocations.forEach { addLocation(it) }
-        val snapshot = LocationsRegistrySnapshot(this, classpathSetLocations)
-        snapshots.add(snapshot)
-        return snapshot
-    }
-
-    fun cleanup(): Set<ByteCodeLocation> {
-        synchronized(this) {
-            val forRemoval = hashSetOf<ByteCodeLocation>()
-            usedButOutdated.forEach {
-                if (!it.hasReferences()) {
-                    forRemoval.add(it)
-                }
-            }
-            usedButOutdated.removeAll(forRemoval)
-            return forRemoval
-        }
-    }
-
-    fun onClose(snapshot: LocationsRegistrySnapshot) = synchronized(this) {
-        snapshots.remove(snapshot)
-        cleanup()
-    }
-
-    private fun ByteCodeLocation.hasReferences(): Boolean {
-        return snapshots.isNotEmpty() && snapshots.any { it.locations.contains(this) }
-    }
-
-    override fun close() {
-        synchronized(this) {
-            locations.clear()
-            usedButOutdated.clear()
-            snapshots.clear()
-        }
+    fun RegisteredLocation.hasReferences(snapshots: Set<LocationsRegistrySnapshot>): Boolean {
+        return snapshots.isNotEmpty() && snapshots.any { it.ids.contains(id) }
     }
 
 }
 
-class LocationsRegistrySnapshot(
+
+open class LocationsRegistrySnapshot(
     private val registry: LocationsRegistry,
-    val locations: List<ByteCodeLocation>
+    val locations: List<RegisteredLocation>
 ) : Closeable {
+
+    val ids = locations.map { it.id }.toHashSet()
 
     override fun close() {
         registry.onClose(this)

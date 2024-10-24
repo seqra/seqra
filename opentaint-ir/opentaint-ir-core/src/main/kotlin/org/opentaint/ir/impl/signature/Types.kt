@@ -1,99 +1,53 @@
 package org.opentaint.ir.impl.signature
 
-import org.opentaint.ir.api.ClassId
-import org.opentaint.ir.api.Classpath
-import org.opentaint.ir.api.PredefinedPrimitive
-import org.opentaint.ir.api.boolean
-import org.opentaint.ir.api.byte
-import org.opentaint.ir.api.char
-import org.opentaint.ir.api.double
-import org.opentaint.ir.api.float
-import org.opentaint.ir.api.int
-import org.opentaint.ir.api.long
-import org.opentaint.ir.api.short
-import org.opentaint.ir.api.throwClassNotFound
-import org.opentaint.ir.api.void
+import org.opentaint.ir.api.PredefinedPrimitives
 
 
-abstract class GenericType(val classpath: Classpath) {
+internal abstract class SType
 
-    suspend fun findClass(name: String): ClassId {
-        return classpath.findClassOrNull(name) ?: name.throwClassNotFound()
-    }
+internal abstract class SRefType : SType()
 
-}
+internal class SArrayType(val elementType: SType) : SRefType()
 
-abstract class GenericClassType(classpath: Classpath) : GenericType(classpath) {
-
-    abstract suspend fun findClass(): ClassId
-
-}
-
-class GenericArray(cp: Classpath, val elementType: GenericType) : GenericClassType(cp) {
-
-    override suspend fun findClass(): ClassId {
-        if (elementType is GenericClassType) {
-            return findClass(elementType.findClass().name + "[]")
-        }
-        return findClass("java.lang.Object")
-    }
-}
-
-class ParameterizedType(
-    cp: Classpath,
+internal class SParameterizedType(
     val name: String,
-    val parameterTypes: List<GenericType>
-) : GenericClassType(cp) {
+    val parameterTypes: List<SType>
+) : SRefType() {
 
-    class Nested(
-        cp: Classpath,
+    class SNestedType(
         val name: String,
-        val parameterTypes: List<GenericType>,
-        val ownerType: GenericType
-    ) : GenericClassType(cp) {
-        override suspend fun findClass(): ClassId {
-            return findClass(name)
-        }
-    }
-
-    override suspend fun findClass(): ClassId {
-        return findClass(name)
-    }
+        val parameterTypes: List<SType>,
+        val ownerType: SType
+    ) : SRefType()
 }
 
-class RawType(cp: Classpath, val name: String) : GenericClassType(cp) {
-    override suspend fun findClass(): ClassId {
-        return findClass(name)
-    }
+internal class SClassRefType(val name: String) : SRefType()
+
+internal class STypeVariable(val symbol: String) : SType()
+
+internal sealed class SBoundWildcard(val boundType: SType) : SType() {
+    internal class UpperSBoundWildcard(boundType: SType) : SBoundWildcard(boundType)
+    internal class LowerSBoundWildcard(boundType: SType) : SBoundWildcard(boundType)
 }
 
-class TypeVariable(cp: Classpath, val symbol: String) : GenericType(cp)
+internal class SUnboundWildcard : SType()
 
-sealed class BoundWildcard(cp: Classpath, val boundType: GenericType) : GenericType(cp) {
-    class UpperBoundWildcard(cp: Classpath, boundType: GenericType) : BoundWildcard(cp, boundType)
-    class LowerBoundWildcard(cp: Classpath, boundType: GenericType) : BoundWildcard(cp, boundType)
-}
-
-class UnboundWildcard(cp: Classpath) : GenericType(cp)
-
-class PrimitiveType(cp: Classpath, val ref: PredefinedPrimitive) : GenericClassType(cp) {
+internal class SPrimitiveType(val ref: String) : SRefType() {
 
     companion object {
-        fun of(descriptor: Char, cp: Classpath): GenericType {
+        fun of(descriptor: Char): SType {
             return when (descriptor) {
-                'V' -> PrimitiveType(cp, cp.void)
-                'Z' -> PrimitiveType(cp, cp.boolean)
-                'B' -> PrimitiveType(cp, cp.byte)
-                'S' -> PrimitiveType(cp, cp.short)
-                'C' -> PrimitiveType(cp, cp.char)
-                'I' -> PrimitiveType(cp, cp.int)
-                'J' -> PrimitiveType(cp, cp.long)
-                'F' -> PrimitiveType(cp, cp.float)
-                'D' -> PrimitiveType(cp, cp.double)
+                'V' -> SPrimitiveType(PredefinedPrimitives.void)
+                'Z' -> SPrimitiveType(PredefinedPrimitives.boolean)
+                'B' -> SPrimitiveType(PredefinedPrimitives.byte)
+                'S' -> SPrimitiveType(PredefinedPrimitives.short)
+                'C' -> SPrimitiveType(PredefinedPrimitives.char)
+                'I' -> SPrimitiveType(PredefinedPrimitives.int)
+                'J' -> SPrimitiveType(PredefinedPrimitives.long)
+                'F' -> SPrimitiveType(PredefinedPrimitives.float)
+                'D' -> SPrimitiveType(PredefinedPrimitives.double)
                 else -> throw IllegalArgumentException("Not a valid primitive type descriptor: $descriptor")
             }
         }
     }
-
-    override suspend fun findClass() = ref
 }

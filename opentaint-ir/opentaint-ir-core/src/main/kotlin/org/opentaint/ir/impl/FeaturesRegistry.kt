@@ -1,14 +1,14 @@
 package org.opentaint.ir.impl
 
-import org.opentaint.ir.api.ByteCodeLocation
 import org.opentaint.ir.api.Feature
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRDBFeature
+import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.index.index
-import org.opentaint.ir.impl.tree.ClassNode
+import org.opentaint.ir.impl.vfs.ClassVfsItem
 import java.io.Closeable
 
-class FeaturesRegistry(val features: List<Feature<*, *>>) : Closeable {
+class FeaturesRegistry(private val features: List<Feature<*, *>>) : Closeable {
 
     lateinit var jirdbFeatures: List<JIRDBFeature<*, *>>
 
@@ -16,15 +16,15 @@ class FeaturesRegistry(val features: List<Feature<*, *>>) : Closeable {
         jirdbFeatures = features.map { it.featureOf(jirdb) }
     }
 
-    suspend fun index(location: ByteCodeLocation, classes: Collection<ClassNode>) {
+    suspend fun index(location: RegisteredLocation, classes: Collection<ClassVfsItem>) {
         jirdbFeatures.forEach { feature ->
             feature.index(location, classes)
         }
     }
 
     private suspend fun <REQ, RES> JIRDBFeature<RES, REQ>.index(
-        location: ByteCodeLocation,
-        classes: Collection<ClassNode>
+        location: RegisteredLocation,
+        classes: Collection<ClassVfsItem>
     ) {
         val indexer = newIndexer(location)
         classes.forEach { node ->
@@ -39,7 +39,7 @@ class FeaturesRegistry(val features: List<Feature<*, *>>) : Closeable {
         return jirdbFeatures.firstOrNull { it.key == key } as? JIRDBFeature<RES, REQ>?
     }
 
-    fun onLocationRemove(location: ByteCodeLocation) {
+    fun onLocationRemove(location: RegisteredLocation) {
         jirdbFeatures.forEach {
             it.onLocationRemoved(location)
         }

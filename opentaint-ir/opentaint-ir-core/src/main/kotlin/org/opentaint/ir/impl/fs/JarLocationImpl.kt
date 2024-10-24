@@ -1,11 +1,14 @@
 package org.opentaint.ir.impl.fs
 
 import mu.KLogging
-import org.opentaint.ir.api.ByteCodeLoader
-import org.opentaint.ir.api.LocationScope
+import org.opentaint.ir.api.ClassLoadingContainer
+import org.opentaint.ir.api.LocationType
 import java.io.BufferedInputStream
 import java.io.File
+import java.io.FileInputStream
 import java.io.InputStream
+import java.security.MessageDigest
+import java.util.*
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import kotlin.streams.toList
@@ -13,28 +16,27 @@ import kotlin.streams.toList
 open class JarLocation(file: File, private val isRuntime: Boolean) : AbstractByteCodeLocation(file) {
     companion object : KLogging()
 
-    override val scope: LocationScope
-        get() = LocationScope.RUNTIME.takeIf { isRuntime } ?: LocationScope.RUNTIME
+    override val hash by lazy { fileChecksum }
 
-    override fun getCurrentId(): String {
-        return file.absolutePath + file.lastModified()
-    }
+    override val type: LocationType
+        get() = LocationType.RUNTIME.takeIf { isRuntime } ?: LocationType.RUNTIME
 
-    override fun createRefreshed() = JarLocation(file, isRuntime)
+    override fun createRefreshed() = JarLocation(jarOrFolder, isRuntime)
 
-    override suspend fun loader(): ByteCodeLoader? {
+    override fun currentHash() = fileChecksum
+
+    override suspend fun classes(): ClassLoadingContainer? {
         try {
             val content = jarWithClasses ?: return null
             val jar = content.jar
             val classes = content.classes.mapValues { (_, entry) ->
                 jar.getInputStream(entry)
             }
-            val allClasses = ClassLoadingContainerImpl(classes) {
+            return ClassLoadingContainerImpl(classes) {
                 jar.close()
             }
-            return ByteCodeLoaderImpl(this, allClasses)
         } catch (e: Exception) {
-            logger.warn(e) { "error loading classes from jar: ${file.absolutePath}. returning empty loader" }
+            logger.warn(e) { "error loading classes from jar: ${jarOrFolder.absolutePath}. returning empty loader" }
             return null
         }
     }
@@ -65,30 +67,44 @@ open class JarLocation(file: File, private val isRuntime: Boolean) : AbstractByt
 
     private val jarFile: JarFile?
         get() {
-            if (!file.exists() || !file.isFile) {
+            if (!jarOrFolder.exists() || !jarOrFolder.isFile) {
                 return null
             }
 
             try {
-                return JarFile(file)
+                return JarFile(jarOrFolder)
             } catch (e: Exception) {
-                logger.warn(e) { "error processing jar ${file.absolutePath}" }
+                logger.warn(e) { "error processing jar ${jarOrFolder.absolutePath}" }
                 return null
             }
         }
 
-    override fun toString(): String = file.absolutePath
+    override fun toString(): String = jarOrFolder.absolutePath
 
     override fun equals(other: Any?): Boolean {
         if (other == null || other !is JarLocation) {
             return false
         }
-        return other.file == file
+        return other.jarOrFolder == jarOrFolder
     }
 
     override fun hashCode(): Int {
-        return file.hashCode()
+        return jarOrFolder.hashCode()
     }
+
+    private val fileChecksum: String
+        get() {
+            val buffer = ByteArray(8192)
+            var count: Int
+            val digest = MessageDigest.getInstance("SHA-256")
+            val bis = BufferedInputStream(FileInputStream(jarOrFolder))
+            while (bis.read(buffer).also { count = it } > 0) {
+                digest.update(buffer, 0, count)
+            }
+            bis.close()
+            return Base64.getEncoder().encodeToString(digest.digest())
+        }
+
 }
 
 class JarWithClasses(

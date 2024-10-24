@@ -1,0 +1,49 @@
+package org.opentaint.ir.impl.vfs
+
+import org.opentaint.ir.api.JIRByteCodeLocation
+import org.opentaint.ir.api.LocationType
+import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.impl.fs.asByteCodeLocation
+import org.opentaint.ir.impl.storage.BytecodeLocationEntity
+import java.io.File
+
+class PersistentByteCodeLocation(
+    internal val entity: BytecodeLocationEntity,
+    override val jirLocation: JIRByteCodeLocation
+) : RegisteredLocation {
+
+    constructor(entity: BytecodeLocationEntity) : this(entity, entity.toJcLocation())
+
+    override val id: Long
+        get() = entity.id.value
+}
+
+
+class RestoredJcByteCodeLocation(
+    override val path: String,
+    override val type: LocationType,
+    override val hash: String
+) : JIRByteCodeLocation {
+
+    override val jarOrFolder: File
+        get() = File(path)
+
+    override fun isChanged(): Boolean {
+        val actual = createRefreshed()
+        return actual.hash == hash
+    }
+
+    override fun createRefreshed(): JIRByteCodeLocation {
+        return jarOrFolder.asByteCodeLocation(type == LocationType.RUNTIME)
+    }
+
+    override suspend fun resolve(classFullName: String) = null
+
+    override suspend fun classes() = null
+}
+
+
+fun BytecodeLocationEntity.toJcLocation() = RestoredJcByteCodeLocation(
+    path,
+    LocationType.RUNTIME.takeIf { runtime } ?: LocationType.APP,
+    hash)

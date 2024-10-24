@@ -6,6 +6,7 @@ import org.objectweb.asm.tree.AnnotationNode
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldNode
 import org.objectweb.asm.tree.MethodNode
+import org.opentaint.ir.impl.storage.AnnotationValueKind
 import org.opentaint.ir.impl.types.AnnotationInfo
 import org.opentaint.ir.impl.types.AnnotationValue
 import org.opentaint.ir.impl.types.AnnotationValueList
@@ -60,10 +61,15 @@ interface ByteCodeConverter {
             is AnnotationNode -> asAnnotationInfo(true)
             is List<*> -> AnnotationValueList(mapNotNull { it?.toAnnotationValue() })
             is Array<*> -> EnumRef((get(0) as String).className, get(1) as String)
-            is String, is Short, is Byte, is Boolean, is Long, is Double, is Float, is Int -> PrimitiveValue(
-                this::class.java.simpleName,
-                this
-            )
+            is Boolean -> PrimitiveValue(AnnotationValueKind.BOOLEAN, this)
+            is Byte -> PrimitiveValue(AnnotationValueKind.BYTE, this)
+            is Char -> PrimitiveValue(AnnotationValueKind.CHAR, this)
+            is Short -> PrimitiveValue(AnnotationValueKind.SHORT, this)
+            is Long -> PrimitiveValue(AnnotationValueKind.LONG, this)
+            is Double -> PrimitiveValue(AnnotationValueKind.DOUBLE, this)
+            is Float -> PrimitiveValue(AnnotationValueKind.FLOAT, this)
+            is Int -> PrimitiveValue(AnnotationValueKind.INT, this)
+            is String -> PrimitiveValue(AnnotationValueKind.STRING, this)
             else -> throw IllegalStateException("Unknown type: ${javaClass.name}")
         }
     }

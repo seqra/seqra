@@ -10,14 +10,14 @@ import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
-import org.opentaint.ir.api.ByteCodeLocation
-import org.opentaint.ir.impl.storage.BytecodeLocationEntity.Companion.findOrNew
+import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.types.AnnotationInfo
 import org.opentaint.ir.impl.types.AnnotationValue
 import org.opentaint.ir.impl.types.AnnotationValueList
 import org.opentaint.ir.impl.types.ClassInfo
 import org.opentaint.ir.impl.types.ClassRef
 import org.opentaint.ir.impl.types.EnumRef
+import org.opentaint.ir.impl.types.FieldInfo
 import org.opentaint.ir.impl.types.PrimitiveValue
 import java.util.concurrent.atomic.AtomicLong
 
@@ -48,11 +48,13 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
         }
     }
 
-    fun persist(location: ByteCodeLocation, classes: List<ClassInfo>) {
+    fun persist(location: RegisteredLocation, classes: List<ClassInfo>) {
         val classIds = HashMap<ClassInfo, Long>()
         transaction(persistence.db) {
             val names = HashSet<String>()
             val annotationCollector = AnnotationCollector(annotationIdGen, annotationValueIdGen, symbolsCache)
+            val fieldCollector = FieldCollector(fieldIdGen, annotationCollector)
+            val classRefCollector = ClassRefCollector()
             classes.forEach {
                 names.add(it.name.substringBeforeLast('.'))
                 names.add(it.name)
@@ -75,7 +77,7 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
                 it.fields.forEach { it.annotations.extractAllSymbolsTo(names) }
             }
             names.setup()
-            val locationEntity = location.findOrNew()
+            val locationId = location.id
             Classes.batchInsert(classes, shouldReturnGeneratedValues = false) { classInfo ->
                 val id = classIdGen.incrementAndGet()
                 classIds[classInfo] = id
@@ -83,7 +85,7 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
                 val pack = packageName.findCachedSymbol()
                 this[Classes.id] = id
                 this[Classes.access] = classInfo.access
-                this[Classes.locationId] = locationEntity.id
+                this[Classes.locationId] = locationId
                 this[Classes.name] = classInfo.name.findCachedSymbol()
                 this[Classes.signature] = classInfo.signature
                 this[Classes.superClass] = classInfo.superClass?.findCachedSymbol()
@@ -94,15 +96,18 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
 
             classIds.forEach { (classInfo, storedClassId) ->
                 if (classInfo.interfaces.isNotEmpty()) {
+                    classInfo.interfaces.forEach {
+                        classRefCollector.collectInterface(storedClassId, it)
+                    }
+
                     ClassInterfaces.batchInsert(classInfo.interfaces, shouldReturnGeneratedValues = false) {
                         this[ClassInterfaces.classId] = storedClassId
                         this[ClassInterfaces.interfaceId] = it.findCachedSymbol()
                     }
                 }
                 if (classInfo.innerClasses.isNotEmpty()) {
-                    ClassInnerClasses.batchInsert(classInfo.innerClasses, shouldReturnGeneratedValues = false) {
-                        this[ClassInnerClasses.classId] = storedClassId
-                        this[ClassInnerClasses.innerClassId] = it.findCachedSymbol()
+                    classInfo.innerClasses.forEach {
+                        classRefCollector.collectInnerClass(storedClassId, it)
                     }
                 }
                 val methodsResult = Methods.batchInsert(classInfo.methods, shouldReturnGeneratedValues = false) {
@@ -131,18 +136,29 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
                     this[MethodParameters.parameterClass] = param.type.findCachedSymbol()
                     annotationCollector.collect(param.annotations, paramId, RefKind.PARAM)
                 }
-                Fields.batchInsert(classInfo.fields, shouldReturnGeneratedValues = false) {
-                    val fieldId = fieldIdGen.incrementAndGet()
-                    this[Fields.id] = fieldId
-                    this[Fields.classId] = storedClassId
-                    this[Fields.access] = it.access
-                    this[Fields.name] = it.name.findCachedSymbol()
-                    this[Fields.signature] = it.signature
-                    this[Fields.fieldClass] = it.type.findCachedSymbol()
-
-                    annotationCollector.collect(it.annotations, fieldId, RefKind.FIELD)
+                classInfo.fields.forEach {
+                    fieldCollector.collect(storedClassId, it)
                 }
             }
+            ClassInnerClasses.batchInsert(classRefCollector.innerClasses.entries, shouldReturnGeneratedValues = false) {
+                this[ClassInnerClasses.classId] = it.key
+                this[ClassInnerClasses.innerClassId] = it.value.findCachedSymbol()
+            }
+            ClassInterfaces.batchInsert(classRefCollector.interfaces.entries, shouldReturnGeneratedValues = false) {
+                this[ClassInterfaces.classId] = it.key
+                this[ClassInterfaces.interfaceId] = it.value.findCachedSymbol()
+            }
+            Fields.batchInsert(fieldCollector.fields.entries, shouldReturnGeneratedValues = false) {
+                val (fieldId, fieldInfo) = it.value
+
+                this[Fields.id] = fieldId
+                this[Fields.classId] = it.key
+                this[Fields.access] = fieldInfo.access
+                this[Fields.name] = fieldInfo.name.findCachedSymbol()
+                this[Fields.signature] = fieldInfo.signature
+                this[Fields.fieldClass] = fieldInfo.type.findCachedSymbol()
+            }
+
             Annotations.batchInsert(annotationCollector.collected, shouldReturnGeneratedValues = false) {
                 this[Annotations.id] = it.id
                 when (it.refKind) {
@@ -152,6 +168,8 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
                     RefKind.PARAM -> this[Annotations.parameterRef] = it.refId
                 }
                 this[Annotations.parentAnnotation] = it.parentId
+                this[Annotations.visible] = it.info.visible
+                this[Annotations.name] = it.info.className.findCachedSymbol()
             }
             AnnotationValues.batchInsert(annotationCollector.collectedValues, shouldReturnGeneratedValues = false) {
                 this[AnnotationValues.id] = it.id
@@ -287,8 +305,8 @@ private class AnnotationCollector(
                     id = valueId,
                     name = name,
                     annotationId = parent.id,
-                    primitiveValue = AnnotationValueKind.serialize(value),
-                    primitiveValueType = AnnotationValueKind.typeOf(value)
+                    primitiveValue = AnnotationValueKind.serialize(value.value),
+                    primitiveValueType = value.dataType
                 )
             )
 
@@ -323,5 +341,30 @@ fun AnnotationValue.extractSymbolsTo(result: HashSet<String>) {
 
         is AnnotationValueList -> annotations.forEach { it.extractSymbolsTo(result) }
         else -> {}
+    }
+}
+
+private class FieldCollector(private val fieldIdGen: AtomicLong, private val annotationCollector: AnnotationCollector) {
+
+    val fields = HashMap<Long, Pair<Long, FieldInfo>>()
+
+    fun collect(classId: Long, fieldInfo: FieldInfo) {
+        val fieldId = fieldIdGen.incrementAndGet()
+        fields[classId] = fieldId to fieldInfo
+        annotationCollector.collect(fieldInfo.annotations, fieldId, RefKind.FIELD)
+    }
+}
+
+private class ClassRefCollector {
+
+    val interfaces = HashMap<Long, String>()
+    val innerClasses = HashMap<Long, String>()
+
+    fun collectInterface(classId: Long, iface: String) {
+        interfaces[classId] = iface
+    }
+
+    fun collectInnerClass(classId: Long, innerClass: String) {
+        innerClasses[classId] = innerClass
     }
 }

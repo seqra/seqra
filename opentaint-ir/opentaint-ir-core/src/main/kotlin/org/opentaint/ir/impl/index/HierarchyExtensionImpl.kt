@@ -4,38 +4,34 @@ import kotlinx.collections.immutable.toPersistentList
 import org.jetbrains.exposed.sql.JoinType
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.opentaint.ir.api.ArrayClassId
-import org.opentaint.ir.api.ClassId
-import org.opentaint.ir.api.Classpath
 import org.opentaint.ir.api.JIRDB
-import org.opentaint.ir.api.MethodId
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.findMethodOrNull
 import org.opentaint.ir.impl.storage.Classes
 import org.opentaint.ir.impl.storage.SymbolEntity
 import org.opentaint.ir.impl.storage.Symbols
 
-class HierarchyExtensionImpl(private val db: JIRDB, private val cp: Classpath) : HierarchyExtension {
+class HierarchyExtensionImpl(private val db: JIRDB, private val cp: JIRClasspath) : HierarchyExtension {
 
-    override suspend fun findSubClasses(name: String, allHierarchy: Boolean): List<ClassId> {
+    override suspend fun findSubClasses(name: String, allHierarchy: Boolean): List<JIRClassOrInterface> {
         val classId = cp.findClassOrNull(name) ?: return emptyList()
         return findSubClasses(classId, allHierarchy)
     }
 
-    override suspend fun findSubClasses(classId: ClassId, allHierarchy: Boolean): List<ClassId> {
-        if (classId is ArrayClassId) {
-            return emptyList()
-        }
+    override suspend fun findSubClasses(classId: JIRClassOrInterface, allHierarchy: Boolean): List<JIRClassOrInterface> {
         db.awaitBackgroundJobs()
         val name = classId.name
 
         return subClasses(name, allHierarchy).mapNotNull { cp.findClassOrNull(it) }
     }
 
-    override suspend fun findOverrides(methodId: MethodId): List<MethodId> {
-        val desc = methodId.description()
+    override suspend fun findOverrides(methodId: JIRMethod): List<JIRMethod> {
+        val desc = methodId.description
         val name = methodId.name
-        val subClasses = cp.findSubClasses(methodId.classId, allHierarchy = true)
+        val subClasses = cp.findSubClasses(methodId.jirClass, allHierarchy = true)
         return subClasses.mapNotNull {
             it.findMethodOrNull(name, desc) // todo this is wrong
         }
@@ -67,7 +63,7 @@ class HierarchyExtensionImpl(private val db: JIRDB, private val cp: Classpath) :
 }
 
 
-val Classpath.hierarchyExt: HierarchyExtensionImpl
+val JIRClasspath.hierarchyExt: HierarchyExtensionImpl
     get() {
         return HierarchyExtensionImpl(db, this)
     }

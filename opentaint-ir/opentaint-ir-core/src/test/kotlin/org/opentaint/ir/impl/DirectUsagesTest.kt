@@ -6,8 +6,8 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.opentaint.ir.api.Classpath
 import org.opentaint.ir.api.JIRDB
+import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findFieldsUsedIn
 import org.opentaint.ir.api.ext.findMethodsUsedIn
@@ -42,7 +42,7 @@ class DirectUsagesTest : LibrariesMixin {
     }
 
 
-    private val cp = runBlocking { db!!.classpathSet(allClasspath) }
+    private val cp = runBlocking { db!!.classpath(allClasspath) }
 
     @Test
     fun `find methods used in method`() {
@@ -68,7 +68,7 @@ class DirectUsagesTest : LibrariesMixin {
     @Test
     fun `find methods used in method with broken classpath`() {
         val cp = runBlocking {
-            db!!.classpathSet(allClasspath - guavaLib)
+            db!!.classpath(allClasspath - guavaLib)
         }
         cp.use {
             val usages = cp.methodsUsages<DirectA>()
@@ -125,15 +125,15 @@ class DirectUsagesTest : LibrariesMixin {
         )
     }
 
-    private inline fun <reified T> Classpath.fieldsUsages(): List<Pair<String, List<Pair<String, List<String>>>>> {
+    private inline fun <reified T> JIRClasspath.fieldsUsages(): List<Pair<String, List<Pair<String, List<String>>>>> {
         return runBlocking {
             val classId = cp.findClass<T>()
 
-            classId.methods().map {
+            classId.methods.map {
                 val usages = findFieldsUsedIn(it)
                 it.name to listOf(
-                    "reads" to usages.reads.map { it.classId.name + "#" + it.name },
-                    "writes" to usages.writes.map { it.classId.name + "#" + it.name }
+                    "reads" to usages.reads.map { it.jirClass.name + "#" + it.name },
+                    "writes" to usages.writes.map { it.jirClass.name + "#" + it.name }
                 )
             }
                 .toMap()
@@ -142,14 +142,14 @@ class DirectUsagesTest : LibrariesMixin {
         }
     }
 
-    private inline fun <reified T> Classpath.methodsUsages(): List<Pair<String, List<String>>> {
+    private inline fun <reified T> JIRClasspath.methodsUsages(): List<Pair<String, List<String>>> {
         return runBlocking {
             val classId = cp.findClass<T>()
 
-            val methods = classId.methods()
+            val methods = classId.methods
 
             methods.map {
-                it.name to findMethodsUsedIn(it).map { it.classId.name + "#" + it.name }.toImmutableList()
+                it.name to findMethodsUsedIn(it).map { it.jirClass.name + "#" + it.name }.toImmutableList()
             }.filterNot { it.second.isEmpty() }
         }
     }

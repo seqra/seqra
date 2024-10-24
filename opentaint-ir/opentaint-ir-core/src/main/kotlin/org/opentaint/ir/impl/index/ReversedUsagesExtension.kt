@@ -9,7 +9,7 @@ import org.opentaint.ir.api.*
 
 class ReversedUsagesExtension(
     private val db: JIRDB,
-    private val cp: Classpath
+    private val cp: JIRClasspath
 ) {
     /**
      * find all methods that directly modifies field
@@ -17,18 +17,18 @@ class ReversedUsagesExtension(
      * @param fieldId field
      * @param mode mode of search
      */
-    suspend fun findUsages(fieldId: FieldId, mode: FieldUsageMode): List<MethodId> {
+    suspend fun findUsages(fieldId: JIRField, mode: FieldUsageMode): List<JIRMethod> {
         val name = fieldId.name
-        val className = fieldId.classId.name
+        val className = fieldId.jirClass.name
 
         val maybeHierarchy = when {
-            fieldId.isPrivate() -> hashSetOf(fieldId.classId)
+            fieldId.isPrivate -> hashSetOf(fieldId.jirClass)
             else -> cp.findSubClasses(className, true).toHashSet()
         }
 
         val potentialCandidates = maybeHierarchy.findPotentialCandidates(field = fieldId.name)
 
-        val isStatic = fieldId.isStatic()
+        val isStatic = fieldId.isStatic
         val opcode = when {
             isStatic && mode == FieldUsageMode.WRITE -> Opcodes.PUTSTATIC
             !isStatic && mode == FieldUsageMode.WRITE -> Opcodes.PUTFIELD
@@ -50,14 +50,14 @@ class ReversedUsagesExtension(
      * @param methodId method
      * @param mode mode of search
      */
-    suspend fun findUsages(methodId: MethodId): List<MethodId> {
+    suspend fun findUsages(methodId: JIRMethod): List<JIRMethod> {
         val name = methodId.name
-        val className = methodId.classId.name
+        val className = methodId.jirClass.name
 
-        val hierarchy = cp.findSubClasses(className, true).toHashSet() + methodId.classId
+        val hierarchy = cp.findSubClasses(className, true).toHashSet() + methodId.jirClass
 
         val potentialCandidates = hierarchy.findPotentialCandidates(method = methodId.name)
-        val opcodes = when (methodId.isStatic()) {
+        val opcodes = when (methodId.isStatic) {
             true -> setOf(Opcodes.INVOKESTATIC)
             else -> setOf(Opcodes.INVOKEVIRTUAL, Opcodes.INVOKESPECIAL)
         }
@@ -69,11 +69,11 @@ class ReversedUsagesExtension(
         }
     }
 
-    private suspend fun Set<ClassId>.findUsages(
-        hierarchy: Set<ClassId>,
+    private suspend fun Set<JIRClassOrInterface>.findUsages(
+        hierarchy: Set<JIRClassOrInterface>,
         matcher: (AbstractInsnNode, Set<String>) -> Boolean
-    ): List<MethodId> {
-        val result = hashSetOf<MethodId>()
+    ): List<JIRMethod> {
+        val result = hashSetOf<JIRMethod>()
         val hierarchyNames = hierarchy.map { it.name }.toSet()
         forEach {
             val classId = cp.findClassOrNull(it.name)
@@ -82,8 +82,8 @@ class ReversedUsagesExtension(
                 for (inst in method.instructions) {
                     val matches = matcher(inst, hierarchyNames)
                     if (matches) {
-                        val methodId = classId.methods().firstOrNull {
-                            it.name == method.name && it.description() == method.desc
+                        val methodId = classId?.methods?.firstOrNull {
+                            it.name == method.name && it.description == method.desc
                         }
                         if (methodId != null) {
                             result.add(methodId)
@@ -97,10 +97,10 @@ class ReversedUsagesExtension(
     }
 
 
-    private suspend fun Set<ClassId>.findPotentialCandidates(
+    private suspend fun Set<JIRClassOrInterface>.findPotentialCandidates(
         method: String? = null,
         field: String? = null
-    ): Set<ClassId> {
+    ): Set<JIRClassOrInterface> {
         db.awaitBackgroundJobs()
 
         return flatMap { classId ->
@@ -117,7 +117,7 @@ class ReversedUsagesExtension(
 }
 
 
-val Classpath.reversedUsagesExt: ReversedUsagesExtension
+val JIRClasspath.reversedUsagesExt: ReversedUsagesExtension
     get() {
         return ReversedUsagesExtension(db, this)
     }
