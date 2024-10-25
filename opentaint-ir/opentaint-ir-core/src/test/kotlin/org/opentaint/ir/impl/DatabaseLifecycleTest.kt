@@ -17,6 +17,7 @@ import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findClassOrNull
 import org.opentaint.ir.impl.fs.BuildFolderLocation
+import org.opentaint.ir.impl.storage.PersistentLocationRegistry
 import org.opentaint.ir.jirdb
 import java.io.File
 import java.nio.file.Files
@@ -60,7 +61,6 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
         withRegistry {
             assertEquals(1, snapshots.size)
-            assertEquals(1, usedButOutdated.size)
             assertEquals(1, locations.filterIsInstance<BuildFolderLocation>().size)
         }
 
@@ -69,7 +69,6 @@ class DatabaseLifecycleTest : LibrariesMixin {
         db!!.refresh()
         withRegistry {
             assertTrue(snapshots.isEmpty())
-            assertTrue(usedButOutdated.isEmpty())
             assertTrue(locations.all { it !is BuildFolderLocation })
         }
     }
@@ -100,7 +99,6 @@ class DatabaseLifecycleTest : LibrariesMixin {
         db!!.refresh()
         withRegistry {
             assertEquals(1, snapshots.size)
-            assertEquals(1, usedButOutdated.size)
         }
 
         assertNotNull(cp.findClassOrNull<AbstractCache<*,*>>())
@@ -108,7 +106,6 @@ class DatabaseLifecycleTest : LibrariesMixin {
         db!!.refresh()
         withRegistry {
             assertTrue(snapshots.isEmpty())
-            assertTrue(usedButOutdated.isEmpty())
             assertEquals(db!!.javaRuntime.allLocations.size, locations.size)
         }
     }
@@ -149,7 +146,6 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
         withRegistry {
             assertTrue(snapshots.isEmpty())
-            assertTrue(usedButOutdated.isEmpty())
         }
     }
 
@@ -174,7 +170,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
         db = null
     }
 
-    private fun withRegistry(action: InMemoryLocationsRegistry.() -> Unit) {
-        db!!.locationsRegistry.action()
+    private fun withRegistry(action: PersistentLocationRegistry.() -> Unit) {
+        (db!!.locationsRegistry as PersistentLocationRegistry).action()
     }
 }

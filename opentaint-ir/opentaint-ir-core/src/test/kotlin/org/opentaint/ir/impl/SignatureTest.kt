@@ -9,7 +9,7 @@ import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRField
 import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.Raw
+import org.opentaint.ir.api.Pure
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.impl.signature.FieldResolutionImpl
 import org.opentaint.ir.impl.signature.FieldSignature
@@ -73,7 +73,7 @@ class SignatureTest {
         with(methodSignatures[0]) {
             val (name, signature) = this
             Assertions.assertEquals("<init>", name)
-            Assertions.assertEquals(Raw, signature)
+            Assertions.assertEquals(Pure, signature)
         }
         with(methodSignatures[1]) {
             val (name, signature) = this

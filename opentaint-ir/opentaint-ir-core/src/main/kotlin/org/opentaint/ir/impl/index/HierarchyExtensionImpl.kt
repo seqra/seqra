@@ -3,7 +3,6 @@ package org.opentaint.ir.impl.index
 import kotlinx.collections.immutable.toPersistentList
 import org.jetbrains.exposed.sql.JoinType
 import org.jetbrains.exposed.sql.select
-import org.jetbrains.exposed.sql.transactions.transaction
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
@@ -38,7 +37,7 @@ class HierarchyExtensionImpl(private val db: JIRDB, private val cp: JIRClasspath
     }
 
     private fun subClasses(name: String, allHierarchy: Boolean): List<String> {
-        val subTypes = transaction {
+        val subTypes = db.persistence.read {
             val nameEntity = SymbolEntity.find { Symbols.name eq name }.firstOrNull()
             if (nameEntity == null) {
                 emptyList()

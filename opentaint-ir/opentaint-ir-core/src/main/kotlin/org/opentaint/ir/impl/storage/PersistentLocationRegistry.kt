@@ -30,7 +30,7 @@ class PersistentLocationRegistry(
         }
 
     // all snapshot associated with classpaths
-    private val snapshots = HashSet<LocationsRegistrySnapshot>()
+    internal val snapshots = HashSet<LocationsRegistrySnapshot>()
 
     private fun add(location: JIRByteCodeLocation): PersistentByteCodeLocation {
         return persistence.write {

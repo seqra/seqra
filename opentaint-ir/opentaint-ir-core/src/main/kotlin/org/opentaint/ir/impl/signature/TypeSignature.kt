@@ -2,7 +2,7 @@ package org.opentaint.ir.impl.signature
 
 import org.objectweb.asm.signature.SignatureVisitor
 import org.opentaint.ir.api.Malformed
-import org.opentaint.ir.api.Raw
+import org.opentaint.ir.api.Pure
 import org.opentaint.ir.api.TypeResolution
 
 internal class TypeSignature : Signature<TypeResolution>() {
@@ -41,7 +41,7 @@ internal class TypeSignature : Signature<TypeResolution>() {
     companion object {
         fun of(signature: String?): TypeResolution {
             return try {
-                if (signature == null) Raw else of(signature, TypeSignature())
+                if (signature == null) Pure else of(signature, TypeSignature())
             } catch (ignored: RuntimeException) {
                 Malformed
             }

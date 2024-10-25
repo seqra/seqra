@@ -8,18 +8,16 @@ import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRParameter
 import org.opentaint.ir.api.TypeName
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.impl.ClassIdService
+import org.opentaint.ir.impl.fs.ClassSource
 import org.opentaint.ir.impl.signature.MethodResolutionImpl
 import org.opentaint.ir.impl.signature.MethodSignature
 import org.opentaint.ir.impl.types.MethodInfo
 import org.opentaint.ir.impl.types.TypeNameImpl
-import org.opentaint.ir.impl.vfs.ClassVfsItem
 
 class JIRMethodImpl(
     private val methodInfo: MethodInfo,
-    private val classNode: ClassVfsItem,
-    override val jirClass: JIRClassOrInterface,
-    private val classIdService: ClassIdService
+    private val source: ClassSource,
+    override val jirClass: JIRClassOrInterface
 ) : JIRMethod {
 
     override val name: String get() = methodInfo.name
@@ -41,18 +39,15 @@ class JIRMethodImpl(
         get() = JIRDeclarationImpl.of(location = jirClass.declaration.location, this)
 
     override val parameters: List<JIRParameter>
-        get() = methodInfo.parametersInfo.map { JIRParameterImpl(it, classIdService.cp) }
+        get() = methodInfo.parametersInfo.map { JIRParameterImpl(this, it) }
 
     override val annotations: List<JIRAnnotation>
-        get() = methodInfo.annotations.map { JIRAnnotationImpl(it, classIdService.cp) }
-
+        get() = methodInfo.annotations.map { JIRAnnotationImpl(it, jirClass.classpath) }
 
     override val description get() = methodInfo.desc
 
-    fun signature(internalNames: Boolean) = methodInfo.signature(internalNames)
-
     override suspend fun body(): MethodNode {
-        return classNode.fullByteCode().methods.first { it.name == name && it.desc == methodInfo.desc }
+        return source.fullAsmNode.methods.first { it.name == name && it.desc == methodInfo.desc }
     }
 
     override fun equals(other: Any?): Boolean {

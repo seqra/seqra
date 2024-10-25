@@ -9,7 +9,11 @@ import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.JIRTypedField
 import org.opentaint.ir.api.JIRTypedMethod
 
-class JIRArrayClassTypesImpl(override val elementType: JIRType, override val nullable: Boolean = true, val anyType: JIRClassType) : JIRArrayType {
+class JIRArrayClassTypesImpl(
+    override val elementType: JIRType,
+    override val nullable: Boolean = true,
+    private val anyType: JIRClassType
+) : JIRArrayType {
 
     override val typeName = elementType.typeName + "[]"
 

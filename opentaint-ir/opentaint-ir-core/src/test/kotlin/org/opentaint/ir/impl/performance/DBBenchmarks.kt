@@ -15,8 +15,6 @@ import org.openjdk.jmh.annotations.TearDown
 import org.openjdk.jmh.annotations.Warmup
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.impl.LibrariesMixin
-import org.opentaint.ir.impl.fs.asByteCodeLocation
-import org.opentaint.ir.impl.fs.load
 import org.opentaint.ir.impl.index.Usages
 import org.opentaint.ir.jirdb
 import java.util.concurrent.TimeUnit
@@ -31,14 +29,6 @@ import java.util.concurrent.TimeUnit
 class DBBenchmarks : LibrariesMixin {
 
     private var db: JIRDB? = null
-
-    @Benchmark
-    fun readBytecode() {
-        val lib = guavaLib
-        runBlocking {
-            lib.asByteCodeLocation().loader()!!.load()
-        }
-    }
 
     @Benchmark
     fun readingJVMbytecode() {

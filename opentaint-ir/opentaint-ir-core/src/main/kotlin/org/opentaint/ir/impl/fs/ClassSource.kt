@@ -1,37 +1,36 @@
 package org.opentaint.ir.impl.fs
 
-import org.jetbrains.exposed.sql.Database
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.ClassNode
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.types.ClassInfo
 
-interface ClassByteCodeSource : ByteCodeConverter {
+interface ClassSource : ByteCodeConverter {
     val className: String
     val info: ClassInfo
     val location: RegisteredLocation
-    val binaryByteCode: ByteArray
+    val byteCode: ByteArray
 
     val asmNode: ClassNode
     val fullAsmNode: ClassNode
 
     fun newClassNode(level: Int): ClassNode {
         return ClassNode(Opcodes.ASM9).also {
-            ClassReader(binaryByteCode).accept(it, level)
+            ClassReader(byteCode).accept(it, level)
         }
     }
 
 }
 
-class ClassByteCodeSourceImpl(
+class ClassSourceImpl(
     override val location: RegisteredLocation,
     override val className: String,
-    override val binaryByteCode: ByteArray
-) : ClassByteCodeSource {
+    override val byteCode: ByteArray
+) : ClassSource {
 
     override val info: ClassInfo by lazy(LazyThreadSafetyMode.NONE) {
-        newClassNode(ClassReader.SKIP_CODE).asClassInfo(binaryByteCode)
+        newClassNode(ClassReader.SKIP_CODE).asClassInfo(byteCode)
     }
 
     override val asmNode by lazy(LazyThreadSafetyMode.NONE) {
@@ -39,9 +38,5 @@ class ClassByteCodeSourceImpl(
     }
 
     override val fullAsmNode: ClassNode get() = newClassNode(ClassReader.EXPAND_FRAMES)
-
-}
-
-class PersistentByteCodeSource(val classId: Long, private val db: Database) {
 
 }

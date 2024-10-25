@@ -3,7 +3,7 @@ package org.opentaint.ir.impl.signature
 import org.objectweb.asm.signature.SignatureVisitor
 import org.opentaint.ir.api.Malformed
 import org.opentaint.ir.api.MethodResolution
-import org.opentaint.ir.api.Raw
+import org.opentaint.ir.api.Pure
 
 internal class MethodSignature : Signature<MethodResolution>() {
 
@@ -54,7 +54,7 @@ internal class MethodSignature : Signature<MethodResolution>() {
 
     companion object {
         fun of(signature: String?): MethodResolution {
-            signature ?: return Raw
+            signature ?: return Pure
             return try {
                 of(signature, MethodSignature())
             } catch (ignored: RuntimeException) {

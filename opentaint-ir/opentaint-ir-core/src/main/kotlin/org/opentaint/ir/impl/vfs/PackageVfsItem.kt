@@ -2,7 +2,8 @@ package org.opentaint.ir.impl.vfs
 
 import java.util.concurrent.ConcurrentHashMap
 
-class PackageVfsItem(folderName: String?, parent: PackageVfsItem?) : AbstractVfsItem<PackageVfsItem>(folderName, parent) {
+class PackageVfsItem(folderName: String?, parent: PackageVfsItem?) :
+    AbstractVfsItem<PackageVfsItem>(folderName, parent) {
 
     // folderName -> subpackage
     internal var subpackages = ConcurrentHashMap<String, PackageVfsItem>()
@@ -31,6 +32,12 @@ class PackageVfsItem(folderName: String?, parent: PackageVfsItem?) : AbstractVfs
         visitor.visitPackage(this)
         subpackages.values.forEach {
             visitor.visitPackage(it)
+        }
+    }
+
+    fun forEachClasses(locationId: Long, action: (ClassVfsItem) -> Unit) {
+        classes.values.forEach {
+            it[locationId]?.let { action(it) }
         }
     }
 

@@ -2,12 +2,23 @@ package org.opentaint.ir.impl.tree
 
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.LocationType
+import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.impl.storage.longHash
 import java.io.File
 
-open class DummyCodeLocation(val id: String) : JIRByteCodeLocation {
+open class DummyCodeLocation(private val name: String) : JIRByteCodeLocation, RegisteredLocation {
+
+    override val id: Long
+        get() = name.longHash
+
     override val hash: String
-        get() = id
-    override val type=  LocationType.APP
+        get() = name
+
+    override val jirLocation: JIRByteCodeLocation
+        get() = this
+
+
+    override val type = LocationType.APP
 
     override suspend fun classes() = null
 

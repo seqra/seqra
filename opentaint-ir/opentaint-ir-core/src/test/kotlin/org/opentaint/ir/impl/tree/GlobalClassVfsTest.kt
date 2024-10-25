@@ -5,14 +5,14 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
-import org.opentaint.ir.api.JIRByteCodeLocation
-import org.opentaint.ir.impl.fs.ClassByteCodeSource
+import org.opentaint.ir.impl.fs.ClassSource
+import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.vfs.ClassVfsItem
 import org.opentaint.ir.impl.vfs.ClasspathClassTree
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
 import org.opentaint.ir.impl.vfs.RemoveLocationsVisitor
 
-class GlobalClassVFSTest {
+class GlobalClassVfsTest {
 
     private val globalClassVFS = GlobalClassesVfs()
     private val lib1 = DummyCodeLocation("xxx")
@@ -76,6 +76,7 @@ class GlobalClassVFSTest {
 
         assertNull(limitedTree.firstClassOrNull("xxx.zzz.Simple"))
     }
+
     @Test
     fun `total locations dropping`() {
         val limitedTree = ClasspathClassTree(globalClassVFS, persistentListOf(lib1))
@@ -89,15 +90,15 @@ class GlobalClassVFSTest {
         assertNull(limitedTree.firstClassOrNull("xxx.Simple"))
     }
 
-    private fun JIRByteCodeLocation.findNode(name: String): ClassVfsItem? {
+    private fun DummyCodeLocation.findNode(name: String): ClassVfsItem? {
         return globalClassVFS.findClassNodeOrNull(this, name)
     }
 
-    private fun JIRByteCodeLocation.classSource(name: String): ClassByteCodeSource {
-        return ClassByteCodeSource(
+    private fun DummyCodeLocation.classSource(name: String): ClassSource {
+        return ClassSourceImpl(
             className = name,
             location = this,
-            binaryByteCode = ByteArray(10)
+            byteCode = ByteArray(10)
         )
     }
 

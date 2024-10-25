@@ -1,12 +1,11 @@
 package org.opentaint.ir.impl.signature
 
 import org.objectweb.asm.signature.SignatureReader
-import org.opentaint.ir.api.Classpath
 import org.opentaint.ir.api.Malformed
-import org.opentaint.ir.api.Raw
+import org.opentaint.ir.api.Pure
 import org.opentaint.ir.api.RecordComponentResolution
 
-class RecordSignature(private val cp: Classpath) : TypeRegistrant {
+internal class RecordSignature : TypeRegistrant {
 
     private lateinit var recordComponentType: SType
 
@@ -19,12 +18,12 @@ class RecordSignature(private val cp: Classpath) : TypeRegistrant {
     }
 
     companion object {
-        fun of(signature: String?, cp: Classpath): RecordComponentResolution {
-            signature ?: return Raw
+        fun of(signature: String?): RecordComponentResolution {
+            signature ?: return Pure
             val signatureReader = SignatureReader(signature)
-            val visitor = RecordSignature(cp)
+            val visitor = RecordSignature()
             return try {
-                signatureReader.acceptType(TypeExtractor(cp, visitor))
+                signatureReader.acceptType(TypeExtractor(visitor))
                 visitor.resolve()
             } catch (ignored: RuntimeException) {
                 Malformed

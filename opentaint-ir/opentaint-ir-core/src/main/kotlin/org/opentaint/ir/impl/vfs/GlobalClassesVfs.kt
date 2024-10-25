@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.vfs
 
 import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.impl.fs.ClassByteCodeSource
+import org.opentaint.ir.impl.fs.ClassSource
 import java.util.concurrent.ConcurrentHashMap
 
 open class GlobalClassesVfs : AbstractClassVfs<PackageVfsItem, ClassVfsItem>() {
@@ -10,12 +10,12 @@ open class GlobalClassesVfs : AbstractClassVfs<PackageVfsItem, ClassVfsItem>() {
 
     override fun PackageVfsItem.findClassOrNew(
         simpleClassName: String,
-        source: ClassByteCodeSource
+        source: ClassSource
     ): ClassVfsItem {
         val nameIndex = classes.getOrPut(simpleClassName) {
             ConcurrentHashMap<Long, ClassVfsItem>()
         }
-        return nameIndex.getOrPut(source.locationId) {
+        return nameIndex.getOrPut(source.location.id) {
             ClassVfsItem(simpleClassName, this, source)
         }
     }

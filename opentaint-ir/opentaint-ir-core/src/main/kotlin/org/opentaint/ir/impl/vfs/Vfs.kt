@@ -28,5 +28,4 @@ class RemoveLocationsVisitor(private val locations: Set<RegisteredLocation>) : V
             packageItem.dropLocation(it.id)
         }
     }
-
 }

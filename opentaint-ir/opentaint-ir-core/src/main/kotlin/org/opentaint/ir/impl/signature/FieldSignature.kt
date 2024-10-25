@@ -3,7 +3,7 @@ package org.opentaint.ir.impl.signature
 import org.objectweb.asm.signature.SignatureReader
 import org.opentaint.ir.api.FieldResolution
 import org.opentaint.ir.api.Malformed
-import org.opentaint.ir.api.Raw
+import org.opentaint.ir.api.Pure
 
 internal class FieldSignature : TypeRegistrant {
 
@@ -19,7 +19,7 @@ internal class FieldSignature : TypeRegistrant {
 
     companion object {
         fun of(signature: String?): FieldResolution {
-            signature ?: return Raw
+            signature ?: return Pure
             val signatureReader = SignatureReader(signature)
             val visitor = FieldSignature()
             return try {

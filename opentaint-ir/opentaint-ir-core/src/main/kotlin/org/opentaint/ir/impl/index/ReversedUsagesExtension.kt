@@ -77,12 +77,12 @@ class ReversedUsagesExtension(
         val hierarchyNames = hierarchy.map { it.name }.toSet()
         forEach {
             val classId = cp.findClassOrNull(it.name)
-            val byteCode = classId?.byteCode()
-            byteCode?.methods?.forEach { method ->
+            val asm = classId?.bytecode()
+            asm?.methods?.forEach { method ->
                 for (inst in method.instructions) {
                     val matches = matcher(inst, hierarchyNames)
                     if (matches) {
-                        val methodId = classId?.methods?.firstOrNull {
+                        val methodId = classId.methods.firstOrNull {
                             it.name == method.name && it.description == method.desc
                         }
                         if (methodId != null) {
@@ -110,7 +110,7 @@ class ReversedUsagesExtension(
                     field = field,
                     className = classId.name
                 )
-            )
+            ).toList()
             classNames.mapNotNull { cp.findClassOrNull(it) }
         }.toSet()
     }

@@ -98,7 +98,6 @@ private class JIRDBUsageFeature(override val jirdb: JIRDB) : JIRDBFeature<UsageI
 
         override val jirdbPersistence: JIRDBPersistence
             get() = jirdb.persistence
-                ?: throw IllegalStateException("JIRDB persistence is required for using feature persistence")
 
         override fun beforeIndexing(clearOnStart: Boolean) {
             if (clearOnStart) {
@@ -137,7 +136,7 @@ private class JIRDBUsageFeature(override val jirdb: JIRDB) : JIRDBFeature<UsageI
     override fun newIndexer(location: RegisteredLocation) = ReversedUsageIndexer(jirdb, location)
 
     override fun onLocationRemoved(location: RegisteredLocation) {
-        jirdb.persistence?.write {
+        jirdb.persistence.write {
             Calls.deleteWhere { Calls.locationId eq location.id }
         }
     }

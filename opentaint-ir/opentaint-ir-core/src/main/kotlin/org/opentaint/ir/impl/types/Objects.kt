@@ -57,15 +57,6 @@ class MethodInfo(
     val annotations: List<AnnotationInfo>,
     val parametersInfo: List<ParameterInfo>,
 ) {
-
-    fun signature(internalNames: Boolean): String {
-        if (internalNames) {
-            return name + desc
-        }
-        val params = parameters.joinToString(";") + (";".takeIf { parameters.isNotEmpty() } ?: "")
-        return "$name($params)${returnClass};"
-    }
-
     val returnClass: String get() = Type.getReturnType(desc).className
     val parameters: List<String> get() = Type.getArgumentTypes(desc).map { it.className }.toImmutableList()
 

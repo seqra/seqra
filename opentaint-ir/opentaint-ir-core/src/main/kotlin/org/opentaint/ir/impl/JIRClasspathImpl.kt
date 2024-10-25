@@ -26,7 +26,6 @@ class JIRClasspathImpl(
     override val locations: List<JIRByteCodeLocation> = locationsRegistrySnapshot.locations.map { it.jirLocation }
 
     private val classpathClassTree = ClasspathClassTree(globalClassVFS, locationsRegistrySnapshot)
-    private val classIdService = ClassIdService(this)
 
     override suspend fun refreshed(closeOld: Boolean): JIRClasspath {
         return db.classpath(locationsRegistrySnapshot.locations).also {
@@ -37,7 +36,11 @@ class JIRClasspathImpl(
     }
 
     override suspend fun findClassOrNull(name: String): JIRClassOrInterface? {
-        return classIdService.toClassId(classpathClassTree.firstClassOrNull(name))
+        val inMemoryClass = toJcClass(classpathClassTree.firstClassOrNull(name))
+        if (inMemoryClass != null) {
+            return inMemoryClass
+        }
+        return db.persistence.findByName(this, locationsRegistrySnapshot.locations, name)
     }
 
     override suspend fun typeOf(jirClass: JIRClassOrInterface): JIRRefType {

@@ -13,6 +13,10 @@ class ClassesTest : DatabaseEnvTest() {
     companion object : LibrariesMixin {
         var db: JIRDB? = runBlocking {
             jirdb {
+                persistent {
+                    clearOnStart = false
+                    location = ":memory:"
+                }
                 predefinedDirOrJars = allClasspath
                 useProcessJavaRuntime()
             }.also {

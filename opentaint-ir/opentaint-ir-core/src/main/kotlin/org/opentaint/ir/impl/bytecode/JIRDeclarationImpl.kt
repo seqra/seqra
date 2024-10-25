@@ -26,4 +26,23 @@ class JIRDeclarationImpl(override val location: JIRByteCodeLocation, override va
             return JIRDeclarationImpl(location, "${param.method.jirClass.name}#${param.name}:${param.index}")
         }
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as JIRDeclarationImpl
+
+        if (location != other.location) return false
+        if (relativePath != other.relativePath) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = location.hashCode()
+        result = 31 * result + relativePath.hashCode()
+        return result
+    }
+
 }
