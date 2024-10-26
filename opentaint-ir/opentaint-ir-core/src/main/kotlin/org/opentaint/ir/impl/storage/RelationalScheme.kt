@@ -17,6 +17,7 @@ object BytecodeLocations : LongIdTable() {
     val path = varchar("path", length = 1024)
     val hash = varchar("hash", length = 1024)
     val runtime = bool("runtime").default(false)
+    val state = enumeration<LocationState>("state").default(LocationState.INITIAL)
     val updated = reference("updated_id", BytecodeLocations.id).nullable()
 }
 
@@ -41,14 +42,13 @@ object ClassInnerClasses : LongIdTable() {
 
     val classId = reference("class_id", Classes.id, onDelete = ReferenceOption.CASCADE)
     val innerClassId = reference("inner_class_id", Symbols.id)
-
 }
 
 object OuterClasses : LongIdTable() {
-
-    val classId = reference("class_id", Classes.id, onDelete = ReferenceOption.CASCADE)
+    val outerClassName = reference("outer_class_name_id", Symbols.id, onDelete = ReferenceOption.CASCADE)
     val name = varchar("name", 256).nullable()
-
+    val methodName = text("method_name").nullable()
+    val methodDesc = text("method_desc").nullable()
 }
 
 object Classes : LongIdTable() {
@@ -157,22 +157,13 @@ enum class AnnotationValueKind {
                 else -> throw IllegalStateException("Unknown type ${value.javaClass}")
             }
         }
-
-        fun typeOf(value: Any): AnnotationValueKind {
-            return when (value) {
-                is String -> STRING
-                is Short -> SHORT
-                is Char -> CHAR
-                is Long -> LONG
-                is Int -> INT
-                is Float -> FLOAT
-                is Double -> DOUBLE
-                is Byte -> BYTE
-                is Boolean -> BOOLEAN
-                else -> throw IllegalStateException("Unknown type ${value.javaClass}")
-            }
-        }
-
     }
 
+}
+
+
+enum class LocationState {
+    INITIAL,
+    PROCESSED,
+    OUTDATED
 }

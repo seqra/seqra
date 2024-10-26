@@ -11,7 +11,6 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.sqlite.SQLiteConfig
 import org.sqlite.SQLiteDataSource
 import org.opentaint.ir.api.ByteCodeContainer
-import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRDBPersistence
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.JIRClassOrInterface
@@ -22,7 +21,6 @@ import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.fs.ByteCodeConverter
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.fs.asByteCodeLocation
-import org.opentaint.ir.impl.storage.BytecodeLocationEntity.Companion.findOrNew
 import java.io.Closeable
 import java.io.File
 import java.util.concurrent.locks.ReentrantLock
@@ -92,14 +90,6 @@ class SQLitePersistenceImpl(
                 }.toList()
             }
         }
-
-    override fun save(jirdb: JIRDB) {
-        transaction(db) {
-            jirdb.locations.forEach { location ->
-                location.findOrNew()
-            }
-        }
-    }
 
     override fun <T> write(newTx: Boolean, action: () -> T): T {
         return lock.withLock {

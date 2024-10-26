@@ -24,7 +24,7 @@ class JIRAnnotationImpl(
     private val lazyValues: SuspendableLazy<Map<String, Any?>> = suspendableLazy {
         val size = info.values.size
         if (size > 0) {
-            info.values.map { it.first to fixValue(it.second) }.toMap()
+            info.values.associate { it.first to fixValue(it.second) }
         } else {
             emptyMap()
         }

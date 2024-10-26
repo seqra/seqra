@@ -5,16 +5,20 @@ import org.opentaint.ir.api.RegisteredLocation
 import java.io.Closeable
 
 interface LocationsRegistry : Closeable {
-    // all loaded locations
-    val locations: Set<JIRByteCodeLocation>
-    fun addLocation(location: JIRByteCodeLocation): RegisteredLocation
-    fun addLocations(location: List<JIRByteCodeLocation>): List<RegisteredLocation>
+    // all locations
+    val actualLocations: List<RegisteredLocation>
+    val runtimeLocations: List<RegisteredLocation>
 
-    suspend fun refresh(onRefresh: suspend (RegisteredLocation) -> Unit)
+    fun cleanup(): CleanupResult
+    fun refresh(): RefreshResult
+    fun setup(runtimeLocations: List<JIRByteCodeLocation>): RegistrationResult
 
-    fun snapshot(classpathSetLocations: List<RegisteredLocation>): LocationsRegistrySnapshot
-    fun cleanup(): Set<RegisteredLocation>
-    fun onClose(snapshot: LocationsRegistrySnapshot): Set<RegisteredLocation>
+    fun registerIfNeeded(locations: List<JIRByteCodeLocation>): RegistrationResult
+    fun afterProcessing(locations: List<RegisteredLocation>)
+
+    fun newSnapshot(classpathSetLocations: List<RegisteredLocation>): LocationsRegistrySnapshot
+
+    fun close(snapshot: LocationsRegistrySnapshot)
 
     fun RegisteredLocation.hasReferences(snapshots: Set<LocationsRegistrySnapshot>): Boolean {
         return snapshots.isNotEmpty() && snapshots.any { it.ids.contains(id) }
@@ -22,6 +26,9 @@ interface LocationsRegistry : Closeable {
 
 }
 
+class RegistrationResult(val registered: List<RegisteredLocation>, val new: List<RegisteredLocation>)
+class RefreshResult(val new: List<RegisteredLocation>)
+class CleanupResult(val outdated: List<RegisteredLocation>)
 
 open class LocationsRegistrySnapshot(
     private val registry: LocationsRegistry,
@@ -31,6 +38,6 @@ open class LocationsRegistrySnapshot(
     val ids = locations.map { it.id }.toHashSet()
 
     override fun close() {
-        registry.onClose(this)
+        registry.close(this)
     }
 }

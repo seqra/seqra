@@ -48,38 +48,41 @@ class JIRDBImpl(
     init {
         featureRegistry.bind(this)
         // todo rewrite in more elegant way
-        locationsRegistry =  PersistentLocationRegistry(persistence as SQLitePersistenceImpl, featureRegistry)
+        locationsRegistry = PersistentLocationRegistry(persistence as SQLitePersistenceImpl, featureRegistry)
     }
 
-    private lateinit var runtimeLocations: List<RegisteredLocation>
-
     override val locations: List<JIRByteCodeLocation>
-        get() = locationsRegistry.locations.toList()
+        get() = locationsRegistry.actualLocations.map { it.jirLocation }
 
-    suspend fun loadJavaLibraries() {
-        assertNotClosed()
-        runtimeLocations = javaRuntime.allLocations.loadAll()
+    suspend fun restore() {
+        persistence.setup()
+        locationsRegistry.cleanup()
+        val runtime = JavaRuntime(settings.jre).allLocations
+        locationsRegistry.setup(runtime).new.process()
+        locationsRegistry.registerIfNeeded(settings.predefinedDirOrJars.filter { it.exists() }
+            .map { it.asByteCodeLocation(isRuntime = false) }
+        ).new.process()
     }
 
     override suspend fun classpath(dirOrJars: List<File>): JIRClasspath {
         assertNotClosed()
-        val existedLocations = dirOrJars.filterExisted().map { it.asByteCodeLocation() }.loadAll()
-        val classpathSetLocations = existedLocations.toList() + runtimeLocations
+        val existedLocations = dirOrJars.filterExisted().map { it.asByteCodeLocation() }
+        val processed = locationsRegistry.registerIfNeeded(existedLocations.toList())
+            .also { it.new.process() }.registered + locationsRegistry.runtimeLocations
         return JIRClasspathImpl(
-            locationsRegistry.snapshot(classpathSetLocations),
+            locationsRegistry.newSnapshot(processed),
             featureRegistry,
             this,
             classesVfs
         )
     }
 
-    fun classpath(locations: List<RegisteredLocation>): JIRClasspath {
+    fun new(cp: JIRClasspathImpl): JIRClasspath {
         assertNotClosed()
-        val classpathSetLocations = locations.toSet() + runtimeLocations
         return JIRClasspathImpl(
-            locationsRegistry.snapshot(classpathSetLocations.toList()),
+            locationsRegistry.newSnapshot(cp.registeredLocations),
             featureRegistry,
-            this,
+            cp.db,
             classesVfs
         )
     }
@@ -91,21 +94,19 @@ class JIRDBImpl(
 
     override suspend fun load(dirOrJars: List<File>) = apply {
         assertNotClosed()
-        dirOrJars.filterExisted().map { it.asByteCodeLocation() }.loadAll()
+        loadLocations(dirOrJars.filterExisted().map { it.asByteCodeLocation() })
     }
 
     override suspend fun loadLocations(locations: List<JIRByteCodeLocation>) = apply {
         assertNotClosed()
-        locations.loadAll()
+        locationsRegistry.registerIfNeeded(locations).new.process()
     }
 
-    private suspend fun List<JIRByteCodeLocation>.loadAll(): List<RegisteredLocation> {
+    private suspend fun List<RegisteredLocation>.process(): List<RegisteredLocation> {
         val actions = ConcurrentLinkedQueue<RegisteredLocation>()
 
-        val registeredLocations = locationsRegistry.addLocations(this)
-
         val libraryTrees = withContext(Dispatchers.IO) {
-            registeredLocations.map { location ->
+            map { location ->
                 async {
                     // here something may go wrong
                     val libraryTree = location.load()
@@ -114,10 +115,6 @@ class JIRDBImpl(
                 }
             }
         }.awaitAll()
-        persistence.write {
-            persistence.save(this@JIRDBImpl)
-        }
-
         val locationClasses = libraryTrees.associate {
             it.location to it.pushInto(classesVfs).values
         }
@@ -137,19 +134,17 @@ class JIRDBImpl(
                     }
                 }
             }.joinAll()
-
+            locationsRegistry.afterProcessing(this@process)
             backgroundJobs.remove(backgroundJobId)
         }
-        return registeredLocations
+        return this
     }
 
     override suspend fun refresh() {
         awaitBackgroundJobs()
-        locationsRegistry.refresh {
-            listOf(it.jirLocation).loadAll()
-        }
-        val outdatedLocations = locationsRegistry.cleanup()
-        classesVfs.visit(RemoveLocationsVisitor(outdatedLocations))
+        locationsRegistry.refresh().new.process()
+        val result = locationsRegistry.cleanup()
+        classesVfs.visit(RemoveLocationsVisitor(result.outdated))
     }
 
     override suspend fun rebuildFeatures() {

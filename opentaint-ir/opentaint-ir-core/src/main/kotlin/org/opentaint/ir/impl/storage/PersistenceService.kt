@@ -2,14 +2,11 @@ package org.opentaint.ir.impl.storage
 
 
 import org.jetbrains.exposed.dao.id.IdTable
-import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.batchInsert
-import org.jetbrains.exposed.sql.insertAndGetId
+import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.max
-import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.update
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.types.AnnotationInfo
 import org.opentaint.ir.impl.types.AnnotationValue
@@ -31,6 +28,7 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
     private val methodParamIdGen = AtomicLong()
     private val annotationIdGen = AtomicLong()
     private val annotationValueIdGen = AtomicLong()
+    private val outerClassIdGen = AtomicLong()
 
     fun setup() {
         transaction(persistence.db) {
@@ -45,6 +43,7 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
             methodParamIdGen.set(MethodParameters.maxId ?: 0)
             annotationIdGen.set(Annotations.maxId ?: 0)
             annotationValueIdGen.set(AnnotationValues.maxId ?: 0)
+            outerClassIdGen.set(OuterClasses.maxId ?: 0)
         }
     }
 
@@ -69,6 +68,7 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
                 names.addAll(it.methods.flatMap { it.parameters })
                 names.addAll(it.fields.map { it.name })
                 names.addAll(it.fields.map { it.type })
+                it.outerClass?.className?.let { names.add(it) }
                 it.annotations.extractAllSymbolsTo(names)
                 it.methods.forEach {
                     it.annotations.extractAllSymbolsTo(names)
@@ -181,24 +181,15 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
                 }
                 this[AnnotationValues.enumValue] = it.enumSymbolId
             }
-
             classes.filter { it.outerClass != null }.forEach { classInfo ->
-                val id = classIds[classInfo]!!
-                val outerClazzId = classIds.filterKeys { it.name == classInfo.outerClass!!.className }
-                    .values.first()
-                val refId = OuterClasses.insertAndGetId {
-                    it[name] = classInfo.outerClass!!.name
-                    it[classId] = outerClazzId
-                }
-                Classes.update(where = { Classes.id eq id }) {
-                    it[outerClass] = refId
-                    if (classInfo.outerMethod != null) {
-                        it[outerMethod] = Methods.select {
-                            (Methods.classId eq outerClazzId) and
-                                    (Methods.name eq classInfo.outerMethod.findCachedSymbol()) and
-                                    (Methods.desc eq classInfo.outerMethodDesc)
-                        }.firstOrNull()?.get(Methods.id)
-                    }
+                val outerClass = classInfo.outerClass!!
+                val outerClassId = outerClass.className.findCachedSymbol()
+                OuterClasses.insert {
+                    it[OuterClasses.id] = outerClassIdGen.incrementAndGet()
+                    it[name] = outerClass.name
+                    it[outerClassName] = outerClassId
+                    it[methodName] = classInfo.outerMethod
+                    it[methodDesc] = classInfo.outerMethodDesc
                 }
             }
         }

@@ -66,7 +66,7 @@ class GlobalClassVfsTest {
         globalClassVFS.addClass(lib1.classSource("xxx.Simple"))
         globalClassVFS.addClass(lib2.classSource("xxx.zzz.Simple"))
 
-        globalClassVFS.visit(RemoveLocationsVisitor(setOf(lib2)))
+        globalClassVFS.visit(RemoveLocationsVisitor(listOf(lib2)))
 
         with(limitedTree.firstClassOrNull("xxx.Simple")) {
             assertNotNull(this!!)
@@ -85,7 +85,7 @@ class GlobalClassVfsTest {
         globalClassVFS.addClass(lib1.classSource("xxx.Simple"))
         globalClassVFS.addClass(lib2.classSource("xxx.zzz.Simple"))
 
-        globalClassVFS.visit(RemoveLocationsVisitor(setOf(lib1, lib2)))
+        globalClassVFS.visit(RemoveLocationsVisitor(listOf(lib1, lib2)))
 
         assertNull(limitedTree.firstClassOrNull("xxx.Simple"))
     }

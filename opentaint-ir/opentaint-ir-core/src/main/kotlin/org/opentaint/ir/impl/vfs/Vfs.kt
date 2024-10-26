@@ -22,7 +22,7 @@ interface VfsVisitor {
     fun visitPackage(packageItem: PackageVfsItem) {}
 }
 
-class RemoveLocationsVisitor(private val locations: Set<RegisteredLocation>) : VfsVisitor {
+class RemoveLocationsVisitor(private val locations: List<RegisteredLocation>) : VfsVisitor {
     override fun visitPackage(packageItem: PackageVfsItem) {
         locations.forEach {
             packageItem.dropLocation(it.id)

@@ -7,6 +7,7 @@ import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.PredefinedPrimitives
+import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.api.anyType
 import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.index.hierarchyExt
@@ -24,11 +25,12 @@ class JIRClasspathImpl(
 ) : JIRClasspath {
 
     override val locations: List<JIRByteCodeLocation> = locationsRegistrySnapshot.locations.map { it.jirLocation }
+    val registeredLocations: List<RegisteredLocation> = locationsRegistrySnapshot.locations
 
     private val classpathClassTree = ClasspathClassTree(globalClassVFS, locationsRegistrySnapshot)
 
     override suspend fun refreshed(closeOld: Boolean): JIRClasspath {
-        return db.classpath(locationsRegistrySnapshot.locations).also {
+        return db.new(this).also {
             if (closeOld) {
                 close()
             }

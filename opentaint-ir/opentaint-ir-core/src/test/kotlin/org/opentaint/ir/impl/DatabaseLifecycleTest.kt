@@ -61,7 +61,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
         withRegistry {
             assertEquals(1, snapshots.size)
-            assertEquals(1, locations.filterIsInstance<BuildFolderLocation>().size)
+            assertEquals(1, actualLocations.filterIsInstance<BuildFolderLocation>().size)
         }
 
         assertNotNull(cp.findClassOrNull<BarKt>())
@@ -69,7 +69,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
         db!!.refresh()
         withRegistry {
             assertTrue(snapshots.isEmpty())
-            assertTrue(locations.all { it !is BuildFolderLocation })
+            assertTrue(actualLocations.all { it.jirLocation !is BuildFolderLocation })
         }
     }
 
@@ -106,7 +106,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
         db!!.refresh()
         withRegistry {
             assertTrue(snapshots.isEmpty())
-            assertEquals(db!!.javaRuntime.allLocations.size, locations.size)
+            assertEquals(db!!.javaRuntime.allLocations.size, actualLocations.size)
         }
     }
 

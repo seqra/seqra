@@ -44,7 +44,7 @@ class OuterClassEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<OuterClassEntity>(OuterClasses)
 
     var name: String? by OuterClasses.name
-    var outerClass by ClassEntity referencedOn OuterClasses.classId
+    var outerClassName by ClassEntity referencedOn OuterClasses.outerClassName
 }
 
 class ClassEntity(id: EntityID<Long>) : LongEntity(id) {

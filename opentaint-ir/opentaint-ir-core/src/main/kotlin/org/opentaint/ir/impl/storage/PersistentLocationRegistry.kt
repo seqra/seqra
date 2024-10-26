@@ -2,96 +2,120 @@ package org.opentaint.ir.impl.storage
 
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.neq
 import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.batchInsert
-import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.deleteWhere
+import org.jetbrains.exposed.sql.update
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.LocationType
 import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.impl.CleanupResult
 import org.opentaint.ir.impl.FeaturesRegistry
 import org.opentaint.ir.impl.LocationsRegistry
 import org.opentaint.ir.impl.LocationsRegistrySnapshot
+import org.opentaint.ir.impl.RefreshResult
+import org.opentaint.ir.impl.RegistrationResult
 import org.opentaint.ir.impl.storage.BytecodeLocationEntity.Companion.findOrNew
 import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
-import org.opentaint.ir.impl.vfs.toJcLocation
 
 class PersistentLocationRegistry(
     private val persistence: SQLitePersistenceImpl,
     private val featuresRegistry: FeaturesRegistry
 ) : LocationsRegistry {
 
-    override val locations: Set<JIRByteCodeLocation>
-        get() = transaction(persistence.db) {
-            BytecodeLocationEntity.all().toList().map { it.toJcLocation() }.toSet()
-        }
-
-    private val registeredLocations: Set<PersistentByteCodeLocation>
-        get() = transaction(persistence.db) {
-            BytecodeLocationEntity.all().toList().map { PersistentByteCodeLocation(it) }.toSet()
-        }
-
     // all snapshot associated with classpaths
     internal val snapshots = HashSet<LocationsRegistrySnapshot>()
 
-    private fun add(location: JIRByteCodeLocation): PersistentByteCodeLocation {
-        return persistence.write {
-            PersistentByteCodeLocation(location.findOrNew(), location)
+    override val actualLocations: List<PersistentByteCodeLocation>
+        get() = persistence.read {
+            BytecodeLocationEntity.all().toList().map { PersistentByteCodeLocation(it) }
+        }
+
+    override lateinit var runtimeLocations: List<RegisteredLocation>
+
+    private fun add(location: JIRByteCodeLocation) = PersistentByteCodeLocation(location.findOrNew(), location)
+
+    override fun setup(runtimeLocations: List<JIRByteCodeLocation>): RegistrationResult {
+        return registerIfNeeded(runtimeLocations).also {
+            this.runtimeLocations = it.registered
         }
     }
 
-    override fun addLocation(location: JIRByteCodeLocation) = add(location)
+    override fun afterProcessing(locations: List<RegisteredLocation>) {
+        val ids = locations.map { it.id }
+        persistence.write {
+            BytecodeLocations.update({ BytecodeLocations.id inList ids }) {
+                it[state] = LocationState.PROCESSED
+            }
+        }
+    }
 
-    override fun addLocations(location: List<JIRByteCodeLocation>): List<RegisteredLocation> {
+    override fun registerIfNeeded(locations: List<JIRByteCodeLocation>): RegistrationResult {
         return persistence.write {
             val result = arrayListOf<RegisteredLocation>()
             val toAdd = arrayListOf<JIRByteCodeLocation>()
+            val hashes = locations.map { it.hash }
+            val existed = BytecodeLocationEntity.find {
+                BytecodeLocations.hash inList hashes and (BytecodeLocations.state neq LocationState.INITIAL)
+            }.associateBy { it.hash }
+
             locations.forEach {
-                val found = BytecodeLocationEntity.find {
-                    (BytecodeLocations.path eq it.path) and (BytecodeLocations.hash eq it.hash)
-                }.firstOrNull()
+                val found = existed[it.hash]
                 if (found == null) {
                     toAdd += it
                 } else {
                     result += PersistentByteCodeLocation(found, it)
                 }
             }
-            BytecodeLocations.batchInsert(toAdd, shouldReturnGeneratedValues = false) {
-                this[BytecodeLocations.hash] = it.hash
-                this[BytecodeLocations.path] = it.path
-                this[BytecodeLocations.runtime] = it.type == LocationType.RUNTIME
+            val added = toAdd.map {
+                PersistentByteCodeLocation(
+                    BytecodeLocationEntity.new {
+                        hash = it.hash
+                        path = it.path
+                        runtime = it.type == LocationType.RUNTIME
+                    },
+                    it
+                )
             }
-            result
+            RegistrationResult(result, added)
         }
     }
 
-    private suspend fun refresh(location: RegisteredLocation, onRefresh: suspend (RegisteredLocation) -> Unit) {
-        val jirLocation = location.jirLocation
-        if (jirLocation.isChanged()) {
-            val refreshedLocation = persistence.write {
-                val refreshedLocation = jirLocation.createRefreshed()
-                val refreshed = add(refreshedLocation)
-                // let's check snapshots
-                val hasReferences = location.hasReferences(snapshots)
-                val entity = BytecodeLocationEntity.findById(location.id)
-                    ?: throw IllegalStateException("location with ${location.id} not found")
-                if (!hasReferences) {
-                    featuresRegistry.onLocationRemove(location)
-                    entity.delete()
+    private fun deprecate(locations: List<RegisteredLocation>) {
+        locations.forEach {
+            featuresRegistry.onLocationRemove(it)
+        }
+        BytecodeLocations.deleteWhere { BytecodeLocations.id inList locations.map { it.id } }
+    }
+
+    override fun refresh(): RefreshResult {
+        val deprecated = arrayListOf<PersistentByteCodeLocation>()
+        val newLocations = arrayListOf<JIRByteCodeLocation>()
+        val updated = hashMapOf<JIRByteCodeLocation, PersistentByteCodeLocation>()
+        actualLocations.forEach { location ->
+            val jirLocation = location.jirLocation
+            if (jirLocation.isChanged()) {
+                newLocations.add(jirLocation.createRefreshed())
+                if (!location.hasReferences(snapshots)) {
+                    deprecated.add(location)
                 } else {
-                    entity.updated = refreshed.entity
+                    updated[jirLocation] = location
                 }
-                refreshedLocation
             }
-            onRefresh(addLocation(refreshedLocation))
         }
+        val new = persistence.write {
+            deprecate(deprecated)
+            newLocations.map { location ->
+                val refreshed = add(location)
+                val toUpdate = updated[location]
+                if (toUpdate != null) {
+                    toUpdate.entity.updated = refreshed.entity
+                }
+                refreshed
+            }
+        }
+        return RefreshResult(new = new)
     }
 
-    override suspend fun refresh(onRefresh: suspend (RegisteredLocation) -> Unit) {
-        registeredLocations.forEach {
-            refresh(it, onRefresh)
-        }
-    }
-
-    override fun snapshot(classpathSetLocations: List<RegisteredLocation>): LocationsRegistrySnapshot {
+    override fun newSnapshot(classpathSetLocations: List<RegisteredLocation>): LocationsRegistrySnapshot {
         return synchronized(this) {
             LocationsRegistrySnapshot(this, classpathSetLocations).also {
                 snapshots.add(it)
@@ -99,20 +123,21 @@ class PersistentLocationRegistry(
         }
     }
 
-    override fun cleanup(): Set<RegisteredLocation> {
+    override fun cleanup(): CleanupResult {
         return persistence.write {
-            BytecodeLocationEntity
+            val deprecated = BytecodeLocationEntity
                 .find(BytecodeLocations.updated neq null)
                 .toList()
-                .filter { entity -> snapshots.any { it.ids.contains(entity.id.value) } }
+                .filterNot { entity -> snapshots.any { it.ids.contains(entity.id.value) } }
                 .map { PersistentByteCodeLocation(it) }
-                .toSet()
+            deprecate(deprecated)
+            CleanupResult(deprecated)
         }
     }
 
-    override fun onClose(snapshot: LocationsRegistrySnapshot): Set<RegisteredLocation> {
+    override fun close(snapshot: LocationsRegistrySnapshot) {
         snapshots.remove(snapshot)
-        return cleanup()
+        cleanup()
     }
 
     override fun close() {
