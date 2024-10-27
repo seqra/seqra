@@ -4,7 +4,6 @@ import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.impl.FeaturesRegistry
 import org.opentaint.ir.impl.JIRDBImpl
 import org.opentaint.ir.impl.storage.SQLitePersistenceImpl
-import java.io.File
 
 suspend fun jirdb(builder: JIRDBSettings.() -> Unit): JIRDB {
     val settings = JIRDBSettings().also(builder)
@@ -12,7 +11,7 @@ suspend fun jirdb(builder: JIRDBSettings.() -> Unit): JIRDB {
     val featureRegistry = FeaturesRegistry(settings.fullFeatures)
     val environment = SQLitePersistenceImpl(
         featureRegistry,
-        location = File(persistentSettings?.location ?: ":memory:"),
+        location = persistentSettings?.location,
         clearOnStart = persistentSettings?.clearOnStart ?: true
     )
     return JIRDBImpl(

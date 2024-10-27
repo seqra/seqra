@@ -7,6 +7,7 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.sqlite.SQLiteConfig
 import org.sqlite.SQLiteDataSource
@@ -23,12 +24,14 @@ import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import java.io.Closeable
 import java.io.File
+import java.sql.Connection
+import java.sql.DriverManager
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 class SQLitePersistenceImpl(
     private val featuresRegistry: FeaturesRegistry,
-    private val location: File? = null,
+    location: String? = null,
     private val clearOnStart: Boolean
 ) : JIRDBPersistence, Closeable, ByteCodeConverter {
 
@@ -36,22 +39,35 @@ class SQLitePersistenceImpl(
 
     private val lock = ReentrantLock()
 
-    private val dataSource = SQLiteDataSource(SQLiteConfig().also {
-        it.setSynchronous(SQLiteConfig.SynchronousMode.OFF)
-        it.setPageSize(32_768)
-        it.setCacheSize(-8_000)
-    }).also {
-        it.url = "jdbc:sqlite:$location"
-    }
-
-    internal val db: Database = Database.connect(dataSource) //, databaseConfig = DatabaseConfig.invoke { sqlLogger = StdOutSqlLogger })
+    internal val db: Database
+    private var keepAliveConnection: Connection? = null
     private val persistenceService = PersistenceService(this)
 
     init {
+        TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
+        if (location == null) {
+            val sqlitePath = "jdbc:sqlite:file:jirdb?mode=memory&cache=shared"
+            keepAliveConnection = DriverManager.getConnection(sqlitePath)
+            db = Database.connect(sqlitePath, "org.sqlite.JDBC")
+        } else {
+            val url = "jdbc:sqlite:$location"
+            val dataSource = SQLiteDataSource(SQLiteConfig().also {
+                it.setSynchronous(SQLiteConfig.SynchronousMode.OFF)
+                it.setPageSize(32_768)
+                it.setCacheSize(-8_000)
+            }).also {
+                it.url = url
+            }
+            //, databaseConfig = DatabaseConfig.invoke { sqlLogger = StdOutSqlLogger })
+            db = Database.connect(dataSource)
+        }
+
+
         write {
             if (clearOnStart) {
                 SchemaUtils.drop(
-                    Classpaths, ClasspathLocations, BytecodeLocations,
+//                    Classpaths,
+                    BytecodeLocations,
                     Classes, Symbols, ClassHierarchies, ClassInnerClasses, OuterClasses,
                     Methods, MethodParameters,
                     Fields,
@@ -59,7 +75,7 @@ class SQLitePersistenceImpl(
                 )
             }
             SchemaUtils.create(
-                Classpaths, ClasspathLocations,
+//                Classpaths,
                 BytecodeLocations,
                 Classes, Symbols, ClassHierarchies, ClassInnerClasses, OuterClasses,
                 Methods, MethodParameters,
@@ -148,6 +164,7 @@ class SQLitePersistenceImpl(
     }
 
     override fun close() {
+        keepAliveConnection?.close()
     }
 
 }

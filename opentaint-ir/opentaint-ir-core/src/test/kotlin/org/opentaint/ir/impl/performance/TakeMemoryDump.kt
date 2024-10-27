@@ -56,7 +56,7 @@ fun main() {
             println("Classes " + ClassEntity.count())
             println("Methods " + MethodEntity.count())
             println("Methods params " + MethodParameterEntity.count())
-            println("Field " + FieldEntity.count())
+            println("Fields " + FieldEntity.count())
         }
     }
 }
