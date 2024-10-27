@@ -47,17 +47,21 @@ class OuterClassEntity(id: EntityID<Long>) : LongEntity(id) {
     var outerClassName by ClassEntity referencedOn OuterClasses.outerClassName
 }
 
+class ClassHierarchyEntity(id: EntityID<Long>) : LongEntity(id) {
+    companion object : LongEntityClass<ClassHierarchyEntity>(ClassHierarchies)
+
+    var superClassRef by SymbolEntity referencedOn ClassHierarchies.isClassRef
+    var isClass by ClassHierarchies.isClassRef
+}
+
 class ClassEntity(id: EntityID<Long>) : LongEntity(id) {
-    companion object : LongEntityClass<ClassEntity>(Classes) {
-        val eagerColumns = listOf(ClassEntity::superClass, ClassEntity::packageRef, ClassEntity::name)
-    }
+    companion object : LongEntityClass<ClassEntity>(Classes)
 
     var access by Classes.access
     var name by SymbolEntity referencedOn Classes.name
     var signature by Classes.signature
 
-    var superClass by SymbolEntity optionalReferencedOn Classes.superClass
-    var interfaces: SizedIterable<SymbolEntity> by SymbolEntity via ClassInterfaces
+    var hierarchy: SizedIterable<ClassHierarchyEntity> by ClassHierarchyEntity via ClassHierarchies
     var innerClasses: SizedIterable<SymbolEntity> by SymbolEntity via ClassInnerClasses
 
     var bytecode by Classes.bytecode

@@ -1,6 +1,7 @@
 package org.opentaint.ir.impl.fs
 
 import kotlinx.collections.immutable.toImmutableList
+import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.AnnotationNode
 import org.objectweb.asm.tree.ClassNode
@@ -91,16 +92,16 @@ interface ByteCodeConverter {
             desc = desc,
             access = access,
             annotations = visibleAnnotations.asAnnotationInfos(true) + invisibleAnnotations.asAnnotationInfos(false),
-            parametersInfo = parameters?.mapIndexed { index, node ->
+            parametersInfo = params.mapIndexed { index, param ->
                 ParameterInfo(
                     index = index,
-                    name = node.name,
-                    access = node.access,
+                    name = param,
+                    access = parameters?.get(index)?.access ?: Opcodes.ACC_PUBLIC,
                     type = params[index],
                     annotations = visibleParameterAnnotations?.get(index)?.asAnnotationInfos(true).orEmpty()
                             + invisibleParameterAnnotations?.get(index)?.asAnnotationInfos(false).orEmpty()
                 )
-            }.orEmpty()
+            }
         )
     }
 

@@ -16,7 +16,7 @@ class ClassesTest : DatabaseEnvTest() {
                 persistent {
                     clearOnStart = false
 //                    location = ":memory:"
-                    location = "D:\\test.db"
+                    location = "D:\\work\\jirdb\\test.db"
                 }
                 predefinedDirOrJars = allClasspath
                 useProcessJavaRuntime()

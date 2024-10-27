@@ -44,7 +44,7 @@ class SQLitePersistenceImpl(
         it.url = "jdbc:sqlite:$location"
     }
 
-    internal val db: Database = Database.connect(dataSource)
+    internal val db: Database = Database.connect(dataSource) //, databaseConfig = DatabaseConfig.invoke { sqlLogger = StdOutSqlLogger })
     private val persistenceService = PersistenceService(this)
 
     init {
@@ -52,7 +52,7 @@ class SQLitePersistenceImpl(
             if (clearOnStart) {
                 SchemaUtils.drop(
                     Classpaths, ClasspathLocations, BytecodeLocations,
-                    Classes, Symbols, ClassInterfaces, ClassInnerClasses, OuterClasses,
+                    Classes, Symbols, ClassHierarchies, ClassInnerClasses, OuterClasses,
                     Methods, MethodParameters,
                     Fields,
                     Annotations, AnnotationValues
@@ -61,7 +61,7 @@ class SQLitePersistenceImpl(
             SchemaUtils.create(
                 Classpaths, ClasspathLocations,
                 BytecodeLocations,
-                Classes, Symbols, ClassInterfaces, ClassInnerClasses, OuterClasses,
+                Classes, Symbols, ClassHierarchies, ClassInnerClasses, OuterClasses,
                 Methods, MethodParameters,
                 Fields,
                 Annotations, AnnotationValues,
@@ -113,7 +113,7 @@ class SQLitePersistenceImpl(
         }
     }
 
-    override fun findByName(
+    override fun findClassByName(
         cp: JIRClasspath,
         locations: List<RegisteredLocation>,
         fullName: String

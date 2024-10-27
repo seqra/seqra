@@ -31,10 +31,11 @@ object Symbols : LongIdTable() {
 
 }
 
-object ClassInterfaces : LongIdTable() {
+object ClassHierarchies : LongIdTable() {
 
     val classId = reference("class_id", Classes.id, onDelete = ReferenceOption.CASCADE)
-    val interfaceId = reference("interface_id", Symbols.id)
+    val superRef = reference("super_id", Symbols.id)
+    val isClassRef = bool("is_class_ref")
 
 }
 
@@ -55,8 +56,6 @@ object Classes : LongIdTable() {
     val access = integer("access")
     val name = reference("name", Symbols.id)
     val signature = text("signature").nullable()
-
-    val superClass = reference("super_class", Symbols.id).nullable()
 
     val bytecode = binary("bytecode")
 

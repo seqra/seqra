@@ -75,7 +75,7 @@ class PersistentLocationRegistry(
                     it
                 )
             }
-            RegistrationResult(result, added)
+            RegistrationResult(result + added, added)
         }
     }
 

@@ -16,6 +16,7 @@ import kotlinx.serialization.encoding.encodeStructure
 import kotlinx.serialization.serializer
 import org.objectweb.asm.Type
 import org.opentaint.ir.api.TypeName
+import org.opentaint.ir.api.jirdbName
 import org.opentaint.ir.impl.storage.AnnotationValueKind
 
 @Serializable
@@ -167,4 +168,6 @@ class ClassRef(val className: String) : AnnotationValue()
 class EnumRef(val className: String, val enumName: String) : AnnotationValue()
 
 @Serializable
-data class TypeNameImpl(override val typeName: String) : TypeName
+data class TypeNameImpl(private val jvmName: String) : TypeName {
+    override val typeName: String = jvmName.jirdbName()
+}

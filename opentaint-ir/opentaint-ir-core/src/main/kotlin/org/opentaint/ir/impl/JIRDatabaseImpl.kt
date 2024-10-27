@@ -59,8 +59,8 @@ class JIRDBImpl(
         locationsRegistry.cleanup()
         val runtime = JavaRuntime(settings.jre).allLocations
         locationsRegistry.setup(runtime).new.process()
-        locationsRegistry.registerIfNeeded(settings.predefinedDirOrJars.filter { it.exists() }
-            .map { it.asByteCodeLocation(isRuntime = false) }
+        locationsRegistry.registerIfNeeded(
+            settings.predefinedDirOrJars.filter { it.exists() }.map { it.asByteCodeLocation(isRuntime = false) }
         ).new.process()
     }
 

@@ -88,7 +88,6 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
                 this[Classes.locationId] = locationId
                 this[Classes.name] = classInfo.name.findCachedSymbol()
                 this[Classes.signature] = classInfo.signature
-                this[Classes.superClass] = classInfo.superClass?.findCachedSymbol()
                 this[Classes.packageId] = pack
                 this[Classes.bytecode] = classInfo.bytecode
                 annotationCollector.collect(classInfo.annotations, id, RefKind.CLASS)
@@ -97,14 +96,10 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
             classIds.forEach { (classInfo, storedClassId) ->
                 if (classInfo.interfaces.isNotEmpty()) {
                     classInfo.interfaces.forEach {
-                        classRefCollector.collectInterface(storedClassId, it)
-                    }
-
-                    ClassInterfaces.batchInsert(classInfo.interfaces, shouldReturnGeneratedValues = false) {
-                        this[ClassInterfaces.classId] = storedClassId
-                        this[ClassInterfaces.interfaceId] = it.findCachedSymbol()
+                        classRefCollector.collectParent(storedClassId, it, isClass = false)
                     }
                 }
+                classRefCollector.collectParent(storedClassId, classInfo.superClass, isClass = true)
                 if (classInfo.innerClasses.isNotEmpty()) {
                     classInfo.innerClasses.forEach {
                         classRefCollector.collectInnerClass(storedClassId, it)
@@ -144,9 +139,10 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
                 this[ClassInnerClasses.classId] = it.key
                 this[ClassInnerClasses.innerClassId] = it.value.findCachedSymbol()
             }
-            ClassInterfaces.batchInsert(classRefCollector.interfaces.entries, shouldReturnGeneratedValues = false) {
-                this[ClassInterfaces.classId] = it.key
-                this[ClassInterfaces.interfaceId] = it.value.findCachedSymbol()
+            ClassHierarchies.batchInsert(classRefCollector.superClasses, shouldReturnGeneratedValues = false) {
+                this[ClassHierarchies.classId] = it.first
+                this[ClassHierarchies.superRef] = it.second.findCachedSymbol()
+                this[ClassHierarchies.isClassRef] = it.third
             }
             Fields.batchInsert(fieldCollector.fields.entries, shouldReturnGeneratedValues = false) {
                 val (fieldId, fieldInfo) = it.value
@@ -348,11 +344,13 @@ private class FieldCollector(private val fieldIdGen: AtomicLong, private val ann
 
 private class ClassRefCollector {
 
-    val interfaces = HashMap<Long, String>()
+    val superClasses = ArrayList<Triple<Long, String, Boolean>>()
     val innerClasses = HashMap<Long, String>()
 
-    fun collectInterface(classId: Long, iface: String) {
-        interfaces[classId] = iface
+    fun collectParent(classId: Long, superClass: String?, isClass: Boolean = true) {
+        if (superClass != null && superClass != "java.lang.Object") {
+            superClasses += Triple(classId, superClass, isClass)
+        }
     }
 
     fun collectInnerClass(classId: Long, innerClass: String) {
