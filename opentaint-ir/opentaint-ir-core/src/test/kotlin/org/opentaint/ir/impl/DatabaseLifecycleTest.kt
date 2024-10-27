@@ -9,7 +9,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -55,7 +54,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
         val barKt = cp.findClass<BarKt>()
 
         assertTrue(testDirClone.deleteRecursively())
-        assertNull(barKt.methods.first().body())
+        assertNotNull(barKt.methods.first().body())
 
         db!!.refresh()
 
@@ -94,7 +93,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
         db!!.awaitBackgroundJobs() // is required for deleting jar
 
         assertTrue(guavaLibClone.delete())
-        assertNull(abstractCacheClass.methods.first().body())
+        assertNotNull(abstractCacheClass.methods.first().body())
 
         db!!.refresh()
         withRegistry {

@@ -30,11 +30,11 @@ class ClassSourceImpl(
 ) : ClassSource {
 
     override val info: ClassInfo by lazy(LazyThreadSafetyMode.NONE) {
-        newClassNode(ClassReader.EXPAND_FRAMES).asClassInfo(byteCode)
+        newClassNode(ClassReader.SKIP_CODE).asClassInfo(byteCode)
     }
 
     override val asmNode by lazy(LazyThreadSafetyMode.NONE) {
-        newClassNode(ClassReader.EXPAND_FRAMES)
+        newClassNode(ClassReader.SKIP_CODE)
     }
 
     override val fullAsmNode: ClassNode get() = newClassNode(ClassReader.EXPAND_FRAMES)

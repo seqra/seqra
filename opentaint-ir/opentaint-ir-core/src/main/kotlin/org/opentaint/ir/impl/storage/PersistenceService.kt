@@ -161,7 +161,6 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
             }
             Fields.batchInsert(fieldCollector.fields.entries, shouldReturnGeneratedValues = false) {
                 val (fieldId, fieldInfo) = it.value
-
                 this[Fields.id] = fieldId
                 this[Fields.classId] = it.key
                 this[Fields.access] = fieldInfo.access

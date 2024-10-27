@@ -128,6 +128,7 @@ class JIRDBImpl(
                         if (addedClasses != null) {
                             if (parentScope.isActive) {
                                 persistence.persist(location, addedClasses.toList())
+                                classesVfs.visit(RemoveLocationsVisitor(listOf(location)))
                                 featureRegistry.index(location, addedClasses)
                             }
                         }

@@ -31,7 +31,7 @@ class PackageVfsItem(folderName: String?, parent: PackageVfsItem?) :
     fun visit(visitor: VfsVisitor) {
         visitor.visitPackage(this)
         subpackages.values.forEach {
-            visitor.visitPackage(it)
+            it.visit(visitor)
         }
     }
 
