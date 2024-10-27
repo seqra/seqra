@@ -57,7 +57,7 @@ object Classes : LongIdTable() {
     val name = reference("name", Symbols.id)
     val signature = text("signature").nullable()
 
-    val bytecode = binary("bytecode")
+    val bytecode = blob("bytecode")
 
     val locationId = reference("location_id", BytecodeLocations.id, onDelete = ReferenceOption.CASCADE)
     val packageId = reference("package_id", Symbols.id, onDelete = ReferenceOption.CASCADE)

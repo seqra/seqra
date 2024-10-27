@@ -6,6 +6,7 @@ import org.jetbrains.exposed.sql.batchInsert
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.max
 import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.types.AnnotationInfo
@@ -15,12 +16,15 @@ import org.opentaint.ir.impl.types.ClassInfo
 import org.opentaint.ir.impl.types.ClassRef
 import org.opentaint.ir.impl.types.EnumRef
 import org.opentaint.ir.impl.types.FieldInfo
+import org.opentaint.ir.impl.types.MethodInfo
+import org.opentaint.ir.impl.types.ParameterInfo
 import org.opentaint.ir.impl.types.PrimitiveValue
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
 class PersistenceService(private val persistence: SQLitePersistenceImpl) {
 
-    private val symbolsCache = HashMap<String, Long>()
+    private val symbolsCache = ConcurrentHashMap<String, Long>()
     private val classIdGen = AtomicLong()
     private val symbolsIdGen = AtomicLong()
     private val methodIdGen = AtomicLong()
@@ -48,39 +52,71 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
     }
 
     fun persist(location: RegisteredLocation, classes: List<ClassInfo>) {
-        val classIds = HashMap<ClassInfo, Long>()
-        transaction(persistence.db) {
-            val names = HashSet<String>()
-            val annotationCollector = AnnotationCollector(annotationIdGen, annotationValueIdGen, symbolsCache)
-            val fieldCollector = FieldCollector(fieldIdGen, annotationCollector)
-            val classRefCollector = ClassRefCollector()
-            classes.forEach {
-                names.add(it.name.substringBeforeLast('.'))
-                names.add(it.name)
-                it.superClass?.let {
-                    names.add(it)
-                }
-                names.addAll(it.interfaces)
-                names.addAll(it.innerClasses)
-                names.addAll(listOfNotNull(it.outerClass?.name, it.outerMethod))
-                names.addAll(it.methods.map { it.name })
-                names.addAll(it.methods.map { it.returnClass })
-                names.addAll(it.methods.flatMap { it.parameters })
-                names.addAll(it.fields.map { it.name })
-                names.addAll(it.fields.map { it.type })
-                it.outerClass?.className?.let { names.add(it) }
-                it.annotations.extractAllSymbolsTo(names)
-                it.methods.forEach {
-                    it.annotations.extractAllSymbolsTo(names)
-                    it.parametersInfo.forEach { it.annotations.extractAllSymbolsTo(names) }
-                }
-                it.fields.forEach { it.annotations.extractAllSymbolsTo(names) }
+        val classCollector = ClassCollector(classIdGen)
+        val annotationCollector = AnnotationCollector(annotationIdGen, annotationValueIdGen, symbolsCache)
+        val fieldCollector = FieldCollector(fieldIdGen, annotationCollector)
+        val classRefCollector = ClassRefCollector()
+        val paramsCollector = MethodParamsCollector()
+        val methodsCollector = MethodsCollector(methodIdGen, annotationCollector, paramsCollector)
+        val names = HashSet<String>()
+        classes.forEach {
+            names.add(it.name.substringBeforeLast('.'))
+            names.add(it.name)
+            it.superClass?.let {
+                names.add(it)
             }
-            names.setup()
-            val locationId = location.id
-            Classes.batchInsert(classes, shouldReturnGeneratedValues = false) { classInfo ->
-                val id = classIdGen.incrementAndGet()
-                classIds[classInfo] = id
+            names.addAll(it.interfaces)
+            names.addAll(it.innerClasses)
+            names.addAll(listOfNotNull(it.outerClass?.name, it.outerMethod))
+            names.addAll(it.methods.map { it.name })
+            names.addAll(it.methods.map { it.returnClass })
+            names.addAll(it.methods.flatMap { it.parameters })
+            names.addAll(it.fields.map { it.name })
+            names.addAll(it.fields.map { it.type })
+            it.outerClass?.className?.let { names.add(it) }
+            it.annotations.extractAllSymbolsTo(names)
+            it.methods.forEach {
+                it.annotations.extractAllSymbolsTo(names)
+                it.parametersInfo.forEach { it.annotations.extractAllSymbolsTo(names) }
+            }
+            it.fields.forEach { it.annotations.extractAllSymbolsTo(names) }
+        }
+        val namesToAdd = arrayListOf<Pair<Long, String>>()
+        persistence.write {
+            names.forEach {
+                if (!symbolsCache.containsKey(it)) {
+                    val id = symbolsIdGen.incrementAndGet()
+                    symbolsCache[it] = id
+                    namesToAdd.add(id to it)
+                }
+            }
+            namesToAdd.createNames()
+        }
+        val locationId = location.id
+        classes.forEach { classCollector.collect(it) }
+        classCollector.classes.entries.forEach { (classInfo, storedClassId) ->
+            if (classInfo.interfaces.isNotEmpty()) {
+                classInfo.interfaces.forEach {
+                    classRefCollector.collectParent(storedClassId, it, isClass = false)
+                }
+            }
+            classRefCollector.collectParent(storedClassId, classInfo.superClass, isClass = true)
+            if (classInfo.innerClasses.isNotEmpty()) {
+                classInfo.innerClasses.forEach {
+                    classRefCollector.collectInnerClass(storedClassId, it)
+                }
+            }
+            classInfo.methods.forEach {
+                methodsCollector.collect(storedClassId, it)
+            }
+            classInfo.fields.forEach {
+                fieldCollector.collect(storedClassId, it)
+            }
+        }
+
+        persistence.write {
+            Classes.batchInsert(classCollector.classes.entries, shouldReturnGeneratedValues = false) {
+                val (classInfo, id) = it
                 val packageName = classInfo.name.substringBeforeLast('.')
                 val pack = packageName.findCachedSymbol()
                 this[Classes.id] = id
@@ -89,51 +125,30 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
                 this[Classes.name] = classInfo.name.findCachedSymbol()
                 this[Classes.signature] = classInfo.signature
                 this[Classes.packageId] = pack
-                this[Classes.bytecode] = classInfo.bytecode
+                this[Classes.bytecode] = ExposedBlob(classInfo.bytecode)
                 annotationCollector.collect(classInfo.annotations, id, RefKind.CLASS)
             }
 
-            classIds.forEach { (classInfo, storedClassId) ->
-                if (classInfo.interfaces.isNotEmpty()) {
-                    classInfo.interfaces.forEach {
-                        classRefCollector.collectParent(storedClassId, it, isClass = false)
-                    }
-                }
-                classRefCollector.collectParent(storedClassId, classInfo.superClass, isClass = true)
-                if (classInfo.innerClasses.isNotEmpty()) {
-                    classInfo.innerClasses.forEach {
-                        classRefCollector.collectInnerClass(storedClassId, it)
-                    }
-                }
-                val methodsResult = Methods.batchInsert(classInfo.methods, shouldReturnGeneratedValues = false) {
-                    val methodId = methodIdGen.incrementAndGet()
-                    this[Methods.id] = methodId
-                    this[Methods.access] = it.access
-                    this[Methods.name] = it.name.findCachedSymbol()
-                    this[Methods.signature] = it.signature
-                    this[Methods.desc] = it.desc
-                    this[Methods.classId] = storedClassId
-                    this[Methods.returnClass] = it.returnClass.findCachedSymbol()
-                    annotationCollector.collect(it.annotations, methodId, RefKind.METHOD)
-                }
-                val paramsWithMethodId = methodsResult.flatMapIndexed { index, rs ->
-                    val methodId = rs[Methods.id]
-                    classInfo.methods[index].parametersInfo.map { it to methodId }
-                }
-                MethodParameters.batchInsert(paramsWithMethodId, shouldReturnGeneratedValues = false) {
-                    val (param, methodId) = it
-                    val paramId = methodParamIdGen.incrementAndGet()
-                    this[MethodParameters.id] = paramId
-                    this[MethodParameters.access] = param.access
-                    this[MethodParameters.name] = param.name
-                    this[MethodParameters.index] = param.index
-                    this[MethodParameters.methodId] = methodId
-                    this[MethodParameters.parameterClass] = param.type.findCachedSymbol()
-                    annotationCollector.collect(param.annotations, paramId, RefKind.PARAM)
-                }
-                classInfo.fields.forEach {
-                    fieldCollector.collect(storedClassId, it)
-                }
+            Methods.batchInsert(methodsCollector.methods, shouldReturnGeneratedValues = false) {
+                val (classId, methodId, method) = it
+                this[Methods.id] = methodId
+                this[Methods.access] = method.access
+                this[Methods.name] = method.name.findCachedSymbol()
+                this[Methods.signature] = method.signature
+                this[Methods.desc] = method.desc
+                this[Methods.classId] = classId
+                this[Methods.returnClass] = method.returnClass.findCachedSymbol()
+            }
+            MethodParameters.batchInsert(paramsCollector.params, shouldReturnGeneratedValues = false) {
+                val (methodId, param) = it
+                val paramId = methodParamIdGen.incrementAndGet()
+                this[MethodParameters.id] = paramId
+                this[MethodParameters.access] = param.access
+                this[MethodParameters.name] = param.name
+                this[MethodParameters.index] = param.index
+                this[MethodParameters.methodId] = methodId
+                this[MethodParameters.parameterClass] = param.type.findCachedSymbol()
+                annotationCollector.collect(param.annotations, paramId, RefKind.PARAM)
             }
             ClassInnerClasses.batchInsert(classRefCollector.innerClasses.entries, shouldReturnGeneratedValues = false) {
                 this[ClassInnerClasses.classId] = it.key
@@ -196,14 +211,12 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
             ?: throw IllegalStateException("Symbol $this is required in cache. Please setup cache first")
     }
 
-    private fun Collection<String>.setup() {
-        val forCreation = filter { !symbolsCache.containsKey(it) }
-        Symbols.batchInsert(forCreation, shouldReturnGeneratedValues = false) {
-            val id = symbolsIdGen.incrementAndGet()
-            symbolsCache[it] = id
+    private fun Collection<Pair<Long, String>>.createNames() {
+        Symbols.batchInsert(this, shouldReturnGeneratedValues = false) {
+            val (id, name) = it
             this[Symbols.id] = id
-            this[Symbols.name] = it
-            this[Symbols.hash] = it.longHash
+            this[Symbols.name] = name
+            this[Symbols.hash] = name.longHash
         }
     }
 
@@ -356,4 +369,44 @@ private class ClassRefCollector {
     fun collectInnerClass(classId: Long, innerClass: String) {
         innerClasses[classId] = innerClass
     }
+}
+
+private class MethodParamsCollector {
+
+    val params = ArrayList<Pair<Long, ParameterInfo>>()
+
+    fun collect(methodId: Long, param: ParameterInfo) {
+        params.add(methodId to param)
+    }
+
+}
+
+private class ClassCollector(private val classIdGen: AtomicLong) {
+
+    val classes = HashMap<ClassInfo, Long>()
+
+    fun collect(classInfo: ClassInfo) {
+        val id = classIdGen.incrementAndGet()
+        classes[classInfo] = id
+    }
+
+}
+
+private class MethodsCollector(
+    private val methodIdGen: AtomicLong,
+    private val annotationCollector: AnnotationCollector,
+    private val paramsCollector: MethodParamsCollector
+) {
+
+    val methods = ArrayList<Triple<Long, Long, MethodInfo>>()
+
+    fun collect(classId: Long, method: MethodInfo) {
+        val methodId = methodIdGen.incrementAndGet()
+        methods.add(Triple(classId, methodId, method))
+        method.parametersInfo.forEach {
+            paramsCollector.collect(methodId, it)
+        }
+        annotationCollector.collect(method.annotations, methodId, RefKind.METHOD)
+    }
+
 }

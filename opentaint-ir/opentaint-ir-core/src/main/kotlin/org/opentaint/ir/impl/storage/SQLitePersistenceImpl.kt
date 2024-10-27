@@ -147,7 +147,7 @@ class SQLitePersistenceImpl(
                 cp, ClassSourceImpl(
                     location = locations.first { it.id == locationId },
                     className = fullName,
-                    byteCode = byteCode
+                    byteCode = byteCode.bytes
                 )
             )
 
@@ -158,9 +158,7 @@ class SQLitePersistenceImpl(
         val allClasses = classes.map {
             it.asmNode.asClassInfo(it.binary)
         }
-        write {
-            persistenceService.persist(location, allClasses)
-        }
+        persistenceService.persist(location, allClasses)
     }
 
     override fun close() {
