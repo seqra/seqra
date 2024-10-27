@@ -27,7 +27,7 @@ class HierarchyExtensionImpl(private val db: JIRDB, private val cp: JIRClasspath
                 SELECT Classes.name, ClassHierarchies.class_id FROM ClassHierarchies
                     JOIN Classes ON Classes.id = ClassHierarchies.class_id
                     JOIN Hierarchy ON Hierarchy.class_name_id = ClassHierarchies.super_id)
-            SELECT Classes.id, Classes.location_id,  Symbols.name as name_name, Classes.bytecode from Hierarchy
+            SELECT DISTINCT Classes.id, Classes.location_id,  Symbols.name as name_name, Classes.bytecode from Hierarchy
                 JOIN Classes ON Classes.id = hierarchy.class_id
                 JOIN Symbols ON Symbols.id = Classes.name
              WHERE location_id in ($locationIds)
