@@ -7,8 +7,6 @@ import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.batchInsert
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.select
-import org.jetbrains.exposed.sql.transactions.transaction
-import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldInsnNode
@@ -21,62 +19,56 @@ import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRDBFeature
 import org.opentaint.ir.api.JIRDBPersistence
 import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.impl.storage.SQLitePersistenceImpl
 import org.opentaint.ir.impl.storage.Symbols
 import org.opentaint.ir.impl.storage.longHash
 
 
-class ReversedUsageIndexer(private val jirdb: JIRDB, private val location: RegisteredLocation) : ByteCodeIndexer {
+class UsagesIndexer(private val jirdb: JIRDB, private val location: RegisteredLocation) : ByteCodeIndexer {
 
     // class method -> usages of methods|fields
-    private val fieldsUsages = hashMapOf<Pair<Long, Long>, HashSet<Long>>()
-    private val methodsUsages = hashMapOf<Pair<Long, Long>, HashSet<Long>>()
+    private val fieldsUsages = hashMapOf<Pair<String, String>, HashSet<String>>()
+    private val methodsUsages = hashMapOf<Pair<String, String>, HashSet<String>>()
 
     override suspend fun index(classNode: ClassNode) {
     }
 
     override suspend fun index(classNode: ClassNode, methodNode: MethodNode) {
-        if (methodNode.access and Opcodes.ACC_PRIVATE != 0) {
-            return
-        }
-        val pureName = Type.getObjectType(classNode.name).className
-        val id = pureName.longHash
+        val callerClass = Type.getObjectType(classNode.name).className
         methodNode.instructions.forEach {
             when (it) {
                 is FieldInsnNode -> {
                     val owner = Type.getObjectType(it.owner).className
-                    val key = owner.longHash to it.name.longHash
-                    fieldsUsages.getOrPut(key) { hashSetOf() }.add(id)
+                    val key = owner to it.name
+                    fieldsUsages.getOrPut(key) { hashSetOf() }.add(callerClass)
                 }
 
                 is MethodInsnNode -> {
                     val owner = Type.getObjectType(it.owner).className
-                    val key = owner.longHash to it.name.longHash
-                    methodsUsages.getOrPut(key) { hashSetOf() }.add(id)
+                    val key = owner to it.name
+                    methodsUsages.getOrPut(key) { hashSetOf() }.add(callerClass)
                 }
             }
         }
     }
 
     override fun flush() {
-        jirdb.persistence as SQLitePersistenceImpl
-        transaction((jirdb.persistence as SQLitePersistenceImpl).db) {
+        jirdb.persistence.write {
             Calls.batchInsert(
-                fieldsUsages.entries.flatMap { entry -> entry.value.map { Pair(entry.key, it) } },
+                fieldsUsages.entries.flatMap { entry -> entry.value.map { Triple(entry.key.first, entry.key.second, it) } },
                 shouldReturnGeneratedValues = false
             ) {
-                this[Calls.callerClassHash] = it.first.first
-                this[Calls.callerFieldHash] = it.first.second
-                this[Calls.ownerClassHash] = it.second
+                this[Calls.ownerClassHash] = it.first.longHash
+                this[Calls.ownerFieldHash] = it.second.longHash
+                this[Calls.callerClassHash] = it.third.longHash
                 this[Calls.locationId] = location.id
             }
             Calls.batchInsert(
-                methodsUsages.entries.flatMap { entry -> entry.value.map { Pair(entry.key, it) } },
+                methodsUsages.entries.flatMap { entry -> entry.value.map { Triple(entry.key.first, entry.key.second, it) } },
                 shouldReturnGeneratedValues = false
             ) {
-                this[Calls.callerClassHash] = it.first.first
-                this[Calls.callerMethodHash] = it.first.second
-                this[Calls.ownerClassHash] = it.second
+                this[Calls.ownerClassHash] = it.first.longHash
+                this[Calls.ownerMethodHash] = it.second.longHash
+                this[Calls.callerClassHash] = it.third.longHash
                 this[Calls.locationId] = location.id
             }
         }
@@ -116,15 +108,15 @@ private class JIRDBUsageFeature(override val jirdb: JIRDB) : JIRDBFeature<UsageI
 
     override suspend fun query(req: UsageIndexRequest): Sequence<String> {
         val (method, field, className) = req
-        return transaction {
+        return jirdb.persistence.read {
             val classHashes: List<Long> = if (method != null) {
                 Calls.select {
-                    (Calls.callerClassHash eq className.longHash) and (Calls.callerMethodHash eq method.longHash)
-                }.map { it[Calls.ownerClassHash] }
+                    (Calls.ownerClassHash eq className.longHash) and (Calls.ownerMethodHash eq method.longHash)
+                }.map { it[Calls.callerClassHash] }
             } else if (field != null) {
                 Calls.select {
-                    (Calls.callerClassHash eq className.longHash) and (Calls.callerFieldHash eq field.longHash)
-                }.map { it[Calls.ownerClassHash] }
+                    (Calls.ownerClassHash eq className.longHash) and (Calls.ownerFieldHash eq field.longHash)
+                }.map { it[Calls.callerClassHash] }
             } else {
                 emptyList()
             }
@@ -133,7 +125,7 @@ private class JIRDBUsageFeature(override val jirdb: JIRDB) : JIRDBFeature<UsageI
 
     }
 
-    override fun newIndexer(location: RegisteredLocation) = ReversedUsageIndexer(jirdb, location)
+    override fun newIndexer(location: RegisteredLocation) = UsagesIndexer(jirdb, location)
 
     override fun onLocationRemoved(location: RegisteredLocation) {
         jirdb.persistence.write {
@@ -152,10 +144,10 @@ object Usages : Feature<UsageIndexRequest, String> {
 
 object Calls : Table() {
 
-    val callerClassHash = long("caller_class_hash")
-    val callerFieldHash = long("caller_field_hash").nullable()
-    val callerMethodHash = long("caller_method_hash").nullable()
     val ownerClassHash = long("owner_class_hash")
+    val ownerFieldHash = long("owner_field_hash").nullable()
+    val ownerMethodHash = long("owner_method_hash").nullable()
+    val callerClassHash = long("caller_class_hash")
     val locationId = long("location_id")
 
 }

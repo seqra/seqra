@@ -14,7 +14,7 @@ class RestoredDBTest : DatabaseEnvTest() {
 
     companion object : LibrariesMixin {
 
-        private val jdbcLocation = Files.createTempDirectory("jdbc").toFile().absolutePath
+        private val jdbcLocation = Files.createTempFile("jirdb-", null).toFile().absolutePath
 
         var tempDb: JIRDB? = newDB()
 

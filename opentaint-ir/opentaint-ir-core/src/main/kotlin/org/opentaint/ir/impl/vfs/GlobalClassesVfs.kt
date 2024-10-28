@@ -38,12 +38,6 @@ open class GlobalClassesVfs : AbstractClassVfs<PackageVfsItem, ClassVfsItem>() {
         return findPackage(splitted)?.firstClassOrNull(simpleClassName, predicate)
     }
 
-    fun filterClassNodes(fullName: String, predicate: (ClassVfsItem) -> Boolean = { true }): List<ClassVfsItem> {
-        val splitted = fullName.splitted
-        val simpleClassName = splitted[splitted.size - 1]
-        return findPackage(splitted)?.filterClassNodes(simpleClassName, predicate).orEmpty()
-    }
-
     private fun findPackage(splitted: List<String>): PackageVfsItem? {
         var node: PackageVfsItem? = rootItem
         var index = 0

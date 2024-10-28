@@ -19,10 +19,6 @@ class PackageVfsItem(folderName: String?, parent: PackageVfsItem?) :
         return classes[className]?.get(locationId)
     }
 
-    fun filterClassNodes(className: String, predicate: (ClassVfsItem) -> Boolean): List<ClassVfsItem> {
-        return classes[className].orEmpty().asSequence().filter { predicate(it.value) }.map { it.value }.toList()
-    }
-
     fun firstClassOrNull(className: String, predicate: (Long) -> Boolean): ClassVfsItem? {
         val locationsClasses = classes.get(className) ?: return null
         return locationsClasses.asSequence().firstOrNull { predicate(it.key) }?.value
@@ -35,13 +31,7 @@ class PackageVfsItem(folderName: String?, parent: PackageVfsItem?) :
         }
     }
 
-    fun forEachClasses(locationId: Long, action: (ClassVfsItem) -> Unit) {
-        classes.values.forEach {
-            it[locationId]?.let { action(it) }
-        }
-    }
-
-    fun dropLocation(locationId: Long) {
+    fun removeClasses(locationId: Long) {
         classes.values.forEach {
             it.remove(locationId)
         }

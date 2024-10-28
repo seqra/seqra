@@ -7,28 +7,28 @@ import org.objectweb.asm.tree.FieldInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
 import org.opentaint.ir.api.*
 
-class ReversedUsagesExtension(
+class UsagesExtension(
     private val db: JIRDB,
     private val cp: JIRClasspath
 ) {
     /**
      * find all methods that directly modifies field
      *
-     * @param fieldId field
+     * @param field field
      * @param mode mode of search
      */
-    suspend fun findUsages(fieldId: JIRField, mode: FieldUsageMode): List<JIRMethod> {
-        val name = fieldId.name
-        val className = fieldId.jirClass.name
+    suspend fun findUsages(field: JIRField, mode: FieldUsageMode): List<JIRMethod> {
+        val name = field.name
+        val className = field.jirClass.name
 
         val maybeHierarchy = when {
-            fieldId.isPrivate -> hashSetOf(fieldId.jirClass)
-            else -> cp.findSubClasses(className, true).toHashSet()
+            field.isPrivate -> hashSetOf(field.jirClass)
+            else -> cp.findSubClasses(className, true).toHashSet() + field.jirClass
         }
 
-        val potentialCandidates = maybeHierarchy.findPotentialCandidates(field = fieldId.name)
+        val potentialCandidates = maybeHierarchy.findPotentialCandidates(field = field.name) + field.jirClass
 
-        val isStatic = fieldId.isStatic
+        val isStatic = field.isStatic
         val opcode = when {
             isStatic && mode == FieldUsageMode.WRITE -> Opcodes.PUTSTATIC
             !isStatic && mode == FieldUsageMode.WRITE -> Opcodes.PUTFIELD
@@ -47,21 +47,23 @@ class ReversedUsagesExtension(
     /**
      * find all methods that call this method
      *
-     * @param methodId method
+     * @param method method
      * @param mode mode of search
      */
-    suspend fun findUsages(methodId: JIRMethod): List<JIRMethod> {
-        val name = methodId.name
-        val className = methodId.jirClass.name
+    suspend fun findUsages(method: JIRMethod): List<JIRMethod> {
+        val name = method.name
+        val className = method.jirClass.name
+        val maybeHierarchy = when {
+            method.isPrivate -> hashSetOf(method.jirClass)
+            else -> cp.findSubClasses(className, true).toHashSet() + method.jirClass
+        }
 
-        val hierarchy = cp.findSubClasses(className, true).toHashSet() + methodId.jirClass
-
-        val potentialCandidates = hierarchy.findPotentialCandidates(method = methodId.name)
-        val opcodes = when (methodId.isStatic) {
+        val potentialCandidates = maybeHierarchy.findPotentialCandidates(method = method.name) + method.jirClass
+        val opcodes = when (method.isStatic) {
             true -> setOf(Opcodes.INVOKESTATIC)
             else -> setOf(Opcodes.INVOKEVIRTUAL, Opcodes.INVOKESPECIAL)
         }
-        return potentialCandidates.findUsages(hierarchy) { inst, hierarchyNames ->
+        return potentialCandidates.findUsages(maybeHierarchy) { inst, hierarchyNames ->
             inst is MethodInsnNode
                     && inst.name == name
                     && opcodes.contains(inst.opcode)
@@ -76,13 +78,13 @@ class ReversedUsagesExtension(
         val result = hashSetOf<JIRMethod>()
         val hierarchyNames = hierarchy.map { it.name }.toSet()
         forEach {
-            val classId = cp.findClassOrNull(it.name)
-            val asm = classId?.bytecode()
+            val jirClass = cp.findClassOrNull(it.name)
+            val asm = jirClass?.bytecode()
             asm?.methods?.forEach { method ->
                 for (inst in method.instructions) {
                     val matches = matcher(inst, hierarchyNames)
                     if (matches) {
-                        val methodId = classId.methods.firstOrNull {
+                        val methodId = jirClass.methods.firstOrNull {
                             it.name == method.name && it.description == method.desc
                         }
                         if (methodId != null) {
@@ -117,7 +119,7 @@ class ReversedUsagesExtension(
 }
 
 
-val JIRClasspath.reversedUsagesExt: ReversedUsagesExtension
+val JIRClasspath.reversedUsagesExt: UsagesExtension
     get() {
-        return ReversedUsagesExtension(db, this)
+        return UsagesExtension(db, this)
     }
