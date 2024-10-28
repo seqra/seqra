@@ -29,11 +29,14 @@ class RestoredJcByteCodeLocation(
         get() = File(path)
 
     override fun isChanged(): Boolean {
-        val actual = createRefreshed()
-        return actual.hash == hash
+        val actual = createRefreshed() ?: return true
+        return actual.hash != hash
     }
 
-    override fun createRefreshed(): JIRByteCodeLocation {
+    override fun createRefreshed(): JIRByteCodeLocation? {
+        if (!jarOrFolder.exists()) {
+            return null
+        }
         return jarOrFolder.asByteCodeLocation(type == LocationType.RUNTIME)
     }
 

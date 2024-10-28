@@ -93,7 +93,10 @@ class PersistentLocationRegistry(
         actualLocations.forEach { location ->
             val jirLocation = location.jirLocation
             if (jirLocation.isChanged()) {
-                newLocations.add(jirLocation.createRefreshed())
+                val refreshed = jirLocation.createRefreshed()
+                if (refreshed != null) {
+                    newLocations.add(refreshed)
+                }
                 if (!location.hasReferences(snapshots)) {
                     deprecated.add(location)
                 } else {

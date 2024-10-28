@@ -2,10 +2,11 @@ package org.opentaint.ir.impl
 
 import com.google.common.cache.AbstractCache
 import com.google.common.collect.Iterators
-import kotlinx.coroutines.async
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -17,6 +18,7 @@ import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findClassOrNull
 import org.opentaint.ir.impl.fs.BuildFolderLocation
 import org.opentaint.ir.impl.storage.PersistentLocationRegistry
+import org.opentaint.ir.impl.vfs.RestoredJcByteCodeLocation
 import org.opentaint.ir.jirdb
 import java.io.File
 import java.nio.file.Files
@@ -27,7 +29,6 @@ class DatabaseLifecycleTest : LibrariesMixin {
     private var db: JIRDBImpl? = runBlocking {
         jirdb {
             useProcessJavaRuntime()
-
         } as JIRDBImpl
     }
     private val tempFolder = Files.createTempDirectory("classpath-copy-" + UUID.randomUUID()).toFile()
@@ -58,9 +59,10 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
         db!!.refresh()
 
+        assertEquals(1, cp.locations.filterIsInstance<BuildFolderLocation>().size)
         withRegistry {
             assertEquals(1, snapshots.size)
-            assertEquals(1, actualLocations.filterIsInstance<BuildFolderLocation>().size)
+            assertEquals(1, actualLocations.filter { (it.jirLocation as RestoredJcByteCodeLocation).createRefreshed() == null }.size)
         }
 
         assertNotNull(cp.findClassOrNull<BarKt>())
@@ -132,15 +134,14 @@ class DatabaseLifecycleTest : LibrariesMixin {
                 abstractCacheClass.methods.first().body()
             )
         }
-
-        BackgroundScope.launch {
+        withContext(Dispatchers.IO) {
             cps.map {
-                async {
+                launch {
                     it.accessMethod()
                     it.close()
                 }
             }.joinAll()
-        }.join()
+        }
         db!!.refresh()
 
         withRegistry {
@@ -161,11 +162,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
     @AfterEach
     fun cleanup() {
         tempFolder.deleteRecursively()
-
-        runBlocking {
-            db!!.awaitBackgroundJobs()
-            db!!.close()
-        }
+        db!!.close()
         db = null
     }
 

@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
@@ -44,6 +45,8 @@ class JIRDBImpl(
 
     private val isClosed = AtomicBoolean()
     private val jobId = AtomicInteger()
+
+    private val backgroundScope = BackgroundScope()
 
     init {
         featureRegistry.bind(this)
@@ -119,19 +122,15 @@ class JIRDBImpl(
             it.location to it.pushInto(classesVfs).values
         }
         val backgroundJobId = jobId.incrementAndGet()
-        backgroundJobs[backgroundJobId] = BackgroundScope.launch {
+        backgroundJobs[backgroundJobId] = backgroundScope.launch {
             val parentScope = this
             actions.map { location ->
                 async {
-                    if (parentScope.isActive) {
-                        val addedClasses = locationClasses[location]
-                        if (addedClasses != null) {
-                            if (parentScope.isActive) {
-                                persistence.persist(location, addedClasses.toList())
-                                classesVfs.visit(RemoveLocationsVisitor(listOf(location)))
-                                featureRegistry.index(location, addedClasses)
-                            }
-                        }
+                    val addedClasses = locationClasses[location]
+                    if (parentScope.isActive && addedClasses != null) {
+                        persistence.persist(location, addedClasses.toList())
+                        classesVfs.visit(RemoveLocationsVisitor(listOf(location)))
+                        featureRegistry.index(location, addedClasses)
                     }
                 }
             }.joinAll()
@@ -156,7 +155,7 @@ class JIRDBImpl(
     override fun watchFileSystemChanges(): JIRDB {
         val delay = settings.watchFileSystemChanges?.delay
         if (delay != null) { // just paranoid check
-            BackgroundScope.launch {
+            backgroundScope.launch {
                 while (true) {
                     delay(delay)
                     refresh()
@@ -180,6 +179,7 @@ class JIRDBImpl(
         backgroundJobs.values.forEach {
             it.cancel()
         }
+        backgroundScope.cancel()
         backgroundJobs.clear()
         persistence.close()
         hooks.forEach { it.afterStop() }

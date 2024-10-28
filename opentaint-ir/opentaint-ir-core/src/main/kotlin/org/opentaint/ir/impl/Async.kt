@@ -17,6 +17,6 @@ class SuspendableLazy<T>(private val block: suspend () -> T) {
 
 fun <T> suspendableLazy(block: suspend () -> T) = SuspendableLazy(block)
 
-object BackgroundScope : CoroutineScope {
+class BackgroundScope : CoroutineScope {
     override val coroutineContext = Dispatchers.IO + SupervisorJob()
 }

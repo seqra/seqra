@@ -26,6 +26,7 @@ import java.io.Closeable
 import java.io.File
 import java.sql.Connection
 import java.sql.DriverManager
+import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -46,7 +47,7 @@ class SQLitePersistenceImpl(
     init {
         TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
         if (location == null) {
-            val sqlitePath = "jdbc:sqlite:file:jirdb?mode=memory&cache=shared"
+            val sqlitePath = "jdbc:sqlite:file:jirdb-${UUID.randomUUID()}?mode=memory&cache=shared"
             keepAliveConnection = DriverManager.getConnection(sqlitePath)
             db = Database.connect(sqlitePath, "org.sqlite.JDBC")
         } else {
