@@ -3,12 +3,14 @@ package org.opentaint.ir.impl
 import org.opentaint.ir.api.JIRArrayType
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.api.anyType
+import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.index.hierarchyExt
 import org.opentaint.ir.impl.types.JIRArrayClassTypesImpl
@@ -46,11 +48,11 @@ class JIRClasspathImpl(
     }
 
     override suspend fun typeOf(jirClass: JIRClassOrInterface): JIRRefType {
-        TODO("Not yet implemented")
+        return JIRClassTypeImpl(jirClass, true)
     }
 
     override suspend fun arrayTypeOf(elementType: JIRType): JIRArrayType {
-        TODO("Not yet implemented")
+        return JIRArrayClassTypesImpl(elementType, true, typeOf(findClass("java.lang.Object")) as JIRClassType)
     }
 
     override suspend fun findTypeOrNull(name: String): JIRType? {
