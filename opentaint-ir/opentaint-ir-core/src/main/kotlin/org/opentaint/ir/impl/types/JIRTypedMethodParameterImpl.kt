@@ -8,14 +8,14 @@ import org.opentaint.ir.api.isNullable
 import org.opentaint.ir.impl.signature.SType
 
 class JIRTypedMethodParameterImpl(
-    override val ownerMethod: JIRTypedMethod,
+    override val enclosingMethod: JIRTypedMethod,
     private val parameter: JIRParameter,
     private val stype: SType?,
     private val bindings: JIRTypeBindings
 ) : JIRTypedMethodParameter {
 
     override suspend fun type(): JIRType {
-        val cp = ownerMethod.method.enclosingClass.classpath
+        val cp = enclosingMethod.method.enclosingClass.classpath
         val st = stype ?: return cp.findTypeOrNull(parameter.type.typeName) ?: throw IllegalStateException("")
         return cp.typeOf(st.apply(bindings))
     }

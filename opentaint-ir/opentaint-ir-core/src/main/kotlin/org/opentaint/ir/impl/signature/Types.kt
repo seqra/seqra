@@ -46,7 +46,7 @@ internal class SClassRefType(val name: String) : SRefType() {
 
 internal class STypeVariable(val symbol: String) : SType() {
     override fun apply(bindings: JIRTypeBindings): SType {
-        return this
+        return bindings.bindings[symbol] ?: this
     }
 }
 

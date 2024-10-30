@@ -1,7 +1,6 @@
 package org.opentaint.ir.impl.fs
 
 import java.io.File
-import java.io.InputStream
 
 class JmodLocation(file: File) : JarLocation(file, true) {
 
@@ -15,7 +14,7 @@ class JmodLocation(file: File) : JarLocation(file, true) {
             })
         }
 
-    override suspend fun resolve(classFullName: String): InputStream? {
+    override suspend fun resolve(classFullName: String): ByteArray? {
         return super.resolve("classes.$classFullName")
     }
 }

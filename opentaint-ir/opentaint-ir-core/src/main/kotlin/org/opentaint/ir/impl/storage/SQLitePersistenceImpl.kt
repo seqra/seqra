@@ -44,24 +44,23 @@ class SQLitePersistenceImpl(
 
     init {
         TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
+        val config = SQLiteConfig().also {
+            it.setSynchronous(SQLiteConfig.SynchronousMode.OFF)
+            it.setPageSize(32_768)
+            it.setCacheSize(-8_000)
+        }
         if (location == null) {
-            val sqlitePath = "jdbc:sqlite:file:jirdb-${UUID.randomUUID()}?mode=memory&cache=shared"
-            keepAliveConnection = DriverManager.getConnection(sqlitePath)
-            db = Database.connect(sqlitePath, "org.sqlite.JDBC")
+            val url = "jdbc:sqlite:file:jirdb-${UUID.randomUUID()}?mode=memory&cache=shared"
+            db = Database.connect(url, "org.sqlite.JDBC", setupConnection = { it.autoCommit = false })
+            keepAliveConnection = DriverManager.getConnection(url)
         } else {
             val url = "jdbc:sqlite:$location"
-            val dataSource = SQLiteDataSource(SQLiteConfig().also {
-                it.setSynchronous(SQLiteConfig.SynchronousMode.OFF)
-                it.setPageSize(32_768)
-                it.setCacheSize(-8_000)
-            }).also {
+            val dataSource = SQLiteDataSource(config).also {
                 it.url = url
             }
             //, databaseConfig = DatabaseConfig.invoke { sqlLogger = StdOutSqlLogger })
             db = Database.connect(dataSource)
         }
-
-
         write {
             if (clearOnStart) {
                 SchemaUtils.drop(
@@ -143,9 +142,9 @@ class SQLitePersistenceImpl(
             val locationId = found[Classes.locationId].value
             val byteCode = found[Classes.bytecode]
             ClassSourceImpl(
-                    location = locations.first { it.id == locationId },
-                    className = fullName,
-                    byteCode = byteCode.bytes
+                location = locations.first { it.id == locationId },
+                className = fullName,
+                byteCode = byteCode.bytes
             )
         }
     }

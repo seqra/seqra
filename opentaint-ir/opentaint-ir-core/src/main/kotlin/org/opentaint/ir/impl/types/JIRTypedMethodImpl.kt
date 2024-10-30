@@ -14,28 +14,30 @@ import org.opentaint.ir.impl.signature.MethodSignature
 import org.opentaint.ir.impl.suspendableLazy
 
 class JIRTypedMethodImpl(
-    override val ownerType: JIRRefType,
+    override val enclosingType: JIRRefType,
     override val method: JIRMethod,
     classBindings: JIRTypeBindings = JIRTypeBindings()
 ) : JIRTypedMethod {
 
-
+    private val resolution = MethodSignature.of(method.signature)
     private val classpath = method.enclosingClass.classpath
 
     private val methodBindingsGetter = suspendableLazy {
-        classBindings.join(
-            when (resolution) {
-                is MethodResolutionImpl -> classpath.typeDeclarations(resolution.typeVariables)
-                else -> emptyList()
-            }
-        )
+        classBindings.override(ifSignature {
+            it.typeVariables.map { it.symbol  }.toSet()
+        } ?: emptySet())
     }
-    private val resolution = MethodSignature.of(method.signature)
 
     override val name: String
         get() = method.name
 
     private suspend fun methodBindings() = methodBindingsGetter()
+
+    override suspend fun originalParameterization(): List<JIRTypeVariableDeclaration> {
+        return ifSignature {
+            classpath.typeDeclarations(it.typeVariables)
+        } ?: emptyList()
+    }
 
     override suspend fun exceptions(): List<JIRClassOrInterface> = ifSignature {
         it.exceptionTypes.map {
@@ -43,10 +45,8 @@ class JIRTypedMethodImpl(
         }
     } ?: emptyList()
 
-    override suspend fun parameterization(): List<JIRTypeVariableDeclaration> {
-        return ifSignature {
-            classpath.typeDeclarations(it.typeVariables)
-        } ?: emptyList()
+    override suspend fun parameterization(): Map<String, JIRRefType> {
+        return emptyMap()
     }
 
     override suspend fun parameters(): List<JIRTypedMethodParameter> {
@@ -54,7 +54,7 @@ class JIRTypedMethodImpl(
         return method.parameters.mapIndexed { index, jirParameter ->
             val stype = ifSignature { it.parameterTypes[index] }
             JIRTypedMethodParameterImpl(
-                ownerMethod = this,
+                enclosingMethod = this,
                 bindings = bindings,
                 parameter = jirParameter,
                 stype = stype
@@ -65,7 +65,7 @@ class JIRTypedMethodImpl(
     override suspend fun returnType(): JIRType {
         val typeName = method.returnType.typeName
         return ifSignature {
-            classpath.typeOf(it.returnType)
+            classpath.typeOf(it.returnType.apply(methodBindings()))
         } ?: classpath.findTypeOrNull(typeName) ?: throw IllegalStateException("Can't resolve type by name $typeName")
     }
 

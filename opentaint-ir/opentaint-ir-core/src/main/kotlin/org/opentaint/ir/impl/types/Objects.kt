@@ -20,9 +20,6 @@ import org.opentaint.ir.api.jirdbName
 import org.opentaint.ir.impl.storage.AnnotationValueKind
 
 @Serializable
-sealed class ClassInfoContainer
-
-@Serializable
 class ClassInfo(
     val name: String,
 
@@ -41,7 +38,7 @@ class ClassInfo(
     val interfaces: List<String>,
     val annotations: List<AnnotationInfo>,
     val bytecode: ByteArray
-) : ClassInfoContainer()
+)
 
 @Serializable
 class OuterClassRef(
@@ -87,20 +84,6 @@ class ParameterInfo(
     val name: String?,
     val annotations: List<AnnotationInfo>
 )
-
-@Serializable
-class LocationClasses(
-    val classes: List<ClassInfo>
-)
-
-@Serializable
-class PredefinedClassInfo(val name: String) : ClassInfoContainer()
-
-@Serializable
-class ArrayClassInfo(
-    val elementInfo: ClassInfoContainer
-) : ClassInfoContainer()
-
 
 @Serializable
 sealed class AnnotationValue

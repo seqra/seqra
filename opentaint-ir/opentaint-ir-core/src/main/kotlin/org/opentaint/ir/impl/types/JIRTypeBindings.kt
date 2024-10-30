@@ -17,28 +17,13 @@ import org.opentaint.ir.impl.signature.SPrimitiveType
 import org.opentaint.ir.impl.signature.SType
 import org.opentaint.ir.impl.signature.STypeVariable
 import org.opentaint.ir.impl.signature.SUnboundWildcard
-import org.opentaint.ir.impl.signature.TypeResolutionImpl
-import org.opentaint.ir.impl.signature.TypeSignature
 
-class JIRTypeBindings(internal val bindings: Map<String, JIRTypeVariableDeclaration> = emptyMap()) {
+class JIRTypeBindings(internal val bindings: Map<String, SType> = emptyMap()) {
 
-    fun join(incoming: List<JIRTypeVariableDeclaration>): JIRTypeBindings {
-        return JIRTypeBindings(
-            bindings + incoming.associateBy { it.symbol }
-        )
+    fun override(incoming: Set<String>): JIRTypeBindings {
+        return JIRTypeBindings(bindings.filterKeys { !incoming.contains(it) })
     }
 }
-
-
-class SignatureTypeResolution(val original: SType, bindings: JIRTypeBindings) {
-
-    val resolved: SType by lazy(LazyThreadSafetyMode.NONE) {
-        original.apply(bindings)
-    }
-
-
-}
-
 
 internal suspend fun JIRClasspath.typeOf(stype: SType): JIRType {
     return when (stype) {
@@ -51,11 +36,9 @@ internal suspend fun JIRClasspath.typeOf(stype: SType): JIRType {
         is SArrayType -> arrayTypeOf(typeOf(stype.elementType))
         is SParameterizedType -> {
             val clazz = findClass(stype.name)
-            val signature = TypeSignature.of(clazz.signature)
-            JIRParameterizedTypeImpl(
+            JIRClassTypeImpl(
                 clazz,
-                originParametrization = if (signature is TypeResolutionImpl) typeDeclarations(signature.typeVariable) else emptyList(),
-                parametrization = stype.parameterTypes.map { typeOf(it) as JIRRefType },
+                parametrization = stype.parameterTypes,
                 nullable = true
             )
         }

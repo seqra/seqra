@@ -7,7 +7,6 @@ import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.PredefinedPrimitives
-import org.opentaint.ir.api.Pure
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.api.anyType
 import org.opentaint.ir.api.throwClassNotFound
@@ -17,8 +16,6 @@ import org.opentaint.ir.impl.signature.TypeResolutionImpl
 import org.opentaint.ir.impl.signature.TypeSignature
 import org.opentaint.ir.impl.types.JIRArrayClassTypesImpl
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
-import org.opentaint.ir.impl.types.JIRParameterizedTypeImpl
-import org.opentaint.ir.impl.types.typeDeclarations
 import org.opentaint.ir.impl.vfs.ClasspathClassTree
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
 import java.io.Serializable
@@ -55,15 +52,15 @@ class JIRClasspathImpl(
 
     override suspend fun typeOf(jirClass: JIRClassOrInterface): JIRRefType {
         val signature = TypeSignature.of(jirClass.signature)
-        when (signature) {
-            is Pure -> return JIRClassTypeImpl(jirClass, signature, true)
-            is TypeResolutionImpl -> return JIRParameterizedTypeImpl(jirClass,
-                originParametrization = typeDeclarations(signature.typeVariable),
-                emptyList(),
-                true
+        if (signature is TypeResolutionImpl) {
+            return JIRClassTypeImpl(
+                jirClass,
+                resolution = signature,
+                parametrization = null,
+                nullable = true
             )
         }
-        return JIRClassTypeImpl(jirClass, signature, true)
+        return JIRClassTypeImpl(jirClass, signature, null, true)
     }
 
     override suspend fun arrayTypeOf(elementType: JIRType): JIRArrayType {

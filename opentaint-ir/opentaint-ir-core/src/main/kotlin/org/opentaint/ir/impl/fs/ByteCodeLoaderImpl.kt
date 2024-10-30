@@ -1,33 +1,19 @@
 package org.opentaint.ir.impl.fs
 
-import org.opentaint.ir.api.ClassLoadingContainer
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.LocationType
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.vfs.LibraryClassVfs
-import java.io.InputStream
-
-class ClassLoadingContainerImpl(
-    override val classes: Map<String, InputStream>,
-    val onClose: () -> Unit = {}
-) : ClassLoadingContainer {
-
-    override fun close() {
-        onClose()
-    }
-}
 
 /**
  * load sync part into the tree and returns lambda that will do async part
  */
-suspend fun RegisteredLocation.load(): LibraryClassVfs {
+fun RegisteredLocation.load(): LibraryClassVfs {
     val libraryTree = LibraryClassVfs(this)
-    val container = jirLocation.classes()
-    container?.classes?.forEach {
-        val source = ClassSourceImpl(this, it.key, it.value.readBytes())
+    jirLocation.classes?.forEach {
+        val source = ClassSourceImpl(this, it.key, it.value)
         libraryTree.addClass(source)
     }
-    container?.close()
     return libraryTree
 }
 

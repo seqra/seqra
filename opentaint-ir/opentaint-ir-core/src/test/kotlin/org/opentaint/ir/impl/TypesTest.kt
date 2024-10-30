@@ -11,8 +11,8 @@ import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRArrayType
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRParametrizedType
 import org.opentaint.ir.api.JIRPrimitiveType
+import org.opentaint.ir.api.isConstructor
 import org.opentaint.ir.impl.types.PrimitiveAndArrays
 import org.opentaint.ir.impl.types.SuperFoo
 import org.opentaint.ir.jirdb
@@ -40,7 +40,7 @@ class TypesTest {
     private val cp: JIRClasspath = runBlocking { db!!.classpath(allClasspath) }
 
     @AfterEach
-    open fun close() {
+    fun close() {
         cp.close()
     }
 
@@ -53,13 +53,14 @@ class TypesTest {
         with(superFooType.superType()) {
             assertNotNull(this)
             this!!
-            assertTrue(this is JIRParametrizedType)
-            val fields = fields
+            assertTrue(this is JIRClassType)
+            this as JIRClassType
+            val fields = fields()
             assertEquals(2, fields.size)
 
             with(fields.first()) {
                 assertEquals("state", name)
-                assertTrue(fieldType is JIRClassType)
+                assertTrue(fieldType() is JIRClassType)
             }
         }
     }
@@ -69,40 +70,31 @@ class TypesTest {
         val primitiveAndArrays = cp.findTypeOrNull(PrimitiveAndArrays::class.java.name)
         assertTrue(primitiveAndArrays is JIRClassType)
         primitiveAndArrays as JIRClassType
-        val fields = primitiveAndArrays.fields
+        val fields = primitiveAndArrays.fields()
         assertEquals(2, fields.size)
 
         with(fields.first()) {
-            assertTrue(fieldType is JIRPrimitiveType)
+            assertTrue(fieldType() is JIRPrimitiveType)
             assertEquals("int", name)
-            assertEquals("int", fieldType.typeName)
+            assertEquals("int", fieldType().typeName)
         }
         with(fields.get(1)) {
-            assertTrue(fieldType is JIRArrayType)
+            assertTrue(fieldType() is JIRArrayType)
             assertEquals("intArray", name)
-            assertEquals("String[]", fieldType.typeName)
+            assertEquals("int[]", fieldType().typeName)
         }
 
 
-        val methods = primitiveAndArrays.methods
+        val methods = primitiveAndArrays.methods().filterNot { it.method.isConstructor }
         with(methods.first()) {
             assertTrue(returnType() is JIRArrayType)
-            assertEquals("Integer[]", returnType().typeName)
+            assertEquals("int[]", returnType().typeName)
 
             assertEquals(1, parameters().size)
             with(parameters().get(0)) {
                 assertTrue(type() is JIRArrayType)
-                assertEquals("String[]", type().typeName)
+                assertEquals("java.lang.String[]", type().typeName)
             }
         }
     }
-}
-
-suspend fun main() {
-    val db = jirdb {
-        persistent("d:\\haha.db")
-        loadByteCode(TypesTest.allClasspath)
-        useProcessJavaRuntime()
-    }
-
 }

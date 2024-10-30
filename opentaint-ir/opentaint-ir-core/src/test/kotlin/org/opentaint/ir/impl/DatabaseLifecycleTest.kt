@@ -51,13 +51,14 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
     @Test
     fun `refresh is working when build dir is removed`() = runBlocking {
-        val cp = db!!.classpath(listOf(testDirClone))
+        val database = db!!
+        val cp = database.classpath(listOf(testDirClone))
         val barKt = cp.findClass<BarKt>()
 
         assertTrue(testDirClone.deleteRecursively())
         assertNotNull(barKt.methods.first().body())
 
-        db!!.refresh()
+        database.refresh()
 
         assertEquals(1, cp.locations.filterIsInstance<BuildFolderLocation>().size)
         withRegistry {
@@ -67,7 +68,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
         assertNotNull(cp.findClassOrNull<BarKt>())
         cp.close()
-        db!!.refresh()
+        database.refresh()
         withRegistry {
             assertTrue(snapshots.isEmpty())
             assertTrue(actualLocations.all { it.jirLocation !is BuildFolderLocation })
@@ -80,34 +81,35 @@ class DatabaseLifecycleTest : LibrariesMixin {
         val barKt = cp.findClassOrNull<BarKt>()
         assertNotNull(barKt!!)
 
-        assertNotNull {
+        assertNotNull(
             runBlocking {
                 barKt.methods.first().body()
             }
-        }
+        )
     }
 
     @Test
     fun `refresh is working when jar is removed`() = runBlocking {
-        val cp = db!!.classpath(listOf(guavaLibClone))
+        val database = db!!
+        val cp = database.classpath(listOf(guavaLibClone))
         val abstractCacheClass = cp.findClassOrNull<AbstractCache<*,*>>()
         assertNotNull(abstractCacheClass!!)
-        db!!.awaitBackgroundJobs() // is required for deleting jar
+        database.awaitBackgroundJobs() // is required for deleting jar
 
         assertTrue(guavaLibClone.delete())
         assertNotNull(abstractCacheClass.methods.first().body())
 
-        db!!.refresh()
+        database.refresh()
         withRegistry {
             assertEquals(1, snapshots.size)
         }
 
         assertNotNull(cp.findClassOrNull<AbstractCache<*,*>>())
         cp.close()
-        db!!.refresh()
+        database.refresh()
         withRegistry {
             assertTrue(snapshots.isEmpty())
-            assertEquals(db!!.javaRuntime.allLocations.size, actualLocations.size)
+            assertEquals(database.javaRuntime.allLocations.size, actualLocations.size)
         }
     }
 
@@ -124,7 +126,9 @@ class DatabaseLifecycleTest : LibrariesMixin {
 
     @Test
     fun `simultaneous access to method body`() = runBlocking {
-        val cps = (1..10).map { db!!.classpath(listOf(guavaLibClone)) }
+        val database = db!!
+        database.awaitBackgroundJobs()
+        val cps = (1..10).map { database.classpath(listOf(guavaLibClone)) }
 
         suspend fun JIRClasspath.accessMethod() {
             val abstractCacheClass = findClassOrNull<AbstractCache<*,*>>()
@@ -142,7 +146,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
                 }
             }.joinAll()
         }
-        db!!.refresh()
+        database.refresh()
 
         withRegistry {
             assertTrue(snapshots.isEmpty())
@@ -162,7 +166,12 @@ class DatabaseLifecycleTest : LibrariesMixin {
     @AfterEach
     fun cleanup() {
         tempFolder.deleteRecursively()
-        db!!.close()
+        runBlocking {
+            db?.let {
+                it.close()
+                it.awaitBackgroundJobs()
+            }
+        }
         db = null
     }
 

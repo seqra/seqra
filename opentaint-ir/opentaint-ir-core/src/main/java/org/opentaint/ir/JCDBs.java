@@ -11,19 +11,13 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class JIRDBs {
 
-    private final JIRDBSettings settings;
-
-    private JIRDBs(JIRDBSettings settings) {
-        this.settings = settings;
-    }
-
     /**
      * create {@link JIRDB} instance with default settings
      *
      @return not null {@link JIRDB} instance or throws {@link IllegalStateException}
      */
     public static JIRDB newDefault() {
-        return new JIRDBs(new JIRDBSettings()).build();
+        return build(new JIRDBSettings());
     }
 
     /**
@@ -33,10 +27,10 @@ public class JIRDBs {
      * @return not null {@link JIRDB} instance or throws {@link IllegalStateException}
      */
     public static JIRDB newFrom(JIRDBSettings settings) {
-        return new JIRDBs(settings).build();
+        return build(settings);
     }
 
-    public JIRDB build() {
+    private static JIRDB build(JIRDBSettings settings) {
         AtomicReference<Object> result = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
         JirdbKt.jirdb(settings, new Continuation<JIRDB>() {

@@ -1,10 +1,8 @@
 package org.opentaint.ir.impl.fs
 
 import mu.KLogging
-import org.opentaint.ir.api.ClassLoadingContainer
 import org.opentaint.ir.api.LocationType
 import java.io.File
-import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.streams.asSequence
@@ -32,45 +30,45 @@ class BuildFolderLocation(folder: File) : AbstractByteCodeLocation(folder) {
 
     override fun createRefreshed() = BuildFolderLocation(jarOrFolder)
 
-    override suspend fun classes(): ClassLoadingContainer? {
-        try {
-            val classes = dirClasses()?.mapValues { (_, file) ->
-                Files.newInputStream(file.toPath())
-            } ?: return null
-
-            return ClassLoadingContainerImpl(classes)
-        } catch (e: Exception) {
-            logger.warn(e) { "error loading classes from build folder: ${jarOrFolder.absolutePath}. returning empty loader" }
-            return null
+    override val classes: Map<String, ByteArray>?
+        get() {
+            try {
+                return dirClasses?.mapValues { (_, file) ->
+                    Files.newInputStream(file.toPath()).use { it.readBytes() }
+                } ?: return null
+            } catch (e: Exception) {
+                logger.warn(e) { "error loading classes from build folder: ${jarOrFolder.absolutePath}. returning empty loader" }
+                return null
+            }
         }
-    }
 
-    override suspend fun resolve(classFullName: String): InputStream? {
+    override suspend fun resolve(classFullName: String): ByteArray? {
         val pathArray = classFullName.split(".").toTypedArray()
         pathArray[pathArray.size - 1] = pathArray[pathArray.size - 1] + ".class"
         val filePath = Paths.get(jarOrFolder.absolutePath, *pathArray)
         if (!Files.exists(filePath)) {
             return null
         }
-        return Files.newInputStream(filePath)
+        return Files.newInputStream(filePath).use { it.readBytes() }
     }
 
-    private fun dirClasses(): Map<String, File>? {
-        if (!jarOrFolder.exists() || jarOrFolder.isFile) {
-            return null
+    private val dirClasses: Map<String, File>?
+        get() {
+            if (!jarOrFolder.exists() || jarOrFolder.isFile) {
+                return null
+            }
+            val folderPath = jarOrFolder.toPath().toAbsolutePath().toString()
+
+            return Files.find(jarOrFolder.toPath(), Int.MAX_VALUE, { path, _ -> path.toString().endsWith(".class") })
+                .asSequence().map {
+                    val className = it.toAbsolutePath().toString()
+                        .substringAfter(folderPath + File.separator)
+                        .replace(File.separator, ".")
+                        .removeSuffix(".class")
+                    className to it.toFile()
+                }.toMap()
+
         }
-        val folderPath = jarOrFolder.toPath().toAbsolutePath().toString()
-
-        return Files.find(jarOrFolder.toPath(), Int.MAX_VALUE, { path, _ -> path.toString().endsWith(".class") })
-            .asSequence().map {
-                val className = it.toAbsolutePath().toString()
-                    .substringAfter(folderPath + File.separator)
-                    .replace(File.separator, ".")
-                    .removeSuffix(".class")
-                className to it.toFile()
-            }.toMap()
-
-    }
 
     override fun toString() = jarOrFolder.absolutePath
 

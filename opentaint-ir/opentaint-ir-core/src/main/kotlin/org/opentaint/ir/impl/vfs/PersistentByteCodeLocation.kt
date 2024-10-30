@@ -42,7 +42,8 @@ class RestoredJcByteCodeLocation(
 
     override suspend fun resolve(classFullName: String) = null
 
-    override suspend fun classes() = null
+    override val classes: Map<String, ByteArray>?
+        get() = null
 }
 
 
