@@ -46,7 +46,7 @@ class DBBenchmarks : LibrariesMixin {
         db = runBlocking {
             jirdb {
                 useProcessJavaRuntime()
-                predefinedDirOrJars = allJars
+                loadByteCode(allJars)
                 installFeatures(Usages)
             }
         }

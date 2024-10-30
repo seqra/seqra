@@ -41,11 +41,8 @@ fun main() {
     var start = System.currentTimeMillis()
     runBlocking {
         val db = jirdb {
-            useProcessJavaRuntime()
 //            predefinedDirOrJars = allClasspath
-            persistent {
-                location = "D:\\work\\jirdb\\jirdb.db"
-            }
+            persistent("D:\\work\\jirdb\\jirdb.db")
             installFeatures(Usages)
         }.also {
             println("AWAITING db took ${System.currentTimeMillis() - start}ms")

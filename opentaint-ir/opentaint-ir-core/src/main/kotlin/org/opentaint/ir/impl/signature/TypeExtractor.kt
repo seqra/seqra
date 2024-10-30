@@ -115,7 +115,7 @@ internal class TypeExtractor(private val typeRegistrant: TypeRegistrant) :
 
             override val isParameterized: Boolean
                 get() {
-                    return !parameters.isEmpty()
+                    return parameters.isNotEmpty()
                 }
 
             override val name: String

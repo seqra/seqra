@@ -20,16 +20,16 @@ class JIRTypedMethodImpl(
 ) : JIRTypedMethod {
 
 
+    private val classpath = method.enclosingClass.classpath
+
     private val methodBindingsGetter = suspendableLazy {
         classBindings.join(
             when (resolution) {
-                is MethodResolutionImpl -> cp.typeDeclarations(resolution.typeVariables)
+                is MethodResolutionImpl -> classpath.typeDeclarations(resolution.typeVariables)
                 else -> emptyList()
             }
         )
     }
-
-    private val cp = method.enclosingClass.classpath
     private val resolution = MethodSignature.of(method.signature)
 
     override val name: String
@@ -39,13 +39,13 @@ class JIRTypedMethodImpl(
 
     override suspend fun exceptions(): List<JIRClassOrInterface> = ifSignature {
         it.exceptionTypes.map {
-            cp.findClass(it.name)
+            classpath.findClass(it.name)
         }
     } ?: emptyList()
 
     override suspend fun parameterization(): List<JIRTypeVariableDeclaration> {
         return ifSignature {
-            cp.typeDeclarations(it.typeVariables)
+            classpath.typeDeclarations(it.typeVariables)
         } ?: emptyList()
     }
 
@@ -65,8 +65,8 @@ class JIRTypedMethodImpl(
     override suspend fun returnType(): JIRType {
         val typeName = method.returnType.typeName
         return ifSignature {
-            cp.typeOf(it.returnType)
-        } ?: cp.findTypeOrNull(typeName) ?: throw IllegalStateException("Can't resolve type by name $typeName")
+            classpath.typeOf(it.returnType)
+        } ?: classpath.findTypeOrNull(typeName) ?: throw IllegalStateException("Can't resolve type by name $typeName")
     }
 
     private suspend fun <T> ifSignature(map: suspend (MethodResolutionImpl) -> T): T? {

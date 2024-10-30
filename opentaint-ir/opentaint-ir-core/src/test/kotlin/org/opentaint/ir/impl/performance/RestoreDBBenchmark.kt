@@ -1,7 +1,18 @@
 package org.opentaint.ir.impl.performance
 
 import kotlinx.coroutines.runBlocking
-import org.openjdk.jmh.annotations.*
+import org.openjdk.jmh.annotations.Benchmark
+import org.openjdk.jmh.annotations.BenchmarkMode
+import org.openjdk.jmh.annotations.Fork
+import org.openjdk.jmh.annotations.Level
+import org.openjdk.jmh.annotations.Measurement
+import org.openjdk.jmh.annotations.Mode
+import org.openjdk.jmh.annotations.OutputTimeUnit
+import org.openjdk.jmh.annotations.Scope
+import org.openjdk.jmh.annotations.Setup
+import org.openjdk.jmh.annotations.State
+import org.openjdk.jmh.annotations.TearDown
+import org.openjdk.jmh.annotations.Warmup
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.impl.LibrariesMixin
 import org.opentaint.ir.jirdb
@@ -43,10 +54,8 @@ class RestoreDBBenchmark : LibrariesMixin {
     private fun newDB(): JIRDB {
         return runBlocking {
             jirdb {
-                persistent {
-                    location = jdbcLocation
-                }
-                predefinedDirOrJars = allClasspath
+                persistent(jdbcLocation)
+                loadByteCode(allClasspath)
                 useProcessJavaRuntime()
             }.also {
                 it.awaitBackgroundJobs()

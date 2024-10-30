@@ -1,5 +1,7 @@
 package org.opentaint.ir
 
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import org.opentaint.ir.api.Feature
 import org.opentaint.ir.api.Hook
 import org.opentaint.ir.api.JIRDB
@@ -9,44 +11,66 @@ import java.io.File
  * Settings for database
  */
 class JIRDBSettings {
-    /** watch file system changes setting */
-    var watchFileSystemChanges: JIRDBWatchFileSystemSettings? = null
+
+    /** watch file system changes delay */
+    var watchFileSystemDelay: Int? = null
+        private set
 
     /** persisted  */
-    var persistentSettings: JIRDBPersistentSettings? = null
+    var persistentLocation: String? = null
+        private set
+
+    var persistentClearOnStart: Boolean? = null
 
     /** jar files which should be loaded right after database is created */
-    var predefinedDirOrJars: List<File> = emptyList()
+    var predefinedDirOrJars: List<File> = persistentListOf()
+        private set
 
     var hooks: MutableList<(JIRDB) -> Hook> = arrayListOf()
+        private set
 
-    /** mandatory setting for java location */
+    /** mandatory setting for java runtime location */
     lateinit var jre: File
 
     /** feature to add */
     var features: List<Feature<*, *>> = emptyList()
+        private set
 
-    val fullFeatures get() = features
-
-    /** builder for persistent settings */
-    fun persistent(settings: (JIRDBPersistentSettings.() -> Unit) = {}) {
-        persistentSettings = JIRDBPersistentSettings().also(settings)
+    init {
+        useProcessJavaRuntime()
     }
 
-    /** builder for watching file system changes */
-    fun watchFileSystem(settings: (JIRDBWatchFileSystemSettings.() -> Unit) = {}) {
-        watchFileSystemChanges = JIRDBWatchFileSystemSettings().also(settings)
+    /**
+     * builder for persistent settings
+     * @param location - file for db location
+     * @param clearOnStart -if true old data from this folder will be dropped
+     */
+    fun persistent(location: String, clearOnStart: Boolean = false) = apply {
+        persistentLocation = location
+        persistentClearOnStart = clearOnStart
+    }
+
+    fun loadByteCode(files: List<File>) = apply {
+        predefinedDirOrJars = (predefinedDirOrJars + files).toPersistentList()
+    }
+
+    /**
+     * builder for watching file system changes
+     * @param delay - delay between syncs
+     */
+    fun watchFileSystem(delay: Int = 10_000) = apply {
+        watchFileSystemDelay = delay
     }
 
     /** builder for hooks */
-    fun withHook(hook: (JIRDB) -> Hook) {
+    fun withHook(hook: (JIRDB) -> Hook) = apply {
         hooks += hook
     }
 
     /**
      * use java from JAVA_HOME env variable
      */
-    fun useJavaHomeJavaRuntime() {
+    fun useJavaHomeJavaRuntime() = apply {
         val javaHome = System.getenv("JAVA_HOME") ?: throw IllegalArgumentException("JAVA_HOME is not set")
         jre = javaHome.asValidJRE()
     }
@@ -54,15 +78,22 @@ class JIRDBSettings {
     /**
      * use java from current system process
      */
-    fun useProcessJavaRuntime() {
+    fun useProcessJavaRuntime() = apply {
         val javaHome = System.getProperty("java.home") ?: throw IllegalArgumentException("java.home is not set")
         jre = javaHome.asValidJRE()
     }
 
     /**
+     * use java from current system process
+     */
+    fun useJavaRuntime(runtime: File) = apply {
+        jre = runtime.absolutePath.asValidJRE()
+    }
+
+    /**
      * install additional indexes
      */
-    fun installFeatures(vararg feature: Feature<*, *>) {
+    fun installFeatures(vararg feature: Feature<*, *>) = apply {
         features = features + feature.toList()
     }
 
@@ -73,18 +104,4 @@ class JIRDBSettings {
         }
         return file
     }
-}
-
-
-class JIRDBPersistentSettings {
-    /** location folder for persisting data */
-    var location: String? = null
-
-    /** if true old data from this folder will be dropped */
-    var clearOnStart: Boolean = false
-}
-
-class JIRDBWatchFileSystemSettings {
-    /** delay between looking up for new changes */
-    var delay: Long? = 10_000 // 10 seconds
 }

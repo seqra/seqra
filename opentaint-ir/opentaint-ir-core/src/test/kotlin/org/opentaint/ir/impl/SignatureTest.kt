@@ -30,7 +30,7 @@ class SignatureTest {
     companion object : LibrariesMixin {
         var db: JIRDB? = runBlocking {
             jirdb {
-                predefinedDirOrJars = allClasspath
+                loadByteCode(allClasspath)
                 useProcessJavaRuntime()
             }.also {
                 it.awaitBackgroundJobs()

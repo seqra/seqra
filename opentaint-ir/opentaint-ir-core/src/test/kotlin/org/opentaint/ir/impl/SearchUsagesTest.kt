@@ -19,7 +19,7 @@ class SearchUsagesTest : LibrariesMixin {
     companion object : LibrariesMixin {
         var db: JIRDB? = runBlocking {
             jirdb {
-                predefinedDirOrJars = allClasspath
+                loadByteCode(allClasspath)
                 useProcessJavaRuntime()
                 installFeatures(Usages)
             }.also {
