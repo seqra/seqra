@@ -4,6 +4,7 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.neq
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.update
+import org.opentaint.ir.api.JIRDBPersistence
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.LocationType
 import org.opentaint.ir.api.RegisteredLocation
@@ -17,7 +18,7 @@ import org.opentaint.ir.impl.storage.BytecodeLocationEntity.Companion.findOrNew
 import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
 
 class PersistentLocationRegistry(
-    private val persistence: SQLitePersistenceImpl,
+    private val persistence: JIRDBPersistence,
     private val featuresRegistry: FeaturesRegistry
 ) : LocationsRegistry {
 

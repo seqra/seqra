@@ -21,7 +21,6 @@ import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.filterExisted
 import org.opentaint.ir.impl.fs.load
 import org.opentaint.ir.impl.storage.PersistentLocationRegistry
-import org.opentaint.ir.impl.storage.SQLitePersistenceImpl
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
 import org.opentaint.ir.impl.vfs.RemoveLocationsVisitor
 import java.io.File
@@ -50,8 +49,7 @@ class JIRDBImpl(
 
     init {
         featureRegistry.bind(this)
-        // todo rewrite in more elegant way
-        locationsRegistry = PersistentLocationRegistry(persistence as SQLitePersistenceImpl, featureRegistry)
+        locationsRegistry = PersistentLocationRegistry(persistence, featureRegistry)
     }
 
     override val locations: List<JIRByteCodeLocation>
@@ -128,7 +126,7 @@ class JIRDBImpl(
                 async {
                     val addedClasses = locationClasses[location]
                     if (parentScope.isActive && addedClasses != null) {
-                        persistence.persist(location, addedClasses.toList())
+                        persistence.persist(location, addedClasses.map { it.source })
                         classesVfs.visit(RemoveLocationsVisitor(listOf(location)))
                         featureRegistry.index(location, addedClasses)
                     }

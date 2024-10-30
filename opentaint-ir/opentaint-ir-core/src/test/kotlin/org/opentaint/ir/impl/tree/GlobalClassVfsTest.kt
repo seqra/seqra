@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
-import org.opentaint.ir.impl.fs.ClassSource
+import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.vfs.ClassVfsItem
 import org.opentaint.ir.impl.vfs.ClasspathClassTree

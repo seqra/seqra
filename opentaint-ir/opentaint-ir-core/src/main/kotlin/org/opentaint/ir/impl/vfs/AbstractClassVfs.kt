@@ -1,6 +1,6 @@
 package org.opentaint.ir.impl.vfs
 
-import org.opentaint.ir.impl.fs.ClassSource
+import org.opentaint.ir.api.ClassSource
 
 abstract class AbstractClassVfs<PACKAGE_ITEM : AbstractVfsItem<PACKAGE_ITEM>, CLASS_ITEM : AbstractVfsItem<PACKAGE_ITEM>> {
 

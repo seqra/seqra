@@ -1,11 +1,11 @@
 package org.opentaint.ir.impl
 
+import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.bytecode.JIRMethodImpl
-import org.opentaint.ir.impl.fs.ClassSource
 import org.opentaint.ir.impl.types.MethodInfo
 import org.opentaint.ir.impl.vfs.ClassVfsItem
 

@@ -3,18 +3,22 @@ package org.opentaint.ir.impl
 import org.opentaint.ir.api.JIRArrayType
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.PredefinedPrimitives
+import org.opentaint.ir.api.Pure
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.api.anyType
-import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.throwClassNotFound
+import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.index.hierarchyExt
+import org.opentaint.ir.impl.signature.TypeResolutionImpl
+import org.opentaint.ir.impl.signature.TypeSignature
 import org.opentaint.ir.impl.types.JIRArrayClassTypesImpl
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
+import org.opentaint.ir.impl.types.JIRParameterizedTypeImpl
+import org.opentaint.ir.impl.types.typeDeclarations
 import org.opentaint.ir.impl.vfs.ClasspathClassTree
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
 import java.io.Serializable
@@ -44,15 +48,26 @@ class JIRClasspathImpl(
         if (inMemoryClass != null) {
             return inMemoryClass
         }
-        return db.persistence.findClassByName(this, locationsRegistrySnapshot.locations, name)
+        return db.persistence.findClassByName(this, locationsRegistrySnapshot.locations, name)?.let {
+            JIRClassOrInterfaceImpl(this, it)
+        }
     }
 
     override suspend fun typeOf(jirClass: JIRClassOrInterface): JIRRefType {
-        return JIRClassTypeImpl(jirClass, true)
+        val signature = TypeSignature.of(jirClass.signature)
+        when (signature) {
+            is Pure -> return JIRClassTypeImpl(jirClass, signature, true)
+            is TypeResolutionImpl -> return JIRParameterizedTypeImpl(jirClass,
+                originParametrization = typeDeclarations(signature.typeVariable),
+                emptyList(),
+                true
+            )
+        }
+        return JIRClassTypeImpl(jirClass, signature, true)
     }
 
     override suspend fun arrayTypeOf(elementType: JIRType): JIRArrayType {
-        return JIRArrayClassTypesImpl(elementType, true, typeOf(findClass("java.lang.Object")) as JIRClassType)
+        return JIRArrayClassTypesImpl(elementType, true, anyType())
     }
 
     override suspend fun findTypeOrNull(name: String): JIRType? {
@@ -80,7 +95,7 @@ class JIRClasspathImpl(
 
     override suspend fun <RES : Serializable, REQ : Serializable> query(key: String, req: REQ): Sequence<RES> {
         db.awaitBackgroundJobs()
-        return featuresRegistry.findIndex<RES, REQ>(key)?.query(req).orEmpty()
+        return featuresRegistry.query<REQ, RES>(key, req).orEmpty()
     }
 
     override fun close() {

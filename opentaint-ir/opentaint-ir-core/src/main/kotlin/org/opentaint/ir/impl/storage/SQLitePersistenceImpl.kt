@@ -11,17 +11,15 @@ import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.sqlite.SQLiteConfig
 import org.sqlite.SQLiteDataSource
-import org.opentaint.ir.api.ByteCodeContainer
+import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRDBPersistence
 import org.opentaint.ir.api.JIRByteCodeLocation
-import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.FeaturesRegistry
-import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
-import org.opentaint.ir.impl.fs.ByteCodeConverter
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.fs.asByteCodeLocation
+import org.opentaint.ir.impl.fs.info
 import java.io.Closeable
 import java.io.File
 import java.sql.Connection
@@ -34,7 +32,7 @@ class SQLitePersistenceImpl(
     private val featuresRegistry: FeaturesRegistry,
     location: String? = null,
     private val clearOnStart: Boolean
-) : JIRDBPersistence, Closeable, ByteCodeConverter {
+) : JIRDBPersistence, Closeable {
 
     companion object : KLogging()
 
@@ -88,8 +86,8 @@ class SQLitePersistenceImpl(
 
     override fun setup() {
         write {
-            featuresRegistry.jirdbFeatures.forEach {
-                it.persistence?.beforeIndexing(clearOnStart)
+            featuresRegistry.forEach { jirdb, feature ->
+                feature.beforeIndexing(jirdb, clearOnStart)
             }
         }
         persistenceService.setup()
@@ -134,7 +132,7 @@ class SQLitePersistenceImpl(
         cp: JIRClasspath,
         locations: List<RegisteredLocation>,
         fullName: String
-    ): JIRClassOrInterface? {
+    ): ClassSource? {
         val ids = locations.map { it.id }
         return transaction(db) {
             val symbolId = SymbolEntity.find(Symbols.name eq fullName)
@@ -144,21 +142,16 @@ class SQLitePersistenceImpl(
                 .firstOrNull() ?: return@transaction null
             val locationId = found[Classes.locationId].value
             val byteCode = found[Classes.bytecode]
-            JIRClassOrInterfaceImpl(
-                cp, ClassSourceImpl(
+            ClassSourceImpl(
                     location = locations.first { it.id == locationId },
                     className = fullName,
                     byteCode = byteCode.bytes
-                )
             )
-
         }
     }
 
-    override fun persist(location: RegisteredLocation, classes: List<ByteCodeContainer>) {
-        val allClasses = classes.map {
-            it.asmNode.asClassInfo(it.binary)
-        }
+    override fun persist(location: RegisteredLocation, classes: List<ClassSource>) {
+        val allClasses = classes.map { it.info }
         persistenceService.persist(location, allClasses)
     }
 

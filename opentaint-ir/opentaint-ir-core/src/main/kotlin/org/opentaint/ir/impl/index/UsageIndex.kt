@@ -14,16 +14,13 @@ import org.objectweb.asm.tree.MethodInsnNode
 import org.objectweb.asm.tree.MethodNode
 import org.opentaint.ir.api.ByteCodeIndexer
 import org.opentaint.ir.api.Feature
-import org.opentaint.ir.api.FeaturePersistence
 import org.opentaint.ir.api.JIRDB
-import org.opentaint.ir.api.JIRDBFeature
-import org.opentaint.ir.api.JIRDBPersistence
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.storage.Symbols
 import org.opentaint.ir.impl.storage.longHash
 
 
-class UsagesIndexer(private val jirdb: JIRDB, private val location: RegisteredLocation) : ByteCodeIndexer {
+class UsagesIndexer(private val location: RegisteredLocation) : ByteCodeIndexer {
 
     // class method -> usages of methods|fields
     private val fieldsUsages = hashMapOf<Pair<String, String>, HashSet<String>>()
@@ -52,25 +49,39 @@ class UsagesIndexer(private val jirdb: JIRDB, private val location: RegisteredLo
     }
 
     override fun flush() {
-        jirdb.persistence.write {
-            Calls.batchInsert(
-                fieldsUsages.entries.flatMap { entry -> entry.value.map { Triple(entry.key.first, entry.key.second, it) } },
-                shouldReturnGeneratedValues = false
-            ) {
-                this[Calls.ownerClassHash] = it.first.longHash
-                this[Calls.ownerFieldHash] = it.second.longHash
-                this[Calls.callerClassHash] = it.third.longHash
-                this[Calls.locationId] = location.id
-            }
-            Calls.batchInsert(
-                methodsUsages.entries.flatMap { entry -> entry.value.map { Triple(entry.key.first, entry.key.second, it) } },
-                shouldReturnGeneratedValues = false
-            ) {
-                this[Calls.ownerClassHash] = it.first.longHash
-                this[Calls.ownerMethodHash] = it.second.longHash
-                this[Calls.callerClassHash] = it.third.longHash
-                this[Calls.locationId] = location.id
-            }
+        Calls.batchInsert(
+            fieldsUsages.entries.flatMap { entry ->
+                entry.value.map {
+                    Triple(
+                        entry.key.first,
+                        entry.key.second,
+                        it
+                    )
+                }
+            },
+            shouldReturnGeneratedValues = false
+        ) {
+            this[Calls.calleeClassHash] = it.first.longHash
+            this[Calls.calleeFieldHash] = it.second.longHash
+            this[Calls.callerClassHash] = it.third.longHash
+            this[Calls.locationId] = location.id
+        }
+        Calls.batchInsert(
+            methodsUsages.entries.flatMap { entry ->
+                entry.value.map {
+                    Triple(
+                        entry.key.first,
+                        entry.key.second,
+                        it
+                    )
+                }
+            },
+            shouldReturnGeneratedValues = false
+        ) {
+            this[Calls.calleeClassHash] = it.first.longHash
+            this[Calls.calleeMethodHash] = it.second.longHash
+            this[Calls.callerClassHash] = it.third.longHash
+            this[Calls.locationId] = location.id
         }
     }
 
@@ -81,41 +92,34 @@ data class UsageIndexRequest(
     val method: String?,
     val field: String?,
     val className: String
-): java.io.Serializable
+) : java.io.Serializable
 
 
-private class JIRDBUsageFeature(override val jirdb: JIRDB) : JIRDBFeature<UsageIndexRequest, String> {
+object Usages : Feature<UsageIndexRequest, String> {
 
-    override val persistence = object : FeaturePersistence {
+    override val key = "usages"
 
-        override val jirdbPersistence: JIRDBPersistence
-            get() = jirdb.persistence
-
-        override fun beforeIndexing(clearOnStart: Boolean) {
-            if (clearOnStart) {
-                SchemaUtils.drop(Calls)
-            }
-            SchemaUtils.create(Calls)
+    override fun beforeIndexing(jirdb: JIRDB, clearOnStart: Boolean) {
+        if (clearOnStart) {
+            SchemaUtils.drop(Calls)
         }
-
-        override fun onBatchLoadingEnd() {
-            TODO("Not yet implemented")
-        }
+        SchemaUtils.create(Calls)
     }
 
-    override val key: String
-        get() = Usages.key
+    override fun afterIndexing(jirdb: JIRDB) {
+        TODO("Not yet implemented")
+    }
 
-    override suspend fun query(req: UsageIndexRequest): Sequence<String> {
+    override suspend fun query(jirdb: JIRDB, req: UsageIndexRequest): Sequence<String> {
         val (method, field, className) = req
         return jirdb.persistence.read {
             val classHashes: List<Long> = if (method != null) {
                 Calls.select {
-                    (Calls.ownerClassHash eq className.longHash) and (Calls.ownerMethodHash eq method.longHash)
+                    (Calls.calleeClassHash eq className.longHash) and (Calls.calleeMethodHash eq method.longHash)
                 }.map { it[Calls.callerClassHash] }
             } else if (field != null) {
                 Calls.select {
-                    (Calls.ownerClassHash eq className.longHash) and (Calls.ownerFieldHash eq field.longHash)
+                    (Calls.calleeClassHash eq className.longHash) and (Calls.calleeFieldHash eq field.longHash)
                 }.map { it[Calls.callerClassHash] }
             } else {
                 emptyList()
@@ -125,9 +129,9 @@ private class JIRDBUsageFeature(override val jirdb: JIRDB) : JIRDBFeature<UsageI
 
     }
 
-    override fun newIndexer(location: RegisteredLocation) = UsagesIndexer(jirdb, location)
+    override fun newIndexer(jirdb: JIRDB, location: RegisteredLocation) = UsagesIndexer(location)
 
-    override fun onLocationRemoved(location: RegisteredLocation) {
+    override fun onRemoved(jirdb: JIRDB, location: RegisteredLocation) {
         jirdb.persistence.write {
             Calls.deleteWhere { Calls.locationId eq location.id }
         }
@@ -135,21 +139,12 @@ private class JIRDBUsageFeature(override val jirdb: JIRDB) : JIRDBFeature<UsageI
 }
 
 
-object Usages : Feature<UsageIndexRequest, String> {
-
-    override val key = "usages"
-
-    override fun featureOf(jirdb: JIRDB): JIRDBFeature<UsageIndexRequest, String> = JIRDBUsageFeature(jirdb)
-}
-
 object Calls : Table() {
 
-    val ownerClassHash = long("owner_class_hash")
-    val ownerFieldHash = long("owner_field_hash").nullable()
-    val ownerMethodHash = long("owner_method_hash").nullable()
+    val calleeClassHash = long("callee_class_hash")
+    val calleeFieldHash = long("callee_field_hash").nullable()
+    val calleeMethodHash = long("callee_method_hash").nullable()
     val callerClassHash = long("caller_class_hash")
     val locationId = long("location_id")
 
 }
-
-

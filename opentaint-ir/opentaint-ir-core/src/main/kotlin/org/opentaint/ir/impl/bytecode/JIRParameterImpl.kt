@@ -23,10 +23,10 @@ class JIRParameterImpl(
         get() = info.index
 
     override val declaration: JIRDeclaration
-        get() = JIRDeclarationImpl.of(method.jirClass.declaration.location, this)
+        get() = JIRDeclarationImpl.of(method.enclosingClass.declaration.location, this)
 
     override val annotations: List<JIRAnnotation>
-        get() = info.annotations.map { JIRAnnotationImpl(it, method.jirClass.classpath) }
+        get() = info.annotations.map { JIRAnnotationImpl(it, method.enclosingClass.classpath) }
 
     override val type: TypeName
         get() = TypeNameImpl(info.type)

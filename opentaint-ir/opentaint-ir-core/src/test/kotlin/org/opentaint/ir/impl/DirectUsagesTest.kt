@@ -132,8 +132,8 @@ class DirectUsagesTest : LibrariesMixin {
             classId.methods.map {
                 val usages = findFieldsUsedIn(it)
                 it.name to listOf(
-                    "reads" to usages.reads.map { it.jirClass.name + "#" + it.name },
-                    "writes" to usages.writes.map { it.jirClass.name + "#" + it.name }
+                    "reads" to usages.reads.map { it.enclosingClass.name + "#" + it.name },
+                    "writes" to usages.writes.map { it.enclosingClass.name + "#" + it.name }
                 )
             }
                 .toMap()
@@ -144,12 +144,12 @@ class DirectUsagesTest : LibrariesMixin {
 
     private inline fun <reified T> JIRClasspath.methodsUsages(): List<Pair<String, List<String>>> {
         return runBlocking {
-            val classId = cp.findClass<T>()
+            val jirClass = cp.findClass<T>()
 
-            val methods = classId.methods
+            val methods = jirClass.methods
 
             methods.map {
-                it.name to findMethodsUsedIn(it).map { it.jirClass.name + "#" + it.name }.toImmutableList()
+                it.name to findMethodsUsedIn(it).map { it.enclosingClass.name + "#" + it.name }.toImmutableList()
             }.filterNot { it.second.isEmpty() }
         }
     }

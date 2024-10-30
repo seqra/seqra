@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl.bytecode
 
+import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
@@ -9,7 +10,8 @@ import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.findMethodOrNull
 import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.findAndWrap
-import org.opentaint.ir.impl.fs.ClassSource
+import org.opentaint.ir.impl.fs.fullAsmNode
+import org.opentaint.ir.impl.fs.info
 import org.opentaint.ir.impl.suspendableLazy
 import org.opentaint.ir.impl.toJcMethod
 
@@ -18,6 +20,8 @@ class JIRClassOrInterfaceImpl(
     private val classSource: ClassSource
 ) : JIRClassOrInterface {
 
+    private val info = classSource.info
+
     override val declaration: JIRDeclaration
         get() = JIRDeclarationImpl.of(location = classSource.location.jirLocation, this)
 
@@ -25,28 +29,28 @@ class JIRClassOrInterfaceImpl(
     override val simpleName: String get() = classSource.className.substringAfterLast(".")
 
     override val signature: String?
-        get() = classSource.info.signature
+        get() = info.signature
 
     override val annotations: List<JIRAnnotation>
-        get() = classSource.info.annotations.map { JIRAnnotationImpl(it, classpath) }
+        get() = info.annotations.map { JIRAnnotationImpl(it, classpath) }
 
     private val lazyInterfaces = suspendableLazy {
-        classSource.info.interfaces.map {
+        info.interfaces.map {
             classpath.findAndWrap(it) ?: it.throwClassNotFound()
         }
     }
 
     private val lazySuperclass = suspendableLazy {
-        val superClass = classSource.info.superClass
+        val superClass = info.superClass
         if (superClass != null) {
-            classpath.findAndWrap(classSource.info.superClass) ?: superClass.throwClassNotFound()
+            classpath.findAndWrap(info.superClass) ?: superClass.throwClassNotFound()
         } else {
             null
         }
     }
 
     private val lazyOuterClass = suspendableLazy {
-        val className = classSource.info.outerClass?.className
+        val className = info.outerClass?.className
         if (className != null) {
             classpath.findAndWrap(className) ?: className.throwClassNotFound()
         } else {
@@ -55,13 +59,13 @@ class JIRClassOrInterfaceImpl(
     }
 
     private val lazyInnerClasses = suspendableLazy {
-        classSource.info.innerClasses.map {
+        info.innerClasses.map {
             classpath.findAndWrap(it) ?: it.throwClassNotFound()
         }
     }
 
     override val access: Int
-        get() = classSource.info.access
+        get() = info.access
 
     override suspend fun bytecode() = classSource.fullAsmNode
 
@@ -69,12 +73,12 @@ class JIRClassOrInterfaceImpl(
 
     override val isAnonymous: Boolean
         get() {
-            val outerClass = classSource.info.outerClass
+            val outerClass = info.outerClass
             return outerClass != null && outerClass.name == null
         }
 
     override suspend fun outerMethod(): JIRMethod? {
-        val info = classSource.info
+        val info = info
         if (info.outerMethod != null && info.outerMethodDesc != null) {
             return outerClass()?.findMethodOrNull(info.outerMethod, info.outerMethodDesc)
         }
@@ -82,10 +86,11 @@ class JIRClassOrInterfaceImpl(
     }
 
     override val fields: List<JIRField>
-        get() = classSource.info.fields.map { JIRFieldImpl(this, it) }
+        get() = info.fields.map { JIRFieldImpl(this, it) }
 
     override val methods: List<JIRMethod>
-        get() = classSource.info.methods.map { toJcMethod(it, classSource) }
+        get() = info.methods.map { toJcMethod(it, classSource) }
+
 
 
     override suspend fun innerClasses() = lazyInnerClasses()

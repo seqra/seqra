@@ -10,7 +10,7 @@ import org.opentaint.ir.impl.types.FieldInfo
 import org.opentaint.ir.impl.types.TypeNameImpl
 
 class JIRFieldImpl(
-    override val jirClass: JIRClassOrInterface,
+    override val enclosingClass: JIRClassOrInterface,
     private val info: FieldInfo
 ) : JIRField {
 
@@ -18,10 +18,10 @@ class JIRFieldImpl(
         get() = info.name
 
     override val declaration: JIRDeclaration
-        get() = JIRDeclarationImpl.of(location = jirClass.declaration.location, this)
+        get() = JIRDeclarationImpl.of(location = enclosingClass.declaration.location, this)
 
     private val lazyAnnotations = suspendableLazy {
-        info.annotations.map { JIRAnnotationImpl(it, jirClass.classpath) }
+        info.annotations.map { JIRAnnotationImpl(it, enclosingClass.classpath) }
     }
 
 //    override suspend fun resolution(): FieldResolution {
@@ -38,17 +38,17 @@ class JIRFieldImpl(
         get() = info.signature
 
     override val annotations: List<JIRAnnotation>
-        get() = info.annotations.map { JIRAnnotationImpl(it, jirClass.classpath) }
+        get() = info.annotations.map { JIRAnnotationImpl(it, enclosingClass.classpath) }
 
 
     override fun equals(other: Any?): Boolean {
         if (other == null || other !is JIRFieldImpl) {
             return false
         }
-        return other.name == name && other.jirClass == jirClass
+        return other.name == name && other.enclosingClass == enclosingClass
     }
 
     override fun hashCode(): Int {
-        return 31 * jirClass.hashCode() + name.hashCode()
+        return 31 * enclosingClass.hashCode() + name.hashCode()
     }
 }

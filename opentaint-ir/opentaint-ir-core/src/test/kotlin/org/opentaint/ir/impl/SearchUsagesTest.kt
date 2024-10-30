@@ -8,7 +8,7 @@ import org.opentaint.ir.api.FieldUsageMode
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.impl.index.Usages
-import org.opentaint.ir.impl.index.reversedUsagesExt
+import org.opentaint.ir.impl.index.findUsages
 import org.opentaint.ir.impl.usages.fields.FieldA
 import org.opentaint.ir.impl.usages.fields.FieldB
 import org.opentaint.ir.impl.usages.methods.MethodA
@@ -40,7 +40,6 @@ class SearchUsagesTest : LibrariesMixin {
     @Test
     fun `classes read fields`() {
         val usages = fieldsUsages<FieldA>(FieldUsageMode.READ)
-
         assertEquals(
             sortedMapOf(
                 "a" to setOf(
@@ -123,10 +122,9 @@ class SearchUsagesTest : LibrariesMixin {
             val classId = cp.findClass<T>()
 
             val fields = classId.fields
-            val usageExt = cp.reversedUsagesExt
 
             fields.associate {
-                it.name to usageExt.findUsages(it, mode).map { it.jirClass.name + "#" + it.name }.toSortedSet()
+                it.name to cp.findUsages(it, mode).map { it.enclosingClass.name + "#" + it.name }.toSortedSet()
             }.filterNot { it.value.isEmpty() }.toSortedMap()
         }
     }
@@ -135,10 +133,9 @@ class SearchUsagesTest : LibrariesMixin {
         return runBlocking {
             val classId = cp.findClass<T>()
             val methods = classId.methods
-            val usageExt = cp.reversedUsagesExt
 
             methods.map {
-                it.name to usageExt.findUsages(it).map { it.jirClass.name + "#" + it.name }.toSortedSet()
+                it.name to cp.findUsages(it).map { it.enclosingClass.name + "#" + it.name }.toSortedSet()
             }
                 .toMap()
                 .filterNot { it.value.isEmpty() }

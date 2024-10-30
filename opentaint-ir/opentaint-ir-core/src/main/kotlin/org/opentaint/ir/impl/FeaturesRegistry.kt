@@ -2,7 +2,6 @@ package org.opentaint.ir.impl
 
 import org.opentaint.ir.api.Feature
 import org.opentaint.ir.api.JIRDB
-import org.opentaint.ir.api.JIRDBFeature
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.index.index
 import org.opentaint.ir.impl.vfs.ClassVfsItem
@@ -10,41 +9,48 @@ import java.io.Closeable
 
 class FeaturesRegistry(private val features: List<Feature<*, *>>) : Closeable {
 
-    lateinit var jirdbFeatures: List<JIRDBFeature<*, *>>
+    private lateinit var jirdb: JIRDB
 
     fun bind(jirdb: JIRDB) {
-        jirdbFeatures = features.map { it.featureOf(jirdb) }
+        this.jirdb = jirdb
     }
 
     suspend fun index(location: RegisteredLocation, classes: Collection<ClassVfsItem>) {
-        jirdbFeatures.forEach { feature ->
+        features.forEach { feature ->
             feature.index(location, classes)
         }
     }
 
-    private suspend fun <REQ, RES> JIRDBFeature<RES, REQ>.index(
+    private suspend fun <REQ, RES> Feature<RES, REQ>.index(
         location: RegisteredLocation,
         classes: Collection<ClassVfsItem>
     ) {
-        val indexer = newIndexer(location)
-        classes.forEach { node ->
-            index(node, indexer)
-        }
-        persistence?.jirdbPersistence?.write {
+        val indexer = newIndexer(jirdb, location)
+        classes.forEach { index(it, indexer) }
+        jirdb.persistence.write {
             indexer.flush()
         }
     }
 
-    fun <REQ, RES> findIndex(key: String): JIRDBFeature<RES, REQ>? {
-        return jirdbFeatures.firstOrNull { it.key == key } as? JIRDBFeature<RES, REQ>?
+    fun <REQ, RES> findIndex(key: String): Feature<REQ, RES>? {
+        return features.firstOrNull { it.key == key } as? Feature<REQ, RES>?
+    }
+
+    suspend fun <REQ, RES> query(key: String, req: REQ): Sequence<RES>? {
+        return findIndex<REQ, RES>(key)?.query(jirdb, req)
     }
 
     fun onLocationRemove(location: RegisteredLocation) {
-        jirdbFeatures.forEach {
-            it.onLocationRemoved(location)
+        features.forEach {
+            it.onRemoved(jirdb, location)
         }
+    }
+
+    fun forEach(action: (JIRDB, Feature<*, *>) -> Unit) {
+        features.forEach { action(jirdb, it) }
     }
 
     override fun close() {
     }
+
 }

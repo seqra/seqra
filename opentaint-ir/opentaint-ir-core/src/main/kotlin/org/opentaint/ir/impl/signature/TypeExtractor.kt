@@ -85,7 +85,7 @@ internal class TypeExtractor(private val typeRegistrant: TypeRegistrant) :
             }
 
             override fun appendPlaceholder() {
-                parameters.add(SUnboundWildcard())
+                parameters.add(SUnboundWildcard)
             }
 
             protected inner class DirectBound : TypeRegistrant {
@@ -96,13 +96,13 @@ internal class TypeExtractor(private val typeRegistrant: TypeRegistrant) :
 
             protected inner class UpperBound : TypeRegistrant {
                 override fun register(token: SType) {
-                    parameters.add(SBoundWildcard.UpperSBoundWildcard(token))
+                    parameters.add(SBoundWildcard.SUpperBoundWildcard(token))
                 }
             }
 
             protected inner class LowerBound : TypeRegistrant {
                 override fun register(token: SType) {
-                    parameters.add(SBoundWildcard.LowerSBoundWildcard(token))
+                    parameters.add(SBoundWildcard.SLowerBoundWildcard(token))
                 }
             }
         }

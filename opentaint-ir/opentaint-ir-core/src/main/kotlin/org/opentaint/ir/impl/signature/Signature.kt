@@ -31,8 +31,9 @@ internal abstract class Signature<T : Resolution>() :
     }
 
     protected fun collectTypeParameter() {
-        if (currentTypeParameter != null) {
-            typeVariables.add(Formal(currentTypeParameter, currentBounds))
+        val current = currentTypeParameter
+        if (current != null) {
+            typeVariables.add(Formal(current, currentBounds))
         }
     }
 

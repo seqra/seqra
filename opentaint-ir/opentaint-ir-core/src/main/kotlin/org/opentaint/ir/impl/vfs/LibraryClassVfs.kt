@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.vfs
 
+import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.impl.fs.ClassSource
 import java.util.concurrent.ConcurrentHashMap
 
 

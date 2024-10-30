@@ -15,15 +15,15 @@ class JIRDeclarationImpl(override val location: JIRByteCodeLocation, override va
         }
 
         fun of(location: JIRByteCodeLocation, method: JIRMethod): JIRDeclarationImpl {
-            return JIRDeclarationImpl(location, "${method.jirClass.name}#${method.name}")
+            return JIRDeclarationImpl(location, "${method.enclosingClass.name}#${method.name}")
         }
 
         fun of(location: JIRByteCodeLocation, field: JIRField): JIRDeclarationImpl {
-            return JIRDeclarationImpl(location, "${field.jirClass.name}#${field.name}")
+            return JIRDeclarationImpl(location, "${field.enclosingClass.name}#${field.name}")
         }
 
         fun of(location: JIRByteCodeLocation, param: JIRParameter): JIRDeclarationImpl {
-            return JIRDeclarationImpl(location, "${param.method.jirClass.name}#${param.name}:${param.index}")
+            return JIRDeclarationImpl(location, "${param.method.enclosingClass.name}#${param.name}:${param.index}")
         }
     }
 

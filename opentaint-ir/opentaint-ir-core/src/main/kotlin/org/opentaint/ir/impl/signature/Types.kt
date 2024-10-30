@@ -1,13 +1,21 @@
 package org.opentaint.ir.impl.signature
 
 import org.opentaint.ir.api.PredefinedPrimitives
+import org.opentaint.ir.impl.types.JIRTypeBindings
 
+sealed class SType {
+    abstract fun apply(bindings: JIRTypeBindings): SType
 
-internal abstract class SType
+}
 
 internal abstract class SRefType : SType()
 
-internal class SArrayType(val elementType: SType) : SRefType()
+internal class SArrayType(val elementType: SType) : SRefType() {
+
+    override fun apply(bindings: JIRTypeBindings): SType {
+        return SArrayType(elementType.apply(bindings))
+    }
+}
 
 internal class SParameterizedType(
     val name: String,
@@ -18,19 +26,53 @@ internal class SParameterizedType(
         val name: String,
         val parameterTypes: List<SType>,
         val ownerType: SType
-    ) : SRefType()
+    ) : SRefType() {
+
+        override fun apply(bindings: JIRTypeBindings): SType {
+            return SNestedType(name, parameterTypes.map { it.apply(bindings) }, ownerType.apply(bindings))
+        }
+    }
+
+    override fun apply(bindings: JIRTypeBindings): SType {
+        return SParameterizedType(name, parameterTypes.map { it.apply(bindings) })
+    }
 }
 
-internal class SClassRefType(val name: String) : SRefType()
+internal class SClassRefType(val name: String) : SRefType() {
+    override fun apply(bindings: JIRTypeBindings): SType {
+        return this
+    }
+}
 
-internal class STypeVariable(val symbol: String) : SType()
+internal class STypeVariable(val symbol: String) : SType() {
+    override fun apply(bindings: JIRTypeBindings): SType {
+        return this
+    }
+}
 
 internal sealed class SBoundWildcard(val boundType: SType) : SType() {
-    internal class UpperSBoundWildcard(boundType: SType) : SBoundWildcard(boundType)
-    internal class LowerSBoundWildcard(boundType: SType) : SBoundWildcard(boundType)
+    internal class SUpperBoundWildcard(boundType: SType) : SBoundWildcard(boundType) {
+
+        override fun apply(bindings: JIRTypeBindings): SType {
+            return SUpperBoundWildcard(boundType.apply(bindings))
+        }
+    }
+
+    internal class SLowerBoundWildcard(boundType: SType) : SBoundWildcard(boundType) {
+
+        override fun apply(bindings: JIRTypeBindings): SType {
+            return SUpperBoundWildcard(boundType.apply(bindings))
+        }
+    }
 }
 
-internal class SUnboundWildcard : SType()
+internal object SUnboundWildcard : SType() {
+
+    override fun apply(bindings: JIRTypeBindings): SType {
+        return this
+    }
+
+}
 
 internal class SPrimitiveType(val ref: String) : SRefType() {
 
@@ -50,4 +92,9 @@ internal class SPrimitiveType(val ref: String) : SRefType() {
             }
         }
     }
+
+    override fun apply(bindings: JIRTypeBindings): SType {
+        return this
+    }
+
 }
