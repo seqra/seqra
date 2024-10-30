@@ -12,6 +12,9 @@ import org.opentaint.ir.api.JIRArrayType
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRPrimitiveType
+import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.JIRTypeVariable
+import org.opentaint.ir.api.ext.findTypeOrNull
 import org.opentaint.ir.api.isConstructor
 import org.opentaint.ir.impl.types.PrimitiveAndArrays
 import org.opentaint.ir.impl.types.SuperFoo
@@ -45,31 +48,52 @@ class TypesTest {
     }
 
     @Test
-    fun `generics for parent types`() = runBlocking {
-        val superFooType = cp.findTypeOrNull(SuperFoo::class.java.name)
-        assertNotNull(superFooType!!)
-        assertTrue(superFooType is JIRClassType)
-        superFooType as JIRClassType
-        with(superFooType.superType()) {
-            assertNotNull(this)
-            this!!
-            assertTrue(this is JIRClassType)
-            this as JIRClassType
+    fun `generics for super types`() = runBlocking {
+        val superFooType = findClassType<SuperFoo>()
+        with(superFooType.superType().assertClassType()) {
             val fields = fields()
             assertEquals(2, fields.size)
 
             with(fields.first()) {
                 assertEquals("state", name)
-                assertTrue(fieldType() is JIRClassType)
+                fieldType().assertType<String>()
             }
         }
     }
 
     @Test
+    fun `generics for methods 1`() = runBlocking {
+        val superFooType = findClassType<SuperFoo>()
+        val superType = superFooType.superType().assertClassType()
+        val methods = superType.methods().filterNot { it.method.isConstructor }
+        assertEquals(2, methods.size)
+
+        with(methods.first { it.method.name == "run1" }) {
+            returnType().assertType<String>()
+            parameters().first().type().assertType<String>()
+        }
+    }
+
+//    @Test
+    fun `generics for methods 2`() = runBlocking {
+        val superFooType = findClassType<SuperFoo>()
+        val superType = superFooType.superType().assertClassType()
+        val methods = superType.methods().filterNot { it.method.isConstructor }
+        assertEquals(2, methods.size)
+
+        with(methods.first { it.method.name == "run2" }) {
+            val returnType = returnType()
+            val params = parameters().first()
+            val w = originalParameterization().first()
+            assertEquals("W", (params.type() as? JIRTypeVariable)?.typeSymbol)
+            assertEquals("W", w.symbol)
+            assertEquals(cp.findTypeOrNull<String>(), w.bounds.first())
+        }
+    }
+
+    @Test
     fun `primitive and array types`() = runBlocking {
-        val primitiveAndArrays = cp.findTypeOrNull(PrimitiveAndArrays::class.java.name)
-        assertTrue(primitiveAndArrays is JIRClassType)
-        primitiveAndArrays as JIRClassType
+        val primitiveAndArrays = findClassType<PrimitiveAndArrays>()
         val fields = primitiveAndArrays.fields()
         assertEquals(2, fields.size)
 
@@ -97,4 +121,26 @@ class TypesTest {
             }
         }
     }
+
+    private suspend inline fun <reified T> findClassType(): JIRClassType {
+        val found = cp.findTypeOrNull(T::class.java.name)
+        assertNotNull(found)
+        assertTrue(found is JIRClassType)
+        return found as JIRClassType
+    }
+
+    private fun JIRType?.assertClassType(): JIRClassType {
+        assertNotNull(this)
+        assertTrue(this is JIRClassType)
+        return this as JIRClassType
+    }
+
+    private suspend inline fun <reified T> JIRType?.assertType() {
+        val expected = findClassType<T>()
+        assertNotNull(this)
+        assertTrue(this is JIRClassType)
+        assertEquals(expected.typeName, this?.typeName)
+    }
+
+    private val stringType get() = runBlocking { findClassType<String>() }
 }
