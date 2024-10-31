@@ -1,24 +1,22 @@
 package org.opentaint.ir.impl.types
 
 import org.opentaint.ir.api.JIRBoundWildcard
-import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRLowerBoundWildcard
 import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRTypeVariable
+import org.opentaint.ir.api.JIRTypeVariableDeclaration
 import org.opentaint.ir.api.JIRUnboundWildcard
 import org.opentaint.ir.api.JIRUpperBoundWildcard
 
-class JIRUnboundWildcardImpl(private val anyType: JIRClassType, override val nullable: Boolean = true) :
+class JIRUnboundWildcardImpl(override val classpath: JIRClasspath, override val nullable: Boolean = true) :
     JIRUnboundWildcard {
 
-    override val classpath: JIRClasspath
-        get() = anyType.classpath
     override val typeName: String
         get() = "*"
 
     override fun notNullable(): JIRRefType {
-        return JIRUnboundWildcardImpl(anyType, false)
+        return JIRUnboundWildcardImpl(classpath, false)
     }
 }
 
@@ -52,18 +50,20 @@ class JIRLowerBoundWildcardImpl(boundType: JIRRefType, nullable: Boolean) : Abst
 }
 
 class JIRTypeVariableImpl(
-    override val typeSymbol: String,
-    override val nullable: Boolean,
-    private val anyType: JIRClassType
+    override val classpath: JIRClasspath,
+    private val declaration: JIRTypeVariableDeclaration,
+    override val nullable: Boolean
 ) : JIRTypeVariable {
 
-    override val classpath: JIRClasspath
-        get() = anyType.classpath
-
     override val typeName: String
-        get() = typeSymbol
+        get() = symbol
+
+    override val symbol: String get() = declaration.symbol
+
+    override val bounds: List<JIRRefType>
+        get() = declaration.bounds
 
     override fun notNullable(): JIRRefType {
-        return JIRTypeVariableImpl(typeSymbol, false, anyType)
+        return JIRTypeVariableImpl(classpath, declaration, nullable)
     }
 }

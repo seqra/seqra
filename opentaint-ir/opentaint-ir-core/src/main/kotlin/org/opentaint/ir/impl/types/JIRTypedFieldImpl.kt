@@ -12,7 +12,7 @@ import org.opentaint.ir.impl.suspendableLazy
 class JIRTypedFieldImpl(
     override val enclosingType: JIRRefType,
     override val field: JIRField,
-    private val classBindings: JIRTypeBindings = JIRTypeBindings()
+    private val typeBindings: JIRTypeBindings = JIRTypeBindings.empty
 ) : JIRTypedField {
 
     private val resolution = FieldSignature.of(field.signature)
@@ -23,7 +23,7 @@ class JIRTypedFieldImpl(
     private val fieldTypeGetter = suspendableLazy {
         val typeName = field.type.typeName
         ifSignature {
-            classpath.typeOf(it.fieldType.apply(classBindings))
+            typeBindings.toJcRefType(it.fieldType, classpath)
         } ?: classpath.findTypeOrNull(field.type.typeName) ?: typeName.throwClassNotFound()
     }
 

@@ -9,6 +9,7 @@ import org.opentaint.ir.api.JIRTypeVariableDeclaration
 import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.JIRTypedMethodParameter
 import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.impl.signature.Formal
 import org.opentaint.ir.impl.signature.MethodResolutionImpl
 import org.opentaint.ir.impl.signature.MethodSignature
 import org.opentaint.ir.impl.suspendableLazy
@@ -16,7 +17,7 @@ import org.opentaint.ir.impl.suspendableLazy
 class JIRTypedMethodImpl(
     override val enclosingType: JIRRefType,
     override val method: JIRMethod,
-    classBindings: JIRTypeBindings = JIRTypeBindings()
+    private val classBindings: JIRTypeBindings = JIRTypeBindings(emptyMap(), emptyMap())
 ) : JIRTypedMethod {
 
     private val resolution = MethodSignature.of(method.signature)
@@ -24,8 +25,8 @@ class JIRTypedMethodImpl(
 
     private val methodBindingsGetter = suspendableLazy {
         classBindings.override(ifSignature {
-            it.typeVariables.map { it.symbol  }.toSet()
-        } ?: emptySet())
+            it.typeVariables
+        }.orEmpty())
     }
 
     override val name: String
@@ -35,7 +36,7 @@ class JIRTypedMethodImpl(
 
     override suspend fun originalParameterization(): List<JIRTypeVariableDeclaration> {
         return ifSignature {
-            classpath.typeDeclarations(it.typeVariables)
+            classpath.typeDeclarations(it.typeVariables.map { Formal(it.symbol, it.boundTypeTokens?.map { it.apply(methodBindings(), null) }) }, JIRTypeBindings.empty)
         } ?: emptyList()
     }
 
@@ -64,8 +65,9 @@ class JIRTypedMethodImpl(
 
     override suspend fun returnType(): JIRType {
         val typeName = method.returnType.typeName
+        val bindings = methodBindings()
         return ifSignature {
-            classpath.typeOf(it.returnType.apply(methodBindings()))
+            classpath.typeOf(it.returnType.apply(bindings, null), bindings)
         } ?: classpath.findTypeOrNull(typeName) ?: throw IllegalStateException("Can't resolve type by name $typeName")
     }
 

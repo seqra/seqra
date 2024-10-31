@@ -152,7 +152,7 @@ class SignatureTest {
                 assertEquals(1, size)
                 with(first()) {
                     this as SBoundWildcard.SUpperBoundWildcard
-                    val bondType = boundType as STypeVariable
+                    val bondType = bound as STypeVariable
                     assertEquals("T", bondType.symbol)
                 }
             }

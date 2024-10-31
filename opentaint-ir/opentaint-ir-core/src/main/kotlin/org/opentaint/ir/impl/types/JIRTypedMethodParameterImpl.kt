@@ -5,6 +5,7 @@ import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.JIRTypedMethodParameter
 import org.opentaint.ir.api.isNullable
+import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.signature.SType
 
 class JIRTypedMethodParameterImpl(
@@ -14,10 +15,11 @@ class JIRTypedMethodParameterImpl(
     private val bindings: JIRTypeBindings
 ) : JIRTypedMethodParameter {
 
+    val classpath = enclosingMethod.method.enclosingClass.classpath
+
     override suspend fun type(): JIRType {
-        val cp = enclosingMethod.method.enclosingClass.classpath
-        val st = stype ?: return cp.findTypeOrNull(parameter.type.typeName) ?: throw IllegalStateException("")
-        return cp.typeOf(st.apply(bindings))
+        val st = stype ?: return classpath.findTypeOrNull(parameter.type.typeName) ?: parameter.type.typeName.throwClassNotFound()
+        return classpath.typeOf(st.apply(bindings, null), bindings)
     }
 
     override val nullable: Boolean

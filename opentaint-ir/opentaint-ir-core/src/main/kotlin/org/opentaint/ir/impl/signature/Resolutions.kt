@@ -19,6 +19,6 @@ internal class MethodResolutionImpl(
 internal class TypeResolutionImpl(
     val superClass: SType,
     val interfaceType: List<SType>,
-    val typeVariable: List<FormalTypeVariable>
+    val typeVariables: List<FormalTypeVariable>
 ) : TypeResolution
 

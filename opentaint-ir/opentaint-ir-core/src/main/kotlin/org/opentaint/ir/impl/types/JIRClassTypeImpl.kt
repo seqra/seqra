@@ -6,7 +6,7 @@ import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRTypedField
 import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.TypeResolution
-import org.opentaint.ir.api.anyType
+import org.opentaint.ir.api.toType
 import org.opentaint.ir.impl.signature.SType
 import org.opentaint.ir.impl.signature.STypeVariable
 import org.opentaint.ir.impl.signature.TypeResolutionImpl
@@ -20,36 +20,53 @@ open class JIRClassTypeImpl(
     override val nullable: Boolean
 ) : JIRClassType {
 
-    val classBindings: JIRTypeBindings
+    private val typeBindings: JIRTypeBindings
 
     init {
-        if (parametrization != null && resolution is TypeResolutionImpl && resolution.typeVariable.size != parametrization.size) {
-            val msg = "Expected ${resolution.typeVariable.joinToString()} but was ${parametrization.joinToString()}"
+        if (parametrization != null && resolution is TypeResolutionImpl && resolution.typeVariables.size != parametrization.size) {
+            val msg = "Expected ${resolution.typeVariables.joinToString()} but was ${parametrization.joinToString()}"
             throw IllegalStateException(msg)
         }
+
         val bindings = ifSyncSignature {
-            it.typeVariable.mapIndexed { index, declaration ->
+            it.typeVariables.mapIndexed { index, declaration ->
                 declaration.symbol to (parametrization?.get(index) ?: STypeVariable(declaration.symbol))
             }.toMap()
         } ?: emptyMap()
-        classBindings = JIRTypeBindings(bindings)
+
+        val declarations = ifSyncSignature {
+            it.typeVariables.associateBy { it.symbol }
+        } ?: emptyMap()
+
+        typeBindings = JIRTypeBindings(bindings, declarations)
     }
 
     override val classpath get() = jirClass.classpath
 
     override val typeName: String
-        get() = jirClass.name
+        get() {
+            if (parametrization == null) {
+                val generics = ifSyncSignature { it.typeVariables.joinToString() } ?: return jirClass.name
+                return jirClass.name + ("<$generics>".takeIf { generics.isNotEmpty() } ?: "")
+            }
+            return jirClass.name + ("<${parametrization.joinToString { it.displayName }}>".takeIf { parametrization.isNotEmpty() } ?: "")
+        }
 
     private val originParametrizationGetter = suspendableLazy {
         ifSignature {
-            classpath.typeDeclarations(it.typeVariable)
+            classpath.typeDeclarations(it.typeVariables, JIRTypeBindings.empty)
         } ?: emptyList()
     }
 
     private val parametrizationGetter = suspendableLazy {
-        originalParametrization().mapIndexed { index, declaration ->
-            declaration.symbol to (parametrization?.get(index)?.let { classpath.typeOf(it) as JIRRefType} ?: JIRTypeVariableImpl(declaration.symbol, true, classpath.anyType()))
-        }.toMap()
+        originalParametrization().associate { original ->
+            val direct = typeBindings.findDirectBinding(original.symbol)
+            if (direct != null) {
+                original.symbol to direct.apply(typeBindings, original.symbol).toJcRefType()
+            } else {
+                original.symbol to typeBindings.resolve(original.symbol).apply(typeBindings, null).toJcRefType()
+            }
+        }
     }
 
     override suspend fun originalParametrization() = originParametrizationGetter()
@@ -58,31 +75,37 @@ open class JIRClassTypeImpl(
 
     override suspend fun superType(): JIRRefType? {
         return ifSignature {
-            classpath.typeOf(it.superClass) as? JIRRefType
-        } ?: jirClass.superclass()?.let { classpath.typeOf(it) }
+            classpath.typeOf(it.superClass, typeBindings) as? JIRRefType
+        } ?: jirClass.superclass()?.toType()
     }
 
     override suspend fun interfaces(): List<JIRRefType> {
         return ifSignature {
-            jirClass.interfaces().map { classpath.typeOf(it) }
+            jirClass.interfaces().map { it.toType() }
         } ?: emptyList()
     }
 
-    override suspend fun outerType(): JIRRefType? = TODO("Not yet implemented")
+    override suspend fun outerType(): JIRRefType? {
+        return jirClass.outerClass()?.toType()
+    }
 
-    override suspend fun outerMethod(): JIRTypedMethod? = TODO("Not yet implemented")
+    override suspend fun outerMethod(): JIRTypedMethod? {
+        return jirClass.outerMethod()?.let {
+            JIRTypedMethodImpl(enclosingType = it.enclosingClass.toType(), it, JIRTypeBindings.empty)
+        }
+    }
 
     override suspend fun innerTypes(): List<JIRRefType> = TODO("Not yet implemented")
 
     override suspend fun methods(): List<JIRTypedMethod> {
         return jirClass.methods.map {
-            JIRTypedMethodImpl(enclosingType = this, it, classBindings)
+            JIRTypedMethodImpl(enclosingType = this, it, typeBindings)
         }
     }
 
     override suspend fun fields(): List<JIRTypedField> {
         return jirClass.fields.map {
-            JIRTypedFieldImpl(enclosingType = this, it, classBindings = classBindings)
+            JIRTypedFieldImpl(enclosingType = this, it, typeBindings = typeBindings)
         }
     }
 
@@ -119,5 +142,8 @@ open class JIRClassTypeImpl(
         }
     }
 
+    private suspend fun SType.toJcRefType(): JIRRefType {
+        return classpath.typeOf(this, typeBindings) as JIRRefType
+    }
 
 }
