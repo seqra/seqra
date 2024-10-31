@@ -99,12 +99,7 @@ internal suspend fun JIRClasspath.typeOf(stype: SType, bindings: JIRTypeBindings
         }
 
         is SUnboundWildcard -> JIRUnboundWildcardImpl(this)
-        is SBoundWildcard.SUpperBoundWildcard -> JIRUpperBoundWildcardImpl(
-            typeOf(
-                stype.bound,
-                bindings
-            ) as JIRRefType, true
-        )
+        is SBoundWildcard.SUpperBoundWildcard -> typeOf(stype.bound,bindings)
 
         is SBoundWildcard.SLowerBoundWildcard -> JIRLowerBoundWildcardImpl(
             typeOf(

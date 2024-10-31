@@ -120,7 +120,7 @@ open class SResolvedTypeVariable(symbol: String, val boundaries: List<SType>) : 
 internal sealed class SBoundWildcard(val bound: SType) : SType() {
     internal class SUpperBoundWildcard(boundType: SType) : SBoundWildcard(boundType) {
         override val displayName: String
-            get() = "? extends ${bound.displayName}"
+            get() = bound.displayName
 
 
         override fun applyTypeDeclarations(bindings: JIRTypeBindings, currentSymbol: String?): SType {

@@ -36,7 +36,11 @@ class JIRTypedMethodImpl(
 
     override suspend fun originalParameterization(): List<JIRTypeVariableDeclaration> {
         return ifSignature {
-            classpath.typeDeclarations(it.typeVariables.map { Formal(it.symbol, it.boundTypeTokens?.map { it.apply(methodBindings(), null) }) }, JIRTypeBindings.empty)
+            classpath.typeDeclarations(it.typeVariables.map {
+                Formal(
+                    it.symbol,
+                    it.boundTypeTokens?.map { it.apply(methodBindings(), null) })
+            }, JIRTypeBindings.empty)
         } ?: emptyList()
     }
 
