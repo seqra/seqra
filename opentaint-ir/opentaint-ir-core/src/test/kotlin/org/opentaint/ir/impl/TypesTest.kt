@@ -17,6 +17,8 @@ import org.opentaint.ir.api.JIRTypeVariable
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.isConstructor
 import org.opentaint.ir.impl.types.ClassWithInners
+import org.opentaint.ir.impl.types.ClassWithInnersLinkedToMethod
+import org.opentaint.ir.impl.types.ClassWithInnersLinkedToMethod2
 import org.opentaint.ir.impl.types.PartialParametrization
 import org.opentaint.ir.impl.types.PrimitiveAndArrays
 import org.opentaint.ir.impl.types.SuperFoo
@@ -188,6 +190,45 @@ class TypesTest {
     }
 
     @Test
+    fun `inner classes linked to method`() {
+        runBlocking {
+            val classWithInners = findClassType<ClassWithInnersLinkedToMethod<*>>().assertClassType()
+            val inners = classWithInners.innerTypes()
+            assertEquals(1, inners.size)
+            assertEquals("org.opentaint.ir.impl.types.ClassWithInnersLinkedToMethod\$1", inners.first().typeName)
+            with(inners.first().fields()) {
+                with(first { it.name == "stateT" }) {
+                    assertEquals("T", (fieldType() as JIRTypeVariable).symbol)
+                }
+                with(first { it.name == "stateW" }) {
+                    assertEquals("W", fieldType().typeName)
+                }
+            }
+            with(inners.first().outerMethod()!!) {
+                assertEquals("run", name)
+            }
+            with(inners.first().outerType()!!) {
+                assertEquals("org.opentaint.ir.impl.types.ClassWithInnersLinkedToMethod<W : java.lang.Object>", typeName)
+            }
+        }
+    }
+
+    @Test
+    fun `inner classes linked to method 2`() {
+        runBlocking {
+            val classWithInners = findClassType<ClassWithInnersLinkedToMethod2<*>>().assertClassType()
+            val inners = classWithInners.innerTypes()
+            assertEquals(3, inners.size)
+            with(inners.first { it.typeName.contains("Impl") }) {
+                with(superType()!!.methods().first { it.name == "run" }) {
+                    val returnType = returnType().assertClassType()
+                    assertEquals("org.opentaint.ir.impl.types.ClassWithInnersLinkedToMethod2\$State<java.lang.String>", returnType.typeName)
+                }
+            }
+        }
+    }
+
+    @Test
     fun `primitive and array types`() = runBlocking {
         val primitiveAndArrays = findClassType<PrimitiveAndArrays>()
         val fields = primitiveAndArrays.fields()
@@ -239,5 +280,4 @@ class TypesTest {
         return this as JIRClassType
     }
 
-    private val stringType get() = runBlocking { findClassType<String>() }
 }
