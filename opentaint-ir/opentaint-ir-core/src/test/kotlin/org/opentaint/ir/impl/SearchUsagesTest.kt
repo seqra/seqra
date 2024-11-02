@@ -1,41 +1,19 @@
 package org.opentaint.ir.impl
 
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.FieldUsageMode
-import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.impl.index.Usages
 import org.opentaint.ir.impl.index.findUsages
 import org.opentaint.ir.impl.usages.fields.FieldA
 import org.opentaint.ir.impl.usages.fields.FieldB
 import org.opentaint.ir.impl.usages.methods.MethodA
-import org.opentaint.ir.jirdb
 
-class SearchUsagesTest : LibrariesMixin {
+class SearchUsagesTest : BaseTest() {
 
-    companion object : LibrariesMixin {
-        var db: JIRDB? = runBlocking {
-            jirdb {
-                loadByteCode(allClasspath)
-                useProcessJavaRuntime()
-                installFeatures(Usages)
-            }.also {
-                it.awaitBackgroundJobs()
-            }
-        }
-
-        @AfterAll
-        @JvmStatic
-        fun cleanup() {
-            db?.close()
-            db = null
-        }
-    }
-
-    private val cp = runBlocking { db!!.classpath(allClasspath) }
+    companion object : WithDB(Usages)
 
     @Test
     fun `classes read fields`() {

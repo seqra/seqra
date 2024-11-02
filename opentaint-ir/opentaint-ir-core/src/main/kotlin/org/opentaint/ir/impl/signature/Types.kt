@@ -57,7 +57,7 @@ internal class SParameterizedType(
             )
         }
 
-        override fun applyKnownBindings(bindings:JIRTypeBindings): SType {
+        override fun applyKnownBindings(bindings: JIRTypeBindings): SType {
             return SNestedType(
                 name,
                 parameterTypes.map { it.applyKnownBindings(bindings) },
@@ -113,14 +113,16 @@ open class SResolvedTypeVariable(symbol: String, val boundaries: List<SType>) : 
     }
 
     override fun applyKnownBindings(bindings: JIRTypeBindings): SType {
-        return bindings.findTypeBinding(symbol) ?: SResolvedTypeVariable(symbol, boundaries.map { it.applyKnownBindings(bindings) })
+        return bindings.findTypeBinding(symbol) ?: SResolvedTypeVariable(
+            symbol,
+            boundaries.map { it.applyKnownBindings(bindings) })
     }
 }
 
 internal sealed class SBoundWildcard(val bound: SType) : SType() {
     internal class SUpperBoundWildcard(boundType: SType) : SBoundWildcard(boundType) {
         override val displayName: String
-            get() = bound.displayName
+            get() = "? extends ${bound.displayName}"
 
 
         override fun applyTypeDeclarations(bindings: JIRTypeBindings, currentSymbol: String?): SType {
@@ -137,11 +139,11 @@ internal sealed class SBoundWildcard(val bound: SType) : SType() {
             get() = "? super ${bound.displayName}"
 
         override fun applyTypeDeclarations(bindings: JIRTypeBindings, currentSymbol: String?): SType {
-            return SUpperBoundWildcard(bound.applyTypeDeclarations(bindings, currentSymbol))
+            return SLowerBoundWildcard(bound.applyTypeDeclarations(bindings, currentSymbol))
         }
 
         override fun applyKnownBindings(bindings: JIRTypeBindings): SType {
-            return SUpperBoundWildcard(bound.applyKnownBindings(bindings))
+            return SLowerBoundWildcard(bound.applyKnownBindings(bindings))
         }
     }
 }

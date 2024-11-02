@@ -1,11 +1,8 @@
 package org.opentaint.ir.impl
 
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRField
 import org.opentaint.ir.api.JIRMethod
@@ -24,33 +21,10 @@ import org.opentaint.ir.impl.signature.STypeVariable
 import org.opentaint.ir.impl.signature.TypeResolutionImpl
 import org.opentaint.ir.impl.signature.TypeSignature
 import org.opentaint.ir.impl.usages.Generics
-import org.opentaint.ir.jirdb
 
-class SignatureTest {
-    companion object : LibrariesMixin {
-        var db: JIRDB? = runBlocking {
-            jirdb {
-                loadByteCode(allClasspath)
-                useProcessJavaRuntime()
-            }.also {
-                it.awaitBackgroundJobs()
-            }
-        }
+class SignatureTest: BaseTest() {
 
-        @AfterAll
-        @JvmStatic
-        fun cleanup() {
-            db?.close()
-            db = null
-        }
-    }
-
-    private val cp = runBlocking { db!!.classpath(allClasspath) }
-
-    @AfterEach
-    fun close() {
-        cp.close()
-    }
+    companion object : WithDB()
 
     @Test
     fun `get signature of class`() = runBlocking {

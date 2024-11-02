@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl.types
 
+import org.objectweb.asm.Type
 import org.objectweb.asm.tree.LocalVariableNode
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRMethod
@@ -9,45 +10,38 @@ import org.opentaint.ir.api.JIRTypeVariableDeclaration
 import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.JIRTypedMethodParameter
 import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.throwClassNotFound
+import org.opentaint.ir.impl.signature.FieldResolutionImpl
+import org.opentaint.ir.impl.signature.FieldSignature
 import org.opentaint.ir.impl.signature.Formal
 import org.opentaint.ir.impl.signature.MethodResolutionImpl
 import org.opentaint.ir.impl.signature.MethodSignature
-import org.opentaint.ir.impl.suspendableLazy
 
 class JIRTypedMethodImpl(
     override val enclosingType: JIRRefType,
     override val method: JIRMethod,
-    private val classBindings: JIRTypeBindings
+    classBindings: JIRTypeBindings
 ) : JIRTypedMethod {
 
-    private val resolution = MethodSignature.of(method.signature)
+    private val resolution = MethodSignature.of(method.signature) as? MethodResolutionImpl
     private val classpath = method.enclosingClass.classpath
-
-    private val methodBindingsGetter = suspendableLazy {
-        classBindings.override(ifSignature {
-            it.typeVariables
-        }.orEmpty())
-    }
 
     override val name: String
         get() = method.name
 
-    private suspend fun methodBindings() = methodBindingsGetter()
+    private val methodBindings = classBindings.override(resolution?.typeVariables.orEmpty())
 
     override suspend fun originalParameterization(): List<JIRTypeVariableDeclaration> {
-        return ifSignature {
-            classpath.typeDeclarations(it.typeVariables.map {
-                Formal(
-                    it.symbol,
-                    it.boundTypeTokens?.map { it.apply(methodBindings(), null) })
-            }, JIRTypeBindings.empty)
-        } ?: emptyList()
+        if (resolution == null) {
+            return emptyList()
+        }
+        return classpath.typeDeclarations(resolution.typeVariables.map {
+            Formal(it.symbol, it.boundTypeTokens?.map { it.apply(methodBindings, null) })
+        }, JIRTypeBindings.empty)
     }
 
-    override suspend fun exceptions(): List<JIRClassOrInterface> = ifSignature {
-        it.exceptionTypes.map {
-            classpath.findClass(it.name)
-        }
+    override suspend fun exceptions(): List<JIRClassOrInterface> = resolution?.exceptionTypes?.map {
+        classpath.findClass(it.name)
     } ?: emptyList()
 
     override suspend fun parameterization(): Map<String, JIRRefType> {
@@ -55,12 +49,11 @@ class JIRTypedMethodImpl(
     }
 
     override suspend fun parameters(): List<JIRTypedMethodParameter> {
-        val bindings = methodBindings()
         return method.parameters.mapIndexed { index, jirParameter ->
-            val stype = ifSignature { it.parameterTypes[index] }
+            val stype = resolution?.parameterTypes?.get(index)
             JIRTypedMethodParameterImpl(
                 enclosingMethod = this,
-                bindings = bindings,
+                bindings = methodBindings,
                 parameter = jirParameter,
                 stype = stype
             )
@@ -69,21 +62,20 @@ class JIRTypedMethodImpl(
 
     override suspend fun returnType(): JIRType {
         val typeName = method.returnType.typeName
-        val bindings = methodBindings()
-        return ifSignature {
-            classpath.typeOf(it.returnType.apply(bindings, null), bindings)
-        } ?: classpath.findTypeOrNull(typeName) ?: throw IllegalStateException("Can't resolve type by name $typeName")
-    }
-
-    private suspend fun <T> ifSignature(map: suspend (MethodResolutionImpl) -> T): T? {
-        return when (resolution) {
-            is MethodResolutionImpl -> map(resolution)
-            else -> null
+        if(resolution == null) {
+            return classpath.findTypeOrNull(typeName)
+                ?: throw IllegalStateException("Can't resolve type by name $typeName")
         }
+        return methodBindings.toJcRefType(resolution.returnType, classpath)
     }
 
     override suspend fun typeOf(inst: LocalVariableNode): JIRType {
-        TODO("Not yet implemented")
+        val variableSignature = FieldSignature.of(inst.signature) as? FieldResolutionImpl
+        if (variableSignature == null) {
+            val type = Type.getType(inst.desc)
+            return classpath.findTypeOrNull(type.className) ?: type.className.throwClassNotFound()
+        }
+        return methodBindings.toJcRefType(variableSignature.fieldType, classpath)
     }
 
 }

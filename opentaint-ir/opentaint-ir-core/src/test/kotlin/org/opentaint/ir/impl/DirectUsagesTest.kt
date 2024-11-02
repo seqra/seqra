@@ -2,47 +2,19 @@ package org.opentaint.ir.impl
 
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findFieldsUsedIn
 import org.opentaint.ir.api.ext.findMethodsUsedIn
 import org.opentaint.ir.impl.index.Usages
 import org.opentaint.ir.impl.usages.direct.DirectA
-import org.opentaint.ir.jirdb
 
-class DirectUsagesTest : LibrariesMixin {
+class DirectUsagesTest : BaseTest() {
 
-    companion object : LibrariesMixin {
-
-        private var db: JIRDB? = runBlocking {
-            jirdb {
-                loadByteCode(allClasspath)
-                useProcessJavaRuntime()
-                installFeatures(Usages)
-            }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun close() {
-            runBlocking {
-                with(db!!) {
-                    awaitBackgroundJobs()
-                    close()
-                }
-                db = null
-            }
-        }
-
-    }
-
-
-    private val cp = runBlocking { db!!.classpath(allClasspath) }
+    companion object : WithDB(Usages)
 
     @Test
     fun `find methods used in method`() {

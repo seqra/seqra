@@ -77,7 +77,11 @@ class JIRTypeBindings(
     }
 
     fun findTypeBinding(symbol: String): SType? {
-        return typeBindings[symbol] ?: parent?.findTypeBinding(symbol)
+        val found = typeBindings[symbol]
+        if (found == null && !declarations.contains(symbol)) {
+            return parent?.findTypeBinding(symbol)
+        }
+        return found
     }
 
     fun resolve(symbol: String): SResolvedTypeVariable {
@@ -137,13 +141,12 @@ internal suspend fun JIRClasspath.typeOf(stype: SType, bindings: JIRTypeBindings
         }
 
         is SUnboundWildcard -> JIRUnboundWildcardImpl(this)
-        is SBoundWildcard.SUpperBoundWildcard -> typeOf(stype.bound, bindings)
+        is SBoundWildcard.SUpperBoundWildcard -> JIRUpperBoundWildcardImpl(
+            typeOf(stype.bound, bindings) as JIRRefType, true
+        )
 
         is SBoundWildcard.SLowerBoundWildcard -> JIRLowerBoundWildcardImpl(
-            typeOf(
-                stype.bound,
-                bindings
-            ) as JIRRefType, true
+            typeOf(stype.bound, bindings) as JIRRefType, true
         )
 
         else -> throw IllegalStateException("unknown type")
