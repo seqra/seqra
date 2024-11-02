@@ -32,14 +32,6 @@ class FeaturesRegistry(private val features: List<Feature<*, *>>) : Closeable {
         }
     }
 
-    fun <REQ, RES> findIndex(key: String): Feature<REQ, RES>? {
-        return features.firstOrNull { it.key == key } as? Feature<REQ, RES>?
-    }
-
-    suspend fun <REQ, RES> query(key: String, req: REQ): Sequence<RES>? {
-        return findIndex<REQ, RES>(key)?.query(jirdb, req)
-    }
-
     fun onLocationRemove(location: RegisteredLocation) {
         features.forEach {
             it.onRemoved(jirdb, location)

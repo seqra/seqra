@@ -18,11 +18,9 @@ import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import org.opentaint.ir.impl.types.JIRTypeBindings
 import org.opentaint.ir.impl.vfs.ClasspathClassTree
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
-import java.io.Serializable
 
 class JIRClasspathImpl(
     private val locationsRegistrySnapshot: LocationsRegistrySnapshot,
-    private val featuresRegistry: FeaturesRegistry,
     override val db: JIRDBImpl,
     globalClassVFS: GlobalClassesVfs
 ) : JIRClasspath {
@@ -83,11 +81,6 @@ class JIRClasspathImpl(
 
     override suspend fun findSubClasses(jirClass: JIRClassOrInterface, allHierarchy: Boolean): List<JIRClassOrInterface> {
         return hierarchyExt.findSubClasses(jirClass, allHierarchy)
-    }
-
-    override suspend fun <RES : Serializable, REQ : Serializable> query(key: String, req: REQ): Sequence<RES> {
-        db.awaitBackgroundJobs()
-        return featuresRegistry.query<REQ, RES>(key, req).orEmpty()
     }
 
     override fun close() {

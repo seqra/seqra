@@ -12,7 +12,7 @@ class InnerTypesTest : BaseTypesTest() {
     @Test
     fun `inner classes linked to method`() {
         runBlocking {
-            val classWithInners = findClassType<InnerClasses<*>>().assertClassType()
+            val classWithInners = findClassType<InnerClasses<*>>()
             val inners = classWithInners.innerTypes()
             assertEquals(4, inners.size)
             val methodBinded = inners.first { it.typeName == "org.opentaint.ir.impl.types.InnerClasses\$1" }
@@ -114,6 +114,5 @@ class InnerTypesTest : BaseTypesTest() {
         }.fieldType().assertClassType()
         return stringInnerClasses.fields().first { it.name == fieldName }.fieldType().assertClassType()
     }
-
 
 }
