@@ -37,7 +37,6 @@ open class LocationsRegistrySnapshot(
 
     val ids = locations.map { it.id }.toHashSet()
 
-    override fun close() {
-        registry.close(this)
-    }
+    override fun close() = registry.close(this)
+
 }

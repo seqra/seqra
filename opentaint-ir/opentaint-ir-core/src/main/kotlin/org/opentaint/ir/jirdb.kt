@@ -30,4 +30,4 @@ suspend fun jirdb(settings: JIRDBSettings): JIRDB {
 }
 
 /** bridge for Java */
-fun futureJirdb(settings: JIRDBSettings) = GlobalScope.future(Dispatchers.Main) { jirdb(settings) }
+fun futureJirdb(settings: JIRDBSettings) = GlobalScope.future(Dispatchers.Default) { jirdb(settings) }
