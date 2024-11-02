@@ -17,7 +17,7 @@ import org.opentaint.ir.impl.suspendableLazy
 class JIRTypedMethodImpl(
     override val enclosingType: JIRRefType,
     override val method: JIRMethod,
-    private val classBindings: JIRTypeBindings = JIRTypeBindings(emptyMap(), emptyMap())
+    private val classBindings: JIRTypeBindings
 ) : JIRTypedMethod {
 
     private val resolution = MethodSignature.of(method.signature)

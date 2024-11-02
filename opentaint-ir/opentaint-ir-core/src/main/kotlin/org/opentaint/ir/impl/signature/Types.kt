@@ -8,10 +8,10 @@ sealed class SType {
 
     abstract fun applyTypeDeclarations(bindings: JIRTypeBindings, currentSymbol: String?): SType
 
-    abstract fun applyKnownBindings(bindings: Map<String, SType>): SType
+    abstract fun applyKnownBindings(bindings: JIRTypeBindings): SType
 
     fun apply(bindings: JIRTypeBindings, currentSymbol: String?): SType {
-        return applyTypeDeclarations(bindings, currentSymbol).applyKnownBindings(bindings.bindings)
+        return applyTypeDeclarations(bindings, currentSymbol).applyKnownBindings(bindings)
     }
 
 }
@@ -27,7 +27,7 @@ internal class SArrayType(val elementType: SType) : SRefType() {
         return SArrayType(elementType.applyTypeDeclarations(bindings, currentSymbol))
     }
 
-    override fun applyKnownBindings(bindings: Map<String, SType>): SType {
+    override fun applyKnownBindings(bindings: JIRTypeBindings): SType {
         return SArrayType(elementType.applyKnownBindings(bindings))
     }
 }
@@ -57,7 +57,7 @@ internal class SParameterizedType(
             )
         }
 
-        override fun applyKnownBindings(bindings: Map<String, SType>): SType {
+        override fun applyKnownBindings(bindings:JIRTypeBindings): SType {
             return SNestedType(
                 name,
                 parameterTypes.map { it.applyKnownBindings(bindings) },
@@ -70,7 +70,7 @@ internal class SParameterizedType(
         return SParameterizedType(name, parameterTypes.map { it.applyTypeDeclarations(bindings, currentSymbol) })
     }
 
-    override fun applyKnownBindings(bindings: Map<String, SType>): SType {
+    override fun applyKnownBindings(bindings: JIRTypeBindings): SType {
         return SParameterizedType(name, parameterTypes.map { it.applyKnownBindings(bindings) })
     }
 
@@ -85,7 +85,7 @@ internal class SClassRefType(val name: String) : SRefType() {
         return this
     }
 
-    override fun applyKnownBindings(bindings: Map<String, SType>): SType {
+    override fun applyKnownBindings(bindings: JIRTypeBindings): SType {
         return this
     }
 }
@@ -101,8 +101,8 @@ open class STypeVariable(val symbol: String) : SType() {
         return bindings.resolve(symbol)
     }
 
-    override fun applyKnownBindings(bindings: Map<String, SType>): SType {
-        return bindings[symbol] ?: this
+    override fun applyKnownBindings(bindings: JIRTypeBindings): SType {
+        return bindings.findTypeBinding(symbol) ?: this
     }
 }
 
@@ -112,8 +112,8 @@ open class SResolvedTypeVariable(symbol: String, val boundaries: List<SType>) : 
         return this
     }
 
-    override fun applyKnownBindings(bindings: Map<String, SType>): SType {
-        return bindings[symbol] ?: SResolvedTypeVariable(symbol, boundaries.map { it.applyKnownBindings(bindings) })
+    override fun applyKnownBindings(bindings: JIRTypeBindings): SType {
+        return bindings.findTypeBinding(symbol) ?: SResolvedTypeVariable(symbol, boundaries.map { it.applyKnownBindings(bindings) })
     }
 }
 
@@ -127,7 +127,7 @@ internal sealed class SBoundWildcard(val bound: SType) : SType() {
             return SUpperBoundWildcard(bound.applyTypeDeclarations(bindings, currentSymbol))
         }
 
-        override fun applyKnownBindings(bindings: Map<String, SType>): SType {
+        override fun applyKnownBindings(bindings: JIRTypeBindings): SType {
             return SUpperBoundWildcard(bound.applyKnownBindings(bindings))
         }
     }
@@ -140,7 +140,7 @@ internal sealed class SBoundWildcard(val bound: SType) : SType() {
             return SUpperBoundWildcard(bound.applyTypeDeclarations(bindings, currentSymbol))
         }
 
-        override fun applyKnownBindings(bindings: Map<String, SType>): SType {
+        override fun applyKnownBindings(bindings: JIRTypeBindings): SType {
             return SUpperBoundWildcard(bound.applyKnownBindings(bindings))
         }
     }
@@ -155,7 +155,7 @@ internal object SUnboundWildcard : SType() {
         return this
     }
 
-    override fun applyKnownBindings(bindings: Map<String, SType>): SType {
+    override fun applyKnownBindings(bindings: JIRTypeBindings): SType {
         return this
     }
 
@@ -187,7 +187,7 @@ internal class SPrimitiveType(val ref: String) : SRefType() {
         return this
     }
 
-    override fun applyKnownBindings(bindings: Map<String, SType>): SType {
+    override fun applyKnownBindings(bindings: JIRTypeBindings): SType {
         return this
     }
 }

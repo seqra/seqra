@@ -5,8 +5,9 @@ interface FormalTypeVariable {
     val boundTypeTokens: List<SType>?
 }
 
-internal class Formal(override val symbol: String, override val boundTypeTokens: List<SType>? = null) : FormalTypeVariable {
+internal class Formal(override val symbol: String, override val boundTypeTokens: List<SType>? = null) :
+    FormalTypeVariable {
     override fun toString(): String {
-        return "$symbol : ${boundTypeTokens?.joinToString()}"
+        return "$symbol : ${boundTypeTokens?.joinToString { it.displayName }}"
     }
 }

@@ -16,10 +16,12 @@ import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.JIRTypeVariable
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.isConstructor
+import org.opentaint.ir.impl.types.ClassWithInners
 import org.opentaint.ir.impl.types.PartialParametrization
 import org.opentaint.ir.impl.types.PrimitiveAndArrays
 import org.opentaint.ir.impl.types.SuperFoo
 import org.opentaint.ir.jirdb
+import java.io.InputStream
 
 class TypesTest {
 
@@ -99,7 +101,10 @@ class TypesTest {
             }
             with(fields[1]) {
                 assertEquals("stateW", name)
-                assertEquals("java.util.List<java.lang.String>", (fieldType() as JIRTypeVariable).bounds.first().typeName)
+                assertEquals(
+                    "java.util.List<java.lang.String>",
+                    (fieldType() as JIRTypeVariable).bounds.first().typeName
+                )
             }
             with(fields[2]) {
                 assertEquals("stateListW", name)
@@ -144,6 +149,40 @@ class TypesTest {
                 assertEquals("W", w.symbol)
                 bound as JIRTypeVariable
                 bound.bounds.first().assertType<String>()
+            }
+        }
+    }
+
+    @Test
+    fun `inner classes`() {
+        runBlocking {
+            val classWithInners = findClassType<ClassWithInners<*>>().assertClassType()
+            val inners = classWithInners.innerTypes()
+            assertEquals(2, inners.size)
+            assertEquals("org.opentaint.ir.impl.types.ClassWithInners\$Inner", inners.first().typeName)
+            with(inners.first().fields()) {
+                with(first { it.name == "state" }) {
+                    fieldType().assertType<Int>()
+                }
+                with(first { it.name == "stateT" }) {
+                    assertEquals("T", (fieldType() as JIRTypeVariable).symbol)
+                }
+                with(first { it.name == "stateListT" }) {
+                    assertEquals("java.util.List<T>", fieldType().typeName)
+                }
+            }
+
+            assertEquals("org.opentaint.ir.impl.types.ClassWithInners\$Static", inners[1].typeName)
+            with((inners[1].superType()!!.fields().first().fieldType() as JIRClassType).fields()) {
+                with(first { it.name == "state" }) {
+                    fieldType().assertType<Int>()
+                }
+                with(first { it.name == "stateT" }) {
+                    fieldType().assertType<InputStream>()
+                }
+                with(first { it.name == "stateListT" }) {
+                    assertEquals("java.util.List<java.io.InputStream>", fieldType().typeName)
+                }
             }
         }
     }

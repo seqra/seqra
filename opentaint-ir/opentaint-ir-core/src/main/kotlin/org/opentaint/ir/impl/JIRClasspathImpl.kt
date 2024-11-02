@@ -10,12 +10,12 @@ import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.api.anyType
 import org.opentaint.ir.api.throwClassNotFound
+import org.opentaint.ir.api.toType
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.index.hierarchyExt
-import org.opentaint.ir.impl.signature.TypeResolutionImpl
-import org.opentaint.ir.impl.signature.TypeSignature
 import org.opentaint.ir.impl.types.JIRArrayClassTypesImpl
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
+import org.opentaint.ir.impl.types.JIRTypeBindings
 import org.opentaint.ir.impl.vfs.ClasspathClassTree
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
 import java.io.Serializable
@@ -51,16 +51,12 @@ class JIRClasspathImpl(
     }
 
     override suspend fun typeOf(jirClass: JIRClassOrInterface): JIRRefType {
-        val signature = TypeSignature.of(jirClass.signature)
-        if (signature is TypeResolutionImpl) {
-            return JIRClassTypeImpl(
-                jirClass,
-                resolution = signature,
-                parametrization = null,
-                nullable = true
-            )
-        }
-        return JIRClassTypeImpl(jirClass, signature, null, true)
+        return JIRClassTypeImpl(
+            jirClass,
+            jirClass.outerClass()?.toType(),
+            JIRTypeBindings.ofClass(jirClass, null),
+            nullable = true
+        )
     }
 
     override suspend fun arrayTypeOf(elementType: JIRType): JIRArrayType {
@@ -78,8 +74,7 @@ class JIRClasspathImpl(
         if (predefined != null) {
             return predefined
         }
-        val jirClass = findClassOrNull(name) ?: return null
-        return JIRClassTypeImpl(jirClass, nullable = true)
+        return typeOf(findClassOrNull(name) ?: return null)
     }
 
     override suspend fun findSubClasses(name: String, allHierarchy: Boolean): List<JIRClassOrInterface> {
