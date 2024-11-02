@@ -10,6 +10,7 @@ import org.opentaint.ir.api.LocationType
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.CleanupResult
 import org.opentaint.ir.impl.FeaturesRegistry
+import org.opentaint.ir.impl.JIRInternalSignal
 import org.opentaint.ir.impl.LocationsRegistry
 import org.opentaint.ir.impl.LocationsRegistrySnapshot
 import org.opentaint.ir.impl.RefreshResult
@@ -82,7 +83,7 @@ class PersistentLocationRegistry(
 
     private fun deprecate(locations: List<RegisteredLocation>) {
         locations.forEach {
-            featuresRegistry.onLocationRemove(it)
+            featuresRegistry.broadcast(JIRInternalSignal.LocationRemoved(it))
         }
         BytecodeLocations.deleteWhere { BytecodeLocations.id inList locations.map { it.id } }
     }

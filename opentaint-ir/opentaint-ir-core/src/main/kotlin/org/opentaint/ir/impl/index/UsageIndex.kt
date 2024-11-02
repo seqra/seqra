@@ -15,6 +15,7 @@ import org.objectweb.asm.tree.MethodNode
 import org.opentaint.ir.api.ByteCodeIndexer
 import org.opentaint.ir.api.Feature
 import org.opentaint.ir.api.JIRDB
+import org.opentaint.ir.api.JIRSignal
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.storage.Symbols
 import org.opentaint.ir.impl.storage.longHash
@@ -97,17 +98,21 @@ data class UsageIndexRequest(
 
 object Usages : Feature<UsageIndexRequest, String> {
 
-    override val key = "usages"
-
-    override fun beforeIndexing(jirdb: JIRDB, clearOnStart: Boolean) {
-        if (clearOnStart) {
-            SchemaUtils.drop(Calls)
+    override fun onSignal(signal: JIRSignal) {
+        when (signal) {
+            is JIRSignal.BeforeIndexing -> {
+                if (signal.clearOnStart) {
+                    SchemaUtils.drop(Calls)
+                }
+                SchemaUtils.create(Calls)
+            }
+            is JIRSignal.LocationRemoved -> {
+                signal.jirdb.persistence.write {
+                    Calls.deleteWhere { Calls.locationId eq signal.location.id }
+                }
+            }
+            else -> Unit
         }
-        SchemaUtils.create(Calls)
-    }
-
-    override fun afterIndexing(jirdb: JIRDB) {
-        TODO("Not yet implemented")
     }
 
     override suspend fun query(jirdb: JIRDB, req: UsageIndexRequest): Sequence<String> {
@@ -126,16 +131,10 @@ object Usages : Feature<UsageIndexRequest, String> {
             }
             Symbols.select { Symbols.hash inList classHashes }.map { it[Symbols.name] }.asSequence()
         }
-
     }
 
     override fun newIndexer(jirdb: JIRDB, location: RegisteredLocation) = UsagesIndexer(location)
 
-    override fun onRemoved(jirdb: JIRDB, location: RegisteredLocation) {
-        jirdb.persistence.write {
-            Calls.deleteWhere { Calls.locationId eq location.id }
-        }
-    }
 }
 
 

@@ -2,6 +2,7 @@ package org.opentaint.ir.impl
 
 import org.opentaint.ir.api.Feature
 import org.opentaint.ir.api.JIRDB
+import org.opentaint.ir.api.JIRSignal
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.index.index
 import org.opentaint.ir.impl.vfs.ClassVfsItem
@@ -32,10 +33,8 @@ class FeaturesRegistry(private val features: List<Feature<*, *>>) : Closeable {
         }
     }
 
-    fun onLocationRemove(location: RegisteredLocation) {
-        features.forEach {
-            it.onRemoved(jirdb, location)
-        }
+    fun broadcast(signal: JIRInternalSignal) {
+        features.forEach { it.onSignal(signal.asJcSignal(jirdb)) }
     }
 
     fun forEach(action: (JIRDB, Feature<*, *>) -> Unit) {
@@ -43,6 +42,23 @@ class FeaturesRegistry(private val features: List<Feature<*, *>>) : Closeable {
     }
 
     override fun close() {
+    }
+
+}
+
+
+sealed class JIRInternalSignal {
+
+    class BeforeIndexing(val clearOnStart: Boolean) : JIRInternalSignal()
+    object AfterIndexing : JIRInternalSignal()
+    class LocationRemoved(val location: RegisteredLocation) : JIRInternalSignal()
+
+    fun asJcSignal(jirdb: JIRDB): JIRSignal {
+        return when (this) {
+            is BeforeIndexing -> JIRSignal.BeforeIndexing(jirdb, clearOnStart)
+            is AfterIndexing -> JIRSignal.AfterIndexing(jirdb)
+            is LocationRemoved -> JIRSignal.LocationRemoved(jirdb, location)
+        }
     }
 
 }

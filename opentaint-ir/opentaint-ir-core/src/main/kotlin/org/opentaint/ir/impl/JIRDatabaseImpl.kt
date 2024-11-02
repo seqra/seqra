@@ -72,7 +72,6 @@ class JIRDBImpl(
             .also { it.new.process() }.registered + locationsRegistry.runtimeLocations
         return JIRClasspathImpl(
             locationsRegistry.newSnapshot(processed),
-            featureRegistry,
             this,
             classesVfs
         )
@@ -82,7 +81,6 @@ class JIRDBImpl(
         assertNotClosed()
         return JIRClasspathImpl(
             locationsRegistry.newSnapshot(cp.registeredLocations),
-            featureRegistry,
             cp.db,
             classesVfs
         )

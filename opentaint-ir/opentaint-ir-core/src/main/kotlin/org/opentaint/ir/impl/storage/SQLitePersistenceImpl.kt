@@ -17,6 +17,7 @@ import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.FeaturesRegistry
+import org.opentaint.ir.impl.JIRInternalSignal
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.info
@@ -85,9 +86,7 @@ class SQLitePersistenceImpl(
 
     override fun setup() {
         write {
-            featuresRegistry.forEach { jirdb, feature ->
-                feature.beforeIndexing(jirdb, clearOnStart)
-            }
+            featuresRegistry.broadcast(JIRInternalSignal.BeforeIndexing(clearOnStart))
         }
         persistenceService.setup()
     }

@@ -103,8 +103,8 @@ private suspend fun JIRClasspath.findPotentialCandidates(
     db.awaitBackgroundJobs()
 
     return hierarchy.flatMap { jirClass ->
-        val classNames = query<String, UsageIndexRequest>(
-            Usages.key, UsageIndexRequest(
+        val classNames = query(
+            Usages, UsageIndexRequest(
                 method = method,
                 field = field,
                 className = jirClass.name
