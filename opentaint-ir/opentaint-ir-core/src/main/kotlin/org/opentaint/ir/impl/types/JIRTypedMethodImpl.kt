@@ -10,63 +10,71 @@ import org.opentaint.ir.api.JIRTypeVariableDeclaration
 import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.JIRTypedMethodParameter
 import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.isStatic
 import org.opentaint.ir.api.throwClassNotFound
-import org.opentaint.ir.impl.signature.FieldResolutionImpl
-import org.opentaint.ir.impl.signature.FieldSignature
-import org.opentaint.ir.impl.signature.Formal
-import org.opentaint.ir.impl.signature.MethodResolutionImpl
-import org.opentaint.ir.impl.signature.MethodSignature
+import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
+import org.opentaint.ir.impl.types.signature.FieldSignature
+import org.opentaint.ir.impl.types.signature.MethodResolutionImpl
+import org.opentaint.ir.impl.types.signature.MethodSignature
+import org.opentaint.ir.impl.types.substition.JIRSubstitutor
 
 class JIRTypedMethodImpl(
     override val enclosingType: JIRRefType,
     override val method: JIRMethod,
-    classBindings: JIRTypeBindings
+    jirSubstitutor: JIRSubstitutor
 ) : JIRTypedMethod {
 
-    private val resolution = MethodSignature.of(method.signature) as? MethodResolutionImpl
+    private val resolution = MethodSignature.of(method)
+    private val impl = resolution as? MethodResolutionImpl
     private val classpath = method.enclosingClass.classpath
 
     override val name: String
         get() = method.name
 
-    private val methodBindings = classBindings.override(resolution?.typeVariables.orEmpty())
+    private val substitutor = resolveSubstitutor(jirSubstitutor)
 
-    override suspend fun originalParameterization(): List<JIRTypeVariableDeclaration> {
-        if (resolution == null) {
-            return emptyList()
+    private fun resolveSubstitutor(parent: JIRSubstitutor): JIRSubstitutor {
+        return if (!method.isStatic) {
+            parent.newScope(impl?.typeVariables.orEmpty())
+        } else {
+            JIRSubstitutor.empty.newScope(impl?.typeVariables.orEmpty())
         }
-        return classpath.typeDeclarations(resolution.typeVariables.map {
-            Formal(it.symbol, it.boundTypeTokens?.map { it.apply(methodBindings, null) })
-        }, JIRTypeBindings.empty)
     }
 
-    override suspend fun exceptions(): List<JIRClassOrInterface> = resolution?.exceptionTypes?.map {
+    override suspend fun typeParameters(): List<JIRTypeVariableDeclaration> {
+        if (impl == null) {
+            return emptyList()
+        }
+        return impl.typeVariables.map { it.asJcDeclaration(method) }
+    }
+
+    override suspend fun exceptions(): List<JIRClassOrInterface> = impl?.exceptionTypes?.map {
         classpath.findClass(it.name)
     } ?: emptyList()
 
-    override suspend fun parameterization(): Map<String, JIRRefType> {
-        return emptyMap()
+    override suspend fun typeArguments(): List<JIRRefType> {
+        return emptyList()
     }
 
     override suspend fun parameters(): List<JIRTypedMethodParameter> {
         return method.parameters.mapIndexed { index, jirParameter ->
-            val stype = resolution?.parameterTypes?.get(index)
+            val stype = impl?.parameterTypes?.get(index)
             JIRTypedMethodParameterImpl(
                 enclosingMethod = this,
-                bindings = methodBindings,
+                substitutor = substitutor,
                 parameter = jirParameter,
-                stype = stype
+                jvmType = stype
             )
         }
     }
 
     override suspend fun returnType(): JIRType {
         val typeName = method.returnType.typeName
-        if(resolution == null) {
+        if (impl == null) {
             return classpath.findTypeOrNull(typeName)
                 ?: throw IllegalStateException("Can't resolve type by name $typeName")
         }
-        return methodBindings.toJcRefType(resolution.returnType, classpath)
+        return classpath.typeOf(substitutor.substitute(impl.returnType))
     }
 
     override suspend fun typeOf(inst: LocalVariableNode): JIRType {
@@ -75,7 +83,7 @@ class JIRTypedMethodImpl(
             val type = Type.getType(inst.desc)
             return classpath.findTypeOrNull(type.className) ?: type.className.throwClassNotFound()
         }
-        return methodBindings.toJcRefType(variableSignature.fieldType, classpath)
+        return classpath.typeOf(substitutor.substitute(variableSignature.fieldType))
     }
 
 }

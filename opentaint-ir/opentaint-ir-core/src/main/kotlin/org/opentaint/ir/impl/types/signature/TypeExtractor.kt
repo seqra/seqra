@@ -1,10 +1,10 @@
-package org.opentaint.ir.impl.signature
+package org.opentaint.ir.impl.types.signature
 
 import org.objectweb.asm.signature.SignatureVisitor
-import org.opentaint.ir.impl.signature.SPrimitiveType.Companion.of
-import org.opentaint.ir.impl.signature.TypeExtractor.IncompleteToken.InnerClass
-import org.opentaint.ir.impl.signature.TypeExtractor.IncompleteToken.TopLevelType
-import org.opentaint.ir.impl.signature.TypeRegistrant.RejectingSignatureVisitor
+import org.opentaint.ir.impl.types.signature.JvmPrimitiveType.Companion.of
+import org.opentaint.ir.impl.types.signature.TypeExtractor.IncompleteToken.InnerClass
+import org.opentaint.ir.impl.types.signature.TypeExtractor.IncompleteToken.TopLevelType
+import org.opentaint.ir.impl.types.signature.TypeRegistrant.RejectingSignatureVisitor
 
 internal class TypeExtractor(private val typeRegistrant: TypeRegistrant) :
     RejectingSignatureVisitor(),
@@ -17,15 +17,15 @@ internal class TypeExtractor(private val typeRegistrant: TypeRegistrant) :
     }
 
     override fun visitTypeVariable(name: String) {
-        typeRegistrant.register(STypeVariable(name))
+        typeRegistrant.register(JvmTypeVariable(name))
     }
 
     override fun visitArrayType(): SignatureVisitor {
         return TypeExtractor(this)
     }
 
-    override fun register(token: SType) {
-        typeRegistrant.register(SArrayType(token))
+    override fun register(token: JvmType) {
+        typeRegistrant.register(JvmArrayType(token))
     }
 
     override fun visitClassType(name: String) {
@@ -65,11 +65,11 @@ internal class TypeExtractor(private val typeRegistrant: TypeRegistrant) :
         val isParameterized: Boolean
         val name: String
 
-        fun toToken(): SType?
+        fun toToken(): JvmType?
 
         abstract class AbstractBase() : IncompleteToken {
 
-            protected val parameters = ArrayList<SType>()
+            protected val parameters = ArrayList<JvmType>()
 
 
             override fun appendDirectBound(): SignatureVisitor {
@@ -85,32 +85,32 @@ internal class TypeExtractor(private val typeRegistrant: TypeRegistrant) :
             }
 
             override fun appendPlaceholder() {
-                parameters.add(SUnboundWildcard)
+                parameters.add(JvmUnboundWildcard)
             }
 
             protected inner class DirectBound : TypeRegistrant {
-                override fun register(token: SType) {
+                override fun register(token: JvmType) {
                     parameters.add(token)
                 }
             }
 
             protected inner class UpperBound : TypeRegistrant {
-                override fun register(token: SType) {
-                    parameters.add(SBoundWildcard.SUpperBoundWildcard(token))
+                override fun register(token: JvmType) {
+                    parameters.add(JvmBoundWildcard.JvmUpperBoundWildcard(token))
                 }
             }
 
             protected inner class LowerBound : TypeRegistrant {
-                override fun register(token: SType) {
-                    parameters.add(SBoundWildcard.SLowerBoundWildcard(token))
+                override fun register(token: JvmType) {
+                    parameters.add(JvmBoundWildcard.JvmLowerBoundWildcard(token))
                 }
             }
         }
 
         class TopLevelType(private val internalName: String) : AbstractBase() {
 
-            override fun toToken(): SType {
-                return if (isParameterized) SParameterizedType(name, parameters) else SClassRefType(name)
+            override fun toToken(): JvmType {
+                return if (isParameterized) JvmParameterizedType(name, parameters) else JvmClassRefType(name)
             }
 
             override val isParameterized: Boolean
@@ -126,12 +126,12 @@ internal class TypeExtractor(private val typeRegistrant: TypeRegistrant) :
 
         class InnerClass(private val internalName: String, private val outerTypeToken: IncompleteToken?) :
             AbstractBase() {
-            override fun toToken(): SType {
-                return if (isParameterized || outerTypeToken!!.isParameterized) SParameterizedType.SNestedType(
+            override fun toToken(): JvmType {
+                return if (isParameterized || outerTypeToken!!.isParameterized) JvmParameterizedType.JvmNestedType(
                     name,
                     parameters,
                     outerTypeToken!!.toToken()!!
-                ) else SClassRefType(name)
+                ) else JvmClassRefType(name)
             }
 
             override val isParameterized: Boolean

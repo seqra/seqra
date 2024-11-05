@@ -3,10 +3,9 @@ package org.opentaint.ir.impl.types
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.opentaint.ir.api.JIRBoundedWildcard
 import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRLowerBoundWildcard
 import org.opentaint.ir.api.JIRTypeVariable
-import org.opentaint.ir.api.JIRUpperBoundWildcard
 import org.opentaint.ir.impl.types.WildcardBounds.DirectBound
 import org.opentaint.ir.impl.types.WildcardBounds.DirectBoundString
 import org.opentaint.ir.impl.types.WildcardBounds.WildcardLowerBound
@@ -50,8 +49,8 @@ class WildcardTypesTest : BaseTypesTest() {
                 assertEquals("field", name)
                 with(fieldType().assertIs<JIRClassType>()) {
                     assertEquals("java.util.List<? extends T>", typeName)
-                    with(parametrization().first().assertIs<JIRUpperBoundWildcard>()) {
-                        boundType.assertIs<JIRTypeVariable>()
+                    with(typeArguments().first().assertIs<JIRBoundedWildcard>()) {
+                        upperBounds.first().assertIs<JIRTypeVariable>()
                     }
                 }
             }
@@ -66,8 +65,8 @@ class WildcardTypesTest : BaseTypesTest() {
                 assertEquals("field", name)
                 with(fieldType().assertIs<JIRClassType>()) {
                     assertEquals("java.util.List<? extends java.lang.String>", typeName)
-                    with(parametrization().first().assertIs<JIRUpperBoundWildcard>()) {
-                        boundType.assertType<String>()
+                    with(typeArguments().first().assertIs<JIRBoundedWildcard>()) {
+                        upperBounds.first().assertType<String>()
                     }
                 }
             }
@@ -82,8 +81,8 @@ class WildcardTypesTest : BaseTypesTest() {
                 assertEquals("field", name)
                 with(fieldType().assertIs<JIRClassType>()) {
                     assertEquals("java.util.List<? super T>", typeName)
-                    with(parametrization().first().assertIs<JIRLowerBoundWildcard>()) {
-                        boundType.assertIs<JIRTypeVariable>()
+                    with(typeArguments().first().assertIs<JIRBoundedWildcard>()) {
+                        lowerBounds.first().assertIs<JIRTypeVariable>()
                     }
                 }
             }
@@ -98,8 +97,8 @@ class WildcardTypesTest : BaseTypesTest() {
                 assertEquals("field", name)
                 with(fieldType().assertIs<JIRClassType>()) {
                     assertEquals("java.util.List<? super java.lang.String>", typeName)
-                    with(parametrization().first().assertIs<JIRLowerBoundWildcard>()) {
-                        boundType.assertType<String>()
+                    with(typeArguments().first().assertIs<JIRBoundedWildcard>()) {
+                        lowerBounds.first().assertType<String>()
                     }
                 }
             }

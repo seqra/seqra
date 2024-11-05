@@ -1,4 +1,4 @@
-package org.opentaint.ir.impl.signature
+package org.opentaint.ir.impl.types.signature
 
 import org.objectweb.asm.signature.SignatureReader
 import org.opentaint.ir.api.Malformed
@@ -7,9 +7,9 @@ import org.opentaint.ir.api.RecordComponentResolution
 
 internal class RecordSignature : TypeRegistrant {
 
-    private lateinit var recordComponentType: SType
+    private lateinit var recordComponentType: JvmType
 
-    override fun register(token: SType) {
+    override fun register(token: JvmType) {
         recordComponentType = token
     }
 

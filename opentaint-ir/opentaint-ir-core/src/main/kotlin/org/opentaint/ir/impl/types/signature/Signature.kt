@@ -1,15 +1,16 @@
-package org.opentaint.ir.impl.signature
+package org.opentaint.ir.impl.types.signature
 
 import org.objectweb.asm.signature.SignatureReader
 import org.objectweb.asm.signature.SignatureVisitor
+import org.opentaint.ir.api.JIRAccessible
 import org.opentaint.ir.api.Resolution
 
-internal abstract class Signature<T : Resolution>() :
+internal abstract class Signature<T : Resolution>(val owner: JIRAccessible) :
     TypeRegistrant.RejectingSignatureVisitor(), TypeRegistrant {
 
-    protected val typeVariables = ArrayList<FormalTypeVariable>()
+    protected val typeVariables = ArrayList<JvmTypeParameterDeclaration>()
     protected var currentTypeParameter: String? = null
-    protected var currentBounds: MutableList<SType>? = null
+    protected var currentBounds: MutableList<JvmType>? = null
 
     override fun visitFormalTypeParameter(name: String) {
         collectTypeParameter()
@@ -25,7 +26,7 @@ internal abstract class Signature<T : Resolution>() :
         return TypeExtractor(this)
     }
 
-    override fun register(token: SType) {
+    override fun register(token: JvmType) {
         checkNotNull(currentBounds) { "Did not expect $token before finding formal parameter" }
         currentBounds!!.add(token)
     }
@@ -33,7 +34,7 @@ internal abstract class Signature<T : Resolution>() :
     protected fun collectTypeParameter() {
         val current = currentTypeParameter
         if (current != null) {
-            typeVariables.add(Formal(current, currentBounds))
+            typeVariables.add(JvmTypeParameterDeclarationImpl(current, owner, currentBounds))
         }
     }
 

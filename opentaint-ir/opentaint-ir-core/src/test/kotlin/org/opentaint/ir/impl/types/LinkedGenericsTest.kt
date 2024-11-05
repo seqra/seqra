@@ -16,12 +16,12 @@ class LinkedGenericsTest : BaseTypesTest() {
     fun `linked generics original parametrization`() = runBlocking {
         val partial = findClassType<LinkedImpl<*>>()
         with(partial.superType()!!) {
-            with(originalParametrization().first()) {
+            with(typeParameters().first()) {
                 assertEquals("T", symbol)
                 bounds.first().assertType<Any>()
             }
 
-            with(originalParametrization()[1]) {
+            with(typeParameters()[1]) {
                 assertEquals("W", symbol)
                 assertEquals(1, bounds.size)
                 assertEquals("java.util.List<T>", bounds[0].typeName)
@@ -33,11 +33,11 @@ class LinkedGenericsTest : BaseTypesTest() {
     fun `linked generics current parametrization`() = runBlocking {
         val partial = findClassType<LinkedImpl<*>>()
         with(partial.superType()!!) {
-            with(parametrization()[0]) {
+            with(typeArguments()[0]) {
                 assertType<String>()
             }
 
-            with(parametrization().get(1)) {
+            with(typeArguments()[1]) {
                 this as JIRTypeVariable
                 assertEquals("W", symbol)
                 assertEquals(1, bounds.size)
@@ -68,7 +68,7 @@ class LinkedGenericsTest : BaseTypesTest() {
                 assertEquals("stateListW", name)
                 val resolvedType = fieldType().assertClassType()
                 assertEquals(cp.findClass<List<*>>(), resolvedType.jirClass)
-                val shouldBeW = (resolvedType.parametrization().first() as JIRTypeVariable)
+                val shouldBeW = (resolvedType.typeArguments().first() as JIRTypeVariable)
                 assertEquals("java.util.List<java.lang.String>", shouldBeW.bounds.first().typeName)
             }
         }
@@ -89,8 +89,8 @@ class LinkedGenericsTest : BaseTypesTest() {
                 }
                 with(fields.get(1)) {
                     assertEquals("stateList", name)
-                    with(fieldType().assertType<ArrayList<*>>()) {
-                        assertEquals("java.util.ArrayList<String>", typeName)
+                    with(fieldType().assertClassType()) {
+                        assertEquals("java.util.ArrayList<java.lang.String>", typeName)
                     }
                 }
             }
@@ -122,9 +122,9 @@ class LinkedGenericsTest : BaseTypesTest() {
 
             with(methods.first { it.method.name == "run2" }) {
                 val params = parameters().first()
-                val w = originalParameterization().first()
+                val w = typeParameters().first()
 
-                val bound = (params.type() as JIRClassType).parametrization().first()
+                val bound = (params.type() as JIRClassType).typeArguments().first()
                 assertEquals("W", (bound as? JIRTypeVariable)?.symbol)
                 assertEquals("W", w.symbol)
                 bound as JIRTypeVariable

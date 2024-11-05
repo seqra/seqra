@@ -9,11 +9,9 @@ import org.opentaint.ir.api.JIRField
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.findMethodOrNull
 import org.opentaint.ir.api.throwClassNotFound
-import org.opentaint.ir.impl.findAndWrap
 import org.opentaint.ir.impl.fs.fullAsmNode
 import org.opentaint.ir.impl.fs.info
 import org.opentaint.ir.impl.suspendableLazy
-import org.opentaint.ir.impl.toJcMethod
 
 class JIRClassOrInterfaceImpl(
     override val classpath: JIRClasspath,

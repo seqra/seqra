@@ -1,180 +1,72 @@
 package org.opentaint.ir.impl.types
 
-import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRAccessible
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.JIRTypeVariableDeclaration
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.impl.signature.Formal
-import org.opentaint.ir.impl.signature.FormalTypeVariable
-import org.opentaint.ir.impl.signature.SArrayType
-import org.opentaint.ir.impl.signature.SBoundWildcard
-import org.opentaint.ir.impl.signature.SClassRefType
-import org.opentaint.ir.impl.signature.SParameterizedType
-import org.opentaint.ir.impl.signature.SPrimitiveType
-import org.opentaint.ir.impl.signature.SResolvedTypeVariable
-import org.opentaint.ir.impl.signature.SType
-import org.opentaint.ir.impl.signature.STypeVariable
-import org.opentaint.ir.impl.signature.SUnboundWildcard
-import org.opentaint.ir.impl.signature.TypeResolutionImpl
-import org.opentaint.ir.impl.signature.TypeSignature
+import org.opentaint.ir.impl.types.signature.JvmArrayType
+import org.opentaint.ir.impl.types.signature.JvmBoundWildcard
+import org.opentaint.ir.impl.types.signature.JvmClassRefType
+import org.opentaint.ir.impl.types.signature.JvmParameterizedType
+import org.opentaint.ir.impl.types.signature.JvmPrimitiveType
+import org.opentaint.ir.impl.types.signature.JvmType
+import org.opentaint.ir.impl.types.signature.JvmTypeVariable
+import org.opentaint.ir.impl.types.signature.JvmUnboundWildcard
 
-class JIRTypeBindings(
-    internal val parametrization: List<SType>? = null,
-    bindings: Map<String, SType>,
-    private val declarations: Map<String, FormalTypeVariable>,
-    private val parent: JIRTypeBindings? = null
-) {
-    companion object {
-
-        val empty = JIRTypeBindings(null, emptyMap(), emptyMap(), null)
-
-        fun ofClass(
-            jirClass: JIRClassOrInterface,
-            parent: JIRTypeBindings?,
-            parametrization: List<SType>? = null
-        ): JIRTypeBindings {
-            val resolution = TypeSignature.of(jirClass.signature)
-            if (parametrization != null && resolution is TypeResolutionImpl && resolution.typeVariables.size != parametrization.size) {
-                val msg = "Expected ${resolution.typeVariables.joinToString()} but " +
-                        "was ${parametrization.joinToString()}"
-                throw IllegalStateException(msg)
-            }
-
-            val resolutionImpl = resolution as? TypeResolutionImpl
-
-            val bindings = resolutionImpl?.typeVariables?.mapIndexed { index, declaration ->
-                declaration.symbol to (parametrization?.get(index) ?: STypeVariable(declaration.symbol))
-            }?.toMap() ?: emptyMap()
-
-            val declarations = resolutionImpl?.let {
-                it.typeVariables.associateBy { it.symbol }
-            } ?: emptyMap()
-            return parent?.override(JIRTypeBindings(parametrization, bindings, declarations), true)
-                ?: JIRTypeBindings(parametrization, bindings, declarations)
-        }
-    }
-
-    internal val typeBindings = bindings.filterValues { it !is STypeVariable }
-
-    fun override(overrides: JIRTypeBindings, join: Boolean = false): JIRTypeBindings {
-        return JIRTypeBindings(
-            overrides.parametrization,
-            overrides.typeBindings,
-            overrides.declarations,
-            takeIf { join })
-    }
-
-    fun override(typeVariables: List<FormalTypeVariable>): JIRTypeBindings {
-        return JIRTypeBindings(
-            null,
-            emptyMap(),
-            typeVariables.associateBy { it.symbol },
-            this
-        )
-    }
-
-    fun findTypeBinding(symbol: String): SType? {
-        val found = typeBindings[symbol]
-        if (found == null && !declarations.contains(symbol)) {
-            return parent?.findTypeBinding(symbol)
-        }
-        return found
-    }
-
-    fun resolve(symbol: String): SResolvedTypeVariable {
-        val typeVariable = declarations[symbol]
-        if (typeVariable == null && parent != null) {
-            return parent.resolve(symbol)
-        }
-        val bounds = typeVariable?.boundTypeTokens?.map {
-            it.applyTypeDeclarations(this, null)
-        }
-        return SResolvedTypeVariable(symbol, bounds.orEmpty())
-    }
-
-    suspend fun toJcRefType(stype: SType, classpath: JIRClasspath): JIRRefType {
-        return classpath.typeOf(stype.apply(this, null), this) as JIRRefType
-    }
-}
-
-internal suspend fun JIRClasspath.typeOf(stype: SType, bindings: JIRTypeBindings): JIRType {
-    return when (stype) {
-        is SPrimitiveType -> {
-            PredefinedPrimitives.of(stype.ref, this)
-                ?: throw IllegalStateException("primitive type ${stype.ref} not found")
+internal suspend fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = null): JIRType {
+    return when (jvmType) {
+        is JvmPrimitiveType -> {
+            PredefinedPrimitives.of(jvmType.ref, this)
+                ?: throw IllegalStateException("primitive type ${jvmType.ref} not found")
         }
 
-        is SClassRefType -> typeOf(findClass(stype.name))
-        is SArrayType -> arrayTypeOf(typeOf(stype.elementType, bindings))
-        is SParameterizedType -> {
-            val clazz = findClass(stype.name)
+        is JvmClassRefType -> typeOf(findClass(jvmType.name))
+        is JvmArrayType -> arrayTypeOf(typeOf(jvmType.elementType))
+        is JvmParameterizedType -> {
+            val clazz = findClass(jvmType.name)
             JIRClassTypeImpl(
                 clazz,
                 null,
-                JIRTypeBindings.ofClass(clazz, bindings, stype.parameterTypes),
+                parameters ?: jvmType.parameterTypes,
                 nullable = true
             )
         }
 
-        is SParameterizedType.SNestedType -> {
-            val clazz = findClass(stype.name)
-            val outerType = typeOf(stype.ownerType, bindings)
-            val outerParameters = (stype.ownerType as? SParameterizedType)?.parameterTypes
+        is JvmParameterizedType.JvmNestedType -> {
+            val clazz = findClass(jvmType.name)
+            val outerParameters = (jvmType.ownerType as? JvmParameterizedType)?.parameterTypes
+            val outerType = typeOf(jvmType.ownerType, parameters ?: outerParameters)
             JIRClassTypeImpl(
                 clazz,
                 outerType as JIRClassTypeImpl,
-                JIRTypeBindings.ofClass(clazz, bindings, outerParameters),
+                jvmType.parameterTypes,
                 nullable = true
             )
         }
 
-        is SResolvedTypeVariable -> {
-            val resolved = stype.boundaries.map { typeOf(it, bindings) as JIRRefType }
-            JIRTypeVariableImpl(this, JIRTypeVariableDeclarationImpl(stype.symbol, resolved), true)
+        is JvmTypeVariable -> {
+            val declaration = requireNotNull(jvmType.declaration) {
+                "Type variable ${jvmType.symbol} has no declaration"
+            }
+            JIRTypeVariableImpl(this, declaration.asJcDeclaration(declaration.owner), true)
         }
 
-        is STypeVariable -> {
-            JIRTypeVariableImpl(this, JIRTypeVariableDeclarationImpl(stype.symbol, emptyList()), true)
-        }
-
-        is SUnboundWildcard -> JIRUnboundWildcardImpl(this)
-        is SBoundWildcard.SUpperBoundWildcard -> JIRUpperBoundWildcardImpl(
-            typeOf(stype.bound, bindings) as JIRRefType, true
+        is JvmUnboundWildcard -> JIRUnboundWildcardImpl(this)
+        is JvmBoundWildcard.JvmUpperBoundWildcard -> JIRBoundedWildcardImpl(
+            upperBounds = listOf(typeOf(jvmType.bound) as JIRRefType), lowerBounds = emptyList(), true
         )
 
-        is SBoundWildcard.SLowerBoundWildcard -> JIRLowerBoundWildcardImpl(
-            typeOf(stype.bound, bindings) as JIRRefType, true
+        is JvmBoundWildcard.JvmLowerBoundWildcard -> JIRBoundedWildcardImpl(
+            upperBounds = emptyList(), lowerBounds = listOf(typeOf(jvmType.bound) as JIRRefType), true
         )
-
-        else -> throw IllegalStateException("unknown type")
     }
 }
 
 class JIRTypeVariableDeclarationImpl(
     override val symbol: String,
-    override val bounds: List<JIRRefType>
+    override val bounds: List<JIRRefType>,
+    override val owner: JIRAccessible
 ) : JIRTypeVariableDeclaration
-
-internal suspend fun JIRClasspath.typeDeclaration(
-    formal: FormalTypeVariable,
-    bindings: JIRTypeBindings
-): JIRTypeVariableDeclaration {
-    return when (formal) {
-        is Formal -> JIRTypeVariableDeclarationImpl(
-            formal.symbol,
-            formal.boundTypeTokens?.map { typeOf(it.applyKnownBindings(bindings), bindings) as JIRRefType }.orEmpty()
-        )
-
-        else -> throw IllegalStateException("Unknown type $formal")
-    }
-}
-
-internal suspend fun JIRClasspath.typeDeclarations(
-    formals: List<FormalTypeVariable>,
-    bindings: JIRTypeBindings
-): List<JIRTypeVariableDeclaration> {
-    return formals.map { typeDeclaration(it, bindings) }
-}

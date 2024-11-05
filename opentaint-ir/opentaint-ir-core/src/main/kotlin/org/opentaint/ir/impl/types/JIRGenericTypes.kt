@@ -2,13 +2,10 @@ package org.opentaint.ir.impl.types
 
 import org.opentaint.ir.api.JIRBoundedWildcard
 import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRLowerBoundWildcard
-
 import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRTypeVariable
 import org.opentaint.ir.api.JIRTypeVariableDeclaration
 import org.opentaint.ir.api.JIRUnboundWildcard
-import org.opentaint.ir.api.JIRUpperBoundWildcard
 
 class JIRUnboundWildcardImpl(override val classpath: JIRClasspath, override val nullable: Boolean = true) :
     JIRUnboundWildcard {
@@ -21,35 +18,31 @@ class JIRUnboundWildcardImpl(override val classpath: JIRClasspath, override val 
     }
 }
 
-abstract class JIRAbstractBoundedWildcard(override val boundType: JIRRefType, override val nullable: Boolean) :
-    JIRBoundedWildcard {
+class JIRBoundedWildcardImpl(
+    override val upperBounds: List<JIRRefType>,
+    override val lowerBounds: List<JIRRefType>,
+    override val nullable: Boolean
+) : JIRBoundedWildcard {
+
     override val classpath: JIRClasspath
-        get() = boundType.classpath
-
-}
-
-
-class JIRLowerBoundWildcardImpl(boundType: JIRRefType, nullable: Boolean) :
-    JIRAbstractBoundedWildcard(boundType, nullable), JIRLowerBoundWildcard {
+        get() = upperBounds.firstOrNull()?.classpath ?: lowerBounds.firstOrNull()?.classpath
+        ?: throw IllegalStateException("Upper or lower bound should be specified")
 
     override val typeName: String
-        get() = "? extends ${boundType.typeName}"
+        get() {
+            val (name, bounds) = when{
+                upperBounds.isNotEmpty() -> "extends" to upperBounds
+                else -> "super" to lowerBounds
+            }
+            return "? $name ${bounds.joinToString(" & ") { it.typeName }}"
+        }
+
 
     override fun notNullable(): JIRRefType {
-        return JIRLowerBoundWildcardImpl(boundType, false)
+        return JIRBoundedWildcardImpl(upperBounds, lowerBounds, false)
     }
 }
 
-class JIRUpperBoundWildcardImpl(boundType: JIRRefType, nullable: Boolean) :
-    JIRAbstractBoundedWildcard(boundType, nullable), JIRUpperBoundWildcard {
-
-    override val typeName: String
-        get() = "? super ${boundType.typeName}"
-
-    override fun notNullable(): JIRRefType {
-        return JIRUpperBoundWildcardImpl(boundType, false)
-    }
-}
 
 class JIRTypeVariableImpl(
     override val classpath: JIRClasspath,

@@ -8,14 +8,14 @@ import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.api.anyType
 import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.api.toType
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
+import org.opentaint.ir.impl.bytecode.toJcClass
 import org.opentaint.ir.impl.index.hierarchyExt
-import org.opentaint.ir.impl.types.JIRArrayClassTypesImpl
+import org.opentaint.ir.impl.types.JIRArrayTypeImpl
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
-import org.opentaint.ir.impl.types.JIRTypeBindings
+import org.opentaint.ir.impl.types.substition.JIRSubstitutor
 import org.opentaint.ir.impl.vfs.ClasspathClassTree
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
 
@@ -51,21 +51,21 @@ class JIRClasspathImpl(
     override suspend fun typeOf(jirClass: JIRClassOrInterface): JIRRefType {
         return JIRClassTypeImpl(
             jirClass,
-            jirClass.outerClass()?.toType(),
-            JIRTypeBindings.ofClass(jirClass, null),
+            jirClass.outerClass()?.toType() as? JIRClassTypeImpl,
+            JIRSubstitutor.empty,
             nullable = true
         )
     }
 
     override suspend fun arrayTypeOf(elementType: JIRType): JIRArrayType {
-        return JIRArrayClassTypesImpl(elementType, true, anyType())
+        return JIRArrayTypeImpl(elementType, true)
     }
 
     override suspend fun findTypeOrNull(name: String): JIRType? {
         if (name.endsWith("[]")) {
             val targetName = name.removeSuffix("[]")
             return findTypeOrNull(targetName)?.let {
-                JIRArrayClassTypesImpl(it, true, anyType())
+                JIRArrayTypeImpl(it, true)
             } ?: targetName.throwClassNotFound()
         }
         val predefined = PredefinedPrimitives.of(name, this)

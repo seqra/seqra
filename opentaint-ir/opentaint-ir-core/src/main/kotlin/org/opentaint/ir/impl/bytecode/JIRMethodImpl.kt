@@ -7,13 +7,12 @@ import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRDeclaration
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRParameter
-import org.opentaint.ir.api.TypeName
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.impl.fs.fullAsmNode
-import org.opentaint.ir.impl.signature.MethodResolutionImpl
-import org.opentaint.ir.impl.signature.MethodSignature
 import org.opentaint.ir.impl.types.MethodInfo
 import org.opentaint.ir.impl.types.TypeNameImpl
+import org.opentaint.ir.impl.types.signature.MethodResolutionImpl
+import org.opentaint.ir.impl.types.signature.MethodSignature
 
 class JIRMethodImpl(
     private val methodInfo: MethodInfo,
@@ -24,10 +23,10 @@ class JIRMethodImpl(
     override val name: String get() = methodInfo.name
     override val access: Int get() = methodInfo.access
     override val signature: String? get() = methodInfo.signature
-    override val returnType: TypeName get() = TypeNameImpl(methodInfo.returnClass)
+    override val returnType = TypeNameImpl(methodInfo.returnClass)
 
     override suspend fun exceptions(): List<JIRClassOrInterface> {
-        val methodSignature = MethodSignature.of(methodInfo.signature)
+        val methodSignature = MethodSignature.of(this)
         if (methodSignature is MethodResolutionImpl) {
             return methodSignature.exceptionTypes.map {
                 enclosingClass.classpath.findClass(it.name)
@@ -61,6 +60,5 @@ class JIRMethodImpl(
     override fun hashCode(): Int {
         return 31 * enclosingClass.hashCode() + name.hashCode()
     }
-
 
 }

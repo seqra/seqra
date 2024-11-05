@@ -1,11 +1,11 @@
-package org.opentaint.ir.impl.signature
+package org.opentaint.ir.impl.types.signature
 
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.signature.SignatureVisitor
 
 internal interface TypeRegistrant {
 
-    fun register(token: SType)
+    fun register(token: JvmType)
 
     open class RejectingSignatureVisitor : SignatureVisitor(Opcodes.ASM9) {
 

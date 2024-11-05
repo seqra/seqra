@@ -6,20 +6,23 @@ import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.JIRTypedMethodParameter
 import org.opentaint.ir.api.isNullable
 import org.opentaint.ir.api.throwClassNotFound
-import org.opentaint.ir.impl.signature.SType
+import org.opentaint.ir.impl.types.signature.JvmType
+import org.opentaint.ir.impl.types.substition.JIRSubstitutor
 
 class JIRTypedMethodParameterImpl(
     override val enclosingMethod: JIRTypedMethod,
     private val parameter: JIRParameter,
-    private val stype: SType?,
-    private val bindings: JIRTypeBindings
+    private val jvmType: JvmType?,
+    private val substitutor: JIRSubstitutor
 ) : JIRTypedMethodParameter {
 
     val classpath = enclosingMethod.method.enclosingClass.classpath
 
     override suspend fun type(): JIRType {
-        val st = stype ?: return classpath.findTypeOrNull(parameter.type.typeName) ?: parameter.type.typeName.throwClassNotFound()
-        return classpath.typeOf(st.apply(bindings, null), bindings)
+        val typeName = parameter.type.typeName
+        return jvmType?.let {
+            classpath.typeOf(substitutor.substitute(jvmType))
+        } ?: classpath.findTypeOrNull(typeName) ?: typeName.throwClassNotFound()
     }
 
     override val nullable: Boolean

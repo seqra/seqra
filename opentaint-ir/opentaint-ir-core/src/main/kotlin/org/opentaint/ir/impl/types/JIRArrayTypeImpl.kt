@@ -1,21 +1,19 @@
 package org.opentaint.ir.impl.types
 
 import org.opentaint.ir.api.JIRArrayType
-import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRType
 
-class JIRArrayClassTypesImpl(
+class JIRArrayTypeImpl(
     override val elementType: JIRType,
-    override val nullable: Boolean = true,
-    private val anyType: JIRClassType
+    override val nullable: Boolean = true
 ) : JIRArrayType {
 
     override val typeName = elementType.typeName + "[]"
 
     override fun notNullable(): JIRRefType {
-        return JIRArrayClassTypesImpl(elementType, false, anyType)
+        return JIRArrayTypeImpl(elementType, false)
     }
 
     override val classpath: JIRClasspath
@@ -25,7 +23,7 @@ class JIRArrayClassTypesImpl(
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
 
-        other as JIRArrayClassTypesImpl
+        other as JIRArrayTypeImpl
 
         if (elementType != other.elementType) return false
 
