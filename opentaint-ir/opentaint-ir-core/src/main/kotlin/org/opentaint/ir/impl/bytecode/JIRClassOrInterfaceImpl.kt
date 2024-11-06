@@ -4,7 +4,6 @@ import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRDeclaration
 import org.opentaint.ir.api.JIRField
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.findMethodOrNull
@@ -20,8 +19,7 @@ class JIRClassOrInterfaceImpl(
 
     private val info = classSource.info
 
-    override val declaration: JIRDeclaration
-        get() = JIRDeclarationImpl.of(location = classSource.location.jirLocation, this)
+    override val declaration = JIRDeclarationImpl.of(location = classSource.location.jirLocation, this)
 
     override val name: String get() = classSource.className
     override val simpleName: String get() = classSource.className.substringAfterLast(".")

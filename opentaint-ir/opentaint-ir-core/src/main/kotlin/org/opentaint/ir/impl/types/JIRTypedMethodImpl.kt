@@ -58,12 +58,11 @@ class JIRTypedMethodImpl(
 
     override suspend fun parameters(): List<JIRTypedMethodParameter> {
         return method.parameters.mapIndexed { index, jirParameter ->
-            val stype = impl?.parameterTypes?.get(index)
             JIRTypedMethodParameterImpl(
                 enclosingMethod = this,
                 substitutor = substitutor,
                 parameter = jirParameter,
-                jvmType = stype
+                jvmType = impl?.parameterTypes?.get(index)
             )
         }
     }
@@ -78,7 +77,7 @@ class JIRTypedMethodImpl(
     }
 
     override suspend fun typeOf(inst: LocalVariableNode): JIRType {
-        val variableSignature = FieldSignature.of(inst.signature) as? FieldResolutionImpl
+        val variableSignature = FieldSignature.of(inst.signature, method) as? FieldResolutionImpl
         if (variableSignature == null) {
             val type = Type.getType(inst.desc)
             return classpath.findTypeOrNull(type.className) ?: type.className.throwClassNotFound()

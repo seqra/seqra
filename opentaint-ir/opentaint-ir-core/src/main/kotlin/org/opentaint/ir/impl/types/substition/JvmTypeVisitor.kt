@@ -12,60 +12,88 @@ import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclarationImpl
 import org.opentaint.ir.impl.types.signature.JvmTypeVariable
 import org.opentaint.ir.impl.types.signature.JvmUnboundWildcard
 
+internal class VisitorContext(private val processed: HashSet<Any> = HashSet()) {
+
+    fun makeProcessed(type: Any): Boolean {
+        return processed.add(type)
+    }
+
+
+    fun isProcessed(type: Any): Boolean {
+        return processed.contains(type)
+    }
+}
+
 internal interface JvmTypeVisitor {
 
-    fun visitType(type: JvmType): JvmType {
+    fun visitType(type: JvmType, context: VisitorContext = VisitorContext()): JvmType {
         return when (type) {
             is JvmPrimitiveType -> type
-            is JvmLowerBoundWildcard -> visitLowerBound(type)
-            is JvmUpperBoundWildcard -> visitUpperBound(type)
-            is JvmParameterizedType -> visitParameterizedType(type)
-            is JvmArrayType -> visitArrayType(type)
-            is JvmClassRefType -> visitClassRef(type)
-            is JvmTypeVariable -> visitTypeVariable(type)
+            is JvmLowerBoundWildcard -> visitLowerBound(type, context)
+            is JvmUpperBoundWildcard -> visitUpperBound(type, context)
+            is JvmParameterizedType -> visitParameterizedType(type, context)
+            is JvmArrayType -> visitArrayType(type, context)
+            is JvmClassRefType -> visitClassRef(type, context)
+            is JvmTypeVariable -> visitTypeVariable(type, context)
             is JvmUnboundWildcard -> type
-            is JvmParameterizedType.JvmNestedType -> visitNested(type)
+            is JvmParameterizedType.JvmNestedType -> visitNested(type, context)
         }
     }
 
 
-    fun visitUpperBound(type: JvmUpperBoundWildcard): JvmType {
-        return JvmUpperBoundWildcard(visitType(type.bound))
+    fun visitUpperBound(type: JvmUpperBoundWildcard, context: VisitorContext): JvmType {
+        return JvmUpperBoundWildcard(visitType(type.bound, context))
     }
 
-    fun visitLowerBound(type: JvmLowerBoundWildcard): JvmType {
-        return JvmLowerBoundWildcard(visitType(type.bound))
+    fun visitLowerBound(type: JvmLowerBoundWildcard, context: VisitorContext): JvmType {
+        return JvmLowerBoundWildcard(visitType(type.bound, context))
     }
 
-    fun visitArrayType(type: JvmArrayType): JvmType {
-        return JvmArrayType(visitType(type.elementType))
+    fun visitArrayType(type: JvmArrayType, context: VisitorContext): JvmType {
+        return JvmArrayType(visitType(type.elementType, context))
     }
 
-    fun visitTypeVariable(type: JvmTypeVariable): JvmType {
+    fun visitTypeVariable(type: JvmTypeVariable, context: VisitorContext): JvmType {
+        if (context.isProcessed(type)) {
+            return type
+        }
+        val result = visitUnprocessedTypeVariable(type, context)
+        context.makeProcessed(type)
+        return result
+    }
+
+    fun visitUnprocessedTypeVariable(type: JvmTypeVariable, context: VisitorContext): JvmType {
         return type
     }
 
-    fun visitClassRef(type: JvmClassRefType): JvmType {
+    fun visitClassRef(type: JvmClassRefType, context: VisitorContext): JvmType {
         return type
     }
 
-    fun visitNested(type: JvmParameterizedType.JvmNestedType): JvmType {
+    fun visitNested(type: JvmParameterizedType.JvmNestedType, context: VisitorContext): JvmType {
         return JvmParameterizedType.JvmNestedType(
             type.name,
-            type.parameterTypes.map { visitType(it) },
-            visitType(type.ownerType)
+            type.parameterTypes.map { visitType(it, context) },
+            visitType(type.ownerType, context)
         )
     }
 
-    fun visitParameterizedType(type: JvmParameterizedType): JvmType {
-        return JvmParameterizedType(type.name, type.parameterTypes.map { visitType(it) })
+    fun visitParameterizedType(type: JvmParameterizedType, context: VisitorContext): JvmType {
+        return JvmParameterizedType(type.name, type.parameterTypes.map { visitType(it, context) })
     }
 
-    fun visitDeclaration(declaration: JvmTypeParameterDeclaration): JvmTypeParameterDeclaration {
+    fun visitDeclaration(
+        declaration: JvmTypeParameterDeclaration,
+        context: VisitorContext = VisitorContext()
+    ): JvmTypeParameterDeclaration {
+        if (context.isProcessed(declaration)) {
+            return declaration
+        }
+        context.makeProcessed(declaration)
         return JvmTypeParameterDeclarationImpl(
             declaration.symbol,
             declaration.owner,
-            declaration.bounds?.map { visitType(it) }
+            declaration.bounds?.map { visitType(it, context) }
         )
     }
 

@@ -6,6 +6,7 @@ import org.opentaint.ir.api.Malformed
 import org.opentaint.ir.api.MethodResolution
 import org.opentaint.ir.api.Pure
 import org.opentaint.ir.impl.types.substition.JvmTypeVisitor
+import org.opentaint.ir.impl.types.substition.VisitorContext
 import org.opentaint.ir.impl.types.typeParameters
 
 internal class MethodSignature(method: JIRMethod) : Signature<MethodResolution>(method) {
@@ -74,8 +75,8 @@ internal class MethodSignature(method: JIRMethod) : Signature<MethodResolution>(
                             (jirMethod.enclosingClass.typeParameters + it.typeVariables).associateBy { it.symbol }
                         val fixDeclarationVisitor = object : JvmTypeVisitor {
 
-                            override fun visitTypeVariable(type: JvmTypeVariable): JvmType {
-                                type.declaration = declarations[type.symbol]
+                            override fun visitTypeVariable(type: JvmTypeVariable, context: VisitorContext): JvmType {
+                                type.declaration = declarations[type.symbol]!!
                                 return type
                             }
                         }

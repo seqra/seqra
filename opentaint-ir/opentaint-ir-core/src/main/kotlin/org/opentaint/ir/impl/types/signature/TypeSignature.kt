@@ -6,6 +6,7 @@ import org.opentaint.ir.api.Malformed
 import org.opentaint.ir.api.Pure
 import org.opentaint.ir.api.TypeResolution
 import org.opentaint.ir.impl.types.substition.JvmTypeVisitor
+import org.opentaint.ir.impl.types.substition.VisitorContext
 
 internal class TypeSignature(jirClass: JIRClassOrInterface) : Signature<TypeResolution>(jirClass) {
 
@@ -57,8 +58,8 @@ internal class TypeSignature(jirClass: JIRClassOrInterface) : Signature<TypeReso
                         val declarations = it.typeVariables.associateBy { it.symbol }
                         val fixDeclarationVisitor = object : JvmTypeVisitor {
 
-                            override fun visitTypeVariable(type: JvmTypeVariable): JvmType {
-                                type.declaration = declarations[type.symbol]
+                            override fun visitTypeVariable(type: JvmTypeVariable, context: VisitorContext): JvmType {
+                                type.declaration = declarations[type.symbol]!!
                                 return type
                             }
                         }

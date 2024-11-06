@@ -6,12 +6,19 @@ import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRTypeVariableDeclaration
 import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclaration
+import org.opentaint.ir.impl.types.signature.MethodResolutionImpl
+import org.opentaint.ir.impl.types.signature.MethodSignature
 import org.opentaint.ir.impl.types.signature.TypeResolutionImpl
 import org.opentaint.ir.impl.types.signature.TypeSignature
 
 val JIRClassOrInterface.typeParameters: List<JvmTypeParameterDeclaration>
     get() {
         return (TypeSignature.of(this) as? TypeResolutionImpl)?.typeVariables ?: emptyList()
+    }
+
+val JIRMethod.typeParameters: List<JvmTypeParameterDeclaration>
+    get() {
+        return (MethodSignature.of(this) as? MethodResolutionImpl)?.typeVariables ?: emptyList()
     }
 
 suspend fun JvmTypeParameterDeclaration.asJcDeclaration(owner: JIRAccessible): JIRTypeVariableDeclaration {

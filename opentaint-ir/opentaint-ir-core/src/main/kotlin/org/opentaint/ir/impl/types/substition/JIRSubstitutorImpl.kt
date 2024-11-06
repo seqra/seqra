@@ -15,12 +15,12 @@ class JIRSubstitutorImpl(
 
     private val substitutionTypeVisitor = object : JvmTypeVisitor {
 
-        override fun visitTypeVariable(type: JvmTypeVariable): JvmType {
+        override fun visitUnprocessedTypeVariable(type: JvmTypeVariable, context: VisitorContext): JvmType {
             val direct = substitutions.firstNotNullOfOrNull { if (it.key.symbol == type.symbol) it.value else null }
             if (direct != null) {
                 return direct
             }
-            return JvmTypeVariable(visitDeclaration(type.declaration!!))
+            return JvmTypeVariable(visitDeclaration(type.declaration, context))
         }
     }
 
@@ -59,7 +59,7 @@ class JIRSubstitutorImpl(
     ): JvmTypeParameterDeclaration {
         val visitor = object : JvmTypeVisitor {
 
-            override fun visitTypeVariable(type: JvmTypeVariable): JvmType {
+            override fun visitUnprocessedTypeVariable(type: JvmTypeVariable, context: VisitorContext): JvmType {
                 if (ignoredSymbols.contains(type.symbol)) {
                     return type
                 }
