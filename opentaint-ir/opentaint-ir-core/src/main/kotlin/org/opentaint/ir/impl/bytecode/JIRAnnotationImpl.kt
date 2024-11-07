@@ -3,8 +3,6 @@ package org.opentaint.ir.impl.bytecode
 import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.enumValues
-import org.opentaint.ir.impl.SuspendableLazy
-import org.opentaint.ir.impl.suspendableLazy
 import org.opentaint.ir.impl.types.AnnotationInfo
 import org.opentaint.ir.impl.types.AnnotationValue
 import org.opentaint.ir.impl.types.AnnotationValueList
@@ -17,11 +15,11 @@ class JIRAnnotationImpl(
     private val classpath: JIRClasspath
 ) : JIRAnnotation {
 
-    private val lazyAnnotationClass = suspendableLazy {
+    override val jirClass by lazy(LazyThreadSafetyMode.NONE) {
         classpath.findClassOrNull(info.className)
     }
 
-    private val lazyValues: SuspendableLazy<Map<String, Any?>> = suspendableLazy {
+    override val values by lazy(LazyThreadSafetyMode.NONE) {
         val size = info.values.size
         if (size > 0) {
             info.values.associate { it.first to fixValue(it.second) }
@@ -33,15 +31,11 @@ class JIRAnnotationImpl(
     override val visible: Boolean get() = info.visible
     override val name: String get() = info.className
 
-    override suspend fun jirClass() = lazyAnnotationClass()
-
-    override suspend fun values() = lazyValues()
-
     override fun matches(className: String): Boolean {
         return info.className == className
     }
 
-    private suspend fun fixValue(value: AnnotationValue): Any? {
+    private fun fixValue(value: AnnotationValue): Any? {
         return when (value) {
             is PrimitiveValue -> value.value
             is ClassRef -> classpath.findClassOrNull(value.className)

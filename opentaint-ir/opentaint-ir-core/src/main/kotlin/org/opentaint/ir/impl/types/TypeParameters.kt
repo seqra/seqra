@@ -31,7 +31,7 @@ private val classParamsCache = CacheBuilder.newBuilder()
     .expireAfterAccess(Duration.ofSeconds(10))
     .build<JIRClassOrInterface, PersistentMap<String, JvmTypeParameterDeclaration>>()
 
-suspend fun JIRClassOrInterface.directTypeParameters(): List<JvmTypeParameterDeclaration> {
+fun JIRClassOrInterface.directTypeParameters(): List<JvmTypeParameterDeclaration> {
     val declaredSymbols = typeParameters.map { it.symbol }.toHashSet()
     return allVisibleTypeParameters().filterKeys { declaredSymbols.contains(it) }.values.toList()
 }
@@ -39,15 +39,15 @@ suspend fun JIRClassOrInterface.directTypeParameters(): List<JvmTypeParameterDec
 /**
  * returns all visible declaration without JvmTypeParameterDeclaration#declaration
  */
-suspend fun JIRClassOrInterface.allVisibleTypeParameters(): Map<String, JvmTypeParameterDeclaration> {
+fun JIRClassOrInterface.allVisibleTypeParameters(): Map<String, JvmTypeParameterDeclaration> {
     val result = classParamsCache.getIfPresent(this)
     if (result != null) {
         return result
     }
     val direct = typeParameters.associateBy { it.symbol }
     if (!isStatic) {
-        val fromOuter = outerClass()?.allVisibleTypeParameters()
-        val fromMethod = outerMethod()?.allVisibleTypeParameters()
+        val fromOuter = outerClass?.allVisibleTypeParameters()
+        val fromMethod = outerMethod?.allVisibleTypeParameters()
         val res = (direct + (fromMethod ?: fromOuter).orEmpty()).toPersistentMap()
         classParamsCache.put(this, res)
         return res
@@ -57,12 +57,12 @@ suspend fun JIRClassOrInterface.allVisibleTypeParameters(): Map<String, JvmTypeP
     }
 }
 
-suspend fun JIRMethod.allVisibleTypeParameters(): Map<String, JvmTypeParameterDeclaration> {
+fun JIRMethod.allVisibleTypeParameters(): Map<String, JvmTypeParameterDeclaration> {
     return typeParameters.associateBy { it.symbol } + enclosingClass.allVisibleTypeParameters().takeIf { !isStatic }
         .orEmpty()
 }
 
-suspend fun JvmTypeParameterDeclaration.asJcDeclaration(owner: JIRAccessible): JIRTypeVariableDeclaration {
+fun JvmTypeParameterDeclaration.asJcDeclaration(owner: JIRAccessible): JIRTypeVariableDeclaration {
     val classpath = when (owner) {
         is JIRClassOrInterface -> owner.classpath
         is JIRMethod -> owner.enclosingClass.classpath

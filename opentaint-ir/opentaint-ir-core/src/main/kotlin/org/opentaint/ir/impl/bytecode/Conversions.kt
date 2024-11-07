@@ -12,7 +12,7 @@ fun JIRClasspath.toJcClass(item: ClassVfsItem?): JIRClassOrInterface? {
     return JIRClassOrInterfaceImpl(this, item.source)
 }
 
-suspend fun JIRClasspath.findAndWrap(fullName: String?): JIRClassOrInterface? {
+fun JIRClasspath.findAndWrap(fullName: String?): JIRClassOrInterface? {
     fullName ?: return null
     return findClassOrNull(fullName)
 }

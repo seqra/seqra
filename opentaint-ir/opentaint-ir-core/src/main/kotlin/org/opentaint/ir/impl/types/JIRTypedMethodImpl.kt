@@ -13,7 +13,6 @@ import org.opentaint.ir.api.MethodResolution
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.isStatic
 import org.opentaint.ir.api.throwClassNotFound
-import org.opentaint.ir.impl.suspendableLazy
 import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
 import org.opentaint.ir.impl.types.signature.FieldSignature
 import org.opentaint.ir.impl.types.signature.MethodResolutionImpl
@@ -35,7 +34,7 @@ class JIRTypedMethodImpl(
 
     private val classpath = method.enclosingClass.classpath
 
-    private val infoGetter = suspendableLazy {
+    private val info by lazy(LazyThreadSafetyMode.NONE) {
         val signature = MethodSignature.withDeclarations(method)
         val impl = signature as? MethodResolutionImpl
         val substitutor = if (!method.isStatic) {
@@ -53,49 +52,58 @@ class JIRTypedMethodImpl(
     override val name: String
         get() = method.name
 
-    override suspend fun typeParameters(): List<JIRTypeVariableDeclaration> {
-        val impl = infoGetter().impl ?: return emptyList()
-        return impl.typeVariables.map { it.asJcDeclaration(method) }
-    }
-
-    override suspend fun exceptions(): List<JIRClassOrInterface> {
-        val impl = infoGetter().impl ?: return emptyList()
-        return impl.exceptionTypes.map {
-            classpath.findClass(it.name)
+    override val typeParameters: List<JIRTypeVariableDeclaration>
+        get() {
+            val impl = info.impl ?: return emptyList()
+            return impl.typeVariables.map { it.asJcDeclaration(method) }
         }
-    }
 
-    override suspend fun typeArguments(): List<JIRRefType> {
-        return emptyList()
-    }
-
-    override suspend fun parameters(): List<JIRTypedMethodParameter> {
-        val methodInfo = infoGetter()
-        return method.parameters.mapIndexed { index, jirParameter ->
-            JIRTypedMethodParameterImpl(
-                enclosingMethod = this,
-                substitutor = methodInfo.substitutor,
-                parameter = jirParameter,
-                jvmType = methodInfo.impl?.parameterTypes?.get(index)
-            )
+    override val exceptions: List<JIRClassOrInterface>
+        get() {
+            val impl = info.impl ?: return emptyList()
+            return impl.exceptionTypes.map {
+                classpath.findClass(it.name)
+            }
         }
-    }
 
-    override suspend fun returnType(): JIRType {
+    override val typeArguments: List<JIRRefType>
+        get() {
+            return emptyList()
+        }
+
+    override val parameters: List<JIRTypedMethodParameter>
+        get() {
+            val methodInfo = info
+            return method.parameters.mapIndexed { index, jirParameter ->
+                JIRTypedMethodParameterImpl(
+                    enclosingMethod = this,
+                    substitutor = methodInfo.substitutor,
+                    parameter = jirParameter,
+                    jvmType = methodInfo.impl?.parameterTypes?.get(index)
+                )
+            }
+        }
+
+    override val returnType: JIRType by lazy(LazyThreadSafetyMode.NONE) {
         val typeName = method.returnType.typeName
-        val info = infoGetter()
-        val impl = info.impl ?: return classpath.findTypeOrNull(typeName)
-            ?: throw IllegalStateException("Can't resolve type by name $typeName")
-        return classpath.typeOf(info.substitutor.substitute(impl.returnType))
+        val info = info
+        val impl = info.impl
+        if (impl == null) {
+            classpath.findTypeOrNull(typeName)
+                ?: throw IllegalStateException("Can't resolve type by name $typeName")
+        } else {
+            classpath.typeOf(info.substitutor.substitute(impl.returnType))
+        }
     }
 
-    override suspend fun typeOf(inst: LocalVariableNode): JIRType {
-        val variableSignature = FieldSignature.of(inst.signature, method.allVisibleTypeParameters()) as? FieldResolutionImpl
+    override fun typeOf(inst: LocalVariableNode): JIRType {
+        val variableSignature =
+            FieldSignature.of(inst.signature, method.allVisibleTypeParameters()) as? FieldResolutionImpl
         if (variableSignature == null) {
             val type = Type.getType(inst.desc)
             return classpath.findTypeOrNull(type.className) ?: type.className.throwClassNotFound()
         }
-        val info = infoGetter()
+        val info = info
         return classpath.typeOf(info.substitutor.substitute(variableSignature.fieldType))
     }
 

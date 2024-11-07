@@ -50,7 +50,7 @@ class RestoredDBTest : DatabaseEnvTest() {
 
     override val cp = runBlocking { db!!.classpath(allClasspath) }
     override val hierarchyExt: HierarchyExtension
-        get() = cp.hierarchyExt
+        get() = runBlocking { cp.hierarchyExt() }
 
 
 }

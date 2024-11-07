@@ -75,7 +75,7 @@ internal class MethodSignature(method: JIRMethod) : Signature<MethodResolution>(
             }
         }
 
-        suspend fun withDeclarations(jirMethod: JIRMethod): MethodResolution {
+        fun withDeclarations(jirMethod: JIRMethod): MethodResolution {
             val signature = jirMethod.signature
             signature ?: return Pure
             return try {

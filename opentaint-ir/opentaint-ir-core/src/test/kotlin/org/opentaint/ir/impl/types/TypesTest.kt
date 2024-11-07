@@ -13,7 +13,7 @@ class TypesTest : BaseTypesTest() {
     @Test
     fun `primitive and array types`() = runBlocking {
         val primitiveAndArrays = findClassType<PrimitiveAndArrays>()
-        val fields = primitiveAndArrays.fields()
+        val fields = primitiveAndArrays.fields
         assertEquals(2, fields.size)
 
         with(fields.first()) {
@@ -28,15 +28,15 @@ class TypesTest : BaseTypesTest() {
         }
 
 
-        val methods = primitiveAndArrays.methods().filterNot { it.method.isConstructor }
+        val methods = primitiveAndArrays.methods.filterNot { it.method.isConstructor }
         with(methods.first()) {
-            assertTrue(returnType() is JIRArrayType)
-            assertEquals("int[]", returnType().typeName)
+            assertTrue(returnType is JIRArrayType)
+            assertEquals("int[]", returnType.typeName)
 
-            assertEquals(1, parameters().size)
-            with(parameters().get(0)) {
-                assertTrue(type() is JIRArrayType)
-                assertEquals("java.lang.String[]", type().typeName)
+            assertEquals(1, parameters.size)
+            with(parameters.get(0)) {
+                assertTrue(type is JIRArrayType)
+                assertEquals("java.lang.String[]", type.typeName)
             }
         }
     }

@@ -17,7 +17,7 @@ import org.opentaint.ir.impl.types.signature.JvmType
 import org.opentaint.ir.impl.types.signature.JvmTypeVariable
 import org.opentaint.ir.impl.types.signature.JvmUnboundWildcard
 
-internal suspend fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = null): JIRType {
+internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = null): JIRType {
     return when (jvmType) {
         is JvmPrimitiveType -> {
             PredefinedPrimitives.of(jvmType.ref, this)

@@ -15,13 +15,13 @@ class LinkedGenericsTest : BaseTypesTest() {
     @Test
     fun `linked generics original parametrization`() = runBlocking {
         val partial = findClassType<LinkedImpl<*>>()
-        with(partial.superType()!!) {
-            with(typeParameters().first()) {
+        with(partial.superType!!) {
+            with(typeParameters.first()) {
                 assertEquals("T", symbol)
                 bounds.first().assertType<Any>()
             }
 
-            with(typeParameters()[1]) {
+            with(typeParameters[1]) {
                 assertEquals("W", symbol)
                 assertEquals(1, bounds.size)
                 assertEquals("java.util.List<T>", bounds[0].typeName)
@@ -32,12 +32,12 @@ class LinkedGenericsTest : BaseTypesTest() {
     @Test
     fun `linked generics current parametrization`() = runBlocking {
         val partial = findClassType<LinkedImpl<*>>()
-        with(partial.superType()!!) {
-            with(typeArguments()[0]) {
+        with(partial.superType!!) {
+            with(typeArguments[0]) {
                 assertType<String>()
             }
 
-            with(typeArguments()[1]) {
+            with(typeArguments[1]) {
                 this as JIRTypeVariable
                 assertEquals("W", symbol)
                 assertEquals(1, bounds.size)
@@ -49,8 +49,8 @@ class LinkedGenericsTest : BaseTypesTest() {
     @Test
     fun `linked generics fields parametrization`() = runBlocking {
         val partial = findClassType<LinkedImpl<*>>()
-        with(partial.superType()!!) {
-            val fields = fields()
+        with(partial.superType!!) {
+            val fields = fields
             assertEquals(3, fields.size)
 
             with(fields.first()) {
@@ -68,7 +68,7 @@ class LinkedGenericsTest : BaseTypesTest() {
                 assertEquals("stateListW", name)
                 val resolvedType = fieldType().assertClassType()
                 assertEquals(cp.findClass<List<*>>(), resolvedType.jirClass)
-                val shouldBeW = (resolvedType.typeArguments().first() as JIRTypeVariable)
+                val shouldBeW = (resolvedType.typeArguments.first() as JIRTypeVariable)
                 assertEquals("java.util.List<java.lang.String>", shouldBeW.bounds.first().typeName)
             }
         }
@@ -79,8 +79,8 @@ class LinkedGenericsTest : BaseTypesTest() {
     fun `generics applied for fields of super types`() {
         runBlocking {
             val superFooType = findClassType<SingleImpl>()
-            with(superFooType.superType().assertClassType()) {
-                val fields = fields()
+            with(superFooType.superType.assertClassType()) {
+                val fields = fields
                 assertEquals(2, fields.size)
 
                 with(fields.first()) {
@@ -101,13 +101,13 @@ class LinkedGenericsTest : BaseTypesTest() {
     fun `direct generics from child types applied to methods`() {
         runBlocking {
             val superFooType = findClassType<SingleImpl>()
-            val superType = superFooType.superType().assertClassType()
-            val methods = superType.declaredMethods().filterNot { it.method.isConstructor }
+            val superType = superFooType.superType.assertClassType()
+            val methods = superType.declaredMethods.filterNot { it.method.isConstructor }
             assertEquals(2, methods.size)
 
             with(methods.first { it.method.name == "run1" }) {
-                returnType().assertType<String>()
-                parameters().first().type().assertType<String>()
+                returnType.assertType<String>()
+                parameters.first().type.assertType<String>()
             }
         }
     }
@@ -116,15 +116,15 @@ class LinkedGenericsTest : BaseTypesTest() {
     fun `custom generics from child types applied to methods`() {
         runBlocking {
             val superFooType = findClassType<SingleImpl>()
-            val superType = superFooType.superType().assertClassType()
-            val methods = superType.declaredMethods().filterNot { it.method.isConstructor }
+            val superType = superFooType.superType.assertClassType()
+            val methods = superType.declaredMethods.filterNot { it.method.isConstructor }
             assertEquals(2, methods.size)
 
             with(methods.first { it.method.name == "run2" }) {
-                val params = parameters().first()
-                val w = typeParameters().first()
+                val params = parameters.first()
+                val w = typeParameters.first()
 
-                val bound = (params.type() as JIRClassType).typeArguments().first()
+                val bound = (params.type as JIRClassType).typeArguments.first()
                 assertEquals("W", (bound as? JIRTypeVariable)?.symbol)
                 assertEquals("W", w.symbol)
                 bound as JIRTypeVariable

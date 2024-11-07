@@ -12,7 +12,6 @@ import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.api.toType
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.bytecode.toJcClass
-import org.opentaint.ir.impl.index.hierarchyExt
 import org.opentaint.ir.impl.types.JIRArrayTypeImpl
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import org.opentaint.ir.impl.types.substition.JIRSubstitutor
@@ -38,7 +37,7 @@ class JIRClasspathImpl(
         }
     }
 
-    override suspend fun findClassOrNull(name: String): JIRClassOrInterface? {
+    override fun findClassOrNull(name: String): JIRClassOrInterface? {
         val inMemoryClass = toJcClass(classpathClassTree.firstClassOrNull(name))
         if (inMemoryClass != null) {
             return inMemoryClass
@@ -48,20 +47,20 @@ class JIRClasspathImpl(
         }
     }
 
-    override suspend fun typeOf(jirClass: JIRClassOrInterface): JIRRefType {
+    override fun typeOf(jirClass: JIRClassOrInterface): JIRRefType {
         return JIRClassTypeImpl(
             jirClass,
-            jirClass.outerClass()?.toType() as? JIRClassTypeImpl,
+            jirClass.outerClass?.toType() as? JIRClassTypeImpl,
             JIRSubstitutor.empty,
             nullable = true
         )
     }
 
-    override suspend fun arrayTypeOf(elementType: JIRType): JIRArrayType {
+    override fun arrayTypeOf(elementType: JIRType): JIRArrayType {
         return JIRArrayTypeImpl(elementType, true)
     }
 
-    override suspend fun findTypeOrNull(name: String): JIRType? {
+    override fun findTypeOrNull(name: String): JIRType? {
         if (name.endsWith("[]")) {
             val targetName = name.removeSuffix("[]")
             return findTypeOrNull(targetName)?.let {
@@ -73,14 +72,6 @@ class JIRClasspathImpl(
             return predefined
         }
         return typeOf(findClassOrNull(name) ?: return null)
-    }
-
-    override suspend fun findSubClasses(name: String, allHierarchy: Boolean): List<JIRClassOrInterface> {
-        return hierarchyExt.findSubClasses(name, allHierarchy)
-    }
-
-    override suspend fun findSubClasses(jirClass: JIRClassOrInterface, allHierarchy: Boolean): List<JIRClassOrInterface> {
-        return hierarchyExt.findSubClasses(jirClass, allHierarchy)
     }
 
     override fun close() {

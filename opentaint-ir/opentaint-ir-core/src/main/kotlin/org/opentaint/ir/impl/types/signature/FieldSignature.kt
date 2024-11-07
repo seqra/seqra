@@ -25,7 +25,7 @@ internal class FieldSignature : TypeRegistrant {
         private fun FieldResolutionImpl.apply(visitor: JvmTypeVisitor) =
             FieldResolutionImpl(visitor.visitType(fieldType))
 
-        suspend fun of(field: JIRField): FieldResolution {
+        fun of(field: JIRField): FieldResolution {
             return of(field.signature, field.enclosingClass.allVisibleTypeParameters())
         }
 

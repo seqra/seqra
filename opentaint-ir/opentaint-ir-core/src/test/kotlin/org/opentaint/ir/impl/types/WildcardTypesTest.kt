@@ -19,7 +19,7 @@ class WildcardTypesTest : BaseTypesTest() {
     fun `direct types`() {
         runBlocking {
             val bounded = findClassType<DirectBound<*>>()
-            with(bounded.fields().first()) {
+            with(bounded.fields.first()) {
                 assertEquals("field", name)
                 with(fieldType().assertIs<JIRClassType>()) {
                     assertEquals("java.util.List<T>", typeName)
@@ -32,7 +32,7 @@ class WildcardTypesTest : BaseTypesTest() {
     fun `resolved direct types`() {
         runBlocking {
             val bounded = findClassType<DirectBoundString>()
-            with(bounded.superType()!!.fields().first()) {
+            with(bounded.superType!!.fields.first()) {
                 assertEquals("field", name)
                 with(fieldType().assertIs<JIRClassType>()) {
                     assertEquals("java.util.List<java.lang.String>", typeName)
@@ -45,11 +45,11 @@ class WildcardTypesTest : BaseTypesTest() {
     fun `upper bound types`() {
         runBlocking {
             val bounded = findClassType<WildcardUpperBound<*>>()
-            with(bounded.fields().first()) {
+            with(bounded.fields.first()) {
                 assertEquals("field", name)
                 with(fieldType().assertIs<JIRClassType>()) {
                     assertEquals("java.util.List<? extends T>", typeName)
-                    with(typeArguments().first().assertIs<JIRBoundedWildcard>()) {
+                    with(typeArguments.first().assertIs<JIRBoundedWildcard>()) {
                         upperBounds.first().assertIs<JIRTypeVariable>()
                     }
                 }
@@ -61,11 +61,11 @@ class WildcardTypesTest : BaseTypesTest() {
     fun `resolved upper bound types`() {
         runBlocking {
             val bounded = findClassType<WildcardUpperBoundString>()
-            with(bounded.superType()!!.fields().first()) {
+            with(bounded.superType!!.fields.first()) {
                 assertEquals("field", name)
                 with(fieldType().assertIs<JIRClassType>()) {
                     assertEquals("java.util.List<? extends java.lang.String>", typeName)
-                    with(typeArguments().first().assertIs<JIRBoundedWildcard>()) {
+                    with(typeArguments.first().assertIs<JIRBoundedWildcard>()) {
                         upperBounds.first().assertType<String>()
                     }
                 }
@@ -77,11 +77,11 @@ class WildcardTypesTest : BaseTypesTest() {
     fun `lower bound types`() {
         runBlocking {
             val bounded = findClassType<WildcardLowerBound<*>>()
-            with(bounded.fields().first()) {
+            with(bounded.fields.first()) {
                 assertEquals("field", name)
                 with(fieldType().assertIs<JIRClassType>()) {
                     assertEquals("java.util.List<? super T>", typeName)
-                    with(typeArguments().first().assertIs<JIRBoundedWildcard>()) {
+                    with(typeArguments.first().assertIs<JIRBoundedWildcard>()) {
                         lowerBounds.first().assertIs<JIRTypeVariable>()
                     }
                 }
@@ -93,11 +93,11 @@ class WildcardTypesTest : BaseTypesTest() {
     fun `resolved lower bound types`() {
         runBlocking {
             val bounded = findClassType<WildcardLowerBoundString>()
-            with(bounded.superType()!!.fields().first()) {
+            with(bounded.superType!!.fields.first()) {
                 assertEquals("field", name)
                 with(fieldType().assertIs<JIRClassType>()) {
                     assertEquals("java.util.List<? super java.lang.String>", typeName)
-                    with(typeArguments().first().assertIs<JIRBoundedWildcard>()) {
+                    with(typeArguments.first().assertIs<JIRBoundedWildcard>()) {
                         lowerBounds.first().assertType<String>()
                     }
                 }

@@ -18,12 +18,13 @@ class JIRTypedMethodParameterImpl(
 
     val classpath = enclosingMethod.method.enclosingClass.classpath
 
-    override suspend fun type(): JIRType {
-        val typeName = parameter.type.typeName
-        return jvmType?.let {
-            classpath.typeOf(substitutor.substitute(jvmType))
-        } ?: classpath.findTypeOrNull(typeName) ?: typeName.throwClassNotFound()
-    }
+    override val type: JIRType
+        get() {
+            val typeName = parameter.type.typeName
+            return jvmType?.let {
+                classpath.typeOf(substitutor.substitute(jvmType))
+            } ?: classpath.findTypeOrNull(typeName) ?: typeName.throwClassNotFound()
+        }
 
     override val nullable: Boolean
         get() = parameter.isNullable //if (type != null && type.nullable) parameter.isNullable else false

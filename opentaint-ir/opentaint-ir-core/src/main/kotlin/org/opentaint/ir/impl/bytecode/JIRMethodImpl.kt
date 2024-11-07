@@ -24,7 +24,7 @@ class JIRMethodImpl(
     override val signature: String? get() = methodInfo.signature
     override val returnType = TypeNameImpl(methodInfo.returnClass)
 
-    override suspend fun exceptions(): List<JIRClassOrInterface> {
+    override fun exceptions(): List<JIRClassOrInterface> {
         val methodSignature = MethodSignature.of(this)
         if (methodSignature is MethodResolutionImpl) {
             return methodSignature.exceptionTypes.map {
@@ -44,7 +44,7 @@ class JIRMethodImpl(
 
     override val description get() = methodInfo.desc
 
-    override suspend fun body(): MethodNode {
+    override fun body(): MethodNode {
         return source.fullAsmNode.methods.first { it.name == name && it.desc == methodInfo.desc }
     }
 
