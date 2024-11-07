@@ -47,6 +47,15 @@ class JIRSubstitutorImpl(
         )
     }
 
+    override fun newScope(explicit: Map<JvmTypeParameterDeclaration, JvmType>): JIRSubstitutor {
+        if (explicit.isEmpty()) {
+            return this
+        }
+        val incomingSymbols = explicit.keys.map { it.symbol }.toHashSet() // incoming symbols may override current
+        val filtered = substitutions.filterNot { incomingSymbols.contains(it.key.symbol) }
+        return JIRSubstitutorImpl((filtered + explicit).toPersistentMap())
+    }
+
     override fun fork(explicit: Map<JvmTypeParameterDeclaration, JvmType>): JIRSubstitutor {
         val incomingSymbols = explicit.keys.map { it.symbol }.toSet() // incoming symbols may override current
         val forked = explicit.map {

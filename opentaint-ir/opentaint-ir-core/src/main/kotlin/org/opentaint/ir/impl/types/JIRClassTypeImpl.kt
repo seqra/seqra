@@ -21,7 +21,7 @@ import org.opentaint.ir.impl.types.substition.substitute
 open class JIRClassTypeImpl(
     override val jirClass: JIRClassOrInterface,
     private val outerType: JIRClassTypeImpl? = null,
-    internal val substitutor: JIRSubstitutor = JIRSubstitutor.empty,
+    private val substitutor: JIRSubstitutor = JIRSubstitutor.empty,
     override val nullable: Boolean
 ) : JIRClassType {
 
@@ -30,7 +30,7 @@ open class JIRClassTypeImpl(
         outerType: JIRClassTypeImpl? = null,
         parameters: List<JvmType>,
         nullable: Boolean
-    ) : this(jirClass, outerType, jirClass.substitute(parameters), nullable)
+    ) : this(jirClass, outerType, jirClass.substitute(parameters, outerType?.substitutor), nullable)
 
     private val resolutionImpl = suspendableLazy { TypeSignature.withDeclarations(jirClass) as? TypeResolutionImpl }
     private val declaredTypeParameters by lazy(LazyThreadSafetyMode.NONE) { jirClass.typeParameters }
@@ -46,7 +46,12 @@ open class JIRClassTypeImpl(
                     substitutor.substitution(it)?.displayName ?: it.symbol
                 }
             }
-            return jirClass.name + ("<${generics}>".takeIf { generics.isNotEmpty() } ?: "")
+            val name = if (outerType != null) {
+                outerType.typeName + "." + jirClass.simpleName
+            } else {
+                jirClass.name
+            }
+            return name + ("<${generics}>".takeIf { generics.isNotEmpty() } ?: "")
         }
 
     private val originParametrizationGetter = suspendableLazy {
@@ -93,9 +98,9 @@ open class JIRClassTypeImpl(
             val outerMethod = it.outerMethod()
             val outerClass = it.outerClass()
 
-            val innerParameters =
-                (outerMethod?.allVisibleTypeParameters() ?: outerClass?.allVisibleTypeParameters())?.values?.toList()
-                    .orEmpty()
+            val innerParameters = (
+                    outerMethod?.allVisibleTypeParameters() ?: outerClass?.allVisibleTypeParameters()
+                    )?.values?.toList().orEmpty()
             val innerSubstitutor = when {
                 it.isStatic -> JIRSubstitutor.empty.newScope(innerParameters)
                 else -> substitutor.newScope(innerParameters)
@@ -144,7 +149,10 @@ open class JIRClassTypeImpl(
         return 31 * result + typeName.hashCode()
     }
 
-    private suspend fun JIRClassOrInterface.typedMethods(allMethods: Boolean, fromSuperTypes: Boolean): List<JIRTypedMethod> {
+    private suspend fun JIRClassOrInterface.typedMethods(
+        allMethods: Boolean,
+        fromSuperTypes: Boolean
+    ): List<JIRTypedMethod> {
         val methodSet = if (allMethods) {
             methods
         } else {

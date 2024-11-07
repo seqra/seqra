@@ -1,6 +1,5 @@
 package org.opentaint.ir.impl.types.substition
 
-import kotlinx.collections.immutable.toPersistentMap
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.impl.types.signature.JvmType
 import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclaration
@@ -34,19 +33,21 @@ interface JIRSubstitutor {
 
     fun newScope(declarations: List<JvmTypeParameterDeclaration>): JIRSubstitutor
 
+    fun newScope(explicit: Map<JvmTypeParameterDeclaration, JvmType>): JIRSubstitutor
+
     val substitutions: Map<JvmTypeParameterDeclaration, JvmType>
 
 }
 
-fun JIRClassOrInterface.substitute(parameters: List<JvmType>): JIRSubstitutor {
+fun JIRClassOrInterface.substitute(parameters: List<JvmType>, outer: JIRSubstitutor?): JIRSubstitutor {
     val params = typeParameters
     require(params.size == parameters.size) {
         "Incorrect parameters specified for class $name: expected ${params.size} found ${parameters.size}"
     }
-    return JIRSubstitutorImpl(
-        params.mapIndexed { index, declaration -> declaration to parameters[index] }
-            .toMap().toPersistentMap()
-    )
+    val substitution = params.mapIndexed { index, declaration ->
+        declaration to parameters[index]
+    }.toMap()
+    return (outer ?: JIRSubstitutor.empty).newScope(substitution)
 }
 
 private suspend fun composeSubstitutors(
