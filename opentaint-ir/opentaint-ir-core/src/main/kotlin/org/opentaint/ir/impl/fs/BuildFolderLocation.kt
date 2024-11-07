@@ -42,7 +42,10 @@ class BuildFolderLocation(folder: File) : AbstractByteCodeLocation(folder) {
             }
         }
 
-    override suspend fun resolve(classFullName: String): ByteArray? {
+    override val classNames: Set<String>
+        get() = dirClasses?.keys.orEmpty()
+
+    override fun resolve(classFullName: String): ByteArray? {
         val pathArray = classFullName.split(".").toTypedArray()
         pathArray[pathArray.size - 1] = pathArray[pathArray.size - 1] + ".class"
         val filePath = Paths.get(jarOrFolder.absolutePath, *pathArray)

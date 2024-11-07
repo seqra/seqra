@@ -40,7 +40,10 @@ class RestoredJcByteCodeLocation(
         return jarOrFolder.asByteCodeLocation(type == LocationType.RUNTIME)
     }
 
-    override suspend fun resolve(classFullName: String) = null
+    override fun resolve(classFullName: String) = null
+
+    override val classNames: Set<String>
+        get() = emptySet()
 
     override val classes: Map<String, ByteArray>?
         get() = null

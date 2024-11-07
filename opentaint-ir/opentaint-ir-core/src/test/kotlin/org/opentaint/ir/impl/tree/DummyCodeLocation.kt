@@ -31,7 +31,10 @@ open class DummyCodeLocation(private val name: String) : JIRByteCodeLocation, Re
 
     override fun createRefreshed() = this
 
-    override suspend fun resolve(classFullName: String) = null
+    override fun resolve(classFullName: String) = null
+
+    override val classNames: Set<String>
+        get() = emptySet()
 
 }
 

@@ -20,13 +20,13 @@ import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.filterExisted
-import org.opentaint.ir.impl.fs.load
+import org.opentaint.ir.impl.fs.lazySources
+import org.opentaint.ir.impl.fs.sources
 import org.opentaint.ir.impl.storage.PersistentLocationRegistry
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
 import org.opentaint.ir.impl.vfs.RemoveLocationsVisitor
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -103,29 +103,23 @@ class JIRDBImpl(
     }
 
     private suspend fun List<RegisteredLocation>.process(): List<RegisteredLocation> {
-        val actions = ConcurrentLinkedQueue<RegisteredLocation>()
-
-        val libraryTrees = withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
             map { location ->
                 async {
                     // here something may go wrong
-                    val libraryTree = location.load()
-                    actions.add(location)
-                    libraryTree
+                    location.lazySources.forEach {
+                        classesVfs.addClass(it)
+                    }
                 }
             }
         }.awaitAll()
-        val locationClasses = libraryTrees.associate {
-            it.location to it.pushInto(classesVfs).values
-        }
         val backgroundJobId = jobId.incrementAndGet()
         backgroundJobs[backgroundJobId] = backgroundScope.launch {
             val parentScope = this
-            actions.map { location ->
+            map { location ->
                 async {
-                    val addedClasses = locationClasses[location]
-                    if (parentScope.isActive && addedClasses != null) {
-                        val sources = addedClasses.map { it.source }
+                    val sources = location.sources
+                    if (parentScope.isActive) {
                         persistence.persist(location, sources)
                         classesVfs.visit(RemoveLocationsVisitor(listOf(location)))
                         featureRegistry.index(location, sources)
@@ -146,7 +140,13 @@ class JIRDBImpl(
     }
 
     override suspend fun rebuildFeatures() {
-        awaitBackgroundJobs()
+        rebuildFeatures(true)
+    }
+
+    private suspend fun rebuildFeatures(await: Boolean) {
+        if (await) {
+            awaitBackgroundJobs()
+        }
         featureRegistry.broadcast(JIRInternalSignal.Rebuild)
 
         withContext(Dispatchers.IO) {

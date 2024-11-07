@@ -14,7 +14,11 @@ class JmodLocation(file: File) : JarLocation(file, true) {
             })
         }
 
-    override suspend fun resolve(classFullName: String): ByteArray? {
+    override val classNames: Set<String>?
+        get() = super.classNames?.map { it.removePrefix("classes.") }?.toSet()
+
+
+    override fun resolve(classFullName: String): ByteArray? {
         return super.resolve("classes.$classFullName")
     }
 }

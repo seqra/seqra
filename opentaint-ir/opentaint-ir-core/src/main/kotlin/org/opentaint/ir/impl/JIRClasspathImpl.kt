@@ -26,10 +26,12 @@ class JIRClasspathImpl(
     globalClassVFS: GlobalClassesVfs
 ) : JIRClasspath {
 
+    private class ClassHolder(val jirClass: JIRClassOrInterface?)
+
     private val classCache = CacheBuilder.newBuilder()
         .expireAfterAccess(Duration.ofSeconds(10))
         .maximumSize(1_000)
-        .build<String, JIRClassOrInterface>()
+        .build<String, ClassHolder>()
 
     override val locations: List<JIRByteCodeLocation> = locationsRegistrySnapshot.locations.map { it.jirLocation }
     override val registeredLocations: List<RegisteredLocation> = locationsRegistrySnapshot.locations
@@ -46,11 +48,12 @@ class JIRClasspathImpl(
 
     override fun findClassOrNull(name: String): JIRClassOrInterface? {
         return classCache.get(name) {
-            toJcClass(classpathVfs.firstClassOrNull(name))
+            val jirClass = toJcClass(classpathVfs.firstClassOrNull(name))
                 ?: db.persistence.findClassByName(this, locationsRegistrySnapshot.locations, name)?.let {
                     JIRClassOrInterfaceImpl(this, it)
                 }
-        }
+            ClassHolder(jirClass)
+        }.jirClass
     }
 
     override fun typeOf(jirClass: JIRClassOrInterface): JIRRefType {

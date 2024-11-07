@@ -45,7 +45,10 @@ open class JarLocation(file: File, private val isRuntime: Boolean) : AbstractByt
             }
         }
 
-    override suspend fun resolve(classFullName: String): ByteArray? {
+    override val classNames: Set<String>?
+        get() = jarFile?.entries()?.toList()?.mapNotNull { it.className }?.toSet()
+
+    override fun resolve(classFullName: String): ByteArray? {
         val jar = jarFile ?: return null
         val jarEntryName = classFullName.replace(".", "/") + ".class"
         val jarEntry = jar.getJarEntry(jarEntryName)
@@ -57,16 +60,25 @@ open class JarLocation(file: File, private val isRuntime: Boolean) : AbstractByt
     protected open val jarWithClasses: JarWithClasses?
         get() {
             val jar = jarFile ?: return null
+            val classesMap = jar.stream().map { entry ->
+                entry?.className?.let { it to entry }
+            }.toList().filterNotNull().toMap()
             return JarWithClasses(
                 jar = jar,
-                classes = jar.stream().filter { it.name.endsWith(".class") && !it.name.contains("module-info") }.map {
-                    val className = it.name.removeSuffix(".class").replace("/", ".")
-                    className to it
-                }.toList().toMap()
+                classes = classesMap
             )
         }
 
-    private val jarFile: JarFile?
+    private val JarEntry.className: String?
+        get() {
+            val name = this.name
+            if (name.endsWith(".class") && !name.contains("module-info")) {
+                return name.removeSuffix(".class").replace("/", ".")
+            }
+            return null
+        }
+
+    protected val jarFile: JarFile?
         get() {
             if (!jarOrFolder.exists() || !jarOrFolder.isFile) {
                 return null

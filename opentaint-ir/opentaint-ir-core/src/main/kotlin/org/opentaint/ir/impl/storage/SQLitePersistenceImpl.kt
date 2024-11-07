@@ -66,7 +66,6 @@ class SQLitePersistenceImpl(
         write {
             if (clearOnStart) {
                 SchemaUtils.drop(
-//                    Classpaths,
                     BytecodeLocations,
                     Classes, Symbols, ClassHierarchies, ClassInnerClasses, OuterClasses,
                     Methods, MethodParameters,
@@ -75,7 +74,6 @@ class SQLitePersistenceImpl(
                 )
             }
             SchemaUtils.create(
-//                Classpaths,
                 BytecodeLocations,
                 Classes, Symbols, ClassHierarchies, ClassInnerClasses, OuterClasses,
                 Methods, MethodParameters,
@@ -151,9 +149,10 @@ class SQLitePersistenceImpl(
 
     override fun findClasses(location: RegisteredLocation): List<ClassSource> {
         return transaction(db) {
-            val classes = Classes.join(Symbols, onColumn = Symbols.id, otherColumn = Classes.name, joinType = JoinType.INNER)
-                .slice(Classes.locationId, Classes.bytecode, Symbols.name)
-                .select(Classes.locationId eq location.id)
+            val classes =
+                Classes.join(Symbols, onColumn = Symbols.id, otherColumn = Classes.name, joinType = JoinType.INNER)
+                    .slice(Classes.locationId, Classes.bytecode, Symbols.name)
+                    .select(Classes.locationId eq location.id)
             classes.map {
                 ClassSourceImpl(
                     location = location,
