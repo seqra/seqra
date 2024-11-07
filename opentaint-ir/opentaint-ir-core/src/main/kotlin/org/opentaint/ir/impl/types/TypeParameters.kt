@@ -1,7 +1,5 @@
 package org.opentaint.ir.impl.types
 
-import com.google.common.cache.CacheBuilder
-import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toPersistentMap
 import org.opentaint.ir.api.JIRAccessible
 import org.opentaint.ir.api.JIRClassOrInterface
@@ -14,7 +12,6 @@ import org.opentaint.ir.impl.types.signature.MethodResolutionImpl
 import org.opentaint.ir.impl.types.signature.MethodSignature
 import org.opentaint.ir.impl.types.signature.TypeResolutionImpl
 import org.opentaint.ir.impl.types.signature.TypeSignature
-import java.time.Duration
 
 val JIRClassOrInterface.typeParameters: List<JvmTypeParameterDeclaration>
     get() {
@@ -26,11 +23,6 @@ val JIRMethod.typeParameters: List<JvmTypeParameterDeclaration>
         return (MethodSignature.of(this) as? MethodResolutionImpl)?.typeVariables ?: emptyList()
     }
 
-private val classParamsCache = CacheBuilder.newBuilder()
-    .maximumSize(1_000)
-    .expireAfterAccess(Duration.ofSeconds(10))
-    .build<JIRClassOrInterface, PersistentMap<String, JvmTypeParameterDeclaration>>()
-
 fun JIRClassOrInterface.directTypeParameters(): List<JvmTypeParameterDeclaration> {
     val declaredSymbols = typeParameters.map { it.symbol }.toHashSet()
     return allVisibleTypeParameters().filterKeys { declaredSymbols.contains(it) }.values.toList()
@@ -40,21 +32,13 @@ fun JIRClassOrInterface.directTypeParameters(): List<JvmTypeParameterDeclaration
  * returns all visible declaration without JvmTypeParameterDeclaration#declaration
  */
 fun JIRClassOrInterface.allVisibleTypeParameters(): Map<String, JvmTypeParameterDeclaration> {
-    val result = classParamsCache.getIfPresent(this)
-    if (result != null) {
-        return result
-    }
     val direct = typeParameters.associateBy { it.symbol }
     if (!isStatic) {
         val fromOuter = outerClass?.allVisibleTypeParameters()
         val fromMethod = outerMethod?.allVisibleTypeParameters()
-        val res = (direct + (fromMethod ?: fromOuter).orEmpty()).toPersistentMap()
-        classParamsCache.put(this, res)
-        return res
+        return (direct + (fromMethod ?: fromOuter).orEmpty()).toPersistentMap()
     }
-    return direct.also {
-        classParamsCache.put(this, it.toPersistentMap())
-    }
+    return direct
 }
 
 fun JIRMethod.allVisibleTypeParameters(): Map<String, JvmTypeParameterDeclaration> {

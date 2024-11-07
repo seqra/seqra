@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl
 
+import com.google.common.cache.CacheBuilder
 import org.opentaint.ir.api.JIRArrayType
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.JIRClassOrInterface
@@ -17,12 +18,18 @@ import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import org.opentaint.ir.impl.types.substition.JIRSubstitutor
 import org.opentaint.ir.impl.vfs.ClasspathClassTree
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
+import java.time.Duration
 
 class JIRClasspathImpl(
     private val locationsRegistrySnapshot: LocationsRegistrySnapshot,
     override val db: JIRDBImpl,
     globalClassVFS: GlobalClassesVfs
 ) : JIRClasspath {
+
+    private val classCache = CacheBuilder.newBuilder()
+        .expireAfterAccess(Duration.ofSeconds(10))
+        .maximumSize(1_000)
+        .build<String, JIRClassOrInterface>()
 
     override val locations: List<JIRByteCodeLocation> = locationsRegistrySnapshot.locations.map { it.jirLocation }
     override val registeredLocations: List<RegisteredLocation> = locationsRegistrySnapshot.locations
@@ -38,12 +45,11 @@ class JIRClasspathImpl(
     }
 
     override fun findClassOrNull(name: String): JIRClassOrInterface? {
-        val inMemoryClass = toJcClass(classpathClassTree.firstClassOrNull(name))
-        if (inMemoryClass != null) {
-            return inMemoryClass
-        }
-        return db.persistence.findClassByName(this, locationsRegistrySnapshot.locations, name)?.let {
-            JIRClassOrInterfaceImpl(this, it)
+        return classCache.get(name) {
+            toJcClass(classpathClassTree.firstClassOrNull(name))
+                ?: db.persistence.findClassByName(this, locationsRegistrySnapshot.locations, name)?.let {
+                    JIRClassOrInterfaceImpl(this, it)
+                }
         }
     }
 
