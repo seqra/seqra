@@ -67,16 +67,15 @@ suspend fun JIRClasspath.findUsages(method: JIRMethod): List<JIRMethod> {
     }
 }
 
-private suspend fun JIRClasspath.findUsages(
+private fun findUsages(
     hierarchy: Set<JIRClassOrInterface>,
     matcher: (AbstractInsnNode, Set<String>) -> Boolean
 ): List<JIRMethod> {
     val result = hashSetOf<JIRMethod>()
     val hierarchyNames = hierarchy.map { it.name }.toSet()
-    hierarchy.forEach {
-        val jirClass = findClassOrNull(it.name)
-        val asm = jirClass?.bytecode()
-        asm?.methods?.forEach { method ->
+    hierarchy.forEach { jirClass ->
+        val asm = jirClass.bytecode()
+        asm.methods?.forEach { method ->
             for (inst in method.instructions) {
                 val matches = matcher(inst, hierarchyNames)
                 if (matches) {

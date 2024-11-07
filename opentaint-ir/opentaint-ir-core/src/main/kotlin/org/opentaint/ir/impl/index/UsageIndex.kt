@@ -7,6 +7,8 @@ import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.batchInsert
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.statements.StatementType
+import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldInsnNode
@@ -19,6 +21,7 @@ import org.opentaint.ir.api.JIRSignal
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.storage.Symbols
 import org.opentaint.ir.impl.storage.longHash
+import kotlin.time.ExperimentalTime
 
 
 class UsagesIndexer(private val location: RegisteredLocation) : ByteCodeIndexer {
@@ -98,6 +101,20 @@ data class UsageIndexRequest(
 
 object Usages : Feature<UsageIndexRequest, String> {
 
+    private val createIndexes = """
+        CREATE INDEX IF NOT EXISTS 'Calls methods' ON Calls(callee_class_hash, callee_method_hash, location_id)
+        WHERE callee_field_hash IS NULL;
+
+        CREATE INDEX IF NOT EXISTS 'Calls fields' ON Calls(callee_class_hash, callee_field_hash, location_id)
+        WHERE callee_method_hash IS NULL;
+    """.trimIndent()
+
+
+    private fun String.execute() {
+        TransactionManager.current().exec(this, emptyList(), StatementType.CREATE)
+    }
+
+    @OptIn(ExperimentalTime::class)
     override fun onSignal(signal: JIRSignal) {
         when (signal) {
             is JIRSignal.BeforeIndexing -> {
@@ -106,11 +123,19 @@ object Usages : Feature<UsageIndexRequest, String> {
                 }
                 SchemaUtils.create(Calls)
             }
+
             is JIRSignal.LocationRemoved -> {
                 signal.jirdb.persistence.write {
                     Calls.deleteWhere { Calls.locationId eq signal.location.id }
                 }
             }
+
+            is JIRSignal.AfterIndexing -> {
+                signal.jirdb.persistence.write {
+                    createIndexes.execute()
+                }
+            }
+
             else -> Unit
         }
     }

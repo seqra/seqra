@@ -48,6 +48,7 @@ class PersistentLocationRegistry(
                 it[state] = LocationState.PROCESSED
             }
         }
+        featuresRegistry.broadcast(JIRInternalSignal.AfterIndexing)
     }
 
     override fun registerIfNeeded(locations: List<JIRByteCodeLocation>): RegistrationResult {
