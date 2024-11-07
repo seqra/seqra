@@ -25,7 +25,11 @@ abstract class BaseTypesTest : BaseTest() {
 
     protected suspend inline fun <reified T> JIRType?.assertType(): JIRClassType {
         val expected = findClassType<T>()
-        assertEquals(expected.jirClass.name, (this as? JIRClassType)?.jirClass?.name)
+        assertEquals(
+            expected.jirClass.name,
+            (this as? JIRClassType)?.jirClass?.name,
+            "Expected ${expected.jirClass.name} but got ${this?.typeName}"
+        )
         return this as JIRClassType
     }
 

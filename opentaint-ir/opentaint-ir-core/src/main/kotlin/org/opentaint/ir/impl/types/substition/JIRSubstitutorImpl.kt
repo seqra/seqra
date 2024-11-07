@@ -20,7 +20,9 @@ class JIRSubstitutorImpl(
             if (direct != null) {
                 return direct
             }
-            return JvmTypeVariable(visitDeclaration(type.declaration, context))
+            return type.declaration?.let {
+                JvmTypeVariable(visitDeclaration(it, context))
+            } ?: type
         }
     }
 

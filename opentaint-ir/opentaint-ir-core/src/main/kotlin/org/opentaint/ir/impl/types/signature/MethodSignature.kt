@@ -5,9 +5,9 @@ import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.Malformed
 import org.opentaint.ir.api.MethodResolution
 import org.opentaint.ir.api.Pure
+import org.opentaint.ir.impl.types.allVisibleTypeParameters
 import org.opentaint.ir.impl.types.substition.JvmTypeVisitor
-import org.opentaint.ir.impl.types.substition.VisitorContext
-import org.opentaint.ir.impl.types.typeParameters
+import org.opentaint.ir.impl.types.substition.fixDeclarationVisitor
 
 internal class MethodSignature(method: JIRMethod) : Signature<MethodResolution>(method) {
 
@@ -69,18 +69,19 @@ internal class MethodSignature(method: JIRMethod) : Signature<MethodResolution>(
             val signature = jirMethod.signature
             signature ?: return Pure
             return try {
+                of(signature, MethodSignature(jirMethod))
+            } catch (ignored: RuntimeException) {
+                Malformed
+            }
+        }
+
+        suspend fun withDeclarations(jirMethod: JIRMethod): MethodResolution {
+            val signature = jirMethod.signature
+            signature ?: return Pure
+            return try {
                 of(signature, MethodSignature(jirMethod)).let {
                     if (it is MethodResolutionImpl) {
-                        val declarations =
-                            (jirMethod.enclosingClass.typeParameters + it.typeVariables).associateBy { it.symbol }
-                        val fixDeclarationVisitor = object : JvmTypeVisitor {
-
-                            override fun visitTypeVariable(type: JvmTypeVariable, context: VisitorContext): JvmType {
-                                type.declaration = declarations[type.symbol]!!
-                                return type
-                            }
-                        }
-                        it.apply(fixDeclarationVisitor)
+                        it.apply(jirMethod.allVisibleTypeParameters().fixDeclarationVisitor)
                     } else {
                         it
                     }

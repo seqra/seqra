@@ -5,8 +5,9 @@ import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.Malformed
 import org.opentaint.ir.api.Pure
 import org.opentaint.ir.api.TypeResolution
+import org.opentaint.ir.impl.types.allVisibleTypeParameters
 import org.opentaint.ir.impl.types.substition.JvmTypeVisitor
-import org.opentaint.ir.impl.types.substition.VisitorContext
+import org.opentaint.ir.impl.types.substition.fixDeclarationVisitor
 
 internal class TypeSignature(jirClass: JIRClassOrInterface) : Signature<TypeResolution>(jirClass) {
 
@@ -53,17 +54,18 @@ internal class TypeSignature(jirClass: JIRClassOrInterface) : Signature<TypeReso
         fun of(jirClass: JIRClassOrInterface): TypeResolution {
             val signature = jirClass.signature ?: return Pure
             return try {
+                of(signature, TypeSignature(jirClass))
+            } catch (ignored: RuntimeException) {
+                Malformed
+            }
+        }
+
+        suspend fun withDeclarations(jirClass: JIRClassOrInterface): TypeResolution {
+            val signature = jirClass.signature ?: return Pure
+            return try {
                 of(signature, TypeSignature(jirClass)).let {
                     if (it is TypeResolutionImpl) {
-                        val declarations = it.typeVariables.associateBy { it.symbol }
-                        val fixDeclarationVisitor = object : JvmTypeVisitor {
-
-                            override fun visitTypeVariable(type: JvmTypeVariable, context: VisitorContext): JvmType {
-                                type.declaration = declarations[type.symbol]!!
-                                return type
-                            }
-                        }
-                        it.apply(fixDeclarationVisitor)
+                        it.apply(jirClass.allVisibleTypeParameters().fixDeclarationVisitor)
                     } else {
                         it
                     }

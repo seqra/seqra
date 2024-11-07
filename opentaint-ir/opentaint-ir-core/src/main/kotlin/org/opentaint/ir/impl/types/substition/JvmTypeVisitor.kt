@@ -96,6 +96,16 @@ internal interface JvmTypeVisitor {
             declaration.bounds?.map { visitType(it, context) }
         )
     }
+}
 
 
+internal val Map<String, JvmTypeParameterDeclaration>.fixDeclarationVisitor: JvmTypeVisitor get() {
+    val declarations = this
+    return object : JvmTypeVisitor {
+
+        override fun visitTypeVariable(type: JvmTypeVariable, context: VisitorContext): JvmType {
+            type.declaration = declarations[type.symbol]!!
+            return type
+        }
+    }
 }

@@ -51,7 +51,7 @@ open class JvmTypeVariable(val symbol: String) : JvmType() {
         this.declaration = declaration
     }
 
-    lateinit var declaration: JvmTypeParameterDeclaration
+    var declaration: JvmTypeParameterDeclaration? = null
 
     override val displayName: String
         get() = symbol
@@ -70,7 +70,7 @@ open class JvmTypeVariable(val symbol: String) : JvmType() {
 
     override fun hashCode(): Int {
         var result = symbol.hashCode()
-        result = 31 * result + (declaration.hashCode())
+        result = 31 * result + (declaration?.hashCode() ?: 0)
         return result
     }
 

@@ -4,7 +4,6 @@ import org.objectweb.asm.tree.MethodNode
 import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRDeclaration
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRParameter
 import org.opentaint.ir.api.ext.findClass
@@ -35,8 +34,7 @@ class JIRMethodImpl(
         return emptyList()
     }
 
-    override val declaration: JIRDeclaration
-        get() = JIRDeclarationImpl.of(location = enclosingClass.declaration.location, this)
+    override val declaration = JIRDeclarationImpl.of(location = enclosingClass.declaration.location, this)
 
     override val parameters: List<JIRParameter>
         get() = methodInfo.parametersInfo.map { JIRParameterImpl(this, it) }

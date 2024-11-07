@@ -7,6 +7,7 @@ import org.opentaint.ir.api.JIRTypedField
 import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.isProtected
 import org.opentaint.ir.api.isPublic
+import org.opentaint.ir.api.isStatic
 import org.opentaint.ir.api.toType
 import org.opentaint.ir.impl.suspendableLazy
 import org.opentaint.ir.impl.types.signature.JvmClassRefType
@@ -31,7 +32,7 @@ open class JIRClassTypeImpl(
         nullable: Boolean
     ) : this(jirClass, outerType, jirClass.substitute(parameters), nullable)
 
-    private val resolutionImpl by lazy(LazyThreadSafetyMode.NONE) { TypeSignature.of(jirClass) as? TypeResolutionImpl }
+    private val resolutionImpl = suspendableLazy { TypeSignature.withDeclarations(jirClass) as? TypeResolutionImpl }
     private val declaredTypeParameters by lazy(LazyThreadSafetyMode.NONE) { jirClass.typeParameters }
 
     override val classpath get() = jirClass.classpath
@@ -39,9 +40,9 @@ open class JIRClassTypeImpl(
     override val typeName: String
         get() {
             val generics = if (substitutor.substitutions.isEmpty()) {
-                declaredTypeParameters.joinToString() { it.symbol }
+                declaredTypeParameters.joinToString { it.symbol }
             } else {
-                declaredTypeParameters.joinToString() {
+                declaredTypeParameters.joinToString {
                     substitutor.substitution(it)?.displayName ?: it.symbol
                 }
             }
@@ -69,7 +70,7 @@ open class JIRClassTypeImpl(
 
     override suspend fun superType(): JIRClassType? {
         val superClass = jirClass.superclass() ?: return null
-        return resolutionImpl?.let {
+        return resolutionImpl()?.let {
             val newSubstitutor = superSubstitutor(superClass, it.superClass)
             JIRClassTypeImpl(superClass, outerType, newSubstitutor, nullable)
         } ?: superClass.toType()
@@ -77,7 +78,7 @@ open class JIRClassTypeImpl(
 
     override suspend fun interfaces(): List<JIRClassType> {
         return jirClass.interfaces().map { iface ->
-            val ifaceType = resolutionImpl?.interfaceType?.firstOrNull { it.isReferencesClass(iface.name) }
+            val ifaceType = resolutionImpl()?.interfaceType?.firstOrNull { it.isReferencesClass(iface.name) }
             if (ifaceType != null) {
                 val newSubstitutor = superSubstitutor(iface, ifaceType)
                 JIRClassTypeImpl(iface, null, newSubstitutor, nullable)
@@ -89,17 +90,39 @@ open class JIRClassTypeImpl(
 
     override suspend fun innerTypes(): List<JIRClassType> {
         return jirClass.innerClasses().map {
-            JIRClassTypeImpl(it, this, substitutor, true)
+            val outerMethod = it.outerMethod()
+            val outerClass = it.outerClass()
+
+            val innerParameters =
+                (outerMethod?.allVisibleTypeParameters() ?: outerClass?.allVisibleTypeParameters())?.values?.toList()
+                    .orEmpty()
+            val innerSubstitutor = when {
+                it.isStatic -> JIRSubstitutor.empty.newScope(innerParameters)
+                else -> substitutor.newScope(innerParameters)
+            }
+            JIRClassTypeImpl(it, this, innerSubstitutor, true)
         }
+    }
+
+    override suspend fun outerType(): JIRClassType? {
+        return outerType
+    }
+
+    override suspend fun declaredMethods(): List<JIRTypedMethod> {
+        return jirClass.typedMethods(true, fromSuperTypes = false)
     }
 
     override suspend fun methods(): List<JIRTypedMethod> {
         //let's calculate visible methods from super types
-        return jirClass.typedMethods(true)
+        return jirClass.typedMethods(true, fromSuperTypes = true)
+    }
+
+    override suspend fun declaredFields(): List<JIRTypedField> {
+        return jirClass.typedFields(true, fromSuperTypes = false)
     }
 
     override suspend fun fields(): List<JIRTypedField> {
-        return jirClass.typedFields(true)
+        return jirClass.typedFields(true, fromSuperTypes = true)
     }
 
     override fun notNullable() = JIRClassTypeImpl(jirClass, outerType, substitutor, false)
@@ -121,18 +144,24 @@ open class JIRClassTypeImpl(
         return 31 * result + typeName.hashCode()
     }
 
-    private suspend fun JIRClassOrInterface.typedMethods(all: Boolean): List<JIRTypedMethod> {
-        val methodSet = if (all) {
+    private suspend fun JIRClassOrInterface.typedMethods(allMethods: Boolean, fromSuperTypes: Boolean): List<JIRTypedMethod> {
+        val methodSet = if (allMethods) {
             methods
         } else {
             methods.filter { it.isPublic || it.isProtected } // add package check
         }
-        return methodSet.map {
+        val declaredMethods = methodSet.map {
             JIRTypedMethodImpl(this@JIRClassTypeImpl, it, substitutor)
         }
+        if (!fromSuperTypes) {
+            return declaredMethods
+        }
+        return declaredMethods +
+                interfaces().flatMap { it.typedMethods(false, fromSuperTypes = true) } +
+                superclass()?.typedMethods(false, fromSuperTypes = true).orEmpty()
     }
 
-    private suspend fun JIRClassOrInterface.typedFields(all: Boolean): List<JIRTypedField> {
+    private suspend fun JIRClassOrInterface.typedFields(all: Boolean, fromSuperTypes: Boolean): List<JIRTypedField> {
         val fieldSet = if (all) {
             fields
         } else {
@@ -141,12 +170,15 @@ open class JIRClassTypeImpl(
         val directSet = fieldSet.map {
             JIRTypedFieldImpl(this@JIRClassTypeImpl, it, substitutor)
         }
+        if (fromSuperTypes) {
+            return directSet + superclass()?.typedFields(false, fromSuperTypes = true).orEmpty()
+        }
         return directSet
     }
 
 
-    private fun superSubstitutor(superClass: JIRClassOrInterface, superType: JvmType): JIRSubstitutor {
-        val superParameters = superClass.typeParameters
+    private suspend fun superSubstitutor(superClass: JIRClassOrInterface, superType: JvmType): JIRSubstitutor {
+        val superParameters = superClass.directTypeParameters()
         val substitutions = (superType as? JvmParameterizedType)?.parameterTypes
         if (substitutions == null || superParameters.size != substitutions.size) {
             return JIRSubstitutor.empty

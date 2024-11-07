@@ -16,15 +16,15 @@ class JIRTypedFieldImpl(
     private val substitutor: JIRSubstitutor
 ) : JIRTypedField {
 
-    private val resolution = FieldSignature.of(field) as? FieldResolutionImpl
+    private val resolution = suspendableLazy { FieldSignature.of(field) as? FieldResolutionImpl }
     private val classpath = field.enclosingClass.classpath
-    private val resolvedType = resolution?.fieldType
+    private val resolvedType = suspendableLazy { resolution()?.fieldType }
 
     override val name: String get() = this.field.name
 
     private val fieldTypeGetter = suspendableLazy {
         val typeName = field.type.typeName
-        resolvedType?.let {
+        resolvedType()?.let {
             classpath.typeOf(substitutor.substitute(it))
         } ?: classpath.findTypeOrNull(field.type.typeName) ?: typeName.throwClassNotFound()
     }

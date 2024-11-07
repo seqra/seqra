@@ -45,8 +45,8 @@ class RecursiveTypesTest : BaseTypesTest() {
     @Test
     fun `extending recursive types in declaration`() {
         runBlocking {
-            val comparable3 = findClassType<ComparableTest5>()
-            with(comparable3.superType()!!.fields()) {
+            val comparable5 = findClassType<ComparableTest5>()
+            with(comparable5.superType()!!.fields()) {
                 first { it.name == "stateT" }.fieldType().assertType<Int>()
                 first { it.name == "stateW" }.fieldType().assertType<Int>()
             }

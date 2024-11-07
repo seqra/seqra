@@ -102,7 +102,7 @@ class LinkedGenericsTest : BaseTypesTest() {
         runBlocking {
             val superFooType = findClassType<SingleImpl>()
             val superType = superFooType.superType().assertClassType()
-            val methods = superType.methods().filterNot { it.method.isConstructor }
+            val methods = superType.declaredMethods().filterNot { it.method.isConstructor }
             assertEquals(2, methods.size)
 
             with(methods.first { it.method.name == "run1" }) {
@@ -117,7 +117,7 @@ class LinkedGenericsTest : BaseTypesTest() {
         runBlocking {
             val superFooType = findClassType<SingleImpl>()
             val superType = superFooType.superType().assertClassType()
-            val methods = superType.methods().filterNot { it.method.isConstructor }
+            val methods = superType.declaredMethods().filterNot { it.method.isConstructor }
             assertEquals(2, methods.size)
 
             with(methods.first { it.method.name == "run2" }) {

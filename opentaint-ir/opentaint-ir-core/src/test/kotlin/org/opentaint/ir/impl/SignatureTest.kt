@@ -20,6 +20,7 @@ import org.opentaint.ir.impl.types.signature.MethodResolutionImpl
 import org.opentaint.ir.impl.types.signature.MethodSignature
 import org.opentaint.ir.impl.types.signature.TypeResolutionImpl
 import org.opentaint.ir.impl.types.signature.TypeSignature
+import org.opentaint.ir.impl.types.typeParameters
 import org.opentaint.ir.impl.usages.Generics
 
 class SignatureTest: BaseTest() {
@@ -137,6 +138,6 @@ class SignatureTest: BaseTest() {
 
     private val JIRClassOrInterface.resolution get() = TypeSignature.of(this)
     private val JIRMethod.resolution get() = MethodSignature.of(this)
-    private val JIRField.resolution get() = FieldSignature.of(this)
+    private val JIRField.resolution get() = FieldSignature.of(signature, enclosingClass.typeParameters.associateBy { it.symbol })
 }
 
