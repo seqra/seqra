@@ -9,6 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.opentaint.ir.JIRDBSettings
 import org.opentaint.ir.api.JIRDB
@@ -174,6 +175,9 @@ class JIRDBImpl(
         locationsRegistry.close()
         backgroundJobs.values.forEach {
             it.cancel()
+        }
+        runBlocking {
+            awaitBackgroundJobs()
         }
         backgroundScope.cancel()
         backgroundJobs.clear()

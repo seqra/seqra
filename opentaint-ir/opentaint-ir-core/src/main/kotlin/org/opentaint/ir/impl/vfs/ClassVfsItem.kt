@@ -8,6 +8,9 @@ class ClassVfsItem(
     internal val source: ClassSource
 ) : AbstractVfsItem<PackageVfsItem>(name, packageNode) {
 
+    override val fullName: String
+        get() = super.fullName!!
+
     val location get() = source.location
 
 }

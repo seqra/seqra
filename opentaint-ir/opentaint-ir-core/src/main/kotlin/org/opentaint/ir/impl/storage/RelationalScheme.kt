@@ -3,16 +3,6 @@ package org.opentaint.ir.impl.storage
 import org.jetbrains.exposed.dao.id.LongIdTable
 import org.jetbrains.exposed.sql.ReferenceOption
 
-
-object Classpaths : LongIdTable()
-
-//object ClasspathLocations : LongIdTable() {
-//
-//    val classpathId = reference("classpath_id", Classpaths.id, onDelete = ReferenceOption.CASCADE)
-//    val locationId = reference("location_id", BytecodeLocations.id)
-//
-//}
-
 object BytecodeLocations : LongIdTable() {
     val path = varchar("path", length = 1024)
     val hash = varchar("hash", length = 1024)

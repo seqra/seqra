@@ -16,7 +16,7 @@ import org.opentaint.ir.impl.bytecode.toJcClass
 import org.opentaint.ir.impl.types.JIRArrayTypeImpl
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import org.opentaint.ir.impl.types.substition.JIRSubstitutor
-import org.opentaint.ir.impl.vfs.ClasspathClassTree
+import org.opentaint.ir.impl.vfs.ClasspathVfs
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
 import java.time.Duration
 
@@ -34,7 +34,7 @@ class JIRClasspathImpl(
     override val locations: List<JIRByteCodeLocation> = locationsRegistrySnapshot.locations.map { it.jirLocation }
     override val registeredLocations: List<RegisteredLocation> = locationsRegistrySnapshot.locations
 
-    private val classpathClassTree = ClasspathClassTree(globalClassVFS, locationsRegistrySnapshot)
+    private val classpathVfs = ClasspathVfs(globalClassVFS, locationsRegistrySnapshot)
 
     override suspend fun refreshed(closeOld: Boolean): JIRClasspath {
         return db.new(this).also {
@@ -46,7 +46,7 @@ class JIRClasspathImpl(
 
     override fun findClassOrNull(name: String): JIRClassOrInterface? {
         return classCache.get(name) {
-            toJcClass(classpathClassTree.firstClassOrNull(name))
+            toJcClass(classpathVfs.firstClassOrNull(name))
                 ?: db.persistence.findClassByName(this, locationsRegistrySnapshot.locations, name)?.let {
                     JIRClassOrInterfaceImpl(this, it)
                 }

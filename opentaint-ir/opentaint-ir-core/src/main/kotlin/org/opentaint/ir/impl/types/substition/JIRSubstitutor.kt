@@ -49,29 +49,3 @@ fun JIRClassOrInterface.substitute(parameters: List<JvmType>, outer: JIRSubstitu
     }.toMap()
     return (outer ?: JIRSubstitutor.empty).newScope(substitution)
 }
-
-private suspend fun composeSubstitutors(
-    outer: JIRSubstitutor,
-    inner: JIRSubstitutor,
-    onClass: JIRClassOrInterface
-): JIRSubstitutor {
-//    var answer: JIRSubstitutor = JIRSubstitutor.empty
-//    val outerMap = outer.substitutions
-//    val innerMap = inner.substitutions
-//    for (parameter in onClass.typeParameters()) {
-//        if (outerMap.containsKey(parameter) || innerMap.containsKey(parameter)) {
-//            val innerType = inner.substitute(parameter)!!
-//            val paramCandidate =
-//                innerType as? JIRClassType //if (PsiCapturedWildcardType.isCapture()) (innerType as? JIRClassType)?.jirClass else null
-//            var targetType: JIRType?
-//            if (paramCandidate != null && paramCandidate !== parameter) {
-//                targetType = outer.substitute(paramCandidate)
-//            } else {
-//                targetType = outer.substitute(innerType)
-//            }
-//            answer = answer.put(parameter, targetType)
-//        }
-//    }
-//    return answer
-    TODO()
-}
