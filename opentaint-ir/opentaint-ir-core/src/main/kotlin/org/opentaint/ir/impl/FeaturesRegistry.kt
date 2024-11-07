@@ -1,11 +1,12 @@
 package org.opentaint.ir.impl
 
+import org.opentaint.ir.api.ByteCodeIndexer
+import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.Feature
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRSignal
 import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.impl.index.index
-import org.opentaint.ir.impl.vfs.ClassVfsItem
+import org.opentaint.ir.impl.fs.fullAsmNode
 import java.io.Closeable
 
 class FeaturesRegistry(private val features: List<Feature<*, *>>) : Closeable {
@@ -16,15 +17,15 @@ class FeaturesRegistry(private val features: List<Feature<*, *>>) : Closeable {
         this.jirdb = jirdb
     }
 
-    suspend fun index(location: RegisteredLocation, classes: Collection<ClassVfsItem>) {
+    fun index(location: RegisteredLocation, classes: List<ClassSource>) {
         features.forEach { feature ->
             feature.index(location, classes)
         }
     }
 
-    private suspend fun <REQ, RES> Feature<RES, REQ>.index(
+    private fun <REQ, RES> Feature<RES, REQ>.index(
         location: RegisteredLocation,
-        classes: Collection<ClassVfsItem>
+        classes: Collection<ClassSource>
     ) {
         val indexer = newIndexer(jirdb, location)
         classes.forEach { index(it, indexer) }
@@ -44,13 +45,20 @@ class FeaturesRegistry(private val features: List<Feature<*, *>>) : Closeable {
     override fun close() {
     }
 
+    private fun index(source: ClassSource, builder: ByteCodeIndexer) {
+        val asmNode = source.fullAsmNode
+        builder.index(asmNode)
+        asmNode.methods.forEach {
+            builder.index(asmNode, it)
+        }
+    }
 }
-
 
 sealed class JIRInternalSignal {
 
     class BeforeIndexing(val clearOnStart: Boolean) : JIRInternalSignal()
     object AfterIndexing : JIRInternalSignal()
+    object Rebuild : JIRInternalSignal()
     class LocationRemoved(val location: RegisteredLocation) : JIRInternalSignal()
 
     fun asJcSignal(jirdb: JIRDB): JIRSignal {
@@ -58,6 +66,7 @@ sealed class JIRInternalSignal {
             is BeforeIndexing -> JIRSignal.BeforeIndexing(jirdb, clearOnStart)
             is AfterIndexing -> JIRSignal.AfterIndexing(jirdb)
             is LocationRemoved -> JIRSignal.LocationRemoved(jirdb, location)
+            is Rebuild -> JIRSignal.Rebuild(jirdb)
         }
     }
 

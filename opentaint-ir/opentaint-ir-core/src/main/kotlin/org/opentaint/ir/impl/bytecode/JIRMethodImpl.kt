@@ -24,14 +24,15 @@ class JIRMethodImpl(
     override val signature: String? get() = methodInfo.signature
     override val returnType = TypeNameImpl(methodInfo.returnClass)
 
-    override fun exceptions(): List<JIRClassOrInterface> {
+    override val exceptions: List<JIRClassOrInterface> by lazy(LazyThreadSafetyMode.NONE) {
         val methodSignature = MethodSignature.of(this)
         if (methodSignature is MethodResolutionImpl) {
-            return methodSignature.exceptionTypes.map {
+            methodSignature.exceptionTypes.map {
                 enclosingClass.classpath.findClass(it.name)
             }
+        } else {
+            emptyList()
         }
-        return emptyList()
     }
 
     override val declaration = JIRDeclarationImpl.of(location = enclosingClass.declaration.location, this)

@@ -6,8 +6,8 @@ import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRField
 import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.findMethodOrNull
-import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.fs.fullAsmNode
 import org.opentaint.ir.impl.fs.info
 
@@ -31,31 +31,25 @@ class JIRClassOrInterfaceImpl(
 
     override val interfaces by lazy(LazyThreadSafetyMode.NONE) {
         info.interfaces.map {
-            classpath.findAndWrap(it) ?: it.throwClassNotFound()
+            classpath.findClass(it)
         }
     }
 
     override val superClass by lazy(LazyThreadSafetyMode.NONE) {
-        val superClass = info.superClass
-        if (superClass != null) {
-            classpath.findAndWrap(info.superClass) ?: superClass.throwClassNotFound()
-        } else {
-            null
+        info.superClass?.let {
+            classpath.findClass(it)
         }
     }
 
     override val outerClass by lazy(LazyThreadSafetyMode.NONE) {
-        val className = info.outerClass?.className
-        if (className != null) {
-            classpath.findAndWrap(className) ?: className.throwClassNotFound()
-        } else {
-            null
+        info.outerClass?.className?.let {
+            classpath.findClass(it)
         }
     }
 
     override val innerClasses by lazy(LazyThreadSafetyMode.NONE) {
         info.innerClasses.map {
-            classpath.findAndWrap(it) ?: it.throwClassNotFound()
+            classpath.findClass(it)
         }
     }
 

@@ -125,9 +125,10 @@ class JIRDBImpl(
                 async {
                     val addedClasses = locationClasses[location]
                     if (parentScope.isActive && addedClasses != null) {
-                        persistence.persist(location, addedClasses.map { it.source })
+                        val sources = addedClasses.map { it.source }
+                        persistence.persist(location, sources)
                         classesVfs.visit(RemoveLocationsVisitor(listOf(location)))
-                        featureRegistry.index(location, addedClasses)
+                        featureRegistry.index(location, sources)
                     }
                 }
             }.joinAll()
@@ -146,7 +147,20 @@ class JIRDBImpl(
 
     override suspend fun rebuildFeatures() {
         awaitBackgroundJobs()
-        // todo implement me
+        featureRegistry.broadcast(JIRInternalSignal.Rebuild)
+
+        withContext(Dispatchers.IO) {
+            val locations = locationsRegistry.actualLocations
+            val parentScope = this
+            locations.map {
+                async {
+                    val addedClasses = persistence.findClasses(it)
+                    if (parentScope.isActive) {
+                        featureRegistry.index(it, addedClasses)
+                    }
+                }
+            }.joinAll()
+        }
     }
 
     override fun watchFileSystemChanges(): JIRDB {

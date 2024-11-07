@@ -2,6 +2,7 @@ package org.opentaint.ir.impl.storage
 
 import mu.KLogging
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.JoinType
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
@@ -145,6 +146,21 @@ class SQLitePersistenceImpl(
                 className = fullName,
                 byteCode = byteCode.bytes
             )
+        }
+    }
+
+    override fun findClasses(location: RegisteredLocation): List<ClassSource> {
+        return transaction(db) {
+            val classes = Classes.join(Symbols, onColumn = Symbols.id, otherColumn = Classes.name, joinType = JoinType.INNER)
+                .slice(Classes.locationId, Classes.bytecode, Symbols.name)
+                .select(Classes.locationId eq location.id)
+            classes.map {
+                ClassSourceImpl(
+                    location = location,
+                    className = it[Symbols.name],
+                    byteCode = it[Classes.bytecode].bytes
+                )
+            }
         }
     }
 

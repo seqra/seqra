@@ -12,11 +12,6 @@ fun JIRClasspath.toJcClass(item: ClassVfsItem?): JIRClassOrInterface? {
     return JIRClassOrInterfaceImpl(this, item.source)
 }
 
-fun JIRClasspath.findAndWrap(fullName: String?): JIRClassOrInterface? {
-    fullName ?: return null
-    return findClassOrNull(fullName)
-}
-
 fun JIRClassOrInterface.toJcMethod(methodInfo: MethodInfo, source: ClassSource): JIRMethod {
     return JIRMethodImpl(methodInfo, source, this)
 }
