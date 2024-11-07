@@ -5,9 +5,11 @@ import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRTypedField
 import org.opentaint.ir.api.JIRTypedMethod
+import org.opentaint.ir.api.isPackagePrivate
 import org.opentaint.ir.api.isProtected
 import org.opentaint.ir.api.isPublic
 import org.opentaint.ir.api.isStatic
+import org.opentaint.ir.api.packageName
 import org.opentaint.ir.api.toType
 import org.opentaint.ir.impl.suspendableLazy
 import org.opentaint.ir.impl.types.signature.JvmClassRefType
@@ -114,20 +116,20 @@ open class JIRClassTypeImpl(
     }
 
     override suspend fun declaredMethods(): List<JIRTypedMethod> {
-        return jirClass.typedMethods(true, fromSuperTypes = false)
+        return typedMethods(true, fromSuperTypes = false, jirClass.packageName)
     }
 
     override suspend fun methods(): List<JIRTypedMethod> {
         //let's calculate visible methods from super types
-        return jirClass.typedMethods(true, fromSuperTypes = true)
+        return typedMethods(true, fromSuperTypes = true, jirClass.packageName)
     }
 
     override suspend fun declaredFields(): List<JIRTypedField> {
-        return jirClass.typedFields(true, fromSuperTypes = false)
+        return typedFields(true, fromSuperTypes = false, jirClass.packageName)
     }
 
     override suspend fun fields(): List<JIRTypedField> {
-        return jirClass.typedFields(true, fromSuperTypes = true)
+        return typedFields(true, fromSuperTypes = true, jirClass.packageName)
     }
 
     override fun notNullable() = JIRClassTypeImpl(jirClass, outerType, substitutor, false)
@@ -149,14 +151,16 @@ open class JIRClassTypeImpl(
         return 31 * result + typeName.hashCode()
     }
 
-    private suspend fun JIRClassOrInterface.typedMethods(
+    private suspend fun typedMethods(
         allMethods: Boolean,
-        fromSuperTypes: Boolean
+        fromSuperTypes: Boolean,
+        packageName: String
     ): List<JIRTypedMethod> {
+        val classPackageName = jirClass.packageName
         val methodSet = if (allMethods) {
-            methods
+            jirClass.methods
         } else {
-            methods.filter { it.isPublic || it.isProtected } // add package check
+            jirClass.methods.filter { it.isPublic || it.isProtected || (it.isPackagePrivate && packageName == classPackageName) }
         }
         val declaredMethods = methodSet.map {
             JIRTypedMethodImpl(this@JIRClassTypeImpl, it, substitutor)
@@ -165,21 +169,29 @@ open class JIRClassTypeImpl(
             return declaredMethods
         }
         return declaredMethods +
-                interfaces().flatMap { it.typedMethods(false, fromSuperTypes = true) } +
-                superclass()?.typedMethods(false, fromSuperTypes = true).orEmpty()
+                interfaces().flatMap {
+                    (it as? JIRClassTypeImpl)?.typedMethods(false, fromSuperTypes = true, packageName).orEmpty()
+                } +
+                (superType() as? JIRClassTypeImpl)?.typedMethods(false, fromSuperTypes = true, packageName).orEmpty()
     }
 
-    private suspend fun JIRClassOrInterface.typedFields(all: Boolean, fromSuperTypes: Boolean): List<JIRTypedField> {
+    private suspend fun typedFields(all: Boolean, fromSuperTypes: Boolean, packageName: String): List<JIRTypedField> {
+        val classPackageName = jirClass.packageName
+
         val fieldSet = if (all) {
-            fields
+            jirClass.fields
         } else {
-            fields.filter { it.isPublic || it.isProtected } // add package check
+            jirClass.fields.filter { it.isPublic || it.isProtected || (it.isPackagePrivate && packageName == classPackageName) }
         }
         val directSet = fieldSet.map {
             JIRTypedFieldImpl(this@JIRClassTypeImpl, it, substitutor)
         }
         if (fromSuperTypes) {
-            return directSet + superclass()?.typedFields(false, fromSuperTypes = true).orEmpty()
+            return directSet + (superType() as? JIRClassTypeImpl)?.typedFields(
+                false,
+                fromSuperTypes = true,
+                classPackageName
+            ).orEmpty()
         }
         return directSet
     }
