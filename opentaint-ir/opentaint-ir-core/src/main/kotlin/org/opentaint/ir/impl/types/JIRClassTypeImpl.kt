@@ -110,26 +110,22 @@ open class JIRClassTypeImpl(
             }
         }
 
-    override val declaredMethods: List<JIRTypedMethod>
-        get() {
-            return typedMethods(true, fromSuperTypes = false, jirClass.packageName)
-        }
+    override val declaredMethods by lazy(LazyThreadSafetyMode.NONE) {
+        typedMethods(true, fromSuperTypes = false, jirClass.packageName)
+    }
 
-    override val methods: List<JIRTypedMethod>
-        get() {
-            //let's calculate visible methods from super types
-            return typedMethods(true, fromSuperTypes = true, jirClass.packageName)
-        }
+    override val methods by lazy(LazyThreadSafetyMode.NONE) {
+        //let's calculate visible methods from super types
+        typedMethods(true, fromSuperTypes = true, jirClass.packageName)
+    }
 
-    override val declaredFields: List<JIRTypedField>
-        get() {
-            return typedFields(true, fromSuperTypes = false, jirClass.packageName)
-        }
+    override val declaredFields by lazy(LazyThreadSafetyMode.NONE) {
+        typedFields(true, fromSuperTypes = false, jirClass.packageName)
+    }
 
-    override val fields: List<JIRTypedField>
-        get() {
-            return typedFields(true, fromSuperTypes = true, jirClass.packageName)
-        }
+    override val fields by lazy(LazyThreadSafetyMode.NONE) {
+        typedFields(true, fromSuperTypes = true, jirClass.packageName)
+    }
 
     override fun notNullable() = JIRClassTypeImpl(jirClass, outerType, substitutor, false)
 
@@ -161,17 +157,23 @@ open class JIRClassTypeImpl(
         } else {
             jirClass.declaredMethods.filter { !it.isConstructor && (it.isPublic || it.isProtected || (it.isPackagePrivate && packageName == classPackageName)) }
         }
-        val declaredMethods = methodSet.map {
+        val declaredMethods: List<JIRTypedMethod> = methodSet.map {
             JIRTypedMethodImpl(this@JIRClassTypeImpl, it, substitutor)
         }
+
         if (!fromSuperTypes) {
             return declaredMethods
         }
-        return declaredMethods +
-                interfaces.flatMap {
-                    (it as? JIRClassTypeImpl)?.typedMethods(false, fromSuperTypes = true, packageName).orEmpty()
-                } +
-                (superType as? JIRClassTypeImpl)?.typedMethods(false, fromSuperTypes = true, packageName).orEmpty()
+        val result = declaredMethods.toSortedSet(UnsafeHierarchyTypedMethodComparator)
+        result.addAll(
+            (superType as? JIRClassTypeImpl)?.typedMethods(false, fromSuperTypes = true, packageName).orEmpty()
+        )
+        result.addAll(
+            interfaces.flatMap {
+                (it as? JIRClassTypeImpl)?.typedMethods(false, fromSuperTypes = true, packageName).orEmpty()
+            }
+        )
+        return result.toList()
     }
 
     private fun typedFields(all: Boolean, fromSuperTypes: Boolean, packageName: String): List<JIRTypedField> {
@@ -215,5 +217,13 @@ fun JvmType.isReferencesClass(name: String): Boolean {
         is JvmParameterizedType -> type.name == name
         is JvmParameterizedType.JvmNestedType -> type.name == name
         else -> false
+    }
+}
+
+// call with SAFE. comparator works only on methods from one hierarchy
+private object UnsafeHierarchyTypedMethodComparator : Comparator<JIRTypedMethod> {
+
+    override fun compare(o1: JIRTypedMethod, o2: JIRTypedMethod): Int {
+        return (o1.name + o1.method.description).compareTo(o2.name + o2.method.description)
     }
 }
