@@ -5,9 +5,9 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.extension.AfterAllCallback
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.extension.ExtensionContext
-import org.opentaint.ir.api.Feature
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.jirdb
 import kotlin.reflect.full.companionObjectInstance
 
@@ -38,7 +38,7 @@ abstract class BaseTest : LibrariesMixin {
         }
 }
 
-open class WithDB(vararg features: Feature<*, *>) : LibrariesMixin {
+open class WithDB(vararg features: JIRFeature<*, *>) : LibrariesMixin {
 
     var db: JIRDB? = runBlocking {
         jirdb {

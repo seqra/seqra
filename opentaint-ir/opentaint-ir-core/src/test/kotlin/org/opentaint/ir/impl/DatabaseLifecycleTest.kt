@@ -54,7 +54,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
         val database = db!!
         val cp = database.classpath(listOf(testDirClone))
         val barKt = cp.findClass<BarKt>()
-
+        database.awaitBackgroundJobs()
         assertTrue(testDirClone.deleteRecursively())
         assertNotNull(barKt.methods.first().body())
 
@@ -66,7 +66,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
             assertEquals(1, actualLocations.filter { (it.jirLocation as RestoredJcByteCodeLocation).createRefreshed() == null }.size)
         }
 
-        assertNotNull(cp.findClassOrNull<BarKt>())
+        cp.findClass<BarKt>()
         cp.close()
         database.refresh()
         withRegistry {
@@ -78,8 +78,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
     @Test
     fun `method could be read from build dir`() = runBlocking {
         val cp = db!!.classpath(listOf(testDirClone))
-        val barKt = cp.findClassOrNull<BarKt>()
-        assertNotNull(barKt!!)
+        val barKt = cp.findClass<BarKt>()
 
         assertNotNull(
             runBlocking {
@@ -92,8 +91,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
     fun `refresh is working when jar is removed`() = runBlocking {
         val database = db!!
         val cp = database.classpath(listOf(guavaLibClone))
-        val abstractCacheClass = cp.findClassOrNull<AbstractCache<*,*>>()
-        assertNotNull(abstractCacheClass!!)
+        val abstractCacheClass = cp.findClass<AbstractCache<*,*>>()
         database.awaitBackgroundJobs() // is required for deleting jar
 
         assertTrue(guavaLibClone.delete())
@@ -104,7 +102,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
             assertEquals(1, snapshots.size)
         }
 
-        assertNotNull(cp.findClassOrNull<AbstractCache<*,*>>())
+        cp.findClass<AbstractCache<*,*>>()
         cp.close()
         database.refresh()
         withRegistry {
@@ -156,8 +154,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
     @Test
     fun `jar should not be blocked after method read`() = runBlocking {
         val cp = db!!.classpath(listOf(guavaLibClone))
-        val clazz = cp.findClassOrNull<Iterators>()
-        assertNotNull(clazz!!)
+        val clazz = cp.findClass<Iterators>()
         assertNotNull(clazz.methods.first().body())
         db!!.awaitBackgroundJobs()
         assertTrue(guavaLibClone.delete())

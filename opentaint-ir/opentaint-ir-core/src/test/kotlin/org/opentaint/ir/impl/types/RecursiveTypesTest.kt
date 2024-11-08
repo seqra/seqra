@@ -16,7 +16,7 @@ class RecursiveTypesTest : BaseTypesTest() {
             val comparable1 = findClassType<ComparableTest1>()
             val compareTo = comparable1.methods.first { it.name == "compareTo" }
             assertEquals("int", compareTo.returnType.typeName)
-            compareTo.parameters.first().type.assertType<ComparableTest1>()
+            compareTo.parameters.first().type.assertClassType<ComparableTest1>()
         }
     }
 
@@ -38,7 +38,7 @@ class RecursiveTypesTest : BaseTypesTest() {
             val comparable3 = findClassType<ComparableTest3>()
             val compareTo = comparable3.superType!!.methods.first { it.name == "compareTo" }
             assertEquals("int", compareTo.returnType.typeName)
-            compareTo.parameters.first().type.assertType<ComparableTest3>()
+            compareTo.parameters.first().type.assertClassType<ComparableTest3>()
         }
     }
 
@@ -47,8 +47,8 @@ class RecursiveTypesTest : BaseTypesTest() {
         runBlocking {
             val comparable5 = findClassType<ComparableTest5>()
             with(comparable5.superType!!.fields) {
-                first { it.name == "stateT" }.fieldType().assertType<Int>()
-                first { it.name == "stateW" }.fieldType().assertType<Int>()
+                first { it.name == "stateT" }.fieldType().assertClassType<Int>()
+                first { it.name == "stateW" }.fieldType().assertClassType<Int>()
             }
         }
     }

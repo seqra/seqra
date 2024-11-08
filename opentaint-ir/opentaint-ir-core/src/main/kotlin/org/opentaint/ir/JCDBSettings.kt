@@ -2,9 +2,9 @@ package org.opentaint.ir
 
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
-import org.opentaint.ir.api.Feature
 import org.opentaint.ir.api.Hook
 import org.opentaint.ir.api.JIRDB
+import org.opentaint.ir.api.JIRFeature
 import java.io.File
 
 /**
@@ -33,7 +33,7 @@ class JIRDBSettings {
     lateinit var jre: File
 
     /** feature to add */
-    var features: List<Feature<*, *>> = emptyList()
+    var features: List<JIRFeature<*, *>> = emptyList()
         private set
 
     init {
@@ -93,7 +93,7 @@ class JIRDBSettings {
     /**
      * install additional indexes
      */
-    fun installFeatures(vararg feature: Feature<*, *>) = apply {
+    fun installFeatures(vararg feature: JIRFeature<*, *>) = apply {
         features = features + feature.toList()
     }
 

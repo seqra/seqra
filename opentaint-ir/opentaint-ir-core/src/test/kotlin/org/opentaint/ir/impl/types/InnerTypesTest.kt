@@ -48,7 +48,7 @@ class InnerTypesTest : BaseTypesTest() {
         with(innerClasses.first { it.typeName.contains("1") }) {
             val fields = fields
             assertEquals(4, fields.size)
-            interfaces.first().assertType<Runnable>()
+            interfaces.first().assertClassType<Runnable>()
 
             with(fields.first { it.name == "stateT" }) {
                 assertEquals("stateT", name)
@@ -69,7 +69,7 @@ class InnerTypesTest : BaseTypesTest() {
     @Test
     fun `parameterized inner type with parent type parameterization`() {
         with(field("stateString")) {
-            fields.first { it.name == "stateW" }.fieldType().assertType<String>()
+            fields.first { it.name == "stateW" }.fieldType().assertClassType<String>()
         }
 
     }
@@ -92,7 +92,7 @@ class InnerTypesTest : BaseTypesTest() {
 
         with(field("stateClosable")) {
             with(fields.first { it.name == "stateW" }) {
-                fieldType().assertType<Closeable>()
+                fieldType().assertClassType<Closeable>()
             }
             with(methods.first { it.name == "method" }) {
                 with(returnType.assertIs<JIRTypeVariable>()) {
@@ -107,7 +107,7 @@ class InnerTypesTest : BaseTypesTest() {
     private fun field(fieldName: String): JIRClassType {
         return findClassType<InnerClasses<*>>().fields.first {
             it.name == fieldName
-        }.fieldType().assertClassType()
+        }.fieldType().assertIsClass()
     }
 
 }

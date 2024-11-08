@@ -18,7 +18,7 @@ class LinkedGenericsTest : BaseTypesTest() {
         with(partial.superType!!) {
             with(typeParameters.first()) {
                 assertEquals("T", symbol)
-                bounds.first().assertType<Any>()
+                bounds.first().assertClassType<Any>()
             }
 
             with(typeParameters[1]) {
@@ -34,7 +34,7 @@ class LinkedGenericsTest : BaseTypesTest() {
         val partial = findClassType<LinkedImpl<*>>()
         with(partial.superType!!) {
             with(typeArguments[0]) {
-                assertType<String>()
+                assertClassType<String>()
             }
 
             with(typeArguments[1]) {
@@ -55,7 +55,7 @@ class LinkedGenericsTest : BaseTypesTest() {
 
             with(fields.first()) {
                 assertEquals("state", name)
-                fieldType().assertType<String>()
+                fieldType().assertClassType<String>()
             }
             with(fields[1]) {
                 assertEquals("stateW", name)
@@ -66,7 +66,7 @@ class LinkedGenericsTest : BaseTypesTest() {
             }
             with(fields[2]) {
                 assertEquals("stateListW", name)
-                val resolvedType = fieldType().assertClassType()
+                val resolvedType = fieldType().assertIsClass()
                 assertEquals(cp.findClass<List<*>>(), resolvedType.jirClass)
                 val shouldBeW = (resolvedType.typeArguments.first() as JIRTypeVariable)
                 assertEquals("java.util.List<java.lang.String>", shouldBeW.bounds.first().typeName)
@@ -79,17 +79,17 @@ class LinkedGenericsTest : BaseTypesTest() {
     fun `generics applied for fields of super types`() {
         runBlocking {
             val superFooType = findClassType<SingleImpl>()
-            with(superFooType.superType.assertClassType()) {
+            with(superFooType.superType.assertIsClass()) {
                 val fields = fields
                 assertEquals(2, fields.size)
 
                 with(fields.first()) {
                     assertEquals("state", name)
-                    fieldType().assertType<String>()
+                    fieldType().assertClassType<String>()
                 }
                 with(fields.get(1)) {
                     assertEquals("stateList", name)
-                    with(fieldType().assertClassType()) {
+                    with(fieldType().assertIsClass()) {
                         assertEquals("java.util.ArrayList<java.lang.String>", typeName)
                     }
                 }
@@ -101,13 +101,13 @@ class LinkedGenericsTest : BaseTypesTest() {
     fun `direct generics from child types applied to methods`() {
         runBlocking {
             val superFooType = findClassType<SingleImpl>()
-            val superType = superFooType.superType.assertClassType()
+            val superType = superFooType.superType.assertIsClass()
             val methods = superType.declaredMethods.filterNot { it.method.isConstructor }
             assertEquals(2, methods.size)
 
             with(methods.first { it.method.name == "run1" }) {
-                returnType.assertType<String>()
-                parameters.first().type.assertType<String>()
+                returnType.assertClassType<String>()
+                parameters.first().type.assertClassType<String>()
             }
         }
     }
@@ -116,7 +116,7 @@ class LinkedGenericsTest : BaseTypesTest() {
     fun `custom generics from child types applied to methods`() {
         runBlocking {
             val superFooType = findClassType<SingleImpl>()
-            val superType = superFooType.superType.assertClassType()
+            val superType = superFooType.superType.assertIsClass()
             val methods = superType.declaredMethods.filterNot { it.method.isConstructor }
             assertEquals(2, methods.size)
 
@@ -128,7 +128,7 @@ class LinkedGenericsTest : BaseTypesTest() {
                 assertEquals("W", (bound as? JIRTypeVariable)?.symbol)
                 assertEquals("W", w.symbol)
                 bound as JIRTypeVariable
-                bound.bounds.first().assertType<String>()
+                bound.bounds.first().assertClassType<String>()
             }
         }
     }

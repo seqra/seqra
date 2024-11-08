@@ -2,14 +2,14 @@ package org.opentaint.ir.impl
 
 import org.opentaint.ir.api.ByteCodeIndexer
 import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.Feature
 import org.opentaint.ir.api.JIRDB
+import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.api.JIRSignal
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.fs.fullAsmNode
 import java.io.Closeable
 
-class FeaturesRegistry(private val features: List<Feature<*, *>>) : Closeable {
+class FeaturesRegistry(private val features: List<JIRFeature<*, *>>) : Closeable {
 
     private lateinit var jirdb: JIRDB
 
@@ -23,7 +23,7 @@ class FeaturesRegistry(private val features: List<Feature<*, *>>) : Closeable {
         }
     }
 
-    private fun <REQ, RES> Feature<RES, REQ>.index(
+    private fun <REQ, RES> JIRFeature<RES, REQ>.index(
         location: RegisteredLocation,
         classes: Collection<ClassSource>
     ) {
@@ -38,7 +38,7 @@ class FeaturesRegistry(private val features: List<Feature<*, *>>) : Closeable {
         features.forEach { it.onSignal(signal.asJcSignal(jirdb)) }
     }
 
-    fun forEach(action: (JIRDB, Feature<*, *>) -> Unit) {
+    fun forEach(action: (JIRDB, JIRFeature<*, *>) -> Unit) {
         features.forEach { action(jirdb, it) }
     }
 

@@ -39,7 +39,7 @@ class MultiParametersTest : BaseTypesTest() {
         runBlocking {
             val test2 = findClassType<SuperTest2<*, *>>()
             with(test2.field(SuperTest1<*, *, *>::stateT)) {
-                fieldType().assertType<String>()
+                fieldType().assertClassType<String>()
             }
             with(test2.field(SuperTest1<*, *, *>::stateW)) {
                 val variable = fieldType() as JIRTypeVariable
@@ -56,7 +56,7 @@ class MultiParametersTest : BaseTypesTest() {
         runBlocking {
             val test2 = findClassType<SuperTest3>()
             with(test2.field(SuperTest1<*, *, *>::stateT)) {
-                fieldType().assertType<String>()
+                fieldType().assertClassType<String>()
             }
             with(test2.field(SuperTest1<*, *, *>::stateW)) {
                 val variable = fieldType()
@@ -93,8 +93,8 @@ class MultiParametersTest : BaseTypesTest() {
         runBlocking {
             val test2 = findClassType<SuperTest2<*, *>>()
             with(test2.method(SuperTest1<*, *, *>::runT)) {
-                parameters.first().type.assertType<String>()
-                returnType.assertType<String>()
+                parameters.first().type.assertClassType<String>()
+                returnType.assertClassType<String>()
             }
             with(test2.method(SuperTest1<*, *, *>::runW)) {
                 assertEquals("W", (returnType as JIRTypeVariable).symbol)
@@ -112,8 +112,8 @@ class MultiParametersTest : BaseTypesTest() {
         runBlocking {
             val test2 = findClassType<SuperTest3>()
             with(test2.method(SuperTest1<*, *, *>::runT)) {
-                parameters.first().type.assertType<String>()
-                returnType.assertType<String>()
+                parameters.first().type.assertClassType<String>()
+                returnType.assertClassType<String>()
             }
             with(test2.method(SuperTest1<*, *, *>::runW)) {
                 assertEquals(finalW, parameters.first().type.typeName)

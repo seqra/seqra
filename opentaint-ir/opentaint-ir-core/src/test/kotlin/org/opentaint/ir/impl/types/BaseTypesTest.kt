@@ -18,12 +18,12 @@ abstract class BaseTypesTest : BaseTest() {
         return found!!.assertIs()
     }
 
-    protected fun JIRType?.assertClassType(): JIRClassType {
+    protected fun JIRType?.assertIsClass(): JIRClassType {
         assertNotNull(this)
         return this!!.assertIs()
     }
 
-    protected inline fun <reified T> JIRType?.assertType(): JIRClassType {
+    protected inline fun <reified T> JIRType?.assertClassType(): JIRClassType {
         val expected = findClassType<T>()
         assertEquals(
             expected.jirClass.name,

@@ -16,8 +16,8 @@ import org.objectweb.asm.tree.FieldInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
 import org.objectweb.asm.tree.MethodNode
 import org.opentaint.ir.api.ByteCodeIndexer
-import org.opentaint.ir.api.Feature
 import org.opentaint.ir.api.JIRDB
+import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.api.JIRSignal
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.storage.Symbols
@@ -99,7 +99,7 @@ data class UsageIndexRequest(
 ) : java.io.Serializable
 
 
-object Usages : Feature<UsageIndexRequest, String> {
+object Usages : JIRFeature<UsageIndexRequest, String> {
 
     private val createIndexes = """
         CREATE INDEX IF NOT EXISTS 'Calls methods' ON Calls(callee_class_hash, callee_method_hash, location_id)

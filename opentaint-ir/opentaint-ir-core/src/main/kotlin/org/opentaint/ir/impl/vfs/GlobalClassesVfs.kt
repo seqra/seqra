@@ -4,11 +4,11 @@ import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.RegisteredLocation
 import java.util.concurrent.ConcurrentHashMap
 
-open class GlobalClassesVfs : AbstractClassVfs<PackageVfsItem, ClassVfsItem>() {
+open class GlobalClassesVfs {
 
-    public override val rootItem = PackageVfsItem(null, null)
+    val rootItem = PackageVfsItem(null, null)
 
-    override fun PackageVfsItem.findClassOrNew(
+    private fun PackageVfsItem.findClassOrNew(
         simpleClassName: String,
         source: ClassSource
     ): ClassVfsItem {
@@ -20,11 +20,28 @@ open class GlobalClassesVfs : AbstractClassVfs<PackageVfsItem, ClassVfsItem>() {
         }
     }
 
-    override fun PackageVfsItem.findPackageOrNew(subfolderName: String): PackageVfsItem {
+    private fun PackageVfsItem.findPackageOrNew(subfolderName: String): PackageVfsItem {
         return subpackages.getOrPut(subfolderName) {
             PackageVfsItem(subfolderName, this)
         }
     }
+
+    fun addClass(source: ClassSource): ClassVfsItem {
+        val splitted = source.className.splitted
+        val simpleClassName = splitted[splitted.size - 1]
+        if (splitted.size == 1) {
+            return rootItem.findClassOrNew(simpleClassName, source)
+        }
+        var node = rootItem
+        var index = 0
+        while (index < splitted.size - 1) {
+            val subfolderName = splitted[index]
+            node = node.findPackageOrNew(subfolderName)
+            index++
+        }
+        return node.findClassOrNew(simpleClassName, source)
+    }
+
 
     fun findClassNodeOrNull(codeLocation: RegisteredLocation, fullName: String): ClassVfsItem? {
         val splitted = fullName.splitted
@@ -55,5 +72,7 @@ open class GlobalClassesVfs : AbstractClassVfs<PackageVfsItem, ClassVfsItem>() {
     fun visit(visitor: VfsVisitor) {
         rootItem.visit(visitor)
     }
+
+    protected val String.splitted get() = this.split(".")
 
 }

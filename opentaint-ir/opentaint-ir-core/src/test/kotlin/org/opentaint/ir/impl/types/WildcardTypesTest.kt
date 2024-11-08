@@ -66,7 +66,7 @@ class WildcardTypesTest : BaseTypesTest() {
                 with(fieldType().assertIs<JIRClassType>()) {
                     assertEquals("java.util.List<? extends java.lang.String>", typeName)
                     with(typeArguments.first().assertIs<JIRBoundedWildcard>()) {
-                        upperBounds.first().assertType<String>()
+                        upperBounds.first().assertClassType<String>()
                     }
                 }
             }
@@ -98,7 +98,7 @@ class WildcardTypesTest : BaseTypesTest() {
                 with(fieldType().assertIs<JIRClassType>()) {
                     assertEquals("java.util.List<? super java.lang.String>", typeName)
                     with(typeArguments.first().assertIs<JIRBoundedWildcard>()) {
-                        lowerBounds.first().assertType<String>()
+                        lowerBounds.first().assertClassType<String>()
                     }
                 }
             }
