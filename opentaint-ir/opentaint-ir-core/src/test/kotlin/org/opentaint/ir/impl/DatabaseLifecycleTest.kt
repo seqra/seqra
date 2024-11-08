@@ -129,8 +129,7 @@ class DatabaseLifecycleTest : LibrariesMixin {
         val cps = (1..10).map { database.classpath(listOf(guavaLibClone)) }
 
         fun JIRClasspath.accessMethod() {
-            val abstractCacheClass = findClassOrNull<AbstractCache<*,*>>()
-            assertNotNull(abstractCacheClass!!)
+            val abstractCacheClass = findClass<AbstractCache<*,*>>()
 
             assertNotNull(
                 abstractCacheClass.methods.first().body()

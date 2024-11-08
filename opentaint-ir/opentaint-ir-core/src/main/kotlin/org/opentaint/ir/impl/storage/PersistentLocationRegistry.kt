@@ -17,6 +17,7 @@ import org.opentaint.ir.impl.RefreshResult
 import org.opentaint.ir.impl.RegistrationResult
 import org.opentaint.ir.impl.storage.BytecodeLocationEntity.Companion.findOrNew
 import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
+import java.util.concurrent.ConcurrentHashMap
 
 class PersistentLocationRegistry(
     private val persistence: JIRDBPersistence,
@@ -24,7 +25,7 @@ class PersistentLocationRegistry(
 ) : LocationsRegistry {
 
     // all snapshot associated with classpaths
-    internal val snapshots = HashSet<LocationsRegistrySnapshot>()
+    internal val snapshots = ConcurrentHashMap.newKeySet<LocationsRegistrySnapshot>()
 
     override val actualLocations: List<PersistentByteCodeLocation>
         get() = persistence.read {
@@ -122,10 +123,8 @@ class PersistentLocationRegistry(
     }
 
     override fun newSnapshot(classpathSetLocations: List<RegisteredLocation>): LocationsRegistrySnapshot {
-        return synchronized(this) {
-            LocationsRegistrySnapshot(this, classpathSetLocations).also {
-                snapshots.add(it)
-            }
+        return LocationsRegistrySnapshot(this, classpathSetLocations).also {
+            snapshots.add(it)
         }
     }
 
