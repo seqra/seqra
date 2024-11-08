@@ -1,6 +1,5 @@
 package org.opentaint.ir.impl.types
 
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -11,24 +10,24 @@ import org.opentaint.ir.api.isConstructor
 class TypesTest : BaseTypesTest() {
 
     @Test
-    fun `primitive and array types`() = runBlocking {
+    fun `primitive and array types`() {
         val primitiveAndArrays = findClassType<PrimitiveAndArrays>()
-        val fields = primitiveAndArrays.fields
+        val fields = primitiveAndArrays.declaredFields
         assertEquals(2, fields.size)
 
         with(fields.first()) {
-            assertTrue(fieldType() is JIRPrimitiveType)
+            assertTrue(fieldType is JIRPrimitiveType)
             assertEquals("value", name)
-            assertEquals("int", fieldType().typeName)
+            assertEquals("int", fieldType.typeName)
         }
         with(fields.get(1)) {
-            assertTrue(fieldType() is JIRArrayType)
+            assertTrue(fieldType is JIRArrayType)
             assertEquals("intArray", name)
-            assertEquals("int[]", fieldType().typeName)
+            assertEquals("int[]", fieldType.typeName)
         }
 
 
-        val methods = primitiveAndArrays.methods.filterNot { it.method.isConstructor }
+        val methods = primitiveAndArrays.declaredMethods.filterNot { it.method.isConstructor }
         with(methods.first()) {
             assertTrue(returnType is JIRArrayType)
             assertEquals("int[]", returnType.typeName)

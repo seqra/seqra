@@ -23,9 +23,9 @@ class JIRTypedFieldImpl(
 
     override val name: String get() = this.field.name
 
-    override fun fieldType(): JIRType {
+    override val fieldType: JIRType by lazy {
         val typeName = field.type.typeName
-        return resolvedType?.let {
+        resolvedType?.let {
             classpath.typeOf(substitutor.substitute(it))
         } ?: classpath.findTypeOrNull(field.type.typeName) ?: typeName.throwClassNotFound()
     }

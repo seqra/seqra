@@ -53,20 +53,18 @@ class LinkedGenericsTest : BaseTypesTest() {
             val fields = fields
             assertEquals(3, fields.size)
 
-            with(fields.first()) {
+            with(fields.first { it.name == "state" }) {
                 assertEquals("state", name)
-                fieldType().assertClassType<String>()
+                fieldType.assertClassType<String>()
             }
-            with(fields[1]) {
-                assertEquals("stateW", name)
+            with(fields.first { it.name == "stateW" }) {
                 assertEquals(
                     "java.util.List<java.lang.String>",
-                    (fieldType() as JIRTypeVariable).bounds.first().typeName
+                    (fieldType as JIRTypeVariable).bounds.first().typeName
                 )
             }
-            with(fields[2]) {
-                assertEquals("stateListW", name)
-                val resolvedType = fieldType().assertIsClass()
+            with(fields.first { it.name == "stateListW" }) {
+                val resolvedType = fieldType.assertIsClass()
                 assertEquals(cp.findClass<List<*>>(), resolvedType.jirClass)
                 val shouldBeW = (resolvedType.typeArguments.first() as JIRTypeVariable)
                 assertEquals("java.util.List<java.lang.String>", shouldBeW.bounds.first().typeName)
@@ -85,11 +83,11 @@ class LinkedGenericsTest : BaseTypesTest() {
 
                 with(fields.first()) {
                     assertEquals("state", name)
-                    fieldType().assertClassType<String>()
+                    fieldType.assertClassType<String>()
                 }
                 with(fields.get(1)) {
                     assertEquals("stateList", name)
-                    with(fieldType().assertIsClass()) {
+                    with(fieldType.assertIsClass()) {
                         assertEquals("java.util.ArrayList<java.lang.String>", typeName)
                     }
                 }

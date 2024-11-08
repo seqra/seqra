@@ -187,14 +187,18 @@ open class JIRClassTypeImpl(
         val directSet = fieldSet.map {
             JIRTypedFieldImpl(this@JIRClassTypeImpl, it, substitutor)
         }
-        if (fromSuperTypes) {
-            return directSet + (superType as? JIRClassTypeImpl)?.typedFields(
+        if (!fromSuperTypes) {
+            return directSet
+        }
+        val result = directSet.toSortedSet<JIRTypedField>(UnsafeHierarchyTypedFieldComparator)
+        result.addAll(
+             (superType as? JIRClassTypeImpl)?.typedFields(
                 false,
                 fromSuperTypes = true,
                 classPackageName
             ).orEmpty()
-        }
-        return directSet
+        )
+        return result.toList()
     }
 
 
@@ -225,5 +229,13 @@ private object UnsafeHierarchyTypedMethodComparator : Comparator<JIRTypedMethod>
 
     override fun compare(o1: JIRTypedMethod, o2: JIRTypedMethod): Int {
         return (o1.name + o1.method.description).compareTo(o2.name + o2.method.description)
+    }
+}
+
+// call with SAFE. comparator works only on methods from one hierarchy
+private object UnsafeHierarchyTypedFieldComparator : Comparator<JIRTypedField> {
+
+    override fun compare(o1: JIRTypedField, o2: JIRTypedField): Int {
+        return o1.name.compareTo(o2.name)
     }
 }
