@@ -1,6 +1,5 @@
 package org.opentaint.ir
 
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
 import org.opentaint.ir.api.JIRDB
@@ -30,4 +29,4 @@ suspend fun jirdb(settings: JIRDBSettings): JIRDB {
 }
 
 /** bridge for Java */
-fun futureJirdb(settings: JIRDBSettings) = GlobalScope.future(Dispatchers.Default) { jirdb(settings) }
+fun asyncJirdb(settings: JIRDBSettings) = GlobalScope.future { jirdb(settings) }

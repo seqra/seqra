@@ -135,7 +135,7 @@ object Usages : JIRFeature<UsageIndexRequest, String> {
                 }
             }
 
-            is JIRSignal.Rebuild -> {
+            is JIRSignal.Drop -> {
                 signal.jirdb.persistence.write {
                     Calls.deleteAll()
                 }

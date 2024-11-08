@@ -140,14 +140,8 @@ class JIRDBImpl(
     }
 
     override suspend fun rebuildFeatures() {
-        rebuildFeatures(true)
-    }
-
-    private suspend fun rebuildFeatures(await: Boolean) {
-        if (await) {
-            awaitBackgroundJobs()
-        }
-        featureRegistry.broadcast(JIRInternalSignal.Rebuild)
+        awaitBackgroundJobs()
+        featureRegistry.broadcast(JIRInternalSignal.Drop)
 
         withContext(Dispatchers.IO) {
             val locations = locationsRegistry.actualLocations

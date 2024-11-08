@@ -58,7 +58,7 @@ sealed class JIRInternalSignal {
 
     class BeforeIndexing(val clearOnStart: Boolean) : JIRInternalSignal()
     object AfterIndexing : JIRInternalSignal()
-    object Rebuild : JIRInternalSignal()
+    object Drop : JIRInternalSignal()
     class LocationRemoved(val location: RegisteredLocation) : JIRInternalSignal()
 
     fun asJcSignal(jirdb: JIRDB): JIRSignal {
@@ -66,7 +66,7 @@ sealed class JIRInternalSignal {
             is BeforeIndexing -> JIRSignal.BeforeIndexing(jirdb, clearOnStart)
             is AfterIndexing -> JIRSignal.AfterIndexing(jirdb)
             is LocationRemoved -> JIRSignal.LocationRemoved(jirdb, location)
-            is Rebuild -> JIRSignal.Rebuild(jirdb)
+            is Drop -> JIRSignal.Drop(jirdb)
         }
     }
 

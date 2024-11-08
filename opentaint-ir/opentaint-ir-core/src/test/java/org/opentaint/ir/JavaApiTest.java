@@ -1,19 +1,54 @@
 package org.opentaint.ir;
 
+import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Test;
 import org.opentaint.ir.api.JIRDB;
+import org.opentaint.ir.api.JIRClassOrInterface;
+import org.opentaint.ir.api.JIRClasspath;
 import org.opentaint.ir.impl.index.Usages;
+import org.opentaint.ir.impl.performance.TakeMemoryDumpKt;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class JavaApiTest {
 
     @Test
     public void createJirdb() throws ExecutionException, InterruptedException, IOException {
         System.out.println("Creating database");
-        try (JIRDB instance = JirdbKt.futureJirdb(new JIRDBSettings().installFeatures(Usages.INSTANCE)).get()) {
+        try (JIRDB instance = JirdbKt.asyncJirdb(new JIRDBSettings().installFeatures(Usages.INSTANCE)).get()) {
             System.out.println("Database is ready: " + instance);
         }
     }
+
+    @Test
+    public void createClasspath() throws ExecutionException, InterruptedException, IOException {
+        System.out.println("Creating database");
+        try (JIRDB instance = JirdbKt.asyncJirdb(new JIRDBSettings().installFeatures(Usages.INSTANCE)).get()) {
+            try (JIRClasspath classpath = instance.asyncClasspath(Lists.newArrayList()).get()) {
+                JIRClassOrInterface clazz = classpath.findClassOrNull("java.lang.String");
+                assertNotNull(clazz);
+                assertNotNull(classpath.asyncRefreshed(false).get());
+            }
+            System.out.println("Database is ready: " + instance);
+        }
+    }
+
+    @Test
+    public void jirdbOperations() throws ExecutionException, InterruptedException, IOException {
+        System.out.println("Creating database");
+        try (JIRDB instance = JirdbKt.asyncJirdb(new JIRDBSettings().installFeatures(Usages.INSTANCE)).get()) {
+            instance.asyncLoad(TakeMemoryDumpKt.getAllClasspath()).get();
+            System.out.println("asyncLoad finished");
+            instance.asyncRefresh().get();
+            System.out.println("asyncRefresh finished");
+            instance.asyncRebuildFeatures().get();
+            System.out.println("asyncRebuildFeatures finished");
+            instance.asyncAwaitBackgroundJobs().get();
+            System.out.println("asyncAwaitBackgroundJobs finished");
+        }
+    }
+
 }
