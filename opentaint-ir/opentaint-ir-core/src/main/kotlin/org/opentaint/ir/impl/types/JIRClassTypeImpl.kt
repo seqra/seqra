@@ -5,6 +5,7 @@ import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRTypedField
 import org.opentaint.ir.api.JIRTypedMethod
+import org.opentaint.ir.api.isConstructor
 import org.opentaint.ir.api.isPackagePrivate
 import org.opentaint.ir.api.isProtected
 import org.opentaint.ir.api.isPublic
@@ -38,23 +39,22 @@ open class JIRClassTypeImpl(
 
     override val classpath get() = jirClass.classpath
 
-    override val typeName: String
-        get() {
-            val generics = if (substitutor.substitutions.isEmpty()) {
-                declaredTypeParameters.joinToString { it.symbol }
-            } else {
-                declaredTypeParameters.joinToString {
-                    substitutor.substitution(it)?.displayName ?: it.symbol
-                }
+    override val typeName: String by lazy {
+        val generics = if (substitutor.substitutions.isEmpty()) {
+            declaredTypeParameters.joinToString { it.symbol }
+        } else {
+            declaredTypeParameters.joinToString {
+                substitutor.substitution(it)?.displayName ?: it.symbol
             }
-            val outer = outerType
-            val name = if (outer != null) {
-                outer.typeName + "." + jirClass.simpleName
-            } else {
-                jirClass.name
-            }
-            return name + ("<${generics}>".takeIf { generics.isNotEmpty() } ?: "")
         }
+        val outer = outerType
+        val name = if (outer != null) {
+            outer.typeName + "." + jirClass.simpleName
+        } else {
+            jirClass.name
+        }
+        name + ("<${generics}>".takeIf { generics.isNotEmpty() } ?: "")
+    }
 
     override val typeParameters get() = declaredTypeParameters.map { it.asJcDeclaration(jirClass) }
 
@@ -159,7 +159,7 @@ open class JIRClassTypeImpl(
         val methodSet = if (allMethods) {
             jirClass.methods
         } else {
-            jirClass.methods.filter { it.isPublic || it.isProtected || (it.isPackagePrivate && packageName == classPackageName) }
+            jirClass.methods.filter { !it.isConstructor && (it.isPublic || it.isProtected || (it.isPackagePrivate && packageName == classPackageName)) }
         }
         val declaredMethods = methodSet.map {
             JIRTypedMethodImpl(this@JIRClassTypeImpl, it, substitutor)
