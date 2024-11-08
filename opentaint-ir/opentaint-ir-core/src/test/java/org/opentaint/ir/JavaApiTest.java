@@ -6,12 +6,12 @@ import org.opentaint.ir.api.JIRDB;
 import org.opentaint.ir.api.JIRClassOrInterface;
 import org.opentaint.ir.api.JIRClasspath;
 import org.opentaint.ir.impl.index.Usages;
-import org.opentaint.ir.impl.performance.TakeMemoryDumpKt;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.opentaint.ir.impl.LibrariesMixinKt.getAllClasspath;
 
 public class JavaApiTest {
 
@@ -40,7 +40,7 @@ public class JavaApiTest {
     public void jirdbOperations() throws ExecutionException, InterruptedException, IOException {
         System.out.println("Creating database");
         try (JIRDB instance = JirdbKt.asyncJirdb(new JIRDBSettings().installFeatures(Usages.INSTANCE)).get()) {
-            instance.asyncLoad(TakeMemoryDumpKt.getAllClasspath()).get();
+            instance.asyncLoad(getAllClasspath()).get();
             System.out.println("asyncLoad finished");
             instance.asyncRefresh().get();
             System.out.println("asyncRefresh finished");

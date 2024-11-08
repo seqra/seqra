@@ -9,6 +9,7 @@ import org.opentaint.ir.impl.tests.DatabaseEnvTest
 
 @ExtendWith(CleanDB::class)
 class ClassesTest : DatabaseEnvTest() {
+
     companion object : WithDB()
 
     override val cp: JIRClasspath = runBlocking { db!!.classpath(allClasspath) }

@@ -73,11 +73,11 @@ class JIRClassOrInterfaceImpl(
             return null
         }
 
-    override val fields: List<JIRField> by lazy(LazyThreadSafetyMode.NONE) {
+    override val declaredFields: List<JIRField> by lazy(LazyThreadSafetyMode.NONE) {
         info.fields.map { JIRFieldImpl(this, it) }
     }
 
-    override val methods: List<JIRMethod> by lazy(LazyThreadSafetyMode.NONE) {
+    override val declaredMethods: List<JIRMethod> by lazy(LazyThreadSafetyMode.NONE) {
         info.methods.map { toJcMethod(it, classSource) }
     }
 

@@ -157,9 +157,9 @@ open class JIRClassTypeImpl(
     ): List<JIRTypedMethod> {
         val classPackageName = jirClass.packageName
         val methodSet = if (allMethods) {
-            jirClass.methods
+            jirClass.declaredMethods
         } else {
-            jirClass.methods.filter { !it.isConstructor && (it.isPublic || it.isProtected || (it.isPackagePrivate && packageName == classPackageName)) }
+            jirClass.declaredMethods.filter { !it.isConstructor && (it.isPublic || it.isProtected || (it.isPackagePrivate && packageName == classPackageName)) }
         }
         val declaredMethods = methodSet.map {
             JIRTypedMethodImpl(this@JIRClassTypeImpl, it, substitutor)
@@ -178,9 +178,9 @@ open class JIRClassTypeImpl(
         val classPackageName = jirClass.packageName
 
         val fieldSet = if (all) {
-            jirClass.fields
+            jirClass.declaredFields
         } else {
-            jirClass.fields.filter { it.isPublic || it.isProtected || (it.isPackagePrivate && packageName == classPackageName) }
+            jirClass.declaredFields.filter { it.isPublic || it.isProtected || (it.isPackagePrivate && packageName == classPackageName) }
         }
         val directSet = fieldSet.map {
             JIRTypedFieldImpl(this@JIRClassTypeImpl, it, substitutor)

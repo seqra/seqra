@@ -14,7 +14,7 @@ import org.openjdk.jmh.annotations.State
 import org.openjdk.jmh.annotations.TearDown
 import org.openjdk.jmh.annotations.Warmup
 import org.opentaint.ir.api.JIRDB
-import org.opentaint.ir.impl.LibrariesMixin
+import org.opentaint.ir.impl.allJars
 import org.opentaint.ir.impl.index.Usages
 import org.opentaint.ir.jirdb
 import java.util.concurrent.TimeUnit
@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.MILLISECONDS)
-class DBBenchmarks : LibrariesMixin {
+class DBBenchmarks  {
 
     private var db: JIRDB? = null
 
@@ -35,7 +35,6 @@ class DBBenchmarks : LibrariesMixin {
         db = runBlocking {
             jirdb {
                 useProcessJavaRuntime()
-
                 installFeatures(Usages)
             }
         }

@@ -123,7 +123,7 @@ class SearchUsagesTest : BaseTest() {
         return runBlocking {
             val classId = cp.findClass<T>()
 
-            val fields = classId.fields
+            val fields = classId.declaredFields
 
             fields.associate {
                 it.name to cp.findUsages(it, mode).map { it.enclosingClass.name + "#" + it.name }.toSortedSet()
@@ -134,7 +134,7 @@ class SearchUsagesTest : BaseTest() {
     private inline fun <reified T> methodsUsages(): Map<String, Set<String>> {
         return runBlocking {
             val classId = cp.findClass<T>()
-            val methods = classId.methods
+            val methods = classId.declaredMethods
 
             methods.map {
                 it.name to cp.findUsages(it).map { it.enclosingClass.name + "#" + it.name }.toSortedSet()

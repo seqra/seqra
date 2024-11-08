@@ -79,7 +79,7 @@ private fun findUsages(
             for (inst in method.instructions) {
                 val matches = matcher(inst, hierarchyNames)
                 if (matches) {
-                    val methodId = jirClass.methods.firstOrNull {
+                    val methodId = jirClass.declaredMethods.firstOrNull {
                         it.name == method.name && it.description == method.desc
                     }
                     if (methodId != null) {

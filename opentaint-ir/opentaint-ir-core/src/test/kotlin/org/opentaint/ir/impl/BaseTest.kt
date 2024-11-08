@@ -12,7 +12,7 @@ import org.opentaint.ir.jirdb
 import kotlin.reflect.full.companionObjectInstance
 
 @ExtendWith(CleanDB::class)
-abstract class BaseTest : LibrariesMixin {
+abstract class BaseTest {
 
     protected val cp: JIRClasspath = runBlocking {
         val withDB = this@BaseTest.javaClass.withDB
@@ -38,7 +38,7 @@ abstract class BaseTest : LibrariesMixin {
         }
 }
 
-open class WithDB(vararg features: JIRFeature<*, *>) : LibrariesMixin {
+open class WithDB(vararg features: JIRFeature<*, *>) {
 
     var db: JIRDB? = runBlocking {
         jirdb {

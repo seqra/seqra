@@ -101,7 +101,7 @@ class DirectUsagesTest : BaseTest() {
         return runBlocking {
             val classId = cp.findClass<T>()
 
-            classId.methods.map {
+            classId.declaredMethods.map {
                 val usages = findFieldsUsedIn(it)
                 it.name to listOf(
                     "reads" to usages.reads.map { it.enclosingClass.name + "#" + it.name },
@@ -118,7 +118,7 @@ class DirectUsagesTest : BaseTest() {
         return runBlocking {
             val jirClass = cp.findClass<T>()
 
-            val methods = jirClass.methods
+            val methods = jirClass.declaredMethods
 
             methods.map {
                 it.name to findMethodsUsedIn(it).map { it.enclosingClass.name + "#" + it.name }.toImmutableList()

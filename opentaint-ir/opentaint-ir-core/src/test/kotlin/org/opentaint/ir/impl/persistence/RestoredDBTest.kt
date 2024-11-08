@@ -4,7 +4,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterAll
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.ext.HierarchyExtension
-import org.opentaint.ir.impl.LibrariesMixin
+import org.opentaint.ir.impl.allClasspath
 import org.opentaint.ir.impl.index.hierarchyExt
 import org.opentaint.ir.impl.tests.DatabaseEnvTest
 import org.opentaint.ir.jirdb
@@ -12,7 +12,7 @@ import java.nio.file.Files
 
 class RestoredDBTest : DatabaseEnvTest() {
 
-    companion object : LibrariesMixin {
+    companion object {
 
         private val jdbcLocation = Files.createTempFile("jirdb-", null).toFile().absolutePath
 
