@@ -1,6 +1,7 @@
 package org.opentaint.ir.impl.index
 
 import kotlinx.serialization.Serializable
+import org.jooq.DSLContext
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldInsnNode
@@ -47,8 +48,8 @@ class UsagesIndexer(private val location: RegisteredLocation, private val jirdb:
         }
     }
 
-    override fun flush() {
-        (jirdb.persistence as SQLitePersistenceImpl).jooq.connection { conn ->
+    override fun flush(jooq: DSLContext) {
+        jooq.connection { conn ->
             conn.insertElements(CALLS, fieldsUsages.flatme()) {
                 val (calleeClass, calleeField, caller) = it
                 setLong(1, calleeClass.longHash)

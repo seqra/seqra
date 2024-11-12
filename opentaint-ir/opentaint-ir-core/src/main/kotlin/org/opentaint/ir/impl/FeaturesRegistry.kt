@@ -25,12 +25,12 @@ class FeaturesRegistry(private val features: List<JIRFeature<*, *>>) : Closeable
 
     private fun <REQ, RES> JIRFeature<RES, REQ>.index(
         location: RegisteredLocation,
-        classes: Collection<ClassSource>
+        classes: List<ClassSource>
     ) {
         val indexer = newIndexer(jirdb, location)
         classes.forEach { index(it, indexer) }
         jirdb.persistence.write {
-            indexer.flush()
+            indexer.flush(it)
         }
     }
 

@@ -49,7 +49,7 @@ class JIRClasspathImpl(
     override fun findClassOrNull(name: String): JIRClassOrInterface? {
         return classCache.get(name) {
             val jirClass = toJcClass(classpathVfs.firstClassOrNull(name))
-                ?: db.persistence.findClassByName(this, locationsRegistrySnapshot.locations, name)?.let {
+                ?: db.persistence.findClassSourceByName(this, locationsRegistrySnapshot.locations, name)?.let {
                     JIRClassOrInterfaceImpl(this, it)
                 }
             ClassHolder(jirClass)

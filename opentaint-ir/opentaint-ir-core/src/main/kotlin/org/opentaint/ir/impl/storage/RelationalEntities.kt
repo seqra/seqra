@@ -4,6 +4,7 @@ import org.jooq.Record
 import org.jooq.Table
 import java.sql.Connection
 import java.sql.PreparedStatement
+import java.sql.Statement
 
 
 //
@@ -180,14 +181,16 @@ fun <ELEMENT, RECORD : Record> Connection.insertElements(
     if (elements.isEmpty()) {
         return
     }
-
+    autoCommit = false
     val fields = table.fields()
     val query = "INSERT INTO ${table.name}(${fields.joinToString { "\"" + it.name + "\"" }}) VALUES (${fields.joinToString { "?" }})"
-    prepareStatement(query).use { stmt ->
+    prepareStatement(query, Statement.NO_GENERATED_KEYS).use { stmt ->
         elements.forEach {
             stmt.map(it)
             stmt.addBatch()
         }
         stmt.executeBatch()
     }
+    commit()
+    autoCommit = true
 }

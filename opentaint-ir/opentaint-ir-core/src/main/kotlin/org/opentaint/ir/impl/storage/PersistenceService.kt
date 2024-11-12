@@ -129,7 +129,6 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
 
         persistence.write {
             it.connection { conn ->
-                conn.autoCommit = false
                 conn.insertElements(CLASSES, classCollector.classes.entries) {
                     val (classInfo, id) = it
                     val packageName = classInfo.name.substringBeforeLast('.')
@@ -224,7 +223,6 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
                     setString(4, classInfo.outerMethod)
                     setString(5, classInfo.outerMethodDesc)
                 }
-                conn.commit()
             }
         }
     }
@@ -244,13 +242,11 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
 
     private fun Collection<Pair<Long, String>>.createNames(dslContext: DSLContext) {
         dslContext.connection { connection ->
-            connection.autoCommit = false
             connection.insertElements(SYMBOLS, this) { pair ->
                 setLong(1, pair.first)
                 setString(2, pair.second)
                 setLong(3, pair.second.longHash)
             }
-            connection.commit()
         }
     }
 

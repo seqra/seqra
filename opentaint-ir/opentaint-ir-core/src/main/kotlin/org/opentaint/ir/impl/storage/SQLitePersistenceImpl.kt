@@ -45,6 +45,7 @@ class SQLitePersistenceImpl(
     init {
         val config = SQLiteConfig().also {
             it.setSynchronous(SQLiteConfig.SynchronousMode.OFF)
+            it.setJournalMode(SQLiteConfig.JournalMode.OFF)
             it.setPageSize(32_768)
             it.setCacheSize(-8_000)
         }
@@ -109,7 +110,7 @@ class SQLitePersistenceImpl(
         }
     }
 
-    override fun findClassByName(
+    override fun findClassSourceByName(
         cp: JIRClasspath,
         locations: List<RegisteredLocation>,
         fullName: String
@@ -118,7 +119,7 @@ class SQLitePersistenceImpl(
         val symbolId = jooq.select(SYMBOLS.ID).from(SYMBOLS)
             .where(SYMBOLS.NAME.eq(fullName))
             .fetchAny()?.component1() ?: return null
-        val found = jooq.select(CLASSES.NAME, CLASSES.BYTECODE)
+        val found = jooq.select(CLASSES.LOCATION_ID, CLASSES.BYTECODE).from(CLASSES)
             .where(CLASSES.NAME.eq(symbolId).and(CLASSES.LOCATION_ID.`in`(ids)))
             .fetchAny() ?: return null
         val locationId = found.component1()!!
@@ -130,18 +131,17 @@ class SQLitePersistenceImpl(
         )
     }
 
-    override fun findClasses(location: RegisteredLocation): List<ClassSource> {
-        return transaction {
-            val classes = jooq.select(CLASSES.LOCATION_ID, CLASSES.BYTECODE, SYMBOLS.NAME).from(CLASSES)
-                .join(SYMBOLS).on(CLASSES.NAME.eq(SYMBOLS.ID))
-                .fetch()
-            classes.map {
-                ClassSourceImpl(
-                    location = location,
-                    className = it.component3()!!,
-                    byteCode = it.component2()!!
-                )
-            }
+    override fun findClassSources(location: RegisteredLocation): List<ClassSource> {
+        val classes = jooq.select(CLASSES.LOCATION_ID, CLASSES.BYTECODE, SYMBOLS.NAME).from(CLASSES)
+            .join(SYMBOLS).on(CLASSES.NAME.eq(SYMBOLS.ID))
+            .where(CLASSES.LOCATION_ID.eq(location.id))
+            .fetch()
+        return classes.map {
+            ClassSourceImpl(
+                location = location,
+                className = it.component3()!!,
+                byteCode = it.component2()!!
+            )
         }
     }
 

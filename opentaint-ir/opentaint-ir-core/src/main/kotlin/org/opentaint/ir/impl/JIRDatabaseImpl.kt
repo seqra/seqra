@@ -148,7 +148,7 @@ class JIRDBImpl(
             val parentScope = this
             locations.map {
                 async {
-                    val addedClasses = persistence.findClasses(it)
+                    val addedClasses = persistence.findClassSources(it)
                     if (parentScope.isActive) {
                         featureRegistry.index(it, addedClasses)
                     }

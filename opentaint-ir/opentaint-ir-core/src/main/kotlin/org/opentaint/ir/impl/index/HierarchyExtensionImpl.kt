@@ -7,7 +7,6 @@ import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.findMethodOrNull
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.fs.ClassSourceImpl
-import org.opentaint.ir.impl.storage.SQLitePersistenceImpl
 
 class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension {
 
@@ -37,8 +36,6 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
         """.trimIndent()
 
     }
-
-    private val create = (cp.db.persistence as SQLitePersistenceImpl).jooq
 
     override fun findSubClasses(name: String, allHierarchy: Boolean): List<JIRClassOrInterface> {
         val classId = cp.findClassOrNull(name) ?: return emptyList()
@@ -72,8 +69,7 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
         val locationIds = registeredLocations.joinToString(", ") { it.id.toString() }
         return db.persistence.read {
             val query = if (allHierarchy) allHierarchyQuery(locationIds) else directSubClassesQuery(locationIds)
-
-            create.fetch(query).map {
+            it.fetch(query, name).map {
                 ClassRecord(
                     byteCode = it.get("bytecode") as ByteArray,
                     locationId = it.get("location_id") as Long,
