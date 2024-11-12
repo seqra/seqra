@@ -27,7 +27,7 @@ fun ClassNode.asClassInfo(bytecode: ByteArray) = ClassInfo(
     signature = signature,
     access = access,
 
-    outerClass = outerClassName(),
+    outerClass = outerClassRef(),
     innerClasses = innerClasses.map {
         Type.getObjectType(it.name).className
     }.toImmutableList(),
@@ -44,11 +44,11 @@ fun ClassNode.asClassInfo(bytecode: ByteArray) = ClassInfo(
 private val String.className: String
     get() = Type.getObjectType(this).className
 
-private fun ClassNode.outerClassName(): OuterClassRef? {
+private fun ClassNode.outerClassRef(): OuterClassRef? {
     val innerRef = innerClasses.firstOrNull { it.name == name }
 
     val direct = outerClass?.className
-    if (direct == null && innerRef != null) {
+    if (direct == null && innerRef != null && innerRef.outerName != null) {
         return OuterClassRef(innerRef.outerName.className, innerRef.innerName)
     }
     return direct?.let {

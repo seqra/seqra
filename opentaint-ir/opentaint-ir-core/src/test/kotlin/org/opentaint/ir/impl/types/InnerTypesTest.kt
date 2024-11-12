@@ -11,7 +11,7 @@ class InnerTypesTest : BaseTypesTest() {
 
     @Test
     fun `inner classes linked to method`() {
-        val classWithInners = findClassType<InnerClasses<*>>()
+        val classWithInners = findType<InnerClasses<*>>()
         val inners = classWithInners.innerTypes
         assertEquals(4, inners.size)
         val methodLinked = inners.first { it.typeName == "org.opentaint.ir.impl.types.InnerClasses<W>.InnerClasses\$1" }
@@ -27,7 +27,7 @@ class InnerTypesTest : BaseTypesTest() {
 
     @Test
     fun `get not parameterized inner types`() {
-        val innerClasses = findClassType<InnerClasses<*>>().innerTypes
+        val innerClasses = findType<InnerClasses<*>>().innerTypes
         assertEquals(4, innerClasses.size)
         with(innerClasses.first { it.typeName.contains("InnerState") }) {
             val fields = fields
@@ -43,7 +43,7 @@ class InnerTypesTest : BaseTypesTest() {
 
     @Test
     fun `get inner type linked to parameterized method`() {
-        val innerClasses = findClassType<InnerClasses<*>>().innerTypes
+        val innerClasses = findType<InnerClasses<*>>().innerTypes
         assertEquals(4, innerClasses.size)
         with(innerClasses.first { it.typeName.contains("1") }) {
             val fields = fields
@@ -105,7 +105,7 @@ class InnerTypesTest : BaseTypesTest() {
     }
 
     private fun field(fieldName: String): JIRClassType {
-        return findClassType<InnerClasses<*>>().fields.first {
+        return findType<InnerClasses<*>>().fields.first {
             it.name == fieldName
         }.fieldType.assertIsClass()
     }

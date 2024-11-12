@@ -11,7 +11,7 @@ class TypesTest : BaseTypesTest() {
 
     @Test
     fun `primitive and array types`() {
-        val primitiveAndArrays = findClassType<PrimitiveAndArrays>()
+        val primitiveAndArrays = findType<PrimitiveAndArrays>()
         val fields = primitiveAndArrays.declaredFields
         assertEquals(2, fields.size)
 

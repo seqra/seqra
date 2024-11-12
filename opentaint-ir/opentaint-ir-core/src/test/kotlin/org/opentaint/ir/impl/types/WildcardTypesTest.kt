@@ -18,7 +18,7 @@ class WildcardTypesTest : BaseTypesTest() {
     @Test
     fun `direct types`() {
         runBlocking {
-            val bounded = findClassType<DirectBound<*>>()
+            val bounded = findType<DirectBound<*>>()
             with(bounded.fields.first()) {
                 assertEquals("field", name)
                 with(fieldType.assertIs<JIRClassType>()) {
@@ -31,7 +31,7 @@ class WildcardTypesTest : BaseTypesTest() {
     @Test
     fun `resolved direct types`() {
         runBlocking {
-            val bounded = findClassType<DirectBoundString>()
+            val bounded = findType<DirectBoundString>()
             with(bounded.superType!!.fields.first()) {
                 assertEquals("field", name)
                 with(fieldType.assertIs<JIRClassType>()) {
@@ -44,7 +44,7 @@ class WildcardTypesTest : BaseTypesTest() {
     @Test
     fun `upper bound types`() {
         runBlocking {
-            val bounded = findClassType<WildcardUpperBound<*>>()
+            val bounded = findType<WildcardUpperBound<*>>()
             with(bounded.fields.first()) {
                 assertEquals("field", name)
                 with(fieldType.assertIs<JIRClassType>()) {
@@ -60,7 +60,7 @@ class WildcardTypesTest : BaseTypesTest() {
     @Test
     fun `resolved upper bound types`() {
         runBlocking {
-            val bounded = findClassType<WildcardUpperBoundString>()
+            val bounded = findType<WildcardUpperBoundString>()
             with(bounded.superType!!.fields.first()) {
                 assertEquals("field", name)
                 with(fieldType.assertIs<JIRClassType>()) {
@@ -76,7 +76,7 @@ class WildcardTypesTest : BaseTypesTest() {
     @Test
     fun `lower bound types`() {
         runBlocking {
-            val bounded = findClassType<WildcardLowerBound<*>>()
+            val bounded = findType<WildcardLowerBound<*>>()
             with(bounded.fields.first()) {
                 assertEquals("field", name)
                 with(fieldType.assertIs<JIRClassType>()) {
@@ -92,7 +92,7 @@ class WildcardTypesTest : BaseTypesTest() {
     @Test
     fun `resolved lower bound types`() {
         runBlocking {
-            val bounded = findClassType<WildcardLowerBoundString>()
+            val bounded = findType<WildcardLowerBoundString>()
             with(bounded.superType!!.fields.first()) {
                 assertEquals("field", name)
                 with(fieldType.assertIs<JIRClassType>()) {

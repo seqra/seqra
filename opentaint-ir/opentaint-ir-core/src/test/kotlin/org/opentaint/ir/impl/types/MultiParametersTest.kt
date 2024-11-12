@@ -21,7 +21,7 @@ class MultiParametersTest : BaseTypesTest() {
     @Test
     fun `first level of parameterization fields`() {
         runBlocking {
-            val test1 = findClassType<SuperTest1<*, *, *>>()
+            val test1 = findType<SuperTest1<*, *, *>>()
             with(test1.field(SuperTest1<*, *, *>::stateT)) {
                 assertEquals("T", (fieldType as JIRTypeVariable).symbol)
             }
@@ -37,7 +37,7 @@ class MultiParametersTest : BaseTypesTest() {
     @Test
     fun `second level of parameterization fields`() {
         runBlocking {
-            val test2 = findClassType<SuperTest2<*, *>>()
+            val test2 = findType<SuperTest2<*, *>>()
             with(test2.field(SuperTest1<*, *, *>::stateT)) {
                 fieldType.assertClassType<String>()
             }
@@ -54,7 +54,7 @@ class MultiParametersTest : BaseTypesTest() {
     @Test
     fun `third level of parameterization fields`() {
         runBlocking {
-            val test2 = findClassType<SuperTest3>()
+            val test2 = findType<SuperTest3>()
             with(test2.field(SuperTest1<*, *, *>::stateT)) {
                 fieldType.assertClassType<String>()
             }
@@ -72,7 +72,7 @@ class MultiParametersTest : BaseTypesTest() {
     @Test
     fun `first level of parameterization methods`() {
         runBlocking {
-            val test1 = findClassType<SuperTest1<*, *, *>>()
+            val test1 = findType<SuperTest1<*, *, *>>()
             with(test1.method(SuperTest1<*, *, *>::runT)) {
                 assertEquals("T", (returnType as JIRTypeVariable).symbol)
                 assertEquals("T", (parameters.first().type as JIRTypeVariable).symbol)
@@ -91,7 +91,7 @@ class MultiParametersTest : BaseTypesTest() {
     @Test
     fun `second level of parameterization methods`() {
         runBlocking {
-            val test2 = findClassType<SuperTest2<*, *>>()
+            val test2 = findType<SuperTest2<*, *>>()
             with(test2.method(SuperTest1<*, *, *>::runT)) {
                 parameters.first().type.assertClassType<String>()
                 returnType.assertClassType<String>()
@@ -110,7 +110,7 @@ class MultiParametersTest : BaseTypesTest() {
     @Test
     fun `third level of parameterization methods`() {
         runBlocking {
-            val test2 = findClassType<SuperTest3>()
+            val test2 = findType<SuperTest3>()
             with(test2.method(SuperTest1<*, *, *>::runT)) {
                 parameters.first().type.assertClassType<String>()
                 returnType.assertClassType<String>()

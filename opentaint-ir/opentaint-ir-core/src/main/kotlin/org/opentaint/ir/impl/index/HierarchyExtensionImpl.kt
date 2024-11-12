@@ -1,9 +1,5 @@
 package org.opentaint.ir.impl.index
 
-import org.jetbrains.exposed.sql.IColumnType
-import org.jetbrains.exposed.sql.VarCharColumnType
-import org.jetbrains.exposed.sql.statements.StatementType
-import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
@@ -11,7 +7,7 @@ import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.findMethodOrNull
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.fs.ClassSourceImpl
-import java.sql.ResultSet
+import org.opentaint.ir.impl.storage.SQLitePersistenceImpl
 
 class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension {
 
@@ -40,16 +36,9 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
             WHERE Symbols.name = ? AND Classes.location_id in ($locationIds)
         """.trimIndent()
 
-        fun <T : Any> String.query(args: Iterable<Pair<IColumnType, Any?>>, transform: (ResultSet) -> T): List<T> {
-            val result = arrayListOf<T>()
-            TransactionManager.current().exec(this, args, StatementType.SELECT) { rs ->
-                while (rs.next()) {
-                    result += transform(rs)
-                }
-            }
-            return result
-        }
     }
+
+    private val create = (cp.db.persistence as SQLitePersistenceImpl).create
 
     override fun findSubClasses(name: String, allHierarchy: Boolean): List<JIRClassOrInterface> {
         val classId = cp.findClassOrNull(name) ?: return emptyList()
@@ -83,11 +72,12 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
         val locationIds = registeredLocations.joinToString(", ") { it.id.toString() }
         return db.persistence.read {
             val query = if (allHierarchy) allHierarchyQuery(locationIds) else directSubClassesQuery(locationIds)
-            query.query(listOf(VarCharColumnType() to name)) {
+
+            create.fetch(query).map {
                 ClassRecord(
-                    byteCode = it.getBytes("bytecode"),
-                    locationId = it.getLong("location_id"),
-                    name = it.getString("name_name")
+                    byteCode = it.get("bytecode") as ByteArray,
+                    locationId = it.get("location_id") as Long,
+                    name = it.get("name_name") as String
                 )
             }
         }

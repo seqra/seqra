@@ -2,11 +2,7 @@ package org.opentaint.ir.impl.fs
 
 import mu.KLogging
 import org.opentaint.ir.api.LocationType
-import java.io.BufferedInputStream
 import java.io.File
-import java.io.FileInputStream
-import java.security.MessageDigest
-import java.util.*
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import kotlin.streams.toList
@@ -107,15 +103,18 @@ open class JarLocation(file: File, private val isRuntime: Boolean) : AbstractByt
 
     private val fileChecksum: String
         get() {
-            val buffer = ByteArray(8192)
-            var count: Int
-            val digest = MessageDigest.getInstance("SHA-256")
-            val bis = BufferedInputStream(FileInputStream(jarOrFolder))
-            while (bis.read(buffer).also { count = it } > 0) {
-                digest.update(buffer, 0, count)
+            return jarOrFolder.let {
+                it.absolutePath + it.lastModified() + it.length()
             }
-            bis.close()
-            return Base64.getEncoder().encodeToString(digest.digest())
+//            val buffer = ByteArray(8192)
+//            var count: Int
+//            val digest = MessageDigest.getInstance("SHA-256")
+//            val bis = BufferedInputStream(FileInputStream(jarOrFolder))
+//            while (bis.read(buffer).also { count = it } > 0) {
+//                digest.update(buffer, 0, count)
+//            }
+//            bis.close()
+//            return Base64.getEncoder().encodeToString(digest.digest())
         }
 
 }

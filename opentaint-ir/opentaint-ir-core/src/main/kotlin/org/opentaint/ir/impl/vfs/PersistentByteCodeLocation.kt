@@ -4,18 +4,18 @@ import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.LocationType
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.fs.asByteCodeLocation
-import org.opentaint.ir.impl.storage.BytecodeLocationEntity
+import org.opentaint.ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
 import java.io.File
 
 class PersistentByteCodeLocation(
-    internal val entity: BytecodeLocationEntity,
+    internal val entity: BytecodelocationsRecord,
     override val jirLocation: JIRByteCodeLocation
 ) : RegisteredLocation {
 
-    constructor(entity: BytecodeLocationEntity) : this(entity, entity.toJcLocation())
+    constructor(entity: BytecodelocationsRecord) : this(entity, entity.toJcLocation())
 
     override val id: Long
-        get() = entity.id.value
+        get() = entity.id!!
 }
 
 
@@ -50,7 +50,7 @@ class RestoredJcByteCodeLocation(
 }
 
 
-fun BytecodeLocationEntity.toJcLocation() = RestoredJcByteCodeLocation(
-    path,
-    LocationType.RUNTIME.takeIf { runtime } ?: LocationType.APP,
-    hash)
+fun BytecodelocationsRecord.toJcLocation() = RestoredJcByteCodeLocation(
+    path!!,
+    LocationType.RUNTIME.takeIf { runtime!! } ?: LocationType.APP,
+    hash!!)

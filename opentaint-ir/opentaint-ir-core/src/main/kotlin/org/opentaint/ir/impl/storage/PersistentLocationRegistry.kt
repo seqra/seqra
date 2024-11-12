@@ -1,9 +1,5 @@
 package org.opentaint.ir.impl.storage
 
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.neq
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.deleteWhere
-import org.jetbrains.exposed.sql.update
 import org.opentaint.ir.api.JIRDBPersistence
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.LocationType
@@ -15,21 +11,28 @@ import org.opentaint.ir.impl.LocationsRegistry
 import org.opentaint.ir.impl.LocationsRegistrySnapshot
 import org.opentaint.ir.impl.RefreshResult
 import org.opentaint.ir.impl.RegistrationResult
-import org.opentaint.ir.impl.storage.BytecodeLocationEntity.Companion.findOrNew
+import org.opentaint.ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
+import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
 import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 class PersistentLocationRegistry(
     private val persistence: JIRDBPersistence,
     private val featuresRegistry: FeaturesRegistry
 ) : LocationsRegistry {
 
+    private val create = (persistence as SQLitePersistenceImpl).create
+    private val idGen = AtomicLong()
+
     // all snapshot associated with classpaths
     internal val snapshots = ConcurrentHashMap.newKeySet<LocationsRegistrySnapshot>()
 
     override val actualLocations: List<PersistentByteCodeLocation>
         get() = persistence.read {
-            BytecodeLocationEntity.all().toList().map { PersistentByteCodeLocation(it) }
+            create.selectFrom(BYTECODELOCATIONS).fetch {
+                PersistentByteCodeLocation(it)
+            }
         }
 
     override lateinit var runtimeLocations: List<RegisteredLocation>
@@ -45,9 +48,9 @@ class PersistentLocationRegistry(
     override fun afterProcessing(locations: List<RegisteredLocation>) {
         val ids = locations.map { it.id }
         persistence.write {
-            BytecodeLocations.update({ BytecodeLocations.id inList ids }) {
-                it[state] = LocationState.PROCESSED
-            }
+            create.update(BYTECODELOCATIONS)
+                .set(BYTECODELOCATIONS.STATE, LocationState.PROCESSED.ordinal).where(BYTECODELOCATIONS.ID.`in`(ids))
+                .execute()
         }
         featuresRegistry.broadcast(JIRInternalSignal.AfterIndexing)
     }
@@ -57,9 +60,9 @@ class PersistentLocationRegistry(
             val result = arrayListOf<RegisteredLocation>()
             val toAdd = arrayListOf<JIRByteCodeLocation>()
             val hashes = locations.map { it.hash }
-            val existed = BytecodeLocationEntity.find {
-                BytecodeLocations.hash inList hashes and (BytecodeLocations.state neq LocationState.INITIAL)
-            }.associateBy { it.hash }
+            val existed = create.selectFrom(BYTECODELOCATIONS).where(
+                BYTECODELOCATIONS.HASH.`in`(hashes).and(BYTECODELOCATIONS.STATE.ne(LocationState.INITIAL.ordinal))
+            ).fetch().associateBy { it.hash }
 
             locations.forEach {
                 val found = existed[it.hash]
@@ -69,16 +72,26 @@ class PersistentLocationRegistry(
                     result += PersistentByteCodeLocation(found, it)
                 }
             }
-            val added = toAdd.map {
-                PersistentByteCodeLocation(
-                    BytecodeLocationEntity.new {
-                        hash = it.hash
-                        path = it.path
-                        runtime = it.type == LocationType.RUNTIME
-                    },
-                    it
-                )
+            val records = toAdd.map { add ->
+                add to BytecodelocationsRecord().also {
+                    it.changed(true)
+                    it.id = idGen.incrementAndGet()
+                    it.path = add.path
+                    it.hash = add.hash
+                    it.runtime = add.type == LocationType.RUNTIME
+                    it.state = LocationState.INITIAL.ordinal
+                }
             }
+            create.connection {
+                it.insertElements(BYTECODELOCATIONS, toAdd) {
+                    setLong(1, idGen.incrementAndGet())
+                    setString(2, it.path)
+                    setString(3, it.hash)
+                    setBoolean(4, it.type == LocationType.RUNTIME)
+                    setInt(5, LocationState.INITIAL.ordinal)
+                }
+            }
+            val added = records.map { PersistentByteCodeLocation(it.second, it.first) }
             RegistrationResult(result + added, added)
         }
     }
@@ -87,7 +100,7 @@ class PersistentLocationRegistry(
         locations.forEach {
             featuresRegistry.broadcast(JIRInternalSignal.LocationRemoved(it))
         }
-        BytecodeLocations.deleteWhere { BytecodeLocations.id inList locations.map { it.id } }
+        create.deleteFrom(BYTECODELOCATIONS).where(BYTECODELOCATIONS.ID.`in`(locations.map { it.id })).execute()
     }
 
     override fun refresh(): RefreshResult {
@@ -114,7 +127,9 @@ class PersistentLocationRegistry(
                 val refreshed = add(location)
                 val toUpdate = updated[location]
                 if (toUpdate != null) {
-                    toUpdate.entity.updated = refreshed.entity
+                    create.update(BYTECODELOCATIONS).set(BYTECODELOCATIONS.UPDATED_ID, refreshed.entity.id)
+                        .where(BYTECODELOCATIONS.ID.eq(toUpdate.entity.updatedId)).execute()
+                    toUpdate.entity.updatedId = refreshed.entity.id
                 }
                 refreshed
             }
@@ -130,10 +145,10 @@ class PersistentLocationRegistry(
 
     override fun cleanup(): CleanupResult {
         return persistence.write {
-            val deprecated = BytecodeLocationEntity
-                .find(BytecodeLocations.updated neq null)
+            val deprecated = create.selectFrom(BYTECODELOCATIONS)
+                .where(BYTECODELOCATIONS.UPDATED_ID.isNotNull).fetch()
                 .toList()
-                .filterNot { entity -> snapshots.any { it.ids.contains(entity.id.value) } }
+                .filterNot { entity -> snapshots.any { it.ids.contains(entity.id) } }
                 .map { PersistentByteCodeLocation(it) }
             deprecate(deprecated)
             CleanupResult(deprecated)
@@ -148,4 +163,24 @@ class PersistentLocationRegistry(
     override fun close() {
         // do nothing
     }
+
+    fun JIRByteCodeLocation.findOrNew(): BytecodelocationsRecord {
+        val existed = findOrNull()
+        if (existed != null) {
+            return existed
+        }
+        val record = BytecodelocationsRecord().also {
+            it.path = path
+            it.hash = hash
+            it.runtime = type == LocationType.RUNTIME
+        }
+        record.insert()
+        return record
+    }
+
+    fun JIRByteCodeLocation.findOrNull(): BytecodelocationsRecord? {
+        return create.selectFrom(BYTECODELOCATIONS)
+            .where(BYTECODELOCATIONS.PATH.eq(path).and(BYTECODELOCATIONS.HASH.eq(hash))).fetchAny()
+    }
+
 }

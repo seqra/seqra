@@ -8,13 +8,14 @@ dependencies {
     implementation group: 'org.xerial', name: 'sqlite-jdbc', version: '3.39.2.1'
     implementation group: 'com.google.guava', name: 'guava', version: '31.1-jre'
 
-    api group: 'org.jetbrains.exposed', name: 'exposed-core', version: exposedVersion
-    api group: 'org.jetbrains.exposed', name: 'exposed-dao', version: exposedVersion
-    api group: 'org.jetbrains.exposed', name: 'exposed-jdbc', version: exposedVersion
+    implementation group: 'org.jooq', name: 'jooq', version: '3.16.10'
+    implementation group: 'org.jooq', name: 'jooq-codegen', version: '3.16.10'
+    implementation group: 'org.jooq', name: 'jooq-kotlin', version: '3.16.10'
 
     testImplementation project(':jirdb-testing')
     testImplementation(platform('org.junit:junit-bom:5.8.2'))
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter'
+    testImplementation "org.opentaint.soot:soot-opentaint-fork:4.4.0-FORK-2"
 
     testImplementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-benchmark-runtime', version: '0.4.4'
 }

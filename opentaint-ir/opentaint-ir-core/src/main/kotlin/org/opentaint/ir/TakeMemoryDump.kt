@@ -1,13 +1,7 @@
-package org.opentaint.ir.impl.performance
+package org.opentaint.ir
 
 import kotlinx.coroutines.runBlocking
-import org.jetbrains.exposed.sql.transactions.transaction
 import org.opentaint.ir.impl.index.Usages
-import org.opentaint.ir.impl.storage.ClassEntity
-import org.opentaint.ir.impl.storage.FieldEntity
-import org.opentaint.ir.impl.storage.MethodEntity
-import org.opentaint.ir.impl.storage.MethodParameterEntity
-import org.opentaint.ir.jirdb
 
 fun main() {
     var start = System.currentTimeMillis()
@@ -22,12 +16,12 @@ fun main() {
             it.awaitBackgroundJobs()
             println("AWAITING jobs took ${System.currentTimeMillis() - start}ms")
         }
-        transaction {
-            println("Classes " + ClassEntity.count())
-            println("Methods " + MethodEntity.count())
-            println("Methods params " + MethodParameterEntity.count())
-            println("Fields " + FieldEntity.count())
-        }
+//        transaction {
+//            println("Classes " + ClassEntity.count())
+//            println("Methods " + MethodEntity.count())
+//            println("Methods params " + MethodParameterEntity.count())
+//            println("Fields " + FieldEntity.count())
+//        }
 
 //        val name = ManagementFactory.getRuntimeMXBean().name
 //        val pid = name.split("@")[0]

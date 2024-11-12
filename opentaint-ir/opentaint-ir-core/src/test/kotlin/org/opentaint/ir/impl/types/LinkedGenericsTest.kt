@@ -14,7 +14,7 @@ class LinkedGenericsTest : BaseTypesTest() {
 
     @Test
     fun `linked generics original parametrization`() = runBlocking {
-        val partial = findClassType<LinkedImpl<*>>()
+        val partial = findType<LinkedImpl<*>>()
         with(partial.superType!!) {
             with(typeParameters.first()) {
                 assertEquals("T", symbol)
@@ -31,7 +31,7 @@ class LinkedGenericsTest : BaseTypesTest() {
 
     @Test
     fun `linked generics current parametrization`() = runBlocking {
-        val partial = findClassType<LinkedImpl<*>>()
+        val partial = findType<LinkedImpl<*>>()
         with(partial.superType!!) {
             with(typeArguments[0]) {
                 assertClassType<String>()
@@ -48,7 +48,7 @@ class LinkedGenericsTest : BaseTypesTest() {
 
     @Test
     fun `linked generics fields parametrization`() = runBlocking {
-        val partial = findClassType<LinkedImpl<*>>()
+        val partial = findType<LinkedImpl<*>>()
         with(partial.superType!!) {
             val fields = fields
             assertEquals(3, fields.size)
@@ -76,7 +76,7 @@ class LinkedGenericsTest : BaseTypesTest() {
     @Test
     fun `generics applied for fields of super types`() {
         runBlocking {
-            val superFooType = findClassType<SingleImpl>()
+            val superFooType = findType<SingleImpl>()
             with(superFooType.superType.assertIsClass()) {
                 val fields = fields
                 assertEquals(2, fields.size)
@@ -98,7 +98,7 @@ class LinkedGenericsTest : BaseTypesTest() {
     @Test
     fun `direct generics from child types applied to methods`() {
         runBlocking {
-            val superFooType = findClassType<SingleImpl>()
+            val superFooType = findType<SingleImpl>()
             val superType = superFooType.superType.assertIsClass()
             val methods = superType.declaredMethods.filterNot { it.method.isConstructor }
             assertEquals(2, methods.size)
@@ -113,7 +113,7 @@ class LinkedGenericsTest : BaseTypesTest() {
     @Test
     fun `custom generics from child types applied to methods`() {
         runBlocking {
-            val superFooType = findClassType<SingleImpl>()
+            val superFooType = findType<SingleImpl>()
             val superType = superFooType.superType.assertIsClass()
             val methods = superType.declaredMethods.filterNot { it.method.isConstructor }
             assertEquals(2, methods.size)
