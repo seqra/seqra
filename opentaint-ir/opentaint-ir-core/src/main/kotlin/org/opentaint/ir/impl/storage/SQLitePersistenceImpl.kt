@@ -1,9 +1,15 @@
 package org.opentaint.ir.impl.storage
 
 import mu.KLogging
-import org.jooq.DSLContext
-import org.jooq.SQLDialect
-import org.jooq.impl.DSL
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.JoinType
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.transactions.TransactionManager
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.sqlite.SQLiteConfig
 import org.sqlite.SQLiteDataSource
 import org.opentaint.ir.api.ClassSource
@@ -16,15 +22,12 @@ import org.opentaint.ir.impl.JIRInternalSignal
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.info
-import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
-import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
-import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
 import java.io.Closeable
 import java.io.File
 import java.sql.Connection
+import java.sql.DriverManager
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
-import javax.sql.DataSource
 import kotlin.concurrent.withLock
 
 class SQLitePersistenceImpl(
@@ -37,37 +40,46 @@ class SQLitePersistenceImpl(
 
     private val lock = ReentrantLock()
 
-    private val dataSource: DataSource
+    internal val db: Database
     private var keepAliveConnection: Connection? = null
     private val persistenceService = PersistenceService(this)
-    val jooq: DSLContext
 
     init {
+        TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
         val config = SQLiteConfig().also {
             it.setSynchronous(SQLiteConfig.SynchronousMode.OFF)
-            it.setJournalMode(SQLiteConfig.JournalMode.OFF)
             it.setPageSize(32_768)
             it.setCacheSize(-8_000)
         }
         if (location == null) {
-            val url =
-                "jdbc:sqlite:file:jirdb-${UUID.randomUUID()}?mode=memory&cache=shared&rewriteBatchedStatements=true"
-            dataSource = SQLiteDataSource(config).also {
-                it.url = url
-            }
-            keepAliveConnection = dataSource.connection //DriverManager.getConnection(url)
+            val url = "jdbc:sqlite:file:jirdb-${UUID.randomUUID()}?mode=memory&cache=shared"
+            db = Database.connect(url, "org.sqlite.JDBC", setupConnection = { it.autoCommit = false })
+            keepAliveConnection = DriverManager.getConnection(url)
         } else {
-            val url = "jdbc:sqlite:file:$location?rewriteBatchedStatements=true&useServerPrepStmts=false"
-            dataSource = SQLiteDataSource(config).also {
+            val url = "jdbc:sqlite:$location"
+            val dataSource = SQLiteDataSource(config).also {
                 it.url = url
             }
+            //, databaseConfig = DatabaseConfig.invoke { sqlLogger = StdOutSqlLogger })
+            db = Database.connect(dataSource, setupConnection = { it.autoCommit = false })
         }
-        jooq = DSL.using(dataSource, SQLDialect.SQLITE)
         write {
             if (clearOnStart) {
-                jooq.executeQueriesFrom("jirdb-drop-schema.sql")
+                SchemaUtils.drop(
+                    BytecodeLocations,
+                    Classes, Symbols, ClassHierarchies, ClassInnerClasses, OuterClasses,
+                    Methods, MethodParameters,
+                    Fields,
+                    Annotations, AnnotationValues
+                )
             }
-            jooq.executeQueriesFrom("jirdb-create-schema.sql")
+            SchemaUtils.create(
+                BytecodeLocations,
+                Classes, Symbols, ClassHierarchies, ClassInnerClasses, OuterClasses,
+                Methods, MethodParameters,
+                Fields,
+                Annotations, AnnotationValues,
+            )
         }
     }
 
@@ -80,57 +92,74 @@ class SQLitePersistenceImpl(
 
     override val locations: List<JIRByteCodeLocation>
         get() {
-            return jooq.selectFrom(BYTECODELOCATIONS).fetch().mapNotNull {
-                try {
-                    File(it.path!!).asByteCodeLocation(isRuntime = it.runtime!!)
-                } catch (e: Exception) {
-                    null
-                }
-            }.toList()
+            return transaction(db) {
+                BytecodeLocationEntity.all().toList().mapNotNull {
+                    try {
+                        File(it.path).asByteCodeLocation(isRuntime = it.runtime)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }.toList()
+            }
         }
 
-    override fun <T> write(action: (DSLContext) -> T): T {
+    override fun <T> write(newTx: Boolean, action: () -> T): T {
         return lock.withLock {
-            action(jooq)
+            if (newTx) {
+                transaction(db) {
+                    action()
+                }
+            } else {
+                action()
+            }
         }
     }
 
-    override fun <T> read(action: (DSLContext) -> T): T {
-        return action(jooq)
+    override fun <T> read(newTx: Boolean, action: () -> T): T {
+        return if (newTx) {
+            transaction(db) {
+                action()
+            }
+        } else {
+            action()
+        }
     }
 
-    override fun findClassSourceByName(
+    override fun findClassByName(
         cp: JIRClasspath,
         locations: List<RegisteredLocation>,
         fullName: String
     ): ClassSource? {
         val ids = locations.map { it.id }
-        val symbolId = jooq.select(SYMBOLS.ID).from(SYMBOLS)
-            .where(SYMBOLS.NAME.eq(fullName))
-            .fetchAny()?.component1() ?: return null
-        val found = jooq.select(CLASSES.LOCATION_ID, CLASSES.BYTECODE).from(CLASSES)
-            .where(CLASSES.NAME.eq(symbolId).and(CLASSES.LOCATION_ID.`in`(ids)))
-            .fetchAny() ?: return null
-        val locationId = found.component1()!!
-        val byteCode = found.component2()!!
-        return ClassSourceImpl(
-            location = locations.first { it.id == locationId },
-            className = fullName,
-            byteCode = byteCode
-        )
+        return transaction(db) {
+            val symbolId = SymbolEntity.find(Symbols.name eq fullName)
+                .firstOrNull()?.id?.value ?: return@transaction null
+            val found = Classes.slice(Classes.locationId, Classes.bytecode)
+                .select(Classes.name eq symbolId and (Classes.locationId inList ids))
+                .firstOrNull() ?: return@transaction null
+            val locationId = found[Classes.locationId].value
+            val byteCode = found[Classes.bytecode]
+            ClassSourceImpl(
+                location = locations.first { it.id == locationId },
+                className = fullName,
+                byteCode = byteCode.bytes
+            )
+        }
     }
 
-    override fun findClassSources(location: RegisteredLocation): List<ClassSource> {
-        val classes = jooq.select(CLASSES.LOCATION_ID, CLASSES.BYTECODE, SYMBOLS.NAME).from(CLASSES)
-            .join(SYMBOLS).on(CLASSES.NAME.eq(SYMBOLS.ID))
-            .where(CLASSES.LOCATION_ID.eq(location.id))
-            .fetch()
-        return classes.map {
-            ClassSourceImpl(
-                location = location,
-                className = it.component3()!!,
-                byteCode = it.component2()!!
-            )
+    override fun findClasses(location: RegisteredLocation): List<ClassSource> {
+        return transaction(db) {
+            val classes =
+                Classes.join(Symbols, onColumn = Symbols.id, otherColumn = Classes.name, joinType = JoinType.INNER)
+                    .slice(Classes.locationId, Classes.bytecode, Symbols.name)
+                    .select(Classes.locationId eq location.id)
+            classes.map {
+                ClassSourceImpl(
+                    location = location,
+                    className = it[Symbols.name],
+                    byteCode = it[Classes.bytecode].bytes
+                )
+            }
         }
     }
 
@@ -144,3 +173,4 @@ class SQLitePersistenceImpl(
     }
 
 }
+
