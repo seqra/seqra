@@ -8,14 +8,12 @@ import org.opentaint.ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
 import java.io.File
 
 class PersistentByteCodeLocation(
-    internal val entity: BytecodelocationsRecord,
+    override val id: Long,
     override val jirLocation: JIRByteCodeLocation
 ) : RegisteredLocation {
 
-    constructor(entity: BytecodelocationsRecord) : this(entity, entity.toJcLocation())
+    constructor(entity: BytecodelocationsRecord) : this(entity.id!!, entity.toJcLocation())
 
-    override val id: Long
-        get() = entity.id!!
 }
 
 

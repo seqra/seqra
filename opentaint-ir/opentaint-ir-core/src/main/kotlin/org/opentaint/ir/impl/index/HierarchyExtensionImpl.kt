@@ -38,7 +38,7 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
 
     }
 
-    private val create = (cp.db.persistence as SQLitePersistenceImpl).create
+    private val create = (cp.db.persistence as SQLitePersistenceImpl).jooq
 
     override fun findSubClasses(name: String, allHierarchy: Boolean): List<JIRClassOrInterface> {
         val classId = cp.findClassOrNull(name) ?: return emptyList()

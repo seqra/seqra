@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl.storage
 
+import org.jooq.DSLContext
 import org.jooq.TableField
 import org.jooq.impl.DSL.max
 import org.opentaint.ir.api.RegisteredLocation
@@ -23,7 +24,6 @@ import org.opentaint.ir.impl.types.FieldInfo
 import org.opentaint.ir.impl.types.MethodInfo
 import org.opentaint.ir.impl.types.ParameterInfo
 import org.opentaint.ir.impl.types.PrimitiveValue
-import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.Types
 import java.util.concurrent.ConcurrentHashMap
@@ -45,7 +45,7 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
     private val outerClassIdGen = AtomicLong()
 
     fun setup() {
-        val create = persistence.create
+        val create = persistence.jooq
         persistence.read {
             create.selectFrom(SYMBOLS).fetch().forEach {
                 val (id, name) = it
@@ -65,8 +65,6 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
     }
 
     fun persist(location: RegisteredLocation, classes: List<ClassInfo>) {
-        val create = persistence.create
-
         val classCollector = ClassCollector(classIdGen)
         val annotationCollector = AnnotationCollector(annotationIdGen, annotationValueIdGen, symbolsCache)
         val fieldCollector = FieldCollector(fieldIdGen, annotationCollector)
@@ -105,9 +103,7 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
                     namesToAdd.add(id to it)
                 }
             }
-            create.connection {
-                namesToAdd.createNames(it)
-            }
+            namesToAdd.createNames(it)
         }
         val locationId = location.id
         classes.forEach { classCollector.collect(it) }
@@ -132,7 +128,8 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
         }
 
         persistence.write {
-            create.connection { conn ->
+            it.connection { conn ->
+                conn.autoCommit = false
                 conn.insertElements(CLASSES, classCollector.classes.entries) {
                     val (classInfo, id) = it
                     val packageName = classInfo.name.substringBeforeLast('.')
@@ -227,6 +224,7 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
                     setString(4, classInfo.outerMethod)
                     setString(5, classInfo.outerMethodDesc)
                 }
+                conn.commit()
             }
         }
     }
@@ -244,17 +242,21 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
         }
     }
 
-    private fun Collection<Pair<Long, String>>.createNames(connection: Connection) {
-        connection.insertElements(SYMBOLS, this) { pair ->
-            setLong(1, pair.first)
-            setString(2, pair.second)
-            setLong(3, pair.second.longHash)
+    private fun Collection<Pair<Long, String>>.createNames(dslContext: DSLContext) {
+        dslContext.connection { connection ->
+            connection.autoCommit = false
+            connection.insertElements(SYMBOLS, this) { pair ->
+                setLong(1, pair.first)
+                setString(2, pair.second)
+                setLong(3, pair.second.longHash)
+            }
+            connection.commit()
         }
     }
 
     private val TableField<*, Long?>.maxId: Long?
         get() {
-            val create = persistence.create
+            val create = persistence.jooq
             return create.select(max(this))
                 .from(table).fetchAny()?.component1()
         }

@@ -48,7 +48,7 @@ class UsagesIndexer(private val location: RegisteredLocation, private val jirdb:
     }
 
     override fun flush() {
-        (jirdb.persistence as SQLitePersistenceImpl).create.connection { conn ->
+        (jirdb.persistence as SQLitePersistenceImpl).jooq.connection { conn ->
             conn.insertElements(CALLS, fieldsUsages.flatme()) {
                 val (calleeClass, calleeField, caller) = it
                 setLong(1, calleeClass.longHash)
@@ -104,14 +104,14 @@ object Usages : JIRFeature<UsageIndexRequest, String> {
 
             is JIRSignal.LocationRemoved -> {
                 signal.jirdb.persistence.write {
-                    val create = (signal.jirdb.persistence as SQLitePersistenceImpl).create
+                    val create = (signal.jirdb.persistence as SQLitePersistenceImpl).jooq
                     create.delete(CALLS).where(CALLS.LOCATION_ID.eq(signal.location.id)).execute()
                 }
             }
 
             is JIRSignal.AfterIndexing -> {
                 signal.jirdb.persistence.write {
-                    val create = (signal.jirdb.persistence as SQLitePersistenceImpl).create
+                    val create = (signal.jirdb.persistence as SQLitePersistenceImpl).jooq
                     create.execute(createIndexes)
 
                 }
@@ -119,7 +119,7 @@ object Usages : JIRFeature<UsageIndexRequest, String> {
 
             is JIRSignal.Drop -> {
                 signal.jirdb.persistence.write {
-                    val create = (signal.jirdb.persistence as SQLitePersistenceImpl).create
+                    val create = (signal.jirdb.persistence as SQLitePersistenceImpl).jooq
                     create.delete(CALLS).execute()
                 }
             }
@@ -131,7 +131,7 @@ object Usages : JIRFeature<UsageIndexRequest, String> {
     override suspend fun query(jirdb: JIRDB, req: UsageIndexRequest): Sequence<String> {
         val (method, field, className) = req
         return jirdb.persistence.read {
-            val create = (jirdb.persistence as SQLitePersistenceImpl).create
+            val create = (jirdb.persistence as SQLitePersistenceImpl).jooq
 
             val classHashes: List<Long> = if (method != null) {
                 create.select(CALLS.CALLER_CLASS_HASH).from(CALLS)

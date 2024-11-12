@@ -40,7 +40,7 @@ class SQLitePersistenceImpl(
     private val dataSource: DataSource
     private var keepAliveConnection: Connection? = null
     private val persistenceService = PersistenceService(this)
-    val create: DSLContext
+    val jooq: DSLContext
 
     init {
         val config = SQLiteConfig().also {
@@ -49,32 +49,31 @@ class SQLitePersistenceImpl(
             it.setCacheSize(-8_000)
         }
         if (location == null) {
-            val url = "jdbc:sqlite:file:jirdb-${UUID.randomUUID()}?mode=memory&cache=shared"
+            val url =
+                "jdbc:sqlite:file:jirdb-${UUID.randomUUID()}?mode=memory&cache=shared&rewriteBatchedStatements=true"
             dataSource = SQLiteDataSource(config).also {
                 it.url = url
             }
             keepAliveConnection = dataSource.connection //DriverManager.getConnection(url)
         } else {
-            val url = "jdbc:sqlite:$location"
+            val url = "jdbc:sqlite:file:$location?rewriteBatchedStatements=true&useServerPrepStmts=false"
             dataSource = SQLiteDataSource(config).also {
                 it.url = url
             }
         }
-        create = DSL.using(dataSource, SQLDialect.SQLITE)
+        jooq = DSL.using(dataSource, SQLDialect.SQLITE)
         write {
-            transaction {
-                if (clearOnStart) {
-                    create.execute(
-                        javaClass.classLoader.getResourceAsStream("jirdb-drop-schema.sql").bufferedReader().readText()
-                    )
-                }
-                javaClass.classLoader.getResourceAsStream("jirdb-create-schema.sql").bufferedReader().readText()
-                    .split(";").forEach {
+            if (clearOnStart) {
+                it.execute(
+                    javaClass.classLoader.getResourceAsStream("jirdb-drop-schema.sql").bufferedReader().readText()
+                )
+            }
+            javaClass.classLoader.getResourceAsStream("jirdb-create-schema.sql").bufferedReader().readText()
+                .split(";").forEach {
                     if (it.isNotBlank()) {
-                        create.execute(it)
+                        jooq.execute(it)
                     }
                 }
-            }
         }
     }
 
@@ -88,35 +87,25 @@ class SQLitePersistenceImpl(
     override val locations: List<JIRByteCodeLocation>
         get() {
             return transaction {
-                create.selectFrom(BYTECODELOCATIONS).fetch().mapNotNull {
-                        try {
-                            File(it.path!!).asByteCodeLocation(isRuntime = it.runtime!!)
-                        } catch (e: Exception) {
-                            null
-                        }
-                    }.toList()
+                jooq.selectFrom(BYTECODELOCATIONS).fetch().mapNotNull {
+                    try {
+                        File(it.path!!).asByteCodeLocation(isRuntime = it.runtime!!)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }.toList()
             }
         }
 
-    override fun <T> write(newTx: Boolean, action: () -> T): T {
+    override fun <T> write(newTx: Boolean, action: (DSLContext) -> T): T {
         return lock.withLock {
-            if (newTx) {
-                transaction {
-                    action()
-                }
-            } else {
-                action()
-            }
+            action(jooq)
         }
     }
 
-    override fun <T> read(newTx: Boolean, action: () -> T): T {
-        return if (newTx) {
-            transaction {
-                action()
-            }
-        } else {
-            action()
+    override fun <T> read(newTx: Boolean, action: (DSLContext) -> T): T {
+        return transaction {
+            action(jooq)
         }
     }
 
@@ -126,26 +115,24 @@ class SQLitePersistenceImpl(
         fullName: String
     ): ClassSource? {
         val ids = locations.map { it.id }
-        return transaction {
-            val symbolId = create.select(SYMBOLS.ID).from(SYMBOLS)
-                .where(SYMBOLS.NAME.eq(fullName))
-                .fetchAny()?.component1() ?: return@transaction null
-            val found = create.select(CLASSES.NAME, CLASSES.BYTECODE)
-                .where(CLASSES.NAME.eq(symbolId).and(CLASSES.LOCATION_ID.`in`(ids)))
-                .fetchAny() ?: return@transaction null
-            val locationId = found.component1()!!
-            val byteCode = found.component2()!!
-            ClassSourceImpl(
-                location = locations.first { it.id == locationId },
-                className = fullName,
-                byteCode = byteCode
-            )
-        }
+        val symbolId = jooq.select(SYMBOLS.ID).from(SYMBOLS)
+            .where(SYMBOLS.NAME.eq(fullName))
+            .fetchAny()?.component1() ?: return null
+        val found = jooq.select(CLASSES.NAME, CLASSES.BYTECODE)
+            .where(CLASSES.NAME.eq(symbolId).and(CLASSES.LOCATION_ID.`in`(ids)))
+            .fetchAny() ?: return null
+        val locationId = found.component1()!!
+        val byteCode = found.component2()!!
+        return ClassSourceImpl(
+            location = locations.first { it.id == locationId },
+            className = fullName,
+            byteCode = byteCode
+        )
     }
 
     override fun findClasses(location: RegisteredLocation): List<ClassSource> {
         return transaction {
-            val classes = create.select(CLASSES.LOCATION_ID, CLASSES.BYTECODE, SYMBOLS.NAME).from(CLASSES)
+            val classes = jooq.select(CLASSES.LOCATION_ID, CLASSES.BYTECODE, SYMBOLS.NAME).from(CLASSES)
                 .join(SYMBOLS).on(CLASSES.NAME.eq(SYMBOLS.ID))
                 .fetch()
             classes.map {
