@@ -52,7 +52,7 @@ benchmark {
     }
 }
 
-def benchmarkTasks = ["jirdbBenchmarkJar", "sootBenchmarkJar"]
+def benchmarkTasks = ["testJirdbBenchmark", "testSootBenchmark"]
 tasks.matching { benchmarkTasks.contains(it.name) }.configureEach {
-    dependsOn(":downloadAndUnzipIdeaCommunity")
+    dependsOn("downloadAndUnzipIdeaCommunity")
 }
