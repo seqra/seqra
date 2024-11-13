@@ -1,6 +1,5 @@
 package org.opentaint.ir.impl.storage
 
-import org.jooq.DSLContext
 import org.jooq.TableField
 import org.jooq.impl.DSL.max
 import org.opentaint.ir.api.RegisteredLocation
@@ -102,7 +101,6 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
                     namesToAdd.add(id to it)
                 }
             }
-            namesToAdd.createNames(it)
         }
         val locationId = location.id
         classes.forEach { classCollector.collect(it) }
@@ -128,6 +126,13 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
 
         persistence.write {
             it.connection { conn ->
+
+                conn.insertElements(SYMBOLS, namesToAdd) { pair ->
+                    setLong(1, pair.first)
+                    setString(2, pair.second)
+                    setLong(3, pair.second.longHash)
+                }
+
                 conn.insertElements(CLASSES, classCollector.classes.entries) {
                     val (classInfo, id) = it
                     val packageName = classInfo.name.substringBeforeLast('.')
@@ -236,16 +241,6 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
             setNull(index, Types.BIGINT)
         } else {
             setLong(index, value)
-        }
-    }
-
-    private fun Collection<Pair<Long, String>>.createNames(dslContext: DSLContext) {
-        dslContext.connection { connection ->
-            connection.insertElements(SYMBOLS, this) { pair ->
-                setLong(1, pair.first)
-                setString(2, pair.second)
-                setLong(3, pair.second.longHash)
-            }
         }
     }
 
