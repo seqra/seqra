@@ -65,16 +65,9 @@ class SQLitePersistenceImpl(
         jooq = DSL.using(dataSource, SQLDialect.SQLITE)
         write {
             if (clearOnStart) {
-                it.execute(
-                    javaClass.classLoader.getResourceAsStream("jirdb-drop-schema.sql").bufferedReader().readText()
-                )
+                jooq.executeQueriesFrom("jirdb-drop-schema.sql")
             }
-            javaClass.classLoader.getResourceAsStream("jirdb-create-schema.sql").bufferedReader().readText()
-                .split(";").forEach {
-                    if (it.isNotBlank()) {
-                        jooq.execute(it)
-                    }
-                }
+            jooq.executeQueriesFrom("jirdb-create-schema.sql")
         }
     }
 
@@ -87,27 +80,23 @@ class SQLitePersistenceImpl(
 
     override val locations: List<JIRByteCodeLocation>
         get() {
-            return transaction {
-                jooq.selectFrom(BYTECODELOCATIONS).fetch().mapNotNull {
-                    try {
-                        File(it.path!!).asByteCodeLocation(isRuntime = it.runtime!!)
-                    } catch (e: Exception) {
-                        null
-                    }
-                }.toList()
-            }
+            return jooq.selectFrom(BYTECODELOCATIONS).fetch().mapNotNull {
+                try {
+                    File(it.path!!).asByteCodeLocation(isRuntime = it.runtime!!)
+                } catch (e: Exception) {
+                    null
+                }
+            }.toList()
         }
 
-    override fun <T> write(newTx: Boolean, action: (DSLContext) -> T): T {
+    override fun <T> write(action: (DSLContext) -> T): T {
         return lock.withLock {
             action(jooq)
         }
     }
 
-    override fun <T> read(newTx: Boolean, action: (DSLContext) -> T): T {
-        return transaction {
-            action(jooq)
-        }
+    override fun <T> read(action: (DSLContext) -> T): T {
+        return action(jooq)
     }
 
     override fun findClassSourceByName(
@@ -154,32 +143,4 @@ class SQLitePersistenceImpl(
         keepAliveConnection?.close()
     }
 
-    private fun <T> transaction(action: (Connection) -> T): T {
-        return dataSource.connection.use { connection ->
-            action(connection)
-        }
-    }
 }
-
-//
-//if (clearOnStart) {
-//    create.dropTableIfExists(SYMBOLS).execute()
-//
-//    create.dropTableIfExists(BYTECODELOCATIONS).execute()
-//    create.dropTableIfExists(CLASSES).execute()
-//    create.dropTableIfExists(METHODS).execute()
-//    create.dropTableIfExists(METHODPARAMETERS).execute()
-//    create.dropTableIfExists(FIELDS).execute()
-//    create.dropTableIfExists(ANNOTATIONS).execute()
-//    create.dropTableIfExists(ANNOTATIONVALUES).execute()
-//}
-//create.createTableIfNotExists(SYMBOLS).execute()
-//
-//create.createTableIfNotExists(BYTECODELOCATIONS).execute()
-//create.createTableIfNotExists(CLASSES).execute()
-//create.createTableIfNotExists(METHODS).execute()
-//create.createTableIfNotExists(METHODPARAMETERS).execute()
-//create.createTableIfNotExists(FIELDS).execute()
-//create.createTableIfNotExists(ANNOTATIONS).execute()
-//create.createTableIfNotExists(ANNOTATIONVALUES).execute()
-//}

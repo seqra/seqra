@@ -63,7 +63,10 @@ class DatabaseLifecycleTest {
         assertEquals(1, cp.locations.filterIsInstance<BuildFolderLocation>().size)
         withRegistry {
             assertEquals(1, snapshots.size)
-            assertEquals(1, actualLocations.filter { (it.jirLocation as RestoredJcByteCodeLocation).createRefreshed() == null }.size)
+            assertEquals(
+                1,
+                actualLocations.filter { (it.jirLocation as RestoredJcByteCodeLocation).createRefreshed() == null }.size
+            )
         }
 
         cp.findClass<BarKt>()
@@ -87,14 +90,28 @@ class DatabaseLifecycleTest {
         )
     }
 
+    private fun File.deleteWithRetries(retries: Int): Boolean {
+        var result = false
+        var counter = 0
+        while (!result && counter < retries) {
+            result = delete()
+            counter++
+            if (!result) {
+                println("Deletion failed $counter")
+                Thread.sleep(1000)
+            }
+        }
+        return result
+    }
+
     @Test
     fun `refresh is working when jar is removed`() = runBlocking {
         val database = db!!
         val cp = database.classpath(listOf(guavaLibClone))
-        val abstractCacheClass = cp.findClass<AbstractCache<*,*>>()
+        val abstractCacheClass = cp.findClass<AbstractCache<*, *>>()
         database.awaitBackgroundJobs() // is required for deleting jar
 
-        assertTrue(guavaLibClone.delete())
+        assertTrue(guavaLibClone.deleteWithRetries(5))
         assertNotNull(abstractCacheClass.declaredMethods.first().body())
 
         database.refresh()
@@ -102,7 +119,7 @@ class DatabaseLifecycleTest {
             assertEquals(1, snapshots.size)
         }
 
-        cp.findClass<AbstractCache<*,*>>()
+        cp.findClass<AbstractCache<*, *>>()
         cp.close()
         database.refresh()
         withRegistry {
@@ -114,7 +131,7 @@ class DatabaseLifecycleTest {
     @Test
     fun `method body could be read from jar`() = runBlocking {
         val cp = db!!.classpath(listOf(guavaLibClone))
-        val abstractCacheClass = cp.findClassOrNull<AbstractCache<*,*>>()
+        val abstractCacheClass = cp.findClassOrNull<AbstractCache<*, *>>()
         assertNotNull(abstractCacheClass!!)
 
         assertNotNull(
@@ -129,7 +146,7 @@ class DatabaseLifecycleTest {
         val cps = (1..10).map { database.classpath(listOf(guavaLibClone)) }
 
         fun JIRClasspath.accessMethod() {
-            val abstractCacheClass = findClass<AbstractCache<*,*>>()
+            val abstractCacheClass = findClass<AbstractCache<*, *>>()
 
             assertNotNull(
                 abstractCacheClass.declaredMethods.first().body()

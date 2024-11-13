@@ -45,9 +45,8 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
     private val outerClassIdGen = AtomicLong()
 
     fun setup() {
-        val create = persistence.jooq
         persistence.read {
-            create.selectFrom(SYMBOLS).fetch().forEach {
+            it.selectFrom(SYMBOLS).fetch().forEach {
                 val (id, name) = it
                 if (name != null && id != null)
                     symbolsCache[name] = id

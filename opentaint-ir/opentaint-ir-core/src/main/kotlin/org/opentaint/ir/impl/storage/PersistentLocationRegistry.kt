@@ -35,6 +35,13 @@ class PersistentLocationRegistry(
             }
         }
 
+    private val notRuntimeLocations: List<PersistentByteCodeLocation>
+        get() = persistence.read {
+            it.selectFrom(BYTECODELOCATIONS).where(BYTECODELOCATIONS.RUNTIME.ne(true)).fetch {
+                PersistentByteCodeLocation(it)
+            }
+        }
+
     override lateinit var runtimeLocations: List<RegisteredLocation>
 
     private fun DSLContext.add(location: JIRByteCodeLocation) = PersistentByteCodeLocation(location.findOrNew(this).id!!, location)
@@ -101,7 +108,7 @@ class PersistentLocationRegistry(
         val deprecated = arrayListOf<PersistentByteCodeLocation>()
         val newLocations = arrayListOf<JIRByteCodeLocation>()
         val updated = hashMapOf<JIRByteCodeLocation, PersistentByteCodeLocation>()
-        actualLocations.forEach { location ->
+        notRuntimeLocations.forEach { location ->
             val jirLocation = location.jirLocation
             if (jirLocation.isChanged()) {
                 val refreshed = jirLocation.createRefreshed()
