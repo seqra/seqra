@@ -1,6 +1,5 @@
 package org.opentaint.ir.impl.performance
 
-
 import kotlinx.coroutines.runBlocking
 import org.openjdk.jmh.annotations.Benchmark
 import org.openjdk.jmh.annotations.BenchmarkMode
@@ -10,6 +9,7 @@ import org.openjdk.jmh.annotations.Measurement
 import org.openjdk.jmh.annotations.Mode
 import org.openjdk.jmh.annotations.OutputTimeUnit
 import org.openjdk.jmh.annotations.Scope
+import org.openjdk.jmh.annotations.Setup
 import org.openjdk.jmh.annotations.State
 import org.openjdk.jmh.annotations.TearDown
 import org.openjdk.jmh.annotations.Warmup
@@ -19,45 +19,43 @@ import org.opentaint.ir.impl.index.Usages
 import org.opentaint.ir.jirdb
 import java.util.concurrent.TimeUnit
 
-
 @State(Scope.Benchmark)
 @Fork(0)
 @Warmup(iterations = 2)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.MILLISECONDS)
-class DBBenchmarks  {
+class JirdbLifeCycleBenchmarks {
 
-    private var db: JIRDB? = null
+    private lateinit var db: JIRDB
 
-    @Benchmark
-    fun readingJVMbytecode() {
+    @Setup(Level.Iteration)
+    fun setup() {
         db = runBlocking {
             jirdb {
-                useProcessJavaRuntime()
                 installFeatures(Usages)
+                useProcessJavaRuntime()
             }
         }
     }
 
     @Benchmark
-    fun readingJVMbytecodeWithProjectClasspath() {
-        db = runBlocking {
-            jirdb {
-                useProcessJavaRuntime()
-                loadByteCode(allJars)
-                installFeatures(Usages)
-            }
+    fun loadAdditionalJars() {
+        val jars = allJars
+        runBlocking {
+            db.load(jars)
+        }
+    }
+
+    @Benchmark
+    fun awaitIndexing() {
+        runBlocking {
+            db.awaitBackgroundJobs()
         }
     }
 
     @TearDown(Level.Iteration)
     fun tearDown() {
-        db?.let {
-            runBlocking {
-                it.awaitBackgroundJobs()
-                it.close()
-            }
-        }
+        db.close()
     }
 }

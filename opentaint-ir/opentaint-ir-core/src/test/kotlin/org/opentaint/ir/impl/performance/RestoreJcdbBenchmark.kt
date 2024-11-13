@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.MILLISECONDS)
-class RestoreDBBenchmark {
+class RestoreJirdbBenchmark {
 
     companion object {
         private val jdbcLocation = Files.createTempDirectory("jdbc-${UUID.randomUUID()}").toFile().absolutePath
@@ -63,16 +63,4 @@ class RestoreDBBenchmark {
         }
     }
 
-}
-
-fun main() {
-    val test = RestoreDBBenchmark()
-    test.setup()
-    repeat(3) {
-        println("iteration $it")
-        val start = System.currentTimeMillis()
-        test.restore()
-        println("took ${System.currentTimeMillis() - start}ms")
-        test.clean()
-    }
 }

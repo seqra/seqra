@@ -1,3 +1,7 @@
+plugins {
+    id "de.undercouch.download" version "5.3.0"
+}
+
 dependencies {
     api project(":opentaint-ir-api")
 
@@ -16,4 +20,34 @@ dependencies {
     testImplementation "org.opentaint.soot:soot-opentaint-fork:4.4.0-FORK-2"
 
     testImplementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-benchmark-runtime', version: '0.4.4'
+}
+
+task downloadIdeaCommunity(type: Download) {
+    src intellij_community_url
+    dest "idea-community/idea-community.zip"
+}
+
+task downloadAndUnzipIdeaCommunity(dependsOn: downloadIdeaCommunity, type: Copy) {
+    from zipTree(downloadIdeaCommunity.dest)
+    into "idea-community/unzip"
+}
+
+benchmark {
+    configurations {
+        main {
+            exclude("JirdbBenchmarks")
+            exclude("SootBenchmarks")
+        }
+        jirdb {
+            include("JirdbBenchmarks")
+        }
+        soot {
+            include("SootBenchmarks")
+        }
+    }
+}
+
+def benchmarkTasks = ["jirdbBenchmarkJar", "sootBenchmarkJar"]
+tasks.matching { benchmarkTasks.contains(it.name) }.configureEach {
+    dependsOn(":downloadAndUnzipIdeaCommunity")
 }

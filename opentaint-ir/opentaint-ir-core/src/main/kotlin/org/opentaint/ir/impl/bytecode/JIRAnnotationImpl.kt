@@ -39,7 +39,7 @@ class JIRAnnotationImpl(
         return when (value) {
             is PrimitiveValue -> value.value
             is ClassRef -> classpath.findClassOrNull(value.className)
-            is EnumRef -> classpath.findClassOrNull(value.className)?.enumValues()
+            is EnumRef -> classpath.findClassOrNull(value.className)?.enumValues
                 ?.firstOrNull { it.name == value.enumName }
 
             is AnnotationInfo -> JIRAnnotationImpl(value, classpath)
