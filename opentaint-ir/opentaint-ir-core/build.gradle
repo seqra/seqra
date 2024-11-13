@@ -8,9 +8,7 @@ dependencies {
     implementation group: 'org.xerial', name: 'sqlite-jdbc', version: '3.39.2.1'
     implementation group: 'com.google.guava', name: 'guava', version: '31.1-jre'
 
-    implementation group: 'org.jooq', name: 'jooq', version: '3.16.10'
-    implementation group: 'org.jooq', name: 'jooq-codegen', version: '3.16.10'
-    implementation group: 'org.jooq', name: 'jooq-kotlin', version: '3.16.10'
+    implementation group: 'org.jooq', name: 'jooq', version: jooq_version
 
     testImplementation project(':jirdb-testing')
     testImplementation(platform('org.junit:junit-bom:5.8.2'))

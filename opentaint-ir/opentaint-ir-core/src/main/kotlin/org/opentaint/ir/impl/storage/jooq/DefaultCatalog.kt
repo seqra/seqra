@@ -4,7 +4,6 @@
 package org.opentaint.ir.impl.storage.jooq
 
 
-import org.jooq.Constants
 import org.jooq.Schema
 import org.jooq.impl.CatalogImpl
 
@@ -37,5 +36,4 @@ open class DefaultCatalog : CatalogImpl("") {
      * release, namely: 3.16. You can turn off the generation of this reference
      * by specifying /configuration/generator/generate/jooqVersionReference
      */
-    private val REQUIRE_RUNTIME_JOOQ_VERSION = Constants.VERSION_3_16
 }
