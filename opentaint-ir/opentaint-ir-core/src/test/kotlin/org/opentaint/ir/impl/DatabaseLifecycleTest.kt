@@ -111,7 +111,7 @@ class DatabaseLifecycleTest {
         val abstractCacheClass = cp.findClass<AbstractCache<*, *>>()
         database.awaitBackgroundJobs() // is required for deleting jar
 
-        assertTrue(guavaLibClone.deleteWithRetries(5))
+        assertTrue(guavaLibClone.deleteWithRetries(3))
         assertNotNull(abstractCacheClass.declaredMethods.first().body())
 
         database.refresh()
@@ -173,7 +173,7 @@ class DatabaseLifecycleTest {
         val clazz = cp.findClass<Iterators>()
         assertNotNull(clazz.declaredMethods.first().body())
         db!!.awaitBackgroundJobs()
-        assertTrue(guavaLibClone.delete())
+        assertTrue(guavaLibClone.deleteWithRetries(3))
     }
 
     @AfterEach
