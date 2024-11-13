@@ -24,23 +24,22 @@ import kotlin.io.path.exists
 
 val allIdeaJars: List<File>
     get() {
-        val absolutePath = File(".").absolutePath
-        val ideaClassPath = Paths.get(absolutePath, "idea-community", "unzip")
-        require(ideaClassPath.exists())
-        val pluginsJars = ideaClassPath.resolve("plugins").toFile().walk().filter { it.extension == "jar" }
-        val libsJars = ideaClassPath.resolve("lib").toFile().walk().filter { it.extension == "jar" }
-        return (libsJars + pluginsJars).toList()
+        return allIdeaJarsMain("idea-community", "unzip")
     }
 
-val allIdeaJarsMain: List<File>
+val allIdeaJarsAbsolute: List<File>
     get() {
-        val absolutePath = File(".").absolutePath
-        val ideaClassPath = Paths.get(absolutePath, "opentaint-ir-core","idea-community", "unzip")
-        require(ideaClassPath.exists())
-        val pluginsJars = ideaClassPath.resolve("plugins").toFile().walk().filter { it.extension == "jar" }
-        val libsJars = ideaClassPath.resolve("lib").toFile().walk().filter { it.extension == "jar" }
-        return (libsJars + pluginsJars).toList()
+        return allIdeaJarsMain("opentaint-ir-core", "idea-community", "unzip")
     }
+
+private fun allIdeaJarsMain(vararg paths: String): List<File> {
+    val absolutePath = File(".").absolutePath
+    val ideaClassPath = Paths.get(absolutePath, *paths)
+    require(ideaClassPath.exists())
+    val pluginsJars = ideaClassPath.resolve("plugins").toFile().walk().filter { it.extension == "jar" }
+    val libsJars = ideaClassPath.resolve("lib").toFile().walk().filter { it.extension == "jar" }
+    return (libsJars + pluginsJars).toList()
+}
 
 @State(Scope.Benchmark)
 @Fork(0)
@@ -50,17 +49,17 @@ val allIdeaJarsMain: List<File>
 @Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.MILLISECONDS)
 class SootBenchmarks {
 
-//    @Benchmark
+    @Benchmark
     fun jvmRuntime() {
         initSoot(emptyList())
     }
 
-//    @Benchmark
+    @Benchmark
     fun jvmRuntimeWithGuava() {
         initSoot(listOf(guavaLib))
     }
 
-//    @Benchmark
+    @Benchmark
     fun jvmRuntimeWithAllClasspath() {
         initSoot(allClasspath)
     }
