@@ -52,8 +52,8 @@ task downloadAndUnzipIdeaCommunity(dependsOn: downloadIdeaCommunity, type: Copy)
 benchmark {
     configurations {
         main {
-            exclude("JirdbBenchmarks")
-            exclude("SootBenchmarks")
+            include("JirdbLifeCycleBenchmarks")
+            include("RestoreJirdbBenchmark")
         }
         jirdb {
             include("JirdbBenchmarks")
@@ -75,22 +75,24 @@ tasks.matching { benchmarkTasks.contains(it.name) }.configureEach {
 }
 
 task generateSqlScheme() {
-    String url = "jdbc:sqlite:file:" + database_location
-    String driver = "org.sqlite.JDBC"
-    GenerationTool.generate(new Configuration()
-            .withJdbc(new Jdbc()
-                    .withDriver(driver)
-                    .withUrl(url)
-            )
-            .withGenerator(new Generator()
-                    .withName("org.jooq.codegen.KotlinGenerator")
-                    .withDatabase(new Database())
-                    .withGenerate(new Generate()
-                            .withDeprecationOnUnknownTypes(Boolean.FALSE)
-                    )
-                    .withTarget(new Target()
-                            .withPackageName("org.opentaint.ir.impl.storage.jooq")
-                            .withDirectory(project.file("src/main/jooq").absolutePath)
-                    )
-            ))
+    if (project.hasProperty("database_location")) {
+        String url = "jdbc:sqlite:file:" + project.property("database_location")
+        String driver = "org.sqlite.JDBC"
+        GenerationTool.generate(new Configuration()
+                .withJdbc(new Jdbc()
+                        .withDriver(driver)
+                        .withUrl(url)
+                )
+                .withGenerator(new Generator()
+                        .withName("org.jooq.codegen.KotlinGenerator")
+                        .withDatabase(new Database())
+                        .withGenerate(new Generate()
+                                .withDeprecationOnUnknownTypes(Boolean.FALSE)
+                        )
+                        .withTarget(new Target()
+                                .withPackageName("org.opentaint.ir.impl.storage.jooq")
+                                .withDirectory(project.file("src/main/jooq").absolutePath)
+                        )
+                ))
+    }
 }
