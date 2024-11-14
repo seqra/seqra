@@ -5,8 +5,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.FieldUsageMode
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.impl.index.Usages
-import org.opentaint.ir.impl.index.findUsages
+import org.opentaint.ir.impl.features.Usages
+import org.opentaint.ir.impl.features.findUsages
 import org.opentaint.ir.impl.usages.fields.FieldA
 import org.opentaint.ir.impl.usages.fields.FieldB
 import org.opentaint.ir.impl.usages.methods.MethodA
@@ -63,7 +63,7 @@ class SearchUsagesTest : BaseTest() {
     fun `classes write fields with rebuild`() {
         val time = measureTimeMillis {
             runBlocking {
-                db!!.rebuildFeatures()
+                db.rebuildFeatures()
             }
         }
         println("Features rebuild in ${time}ms")

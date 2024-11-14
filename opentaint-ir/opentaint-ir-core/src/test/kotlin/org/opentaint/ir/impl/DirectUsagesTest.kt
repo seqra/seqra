@@ -9,7 +9,7 @@ import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findFieldsUsedIn
 import org.opentaint.ir.api.ext.findMethodsUsedIn
-import org.opentaint.ir.impl.index.Usages
+import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.usages.direct.DirectA
 
 class DirectUsagesTest : BaseTest() {
@@ -40,7 +40,7 @@ class DirectUsagesTest : BaseTest() {
     @Test
     fun `find methods used in method with broken classpath`() {
         val cp = runBlocking {
-            db!!.classpath(allClasspath - guavaLib)
+            db.classpath(allClasspath - guavaLib)
         }
         cp.use {
             val usages = cp.methodsUsages<DirectA>()

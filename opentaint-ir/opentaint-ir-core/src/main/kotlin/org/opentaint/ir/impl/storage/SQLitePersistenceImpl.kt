@@ -139,7 +139,11 @@ class SQLitePersistenceImpl(
     }
 
     override fun close() {
-        keepAliveConnection?.close()
+        try {
+            keepAliveConnection?.close()
+        } catch (e: Exception) {
+            // ignore
+        }
     }
 
 }

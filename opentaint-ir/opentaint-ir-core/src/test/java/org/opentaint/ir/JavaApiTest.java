@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.opentaint.ir.api.JIRDB;
 import org.opentaint.ir.api.JIRClassOrInterface;
 import org.opentaint.ir.api.JIRClasspath;
-import org.opentaint.ir.impl.index.Usages;
+import org.opentaint.ir.impl.features.Usages;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;

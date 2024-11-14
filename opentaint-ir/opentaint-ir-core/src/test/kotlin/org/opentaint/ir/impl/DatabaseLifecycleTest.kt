@@ -26,7 +26,7 @@ import java.util.*
 
 class DatabaseLifecycleTest {
 
-    private var db: JIRDBImpl? = runBlocking {
+    private var db = runBlocking {
         jirdb {
             useProcessJavaRuntime()
         } as JIRDBImpl
@@ -51,14 +51,13 @@ class DatabaseLifecycleTest {
 
     @Test
     fun `refresh is working when build dir is removed`() = runBlocking {
-        val database = db!!
-        val cp = database.classpath(listOf(testDirClone))
+        val cp = db.classpath(listOf(testDirClone))
         val barKt = cp.findClass<BarKt>()
-        database.awaitBackgroundJobs()
+        db.awaitBackgroundJobs()
         assertTrue(testDirClone.deleteRecursively())
         assertNotNull(barKt.declaredMethods.first().body())
 
-        database.refresh()
+        db.refresh()
 
         assertEquals(1, cp.locations.filterIsInstance<BuildFolderLocation>().size)
         withRegistry {
@@ -71,7 +70,7 @@ class DatabaseLifecycleTest {
 
         cp.findClass<BarKt>()
         cp.close()
-        database.refresh()
+        db.refresh()
         withRegistry {
             assertTrue(snapshots.isEmpty())
             assertTrue(actualLocations.all { it.jirLocation !is BuildFolderLocation })
@@ -80,7 +79,7 @@ class DatabaseLifecycleTest {
 
     @Test
     fun `method could be read from build dir`() = runBlocking {
-        val cp = db!!.classpath(listOf(testDirClone))
+        val cp = db.classpath(listOf(testDirClone))
         val barKt = cp.findClass<BarKt>()
 
         assertNotNull(
@@ -106,31 +105,30 @@ class DatabaseLifecycleTest {
 
     @Test
     fun `refresh is working when jar is removed`() = runBlocking {
-        val database = db!!
-        val cp = database.classpath(listOf(guavaLibClone))
+        val cp = db.classpath(listOf(guavaLibClone))
         val abstractCacheClass = cp.findClass<AbstractCache<*, *>>()
-        database.awaitBackgroundJobs() // is required for deleting jar
+        db.awaitBackgroundJobs() // is required for deleting jar
 
         assertTrue(guavaLibClone.deleteWithRetries(3))
         assertNotNull(abstractCacheClass.declaredMethods.first().body())
 
-        database.refresh()
+        db.refresh()
         withRegistry {
             assertEquals(1, snapshots.size)
         }
 
         cp.findClass<AbstractCache<*, *>>()
         cp.close()
-        database.refresh()
+        db.refresh()
         withRegistry {
             assertTrue(snapshots.isEmpty())
-            assertEquals(database.javaRuntime.allLocations.size, actualLocations.size)
+            assertEquals(db.javaRuntime.allLocations.size, actualLocations.size)
         }
     }
 
     @Test
     fun `method body could be read from jar`() = runBlocking {
-        val cp = db!!.classpath(listOf(guavaLibClone))
+        val cp = db.classpath(listOf(guavaLibClone))
         val abstractCacheClass = cp.findClassOrNull<AbstractCache<*, *>>()
         assertNotNull(abstractCacheClass!!)
 
@@ -141,9 +139,8 @@ class DatabaseLifecycleTest {
 
     @Test
     fun `simultaneous access to method body`() = runBlocking {
-        val database = db!!
-        database.awaitBackgroundJobs()
-        val cps = (1..10).map { database.classpath(listOf(guavaLibClone)) }
+        db.awaitBackgroundJobs()
+        val cps = (1..10).map { db.classpath(listOf(guavaLibClone)) }
 
         fun JIRClasspath.accessMethod() {
             val abstractCacheClass = findClass<AbstractCache<*, *>>()
@@ -160,7 +157,7 @@ class DatabaseLifecycleTest {
                 }
             }.joinAll()
         }
-        database.refresh()
+        db.refresh()
 
         withRegistry {
             assertTrue(snapshots.isEmpty())
@@ -169,26 +166,20 @@ class DatabaseLifecycleTest {
 
     @Test
     fun `jar should not be blocked after method read`() = runBlocking {
-        val cp = db!!.classpath(listOf(guavaLibClone))
+        val cp = db.classpath(listOf(guavaLibClone))
         val clazz = cp.findClass<Iterators>()
         assertNotNull(clazz.declaredMethods.first().body())
-        db!!.awaitBackgroundJobs()
+        db.awaitBackgroundJobs()
         assertTrue(guavaLibClone.deleteWithRetries(3))
     }
 
     @AfterEach
     fun cleanup() {
+        db.close()
         tempFolder.deleteRecursively()
-        runBlocking {
-            db?.let {
-                it.close()
-                it.awaitBackgroundJobs()
-            }
-        }
-        db = null
     }
 
     private fun withRegistry(action: PersistentLocationRegistry.() -> Unit) {
-        (db!!.locationsRegistry as PersistentLocationRegistry).action()
+        (db.locationsRegistry as PersistentLocationRegistry).action()
     }
 }

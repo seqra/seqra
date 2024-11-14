@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -119,11 +120,9 @@ class JIRDBImpl(
             map { location ->
                 async {
                     val sources = location.sources
-                    if (parentScope.isActive) {
-                        persistence.persist(location, sources)
-                        classesVfs.visit(RemoveLocationsVisitor(listOf(location)))
-                        featureRegistry.index(location, sources)
-                    }
+                    parentScope.ifActive { persistence.persist(location, sources) }
+                    parentScope.ifActive { classesVfs.visit(RemoveLocationsVisitor(listOf(location))) }
+                    parentScope.ifActive { featureRegistry.index(location, sources) }
                 }
             }.joinAll()
             locationsRegistry.afterProcessing(this@process)
@@ -149,9 +148,7 @@ class JIRDBImpl(
             locations.map {
                 async {
                     val addedClasses = persistence.findClassSources(it)
-                    if (parentScope.isActive) {
-                        featureRegistry.index(it, addedClasses)
-                    }
+                    parentScope.ifActive { featureRegistry.index(it, addedClasses) }
                 }
             }.joinAll()
         }
@@ -187,8 +184,9 @@ class JIRDBImpl(
         runBlocking {
             awaitBackgroundJobs()
         }
-        backgroundScope.cancel()
         backgroundJobs.clear()
+        classesVfs.close()
+        backgroundScope.cancel()
         persistence.close()
         hooks.forEach { it.afterStop() }
     }
@@ -196,6 +194,12 @@ class JIRDBImpl(
     private fun assertNotClosed() {
         if (isClosed.get()) {
             throw IllegalStateException("Database is already closed")
+        }
+    }
+
+    private inline fun CoroutineScope.ifActive(action: () -> Unit) {
+        if (isActive) {
+            action()
         }
     }
 

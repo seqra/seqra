@@ -15,8 +15,8 @@ import org.openjdk.jmh.annotations.TearDown
 import org.openjdk.jmh.annotations.Warmup
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.impl.allClasspath
+import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.guavaLib
-import org.opentaint.ir.impl.index.Usages
 import org.opentaint.ir.jirdb
 import java.io.File
 import java.util.concurrent.TimeUnit

@@ -2,9 +2,10 @@ package org.opentaint.ir.impl.vfs
 
 import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.RegisteredLocation
+import java.io.Closeable
 import java.util.concurrent.ConcurrentHashMap
 
-open class GlobalClassesVfs {
+open class GlobalClassesVfs : Closeable {
 
     val rootItem = PackageVfsItem(null, null)
 
@@ -73,6 +74,11 @@ open class GlobalClassesVfs {
         rootItem.visit(visitor)
     }
 
-    protected val String.splitted get() = this.split(".")
+    private val String.splitted get() = this.split(".")
+
+    override fun close() {
+        rootItem.classes.clear()
+        rootItem.subpackages.clear()
+    }
 
 }

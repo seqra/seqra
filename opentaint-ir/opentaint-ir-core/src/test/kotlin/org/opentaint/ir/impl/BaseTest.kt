@@ -5,7 +5,6 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.extension.AfterAllCallback
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.extension.ExtensionContext
-import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.jirdb
@@ -16,7 +15,7 @@ abstract class BaseTest {
 
     protected val cp: JIRClasspath = runBlocking {
         val withDB = this@BaseTest.javaClass.withDB
-        withDB.db!!.classpath(allClasspath)
+        withDB.db.classpath(allClasspath)
     }
 
     @AfterEach
@@ -40,7 +39,7 @@ abstract class BaseTest {
 
 open class WithDB(vararg features: JIRFeature<*, *>) {
 
-    var db: JIRDB? = runBlocking {
+    var db = runBlocking {
         jirdb {
             loadByteCode(allClasspath)
             useProcessJavaRuntime()
@@ -51,8 +50,7 @@ open class WithDB(vararg features: JIRFeature<*, *>) {
     }
 
     open fun cleanup() {
-        db?.close()
-        db = null
+        db.close()
     }
 }
 
