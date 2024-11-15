@@ -95,7 +95,7 @@ private fun MethodNode.asMethodInfo(): MethodInfo {
         parametersInfo = params.mapIndexed { index, param ->
             ParameterInfo(
                 index = index,
-                name = param,
+                name = parameters?.get(index)?.name,
                 access = parameters?.get(index)?.access ?: Opcodes.ACC_PUBLIC,
                 type = params[index],
                 annotations = visibleParameterAnnotations?.get(index)?.asAnnotationInfos(true).orEmpty()
