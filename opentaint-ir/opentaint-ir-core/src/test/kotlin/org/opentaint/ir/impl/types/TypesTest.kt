@@ -39,4 +39,17 @@ class TypesTest : BaseTypesTest() {
             }
         }
     }
+
+    @Test
+    fun `parameters test`() {
+        class Example {
+            fun f(notNullable: String, nullable: String?): Int {
+                return 0
+            }
+        }
+
+        val type = findType<Example>()
+        val actualParameters = type.declaredMethods.single { it.name == "f" }.parameters.map { it.name }
+        assertEquals(listOf(null, null), actualParameters)
+    }
 }

@@ -92,7 +92,7 @@ private fun MethodNode.asMethodInfo(): MethodInfo {
         desc = desc,
         access = access,
         annotations = visibleAnnotations.asAnnotationInfos(true) + invisibleAnnotations.asAnnotationInfos(false),
-        parametersInfo = params.mapIndexed { index, param ->
+        parametersInfo = List(params.size) { index ->
             ParameterInfo(
                 index = index,
                 name = parameters?.get(index)?.name,
