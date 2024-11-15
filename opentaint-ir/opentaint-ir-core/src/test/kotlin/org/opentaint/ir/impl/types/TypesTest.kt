@@ -1,6 +1,7 @@
 package org.opentaint.ir.impl.types
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.JIRArrayType
@@ -49,7 +50,9 @@ class TypesTest : BaseTypesTest() {
         }
 
         val type = findType<Example>()
-        val actualParameters = type.declaredMethods.single { it.name == "f" }.parameters.map { it.name }
-        assertEquals(listOf(null, null), actualParameters)
+        val actualParameters = type.declaredMethods.single { it.name == "f" }.parameters
+        assertEquals(listOf(null, null), actualParameters.map { it.name })
+        assertFalse(actualParameters.first().nullable)
+        assertTrue(actualParameters.get(1).nullable)
     }
 }
