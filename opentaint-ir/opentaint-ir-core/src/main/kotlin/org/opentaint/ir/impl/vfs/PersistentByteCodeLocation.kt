@@ -1,10 +1,12 @@
 package org.opentaint.ir.impl.vfs
 
+import org.opentaint.ir.api.JIRDBPersistence
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.LocationType
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.fs.asByteCodeLocation
-import org.opentaint.ir.impl.storage.BytecodeLocationEntity
+import org.opentaint.ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
+import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
 import java.io.File
 
 class PersistentByteCodeLocation(
@@ -12,9 +14,20 @@ class PersistentByteCodeLocation(
     override val jirLocation: JIRByteCodeLocation
 ) : RegisteredLocation {
 
-    constructor(entity: BytecodeLocationEntity) : this(entity.id.value, entity.toJcLocation())
+    constructor(entity: BytecodelocationsRecord) : this(entity.id!!, entity.toJcLocation())
 
-    val entity get() = BytecodeLocationEntity.findById(id) ?: throw IllegalStateException("Can't find location by id $id")
+}
+
+class LazyPersistentByteCodeLocation(private val jirdbPersistence: JIRDBPersistence, override val id: Long) :
+    RegisteredLocation {
+
+    override val jirLocation: JIRByteCodeLocation
+        get() {
+            return jirdbPersistence.read {
+                it.fetchOne(BYTECODELOCATIONS, BYTECODELOCATIONS.ID.eq(id))!!.toJcLocation()
+            }
+        }
+
 }
 
 
@@ -49,7 +62,7 @@ class RestoredJcByteCodeLocation(
 }
 
 
-fun BytecodeLocationEntity.toJcLocation() = RestoredJcByteCodeLocation(
-    path,
-    LocationType.RUNTIME.takeIf { runtime } ?: LocationType.APP,
-    hash)
+fun BytecodelocationsRecord.toJcLocation() = RestoredJcByteCodeLocation(
+    path!!,
+    LocationType.RUNTIME.takeIf { runtime!! } ?: LocationType.APP,
+    hash!!)

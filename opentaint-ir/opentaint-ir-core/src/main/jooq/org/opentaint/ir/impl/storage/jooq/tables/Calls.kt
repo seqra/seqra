@@ -9,7 +9,7 @@ import org.jooq.ForeignKey
 import org.jooq.Index
 import org.jooq.Name
 import org.jooq.Record
-import org.jooq.Row5
+import org.jooq.Row6
 import org.jooq.Schema
 import org.jooq.Table
 import org.jooq.TableField
@@ -61,14 +61,19 @@ open class Calls(
     val CALLEE_CLASS_HASH: TableField<CallsRecord, Long?> = createField(DSL.name("callee_class_hash"), SQLDataType.BIGINT.nullable(false), this, "")
 
     /**
-     * The column <code>Calls.callee_field_hash</code>.
+     * The column <code>Calls.callee_name</code>.
      */
-    val CALLEE_FIELD_HASH: TableField<CallsRecord, Long?> = createField(DSL.name("callee_field_hash"), SQLDataType.BIGINT, this, "")
+    val CALLEE_NAME: TableField<CallsRecord, String?> = createField(DSL.name("callee_name"), SQLDataType.VARCHAR(256), this, "")
 
     /**
-     * The column <code>Calls.callee_method_hash</code>.
+     * The column <code>Calls.callee_desc_hash</code>.
      */
-    val CALLEE_METHOD_HASH: TableField<CallsRecord, Long?> = createField(DSL.name("callee_method_hash"), SQLDataType.BIGINT, this, "")
+    val CALLEE_DESC_HASH: TableField<CallsRecord, Long?> = createField(DSL.name("callee_desc_hash"), SQLDataType.BIGINT, this, "")
+
+    /**
+     * The column <code>Calls.opcode</code>.
+     */
+    val OPCODE: TableField<CallsRecord, Int?> = createField(DSL.name("opcode"), SQLDataType.INTEGER, this, "")
 
     /**
      * The column <code>Calls.caller_class_hash</code>.
@@ -100,7 +105,7 @@ open class Calls(
 
     constructor(child: Table<out Record>, key: ForeignKey<out Record, CallsRecord>): this(Internal.createPathAlias(child, key), child, key, CALLS, null)
     override fun getSchema(): Schema = DefaultSchema.DEFAULT_SCHEMA
-    override fun getIndexes(): List<Index> = listOf(org.opentaint.ir.impl.storage.jooq.indexes.`CALLS FIELDS`, org.opentaint.ir.impl.storage.jooq.indexes.`CALLS METHODS`)
+    override fun getIndexes(): List<Index> = listOf(org.opentaint.ir.impl.storage.jooq.indexes.`CALLS SEARCH`)
     override fun `as`(alias: String): Calls = Calls(DSL.name(alias), this)
     override fun `as`(alias: Name): Calls = Calls(alias, this)
 
@@ -115,7 +120,7 @@ open class Calls(
     override fun rename(name: Name): Calls = Calls(name, null)
 
     // -------------------------------------------------------------------------
-    // Row5 type methods
+    // Row6 type methods
     // -------------------------------------------------------------------------
-    override fun fieldsRow(): Row5<Long?, Long?, Long?, Long?, Long?> = super.fieldsRow() as Row5<Long?, Long?, Long?, Long?, Long?>
+    override fun fieldsRow(): Row6<Long?, String?, Long?, Int?, Long?, Long?> = super.fieldsRow() as Row6<Long?, String?, Long?, Int?, Long?, Long?>
 }

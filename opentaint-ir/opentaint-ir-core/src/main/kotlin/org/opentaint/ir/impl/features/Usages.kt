@@ -7,97 +7,97 @@ import org.objectweb.asm.tree.FieldInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
 import org.objectweb.asm.tree.MethodNode
 import org.opentaint.ir.api.ByteCodeIndexer
+import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.api.JIRSignal
 import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.impl.fs.ClassSourceImpl
+import org.opentaint.ir.impl.storage.eqOrNull
 import org.opentaint.ir.impl.storage.executeQueries
-import org.opentaint.ir.impl.storage.insertElements
 import org.opentaint.ir.impl.storage.jooq.tables.references.CALLS
+import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
 import org.opentaint.ir.impl.storage.longHash
-import java.sql.Types
+import org.opentaint.ir.impl.storage.runBatch
+import org.opentaint.ir.impl.storage.setNullableLong
+import org.opentaint.ir.impl.vfs.LazyPersistentByteCodeLocation
+import kotlin.streams.asSequence
 
 
 class UsagesIndexer(private val location: RegisteredLocation) : ByteCodeIndexer {
 
-    // class method -> usages of methods|fields
-    private val fieldsUsages = hashMapOf<Pair<String, String>, HashSet<String>>()
-    private val methodsUsages = hashMapOf<Pair<String, String>, HashSet<String>>()
+    // callee_class -> (callee_name, callee_desc, opcode) -> caller
+    private val usages = hashMapOf<String, HashMap<Triple<String, String?, Int>, HashSet<String>>>()
 
     override fun index(classNode: ClassNode) {
-    }
-
-    override fun index(classNode: ClassNode, methodNode: MethodNode) {
         val callerClass = Type.getObjectType(classNode.name).className
-        methodNode.instructions.forEach {
-            when (it) {
-                is FieldInsnNode -> {
-                    val owner = Type.getObjectType(it.owner).className
-                    val key = owner to it.name
-                    fieldsUsages.getOrPut(key) { hashSetOf() }.add(callerClass)
-                }
+        classNode.methods.forEach { methodNode ->
+            methodNode.instructions.forEach {
+                var key: Triple<String, String?, Int>? = null
+                var callee: String? = null
+                when (it) {
+                    is FieldInsnNode -> {
+                        callee = Type.getObjectType(it.owner).className
+                        key = Triple(it.name, null, it.opcode)
+                    }
 
-                is MethodInsnNode -> {
-                    val owner = Type.getObjectType(it.owner).className
-                    val key = owner to it.name
-                    methodsUsages.getOrPut(key) { hashSetOf() }.add(callerClass)
+                    is MethodInsnNode -> {
+                        callee = Type.getObjectType(it.owner).className
+                        key = Triple(it.name, it.desc, it.opcode)
+                    }
+                }
+                if (key != null && callee != null) {
+                    usages.getOrPut(callee) { hashMapOf() }.getOrPut(key) { hashSetOf() }.add(callerClass)
                 }
             }
         }
+    }
+
+    override fun index(classNode: ClassNode, methodNode: MethodNode) {
     }
 
     override fun flush(jooq: DSLContext) {
         jooq.connection { conn ->
-            conn.insertElements(CALLS, fieldsUsages.flatten()) {
-                val (calleeClass, calleeField, caller) = it
-                setLong(1, calleeClass.longHash)
-                setLong(2, calleeField.longHash)
-                setNull(3, Types.BIGINT)
-                setLong(4, caller.longHash)
-                setLong(5, location.id)
+            conn.runBatch(CALLS) {
+                usages.forEach { (calleeClass, calleeEntry) ->
+                    calleeEntry.forEach { (info, callers) ->
+                        val (calleeName, calleeDesc, opcode) = info
+                        callers.forEach { caller ->
+                            setLong(1, calleeClass.longHash)
+                            setString(2, calleeName)
+                            setNullableLong(3, calleeDesc?.longHash)
+                            setInt(4, opcode)
+                            setLong(5, caller.longHash)
+                            setLong(6, location.id)
+                            addBatch()
+                        }
+                    }
+                }
             }
-            conn.insertElements(CALLS, methodsUsages.flatten()) {
-                val (calleeClass, calleeMethod, caller) = it
-                setLong(1, calleeClass.longHash)
-                setNull(2, Types.BIGINT)
-                setLong(3, calleeMethod.longHash)
-                setLong(4, caller.longHash)
-                setLong(5, location.id)
-            }
-        }
-    }
-
-    private fun Map<Pair<String, String>, HashSet<String>>.flatten(): List<Triple<String, String, String>> {
-        return flatMap { entry ->
-            entry.value.map { Triple(entry.key.first, entry.key.second, it) }
         }
     }
 }
 
 
-object Usages : JIRFeature<UsageFeatureRequest, String> {
+object Usages : JIRFeature<UsageFeatureRequest, ClassSource> {
 
     private val createScheme = """
         CREATE TABLE IF NOT EXISTS "Calls"(
             "callee_class_hash"  BIGINT NOT NULL,
-            "callee_field_hash"  BIGINT,
-            "callee_method_hash" BIGINT,
+            "callee_name"        VARCHAR(256),
+            "callee_desc_hash"   BIGINT,
+            "opcode"             INTEGER,
             "caller_class_hash"  BIGINT NOT NULL,
             "location_id"        BIGINT NOT NULL
         );
         
-        CREATE INDEX IF NOT EXISTS 'Calls methods' ON Calls(callee_class_hash, callee_method_hash, location_id)
-        WHERE callee_field_hash IS NULL;
-
-        CREATE INDEX IF NOT EXISTS 'Calls fields' ON Calls(callee_class_hash, callee_field_hash, location_id)
-        WHERE callee_method_hash IS NULL;
+        CREATE INDEX IF NOT EXISTS 'Calls search' ON Calls(location_id, opcode, callee_class_hash, callee_name, callee_desc_hash)
     """.trimIndent()
 
     private val dropScheme = """
         DROP TABLE IF EXISTS "Calls";
-        DROP INDEX IF EXISTS "Calls methods";
-        DROP INDEX IF EXISTS "Calls fields";
+        DROP INDEX IF EXISTS "Calls search";
     """.trimIndent()
 
     override fun onSignal(signal: JIRSignal) {
@@ -128,30 +128,34 @@ object Usages : JIRFeature<UsageFeatureRequest, String> {
                     it.delete(CALLS).execute()
                 }
             }
+
             else -> Unit
         }
     }
 
-    override suspend fun query(jirdb: JIRDB, req: UsageFeatureRequest): Sequence<String> {
-        val (method, field, className) = req
+    override suspend fun query(jirdb: JIRDB, req: UsageFeatureRequest): Sequence<ClassSource> {
+        val name = req.methodName ?: req.field
+        val desc = req.methodDesc
+        val className = req.className
         return jirdb.persistence.read { jooq ->
-            val classHashes: List<Long> = if (method != null) {
-                jooq.select(CALLS.CALLER_CLASS_HASH).from(CALLS)
-                    .where(
-                        CALLS.CALLEE_CLASS_HASH.eq(className.longHash).and(CALLS.CALLEE_METHOD_HASH.eq(method.longHash))
-                    ).fetch().mapNotNull { it.component1() }
-            } else if (field != null) {
-                jooq.select(CALLS.CALLER_CLASS_HASH).from(CALLS)
-                    .where(
-                        CALLS.CALLEE_CLASS_HASH.eq(className.longHash).and(CALLS.CALLEE_FIELD_HASH.eq(field.longHash))
-                    ).fetch().mapNotNull { it.component1() }
-            } else {
-                emptyList()
-            }
-            jooq.select(SYMBOLS.NAME).from(SYMBOLS)
+            val classHashes: List<Long> = jooq.select(CALLS.CALLER_CLASS_HASH).from(CALLS)
+                .where(
+                    CALLS.CALLEE_CLASS_HASH.eq(className.longHash)
+                        .and(CALLS.CALLEE_NAME.eq(name))
+                        .and(CALLS.CALLEE_DESC_HASH.eqOrNull(desc?.longHash))
+                        .and(CALLS.OPCODE.`in`(req.opcodes))
+                ).fetch().mapNotNull { it.component1() }
+            jooq.select(SYMBOLS.NAME, CLASSES.BYTECODE, CLASSES.LOCATION_ID)
+                .from(CLASSES)
+                .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
                 .where(SYMBOLS.HASH.`in`(classHashes))
-                .fetch()
-                .mapNotNull { it.component1() }.asSequence()
+                .fetchStream().asSequence()
+                .mapNotNull {
+                    ClassSourceImpl(
+                        LazyPersistentByteCodeLocation(jirdb.persistence, it.component3()!!),
+                        it.component1()!!, it.component2()!!
+                    )
+                }
         }
     }
 

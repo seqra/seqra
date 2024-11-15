@@ -6,6 +6,7 @@ import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.FieldInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
 import org.opentaint.ir.api.*
+import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 
 /**
  * find all methods that directly modifies field
@@ -14,16 +15,7 @@ import org.opentaint.ir.api.*
  * @param mode mode of search
  */
 suspend fun JIRClasspath.findUsages(field: JIRField, mode: FieldUsageMode): List<JIRMethod> {
-    val name = field.name
-    val className = field.enclosingClass.name
-
-    val maybeHierarchy = when {
-        field.isPrivate -> hashSetOf(field.enclosingClass)
-        else -> hierarchyExt().findSubClasses(className, true).toHashSet() + field.enclosingClass
-    }
-
-    val potentialCandidates = findPotentialCandidates(maybeHierarchy, field = field.name) + field.enclosingClass
-
+    val maybeHierarchy = maybeHierarchy(field.enclosingClass, field.isPrivate)
     val isStatic = field.isStatic
     val opcode = when {
         isStatic && mode == FieldUsageMode.WRITE -> Opcodes.PUTSTATIC
@@ -32,7 +24,12 @@ suspend fun JIRClasspath.findUsages(field: JIRField, mode: FieldUsageMode): List
         !isStatic && mode == FieldUsageMode.READ -> Opcodes.GETFIELD
         else -> return emptyList()
     }
-    return findUsages(potentialCandidates) { inst, hierarchyNames ->
+
+    val candidates = findMatches(
+        maybeHierarchy, field = field, opcodes = listOf(opcode)
+    ) + field.enclosingClass
+    val name = field.name
+    return findUsages(candidates) { inst, hierarchyNames ->
         inst is FieldInsnNode
                 && inst.name == name
                 && inst.opcode == opcode
@@ -47,23 +44,31 @@ suspend fun JIRClasspath.findUsages(field: JIRField, mode: FieldUsageMode): List
  * @param mode mode of search
  */
 suspend fun JIRClasspath.findUsages(method: JIRMethod): List<JIRMethod> {
-    val name = method.name
-    val className = method.enclosingClass.name
-    val maybeHierarchy = when {
-        method.isPrivate -> hashSetOf(method.enclosingClass)
-        else -> hierarchyExt().findSubClasses(className, true).toHashSet() + method.enclosingClass
-    }
+    val maybeHierarchy = maybeHierarchy(method.enclosingClass, method.isPrivate)
 
-    val potentialCandidates = findPotentialCandidates(maybeHierarchy, method = method.name) + method.enclosingClass
     val opcodes = when (method.isStatic) {
         true -> setOf(Opcodes.INVOKESTATIC)
         else -> setOf(Opcodes.INVOKEVIRTUAL, Opcodes.INVOKESPECIAL)
     }
-    return findUsages(potentialCandidates) { inst, hierarchyNames ->
+    val candidates = findMatches(maybeHierarchy, method = method, opcodes = opcodes) + method.enclosingClass
+    val name = method.name
+    val desc = method.description
+    return findUsages(candidates) { inst, hierarchyNames ->
         inst is MethodInsnNode
                 && inst.name == name
+                && inst.desc == desc
                 && opcodes.contains(inst.opcode)
                 && hierarchyNames.contains(Type.getObjectType(inst.owner).className)
+    }
+}
+
+private suspend fun JIRClasspath.maybeHierarchy(
+    enclosingClass: JIRClassOrInterface,
+    private: Boolean
+): Set<JIRClassOrInterface> {
+    return when {
+        private -> hashSetOf(enclosingClass)
+        else -> hierarchyExt().findSubClasses(enclosingClass.name, true).toHashSet() + enclosingClass
     }
 }
 
@@ -93,23 +98,25 @@ private fun findUsages(
     return result.toList()
 }
 
-
-private suspend fun JIRClasspath.findPotentialCandidates(
+private suspend fun JIRClasspath.findMatches(
     hierarchy: Set<JIRClassOrInterface>,
-    method: String? = null,
-    field: String? = null
+    method: JIRMethod? = null,
+    field: JIRField? = null,
+    opcodes: Collection<Int>
 ): Set<JIRClassOrInterface> {
     db.awaitBackgroundJobs()
 
     return hierarchy.flatMap { jirClass ->
         val classNames = query(
             Usages, UsageFeatureRequest(
-                method = method,
-                field = field,
+                methodName = method?.name,
+                methodDesc = method?.description,
+                field = field?.name,
+                opcodes = opcodes,
                 className = jirClass.name
             )
         ).toList()
-        classNames.mapNotNull { findClassOrNull(it) }
+        classNames.map { JIRClassOrInterfaceImpl(this, it) }
     }.toSet()
 }
 
