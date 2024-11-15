@@ -7,12 +7,12 @@ import org.objectweb.asm.tree.FieldInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
 import org.objectweb.asm.tree.MethodNode
 import org.opentaint.ir.api.ByteCodeIndexer
-import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.api.JIRSignal
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.fs.ClassSourceImpl
+import org.opentaint.ir.impl.storage.BatchedSequence
 import org.opentaint.ir.impl.storage.eqOrNull
 import org.opentaint.ir.impl.storage.executeQueries
 import org.opentaint.ir.impl.storage.jooq.tables.references.CALLS
@@ -22,16 +22,16 @@ import org.opentaint.ir.impl.storage.longHash
 import org.opentaint.ir.impl.storage.runBatch
 import org.opentaint.ir.impl.storage.setNullableLong
 import org.opentaint.ir.impl.vfs.LazyPersistentByteCodeLocation
-import kotlin.streams.asSequence
 
 
 class UsagesIndexer(private val location: RegisteredLocation) : ByteCodeIndexer {
 
     // callee_class -> (callee_name, callee_desc, opcode) -> caller
-    private val usages = hashMapOf<String, HashMap<Triple<String, String?, Int>, HashSet<String>>>()
+    private val usages = hashMapOf<String, HashMap<Triple<String, String?, Int>, HashMap<String, HashSet<Int>>>>()
 
     override fun index(classNode: ClassNode) {
         val callerClass = Type.getObjectType(classNode.name).className
+        var callerMethodOffset = 0
         classNode.methods.forEach { methodNode ->
             methodNode.instructions.forEach {
                 var key: Triple<String, String?, Int>? = null
@@ -48,9 +48,13 @@ class UsagesIndexer(private val location: RegisteredLocation) : ByteCodeIndexer 
                     }
                 }
                 if (key != null && callee != null) {
-                    usages.getOrPut(callee) { hashMapOf() }.getOrPut(key) { hashSetOf() }.add(callerClass)
+                    usages.getOrPut(callee) { hashMapOf() }
+                        .getOrPut(key) { hashMapOf() }
+                        .getOrPut(callerClass) { hashSetOf() }
+                        .add(callerMethodOffset)
                 }
             }
+            callerMethodOffset++
         }
     }
 
@@ -63,13 +67,14 @@ class UsagesIndexer(private val location: RegisteredLocation) : ByteCodeIndexer 
                 usages.forEach { (calleeClass, calleeEntry) ->
                     calleeEntry.forEach { (info, callers) ->
                         val (calleeName, calleeDesc, opcode) = info
-                        callers.forEach { caller ->
+                        callers.forEach { (caller, offsets) ->
                             setLong(1, calleeClass.longHash)
                             setString(2, calleeName)
                             setNullableLong(3, calleeDesc?.longHash)
                             setInt(4, opcode)
                             setLong(5, caller.longHash)
-                            setLong(6, location.id)
+                            setString(6, offsets.joinToString(","))
+                            setLong(7, location.id)
                             addBatch()
                         }
                     }
@@ -80,16 +85,17 @@ class UsagesIndexer(private val location: RegisteredLocation) : ByteCodeIndexer 
 }
 
 
-object Usages : JIRFeature<UsageFeatureRequest, ClassSource> {
+object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
 
     private val createScheme = """
         CREATE TABLE IF NOT EXISTS "Calls"(
-            "callee_class_hash"  BIGINT NOT NULL,
-            "callee_name"        VARCHAR(256),
-            "callee_desc_hash"   BIGINT,
-            "opcode"             INTEGER,
-            "caller_class_hash"  BIGINT NOT NULL,
-            "location_id"        BIGINT NOT NULL
+            "callee_class_hash"      BIGINT NOT NULL,
+            "callee_name"            VARCHAR(256),
+            "callee_desc_hash"       BIGINT,
+            "opcode"                 INTEGER,
+            "caller_class_hash"      BIGINT NOT NULL,
+            "caller_method_offsets"  VARCHAR(256),
+            "location_id"            BIGINT NOT NULL
         );
         
         CREATE INDEX IF NOT EXISTS 'Calls search' ON Calls(location_id, opcode, callee_class_hash, callee_name, callee_desc_hash)
@@ -133,30 +139,43 @@ object Usages : JIRFeature<UsageFeatureRequest, ClassSource> {
         }
     }
 
-    override suspend fun query(jirdb: JIRDB, req: UsageFeatureRequest): Sequence<ClassSource> {
+    override suspend fun query(jirdb: JIRDB, req: UsageFeatureRequest): Sequence<UsageFeatureResponse> {
         val name = req.methodName ?: req.field
         val desc = req.methodDesc
         val className = req.className
-        return jirdb.persistence.read { jooq ->
-            val classHashes: List<Long> = jooq.select(CALLS.CALLER_CLASS_HASH).from(CALLS)
-                .where(
-                    CALLS.CALLEE_CLASS_HASH.eq(className.longHash)
-                        .and(CALLS.CALLEE_NAME.eq(name))
-                        .and(CALLS.CALLEE_DESC_HASH.eqOrNull(desc?.longHash))
-                        .and(CALLS.OPCODE.`in`(req.opcodes))
-                ).fetch().mapNotNull { it.component1() }
-            jooq.select(SYMBOLS.NAME, CLASSES.BYTECODE, CLASSES.LOCATION_ID)
-                .from(CLASSES)
-                .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
-                .where(SYMBOLS.HASH.`in`(classHashes))
-                .fetchStream().asSequence()
-                .mapNotNull {
-                    ClassSourceImpl(
-                        LazyPersistentByteCodeLocation(jirdb.persistence, it.component3()!!),
-                        it.component1()!!, it.component2()!!
-                    )
-                }
+        return BatchedSequence(50) {
+            jirdb.persistence.read { jooq ->
+                var position = it ?: 0
+                val classHashes: Map<Long, List<Int>> =
+                    jooq.select(CALLS.CALLER_CLASS_HASH, CALLS.CALLER_METHOD_OFFSETS).from(CALLS)
+                        .where(
+                            CALLS.CALLEE_CLASS_HASH.eq(className.longHash)
+                                .and(CALLS.CALLEE_NAME.eq(name))
+                                .and(CALLS.CALLEE_DESC_HASH.eqOrNull(desc?.longHash))
+                                .and(CALLS.OPCODE.`in`(req.opcodes))
+                        )
+                        .orderBy(CALLS.LOCATION_ID)
+                        .limit(50).offset(position)
+                        .fetch()
+                        .map { it.component1()!! to it.component2()!!.split(",").map { it.toInt() } }.toMap()
+                jooq.select(SYMBOLS.NAME, CLASSES.BYTECODE, CLASSES.LOCATION_ID, SYMBOLS.HASH)
+                    .from(CLASSES)
+                    .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
+                    .where(SYMBOLS.HASH.`in`(classHashes.keys))
+                    .fetch()
+                    .mapNotNull { (className, byteCode, locationId, symbolHash) ->
+                        position++ to
+                                UsageFeatureResponse(
+                                    source = ClassSourceImpl(
+                                        LazyPersistentByteCodeLocation(jirdb.persistence, locationId!!),
+                                        className!!, byteCode!!
+                                    ),
+                                    offsets = classHashes[symbolHash!!].orEmpty()
+                                )
+                    }
+            }
         }
+
     }
 
     override fun newIndexer(jirdb: JIRDB, location: RegisteredLocation) = UsagesIndexer(location)

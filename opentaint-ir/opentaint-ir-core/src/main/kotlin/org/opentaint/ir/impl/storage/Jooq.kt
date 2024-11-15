@@ -87,3 +87,34 @@ fun <T> Field<T>.eqOrNull(value: T?): Condition {
     }
     return eq(value)
 }
+
+
+class BatchedSequence<T>(private val batchSize: Int, private val getNext: (Long?) -> List<Pair<Long, T>>) : Sequence<T> {
+
+    private val result = arrayListOf<T>()
+    private var position = 0
+    private var maxId: Long? = null
+
+    override fun iterator(): Iterator<T> {
+        return object : Iterator<T> {
+
+            override fun hasNext(): Boolean {
+                if (result.size == position && position % batchSize == 0) {
+                    val incomingRecords = getNext(maxId)
+                    if (incomingRecords.isEmpty()) {
+                        return false
+                    }
+                    result.addAll(incomingRecords.map { it.second })
+                    maxId = incomingRecords.maxOf { it.first }
+                }
+                return result.size > position
+            }
+
+            override fun next(): T {
+                position++
+                return result[position - 1]
+            }
+
+        }
+    }
+}

@@ -1,5 +1,7 @@
 package org.opentaint.ir.impl.features
 
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.future.*
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
@@ -8,6 +10,8 @@ import org.opentaint.ir.api.findMethodOrNull
 import org.opentaint.ir.api.isPrivate
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.fs.ClassSourceImpl
+import org.opentaint.ir.impl.storage.BatchedSequence
+import java.util.concurrent.Future
 
 @Suppress("SqlResolve")
 class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension {
@@ -75,11 +79,12 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
             db.persistence.read {
                 val cursor = it.fetchLazy(query, name)
                 cursor.fetchNext(50).map {
-                    ClassRecord(
+                    val id = it.get("id") as Long
+                    id to ClassRecord(
                         byteCode = it.get("bytecode") as ByteArray,
                         locationId = it.get("location_id") as Long,
                         name = it.get("name_name") as String,
-                        id = it.get("id") as Long
+                        id = id
                     )
                 }.also {
                     cursor.close()
@@ -102,32 +107,4 @@ suspend fun JIRClasspath.hierarchyExt(): HierarchyExtensionImpl {
     return HierarchyExtensionImpl(this)
 }
 
-private class BatchedSequence(private val batchSize: Int, private val getNext: (Long?) -> List<ClassRecord>) : Sequence<ClassRecord> {
-
-    private val result = arrayListOf<ClassRecord>()
-    private var position = 0
-    private var maxId: Long? = null
-
-    override fun iterator(): Iterator<ClassRecord> {
-        return object : Iterator<ClassRecord> {
-
-            override fun hasNext(): Boolean {
-                if (result.size == position && position % batchSize == 0) {
-                    val incomingRecords = getNext(maxId)
-                    if (incomingRecords.isEmpty()) {
-                        return false
-                    }
-                    result.addAll(incomingRecords)
-                    maxId = incomingRecords.maxOf { it.id }
-                }
-                return result.size > position
-            }
-
-            override fun next(): ClassRecord {
-                position++
-                return result[position - 1]
-            }
-
-        }
-    }
-}
+fun JIRClasspath.asyncHierarchy(): Future<HierarchyExtension> = GlobalScope.future { hierarchyExt() }

@@ -6,10 +6,9 @@ package org.opentaint.ir.impl.storage.jooq.tables
 
 import org.jooq.Field
 import org.jooq.ForeignKey
-import org.jooq.Index
 import org.jooq.Name
 import org.jooq.Record
-import org.jooq.Row6
+import org.jooq.Row7
 import org.jooq.Schema
 import org.jooq.Table
 import org.jooq.TableField
@@ -81,6 +80,11 @@ open class Calls(
     val CALLER_CLASS_HASH: TableField<CallsRecord, Long?> = createField(DSL.name("caller_class_hash"), SQLDataType.BIGINT.nullable(false), this, "")
 
     /**
+     * The column <code>Calls.caller_method_offsets</code>.
+     */
+    val CALLER_METHOD_OFFSETS: TableField<CallsRecord, String?> = createField(DSL.name("caller_method_offsets"), SQLDataType.VARCHAR(256), this, "")
+
+    /**
      * The column <code>Calls.location_id</code>.
      */
     val LOCATION_ID: TableField<CallsRecord, Long?> = createField(DSL.name("location_id"), SQLDataType.BIGINT.nullable(false), this, "")
@@ -105,7 +109,6 @@ open class Calls(
 
     constructor(child: Table<out Record>, key: ForeignKey<out Record, CallsRecord>): this(Internal.createPathAlias(child, key), child, key, CALLS, null)
     override fun getSchema(): Schema = DefaultSchema.DEFAULT_SCHEMA
-    override fun getIndexes(): List<Index> = listOf(org.opentaint.ir.impl.storage.jooq.indexes.`CALLS SEARCH`)
     override fun `as`(alias: String): Calls = Calls(DSL.name(alias), this)
     override fun `as`(alias: Name): Calls = Calls(alias, this)
 
@@ -120,7 +123,7 @@ open class Calls(
     override fun rename(name: Name): Calls = Calls(name, null)
 
     // -------------------------------------------------------------------------
-    // Row6 type methods
+    // Row7 type methods
     // -------------------------------------------------------------------------
-    override fun fieldsRow(): Row6<Long?, String?, Long?, Int?, Long?, Long?> = super.fieldsRow() as Row6<Long?, String?, Long?, Int?, Long?, Long?>
+    override fun fieldsRow(): Row7<Long?, String?, Long?, Int?, Long?, String?, Long?> = super.fieldsRow() as Row7<Long?, String?, Long?, Int?, Long?, String?, Long?>
 }

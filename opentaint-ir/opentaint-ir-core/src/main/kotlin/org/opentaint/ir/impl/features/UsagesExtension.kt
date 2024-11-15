@@ -1,12 +1,11 @@
 package org.opentaint.ir.impl.features
 
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import org.objectweb.asm.Opcodes
-import org.objectweb.asm.Type
-import org.objectweb.asm.tree.AbstractInsnNode
-import org.objectweb.asm.tree.FieldInsnNode
-import org.objectweb.asm.tree.MethodInsnNode
 import org.opentaint.ir.api.*
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
+import kotlin.streams.asStream
 
 /**
  * find all methods that directly modifies field
@@ -14,28 +13,28 @@ import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
  * @param field field
  * @param mode mode of search
  */
-suspend fun JIRClasspath.findUsages(field: JIRField, mode: FieldUsageMode): List<JIRMethod> {
-    val maybeHierarchy = maybeHierarchy(field.enclosingClass, field.isPrivate)
+suspend fun JIRClasspath.findUsages(field: JIRField, mode: FieldUsageMode): Sequence<JIRMethod> {
+    val maybeHierarchy = maybeHierarchy(field.enclosingClass, field.isPrivate) {
+        it.findFieldOrNull(field.name).let {
+            it == null || !it.isOverriddenBy(field)
+        } // no overrides
+    }
     val isStatic = field.isStatic
     val opcode = when {
         isStatic && mode == FieldUsageMode.WRITE -> Opcodes.PUTSTATIC
         !isStatic && mode == FieldUsageMode.WRITE -> Opcodes.PUTFIELD
         isStatic && mode == FieldUsageMode.READ -> Opcodes.GETSTATIC
         !isStatic && mode == FieldUsageMode.READ -> Opcodes.GETFIELD
-        else -> return emptyList()
+        else -> return emptySequence()
     }
 
-    val candidates = findMatches(
-        maybeHierarchy, field = field, opcodes = listOf(opcode)
-    ) + field.enclosingClass
-    val name = field.name
-    return findUsages(candidates) { inst, hierarchyNames ->
-        inst is FieldInsnNode
-                && inst.name == name
-                && inst.opcode == opcode
-                && hierarchyNames.contains(Type.getObjectType(inst.owner).className)
-    }
+    return findMatches(maybeHierarchy, field = field, opcodes = listOf(opcode))
 }
+
+fun JIRClasspath.asyncFindUsage(field: JIRField, mode: FieldUsageMode) =
+    GlobalScope.launch { findUsages(field, mode).asStream() }
+
+fun JIRClasspath.asyncFindUsage(method: JIRMethod) = GlobalScope.launch { findUsages(method).asStream() }
 
 /**
  * find all methods that call this method
@@ -43,59 +42,29 @@ suspend fun JIRClasspath.findUsages(field: JIRField, mode: FieldUsageMode): List
  * @param method method
  * @param mode mode of search
  */
-suspend fun JIRClasspath.findUsages(method: JIRMethod): List<JIRMethod> {
-    val maybeHierarchy = maybeHierarchy(method.enclosingClass, method.isPrivate)
+suspend fun JIRClasspath.findUsages(method: JIRMethod): Sequence<JIRMethod> {
+    val maybeHierarchy = maybeHierarchy(method.enclosingClass, method.isPrivate) {
+        it.findMethodOrNull(method.name, method.description).let {
+            it == null || !it.isOverriddenBy(method)
+        } // no overrides// no override
+    }
 
     val opcodes = when (method.isStatic) {
         true -> setOf(Opcodes.INVOKESTATIC)
         else -> setOf(Opcodes.INVOKEVIRTUAL, Opcodes.INVOKESPECIAL)
     }
-    val candidates = findMatches(maybeHierarchy, method = method, opcodes = opcodes) + method.enclosingClass
-    val name = method.name
-    val desc = method.description
-    return findUsages(candidates) { inst, hierarchyNames ->
-        inst is MethodInsnNode
-                && inst.name == name
-                && inst.desc == desc
-                && opcodes.contains(inst.opcode)
-                && hierarchyNames.contains(Type.getObjectType(inst.owner).className)
-    }
+    return findMatches(maybeHierarchy, method = method, opcodes = opcodes)
 }
 
 private suspend fun JIRClasspath.maybeHierarchy(
     enclosingClass: JIRClassOrInterface,
-    private: Boolean
+    private: Boolean,
+    matcher: (JIRClassOrInterface) -> Boolean
 ): Set<JIRClassOrInterface> {
     return when {
         private -> hashSetOf(enclosingClass)
-        else -> hierarchyExt().findSubClasses(enclosingClass.name, true).toHashSet() + enclosingClass
+        else -> hierarchyExt().findSubClasses(enclosingClass.name, true).filter(matcher).toHashSet() + enclosingClass
     }
-}
-
-private fun findUsages(
-    hierarchy: Set<JIRClassOrInterface>,
-    matcher: (AbstractInsnNode, Set<String>) -> Boolean
-): List<JIRMethod> {
-    val result = hashSetOf<JIRMethod>()
-    val hierarchyNames = hierarchy.map { it.name }.toSet()
-    hierarchy.forEach { jirClass ->
-        val asm = jirClass.bytecode()
-        asm.methods?.forEach { method ->
-            for (inst in method.instructions) {
-                val matches = matcher(inst, hierarchyNames)
-                if (matches) {
-                    val methodId = jirClass.declaredMethods.firstOrNull {
-                        it.name == method.name && it.description == method.desc
-                    }
-                    if (methodId != null) {
-                        result.add(methodId)
-                    }
-                    break
-                }
-            }
-        }
-    }
-    return result.toList()
 }
 
 private suspend fun JIRClasspath.findMatches(
@@ -103,21 +72,51 @@ private suspend fun JIRClasspath.findMatches(
     method: JIRMethod? = null,
     field: JIRField? = null,
     opcodes: Collection<Int>
-): Set<JIRClassOrInterface> {
+): Sequence<JIRMethod> {
     db.awaitBackgroundJobs()
-
-    return hierarchy.flatMap { jirClass ->
-        val classNames = query(
+    val list = hierarchy.map {
+        query(
             Usages, UsageFeatureRequest(
                 methodName = method?.name,
                 methodDesc = method?.description,
                 field = field?.name,
                 opcodes = opcodes,
-                className = jirClass.name
+                className = it.name
             )
-        ).toList()
-        classNames.map { JIRClassOrInterfaceImpl(this, it) }
-    }.toSet()
+        ).flatMap {
+            JIRClassOrInterfaceImpl(
+                this,
+                it.source
+            ).declaredMethods.filterIndexed { index, jirMethod -> it.offsets.contains(index) }
+        }
+    }
+
+    return sequence {
+        list.forEach {
+            yieldAll(it)
+        }
+    }
 }
 
 
+private fun JIRField.isOverriddenBy(field: JIRField): Boolean {
+    if (name == field.name) {
+        return when {
+            isPrivate -> false
+            isPackagePrivate -> enclosingClass.packageName == field.enclosingClass.packageName
+            else -> true
+        }
+    }
+    return false
+}
+
+private fun JIRMethod.isOverriddenBy(method: JIRMethod): Boolean {
+    if (name == method.name && description == method.description) {
+        return when {
+            isPrivate -> false
+            isPackagePrivate -> enclosingClass.packageName == method.enclosingClass.packageName
+            else -> true
+        }
+    }
+    return false
+}

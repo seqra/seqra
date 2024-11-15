@@ -7,7 +7,6 @@ package org.opentaint.ir.impl.storage.jooq.indexes
 import org.jooq.Index
 import org.jooq.impl.DSL
 import org.jooq.impl.Internal
-import org.opentaint.ir.impl.storage.jooq.tables.Calls
 import org.opentaint.ir.impl.storage.jooq.tables.Fields
 import org.opentaint.ir.impl.storage.jooq.tables.Methods
 import org.opentaint.ir.impl.storage.jooq.tables.Symbols
@@ -18,7 +17,6 @@ import org.opentaint.ir.impl.storage.jooq.tables.Symbols
 // INDEX definitions
 // -------------------------------------------------------------------------
 
-val `CALLS SEARCH`: Index = Internal.createIndex(DSL.name("Calls search"), Calls.CALLS, arrayOf(Calls.CALLS.LOCATION_ID, Calls.CALLS.OPCODE, Calls.CALLS.CALLEE_CLASS_HASH, Calls.CALLS.CALLEE_NAME, Calls.CALLS.CALLEE_DESC_HASH), false)
 val FIELDS_CLASS_ID_NAME: Index = Internal.createIndex(DSL.name("Fields_class_id_name"), Fields.FIELDS, arrayOf(Fields.FIELDS.CLASS_ID, Fields.FIELDS.NAME), true)
 val METHODS_CLASS_ID_NAME_DESC: Index = Internal.createIndex(DSL.name("Methods_class_id_name_desc"), Methods.METHODS, arrayOf(Methods.METHODS.CLASS_ID, Methods.METHODS.NAME, Methods.METHODS.DESC), true)
 val SYMBOLS_NAME: Index = Internal.createIndex(DSL.name("Symbols_name"), Symbols.SYMBOLS, arrayOf(Symbols.SYMBOLS.NAME), true)
