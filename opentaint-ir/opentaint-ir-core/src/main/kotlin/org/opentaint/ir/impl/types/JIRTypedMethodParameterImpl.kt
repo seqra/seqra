@@ -1,9 +1,11 @@
 package org.opentaint.ir.impl.types
 
 import org.opentaint.ir.api.JIRParameter
+import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.JIRTypedMethodParameter
+import org.opentaint.ir.api.PredefinedPrimitive
 import org.opentaint.ir.api.isNullable
 import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.types.signature.JvmType
@@ -21,9 +23,14 @@ class JIRTypedMethodParameterImpl(
     override val type: JIRType
         get() {
             val typeName = parameter.type.typeName
-            return jvmType?.let {
+            val type = jvmType?.let {
                 classpath.typeOf(substitutor.substitute(jvmType))
             } ?: classpath.findTypeOrNull(typeName) ?: typeName.throwClassNotFound()
+
+            return if (!parameter.isNullable && type !is PredefinedPrimitive)
+                (type as JIRRefType).notNullable()
+            else
+                type
         }
 
     override val nullable: Boolean

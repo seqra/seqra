@@ -4,6 +4,8 @@ import org.opentaint.ir.api.JIRField
 import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.JIRTypedField
+import org.opentaint.ir.api.PredefinedPrimitive
+import org.opentaint.ir.api.isNullable
 import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
 import org.opentaint.ir.impl.types.signature.FieldSignature
@@ -25,9 +27,14 @@ class JIRTypedFieldImpl(
 
     override val fieldType: JIRType by lazy {
         val typeName = field.type.typeName
-        resolvedType?.let {
+        val type = resolvedType?.let {
             classpath.typeOf(substitutor.substitute(it))
         } ?: classpath.findTypeOrNull(field.type.typeName) ?: typeName.throwClassNotFound()
+
+        if (!field.isNullable && type !is PredefinedPrimitive)
+            (type as JIRRefType).notNullable()
+        else
+            type
     }
 
 
