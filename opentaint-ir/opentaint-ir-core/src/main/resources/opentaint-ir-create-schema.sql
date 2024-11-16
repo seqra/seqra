@@ -11,8 +11,7 @@ CREATE TABLE IF NOT EXISTS "BytecodeLocations"
 CREATE TABLE IF NOT EXISTS "Symbols"
 (
     "id"   BIGINT PRIMARY KEY,
-    "name" VARCHAR(256) NOT NULL,
-    "hash" BIGINT       NOT NULL
+    "name" VARCHAR(256) NOT NULL
 );
 CREATE TABLE IF NOT EXISTS "OuterClasses"
 (

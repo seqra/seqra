@@ -78,7 +78,7 @@ private suspend fun JIRClasspath.findMatches(
         query(
             Usages, UsageFeatureRequest(
                 methodName = method?.name,
-                methodDesc = method?.description,
+                description = method?.description,
                 field = field?.name,
                 opcodes = opcodes,
                 className = it.name

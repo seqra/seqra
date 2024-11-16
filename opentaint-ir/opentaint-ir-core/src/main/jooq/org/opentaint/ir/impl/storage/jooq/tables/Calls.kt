@@ -55,19 +55,19 @@ open class Calls(
     override fun getRecordType(): Class<CallsRecord> = CallsRecord::class.java
 
     /**
-     * The column <code>Calls.callee_class_hash</code>.
+     * The column <code>Calls.callee_class_symbol_id</code>.
      */
-    val CALLEE_CLASS_HASH: TableField<CallsRecord, Long?> = createField(DSL.name("callee_class_hash"), SQLDataType.BIGINT.nullable(false), this, "")
+    val CALLEE_CLASS_SYMBOL_ID: TableField<CallsRecord, Long?> = createField(DSL.name("callee_class_symbol_id"), SQLDataType.BIGINT.nullable(false), this, "")
 
     /**
-     * The column <code>Calls.callee_name</code>.
+     * The column <code>Calls.callee_name_symbol_id</code>.
      */
-    val CALLEE_NAME: TableField<CallsRecord, String?> = createField(DSL.name("callee_name"), SQLDataType.VARCHAR(256), this, "")
+    val CALLEE_NAME_SYMBOL_ID: TableField<CallsRecord, Long?> = createField(DSL.name("callee_name_symbol_id"), SQLDataType.BIGINT.nullable(false), this, "")
 
     /**
-     * The column <code>Calls.callee_desc_hash</code>.
+     * The column <code>Calls.callee_desc_symbol_id</code>.
      */
-    val CALLEE_DESC_HASH: TableField<CallsRecord, Long?> = createField(DSL.name("callee_desc_hash"), SQLDataType.BIGINT, this, "")
+    val CALLEE_DESC_SYMBOL_ID: TableField<CallsRecord, Long?> = createField(DSL.name("callee_desc_symbol_id"), SQLDataType.BIGINT, this, "")
 
     /**
      * The column <code>Calls.opcode</code>.
@@ -75,9 +75,9 @@ open class Calls(
     val OPCODE: TableField<CallsRecord, Int?> = createField(DSL.name("opcode"), SQLDataType.INTEGER, this, "")
 
     /**
-     * The column <code>Calls.caller_class_hash</code>.
+     * The column <code>Calls.caller_class_symbol_id</code>.
      */
-    val CALLER_CLASS_HASH: TableField<CallsRecord, Long?> = createField(DSL.name("caller_class_hash"), SQLDataType.BIGINT.nullable(false), this, "")
+    val CALLER_CLASS_SYMBOL_ID: TableField<CallsRecord, Long?> = createField(DSL.name("caller_class_symbol_id"), SQLDataType.BIGINT.nullable(false), this, "")
 
     /**
      * The column <code>Calls.caller_method_offsets</code>.
@@ -125,5 +125,5 @@ open class Calls(
     // -------------------------------------------------------------------------
     // Row7 type methods
     // -------------------------------------------------------------------------
-    override fun fieldsRow(): Row7<Long?, String?, Long?, Int?, Long?, String?, Long?> = super.fieldsRow() as Row7<Long?, String?, Long?, Int?, Long?, String?, Long?>
+    override fun fieldsRow(): Row7<Long?, Long?, Long?, Int?, Long?, String?, Long?> = super.fieldsRow() as Row7<Long?, Long?, Long?, Int?, Long?, String?, Long?>
 }

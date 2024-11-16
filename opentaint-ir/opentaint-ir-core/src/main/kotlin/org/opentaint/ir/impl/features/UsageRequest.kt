@@ -6,7 +6,7 @@ import org.opentaint.ir.api.ClassSource
 @Serializable
 data class UsageFeatureRequest(
     val methodName: String?,
-    val methodDesc: String?,
+    val description: String?,
     val field: String?,
     val opcodes: Collection<Int>,
     val className: String

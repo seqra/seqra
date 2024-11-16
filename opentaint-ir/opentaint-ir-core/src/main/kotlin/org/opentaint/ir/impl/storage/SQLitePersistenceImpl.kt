@@ -88,6 +88,8 @@ class SQLitePersistenceImpl(
             }.toList()
         }
 
+    override fun newSymbolInterner() = persistenceService.newSymbolInterner()
+
     override fun <T> write(action: (DSLContext) -> T): T {
         return lock.withLock {
             action(jooq)

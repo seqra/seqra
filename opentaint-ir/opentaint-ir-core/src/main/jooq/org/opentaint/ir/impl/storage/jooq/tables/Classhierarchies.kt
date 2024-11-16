@@ -6,6 +6,7 @@ package org.opentaint.ir.impl.storage.jooq.tables
 
 import org.jooq.Field
 import org.jooq.ForeignKey
+import org.jooq.Index
 import org.jooq.Name
 import org.jooq.Record
 import org.jooq.Row4
@@ -98,6 +99,7 @@ open class Classhierarchies(
 
     constructor(child: Table<out Record>, key: ForeignKey<out Record, ClasshierarchiesRecord>): this(Internal.createPathAlias(child, key), child, key, CLASSHIERARCHIES, null)
     override fun getSchema(): Schema = DefaultSchema.DEFAULT_SCHEMA
+    override fun getIndexes(): List<Index> = listOf(org.opentaint.ir.impl.storage.jooq.indexes.`CLASS HIERARCHIES`)
     override fun getPrimaryKey(): UniqueKey<ClasshierarchiesRecord> = PK_CLASSHIERARCHIES
     override fun getKeys(): List<UniqueKey<ClasshierarchiesRecord>> = listOf(PK_CLASSHIERARCHIES)
     override fun getReferences(): List<ForeignKey<ClasshierarchiesRecord, *>> = listOf(FK_CLASSHIERARCHIES_CLASSES_1, FK_CLASSHIERARCHIES_SYMBOLS_1)

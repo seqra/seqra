@@ -9,7 +9,7 @@ import org.jooq.ForeignKey
 import org.jooq.Index
 import org.jooq.Name
 import org.jooq.Record
-import org.jooq.Row3
+import org.jooq.Row2
 import org.jooq.Schema
 import org.jooq.Table
 import org.jooq.TableField
@@ -68,11 +68,6 @@ open class Symbols(
      */
     val NAME: TableField<SymbolsRecord, String?> = createField(DSL.name("name"), SQLDataType.VARCHAR(256).nullable(false), this, "")
 
-    /**
-     * The column <code>Symbols.hash</code>.
-     */
-    val HASH: TableField<SymbolsRecord, Long?> = createField(DSL.name("hash"), SQLDataType.BIGINT.nullable(false), this, "")
-
     private constructor(alias: Name, aliased: Table<SymbolsRecord>?): this(alias, null, null, aliased, null)
     private constructor(alias: Name, aliased: Table<SymbolsRecord>?, parameters: Array<Field<*>?>?): this(alias, null, null, aliased, parameters)
 
@@ -110,7 +105,7 @@ open class Symbols(
     override fun rename(name: Name): Symbols = Symbols(name, null)
 
     // -------------------------------------------------------------------------
-    // Row3 type methods
+    // Row2 type methods
     // -------------------------------------------------------------------------
-    override fun fieldsRow(): Row3<Long?, String?, Long?> = super.fieldsRow() as Row3<Long?, String?, Long?>
+    override fun fieldsRow(): Row2<Long?, String?> = super.fieldsRow() as Row2<Long?, String?>
 }

@@ -81,6 +81,14 @@ fun PreparedStatement.setNullableLong(index: Int, value: Long?) {
     }
 }
 
+fun PreparedStatement.setNullableString(index: Int, value: String?) {
+    if (value == null) {
+        setNull(index, Types.VARCHAR)
+    } else {
+        setString(index, value)
+    }
+}
+
 fun <T> Field<T>.eqOrNull(value: T?): Condition {
     if (value == null) {
         return isNull
