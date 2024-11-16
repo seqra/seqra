@@ -152,6 +152,10 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
     }
 
     override suspend fun query(classpath: JIRClasspath, req: UsageFeatureRequest): Sequence<UsageFeatureResponse> {
+        return syncQuery(classpath, req)
+    }
+
+    fun syncQuery(classpath: JIRClasspath, req: UsageFeatureRequest): Sequence<UsageFeatureResponse> {
         val locationIds = classpath.registeredLocations.map { it.id }
         val persistence = classpath.db.persistence
         val name = (req.methodName ?: req.field).let { persistence.findSymbolId(it!!) }

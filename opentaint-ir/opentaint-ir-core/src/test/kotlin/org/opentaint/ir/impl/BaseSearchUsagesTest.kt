@@ -7,7 +7,7 @@ import org.opentaint.ir.api.FieldUsageMode
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
-import org.opentaint.ir.impl.features.findUsages
+import org.opentaint.ir.impl.features.usagesExtension
 import org.opentaint.ir.impl.usages.fields.FieldA
 import org.opentaint.ir.impl.usages.fields.FieldB
 import org.opentaint.ir.impl.usages.methods.MethodA
@@ -120,27 +120,31 @@ abstract class BaseSearchUsagesTest : BaseTest() {
 
     private inline fun <reified T> fieldsUsages(mode: FieldUsageMode = FieldUsageMode.WRITE): Map<String, Set<String>> {
         return runBlocking {
-            val classId = cp.findClass<T>()
+            with(cp.usagesExtension()) {
+                val classId = cp.findClass<T>()
 
-            val fields = classId.declaredFields
+                val fields = classId.declaredFields
 
-            fields.associate {
-                it.name to cp.findUsages(it, mode).map { it.enclosingClass.name + "#" + it.name }.toSortedSet()
-            }.filterNot { it.value.isEmpty() }.toSortedMap()
+                fields.associate {
+                    it.name to findUsages(it, mode).map { it.enclosingClass.name + "#" + it.name }.toSortedSet()
+                }.filterNot { it.value.isEmpty() }.toSortedMap()
+            }
         }
     }
 
     private inline fun <reified T> methodsUsages(): Map<String, Set<String>> {
         return runBlocking {
-            val classId = cp.findClass<T>()
-            val methods = classId.declaredMethods
+            with(cp.usagesExtension()) {
+                val classId = cp.findClass<T>()
+                val methods = classId.declaredMethods
 
-            methods.map {
-                it.name to cp.findUsages(it).map { it.enclosingClass.name + "#" + it.name }.toSortedSet()
+                methods.map {
+                    it.name to findUsages(it).map { it.enclosingClass.name + "#" + it.name }.toSortedSet()
+                }
+                    .toMap()
+                    .filterNot { it.value.isEmpty() }
+                    .toSortedMap()
             }
-                .toMap()
-                .filterNot { it.value.isEmpty() }
-                .toSortedMap()
         }
     }
 

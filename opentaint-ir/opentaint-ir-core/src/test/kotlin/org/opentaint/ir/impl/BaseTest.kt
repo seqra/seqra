@@ -59,7 +59,7 @@ open class WithDB(vararg features: JIRFeature<*, *>) {
     }
 }
 
-open class WithRestoredDB(vararg features: JIRFeature<*, *>): WithDB(*features) {
+open class WithRestoredDB(vararg features: JIRFeature<*, *>) : WithDB(*features) {
 
     private val jdbcLocation = Files.createTempFile("jirdb-", null).toFile().absolutePath
 
@@ -85,7 +85,6 @@ open class WithRestoredDB(vararg features: JIRFeature<*, *>): WithDB(*features) 
     }
 
 }
-
 
 
 class CleanDB : AfterAllCallback {
