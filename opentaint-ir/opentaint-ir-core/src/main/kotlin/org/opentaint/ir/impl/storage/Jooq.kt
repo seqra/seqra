@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl.storage
 
+import com.google.common.hash.Hashing
 import org.jooq.Condition
 import org.jooq.DSLContext
 import org.jooq.Field
@@ -14,12 +15,7 @@ import java.sql.Types
 
 val String.longHash: Long
     get() {
-        var h = 1125899906842597L // prime
-        val len = length
-        for (i in 0 until len) {
-            h = 31 * h + this[i].code.toLong()
-        }
-        return h
+        return Hashing.sipHash24().hashBytes(toByteArray()).asLong()
     }
 
 
