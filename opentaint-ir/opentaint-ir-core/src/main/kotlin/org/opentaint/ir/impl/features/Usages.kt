@@ -5,9 +5,9 @@ import org.objectweb.asm.Type
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
-import org.objectweb.asm.tree.MethodNode
 import org.opentaint.ir.api.ByteCodeIndexer
 import org.opentaint.ir.api.JIRDB
+import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.api.JIRSignal
 import org.opentaint.ir.api.RegisteredLocation
@@ -56,9 +56,6 @@ class UsagesIndexer(private val location: RegisteredLocation) : ByteCodeIndexer 
             }
             callerMethodOffset++
         }
-    }
-
-    override fun index(classNode: ClassNode, methodNode: MethodNode) {
     }
 
     override fun flush(jooq: DSLContext) {
@@ -139,13 +136,15 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
         }
     }
 
-    override suspend fun query(jirdb: JIRDB, req: UsageFeatureRequest): Sequence<UsageFeatureResponse> {
+    override suspend fun query(classpath: JIRClasspath, req: UsageFeatureRequest): Sequence<UsageFeatureResponse> {
         val name = req.methodName ?: req.field
         val desc = req.methodDesc
         val className = req.className
-        return BatchedSequence(50) {
-            jirdb.persistence.read { jooq ->
-                var position = it ?: 0
+        val locationIds = classpath.registeredLocations.map { it.id }
+        val persistence = classpath.db.persistence
+        return BatchedSequence(50) { offset, batchSize ->
+            persistence.read { jooq ->
+                var position = offset ?: 0
                 val classHashes: Map<Long, List<Int>> =
                     jooq.select(CALLS.CALLER_CLASS_HASH, CALLS.CALLER_METHOD_OFFSETS).from(CALLS)
                         .where(
@@ -153,9 +152,10 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
                                 .and(CALLS.CALLEE_NAME.eq(name))
                                 .and(CALLS.CALLEE_DESC_HASH.eqOrNull(desc?.longHash))
                                 .and(CALLS.OPCODE.`in`(req.opcodes))
+                                .and(CALLS.LOCATION_ID.`in`(locationIds))
                         )
                         .orderBy(CALLS.LOCATION_ID)
-                        .limit(50).offset(position)
+                        .limit(batchSize).offset(position)
                         .fetch()
                         .map { it.component1()!! to it.component2()!!.split(",").map { it.toInt() } }.toMap()
                 jooq.select(SYMBOLS.NAME, CLASSES.BYTECODE, CLASSES.LOCATION_ID, SYMBOLS.HASH)
@@ -167,7 +167,7 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
                         position++ to
                                 UsageFeatureResponse(
                                     source = ClassSourceImpl(
-                                        LazyPersistentByteCodeLocation(jirdb.persistence, locationId!!),
+                                        LazyPersistentByteCodeLocation(persistence, locationId!!),
                                         className!!, byteCode!!
                                     ),
                                     offsets = classHashes[symbolHash!!].orEmpty()

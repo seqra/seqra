@@ -41,7 +41,7 @@ fun ClassNode.asClassInfo(bytecode: ByteArray) = ClassInfo(
     bytecode = bytecode
 )
 
-private val String.className: String
+val String.className: String
     get() = Type.getObjectType(this).className
 
 private fun ClassNode.outerClassRef(): OuterClassRef? {

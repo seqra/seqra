@@ -45,11 +45,17 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
     }
 
     override fun findSubClasses(name: String, allHierarchy: Boolean): Sequence<JIRClassOrInterface> {
+        if (cp.db.isInstalled(InMemoryHierarchy)) {
+            return cp.findSubclassesInMemory(name, allHierarchy)
+        }
         val classId = cp.findClassOrNull(name) ?: return emptySequence()
         return findSubClasses(classId, allHierarchy)
     }
 
     override fun findSubClasses(classId: JIRClassOrInterface, allHierarchy: Boolean): Sequence<JIRClassOrInterface> {
+        if (cp.db.isInstalled(InMemoryHierarchy)) {
+            return cp.findSubclassesInMemory(classId.name, allHierarchy)
+        }
         val name = classId.name
 
         return cp.subClasses(name, allHierarchy).map { record ->
@@ -74,11 +80,12 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
 
     private fun JIRClasspath.subClasses(name: String, allHierarchy: Boolean): Sequence<ClassRecord> {
         val locationIds = registeredLocations.joinToString(", ") { it.id.toString() }
-        return BatchedSequence(50) {
-            val query = if (allHierarchy) allHierarchyQuery(locationIds, it) else directSubClassesQuery(locationIds, it)
+        return BatchedSequence(50) { offset, batchSize ->
+            val query =
+                if (allHierarchy) allHierarchyQuery(locationIds, offset) else directSubClassesQuery(locationIds, offset)
             db.persistence.read {
                 val cursor = it.fetchLazy(query, name)
-                cursor.fetchNext(50).map {
+                cursor.fetchNext(batchSize).map {
                     val id = it.get("id") as Long
                     id to ClassRecord(
                         byteCode = it.get("bytecode") as ByteArray,

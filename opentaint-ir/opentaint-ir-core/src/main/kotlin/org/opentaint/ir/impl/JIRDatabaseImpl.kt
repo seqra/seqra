@@ -17,6 +17,7 @@ import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRDBPersistence
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.asByteCodeLocation
@@ -169,6 +170,10 @@ class JIRDBImpl(
 
     override suspend fun awaitBackgroundJobs() {
         backgroundJobs.values.joinAll()
+    }
+
+    override fun isInstalled(feature: JIRFeature<*, *>): Boolean {
+        return featureRegistry.has(feature)
     }
 
     fun afterStart() {

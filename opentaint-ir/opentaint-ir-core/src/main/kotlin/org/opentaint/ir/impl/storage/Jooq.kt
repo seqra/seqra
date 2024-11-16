@@ -89,7 +89,7 @@ fun <T> Field<T>.eqOrNull(value: T?): Condition {
 }
 
 
-class BatchedSequence<T>(private val batchSize: Int, private val getNext: (Long?) -> List<Pair<Long, T>>) : Sequence<T> {
+class BatchedSequence<T>(private val batchSize: Int, private val getNext: (Long?, Int) -> List<Pair<Long, T>>) : Sequence<T> {
 
     private val result = arrayListOf<T>()
     private var position = 0
@@ -100,7 +100,7 @@ class BatchedSequence<T>(private val batchSize: Int, private val getNext: (Long?
 
             override fun hasNext(): Boolean {
                 if (result.size == position && position % batchSize == 0) {
-                    val incomingRecords = getNext(maxId)
+                    val incomingRecords = getNext(maxId, batchSize)
                     if (incomingRecords.isEmpty()) {
                         return false
                     }

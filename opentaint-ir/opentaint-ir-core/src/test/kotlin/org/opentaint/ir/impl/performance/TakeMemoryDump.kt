@@ -1,11 +1,12 @@
 package org.opentaint.ir
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.impl.features.Usages
+import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.FIELDS
 import org.opentaint.ir.impl.storage.jooq.tables.references.METHODPARAMETERS
 import org.opentaint.ir.impl.storage.jooq.tables.references.METHODS
+import java.lang.management.ManagementFactory
 
 fun main() {
     var start = System.currentTimeMillis()
@@ -13,7 +14,7 @@ fun main() {
         val db = jirdb {
 //            loadByteCode()
             persistent("D:\\work\\jirdb\\jirdb.db")
-            installFeatures(Usages)
+            installFeatures(InMemoryHierarchy)
         }.also {
             println("AWAITING db took ${System.currentTimeMillis() - start}ms")
             start = System.currentTimeMillis()
@@ -27,11 +28,11 @@ fun main() {
             println("Processed method params "+ it.fetchCount(METHODPARAMETERS))
         }
 
-//        val name = ManagementFactory.getRuntimeMXBean().name
-//        val pid = name.split("@")[0]
-//        println("Taking memory dump from $pid....")
-//        val process = Runtime.getRuntime().exec("jmap -dump:live,format=b,file=db.hprof $pid")
-//        process.waitFor()
+        val name = ManagementFactory.getRuntimeMXBean().name
+        val pid = name.split("@")[0]
+        println("Taking memory dump from $pid....")
+        val process = Runtime.getRuntime().exec("jmap -dump:live,format=b,file=db.hprof $pid")
+        process.waitFor()
         println(db)
     }
 }

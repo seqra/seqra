@@ -137,3 +137,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS "Fields_class_id_name" ON "Fields" (
                                                                       "class_id",
                                                                       "name"
     );
+
+CREATE INDEX IF NOT EXISTS "Class Hierarchies" on "ClassHierarchies"("super_id");

@@ -230,6 +230,10 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
         }
     }
 
+    fun findSymbolId(symbol: String): Long? {
+        return symbolsCache.get(symbol)
+    }
+
     private fun String.findCachedSymbol(): Long {
         return symbolsCache[this]
             ?: throw IllegalStateException("Symbol $this is required in cache. Please setup cache first")

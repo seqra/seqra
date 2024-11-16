@@ -17,6 +17,10 @@ class FeaturesRegistry(private val features: List<JIRFeature<*, *>>) : Closeable
         this.jirdb = jirdb
     }
 
+    fun has(feature: JIRFeature<*,*>): Boolean {
+        return features.contains(feature)
+    }
+
     fun index(location: RegisteredLocation, classes: List<ClassSource>) {
         features.forEach { feature ->
             feature.index(location, classes)
@@ -46,11 +50,7 @@ class FeaturesRegistry(private val features: List<JIRFeature<*, *>>) : Closeable
     }
 
     private fun index(source: ClassSource, builder: ByteCodeIndexer) {
-        val asmNode = source.fullAsmNode
-        builder.index(asmNode)
-        asmNode.methods.forEach {
-            builder.index(asmNode, it)
-        }
+        builder.index(source.fullAsmNode)
     }
 }
 
