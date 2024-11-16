@@ -11,6 +11,7 @@ import org.jooq.impl.Internal
 import org.opentaint.ir.impl.storage.jooq.tables.Annotations
 import org.opentaint.ir.impl.storage.jooq.tables.Annotationvalues
 import org.opentaint.ir.impl.storage.jooq.tables.Bytecodelocations
+import org.opentaint.ir.impl.storage.jooq.tables.Calls
 import org.opentaint.ir.impl.storage.jooq.tables.Classes
 import org.opentaint.ir.impl.storage.jooq.tables.Classhierarchies
 import org.opentaint.ir.impl.storage.jooq.tables.Classinnerclasses
@@ -22,6 +23,7 @@ import org.opentaint.ir.impl.storage.jooq.tables.Symbols
 import org.opentaint.ir.impl.storage.jooq.tables.records.AnnotationsRecord
 import org.opentaint.ir.impl.storage.jooq.tables.records.AnnotationvaluesRecord
 import org.opentaint.ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
+import org.opentaint.ir.impl.storage.jooq.tables.records.CallsRecord
 import org.opentaint.ir.impl.storage.jooq.tables.records.ClassesRecord
 import org.opentaint.ir.impl.storage.jooq.tables.records.ClasshierarchiesRecord
 import org.opentaint.ir.impl.storage.jooq.tables.records.ClassinnerclassesRecord
@@ -64,6 +66,8 @@ val FK_ANNOTATIONVALUES_ANNOTATIONS_2: ForeignKey<AnnotationvaluesRecord, Annota
 val FK_ANNOTATIONVALUES_SYMBOLS_1: ForeignKey<AnnotationvaluesRecord, SymbolsRecord> = Internal.createForeignKey(Annotationvalues.ANNOTATIONVALUES, DSL.name("fk_AnnotationValues_Symbols_1"), arrayOf(Annotationvalues.ANNOTATIONVALUES.CLASS_SYMBOL), org.opentaint.ir.impl.storage.jooq.keys.PK_SYMBOLS, arrayOf(Symbols.SYMBOLS.ID), true)
 val FK_ANNOTATIONVALUES_SYMBOLS_2: ForeignKey<AnnotationvaluesRecord, SymbolsRecord> = Internal.createForeignKey(Annotationvalues.ANNOTATIONVALUES, DSL.name("fk_AnnotationValues_Symbols_2"), arrayOf(Annotationvalues.ANNOTATIONVALUES.ENUM_VALUE), org.opentaint.ir.impl.storage.jooq.keys.PK_SYMBOLS, arrayOf(Symbols.SYMBOLS.ID), true)
 val FK_BYTECODELOCATIONS_BYTECODELOCATIONS_1: ForeignKey<BytecodelocationsRecord, BytecodelocationsRecord> = Internal.createForeignKey(Bytecodelocations.BYTECODELOCATIONS, DSL.name("fk_BytecodeLocations_BytecodeLocations_1"), arrayOf(Bytecodelocations.BYTECODELOCATIONS.UPDATED_ID), org.opentaint.ir.impl.storage.jooq.keys.PK_BYTECODELOCATIONS, arrayOf(Bytecodelocations.BYTECODELOCATIONS.ID), true)
+val FK_CALLS_BYTECODELOCATIONS_1: ForeignKey<CallsRecord, BytecodelocationsRecord> = Internal.createForeignKey(Calls.CALLS, DSL.name("fk_Calls_BytecodeLocations_1"), arrayOf(Calls.CALLS.CALLER_CLASS_SYMBOL_ID), org.opentaint.ir.impl.storage.jooq.keys.PK_BYTECODELOCATIONS, arrayOf(Bytecodelocations.BYTECODELOCATIONS.ID), true)
+val FK_CALLS_SYMBOLS_1: ForeignKey<CallsRecord, SymbolsRecord> = Internal.createForeignKey(Calls.CALLS, DSL.name("fk_Calls_Symbols_1"), arrayOf(Calls.CALLS.CALLEE_CLASS_SYMBOL_ID), org.opentaint.ir.impl.storage.jooq.keys.PK_SYMBOLS, arrayOf(Symbols.SYMBOLS.ID), true)
 val FK_CLASSES_BYTECODELOCATIONS_1: ForeignKey<ClassesRecord, BytecodelocationsRecord> = Internal.createForeignKey(Classes.CLASSES, DSL.name("fk_Classes_BytecodeLocations_1"), arrayOf(Classes.CLASSES.LOCATION_ID), org.opentaint.ir.impl.storage.jooq.keys.PK_BYTECODELOCATIONS, arrayOf(Bytecodelocations.BYTECODELOCATIONS.ID), true)
 val FK_CLASSES_METHODS_1: ForeignKey<ClassesRecord, MethodsRecord> = Internal.createForeignKey(Classes.CLASSES, DSL.name("fk_Classes_Methods_1"), arrayOf(Classes.CLASSES.OUTER_METHOD), org.opentaint.ir.impl.storage.jooq.keys.PK_METHODS, arrayOf(Methods.METHODS.ID), true)
 val FK_CLASSES_OUTERCLASSES_1: ForeignKey<ClassesRecord, OuterclassesRecord> = Internal.createForeignKey(Classes.CLASSES, DSL.name("fk_Classes_OuterClasses_1"), arrayOf(Classes.CLASSES.OUTER_CLASS), org.opentaint.ir.impl.storage.jooq.keys.PK_OUTERCLASSES, arrayOf(Outerclasses.OUTERCLASSES.ID), true)

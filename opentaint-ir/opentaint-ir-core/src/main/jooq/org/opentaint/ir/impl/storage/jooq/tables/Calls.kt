@@ -18,6 +18,8 @@ import org.jooq.impl.Internal
 import org.jooq.impl.SQLDataType
 import org.jooq.impl.TableImpl
 import org.opentaint.ir.impl.storage.jooq.DefaultSchema
+import org.opentaint.ir.impl.storage.jooq.keys.FK_CALLS_BYTECODELOCATIONS_1
+import org.opentaint.ir.impl.storage.jooq.keys.FK_CALLS_SYMBOLS_1
 import org.opentaint.ir.impl.storage.jooq.tables.records.CallsRecord
 
 
@@ -65,9 +67,9 @@ open class Calls(
     val CALLEE_NAME_SYMBOL_ID: TableField<CallsRecord, Long?> = createField(DSL.name("callee_name_symbol_id"), SQLDataType.BIGINT.nullable(false), this, "")
 
     /**
-     * The column <code>Calls.callee_desc_symbol_id</code>.
+     * The column <code>Calls.callee_desc_hash</code>.
      */
-    val CALLEE_DESC_SYMBOL_ID: TableField<CallsRecord, Long?> = createField(DSL.name("callee_desc_symbol_id"), SQLDataType.BIGINT, this, "")
+    val CALLEE_DESC_HASH: TableField<CallsRecord, Long?> = createField(DSL.name("callee_desc_hash"), SQLDataType.BIGINT, this, "")
 
     /**
      * The column <code>Calls.opcode</code>.
@@ -82,7 +84,7 @@ open class Calls(
     /**
      * The column <code>Calls.caller_method_offsets</code>.
      */
-    val CALLER_METHOD_OFFSETS: TableField<CallsRecord, String?> = createField(DSL.name("caller_method_offsets"), SQLDataType.VARCHAR(256), this, "")
+    val CALLER_METHOD_OFFSETS: TableField<CallsRecord, ByteArray?> = createField(DSL.name("caller_method_offsets"), SQLDataType.BLOB, this, "")
 
     /**
      * The column <code>Calls.location_id</code>.
@@ -109,6 +111,22 @@ open class Calls(
 
     constructor(child: Table<out Record>, key: ForeignKey<out Record, CallsRecord>): this(Internal.createPathAlias(child, key), child, key, CALLS, null)
     override fun getSchema(): Schema = DefaultSchema.DEFAULT_SCHEMA
+    override fun getReferences(): List<ForeignKey<CallsRecord, *>> = listOf(FK_CALLS_SYMBOLS_1, FK_CALLS_BYTECODELOCATIONS_1)
+
+    private lateinit var _symbols: Symbols
+    private lateinit var _bytecodelocations: Bytecodelocations
+    fun symbols(): Symbols {
+        if (!this::_symbols.isInitialized)
+            _symbols = Symbols(this, FK_CALLS_SYMBOLS_1)
+
+        return _symbols;
+    }
+    fun bytecodelocations(): Bytecodelocations {
+        if (!this::_bytecodelocations.isInitialized)
+            _bytecodelocations = Bytecodelocations(this, FK_CALLS_BYTECODELOCATIONS_1)
+
+        return _bytecodelocations;
+    }
     override fun `as`(alias: String): Calls = Calls(DSL.name(alias), this)
     override fun `as`(alias: Name): Calls = Calls(alias, this)
 
@@ -125,5 +143,5 @@ open class Calls(
     // -------------------------------------------------------------------------
     // Row7 type methods
     // -------------------------------------------------------------------------
-    override fun fieldsRow(): Row7<Long?, Long?, Long?, Int?, Long?, String?, Long?> = super.fieldsRow() as Row7<Long?, Long?, Long?, Int?, Long?, String?, Long?>
+    override fun fieldsRow(): Row7<Long?, Long?, Long?, Int?, Long?, ByteArray?, Long?> = super.fieldsRow() as Row7<Long?, Long?, Long?, Int?, Long?, ByteArray?, Long?>
 }

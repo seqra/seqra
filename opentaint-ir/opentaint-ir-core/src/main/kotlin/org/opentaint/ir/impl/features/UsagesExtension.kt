@@ -87,7 +87,7 @@ private suspend fun JIRClasspath.findMatches(
             JIRClassOrInterfaceImpl(
                 this,
                 it.source
-            ).declaredMethods.filterIndexed { index, jirMethod -> it.offsets.contains(index) }
+            ).declaredMethods.filterIndexed { index, jirMethod -> it.offsets.contains(index.toByte()) }
         }
     }
 

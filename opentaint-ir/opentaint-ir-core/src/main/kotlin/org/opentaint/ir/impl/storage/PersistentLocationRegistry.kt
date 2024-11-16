@@ -23,7 +23,7 @@ class PersistentLocationRegistry(
     private val featuresRegistry: FeaturesRegistry
 ) : LocationsRegistry {
 
-    private val idGen = AtomicLong()
+    private val idGen: AtomicLong = AtomicLong(persistence.read { BYTECODELOCATIONS.ID.maxId(it) } ?: 0)
 
     // all snapshot associated with classpaths
     internal val snapshots = ConcurrentHashMap.newKeySet<LocationsRegistrySnapshot>()

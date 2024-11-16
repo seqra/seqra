@@ -5,6 +5,8 @@ import org.jooq.DSLContext
 import org.jooq.Field
 import org.jooq.Record
 import org.jooq.Table
+import org.jooq.TableField
+import org.jooq.impl.DSL
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.Statement
@@ -96,6 +98,10 @@ fun <T> Field<T>.eqOrNull(value: T?): Condition {
     return eq(value)
 }
 
+fun TableField<*, Long?>.maxId(jooq: DSLContext): Long? {
+    return jooq.select(DSL.max(this))
+        .from(table).fetchAny()?.component1()
+}
 
 class BatchedSequence<T>(private val batchSize: Int, private val getNext: (Long?, Int) -> List<Pair<Long, T>>) : Sequence<T> {
 
