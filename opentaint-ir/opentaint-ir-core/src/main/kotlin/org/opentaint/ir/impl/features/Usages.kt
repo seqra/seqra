@@ -26,17 +26,34 @@ import org.opentaint.ir.impl.storage.setNullableLong
 import org.opentaint.ir.impl.vfs.LazyPersistentByteCodeLocation
 
 
-class UsagesIndexer(private val persistence: JIRDBPersistence, private val location: RegisteredLocation) :
+private class MethodMap(size: Int) {
+
+    private val ticks = BooleanArray(size)
+    private val array = ByteArray(size)
+    private var position = 0
+
+    fun tick(index: Int) {
+        if (!ticks[index]) {
+            array[position] = index.toByte()
+            ticks[index] = true
+            position++
+        }
+    }
+
+    fun result() = array.sliceArray(0 until position)
+}
+
+class UsagesIndexer(persistence: JIRDBPersistence, private val location: RegisteredLocation) :
     ByteCodeIndexer {
 
     // callee_class -> (callee_name, callee_desc, opcode) -> caller
-    private val usages = hashMapOf<String, HashMap<Triple<String, String?, Int>, HashMap<String, HashSet<Byte>>>>()
+    private val usages = hashMapOf<String, HashMap<Triple<String, String?, Int>, HashMap<String, MethodMap>>>()
     private val interner = persistence.newSymbolInterner()
 
     override fun index(classNode: ClassNode) {
         val callerClass = Type.getObjectType(classNode.name).className
-        var callerMethodOffset: Byte = 0
-        classNode.methods.forEach { methodNode ->
+        val size = classNode.methods.size
+        classNode.methods.forEachIndexed { index, methodNode ->
             methodNode.instructions.forEach {
                 var key: Triple<String, String?, Int>? = null
                 var callee: String? = null
@@ -52,44 +69,40 @@ class UsagesIndexer(private val persistence: JIRDBPersistence, private val locat
                     }
                 }
                 if (key != null && callee != null) {
-                    callee.symbolId
-                    key.first.symbolId
                     usages.getOrPut(callee) { hashMapOf() }
                         .getOrPut(key) { hashMapOf() }
-                        .getOrPut(callerClass) { hashSetOf() }
-                        .add(callerMethodOffset)
+                        .getOrPut(callerClass) { MethodMap(size) }.tick(index)
                 }
             }
-            callerMethodOffset++
         }
     }
 
     override fun flush(jooq: DSLContext) {
         jooq.connection { conn ->
-            usages.keys.forEach { it.className.symbolId }
-            interner.flush(conn)
             conn.runBatch(CALLS) {
                 usages.forEach { (calleeClass, calleeEntry) ->
                     calleeEntry.forEach { (info, callers) ->
                         val (calleeName, calleeDesc, opcode) = info
                         callers.forEach { (caller, offsets) ->
-                            setLong(1, calleeClass.className.existedSymbolId)
-                            setLong(2, calleeName.existedSymbolId)
+                            val calleeId = calleeClass.className.symbolId
+                            val callerId = if (calleeClass == caller) calleeId else caller.symbolId
+                            setLong(1, calleeId)
+                            setLong(2, calleeName.symbolId)
                             setNullableLong(3, calleeDesc?.longHash)
                             setInt(4, opcode)
-                            setLong(5, caller.existedSymbolId)
-                            setBytes(6, offsets.toByteArray())
+                            setLong(5, callerId)
+                            setBytes(6, offsets.result())
                             setLong(7, location.id)
                             addBatch()
                         }
                     }
                 }
             }
+            interner.flush(conn)
         }
     }
 
     private inline val String.symbolId get() = interner.findOrNew(this)
-    private inline val String.existedSymbolId get() = persistence.findSymbolId(this)!!
 }
 
 
