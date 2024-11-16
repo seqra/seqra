@@ -110,7 +110,7 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
     """.trimIndent()
 
     private val createIndex = """
-        CREATE INDEX IF NOT EXISTS 'Calls search' ON Calls(opcode, location_id, callee_class_symbol_id, callee_name_symbol_id, callee_desc_symbol_id)
+        CREATE INDEX IF NOT EXISTS 'Calls search' ON Calls(opcode, location_id, callee_class_symbol_id, callee_name_symbol_id, callee_desc_hash)
     """.trimIndent()
 
     private val dropScheme = """
