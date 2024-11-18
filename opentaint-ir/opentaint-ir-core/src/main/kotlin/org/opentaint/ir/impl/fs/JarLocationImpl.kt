@@ -1,18 +1,16 @@
 package org.opentaint.ir.impl.fs
 
 import mu.KLogging
+import org.opentaint.ir.api.JavaVersion
 import org.opentaint.ir.api.LocationType
 import java.io.File
-import java.util.jar.JarEntry
 import java.util.jar.JarFile
-import kotlin.streams.toList
 
-open class JarLocation(file: File, private val isRuntime: Boolean) : AbstractByteCodeLocation(file) {
-
-    protected inner class JarWithClasses(
-        val jar: JarFile,
-        val classes: Map<String, JarEntry>
-    )
+open class JarLocation(
+    file: File,
+    private val isRuntime: Boolean,
+    private val runtimeVersion: JavaVersion
+) : AbstractByteCodeLocation(file) {
 
     companion object : KLogging()
 
@@ -24,20 +22,24 @@ open class JarLocation(file: File, private val isRuntime: Boolean) : AbstractByt
             else -> LocationType.APP
         }
 
-    override fun createRefreshed() = JarLocation(jarOrFolder, isRuntime)
+    override fun createRefreshed() = JarLocation(jarOrFolder, isRuntime, runtimeVersion)
 
     override fun currentHash() = fileChecksum
 
     override val classes: Map<String, ByteArray>?
         get() {
             try {
-                val content = jarWithClasses ?: return null
-                val jar = content.jar
-                return content.classes.mapValues { (_, entry) ->
-                    jar.getInputStream(entry).readBytes()
+                val classes = jarFacade.classes
+                val result = hashMapOf<String, ByteArray>()
+                classes.forEach { (name, entry) ->
+                    val readBytes = jarFacade.inputStreamOf(entry)?.readBytes()
+                    if (readBytes != null) {
+                        result[name] = readBytes
+                    }
                 }.also {
-                    jar.close()
+                    jarFacade.close()
                 }
+                return result
             } catch (e: Exception) {
                 logger.warn(e) { "error loading classes from jar: ${jarOrFolder.absolutePath}. returning empty loader" }
                 return null
@@ -45,51 +47,28 @@ open class JarLocation(file: File, private val isRuntime: Boolean) : AbstractByt
         }
 
     override val classNames: Set<String>?
-        get() = jarFile?.entries()?.toList()?.mapNotNull { it.className }?.toSet()
+        get() = jarFacade.classes.keys
 
     override fun resolve(classFullName: String): ByteArray? {
-        val jar = jarFile ?: return null
-        val jarEntryName = classFullName.replace(".", "/") + ".class"
-        val jarEntry = jar.getJarEntry(jarEntryName)
-        return jar.use {
-            it.getInputStream(jarEntry).readBytes()
+        return jarFacade.use {
+            it.inputStreamOf(classFullName)?.readBytes()
         }
     }
 
-    protected open val jarWithClasses: JarWithClasses?
-        get() {
-            val jar = jarFile ?: return null
-            val classesMap = jar.stream().map { entry ->
-                entry?.className?.let { it to entry }
-            }.toList().filterNotNull().toMap()
-            return JarWithClasses(
-                jar = jar,
-                classes = classesMap
-            )
-        }
-
-    private val JarEntry.className: String?
-        get() {
-            val name = this.name
-            if (name.endsWith(".class") && !name.contains("module-info")) {
-                return name.removeSuffix(".class").replace("/", ".")
-            }
-            return null
-        }
-
-    private val jarFile: JarFile?
-        get() {
+    protected open val jarFacade: JarFacade by lazy {
+        JarFacade(runtimeVersion.majorVersion) {
             if (!jarOrFolder.exists() || !jarOrFolder.isFile) {
-                return null
+                null
+            } else {
+                try {
+                    JarFile(jarOrFolder)
+                } catch (e: Exception) {
+                    logger.warn(e) { "error processing jar ${jarOrFolder.absolutePath}" }
+                    null
+                }
             }
-
-            try {
-                return JarFile(jarOrFolder)
-            } catch (e: Exception) {
-                logger.warn(e) { "error processing jar ${jarOrFolder.absolutePath}" }
-            }
-            return null
         }
+    }
 
     override fun toString(): String = jarOrFolder.absolutePath
 

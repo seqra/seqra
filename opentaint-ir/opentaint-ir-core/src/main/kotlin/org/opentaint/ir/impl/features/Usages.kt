@@ -194,7 +194,11 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
                         position++ to
                                 UsageFeatureResponse(
                                     source = ClassSourceImpl(
-                                        LazyPersistentByteCodeLocation(persistence, locationId!!),
+                                        LazyPersistentByteCodeLocation(
+                                            persistence,
+                                            locationId!!,
+                                            classpath.db.runtimeVersion
+                                        ),
                                         className!!,
                                         byteCode!!
                                     ),

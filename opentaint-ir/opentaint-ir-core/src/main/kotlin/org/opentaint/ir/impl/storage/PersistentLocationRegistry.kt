@@ -12,6 +12,7 @@ import org.opentaint.ir.impl.LocationsRegistry
 import org.opentaint.ir.impl.LocationsRegistrySnapshot
 import org.opentaint.ir.impl.RefreshResult
 import org.opentaint.ir.impl.RegistrationResult
+import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
 import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
@@ -19,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
 class PersistentLocationRegistry(
+    private val javaRuntime: JavaRuntime,
     private val persistence: JIRDBPersistence,
     private val featuresRegistry: FeaturesRegistry
 ) : LocationsRegistry {
@@ -31,14 +33,14 @@ class PersistentLocationRegistry(
     override val actualLocations: List<PersistentByteCodeLocation>
         get() = persistence.read {
             it.selectFrom(BYTECODELOCATIONS).fetch {
-                PersistentByteCodeLocation(it)
+                PersistentByteCodeLocation(it, javaRuntime.version)
             }
         }
 
     private val notRuntimeLocations: List<PersistentByteCodeLocation>
         get() = persistence.read {
             it.selectFrom(BYTECODELOCATIONS).where(BYTECODELOCATIONS.RUNTIME.ne(true)).fetch {
-                PersistentByteCodeLocation(it)
+                PersistentByteCodeLocation(it, javaRuntime.version)
             }
         }
 
@@ -150,7 +152,7 @@ class PersistentLocationRegistry(
                 .where(BYTECODELOCATIONS.UPDATED_ID.isNotNull).fetch()
                 .toList()
                 .filterNot { entity -> snapshots.any { it.ids.contains(entity.id) } }
-                .map { PersistentByteCodeLocation(it) }
+                .map { PersistentByteCodeLocation(it, javaRuntime.version) }
             it.deprecate(deprecated)
             CleanupResult(deprecated)
         }

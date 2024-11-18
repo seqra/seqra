@@ -1,6 +1,7 @@
 package org.opentaint.ir.impl.vfs
 
 import org.opentaint.ir.api.JIRDBPersistence
+import org.opentaint.ir.api.JavaVersion
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.LocationType
 import org.opentaint.ir.api.RegisteredLocation
@@ -14,17 +15,21 @@ class PersistentByteCodeLocation(
     override val jirLocation: JIRByteCodeLocation
 ) : RegisteredLocation {
 
-    constructor(entity: BytecodelocationsRecord) : this(entity.id!!, entity.toJcLocation())
+    constructor(entity: BytecodelocationsRecord, javaVersion: JavaVersion) : this(entity.id!!, entity.toJcLocation(javaVersion))
 
 }
 
-class LazyPersistentByteCodeLocation(private val jirdbPersistence: JIRDBPersistence, override val id: Long) :
+class LazyPersistentByteCodeLocation(
+    private val persistence: JIRDBPersistence,
+    override val id: Long,
+    private val runtimeVersion: JavaVersion
+) :
     RegisteredLocation {
 
     override val jirLocation: JIRByteCodeLocation
         get() {
-            return jirdbPersistence.read {
-                it.fetchOne(BYTECODELOCATIONS, BYTECODELOCATIONS.ID.eq(id))!!.toJcLocation()
+            return persistence.read {
+                it.fetchOne(BYTECODELOCATIONS, BYTECODELOCATIONS.ID.eq(id))!!.toJcLocation(runtimeVersion)
             }
         }
 
@@ -34,7 +39,8 @@ class LazyPersistentByteCodeLocation(private val jirdbPersistence: JIRDBPersiste
 class RestoredJcByteCodeLocation(
     override val path: String,
     override val type: LocationType,
-    override val hash: String
+    override val hash: String,
+    private val runtimeVersion: JavaVersion
 ) : JIRByteCodeLocation {
 
     override val jarOrFolder: File
@@ -49,7 +55,7 @@ class RestoredJcByteCodeLocation(
         if (!jarOrFolder.exists()) {
             return null
         }
-        return jarOrFolder.asByteCodeLocation(type == LocationType.RUNTIME)
+        return jarOrFolder.asByteCodeLocation(runtimeVersion, type == LocationType.RUNTIME)
     }
 
     override fun resolve(classFullName: String) = null
@@ -62,7 +68,8 @@ class RestoredJcByteCodeLocation(
 }
 
 
-fun BytecodelocationsRecord.toJcLocation() = RestoredJcByteCodeLocation(
+fun BytecodelocationsRecord.toJcLocation(runtimeVersion: JavaVersion) = RestoredJcByteCodeLocation(
     path!!,
     LocationType.RUNTIME.takeIf { runtime!! } ?: LocationType.APP,
-    hash!!)
+    hash!!,
+    runtimeVersion)

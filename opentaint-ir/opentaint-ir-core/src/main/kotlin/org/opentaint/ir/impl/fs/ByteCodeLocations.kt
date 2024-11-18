@@ -1,19 +1,18 @@
 package org.opentaint.ir.impl.fs
 
 import mu.KLogging
+import org.opentaint.ir.api.JavaVersion
 import org.opentaint.ir.api.JIRByteCodeLocation
 import java.io.File
 
 val logger = object : KLogging() {}.logger
 
-fun File.asByteCodeLocation(isRuntime: Boolean = false): JIRByteCodeLocation {
+fun File.asByteCodeLocation(runtimeVersion: JavaVersion, isRuntime: Boolean = false): JIRByteCodeLocation {
     if (!exists()) {
         throw IllegalArgumentException("file $absolutePath doesn't exist")
     }
-    if (isFile && name.endsWith(".jar")) {
-        return JarLocation(this, isRuntime)
-    } else if (isFile && name.endsWith(".jmod")) {
-        return JmodLocation(this)
+    if (isFile && name.endsWith(".jar") || name.endsWith(".jmod")) {
+        return JarLocation(this, isRuntime, runtimeVersion)
     } else if (!isFile) {
         return BuildFolderLocation(this)
     }

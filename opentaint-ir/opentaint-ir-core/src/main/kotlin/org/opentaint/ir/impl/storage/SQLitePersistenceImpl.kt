@@ -14,6 +14,7 @@ import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.FeaturesRegistry
 import org.opentaint.ir.impl.JIRInternalSignal
 import org.opentaint.ir.impl.fs.ClassSourceImpl
+import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.info
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
@@ -28,6 +29,7 @@ import javax.sql.DataSource
 import kotlin.concurrent.withLock
 
 class SQLitePersistenceImpl(
+    private val javaRuntime: JavaRuntime,
     private val featuresRegistry: FeaturesRegistry,
     location: String? = null,
     private val clearOnStart: Boolean
@@ -81,7 +83,7 @@ class SQLitePersistenceImpl(
         get() {
             return jooq.selectFrom(BYTECODELOCATIONS).fetch().mapNotNull {
                 try {
-                    File(it.path!!).asByteCodeLocation(isRuntime = it.runtime!!)
+                    File(it.path!!).asByteCodeLocation(javaRuntime.version, isRuntime = it.runtime!!)
                 } catch (e: Exception) {
                     null
                 }

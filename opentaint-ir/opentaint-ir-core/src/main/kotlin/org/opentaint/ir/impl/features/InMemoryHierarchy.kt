@@ -120,7 +120,7 @@ object InMemoryHierarchy : JIRFeature<FastHierarchyReq, ClassSource> {
                         .fetch()
                         .mapNotNull { (classId, className, byteCode, locationId) ->
                             classId!! to ClassSourceImpl(
-                                LazyPersistentByteCodeLocation(persistence, locationId!!),
+                                LazyPersistentByteCodeLocation(persistence, locationId!!, classpath.db.runtimeVersion),
                                 className!!, byteCode!!
                             )
                         }
@@ -172,7 +172,7 @@ object InMemoryHierarchy : JIRFeature<FastHierarchyReq, ClassSource> {
                         .fetch()
                         .mapNotNull { (classId, className, byteCode, locationId) ->
                             (index.toLong() + batchSize) to ClassSourceImpl(
-                                LazyPersistentByteCodeLocation(persistence, locationId!!),
+                                LazyPersistentByteCodeLocation(persistence, locationId!!, classpath.db.runtimeVersion),
                                 className!!, byteCode!!
                             )
                         }
