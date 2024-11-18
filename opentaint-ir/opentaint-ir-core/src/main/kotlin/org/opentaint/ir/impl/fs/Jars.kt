@@ -28,7 +28,7 @@ class JarFacade(private val runtimeVersion: Int, private val getter: () -> JarFi
     }?.associateBy { it.name }
 
     private val isMultiReleaseEnabledInManifest by lazy(LazyThreadSafetyMode.NONE) {
-        jarFile.get()?.manifest?.mainAttributes?.getValue(MULTI_RELEASE).toBoolean() ?: false
+        jarFile.get()?.manifest?.mainAttributes?.getValue(MULTI_RELEASE).toBoolean()
     }
 
     private val isMultiRelease: Boolean get() = runtimeVersion >= 9 && !isJmod && isMultiReleaseEnabledInManifest

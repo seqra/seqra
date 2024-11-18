@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.storage
 
 import org.jooq.DSLContext
-import org.opentaint.ir.api.JIRDBPersistence
+import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.LocationType
 import org.opentaint.ir.api.RegisteredLocation
@@ -12,18 +12,16 @@ import org.opentaint.ir.impl.LocationsRegistry
 import org.opentaint.ir.impl.LocationsRegistrySnapshot
 import org.opentaint.ir.impl.RefreshResult
 import org.opentaint.ir.impl.RegistrationResult
-import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
 import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
-class PersistentLocationRegistry(
-    private val javaRuntime: JavaRuntime,
-    private val persistence: JIRDBPersistence,
-    private val featuresRegistry: FeaturesRegistry
-) : LocationsRegistry {
+class PersistentLocationRegistry(private val jirdb: JIRDB, private val featuresRegistry: FeaturesRegistry) :
+    LocationsRegistry {
+
+    private val persistence = jirdb.persistence
 
     private val idGen: AtomicLong = AtomicLong(persistence.read { BYTECODELOCATIONS.ID.maxId(it) } ?: 0)
 
@@ -33,20 +31,21 @@ class PersistentLocationRegistry(
     override val actualLocations: List<PersistentByteCodeLocation>
         get() = persistence.read {
             it.selectFrom(BYTECODELOCATIONS).fetch {
-                PersistentByteCodeLocation(it, javaRuntime.version)
+                PersistentByteCodeLocation(jirdb, it.id!!)
             }
         }
 
     private val notRuntimeLocations: List<PersistentByteCodeLocation>
         get() = persistence.read {
             it.selectFrom(BYTECODELOCATIONS).where(BYTECODELOCATIONS.RUNTIME.ne(true)).fetch {
-                PersistentByteCodeLocation(it, javaRuntime.version)
+                PersistentByteCodeLocation(jirdb, it.id!!)
             }
         }
 
     override lateinit var runtimeLocations: List<RegisteredLocation>
 
-    private fun DSLContext.add(location: JIRByteCodeLocation) = PersistentByteCodeLocation(location.findOrNew(this).id!!, location)
+    private fun DSLContext.add(location: JIRByteCodeLocation) =
+        PersistentByteCodeLocation(jirdb, location.findOrNew(this).id!!)
 
     override fun setup(runtimeLocations: List<JIRByteCodeLocation>): RegistrationResult {
         return registerIfNeeded(runtimeLocations).also {
@@ -78,7 +77,7 @@ class PersistentLocationRegistry(
                 if (found == null) {
                     toAdd += it
                 } else {
-                    result += PersistentByteCodeLocation(found.id!!, it)
+                    result += PersistentByteCodeLocation(jirdb, found.id!!, it)
                 }
             }
             val records = toAdd.map { add ->
@@ -94,7 +93,7 @@ class PersistentLocationRegistry(
                     setInt(5, LocationState.INITIAL.ordinal)
                 }
             }
-            val added = records.map { PersistentByteCodeLocation(it.first, it.second) }
+            val added = records.map { PersistentByteCodeLocation(jirdb, it.first) }
             RegistrationResult(result + added, added)
         }
     }
@@ -112,15 +111,22 @@ class PersistentLocationRegistry(
         val updated = hashMapOf<JIRByteCodeLocation, PersistentByteCodeLocation>()
         notRuntimeLocations.forEach { location ->
             val jirLocation = location.jirLocation
-            if (jirLocation.isChanged()) {
-                val refreshed = jirLocation.createRefreshed()
-                if (refreshed != null) {
-                    newLocations.add(refreshed)
+            when {
+                jirLocation == null -> {
+                    if (!location.hasReferences(snapshots)) {
+                        deprecated.add(location)
+                    }
                 }
-                if (!location.hasReferences(snapshots)) {
-                    deprecated.add(location)
-                } else {
-                    updated[jirLocation] = location
+                jirLocation.isChanged() -> {
+                    val refreshed = jirLocation.createRefreshed()
+                    if (refreshed != null) {
+                        newLocations.add(refreshed)
+                    }
+                    if (!location.hasReferences(snapshots)) {
+                        deprecated.add(location)
+                    } else {
+                        updated[jirLocation] = location
+                    }
                 }
             }
         }
@@ -152,7 +158,7 @@ class PersistentLocationRegistry(
                 .where(BYTECODELOCATIONS.UPDATED_ID.isNotNull).fetch()
                 .toList()
                 .filterNot { entity -> snapshots.any { it.ids.contains(entity.id) } }
-                .map { PersistentByteCodeLocation(it, javaRuntime.version) }
+                .map { PersistentByteCodeLocation(jirdb, it.id!!) }
             it.deprecate(deprecated)
             CleanupResult(deprecated)
         }

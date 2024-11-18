@@ -37,6 +37,7 @@ dependencies {
     testImplementation "org.opentaint.soot:soot-opentaint-fork:4.4.0-FORK-2"
 
     testImplementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-benchmark-runtime', version: '0.4.4'
+    testImplementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.9'
 }
 
 task downloadIdeaCommunity(type: Download) {

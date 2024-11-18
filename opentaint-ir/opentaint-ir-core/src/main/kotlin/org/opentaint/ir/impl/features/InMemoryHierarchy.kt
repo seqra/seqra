@@ -12,14 +12,13 @@ import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.api.JIRSignal
 import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.BatchedSequence
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSHIERARCHIES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
-import org.opentaint.ir.impl.vfs.LazyPersistentByteCodeLocation
+import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.min
 
@@ -120,7 +119,7 @@ object InMemoryHierarchy : JIRFeature<FastHierarchyReq, ClassSource> {
                         .fetch()
                         .mapNotNull { (classId, className, byteCode, locationId) ->
                             classId!! to ClassSourceImpl(
-                                LazyPersistentByteCodeLocation(persistence, locationId!!, classpath.db.runtimeVersion),
+                                PersistentByteCodeLocation(classpath.db, locationId!!),
                                 className!!, byteCode!!
                             )
                         }
@@ -165,14 +164,14 @@ object InMemoryHierarchy : JIRFeature<FastHierarchyReq, ClassSource> {
                 if (hashes.isEmpty()) {
                     emptyList()
                 } else {
-                    jooq.select(CLASSES.ID, SYMBOLS.NAME, CLASSES.BYTECODE, CLASSES.LOCATION_ID)
+                    jooq.select(SYMBOLS.NAME, CLASSES.BYTECODE, CLASSES.LOCATION_ID)
                         .from(CLASSES)
                         .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
                         .where(SYMBOLS.ID.`in`(hashes).and(CLASSES.LOCATION_ID.`in`(locationIds)))
                         .fetch()
-                        .mapNotNull { (classId, className, byteCode, locationId) ->
+                        .mapNotNull { (className, byteCode, locationId) ->
                             (index.toLong() + batchSize) to ClassSourceImpl(
-                                LazyPersistentByteCodeLocation(persistence, locationId!!, classpath.db.runtimeVersion),
+                                PersistentByteCodeLocation(classpath.db, locationId!!),
                                 className!!, byteCode!!
                             )
                         }
@@ -187,22 +186,8 @@ object InMemoryHierarchy : JIRFeature<FastHierarchyReq, ClassSource> {
 
 }
 
-class InMemoryHierarchyExtension(private val cp: JIRClasspath) {
-
-    fun findSubClasses(name: String, allHierarchy: Boolean): Sequence<JIRClassOrInterface> {
-        return InMemoryHierarchy.syncQuery(cp, FastHierarchyReq(name, allHierarchy)).map {
-            JIRClassOrInterfaceImpl(cp, it)
-        }
-    }
-}
-
-suspend fun JIRClasspath.inMemoryHierarchyExt(): InMemoryHierarchyExtension {
-    db.awaitBackgroundJobs()
-    return InMemoryHierarchyExtension(this)
-}
-
 internal fun JIRClasspath.findSubclassesInMemory(name: String, allHierarchy: Boolean): Sequence<JIRClassOrInterface> {
     return InMemoryHierarchy.syncQuery(this, FastHierarchyReq(name, allHierarchy)).map {
-        JIRClassOrInterfaceImpl(this, it)
+        toJcClass(it)
     }
 }

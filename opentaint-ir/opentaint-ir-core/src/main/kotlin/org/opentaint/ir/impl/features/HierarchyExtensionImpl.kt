@@ -8,7 +8,6 @@ import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.findMethodOrNull
 import org.opentaint.ir.api.isPrivate
-import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.storage.BatchedSequence
 import java.util.concurrent.Future
@@ -59,8 +58,7 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
         val name = classId.name
 
         return cp.subClasses(name, allHierarchy).map { record ->
-            JIRClassOrInterfaceImpl(
-                cp, ClassSourceImpl(
+            cp.toJcClass(ClassSourceImpl(
                     location = cp.registeredLocations.first { it.id == record.locationId },
                     className = record.name,
                     byteCode = record.byteCode
@@ -81,8 +79,10 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
     private fun JIRClasspath.subClasses(name: String, allHierarchy: Boolean): Sequence<ClassRecord> {
         val locationIds = registeredLocations.joinToString(", ") { it.id.toString() }
         return BatchedSequence(50) { offset, batchSize ->
-            val query =
-                if (allHierarchy) allHierarchyQuery(locationIds, offset) else directSubClassesQuery(locationIds, offset)
+            val query = when {
+                allHierarchy -> allHierarchyQuery(locationIds, offset)
+                else -> directSubClassesQuery(locationIds, offset)
+            }
             db.persistence.read {
                 val cursor = it.fetchLazy(query, name)
                 cursor.fetchNext(batchSize).map {

@@ -18,7 +18,7 @@ class JIRClassOrInterfaceImpl(
 
     private val info = classSource.info
 
-    override val declaration = JIRDeclarationImpl.of(location = classSource.location.jirLocation, this)
+    override val declaration = JIRDeclarationImpl.of(location = classSource.location, this)
 
     override val name: String get() = classSource.className
     override val simpleName: String get() = classSource.className.substringAfterLast(".")

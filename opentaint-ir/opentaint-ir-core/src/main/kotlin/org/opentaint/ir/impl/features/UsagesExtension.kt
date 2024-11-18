@@ -13,7 +13,6 @@ import org.opentaint.ir.api.isPackagePrivate
 import org.opentaint.ir.api.isPrivate
 import org.opentaint.ir.api.isStatic
 import org.opentaint.ir.api.packageName
-import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 
 class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, private val cp: JIRClasspath) {
 
@@ -90,10 +89,9 @@ class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, pr
                     className = it.name
                 )
             ).flatMap {
-                JIRClassOrInterfaceImpl(
-                    cp,
-                    it.source
-                ).declaredMethods.slice(it.offsets.map { it.toInt() })
+                cp.toJcClass(it.source)
+                    .declaredMethods
+                    .slice(it.offsets.map { it.toInt() })
             }
         }
 
@@ -129,6 +127,9 @@ class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, pr
 
 
 suspend fun JIRClasspath.usagesExtension(): SyncUsagesExtension {
+    if (!db.isInstalled(Usages)) {
+        throw IllegalStateException("This extension requires `Usages` feature to be installed")
+    }
     return SyncUsagesExtension(hierarchyExt(), this)
 }
 

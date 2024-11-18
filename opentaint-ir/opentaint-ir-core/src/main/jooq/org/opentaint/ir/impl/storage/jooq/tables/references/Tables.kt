@@ -6,6 +6,7 @@ package org.opentaint.ir.impl.storage.jooq.tables.references
 
 import org.opentaint.ir.impl.storage.jooq.tables.Annotations
 import org.opentaint.ir.impl.storage.jooq.tables.Annotationvalues
+import org.opentaint.ir.impl.storage.jooq.tables.Builders
 import org.opentaint.ir.impl.storage.jooq.tables.Bytecodelocations
 import org.opentaint.ir.impl.storage.jooq.tables.Calls
 import org.opentaint.ir.impl.storage.jooq.tables.Classes
@@ -28,6 +29,11 @@ val ANNOTATIONS = Annotations.ANNOTATIONS
  * The table <code>AnnotationValues</code>.
  */
 val ANNOTATIONVALUES = Annotationvalues.ANNOTATIONVALUES
+
+/**
+ * The table <code>Builders</code>.
+ */
+val BUILDERS = Builders.BUILDERS
 
 /**
  * The table <code>BytecodeLocations</code>.

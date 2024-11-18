@@ -1,12 +1,13 @@
-package org.opentaint.ir.impl
+package org.opentaint.ir.impl.features
 
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.impl.features.InMemoryHierarchy
-import org.opentaint.ir.impl.features.findSubclassesInMemory
+import org.opentaint.ir.impl.BaseTest
+import org.opentaint.ir.impl.WithDB
+import org.opentaint.ir.impl.WithRestoredDB
 import org.w3c.dom.Document
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap

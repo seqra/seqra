@@ -46,6 +46,7 @@ open class WithDB(vararg features: JIRFeature<*, *>) {
 
     open var db = runBlocking {
         jirdb {
+//            persistent("D:\\work\\jirdb\\jirdb-index.db")
             loadByteCode(allClasspath)
             useProcessJavaRuntime()
             installFeatures(*allFeatures)

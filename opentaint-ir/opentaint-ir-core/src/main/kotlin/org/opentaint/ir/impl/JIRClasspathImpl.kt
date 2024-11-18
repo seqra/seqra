@@ -1,6 +1,7 @@
 package org.opentaint.ir.impl
 
 import com.google.common.cache.CacheBuilder
+import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRArrayType
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.JIRClassOrInterface
@@ -33,7 +34,7 @@ class JIRClasspathImpl(
         .maximumSize(1_000)
         .build<String, ClassHolder>()
 
-    override val locations: List<JIRByteCodeLocation> = locationsRegistrySnapshot.locations.map { it.jirLocation }
+    override val locations: List<JIRByteCodeLocation> = locationsRegistrySnapshot.locations.mapNotNull{ it.jirLocation }
     override val registeredLocations: List<RegisteredLocation> = locationsRegistrySnapshot.locations
 
     private val classpathVfs = ClasspathVfs(globalClassVFS, locationsRegistrySnapshot)
@@ -50,7 +51,7 @@ class JIRClasspathImpl(
         return classCache.get(name) {
             val jirClass = toJcClass(classpathVfs.firstClassOrNull(name))
                 ?: db.persistence.findClassSourceByName(this, locationsRegistrySnapshot.locations, name)?.let {
-                    JIRClassOrInterfaceImpl(this, it)
+                    toJcClass(it)
                 }
             ClassHolder(jirClass)
         }.jirClass
@@ -67,6 +68,10 @@ class JIRClasspathImpl(
 
     override fun arrayTypeOf(elementType: JIRType): JIRArrayType {
         return JIRArrayTypeImpl(elementType, true)
+    }
+
+    override fun toJcClass(source: ClassSource): JIRClassOrInterface {
+        return JIRClassOrInterfaceImpl(this, source)
     }
 
     override fun findTypeOrNull(name: String): JIRType? {

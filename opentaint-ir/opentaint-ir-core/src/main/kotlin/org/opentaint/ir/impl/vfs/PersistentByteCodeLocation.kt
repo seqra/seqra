@@ -1,9 +1,7 @@
 package org.opentaint.ir.impl.vfs
 
-import org.opentaint.ir.api.JIRDBPersistence
-import org.opentaint.ir.api.JavaVersion
+import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRByteCodeLocation
-import org.opentaint.ir.api.LocationType
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
@@ -11,65 +9,43 @@ import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
 import java.io.File
 
 class PersistentByteCodeLocation(
+    private val jirdb: JIRDB,
     override val id: Long,
-    override val jirLocation: JIRByteCodeLocation
+    private val location: JIRByteCodeLocation? = null
 ) : RegisteredLocation {
 
-    constructor(entity: BytecodelocationsRecord, javaVersion: JavaVersion) : this(entity.id!!, entity.toJcLocation(javaVersion))
-
-}
-
-class LazyPersistentByteCodeLocation(
-    private val persistence: JIRDBPersistence,
-    override val id: Long,
-    private val runtimeVersion: JavaVersion
-) :
-    RegisteredLocation {
-
-    override val jirLocation: JIRByteCodeLocation
+    override val jirLocation: JIRByteCodeLocation?
         get() {
-            return persistence.read {
-                it.fetchOne(BYTECODELOCATIONS, BYTECODELOCATIONS.ID.eq(id))!!.toJcLocation(runtimeVersion)
+            return location ?: jirdb.persistence.read { jooq ->
+                jooq.fetchOne(BYTECODELOCATIONS, BYTECODELOCATIONS.ID.eq(id))!!.toJcLocation()
             }
         }
 
-}
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
 
-class RestoredJcByteCodeLocation(
-    override val path: String,
-    override val type: LocationType,
-    override val hash: String,
-    private val runtimeVersion: JavaVersion
-) : JIRByteCodeLocation {
+        other as RegisteredLocation
 
-    override val jarOrFolder: File
-        get() = File(path)
-
-    override fun isChanged(): Boolean {
-        val actual = createRefreshed() ?: return true
-        return actual.hash != hash
+        if (id != other.id) return false
+        return true
     }
 
-    override fun createRefreshed(): JIRByteCodeLocation? {
-        if (!jarOrFolder.exists()) {
+    override fun hashCode(): Int {
+        return id.hashCode()
+    }
+
+    private fun BytecodelocationsRecord.toJcLocation(): JIRByteCodeLocation? {
+        try {
+            val newOne = File(path!!).asByteCodeLocation(jirdb.runtimeVersion, isRuntime = runtime!!)
+            if (newOne.hash != hash!!) {
+                return null
+            }
+            return newOne
+        } catch (e: Exception) {
             return null
         }
-        return jarOrFolder.asByteCodeLocation(runtimeVersion, type == LocationType.RUNTIME)
     }
-
-    override fun resolve(classFullName: String) = null
-
-    override val classNames: Set<String>
-        get() = emptySet()
-
-    override val classes: Map<String, ByteArray>?
-        get() = null
 }
 
-
-fun BytecodelocationsRecord.toJcLocation(runtimeVersion: JavaVersion) = RestoredJcByteCodeLocation(
-    path!!,
-    LocationType.RUNTIME.takeIf { runtime!! } ?: LocationType.APP,
-    hash!!,
-    runtimeVersion)

@@ -7,6 +7,8 @@ package org.opentaint.ir.impl.storage.jooq.indexes
 import org.jooq.Index
 import org.jooq.impl.DSL
 import org.jooq.impl.Internal
+import org.opentaint.ir.impl.storage.jooq.tables.Builders
+import org.opentaint.ir.impl.storage.jooq.tables.Calls
 import org.opentaint.ir.impl.storage.jooq.tables.Classhierarchies
 import org.opentaint.ir.impl.storage.jooq.tables.Fields
 import org.opentaint.ir.impl.storage.jooq.tables.Methods
@@ -18,6 +20,8 @@ import org.opentaint.ir.impl.storage.jooq.tables.Symbols
 // INDEX definitions
 // -------------------------------------------------------------------------
 
+val `BUILDERS SEARCH`: Index = Internal.createIndex(DSL.name("Builders search"), Builders.BUILDERS, arrayOf(Builders.BUILDERS.LOCATION_ID, Builders.BUILDERS.CLASS_SYMBOL_ID, Builders.BUILDERS.PRIORITY), false)
+val `CALLS SEARCH`: Index = Internal.createIndex(DSL.name("Calls search"), Calls.CALLS, arrayOf(Calls.CALLS.OPCODE, Calls.CALLS.LOCATION_ID, Calls.CALLS.CALLEE_CLASS_SYMBOL_ID, Calls.CALLS.CALLEE_NAME_SYMBOL_ID, Calls.CALLS.CALLEE_DESC_HASH), false)
 val `CLASS HIERARCHIES`: Index = Internal.createIndex(DSL.name("Class Hierarchies"), Classhierarchies.CLASSHIERARCHIES, arrayOf(Classhierarchies.CLASSHIERARCHIES.SUPER_ID), false)
 val FIELDS_CLASS_ID_NAME: Index = Internal.createIndex(DSL.name("Fields_class_id_name"), Fields.FIELDS, arrayOf(Fields.FIELDS.CLASS_ID, Fields.FIELDS.NAME), true)
 val METHODS_CLASS_ID_NAME_DESC: Index = Internal.createIndex(DSL.name("Methods_class_id_name_desc"), Methods.METHODS, arrayOf(Methods.METHODS.CLASS_ID, Methods.METHODS.NAME, Methods.METHODS.DESC), true)

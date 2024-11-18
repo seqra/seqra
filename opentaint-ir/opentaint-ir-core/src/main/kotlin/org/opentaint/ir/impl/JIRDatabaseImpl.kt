@@ -53,11 +53,11 @@ class JIRDBImpl(
 
     init {
         featureRegistry.bind(this)
-        locationsRegistry = PersistentLocationRegistry(javaRuntime, persistence, featureRegistry)
+        locationsRegistry = PersistentLocationRegistry(this, featureRegistry)
     }
 
     override val locations: List<JIRByteCodeLocation>
-        get() = locationsRegistry.actualLocations.map { it.jirLocation }
+        get() = locationsRegistry.actualLocations.mapNotNull { it.jirLocation }
 
     suspend fun restore() {
         persistence.setup()

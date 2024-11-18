@@ -23,7 +23,7 @@ import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
 import org.opentaint.ir.impl.storage.longHash
 import org.opentaint.ir.impl.storage.runBatch
 import org.opentaint.ir.impl.storage.setNullableLong
-import org.opentaint.ir.impl.vfs.LazyPersistentByteCodeLocation
+import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
 
 
 private class MethodMap(size: Int) {
@@ -81,10 +81,10 @@ class UsagesIndexer(persistence: JIRDBPersistence, private val location: Registe
         jooq.connection { conn ->
             conn.runBatch(CALLS) {
                 usages.forEach { (calleeClass, calleeEntry) ->
+                    val calleeId = calleeClass.className.symbolId
                     calleeEntry.forEach { (info, callers) ->
                         val (calleeName, calleeDesc, opcode) = info
                         callers.forEach { (caller, offsets) ->
-                            val calleeId = calleeClass.className.symbolId
                             val callerId = if (calleeClass == caller) calleeId else caller.symbolId
                             setLong(1, calleeId)
                             setLong(2, calleeName.symbolId)
@@ -118,7 +118,7 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
             "caller_method_offsets"       BLOB,
             "location_id"                 BIGINT NOT NULL,
             CONSTRAINT "fk_callee_class_symbol_id" FOREIGN KEY ("callee_class_symbol_id") REFERENCES "Symbols" ("id") ON DELETE CASCADE,
-            CONSTRAINT "fk_location_id" FOREIGN KEY ("caller_class_symbol_id") REFERENCES "BytecodeLocations" ("id") ON DELETE CASCADE ON UPDATE RESTRICT
+            CONSTRAINT "fk_location_id" FOREIGN KEY ("location_id") REFERENCES "BytecodeLocations" ("id") ON DELETE CASCADE ON UPDATE RESTRICT
         );
     """.trimIndent()
 
@@ -144,19 +144,19 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
 
             is JIRSignal.LocationRemoved -> {
                 signal.jirdb.persistence.write {
-                    it.delete(CALLS).where(CALLS.LOCATION_ID.eq(signal.location.id)).execute()
+                    it.deleteFrom(CALLS).where(CALLS.LOCATION_ID.eq(signal.location.id)).execute()
                 }
             }
 
             is JIRSignal.AfterIndexing -> {
                 signal.jirdb.persistence.write {
-                    it.execute(createIndex)
+                    it.executeQueries(createIndex)
                 }
             }
 
             is JIRSignal.Drop -> {
                 signal.jirdb.persistence.write {
-                    it.delete(CALLS).execute()
+                    it.deleteFrom(CALLS).execute()
                 }
             }
 
@@ -194,11 +194,7 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
                         position++ to
                                 UsageFeatureResponse(
                                     source = ClassSourceImpl(
-                                        LazyPersistentByteCodeLocation(
-                                            persistence,
-                                            locationId!!,
-                                            classpath.db.runtimeVersion
-                                        ),
+                                        PersistentByteCodeLocation(classpath.db, locationId!!),
                                         className!!,
                                         byteCode!!
                                     ),

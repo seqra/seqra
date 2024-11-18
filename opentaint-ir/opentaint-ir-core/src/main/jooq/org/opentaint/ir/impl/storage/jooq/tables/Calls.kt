@@ -6,6 +6,7 @@ package org.opentaint.ir.impl.storage.jooq.tables
 
 import org.jooq.Field
 import org.jooq.ForeignKey
+import org.jooq.Index
 import org.jooq.Name
 import org.jooq.Record
 import org.jooq.Row7
@@ -111,6 +112,7 @@ open class Calls(
 
     constructor(child: Table<out Record>, key: ForeignKey<out Record, CallsRecord>): this(Internal.createPathAlias(child, key), child, key, CALLS, null)
     override fun getSchema(): Schema = DefaultSchema.DEFAULT_SCHEMA
+    override fun getIndexes(): List<Index> = listOf(org.opentaint.ir.impl.storage.jooq.indexes.`CALLS SEARCH`)
     override fun getReferences(): List<ForeignKey<CallsRecord, *>> = listOf(FK_CALLS_SYMBOLS_1, FK_CALLS_BYTECODELOCATIONS_1)
 
     private lateinit var _symbols: Symbols

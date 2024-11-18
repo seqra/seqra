@@ -1,28 +1,28 @@
 package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRDeclaration
 import org.opentaint.ir.api.JIRField
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRParameter
+import org.opentaint.ir.api.RegisteredLocation
 
-class JIRDeclarationImpl(override val location: JIRByteCodeLocation, override val relativePath: String) : JIRDeclaration {
+class JIRDeclarationImpl(override val location: RegisteredLocation, override val relativePath: String) : JIRDeclaration {
 
     companion object {
-        fun of(location: JIRByteCodeLocation, clazz: JIRClassOrInterface): JIRDeclarationImpl {
+        fun of(location: RegisteredLocation, clazz: JIRClassOrInterface): JIRDeclarationImpl {
             return JIRDeclarationImpl(location, clazz.name)
         }
 
-        fun of(location: JIRByteCodeLocation, method: JIRMethod): JIRDeclarationImpl {
+        fun of(location: RegisteredLocation, method: JIRMethod): JIRDeclarationImpl {
             return JIRDeclarationImpl(location, "${method.enclosingClass.name}#${method.name}")
         }
 
-        fun of(location: JIRByteCodeLocation, field: JIRField): JIRDeclarationImpl {
+        fun of(location: RegisteredLocation, field: JIRField): JIRDeclarationImpl {
             return JIRDeclarationImpl(location, "${field.enclosingClass.name}#${field.name}")
         }
 
-        fun of(location: JIRByteCodeLocation, param: JIRParameter): JIRDeclarationImpl {
+        fun of(location: RegisteredLocation, param: JIRParameter): JIRDeclarationImpl {
             return JIRDeclarationImpl(location, "${param.method.enclosingClass.name}#${param.name}:${param.index}")
         }
     }

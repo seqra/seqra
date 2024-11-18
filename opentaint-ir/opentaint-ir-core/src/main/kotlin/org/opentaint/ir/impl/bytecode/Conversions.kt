@@ -9,7 +9,7 @@ import org.opentaint.ir.impl.vfs.ClassVfsItem
 
 fun JIRClasspath.toJcClass(item: ClassVfsItem?): JIRClassOrInterface? {
     item ?: return null
-    return JIRClassOrInterfaceImpl(this, item.source)
+    return toJcClass(item.source)
 }
 
 fun JIRClassOrInterface.toJcMethod(methodInfo: MethodInfo, source: ClassSource): JIRMethod {

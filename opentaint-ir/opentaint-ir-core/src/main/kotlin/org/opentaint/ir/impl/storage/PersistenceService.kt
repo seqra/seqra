@@ -234,6 +234,13 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
         return symbolsCache[symbol]
     }
 
+    fun findSymbolName(symbolId: Long): String {
+        return persistence.read { jooq ->
+            jooq.select(SYMBOLS.NAME).from(SYMBOLS)
+                .where(SYMBOLS.ID.eq(symbolId)).fetchOne(SYMBOLS.NAME)!!
+        }
+    }
+
     private fun String.findCachedSymbol(): Long {
         return symbolsCache[this]
             ?: throw IllegalStateException("Symbol $this is required in cache. Please setup cache first")

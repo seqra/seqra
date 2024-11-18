@@ -9,6 +9,7 @@ import org.jooq.Table
 import org.jooq.impl.SchemaImpl
 import org.opentaint.ir.impl.storage.jooq.tables.Annotations
 import org.opentaint.ir.impl.storage.jooq.tables.Annotationvalues
+import org.opentaint.ir.impl.storage.jooq.tables.Builders
 import org.opentaint.ir.impl.storage.jooq.tables.Bytecodelocations
 import org.opentaint.ir.impl.storage.jooq.tables.Calls
 import org.opentaint.ir.impl.storage.jooq.tables.Classes
@@ -43,6 +44,11 @@ open class DefaultSchema : SchemaImpl("", DefaultCatalog.DEFAULT_CATALOG) {
      * The table <code>AnnotationValues</code>.
      */
     val ANNOTATIONVALUES get() = Annotationvalues.ANNOTATIONVALUES
+
+    /**
+     * The table <code>Builders</code>.
+     */
+    val BUILDERS get() = Builders.BUILDERS
 
     /**
      * The table <code>BytecodeLocations</code>.
@@ -99,6 +105,7 @@ open class DefaultSchema : SchemaImpl("", DefaultCatalog.DEFAULT_CATALOG) {
     override fun getTables(): List<Table<*>> = listOf(
         Annotations.ANNOTATIONS,
         Annotationvalues.ANNOTATIONVALUES,
+        Builders.BUILDERS,
         Bytecodelocations.BYTECODELOCATIONS,
         Calls.CALLS,
         Classes.CLASSES,

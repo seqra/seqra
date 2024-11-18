@@ -1,13 +1,12 @@
-package org.opentaint.ir.impl
+package org.opentaint.ir.impl.features
 
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.FieldUsageMode
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.impl.features.InMemoryHierarchy
-import org.opentaint.ir.impl.features.Usages
-import org.opentaint.ir.impl.features.usagesExtension
+import org.opentaint.ir.impl.BaseTest
+import org.opentaint.ir.impl.WithDB
 import org.opentaint.ir.impl.usages.fields.FieldA
 import org.opentaint.ir.impl.usages.fields.FieldB
 import org.opentaint.ir.impl.usages.methods.MethodA

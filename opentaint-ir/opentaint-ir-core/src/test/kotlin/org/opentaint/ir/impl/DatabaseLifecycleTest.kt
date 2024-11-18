@@ -18,7 +18,6 @@ import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findClassOrNull
 import org.opentaint.ir.impl.fs.BuildFolderLocation
 import org.opentaint.ir.impl.storage.PersistentLocationRegistry
-import org.opentaint.ir.impl.vfs.RestoredJcByteCodeLocation
 import org.opentaint.ir.jirdb
 import java.io.File
 import java.nio.file.Files
@@ -64,7 +63,7 @@ class DatabaseLifecycleTest {
             assertEquals(1, snapshots.size)
             assertEquals(
                 1,
-                actualLocations.filter { (it.jirLocation as RestoredJcByteCodeLocation).createRefreshed() == null }.size
+                actualLocations.filter { it.jirLocation?.createRefreshed() == null }.size
             )
         }
 
