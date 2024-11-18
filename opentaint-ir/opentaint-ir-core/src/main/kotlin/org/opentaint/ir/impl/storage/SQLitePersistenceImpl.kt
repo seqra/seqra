@@ -3,7 +3,6 @@ package org.opentaint.ir.impl.storage
 import mu.KLogging
 import org.jooq.DSLContext
 import org.jooq.SQLDialect
-import org.jooq.conf.Settings
 import org.jooq.impl.DSL
 import org.sqlite.SQLiteConfig
 import org.sqlite.SQLiteDataSource
@@ -64,7 +63,7 @@ class SQLitePersistenceImpl(
                 it.url = url
             }
         }
-        jooq = DSL.using(dataSource, SQLDialect.SQLITE, Settings().withExecuteLogging(false))
+        jooq = DSL.using(dataSource, SQLDialect.SQLITE)
         write {
             if (clearOnStart) {
                 jooq.executeQueriesFrom("jirdb-drop-schema.sql")
