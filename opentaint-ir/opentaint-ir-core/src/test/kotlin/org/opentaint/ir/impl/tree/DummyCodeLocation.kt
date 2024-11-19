@@ -14,6 +14,9 @@ open class DummyCodeLocation(private val name: String) : JIRByteCodeLocation, Re
     override val hash: String
         get() = name
 
+    override val runtime: Boolean
+        get() = false
+
     override val jirLocation: JIRByteCodeLocation
         get() = this
 

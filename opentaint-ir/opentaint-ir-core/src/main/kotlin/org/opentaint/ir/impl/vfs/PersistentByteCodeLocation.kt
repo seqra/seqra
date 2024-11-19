@@ -11,16 +11,33 @@ import java.io.File
 class PersistentByteCodeLocation(
     private val jirdb: JIRDB,
     override val id: Long,
-    private val location: JIRByteCodeLocation? = null
+    private val cachedRecord: BytecodelocationsRecord? = null,
+    private val cachedLocation: JIRByteCodeLocation? = null
 ) : RegisteredLocation {
+
+    constructor(jirdb: JIRDB, record: BytecodelocationsRecord, location: JIRByteCodeLocation? = null) : this(
+        jirdb,
+        record.id!!,
+        record,
+        location
+    )
+
+    val record by lazy {
+        cachedRecord ?: jirdb.persistence.read { jooq ->
+            jooq.fetchOne(BYTECODELOCATIONS, BYTECODELOCATIONS.ID.eq(id))!!
+        }
+    }
 
     override val jirLocation: JIRByteCodeLocation?
         get() {
-            return location ?: jirdb.persistence.read { jooq ->
-                jooq.fetchOne(BYTECODELOCATIONS, BYTECODELOCATIONS.ID.eq(id))!!.toJcLocation()
-            }
+            return cachedLocation ?: record.toJcLocation()
         }
 
+    override val path: String
+        get() = record.path!!
+
+    override val runtime: Boolean
+        get() = record.runtime!!
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
