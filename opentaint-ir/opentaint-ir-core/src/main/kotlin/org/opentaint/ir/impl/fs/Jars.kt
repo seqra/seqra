@@ -59,7 +59,7 @@ class JarFacade(private val runtimeVersion: Int, private val getter: () -> JarFi
 
     fun inputStreamOf(className: String): InputStream? {
         return classes[className]?.let {
-            jarFile.get()?.getInputStream(it)
+            getter()?.getInputStream(it) // let's use new instance  `
         }
     }
 
