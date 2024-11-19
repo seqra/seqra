@@ -32,7 +32,7 @@ class JIRDBSettings {
     /** mandatory setting for java runtime location */
     lateinit var jre: File
 
-    /** feature to add */
+    /** features to add */
     var features: List<JIRFeature<*, *>> = emptyList()
         private set
 
@@ -70,7 +70,7 @@ class JIRDBSettings {
     /**
      * use java from JAVA_HOME env variable
      */
-    fun useJavaHomeJavaRuntime() = apply {
+    fun useJavaHomeRuntime() = apply {
         val javaHome = System.getenv("JAVA_HOME") ?: throw IllegalArgumentException("JAVA_HOME is not set")
         jre = javaHome.asValidJRE()
     }

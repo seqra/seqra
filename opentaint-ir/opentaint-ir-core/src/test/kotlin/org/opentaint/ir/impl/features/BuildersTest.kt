@@ -4,6 +4,7 @@ import kotlinx.coroutines.runBlocking
 import org.jooq.DSLContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.findClass
@@ -45,9 +46,9 @@ class BuildersTest : BaseTest() {
     @Test
     fun `works for DocumentBuilderFactory`() {
         val builders = ext.findBuildMethods(cp.findClass<DocumentBuilderFactory>()).toList()
-        val expected = builders.subList(0,2).map { it.loggable }.sorted()
-        assertEquals("javax.xml.parsers.DocumentBuilderFactory#newDefaultInstance", expected.first())
-        assertEquals("javax.xml.parsers.DocumentBuilderFactory#newInstance", expected.get(1))
+        val expected = builders.subList(0,2).map { it.loggable }
+        assertTrue(expected.contains("javax.xml.parsers.DocumentBuilderFactory#newDefaultInstance"))
+        assertTrue(expected.contains("javax.xml.parsers.DocumentBuilderFactory#newInstance"))
     }
 
     @Test
