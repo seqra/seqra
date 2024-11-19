@@ -57,6 +57,7 @@ class JIRClassOrInterfaceImpl(
         get() = info.access
 
     override fun bytecode() = classSource.fullAsmNode
+    override fun binaryBytecode(): ByteArray = classSource.byteCode
 
     override val isAnonymous: Boolean
         get() {
