@@ -69,7 +69,8 @@ class JarFacade(private val runtimeVersion: Int, private val getter: () -> JarFi
     }
 
     override fun close() {
-        jarFile.get()?.close()
+        val oldFile = jarFile.get()
         jarFile.set(getter())
+        oldFile?.close()
     }
 }

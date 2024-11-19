@@ -142,6 +142,7 @@ class DatabaseLifecycleTest {
         val cps = (1..10).map { db.classpath(listOf(guavaLibClone)) }
 
         fun JIRClasspath.accessMethod() {
+
             val abstractCacheClass = findClass<AbstractCache<*, *>>()
 
             assertNotNull(
