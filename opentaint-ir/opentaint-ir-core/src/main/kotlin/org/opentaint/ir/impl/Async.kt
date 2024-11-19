@@ -7,7 +7,7 @@ import kotlinx.coroutines.SupervisorJob
 
 val BACKGROUND_PARALLELISM
     get() = Integer.getInteger(
-        "jirdb.background.parallelism",
+        "org.opentaint.ir.background.parallelism",
         64.coerceAtLeast(Runtime.getRuntime().availableProcessors())
     )
 

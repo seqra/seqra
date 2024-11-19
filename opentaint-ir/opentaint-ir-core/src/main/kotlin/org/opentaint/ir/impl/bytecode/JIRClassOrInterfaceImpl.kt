@@ -16,7 +16,7 @@ class JIRClassOrInterfaceImpl(
     private val classSource: ClassSource
 ) : JIRClassOrInterface {
 
-    private val info = classSource.info
+    val info = classSource.info
 
     override val declaration = JIRDeclarationImpl.of(location = classSource.location, this)
 

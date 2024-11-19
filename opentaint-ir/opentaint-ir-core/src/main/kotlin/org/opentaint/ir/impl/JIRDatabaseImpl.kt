@@ -74,8 +74,12 @@ class JIRDBImpl(
         val existedLocations = dirOrJars.filterExisted().map { it.asByteCodeLocation(javaRuntime.version) }
         val processed = locationsRegistry.registerIfNeeded(existedLocations.toList())
             .also { it.new.process() }.registered + locationsRegistry.runtimeLocations
+        return classpathOf(processed)
+    }
+
+    override fun classpathOf(locations: List<RegisteredLocation>): JIRClasspath {
         return JIRClasspathImpl(
-            locationsRegistry.newSnapshot(processed),
+            locationsRegistry.newSnapshot(locations),
             this,
             classesVfs
         )
