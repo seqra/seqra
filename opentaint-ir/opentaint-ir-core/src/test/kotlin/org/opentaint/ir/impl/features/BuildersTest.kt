@@ -46,7 +46,7 @@ class BuildersTest : BaseTest() {
     @Test
     fun `works for DocumentBuilderFactory`() {
         val builders = ext.findBuildMethods(cp.findClass<DocumentBuilderFactory>()).toList()
-        val expected = builders.subList(0,2).map { it.loggable }
+        val expected = builders.map { it.loggable }
         assertTrue(expected.contains("javax.xml.parsers.DocumentBuilderFactory#newDefaultInstance"))
         assertTrue(expected.contains("javax.xml.parsers.DocumentBuilderFactory#newInstance"))
     }
