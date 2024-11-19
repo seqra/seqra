@@ -25,15 +25,14 @@ class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, pr
         val maybeHierarchy = maybeHierarchy(method.enclosingClass, method.isPrivate) {
             it.findMethodOrNull(method.name, method.description).let {
                 it == null || !it.isOverriddenBy(method)
-            } // no overrides// no override
+            } // no overrides
         }
 
         val opcodes = when (method.isStatic) {
             true -> setOf(Opcodes.INVOKESTATIC)
-            else -> setOf(Opcodes.INVOKEVIRTUAL, Opcodes.INVOKESPECIAL)
+            else -> setOf(Opcodes.INVOKEVIRTUAL, Opcodes.INVOKESPECIAL, Opcodes.INVOKEINTERFACE)
         }
         return findMatches(maybeHierarchy, method = method, opcodes = opcodes)
-
     }
 
     /**
@@ -79,7 +78,7 @@ class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, pr
         field: JIRField? = null,
         opcodes: Collection<Int>
     ): Sequence<JIRMethod> {
-        val list = hierarchy.map {
+        val list: List<Sequence<JIRMethod>> = hierarchy.map {
             Usages.syncQuery(
                 cp, UsageFeatureRequest(
                     methodName = method?.name,

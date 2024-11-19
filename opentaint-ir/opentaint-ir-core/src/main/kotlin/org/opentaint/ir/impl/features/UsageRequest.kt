@@ -14,6 +14,6 @@ data class UsageFeatureRequest(
 
 class UsageFeatureResponse(
     val source: ClassSource,
-    val offsets: ByteArray
+    val offsets: ShortArray
 )
 

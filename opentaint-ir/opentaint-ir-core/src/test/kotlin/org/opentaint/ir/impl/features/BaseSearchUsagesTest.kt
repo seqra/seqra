@@ -2,6 +2,7 @@ package org.opentaint.ir.impl.features
 
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.FieldUsageMode
 import org.opentaint.ir.api.ext.findClass
@@ -115,6 +116,27 @@ abstract class BaseSearchUsagesTest : BaseTest() {
             ),
             usages
         )
+    }
+
+    @Test
+    fun `find usages of Runnable#run method`() {
+        runBlocking {
+            val ext = cp.usagesExtension()
+            val runMethod = cp.findClass<Runnable>().declaredMethods.first()
+            assertEquals("run", runMethod.name)
+            val result = ext.findUsages(runMethod).toList()
+            assertTrue(result.size > 100)
+        }
+    }
+
+    @Test
+    fun `find usages of System#out field`() {
+        runBlocking {
+            val ext = cp.usagesExtension()
+            val invokeStaticField = cp.findClass<System>().declaredFields.first { it.name == "out" }
+            val result = ext.findUsages(invokeStaticField, FieldUsageMode.READ).toList()
+            assertTrue(result.size > 1_000)
+        }
     }
 
     private inline fun <reified T> fieldsUsages(mode: FieldUsageMode = FieldUsageMode.WRITE): Map<String, Set<String>> {
