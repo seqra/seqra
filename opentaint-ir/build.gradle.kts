@@ -8,10 +8,8 @@ if (project.hasProperty('semVer')) {
 
 buildscript {
     repositories {
-        repositories {
-            mavenCentral()
-            maven { url "https://plugins.gradle.org/m2/" }
-        }
+        mavenCentral()
+        maven { url "https://plugins.gradle.org/m2/" }
     }
 
     dependencies {
@@ -19,7 +17,6 @@ buildscript {
         classpath group: 'org.jetbrains.kotlin', name: 'kotlin-allopen', version: kotlin_version
         classpath group: 'org.jetbrains.kotlin', name: 'kotlin-serialization', version: kotlin_version
         classpath group: 'org.jetbrains.kotlinx', name: 'kotlinx-benchmark-plugin', version: '0.4.4'
-
     }
 }
 
@@ -50,7 +47,7 @@ subprojects {
     repositories {
         mavenCentral()
         maven { url 'https://jitpack.io' }
-        maven { url "https://s01.oss.sonatype.org/content/repositories/orgopentaintsoot-1004/"}
+        maven { url "https://s01.oss.sonatype.org/content/repositories/orgopentaintsoot-1004/" }
     }
 
     publishing {
