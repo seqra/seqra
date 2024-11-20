@@ -26,7 +26,7 @@ open class BytecodelocationsRecord() : UpdatableRecordImpl<BytecodelocationsReco
         set(value) = set(1, value)
         get() = get(1) as String?
 
-    var hash: String?
+    var uniqueid: String?
         set(value) = set(2, value)
         get() = get(2) as String?
 
@@ -56,19 +56,19 @@ open class BytecodelocationsRecord() : UpdatableRecordImpl<BytecodelocationsReco
     override fun valuesRow(): Row6<Long?, String?, String?, Boolean?, Int?, Long?> = super.valuesRow() as Row6<Long?, String?, String?, Boolean?, Int?, Long?>
     override fun field1(): Field<Long?> = Bytecodelocations.BYTECODELOCATIONS.ID
     override fun field2(): Field<String?> = Bytecodelocations.BYTECODELOCATIONS.PATH
-    override fun field3(): Field<String?> = Bytecodelocations.BYTECODELOCATIONS.HASH
+    override fun field3(): Field<String?> = Bytecodelocations.BYTECODELOCATIONS.UNIQUEID
     override fun field4(): Field<Boolean?> = Bytecodelocations.BYTECODELOCATIONS.RUNTIME
     override fun field5(): Field<Int?> = Bytecodelocations.BYTECODELOCATIONS.STATE
     override fun field6(): Field<Long?> = Bytecodelocations.BYTECODELOCATIONS.UPDATED_ID
     override fun component1(): Long? = id
     override fun component2(): String? = path
-    override fun component3(): String? = hash
+    override fun component3(): String? = uniqueid
     override fun component4(): Boolean? = runtime
     override fun component5(): Int? = state
     override fun component6(): Long? = updatedId
     override fun value1(): Long? = id
     override fun value2(): String? = path
-    override fun value3(): String? = hash
+    override fun value3(): String? = uniqueid
     override fun value4(): Boolean? = runtime
     override fun value5(): Int? = state
     override fun value6(): Long? = updatedId
@@ -84,7 +84,7 @@ open class BytecodelocationsRecord() : UpdatableRecordImpl<BytecodelocationsReco
     }
 
     override fun value3(value: String?): BytecodelocationsRecord {
-        this.hash = value
+        this.uniqueid = value
         return this
     }
 
@@ -116,10 +116,10 @@ open class BytecodelocationsRecord() : UpdatableRecordImpl<BytecodelocationsReco
     /**
      * Create a detached, initialised BytecodelocationsRecord
      */
-    constructor(id: Long? = null, path: String? = null, hash: String? = null, runtime: Boolean? = null, state: Int? = null, updatedId: Long? = null): this() {
+    constructor(id: Long? = null, path: String? = null, uniqueid: String? = null, runtime: Boolean? = null, state: Int? = null, updatedId: Long? = null): this() {
         this.id = id
         this.path = path
-        this.hash = hash
+        this.uniqueid = uniqueid
         this.runtime = runtime
         this.state = state
         this.updatedId = updatedId

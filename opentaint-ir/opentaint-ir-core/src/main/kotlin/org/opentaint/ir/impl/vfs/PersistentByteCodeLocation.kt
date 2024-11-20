@@ -69,7 +69,7 @@ class PersistentByteCodeLocation(
     private fun BytecodelocationsRecord.toJcLocation(): JIRByteCodeLocation? {
         try {
             val newOne = File(path!!).asByteCodeLocation(runtimeVersion, isRuntime = runtime!!)
-            if (newOne.hash != hash!!) {
+            if (newOne.fsId != uniqueid!!) {
                 return null
             }
             return newOne

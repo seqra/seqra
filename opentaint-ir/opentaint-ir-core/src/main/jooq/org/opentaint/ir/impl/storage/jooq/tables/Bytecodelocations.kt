@@ -6,6 +6,7 @@ package org.opentaint.ir.impl.storage.jooq.tables
 
 import org.jooq.Field
 import org.jooq.ForeignKey
+import org.jooq.Index
 import org.jooq.Name
 import org.jooq.Record
 import org.jooq.Row6
@@ -19,6 +20,7 @@ import org.jooq.impl.Internal
 import org.jooq.impl.SQLDataType
 import org.jooq.impl.TableImpl
 import org.opentaint.ir.impl.storage.jooq.DefaultSchema
+import org.opentaint.ir.impl.storage.jooq.indexes.BYTECODELOCATIONS_HASH
 import org.opentaint.ir.impl.storage.jooq.keys.FK_BYTECODELOCATIONS_BYTECODELOCATIONS_1
 import org.opentaint.ir.impl.storage.jooq.keys.PK_BYTECODELOCATIONS
 import org.opentaint.ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
@@ -68,9 +70,9 @@ open class Bytecodelocations(
     val PATH: TableField<BytecodelocationsRecord, String?> = createField(DSL.name("path"), SQLDataType.VARCHAR(1024).nullable(false), this, "")
 
     /**
-     * The column <code>BytecodeLocations.hash</code>.
+     * The column <code>BytecodeLocations.uniqueId</code>.
      */
-    val HASH: TableField<BytecodelocationsRecord, String?> = createField(DSL.name("hash"), SQLDataType.VARCHAR(1024).nullable(false), this, "")
+    val UNIQUEID: TableField<BytecodelocationsRecord, String?> = createField(DSL.name("uniqueId"), SQLDataType.VARCHAR(1024).nullable(false), this, "")
 
     /**
      * The column <code>BytecodeLocations.runtime</code>.
@@ -107,6 +109,7 @@ open class Bytecodelocations(
 
     constructor(child: Table<out Record>, key: ForeignKey<out Record, BytecodelocationsRecord>): this(Internal.createPathAlias(child, key), child, key, BYTECODELOCATIONS, null)
     override fun getSchema(): Schema = DefaultSchema.DEFAULT_SCHEMA
+    override fun getIndexes(): List<Index> = listOf(BYTECODELOCATIONS_HASH)
     override fun getPrimaryKey(): UniqueKey<BytecodelocationsRecord> = PK_BYTECODELOCATIONS
     override fun getKeys(): List<UniqueKey<BytecodelocationsRecord>> = listOf(PK_BYTECODELOCATIONS)
     override fun getReferences(): List<ForeignKey<BytecodelocationsRecord, *>> = listOf(FK_BYTECODELOCATIONS_BYTECODELOCATIONS_1)

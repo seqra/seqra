@@ -11,7 +11,7 @@ open class DummyCodeLocation(private val name: String) : JIRByteCodeLocation, Re
     override val id: Long
         get() = name.longHash
 
-    override val hash: String
+    override val fsId: String
         get() = name
 
     override val runtime: Boolean

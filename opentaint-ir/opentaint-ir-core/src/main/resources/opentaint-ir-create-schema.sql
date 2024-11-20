@@ -1,20 +1,19 @@
-CREATE TABLE IF NOT EXISTS "BytecodeLocations"
-(
+CREATE TABLE IF NOT EXISTS "BytecodeLocations"(
     "id"         BIGINT PRIMARY KEY,
     "path"       VARCHAR(1024) NOT NULL,
-    "hash"       VARCHAR(1024) NOT NULL,
+    "uniqueId"       VARCHAR(1024) NOT NULL,
     "runtime"    BOOLEAN       NOT NULL DEFAULT 0,
     "state"      INT           NOT NULL DEFAULT 0,
     "updated_id" BIGINT,
     CONSTRAINT "fk_BytecodeLocations_updated_id__id" FOREIGN KEY ("updated_id") REFERENCES "BytecodeLocations" ("id") ON DELETE RESTRICT ON UPDATE RESTRICT
 );
-CREATE TABLE IF NOT EXISTS "Symbols"
-(
+
+CREATE TABLE IF NOT EXISTS "Symbols"(
     "id"   BIGINT PRIMARY KEY,
     "name" VARCHAR(256) NOT NULL
 );
-CREATE TABLE IF NOT EXISTS "OuterClasses"
-(
+
+CREATE TABLE IF NOT EXISTS "OuterClasses"(
     "id"                  BIGINT PRIMARY KEY,
     "outer_class_name_id" BIGINT NOT NULL,
     "name"                VARCHAR(256),
@@ -22,8 +21,8 @@ CREATE TABLE IF NOT EXISTS "OuterClasses"
     "method_desc"         TEXT,
     CONSTRAINT "fk_OuterClasses_outer_class_name_id__id" FOREIGN KEY ("outer_class_name_id") REFERENCES "Symbols" ("id") ON DELETE CASCADE ON UPDATE RESTRICT
 );
-CREATE TABLE IF NOT EXISTS "Methods"
-(
+
+CREATE TABLE IF NOT EXISTS "Methods"(
     "id"           BIGINT PRIMARY KEY,
     "access"       INT    NOT NULL,
     "name"         BIGINT NOT NULL,
@@ -35,8 +34,8 @@ CREATE TABLE IF NOT EXISTS "Methods"
     CONSTRAINT "fk_Methods_name__id" FOREIGN KEY ("name") REFERENCES "Symbols" ("id") ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT "fk_Methods_return_class__id" FOREIGN KEY ("return_class") REFERENCES "Symbols" ("id") ON DELETE RESTRICT ON UPDATE RESTRICT
 );
-CREATE TABLE IF NOT EXISTS "Classes"
-(
+
+CREATE TABLE IF NOT EXISTS "Classes"(
     "id"           BIGINT PRIMARY KEY,
     "access"       INT    NOT NULL,
     "name"         BIGINT NOT NULL,
@@ -52,8 +51,8 @@ CREATE TABLE IF NOT EXISTS "Classes"
     CONSTRAINT "fk_Classes_location_id__id" FOREIGN KEY ("location_id") REFERENCES "BytecodeLocations" ("id") ON DELETE CASCADE ON UPDATE RESTRICT,
     CONSTRAINT "fk_Classes_outer_class__id" FOREIGN KEY ("outer_class") REFERENCES "OuterClasses" ("id") ON DELETE CASCADE ON UPDATE RESTRICT
 );
-CREATE TABLE IF NOT EXISTS "ClassHierarchies"
-(
+
+CREATE TABLE IF NOT EXISTS "ClassHierarchies"(
     "id"           BIGINT PRIMARY KEY,
     "class_id"     BIGINT  NOT NULL,
     "super_id"     BIGINT  NOT NULL,
@@ -61,16 +60,16 @@ CREATE TABLE IF NOT EXISTS "ClassHierarchies"
     CONSTRAINT "fk_ClassHierarchies_super_id__id" FOREIGN KEY ("super_id") REFERENCES "Symbols" ("id") ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT "fk_ClassHierarchies_class_id__id" FOREIGN KEY ("class_id") REFERENCES "Classes" ("id") ON DELETE CASCADE ON UPDATE RESTRICT
 );
-CREATE TABLE IF NOT EXISTS "ClassInnerClasses"
-(
+
+CREATE TABLE IF NOT EXISTS "ClassInnerClasses"(
     "id"             BIGINT PRIMARY KEY,
     "class_id"       BIGINT NOT NULL,
     "inner_class_id" BIGINT NOT NULL,
     CONSTRAINT "fk_ClassInnerClasses_inner_class_id__id" FOREIGN KEY ("inner_class_id") REFERENCES "Symbols" ("id") ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT "fk_ClassInnerClasses_class_id__id" FOREIGN KEY ("class_id") REFERENCES "Classes" ("id") ON DELETE CASCADE ON UPDATE RESTRICT
 );
-CREATE TABLE IF NOT EXISTS "MethodParameters"
-(
+
+CREATE TABLE IF NOT EXISTS "MethodParameters"(
     "id"              BIGINT PRIMARY KEY,
     "access"          INT    NOT NULL,
     "index"           INT    NOT NULL,
@@ -80,8 +79,8 @@ CREATE TABLE IF NOT EXISTS "MethodParameters"
     CONSTRAINT "fk_MethodParameters_method_id__id" FOREIGN KEY ("method_id") REFERENCES "Methods" ("id") ON DELETE CASCADE ON UPDATE RESTRICT,
     CONSTRAINT "fk_MethodParameters_parameter_class__id" FOREIGN KEY ("parameter_class") REFERENCES "Symbols" ("id") ON DELETE RESTRICT ON UPDATE RESTRICT
 );
-CREATE TABLE IF NOT EXISTS "Fields"
-(
+
+CREATE TABLE IF NOT EXISTS "Fields"(
     "id"          BIGINT PRIMARY KEY,
     "access"      INT    NOT NULL,
     "name"        BIGINT NOT NULL,
@@ -92,8 +91,8 @@ CREATE TABLE IF NOT EXISTS "Fields"
     CONSTRAINT "fk_Fields_field_class__id" FOREIGN KEY ("field_class") REFERENCES "Symbols" ("id") ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT "fk_Fields_class_id__id" FOREIGN KEY ("class_id") REFERENCES "Classes" ("id") ON DELETE CASCADE ON UPDATE RESTRICT
 );
-CREATE TABLE IF NOT EXISTS "Annotations"
-(
+
+CREATE TABLE IF NOT EXISTS "Annotations"(
     "id"                BIGINT PRIMARY KEY,
     "annotation_name"   BIGINT  NOT NULL,
     "visible"           BOOLEAN NOT NULL,
@@ -109,8 +108,8 @@ CREATE TABLE IF NOT EXISTS "Annotations"
     CONSTRAINT "fk_Annotations_method_id__id" FOREIGN KEY ("method_id") REFERENCES "Methods" ("id") ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT "fk_Annotations_parent_annotation__id" FOREIGN KEY ("parent_annotation") REFERENCES "Annotations" ("id") ON DELETE RESTRICT ON UPDATE RESTRICT
 );
-CREATE TABLE IF NOT EXISTS "AnnotationValues"
-(
+
+CREATE TABLE IF NOT EXISTS "AnnotationValues"(
     "id"                BIGINT PRIMARY KEY,
     "annotation_id"     BIGINT       NOT NULL,
     "name"              VARCHAR(256) NOT NULL,
@@ -124,17 +123,13 @@ CREATE TABLE IF NOT EXISTS "AnnotationValues"
     CONSTRAINT "fk_AnnotationValues_ref_annotation_id__id" FOREIGN KEY ("ref_annotation_id") REFERENCES "Annotations" ("id") ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT "fk_AnnotationValues_class_symbol__id" FOREIGN KEY ("class_symbol") REFERENCES "Symbols" ("id") ON DELETE RESTRICT ON UPDATE RESTRICT
 );
-CREATE UNIQUE INDEX IF NOT EXISTS "Symbols_name" ON "Symbols" (
-                                                               "name"
-    );
-CREATE UNIQUE INDEX IF NOT EXISTS "Methods_class_id_name_desc" ON "Methods" (
-                                                                             "class_id",
-                                                                             "name",
-                                                                             "desc"
-    );
-CREATE UNIQUE INDEX IF NOT EXISTS "Fields_class_id_name" ON "Fields" (
-                                                                      "class_id",
-                                                                      "name"
-    );
 
-CREATE INDEX IF NOT EXISTS "Class Hierarchies" on "ClassHierarchies"("super_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "Symbols_name" ON "Symbols" ("name");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Bytecodelocations_hash" ON "BytecodeLocations" ("uniqueId");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Methods_class_id_name_desc" ON "Methods" ("class_id", "name", "desc");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Fields_class_id_name" ON "Fields" ("class_id","name");
+
+CREATE INDEX IF NOT EXISTS "Class Hierarchies" on "ClassHierarchies" ("super_id");
