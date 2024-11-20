@@ -93,7 +93,7 @@ class PersistentLocationRegistry(private val jirdb: JIRDB, private val featuresR
                     setInt(5, LocationState.INITIAL.ordinal)
                 }
             }
-            val added = records.map { PersistentByteCodeLocation(jirdb, it.first, null, it.second) }
+            val added = records.map { PersistentByteCodeLocation(jirdb.persistence, jirdb.runtimeVersion, it.first, null, it.second) }
             RegistrationResult(result + added, added)
         }
     }

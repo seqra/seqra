@@ -184,7 +184,7 @@ class JIRDBImpl(
         return featureRegistry.has(feature)
     }
 
-    fun afterStart() {
+    suspend fun afterStart() {
         hooks.forEach { it.afterStart() }
     }
 

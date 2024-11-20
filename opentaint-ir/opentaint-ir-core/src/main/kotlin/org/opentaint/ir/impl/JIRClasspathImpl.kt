@@ -34,7 +34,7 @@ class JIRClasspathImpl(
         .maximumSize(1_000)
         .build<String, ClassHolder>()
 
-    override val locations: List<JIRByteCodeLocation> = locationsRegistrySnapshot.locations.mapNotNull{ it.jirLocation }
+    override val locations: List<JIRByteCodeLocation> = locationsRegistrySnapshot.locations.mapNotNull { it.jirLocation }
     override val registeredLocations: List<RegisteredLocation> = locationsRegistrySnapshot.locations
 
     private val classpathVfs = ClasspathVfs(globalClassVFS, locationsRegistrySnapshot)

@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl.storage
 
+import com.google.common.cache.CacheBuilder
 import mu.KLogging
 import org.jooq.DSLContext
 import org.jooq.SQLDialect
@@ -21,6 +22,7 @@ import org.opentaint.ir.impl.fs.info
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
+import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
 import java.io.Closeable
 import java.io.File
 import java.sql.Connection
@@ -36,7 +38,14 @@ class SQLitePersistenceImpl(
     private val clearOnStart: Boolean
 ) : JIRDBPersistence, Closeable {
 
-    companion object : KLogging()
+    companion object : KLogging() {
+
+        private val locationsCacheSize =
+            Integer.getInteger("org.opentaint.ir.persistence.caches.locations", 1_000).toLong()
+        private val byteCodeCacheSize =
+            Integer.getInteger("org.opentaint.ir.persistence.caches.bytecode", 10_000).toLong()
+        private val symbolsCacheSize = Integer.getInteger("org.opentaint.ir.persistence.caches.symbols", 100_000).toLong()
+    }
 
     private val lock = ReentrantLock()
 
@@ -44,6 +53,11 @@ class SQLitePersistenceImpl(
     private var keepAliveConnection: Connection? = null
     private val persistenceService = PersistenceService(this)
     val jooq: DSLContext
+
+    private val locationsCache =
+        CacheBuilder.newBuilder().maximumSize(locationsCacheSize).build<Long, RegisteredLocation>()
+    private val byteCodeCache = CacheBuilder.newBuilder().maximumSize(byteCodeCacheSize).build<Long, ByteArray>()
+    private val symbolsCache = CacheBuilder.newBuilder().maximumSize(symbolsCacheSize).build<Long, String>()
 
     init {
         val config = SQLiteConfig().also {
@@ -53,7 +67,8 @@ class SQLitePersistenceImpl(
             it.setCacheSize(-8_000)
         }
         if (location == null) {
-            val url = "jdbc:sqlite:file:jirdb-${UUID.randomUUID()}?mode=memory&cache=shared&rewriteBatchedStatements=true"
+            val url =
+                "jdbc:sqlite:file:jirdb-${UUID.randomUUID()}?mode=memory&cache=shared&rewriteBatchedStatements=true"
             dataSource = SQLiteDataSource(config).also {
                 it.url = url
             }
@@ -93,6 +108,14 @@ class SQLitePersistenceImpl(
 
     override fun newSymbolInterner() = persistenceService.newSymbolInterner()
 
+    override fun findBytecode(classId: Long): ByteArray {
+        return byteCodeCache.get(classId) {
+            jooq.select(CLASSES.BYTECODE).from(CLASSES)
+                .where(CLASSES.ID.eq(classId)).fetchAny()?.value1()
+                ?: throw IllegalArgumentException("Can't find bytecode for $classId")
+        }
+    }
+
     override fun <T> write(action: (DSLContext) -> T): T {
         return lock.withLock {
             action(jooq)
@@ -107,8 +130,18 @@ class SQLitePersistenceImpl(
         return persistenceService.findSymbolId(symbol)
     }
 
-    override fun findSymbolName(symbol: Long): String {
-        return persistenceService.findSymbolName(symbol)
+    override fun findSymbolName(symbolId: Long): String {
+        return symbolsCache.get(symbolId) {
+            persistenceService.findSymbolName(symbolId)
+        }
+    }
+
+    override fun findLocation(locationId: Long): RegisteredLocation {
+        return locationsCache.get(locationId) {
+            val record = jooq.fetchOne(BYTECODELOCATIONS, BYTECODELOCATIONS.ID.eq(locationId))
+                ?: throw IllegalArgumentException("location not found by id $locationId")
+            PersistentByteCodeLocation(this, runtimeVersion = javaRuntime.version, locationId, record, null)
+        }
     }
 
     override fun findClassSourceByName(
@@ -117,16 +150,14 @@ class SQLitePersistenceImpl(
         fullName: String
     ): ClassSource? {
         val ids = locations.map { it.id }
-        val symbolId = jooq.select(SYMBOLS.ID).from(SYMBOLS)
-            .where(SYMBOLS.NAME.eq(fullName))
-            .fetchAny()?.component1() ?: return null
+        val symbolId = findSymbolId(fullName) ?: return null
         val found = jooq.select(CLASSES.LOCATION_ID, CLASSES.BYTECODE).from(CLASSES)
             .where(CLASSES.NAME.eq(symbolId).and(CLASSES.LOCATION_ID.`in`(ids)))
             .fetchAny() ?: return null
         val locationId = found.component1()!!
         val byteCode = found.component2()!!
         return ClassSourceImpl(
-            location = locations.first { it.id == locationId },
+            location = PersistentByteCodeLocation(cp, locationId),
             className = fullName,
             byteCode = byteCode
         )

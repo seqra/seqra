@@ -8,7 +8,7 @@ import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.findMethodOrNull
 import org.opentaint.ir.api.isPrivate
-import org.opentaint.ir.impl.fs.ClassSourceImpl
+import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.storage.BatchedSequence
 import java.util.concurrent.Future
 
@@ -34,7 +34,7 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
         """.trimIndent()
 
         private fun directSubClassesQuery(locationIds: String, sinceId: Long?) = """
-            SELECT Classes.id, Classes.location_id, SymbolsName.name as name_name, Classes.bytecode FROM ClassHierarchies
+            SELECT Classes.id, Classes.location_id, SymbolsName.name as name_name FROM ClassHierarchies
                 JOIN Symbols ON Symbols.id = ClassHierarchies.super_id
                 JOIN Symbols as SymbolsName ON SymbolsName.id = Classes.name
                 JOIN Classes ON Classes.id = ClassHierarchies.class_id
@@ -51,26 +51,28 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
         return findSubClasses(classId, allHierarchy)
     }
 
-    override fun findSubClasses(jirClass: JIRClassOrInterface, allHierarchy: Boolean): Sequence<JIRClassOrInterface> {
+    override fun findSubClasses(classId: JIRClassOrInterface, allHierarchy: Boolean): Sequence<JIRClassOrInterface> {
         if (cp.db.isInstalled(InMemoryHierarchy)) {
-            return cp.findSubclassesInMemory(jirClass.name, allHierarchy)
+            return cp.findSubclassesInMemory(classId.name, allHierarchy)
         }
-        val name = jirClass.name
+        val name = classId.name
 
         return cp.subClasses(name, allHierarchy).map { record ->
-            cp.toJcClass(ClassSourceImpl(
-                    location = cp.registeredLocations.first { it.id == record.locationId },
-                    className = record.name,
-                    byteCode = record.byteCode
+            cp.toJcClass(
+                PersistenceClassSource(
+                    classpath = cp,
+                    locationId = record.locationId,
+                    classId = record.id,
+                    className = record.name
                 )
             )
         }
     }
 
-    override fun findOverrides(jirMethod: JIRMethod): Sequence<JIRMethod> {
-        val desc = jirMethod.description
-        val name = jirMethod.name
-        val subClasses = findSubClasses(jirMethod.enclosingClass, allHierarchy = true)
+    override fun findOverrides(methodId: JIRMethod): Sequence<JIRMethod> {
+        val desc = methodId.description
+        val name = methodId.name
+        val subClasses = findSubClasses(methodId.enclosingClass, allHierarchy = true)
         return subClasses.mapNotNull {
             it.findMethodOrNull(name, desc)
         }.filter { !it.isPrivate }
@@ -88,7 +90,6 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
                 cursor.fetchNext(batchSize).map {
                     val id = it.get("id") as Long
                     id to ClassRecord(
-                        byteCode = it.get("bytecode") as ByteArray,
                         locationId = it.get("location_id") as Long,
                         name = it.get("name_name") as String,
                         id = id
@@ -103,7 +104,6 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
 }
 
 private class ClassRecord(
-    val byteCode: ByteArray,
     val locationId: Long,
     val name: String,
     val id: Long

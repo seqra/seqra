@@ -12,13 +12,12 @@ import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.api.JIRSignal
 import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.impl.fs.ClassSourceImpl
+import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.BatchedSequence
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSHIERARCHIES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
-import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.min
 
@@ -110,17 +109,19 @@ object InMemoryHierarchy : JIRFeature<FastHierarchyReq, ClassSource> {
                         )
                     }
 
-                    jooq.select(CLASSES.ID, SYMBOLS.NAME, CLASSES.BYTECODE, CLASSES.LOCATION_ID)
+                    jooq.select(CLASSES.ID, SYMBOLS.NAME, CLASSES.LOCATION_ID)
                         .from(CLASSES)
                         .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
                         .where(whereCondition)
                         .orderBy(CLASSES.ID)
                         .limit(batchSize)
                         .fetch()
-                        .mapNotNull { (classId, className, byteCode, locationId) ->
-                            classId!! to ClassSourceImpl(
-                                PersistentByteCodeLocation(classpath.db, locationId!!),
-                                className!!, byteCode!!
+                        .mapNotNull { (classId, className, locationId) ->
+                            classId!! to PersistenceClassSource(
+                                classpath = classpath,
+                                classId = classId,
+                                className = className!!,
+                                locationId = locationId!!
                             )
                         }
                 }
@@ -164,15 +165,19 @@ object InMemoryHierarchy : JIRFeature<FastHierarchyReq, ClassSource> {
                 if (hashes.isEmpty()) {
                     emptyList()
                 } else {
-                    jooq.select(SYMBOLS.NAME, CLASSES.BYTECODE, CLASSES.LOCATION_ID)
+                    jooq.select(SYMBOLS.NAME, CLASSES.ID, CLASSES.LOCATION_ID)
                         .from(CLASSES)
                         .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
                         .where(SYMBOLS.ID.`in`(hashes).and(CLASSES.LOCATION_ID.`in`(locationIds)))
+                        .orderBy(CLASSES.ID)
+                        .limit(batchSize)
                         .fetch()
-                        .mapNotNull { (className, byteCode, locationId) ->
-                            (index.toLong() + batchSize) to ClassSourceImpl(
-                                PersistentByteCodeLocation(classpath.db, locationId!!),
-                                className!!, byteCode!!
+                        .mapNotNull { (className, classId, locationId) ->
+                            (index.toLong() + batchSize) to PersistenceClassSource(
+                                classpath = classpath,
+                                classId = classId!!,
+                                className = className!!,
+                                locationId = locationId!!
                             )
                         }
                 }

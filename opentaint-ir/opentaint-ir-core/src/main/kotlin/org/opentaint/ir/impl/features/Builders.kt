@@ -14,14 +14,13 @@ import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.api.JIRSignal
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.api.jvmPrimitiveNames
-import org.opentaint.ir.impl.fs.ClassSourceImpl
+import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.executeQueries
 import org.opentaint.ir.impl.storage.jooq.tables.references.BUILDERS
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
 import org.opentaint.ir.impl.storage.runBatch
-import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
 
 private val MethodNode.isGetter: Boolean
     get() {
@@ -173,7 +172,7 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
         val classNameIds = req.map { persistence.findSymbolId(it) }
         return sequence {
             val result = persistence.read { jooq ->
-                jooq.select(BUILDERS.OFFSET, SYMBOLS.NAME, CLASSES.BYTECODE, CLASSES.LOCATION_ID, BUILDERS.PRIORITY)
+                jooq.select(BUILDERS.OFFSET, SYMBOLS.NAME, CLASSES.ID, CLASSES.LOCATION_ID, BUILDERS.PRIORITY)
                     .from(BUILDERS)
                     .join(SYMBOLS).on(SYMBOLS.ID.eq(BUILDERS.BUILDER_CLASS_SYMBOL_ID))
                     .join(CLASSES).on(CLASSES.NAME.eq(BUILDERS.BUILDER_CLASS_SYMBOL_ID))
@@ -182,15 +181,13 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
                     )
                     .limit(100)
                     .fetch()
-                    .mapNotNull { (offset, className, byteCode, locationId, priority) ->
+                    .mapNotNull { (offset, className, classId, locationId, priority) ->
                         BuildersResponse(
-                            source = ClassSourceImpl(
-                                PersistentByteCodeLocation(
-                                    classpath.db,
-                                    locationId!!
-                                ),
-                                className!!,
-                                byteCode!!
+                            source = PersistenceClassSource(
+                                classpath,
+                                locationId = locationId!!,
+                                classId = classId!!,
+                                className = className!!,
                             ),
                             methodOffset = offset!!,
                             priority = priority ?: 0
