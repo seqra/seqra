@@ -1,6 +1,5 @@
 package org.opentaint.ir.impl.storage
 
-import com.google.common.cache.CacheBuilder
 import mu.KLogging
 import org.jooq.DSLContext
 import org.jooq.SQLDialect
@@ -54,10 +53,9 @@ class SQLitePersistenceImpl(
     private val persistenceService = PersistenceService(this)
     val jooq: DSLContext
 
-    private val locationsCache =
-        CacheBuilder.newBuilder().maximumSize(locationsCacheSize).build<Long, RegisteredLocation>()
-    private val byteCodeCache = CacheBuilder.newBuilder().maximumSize(byteCodeCacheSize).build<Long, ByteArray>()
-    private val symbolsCache = CacheBuilder.newBuilder().maximumSize(symbolsCacheSize).build<Long, String>()
+    private val locationsCache = cacheOf<Long, RegisteredLocation>(locationsCacheSize)
+    private val byteCodeCache = cacheOf<Long, ByteArray>(byteCodeCacheSize)
+    private val symbolsCache = cacheOf<Long, String>(symbolsCacheSize)
 
     init {
         val config = SQLiteConfig().also {

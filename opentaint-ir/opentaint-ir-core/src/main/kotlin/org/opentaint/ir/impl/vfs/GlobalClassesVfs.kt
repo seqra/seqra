@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 open class GlobalClassesVfs : Closeable {
 
-    val rootItem = PackageVfsItem(null, null)
+    private val rootItem = PackageVfsItem(null, null)
 
     private fun PackageVfsItem.findClassOrNew(
         simpleClassName: String,

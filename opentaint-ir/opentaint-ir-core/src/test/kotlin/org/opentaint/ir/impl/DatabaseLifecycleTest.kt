@@ -67,7 +67,10 @@ class DatabaseLifecycleTest {
             )
         }
 
-        cp.findClass<BarKt>()
+        with(cp.findClass<BarKt>()) {
+            assertNotNull(declaredMethods.first().body())
+        }
+
         cp.close()
         db.refresh()
         withRegistry {

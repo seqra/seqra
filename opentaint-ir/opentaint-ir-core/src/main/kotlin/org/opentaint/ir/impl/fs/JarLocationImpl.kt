@@ -29,17 +29,7 @@ open class JarLocation(
     override val classes: Map<String, ByteArray>?
         get() {
             try {
-                val classes = jarFacade.classes
-                val result = hashMapOf<String, ByteArray>()
-                classes.forEach { (name, entry) ->
-                    val readBytes = jarFacade.inputStreamOf(entry)?.readBytes()
-                    if (readBytes != null) {
-                        result[name] = readBytes
-                    }
-                }.also {
-                    jarFacade.close()
-                }
-                return result
+                return jarFacade.bytecode
             } catch (e: Exception) {
                 logger.warn(e) { "error loading classes from jar: ${jarOrFolder.absolutePath}. returning empty loader" }
                 return null
@@ -50,9 +40,7 @@ open class JarLocation(
         get() = jarFacade.classes.keys
 
     override fun resolve(classFullName: String): ByteArray? {
-        return jarFacade.use {
-            it.inputStreamOf(classFullName)?.readBytes()
-        }
+        return jarFacade.inputStreamOf(classFullName)
     }
 
     protected open val jarFacade: JarFacade by lazy {

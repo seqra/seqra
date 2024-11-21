@@ -8,15 +8,24 @@ import org.opentaint.ir.api.JIRField
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.findMethodOrNull
+import org.opentaint.ir.impl.fs.ClassSourceImpl
+import org.opentaint.ir.impl.fs.LazyClassSourceImpl
 import org.opentaint.ir.impl.fs.fullAsmNode
 import org.opentaint.ir.impl.fs.info
+import org.opentaint.ir.impl.types.ClassInfo
 
 class JIRClassOrInterfaceImpl(
     override val classpath: JIRClasspath,
     private val classSource: ClassSource
 ) : JIRClassOrInterface {
 
-    val info by lazy { classSource.info }
+    private val cachedInfo: ClassInfo? = when {
+        classSource is LazyClassSourceImpl -> classSource.info // that means that we are loading bytecode. It can be removed let's cache info
+        classSource is ClassSourceImpl -> classSource.info // we can easily read link let's do it
+        else -> null // maybe we do not need to do right now
+    }
+
+    val info by lazy { cachedInfo ?: classSource.info }
 
     override val declaration = JIRDeclarationImpl.of(location = classSource.location, this)
 
