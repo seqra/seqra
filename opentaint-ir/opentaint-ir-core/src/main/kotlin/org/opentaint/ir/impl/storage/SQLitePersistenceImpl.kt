@@ -38,12 +38,11 @@ class SQLitePersistenceImpl(
 ) : JIRDBPersistence, Closeable {
 
     companion object : KLogging() {
+        private const val cachesPrefix = "org.opentaint.ir.persistence.caches"
 
-        private val locationsCacheSize =
-            Integer.getInteger("org.opentaint.ir.persistence.caches.locations", 1_000).toLong()
-        private val byteCodeCacheSize =
-            Integer.getInteger("org.opentaint.ir.persistence.caches.bytecode", 10_000).toLong()
-        private val symbolsCacheSize = Integer.getInteger("org.opentaint.ir.persistence.caches.symbols", 100_000).toLong()
+        private val locationsCacheSize = Integer.getInteger("$cachesPrefix.locations", 1_000).toLong()
+        private val byteCodeCacheSize = Integer.getInteger("$cachesPrefix.bytecode", 10_000).toLong()
+        private val symbolsCacheSize = Integer.getInteger("$cachesPrefix.symbols", 100_000).toLong()
     }
 
     private val lock = ReentrantLock()
