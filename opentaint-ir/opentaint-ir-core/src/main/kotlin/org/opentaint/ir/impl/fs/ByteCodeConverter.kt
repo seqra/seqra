@@ -109,7 +109,7 @@ private fun FieldNode.asFieldInfo() = FieldInfo(
     name = name,
     signature = signature,
     access = access,
-    type = desc.className,
+    type = Type.getObjectType(desc).className,
     annotations = visibleAnnotations.asAnnotationInfos(true) + invisibleAnnotations.asAnnotationInfos(false)
 )
 
