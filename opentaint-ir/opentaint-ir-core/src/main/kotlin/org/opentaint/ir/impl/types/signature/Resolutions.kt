@@ -1,3 +1,4 @@
+
 package org.opentaint.ir.impl.types.signature
 
 import org.opentaint.ir.api.FieldResolution

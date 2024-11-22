@@ -1,3 +1,4 @@
+
 package org.opentaint.ir.impl.features
 
 import kotlinx.coroutines.GlobalScope
@@ -51,11 +52,11 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
         return findSubClasses(classId, allHierarchy)
     }
 
-    override fun findSubClasses(classId: JIRClassOrInterface, allHierarchy: Boolean): Sequence<JIRClassOrInterface> {
+    override fun findSubClasses(jirClass: JIRClassOrInterface, allHierarchy: Boolean): Sequence<JIRClassOrInterface> {
         if (cp.db.isInstalled(InMemoryHierarchy)) {
-            return cp.findSubclassesInMemory(classId.name, allHierarchy)
+            return cp.findSubclassesInMemory(jirClass.name, allHierarchy)
         }
-        val name = classId.name
+        val name = jirClass.name
 
         return cp.subClasses(name, allHierarchy).map { record ->
             cp.toJcClass(
@@ -69,10 +70,10 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
         }
     }
 
-    override fun findOverrides(methodId: JIRMethod): Sequence<JIRMethod> {
-        val desc = methodId.description
-        val name = methodId.name
-        val subClasses = findSubClasses(methodId.enclosingClass, allHierarchy = true)
+    override fun findOverrides(jirMethod: JIRMethod): Sequence<JIRMethod> {
+        val desc = jirMethod.description
+        val name = jirMethod.name
+        val subClasses = findSubClasses(jirMethod.enclosingClass, allHierarchy = true)
         return subClasses.mapNotNull {
             it.findMethodOrNull(name, desc)
         }.filter { !it.isPrivate }

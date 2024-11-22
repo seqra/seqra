@@ -1,3 +1,4 @@
+
 package org.opentaint.ir.impl.types
 
 import org.opentaint.ir.api.JIRClassOrInterface

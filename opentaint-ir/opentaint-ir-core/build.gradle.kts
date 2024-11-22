@@ -33,7 +33,7 @@ kotlin.sourceSets["main"].kotlin {
 }
 
 dependencies {
-    api(project(":opentaint-ir-api"))
+    implementation(project(":opentaint-ir-api"))
 
     api(group = "io.github.microutils", name = "kotlin-logging", version = "1.8.3")
     api(group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8", version = kotlinVersion)

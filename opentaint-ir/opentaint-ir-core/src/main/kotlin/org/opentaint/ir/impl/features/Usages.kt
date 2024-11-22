@@ -1,3 +1,4 @@
+
 package org.opentaint.ir.impl.features
 
 import org.jooq.DSLContext
@@ -28,18 +29,36 @@ import org.opentaint.ir.impl.storage.setNullableLong
 private class MethodMap(size: Int) {
 
     private val ticks = BooleanArray(size)
-    private val array = ByteArray(size)
+    private val array = ShortArray(size)
     private var position = 0
 
     fun tick(index: Int) {
         if (!ticks[index]) {
-            array[position] = index.toByte()
+            array[position] = index.toShort()
             ticks[index] = true
             position++
         }
     }
 
-    fun result() = array.sliceArray(0 until position)
+    fun result(): ByteArray {
+        return array.sliceArray(0 until position).toByteArray()
+    }
+
+    private fun ShortArray.toByteArray(): ByteArray {
+        var short_index: Int
+        var byte_index: Int
+        val iterations = size
+        val buffer = ByteArray(size * 2)
+        byte_index = 0
+        short_index = byte_index
+        while ( /*NOP*/short_index != iterations /*NOP*/) {
+            buffer[byte_index] = (this[short_index].toInt() and 0x00FF).toByte()
+            buffer[byte_index + 1] = (this[short_index].toInt() and 0xFF00 shr 8).toByte()
+            ++short_index
+            byte_index += 2
+        }
+        return buffer
+    }
 }
 
 class UsagesIndexer(persistence: JIRDBPersistence, private val location: RegisteredLocation) :
@@ -198,14 +217,21 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
                                         classId = classId!!,
                                         locationId = locationId!!
                                     ),
-                                    offsets = offset!!
+                                    offsets = offset!!.toShortArray()
                                 )
                     }
             }
         }
-
     }
 
     override fun newIndexer(jirdb: JIRDB, location: RegisteredLocation) = UsagesIndexer(jirdb.persistence, location)
 
+
+    private fun ByteArray.toShortArray(): ShortArray {
+        val byteArray = this
+        val shortArray = ShortArray(byteArray.size / 2) {
+            (byteArray[it * 2].toUByte().toInt() + (byteArray[(it * 2) + 1].toInt() shl 8)).toShort()
+        }
+        return shortArray // [211, 24]
+    }
 }

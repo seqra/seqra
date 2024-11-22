@@ -1,3 +1,4 @@
+
 package org.opentaint.ir.impl.vfs
 
 import org.opentaint.ir.api.ClassSource
