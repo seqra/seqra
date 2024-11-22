@@ -7,5 +7,7 @@ import java.time.Duration
 
 
 fun <KEY, VALUE> cacheOf(size: Long): Cache<KEY, VALUE> {
-    return CacheBuilder.newBuilder().maximumSize(size).expireAfterAccess(Duration.ofSeconds(10)).build()
+    return CacheBuilder.newBuilder()
+        .maximumSize(size)
+        .expireAfterAccess(Duration.ofSeconds(10)).build()
 }

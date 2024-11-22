@@ -30,6 +30,8 @@ plugins {
 }
 
 subprojects {
+    group = rootProject.group
+    version = rootProject.version
 
     apply {
         plugin("maven-publish")
@@ -130,12 +132,6 @@ subprojects {
         header(rootProject.file("copyright/COPYRIGHT_HEADER.txt"))
     }
 
-}
-
-subprojects {
-    group = rootProject.group
-    version = rootProject.version
-
     publishing {
         publications {
             create<MavenPublication>("jar") {
@@ -144,12 +140,6 @@ subprojects {
                 artifactId = project.name
             }
         }
-    }
-
-    repositories {
-        mavenCentral()
-        maven(url = "https://jitpack.io")
-        maven(url = "https://s01.oss.sonatype.org/content/repositories/orgopentaintsoot-1004/")
     }
 
     publishing {
