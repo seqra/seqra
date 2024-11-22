@@ -26,7 +26,7 @@ plugins {
     kotlin("plugin.allopen") version kotlinVersion
     kotlin("plugin.serialization") version kotlinVersion
     id("org.jetbrains.kotlinx.benchmark") version "0.4.4"
-    id("com.github.hierynomus.license") version "0.16.1"
+    id("org.cadixdev.licenser") version "0.6.1"
 }
 
 subprojects {
@@ -37,7 +37,7 @@ subprojects {
         plugin("org.jetbrains.kotlinx.benchmark")
         plugin("org.jetbrains.kotlin.plugin.serialization")
         plugin("org.jetbrains.kotlin.plugin.allopen")
-        plugin("com.github.hierynomus.license")
+        plugin("org.cadixdev.licenser")
     }
 
     repositories {
@@ -127,8 +127,7 @@ subprojects {
     license {
         include("**/*.kt")
         include("**/*.java")
-        header = rootProject.file("copyright/COPYRIGHT_HEADER.txt")
-        strictCheck = true
+        header(rootProject.file("copyright/COPYRIGHT_HEADER.txt"))
     }
 
 }
