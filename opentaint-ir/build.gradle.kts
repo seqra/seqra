@@ -1,6 +1,5 @@
 import kotlinx.benchmark.gradle.JvmBenchmarkTarget
 import kotlinx.benchmark.gradle.benchmark
-import org.jetbrains.kotlin.allopen.gradle.AllOpenExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 val kotlinVersion: String by rootProject
@@ -27,6 +26,7 @@ plugins {
     kotlin("plugin.allopen") version kotlinVersion
     kotlin("plugin.serialization") version kotlinVersion
     id("org.jetbrains.kotlinx.benchmark") version "0.4.4"
+    id("com.github.hierynomus.license") version "0.16.1"
 }
 
 subprojects {
@@ -37,6 +37,30 @@ subprojects {
         plugin("org.jetbrains.kotlinx.benchmark")
         plugin("org.jetbrains.kotlin.plugin.serialization")
         plugin("org.jetbrains.kotlin.plugin.allopen")
+        plugin("com.github.hierynomus.license")
+    }
+
+    repositories {
+        mavenCentral()
+        maven("https://s01.oss.sonatype.org/content/repositories/orgopentaintsoot-1004/")
+        maven("https://plugins.gradle.org/m2")
+        maven("https://www.jetbrains.com/intellij-repository/releases")
+        maven("https://cache-redirector.jetbrains.com/maven-central")
+    }
+
+    dependencies {
+        implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version = coroutinesVersion)
+
+        implementation(group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8", version = kotlinVersion)
+        implementation(group = "org.jetbrains.kotlin", name = "kotlin-reflect", version = kotlinVersion)
+
+        testImplementation("org.junit.jupiter:junit-jupiter") {
+            version {
+                strictly(junit5Version)
+            }
+        }
+        testImplementation(group = "com.google.guava", name = "guava", version = "31.1-jre")
+        testImplementation(group = "org.jetbrains.kotlinx", name = "kotlinx-benchmark-runtime", version = "0.4.4")
     }
 
     tasks {
@@ -78,15 +102,7 @@ subprojects {
 
     }
 
-    repositories {
-        mavenCentral()
-        maven("https://s01.oss.sonatype.org/content/repositories/orgopentaintsoot-1004/")
-        maven("https://plugins.gradle.org/m2")
-        maven("https://www.jetbrains.com/intellij-repository/releases")
-        maven("https://cache-redirector.jetbrains.com/maven-central")
-    }
-
-    configure<AllOpenExtension> {
+    allOpen {
         annotation("org.openjdk.jmh.annotations.State")
     }
 
@@ -108,20 +124,13 @@ subprojects {
         }
     }
 
-    dependencies {
-        implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version = coroutinesVersion)
-
-        implementation(group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8", version = kotlinVersion)
-        implementation(group = "org.jetbrains.kotlin", name = "kotlin-reflect", version = kotlinVersion)
-
-        testImplementation("org.junit.jupiter:junit-jupiter") {
-            version {
-                strictly(junit5Version)
-            }
-        }
-        testImplementation(group = "com.google.guava", name = "guava", version = "31.1-jre")
-        testImplementation(group = "org.jetbrains.kotlinx", name = "kotlinx-benchmark-runtime", version = "0.4.4")
+    license {
+        include("**/*.kt")
+        include("**/*.java")
+        header = rootProject.file("copyright/COPYRIGHT_HEADER.txt")
+        strictCheck = true
     }
+
 }
 
 subprojects {
@@ -148,7 +157,7 @@ subprojects {
         repositories {
             maven {
                 name = "GitHubPackages"
-                url = uri("https://maven.pkg.github.com/Opentaint/java-compilation-database")
+                url = uri("https://maven.pkg.github.com/opentaint/opentaint-ir")
                 credentials {
                     username = project.findProperty("gprUser") as? String ?: System.getenv("USERNAME")
                     password = project.findProperty("gprKey") as? String ?: System.getenv("TOKEN")

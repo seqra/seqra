@@ -1,9 +1,10 @@
 import de.undercouch.gradle.tasks.download.Download
-import kotlinx.benchmark.gradle.BenchmarksPlugin
-import kotlinx.benchmark.gradle.JmhBytecodeGeneratorTask
-import kotlinx.benchmark.gradle.task
 import org.jooq.codegen.GenerationTool
-import org.jooq.meta.jaxb.*
+import org.jooq.meta.jaxb.Configuration
+import org.jooq.meta.jaxb.Database
+import org.jooq.meta.jaxb.Generate
+import org.jooq.meta.jaxb.Generator
+import org.jooq.meta.jaxb.Jdbc
 import org.jooq.meta.jaxb.Target
 
 val asmVersion: String by rootProject
@@ -42,10 +43,7 @@ dependencies {
     implementation(group = "com.google.guava", name = "guava", version = "31.1-jre")
     implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-metadata-jvm", version = kmetadataVersion)
 
-    implementation(group = "org.jooq", name = "jooq", version = jooqVersion)
-
     testImplementation(project(":jirdb-testing"))
-    testImplementation(platform("org.junit:junit-bom:5.9.0"))
     testImplementation(group = "org.junit.jupiter", name = "junit-jupiter")
     testImplementation(group = "org.opentaint.soot", name = "soot-opentaint-fork", version = "4.4.0-FORK-2")
 
