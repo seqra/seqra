@@ -14,7 +14,6 @@ import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.api.toType
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
-import org.opentaint.ir.impl.bytecode.toJcClass
 import org.opentaint.ir.impl.types.JIRArrayTypeImpl
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import org.opentaint.ir.impl.types.substition.JIRSubstitutor
@@ -50,9 +49,10 @@ class JIRClasspathImpl(
 
     override fun findClassOrNull(name: String): JIRClassOrInterface? {
         return classCache.get(name) {
-            val jirClass = toJcClass(classpathVfs.firstClassOrNull(name))
+            val source = classpathVfs.firstClassOrNull(name)
+            val jirClass = source?.let { toJcClass(it.source, false) }
                 ?: db.persistence.findClassSourceByName(this, locationsRegistrySnapshot.locations, name)?.let {
-                    toJcClass(it)
+                    toJcClass(it, false)
                 }
             ClassHolder(jirClass)
         }.jirClass
@@ -71,7 +71,12 @@ class JIRClasspathImpl(
         return JIRArrayTypeImpl(elementType, true)
     }
 
-    override fun toJcClass(source: ClassSource): JIRClassOrInterface {
+    override fun toJcClass(source: ClassSource, withCaching: Boolean): JIRClassOrInterface {
+        if (withCaching) {
+            return classCache.get(source.className) {
+                ClassHolder(JIRClassOrInterfaceImpl(this, source))
+            }.jirClass!!
+        }
         return JIRClassOrInterfaceImpl(this, source)
     }
 

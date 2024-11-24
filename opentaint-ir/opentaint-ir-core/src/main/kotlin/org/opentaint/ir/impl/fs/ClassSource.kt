@@ -27,12 +27,26 @@ class PersistenceClassSource(
     private val classpath: JIRClasspath,
     override val className: String,
     val classId: Long,
-    val locationId: Long
+    val locationId: Long,
+    private val cachedByteCode: ByteArray? = null
 ) : ClassSource {
+
+    private constructor(persistenceClassSource: PersistenceClassSource, byteCode: ByteArray) : this(
+        persistenceClassSource.classpath,
+        persistenceClassSource.className,
+        persistenceClassSource.classId,
+        persistenceClassSource.locationId,
+        byteCode
+    )
 
     override val location = PersistentByteCodeLocation(classpath, locationId)
 
     override val byteCode by lazy {
-        classpath.db.persistence.findBytecode(classId)
+        cachedByteCode ?: classpath.db.persistence.findBytecode(classId)
+    }
+
+    fun bind(byteCode: ByteArray?) = when {
+        byteCode != null -> PersistenceClassSource(this, byteCode)
+        else -> this
     }
 }

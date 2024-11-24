@@ -189,7 +189,7 @@ class PersistentLocationRegistry(private val jirdb: JIRDB, private val featuresR
     }
 
     override fun close() {
-        // do nothing
+        featuresRegistry.broadcast(JIRInternalSignal.Closed)
     }
 
     private fun JIRByteCodeLocation.findOrNew(dslContext: DSLContext): BytecodelocationsRecord {

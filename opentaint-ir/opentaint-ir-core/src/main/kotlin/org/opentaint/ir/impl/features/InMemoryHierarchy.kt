@@ -2,6 +2,7 @@
 package org.opentaint.ir.impl.features
 
 import org.jooq.DSLContext
+import org.jooq.impl.DSL
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.ClassNode
 import org.opentaint.ir.api.ByteCodeIndexer
@@ -26,7 +27,7 @@ typealias InMemoryHierarchyCache = ConcurrentHashMap<Long, ConcurrentHashMap<Lon
 
 private val objectJvmName = Type.getInternalName(Any::class.java)
 
-class FastHierarchyIndexer(
+class InMemoryHierarchyIndexer(
     private val persistence: JIRDBPersistence,
     private val location: RegisteredLocation,
     private val hierarchy: InMemoryHierarchyCache
@@ -51,9 +52,9 @@ class FastHierarchyIndexer(
     }
 }
 
-data class FastHierarchyReq(val name: String, val allHierarchy: Boolean = true)
+data class InMemoryHierarchyReq(val name: String, val allHierarchy: Boolean = true, val full: Boolean = false)
 
-object InMemoryHierarchy : JIRFeature<FastHierarchyReq, ClassSource> {
+object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
 
     private val hierarchies = ConcurrentHashMap<JIRDB, InMemoryHierarchyCache>()
 
@@ -92,11 +93,11 @@ object InMemoryHierarchy : JIRFeature<FastHierarchyReq, ClassSource> {
         }
     }
 
-    override suspend fun query(classpath: JIRClasspath, req: FastHierarchyReq): Sequence<ClassSource> {
+    override suspend fun query(classpath: JIRClasspath, req: InMemoryHierarchyReq): Sequence<ClassSource> {
         return syncQuery(classpath, req)
     }
 
-    fun syncQuery(classpath: JIRClasspath, req: FastHierarchyReq): Sequence<ClassSource> {
+    fun syncQuery(classpath: JIRClasspath, req: InMemoryHierarchyReq): Sequence<ClassSource> {
         val persistence = classpath.db.persistence
         val locationIds = classpath.registeredLocations.map { it.id }
         if (req.name == "java.lang.Object") {
@@ -158,28 +159,33 @@ object InMemoryHierarchy : JIRFeature<FastHierarchyReq, ClassSource> {
         if (allSubclasses.isEmpty()) {
             return emptySequence()
         }
-        val allHashes = allSubclasses.toList()
+        val allIds = allSubclasses.toList()
         return BatchedSequence<ClassSource>(50) { offset, batchSize ->
             persistence.read { jooq ->
-                val index = offset?.toInt() ?: 0
-                val hashes = allHashes.subList(index, min(allHashes.size, index + batchSize))
-                if (hashes.isEmpty()) {
+                val index = offset ?: 0
+                val ids = allIds.subList(index.toInt(), min(allIds.size, index.toInt() + batchSize))
+                if (ids.isEmpty()) {
                     emptyList()
                 } else {
-                    jooq.select(SYMBOLS.NAME, CLASSES.ID, CLASSES.LOCATION_ID)
-                        .from(CLASSES)
+                    jooq.select(
+                        SYMBOLS.NAME, CLASSES.ID, CLASSES.LOCATION_ID, when {
+                            req.full -> CLASSES.BYTECODE
+                            else -> DSL.inline(ByteArray(0)).`as`(CLASSES.BYTECODE)
+                        }
+                    ).from(CLASSES)
                         .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
-                        .where(SYMBOLS.ID.`in`(hashes).and(CLASSES.LOCATION_ID.`in`(locationIds)))
-                        .orderBy(CLASSES.ID)
-                        .limit(batchSize)
+                        .where(SYMBOLS.ID.`in`(ids).and(CLASSES.LOCATION_ID.`in`(locationIds)))
                         .fetch()
-                        .mapNotNull { (className, classId, locationId) ->
-                            (index.toLong() + batchSize) to PersistenceClassSource(
+                        .mapNotNull { (className, classId, locationId, byteCode) ->
+                            val source = PersistenceClassSource(
                                 classpath = classpath,
                                 classId = classId!!,
                                 className = className!!,
                                 locationId = locationId!!
-                            )
+                            ).let {
+                                it.bind(byteCode.takeIf { req.full })
+                            }
+                            (batchSize + index) to source
                         }
                 }
             }
@@ -187,13 +193,17 @@ object InMemoryHierarchy : JIRFeature<FastHierarchyReq, ClassSource> {
     }
 
     override fun newIndexer(jirdb: JIRDB, location: RegisteredLocation): ByteCodeIndexer {
-        return FastHierarchyIndexer(jirdb.persistence, location, hierarchies.getOrPut(jirdb) { ConcurrentHashMap() })
+        return InMemoryHierarchyIndexer(jirdb.persistence, location, hierarchies.getOrPut(jirdb) { ConcurrentHashMap() })
     }
 
 }
 
-internal fun JIRClasspath.findSubclassesInMemory(name: String, allHierarchy: Boolean): Sequence<JIRClassOrInterface> {
-    return InMemoryHierarchy.syncQuery(this, FastHierarchyReq(name, allHierarchy)).map {
+internal fun JIRClasspath.findSubclassesInMemory(
+    name: String,
+    allHierarchy: Boolean,
+    full: Boolean
+): Sequence<JIRClassOrInterface> {
+    return InMemoryHierarchy.syncQuery(this, InMemoryHierarchyReq(name, allHierarchy, full)).map {
         toJcClass(it)
     }
 }

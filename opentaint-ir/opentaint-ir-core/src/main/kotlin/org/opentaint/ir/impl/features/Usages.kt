@@ -191,35 +191,46 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
         val persistence = classpath.db.persistence
         val name = (req.methodName ?: req.field).let { persistence.findSymbolId(it!!) }
         val desc = req.description?.longHash
-        val className = persistence.findSymbolId(req.className)
+        val className = req.className.map { persistence.findSymbolId(it) }
+
+        val calls = persistence.read { jooq ->
+            jooq.select(CLASSES.ID, CALLS.CALLER_METHOD_OFFSETS, SYMBOLS.NAME, CLASSES.LOCATION_ID)
+                .from(CALLS)
+                .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
+                .join(CLASSES).on(CLASSES.NAME.eq(CALLS.CALLER_CLASS_SYMBOL_ID))
+                .where(
+                    CALLS.CALLEE_CLASS_SYMBOL_ID.`in`(className)
+                        .and(CALLS.CALLEE_NAME_SYMBOL_ID.eq(name))
+                        .and(CALLS.CALLEE_DESC_HASH.eqOrNull(desc))
+                        .and(CALLS.OPCODE.`in`(req.opcodes))
+                        .and(CALLS.LOCATION_ID.`in`(locationIds))
+                ).fetch().mapNotNull { (classId, offset, className, locationId) ->
+                    PersistenceClassSource(
+                        classpath,
+                        className!!,
+                        classId = classId!!,
+                        locationId = locationId!!
+                    ) to offset!!.toShortArray()
+                }
+        }
+
         return BatchedSequence(50) { offset, batchSize ->
-            persistence.read { jooq ->
-                var position = offset ?: 0
-                jooq.select(CLASSES.ID, CALLS.CALLER_METHOD_OFFSETS, SYMBOLS.NAME, CLASSES.LOCATION_ID)
-                    .from(CALLS)
-                    .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
-                    .join(CLASSES).on(CLASSES.NAME.eq(CALLS.CALLER_CLASS_SYMBOL_ID))
-                    .where(
-                        CALLS.CALLEE_CLASS_SYMBOL_ID.eq(className)
-                            .and(CALLS.CALLEE_NAME_SYMBOL_ID.eq(name))
-                            .and(CALLS.CALLEE_DESC_HASH.eqOrNull(desc))
-                            .and(CALLS.OPCODE.`in`(req.opcodes))
-                            .and(CALLS.LOCATION_ID.`in`(locationIds))
-                    )
-                    .limit(batchSize).offset(offset ?: 0)
+            var position = offset ?: 0
+            val classes = calls.drop(position.toInt()).take(batchSize)
+            val classIds = classes.map { it.first.classId }.toSet()
+            val byteCodes = persistence.read { jooq ->
+                jooq.select(CLASSES.ID, CLASSES.BYTECODE).from(CLASSES)
+                    .where(CLASSES.ID.`in`(classIds))
                     .fetch()
-                    .mapNotNull { (classId, offset, className, locationId) ->
-                        position++ to
-                                UsageFeatureResponse(
-                                    source = PersistenceClassSource(
-                                        classpath,
-                                        className!!,
-                                        classId = classId!!,
-                                        locationId = locationId!!
-                                    ),
-                                    offsets = offset!!.toShortArray()
-                                )
-                    }
+                    .map { (classId, byteArray) ->
+                        classId!! to byteArray!!
+                    }.toMap()
+            }
+            classes.map { (source, offsets) ->
+                position++ to UsageFeatureResponse(
+                    source = source.bind(byteCodes[source.classId]),
+                    offsets = offsets
+                )
             }
         }
     }

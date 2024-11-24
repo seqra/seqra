@@ -1,6 +1,7 @@
 
 package org.opentaint.ir.impl
 
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -35,6 +36,7 @@ import org.opentaint.ir.api.cfg.JIRSwitchInst
 import org.opentaint.ir.api.cfg.JIRTerminatingInst
 import org.opentaint.ir.api.cfg.JIRThrowInst
 import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
+import org.opentaint.ir.api.cfg.ext.applyAndGet
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.methods
@@ -50,6 +52,8 @@ import org.opentaint.ir.impl.cfg.MethodNodeBuilder
 import org.opentaint.ir.impl.cfg.RawInstListBuilder
 import org.opentaint.ir.impl.cfg.Simplifier
 import org.opentaint.ir.impl.cfg.util.ExprMapper
+import org.opentaint.ir.impl.features.InMemoryHierarchy
+import org.opentaint.ir.impl.features.hierarchyExt
 import java.net.URLClassLoader
 import java.nio.file.Files
 
@@ -251,7 +255,9 @@ class JIRGraphChecker(val jirGraph: JIRGraph) : JIRInstVisitor<Unit> {
 class IRTest : BaseTest() {
     val target = Files.createTempDirectory("jirdb-temp")
 
-    companion object : WithDB()
+    companion object : WithDB(InMemoryHierarchy)
+
+    private val ext = runBlocking { cp.hierarchyExt() }
 
     @Test
     fun `get ir of simple method`() {
@@ -291,6 +297,7 @@ class IRTest : BaseTest() {
             val instructionList = it.instructionList(cp)
 //            println("Instruction list: $instructionList")
             val graph = instructionList.graph(cp, it)
+            graph.applyAndGet(OverridesResolver(ext)) {}
             JIRGraphChecker(graph).check()
 //            println("Graph: $graph")
 //            graph.view("/usr/bin/dot", "/usr/bin/firefox", false)
