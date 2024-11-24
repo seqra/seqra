@@ -1,5 +1,5 @@
 
-package org.opentaint.ir
+package org.opentaint.ir.impl.performance
 
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.impl.allClasspath
@@ -10,6 +10,7 @@ import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.FIELDS
 import org.opentaint.ir.impl.storage.jooq.tables.references.METHODPARAMETERS
 import org.opentaint.ir.impl.storage.jooq.tables.references.METHODS
+import org.opentaint.ir.jirdb
 
 fun main() {
     var start = System.currentTimeMillis()
