@@ -28,7 +28,6 @@ import java.io.File
 import java.sql.Connection
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
-import javax.sql.DataSource
 import kotlin.concurrent.withLock
 
 class SQLitePersistenceImpl(
@@ -48,8 +47,7 @@ class SQLitePersistenceImpl(
 
     private val lock = ReentrantLock()
 
-    private val dataSource: DataSource
-    private var keepAliveConnection: Connection? = null
+    private var connection: Connection? = null
     private val persistenceService = PersistenceService(this)
     val jooq: DSLContext
 
@@ -64,20 +62,12 @@ class SQLitePersistenceImpl(
             it.setPageSize(32_768)
             it.setCacheSize(-8_000)
         }
-        if (location == null) {
-            val url =
-                "jdbc:sqlite:file:jirdb-${UUID.randomUUID()}?mode=memory&cache=shared&rewriteBatchedStatements=true"
-            dataSource = SQLiteDataSource(config).also {
-                it.url = url
-            }
-            keepAliveConnection = dataSource.connection //DriverManager.getConnection(url)
-        } else {
-            val url = "jdbc:sqlite:file:$location?rewriteBatchedStatements=true&useServerPrepStmts=false"
-            dataSource = SQLiteDataSource(config).also {
-                it.url = url
-            }
+        val url = "jdbc:sqlite:file:jirdb-${location ?: UUID.randomUUID()}?mode=memory&cache=shared&rewriteBatchedStatements=true"
+        val dataSource = SQLiteDataSource(config).also {
+            it.url = url
         }
-        jooq = DSL.using(dataSource, SQLDialect.SQLITE, Settings().withExecuteLogging(false))
+        connection = dataSource.connection
+        jooq = DSL.using(connection, SQLDialect.SQLITE, Settings().withExecuteLogging(false))
         write {
             if (clearOnStart) {
                 jooq.executeQueriesFrom("jirdb-drop-schema.sql")
@@ -182,7 +172,7 @@ class SQLitePersistenceImpl(
 
     override fun close() {
         try {
-            keepAliveConnection?.close()
+            connection?.close()
         } catch (e: Exception) {
             // ignore
         }

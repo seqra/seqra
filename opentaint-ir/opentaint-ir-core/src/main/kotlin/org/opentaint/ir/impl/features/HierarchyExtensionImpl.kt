@@ -111,13 +111,13 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
             }
             db.persistence.read {
                 val cursor = it.fetchLazy(query, name)
-                cursor.fetchNext(batchSize).map {
-                    val id = it.get(CLASSES.ID)!!
+                cursor.fetchNext(batchSize).map { record ->
+                    val id = record.get(CLASSES.ID)!!
                     id to ClassRecord(
-                        id = it.get(CLASSES.ID)!!,
-                        name = it.get("name_name") as String,
-                        locationId = it.get(CLASSES.LOCATION_ID)!!,
-                        byteCode = if (full) it.get(CLASSES.BYTECODE) else null
+                        id = record.get(CLASSES.ID)!!,
+                        name = record.get("name_name") as String,
+                        locationId = record.get(CLASSES.LOCATION_ID)!!,
+                        byteCode = if (full) record.get(CLASSES.BYTECODE) else null
                     )
                 }.also {
                     cursor.close()
