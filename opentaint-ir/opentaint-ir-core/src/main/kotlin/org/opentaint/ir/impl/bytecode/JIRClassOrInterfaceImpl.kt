@@ -11,7 +11,7 @@ import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.findMethodOrNull
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.fs.LazyClassSourceImpl
-import org.opentaint.ir.impl.fs.fullAsmNode
+import org.opentaint.ir.impl.fs.fullAsmNodeWithFrames
 import org.opentaint.ir.impl.fs.info
 import org.opentaint.ir.impl.types.ClassInfo
 
@@ -66,7 +66,7 @@ class JIRClassOrInterfaceImpl(
     override val access: Int
         get() = info.access
 
-    override fun bytecode() = classSource.fullAsmNode
+    override fun bytecode() = classSource.fullAsmNodeWithFrames(classpath)
     override fun binaryBytecode(): ByteArray = classSource.byteCode
 
     override val isAnonymous: Boolean

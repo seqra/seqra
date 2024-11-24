@@ -10,6 +10,9 @@ import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldNode
 import org.objectweb.asm.tree.MethodNode
 import org.opentaint.ir.api.ClassSource
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.impl.bytecode.computeFrames
+import org.opentaint.ir.impl.bytecode.hasFrameInfo
 import org.opentaint.ir.impl.storage.AnnotationValueKind
 import org.opentaint.ir.impl.types.AnnotationInfo
 import org.opentaint.ir.impl.types.AnnotationValue
@@ -119,11 +122,18 @@ val ClassSource.info: ClassInfo get() {
     return newClassNode(ClassReader.SKIP_CODE).asClassInfo(byteCode)
 }
 
-val ClassSource.asmNode: ClassNode get() {
-    return newClassNode(ClassReader.SKIP_CODE)
+val ClassSource.fullAsmNode: ClassNode get() {
+    return newClassNode(ClassReader.EXPAND_FRAMES)
 }
 
-val ClassSource.fullAsmNode: ClassNode get() = newClassNode(ClassReader.EXPAND_FRAMES)
+fun ClassSource.fullAsmNodeWithFrames(classpath: JIRClasspath): ClassNode {
+    var classNode = fullAsmNode
+    classNode = when {
+        classNode.hasFrameInfo -> classNode
+        else -> classNode.computeFrames(classpath)
+    }
+    return classNode
+}
 
 private fun ClassSource.newClassNode(level: Int): ClassNode {
     return ClassNode(Opcodes.ASM9).also {

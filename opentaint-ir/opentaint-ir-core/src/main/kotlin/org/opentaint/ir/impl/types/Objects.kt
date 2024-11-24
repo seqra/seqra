@@ -154,4 +154,6 @@ class EnumRef(val className: String, val enumName: String) : AnnotationValue()
 @Serializable
 data class TypeNameImpl(private val jvmName: String) : TypeName {
     override val typeName: String = jvmName.jirdbName()
+
+    override fun toString(): String = typeName
 }

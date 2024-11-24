@@ -26,7 +26,8 @@ class JIRParameterImpl(
         method.kmFunction?.let {
             // Shift needed to properly handle extension functions
             val shift = if (it.receiverParameterType != null) 1 else 0
-            if (index - shift < 0)
+            val jvmIndex = index - shift
+            if (jvmIndex < 0 || jvmIndex >= it.valueParameters.size)
                 return@lazy null
 
             return@lazy it.valueParameters[index - shift].name
