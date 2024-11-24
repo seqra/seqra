@@ -8,16 +8,12 @@ import org.opentaint.ir.api.cfg.JIRRawCatchInst
 import org.opentaint.ir.api.cfg.JIRRawComplexValue
 import org.opentaint.ir.api.cfg.JIRRawConstant
 import org.opentaint.ir.api.cfg.JIRRawInst
-import org.opentaint.ir.api.cfg.JIRRawInstList
 import org.opentaint.ir.api.cfg.JIRRawLabelInst
 import org.opentaint.ir.api.cfg.JIRRawLocal
 import org.opentaint.ir.api.cfg.JIRRawNullConstant
 import org.opentaint.ir.api.cfg.JIRRawSimpleValue
 import org.opentaint.ir.api.cfg.JIRRawValue
 import org.opentaint.ir.api.cfg.ext.applyAndGet
-import org.opentaint.ir.api.cfg.ext.filter
-import org.opentaint.ir.api.cfg.ext.filterNot
-import org.opentaint.ir.api.cfg.ext.map
 import org.opentaint.ir.api.ext.findCommonSupertype
 import org.opentaint.ir.impl.cfg.util.ExprMapper
 import org.opentaint.ir.impl.cfg.util.FullExprSetCollector
@@ -32,7 +28,7 @@ import org.opentaint.ir.impl.cfg.util.typeName
  */
 internal class Simplifier {
 
-    fun simplify(jirClasspath: JIRClasspath, instList: JIRRawInstList): JIRRawInstList {
+    fun simplify(jirClasspath: JIRClasspath, instList: JIRRawInstListImpl): JIRRawInstListImpl {
         // clear the assignments that are repeated inside single basic block
         var instructionList = cleanRepeatedAssignments(instList)
 
@@ -87,7 +83,7 @@ internal class Simplifier {
     }
 
 
-    private fun computeUseCases(instList: JIRRawInstList): Map<JIRRawSimpleValue, Set<JIRRawInst>> {
+    private fun computeUseCases(instList: JIRRawInstListImpl): Map<JIRRawSimpleValue, Set<JIRRawInst>> {
         val uses = mutableMapOf<JIRRawSimpleValue, MutableSet<JIRRawInst>>()
         for (inst in instList) {
             when (inst) {
@@ -123,7 +119,7 @@ internal class Simplifier {
         return uses
     }
 
-    private fun cleanRepeatedAssignments(instList: JIRRawInstList): JIRRawInstList {
+    private fun cleanRepeatedAssignments(instList: JIRRawInstListImpl): JIRRawInstListImpl {
         val instructions = mutableListOf<JIRRawInst>()
         val equalities = mutableMapOf<JIRRawSimpleValue, JIRRawSimpleValue>()
         for (inst in instList) {
@@ -149,10 +145,10 @@ internal class Simplifier {
                 else -> instructions += inst
             }
         }
-        return JIRRawInstList(instructions)
+        return JIRRawInstListImpl(instructions)
     }
 
-    private fun cleanSelfAssignments(instList: JIRRawInstList): JIRRawInstList {
+    private fun cleanSelfAssignments(instList: JIRRawInstListImpl): JIRRawInstListImpl {
         val instructions = mutableListOf<JIRRawInst>()
         for (inst in instList) {
             when (inst) {
@@ -165,11 +161,11 @@ internal class Simplifier {
                 else -> instructions += inst
             }
         }
-        return JIRRawInstList(instructions)
+        return JIRRawInstListImpl(instructions)
     }
 
     private fun computeReplacements(
-        instList: JIRRawInstList,
+        instList: JIRRawInstListImpl,
         uses: Map<JIRRawSimpleValue, Set<JIRRawInst>>
     ): Pair<Map<JIRRawLocal, JIRRawValue>, Set<JIRRawInst>> {
         val replacements = mutableMapOf<JIRRawLocal, JIRRawValue>()
@@ -194,7 +190,7 @@ internal class Simplifier {
         return replacements to replacedInsts
     }
 
-    private fun computeAssignments(instList: JIRRawInstList): Map<JIRRawSimpleValue, Set<JIRRawSimpleValue>> {
+    private fun computeAssignments(instList: JIRRawInstListImpl): Map<JIRRawSimpleValue, Set<JIRRawSimpleValue>> {
         val assignments = mutableMapOf<JIRRawSimpleValue, MutableSet<JIRRawSimpleValue>>()
         for (inst in instList) {
             if (inst is JIRRawAssignInst) {
@@ -208,7 +204,7 @@ internal class Simplifier {
         return assignments
     }
 
-    private fun normalizeTypes(jirClasspath: JIRClasspath, instList: JIRRawInstList): JIRRawInstList {
+    private fun normalizeTypes(jirClasspath: JIRClasspath, instList: JIRRawInstListImpl): JIRRawInstListImpl {
         val types = mutableMapOf<JIRRawLocal, MutableSet<JIRType>>()
         for (inst in instList) {
             if (inst is JIRRawAssignInst && inst.lhv is JIRRawLocal && inst.rhv !is JIRRawNullConstant) {

@@ -5,11 +5,10 @@ import org.objectweb.asm.tree.MethodNode
 import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRParameter
-import org.opentaint.ir.api.cfg.JIRRawInstList
 import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.impl.cfg.JIRRawInstListImpl
 import org.opentaint.ir.impl.cfg.RawInstListBuilder
 import org.opentaint.ir.impl.fs.fullAsmNode
 import org.opentaint.ir.impl.types.MethodInfo
@@ -53,8 +52,8 @@ class JIRMethodImpl(
         return source.fullAsmNode.methods.first { it.name == name && it.desc == methodInfo.desc }
     }
 
-    override fun instructionList(jirClasspath: JIRClasspath): JIRRawInstList {
-        return RawInstListBuilder(this, body().jsrInlined).build(jirClasspath)
+    override fun instructionList(): JIRRawInstListImpl {
+        return RawInstListBuilder(this, body().jsrInlined).build()
     }
 
     override fun equals(other: Any?): Boolean {

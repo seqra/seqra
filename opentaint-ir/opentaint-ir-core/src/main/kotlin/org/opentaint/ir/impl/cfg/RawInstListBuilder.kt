@@ -28,7 +28,6 @@ import org.objectweb.asm.tree.TableSwitchInsnNode
 import org.objectweb.asm.tree.TryCatchBlockNode
 import org.objectweb.asm.tree.TypeInsnNode
 import org.objectweb.asm.tree.VarInsnNode
-import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.TypeName
@@ -64,7 +63,6 @@ import org.opentaint.ir.api.cfg.JIRRawGotoInst
 import org.opentaint.ir.api.cfg.JIRRawGtExpr
 import org.opentaint.ir.api.cfg.JIRRawIfInst
 import org.opentaint.ir.api.cfg.JIRRawInst
-import org.opentaint.ir.api.cfg.JIRRawInstList
 import org.opentaint.ir.api.cfg.JIRRawInstanceOfExpr
 import org.opentaint.ir.api.cfg.JIRRawInterfaceCallExpr
 import org.opentaint.ir.api.cfg.JIRRawLabelInst
@@ -96,7 +94,6 @@ import org.opentaint.ir.api.cfg.JIRRawUshrExpr
 import org.opentaint.ir.api.cfg.JIRRawValue
 import org.opentaint.ir.api.cfg.JIRRawVirtualCallExpr
 import org.opentaint.ir.api.cfg.JIRRawXorExpr
-import org.opentaint.ir.api.cfg.ext.map
 import org.opentaint.ir.api.isStatic
 import org.opentaint.ir.impl.cfg.util.CLASS_CLASS
 import org.opentaint.ir.impl.cfg.util.ExprMapper
@@ -236,19 +233,19 @@ class RawInstListBuilder(
     private var localCounter = 0
     private var argCounter = 0
 
-    fun build(jirClasspath: JIRClasspath): JIRRawInstList {
+    fun build(): JIRRawInstListImpl {
         buildGraph()
 
         buildInstructions()
         buildRequiredAssignments()
         buildRequiredGotos()
 
-        val originalInstructionList = JIRRawInstList(methodNode.instructions.flatMap { instructionList(it) })
+        val originalInstructionList = JIRRawInstListImpl(methodNode.instructions.flatMap { instructionList(it) })
 
         // after all the frame info resolution we can refine type info for some local variables,
         // so we replace all the old versions of the variables with the type refined ones
         val localsNormalizedInstructionList = originalInstructionList.map(ExprMapper(localTypeRefinement.toMap()))
-        return Simplifier().simplify(jirClasspath, localsNormalizedInstructionList)
+        return Simplifier().simplify(method.enclosingClass.classpath, localsNormalizedInstructionList)
     }
 
     private fun buildInstructions() {

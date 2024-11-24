@@ -19,7 +19,6 @@ import org.opentaint.ir.api.TypeName
 import org.opentaint.ir.api.cfg.DefaultJcExprVisitor
 import org.opentaint.ir.api.cfg.DefaultJcInstVisitor
 import org.opentaint.ir.api.cfg.JIRAssignInst
-import org.opentaint.ir.api.cfg.JIRBlockGraph
 import org.opentaint.ir.api.cfg.JIRCallExpr
 import org.opentaint.ir.api.cfg.JIRCallInst
 import org.opentaint.ir.api.cfg.JIRCatchInst
@@ -28,7 +27,6 @@ import org.opentaint.ir.api.cfg.JIRExitMonitorInst
 import org.opentaint.ir.api.cfg.JIRExpr
 import org.opentaint.ir.api.cfg.JIRGotoInst
 import org.opentaint.ir.api.cfg.JIRGraph
-import org.opentaint.ir.api.cfg.JIRGraphBuilder
 import org.opentaint.ir.api.cfg.JIRIfInst
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstVisitor
@@ -51,6 +49,8 @@ import org.opentaint.ir.impl.bytecode.JIRMethodImpl
 import org.opentaint.ir.impl.cfg.BinarySearchTree
 import org.opentaint.ir.impl.cfg.IRExamples
 import org.opentaint.ir.impl.cfg.JavaTasks
+import org.opentaint.ir.impl.cfg.JIRBlockGraphImpl
+import org.opentaint.ir.impl.cfg.JIRGraphBuilder
 import org.opentaint.ir.impl.cfg.MethodNodeBuilder
 import org.opentaint.ir.impl.cfg.RawInstListBuilder
 import org.opentaint.ir.impl.cfg.Simplifier
@@ -291,7 +291,7 @@ class IRTest : BaseTest() {
         testClass(cp.findClass<JIRDBImpl>())
         testClass(cp.findClass<ExprMapper>())
         testClass(cp.findClass<JIRGraphBuilder>())
-        testClass(cp.findClass<JIRBlockGraph>())
+        testClass(cp.findClass<JIRBlockGraphImpl>())
     }
 
 //    @Test
@@ -330,9 +330,9 @@ class IRTest : BaseTest() {
 //            val oldBody = it.body()
 //            println()
 //            println("Old body: ${oldBody.print()}")
-            val instructionList = it.instructionList(cp)
+            val instructionList = it.instructionList()
 //            println("Instruction list: $instructionList")
-            val graph = instructionList.graph(cp, it)
+            val graph = instructionList.graph(it)
             graph.applyAndGet(OverridesResolver(ext)) {}
             JIRGraphChecker(graph).check()
 //            println("Graph: $graph")
