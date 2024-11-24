@@ -28,11 +28,17 @@ class JIRClasspathImpl(
 ) : JIRClasspath {
 
     private class ClassHolder(val jirClass: JIRClassOrInterface?)
+    private class TypeHolder(val type: JIRType?)
 
     private val classCache = CacheBuilder.newBuilder()
         .expireAfterAccess(Duration.ofSeconds(10))
         .maximumSize(1_000)
         .build<String, ClassHolder>()
+
+    private val typeCache = CacheBuilder.newBuilder()
+        .expireAfterAccess(Duration.ofSeconds(10))
+        .maximumSize(1_000)
+        .build<String, TypeHolder>()
 
     override val locations: List<JIRByteCodeLocation> = locationsRegistrySnapshot.locations.mapNotNull { it.jirLocation }
     override val registeredLocations: List<RegisteredLocation> = locationsRegistrySnapshot.locations
@@ -81,6 +87,12 @@ class JIRClasspathImpl(
     }
 
     override fun findTypeOrNull(name: String): JIRType? {
+        return typeCache.get(name) {
+            TypeHolder(doFindTypeOrNull(name))
+        }.type
+    }
+
+    private fun doFindTypeOrNull(name: String): JIRType? {
         if (name.endsWith("[]")) {
             val targetName = name.removeSuffix("[]")
             return findTypeOrNull(targetName)?.let {

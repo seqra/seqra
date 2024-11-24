@@ -10,6 +10,7 @@ DROP TABLE IF EXISTS "Fields";
 DROP TABLE IF EXISTS "Annotations";
 DROP TABLE IF EXISTS "AnnotationValues";
 DROP INDEX IF EXISTS "Symbols_name";
+DROP INDEX IF EXISTS "Classes_name";
 DROP INDEX IF EXISTS "Methods_class_id_name_desc";
 DROP INDEX IF EXISTS "Fields_class_id_name";
 DROP INDEX IF EXISTS "Class Hierarchies";

@@ -1,23 +1,23 @@
 
 package org.opentaint.ir.impl.cfg
 
-import org.opentaint.ir.api.JIRRawNullConstant
-import org.opentaint.ir.api.JIRRawStringConstant
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.TypeName
+import org.opentaint.ir.api.cfg.JIRRawNullConstant
+import org.opentaint.ir.api.cfg.JIRRawStringConstant
 import org.opentaint.ir.impl.cfg.util.NULL
 import org.opentaint.ir.impl.cfg.util.STRING_CLASS
 import org.opentaint.ir.impl.cfg.util.typeName
 
 fun JIRRawNull() = JIRRawNullConstant(NULL)
-fun JIRRawBool(value: Boolean) = org.opentaint.ir.api.JIRRawBool(value, PredefinedPrimitives.boolean.typeName())
-fun JIRRawByte(value: Byte) = org.opentaint.ir.api.JIRRawByte(value, PredefinedPrimitives.byte.typeName())
-fun JIRRawShort(value: Short) = org.opentaint.ir.api.JIRRawShort(value, PredefinedPrimitives.short.typeName())
-fun JIRRawChar(value: Char) = org.opentaint.ir.api.JIRRawChar(value, PredefinedPrimitives.char.typeName())
-fun JIRRawInt(value: Int) = org.opentaint.ir.api.JIRRawInt(value, PredefinedPrimitives.int.typeName())
-fun JIRRawLong(value: Long) = org.opentaint.ir.api.JIRRawLong(value, PredefinedPrimitives.long.typeName())
-fun JIRRawFloat(value: Float) = org.opentaint.ir.api.JIRRawFloat(value, PredefinedPrimitives.float.typeName())
-fun JIRRawDouble(value: Double) = org.opentaint.ir.api.JIRRawDouble(value, PredefinedPrimitives.double.typeName())
+fun JIRRawBool(value: Boolean) = org.opentaint.ir.api.cfg.JIRRawBool(value, PredefinedPrimitives.boolean.typeName())
+fun JIRRawByte(value: Byte) = org.opentaint.ir.api.cfg.JIRRawByte(value, PredefinedPrimitives.byte.typeName())
+fun JIRRawShort(value: Short) = org.opentaint.ir.api.cfg.JIRRawShort(value, PredefinedPrimitives.short.typeName())
+fun JIRRawChar(value: Char) = org.opentaint.ir.api.cfg.JIRRawChar(value, PredefinedPrimitives.char.typeName())
+fun JIRRawInt(value: Int) = org.opentaint.ir.api.cfg.JIRRawInt(value, PredefinedPrimitives.int.typeName())
+fun JIRRawLong(value: Long) = org.opentaint.ir.api.cfg.JIRRawLong(value, PredefinedPrimitives.long.typeName())
+fun JIRRawFloat(value: Float) = org.opentaint.ir.api.cfg.JIRRawFloat(value, PredefinedPrimitives.float.typeName())
+fun JIRRawDouble(value: Double) = org.opentaint.ir.api.cfg.JIRRawDouble(value, PredefinedPrimitives.double.typeName())
 
 fun JIRRawZero(typeName: TypeName) = when (typeName.typeName) {
     PredefinedPrimitives.boolean -> JIRRawBool(false)

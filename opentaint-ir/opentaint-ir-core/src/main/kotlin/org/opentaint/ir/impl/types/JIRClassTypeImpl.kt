@@ -72,44 +72,41 @@ open class JIRClassTypeImpl(
         }
 
 
-    override val superType: JIRClassType?
-        get() {
-            val superClass = jirClass.superClass ?: return null
-            return resolutionImpl?.let {
-                val newSubstitutor = superSubstitutor(superClass, it.superClass)
-                JIRClassTypeImpl(superClass, outerType, newSubstitutor, nullable)
-            } ?: superClass.toType()
-        }
+    override val superType: JIRClassType? by lazy(LazyThreadSafetyMode.NONE) {
+        val superClass = jirClass.superClass ?: return@lazy null
+        resolutionImpl?.let {
+            val newSubstitutor = superSubstitutor(superClass, it.superClass)
+            JIRClassTypeImpl(superClass, outerType, newSubstitutor, nullable)
+        } ?: superClass.toType()
+    }
 
-    override val interfaces: List<JIRClassType>
-        get() {
-            return jirClass.interfaces.map { iface ->
-                val ifaceType = resolutionImpl?.interfaceType?.firstOrNull { it.isReferencesClass(iface.name) }
-                if (ifaceType != null) {
-                    val newSubstitutor = superSubstitutor(iface, ifaceType)
-                    JIRClassTypeImpl(iface, null, newSubstitutor, nullable)
-                } else {
-                    iface.toType()
-                }
+    override val interfaces: List<JIRClassType> by lazy(LazyThreadSafetyMode.NONE) {
+        jirClass.interfaces.map { iface ->
+            val ifaceType = resolutionImpl?.interfaceType?.firstOrNull { it.isReferencesClass(iface.name) }
+            if (ifaceType != null) {
+                val newSubstitutor = superSubstitutor(iface, ifaceType)
+                JIRClassTypeImpl(iface, null, newSubstitutor, nullable)
+            } else {
+                iface.toType()
             }
         }
+    }
 
-    override val innerTypes: List<JIRClassType>
-        get() {
-            return jirClass.innerClasses.map {
-                val outerMethod = it.outerMethod
-                val outerClass = it.outerClass
+    override val innerTypes: List<JIRClassType> by lazy(LazyThreadSafetyMode.NONE) {
+        jirClass.innerClasses.map {
+            val outerMethod = it.outerMethod
+            val outerClass = it.outerClass
 
-                val innerParameters = (
-                        outerMethod?.allVisibleTypeParameters() ?: outerClass?.allVisibleTypeParameters()
-                        )?.values?.toList().orEmpty()
-                val innerSubstitutor = when {
-                    it.isStatic -> JIRSubstitutor.empty.newScope(innerParameters)
-                    else -> substitutor.newScope(innerParameters)
-                }
-                JIRClassTypeImpl(it, this, innerSubstitutor, true)
+            val innerParameters = (
+                    outerMethod?.allVisibleTypeParameters() ?: outerClass?.allVisibleTypeParameters()
+                    )?.values?.toList().orEmpty()
+            val innerSubstitutor = when {
+                it.isStatic -> JIRSubstitutor.empty.newScope(innerParameters)
+                else -> substitutor.newScope(innerParameters)
             }
+            JIRClassTypeImpl(it, this, innerSubstitutor, true)
         }
+    }
 
     override val declaredMethods by lazy(LazyThreadSafetyMode.NONE) {
         typedMethods(true, fromSuperTypes = false, jirClass.packageName)
@@ -193,7 +190,7 @@ open class JIRClassTypeImpl(
         }
         val result = directSet.toSortedSet<JIRTypedField>(UnsafeHierarchyTypedFieldComparator)
         result.addAll(
-             (superType as? JIRClassTypeImpl)?.typedFields(
+            (superType as? JIRClassTypeImpl)?.typedFields(
                 false,
                 fromSuperTypes = true,
                 classPackageName
@@ -229,7 +226,10 @@ fun JvmType.isReferencesClass(name: String): Boolean {
 private object UnsafeHierarchyTypedMethodComparator : Comparator<JIRTypedMethod> {
 
     override fun compare(o1: JIRTypedMethod, o2: JIRTypedMethod): Int {
-        return (o1.name + o1.method.description).compareTo(o2.name + o2.method.description)
+        return when (o1.name) {
+            o2.name -> o1.method.description.compareTo(o2.method.description)
+            else -> o1.name.compareTo(o2.name)
+        }
     }
 }
 

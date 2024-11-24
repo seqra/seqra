@@ -2,7 +2,13 @@
 package org.opentaint.ir.impl.bytecode
 
 import org.objectweb.asm.tree.MethodNode
-import org.opentaint.ir.api.*
+import org.opentaint.ir.api.ClassSource
+import org.opentaint.ir.api.JIRAnnotation
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRParameter
+import org.opentaint.ir.api.cfg.JIRRawInstList
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.impl.cfg.RawInstListBuilder
 import org.opentaint.ir.impl.fs.fullAsmNode

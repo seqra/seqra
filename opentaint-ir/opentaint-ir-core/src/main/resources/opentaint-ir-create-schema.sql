@@ -124,6 +124,8 @@ CREATE TABLE IF NOT EXISTS "AnnotationValues"(
     CONSTRAINT "fk_AnnotationValues_class_symbol__id" FOREIGN KEY ("class_symbol") REFERENCES "Symbols" ("id") ON DELETE RESTRICT ON UPDATE RESTRICT
 );
 
+CREATE INDEX IF NOT EXISTS "Classes_name" ON "Classes" ("name");
+
 CREATE UNIQUE INDEX IF NOT EXISTS "Symbols_name" ON "Symbols" ("name");
 
 CREATE UNIQUE INDEX IF NOT EXISTS "Bytecodelocations_hash" ON "BytecodeLocations" ("uniqueId");
