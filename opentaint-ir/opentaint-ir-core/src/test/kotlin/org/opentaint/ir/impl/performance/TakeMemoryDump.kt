@@ -4,6 +4,7 @@ package org.opentaint.ir
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.impl.allClasspath
 import org.opentaint.ir.impl.features.Builders
+import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.FIELDS
@@ -16,7 +17,7 @@ fun main() {
         val db = jirdb {
             loadByteCode(allClasspath)
             persistent("D:\\work\\jirdb\\jirdb.db")
-            installFeatures(Usages, Builders)
+            installFeatures(Usages, Builders, InMemoryHierarchy)
         }.also {
             println("AWAITING db took ${System.currentTimeMillis() - start}ms")
             start = System.currentTimeMillis()
