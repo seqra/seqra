@@ -1,8 +1,10 @@
 
 package org.opentaint.ir.impl
 
+import com.google.gson.internal.JavaVersion
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
@@ -39,6 +41,7 @@ import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
 import org.opentaint.ir.api.cfg.ext.applyAndGet
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.isAnnotation
 import org.opentaint.ir.api.methods
 import org.opentaint.ir.api.packageName
 import org.opentaint.ir.api.toType
@@ -54,6 +57,8 @@ import org.opentaint.ir.impl.cfg.Simplifier
 import org.opentaint.ir.impl.cfg.util.ExprMapper
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.hierarchyExt
+import org.opentaint.ir.impl.fs.JarLocation
+import java.io.File
 import java.net.URLClassLoader
 import java.nio.file.Files
 
@@ -120,6 +125,7 @@ class JIRGraphChecker(val jirGraph: JIRGraph) : JIRInstVisitor<Unit> {
                         assertTrue(blockGraph.predecessors(block).isEmpty())
                         assertTrue(blockGraph.throwers(block).isNotEmpty())
                     }
+
                     else -> {
                         assertTrue(blockGraph.predecessors(block).isNotEmpty())
                         assertTrue(blockGraph.throwers(block).isEmpty())
@@ -253,7 +259,7 @@ class JIRGraphChecker(val jirGraph: JIRGraph) : JIRInstVisitor<Unit> {
 }
 
 class IRTest : BaseTest() {
-    val target = Files.createTempDirectory("jirdb-temp")
+    private val target = Files.createTempDirectory("jirdb-temp")
 
     companion object : WithDB(InMemoryHierarchy)
 
@@ -287,6 +293,36 @@ class IRTest : BaseTest() {
         testClass(cp.findClass<JIRGraphBuilder>())
         testClass(cp.findClass<JIRBlockGraph>())
     }
+
+//    @Test
+    fun `get ir of jackson`() {
+        allClasspath.filter { it.name.contains("jackson") }.forEach {
+            runAlongLib(it)
+        }
+    }
+
+//    @Test
+    fun `get ir of guava`() {
+        runAlongLib(guavaLib)
+    }
+
+    private fun runAlongLib(file: File) {
+        println("Run along: ${file.absolutePath}")
+
+        val classes = JarLocation(file, isRuntime = false, object : org.opentaint.ir.api.JavaVersion {
+            override val majorVersion: Int
+                get() = JavaVersion.getMajorJavaVersion()
+        }).classes
+        assertNotNull(classes)
+        classes!!.forEach {
+            val clazz = cp.findClass(it.key)
+            if (!clazz.isAnnotation) {
+                println("Testing class: ${it.key}")
+                testClass(clazz)
+            }
+        }
+    }
+
 
     private fun testClass(klass: JIRClassOrInterface) = try {
         val classNode = klass.bytecode()

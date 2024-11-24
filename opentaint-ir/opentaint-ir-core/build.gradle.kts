@@ -46,6 +46,7 @@ dependencies {
     testImplementation(project(":jirdb-testing"))
     testImplementation(group = "org.junit.jupiter", name = "junit-jupiter")
     testImplementation(group = "org.opentaint.soot", name = "soot-opentaint-fork", version = "4.4.0-FORK-2")
+    testImplementation(group = "com.fasterxml.jackson.core", name = "jackson-core", version = "2.14.1")
 
     testImplementation(group = "org.jetbrains.kotlinx", name = "kotlinx-benchmark-runtime", version = "0.4.4")
     testImplementation(group = "ch.qos.logback", name = "logback-classic", version = "1.2.9")
