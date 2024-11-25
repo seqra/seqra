@@ -163,15 +163,3 @@ subprojects {
     }
 
 }
-
-allprojects {
-    tasks.register<Copy>("installLocalGitHook") {
-        from(File(rootProject.rootDir, "pre-commit"))
-        into(File(rootProject.rootDir, ".git/hooks"))
-        fileMode = 775
-    }
-
-    tasks.named("build") {
-        dependsOn("installLocalGitHook")
-    }
-}
