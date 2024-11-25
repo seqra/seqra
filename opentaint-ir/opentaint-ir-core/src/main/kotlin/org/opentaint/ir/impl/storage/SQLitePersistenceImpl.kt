@@ -65,11 +65,12 @@ class SQLitePersistenceImpl(
         }
         val props = listOfNotNull(
             ("mode" to "memory").takeIf { location == null },
-            "rewriteBatchedStatements" to "true"
-        ).map { "${it.first}=${it.second}" }.joinToString("&")
-        val url = "jdbc:sqlite:file:jirdb-${location ?: UUID.randomUUID()}?$props"
+            "rewriteBatchedStatements" to "true",
+            "useServerPrepStmts" to "false"
+        ).joinToString("&") { "${it.first}=${it.second}" }
+
         val dataSource = SQLiteDataSource(config).also {
-            it.url = url
+            it.url = "jdbc:sqlite:file:${location ?: ("jirdb-" + UUID.randomUUID())}?$props"
         }
         connection = dataSource.connection
         jooq = DSL.using(connection, SQLDialect.SQLITE, Settings().withExecuteLogging(false))
