@@ -6,6 +6,7 @@ import org.jooq.meta.jaxb.Generate
 import org.jooq.meta.jaxb.Generator
 import org.jooq.meta.jaxb.Jdbc
 import org.jooq.meta.jaxb.Target
+import java.nio.file.Paths
 
 val asmVersion: String by rootProject
 val kotlinVersion: String by rootProject
@@ -126,6 +127,6 @@ tasks.register<JavaExec>("generateDocSvgs") {
     dependsOn("testClasses")
     mainClass.set("org.opentaint.ir.impl.cfg.IRSvgGeneratorKt")
     classpath = sourceSets.test.get().runtimeClasspath
-    val svgDocs = File(rootDir, "documentation-svgs")
+    val svgDocs = Paths.get(rootDir.absolutePath, "docs", "svg").toFile()
     args = listOf(svgDocs.absolutePath)
 }
