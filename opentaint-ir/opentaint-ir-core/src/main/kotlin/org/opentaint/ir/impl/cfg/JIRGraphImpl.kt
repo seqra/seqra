@@ -10,7 +10,6 @@ import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstRef
 import org.opentaint.ir.api.cfg.JIRInstVisitor
 import org.opentaint.ir.api.cfg.JIRTerminatingInst
-import org.opentaint.ir.api.cfg.ext.JIRExceptionResolver
 import org.opentaint.ir.api.isSubtypeOf
 
 class JIRGraphImpl(

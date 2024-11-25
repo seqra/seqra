@@ -36,7 +36,6 @@ import org.opentaint.ir.api.cfg.JIRSwitchInst
 import org.opentaint.ir.api.cfg.JIRTerminatingInst
 import org.opentaint.ir.api.cfg.JIRThrowInst
 import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
-import org.opentaint.ir.api.cfg.ext.applyAndGet
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.isAnnotation
@@ -54,6 +53,7 @@ import org.opentaint.ir.impl.cfg.JIRGraphBuilder
 import org.opentaint.ir.impl.cfg.MethodNodeBuilder
 import org.opentaint.ir.impl.cfg.RawInstListBuilder
 import org.opentaint.ir.impl.cfg.Simplifier
+import org.opentaint.ir.impl.cfg.applyAndGet
 import org.opentaint.ir.impl.cfg.util.ExprMapper
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.hierarchyExt
@@ -259,6 +259,7 @@ class JIRGraphChecker(val jirGraph: JIRGraph) : JIRInstVisitor<Unit> {
 }
 
 class IRTest : BaseTest() {
+
     private val target = Files.createTempDirectory("jirdb-temp")
 
     companion object : WithDB(InMemoryHierarchy)
@@ -294,14 +295,14 @@ class IRTest : BaseTest() {
         testClass(cp.findClass<JIRBlockGraphImpl>())
     }
 
-//    @Test
+    //    @Test
     fun `get ir of jackson`() {
         allClasspath.filter { it.name.contains("jackson") }.forEach {
             runAlongLib(it)
         }
     }
 
-//    @Test
+    //    @Test
     fun `get ir of guava`() {
         runAlongLib(guavaLib)
     }

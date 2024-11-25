@@ -39,6 +39,8 @@ dependencies {
     api(group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8", version = kotlinVersion)
     api(group = "org.jetbrains.kotlin", name = "kotlin-reflect", version = kotlinVersion)
     api(group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-cbor", version = "1.3.3")
+    api(group = "info.leadinglight", name = "jdot", version = "1.0")
+
     implementation(group = "org.xerial", name = "sqlite-jdbc", version = "3.39.2.1")
     implementation(group = "com.google.guava", name = "guava", version = "31.1-jre")
     implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-metadata-jvm", version = kmetadataVersion)
@@ -118,4 +120,12 @@ tasks.register("generateSqlScheme") {
                 )
         )
     }
+}
+
+tasks.register<JavaExec>("generateDocSvgs") {
+    dependsOn("testClasses")
+    mainClass.set("org.opentaint.ir.impl.cfg.IRSvgGeneratorKt")
+    classpath = sourceSets.test.get().runtimeClasspath
+    val svgDocs = File(rootDir, "documentation-svgs")
+    args = listOf(svgDocs.absolutePath)
 }
