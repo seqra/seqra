@@ -129,7 +129,7 @@ subprojects {
     license {
         include("**/*.kt")
         include("**/*.java")
-        header(rootProject.file("copyright/COPYRIGHT_HEADER.txt"))
+        header(rootProject.file("docs/copyright/COPYRIGHT_HEADER.txt"))
     }
 
     publishing {
@@ -162,4 +162,16 @@ subprojects {
         }
     }
 
+}
+
+allprojects {
+    tasks.register<Copy>("installLocalGitHook") {
+        from(File(rootProject.rootDir, "pre-commit"))
+        into(File(rootProject.rootDir, ".git/hooks"))
+        fileMode = 775
+    }
+
+    tasks.named("build") {
+        dependsOn("installLocalGitHook")
+    }
 }
