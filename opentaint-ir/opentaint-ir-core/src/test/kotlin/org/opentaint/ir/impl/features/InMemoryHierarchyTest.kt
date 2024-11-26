@@ -17,6 +17,9 @@ import java.util.concurrent.ConcurrentHashMap
 
 abstract class BaseInMemoryHierarchyTest : BaseTest() {
 
+    protected val ext = runBlocking { cp.hierarchyExt() }
+    open val isInMemory = true
+
     @Test
     fun `find subclasses for class`() {
         with(findSubClasses<AbstractMap<*, *>>(allHierarchy = true).toList()) {
@@ -34,15 +37,15 @@ abstract class BaseInMemoryHierarchyTest : BaseTest() {
 
     @Test
     fun `find subclasses for interface`() {
-        with(findSubClasses<Document>()) {
-            assertTrue(count() > 0)
+        with(findSubClasses<Document>().toList()) {
+            assertTrue(isNotEmpty(), "expect not empty result")
         }
     }
 
     @Test
     fun `find huge number of subclasses`() {
-        with(findSubClasses<Runnable>()) {
-            assertTrue(count() > 10)
+        with(findSubClasses<Runnable>().toList()) {
+            assertTrue(size > 10, "expect more then 10 but got $size")
         }
     }
 
@@ -65,17 +68,25 @@ abstract class BaseInMemoryHierarchyTest : BaseTest() {
 
     private inline fun <reified T> findSubClasses(allHierarchy: Boolean = false): Sequence<JIRClassOrInterface> =
         runBlocking {
-            cp.findSubclassesInMemory(T::class.java.name, allHierarchy, true)
+            when {
+                isInMemory -> cp.findSubclassesInMemory(T::class.java.name, allHierarchy, true)
+                else -> ext.findSubClasses(T::class.java.name, allHierarchy)
+            }
         }
 
-    private fun findMethodOverrides(method: JIRMethod): Sequence<JIRMethod> = runBlocking {
-        cp.hierarchyExt().findOverrides(method)
-    }
+    private fun findMethodOverrides(method: JIRMethod) = ext.findOverrides(method)
 
 }
 
 class InMemoryHierarchyTest : BaseInMemoryHierarchyTest() {
     companion object : WithDB(InMemoryHierarchy)
+}
+
+class RegularHierarchyTest : BaseInMemoryHierarchyTest() {
+    companion object : WithDB()
+
+    override val isInMemory: Boolean
+        get() = false
 }
 
 class RestoredInMemoryHierarchyTest : BaseInMemoryHierarchyTest() {

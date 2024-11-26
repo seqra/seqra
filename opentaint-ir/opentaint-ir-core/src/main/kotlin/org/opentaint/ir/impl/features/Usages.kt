@@ -46,10 +46,9 @@ private class MethodMap(size: Int) {
 
     private fun ShortArray.toByteArray(): ByteArray {
         var short_index: Int
-        var byte_index: Int
         val iterations = size
         val buffer = ByteArray(size * 2)
-        byte_index = 0
+        var byte_index: Int = 0
         short_index = byte_index
         while ( /*NOP*/short_index != iterations /*NOP*/) {
             buffer[byte_index] = (this[short_index].toInt() and 0x00FF).toByte()
