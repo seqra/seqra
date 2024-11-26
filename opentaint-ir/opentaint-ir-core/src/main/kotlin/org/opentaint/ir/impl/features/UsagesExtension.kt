@@ -118,12 +118,12 @@ class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, pr
 }
 
 
-suspend fun JIRClasspath.usagesExtension(): SyncUsagesExtension {
+suspend fun JIRClasspath.usagesExt(): SyncUsagesExtension {
     if (!db.isInstalled(Usages)) {
         throw IllegalStateException("This extension requires `Usages` feature to be installed")
     }
     return SyncUsagesExtension(hierarchyExt(), this)
 }
 
-suspend fun JIRClasspath.findUsages(method: JIRMethod) = usagesExtension().findUsages(method)
-suspend fun JIRClasspath.findUsages(field: JIRField, mode: FieldUsageMode) = usagesExtension().findUsages(field, mode)
+suspend fun JIRClasspath.findUsages(method: JIRMethod) = usagesExt().findUsages(method)
+suspend fun JIRClasspath.findUsages(field: JIRField, mode: FieldUsageMode) = usagesExt().findUsages(field, mode)
