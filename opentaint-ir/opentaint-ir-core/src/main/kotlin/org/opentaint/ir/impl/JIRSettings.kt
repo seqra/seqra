@@ -4,7 +4,7 @@ package org.opentaint.ir.impl
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import org.opentaint.ir.api.Hook
-import org.opentaint.ir.api.JIRDB
+import org.opentaint.ir.api.JIRDatabase
 import org.opentaint.ir.api.JIRFeature
 import java.io.File
 
@@ -27,7 +27,7 @@ class JIRSettings {
     var predefinedDirOrJars: List<File> = persistentListOf()
         private set
 
-    var hooks: MutableList<(JIRDB) -> Hook> = arrayListOf()
+    var hooks: MutableList<(JIRDatabase) -> Hook> = arrayListOf()
         private set
 
     /** mandatory setting for java runtime location */
@@ -64,7 +64,7 @@ class JIRSettings {
     }
 
     /** builder for hooks */
-    fun withHook(hook: (JIRDB) -> Hook) = apply {
+    fun withHook(hook: (JIRDatabase) -> Hook) = apply {
         hooks += hook
     }
 
