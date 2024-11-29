@@ -139,6 +139,6 @@ class SignatureTest: BaseTest() {
 
     private val JIRClassOrInterface.resolution get() = TypeSignature.of(this)
     private val JIRMethod.resolution get() = MethodSignature.of(this)
-    private val JIRField.resolution get() = FieldSignature.of(signature, enclosingClass.typeParameters.associateBy { it.symbol })
+    private val JIRField.resolution get() = FieldSignature.of(signature, enclosingClass.typeParameters.associateBy { it.symbol }, this)
 }
 

@@ -69,12 +69,12 @@ class JIRClasspathImpl(
             jirClass,
             jirClass.outerClass?.toType() as? JIRClassTypeImpl,
             JIRSubstitutor.empty,
-            nullable = true
+            nullable = null
         )
     }
 
     override fun arrayTypeOf(elementType: JIRType): JIRArrayType {
-        return JIRArrayTypeImpl(elementType, true)
+        return JIRArrayTypeImpl(elementType, null)
     }
 
     override fun toJcClass(source: ClassSource, withCaching: Boolean): JIRClassOrInterface {

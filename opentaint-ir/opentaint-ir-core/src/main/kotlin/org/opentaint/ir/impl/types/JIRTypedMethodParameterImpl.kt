@@ -6,7 +6,6 @@ import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.JIRTypedMethodParameter
-import org.opentaint.ir.api.PredefinedPrimitive
 import org.opentaint.ir.api.ext.isNullable
 import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.types.signature.JvmType
@@ -28,13 +27,12 @@ class JIRTypedMethodParameterImpl(
                 classpath.typeOf(substitutor.substitute(jvmType))
             } ?: classpath.findTypeOrNull(typeName) ?: typeName.throwClassNotFound()
 
-            return if (!parameter.isNullable && type !is PredefinedPrimitive)
-                (type as JIRRefType).notNullable()
-            else
-                type
+            return parameter.isNullable?.let {
+                (type as? JIRRefType)?.copyWithNullability(it)
+            } ?: type
         }
 
-    override val nullable: Boolean
+    override val nullable: Boolean?
         get() = parameter.isNullable //if (type != null && type.nullable) parameter.isNullable else false
 
     override val name: String?

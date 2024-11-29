@@ -25,15 +25,15 @@ internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = 
                 ?: throw IllegalStateException("primitive type ${jvmType.ref} not found")
         }
 
-        is JvmClassRefType -> typeOf(findClass(jvmType.name))
-        is JvmArrayType -> arrayTypeOf(typeOf(jvmType.elementType))
+        is JvmClassRefType -> typeOf(findClass(jvmType.name)).copyWithNullability(jvmType.isNullable)
+        is JvmArrayType -> arrayTypeOf(typeOf(jvmType.elementType)).copyWithNullability(jvmType.isNullable)
         is JvmParameterizedType -> {
             val clazz = findClass(jvmType.name)
             JIRClassTypeImpl(
                 clazz,
                 null,
                 parameters ?: jvmType.parameterTypes,
-                nullable = true
+                nullable = jvmType.isNullable
             )
         }
 
@@ -45,14 +45,14 @@ internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = 
                 clazz,
                 outerType as JIRClassTypeImpl,
                 jvmType.parameterTypes,
-                nullable = true
+                nullable = jvmType.isNullable
             )
         }
 
         is JvmTypeVariable -> {
             val declaration = jvmType.declaration
             if (declaration != null) {
-                JIRTypeVariableImpl(this, declaration.asJcDeclaration(declaration.owner), true)
+                JIRTypeVariableImpl(this, declaration.asJcDeclaration(declaration.owner), jvmType.isNullable)
             } else {
                 anyType()
             }
@@ -60,11 +60,11 @@ internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = 
 
         is JvmUnboundWildcard -> JIRUnboundWildcardImpl(this)
         is JvmBoundWildcard.JvmUpperBoundWildcard -> JIRBoundedWildcardImpl(
-            upperBounds = listOf(typeOf(jvmType.bound) as JIRRefType), lowerBounds = emptyList(), true
+            upperBounds = listOf(typeOf(jvmType.bound) as JIRRefType), lowerBounds = emptyList()
         )
 
         is JvmBoundWildcard.JvmLowerBoundWildcard -> JIRBoundedWildcardImpl(
-            upperBounds = emptyList(), lowerBounds = listOf(typeOf(jvmType.bound) as JIRRefType), true
+            upperBounds = emptyList(), lowerBounds = listOf(typeOf(jvmType.bound) as JIRRefType)
         )
     }
 }

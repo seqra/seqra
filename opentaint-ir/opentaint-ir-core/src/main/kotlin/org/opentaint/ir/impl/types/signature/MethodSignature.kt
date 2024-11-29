@@ -6,11 +6,14 @@ import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.Malformed
 import org.opentaint.ir.api.MethodResolution
 import org.opentaint.ir.api.Pure
+import org.opentaint.ir.impl.bytecode.kmFunction
+import org.opentaint.ir.impl.bytecode.kmReturnType
+import org.opentaint.ir.impl.bytecode.kmType
 import org.opentaint.ir.impl.types.allVisibleTypeParameters
 import org.opentaint.ir.impl.types.substition.JvmTypeVisitor
 import org.opentaint.ir.impl.types.substition.fixDeclarationVisitor
 
-internal class MethodSignature(method: JIRMethod) : Signature<MethodResolution>(method) {
+internal class MethodSignature(private val method: JIRMethod) : Signature<MethodResolution>(method, method.kmFunction?.typeParameters) {
 
     private val parameterTypes = ArrayList<JvmType>()
     private val exceptionTypes = ArrayList<JvmClassRefType>()
@@ -41,13 +44,19 @@ internal class MethodSignature(method: JIRMethod) : Signature<MethodResolution>(
 
     private inner class ParameterTypeRegistrant : TypeRegistrant {
         override fun register(token: JvmType) {
-            parameterTypes.add(token)
+            val outToken = method.parameters[parameterTypes.size].kmType?.let {
+                token.relaxWithKmType(it)
+            } ?: token
+            parameterTypes.add(outToken)
         }
     }
 
     private inner class ReturnTypeTypeRegistrant : TypeRegistrant {
         override fun register(token: JvmType) {
             returnType = token
+            method.kmReturnType?.let {
+                returnType = returnType.relaxWithKmType(it)
+            }
         }
     }
 

@@ -6,8 +6,6 @@ import org.opentaint.ir.api.JIRDeclaration
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRParameter
 import org.opentaint.ir.api.TypeName
-import org.opentaint.ir.api.ext.kmConstructor
-import org.opentaint.ir.api.ext.kmFunction
 import org.opentaint.ir.impl.types.ParameterInfo
 import org.opentaint.ir.impl.types.TypeNameImpl
 
@@ -20,22 +18,7 @@ class JIRParameterImpl(
         get() = info.access
 
     override val name: String? by lazy {
-        if (info.name != null)
-            return@lazy info.name
-
-        method.kmFunction?.let {
-            // Shift needed to properly handle extension functions
-            val shift = if (it.receiverParameterType != null) 1 else 0
-            val jvmIndex = index - shift
-            if (jvmIndex < 0 || jvmIndex >= it.valueParameters.size)
-                return@lazy null
-
-            return@lazy it.valueParameters[index - shift].name
-        }
-
-        method.kmConstructor?.let {
-            it.valueParameters[index].name
-        }
+        info.name ?: kmParameter?.name
     }
 
     override val index: Int

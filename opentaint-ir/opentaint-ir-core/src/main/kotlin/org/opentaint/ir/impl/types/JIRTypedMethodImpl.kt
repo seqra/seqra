@@ -11,7 +11,6 @@ import org.opentaint.ir.api.JIRTypeVariableDeclaration
 import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.JIRTypedMethodParameter
 import org.opentaint.ir.api.MethodResolution
-import org.opentaint.ir.api.PredefinedPrimitive
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.isNullable
 import org.opentaint.ir.api.ext.isStatic
@@ -98,15 +97,14 @@ class JIRTypedMethodImpl(
             classpath.typeOf(info.substitutor.substitute(impl.returnType))
         }
 
-        if (!method.isNullable && type !is PredefinedPrimitive)
-            (type as JIRRefType).notNullable()
-        else
-            type
+        method.isNullable?.let {
+            (type as? JIRRefType)?.copyWithNullability(it)
+        } ?: type
     }
 
     override fun typeOf(inst: LocalVariableNode): JIRType {
         val variableSignature =
-            FieldSignature.of(inst.signature, method.allVisibleTypeParameters()) as? FieldResolutionImpl
+            FieldSignature.of(inst.signature, method.allVisibleTypeParameters(), null) as? FieldResolutionImpl
         if (variableSignature == null) {
             val type = Type.getType(inst.desc)
             return classpath.findTypeOrNull(type.className) ?: type.className.throwClassNotFound()

@@ -1,12 +1,13 @@
 
 package org.opentaint.ir.impl.types.signature
 
+import kotlinx.metadata.KmTypeParameter
 import org.objectweb.asm.signature.SignatureReader
 import org.objectweb.asm.signature.SignatureVisitor
 import org.opentaint.ir.api.JIRAccessible
 import org.opentaint.ir.api.Resolution
 
-internal abstract class Signature<T : Resolution>(val owner: JIRAccessible) :
+internal abstract class Signature<T : Resolution>(val owner: JIRAccessible, private val kmTypeParameters: List<KmTypeParameter>?) :
     TypeRegistrant.RejectingSignatureVisitor(), TypeRegistrant {
 
     protected val typeVariables = ArrayList<JvmTypeParameterDeclaration>()
@@ -35,7 +36,12 @@ internal abstract class Signature<T : Resolution>(val owner: JIRAccessible) :
     protected fun collectTypeParameter() {
         val current = currentTypeParameter
         if (current != null) {
-            typeVariables.add(JvmTypeParameterDeclarationImpl(current, owner, currentBounds))
+            val toAdd = JvmTypeParameterDeclarationImpl(current, owner, currentBounds)
+            typeVariables.add(
+                kmTypeParameters?.let {
+                    toAdd.relaxWithKmTypeParameter(it[typeVariables.size])
+                } ?: toAdd
+            )
         }
     }
 

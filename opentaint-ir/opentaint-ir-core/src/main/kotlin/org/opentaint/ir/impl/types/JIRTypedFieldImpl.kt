@@ -5,7 +5,6 @@ import org.opentaint.ir.api.JIRField
 import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.JIRTypedField
-import org.opentaint.ir.api.PredefinedPrimitive
 import org.opentaint.ir.api.ext.isNullable
 import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
@@ -32,10 +31,9 @@ class JIRTypedFieldImpl(
             classpath.typeOf(substitutor.substitute(it))
         } ?: classpath.findTypeOrNull(field.type.typeName) ?: typeName.throwClassNotFound()
 
-        if (!field.isNullable && type !is PredefinedPrimitive)
-            (type as JIRRefType).notNullable()
-        else
-            type
+        field.isNullable?.let {
+            (type as? JIRRefType)?.copyWithNullability(it)
+        } ?: type
     }
 
 

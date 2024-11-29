@@ -136,7 +136,6 @@ abstract class BaseSearchUsagesTest : BaseTest() {
             val ext = cp.usagesExt()
             val invokeStaticField = cp.findClass<System>().declaredFields.first { it.name == "out" }
             val result = ext.findUsages(invokeStaticField, FieldUsageMode.READ).toList()
-            println("System.out used in: " + result.size + " methods")
             assertTrue(result.size > 1_000)
         }
     }

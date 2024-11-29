@@ -8,13 +8,13 @@ import org.opentaint.ir.api.JIRType
 
 class JIRArrayTypeImpl(
     override val elementType: JIRType,
-    override val nullable: Boolean = true
+    override val nullable: Boolean? = null
 ) : JIRArrayType {
 
     override val typeName = elementType.typeName + "[]"
 
-    override fun notNullable(): JIRRefType {
-        return JIRArrayTypeImpl(elementType, false)
+    override fun copyWithNullability(nullability: Boolean?): JIRRefType {
+        return JIRArrayTypeImpl(elementType, nullability)
     }
 
     override val classpath: JIRClasspath

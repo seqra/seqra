@@ -6,11 +6,12 @@ import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.Malformed
 import org.opentaint.ir.api.Pure
 import org.opentaint.ir.api.TypeResolution
+import org.opentaint.ir.impl.bytecode.kmTypeParameters
 import org.opentaint.ir.impl.types.allVisibleTypeParameters
 import org.opentaint.ir.impl.types.substition.JvmTypeVisitor
 import org.opentaint.ir.impl.types.substition.fixDeclarationVisitor
 
-internal class TypeSignature(jirClass: JIRClassOrInterface) : Signature<TypeResolution>(jirClass) {
+internal class TypeSignature(jirClass: JIRClassOrInterface) : Signature<TypeResolution>(jirClass, jirClass.kmTypeParameters) {
 
     private val interfaceTypes = ArrayList<JvmType>()
     private lateinit var superClass: JvmType

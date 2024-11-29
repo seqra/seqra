@@ -8,22 +8,26 @@ import org.opentaint.ir.api.JIRTypeVariable
 import org.opentaint.ir.api.JIRTypeVariableDeclaration
 import org.opentaint.ir.api.JIRUnboundWildcard
 
-class JIRUnboundWildcardImpl(override val classpath: JIRClasspath, override val nullable: Boolean = true) :
+class JIRUnboundWildcardImpl(override val classpath: JIRClasspath) :
     JIRUnboundWildcard {
+
+    override val nullable: Boolean = true
 
     override val typeName: String
         get() = "*"
 
-    override fun notNullable(): JIRRefType {
-        return JIRUnboundWildcardImpl(classpath, false)
+    override fun copyWithNullability(nullability: Boolean?): JIRRefType {
+        if (nullability != true)
+            error("Attempting to make wildcard not-nullable, which are always nullable by convention")
+        return this
     }
 }
 
 class JIRBoundedWildcardImpl(
     override val upperBounds: List<JIRRefType>,
     override val lowerBounds: List<JIRRefType>,
-    override val nullable: Boolean
 ) : JIRBoundedWildcard {
+    override val nullable: Boolean = true
 
     override val classpath: JIRClasspath
         get() = upperBounds.firstOrNull()?.classpath ?: lowerBounds.firstOrNull()?.classpath
@@ -39,8 +43,10 @@ class JIRBoundedWildcardImpl(
         }
 
 
-    override fun notNullable(): JIRRefType {
-        return JIRBoundedWildcardImpl(upperBounds, lowerBounds, false)
+    override fun copyWithNullability(nullability: Boolean?): JIRRefType {
+        if (nullability != true)
+            error("Attempting to make wildcard not-nullable, which are always nullable by convention")
+        return this
     }
 }
 
@@ -48,7 +54,7 @@ class JIRBoundedWildcardImpl(
 class JIRTypeVariableImpl(
     override val classpath: JIRClasspath,
     private val declaration: JIRTypeVariableDeclaration,
-    override val nullable: Boolean
+    override val nullable: Boolean?
 ) : JIRTypeVariable {
 
     override val typeName: String
@@ -59,7 +65,7 @@ class JIRTypeVariableImpl(
     override val bounds: List<JIRRefType>
         get() = declaration.bounds
 
-    override fun notNullable(): JIRRefType {
-        return JIRTypeVariableImpl(classpath, declaration, nullable)
+    override fun copyWithNullability(nullability: Boolean?): JIRRefType {
+        return JIRTypeVariableImpl(classpath, declaration, nullability)
     }
 }

@@ -25,14 +25,14 @@ open class JIRClassTypeImpl(
     override val jirClass: JIRClassOrInterface,
     override val outerType: JIRClassTypeImpl? = null,
     private val substitutor: JIRSubstitutor = JIRSubstitutor.empty,
-    override val nullable: Boolean
+    override val nullable: Boolean?
 ) : JIRClassType {
 
     constructor(
         jirClass: JIRClassOrInterface,
         outerType: JIRClassTypeImpl? = null,
         parameters: List<JvmType>,
-        nullable: Boolean
+        nullable: Boolean?
     ) : this(jirClass, outerType, jirClass.substitute(parameters, outerType?.substitutor), nullable)
 
     private val resolutionImpl by lazy(LazyThreadSafetyMode.NONE) { TypeSignature.withDeclarations(jirClass) as? TypeResolutionImpl }
@@ -125,7 +125,7 @@ open class JIRClassTypeImpl(
         typedFields(true, fromSuperTypes = true, jirClass.packageName)
     }
 
-    override fun notNullable() = JIRClassTypeImpl(jirClass, outerType, substitutor, false)
+    override fun copyWithNullability(nullability: Boolean?) = JIRClassTypeImpl(jirClass, outerType, substitutor, nullability)
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
