@@ -1,14 +1,13 @@
-
-package org.opentaint.ir.impl
+package org.opentaint.opentaint-ir.impl
 
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.extension.AfterAllCallback
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.extension.ExtensionContext
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.JIRFeature
+import org.opentaint.opentaint-ir.api.JIRClasspath
+import org.opentaint.opentaint-ir.api.JIRDatabase
+import org.opentaint.opentaint-ir.api.JIRFeature
 import java.nio.file.Files
 import kotlin.reflect.full.companionObjectInstance
 
@@ -46,7 +45,7 @@ open class WithDB(vararg features: JIRFeature<*, *>) {
 
     open var db = runBlocking {
         opentaint-ir {
-//            persistent("D:\\work\\jirdb\\jirdb-index.db")
+//            persistent("D:\\work\\jIRdb\\jIRdb-index.db")
             loadByteCode(allClasspath)
             useProcessJavaRuntime()
             installFeatures(*allFeatures)
@@ -62,7 +61,7 @@ open class WithDB(vararg features: JIRFeature<*, *>) {
 
 open class WithRestoredDB(vararg features: JIRFeature<*, *>) : WithDB(*features) {
 
-    private val jdbcLocation = Files.createTempFile("jirdb-", null).toFile().absolutePath
+    private val jdbcLocation = Files.createTempFile("jIRdb-", null).toFile().absolutePath
 
     var tempDb: JIRDatabase? = newDB()
 
@@ -86,7 +85,6 @@ open class WithRestoredDB(vararg features: JIRFeature<*, *>) : WithDB(*features)
     }
 
 }
-
 
 class CleanDB : AfterAllCallback {
     override fun afterAll(context: ExtensionContext) {

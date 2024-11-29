@@ -1,11 +1,9 @@
-
-package org.opentaint.ir.impl.bytecode
+package org.opentaint.opentaint-ir.impl.bytecode
 
 import org.objectweb.asm.ClassWriter
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.ext.findClass
-
+import org.opentaint.opentaint-ir.api.JIRClassOrInterface
+import org.opentaint.opentaint-ir.api.JIRClasspath
+import org.opentaint.opentaint-ir.api.ext.findClass
 
 /**
  * ASM class writer with opentaint-ir specific resolution of common superclasses
@@ -21,10 +19,10 @@ class JIRDatabaseClassWriter(val classpath: JIRClasspath, flags: Int) : ClassWri
     override fun getCommonSuperClass(type1: String, type2: String): String {
         val typeName1 = type1.replace('/', '.')
         val typeName2 = type2.replace('/', '.')
-        val jirClass1 = classpath.findClass(typeName1)
-        val jirClass2 = classpath.findClass(typeName2)
-        val super1 = jirClass1.allSuperClasses
-        val super2 = jirClass2.allSuperClasses
+        val jIRClass1 = classpath.findClass(typeName1)
+        val jIRClass2 = classpath.findClass(typeName2)
+        val super1 = jIRClass1.allSuperClasses
+        val super2 = jIRClass2.allSuperClasses
 
         // If these two classes haven't been loaded yet or are phantom, we take
         // java.lang.Object as the common superclass
@@ -41,10 +39,10 @@ class JIRDatabaseClassWriter(val classpath: JIRClasspath, flags: Int) : ClassWri
     private val JIRClassOrInterface.allSuperClasses: List<JIRClassOrInterface>
         get() {
             val result = arrayListOf<JIRClassOrInterface>()
-            var jirClass = superClass
-            while (jirClass != null) {
-                result.add(jirClass)
-                jirClass = jirClass.superClass
+            var jIRClass = superClass
+            while (jIRClass != null) {
+                result.add(jIRClass)
+                jIRClass = jIRClass.superClass
             }
             return result
         }

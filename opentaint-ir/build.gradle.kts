@@ -7,7 +7,7 @@ val coroutinesVersion: String by rootProject
 val junit5Version: String by project
 val semVer: String? by project
 
-group = "org.opentaint.ir"
+group = "org.opentaint.opentaint-ir"
 project.version = semVer ?: "1.0-SNAPSHOT"
 
 buildscript {
@@ -146,7 +146,7 @@ subprojects {
         repositories {
             maven {
                 name = "GitHubPackages"
-                url = uri("https://maven.pkg.github.com/opentaint/opentaint-ir")
+                url = uri("https://maven.pkg.github.com/Opentaint/opentaint-ir")
                 credentials {
                     username = project.findProperty("gprUser") as? String ?: System.getenv("USERNAME")
                     password = project.findProperty("gprKey") as? String ?: System.getenv("TOKEN")
@@ -162,4 +162,18 @@ subprojects {
         }
     }
 
+}
+
+val aggregatedTasks = listOf("check", "build", "test", "lifecycleTest")
+for (taskName in aggregatedTasks) {
+    val subprojectTasks = subprojects.map { ":${it.name}:$taskName" }
+    if (tasks.findByName(taskName) != null) {
+        tasks.named(taskName) {
+            dependsOn(subprojectTasks)
+        }
+    } else {
+        tasks.register(taskName) {
+            dependsOn(subprojectTasks)
+        }
+    }
 }

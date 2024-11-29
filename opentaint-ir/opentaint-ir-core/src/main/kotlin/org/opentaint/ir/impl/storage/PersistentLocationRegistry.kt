@@ -1,28 +1,27 @@
-
-package org.opentaint.ir.impl.storage
+package org.opentaint.opentaint-ir.impl.storage
 
 import org.jooq.DSLContext
-import org.opentaint.ir.api.JIRByteCodeLocation
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.LocationType
-import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.impl.CleanupResult
-import org.opentaint.ir.impl.FeaturesRegistry
-import org.opentaint.ir.impl.JIRInternalSignal
-import org.opentaint.ir.impl.LocationsRegistry
-import org.opentaint.ir.impl.LocationsRegistrySnapshot
-import org.opentaint.ir.impl.RefreshResult
-import org.opentaint.ir.impl.RegistrationResult
-import org.opentaint.ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
-import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
-import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
+import org.opentaint.opentaint-ir.api.JIRByteCodeLocation
+import org.opentaint.opentaint-ir.api.JIRDatabase
+import org.opentaint.opentaint-ir.api.LocationType
+import org.opentaint.opentaint-ir.api.RegisteredLocation
+import org.opentaint.opentaint-ir.impl.CleanupResult
+import org.opentaint.opentaint-ir.impl.FeaturesRegistry
+import org.opentaint.opentaint-ir.impl.JIRInternalSignal
+import org.opentaint.opentaint-ir.impl.LocationsRegistry
+import org.opentaint.opentaint-ir.impl.LocationsRegistrySnapshot
+import org.opentaint.opentaint-ir.impl.RefreshResult
+import org.opentaint.opentaint-ir.impl.RegistrationResult
+import org.opentaint.opentaint-ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
+import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
+import org.opentaint.opentaint-ir.impl.vfs.PersistentByteCodeLocation
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
-class PersistentLocationRegistry(private val jirdb: JIRDatabase, private val featuresRegistry: FeaturesRegistry) :
+class PersistentLocationRegistry(private val jIRdb: JIRDatabase, private val featuresRegistry: FeaturesRegistry) :
     LocationsRegistry {
 
-    private val persistence = jirdb.persistence
+    private val persistence = jIRdb.persistence
 
     private val idGen: AtomicLong = AtomicLong(persistence.read { BYTECODELOCATIONS.ID.maxId(it) } ?: 0)
 
@@ -40,21 +39,21 @@ class PersistentLocationRegistry(private val jirdb: JIRDatabase, private val fea
     override val actualLocations: List<PersistentByteCodeLocation>
         get() = persistence.read {
             it.selectFrom(BYTECODELOCATIONS).fetch {
-                PersistentByteCodeLocation(jirdb, it)
+                PersistentByteCodeLocation(jIRdb, it)
             }
         }
 
     private val notRuntimeLocations: List<PersistentByteCodeLocation>
         get() = persistence.read {
             it.selectFrom(BYTECODELOCATIONS).where(BYTECODELOCATIONS.RUNTIME.ne(true)).fetch {
-                PersistentByteCodeLocation(jirdb, it)
+                PersistentByteCodeLocation(jIRdb, it)
             }
         }
 
     override lateinit var runtimeLocations: List<RegisteredLocation>
 
     private fun DSLContext.add(location: JIRByteCodeLocation) =
-        PersistentByteCodeLocation(jirdb, location.findOrNew(this), location)
+        PersistentByteCodeLocation(jIRdb, location.findOrNew(this), location)
 
     override fun setup(runtimeLocations: List<JIRByteCodeLocation>): RegistrationResult {
         return registerIfNeeded(runtimeLocations).also {
@@ -86,7 +85,7 @@ class PersistentLocationRegistry(private val jirdb: JIRDatabase, private val fea
                 if (found == null) {
                     toAdd += it
                 } else {
-                    result += PersistentByteCodeLocation(jirdb, found, it)
+                    result += PersistentByteCodeLocation(jIRdb, found, it)
                 }
             }
             val records = toAdd.map { add ->
@@ -104,8 +103,8 @@ class PersistentLocationRegistry(private val jirdb: JIRDatabase, private val fea
             }
             val added = records.map {
                 PersistentByteCodeLocation(
-                    jirdb.persistence,
-                    jirdb.runtimeVersion,
+                    jIRdb.persistence,
+                    jIRdb.runtimeVersion,
                     it.first,
                     null,
                     it.second
@@ -127,23 +126,23 @@ class PersistentLocationRegistry(private val jirdb: JIRDatabase, private val fea
         val newLocations = arrayListOf<JIRByteCodeLocation>()
         val updated = hashMapOf<JIRByteCodeLocation, PersistentByteCodeLocation>()
         notRuntimeLocations.forEach { location ->
-            val jirLocation = location.jirLocation
+            val jIRLocation = location.jIRLocation
             when {
-                jirLocation == null -> {
+                jIRLocation == null -> {
                     if (!location.hasReferences(snapshots)) {
                         deprecated.add(location)
                     }
                 }
 
-                jirLocation.isChanged() -> {
-                    val refreshed = jirLocation.createRefreshed()
+                jIRLocation.isChanged() -> {
+                    val refreshed = jIRLocation.createRefreshed()
                     if (refreshed != null) {
                         newLocations.add(refreshed)
                     }
                     if (!location.hasReferences(snapshots)) {
                         deprecated.add(location)
                     } else {
-                        updated[jirLocation] = location
+                        updated[jIRLocation] = location
                     }
                 }
             }
@@ -177,7 +176,7 @@ class PersistentLocationRegistry(private val jirdb: JIRDatabase, private val fea
                 .where(BYTECODELOCATIONS.UPDATED_ID.isNotNull).fetch()
                 .toList()
                 .filterNot { entity -> snapshots.any { it.ids.contains(entity.id) } }
-                .map { PersistentByteCodeLocation(jirdb, it) }
+                .map { PersistentByteCodeLocation(jIRdb, it) }
             it.deprecate(deprecated)
             CleanupResult(deprecated)
         }

@@ -1,25 +1,24 @@
-
-package org.opentaint.ir.impl.features
+package org.opentaint.opentaint-ir.impl.features
 
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.ClassNode
-import org.opentaint.ir.api.ByteCodeIndexer
-import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.JIRDatabasePersistence
-import org.opentaint.ir.api.JIRFeature
-import org.opentaint.ir.api.JIRSignal
-import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.impl.fs.PersistenceClassSource
-import org.opentaint.ir.impl.fs.className
-import org.opentaint.ir.impl.storage.BatchedSequence
-import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
-import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSHIERARCHIES
-import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
+import org.opentaint.opentaint-ir.api.ByteCodeIndexer
+import org.opentaint.opentaint-ir.api.ClassSource
+import org.opentaint.opentaint-ir.api.JIRClassOrInterface
+import org.opentaint.opentaint-ir.api.JIRClasspath
+import org.opentaint.opentaint-ir.api.JIRDatabase
+import org.opentaint.opentaint-ir.api.JIRDatabasePersistence
+import org.opentaint.opentaint-ir.api.JIRFeature
+import org.opentaint.opentaint-ir.api.JIRSignal
+import org.opentaint.opentaint-ir.api.RegisteredLocation
+import org.opentaint.opentaint-ir.impl.fs.PersistenceClassSource
+import org.opentaint.opentaint-ir.impl.fs.className
+import org.opentaint.opentaint-ir.impl.storage.BatchedSequence
+import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.CLASSES
+import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.CLASSHIERARCHIES
+import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.SYMBOLS
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.min
 
@@ -61,9 +60,9 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
     override fun onSignal(signal: JIRSignal) {
         when (signal) {
             is JIRSignal.BeforeIndexing -> {
-                signal.jirdb.persistence.read { jooq ->
+                signal.jIRdb.persistence.read { jooq ->
                     val cache = InMemoryHierarchyCache().also {
-                        hierarchies[signal.jirdb] = it
+                        hierarchies[signal.jIRdb] = it
                     }
                     jooq.select(CLASSES.NAME, CLASSHIERARCHIES.SUPER_ID, CLASSES.LOCATION_ID)
                         .from(CLASSHIERARCHIES)
@@ -77,16 +76,16 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
             }
 
             is JIRSignal.LocationRemoved -> {
-                signal.jirdb.persistence.write {
+                signal.jIRdb.persistence.write {
                     val id = signal.location.id
-                    hierarchies[signal.jirdb]?.values?.forEach {
+                    hierarchies[signal.jIRdb]?.values?.forEach {
                         it.remove(id)
                     }
                 }
             }
 
             is JIRSignal.Drop -> {
-                hierarchies[signal.jirdb]?.clear()
+                hierarchies[signal.jIRdb]?.clear()
             }
 
             else -> Unit
@@ -192,8 +191,8 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
         }
     }
 
-    override fun newIndexer(jirdb: JIRDatabase, location: RegisteredLocation): ByteCodeIndexer {
-        return InMemoryHierarchyIndexer(jirdb.persistence, location, hierarchies.getOrPut(jirdb) { ConcurrentHashMap() })
+    override fun newIndexer(jIRdb: JIRDatabase, location: RegisteredLocation): ByteCodeIndexer {
+        return InMemoryHierarchyIndexer(jIRdb.persistence, location, hierarchies.getOrPut(jIRdb) { ConcurrentHashMap() })
     }
 
 }
@@ -204,6 +203,6 @@ internal fun JIRClasspath.findSubclassesInMemory(
     full: Boolean
 ): Sequence<JIRClassOrInterface> {
     return InMemoryHierarchy.syncQuery(this, InMemoryHierarchyReq(name, allHierarchy, full)).map {
-        toJcClass(it)
+        toJIRClass(it)
     }
 }

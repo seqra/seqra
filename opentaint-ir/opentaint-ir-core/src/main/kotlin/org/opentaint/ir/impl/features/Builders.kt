@@ -1,27 +1,26 @@
-
-package org.opentaint.ir.impl.features
+package org.opentaint.opentaint-ir.impl.features
 
 import org.jooq.DSLContext
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodNode
-import org.opentaint.ir.api.ByteCodeIndexer
-import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.JIRDatabasePersistence
-import org.opentaint.ir.api.JIRFeature
-import org.opentaint.ir.api.JIRSignal
-import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.api.ext.jvmPrimitiveNames
-import org.opentaint.ir.impl.fs.PersistenceClassSource
-import org.opentaint.ir.impl.fs.className
-import org.opentaint.ir.impl.storage.executeQueries
-import org.opentaint.ir.impl.storage.jooq.tables.references.BUILDERS
-import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
-import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
-import org.opentaint.ir.impl.storage.runBatch
+import org.opentaint.opentaint-ir.api.ByteCodeIndexer
+import org.opentaint.opentaint-ir.api.ClassSource
+import org.opentaint.opentaint-ir.api.JIRClasspath
+import org.opentaint.opentaint-ir.api.JIRDatabase
+import org.opentaint.opentaint-ir.api.JIRDatabasePersistence
+import org.opentaint.opentaint-ir.api.JIRFeature
+import org.opentaint.opentaint-ir.api.JIRSignal
+import org.opentaint.opentaint-ir.api.RegisteredLocation
+import org.opentaint.opentaint-ir.api.ext.jvmPrimitiveNames
+import org.opentaint.opentaint-ir.impl.fs.PersistenceClassSource
+import org.opentaint.opentaint-ir.impl.fs.className
+import org.opentaint.opentaint-ir.impl.storage.executeQueries
+import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.BUILDERS
+import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.CLASSES
+import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.SYMBOLS
+import org.opentaint.opentaint-ir.impl.storage.runBatch
 
 private val MethodNode.isGetter: Boolean
     get() {
@@ -70,7 +69,6 @@ class BuildersIndexer(val persistence: JIRDatabasePersistence, private val locat
             }
         }
     }
-
 
     override fun flush(jooq: DSLContext) {
         jooq.connection { conn ->
@@ -133,7 +131,7 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
     override fun onSignal(signal: JIRSignal) {
         when (signal) {
             is JIRSignal.BeforeIndexing -> {
-                signal.jirdb.persistence.write {
+                signal.jIRdb.persistence.write {
                     if (signal.clearOnStart) {
                         it.executeQueries(dropScheme)
                     }
@@ -142,19 +140,19 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
             }
 
             is JIRSignal.LocationRemoved -> {
-                signal.jirdb.persistence.write {
+                signal.jIRdb.persistence.write {
                     it.deleteFrom(BUILDERS).where(BUILDERS.LOCATION_ID.eq(signal.location.id)).execute()
                 }
             }
 
             is JIRSignal.AfterIndexing -> {
-                signal.jirdb.persistence.write {
+                signal.jIRdb.persistence.write {
                     it.executeQueries(createIndex)
                 }
             }
 
             is JIRSignal.Drop -> {
-                signal.jirdb.persistence.write {
+                signal.jIRdb.persistence.write {
                     it.deleteFrom(BUILDERS).execute()
                 }
             }
@@ -200,7 +198,6 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
 
     }
 
-    override fun newIndexer(jirdb: JIRDatabase, location: RegisteredLocation) = BuildersIndexer(jirdb.persistence, location)
-
+    override fun newIndexer(jIRdb: JIRDatabase, location: RegisteredLocation) = BuildersIndexer(jIRdb.persistence, location)
 
 }

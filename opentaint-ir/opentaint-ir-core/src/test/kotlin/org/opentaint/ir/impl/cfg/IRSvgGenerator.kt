@@ -1,15 +1,14 @@
-
-package org.opentaint.ir.impl.cfg
+package org.opentaint.opentaint-ir.impl.cfg
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.methods
-import org.opentaint.ir.impl.JIRGraphChecker
-import org.opentaint.ir.impl.allClasspath
-import org.opentaint.ir.impl.opentaint-ir
+import org.opentaint.opentaint-ir.api.JIRClassOrInterface
+import org.opentaint.opentaint-ir.api.JIRClasspath
+import org.opentaint.opentaint-ir.api.JIRDatabase
+import org.opentaint.opentaint-ir.api.ext.findClass
+import org.opentaint.opentaint-ir.api.ext.methods
+import org.opentaint.opentaint-ir.impl.JIRGraphChecker
+import org.opentaint.opentaint-ir.impl.allClasspath
+import org.opentaint.opentaint-ir.impl.opentaint-ir
 import java.io.Closeable
 import java.io.File
 
@@ -33,7 +32,7 @@ class IRSvgGenerator(private val folder: File) : Closeable {
     }
 
     fun generate() {
-        dumpClass(cp.findClass<org.opentaint.ir.impl.cfg.IRExamples>())
+        dumpClass(cp.findClass<org.opentaint.opentaint-ir.impl.cfg.IRExamples>())
     }
 
     private fun dumpClass(klass: JIRClassOrInterface) {
@@ -47,7 +46,6 @@ class IRSvgGenerator(private val folder: File) : Closeable {
             graph.blockGraph().toFile("dot", file = File(folder, "block-graph-$fileName"))
         }
     }
-
 
     override fun close() {
         cp.close()

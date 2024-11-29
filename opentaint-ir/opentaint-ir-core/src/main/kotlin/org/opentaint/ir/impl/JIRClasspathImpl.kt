@@ -1,24 +1,23 @@
-
-package org.opentaint.ir.impl
+package org.opentaint.opentaint-ir.impl
 
 import com.google.common.cache.CacheBuilder
-import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.JIRArrayType
-import org.opentaint.ir.api.JIRByteCodeLocation
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRRefType
-import org.opentaint.ir.api.JIRType
-import org.opentaint.ir.api.PredefinedPrimitives
-import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.api.ext.toType
-import org.opentaint.ir.api.throwClassNotFound
-import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
-import org.opentaint.ir.impl.types.JIRArrayTypeImpl
-import org.opentaint.ir.impl.types.JIRClassTypeImpl
-import org.opentaint.ir.impl.types.substition.JIRSubstitutor
-import org.opentaint.ir.impl.vfs.ClasspathVfs
-import org.opentaint.ir.impl.vfs.GlobalClassesVfs
+import org.opentaint.opentaint-ir.api.ClassSource
+import org.opentaint.opentaint-ir.api.JIRArrayType
+import org.opentaint.opentaint-ir.api.JIRByteCodeLocation
+import org.opentaint.opentaint-ir.api.JIRClassOrInterface
+import org.opentaint.opentaint-ir.api.JIRClasspath
+import org.opentaint.opentaint-ir.api.JIRRefType
+import org.opentaint.opentaint-ir.api.JIRType
+import org.opentaint.opentaint-ir.api.PredefinedPrimitives
+import org.opentaint.opentaint-ir.api.RegisteredLocation
+import org.opentaint.opentaint-ir.api.ext.toType
+import org.opentaint.opentaint-ir.api.throwClassNotFound
+import org.opentaint.opentaint-ir.impl.bytecode.JIRClassOrInterfaceImpl
+import org.opentaint.opentaint-ir.impl.types.JIRArrayTypeImpl
+import org.opentaint.opentaint-ir.impl.types.JIRClassTypeImpl
+import org.opentaint.opentaint-ir.impl.types.substition.JIRSubstitutor
+import org.opentaint.opentaint-ir.impl.vfs.ClasspathVfs
+import org.opentaint.opentaint-ir.impl.vfs.GlobalClassesVfs
 import java.time.Duration
 
 class JIRClasspathImpl(
@@ -27,7 +26,7 @@ class JIRClasspathImpl(
     globalClassVFS: GlobalClassesVfs
 ) : JIRClasspath {
 
-    private class ClassHolder(val jirClass: JIRClassOrInterface?)
+    private class ClassHolder(val jIRClass: JIRClassOrInterface?)
     private class TypeHolder(val type: JIRType?)
 
     private val classCache = CacheBuilder.newBuilder()
@@ -40,7 +39,7 @@ class JIRClasspathImpl(
         .maximumSize(1_000)
         .build<String, TypeHolder>()
 
-    override val locations: List<JIRByteCodeLocation> = locationsRegistrySnapshot.locations.mapNotNull { it.jirLocation }
+    override val locations: List<JIRByteCodeLocation> = locationsRegistrySnapshot.locations.mapNotNull { it.jIRLocation }
     override val registeredLocations: List<RegisteredLocation> = locationsRegistrySnapshot.locations
 
     private val classpathVfs = ClasspathVfs(globalClassVFS, locationsRegistrySnapshot)
@@ -56,18 +55,18 @@ class JIRClasspathImpl(
     override fun findClassOrNull(name: String): JIRClassOrInterface? {
         return classCache.get(name) {
             val source = classpathVfs.firstClassOrNull(name)
-            val jirClass = source?.let { toJcClass(it.source, false) }
+            val jIRClass = source?.let { toJIRClass(it.source, false) }
                 ?: db.persistence.findClassSourceByName(this, locationsRegistrySnapshot.locations, name)?.let {
-                    toJcClass(it, false)
+                    toJIRClass(it, false)
                 }
-            ClassHolder(jirClass)
-        }.jirClass
+            ClassHolder(jIRClass)
+        }.jIRClass
     }
 
-    override fun typeOf(jirClass: JIRClassOrInterface): JIRRefType {
+    override fun typeOf(jIRClass: JIRClassOrInterface): JIRRefType {
         return JIRClassTypeImpl(
-            jirClass,
-            jirClass.outerClass?.toType() as? JIRClassTypeImpl,
+            jIRClass,
+            jIRClass.outerClass?.toType() as? JIRClassTypeImpl,
             JIRSubstitutor.empty,
             nullable = null
         )
@@ -77,11 +76,11 @@ class JIRClasspathImpl(
         return JIRArrayTypeImpl(elementType, null)
     }
 
-    override fun toJcClass(source: ClassSource, withCaching: Boolean): JIRClassOrInterface {
+    override fun toJIRClass(source: ClassSource, withCaching: Boolean): JIRClassOrInterface {
         if (withCaching) {
             return classCache.get(source.className) {
                 ClassHolder(JIRClassOrInterfaceImpl(this, source))
-            }.jirClass!!
+            }.jIRClass!!
         }
         return JIRClassOrInterfaceImpl(this, source)
     }

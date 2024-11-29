@@ -1,18 +1,17 @@
-
-package org.opentaint.ir.impl;
+package org.opentaint.opentaint-ir.impl;
 
 import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Test;
-import org.opentaint.ir.api.JIRClassOrInterface;
-import org.opentaint.ir.api.JIRClasspath;
-import org.opentaint.ir.api.JIRDatabase;
-import org.opentaint.ir.impl.features.Usages;
+import org.opentaint.opentaint-ir.api.JIRClassOrInterface;
+import org.opentaint.opentaint-ir.api.JIRClasspath;
+import org.opentaint.opentaint-ir.api.JIRDatabase;
+import org.opentaint.opentaint-ir.impl.features.Usages;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.opentaint.ir.impl.LibrariesMixinKt.getAllClasspath;
+import static org.opentaint.opentaint-ir.impl.LibrariesMixinKt.getAllClasspath;
 
 public class JavaApiTest {
 
@@ -38,7 +37,7 @@ public class JavaApiTest {
     }
 
     @Test
-    public void jirdbOperations() throws ExecutionException, InterruptedException, IOException {
+    public void jIRdbOperations() throws ExecutionException, InterruptedException, IOException {
         System.out.println("Creating database");
         try (JIRDatabase instance = Opentaint-IR.async(new JIRSettings().installFeatures(Usages.INSTANCE)).get()) {
             instance.asyncLoad(getAllClasspath()).get();

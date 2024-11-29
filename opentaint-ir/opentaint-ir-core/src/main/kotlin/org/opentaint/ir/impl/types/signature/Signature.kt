@@ -1,0 +1,56 @@
+package org.opentaint.opentaint-ir.impl.types.signature
+
+import kotlinx.metadata.KmTypeParameter
+import org.objectweb.asm.signature.SignatureReader
+import org.objectweb.asm.signature.SignatureVisitor
+import org.opentaint.opentaint-ir.api.JIRAccessible
+import org.opentaint.opentaint-ir.api.Resolution
+
+internal abstract class Signature<T : Resolution>(val owner: JIRAccessible, private val kmTypeParameters: List<KmTypeParameter>?) :
+    TypeRegistrant.RejectingSignatureVisitor(), TypeRegistrant {
+
+    protected val typeVariables = ArrayList<JvmTypeParameterDeclaration>()
+    protected var currentTypeParameter: String? = null
+    protected var currentBounds: MutableList<JvmType>? = null
+
+    override fun visitFormalTypeParameter(name: String) {
+        collectTypeParameter()
+        currentTypeParameter = name
+        currentBounds = ArrayList()
+    }
+
+    override fun visitClassBound(): SignatureVisitor {
+        return TypeExtractor(this)
+    }
+
+    override fun visitInterfaceBound(): SignatureVisitor {
+        return TypeExtractor(this)
+    }
+
+    override fun register(token: JvmType) {
+        checkNotNull(currentBounds) { "Did not expect $token before finding formal parameter" }
+        currentBounds!!.add(token)
+    }
+
+    protected fun collectTypeParameter() {
+        val current = currentTypeParameter
+        if (current != null) {
+            val toAdd = JvmTypeParameterDeclarationImpl(current, owner, currentBounds)
+            typeVariables.add(
+                kmTypeParameters?.let {
+                    toAdd.relaxWithKmTypeParameter(it[typeVariables.size])
+                } ?: toAdd
+            )
+        }
+    }
+
+    abstract fun resolve(): T
+
+    companion object {
+        fun <S : Resolution> of(genericSignature: String?, visitor: Signature<S>): S {
+            val signatureReader = SignatureReader(genericSignature)
+            signatureReader.accept(visitor)
+            return visitor.resolve()
+        }
+    }
+}

@@ -1,5 +1,4 @@
-
-package org.opentaint.ir.impl.bytecode
+package org.opentaint.opentaint-ir.impl.bytecode
 
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassWriter
@@ -7,13 +6,12 @@ import org.objectweb.asm.commons.JSRInlinerAdapter
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FrameNode
 import org.objectweb.asm.tree.MethodNode
-import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.opentaint-ir.api.JIRClasspath
 
 val ClassNode.hasFrameInfo: Boolean
     get() {
         return methods.any { mn -> mn.instructions.any { it is FrameNode } }
     }
-
 
 internal val MethodNode.jsrInlined: MethodNode
     get() {

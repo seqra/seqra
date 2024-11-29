@@ -1,11 +1,10 @@
-
-package org.opentaint.ir.impl
+package org.opentaint.opentaint-ir.impl
 
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
-import org.opentaint.ir.api.Hook
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.JIRFeature
+import org.opentaint.opentaint-ir.api.Hook
+import org.opentaint.opentaint-ir.api.JIRDatabase
+import org.opentaint.opentaint-ir.api.JIRFeature
 import java.io.File
 
 /**

@@ -1,5 +1,4 @@
-
-package org.opentaint.ir.impl
+package org.opentaint.opentaint-ir.impl
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,21 +12,21 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import org.opentaint.ir.api.JavaVersion
-import org.opentaint.ir.api.JIRByteCodeLocation
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.JIRDatabasePersistence
-import org.opentaint.ir.api.JIRFeature
-import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.impl.fs.JavaRuntime
-import org.opentaint.ir.impl.fs.asByteCodeLocation
-import org.opentaint.ir.impl.fs.filterExisted
-import org.opentaint.ir.impl.fs.lazySources
-import org.opentaint.ir.impl.fs.sources
-import org.opentaint.ir.impl.storage.PersistentLocationRegistry
-import org.opentaint.ir.impl.vfs.GlobalClassesVfs
-import org.opentaint.ir.impl.vfs.RemoveLocationsVisitor
+import org.opentaint.opentaint-ir.api.JavaVersion
+import org.opentaint.opentaint-ir.api.JIRByteCodeLocation
+import org.opentaint.opentaint-ir.api.JIRClasspath
+import org.opentaint.opentaint-ir.api.JIRDatabase
+import org.opentaint.opentaint-ir.api.JIRDatabasePersistence
+import org.opentaint.opentaint-ir.api.JIRFeature
+import org.opentaint.opentaint-ir.api.RegisteredLocation
+import org.opentaint.opentaint-ir.impl.fs.JavaRuntime
+import org.opentaint.opentaint-ir.impl.fs.asByteCodeLocation
+import org.opentaint.opentaint-ir.impl.fs.filterExisted
+import org.opentaint.opentaint-ir.impl.fs.lazySources
+import org.opentaint.opentaint-ir.impl.fs.sources
+import org.opentaint.opentaint-ir.impl.storage.PersistentLocationRegistry
+import org.opentaint.opentaint-ir.impl.vfs.GlobalClassesVfs
+import org.opentaint.opentaint-ir.impl.vfs.RemoveLocationsVisitor
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean

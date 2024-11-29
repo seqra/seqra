@@ -1,21 +1,20 @@
+package org.opentaint.opentaint-ir.impl
 
-package org.opentaint.ir.impl
-
-import org.opentaint.ir.api.ByteCodeIndexer
-import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.JIRFeature
-import org.opentaint.ir.api.JIRSignal
-import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.impl.fs.fullAsmNode
+import org.opentaint.opentaint-ir.api.ByteCodeIndexer
+import org.opentaint.opentaint-ir.api.ClassSource
+import org.opentaint.opentaint-ir.api.JIRDatabase
+import org.opentaint.opentaint-ir.api.JIRFeature
+import org.opentaint.opentaint-ir.api.JIRSignal
+import org.opentaint.opentaint-ir.api.RegisteredLocation
+import org.opentaint.opentaint-ir.impl.fs.fullAsmNode
 import java.io.Closeable
 
 class FeaturesRegistry(private val features: List<JIRFeature<*, *>>) : Closeable {
 
-    private lateinit var jirdb: JIRDatabase
+    private lateinit var jIRdb: JIRDatabase
 
-    fun bind(jirdb: JIRDatabase) {
-        this.jirdb = jirdb
+    fun bind(jIRdb: JIRDatabase) {
+        this.jIRdb = jIRdb
     }
 
     fun has(feature: JIRFeature<*, *>): Boolean {
@@ -32,19 +31,19 @@ class FeaturesRegistry(private val features: List<JIRFeature<*, *>>) : Closeable
         location: RegisteredLocation,
         classes: List<ClassSource>
     ) {
-        val indexer = newIndexer(jirdb, location)
+        val indexer = newIndexer(jIRdb, location)
         classes.forEach { index(it, indexer) }
-        jirdb.persistence.write {
+        jIRdb.persistence.write {
             indexer.flush(it)
         }
     }
 
     fun broadcast(signal: JIRInternalSignal) {
-        features.forEach { it.onSignal(signal.asJcSignal(jirdb)) }
+        features.forEach { it.onSignal(signal.asJIRSignal(jIRdb)) }
     }
 
     fun forEach(action: (JIRDatabase, JIRFeature<*, *>) -> Unit) {
-        features.forEach { action(jirdb, it) }
+        features.forEach { action(jIRdb, it) }
     }
 
     override fun close() {
@@ -63,13 +62,13 @@ sealed class JIRInternalSignal {
     object Closed : JIRInternalSignal()
     class LocationRemoved(val location: RegisteredLocation) : JIRInternalSignal()
 
-    fun asJcSignal(jirdb: JIRDatabase): JIRSignal {
+    fun asJIRSignal(jIRdb: JIRDatabase): JIRSignal {
         return when (this) {
-            is BeforeIndexing -> JIRSignal.BeforeIndexing(jirdb, clearOnStart)
-            is AfterIndexing -> JIRSignal.AfterIndexing(jirdb)
-            is LocationRemoved -> JIRSignal.LocationRemoved(jirdb, location)
-            is Drop -> JIRSignal.Drop(jirdb)
-            is Closed -> JIRSignal.Closed(jirdb)
+            is BeforeIndexing -> JIRSignal.BeforeIndexing(jIRdb, clearOnStart)
+            is AfterIndexing -> JIRSignal.AfterIndexing(jIRdb)
+            is LocationRemoved -> JIRSignal.LocationRemoved(jIRdb, location)
+            is Drop -> JIRSignal.Drop(jIRdb)
+            is Closed -> JIRSignal.Closed(jIRdb)
         }
     }
 

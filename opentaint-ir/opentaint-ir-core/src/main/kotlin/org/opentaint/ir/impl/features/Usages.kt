@@ -1,30 +1,28 @@
-
-package org.opentaint.ir.impl.features
+package org.opentaint.opentaint-ir.impl.features
 
 import org.jooq.DSLContext
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
-import org.opentaint.ir.api.ByteCodeIndexer
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.JIRDatabasePersistence
-import org.opentaint.ir.api.JIRFeature
-import org.opentaint.ir.api.JIRSignal
-import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.impl.fs.PersistenceClassSource
-import org.opentaint.ir.impl.fs.className
-import org.opentaint.ir.impl.storage.BatchedSequence
-import org.opentaint.ir.impl.storage.eqOrNull
-import org.opentaint.ir.impl.storage.executeQueries
-import org.opentaint.ir.impl.storage.jooq.tables.references.CALLS
-import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
-import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
-import org.opentaint.ir.impl.storage.longHash
-import org.opentaint.ir.impl.storage.runBatch
-import org.opentaint.ir.impl.storage.setNullableLong
-
+import org.opentaint.opentaint-ir.api.ByteCodeIndexer
+import org.opentaint.opentaint-ir.api.JIRClasspath
+import org.opentaint.opentaint-ir.api.JIRDatabase
+import org.opentaint.opentaint-ir.api.JIRDatabasePersistence
+import org.opentaint.opentaint-ir.api.JIRFeature
+import org.opentaint.opentaint-ir.api.JIRSignal
+import org.opentaint.opentaint-ir.api.RegisteredLocation
+import org.opentaint.opentaint-ir.impl.fs.PersistenceClassSource
+import org.opentaint.opentaint-ir.impl.fs.className
+import org.opentaint.opentaint-ir.impl.storage.BatchedSequence
+import org.opentaint.opentaint-ir.impl.storage.eqOrNull
+import org.opentaint.opentaint-ir.impl.storage.executeQueries
+import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.CALLS
+import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.CLASSES
+import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.SYMBOLS
+import org.opentaint.opentaint-ir.impl.storage.longHash
+import org.opentaint.opentaint-ir.impl.storage.runBatch
+import org.opentaint.opentaint-ir.impl.storage.setNullableLong
 
 private class MethodMap(size: Int) {
 
@@ -122,7 +120,6 @@ class UsagesIndexer(persistence: JIRDatabasePersistence, private val location: R
     private inline val String.symbolId get() = interner.findOrNew(this)
 }
 
-
 object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
 
     private val createScheme = """
@@ -151,7 +148,7 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
     override fun onSignal(signal: JIRSignal) {
         when (signal) {
             is JIRSignal.BeforeIndexing -> {
-                signal.jirdb.persistence.write {
+                signal.jIRdb.persistence.write {
                     if (signal.clearOnStart) {
                         it.executeQueries(dropScheme)
                     }
@@ -160,19 +157,19 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
             }
 
             is JIRSignal.LocationRemoved -> {
-                signal.jirdb.persistence.write {
+                signal.jIRdb.persistence.write {
                     it.deleteFrom(CALLS).where(CALLS.LOCATION_ID.eq(signal.location.id)).execute()
                 }
             }
 
             is JIRSignal.AfterIndexing -> {
-                signal.jirdb.persistence.write {
+                signal.jIRdb.persistence.write {
                     it.executeQueries(createIndex)
                 }
             }
 
             is JIRSignal.Drop -> {
-                signal.jirdb.persistence.write {
+                signal.jIRdb.persistence.write {
                     it.deleteFrom(CALLS).execute()
                 }
             }
@@ -193,7 +190,7 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
         val className = req.className.map { persistence.findSymbolId(it) }
 
         val calls = persistence.read { jooq ->
-            jooq.select(CLASSES.ID, CALLS.CALLER_METHOD_OFFSETS, SYMBOLS.NAME, CLASSES.LOCATION_ID)
+            jooq.select(CLASSES.ID, CALLS.CALLER_METHOD_OFFSFrontend, SYMBOLS.NAME, CLASSES.LOCATION_ID)
                 .from(CALLS)
                 .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
                 .join(CLASSES).on(CLASSES.NAME.eq(CALLS.CALLER_CLASS_SYMBOL_ID))
@@ -234,8 +231,7 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
         }
     }
 
-    override fun newIndexer(jirdb: JIRDatabase, location: RegisteredLocation) = UsagesIndexer(jirdb.persistence, location)
-
+    override fun newIndexer(jIRdb: JIRDatabase, location: RegisteredLocation) = UsagesIndexer(jIRdb.persistence, location)
 
     private fun ByteArray.toShortArray(): ShortArray {
         val byteArray = this

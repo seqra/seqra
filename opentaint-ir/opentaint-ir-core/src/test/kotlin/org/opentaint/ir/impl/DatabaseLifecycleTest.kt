@@ -1,5 +1,4 @@
-
-package org.opentaint.ir.impl
+package org.opentaint.opentaint-ir.impl
 
 import com.google.common.cache.AbstractCache
 import com.google.common.collect.Iterators
@@ -14,11 +13,11 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.findClassOrNull
-import org.opentaint.ir.impl.fs.BuildFolderLocation
-import org.opentaint.ir.impl.storage.PersistentLocationRegistry
+import org.opentaint.opentaint-ir.api.JIRClasspath
+import org.opentaint.opentaint-ir.api.ext.findClass
+import org.opentaint.opentaint-ir.api.ext.findClassOrNull
+import org.opentaint.opentaint-ir.impl.fs.BuildFolderLocation
+import org.opentaint.opentaint-ir.impl.storage.PersistentLocationRegistry
 import java.io.File
 import java.nio.file.Files
 import java.util.*
@@ -34,7 +33,6 @@ class DatabaseLifecycleTest {
 
     private val testDirClone: File get() = File(tempFolder, "test")
     private val guavaLibClone: File get() = File(tempFolder, guavaLib.name)
-
 
     @BeforeEach
     fun cloneClasspath() {
@@ -63,7 +61,7 @@ class DatabaseLifecycleTest {
             assertEquals(1, snapshots.size)
             assertEquals(
                 1,
-                actualLocations.filter { it.jirLocation?.createRefreshed() == null }.size
+                actualLocations.filter { it.jIRLocation?.createRefreshed() == null }.size
             )
         }
 
@@ -75,7 +73,7 @@ class DatabaseLifecycleTest {
         db.refresh()
         withRegistry {
             assertTrue(snapshots.isEmpty())
-            assertTrue(actualLocations.all { it.jirLocation !is BuildFolderLocation })
+            assertTrue(actualLocations.all { it.jIRLocation !is BuildFolderLocation })
         }
     }
 

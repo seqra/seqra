@@ -1,5 +1,4 @@
-
-package org.opentaint.ir.impl.storage
+package org.opentaint.opentaint-ir.impl.storage
 
 import mu.KLogging
 import org.jooq.DSLContext
@@ -8,21 +7,21 @@ import org.jooq.conf.Settings
 import org.jooq.impl.DSL
 import org.sqlite.SQLiteConfig
 import org.sqlite.SQLiteDataSource
-import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.JIRByteCodeLocation
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRDatabasePersistence
-import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.impl.FeaturesRegistry
-import org.opentaint.ir.impl.JIRInternalSignal
-import org.opentaint.ir.impl.fs.ClassSourceImpl
-import org.opentaint.ir.impl.fs.JavaRuntime
-import org.opentaint.ir.impl.fs.asByteCodeLocation
-import org.opentaint.ir.impl.fs.info
-import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
-import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
-import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
-import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
+import org.opentaint.opentaint-ir.api.ClassSource
+import org.opentaint.opentaint-ir.api.JIRByteCodeLocation
+import org.opentaint.opentaint-ir.api.JIRClasspath
+import org.opentaint.opentaint-ir.api.JIRDatabasePersistence
+import org.opentaint.opentaint-ir.api.RegisteredLocation
+import org.opentaint.opentaint-ir.impl.FeaturesRegistry
+import org.opentaint.opentaint-ir.impl.JIRInternalSignal
+import org.opentaint.opentaint-ir.impl.fs.ClassSourceImpl
+import org.opentaint.opentaint-ir.impl.fs.JavaRuntime
+import org.opentaint.opentaint-ir.impl.fs.asByteCodeLocation
+import org.opentaint.opentaint-ir.impl.fs.info
+import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
+import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.CLASSES
+import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.SYMBOLS
+import org.opentaint.opentaint-ir.impl.vfs.PersistentByteCodeLocation
 import java.io.Closeable
 import java.io.File
 import java.sql.Connection
@@ -38,7 +37,7 @@ class SQLitePersistenceImpl(
 ) : JIRDatabasePersistence, Closeable {
 
     companion object : KLogging() {
-        private const val cachesPrefix = "org.opentaint.ir.persistence.caches"
+        private const val cachesPrefix = "org.opentaint.opentaint-ir.persistence.caches"
 
         private val locationsCacheSize = Integer.getInteger("$cachesPrefix.locations", 1_000).toLong()
         private val byteCodeCacheSize = Integer.getInteger("$cachesPrefix.bytecode", 10_000).toLong()
@@ -70,15 +69,15 @@ class SQLitePersistenceImpl(
         ).joinToString("&") { "${it.first}=${it.second}" }
 
         val dataSource = SQLiteDataSource(config).also {
-            it.url = "jdbc:sqlite:file:${location ?: ("jirdb-" + UUID.randomUUID())}?$props"
+            it.url = "jdbc:sqlite:file:${location ?: ("jIRdb-" + UUID.randomUUID())}?$props"
         }
         connection = dataSource.connection
         jooq = DSL.using(connection, SQLDialect.SQLITE, Settings().withExecuteLogging(false))
         write {
             if (clearOnStart) {
-                jooq.executeQueriesFrom("jirdb-drop-schema.sql")
+                jooq.executeQueriesFrom("jIRdb-drop-schema.sql")
             }
-            jooq.executeQueriesFrom("jirdb-create-schema.sql")
+            jooq.executeQueriesFrom("jIRdb-create-schema.sql")
         }
     }
 
