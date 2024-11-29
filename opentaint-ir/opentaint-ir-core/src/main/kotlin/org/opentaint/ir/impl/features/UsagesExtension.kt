@@ -1,6 +1,8 @@
 
 package org.opentaint.ir.impl.features
 
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.future.future
 import org.objectweb.asm.Opcodes
 import org.opentaint.ir.api.FieldUsageMode
 import org.opentaint.ir.api.JIRClassOrInterface
@@ -14,6 +16,7 @@ import org.opentaint.ir.api.ext.isPackagePrivate
 import org.opentaint.ir.api.ext.isPrivate
 import org.opentaint.ir.api.ext.isStatic
 import org.opentaint.ir.api.ext.packageName
+import java.util.concurrent.Future
 
 class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, private val cp: JIRClasspath) {
 
@@ -124,6 +127,8 @@ suspend fun JIRClasspath.usagesExt(): SyncUsagesExtension {
     }
     return SyncUsagesExtension(hierarchyExt(), this)
 }
+
+fun JIRClasspath.asyncUsages(): Future<SyncUsagesExtension> = GlobalScope.future { usagesExt() }
 
 suspend fun JIRClasspath.findUsages(method: JIRMethod) = usagesExt().findUsages(method)
 suspend fun JIRClasspath.findUsages(field: JIRField, mode: FieldUsageMode) = usagesExt().findUsages(field, mode)

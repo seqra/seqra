@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import org.opentaint.ir.api.JIRDB;
 import org.opentaint.ir.api.JIRClassOrInterface;
 import org.opentaint.ir.api.JIRClasspath;
-import org.opentaint.ir.api.ext.Api;
 import org.opentaint.ir.impl.features.Usages;
 
 import java.io.IOException;
@@ -31,7 +30,6 @@ public class JavaApiTest {
         try (JIRDB instance = Opentaint-IR.async(new JIRSettings().installFeatures(Usages.INSTANCE)).get()) {
             try (JIRClasspath classpath = instance.asyncClasspath(Lists.newArrayList()).get()) {
                 JIRClassOrInterface clazz = classpath.findClassOrNull("java.lang.String");
-                Api.isInterface(clazz);
                 assertNotNull(clazz);
                 assertNotNull(classpath.asyncRefreshed(false).get());
             }
