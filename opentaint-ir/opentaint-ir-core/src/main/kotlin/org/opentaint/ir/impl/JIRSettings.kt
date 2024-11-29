@@ -1,5 +1,5 @@
 
-package org.opentaint.ir
+package org.opentaint.ir.impl
 
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList

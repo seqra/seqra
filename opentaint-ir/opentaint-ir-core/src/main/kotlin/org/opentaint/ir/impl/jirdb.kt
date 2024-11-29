@@ -1,12 +1,10 @@
 
 @file:JvmName("Opentaint-IR")
-package org.opentaint.ir
+package org.opentaint.ir.impl
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
 import org.opentaint.ir.api.JIRDB
-import org.opentaint.ir.impl.FeaturesRegistry
-import org.opentaint.ir.impl.JIRDBImpl
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.storage.SQLitePersistenceImpl
 

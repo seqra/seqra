@@ -1,4 +1,4 @@
-rootProject.name = "jirdb"
+rootProject.name = "opentaint-ir"
 
 plugins {
     id("org.danilopianini.gradle-pre-commit-git-hooks") version "1.0.25"
@@ -14,5 +14,5 @@ gitHooks {
 
 include("opentaint-ir-api")
 include("opentaint-ir-core")
-include("jirdb-testing")
-include("jirdb-http")
+include("opentaint-ir-testing")
+include("opentaint-ir-http")

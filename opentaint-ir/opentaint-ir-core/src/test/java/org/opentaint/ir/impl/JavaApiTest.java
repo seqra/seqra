@@ -1,5 +1,5 @@
 
-package org.opentaint.ir;
+package org.opentaint.ir.impl;
 
 import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Test;
