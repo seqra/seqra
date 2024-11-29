@@ -11,7 +11,7 @@ import java.io.File
 /**
  * Settings for database
  */
-class JIRDBSettings {
+class JIRSettings {
 
     /** watch file system changes delay */
     var watchFileSystemDelay: Int? = null

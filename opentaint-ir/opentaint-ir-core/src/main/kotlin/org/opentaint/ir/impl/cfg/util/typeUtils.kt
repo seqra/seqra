@@ -3,8 +3,8 @@ package org.opentaint.ir.impl.cfg.util
 
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.TypeName
-import org.opentaint.ir.api.jirdbName
-import org.opentaint.ir.api.jvmName
+import org.opentaint.ir.api.ext.jirdbName
+import org.opentaint.ir.api.ext.jvmName
 import org.opentaint.ir.impl.types.TypeNameImpl
 
 internal val NULL = "null".typeName()

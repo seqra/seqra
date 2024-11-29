@@ -8,12 +8,12 @@ import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRField
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.HierarchyExtension
-import org.opentaint.ir.api.findFieldOrNull
-import org.opentaint.ir.api.findMethodOrNull
-import org.opentaint.ir.api.isPackagePrivate
-import org.opentaint.ir.api.isPrivate
-import org.opentaint.ir.api.isStatic
-import org.opentaint.ir.api.packageName
+import org.opentaint.ir.api.ext.findFieldOrNull
+import org.opentaint.ir.api.ext.findMethodOrNull
+import org.opentaint.ir.api.ext.isPackagePrivate
+import org.opentaint.ir.api.ext.isPrivate
+import org.opentaint.ir.api.ext.isStatic
+import org.opentaint.ir.api.ext.packageName
 
 class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, private val cp: JIRClasspath) {
 

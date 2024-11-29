@@ -8,7 +8,7 @@ import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRField
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.findMethodOrNull
+import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.fs.LazyClassSourceImpl
 import org.opentaint.ir.impl.fs.fullAsmNodeWithFrames

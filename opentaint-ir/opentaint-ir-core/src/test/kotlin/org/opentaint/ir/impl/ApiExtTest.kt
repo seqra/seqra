@@ -8,12 +8,12 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRType
-import org.opentaint.ir.api.autoboxIfNeeded
+import org.opentaint.ir.api.ext.autoboxIfNeeded
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findTypeOrNull
-import org.opentaint.ir.api.isSubtypeOf
+import org.opentaint.ir.api.ext.isSubtypeOf
+import org.opentaint.ir.api.ext.unboxIfNeeded
 import org.opentaint.ir.api.short
-import org.opentaint.ir.api.unboxIfNeeded
 import org.opentaint.ir.impl.hierarchies.Creature
 import org.opentaint.ir.impl.hierarchies.Creature.Animal
 import org.opentaint.ir.impl.hierarchies.Creature.Bird

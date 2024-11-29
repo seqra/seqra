@@ -19,7 +19,7 @@ import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findClassOrNull
 import org.opentaint.ir.impl.fs.BuildFolderLocation
 import org.opentaint.ir.impl.storage.PersistentLocationRegistry
-import org.opentaint.ir.jirdb
+import org.opentaint.ir.opentaint-ir
 import java.io.File
 import java.nio.file.Files
 import java.util.*
@@ -27,7 +27,7 @@ import java.util.*
 class DatabaseLifecycleTest {
 
     private var db = runBlocking {
-        jirdb {
+        opentaint-ir {
             useProcessJavaRuntime()
         } as JIRDBImpl
     }

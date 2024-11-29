@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRTypeVariable
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.isConstructor
+import org.opentaint.ir.api.ext.isConstructor
 import org.opentaint.ir.impl.types.Generics.LinkedImpl
 import org.opentaint.ir.impl.types.Generics.SingleImpl
 

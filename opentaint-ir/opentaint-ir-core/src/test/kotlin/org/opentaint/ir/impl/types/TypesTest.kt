@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.JIRArrayType
 import org.opentaint.ir.api.JIRPrimitiveType
-import org.opentaint.ir.api.isConstructor
+import org.opentaint.ir.api.ext.isConstructor
 
 class TypesTest : BaseTypesTest() {
 

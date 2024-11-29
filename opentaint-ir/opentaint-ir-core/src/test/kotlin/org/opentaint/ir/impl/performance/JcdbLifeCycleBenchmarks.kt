@@ -17,7 +17,7 @@ import org.openjdk.jmh.annotations.Warmup
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.impl.allJars
 import org.opentaint.ir.impl.features.Usages
-import org.opentaint.ir.jirdb
+import org.opentaint.ir.opentaint-ir
 import java.util.concurrent.TimeUnit
 
 @State(Scope.Benchmark)
@@ -33,7 +33,7 @@ class JirdbLifeCycleBenchmarks {
     @Setup(Level.Iteration)
     fun setup() {
         db = runBlocking {
-            jirdb {
+            opentaint-ir {
                 installFeatures(Usages)
                 useProcessJavaRuntime()
             }

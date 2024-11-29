@@ -17,7 +17,7 @@ import kotlinx.serialization.encoding.encodeStructure
 import kotlinx.serialization.serializer
 import org.objectweb.asm.Type
 import org.opentaint.ir.api.TypeName
-import org.opentaint.ir.api.jirdbName
+import org.opentaint.ir.api.ext.jirdbName
 import org.opentaint.ir.impl.storage.AnnotationValueKind
 
 @Serializable

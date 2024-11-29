@@ -13,8 +13,8 @@ import org.opentaint.ir.api.JIRTypedMethodParameter
 import org.opentaint.ir.api.MethodResolution
 import org.opentaint.ir.api.PredefinedPrimitive
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.isNullable
-import org.opentaint.ir.api.isStatic
+import org.opentaint.ir.api.ext.isNullable
+import org.opentaint.ir.api.ext.isStatic
 import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
 import org.opentaint.ir.impl.types.signature.FieldSignature

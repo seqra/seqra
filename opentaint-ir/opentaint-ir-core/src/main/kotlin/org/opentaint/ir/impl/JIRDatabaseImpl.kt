@@ -13,7 +13,7 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import org.opentaint.ir.JIRDBSettings
+import org.opentaint.ir.JIRSettings
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRDBPersistence
 import org.opentaint.ir.api.JavaVersion
@@ -38,7 +38,7 @@ class JIRDBImpl(
     internal val javaRuntime: JavaRuntime,
     override val persistence: JIRDBPersistence,
     val featureRegistry: FeaturesRegistry,
-    private val settings: JIRDBSettings
+    private val settings: JIRSettings
 ) : JIRDB {
 
     private val classesVfs = GlobalClassesVfs()

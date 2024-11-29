@@ -14,10 +14,10 @@ import org.openjdk.jmh.annotations.Setup
 import org.openjdk.jmh.annotations.State
 import org.openjdk.jmh.annotations.TearDown
 import org.openjdk.jmh.annotations.Warmup
-import org.opentaint.ir.JIRDBSettings
+import org.opentaint.ir.JIRSettings
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.impl.allClasspath
-import org.opentaint.ir.jirdb
+import org.opentaint.ir.opentaint-ir
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -25,12 +25,12 @@ abstract class JirdbAbstractAwaitBackgroundBenchmarks {
 
     private lateinit var db: JIRDB
 
-    abstract fun JIRDBSettings.configure()
+    abstract fun JIRSettings.configure()
 
     @Setup(Level.Iteration)
     fun setup() {
         db = runBlocking {
-            jirdb {
+            opentaint-ir {
                 useProcessJavaRuntime()
                 configure()
             }
@@ -59,7 +59,7 @@ abstract class JirdbAbstractAwaitBackgroundBenchmarks {
 @Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.MILLISECONDS)
 class JirdbJvmBackgroundBenchmarks : JirdbAbstractAwaitBackgroundBenchmarks() {
 
-    override fun JIRDBSettings.configure() {
+    override fun JIRSettings.configure() {
     }
 
 }
@@ -72,7 +72,7 @@ class JirdbJvmBackgroundBenchmarks : JirdbAbstractAwaitBackgroundBenchmarks() {
 @Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.MILLISECONDS)
 class JirdbAllClasspathBackgroundBenchmarks : JirdbAbstractAwaitBackgroundBenchmarks() {
 
-    override fun JIRDBSettings.configure() {
+    override fun JIRSettings.configure() {
         loadByteCode(allClasspath)
     }
 
@@ -86,7 +86,7 @@ class JirdbAllClasspathBackgroundBenchmarks : JirdbAbstractAwaitBackgroundBenchm
 @Measurement(iterations = 2, time = 1, timeUnit = TimeUnit.MILLISECONDS)
 class JirdbIdeaBackgroundBenchmarks : JirdbAbstractAwaitBackgroundBenchmarks() {
 
-    override fun JIRDBSettings.configure() {
+    override fun JIRSettings.configure() {
         loadByteCode(allIdeaJars)
         persistent(File.createTempFile("jirdb-", "-db").absolutePath)
     }

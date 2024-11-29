@@ -6,10 +6,10 @@ import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.methods
+import org.opentaint.ir.api.ext.methods
 import org.opentaint.ir.impl.JIRGraphChecker
 import org.opentaint.ir.impl.allClasspath
-import org.opentaint.ir.jirdb
+import org.opentaint.ir.opentaint-ir
 import java.io.Closeable
 import java.io.File
 
@@ -25,7 +25,7 @@ class IRSvgGenerator(private val folder: File) : Closeable {
             folder.list()?.forEach { File(folder, it).delete() }
         }
         db = runBlocking {
-            jirdb {
+            opentaint-ir {
                 loadByteCode(allClasspath)
             }
         }

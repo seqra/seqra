@@ -3,7 +3,7 @@ package org.opentaint.ir.api.cfg
 
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.PredefinedPrimitives
-import org.opentaint.ir.api.autoboxIfNeeded
+import org.opentaint.ir.api.ext.autoboxIfNeeded
 import org.opentaint.ir.api.ext.findTypeOrNull
 import org.opentaint.ir.impl.cfg.JIRBlockGraphImpl
 import org.opentaint.ir.impl.cfg.JIRGraphImpl

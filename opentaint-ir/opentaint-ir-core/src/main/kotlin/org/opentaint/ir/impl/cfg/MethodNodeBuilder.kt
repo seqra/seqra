@@ -100,8 +100,8 @@ import org.opentaint.ir.api.cfg.JIRRawUshrExpr
 import org.opentaint.ir.api.cfg.JIRRawValue
 import org.opentaint.ir.api.cfg.JIRRawVirtualCallExpr
 import org.opentaint.ir.api.cfg.JIRRawXorExpr
-import org.opentaint.ir.api.isStatic
-import org.opentaint.ir.api.jvmName
+import org.opentaint.ir.api.ext.isStatic
+import org.opentaint.ir.api.ext.jvmName
 import org.opentaint.ir.impl.cfg.util.baseElementType
 import org.opentaint.ir.impl.cfg.util.internalDesc
 import org.opentaint.ir.impl.cfg.util.isDWord

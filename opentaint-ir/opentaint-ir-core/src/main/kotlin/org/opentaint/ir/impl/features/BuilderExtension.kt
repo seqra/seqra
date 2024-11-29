@@ -9,7 +9,7 @@ import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.ext.HierarchyExtension
-import org.opentaint.ir.api.toType
+import org.opentaint.ir.api.ext.toType
 
 
 class BuildersExtension(private val classpath: JIRClasspath, private val hierarchyExtension: HierarchyExtension) {

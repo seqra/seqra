@@ -9,7 +9,7 @@ import org.junit.jupiter.api.extension.ExtensionContext
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRFeature
-import org.opentaint.ir.jirdb
+import org.opentaint.ir.opentaint-ir
 import java.nio.file.Files
 import kotlin.reflect.full.companionObjectInstance
 
@@ -46,7 +46,7 @@ open class WithDB(vararg features: JIRFeature<*, *>) {
     protected var allFeatures = features.toList().toTypedArray()
 
     open var db = runBlocking {
-        jirdb {
+        opentaint-ir {
 //            persistent("D:\\work\\jirdb\\jirdb-index.db")
             loadByteCode(allClasspath)
             useProcessJavaRuntime()
@@ -75,7 +75,7 @@ open class WithRestoredDB(vararg features: JIRFeature<*, *>) : WithDB(*features)
     private fun newDB(before: () -> Unit = {}): JIRDB {
         before()
         return runBlocking {
-            jirdb {
+            opentaint-ir {
                 persistent(jdbcLocation)
                 loadByteCode(allClasspath)
                 useProcessJavaRuntime()

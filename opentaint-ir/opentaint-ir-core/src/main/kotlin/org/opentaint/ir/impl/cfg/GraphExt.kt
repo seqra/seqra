@@ -76,7 +76,7 @@ import org.opentaint.ir.api.cfg.JIRUshrExpr
 import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
 import org.opentaint.ir.api.cfg.JIRXorExpr
 import org.opentaint.ir.api.ext.findTypeOrNull
-import org.opentaint.ir.api.toType
+import org.opentaint.ir.api.ext.toType
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path

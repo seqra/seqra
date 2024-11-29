@@ -6,12 +6,12 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRTypedMethod
-import org.opentaint.ir.api.constructors
+import org.opentaint.ir.api.ext.constructors
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.isConstructor
-import org.opentaint.ir.api.isSynthetic
-import org.opentaint.ir.api.methods
-import org.opentaint.ir.api.toType
+import org.opentaint.ir.api.ext.isConstructor
+import org.opentaint.ir.api.ext.isSynthetic
+import org.opentaint.ir.api.ext.methods
+import org.opentaint.ir.api.ext.toType
 import org.opentaint.ir.impl.hierarchies.Overrides
 import java.io.Closeable
 

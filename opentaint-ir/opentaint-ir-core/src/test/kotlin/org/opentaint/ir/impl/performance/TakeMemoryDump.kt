@@ -10,12 +10,12 @@ import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.FIELDS
 import org.opentaint.ir.impl.storage.jooq.tables.references.METHODPARAMETERS
 import org.opentaint.ir.impl.storage.jooq.tables.references.METHODS
-import org.opentaint.ir.jirdb
+import org.opentaint.ir.opentaint-ir
 
 fun main() {
     var start = System.currentTimeMillis()
     runBlocking {
-        val db = jirdb {
+        val db = opentaint-ir {
             loadByteCode(allClasspath)
             persistent("D:\\work\\jirdb\\jirdb.db")
             installFeatures(Usages, Builders, InMemoryHierarchy)

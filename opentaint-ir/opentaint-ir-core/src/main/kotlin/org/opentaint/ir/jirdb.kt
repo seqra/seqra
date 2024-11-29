@@ -1,4 +1,5 @@
 
+@file:JvmName("Opentaint-IR")
 package org.opentaint.ir
 
 import kotlinx.coroutines.GlobalScope
@@ -9,11 +10,11 @@ import org.opentaint.ir.impl.JIRDBImpl
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.storage.SQLitePersistenceImpl
 
-suspend fun jirdb(builder: JIRDBSettings.() -> Unit): JIRDB {
-    return jirdb(JIRDBSettings().also(builder))
+suspend fun opentaint-ir(builder: JIRSettings.() -> Unit): JIRDB {
+    return opentaint-ir(JIRSettings().also(builder))
 }
 
-suspend fun jirdb(settings: JIRDBSettings): JIRDB {
+suspend fun opentaint-ir(settings: JIRSettings): JIRDB {
     val featureRegistry = FeaturesRegistry(settings.features)
     val javaRuntime = JavaRuntime(settings.jre)
     val environment = SQLitePersistenceImpl(
@@ -34,4 +35,4 @@ suspend fun jirdb(settings: JIRDBSettings): JIRDB {
 }
 
 /** bridge for Java */
-fun asyncJirdb(settings: JIRDBSettings) = GlobalScope.future { jirdb(settings) }
+fun async(settings: JIRSettings) = GlobalScope.future { opentaint-ir(settings) }

@@ -4,7 +4,7 @@ package org.opentaint.ir.impl.types
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.opentaint.ir.api.isSynthetic
+import org.opentaint.ir.api.ext.isSynthetic
 import org.opentaint.ir.impl.types.Comparables.ComparableTest1
 import org.opentaint.ir.impl.types.Comparables.ComparableTest2
 import org.opentaint.ir.impl.types.Comparables.ComparableTest3

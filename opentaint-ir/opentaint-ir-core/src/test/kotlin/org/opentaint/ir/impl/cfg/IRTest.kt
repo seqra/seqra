@@ -38,10 +38,10 @@ import org.opentaint.ir.api.cfg.JIRThrowInst
 import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.isAnnotation
-import org.opentaint.ir.api.methods
-import org.opentaint.ir.api.packageName
-import org.opentaint.ir.api.toType
+import org.opentaint.ir.api.ext.isAnnotation
+import org.opentaint.ir.api.ext.methods
+import org.opentaint.ir.api.ext.packageName
+import org.opentaint.ir.api.ext.toType
 import org.opentaint.ir.impl.bytecode.JIRDBClassWriter
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.bytecode.JIRMethodImpl

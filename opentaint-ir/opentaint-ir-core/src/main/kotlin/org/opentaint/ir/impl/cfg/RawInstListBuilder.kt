@@ -94,7 +94,7 @@ import org.opentaint.ir.api.cfg.JIRRawUshrExpr
 import org.opentaint.ir.api.cfg.JIRRawValue
 import org.opentaint.ir.api.cfg.JIRRawVirtualCallExpr
 import org.opentaint.ir.api.cfg.JIRRawXorExpr
-import org.opentaint.ir.api.isStatic
+import org.opentaint.ir.api.ext.isStatic
 import org.opentaint.ir.impl.cfg.util.CLASS_CLASS
 import org.opentaint.ir.impl.cfg.util.ExprMapper
 import org.opentaint.ir.impl.cfg.util.METHOD_HANDLE_CLASS

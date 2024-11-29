@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.opentaint.ir.api.JIRDB;
 import org.opentaint.ir.api.JIRClassOrInterface;
 import org.opentaint.ir.api.JIRClasspath;
+import org.opentaint.ir.api.ext.Api;
 import org.opentaint.ir.impl.features.Usages;
 
 import java.io.IOException;
@@ -19,7 +20,7 @@ public class JavaApiTest {
     @Test
     public void createJirdb() throws ExecutionException, InterruptedException, IOException {
         System.out.println("Creating database");
-        try (JIRDB instance = JirdbKt.asyncJirdb(new JIRDBSettings().installFeatures(Usages.INSTANCE)).get()) {
+        try (JIRDB instance = Opentaint-IR.async(new JIRSettings().installFeatures(Usages.INSTANCE)).get()) {
             System.out.println("Database is ready: " + instance);
         }
     }
@@ -27,9 +28,10 @@ public class JavaApiTest {
     @Test
     public void createClasspath() throws ExecutionException, InterruptedException, IOException {
         System.out.println("Creating database");
-        try (JIRDB instance = JirdbKt.asyncJirdb(new JIRDBSettings().installFeatures(Usages.INSTANCE)).get()) {
+        try (JIRDB instance = Opentaint-IR.async(new JIRSettings().installFeatures(Usages.INSTANCE)).get()) {
             try (JIRClasspath classpath = instance.asyncClasspath(Lists.newArrayList()).get()) {
                 JIRClassOrInterface clazz = classpath.findClassOrNull("java.lang.String");
+                Api.isInterface(clazz);
                 assertNotNull(clazz);
                 assertNotNull(classpath.asyncRefreshed(false).get());
             }
@@ -40,7 +42,7 @@ public class JavaApiTest {
     @Test
     public void jirdbOperations() throws ExecutionException, InterruptedException, IOException {
         System.out.println("Creating database");
-        try (JIRDB instance = JirdbKt.asyncJirdb(new JIRDBSettings().installFeatures(Usages.INSTANCE)).get()) {
+        try (JIRDB instance = Opentaint-IR.async(new JIRSettings().installFeatures(Usages.INSTANCE)).get()) {
             instance.asyncLoad(getAllClasspath()).get();
             System.out.println("asyncLoad finished");
             instance.asyncRefresh().get();

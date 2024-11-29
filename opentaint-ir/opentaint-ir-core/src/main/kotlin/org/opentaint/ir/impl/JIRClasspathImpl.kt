@@ -11,8 +11,8 @@ import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.api.ext.toType
 import org.opentaint.ir.api.throwClassNotFound
-import org.opentaint.ir.api.toType
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.types.JIRArrayTypeImpl
 import org.opentaint.ir.impl.types.JIRClassTypeImpl

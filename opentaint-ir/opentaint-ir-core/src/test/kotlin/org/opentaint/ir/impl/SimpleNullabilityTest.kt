@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.ext.findTypeOrNull
-import org.opentaint.ir.api.isNullable
+import org.opentaint.ir.api.ext.isNullable
 
 class SimpleNullabilityTest:  BaseTest() {
 

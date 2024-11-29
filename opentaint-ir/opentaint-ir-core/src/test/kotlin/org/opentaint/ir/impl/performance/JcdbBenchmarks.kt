@@ -18,7 +18,7 @@ import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.impl.allClasspath
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.guavaLib
-import org.opentaint.ir.jirdb
+import org.opentaint.ir.opentaint-ir
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -36,7 +36,7 @@ class JirdbBenchmarks  {
     @Benchmark
     fun jvmRuntime() {
         db = runBlocking {
-            jirdb {
+            opentaint-ir {
                 useProcessJavaRuntime()
             }
         }
@@ -45,7 +45,7 @@ class JirdbBenchmarks  {
     @Benchmark
     fun jvmRuntimeWithUsages() {
         db = runBlocking {
-            jirdb {
+            opentaint-ir {
                 useProcessJavaRuntime()
                 installFeatures(Usages)
             }
@@ -55,7 +55,7 @@ class JirdbBenchmarks  {
     @Benchmark
     fun jvmRuntimeWithAllClasspath() {
         db = runBlocking {
-            jirdb {
+            opentaint-ir {
                 useProcessJavaRuntime()
                 loadByteCode(allClasspath)
             }
@@ -65,7 +65,7 @@ class JirdbBenchmarks  {
     @Benchmark
     fun jvmRuntimeWithAllClasspathWithUsages() {
         db = runBlocking {
-            jirdb {
+            opentaint-ir {
                 useProcessJavaRuntime()
                 loadByteCode(allClasspath)
                 installFeatures(Usages)
@@ -76,7 +76,7 @@ class JirdbBenchmarks  {
     @Benchmark
     fun jvmRuntimeWithGuava() {
         db = runBlocking {
-            jirdb {
+            opentaint-ir {
                 useProcessJavaRuntime()
                 loadByteCode(listOf(guavaLib))
             }
@@ -86,7 +86,7 @@ class JirdbBenchmarks  {
     @Benchmark
     fun jvmRuntimeWithGuavaWithUsages() {
         db = runBlocking {
-            jirdb {
+            opentaint-ir {
                 useProcessJavaRuntime()
                 loadByteCode(listOf(guavaLib))
                 installFeatures(Usages)
@@ -97,7 +97,7 @@ class JirdbBenchmarks  {
     @Benchmark
     fun jvmRuntimeWithIdeaCommunity() {
         db = runBlocking {
-            jirdb {
+            opentaint-ir {
                 useProcessJavaRuntime()
                 persistent(File.createTempFile("jirdb-", "-db").absolutePath)
                 loadByteCode(allIdeaJars)
@@ -108,7 +108,7 @@ class JirdbBenchmarks  {
     @Benchmark
     fun jvmRuntimeIdeaCommunityWithUsages() {
         db = runBlocking {
-            jirdb {
+            opentaint-ir {
                 useProcessJavaRuntime()
                 loadByteCode(allIdeaJars)
                 persistent(File.createTempFile("jirdb-", "-db").absolutePath)

@@ -16,7 +16,7 @@ import org.openjdk.jmh.annotations.TearDown
 import org.openjdk.jmh.annotations.Warmup
 import org.opentaint.ir.api.JIRDB
 import org.opentaint.ir.impl.allClasspath
-import org.opentaint.ir.jirdb
+import org.opentaint.ir.opentaint-ir
 import java.nio.file.Files
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -54,7 +54,7 @@ class RestoreJirdbBenchmark {
 
     private fun newDB(): JIRDB {
         return runBlocking {
-            jirdb {
+            opentaint-ir {
                 persistent(jdbcLocation)
                 loadByteCode(allClasspath)
                 useProcessJavaRuntime()

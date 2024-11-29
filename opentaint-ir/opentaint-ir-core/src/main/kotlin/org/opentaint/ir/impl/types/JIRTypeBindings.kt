@@ -7,7 +7,7 @@ import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.JIRTypeVariableDeclaration
 import org.opentaint.ir.api.PredefinedPrimitives
-import org.opentaint.ir.api.anyType
+import org.opentaint.ir.api.ext.anyType
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.impl.types.signature.JvmArrayType
 import org.opentaint.ir.impl.types.signature.JvmBoundWildcard

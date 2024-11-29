@@ -3,7 +3,7 @@ package org.opentaint.ir.impl.bytecode
 
 import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.enumValues
+import org.opentaint.ir.api.ext.enumValues
 import org.opentaint.ir.impl.types.AnnotationInfo
 import org.opentaint.ir.impl.types.AnnotationValue
 import org.opentaint.ir.impl.types.AnnotationValueList

@@ -7,7 +7,6 @@ import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.TypeName
-import org.opentaint.ir.api.anyType
 import org.opentaint.ir.api.boolean
 import org.opentaint.ir.api.byte
 import org.opentaint.ir.api.cfg.BsmHandle
@@ -144,12 +143,13 @@ import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
 import org.opentaint.ir.api.cfg.JIRXorExpr
 import org.opentaint.ir.api.char
 import org.opentaint.ir.api.double
+import org.opentaint.ir.api.ext.anyType
 import org.opentaint.ir.api.ext.findTypeOrNull
+import org.opentaint.ir.api.ext.toType
 import org.opentaint.ir.api.float
 import org.opentaint.ir.api.int
 import org.opentaint.ir.api.long
 import org.opentaint.ir.api.short
-import org.opentaint.ir.api.toType
 
 class JIRGraphBuilder(
     val classpath: JIRClasspath,

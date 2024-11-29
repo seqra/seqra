@@ -6,7 +6,7 @@ import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.JIRTypedField
 import org.opentaint.ir.api.PredefinedPrimitive
-import org.opentaint.ir.api.isNullable
+import org.opentaint.ir.api.ext.isNullable
 import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
 import org.opentaint.ir.impl.types.signature.FieldSignature
