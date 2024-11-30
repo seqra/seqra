@@ -21,6 +21,7 @@ val String.longHash: Long
 fun <ELEMENT, RECORD : Record> Connection.insertElements(
     table: Table<RECORD>,
     elements: Iterable<ELEMENT>,
+    autoIncrementId: Boolean = false,
     map: PreparedStatement.(ELEMENT) -> Unit
 ) {
     if (!elements.iterator().hasNext()) {
@@ -28,8 +29,11 @@ fun <ELEMENT, RECORD : Record> Connection.insertElements(
     }
     autoCommit = false
     val fields = table.fields()
-    val query =
-        "INSERT INTO ${table.name}(${fields.joinToString { "\"" + it.name + "\"" }}) VALUES (${fields.joinToString { "?" }})"
+    val values = when {
+        autoIncrementId -> "DEFAULT, " + fields.drop(1).joinToString { "?" }
+        else -> fields.joinToString { "?" }
+    }
+    val query ="INSERT INTO \"${table.name}\"(${fields.joinToString { "\"" + it.name + "\"" }}) VALUES ($values)"
     prepareStatement(query, Statement.NO_GENERATED_KEYS).use { stmt ->
         elements.forEach {
             stmt.map(it)
@@ -45,7 +49,7 @@ fun <RECORD : Record> Connection.runBatch(table: Table<RECORD>, batchedAction: P
     autoCommit = false
     val fields = table.fields()
     val query =
-        "INSERT INTO ${table.name}(${fields.joinToString { "\"" + it.name + "\"" }}) VALUES (${fields.joinToString { "?" }})"
+        "INSERT INTO \"${table.name}\"(${fields.joinToString { "\"" + it.name + "\"" }}) VALUES (${fields.joinToString { "?" }})"
     prepareStatement(query, Statement.NO_GENERATED_KEYS).use { stmt ->
         stmt.batchedAction()
         stmt.executeBatch()

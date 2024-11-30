@@ -16,7 +16,7 @@ fun main() {
     runBlocking {
         val db = opentaint-ir {
             loadByteCode(allClasspath)
-            persistent("D:\\work\\jIRdb\\jIRdb.db")
+            persistent("D:\\work\\opentaint-ir\\jIRdb-inspection.db")
             installFeatures(Usages, Builders, InMemoryHierarchy)
         }.also {
             println("AWAITING db took ${System.currentTimeMillis() - start}ms")
