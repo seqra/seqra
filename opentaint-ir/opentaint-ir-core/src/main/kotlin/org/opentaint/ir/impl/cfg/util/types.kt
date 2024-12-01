@@ -28,9 +28,9 @@ internal val TypeName.jvmClassName get() = jvmTypeName.removePrefix("L").removeS
 
 val TypeName.internalDesc: String
     get() = when {
-        this.isPrimitive -> this.jvmTypeName
-        this.isArray -> {
-            val element = this.elementType()
+        isPrimitive -> jvmTypeName
+        isArray -> {
+            val element = elementType()
             when {
                 element.isClass -> "[${element.jvmTypeName}"
                 else -> "[${element.internalDesc}"
@@ -41,7 +41,7 @@ val TypeName.internalDesc: String
 
 val TypeName.isPrimitive get() = PredefinedPrimitives.matches(typeName)
 val TypeName.isArray get() = typeName.endsWith("[]")
-val TypeName.isClass get() = !this.isPrimitive && !this.isArray
+val TypeName.isClass get() = !isPrimitive && !isArray
 
 internal val TypeName.isDWord
     get() = when (typeName) {

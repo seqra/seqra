@@ -9,7 +9,7 @@ import org.opentaint.opentaint-ir.api.cfg.JIRInst
 import org.opentaint.opentaint-ir.api.cfg.JIRInstRef
 import org.opentaint.opentaint-ir.api.cfg.JIRInstVisitor
 import org.opentaint.opentaint-ir.api.cfg.JIRTerminatingInst
-import org.opentaint.opentaint-ir.api.ext.isSubtypeOf
+import org.opentaint.opentaint-ir.api.ext.isSubClassOf
 
 class JIRGraphImpl(
     override val classpath: JIRClasspath,
@@ -24,7 +24,7 @@ class JIRGraphImpl(
     private val throwSuccessors = mutableMapOf<JIRInst, MutableSet<JIRCatchInst>>()
     private val _throwExits = mutableMapOf<JIRClassType, MutableSet<JIRInstRef>>()
 
-    override val entry: JIRInst get() = instructions.single { predecessors(it).isEmpty() && throwers(it).isEmpty() }
+    override val entry: JIRInst get() = instructions.first()
     override val exits: List<JIRInst> get() = instructions.filterIsInstance<JIRTerminatingInst>()
 
     /**
@@ -57,7 +57,7 @@ class JIRGraphImpl(
 
         for (inst in instructions) {
             for (throwableType in inst.accept(JIRExceptionResolver(classpath))) {
-                if (!catchers(inst).any { throwableType.jIRClass isSubtypeOf (it.throwable.type as JIRClassType).jIRClass }) {
+                if (!catchers(inst).any { throwableType.jIRClass isSubClassOf (it.throwable.type as JIRClassType).jIRClass }) {
                     _throwExits.getOrPut(throwableType, ::mutableSetOf) += ref(inst)
                 }
             }

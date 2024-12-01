@@ -433,7 +433,9 @@ class RawInstListBuilder(
 
     private fun instructionList(insn: AbstractInsnNode) = instructions.getOrPut(insn, ::mutableListOf)
 
-    private fun nextRegister(typeName: TypeName): JIRRawValue = JIRRawLocal("%${localCounter++}", typeName)
+    private fun nextRegister(typeName: TypeName): JIRRawValue {
+        return JIRRawLocal("%${localCounter++}", typeName)
+    }
     private fun nextLabel(): JIRRawLabelInst = JIRRawLabelInst("#${labelCounter++}")
 
     private fun buildGraph() {
@@ -833,7 +835,7 @@ class RawInstListBuilder(
             }
 
             // complex case --- we have a multiple predecessor frames and some of them may be unknown
-            else -> this.mapNotNull { (variable, type) ->
+            else -> mapNotNull { (variable, type) ->
                 val options = predFrames.values.map { it?.get(variable) }.toSet()
                 val value = when {
                     type == TOP -> null

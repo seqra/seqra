@@ -187,12 +187,16 @@ open class JIRClassTypeImpl(
             return directSet
         }
         val result = directSet.toSortedSet<JIRTypedField>(UnsafeHierarchyTypedFieldComparator)
+        val superTypesToCheck = (listOf(superType) + interfaces).mapNotNull { it as? JIRClassTypeImpl }
+
         result.addAll(
-            (superType as? JIRClassTypeImpl)?.typedFields(
-                false,
-                fromSuperTypes = true,
-                classPackageName
-            ).orEmpty()
+            superTypesToCheck.flatMap {
+                it.typedFields(
+                    false,
+                    fromSuperTypes = true,
+                    classPackageName
+                )
+            }
         )
         return result.toList()
     }

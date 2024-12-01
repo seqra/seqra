@@ -1,4 +1,4 @@
-package org.opentaint.opentaint-ir.impl
+package org.opentaint.opentaint-ir.impl.cfg
 
 import com.google.gson.internal.JavaVersion
 import kotlinx.coroutines.runBlocking
@@ -37,23 +37,25 @@ import org.opentaint.opentaint-ir.api.cfg.JIRThrowInst
 import org.opentaint.opentaint-ir.api.cfg.JIRVirtualCallExpr
 import org.opentaint.opentaint-ir.api.ext.HierarchyExtension
 import org.opentaint.opentaint-ir.api.ext.findClass
+import org.opentaint.opentaint-ir.api.ext.isAbstract
 import org.opentaint.opentaint-ir.api.ext.isAnnotation
+import org.opentaint.opentaint-ir.api.ext.isInterface
 import org.opentaint.opentaint-ir.api.ext.methods
 import org.opentaint.opentaint-ir.api.ext.packageName
 import org.opentaint.opentaint-ir.api.ext.toType
+import org.opentaint.opentaint-ir.impl.BaseTest
+import org.opentaint.opentaint-ir.impl.JIRClasspathImpl
+import org.opentaint.opentaint-ir.impl.JIRDatabaseImpl
+import org.opentaint.opentaint-ir.impl.WithDB
+import org.opentaint.opentaint-ir.impl.allClasspath
 import org.opentaint.opentaint-ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.opentaint-ir.impl.bytecode.JIRDatabaseClassWriter
 import org.opentaint.opentaint-ir.impl.bytecode.JIRMethodImpl
-import org.opentaint.opentaint-ir.impl.cfg.JIRBlockGraphImpl
-import org.opentaint.opentaint-ir.impl.cfg.JIRGraphBuilder
-import org.opentaint.opentaint-ir.impl.cfg.MethodNodeBuilder
-import org.opentaint.opentaint-ir.impl.cfg.RawInstListBuilder
-import org.opentaint.opentaint-ir.impl.cfg.Simplifier
-import org.opentaint.opentaint-ir.impl.cfg.applyAndGet
 import org.opentaint.opentaint-ir.impl.cfg.util.ExprMapper
 import org.opentaint.opentaint-ir.impl.features.InMemoryHierarchy
 import org.opentaint.opentaint-ir.impl.features.hierarchyExt
 import org.opentaint.opentaint-ir.impl.fs.JarLocation
+import org.opentaint.opentaint-ir.impl.guavaLib
 import java.io.File
 import java.net.URLClassLoader
 import java.nio.file.Files
@@ -100,9 +102,20 @@ class OverridesResolver(
 
 }
 
-class JIRGraphChecker(val jIRGraph: JIRGraph) : JIRInstVisitor<Unit> {
+class JIRGraphChecker(val method: JIRMethod, val jIRGraph: JIRGraph) : JIRInstVisitor<Unit> {
     fun check() {
-        assertDoesNotThrow { jIRGraph.entry }
+        try {
+            jIRGraph.entry
+        } catch (e: Exception) {
+            println(
+                "Fail on method ${method.enclosingClass.simpleName}#${method.name}(${
+                    method.parameters.joinToString(
+                        ","
+                    ) { it.type.typeName }
+                })"
+            )
+            throw e
+        }
         assertTrue(jIRGraph.exits.all { it is JIRTerminatingInst })
 
         jIRGraph.forEach { it.accept(this) }
@@ -264,18 +277,18 @@ class IRTest : BaseTest() {
 
     @Test
     fun `get ir of simple method`() {
-        testClass(cp.findClass<org.opentaint.opentaint-ir.impl.cfg.IRExamples>())
+        testClass(cp.findClass<IRExamples>())
     }
 
     @Test
     fun `get ir of algorithms lesson 1`() {
-        testClass(cp.findClass<org.opentaint.opentaint-ir.impl.cfg.JavaTasks>())
+        testClass(cp.findClass<JavaTasks>())
     }
 
     @Test
     fun `get ir of binary search tree`() {
-        testClass(cp.findClass<org.opentaint.opentaint-ir.impl.cfg.BinarySearchTree<*>>())
-        testClass(cp.findClass<org.opentaint.opentaint-ir.impl.cfg.BinarySearchTree<*>.BinarySearchTreeIterator>())
+        testClass(cp.findClass<BinarySearchTree<*>>())
+        testClass(cp.findClass<BinarySearchTree<*>.BinarySearchTreeIterator>())
     }
 
     @Test
@@ -291,14 +304,14 @@ class IRTest : BaseTest() {
         testClass(cp.findClass<JIRBlockGraphImpl>())
     }
 
-    //    @Test
+    @Test
     fun `get ir of jackson`() {
-        allClasspath.filter { it.name.contains("jackson") }.forEach {
-            runAlongLib(it)
-        }
+        allClasspath
+            .filter { it.name.contains("jackson") }
+            .forEach { runAlongLib(it) }
     }
 
-    //    @Test
+    @Test
     fun `get ir of guava`() {
         runAlongLib(guavaLib)
     }
@@ -313,7 +326,7 @@ class IRTest : BaseTest() {
         assertNotNull(classes)
         classes!!.forEach {
             val clazz = cp.findClass(it.key)
-            if (!clazz.isAnnotation) {
+            if (!clazz.isAnnotation && !clazz.isInterface) {
                 println("Testing class: ${it.key}")
                 testClass(clazz)
             }
@@ -323,21 +336,25 @@ class IRTest : BaseTest() {
     private fun testClass(klass: JIRClassOrInterface) = try {
         val classNode = klass.bytecode()
         classNode.methods = klass.methods.filter { it.enclosingClass == klass }.map {
+            if (it.isAbstract) {
+                it.body()
+            } else {
 //            val oldBody = it.body()
 //            println()
 //            println("Old body: ${oldBody.print()}")
-            val instructionList = it.instructionList()
+                val instructionList = it.instructionList()
 //            println("Instruction list: $instructionList")
-            val graph = instructionList.graph(it)
-            graph.applyAndGet(OverridesResolver(ext)) {}
-            JIRGraphChecker(graph).check()
+                val graph = instructionList.graph(it)
+                graph.applyAndGet(OverridesResolver(ext)) {}
+                JIRGraphChecker(it, graph).check()
 //            println("Graph: $graph")
 //            graph.view("/usr/bin/dot", "/usr/bin/firefox", false)
 //            graph.blockGraph().view("/usr/bin/dot", "/usr/bin/firefox")
-            val newBody = MethodNodeBuilder(it, instructionList).build()
+                val newBody = MethodNodeBuilder(it, instructionList).build()
 //            println("New body: ${newBody.print()}")
 //            println()
-            newBody
+                newBody
+            }
         }
         val cw = JIRDatabaseClassWriter(cp, ClassWriter.COMPUTE_FRAMES)
         val checker = CheckClassAdapter(classNode)

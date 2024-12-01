@@ -6,7 +6,6 @@ import org.opentaint.opentaint-ir.api.JIRClasspath
 import org.opentaint.opentaint-ir.api.JIRDatabase
 import org.opentaint.opentaint-ir.api.ext.findClass
 import org.opentaint.opentaint-ir.api.ext.methods
-import org.opentaint.opentaint-ir.impl.JIRGraphChecker
 import org.opentaint.opentaint-ir.impl.allClasspath
 import org.opentaint.opentaint-ir.impl.opentaint-ir
 import java.io.Closeable
@@ -41,7 +40,7 @@ class IRSvgGenerator(private val folder: File) : Closeable {
             val fixedName = it.name.replace(Regex("[^A-Za-z0-9]"), "")
             val fileName = "${it.enclosingClass.simpleName}-$fixedName-$index.svg"
             val graph = instructionList.graph(it)
-            JIRGraphChecker(graph).check()
+            JIRGraphChecker(it, graph).check()
             graph.toFile("dot", false, file = File(folder, "graph-$fileName"))
             graph.blockGraph().toFile("dot", file = File(folder, "block-graph-$fileName"))
         }

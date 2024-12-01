@@ -13,11 +13,9 @@ import org.opentaint.opentaint-ir.api.cfg.JIRRawNullConstant
 import org.opentaint.opentaint-ir.api.cfg.JIRRawSimpleValue
 import org.opentaint.opentaint-ir.api.cfg.JIRRawValue
 import org.opentaint.opentaint-ir.api.cfg.ext.applyAndGet
-import org.opentaint.opentaint-ir.api.ext.findCommonSupertype
 import org.opentaint.opentaint-ir.impl.cfg.util.ExprMapper
 import org.opentaint.opentaint-ir.impl.cfg.util.FullExprSetCollector
 import org.opentaint.opentaint-ir.impl.cfg.util.InstructionFilter
-import org.opentaint.opentaint-ir.impl.cfg.util.typeName
 
 /**
  * a class that simplifies the instruction list after construction
@@ -215,9 +213,7 @@ internal class Simplifier {
         }
         val replacement = types.filterValues { it.size > 1 }
             .mapValues {
-                val supertype = jIRClasspath.findCommonSupertype(it.value)
-                    ?: error("Could not find common supertype of ${it.value.joinToString { it.typeName }}")
-                JIRRawLocal(it.key.name, supertype.typeName.typeName())
+                JIRRawLocal(it.key.name, it.key.typeName)
             }
         return instList.map(ExprMapper(replacement.toMap()))
     }

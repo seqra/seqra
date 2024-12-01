@@ -17,10 +17,8 @@ class JIRBlockGraphImpl(
     private val throwersMap = mutableMapOf<JIRBasicBlock, MutableSet<JIRBasicBlock>>()
 
     override val basicBlocks: List<JIRBasicBlock> get() = _basicBlocks
-    override val entry: JIRBasicBlock
-        get() = basicBlocks.single {
-            predecessors(it).isEmpty() && jIRGraph.throwers(it.start).isEmpty()
-        }
+    override val entry: JIRBasicBlock get() = basicBlocks.first()
+
     override val exits: List<JIRBasicBlock> get() = basicBlocks.filter { successors(it).isEmpty() }
 
     init {

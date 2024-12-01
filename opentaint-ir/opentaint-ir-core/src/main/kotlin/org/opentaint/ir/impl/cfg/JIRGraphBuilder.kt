@@ -226,9 +226,12 @@ class JIRGraphBuilder(
             var current = instList.indexOf(labels.getValue(inst.startInclusive))
             val end = instList.indexOf(labels.getValue(inst.endExclusive))
             while (current != end) {
-                val jIRInst = convertRawInst(instList[current])
-                jIRInst?.let {
-                    result += JIRInstRef(inst2Index[instList[current]]!!)
+                val rawInst = instList[current]
+                if (rawInst != inst) {
+                    val jIRInst = convertRawInst(rawInst)
+                    jIRInst?.let {
+                        result += JIRInstRef(inst2Index[rawInst]!!)
+                    }
                 }
                 ++current
             }
@@ -354,7 +357,8 @@ class JIRGraphBuilder(
             jIRMethod.name == name &&
                     jIRMethod.returnType.typeName == returnType.typeName &&
                     jIRMethod.parameters.map { param -> param.type.typeName } == argTypes.map { it.typeName }
-        } ?: error("Could not find a method with correct signature")
+        }
+            ?: error("Could not find a method with correct signature")
     }
 
     private val JIRRawCallExpr.typedMethod: JIRTypedMethod
@@ -465,13 +469,13 @@ class JIRGraphBuilder(
     override fun visitJIRRawDouble(value: JIRRawDouble): JIRExpr = JIRDouble(value.value, classpath.double)
 
     override fun visitJIRRawNullConstant(value: JIRRawNullConstant): JIRExpr =
-        JIRNullConstant(classpath.findTypeOrNull<Any>() ?: error("could not find type Any"))
+        JIRNullConstant(classpath.anyType())
 
     override fun visitJIRRawStringConstant(value: JIRRawStringConstant): JIRExpr =
         JIRStringConstant(value.value, value.typeName.asType)
 
     override fun visitJIRRawClassConstant(value: JIRRawClassConstant): JIRExpr =
-        JIRClassConstant(value.className.asType as JIRClassType, value.typeName.asType)
+        JIRClassConstant(value.className.asType, value.typeName.asType)
 
     override fun visitJIRRawMethodConstant(value: JIRRawMethodConstant): JIRExpr {
         val klass = value.declaringClass.asType as JIRClassType
