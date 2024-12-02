@@ -15,6 +15,7 @@ import org.opentaint.opentaint-ir.impl.RegistrationResult
 import org.opentaint.opentaint-ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
 import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
 import org.opentaint.opentaint-ir.impl.vfs.PersistentByteCodeLocation
+import java.sql.Types
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
@@ -99,6 +100,7 @@ class PersistentLocationRegistry(private val jIRdb: JIRDatabase, private val fea
                     setString(3, location.fsId)
                     setBoolean(4, location.type == LocationType.RUNTIME)
                     setInt(5, LocationState.INITIAL.ordinal)
+                    setNull(6, Types.BIGINT)
                 }
             }
             val added = records.map {

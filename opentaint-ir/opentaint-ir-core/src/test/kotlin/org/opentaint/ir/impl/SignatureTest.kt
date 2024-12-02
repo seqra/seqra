@@ -21,6 +21,7 @@ import org.opentaint.opentaint-ir.impl.types.signature.MethodSignature
 import org.opentaint.opentaint-ir.impl.types.signature.TypeResolutionImpl
 import org.opentaint.opentaint-ir.impl.types.signature.TypeSignature
 import org.opentaint.opentaint-ir.impl.types.typeParameters
+import org.opentaint.opentaint-ir.impl.usages.Generics
 
 class SignatureTest: BaseTest() {
 
@@ -28,7 +29,7 @@ class SignatureTest: BaseTest() {
 
     @Test
     fun `get signature of class`() = runBlocking {
-        val a = cp.findClass<org.opentaint.opentaint-ir.impl.usages.Generics<*>>()
+        val a = cp.findClass<Generics<*>>()
 
         val classSignature = a.resolution
 
@@ -40,7 +41,7 @@ class SignatureTest: BaseTest() {
 
     @Test
     fun `get signature of methods`() = runBlocking {
-        val a = cp.findClass<org.opentaint.opentaint-ir.impl.usages.Generics<*>>()
+        val a = cp.findClass<Generics<*>>()
 
         val methodSignatures = a.declaredMethods.map { it.name to it.resolution }
         assertEquals(3, methodSignatures.size)
@@ -57,7 +58,7 @@ class SignatureTest: BaseTest() {
             assertEquals(1, signature.parameterTypes.size)
             with(signature.parameterTypes.first()) {
                 this as JvmParameterizedType
-                assertEquals(org.opentaint.opentaint-ir.impl.usages.Generics::class.java.name, this.name)
+                assertEquals(Generics::class.java.name, this.name)
                 assertEquals(1, parameterTypes.size)
                 with(parameterTypes.first()) {
                     this as JvmTypeVariable
@@ -67,7 +68,7 @@ class SignatureTest: BaseTest() {
             assertEquals(1, signature.parameterTypes.size)
             val parameterizedType = signature.parameterTypes.first() as JvmParameterizedType
             assertEquals(1, parameterizedType.parameterTypes.size)
-            assertEquals(org.opentaint.opentaint-ir.impl.usages.Generics::class.java.name, parameterizedType.name)
+            assertEquals(Generics::class.java.name, parameterizedType.name)
             val typeVariable = parameterizedType.parameterTypes.first() as JvmTypeVariable
             assertEquals("T", typeVariable.symbol)
         }
@@ -95,15 +96,15 @@ class SignatureTest: BaseTest() {
             assertEquals(1, signature.parameterTypes.size)
             val parameterizedType = signature.parameterTypes.first() as JvmParameterizedType
             assertEquals(1, parameterizedType.parameterTypes.size)
-            assertEquals(org.opentaint.opentaint-ir.impl.usages.Generics::class.java.name, parameterizedType.name)
-            val STypeVariable = parameterizedType.parameterTypes.first() as JvmTypeVariable
-            assertEquals("T", STypeVariable.symbol)
+            assertEquals(Generics::class.java.name, parameterizedType.name)
+            val variable = parameterizedType.parameterTypes.first() as JvmTypeVariable
+            assertEquals("T", variable.symbol)
         }
     }
 
     @Test
     fun `get signature of fields`() = runBlocking {
-        val a = cp.findClass<org.opentaint.opentaint-ir.impl.usages.Generics<*>>()
+        val a = cp.findClass<Generics<*>>()
 
         val fieldSignatures = a.declaredFields.map { it.name to it.resolution }
 

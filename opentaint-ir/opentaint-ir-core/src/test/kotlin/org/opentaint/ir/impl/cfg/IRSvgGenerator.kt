@@ -31,7 +31,7 @@ class IRSvgGenerator(private val folder: File) : Closeable {
     }
 
     fun generate() {
-        dumpClass(cp.findClass<org.opentaint.opentaint-ir.impl.cfg.IRExamples>())
+        dumpClass(cp.findClass<IRExamples>())
     }
 
     private fun dumpClass(klass: JIRClassOrInterface) {

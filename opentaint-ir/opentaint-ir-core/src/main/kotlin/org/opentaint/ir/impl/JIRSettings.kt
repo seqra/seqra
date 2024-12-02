@@ -4,7 +4,11 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import org.opentaint.opentaint-ir.api.Hook
 import org.opentaint.opentaint-ir.api.JIRDatabase
+import org.opentaint.opentaint-ir.api.JIRDatabasePersistence
 import org.opentaint.opentaint-ir.api.JIRFeature
+import org.opentaint.opentaint-ir.impl.fs.JavaRuntime
+import org.opentaint.opentaint-ir.impl.storage.PostgresPersistenceImpl
+import org.opentaint.opentaint-ir.impl.storage.SQLitePersistenceImpl
 import java.io.File
 
 /**
@@ -17,6 +21,9 @@ class JIRSettings {
         private set
 
     /** persisted  */
+    var persistentType: JIRPersistenceType? = null
+        private set
+
     var persistentLocation: String? = null
         private set
 
@@ -45,9 +52,10 @@ class JIRSettings {
      * @param location - file for db location
      * @param clearOnStart -if true old data from this folder will be dropped
      */
-    fun persistent(location: String, clearOnStart: Boolean = false) = apply {
+    fun persistent(location: String, clearOnStart: Boolean = false, type: JIRPersistenceType = PredefinedPersistenceType.SQLITE) = apply {
         persistentLocation = location
         persistentClearOnStart = clearOnStart
+        persistentType = type
     }
 
     fun loadByteCode(files: List<File>) = apply {
@@ -104,4 +112,45 @@ class JIRSettings {
         }
         return file
     }
+}
+
+interface JIRPersistenceType {
+
+    fun newPersistence(
+        runtime: JavaRuntime,
+        featuresRegistry: FeaturesRegistry,
+        settings: JIRSettings
+    ): JIRDatabasePersistence
+}
+
+enum class PredefinedPersistenceType : JIRPersistenceType {
+    SQLITE {
+        override fun newPersistence(
+            runtime: JavaRuntime,
+            featuresRegistry: FeaturesRegistry,
+            settings: JIRSettings
+        ): JIRDatabasePersistence {
+            return SQLitePersistenceImpl(
+                javaRuntime = runtime,
+                featuresRegistry = featuresRegistry,
+                location = settings.persistentLocation,
+                clearOnStart = settings.persistentClearOnStart ?: false
+            )
+        }
+    },
+    POSTGRES {
+        override fun newPersistence(
+            runtime: JavaRuntime,
+            featuresRegistry: FeaturesRegistry,
+            settings: JIRSettings
+        ): JIRDatabasePersistence {
+            return PostgresPersistenceImpl(
+                javaRuntime = runtime,
+                featuresRegistry = featuresRegistry,
+                jIRdbUrl = settings.persistentLocation,
+                clearOnStart = settings.persistentClearOnStart ?: false
+            )
+        }
+    };
+
 }

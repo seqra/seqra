@@ -112,8 +112,8 @@ class UsagesIndexer(persistence: JIRDatabasePersistence, private val location: R
                         }
                     }
                 }
+                interner.flush(conn)
             }
-            interner.flush(conn)
         }
     }
 
@@ -122,54 +122,32 @@ class UsagesIndexer(persistence: JIRDatabasePersistence, private val location: R
 
 object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
 
-    private val createScheme = """
-        CREATE TABLE IF NOT EXISTS "Calls"(
-            "callee_class_symbol_id"      BIGINT NOT NULL,
-            "callee_name_symbol_id"       BIGINT NOT NULL,
-            "callee_desc_hash"            BIGINT,
-            "opcode"                      INTEGER,
-            "caller_class_symbol_id"      BIGINT NOT NULL,
-            "caller_method_offsets"       BLOB,
-            "location_id"                 BIGINT NOT NULL,
-            CONSTRAINT "fk_callee_class_symbol_id" FOREIGN KEY ("callee_class_symbol_id") REFERENCES "Symbols" ("id") ON DELETE CASCADE,
-            CONSTRAINT "fk_location_id" FOREIGN KEY ("location_id") REFERENCES "BytecodeLocations" ("id") ON DELETE CASCADE ON UPDATE RESTRICT
-        );
-    """.trimIndent()
-
-    private val createIndex = """
-        CREATE INDEX IF NOT EXISTS 'Calls search' ON Calls(opcode, location_id, callee_class_symbol_id, callee_name_symbol_id, callee_desc_hash)
-    """.trimIndent()
-
-    private val dropScheme = """
-        DROP TABLE IF EXISTS "Calls";
-        DROP INDEX IF EXISTS "Calls search";
-    """.trimIndent()
-
     override fun onSignal(signal: JIRSignal) {
+        val jIRdb = signal.jIRdb
         when (signal) {
             is JIRSignal.BeforeIndexing -> {
-                signal.jIRdb.persistence.write {
+                jIRdb.persistence.write {
                     if (signal.clearOnStart) {
-                        it.executeQueries(dropScheme)
+                        it.executeQueries(jIRdb.persistence.getScript("usages/drop-schema.sql"))
                     }
-                    it.executeQueries(createScheme)
+                    it.executeQueries(jIRdb.persistence.getScript("usages/create-schema.sql"))
                 }
             }
 
             is JIRSignal.LocationRemoved -> {
-                signal.jIRdb.persistence.write {
+                jIRdb.persistence.write {
                     it.deleteFrom(CALLS).where(CALLS.LOCATION_ID.eq(signal.location.id)).execute()
                 }
             }
 
             is JIRSignal.AfterIndexing -> {
-                signal.jIRdb.persistence.write {
-                    it.executeQueries(createIndex)
+                jIRdb.persistence.write {
+                    it.executeQueries(jIRdb.persistence.getScript("usages/add-indexes.sql"))
                 }
             }
 
             is JIRSignal.Drop -> {
-                signal.jIRdb.persistence.write {
+                jIRdb.persistence.write {
                     it.deleteFrom(CALLS).execute()
                 }
             }

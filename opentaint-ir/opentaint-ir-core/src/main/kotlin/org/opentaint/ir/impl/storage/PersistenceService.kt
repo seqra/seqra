@@ -32,7 +32,7 @@ import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.set
 
-class PersistenceService(private val persistence: SQLitePersistenceImpl) {
+class PersistenceService(private val persistence: AbstractJIRDatabasePersistenceImpl) {
 
     private val symbolsCache = ConcurrentHashMap<String, Long>()
     private val classIdGen = AtomicLong()
@@ -174,21 +174,19 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
                 conn.insertElements(
                     CLASSINNERCLASSES,
                     classRefCollector.innerClasses,
-//                    autoIncrementId = true
+                    autoIncrementId = true
                 ) { (classId, innerClass) ->
-                    setNull(1, Types.BIGINT)
-                    setLong(2, classId)
-                    setLong(3, innerClass.findCachedSymbol())
+                    setLong(1, classId)
+                    setLong(2, innerClass.findCachedSymbol())
                 }
                 conn.insertElements(
                     CLASSHIERARCHIES,
                     classRefCollector.superClasses,
-//                    autoIncrementId = true
+                    autoIncrementId = true
                 ) { superClass ->
-                    setNull(1, Types.BIGINT)
-                    setLong(2, superClass.first)
-                    setLong(3, superClass.second.findCachedSymbol())
-                    setBoolean(4, superClass.third)
+                    setLong(1, superClass.first)
+                    setLong(2, superClass.second.findCachedSymbol())
+                    setBoolean(3, superClass.third)
                 }
 
                 conn.insertElements(FIELDS, fieldCollector.fields) { (classId, fieldId, fieldInfo) ->
@@ -219,7 +217,7 @@ class PersistenceService(private val persistence: SQLitePersistenceImpl) {
                     setNullableLong(4, value.refAnnotationId)
                     if (value.primitiveValueType != null) {
                         setInt(5, value.primitiveValueType.ordinal)
-                        setString(6, value.primitiveValue)
+                        setString(6, value.primitiveValue?.replace("\u0000", ""))
                     } else {
                         setNull(5, Types.INTEGER)
                         setNull(6, Types.VARCHAR)
