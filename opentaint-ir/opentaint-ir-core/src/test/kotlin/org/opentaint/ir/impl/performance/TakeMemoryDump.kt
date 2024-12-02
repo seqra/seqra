@@ -3,7 +3,6 @@ package org.opentaint.opentaint-ir.impl.performance
 import kotlinx.coroutines.runBlocking
 import org.opentaint.opentaint-ir.impl.PredefinedPersistenceType
 import org.opentaint.opentaint-ir.impl.allClasspath
-import org.opentaint.opentaint-ir.impl.features.Builders
 import org.opentaint.opentaint-ir.impl.features.InMemoryHierarchy
 import org.opentaint.opentaint-ir.impl.features.Usages
 import org.opentaint.opentaint-ir.impl.opentaint-ir
@@ -17,11 +16,15 @@ fun main() {
     runBlocking {
         val db = opentaint-ir {
             loadByteCode(allClasspath)
-            persistent("jdbc:postgresql://localhost:5432/opentaint-ir?user=postgres&password=root",
+            persistent("d:\\work\\opentaint-ir\\opentaint-ir-inspection.db",
                 clearOnStart = true,
-                PredefinedPersistenceType.POSTGRES
+                PredefinedPersistenceType.SQLITE
             )
-            installFeatures(InMemoryHierarchy, Usages, Builders)
+//            persistent("jdbc:postgresql://localhost:5432/opentaint-ir?user=postgres&password=root",
+//                clearOnStart = true,
+//                PredefinedPersistenceType.POSTGRES
+//            )
+            installFeatures(InMemoryHierarchy, Usages)
         }.also {
             println("AWAITING db took ${System.currentTimeMillis() - start}ms")
             start = System.currentTimeMillis()

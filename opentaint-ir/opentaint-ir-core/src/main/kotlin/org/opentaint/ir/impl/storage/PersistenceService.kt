@@ -97,7 +97,7 @@ class PersistenceService(private val persistence: AbstractJIRDatabasePersistence
         }
         val namesToAdd = arrayListOf<Pair<Long, String>>()
         persistence.write { jooq ->
-            jooq.connection { conn ->
+            jooq.withoutAutoCommit { conn ->
                 names.forEach {
                     symbolsCache.computeIfAbsent(it) {
                         val id = symbolsIdGen.incrementAndGet()
@@ -476,12 +476,9 @@ class JIRDBSymbolsInternerImpl(
     }
 
     override fun flush(conn: Connection) {
-        conn.runBatch(SYMBOLS) {
-            newElements.forEach { (value, id) ->
-                setLong(1, id)
-                setString(2, value)
-                addBatch()
-            }
+        conn.insertElements(SYMBOLS, newElements.entries) { (value, id) ->
+            setLong(1, id)
+            setString(2, value)
         }
     }
 }

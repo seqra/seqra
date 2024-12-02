@@ -18,6 +18,7 @@ import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.SYMBOLS
 import org.opentaint.opentaint-ir.impl.vfs.PersistentByteCodeLocation
 import java.io.Closeable
 import java.io.File
+import java.util.concurrent.locks.ReentrantLock
 
 abstract class AbstractJIRDatabasePersistenceImpl(
     private val javaRuntime: JavaRuntime,
@@ -39,6 +40,8 @@ abstract class AbstractJIRDatabasePersistenceImpl(
     private val locationsCache = cacheOf<Long, RegisteredLocation>(locationsCacheSize)
     private val byteCodeCache = cacheOf<Long, ByteArray>(byteCodeCacheSize)
     private val symbolsCache = cacheOf<Long, String>(symbolsCacheSize)
+
+    private val lock = ReentrantLock()
 
     override val locations: List<JIRByteCodeLocation>
         get() {
@@ -67,8 +70,8 @@ abstract class AbstractJIRDatabasePersistenceImpl(
         }
     }
 
-    override fun <T> write(action: (DSLContext) -> T): T {
-        return action(jooq)
+    override fun <T> write(action: (DSLContext) -> T): T  = synchronized(this) {
+        action(jooq)
     }
 
     override fun <T> read(action: (DSLContext) -> T): T {

@@ -23,6 +23,7 @@ import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.SYMBOLS
 import org.opentaint.opentaint-ir.impl.storage.longHash
 import org.opentaint.opentaint-ir.impl.storage.runBatch
 import org.opentaint.opentaint-ir.impl.storage.setNullableLong
+import org.opentaint.opentaint-ir.impl.storage.withoutAutoCommit
 
 private class MethodMap(size: Int) {
 
@@ -93,7 +94,7 @@ class UsagesIndexer(persistence: JIRDatabasePersistence, private val location: R
     }
 
     override fun flush(jooq: DSLContext) {
-        jooq.connection { conn ->
+        jooq.withoutAutoCommit { conn ->
             conn.runBatch(CALLS) {
                 usages.forEach { (calleeClass, calleeEntry) ->
                     val calleeId = calleeClass.className.symbolId
@@ -112,8 +113,8 @@ class UsagesIndexer(persistence: JIRDatabasePersistence, private val location: R
                         }
                     }
                 }
-                interner.flush(conn)
             }
+            interner.flush(conn)
         }
     }
 

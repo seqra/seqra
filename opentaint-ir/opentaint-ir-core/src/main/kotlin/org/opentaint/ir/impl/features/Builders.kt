@@ -21,6 +21,7 @@ import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.BUILDERS
 import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.SYMBOLS
 import org.opentaint.opentaint-ir.impl.storage.runBatch
+import org.opentaint.opentaint-ir.impl.storage.withoutAutoCommit
 
 private val MethodNode.isGetter: Boolean
     get() {
@@ -71,7 +72,7 @@ class BuildersIndexer(val persistence: JIRDatabasePersistence, private val locat
     }
 
     override fun flush(jooq: DSLContext) {
-        jooq.connection { conn ->
+        jooq.withoutAutoCommit { conn ->
             conn.runBatch(BUILDERS) {
                 potentialBuilders.forEach { (calleeClass, builders) ->
                     val calleeId = calleeClass.className.symbolId

@@ -18,6 +18,20 @@ val String.longHash: Long
         return Hashing.sipHash24().hashBytes(toByteArray()).asLong()
     }
 
+inline fun DSLContext.withoutAutoCommit(crossinline action: (Connection) -> Unit) {
+    connection {
+        val ac = it.autoCommit
+        it.autoCommit = false
+        try {
+            action(it)
+        } catch (e: Exception) {
+            it.rollback()
+        } finally {
+            it.autoCommit = ac
+        }
+    }
+}
+
 fun <ELEMENT, RECORD : Record> Connection.insertElements(
     table: Table<RECORD>,
     elements: Iterable<ELEMENT>,
