@@ -26,6 +26,7 @@ inline fun DSLContext.withoutAutoCommit(crossinline action: (Connection) -> Unit
             action(it)
         } catch (e: Exception) {
             it.rollback()
+            throw e
         } finally {
             it.autoCommit = ac
         }
@@ -36,6 +37,7 @@ fun <ELEMENT, RECORD : Record> Connection.insertElements(
     table: Table<RECORD>,
     elements: Iterable<ELEMENT>,
     autoIncrementId: Boolean = false,
+    onConflict: String = "",
     map: PreparedStatement.(ELEMENT) -> Unit
 ) {
     if (!elements.iterator().hasNext()) {
@@ -48,7 +50,7 @@ fun <ELEMENT, RECORD : Record> Connection.insertElements(
 
     val values = fields.joinToString { "?" }
 
-    val query = "INSERT INTO \"${table.name}\"(${fields.joinToString { "\"" + it.name + "\"" }}) VALUES ($values)"
+    val query = "INSERT INTO \"${table.name}\"(${fields.joinToString { "\"" + it.name + "\"" }}) VALUES ($values) $onConflict"
     prepareStatement(query, Statement.NO_GENERATED_KEYS).use { stmt ->
         elements.forEach {
             stmt.map(it)
@@ -92,14 +94,6 @@ fun PreparedStatement.setNullableLong(index: Int, value: Long?) {
         setNull(index, Types.BIGINT)
     } else {
         setLong(index, value)
-    }
-}
-
-fun PreparedStatement.setNullableString(index: Int, value: String?) {
-    if (value == null) {
-        setNull(index, Types.VARCHAR)
-    } else {
-        setString(index, value)
     }
 }
 

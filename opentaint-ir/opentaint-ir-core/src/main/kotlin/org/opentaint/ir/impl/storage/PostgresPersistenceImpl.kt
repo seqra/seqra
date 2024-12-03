@@ -20,8 +20,7 @@ class PostgresPersistenceImpl(
 
     init {
         dataSource = HikariDataSource().also {
-            it.maximumPoolSize = 80
-            it.transactionIsolation = "TRANSACTION_READ_COMMITTED"
+            it.maximumPoolSize = 20
             it.jdbcUrl = jIRdbUrl
         }
         jooq = DSL.using(dataSource, SQLDialect.POSTGRES, Settings().withExecuteLogging(false))
@@ -37,11 +36,13 @@ class PostgresPersistenceImpl(
         dataSource.close()
     }
 
+    override fun <T> write(action: (DSLContext) -> T): T {
+        return action(jooq)
+    }
+
     override fun createIndexes() {
-        write {
-            jooq.executeQueriesFrom("postgres/create-constraint-function.sql", asSingle = true)
-            jooq.executeQueriesFrom("postgres/add-indexes.sql")
-        }
+        jooq.executeQueriesFrom("postgres/create-constraint-function.sql", asSingle = true)
+        jooq.executeQueriesFrom("postgres/add-indexes.sql")
     }
 
     override fun getScript(name: String): String {

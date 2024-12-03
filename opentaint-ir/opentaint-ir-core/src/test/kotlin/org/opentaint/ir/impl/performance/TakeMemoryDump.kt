@@ -6,6 +6,7 @@ import org.opentaint.opentaint-ir.impl.allClasspath
 import org.opentaint.opentaint-ir.impl.features.InMemoryHierarchy
 import org.opentaint.opentaint-ir.impl.features.Usages
 import org.opentaint.opentaint-ir.impl.opentaint-ir
+import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.CALLS
 import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.FIELDS
 import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.METHODPARAMETERS
@@ -20,7 +21,7 @@ fun main() {
                 clearOnStart = true,
                 PredefinedPersistenceType.SQLITE
             )
-//            persistent("jdbc:postgresql://localhost:5432/opentaint-ir?user=postgres&password=root",
+//            persistent("jdbc:postgresql://localhost:5432/opentaint-ir?user=postgres&password=root&reWriteBatchedInserts=false",
 //                clearOnStart = true,
 //                PredefinedPersistenceType.POSTGRES
 //            )
@@ -36,6 +37,7 @@ fun main() {
             println("Processed fields " + it.fetchCount(FIELDS))
             println("Processed methods " + it.fetchCount(METHODS))
             println("Processed method params "+ it.fetchCount(METHODPARAMETERS))
+            println("Processed usages "+ it.fetchCount(CALLS))
         }
 
 //        val name = ManagementFactory.getRuntimeMXBean().name

@@ -18,7 +18,6 @@ import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.SYMBOLS
 import org.opentaint.opentaint-ir.impl.vfs.PersistentByteCodeLocation
 import java.io.Closeable
 import java.io.File
-import java.util.concurrent.locks.ReentrantLock
 
 abstract class AbstractJIRDatabasePersistenceImpl(
     private val javaRuntime: JavaRuntime,
@@ -41,8 +40,6 @@ abstract class AbstractJIRDatabasePersistenceImpl(
     private val byteCodeCache = cacheOf<Long, ByteArray>(byteCodeCacheSize)
     private val symbolsCache = cacheOf<Long, String>(symbolsCacheSize)
 
-    private val lock = ReentrantLock()
-
     override val locations: List<JIRByteCodeLocation>
         get() {
             return jooq.selectFrom(BYTECODELOCATIONS).fetch().mapNotNull {
@@ -54,6 +51,10 @@ abstract class AbstractJIRDatabasePersistenceImpl(
             }.toList()
         }
 
+    override val symbolInterner by lazy {
+        JIRDBSymbolsInternerImpl(jooq).also { it.setup() }
+    }
+
     override fun setup() {
         write {
             featuresRegistry.broadcast(JIRInternalSignal.BeforeIndexing(clearOnStart))
@@ -61,17 +62,12 @@ abstract class AbstractJIRDatabasePersistenceImpl(
         persistenceService.setup()
     }
 
-    override fun newSymbolInterner() = persistenceService.newSymbolInterner()
     override fun findBytecode(classId: Long): ByteArray {
         return byteCodeCache.get(classId) {
             jooq.select(CLASSES.BYTECODE).from(CLASSES)
                 .where(CLASSES.ID.eq(classId)).fetchAny()?.value1()
                 ?: throw IllegalArgumentException("Can't find bytecode for $classId")
         }
-    }
-
-    override fun <T> write(action: (DSLContext) -> T): T  = synchronized(this) {
-        action(jooq)
     }
 
     override fun <T> read(action: (DSLContext) -> T): T {

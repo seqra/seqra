@@ -64,7 +64,7 @@ class UsagesIndexer(persistence: JIRDatabasePersistence, private val location: R
 
     // callee_class -> (callee_name, callee_desc, opcode) -> caller
     private val usages = hashMapOf<String, HashMap<Triple<String, String?, Int>, HashMap<String, MethodMap>>>()
-    private val interner = persistence.newSymbolInterner()
+    private val interner = persistence.symbolInterner
 
     override fun index(classNode: ClassNode) {
         val callerClass = Type.getObjectType(classNode.name).className

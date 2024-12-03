@@ -10,6 +10,8 @@ import org.opentaint.opentaint-ir.impl.FeaturesRegistry
 import org.opentaint.opentaint-ir.impl.fs.JavaRuntime
 import java.sql.Connection
 import java.util.*
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 class SQLitePersistenceImpl(
     javaRuntime: JavaRuntime,
@@ -20,6 +22,8 @@ class SQLitePersistenceImpl(
 
     private var connection: Connection? = null
     override val jooq: DSLContext
+
+    private val lock = ReentrantLock()
 
     init {
         val config = SQLiteConfig().also {
@@ -45,6 +49,10 @@ class SQLitePersistenceImpl(
             }
             jooq.executeQueriesFrom("sqlite/create-schema.sql")
         }
+    }
+
+    override fun <T> write(action: (DSLContext) -> T): T = lock.withLock {
+        action(jooq)
     }
 
     override fun close() {

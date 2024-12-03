@@ -34,7 +34,6 @@ import kotlin.collections.set
 
 class PersistenceService(private val persistence: AbstractJIRDatabasePersistenceImpl) {
 
-    private val symbolsCache = ConcurrentHashMap<String, Long>()
     private val classIdGen = AtomicLong()
     private val symbolsIdGen = AtomicLong()
     private val methodIdGen = AtomicLong()
@@ -46,12 +45,6 @@ class PersistenceService(private val persistence: AbstractJIRDatabasePersistence
 
     fun setup() {
         persistence.read {
-            it.selectFrom(SYMBOLS).fetch().forEach {
-                val (id, name) = it
-                if (name != null && id != null)
-                    symbolsCache[name] = id
-            }
-
             classIdGen.set(CLASSES.ID.maxId ?: 0)
             symbolsIdGen.set(SYMBOLS.ID.maxId ?: 0)
             methodIdGen.set(METHODS.ID.maxId ?: 0)
@@ -63,11 +56,10 @@ class PersistenceService(private val persistence: AbstractJIRDatabasePersistence
         }
     }
 
-    fun newSymbolInterner() = JIRDBSymbolsInternerImpl(jooq = persistence.jooq, symbolsIdGen, symbolsCache)
-
     fun persist(location: RegisteredLocation, classes: List<ClassInfo>) = synchronized(this) {
+        val symbolInterner = persistence.symbolInterner
         val classCollector = ClassCollector(classIdGen)
-        val annotationCollector = AnnotationCollector(annotationIdGen, annotationValueIdGen, symbolsCache)
+        val annotationCollector = AnnotationCollector(annotationIdGen, annotationValueIdGen, symbolInterner)
         val fieldCollector = FieldCollector(fieldIdGen, annotationCollector)
         val classRefCollector = ClassRefCollector()
         val paramsCollector = MethodParamsCollector()
@@ -96,15 +88,12 @@ class PersistenceService(private val persistence: AbstractJIRDatabasePersistence
             it.fields.forEach { it.annotations.extractAllSymbolsTo(names) }
         }
         val namesToAdd = arrayListOf<Pair<Long, String>>()
+        names.forEach {
+            symbolInterner.findOrNew(it)
+        }
         persistence.write { jooq ->
             jooq.withoutAutoCommit { conn ->
-                names.forEach {
-                    symbolsCache.computeIfAbsent(it) {
-                        val id = symbolsIdGen.incrementAndGet()
-                        namesToAdd.add(id to it)
-                        id
-                    }
-                }
+                symbolInterner.flush(conn)
                 val locationId = location.id
                 classes.forEach { classCollector.collect(it) }
                 classCollector.classes.entries.forEach { (classInfo, storedClassId) ->
@@ -125,11 +114,6 @@ class PersistenceService(private val persistence: AbstractJIRDatabasePersistence
                     classInfo.fields.forEach {
                         fieldCollector.collect(storedClassId, it)
                     }
-                }
-
-                conn.insertElements(SYMBOLS, namesToAdd) { (id, name) ->
-                    setLong(1, id)
-                    setString(2, name)
                 }
 
                 conn.insertElements(CLASSES, classCollector.classes.entries) {
@@ -240,7 +224,7 @@ class PersistenceService(private val persistence: AbstractJIRDatabasePersistence
     }
 
     fun findSymbolId(symbol: String): Long? {
-        return symbolsCache[symbol]
+        return persistence.symbolInterner.findOrNew(symbol)
     }
 
     fun findSymbolName(symbolId: Long): String {
@@ -251,8 +235,7 @@ class PersistenceService(private val persistence: AbstractJIRDatabasePersistence
     }
 
     private fun String.findCachedSymbol(): Long {
-        return symbolsCache[this]
-            ?: throw IllegalStateException("Symbol $this is required in cache. Please setup cache first")
+        return persistence.symbolInterner.findOrNew(this)
     }
 
     private val TableField<*, Long?>.maxId: Long?
@@ -290,7 +273,7 @@ private data class AnnotationValueItem(
 private class AnnotationCollector(
     val annotationIdGen: AtomicLong,
     val annotationValueIdGen: AtomicLong,
-    val symbolsCache: Map<String, Long>
+    val symbolInterner: JIRDBSymbolsInterner
 ) {
     val collected = ArrayList<AnnotationItem>()
     val collectedValues = ArrayList<AnnotationValueItem>()
@@ -332,7 +315,7 @@ private class AnnotationCollector(
                 AnnotationValueItem(
                     id = valueId,
                     name = name,
-                    classSymbolId = symbolsCache.get(value.className)!!,
+                    classSymbolId = symbolInterner.findOrNew(value.className),
                     annotationId = parent.id,
                     enumSymbolId = null,
                 )
@@ -342,8 +325,8 @@ private class AnnotationCollector(
                 AnnotationValueItem(
                     id = valueId,
                     name = name,
-                    classSymbolId = symbolsCache[value.className]!!,
-                    enumSymbolId = symbolsCache[value.enumName]!!,
+                    classSymbolId = symbolInterner.findOrNew(value.className),
+                    enumSymbolId = symbolInterner.findOrNew(value.enumName),
                     annotationId = parent.id,
                 )
             )
@@ -459,13 +442,19 @@ private class MethodsCollector(
 
 }
 
-class JIRDBSymbolsInternerImpl(
-    override val jooq: DSLContext,
-    private val symbolsIdGen: AtomicLong,
-    private val symbolsCache: ConcurrentHashMap<String, Long>
-) : JIRDBSymbolsInterner {
+class JIRDBSymbolsInternerImpl(override val jooq: DSLContext) : JIRDBSymbolsInterner {
+    private val symbolsIdGen = AtomicLong()
+    private val symbolsCache = ConcurrentHashMap<String, Long>()
+    private val newElements = ConcurrentHashMap<String, Long>()
 
-    private val newElements = HashMap<String, Long>()
+    fun setup() {
+        jooq.selectFrom(SYMBOLS).fetch().forEach {
+            val (id, name) = it
+            if (name != null && id != null)
+                symbolsCache[name] = id
+        }
+        symbolsIdGen.set(SYMBOLS.ID.maxId(jooq) ?: 0)
+    }
 
     override fun findOrNew(symbol: String): Long {
         return symbolsCache.computeIfAbsent(symbol) {
@@ -476,9 +465,13 @@ class JIRDBSymbolsInternerImpl(
     }
 
     override fun flush(conn: Connection) {
-        conn.insertElements(SYMBOLS, newElements.entries) { (value, id) ->
+        val entries = newElements.entries.toList()
+        conn.insertElements(SYMBOLS, entries, onConflict = "ON CONFLICT(id) DO NOTHING") { (value, id) ->
             setLong(1, id)
             setString(2, value)
+        }
+        entries.forEach {
+            newElements.remove(it.key)
         }
     }
 }

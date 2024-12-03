@@ -1,2 +1,2 @@
 DROP TABLE IF EXISTS "Calls";
-DROP INDEX IF EXISTS "Calls search";
+DROP INDEX IF EXISTS "CallsSearch";
