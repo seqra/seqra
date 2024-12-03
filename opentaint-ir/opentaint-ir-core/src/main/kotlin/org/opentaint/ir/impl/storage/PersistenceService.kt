@@ -87,7 +87,6 @@ class PersistenceService(private val persistence: AbstractJIRDatabasePersistence
             }
             it.fields.forEach { it.annotations.extractAllSymbolsTo(names) }
         }
-        val namesToAdd = arrayListOf<Pair<Long, String>>()
         names.forEach {
             symbolInterner.findOrNew(it)
         }
