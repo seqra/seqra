@@ -1,3 +1,4 @@
+@file:JvmName("Hierarchies")
 package org.opentaint.opentaint-ir.impl.features
 
 import kotlinx.coroutines.GlobalScope
@@ -139,3 +140,4 @@ suspend fun JIRClasspath.hierarchyExt(): HierarchyExtensionImpl {
 }
 
 fun JIRClasspath.asyncHierarchy(): Future<HierarchyExtension> = GlobalScope.future { hierarchyExt() }
+

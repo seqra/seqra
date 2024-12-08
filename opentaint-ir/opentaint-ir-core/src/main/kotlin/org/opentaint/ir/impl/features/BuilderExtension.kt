@@ -1,3 +1,4 @@
+@file:JvmName("Builders")
 package org.opentaint.opentaint-ir.impl.features
 
 import org.opentaint.opentaint-ir.api.JIRArrayType

@@ -1,3 +1,4 @@
+@file:JvmName("Usages")
 package org.opentaint.opentaint-ir.impl.features
 
 import kotlinx.coroutines.GlobalScope
