@@ -49,7 +49,7 @@ class PersistentByteCodeLocation(
     override val path: String
         get() = record.path!!
 
-    override val runtime: Boolean
+    override val isRuntime: Boolean
         get() = record.runtime!!
 
     override fun equals(other: Any?): Boolean {
