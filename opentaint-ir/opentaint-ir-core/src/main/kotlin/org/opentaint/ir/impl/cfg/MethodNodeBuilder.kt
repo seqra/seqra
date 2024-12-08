@@ -109,39 +109,39 @@ import org.opentaint.opentaint-ir.impl.cfg.util.jvmClassName
 import org.opentaint.opentaint-ir.impl.cfg.util.jvmTypeName
 import org.opentaint.opentaint-ir.impl.cfg.util.typeName
 
-private val PredefinedPrimitives.smallIntegers get() = setOf(boolean, byte, char, short, int)
+private val PredefinedPrimitives.smallIntegers get() = setOf(Boolean, Byte, Char, Short, Int)
 
 private val TypeName.shortInt
     get() = when (this.typeName) {
-        PredefinedPrimitives.long -> 1
+        PredefinedPrimitives.Long -> 1
         in PredefinedPrimitives.smallIntegers -> 0
-        PredefinedPrimitives.float -> 2
-        PredefinedPrimitives.double -> 3
+        PredefinedPrimitives.Float -> 2
+        PredefinedPrimitives.Double -> 3
         else -> 4
     }
 private val TypeName.longInt
     get() = when (this.typeName) {
-        PredefinedPrimitives.boolean -> 5
-        PredefinedPrimitives.byte -> 5
-        PredefinedPrimitives.short -> 7
-        PredefinedPrimitives.char -> 6
-        PredefinedPrimitives.int -> 0
-        PredefinedPrimitives.long -> 1
-        PredefinedPrimitives.float -> 2
-        PredefinedPrimitives.double -> 3
+        PredefinedPrimitives.Boolean -> 5
+        PredefinedPrimitives.Byte -> 5
+        PredefinedPrimitives.Short -> 7
+        PredefinedPrimitives.Char -> 6
+        PredefinedPrimitives.Int -> 0
+        PredefinedPrimitives.Long -> 1
+        PredefinedPrimitives.Float -> 2
+        PredefinedPrimitives.Double -> 3
         else -> 4
     }
 
 private val TypeName.typeInt
     get() = when (typeName) {
-        PredefinedPrimitives.char -> Opcodes.T_CHAR
-        PredefinedPrimitives.boolean -> Opcodes.T_BOOLEAN
-        PredefinedPrimitives.byte -> Opcodes.T_BYTE
-        PredefinedPrimitives.double -> Opcodes.T_DOUBLE
-        PredefinedPrimitives.float -> Opcodes.T_FLOAT
-        PredefinedPrimitives.int -> Opcodes.T_INT
-        PredefinedPrimitives.long -> Opcodes.T_LONG
-        PredefinedPrimitives.short -> Opcodes.T_SHORT
+        PredefinedPrimitives.Char -> Opcodes.T_CHAR
+        PredefinedPrimitives.Boolean -> Opcodes.T_BOOLEAN
+        PredefinedPrimitives.Byte -> Opcodes.T_BYTE
+        PredefinedPrimitives.Double -> Opcodes.T_DOUBLE
+        PredefinedPrimitives.Float -> Opcodes.T_FLOAT
+        PredefinedPrimitives.Int -> Opcodes.T_INT
+        PredefinedPrimitives.Long -> Opcodes.T_LONG
+        PredefinedPrimitives.Short -> Opcodes.T_SHORT
         else -> error("$typeName is not primitive type")
     }
 
@@ -414,7 +414,7 @@ class MethodNodeBuilder(
         expr.lhv.accept(this)
         expr.rhv.accept(this)
         val opcode = when (expr.lhv.typeName.typeName) {
-            PredefinedPrimitives.float -> Opcodes.FCMPG
+            PredefinedPrimitives.Float -> Opcodes.FCMPG
             else -> Opcodes.DCMPG
         }
         currentInsnList.add(InsnNode(opcode))
@@ -425,7 +425,7 @@ class MethodNodeBuilder(
         expr.lhv.accept(this)
         expr.rhv.accept(this)
         val opcode = when (expr.lhv.typeName.typeName) {
-            PredefinedPrimitives.float -> Opcodes.FCMPL
+            PredefinedPrimitives.Float -> Opcodes.FCMPL
             else -> Opcodes.DCMPL
         }
         currentInsnList.add(InsnNode(opcode))
@@ -548,35 +548,35 @@ class MethodNodeBuilder(
             when {
                 originalType.isPrimitive && targetType.isPrimitive -> {
                     val opcode = when (originalType.typeName) {
-                        PredefinedPrimitives.long -> when (targetType.typeName) {
-                            PredefinedPrimitives.int -> Opcodes.L2I
-                            PredefinedPrimitives.float -> Opcodes.L2F
-                            PredefinedPrimitives.double -> Opcodes.L2D
+                        PredefinedPrimitives.Long -> when (targetType.typeName) {
+                            PredefinedPrimitives.Int -> Opcodes.L2I
+                            PredefinedPrimitives.Float -> Opcodes.L2F
+                            PredefinedPrimitives.Double -> Opcodes.L2D
                             else -> error("Impossible cast from $originalType to $targetType")
                         }
 
                         in PredefinedPrimitives.smallIntegers -> when (targetType.typeName) {
-                            PredefinedPrimitives.long -> Opcodes.I2L
-                            PredefinedPrimitives.float -> Opcodes.I2F
-                            PredefinedPrimitives.double -> Opcodes.I2D
-                            PredefinedPrimitives.byte -> Opcodes.I2B
-                            PredefinedPrimitives.char -> Opcodes.I2C
-                            PredefinedPrimitives.short -> Opcodes.I2S
-                            PredefinedPrimitives.boolean -> Opcodes.NOP
+                            PredefinedPrimitives.Long -> Opcodes.I2L
+                            PredefinedPrimitives.Float -> Opcodes.I2F
+                            PredefinedPrimitives.Double -> Opcodes.I2D
+                            PredefinedPrimitives.Byte -> Opcodes.I2B
+                            PredefinedPrimitives.Char -> Opcodes.I2C
+                            PredefinedPrimitives.Short -> Opcodes.I2S
+                            PredefinedPrimitives.Boolean -> Opcodes.NOP
                             else -> error("Impossible cast from $originalType to $targetType")
                         }
 
-                        PredefinedPrimitives.float -> when (targetType.typeName) {
-                            PredefinedPrimitives.int -> Opcodes.F2I
-                            PredefinedPrimitives.long -> Opcodes.F2L
-                            PredefinedPrimitives.double -> Opcodes.F2D
+                        PredefinedPrimitives.Float -> when (targetType.typeName) {
+                            PredefinedPrimitives.Int -> Opcodes.F2I
+                            PredefinedPrimitives.Long -> Opcodes.F2L
+                            PredefinedPrimitives.Double -> Opcodes.F2D
                             else -> error("Impossible cast from $originalType to $targetType")
                         }
 
-                        PredefinedPrimitives.double -> when (targetType.typeName) {
-                            PredefinedPrimitives.int -> Opcodes.D2I
-                            PredefinedPrimitives.long -> Opcodes.D2L
-                            PredefinedPrimitives.float -> Opcodes.D2F
+                        PredefinedPrimitives.Double -> when (targetType.typeName) {
+                            PredefinedPrimitives.Int -> Opcodes.D2I
+                            PredefinedPrimitives.Long -> Opcodes.D2L
+                            PredefinedPrimitives.Float -> Opcodes.D2F
                             else -> error("Impossible cast from $originalType to $targetType")
                         }
 
@@ -675,7 +675,7 @@ class MethodNodeBuilder(
             )
         )
         updateStackInfo(-(expr.args.size + 1))
-        if (expr.returnType != PredefinedPrimitives.void.typeName())
+        if (expr.returnType != PredefinedPrimitives.Void.typeName())
             updateStackInfo(1)
     }
 
@@ -691,7 +691,7 @@ class MethodNodeBuilder(
             )
         )
         updateStackInfo(-(expr.args.size + 1))
-        if (expr.returnType != PredefinedPrimitives.void.typeName())
+        if (expr.returnType != PredefinedPrimitives.Void.typeName())
             updateStackInfo(1)
     }
 
@@ -706,7 +706,7 @@ class MethodNodeBuilder(
             )
         )
         updateStackInfo(-expr.args.size)
-        if (expr.returnType != PredefinedPrimitives.void.typeName())
+        if (expr.returnType != PredefinedPrimitives.Void.typeName())
             updateStackInfo(1)
     }
 
@@ -722,7 +722,7 @@ class MethodNodeBuilder(
             )
         )
         updateStackInfo(-(expr.args.size + 1))
-        if (expr.returnType != PredefinedPrimitives.void.typeName())
+        if (expr.returnType != PredefinedPrimitives.Void.typeName())
             updateStackInfo(1)
     }
 

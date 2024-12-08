@@ -122,15 +122,15 @@ internal class JvmPrimitiveType(val ref: String) : JvmRefType(isNullable = false
     companion object {
         fun of(descriptor: Char): JvmType {
             return when (descriptor) {
-                'V' -> JvmPrimitiveType(PredefinedPrimitives.void)
-                'Z' -> JvmPrimitiveType(PredefinedPrimitives.boolean)
-                'B' -> JvmPrimitiveType(PredefinedPrimitives.byte)
-                'S' -> JvmPrimitiveType(PredefinedPrimitives.short)
-                'C' -> JvmPrimitiveType(PredefinedPrimitives.char)
-                'I' -> JvmPrimitiveType(PredefinedPrimitives.int)
-                'J' -> JvmPrimitiveType(PredefinedPrimitives.long)
-                'F' -> JvmPrimitiveType(PredefinedPrimitives.float)
-                'D' -> JvmPrimitiveType(PredefinedPrimitives.double)
+                'V' -> JvmPrimitiveType(PredefinedPrimitives.Void)
+                'Z' -> JvmPrimitiveType(PredefinedPrimitives.Boolean)
+                'B' -> JvmPrimitiveType(PredefinedPrimitives.Byte)
+                'S' -> JvmPrimitiveType(PredefinedPrimitives.Short)
+                'C' -> JvmPrimitiveType(PredefinedPrimitives.Char)
+                'I' -> JvmPrimitiveType(PredefinedPrimitives.Int)
+                'J' -> JvmPrimitiveType(PredefinedPrimitives.Long)
+                'F' -> JvmPrimitiveType(PredefinedPrimitives.Float)
+                'D' -> JvmPrimitiveType(PredefinedPrimitives.Double)
                 else -> throw IllegalArgumentException("Not a valid primitive type descriptor: $descriptor")
             }
         }

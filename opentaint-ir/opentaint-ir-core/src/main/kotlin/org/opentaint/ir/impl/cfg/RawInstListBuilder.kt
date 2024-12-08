@@ -109,14 +109,14 @@ import org.opentaint.opentaint-ir.impl.cfg.util.typeName
 import java.util.*
 
 private fun Int.toPrimitiveType(): TypeName = when (this) {
-    Opcodes.T_CHAR -> PredefinedPrimitives.char
-    Opcodes.T_BOOLEAN -> PredefinedPrimitives.boolean
-    Opcodes.T_BYTE -> PredefinedPrimitives.byte
-    Opcodes.T_DOUBLE -> PredefinedPrimitives.double
-    Opcodes.T_FLOAT -> PredefinedPrimitives.float
-    Opcodes.T_INT -> PredefinedPrimitives.int
-    Opcodes.T_LONG -> PredefinedPrimitives.long
-    Opcodes.T_SHORT -> PredefinedPrimitives.short
+    Opcodes.T_CHAR -> PredefinedPrimitives.Char
+    Opcodes.T_BOOLEAN -> PredefinedPrimitives.Boolean
+    Opcodes.T_BYTE -> PredefinedPrimitives.Byte
+    Opcodes.T_DOUBLE -> PredefinedPrimitives.Double
+    Opcodes.T_FLOAT -> PredefinedPrimitives.Float
+    Opcodes.T_INT -> PredefinedPrimitives.Int
+    Opcodes.T_LONG -> PredefinedPrimitives.Long
+    Opcodes.T_SHORT -> PredefinedPrimitives.Short
     else -> error("Unknown primitive type opcode: $this")
 }.typeName()
 
@@ -125,10 +125,10 @@ private val UNINIT_THIS = "UNINIT_THIS".typeName()
 
 private fun parsePrimitiveType(opcode: Int) = when (opcode) {
     0 -> TOP
-    1 -> PredefinedPrimitives.int.typeName()
-    2 -> PredefinedPrimitives.float.typeName()
-    3 -> PredefinedPrimitives.double.typeName()
-    4 -> PredefinedPrimitives.long.typeName()
+    1 -> PredefinedPrimitives.Int.typeName()
+    2 -> PredefinedPrimitives.Float.typeName()
+    3 -> PredefinedPrimitives.Double.typeName()
+    4 -> PredefinedPrimitives.Long.typeName()
     5 -> NULL
     6 -> UNINIT_THIS
     else -> error("Unknown opcode in primitive type parsing: $opcode")
@@ -180,15 +180,15 @@ private fun List<*>?.parseStack(): SortedMap<Int, TypeName> {
 
 private val Type.asTypeName: BsmArg
     get() = when (this.sort) {
-        Type.VOID -> BsmTypeArg(PredefinedPrimitives.void.typeName())
-        Type.BOOLEAN -> BsmTypeArg(PredefinedPrimitives.boolean.typeName())
-        Type.CHAR -> BsmTypeArg(PredefinedPrimitives.char.typeName())
-        Type.BYTE -> BsmTypeArg(PredefinedPrimitives.byte.typeName())
-        Type.SHORT -> BsmTypeArg(PredefinedPrimitives.short.typeName())
-        Type.INT -> BsmTypeArg(PredefinedPrimitives.int.typeName())
-        Type.FLOAT -> BsmTypeArg(PredefinedPrimitives.float.typeName())
-        Type.LONG -> BsmTypeArg(PredefinedPrimitives.long.typeName())
-        Type.DOUBLE -> BsmTypeArg(PredefinedPrimitives.double.typeName())
+        Type.VOID -> BsmTypeArg(PredefinedPrimitives.Void.typeName())
+        Type.BOOLEAN -> BsmTypeArg(PredefinedPrimitives.Boolean.typeName())
+        Type.CHAR -> BsmTypeArg(PredefinedPrimitives.Char.typeName())
+        Type.BYTE -> BsmTypeArg(PredefinedPrimitives.Byte.typeName())
+        Type.SHORT -> BsmTypeArg(PredefinedPrimitives.Short.typeName())
+        Type.INT -> BsmTypeArg(PredefinedPrimitives.Int.typeName())
+        Type.FLOAT -> BsmTypeArg(PredefinedPrimitives.Float.typeName())
+        Type.LONG -> BsmTypeArg(PredefinedPrimitives.Long.typeName())
+        Type.DOUBLE -> BsmTypeArg(PredefinedPrimitives.Double.typeName())
         Type.ARRAY -> BsmTypeArg((elementType.asTypeName as BsmTypeArg).typeName.asArray())
         Type.OBJECT -> BsmTypeArg(className.typeName())
         Type.METHOD -> BsmMethodTypeArg(
@@ -692,7 +692,7 @@ class RawInstListBuilder(
         val operand = pop()
         val expr = when (val opcode = insn.opcode) {
             in Opcodes.INEG..Opcodes.DNEG -> JIRRawNegExpr(operand.typeName, operand)
-            Opcodes.ARRAYLENGTH -> JIRRawLengthExpr(PredefinedPrimitives.int.typeName(), operand)
+            Opcodes.ARRAYLENGTH -> JIRRawLengthExpr(PredefinedPrimitives.Int.typeName(), operand)
             else -> error("Unknown unary opcode $opcode")
         }
         val assignment = nextRegister(expr.typeName)
@@ -703,13 +703,13 @@ class RawInstListBuilder(
     private fun buildCast(insn: InsnNode) {
         val operand = pop()
         val targetType = when (val opcode = insn.opcode) {
-            Opcodes.I2L, Opcodes.F2L, Opcodes.D2L -> PredefinedPrimitives.long.typeName()
-            Opcodes.I2F, Opcodes.L2F, Opcodes.D2F -> PredefinedPrimitives.float.typeName()
-            Opcodes.I2D, Opcodes.L2D, Opcodes.F2D -> PredefinedPrimitives.double.typeName()
-            Opcodes.L2I, Opcodes.F2I, Opcodes.D2I -> PredefinedPrimitives.int.typeName()
-            Opcodes.I2B -> PredefinedPrimitives.byte.typeName()
-            Opcodes.I2C -> PredefinedPrimitives.char.typeName()
-            Opcodes.I2S -> PredefinedPrimitives.short.typeName()
+            Opcodes.I2L, Opcodes.F2L, Opcodes.D2L -> PredefinedPrimitives.Long.typeName()
+            Opcodes.I2F, Opcodes.L2F, Opcodes.D2F -> PredefinedPrimitives.Float.typeName()
+            Opcodes.I2D, Opcodes.L2D, Opcodes.F2D -> PredefinedPrimitives.Double.typeName()
+            Opcodes.L2I, Opcodes.F2I, Opcodes.D2I -> PredefinedPrimitives.Int.typeName()
+            Opcodes.I2B -> PredefinedPrimitives.Byte.typeName()
+            Opcodes.I2C -> PredefinedPrimitives.Char.typeName()
+            Opcodes.I2S -> PredefinedPrimitives.Short.typeName()
             else -> error("Unknown cast opcode $opcode")
         }
         val assignment = nextRegister(targetType)
@@ -721,12 +721,12 @@ class RawInstListBuilder(
         val rhv = pop()
         val lhv = pop()
         val expr = when (val opcode = insn.opcode) {
-            Opcodes.LCMP -> JIRRawCmpExpr(PredefinedPrimitives.int.typeName(), lhv, rhv)
-            Opcodes.FCMPL, Opcodes.DCMPL -> JIRRawCmplExpr(PredefinedPrimitives.int.typeName(), lhv, rhv)
-            Opcodes.FCMPG, Opcodes.DCMPG -> JIRRawCmpgExpr(PredefinedPrimitives.int.typeName(), lhv, rhv)
+            Opcodes.LCMP -> JIRRawCmpExpr(PredefinedPrimitives.Int.typeName(), lhv, rhv)
+            Opcodes.FCMPL, Opcodes.DCMPL -> JIRRawCmplExpr(PredefinedPrimitives.Int.typeName(), lhv, rhv)
+            Opcodes.FCMPG, Opcodes.DCMPG -> JIRRawCmpgExpr(PredefinedPrimitives.Int.typeName(), lhv, rhv)
             else -> error("Unknown cmp opcode $opcode")
         }
-        val assignment = nextRegister(PredefinedPrimitives.int.typeName())
+        val assignment = nextRegister(PredefinedPrimitives.Int.typeName())
         instructionList(insn) += JIRRawAssignInst(assignment, expr)
         push(assignment)
     }
@@ -1054,7 +1054,7 @@ class RawInstListBuilder(
             else -> {
                 val falseTarget = (insnNode.next as? LabelNode)?.let { label(it) } ?: nextLabel()
                 val rhv = pop()
-                val boolTypeName = PredefinedPrimitives.boolean.typeName()
+                val boolTypeName = PredefinedPrimitives.Boolean.typeName()
                 val expr = when (opcode) {
                     Opcodes.IFNULL -> JIRRawEqExpr(boolTypeName, rhv, JIRRawNull())
                     Opcodes.IFNONNULL -> JIRRawNeqExpr(boolTypeName, rhv, JIRRawNull())
@@ -1276,10 +1276,10 @@ class RawInstListBuilder(
             }
 
             Opcodes.INSTANCEOF -> {
-                val assignment = nextRegister(PredefinedPrimitives.boolean.typeName())
+                val assignment = nextRegister(PredefinedPrimitives.Boolean.typeName())
                 instructionList(insnNode) += JIRRawAssignInst(
                     assignment,
-                    JIRRawInstanceOfExpr(PredefinedPrimitives.boolean.typeName(), pop(), type)
+                    JIRRawInstanceOfExpr(PredefinedPrimitives.Boolean.typeName(), pop(), type)
                 )
                 push(assignment)
             }

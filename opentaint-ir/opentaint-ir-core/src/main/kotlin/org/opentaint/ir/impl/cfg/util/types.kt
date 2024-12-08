@@ -45,8 +45,8 @@ val TypeName.isClass get() = !isPrimitive && !isArray
 
 internal val TypeName.isDWord
     get() = when (typeName) {
-        PredefinedPrimitives.long -> true
-        PredefinedPrimitives.double -> true
+        PredefinedPrimitives.Long -> true
+        PredefinedPrimitives.Double -> true
         else -> false
     }
 
