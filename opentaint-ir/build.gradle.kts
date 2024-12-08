@@ -78,7 +78,8 @@ subprojects {
                 freeCompilerArgs = freeCompilerArgs + listOf(
                     "-Xallow-result-return-type",
                     "-Xsam-conversions=class",
-                    "-Xcontext-receivers"
+                    "-Xcontext-receivers",
+                    "-Xjvm-default=all"
                 )
                 allWarningsAsErrors = false
             }

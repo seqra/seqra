@@ -12,7 +12,7 @@ import org.opentaint.opentaint-ir.api.cfg.JIRRawLocal
 import org.opentaint.opentaint-ir.api.cfg.JIRRawNullConstant
 import org.opentaint.opentaint-ir.api.cfg.JIRRawSimpleValue
 import org.opentaint.opentaint-ir.api.cfg.JIRRawValue
-import org.opentaint.opentaint-ir.api.cfg.ext.applyAndGet
+import org.opentaint.opentaint-ir.api.ext.cfg.applyAndGet
 import org.opentaint.opentaint-ir.impl.cfg.util.ExprMapper
 import org.opentaint.opentaint-ir.impl.cfg.util.FullExprSetCollector
 import org.opentaint.opentaint-ir.impl.cfg.util.InstructionFilter
