@@ -1,11 +1,10 @@
-package org.opentaint.opentaint-ir.impl.cfg
+package org.opentaint.opentaint-ir.impl.cfg.analysis.impl
 
 import org.opentaint.opentaint-ir.api.JIRClassType
 import org.opentaint.opentaint-ir.api.PredefinedPrimitives
 import org.opentaint.opentaint-ir.api.cfg.BsmStringArg
 import org.opentaint.opentaint-ir.api.cfg.DefaultJIRInstVisitor
 import org.opentaint.opentaint-ir.api.cfg.JIRAssignInst
-import org.opentaint.opentaint-ir.api.cfg.JIRBasicBlock
 import org.opentaint.opentaint-ir.api.cfg.JIRCatchInst
 import org.opentaint.opentaint-ir.api.cfg.JIRDynamicCallExpr
 import org.opentaint.opentaint-ir.api.cfg.JIRGotoInst
@@ -20,85 +19,8 @@ import org.opentaint.opentaint-ir.api.cfg.JIRValue
 import org.opentaint.opentaint-ir.api.cfg.JIRVirtualCallExpr
 import org.opentaint.opentaint-ir.api.ext.autoboxIfNeeded
 import org.opentaint.opentaint-ir.api.ext.findTypeOrNull
-import java.util.*
-import kotlin.collections.ArrayDeque
+import org.opentaint.opentaint-ir.impl.cfg.JIRGraphImpl
 import kotlin.collections.set
-
-class ReachingDefinitionsAnalysis(val blockGraph: JIRBlockGraphImpl) {
-    val jIRGraph get() = blockGraph.jIRGraph
-
-    private val nDefinitions = jIRGraph.instructions.size
-    private val ins = mutableMapOf<JIRBasicBlock, BitSet>()
-    private val outs = mutableMapOf<JIRBasicBlock, BitSet>()
-    private val assignmentsMap = mutableMapOf<JIRValue, MutableSet<JIRInstRef>>()
-
-    init {
-        initAssignmentsMap()
-        val entry = blockGraph.entry
-        for (block in blockGraph)
-            outs[block] = emptySet()
-
-        val queue = ArrayDeque<JIRBasicBlock>().also { it += entry }
-        val notVisited = blockGraph.toMutableSet()
-        while (queue.isNotEmpty() || notVisited.isNotEmpty()) {
-            val current = when {
-                queue.isNotEmpty() -> queue.removeFirst()
-                else -> notVisited.random()
-            }
-            notVisited -= current
-
-            ins[current] = fullPredecessors(current).map { outs[it]!! }.fold(emptySet()) { acc, bitSet ->
-                acc.or(bitSet)
-                acc
-            }
-
-            val oldOut = outs[current]!!.clone() as BitSet
-            val newOut = gen(current)
-
-            if (oldOut != newOut) {
-                outs[current] = newOut
-                for (successor in fullSuccessors(current)) {
-                    queue += successor
-                }
-            }
-        }
-    }
-
-    private fun initAssignmentsMap() {
-        for (inst in jIRGraph) {
-            if (inst is JIRAssignInst) {
-                assignmentsMap.getOrPut(inst.lhv, ::mutableSetOf) += jIRGraph.ref(inst)
-            }
-        }
-    }
-
-    private fun emptySet(): BitSet = BitSet(nDefinitions)
-
-    private fun gen(block: JIRBasicBlock): BitSet {
-        val inSet = ins[block]!!.clone() as BitSet
-        for (inst in blockGraph.instructions(block)) {
-            if (inst is JIRAssignInst) {
-                for (kill in assignmentsMap.getOrDefault(inst.lhv, mutableSetOf())) {
-                    inSet[kill] = false
-                }
-                inSet[jIRGraph.ref(inst)] = true
-            }
-        }
-        return inSet
-    }
-
-    private fun fullPredecessors(block: JIRBasicBlock) = blockGraph.predecessors(block) + blockGraph.throwers(block)
-    private fun fullSuccessors(block: JIRBasicBlock) = blockGraph.successors(block) + blockGraph.catchers(block)
-
-    private operator fun BitSet.set(ref: JIRInstRef, value: Boolean) {
-        this.set(ref.index, value)
-    }
-
-    fun outs(block: JIRBasicBlock): List<JIRInst> {
-        val defs = outs.getOrDefault(block, emptySet())
-        return (0 until nDefinitions).filter { defs[it] }.map { jIRGraph.instructions[it] }
-    }
-}
 
 class StringConcatSimplifier(
     val jIRGraph: JIRGraphImpl
@@ -110,6 +32,8 @@ class StringConcatSimplifier(
     private val catchReplacements = mutableMapOf<JIRInst, MutableList<JIRInst>>()
     private val instructionIndices = mutableMapOf<JIRInst, Int>()
 
+    private val stringType = jIRGraph.classpath.findTypeOrNull<String>() as JIRClassType
+
     fun build(): JIRGraphImpl {
         var changed = false
         for (inst in jIRGraph) {
@@ -118,7 +42,6 @@ class StringConcatSimplifier(
                 val rhv = inst.rhv
 
                 if (rhv is JIRDynamicCallExpr && rhv.callCiteMethodName == "makeConcatWithConstants") {
-                    val stringType = jIRGraph.classpath.findTypeOrNull<String>() as JIRClassType
 
                     val (first, second) = when {
                         rhv.callCiteArgs.size == 2 -> rhv.callCiteArgs
@@ -135,14 +58,14 @@ class StringConcatSimplifier(
                     changed = true
 
                     val result = mutableListOf<JIRInst>()
-                    val firstStr = stringify(first, result)
-                    val secondStr = stringify(second, result)
+                    val firstStr = stringify(inst, first, result)
+                    val secondStr = stringify(inst, second, result)
 
                     val concatMethod = stringType.methods.first {
                         it.name == "concat" && it.parameters.size == 1 && it.parameters.first().type == stringType
                     }
                     val newConcatExpr = JIRVirtualCallExpr(concatMethod, firstStr, listOf(secondStr))
-                    result += JIRAssignInst(lhv, newConcatExpr)
+                    result += JIRAssignInst(inst.lineNumber, lhv, newConcatExpr)
                     instructionReplacements[inst] = result.first()
                     catchReplacements[inst] = result
                     instructions += result
@@ -165,7 +88,7 @@ class StringConcatSimplifier(
         return JIRGraphImpl(jIRGraph.classpath, mappedInstructions)
     }
 
-    private fun stringify(value: JIRValue, instList: MutableList<JIRInst>): JIRValue {
+    private fun stringify(inst: JIRInst, value: JIRValue, instList: MutableList<JIRInst>): JIRValue {
         val cp = jIRGraph.classpath
         val stringType = cp.findTypeOrNull<String>()!!
         return when {
@@ -176,7 +99,7 @@ class StringConcatSimplifier(
                 }
                 val toStringExpr = JIRStaticCallExpr(method, listOf(value))
                 val assignment = JIRLocal("${value}String", stringType)
-                instList += JIRAssignInst(assignment, toStringExpr)
+                instList += JIRAssignInst(inst.lineNumber, assignment, toStringExpr)
                 assignment
             }
 
@@ -188,7 +111,7 @@ class StringConcatSimplifier(
                 }
                 val toStringExpr = JIRVirtualCallExpr(method, value, emptyList())
                 val assignment = JIRLocal("${value}String", stringType)
-                instList += JIRAssignInst(assignment, toStringExpr)
+                instList += JIRAssignInst(inst.lineNumber, assignment, toStringExpr)
                 assignment
             }
         }
@@ -204,19 +127,22 @@ class StringConcatSimplifier(
         }
 
     override fun visitJIRCatchInst(inst: JIRCatchInst): JIRInst = JIRCatchInst(
+        inst.lineNumber,
         inst.throwable,
         inst.throwers.flatMap { indicesOf(it) }
     )
 
-    override fun visitJIRGotoInst(inst: JIRGotoInst): JIRInst = JIRGotoInst(indexOf(inst.target))
+    override fun visitJIRGotoInst(inst: JIRGotoInst): JIRInst = JIRGotoInst(inst.lineNumber, indexOf(inst.target))
 
     override fun visitJIRIfInst(inst: JIRIfInst): JIRInst = JIRIfInst(
+        inst.lineNumber,
         inst.condition,
         indexOf(inst.trueBranch),
         indexOf(inst.falseBranch)
     )
 
     override fun visitJIRSwitchInst(inst: JIRSwitchInst): JIRInst = JIRSwitchInst(
+        inst.lineNumber,
         inst.key,
         inst.branches.mapValues { indexOf(it.value) },
         indexOf(inst.default)

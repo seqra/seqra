@@ -1,4 +1,4 @@
-@file:JvmName("Hierarchies")
+@file:JvmName("JIRHierarchies")
 package org.opentaint.opentaint-ir.impl.features
 
 import kotlinx.coroutines.GlobalScope

@@ -40,6 +40,7 @@ import org.opentaint.opentaint-ir.api.ext.findClass
 import org.opentaint.opentaint-ir.api.ext.isAbstract
 import org.opentaint.opentaint-ir.api.ext.isAnnotation
 import org.opentaint.opentaint-ir.api.ext.isInterface
+import org.opentaint.opentaint-ir.api.ext.isKotlin
 import org.opentaint.opentaint-ir.api.ext.methods
 import org.opentaint.opentaint-ir.api.ext.packageName
 import org.opentaint.opentaint-ir.api.ext.toType
@@ -61,7 +62,7 @@ import java.net.URLClassLoader
 import java.nio.file.Files
 
 class OverridesResolver(
-    val hierarchyExtension: HierarchyExtension
+    private val hierarchyExtension: HierarchyExtension
 ) : DefaultJIRInstVisitor<Sequence<JIRTypedMethod>>, DefaultJIRExprVisitor<Sequence<JIRTypedMethod>> {
     override val defaultInstHandler: (JIRInst) -> Sequence<JIRTypedMethod>
         get() = { emptySequence() }
@@ -343,8 +344,14 @@ class IRTest : BaseTest() {
 //            println()
 //            println("Old body: ${oldBody.print()}")
                 val instructionList = it.instructionList()
+
 //            println("Instruction list: $instructionList")
-                val graph = instructionList.graph(it)
+                val graph = it.flowGraph()
+                if (!it.enclosingClass.isKotlin) {
+                    graph.instructions.forEach {
+                        assertTrue(it.lineNumber > 0, "$it should have line number")
+                    }
+                }
                 graph.applyAndGet(OverridesResolver(ext)) {}
                 JIRGraphChecker(it, graph).check()
 //            println("Graph: $graph")

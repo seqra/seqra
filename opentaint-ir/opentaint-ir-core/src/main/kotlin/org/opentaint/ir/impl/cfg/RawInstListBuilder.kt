@@ -68,6 +68,7 @@ import org.opentaint.opentaint-ir.api.cfg.JIRRawLabelInst
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLabelRef
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLeExpr
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLengthExpr
+import org.opentaint.opentaint-ir.api.cfg.JIRRawLineNumberInst
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLocal
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLtExpr
 import org.opentaint.opentaint-ir.api.cfg.JIRRawMethodConstant
@@ -261,7 +262,7 @@ class RawInstListBuilder(
                 is JumpInsnNode -> buildJumpInsnNode(insn)
                 is LabelNode -> buildLabelNode(insn)
                 is LdcInsnNode -> buildLdcInsnNode(insn)
-                is LineNumberNode -> {}
+                is LineNumberNode -> buildLineNumberNode(insn)
                 is LookupSwitchInsnNode -> buildLookupSwitchInsnNode(insn)
                 is MethodInsnNode -> buildMethodInsnNode(insn)
                 is MultiANewArrayInsnNode -> buildMultiANewArrayInsnNode(insn)
@@ -1124,6 +1125,10 @@ class RawInstListBuilder(
                 push(nextRegister(tryCatch.typeOrDefault.typeName()))
             }
         }
+    }
+
+    private fun buildLineNumberNode(insnNode: LineNumberNode) {
+        instructionList(insnNode) += JIRRawLineNumberInst(insnNode.line, labelRef(insnNode.start))
     }
 
     private fun buildLdcInsnNode(insnNode: LdcInsnNode) {

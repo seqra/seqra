@@ -12,6 +12,7 @@ import org.objectweb.asm.tree.InvokeDynamicInsnNode
 import org.objectweb.asm.tree.JumpInsnNode
 import org.objectweb.asm.tree.LabelNode
 import org.objectweb.asm.tree.LdcInsnNode
+import org.objectweb.asm.tree.LineNumberNode
 import org.objectweb.asm.tree.LookupSwitchInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
 import org.objectweb.asm.tree.MethodNode
@@ -72,6 +73,7 @@ import org.opentaint.opentaint-ir.api.cfg.JIRRawLabelInst
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLabelRef
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLeExpr
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLengthExpr
+import org.opentaint.opentaint-ir.api.cfg.JIRRawLineNumberInst
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLocal
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLong
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLtExpr
@@ -287,6 +289,10 @@ class MethodNodeBuilder(
 
     override fun visitJIRRawLabelInst(inst: JIRRawLabelInst) {
         currentInsnList.add(label(inst))
+    }
+
+    override fun visitJIRRawLineNumberInst(inst: JIRRawLineNumberInst) {
+        currentInsnList.add(LineNumberNode(inst.lineNumber, label(inst.start)))
     }
 
     override fun visitJIRRawReturnInst(inst: JIRRawReturnInst) {

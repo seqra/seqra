@@ -1,4 +1,4 @@
-@file:JvmName("Builders")
+@file:JvmName("JIRBuilders")
 package org.opentaint.opentaint-ir.impl.features
 
 import org.opentaint.opentaint-ir.api.JIRArrayType

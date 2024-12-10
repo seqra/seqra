@@ -41,6 +41,7 @@ import org.opentaint.opentaint-ir.api.cfg.JIRRawInterfaceCallExpr
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLabelInst
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLeExpr
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLengthExpr
+import org.opentaint.opentaint-ir.api.cfg.JIRRawLineNumberInst
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLocal
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLong
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLtExpr
@@ -105,6 +106,10 @@ class ExprMapper(val mapping: Map<JIRRawExpr, JIRRawExpr>) : JIRRawInstVisitor<J
     }
 
     override fun visitJIRRawLabelInst(inst: JIRRawLabelInst): JIRRawInst {
+        return inst
+    }
+
+    override fun visitJIRRawLineNumberInst(inst: JIRRawLineNumberInst): JIRRawInst {
         return inst
     }
 

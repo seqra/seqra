@@ -98,6 +98,7 @@ import org.opentaint.opentaint-ir.api.cfg.JIRRawLabelInst
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLabelRef
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLeExpr
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLengthExpr
+import org.opentaint.opentaint-ir.api.cfg.JIRRawLineNumberInst
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLocal
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLong
 import org.opentaint.opentaint-ir.api.cfg.JIRRawLtExpr
@@ -156,13 +157,14 @@ class JIRGraphBuilder(
     val method: JIRMethod
 ) : JIRRawInstVisitor<JIRInst?>, JIRRawExprVisitor<JIRExpr> {
     private val instMap = mutableMapOf<JIRRawInst, JIRInst>()
+    private var currentLineNumber = 0
     private val labels = instList.filterIsInstance<JIRRawLabelInst>().associateBy { it.ref }
     private val inst2Index: Map<JIRRawInst, Int> = run {
         val res = mutableMapOf<JIRRawInst, Int>()
         var index = 0
         for (inst in instList) {
             res[inst] = index
-            if (inst !is JIRRawLabelInst) ++index
+            if (inst !is JIRRawLabelInst && inst !is JIRRawLineNumberInst) ++index
         }
         res
     }
@@ -193,31 +195,36 @@ class JIRGraphBuilder(
     override fun visitJIRRawAssignInst(inst: JIRRawAssignInst): JIRInst = handle(inst) {
         val lhv = inst.lhv.accept(this) as JIRValue
         val rhv = inst.rhv.accept(this)
-        JIRAssignInst(lhv, rhv)
+        JIRAssignInst(currentLineNumber, lhv, rhv)
     }
 
     override fun visitJIRRawEnterMonitorInst(inst: JIRRawEnterMonitorInst): JIRInst = handle(inst) {
-        JIREnterMonitorInst(inst.monitor.accept(this) as JIRValue)
+        JIREnterMonitorInst(currentLineNumber, inst.monitor.accept(this) as JIRValue)
     }
 
     override fun visitJIRRawExitMonitorInst(inst: JIRRawExitMonitorInst): JIRInst = handle(inst) {
-        JIRExitMonitorInst(inst.monitor.accept(this) as JIRValue)
+        JIRExitMonitorInst(currentLineNumber, inst.monitor.accept(this) as JIRValue)
     }
 
     override fun visitJIRRawCallInst(inst: JIRRawCallInst): JIRInst = handle(inst) {
-        JIRCallInst(inst.callExpr.accept(this) as JIRCallExpr)
+        JIRCallInst(currentLineNumber, inst.callExpr.accept(this) as JIRCallExpr)
     }
 
     override fun visitJIRRawLabelInst(inst: JIRRawLabelInst): JIRInst? {
         return null
     }
 
+    override fun visitJIRRawLineNumberInst(inst: JIRRawLineNumberInst): JIRInst? {
+        currentLineNumber = inst.lineNumber
+        return null
+    }
+
     override fun visitJIRRawReturnInst(inst: JIRRawReturnInst): JIRInst {
-        return JIRReturnInst(inst.returnValue?.accept(this) as? JIRValue)
+        return JIRReturnInst(currentLineNumber, inst.returnValue?.accept(this) as? JIRValue)
     }
 
     override fun visitJIRRawThrowInst(inst: JIRRawThrowInst): JIRInst {
-        return JIRThrowInst(inst.throwable.accept(this) as JIRValue)
+        return JIRThrowInst(currentLineNumber, inst.throwable.accept(this) as JIRValue)
     }
 
     override fun visitJIRRawCatchInst(inst: JIRRawCatchInst): JIRInst = handle(inst) {
@@ -238,17 +245,19 @@ class JIRGraphBuilder(
             result
         }
         return JIRCatchInst(
+            currentLineNumber,
             inst.throwable.accept(this) as JIRValue,
             throwers
         )
     }
 
     override fun visitJIRRawGotoInst(inst: JIRRawGotoInst): JIRInst = handle(inst) {
-        JIRGotoInst(label2InstRef(inst.target))
+        JIRGotoInst(currentLineNumber, label2InstRef(inst.target))
     }
 
     override fun visitJIRRawIfInst(inst: JIRRawIfInst): JIRInst = handle(inst) {
         JIRIfInst(
+            currentLineNumber,
             inst.condition.accept(this) as JIRConditionExpr,
             label2InstRef(inst.trueBranch),
             label2InstRef(inst.falseBranch)
@@ -257,6 +266,7 @@ class JIRGraphBuilder(
 
     override fun visitJIRRawSwitchInst(inst: JIRRawSwitchInst): JIRInst = handle(inst) {
         JIRSwitchInst(
+            currentLineNumber,
             inst.key.accept(this) as JIRValue,
             inst.branches.map { it.key.accept(this) as JIRValue to label2InstRef(it.value) }.toMap(),
             label2InstRef(inst.default)
