@@ -7,7 +7,7 @@ import java.util.*
 
 class JIRLoop(
     val graph: JIRGraph,
-    val header: JIRInst,
+    val head: JIRInst,
     val instructions: List<JIRInst>
 ) {
     val exits: Collection<JIRInst> by lazy(LazyThreadSafetyMode.NONE) {
@@ -29,14 +29,14 @@ class JIRLoop(
 
         other as JIRLoop
 
-        if (header != other.header) return false
+        if (head != other.head) return false
         if (instructions != other.instructions) return false
 
         return true
     }
 
     override fun hashCode(): Int {
-        var result = header.hashCode()
+        var result = head.hashCode()
         result = 31 * result + instructions.hashCode()
         return result
     }
@@ -75,7 +75,7 @@ private fun JIRGraph.newLoop(head: JIRInst, loopStatements: MutableList<JIRInst>
     val backJump = loopStatements.last()
     // must branch back to the head
     assert(successors(backJump).contains(head))
-    return JIRLoop(this, header = head, instructions = loopStatements)
+    return JIRLoop(this, head = head, instructions = loopStatements)
 }
 
 private fun JIRGraph.loopBodyOf(header: JIRInst, inst: JIRInst): MutableList<JIRInst> {

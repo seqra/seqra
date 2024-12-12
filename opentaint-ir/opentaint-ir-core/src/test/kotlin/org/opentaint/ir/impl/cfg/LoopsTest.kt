@@ -7,6 +7,7 @@ import org.opentaint.opentaint-ir.api.JIRMethod
 import org.opentaint.opentaint-ir.api.ext.findClass
 import org.opentaint.opentaint-ir.impl.BaseTest
 import org.opentaint.opentaint-ir.impl.WithDB
+import org.opentaint.opentaint-ir.impl.cfg.util.JIRLoop
 import org.opentaint.opentaint-ir.impl.cfg.util.loops
 import org.opentaint.opentaint-ir.impl.features.InMemoryHierarchy
 
@@ -17,8 +18,19 @@ class LoopsTest : BaseTest() {
     @Test
     fun `loop inside loop should work`() {
         val clazz = cp.findClass<JavaTasks>()
-        with(clazz.findMethod("insertionSort").flowGraph().loops) {
+        with(clazz.findMethod("insertionSort").flowGraph().loops.toList()) {
             assertEquals(2, size)
+            with(first()) {
+                assertEquals(36, head.lineNumber)
+                assertEquals(2, exits.size)
+                assertSources(36, 37)
+            }
+
+            with(get(1)) {
+                assertEquals(31, head.lineNumber)
+                assertEquals(1, exits.size)
+                assertSources(31, 41)
+            }
         }
     }
 
@@ -48,4 +60,9 @@ class LoopsTest : BaseTest() {
 
     private fun JIRClassOrInterface.findMethod(name: String): JIRMethod = declaredMethods.first { it.name == name }
 
+    private fun JIRLoop.assertSources(start: Int, end: Int) {
+        val sourceLineNumbers = instructions.map { it.lineNumber }
+        assertEquals(end, sourceLineNumbers.max())
+        assertEquals(start, sourceLineNumbers.min())
+    }
 }
