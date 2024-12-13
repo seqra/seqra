@@ -1,10 +1,7 @@
 import de.undercouch.gradle.tasks.download.Download
 import org.jooq.codegen.GenerationTool
+import org.jooq.meta.jaxb.*
 import org.jooq.meta.jaxb.Configuration
-import org.jooq.meta.jaxb.Database
-import org.jooq.meta.jaxb.Generate
-import org.jooq.meta.jaxb.Generator
-import org.jooq.meta.jaxb.Jdbc
 import org.jooq.meta.jaxb.Target
 import java.nio.file.Paths
 
@@ -22,6 +19,7 @@ buildscript {
         classpath(group = "org.jooq", name = "jooq-codegen", version = jooqVersion)
         classpath(group = "org.jooq", name = "jooq-kotlin", version = jooqVersion)
         classpath(group = "org.postgresql", name = "postgresql", version = "42.5.1")
+        classpath(group = "org.xerial", name = "sqlite-jdbc", version = "3.39.2.1")
         classpath(group = "com.zaxxer", name = "HikariCP", version = "5.0.1")
     }
 }

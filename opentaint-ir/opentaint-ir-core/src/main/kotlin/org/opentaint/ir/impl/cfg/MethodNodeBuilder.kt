@@ -3,113 +3,14 @@ package org.opentaint.opentaint-ir.impl.cfg
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
-import org.objectweb.asm.tree.AbstractInsnNode
-import org.objectweb.asm.tree.FieldInsnNode
-import org.objectweb.asm.tree.InsnList
-import org.objectweb.asm.tree.InsnNode
-import org.objectweb.asm.tree.IntInsnNode
-import org.objectweb.asm.tree.InvokeDynamicInsnNode
-import org.objectweb.asm.tree.JumpInsnNode
-import org.objectweb.asm.tree.LabelNode
-import org.objectweb.asm.tree.LdcInsnNode
-import org.objectweb.asm.tree.LineNumberNode
-import org.objectweb.asm.tree.LookupSwitchInsnNode
-import org.objectweb.asm.tree.MethodInsnNode
-import org.objectweb.asm.tree.MethodNode
-import org.objectweb.asm.tree.MultiANewArrayInsnNode
-import org.objectweb.asm.tree.ParameterNode
-import org.objectweb.asm.tree.TableSwitchInsnNode
-import org.objectweb.asm.tree.TryCatchBlockNode
-import org.objectweb.asm.tree.TypeInsnNode
-import org.objectweb.asm.tree.VarInsnNode
+import org.objectweb.asm.tree.*
 import org.opentaint.opentaint-ir.api.JIRMethod
 import org.opentaint.opentaint-ir.api.PredefinedPrimitives
 import org.opentaint.opentaint-ir.api.TypeName
-import org.opentaint.opentaint-ir.api.cfg.BsmDoubleArg
-import org.opentaint.opentaint-ir.api.cfg.BsmFloatArg
-import org.opentaint.opentaint-ir.api.cfg.BsmHandle
-import org.opentaint.opentaint-ir.api.cfg.BsmIntArg
-import org.opentaint.opentaint-ir.api.cfg.BsmLongArg
-import org.opentaint.opentaint-ir.api.cfg.BsmMethodTypeArg
-import org.opentaint.opentaint-ir.api.cfg.BsmStringArg
-import org.opentaint.opentaint-ir.api.cfg.BsmTypeArg
-import org.opentaint.opentaint-ir.api.cfg.JIRRawAddExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawAndExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawArgument
-import org.opentaint.opentaint-ir.api.cfg.JIRRawArrayAccess
-import org.opentaint.opentaint-ir.api.cfg.JIRRawAssignInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawBool
-import org.opentaint.opentaint-ir.api.cfg.JIRRawByte
-import org.opentaint.opentaint-ir.api.cfg.JIRRawCallExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawCallInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawCastExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawCatchInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawChar
-import org.opentaint.opentaint-ir.api.cfg.JIRRawClassConstant
-import org.opentaint.opentaint-ir.api.cfg.JIRRawCmpExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawCmpgExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawCmplExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawComplexValue
-import org.opentaint.opentaint-ir.api.cfg.JIRRawDivExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawDouble
-import org.opentaint.opentaint-ir.api.cfg.JIRRawDynamicCallExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawEnterMonitorInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawEqExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawExitMonitorInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawExprVisitor
-import org.opentaint.opentaint-ir.api.cfg.JIRRawFieldRef
-import org.opentaint.opentaint-ir.api.cfg.JIRRawFloat
-import org.opentaint.opentaint-ir.api.cfg.JIRRawGeExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawGotoInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawGtExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawIfInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawInstList
-import org.opentaint.opentaint-ir.api.cfg.JIRRawInstVisitor
-import org.opentaint.opentaint-ir.api.cfg.JIRRawInstanceOfExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawInt
-import org.opentaint.opentaint-ir.api.cfg.JIRRawInterfaceCallExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawLabelInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawLabelRef
-import org.opentaint.opentaint-ir.api.cfg.JIRRawLeExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawLengthExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawLineNumberInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawLocal
-import org.opentaint.opentaint-ir.api.cfg.JIRRawLong
-import org.opentaint.opentaint-ir.api.cfg.JIRRawLtExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawMethodConstant
-import org.opentaint.opentaint-ir.api.cfg.JIRRawMulExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawNegExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawNeqExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawNewArrayExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawNewExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawNullConstant
-import org.opentaint.opentaint-ir.api.cfg.JIRRawOrExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawRemExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawReturnInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawShlExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawShort
-import org.opentaint.opentaint-ir.api.cfg.JIRRawShrExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawSpecialCallExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawStaticCallExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawStringConstant
-import org.opentaint.opentaint-ir.api.cfg.JIRRawSubExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawSwitchInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawThis
-import org.opentaint.opentaint-ir.api.cfg.JIRRawThrowInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawUshrExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawValue
-import org.opentaint.opentaint-ir.api.cfg.JIRRawVirtualCallExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRawXorExpr
+import org.opentaint.opentaint-ir.api.cfg.*
 import org.opentaint.opentaint-ir.api.ext.isStatic
 import org.opentaint.opentaint-ir.api.ext.jvmName
-import org.opentaint.opentaint-ir.impl.cfg.util.baseElementType
-import org.opentaint.opentaint-ir.impl.cfg.util.internalDesc
-import org.opentaint.opentaint-ir.impl.cfg.util.isDWord
-import org.opentaint.opentaint-ir.impl.cfg.util.isPrimitive
-import org.opentaint.opentaint-ir.impl.cfg.util.jvmClassName
-import org.opentaint.opentaint-ir.impl.cfg.util.jvmTypeName
-import org.opentaint.opentaint-ir.impl.cfg.util.typeName
+import org.opentaint.opentaint-ir.impl.cfg.util.*
 
 private val PredefinedPrimitives.smallIntegers get() = setOf(Boolean, Byte, Char, Short, Int)
 
@@ -187,7 +88,7 @@ class MethodNodeBuilder(
             locals[thisRef] = localIndex++
         }
         for (parameter in method.parameters) {
-            val argument = JIRRawArgument(parameter.index, null, parameter.type)
+            val argument = JIRRawArgument(parameter.index, parameter.name, parameter.type)
             locals[argument] = localIndex
             if (argument.typeName.isDWord) localIndex += 2
             else localIndex++
