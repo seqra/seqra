@@ -1,3 +1,4 @@
+@file:JvmName("JIRLoops")
 package org.opentaint.opentaint-ir.impl.cfg.util
 
 import org.opentaint.opentaint-ir.api.cfg.JIRGraph
@@ -23,6 +24,7 @@ class JIRLoop(
     }
 
     val backJump: JIRInst get() = instructions.last()
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
@@ -43,8 +45,7 @@ class JIRLoop(
 
 }
 
-val JIRGraph.loops: Set<JIRLoop>
-    get() {
+val JIRGraph.loops: Set<JIRLoop> get() {
         val finder = findDominators()
         val loops = HashMap<JIRInst, MutableList<JIRInst>>()
         instructions.forEach { inst ->
