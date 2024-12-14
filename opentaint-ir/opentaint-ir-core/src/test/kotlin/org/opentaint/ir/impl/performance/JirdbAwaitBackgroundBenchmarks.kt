@@ -1,22 +1,14 @@
 package org.opentaint.opentaint-ir.impl.performance
 
 import kotlinx.coroutines.runBlocking
-import org.openjdk.jmh.annotations.Benchmark
-import org.openjdk.jmh.annotations.BenchmarkMode
-import org.openjdk.jmh.annotations.Fork
-import org.openjdk.jmh.annotations.Level
-import org.openjdk.jmh.annotations.Measurement
-import org.openjdk.jmh.annotations.Mode
-import org.openjdk.jmh.annotations.OutputTimeUnit
-import org.openjdk.jmh.annotations.Scope
-import org.openjdk.jmh.annotations.Setup
-import org.openjdk.jmh.annotations.State
-import org.openjdk.jmh.annotations.TearDown
-import org.openjdk.jmh.annotations.Warmup
+import org.openjdk.jmh.annotations.*
 import org.opentaint.opentaint-ir.api.JIRDatabase
 import org.opentaint.opentaint-ir.impl.JIRSettings
 import org.opentaint.opentaint-ir.impl.allClasspath
+import org.opentaint.opentaint-ir.impl.features.InMemoryHierarchy
+import org.opentaint.opentaint-ir.impl.features.Usages
 import org.opentaint.opentaint-ir.impl.opentaint-ir
+import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.*
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -86,6 +78,7 @@ class JirdbIdeaBackgroundBenchmarks : JirdbAbstractAwaitBackgroundBenchmarks() {
 
     override fun JIRSettings.configure() {
         loadByteCode(allIdeaJars)
+        installFeatures(Usages, InMemoryHierarchy)
         persistent(File.createTempFile("jIRdb-", "-db").absolutePath)
     }
 

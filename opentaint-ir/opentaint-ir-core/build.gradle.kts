@@ -90,7 +90,7 @@ benchmark {
     }
 }
 
-val benchmarkTasks = listOf("testJirdbBenchmark", "testSootBenchmark")
+val benchmarkTasks = listOf("testJirdbBenchmark", "testSootBenchmark", "testAwaitBackgroundBenchmark")
 tasks.matching { benchmarkTasks.contains(it.name) }.configureEach {
     dependsOn("downloadAndUnzipIdeaCommunity")
 }
