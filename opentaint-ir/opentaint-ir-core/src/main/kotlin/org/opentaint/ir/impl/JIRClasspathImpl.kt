@@ -1,17 +1,9 @@
 package org.opentaint.opentaint-ir.impl
 
 import com.google.common.cache.CacheBuilder
-import org.opentaint.opentaint-ir.api.ClassSource
-import org.opentaint.opentaint-ir.api.JIRArrayType
-import org.opentaint.opentaint-ir.api.JIRByteCodeLocation
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRRefType
-import org.opentaint.opentaint-ir.api.JIRType
-import org.opentaint.opentaint-ir.api.PredefinedPrimitives
-import org.opentaint.opentaint-ir.api.RegisteredLocation
+import kotlinx.coroutines.*
+import org.opentaint.opentaint-ir.api.*
 import org.opentaint.opentaint-ir.api.ext.toType
-import org.opentaint.opentaint-ir.api.throwClassNotFound
 import org.opentaint.opentaint-ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.opentaint-ir.impl.types.JIRArrayTypeImpl
 import org.opentaint.opentaint-ir.impl.types.JIRClassTypeImpl
@@ -103,6 +95,26 @@ class JIRClasspathImpl(
             return predefined
         }
         return typeOf(findClassOrNull(name) ?: return null)
+    }
+
+    override suspend fun execute(task: JIRClasspathTask): JIRClasspathTask {
+        val locations = registeredLocations.filter { task.shouldProcess(it) }
+        task.before(this)
+        withContext(Dispatchers.IO) {
+            val parentScope = this
+            locations.map {
+                async {
+                    val sources = db.persistence.findClassSources(it)
+                    sources.forEach {
+                        if (parentScope.isActive && task.shouldProcess(it)) {
+                            task.process(it, this@JIRClasspathImpl)
+                        }
+                    }
+                }
+            }.joinAll()
+        }
+        task.after(this)
+        return task
     }
 
     override fun close() {

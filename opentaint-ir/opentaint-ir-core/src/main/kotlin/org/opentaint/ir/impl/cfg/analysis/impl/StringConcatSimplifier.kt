@@ -2,21 +2,7 @@ package org.opentaint.opentaint-ir.impl.cfg.analysis.impl
 
 import org.opentaint.opentaint-ir.api.JIRClassType
 import org.opentaint.opentaint-ir.api.PredefinedPrimitives
-import org.opentaint.opentaint-ir.api.cfg.BsmStringArg
-import org.opentaint.opentaint-ir.api.cfg.DefaultJIRInstVisitor
-import org.opentaint.opentaint-ir.api.cfg.JIRAssignInst
-import org.opentaint.opentaint-ir.api.cfg.JIRCatchInst
-import org.opentaint.opentaint-ir.api.cfg.JIRDynamicCallExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRGotoInst
-import org.opentaint.opentaint-ir.api.cfg.JIRIfInst
-import org.opentaint.opentaint-ir.api.cfg.JIRInst
-import org.opentaint.opentaint-ir.api.cfg.JIRInstRef
-import org.opentaint.opentaint-ir.api.cfg.JIRLocal
-import org.opentaint.opentaint-ir.api.cfg.JIRStaticCallExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRStringConstant
-import org.opentaint.opentaint-ir.api.cfg.JIRSwitchInst
-import org.opentaint.opentaint-ir.api.cfg.JIRValue
-import org.opentaint.opentaint-ir.api.cfg.JIRVirtualCallExpr
+import org.opentaint.opentaint-ir.api.cfg.*
 import org.opentaint.opentaint-ir.api.ext.autoboxIfNeeded
 import org.opentaint.opentaint-ir.api.ext.findTypeOrNull
 import org.opentaint.opentaint-ir.impl.cfg.JIRGraphImpl
@@ -85,7 +71,7 @@ class StringConcatSimplifier(
          */
         instructionIndices.putAll(instructions.indices.map { instructions[it] to it })
         val mappedInstructions = instructions.map { it.accept(this) }
-        return JIRGraphImpl(jIRGraph.classpath, mappedInstructions)
+        return JIRGraphImpl(jIRGraph.method, mappedInstructions)
     }
 
     private fun stringify(inst: JIRInst, value: JIRValue, instList: MutableList<JIRInst>): JIRValue {
@@ -98,7 +84,7 @@ class StringConcatSimplifier(
                     it.name == "toString" && it.parameters.size == 1 && it.parameters.first().type == value.type
                 }
                 val toStringExpr = JIRStaticCallExpr(method, listOf(value))
-                val assignment = JIRLocal("${value}String", stringType)
+                val assignment = JIRLocalVar("${value}String", stringType)
                 instList += JIRAssignInst(inst.lineNumber, assignment, toStringExpr)
                 assignment
             }
@@ -110,7 +96,7 @@ class StringConcatSimplifier(
                     it.name == "toString" && it.parameters.isEmpty()
                 }
                 val toStringExpr = JIRVirtualCallExpr(method, value, emptyList())
-                val assignment = JIRLocal("${value}String", stringType)
+                val assignment = JIRLocalVar("${value}String", stringType)
                 instList += JIRAssignInst(inst.lineNumber, assignment, toStringExpr)
                 assignment
             }
