@@ -2,20 +2,16 @@ package org.opentaint.opentaint-ir.impl.cfg
 
 import org.opentaint.opentaint-ir.api.JIRClassType
 import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.cfg.JIRBranchingInst
-import org.opentaint.opentaint-ir.api.cfg.JIRCatchInst
-import org.opentaint.opentaint-ir.api.cfg.JIRGraph
-import org.opentaint.opentaint-ir.api.cfg.JIRInst
-import org.opentaint.opentaint-ir.api.cfg.JIRInstRef
-import org.opentaint.opentaint-ir.api.cfg.JIRInstVisitor
-import org.opentaint.opentaint-ir.api.cfg.JIRTerminatingInst
+import org.opentaint.opentaint-ir.api.JIRMethod
+import org.opentaint.opentaint-ir.api.cfg.*
 import org.opentaint.opentaint-ir.api.ext.isSubClassOf
 
 class JIRGraphImpl(
-    override val classpath: JIRClasspath,
+    override val method: JIRMethod,
     override val instructions: List<JIRInst>,
 ) : Iterable<JIRInst>, JIRGraph {
     private val indexMap = instructions.mapIndexed { index, jIRInst -> jIRInst to index }.toMap()
+    override val classpath: JIRClasspath get() = method.enclosingClass.classpath
 
     private val predecessorMap = mutableMapOf<JIRInst, MutableSet<JIRInst>>()
     private val successorMap = mutableMapOf<JIRInst, MutableSet<JIRInst>>()
@@ -23,6 +19,8 @@ class JIRGraphImpl(
     private val throwPredecessors = mutableMapOf<JIRCatchInst, MutableSet<JIRInst>>()
     private val throwSuccessors = mutableMapOf<JIRInst, MutableSet<JIRCatchInst>>()
     private val _throwExits = mutableMapOf<JIRClassType, MutableSet<JIRInstRef>>()
+
+    private val exceptionResolver = JIRExceptionResolver(classpath)
 
     override val entry: JIRInst get() = instructions.first()
     override val exits: List<JIRInst> get() = instructions.filterIsInstance<JIRTerminatingInst>()
@@ -56,7 +54,7 @@ class JIRGraphImpl(
         }
 
         for (inst in instructions) {
-            for (throwableType in inst.accept(JIRExceptionResolver(classpath))) {
+            for (throwableType in inst.accept(exceptionResolver)) {
                 if (!catchers(inst).any { throwableType.jIRClass isSubClassOf (it.throwable.type as JIRClassType).jIRClass }) {
                     _throwExits.getOrPut(throwableType, ::mutableSetOf) += ref(inst)
                 }
@@ -99,7 +97,7 @@ class JIRGraphImpl(
      * current method
      */
     override fun exceptionExits(inst: JIRInst): Set<JIRClassType> =
-        inst.accept(JIRExceptionResolver(classpath)).filter { it in _throwExits }.toSet()
+        inst.accept(exceptionResolver).filter { it in _throwExits }.toSet()
 
     override fun exceptionExits(ref: JIRInstRef): Set<JIRClassType> = exceptionExits(inst(ref))
 
@@ -111,16 +109,16 @@ class JIRGraphImpl(
 }
 
 fun JIRGraph.filter(visitor: JIRInstVisitor<Boolean>) =
-    JIRGraphImpl(classpath, instructions.filter { it.accept(visitor) })
+    JIRGraphImpl(method, instructions.filter { it.accept(visitor) })
 
 fun JIRGraph.filterNot(visitor: JIRInstVisitor<Boolean>) =
-    JIRGraphImpl(classpath, instructions.filterNot { it.accept(visitor) })
+    JIRGraphImpl(method, instructions.filterNot { it.accept(visitor) })
 
 fun JIRGraph.map(visitor: JIRInstVisitor<JIRInst>) =
-    JIRGraphImpl(classpath, instructions.map { it.accept(visitor) })
+    JIRGraphImpl(method, instructions.map { it.accept(visitor) })
 
 fun JIRGraph.mapNotNull(visitor: JIRInstVisitor<JIRInst?>) =
-    JIRGraphImpl(classpath, instructions.mapNotNull { it.accept(visitor) })
+    JIRGraphImpl(method, instructions.mapNotNull { it.accept(visitor) })
 
 fun JIRGraph.flatMap(visitor: JIRInstVisitor<Collection<JIRInst>>) =
-    JIRGraphImpl(classpath, instructions.flatMap { it.accept(visitor) })
+    JIRGraphImpl(method, instructions.flatMap { it.accept(visitor) })

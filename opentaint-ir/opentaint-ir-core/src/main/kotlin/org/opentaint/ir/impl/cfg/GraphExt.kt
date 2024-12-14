@@ -9,71 +9,7 @@ import info.leadinglight.jdot.impl.Util
 import org.opentaint.opentaint-ir.api.JIRClassType
 import org.opentaint.opentaint-ir.api.JIRClasspath
 import org.opentaint.opentaint-ir.api.PredefinedPrimitives
-import org.opentaint.opentaint-ir.api.cfg.JIRAddExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRAndExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRArgument
-import org.opentaint.opentaint-ir.api.cfg.JIRArrayAccess
-import org.opentaint.opentaint-ir.api.cfg.JIRAssignInst
-import org.opentaint.opentaint-ir.api.cfg.JIRBasicBlock
-import org.opentaint.opentaint-ir.api.cfg.JIRBlockGraph
-import org.opentaint.opentaint-ir.api.cfg.JIRBool
-import org.opentaint.opentaint-ir.api.cfg.JIRByte
-import org.opentaint.opentaint-ir.api.cfg.JIRCallInst
-import org.opentaint.opentaint-ir.api.cfg.JIRCastExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRCatchInst
-import org.opentaint.opentaint-ir.api.cfg.JIRChar
-import org.opentaint.opentaint-ir.api.cfg.JIRClassConstant
-import org.opentaint.opentaint-ir.api.cfg.JIRCmpExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRCmpgExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRCmplExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRDivExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRDouble
-import org.opentaint.opentaint-ir.api.cfg.JIRDynamicCallExpr
-import org.opentaint.opentaint-ir.api.cfg.JIREnterMonitorInst
-import org.opentaint.opentaint-ir.api.cfg.JIREqExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRExitMonitorInst
-import org.opentaint.opentaint-ir.api.cfg.JIRExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRExprVisitor
-import org.opentaint.opentaint-ir.api.cfg.JIRFieldRef
-import org.opentaint.opentaint-ir.api.cfg.JIRFloat
-import org.opentaint.opentaint-ir.api.cfg.JIRGeExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRGotoInst
-import org.opentaint.opentaint-ir.api.cfg.JIRGraph
-import org.opentaint.opentaint-ir.api.cfg.JIRGtExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRIfInst
-import org.opentaint.opentaint-ir.api.cfg.JIRInst
-import org.opentaint.opentaint-ir.api.cfg.JIRInstVisitor
-import org.opentaint.opentaint-ir.api.cfg.JIRInstanceOfExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRInt
-import org.opentaint.opentaint-ir.api.cfg.JIRLambdaExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRLeExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRLengthExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRLocal
-import org.opentaint.opentaint-ir.api.cfg.JIRLong
-import org.opentaint.opentaint-ir.api.cfg.JIRLtExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRMethodConstant
-import org.opentaint.opentaint-ir.api.cfg.JIRMulExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRNegExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRNeqExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRNewArrayExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRNewExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRNullConstant
-import org.opentaint.opentaint-ir.api.cfg.JIROrExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRRemExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRReturnInst
-import org.opentaint.opentaint-ir.api.cfg.JIRShlExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRShort
-import org.opentaint.opentaint-ir.api.cfg.JIRShrExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRSpecialCallExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRStaticCallExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRStringConstant
-import org.opentaint.opentaint-ir.api.cfg.JIRSubExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRSwitchInst
-import org.opentaint.opentaint-ir.api.cfg.JIRThis
-import org.opentaint.opentaint-ir.api.cfg.JIRThrowInst
-import org.opentaint.opentaint-ir.api.cfg.JIRUshrExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRVirtualCallExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRXorExpr
+import org.opentaint.opentaint-ir.api.cfg.*
 import org.opentaint.opentaint-ir.api.ext.findTypeOrNull
 import org.opentaint.opentaint-ir.api.ext.toType
 import java.io.File
@@ -460,7 +396,7 @@ class JIRExceptionResolver(val classpath: JIRClasspath) : JIRInstVisitor<List<JI
         return emptyList()
     }
 
-    override fun visitJIRLocal(value: JIRLocal): List<JIRClassType> {
+    override fun visitJIRLocalVar(value: JIRLocalVar): List<JIRClassType> {
         return emptyList()
     }
 

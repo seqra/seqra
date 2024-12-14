@@ -132,7 +132,7 @@ class RawInstListBuilder(
     private val instructions = mutableMapOf<AbstractInsnNode, MutableList<JIRRawInst>>()
     private val laterAssignments = mutableMapOf<AbstractInsnNode, MutableMap<Int, JIRRawValue>>()
     private val laterStackAssignments = mutableMapOf<AbstractInsnNode, MutableMap<Int, JIRRawValue>>()
-    private val localTypeRefinement = mutableMapOf<JIRRawLocal, JIRRawLocal>()
+    private val localTypeRefinement = mutableMapOf<JIRRawLocalVar, JIRRawLocalVar>()
     private var labelCounter = 0
     private var localCounter = 0
     private var argCounter = 0
@@ -339,7 +339,7 @@ class RawInstListBuilder(
     private fun instructionList(insn: AbstractInsnNode) = instructions.getOrPut(insn, ::mutableListOf)
 
     private fun nextRegister(typeName: TypeName): JIRRawValue {
-        return JIRRawLocal("%${localCounter++}", typeName)
+        return JIRRawLocalVar("%${localCounter++}", typeName)
     }
     private fun nextLabel(): JIRRawLabelInst = JIRRawLabelInst("#${labelCounter++}")
 
@@ -389,7 +389,7 @@ class RawInstListBuilder(
             locals[argCounter++] = thisRef
         }
         for (parameter in method.parameters) {
-            val argument = JIRRawArgument(parameter.index, parameter.name, parameter.type)
+            val argument = JIRRawArgument.of(parameter.index, parameter.name, parameter.type)
             locals[argCounter] = argument
             if (argument.typeName.isDWord) argCounter += 2
             else argCounter++
@@ -726,11 +726,11 @@ class RawInstListBuilder(
 
                     else -> frame.locals.filterKeys { it in this }.mapValues {
                         when {
-                            it.value is JIRRawLocal && it.value.typeName != this[it.key]!! -> JIRRawLocal(
-                                (it.value as JIRRawLocal).name,
+                            it.value is JIRRawLocalVar && it.value.typeName != this[it.key]!! -> JIRRawLocalVar(
+                                (it.value as JIRRawLocalVar).name,
                                 this[it.key]!!
                             ).also { newLocal ->
-                                localTypeRefinement[it.value as JIRRawLocal] = newLocal
+                                localTypeRefinement[it.value as JIRRawLocalVar] = newLocal
                             }
 
                             else -> it.value
@@ -800,11 +800,11 @@ class RawInstListBuilder(
 
                 else -> frame.stack.withIndex().filter { it.index in this }.map {
                     when {
-                        it.value is JIRRawLocal && it.value.typeName != this[it.index]!! -> JIRRawLocal(
-                            (it.value as JIRRawLocal).name,
+                        it.value is JIRRawLocalVar && it.value.typeName != this[it.index]!! -> JIRRawLocalVar(
+                            (it.value as JIRRawLocalVar).name,
                             this[it.index]!!
                         ).also { newLocal ->
-                            localTypeRefinement[it.value as JIRRawLocal] = newLocal
+                            localTypeRefinement[it.value as JIRRawLocalVar] = newLocal
                         }
 
                         else -> it.value

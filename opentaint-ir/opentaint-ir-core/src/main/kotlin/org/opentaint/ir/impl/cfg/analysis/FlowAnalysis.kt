@@ -1,16 +1,6 @@
 package org.opentaint.opentaint-ir.impl.cfg.analysis
 
-import org.opentaint.opentaint-ir.api.cfg.DefaultJIRExprVisitor
-import org.opentaint.opentaint-ir.api.cfg.DefaultJIRInstVisitor
-import org.opentaint.opentaint-ir.api.cfg.JIRAssignInst
-import org.opentaint.opentaint-ir.api.cfg.JIRCallExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRCallInst
-import org.opentaint.opentaint-ir.api.cfg.JIRCatchInst
-import org.opentaint.opentaint-ir.api.cfg.JIRExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRGraph
-import org.opentaint.opentaint-ir.api.cfg.JIRInst
-import org.opentaint.opentaint-ir.api.cfg.JIRLocal
-import org.opentaint.opentaint-ir.api.cfg.JIRThrowInst
+import org.opentaint.opentaint-ir.api.cfg.*
 import org.opentaint.opentaint-ir.impl.cfg.collect
 
 interface FlowAnalysis<T> {
@@ -40,7 +30,7 @@ object LocalResolver : DefaultJIRInstVisitor<Sequence<JIRLocal>>, DefaultJIRExpr
     override val defaultExprHandler: (JIRExpr) -> Sequence<JIRLocal>
         get() = { emptySequence() }
 
-    override fun visitJIRLocal(value: JIRLocal): Sequence<JIRLocal> {
+    override fun visitJIRLocalVar(value: JIRLocalVar): Sequence<JIRLocal> {
         return sequenceOf(value)
     }
 

@@ -2,16 +2,7 @@ package org.opentaint.opentaint-ir.impl.cfg
 
 import org.opentaint.opentaint-ir.api.JIRClasspath
 import org.opentaint.opentaint-ir.api.JIRType
-import org.opentaint.opentaint-ir.api.cfg.JIRRawAssignInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawCatchInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawComplexValue
-import org.opentaint.opentaint-ir.api.cfg.JIRRawConstant
-import org.opentaint.opentaint-ir.api.cfg.JIRRawInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawLabelInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawLocal
-import org.opentaint.opentaint-ir.api.cfg.JIRRawNullConstant
-import org.opentaint.opentaint-ir.api.cfg.JIRRawSimpleValue
-import org.opentaint.opentaint-ir.api.cfg.JIRRawValue
+import org.opentaint.opentaint-ir.api.cfg.*
 import org.opentaint.opentaint-ir.api.ext.cfg.applyAndGet
 import org.opentaint.opentaint-ir.impl.cfg.util.ExprMapper
 import org.opentaint.opentaint-ir.impl.cfg.util.FullExprSetCollector
@@ -163,8 +154,8 @@ internal class Simplifier {
     private fun computeReplacements(
         instList: JIRRawInstListImpl,
         uses: Map<JIRRawSimpleValue, Set<JIRRawInst>>
-    ): Pair<Map<JIRRawLocal, JIRRawValue>, Set<JIRRawInst>> {
-        val replacements = mutableMapOf<JIRRawLocal, JIRRawValue>()
+    ): Pair<Map<JIRRawLocalVar, JIRRawValue>, Set<JIRRawInst>> {
+        val replacements = mutableMapOf<JIRRawLocalVar, JIRRawValue>()
         val reservedValues = mutableSetOf<JIRRawValue>()
         val replacedInsts = mutableSetOf<JIRRawInst>()
 
@@ -172,7 +163,7 @@ internal class Simplifier {
             if (inst is JIRRawAssignInst) {
                 val rhv = inst.rhv
                 if (inst.lhv is JIRRawSimpleValue
-                    && rhv is JIRRawLocal
+                    && rhv is JIRRawLocalVar
                     && uses.getOrDefault(inst.rhv, emptySet()).firstOrNull() == inst
                     && rhv !in reservedValues
                 ) {
@@ -192,7 +183,7 @@ internal class Simplifier {
             if (inst is JIRRawAssignInst) {
                 val lhv = inst.lhv
                 val rhv = inst.rhv
-                if (lhv is JIRRawLocal && rhv is JIRRawLocal) {
+                if (lhv is JIRRawLocalVar && rhv is JIRRawLocalVar) {
                     assignments.getOrPut(lhv, ::mutableSetOf).add(rhv)
                 }
             }
@@ -201,11 +192,11 @@ internal class Simplifier {
     }
 
     private fun normalizeTypes(jIRClasspath: JIRClasspath, instList: JIRRawInstListImpl): JIRRawInstListImpl {
-        val types = mutableMapOf<JIRRawLocal, MutableSet<JIRType>>()
+        val types = mutableMapOf<JIRRawLocalVar, MutableSet<JIRType>>()
         for (inst in instList) {
-            if (inst is JIRRawAssignInst && inst.lhv is JIRRawLocal && inst.rhv !is JIRRawNullConstant) {
+            if (inst is JIRRawAssignInst && inst.lhv is JIRRawLocalVar && inst.rhv !is JIRRawNullConstant) {
                 types.getOrPut(
-                    inst.lhv as JIRRawLocal,
+                    inst.lhv as JIRRawLocalVar,
                     ::mutableSetOf
                 ) += jIRClasspath.findTypeOrNull(inst.rhv.typeName.typeName)
                     ?: error("Could not find type")
@@ -213,7 +204,7 @@ internal class Simplifier {
         }
         val replacement = types.filterValues { it.size > 1 }
             .mapValues {
-                JIRRawLocal(it.key.name, it.key.typeName)
+                JIRRawLocalVar(it.key.name, it.key.typeName)
             }
         return instList.map(ExprMapper(replacement.toMap()))
     }

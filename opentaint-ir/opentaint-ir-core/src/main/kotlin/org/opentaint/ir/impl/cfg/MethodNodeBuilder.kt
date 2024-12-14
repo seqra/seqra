@@ -88,7 +88,7 @@ class MethodNodeBuilder(
             locals[thisRef] = localIndex++
         }
         for (parameter in method.parameters) {
-            val argument = JIRRawArgument(parameter.index, parameter.name, parameter.type)
+            val argument = JIRRawArgument.of(parameter.index, parameter.name, parameter.type)
             locals[argument] = localIndex
             if (argument.typeName.isDWord) localIndex += 2
             else localIndex++
@@ -641,7 +641,7 @@ class MethodNodeBuilder(
         currentInsnList.add(loadValue(value))
     }
 
-    override fun visitJIRRawLocal(value: JIRRawLocal) {
+    override fun visitJIRRawLocalVar(value: JIRRawLocalVar) {
         currentInsnList.add(loadValue(value))
     }
 

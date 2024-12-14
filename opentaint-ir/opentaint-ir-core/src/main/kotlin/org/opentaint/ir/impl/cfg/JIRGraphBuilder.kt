@@ -24,7 +24,7 @@ class JIRGraphBuilder(
         res
     }
 
-    fun build(): JIRGraph = JIRGraphImpl(classpath, instList.mapNotNull { convertRawInst(it) })
+    fun build(): JIRGraph = JIRGraphImpl(method, instList.mapNotNull { convertRawInst(it) })
 
     private inline fun <reified T : JIRRawInst> handle(inst: T, handler: () -> JIRInst) =
         instMap.getOrPut(inst) { handler() }
@@ -296,11 +296,11 @@ class JIRGraphBuilder(
         JIRThis(method.enclosingClass.toType())
 
     override fun visitJIRRawArgument(value: JIRRawArgument): JIRExpr = method.parameters[value.index].let {
-        JIRArgument(it.index, value.name, it.type.asType)
+        JIRArgument.of(it.index, value.name, it.type.asType)
     }
 
-    override fun visitJIRRawLocal(value: JIRRawLocal): JIRExpr =
-        JIRLocal(value.name, value.typeName.asType)
+    override fun visitJIRRawLocalVar(value: JIRRawLocalVar): JIRExpr =
+        JIRLocalVar(value.name, value.typeName.asType)
 
     override fun visitJIRRawFieldRef(value: JIRRawFieldRef): JIRExpr {
         val instance = value.instance?.accept(this) as? JIRValue
