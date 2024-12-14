@@ -183,7 +183,7 @@ internal class Simplifier {
             if (inst is JIRRawAssignInst) {
                 val lhv = inst.lhv
                 val rhv = inst.rhv
-                if (lhv is JIRRawLocal && rhv is JIRRawLocal) {
+                if (lhv is JIRRawLocalVar && rhv is JIRRawLocalVar) {
                     assignments.getOrPut(lhv, ::mutableSetOf).add(rhv)
                 }
             }

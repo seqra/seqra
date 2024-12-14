@@ -1,18 +1,7 @@
 package org.opentaint.opentaint-ir.impl.cfg.analysis.impl
 
 import org.opentaint.opentaint-ir.api.JIRRefType
-import org.opentaint.opentaint-ir.api.cfg.JIRArgument
-import org.opentaint.opentaint-ir.api.cfg.JIRArrayAccess
-import org.opentaint.opentaint-ir.api.cfg.JIRAssignInst
-import org.opentaint.opentaint-ir.api.cfg.JIRCallExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRCastExpr
-import org.opentaint.opentaint-ir.api.cfg.JIREnterMonitorInst
-import org.opentaint.opentaint-ir.api.cfg.JIRFieldRef
-import org.opentaint.opentaint-ir.api.cfg.JIRGraph
-import org.opentaint.opentaint-ir.api.cfg.JIRInst
-import org.opentaint.opentaint-ir.api.cfg.JIRInstanceCallExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRLocal
-import org.opentaint.opentaint-ir.api.cfg.JIRValue
+import org.opentaint.opentaint-ir.api.cfg.*
 import org.opentaint.opentaint-ir.api.ext.cfg.arrayRef
 import org.opentaint.opentaint-ir.api.ext.cfg.callExpr
 import org.opentaint.opentaint-ir.api.ext.cfg.fieldRef
@@ -87,7 +76,7 @@ open class NullAssumptionAnalysis(graph: JIRGraph) : BackwardFlowAnalysis<NullAn
         val outIter = out.keys.iterator()
         while (outIter.hasNext()) {
             val v = outIter.next()
-            if (!(v is JIRLocal || v is JIRArgument)) {
+            if (!(v is JIRLocal)) {
                 outIter.remove()
             }
         }
