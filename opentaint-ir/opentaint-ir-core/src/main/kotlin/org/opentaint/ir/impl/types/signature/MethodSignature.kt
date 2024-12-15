@@ -1,5 +1,6 @@
 package org.opentaint.opentaint-ir.impl.types.signature
 
+import mu.KLogging
 import org.objectweb.asm.signature.SignatureVisitor
 import org.opentaint.opentaint-ir.api.JIRMethod
 import org.opentaint.opentaint-ir.api.Malformed
@@ -65,7 +66,7 @@ internal class MethodSignature(private val method: JIRMethod) : Signature<Method
         }
     }
 
-    companion object {
+    companion object : KLogging() {
 
         private fun MethodResolutionImpl.apply(visitor: JvmTypeVisitor) = MethodResolutionImpl(
             visitor.visitType(returnType),
@@ -96,6 +97,7 @@ internal class MethodSignature(private val method: JIRMethod) : Signature<Method
                     }
                 }
             } catch (ignored: RuntimeException) {
+                logger.warn(ignored) { "Can't parse signature '$signature' of field $jIRMethod" }
                 Malformed
             }
         }

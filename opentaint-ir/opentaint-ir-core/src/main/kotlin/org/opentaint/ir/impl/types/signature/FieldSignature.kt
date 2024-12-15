@@ -1,8 +1,10 @@
 package org.opentaint.opentaint-ir.impl.types.signature
 
+import mu.KLogging
 import org.objectweb.asm.signature.SignatureReader
 import org.opentaint.opentaint-ir.api.FieldResolution
 import org.opentaint.opentaint-ir.api.JIRField
+import org.opentaint.opentaint-ir.api.Malformed
 import org.opentaint.opentaint-ir.api.Pure
 import org.opentaint.opentaint-ir.impl.bytecode.kmType
 import org.opentaint.opentaint-ir.impl.types.allVisibleTypeParameters
@@ -21,7 +23,7 @@ internal class FieldSignature(private val field: JIRField?) : TypeRegistrant {
         return FieldResolutionImpl(fieldType)
     }
 
-    companion object {
+    companion object : KLogging() {
 
         private fun FieldResolutionImpl.apply(visitor: JvmTypeVisitor) =
             FieldResolutionImpl(visitor.visitType(fieldType))
@@ -30,7 +32,11 @@ internal class FieldSignature(private val field: JIRField?) : TypeRegistrant {
             return of(field.signature, field.enclosingClass.allVisibleTypeParameters(), field)
         }
 
-        fun of(signature: String?, declarations: Map<String, JvmTypeParameterDeclaration>, field: JIRField?): FieldResolution {
+        fun of(
+            signature: String?,
+            declarations: Map<String, JvmTypeParameterDeclaration>,
+            field: JIRField?
+        ): FieldResolution {
             signature ?: return Pure
             val signatureReader = SignatureReader(signature)
             val visitor = FieldSignature(field)
@@ -45,7 +51,8 @@ internal class FieldSignature(private val field: JIRField?) : TypeRegistrant {
                     }
                 }
             } catch (ignored: RuntimeException) {
-                throw ignored
+                logger.warn(ignored) { "Can't parse signature '$signature' of field $field" }
+                Malformed
             }
         }
     }
