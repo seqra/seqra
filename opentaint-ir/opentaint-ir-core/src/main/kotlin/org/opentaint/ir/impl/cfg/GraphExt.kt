@@ -459,4 +459,7 @@ class JIRExceptionResolver(val classpath: JIRClasspath) : JIRInstVisitor<List<JI
         return emptyList()
     }
 
+    override fun visitJIRPhiExpr(value: JIRPhiExpr): List<JIRClassType> {
+        return emptyList()
+    }
 }

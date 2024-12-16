@@ -73,15 +73,15 @@ class JIRGraphImpl(
     /**
      * `successors` and `predecessors` represent normal control flow
      */
-    override fun successors(inst: JIRInst): Set<JIRInst> = successorMap.getOrDefault(inst, emptySet())
-    override fun predecessors(inst: JIRInst): Set<JIRInst> = predecessorMap.getOrDefault(inst, emptySet())
+    override fun successors(node: JIRInst): Set<JIRInst> = successorMap.getOrDefault(node, emptySet())
+    override fun predecessors(node: JIRInst): Set<JIRInst> = predecessorMap.getOrDefault(node, emptySet())
 
     /**
      * `throwers` and `catchers` represent control flow when an exception occurs
      * `throwers` returns an empty set for every instruction except `JIRCatchInst`
      */
-    override fun throwers(inst: JIRInst): Set<JIRInst> = throwPredecessors.getOrDefault(inst, emptySet())
-    override fun catchers(inst: JIRInst): Set<JIRCatchInst> = throwSuccessors.getOrDefault(inst, emptySet())
+    override fun throwers(node: JIRInst): Set<JIRInst> = throwPredecessors.getOrDefault(node, emptySet())
+    override fun catchers(node: JIRInst): Set<JIRCatchInst> = throwSuccessors.getOrDefault(node, emptySet())
 
     override fun previous(inst: JIRInstRef): JIRInst = previous(inst(inst))
     override fun next(inst: JIRInstRef): JIRInst = next(inst(inst))

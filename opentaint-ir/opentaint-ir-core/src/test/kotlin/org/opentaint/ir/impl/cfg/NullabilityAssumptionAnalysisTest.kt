@@ -10,7 +10,7 @@ import org.opentaint.opentaint-ir.api.cfg.JIRLocal
 import org.opentaint.opentaint-ir.api.ext.findClass
 import org.opentaint.opentaint-ir.impl.BaseTest
 import org.opentaint.opentaint-ir.impl.WithDB
-import org.opentaint.opentaint-ir.impl.cfg.analysis.impl.NullAssumptionAnalysis
+import org.opentaint.opentaint-ir.impl.analysis.impl.NullAssumptionAnalysis
 import org.opentaint.opentaint-ir.impl.features.InMemoryHierarchy
 
 class NullabilityAssumptionAnalysisTest : BaseTest() {

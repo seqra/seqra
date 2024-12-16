@@ -1,11 +1,6 @@
 package org.opentaint.opentaint-ir.impl.cfg
 
-import org.opentaint.opentaint-ir.api.cfg.JIRBasicBlock
-import org.opentaint.opentaint-ir.api.cfg.JIRBlockGraph
-import org.opentaint.opentaint-ir.api.cfg.JIRBranchingInst
-import org.opentaint.opentaint-ir.api.cfg.JIRInst
-import org.opentaint.opentaint-ir.api.cfg.JIRInstRef
-import org.opentaint.opentaint-ir.api.cfg.JIRTerminatingInst
+import org.opentaint.opentaint-ir.api.cfg.*
 
 class JIRBlockGraphImpl(
     override val jIRGraph: JIRGraphImpl
@@ -19,6 +14,8 @@ class JIRBlockGraphImpl(
     override val basicBlocks: List<JIRBasicBlock> get() = _basicBlocks
     override val entry: JIRBasicBlock get() = basicBlocks.first()
 
+    override val entries: List<JIRBasicBlock>
+        get() = listOf(entry)
     override val exits: List<JIRBasicBlock> get() = basicBlocks.filter { successors(it).isEmpty() }
 
     init {
@@ -86,14 +83,14 @@ class JIRBlockGraphImpl(
     /**
      * `successors` and `predecessors` represent normal control flow
      */
-    override fun predecessors(block: JIRBasicBlock): Set<JIRBasicBlock> = predecessorMap.getOrDefault(block, emptySet())
-    override fun successors(block: JIRBasicBlock): Set<JIRBasicBlock> = successorMap.getOrDefault(block, emptySet())
+    override fun predecessors(node: JIRBasicBlock): Set<JIRBasicBlock> = predecessorMap.getOrDefault(node, emptySet())
+    override fun successors(node: JIRBasicBlock): Set<JIRBasicBlock> = successorMap.getOrDefault(node, emptySet())
 
     /**
      * `throwers` and `catchers` represent control flow when an exception occurs
      */
-    override fun catchers(block: JIRBasicBlock): Set<JIRBasicBlock> = catchersMap.getOrDefault(block, emptySet())
-    override fun throwers(block: JIRBasicBlock): Set<JIRBasicBlock> = throwersMap.getOrDefault(block, emptySet())
+    override fun catchers(node: JIRBasicBlock): Set<JIRBasicBlock> = catchersMap.getOrDefault(node, emptySet())
+    override fun throwers(node: JIRBasicBlock): Set<JIRBasicBlock> = throwersMap.getOrDefault(node, emptySet())
 
     override fun iterator(): Iterator<JIRBasicBlock> = basicBlocks.iterator()
 }
