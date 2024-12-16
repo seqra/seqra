@@ -13,7 +13,7 @@ class InnerTypesTest : BaseTypesTest() {
         val classWithInners = findType<InnerClasses<*>>()
         val inners = classWithInners.innerTypes
         assertEquals(4, inners.size)
-        val methodLinked = inners.first { it.typeName == "org.opentaint.opentaint-ir.impl.types.InnerClasses<W>.InnerClasses\$1" }
+        val methodLinked = inners.first { it.typeName == "org.opentaint.ir.testing.types.InnerClasses<W>.InnerClasses\$1" }
         with(methodLinked.fields) {
             with(first { it.name == "stateT" }) {
                 assertEquals("T", (fieldType as JIRTypeVariable).symbol)
