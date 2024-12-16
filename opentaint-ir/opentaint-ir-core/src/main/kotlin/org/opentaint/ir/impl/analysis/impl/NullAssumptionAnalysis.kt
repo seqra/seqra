@@ -1,11 +1,11 @@
-package org.opentaint.opentaint-ir.impl.cfg.analysis.impl
+package org.opentaint.opentaint-ir.impl.analysis.impl
 
 import org.opentaint.opentaint-ir.api.JIRRefType
 import org.opentaint.opentaint-ir.api.cfg.*
 import org.opentaint.opentaint-ir.api.ext.cfg.arrayRef
 import org.opentaint.opentaint-ir.api.ext.cfg.callExpr
 import org.opentaint.opentaint-ir.api.ext.cfg.fieldRef
-import org.opentaint.opentaint-ir.impl.cfg.analysis.BackwardFlowAnalysis
+import org.opentaint.opentaint-ir.impl.analysis.BackwardFlowAnalysis
 
 class NullAnalysisMap : HashMap<JIRValue, NullableState> {
 

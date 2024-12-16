@@ -1,4 +1,4 @@
-package org.opentaint.opentaint-ir.impl.cfg.analysis
+package org.opentaint.opentaint-ir.impl.analysis
 
 import org.opentaint.opentaint-ir.api.cfg.*
 import org.opentaint.opentaint-ir.impl.cfg.collect

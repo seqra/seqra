@@ -1,51 +1,42 @@
-package org.opentaint.opentaint-ir.impl.cfg.analysis
+@file:JvmName("InterProceduralPlatforms")
+package org.opentaint.opentaint-ir.impl.analysis
 
-import com.google.common.cache.CacheBuilder
-import com.google.common.cache.CacheLoader
-import com.google.common.cache.LoadingCache
 import kotlinx.collections.immutable.toPersistentList
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.future.future
+import org.opentaint.opentaint-ir.api.JIRClasspath
 import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.analysis.JIRGraphTransformer
+import org.opentaint.opentaint-ir.api.analysis.JIRAnalysisFeature
 import org.opentaint.opentaint-ir.api.analysis.JIRInstIdentity
-import org.opentaint.opentaint-ir.api.analysis.JIRInterProceduralTask
+import org.opentaint.opentaint-ir.api.analysis.JIRInterProceduralPlatform
 import org.opentaint.opentaint-ir.api.cfg.JIRGraph
 import org.opentaint.opentaint-ir.api.cfg.JIRInst
 import org.opentaint.opentaint-ir.api.ext.cfg.callExpr
+import org.opentaint.opentaint-ir.impl.analysis.features.JIRCacheGraphFeature
 import org.opentaint.opentaint-ir.impl.features.SyncUsagesExtension
+import org.opentaint.opentaint-ir.impl.features.usagesExt
+import java.util.concurrent.Future
 
-abstract class AbstractJIRInterProceduralTask(val usages: SyncUsagesExtension) : JIRInterProceduralTask {
+open class InterProceduralPlatform(
+    classpath: JIRClasspath,
+    val usages: SyncUsagesExtension,
+    cacheSize: Long,
+    feature: List<JIRAnalysisFeature>
+) : JIRAnalysisPlatformImpl(
+    classpath,
+    feature.toPersistentList() + JIRCacheGraphFeature(cacheSize)
+), JIRInterProceduralPlatform {
 
-    protected open fun <KEY, VALUE> newCache(factory: (KEY) -> VALUE): LoadingCache<KEY, VALUE> {
-        return CacheBuilder.newBuilder()
-            .concurrencyLevel(Runtime.getRuntime().availableProcessors())
-            .initialCapacity(10_000)
-            .softValues()
-            .build(object : CacheLoader<KEY, VALUE>() {
-                override fun load(body: KEY): VALUE {
-                    return factory(body)
-                }
-            })
-    }
-
-    protected val graphsStore by lazy(LazyThreadSafetyMode.NONE) {
-        newCache<JIRMethod, JIRGraph> { flowOf(it) }
-    }
-
-    open val JIRMethod.actualFlowGraph: JIRGraph
+    protected open val JIRMethod.actualFlowGraph: JIRGraph
         get() {
-            return graphsStore.getUnchecked(this)
+            return flowGraph(this)
         }
 
     override fun groupedCallersOf(method: JIRMethod): Map<JIRMethod, Set<JIRInst>> {
         val callersMethod = usages.findUsages(method)
         return callersMethod.associateWith {
-            it.actualFlowGraph.instructions.mapIndexedNotNull { index, inst ->
-                val callExpr = inst.callExpr
-                if (callExpr != null && callExpr.method.method == method) {
-                    inst
-                } else {
-                    null
-                }
+            it.actualFlowGraph.instructions.filter { inst ->
+                inst.callExpr?.method?.method == method
             }.toSet()
         }
     }
@@ -82,7 +73,7 @@ abstract class AbstractJIRInterProceduralTask(val usages: SyncUsagesExtension) :
     }
 
     override fun heads(method: JIRMethod): List<JIRInstIdentity> {
-        return listOf(method.actualFlowGraph.toRef { it.entry })
+        return listOf(method.actualFlowGraph.toIdentity { it.entry })
     }
 
     override fun isCall(instId: JIRInstIdentity): Boolean {
@@ -104,16 +95,20 @@ abstract class AbstractJIRInterProceduralTask(val usages: SyncUsagesExtension) :
         return instId.method.actualFlowGraph.instructions[instId.index]
     }
 
-    private inline fun JIRGraph.toRef(inst: (JIRGraph) -> JIRInst): JIRInstIdentity {
+    private inline fun JIRGraph.toIdentity(inst: (JIRGraph) -> JIRInst): JIRInstIdentity {
         return JIRInstIdentity(this, indexOf(inst(this)))
     }
 }
 
-abstract class TransformingInterProcedureTask(
-    usages: SyncUsagesExtension,
-    _transformers: List<JIRGraphTransformer>
-) : AbstractJIRInterProceduralTask(usages) {
-
-    override val transformers = _transformers.toPersistentList()
-
+suspend fun JIRClasspath.interProcedure(
+    features: List<JIRAnalysisFeature>,
+    cacheSize: Long = 10_000
+): InterProceduralPlatform {
+    val usages = usagesExt()
+    return InterProceduralPlatform(this, usages, cacheSize, features)
 }
+
+fun JIRClasspath.asyncInterProcedure(
+    features: List<JIRAnalysisFeature>,
+    cacheSize: Long = 10_000
+): Future<InterProceduralPlatform> = GlobalScope.future { interProcedure(features, cacheSize) }

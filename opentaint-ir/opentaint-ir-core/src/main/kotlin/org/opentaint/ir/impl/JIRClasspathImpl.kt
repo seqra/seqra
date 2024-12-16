@@ -97,7 +97,7 @@ class JIRClasspathImpl(
         return typeOf(findClassOrNull(name) ?: return null)
     }
 
-    override suspend fun execute(task: JIRClasspathTask): JIRClasspathTask {
+    override suspend fun <T : JIRClasspathTask> execute(task: T): T {
         val locations = registeredLocations.filter { task.shouldProcess(it) }
         task.before(this)
         withContext(Dispatchers.IO) {

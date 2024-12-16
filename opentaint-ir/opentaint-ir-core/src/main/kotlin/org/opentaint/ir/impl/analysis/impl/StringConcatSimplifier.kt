@@ -1,4 +1,4 @@
-package org.opentaint.opentaint-ir.impl.cfg.analysis.impl
+package org.opentaint.opentaint-ir.impl.analysis.impl
 
 import org.opentaint.opentaint-ir.api.JIRClassType
 import org.opentaint.opentaint-ir.api.PredefinedPrimitives
