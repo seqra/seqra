@@ -9,7 +9,7 @@ class ExprMapper(val mapping: Map<JIRRawExpr, JIRRawExpr>) : JIRRawInstVisitor<J
         val newRhv = inst.rhv.accept(this)
         return when {
             inst.lhv == newLhv && inst.rhv == newRhv -> inst
-            else -> JIRRawAssignInst(newLhv, newRhv)
+            else -> JIRRawAssignInst(inst.owner, newLhv, newRhv)
         }
     }
 
@@ -17,7 +17,7 @@ class ExprMapper(val mapping: Map<JIRRawExpr, JIRRawExpr>) : JIRRawInstVisitor<J
         val newMonitor = inst.monitor.accept(this) as JIRRawSimpleValue
         return when (inst.monitor) {
             newMonitor -> inst
-            else -> JIRRawEnterMonitorInst(newMonitor)
+            else -> JIRRawEnterMonitorInst(inst.owner, newMonitor)
         }
     }
 
@@ -25,7 +25,7 @@ class ExprMapper(val mapping: Map<JIRRawExpr, JIRRawExpr>) : JIRRawInstVisitor<J
         val newMonitor = inst.monitor.accept(this) as JIRRawSimpleValue
         return when (inst.monitor) {
             newMonitor -> inst
-            else -> JIRRawExitMonitorInst(newMonitor)
+            else -> JIRRawExitMonitorInst(inst.owner, newMonitor)
         }
     }
 
@@ -33,7 +33,7 @@ class ExprMapper(val mapping: Map<JIRRawExpr, JIRRawExpr>) : JIRRawInstVisitor<J
         val newCall = inst.callExpr.accept(this) as JIRRawCallExpr
         return when (inst.callExpr) {
             newCall -> inst
-            else -> JIRRawCallInst(newCall)
+            else -> JIRRawCallInst(inst.owner, newCall)
         }
     }
 
@@ -49,7 +49,7 @@ class ExprMapper(val mapping: Map<JIRRawExpr, JIRRawExpr>) : JIRRawInstVisitor<J
         val newReturn = inst.returnValue?.accept(this) as? JIRRawValue
         return when (inst.returnValue) {
             newReturn -> inst
-            else -> JIRRawReturnInst(newReturn)
+            else -> JIRRawReturnInst(inst.owner, newReturn)
         }
     }
 
@@ -57,7 +57,7 @@ class ExprMapper(val mapping: Map<JIRRawExpr, JIRRawExpr>) : JIRRawInstVisitor<J
         val newThrowable = inst.throwable.accept(this) as JIRRawValue
         return when (inst.throwable) {
             newThrowable -> inst
-            else -> JIRRawThrowInst(newThrowable)
+            else -> JIRRawThrowInst(inst.owner, newThrowable)
         }
     }
 
@@ -65,7 +65,7 @@ class ExprMapper(val mapping: Map<JIRRawExpr, JIRRawExpr>) : JIRRawInstVisitor<J
         val newThrowable = inst.throwable.accept(this) as JIRRawValue
         return when (inst.throwable) {
             newThrowable -> inst
-            else -> JIRRawCatchInst(newThrowable, inst.handler, inst.startInclusive, inst.endExclusive)
+            else -> JIRRawCatchInst(inst.owner, newThrowable, inst.handler, inst.startInclusive, inst.endExclusive)
         }
     }
 
@@ -77,7 +77,7 @@ class ExprMapper(val mapping: Map<JIRRawExpr, JIRRawExpr>) : JIRRawInstVisitor<J
         val newCondition = inst.condition.accept(this) as JIRRawConditionExpr
         return when (inst.condition) {
             newCondition -> inst
-            else -> JIRRawIfInst(newCondition, inst.trueBranch, inst.falseBranch)
+            else -> JIRRawIfInst(inst.owner, newCondition, inst.trueBranch, inst.falseBranch)
         }
     }
 
@@ -86,7 +86,7 @@ class ExprMapper(val mapping: Map<JIRRawExpr, JIRRawExpr>) : JIRRawInstVisitor<J
         val newBranches = inst.branches.mapKeys { it.key.accept(this) as JIRRawValue }
         return when {
             inst.key == newKey && inst.branches == newBranches -> inst
-            else -> JIRRawSwitchInst(newKey, newBranches, inst.default)
+            else -> JIRRawSwitchInst(inst.owner, newKey, newBranches, inst.default)
         }
     }
 

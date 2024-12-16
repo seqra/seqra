@@ -50,7 +50,7 @@ private val TypeName.typeInt
 
 class MethodNodeBuilder(
     val method: JIRMethod,
-    val instList: JIRRawInstList
+    val instList: JIRInstList<JIRRawInst>
 ) : JIRRawInstVisitor<Unit>, JIRRawExprVisitor<Unit> {
     private var localIndex = 0
     private var stackSize = 0

@@ -26,6 +26,7 @@ buildscript {
 
 plugins {
     id("de.undercouch.download") version "5.3.0"
+    `java-test-fixtures`
 }
 
 kotlin.sourceSets["main"].kotlin {
@@ -48,13 +49,17 @@ dependencies {
     implementation(group = "com.google.guava", name = "guava", version = "31.1-jre")
     implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-metadata-jvm", version = kmetadataVersion)
 
-    testImplementation(project(":opentaint-ir-testing"))
-    testImplementation(group = "org.junit.jupiter", name = "junit-jupiter")
-    testImplementation(group = "org.opentaint.soot", name = "soot-opentaint-fork", version = "4.4.0-FORK-2")
-    testImplementation(group = "com.fasterxml.jackson.core", name = "jackson-core", version = "2.14.1")
+    testFixturesImplementation(project(":opentaint-ir-api"))
 
-    testImplementation(group = "org.jetbrains.kotlinx", name = "kotlinx-benchmark-runtime", version = "0.4.4")
-    testImplementation(group = "ch.qos.logback", name = "logback-classic", version = "1.2.9")
+    testFixturesImplementation(platform("org.junit:junit-bom:5.9.0"))
+    testFixturesImplementation(group = "org.jetbrains.kotlin", name = "kotlin-reflect", version = kotlinVersion)
+    testFixturesImplementation(group = "org.junit.jupiter", name = "junit-jupiter")
+    testFixturesImplementation(group = "com.google.guava", name = "guava", version = "31.1-jre")
+    testFixturesImplementation(group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version = coroutinesVersion)
+    testFixturesImplementation(group = "org.mockito", name = "mockito-core", version = "4.8.0")
+    testFixturesImplementation(group = "org.jetbrains", name = "annotations", version = "20.1.0")
+    testImplementation(group = "org.opentaint.soot", name = "soot-opentaint-fork", version = "4.4.0-FORK-2")
+
 }
 
 tasks.register<Download>("downloadIdeaCommunity") {

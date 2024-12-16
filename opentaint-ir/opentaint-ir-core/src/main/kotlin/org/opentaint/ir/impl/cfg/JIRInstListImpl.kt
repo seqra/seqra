@@ -1,0 +1,66 @@
+package org.opentaint.opentaint-ir.impl.cfg
+
+import org.opentaint.opentaint-ir.api.cfg.JIRInstList
+import org.opentaint.opentaint-ir.api.cfg.JIRRawInst
+import org.opentaint.opentaint-ir.api.cfg.JIRRawInstVisitor
+import org.opentaint.opentaint-ir.api.cfg.JIRRawLabelInst
+
+class JIRInstListImpl<INST>(
+    instructions: List<INST>
+) : Iterable<INST>, JIRInstList<INST> {
+    private val _instructions = instructions.toMutableList()
+    override val instructions: List<INST> get() = _instructions
+
+    override val size get() = instructions.size
+    override val indices get() = instructions.indices
+    override val lastIndex get() = instructions.lastIndex
+
+    override operator fun get(index: Int) = instructions[index]
+    override fun getOrNull(index: Int) = instructions.getOrNull(index)
+    fun getOrElse(index: Int, defaultValue: (Int) -> INST) = instructions.getOrElse(index, defaultValue)
+    override fun iterator(): Iterator<INST> = instructions.iterator()
+
+    override fun toString(): String = _instructions.joinToString(separator = "\n") {
+        when (it) {
+            is JIRRawLabelInst -> "$it"
+            else -> "  $it"
+        }
+    }
+
+    override fun insertBefore(inst: INST, vararg newInstructions: INST) = insertBefore(inst, newInstructions.toList())
+    override fun insertBefore(inst: INST, newInstructions: Collection<INST>) {
+        val index = _instructions.indexOf(inst)
+        assert(index >= 0)
+        _instructions.addAll(index, newInstructions)
+    }
+
+    override fun insertAfter(inst: INST, vararg newInstructions: INST) = insertBefore(inst, newInstructions.toList())
+    override fun insertAfter(inst: INST, newInstructions: Collection<INST>) {
+        val index = _instructions.indexOf(inst)
+        assert(index >= 0)
+        _instructions.addAll(index + 1, newInstructions)
+    }
+
+    override fun remove(inst: INST): Boolean {
+        return _instructions.remove(inst)
+    }
+
+    override fun removeAll(inst: Collection<INST>): Boolean {
+        return _instructions.removeAll(inst)
+    }
+}
+
+fun JIRInstList<JIRRawInst>.filter(visitor: JIRRawInstVisitor<Boolean>) =
+    JIRInstListImpl(instructions.filter { it.accept(visitor) })
+
+fun JIRInstList<JIRRawInst>.filterNot(visitor: JIRRawInstVisitor<Boolean>) =
+    JIRInstListImpl(instructions.filterNot { it.accept(visitor) })
+
+fun JIRInstList<JIRRawInst>.map(visitor: JIRRawInstVisitor<JIRRawInst>) =
+    JIRInstListImpl(instructions.map { it.accept(visitor) })
+
+fun JIRInstList<JIRRawInst>.mapNotNull(visitor: JIRRawInstVisitor<JIRRawInst?>) =
+    JIRInstListImpl(instructions.mapNotNull { it.accept(visitor) })
+
+fun JIRInstList<JIRRawInst>.flatMap(visitor: JIRRawInstVisitor<Collection<JIRRawInst>>) =
+    JIRInstListImpl(instructions.flatMap { it.accept(visitor) })
