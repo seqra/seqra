@@ -7,7 +7,7 @@ val coroutinesVersion: String by rootProject
 val junit5Version: String by project
 val semVer: String? by project
 
-group = "org.opentaint.opentaint-ir"
+group = "org.opentaint.ir"
 project.version = semVer ?: "1.0-SNAPSHOT"
 
 buildscript {
