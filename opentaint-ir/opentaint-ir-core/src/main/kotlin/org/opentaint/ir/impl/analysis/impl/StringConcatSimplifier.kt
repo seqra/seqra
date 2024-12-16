@@ -51,7 +51,7 @@ class StringConcatSimplifier(
                         it.name == "concat" && it.parameters.size == 1 && it.parameters.first().type == stringType
                     }
                     val newConcatExpr = JIRVirtualCallExpr(concatMethod, firstStr, listOf(secondStr))
-                    result += JIRAssignInst(inst.lineNumber, lhv, newConcatExpr)
+                    result += JIRAssignInst(inst.owner, inst.lineNumber, lhv, newConcatExpr)
                     instructionReplacements[inst] = result.first()
                     catchReplacements[inst] = result
                     instructions += result
@@ -85,7 +85,7 @@ class StringConcatSimplifier(
                 }
                 val toStringExpr = JIRStaticCallExpr(method, listOf(value))
                 val assignment = JIRLocalVar("${value}String", stringType)
-                instList += JIRAssignInst(inst.lineNumber, assignment, toStringExpr)
+                instList += JIRAssignInst(inst.owner, inst.lineNumber, assignment, toStringExpr)
                 assignment
             }
 
@@ -97,7 +97,7 @@ class StringConcatSimplifier(
                 }
                 val toStringExpr = JIRVirtualCallExpr(method, value, emptyList())
                 val assignment = JIRLocalVar("${value}String", stringType)
-                instList += JIRAssignInst(inst.lineNumber, assignment, toStringExpr)
+                instList += JIRAssignInst(inst.owner, inst.lineNumber, assignment, toStringExpr)
                 assignment
             }
         }
@@ -113,14 +113,16 @@ class StringConcatSimplifier(
         }
 
     override fun visitJIRCatchInst(inst: JIRCatchInst): JIRInst = JIRCatchInst(
+        inst.owner,
         inst.lineNumber,
         inst.throwable,
         inst.throwers.flatMap { indicesOf(it) }
     )
 
-    override fun visitJIRGotoInst(inst: JIRGotoInst): JIRInst = JIRGotoInst(inst.lineNumber, indexOf(inst.target))
+    override fun visitJIRGotoInst(inst: JIRGotoInst): JIRInst = JIRGotoInst(inst.owner, inst.lineNumber, indexOf(inst.target))
 
     override fun visitJIRIfInst(inst: JIRIfInst): JIRInst = JIRIfInst(
+        inst.owner,
         inst.lineNumber,
         inst.condition,
         indexOf(inst.trueBranch),
@@ -128,6 +130,7 @@ class StringConcatSimplifier(
     )
 
     override fun visitJIRSwitchInst(inst: JIRSwitchInst): JIRInst = JIRSwitchInst(
+        inst.owner,
         inst.lineNumber,
         inst.key,
         inst.branches.mapValues { indexOf(it.value) },

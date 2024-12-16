@@ -137,14 +137,14 @@ class RawInstListBuilder(
     private var localCounter = 0
     private var argCounter = 0
 
-    fun build(): JIRRawInstListImpl {
+    fun build(): JIRInstListImpl<JIRRawInst> {
         buildGraph()
 
         buildInstructions()
         buildRequiredAssignments()
         buildRequiredGotos()
 
-        val originalInstructionList = JIRRawInstListImpl(methodNode.instructions.flatMap { instructionList(it) })
+        val originalInstructionList = JIRInstListImpl(methodNode.instructions.flatMap { instructionList(it) })
 
         // after all the frame info resolution we can refine type info for some local variables,
         // so we replace all the old versions of the variables with the type refined ones
@@ -190,9 +190,9 @@ class RawInstListBuilder(
             for ((variable, value) in assignments) {
                 if (value != frame[variable]) {
                     if (insn.isBranchingInst || insn.isTerminateInst) {
-                        insnList.add(insnList.lastIndex, JIRRawAssignInst(value, frame[variable]!!))
+                        insnList.add(insnList.lastIndex, JIRRawAssignInst(method, value, frame[variable]!!))
                     } else {
-                        insnList += JIRRawAssignInst(value, frame[variable]!!)
+                        insnList += JIRRawAssignInst(method, value, frame[variable]!!)
                     }
                 }
             }
@@ -203,9 +203,9 @@ class RawInstListBuilder(
             for ((variable, value) in assignments) {
                 if (value != frame.stack[variable]) {
                     if (insn.isBranchingInst || insn.isTerminateInst) {
-                        insnList.add(insnList.lastIndex, JIRRawAssignInst(value, frame.stack[variable]))
+                        insnList.add(insnList.lastIndex, JIRRawAssignInst(method, value, frame.stack[variable]))
                     } else {
-                        insnList += JIRRawAssignInst(value, frame.stack[variable])
+                        insnList += JIRRawAssignInst(method, value, frame.stack[variable])
                     }
                 }
             }
@@ -230,7 +230,7 @@ class RawInstListBuilder(
                                 newLabel.ref
                             }
                         }
-                        instructionList(predecessor).add(JIRRawGotoInst(label))
+                        instructionList(predecessor).add(JIRRawGotoInst(method, label))
                     }
                 }
             }
@@ -315,18 +315,18 @@ class RawInstListBuilder(
         val oldVar = currentFrame.locals[variable]
         return if (oldVar != null) {
             if (oldVar.typeName == expr.typeName) {
-                JIRRawAssignInst(oldVar, expr)
+                JIRRawAssignInst(method, oldVar, expr)
             } else if (expr is JIRRawSimpleValue) {
                 currentFrame = currentFrame.put(variable, expr)
                 null
             } else {
                 val assignment = nextRegister(expr.typeName)
                 currentFrame = currentFrame.put(variable, assignment)
-                JIRRawAssignInst(oldVar, expr)
+                JIRRawAssignInst(method, oldVar, expr)
             }
         } else {
             val newLocal = nextRegister(expr.typeName)
-            val result = JIRRawAssignInst(newLocal, expr)
+            val result = JIRRawAssignInst(method, newLocal, expr)
             currentFrame = currentFrame.put(variable, newLocal)
             result
         }
@@ -341,7 +341,7 @@ class RawInstListBuilder(
     private fun nextRegister(typeName: TypeName): JIRRawValue {
         return JIRRawLocalVar("%${localCounter++}", typeName)
     }
-    private fun nextLabel(): JIRRawLabelInst = JIRRawLabelInst("#${labelCounter++}")
+    private fun nextLabel(): JIRRawLabelInst = JIRRawLabelInst(method, "#${labelCounter++}")
 
     private fun buildGraph() {
         methodNode.instructions.first?.let {
@@ -439,7 +439,7 @@ class RawInstListBuilder(
         val read = JIRRawArrayAccess(arrayRef, index, arrayRef.typeName.elementType())
 
         val assignment = nextRegister(read.typeName)
-        instructionList(insn).add(JIRRawAssignInst(assignment, read))
+        instructionList(insn).add(JIRRawAssignInst(method, assignment, read))
         push(assignment)
     }
 
@@ -447,7 +447,7 @@ class RawInstListBuilder(
         val value = pop()
         val index = pop()
         val arrayRef = pop()
-        instructionList(insn) += JIRRawAssignInst(
+        instructionList(insn) += JIRRawAssignInst(method,
             JIRRawArrayAccess(arrayRef, index, arrayRef.typeName.elementType()),
             value
         )
@@ -589,7 +589,7 @@ class RawInstListBuilder(
             else -> error("Unknown binary opcode: $opcode")
         }
         val assignment = nextRegister(lhv.typeName)
-        instructionList(insn) += JIRRawAssignInst(assignment, expr)
+        instructionList(insn) += JIRRawAssignInst(method, assignment, expr)
         push(assignment)
     }
 
@@ -601,7 +601,7 @@ class RawInstListBuilder(
             else -> error("Unknown unary opcode $opcode")
         }
         val assignment = nextRegister(expr.typeName)
-        instructionList(insn) += JIRRawAssignInst(assignment, expr)
+        instructionList(insn) += JIRRawAssignInst(method, assignment, expr)
         push(assignment)
     }
 
@@ -618,7 +618,7 @@ class RawInstListBuilder(
             else -> error("Unknown cast opcode $opcode")
         }
         val assignment = nextRegister(targetType)
-        instructionList(insn) += JIRRawAssignInst(assignment, JIRRawCastExpr(targetType, operand))
+        instructionList(insn) += JIRRawAssignInst(method, assignment, JIRRawCastExpr(targetType, operand))
         push(assignment)
     }
 
@@ -632,14 +632,14 @@ class RawInstListBuilder(
             else -> error("Unknown cmp opcode $opcode")
         }
         val assignment = nextRegister(PredefinedPrimitives.Int.typeName())
-        instructionList(insn) += JIRRawAssignInst(assignment, expr)
+        instructionList(insn) += JIRRawAssignInst(method, assignment, expr)
         push(assignment)
     }
 
     private fun buildReturn(insn: InsnNode) {
         instructionList(insn) += when (val opcode = insn.opcode) {
-            Opcodes.RETURN -> JIRRawReturnInst(null)
-            in Opcodes.IRETURN..Opcodes.ARETURN -> JIRRawReturnInst(pop())
+            Opcodes.RETURN -> JIRRawReturnInst(method, null)
+            in Opcodes.IRETURN..Opcodes.ARETURN -> JIRRawReturnInst(method, pop())
             else -> error("Unknown return opcode: $opcode")
         }
     }
@@ -648,17 +648,17 @@ class RawInstListBuilder(
         val monitor = pop() as JIRRawSimpleValue
         instructionList(insn) += when (val opcode = insn.opcode) {
             Opcodes.MONITORENTER -> {
-                JIRRawEnterMonitorInst(monitor)
+                JIRRawEnterMonitorInst(method, monitor)
             }
 
-            Opcodes.MONITOREXIT -> JIRRawExitMonitorInst(monitor)
+            Opcodes.MONITOREXIT -> JIRRawExitMonitorInst(method, monitor)
             else -> error("Unknown monitor opcode $opcode")
         }
     }
 
     private fun buildThrow(insn: InsnNode) {
         val throwable = pop()
-        instructionList(insn) += JIRRawThrowInst(throwable)
+        instructionList(insn) += JIRRawThrowInst(method, throwable)
     }
 
     private fun buildFieldInsnNode(insnNode: FieldInsnNode) {
@@ -669,7 +669,7 @@ class RawInstListBuilder(
             Opcodes.GETFIELD -> {
                 val assignment = nextRegister(fieldType)
                 val field = JIRRawFieldRef(pop(), declaringClass, fieldName, fieldType)
-                instructionList(insnNode).add(JIRRawAssignInst(assignment, field))
+                instructionList(insnNode).add(JIRRawAssignInst(method, assignment, field))
                 push(assignment)
             }
 
@@ -677,20 +677,20 @@ class RawInstListBuilder(
                 val value = pop()
                 val instance = pop()
                 val fieldRef = JIRRawFieldRef(instance, declaringClass, fieldName, fieldType)
-                instructionList(insnNode) += JIRRawAssignInst(fieldRef, value)
+                instructionList(insnNode) += JIRRawAssignInst(method, fieldRef, value)
             }
 
             Opcodes.GFrontendTATIC -> {
                 val assignment = nextRegister(fieldType)
                 val field = JIRRawFieldRef(declaringClass, fieldName, fieldType)
-                instructionList(insnNode).add(JIRRawAssignInst(assignment, field))
+                instructionList(insnNode).add(JIRRawAssignInst(method, assignment, field))
                 push(assignment)
             }
 
             Opcodes.PUTSTATIC -> {
                 val value = pop()
                 val fieldRef = JIRRawFieldRef(declaringClass, fieldName, fieldType)
-                instructionList(insnNode) += JIRRawAssignInst(fieldRef, value)
+                instructionList(insnNode) += JIRRawAssignInst(method, fieldRef, value)
             }
         }
     }
@@ -755,9 +755,9 @@ class RawInstListBuilder(
                             if (frame != null) {
                                 val instList = instructionList(node)
                                 if (node.isBranchingInst) {
-                                    instList.add(0, JIRRawAssignInst(assignment, frame[variable]!!))
+                                    instList.add(0, JIRRawAssignInst(method, assignment, frame[variable]!!))
                                 } else {
-                                    instList.add(JIRRawAssignInst(assignment, frame[variable]!!))
+                                    instList.add(JIRRawAssignInst(method, assignment, frame[variable]!!))
                                 }
                             } else {
                                 laterAssignments.getOrPut(node, ::mutableMapOf)[variable] = assignment
@@ -824,9 +824,9 @@ class RawInstListBuilder(
                         if (frame != null) {
                             val instList = instructionList(node)
                             if (node.isBranchingInst) {
-                                instList.add(0, JIRRawAssignInst(assignment, frame.stack[variable]))
+                                instList.add(0, JIRRawAssignInst(method, assignment, frame.stack[variable]))
                             } else {
-                                instList.add(JIRRawAssignInst(assignment, frame.stack[variable]))
+                                instList.add(JIRRawAssignInst(method, assignment, frame.stack[variable]))
                             }
                         } else {
                             laterStackAssignments.getOrPut(node, ::mutableMapOf)[variable] = assignment
@@ -870,7 +870,7 @@ class RawInstListBuilder(
                     persistentListOf()
                 )
                 val throwable = nextRegister(catch.typeOrDefault.typeName())
-                instructionList(insnNode) += JIRRawCatchInst(
+                instructionList(insnNode) += JIRRawCatchInst(method,
                     throwable,
                     labelRef(catch.handler),
                     labelRef(catch.start),
@@ -884,7 +884,7 @@ class RawInstListBuilder(
     private fun buildIincInsnNode(insnNode: IincInsnNode) {
         val local = local(insnNode.`var`)
         val add = JIRRawAddExpr(local.typeName, local, JIRRawInt(insnNode.incr))
-        instructionList(insnNode) += JIRRawAssignInst(local, add)
+        instructionList(insnNode) += JIRRawAssignInst(method, local, add)
         local(insnNode.`var`, local)
     }
 
@@ -896,7 +896,7 @@ class RawInstListBuilder(
             Opcodes.NEWARRAY -> {
                 val expr = JIRRawNewArrayExpr(operand.toPrimitiveType().asArray(), pop())
                 val assignment = nextRegister(expr.typeName)
-                instructionList(insnNode) += JIRRawAssignInst(assignment, expr)
+                instructionList(insnNode) += JIRRawAssignInst(method, assignment, expr)
                 push(assignment)
             }
 
@@ -944,10 +944,10 @@ class RawInstListBuilder(
             args,
         )
         if (Type.getReturnType(desc) == Type.VOID_TYPE) {
-            instructionList(insnNode) += JIRRawCallInst(expr)
+            instructionList(insnNode) += JIRRawCallInst(method, expr)
         } else {
             val result = nextRegister(Type.getReturnType(desc).descriptor.typeName())
-            instructionList(insnNode) += JIRRawAssignInst(result, expr)
+            instructionList(insnNode) += JIRRawAssignInst(method, result, expr)
             push(result)
         }
     }
@@ -955,7 +955,7 @@ class RawInstListBuilder(
     private fun buildJumpInsnNode(insnNode: JumpInsnNode) {
         val target = labelRef(insnNode.label)
         when (val opcode = insnNode.opcode) {
-            Opcodes.GOTO -> instructionList(insnNode) += JIRRawGotoInst(target)
+            Opcodes.GOTO -> instructionList(insnNode) += JIRRawGotoInst(method, target)
             else -> {
                 val falseTarget = (insnNode.next as? LabelNode)?.let { label(it) } ?: nextLabel()
                 val rhv = pop()
@@ -979,7 +979,7 @@ class RawInstListBuilder(
                     Opcodes.IF_ACMPNE -> JIRRawNeqExpr(boolTypeName, pop(), rhv)
                     else -> error("Unknown jump opcode $opcode")
                 }
-                instructionList(insnNode) += JIRRawIfInst(expr, target, falseTarget.ref)
+                instructionList(insnNode) += JIRRawIfInst(method, expr, target, falseTarget.ref)
                 if (insnNode.next !is LabelNode) {
                     instructionList(insnNode) += falseTarget
                 }
@@ -1032,7 +1032,7 @@ class RawInstListBuilder(
     }
 
     private fun buildLineNumberNode(insnNode: LineNumberNode) {
-        instructionList(insnNode) += JIRRawLineNumberInst(insnNode.line, labelRef(insnNode.start))
+        instructionList(insnNode) += JIRRawLineNumberInst(method, insnNode.line, labelRef(insnNode.start))
     }
 
     private fun buildLdcInsnNode(insnNode: LdcInsnNode) {
@@ -1044,7 +1044,7 @@ class RawInstListBuilder(
             is String -> push(JIRRawStringConstant(cst, STRING_CLASS.typeName()))
             is Type -> {
                 val assignment = nextRegister(CLASS_CLASS.typeName())
-                instructionList(insnNode) += JIRRawAssignInst(
+                instructionList(insnNode) += JIRRawAssignInst(method,
                     assignment,
                     JIRRawClassConstant(cst.descriptor.typeName(), CLASS_CLASS.typeName())
                 )
@@ -1053,7 +1053,7 @@ class RawInstListBuilder(
 
             is Handle -> {
                 val assignment = nextRegister(CLASS_CLASS.typeName())
-                instructionList(insnNode) += JIRRawAssignInst(
+                instructionList(insnNode) += JIRRawAssignInst(method,
                     assignment,
                     JIRRawMethodConstant(
                         cst.owner.typeName(),
@@ -1076,7 +1076,7 @@ class RawInstListBuilder(
         val branches = insnNode.keys
             .zip(insnNode.labels)
             .associate { (JIRRawInt(it.first) as JIRRawValue) to labelRef(it.second) }
-        instructionList(insnNode) += JIRRawSwitchInst(key, branches, default)
+        instructionList(insnNode) += JIRRawSwitchInst(method, key, branches, default)
     }
 
     private fun buildMethodInsnNode(insnNode: MethodInsnNode) {
@@ -1134,10 +1134,10 @@ class RawInstListBuilder(
             }
         }
         if (Type.getReturnType(insnNode.desc) == Type.VOID_TYPE) {
-            instructionList(insnNode) += JIRRawCallInst(expr)
+            instructionList(insnNode) += JIRRawCallInst(method, expr)
         } else {
             val result = nextRegister(Type.getReturnType(insnNode.desc).descriptor.typeName())
-            instructionList(insnNode) += JIRRawAssignInst(result, expr)
+            instructionList(insnNode) += JIRRawAssignInst(method, result, expr)
             push(result)
         }
     }
@@ -1149,7 +1149,7 @@ class RawInstListBuilder(
         }
         val expr = JIRRawNewArrayExpr(insnNode.desc.typeName(), dimensions)
         val assignment = nextRegister(expr.typeName)
-        instructionList(insnNode) += JIRRawAssignInst(assignment, expr)
+        instructionList(insnNode) += JIRRawAssignInst(method, assignment, expr)
         push(assignment)
     }
 
@@ -1159,7 +1159,7 @@ class RawInstListBuilder(
         val branches = (insnNode.min..insnNode.max)
             .zip(insnNode.labels)
             .associate { (JIRRawInt(it.first) as JIRRawValue) to labelRef(it.second) }
-        instructionList(insnNode) += JIRRawSwitchInst(index, branches, default)
+        instructionList(insnNode) += JIRRawSwitchInst(method, index, branches, default)
     }
 
     private fun buildTypeInsnNode(insnNode: TypeInsnNode) {
@@ -1167,26 +1167,26 @@ class RawInstListBuilder(
         when (insnNode.opcode) {
             Opcodes.NEW -> {
                 val assignment = nextRegister(type)
-                instructionList(insnNode) += JIRRawAssignInst(assignment, JIRRawNewExpr(type))
+                instructionList(insnNode) += JIRRawAssignInst(method, assignment, JIRRawNewExpr(type))
                 push(assignment)
             }
 
             Opcodes.ANEWARRAY -> {
                 val length = pop()
                 val assignment = nextRegister(type.asArray())
-                instructionList(insnNode) += JIRRawAssignInst(assignment, JIRRawNewArrayExpr(type.asArray(), length))
+                instructionList(insnNode) += JIRRawAssignInst(method, assignment, JIRRawNewArrayExpr(type.asArray(), length))
                 push(assignment)
             }
 
             Opcodes.CHECKCAST -> {
                 val assignment = nextRegister(type)
-                instructionList(insnNode) += JIRRawAssignInst(assignment, JIRRawCastExpr(type, pop()))
+                instructionList(insnNode) += JIRRawAssignInst(method, assignment, JIRRawCastExpr(type, pop()))
                 push(assignment)
             }
 
             Opcodes.INSTANCEOF -> {
                 val assignment = nextRegister(PredefinedPrimitives.Boolean.typeName())
-                instructionList(insnNode) += JIRRawAssignInst(
+                instructionList(insnNode) += JIRRawAssignInst(method,
                     assignment,
                     JIRRawInstanceOfExpr(PredefinedPrimitives.Boolean.typeName(), pop(), type)
                 )

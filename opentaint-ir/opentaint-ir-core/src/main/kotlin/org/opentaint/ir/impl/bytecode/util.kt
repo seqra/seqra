@@ -15,14 +15,13 @@ val ClassNode.hasFrameInfo: Boolean
 
 internal val MethodNode.jsrInlined: MethodNode
     get() {
-        val temp = JSRInlinerAdapter(null, access, name, desc, signature, exceptions?.toTypedArray())
-        this.accept(temp)
-        return temp
+        return JSRInlinerAdapter(null, access, name, desc, signature, exceptions?.toTypedArray()).also {
+            accept(it)
+        }
     }
 
 internal fun ClassNode.computeFrames(classpath: JIRClasspath): ClassNode {
-    val ba = this.toByteArray(classpath)
-    return ba.toClassNode()
+    return toByteArray(classpath).toClassNode()
 }
 
 private fun ByteArray.toClassNode(): ClassNode {

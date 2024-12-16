@@ -14,6 +14,5 @@ gitHooks {
 
 include("opentaint-ir-api")
 include("opentaint-ir-core")
-include("opentaint-ir-testing")
 include("opentaint-ir-http")
 include("opentaint-ir-analysis")

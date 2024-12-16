@@ -5,5 +5,5 @@ dependencies {
     api(project(":opentaint-ir-core"))
     api(project(":opentaint-ir-api"))
 
-    testImplementation(project(":opentaint-ir-testing"))
+    testImplementation(testFixtures(project(":opentaint-ir-core")))
 }

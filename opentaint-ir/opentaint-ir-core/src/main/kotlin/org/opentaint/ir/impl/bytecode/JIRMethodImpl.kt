@@ -1,13 +1,13 @@
 package org.opentaint.opentaint-ir.impl.bytecode
 
 import org.objectweb.asm.tree.MethodNode
-import org.opentaint.opentaint-ir.api.ClassSource
-import org.opentaint.opentaint-ir.api.JIRAnnotation
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.JIRParameter
+import org.opentaint.opentaint-ir.api.*
+import org.opentaint.opentaint-ir.api.cfg.JIRGraph
+import org.opentaint.opentaint-ir.api.cfg.JIRInst
+import org.opentaint.opentaint-ir.api.cfg.JIRInstList
+import org.opentaint.opentaint-ir.api.cfg.JIRRawInst
 import org.opentaint.opentaint-ir.api.ext.findClass
-import org.opentaint.opentaint-ir.impl.cfg.JIRRawInstListImpl
+import org.opentaint.opentaint-ir.impl.cfg.JIRGraphBuilder
 import org.opentaint.opentaint-ir.impl.cfg.RawInstListBuilder
 import org.opentaint.opentaint-ir.impl.fs.fullAsmNode
 import org.opentaint.opentaint-ir.impl.types.MethodInfo
@@ -51,8 +51,16 @@ class JIRMethodImpl(
         return source.fullAsmNode.methods.first { it.name == name && it.desc == methodInfo.desc }
     }
 
-    override fun instructionList(): JIRRawInstListImpl {
-        return RawInstListBuilder(this, body().jsrInlined).build()
+    override val rawInstList: JIRInstList<JIRRawInst> by lazy {
+        RawInstListBuilder(this, body().jsrInlined).build()
+    }
+
+    override fun flowGraph(): JIRGraph {
+        return JIRGraphBuilder(this, rawInstList).buildFlowGraph()
+    }
+
+    override val instList: JIRInstList<JIRInst> by lazy {
+        JIRGraphBuilder(this, rawInstList).buildInstList()
     }
 
     override fun equals(other: Any?): Boolean {
