@@ -25,11 +25,11 @@ class JIRApplicationGraphImpl(
         }
 
     override fun predecessors(node: JIRInst): Sequence<JIRInst> {
-        return node.owner.actualFlowGraph.predecessors(node).asSequence()
+        return node.location.method.actualFlowGraph.predecessors(node).asSequence()
     }
 
     override fun successors(node: JIRInst): Sequence<JIRInst> {
-        return node.owner.actualFlowGraph.successors(node).asSequence()
+        return node.location.method.actualFlowGraph.successors(node).asSequence()
     }
 
     override fun callees(node: JIRInst): Sequence<JIRMethod> {
@@ -55,6 +55,6 @@ class JIRApplicationGraphImpl(
     }
 
     override fun methodOf(node: JIRInst): JIRMethod {
-        return node.owner
+        return node.location.method
     }
 }

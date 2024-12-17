@@ -1,9 +1,15 @@
 package org.opentaint.opentaint-ir.impl.cfg
 
-import org.opentaint.opentaint-ir.api.cfg.*
+import org.opentaint.opentaint-ir.api.cfg.JIRBasicBlock
+import org.opentaint.opentaint-ir.api.cfg.JIRBlockGraph
+import org.opentaint.opentaint-ir.api.cfg.JIRBranchingInst
+import org.opentaint.opentaint-ir.api.cfg.JIRGraph
+import org.opentaint.opentaint-ir.api.cfg.JIRInst
+import org.opentaint.opentaint-ir.api.cfg.JIRInstRef
+import org.opentaint.opentaint-ir.api.cfg.JIRTerminatingInst
 
 class JIRBlockGraphImpl(
-    override val jIRGraph: JIRGraphImpl
+    override val jIRGraph: JIRGraph
 ) : Iterable<JIRBasicBlock>, JIRBlockGraph {
     private val _basicBlocks = mutableListOf<JIRBasicBlock>()
     private val predecessorMap = mutableMapOf<JIRBasicBlock, MutableSet<JIRBasicBlock>>()

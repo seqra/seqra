@@ -2,15 +2,28 @@ package org.opentaint.opentaint-ir.impl.analysis.impl
 
 import org.opentaint.opentaint-ir.api.JIRClassType
 import org.opentaint.opentaint-ir.api.PredefinedPrimitives
-import org.opentaint.opentaint-ir.api.cfg.*
+import org.opentaint.opentaint-ir.api.cfg.BsmStringArg
+import org.opentaint.opentaint-ir.api.cfg.DefaultJIRInstVisitor
+import org.opentaint.opentaint-ir.api.cfg.JIRAssignInst
+import org.opentaint.opentaint-ir.api.cfg.JIRCatchInst
+import org.opentaint.opentaint-ir.api.cfg.JIRDynamicCallExpr
+import org.opentaint.opentaint-ir.api.cfg.JIRGotoInst
+import org.opentaint.opentaint-ir.api.cfg.JIRGraph
+import org.opentaint.opentaint-ir.api.cfg.JIRIfInst
+import org.opentaint.opentaint-ir.api.cfg.JIRInst
+import org.opentaint.opentaint-ir.api.cfg.JIRInstRef
+import org.opentaint.opentaint-ir.api.cfg.JIRLocalVar
+import org.opentaint.opentaint-ir.api.cfg.JIRStaticCallExpr
+import org.opentaint.opentaint-ir.api.cfg.JIRStringConstant
+import org.opentaint.opentaint-ir.api.cfg.JIRSwitchInst
+import org.opentaint.opentaint-ir.api.cfg.JIRValue
+import org.opentaint.opentaint-ir.api.cfg.JIRVirtualCallExpr
 import org.opentaint.opentaint-ir.api.ext.autoboxIfNeeded
 import org.opentaint.opentaint-ir.api.ext.findTypeOrNull
 import org.opentaint.opentaint-ir.impl.cfg.JIRGraphImpl
 import kotlin.collections.set
 
-class StringConcatSimplifier(
-    val jIRGraph: JIRGraphImpl
-) : DefaultJIRInstVisitor<JIRInst> {
+class StringConcatSimplifier(val jIRGraph: JIRGraph) : DefaultJIRInstVisitor<JIRInst> {
     override val defaultInstHandler: (JIRInst) -> JIRInst
         get() = { it }
     private val instructionReplacements = mutableMapOf<JIRInst, JIRInst>()
@@ -20,7 +33,7 @@ class StringConcatSimplifier(
 
     private val stringType = jIRGraph.classpath.findTypeOrNull<String>() as JIRClassType
 
-    fun build(): JIRGraphImpl {
+    fun build(): JIRGraph {
         var changed = false
         for (inst in jIRGraph) {
             if (inst is JIRAssignInst) {
@@ -51,7 +64,7 @@ class StringConcatSimplifier(
                         it.name == "concat" && it.parameters.size == 1 && it.parameters.first().type == stringType
                     }
                     val newConcatExpr = JIRVirtualCallExpr(concatMethod, firstStr, listOf(secondStr))
-                    result += JIRAssignInst(inst.owner, inst.lineNumber, lhv, newConcatExpr)
+                    result += JIRAssignInst(inst.location, lhv, newConcatExpr)
                     instructionReplacements[inst] = result.first()
                     catchReplacements[inst] = result
                     instructions += result
@@ -75,8 +88,6 @@ class StringConcatSimplifier(
     }
 
     private fun stringify(inst: JIRInst, value: JIRValue, instList: MutableList<JIRInst>): JIRValue {
-        val cp = jIRGraph.classpath
-        val stringType = cp.findTypeOrNull<String>()!!
         return when {
             PredefinedPrimitives.matches(value.type.typeName) -> {
                 val boxedType = value.type.autoboxIfNeeded() as JIRClassType
@@ -85,7 +96,7 @@ class StringConcatSimplifier(
                 }
                 val toStringExpr = JIRStaticCallExpr(method, listOf(value))
                 val assignment = JIRLocalVar("${value}String", stringType)
-                instList += JIRAssignInst(inst.owner, inst.lineNumber, assignment, toStringExpr)
+                instList += JIRAssignInst(inst.location, assignment, toStringExpr)
                 assignment
             }
 
@@ -97,7 +108,7 @@ class StringConcatSimplifier(
                 }
                 val toStringExpr = JIRVirtualCallExpr(method, value, emptyList())
                 val assignment = JIRLocalVar("${value}String", stringType)
-                instList += JIRAssignInst(inst.owner, inst.lineNumber, assignment, toStringExpr)
+                instList += JIRAssignInst(inst.location, assignment, toStringExpr)
                 assignment
             }
         }
@@ -113,25 +124,22 @@ class StringConcatSimplifier(
         }
 
     override fun visitJIRCatchInst(inst: JIRCatchInst): JIRInst = JIRCatchInst(
-        inst.owner,
-        inst.lineNumber,
+        inst.location,
         inst.throwable,
         inst.throwers.flatMap { indicesOf(it) }
     )
 
-    override fun visitJIRGotoInst(inst: JIRGotoInst): JIRInst = JIRGotoInst(inst.owner, inst.lineNumber, indexOf(inst.target))
+    override fun visitJIRGotoInst(inst: JIRGotoInst): JIRInst = JIRGotoInst(inst.location, indexOf(inst.target))
 
     override fun visitJIRIfInst(inst: JIRIfInst): JIRInst = JIRIfInst(
-        inst.owner,
-        inst.lineNumber,
+        inst.location,
         inst.condition,
         indexOf(inst.trueBranch),
         indexOf(inst.falseBranch)
     )
 
     override fun visitJIRSwitchInst(inst: JIRSwitchInst): JIRInst = JIRSwitchInst(
-        inst.owner,
-        inst.lineNumber,
+        inst.location,
         inst.key,
         inst.branches.mapValues { indexOf(it.value) },
         indexOf(inst.default)
