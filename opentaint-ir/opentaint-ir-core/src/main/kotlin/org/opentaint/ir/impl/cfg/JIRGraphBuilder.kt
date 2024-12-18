@@ -153,7 +153,7 @@ import org.opentaint.opentaint-ir.api.int
 import org.opentaint.opentaint-ir.api.long
 import org.opentaint.opentaint-ir.api.short
 
-/** this class stores state and is NOT THREAD SAFE. Use it carefully */
+/** This class stores state and is NOT THREAD SAFE. Use it carefully */
 class JIRGraphBuilder(
     val method: JIRMethod,
     val instList: JIRInstList<JIRRawInst>
