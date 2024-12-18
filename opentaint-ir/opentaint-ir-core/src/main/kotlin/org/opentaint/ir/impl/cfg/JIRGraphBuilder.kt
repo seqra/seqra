@@ -6,8 +6,6 @@ import org.opentaint.opentaint-ir.api.JIRMethod
 import org.opentaint.opentaint-ir.api.JIRType
 import org.opentaint.opentaint-ir.api.JIRTypedMethod
 import org.opentaint.opentaint-ir.api.TypeName
-import org.opentaint.opentaint-ir.api.boolean
-import org.opentaint.opentaint-ir.api.byte
 import org.opentaint.opentaint-ir.api.cfg.BsmHandle
 import org.opentaint.opentaint-ir.api.cfg.JIRAddExpr
 import org.opentaint.opentaint-ir.api.cfg.JIRAndExpr
@@ -143,15 +141,17 @@ import org.opentaint.opentaint-ir.api.cfg.JIRUshrExpr
 import org.opentaint.opentaint-ir.api.cfg.JIRValue
 import org.opentaint.opentaint-ir.api.cfg.JIRVirtualCallExpr
 import org.opentaint.opentaint-ir.api.cfg.JIRXorExpr
-import org.opentaint.opentaint-ir.api.char
-import org.opentaint.opentaint-ir.api.double
 import org.opentaint.opentaint-ir.api.ext.anyType
+import org.opentaint.opentaint-ir.api.ext.boolean
+import org.opentaint.opentaint-ir.api.ext.byte
+import org.opentaint.opentaint-ir.api.ext.char
+import org.opentaint.opentaint-ir.api.ext.double
 import org.opentaint.opentaint-ir.api.ext.findTypeOrNull
+import org.opentaint.opentaint-ir.api.ext.float
+import org.opentaint.opentaint-ir.api.ext.int
+import org.opentaint.opentaint-ir.api.ext.long
+import org.opentaint.opentaint-ir.api.ext.short
 import org.opentaint.opentaint-ir.api.ext.toType
-import org.opentaint.opentaint-ir.api.float
-import org.opentaint.opentaint-ir.api.int
-import org.opentaint.opentaint-ir.api.long
-import org.opentaint.opentaint-ir.api.short
 
 /** This class stores state and is NOT THREAD SAFE. Use it carefully */
 class JIRGraphBuilder(

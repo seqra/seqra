@@ -4,6 +4,13 @@ package org.opentaint.opentaint-ir.impl.cfg
 
 import org.opentaint.opentaint-ir.api.*
 import org.opentaint.opentaint-ir.api.cfg.*
+import org.opentaint.opentaint-ir.api.ext.boolean
+import org.opentaint.opentaint-ir.api.ext.byte
+import org.opentaint.opentaint-ir.api.ext.double
+import org.opentaint.opentaint-ir.api.ext.float
+import org.opentaint.opentaint-ir.api.ext.int
+import org.opentaint.opentaint-ir.api.ext.long
+import org.opentaint.opentaint-ir.api.ext.short
 import org.opentaint.opentaint-ir.impl.cfg.util.NULL
 import org.opentaint.opentaint-ir.impl.cfg.util.STRING_CLASS
 import org.opentaint.opentaint-ir.impl.cfg.util.typeName

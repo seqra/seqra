@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test
 import org.opentaint.opentaint-ir.api.JIRClassOrInterface
 import org.opentaint.opentaint-ir.api.JIRType
 import org.opentaint.opentaint-ir.api.ext.*
-import org.opentaint.opentaint-ir.api.short
 
 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
 class ApiExtTest : BaseTest() {
