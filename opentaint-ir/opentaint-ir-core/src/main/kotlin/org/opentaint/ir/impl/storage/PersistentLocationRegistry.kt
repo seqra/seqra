@@ -191,6 +191,7 @@ class PersistentLocationRegistry(private val jIRdb: JIRDatabase, private val fea
 
     override fun close() {
         featuresRegistry.broadcast(JIRInternalSignal.Closed)
+        runtimeLocations = emptyList()
     }
 
     private fun JIRByteCodeLocation.findOrNew(dslContext: DSLContext): BytecodelocationsRecord {

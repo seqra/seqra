@@ -56,6 +56,7 @@ class SQLitePersistenceImpl(
     }
 
     override fun close() {
+        super.close()
         try {
             connection?.close()
         } catch (e: Exception) {

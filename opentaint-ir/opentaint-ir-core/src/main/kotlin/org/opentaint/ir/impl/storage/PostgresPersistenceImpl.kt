@@ -33,6 +33,7 @@ class PostgresPersistenceImpl(
     }
 
     override fun close() {
+        super.close()
         dataSource.close()
     }
 

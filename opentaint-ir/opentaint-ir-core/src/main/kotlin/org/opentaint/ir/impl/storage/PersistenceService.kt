@@ -24,6 +24,7 @@ import org.opentaint.opentaint-ir.impl.types.FieldInfo
 import org.opentaint.opentaint-ir.impl.types.MethodInfo
 import org.opentaint.opentaint-ir.impl.types.ParameterInfo
 import org.opentaint.opentaint-ir.impl.types.PrimitiveValue
+import java.io.Closeable
 import java.sql.Connection
 import java.sql.Types
 import java.util.concurrent.ConcurrentHashMap
@@ -441,7 +442,7 @@ private class MethodsCollector(
 
 }
 
-class JIRDBSymbolsInternerImpl(override val jooq: DSLContext) : JIRDBSymbolsInterner {
+class JIRDBSymbolsInternerImpl(override val jooq: DSLContext) : JIRDBSymbolsInterner, Closeable {
     private val symbolsIdGen = AtomicLong()
     private val symbolsCache = ConcurrentHashMap<String, Long>()
     private val newElements = ConcurrentHashMap<String, Long>()
@@ -472,5 +473,10 @@ class JIRDBSymbolsInternerImpl(override val jooq: DSLContext) : JIRDBSymbolsInte
         entries.forEach {
             newElements.remove(it.key)
         }
+    }
+
+    override fun close() {
+        symbolsCache.clear()
+        newElements.clear()
     }
 }
