@@ -36,7 +36,7 @@ class IRSvgGenerator(private val folder: File) : Closeable {
     }
 
     private fun dumpClass(klass: JIRClassOrInterface) {
-        klass.methods.filter { it.enclosingClass == klass }.mapIndexed { index, it ->
+        klass.declaredMethods.filter { it.enclosingClass == klass }.mapIndexed { index, it ->
             val fixedName = it.name.replace(Regex("[^A-Za-z0-9]"), "")
             val fileName = "${it.enclosingClass.simpleName}-$fixedName-$index.svg"
             val graph = it.flowGraph()
