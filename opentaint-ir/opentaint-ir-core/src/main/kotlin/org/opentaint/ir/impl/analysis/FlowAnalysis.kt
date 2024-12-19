@@ -2,16 +2,22 @@ package org.opentaint.ir.impl.analysis
 
 import org.opentaint.ir.api.cfg.DefaultJIRExprVisitor
 import org.opentaint.ir.api.cfg.DefaultJIRInstVisitor
+import org.opentaint.ir.api.cfg.JIRArgument
 import org.opentaint.ir.api.cfg.JIRAssignInst
 import org.opentaint.ir.api.cfg.JIRCallExpr
 import org.opentaint.ir.api.cfg.JIRCallInst
 import org.opentaint.ir.api.cfg.JIRCatchInst
+import org.opentaint.ir.api.cfg.JIRDynamicCallExpr
 import org.opentaint.ir.api.cfg.JIRExpr
 import org.opentaint.ir.api.cfg.JIRGraph
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRLocal
 import org.opentaint.ir.api.cfg.JIRLocalVar
+import org.opentaint.ir.api.cfg.JIRReturnInst
+import org.opentaint.ir.api.cfg.JIRSpecialCallExpr
+import org.opentaint.ir.api.cfg.JIRStaticCallExpr
 import org.opentaint.ir.api.cfg.JIRThrowInst
+import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
 import org.opentaint.ir.impl.cfg.collect
 
 interface FlowAnalysis<T> {
