@@ -1,10 +1,10 @@
-package org.opentaint.opentaint-ir.impl.types.signature
+package org.opentaint.ir.impl.types.signature
 
 import kotlinx.metadata.KmTypeParameter
+import org.opentaint.ir.api.JIRAccessible
+import org.opentaint.ir.api.Resolution
 import org.objectweb.asm.signature.SignatureReader
 import org.objectweb.asm.signature.SignatureVisitor
-import org.opentaint.opentaint-ir.api.JIRAccessible
-import org.opentaint.opentaint-ir.api.Resolution
 
 internal abstract class Signature<T : Resolution>(val owner: JIRAccessible, private val kmTypeParameters: List<KmTypeParameter>?) :
     TypeRegistrant.RejectingSignatureVisitor(), TypeRegistrant {

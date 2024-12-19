@@ -1,14 +1,14 @@
-package org.opentaint.opentaint-ir.impl.vfs
+package org.opentaint.ir.impl.vfs
 
-import org.opentaint.opentaint-ir.api.JavaVersion
-import org.opentaint.opentaint-ir.api.JIRByteCodeLocation
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRDatabase
-import org.opentaint.opentaint-ir.api.JIRDatabasePersistence
-import org.opentaint.opentaint-ir.api.RegisteredLocation
-import org.opentaint.opentaint-ir.impl.fs.asByteCodeLocation
-import org.opentaint.opentaint-ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
-import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
+import org.opentaint.ir.api.JavaVersion
+import org.opentaint.ir.api.JIRByteCodeLocation
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRDatabase
+import org.opentaint.ir.api.JIRDatabasePersistence
+import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.impl.fs.asByteCodeLocation
+import org.opentaint.ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
+import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
 import java.io.File
 
 class PersistentByteCodeLocation(

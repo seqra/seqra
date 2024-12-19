@@ -1,13 +1,13 @@
-package org.opentaint.opentaint-ir.impl.types
+package org.opentaint.ir.impl.types
 
-import org.opentaint.opentaint-ir.api.JIRBoundedWildcard
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRRefType
-import org.opentaint.opentaint-ir.api.JIRTypeVariable
-import org.opentaint.opentaint-ir.api.JIRTypeVariableDeclaration
-import org.opentaint.opentaint-ir.api.JIRUnboundWildcard
-import org.opentaint.opentaint-ir.api.ext.objectClass
+import org.opentaint.ir.api.JIRBoundedWildcard
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRRefType
+import org.opentaint.ir.api.JIRTypeVariable
+import org.opentaint.ir.api.JIRTypeVariableDeclaration
+import org.opentaint.ir.api.JIRUnboundWildcard
+import org.opentaint.ir.api.ext.objectClass
 
 class JIRUnboundWildcardImpl(override val classpath: JIRClasspath) :
     JIRUnboundWildcard {

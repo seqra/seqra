@@ -1,11 +1,11 @@
 package org.opentaint.ir.testing.types
 
+import org.opentaint.ir.api.ext.isAssignable
+import org.opentaint.ir.api.ext.objectType
+import org.opentaint.ir.api.throwClassNotFound
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.opentaint.opentaint-ir.api.ext.isAssignable
-import org.opentaint.opentaint-ir.api.ext.objectType
-import org.opentaint.opentaint-ir.api.throwClassNotFound
 
 class AssignTypesTest : BaseTypesTest() {
 

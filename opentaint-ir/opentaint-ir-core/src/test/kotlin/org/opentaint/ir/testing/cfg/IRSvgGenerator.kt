@@ -1,14 +1,13 @@
 package org.opentaint.ir.testing.cfg
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRDatabase
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.impl.cfg.toFile
+import org.opentaint.ir.impl.opentaint-ir
 import org.opentaint.ir.testing.allClasspath
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRDatabase
-import org.opentaint.opentaint-ir.api.ext.findClass
-import org.opentaint.opentaint-ir.api.ext.methods
-import org.opentaint.opentaint-ir.impl.cfg.toFile
-import org.opentaint.opentaint-ir.impl.opentaint-ir
 import java.io.Closeable
 import java.io.File
 

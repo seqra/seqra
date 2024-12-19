@@ -1,12 +1,12 @@
-package org.opentaint.opentaint-ir.impl.bytecode
+package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.opentaint-ir.api.JIRAnnotation
-import org.opentaint.opentaint-ir.api.JIRDeclaration
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.JIRParameter
-import org.opentaint.opentaint-ir.api.TypeName
-import org.opentaint.opentaint-ir.impl.types.ParameterInfo
-import org.opentaint.opentaint-ir.impl.types.TypeNameImpl
+import org.opentaint.ir.api.JIRAnnotation
+import org.opentaint.ir.api.JIRDeclaration
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRParameter
+import org.opentaint.ir.api.TypeName
+import org.opentaint.ir.impl.types.ParameterInfo
+import org.opentaint.ir.impl.types.TypeNameImpl
 
 class JIRParameterImpl(
     override val method: JIRMethod,

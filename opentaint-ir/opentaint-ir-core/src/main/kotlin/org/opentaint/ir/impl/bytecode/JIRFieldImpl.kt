@@ -1,9 +1,9 @@
-package org.opentaint.opentaint-ir.impl.bytecode
+package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRField
-import org.opentaint.opentaint-ir.impl.types.FieldInfo
-import org.opentaint.opentaint-ir.impl.types.TypeNameImpl
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRField
+import org.opentaint.ir.impl.types.FieldInfo
+import org.opentaint.ir.impl.types.TypeNameImpl
 
 class JIRFieldImpl(
     override val enclosingClass: JIRClassOrInterface,

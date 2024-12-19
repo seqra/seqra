@@ -1,18 +1,18 @@
-package org.opentaint.opentaint-ir.impl.bytecode
+package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.opentaint-ir.api.ClassSource
-import org.opentaint.opentaint-ir.api.JIRAnnotation
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRField
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.ext.findClass
-import org.opentaint.opentaint-ir.api.ext.findMethodOrNull
-import org.opentaint.opentaint-ir.impl.fs.ClassSourceImpl
-import org.opentaint.opentaint-ir.impl.fs.LazyClassSourceImpl
-import org.opentaint.opentaint-ir.impl.fs.fullAsmNodeWithFrames
-import org.opentaint.opentaint-ir.impl.fs.info
-import org.opentaint.opentaint-ir.impl.types.ClassInfo
+import org.opentaint.ir.api.ClassSource
+import org.opentaint.ir.api.JIRAnnotation
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRField
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.ext.findMethodOrNull
+import org.opentaint.ir.impl.fs.ClassSourceImpl
+import org.opentaint.ir.impl.fs.LazyClassSourceImpl
+import org.opentaint.ir.impl.fs.fullAsmNodeWithFrames
+import org.opentaint.ir.impl.fs.info
+import org.opentaint.ir.impl.types.ClassInfo
 
 class JIRClassOrInterfaceImpl(
     override val classpath: JIRClasspath,

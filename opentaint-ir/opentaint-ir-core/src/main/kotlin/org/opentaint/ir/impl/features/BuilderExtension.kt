@@ -1,15 +1,15 @@
 @file:JvmName("JIRBuilders")
-package org.opentaint.opentaint-ir.impl.features
+package org.opentaint.ir.impl.features
 
-import org.opentaint.opentaint-ir.api.JIRArrayType
-import org.opentaint.opentaint-ir.api.JIRBoundedWildcard
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRClassType
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.JIRType
-import org.opentaint.opentaint-ir.api.ext.HierarchyExtension
-import org.opentaint.opentaint-ir.api.ext.toType
+import org.opentaint.ir.api.JIRArrayType
+import org.opentaint.ir.api.JIRBoundedWildcard
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClassType
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.ext.HierarchyExtension
+import org.opentaint.ir.api.ext.toType
 
 class BuildersExtension(private val classpath: JIRClasspath, private val hierarchyExtension: HierarchyExtension) {
 

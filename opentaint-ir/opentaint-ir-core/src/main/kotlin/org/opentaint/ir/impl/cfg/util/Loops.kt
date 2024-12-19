@@ -1,9 +1,9 @@
 @file:JvmName("JIRLoops")
-package org.opentaint.opentaint-ir.impl.cfg.util
+package org.opentaint.ir.impl.cfg.util
 
-import org.opentaint.opentaint-ir.api.cfg.JIRGraph
-import org.opentaint.opentaint-ir.api.cfg.JIRInst
-import org.opentaint.opentaint-ir.impl.cfg.graphs.findDominators
+import org.opentaint.ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.impl.cfg.graphs.findDominators
 import java.util.*
 
 class JIRLoop(

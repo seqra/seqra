@@ -1,14 +1,14 @@
 package org.opentaint.ir.analysis.impl
 
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRField
-import org.opentaint.opentaint-ir.api.JIRType
-import org.opentaint.opentaint-ir.api.analysis.JIRPointsToAnalysis
-import org.opentaint.opentaint-ir.api.analysis.JIRPointsToSet
-import org.opentaint.opentaint-ir.api.cfg.JIRInst
-import org.opentaint.opentaint-ir.api.cfg.JIRLocal
-import org.opentaint.opentaint-ir.api.ext.objectType
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRField
+import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.analysis.JIRPointsToAnalysis
+import org.opentaint.ir.api.analysis.JIRPointsToSet
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRLocal
+import org.opentaint.ir.api.ext.objectType
 
 class FullObjectsSet(type: JIRType) : JIRPointsToSet {
 

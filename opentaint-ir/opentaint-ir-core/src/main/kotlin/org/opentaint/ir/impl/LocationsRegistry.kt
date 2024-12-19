@@ -1,7 +1,7 @@
-package org.opentaint.opentaint-ir.impl
+package org.opentaint.ir.impl
 
-import org.opentaint.opentaint-ir.api.JIRByteCodeLocation
-import org.opentaint.opentaint-ir.api.RegisteredLocation
+import org.opentaint.ir.api.JIRByteCodeLocation
+import org.opentaint.ir.api.RegisteredLocation
 import java.io.Closeable
 
 interface LocationsRegistry : Closeable {

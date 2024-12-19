@@ -1,8 +1,8 @@
-package org.opentaint.opentaint-ir.impl.types.signature
+package org.opentaint.ir.impl.types.signature
 
 import kotlinx.metadata.KmType
 import kotlinx.metadata.KmTypeParameter
-import org.opentaint.opentaint-ir.impl.bytecode.isNullable
+import org.opentaint.ir.impl.bytecode.isNullable
 
 fun JvmType.copyWithNullability(nullability: Boolean?): JvmType =
     when (this) {

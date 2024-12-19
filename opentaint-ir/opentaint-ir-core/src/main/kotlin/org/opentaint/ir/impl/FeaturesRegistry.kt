@@ -1,12 +1,12 @@
-package org.opentaint.opentaint-ir.impl
+package org.opentaint.ir.impl
 
-import org.opentaint.opentaint-ir.api.ByteCodeIndexer
-import org.opentaint.opentaint-ir.api.ClassSource
-import org.opentaint.opentaint-ir.api.JIRDatabase
-import org.opentaint.opentaint-ir.api.JIRFeature
-import org.opentaint.opentaint-ir.api.JIRSignal
-import org.opentaint.opentaint-ir.api.RegisteredLocation
-import org.opentaint.opentaint-ir.impl.fs.fullAsmNode
+import org.opentaint.ir.api.ByteCodeIndexer
+import org.opentaint.ir.api.ClassSource
+import org.opentaint.ir.api.JIRDatabase
+import org.opentaint.ir.api.JIRFeature
+import org.opentaint.ir.api.JIRSignal
+import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.impl.fs.fullAsmNode
 import java.io.Closeable
 
 class FeaturesRegistry(private val features: List<JIRFeature<*, *>>) : Closeable {

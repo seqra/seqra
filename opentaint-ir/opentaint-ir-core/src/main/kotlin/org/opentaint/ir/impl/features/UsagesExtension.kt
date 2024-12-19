@@ -1,21 +1,21 @@
 @file:JvmName("JIRUsages")
-package org.opentaint.opentaint-ir.impl.features
+package org.opentaint.ir.impl.features
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
+import org.opentaint.ir.api.FieldUsageMode
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRField
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.ext.HierarchyExtension
+import org.opentaint.ir.api.ext.findDeclaredFieldOrNull
+import org.opentaint.ir.api.ext.findDeclaredMethodOrNull
+import org.opentaint.ir.api.ext.isPackagePrivate
+import org.opentaint.ir.api.ext.isPrivate
+import org.opentaint.ir.api.ext.isStatic
+import org.opentaint.ir.api.ext.packageName
 import org.objectweb.asm.Opcodes
-import org.opentaint.opentaint-ir.api.FieldUsageMode
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRField
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.ext.HierarchyExtension
-import org.opentaint.opentaint-ir.api.ext.findFieldOrNull
-import org.opentaint.opentaint-ir.api.ext.findMethodOrNull
-import org.opentaint.opentaint-ir.api.ext.isPackagePrivate
-import org.opentaint.opentaint-ir.api.ext.isPrivate
-import org.opentaint.opentaint-ir.api.ext.isStatic
-import org.opentaint.opentaint-ir.api.ext.packageName
 import java.util.concurrent.Future
 
 class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, private val cp: JIRClasspath) {
@@ -27,7 +27,7 @@ class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, pr
      */
     fun findUsages(method: JIRMethod): Sequence<JIRMethod> {
         val maybeHierarchy = maybeHierarchy(method.enclosingClass, method.isPrivate) {
-            it.findMethodOrNull(method.name, method.description).let {
+            it.findDeclaredMethodOrNull(method.name, method.description).let {
                 it == null || !it.isOverriddenBy(method)
             } // no overrides
         }
@@ -47,7 +47,7 @@ class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, pr
      */
     fun findUsages(field: JIRField, mode: FieldUsageMode): Sequence<JIRMethod> {
         val maybeHierarchy = maybeHierarchy(field.enclosingClass, field.isPrivate) {
-            it.findFieldOrNull(field.name).let {
+            it.findDeclaredFieldOrNull(field.name).let {
                 it == null || !it.isOverriddenBy(field)
             } // no overrides
         }

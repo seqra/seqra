@@ -1,14 +1,14 @@
 package org.opentaint.ir.testing
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRDatabase
+import org.opentaint.ir.api.JIRFeature
+import org.opentaint.ir.impl.opentaint-ir
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.extension.AfterAllCallback
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.extension.ExtensionContext
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRDatabase
-import org.opentaint.opentaint-ir.api.JIRFeature
-import org.opentaint.opentaint-ir.impl.opentaint-ir
 import java.nio.file.Files
 import kotlin.reflect.full.companionObjectInstance
 

@@ -1,9 +1,9 @@
-package org.opentaint.opentaint-ir.impl.bytecode
+package org.opentaint.ir.impl.bytecode
 
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.ext.findClass
 import org.objectweb.asm.ClassWriter
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.ext.findClass
 
 /**
  * ASM class writer with opentaint-ir specific resolution of common superclasses

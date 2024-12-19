@@ -1,4 +1,4 @@
-package org.opentaint.opentaint-ir.impl
+package org.opentaint.ir.impl
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

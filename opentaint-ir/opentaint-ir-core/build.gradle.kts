@@ -1,7 +1,10 @@
 import de.undercouch.gradle.tasks.download.Download
 import org.jooq.codegen.GenerationTool
-import org.jooq.meta.jaxb.*
 import org.jooq.meta.jaxb.Configuration
+import org.jooq.meta.jaxb.Database
+import org.jooq.meta.jaxb.Generate
+import org.jooq.meta.jaxb.Generator
+import org.jooq.meta.jaxb.Jdbc
 import org.jooq.meta.jaxb.Target
 import java.nio.file.Paths
 
@@ -122,7 +125,7 @@ tasks.register("generateSqlScheme") {
                         )
                         .withTarget(
                             Target()
-                                .withPackageName("org.opentaint.opentaint-ir.impl.storage.jooq")
+                                .withPackageName("org.opentaint.ir.impl.storage.jooq")
                                 .withDirectory(project.file("src/main/jooq").absolutePath)
                         )
                 )

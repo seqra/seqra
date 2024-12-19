@@ -1,13 +1,13 @@
-package org.opentaint.opentaint-ir.impl.types.substition
+package org.opentaint.ir.impl.types.substition
 
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap
-import org.opentaint.opentaint-ir.impl.types.signature.JvmType
-import org.opentaint.opentaint-ir.impl.types.signature.JvmTypeParameterDeclaration
-import org.opentaint.opentaint-ir.impl.types.signature.JvmTypeParameterDeclarationImpl
-import org.opentaint.opentaint-ir.impl.types.signature.JvmTypeVariable
-import org.opentaint.opentaint-ir.impl.types.signature.copyWithNullability
+import org.opentaint.ir.impl.types.signature.JvmType
+import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclaration
+import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclarationImpl
+import org.opentaint.ir.impl.types.signature.JvmTypeVariable
+import org.opentaint.ir.impl.types.signature.copyWithNullability
 
 class JIRSubstitutorImpl(
     // map declaration -> actual type or type variable

@@ -1,6 +1,6 @@
-package org.opentaint.opentaint-ir.impl.types.signature
+package org.opentaint.ir.impl.types.signature
 
-import org.opentaint.opentaint-ir.api.JIRAccessible
+import org.opentaint.ir.api.JIRAccessible
 
 interface JvmTypeParameterDeclaration {
     val symbol: String

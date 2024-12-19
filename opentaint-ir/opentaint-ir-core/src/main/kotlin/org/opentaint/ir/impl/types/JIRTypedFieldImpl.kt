@@ -1,20 +1,23 @@
-package org.opentaint.opentaint-ir.impl.types
+package org.opentaint.ir.impl.types
 
-import org.opentaint.opentaint-ir.api.JIRField
-import org.opentaint.opentaint-ir.api.JIRRefType
-import org.opentaint.opentaint-ir.api.JIRType
-import org.opentaint.opentaint-ir.api.JIRTypedField
-import org.opentaint.opentaint-ir.api.ext.isNullable
-import org.opentaint.opentaint-ir.api.throwClassNotFound
-import org.opentaint.opentaint-ir.impl.types.signature.FieldResolutionImpl
-import org.opentaint.opentaint-ir.impl.types.signature.FieldSignature
-import org.opentaint.opentaint-ir.impl.types.substition.JIRSubstitutor
+import org.opentaint.ir.api.JIRField
+import org.opentaint.ir.api.JIRRefType
+import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.JIRTypedField
+import org.opentaint.ir.api.ext.isNullable
+import org.opentaint.ir.api.throwClassNotFound
+import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
+import org.opentaint.ir.impl.types.signature.FieldSignature
+import org.opentaint.ir.impl.types.substition.JIRSubstitutor
 
 class JIRTypedFieldImpl(
     override val enclosingType: JIRRefType,
     override val field: JIRField,
     private val substitutor: JIRSubstitutor
 ) : JIRTypedField {
+
+    override val access: Int
+        get() = this.field.access
 
     private val classpath = field.enclosingClass.classpath
     private val resolvedType by lazy(LazyThreadSafetyMode.NONE) {

@@ -1,29 +1,29 @@
-package org.opentaint.opentaint-ir.impl.features
+package org.opentaint.ir.impl.features
 
+import org.opentaint.ir.api.ByteCodeIndexer
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRDatabase
+import org.opentaint.ir.api.JIRDatabasePersistence
+import org.opentaint.ir.api.JIRFeature
+import org.opentaint.ir.api.JIRSignal
+import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.impl.fs.PersistenceClassSource
+import org.opentaint.ir.impl.fs.className
+import org.opentaint.ir.impl.storage.BatchedSequence
+import org.opentaint.ir.impl.storage.eqOrNull
+import org.opentaint.ir.impl.storage.executeQueries
+import org.opentaint.ir.impl.storage.jooq.tables.references.CALLS
+import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
+import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
+import org.opentaint.ir.impl.storage.longHash
+import org.opentaint.ir.impl.storage.runBatch
+import org.opentaint.ir.impl.storage.setNullableLong
+import org.opentaint.ir.impl.storage.withoutAutoCommit
 import org.jooq.DSLContext
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
-import org.opentaint.opentaint-ir.api.ByteCodeIndexer
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRDatabase
-import org.opentaint.opentaint-ir.api.JIRDatabasePersistence
-import org.opentaint.opentaint-ir.api.JIRFeature
-import org.opentaint.opentaint-ir.api.JIRSignal
-import org.opentaint.opentaint-ir.api.RegisteredLocation
-import org.opentaint.opentaint-ir.impl.fs.PersistenceClassSource
-import org.opentaint.opentaint-ir.impl.fs.className
-import org.opentaint.opentaint-ir.impl.storage.BatchedSequence
-import org.opentaint.opentaint-ir.impl.storage.eqOrNull
-import org.opentaint.opentaint-ir.impl.storage.executeQueries
-import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.CALLS
-import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.CLASSES
-import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.SYMBOLS
-import org.opentaint.opentaint-ir.impl.storage.longHash
-import org.opentaint.opentaint-ir.impl.storage.runBatch
-import org.opentaint.opentaint-ir.impl.storage.setNullableLong
-import org.opentaint.opentaint-ir.impl.storage.withoutAutoCommit
 
 private class MethodMap(size: Int) {
 

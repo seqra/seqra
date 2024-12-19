@@ -1,12 +1,16 @@
 package org.opentaint.ir.testing.performance
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.impl.PredefinedPersistenceType
+import org.opentaint.ir.impl.features.InMemoryHierarchy
+import org.opentaint.ir.impl.features.Usages
+import org.opentaint.ir.impl.opentaint-ir
+import org.opentaint.ir.impl.storage.jooq.tables.references.CALLS
+import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
+import org.opentaint.ir.impl.storage.jooq.tables.references.FIELDS
+import org.opentaint.ir.impl.storage.jooq.tables.references.METHODPARAMETERS
+import org.opentaint.ir.impl.storage.jooq.tables.references.METHODS
 import org.opentaint.ir.testing.allClasspath
-import org.opentaint.opentaint-ir.impl.PredefinedPersistenceType
-import org.opentaint.opentaint-ir.impl.features.InMemoryHierarchy
-import org.opentaint.opentaint-ir.impl.features.Usages
-import org.opentaint.opentaint-ir.impl.opentaint-ir
-import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.*
 
 fun main() {
     var start = System.currentTimeMillis()

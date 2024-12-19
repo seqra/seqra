@@ -1,17 +1,17 @@
 package org.opentaint.ir.testing.cfg
 
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.cfg.JIRAssignInst
+import org.opentaint.ir.api.cfg.JIRInstanceCallExpr
+import org.opentaint.ir.api.cfg.JIRLocal
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.impl.analysis.impl.NullAssumptionAnalysis
+import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.cfg.JIRAssignInst
-import org.opentaint.opentaint-ir.api.cfg.JIRInstanceCallExpr
-import org.opentaint.opentaint-ir.api.cfg.JIRLocal
-import org.opentaint.opentaint-ir.api.ext.findClass
-import org.opentaint.opentaint-ir.impl.analysis.impl.NullAssumptionAnalysis
-import org.opentaint.opentaint-ir.impl.features.InMemoryHierarchy
 
 class NullabilityAssumptionAnalysisTest : BaseTest() {
 

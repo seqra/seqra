@@ -1,17 +1,17 @@
-package org.opentaint.opentaint-ir.impl.types.signature
+package org.opentaint.ir.impl.types.signature
 
 import mu.KLogging
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.Malformed
+import org.opentaint.ir.api.MethodResolution
+import org.opentaint.ir.api.Pure
+import org.opentaint.ir.impl.bytecode.kmFunction
+import org.opentaint.ir.impl.bytecode.kmReturnType
+import org.opentaint.ir.impl.bytecode.kmType
+import org.opentaint.ir.impl.types.allVisibleTypeParameters
+import org.opentaint.ir.impl.types.substition.JvmTypeVisitor
+import org.opentaint.ir.impl.types.substition.fixDeclarationVisitor
 import org.objectweb.asm.signature.SignatureVisitor
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.Malformed
-import org.opentaint.opentaint-ir.api.MethodResolution
-import org.opentaint.opentaint-ir.api.Pure
-import org.opentaint.opentaint-ir.impl.bytecode.kmFunction
-import org.opentaint.opentaint-ir.impl.bytecode.kmReturnType
-import org.opentaint.opentaint-ir.impl.bytecode.kmType
-import org.opentaint.opentaint-ir.impl.types.allVisibleTypeParameters
-import org.opentaint.opentaint-ir.impl.types.substition.JvmTypeVisitor
-import org.opentaint.opentaint-ir.impl.types.substition.fixDeclarationVisitor
 
 internal class MethodSignature(private val method: JIRMethod) : Signature<MethodResolution>(method, method.kmFunction?.typeParameters) {
 

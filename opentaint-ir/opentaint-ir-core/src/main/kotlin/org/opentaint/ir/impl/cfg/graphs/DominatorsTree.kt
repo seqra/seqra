@@ -1,4 +1,4 @@
-package org.opentaint.opentaint-ir.impl.cfg.graphs
+package org.opentaint.ir.impl.cfg.graphs
 
 import kotlinx.collections.immutable.toPersistentList
 import kotlin.LazyThreadSafetyMode.NONE

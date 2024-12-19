@@ -1,46 +1,45 @@
 @file:JvmName("JIRValues")
+package org.opentaint.ir.impl.cfg
 
-package org.opentaint.opentaint-ir.impl.cfg
-
-import org.opentaint.opentaint-ir.api.*
-import org.opentaint.opentaint-ir.api.cfg.*
-import org.opentaint.opentaint-ir.api.ext.boolean
-import org.opentaint.opentaint-ir.api.ext.byte
-import org.opentaint.opentaint-ir.api.ext.double
-import org.opentaint.opentaint-ir.api.ext.float
-import org.opentaint.opentaint-ir.api.ext.int
-import org.opentaint.opentaint-ir.api.ext.long
-import org.opentaint.opentaint-ir.api.ext.short
-import org.opentaint.opentaint-ir.impl.cfg.util.NULL
-import org.opentaint.opentaint-ir.impl.cfg.util.STRING_CLASS
-import org.opentaint.opentaint-ir.impl.cfg.util.typeName
+import org.opentaint.ir.api.*
+import org.opentaint.ir.api.cfg.*
+import org.opentaint.ir.api.ext.boolean
+import org.opentaint.ir.api.ext.byte
+import org.opentaint.ir.api.ext.double
+import org.opentaint.ir.api.ext.float
+import org.opentaint.ir.api.ext.int
+import org.opentaint.ir.api.ext.long
+import org.opentaint.ir.api.ext.short
+import org.opentaint.ir.impl.cfg.util.NULL
+import org.opentaint.ir.impl.cfg.util.STRING_CLASS
+import org.opentaint.ir.impl.cfg.util.typeName
 
 @JvmName("rawNull")
 fun JIRRawNull() = JIRRawNullConstant(NULL)
 
 @JvmName("rawBool")
-fun JIRRawBool(value: Boolean) = org.opentaint.opentaint-ir.api.cfg.JIRRawBool(value, PredefinedPrimitives.Boolean.typeName())
+fun JIRRawBool(value: Boolean) = org.opentaint.ir.api.cfg.JIRRawBool(value, PredefinedPrimitives.Boolean.typeName())
 
 @JvmName("rawByte")
-fun JIRRawByte(value: Byte) = org.opentaint.opentaint-ir.api.cfg.JIRRawByte(value, PredefinedPrimitives.Byte.typeName())
+fun JIRRawByte(value: Byte) = org.opentaint.ir.api.cfg.JIRRawByte(value, PredefinedPrimitives.Byte.typeName())
 
 @JvmName("rawShort")
-fun JIRRawShort(value: Short) = org.opentaint.opentaint-ir.api.cfg.JIRRawShort(value, PredefinedPrimitives.Short.typeName())
+fun JIRRawShort(value: Short) = org.opentaint.ir.api.cfg.JIRRawShort(value, PredefinedPrimitives.Short.typeName())
 
 @JvmName("rawChar")
-fun JIRRawChar(value: Char) = org.opentaint.opentaint-ir.api.cfg.JIRRawChar(value, PredefinedPrimitives.Char.typeName())
+fun JIRRawChar(value: Char) = org.opentaint.ir.api.cfg.JIRRawChar(value, PredefinedPrimitives.Char.typeName())
 
 @JvmName("rawInt")
-fun JIRRawInt(value: Int) = org.opentaint.opentaint-ir.api.cfg.JIRRawInt(value, PredefinedPrimitives.Int.typeName())
+fun JIRRawInt(value: Int) = org.opentaint.ir.api.cfg.JIRRawInt(value, PredefinedPrimitives.Int.typeName())
 
 @JvmName("rawLong")
-fun JIRRawLong(value: Long) = org.opentaint.opentaint-ir.api.cfg.JIRRawLong(value, PredefinedPrimitives.Long.typeName())
+fun JIRRawLong(value: Long) = org.opentaint.ir.api.cfg.JIRRawLong(value, PredefinedPrimitives.Long.typeName())
 
 @JvmName("rawFloat")
-fun JIRRawFloat(value: Float) = org.opentaint.opentaint-ir.api.cfg.JIRRawFloat(value, PredefinedPrimitives.Float.typeName())
+fun JIRRawFloat(value: Float) = org.opentaint.ir.api.cfg.JIRRawFloat(value, PredefinedPrimitives.Float.typeName())
 
 @JvmName("rawDouble")
-fun JIRRawDouble(value: Double) = org.opentaint.opentaint-ir.api.cfg.JIRRawDouble(value, PredefinedPrimitives.Double.typeName())
+fun JIRRawDouble(value: Double) = org.opentaint.ir.api.cfg.JIRRawDouble(value, PredefinedPrimitives.Double.typeName())
 
 @JvmName("rawZero")
 fun JIRRawZero(typeName: TypeName) = when (typeName.typeName) {

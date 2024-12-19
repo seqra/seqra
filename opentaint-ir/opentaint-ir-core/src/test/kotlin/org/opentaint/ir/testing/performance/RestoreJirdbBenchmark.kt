@@ -1,10 +1,10 @@
 package org.opentaint.ir.testing.performance
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.JIRDatabase
+import org.opentaint.ir.impl.opentaint-ir
 import org.opentaint.ir.testing.allClasspath
 import org.openjdk.jmh.annotations.*
-import org.opentaint.opentaint-ir.api.JIRDatabase
-import org.opentaint.opentaint-ir.impl.opentaint-ir
 import java.nio.file.Files
 import java.util.*
 import java.util.concurrent.TimeUnit

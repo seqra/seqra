@@ -1,14 +1,16 @@
 package org.opentaint.ir.testing.tree
 
 import kotlinx.collections.immutable.persistentListOf
-import org.junit.jupiter.api.Assertions.*
+import org.opentaint.ir.api.ClassSource
+import org.opentaint.ir.impl.fs.ClassSourceImpl
+import org.opentaint.ir.impl.vfs.ClassVfsItem
+import org.opentaint.ir.impl.vfs.ClasspathVfs
+import org.opentaint.ir.impl.vfs.GlobalClassesVfs
+import org.opentaint.ir.impl.vfs.RemoveLocationsVisitor
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
-import org.opentaint.opentaint-ir.api.ClassSource
-import org.opentaint.opentaint-ir.impl.fs.ClassSourceImpl
-import org.opentaint.opentaint-ir.impl.vfs.ClassVfsItem
-import org.opentaint.opentaint-ir.impl.vfs.ClasspathVfs
-import org.opentaint.opentaint-ir.impl.vfs.GlobalClassesVfs
-import org.opentaint.opentaint-ir.impl.vfs.RemoveLocationsVisitor
 
 class GlobalClassVfsTest {
 

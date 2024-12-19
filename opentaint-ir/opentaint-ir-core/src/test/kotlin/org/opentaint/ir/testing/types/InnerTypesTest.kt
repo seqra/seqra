@@ -1,9 +1,9 @@
 package org.opentaint.ir.testing.types
 
+import org.opentaint.ir.api.JIRClassType
+import org.opentaint.ir.api.JIRTypeVariable
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.opentaint.opentaint-ir.api.JIRClassType
-import org.opentaint.opentaint-ir.api.JIRTypeVariable
 import java.io.Closeable
 
 class InnerTypesTest : BaseTypesTest() {

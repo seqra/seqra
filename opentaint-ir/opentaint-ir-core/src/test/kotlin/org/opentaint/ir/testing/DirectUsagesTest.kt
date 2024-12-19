@@ -2,15 +2,15 @@ package org.opentaint.ir.testing
 
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.ext.usedFields
+import org.opentaint.ir.api.ext.usedMethods
+import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.testing.usages.direct.DirectA
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.ext.findClass
-import org.opentaint.opentaint-ir.api.ext.findFieldsUsedIn
-import org.opentaint.opentaint-ir.api.ext.findMethodsUsedIn
-import org.opentaint.opentaint-ir.impl.features.Usages
 
 class DirectUsagesTest : BaseTest() {
 
@@ -99,10 +99,10 @@ class DirectUsagesTest : BaseTest() {
 
     private inline fun <reified T> JIRClasspath.fieldsUsages(): List<Pair<String, List<Pair<String, List<String>>>>> {
         return runBlocking {
-            val classId = cp.findClass<T>()
+            val classId = findClass<T>()
 
             classId.declaredMethods.map {
-                val usages = findFieldsUsedIn(it)
+                val usages = it.usedFields
                 it.name to listOf(
                     "reads" to usages.reads.map { it.enclosingClass.name + "#" + it.name },
                     "writes" to usages.writes.map { it.enclosingClass.name + "#" + it.name }
@@ -116,12 +116,12 @@ class DirectUsagesTest : BaseTest() {
 
     private inline fun <reified T> JIRClasspath.methodsUsages(): List<Pair<String, List<String>>> {
         return runBlocking {
-            val jIRClass = cp.findClass<T>()
+            val jIRClass = findClass<T>()
 
             val methods = jIRClass.declaredMethods
 
             methods.map {
-                it.name to findMethodsUsedIn(it).map { it.enclosingClass.name + "#" + it.name }.toImmutableList()
+                it.name to it.usedMethods.map { it.enclosingClass.name + "#" + it.name }.toImmutableList()
             }.filterNot { it.second.isEmpty() }
         }
     }

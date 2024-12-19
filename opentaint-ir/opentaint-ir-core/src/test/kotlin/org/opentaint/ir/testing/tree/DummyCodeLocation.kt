@@ -1,9 +1,9 @@
 package org.opentaint.ir.testing.tree
 
-import org.opentaint.opentaint-ir.api.JIRByteCodeLocation
-import org.opentaint.opentaint-ir.api.LocationType
-import org.opentaint.opentaint-ir.api.RegisteredLocation
-import org.opentaint.opentaint-ir.impl.storage.longHash
+import org.opentaint.ir.api.JIRByteCodeLocation
+import org.opentaint.ir.api.LocationType
+import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.impl.storage.longHash
 import java.io.File
 
 open class DummyCodeLocation(private val name: String) : JIRByteCodeLocation, RegisteredLocation {

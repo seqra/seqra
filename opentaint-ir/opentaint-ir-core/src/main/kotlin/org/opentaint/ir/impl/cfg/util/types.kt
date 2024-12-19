@@ -1,10 +1,10 @@
-package org.opentaint.opentaint-ir.impl.cfg.util
+package org.opentaint.ir.impl.cfg.util
 
-import org.opentaint.opentaint-ir.api.PredefinedPrimitives
-import org.opentaint.opentaint-ir.api.TypeName
-import org.opentaint.opentaint-ir.api.ext.jIRdbName
-import org.opentaint.opentaint-ir.api.ext.jvmName
-import org.opentaint.opentaint-ir.impl.types.TypeNameImpl
+import org.opentaint.ir.api.PredefinedPrimitives
+import org.opentaint.ir.api.TypeName
+import org.opentaint.ir.api.ext.jIRdbName
+import org.opentaint.ir.api.ext.jvmName
+import org.opentaint.ir.impl.types.TypeNameImpl
 
 internal val NULL = "null".typeName()
 internal const val OBJECT_CLASS = "Ljava.lang.Object;"

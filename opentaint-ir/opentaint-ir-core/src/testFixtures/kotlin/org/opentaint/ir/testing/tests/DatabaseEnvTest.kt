@@ -1,6 +1,29 @@
 package org.opentaint.ir.testing.tests
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClassProcessingTask
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.ext.HierarchyExtension
+import org.opentaint.ir.api.ext.constructors
+import org.opentaint.ir.api.ext.enumValues
+import org.opentaint.ir.api.ext.fields
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.ext.findClassOrNull
+import org.opentaint.ir.api.ext.findMethodOrNull
+import org.opentaint.ir.api.ext.hasBody
+import org.opentaint.ir.api.ext.humanReadableSignature
+import org.opentaint.ir.api.ext.isEnum
+import org.opentaint.ir.api.ext.isFinal
+import org.opentaint.ir.api.ext.isInterface
+import org.opentaint.ir.api.ext.isLocal
+import org.opentaint.ir.api.ext.isMemberClass
+import org.opentaint.ir.api.ext.isNullable
+import org.opentaint.ir.api.ext.isPrivate
+import org.opentaint.ir.api.ext.isPublic
+import org.opentaint.ir.api.ext.jIRdbSignature
+import org.opentaint.ir.api.ext.jvmSignature
+import org.opentaint.ir.api.ext.methods
 import org.opentaint.ir.testing.A
 import org.opentaint.ir.testing.B
 import org.opentaint.ir.testing.Bar
@@ -24,29 +47,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.JRE
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRClassProcessingTask
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.ext.HierarchyExtension
-import org.opentaint.opentaint-ir.api.ext.constructors
-import org.opentaint.opentaint-ir.api.ext.enumValues
-import org.opentaint.opentaint-ir.api.ext.fields
-import org.opentaint.opentaint-ir.api.ext.findClass
-import org.opentaint.opentaint-ir.api.ext.findClassOrNull
-import org.opentaint.opentaint-ir.api.ext.findMethodOrNull
-import org.opentaint.opentaint-ir.api.ext.hasBody
-import org.opentaint.opentaint-ir.api.ext.humanReadableSignature
-import org.opentaint.opentaint-ir.api.ext.isEnum
-import org.opentaint.opentaint-ir.api.ext.isFinal
-import org.opentaint.opentaint-ir.api.ext.isInterface
-import org.opentaint.opentaint-ir.api.ext.isLocal
-import org.opentaint.opentaint-ir.api.ext.isMemberClass
-import org.opentaint.opentaint-ir.api.ext.isNullable
-import org.opentaint.opentaint-ir.api.ext.isPrivate
-import org.opentaint.opentaint-ir.api.ext.isPublic
-import org.opentaint.opentaint-ir.api.ext.jIRdbSignature
-import org.opentaint.opentaint-ir.api.ext.jvmSignature
-import org.opentaint.opentaint-ir.api.ext.methods
 import org.w3c.dom.Document
 import org.w3c.dom.DocumentType
 import org.w3c.dom.Element
@@ -370,7 +370,7 @@ abstract class DatabaseEnvTest {
 
     @Test
     fun `all visible fields should work`() = runBlocking {
-        val clazz = cp.findClass<FieldsAndMethods>()
+        val clazz = cp.findClass<FieldsAndMethods.Common1Child>()
         with(clazz.fields) {
             assertNull(firstOrNull { it.name == "privateField" })
             assertNull(firstOrNull { it.name == "packageField" })
@@ -382,7 +382,7 @@ abstract class DatabaseEnvTest {
 
     @Test
     fun `all visible methods should work`() = runBlocking {
-        val clazz = cp.findClass<FieldsAndMethods>()
+        val clazz = cp.findClass<FieldsAndMethods.Common1Child>()
         with(clazz.methods) {
             assertNull(firstOrNull { it.name == "privateMethod" })
             assertNull(firstOrNull { it.name == "packageMethod" })

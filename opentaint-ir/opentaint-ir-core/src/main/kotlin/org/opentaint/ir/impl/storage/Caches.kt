@@ -1,4 +1,4 @@
-package org.opentaint.opentaint-ir.impl.storage
+package org.opentaint.ir.impl.storage
 
 import com.google.common.cache.Cache
 import com.google.common.cache.CacheBuilder

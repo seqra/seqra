@@ -1,12 +1,12 @@
 package org.opentaint.ir.testing.types.nullability
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.testing.types.BaseTypesTest
 import org.opentaint.ir.testing.usages.NullAnnotationExamples
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
-import org.opentaint.opentaint-ir.api.JIRClassType
 
 @Disabled("Type annotations are not supported")
 class JavaNullabilityTest : BaseTypesTest() {

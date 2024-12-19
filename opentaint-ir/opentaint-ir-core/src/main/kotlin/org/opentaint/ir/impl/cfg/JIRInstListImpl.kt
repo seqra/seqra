@@ -1,9 +1,9 @@
-package org.opentaint.opentaint-ir.impl.cfg
+package org.opentaint.ir.impl.cfg
 
-import org.opentaint.opentaint-ir.api.cfg.JIRInstList
-import org.opentaint.opentaint-ir.api.cfg.JIRRawInst
-import org.opentaint.opentaint-ir.api.cfg.JIRRawInstVisitor
-import org.opentaint.opentaint-ir.api.cfg.JIRRawLabelInst
+import org.opentaint.ir.api.cfg.JIRInstList
+import org.opentaint.ir.api.cfg.JIRRawInst
+import org.opentaint.ir.api.cfg.JIRRawInstVisitor
+import org.opentaint.ir.api.cfg.JIRRawLabelInst
 
 class JIRInstListImpl<INST>(
     instructions: List<INST>

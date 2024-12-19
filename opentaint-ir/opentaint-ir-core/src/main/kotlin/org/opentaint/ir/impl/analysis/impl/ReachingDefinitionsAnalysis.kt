@@ -1,7 +1,11 @@
-package org.opentaint.opentaint-ir.impl.analysis.impl
+package org.opentaint.ir.impl.analysis.impl
 
-import org.opentaint.opentaint-ir.api.cfg.*
-import org.opentaint.opentaint-ir.impl.cfg.JIRBlockGraphImpl
+import org.opentaint.ir.api.cfg.JIRAssignInst
+import org.opentaint.ir.api.cfg.JIRBasicBlock
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRInstRef
+import org.opentaint.ir.api.cfg.JIRValue
+import org.opentaint.ir.impl.cfg.JIRBlockGraphImpl
 import java.util.*
 import kotlin.collections.ArrayDeque
 

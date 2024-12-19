@@ -1,28 +1,67 @@
 package org.opentaint.ir.testing.cfg
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.JavaVersion
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClassType
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRTypedMethod
+import org.opentaint.ir.api.NoClassInClasspathException
+import org.opentaint.ir.api.TypeName
+import org.opentaint.ir.api.cfg.DefaultJIRExprVisitor
+import org.opentaint.ir.api.cfg.DefaultJIRInstVisitor
+import org.opentaint.ir.api.cfg.JIRAssignInst
+import org.opentaint.ir.api.cfg.JIRCallExpr
+import org.opentaint.ir.api.cfg.JIRCallInst
+import org.opentaint.ir.api.cfg.JIRCatchInst
+import org.opentaint.ir.api.cfg.JIREnterMonitorInst
+import org.opentaint.ir.api.cfg.JIRExitMonitorInst
+import org.opentaint.ir.api.cfg.JIRExpr
+import org.opentaint.ir.api.cfg.JIRGotoInst
+import org.opentaint.ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.cfg.JIRIfInst
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRInstVisitor
+import org.opentaint.ir.api.cfg.JIRReturnInst
+import org.opentaint.ir.api.cfg.JIRSpecialCallExpr
+import org.opentaint.ir.api.cfg.JIRSwitchInst
+import org.opentaint.ir.api.cfg.JIRTerminatingInst
+import org.opentaint.ir.api.cfg.JIRThrowInst
+import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
+import org.opentaint.ir.api.ext.HierarchyExtension
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.ext.isAbstract
+import org.opentaint.ir.api.ext.isAnnotation
+import org.opentaint.ir.api.ext.isInterface
+import org.opentaint.ir.api.ext.isKotlin
+import org.opentaint.ir.api.ext.packageName
+import org.opentaint.ir.api.ext.toType
+import org.opentaint.ir.impl.JIRClasspathImpl
+import org.opentaint.ir.impl.JIRDatabaseImpl
+import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
+import org.opentaint.ir.impl.bytecode.JIRDatabaseClassWriter
+import org.opentaint.ir.impl.bytecode.JIRMethodImpl
+import org.opentaint.ir.impl.cfg.JIRBlockGraphImpl
+import org.opentaint.ir.impl.cfg.JIRGraphBuilder
+import org.opentaint.ir.impl.cfg.MethodNodeBuilder
+import org.opentaint.ir.impl.cfg.RawInstListBuilder
+import org.opentaint.ir.impl.cfg.Simplifier
+import org.opentaint.ir.impl.cfg.applyAndGet
+import org.opentaint.ir.impl.cfg.util.ExprMapper
+import org.opentaint.ir.impl.features.InMemoryHierarchy
+import org.opentaint.ir.impl.features.hierarchyExt
+import org.opentaint.ir.impl.fs.JarLocation
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.allClasspath
 import org.opentaint.ir.testing.guavaLib
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.util.CheckClassAdapter
-import org.opentaint.opentaint-ir.api.*
-import org.opentaint.opentaint-ir.api.cfg.*
-import org.opentaint.opentaint-ir.api.ext.*
-import org.opentaint.opentaint-ir.impl.JIRClasspathImpl
-import org.opentaint.opentaint-ir.impl.JIRDatabaseImpl
-import org.opentaint.opentaint-ir.impl.bytecode.JIRClassOrInterfaceImpl
-import org.opentaint.opentaint-ir.impl.bytecode.JIRDatabaseClassWriter
-import org.opentaint.opentaint-ir.impl.bytecode.JIRMethodImpl
-import org.opentaint.opentaint-ir.impl.cfg.*
-import org.opentaint.opentaint-ir.impl.cfg.util.ExprMapper
-import org.opentaint.opentaint-ir.impl.features.InMemoryHierarchy
-import org.opentaint.opentaint-ir.impl.features.hierarchyExt
-import org.opentaint.opentaint-ir.impl.fs.JarLocation
 import java.io.File
 import java.net.URLClassLoader
 import java.nio.file.Files
@@ -236,15 +275,20 @@ class JIRGraphChecker(val method: JIRMethod, val jIRGraph: JIRGraph) : JIRInstVi
 
 class IRTest : BaseTest() {
 
-    private val target = Files.createTempDirectory("jIRdb-temp")
-
     companion object : WithDB(InMemoryHierarchy)
+
+    private val target = Files.createTempDirectory("jIRdb-temp")
 
     private val ext = runBlocking { cp.hierarchyExt() }
 
     @Test
     fun `get ir of simple method`() {
         testClass(cp.findClass<IRExamples>())
+    }
+
+    @Test
+    fun `arrays methods`() {
+        testClass(cp.findClass<JavaArrays>())
     }
 
     @Test
@@ -286,7 +330,7 @@ class IRTest : BaseTest() {
     private fun runAlongLib(file: File) {
         println("Run along: ${file.absolutePath}")
 
-        val classes = JarLocation(file, isRuntime = false, object : org.opentaint.opentaint-ir.api.JavaVersion {
+        val classes = JarLocation(file, isRuntime = false, object : JavaVersion {
             override val majorVersion: Int
                 get() = 8
         }).classes
@@ -302,7 +346,7 @@ class IRTest : BaseTest() {
 
     private fun testClass(klass: JIRClassOrInterface) = try {
         val classNode = klass.bytecode()
-        classNode.methods = klass.methods.filter { it.enclosingClass == klass }.map {
+        classNode.methods = klass.declaredMethods.filter { it.enclosingClass == klass }.map {
             if (it.isAbstract) {
                 it.body()
             } else {

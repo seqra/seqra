@@ -1,6 +1,6 @@
-package org.opentaint.opentaint-ir.impl.fs
+package org.opentaint.ir.impl.fs
 
-import org.opentaint.opentaint-ir.api.JIRByteCodeLocation
+import org.opentaint.ir.api.JIRByteCodeLocation
 import java.io.File
 
 abstract class AbstractByteCodeLocation(override val jarOrFolder: File) : JIRByteCodeLocation {

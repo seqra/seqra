@@ -1,16 +1,27 @@
 package org.opentaint.ir.testing
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRField
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.Pure
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
+import org.opentaint.ir.impl.types.signature.FieldSignature
+import org.opentaint.ir.impl.types.signature.JvmBoundWildcard
+import org.opentaint.ir.impl.types.signature.JvmClassRefType
+import org.opentaint.ir.impl.types.signature.JvmParameterizedType
+import org.opentaint.ir.impl.types.signature.JvmPrimitiveType
+import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclarationImpl
+import org.opentaint.ir.impl.types.signature.JvmTypeVariable
+import org.opentaint.ir.impl.types.signature.MethodResolutionImpl
+import org.opentaint.ir.impl.types.signature.MethodSignature
+import org.opentaint.ir.impl.types.signature.TypeResolutionImpl
+import org.opentaint.ir.impl.types.signature.TypeSignature
+import org.opentaint.ir.impl.types.typeParameters
 import org.opentaint.ir.testing.usages.Generics
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRField
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.Pure
-import org.opentaint.opentaint-ir.api.ext.findClass
-import org.opentaint.opentaint-ir.impl.types.signature.*
-import org.opentaint.opentaint-ir.impl.types.typeParameters
 
 class SignatureTest: BaseTest() {
 

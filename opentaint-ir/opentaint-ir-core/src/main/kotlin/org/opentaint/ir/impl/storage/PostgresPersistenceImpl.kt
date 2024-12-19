@@ -1,12 +1,12 @@
-package org.opentaint.opentaint-ir.impl.storage
+package org.opentaint.ir.impl.storage
 
 import com.zaxxer.hikari.HikariDataSource
+import org.opentaint.ir.impl.FeaturesRegistry
+import org.opentaint.ir.impl.fs.JavaRuntime
 import org.jooq.DSLContext
 import org.jooq.SQLDialect
 import org.jooq.conf.Settings
 import org.jooq.impl.DSL
-import org.opentaint.opentaint-ir.impl.FeaturesRegistry
-import org.opentaint.opentaint-ir.impl.fs.JavaRuntime
 
 class PostgresPersistenceImpl(
     javaRuntime: JavaRuntime,

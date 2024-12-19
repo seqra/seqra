@@ -1,14 +1,14 @@
-package org.opentaint.opentaint-ir.impl.types.signature
+package org.opentaint.ir.impl.types.signature
 
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.Malformed
+import org.opentaint.ir.api.Pure
+import org.opentaint.ir.api.TypeResolution
+import org.opentaint.ir.impl.bytecode.kmTypeParameters
+import org.opentaint.ir.impl.types.allVisibleTypeParameters
+import org.opentaint.ir.impl.types.substition.JvmTypeVisitor
+import org.opentaint.ir.impl.types.substition.fixDeclarationVisitor
 import org.objectweb.asm.signature.SignatureVisitor
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.Malformed
-import org.opentaint.opentaint-ir.api.Pure
-import org.opentaint.opentaint-ir.api.TypeResolution
-import org.opentaint.opentaint-ir.impl.bytecode.kmTypeParameters
-import org.opentaint.opentaint-ir.impl.types.allVisibleTypeParameters
-import org.opentaint.opentaint-ir.impl.types.substition.JvmTypeVisitor
-import org.opentaint.opentaint-ir.impl.types.substition.fixDeclarationVisitor
 
 internal class TypeSignature(jIRClass: JIRClassOrInterface) : Signature<TypeResolution>(jIRClass, jIRClass.kmTypeParameters) {
 

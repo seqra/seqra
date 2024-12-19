@@ -1,4 +1,4 @@
-package org.opentaint.opentaint-ir.impl.bytecode
+package org.opentaint.ir.impl.bytecode
 
 import kotlinx.metadata.Flag
 import kotlinx.metadata.InconsistentKotlinMetadataException
@@ -13,10 +13,10 @@ import kotlinx.metadata.jvm.KotlinClassMetadata
 import kotlinx.metadata.jvm.fieldSignature
 import kotlinx.metadata.jvm.signature
 import mu.KLogging
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRField
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.JIRParameter
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRField
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRParameter
 
 val logger = object : KLogging() {}.logger
 

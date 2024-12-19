@@ -1,4 +1,4 @@
-package org.opentaint.opentaint-ir.impl.types.signature
+package org.opentaint.ir.impl.types.signature
 
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.signature.SignatureVisitor

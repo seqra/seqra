@@ -1,10 +1,12 @@
 package org.opentaint.ir.testing.types
 
+import org.opentaint.ir.api.JIRClassType
+import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
-import org.junit.jupiter.api.Assertions.*
-import org.opentaint.opentaint-ir.api.JIRClassType
-import org.opentaint.opentaint-ir.api.JIRType
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNotNull
 
 abstract class BaseTypesTest : BaseTest() {
 

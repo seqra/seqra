@@ -1,12 +1,12 @@
-package org.opentaint.opentaint-ir.impl.cfg
+package org.opentaint.ir.impl.cfg
 
-import org.opentaint.opentaint-ir.api.cfg.JIRBasicBlock
-import org.opentaint.opentaint-ir.api.cfg.JIRBlockGraph
-import org.opentaint.opentaint-ir.api.cfg.JIRBranchingInst
-import org.opentaint.opentaint-ir.api.cfg.JIRGraph
-import org.opentaint.opentaint-ir.api.cfg.JIRInst
-import org.opentaint.opentaint-ir.api.cfg.JIRInstRef
-import org.opentaint.opentaint-ir.api.cfg.JIRTerminatingInst
+import org.opentaint.ir.api.cfg.JIRBasicBlock
+import org.opentaint.ir.api.cfg.JIRBlockGraph
+import org.opentaint.ir.api.cfg.JIRBranchingInst
+import org.opentaint.ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRInstRef
+import org.opentaint.ir.api.cfg.JIRTerminatingInst
 
 class JIRBlockGraphImpl(
     override val jIRGraph: JIRGraph

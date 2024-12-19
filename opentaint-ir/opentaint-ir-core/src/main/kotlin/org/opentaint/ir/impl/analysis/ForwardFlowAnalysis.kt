@@ -1,6 +1,6 @@
-package org.opentaint.opentaint-ir.impl.analysis
+package org.opentaint.ir.impl.analysis
 
-import org.opentaint.opentaint-ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.cfg.JIRGraph
 
 abstract class ForwardFlowAnalysis<T>(graph: JIRGraph) : FlowAnalysisImpl<T>(graph) {
 

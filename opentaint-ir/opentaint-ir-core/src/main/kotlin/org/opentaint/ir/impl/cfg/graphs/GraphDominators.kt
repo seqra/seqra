@@ -1,6 +1,11 @@
-package org.opentaint.opentaint-ir.impl.cfg.graphs
+package org.opentaint.ir.impl.cfg.graphs
 
-import org.opentaint.opentaint-ir.api.cfg.*
+import org.opentaint.ir.api.cfg.Graph
+import org.opentaint.ir.api.cfg.JIRBasicBlock
+import org.opentaint.ir.api.cfg.JIRBlockGraph
+import org.opentaint.ir.api.cfg.JIRCatchInst
+import org.opentaint.ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.cfg.JIRInst
 import java.util.*
 
 /**

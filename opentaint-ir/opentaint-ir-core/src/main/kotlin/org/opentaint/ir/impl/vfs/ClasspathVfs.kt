@@ -1,7 +1,7 @@
-package org.opentaint.opentaint-ir.impl.vfs
+package org.opentaint.ir.impl.vfs
 
-import org.opentaint.opentaint-ir.api.RegisteredLocation
-import org.opentaint.opentaint-ir.impl.LocationsRegistrySnapshot
+import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.impl.LocationsRegistrySnapshot
 
 /**
  * ClassTree view limited by number of `locations`

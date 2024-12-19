@@ -1,6 +1,11 @@
 package org.opentaint.ir.testing.features
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.impl.features.Builders
+import org.opentaint.ir.impl.features.InMemoryHierarchy
+import org.opentaint.ir.impl.features.buildersExtension
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.builders.Hierarchy.HierarchyInterface
@@ -11,11 +16,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnJre
 import org.junit.jupiter.api.condition.JRE
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.ext.findClass
-import org.opentaint.opentaint-ir.impl.features.Builders
-import org.opentaint.opentaint-ir.impl.features.InMemoryHierarchy
-import org.opentaint.opentaint-ir.impl.features.buildersExtension
 import javax.xml.parsers.DocumentBuilderFactory
 
 class BuildersTest : BaseTest() {

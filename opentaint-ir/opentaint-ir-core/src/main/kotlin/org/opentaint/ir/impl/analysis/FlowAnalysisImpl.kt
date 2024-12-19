@@ -1,8 +1,8 @@
-package org.opentaint.opentaint-ir.impl.analysis
+package org.opentaint.ir.impl.analysis
 
-import org.opentaint.opentaint-ir.api.cfg.JIRGotoInst
-import org.opentaint.opentaint-ir.api.cfg.JIRGraph
-import org.opentaint.opentaint-ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRGotoInst
+import org.opentaint.ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.cfg.JIRInst
 import java.util.*
 
 enum class Flow {

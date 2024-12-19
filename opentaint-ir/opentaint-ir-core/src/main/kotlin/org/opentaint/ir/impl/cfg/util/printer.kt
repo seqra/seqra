@@ -1,4 +1,4 @@
-package org.opentaint.opentaint-ir.impl.cfg.util
+package org.opentaint.ir.impl.cfg.util
 
 import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.ClassNode

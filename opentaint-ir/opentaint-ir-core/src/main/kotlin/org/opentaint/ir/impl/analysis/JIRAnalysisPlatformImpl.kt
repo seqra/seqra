@@ -1,13 +1,13 @@
-package org.opentaint.opentaint-ir.impl.analysis
+package org.opentaint.ir.impl.analysis
 
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRClassProcessingTask
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.analysis.JIRAnalysisFeature
-import org.opentaint.opentaint-ir.api.analysis.JIRAnalysisPlatform
-import org.opentaint.opentaint-ir.api.analysis.JIRCollectingAnalysisFeature
-import org.opentaint.opentaint-ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClassProcessingTask
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.analysis.JIRAnalysisFeature
+import org.opentaint.ir.api.analysis.JIRAnalysisPlatform
+import org.opentaint.ir.api.analysis.JIRCollectingAnalysisFeature
+import org.opentaint.ir.api.cfg.JIRGraph
 
 open class JIRAnalysisPlatformImpl(
     override val classpath: JIRClasspath,

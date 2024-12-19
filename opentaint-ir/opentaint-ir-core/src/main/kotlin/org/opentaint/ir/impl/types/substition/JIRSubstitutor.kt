@@ -1,9 +1,9 @@
-package org.opentaint.opentaint-ir.impl.types.substition
+package org.opentaint.ir.impl.types.substition
 
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.impl.types.signature.JvmType
-import org.opentaint.opentaint-ir.impl.types.signature.JvmTypeParameterDeclaration
-import org.opentaint.opentaint-ir.impl.types.typeParameters
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.impl.types.signature.JvmType
+import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclaration
+import org.opentaint.ir.impl.types.typeParameters
 
 interface JIRSubstitutor {
 

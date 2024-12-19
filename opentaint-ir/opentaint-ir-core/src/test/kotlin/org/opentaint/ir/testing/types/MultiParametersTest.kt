@@ -1,13 +1,13 @@
 package org.opentaint.ir.testing.types
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.JIRClassType
+import org.opentaint.ir.api.JIRTypeVariable
+import org.opentaint.ir.api.JIRTypedField
+import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.testing.types.MultipleParametrization.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.opentaint.opentaint-ir.api.JIRClassType
-import org.opentaint.opentaint-ir.api.JIRTypeVariable
-import org.opentaint.opentaint-ir.api.JIRTypedField
-import org.opentaint.opentaint-ir.api.JIRTypedMethod
 import kotlin.reflect.KFunction2
 import kotlin.reflect.KMutableProperty1
 

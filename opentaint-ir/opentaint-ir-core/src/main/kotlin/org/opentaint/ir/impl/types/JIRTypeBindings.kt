@@ -1,21 +1,21 @@
-package org.opentaint.opentaint-ir.impl.types
+package org.opentaint.ir.impl.types
 
-import org.opentaint.opentaint-ir.api.JIRAccessible
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRRefType
-import org.opentaint.opentaint-ir.api.JIRType
-import org.opentaint.opentaint-ir.api.JIRTypeVariableDeclaration
-import org.opentaint.opentaint-ir.api.PredefinedPrimitives
-import org.opentaint.opentaint-ir.api.ext.findClass
-import org.opentaint.opentaint-ir.api.ext.objectType
-import org.opentaint.opentaint-ir.impl.types.signature.JvmArrayType
-import org.opentaint.opentaint-ir.impl.types.signature.JvmBoundWildcard
-import org.opentaint.opentaint-ir.impl.types.signature.JvmClassRefType
-import org.opentaint.opentaint-ir.impl.types.signature.JvmParameterizedType
-import org.opentaint.opentaint-ir.impl.types.signature.JvmPrimitiveType
-import org.opentaint.opentaint-ir.impl.types.signature.JvmType
-import org.opentaint.opentaint-ir.impl.types.signature.JvmTypeVariable
-import org.opentaint.opentaint-ir.impl.types.signature.JvmUnboundWildcard
+import org.opentaint.ir.api.JIRAccessible
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRRefType
+import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.JIRTypeVariableDeclaration
+import org.opentaint.ir.api.PredefinedPrimitives
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.ext.objectType
+import org.opentaint.ir.impl.types.signature.JvmArrayType
+import org.opentaint.ir.impl.types.signature.JvmBoundWildcard
+import org.opentaint.ir.impl.types.signature.JvmClassRefType
+import org.opentaint.ir.impl.types.signature.JvmParameterizedType
+import org.opentaint.ir.impl.types.signature.JvmPrimitiveType
+import org.opentaint.ir.impl.types.signature.JvmType
+import org.opentaint.ir.impl.types.signature.JvmTypeVariable
+import org.opentaint.ir.impl.types.signature.JvmUnboundWildcard
 
 internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = null): JIRType {
     return when (jvmType) {

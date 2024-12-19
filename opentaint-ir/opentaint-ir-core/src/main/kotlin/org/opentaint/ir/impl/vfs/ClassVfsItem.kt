@@ -1,6 +1,6 @@
-package org.opentaint.opentaint-ir.impl.vfs
+package org.opentaint.ir.impl.vfs
 
-import org.opentaint.opentaint-ir.api.ClassSource
+import org.opentaint.ir.api.ClassSource
 
 class ClassVfsItem(
     override val name: String,

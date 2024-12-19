@@ -1,21 +1,21 @@
 @file:JvmName("JIRHierarchies")
-package org.opentaint.opentaint-ir.impl.features
+package org.opentaint.ir.impl.features
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.*
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.ext.HierarchyExtension
-import org.opentaint.opentaint-ir.api.ext.findMethodOrNull
-import org.opentaint.opentaint-ir.api.ext.isClassInitializer
-import org.opentaint.opentaint-ir.api.ext.isConstructor
-import org.opentaint.opentaint-ir.api.ext.isFinal
-import org.opentaint.opentaint-ir.api.ext.isPrivate
-import org.opentaint.opentaint-ir.api.ext.isStatic
-import org.opentaint.opentaint-ir.impl.fs.PersistenceClassSource
-import org.opentaint.opentaint-ir.impl.storage.BatchedSequence
-import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.CLASSES
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.ext.HierarchyExtension
+import org.opentaint.ir.api.ext.findDeclaredMethodOrNull
+import org.opentaint.ir.api.ext.isClassInitializer
+import org.opentaint.ir.api.ext.isConstructor
+import org.opentaint.ir.api.ext.isFinal
+import org.opentaint.ir.api.ext.isPrivate
+import org.opentaint.ir.api.ext.isStatic
+import org.opentaint.ir.impl.fs.PersistenceClassSource
+import org.opentaint.ir.impl.storage.BatchedSequence
+import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import java.util.concurrent.Future
 
 @Suppress("SqlResolve")
@@ -74,7 +74,7 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
         val desc = jIRMethod.description
         val name = jIRMethod.name
         return findSubClasses(jIRMethod.enclosingClass, allHierarchy = true, true)
-            .mapNotNull { it.findMethodOrNull(name, desc) }
+            .mapNotNull { it.findDeclaredMethodOrNull(name, desc) }
             .filter { !it.isPrivate }
     }
 

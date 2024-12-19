@@ -1,6 +1,6 @@
-package org.opentaint.opentaint-ir.impl.types.signature
+package org.opentaint.ir.impl.types.signature
 
-import org.opentaint.opentaint-ir.api.PredefinedPrimitives
+import org.opentaint.ir.api.PredefinedPrimitives
 
 /**
  * @property isNullable denotes the nullability of the type in terms of Kotlin type system.

@@ -1,12 +1,12 @@
 package org.opentaint.ir.testing
 
+import org.opentaint.ir.impl.fs.JarFacade
+import org.opentaint.ir.impl.fs.parseRuntimeVersion
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledOnJre
 import org.junit.jupiter.api.condition.JRE
 import org.junit.platform.commons.util.ModuleUtils
-import org.opentaint.opentaint-ir.impl.fs.JarFacade
-import org.opentaint.opentaint-ir.impl.fs.parseRuntimeVersion
 import java.nio.file.Paths
 import java.util.jar.JarFile
 

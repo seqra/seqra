@@ -1,4 +1,4 @@
-package org.opentaint.opentaint-ir.impl.fs
+package org.opentaint.ir.impl.fs
 
 import java.util.jar.Attributes
 import java.util.jar.JarEntry

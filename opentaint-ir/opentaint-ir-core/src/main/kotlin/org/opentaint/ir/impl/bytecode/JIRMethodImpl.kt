@@ -1,19 +1,23 @@
-package org.opentaint.opentaint-ir.impl.bytecode
+package org.opentaint.ir.impl.bytecode
 
+import org.opentaint.ir.api.ClassSource
+import org.opentaint.ir.api.JIRAnnotation
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRParameter
+import org.opentaint.ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRInstList
+import org.opentaint.ir.api.cfg.JIRRawInst
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.impl.cfg.JIRGraphBuilder
+import org.opentaint.ir.impl.cfg.RawInstListBuilder
+import org.opentaint.ir.impl.fs.fullAsmNode
+import org.opentaint.ir.impl.types.MethodInfo
+import org.opentaint.ir.impl.types.TypeNameImpl
+import org.opentaint.ir.impl.types.signature.MethodResolutionImpl
+import org.opentaint.ir.impl.types.signature.MethodSignature
 import org.objectweb.asm.tree.MethodNode
-import org.opentaint.opentaint-ir.api.*
-import org.opentaint.opentaint-ir.api.cfg.JIRGraph
-import org.opentaint.opentaint-ir.api.cfg.JIRInst
-import org.opentaint.opentaint-ir.api.cfg.JIRInstList
-import org.opentaint.opentaint-ir.api.cfg.JIRRawInst
-import org.opentaint.opentaint-ir.api.ext.findClass
-import org.opentaint.opentaint-ir.impl.cfg.JIRGraphBuilder
-import org.opentaint.opentaint-ir.impl.cfg.RawInstListBuilder
-import org.opentaint.opentaint-ir.impl.fs.fullAsmNode
-import org.opentaint.opentaint-ir.impl.types.MethodInfo
-import org.opentaint.opentaint-ir.impl.types.TypeNameImpl
-import org.opentaint.opentaint-ir.impl.types.signature.MethodResolutionImpl
-import org.opentaint.opentaint-ir.impl.types.signature.MethodSignature
 
 class JIRMethodImpl(
     private val methodInfo: MethodInfo,

@@ -1,11 +1,11 @@
 package org.opentaint.ir.testing.types.nullability
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.testing.KotlinNullabilityExamples
 import org.opentaint.ir.testing.types.BaseTypesTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.opentaint.opentaint-ir.api.JIRClassType
 
 class KotlinNullabilityTest : BaseTypesTest() {
     @Test

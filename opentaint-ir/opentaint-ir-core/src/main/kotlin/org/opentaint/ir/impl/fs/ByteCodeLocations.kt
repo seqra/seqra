@@ -1,8 +1,8 @@
-package org.opentaint.opentaint-ir.impl.fs
+package org.opentaint.ir.impl.fs
 
 import mu.KLogging
-import org.opentaint.opentaint-ir.api.JavaVersion
-import org.opentaint.opentaint-ir.api.JIRByteCodeLocation
+import org.opentaint.ir.api.JavaVersion
+import org.opentaint.ir.api.JIRByteCodeLocation
 import java.io.File
 
 val logger = object : KLogging() {}.logger

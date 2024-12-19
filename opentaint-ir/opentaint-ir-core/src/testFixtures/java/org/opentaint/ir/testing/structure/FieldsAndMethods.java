@@ -2,11 +2,14 @@ package org.opentaint.ir.testing.structure;
 
 import org.opentaint.ir.testing.Common;
 
-public class FieldsAndMethods extends Common.Common1 {
+public class FieldsAndMethods {
 
-    private int privateFieldsAndMethods;
+    public static class Common1Child extends Common.Common1 {
+        private int privateFieldsAndMethods;
 
-    private void privateFieldsAndMethods() {
+        private void privateFieldsAndMethods() {
+        }
+
     }
 
 }

@@ -1,11 +1,11 @@
-package org.opentaint.opentaint-ir.impl.analysis.features
+package org.opentaint.ir.impl.analysis.features
 
 import com.google.common.cache.CacheBuilder
 import com.google.common.cache.CacheLoader
 import com.google.common.cache.LoadingCache
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.analysis.JIRAnalysisFeature
-import org.opentaint.opentaint-ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.analysis.JIRAnalysisFeature
+import org.opentaint.ir.api.cfg.JIRGraph
 
 class JIRCacheGraphFeature(maxSize: Long) : JIRAnalysisFeature {
 

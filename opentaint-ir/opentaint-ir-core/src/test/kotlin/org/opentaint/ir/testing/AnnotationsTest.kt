@@ -1,11 +1,11 @@
 package org.opentaint.ir.testing
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.JIRAnnotated
+import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.testing.usages.NullAnnotationExamples
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.opentaint.opentaint-ir.api.JIRAnnotated
-import org.opentaint.opentaint-ir.api.ext.findClass
 
 class AnnotationsTest : BaseTest() {
 

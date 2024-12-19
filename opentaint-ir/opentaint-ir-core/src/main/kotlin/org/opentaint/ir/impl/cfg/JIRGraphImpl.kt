@@ -1,10 +1,16 @@
-package org.opentaint.opentaint-ir.impl.cfg
+package org.opentaint.ir.impl.cfg
 
-import org.opentaint.opentaint-ir.api.JIRClassType
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.cfg.*
-import org.opentaint.opentaint-ir.api.ext.isSubClassOf
+import org.opentaint.ir.api.JIRClassType
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.cfg.JIRBranchingInst
+import org.opentaint.ir.api.cfg.JIRCatchInst
+import org.opentaint.ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRInstRef
+import org.opentaint.ir.api.cfg.JIRInstVisitor
+import org.opentaint.ir.api.cfg.JIRTerminatingInst
+import org.opentaint.ir.api.ext.isSubClassOf
 
 class JIRGraphImpl(
     override val method: JIRMethod,

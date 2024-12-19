@@ -1,7 +1,7 @@
-package org.opentaint.opentaint-ir.impl.features
+package org.opentaint.ir.impl.features
 
 import kotlinx.serialization.Serializable
-import org.opentaint.opentaint-ir.api.ClassSource
+import org.opentaint.ir.api.ClassSource
 
 @Serializable
 data class UsageFeatureRequest(

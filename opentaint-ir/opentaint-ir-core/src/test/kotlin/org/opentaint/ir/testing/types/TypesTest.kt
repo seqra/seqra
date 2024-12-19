@@ -1,11 +1,11 @@
 package org.opentaint.ir.testing.types
 
+import org.opentaint.ir.api.JIRArrayType
+import org.opentaint.ir.api.JIRPrimitiveType
+import org.opentaint.ir.api.ext.isConstructor
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.opentaint.opentaint-ir.api.JIRArrayType
-import org.opentaint.opentaint-ir.api.JIRPrimitiveType
-import org.opentaint.opentaint-ir.api.ext.isConstructor
 
 class TypesTest : BaseTypesTest() {
 

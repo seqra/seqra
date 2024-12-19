@@ -1,6 +1,11 @@
 package org.opentaint.ir.testing.features
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.FieldUsageMode
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.impl.features.InMemoryHierarchy
+import org.opentaint.ir.impl.features.Usages
+import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.usages.fields.FieldA
@@ -9,11 +14,6 @@ import org.opentaint.ir.testing.usages.methods.MethodA
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.opentaint.opentaint-ir.api.FieldUsageMode
-import org.opentaint.opentaint-ir.api.ext.findClass
-import org.opentaint.opentaint-ir.impl.features.InMemoryHierarchy
-import org.opentaint.opentaint-ir.impl.features.Usages
-import org.opentaint.opentaint-ir.impl.features.usagesExt
 import kotlin.system.measureTimeMillis
 
 abstract class BaseSearchUsagesTest : BaseTest() {

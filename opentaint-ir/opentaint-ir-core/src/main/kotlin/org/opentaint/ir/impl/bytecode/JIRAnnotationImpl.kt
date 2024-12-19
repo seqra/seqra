@@ -1,14 +1,14 @@
-package org.opentaint.opentaint-ir.impl.bytecode
+package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.opentaint-ir.api.JIRAnnotation
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.ext.enumValues
-import org.opentaint.opentaint-ir.impl.types.AnnotationInfo
-import org.opentaint.opentaint-ir.impl.types.AnnotationValue
-import org.opentaint.opentaint-ir.impl.types.AnnotationValueList
-import org.opentaint.opentaint-ir.impl.types.ClassRef
-import org.opentaint.opentaint-ir.impl.types.EnumRef
-import org.opentaint.opentaint-ir.impl.types.PrimitiveValue
+import org.opentaint.ir.api.JIRAnnotation
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.ext.enumValues
+import org.opentaint.ir.impl.types.AnnotationInfo
+import org.opentaint.ir.impl.types.AnnotationValue
+import org.opentaint.ir.impl.types.AnnotationValueList
+import org.opentaint.ir.impl.types.ClassRef
+import org.opentaint.ir.impl.types.EnumRef
+import org.opentaint.ir.impl.types.PrimitiveValue
 
 class JIRAnnotationImpl(
     private val info: AnnotationInfo,

@@ -1,13 +1,13 @@
-package org.opentaint.opentaint-ir.impl.storage
+package org.opentaint.ir.impl.storage
 
+import org.opentaint.ir.impl.FeaturesRegistry
+import org.opentaint.ir.impl.fs.JavaRuntime
 import org.jooq.DSLContext
 import org.jooq.SQLDialect
 import org.jooq.conf.Settings
 import org.jooq.impl.DSL
 import org.sqlite.SQLiteConfig
 import org.sqlite.SQLiteDataSource
-import org.opentaint.opentaint-ir.impl.FeaturesRegistry
-import org.opentaint.opentaint-ir.impl.fs.JavaRuntime
 import java.sql.Connection
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock

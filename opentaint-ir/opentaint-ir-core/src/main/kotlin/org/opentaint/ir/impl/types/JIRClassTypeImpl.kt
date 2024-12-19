@@ -1,24 +1,24 @@
-package org.opentaint.opentaint-ir.impl.types
+package org.opentaint.ir.impl.types
 
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRClassType
-import org.opentaint.opentaint-ir.api.JIRRefType
-import org.opentaint.opentaint-ir.api.JIRTypedField
-import org.opentaint.opentaint-ir.api.JIRTypedMethod
-import org.opentaint.opentaint-ir.api.ext.isConstructor
-import org.opentaint.opentaint-ir.api.ext.isPackagePrivate
-import org.opentaint.opentaint-ir.api.ext.isProtected
-import org.opentaint.opentaint-ir.api.ext.isPublic
-import org.opentaint.opentaint-ir.api.ext.isStatic
-import org.opentaint.opentaint-ir.api.ext.packageName
-import org.opentaint.opentaint-ir.api.ext.toType
-import org.opentaint.opentaint-ir.impl.types.signature.JvmClassRefType
-import org.opentaint.opentaint-ir.impl.types.signature.JvmParameterizedType
-import org.opentaint.opentaint-ir.impl.types.signature.JvmType
-import org.opentaint.opentaint-ir.impl.types.signature.TypeResolutionImpl
-import org.opentaint.opentaint-ir.impl.types.signature.TypeSignature
-import org.opentaint.opentaint-ir.impl.types.substition.JIRSubstitutor
-import org.opentaint.opentaint-ir.impl.types.substition.substitute
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClassType
+import org.opentaint.ir.api.JIRRefType
+import org.opentaint.ir.api.JIRTypedField
+import org.opentaint.ir.api.JIRTypedMethod
+import org.opentaint.ir.api.ext.isConstructor
+import org.opentaint.ir.api.ext.isPackagePrivate
+import org.opentaint.ir.api.ext.isProtected
+import org.opentaint.ir.api.ext.isPublic
+import org.opentaint.ir.api.ext.isStatic
+import org.opentaint.ir.api.ext.packageName
+import org.opentaint.ir.api.ext.toType
+import org.opentaint.ir.impl.types.signature.JvmClassRefType
+import org.opentaint.ir.impl.types.signature.JvmParameterizedType
+import org.opentaint.ir.impl.types.signature.JvmType
+import org.opentaint.ir.impl.types.signature.TypeResolutionImpl
+import org.opentaint.ir.impl.types.signature.TypeSignature
+import org.opentaint.ir.impl.types.substition.JIRSubstitutor
+import org.opentaint.ir.impl.types.substition.substitute
 
 open class JIRClassTypeImpl(
     override val jIRClass: JIRClassOrInterface,
@@ -38,6 +38,9 @@ open class JIRClassTypeImpl(
     private val declaredTypeParameters by lazy(LazyThreadSafetyMode.NONE) { jIRClass.typeParameters }
 
     override val classpath get() = jIRClass.classpath
+
+    override val access: Int
+        get() = jIRClass.access
 
     override val typeName: String by lazy {
         val generics = if (substitutor.substitutions.isEmpty()) {

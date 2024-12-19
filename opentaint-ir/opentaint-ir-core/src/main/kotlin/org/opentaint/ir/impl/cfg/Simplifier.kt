@@ -1,12 +1,21 @@
-package org.opentaint.opentaint-ir.impl.cfg
+package org.opentaint.ir.impl.cfg
 
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRType
-import org.opentaint.opentaint-ir.api.cfg.*
-import org.opentaint.opentaint-ir.api.ext.cfg.applyAndGet
-import org.opentaint.opentaint-ir.impl.cfg.util.ExprMapper
-import org.opentaint.opentaint-ir.impl.cfg.util.FullExprSetCollector
-import org.opentaint.opentaint-ir.impl.cfg.util.InstructionFilter
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.cfg.JIRRawAssignInst
+import org.opentaint.ir.api.cfg.JIRRawCatchInst
+import org.opentaint.ir.api.cfg.JIRRawComplexValue
+import org.opentaint.ir.api.cfg.JIRRawConstant
+import org.opentaint.ir.api.cfg.JIRRawInst
+import org.opentaint.ir.api.cfg.JIRRawLabelInst
+import org.opentaint.ir.api.cfg.JIRRawLocalVar
+import org.opentaint.ir.api.cfg.JIRRawNullConstant
+import org.opentaint.ir.api.cfg.JIRRawSimpleValue
+import org.opentaint.ir.api.cfg.JIRRawValue
+import org.opentaint.ir.api.ext.cfg.applyAndGet
+import org.opentaint.ir.impl.cfg.util.ExprMapper
+import org.opentaint.ir.impl.cfg.util.FullExprSetCollector
+import org.opentaint.ir.impl.cfg.util.InstructionFilter
 
 /**
  * a class that simplifies the instruction list after construction

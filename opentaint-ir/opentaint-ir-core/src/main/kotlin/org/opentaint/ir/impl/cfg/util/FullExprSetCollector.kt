@@ -1,6 +1,55 @@
-package org.opentaint.opentaint-ir.impl.cfg.util
+package org.opentaint.ir.impl.cfg.util
 
-import org.opentaint.opentaint-ir.api.cfg.*
+import org.opentaint.ir.api.cfg.JIRRawAddExpr
+import org.opentaint.ir.api.cfg.JIRRawAndExpr
+import org.opentaint.ir.api.cfg.JIRRawArgument
+import org.opentaint.ir.api.cfg.JIRRawArrayAccess
+import org.opentaint.ir.api.cfg.JIRRawBool
+import org.opentaint.ir.api.cfg.JIRRawByte
+import org.opentaint.ir.api.cfg.JIRRawCastExpr
+import org.opentaint.ir.api.cfg.JIRRawChar
+import org.opentaint.ir.api.cfg.JIRRawClassConstant
+import org.opentaint.ir.api.cfg.JIRRawCmpExpr
+import org.opentaint.ir.api.cfg.JIRRawCmpgExpr
+import org.opentaint.ir.api.cfg.JIRRawCmplExpr
+import org.opentaint.ir.api.cfg.JIRRawDivExpr
+import org.opentaint.ir.api.cfg.JIRRawDouble
+import org.opentaint.ir.api.cfg.JIRRawDynamicCallExpr
+import org.opentaint.ir.api.cfg.JIRRawEqExpr
+import org.opentaint.ir.api.cfg.JIRRawExpr
+import org.opentaint.ir.api.cfg.JIRRawExprVisitor
+import org.opentaint.ir.api.cfg.JIRRawFieldRef
+import org.opentaint.ir.api.cfg.JIRRawFloat
+import org.opentaint.ir.api.cfg.JIRRawGeExpr
+import org.opentaint.ir.api.cfg.JIRRawGtExpr
+import org.opentaint.ir.api.cfg.JIRRawInstanceOfExpr
+import org.opentaint.ir.api.cfg.JIRRawInt
+import org.opentaint.ir.api.cfg.JIRRawInterfaceCallExpr
+import org.opentaint.ir.api.cfg.JIRRawLeExpr
+import org.opentaint.ir.api.cfg.JIRRawLengthExpr
+import org.opentaint.ir.api.cfg.JIRRawLocalVar
+import org.opentaint.ir.api.cfg.JIRRawLong
+import org.opentaint.ir.api.cfg.JIRRawLtExpr
+import org.opentaint.ir.api.cfg.JIRRawMethodConstant
+import org.opentaint.ir.api.cfg.JIRRawMulExpr
+import org.opentaint.ir.api.cfg.JIRRawNegExpr
+import org.opentaint.ir.api.cfg.JIRRawNeqExpr
+import org.opentaint.ir.api.cfg.JIRRawNewArrayExpr
+import org.opentaint.ir.api.cfg.JIRRawNewExpr
+import org.opentaint.ir.api.cfg.JIRRawNullConstant
+import org.opentaint.ir.api.cfg.JIRRawOrExpr
+import org.opentaint.ir.api.cfg.JIRRawRemExpr
+import org.opentaint.ir.api.cfg.JIRRawShlExpr
+import org.opentaint.ir.api.cfg.JIRRawShort
+import org.opentaint.ir.api.cfg.JIRRawShrExpr
+import org.opentaint.ir.api.cfg.JIRRawSpecialCallExpr
+import org.opentaint.ir.api.cfg.JIRRawStaticCallExpr
+import org.opentaint.ir.api.cfg.JIRRawStringConstant
+import org.opentaint.ir.api.cfg.JIRRawSubExpr
+import org.opentaint.ir.api.cfg.JIRRawThis
+import org.opentaint.ir.api.cfg.JIRRawUshrExpr
+import org.opentaint.ir.api.cfg.JIRRawVirtualCallExpr
+import org.opentaint.ir.api.cfg.JIRRawXorExpr
 
 class FullExprSetCollector : JIRRawExprVisitor<Unit> {
     val exprs = mutableSetOf<JIRRawExpr>()

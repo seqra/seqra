@@ -1,12 +1,17 @@
 package org.opentaint.ir.testing.types
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.testing.types.WildcardBounds.*
+import org.opentaint.ir.api.JIRBoundedWildcard
+import org.opentaint.ir.api.JIRClassType
+import org.opentaint.ir.api.JIRTypeVariable
+import org.opentaint.ir.testing.types.WildcardBounds.DirectBound
+import org.opentaint.ir.testing.types.WildcardBounds.DirectBoundString
+import org.opentaint.ir.testing.types.WildcardBounds.WildcardLowerBound
+import org.opentaint.ir.testing.types.WildcardBounds.WildcardLowerBoundString
+import org.opentaint.ir.testing.types.WildcardBounds.WildcardUpperBound
+import org.opentaint.ir.testing.types.WildcardBounds.WildcardUpperBoundString
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.opentaint.opentaint-ir.api.JIRBoundedWildcard
-import org.opentaint.opentaint-ir.api.JIRClassType
-import org.opentaint.opentaint-ir.api.JIRTypeVariable
 
 class WildcardTypesTest : BaseTypesTest() {
 

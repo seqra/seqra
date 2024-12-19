@@ -1,6 +1,6 @@
-package org.opentaint.opentaint-ir.impl.vfs
+package org.opentaint.ir.impl.vfs
 
-import org.opentaint.opentaint-ir.api.RegisteredLocation
+import org.opentaint.ir.api.RegisteredLocation
 
 abstract class AbstractVfsItem<T : AbstractVfsItem<T>>(open val name: String?, val parent: T?) {
 

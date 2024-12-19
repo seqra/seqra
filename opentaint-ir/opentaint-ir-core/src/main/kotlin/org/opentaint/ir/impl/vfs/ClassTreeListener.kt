@@ -1,4 +1,4 @@
-package org.opentaint.opentaint-ir.impl.vfs
+package org.opentaint.ir.impl.vfs
 
 interface ClassTreeListener {
 

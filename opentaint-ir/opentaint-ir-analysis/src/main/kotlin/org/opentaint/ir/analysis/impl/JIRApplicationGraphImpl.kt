@@ -1,14 +1,14 @@
 package org.opentaint.ir.analysis.impl
 
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.analysis.ApplicationGraph
-import org.opentaint.opentaint-ir.api.cfg.JIRGraph
-import org.opentaint.opentaint-ir.api.cfg.JIRInst
-import org.opentaint.opentaint-ir.api.ext.cfg.callExpr
-import org.opentaint.opentaint-ir.impl.analysis.JIRAnalysisPlatformImpl
-import org.opentaint.opentaint-ir.impl.analysis.features.JIRCacheGraphFeature
-import org.opentaint.opentaint-ir.impl.features.SyncUsagesExtension
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.analysis.ApplicationGraph
+import org.opentaint.ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.impl.analysis.JIRAnalysisPlatformImpl
+import org.opentaint.ir.impl.analysis.features.JIRCacheGraphFeature
+import org.opentaint.ir.impl.features.SyncUsagesExtension
 
 /**
  * Possible we will need JIRRawInst instead of JIRInst

@@ -1,15 +1,15 @@
 package org.opentaint.ir.testing.cfg
 
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.impl.cfg.util.JIRLoop
+import org.opentaint.ir.impl.cfg.util.loops
+import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.ext.findClass
-import org.opentaint.opentaint-ir.impl.cfg.util.JIRLoop
-import org.opentaint.opentaint-ir.impl.cfg.util.loops
-import org.opentaint.opentaint-ir.impl.features.InMemoryHierarchy
 
 class LoopsTest : BaseTest() {
 

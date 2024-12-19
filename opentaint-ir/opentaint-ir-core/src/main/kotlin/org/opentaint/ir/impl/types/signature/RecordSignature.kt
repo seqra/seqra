@@ -1,9 +1,9 @@
-package org.opentaint.opentaint-ir.impl.types.signature
+package org.opentaint.ir.impl.types.signature
 
+import org.opentaint.ir.api.Malformed
+import org.opentaint.ir.api.Pure
+import org.opentaint.ir.api.RecordComponentResolution
 import org.objectweb.asm.signature.SignatureReader
-import org.opentaint.opentaint-ir.api.Malformed
-import org.opentaint.opentaint-ir.api.Pure
-import org.opentaint.opentaint-ir.api.RecordComponentResolution
 
 internal class RecordSignature : TypeRegistrant {
 

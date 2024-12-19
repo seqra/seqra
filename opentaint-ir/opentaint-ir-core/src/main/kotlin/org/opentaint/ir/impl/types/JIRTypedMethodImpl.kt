@@ -1,24 +1,24 @@
-package org.opentaint.opentaint-ir.impl.types
+package org.opentaint.ir.impl.types
 
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRRefType
+import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.JIRTypeVariableDeclaration
+import org.opentaint.ir.api.JIRTypedMethod
+import org.opentaint.ir.api.JIRTypedMethodParameter
+import org.opentaint.ir.api.MethodResolution
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.ext.isNullable
+import org.opentaint.ir.api.ext.isStatic
+import org.opentaint.ir.api.throwClassNotFound
+import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
+import org.opentaint.ir.impl.types.signature.FieldSignature
+import org.opentaint.ir.impl.types.signature.MethodResolutionImpl
+import org.opentaint.ir.impl.types.signature.MethodSignature
+import org.opentaint.ir.impl.types.substition.JIRSubstitutor
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.LocalVariableNode
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.JIRRefType
-import org.opentaint.opentaint-ir.api.JIRType
-import org.opentaint.opentaint-ir.api.JIRTypeVariableDeclaration
-import org.opentaint.opentaint-ir.api.JIRTypedMethod
-import org.opentaint.opentaint-ir.api.JIRTypedMethodParameter
-import org.opentaint.opentaint-ir.api.MethodResolution
-import org.opentaint.opentaint-ir.api.ext.findClass
-import org.opentaint.opentaint-ir.api.ext.isNullable
-import org.opentaint.opentaint-ir.api.ext.isStatic
-import org.opentaint.opentaint-ir.api.throwClassNotFound
-import org.opentaint.opentaint-ir.impl.types.signature.FieldResolutionImpl
-import org.opentaint.opentaint-ir.impl.types.signature.FieldSignature
-import org.opentaint.opentaint-ir.impl.types.signature.MethodResolutionImpl
-import org.opentaint.opentaint-ir.impl.types.signature.MethodSignature
-import org.opentaint.opentaint-ir.impl.types.substition.JIRSubstitutor
 
 class JIRTypedMethodImpl(
     override val enclosingType: JIRRefType,
@@ -34,6 +34,9 @@ class JIRTypedMethodImpl(
     }
 
     private val classpath = method.enclosingClass.classpath
+
+    override val access: Int
+        get() = this.method.access
 
     private val info by lazy(LazyThreadSafetyMode.NONE) {
         val signature = MethodSignature.withDeclarations(method)

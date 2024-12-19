@@ -1,21 +1,21 @@
-package org.opentaint.opentaint-ir.impl.storage
+package org.opentaint.ir.impl.storage
 
+import org.opentaint.ir.api.ClassSource
+import org.opentaint.ir.api.JIRByteCodeLocation
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRDatabasePersistence
+import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.impl.FeaturesRegistry
+import org.opentaint.ir.impl.JIRInternalSignal
+import org.opentaint.ir.impl.fs.ClassSourceImpl
+import org.opentaint.ir.impl.fs.JavaRuntime
+import org.opentaint.ir.impl.fs.asByteCodeLocation
+import org.opentaint.ir.impl.fs.info
+import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
+import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
+import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
+import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
 import org.jooq.DSLContext
-import org.opentaint.opentaint-ir.api.ClassSource
-import org.opentaint.opentaint-ir.api.JIRByteCodeLocation
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRDatabasePersistence
-import org.opentaint.opentaint-ir.api.RegisteredLocation
-import org.opentaint.opentaint-ir.impl.FeaturesRegistry
-import org.opentaint.opentaint-ir.impl.JIRInternalSignal
-import org.opentaint.opentaint-ir.impl.fs.ClassSourceImpl
-import org.opentaint.opentaint-ir.impl.fs.JavaRuntime
-import org.opentaint.opentaint-ir.impl.fs.asByteCodeLocation
-import org.opentaint.opentaint-ir.impl.fs.info
-import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
-import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.CLASSES
-import org.opentaint.opentaint-ir.impl.storage.jooq.tables.references.SYMBOLS
-import org.opentaint.opentaint-ir.impl.vfs.PersistentByteCodeLocation
 import java.io.Closeable
 import java.io.File
 

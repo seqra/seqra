@@ -1,9 +1,9 @@
-package org.opentaint.opentaint-ir.impl.types
+package org.opentaint.ir.impl.types
 
-import org.opentaint.opentaint-ir.api.JIRArrayType
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRRefType
-import org.opentaint.opentaint-ir.api.JIRType
+import org.opentaint.ir.api.JIRArrayType
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRRefType
+import org.opentaint.ir.api.JIRType
 
 class JIRArrayTypeImpl(
     override val elementType: JIRType,

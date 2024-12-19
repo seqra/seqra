@@ -1,17 +1,17 @@
-package org.opentaint.opentaint-ir.impl.types
+package org.opentaint.ir.impl.types
 
 import kotlinx.collections.immutable.toPersistentMap
-import org.opentaint.opentaint-ir.api.JIRAccessible
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.JIRRefType
-import org.opentaint.opentaint-ir.api.JIRTypeVariableDeclaration
-import org.opentaint.opentaint-ir.api.ext.isStatic
-import org.opentaint.opentaint-ir.impl.types.signature.JvmTypeParameterDeclaration
-import org.opentaint.opentaint-ir.impl.types.signature.MethodResolutionImpl
-import org.opentaint.opentaint-ir.impl.types.signature.MethodSignature
-import org.opentaint.opentaint-ir.impl.types.signature.TypeResolutionImpl
-import org.opentaint.opentaint-ir.impl.types.signature.TypeSignature
+import org.opentaint.ir.api.JIRAccessible
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRRefType
+import org.opentaint.ir.api.JIRTypeVariableDeclaration
+import org.opentaint.ir.api.ext.isStatic
+import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclaration
+import org.opentaint.ir.impl.types.signature.MethodResolutionImpl
+import org.opentaint.ir.impl.types.signature.MethodSignature
+import org.opentaint.ir.impl.types.signature.TypeResolutionImpl
+import org.opentaint.ir.impl.types.signature.TypeSignature
 
 val JIRClassOrInterface.typeParameters: List<JvmTypeParameterDeclaration>
     get() {

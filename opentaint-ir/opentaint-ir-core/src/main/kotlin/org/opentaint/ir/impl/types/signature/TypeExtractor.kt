@@ -1,10 +1,10 @@
-package org.opentaint.opentaint-ir.impl.types.signature
+package org.opentaint.ir.impl.types.signature
 
+import org.opentaint.ir.impl.types.signature.JvmPrimitiveType.Companion.of
+import org.opentaint.ir.impl.types.signature.TypeExtractor.IncompleteToken.InnerClass
+import org.opentaint.ir.impl.types.signature.TypeExtractor.IncompleteToken.TopLevelType
+import org.opentaint.ir.impl.types.signature.TypeRegistrant.RejectingSignatureVisitor
 import org.objectweb.asm.signature.SignatureVisitor
-import org.opentaint.opentaint-ir.impl.types.signature.JvmPrimitiveType.Companion.of
-import org.opentaint.opentaint-ir.impl.types.signature.TypeExtractor.IncompleteToken.InnerClass
-import org.opentaint.opentaint-ir.impl.types.signature.TypeExtractor.IncompleteToken.TopLevelType
-import org.opentaint.opentaint-ir.impl.types.signature.TypeRegistrant.RejectingSignatureVisitor
 
 internal class TypeExtractor(private val typeRegistrant: TypeRegistrant) :
     RejectingSignatureVisitor(),

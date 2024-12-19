@@ -1,15 +1,29 @@
-package org.opentaint.opentaint-ir.impl
+package org.opentaint.ir.impl
 
 import com.google.common.cache.CacheBuilder
-import kotlinx.coroutines.*
-import org.opentaint.opentaint-ir.api.*
-import org.opentaint.opentaint-ir.api.ext.toType
-import org.opentaint.opentaint-ir.impl.bytecode.JIRClassOrInterfaceImpl
-import org.opentaint.opentaint-ir.impl.types.JIRArrayTypeImpl
-import org.opentaint.opentaint-ir.impl.types.JIRClassTypeImpl
-import org.opentaint.opentaint-ir.impl.types.substition.JIRSubstitutor
-import org.opentaint.opentaint-ir.impl.vfs.ClasspathVfs
-import org.opentaint.opentaint-ir.impl.vfs.GlobalClassesVfs
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.withContext
+import org.opentaint.ir.api.ClassSource
+import org.opentaint.ir.api.JIRArrayType
+import org.opentaint.ir.api.JIRByteCodeLocation
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRClasspathTask
+import org.opentaint.ir.api.JIRRefType
+import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.PredefinedPrimitives
+import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.api.ext.toType
+import org.opentaint.ir.api.throwClassNotFound
+import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
+import org.opentaint.ir.impl.types.JIRArrayTypeImpl
+import org.opentaint.ir.impl.types.JIRClassTypeImpl
+import org.opentaint.ir.impl.types.substition.JIRSubstitutor
+import org.opentaint.ir.impl.vfs.ClasspathVfs
+import org.opentaint.ir.impl.vfs.GlobalClassesVfs
 import java.time.Duration
 
 class JIRClasspathImpl(
@@ -23,12 +37,12 @@ class JIRClasspathImpl(
 
     private val classCache = CacheBuilder.newBuilder()
         .expireAfterAccess(Duration.ofSeconds(10))
-        .maximumSize(1_000)
+        .maximumSize(10_000)
         .build<String, ClassHolder>()
 
     private val typeCache = CacheBuilder.newBuilder()
         .expireAfterAccess(Duration.ofSeconds(10))
-        .maximumSize(1_000)
+        .maximumSize(10_000)
         .build<String, TypeHolder>()
 
     override val locations: List<JIRByteCodeLocation> = locationsRegistrySnapshot.locations.mapNotNull { it.jIRLocation }

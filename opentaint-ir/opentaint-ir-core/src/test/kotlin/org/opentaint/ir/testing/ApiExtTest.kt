@@ -1,13 +1,13 @@
 package org.opentaint.ir.testing
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.ext.*
 import org.opentaint.ir.testing.hierarchies.Creature
 import org.opentaint.ir.testing.hierarchies.Creature.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
-import org.opentaint.opentaint-ir.api.JIRClassOrInterface
-import org.opentaint.opentaint-ir.api.JIRType
-import org.opentaint.opentaint-ir.api.ext.*
 
 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
 class ApiExtTest : BaseTest() {

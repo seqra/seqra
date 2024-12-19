@@ -1,6 +1,22 @@
-package org.opentaint.opentaint-ir.impl.fs
+package org.opentaint.ir.impl.fs
 
 import kotlinx.collections.immutable.toImmutableList
+import org.opentaint.ir.api.ClassSource
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.impl.bytecode.computeFrames
+import org.opentaint.ir.impl.bytecode.hasFrameInfo
+import org.opentaint.ir.impl.storage.AnnotationValueKind
+import org.opentaint.ir.impl.types.AnnotationInfo
+import org.opentaint.ir.impl.types.AnnotationValue
+import org.opentaint.ir.impl.types.AnnotationValueList
+import org.opentaint.ir.impl.types.ClassInfo
+import org.opentaint.ir.impl.types.ClassRef
+import org.opentaint.ir.impl.types.EnumRef
+import org.opentaint.ir.impl.types.FieldInfo
+import org.opentaint.ir.impl.types.MethodInfo
+import org.opentaint.ir.impl.types.OuterClassRef
+import org.opentaint.ir.impl.types.ParameterInfo
+import org.opentaint.ir.impl.types.PrimitiveValue
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
@@ -8,22 +24,6 @@ import org.objectweb.asm.tree.AnnotationNode
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldNode
 import org.objectweb.asm.tree.MethodNode
-import org.opentaint.opentaint-ir.api.ClassSource
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.impl.bytecode.computeFrames
-import org.opentaint.opentaint-ir.impl.bytecode.hasFrameInfo
-import org.opentaint.opentaint-ir.impl.storage.AnnotationValueKind
-import org.opentaint.opentaint-ir.impl.types.AnnotationInfo
-import org.opentaint.opentaint-ir.impl.types.AnnotationValue
-import org.opentaint.opentaint-ir.impl.types.AnnotationValueList
-import org.opentaint.opentaint-ir.impl.types.ClassInfo
-import org.opentaint.opentaint-ir.impl.types.ClassRef
-import org.opentaint.opentaint-ir.impl.types.EnumRef
-import org.opentaint.opentaint-ir.impl.types.FieldInfo
-import org.opentaint.opentaint-ir.impl.types.MethodInfo
-import org.opentaint.opentaint-ir.impl.types.OuterClassRef
-import org.opentaint.opentaint-ir.impl.types.ParameterInfo
-import org.opentaint.opentaint-ir.impl.types.PrimitiveValue
 
 fun ClassNode.asClassInfo(bytecode: ByteArray) = ClassInfo(
     name = Type.getObjectType(name).className,

@@ -1,20 +1,20 @@
 @file:JvmName("InterProceduralPlatforms")
-package org.opentaint.opentaint-ir.impl.analysis
+package org.opentaint.ir.impl.analysis
 
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
-import org.opentaint.opentaint-ir.api.JIRClasspath
-import org.opentaint.opentaint-ir.api.JIRMethod
-import org.opentaint.opentaint-ir.api.analysis.JIRAnalysisFeature
-import org.opentaint.opentaint-ir.api.analysis.JIRInstIdentity
-import org.opentaint.opentaint-ir.api.analysis.JIRInterProceduralPlatform
-import org.opentaint.opentaint-ir.api.cfg.JIRGraph
-import org.opentaint.opentaint-ir.api.cfg.JIRInst
-import org.opentaint.opentaint-ir.api.ext.cfg.callExpr
-import org.opentaint.opentaint-ir.impl.analysis.features.JIRCacheGraphFeature
-import org.opentaint.opentaint-ir.impl.features.SyncUsagesExtension
-import org.opentaint.opentaint-ir.impl.features.usagesExt
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.analysis.JIRAnalysisFeature
+import org.opentaint.ir.api.analysis.JIRInstIdentity
+import org.opentaint.ir.api.analysis.JIRInterProceduralPlatform
+import org.opentaint.ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.impl.analysis.features.JIRCacheGraphFeature
+import org.opentaint.ir.impl.features.SyncUsagesExtension
+import org.opentaint.ir.impl.features.usagesExt
 import java.util.concurrent.Future
 
 open class InterProceduralPlatform(
