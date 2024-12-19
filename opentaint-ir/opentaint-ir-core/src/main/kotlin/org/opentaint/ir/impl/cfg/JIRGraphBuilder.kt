@@ -141,7 +141,6 @@ import org.opentaint.opentaint-ir.api.cfg.JIRUshrExpr
 import org.opentaint.opentaint-ir.api.cfg.JIRValue
 import org.opentaint.opentaint-ir.api.cfg.JIRVirtualCallExpr
 import org.opentaint.opentaint-ir.api.cfg.JIRXorExpr
-import org.opentaint.opentaint-ir.api.ext.anyType
 import org.opentaint.opentaint-ir.api.ext.boolean
 import org.opentaint.opentaint-ir.api.ext.byte
 import org.opentaint.opentaint-ir.api.ext.char
@@ -150,6 +149,7 @@ import org.opentaint.opentaint-ir.api.ext.findTypeOrNull
 import org.opentaint.opentaint-ir.api.ext.float
 import org.opentaint.opentaint-ir.api.ext.int
 import org.opentaint.opentaint-ir.api.ext.long
+import org.opentaint.opentaint-ir.api.ext.objectType
 import org.opentaint.opentaint-ir.api.ext.short
 import org.opentaint.opentaint-ir.api.ext.toType
 
@@ -431,7 +431,7 @@ class JIRGraphBuilder(
 
     override fun visitJIRRawVirtualCallExpr(expr: JIRRawVirtualCallExpr): JIRExpr {
         val instance = expr.instance.accept(this) as JIRValue
-        val klass = instance.type as? JIRClassType ?: classpath.anyType()
+        val klass = instance.type as? JIRClassType ?: classpath.objectType
         val method = klass.getMethod(expr.methodName, expr.argumentTypes, expr.returnType)
         val args = expr.args.map { it.accept(this) as JIRValue }
         return JIRVirtualCallExpr(
@@ -441,7 +441,7 @@ class JIRGraphBuilder(
 
     override fun visitJIRRawInterfaceCallExpr(expr: JIRRawInterfaceCallExpr): JIRExpr {
         val instance = expr.instance.accept(this) as JIRValue
-        val klass = instance.type as? JIRClassType ?: classpath.anyType()
+        val klass = instance.type as? JIRClassType ?: classpath.objectType
         val method = klass.getMethod(expr.methodName, expr.argumentTypes, expr.returnType)
         val args = expr.args.map { it.accept(this) as JIRValue }
         return JIRVirtualCallExpr(
@@ -506,7 +506,7 @@ class JIRGraphBuilder(
     override fun visitJIRRawDouble(value: JIRRawDouble): JIRExpr = JIRDouble(value.value, classpath.double)
 
     override fun visitJIRRawNullConstant(value: JIRRawNullConstant): JIRExpr =
-        JIRNullConstant(classpath.anyType())
+        JIRNullConstant(classpath.objectType)
 
     override fun visitJIRRawStringConstant(value: JIRRawStringConstant): JIRExpr =
         JIRStringConstant(value.value, value.typeName.asType)

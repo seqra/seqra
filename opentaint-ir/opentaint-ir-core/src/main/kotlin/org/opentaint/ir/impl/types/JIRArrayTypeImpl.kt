@@ -12,6 +12,12 @@ class JIRArrayTypeImpl(
 
     override val typeName = elementType.typeName + "[]"
 
+    override val dimensions: Int
+        get() = 1 + when (elementType) {
+            is JIRArrayType -> elementType.dimensions
+            else -> 0
+        }
+
     override fun copyWithNullability(nullability: Boolean?): JIRRefType {
         return JIRArrayTypeImpl(elementType, nullability)
     }

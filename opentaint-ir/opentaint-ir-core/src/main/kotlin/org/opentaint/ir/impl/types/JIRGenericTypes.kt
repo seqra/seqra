@@ -1,11 +1,13 @@
 package org.opentaint.opentaint-ir.impl.types
 
 import org.opentaint.opentaint-ir.api.JIRBoundedWildcard
+import org.opentaint.opentaint-ir.api.JIRClassOrInterface
 import org.opentaint.opentaint-ir.api.JIRClasspath
 import org.opentaint.opentaint-ir.api.JIRRefType
 import org.opentaint.opentaint-ir.api.JIRTypeVariable
 import org.opentaint.opentaint-ir.api.JIRTypeVariableDeclaration
 import org.opentaint.opentaint-ir.api.JIRUnboundWildcard
+import org.opentaint.opentaint-ir.api.ext.objectClass
 
 class JIRUnboundWildcardImpl(override val classpath: JIRClasspath) :
     JIRUnboundWildcard {
@@ -41,6 +43,11 @@ class JIRBoundedWildcardImpl(
             return "? $name ${bounds.joinToString(" & ") { it.typeName }}"
         }
 
+    override val jIRClass: JIRClassOrInterface by lazy(LazyThreadSafetyMode.NONE) {
+        val obj = classpath.objectClass
+        lowerBounds.firstNotNullOfOrNull { it.jIRClass.takeIf { it != obj } } ?: obj
+    }
+
     override fun copyWithNullability(nullability: Boolean?): JIRRefType {
         if (nullability != true)
             error("Attempting to make wildcard not-nullable, which are always nullable by convention")
@@ -61,6 +68,11 @@ class JIRTypeVariableImpl(
 
     override val bounds: List<JIRRefType>
         get() = declaration.bounds
+
+    override val jIRClass: JIRClassOrInterface by lazy(LazyThreadSafetyMode.NONE) {
+        val obj = classpath.objectClass
+        bounds.firstNotNullOfOrNull { it.jIRClass.takeIf { it != obj } } ?: obj
+    }
 
     override fun copyWithNullability(nullability: Boolean?): JIRRefType {
         return JIRTypeVariableImpl(classpath, declaration, nullability)

@@ -9,6 +9,7 @@ public class Generics {
         T state;
         W stateW;
         List<W> stateListW;
+
     }
 
     static class LinkedImpl<W extends List<String>> extends LinkedBase<String, W> {

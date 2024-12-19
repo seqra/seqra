@@ -8,7 +8,7 @@ import org.opentaint.opentaint-ir.api.analysis.JIRPointsToAnalysis
 import org.opentaint.opentaint-ir.api.analysis.JIRPointsToSet
 import org.opentaint.opentaint-ir.api.cfg.JIRInst
 import org.opentaint.opentaint-ir.api.cfg.JIRLocal
-import org.opentaint.opentaint-ir.api.ext.anyType
+import org.opentaint.opentaint-ir.api.ext.objectType
 
 class FullObjectsSet(type: JIRType) : JIRPointsToSet {
 
@@ -30,7 +30,7 @@ class PrimitivePointsAnalysis(private val classpath: JIRClasspath) : JIRPointsTo
     }
 
     override fun reachingObjects(field: JIRField): JIRPointsToSet {
-        return FullObjectsSet(classpath.findTypeOrNull(field.type.typeName) ?: classpath.anyType())
+        return FullObjectsSet(classpath.findTypeOrNull(field.type.typeName) ?: classpath.objectType)
     }
 
     override fun reachingObjects(set: JIRPointsToSet, field: JIRField): JIRPointsToSet {
@@ -42,6 +42,6 @@ class PrimitivePointsAnalysis(private val classpath: JIRClasspath) : JIRPointsTo
     }
 
     override fun reachingObjectsOfArrayElement(set: JIRPointsToSet): JIRPointsToSet {
-        return FullObjectsSet(classpath.anyType())
+        return FullObjectsSet(classpath.objectType)
     }
 }
