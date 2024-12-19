@@ -34,43 +34,49 @@ object LocalResolver : DefaultJIRInstVisitor<Sequence<JIRLocal>>, DefaultJIRExpr
         return sequenceOf(value)
     }
 
+    override fun visitJIRArgument(value: JIRArgument): Sequence<JIRLocal> {
+        return sequenceOf(value)
+    }
+
+    private fun visitCallExpr(expr: JIRCallExpr): Sequence<JIRLocal> {
+        return expr.operands.asSequence().flatMap { it.accept(this@LocalResolver) }
+    }
+
+    override fun visitJIRDynamicCallExpr(expr: JIRDynamicCallExpr): Sequence<JIRLocal> = visitCallExpr(expr)
+
+    override fun visitJIRSpecialCallExpr(expr: JIRSpecialCallExpr): Sequence<JIRLocal> = visitCallExpr(expr)
+
+    override fun visitJIRVirtualCallExpr(expr: JIRVirtualCallExpr): Sequence<JIRLocal> = visitCallExpr(expr)
+
+    override fun visitJIRStaticCallExpr(expr: JIRStaticCallExpr): Sequence<JIRLocal> = visitCallExpr(expr)
+
     override fun visitJIRAssignInst(inst: JIRAssignInst): Sequence<JIRLocal> {
-        val value = inst.lhv
         return sequence {
-            if (value is JIRLocal) {
-                yield(value)
-            }
-            if (inst.rhv is JIRCallExpr) {
-                yieldAll(inst.lhv.accept(this@LocalResolver))
-            }
+            yieldAll(inst.lhv.accept(this@LocalResolver))
+            yieldAll(inst.rhv.accept(this@LocalResolver))
         }
     }
 
     override fun visitJIRThrowInst(inst: JIRThrowInst): Sequence<JIRLocal> {
-        val throwable = inst.throwable
-        if (throwable is JIRLocal) {
-            return sequenceOf(throwable)
-        }
-        return emptySequence()
+        return inst.throwable.accept(this)
     }
 
     override fun visitJIRCatchInst(inst: JIRCatchInst): Sequence<JIRLocal> {
-        val throwable = inst.throwable
-        if (throwable is JIRLocal) {
-            return sequenceOf(throwable)
-        }
-        return emptySequence()
+        return inst.throwable.accept(this)
     }
 
     override fun visitJIRCallInst(inst: JIRCallInst): Sequence<JIRLocal> {
         return inst.callExpr.accept(this)
     }
 
+    override fun visitJIRReturnInst(inst: JIRReturnInst): Sequence<JIRLocal> {
+        return inst.returnValue?.accept(this) ?: emptySequence()
+    }
 }
 
-val JIRGraph.locals: List<JIRLocal>
+val JIRGraph.locals: Set<JIRLocal>
     get() {
-        return collect(LocalResolver).flatMap { it.toList() }
+        return collect(LocalResolver).flatMap { it.toList() }.toSet()
     }
 
 //val JIRInst.locals: List<JIRLocal>
