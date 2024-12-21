@@ -408,9 +408,9 @@ abstract class DatabaseEnvTest {
         val fakeMethodName = "fakeMethod"
         val cp = runBlocking {
             cp.db.classpath(allClasspath, listOf(VirtualClasses.builder {
-                newClass(fakeClassName) {
-                    newField(fakeFieldName)
-                    newMethod(fakeMethodName) {
+                virtualClass(fakeClassName) {
+                    field(fakeFieldName)
+                    method(fakeMethodName) {
                         returnType(PredefinedPrimitives.Int)
                         params(PredefinedPrimitives.Int)
                     }
@@ -436,20 +436,21 @@ abstract class DatabaseEnvTest {
         val fakeFieldName = "fakeField"
         val fakeMethodName = "fakeMethod"
         val cp = runBlocking {
-            cp.db.classpath(allClasspath, listOf(VirtualClassContent.builder {
-                append {
+            cp.db.classpath(allClasspath, listOf(VirtualClassContent
+                .builder()
+                .content {
                     matcher { it.name == "java.lang.String" }
                     field { builder, _ ->
-                        builder.name = fakeFieldName
+                        builder.name(fakeFieldName)
                         builder.type(PredefinedPrimitives.Int)
                     }
                     method { builder, _ ->
-                        builder.name = fakeMethodName
+                        builder.name(fakeMethodName)
                         builder.returnType(PredefinedPrimitives.Int)
                         builder.params(PredefinedPrimitives.Int)
                     }
-                }
-            }))
+                }.build()
+            ))
         }
         val clazz = cp.findClass<String>()
         val field = clazz.findDeclaredFieldOrNull(fakeFieldName)

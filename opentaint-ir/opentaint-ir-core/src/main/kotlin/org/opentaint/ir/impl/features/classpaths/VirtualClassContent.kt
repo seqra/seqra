@@ -62,7 +62,7 @@ class VirtualClassContent(private val builders: List<VirtualClassContentBuilder>
 class VirtualClassContentsBuilder() {
     internal val builders = ArrayList<VirtualClassContentBuilder>()
 
-    fun append(builder: VirtualClassContentBuilder.() -> Unit) {
+    fun content(builder: VirtualClassContentBuilder.() -> Unit) = apply {
         VirtualClassContentBuilder().also {
             it.builder()
             builders.add(it)

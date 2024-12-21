@@ -8,34 +8,43 @@ import org.opentaint.ir.impl.types.TypeNameImpl
 import org.objectweb.asm.Opcodes
 
 open class VirtualClassesBuilder {
-    open class VirtualClassBuilder(var name: String) {
+    open class VirtualClassBuilder(private var _name: String) {
         var access: Int = Opcodes.ACC_PUBLIC
+            private set
         var fields: ArrayList<VirtualFieldBuilder> = ArrayList()
+            private set
         var methods: ArrayList<VirtualMethodBuilder> = ArrayList()
+            private set
 
-        fun name(name: String) = apply {
-            this.name = name
+        val name: String get() = _name
+
+        fun access(code: Int) = apply {
+            this.access = code
         }
 
-        fun newField(name: String, access: Int = Opcodes.ACC_PUBLIC, callback: VirtualFieldBuilder.() -> Unit = {}) =
+        fun name(name: String) = apply {
+            this._name = name
+        }
+
+        fun field(name: String, access: Int = Opcodes.ACC_PUBLIC, callback: VirtualFieldBuilder.() -> Unit = {}) =
             apply {
                 fields.add(VirtualFieldBuilder(name).also {
-                    it.access = access
+                    it.access(access)
                     it.callback()
                 })
             }
 
-        fun newMethod(name: String, access: Int = Opcodes.ACC_PUBLIC, callback: VirtualMethodBuilder.() -> Unit = {}) =
+        fun method(name: String, access: Int = Opcodes.ACC_PUBLIC, callback: VirtualMethodBuilder.() -> Unit = {}) =
             apply {
                 methods.add(VirtualMethodBuilder(name).also {
-                    it.access = access
+                    it.access(access)
                     it.callback()
                 })
             }
 
         fun build(): JIRVirtualClass {
             return JIRVirtualClassImpl(
-                name,
+                _name,
                 access,
                 fields.map { it.build() },
                 methods.map { it.build() },
@@ -43,40 +52,56 @@ open class VirtualClassesBuilder {
         }
     }
 
-    open class VirtualFieldBuilder(var name: String = "_virtual_") {
+    open class VirtualFieldBuilder(private var _name: String = "_virtual_") {
         companion object {
             private val defType = TypeNameImpl("java.lang.Object")
         }
 
+        val name: String get() = _name
+
         var access: Int = Opcodes.ACC_PUBLIC
+            private set
         var type: TypeName = defType
+            private set
+
+        fun access(code: Int) = apply {
+            this.access = code
+        }
 
         fun type(name: String) = apply {
             type = TypeNameImpl(name)
         }
 
         fun name(name: String) = apply {
-            this.name = name
+            this._name = name
         }
 
         fun build(): JIRVirtualField {
-            return JIRVirtualFieldImpl(name, access, type)
+            return JIRVirtualFieldImpl(_name, access, type)
         }
 
     }
 
-    open class VirtualMethodBuilder(var name: String = "_virtual_") {
+    open class VirtualMethodBuilder(private var _name: String = "_virtual_") {
+        val name: String get() = _name
 
         var access = Opcodes.ACC_PUBLIC
+            private set
         var returnType: TypeName = TypeNameImpl(PredefinedPrimitives.Void)
+            private set
         var parameters: List<TypeName> = emptyList()
+            private set
+
+        fun access(code: Int) = apply {
+            this.access = code
+        }
 
         fun params(vararg p: String) = apply {
             parameters = p.map { TypeNameImpl(it) }.toList()
         }
 
         fun name(name: String) = apply {
-            this.name = name
+            this._name = name
         }
 
         fun returnType(name: String) = apply {
@@ -97,7 +122,7 @@ open class VirtualClassesBuilder {
 
         open fun build(): JIRVirtualMethod {
             return JIRVirtualMethodImpl(
-                name,
+                _name,
                 access,
                 returnType,
                 parameters.mapIndexed { index, typeName -> JIRVirtualParameter(index, typeName) },
@@ -108,12 +133,13 @@ open class VirtualClassesBuilder {
 
     private val classes = ArrayList<VirtualClassBuilder>()
 
-    fun newClass(name: String, access: Int = Opcodes.ACC_PUBLIC, callback: VirtualClassBuilder.() -> Unit = {}) {
-        classes.add(VirtualClassBuilder(name).also {
-            it.access = access
-            it.callback()
-        })
-    }
+    fun virtualClass(name: String, access: Int = Opcodes.ACC_PUBLIC, callback: VirtualClassBuilder.() -> Unit = {}) =
+        apply {
+            classes.add(VirtualClassBuilder(name).also {
+                it.access(access)
+                it.callback()
+            })
+        }
 
     fun buildClasses() = classes.map { it.build() }
     fun build() = VirtualClasses(buildClasses())
