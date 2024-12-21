@@ -59,6 +59,7 @@ class JIRSettings {
      * @param location - file for db location
      * @param clearOnStart -if true old data from this folder will be dropped
      */
+    @JvmOverloads
     fun persistent(
         location: String,
         clearOnStart: Boolean = false,
@@ -85,6 +86,7 @@ class JIRSettings {
      * builder for watching file system changes
      * @param delay - delay between syncs
      */
+    @JvmOverloads
     fun watchFileSystem(delay: Int = 10_000) = apply {
         watchFileSystemDelay = delay
     }
