@@ -3,6 +3,7 @@ package org.opentaint.ir.impl.bytecode
 import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClasspathFeature
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRParameter
 import org.opentaint.ir.api.cfg.JIRGraph
@@ -22,6 +23,7 @@ import org.objectweb.asm.tree.MethodNode
 class JIRMethodImpl(
     private val methodInfo: MethodInfo,
     private val source: ClassSource,
+    private val features: List<JIRClasspathFeature>?,
     override val enclosingClass: JIRClassOrInterface
 ) : JIRMethod {
 
@@ -56,7 +58,10 @@ class JIRMethodImpl(
     }
 
     override val rawInstList: JIRInstList<JIRRawInst> by lazy {
-        RawInstListBuilder(this, body().jsrInlined).build()
+        val list: JIRInstList<JIRRawInst> = RawInstListBuilder(this, body().jsrInlined).build()
+        features?.fold(list) { value, feature ->
+            feature.transformRawInstList(this, value)
+        } ?: list
     }
 
     override fun flowGraph(): JIRGraph {
@@ -64,7 +69,11 @@ class JIRMethodImpl(
     }
 
     override val instList: JIRInstList<JIRInst> by lazy {
-        JIRGraphBuilder(this, rawInstList).buildInstList()
+        val list: JIRInstList<JIRInst> = JIRGraphBuilder(this, rawInstList).buildInstList()
+        features?.fold(list) { value, feature ->
+            feature.transformInstList(this, value)
+        } ?: list
+
     }
 
     override fun equals(other: Any?): Boolean {

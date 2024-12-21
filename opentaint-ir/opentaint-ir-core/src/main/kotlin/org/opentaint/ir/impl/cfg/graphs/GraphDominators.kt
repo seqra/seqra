@@ -1,6 +1,6 @@
 package org.opentaint.ir.impl.cfg.graphs
 
-import org.opentaint.ir.api.cfg.Graph
+import org.opentaint.ir.api.cfg.JIRBytecodeGraph
 import org.opentaint.ir.api.cfg.JIRBasicBlock
 import org.opentaint.ir.api.cfg.JIRBlockGraph
 import org.opentaint.ir.api.cfg.JIRCatchInst
@@ -13,7 +13,7 @@ import java.util.*
  *
  * Uses the algorithm contained in Dragon book, pg. 670-1.
  */
-open class GraphDominators<NODE>(val graph: Graph<NODE>) {
+open class GraphDominators<NODE>(val graph: JIRBytecodeGraph<NODE>) {
 
     private val nodes = graph.toList()
     private val size = nodes.size

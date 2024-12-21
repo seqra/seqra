@@ -10,6 +10,7 @@ import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.storage.PostgresPersistenceImpl
 import org.opentaint.ir.impl.storage.SQLitePersistenceImpl
 import java.io.File
+import java.time.Duration
 
 /**
  * Settings for database
@@ -33,6 +34,12 @@ class JIRSettings {
     var predefinedDirOrJars: List<File> = persistentListOf()
         private set
 
+    var cacheSettings: JIRCacheSettings = JIRCacheSettings(10_000, Duration.ofSeconds(10))
+        private set
+
+    var byteCodeSettings: JIRByteCodeCache = JIRByteCodeCache()
+        private set
+
     var hooks: MutableList<(JIRDatabase) -> Hook> = arrayListOf()
         private set
 
@@ -52,10 +59,22 @@ class JIRSettings {
      * @param location - file for db location
      * @param clearOnStart -if true old data from this folder will be dropped
      */
-    fun persistent(location: String, clearOnStart: Boolean = false, type: JIRPersistenceType = PredefinedPersistenceType.SQLITE) = apply {
+    fun persistent(
+        location: String,
+        clearOnStart: Boolean = false,
+        type: JIRPersistenceType = PredefinedPersistenceType.SQLITE
+    ) = apply {
         persistentLocation = location
         persistentClearOnStart = clearOnStart
         persistentType = type
+    }
+
+    fun classCaching(maxSize: Long, expiration: Duration) = apply {
+        cacheSettings = JIRCacheSettings(maxSize, expiration)
+    }
+
+    fun bytecodeCaching(byteCodeCache: JIRByteCodeCache) = apply {
+        this.byteCodeSettings = byteCodeCache
     }
 
     fun loadByteCode(files: List<File>) = apply {
@@ -154,3 +173,7 @@ enum class PredefinedPersistenceType : JIRPersistenceType {
     };
 
 }
+
+class JIRByteCodeCache(val prefixes: List<String> = persistentListOf("java.", "javax.", "kotlinx.", "kotlin."))
+
+class JIRCacheSettings(val maxSize: Long, val expiration: Duration, val byteCodeCache: JIRByteCodeCache = JIRByteCodeCache())

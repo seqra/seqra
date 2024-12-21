@@ -13,7 +13,7 @@ abstract class AbstractVfsItem<T : AbstractVfsItem<T>>(open val name: String?, v
             }
             node = node.parent
         }
-         reversedNames.reversed().joinToString(".")
+        reversedNames.reversed().joinToString(".")
     }
 
 }
@@ -23,10 +23,14 @@ interface VfsVisitor {
     fun visitPackage(packageItem: PackageVfsItem) {}
 }
 
-class RemoveLocationsVisitor(private val locations: List<RegisteredLocation>) : VfsVisitor {
+class RemoveLocationsVisitor(
+    private val locations: List<RegisteredLocation>,
+    private val ignoredPackages: List<String> = emptyList()
+) : VfsVisitor {
 
     override fun visitPackage(packageItem: PackageVfsItem) {
-        if (packageItem.fullName.startsWith("java.")) {
+        val name = packageItem.fullName + "."
+        if (ignoredPackages.any { name.startsWith(it) }) {
             return
         }
         locations.forEach {

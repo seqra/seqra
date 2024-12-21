@@ -15,10 +15,12 @@ import kotlinx.coroutines.withContext
 import org.opentaint.ir.api.JavaVersion
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRClasspathFeature
 import org.opentaint.ir.api.JIRDatabase
 import org.opentaint.ir.api.JIRDatabasePersistence
 import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.filterExisted
@@ -64,22 +66,31 @@ class JIRDatabaseImpl(
         val runtime = JavaRuntime(settings.jre).allLocations
         locationsRegistry.setup(runtime).new.process()
         locationsRegistry.registerIfNeeded(
-            settings.predefinedDirOrJars.filter { it.exists() }.map { it.asByteCodeLocation(javaRuntime.version, isRuntime = false) }
+            settings.predefinedDirOrJars.filter { it.exists() }
+                .map { it.asByteCodeLocation(javaRuntime.version, isRuntime = false) }
         ).new.process()
     }
 
-    override suspend fun classpath(dirOrJars: List<File>): JIRClasspath {
+    private fun List<JIRClasspathFeature>?.appendCaching(): List<JIRClasspathFeature> {
+        if (this!= null && any { it is ClasspathCache }) {
+            return this
+        }
+        return listOf(ClasspathCache(settings.cacheSettings.maxSize, settings.cacheSettings.expiration)) + this.orEmpty()
+    }
+
+    override suspend fun classpath(dirOrJars: List<File>, features: List<JIRClasspathFeature>?): JIRClasspath {
         assertNotClosed()
         val existedLocations = dirOrJars.filterExisted().map { it.asByteCodeLocation(javaRuntime.version) }
         val processed = locationsRegistry.registerIfNeeded(existedLocations.toList())
             .also { it.new.process() }.registered + locationsRegistry.runtimeLocations
-        return classpathOf(processed)
+        return classpathOf(processed, features)
     }
 
-    override fun classpathOf(locations: List<RegisteredLocation>): JIRClasspath {
+    override fun classpathOf(locations: List<RegisteredLocation>, features: List<JIRClasspathFeature>?): JIRClasspath {
         return JIRClasspathImpl(
             locationsRegistry.newSnapshot(locations),
             this,
+            features.appendCaching(),
             classesVfs
         )
     }
@@ -89,6 +100,7 @@ class JIRDatabaseImpl(
         return JIRClasspathImpl(
             locationsRegistry.newSnapshot(cp.registeredLocations),
             cp.db,
+            cp.features,
             classesVfs
         )
     }
@@ -129,7 +141,7 @@ class JIRDatabaseImpl(
                 async {
                     val sources = location.sources
                     parentScope.ifActive { persistence.persist(location, sources) }
-                    parentScope.ifActive { classesVfs.visit(RemoveLocationsVisitor(listOf(location))) }
+                    parentScope.ifActive { classesVfs.visit(RemoveLocationsVisitor(listOf(location), settings.byteCodeSettings.prefixes)) }
                     parentScope.ifActive { featureRegistry.index(location, sources) }
                 }
             }.awaitAll()
@@ -144,7 +156,7 @@ class JIRDatabaseImpl(
         awaitBackgroundJobs()
         locationsRegistry.refresh().new.process()
         val result = locationsRegistry.cleanup()
-        classesVfs.visit(RemoveLocationsVisitor(result.outdated))
+        classesVfs.visit(RemoveLocationsVisitor(result.outdated, settings.byteCodeSettings.prefixes))
     }
 
     override suspend fun rebuildFeatures() {

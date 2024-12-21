@@ -1,6 +1,5 @@
 package org.opentaint.ir.impl
 
-import com.google.common.cache.CacheBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.isActive
@@ -9,13 +8,17 @@ import kotlinx.coroutines.withContext
 import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRArrayType
 import org.opentaint.ir.api.JIRByteCodeLocation
+import org.opentaint.ir.api.JIRClassFoundEvent
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRClasspathFeature
 import org.opentaint.ir.api.JIRClasspathTask
 import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.JIRTypeFoundEvent
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.api.broadcast
 import org.opentaint.ir.api.ext.toType
 import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
@@ -24,26 +27,13 @@ import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import org.opentaint.ir.impl.types.substition.JIRSubstitutor
 import org.opentaint.ir.impl.vfs.ClasspathVfs
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
-import java.time.Duration
 
 class JIRClasspathImpl(
     private val locationsRegistrySnapshot: LocationsRegistrySnapshot,
     override val db: JIRDatabaseImpl,
+    override val features: List<JIRClasspathFeature>?,
     globalClassVFS: GlobalClassesVfs
 ) : JIRClasspath {
-
-    private class ClassHolder(val jIRClass: JIRClassOrInterface?)
-    private class TypeHolder(val type: JIRType?)
-
-    private val classCache = CacheBuilder.newBuilder()
-        .expireAfterAccess(Duration.ofSeconds(10))
-        .maximumSize(10_000)
-        .build<String, ClassHolder>()
-
-    private val typeCache = CacheBuilder.newBuilder()
-        .expireAfterAccess(Duration.ofSeconds(10))
-        .maximumSize(10_000)
-        .build<String, TypeHolder>()
 
     override val locations: List<JIRByteCodeLocation> = locationsRegistrySnapshot.locations.mapNotNull { it.jIRLocation }
     override val registeredLocations: List<RegisteredLocation> = locationsRegistrySnapshot.locations
@@ -59,14 +49,16 @@ class JIRClasspathImpl(
     }
 
     override fun findClassOrNull(name: String): JIRClassOrInterface? {
-        return classCache.get(name) {
-            val source = classpathVfs.firstClassOrNull(name)
-            val jIRClass = source?.let { toJIRClass(it.source, false) }
-                ?: db.persistence.findClassSourceByName(this, locationsRegistrySnapshot.locations, name)?.let {
-                    toJIRClass(it, false)
-                }
-            ClassHolder(jIRClass)
-        }.jIRClass
+        val result = features?.firstNotNullOfOrNull { it.tryFindClass(this, name) }
+        if (result != null) {
+            return result
+        }
+        val source = classpathVfs.firstClassOrNull(name)
+        val jIRClass = source?.let { toJIRClass(it.source) }
+            ?: db.persistence.findClassSourceByName(this, locationsRegistrySnapshot.locations, name)?.let {
+                toJIRClass(it)
+            }
+        return jIRClass
     }
 
     override fun typeOf(jIRClass: JIRClassOrInterface): JIRRefType {
@@ -75,29 +67,26 @@ class JIRClasspathImpl(
             jIRClass.outerClass?.toType() as? JIRClassTypeImpl,
             JIRSubstitutor.empty,
             nullable = null
-        )
+        ).also {
+            broadcast(JIRTypeFoundEvent(it))
+        }
     }
 
     override fun arrayTypeOf(elementType: JIRType): JIRArrayType {
         return JIRArrayTypeImpl(elementType, null)
     }
 
-    override fun toJIRClass(source: ClassSource, withCaching: Boolean): JIRClassOrInterface {
-        if (withCaching) {
-            return classCache.get(source.className) {
-                ClassHolder(JIRClassOrInterfaceImpl(this, source))
-            }.jIRClass!!
+    override fun toJIRClass(source: ClassSource): JIRClassOrInterface {
+        return JIRClassOrInterfaceImpl(this, source, features).also {
+            broadcast(JIRClassFoundEvent(it))
         }
-        return JIRClassOrInterfaceImpl(this, source)
     }
 
     override fun findTypeOrNull(name: String): JIRType? {
-        return typeCache.get(name) {
-            TypeHolder(doFindTypeOrNull(name))
-        }.type
-    }
-
-    private fun doFindTypeOrNull(name: String): JIRType? {
+        val result = features?.firstNotNullOfOrNull { it.tryFindType(this, name) }
+        if (result != null) {
+            return result
+        }
         if (name.endsWith("[]")) {
             val targetName = name.removeSuffix("[]")
             return findTypeOrNull(targetName)?.let {

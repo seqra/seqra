@@ -4,6 +4,7 @@ import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRClasspathFeature
 import org.opentaint.ir.api.JIRField
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.findClass
@@ -16,7 +17,8 @@ import org.opentaint.ir.impl.types.ClassInfo
 
 class JIRClassOrInterfaceImpl(
     override val classpath: JIRClasspath,
-    private val classSource: ClassSource
+    private val classSource: ClassSource,
+    private val features: List<JIRClasspathFeature>?
 ) : JIRClassOrInterface {
 
     private val cachedInfo: ClassInfo? = when (classSource) {
@@ -84,11 +86,36 @@ class JIRClassOrInterfaceImpl(
         }
 
     override val declaredFields: List<JIRField> by lazy(LazyThreadSafetyMode.NONE) {
-        info.fields.map { JIRFieldImpl(this, it) }
+        val fields = info.fields
+        val result: List<JIRField> = fields.map { JIRFieldImpl(this, it) }
+        when {
+            !features.isNullOrEmpty() -> {
+                val modifiedFields = result.toMutableList()
+                features.forEach {
+                    it.fieldsOf(this)?.let {
+                        modifiedFields.addAll(it)
+                    }
+                }
+                modifiedFields
+            }
+            else -> result
+        }
     }
 
     override val declaredMethods: List<JIRMethod> by lazy(LazyThreadSafetyMode.NONE) {
-        info.methods.map { toJIRMethod(it, classSource) }
+        val result: List<JIRMethod> = info.methods.map { toJIRMethod(it, classSource, features) }
+        when {
+            !features.isNullOrEmpty() -> {
+                val modifiedMethods = result.toMutableList()
+                features.forEach {
+                    it.methodsOf(this)?.let {
+                        modifiedMethods.addAll(it)
+                    }
+                }
+                modifiedMethods
+            }
+            else -> result
+        }
     }
 
     override fun equals(other: Any?): Boolean {

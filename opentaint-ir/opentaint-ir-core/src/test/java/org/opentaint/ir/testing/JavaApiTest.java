@@ -3,6 +3,7 @@ package org.opentaint.ir.testing;
 import com.google.common.collect.Lists;
 import org.opentaint.ir.api.JIRClassOrInterface;
 import org.opentaint.ir.api.JIRClasspath;
+import org.opentaint.ir.api.JIRClasspathFeature;
 import org.opentaint.ir.api.JIRDatabase;
 import org.opentaint.ir.impl.Opentaint-IR;
 import org.opentaint.ir.impl.JIRSettings;

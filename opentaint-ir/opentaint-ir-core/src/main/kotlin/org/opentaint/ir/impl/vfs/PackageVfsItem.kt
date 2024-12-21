@@ -20,7 +20,7 @@ class PackageVfsItem(folderName: String?, parent: PackageVfsItem?) :
     }
 
     fun firstClassOrNull(className: String, predicate: (Long) -> Boolean): ClassVfsItem? {
-        val locationsClasses = classes.get(className) ?: return null
+        val locationsClasses = classes[className] ?: return null
         return locationsClasses.asSequence().firstOrNull { predicate(it.key) }?.value
     }
 

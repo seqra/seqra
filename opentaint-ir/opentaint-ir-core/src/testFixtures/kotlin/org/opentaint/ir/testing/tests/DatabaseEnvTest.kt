@@ -4,12 +4,15 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClassProcessingTask
 import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.ext.constructors
 import org.opentaint.ir.api.ext.enumValues
 import org.opentaint.ir.api.ext.fields
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findClassOrNull
+import org.opentaint.ir.api.ext.findDeclaredFieldOrNull
+import org.opentaint.ir.api.ext.findDeclaredMethodOrNull
 import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.api.ext.hasBody
 import org.opentaint.ir.api.ext.humanReadableSignature
@@ -24,6 +27,11 @@ import org.opentaint.ir.api.ext.isPublic
 import org.opentaint.ir.api.ext.jIRdbSignature
 import org.opentaint.ir.api.ext.jvmSignature
 import org.opentaint.ir.api.ext.methods
+import org.opentaint.ir.impl.features.classpaths.VirtualClassContent
+import org.opentaint.ir.impl.features.classpaths.VirtualClasses
+import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualClass
+import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualField
+import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualMethod
 import org.opentaint.ir.testing.A
 import org.opentaint.ir.testing.B
 import org.opentaint.ir.testing.Bar
@@ -32,6 +40,7 @@ import org.opentaint.ir.testing.D
 import org.opentaint.ir.testing.Enums
 import org.opentaint.ir.testing.Foo
 import org.opentaint.ir.testing.SuperDuper
+import org.opentaint.ir.testing.allClasspath
 import org.opentaint.ir.testing.hierarchies.Creature
 import org.opentaint.ir.testing.skipAssertionsOn
 import org.opentaint.ir.testing.structure.FieldsAndMethods
@@ -390,6 +399,74 @@ abstract class DatabaseEnvTest {
             assertNotNull(firstOrNull { it.name == "publicMethod" })
             assertNotNull(firstOrNull { it.name == "protectedMethod" })
         }
+    }
+
+    @Test
+    fun `virtual classes should work`() {
+        val fakeClassName = "xxx.Fake"
+        val fakeFieldName = "fakeField"
+        val fakeMethodName = "fakeMethod"
+        val cp = runBlocking {
+            cp.db.classpath(allClasspath, listOf(VirtualClasses.builder {
+                newClass(fakeClassName) {
+                    newField(fakeFieldName)
+                    newMethod(fakeMethodName) {
+                        returnType(PredefinedPrimitives.Int)
+                        params(PredefinedPrimitives.Int)
+                    }
+                }
+            }))
+        }
+        val clazz = cp.findClass(fakeClassName)
+        assertTrue(clazz is JIRVirtualClass)
+        with(clazz) {
+            val field = findDeclaredFieldOrNull(fakeFieldName)
+            assertTrue(field is JIRVirtualField)
+            assertNotNull(field?.enclosingClass)
+        }
+        with(clazz) {
+            val method = findDeclaredMethodOrNull(fakeMethodName, "(I)I")
+            assertTrue(method is JIRVirtualMethod)
+            assertNotNull(method?.enclosingClass)
+        }
+    }
+
+    @Test
+    fun `virtual fields and methods of `() {
+        val fakeFieldName = "fakeField"
+        val fakeMethodName = "fakeMethod"
+        val cp = runBlocking {
+            cp.db.classpath(allClasspath, listOf(VirtualClassContent.builder {
+                append {
+                    matcher { it.name == "java.lang.String" }
+                    field { builder, _ ->
+                        builder.name = fakeFieldName
+                        builder.type(PredefinedPrimitives.Int)
+                    }
+                    method { builder, _ ->
+                        builder.name = fakeMethodName
+                        builder.returnType(PredefinedPrimitives.Int)
+                        builder.params(PredefinedPrimitives.Int)
+                    }
+                }
+            }))
+        }
+        val clazz = cp.findClass<String>()
+        val field = clazz.findDeclaredFieldOrNull(fakeFieldName)
+        assertTrue(field is JIRVirtualField)
+        assertEquals(PredefinedPrimitives.Int, field!!.type.typeName)
+        assertNotNull(field.enclosingClass)
+
+        val method = clazz.declaredMethods.first { it.name == fakeMethodName }
+        assertTrue(method is JIRVirtualMethod)
+        assertEquals(PredefinedPrimitives.Int, method.returnType.typeName)
+        assertEquals(1, method.parameters.size)
+        assertEquals(PredefinedPrimitives.Int, method.parameters.first().type.typeName)
+        assertNotNull(method.enclosingClass)
+        method.parameters.forEach {
+            assertNotNull(it.method)
+        }
+
     }
 
     private inline fun <reified T> findSubClasses(allHierarchy: Boolean = false): Sequence<JIRClassOrInterface> {
