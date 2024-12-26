@@ -21,6 +21,7 @@ import org.opentaint.ir.api.JIRDatabasePersistence
 import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
+import org.opentaint.ir.impl.features.classpaths.KotlinMetadata
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.filterExisted
@@ -73,9 +74,9 @@ class JIRDatabaseImpl(
 
     private fun List<JIRClasspathFeature>?.appendCaching(): List<JIRClasspathFeature> {
         if (this!= null && any { it is ClasspathCache }) {
-            return this
+            return listOf(KotlinMetadata) + this
         }
-        return listOf(ClasspathCache(settings.cacheSettings.maxSize, settings.cacheSettings.expiration)) + this.orEmpty()
+        return listOf(ClasspathCache(settings.cacheSettings.maxSize, settings.cacheSettings.expiration), KotlinMetadata) + this.orEmpty()
     }
 
     override suspend fun classpath(dirOrJars: List<File>, features: List<JIRClasspathFeature>?): JIRClasspath {

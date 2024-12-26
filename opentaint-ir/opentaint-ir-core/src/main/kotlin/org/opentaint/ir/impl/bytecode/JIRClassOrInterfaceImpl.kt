@@ -27,6 +27,14 @@ class JIRClassOrInterfaceImpl(
         else -> null // maybe we do not need to do right now
     }
 
+    private val extensionData by lazy(LazyThreadSafetyMode.NONE) {
+        HashMap<String, Any>().also { map ->
+            features?.forEach {
+                map.putAll(it.extensionValuesOf(this).orEmpty())
+            }
+        }
+    }
+
     val info by lazy { cachedInfo ?: classSource.info }
 
     override val declaration = JIRDeclarationImpl.of(location = classSource.location, this)
@@ -69,6 +77,10 @@ class JIRClassOrInterfaceImpl(
 
     override fun bytecode() = classSource.fullAsmNodeWithFrames(classpath)
     override fun binaryBytecode(): ByteArray = classSource.byteCode
+
+    override fun <T> extensionValue(key: String): T? {
+        return extensionData[key] as? T
+    }
 
     override val isAnonymous: Boolean
         get() {

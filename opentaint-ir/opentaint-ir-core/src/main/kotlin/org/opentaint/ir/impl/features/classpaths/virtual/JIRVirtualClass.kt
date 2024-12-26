@@ -12,9 +12,12 @@ import org.opentaint.ir.impl.features.classpaths.VirtualLocation
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.ClassNode
 
+@JvmDefaultWithoutCompatibility
 interface JIRVirtualClass : JIRClassOrInterface {
     override val declaredFields: List<JIRVirtualField>
     override val declaredMethods: List<JIRVirtualMethod>
+
+    override fun <T> extensionValue(key: String): T? = null
 
     fun bind(classpath: JIRClasspath, virtualLocation: VirtualLocation) {
     }

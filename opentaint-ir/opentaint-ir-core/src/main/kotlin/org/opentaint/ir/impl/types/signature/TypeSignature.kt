@@ -4,13 +4,13 @@ import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.Malformed
 import org.opentaint.ir.api.Pure
 import org.opentaint.ir.api.TypeResolution
-import org.opentaint.ir.impl.bytecode.kmTypeParameters
+import org.opentaint.ir.impl.bytecode.kMetadata
 import org.opentaint.ir.impl.types.allVisibleTypeParameters
 import org.opentaint.ir.impl.types.substition.JvmTypeVisitor
 import org.opentaint.ir.impl.types.substition.fixDeclarationVisitor
 import org.objectweb.asm.signature.SignatureVisitor
 
-internal class TypeSignature(jIRClass: JIRClassOrInterface) : Signature<TypeResolution>(jIRClass, jIRClass.kmTypeParameters) {
+internal class TypeSignature(jIRClass: JIRClassOrInterface) : Signature<TypeResolution>(jIRClass, jIRClass.kMetadata?.kmTypeParameters) {
 
     private val interfaceTypes = ArrayList<JvmType>()
     private lateinit var superClass: JvmType
