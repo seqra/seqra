@@ -149,12 +149,15 @@ import org.opentaint.ir.api.ext.findFieldOrNull
 import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.api.ext.findTypeOrNull
 import org.opentaint.ir.api.ext.float
+import org.opentaint.ir.api.ext.hasAnnotation
 import org.opentaint.ir.api.ext.int
 import org.opentaint.ir.api.ext.jvmName
 import org.opentaint.ir.api.ext.long
 import org.opentaint.ir.api.ext.objectType
+import org.opentaint.ir.api.ext.packageName
 import org.opentaint.ir.api.ext.short
 import org.opentaint.ir.api.ext.toType
+import org.opentaint.ir.impl.cfg.util.OBJECT_CLASS
 
 /** This class stores state and is NOT THREAD SAFE. Use it carefully */
 class JIRGraphBuilder(
@@ -400,7 +403,16 @@ class JIRGraphBuilder(
             append(")")
             append(returnType.typeName.jvmName())
         }
-        val methodOrNull = findMethodOrNull(name, sb)
+        var methodOrNull = findMethodOrNull(name, sb)
+        if (methodOrNull == null && jIRClass.packageName == "java.lang.invoke") {
+            methodOrNull = findMethodOrNull {
+                val method = it.method
+                method.name == name && method.hasAnnotation("java.lang.invoke.MethodHandle\$PolymorphicSignature")
+            } // weak consumption. may fail
+        }
+        if(methodOrNull == null){
+            println("zzz")
+        }
         return methodOrNull ?: error("Could not find a method with correct signature $typeName#$name$sb")
     }
 

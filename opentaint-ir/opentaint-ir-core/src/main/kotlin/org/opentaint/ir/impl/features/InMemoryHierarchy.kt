@@ -9,6 +9,7 @@ import org.opentaint.ir.api.JIRDatabasePersistence
 import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.api.JIRSignal
 import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.impl.cfg.util.OBJECT_CLASS
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.BatchedSequence
@@ -99,7 +100,7 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
     fun syncQuery(classpath: JIRClasspath, req: InMemoryHierarchyReq): Sequence<ClassSource> {
         val persistence = classpath.db.persistence
         val locationIds = classpath.registeredLocations.map { it.id }
-        if (req.name == "java.lang.Object") {
+        if (req.name == OBJECT_CLASS) {
             return BatchedSequence(50) { offset, batchSize ->
                 persistence.read { jooq ->
                     val whereCondition = if (offset == null) {
