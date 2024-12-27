@@ -17,7 +17,6 @@ import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.api.ext.hasBody
 import org.opentaint.ir.api.ext.humanReadableSignature
 import org.opentaint.ir.api.ext.isEnum
-import org.opentaint.ir.api.ext.isInterface
 import org.opentaint.ir.api.ext.isLocal
 import org.opentaint.ir.api.ext.isMemberClass
 import org.opentaint.ir.api.ext.isNullable

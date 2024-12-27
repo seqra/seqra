@@ -5,7 +5,6 @@ import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRDeclaration
 import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.ext.isInterface
 import org.opentaint.ir.api.ext.objectClass
 import org.opentaint.ir.impl.bytecode.JIRDeclarationImpl
 import org.opentaint.ir.impl.features.classpaths.VirtualLocation
