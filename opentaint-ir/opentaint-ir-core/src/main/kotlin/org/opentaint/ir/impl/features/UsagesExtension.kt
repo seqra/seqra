@@ -11,9 +11,6 @@ import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.ext.findDeclaredFieldOrNull
 import org.opentaint.ir.api.ext.findDeclaredMethodOrNull
-import org.opentaint.ir.api.ext.isPackagePrivate
-import org.opentaint.ir.api.ext.isPrivate
-import org.opentaint.ir.api.ext.isStatic
 import org.opentaint.ir.api.ext.packageName
 import org.objectweb.asm.Opcodes
 import java.util.concurrent.Future

@@ -1,7 +1,6 @@
 package org.opentaint.ir.testing.types
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.ext.isSynthetic
 import org.opentaint.ir.testing.types.Comparables.ComparableTest1
 import org.opentaint.ir.testing.types.Comparables.ComparableTest2
 import org.opentaint.ir.testing.types.Comparables.ComparableTest3

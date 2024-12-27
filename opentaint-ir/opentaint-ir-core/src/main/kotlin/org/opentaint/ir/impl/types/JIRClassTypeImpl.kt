@@ -5,11 +5,6 @@ import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRRefType
 import org.opentaint.ir.api.JIRTypedField
 import org.opentaint.ir.api.JIRTypedMethod
-import org.opentaint.ir.api.ext.isConstructor
-import org.opentaint.ir.api.ext.isPackagePrivate
-import org.opentaint.ir.api.ext.isProtected
-import org.opentaint.ir.api.ext.isPublic
-import org.opentaint.ir.api.ext.isStatic
 import org.opentaint.ir.api.ext.packageName
 import org.opentaint.ir.api.ext.toType
 import org.opentaint.ir.impl.types.signature.JvmClassRefType

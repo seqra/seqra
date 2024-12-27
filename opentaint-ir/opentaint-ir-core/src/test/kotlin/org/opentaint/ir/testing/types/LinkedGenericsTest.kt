@@ -4,7 +4,6 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRTypeVariable
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.isConstructor
 import org.opentaint.ir.testing.types.Generics.LinkedImpl
 import org.opentaint.ir.testing.types.Generics.SingleImpl
 import org.junit.jupiter.api.Assertions.assertEquals

@@ -17,13 +17,10 @@ import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.api.ext.hasBody
 import org.opentaint.ir.api.ext.humanReadableSignature
 import org.opentaint.ir.api.ext.isEnum
-import org.opentaint.ir.api.ext.isFinal
 import org.opentaint.ir.api.ext.isInterface
 import org.opentaint.ir.api.ext.isLocal
 import org.opentaint.ir.api.ext.isMemberClass
 import org.opentaint.ir.api.ext.isNullable
-import org.opentaint.ir.api.ext.isPrivate
-import org.opentaint.ir.api.ext.isPublic
 import org.opentaint.ir.api.ext.jIRdbSignature
 import org.opentaint.ir.api.ext.jvmSignature
 import org.opentaint.ir.api.ext.methods
@@ -436,21 +433,24 @@ abstract class DatabaseEnvTest {
         val fakeFieldName = "fakeField"
         val fakeMethodName = "fakeMethod"
         val cp = runBlocking {
-            cp.db.classpath(allClasspath, listOf(VirtualClassContent
-                .builder()
-                .content {
-                    matcher { it.name == "java.lang.String" }
-                    field { builder, _ ->
-                        builder.name(fakeFieldName)
-                        builder.type(PredefinedPrimitives.Int)
-                    }
-                    method { builder, _ ->
-                        builder.name(fakeMethodName)
-                        builder.returnType(PredefinedPrimitives.Int)
-                        builder.params(PredefinedPrimitives.Int)
-                    }
-                }.build()
-            ))
+            cp.db.classpath(
+                allClasspath, listOf(
+                    VirtualClassContent
+                        .builder()
+                        .content {
+                            matcher { it.name == "java.lang.String" }
+                            field { builder, _ ->
+                                builder.name(fakeFieldName)
+                                builder.type(PredefinedPrimitives.Int)
+                            }
+                            method { builder, _ ->
+                                builder.name(fakeMethodName)
+                                builder.returnType(PredefinedPrimitives.Int)
+                                builder.params(PredefinedPrimitives.Int)
+                            }
+                        }.build()
+                )
+            )
         }
         val clazz = cp.findClass<String>()
         val field = clazz.findDeclaredFieldOrNull(fakeFieldName)

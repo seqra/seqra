@@ -8,11 +8,6 @@ import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.ext.findDeclaredMethodOrNull
-import org.opentaint.ir.api.ext.isClassInitializer
-import org.opentaint.ir.api.ext.isConstructor
-import org.opentaint.ir.api.ext.isFinal
-import org.opentaint.ir.api.ext.isPrivate
-import org.opentaint.ir.api.ext.isStatic
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.storage.BatchedSequence
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES

@@ -30,7 +30,6 @@ import org.opentaint.ir.api.cfg.JIRThrowInst
 import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.isAbstract
 import org.opentaint.ir.api.ext.isAnnotation
 import org.opentaint.ir.api.ext.isInterface
 import org.opentaint.ir.api.ext.isKotlin
