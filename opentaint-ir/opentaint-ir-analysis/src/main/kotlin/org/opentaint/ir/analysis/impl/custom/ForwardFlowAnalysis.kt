@@ -1,8 +1,8 @@
 package org.opentaint.ir.analysis.impl.custom
 
-import org.opentaint.ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.cfg.JIRBytecodeGraph
 
-abstract class ForwardFlowAnalysis<T>(graph: JIRGraph) : FlowAnalysisImpl<T>(graph) {
+abstract class ForwardFlowAnalysis<NODE, T>(graph: JIRBytecodeGraph<NODE>) : FlowAnalysisImpl<NODE, T>(graph) {
 
     override val isForward = true
 

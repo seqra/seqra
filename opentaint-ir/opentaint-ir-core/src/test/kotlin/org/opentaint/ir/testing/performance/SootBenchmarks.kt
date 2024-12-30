@@ -61,7 +61,7 @@ class SootBenchmarks {
         initSoot(allIdeaJars)
     }
 
-    private fun initSoot(files: List<File>) {
+    fun initSoot(files: List<File>) {
         G.reset()
         val options = Options.v()
         val version = 11
@@ -85,11 +85,11 @@ class SootBenchmarks {
              */
             set_allow_phantom_refs(true) // Java8 related
             set_full_resolver(true)
+            set_whole_program(true)
         }
         Scene.v().loadNecessaryClasses()
         PackManager.v().runPacks()
         val sootClass = Scene.v().getSootClass("java.lang.String")
-        sootClass.getMethod("asd").retrieveActiveBody()
         sootClass.setResolvingLevel(SootClass.BODIES)
         sootClass.methods.first().retrieveActiveBody() as JimpleBody
     }

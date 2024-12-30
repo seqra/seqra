@@ -1,41 +1,40 @@
 package org.opentaint.ir.analysis.impl.custom
 
+import org.opentaint.ir.api.cfg.JIRBytecodeGraph
 import org.opentaint.ir.api.cfg.JIRGotoInst
-import org.opentaint.ir.api.cfg.JIRGraph
-import org.opentaint.ir.api.cfg.JIRInst
 import java.util.*
 
 enum class Flow {
     IN {
-        override fun <F> getFlow(e: FlowEntry<F>): F? {
+        override fun <NODE,F> getFlow(e: FlowEntry<NODE, F>): F? {
             return e.inFlow
         }
     },
     OUT {
-        override fun <F> getFlow(e: FlowEntry<F>): F? {
+        override fun <NODE,F> getFlow(e: FlowEntry<NODE,F>): F? {
             return e.outFlow
         }
     };
 
-    abstract fun <F> getFlow(e: FlowEntry<F>): F?
+    abstract fun <NODE,F> getFlow(e: FlowEntry<NODE, F>): F?
 }
 
 /**
  * Creates a new `Entry` graph based on a `JIRGraph`. This includes pseudo topological order, local
  * access for predecessors and successors, a graph entry-point, connected component marker.
  */
-private fun <T> JIRGraph.newScope(
+private fun <NODE,T> JIRBytecodeGraph<NODE>.newScope(
     direction: FlowAnalysisDirection,
     entryFlow: T,
     isForward: Boolean
-): List<FlowEntry<T>> {
-    val size = instructions.size
-    val s = ArrayDeque<FlowEntry<T>>(size)
-    val scope = ArrayList<FlowEntry<T>>(size)
-    val visited = HashMap<JIRInst, FlowEntry<T>>((size + 1) * 4 / 3)
+): List<FlowEntry<NODE,T>> {
+    val size = entries.size
+    val s = ArrayDeque<FlowEntry<NODE,T>>(size)
+    val scope = ArrayList<FlowEntry<NODE,T>>(size)
+    val visited = HashMap<NODE, FlowEntry<NODE,T>>((size + 1) * 4 / 3)
 
     // out of scope node
-    val instructions: List<JIRInst>?
+    val instructions: List<NODE>?
     val actualEntries = direction.entries(this)
     if (actualEntries.isNotEmpty()) {
         // normal cases: there is at least
@@ -53,12 +52,12 @@ private fun <T> JIRGraph.newScope(
             // a method which potentially has
             // an infinite loop and no return statement
             instructions = ArrayList()
-            val head = entry
+            val head = entries.first()
 
             // collect all 'goto' statements to catch the 'goto' from the infinite loop
-            val visitedInst = HashSet<JIRInst>()
+            val visitedInst = HashSet<NODE>()
             val list = arrayListOf(head)
-            var temp: JIRInst
+            var temp: NODE
             while (list.isNotEmpty()) {
                 temp = list.removeAt(0)
                 visitedInst.add(temp)
@@ -80,16 +79,16 @@ private fun <T> JIRGraph.newScope(
             }
         }
     }
-    val root = RootEntry<T>()
+    val root = RootEntry<NODE,T>()
     root.visitEntry(instructions, visited)
     root.inFlow = entryFlow
     root.outFlow = entryFlow
 
-    val sv: Array<FlowEntry<T>?> = arrayOfNulls(size)
+    val sv: Array<FlowEntry<NODE,T>?> = arrayOfNulls(size)
     val si = IntArray(size)
     var index = 0
     var i = 0
-    var entry: FlowEntry<T> = root
+    var entry: FlowEntry<NODE, T> = root
     while (true) {
         if (i < entry.outs.size) {
             val next = entry.outs[i++]
@@ -124,10 +123,10 @@ private fun <T> JIRGraph.newScope(
     }
 }
 
-private fun <T> FlowEntry<T>.visitEntry(
-    instructions: List<JIRInst>,
-    visited: MutableMap<JIRInst, FlowEntry<T>>
-): Array<FlowEntry<T>> {
+private fun <NODE,T> FlowEntry<NODE,T>.visitEntry(
+    instructions: List<NODE>,
+    visited: MutableMap<NODE, FlowEntry<NODE,T>>
+): Array<FlowEntry<NODE,T>> {
     val n = instructions.size
     return Array(n) {
         instructions[it].toEntry(this, visited)
@@ -136,10 +135,10 @@ private fun <T> FlowEntry<T>.visitEntry(
     }
 }
 
-private fun <T> JIRInst.toEntry(
-    pred: FlowEntry<T>?,
-    visited: MutableMap<JIRInst, FlowEntry<T>>
-): FlowEntry<T> {
+private fun <NODE,T> NODE.toEntry(
+    pred: FlowEntry<NODE,T>?,
+    visited: MutableMap<NODE, FlowEntry<NODE,T>>
+): FlowEntry<NODE,T> {
     // either we reach a new node or a merge node, the latter one is rare
     // so put and restore should be better that a lookup
 
@@ -160,7 +159,7 @@ private fun <T> JIRInst.toEntry(
     return oldEntry
 }
 
-private fun <F> Deque<FlowEntry<F>>.pop(entry: FlowEntry<F>) {
+private fun <NODE, F> Deque<FlowEntry<NODE, F>>.pop(entry: FlowEntry<NODE, F>) {
     var min = entry.number
     for (e in entry.outs) {
         assert(e.number > Int.MIN_VALUE)
@@ -194,36 +193,36 @@ private fun <F> Deque<FlowEntry<F>>.pop(entry: FlowEntry<F>) {
 
 enum class FlowAnalysisDirection {
     BACKWARD {
-        override fun entries(g: JIRGraph): List<JIRInst> {
+        override fun <NODE> entries(g: JIRBytecodeGraph<NODE>): List<NODE> {
             return g.exits
         }
 
-        override fun outOf(g: JIRGraph, s: JIRInst): List<JIRInst> {
+        override fun <NODE> outOf(g: JIRBytecodeGraph<NODE>, s: NODE): List<NODE> {
             return g.predecessors(s).toList()
         }
     },
     FORWARD {
-        override fun entries(g: JIRGraph): List<JIRInst> {
-            return listOf(g.entry)
+        override fun <NODE> entries(g: JIRBytecodeGraph<NODE>): List<NODE> {
+            return g.entries
         }
 
-        override fun outOf(g: JIRGraph, s: JIRInst): List<JIRInst> {
+        override fun <NODE> outOf(g: JIRBytecodeGraph<NODE>, s: NODE): List<NODE> {
             return g.successors(s).toList()
         }
     };
 
-    abstract fun entries(g: JIRGraph): List<JIRInst>
-    abstract fun outOf(g: JIRGraph, s: JIRInst): List<JIRInst>
+    abstract fun <NODE> entries(g: JIRBytecodeGraph<NODE>): List<NODE>
+    abstract fun <NODE> outOf(g: JIRBytecodeGraph<NODE>, s: NODE): List<NODE>
 }
 
-abstract class FlowEntry<T>(pred: FlowEntry<T>?) {
+abstract class FlowEntry<NODE, T>(pred: FlowEntry<NODE, T>?) {
 
-    abstract val data: JIRInst
+    abstract val data: NODE
 
     var number = Int.MIN_VALUE
     var isStronglyConnected = false
-    var ins: Array<FlowEntry<T>> = pred?.let { arrayOf(pred) } ?: emptyArray()
-    var outs: Array<FlowEntry<T>> = emptyArray()
+    var ins: Array<FlowEntry<NODE, T>> = pred?.let { arrayOf(pred) } ?: emptyArray()
+    var outs: Array<FlowEntry<NODE, T>> = emptyArray()
     var inFlow: T? = null
     var outFlow: T? = null
 
@@ -233,25 +232,25 @@ abstract class FlowEntry<T>(pred: FlowEntry<T>?) {
 
 }
 
-class RootEntry<T> : FlowEntry<T>(null) {
-    override val data: JIRInst get() = throw IllegalStateException()
+class RootEntry<NODE, T> : FlowEntry<NODE, T>(null) {
+    override val data: NODE get() = throw IllegalStateException()
 }
 
-class LeafEntry<T>(override val data: JIRInst, pred: FlowEntry<T>?) : FlowEntry<T>(pred)
+class LeafEntry<NODE, T>(override val data: NODE, pred: FlowEntry<NODE, T>?) : FlowEntry<NODE, T>(pred)
 
-abstract class FlowAnalysisImpl<T>(graph: JIRGraph) : AbstractFlowAnalysis<T>(graph) {
+abstract class FlowAnalysisImpl<NODE, T>(graph: JIRBytecodeGraph<NODE>) : AbstractFlowAnalysis<NODE, T>(graph) {
 
-    protected abstract fun flowThrough(instIn: T?, ins: JIRInst, instOut: T)
+    protected abstract fun flowThrough(instIn: T?, ins: NODE, instOut: T)
 
-    fun outs(s: JIRInst): T {
+    fun outs(s: NODE): T {
         return outs[s] ?: newFlow()
     }
 
-    override fun ins(s: JIRInst): T {
+    override fun ins(s: NODE): T {
         return ins[s] ?: newFlow()
     }
 
-    private fun Iterable<FlowEntry<T>>.initFlow() {
+    private fun Iterable<FlowEntry<NODE, T>>.initFlow() {
         // If a node has only a single in-flow, the in-flow is always equal
         // to the out-flow if its predecessor, so we use the same object.
         // this saves memory and requires less object creation and copy calls.
@@ -297,14 +296,14 @@ abstract class FlowAnalysisImpl<T>(graph: JIRGraph) : AbstractFlowAnalysis<T>(gr
      *
      * If you are unsure, don't overwrite this method
      */
-    protected open val JIRInst.canSkip: Boolean
+    protected open val NODE.canSkip: Boolean
         get() {
             return false
         }
 
-    protected open fun getFlow(from: JIRInst, mergeNode: JIRInst) = Flow.OUT
+    protected open fun getFlow(from:  NODE, mergeNode: NODE) = Flow.OUT
 
-    private fun getFlow(o: FlowEntry<T>, e: FlowEntry<T>): T? {
+    private fun getFlow(o: FlowEntry<NODE, T>, e: FlowEntry<NODE, T>): T? {
         return if (o.inFlow === o.outFlow) {
             o.outFlow
         } else {
@@ -312,7 +311,7 @@ abstract class FlowAnalysisImpl<T>(graph: JIRGraph) : AbstractFlowAnalysis<T>(gr
         }
     }
 
-    private fun FlowEntry<T>.meetFlows() {
+    private fun FlowEntry<NODE, T>.meetFlows() {
         assert(ins.isNotEmpty())
         if (ins.size > 1) {
             var copy = true
@@ -333,13 +332,13 @@ abstract class FlowAnalysisImpl<T>(graph: JIRGraph) : AbstractFlowAnalysis<T>(gr
 
     open fun runAnalysis(
         direction: FlowAnalysisDirection,
-        inFlow: Map<JIRInst, T?>,
-        outFlow: Map<JIRInst, T?>
+        inFlow: Map<NODE, T?>,
+        outFlow: Map<NODE, T?>
     ): Int {
-        val scope = graph.newScope<T>(direction, newEntryFlow(), isForward).also {
+        val scope = graph.newScope(direction, newEntryFlow(), isForward).also {
             it.initFlow()
         }
-        val queue = PriorityQueue<FlowEntry<T>> { o1, o2 -> o1.number.compareTo(o2.number) }
+        val queue = PriorityQueue<FlowEntry<NODE, T>> { o1, o2 -> o1.number.compareTo(o2.number) }
             .also {it.addAll(scope)}
 
         // Perform fixed point flow analysis
@@ -358,7 +357,7 @@ abstract class FlowAnalysisImpl<T>(graph: JIRGraph) : AbstractFlowAnalysis<T>(gr
         }
     }
 
-    private fun flowThrough(entry: FlowEntry<T>): Boolean {
+    private fun flowThrough(entry: FlowEntry<NODE, T>): Boolean {
         if (entry.inFlow === entry.outFlow) {
             assert(!entry.isStronglyConnected || entry.ins.size == 1)
             return true
