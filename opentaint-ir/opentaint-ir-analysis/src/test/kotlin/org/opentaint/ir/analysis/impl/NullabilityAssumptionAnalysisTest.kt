@@ -1,15 +1,16 @@
-package org.opentaint.ir.testing.cfg
+package org.opentaint.ir.analysis.impl
 
+import org.opentaint.ir.analysis.impl.custom.NullAssumptionAnalysis
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.cfg.JIRAssignInst
 import org.opentaint.ir.api.cfg.JIRInstanceCallExpr
 import org.opentaint.ir.api.cfg.JIRLocal
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.impl.analysis.impl.NullAssumptionAnalysis
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.cfg.NullAssumptionAnalysisExample
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 

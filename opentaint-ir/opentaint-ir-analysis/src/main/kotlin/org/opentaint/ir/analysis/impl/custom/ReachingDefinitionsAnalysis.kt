@@ -1,4 +1,4 @@
-package org.opentaint.ir.impl.analysis.impl
+package org.opentaint.ir.analysis.impl.custom
 
 import org.opentaint.ir.api.cfg.JIRAssignInst
 import org.opentaint.ir.api.cfg.JIRBasicBlock

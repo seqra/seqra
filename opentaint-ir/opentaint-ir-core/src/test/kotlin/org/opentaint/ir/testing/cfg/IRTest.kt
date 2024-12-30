@@ -28,6 +28,7 @@ import org.opentaint.ir.api.cfg.JIRSwitchInst
 import org.opentaint.ir.api.cfg.JIRTerminatingInst
 import org.opentaint.ir.api.cfg.JIRThrowInst
 import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
+import org.opentaint.ir.api.cfg.applyAndGet
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.isKotlin
@@ -43,7 +44,6 @@ import org.opentaint.ir.impl.cfg.JIRGraphBuilder
 import org.opentaint.ir.impl.cfg.MethodNodeBuilder
 import org.opentaint.ir.impl.cfg.RawInstListBuilder
 import org.opentaint.ir.impl.cfg.Simplifier
-import org.opentaint.ir.impl.cfg.applyAndGet
 import org.opentaint.ir.impl.cfg.util.ExprMapper
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.hierarchyExt

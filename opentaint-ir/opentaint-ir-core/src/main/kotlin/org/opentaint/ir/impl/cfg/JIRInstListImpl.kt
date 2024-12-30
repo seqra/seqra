@@ -1,14 +1,16 @@
 package org.opentaint.ir.impl.cfg
 
 import org.opentaint.ir.api.cfg.JIRInstList
+import org.opentaint.ir.api.cfg.JIRMutableInstList
 import org.opentaint.ir.api.cfg.JIRRawInst
 import org.opentaint.ir.api.cfg.JIRRawInstVisitor
 import org.opentaint.ir.api.cfg.JIRRawLabelInst
 
-class JIRInstListImpl<INST>(
+open class JIRInstListImpl<INST>(
     instructions: List<INST>
 ) : Iterable<INST>, JIRInstList<INST> {
-    private val _instructions = instructions.toMutableList()
+    protected val _instructions = instructions.toMutableList()
+
     override val instructions: List<INST> get() = _instructions
 
     override val size get() = instructions.size
@@ -20,12 +22,19 @@ class JIRInstListImpl<INST>(
     fun getOrElse(index: Int, defaultValue: (Int) -> INST) = instructions.getOrElse(index, defaultValue)
     override fun iterator(): Iterator<INST> = instructions.iterator()
 
+    override fun toMutableList() = JIRMutableInstListImpl(_instructions)
+
     override fun toString(): String = _instructions.joinToString(separator = "\n") {
         when (it) {
             is JIRRawLabelInst -> "$it"
             else -> "  $it"
         }
     }
+
+}
+
+class JIRMutableInstListImpl<INST>(instructions: List<INST>) : JIRInstListImpl<INST>(instructions),
+    JIRMutableInstList<INST> {
 
     override fun insertBefore(inst: INST, vararg newInstructions: INST) = insertBefore(inst, newInstructions.toList())
     override fun insertBefore(inst: INST, newInstructions: Collection<INST>) {

@@ -32,7 +32,6 @@ import org.opentaint.ir.api.cfg.JIRDynamicCallExpr
 import org.opentaint.ir.api.cfg.JIREnterMonitorInst
 import org.opentaint.ir.api.cfg.JIREqExpr
 import org.opentaint.ir.api.cfg.JIRExitMonitorInst
-import org.opentaint.ir.api.cfg.JIRExpr
 import org.opentaint.ir.api.cfg.JIRExprVisitor
 import org.opentaint.ir.api.cfg.JIRFieldRef
 import org.opentaint.ir.api.cfg.JIRFloat
@@ -238,37 +237,13 @@ fun JIRBlockGraph.toFile(dotCmd: String, file: File? = null): Path {
     return resultingFile
 }
 
-fun JIRGraph.apply(visitor: JIRInstVisitor<Unit>): JIRGraph {
-    instructions.forEach { it.accept(visitor) }
-    return this
-}
-
-fun <R, E, T : JIRInstVisitor<E>> JIRGraph.applyAndGet(visitor: T, getter: (T) -> R): R {
-    instructions.forEach { it.accept(visitor) }
-    return getter(visitor)
-}
-
-fun <T> JIRGraph.collect(visitor: JIRInstVisitor<T>): Collection<T> {
-    return instructions.map { it.accept(visitor) }
-}
-
-fun <R, E, T : JIRInstVisitor<E>> JIRInst.applyAndGet(visitor: T, getter: (T) -> R): R {
-    this.accept(visitor)
-    return getter(visitor)
-}
-
-fun <R, E, T : JIRExprVisitor<E>> JIRExpr.applyAndGet(visitor: T, getter: (T) -> R): R {
-    this.accept(visitor)
-    return getter(visitor)
-}
-
 /**
  * Returns a list of possible thrown exceptions for any given instruction or expression (types of exceptions
  * are determined from JVM bytecode specification). For method calls it returns:
  * - all the declared checked exception types
  * - 'java.lang.Throwable' for any potential unchecked types
  */
-class JIRExceptionResolver(val classpath: JIRClasspath) : JIRInstVisitor<List<JIRClassType>>, JIRExprVisitor<List<JIRClassType>> {
+open class JIRExceptionResolver(val classpath: JIRClasspath) : JIRInstVisitor<List<JIRClassType>>, JIRExprVisitor<List<JIRClassType>> {
     private val throwableType = classpath.findTypeOrNull<Throwable>() as JIRClassType
     private val nullPointerExceptionType = classpath.findTypeOrNull<NullPointerException>() as JIRClassType
     private val arithmeticExceptionType = classpath.findTypeOrNull<ArithmeticException>() as JIRClassType

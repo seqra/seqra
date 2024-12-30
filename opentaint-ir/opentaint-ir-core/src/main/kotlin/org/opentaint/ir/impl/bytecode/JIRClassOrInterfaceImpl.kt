@@ -98,8 +98,7 @@ class JIRClassOrInterfaceImpl(
         }
 
     override val declaredFields: List<JIRField> by lazy(LazyThreadSafetyMode.NONE) {
-        val fields = info.fields
-        val result: List<JIRField> = fields.map { JIRFieldImpl(this, it) }
+        val result: List<JIRField> = info.fields.map { JIRFieldImpl(this, it) }
         when {
             !features.isNullOrEmpty() -> {
                 val modifiedFields = result.toMutableList()
