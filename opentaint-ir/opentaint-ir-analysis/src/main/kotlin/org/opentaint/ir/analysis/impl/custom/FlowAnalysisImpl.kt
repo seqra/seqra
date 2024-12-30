@@ -28,7 +28,7 @@ private fun <NODE,T> JIRBytecodeGraph<NODE>.newScope(
     entryFlow: T,
     isForward: Boolean
 ): List<FlowEntry<NODE,T>> {
-    val size = entries.size
+    val size = toList().size
     val s = ArrayDeque<FlowEntry<NODE,T>>(size)
     val scope = ArrayList<FlowEntry<NODE,T>>(size)
     val visited = HashMap<NODE, FlowEntry<NODE,T>>((size + 1) * 4 / 3)
