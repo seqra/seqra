@@ -136,16 +136,6 @@ subprojects {
     }
 
     publishing {
-        publications {
-            create<MavenPublication>("jar") {
-                from(components["java"])
-                groupId = "org.opentaint"
-                artifactId = project.name
-            }
-        }
-    }
-
-    publishing {
         repositories {
             maven {
                 name = "GitHubPackages"
@@ -156,15 +146,38 @@ subprojects {
                 }
             }
         }
-        publications {
-            create<MavenPublication>("gpr") {
-                from(components["java"])
-                groupId = "org.opentaint"
-                artifactId = project.name
+        publishing {
+            publications {
+                create<MavenPublication>("jar") {
+                    from(components["java"])
+                    groupId = "org.opentaint.ir"
+                    artifactId = project.name
+                }
             }
         }
     }
 
+}
+
+configure(
+    listOf(
+        project(":opentaint-ir-api"),
+        project(":opentaint-ir-core"),
+        project(":opentaint-ir-analysis"),
+    )
+) {
+    publishing {
+        repositories {
+            maven {
+                name = "GitHubPackages"
+                url = uri("https://maven.pkg.github.com/Opentaint/opentaint-ir")
+                credentials {
+                    username = System.getenv("GITHUB_ACTOR")
+                    password = System.getenv("GITHUB_TOKEN")
+                }
+            }
+        }
+    }
 }
 
 val aggregatedTasks = listOf("check", "build", "test", "lifecycleTest")
