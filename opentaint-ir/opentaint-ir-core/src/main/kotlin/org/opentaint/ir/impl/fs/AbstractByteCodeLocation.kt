@@ -10,6 +10,6 @@ abstract class AbstractByteCodeLocation(override val jarOrFolder: File) : JIRByt
 
     abstract fun currentHash(): String
 
-    override fun isChanged() = fsId != currentHash()
+    override fun isChanged() = fileSystemId != currentHash()
 
 }

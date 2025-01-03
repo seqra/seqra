@@ -76,13 +76,13 @@ class PersistentLocationRegistry(private val jIRdb: JIRDatabase, private val fea
         return persistence.write {
             val result = arrayListOf<RegisteredLocation>()
             val toAdd = arrayListOf<JIRByteCodeLocation>()
-            val fsId = locations.map { it.fsId }
+            val fsId = locations.map { it.fileSystemId }
             val existed = it.selectFrom(BYTECODELOCATIONS)
                 .where(BYTECODELOCATIONS.UNIQUEID.`in`(fsId))
                 .fetch().associateBy { it.uniqueid }
 
             locations.forEach {
-                val found = existed[it.fsId]
+                val found = existed[it.fileSystemId]
                 if (found == null) {
                     toAdd += it
                 } else {
@@ -97,7 +97,7 @@ class PersistentLocationRegistry(private val jIRdb: JIRDatabase, private val fea
                     val (id, location) = it
                     setLong(1, id)
                     setString(2, location.path)
-                    setString(3, location.fsId)
+                    setString(3, location.fileSystemId)
                     setBoolean(4, location.type == LocationType.RUNTIME)
                     setInt(5, LocationState.INITIAL.ordinal)
                     setNull(6, Types.BIGINT)
@@ -201,7 +201,7 @@ class PersistentLocationRegistry(private val jIRdb: JIRDatabase, private val fea
         }
         val record = BytecodelocationsRecord().also {
             it.path = path
-            it.uniqueid = fsId
+            it.uniqueid = fileSystemId
             it.runtime = type == LocationType.RUNTIME
         }
         record.insert()
@@ -210,7 +210,7 @@ class PersistentLocationRegistry(private val jIRdb: JIRDatabase, private val fea
 
     private fun JIRByteCodeLocation.findOrNull(dslContext: DSLContext): BytecodelocationsRecord? {
         return dslContext.selectFrom(BYTECODELOCATIONS)
-            .where(BYTECODELOCATIONS.PATH.eq(path).and(BYTECODELOCATIONS.UNIQUEID.eq(fsId))).fetchAny()
+            .where(BYTECODELOCATIONS.PATH.eq(path).and(BYTECODELOCATIONS.UNIQUEID.eq(fileSystemId))).fetchAny()
     }
 
 }

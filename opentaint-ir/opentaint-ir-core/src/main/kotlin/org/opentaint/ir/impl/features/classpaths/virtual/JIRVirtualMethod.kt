@@ -20,7 +20,7 @@ interface JIRVirtualMethod : JIRMethod {
 
     fun bind(clazz: JIRClassOrInterface)
 
-    override fun body() = MethodNode()
+    override fun asmNode() = MethodNode()
 
     override val rawInstList: JIRInstList<JIRRawInst>
         get() = JIRInstListImpl(emptyList())

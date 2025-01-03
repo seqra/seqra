@@ -356,8 +356,8 @@ abstract class DatabaseEnvTest {
 
         val method = runnable.declaredMethods.first()
         assertFalse(method.hasBody)
-        assertNotNull(method.body())
-        assertTrue(method.body().instructions.toList().isEmpty())
+        assertNotNull(method.asmNode())
+        assertTrue(method.asmNode().instructions.toList().isEmpty())
     }
 
     @Test

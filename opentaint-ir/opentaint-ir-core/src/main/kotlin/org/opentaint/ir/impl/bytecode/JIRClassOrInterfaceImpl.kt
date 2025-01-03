@@ -75,8 +75,8 @@ class JIRClassOrInterfaceImpl(
     override val access: Int
         get() = info.access
 
-    override fun bytecode() = classSource.fullAsmNodeWithFrames(classpath)
-    override fun binaryBytecode(): ByteArray = classSource.byteCode
+    override fun asmNode() = classSource.fullAsmNodeWithFrames(classpath)
+    override fun bytecode(): ByteArray = classSource.byteCode
 
     override fun <T> extensionValue(key: String): T? {
         return extensionData[key] as? T

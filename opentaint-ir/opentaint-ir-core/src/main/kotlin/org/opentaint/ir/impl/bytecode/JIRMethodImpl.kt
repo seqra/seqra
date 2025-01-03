@@ -53,12 +53,12 @@ class JIRMethodImpl(
 
     override val description get() = methodInfo.desc
 
-    override fun body(): MethodNode {
+    override fun asmNode(): MethodNode {
         return source.fullAsmNode.methods.first { it.name == name && it.desc == methodInfo.desc }
     }
 
     override val rawInstList: JIRInstList<JIRRawInst> by lazy {
-        val list: JIRInstList<JIRRawInst> = RawInstListBuilder(this, body().jsrInlined).build()
+        val list: JIRInstList<JIRRawInst> = RawInstListBuilder(this, asmNode().jsrInlined).build()
         features?.fold(list) { value, feature ->
             feature.transformRawInstList(this, value)
         } ?: list
