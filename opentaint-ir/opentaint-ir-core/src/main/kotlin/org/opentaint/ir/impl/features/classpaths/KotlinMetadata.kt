@@ -7,12 +7,12 @@ import kotlinx.metadata.KmProperty
 import kotlinx.metadata.KmTypeParameter
 import kotlinx.metadata.jvm.KotlinClassHeader
 import kotlinx.metadata.jvm.KotlinClassMetadata
+import org.opentaint.ir.api.JIRClassExtFeature
 import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspathFeature
 import org.opentaint.ir.api.ext.annotation
 import org.opentaint.ir.impl.bytecode.logger
 
-object KotlinMetadata : JIRClasspathFeature {
+object KotlinMetadata : JIRClassExtFeature {
 
     const val METADATA_KEY = "kotlinClassMetadata"
 

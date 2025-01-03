@@ -4,7 +4,7 @@ import com.google.common.cache.CacheBuilder
 import org.opentaint.ir.api.JIRClassFoundEvent
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRClasspathFeature
+import org.opentaint.ir.api.JIRClasspathExtFeature
 import org.opentaint.ir.api.JIRClasspathFeatureEvent
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.JIRTypeFoundEvent
@@ -16,8 +16,7 @@ import java.time.Duration
 open class ClasspathCache(
     protected val maxSize: Long = 10_000,
     protected val expiration: Duration = Duration.ofMinutes(1)
-) : JIRClasspathFeature {
-
+) : JIRClasspathExtFeature {
     /**
      *
      */

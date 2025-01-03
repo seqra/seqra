@@ -1,12 +1,12 @@
 package org.opentaint.ir.impl.features.classpaths
 
+import org.opentaint.ir.api.JIRClassExtFeature
 import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspathFeature
 import org.opentaint.ir.api.JIRField
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.impl.features.classpaths.virtual.VirtualClassesBuilder
 
-class VirtualClassContent(private val builders: List<VirtualClassContentBuilder>) : JIRClasspathFeature {
+class VirtualClassContent(private val builders: List<VirtualClassContentBuilder>) : JIRClassExtFeature {
 
     companion object {
 

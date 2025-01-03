@@ -4,6 +4,7 @@ import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspathFeature
+import org.opentaint.ir.api.JIRInstExtFeature
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRParameter
 import org.opentaint.ir.api.cfg.JIRGraph
@@ -32,6 +33,8 @@ class JIRMethodImpl(
     override val signature: String? get() = methodInfo.signature
     override val returnType = TypeNameImpl(methodInfo.returnClass)
 
+    private val methodFeatures = features?.filterIsInstance<JIRInstExtFeature>()
+
     override val exceptions: List<JIRClassOrInterface> by lazy(LazyThreadSafetyMode.NONE) {
         val methodSignature = MethodSignature.of(this)
         if (methodSignature is MethodResolutionImpl) {
@@ -59,18 +62,22 @@ class JIRMethodImpl(
 
     override val rawInstList: JIRInstList<JIRRawInst> by lazy {
         val list: JIRInstList<JIRRawInst> = RawInstListBuilder(this, asmNode().jsrInlined).build()
-        features?.fold(list) { value, feature ->
+        methodFeatures?.fold(list) { value, feature ->
             feature.transformRawInstList(this, value)
         } ?: list
     }
 
+    private val lazyGraph by lazy {
+        JIRGraphBuilder(this, rawInstList).buildFlowGraph()
+    }
+
     override fun flowGraph(): JIRGraph {
-        return JIRGraphBuilder(this, rawInstList).buildFlowGraph()
+        return lazyGraph
     }
 
     override val instList: JIRInstList<JIRInst> by lazy {
         val list: JIRInstList<JIRInst> = JIRGraphBuilder(this, rawInstList).buildInstList()
-        features?.fold(list) { value, feature ->
+        methodFeatures?.fold(list) { value, feature ->
             feature.transformInstList(this, value)
         } ?: list
 

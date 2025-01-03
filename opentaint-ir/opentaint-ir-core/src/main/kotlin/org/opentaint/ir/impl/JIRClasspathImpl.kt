@@ -11,6 +11,7 @@ import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.JIRClassFoundEvent
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRClasspathExtFeature
 import org.opentaint.ir.api.JIRClasspathFeature
 import org.opentaint.ir.api.JIRClasspathTask
 import org.opentaint.ir.api.JIRRefType
@@ -40,6 +41,8 @@ class JIRClasspathImpl(
 
     private val classpathVfs = ClasspathVfs(globalClassVFS, locationsRegistrySnapshot)
 
+    private val classpathExtFeature = features?.filterIsInstance<JIRClasspathExtFeature>()
+
     override suspend fun refreshed(closeOld: Boolean): JIRClasspath {
         return db.new(this).also {
             if (closeOld) {
@@ -49,7 +52,7 @@ class JIRClasspathImpl(
     }
 
     override fun findClassOrNull(name: String): JIRClassOrInterface? {
-        val result = features?.firstNotNullOfOrNull { it.tryFindClass(this, name) }
+        val result = classpathExtFeature?.firstNotNullOfOrNull { it.tryFindClass(this, name) }
         if (result != null) {
             return result
         }
@@ -83,7 +86,7 @@ class JIRClasspathImpl(
     }
 
     override fun findTypeOrNull(name: String): JIRType? {
-        val result = features?.firstNotNullOfOrNull { it.tryFindType(this, name) }
+        val result = classpathExtFeature?.firstNotNullOfOrNull { it.tryFindType(this, name) }
         if (result != null) {
             return result
         }

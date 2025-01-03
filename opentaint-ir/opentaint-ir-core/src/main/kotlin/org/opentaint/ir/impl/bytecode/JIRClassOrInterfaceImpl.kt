@@ -2,6 +2,7 @@ package org.opentaint.ir.impl.bytecode
 
 import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRAnnotation
+import org.opentaint.ir.api.JIRClassExtFeature
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRClasspathFeature
@@ -27,9 +28,11 @@ class JIRClassOrInterfaceImpl(
         else -> null // maybe we do not need to do right now
     }
 
+    private val classFeatures = features?.filterIsInstance<JIRClassExtFeature>()
+
     private val extensionData by lazy(LazyThreadSafetyMode.NONE) {
         HashMap<String, Any>().also { map ->
-            features?.forEach {
+            classFeatures?.forEach {
                 map.putAll(it.extensionValuesOf(this).orEmpty())
             }
         }
@@ -100,9 +103,9 @@ class JIRClassOrInterfaceImpl(
     override val declaredFields: List<JIRField> by lazy(LazyThreadSafetyMode.NONE) {
         val result: List<JIRField> = info.fields.map { JIRFieldImpl(this, it) }
         when {
-            !features.isNullOrEmpty() -> {
+            !classFeatures.isNullOrEmpty() -> {
                 val modifiedFields = result.toMutableList()
-                features.forEach {
+                classFeatures.forEach {
                     it.fieldsOf(this)?.let {
                         modifiedFields.addAll(it)
                     }
@@ -116,9 +119,9 @@ class JIRClassOrInterfaceImpl(
     override val declaredMethods: List<JIRMethod> by lazy(LazyThreadSafetyMode.NONE) {
         val result: List<JIRMethod> = info.methods.map { toJIRMethod(it, classSource, features) }
         when {
-            !features.isNullOrEmpty() -> {
+            !classFeatures.isNullOrEmpty() -> {
                 val modifiedMethods = result.toMutableList()
-                features.forEach {
+                classFeatures.forEach {
                     it.methodsOf(this)?.let {
                         modifiedMethods.addAll(it)
                     }
