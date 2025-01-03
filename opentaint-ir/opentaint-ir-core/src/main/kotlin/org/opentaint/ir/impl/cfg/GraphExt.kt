@@ -32,6 +32,7 @@ import org.opentaint.ir.api.cfg.JIRDynamicCallExpr
 import org.opentaint.ir.api.cfg.JIREnterMonitorInst
 import org.opentaint.ir.api.cfg.JIREqExpr
 import org.opentaint.ir.api.cfg.JIRExitMonitorInst
+import org.opentaint.ir.api.cfg.JIRExpr
 import org.opentaint.ir.api.cfg.JIRExprVisitor
 import org.opentaint.ir.api.cfg.JIRFieldRef
 import org.opentaint.ir.api.cfg.JIRFloat
@@ -247,6 +248,15 @@ open class JIRExceptionResolver(val classpath: JIRClasspath) : JIRInstVisitor<Li
     private val throwableType = classpath.findTypeOrNull<Throwable>() as JIRClassType
     private val nullPointerExceptionType = classpath.findTypeOrNull<NullPointerException>() as JIRClassType
     private val arithmeticExceptionType = classpath.findTypeOrNull<ArithmeticException>() as JIRClassType
+
+    override fun visitExternalJIRExpr(value: JIRExpr): List<JIRClassType> {
+        return emptyList()
+    }
+
+    override fun visitExternalJIRInst(inst: JIRInst): List<JIRClassType> {
+        return emptyList()
+    }
+
     override fun visitJIRAssignInst(inst: JIRAssignInst): List<JIRClassType> {
         return inst.lhv.accept(this) + inst.rhv.accept(this)
     }

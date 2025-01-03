@@ -268,6 +268,8 @@ class JIRGraphChecker(val method: JIRMethod, val jIRGraph: JIRGraph) : JIRInstVi
         assertTrue(jIRGraph.throwers(inst).isEmpty())
     }
 
+    override fun visitExternalJIRInst(inst: JIRInst) {
+    }
 }
 
 class IRTest : BaseTest() {
