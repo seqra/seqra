@@ -17,12 +17,12 @@ class JIRBlockGraphImpl(
     private val catchersMap = mutableMapOf<JIRBasicBlock, MutableSet<JIRBasicBlock>>()
     private val throwersMap = mutableMapOf<JIRBasicBlock, MutableSet<JIRBasicBlock>>()
 
-    override val basicBlocks: List<JIRBasicBlock> get() = _basicBlocks
-    override val entry: JIRBasicBlock get() = basicBlocks.first()
+    override val entry: JIRBasicBlock get() = first()
 
     override val entries: List<JIRBasicBlock>
         get() = listOf(entry)
-    override val exits: List<JIRBasicBlock> get() = basicBlocks.filter { successors(it).isEmpty() }
+
+    override val exits: List<JIRBasicBlock> get() = filter { successors(it).isEmpty() }
 
     init {
         val inst2Block = mutableMapOf<JIRInst, JIRBasicBlock>()
@@ -86,6 +86,18 @@ class JIRBlockGraphImpl(
     override fun instructions(block: JIRBasicBlock): List<JIRInst> =
         (block.start.index..block.end.index).map { jIRGraph.instructions[it] }
 
+    override fun block(inst: JIRInst): JIRBasicBlock {
+        assert(inst.location.method == jIRGraph.method) {
+            "required method of instruction ${jIRGraph.method} but got ${inst.location.method}"
+        }
+        for (basicBlock in entries) {
+            if(basicBlock.contains(inst)){
+                return basicBlock
+            }
+        }
+        throw IllegalStateException("block not found for $inst in ${jIRGraph.method}")
+    }
+
     /**
      * `successors` and `predecessors` represent normal control flow
      */
@@ -98,5 +110,5 @@ class JIRBlockGraphImpl(
     override fun catchers(node: JIRBasicBlock): Set<JIRBasicBlock> = catchersMap.getOrDefault(node, emptySet())
     override fun throwers(node: JIRBasicBlock): Set<JIRBasicBlock> = throwersMap.getOrDefault(node, emptySet())
 
-    override fun iterator(): Iterator<JIRBasicBlock> = basicBlocks.iterator()
+    override fun iterator(): Iterator<JIRBasicBlock> = _basicBlocks.iterator()
 }

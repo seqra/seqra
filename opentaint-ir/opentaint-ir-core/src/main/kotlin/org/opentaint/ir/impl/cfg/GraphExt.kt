@@ -172,7 +172,7 @@ fun JIRBlockGraph.toFile(dotCmd: String, file: File? = null): Path {
     val graph = Graph("jIRGraph")
 
     val nodes = mutableMapOf<JIRBasicBlock, Node>()
-    for ((index, block) in basicBlocks.withIndex()) {
+    for ((index, block) in withIndex()) {
         val node = Node("$index")
             .setShape(Shape.box)
             .setLabel(instructions(block).joinToString("") { "$it\\l" }.replace("\"", "\\\"").replace("\n", "\\n"))

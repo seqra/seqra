@@ -83,4 +83,10 @@ class ReachingDefinitionsAnalysis(val blockGraph: JIRBlockGraphImpl) {
         val defs = outs.getOrDefault(block, emptySet())
         return (0 until nDefinitions).filter { defs[it] }.map { jIRGraph.instructions[it] }
     }
+
+    fun ins(block: JIRBasicBlock): List<JIRInst> {
+        val defs = ins.getOrDefault(block, emptySet())
+        return (0 until nDefinitions).filter { defs[it] }.map { jIRGraph.instructions[it] }
+    }
+
 }
