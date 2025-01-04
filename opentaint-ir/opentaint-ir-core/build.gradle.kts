@@ -39,11 +39,11 @@ kotlin.sourceSets["main"].kotlin {
 dependencies {
     implementation(project(":opentaint-ir-api"))
 
-    api(group = "io.github.microutils", name = "kotlin-logging", version = "1.8.3")
-    api(group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8", version = kotlinVersion)
-    api(group = "org.jetbrains.kotlin", name = "kotlin-reflect", version = kotlinVersion)
-    api(group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-cbor", version = "1.3.3")
-    api(group = "info.leadinglight", name = "jdot", version = "1.0")
+    implementation(group = "io.github.microutils", name = "kotlin-logging", version = "1.8.3")
+    implementation(group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8", version = kotlinVersion)
+    implementation(group = "org.jetbrains.kotlin", name = "kotlin-reflect", version = kotlinVersion)
+    implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-cbor", version = "1.3.3")
+    implementation(group = "info.leadinglight", name = "jdot", version = "1.0")
 
     implementation(group = "org.postgresql", name = "postgresql", version = "42.5.1")
     implementation(group = "com.zaxxer", name = "HikariCP", version = "5.0.1")
