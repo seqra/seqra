@@ -100,4 +100,12 @@ public class IRExamples {
     public String concatTest(String s, int a) {
         return s + a;
     }
+
+    public void initStringWithNull(String arg) {
+        String myString = null;
+
+        if (myString != null) {
+            myString.length();
+        }
+    }
 }

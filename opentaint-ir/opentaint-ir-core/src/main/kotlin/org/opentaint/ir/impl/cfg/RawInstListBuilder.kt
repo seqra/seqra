@@ -83,6 +83,7 @@ import org.opentaint.ir.impl.cfg.util.asArray
 import org.opentaint.ir.impl.cfg.util.elementType
 import org.opentaint.ir.impl.cfg.util.isArray
 import org.opentaint.ir.impl.cfg.util.isDWord
+import org.opentaint.ir.impl.cfg.util.isPrimitive
 import org.opentaint.ir.impl.cfg.util.typeName
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes
@@ -406,7 +407,7 @@ class RawInstListBuilder(
 
     private fun local(variable: Int) = currentFrame.locals.getValue(variable)
 
-    private fun local(variable: Int, expr: JIRRawValue): JIRRawAssignInst? {
+    private fun local(variable: Int, expr: JIRRawValue, insn: AbstractInsnNode): JIRRawAssignInst? {
         val oldVar = currentFrame.locals[variable]
         return if (oldVar != null) {
             if (oldVar.typeName == expr.typeName) {
@@ -415,12 +416,12 @@ class RawInstListBuilder(
                 currentFrame = currentFrame.put(variable, expr)
                 null
             } else {
-                val assignment = nextRegister(expr.typeName)
+                val assignment = nextRegisterDeclaredVariable(expr.typeName, variable, insn)
                 currentFrame = currentFrame.put(variable, assignment)
                 JIRRawAssignInst(method, oldVar, expr)
             }
         } else {
-            val newLocal = nextRegister(expr.typeName)
+            val newLocal = nextRegisterDeclaredVariable(expr.typeName, variable, insn)
             val result = JIRRawAssignInst(method, newLocal, expr)
             currentFrame = currentFrame.put(variable, newLocal)
             result
@@ -436,6 +437,24 @@ class RawInstListBuilder(
     private fun nextRegister(typeName: TypeName): JIRRawValue {
         return JIRRawLocalVar("%${localCounter++}", typeName)
     }
+
+    private fun nextRegisterDeclaredVariable(typeName: TypeName, variable: Int, insn: AbstractInsnNode): JIRRawValue {
+        val nextLabel = generateSequence(insn) { it.next }
+            .filterIsInstance<LabelNode>()
+            .firstOrNull()
+
+        val declaredTypeName = methodNode.localVariables
+            .singleOrNull { it.index == variable && it.start == nextLabel }
+            ?.desc
+            ?.typeName()
+
+        return if (declaredTypeName != null && !declaredTypeName.isPrimitive) {
+            JIRRawLocalVar("%${localCounter++}", declaredTypeName)
+        } else {
+            JIRRawLocalVar("%${localCounter++}", typeName)
+        }
+    }
+
     private fun nextLabel(): JIRRawLabelInst = JIRRawLabelInst(method, "#${labelCounter++}")
 
     private fun buildGraph() {
@@ -980,7 +999,7 @@ class RawInstListBuilder(
         val local = local(insnNode.`var`)
         val add = JIRRawAddExpr(local.typeName, local, JIRRawInt(insnNode.incr))
         instructionList(insnNode) += JIRRawAssignInst(method, local, add)
-        local(insnNode.`var`, local)
+        local(insnNode.`var`, local, insnNode)
     }
 
     private fun buildIntInsnNode(insnNode: IntInsnNode) {
@@ -1294,7 +1313,7 @@ class RawInstListBuilder(
 
     private fun buildVarInsnNode(insnNode: VarInsnNode) {
         when (insnNode.opcode) {
-            in Opcodes.ISTORE..Opcodes.ASTORE -> local(insnNode.`var`, pop())?.let { instructionList(insnNode).add(it) }
+            in Opcodes.ISTORE..Opcodes.ASTORE -> local(insnNode.`var`, pop(), insnNode)?.let { instructionList(insnNode).add(it) }
 
             in Opcodes.ILOAD..Opcodes.ALOAD -> push(local(insnNode.`var`))
             else -> error("Unknown opcode ${insnNode.opcode} in VarInsnNode")
