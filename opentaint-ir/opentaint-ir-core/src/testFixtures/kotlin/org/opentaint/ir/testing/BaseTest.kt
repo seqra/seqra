@@ -46,7 +46,7 @@ open class WithDB(vararg features: JIRFeature<*, *>) {
 
     open var db = runBlocking {
         opentaint-ir {
-//            persistent("D:\\work\\jIRdb\\jIRdb-index.db")
+            persistent("D:\\work\\jIRdb\\jIRdb-index.db")
             loadByteCode(allClasspath)
             useProcessJavaRuntime()
             installFeatures(*allFeatures)

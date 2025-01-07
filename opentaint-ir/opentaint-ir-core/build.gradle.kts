@@ -61,13 +61,18 @@ dependencies {
     testFixturesImplementation(group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version = coroutinesVersion)
     testFixturesImplementation(group = "org.mockito", name = "mockito-core", version = "4.8.0")
     testFixturesImplementation(group = "org.jetbrains", name = "annotations", version = "20.1.0")
+
     testImplementation(group = "org.opentaint.soot", name = "soot-opentaint-fork", version = "4.4.0-FORK-2")
 
+    testImplementation(group = "org.soot-oss", name = "sootup.core", version = "1.0.0")
+    testImplementation(group = "org.soot-oss", name = "sootup.java.bytecode", version = "1.0.0")
+    testImplementation(group = "org.soot-oss", name = "sootup.jimple.parser", version = "1.0.0")
 }
 
 tasks.register<Download>("downloadIdeaCommunity") {
     src(rootProject.properties.get("intellij_community_url") as String)
     dest("idea-community/idea-community.zip")
+    onlyIfModified(true)
 }
 
 tasks.register<Copy>("downloadAndUnzipIdeaCommunity") {
@@ -89,6 +94,9 @@ benchmark {
         }
         register("soot") {
             include("SootBenchmarks")
+        }
+        register("sootup") {
+            include("SootupBenchmarks")
         }
         register("awaitBackground") {
             include("JirdbJvmBackgroundBenchmarks")
