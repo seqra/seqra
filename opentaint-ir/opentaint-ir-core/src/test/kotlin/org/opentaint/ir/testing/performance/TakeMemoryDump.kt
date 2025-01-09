@@ -10,22 +10,17 @@ import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.FIELDS
 import org.opentaint.ir.impl.storage.jooq.tables.references.METHODPARAMETERS
 import org.opentaint.ir.impl.storage.jooq.tables.references.METHODS
-import org.opentaint.ir.testing.allClasspath
 
 fun main() {
     var start = System.currentTimeMillis()
     runBlocking {
         val db = opentaint-ir {
-            loadByteCode(allClasspath)
+            loadByteCode(allIdeaJarsAbsolute)
             persistent(
-                "d:\\work\\opentaint-ir\\opentaint-ir-inspection.db",
+                "d:\\work\\opentaint-ir\\opentaint-ir-idea-usages.db",
                 clearOnStart = true,
                 PredefinedPersistenceType.SQLITE
             )
-//            persistent("jdbc:postgresql://localhost:5432/opentaint-ir?user=postgres&password=root&reWriteBatchedInserts=false",
-//                clearOnStart = true,
-//                PredefinedPersistenceType.POSTGRES
-//            )
             installFeatures(InMemoryHierarchy, Usages)
         }.also {
             println("AWAITING db took ${System.currentTimeMillis() - start}ms")

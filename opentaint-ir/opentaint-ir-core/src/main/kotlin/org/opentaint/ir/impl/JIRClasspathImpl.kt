@@ -104,6 +104,7 @@ class JIRClasspathImpl(
     }
 
     override suspend fun <T : JIRClasspathTask> execute(task: T): T {
+        db.awaitBackgroundJobs()
         val locations = registeredLocations.filter { task.shouldProcess(it) }
         task.before(this)
         withContext(Dispatchers.IO) {
