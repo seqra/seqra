@@ -1,4 +1,5 @@
 @file:JvmName("JIRUsages")
+
 package org.opentaint.ir.impl.features
 
 import kotlinx.coroutines.GlobalScope
@@ -87,9 +88,17 @@ class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, pr
                 className = hierarchy.map { it.name }.toSet()
             )
         ).flatMap {
-            cp.toJIRClass(it.source)
-                .declaredMethods
-                .slice(it.offsets.map { it.toInt() })
+            val clazz = cp.toJIRClass(it.source)
+            try {
+
+                clazz.declaredMethods
+                    .slice(
+                        it.offsets.map { it.toInt() }
+                    )
+            } catch (e: IndexOutOfBoundsException) {
+                throw e
+            }
+
         }
     }
 

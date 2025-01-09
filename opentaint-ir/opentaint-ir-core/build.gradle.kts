@@ -1,4 +1,3 @@
-import de.undercouch.gradle.tasks.download.Download
 import org.jooq.codegen.GenerationTool
 import org.jooq.meta.jaxb.Configuration
 import org.jooq.meta.jaxb.Database
@@ -61,54 +60,6 @@ dependencies {
     testFixturesImplementation(group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version = coroutinesVersion)
     testFixturesImplementation(group = "org.mockito", name = "mockito-core", version = "4.8.0")
     testFixturesImplementation(group = "org.jetbrains", name = "annotations", version = "20.1.0")
-
-    testImplementation(group = "org.opentaint.soot", name = "soot-opentaint-fork", version = "4.4.0-FORK-2")
-
-    testImplementation(group = "org.soot-oss", name = "sootup.core", version = "1.0.0")
-    testImplementation(group = "org.soot-oss", name = "sootup.java.bytecode", version = "1.0.0")
-    testImplementation(group = "org.soot-oss", name = "sootup.jimple.parser", version = "1.0.0")
-}
-
-tasks.register<Download>("downloadIdeaCommunity") {
-    src(rootProject.properties.get("intellij_community_url") as String)
-    dest("idea-community/idea-community.zip")
-    onlyIfModified(true)
-}
-
-tasks.register<Copy>("downloadAndUnzipIdeaCommunity") {
-    dependsOn("downloadIdeaCommunity")
-    val downloadIdeaCommunity by tasks.getting(Download::class)
-
-    from(zipTree(downloadIdeaCommunity.dest))
-    into("idea-community/unzip")
-}
-
-benchmark {
-    configurations {
-        named("main") {
-            include("JirdbLifeCycleBenchmarks")
-            include("RestoreJirdbBenchmark")
-        }
-        register("jIRdb") {
-            include("JirdbBenchmarks")
-        }
-        register("soot") {
-            include("SootBenchmarks")
-        }
-        register("sootup") {
-            include("SootupBenchmarks")
-        }
-        register("awaitBackground") {
-            include("JirdbJvmBackgroundBenchmarks")
-            include("JirdbAllClasspathBackgroundBenchmarks")
-            include("JirdbIdeaBackgroundBenchmarks")
-        }
-    }
-}
-
-val benchmarkTasks = listOf("testJirdbBenchmark", "testSootBenchmark", "testAwaitBackgroundBenchmark")
-tasks.matching { benchmarkTasks.contains(it.name) }.configureEach {
-    dependsOn("downloadAndUnzipIdeaCommunity")
 }
 
 tasks.register("generateSqlScheme") {
