@@ -11,7 +11,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 @State(Scope.Benchmark)
-@Fork(0)
+@Fork(1, jvmArgs = ["-Xmx12048m"])
 @Warmup(iterations = 2)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
