@@ -20,6 +20,7 @@ import org.opentaint.ir.impl.types.TypeNameImpl
 import org.opentaint.ir.impl.types.signature.MethodResolutionImpl
 import org.opentaint.ir.impl.types.signature.MethodSignature
 import org.objectweb.asm.tree.MethodNode
+import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 class JIRMethodImpl(
     private val methodInfo: MethodInfo,
@@ -35,7 +36,7 @@ class JIRMethodImpl(
 
     private val methodFeatures = features?.filterIsInstance<JIRInstExtFeature>()
 
-    override val exceptions: List<JIRClassOrInterface> by lazy(LazyThreadSafetyMode.NONE) {
+    override val exceptions: List<JIRClassOrInterface> by lazy(PUBLICATION) {
         val methodSignature = MethodSignature.of(this)
         if (methodSignature is MethodResolutionImpl) {
             methodSignature.exceptionTypes.map {

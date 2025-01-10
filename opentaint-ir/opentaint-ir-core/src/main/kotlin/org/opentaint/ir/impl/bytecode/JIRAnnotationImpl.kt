@@ -9,17 +9,18 @@ import org.opentaint.ir.impl.types.AnnotationValueList
 import org.opentaint.ir.impl.types.ClassRef
 import org.opentaint.ir.impl.types.EnumRef
 import org.opentaint.ir.impl.types.PrimitiveValue
+import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 class JIRAnnotationImpl(
     private val info: AnnotationInfo,
     private val classpath: JIRClasspath
 ) : JIRAnnotation {
 
-    override val jIRClass by lazy(LazyThreadSafetyMode.NONE) {
+    override val jIRClass by lazy(PUBLICATION) {
         classpath.findClassOrNull(info.className)
     }
 
-    override val values by lazy(LazyThreadSafetyMode.NONE) {
+    override val values by lazy(PUBLICATION) {
         val size = info.values.size
         if (size > 0) {
             info.values.associate { it.first to fixValue(it.second) }

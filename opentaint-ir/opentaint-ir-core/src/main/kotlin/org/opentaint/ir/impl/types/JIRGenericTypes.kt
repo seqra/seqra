@@ -8,6 +8,7 @@ import org.opentaint.ir.api.JIRTypeVariable
 import org.opentaint.ir.api.JIRTypeVariableDeclaration
 import org.opentaint.ir.api.JIRUnboundWildcard
 import org.opentaint.ir.api.ext.objectClass
+import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 class JIRUnboundWildcardImpl(override val classpath: JIRClasspath) :
     JIRUnboundWildcard {
@@ -43,7 +44,7 @@ class JIRBoundedWildcardImpl(
             return "? $name ${bounds.joinToString(" & ") { it.typeName }}"
         }
 
-    override val jIRClass: JIRClassOrInterface by lazy(LazyThreadSafetyMode.NONE) {
+    override val jIRClass: JIRClassOrInterface by lazy(PUBLICATION) {
         val obj = classpath.objectClass
         lowerBounds.firstNotNullOfOrNull { it.jIRClass.takeIf { it != obj } } ?: obj
     }
@@ -69,7 +70,7 @@ class JIRTypeVariableImpl(
     override val bounds: List<JIRRefType>
         get() = declaration.bounds
 
-    override val jIRClass: JIRClassOrInterface by lazy(LazyThreadSafetyMode.NONE) {
+    override val jIRClass: JIRClassOrInterface by lazy(PUBLICATION) {
         val obj = classpath.objectClass
         bounds.firstNotNullOfOrNull { it.jIRClass.takeIf { it != obj } } ?: obj
     }

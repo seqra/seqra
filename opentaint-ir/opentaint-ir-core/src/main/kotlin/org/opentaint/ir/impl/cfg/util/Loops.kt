@@ -5,13 +5,14 @@ import org.opentaint.ir.api.cfg.JIRGraph
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.impl.cfg.graphs.findDominators
 import java.util.*
+import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 class JIRLoop(
     val graph: JIRGraph,
     val head: JIRInst,
     val instructions: List<JIRInst>
 ) {
-    val exits: Collection<JIRInst> by lazy(LazyThreadSafetyMode.NONE) {
+    val exits: Collection<JIRInst> by lazy(PUBLICATION) {
         val result = hashSetOf<JIRInst>()
         for (s in instructions) {
             graph.successors(s).forEach {

@@ -4,6 +4,7 @@ import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRField
 import org.opentaint.ir.impl.types.FieldInfo
 import org.opentaint.ir.impl.types.TypeNameImpl
+import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 class JIRFieldImpl(
     override val enclosingClass: JIRClassOrInterface,
@@ -23,7 +24,7 @@ class JIRFieldImpl(
     override val signature: String?
         get() = info.signature
 
-    override val annotations by lazy {
+    override val annotations by lazy(PUBLICATION) {
         info.annotations.map { JIRAnnotationImpl(it, enclosingClass.classpath) }
     }
 

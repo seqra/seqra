@@ -37,7 +37,7 @@ class JIRTypedMethodImpl(
     override val access: Int
         get() = this.method.access
 
-    private val info by lazy(LazyThreadSafetyMode.NONE) {
+    private val info by lazy(LazyThreadSafetyMode.PUBLICATION) {
         val signature = MethodSignature.withDeclarations(method)
         val impl = signature as? MethodResolutionImpl
         val substitutor = if (!method.isStatic) {
@@ -87,7 +87,7 @@ class JIRTypedMethodImpl(
             }
         }
 
-    override val returnType: JIRType by lazy(LazyThreadSafetyMode.NONE) {
+    override val returnType: JIRType by lazy(LazyThreadSafetyMode.PUBLICATION) {
         val typeName = method.returnType.typeName
         val info = info
         val impl = info.impl

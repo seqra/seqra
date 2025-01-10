@@ -9,6 +9,7 @@ import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
 import org.opentaint.ir.impl.types.signature.FieldSignature
 import org.opentaint.ir.impl.types.substition.JIRSubstitutor
+import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 class JIRTypedFieldImpl(
     override val enclosingType: JIRRefType,
@@ -20,7 +21,7 @@ class JIRTypedFieldImpl(
         get() = this.field.access
 
     private val classpath = field.enclosingClass.classpath
-    private val resolvedType by lazy(LazyThreadSafetyMode.NONE) {
+    private val resolvedType by lazy(PUBLICATION) {
         val resolution = FieldSignature.of(field) as? FieldResolutionImpl
         resolution?.fieldType
     }

@@ -14,6 +14,7 @@ import org.opentaint.ir.impl.types.signature.TypeResolutionImpl
 import org.opentaint.ir.impl.types.signature.TypeSignature
 import org.opentaint.ir.impl.types.substition.JIRSubstitutor
 import org.opentaint.ir.impl.types.substition.substitute
+import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 open class JIRClassTypeImpl(
     override val jIRClass: JIRClassOrInterface,
@@ -29,8 +30,8 @@ open class JIRClassTypeImpl(
         nullable: Boolean?
     ) : this(jIRClass, outerType, jIRClass.substitute(parameters, outerType?.substitutor), nullable)
 
-    private val resolutionImpl by lazy(LazyThreadSafetyMode.NONE) { TypeSignature.withDeclarations(jIRClass) as? TypeResolutionImpl }
-    private val declaredTypeParameters by lazy(LazyThreadSafetyMode.NONE) { jIRClass.typeParameters }
+    private val resolutionImpl by lazy(PUBLICATION) { TypeSignature.withDeclarations(jIRClass) as? TypeResolutionImpl }
+    private val declaredTypeParameters by lazy(PUBLICATION) { jIRClass.typeParameters }
 
     override val classpath get() = jIRClass.classpath
 
@@ -68,7 +69,7 @@ open class JIRClassTypeImpl(
             }
         }
 
-    override val superType: JIRClassType? by lazy(LazyThreadSafetyMode.NONE) {
+    override val superType: JIRClassType? by lazy(PUBLICATION) {
         val superClass = jIRClass.superClass ?: return@lazy null
         resolutionImpl?.let {
             val newSubstitutor = superSubstitutor(superClass, it.superClass)
@@ -76,7 +77,7 @@ open class JIRClassTypeImpl(
         } ?: superClass.toType()
     }
 
-    override val interfaces: List<JIRClassType> by lazy(LazyThreadSafetyMode.NONE) {
+    override val interfaces: List<JIRClassType> by lazy(PUBLICATION) {
         jIRClass.interfaces.map { iface ->
             val ifaceType = resolutionImpl?.interfaceType?.firstOrNull { it.isReferencesClass(iface.name) }
             if (ifaceType != null) {
@@ -88,7 +89,7 @@ open class JIRClassTypeImpl(
         }
     }
 
-    override val innerTypes: List<JIRClassType> by lazy(LazyThreadSafetyMode.NONE) {
+    override val innerTypes: List<JIRClassType> by lazy(PUBLICATION) {
         jIRClass.innerClasses.map {
             val outerMethod = it.outerMethod
             val outerClass = it.outerClass
@@ -104,20 +105,20 @@ open class JIRClassTypeImpl(
         }
     }
 
-    override val declaredMethods by lazy(LazyThreadSafetyMode.NONE) {
+    override val declaredMethods by lazy(PUBLICATION) {
         typedMethods(true, fromSuperTypes = false, jIRClass.packageName)
     }
 
-    override val methods by lazy(LazyThreadSafetyMode.NONE) {
+    override val methods by lazy(PUBLICATION) {
         //let's calculate visible methods from super types
         typedMethods(true, fromSuperTypes = true, jIRClass.packageName)
     }
 
-    override val declaredFields by lazy(LazyThreadSafetyMode.NONE) {
+    override val declaredFields by lazy(PUBLICATION) {
         typedFields(true, fromSuperTypes = false, jIRClass.packageName)
     }
 
-    override val fields by lazy(LazyThreadSafetyMode.NONE) {
+    override val fields by lazy(PUBLICATION) {
         typedFields(true, fromSuperTypes = true, jIRClass.packageName)
     }
 

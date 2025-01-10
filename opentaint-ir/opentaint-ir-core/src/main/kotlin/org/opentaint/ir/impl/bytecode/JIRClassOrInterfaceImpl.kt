@@ -15,6 +15,7 @@ import org.opentaint.ir.impl.fs.LazyClassSourceImpl
 import org.opentaint.ir.impl.fs.fullAsmNodeWithFrames
 import org.opentaint.ir.impl.fs.info
 import org.opentaint.ir.impl.types.ClassInfo
+import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 class JIRClassOrInterfaceImpl(
     override val classpath: JIRClasspath,
@@ -30,7 +31,7 @@ class JIRClassOrInterfaceImpl(
 
     private val classFeatures = features?.filterIsInstance<JIRClassExtFeature>()
 
-    private val extensionData by lazy(LazyThreadSafetyMode.NONE) {
+    private val extensionData by lazy(PUBLICATION) {
         HashMap<String, Any>().also { map ->
             classFeatures?.forEach {
                 map.putAll(it.extensionValuesOf(this).orEmpty())
@@ -51,25 +52,25 @@ class JIRClassOrInterfaceImpl(
     override val annotations: List<JIRAnnotation>
         get() = info.annotations.map { JIRAnnotationImpl(it, classpath) }
 
-    override val interfaces by lazy(LazyThreadSafetyMode.NONE) {
+    override val interfaces by lazy(PUBLICATION) {
         info.interfaces.map {
             classpath.findClass(it)
         }
     }
 
-    override val superClass by lazy(LazyThreadSafetyMode.NONE) {
+    override val superClass by lazy(PUBLICATION) {
         info.superClass?.let {
             classpath.findClass(it)
         }
     }
 
-    override val outerClass by lazy(LazyThreadSafetyMode.NONE) {
+    override val outerClass by lazy(PUBLICATION) {
         info.outerClass?.className?.let {
             classpath.findClass(it)
         }
     }
 
-    override val innerClasses by lazy(LazyThreadSafetyMode.NONE) {
+    override val innerClasses by lazy(PUBLICATION) {
         info.innerClasses.map {
             classpath.findClass(it)
         }
@@ -100,7 +101,7 @@ class JIRClassOrInterfaceImpl(
             return null
         }
 
-    override val declaredFields: List<JIRField> by lazy(LazyThreadSafetyMode.NONE) {
+    override val declaredFields: List<JIRField> by lazy(PUBLICATION) {
         val result: List<JIRField> = info.fields.map { JIRFieldImpl(this, it) }
         when {
             !classFeatures.isNullOrEmpty() -> {
@@ -116,7 +117,7 @@ class JIRClassOrInterfaceImpl(
         }
     }
 
-    override val declaredMethods: List<JIRMethod> by lazy(LazyThreadSafetyMode.NONE) {
+    override val declaredMethods: List<JIRMethod> by lazy(PUBLICATION) {
         val result: List<JIRMethod> = info.methods.map { toJIRMethod(it, classSource, features) }
         when {
             !classFeatures.isNullOrEmpty() -> {
