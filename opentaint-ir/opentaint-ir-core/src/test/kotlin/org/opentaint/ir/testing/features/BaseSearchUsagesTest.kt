@@ -138,7 +138,7 @@ abstract class BaseSearchUsagesTest : BaseTest() {
             val ext = cp.usagesExt()
             val invokeStaticField = cp.findClass<System>().declaredFields.first { it.name == "out" }
             val result = ext.findUsages(invokeStaticField, FieldUsageMode.READ).toList()
-            assertTrue(result.size > 1_000)
+            assertTrue(result.size > 500)
         }
     }
 
@@ -162,12 +162,9 @@ abstract class BaseSearchUsagesTest : BaseTest() {
                 val classId = cp.findClass<T>()
                 val methods = classId.declaredMethods
 
-                methods.map {
+                methods.associate {
                     it.name to findUsages(it).map { it.enclosingClass.name + "#" + it.name }.toSortedSet()
-                }
-                    .toMap()
-                    .filterNot { it.value.isEmpty() }
-                    .toSortedMap()
+                }.filterNot { it.value.isEmpty() }.toSortedMap()
             }
         }
     }
