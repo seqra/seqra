@@ -23,6 +23,7 @@ import org.opentaint.ir.api.broadcast
 import org.opentaint.ir.api.ext.toType
 import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
+import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.types.JIRArrayTypeImpl
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import org.opentaint.ir.impl.types.substition.JIRSubstitutor
@@ -104,7 +105,6 @@ class JIRClasspathImpl(
     }
 
     override suspend fun <T : JIRClasspathTask> execute(task: T): T {
-        db.awaitBackgroundJobs()
         val locations = registeredLocations.filter { task.shouldProcess(it) }
         task.before(this)
         withContext(Dispatchers.IO) {
@@ -112,6 +112,10 @@ class JIRClasspathImpl(
             locations.map {
                 async {
                     val sources = db.persistence.findClassSources(it)
+                        .takeIf { it.isNotEmpty() } ?: it.jIRLocation?.classes?.map { entry ->
+                        ClassSourceImpl(location = it, className = entry.key, byteCode = entry.value)
+                    } ?: emptyList()
+
                     sources.forEach {
                         if (parentScope.isActive && task.shouldProcess(it)) {
                             task.process(it, this@JIRClasspathImpl)
