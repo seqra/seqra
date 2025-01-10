@@ -1,5 +1,3 @@
-import kotlinx.benchmark.gradle.JvmBenchmarkTarget
-import kotlinx.benchmark.gradle.benchmark
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 val kotlinVersion: String by rootProject
@@ -18,17 +16,18 @@ buildscript {
 }
 
 plugins {
-    val kotlinVersion = "1.7.20"
+    val kotlinVersion = "1.7.21"
 
     `java-library`
     `maven-publish`
     `java-test-fixtures`
     kotlin("jvm") version kotlinVersion
     kotlin("plugin.allopen") version kotlinVersion
-    kotlin("plugin.serialization") version kotlinVersion
-    id("org.jetbrains.kotlinx.benchmark") version "0.4.4"
     id("org.cadixdev.licenser") version "0.6.1"
+}
 
+repositories {
+    mavenCentral()
 }
 
 subprojects {
@@ -38,8 +37,6 @@ subprojects {
     apply {
         plugin("maven-publish")
         plugin("kotlin")
-        plugin("org.jetbrains.kotlinx.benchmark")
-        plugin("org.jetbrains.kotlin.plugin.serialization")
         plugin("org.jetbrains.kotlin.plugin.allopen")
         plugin("org.cadixdev.licenser")
     }
@@ -64,7 +61,6 @@ subprojects {
             }
         }
         testImplementation(group = "com.google.guava", name = "guava", version = "31.1-jre")
-        testImplementation(group = "org.jetbrains.kotlinx", name = "kotlinx-benchmark-runtime", version = "0.4.4")
     }
 
     tasks {
@@ -109,24 +105,6 @@ subprojects {
 
     allOpen {
         annotation("org.openjdk.jmh.annotations.State")
-    }
-
-    benchmark {
-        configurations {
-            named("main") { // main configuration is created automatically, but you can change its defaults
-                warmups = 3 // number of warmup iterations
-                iterations = 5 // number of iterations
-            }
-        }
-
-        // Setup configurations
-        targets {
-            // This one matches sourceSet name above
-            register("test") {
-                this as JvmBenchmarkTarget
-                jmhVersion = "1.21"
-            }
-        }
     }
 
     license {
