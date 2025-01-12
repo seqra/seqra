@@ -32,4 +32,8 @@ class JIRParameterImpl(
     override val type: TypeName
         get() = TypeNameImpl(info.type)
 
+    override fun toString(): String {
+        return "$method $name"
+    }
+
 }

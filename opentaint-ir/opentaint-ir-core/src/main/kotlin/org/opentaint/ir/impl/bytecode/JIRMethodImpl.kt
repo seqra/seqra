@@ -95,4 +95,8 @@ class JIRMethodImpl(
         return 31 * enclosingClass.hashCode() + name.hashCode()
     }
 
+    override fun toString(): String {
+        return "${enclosingClass}#$name(${parameters.joinToString { it.type.typeName }})"
+    }
+
 }

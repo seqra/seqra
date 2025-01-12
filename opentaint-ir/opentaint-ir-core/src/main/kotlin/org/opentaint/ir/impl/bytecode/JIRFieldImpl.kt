@@ -38,4 +38,8 @@ class JIRFieldImpl(
     override fun hashCode(): Int {
         return 31 * enclosingClass.hashCode() + name.hashCode()
     }
+
+    override fun toString(): String {
+        return "$enclosingClass#$name"
+    }
 }

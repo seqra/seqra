@@ -113,6 +113,7 @@ class JIRClassOrInterfaceImpl(
                 }
                 modifiedFields
             }
+
             else -> result
         }
     }
@@ -129,6 +130,7 @@ class JIRClassOrInterfaceImpl(
                 }
                 modifiedMethods
             }
+
             else -> result
         }
     }
@@ -142,5 +144,9 @@ class JIRClassOrInterfaceImpl(
 
     override fun hashCode(): Int {
         return 31 * declaration.hashCode() + name.hashCode()
+    }
+
+    override fun toString(): String {
+        return "${declaration.location.path}(${declaration.location.id}): $name"
     }
 }
