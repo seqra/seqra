@@ -157,7 +157,6 @@ import org.opentaint.ir.api.ext.objectType
 import org.opentaint.ir.api.ext.packageName
 import org.opentaint.ir.api.ext.short
 import org.opentaint.ir.api.ext.toType
-import org.opentaint.ir.impl.cfg.util.OBJECT_CLASS
 
 /** This class stores state and is NOT THREAD SAFE. Use it carefully */
 class JIRGraphBuilder(
@@ -409,9 +408,6 @@ class JIRGraphBuilder(
                 val method = it.method
                 method.name == name && method.hasAnnotation("java.lang.invoke.MethodHandle\$PolymorphicSignature")
             } // weak consumption. may fail
-        }
-        if(methodOrNull == null){
-            println("zzz")
         }
         return methodOrNull ?: error("Could not find a method with correct signature $typeName#$name$sb")
     }

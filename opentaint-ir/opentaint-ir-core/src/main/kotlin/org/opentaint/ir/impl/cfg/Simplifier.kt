@@ -74,9 +74,7 @@ internal class Simplifier {
         // remove instructions like `a = a`
         instructionList = cleanSelfAssignments(instructionList)
         // fix some typing errors and normalize the types of all local variables
-        instructionList = normalizeTypes(jIRClasspath, instructionList)
-
-        return instructionList
+        return normalizeTypes(jIRClasspath, instructionList)
     }
 
     private fun computeUseCases(instList: JIRInstListImpl<JIRRawInst>): Map<JIRRawSimpleValue, Set<JIRRawInst>> {
@@ -176,14 +174,22 @@ internal class Simplifier {
                     && uses.getOrDefault(inst.rhv, emptySet()).firstOrNull() == inst
                     && rhv !in reservedValues
                 ) {
-                    replacements[rhv] = inst.lhv
-                    reservedValues += inst.lhv
-                    replacedInsts += inst
+                    val lhv = inst.lhv
+                    val lhvUsage = uses.getOrDefault(lhv, emptySet()).firstOrNull()
+                    if (lhvUsage == null || !instList.isBefore(lhvUsage, inst)) {
+                        replacements[rhv] = lhv
+                        reservedValues += lhv
+                        replacedInsts += inst
+                    }
                 }
             }
         }
 
         return replacements to replacedInsts
+    }
+
+    private fun JIRInstListImpl<JIRRawInst>.isBefore(one: JIRRawInst, another: JIRRawInst): Boolean {
+        return indexOf(one) < indexOf(another)
     }
 
     private fun computeAssignments(instList: JIRInstListImpl<JIRRawInst>): Map<JIRRawSimpleValue, Set<JIRRawSimpleValue>> {
@@ -200,7 +206,10 @@ internal class Simplifier {
         return assignments
     }
 
-    private fun normalizeTypes(jIRClasspath: JIRClasspath, instList: JIRInstListImpl<JIRRawInst>): JIRInstListImpl<JIRRawInst> {
+    private fun normalizeTypes(
+        jIRClasspath: JIRClasspath,
+        instList: JIRInstListImpl<JIRRawInst>
+    ): JIRInstListImpl<JIRRawInst> {
         val types = mutableMapOf<JIRRawLocalVar, MutableSet<JIRType>>()
         for (inst in instList) {
             if (inst is JIRRawAssignInst && inst.lhv is JIRRawLocalVar && inst.rhv !is JIRRawNullConstant) {
