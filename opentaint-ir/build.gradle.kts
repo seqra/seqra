@@ -6,12 +6,8 @@ val junit5Version: String by project
 val semVer: String? by project
 
 group = "org.opentaint.ir"
-val versionSuffix = when(val branch = System.getenv("BRANCH_NAME")) {
-    null, "" ->  ""
-    else -> "-$branch"
-}
 
-project.version = semVer ?: "1.0$versionSuffix-SNAPSHOT"
+project.version = semVer ?: "1.0-SNAPSHOT"
 
 buildscript {
     repositories {
