@@ -7,7 +7,7 @@ val semVer: String? by project
 
 group = "org.opentaint.ir"
 val versionSuffix = when(val branch = System.getenv("BRANCH_NAME")) {
-    null, "main", "" ->  ""
+    null, "" ->  ""
     else -> "-$branch"
 }
 
