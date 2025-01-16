@@ -1,27 +1,8 @@
 package org.opentaint.ir.impl
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.joinAll
-import kotlinx.coroutines.withContext
-import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.JIRArrayType
-import org.opentaint.ir.api.JIRByteCodeLocation
-import org.opentaint.ir.api.JIRClassFoundEvent
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRClasspathExtFeature
-import org.opentaint.ir.api.JIRClasspathFeature
-import org.opentaint.ir.api.JIRClasspathTask
-import org.opentaint.ir.api.JIRRefType
-import org.opentaint.ir.api.JIRType
-import org.opentaint.ir.api.JIRTypeFoundEvent
-import org.opentaint.ir.api.PredefinedPrimitives
-import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.api.broadcast
+import kotlinx.coroutines.*
+import org.opentaint.ir.api.*
 import org.opentaint.ir.api.ext.toType
-import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.types.JIRArrayTypeImpl
@@ -55,13 +36,16 @@ class JIRClasspathImpl(
     override fun findClassOrNull(name: String): JIRClassOrInterface? {
         val result = classpathExtFeature?.firstNotNullOfOrNull { it.tryFindClass(this, name) }
         if (result != null) {
-            return result
+            return result.orElse(null)
         }
         val source = classpathVfs.firstClassOrNull(name)
         val jIRClass = source?.let { toJIRClass(it.source) }
             ?: db.persistence.findClassSourceByName(this, locationsRegistrySnapshot.locations, name)?.let {
                 toJIRClass(it)
             }
+        if (jIRClass == null) {
+            broadcast(JIRClassNotFound(name))
+        }
         return jIRClass
     }
 
@@ -89,7 +73,7 @@ class JIRClasspathImpl(
     override fun findTypeOrNull(name: String): JIRType? {
         val result = classpathExtFeature?.firstNotNullOfOrNull { it.tryFindType(this, name) }
         if (result != null) {
-            return result
+            return result.orElse(null)
         }
         if (name.endsWith("[]")) {
             val targetName = name.removeSuffix("[]")
