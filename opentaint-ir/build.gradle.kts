@@ -21,6 +21,7 @@ plugins {
 
     `java-library`
     `maven-publish`
+    signing
     `java-test-fixtures`
     kotlin("jvm") version kotlinVersion
     kotlin("plugin.allopen") version kotlinVersion
@@ -165,14 +166,51 @@ configure(
     publishing {
         repositories {
             maven {
-                name = "GitHubPackages"
-                url = uri("https://maven.pkg.github.com/Opentaint/opentaint-ir")
+                name = "MavenCentral"
+                url = uri("https://s01.oss.sonatype.org/")
                 credentials {
-                    username = System.getenv("GITHUB_ACTOR")
-                    password = System.getenv("GITHUB_TOKEN")
+                    username = System.getenv("MAVEN_CENTRAL_LOGIN")
+                    password = System.getenv("MAVEN_CENTRAL_TOKEN")
                 }
             }
         }
+    }
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            pom {
+                name.set("Opentaint-IR")
+                description.set("analyse JVM bytecode with pleasure")
+                url.set("https://www.opentaint-ir.org")
+                licenses {
+                    license {
+                        name.set("The Apache License, Version 2.0")
+                        url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
+                    }
+                }
+                scm {
+                    connection.set("scm:git:https://github.com/Opentaint/opentaint-ir.git")
+                    developerConnection.set("scm:git:https://github.com/Opentaint/opentaint-ir.git")
+                    url.set("https://www.opentaint-ir.org")
+                }
+            }
+        }
+    }
+}
+
+//signing {
+//    val signingKey: String? by project
+//    val signingPassword: String? by project
+//    useInMemoryPgpKeys(signingKey, signingPassword)
+//
+//    sign(publishing.publications["mavenJava"])
+//}
+
+tasks.javadoc {
+    if (JavaVersion.current().isJava9Compatible) {
+        (options as StandardJavadocDocletOptions).addBooleanOption("html5", true)
     }
 }
 
