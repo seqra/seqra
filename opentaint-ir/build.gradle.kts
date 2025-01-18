@@ -172,7 +172,7 @@ if(!publishRepo.isNullOrEmpty()) {
                     name = "repo"
                     url = uri(publishRepo)
                     credentials {
-                        username = System.getenv("LOGIN")
+                        username = System.getenv("ACTOR")
                         password = System.getenv("TOKEN")
                     }
                 }
