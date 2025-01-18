@@ -27,9 +27,9 @@ internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = 
         is JvmClassRefType -> typeOf(findClass(jvmType.name)).copyWithNullability(jvmType.isNullable)
         is JvmArrayType -> arrayTypeOf(typeOf(jvmType.elementType)).copyWithNullability(jvmType.isNullable)
         is JvmParameterizedType -> {
-            val clazz = findClass(jvmType.name)
             JIRClassTypeImpl(
-                clazz,
+                this,
+                jvmType.name,
                 null,
                 parameters ?: jvmType.parameterTypes,
                 nullable = jvmType.isNullable
@@ -37,11 +37,11 @@ internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = 
         }
 
         is JvmParameterizedType.JvmNestedType -> {
-            val clazz = findClass(jvmType.name)
             val outerParameters = (jvmType.ownerType as? JvmParameterizedType)?.parameterTypes
             val outerType = typeOf(jvmType.ownerType, parameters ?: outerParameters)
             JIRClassTypeImpl(
-                clazz,
+                this,
+                jvmType.name,
                 outerType as JIRClassTypeImpl,
                 jvmType.parameterTypes,
                 nullable = jvmType.isNullable

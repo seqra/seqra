@@ -21,6 +21,7 @@ import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
 import org.opentaint.ir.api.ext.autoboxIfNeeded
 import org.opentaint.ir.api.ext.findTypeOrNull
 import org.opentaint.ir.impl.cfg.JIRGraphImpl
+import org.opentaint.ir.impl.cfg.methodRef
 import kotlin.collections.set
 
 class StringConcatSimplifier(val jIRGraph: JIRGraph) : DefaultJIRInstVisitor<JIRInst> {
@@ -63,7 +64,7 @@ class StringConcatSimplifier(val jIRGraph: JIRGraph) : DefaultJIRInstVisitor<JIR
                     val concatMethod = stringType.methods.first {
                         it.name == "concat" && it.parameters.size == 1 && it.parameters.first().type == stringType
                     }
-                    val newConcatExpr = JIRVirtualCallExpr(concatMethod, firstStr, listOf(secondStr))
+                    val newConcatExpr = JIRVirtualCallExpr(concatMethod.methodRef(), firstStr, listOf(secondStr))
                     result += JIRAssignInst(inst.location, lhv, newConcatExpr)
                     instructionReplacements[inst] = result.first()
                     catchReplacements[inst] = result
@@ -94,7 +95,7 @@ class StringConcatSimplifier(val jIRGraph: JIRGraph) : DefaultJIRInstVisitor<JIR
                 val method = boxedType.methods.first {
                     it.name == "toString" && it.parameters.size == 1 && it.parameters.first().type == value.type
                 }
-                val toStringExpr = JIRStaticCallExpr(method, listOf(value))
+                val toStringExpr = JIRStaticCallExpr(method.methodRef(), listOf(value))
                 val assignment = JIRLocalVar("${value}String", stringType)
                 instList += JIRAssignInst(inst.location, assignment, toStringExpr)
                 assignment
@@ -106,7 +107,7 @@ class StringConcatSimplifier(val jIRGraph: JIRGraph) : DefaultJIRInstVisitor<JIR
                 val method = boxedType.methods.first {
                     it.name == "toString" && it.parameters.isEmpty()
                 }
-                val toStringExpr = JIRVirtualCallExpr(method, value, emptyList())
+                val toStringExpr = JIRVirtualCallExpr(method.methodRef(), value, emptyList())
                 val assignment = JIRLocalVar("${value}String", stringType)
                 instList += JIRAssignInst(inst.location, assignment, toStringExpr)
                 assignment

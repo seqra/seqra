@@ -1,30 +1,26 @@
 package org.opentaint.ir.impl.cfg
 
+import kotlinx.collections.immutable.toPersistentSet
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.cfg.JIRBranchingInst
-import org.opentaint.ir.api.cfg.JIRCatchInst
-import org.opentaint.ir.api.cfg.JIRGraph
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRInstRef
-import org.opentaint.ir.api.cfg.JIRInstVisitor
-import org.opentaint.ir.api.cfg.JIRTerminatingInst
+import org.opentaint.ir.api.cfg.*
 import org.opentaint.ir.api.ext.isSubClassOf
+import java.util.Collections.singleton
 
 class JIRGraphImpl(
     override val method: JIRMethod,
     override val instructions: List<JIRInst>,
 ) : Iterable<JIRInst>, JIRGraph {
-    private val indexMap = instructions.mapIndexed { index, jIRInst -> jIRInst to index }.toMap()
+
     override val classpath: JIRClasspath get() = method.enclosingClass.classpath
 
-    private val predecessorMap = mutableMapOf<JIRInst, MutableSet<JIRInst>>()
-    private val successorMap = mutableMapOf<JIRInst, MutableSet<JIRInst>>()
+    private val predecessorMap = hashMapOf<JIRInst, Set<JIRInst>>()
+    private val successorMap = hashMapOf<JIRInst, Set<JIRInst>>()
 
-    private val throwPredecessors = mutableMapOf<JIRCatchInst, MutableSet<JIRInst>>()
-    private val throwSuccessors = mutableMapOf<JIRInst, MutableSet<JIRCatchInst>>()
-    private val _throwExits = mutableMapOf<JIRClassType, MutableSet<JIRInstRef>>()
+    private val throwPredecessors = hashMapOf<JIRCatchInst, Set<JIRInst>>()
+    private val throwSuccessors = hashMapOf<JIRInst, Set<JIRCatchInst>>()
+    private val _throwExits = hashMapOf<JIRClassType, Set<JIRInstRef>>()
 
     private val exceptionResolver = JIRExceptionResolver(classpath)
 
@@ -36,25 +32,28 @@ class JIRGraphImpl(
      * for each instruction of in the graph in determines possible thrown exceptions using
      * #JIRExceptionResolver class
      */
-    override val throwExits: Map<JIRClassType, List<JIRInst>> get() = _throwExits.mapValues { (_, refs) -> refs.map { inst(it) } }
+    override val throwExits: Map<JIRClassType, List<JIRInst>>
+        get() = _throwExits.mapValues { (_, refs) ->
+            refs.map { instructions[it.index] }
+        }
 
     init {
         for (inst in instructions) {
             val successors = when (inst) {
-                is JIRTerminatingInst -> mutableSetOf()
-                is JIRBranchingInst -> inst.successors.map { inst(it) }.toMutableSet()
-                else -> mutableSetOf(next(inst))
+                is JIRTerminatingInst -> emptySet()
+                is JIRBranchingInst -> inst.successors.map { instructions[it.index] }.toSet()
+                else -> setOf(next(inst))
             }
             successorMap[inst] = successors
 
             for (successor in successors) {
-                predecessorMap.getOrPut(successor, ::mutableSetOf) += inst
+                predecessorMap.add(successor, inst)
             }
 
             if (inst is JIRCatchInst) {
-                throwPredecessors[inst] = inst.throwers.map { inst(it) }.toMutableSet()
+                throwPredecessors[inst] = inst.throwers.map { instructions[it.index] }.toPersistentSet()
                 inst.throwers.forEach {
-                    throwSuccessors.getOrPut(inst(it), ::mutableSetOf).add(inst)
+                    throwSuccessors.add(inst(it), inst)
                 }
             }
         }
@@ -62,13 +61,18 @@ class JIRGraphImpl(
         for (inst in instructions) {
             for (throwableType in inst.accept(exceptionResolver)) {
                 if (!catchers(inst).any { throwableType.jIRClass isSubClassOf (it.throwable.type as JIRClassType).jIRClass }) {
-                    _throwExits.getOrPut(throwableType, ::mutableSetOf) += ref(inst)
+                    _throwExits.add(throwableType, ref(inst))
                 }
             }
         }
     }
 
-    override fun index(inst: JIRInst) = indexMap.getOrDefault(inst, -1)
+    override fun index(inst: JIRInst): Int {
+        if (instructions.contains(inst)) {
+            return inst.location.index
+        }
+        return -1
+    }
 
     override fun ref(inst: JIRInst): JIRInstRef = JIRInstRef(index(inst))
     override fun inst(ref: JIRInstRef): JIRInst = instructions[ref.index]
@@ -112,6 +116,15 @@ class JIRGraphImpl(
     override fun toString(): String = instructions.joinToString("\n")
 
     override fun iterator(): Iterator<JIRInst> = instructions.iterator()
+
+    private fun <KEY, VALUE> MutableMap<KEY, Set<VALUE>>.add(key: KEY, value: VALUE) {
+        val current = this[key]
+        if (current == null) {
+            this[key] = singleton(value)
+        } else {
+            this[key] = current + value
+        }
+    }
 }
 
 fun JIRGraph.filter(visitor: JIRInstVisitor<Boolean>) =

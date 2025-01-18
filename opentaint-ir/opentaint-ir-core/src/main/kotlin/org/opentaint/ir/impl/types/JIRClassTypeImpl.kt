@@ -1,12 +1,10 @@
 package org.opentaint.ir.impl.types
 
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRRefType
-import org.opentaint.ir.api.JIRTypedField
-import org.opentaint.ir.api.JIRTypedMethod
+import org.opentaint.ir.api.*
+import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.packageName
 import org.opentaint.ir.api.ext.toType
+import org.opentaint.ir.impl.softLazy
 import org.opentaint.ir.impl.types.signature.JvmClassRefType
 import org.opentaint.ir.impl.types.signature.JvmParameterizedType
 import org.opentaint.ir.impl.types.signature.JvmType
@@ -17,23 +15,25 @@ import org.opentaint.ir.impl.types.substition.substitute
 import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 open class JIRClassTypeImpl(
-    override val jIRClass: JIRClassOrInterface,
+    override val classpath: JIRClasspath,
+    val name: String,
     override val outerType: JIRClassTypeImpl? = null,
     private val substitutor: JIRSubstitutor = JIRSubstitutor.empty,
     override val nullable: Boolean?
 ) : JIRClassType {
 
     constructor(
-        jIRClass: JIRClassOrInterface,
+        classpath: JIRClasspath,
+        name: String,
         outerType: JIRClassTypeImpl? = null,
         parameters: List<JvmType>,
         nullable: Boolean?
-    ) : this(jIRClass, outerType, jIRClass.substitute(parameters, outerType?.substitutor), nullable)
+    ) : this(classpath, name, outerType, classpath.substitute(name, parameters, outerType?.substitutor), nullable)
 
     private val resolutionImpl by lazy(PUBLICATION) { TypeSignature.withDeclarations(jIRClass) as? TypeResolutionImpl }
     private val declaredTypeParameters by lazy(PUBLICATION) { jIRClass.typeParameters }
 
-    override val classpath get() = jIRClass.classpath
+    override val jIRClass: JIRClassOrInterface get() = classpath.findClass(name)
 
     override val access: Int
         get() = jIRClass.access
@@ -69,28 +69,28 @@ open class JIRClassTypeImpl(
             }
         }
 
-    override val superType: JIRClassType? by lazy(PUBLICATION) {
-        val superClass = jIRClass.superClass ?: return@lazy null
-        resolutionImpl?.let {
+    override val superType: JIRClassType? get() {
+        val superClass = jIRClass.superClass ?: return null
+        return resolutionImpl?.let {
             val newSubstitutor = superSubstitutor(superClass, it.superClass)
-            JIRClassTypeImpl(superClass, outerType, newSubstitutor, nullable)
+            JIRClassTypeImpl(classpath, superClass.name, outerType, newSubstitutor, nullable)
         } ?: superClass.toType()
     }
 
-    override val interfaces: List<JIRClassType> by lazy(PUBLICATION) {
-        jIRClass.interfaces.map { iface ->
+    override val interfaces: List<JIRClassType> get() {
+        return jIRClass.interfaces.map { iface ->
             val ifaceType = resolutionImpl?.interfaceType?.firstOrNull { it.isReferencesClass(iface.name) }
             if (ifaceType != null) {
                 val newSubstitutor = superSubstitutor(iface, ifaceType)
-                JIRClassTypeImpl(iface, null, newSubstitutor, nullable)
+                JIRClassTypeImpl(classpath, iface.name,null, newSubstitutor, nullable)
             } else {
                 iface.toType()
             }
         }
     }
 
-    override val innerTypes: List<JIRClassType> by lazy(PUBLICATION) {
-        jIRClass.innerClasses.map {
+    override val innerTypes: List<JIRClassType> get() {
+        return jIRClass.innerClasses.map {
             val outerMethod = it.outerMethod
             val outerClass = it.outerClass
 
@@ -101,28 +101,28 @@ open class JIRClassTypeImpl(
                 it.isStatic -> JIRSubstitutor.empty.newScope(innerParameters)
                 else -> substitutor.newScope(innerParameters)
             }
-            JIRClassTypeImpl(it, this, innerSubstitutor, true)
+            JIRClassTypeImpl(classpath, it.name, this, innerSubstitutor, true)
         }
     }
 
-    override val declaredMethods by lazy(PUBLICATION) {
-        typedMethods(true, fromSuperTypes = false, jIRClass.packageName)
+    override val declaredMethods: List<JIRTypedMethod> get() {
+        return typedMethods(true, fromSuperTypes = false, jIRClass.packageName)
     }
 
-    override val methods by lazy(PUBLICATION) {
+    override val methods: List<JIRTypedMethod> get() {
         //let's calculate visible methods from super types
-        typedMethods(true, fromSuperTypes = true, jIRClass.packageName)
+        return typedMethods(true, fromSuperTypes = true, jIRClass.packageName)
     }
 
-    override val declaredFields by lazy(PUBLICATION) {
-        typedFields(true, fromSuperTypes = false, jIRClass.packageName)
+    override val declaredFields: List<JIRTypedField> get() {
+        return typedFields(true, fromSuperTypes = false, jIRClass.packageName)
     }
 
-    override val fields by lazy(PUBLICATION) {
-        typedFields(true, fromSuperTypes = true, jIRClass.packageName)
+    override val fields: List<JIRTypedField> get() {
+        return typedFields(true, fromSuperTypes = true, jIRClass.packageName)
     }
 
-    override fun copyWithNullability(nullability: Boolean?) = JIRClassTypeImpl(jIRClass, outerType, substitutor, nullability)
+    override fun copyWithNullability(nullability: Boolean?) = JIRClassTypeImpl(classpath, name, outerType, substitutor, nullability)
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

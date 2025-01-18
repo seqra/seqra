@@ -76,7 +76,7 @@ class JIRDatabaseImpl(
         if (this!= null && any { it is ClasspathCache }) {
             return listOf(KotlinMetadata) + this
         }
-        return listOf(ClasspathCache(settings.cacheSettings.maxSize, settings.cacheSettings.expiration), KotlinMetadata) + this.orEmpty()
+        return listOf(ClasspathCache(settings.cacheSettings), KotlinMetadata) + this.orEmpty()
     }
 
     override suspend fun classpath(dirOrJars: List<File>, features: List<JIRClasspathFeature>?): JIRClasspath {

@@ -1,6 +1,7 @@
 package org.opentaint.ir.impl.types.substition
 
-import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.impl.types.signature.JvmType
 import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclaration
 import org.opentaint.ir.impl.types.typeParameters
@@ -39,8 +40,9 @@ interface JIRSubstitutor {
 
 }
 
-fun JIRClassOrInterface.substitute(parameters: List<JvmType>, outer: JIRSubstitutor?): JIRSubstitutor {
-    val params = typeParameters
+fun JIRClasspath.substitute(name: String, parameters: List<JvmType>, outer: JIRSubstitutor?): JIRSubstitutor {
+    val clazz = findClass(name)
+    val params = clazz.typeParameters
     require(params.size == parameters.size) {
         "Incorrect parameters specified for class $name: expected ${params.size} found ${parameters.size}"
     }

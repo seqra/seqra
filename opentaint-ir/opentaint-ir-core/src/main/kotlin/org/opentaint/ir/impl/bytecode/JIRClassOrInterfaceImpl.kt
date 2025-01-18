@@ -1,13 +1,6 @@
 package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.JIRAnnotation
-import org.opentaint.ir.api.JIRClassExtFeature
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRClasspathFeature
-import org.opentaint.ir.api.JIRField
-import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.*
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.impl.fs.ClassSourceImpl
@@ -20,8 +13,10 @@ import kotlin.LazyThreadSafetyMode.PUBLICATION
 class JIRClassOrInterfaceImpl(
     override val classpath: JIRClasspath,
     private val classSource: ClassSource,
-    private val features: List<JIRClasspathFeature>?
+    features: List<JIRClasspathFeature>,
 ) : JIRClassOrInterface {
+
+    private val cache = features.filterIsInstance<JIRMethodExtFeature>().first()
 
     private val cachedInfo: ClassInfo? = when (classSource) {
         is LazyClassSourceImpl -> classSource.info // that means that we are loading bytecode. It can be removed let's cache info
@@ -29,11 +24,11 @@ class JIRClassOrInterfaceImpl(
         else -> null // maybe we do not need to do right now
     }
 
-    private val classFeatures = features?.filterIsInstance<JIRClassExtFeature>()
+    private val classFeatures = features.filterIsInstance<JIRClassExtFeature>()
 
     private val extensionData by lazy(PUBLICATION) {
         HashMap<String, Any>().also { map ->
-            classFeatures?.forEach {
+            classFeatures.forEach {
                 map.putAll(it.extensionValuesOf(this).orEmpty())
             }
         }
@@ -52,26 +47,26 @@ class JIRClassOrInterfaceImpl(
     override val annotations: List<JIRAnnotation>
         get() = info.annotations.map { JIRAnnotationImpl(it, classpath) }
 
-    override val interfaces by lazy(PUBLICATION) {
-        info.interfaces.map {
+    override val interfaces: List<JIRClassOrInterface> get() {
+        return info.interfaces.map {
             classpath.findClass(it)
         }
     }
 
-    override val superClass by lazy(PUBLICATION) {
-        info.superClass?.let {
+    override val superClass: JIRClassOrInterface? get() {
+        return info.superClass?.let {
             classpath.findClass(it)
         }
     }
 
-    override val outerClass by lazy(PUBLICATION) {
-        info.outerClass?.className?.let {
+    override val outerClass: JIRClassOrInterface? get() {
+        return info.outerClass?.className?.let {
             classpath.findClass(it)
         }
     }
 
-    override val innerClasses by lazy(PUBLICATION) {
-        info.innerClasses.map {
+    override val innerClasses: List<JIRClassOrInterface> get() {
+        return info.innerClasses.map {
             classpath.findClass(it)
         }
     }
@@ -101,10 +96,10 @@ class JIRClassOrInterfaceImpl(
             return null
         }
 
-    override val declaredFields: List<JIRField> by lazy(PUBLICATION) {
+    override val declaredFields: List<JIRField> get() {
         val result: List<JIRField> = info.fields.map { JIRFieldImpl(this, it) }
-        when {
-            !classFeatures.isNullOrEmpty() -> {
+        return when {
+            classFeatures.isNotEmpty() -> {
                 val modifiedFields = result.toMutableList()
                 classFeatures.forEach {
                     it.fieldsOf(this)?.let {
@@ -119,9 +114,9 @@ class JIRClassOrInterfaceImpl(
     }
 
     override val declaredMethods: List<JIRMethod> by lazy(PUBLICATION) {
-        val result: List<JIRMethod> = info.methods.map { toJIRMethod(it, classSource, features) }
+        val result: List<JIRMethod> = info.methods.map { toJIRMethod(it, classSource, cache) }
         when {
-            !classFeatures.isNullOrEmpty() -> {
+            classFeatures.isNotEmpty() -> {
                 val modifiedMethods = result.toMutableList()
                 classFeatures.forEach {
                     it.methodsOf(this)?.let {

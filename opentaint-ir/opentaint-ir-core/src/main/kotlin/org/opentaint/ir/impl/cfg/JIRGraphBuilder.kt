@@ -4,7 +4,6 @@ import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRType
-import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.TypeName
 import org.opentaint.ir.api.cfg.BsmHandle
 import org.opentaint.ir.api.cfg.JIRAddExpr
@@ -67,7 +66,6 @@ import org.opentaint.ir.api.cfg.JIRRawAssignInst
 import org.opentaint.ir.api.cfg.JIRRawBinaryExpr
 import org.opentaint.ir.api.cfg.JIRRawBool
 import org.opentaint.ir.api.cfg.JIRRawByte
-import org.opentaint.ir.api.cfg.JIRRawCallExpr
 import org.opentaint.ir.api.cfg.JIRRawCallInst
 import org.opentaint.ir.api.cfg.JIRRawCastExpr
 import org.opentaint.ir.api.cfg.JIRRawCatchInst
@@ -146,15 +144,11 @@ import org.opentaint.ir.api.ext.byte
 import org.opentaint.ir.api.ext.char
 import org.opentaint.ir.api.ext.double
 import org.opentaint.ir.api.ext.findFieldOrNull
-import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.api.ext.findTypeOrNull
 import org.opentaint.ir.api.ext.float
-import org.opentaint.ir.api.ext.hasAnnotation
 import org.opentaint.ir.api.ext.int
-import org.opentaint.ir.api.ext.jvmName
 import org.opentaint.ir.api.ext.long
 import org.opentaint.ir.api.ext.objectType
-import org.opentaint.ir.api.ext.packageName
 import org.opentaint.ir.api.ext.short
 import org.opentaint.ir.api.ext.toType
 
@@ -165,6 +159,7 @@ class JIRGraphBuilder(
 ) : JIRRawInstVisitor<JIRInst?>, JIRRawExprVisitor<JIRExpr> {
 
     val classpath: JIRClasspath = method.enclosingClass.classpath
+    private val methodRef = JIRMethodRefImpl(method)
 
     private val instMap = mutableMapOf<JIRRawInst, JIRInst>()
     private var currentLineNumber = 0
@@ -300,7 +295,7 @@ class JIRGraphBuilder(
     }
 
     private fun newLocation(): JIRInstLocation {
-        return JIRInstLocation(method, index, currentLineNumber).also {
+        return JIRInstLocationImpl(methodRef, index, currentLineNumber).also {
             index++
         }
     }
@@ -393,46 +388,21 @@ class JIRGraphBuilder(
     override fun visitJIRRawInstanceOfExpr(expr: JIRRawInstanceOfExpr): JIRExpr =
         JIRInstanceOfExpr(classpath.boolean, expr.operand.accept(this) as JIRValue, expr.targetType.asType)
 
-    private fun JIRClassType.getMethod(name: String, argTypes: List<TypeName>, returnType: TypeName): JIRTypedMethod {
-        val sb = buildString {
-            append("(")
-            argTypes.forEach {
-                append(it.typeName.jvmName())
-            }
-            append(")")
-            append(returnType.typeName.jvmName())
-        }
-        var methodOrNull = findMethodOrNull(name, sb)
-        if (methodOrNull == null && jIRClass.packageName == "java.lang.invoke") {
-            methodOrNull = findMethodOrNull {
-                val method = it.method
-                method.name == name && method.hasAnnotation("java.lang.invoke.MethodHandle\$PolymorphicSignature")
-            } // weak consumption. may fail
-        }
-        return methodOrNull ?: error("Could not find a method with correct signature $typeName#$name$sb")
-    }
-
-    private val JIRRawCallExpr.typedMethod: JIRTypedMethod
-        get() {
-            val klass = declaringClass.asType as JIRClassType
-            return klass.getMethod(methodName, argumentTypes, returnType)
-        }
-
     override fun visitJIRRawDynamicCallExpr(expr: JIRRawDynamicCallExpr): JIRExpr {
         val lambdaBases = expr.bsmArgs.filterIsInstance<BsmHandle>()
         when (lambdaBases.size) {
             1 -> {
                 val base = lambdaBases.first()
                 val klass = base.declaringClass.asType as JIRClassType
-                val typedBase = klass.getMethod(base.name, base.argTypes, base.returnType)
+                val ref = TypedMethodRefImpl(klass, base.name, base.argTypes, base.returnType)
 
-                return JIRLambdaExpr(typedBase, expr.args.map { it.accept(this) as JIRValue })
+                return JIRLambdaExpr(ref, expr.args.map { it.accept(this) as JIRValue })
             }
 
             else -> {
-                val bsm = expr.typedMethod
+
                 return JIRDynamicCallExpr(
-                    bsm,
+                    classpath.methodRef(expr),
                     expr.bsmArgs,
                     expr.callCiteMethodName,
                     expr.callCiteArgTypes.map { it.asType },
@@ -445,36 +415,30 @@ class JIRGraphBuilder(
 
     override fun visitJIRRawVirtualCallExpr(expr: JIRRawVirtualCallExpr): JIRExpr {
         val instance = expr.instance.accept(this) as JIRValue
-        val klass = instance.type as? JIRClassType ?: classpath.objectType
-        val method = klass.getMethod(expr.methodName, expr.argumentTypes, expr.returnType)
         val args = expr.args.map { it.accept(this) as JIRValue }
         return JIRVirtualCallExpr(
-            method, instance, args
+            instance.type.methodRef(expr), instance, args
         )
     }
 
     override fun visitJIRRawInterfaceCallExpr(expr: JIRRawInterfaceCallExpr): JIRExpr {
         val instance = expr.instance.accept(this) as JIRValue
-        val klass = instance.type as? JIRClassType ?: classpath.objectType
-        val method = klass.getMethod(expr.methodName, expr.argumentTypes, expr.returnType)
         val args = expr.args.map { it.accept(this) as JIRValue }
         return JIRVirtualCallExpr(
-            method, instance, args
+            instance.type.methodRef(expr), instance, args
         )
     }
 
     override fun visitJIRRawStaticCallExpr(expr: JIRRawStaticCallExpr): JIRExpr {
-        val method = expr.typedMethod
         val args = expr.args.map { it.accept(this) as JIRValue }
-        return JIRStaticCallExpr(method, args)
+        return JIRStaticCallExpr(classpath.methodRef(expr), args)
     }
 
     override fun visitJIRRawSpecialCallExpr(expr: JIRRawSpecialCallExpr): JIRExpr {
-        val method = expr.typedMethod
         val instance = expr.instance.accept(this) as JIRValue
         val args = expr.args.map { it.accept(this) as JIRValue }
         return JIRSpecialCallExpr(
-            method, instance, args,
+            instance.type.methodRef(expr), instance, args
         )
     }
 

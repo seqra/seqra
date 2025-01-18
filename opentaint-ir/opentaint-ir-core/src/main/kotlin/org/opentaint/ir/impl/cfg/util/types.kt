@@ -13,16 +13,6 @@ internal const val THROWABLE_CLASS = "Ljava.lang.Throwable;"
 internal const val CLASS_CLASS = "Ljava.lang.Class;"
 internal const val METHOD_HANDLE_CLASS = "Ljava.lang.invoke.MethodHandle;"
 
-// TODO: decide what to do with this
-data class MethodTypeNameImpl(
-    val argTypes: List<TypeName>,
-    val returnType: TypeName
-) : TypeName {
-    override val typeName: String
-        get() = "(${argTypes.joinToString(", ")})$returnType"
-
-}
-
 internal val TypeName.jvmTypeName get() = typeName.jvmName()
 internal val TypeName.jvmClassName get() = jvmTypeName.removePrefix("L").removeSuffix(";")
 

@@ -34,7 +34,7 @@ class JIRSettings {
     var predefinedDirOrJars: List<File> = persistentListOf()
         private set
 
-    var cacheSettings: JIRCacheSettings = JIRCacheSettings(10_000, Duration.ofSeconds(10))
+    var cacheSettings: JIRCacheSettings = JIRCacheSettings()
         private set
 
     var byteCodeSettings: JIRByteCodeCache = JIRByteCodeCache()
@@ -70,8 +70,8 @@ class JIRSettings {
         persistentType = type
     }
 
-    fun classCaching(maxSize: Long, expiration: Duration) = apply {
-        cacheSettings = JIRCacheSettings(maxSize, expiration)
+    fun caching(settings: JIRCacheSettings.() -> Unit) = apply {
+        cacheSettings = JIRCacheSettings().also { it.settings() }
     }
 
     fun bytecodeCaching(byteCodeCache: JIRByteCodeCache) = apply {
@@ -178,4 +178,22 @@ enum class PredefinedPersistenceType : JIRPersistenceType {
 
 class JIRByteCodeCache(val prefixes: List<String> = persistentListOf("java.", "javax.", "kotlinx.", "kotlin."))
 
-class JIRCacheSettings(val maxSize: Long, val expiration: Duration, val byteCodeCache: JIRByteCodeCache = JIRByteCodeCache())
+class JIRCacheSettings {
+    var classes: Pair<Long, Duration> = 10_000L to Duration.ofMinutes(1)
+    var types: Pair<Long, Duration> = 10_000L to Duration.ofMinutes(1)
+    var graphs: Pair<Long, Duration> = 10_000L to Duration.ofMinutes(1)
+
+    var byteCodeCache: JIRByteCodeCache = JIRByteCodeCache()
+
+    fun classes(maxSize: Long, expiration: Duration) {
+        classes = maxSize to expiration
+    }
+
+    fun types(maxSize: Long, expiration: Duration) {
+        types = maxSize to expiration
+    }
+
+    fun graphs(maxSize: Long, expiration: Duration) {
+        graphs = maxSize to expiration
+    }
+}

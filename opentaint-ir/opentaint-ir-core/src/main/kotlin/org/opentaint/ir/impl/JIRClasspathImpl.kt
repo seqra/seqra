@@ -14,7 +14,7 @@ import org.opentaint.ir.impl.vfs.GlobalClassesVfs
 class JIRClasspathImpl(
     private val locationsRegistrySnapshot: LocationsRegistrySnapshot,
     override val db: JIRDatabaseImpl,
-    override val features: List<JIRClasspathFeature>?,
+    override val features: List<JIRClasspathFeature>,
     globalClassVFS: GlobalClassesVfs
 ) : JIRClasspath {
 
@@ -23,7 +23,7 @@ class JIRClasspathImpl(
 
     private val classpathVfs = ClasspathVfs(globalClassVFS, locationsRegistrySnapshot)
 
-    private val classpathExtFeature = features?.filterIsInstance<JIRClasspathExtFeature>()
+    private val classpathExtFeature = features.filterIsInstance<JIRClasspathExtFeature>()
 
     override suspend fun refreshed(closeOld: Boolean): JIRClasspath {
         return db.new(this).also {
@@ -51,7 +51,8 @@ class JIRClasspathImpl(
 
     override fun typeOf(jIRClass: JIRClassOrInterface): JIRRefType {
         return JIRClassTypeImpl(
-            jIRClass,
+            this,
+            jIRClass.name,
             jIRClass.outerClass?.toType() as? JIRClassTypeImpl,
             JIRSubstitutor.empty,
             nullable = null
