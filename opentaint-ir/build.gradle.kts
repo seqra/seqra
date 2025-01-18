@@ -32,7 +32,7 @@ repositories {
     mavenCentral()
 }
 
-subprojects {
+allprojects {
     group = rootProject.group
     version = rootProject.version
 
@@ -135,18 +135,20 @@ subprojects {
                 pom {
                     packaging = "jar"
                     name.set("org.opentaint.ir")
-                    description.set("fast and effective way to access and analyze java bytecode")
-                    url.set("https://github.com/Opentaint/opentaint-ir")
-                    scm {
-                        url.set("https://github.com/Opentaint/opentaint-ir.git")
-                    }
+                    description.set("analyse JVM bytecode with pleasure")
                     issueManagement {
                         url.set("https://github.com/Opentaint/opentaint-ir/issues")
                     }
+                    scm {
+                        connection.set("scm:git:https://github.com/Opentaint/opentaint-ir.git")
+                        developerConnection.set("scm:git:https://github.com/Opentaint/opentaint-ir.git")
+                        url.set("https://www.opentaint-ir.org")
+                    }
+                    url.set("https://www.opentaint-ir.org")
                     licenses {
                         license {
-                            name.set("Apache 2.0")
-                            url.set("https://www.apache.org/licenses/LICENSE-2.0")
+                            name.set("The Apache License, Version 2.0")
+                            url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
                         }
                     }
                 }
@@ -156,9 +158,9 @@ subprojects {
 
 }
 
-val publishRepo: String? = System.getenv("REPO_URL")
+val repoUrl: String? = project.properties["repoUrl"] as? String ?: "https://maven.pkg.github.com/Opentaint/opentaint-ir"
 
-if(!publishRepo.isNullOrEmpty()) {
+if (!repoUrl.isNullOrEmpty()) {
     configure(
         listOf(
             project(":opentaint-ir-api"),
@@ -170,47 +172,26 @@ if(!publishRepo.isNullOrEmpty()) {
             repositories {
                 maven {
                     name = "repo"
-                    url = uri(publishRepo)
+                    url = uri(repoUrl)
+                    val actor: String? by project
+                    val token: String? by project
+
                     credentials {
-                        username = System.getenv("ACTOR")
-                        password = System.getenv("TOKEN")
+                        username = actor
+                        password = token
                     }
                 }
             }
         }
     }
-
-//signing {
-//    val signingKey: String? by project
-//    val signingPassword: String? by project
-//    useInMemoryPgpKeys(signingKey, signingPassword)
-//
-//    sign(publishing.publications["mavenJava"])
-//}
-
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            pom {
-                name.set("Opentaint-IR")
-                description.set("analyse JVM bytecode with pleasure")
-                url.set("https://www.opentaint-ir.org")
-                licenses {
-                    license {
-                        name.set("The Apache License, Version 2.0")
-                        url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
-                    }
-                }
-                scm {
-                    connection.set("scm:git:https://github.com/Opentaint/opentaint-ir.git")
-                    developerConnection.set("scm:git:https://github.com/Opentaint/opentaint-ir.git")
-                    url.set("https://www.opentaint-ir.org")
-                }
-            }
-        }
-    }
+signing {
+    val gpgKey: String? by project
+    val gpgPassphrase: String? by project
+    useInMemoryPgpKeys(gpgKey, gpgPassphrase)
+
+    sign(publishing.publications["jar"])
 }
 
 tasks.javadoc {
