@@ -75,16 +75,7 @@ open class JarLocation(
         get() {
             return jarOrFolder.let {
                 it.absolutePath + it.lastModified() + it.length()
-            }
-//            val buffer = ByteArray(8192)
-//            var count: Int
-//            val digest = MessageDigest.getInstance("SHA-256")
-//            val bis = BufferedInputStream(FileInputStream(jarOrFolder))
-//            while (bis.read(buffer).also { count = it } > 0) {
-//                digest.update(buffer, 0, count)
-//            }
-//            bis.close()
-//            return Base64.getEncoder().encodeToString(digest.digest())
+            }.shaHash
         }
 
 }
