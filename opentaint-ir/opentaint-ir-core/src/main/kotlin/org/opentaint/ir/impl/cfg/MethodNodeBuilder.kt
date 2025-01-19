@@ -172,7 +172,7 @@ class MethodNodeBuilder(
                 if (it.access == Opcodes.ACC_PUBLIC) 0 else it.access
             )
         }
-        mn.exceptions = method.exceptions.map { it.name.typeName().jvmClassName }
+        mn.exceptions = method.exceptions.map { it.jvmClassName }
         mn.instructions = currentInsnList
         mn.tryCatchBlocks = tryCatchNodeList
         mn.maxLocals = localIndex
@@ -311,12 +311,14 @@ class MethodNodeBuilder(
     }
 
     override fun visitJIRRawCatchInst(inst: JIRRawCatchInst) {
-        tryCatchNodeList += TryCatchBlockNode(
-            label(inst.startInclusive),
-            label(inst.endExclusive),
-            label(inst.handler),
-            inst.throwable.typeName.internalDesc
-        )
+        tryCatchNodeList += inst.entries.map {
+            TryCatchBlockNode(
+                label(it.startInclusive),
+                label(it.endExclusive),
+                label(inst.handler),
+                it.acceptedThrowable.internalDesc
+            )
+        }
         updateStackInfo(1)
         currentInsnList.add(storeValue(inst.throwable))
     }

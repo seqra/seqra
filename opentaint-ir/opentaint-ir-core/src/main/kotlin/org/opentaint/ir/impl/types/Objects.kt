@@ -53,6 +53,7 @@ class MethodInfo(
     val signature: String?,
     val access: Int,
     val annotations: List<AnnotationInfo>,
+    val exceptions: List<String>,
     val parametersInfo: List<ParameterInfo>,
 ) {
     val returnClass: String get() = Type.getReturnType(desc).className

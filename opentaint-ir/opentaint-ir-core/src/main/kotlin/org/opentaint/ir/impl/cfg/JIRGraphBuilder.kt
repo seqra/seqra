@@ -249,10 +249,12 @@ class JIRGraphBuilder(
     }
 
     override fun visitJIRRawCatchInst(inst: JIRRawCatchInst): JIRInst = handle(inst) {
-        val throwers = run {
+        val location = newLocation()
+        val throwableTypes = inst.entries.map { it.acceptedThrowable.asType }
+        val throwers = inst.entries.flatMap {
             val result = mutableListOf<JIRInstRef>()
-            var current = instList.indexOf(labels.getValue(inst.startInclusive))
-            val end = instList.indexOf(labels.getValue(inst.endExclusive))
+            var current = instList.indexOf(labels.getValue(it.startInclusive))
+            val end = instList.indexOf(labels.getValue(it.endExclusive))
             while (current != end) {
                 val rawInst = instList[current]
                 if (rawInst != inst) {
@@ -264,10 +266,12 @@ class JIRGraphBuilder(
                 ++current
             }
             result
-        }
+        }.distinct()
+
         return JIRCatchInst(
-            newLocation(),
+            location,
             inst.throwable.accept(this) as JIRValue,
+            throwableTypes,
             throwers
         )
     }

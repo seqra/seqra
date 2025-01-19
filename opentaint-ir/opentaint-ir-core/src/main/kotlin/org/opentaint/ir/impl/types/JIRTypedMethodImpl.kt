@@ -7,6 +7,7 @@ import org.opentaint.ir.api.JIRTypeVariableDeclaration
 import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.JIRTypedMethodParameter
 import org.opentaint.ir.api.MethodResolution
+import org.opentaint.ir.api.ext.findTypeOrNull
 import org.opentaint.ir.api.ext.isNullable
 import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
@@ -61,9 +62,12 @@ class JIRTypedMethodImpl(
 
     override val exceptions: List<JIRRefType>
         get() {
-            val impl = info.impl ?: return emptyList()
-            return impl.exceptionTypes.map {
+            val typesFromSignature = info.impl?.exceptionTypes?.map {
                 classpath.typeOf(info.substitutor.substitute(it)) as JIRRefType
+            } ?: emptyList()
+
+            return typesFromSignature.ifEmpty {
+                method.exceptions.map { classpath.findTypeOrNull(it) as JIRRefType }
             }
         }
 

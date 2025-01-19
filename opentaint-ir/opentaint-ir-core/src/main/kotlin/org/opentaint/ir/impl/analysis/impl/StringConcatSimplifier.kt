@@ -127,6 +127,7 @@ class StringConcatSimplifier(val jIRGraph: JIRGraph) : DefaultJIRInstVisitor<JIR
     override fun visitJIRCatchInst(inst: JIRCatchInst): JIRInst = JIRCatchInst(
         inst.location,
         inst.throwable,
+        inst.throwableTypes,
         inst.throwers.flatMap { indicesOf(it) }
     )
 

@@ -95,6 +95,7 @@ private fun MethodNode.asMethodInfo(): MethodInfo {
         desc = desc,
         access = access,
         annotations = visibleAnnotations.asAnnotationInfos(true) + invisibleAnnotations.asAnnotationInfos(false),
+        exceptions = exceptions.map { it.className },
         parametersInfo = List(params.size) { index ->
             ParameterInfo(
                 index = index,

@@ -24,6 +24,7 @@ import org.opentaint.ir.api.cfg.JIRRawArrayAccess
 import org.opentaint.ir.api.cfg.JIRRawAssignInst
 import org.opentaint.ir.api.cfg.JIRRawCallInst
 import org.opentaint.ir.api.cfg.JIRRawCastExpr
+import org.opentaint.ir.api.cfg.JIRRawCatchEntry
 import org.opentaint.ir.api.cfg.JIRRawCatchInst
 import org.opentaint.ir.api.cfg.JIRRawClassConstant
 import org.opentaint.ir.api.cfg.JIRRawCmpExpr
@@ -213,6 +214,11 @@ private val AbstractInsnNode.isTerminateInst
     get() = this is InsnNode && (this.opcode == Opcodes.ATHROW || this.opcode in Opcodes.IRETURN..Opcodes.RETURN)
 
 private val TryCatchBlockNode.typeOrDefault get() = this.type ?: THROWABLE_CLASS
+
+private val Collection<TryCatchBlockNode>.commonTypeOrDefault get() = map { it.type }
+    .distinct()
+    .singleOrNull()
+    ?: THROWABLE_CLASS
 
 class RawInstListBuilder(
     val method: JIRMethod,
@@ -971,29 +977,36 @@ class RawInstListBuilder(
             else -> error("Unknown frame node type: ${insnNode.type}")
         }
 
-        when (val catch = methodNode.tryCatchBlocks.firstOrNull { it.handler == currentEntry }) {
-            null -> {
-                currentFrame = Frame(
-                    lastFrameState.locals.copyLocals(predecessorFrames).toPersistentMap(),
-                    lastFrameState.stack.copyStack(predecessorFrames).toPersistentList()
+        val catchEntries = methodNode.tryCatchBlocks.filter { it.handler == currentEntry }
+
+        if (catchEntries.isEmpty()) {
+            currentFrame = Frame(
+                lastFrameState.locals.copyLocals(predecessorFrames).toPersistentMap(),
+                lastFrameState.stack.copyStack(predecessorFrames).toPersistentList()
+            )
+        } else {
+            currentFrame = Frame(
+                lastFrameState.locals.copyLocals(predecessorFrames).toPersistentMap(),
+                persistentListOf()
+            )
+
+            val throwable = nextRegister(catchEntries.commonTypeOrDefault.typeName())
+            val entries = catchEntries.map {
+                JIRRawCatchEntry(
+                    it.typeOrDefault.typeName(),
+                    labelRef(it.start),
+                    labelRef(it.end)
                 )
             }
 
-            else -> {
-                currentFrame = Frame(
-                    lastFrameState.locals.copyLocals(predecessorFrames).toPersistentMap(),
-                    persistentListOf()
-                )
-                val throwable = nextRegister(catch.typeOrDefault.typeName())
-                instructionList(insnNode) += JIRRawCatchInst(
+            instructionList(insnNode) += JIRRawCatchInst(
                     method,
-                    throwable,
-                    labelRef(catch.handler),
-                    labelRef(catch.start),
-                    labelRef(catch.end)
-                )
-                push(throwable)
-            }
+                throwable,
+                labelRef(currentEntry),
+                entries
+            )
+
+            push(throwable)
         }
     }
 
@@ -1139,11 +1152,11 @@ class RawInstListBuilder(
         if (predecessors.size == predecessorFrames.size) {
             currentFrame = mergeFrames(predecessors.zip(predecessorFrames).toMap())
         }
-        when (val tryCatch = methodNode.tryCatchBlocks.firstOrNull { it.handler == insnNode }) {
-            null -> {}
-            else -> {
-                push(nextRegister(tryCatch.typeOrDefault.typeName()))
-            }
+
+        val catchEntries = methodNode.tryCatchBlocks.filter { it.handler == insnNode }
+
+        if (catchEntries.isNotEmpty()) {
+            push(nextRegister(catchEntries.commonTypeOrDefault.typeName()))
         }
     }
 

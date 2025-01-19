@@ -133,7 +133,7 @@ class ExprMapper(val mapping: Map<JIRRawExpr, JIRRawExpr>) : JIRRawInstVisitor<J
         val newThrowable = inst.throwable.accept(this) as JIRRawValue
         return when (inst.throwable) {
             newThrowable -> inst
-            else -> JIRRawCatchInst(inst.owner, newThrowable, inst.handler, inst.startInclusive, inst.endExclusive)
+            else -> JIRRawCatchInst(inst.owner, newThrowable, inst.handler, inst.entries)
         }
     }
 

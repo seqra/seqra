@@ -79,7 +79,7 @@ open class JIRVirtualMethodImpl(
     override val annotations: List<JIRAnnotation>
         get() = emptyList()
 
-    override val exceptions: List<JIRClassOrInterface>
+    override val exceptions: List<TypeName>
         get() = emptyList()
 
     override fun bind(clazz: JIRClassOrInterface) {

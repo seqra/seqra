@@ -207,6 +207,8 @@ fun JIRBlockGraph.toFile(dotCmd: String, file: File? = null): Path {
 open class JIRExceptionResolver(val classpath: JIRClasspath) : DefaultJIRExprVisitor<List<JIRClassType>>,
     DefaultJIRInstVisitor<List<JIRClassType>> {
     private val throwableType = classpath.findTypeOrNull<Throwable>() as JIRClassType
+    private val errorType = classpath.findTypeOrNull<Error>() as JIRClassType
+    private val runtimeExceptionType = classpath.findTypeOrNull<RuntimeException>() as JIRClassType
     private val nullPointerExceptionType = classpath.findTypeOrNull<NullPointerException>() as JIRClassType
     private val arithmeticExceptionType = classpath.findTypeOrNull<ArithmeticException>() as JIRClassType
 
@@ -261,7 +263,8 @@ open class JIRExceptionResolver(val classpath: JIRClasspath) : DefaultJIRExprVis
 
     override fun visitJIRLambdaExpr(expr: JIRLambdaExpr): List<JIRClassType> {
         return buildList {
-            add(throwableType)
+            add(runtimeExceptionType)
+            add(errorType)
             addAll(expr.method.exceptions.thisOrThrowable())
         }
     }
@@ -272,23 +275,24 @@ open class JIRExceptionResolver(val classpath: JIRClasspath) : DefaultJIRExprVis
 
     override fun visitJIRVirtualCallExpr(expr: JIRVirtualCallExpr): List<JIRClassType> {
         return buildList {
-            add(throwableType)
-            add(nullPointerExceptionType)
+            add(runtimeExceptionType)
+            add(errorType)
             addAll(expr.method.exceptions.thisOrThrowable())
         }
     }
 
     override fun visitJIRStaticCallExpr(expr: JIRStaticCallExpr): List<JIRClassType> {
         return buildList {
-            add(throwableType)
+            add(runtimeExceptionType)
+            add(errorType)
             addAll(expr.method.exceptions.thisOrThrowable())
         }
     }
 
     override fun visitJIRSpecialCallExpr(expr: JIRSpecialCallExpr): List<JIRClassType> {
         return buildList {
-            add(throwableType)
-            add(nullPointerExceptionType)
+            add(runtimeExceptionType)
+            add(errorType)
             addAll(expr.method.exceptions.thisOrThrowable())
         }
     }
