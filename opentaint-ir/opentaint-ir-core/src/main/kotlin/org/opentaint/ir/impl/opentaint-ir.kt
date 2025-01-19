@@ -1,4 +1,5 @@
 @file:JvmName("Opentaint-IR")
+
 package org.opentaint.ir.impl
 
 import kotlinx.coroutines.GlobalScope
@@ -14,7 +15,7 @@ suspend fun opentaint-ir(settings: JIRSettings): JIRDatabase {
     val featureRegistry = FeaturesRegistry(settings.features)
     val javaRuntime = JavaRuntime(settings.jre)
     val persistence = (settings.persistentType ?: PredefinedPersistenceType.SQLITE)
-        .newPersistence(javaRuntime,featureRegistry,settings)
+        .newPersistence(javaRuntime, featureRegistry, settings)
     return JIRDatabaseImpl(
         javaRuntime = javaRuntime,
         persistence = persistence,

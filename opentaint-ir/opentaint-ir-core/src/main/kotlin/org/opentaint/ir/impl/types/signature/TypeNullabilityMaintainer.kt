@@ -8,7 +8,13 @@ fun JvmType.copyWithNullability(nullability: Boolean?): JvmType =
     when (this) {
         is JvmArrayType -> JvmArrayType(elementType, nullability)
         is JvmClassRefType -> JvmClassRefType(name, nullability)
-        is JvmParameterizedType.JvmNestedType -> JvmParameterizedType.JvmNestedType(name, parameterTypes, ownerType, nullability)
+        is JvmParameterizedType.JvmNestedType -> JvmParameterizedType.JvmNestedType(
+            name,
+            parameterTypes,
+            ownerType,
+            nullability
+        )
+
         is JvmParameterizedType -> JvmParameterizedType(name, parameterTypes, nullability)
 
         is JvmTypeVariable -> JvmTypeVariable(symbol, nullability).also {

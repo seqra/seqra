@@ -9,7 +9,33 @@ import info.leadinglight.jdot.impl.Util
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.PredefinedPrimitives
-import org.opentaint.ir.api.cfg.*
+import org.opentaint.ir.api.cfg.DefaultJIRExprVisitor
+import org.opentaint.ir.api.cfg.DefaultJIRInstVisitor
+import org.opentaint.ir.api.cfg.JIRArrayAccess
+import org.opentaint.ir.api.cfg.JIRAssignInst
+import org.opentaint.ir.api.cfg.JIRBasicBlock
+import org.opentaint.ir.api.cfg.JIRBlockGraph
+import org.opentaint.ir.api.cfg.JIRCallInst
+import org.opentaint.ir.api.cfg.JIRCastExpr
+import org.opentaint.ir.api.cfg.JIRDivExpr
+import org.opentaint.ir.api.cfg.JIRDynamicCallExpr
+import org.opentaint.ir.api.cfg.JIRExitMonitorInst
+import org.opentaint.ir.api.cfg.JIRExpr
+import org.opentaint.ir.api.cfg.JIRFieldRef
+import org.opentaint.ir.api.cfg.JIRGotoInst
+import org.opentaint.ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.cfg.JIRIfInst
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRLambdaExpr
+import org.opentaint.ir.api.cfg.JIRLengthExpr
+import org.opentaint.ir.api.cfg.JIRNewArrayExpr
+import org.opentaint.ir.api.cfg.JIRNewExpr
+import org.opentaint.ir.api.cfg.JIRRemExpr
+import org.opentaint.ir.api.cfg.JIRSpecialCallExpr
+import org.opentaint.ir.api.cfg.JIRStaticCallExpr
+import org.opentaint.ir.api.cfg.JIRSwitchInst
+import org.opentaint.ir.api.cfg.JIRThrowInst
+import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
 import org.opentaint.ir.api.ext.findTypeOrNull
 import java.io.File
 import java.nio.file.Files
@@ -178,7 +204,8 @@ fun JIRBlockGraph.toFile(dotCmd: String, file: File? = null): Path {
  * - all the declared checked exception types
  * - 'java.lang.Throwable' for any potential unchecked types
  */
-open class JIRExceptionResolver(val classpath: JIRClasspath) : DefaultJIRExprVisitor<List<JIRClassType>>, DefaultJIRInstVisitor<List<JIRClassType>> {
+open class JIRExceptionResolver(val classpath: JIRClasspath) : DefaultJIRExprVisitor<List<JIRClassType>>,
+    DefaultJIRInstVisitor<List<JIRClassType>> {
     private val throwableType = classpath.findTypeOrNull<Throwable>() as JIRClassType
     private val nullPointerExceptionType = classpath.findTypeOrNull<NullPointerException>() as JIRClassType
     private val arithmeticExceptionType = classpath.findTypeOrNull<ArithmeticException>() as JIRClassType
@@ -279,7 +306,7 @@ open class JIRExceptionResolver(val classpath: JIRClasspath) : DefaultJIRExprVis
 
     private fun <E> List<E>.thisOrThrowable(): Collection<JIRClassType> {
         return map {
-            when(it){
+            when (it) {
                 is JIRClassType -> it
                 else -> throwableType
             }

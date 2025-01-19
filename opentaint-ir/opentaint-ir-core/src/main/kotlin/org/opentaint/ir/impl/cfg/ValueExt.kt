@@ -1,8 +1,19 @@
 @file:JvmName("JIRValues")
+
 package org.opentaint.ir.impl.cfg
 
-import org.opentaint.ir.api.*
-import org.opentaint.ir.api.cfg.*
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.PredefinedPrimitives
+import org.opentaint.ir.api.TypeName
+import org.opentaint.ir.api.cfg.JIRBool
+import org.opentaint.ir.api.cfg.JIRByte
+import org.opentaint.ir.api.cfg.JIRDouble
+import org.opentaint.ir.api.cfg.JIRFloat
+import org.opentaint.ir.api.cfg.JIRInt
+import org.opentaint.ir.api.cfg.JIRLong
+import org.opentaint.ir.api.cfg.JIRRawNullConstant
+import org.opentaint.ir.api.cfg.JIRRawStringConstant
+import org.opentaint.ir.api.cfg.JIRShort
 import org.opentaint.ir.api.ext.boolean
 import org.opentaint.ir.api.ext.byte
 import org.opentaint.ir.api.ext.double

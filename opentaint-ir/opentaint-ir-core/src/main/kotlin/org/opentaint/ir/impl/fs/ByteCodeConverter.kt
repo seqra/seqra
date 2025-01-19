@@ -116,13 +116,15 @@ private fun FieldNode.asFieldInfo() = FieldInfo(
     annotations = visibleAnnotations.asAnnotationInfos(true) + invisibleAnnotations.asAnnotationInfos(false)
 )
 
-val ClassSource.info: ClassInfo get() {
-    return newClassNode(ClassReader.SKIP_CODE).asClassInfo(byteCode)
-}
+val ClassSource.info: ClassInfo
+    get() {
+        return newClassNode(ClassReader.SKIP_CODE).asClassInfo(byteCode)
+    }
 
-val ClassSource.fullAsmNode: ClassNode get() {
-    return newClassNode(ClassReader.EXPAND_FRAMES)
-}
+val ClassSource.fullAsmNode: ClassNode
+    get() {
+        return newClassNode(ClassReader.EXPAND_FRAMES)
+    }
 
 fun ClassSource.fullAsmNodeWithFrames(classpath: JIRClasspath): ClassNode {
     var classNode = fullAsmNode

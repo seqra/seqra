@@ -50,7 +50,8 @@ fun <ELEMENT, RECORD : Record> Connection.insertElements(
 
     val values = fields.joinToString { "?" }
 
-    val query = "INSERT INTO \"${table.name}\"(${fields.joinToString { "\"" + it.name + "\"" }}) VALUES ($values) $onConflict"
+    val query =
+        "INSERT INTO \"${table.name}\"(${fields.joinToString { "\"" + it.name + "\"" }}) VALUES ($values) $onConflict"
     prepareStatement(query, Statement.NO_GENERATED_KEYS).use { stmt ->
         elements.forEach {
             stmt.map(it)

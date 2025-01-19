@@ -1,10 +1,21 @@
 package org.opentaint.ir.impl.cfg
 
-import org.opentaint.ir.api.*
+import org.opentaint.ir.api.JIRClassType
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRMethodRef
+import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.JIRTypedMethod
+import org.opentaint.ir.api.TypeName
 import org.opentaint.ir.api.cfg.JIRInstLocation
 import org.opentaint.ir.api.cfg.JIRRawCallExpr
 import org.opentaint.ir.api.cfg.TypedMethodRef
-import org.opentaint.ir.api.ext.*
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.ext.findMethodOrNull
+import org.opentaint.ir.api.ext.hasAnnotation
+import org.opentaint.ir.api.ext.jvmName
+import org.opentaint.ir.api.ext.objectType
+import org.opentaint.ir.api.ext.packageName
 import org.opentaint.ir.impl.softLazy
 import org.opentaint.ir.impl.weakLazy
 
@@ -70,7 +81,7 @@ fun JIRTypedMethod.methodRef(): TypedMethodRef {
     )
 }
 
-class JIRMethodRefImpl(method: JIRMethod): JIRMethodRef {
+class JIRMethodRefImpl(method: JIRMethod) : JIRMethodRef {
 
     private val classpath = method.enclosingClass.classpath
     private val className: String = method.enclosingClass.name

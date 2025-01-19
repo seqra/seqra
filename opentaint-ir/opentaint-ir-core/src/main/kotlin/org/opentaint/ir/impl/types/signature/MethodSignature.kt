@@ -13,7 +13,8 @@ import org.opentaint.ir.impl.types.substition.JvmTypeVisitor
 import org.opentaint.ir.impl.types.substition.fixDeclarationVisitor
 import org.objectweb.asm.signature.SignatureVisitor
 
-internal class MethodSignature(private val method: JIRMethod) : Signature<MethodResolution>(method, method.kmFunction?.typeParameters) {
+internal class MethodSignature(private val method: JIRMethod) :
+    Signature<MethodResolution>(method, method.kmFunction?.typeParameters) {
 
     private val parameterTypes = ArrayList<JvmType>()
     private val exceptionTypes = ArrayList<JvmRefType>()

@@ -28,7 +28,8 @@ val JIRType.nullabilityTree: TypeNullabilityTree
         return when (this) {
             is JIRClassType -> TypeNullabilityTree(nullable, typeArguments.map { it.nullabilityTree })
             is JIRArrayType -> TypeNullabilityTree(nullable, listOf(elementType.nullabilityTree))
-            is JIRBoundedWildcard -> (upperBounds + lowerBounds).map { it.nullabilityTree }.single()  // For bounded wildcard we are interested only in nullability of bound, not of the wildcard itself
+            is JIRBoundedWildcard -> (upperBounds + lowerBounds).map { it.nullabilityTree }
+                .single()  // For bounded wildcard we are interested only in nullability of bound, not of the wildcard itself
             is JIRUnboundWildcard -> TypeNullabilityTree(nullable, listOf())
             is JIRTypeVariable -> TypeNullabilityTree(nullable, bounds.map { it.nullabilityTree })
             is JIRTypeVariableDeclaration -> TypeNullabilityTree(nullable, bounds.map { it.nullabilityTree })

@@ -7,7 +7,7 @@ import org.opentaint.ir.api.JIRClasspathExtFeature
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualClass
 import org.opentaint.ir.impl.features.classpaths.virtual.VirtualClassesBuilder
-import java.util.Optional
+import java.util.*
 
 open class VirtualClasses(
     val classes: List<JIRVirtualClass>,
@@ -32,7 +32,7 @@ open class VirtualClasses(
 
     override fun tryFindClass(classpath: JIRClasspath, name: String): Optional<JIRClassOrInterface>? {
         val clazz = map[name]
-        if(clazz != null){
+        if (clazz != null) {
             clazz.bind(classpath, virtualLocation)
             return Optional.of(clazz)
         }

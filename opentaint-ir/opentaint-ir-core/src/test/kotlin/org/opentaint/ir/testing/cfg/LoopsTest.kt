@@ -78,7 +78,7 @@ class LoopsTest : BaseTest() {
             assertEquals(3, size)
             with(first()) {
                 assertEquals(53, head.lineNumber)
-                assertEquals(listOf(53,61, 73) , exits.map { it.lineNumber }.toSet().sorted())
+                assertEquals(listOf(53, 61, 73), exits.map { it.lineNumber }.toSet().sorted())
                 assertSources(53, 75)
             }
 

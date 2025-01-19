@@ -1,6 +1,14 @@
 package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.ir.api.*
+import org.opentaint.ir.api.ClassSource
+import org.opentaint.ir.api.JIRAnnotation
+import org.opentaint.ir.api.JIRClassExtFeature
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRClasspathFeature
+import org.opentaint.ir.api.JIRField
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRMethodExtFeature
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.impl.fs.ClassSourceImpl
@@ -47,29 +55,33 @@ class JIRClassOrInterfaceImpl(
     override val annotations: List<JIRAnnotation>
         get() = info.annotations.map { JIRAnnotationImpl(it, classpath) }
 
-    override val interfaces: List<JIRClassOrInterface> get() {
-        return info.interfaces.map {
-            classpath.findClass(it)
+    override val interfaces: List<JIRClassOrInterface>
+        get() {
+            return info.interfaces.map {
+                classpath.findClass(it)
+            }
         }
-    }
 
-    override val superClass: JIRClassOrInterface? get() {
-        return info.superClass?.let {
-            classpath.findClass(it)
+    override val superClass: JIRClassOrInterface?
+        get() {
+            return info.superClass?.let {
+                classpath.findClass(it)
+            }
         }
-    }
 
-    override val outerClass: JIRClassOrInterface? get() {
-        return info.outerClass?.className?.let {
-            classpath.findClass(it)
+    override val outerClass: JIRClassOrInterface?
+        get() {
+            return info.outerClass?.className?.let {
+                classpath.findClass(it)
+            }
         }
-    }
 
-    override val innerClasses: List<JIRClassOrInterface> get() {
-        return info.innerClasses.map {
-            classpath.findClass(it)
+    override val innerClasses: List<JIRClassOrInterface>
+        get() {
+            return info.innerClasses.map {
+                classpath.findClass(it)
+            }
         }
-    }
 
     override val access: Int
         get() = info.access
@@ -96,22 +108,23 @@ class JIRClassOrInterfaceImpl(
             return null
         }
 
-    override val declaredFields: List<JIRField> get() {
-        val result: List<JIRField> = info.fields.map { JIRFieldImpl(this, it) }
-        return when {
-            classFeatures.isNotEmpty() -> {
-                val modifiedFields = result.toMutableList()
-                classFeatures.forEach {
-                    it.fieldsOf(this)?.let {
-                        modifiedFields.addAll(it)
+    override val declaredFields: List<JIRField>
+        get() {
+            val result: List<JIRField> = info.fields.map { JIRFieldImpl(this, it) }
+            return when {
+                classFeatures.isNotEmpty() -> {
+                    val modifiedFields = result.toMutableList()
+                    classFeatures.forEach {
+                        it.fieldsOf(this)?.let {
+                            modifiedFields.addAll(it)
+                        }
                     }
+                    modifiedFields
                 }
-                modifiedFields
-            }
 
-            else -> result
+                else -> result
+            }
         }
-    }
 
     override val declaredMethods: List<JIRMethod> by lazy(PUBLICATION) {
         val result: List<JIRMethod> = info.methods.map { toJIRMethod(it, classSource, cache) }

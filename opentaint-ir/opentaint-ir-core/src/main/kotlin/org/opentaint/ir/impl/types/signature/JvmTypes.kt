@@ -64,7 +64,10 @@ internal class JvmClassRefType(val name: String, isNullable: Boolean? = null) : 
  */
 internal class JvmTypeVariable(val symbol: String, isNullable: Boolean? = null) : JvmRefType(isNullable) {
 
-    constructor(declaration: JvmTypeParameterDeclaration, isNullable: Boolean? = null) : this(declaration.symbol, isNullable) {
+    constructor(declaration: JvmTypeParameterDeclaration, isNullable: Boolean? = null) : this(
+        declaration.symbol,
+        isNullable
+    ) {
         this.declaration = declaration
     }
 
@@ -94,7 +97,7 @@ internal class JvmTypeVariable(val symbol: String, isNullable: Boolean? = null) 
 }
 
 // Nullability has no sense in wildcards, so we suppose them to be always nullable for definiteness
-internal sealed class JvmWildcard: JvmType(isNullable = true)
+internal sealed class JvmWildcard : JvmType(isNullable = true)
 
 internal sealed class JvmBoundWildcard(val bound: JvmType) : JvmWildcard() {
 

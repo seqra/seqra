@@ -1,7 +1,14 @@
 package org.opentaint.ir.impl.types
 
-import org.opentaint.ir.api.*
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRRefType
+import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.JIRTypeVariableDeclaration
+import org.opentaint.ir.api.JIRTypedMethod
+import org.opentaint.ir.api.JIRTypedMethodParameter
+import org.opentaint.ir.api.MethodResolution
 import org.opentaint.ir.api.ext.isNullable
+import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
 import org.opentaint.ir.impl.types.signature.FieldSignature
 import org.opentaint.ir.impl.types.signature.MethodResolutionImpl

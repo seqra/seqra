@@ -10,7 +10,8 @@ import org.opentaint.ir.impl.types.substition.JvmTypeVisitor
 import org.opentaint.ir.impl.types.substition.fixDeclarationVisitor
 import org.objectweb.asm.signature.SignatureVisitor
 
-internal class TypeSignature(jIRClass: JIRClassOrInterface) : Signature<TypeResolution>(jIRClass, jIRClass.kMetadata?.kmTypeParameters) {
+internal class TypeSignature(jIRClass: JIRClassOrInterface) :
+    Signature<TypeResolution>(jIRClass, jIRClass.kMetadata?.kmTypeParameters) {
 
     private val interfaceTypes = ArrayList<JvmType>()
     private lateinit var superClass: JvmType

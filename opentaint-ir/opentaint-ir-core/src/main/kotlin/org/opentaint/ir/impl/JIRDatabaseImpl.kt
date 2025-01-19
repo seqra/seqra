@@ -73,7 +73,7 @@ class JIRDatabaseImpl(
     }
 
     private fun List<JIRClasspathFeature>?.appendCaching(): List<JIRClasspathFeature> {
-        if (this!= null && any { it is ClasspathCache }) {
+        if (this != null && any { it is ClasspathCache }) {
             return listOf(KotlinMetadata) + this
         }
         return listOf(ClasspathCache(settings.cacheSettings), KotlinMetadata) + this.orEmpty()
@@ -142,7 +142,14 @@ class JIRDatabaseImpl(
                 async {
                     val sources = location.sources
                     parentScope.ifActive { persistence.persist(location, sources) }
-                    parentScope.ifActive { classesVfs.visit(RemoveLocationsVisitor(listOf(location), settings.byteCodeSettings.prefixes)) }
+                    parentScope.ifActive {
+                        classesVfs.visit(
+                            RemoveLocationsVisitor(
+                                listOf(location),
+                                settings.byteCodeSettings.prefixes
+                            )
+                        )
+                    }
                     parentScope.ifActive { featureRegistry.index(location, sources) }
                 }
             }.awaitAll()

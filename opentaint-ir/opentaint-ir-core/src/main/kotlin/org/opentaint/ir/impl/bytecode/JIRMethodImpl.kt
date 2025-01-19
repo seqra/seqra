@@ -1,6 +1,11 @@
 package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.ir.api.*
+import org.opentaint.ir.api.ClassSource
+import org.opentaint.ir.api.JIRAnnotation
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRMethodExtFeature
+import org.opentaint.ir.api.JIRParameter
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstList
 import org.opentaint.ir.api.cfg.JIRRawInst

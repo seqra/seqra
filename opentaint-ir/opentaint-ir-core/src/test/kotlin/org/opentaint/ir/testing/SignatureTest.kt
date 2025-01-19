@@ -23,7 +23,7 @@ import org.opentaint.ir.testing.usages.Generics
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-class SignatureTest: BaseTest() {
+class SignatureTest : BaseTest() {
 
     companion object : WithDB()
 
@@ -137,6 +137,11 @@ class SignatureTest: BaseTest() {
 
     private val JIRClassOrInterface.resolution get() = TypeSignature.of(this)
     private val JIRMethod.resolution get() = MethodSignature.of(this)
-    private val JIRField.resolution get() = FieldSignature.of(signature, enclosingClass.typeParameters.associateBy { it.symbol }, this)
+    private val JIRField.resolution
+        get() = FieldSignature.of(
+            signature,
+            enclosingClass.typeParameters.associateBy { it.symbol },
+            this
+        )
 }
 

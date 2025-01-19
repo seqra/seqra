@@ -1,10 +1,14 @@
 package org.opentaint.ir.impl.types
 
-import org.opentaint.ir.api.*
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClassType
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRRefType
+import org.opentaint.ir.api.JIRTypedField
+import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.packageName
 import org.opentaint.ir.api.ext.toType
-import org.opentaint.ir.impl.softLazy
 import org.opentaint.ir.impl.types.signature.JvmClassRefType
 import org.opentaint.ir.impl.types.signature.JvmParameterizedType
 import org.opentaint.ir.impl.types.signature.JvmType
@@ -69,60 +73,68 @@ open class JIRClassTypeImpl(
             }
         }
 
-    override val superType: JIRClassType? get() {
-        val superClass = jIRClass.superClass ?: return null
-        return resolutionImpl?.let {
-            val newSubstitutor = superSubstitutor(superClass, it.superClass)
-            JIRClassTypeImpl(classpath, superClass.name, outerType, newSubstitutor, nullable)
-        } ?: superClass.toType()
-    }
+    override val superType: JIRClassType?
+        get() {
+            val superClass = jIRClass.superClass ?: return null
+            return resolutionImpl?.let {
+                val newSubstitutor = superSubstitutor(superClass, it.superClass)
+                JIRClassTypeImpl(classpath, superClass.name, outerType, newSubstitutor, nullable)
+            } ?: superClass.toType()
+        }
 
-    override val interfaces: List<JIRClassType> get() {
-        return jIRClass.interfaces.map { iface ->
-            val ifaceType = resolutionImpl?.interfaceType?.firstOrNull { it.isReferencesClass(iface.name) }
-            if (ifaceType != null) {
-                val newSubstitutor = superSubstitutor(iface, ifaceType)
-                JIRClassTypeImpl(classpath, iface.name,null, newSubstitutor, nullable)
-            } else {
-                iface.toType()
+    override val interfaces: List<JIRClassType>
+        get() {
+            return jIRClass.interfaces.map { iface ->
+                val ifaceType = resolutionImpl?.interfaceType?.firstOrNull { it.isReferencesClass(iface.name) }
+                if (ifaceType != null) {
+                    val newSubstitutor = superSubstitutor(iface, ifaceType)
+                    JIRClassTypeImpl(classpath, iface.name, null, newSubstitutor, nullable)
+                } else {
+                    iface.toType()
+                }
             }
         }
-    }
 
-    override val innerTypes: List<JIRClassType> get() {
-        return jIRClass.innerClasses.map {
-            val outerMethod = it.outerMethod
-            val outerClass = it.outerClass
+    override val innerTypes: List<JIRClassType>
+        get() {
+            return jIRClass.innerClasses.map {
+                val outerMethod = it.outerMethod
+                val outerClass = it.outerClass
 
-            val innerParameters = (
-                    outerMethod?.allVisibleTypeParameters() ?: outerClass?.allVisibleTypeParameters()
-                    )?.values?.toList().orEmpty()
-            val innerSubstitutor = when {
-                it.isStatic -> JIRSubstitutor.empty.newScope(innerParameters)
-                else -> substitutor.newScope(innerParameters)
+                val innerParameters = (
+                        outerMethod?.allVisibleTypeParameters() ?: outerClass?.allVisibleTypeParameters()
+                        )?.values?.toList().orEmpty()
+                val innerSubstitutor = when {
+                    it.isStatic -> JIRSubstitutor.empty.newScope(innerParameters)
+                    else -> substitutor.newScope(innerParameters)
+                }
+                JIRClassTypeImpl(classpath, it.name, this, innerSubstitutor, true)
             }
-            JIRClassTypeImpl(classpath, it.name, this, innerSubstitutor, true)
         }
-    }
 
-    override val declaredMethods: List<JIRTypedMethod> get() {
-        return typedMethods(true, fromSuperTypes = false, jIRClass.packageName)
-    }
+    override val declaredMethods: List<JIRTypedMethod>
+        get() {
+            return typedMethods(true, fromSuperTypes = false, jIRClass.packageName)
+        }
 
-    override val methods: List<JIRTypedMethod> get() {
-        //let's calculate visible methods from super types
-        return typedMethods(true, fromSuperTypes = true, jIRClass.packageName)
-    }
+    override val methods: List<JIRTypedMethod>
+        get() {
+            //let's calculate visible methods from super types
+            return typedMethods(true, fromSuperTypes = true, jIRClass.packageName)
+        }
 
-    override val declaredFields: List<JIRTypedField> get() {
-        return typedFields(true, fromSuperTypes = false, jIRClass.packageName)
-    }
+    override val declaredFields: List<JIRTypedField>
+        get() {
+            return typedFields(true, fromSuperTypes = false, jIRClass.packageName)
+        }
 
-    override val fields: List<JIRTypedField> get() {
-        return typedFields(true, fromSuperTypes = true, jIRClass.packageName)
-    }
+    override val fields: List<JIRTypedField>
+        get() {
+            return typedFields(true, fromSuperTypes = true, jIRClass.packageName)
+        }
 
-    override fun copyWithNullability(nullability: Boolean?) = JIRClassTypeImpl(classpath, name, outerType, substitutor, nullability)
+    override fun copyWithNullability(nullability: Boolean?) =
+        JIRClassTypeImpl(classpath, name, outerType, substitutor, nullability)
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

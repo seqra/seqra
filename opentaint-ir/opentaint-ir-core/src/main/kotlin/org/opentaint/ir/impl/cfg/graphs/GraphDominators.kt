@@ -1,8 +1,8 @@
 package org.opentaint.ir.impl.cfg.graphs
 
-import org.opentaint.ir.api.cfg.JIRBytecodeGraph
 import org.opentaint.ir.api.cfg.JIRBasicBlock
 import org.opentaint.ir.api.cfg.JIRBlockGraph
+import org.opentaint.ir.api.cfg.JIRBytecodeGraph
 import org.opentaint.ir.api.cfg.JIRCatchInst
 import org.opentaint.ir.api.cfg.JIRGraph
 import org.opentaint.ir.api.cfg.JIRInst
@@ -147,6 +147,7 @@ fun JIRGraph.findDominators(): GraphDominators<JIRInst> {
         it.find()
     }
 }
+
 fun JIRBlockGraph.findDominators(): GraphDominators<JIRBasicBlock> {
     return GraphDominators(this).also {
         it.find()

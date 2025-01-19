@@ -2,7 +2,19 @@ package org.opentaint.ir.impl.features.classpaths
 
 import com.google.common.cache.CacheBuilder
 import com.google.common.cache.CacheLoader
-import org.opentaint.ir.api.*
+import org.opentaint.ir.api.JIRClassFoundEvent
+import org.opentaint.ir.api.JIRClassNotFound
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClassType
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRClasspathExtFeature
+import org.opentaint.ir.api.JIRClasspathFeatureEvent
+import org.opentaint.ir.api.JIRInstExtFeature
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRMethodExtFeature
+import org.opentaint.ir.api.JIRMethodRef
+import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.JIRTypeFoundEvent
 import org.opentaint.ir.api.cfg.JIRGraph
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstList

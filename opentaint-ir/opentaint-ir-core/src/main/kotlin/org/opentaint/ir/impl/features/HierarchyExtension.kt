@@ -1,8 +1,9 @@
 @file:JvmName("JIRHierarchies")
+
 package org.opentaint.ir.impl.features
 
 import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.future.*
+import kotlinx.coroutines.future.future
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod

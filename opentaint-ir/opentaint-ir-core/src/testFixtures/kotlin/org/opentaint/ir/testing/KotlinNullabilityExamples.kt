@@ -28,7 +28,7 @@ class KotlinNullabilityExamples {
 
     fun <T> typeVariableParameters(notNull: T, nullable: T?) = Unit
 
-    fun <A: List<Int?>, B: List<Int>?> typeVariableDeclarations() = Unit
+    fun <A : List<Int?>, B : List<Int>?> typeVariableDeclarations() = Unit
 
     lateinit var containerOfNotNull: SomeContainer<String>
     lateinit var containerOfNullable: SomeContainer<String?>

@@ -1,4 +1,5 @@
 @file:JvmName("JIRLoops")
+
 package org.opentaint.ir.impl.cfg.util
 
 import org.opentaint.ir.api.cfg.JIRGraph
@@ -46,7 +47,8 @@ class JIRLoop(
 
 }
 
-val JIRGraph.loops: Set<JIRLoop> get() {
+val JIRGraph.loops: Set<JIRLoop>
+    get() {
         val finder = findDominators()
         val loops = HashMap<JIRInst, MutableList<JIRInst>>()
         instructions.forEach { inst ->

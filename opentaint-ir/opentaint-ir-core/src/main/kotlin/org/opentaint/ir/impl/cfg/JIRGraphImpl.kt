@@ -4,7 +4,13 @@ import kotlinx.collections.immutable.toPersistentSet
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.cfg.*
+import org.opentaint.ir.api.cfg.JIRBranchingInst
+import org.opentaint.ir.api.cfg.JIRCatchInst
+import org.opentaint.ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRInstRef
+import org.opentaint.ir.api.cfg.JIRInstVisitor
+import org.opentaint.ir.api.cfg.JIRTerminatingInst
 import org.opentaint.ir.api.ext.isSubClassOf
 import java.util.Collections.singleton
 

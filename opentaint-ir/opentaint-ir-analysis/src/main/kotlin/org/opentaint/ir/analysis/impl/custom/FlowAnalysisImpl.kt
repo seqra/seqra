@@ -6,32 +6,32 @@ import java.util.*
 
 enum class Flow {
     IN {
-        override fun <NODE,F> getFlow(e: FlowEntry<NODE, F>): F? {
+        override fun <NODE, F> getFlow(e: FlowEntry<NODE, F>): F? {
             return e.inFlow
         }
     },
     OUT {
-        override fun <NODE,F> getFlow(e: FlowEntry<NODE,F>): F? {
+        override fun <NODE, F> getFlow(e: FlowEntry<NODE, F>): F? {
             return e.outFlow
         }
     };
 
-    abstract fun <NODE,F> getFlow(e: FlowEntry<NODE, F>): F?
+    abstract fun <NODE, F> getFlow(e: FlowEntry<NODE, F>): F?
 }
 
 /**
  * Creates a new `Entry` graph based on a `JIRGraph`. This includes pseudo topological order, local
  * access for predecessors and successors, a graph entry-point, connected component marker.
  */
-private fun <NODE,T> JIRBytecodeGraph<NODE>.newScope(
+private fun <NODE, T> JIRBytecodeGraph<NODE>.newScope(
     direction: FlowAnalysisDirection,
     entryFlow: T,
     isForward: Boolean
-): List<FlowEntry<NODE,T>> {
+): List<FlowEntry<NODE, T>> {
     val size = toList().size
-    val s = ArrayDeque<FlowEntry<NODE,T>>(size)
-    val scope = ArrayList<FlowEntry<NODE,T>>(size)
-    val visited = HashMap<NODE, FlowEntry<NODE,T>>((size + 1) * 4 / 3)
+    val s = ArrayDeque<FlowEntry<NODE, T>>(size)
+    val scope = ArrayList<FlowEntry<NODE, T>>(size)
+    val visited = HashMap<NODE, FlowEntry<NODE, T>>((size + 1) * 4 / 3)
 
     // out of scope node
     val instructions: List<NODE>?
@@ -79,12 +79,12 @@ private fun <NODE,T> JIRBytecodeGraph<NODE>.newScope(
             }
         }
     }
-    val root = RootEntry<NODE,T>()
+    val root = RootEntry<NODE, T>()
     root.visitEntry(instructions, visited)
     root.inFlow = entryFlow
     root.outFlow = entryFlow
 
-    val sv: Array<FlowEntry<NODE,T>?> = arrayOfNulls(size)
+    val sv: Array<FlowEntry<NODE, T>?> = arrayOfNulls(size)
     val si = IntArray(size)
     var index = 0
     var i = 0
@@ -123,10 +123,10 @@ private fun <NODE,T> JIRBytecodeGraph<NODE>.newScope(
     }
 }
 
-private fun <NODE,T> FlowEntry<NODE,T>.visitEntry(
+private fun <NODE, T> FlowEntry<NODE, T>.visitEntry(
     instructions: List<NODE>,
-    visited: MutableMap<NODE, FlowEntry<NODE,T>>
-): Array<FlowEntry<NODE,T>> {
+    visited: MutableMap<NODE, FlowEntry<NODE, T>>
+): Array<FlowEntry<NODE, T>> {
     val n = instructions.size
     return Array(n) {
         instructions[it].toEntry(this, visited)
@@ -135,10 +135,10 @@ private fun <NODE,T> FlowEntry<NODE,T>.visitEntry(
     }
 }
 
-private fun <NODE,T> NODE.toEntry(
-    pred: FlowEntry<NODE,T>?,
-    visited: MutableMap<NODE, FlowEntry<NODE,T>>
-): FlowEntry<NODE,T> {
+private fun <NODE, T> NODE.toEntry(
+    pred: FlowEntry<NODE, T>?,
+    visited: MutableMap<NODE, FlowEntry<NODE, T>>
+): FlowEntry<NODE, T> {
     // either we reach a new node or a merge node, the latter one is rare
     // so put and restore should be better that a lookup
 
@@ -301,7 +301,7 @@ abstract class FlowAnalysisImpl<NODE, T>(graph: JIRBytecodeGraph<NODE>) : Abstra
             return false
         }
 
-    protected open fun getFlow(from:  NODE, mergeNode: NODE) = Flow.OUT
+    protected open fun getFlow(from: NODE, mergeNode: NODE) = Flow.OUT
 
     private fun getFlow(o: FlowEntry<NODE, T>, e: FlowEntry<NODE, T>): T? {
         return if (o.inFlow === o.outFlow) {
@@ -339,7 +339,7 @@ abstract class FlowAnalysisImpl<NODE, T>(graph: JIRBytecodeGraph<NODE>) : Abstra
             it.initFlow()
         }
         val queue = PriorityQueue<FlowEntry<NODE, T>> { o1, o2 -> o1.number.compareTo(o2.number) }
-            .also {it.addAll(scope)}
+            .also { it.addAll(scope) }
 
         // Perform fixed point flow analysis
         var numComputations = 0

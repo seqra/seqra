@@ -91,7 +91,7 @@ class JIRBlockGraphImpl(
             "required method of instruction ${jIRGraph.method} but got ${inst.location.method}"
         }
         for (basicBlock in entries) {
-            if(basicBlock.contains(inst)){
+            if (basicBlock.contains(inst)) {
                 return basicBlock
             }
         }

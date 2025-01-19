@@ -561,7 +561,8 @@ class RawInstListBuilder(
         val value = pop()
         val index = pop()
         val arrayRef = pop()
-        instructionList(insn) += JIRRawAssignInst(method,
+        instructionList(insn) += JIRRawAssignInst(
+            method,
             JIRRawArrayAccess(arrayRef, index, arrayRef.typeName.elementType()),
             value
         )
@@ -984,7 +985,8 @@ class RawInstListBuilder(
                     persistentListOf()
                 )
                 val throwable = nextRegister(catch.typeOrDefault.typeName())
-                instructionList(insnNode) += JIRRawCatchInst(method,
+                instructionList(insnNode) += JIRRawCatchInst(
+                    method,
                     throwable,
                     labelRef(catch.handler),
                     labelRef(catch.start),
@@ -1158,7 +1160,8 @@ class RawInstListBuilder(
             is String -> push(JIRRawStringConstant(cst, STRING_CLASS.typeName()))
             is Type -> {
                 val assignment = nextRegister(CLASS_CLASS.typeName())
-                instructionList(insnNode) += JIRRawAssignInst(method,
+                instructionList(insnNode) += JIRRawAssignInst(
+                    method,
                     assignment,
                     JIRRawClassConstant(cst.descriptor.typeName(), CLASS_CLASS.typeName())
                 )
@@ -1167,7 +1170,8 @@ class RawInstListBuilder(
 
             is Handle -> {
                 val assignment = nextRegister(CLASS_CLASS.typeName())
-                instructionList(insnNode) += JIRRawAssignInst(method,
+                instructionList(insnNode) += JIRRawAssignInst(
+                    method,
                     assignment,
                     JIRRawMethodConstant(
                         cst.owner.typeName(),
@@ -1288,7 +1292,11 @@ class RawInstListBuilder(
             Opcodes.ANEWARRAY -> {
                 val length = pop()
                 val assignment = nextRegister(type.asArray())
-                instructionList(insnNode) += JIRRawAssignInst(method, assignment, JIRRawNewArrayExpr(type.asArray(), length))
+                instructionList(insnNode) += JIRRawAssignInst(
+                    method,
+                    assignment,
+                    JIRRawNewArrayExpr(type.asArray(), length)
+                )
                 push(assignment)
             }
 
@@ -1300,7 +1308,8 @@ class RawInstListBuilder(
 
             Opcodes.INSTANCEOF -> {
                 val assignment = nextRegister(PredefinedPrimitives.Boolean.typeName())
-                instructionList(insnNode) += JIRRawAssignInst(method,
+                instructionList(insnNode) += JIRRawAssignInst(
+                    method,
                     assignment,
                     JIRRawInstanceOfExpr(PredefinedPrimitives.Boolean.typeName(), pop(), type)
                 )
@@ -1313,7 +1322,11 @@ class RawInstListBuilder(
 
     private fun buildVarInsnNode(insnNode: VarInsnNode) {
         when (insnNode.opcode) {
-            in Opcodes.ISTORE..Opcodes.ASTORE -> local(insnNode.`var`, pop(), insnNode)?.let { instructionList(insnNode).add(it) }
+            in Opcodes.ISTORE..Opcodes.ASTORE -> local(
+                insnNode.`var`,
+                pop(),
+                insnNode
+            )?.let { instructionList(insnNode).add(it) }
 
             in Opcodes.ILOAD..Opcodes.ALOAD -> push(local(insnNode.`var`))
             else -> error("Unknown opcode ${insnNode.opcode} in VarInsnNode")
