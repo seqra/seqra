@@ -12,7 +12,7 @@ internal class RecordComponentResolutionImpl(val recordComponentType: JvmType) :
 internal class MethodResolutionImpl(
     val returnType: JvmType,
     val parameterTypes: List<JvmType>,
-    val exceptionTypes: List<JvmClassRefType>,
+    val exceptionTypes: List<JvmRefType>,
     val typeVariables: List<JvmTypeParameterDeclaration>
 ) : MethodResolution
 

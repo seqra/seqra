@@ -173,7 +173,7 @@ class MethodNodeBuilder(
                 if (it.access == Opcodes.ACC_PUBLIC) 0 else it.access
             )
         }
-        mn.exceptions = method.exceptions.map { it.simpleName.jvmName() }
+        mn.exceptions = method.exceptions.map { it.name.typeName().jvmClassName }
         mn.instructions = currentInsnList
         mn.tryCatchBlocks = tryCatchNodeList
         mn.maxLocals = localIndex

@@ -8,6 +8,7 @@ import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.impl.fs.fullAsmNode
 import org.opentaint.ir.impl.types.MethodInfo
 import org.opentaint.ir.impl.types.TypeNameImpl
+import org.opentaint.ir.impl.types.signature.JvmClassRefType
 import org.opentaint.ir.impl.types.signature.MethodResolutionImpl
 import org.opentaint.ir.impl.types.signature.MethodSignature
 import org.objectweb.asm.tree.MethodNode
@@ -26,14 +27,18 @@ class JIRMethodImpl(
 
     private val methodSignature = MethodSignature.of(this)
 
-    override val exceptions: List<JIRClassOrInterface> get() {
-        if (methodSignature is MethodResolutionImpl) {
-            return methodSignature.exceptionTypes.map {
-                enclosingClass.classpath.findClass(it.name)
+    override val exceptions: List<JIRClassOrInterface>
+        get() {
+            if (methodSignature is MethodResolutionImpl) {
+                val classpath = enclosingClass.classpath
+                return methodSignature.exceptionTypes.mapNotNull {
+                    (it as? JvmClassRefType)?.let {
+                        classpath.findClass(it.name)
+                    }
+                }
             }
+            return emptyList()
         }
-        return emptyList()
-    }
 
     override val declaration = JIRDeclarationImpl.of(location = enclosingClass.declaration.location, this)
 
