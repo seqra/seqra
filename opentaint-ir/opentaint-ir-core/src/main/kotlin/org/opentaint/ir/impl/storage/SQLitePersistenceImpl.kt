@@ -68,4 +68,8 @@ class SQLitePersistenceImpl(
         return javaClass.classLoader.getResourceAsStream("sqlite/$name")?.reader()?.readText()
             ?: throw IllegalStateException("no sql script for sqlite/$name found")
     }
+
+    override fun createIndexes() {
+        jooq.executeQueries(getScript("add-indexes.sql"))
+    }
 }
