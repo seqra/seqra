@@ -1,6 +1,5 @@
 package org.opentaint.ir.testing.cfg
 
-import com.sun.mail.iap.Protocol
 import com.sun.mail.imap.IMAPMessage
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.JIRClassOrInterface

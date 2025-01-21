@@ -74,6 +74,10 @@ class JIRSettings {
         cacheSettings = JIRCacheSettings().also { it.settings() }
     }
 
+    fun caching(settings: JIRCacheSettings) = apply {
+        cacheSettings = settings
+    }
+
     fun bytecodeCaching(byteCodeCache: JIRByteCodeCache) = apply {
         this.byteCodeSettings = byteCodeCache
     }
@@ -185,15 +189,15 @@ class JIRCacheSettings {
 
     var byteCodeCache: JIRByteCodeCache = JIRByteCodeCache()
 
-    fun classes(maxSize: Long, expiration: Duration) {
+    fun classes(maxSize: Long, expiration: Duration) = apply {
         classes = maxSize to expiration
     }
 
-    fun types(maxSize: Long, expiration: Duration) {
+    fun types(maxSize: Long, expiration: Duration) = apply {
         types = maxSize to expiration
     }
 
-    fun graphs(maxSize: Long, expiration: Duration) {
+    fun graphs(maxSize: Long, expiration: Duration) = apply {
         graphs = maxSize to expiration
     }
 }
