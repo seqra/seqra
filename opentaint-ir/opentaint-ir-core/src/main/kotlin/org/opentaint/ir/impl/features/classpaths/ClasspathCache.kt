@@ -104,7 +104,7 @@ private class JIRGraphHolder(private val methodRef: JIRMethodRef) {
     }
 
     val rawInstList: JIRInstList<JIRRawInst> by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        val list: JIRInstList<JIRRawInst> = RawInstListBuilder(method, method.asmNode().jsrInlined).build()
+        val list: JIRInstList<JIRRawInst> = RawInstListBuilder(method, method.asmNode()).build()
         methodFeatures.fold(list) { value, feature ->
             feature.transformRawInstList(method, value)
         }

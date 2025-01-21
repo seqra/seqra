@@ -56,6 +56,7 @@ import org.opentaint.ir.api.cfg.JIRRawNegExpr
 import org.opentaint.ir.api.cfg.JIRRawNeqExpr
 import org.opentaint.ir.api.cfg.JIRRawNewArrayExpr
 import org.opentaint.ir.api.cfg.JIRRawNewExpr
+import org.opentaint.ir.api.cfg.JIRRawNullConstant
 import org.opentaint.ir.api.cfg.JIRRawOrExpr
 import org.opentaint.ir.api.cfg.JIRRawRemExpr
 import org.opentaint.ir.api.cfg.JIRRawReturnInst
@@ -230,6 +231,7 @@ class RawInstListBuilder(
     private lateinit var currentFrame: Frame
     private val ENTRY = InsnNode(-1)
 
+    private val deadInstructions = hashSetOf<AbstractInsnNode>()
     private val predecessors = mutableMapOf<AbstractInsnNode, MutableList<AbstractInsnNode>>()
     private val instructions = mutableMapOf<AbstractInsnNode, MutableList<JIRRawInst>>()
     private val laterAssignments = mutableMapOf<AbstractInsnNode, MutableMap<Int, JIRRawValue>>()
@@ -257,7 +259,7 @@ class RawInstListBuilder(
     private fun buildInstructions() {
         currentFrame = createInitialFrame()
         frames[ENTRY] = currentFrame
-        for (insn in methodNode.instructions) {
+        methodNode.instructions.forEachIndexed { index, insn ->
             when (insn) {
                 is InsnNode -> buildInsnNode(insn)
                 is FieldInsnNode -> buildFieldInsnNode(insn)
@@ -276,6 +278,10 @@ class RawInstListBuilder(
                 is TypeInsnNode -> buildTypeInsnNode(insn)
                 is VarInsnNode -> buildVarInsnNode(insn)
                 else -> error("Unknown insn node ${insn::class}")
+            }
+            val preds = predecessors[insn]
+            if (index != 1 && (preds.isNullOrEmpty() || preds.all { deadInstructions.contains(it) })) {
+                deadInstructions.add(insn)
             }
             frames[insn] = currentFrame
         }
@@ -411,12 +417,14 @@ class RawInstListBuilder(
 
     private fun peek(): JIRRawValue = currentFrame.peek()
 
-    private fun local(variable: Int) = currentFrame.locals.getValue(variable)
+    private fun local(variable: Int): JIRRawValue {
+        return currentFrame.locals.getValue(variable)
+    }
 
     private fun local(variable: Int, expr: JIRRawValue, insn: AbstractInsnNode): JIRRawAssignInst? {
         val oldVar = currentFrame.locals[variable]
         return if (oldVar != null) {
-            if (oldVar.typeName == expr.typeName) {
+            if (oldVar.typeName == expr.typeName || expr is JIRRawNullConstant) {
                 JIRRawAssignInst(method, oldVar, expr)
             } else if (expr is JIRRawSimpleValue) {
                 currentFrame = currentFrame.put(variable, expr)
@@ -1147,9 +1155,11 @@ class RawInstListBuilder(
     private fun buildLabelNode(insnNode: LabelNode) {
         val labelInst = label(insnNode)
         instructionList(insnNode) += labelInst
-        val predecessors = predecessors.getOrDefault(insnNode, emptySet())
+        val predecessors = predecessors.getOrDefault(insnNode, emptySet()).filter { !deadInstructions.contains(it) }
         val predecessorFrames = predecessors.mapNotNull { frames[it] }
-        if (predecessors.size == predecessorFrames.size) {
+        if (predecessorFrames.size == 1) {
+            currentFrame = predecessorFrames.first()
+        } else if (predecessors.size == predecessorFrames.size) {
             currentFrame = mergeFrames(predecessors.zip(predecessorFrames).toMap())
         }
 

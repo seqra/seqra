@@ -49,6 +49,8 @@ dependencies {
 
     implementation(group = "com.google.guava", name = "guava", version = "31.1-jre")
     implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-metadata-jvm", version = kmetadataVersion)
+    testImplementation(group = "javax.activation", name = "activation", version = "1.1")
+    testImplementation(group = "javax.mail", name = "mail", version = "1.4.7")
 
     testFixturesImplementation(project(":opentaint-ir-api"))
 

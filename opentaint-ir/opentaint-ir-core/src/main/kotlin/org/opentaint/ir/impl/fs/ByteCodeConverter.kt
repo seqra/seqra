@@ -5,6 +5,7 @@ import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.impl.bytecode.computeFrames
 import org.opentaint.ir.impl.bytecode.hasFrameInfo
+import org.opentaint.ir.impl.bytecode.inlineJsrs
 import org.opentaint.ir.impl.storage.AnnotationValueKind
 import org.opentaint.ir.impl.types.AnnotationInfo
 import org.opentaint.ir.impl.types.AnnotationValue
@@ -124,7 +125,9 @@ val ClassSource.info: ClassInfo
 
 val ClassSource.fullAsmNode: ClassNode
     get() {
-        return newClassNode(ClassReader.EXPAND_FRAMES)
+        return newClassNode(ClassReader.EXPAND_FRAMES).also {
+            it.inlineJsrs()
+        }
     }
 
 fun ClassSource.fullAsmNodeWithFrames(classpath: JIRClasspath): ClassNode {
