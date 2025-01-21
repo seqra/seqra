@@ -225,18 +225,18 @@ class RawInstListBuilder(
     val method: JIRMethod,
     private val methodNode: MethodNode
 ) {
-    private val frames = mutableMapOf<AbstractInsnNode, Frame>()
-    private val labels = mutableMapOf<LabelNode, JIRRawLabelInst>()
+    private val frames = hashMapOf<AbstractInsnNode, Frame>()
+    private val labels = hashMapOf<LabelNode, JIRRawLabelInst>()
     private lateinit var lastFrameState: FrameState
     private lateinit var currentFrame: Frame
     private val ENTRY = InsnNode(-1)
 
     private val deadInstructions = hashSetOf<AbstractInsnNode>()
-    private val predecessors = mutableMapOf<AbstractInsnNode, MutableList<AbstractInsnNode>>()
-    private val instructions = mutableMapOf<AbstractInsnNode, MutableList<JIRRawInst>>()
-    private val laterAssignments = mutableMapOf<AbstractInsnNode, MutableMap<Int, JIRRawValue>>()
-    private val laterStackAssignments = mutableMapOf<AbstractInsnNode, MutableMap<Int, JIRRawValue>>()
-    private val localTypeRefinement = mutableMapOf<JIRRawLocalVar, JIRRawLocalVar>()
+    private val predecessors = hashMapOf<AbstractInsnNode, MutableList<AbstractInsnNode>>()
+    private val instructions = hashMapOf<AbstractInsnNode, MutableList<JIRRawInst>>()
+    private val laterAssignments = hashMapOf<AbstractInsnNode, MutableMap<Int, JIRRawValue>>()
+    private val laterStackAssignments = hashMapOf<AbstractInsnNode, MutableMap<Int, JIRRawValue>>()
+    private val localTypeRefinement = hashMapOf<JIRRawLocalVar, JIRRawLocalVar>()
     private var labelCounter = 0
     private var localCounter = 0
     private var argCounter = 0
