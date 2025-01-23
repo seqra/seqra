@@ -3,7 +3,6 @@ package org.opentaint.ir.testing.types
 import com.zaxxer.hikari.pool.HikariPool
 import com.zaxxer.hikari.util.ConcurrentBag
 import org.opentaint.ir.api.JIRArrayType
-import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRPrimitiveType
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.toType
@@ -59,9 +58,14 @@ class TypesTest : BaseTypesTest() {
     }
 
     @Test
-    fun `inner-outer classes recursion`(){
+    fun `inner-outer classes recursion`() {
         cp.findClass<HikariPool>().toType().interfaces
         cp.findClass<ConcurrentBag<*>>().toType()
+    }
+
+    @Test
+    fun `kotlin private inline fun`() {
+        cp.findClass("kotlin.text.RegexKt\$fromInt\$1\$1").toType().interfaces.single().typeArguments
     }
 
 }
