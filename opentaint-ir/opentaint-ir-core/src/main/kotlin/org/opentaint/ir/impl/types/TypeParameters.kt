@@ -51,6 +51,5 @@ fun JvmTypeParameterDeclaration.asJIRDeclaration(owner: JIRAccessible): JIRTypeV
         is JIRMethod -> owner.enclosingClass.classpath
         else -> throw IllegalStateException("Unknown owner type $owner")
     }
-    val bounds = bounds?.map { classpath.typeOf(it) as JIRRefType }
-    return JIRTypeVariableDeclarationImpl(symbol, bounds.orEmpty(), owner = owner)
+    return JIRTypeVariableDeclarationImpl(symbol, classpath, bounds.orEmpty(), owner = owner)
 }

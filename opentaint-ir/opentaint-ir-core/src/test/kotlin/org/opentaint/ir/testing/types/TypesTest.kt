@@ -1,7 +1,12 @@
 package org.opentaint.ir.testing.types
 
+import com.zaxxer.hikari.pool.HikariPool
+import com.zaxxer.hikari.util.ConcurrentBag
 import org.opentaint.ir.api.JIRArrayType
+import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRPrimitiveType
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.ext.toType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -52,4 +57,11 @@ class TypesTest : BaseTypesTest() {
         assertEquals(false, actualParameters.first().nullable)
         assertEquals(true, actualParameters.get(1).nullable)
     }
+
+    @Test
+    fun `inner-outer classes recursion`(){
+        cp.findClass<HikariPool>().toType().interfaces
+        cp.findClass<ConcurrentBag<*>>().toType()
+    }
+
 }
