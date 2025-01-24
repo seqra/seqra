@@ -65,11 +65,11 @@ class JIRDatabaseImpl(
         persistence.setup()
         locationsRegistry.cleanup()
         val runtime = JavaRuntime(settings.jre).allLocations
-        locationsRegistry.setup(runtime).new.process()
+        locationsRegistry.setup(runtime).new.process(false)
         locationsRegistry.registerIfNeeded(
             settings.predefinedDirOrJars.filter { it.exists() }
                 .map { it.asByteCodeLocation(javaRuntime.version, isRuntime = false) }
-        ).new.process()
+        ).new.process(true)
     }
 
     private fun List<JIRClasspathFeature>?.appendCaching(): List<JIRClasspathFeature> {
@@ -83,7 +83,7 @@ class JIRDatabaseImpl(
         assertNotClosed()
         val existedLocations = dirOrJars.filterExisted().map { it.asByteCodeLocation(javaRuntime.version) }
         val processed = locationsRegistry.registerIfNeeded(existedLocations.toList())
-            .also { it.new.process() }.registered + locationsRegistry.runtimeLocations
+            .also { it.new.process(true) }.registered + locationsRegistry.runtimeLocations
         return classpathOf(processed, features)
     }
 
@@ -121,10 +121,10 @@ class JIRDatabaseImpl(
 
     override suspend fun loadLocations(locations: List<JIRByteCodeLocation>) = apply {
         assertNotClosed()
-        locationsRegistry.registerIfNeeded(locations).new.process()
+        locationsRegistry.registerIfNeeded(locations).new.process(true)
     }
 
-    private suspend fun List<RegisteredLocation>.process(): List<RegisteredLocation> {
+    private suspend fun List<RegisteredLocation>.process(createIndexes: Boolean): List<RegisteredLocation> {
         withContext(Dispatchers.IO) {
             map { location ->
                 async {
@@ -153,7 +153,9 @@ class JIRDatabaseImpl(
                     parentScope.ifActive { featureRegistry.index(location, sources) }
                 }
             }.joinAll()
-            persistence.createIndexes()
+            if(createIndexes) {
+                persistence.createIndexes()
+            }
             locationsRegistry.afterProcessing(this@process)
             backgroundJobs.remove(backgroundJobId)
         }
@@ -162,7 +164,7 @@ class JIRDatabaseImpl(
 
     override suspend fun refresh() {
         awaitBackgroundJobs()
-        locationsRegistry.refresh().new.process()
+        locationsRegistry.refresh().new.process(true)
         val result = locationsRegistry.cleanup()
         classesVfs.visit(RemoveLocationsVisitor(result.outdated, settings.byteCodeSettings.prefixes))
     }

@@ -4,6 +4,7 @@ import com.zaxxer.hikari.pool.HikariPool
 import com.zaxxer.hikari.util.ConcurrentBag
 import org.opentaint.ir.api.JIRArrayType
 import org.opentaint.ir.api.JIRPrimitiveType
+import org.opentaint.ir.api.JIRTypeVariable
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.toType
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -65,7 +66,9 @@ class TypesTest : BaseTypesTest() {
 
     @Test
     fun `kotlin private inline fun`() {
-        cp.findClass("kotlin.text.RegexKt\$fromInt\$1\$1").toType().interfaces.single().typeArguments
+        val type = cp.findClass("kotlin.text.RegexKt\$fromInt\$1\$1").toType().interfaces.single().typeArguments.first()
+        type as JIRTypeVariable
+        assertTrue(type.bounds.isNotEmpty())
     }
 
 }
