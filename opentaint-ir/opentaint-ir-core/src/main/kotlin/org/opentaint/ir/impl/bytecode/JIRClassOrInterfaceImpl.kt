@@ -155,6 +155,6 @@ class JIRClassOrInterfaceImpl(
     }
 
     override fun toString(): String {
-        return "${declaration.location.path}(${declaration.location.id}): $name"
+        return "(id:${declaration.location.id})$name"
     }
 }
