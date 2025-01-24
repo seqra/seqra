@@ -59,8 +59,8 @@ class TypesTest : BaseTypesTest() {
 
     @Test
     fun `inner-outer classes recursion`() {
-        cp.findClass<HikariPool>().toType().interfaces
-        cp.findClass<ConcurrentBag<*>>().toType()
+        cp.findClass("com.zaxxer.hikari.pool.HikariPool").toType().interfaces
+        cp.findClass("com.zaxxer.hikari.util.ConcurrentBag").toType()
     }
 
     @Test
