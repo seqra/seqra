@@ -20,7 +20,6 @@ import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstList
 import org.opentaint.ir.api.cfg.JIRRawInst
 import org.opentaint.ir.impl.JIRCacheSettings
-import org.opentaint.ir.impl.bytecode.jsrInlined
 import org.opentaint.ir.impl.cfg.JIRGraphBuilder
 import org.opentaint.ir.impl.cfg.JIRMethodRefImpl
 import org.opentaint.ir.impl.cfg.RawInstListBuilder

@@ -43,7 +43,7 @@ class JIRMethodImpl(
     override val description get() = methodInfo.desc
 
     override fun asmNode(): MethodNode {
-        return source.fullAsmNode.methods.first { it.name == name && it.desc == methodInfo.desc }
+        return source.fullAsmNode.methods.first { it.name == name && it.desc == methodInfo.desc }.jsrInlined
     }
 
     override val rawInstList: JIRInstList<JIRRawInst> get() = classpathCache.rawInstList(this)

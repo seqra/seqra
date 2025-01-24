@@ -125,9 +125,7 @@ val ClassSource.info: ClassInfo
 
 val ClassSource.fullAsmNode: ClassNode
     get() {
-        return newClassNode(ClassReader.EXPAND_FRAMES).also {
-            it.inlineJsrs()
-        }
+        return newClassNode(ClassReader.EXPAND_FRAMES)
     }
 
 fun ClassSource.fullAsmNodeWithFrames(classpath: JIRClasspath): ClassNode {
