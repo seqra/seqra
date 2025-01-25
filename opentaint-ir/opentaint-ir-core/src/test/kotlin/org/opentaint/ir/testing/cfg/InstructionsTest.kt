@@ -8,7 +8,11 @@ import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.api.cfg.JIRAssignInst
 import org.opentaint.ir.api.cfg.JIRLocalVar
+import org.opentaint.ir.api.cfg.locals
+import org.opentaint.ir.api.cfg.values
 import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.api.ext.cfg.locals
+import org.opentaint.ir.api.ext.cfg.values
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
@@ -66,9 +70,31 @@ class InstructionsTest : BaseTest() {
 
     @Test
     fun `properly merged frames for old bytecodce`() {
-        val clazz1 = cp.findClass<IMAPMessage>()
-        val method1 = clazz1.declaredMethods.first { it.name == "writeTo" }
-        method1.flowGraph()
+        val clazz = cp.findClass<IMAPMessage>()
+        val method = clazz.declaredMethods.first { it.name == "writeTo" }
+        method.flowGraph()
+    }
+
+    @Test
+    fun `locals should work`() {
+        val clazz = cp.findClass<IRExamples>()
+        with(clazz.declaredMethods.first { it.name == "sortTimes" }) {
+            assertEquals(9, instList.locals.size)
+            assertEquals(13, instList.values .size)
+        }
+
+        with(clazz.declaredMethods.first { it.name == "test" }) {
+            assertEquals(2, instList.locals.size)
+            assertEquals(5, instList.values.size)
+        }
+        with(clazz.declaredMethods.first { it.name == "concatTest" }) {
+            assertEquals(6, instList.locals.size)
+            assertEquals(6, instList.values.size)
+        }
+        with(clazz.declaredMethods.first { it.name == "testArrays" }) {
+            assertEquals(4, instList.locals.size)
+            assertEquals(8, instList.values.size)
+        }
     }
 
     @Test
@@ -98,7 +124,10 @@ class InstructionsTest : BaseTest() {
                 }
             }
         }
-        assertTrue(failed.isEmpty(), "Failed to process methods: \n${failed.joinToString("\n") { it.enclosingClass.name + "#" + it.name }}")
+        assertTrue(
+            failed.isEmpty(),
+            "Failed to process methods: \n${failed.joinToString("\n") { it.enclosingClass.name + "#" + it.name }}"
+        )
     }
 
     private fun JIRMethod.dumpInstructions(): String {
