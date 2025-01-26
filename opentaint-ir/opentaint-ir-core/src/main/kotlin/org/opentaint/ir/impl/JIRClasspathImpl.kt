@@ -92,7 +92,7 @@ class JIRClasspathImpl(
     }
 
     override fun findTypeOrNull(name: String): JIRType? {
-        val result = classpathExtFeature?.firstNotNullOfOrNull { it.tryFindType(this, name) }
+        val result = classpathExtFeature.firstNotNullOfOrNull { it.tryFindType(this, name) }
         if (result != null) {
             return result.orElse(null)
         }

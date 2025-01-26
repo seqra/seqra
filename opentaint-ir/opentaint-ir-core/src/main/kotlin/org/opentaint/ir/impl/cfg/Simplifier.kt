@@ -74,7 +74,7 @@ internal class Simplifier {
         // remove instructions like `a = a`
         instructionList = cleanSelfAssignments(instructionList)
         // fix some typing errors and normalize the types of all local variables
-        return normalizeTypes(jIRClasspath, instructionList)
+        return normalizeTypes(instructionList)
     }
 
     private fun computeUseCases(instList: JIRInstListImpl<JIRRawInst>): Map<JIRRawSimpleValue, Set<JIRRawInst>> {
@@ -207,17 +207,15 @@ internal class Simplifier {
     }
 
     private fun normalizeTypes(
-        jIRClasspath: JIRClasspath,
         instList: JIRInstListImpl<JIRRawInst>
     ): JIRInstListImpl<JIRRawInst> {
-        val types = mutableMapOf<JIRRawLocalVar, MutableSet<JIRType>>()
+        val types = mutableMapOf<JIRRawLocalVar, MutableSet<String>>()
         for (inst in instList) {
             if (inst is JIRRawAssignInst && inst.lhv is JIRRawLocalVar && inst.rhv !is JIRRawNullConstant) {
                 types.getOrPut(
                     inst.lhv as JIRRawLocalVar,
                     ::mutableSetOf
-                ) += jIRClasspath.findTypeOrNull(inst.rhv.typeName.typeName)
-                    ?: error("Could not find type ${inst.rhv.typeName.typeName}")
+                ) += inst.rhv.typeName.typeName
             }
         }
         val replacement = types.filterValues { it.size > 1 }
