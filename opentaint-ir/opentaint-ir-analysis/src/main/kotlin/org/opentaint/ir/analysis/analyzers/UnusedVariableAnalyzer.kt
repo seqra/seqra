@@ -27,7 +27,6 @@ import org.opentaint.ir.api.cfg.values
 import org.opentaint.ir.api.ext.cfg.callExpr
 
 class UnusedVariableAnalyzer(
-
     val graph: JIRApplicationGraph
 ) : Analyzer {
     override val flowFunctions: FlowFunctionsSpace = UnusedVariableForwardFunctions(graph.classpath)
