@@ -71,4 +71,16 @@ class TypesTest : BaseTypesTest() {
         assertTrue(type.bounds.isNotEmpty())
     }
 
+    @Test
+    fun `interfaces types test`() {
+        val sessionCacheVisitorType = cp.findClass("sun.security.ssl.SSLSessionContextImpl\$SessionCacheVisitor").toType()
+        val cacheVisitorType = sessionCacheVisitorType.interfaces.first()
+        val firstParam = cacheVisitorType.typeArguments.first()
+
+        assertEquals(firstParam.jIRClass, cp.findClass("sun.security.ssl.SessionId"))
+
+        val secondParam = cacheVisitorType.typeArguments[1]
+        assertEquals(secondParam.jIRClass, cp.findClass("sun.security.ssl.SSLSessionImpl"))
+    }
+
 }
