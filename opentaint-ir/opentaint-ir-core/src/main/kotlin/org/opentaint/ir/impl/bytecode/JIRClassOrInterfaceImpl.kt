@@ -16,6 +16,8 @@ import org.opentaint.ir.impl.fs.LazyClassSourceImpl
 import org.opentaint.ir.impl.fs.fullAsmNodeWithFrames
 import org.opentaint.ir.impl.fs.info
 import org.opentaint.ir.impl.types.ClassInfo
+import org.opentaint.ir.impl.weakLazy
+import org.objectweb.asm.tree.ClassNode
 import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 class JIRClassOrInterfaceImpl(
@@ -86,7 +88,11 @@ class JIRClassOrInterfaceImpl(
     override val access: Int
         get() = info.access
 
-    override fun asmNode() = classSource.fullAsmNodeWithFrames(classpath)
+    private val lazyAsmNode: ClassNode by weakLazy {
+        classSource.fullAsmNodeWithFrames(classpath)
+    }
+
+    override fun asmNode() = lazyAsmNode
     override fun bytecode(): ByteArray = classSource.byteCode
 
     override fun <T> extensionValue(key: String): T? {
@@ -127,7 +133,7 @@ class JIRClassOrInterfaceImpl(
         }
 
     override val declaredMethods: List<JIRMethod> by lazy(PUBLICATION) {
-        val result: List<JIRMethod> = info.methods.map { toJIRMethod(it, classSource, cache) }
+        val result: List<JIRMethod> = info.methods.map { toJIRMethod(it, cache) }
         when {
             classFeatures.isNotEmpty() -> {
                 val modifiedMethods = result.toMutableList()

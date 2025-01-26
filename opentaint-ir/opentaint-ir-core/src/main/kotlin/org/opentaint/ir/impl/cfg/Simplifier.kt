@@ -1,11 +1,11 @@
 package org.opentaint.ir.impl.cfg
 
 import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.cfg.JIRRawAssignInst
 import org.opentaint.ir.api.cfg.JIRRawCatchInst
 import org.opentaint.ir.api.cfg.JIRRawComplexValue
 import org.opentaint.ir.api.cfg.JIRRawConstant
+import org.opentaint.ir.api.cfg.JIRRawExpr
 import org.opentaint.ir.api.cfg.JIRRawInst
 import org.opentaint.ir.api.cfg.JIRRawLabelInst
 import org.opentaint.ir.api.cfg.JIRRawLocalVar
@@ -13,8 +13,8 @@ import org.opentaint.ir.api.cfg.JIRRawNullConstant
 import org.opentaint.ir.api.cfg.JIRRawSimpleValue
 import org.opentaint.ir.api.cfg.JIRRawValue
 import org.opentaint.ir.api.ext.cfg.applyAndGet
+import org.opentaint.ir.api.cfg.AbstractFullRawExprSetCollector
 import org.opentaint.ir.impl.cfg.util.ExprMapper
-import org.opentaint.ir.impl.cfg.util.FullExprSetCollector
 import org.opentaint.ir.impl.cfg.util.InstructionFilter
 
 /**
@@ -78,21 +78,17 @@ internal class Simplifier {
     }
 
     private fun computeUseCases(instList: JIRInstListImpl<JIRRawInst>): Map<JIRRawSimpleValue, Set<JIRRawInst>> {
-        val uses = mutableMapOf<JIRRawSimpleValue, MutableSet<JIRRawInst>>()
+        val uses = hashMapOf<JIRRawSimpleValue, MutableSet<JIRRawInst>>()
         for (inst in instList) {
             when (inst) {
                 is JIRRawAssignInst -> {
                     if (inst.lhv is JIRRawComplexValue) {
-                        inst.lhv.applyAndGet(FullExprSetCollector()) { it.exprs }
-                            .filterIsInstance<JIRRawSimpleValue>()
-                            .filter { it !is JIRRawConstant }
+                        inst.lhv.applyAndGet(SimplifierCollector()) { it.exprs }
                             .forEach {
                                 uses.getOrPut(it, ::mutableSetOf).add(inst)
                             }
                     }
-                    inst.rhv.applyAndGet(FullExprSetCollector()) { it.exprs }
-                        .filterIsInstance<JIRRawSimpleValue>()
-                        .filter { it !is JIRRawConstant }
+                    inst.rhv.applyAndGet(SimplifierCollector()) { it.exprs }
                         .forEach {
                             uses.getOrPut(it, ::mutableSetOf).add(inst)
                         }
@@ -100,10 +96,7 @@ internal class Simplifier {
 
                 is JIRRawCatchInst -> {}
                 else -> {
-                    inst.operands
-                        .flatMapTo(mutableSetOf()) { expr -> expr.applyAndGet(FullExprSetCollector()) { it.exprs } }
-                        .filterIsInstance<JIRRawSimpleValue>()
-                        .filter { it !is JIRRawConstant }
+                    inst.applyAndGet(SimplifierCollector()) { it.exprs }
                         .forEach {
                             uses.getOrPut(it, ::mutableSetOf).add(inst)
                         }
@@ -115,7 +108,7 @@ internal class Simplifier {
 
     private fun cleanRepeatedAssignments(instList: JIRInstListImpl<JIRRawInst>): JIRInstListImpl<JIRRawInst> {
         val instructions = mutableListOf<JIRRawInst>()
-        val equalities = mutableMapOf<JIRRawSimpleValue, JIRRawSimpleValue>()
+        val equalities = hashMapOf<JIRRawSimpleValue, JIRRawSimpleValue>()
         for (inst in instList) {
             when (inst) {
                 is JIRRawAssignInst -> {
@@ -224,4 +217,15 @@ internal class Simplifier {
             }
         return instList.map(ExprMapper(replacement.toMap()))
     }
+}
+
+private class SimplifierCollector : AbstractFullRawExprSetCollector() {
+    val exprs = hashSetOf<JIRRawSimpleValue>()
+
+    override fun ifMatches(expr: JIRRawExpr) {
+        if (expr is JIRRawSimpleValue && expr !is JIRRawConstant) {
+            exprs.add(expr)
+        }
+    }
+
 }

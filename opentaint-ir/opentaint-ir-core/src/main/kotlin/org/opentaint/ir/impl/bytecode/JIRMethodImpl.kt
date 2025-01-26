@@ -1,6 +1,5 @@
 package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRMethod
@@ -10,14 +9,14 @@ import org.opentaint.ir.api.TypeName
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstList
 import org.opentaint.ir.api.cfg.JIRRawInst
-import org.opentaint.ir.impl.fs.fullAsmNode
+import org.opentaint.ir.impl.softLazy
 import org.opentaint.ir.impl.types.MethodInfo
 import org.opentaint.ir.impl.types.TypeNameImpl
+import org.opentaint.ir.impl.weakLazy
 import org.objectweb.asm.tree.MethodNode
 
 class JIRMethodImpl(
     private val methodInfo: MethodInfo,
-    private val source: ClassSource,
     private val classpathCache: JIRMethodExtFeature,
     override val enclosingClass: JIRClassOrInterface
 ) : JIRMethod {
@@ -26,6 +25,10 @@ class JIRMethodImpl(
     override val access: Int get() = methodInfo.access
     override val signature: String? get() = methodInfo.signature
     override val returnType = TypeNameImpl(methodInfo.returnClass)
+
+    private val lazyAsm: MethodNode by softLazy {
+        enclosingClass.asmNode().methods.first { it.name == name && it.desc == methodInfo.desc }.jsrInlined
+    }
 
     override val exceptions: List<TypeName>
         get() {
@@ -43,7 +46,7 @@ class JIRMethodImpl(
     override val description get() = methodInfo.desc
 
     override fun asmNode(): MethodNode {
-        return source.fullAsmNode.methods.first { it.name == name && it.desc == methodInfo.desc }.jsrInlined
+        return lazyAsm
     }
 
     override val rawInstList: JIRInstList<JIRRawInst> get() = classpathCache.rawInstList(this)

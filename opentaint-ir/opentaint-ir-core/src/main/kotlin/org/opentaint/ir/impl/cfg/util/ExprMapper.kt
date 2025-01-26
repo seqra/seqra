@@ -72,6 +72,7 @@ import org.opentaint.ir.api.cfg.JIRRawVirtualCallExpr
 import org.opentaint.ir.api.cfg.JIRRawXorExpr
 
 class ExprMapper(val mapping: Map<JIRRawExpr, JIRRawExpr>) : JIRRawInstVisitor<JIRRawInst>, JIRRawExprVisitor<JIRRawExpr> {
+
     override fun visitJIRRawAssignInst(inst: JIRRawAssignInst): JIRRawInst {
         val newLhv = inst.lhv.accept(this) as JIRRawValue
         val newRhv = inst.rhv.accept(this)
@@ -158,12 +159,11 @@ class ExprMapper(val mapping: Map<JIRRawExpr, JIRRawExpr>) : JIRRawInstVisitor<J
         }
     }
 
-    private fun <T : JIRRawExpr> exprHandler(expr: T, handler: () -> JIRRawExpr): JIRRawExpr {
-        if (expr in mapping) return mapping.getValue(expr)
-        return handler()
+    private inline fun <T : JIRRawExpr> exprHandler(expr: T, handler: () -> JIRRawExpr): JIRRawExpr {
+        return mapping.getOrElse(expr, handler)
     }
 
-    private fun <T : JIRRawBinaryExpr> binaryHandler(expr: T, handler: (TypeName, JIRRawValue, JIRRawValue) -> T) =
+    private inline fun <T : JIRRawBinaryExpr> binaryHandler(expr: T, handler: (TypeName, JIRRawValue, JIRRawValue) -> T) =
         exprHandler(expr) {
             val newLhv = expr.lhv.accept(this) as JIRRawValue
             val newRhv = expr.rhv.accept(this) as JIRRawValue

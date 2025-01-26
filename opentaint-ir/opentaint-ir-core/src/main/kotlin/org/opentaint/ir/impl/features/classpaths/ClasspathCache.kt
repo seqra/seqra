@@ -23,6 +23,7 @@ import org.opentaint.ir.impl.JIRCacheSettings
 import org.opentaint.ir.impl.cfg.JIRGraphBuilder
 import org.opentaint.ir.impl.cfg.JIRMethodRefImpl
 import org.opentaint.ir.impl.cfg.RawInstListBuilder
+import org.opentaint.ir.impl.weakLazy
 import java.time.Duration
 import java.util.*
 
@@ -91,7 +92,7 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
     }
 }
 
-private class JIRGraphHolder(private val methodRef: JIRMethodRef) {
+class JIRGraphHolder(private val methodRef: JIRMethodRef) {
 
     private val method get() = methodRef.method
     private lateinit var classpath: JIRClasspath
