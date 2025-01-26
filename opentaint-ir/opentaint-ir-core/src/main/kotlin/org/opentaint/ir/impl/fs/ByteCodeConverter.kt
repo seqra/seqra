@@ -5,7 +5,6 @@ import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.impl.bytecode.computeFrames
 import org.opentaint.ir.impl.bytecode.hasFrameInfo
-import org.opentaint.ir.impl.bytecode.inlineJsrs
 import org.opentaint.ir.impl.storage.AnnotationValueKind
 import org.opentaint.ir.impl.types.AnnotationInfo
 import org.opentaint.ir.impl.types.AnnotationValue

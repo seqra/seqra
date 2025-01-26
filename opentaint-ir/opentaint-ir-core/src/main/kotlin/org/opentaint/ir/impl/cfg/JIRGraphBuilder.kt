@@ -441,9 +441,7 @@ class JIRGraphBuilder(
     override fun visitJIRRawSpecialCallExpr(expr: JIRRawSpecialCallExpr): JIRExpr {
         val instance = expr.instance.accept(this) as JIRValue
         val args = expr.args.map { it.accept(this) as JIRValue }
-        return JIRSpecialCallExpr(
-            instance.type.methodRef(expr), instance, args
-        )
+        return JIRSpecialCallExpr(classpath.methodRef(expr), instance, args)
     }
 
     override fun visitJIRRawThis(value: JIRRawThis): JIRExpr =
