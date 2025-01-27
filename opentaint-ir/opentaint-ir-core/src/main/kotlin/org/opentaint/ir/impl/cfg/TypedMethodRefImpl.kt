@@ -30,7 +30,7 @@ interface MethodSignatureRef : TypedMethodRef {
     }
 
     fun findDeclaredMethod(): JIRTypedMethod? {
-        return type.findDeclaredMethod {true}
+        return type.findDeclaredMethod { true }
     }
 
     fun JIRClassType.findDeclaredMethod(filter: (JIRTypedMethod) -> Boolean): JIRTypedMethod? {
@@ -144,10 +144,10 @@ fun JIRClasspath.methodRef(expr: JIRRawCallExpr): TypedMethodRef {
 }
 
 fun JIRType.methodRef(expr: JIRRawCallExpr): TypedMethodRef {
-    return when(expr) {
+    return when (expr) {
         is JIRRawStaticCallExpr -> TypedStaticMethodRefImpl((this as JIRClassType).classpath, expr)
         is JIRRawSpecialCallExpr -> TypedSpecialMethodRefImpl((this as JIRClassType).classpath, expr)
-        else ->TypedMethodRefImpl(this, expr)
+        else -> TypedMethodRefImpl(this, expr)
     }
 }
 
