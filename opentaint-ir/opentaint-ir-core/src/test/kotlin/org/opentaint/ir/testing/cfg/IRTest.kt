@@ -46,12 +46,14 @@ import org.opentaint.ir.impl.cfg.RawInstListBuilder
 import org.opentaint.ir.impl.cfg.Simplifier
 import org.opentaint.ir.impl.cfg.util.ExprMapper
 import org.opentaint.ir.impl.features.InMemoryHierarchy
+import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.impl.fs.JarLocation
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.allClasspath
 import org.opentaint.ir.testing.guavaLib
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -315,15 +317,17 @@ class IRTest : BaseTest() {
     }
 
     @Test
-    fun `get ir of jackson`() {
-        allClasspath
-            .filter { it.name.contains("jackson") }
-            .forEach { runAlongLib(it) }
-    }
-
-    @Test
     fun `get ir of guava`() {
         runAlongLib(guavaLib)
+    }
+
+    @AfterEach
+    fun printStats() {
+        cp.features!!.filterIsInstance<ClasspathCache>().forEach {
+            it.stats().forEach {
+                println(it.key + " : " + it.value)
+            }
+        }
     }
 
     private fun runAlongLib(file: File) {

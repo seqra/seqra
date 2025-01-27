@@ -8,6 +8,8 @@ import info.leadinglight.jdot.enums.Shape
 import info.leadinglight.jdot.impl.Util
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRInstExtFeature
+import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.cfg.DefaultJIRExprVisitor
 import org.opentaint.ir.api.cfg.DefaultJIRInstVisitor
@@ -26,10 +28,12 @@ import org.opentaint.ir.api.cfg.JIRGotoInst
 import org.opentaint.ir.api.cfg.JIRGraph
 import org.opentaint.ir.api.cfg.JIRIfInst
 import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRInstList
 import org.opentaint.ir.api.cfg.JIRLambdaExpr
 import org.opentaint.ir.api.cfg.JIRLengthExpr
 import org.opentaint.ir.api.cfg.JIRNewArrayExpr
 import org.opentaint.ir.api.cfg.JIRNewExpr
+import org.opentaint.ir.api.cfg.JIRRawInst
 import org.opentaint.ir.api.cfg.JIRRemExpr
 import org.opentaint.ir.api.cfg.JIRSpecialCallExpr
 import org.opentaint.ir.api.cfg.JIRStaticCallExpr
@@ -319,3 +323,23 @@ open class JIRExceptionResolver(val classpath: JIRClasspath) : DefaultJIRExprVis
 
 }
 
+private val JIRMethod.methodFeatures
+    get() = enclosingClass.classpath.features?.filterIsInstance<JIRInstExtFeature>().orEmpty()
+
+fun nonCachedRawInstList(method: JIRMethod): JIRInstList<JIRRawInst> {
+    val list: JIRInstList<JIRRawInst> = RawInstListBuilder(method, method.asmNode()).build()
+    return method.methodFeatures.fold(list) { value, feature ->
+        feature.transformRawInstList(method, value)
+    }
+}
+
+fun nonCachedFlowGraph(method: JIRMethod): JIRGraph {
+    return JIRGraphBuilder(method, method.rawInstList).buildFlowGraph()
+}
+
+fun nonCachedInstList(method: JIRMethod): JIRInstList<JIRInst> {
+    val list: JIRInstList<JIRInst> = JIRGraphBuilder(method, method.rawInstList).buildInstList()
+    return method.methodFeatures.fold(list) { value, feature ->
+        feature.transformInstList(method, value)
+    }
+}

@@ -2,6 +2,7 @@ package org.opentaint.ir.impl.features.classpaths
 
 import com.google.common.cache.CacheBuilder
 import com.google.common.cache.CacheLoader
+import com.google.common.cache.CacheStats
 import org.opentaint.ir.api.JIRClassFoundEvent
 import org.opentaint.ir.api.JIRClassNotFound
 import org.opentaint.ir.api.JIRClassOrInterface
@@ -9,10 +10,8 @@ import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRClasspathExtFeature
 import org.opentaint.ir.api.JIRClasspathFeatureEvent
-import org.opentaint.ir.api.JIRInstExtFeature
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRMethodExtFeature
-import org.opentaint.ir.api.JIRMethodRef
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.JIRTypeFoundEvent
 import org.opentaint.ir.api.cfg.JIRGraph
@@ -20,10 +19,9 @@ import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstList
 import org.opentaint.ir.api.cfg.JIRRawInst
 import org.opentaint.ir.impl.JIRCacheSettings
-import org.opentaint.ir.impl.cfg.JIRGraphBuilder
-import org.opentaint.ir.impl.cfg.JIRMethodRefImpl
-import org.opentaint.ir.impl.cfg.RawInstListBuilder
-import org.opentaint.ir.impl.weakLazy
+import org.opentaint.ir.impl.cfg.nonCachedFlowGraph
+import org.opentaint.ir.impl.cfg.nonCachedInstList
+import org.opentaint.ir.impl.cfg.nonCachedRawInstList
 import java.time.Duration
 import java.util.*
 
@@ -40,10 +38,24 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
     private val typesCache = segmentBuilder(settings.types)
         .build<String, Optional<JIRType>>()
 
-    private val graphCache = segmentBuilder(settings.graphs)
-        .build(object : CacheLoader<JIRMethodRef, JIRGraphHolder>() {
-            override fun load(key: JIRMethodRef): JIRGraphHolder {
-                return JIRGraphHolder(key)
+    private val rawInstCache = segmentBuilder(settings.graphs)
+        .build(object : CacheLoader<JIRMethod, JIRInstList<JIRRawInst>>() {
+            override fun load(key: JIRMethod): JIRInstList<JIRRawInst> {
+                return nonCachedRawInstList(key)
+            }
+        });
+
+    private val instCache = segmentBuilder(settings.graphs, weakValues = true)
+        .build(object : CacheLoader<JIRMethod, JIRInstList<JIRInst>>() {
+            override fun load(key: JIRMethod): JIRInstList<JIRInst> {
+                return nonCachedInstList(key)
+            }
+        });
+
+    private val cfgCache = segmentBuilder(settings.graphs, weakValues = true)
+        .build(object : CacheLoader<JIRMethod, JIRGraph>() {
+            override fun load(key: JIRMethod): JIRGraph {
+                return nonCachedFlowGraph(key)
             }
         });
 
@@ -55,18 +67,9 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
         return typesCache.getIfPresent(name)
     }
 
-    override fun flowGraph(method: JIRMethod): JIRGraph = method.holder().flowGraph
-
-    private fun JIRMethod.holder(): JIRGraphHolder {
-        return graphCache.getUnchecked(JIRMethodRefImpl(this)).also {
-            it.bind(enclosingClass.classpath)
-        }
-    }
-
-    override fun instList(method: JIRMethod): JIRInstList<JIRInst> = method.holder().instList
-
-    override fun rawInstList(method: JIRMethod): JIRInstList<JIRRawInst> =
-        method.holder().rawInstList
+    override fun flowGraph(method: JIRMethod) = cfgCache.getUnchecked(method)
+    override fun instList(method: JIRMethod) = instCache.getUnchecked(method)
+    override fun rawInstList(method: JIRMethod) = rawInstCache.getUnchecked(method)
 
     override fun on(event: JIRClasspathFeatureEvent) {
         when (event) {
@@ -81,44 +84,27 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
         }
     }
 
-    protected fun segmentBuilder(settings: Pair<Long, Duration>): CacheBuilder<Any, Any> {
+    protected fun segmentBuilder(settings: Pair<Long, Duration>, weakValues: Boolean = false): CacheBuilder<Any, Any> {
         val maxSize = settings.first
         val expiration = settings.second
 
         return CacheBuilder.newBuilder()
             .expireAfterAccess(expiration)
-            .softValues()
-            .maximumSize(maxSize)
-    }
-}
-
-class JIRGraphHolder(private val methodRef: JIRMethodRef) {
-
-    private val method get() = methodRef.method
-    private lateinit var classpath: JIRClasspath
-    private lateinit var methodFeatures: List<JIRInstExtFeature>
-
-    fun bind(classpath: JIRClasspath) {
-        this.classpath = classpath
-        this.methodFeatures = classpath.features?.filterIsInstance<JIRInstExtFeature>().orEmpty()
+            .recordStats()
+            .maximumSize(maxSize).let {
+                if (weakValues) {
+                    it.weakValues()
+                } else {
+                    it.softValues()
+                }
+            }
     }
 
-    val rawInstList: JIRInstList<JIRRawInst> by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        val list: JIRInstList<JIRRawInst> = RawInstListBuilder(method, method.asmNode()).build()
-        methodFeatures.fold(list) { value, feature ->
-            feature.transformRawInstList(method, value)
-        }
+    open fun stats(): Map<String, CacheStats> = buildMap {
+        this["classes"] = classesCache.stats()
+        this["types"] = typesCache.stats()
+        this["cfg"] = cfgCache.stats()
+        this["raw-instructions"] = rawInstCache.stats()
+        this["instructions"] = instCache.stats()
     }
-
-    val flowGraph by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        JIRGraphBuilder(method, rawInstList).buildFlowGraph()
-    }
-
-    val instList: JIRInstList<JIRInst> by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        val list: JIRInstList<JIRInst> = JIRGraphBuilder(method, rawInstList).buildInstList()
-        methodFeatures.fold(list) { value, feature ->
-            feature.transformInstList(method, value)
-        }
-    }
-
 }
