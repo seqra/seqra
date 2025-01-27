@@ -221,22 +221,26 @@ private val Collection<TryCatchBlockNode>.commonTypeOrDefault get() = map { it.t
     .singleOrNull()
     ?: THROWABLE_CLASS
 
+internal fun <K, V> identityMap(): MutableMap<K,V> = IdentityHashMap()
+
+internal fun <K, V> Map<out K, V>.toIdentityMap(): Map<K, V> = toMap()
+
 class RawInstListBuilder(
     val method: JIRMethod,
     private val methodNode: MethodNode
 ) {
-    private val frames = hashMapOf<AbstractInsnNode, Frame>()
-    private val labels = hashMapOf<LabelNode, JIRRawLabelInst>()
+    private val frames = identityMap<AbstractInsnNode, Frame>()
+    private val labels = identityMap<LabelNode, JIRRawLabelInst>()
     private lateinit var lastFrameState: FrameState
     private lateinit var currentFrame: Frame
     private val ENTRY = InsnNode(-1)
 
     private val deadInstructions = hashSetOf<AbstractInsnNode>()
-    private val predecessors = hashMapOf<AbstractInsnNode, MutableList<AbstractInsnNode>>()
-    private val instructions = hashMapOf<AbstractInsnNode, MutableList<JIRRawInst>>()
-    private val laterAssignments = hashMapOf<AbstractInsnNode, MutableMap<Int, JIRRawValue>>()
-    private val laterStackAssignments = hashMapOf<AbstractInsnNode, MutableMap<Int, JIRRawValue>>()
-    private val localTypeRefinement = hashMapOf<JIRRawLocalVar, JIRRawLocalVar>()
+    private val predecessors = identityMap<AbstractInsnNode, MutableList<AbstractInsnNode>>()
+    private val instructions = identityMap<AbstractInsnNode, MutableList<JIRRawInst>>()
+    private val laterAssignments = identityMap<AbstractInsnNode, MutableMap<Int, JIRRawValue>>()
+    private val laterStackAssignments = identityMap<AbstractInsnNode, MutableMap<Int, JIRRawValue>>()
+    private val localTypeRefinement = identityMap<JIRRawLocalVar, JIRRawLocalVar>()
     private var labelCounter = 0
     private var localCounter = 0
     private var argCounter = 0
@@ -252,7 +256,7 @@ class RawInstListBuilder(
 
         // after all the frame info resolution we can refine type info for some local variables,
         // so we replace all the old versions of the variables with the type refined ones
-        val localsNormalizedInstructionList = originalInstructionList.map(ExprMapper(localTypeRefinement.toMap()))
+        val localsNormalizedInstructionList = originalInstructionList.map(ExprMapper(localTypeRefinement.toIdentityMap()))
         return Simplifier().simplify(method.enclosingClass.classpath, localsNormalizedInstructionList)
     }
 

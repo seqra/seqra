@@ -9,6 +9,8 @@ import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.TypeName
 import org.opentaint.ir.api.cfg.JIRInstLocation
 import org.opentaint.ir.api.cfg.JIRRawCallExpr
+import org.opentaint.ir.api.cfg.JIRRawSpecialCallExpr
+import org.opentaint.ir.api.cfg.JIRRawStaticCallExpr
 import org.opentaint.ir.api.cfg.TypedMethodRef
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findMethodOrNull
@@ -19,12 +21,85 @@ import org.opentaint.ir.api.ext.packageName
 import org.opentaint.ir.impl.softLazy
 import org.opentaint.ir.impl.weakLazy
 
-data class TypedMethodRefImpl(
-    val type: JIRClassType,
+interface MethodSignatureRef : TypedMethodRef {
+    val type: JIRClassType
+    val argTypes: List<TypeName>
+
+    fun findDeclaredMethod(filter: (JIRTypedMethod) -> Boolean): JIRTypedMethod? {
+        return type.findDeclaredMethod(filter)
+    }
+
+    fun findDeclaredMethod(): JIRTypedMethod? {
+        return type.findDeclaredMethod {true}
+    }
+
+    fun JIRClassType.findDeclaredMethod(filter: (JIRTypedMethod) -> Boolean): JIRTypedMethod? {
+        val types = argTypes.joinToString { it.typeName }
+        return this.declaredMethods.first { it.name == name && filter(it) && it.method.parameters.joinToString { it.type.typeName } == types }
+    }
+
+    val methodNotFoundMessage: String
+        get() {
+            return buildString {
+                append("Can't find method '")
+                append(type.typeName)
+                append("#")
+                append(name)
+                append("(")
+                argTypes.forEach {
+                    append(it.typeName)
+                    append(",")
+                }
+                append(")")
+            }
+        }
+}
+
+data class TypedStaticMethodRefImpl(
+    override val type: JIRClassType,
     override val name: String,
-    val argTypes: List<TypeName>,
+    override val argTypes: List<TypeName>,
     val returnType: TypeName
-) : TypedMethodRef {
+) : MethodSignatureRef {
+
+    constructor(classpath: JIRClasspath, raw: JIRRawStaticCallExpr) : this(
+        classpath.findTypeOrNull(raw.declaringClass.typeName) as JIRClassType,
+        raw.methodName,
+        raw.argumentTypes,
+        raw.returnType
+    )
+
+    override val method: JIRTypedMethod by weakLazy {
+        findDeclaredMethod { it.isStatic } ?: throw IllegalStateException(methodNotFoundMessage)
+    }
+}
+
+data class TypedSpecialMethodRefImpl(
+    override val type: JIRClassType,
+    override val name: String,
+    override val argTypes: List<TypeName>,
+    val returnType: TypeName
+) : MethodSignatureRef {
+
+    constructor(classpath: JIRClasspath, raw: JIRRawSpecialCallExpr) : this(
+        classpath.findTypeOrNull(raw.declaringClass.typeName) as JIRClassType,
+        raw.methodName,
+        raw.argumentTypes,
+        raw.returnType
+    )
+
+    override val method: JIRTypedMethod by weakLazy {
+        findDeclaredMethod() ?: throw IllegalStateException(methodNotFoundMessage)
+    }
+
+}
+
+data class TypedMethodRefImpl(
+    override val type: JIRClassType,
+    override val name: String,
+    override val argTypes: List<TypeName>,
+    val returnType: TypeName
+) : MethodSignatureRef {
 
     constructor(classpath: JIRClasspath, raw: JIRRawCallExpr) : this(
         classpath.findTypeOrNull(raw.declaringClass.typeName) as JIRClassType,
@@ -69,7 +144,11 @@ fun JIRClasspath.methodRef(expr: JIRRawCallExpr): TypedMethodRef {
 }
 
 fun JIRType.methodRef(expr: JIRRawCallExpr): TypedMethodRef {
-    return TypedMethodRefImpl(this, expr)
+    return when(expr) {
+        is JIRRawStaticCallExpr -> TypedStaticMethodRefImpl((this as JIRClassType).classpath, expr)
+        is JIRRawSpecialCallExpr -> TypedSpecialMethodRefImpl((this as JIRClassType).classpath, expr)
+        else ->TypedMethodRefImpl(this, expr)
+    }
 }
 
 fun JIRTypedMethod.methodRef(): TypedMethodRef {

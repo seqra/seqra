@@ -54,7 +54,7 @@ class JIRClasspathImpl(
     }
 
     override fun findClassOrNull(name: String): JIRClassOrInterface? {
-        val result = classpathExtFeature?.firstNotNullOfOrNull { it.tryFindClass(this, name) }
+        val result = classpathExtFeature.firstNotNullOfOrNull { it.tryFindClass(this, name) }
         if (result != null) {
             return result.orElse(null)
         }

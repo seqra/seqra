@@ -161,18 +161,16 @@ class JIRGraphBuilder(
     val classpath: JIRClasspath = method.enclosingClass.classpath
     private val methodRef = JIRMethodRefImpl(method)
 
-    private val instMap = mutableMapOf<JIRRawInst, JIRInst>()
+    private val instMap = identityMap<JIRRawInst, JIRInst>()
     private var currentLineNumber = 0
     private var index = 0
     private val labels = instList.filterIsInstance<JIRRawLabelInst>().associateBy { it.ref }
-    private val inst2Index: Map<JIRRawInst, Int> = run {
-        val res = mutableMapOf<JIRRawInst, Int>()
+    private val inst2Index: Map<JIRRawInst, Int> = identityMap<JIRRawInst, Int>().also {
         var index = 0
         for (inst in instList) {
-            res[inst] = index
+            it[inst] = index
             if (inst !is JIRRawLabelInst && inst !is JIRRawLineNumberInst) ++index
         }
-        res
     }
 
     private fun reset() {
@@ -206,9 +204,8 @@ class JIRGraphBuilder(
         }
     }
 
-    private val TypeName.asType
-        get() = classpath.findTypeOrNull(this)
-            ?: error("Could not find type $this")
+    private fun TypeName.asType() = classpath.findTypeOrNull(this)
+        ?: error("Could not find type $this")
 
     private fun label2InstRef(labelRef: JIRRawLabelRef) =
         JIRInstRef(inst2Index[labels.getValue(labelRef)]!!)
@@ -250,7 +247,7 @@ class JIRGraphBuilder(
 
     override fun visitJIRRawCatchInst(inst: JIRRawCatchInst): JIRInst = handle(inst) {
         val location = newLocation()
-        val throwableTypes = inst.entries.map { it.acceptedThrowable.asType }
+        val throwableTypes = inst.entries.map { it.acceptedThrowable.asType() }
         val throwers = inst.entries.flatMap {
             val result = mutableListOf<JIRInstRef>()
             var current = instList.indexOf(labels.getValue(it.startInclusive))
@@ -308,7 +305,7 @@ class JIRGraphBuilder(
         expr: JIRRawBinaryExpr,
         handler: (JIRType, JIRValue, JIRValue) -> JIRBinaryExpr
     ): JIRBinaryExpr {
-        val type = expr.typeName.asType
+        val type = expr.typeName.asType()
         val lhv = expr.lhv.accept(this) as JIRValue
         val rhv = expr.rhv.accept(this) as JIRValue
         return handler(type, lhv, rhv)
@@ -379,25 +376,25 @@ class JIRGraphBuilder(
     }
 
     override fun visitJIRRawNegExpr(expr: JIRRawNegExpr): JIRExpr =
-        JIRNegExpr(expr.typeName.asType, expr.operand.accept(this) as JIRValue)
+        JIRNegExpr(expr.typeName.asType(), expr.operand.accept(this) as JIRValue)
 
     override fun visitJIRRawCastExpr(expr: JIRRawCastExpr): JIRExpr =
-        JIRCastExpr(expr.typeName.asType, expr.operand.accept(this) as JIRValue)
+        JIRCastExpr(expr.typeName.asType(), expr.operand.accept(this) as JIRValue)
 
-    override fun visitJIRRawNewExpr(expr: JIRRawNewExpr): JIRExpr = JIRNewExpr(expr.typeName.asType)
+    override fun visitJIRRawNewExpr(expr: JIRRawNewExpr): JIRExpr = JIRNewExpr(expr.typeName.asType())
 
     override fun visitJIRRawNewArrayExpr(expr: JIRRawNewArrayExpr): JIRExpr =
-        JIRNewArrayExpr(expr.typeName.asType, expr.dimensions.map { it.accept(this) as JIRValue })
+        JIRNewArrayExpr(expr.typeName.asType(), expr.dimensions.map { it.accept(this) as JIRValue })
 
     override fun visitJIRRawInstanceOfExpr(expr: JIRRawInstanceOfExpr): JIRExpr =
-        JIRInstanceOfExpr(classpath.boolean, expr.operand.accept(this) as JIRValue, expr.targetType.asType)
+        JIRInstanceOfExpr(classpath.boolean, expr.operand.accept(this) as JIRValue, expr.targetType.asType())
 
     override fun visitJIRRawDynamicCallExpr(expr: JIRRawDynamicCallExpr): JIRExpr {
         val lambdaBases = expr.bsmArgs.filterIsInstance<BsmHandle>()
         when (lambdaBases.size) {
             1 -> {
                 val base = lambdaBases.first()
-                val klass = base.declaringClass.asType as JIRClassType
+                val klass = base.declaringClass.asType() as JIRClassType
                 val ref = TypedMethodRefImpl(klass, base.name, base.argTypes, base.returnType)
 
                 return JIRLambdaExpr(ref, expr.args.map { it.accept(this) as JIRValue })
@@ -409,8 +406,8 @@ class JIRGraphBuilder(
                     classpath.methodRef(expr),
                     expr.bsmArgs,
                     expr.callCiteMethodName,
-                    expr.callCiteArgTypes.map { it.asType },
-                    expr.callCiteReturnType.asType,
+                    expr.callCiteArgTypes.map { it.asType() },
+                    expr.callCiteReturnType.asType(),
                     expr.args.map { it.accept(this) as JIRValue }
                 )
             }
@@ -448,15 +445,15 @@ class JIRGraphBuilder(
         JIRThis(method.enclosingClass.toType())
 
     override fun visitJIRRawArgument(value: JIRRawArgument): JIRExpr = method.parameters[value.index].let {
-        JIRArgument.of(it.index, value.name, it.type.asType)
+        JIRArgument.of(it.index, value.name, it.type.asType())
     }
 
     override fun visitJIRRawLocalVar(value: JIRRawLocalVar): JIRExpr =
-        JIRLocalVar(value.name, value.typeName.asType)
+        JIRLocalVar(value.name, value.typeName.asType())
 
     override fun visitJIRRawFieldRef(value: JIRRawFieldRef): JIRExpr {
         val instance = value.instance?.accept(this) as? JIRValue
-        val klass = (instance?.type ?: value.declaringClass.asType) as JIRClassType
+        val klass = (instance?.type ?: value.declaringClass.asType()) as JIRClassType
         val field = klass.findFieldOrNull(value.fieldName)
             ?: throw IllegalStateException("${klass.typeName}#${value.fieldName} not found")
         return JIRFieldRef(value.instance?.accept(this) as? JIRValue, field)
@@ -466,7 +463,7 @@ class JIRGraphBuilder(
         JIRArrayAccess(
             value.array.accept(this) as JIRValue,
             value.index.accept(this) as JIRValue,
-            value.typeName.asType
+            value.typeName.asType()
         )
 
     override fun visitJIRRawBool(value: JIRRawBool): JIRExpr = JIRBool(value.value, classpath.boolean)
@@ -489,18 +486,18 @@ class JIRGraphBuilder(
         JIRNullConstant(classpath.objectType)
 
     override fun visitJIRRawStringConstant(value: JIRRawStringConstant): JIRExpr =
-        JIRStringConstant(value.value, value.typeName.asType)
+        JIRStringConstant(value.value, value.typeName.asType())
 
     override fun visitJIRRawClassConstant(value: JIRRawClassConstant): JIRExpr =
-        JIRClassConstant(value.className.asType, value.typeName.asType)
+        JIRClassConstant(value.className.asType(), value.typeName.asType())
 
     override fun visitJIRRawMethodConstant(value: JIRRawMethodConstant): JIRExpr {
-        val klass = value.declaringClass.asType as JIRClassType
-        val argumentTypes = value.argumentTypes.map { it.asType }
-        val returnType = value.returnType.asType
+        val klass = value.declaringClass.asType() as JIRClassType
+        val argumentTypes = value.argumentTypes.map { it.asType() }
+        val returnType = value.returnType.asType()
         val constant = klass.declaredMethods.first {
             it.name == value.name && it.returnType == returnType && it.parameters.map { param -> param.type } == argumentTypes
         }
-        return JIRMethodConstant(constant, value.typeName.asType)
+        return JIRMethodConstant(constant, value.typeName.asType())
     }
 }
