@@ -35,7 +35,7 @@ interface MethodSignatureRef : TypedMethodRef {
 
     fun JIRClassType.findDeclaredMethod(filter: (JIRTypedMethod) -> Boolean): JIRTypedMethod? {
         val types = argTypes.joinToString { it.typeName }
-        return this.declaredMethods.firstOrNull { it.name == name && filter(it) && it.method.parameters.joinToString { it.type.typeName } == types }
+        return this.declaredMethods.first { it.name == name && filter(it) && it.method.parameters.joinToString { it.type.typeName } == types }
     }
 
     val methodNotFoundMessage: String
@@ -70,9 +70,7 @@ data class TypedStaticMethodRefImpl(
     )
 
     override val method: JIRTypedMethod by weakLazy {
-        findDeclaredMethod { it.isStatic } ?: type.superType?.let {
-            TypedStaticMethodRefImpl(it, name, argTypes, returnType).method
-        } ?: throw IllegalStateException(methodNotFoundMessage)
+        findDeclaredMethod { it.isStatic } ?: throw IllegalStateException(methodNotFoundMessage)
     }
 }
 
@@ -91,9 +89,7 @@ data class TypedSpecialMethodRefImpl(
     )
 
     override val method: JIRTypedMethod by weakLazy {
-        findDeclaredMethod() ?: type.superType?.let {
-            TypedSpecialMethodRefImpl(it, name, argTypes, returnType).method
-        } ?: throw IllegalStateException(methodNotFoundMessage)
+        findDeclaredMethod() ?: throw IllegalStateException(methodNotFoundMessage)
     }
 
 }
@@ -144,9 +140,13 @@ data class TypedMethodRefImpl(
 }
 
 fun JIRClasspath.methodRef(expr: JIRRawCallExpr): TypedMethodRef {
+    return TypedMethodRefImpl(this, expr)
+}
+
+fun JIRType.methodRef(expr: JIRRawCallExpr): TypedMethodRef {
     return when (expr) {
-        is JIRRawStaticCallExpr -> TypedStaticMethodRefImpl(this, expr)
-        is JIRRawSpecialCallExpr -> TypedSpecialMethodRefImpl(this, expr)
+        is JIRRawStaticCallExpr -> TypedStaticMethodRefImpl((this as JIRClassType).classpath, expr)
+        is JIRRawSpecialCallExpr -> TypedSpecialMethodRefImpl((this as JIRClassType).classpath, expr)
         else -> TypedMethodRefImpl(this, expr)
     }
 }
@@ -194,10 +194,6 @@ class JIRInstLocationImpl(
     override val index: Int,
     override val lineNumber: Int
 ) : JIRInstLocation {
-
-    override fun toString(): String {
-        return "${methodRef.method.enclosingClass.name}#${methodRef.method.name}:$lineNumber"
-    }
 
     override val method: JIRMethod by softLazy {
         methodRef.method

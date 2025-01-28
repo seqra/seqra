@@ -31,7 +31,6 @@ import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
 import org.opentaint.ir.api.cfg.applyAndGet
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.api.ext.isKotlin
 import org.opentaint.ir.api.ext.packageName
 import org.opentaint.ir.api.ext.toType
@@ -41,7 +40,7 @@ import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.bytecode.JIRDatabaseClassWriter
 import org.opentaint.ir.impl.bytecode.JIRMethodImpl
 import org.opentaint.ir.impl.cfg.JIRBlockGraphImpl
-import org.opentaint.ir.impl.cfg.JIRInstListBuilder
+import org.opentaint.ir.impl.cfg.JIRGraphBuilder
 import org.opentaint.ir.impl.cfg.MethodNodeBuilder
 import org.opentaint.ir.impl.cfg.RawInstListBuilder
 import org.opentaint.ir.impl.cfg.Simplifier
@@ -304,7 +303,7 @@ class IRTest : BaseTest() {
         testClass(cp.findClass<BinarySearchTree<*>.BinarySearchTreeIterator>())
     }
 
-        @Test
+    @Test
     fun `get ir of self`() {
         testClass(cp.findClass<JIRClasspathImpl>())
         testClass(cp.findClass<JIRClassOrInterfaceImpl>())
@@ -313,7 +312,7 @@ class IRTest : BaseTest() {
         testClass(cp.findClass<Simplifier>())
         testClass(cp.findClass<JIRDatabaseImpl>())
         testClass(cp.findClass<ExprMapper>())
-        testClass(cp.findClass<JIRInstListBuilder>())
+        testClass(cp.findClass<JIRGraphBuilder>())
         testClass(cp.findClass<JIRBlockGraphImpl>())
     }
 
