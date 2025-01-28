@@ -143,14 +143,13 @@ open class JIRClassTypeImpl(
         other as JIRClassTypeImpl
 
         if (nullable != other.nullable) return false
-        if (typeName != other.typeName) return false
-
-        return true
+        if (jIRClass != other.jIRClass) return false
+        return substitutor == other.substitutor
     }
 
     override fun hashCode(): Int {
         val result = nullable.hashCode()
-        return 31 * result + typeName.hashCode()
+        return 31 * result + jIRClass.hashCode()
     }
 
     private fun typedMethods(

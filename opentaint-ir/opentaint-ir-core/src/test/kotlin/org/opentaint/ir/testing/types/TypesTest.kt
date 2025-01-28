@@ -1,13 +1,14 @@
 package org.opentaint.ir.testing.types
 
-import com.zaxxer.hikari.pool.HikariPool
-import com.zaxxer.hikari.util.ConcurrentBag
 import org.opentaint.ir.api.JIRArrayType
 import org.opentaint.ir.api.JIRPrimitiveType
 import org.opentaint.ir.api.JIRTypeVariable
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.toType
+import org.opentaint.ir.impl.types.JIRClassTypeImpl
+import org.opentaint.ir.impl.types.substition.JIRSubstitutor
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -81,6 +82,29 @@ class TypesTest : BaseTypesTest() {
 
         val secondParam = cacheVisitorType.typeArguments[1]
         assertEquals(secondParam.jIRClass, cp.findClass("sun.security.ssl.SSLSessionImpl"))
+    }
+
+    private val listClass = List::class.java.name
+
+    @Test
+    fun `raw types equality`() {
+        val rawType1 = JIRClassTypeImpl(cp, listClass, null, JIRSubstitutor.empty, false)
+        val rawType2 = JIRClassTypeImpl(cp, listClass, null, JIRSubstitutor.empty, false)
+        assertEquals(rawType1, rawType2)
+    }
+
+    interface X : List<String>
+    interface Y : List<String>
+
+    @Test
+    fun `parametrized types equality`() {
+        val rawType = JIRClassTypeImpl(cp, listClass, null, JIRSubstitutor.empty, false)
+        val type1 = cp.findClass<X>().toType().interfaces.first()
+        val type2 = cp.findClass<Y>().toType().interfaces.first()
+        assertNotEquals(rawType, type1)
+        assertNotEquals(rawType, type2)
+
+        assertNotEquals(type1, type2)
     }
 
 }
