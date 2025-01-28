@@ -44,8 +44,12 @@ class UnusedVariableAnalyzer(
     private fun AccessPath.isUsedAt(inst: JIRInst): Boolean {
         val callExpr = inst.callExpr
 
-        // TODO: currently we use here that `this` is not in `operands` of JIRSpecialCallExpr, this may be wrong
         if (callExpr != null) {
+            // Don't count constructor calls as usages
+            if (callExpr.method.method.isConstructor && isUsedAt((callExpr as JIRSpecialCallExpr).instance)) {
+                return false
+            }
+
             if (graph.callees(inst).none()) {
                 return isUsedAt(callExpr)
             }
