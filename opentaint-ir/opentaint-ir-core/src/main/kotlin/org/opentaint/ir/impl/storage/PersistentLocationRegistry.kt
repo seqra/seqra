@@ -73,15 +73,16 @@ class PersistentLocationRegistry(private val jIRdb: JIRDatabase, private val fea
     }
 
     override fun registerIfNeeded(locations: List<JIRByteCodeLocation>): RegistrationResult {
+        val uniqueLocations = locations.toSet()
         return persistence.write {
             val result = arrayListOf<RegisteredLocation>()
             val toAdd = arrayListOf<JIRByteCodeLocation>()
-            val fsId = locations.map { it.fileSystemId }
+            val fsId = uniqueLocations.map { it.fileSystemId }
             val existed = it.selectFrom(BYTECODELOCATIONS)
                 .where(BYTECODELOCATIONS.UNIQUEID.`in`(fsId))
                 .fetch().associateBy { it.uniqueid }
 
-            locations.forEach {
+            uniqueLocations.forEach {
                 val found = existed[it.fileSystemId]
                 if (found == null) {
                     toAdd += it
