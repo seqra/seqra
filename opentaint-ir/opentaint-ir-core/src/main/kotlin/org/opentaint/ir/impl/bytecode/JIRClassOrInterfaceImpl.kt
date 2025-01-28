@@ -14,7 +14,6 @@ import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.fs.LazyClassSourceImpl
 import org.opentaint.ir.impl.fs.fullAsmNode
-import org.opentaint.ir.impl.fs.fullAsmNodeWithFrames
 import org.opentaint.ir.impl.fs.info
 import org.opentaint.ir.impl.types.ClassInfo
 import org.opentaint.ir.impl.weakLazy
