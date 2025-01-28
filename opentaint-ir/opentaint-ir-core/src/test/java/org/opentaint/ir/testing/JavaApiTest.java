@@ -3,11 +3,14 @@ package org.opentaint.ir.testing;
 import com.google.common.collect.Lists;
 import org.opentaint.ir.api.JIRClassOrInterface;
 import org.opentaint.ir.api.JIRClasspath;
-import org.opentaint.ir.api.JIRClasspathFeature;
 import org.opentaint.ir.api.JIRDatabase;
+import org.opentaint.ir.api.cfg.JIRArgument;
+import org.opentaint.ir.api.cfg.JIRExpr;
+import org.opentaint.ir.api.cfg.TypedExprResolver;
 import org.opentaint.ir.impl.Opentaint-IR;
 import org.opentaint.ir.impl.JIRSettings;
 import org.opentaint.ir.impl.features.Usages;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -17,6 +20,17 @@ import static org.opentaint.ir.testing.LibrariesMixinKt.getAllClasspath;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class JavaApiTest {
+
+    private static class ArgumentResolver extends TypedExprResolver<JIRArgument> {
+
+        @Override
+        public void ifMatches(@NotNull JIRExpr jIRExpr) {
+            if (jIRExpr instanceof JIRArgument) {
+                getResult().add((JIRArgument) jIRExpr);
+            }
+        }
+
+    }
 
     @Test
     public void createJirdb() throws ExecutionException, InterruptedException, IOException {

@@ -54,7 +54,7 @@ object KotlinMetadata : JIRClassExtFeature {
 
 }
 
-class KotlinMetadataHolder(val meta: KotlinClassMetadata) {
+class KotlinMetadataHolder(meta: KotlinClassMetadata) {
 
     val functions: List<KmFunction> = when (meta) {
         is KotlinClassMetadata.Class -> meta.toKmClass().functions
