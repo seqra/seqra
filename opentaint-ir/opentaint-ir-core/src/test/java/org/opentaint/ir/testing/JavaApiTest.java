@@ -21,6 +21,17 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class JavaApiTest {
 
+    private static class ArgumentResolver extends TypedExprResolver<JIRArgument> {
+
+        @Override
+        public void ifMatches(@NotNull JIRExpr jIRExpr) {
+            if (jIRExpr instanceof JIRArgument) {
+                getResult().add((JIRArgument) jIRExpr);
+            }
+        }
+
+    }
+
     @Test
     public void createJirdb() throws ExecutionException, InterruptedException, IOException {
         System.out.println("Creating database");
