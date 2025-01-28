@@ -3,12 +3,14 @@ package org.opentaint.ir.analysis.points2
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.Points2Engine
 import org.opentaint.ir.analysis.points2.AllOverridesDevirtualizer.Companion.bannedPackagePrefixes
+import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
 import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.api.ext.isSubClassOf
 import org.opentaint.ir.impl.features.hierarchyExt
 
 /**
@@ -26,14 +28,21 @@ class AllOverridesDevirtualizer(
 
     override fun findPossibleCallees(sink: JIRInst): Collection<JIRMethod> {
         val methods = initialGraph.callees(sink).toList()
-        if (sink.callExpr !is JIRVirtualCallExpr)
-            return methods
+        val callExpr = sink.callExpr as? JIRVirtualCallExpr ?: return methods
+        val instanceClass = (callExpr.instance.type as JIRClassType).jIRClass
+
         return methods
             .flatMap { method ->
                 if (bannedPackagePrefixes.any { method.enclosingClass.name.startsWith(it) })
                     listOf(method)
                 else {
-                    val allOverrides = hierarchyExtension.findOverrides(method)
+                    val allOverrides = hierarchyExtension
+                        .findOverrides(method)
+                        .filter {
+                            it.enclosingClass isSubClassOf instanceClass ||
+                            // TODO: use only down-most override here
+                            instanceClass isSubClassOf it.enclosingClass
+                        }
 
                     // TODO: maybe filter inaccessible methods here?
                     return if (limit != null) {

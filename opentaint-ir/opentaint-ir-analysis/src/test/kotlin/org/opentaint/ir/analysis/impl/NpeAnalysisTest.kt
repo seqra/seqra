@@ -250,7 +250,7 @@ class NpeAnalysisTest : BaseTest() {
 
     @Test
     fun `analyse something`() {
-        val testingMethod = cp.findClass<NPEExamples>().declaredMethods.single { it.name == "kek" }
+        val testingMethod = cp.findClass<NPEExamples>().declaredMethods.single { it.name == "id" }
         val results = testingMethod.flowGraph()
         print(results)
     }
