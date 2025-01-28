@@ -127,14 +127,14 @@ val ClassSource.fullAsmNode: ClassNode
         return newClassNode(ClassReader.EXPAND_FRAMES)
     }
 
-fun ClassSource.fullAsmNodeWithFrames(classpath: JIRClasspath): ClassNode {
-    var classNode = fullAsmNode
-    classNode = when {
-        classNode.hasFrameInfo -> classNode
-        else -> classNode.computeFrames(classpath)
-    }
-    return classNode
-}
+//fun ClassSource.fullAsmNodeWithFrames(classpath: JIRClasspath): ClassNode {
+//    var classNode = fullAsmNode
+//    classNode = when {
+//        classNode.hasFrameInfo -> classNode
+//        else -> classNode.computeFrames(classpath)
+//    }
+//    return classNode
+//}
 
 private fun ClassSource.newClassNode(level: Int): ClassNode {
     return ClassNode(Opcodes.ASM9).also {
