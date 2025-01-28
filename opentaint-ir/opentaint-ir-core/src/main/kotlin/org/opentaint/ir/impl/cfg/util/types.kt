@@ -43,8 +43,7 @@ internal val TypeName.isDWord
 
 internal fun String.typeName(): TypeName = TypeNameImpl(this.jIRdbName())
 internal fun TypeName.asArray(dimensions: Int = 1) = "$typeName${"[]".repeat(dimensions)}".typeName()
-internal fun TypeName.elementType() = elementTypeOrNull()
-    ?: error("Attempting to get element type of non-array type $this")
+internal fun TypeName.elementType() = elementTypeOrNull() ?: this
 
 internal fun TypeName.elementTypeOrNull() = when {
     this == NULL -> NULL

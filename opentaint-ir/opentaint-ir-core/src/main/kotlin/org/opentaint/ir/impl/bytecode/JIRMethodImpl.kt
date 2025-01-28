@@ -6,16 +6,18 @@ import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRMethodExtFeature
 import org.opentaint.ir.api.JIRParameter
 import org.opentaint.ir.api.TypeName
+import org.opentaint.ir.api.cfg.JIRGraph
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstList
 import org.opentaint.ir.api.cfg.JIRRawInst
+import org.opentaint.ir.impl.features.JIRFeaturesChain
 import org.opentaint.ir.impl.types.MethodInfo
 import org.opentaint.ir.impl.types.TypeNameImpl
 import org.objectweb.asm.tree.MethodNode
 
 class JIRMethodImpl(
     private val methodInfo: MethodInfo,
-    private val classpathCache: JIRMethodExtFeature,
+    private val featuresChain: JIRFeaturesChain,
     override val enclosingClass: JIRClassOrInterface
 ) : JIRMethod {
 
@@ -43,11 +45,21 @@ class JIRMethodImpl(
         return enclosingClass.asmNode().methods.first { it.name == name && it.desc == methodInfo.desc }.jsrInlined
     }
 
-    override val rawInstList: JIRInstList<JIRRawInst> get() = classpathCache.rawInstList(this)
+    override val rawInstList: JIRInstList<JIRRawInst>
+        get() {
+            return featuresChain.newRequest(this)
+                .call<JIRMethodExtFeature, JIRInstList<JIRRawInst>> { it.rawInstList(this) }!!
+        }
 
-    override fun flowGraph() = classpathCache.flowGraph(this)
+    override fun flowGraph(): JIRGraph {
+        return featuresChain.newRequest(this)
+            .call<JIRMethodExtFeature, JIRGraph> { it.flowGraph(this) }!!
+    }
 
-    override val instList: JIRInstList<JIRInst> get() = classpathCache.instList(this)
+    override val instList: JIRInstList<JIRInst> get() {
+        return featuresChain.newRequest(this)
+            .call<JIRMethodExtFeature, JIRInstList<JIRInst>> { it.instList(this) }!!
+    }
 
     override fun equals(other: Any?): Boolean {
         if (other == null || other !is JIRMethodImpl) {

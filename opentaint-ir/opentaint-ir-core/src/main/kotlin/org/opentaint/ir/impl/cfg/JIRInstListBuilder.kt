@@ -153,10 +153,7 @@ import org.opentaint.ir.api.ext.short
 import org.opentaint.ir.api.ext.toType
 
 /** This class stores state and is NOT THREAD SAFE. Use it carefully */
-class JIRGraphBuilder(
-    val method: JIRMethod,
-    val instList: JIRInstList<JIRRawInst>
-) : JIRRawInstVisitor<JIRInst?>, JIRRawExprVisitor<JIRExpr> {
+class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawInst>) : JIRRawInstVisitor<JIRInst?>, JIRRawExprVisitor<JIRExpr> {
 
     val classpath: JIRClasspath = method.enclosingClass.classpath
     private val methodRef = JIRMethodRefImpl(method)
@@ -176,12 +173,6 @@ class JIRGraphBuilder(
     private fun reset() {
         currentLineNumber = 0
         index = 0
-    }
-
-    fun buildFlowGraph(): JIRGraph {
-        return JIRGraphImpl(method, instList.mapNotNull { convertRawInst(it) }).also {
-            reset()
-        }
     }
 
     fun buildInstList(): JIRInstList<JIRInst> {
@@ -417,17 +408,13 @@ class JIRGraphBuilder(
     override fun visitJIRRawVirtualCallExpr(expr: JIRRawVirtualCallExpr): JIRExpr {
         val instance = expr.instance.accept(this) as JIRValue
         val args = expr.args.map { it.accept(this) as JIRValue }
-        return JIRVirtualCallExpr(
-            classpath.methodRef(expr), instance, args
-        )
+        return JIRVirtualCallExpr(classpath.methodRef(expr), instance, args)
     }
 
     override fun visitJIRRawInterfaceCallExpr(expr: JIRRawInterfaceCallExpr): JIRExpr {
         val instance = expr.instance.accept(this) as JIRValue
         val args = expr.args.map { it.accept(this) as JIRValue }
-        return JIRVirtualCallExpr(
-            classpath.methodRef(expr), instance, args
-        )
+        return JIRVirtualCallExpr(classpath.methodRef(expr), instance, args)
     }
 
     override fun visitJIRRawStaticCallExpr(expr: JIRRawStaticCallExpr): JIRExpr {
@@ -441,8 +428,7 @@ class JIRGraphBuilder(
         return JIRSpecialCallExpr(classpath.methodRef(expr), instance, args)
     }
 
-    override fun visitJIRRawThis(value: JIRRawThis): JIRExpr =
-        JIRThis(method.enclosingClass.toType())
+    override fun visitJIRRawThis(value: JIRRawThis): JIRExpr = JIRThis(method.enclosingClass.toType())
 
     override fun visitJIRRawArgument(value: JIRRawArgument): JIRExpr = method.parameters[value.index].let {
         JIRArgument.of(it.index, value.name, it.type.asType())

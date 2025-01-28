@@ -5,12 +5,11 @@ import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRClassExtFeature
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRClasspathFeature
 import org.opentaint.ir.api.JIRField
 import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.JIRMethodExtFeature
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findMethodOrNull
+import org.opentaint.ir.impl.features.JIRFeaturesChain
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.fs.LazyClassSourceImpl
 import org.opentaint.ir.impl.fs.fullAsmNode
@@ -23,10 +22,10 @@ import kotlin.LazyThreadSafetyMode.PUBLICATION
 class JIRClassOrInterfaceImpl(
     override val classpath: JIRClasspath,
     private val classSource: ClassSource,
-    features: List<JIRClasspathFeature>,
+    private val featuresChain: JIRFeaturesChain,
 ) : JIRClassOrInterface {
 
-    private val cache = features.filterIsInstance<JIRMethodExtFeature>().first()
+    private val hasClassFeatures = featuresChain.features.any { it is JIRClassExtFeature }
 
     private val cachedInfo: ClassInfo? = when (classSource) {
         is LazyClassSourceImpl -> classSource.info // that means that we are loading bytecode. It can be removed let's cache info
@@ -34,11 +33,9 @@ class JIRClassOrInterfaceImpl(
         else -> null // maybe we do not need to do right now
     }
 
-    private val classFeatures = features.filterIsInstance<JIRClassExtFeature>()
-
     private val extensionData by lazy(PUBLICATION) {
         HashMap<String, Any>().also { map ->
-            classFeatures.forEach {
+            featuresChain.newRequest().run<JIRClassExtFeature> {
                 map.putAll(it.extensionValuesOf(this).orEmpty())
             }
         }
@@ -118,9 +115,9 @@ class JIRClassOrInterfaceImpl(
         get() {
             val result: List<JIRField> = info.fields.map { JIRFieldImpl(this, it) }
             return when {
-                classFeatures.isNotEmpty() -> {
+                hasClassFeatures -> {
                     val modifiedFields = result.toMutableList()
-                    classFeatures.forEach {
+                    featuresChain.newRequest().run<JIRClassExtFeature> {
                         it.fieldsOf(this)?.let {
                             modifiedFields.addAll(it)
                         }
@@ -133,11 +130,11 @@ class JIRClassOrInterfaceImpl(
         }
 
     override val declaredMethods: List<JIRMethod> by lazy(PUBLICATION) {
-        val result: List<JIRMethod> = info.methods.map { toJIRMethod(it, cache) }
+        val result: List<JIRMethod> = info.methods.map { toJIRMethod(it, featuresChain) }
         when {
-            classFeatures.isNotEmpty() -> {
+            hasClassFeatures -> {
                 val modifiedMethods = result.toMutableList()
-                classFeatures.forEach {
+                featuresChain.newRequest().run<JIRClassExtFeature> {
                     it.methodsOf(this)?.let {
                         modifiedMethods.addAll(it)
                     }

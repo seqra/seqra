@@ -11,8 +11,8 @@ import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstList
 import org.opentaint.ir.api.cfg.JIRRawInst
 import org.opentaint.ir.impl.bytecode.JIRDeclarationImpl
-import org.opentaint.ir.impl.cfg.JIRGraphBuilder
 import org.opentaint.ir.impl.cfg.JIRInstListImpl
+import org.opentaint.ir.impl.features.classpaths.MethodInstructionsFeature
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.MethodNode
 
@@ -28,7 +28,7 @@ interface JIRVirtualMethod : JIRMethod {
         get() = JIRInstListImpl(emptyList())
 
     override fun flowGraph(): JIRGraph {
-        return JIRGraphBuilder(this, rawInstList).buildFlowGraph()
+        return MethodInstructionsFeature.flowGraph(this)
     }
 }
 

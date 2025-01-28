@@ -1,20 +1,15 @@
 package org.opentaint.ir.impl.features.classpaths
 
 import com.google.common.cache.CacheBuilder
-import com.google.common.cache.CacheLoader
 import com.google.common.cache.CacheStats
 import mu.KLogging
-import org.opentaint.ir.api.JIRClassFoundEvent
-import org.opentaint.ir.api.JIRClassNotFound
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRClasspathExtFeature
-import org.opentaint.ir.api.JIRClasspathFeatureEvent
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRMethodExtFeature
 import org.opentaint.ir.api.JIRType
-import org.opentaint.ir.api.JIRTypeFoundEvent
 import org.opentaint.ir.api.cfg.JIRGraph
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstList
@@ -22,9 +17,6 @@ import org.opentaint.ir.api.cfg.JIRRawInst
 import org.opentaint.ir.impl.JIRCacheSegmentSettings
 import org.opentaint.ir.impl.JIRCacheSettings
 import org.opentaint.ir.impl.ValueStoreType
-import org.opentaint.ir.impl.cfg.nonCachedFlowGraph
-import org.opentaint.ir.impl.cfg.nonCachedInstList
-import org.opentaint.ir.impl.cfg.nonCachedRawInstList
 import java.text.NumberFormat
 import java.util.*
 
@@ -42,25 +34,13 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
         .build<String, Optional<JIRType>>()
 
     private val rawInstCache = segmentBuilder(settings.rawInstLists)
-        .build(object : CacheLoader<JIRMethod, JIRInstList<JIRRawInst>>() {
-            override fun load(key: JIRMethod): JIRInstList<JIRRawInst> {
-                return nonCachedRawInstList(key)
-            }
-        })
+        .build<JIRMethod, JIRInstList<JIRRawInst>>()
 
     private val instCache = segmentBuilder(settings.instLists)
-        .build(object : CacheLoader<JIRMethod, JIRInstList<JIRInst>>() {
-            override fun load(key: JIRMethod): JIRInstList<JIRInst> {
-                return nonCachedInstList(key)
-            }
-        })
+        .build<JIRMethod, JIRInstList<JIRInst>>()
 
     private val cfgCache = segmentBuilder(settings.flowGraphs)
-        .build(object : CacheLoader<JIRMethod, JIRGraph>() {
-            override fun load(key: JIRMethod): JIRGraph {
-                return nonCachedFlowGraph(key)
-            }
-        })
+        .build<JIRMethod, JIRGraph>()
 
     override fun tryFindClass(classpath: JIRClasspath, name: String): Optional<JIRClassOrInterface>? {
         return classesCache.getIfPresent(name)
@@ -70,24 +50,52 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
         return typesCache.getIfPresent(name)
     }
 
-    override fun flowGraph(method: JIRMethod) = cfgCache.getUnchecked(method)
-    override fun instList(method: JIRMethod) = instCache.getUnchecked(method)
-    override fun rawInstList(method: JIRMethod) = rawInstCache.getUnchecked(method)
+    override fun flowGraph(method: JIRMethod) = cfgCache.getIfPresent(method)
+    override fun instList(method: JIRMethod) = instCache.getIfPresent(method)
+    override fun rawInstList(method: JIRMethod) = rawInstCache.getIfPresent(method)
 
-    override fun on(event: JIRClasspathFeatureEvent) {
-        when (event) {
-            is JIRClassFoundEvent -> classesCache.put(event.clazz.name, Optional.of(event.clazz))
-            is JIRClassNotFound -> classesCache.put(event.name, Optional.empty())
-            is JIRTypeFoundEvent -> {
-                val type = event.type
-                if (type is JIRClassType && type.typeParameters.isEmpty()) {
-                    typesCache.put(event.type.typeName, Optional.of(event.type))
+    override fun on(result: Any?, vararg input: Any) {
+        if (result == null) {
+            return
+        }
+        when (result) {
+            is Optional<*> -> {
+                if (result.isPresent) {
+                    val found = result.get()
+                    if (found is JIRClassOrInterface) {
+                        classesCache.put(found.name, Optional.of(found))
+                    } else if (found is JIRClassType && found.typeParameters.isEmpty()) {
+                        typesCache.put(found.typeName, Optional.of(found))
+                    }
+                } else {
+                    val name = input[0] as String
+                    classesCache.put(name, Optional.empty())
+                    typesCache.put(name, Optional.empty())
+                }
+            }
+
+            is JIRGraph -> {
+                val method = input[0] as JIRMethod
+                cfgCache.put(method, result)
+            }
+
+            is JIRInstList<*> -> {
+                val method = input[0] as JIRMethod
+                if (result.instructions.isEmpty()) {
+                    instCache.put(method, result as JIRInstList<JIRInst>)
+                    rawInstCache.put(method, result as JIRInstList<JIRRawInst>)
+                }
+                if (result.instructions.first() is JIRInst) {
+                    instCache.put(method, result as JIRInstList<JIRInst>)
+                } else {
+                    rawInstCache.put(method, result as JIRInstList<JIRRawInst>)
                 }
             }
         }
     }
 
-    protected fun segmentBuilder(settings: JIRCacheSegmentSettings): CacheBuilder<Any, Any> {
+    protected fun segmentBuilder(settings: JIRCacheSegmentSettings)
+            : CacheBuilder<Any, Any> {
         val maxSize = settings.maxSize
         val expiration = settings.expiration
 
@@ -115,7 +123,11 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
         stats().entries.toList()
             .sortedBy { it.key }
             .forEach { (key, stat) ->
-                logger.info("$key cache hit rate: ${stat.hitRate().forPercentages()}, total count ${stat.requestCount()}")
+                logger.info(
+                    "$key cache hit rate: ${
+                        stat.hitRate().forPercentages()
+                    }, total count ${stat.requestCount()}"
+                )
             }
     }
 

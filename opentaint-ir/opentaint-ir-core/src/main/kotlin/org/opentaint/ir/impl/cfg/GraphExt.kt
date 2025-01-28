@@ -322,24 +322,3 @@ open class JIRExceptionResolver(val classpath: JIRClasspath) : DefaultJIRExprVis
     }
 
 }
-
-private val JIRMethod.methodFeatures
-    get() = enclosingClass.classpath.features?.filterIsInstance<JIRInstExtFeature>().orEmpty()
-
-fun nonCachedRawInstList(method: JIRMethod): JIRInstList<JIRRawInst> {
-    val list: JIRInstList<JIRRawInst> = RawInstListBuilder(method, method.asmNode()).build()
-    return method.methodFeatures.fold(list) { value, feature ->
-        feature.transformRawInstList(method, value)
-    }
-}
-
-fun nonCachedFlowGraph(method: JIRMethod): JIRGraph {
-    return JIRGraphBuilder(method, method.rawInstList).buildFlowGraph()
-}
-
-fun nonCachedInstList(method: JIRMethod): JIRInstList<JIRInst> {
-    val list: JIRInstList<JIRInst> = JIRGraphBuilder(method, method.rawInstList).buildInstList()
-    return method.methodFeatures.fold(list) { value, feature ->
-        feature.transformInstList(method, value)
-    }
-}
