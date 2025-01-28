@@ -182,22 +182,39 @@ enum class PredefinedPersistenceType : JIRPersistenceType {
 
 class JIRByteCodeCache(val prefixes: List<String> = persistentListOf("java.", "javax.", "kotlinx.", "kotlin."))
 
+data class JIRCacheSegmentSettings(
+    val valueStoreType: ValueStoreType = ValueStoreType.STRONG,
+    val maxSize: Long = 10_000,
+    val expiration: Duration = Duration.ofMinutes(1)
+)
+
+enum class ValueStoreType { WEAK, SOFT, STRONG }
+
 class JIRCacheSettings {
-    var classes: Pair<Long, Duration> = 10_000L to Duration.ofMinutes(1)
-    var types: Pair<Long, Duration> = 10_000L to Duration.ofMinutes(1)
-    var graphs: Pair<Long, Duration> = 10_000L to Duration.ofMinutes(1)
+    var classes: JIRCacheSegmentSettings = JIRCacheSegmentSettings()
+    var types: JIRCacheSegmentSettings = JIRCacheSegmentSettings()
+    var rawInstLists: JIRCacheSegmentSettings = JIRCacheSegmentSettings()
+    var instLists: JIRCacheSegmentSettings = JIRCacheSegmentSettings()
+    var flowGraphs: JIRCacheSegmentSettings = JIRCacheSegmentSettings()
 
-    var byteCodeCache: JIRByteCodeCache = JIRByteCodeCache()
-
-    fun classes(maxSize: Long, expiration: Duration) = apply {
-        classes = maxSize to expiration
+    fun classes(maxSize: Long, expiration: Duration, valueStoreType: ValueStoreType = ValueStoreType.STRONG) = apply {
+        classes = JIRCacheSegmentSettings(maxSize = maxSize, expiration = expiration, valueStoreType = valueStoreType)
     }
 
-    fun types(maxSize: Long, expiration: Duration) = apply {
-        types = maxSize to expiration
+    fun types(maxSize: Long, expiration: Duration, valueStoreType: ValueStoreType = ValueStoreType.STRONG) = apply {
+        types = JIRCacheSegmentSettings(maxSize = maxSize, expiration = expiration, valueStoreType = valueStoreType)
     }
 
-    fun graphs(maxSize: Long, expiration: Duration) = apply {
-        graphs = maxSize to expiration
+    fun rawInstLists(maxSize: Long, expiration: Duration, valueStoreType: ValueStoreType = ValueStoreType.STRONG) = apply {
+        rawInstLists = JIRCacheSegmentSettings(maxSize = maxSize, expiration = expiration, valueStoreType = valueStoreType)
     }
+
+    fun instLists(maxSize: Long, expiration: Duration, valueStoreType: ValueStoreType = ValueStoreType.STRONG) = apply {
+        instLists = JIRCacheSegmentSettings(maxSize = maxSize, expiration = expiration, valueStoreType = valueStoreType)
+    }
+
+    fun flowGraphs(maxSize: Long, expiration: Duration, valueStoreType: ValueStoreType = ValueStoreType.STRONG) = apply {
+        flowGraphs = JIRCacheSegmentSettings(maxSize = maxSize, expiration = expiration, valueStoreType = valueStoreType)
+    }
+
 }

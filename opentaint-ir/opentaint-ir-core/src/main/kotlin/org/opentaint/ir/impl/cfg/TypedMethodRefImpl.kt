@@ -115,7 +115,7 @@ data class TypedMethodRefImpl(
         raw.returnType
     )
 
-    override val method: JIRTypedMethod by weakLazy {
+    override val method: JIRTypedMethod by softLazy {
         type.getMethod(name, argTypes, returnType)
     }
 

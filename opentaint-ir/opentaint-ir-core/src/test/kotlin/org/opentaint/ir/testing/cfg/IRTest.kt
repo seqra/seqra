@@ -331,9 +331,7 @@ class IRTest : BaseTest() {
     @AfterEach
     fun printStats() {
         cp.features!!.filterIsInstance<ClasspathCache>().forEach {
-            it.stats().forEach {
-                println(it.key + " : " + it.value)
-            }
+            it.dumpStats()
         }
     }
 

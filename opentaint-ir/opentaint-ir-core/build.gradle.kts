@@ -61,6 +61,8 @@ dependencies {
     testFixturesImplementation(group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version = coroutinesVersion)
     testFixturesImplementation(group = "org.mockito", name = "mockito-core", version = "4.8.0")
     testFixturesImplementation(group = "org.jetbrains", name = "annotations", version = "20.1.0")
+    testImplementation(group =  "org.slf4j", name = "slf4j-simple", version = "1.6.1")
+
 }
 
 tasks.register("generateSqlScheme") {

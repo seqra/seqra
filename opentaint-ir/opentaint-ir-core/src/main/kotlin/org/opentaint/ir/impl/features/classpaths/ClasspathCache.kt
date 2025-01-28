@@ -3,6 +3,7 @@ package org.opentaint.ir.impl.features.classpaths
 import com.google.common.cache.CacheBuilder
 import com.google.common.cache.CacheLoader
 import com.google.common.cache.CacheStats
+import mu.KLogging
 import org.opentaint.ir.api.JIRClassFoundEvent
 import org.opentaint.ir.api.JIRClassNotFound
 import org.opentaint.ir.api.JIRClassOrInterface
@@ -18,17 +19,22 @@ import org.opentaint.ir.api.cfg.JIRGraph
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstList
 import org.opentaint.ir.api.cfg.JIRRawInst
+import org.opentaint.ir.impl.JIRCacheSegmentSettings
 import org.opentaint.ir.impl.JIRCacheSettings
+import org.opentaint.ir.impl.ValueStoreType
 import org.opentaint.ir.impl.cfg.nonCachedFlowGraph
 import org.opentaint.ir.impl.cfg.nonCachedInstList
 import org.opentaint.ir.impl.cfg.nonCachedRawInstList
-import java.time.Duration
+import java.text.NumberFormat
 import java.util.*
 
 /**
  * any class cache should extend this class
  */
 open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, JIRMethodExtFeature {
+
+    companion object : KLogging()
+
     /**
      *
      */
@@ -38,21 +44,21 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
     private val typesCache = segmentBuilder(settings.types)
         .build<String, Optional<JIRType>>()
 
-    private val rawInstCache = segmentBuilder(settings.graphs)
+    private val rawInstCache = segmentBuilder(settings.rawInstLists)
         .build(object : CacheLoader<JIRMethod, JIRInstList<JIRRawInst>>() {
             override fun load(key: JIRMethod): JIRInstList<JIRRawInst> {
                 return nonCachedRawInstList(key)
             }
         });
 
-    private val instCache = segmentBuilder(settings.graphs, weakValues = true)
+    private val instCache = segmentBuilder(settings.instLists)
         .build(object : CacheLoader<JIRMethod, JIRInstList<JIRInst>>() {
             override fun load(key: JIRMethod): JIRInstList<JIRInst> {
                 return nonCachedInstList(key)
             }
         });
 
-    private val cfgCache = segmentBuilder(settings.graphs, weakValues = true)
+    private val cfgCache = segmentBuilder(settings.flowGraphs)
         .build(object : CacheLoader<JIRMethod, JIRGraph>() {
             override fun load(key: JIRMethod): JIRGraph {
                 return nonCachedFlowGraph(key)
@@ -84,18 +90,18 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
         }
     }
 
-    protected fun segmentBuilder(settings: Pair<Long, Duration>, weakValues: Boolean = false): CacheBuilder<Any, Any> {
-        val maxSize = settings.first
-        val expiration = settings.second
+    protected fun segmentBuilder(settings: JIRCacheSegmentSettings): CacheBuilder<Any, Any> {
+        val maxSize = settings.maxSize
+        val expiration = settings.expiration
 
         return CacheBuilder.newBuilder()
             .expireAfterAccess(expiration)
             .recordStats()
             .maximumSize(maxSize).let {
-                if (weakValues) {
-                    it.weakValues()
-                } else {
-                    it.softValues()
+                when (settings.valueStoreType) {
+                    ValueStoreType.WEAK -> it.weakValues()
+                    ValueStoreType.SOFT -> it.softValues()
+                    else -> it
                 }
             }
     }
@@ -106,5 +112,17 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
         this["cfg"] = cfgCache.stats()
         this["raw-instructions"] = rawInstCache.stats()
         this["instructions"] = instCache.stats()
+    }
+
+    open fun dumpStats() {
+        stats().entries.toList()
+            .sortedBy { it.key }
+            .forEach { (key, stat) ->
+                logger.info("$key cache hit rate: ${stat.hitRate().forPercentages()}, total count ${stat.requestCount()}")
+            }
+    }
+
+    protected fun Double.forPercentages(): String {
+        return NumberFormat.getPercentInstance().format(this)
     }
 }
