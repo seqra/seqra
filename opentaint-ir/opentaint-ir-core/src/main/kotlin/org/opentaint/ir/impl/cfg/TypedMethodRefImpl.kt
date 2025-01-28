@@ -140,7 +140,11 @@ data class TypedMethodRefImpl(
 }
 
 fun JIRClasspath.methodRef(expr: JIRRawCallExpr): TypedMethodRef {
-    return TypedMethodRefImpl(this, expr)
+    return when (expr) {
+        is JIRRawStaticCallExpr -> TypedStaticMethodRefImpl((this as JIRClassType).classpath, expr)
+        is JIRRawSpecialCallExpr -> TypedSpecialMethodRefImpl((this as JIRClassType).classpath, expr)
+        else -> TypedMethodRefImpl(this, expr)
+    }
 }
 
 fun JIRTypedMethod.methodRef(): TypedMethodRef {
