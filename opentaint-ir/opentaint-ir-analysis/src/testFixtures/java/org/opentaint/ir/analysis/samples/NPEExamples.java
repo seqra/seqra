@@ -1,3 +1,5 @@
+package org.opentaint.ir.analysis.samples;
+
 import org.jetbrains.annotations.NotNull;
 
 @SuppressWarnings("ALL")

@@ -1,6 +1,5 @@
 package org.opentaint.ir.analysis.impl
 
-import NPEExamples
 import juliet.testcasesupport.AbstractTestCase
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.JIRNaivePoints2EngineFactory
@@ -9,6 +8,7 @@ import org.opentaint.ir.analysis.NPEAnalysisFactory
 import org.opentaint.ir.analysis.VulnerabilityInstance
 import org.opentaint.ir.analysis.analyzers.NpeAnalyzer
 import org.opentaint.ir.analysis.graph.JIRApplicationGraphImpl
+import org.opentaint.ir.analysis.samples.NPEExamples
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.constructors

@@ -1,9 +1,11 @@
 package org.opentaint.ir.analysis
 import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType
+import kotlinx.cli.default
 import kotlinx.cli.required
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import mu.KLogging
@@ -23,6 +25,7 @@ import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.usagesExt
@@ -40,6 +43,11 @@ data class VulnerabilityInstance(
 
 @Serializable
 data class DumpableAnalysisResult(val foundVulnerabilities: List<VulnerabilityInstance>)
+
+typealias AnalysesOptions = Map<String, String>
+
+@Serializable
+data class AnalysisConfig(val analyses: Map<String, AnalysesOptions>)
 
 interface AnalysisEngine {
     fun analyze(): DumpableAnalysisResult
@@ -111,19 +119,6 @@ interface Points2EngineFactory : Factory {
 
 interface GraphFactory : Factory {
     fun createGraph(classpath: JIRClasspath): JIRApplicationGraph
-
-    fun createGraph(classpath: List<File>, cacheDir: File): JIRApplicationGraph = runBlocking {
-        val classpathHash = classpath.toString().hashCode()
-        val persistentPath = cacheDir.resolve("opentaint-ir-for-$classpathHash")
-
-        val jIRdb = opentaint-ir {
-            loadByteCode(classpath)
-            persistent(persistentPath.absolutePath)
-            installFeatures(InMemoryHierarchy, Usages)
-        }
-        val cp = jIRdb.classpath(classpath)
-        createGraph(cp)
-    }
 }
 
 class JIRSimplifiedGraphFactory(
@@ -174,44 +169,63 @@ class AnalysisMain {
     fun run(args: List<String>) = main(args.toTypedArray())
 }
 
+fun loadAnalysisEngineFactoriesByConfig(config: AnalysisConfig): List<AnalysisEngineFactory> {
+    return config.analyses.mapNotNull { (analysis, _) ->
+        when (analysis) {
+            "NPE" -> NPEAnalysisFactory()
+            "Unused" -> UnusedVariableAnalysisFactory()
+            else -> {
+                logger.error { "Unknown analysis type: $analysis" }
+                null
+            }
+        }
+    }
+}
+
 fun main(args: Array<String>) {
     val parser = ArgParser("taint-analysis")
-    val classpath by parser.option(
+    val configFilePath by parser.option(
         ArgType.String,
-        fullName = "classpath",
-        shortName = "cp",
-        description = "Classpath for analysis. Used by Opentaint-IR."
-    ).required()
-    val graphFactory by parser.option(
-        factoryChoice<GraphFactory>(),
-        fullName = "graph-type",
-        shortName = "g",
-        description = "Type of code graph to be used by analysis."
-    ).required()
-    val engineFactory by parser.option(
-        factoryChoice<AnalysisEngineFactory>(),
-        fullName = "engine",
-        shortName = "e",
-        description = "Type of IFDS engine."
-    ).required()
-    val points2Factory by parser.option(
-        factoryChoice<Points2EngineFactory>(),
-        fullName = "points2",
-        shortName = "p2",
-        description = "Type of points-to engine."
+        fullName = "analysisConf",
+        shortName = "a",
+        description = "File with analysis configuration in JSON format"
     ).required()
     val cacheDirPath by parser.option(
         ArgType.String,
-        fullName = "cache-directory",
+        fullName = "cachedir",
         shortName = "c",
         description = "Directory with caches for analysis. All parent directories will be created if not exists. Directory will be created if not exists. Directory must be empty."
+    ).required()
+    val startClasses by parser.option(
+        ArgType.String,
+        fullName = "start",
+        shortName = "s",
+        description = "classes from which to start the analysis"
     ).required()
     val outputPath by parser.option(
         ArgType.String,
         fullName = "output",
         shortName = "o",
         description = "File where analysis report will be written. All parent directories will be created if not exists. File will be created if not exists. Existing file will be overwritten."
-    ).required()
+    ).default("report.txt") // TODO: create SARIF here
+    val graphFactory by parser.option(
+        factoryChoice<GraphFactory>(),
+        fullName = "graph-type",
+        shortName = "g",
+        description = "Type of code graph to be used by analysis."
+    ).default(JIRSimplifiedGraphFactory())
+    val points2Factory by parser.option(
+        factoryChoice<Points2EngineFactory>(),
+        fullName = "points2",
+        shortName = "p2",
+        description = "Type of points-to engine."
+    ).default(JIRNaivePoints2EngineFactory())
+    val classpath by parser.option(
+        ArgType.String,
+        fullName = "classpath",
+        shortName = "cp",
+        description = "Classpath for analysis. Used by Opentaint-IR."
+    ).default(System.getProperty("java.class.path"))
 
     parser.parse(args)
 
@@ -221,8 +235,6 @@ fun main(args: Array<String>) {
         throw IllegalArgumentException("Provided path for output file is directory, please provide correct path")
     } else if (outputFile.exists()) {
         logger.info { "Output file $outputFile already exists, results will be overwritten" }
-    } else {
-        outputFile.parentFile.mkdirs()
     }
 
     val cacheDir = File(cacheDirPath)
@@ -235,14 +247,46 @@ fun main(args: Array<String>) {
         throw IllegalArgumentException("Provided path to cache directory is not directory")
     }
 
-    val classpathAsFiles = classpath.split(File.pathSeparatorChar).sorted().map { File(it) }
-    val graph = graphFactory.createGraph(classpathAsFiles, cacheDir)
-    val points2Engine = points2Factory.createPoints2Engine(graph)
-    val analysisEngine = engineFactory.createAnalysisEngine(graph, points2Engine)
-    val analysisResult = analysisEngine.analyze()
-    val json = Json { prettyPrint = true }
+    val configFile = File(configFilePath)
+    if (!configFile.isFile) {
+        throw IllegalArgumentException("Can't find provided config file $configFilePath")
+    }
+    val config = Json.decodeFromString<AnalysisConfig>(configFile.readText())
 
+    val classpathAsFiles = classpath.split(File.pathSeparatorChar).sorted().map { File(it) }
+    val classpathHash = classpath.hashCode()
+    val persistentPath = cacheDir.resolve("opentaint-ir-for-$classpathHash")
+
+    val cp = runBlocking {
+        val opentaint-ir = opentaint-ir {
+            loadByteCode(classpathAsFiles)
+            persistent(persistentPath.absolutePath)
+            installFeatures(InMemoryHierarchy, Usages)
+        }
+        opentaint-ir.classpath(classpathAsFiles)
+    }
+
+    val graph = graphFactory.createGraph(cp)
+    val points2Engine = points2Factory.createPoints2Engine(graph)
+    val startJIRClasses = startClasses.split(";").map { cp.findClass(it) }
+
+    val analysisEngines = loadAnalysisEngineFactoriesByConfig(config).map {
+        it.createAnalysisEngine(graph, points2Engine)
+    }
+
+    val analysisResults = analysisEngines.map { engine ->
+        startJIRClasses.forEach { clazz ->
+            clazz.declaredMethods.forEach {
+                engine.addStart(it)
+            }
+        }
+        engine.analyze()
+    }
+
+    val mergedResult = DumpableAnalysisResult(analysisResults.flatMap { it.foundVulnerabilities })
+
+    val json = Json { prettyPrint = true }
     outputFile.outputStream().use { fileOutputStream ->
-        json.encodeToStream(analysisResult, fileOutputStream)
+        json.encodeToStream(mergedResult, fileOutputStream)
     }
 }
