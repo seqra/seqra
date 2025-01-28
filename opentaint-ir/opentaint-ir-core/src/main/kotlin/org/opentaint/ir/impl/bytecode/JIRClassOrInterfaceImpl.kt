@@ -17,6 +17,7 @@ import org.opentaint.ir.impl.fs.info
 import org.opentaint.ir.impl.types.ClassInfo
 import org.opentaint.ir.impl.weakLazy
 import org.objectweb.asm.tree.ClassNode
+import java.util.*
 import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 class JIRClassOrInterfaceImpl(
@@ -113,36 +114,31 @@ class JIRClassOrInterfaceImpl(
 
     override val declaredFields: List<JIRField>
         get() {
-            val result: List<JIRField> = info.fields.map { JIRFieldImpl(this, it) }
-            return when {
-                hasClassFeatures -> {
-                    val modifiedFields = result.toMutableList()
-                    featuresChain.newRequest().run<JIRClassExtFeature> {
-                        it.fieldsOf(this)?.let {
-                            modifiedFields.addAll(it)
-                        }
+            val default = info.fields.map { JIRFieldImpl(this, it) }
+            if (hasClassFeatures) {
+                val result = TreeSet<JIRField> { o1, o2 -> o1.name.compareTo(o2.name) }
+                featuresChain.newRequest().run<JIRClassExtFeature> {
+                    it.fieldsOf(this)?.let {
+                        result.addAll(it)
                     }
-                    modifiedFields
                 }
-
-                else -> result
+                return (result + default).toList()
             }
+            return default
         }
 
     override val declaredMethods: List<JIRMethod> by lazy(PUBLICATION) {
-        val result: List<JIRMethod> = info.methods.map { toJIRMethod(it, featuresChain) }
-        when {
-            hasClassFeatures -> {
-                val modifiedMethods = result.toMutableList()
-                featuresChain.newRequest().run<JIRClassExtFeature> {
-                    it.methodsOf(this)?.let {
-                        modifiedMethods.addAll(it)
-                    }
+        val default = info.methods.map { toJIRMethod(it, featuresChain) }
+        if (hasClassFeatures) {
+            val result = TreeSet<JIRMethod> { o1, o2 -> (o1.name + o1.description).compareTo(o2.name + o2.description) }
+            featuresChain.newRequest().run<JIRClassExtFeature> {
+                it.methodsOf(this)?.let {
+                    result.addAll(it)
                 }
-                modifiedMethods
             }
-
-            else -> result
+            (result + default).toList()
+        } else {
+            default
         }
     }
 

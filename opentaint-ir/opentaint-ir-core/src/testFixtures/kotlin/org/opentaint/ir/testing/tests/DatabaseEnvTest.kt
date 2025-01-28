@@ -470,6 +470,49 @@ abstract class DatabaseEnvTest {
     }
 
     @Test
+    fun `override existed field and method`() {
+        val fieldName = "byteArray"
+        val methodName = "smth"
+        val byteArrayTypeName = PredefinedPrimitives.Byte + "[]"
+
+        val cp = runBlocking {
+            cp.db.classpath(
+                allClasspath, listOf(
+                    VirtualClassContent
+                        .builder()
+                        .content {
+                            matcher { it.name == Bar::class.java.name }
+                            field { builder, _ ->
+                                builder.name(fieldName)
+                                builder.type(PredefinedPrimitives.Int)
+                            }
+                            method { builder, _ ->
+                                builder.name(methodName)
+                                builder.returnType(byteArrayTypeName)
+                                builder.params(byteArrayTypeName)
+                            }
+                        }.build()
+                )
+            )
+        }
+        val clazz = cp.findClass<Bar>()
+        val field = clazz.findDeclaredFieldOrNull(fieldName)
+        assertTrue(field is JIRVirtualField)
+        assertEquals(PredefinedPrimitives.Int, field!!.type.typeName)
+        assertNotNull(field.enclosingClass)
+
+        val method = clazz.declaredMethods.first { it.name == methodName }
+        assertTrue(method is JIRVirtualMethod)
+        assertEquals(byteArrayTypeName, method.returnType.typeName)
+        assertEquals(1, method.parameters.size)
+        assertEquals(byteArrayTypeName, method.parameters.first().type.typeName)
+        assertNotNull(method.enclosingClass)
+        method.parameters.forEach {
+            assertNotNull(it.method)
+        }
+    }
+
+    @Test
     fun `class caching feature works for not existed class`() {
         val notExistedClass = "xxx.Xxx"
         val clazz = cp.findClassOrNull(notExistedClass)
