@@ -35,9 +35,6 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
 
     companion object : KLogging()
 
-    /**
-     *
-     */
     private val classesCache = segmentBuilder(settings.classes)
         .build<String, Optional<JIRClassOrInterface>>()
 
@@ -49,21 +46,21 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
             override fun load(key: JIRMethod): JIRInstList<JIRRawInst> {
                 return nonCachedRawInstList(key)
             }
-        });
+        })
 
     private val instCache = segmentBuilder(settings.instLists)
         .build(object : CacheLoader<JIRMethod, JIRInstList<JIRInst>>() {
             override fun load(key: JIRMethod): JIRInstList<JIRInst> {
                 return nonCachedInstList(key)
             }
-        });
+        })
 
     private val cfgCache = segmentBuilder(settings.flowGraphs)
         .build(object : CacheLoader<JIRMethod, JIRGraph>() {
             override fun load(key: JIRMethod): JIRGraph {
                 return nonCachedFlowGraph(key)
             }
-        });
+        })
 
     override fun tryFindClass(classpath: JIRClasspath, name: String): Optional<JIRClassOrInterface>? {
         return classesCache.getIfPresent(name)
