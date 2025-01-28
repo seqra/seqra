@@ -17,6 +17,14 @@ val guavaLib: File
         }
     }
 
+val kotlinxCoroutines: File
+    get() {
+        val corotines = classpath.first { it.contains("kotlinx-coroutines-") }
+        return File(corotines).also {
+            Assertions.assertTrue(it.isFile && it.exists())
+        }
+    }
+
 val allJars: List<File>
     get() {
         return classpath.filter { it.endsWith(".jar") }.map { File(it) }

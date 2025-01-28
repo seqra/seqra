@@ -11,6 +11,7 @@ import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.methods
+import org.opentaint.ir.api.ext.packageName
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.hierarchyExt
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import java.io.File
 import java.util.*
 import java.util.stream.Stream
 import kotlin.streams.asStream
@@ -86,9 +88,9 @@ class UnusedVariableTest : BaseTest() {
 
         val good = findUnusedVariables(goodMethod)
         val bad = findUnusedVariables(badMethod)
-
-        assertTrue(bad.isNotEmpty())
-        assertTrue(good.isEmpty())
+        val message = clazz.packageName + "" + className
+        assertTrue(bad.isNotEmpty(), "not found problem in bad method of $message")
+        assertTrue(good.isEmpty(), "found problem in good method of $message")
     }
 
     private fun findUnusedVariables(method: JIRMethod): List<VulnerabilityInstance> {

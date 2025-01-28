@@ -60,7 +60,6 @@ class InstructionsTest : BaseTest() {
     fun `SMTPSaslAuthenticator test`() {
         val clazz = cp.findClass("com.sun.mail.smtp.SMTPSaslAuthenticator")
         val method = clazz.declaredMethods.first { it.name == "authenticate" }
-        println(method.dumpInstructions())
         method.flowGraph()
     }
 
@@ -133,22 +132,22 @@ class InstructionsTest : BaseTest() {
         )
     }
 
-    private fun JIRMethod.dumpInstructions(): String {
-        return buildString {
-            val textifier = Textifier()
-            asmNode().accept(TraceMethodVisitor(textifier))
-            textifier.text.printList(this)
+}
+
+fun JIRMethod.dumpInstructions(): String {
+    return buildString {
+        val textifier = Textifier()
+        asmNode().accept(TraceMethodVisitor(textifier))
+        textifier.text.printList(this)
+    }
+}
+
+private fun List<*>.printList(builder: StringBuilder) {
+    forEach {
+        if (it is List<*>) {
+            it.printList(builder)
+        } else {
+            builder.append(it.toString())
         }
     }
-
-    private fun List<*>.printList(builder: StringBuilder) {
-        forEach {
-            if (it is List<*>) {
-                it.printList(builder)
-            } else {
-                builder.append(it.toString())
-            }
-        }
-    }
-
 }

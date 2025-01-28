@@ -51,8 +51,8 @@ import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.impl.fs.JarLocation
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
-import org.opentaint.ir.testing.allClasspath
 import org.opentaint.ir.testing.guavaLib
+import org.opentaint.ir.testing.kotlinxCoroutines
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -321,6 +321,13 @@ class IRTest : BaseTest() {
         runAlongLib(guavaLib)
     }
 
+    // todo: make this test green
+//    @Test
+    fun `get ir of kotlinx-coroutines`() {
+//        testClass(cp.findClass("kotlinx.coroutines.ThreadContextElementKt"))
+        runAlongLib(kotlinxCoroutines)
+    }
+
     @AfterEach
     fun printStats() {
         cp.features!!.filterIsInstance<ClasspathCache>().forEach {
@@ -353,29 +360,34 @@ class IRTest : BaseTest() {
             if (it.isAbstract) {
                 it.asmNode()
             } else {
+                try {
 //            val oldBody = it.body()
 //            println()
 //            println("Old body: ${oldBody.print()}")
-                val instructionList = it.rawInstList
-                it.instList.forEachIndexed { index, inst ->
-                    assertEquals(index, inst.location.index, "indexes not matched for $it at $index")
-                }
-//            println("Instruction list: $instructionList")
-                val graph = it.flowGraph()
-                if (!it.enclosingClass.isKotlin) {
-                    graph.instructions.forEach {
-                        assertTrue(it.lineNumber > 0, "$it should have line number")
+                    val instructionList = it.rawInstList
+                    it.instList.forEachIndexed { index, inst ->
+                        assertEquals(index, inst.location.index, "indexes not matched for $it at $index")
                     }
-                }
-                graph.applyAndGet(OverridesResolver(ext)) {}
-                JIRGraphChecker(it, graph).check()
+//            println("Instruction list: $instructionList")
+                    val graph = it.flowGraph()
+                    if (!it.enclosingClass.isKotlin) {
+                        graph.instructions.forEach {
+                            assertTrue(it.lineNumber > 0, "$it should have line number")
+                        }
+                    }
+                    graph.applyAndGet(OverridesResolver(ext)) {}
+                    JIRGraphChecker(it, graph).check()
 //            println("Graph: $graph")
 //            graph.view("/usr/bin/dot", "/usr/bin/firefox", false)
 //            graph.blockGraph().view("/usr/bin/dot", "/usr/bin/firefox")
-                val newBody = MethodNodeBuilder(it, instructionList).build()
+                    val newBody = MethodNodeBuilder(it, instructionList).build()
 //            println("New body: ${newBody.print()}")
 //            println()
-                newBody
+                    newBody
+                } catch (e: Exception) {
+                    throw IllegalStateException("error handling $it", e)
+                }
+
             }
         }
         val cw = JIRDatabaseClassWriter(cp, ClassWriter.COMPUTE_FRAMES)
