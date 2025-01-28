@@ -23,6 +23,7 @@ import org.opentaint.ir.api.ext.isNullable
 import org.opentaint.ir.api.ext.jIRdbSignature
 import org.opentaint.ir.api.ext.jvmSignature
 import org.opentaint.ir.api.ext.methods
+import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.VirtualClassContent
 import org.opentaint.ir.impl.features.classpaths.VirtualClasses
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualClass
@@ -466,7 +467,28 @@ abstract class DatabaseEnvTest {
         method.parameters.forEach {
             assertNotNull(it.method)
         }
+    }
 
+    @Test
+    fun `class caching feature works for not existed class`() {
+        val notExistedClass = "xxx.Xxx"
+        val clazz = cp.findClassOrNull(notExistedClass)
+        assertNull(clazz)
+        val cache = cp.features?.first { it is ClasspathCache } as ClasspathCache
+        val optional = cache.tryFindClass(cp, notExistedClass)
+        assertNotNull(optional)
+        assertFalse(optional!!.isPresent)
+    }
+
+    @Test
+    fun `class caching feature works for existed class`() {
+        val existedClass = "java.lang.String"
+        val clazz = cp.findClassOrNull(existedClass)
+        assertNotNull(clazz)
+        val cache = cp.features?.first { it is ClasspathCache } as ClasspathCache
+        val optional = cache.tryFindClass(cp, existedClass)
+        assertNotNull(optional)
+        assertTrue(optional!!.isPresent)
     }
 
     private inline fun <reified T> findSubClasses(allHierarchy: Boolean = false): Sequence<JIRClassOrInterface> {
