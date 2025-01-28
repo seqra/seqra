@@ -357,7 +357,7 @@ class IRTest : BaseTest() {
     private fun testClass(klass: JIRClassOrInterface) = try {
         val classNode = klass.asmNode()
         classNode.methods = klass.declaredMethods.filter { it.enclosingClass == klass }.map {
-            if (it.isAbstract) {
+            if (it.isAbstract || it.name.contains("$\$forInline")) {
                 it.asmNode()
             } else {
                 try {

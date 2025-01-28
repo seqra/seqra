@@ -1,9 +1,6 @@
 package org.opentaint.ir.testing.hierarchies;
 
 import java.io.Closeable;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.util.List;
 
 public class Overrides {
@@ -59,30 +56,12 @@ public class Overrides {
             return super.runMain(in);
         }
 
-        void xxx1(){
-
-        }
-
-        private void xxx2(){
-
-        }
-
         interface A {
             void a();
         }
 
         interface B extends A {
             void b();
-        }
-
-        public String runMain12123123(Closeable in, B b) throws IOException {
-            runMain("null");
-            xxx1();
-            xxx2();
-            runMain(in);
-            in.close();
-            b.a();
-            return Iface.super.runMain(in);
         }
     }
 }
