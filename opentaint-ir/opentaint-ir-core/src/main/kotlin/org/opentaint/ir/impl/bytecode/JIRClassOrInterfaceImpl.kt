@@ -13,6 +13,7 @@ import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.fs.LazyClassSourceImpl
+import org.opentaint.ir.impl.fs.fullAsmNode
 import org.opentaint.ir.impl.fs.fullAsmNodeWithFrames
 import org.opentaint.ir.impl.fs.info
 import org.opentaint.ir.impl.types.ClassInfo
@@ -89,7 +90,7 @@ class JIRClassOrInterfaceImpl(
         get() = info.access
 
     private val lazyAsmNode: ClassNode by weakLazy {
-        classSource.fullAsmNodeWithFrames(classpath)
+        classSource.fullAsmNode
     }
 
     override fun asmNode() = lazyAsmNode
