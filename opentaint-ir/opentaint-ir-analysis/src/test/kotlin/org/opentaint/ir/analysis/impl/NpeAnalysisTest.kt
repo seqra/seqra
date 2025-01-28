@@ -250,8 +250,8 @@ class NpeAnalysisTest : BaseTest() {
 
     @Test
     fun `analyse something`() {
-        val testingMethod = cp.findClass<NPEExamples>().declaredMethods.single { it.name == "npeOnLength" }
-        val results = findNpeSources(testingMethod)
+        val testingMethod = cp.findClass<NPEExamples>().declaredMethods.single { it.name == "kek" }
+        val results = testingMethod.flowGraph()
         print(results)
     }
 

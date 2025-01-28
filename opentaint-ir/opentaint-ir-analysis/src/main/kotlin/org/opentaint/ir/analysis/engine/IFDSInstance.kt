@@ -84,7 +84,7 @@ class IFDSInstance(
         if (e !in pathEdges) {
             pathEdges.add(e)
             workList.add(e)
-            val isNew = pred.kind != SEQUENT || pred.predEdge.v.domainFact != e.v.domainFact
+            val isNew = pred.kind != SEQUENT && pred.kind != UNKNOWN || pred.predEdge.v.domainFact != e.v.domainFact
             val predInst = pred.predEdge.v.statement.takeIf { it != e.v.statement && it.location.method == e.v.statement.location.method }
             listeners.forEach { it.onPropagate(e, predInst, isNew) }
             return true

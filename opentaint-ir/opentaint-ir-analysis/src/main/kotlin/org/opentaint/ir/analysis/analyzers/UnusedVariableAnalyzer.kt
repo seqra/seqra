@@ -16,13 +16,16 @@ import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.cfg.JIRArgument
+import org.opentaint.ir.api.cfg.JIRArrayAccess
 import org.opentaint.ir.api.cfg.JIRAssignInst
+import org.opentaint.ir.api.cfg.JIRBranchingInst
 import org.opentaint.ir.api.cfg.JIRExpr
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstanceCallExpr
 import org.opentaint.ir.api.cfg.JIRLocal
 import org.opentaint.ir.api.cfg.JIRSpecialCallExpr
 import org.opentaint.ir.api.cfg.JIRStaticCallExpr
+import org.opentaint.ir.api.cfg.JIRTerminatingInst
 import org.opentaint.ir.api.cfg.values
 import org.opentaint.ir.api.ext.cfg.callExpr
 
@@ -60,7 +63,13 @@ class UnusedVariableAnalyzer(
             return false
         }
         if (inst is JIRAssignInst) {
+            if (inst.lhv is JIRArrayAccess && isUsedAt((inst.lhv as JIRArrayAccess).index)) {
+                return true
+            }
             return isUsedAt(inst.rhv) && (inst.lhv !is JIRLocal || inst.rhv !is JIRLocal)
+        }
+        if (inst is JIRTerminatingInst || inst is JIRBranchingInst) {
+            return inst.operands.any { isUsedAt(it) }
         }
         return false
     }
@@ -79,7 +88,7 @@ class UnusedVariableAnalyzer(
             }
         }
         val vulnerabilities = used.filterValues { !it }.keys.map {
-            VulnerabilityInstance(value, listOf(it.toString()), it.toString(), emptyList())
+            VulnerabilityInstance(value, listOf(it.location.toString()), it.location.toString() + "cmd = " + it.toString(), emptyList())
         }
         return DumpableAnalysisResult(vulnerabilities)
     }
@@ -105,7 +114,11 @@ private class UnusedVariableForwardFunctions(
 
             if (fact == ZEROFact) {
                 val toPath = current.lhv.toPathOrNull() ?: return listOf(ZEROFact)
-                return listOf(ZEROFact, UnusedVariableNode(toPath, current))
+                return if (!toPath.isOnHeap) {
+                    listOf(ZEROFact, UnusedVariableNode(toPath, current))
+                } else {
+                    listOf(ZEROFact)
+                }
             }
 
             if (fact !is UnusedVariableNode) {
