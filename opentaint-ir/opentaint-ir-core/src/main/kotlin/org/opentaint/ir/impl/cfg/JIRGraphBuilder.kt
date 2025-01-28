@@ -418,7 +418,7 @@ class JIRGraphBuilder(
         val instance = expr.instance.accept(this) as JIRValue
         val args = expr.args.map { it.accept(this) as JIRValue }
         return JIRVirtualCallExpr(
-            instance.type.methodRef(expr), instance, args
+            classpath.methodRef(expr), instance, args
         )
     }
 
@@ -426,7 +426,7 @@ class JIRGraphBuilder(
         val instance = expr.instance.accept(this) as JIRValue
         val args = expr.args.map { it.accept(this) as JIRValue }
         return JIRVirtualCallExpr(
-            instance.type.methodRef(expr), instance, args
+            classpath.methodRef(expr), instance, args
         )
     }
 

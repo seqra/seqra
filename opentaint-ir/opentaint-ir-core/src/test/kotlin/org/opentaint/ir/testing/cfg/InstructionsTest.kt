@@ -8,8 +8,6 @@ import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.api.cfg.JIRAssignInst
 import org.opentaint.ir.api.cfg.JIRLocalVar
-import org.opentaint.ir.api.cfg.locals
-import org.opentaint.ir.api.cfg.values
 import org.opentaint.ir.api.ext.cfg.callExpr
 import org.opentaint.ir.api.ext.cfg.locals
 import org.opentaint.ir.api.ext.cfg.values
@@ -102,8 +100,8 @@ class InstructionsTest : BaseTest() {
     @Test
     fun `java 5 bytecode processed correctly`() {
         val jars = cp.registeredLocations.map { it.path }
-            .filter { it.contains("mail-1.4.7.jar") || it.contains("activation-1.1.jar") }
-        assertEquals(2, jars.size)
+            .filter { it.contains("mail-1.4.7.jar") || it.contains("activation-1.1.jar") || it.contains("joda-time-2.12.5.jar") }
+        assertEquals(3, jars.size)
         val list = ConcurrentHashMap.newKeySet<JIRClassOrInterface>()
         runBlocking {
             cp.execute(object : JIRClassProcessingTask {

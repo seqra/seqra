@@ -9,10 +9,8 @@ import org.opentaint.ir.api.TypeName
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstList
 import org.opentaint.ir.api.cfg.JIRRawInst
-import org.opentaint.ir.impl.softLazy
 import org.opentaint.ir.impl.types.MethodInfo
 import org.opentaint.ir.impl.types.TypeNameImpl
-import org.opentaint.ir.impl.weakLazy
 import org.objectweb.asm.tree.MethodNode
 
 class JIRMethodImpl(

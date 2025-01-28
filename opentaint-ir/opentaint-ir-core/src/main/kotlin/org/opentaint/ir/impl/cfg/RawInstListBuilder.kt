@@ -428,7 +428,7 @@ class RawInstListBuilder(
     private fun local(variable: Int, expr: JIRRawValue, insn: AbstractInsnNode): JIRRawAssignInst? {
         val oldVar = currentFrame.locals[variable]
         return if (oldVar != null) {
-            if (oldVar.typeName == expr.typeName || expr is JIRRawNullConstant) {
+            if (oldVar.typeName == expr.typeName || (expr is JIRRawNullConstant && !oldVar.typeName.isPrimitive)) {
                 JIRRawAssignInst(method, oldVar, expr)
             } else if (expr is JIRRawSimpleValue) {
                 currentFrame = currentFrame.put(variable, expr)
