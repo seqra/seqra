@@ -143,14 +143,6 @@ fun JIRClasspath.methodRef(expr: JIRRawCallExpr): TypedMethodRef {
     return TypedMethodRefImpl(this, expr)
 }
 
-fun JIRType.methodRef(expr: JIRRawCallExpr): TypedMethodRef {
-    return when (expr) {
-        is JIRRawStaticCallExpr -> TypedStaticMethodRefImpl((this as JIRClassType).classpath, expr)
-        is JIRRawSpecialCallExpr -> TypedSpecialMethodRefImpl((this as JIRClassType).classpath, expr)
-        else -> TypedMethodRefImpl(this, expr)
-    }
-}
-
 fun JIRTypedMethod.methodRef(): TypedMethodRef {
     return TypedMethodRefImpl(
         enclosingType as JIRClassType,

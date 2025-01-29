@@ -51,6 +51,7 @@ dependencies {
     implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-metadata-jvm", version = kmetadataVersion)
     testImplementation(group = "javax.activation", name = "activation", version = "1.1")
     testImplementation(group = "javax.mail", name = "mail", version = "1.4.7")
+    testImplementation(group = "joda-time", name = "joda-time", version = "2.12.5")
 
     testFixturesImplementation(project(":opentaint-ir-api"))
 

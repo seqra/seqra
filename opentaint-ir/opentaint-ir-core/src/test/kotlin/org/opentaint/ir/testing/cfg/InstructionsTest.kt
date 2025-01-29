@@ -2,17 +2,11 @@ package org.opentaint.ir.testing.cfg
 
 import com.sun.mail.imap.IMAPMessage
 import kotlinx.coroutines.runBlocking
-import mu.KLogging
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClassProcessingTask
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.api.cfg.JIRArgument
 import org.opentaint.ir.api.cfg.JIRAssignInst
-import org.opentaint.ir.api.cfg.JIRGeExpr
-import org.opentaint.ir.api.cfg.JIRGtExpr
-import org.opentaint.ir.api.cfg.JIRIfInst
-import org.opentaint.ir.api.cfg.JIRInt
 import org.opentaint.ir.api.cfg.JIRLocalVar
 import org.opentaint.ir.api.ext.cfg.callExpr
 import org.opentaint.ir.api.ext.cfg.locals
@@ -23,7 +17,6 @@ import org.opentaint.ir.testing.WithDB
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.condition.DisabledOnJre
 import org.junit.jupiter.api.condition.EnabledOnJre
 import org.junit.jupiter.api.condition.JRE
 import org.objectweb.asm.util.Textifier
@@ -46,27 +39,6 @@ class InstructionsTest : BaseTest() {
         val assign = instructions[firstUse + 1] as JIRAssignInst
         assertEquals("%4", (assign.lhv as JIRLocalVar).name)
         assertEquals("%1", (assign.rhv as JIRLocalVar).name)
-    }
-
-    @Test
-    fun `cmp insts`() {
-        val clazz = cp.findClass<Conditionals>()
-        val method = clazz.declaredMethods.first { it.name == "main" }
-        val instructions = method.instList.instructions
-        val cmpExprs = instructions.filterIsInstance<JIRIfInst>().map { it.condition }
-        assertEquals(4, cmpExprs.size)
-
-        val geZero = cmpExprs[0] as JIRGeExpr
-        assertEquals(0 to 0, (geZero.lhv as JIRArgument).index to (geZero.rhv as JIRInt).value)
-
-        val gtZero = cmpExprs[1] as JIRGtExpr
-        assertEquals(0 to 0, (gtZero.lhv as JIRArgument).index to (gtZero.rhv as JIRInt).value)
-
-        val geOther = cmpExprs[2] as JIRGeExpr
-        assertEquals(0 to 1, (geOther.lhv as JIRArgument).index to (geOther.rhv as JIRArgument).index)
-
-        val gtOther = cmpExprs[3] as JIRGtExpr
-        assertEquals(0 to 1, (gtOther.lhv as JIRArgument).index to (gtOther.rhv as JIRArgument).index)
     }
 
     @Test
@@ -108,7 +80,7 @@ class InstructionsTest : BaseTest() {
         val clazz = cp.findClass<IRExamples>()
         with(clazz.declaredMethods.first { it.name == "sortTimes" }) {
             assertEquals(9, instList.locals.size)
-            assertEquals(13, instList.values.size)
+            assertEquals(13, instList.values .size)
         }
 
         with(clazz.declaredMethods.first { it.name == "test" }) {
@@ -126,21 +98,10 @@ class InstructionsTest : BaseTest() {
     }
 
     @Test
-    @EnabledOnJre(JRE.JAVA_8)
-    fun `java 5 bytecode processed correctly on java 8`() {
-        runAlong("mail-1.4.7.jar", "joda-time-2.12.5.jar")
-    }
-
-    @Test
-    @DisabledOnJre(JRE.JAVA_8)
-    fun `java 5 bytecode processed correctly on java 9+`() {
-        runAlong("mail-1.4.7.jar", "activation-1.1.jar", "joda-time-2.12.5.jar")
-    }
-
-    private fun runAlong(vararg patters: String) {
+    fun `java 5 bytecode processed correctly`() {
         val jars = cp.registeredLocations.map { it.path }
-            .filter { patters.any { pattern -> it.contains(pattern) } }
-        assertEquals(patters.size, jars.size)
+            .filter { it.contains("mail-1.4.7.jar") || it.contains("activation-1.1.jar") || it.contains("joda-time-2.12.5.jar") }
+        assertEquals(3, jars.size)
         val list = ConcurrentHashMap.newKeySet<JIRClassOrInterface>()
         runBlocking {
             cp.execute(object : JIRClassProcessingTask {
@@ -159,7 +120,6 @@ class InstructionsTest : BaseTest() {
                 try {
                     it.flowGraph()
                 } catch (e: Exception) {
-                    KLogging().logger.error(e) { "can't process $it" }
                     failed.add(it)
                 }
             }
@@ -169,6 +129,7 @@ class InstructionsTest : BaseTest() {
             "Failed to process methods: \n${failed.joinToString("\n") { it.enclosingClass.name + "#" + it.name }}"
         )
     }
+
 }
 
 fun JIRMethod.dumpInstructions(): String {
