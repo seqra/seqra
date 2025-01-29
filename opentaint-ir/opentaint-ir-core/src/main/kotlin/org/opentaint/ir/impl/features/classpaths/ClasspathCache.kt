@@ -7,6 +7,7 @@ import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRClasspathExtFeature
+import org.opentaint.ir.api.JIRFeatureEvent
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRMethodExtFeature
 import org.opentaint.ir.api.JIRType
@@ -54,10 +55,9 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
     override fun instList(method: JIRMethod) = instCache.getIfPresent(method)
     override fun rawInstList(method: JIRMethod) = rawInstCache.getIfPresent(method)
 
-    override fun on(result: Any?, vararg input: Any) {
-        if (result == null) {
-            return
-        }
+    override fun on(event: JIRFeatureEvent) {
+        val result = event.result
+        val input = event.input
         when (result) {
             is Optional<*> -> {
                 if (result.isPresent) {

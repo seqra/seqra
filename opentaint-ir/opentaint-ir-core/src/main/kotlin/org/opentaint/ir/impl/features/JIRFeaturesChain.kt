@@ -1,30 +1,31 @@
 package org.opentaint.ir.impl.features
 
 import org.opentaint.ir.api.JIRClasspathFeature
+import org.opentaint.ir.api.JIRFeatureEvent
 
 class JIRFeaturesChain(val features: List<JIRClasspathFeature>) {
 
-    fun newRequest(vararg input: Any) = JIRFeaturesRequest(features, *input)
+    fun newRequest(vararg input: Any) = JIRFeaturesRequest(features, arrayOf(*input))
 
 }
 
-class JIRFeaturesRequest(val features: List<JIRClasspathFeature>, vararg i: Any) {
-
-    val input = i
+class JIRFeaturesRequest(val features: List<JIRClasspathFeature>, val input: Array<Any>) {
 
     inline fun <reified T : JIRClasspathFeature, W> call(call: (T) -> W?): W? {
         var result: W? = null
+        var event: JIRFeatureEvent? = null
         for (feature in features) {
             if (feature is T) {
                 result = call(feature)
                 if (result != null) {
+                    event = feature.event(result, input)
                     break
                 }
             }
         }
-        if (result != null) {
+        if (result != null && event != null) {
             for (feature in features) {
-                feature.on(result, *input)
+                feature.on(event)
             }
         }
         return result
@@ -40,3 +41,9 @@ class JIRFeaturesRequest(val features: List<JIRClasspathFeature>, vararg i: Any)
     }
 
 }
+
+class JIRFeatureEventImpl(
+    override val feature: JIRClasspathFeature,
+    override val result: Any,
+    override val input: Array<Any>
+) : JIRFeatureEvent
