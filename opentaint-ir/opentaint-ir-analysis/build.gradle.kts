@@ -3,7 +3,6 @@ val coroutinesVersion: String by rootProject
 
 plugins {
     `java-test-fixtures`
-    kotlin("plugin.serialization") version "1.7.20"
 }
 
 dependencies {

@@ -195,6 +195,10 @@ class JIRInstLocationImpl(
     override val lineNumber: Int
 ) : JIRInstLocation {
 
+    override fun toString(): String {
+        return "${methodRef.method.enclosingClass.name}#${methodRef.method.name}:$lineNumber"
+    }
+
     override val method: JIRMethod by softLazy {
         methodRef.method
     }
