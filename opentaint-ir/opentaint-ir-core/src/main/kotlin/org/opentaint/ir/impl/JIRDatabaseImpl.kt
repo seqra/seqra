@@ -75,7 +75,7 @@ class JIRDatabaseImpl(
 
     private fun List<JIRClasspathFeature>?.appendBuiltInFeatures(): List<JIRClasspathFeature> {
         if (this != null && any { it is ClasspathCache }) {
-            return this + listOf(KotlinMetadata, MethodInstructionsFeature)
+            return listOf(KotlinMetadata, MethodInstructionsFeature) + this
         }
         return listOf(ClasspathCache(settings.cacheSettings), KotlinMetadata, MethodInstructionsFeature) + orEmpty()
     }
