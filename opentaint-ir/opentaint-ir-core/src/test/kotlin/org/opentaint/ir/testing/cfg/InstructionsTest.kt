@@ -6,7 +6,12 @@ import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClassProcessingTask
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.api.cfg.JIRArgument
 import org.opentaint.ir.api.cfg.JIRAssignInst
+import org.opentaint.ir.api.cfg.JIRGeExpr
+import org.opentaint.ir.api.cfg.JIRGtExpr
+import org.opentaint.ir.api.cfg.JIRIfInst
+import org.opentaint.ir.api.cfg.JIRInt
 import org.opentaint.ir.api.cfg.JIRLocalVar
 import org.opentaint.ir.api.ext.cfg.callExpr
 import org.opentaint.ir.api.ext.cfg.locals
@@ -39,6 +44,27 @@ class InstructionsTest : BaseTest() {
         val assign = instructions[firstUse + 1] as JIRAssignInst
         assertEquals("%4", (assign.lhv as JIRLocalVar).name)
         assertEquals("%1", (assign.rhv as JIRLocalVar).name)
+    }
+
+    @Test
+    fun `cmp insts`() {
+        val clazz = cp.findClass<Conditionals>()
+        val method = clazz.declaredMethods.first { it.name == "main" }
+        val instructions = method.instList.instructions
+        val cmpExprs = instructions.filterIsInstance<JIRIfInst>().map { it.condition }
+        assertEquals(4, cmpExprs.size)
+
+        val geZero = cmpExprs[0] as JIRGeExpr
+        assertEquals(0 to 0, (geZero.lhv as JIRArgument).index to (geZero.rhv as JIRInt).value)
+
+        val gtZero = cmpExprs[1] as JIRGtExpr
+        assertEquals(0 to 0, (gtZero.lhv as JIRArgument).index to (gtZero.rhv as JIRInt).value)
+
+        val geOther = cmpExprs[2] as JIRGeExpr
+        assertEquals(0 to 1, (geOther.lhv as JIRArgument).index to (geOther.rhv as JIRArgument).index)
+
+        val gtOther = cmpExprs[3] as JIRGtExpr
+        assertEquals(0 to 1, (gtOther.lhv as JIRArgument).index to (gtOther.rhv as JIRArgument).index)
     }
 
     @Test
