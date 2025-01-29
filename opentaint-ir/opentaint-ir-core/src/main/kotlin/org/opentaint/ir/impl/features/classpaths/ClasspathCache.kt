@@ -84,6 +84,7 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
                 if (result.instructions.isEmpty()) {
                     instCache.put(method, result as JIRInstList<JIRInst>)
                     rawInstCache.put(method, result as JIRInstList<JIRRawInst>)
+                    return
                 }
                 if (result.instructions.first() is JIRInst) {
                     instCache.put(method, result as JIRInstList<JIRInst>)
