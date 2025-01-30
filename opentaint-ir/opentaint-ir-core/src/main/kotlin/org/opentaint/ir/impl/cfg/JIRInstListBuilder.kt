@@ -35,7 +35,6 @@ import org.opentaint.ir.api.cfg.JIRFieldRef
 import org.opentaint.ir.api.cfg.JIRFloat
 import org.opentaint.ir.api.cfg.JIRGeExpr
 import org.opentaint.ir.api.cfg.JIRGotoInst
-import org.opentaint.ir.api.cfg.JIRGraph
 import org.opentaint.ir.api.cfg.JIRGtExpr
 import org.opentaint.ir.api.cfg.JIRIfInst
 import org.opentaint.ir.api.cfg.JIRInst
@@ -396,9 +395,9 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
                 return JIRDynamicCallExpr(
                     classpath.methodRef(expr),
                     expr.bsmArgs,
-                    expr.callCiteMethodName,
-                    expr.callCiteArgTypes.map { it.asType() },
-                    expr.callCiteReturnType.asType(),
+                    expr.callSiteMethodName,
+                    expr.callSiteArgTypes.map { it.asType() },
+                    expr.callSiteReturnType.asType(),
                     expr.args.map { it.accept(this) as JIRValue }
                 )
             }

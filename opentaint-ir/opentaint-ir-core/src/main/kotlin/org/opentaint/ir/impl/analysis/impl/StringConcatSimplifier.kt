@@ -41,12 +41,12 @@ class StringConcatSimplifier(val jIRGraph: JIRGraph) : DefaultJIRInstVisitor<JIR
                 val lhv = inst.lhv
                 val rhv = inst.rhv
 
-                if (rhv is JIRDynamicCallExpr && rhv.callCiteMethodName == "makeConcatWithConstants") {
+                if (rhv is JIRDynamicCallExpr && rhv.callSiteMethodName == "makeConcatWithConstants") {
 
                     val (first, second) = when {
-                        rhv.callCiteArgs.size == 2 -> rhv.callCiteArgs
-                        rhv.callCiteArgs.size == 1 && rhv.bsmArgs.size == 1 && rhv.bsmArgs[0] is BsmStringArg -> listOf(
-                            rhv.callCiteArgs[0],
+                        rhv.callSiteArgs.size == 2 -> rhv.callSiteArgs
+                        rhv.callSiteArgs.size == 1 && rhv.bsmArgs.size == 1 && rhv.bsmArgs[0] is BsmStringArg -> listOf(
+                            rhv.callSiteArgs[0],
                             JIRStringConstant((rhv.bsmArgs[0] as BsmStringArg).value, stringType)
                         )
 

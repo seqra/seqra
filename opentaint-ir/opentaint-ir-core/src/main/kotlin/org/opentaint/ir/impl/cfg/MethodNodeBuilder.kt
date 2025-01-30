@@ -643,8 +643,8 @@ class MethodNodeBuilder(
         expr.args.forEach { it.accept(this) }
         currentInsnList.add(
             InvokeDynamicInsnNode(
-                expr.callCiteMethodName,
-                "(${expr.callCiteArgTypes.joinToString("") { it.jvmTypeName }})${expr.callCiteReturnType.jvmTypeName}",
+                expr.callSiteMethodName,
+                "(${expr.callSiteArgTypes.joinToString("") { it.jvmTypeName }})${expr.callSiteReturnType.jvmTypeName}",
                 expr.bsm.asAsmHandle,
                 *expr.bsmArgs.map {
                     when (it) {

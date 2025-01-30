@@ -302,9 +302,9 @@ class ExprMapper(val mapping: Map<JIRRawExpr, JIRRawExpr>) : JIRRawInstVisitor<J
             else -> JIRRawDynamicCallExpr(
                 expr.bsm,
                 expr.bsmArgs,
-                expr.callCiteMethodName,
-                expr.callCiteArgTypes,
-                expr.callCiteReturnType,
+                expr.callSiteMethodName,
+                expr.callSiteArgTypes,
+                expr.callSiteReturnType,
                 newArgs
             )
         }
