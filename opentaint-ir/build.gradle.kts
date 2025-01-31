@@ -26,6 +26,7 @@ plugins {
     kotlin("jvm") version kotlinVersion
     kotlin("plugin.allopen") version kotlinVersion
     id("org.cadixdev.licenser") version "0.6.1"
+    jacoco
 }
 
 repositories {
@@ -41,6 +42,7 @@ allprojects {
         plugin("kotlin")
         plugin("org.jetbrains.kotlin.plugin.allopen")
         plugin("org.cadixdev.licenser")
+        plugin("jacoco")
     }
 
     repositories {
@@ -95,12 +97,22 @@ allprojects {
                 allWarningsAsErrors = false
             }
         }
+
+        jacocoTestReport {
+            dependsOn(test) // tests are required to run before generating the report
+            reports {
+                csv.required.set(true)
+            }
+
+        }
+
         withType<Test> {
             useJUnitPlatform()
             jvmArgs = listOf("-Xmx2g", "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=heapdump.hprof")
             testLogging {
                 events("passed", "skipped", "failed")
             }
+            finalizedBy(jacocoTestReport) // report is always generated after tests run
         }
 
         val sourcesJar by creating(Jar::class) {
