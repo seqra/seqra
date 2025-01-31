@@ -4,6 +4,7 @@ val kotlinVersion: String by rootProject
 val coroutinesVersion: String by rootProject
 val junit5Version: String by project
 val semVer: String? by project
+val includeDokka: String? by project
 
 group = "org.opentaint.ir"
 
@@ -132,7 +133,9 @@ allprojects {
 
         artifacts {
             archives(sourcesJar)
-            archives(dokkaJavadocJar)
+            if (includeDokka != null) {
+                archives(dokkaJavadocJar)
+            }
         }
     }
 
