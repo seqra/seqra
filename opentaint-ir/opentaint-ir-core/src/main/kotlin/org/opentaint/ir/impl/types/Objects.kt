@@ -92,58 +92,8 @@ sealed class AnnotationValue
 @Serializable
 open class AnnotationValueList(val annotations: List<AnnotationValue>) : AnnotationValue()
 
-@Serializable(with = PrimitiveValueSerializer::class)
+@Serializable
 class PrimitiveValue(val dataType: AnnotationValueKind, val value: Any) : AnnotationValue()
-
-object PrimitiveValueSerializer : KSerializer<PrimitiveValue> {
-    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("PrimitiveValue") {
-        element("dataType", serialDescriptor<String>())
-        element("value", buildClassSerialDescriptor("Any"))
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private val dataTypeSerializers: Map<AnnotationValueKind, KSerializer<Any>> =
-        mapOf(
-            AnnotationValueKind.STRING to serializer<String>(),
-            AnnotationValueKind.BYTE to serializer<Byte>(),
-            AnnotationValueKind.SHORT to serializer<Short>(),
-            AnnotationValueKind.CHAR to serializer<Char>(),
-            AnnotationValueKind.LONG to serializer<Long>(),
-            AnnotationValueKind.INT to serializer<Int>(),
-            AnnotationValueKind.FLOAT to serializer<Float>(),
-            AnnotationValueKind.DOUBLE to serializer<Double>(),
-            AnnotationValueKind.BYTE to serializer<Byte>(),
-            AnnotationValueKind.BOOLEAN to serializer<Boolean>()
-            //list them all
-        ).mapValues { (_, v) -> v as KSerializer<Any> }
-
-    private fun getPayloadSerializer(dataType: AnnotationValueKind): KSerializer<Any> = dataTypeSerializers[dataType]
-        ?: throw SerializationException("Serializer for class $dataType is not registered in PacketSerializer")
-
-    override fun serialize(encoder: Encoder, value: PrimitiveValue) {
-        encoder.encodeStructure(descriptor) {
-            encodeStringElement(descriptor, 0, value.dataType.name)
-            encodeSerializableElement(descriptor, 1, getPayloadSerializer(value.dataType), value.value)
-        }
-    }
-
-    @ExperimentalSerializationApi
-    override fun deserialize(decoder: Decoder): PrimitiveValue = decoder.decodeStructure(descriptor) {
-        val dataType = AnnotationValueKind.valueOf(decodeStringElement(descriptor, 0))
-        if (decodeSequentially()) {
-            val payload = decodeSerializableElement(descriptor, 1, getPayloadSerializer(dataType))
-            PrimitiveValue(dataType, payload)
-        } else {
-            require(decodeElementIndex(descriptor) == 0) { "dataType field should precede payload field" }
-            val payload = when (val index = decodeElementIndex(descriptor)) {
-                1 -> decodeSerializableElement(descriptor, 1, getPayloadSerializer(dataType))
-                CompositeDecoder.DECODE_DONE -> throw SerializationException("payload field is missing")
-                else -> error("Unexpected index: $index")
-            }
-            PrimitiveValue(dataType, payload)
-        }
-    }
-}
 
 @Serializable
 class ClassRef(val className: String) : AnnotationValue()
