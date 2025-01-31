@@ -25,6 +25,8 @@ plugins {
     `java-test-fixtures`
     kotlin("jvm") version kotlinVersion
     kotlin("plugin.allopen") version kotlinVersion
+    id("org.jetbrains.dokka") version "1.7.20"
+
     id("org.cadixdev.licenser") version "0.6.1"
     jacoco
 }
@@ -43,6 +45,8 @@ allprojects {
         plugin("org.jetbrains.kotlin.plugin.allopen")
         plugin("org.cadixdev.licenser")
         plugin("jacoco")
+        plugin("signing")
+        plugin("org.jetbrains.dokka")
     }
 
     repositories {
@@ -115,6 +119,12 @@ allprojects {
             finalizedBy(jacocoTestReport) // report is always generated after tests run
         }
 
+        val dokkaJavadocJar by creating(Jar::class) {
+            dependsOn(dokkaJavadoc)
+            from(dokkaJavadoc.flatMap { it.outputDirectory })
+            archiveClassifier.set("javadoc")
+        }
+
         val sourcesJar by creating(Jar::class) {
             archiveClassifier.set("sources")
             from(sourceSets.getByName("main").kotlin.srcDirs)
@@ -122,6 +132,7 @@ allprojects {
 
         artifacts {
             archives(sourcesJar)
+            archives(dokkaJavadocJar)
         }
     }
 
@@ -140,30 +151,12 @@ allprojects {
             register<MavenPublication>("jar") {
                 from(components["java"])
                 artifact(tasks.named("sourcesJar"))
+                artifact(tasks.named("dokkaJavadocJar"))
 
                 groupId = "org.opentaint.ir"
                 artifactId = project.name
-
-                pom {
-                    packaging = "jar"
-                    name.set("org.opentaint.ir")
-                    description.set("analyse JVM bytecode with pleasure")
-                    issueManagement {
-                        url.set("https://github.com/Opentaint/opentaint-ir/issues")
-                    }
-                    scm {
-                        connection.set("scm:git:https://github.com/Opentaint/opentaint-ir.git")
-                        developerConnection.set("scm:git:https://github.com/Opentaint/opentaint-ir.git")
-                        url.set("https://www.opentaint-ir.org")
-                    }
-                    url.set("https://www.opentaint-ir.org")
-                    licenses {
-                        license {
-                            name.set("The Apache License, Version 2.0")
-                            url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
-                        }
-                    }
-                }
+                addPom()
+                signPublication(this@allprojects)
             }
         }
     }
@@ -177,7 +170,7 @@ if (!repoUrl.isNullOrEmpty()) {
         listOf(
             project(":opentaint-ir-api"),
             project(":opentaint-ir-core"),
-            project(":opentaint-ir-analysis"),
+//            project(":opentaint-ir-analysis"),
         )
     ) {
         publishing {
@@ -198,17 +191,36 @@ if (!repoUrl.isNullOrEmpty()) {
     }
 }
 
-signing {
-    val gpgKey: String? by project
-    val gpgPassphrase: String? by project
-    useInMemoryPgpKeys(gpgKey, gpgPassphrase)
+fun MavenPublication.signPublication(project: Project) = with(project) {
+    signing {
+        val gpgKey: String? by project
+        val gpgPassphrase: String? by project
+        useInMemoryPgpKeys(gpgKey, gpgPassphrase)
 
-    sign(publishing.publications["jar"])
+        sign(this@signPublication)
+    }
 }
 
-tasks.javadoc {
-    if (JavaVersion.current().isJava9Compatible) {
-        (options as StandardJavadocDocletOptions).addBooleanOption("html5", true)
+fun MavenPublication.addPom() {
+    pom {
+        packaging = "jar"
+        name.set("org.opentaint.ir")
+        description.set("analyse JVM bytecode with pleasure")
+        issueManagement {
+            url.set("https://github.com/Opentaint/opentaint-ir/issues")
+        }
+        scm {
+            connection.set("scm:git:https://github.com/Opentaint/opentaint-ir.git")
+            developerConnection.set("scm:git:https://github.com/Opentaint/opentaint-ir.git")
+            url.set("https://www.opentaint-ir.org")
+        }
+        url.set("https://www.opentaint-ir.org")
+        licenses {
+            license {
+                name.set("The Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+            }
+        }
     }
 }
 
