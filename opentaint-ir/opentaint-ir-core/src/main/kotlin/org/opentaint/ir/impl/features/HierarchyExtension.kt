@@ -33,6 +33,7 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
                 JOIN Classes ON Classes.id = hierarchy.class_id
                 JOIN Symbols ON Symbols.id = Classes.name
              WHERE location_id in ($locationIds)
+             ORDER BY Classes.id
         """.trimIndent()
 
         private fun directSubClassesQuery(locationIds: String, sinceId: Long?) = """
@@ -40,7 +41,8 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
                 JOIN Symbols ON Symbols.id = ClassHierarchies.super_id
                 JOIN Symbols as SymbolsName ON SymbolsName.id = Classes.name
                 JOIN Classes ON Classes.id = ClassHierarchies.class_id
-            WHERE Symbols.name = ? and ($sinceId is null or ClassHierarchies.class_id > $sinceId) AND Classes.location_id in ($locationIds) 
+            WHERE Symbols.name = ? and ($sinceId is null or ClassHierarchies.class_id > $sinceId) AND Classes.location_id in ($locationIds)
+            ORDER BY Classes.id
         """.trimIndent()
 
     }
