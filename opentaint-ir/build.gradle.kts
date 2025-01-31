@@ -195,9 +195,14 @@ fun MavenPublication.signPublication(project: Project) = with(project) {
     signing {
         val gpgKey: String? by project
         val gpgPassphrase: String? by project
-        useInMemoryPgpKeys(gpgKey, gpgPassphrase)
+        val gpgKeyValue = gpgKey?.removeSurrounding("\"")
+        val gpgPasswordValue = gpgPassphrase
 
-        sign(this@signPublication)
+        if (gpgKeyValue != null && gpgPasswordValue != null) {
+            useInMemoryPgpKeys(gpgKeyValue, gpgPasswordValue)
+
+            sign(this@signPublication)
+        }
     }
 }
 
