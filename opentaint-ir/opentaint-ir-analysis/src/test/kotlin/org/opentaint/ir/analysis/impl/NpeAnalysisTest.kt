@@ -8,7 +8,6 @@ import org.opentaint.ir.analysis.NPEAnalysisFactory
 import org.opentaint.ir.analysis.VulnerabilityInstance
 import org.opentaint.ir.analysis.analyzers.NpeAnalyzer
 import org.opentaint.ir.analysis.graph.JIRApplicationGraphImpl
-import org.opentaint.ir.analysis.samples.NPEExamples
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.constructors
@@ -21,6 +20,7 @@ import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.allClasspath
+import org.opentaint.ir.testing.analysis.NPEExamples
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -257,7 +257,7 @@ class NpeAnalysisTest : BaseTest() {
 
     private fun findNpeSources(method: JIRMethod): List<VulnerabilityInstance> {
         val graph = JIRSimplifiedGraphFactory().createGraph(cp)
-        val points2Engine = JIRNaivePoints2EngineFactory().createPoints2Engine(graph)
+        val points2Engine = JIRNaivePoints2EngineFactory.createPoints2Engine(graph)
         val ifds = NPEAnalysisFactory().createAnalysisEngine(graph, points2Engine)
         ifds.addStart(method)
         val result = ifds.analyze()

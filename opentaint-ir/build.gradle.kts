@@ -170,7 +170,7 @@ if (!repoUrl.isNullOrEmpty()) {
         listOf(
             project(":opentaint-ir-api"),
             project(":opentaint-ir-core"),
-//            project(":opentaint-ir-analysis"),
+            project(":opentaint-ir-analysis"),
         )
     ) {
         publishing {

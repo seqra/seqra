@@ -11,14 +11,13 @@ dependencies {
     api(project(":opentaint-ir-api"))
 
     testImplementation(testFixtures(project(":opentaint-ir-core")))
-    testFixturesImplementation(project(":opentaint-ir-api"))
-    testFixturesImplementation("javax.servlet:servlet-api:2.5")
-    testImplementation("org.junit.jupiter:junit-jupiter-params:5.9.2")
-    testImplementation(files("src/testFixtures/resources/juliet.jar"))
-    testImplementation(files("src/testFixtures/resources/pointerbench.jar"))
-    testImplementation("joda-time:joda-time:2.12.5")
+    testImplementation(project(":opentaint-ir-api"))
+    testImplementation(group = "javax.servlet", name = "servlet-api", version = "2.5")
+    testImplementation(group = "org.junit.jupiter", name = "junit-jupiter-params", version = "5.9.2")
+    testImplementation(files("src/test/resources/juliet.jar"))
+    testImplementation(files("src/test/resources/pointerbench.jar"))
+    testImplementation(group = "joda-time", name = "joda-time", version = "2.12.5")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-cli:0.3.5")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
+    implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version = "1.4.1")
     implementation(group = "io.github.microutils", name = "kotlin-logging", version = "1.8.3")
 }

@@ -1,14 +1,6 @@
 package org.opentaint.ir.analysis
-import kotlinx.cli.ArgParser
-import kotlinx.cli.ArgType
-import kotlinx.cli.default
-import kotlinx.cli.required
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.encodeToStream
-import mu.KLogging
 import org.opentaint.ir.analysis.analyzers.AliasAnalyzer
 import org.opentaint.ir.analysis.analyzers.NpeAnalyzer
 import org.opentaint.ir.analysis.analyzers.TaintAnalysisNode
@@ -25,12 +17,7 @@ import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.impl.features.InMemoryHierarchy
-import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.usagesExt
-import org.opentaint.ir.impl.opentaint-ir
-import java.io.File
 import java.util.*
 
 @Serializable
@@ -79,38 +66,40 @@ class UnusedVariableAnalysisFactory : AnalysisEngineFactory {
     }
 
     override val name: String
-        get() = "Opentaint-IR-Unused-Variable"
+        get() = "unused-variable"
 }
 
 abstract class FlowDroidFactory : AnalysisEngineFactory {
 
-    protected abstract fun getAnalyzer(graph: JIRApplicationGraph): Analyzer
+    protected abstract val JIRApplicationGraph.analyzer: Analyzer
 
     override fun createAnalysisEngine(
         graph: JIRApplicationGraph,
         points2Engine: Points2Engine,
     ): AnalysisEngine {
-        val analyzer = getAnalyzer(graph)
+        val analyzer = graph.analyzer
         return TaintAnalysisWithPointsTo(graph, analyzer, points2Engine)
     }
 
     override val name: String
-        get() = "Opentaint-IR-FlowDroid"
+        get() = "flow-droid"
 }
 
 class NPEAnalysisFactory : FlowDroidFactory() {
-    override fun getAnalyzer(graph: JIRApplicationGraph): Analyzer {
-        return NpeAnalyzer(graph)
-    }
+    override val JIRApplicationGraph.analyzer: Analyzer
+        get() {
+            return NpeAnalyzer(this)
+        }
 }
 
 class AliasAnalysisFactory(
     private val generates: (JIRInst) -> List<TaintAnalysisNode>,
     private val isSink: (JIRInst, DomainFact) -> Boolean,
 ) : FlowDroidFactory() {
-    override fun getAnalyzer(graph: JIRApplicationGraph): Analyzer {
-        return AliasAnalyzer(graph, generates, isSink)
-    }
+    override val JIRApplicationGraph.analyzer: Analyzer
+        get() {
+            return AliasAnalyzer(this, generates, isSink)
+        }
 }
 
 interface Points2EngineFactory : Factory {
@@ -124,7 +113,7 @@ interface GraphFactory : Factory {
 class JIRSimplifiedGraphFactory(
     private val bannedPackagePrefixes: List<String>? = null
 ) : GraphFactory {
-    override val name: String = "Opentaint-IR-graph simplified for IFDS"
+    override val name: String = "ifds-simplification"
 
     override fun createGraph(
         classpath: JIRClasspath
@@ -138,7 +127,7 @@ class JIRSimplifiedGraphFactory(
     }
 }
 
-class JIRNaivePoints2EngineFactory : Points2EngineFactory {
+object JIRNaivePoints2EngineFactory : Points2EngineFactory {
     override fun createPoints2Engine(
         graph: JIRApplicationGraph,
     ): Points2Engine {
@@ -147,146 +136,10 @@ class JIRNaivePoints2EngineFactory : Points2EngineFactory {
     }
 
     override val name: String
-        get() = "Opentaint-IR-P2-Naive"
+        get() = "naive-p2"
 }
 
 inline fun <reified T : Factory> loadFactories(): List<T> {
     assert(T::class.java != Factory::class.java)
     return ServiceLoader.load(T::class.java).toList()
-}
-
-private inline fun <reified T : Factory> factoryChoice(): ArgType.Choice<T> {
-    val factories = loadFactories<T>()
-    val nameToFactory = { requiredFactoryName: String -> factories.single { it.name == requiredFactoryName } }
-    val factoryToName = { factory: T -> factory.name }
-
-    return ArgType.Choice(factories, nameToFactory, factoryToName)
-}
-
-private val logger = object : KLogging() {}.logger
-
-class AnalysisMain {
-    fun run(args: List<String>) = main(args.toTypedArray())
-}
-
-fun loadAnalysisEngineFactoriesByConfig(config: AnalysisConfig): List<AnalysisEngineFactory> {
-    return config.analyses.mapNotNull { (analysis, _) ->
-        when (analysis) {
-            "NPE" -> NPEAnalysisFactory()
-            "Unused" -> UnusedVariableAnalysisFactory()
-            else -> {
-                logger.error { "Unknown analysis type: $analysis" }
-                null
-            }
-        }
-    }
-}
-
-fun main(args: Array<String>) {
-    val parser = ArgParser("taint-analysis")
-    val configFilePath by parser.option(
-        ArgType.String,
-        fullName = "analysisConf",
-        shortName = "a",
-        description = "File with analysis configuration in JSON format"
-    ).required()
-    val cacheDirPath by parser.option(
-        ArgType.String,
-        fullName = "cachedir",
-        shortName = "c",
-        description = "Directory with caches for analysis. All parent directories will be created if not exists. Directory will be created if not exists. Directory must be empty."
-    ).required()
-    val startClasses by parser.option(
-        ArgType.String,
-        fullName = "start",
-        shortName = "s",
-        description = "classes from which to start the analysis"
-    ).required()
-    val outputPath by parser.option(
-        ArgType.String,
-        fullName = "output",
-        shortName = "o",
-        description = "File where analysis report will be written. All parent directories will be created if not exists. File will be created if not exists. Existing file will be overwritten."
-    ).default("report.txt") // TODO: create SARIF here
-    val graphFactory by parser.option(
-        factoryChoice<GraphFactory>(),
-        fullName = "graph-type",
-        shortName = "g",
-        description = "Type of code graph to be used by analysis."
-    ).default(JIRSimplifiedGraphFactory())
-    val points2Factory by parser.option(
-        factoryChoice<Points2EngineFactory>(),
-        fullName = "points2",
-        shortName = "p2",
-        description = "Type of points-to engine."
-    ).default(JIRNaivePoints2EngineFactory())
-    val classpath by parser.option(
-        ArgType.String,
-        fullName = "classpath",
-        shortName = "cp",
-        description = "Classpath for analysis. Used by Opentaint-IR."
-    ).default(System.getProperty("java.class.path"))
-
-    parser.parse(args)
-
-    val outputFile = File(outputPath)
-
-    if (outputFile.exists() && outputFile.isDirectory) {
-        throw IllegalArgumentException("Provided path for output file is directory, please provide correct path")
-    } else if (outputFile.exists()) {
-        logger.info { "Output file $outputFile already exists, results will be overwritten" }
-    }
-
-    val cacheDir = File(cacheDirPath)
-
-    if (!cacheDir.exists()) {
-        cacheDir.mkdirs()
-    }
-
-    if (!cacheDir.isDirectory) {
-        throw IllegalArgumentException("Provided path to cache directory is not directory")
-    }
-
-    val configFile = File(configFilePath)
-    if (!configFile.isFile) {
-        throw IllegalArgumentException("Can't find provided config file $configFilePath")
-    }
-    val config = Json.decodeFromString<AnalysisConfig>(configFile.readText())
-
-    val classpathAsFiles = classpath.split(File.pathSeparatorChar).sorted().map { File(it) }
-    val classpathHash = classpath.hashCode()
-    val persistentPath = cacheDir.resolve("opentaint-ir-for-$classpathHash")
-
-    val cp = runBlocking {
-        val opentaint-ir = opentaint-ir {
-            loadByteCode(classpathAsFiles)
-            persistent(persistentPath.absolutePath)
-            installFeatures(InMemoryHierarchy, Usages)
-        }
-        opentaint-ir.classpath(classpathAsFiles)
-    }
-
-    val graph = graphFactory.createGraph(cp)
-    val points2Engine = points2Factory.createPoints2Engine(graph)
-    val startJIRClasses = startClasses.split(";").map { cp.findClass(it) }
-
-    val analysisEngines = loadAnalysisEngineFactoriesByConfig(config).map {
-        it.createAnalysisEngine(graph, points2Engine)
-    }
-
-    val analysisResults = analysisEngines.map { engine ->
-        startJIRClasses.forEach { clazz ->
-            clazz.declaredMethods.forEach {
-                engine.addStart(it)
-            }
-        }
-        engine.analyze()
-    }
-
-    val mergedResult = DumpableAnalysisResult(analysisResults.flatMap { it.foundVulnerabilities })
-
-    val json = Json { prettyPrint = true }
-    outputFile.outputStream().use { fileOutputStream ->
-        json.encodeToStream(mergedResult, fileOutputStream)
-    }
 }

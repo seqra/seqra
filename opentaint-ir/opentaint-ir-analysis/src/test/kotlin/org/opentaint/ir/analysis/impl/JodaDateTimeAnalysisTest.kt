@@ -22,7 +22,7 @@ class JodaDateTimeAnalysisTest : BaseTest() {
         val clazz = cp.findClass<DateTime>()
 
         val graph = JIRSimplifiedGraphFactory().createGraph(cp)
-        val points2Engine = JIRNaivePoints2EngineFactory().createPoints2Engine(graph)
+        val points2Engine = JIRNaivePoints2EngineFactory.createPoints2Engine(graph)
         val ifds = factory.createAnalysisEngine(graph, points2Engine)
         clazz.declaredMethods
             .forEach { ifds.addStart(it) }

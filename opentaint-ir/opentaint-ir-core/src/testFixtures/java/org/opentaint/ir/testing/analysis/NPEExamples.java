@@ -1,4 +1,4 @@
-package org.opentaint.ir.analysis.samples;
+package org.opentaint.ir.testing.analysis;
 
 import org.jetbrains.annotations.NotNull;
 

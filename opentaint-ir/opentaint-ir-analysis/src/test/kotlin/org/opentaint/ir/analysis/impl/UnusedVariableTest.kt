@@ -94,7 +94,7 @@ class UnusedVariableTest : BaseTest() {
 
     private fun findUnusedVariables(method: JIRMethod): List<VulnerabilityInstance> {
         val graph = JIRSimplifiedGraphFactory().createGraph(cp)
-        val points2Engine = JIRNaivePoints2EngineFactory().createPoints2Engine(graph)
+        val points2Engine = JIRNaivePoints2EngineFactory.createPoints2Engine(graph)
         val ifds = UnusedVariableAnalysisFactory().createAnalysisEngine(graph, points2Engine)
         ifds.addStart(method)
         val result = ifds.analyze()
