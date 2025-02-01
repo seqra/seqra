@@ -10,6 +10,7 @@ import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.BatchedSequence
+import org.opentaint.ir.impl.storage.defaultBatchSize
 import org.opentaint.ir.impl.storage.eqOrNull
 import org.opentaint.ir.impl.storage.executeQueries
 import org.opentaint.ir.impl.storage.jooq.tables.references.CALLS
@@ -205,7 +206,7 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
             return emptySequence()
         }
 
-        return BatchedSequence(50) { offset, batchSize ->
+        return BatchedSequence(defaultBatchSize) { offset, batchSize ->
             var position = offset ?: 0
             val classes = calls.drop(position.toInt()).take(batchSize)
             val classIds = classes.map { it.first.classId }.toSet()

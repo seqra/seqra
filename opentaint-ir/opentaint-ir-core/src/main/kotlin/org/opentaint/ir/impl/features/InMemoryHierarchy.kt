@@ -13,6 +13,7 @@ import org.opentaint.ir.api.ext.JAVA_OBJECT
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.BatchedSequence
+import org.opentaint.ir.impl.storage.defaultBatchSize
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSHIERARCHIES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
@@ -134,7 +135,7 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
             return emptySequence()
         }
         val allIds = allSubclasses.toList()
-        return BatchedSequence<ClassSource>(50) { offset, batchSize ->
+        return BatchedSequence<ClassSource>(defaultBatchSize) { offset, batchSize ->
             persistence.read { jooq ->
                 val index = offset ?: 0
                 val ids = allIds.subList(index.toInt(), min(allIds.size, index.toInt() + batchSize))

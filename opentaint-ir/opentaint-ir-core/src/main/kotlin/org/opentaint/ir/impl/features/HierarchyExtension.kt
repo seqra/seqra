@@ -12,6 +12,7 @@ import org.opentaint.ir.api.ext.JAVA_OBJECT
 import org.opentaint.ir.api.ext.findDeclaredMethodOrNull
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.storage.BatchedSequence
+import org.opentaint.ir.impl.storage.defaultBatchSize
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSHIERARCHIES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
@@ -102,7 +103,7 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
         if (name == JAVA_OBJECT) {
             return allClassesExceptObject(!allHierarchy)
         }
-        return BatchedSequence(50) { offset, batchSize ->
+        return BatchedSequence(defaultBatchSize) { offset, batchSize ->
             val query = when {
                 allHierarchy -> allHierarchyQuery(locationIds, offset)
                 else -> directSubClassesQuery(locationIds, offset)
@@ -150,7 +151,7 @@ private fun SelectConditionStep<Record3<Long?, String?, Long?>>.batchingProcess(
 internal fun JIRClasspath.allClassesExceptObject(direct: Boolean): Sequence<PersistenceClassSource> {
     val locationIds = registeredLocations.map { it.id }
     if (direct) {
-        return BatchedSequence(50) { offset, batchSize ->
+        return BatchedSequence(defaultBatchSize) { offset, batchSize ->
             db.persistence.read { jooq ->
                 val whereCondition = if (offset == null) {
                     CLASSES.LOCATION_ID.`in`(locationIds)
@@ -172,7 +173,7 @@ internal fun JIRClasspath.allClassesExceptObject(direct: Boolean): Sequence<Pers
                 }
             }
         }
-        return BatchedSequence(50) { offset, batchSize ->
+        return BatchedSequence(defaultBatchSize) { offset, batchSize ->
             db.persistence.read { jooq ->
                 val whereCondition = if (offset == null) {
                     CLASSES.LOCATION_ID.`in`(locationIds)

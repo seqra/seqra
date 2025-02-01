@@ -44,6 +44,10 @@ open class WithDB(vararg features: JIRFeature<*, *>) {
 
     protected var allFeatures = features.toList().toTypedArray()
 
+    init {
+        System.setProperty("org.opentaint.ir.impl.storage.defaultBatchSize", "500")
+    }
+
     open var db = runBlocking {
         opentaint-ir {
 //            persistent("D:\\work\\opentaint-ir\\jIRdb-index.db")
