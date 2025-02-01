@@ -31,4 +31,8 @@ open class JIRVirtualFieldImpl(
         get() = null
     override val annotations: List<JIRAnnotation>
         get() = emptyList()
+
+    override fun toString(): String {
+        return "virtual $enclosingClass#$name"
+    }
 }

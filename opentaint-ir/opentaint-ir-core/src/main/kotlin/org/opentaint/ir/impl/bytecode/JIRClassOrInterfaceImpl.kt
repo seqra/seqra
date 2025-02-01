@@ -122,7 +122,8 @@ class JIRClassOrInterfaceImpl(
                         result.addAll(it)
                     }
                 }
-                return (result + default).toList()
+                result.addAll(default)
+                return result.toList()
             }
             return default
         }
@@ -136,7 +137,8 @@ class JIRClassOrInterfaceImpl(
                     result.addAll(it)
                 }
             }
-            (result + default).toList()
+            result.addAll(default)
+            result.toList()
         } else {
             default
         }

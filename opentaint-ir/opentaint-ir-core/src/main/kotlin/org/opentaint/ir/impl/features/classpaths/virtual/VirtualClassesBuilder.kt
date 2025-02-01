@@ -76,7 +76,7 @@ open class VirtualClassesBuilder {
             this._name = name
         }
 
-        fun build(): JIRVirtualField {
+        open fun build(): JIRVirtualField {
             return JIRVirtualFieldImpl(_name, access, type)
         }
 
@@ -108,7 +108,7 @@ open class VirtualClassesBuilder {
             returnType = TypeNameImpl(name)
         }
 
-        val description: String
+        open val description: String
             get() {
                 return buildString {
                     append("(")

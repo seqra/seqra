@@ -1,0 +1,465 @@
+package org.opentaint.ir.approximation
+
+import org.opentaint.ir.api.TypeName
+import org.opentaint.ir.api.cfg.BsmDoubleArg
+import org.opentaint.ir.api.cfg.BsmFloatArg
+import org.opentaint.ir.api.cfg.BsmHandle
+import org.opentaint.ir.api.cfg.BsmIntArg
+import org.opentaint.ir.api.cfg.BsmLongArg
+import org.opentaint.ir.api.cfg.BsmMethodTypeArg
+import org.opentaint.ir.api.cfg.BsmStringArg
+import org.opentaint.ir.api.cfg.BsmTypeArg
+import org.opentaint.ir.api.cfg.JIRRawAddExpr
+import org.opentaint.ir.api.cfg.JIRRawAndExpr
+import org.opentaint.ir.api.cfg.JIRRawArgument
+import org.opentaint.ir.api.cfg.JIRRawArrayAccess
+import org.opentaint.ir.api.cfg.JIRRawAssignInst
+import org.opentaint.ir.api.cfg.JIRRawBinaryExpr
+import org.opentaint.ir.api.cfg.JIRRawBool
+import org.opentaint.ir.api.cfg.JIRRawByte
+import org.opentaint.ir.api.cfg.JIRRawCallExpr
+import org.opentaint.ir.api.cfg.JIRRawCallInst
+import org.opentaint.ir.api.cfg.JIRRawCastExpr
+import org.opentaint.ir.api.cfg.JIRRawCatchInst
+import org.opentaint.ir.api.cfg.JIRRawChar
+import org.opentaint.ir.api.cfg.JIRRawClassConstant
+import org.opentaint.ir.api.cfg.JIRRawCmpExpr
+import org.opentaint.ir.api.cfg.JIRRawCmpgExpr
+import org.opentaint.ir.api.cfg.JIRRawCmplExpr
+import org.opentaint.ir.api.cfg.JIRRawConditionExpr
+import org.opentaint.ir.api.cfg.JIRRawDivExpr
+import org.opentaint.ir.api.cfg.JIRRawDouble
+import org.opentaint.ir.api.cfg.JIRRawDynamicCallExpr
+import org.opentaint.ir.api.cfg.JIRRawEnterMonitorInst
+import org.opentaint.ir.api.cfg.JIRRawEqExpr
+import org.opentaint.ir.api.cfg.JIRRawExitMonitorInst
+import org.opentaint.ir.api.cfg.JIRRawExpr
+import org.opentaint.ir.api.cfg.JIRRawExprVisitor
+import org.opentaint.ir.api.cfg.JIRRawFieldRef
+import org.opentaint.ir.api.cfg.JIRRawFloat
+import org.opentaint.ir.api.cfg.JIRRawGeExpr
+import org.opentaint.ir.api.cfg.JIRRawGotoInst
+import org.opentaint.ir.api.cfg.JIRRawGtExpr
+import org.opentaint.ir.api.cfg.JIRRawIfInst
+import org.opentaint.ir.api.cfg.JIRRawInst
+import org.opentaint.ir.api.cfg.JIRRawInstVisitor
+import org.opentaint.ir.api.cfg.JIRRawInstanceOfExpr
+import org.opentaint.ir.api.cfg.JIRRawInt
+import org.opentaint.ir.api.cfg.JIRRawInterfaceCallExpr
+import org.opentaint.ir.api.cfg.JIRRawLabelInst
+import org.opentaint.ir.api.cfg.JIRRawLeExpr
+import org.opentaint.ir.api.cfg.JIRRawLengthExpr
+import org.opentaint.ir.api.cfg.JIRRawLineNumberInst
+import org.opentaint.ir.api.cfg.JIRRawLocalVar
+import org.opentaint.ir.api.cfg.JIRRawLong
+import org.opentaint.ir.api.cfg.JIRRawLtExpr
+import org.opentaint.ir.api.cfg.JIRRawMethodConstant
+import org.opentaint.ir.api.cfg.JIRRawMulExpr
+import org.opentaint.ir.api.cfg.JIRRawNegExpr
+import org.opentaint.ir.api.cfg.JIRRawNeqExpr
+import org.opentaint.ir.api.cfg.JIRRawNewArrayExpr
+import org.opentaint.ir.api.cfg.JIRRawNewExpr
+import org.opentaint.ir.api.cfg.JIRRawNullConstant
+import org.opentaint.ir.api.cfg.JIRRawOrExpr
+import org.opentaint.ir.api.cfg.JIRRawRemExpr
+import org.opentaint.ir.api.cfg.JIRRawReturnInst
+import org.opentaint.ir.api.cfg.JIRRawShlExpr
+import org.opentaint.ir.api.cfg.JIRRawShort
+import org.opentaint.ir.api.cfg.JIRRawShrExpr
+import org.opentaint.ir.api.cfg.JIRRawSimpleValue
+import org.opentaint.ir.api.cfg.JIRRawSpecialCallExpr
+import org.opentaint.ir.api.cfg.JIRRawStaticCallExpr
+import org.opentaint.ir.api.cfg.JIRRawStringConstant
+import org.opentaint.ir.api.cfg.JIRRawSubExpr
+import org.opentaint.ir.api.cfg.JIRRawSwitchInst
+import org.opentaint.ir.api.cfg.JIRRawThis
+import org.opentaint.ir.api.cfg.JIRRawThrowInst
+import org.opentaint.ir.api.cfg.JIRRawUshrExpr
+import org.opentaint.ir.api.cfg.JIRRawValue
+import org.opentaint.ir.api.cfg.JIRRawVirtualCallExpr
+import org.opentaint.ir.api.cfg.JIRRawXorExpr
+import org.opentaint.ir.approximation.ApproximationsMappingFeature.findOriginalByApproximationOrNull
+import org.opentaint.ir.impl.types.TypeNameImpl
+
+/**
+ * Removes all occurrences of approximations with their targets in [JIRRawInst]s and [JIRRawExpr]s.
+ */
+object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawExprVisitor<JIRRawExpr> {
+    override fun visitJIRRawAssignInst(inst: JIRRawAssignInst): JIRRawInst {
+        val newLhv = inst.lhv.accept(this) as JIRRawValue
+        val newRhv = inst.rhv.accept(this)
+        return JIRRawAssignInst(inst.owner, newLhv, newRhv)
+    }
+
+    override fun visitJIRRawEnterMonitorInst(inst: JIRRawEnterMonitorInst): JIRRawInst {
+        val newMonitor = inst.monitor.accept(this) as JIRRawSimpleValue
+        return JIRRawEnterMonitorInst(inst.owner, newMonitor)
+    }
+
+    override fun visitJIRRawExitMonitorInst(inst: JIRRawExitMonitorInst): JIRRawInst {
+        val newMonitor = inst.monitor.accept(this) as JIRRawSimpleValue
+        return JIRRawExitMonitorInst(inst.owner, newMonitor)
+    }
+
+    override fun visitJIRRawCallInst(inst: JIRRawCallInst): JIRRawInst {
+        val newCall = inst.callExpr.accept(this) as JIRRawCallExpr
+        return JIRRawCallInst(inst.owner, newCall)
+    }
+
+    override fun visitJIRRawLabelInst(inst: JIRRawLabelInst): JIRRawInst {
+        return JIRRawLabelInst(inst.owner, inst.name)
+    }
+
+    override fun visitJIRRawLineNumberInst(inst: JIRRawLineNumberInst): JIRRawInst {
+        return JIRRawLineNumberInst(inst.owner, inst.lineNumber, inst.start)
+    }
+
+    override fun visitJIRRawReturnInst(inst: JIRRawReturnInst): JIRRawInst {
+        val newReturn = inst.returnValue?.accept(this) as? JIRRawValue
+        return JIRRawReturnInst(inst.owner, newReturn)
+    }
+
+    override fun visitJIRRawThrowInst(inst: JIRRawThrowInst): JIRRawInst {
+        val newThrowable = inst.throwable.accept(this) as JIRRawValue
+        return JIRRawThrowInst(inst.owner, newThrowable)
+    }
+
+    override fun visitJIRRawCatchInst(inst: JIRRawCatchInst): JIRRawInst {
+        val newThrowable = inst.throwable.accept(this) as JIRRawValue
+        val entries = inst.entries.map {
+            it.copy(acceptedThrowable = it.acceptedThrowable.eliminateApproximation())
+        }
+
+        return JIRRawCatchInst(inst.owner, newThrowable, inst.handler, entries)
+    }
+
+    override fun visitJIRRawGotoInst(inst: JIRRawGotoInst): JIRRawInst {
+        return JIRRawGotoInst(inst.owner, inst.target)
+    }
+
+    override fun visitJIRRawIfInst(inst: JIRRawIfInst): JIRRawInst {
+        val newCondition = inst.condition.accept(this) as JIRRawConditionExpr
+        return JIRRawIfInst(inst.owner, newCondition, inst.trueBranch, inst.falseBranch)
+    }
+
+    override fun visitJIRRawSwitchInst(inst: JIRRawSwitchInst): JIRRawInst {
+        val newKey = inst.key.accept(this) as JIRRawValue
+        val newBranches = inst.branches.mapKeys { it.key.accept(this) as JIRRawValue }
+        return JIRRawSwitchInst(inst.owner, newKey, newBranches, inst.default)
+    }
+
+    private fun <T : JIRRawBinaryExpr> binaryHandler(
+        expr: T,
+        constructor: (TypeName, JIRRawValue, JIRRawValue) -> T
+    ): T {
+        val newLhv = expr.lhv.accept(this) as JIRRawValue
+        val newRhv = expr.rhv.accept(this) as JIRRawValue
+
+        return constructor(newLhv.typeName.eliminateApproximation(), newLhv, newRhv)
+    }
+
+    override fun visitJIRRawAddExpr(expr: JIRRawAddExpr): JIRRawExpr = binaryHandler(expr) { type, lhv, rhv ->
+        JIRRawAddExpr(type, lhv, rhv)
+    }
+
+    override fun visitJIRRawAndExpr(expr: JIRRawAndExpr) = binaryHandler(expr) { type, lhv, rhv ->
+        JIRRawAndExpr(type, lhv, rhv)
+    }
+
+    override fun visitJIRRawCmpExpr(expr: JIRRawCmpExpr) = binaryHandler(expr) { type, lhv, rhv ->
+        JIRRawCmpExpr(type, lhv, rhv)
+    }
+
+    override fun visitJIRRawCmpgExpr(expr: JIRRawCmpgExpr) = binaryHandler(expr) { type, lhv, rhv ->
+        JIRRawCmpgExpr(type, lhv, rhv)
+    }
+
+    override fun visitJIRRawCmplExpr(expr: JIRRawCmplExpr) = binaryHandler(expr) { type, lhv, rhv ->
+        JIRRawCmplExpr(type, lhv, rhv)
+    }
+
+    override fun visitJIRRawDivExpr(expr: JIRRawDivExpr) = binaryHandler(expr) { type, lhv, rhv ->
+        JIRRawDivExpr(type, lhv, rhv)
+    }
+
+    override fun visitJIRRawMulExpr(expr: JIRRawMulExpr) = binaryHandler(expr) { type, lhv, rhv ->
+        JIRRawMulExpr(type, lhv, rhv)
+    }
+
+    override fun visitJIRRawEqExpr(expr: JIRRawEqExpr) = binaryHandler(expr) { _, lhv, rhv ->
+        JIRRawEqExpr(expr.typeName.eliminateApproximation(), lhv, rhv)
+    }
+
+    override fun visitJIRRawNeqExpr(expr: JIRRawNeqExpr) = binaryHandler(expr) { _, lhv, rhv ->
+        JIRRawNeqExpr(expr.typeName.eliminateApproximation(), lhv, rhv)
+    }
+
+    override fun visitJIRRawGeExpr(expr: JIRRawGeExpr) = binaryHandler(expr) { _, lhv, rhv ->
+        JIRRawGeExpr(expr.typeName.eliminateApproximation(), lhv, rhv)
+    }
+
+    override fun visitJIRRawGtExpr(expr: JIRRawGtExpr) = binaryHandler(expr) { _, lhv, rhv ->
+        JIRRawGtExpr(expr.typeName.eliminateApproximation(), lhv, rhv)
+    }
+
+    override fun visitJIRRawLeExpr(expr: JIRRawLeExpr) = binaryHandler(expr) { _, lhv, rhv ->
+        JIRRawLeExpr(expr.typeName.eliminateApproximation(), lhv, rhv)
+    }
+
+    override fun visitJIRRawLtExpr(expr: JIRRawLtExpr) = binaryHandler(expr) { _, lhv, rhv ->
+        JIRRawLtExpr(expr.typeName.eliminateApproximation(), lhv, rhv)
+    }
+
+    override fun visitJIRRawOrExpr(expr: JIRRawOrExpr) = binaryHandler(expr) { type, lhv, rhv ->
+        JIRRawOrExpr(type, lhv, rhv)
+    }
+
+    override fun visitJIRRawRemExpr(expr: JIRRawRemExpr) = binaryHandler(expr) { type, lhv, rhv ->
+        JIRRawRemExpr(type, lhv, rhv)
+    }
+
+    override fun visitJIRRawShlExpr(expr: JIRRawShlExpr) = binaryHandler(expr) { type, lhv, rhv ->
+        JIRRawShlExpr(type, lhv, rhv)
+    }
+
+    override fun visitJIRRawShrExpr(expr: JIRRawShrExpr) = binaryHandler(expr) { type, lhv, rhv ->
+        JIRRawShrExpr(type, lhv, rhv)
+    }
+
+    override fun visitJIRRawSubExpr(expr: JIRRawSubExpr) = binaryHandler(expr) { type, lhv, rhv ->
+        JIRRawSubExpr(type, lhv, rhv)
+    }
+
+    override fun visitJIRRawUshrExpr(expr: JIRRawUshrExpr) = binaryHandler(expr) { type, lhv, rhv ->
+        JIRRawUshrExpr(type, lhv, rhv)
+    }
+
+    override fun visitJIRRawXorExpr(expr: JIRRawXorExpr) = binaryHandler(expr) { type, lhv, rhv ->
+        JIRRawXorExpr(type, lhv, rhv)
+    }
+
+    override fun visitJIRRawLengthExpr(expr: JIRRawLengthExpr): JIRRawExpr {
+        val newArray = expr.array.accept(this) as JIRRawValue
+        return JIRRawLengthExpr(expr.typeName.eliminateApproximation(), newArray)
+    }
+
+    override fun visitJIRRawNegExpr(expr: JIRRawNegExpr): JIRRawExpr {
+        val newOperand = expr.operand.accept(this) as JIRRawValue
+        return JIRRawNegExpr(newOperand.typeName.eliminateApproximation(), newOperand)
+    }
+
+    override fun visitJIRRawCastExpr(expr: JIRRawCastExpr): JIRRawExpr {
+        val newOperand = expr.operand.accept(this) as JIRRawValue
+        return JIRRawCastExpr(expr.typeName.eliminateApproximation(), newOperand)
+    }
+
+    override fun visitJIRRawNewExpr(expr: JIRRawNewExpr): JIRRawExpr {
+        return expr.eliminateApproximations(expr.typeName) { expr.copy(typeName = it) }
+    }
+
+    override fun visitJIRRawNewArrayExpr(expr: JIRRawNewArrayExpr): JIRRawExpr {
+        val newDimensions = expr.dimensions.map { it.accept(this) as JIRRawValue }
+        return JIRRawNewArrayExpr(expr.typeName.eliminateApproximation(), newDimensions)
+    }
+
+    override fun visitJIRRawInstanceOfExpr(expr: JIRRawInstanceOfExpr): JIRRawExpr {
+        val newOperand = expr.operand.accept(this) as JIRRawValue
+        return JIRRawInstanceOfExpr(
+            expr.typeName.eliminateApproximation(),
+            newOperand,
+            expr.targetType.eliminateApproximation()
+        )
+    }
+
+    private fun BsmHandle.eliminateApproximations(): BsmHandle = copy(
+        declaringClass = declaringClass.eliminateApproximation(),
+        argTypes = argTypes.map { it.eliminateApproximation() },
+        returnType = returnType.eliminateApproximation()
+    )
+
+    override fun visitJIRRawDynamicCallExpr(expr: JIRRawDynamicCallExpr): JIRRawExpr {
+        with(expr) {
+            val newArgs = args.map { it.accept(this@InstSubstitutorForApproximations) as JIRRawValue }
+
+            return JIRRawDynamicCallExpr(
+                bsm.eliminateApproximations(),
+                bsmArgs.map { arg ->
+                    when (arg) {
+                        is BsmDoubleArg -> arg
+                        is BsmFloatArg -> arg
+                        is BsmHandle -> arg.eliminateApproximations()
+                        is BsmIntArg -> arg
+                        is BsmLongArg -> arg
+                        is BsmMethodTypeArg -> arg.copy(
+                            arg.argumentTypes.map { it.eliminateApproximation() },
+                            arg.returnType.eliminateApproximation()
+                        )
+
+                        is BsmStringArg -> arg
+                        is BsmTypeArg -> arg.copy(arg.typeName.eliminateApproximation())
+                    }
+                },
+                callSiteMethodName,
+                callSiteArgTypes.map { it.eliminateApproximation() },
+                callSiteReturnType.eliminateApproximation(),
+                newArgs
+            )
+        }
+    }
+
+    override fun visitJIRRawVirtualCallExpr(expr: JIRRawVirtualCallExpr): JIRRawExpr {
+        val newInstance = expr.instance.accept(this) as JIRRawValue
+        val newArgs = expr.args.map { it.accept(this) as JIRRawValue }
+
+        return with(expr) {
+            JIRRawVirtualCallExpr(
+                declaringClass.eliminateApproximation(),
+                methodName,
+                argumentTypes.map { it.eliminateApproximation() },
+                returnType.eliminateApproximation(),
+                newInstance,
+                newArgs
+            )
+        }
+    }
+
+    override fun visitJIRRawInterfaceCallExpr(expr: JIRRawInterfaceCallExpr): JIRRawExpr {
+        val newInstance = expr.instance.accept(this) as JIRRawValue
+        val newArgs = expr.args.map { it.accept(this) as JIRRawValue }
+
+        return with(expr) {
+            JIRRawInterfaceCallExpr(
+                declaringClass.eliminateApproximation(),
+                methodName,
+                argumentTypes.map { it.eliminateApproximation() },
+                returnType.eliminateApproximation(),
+                newInstance,
+                newArgs
+            )
+        }
+    }
+
+    override fun visitJIRRawStaticCallExpr(expr: JIRRawStaticCallExpr): JIRRawExpr {
+        val newArgs = expr.args.map { it.accept(this) as JIRRawValue }
+
+        return with(expr) {
+            JIRRawStaticCallExpr(
+                declaringClass.eliminateApproximation(),
+                methodName,
+                argumentTypes.map { it.eliminateApproximation() },
+                returnType.eliminateApproximation(),
+                newArgs
+            )
+        }
+    }
+
+    override fun visitJIRRawSpecialCallExpr(expr: JIRRawSpecialCallExpr): JIRRawExpr {
+        val newInstance = expr.instance.accept(this) as JIRRawValue
+        val newArgs = expr.args.map { it.accept(this) as JIRRawValue }
+
+        return with(expr) {
+            JIRRawSpecialCallExpr(
+                declaringClass.eliminateApproximation(),
+                methodName,
+                argumentTypes.map { it.eliminateApproximation() },
+                returnType.eliminateApproximation(),
+                newInstance,
+                newArgs
+            )
+        }
+    }
+
+    override fun visitJIRRawThis(value: JIRRawThis): JIRRawExpr {
+        return value.copy(value.typeName.eliminateApproximation())
+    }
+
+    override fun visitJIRRawArgument(value: JIRRawArgument): JIRRawExpr {
+        return value.eliminateApproximations(value.typeName) { value.copy(typeName = it) }
+    }
+
+    private fun <T : JIRRawExpr> T.eliminateApproximations(typeName: TypeName, constructor: (TypeName) -> T): T {
+        val className = typeName.typeName.toApproximationName()
+        val originalClassName = findOriginalByApproximationOrNull(className) ?: return this
+        return constructor(TypeNameImpl(originalClassName))
+    }
+
+    override fun visitJIRRawLocalVar(value: JIRRawLocalVar): JIRRawExpr {
+        return value.copy(typeName = value.typeName.eliminateApproximation())
+    }
+
+    override fun visitJIRRawFieldRef(value: JIRRawFieldRef): JIRRawExpr {
+        val newInstance = value.instance?.accept(this) as? JIRRawValue
+        return JIRRawFieldRef(
+            newInstance,
+            value.declaringClass.eliminateApproximation(),
+            value.fieldName,
+            value.typeName.eliminateApproximation()
+        )
+    }
+
+    override fun visitJIRRawArrayAccess(value: JIRRawArrayAccess): JIRRawExpr {
+        val newArray = value.array.accept(this) as JIRRawValue
+        val newIndex = value.index.accept(this) as JIRRawValue
+
+        return JIRRawArrayAccess(newArray, newIndex, value.typeName.eliminateApproximation())
+    }
+
+    override fun visitJIRRawBool(value: JIRRawBool): JIRRawExpr {
+        return value.copy(typeName = value.typeName.eliminateApproximation())
+    }
+
+    override fun visitJIRRawByte(value: JIRRawByte): JIRRawExpr {
+        return value.copy(typeName = value.typeName.eliminateApproximation())
+    }
+
+    override fun visitJIRRawChar(value: JIRRawChar): JIRRawExpr {
+        return value.copy(typeName = value.typeName.eliminateApproximation())
+    }
+
+    override fun visitJIRRawShort(value: JIRRawShort): JIRRawExpr {
+        return value.copy(typeName = value.typeName.eliminateApproximation())
+    }
+
+    override fun visitJIRRawInt(value: JIRRawInt): JIRRawExpr {
+        return value.copy(typeName = value.typeName.eliminateApproximation())
+    }
+
+    override fun visitJIRRawLong(value: JIRRawLong): JIRRawExpr {
+        return value.copy(typeName = value.typeName.eliminateApproximation())
+    }
+
+    override fun visitJIRRawFloat(value: JIRRawFloat): JIRRawExpr {
+        return value.copy(typeName = value.typeName.eliminateApproximation())
+    }
+
+    override fun visitJIRRawDouble(value: JIRRawDouble): JIRRawExpr {
+        return value.copy(typeName = value.typeName.eliminateApproximation())
+    }
+
+    override fun visitJIRRawNullConstant(value: JIRRawNullConstant): JIRRawExpr {
+        return value.copy(typeName = value.typeName.eliminateApproximation())
+    }
+
+    override fun visitJIRRawStringConstant(value: JIRRawStringConstant): JIRRawExpr {
+        return value.eliminateApproximations(value.typeName) { value.copy(typeName = it) }
+    }
+
+    override fun visitJIRRawClassConstant(value: JIRRawClassConstant): JIRRawExpr {
+        return JIRRawClassConstant(
+            value.className.eliminateApproximation(),
+            value.typeName.eliminateApproximation()
+        )
+    }
+
+    override fun visitJIRRawMethodConstant(value: JIRRawMethodConstant): JIRRawExpr {
+        return with(value) {
+            JIRRawMethodConstant(
+                declaringClass.eliminateApproximation(),
+                name,
+                argumentTypes.map { it.eliminateApproximation() },
+                returnType.eliminateApproximation(),
+                typeName.eliminateApproximation()
+            )
+        }
+    }
+}

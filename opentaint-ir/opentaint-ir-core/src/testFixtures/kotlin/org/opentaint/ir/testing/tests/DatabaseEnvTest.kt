@@ -99,13 +99,11 @@ abstract class DatabaseEnvTest {
         val fields = clazz.declaredFields
         assertEquals(2, fields.size)
 
-        with(fields.first()) {
-            assertEquals("foo", name)
+        with(fields.single { it.name == "foo" }) {
             assertEquals("int", type.typeName)
             assertEquals(false, isNullable)
         }
-        with(fields[1]) {
-            assertEquals("bar", name)
+        with(fields.single { it.name == "bar" }) {
             assertEquals(String::class.java.name, type.typeName)
             assertEquals(false, isNullable)
         }
@@ -497,11 +495,16 @@ abstract class DatabaseEnvTest {
         }
         val clazz = cp.findClass<Bar>()
         val field = clazz.findDeclaredFieldOrNull(fieldName)
+
+        val fields = clazz.declaredFields.filter { it.name == fieldName }
+        assertTrue(fields.size == 1)
+
         assertTrue(field is JIRVirtualField)
         assertEquals(PredefinedPrimitives.Int, field!!.type.typeName)
         assertNotNull(field.enclosingClass)
 
-        val method = clazz.declaredMethods.first { it.name == methodName }
+        val method = clazz.declaredMethods.single { it.name == methodName }
+
         assertTrue(method is JIRVirtualMethod)
         assertEquals(byteArrayTypeName, method.returnType.typeName)
         assertEquals(1, method.parameters.size)

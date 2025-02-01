@@ -85,4 +85,8 @@ open class JIRVirtualMethodImpl(
     override fun bind(clazz: JIRClassOrInterface) {
         enclosingClass = clazz
     }
+
+    override fun toString(): String {
+        return "virtual ${enclosingClass}#$name(${parameters.joinToString { it.type.typeName }})"
+    }
 }
