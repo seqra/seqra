@@ -6,6 +6,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.withContext
 import org.opentaint.ir.api.ClassSource
+import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRArrayType
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.JIRClassOrInterface
@@ -58,18 +59,19 @@ class JIRClasspathImpl(
         }?.orElse(null)
     }
 
-    override fun typeOf(jIRClass: JIRClassOrInterface): JIRRefType {
+    override fun typeOf(jIRClass: JIRClassOrInterface, nullability: Boolean?, annotations: List<JIRAnnotation>): JIRRefType {
         return JIRClassTypeImpl(
             this,
             jIRClass.name,
             jIRClass.outerClass?.toType() as? JIRClassTypeImpl,
             JIRSubstitutor.empty,
-            nullable = null
+            nullability,
+            annotations
         )
     }
 
-    override fun arrayTypeOf(elementType: JIRType): JIRArrayType {
-        return JIRArrayTypeImpl(elementType, null)
+    override fun arrayTypeOf(elementType: JIRType, nullability: Boolean?, annotations: List<JIRAnnotation>): JIRArrayType {
+        return JIRArrayTypeImpl(elementType, nullability, annotations)
     }
 
     override fun toJIRClass(source: ClassSource): JIRClassOrInterface {

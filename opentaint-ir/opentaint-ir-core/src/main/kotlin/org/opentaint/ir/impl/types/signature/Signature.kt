@@ -40,9 +40,11 @@ internal abstract class Signature<T : Resolution>(
         if (current != null) {
             val toAdd = JvmTypeParameterDeclarationImpl(current, owner, currentBounds)
             typeVariables.add(
-                kmTypeParameters?.let {
-                    toAdd.relaxWithKmTypeParameter(it[typeVariables.size])
-                } ?: toAdd
+                if (kmTypeParameters != null) {
+                    JvmTypeKMetadataUpdateVisitor.visitDeclaration(toAdd, kmTypeParameters[typeVariables.size])
+                } else {
+                    toAdd
+                }
             )
         }
     }

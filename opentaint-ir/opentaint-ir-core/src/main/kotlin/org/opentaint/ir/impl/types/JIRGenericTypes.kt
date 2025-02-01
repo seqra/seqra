@@ -1,9 +1,11 @@
 package org.opentaint.ir.impl.types
 
+import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRBoundedWildcard
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRRefType
+import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.JIRTypeVariable
 import org.opentaint.ir.api.JIRTypeVariableDeclaration
 import org.opentaint.ir.api.JIRUnboundWildcard
@@ -14,6 +16,8 @@ class JIRUnboundWildcardImpl(override val classpath: JIRClasspath) :
     JIRUnboundWildcard {
 
     override val nullable: Boolean = true
+
+    override val annotations: List<JIRAnnotation> = listOf()
 
     override val typeName: String
         get() = "*"
@@ -30,6 +34,8 @@ class JIRBoundedWildcardImpl(
     override val lowerBounds: List<JIRRefType>,
 ) : JIRBoundedWildcard {
     override val nullable: Boolean = true
+
+    override val annotations: List<JIRAnnotation> = listOf()
 
     override val classpath: JIRClasspath
         get() = upperBounds.firstOrNull()?.classpath ?: lowerBounds.firstOrNull()?.classpath
@@ -59,7 +65,8 @@ class JIRBoundedWildcardImpl(
 class JIRTypeVariableImpl(
     override val classpath: JIRClasspath,
     private val declaration: JIRTypeVariableDeclaration,
-    override val nullable: Boolean?
+    override val nullable: Boolean?,
+    override val annotations: List<JIRAnnotation> = listOf()
 ) : JIRTypeVariable {
 
     override val typeName: String
@@ -76,6 +83,9 @@ class JIRTypeVariableImpl(
     }
 
     override fun copyWithNullability(nullability: Boolean?): JIRRefType {
-        return JIRTypeVariableImpl(classpath, declaration, nullability)
+        return JIRTypeVariableImpl(classpath, declaration, nullability, annotations)
     }
+
+    override fun copyWithAnnotations(annotations: List<JIRAnnotation>): JIRType =
+        JIRTypeVariableImpl(classpath, declaration, nullable, annotations)
 }

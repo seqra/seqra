@@ -3,7 +3,7 @@ package org.opentaint.ir.testing
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.JIRAnnotated
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.testing.usages.NullAnnotationExamples
+import org.opentaint.ir.testing.types.NullAnnotationExamples
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -12,15 +12,15 @@ class AnnotationsTest : BaseTest() {
     companion object : WithDB()
 
     @Test
-    fun `Test field annotations`() = runBlocking {
+    fun `field annotations`() = runBlocking {
         val clazz = cp.findClass<NullAnnotationExamples>()
 
         val expectedAnnotations = mapOf(
             "refNullable" to emptyList(),
             "refNotNull" to listOf(jbNotNull),
             "explicitlyNullable" to listOf(jbNullable),
-            "primitiveValue" to emptyList(),
         )
+
         val fields = clazz.declaredFields.filter { it.name in expectedAnnotations.keys }
         val actualAnnotations = fields.associate { it.name to it.annotationsSimple }
 
@@ -28,7 +28,7 @@ class AnnotationsTest : BaseTest() {
     }
 
     @Test
-    fun `Test method parameter annotations`() = runBlocking {
+    fun `method parameter annotations`() = runBlocking {
         val clazz = cp.findClass<NullAnnotationExamples>()
         val nullableMethod = clazz.declaredMethods.single { it.name == "nullableMethod" }
 
@@ -38,7 +38,7 @@ class AnnotationsTest : BaseTest() {
     }
 
     @Test
-    fun `Test method annotations`() = runBlocking {
+    fun `method annotations`() = runBlocking {
         val clazz = cp.findClass<NullAnnotationExamples>()
 
         val nullableMethod = clazz.declaredMethods.single { it.name == "nullableMethod" }

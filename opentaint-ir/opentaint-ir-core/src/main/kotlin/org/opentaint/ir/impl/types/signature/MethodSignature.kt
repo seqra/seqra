@@ -5,20 +5,22 @@ import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.Malformed
 import org.opentaint.ir.api.MethodResolution
 import org.opentaint.ir.api.Pure
+import org.opentaint.ir.impl.bytecode.JIRMethodImpl
 import org.opentaint.ir.impl.bytecode.kmFunction
 import org.opentaint.ir.impl.bytecode.kmReturnType
 import org.opentaint.ir.impl.bytecode.kmType
 import org.opentaint.ir.impl.types.allVisibleTypeParameters
-import org.opentaint.ir.impl.types.substition.JvmTypeVisitor
+import org.opentaint.ir.impl.types.substition.RecursiveJvmTypeVisitor
 import org.opentaint.ir.impl.types.substition.fixDeclarationVisitor
 import org.objectweb.asm.signature.SignatureVisitor
+
+val logger = object : KLogging() {}.logger
 
 internal class MethodSignature(private val method: JIRMethod) :
     Signature<MethodResolution>(method, method.kmFunction?.typeParameters) {
 
     private val parameterTypes = ArrayList<JvmType>()
     private val exceptionTypes = ArrayList<JvmRefType>()
-
     private lateinit var returnType: JvmType
 
     override fun visitParameterType(): SignatureVisitor {
@@ -45,18 +47,24 @@ internal class MethodSignature(private val method: JIRMethod) :
 
     private inner class ParameterTypeRegistrant : TypeRegistrant {
         override fun register(token: JvmType) {
-            val outToken = method.parameters[parameterTypes.size].kmType?.let {
-                token.relaxWithKmType(it)
+            var outToken = method.parameters[parameterTypes.size].kmType?.let {
+                JvmTypeKMetadataUpdateVisitor.visitType(token, it)
             } ?: token
+
+            (method as? JIRMethodImpl)?.let {
+                outToken = outToken.withTypeAnnotations(it.parameterTypeAnnotationInfos(parameterTypes.size), it.enclosingClass.classpath)
+            }
+
             parameterTypes.add(outToken)
         }
     }
 
     private inner class ReturnTypeTypeRegistrant : TypeRegistrant {
         override fun register(token: JvmType) {
-            returnType = token
-            method.kmReturnType?.let {
-                returnType = returnType.relaxWithKmType(it)
+            returnType = method.kmReturnType?.let { JvmTypeKMetadataUpdateVisitor.visitType(token, it) } ?: token
+
+            (method as? JIRMethodImpl)?.let {
+                returnType = returnType.withTypeAnnotations(it.returnTypeAnnotationInfos, it.enclosingClass.classpath)
             }
         }
     }
@@ -69,7 +77,7 @@ internal class MethodSignature(private val method: JIRMethod) :
 
     companion object : KLogging() {
 
-        private fun MethodResolutionImpl.apply(visitor: JvmTypeVisitor) = MethodResolutionImpl(
+        private fun MethodResolutionImpl.apply(visitor: RecursiveJvmTypeVisitor) = MethodResolutionImpl(
             visitor.visitType(returnType),
             parameterTypes.map { visitor.visitType(it) },
             exceptionTypes,

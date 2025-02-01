@@ -205,7 +205,7 @@ private class NPEForwardFunctions(
         // Possibly null arguments
         result += method.flowGraph().locals
             .filterIsInstance<JIRArgument>()
-            .filter { it.type.nullable != false }
+            .filter { method.parameters[it.index].isNullable != false }
             .map { NPETaintNode(AccessPath.fromLocal(it)) }
 
         // Possibly null statics

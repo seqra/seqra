@@ -7,6 +7,8 @@ import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.JIRTypedMethodParameter
 import org.opentaint.ir.api.ext.isNullable
 import org.opentaint.ir.api.throwClassNotFound
+import org.opentaint.ir.impl.bytecode.JIRAnnotationImpl
+import org.opentaint.ir.impl.bytecode.JIRMethodImpl
 import org.opentaint.ir.impl.types.signature.JvmType
 import org.opentaint.ir.impl.types.substition.JIRSubstitutor
 
@@ -24,15 +26,15 @@ class JIRTypedMethodParameterImpl(
             val typeName = parameter.type.typeName
             val type = jvmType?.let {
                 classpath.typeOf(substitutor.substitute(jvmType))
-            } ?: classpath.findTypeOrNull(typeName) ?: typeName.throwClassNotFound()
+            } ?: classpath.findTypeOrNull(typeName)
+                ?.copyWithAnnotations(
+                    (enclosingMethod.method as? JIRMethodImpl)?.parameterTypeAnnotationInfos(parameter.index)?.map { JIRAnnotationImpl(it, classpath) } ?: listOf()
+                ) ?: typeName.throwClassNotFound()
 
             return parameter.isNullable?.let {
                 (type as? JIRRefType)?.copyWithNullability(it)
             } ?: type
         }
-
-    override val nullable: Boolean?
-        get() = parameter.isNullable //if (type != null && type.nullable) parameter.isNullable else false
 
     override val name: String?
         get() = parameter.name

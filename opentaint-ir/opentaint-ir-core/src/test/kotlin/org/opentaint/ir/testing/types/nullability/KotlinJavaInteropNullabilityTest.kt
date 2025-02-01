@@ -4,15 +4,14 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.testing.KotlinNullabilityExamples
 import org.opentaint.ir.testing.types.BaseTypesTest
-import org.opentaint.ir.testing.usages.NullAnnotationExamples
+import org.opentaint.ir.testing.types.NullAnnotationExamples
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
 class KotlinJavaInteropNullabilityTest : BaseTypesTest() {
 
     @Test
-    fun `Test nullability after substitution of Kotlin T with type of undefined nullability Java`() = runBlocking {
+    fun `nullability after substitution of Kotlin T with type of undefined nullability Java`() = runBlocking {
         val clazz = findType<NullAnnotationExamples>()
         val containerOfUndefined = clazz.declaredFields.single { it.name == "ktContainerOfUndefined" }
 
@@ -44,8 +43,7 @@ class KotlinJavaInteropNullabilityTest : BaseTypesTest() {
     }
 
     @Test
-    @Disabled("Type annotations are not supported")
-    fun `Test nullability after substitution of Kotlin T with notNull type Java`() = runBlocking {
+    fun `nullability after substitution of Kotlin T with notNull type Java`() = runBlocking {
         val clazz = findType<NullAnnotationExamples>()
         val containerOfNotNull = clazz.declaredFields.single { it.name == "ktContainerOfNotNull" }
 
@@ -77,8 +75,7 @@ class KotlinJavaInteropNullabilityTest : BaseTypesTest() {
     }
 
     @Test
-    @Disabled("Type annotations are not supported")
-    fun `Test nullability after substitution of Kotlin T with nullable type Java`() = runBlocking {
+    fun `nullability after substitution of Kotlin T with nullable type Java`() = runBlocking {
         val clazz = findType<NullAnnotationExamples>()
         val containerOfNotNull = clazz.declaredFields.single { it.name == "ktContainerOfNullable" }
 
@@ -110,8 +107,7 @@ class KotlinJavaInteropNullabilityTest : BaseTypesTest() {
     }
 
     @Test
-    @Disabled("Type annotations are not supported")
-    fun `Test nullability after substitution of Java T with nullable type Kotlin`() = runBlocking {
+    fun `nullability after substitution of Java T with nullable type Kotlin`() = runBlocking {
         val clazz = findType<KotlinNullabilityExamples>()
         val containerOfNullable = clazz.declaredFields.single { it.name == "javaContainerOfNullable" }
 
@@ -145,8 +141,7 @@ class KotlinJavaInteropNullabilityTest : BaseTypesTest() {
     }
 
     @Test
-    @Disabled("Type annotations are not supported")
-    fun `Test nullability after substitution of Java T with notNull type Kotlin`() = runBlocking {
+    fun `nullability after substitution of Java T with notNull type Kotlin`() = runBlocking {
         val clazz = findType<KotlinNullabilityExamples>()
         val containerOfNotNull = clazz.declaredFields.single { it.name == "javaContainerOfNotNull" }
 

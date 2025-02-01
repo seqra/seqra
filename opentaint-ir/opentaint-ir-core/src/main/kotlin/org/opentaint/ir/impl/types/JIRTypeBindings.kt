@@ -20,12 +20,12 @@ import org.opentaint.ir.impl.types.signature.JvmUnboundWildcard
 internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = null): JIRType {
     return when (jvmType) {
         is JvmPrimitiveType -> {
-            PredefinedPrimitives.of(jvmType.ref, this)
+            PredefinedPrimitives.of(jvmType.ref, this, jvmType.annotations)
                 ?: throw IllegalStateException("primitive type ${jvmType.ref} not found")
         }
 
-        is JvmClassRefType -> typeOf(findClass(jvmType.name)).copyWithNullability(jvmType.isNullable)
-        is JvmArrayType -> arrayTypeOf(typeOf(jvmType.elementType)).copyWithNullability(jvmType.isNullable)
+        is JvmClassRefType -> typeOf(findClass(jvmType.name), jvmType.isNullable, jvmType.annotations)
+        is JvmArrayType -> arrayTypeOf(typeOf(jvmType.elementType), jvmType.isNullable, jvmType.annotations)
         is JvmParameterizedType -> {
             val params = parameters ?: jvmType.parameterTypes
             when {
@@ -34,7 +34,8 @@ internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = 
                         jvmType.name,
                         null,
                         params,
-                        nullable = jvmType.isNullable
+                        nullable = jvmType.isNullable,
+                        jvmType.annotations
                     )
                 // raw types
                 else -> typeOf(findClass(jvmType.name)).copyWithNullability(jvmType.isNullable)
@@ -49,14 +50,15 @@ internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = 
                 jvmType.name,
                 outerType as JIRClassTypeImpl,
                 jvmType.parameterTypes,
-                nullable = jvmType.isNullable
+                nullable = jvmType.isNullable,
+                jvmType.annotations
             )
         }
 
         is JvmTypeVariable -> {
             val declaration = jvmType.declaration
             if (declaration != null) {
-                JIRTypeVariableImpl(this, declaration.asJIRDeclaration(declaration.owner), jvmType.isNullable)
+                JIRTypeVariableImpl(this, declaration.asJIRDeclaration(declaration.owner), jvmType.isNullable, jvmType.annotations)
             } else {
                 objectType
             }

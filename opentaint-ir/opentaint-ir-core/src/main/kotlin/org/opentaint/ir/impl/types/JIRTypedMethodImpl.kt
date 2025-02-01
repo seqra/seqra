@@ -10,6 +10,8 @@ import org.opentaint.ir.api.MethodResolution
 import org.opentaint.ir.api.ext.findTypeOrNull
 import org.opentaint.ir.api.ext.isNullable
 import org.opentaint.ir.api.throwClassNotFound
+import org.opentaint.ir.impl.bytecode.JIRAnnotationImpl
+import org.opentaint.ir.impl.bytecode.JIRMethodImpl
 import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
 import org.opentaint.ir.impl.types.signature.FieldSignature
 import org.opentaint.ir.impl.types.signature.MethodResolutionImpl
@@ -95,6 +97,9 @@ class JIRTypedMethodImpl(
         val impl = info.impl
         val type = if (impl == null) {
             classpath.findTypeOrNull(typeName)
+                ?.copyWithAnnotations(
+                    (method as? JIRMethodImpl)?.returnTypeAnnotationInfos?.map { JIRAnnotationImpl(it, classpath) } ?: listOf()
+                )
                 ?: throw IllegalStateException("Can't resolve type by name $typeName")
         } else {
             classpath.typeOf(info.substitutor.substitute(impl.returnType))

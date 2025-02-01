@@ -3,16 +3,14 @@ package org.opentaint.ir.testing.types.nullability
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.testing.types.BaseTypesTest
-import org.opentaint.ir.testing.usages.NullAnnotationExamples
+import org.opentaint.ir.testing.types.NullAnnotationExamples
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
-@Disabled("Type annotations are not supported")
 class JavaNullabilityTest : BaseTypesTest() {
 
     @Test
-    fun `Test nullability for simple types Java`() = runBlocking {
+    fun `nullability for simple types Java`() = runBlocking {
         val clazz = findType<NullAnnotationExamples>()
         val params = clazz.declaredMethods.single { it.name == "nullableMethod" }.parameters
         val actualNullability = params.map { it.type.nullabilityTree }
@@ -33,7 +31,7 @@ class JavaNullabilityTest : BaseTypesTest() {
     }
 
     @Test
-    fun `Test nullability on wildcards Java`() = runBlocking {
+    fun `nullability on wildcards Java`() = runBlocking {
         val clazz = findType<NullAnnotationExamples>()
         val returnType = clazz.declaredMethods.single { it.name == "wildcard" }.returnType
         val actualNullability = returnType.nullabilityTree
@@ -46,7 +44,7 @@ class JavaNullabilityTest : BaseTypesTest() {
     }
 
     @Test
-    fun `Test nullability after substitution with NotNull type or type of undefined nullability Java`() = runBlocking {
+    fun `nullability after substitution with NotNull type or type of undefined nullability Java`() = runBlocking {
         val clazz = findType<NullAnnotationExamples>()
         val containerOfUndefined = clazz.declaredFields.single { it.name == "containerOfUndefined" }
         val containerOfNotNull = clazz.declaredFields.single { it.name == "containerOfNotNull" }
@@ -87,7 +85,7 @@ class JavaNullabilityTest : BaseTypesTest() {
     }
 
     @Test
-    fun `Test nullability after substitution with nullable type Java`() = runBlocking {
+    fun `nullability after substitution with nullable type Java`() = runBlocking {
         val clazz = findType<NullAnnotationExamples>()
         val containerOfNullable = clazz.declaredFields.single { it.name == "containerOfNullable" }
 

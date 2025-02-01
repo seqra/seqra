@@ -1,4 +1,4 @@
-package org.opentaint.ir.testing.usages;
+package org.opentaint.ir.testing.types;
 
 import org.opentaint.ir.testing.KotlinNullabilityExamples;
 import org.jetbrains.annotations.NotNull;
@@ -16,11 +16,13 @@ public class NullAnnotationExamples {
     public static class SomeContainer<E> {
         public List<@NotNull E> listOfNotNull;
         public List<@Nullable E> listOfNullable;
-        public SomeContainer<String> containerOfUndefined;
+        public List<E> listOfUndefined;
 
         public @NotNull E notNull;
         public @Nullable E nullable;
         public E undefined;
+
+        public class Inner {}
     }
 
     String nullableMethod(@Nullable String explicitlyNullableParam, @NotNull String notNullParam, List<@NotNull String> notNullContainer) {
@@ -32,6 +34,14 @@ public class NullAnnotationExamples {
     }
 
     public @Nullable SomeContainer<? extends @NotNull String> wildcard() {
+        return null;
+    }
+
+    public SomeContainer<@NotNull String>.@Nullable Inner inner() {
+        return null;
+    }
+
+    public @NotNull SomeContainer<String> @Nullable[] array() {
         return null;
     }
 

@@ -1,6 +1,6 @@
 package org.opentaint.ir.testing
 
-import org.opentaint.ir.testing.usages.NullAnnotationExamples
+import org.opentaint.ir.testing.types.NullAnnotationExamples
 
 class KotlinNullabilityExamples {
     class SomeContainer<E>(

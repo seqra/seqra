@@ -11,8 +11,10 @@ import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstList
 import org.opentaint.ir.api.cfg.JIRRawInst
 import org.opentaint.ir.impl.features.JIRFeaturesChain
+import org.opentaint.ir.impl.types.AnnotationInfo
 import org.opentaint.ir.impl.types.MethodInfo
 import org.opentaint.ir.impl.types.TypeNameImpl
+import org.objectweb.asm.TypeReference
 import org.objectweb.asm.tree.MethodNode
 
 class JIRMethodImpl(
@@ -37,7 +39,20 @@ class JIRMethodImpl(
         get() = methodInfo.parametersInfo.map { JIRParameterImpl(this, it) }
 
     override val annotations: List<JIRAnnotation>
-        get() = methodInfo.annotations.map { JIRAnnotationImpl(it, enclosingClass.classpath) }
+        get() = methodInfo.annotations
+            .filter { it.typeRef == null } // Type annotations are stored with method in bytecode, but they are not a part of method in language
+            .map { JIRAnnotationImpl(it, enclosingClass.classpath) }
+
+    internal val returnTypeAnnotationInfos: List<AnnotationInfo>
+        get() = methodInfo.annotations.filter {
+            it.typeRef != null && TypeReference(it.typeRef).sort == TypeReference.METHOD_RETURN
+        }
+
+    internal fun parameterTypeAnnotationInfos(parameterIndex: Int): List<AnnotationInfo> =
+        methodInfo.annotations.filter {
+            it.typeRef != null && TypeReference(it.typeRef).sort == TypeReference.METHOD_FORMAL_PARAMETER
+                    && TypeReference(it.typeRef).formalParameterIndex == parameterIndex
+        }
 
     override val description get() = methodInfo.desc
 

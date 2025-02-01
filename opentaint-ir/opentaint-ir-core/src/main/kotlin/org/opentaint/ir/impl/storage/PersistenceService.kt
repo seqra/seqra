@@ -186,12 +186,14 @@ class PersistenceService(private val persistence: AbstractJIRDatabasePersistence
                     setLong(1, annotation.id)
                     setLong(2, annotation.info.className.findCachedSymbol())
                     setBoolean(3, annotation.info.visible)
-                    setNullableLong(4, annotation.parentId)
+                    setNullableLong(4, annotation.info.typeRef?.toLong())
+                    setString(5, annotation.info.typePath)
+                    setNullableLong(6, annotation.parentId)
 
-                    setNullableLong(5, annotation.refId.takeIf { annotation.refKind == RefKind.CLASS })
-                    setNullableLong(6, annotation.refId.takeIf { annotation.refKind == RefKind.METHOD })
-                    setNullableLong(7, annotation.refId.takeIf { annotation.refKind == RefKind.FIELD })
-                    setNullableLong(8, annotation.refId.takeIf { annotation.refKind == RefKind.PARAM })
+                    setNullableLong(7, annotation.refId.takeIf { annotation.refKind == RefKind.CLASS })
+                    setNullableLong(8, annotation.refId.takeIf { annotation.refKind == RefKind.METHOD })
+                    setNullableLong(9, annotation.refId.takeIf { annotation.refKind == RefKind.FIELD })
+                    setNullableLong(10, annotation.refId.takeIf { annotation.refKind == RefKind.PARAM })
                 }
 
                 conn.insertElements(ANNOTATIONVALUES, annotationCollector.collectedValues) { value ->

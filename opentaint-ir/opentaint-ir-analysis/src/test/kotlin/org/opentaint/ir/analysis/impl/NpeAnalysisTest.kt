@@ -124,9 +124,7 @@ class NpeAnalysisTest : BaseTest() {
     fun `npe on virtual call when possible`() {
         testOneMethod<NPEExamples>(
             "possibleNPEOnVirtualCall",
-
-            // TODO: first location is false-positive here due to not-parsed @NotNull annotation
-            listOf("%0 = arg\$0.functionThatCanThrowNPEOnNull(arg\$1)", "%0 = arg\$0.length()")
+            listOf("%0 = arg\$0.length()")
         )
     }
 
@@ -134,9 +132,7 @@ class NpeAnalysisTest : BaseTest() {
     fun `no npe on virtual call when impossible`() {
         testOneMethod<NPEExamples>(
             "noNPEOnVirtualCall",
-
-            // TODO: false-positive here due to not-parsed @NotNull annotation
-            listOf("%0 = arg\$0.functionThatCanNotThrowNPEOnNull(arg\$1)")
+            emptyList()
         )
     }
 

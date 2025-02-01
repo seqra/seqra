@@ -1,9 +1,11 @@
 package org.opentaint.ir.impl.types
 
+import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRRefType
+import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.JIRTypedField
 import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.ext.findClass
@@ -23,7 +25,8 @@ open class JIRClassTypeImpl(
     val name: String,
     override val outerType: JIRClassTypeImpl? = null,
     private val substitutor: JIRSubstitutor = JIRSubstitutor.empty,
-    override val nullable: Boolean?
+    override val nullable: Boolean?,
+    override val annotations: List<JIRAnnotation>
 ) : JIRClassType {
 
     constructor(
@@ -31,8 +34,9 @@ open class JIRClassTypeImpl(
         name: String,
         outerType: JIRClassTypeImpl? = null,
         parameters: List<JvmType>,
-        nullable: Boolean?
-    ) : this(classpath, name, outerType, classpath.substitute(name, parameters, outerType?.substitutor), nullable)
+        nullable: Boolean?,
+        annotations: List<JIRAnnotation>
+    ) : this(classpath, name, outerType, classpath.substitute(name, parameters, outerType?.substitutor), nullable, annotations)
 
     private val resolutionImpl by lazy(PUBLICATION) { TypeSignature.withDeclarations(jIRClass) as? TypeResolutionImpl }
     private val declaredTypeParameters by lazy(PUBLICATION) { jIRClass.typeParameters }
@@ -78,7 +82,7 @@ open class JIRClassTypeImpl(
             val superClass = jIRClass.superClass ?: return null
             return resolutionImpl?.let {
                 val newSubstitutor = superSubstitutor(superClass, it.superClass)
-                JIRClassTypeImpl(classpath, superClass.name, outerType, newSubstitutor, nullable)
+                JIRClassTypeImpl(classpath, superClass.name, outerType, newSubstitutor, nullable, annotations)
             } ?: superClass.toType()
         }
 
@@ -88,7 +92,7 @@ open class JIRClassTypeImpl(
                 val ifaceType = resolutionImpl?.interfaceType?.firstOrNull { it.isReferencesClass(iface.name) }
                 if (ifaceType != null) {
                     val newSubstitutor = superSubstitutor(iface, ifaceType)
-                    JIRClassTypeImpl(classpath, iface.name, null, newSubstitutor, nullable)
+                    JIRClassTypeImpl(classpath, iface.name, null, newSubstitutor, nullable, annotations)
                 } else {
                     iface.toType()
                 }
@@ -108,7 +112,7 @@ open class JIRClassTypeImpl(
                     it.isStatic -> JIRSubstitutor.empty.newScope(innerParameters)
                     else -> substitutor.newScope(innerParameters)
                 }
-                JIRClassTypeImpl(classpath, it.name, this, innerSubstitutor, true)
+                JIRClassTypeImpl(classpath, it.name, this, innerSubstitutor, true, annotations)
             }
         }
 
@@ -134,7 +138,10 @@ open class JIRClassTypeImpl(
         }
 
     override fun copyWithNullability(nullability: Boolean?) =
-        JIRClassTypeImpl(classpath, name, outerType, substitutor, nullability)
+        JIRClassTypeImpl(classpath, name, outerType, substitutor, nullability, annotations)
+
+    override fun copyWithAnnotations(annotations: List<JIRAnnotation>): JIRType =
+        JIRClassTypeImpl(classpath, name, outerType, substitutor, nullable, annotations)
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

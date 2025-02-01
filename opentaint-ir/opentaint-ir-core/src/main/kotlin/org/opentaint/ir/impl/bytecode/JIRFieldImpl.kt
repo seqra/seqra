@@ -1,7 +1,9 @@
 package org.opentaint.ir.impl.bytecode
 
+import org.objectweb.asm.TypeReference
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRField
+import org.opentaint.ir.impl.types.AnnotationInfo
 import org.opentaint.ir.impl.types.FieldInfo
 import org.opentaint.ir.impl.types.TypeNameImpl
 import kotlin.LazyThreadSafetyMode.PUBLICATION
@@ -25,8 +27,13 @@ class JIRFieldImpl(
         get() = info.signature
 
     override val annotations by lazy(PUBLICATION) {
-        info.annotations.map { JIRAnnotationImpl(it, enclosingClass.classpath) }
+        info.annotations
+            .filter { it.typeRef == null } // Type annotations are stored with fields in bytecode, but they are not a part of field in language
+            .map { JIRAnnotationImpl(it, enclosingClass.classpath) }
     }
+
+    internal val typeAnnotationInfos: List<AnnotationInfo>
+        get() = info.annotations.filter { it.typeRef != null && TypeReference(it.typeRef).sort == TypeReference.FIELD }
 
     override fun equals(other: Any?): Boolean {
         if (other == null || other !is JIRFieldImpl) {

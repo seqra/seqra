@@ -3,21 +3,17 @@
  */
 package org.opentaint.ir.impl.storage.jooq.indexes
 
-import org.opentaint.ir.impl.storage.jooq.tables.Bytecodelocations
-import org.opentaint.ir.impl.storage.jooq.tables.Classhierarchies
-import org.opentaint.ir.impl.storage.jooq.tables.Fields
-import org.opentaint.ir.impl.storage.jooq.tables.Methods
-import org.opentaint.ir.impl.storage.jooq.tables.Symbols
 import org.jooq.Index
 import org.jooq.impl.DSL
 import org.jooq.impl.Internal
+import org.opentaint.ir.impl.storage.jooq.tables.Builders
+import org.opentaint.ir.impl.storage.jooq.tables.Calls
 
 // -------------------------------------------------------------------------
 // INDEX definitions
 // -------------------------------------------------------------------------
 
-val BYTECODELOCATIONS_HASH: Index = Internal.createIndex(DSL.name("Bytecodelocations_hash"), Bytecodelocations.BYTECODELOCATIONS, arrayOf(Bytecodelocations.BYTECODELOCATIONS.UNIQUEID), true)
-val `CLASS HIERARCHIES`: Index = Internal.createIndex(DSL.name("Class Hierarchies"), Classhierarchies.CLASSHIERARCHIES, arrayOf(Classhierarchies.CLASSHIERARCHIES.SUPER_ID), false)
-val FIELDS_CLASS_ID_NAME: Index = Internal.createIndex(DSL.name("Fields_class_id_name"), Fields.FIELDS, arrayOf(Fields.FIELDS.CLASS_ID, Fields.FIELDS.NAME), true)
-val METHODS_CLASS_ID_NAME_DESC: Index = Internal.createIndex(DSL.name("Methods_class_id_name_desc"), Methods.METHODS, arrayOf(Methods.METHODS.CLASS_ID, Methods.METHODS.NAME, Methods.METHODS.DESC), true)
-val SYMBOLS_NAME: Index = Internal.createIndex(DSL.name("Symbols_name"), Symbols.SYMBOLS, arrayOf(Symbols.SYMBOLS.NAME), true)
+val BUILDERSJOIN: Index = Internal.createIndex(DSL.name("BuildersJoin"), Builders.BUILDERS, arrayOf(Builders.BUILDERS.BUILDER_CLASS_SYMBOL_ID), false)
+val BUILDERSSEARCH: Index = Internal.createIndex(DSL.name("BuildersSearch"), Builders.BUILDERS, arrayOf(Builders.BUILDERS.LOCATION_ID, Builders.BUILDERS.CLASS_SYMBOL_ID, Builders.BUILDERS.PRIORITY), false)
+val BUILDERSSORTING: Index = Internal.createIndex(DSL.name("BuildersSorting"), Builders.BUILDERS, arrayOf(Builders.BUILDERS.PRIORITY), false)
+val CALLSSEARCH: Index = Internal.createIndex(DSL.name("CallsSearch"), Calls.CALLS, arrayOf(Calls.CALLS.OPCODE, Calls.CALLS.LOCATION_ID, Calls.CALLS.CALLEE_CLASS_SYMBOL_ID, Calls.CALLS.CALLEE_NAME_SYMBOL_ID, Calls.CALLS.CALLEE_DESC_HASH), false)

@@ -96,6 +96,8 @@ CREATE TABLE IF NOT EXISTS "Annotations"(
     "id"                BIGINT PRIMARY KEY,
     "annotation_name"   BIGINT  NOT NULL,
     "visible"           BOOLEAN NOT NULL,
+    "type_reference"    BIGINT,
+    "type_path"         VARCHAR(256),
     "parent_annotation" BIGINT,
     "class_id"          BIGINT,
     "method_id"         BIGINT,

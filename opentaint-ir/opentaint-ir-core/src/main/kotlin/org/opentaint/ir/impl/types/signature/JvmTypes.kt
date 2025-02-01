@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl.types.signature
 
+import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.PredefinedPrimitives
 
 /**
@@ -9,14 +10,16 @@ import org.opentaint.ir.api.PredefinedPrimitives
  * - false -- means that type is non-nullable, a.k.a. T
  * - null -- means that type has unknown nullability, a.k.a. T!
  */
-sealed class JvmType(val isNullable: Boolean?) {
+sealed class JvmType(val isNullable: Boolean?, val annotations: List<JIRAnnotation>) {
 
     abstract val displayName: String
 }
 
-internal sealed class JvmRefType(isNullable: Boolean?) : JvmType(isNullable)
+internal sealed class JvmRefType(isNullable: Boolean?, annotations: List<JIRAnnotation>)
+    : JvmType(isNullable, annotations)
 
-internal class JvmArrayType(val elementType: JvmType, isNullable: Boolean? = null) : JvmRefType(isNullable) {
+internal class JvmArrayType(val elementType: JvmType, isNullable: Boolean? = null, annotations: List<JIRAnnotation>)
+    : JvmRefType(isNullable, annotations) {
 
     override val displayName: String
         get() = elementType.displayName + "[]"
@@ -26,8 +29,9 @@ internal class JvmArrayType(val elementType: JvmType, isNullable: Boolean? = nul
 internal class JvmParameterizedType(
     val name: String,
     val parameterTypes: List<JvmType>,
-    isNullable: Boolean? = null
-) : JvmRefType(isNullable) {
+    isNullable: Boolean? = null,
+    annotations: List<JIRAnnotation>
+) : JvmRefType(isNullable, annotations) {
 
     override val displayName: String
         get() = name + "<${parameterTypes.joinToString { it.displayName }}>"
@@ -36,8 +40,9 @@ internal class JvmParameterizedType(
         val name: String,
         val parameterTypes: List<JvmType>,
         val ownerType: JvmType,
-        isNullable: Boolean? = null
-    ) : JvmRefType(isNullable) {
+        isNullable: Boolean? = null,
+        annotations: List<JIRAnnotation>
+    ) : JvmRefType(isNullable, annotations) {
 
         override val displayName: String
             get() = name + "<${parameterTypes.joinToString { it.displayName }}>"
@@ -46,7 +51,8 @@ internal class JvmParameterizedType(
 
 }
 
-internal class JvmClassRefType(val name: String, isNullable: Boolean? = null) : JvmRefType(isNullable) {
+internal class JvmClassRefType(val name: String, isNullable: Boolean? = null, annotations: List<JIRAnnotation>)
+    : JvmRefType(isNullable, annotations) {
 
     override val displayName: String
         get() = name
@@ -62,12 +68,13 @@ internal class JvmClassRefType(val name: String, isNullable: Boolean? = null) : 
  *  This is important to properly handle nullability during substitutions. Not that kt T and java @NotNull T still have
  *  differences -- see comment for `JIRSubstitutorImpl.relaxNullabilityAfterSubstitution` for more details
  */
-internal class JvmTypeVariable(val symbol: String, isNullable: Boolean? = null) : JvmRefType(isNullable) {
+internal class JvmTypeVariable(val symbol: String, isNullable: Boolean? = null, annotations: List<JIRAnnotation>)
+    : JvmRefType(isNullable, annotations) {
 
-    constructor(declaration: JvmTypeParameterDeclaration, isNullable: Boolean? = null) : this(
+    constructor(declaration: JvmTypeParameterDeclaration, isNullable: Boolean? = null, annotations: List<JIRAnnotation>) : this(
         declaration.symbol,
         isNullable
-    ) {
+    , annotations) {
         this.declaration = declaration
     }
 
@@ -97,7 +104,7 @@ internal class JvmTypeVariable(val symbol: String, isNullable: Boolean? = null) 
 }
 
 // Nullability has no sense in wildcards, so we suppose them to be always nullable for definiteness
-internal sealed class JvmWildcard : JvmType(isNullable = true)
+internal sealed class JvmWildcard : JvmType(isNullable = true, listOf())
 
 internal sealed class JvmBoundWildcard(val bound: JvmType) : JvmWildcard() {
 
@@ -120,7 +127,8 @@ internal object JvmUnboundWildcard : JvmWildcard() {
         get() = "*"
 }
 
-internal class JvmPrimitiveType(val ref: String) : JvmRefType(isNullable = false) {
+internal class JvmPrimitiveType(val ref: String, annotations: List<JIRAnnotation> = listOf())
+    : JvmRefType(isNullable = false, annotations) {
 
     companion object {
         fun of(descriptor: Char): JvmType {
@@ -142,4 +150,34 @@ internal class JvmPrimitiveType(val ref: String) : JvmRefType(isNullable = false
     override val displayName: String
         get() = ref
 
+}
+
+internal interface JvmTypeVisitor<ContextType> {
+    fun visitType(type: JvmType, context: ContextType): JvmType {
+        return when (type) {
+            is JvmPrimitiveType -> type
+            is JvmBoundWildcard.JvmLowerBoundWildcard -> visitLowerBound(type, context)
+            is JvmBoundWildcard.JvmUpperBoundWildcard -> visitUpperBound(type, context)
+            is JvmParameterizedType -> visitParameterizedType(type, context)
+            is JvmArrayType -> visitArrayType(type, context)
+            is JvmClassRefType -> visitClassRef(type, context)
+            is JvmTypeVariable -> visitTypeVariable(type, context)
+            is JvmUnboundWildcard -> type
+            is JvmParameterizedType.JvmNestedType -> visitNested(type, context)
+        }
+    }
+
+    fun visitUpperBound(type: JvmBoundWildcard.JvmUpperBoundWildcard, context: ContextType): JvmType
+
+    fun visitLowerBound(type: JvmBoundWildcard.JvmLowerBoundWildcard, context: ContextType): JvmType
+
+    fun visitArrayType(type: JvmArrayType, context: ContextType): JvmType
+
+    fun visitTypeVariable(type: JvmTypeVariable, context: ContextType): JvmType
+
+    fun visitClassRef(type: JvmClassRefType, context: ContextType): JvmType
+
+    fun visitNested(type: JvmParameterizedType.JvmNestedType, context: ContextType): JvmType
+
+    fun visitParameterizedType(type: JvmParameterizedType, context: ContextType): JvmType
 }

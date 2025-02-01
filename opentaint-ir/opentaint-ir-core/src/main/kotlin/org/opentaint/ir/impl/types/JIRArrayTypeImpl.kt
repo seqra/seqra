@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl.types
 
+import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRArrayType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRRefType
@@ -7,7 +8,8 @@ import org.opentaint.ir.api.JIRType
 
 class JIRArrayTypeImpl(
     override val elementType: JIRType,
-    override val nullable: Boolean? = null
+    override val nullable: Boolean? = null,
+    override val annotations: List<JIRAnnotation> = listOf()
 ) : JIRArrayType {
 
     override val typeName = elementType.typeName + "[]"
@@ -19,7 +21,7 @@ class JIRArrayTypeImpl(
         }
 
     override fun copyWithNullability(nullability: Boolean?): JIRRefType {
-        return JIRArrayTypeImpl(elementType, nullability)
+        return JIRArrayTypeImpl(elementType, nullability, annotations)
     }
 
     override val classpath: JIRClasspath
@@ -40,4 +42,7 @@ class JIRArrayTypeImpl(
         return elementType.hashCode()
     }
 
+    override fun copyWithAnnotations(annotations: List<JIRAnnotation>): JIRType {
+        return JIRArrayTypeImpl(elementType, nullable, annotations)
+    }
 }

@@ -6,7 +6,7 @@ import org.opentaint.ir.api.Pure
 import org.opentaint.ir.api.TypeResolution
 import org.opentaint.ir.impl.bytecode.kMetadata
 import org.opentaint.ir.impl.types.allVisibleTypeParameters
-import org.opentaint.ir.impl.types.substition.JvmTypeVisitor
+import org.opentaint.ir.impl.types.substition.RecursiveJvmTypeVisitor
 import org.opentaint.ir.impl.types.substition.fixDeclarationVisitor
 import org.objectweb.asm.signature.SignatureVisitor
 
@@ -45,7 +45,7 @@ internal class TypeSignature(jIRClass: JIRClassOrInterface) :
 
     companion object {
 
-        private fun TypeResolutionImpl.apply(visitor: JvmTypeVisitor) = TypeResolutionImpl(
+        private fun TypeResolutionImpl.apply(visitor: RecursiveJvmTypeVisitor) = TypeResolutionImpl(
             visitor.visitType(superClass),
             interfaceType.map { visitor.visitType(it) },
             typeVariables.map { visitor.visitDeclaration(it) }

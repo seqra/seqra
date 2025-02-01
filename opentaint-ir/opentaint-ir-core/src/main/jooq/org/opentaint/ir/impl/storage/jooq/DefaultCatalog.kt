@@ -16,15 +16,15 @@ open class DefaultCatalog : CatalogImpl("") {
         /**
          * The reference instance of <code>DEFAULT_CATALOG</code>
          */
-        val DEFAULT_CATALOG = org.opentaint.ir.impl.storage.jooq.DefaultCatalog()
+        val DEFAULT_CATALOG = DefaultCatalog()
     }
 
     /**
      * The schema <code>DEFAULT_SCHEMA</code>.
      */
-    val DEFAULT_SCHEMA get() = org.opentaint.ir.impl.storage.jooq.DefaultSchema.Companion.DEFAULT_SCHEMA
+    val DEFAULT_SCHEMA get() = DefaultSchema.DEFAULT_SCHEMA
 
     override fun getSchemas(): List<Schema> = listOf(
-        org.opentaint.ir.impl.storage.jooq.DefaultSchema.Companion.DEFAULT_SCHEMA
+        DefaultSchema.DEFAULT_SCHEMA
     )
 }
