@@ -118,7 +118,7 @@ class JIRClassOrInterfaceImpl(
             if (hasClassFeatures) {
                 val result = TreeSet<JIRField> { o1, o2 -> o1.name.compareTo(o2.name) }
                 featuresChain.newRequest().run<JIRClassExtFeature> {
-                    it.fieldsOf(this)?.let {
+                    it.fieldsOf(this, default)?.let {
                         result.addAll(it)
                     }
                 }
@@ -133,7 +133,7 @@ class JIRClassOrInterfaceImpl(
         if (hasClassFeatures) {
             val result = TreeSet<JIRMethod> { o1, o2 -> (o1.name + o1.description).compareTo(o2.name + o2.description) }
             featuresChain.newRequest().run<JIRClassExtFeature> {
-                it.methodsOf(this)?.let {
+                it.methodsOf(this, default)?.let {
                     result.addAll(it)
                 }
             }
