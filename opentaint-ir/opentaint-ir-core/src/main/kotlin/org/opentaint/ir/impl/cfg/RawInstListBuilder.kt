@@ -22,6 +22,7 @@ import org.opentaint.ir.api.cfg.JIRRawAndExpr
 import org.opentaint.ir.api.cfg.JIRRawArgument
 import org.opentaint.ir.api.cfg.JIRRawArrayAccess
 import org.opentaint.ir.api.cfg.JIRRawAssignInst
+import org.opentaint.ir.api.cfg.JIRRawCallExpr
 import org.opentaint.ir.api.cfg.JIRRawCallInst
 import org.opentaint.ir.api.cfg.JIRRawCastExpr
 import org.opentaint.ir.api.cfg.JIRRawCatchEntry
@@ -51,6 +52,7 @@ import org.opentaint.ir.api.cfg.JIRRawLineNumberInst
 import org.opentaint.ir.api.cfg.JIRRawLocalVar
 import org.opentaint.ir.api.cfg.JIRRawLtExpr
 import org.opentaint.ir.api.cfg.JIRRawMethodConstant
+import org.opentaint.ir.api.cfg.JIRRawMethodType
 import org.opentaint.ir.api.cfg.JIRRawMulExpr
 import org.opentaint.ir.api.cfg.JIRRawNegExpr
 import org.opentaint.ir.api.cfg.JIRRawNeqExpr
@@ -76,7 +78,10 @@ import org.opentaint.ir.api.cfg.JIRRawVirtualCallExpr
 import org.opentaint.ir.api.cfg.JIRRawXorExpr
 import org.opentaint.ir.impl.cfg.util.CLASS_CLASS
 import org.opentaint.ir.impl.cfg.util.ExprMapper
+import org.opentaint.ir.impl.cfg.util.METHOD_HANDLES_CLASS
+import org.opentaint.ir.impl.cfg.util.METHOD_HANDLES_LOOKUP_CLASS
 import org.opentaint.ir.impl.cfg.util.METHOD_HANDLE_CLASS
+import org.opentaint.ir.impl.cfg.util.METHOD_TYPE_CLASS
 import org.opentaint.ir.impl.cfg.util.NULL
 import org.opentaint.ir.impl.cfg.util.OBJECT_CLASS
 import org.opentaint.ir.impl.cfg.util.STRING_CLASS
@@ -87,6 +92,7 @@ import org.opentaint.ir.impl.cfg.util.isArray
 import org.opentaint.ir.impl.cfg.util.isDWord
 import org.opentaint.ir.impl.cfg.util.isPrimitive
 import org.opentaint.ir.impl.cfg.util.typeName
+import org.objectweb.asm.ConstantDynamic
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
@@ -216,12 +222,13 @@ private val AbstractInsnNode.isTerminateInst
 
 private val TryCatchBlockNode.typeOrDefault get() = this.type ?: THROWABLE_CLASS
 
-private val Collection<TryCatchBlockNode>.commonTypeOrDefault get() = map { it.type }
-    .distinct()
-    .singleOrNull()
-    ?: THROWABLE_CLASS
+private val Collection<TryCatchBlockNode>.commonTypeOrDefault
+    get() = map { it.type }
+        .distinct()
+        .singleOrNull()
+        ?: THROWABLE_CLASS
 
-internal fun <K, V> identityMap(): MutableMap<K,V> = IdentityHashMap()
+internal fun <K, V> identityMap(): MutableMap<K, V> = IdentityHashMap()
 
 internal fun <K, V> Map<out K, V>.toIdentityMap(): Map<K, V> = toMap()
 
@@ -256,7 +263,8 @@ class RawInstListBuilder(
 
         // after all the frame info resolution we can refine type info for some local variables,
         // so we replace all the old versions of the variables with the type refined ones
-        val localsNormalizedInstructionList = originalInstructionList.map(ExprMapper(localTypeRefinement.toIdentityMap()))
+        val localsNormalizedInstructionList =
+            originalInstructionList.map(ExprMapper(localTypeRefinement.toIdentityMap()))
         return Simplifier().simplify(method.enclosingClass.classpath, localsNormalizedInstructionList)
     }
 
@@ -517,8 +525,7 @@ class RawInstListBuilder(
         val locals = hashMapOf<Int, JIRRawValue>()
         argCounter = 0
         if (!method.isStatic) {
-            val thisRef = JIRRawThis(method.enclosingClass.name.typeName())
-            locals[argCounter++] = thisRef
+            locals[argCounter++] = thisRef()
         }
         for (parameter in method.parameters) {
             val argument = JIRRawArgument.of(parameter.index, parameter.name, parameter.type)
@@ -529,6 +536,8 @@ class RawInstListBuilder(
 
         return Frame(locals.toPersistentMap(), persistentListOf())
     }
+
+    private fun thisRef() = JIRRawThis(method.enclosingClass.name.typeName())
 
     private fun buildInsnNode(insn: InsnNode) {
         when (insn.opcode) {
@@ -1012,7 +1021,7 @@ class RawInstListBuilder(
             }
 
             instructionList(insnNode) += JIRRawCatchInst(
-                    method,
+                method,
                 throwable,
                 labelRef(currentEntry),
                 entries
@@ -1178,19 +1187,48 @@ class RawInstListBuilder(
         instructionList(insnNode) += JIRRawLineNumberInst(method, insnNode.line, labelRef(insnNode.start))
     }
 
+    private fun ldcValue(cst: Any): JIRRawValue {
+        return when (cst) {
+            is Int -> JIRRawInt(cst)
+            is Float -> JIRRawFloat(cst)
+            is Double -> JIRRawDouble(cst)
+            is Long -> JIRRawLong(cst)
+            is String -> JIRRawStringConstant(cst, STRING_CLASS.typeName())
+            is Type -> JIRRawClassConstant(cst.descriptor.typeName(), CLASS_CLASS.typeName())
+            is Handle -> {
+                JIRRawMethodConstant(
+                    cst.owner.typeName(),
+                    cst.name,
+                    Type.getArgumentTypes(cst.desc).map { it.descriptor.typeName() },
+                    Type.getReturnType(cst.desc).descriptor.typeName(),
+                    METHOD_HANDLE_CLASS.typeName()
+                )
+            }
+
+            else -> error("Can't convert LDC value: $cst of type ${cst::class.java.name}")
+        }
+    }
+
     private fun buildLdcInsnNode(insnNode: LdcInsnNode) {
         when (val cst = insnNode.cst) {
-            is Int -> push(JIRRawInt(cst))
-            is Float -> push(JIRRawFloat(cst))
-            is Double -> push(JIRRawDouble(cst))
-            is Long -> push(JIRRawLong(cst))
+            is Int -> push(ldcValue(cst))
+            is Float -> push(ldcValue(cst))
+            is Double -> push(ldcValue(cst))
+            is Long -> push(ldcValue(cst))
             is String -> push(JIRRawStringConstant(cst, STRING_CLASS.typeName()))
             is Type -> {
                 val assignment = nextRegister(CLASS_CLASS.typeName())
                 instructionList(insnNode) += JIRRawAssignInst(
                     method,
                     assignment,
-                    JIRRawClassConstant(cst.descriptor.typeName(), CLASS_CLASS.typeName())
+                    when (cst.sort) {
+                        Type.METHOD -> JIRRawMethodType(
+                            cst.argumentTypes.map { it.descriptor.typeName() },
+                            cst.returnType.descriptor.typeName(),
+                            METHOD_TYPE_CLASS.typeName()
+                        )
+                        else -> ldcValue(cst)
+                    }
                 )
                 push(assignment)
             }
@@ -1200,18 +1238,61 @@ class RawInstListBuilder(
                 instructionList(insnNode) += JIRRawAssignInst(
                     method,
                     assignment,
-                    JIRRawMethodConstant(
-                        cst.owner.typeName(),
-                        cst.name,
-                        Type.getArgumentTypes(cst.desc).map { it.descriptor.typeName() },
-                        Type.getReturnType(cst.desc).descriptor.typeName(),
-                        METHOD_HANDLE_CLASS.typeName()
-                    )
+                    ldcValue(cst)
                 )
                 push(assignment)
             }
 
-            else -> error("Unknown LDC constant: $cst")
+            is ConstantDynamic -> {
+                val methodHande = cst.bootstrapMethod
+                val assignment = nextRegister(CLASS_CLASS.typeName())
+                val exprs = arrayListOf<JIRRawValue>()
+                repeat(cst.bootstrapMethodArgumentCount) {
+                    exprs.add(
+                        ldcValue(cst.getBootstrapMethodArgument(it - 1))
+                    )
+                }
+                val methodCall: JIRRawCallExpr = when (cst.bootstrapMethod.tag) {
+                    Opcodes.INVOKESPECIAL -> JIRRawSpecialCallExpr(
+                        methodHande.owner.typeName(),
+                        cst.name,
+                        Type.getArgumentTypes(methodHande.desc).map { it.descriptor.typeName() },
+                        Type.getReturnType(methodHande.desc).descriptor.typeName(),
+                        thisRef(),
+                        exprs
+                    )
+
+                    else -> {
+                        val lookupAssignment = nextRegister(METHOD_HANDLES_LOOKUP_CLASS.typeName())
+                        instructionList(insnNode) += JIRRawAssignInst(
+                            method,
+                            lookupAssignment,
+                            JIRRawStaticCallExpr(
+                                METHOD_HANDLES_CLASS.typeName(),
+                                "lookup",
+                                emptyList(),
+                                METHOD_HANDLES_LOOKUP_CLASS.typeName(),
+                                emptyList()
+                            )
+                        )
+                        JIRRawStaticCallExpr(
+                            methodHande.owner.typeName(),
+                            methodHande.name,
+                            Type.getArgumentTypes(methodHande.desc).map { it.descriptor.typeName() },
+                            Type.getReturnType(methodHande.desc).descriptor.typeName(),
+                            listOf(
+                                lookupAssignment,
+                                JIRRawStringConstant(cst.name, STRING_CLASS.typeName()),
+                                JIRRawClassConstant(cst.descriptor.typeName(), CLASS_CLASS.typeName())
+                            ) + exprs
+                        )
+                    }
+                }
+                instructionList(insnNode) += JIRRawAssignInst(method, assignment, methodCall)
+                push(assignment)
+            }
+
+            else -> error("Unknown LDC constant: $cst and type ${cst::class.java.name}")
         }
     }
 

@@ -2,6 +2,7 @@ package org.opentaint.ir.testing.features
 
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.FieldUsageMode
+import org.opentaint.ir.api.ext.CONSTRUCTOR
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
@@ -108,7 +109,7 @@ abstract class BaseSearchUsagesTest : BaseTest() {
         val usages = methodsUsages<MethodA>()
         assertEquals(
             sortedMapOf(
-                "<init>" to setOf(
+                CONSTRUCTOR to setOf(
                     "org.opentaint.ir.testing.usages.methods.MethodB#hoho",
                     "org.opentaint.ir.testing.usages.methods.MethodC#<init>"
                 ),

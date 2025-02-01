@@ -12,6 +12,9 @@ internal const val STRING_CLASS = "Ljava.lang.String;"
 internal const val THROWABLE_CLASS = "Ljava.lang.Throwable;"
 internal const val CLASS_CLASS = "Ljava.lang.Class;"
 internal const val METHOD_HANDLE_CLASS = "Ljava.lang.invoke.MethodHandle;"
+internal const val METHOD_HANDLES_CLASS = "Ljava.lang.invoke.MethodHandles;"
+internal const val METHOD_HANDLES_LOOKUP_CLASS = "Ljava.lang.invoke.MethodHandles\$Lookup;"
+internal const val METHOD_TYPE_CLASS = "Ljava.lang.invoke.MethodType;"
 
 internal val TypeName.jvmTypeName get() = typeName.jvmName()
 internal val TypeName.jvmClassName get() = jvmTypeName.removePrefix("L").removeSuffix(";")

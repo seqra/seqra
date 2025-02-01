@@ -28,6 +28,7 @@ import org.junit.jupiter.api.condition.EnabledOnJre
 import org.junit.jupiter.api.condition.JRE
 import org.objectweb.asm.util.Textifier
 import org.objectweb.asm.util.TraceMethodVisitor
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import javax.activation.DataHandler
 
@@ -137,13 +138,22 @@ class InstructionsTest : BaseTest() {
         runAlong("mail-1.4.7.jar", "activation-1.1.jar", "joda-time-2.12.5.jar")
     }
 
+    @Test
+    fun `constant ldc instructions`() {
+        val clazz = cp.findClass("TestLDC")
+        clazz.declaredMethods.forEach {
+            it.flowGraph()
+        }
+    }
+
     private fun runAlong(vararg patters: String) {
         val jars = cp.registeredLocations.map { it.path }
             .filter { patters.any { pattern -> it.contains(pattern) } }
         assertEquals(patters.size, jars.size)
         val list = ConcurrentHashMap.newKeySet<JIRClassOrInterface>()
         runBlocking {
-            cp.execute(object : JIRClassProcessingTask {
+            val pureClasspath = cp.db.classpath(jars.map { File(it) })
+            pureClasspath.execute(object : JIRClassProcessingTask {
                 override fun shouldProcess(registeredLocation: RegisteredLocation): Boolean {
                     return !registeredLocation.isRuntime && jars.contains(registeredLocation.path)
                 }

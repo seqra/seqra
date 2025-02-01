@@ -46,6 +46,7 @@ import org.opentaint.ir.api.cfg.JIRRawLocalVar
 import org.opentaint.ir.api.cfg.JIRRawLong
 import org.opentaint.ir.api.cfg.JIRRawLtExpr
 import org.opentaint.ir.api.cfg.JIRRawMethodConstant
+import org.opentaint.ir.api.cfg.JIRRawMethodType
 import org.opentaint.ir.api.cfg.JIRRawMulExpr
 import org.opentaint.ir.api.cfg.JIRRawNegExpr
 import org.opentaint.ir.api.cfg.JIRRawNeqExpr
@@ -401,4 +402,5 @@ class ExprMapper(val mapping: Map<JIRRawExpr, JIRRawExpr>) : JIRRawInstVisitor<J
     override fun visitJIRRawStringConstant(value: JIRRawStringConstant) = exprHandler(value) { value }
     override fun visitJIRRawClassConstant(value: JIRRawClassConstant) = exprHandler(value) { value }
     override fun visitJIRRawMethodConstant(value: JIRRawMethodConstant) = exprHandler(value) { value }
+    override fun visitJIRRawMethodType(value: JIRRawMethodType) = exprHandler(value) { value }
 }

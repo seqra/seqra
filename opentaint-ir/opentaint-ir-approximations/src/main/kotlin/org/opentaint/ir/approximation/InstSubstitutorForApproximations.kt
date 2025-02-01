@@ -54,6 +54,7 @@ import org.opentaint.ir.api.cfg.JIRRawLocalVar
 import org.opentaint.ir.api.cfg.JIRRawLong
 import org.opentaint.ir.api.cfg.JIRRawLtExpr
 import org.opentaint.ir.api.cfg.JIRRawMethodConstant
+import org.opentaint.ir.api.cfg.JIRRawMethodType
 import org.opentaint.ir.api.cfg.JIRRawMulExpr
 import org.opentaint.ir.api.cfg.JIRRawNegExpr
 import org.opentaint.ir.api.cfg.JIRRawNeqExpr
@@ -456,6 +457,16 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
             JIRRawMethodConstant(
                 declaringClass.eliminateApproximation(),
                 name,
+                argumentTypes.map { it.eliminateApproximation() },
+                returnType.eliminateApproximation(),
+                typeName.eliminateApproximation()
+            )
+        }
+    }
+
+    override fun visitJIRRawMethodType(value: JIRRawMethodType): JIRRawExpr {
+        return with(value) {
+            JIRRawMethodType(
                 argumentTypes.map { it.eliminateApproximation() },
                 returnType.eliminateApproximation(),
                 typeName.eliminateApproximation()

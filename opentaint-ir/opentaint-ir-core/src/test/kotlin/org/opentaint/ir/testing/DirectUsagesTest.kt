@@ -3,6 +3,7 @@ package org.opentaint.ir.testing
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.ext.CONSTRUCTOR
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.usedFields
 import org.opentaint.ir.api.ext.usedMethods
@@ -22,7 +23,7 @@ class DirectUsagesTest : BaseTest() {
 
         assertEquals(
             listOf(
-                "<init>" to listOf("java.lang.Object#<init>"),
+                CONSTRUCTOR to listOf("java.lang.Object#<init>"),
                 "setCalled" to listOf(
                     "java.io.PrintStream#println",
                 ),
@@ -47,7 +48,7 @@ class DirectUsagesTest : BaseTest() {
 
             assertEquals(
                 listOf(
-                    "<init>" to listOf("java.lang.Object#<init>"),
+                    CONSTRUCTOR to listOf("java.lang.Object#<init>"),
                     "setCalled" to listOf(
                         "java.io.PrintStream#println",
                     ),
@@ -68,7 +69,7 @@ class DirectUsagesTest : BaseTest() {
 
         assertEquals(
             listOf(
-                "<init>" to listOf(
+                CONSTRUCTOR to listOf(
                     "reads" to listOf(),
                     "writes" to listOf()
                 ),

@@ -50,6 +50,7 @@ import org.opentaint.ir.api.cfg.JIRLocalVar
 import org.opentaint.ir.api.cfg.JIRLong
 import org.opentaint.ir.api.cfg.JIRLtExpr
 import org.opentaint.ir.api.cfg.JIRMethodConstant
+import org.opentaint.ir.api.cfg.JIRMethodType
 import org.opentaint.ir.api.cfg.JIRMulExpr
 import org.opentaint.ir.api.cfg.JIRNegExpr
 import org.opentaint.ir.api.cfg.JIRNeqExpr
@@ -100,6 +101,7 @@ import org.opentaint.ir.api.cfg.JIRRawLocalVar
 import org.opentaint.ir.api.cfg.JIRRawLong
 import org.opentaint.ir.api.cfg.JIRRawLtExpr
 import org.opentaint.ir.api.cfg.JIRRawMethodConstant
+import org.opentaint.ir.api.cfg.JIRRawMethodType
 import org.opentaint.ir.api.cfg.JIRRawMulExpr
 import org.opentaint.ir.api.cfg.JIRRawNegExpr
 import org.opentaint.ir.api.cfg.JIRRawNeqExpr
@@ -484,5 +486,13 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
             it.name == value.name && it.returnType == returnType && it.parameters.map { param -> param.type } == argumentTypes
         }
         return JIRMethodConstant(constant, value.typeName.asType())
+    }
+
+    override fun visitJIRRawMethodType(value: JIRRawMethodType): JIRExpr {
+        return JIRMethodType(
+            value.argumentTypes.map { it.asType() },
+            value.returnType.asType(),
+            value.typeName.asType()
+        )
     }
 }
