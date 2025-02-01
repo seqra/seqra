@@ -9,7 +9,7 @@ import org.opentaint.ir.api.JIRDatabasePersistence
 import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.api.JIRSignal
 import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.impl.cfg.util.OBJECT_CLASS
+import org.opentaint.ir.api.ext.JAVA_OBJECT
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.BatchedSequence
@@ -100,34 +100,8 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
     fun syncQuery(classpath: JIRClasspath, req: InMemoryHierarchyReq): Sequence<ClassSource> {
         val persistence = classpath.db.persistence
         val locationIds = classpath.registeredLocations.map { it.id }
-        if (req.name == OBJECT_CLASS) {
-            return BatchedSequence(50) { offset, batchSize ->
-                persistence.read { jooq ->
-                    val whereCondition = if (offset == null) {
-                        CLASSES.LOCATION_ID.`in`(locationIds)
-                    } else {
-                        CLASSES.LOCATION_ID.`in`(locationIds).and(
-                            CLASSES.ID.greaterThan(offset)
-                        )
-                    }
-
-                    jooq.select(CLASSES.ID, SYMBOLS.NAME, CLASSES.LOCATION_ID)
-                        .from(CLASSES)
-                        .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
-                        .where(whereCondition)
-                        .orderBy(CLASSES.ID)
-                        .limit(batchSize)
-                        .fetch()
-                        .mapNotNull { (classId, className, locationId) ->
-                            classId!! to PersistenceClassSource(
-                                classpath = classpath,
-                                classId = classId,
-                                className = className!!,
-                                locationId = locationId!!
-                            )
-                        }
-                }
-            }
+        if (req.name == JAVA_OBJECT) {
+            return classpath.allClassesExceptObject(!req.allHierarchy)
         }
         val hierarchy = hierarchies[classpath.db] ?: return emptySequence()
 

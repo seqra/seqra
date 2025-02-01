@@ -7,9 +7,11 @@ import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.findSubclassesInMemory
 import org.opentaint.ir.impl.features.hierarchyExt
+import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.WithRestoredDB
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -66,6 +68,32 @@ abstract class BaseInMemoryHierarchyTest : BaseTest() {
         with(findMethodOverrides(jIRClazz.declaredMethods.first()).toList()) {
             assertTrue(size >= 4)
         }
+    }
+
+    @Test
+    fun `find subclasses of Any`() {
+        val numberOfClasses = cp.db.persistence.read { it.fetchCount(CLASSES) }
+        assertEquals(numberOfClasses - 1, findSubClasses<Any>(allHierarchy = true).count())
+    }
+
+    @Test
+    fun `find subclasses of Comparable`() {
+        val count = findSubClasses<Comparable<*>>(allHierarchy = true).count()
+        assertTrue(count > 100, "expected more then 100 but got $count")
+    }
+
+    @Test
+    fun `find direct subclasses of Comparable`() {
+        val count = findSubClasses<Comparable<*>>(allHierarchy = true).count()
+        assertTrue(count > 100, "expected more then 100 but got $count")
+    }
+
+    @Test
+    fun `find direct subclasses of Any`() {
+        val count = findSubClasses<Comparable<*>>(allHierarchy = true).count()
+        val subClasses = findSubClasses<Any>(allHierarchy = false).count()
+        println(subClasses)
+        assertTrue(subClasses > count * 0.75, "expected more then ${count * 0.75} classes")
     }
 
     private inline fun <reified T> findSubClasses(allHierarchy: Boolean = false): Sequence<JIRClassOrInterface> =
