@@ -36,7 +36,14 @@ open class JIRClassTypeImpl(
         parameters: List<JvmType>,
         nullable: Boolean?,
         annotations: List<JIRAnnotation>
-    ) : this(classpath, name, outerType, classpath.substitute(name, parameters, outerType?.substitutor), nullable, annotations)
+    ) : this(
+        classpath,
+        name,
+        outerType,
+        classpath.substitute(name, parameters, outerType?.substitutor),
+        nullable,
+        annotations
+    )
 
     private val resolutionImpl by lazy(PUBLICATION) { TypeSignature.withDeclarations(jIRClass) as? TypeResolutionImpl }
     private val declaredTypeParameters by lazy(PUBLICATION) { jIRClass.typeParameters }
@@ -56,7 +63,11 @@ open class JIRClassTypeImpl(
         }
         val outer = outerType
         val name = if (outer != null) {
-            outer.typeName + "." + jIRClass.simpleName
+            if (jIRClass.isAnonymous) {
+                outer.typeName + "$" + jIRClass.simpleName.substringAfter("\$")
+            } else {
+                outer.typeName + "." + jIRClass.simpleName.substringAfter("\$")
+            }
         } else {
             jIRClass.name
         }

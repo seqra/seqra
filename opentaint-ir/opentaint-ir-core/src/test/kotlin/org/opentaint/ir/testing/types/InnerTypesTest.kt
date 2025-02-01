@@ -13,7 +13,7 @@ class InnerTypesTest : BaseTypesTest() {
         val classWithInners = findType<InnerClasses<*>>()
         val inners = classWithInners.innerTypes
         assertEquals(4, inners.size)
-        val methodLinked = inners.first { it.typeName == "org.opentaint.ir.testing.types.InnerClasses<W>.InnerClasses\$1" }
+        val methodLinked = inners.first { it.typeName == "org.opentaint.ir.testing.types.InnerClasses<W>\$1" }
         with(methodLinked.fields) {
             with(first { it.name == "stateT" }) {
                 assertEquals("T", (fieldType as JIRTypeVariable).symbol)
@@ -25,10 +25,22 @@ class InnerTypesTest : BaseTypesTest() {
     }
 
     @Test
+    fun `inner classes type name should be right`() {
+        val classWithInners = findType<InnerClasses<*>>()
+        val inners = classWithInners.innerTypes
+        assertEquals(listOf(
+            "org.opentaint.ir.testing.types.InnerClasses<W>.InnerStateOverriden<W>",
+            "org.opentaint.ir.testing.types.InnerClasses<W>.InnerState",
+            "org.opentaint.ir.testing.types.InnerClasses<W>$2",
+            "org.opentaint.ir.testing.types.InnerClasses<W>$1"
+        ), inners.map { it.typeName })
+    }
+
+    @Test
     fun `get not parameterized inner types`() {
         val innerClasses = findType<InnerClasses<*>>().innerTypes
         assertEquals(4, innerClasses.size)
-        with(innerClasses.first { it.typeName.contains("InnerState") }) {
+        with(innerClasses.first { it.typeName == "org.opentaint.ir.testing.types.InnerClasses<W>.InnerState" }) {
             val fields = fields
             assertEquals(2, fields.size)
 
