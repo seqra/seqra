@@ -116,29 +116,51 @@ class JIRClassOrInterfaceImpl(
         get() {
             val default = info.fields.map { JIRFieldImpl(this, it) }
             if (hasClassFeatures) {
-                val result = TreeSet<JIRField> { o1, o2 -> o1.name.compareTo(o2.name) }
+                val additional = TreeSet<JIRField> { o1, o2 -> o1.name.compareTo(o2.name) }
                 featuresChain.newRequest().run<JIRClassExtFeature> {
                     it.fieldsOf(this, default)?.let {
-                        result.addAll(it)
+                        additional.addAll(it)
                     }
                 }
-                result.addAll(default)
-                return result.toList()
+                if (additional.isNotEmpty()) {
+                    val additionalMap = additional.associateBy { it.name }.toMutableMap()
+                    // we need to preserve order of methods
+                    return default.map {
+                        val uniqueName = it.name
+                        additionalMap[uniqueName]?.also {
+                            additionalMap.remove(uniqueName)
+                        } ?: it
+                    } + additionalMap.values
+                }
             }
             return default
         }
 
+    private val JIRMethod.uniqueName: String get() = name + description
+
     override val declaredMethods: List<JIRMethod> by lazy(PUBLICATION) {
         val default = info.methods.map { toJIRMethod(it, featuresChain) }
         if (hasClassFeatures) {
-            val result = TreeSet<JIRMethod> { o1, o2 -> (o1.name + o1.description).compareTo(o2.name + o2.description) }
+            val additional = TreeSet<JIRMethod> { o1, o2 ->
+                o1.uniqueName.compareTo(o2.uniqueName)
+            }
             featuresChain.newRequest().run<JIRClassExtFeature> {
                 it.methodsOf(this, default)?.let {
-                    result.addAll(it)
+                    additional.addAll(it)
                 }
             }
-            result.addAll(default)
-            result.toList()
+            if (additional.isNotEmpty()) {
+                val additionalMap = additional.associateBy { it.uniqueName }.toMutableMap()
+                // we need to preserve order of methods
+                default.map {
+                    val uniqueName = it.uniqueName
+                    additionalMap[uniqueName]?.also {
+                        additionalMap.remove(uniqueName)
+                    } ?: it
+                } + additionalMap.values
+            } else {
+                default
+            }
         } else {
             default
         }
