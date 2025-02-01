@@ -1,8 +1,8 @@
 package org.opentaint.ir.approximations.approx;
 
-import org.opentaint.ir.approximation.annotation.ApproximationFor;
+import org.opentaint.ir.approximation.annotation.Approximate;
 
-@ApproximationFor(target = java.lang.Integer.class)
+@Approximate(java.lang.Integer.class)
 public class IntegerApprox {
     private final int value;
 

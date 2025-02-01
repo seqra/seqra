@@ -1,11 +1,11 @@
 package org.opentaint.ir.approximations.approx
 
-import org.opentaint.ir.approximation.annotation.ApproximationFor
+import org.opentaint.ir.approximation.annotation.Approximate
 import org.opentaint.ir.approximations.target.ClassForField
 import org.opentaint.ir.approximations.target.KotlinClass
 import org.jetbrains.annotations.NotNull
 
-@ApproximationFor(target = KotlinClass::class)
+@Approximate(KotlinClass::class)
 class KotlinClassApprox {
     @NotNull
     private val artificialField: ClassForField = ClassForField()

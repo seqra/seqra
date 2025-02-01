@@ -15,7 +15,7 @@ import kotlin.reflect.full.companionObjectInstance
 @ExtendWith(CleanDB::class)
 abstract class BaseTest {
 
-    protected val cp: JIRClasspath = runBlocking {
+    protected open val cp: JIRClasspath = runBlocking {
         val withDB = this@BaseTest.javaClass.withDB
         withDB.db.classpath(allClasspath)
     }
@@ -46,7 +46,7 @@ open class WithDB(vararg features: JIRFeature<*, *>) {
 
     open var db = runBlocking {
         opentaint-ir {
-//            persistent("D:\\work\\jIRdb\\jIRdb-index.db")
+//            persistent("D:\\work\\opentaint-ir\\jIRdb-index.db")
             loadByteCode(allClasspath)
             useProcessJavaRuntime()
             installFeatures(*allFeatures)
