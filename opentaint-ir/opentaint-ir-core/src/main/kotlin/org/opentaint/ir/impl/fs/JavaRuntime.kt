@@ -8,7 +8,12 @@ import java.nio.file.Paths
 class JavaRuntime(private val javaHome: File) {
 
     val version: JavaVersion = try {
-        val releaseFile = File(javaHome, "release")
+        val releaseFile = when {
+            javaHome.endsWith("jre") -> File(javaHome.parentFile, "release")
+            // this is jre folder inside jdk
+            else -> File(javaHome, "release")
+
+        }
         val javaVersion = releaseFile.readLines().first { it.startsWith("JAVA_VERSION=") }
         parseRuntimeVersion(javaVersion.substring("JAVA_VERSION=".length + 1, javaVersion.length - 1))
     } catch (e: Exception) {
