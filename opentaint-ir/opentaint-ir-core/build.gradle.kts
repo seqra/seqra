@@ -12,16 +12,19 @@ val kotlinVersion: String by rootProject
 val coroutinesVersion: String by rootProject
 val kmetadataVersion: String by rootProject
 val jooqVersion: String by rootProject
+val sqlLiteVersion: String by rootProject
 
 buildscript {
     val jooqVersion: String by rootProject
+    val sqlLiteVersion: String by rootProject
+
     dependencies {
         classpath(group = "org.jooq", name = "jooq-meta", version = jooqVersion)
         classpath(group = "org.jooq", name = "jooq-meta-extensions", version = jooqVersion)
         classpath(group = "org.jooq", name = "jooq-codegen", version = jooqVersion)
         classpath(group = "org.jooq", name = "jooq-kotlin", version = jooqVersion)
         classpath(group = "org.postgresql", name = "postgresql", version = "42.5.1")
-        classpath(group = "org.xerial", name = "sqlite-jdbc", version = "3.39.2.1")
+        classpath(group = "org.xerial", name = "sqlite-jdbc", version = sqlLiteVersion)
         classpath(group = "com.zaxxer", name = "HikariCP", version = "5.0.1")
     }
 }
@@ -45,7 +48,7 @@ dependencies {
 
     implementation(group = "org.postgresql", name = "postgresql", version = "42.5.1")
     implementation(group = "com.zaxxer", name = "HikariCP", version = "5.0.1")
-    implementation(group = "org.xerial", name = "sqlite-jdbc", version = "3.39.2.1")
+    implementation(group = "org.xerial", name = "sqlite-jdbc", version = sqlLiteVersion)
 
     implementation(group = "com.google.guava", name = "guava", version = "31.1-jre")
     implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-metadata-jvm", version = kmetadataVersion)
