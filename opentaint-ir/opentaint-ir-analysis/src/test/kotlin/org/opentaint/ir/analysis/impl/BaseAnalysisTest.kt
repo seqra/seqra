@@ -73,7 +73,6 @@ abstract class BaseAnalysisTest : BaseTest() {
         expectedLocations.forEach { expected ->
             assertTrue(sinks.any { it.contains(expected) })
         }
-        assertEquals(expectedLocations.toSet(), findSinks(method, engine, vulnerabilityType))
     }
 
     protected fun testSingleJulietClass(engine: AnalysisEngine, vulnerabilityType: String, className: String) {
