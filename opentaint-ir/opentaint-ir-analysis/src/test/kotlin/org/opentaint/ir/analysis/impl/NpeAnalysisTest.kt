@@ -2,11 +2,13 @@ package org.opentaint.ir.analysis.impl
 
 import juliet.testcasesupport.AbstractTestCase
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.analysis.DumpableVulnerabilityInstance
 import org.opentaint.ir.analysis.JIRNaivePoints2EngineFactory
 import org.opentaint.ir.analysis.JIRSimplifiedGraphFactory
-import org.opentaint.ir.analysis.NPEAnalysisFactory
-import org.opentaint.ir.analysis.VulnerabilityInstance
 import org.opentaint.ir.analysis.analyzers.NpeAnalyzer
+import org.opentaint.ir.analysis.engine.BidiIFDSForTaintAnalysis
+import org.opentaint.ir.analysis.engine.IFDSUnitTraverser
+import org.opentaint.ir.analysis.engine.SingletonUnitResolver
 import org.opentaint.ir.analysis.graph.JIRApplicationGraphImpl
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRMethod
@@ -53,7 +55,7 @@ class NpeAnalysisTest : BaseTest() {
         private fun Sequence<JIRClassOrInterface>.toArguments(cwe: String): Stream<Arguments> = map { it.name }
             .filter { it.contains(cwe) }
             .filterNot { className -> bannedTests.any { className.contains(it) } }
-//            .filter { it.contains("_45") }
+//            .filter { it.contains("Integer_68a") }
             .sorted()
             .map { Arguments.of(it) }
             .asStream()
@@ -232,8 +234,8 @@ class NpeAnalysisTest : BaseTest() {
         val goodNPE = findNpeSources(goodMethod)
         val badNPE = findNpeSources(badMethod)
 
-        assertTrue(badNPE.isNotEmpty())
         assertTrue(goodNPE.isEmpty())
+        assertTrue(badNPE.isNotEmpty())
     }
 
     private inline fun <reified T> testOneMethod(methodName: String, expectedLocations: Collection<String>) {
@@ -251,12 +253,12 @@ class NpeAnalysisTest : BaseTest() {
         print(results)
     }
 
-    private fun findNpeSources(method: JIRMethod): List<VulnerabilityInstance> {
+    private fun findNpeSources(method: JIRMethod): List<DumpableVulnerabilityInstance> {
         val graph = JIRSimplifiedGraphFactory().createGraph(cp)
         val points2Engine = JIRNaivePoints2EngineFactory.createPoints2Engine(graph)
-        val ifds = NPEAnalysisFactory().createAnalysisEngine(graph, points2Engine)
+        val ifds = IFDSUnitTraverser(graph, NpeAnalyzer(graph), SingletonUnitResolver, points2Engine.obtainDevirtualizer(), BidiIFDSForTaintAnalysis)
         ifds.addStart(method)
-        val result = ifds.analyze()
+        val result = ifds.analyze().toDumpable()
         return result.foundVulnerabilities.filter { it.vulnerabilityType == NpeAnalyzer.value }
     }
 }

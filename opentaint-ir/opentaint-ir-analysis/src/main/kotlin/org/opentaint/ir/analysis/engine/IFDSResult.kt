@@ -4,53 +4,27 @@ import org.opentaint.ir.analysis.engine.PathEdgePredecessorKind.NO_PREDECESSOR
 import org.opentaint.ir.analysis.engine.PathEdgePredecessorKind.SEQUENT
 import org.opentaint.ir.analysis.engine.PathEdgePredecessorKind.THROUGH_SUMMARY
 import org.opentaint.ir.analysis.engine.PathEdgePredecessorKind.UNKNOWN
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.ApplicationGraph
 import org.opentaint.ir.api.cfg.JIRInst
 
 class IFDSResult(
-    val graph: ApplicationGraph<JIRMethod, JIRInst>,
-    val pathEdges: List<IFDSEdge<DomainFact>>,
-    val summaryEdges: List<IFDSEdge<DomainFact>>,
+    val pathEdges: List<IFDSEdge>,
     val resultFacts: Map<JIRInst, Set<DomainFact>>,
-    val pathEdgesPreds: Map<IFDSEdge<DomainFact>, Set<PathEdgePredecessor<DomainFact>>>,
-    val summaryEdgeToStartToEndEdges: Map<IFDSEdge<DomainFact>, Set<IFDSEdge<DomainFact>>>
+    val pathEdgesPreds: Map<IFDSEdge, Set<PathEdgePredecessor>>,
+    val summaryEdgeToStartToEndEdges: Map<IFDSEdge, Set<IFDSEdge>>,
+    val crossUnitCallees: Map<IFDSVertex, Set<IFDSVertex>>
 ) {
-    /**
-     * Given a vertex and a startMethod, returns a stacktrace that may have lead to this vertex
-     */
-    fun resolvePossibleStackTrace(vertex: IFDSVertex<DomainFact>): List<JIRInst> {
-        val result = mutableListOf(vertex.statement)
-        var curVertex = vertex
-        while (curVertex.domainFact != ZEROFact) {
-            // TODO: Note that taking not first element may cause to infinite loop in this implementation
-            val startVertex = pathEdges.first { it.v == curVertex }.u
-            if (startVertex.domainFact == ZEROFact) {
-                break
-            }
-            val predEdge = pathEdgesPreds[IFDSEdge(startVertex, startVertex)]
-                .orEmpty()
-                .first { it.kind == CALL_TO_START }
-                .predEdge
+    private inner class RealisationsGraphBuilder(private val sink: IFDSVertex) {
+        private val sources: MutableSet<IFDSVertex> = mutableSetOf()
+        private val edges: MutableMap<IFDSVertex, MutableSet<IFDSVertex>> = mutableMapOf()
+        private val visited: MutableSet<IFDSEdge> = mutableSetOf()
 
-            curVertex = predEdge.v
-            result.add(curVertex.statement)
-        }
-        return result.reversed()
-    }
-
-    private inner class RealisationsGraphBuilder(private val sink: IFDSVertex<DomainFact>) {
-        private val sources: MutableSet<IFDSVertex<DomainFact>> = mutableSetOf()
-        private val edges: MutableMap<IFDSVertex<DomainFact>, MutableSet<IFDSVertex<DomainFact>>> = mutableMapOf()
-        private val visited: MutableSet<IFDSEdge<DomainFact>> = mutableSetOf()
-
-        private fun addEdge(from: IFDSVertex<DomainFact>, to: IFDSVertex<DomainFact>) {
+        private fun addEdge(from: IFDSVertex, to: IFDSVertex) {
             if (from != to) {
                 edges.getOrPut(from) { mutableSetOf() }.add(to)
             }
         }
 
-        private fun dfs(e: IFDSEdge<DomainFact>, lastVertex: IFDSVertex<DomainFact>, stopAtMethodStart: Boolean) {
+        private fun dfs(e: IFDSEdge, lastVertex: IFDSVertex, stopAtMethodStart: Boolean) {
             if (e in visited) {
                 return
             }
@@ -87,13 +61,13 @@ class IFDSResult(
                     }
                     THROUGH_SUMMARY -> {
                         val summaryEdge = IFDSEdge(pred.predEdge.v, v)
-                        summaryEdgeToStartToEndEdges[summaryEdge].orEmpty().forEach { startToEndEdge ->
+                        summaryEdgeToStartToEndEdges[summaryEdge]?.forEach { startToEndEdge ->
                             addEdge(startToEndEdge.v, lastVertex) // Return to next vertex
                             addEdge(pred.predEdge.v, startToEndEdge.u) // Call to start
                             dfs(startToEndEdge, startToEndEdge.v, true) // Expand summary edge
-                            if (startToEndEdge.u.domainFact != ZEROFact) {
+//                            if (startToEndEdge.u.domainFact != ZEROFact) {
                                 dfs(pred.predEdge, pred.predEdge.v, stopAtMethodStart) // Continue normal analysis
-                            }
+//                            }
                         }
                     }
                     UNKNOWN -> {
@@ -119,7 +93,7 @@ class IFDSResult(
         }
     }
 
-    fun resolveTaintRealisationsGraph(vertex: IFDSVertex<DomainFact>): TaintRealisationsGraph {
+    fun resolveTaintRealisationsGraph(vertex: IFDSVertex): TaintRealisationsGraph {
         return RealisationsGraphBuilder(vertex).build()
     }
 }

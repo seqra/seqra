@@ -1,13 +1,15 @@
 package org.opentaint.ir.analysis.analyzers
 
-import org.opentaint.ir.analysis.DumpableAnalysisResult
+import org.opentaint.ir.analysis.AnalysisResult
 import org.opentaint.ir.analysis.VulnerabilityInstance
 import org.opentaint.ir.analysis.engine.Analyzer
 import org.opentaint.ir.analysis.engine.DomainFact
 import org.opentaint.ir.analysis.engine.FlowFunctionInstance
 import org.opentaint.ir.analysis.engine.FlowFunctionsSpace
 import org.opentaint.ir.analysis.engine.IFDSResult
+import org.opentaint.ir.analysis.engine.IFDSVertex
 import org.opentaint.ir.analysis.engine.SpaceId
+import org.opentaint.ir.analysis.engine.TaintRealisationsGraph
 import org.opentaint.ir.analysis.engine.ZEROFact
 import org.opentaint.ir.analysis.paths.AccessPath
 import org.opentaint.ir.analysis.paths.toPath
@@ -33,6 +35,8 @@ class UnusedVariableAnalyzer(
     val graph: JIRApplicationGraph
 ) : Analyzer {
     override val flowFunctions: FlowFunctionsSpace = UnusedVariableForwardFunctions(graph.classpath)
+    override val name: String = value
+
     override val backward: Analyzer
         get() = error("No backward analysis for Unused variable")
 
@@ -44,7 +48,7 @@ class UnusedVariableAnalyzer(
         return this in expr.values.map { it.toPathOrNull() }
     }
 
-    private fun AccessPath.isUsedAt(inst: JIRInst): Boolean {
+    private fun AccessPath.isUsedAt(inst: JIRInst, withResult: IFDSResult): Boolean {
         val callExpr = inst.callExpr
 
         if (callExpr != null) {
@@ -53,7 +57,7 @@ class UnusedVariableAnalyzer(
                 return false
             }
 
-            if (graph.callees(inst).none()) {
+            if (graph.callees(inst).none() || inst in withResult.crossUnitCallees.keys.map { it.statement }) {
                 return isUsedAt(callExpr)
             }
 
@@ -74,7 +78,7 @@ class UnusedVariableAnalyzer(
         return false
     }
 
-    override fun calculateSources(ifdsResult: IFDSResult): DumpableAnalysisResult {
+    override fun calculateSources(ifdsResult: IFDSResult): AnalysisResult {
         val used: MutableMap<JIRInst, Boolean> = mutableMapOf()
         ifdsResult.resultFacts.forEach { (inst, facts) ->
             facts.filterIsInstance<UnusedVariableNode>().forEach { fact ->
@@ -82,15 +86,15 @@ class UnusedVariableAnalyzer(
                     used[fact.initStatement] = false
                 }
 
-                if (fact.variable.isUsedAt(inst)) {
+                if (fact.variable.isUsedAt(inst, ifdsResult)) {
                     used[fact.initStatement] = true
                 }
             }
         }
         val vulnerabilities = used.filterValues { !it }.keys.map {
-            VulnerabilityInstance(value, listOf(it.location.toString()), it.location.toString() + "cmd = " + it.toString(), emptyList())
+            VulnerabilityInstance(value, TaintRealisationsGraph(IFDSVertex(it, ZEROFact), setOf(IFDSVertex(it, ZEROFact)), emptyMap()))
         }
-        return DumpableAnalysisResult(vulnerabilities)
+        return AnalysisResult(vulnerabilities)
     }
 }
 
@@ -182,9 +186,5 @@ private class UnusedVariableForwardFunctions(
         override fun compute(fact: DomainFact): Collection<DomainFact> {
             return if (fact == ZEROFact) listOf(ZEROFact) else emptyList()
         }
-
     }
-
-    override val backward: FlowFunctionsSpace
-        get() = error("No backward FF for unused variable")
 }

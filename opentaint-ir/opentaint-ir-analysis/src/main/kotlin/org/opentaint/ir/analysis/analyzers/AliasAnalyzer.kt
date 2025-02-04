@@ -1,6 +1,6 @@
 package org.opentaint.ir.analysis.analyzers
 
-import org.opentaint.ir.analysis.DumpableAnalysisResult
+import org.opentaint.ir.analysis.AnalysisResult
 import org.opentaint.ir.analysis.VulnerabilityInstance
 import org.opentaint.ir.analysis.engine.DomainFact
 import org.opentaint.ir.analysis.engine.IFDSResult
@@ -12,14 +12,14 @@ import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRLocal
 import org.opentaint.ir.api.cfg.values
 
-open class AliasAnalyzer(
+class AliasAnalyzer(
     graph: JIRApplicationGraph,
     generates: (JIRInst) -> List<DomainFact>,
     isSink: (JIRInst, DomainFact) -> Boolean,
     maxPathLength: Int = 5
 ) : TaintAnalyzer(graph, generates, isSink, maxPathLength) {
 
-    override fun calculateSources(ifdsResult: IFDSResult): DumpableAnalysisResult {
+    override fun calculateSources(ifdsResult: IFDSResult): AnalysisResult {
         val vulnerabilities = mutableListOf<VulnerabilityInstance>()
         ifdsResult.resultFacts.forEach { (inst, facts) ->
             facts.filterIsInstance<TaintAnalysisNode>().forEach { fact ->
@@ -44,15 +44,17 @@ open class AliasAnalyzer(
                         }
 
                         vulnerabilities.add(
-                            ifdsResult.resolveTaintRealisationsGraph(IFDSVertex(inst, fact)).toVulnerability("alias")
-                                .copy(
-                                    sink = fullPath
-                                )
+                            VulnerabilityInstance(
+                                value,
+                                ifdsResult.resolveTaintRealisationsGraph(IFDSVertex(inst, fact))
+                            )
                         )
                     }
                 }
             }
         }
-        return DumpableAnalysisResult(vulnerabilities)
+        return AnalysisResult(vulnerabilities)
     }
+
+    override val name: String = value
 }

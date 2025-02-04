@@ -1,6 +1,6 @@
 package org.opentaint.ir.analysis.analyzers
 
-import org.opentaint.ir.analysis.DumpableAnalysisResult
+import org.opentaint.ir.analysis.AnalysisResult
 import org.opentaint.ir.analysis.VulnerabilityInstance
 import org.opentaint.ir.analysis.engine.Analyzer
 import org.opentaint.ir.analysis.engine.DomainFact
@@ -23,12 +23,15 @@ abstract class TaintAnalyzer(
 ) : Analyzer {
     override val flowFunctions: FlowFunctionsSpace = TaintForwardFunctions(graph, maxPathLength, generates)
     override val backward: Analyzer = object : Analyzer {
+        override val name: String
+            get() = this@TaintAnalyzer.name
+
         override val backward: Analyzer
             get() = this@TaintAnalyzer
         override val flowFunctions: FlowFunctionsSpace
-            get() = this@TaintAnalyzer.flowFunctions.backward
+            get() = TaintBackwardFunctions(graph, maxPathLength)
 
-        override fun calculateSources(ifdsResult: IFDSResult): DumpableAnalysisResult {
+        override fun calculateSources(ifdsResult: IFDSResult): AnalysisResult {
             error("Do not call sources for backward analyzer instance")
         }
     }
@@ -37,20 +40,23 @@ abstract class TaintAnalyzer(
         override val value: String = "taint analysis"
     }
 
-    override fun calculateSources(ifdsResult: IFDSResult): DumpableAnalysisResult {
+    override fun calculateSources(ifdsResult: IFDSResult): AnalysisResult {
         val vulnerabilities = mutableListOf<VulnerabilityInstance>()
         ifdsResult.resultFacts.forEach { (inst, facts) ->
             facts.filterIsInstance<TaintAnalysisNode>().forEach { fact ->
                 if (isSink(inst, fact)) {
                     fact.variable.let {
                         vulnerabilities.add(
-                            ifdsResult.resolveTaintRealisationsGraph(IFDSVertex(inst, fact)).toVulnerability(value)
+                            VulnerabilityInstance(
+                                value,
+                                ifdsResult.resolveTaintRealisationsGraph(IFDSVertex(inst, fact))
+                            )
                         )
                     }
                 }
             }
         }
-        return DumpableAnalysisResult(vulnerabilities)
+        return AnalysisResult(vulnerabilities)
     }
 }
 
@@ -88,14 +94,11 @@ private class TaintForwardFunctions(
     override fun obtainStartFacts(startStatement: JIRInst): Collection<DomainFact> {
         return listOf(ZEROFact)
     }
-
-    override val backward: FlowFunctionsSpace by lazy { TaintBackwardFunctions(graph, this, maxPathLength) }
 }
 
 private class TaintBackwardFunctions(
     graph: JIRApplicationGraph,
-    backward: FlowFunctionsSpace,
     maxPathLength: Int,
-) : AbstractTaintBackwardFunctions(graph, backward, maxPathLength) {
+) : AbstractTaintBackwardFunctions(graph, maxPathLength) {
     override val inIds: List<SpaceId> = listOf(TaintAnalyzer, ZEROFact.id)
 }

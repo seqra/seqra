@@ -6,9 +6,12 @@ import org.opentaint.ir.analysis.analyzers.NpeAnalyzer
 import org.opentaint.ir.analysis.analyzers.TaintAnalysisNode
 import org.opentaint.ir.analysis.analyzers.UnusedVariableAnalyzer
 import org.opentaint.ir.analysis.engine.Analyzer
+import org.opentaint.ir.analysis.engine.BidiIFDSForTaintAnalysis
 import org.opentaint.ir.analysis.engine.DomainFact
-import org.opentaint.ir.analysis.engine.IFDSInstance
-import org.opentaint.ir.analysis.engine.TaintAnalysisWithPointsTo
+import org.opentaint.ir.analysis.engine.IFDSUnitInstance
+import org.opentaint.ir.analysis.engine.IFDSUnitTraverser
+import org.opentaint.ir.analysis.engine.SingletonUnitResolver
+import org.opentaint.ir.analysis.engine.TaintRealisationsGraph
 import org.opentaint.ir.analysis.graph.JIRApplicationGraphImpl
 import org.opentaint.ir.analysis.graph.SimplifiedJIRApplicationGraph
 import org.opentaint.ir.analysis.points2.AllOverridesDevirtualizer
@@ -21,7 +24,7 @@ import org.opentaint.ir.impl.features.usagesExt
 import java.util.*
 
 @Serializable
-data class VulnerabilityInstance(
+data class DumpableVulnerabilityInstance(
     val vulnerabilityType: String,
     val sources: List<String>,
     val sink: String,
@@ -29,7 +32,29 @@ data class VulnerabilityInstance(
 )
 
 @Serializable
-data class DumpableAnalysisResult(val foundVulnerabilities: List<VulnerabilityInstance>)
+data class DumpableAnalysisResult(val foundVulnerabilities: List<DumpableVulnerabilityInstance>)
+
+data class VulnerabilityInstance(
+    val vulnerabilityType: String,
+    val realisationsGraph: TaintRealisationsGraph
+) {
+    fun toDumpable(maxPathsCount: Int): DumpableVulnerabilityInstance {
+        return DumpableVulnerabilityInstance(
+            vulnerabilityType,
+            realisationsGraph.sources.map { it.statement.toString() },
+            realisationsGraph.sink.statement.toString(),
+            realisationsGraph.getAllPaths().take(maxPathsCount).map { intermediatePoints ->
+                intermediatePoints.map { it.statement.toString() }
+            }.toList()
+        )
+    }
+}
+
+data class AnalysisResult(val vulnerabilities: List<VulnerabilityInstance>) {
+    fun toDumpable(maxPathsCount: Int = 10): DumpableAnalysisResult {
+        return DumpableAnalysisResult(vulnerabilities.map { it.toDumpable(maxPathsCount) })
+    }
+}
 
 typealias AnalysesOptions = Map<String, String>
 
@@ -37,7 +62,7 @@ typealias AnalysesOptions = Map<String, String>
 data class AnalysisConfig(val analyses: Map<String, AnalysesOptions>)
 
 interface AnalysisEngine {
-    fun analyze(): DumpableAnalysisResult
+    fun analyze(): AnalysisResult
     fun addStart(method: JIRMethod)
 }
 
@@ -58,10 +83,12 @@ interface AnalysisEngineFactory : Factory {
 
 class UnusedVariableAnalysisFactory : AnalysisEngineFactory {
     override fun createAnalysisEngine(graph: JIRApplicationGraph, points2Engine: Points2Engine): AnalysisEngine {
-        return IFDSInstance(
+        return IFDSUnitTraverser(
             graph,
             UnusedVariableAnalyzer(graph),
-            points2Engine.obtainDevirtualizer()
+            SingletonUnitResolver,
+            points2Engine.obtainDevirtualizer(),
+            IFDSUnitInstance
         )
     }
 
@@ -78,7 +105,7 @@ abstract class FlowDroidFactory : AnalysisEngineFactory {
         points2Engine: Points2Engine,
     ): AnalysisEngine {
         val analyzer = graph.analyzer
-        return TaintAnalysisWithPointsTo(graph, analyzer, points2Engine)
+        return IFDSUnitTraverser(graph, analyzer, SingletonUnitResolver, points2Engine.obtainDevirtualizer(), BidiIFDSForTaintAnalysis)
     }
 
     override val name: String

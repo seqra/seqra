@@ -2,10 +2,10 @@ package org.opentaint.ir.analysis.impl
 
 import juliet.testcasesupport.AbstractTestCase
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.analysis.DumpableVulnerabilityInstance
 import org.opentaint.ir.analysis.JIRNaivePoints2EngineFactory
 import org.opentaint.ir.analysis.JIRSimplifiedGraphFactory
 import org.opentaint.ir.analysis.UnusedVariableAnalysisFactory
-import org.opentaint.ir.analysis.VulnerabilityInstance
 import org.opentaint.ir.analysis.analyzers.UnusedVariableAnalyzer
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRMethod
@@ -92,12 +92,12 @@ class UnusedVariableTest : BaseTest() {
         assertTrue(good.isEmpty(), "found problem in good method of $message")
     }
 
-    private fun findUnusedVariables(method: JIRMethod): List<VulnerabilityInstance> {
+    private fun findUnusedVariables(method: JIRMethod): List<DumpableVulnerabilityInstance> {
         val graph = JIRSimplifiedGraphFactory().createGraph(cp)
         val points2Engine = JIRNaivePoints2EngineFactory.createPoints2Engine(graph)
         val ifds = UnusedVariableAnalysisFactory().createAnalysisEngine(graph, points2Engine)
         ifds.addStart(method)
         val result = ifds.analyze()
-        return result.foundVulnerabilities.filter { it.vulnerabilityType == UnusedVariableAnalyzer.value }
+        return result.toDumpable().foundVulnerabilities.filter { it.vulnerabilityType == UnusedVariableAnalyzer.value }
     }
 }

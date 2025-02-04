@@ -1,6 +1,6 @@
 package org.opentaint.ir.analysis.engine
 
-data class IFDSEdge<out T: DomainFact>(val u: IFDSVertex<T>, val v: IFDSVertex<T>)
+data class IFDSEdge(val u: IFDSVertex, val v: IFDSVertex)
 
 enum class PathEdgePredecessorKind {
     NO_PREDECESSOR,
@@ -10,7 +10,7 @@ enum class PathEdgePredecessorKind {
     THROUGH_SUMMARY
 }
 
-data class PathEdgePredecessor<out T: DomainFact>(
-    val predEdge: IFDSEdge<T>,
+data class PathEdgePredecessor(
+    val predEdge: IFDSEdge,
     val kind: PathEdgePredecessorKind
 )

@@ -22,7 +22,6 @@ import org.opentaint.ir.api.ext.cfg.callExpr
 
 abstract class AbstractTaintBackwardFunctions(
     protected val graph: JIRApplicationGraph,
-    override val backward: FlowFunctionsSpace,
     protected val maxPathLength: Int,
 ) : FlowFunctionsSpace {
     

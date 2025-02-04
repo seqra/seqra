@@ -1,12 +1,16 @@
 package org.opentaint.ir.analysis.engine
 
-import org.opentaint.ir.analysis.DumpableAnalysisResult
+import org.opentaint.ir.analysis.AnalysisResult
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.cfg.JIRInst
 
 interface FlowFunctionInstance {
     val inIds: List<SpaceId>
     fun compute(fact: DomainFact): Collection<DomainFact>
+
+//    fun compute(facts: Collection<DomainFact>): Set<DomainFact> {
+//        return facts.flatMap { compute(it) }.toSet()
+//    }
 }
 
 interface SpaceId {
@@ -27,17 +31,18 @@ object ZEROFact : DomainFact {
 
 interface FlowFunctionsSpace {
     val inIds: List<SpaceId>
+    fun obtainAllPossibleStartFacts(startStatement: JIRInst): Collection<DomainFact> = obtainStartFacts(startStatement)
     fun obtainStartFacts(startStatement: JIRInst): Collection<DomainFact>
     fun obtainSequentFlowFunction(current: JIRInst, next: JIRInst): FlowFunctionInstance
     fun obtainCallToStartFlowFunction(callStatement: JIRInst, callee: JIRMethod): FlowFunctionInstance
     fun obtainCallToReturnFlowFunction(callStatement: JIRInst, returnSite: JIRInst): FlowFunctionInstance
     fun obtainExitToReturnSiteFlowFunction(callStatement: JIRInst, returnSite: JIRInst, exitStatement: JIRInst): FlowFunctionInstance
-
-    val backward: FlowFunctionsSpace
 }
 
 interface Analyzer {
     val backward: Analyzer
     val flowFunctions: FlowFunctionsSpace
-    fun calculateSources(ifdsResult: IFDSResult): DumpableAnalysisResult
+    val name: String
+
+    fun calculateSources(ifdsResult: IFDSResult): AnalysisResult
 }
