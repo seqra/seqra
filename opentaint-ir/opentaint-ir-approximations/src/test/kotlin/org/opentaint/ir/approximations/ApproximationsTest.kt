@@ -10,11 +10,9 @@ import org.opentaint.ir.api.cfg.JIRRawCallInst
 import org.opentaint.ir.api.cfg.JIRRawFieldRef
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findDeclaredFieldOrNull
-import org.opentaint.ir.approximation.ApproximationsInstructionsFeature
-import org.opentaint.ir.approximation.ApproximationsMappingFeature
-import org.opentaint.ir.approximation.ApproximationsMappingFeature.findApproximationByOriginOrNull
-import org.opentaint.ir.approximation.ApproximationsMappingFeature.findOriginalByApproximationOrNull
-import org.opentaint.ir.approximation.ClassContentApproximationFeature
+import org.opentaint.ir.approximation.Approximations
+import org.opentaint.ir.approximation.Approximations.findApproximationByOriginOrNull
+import org.opentaint.ir.approximation.Approximations.findOriginalByApproximationOrNull
 import org.opentaint.ir.approximation.JIREnrichedVirtualField
 import org.opentaint.ir.approximation.JIREnrichedVirtualMethod
 import org.opentaint.ir.approximation.toApproximationName
@@ -29,10 +27,10 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class ApproximationsTest : BaseTest() {
-    companion object : WithDB(ApproximationsMappingFeature)
+    companion object : WithDB(Approximations)
 
     override val cp: JIRClasspath = runBlocking {
-        val features = listOf(ClassContentApproximationFeature, ApproximationsInstructionsFeature)
+        val features = listOf(Approximations)
         db.classpath(allClasspath, features)
     }
 

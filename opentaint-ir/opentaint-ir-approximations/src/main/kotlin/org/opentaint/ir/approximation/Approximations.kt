@@ -1,12 +1,21 @@
 package org.opentaint.ir.approximation
 
 import org.opentaint.ir.api.ByteCodeIndexer
+import org.opentaint.ir.api.JIRClassExtFeature
+import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRDatabase
 import org.opentaint.ir.api.JIRFeature
+import org.opentaint.ir.api.JIRField
+import org.opentaint.ir.api.JIRInstExtFeature
+import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRSignal
 import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.api.cfg.JIRInstList
+import org.opentaint.ir.api.cfg.JIRRawInst
+import org.opentaint.ir.approximation.TransformerIntoVirtual.transformMethodIntoVirtual
 import org.opentaint.ir.approximation.annotation.Approximate
+import org.opentaint.ir.impl.cfg.JIRInstListImpl
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.jooq.tables.references.ANNOTATIONS
 import org.opentaint.ir.impl.storage.jooq.tables.references.ANNOTATIONVALUES
@@ -29,7 +38,8 @@ import java.util.concurrent.ConcurrentMap
  *  otherwise you might get incomplete mapping.
  *  See [JIRDatabase.awaitBackgroundJobs].
  */
-object ApproximationsMappingFeature : JIRFeature<Any?, Any?> {
+object Approximations : JIRFeature<Any?, Any?>, JIRClassExtFeature, JIRInstExtFeature {
+
     private val originalToApproximation: ConcurrentMap<OriginalClassName, ApproximationClassName> = ConcurrentHashMap()
     private val approximationToOriginal: ConcurrentMap<ApproximationClassName, OriginalClassName> = ConcurrentHashMap()
 
@@ -64,6 +74,32 @@ object ApproximationsMappingFeature : JIRFeature<Any?, Any?> {
                     approximationToOriginal[approximationClassName] = originalClassName
                 }
         }
+    }
+
+    /**
+     * Returns a list of [JIREnrichedVirtualField] if there is an approximation for [clazz] and null otherwise.
+     */
+    override fun fieldsOf(clazz: JIRClassOrInterface): List<JIRField>? {
+        val approximationName = findApproximationByOriginOrNull(clazz.name.toOriginalName()) ?: return null
+        val approximationClass = clazz.classpath.findClassOrNull(approximationName) ?: return null
+
+        return approximationClass.declaredFields.map { TransformerIntoVirtual.transformIntoVirtualField(clazz, it) }
+    }
+
+    /**
+     * Returns a list of [JIREnrichedVirtualMethod] if there is an approximation for [clazz] and null otherwise.
+     */
+    override fun methodsOf(clazz: JIRClassOrInterface): List<JIRMethod>? {
+        val approximationName = findApproximationByOriginOrNull(clazz.name.toOriginalName()) ?: return null
+        val approximationClass = clazz.classpath.findClassOrNull(approximationName) ?: return null
+
+        return approximationClass.declaredMethods.map {
+            approximationClass.classpath.transformMethodIntoVirtual(clazz, it)
+        }
+    }
+
+    override fun transformRawInstList(method: JIRMethod, list: JIRInstList<JIRRawInst>): JIRInstList<JIRRawInst> {
+        return JIRInstListImpl(list.map { it.accept(InstSubstitutorForApproximations) })
     }
 
     /**

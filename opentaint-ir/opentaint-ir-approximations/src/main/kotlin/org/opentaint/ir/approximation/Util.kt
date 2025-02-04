@@ -1,7 +1,7 @@
 package org.opentaint.ir.approximation
 
 import org.opentaint.ir.api.TypeName
-import org.opentaint.ir.approximation.ApproximationsMappingFeature.findOriginalByApproximationOrNull
+import org.opentaint.ir.approximation.Approximations.findOriginalByApproximationOrNull
 import org.opentaint.ir.impl.types.TypeNameImpl
 
 fun String.toApproximationName() = ApproximationClassName(this)

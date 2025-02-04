@@ -79,7 +79,7 @@ import org.opentaint.ir.api.cfg.JIRRawUshrExpr
 import org.opentaint.ir.api.cfg.JIRRawValue
 import org.opentaint.ir.api.cfg.JIRRawVirtualCallExpr
 import org.opentaint.ir.api.cfg.JIRRawXorExpr
-import org.opentaint.ir.approximation.ApproximationsMappingFeature.findOriginalByApproximationOrNull
+import org.opentaint.ir.approximation.Approximations.findOriginalByApproximationOrNull
 import org.opentaint.ir.impl.types.TypeNameImpl
 
 /**
