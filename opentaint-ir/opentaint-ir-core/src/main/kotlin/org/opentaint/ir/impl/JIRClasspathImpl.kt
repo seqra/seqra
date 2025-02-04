@@ -12,6 +12,8 @@ import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRClasspathExtFeature
+import org.opentaint.ir.api.JIRClasspathExtFeature.JIRResolvedClassResult
+import org.opentaint.ir.api.JIRClasspathExtFeature.JIRResolvedTypeResult
 import org.opentaint.ir.api.JIRClasspathFeature
 import org.opentaint.ir.api.JIRClasspathTask
 import org.opentaint.ir.api.JIRFeatureEvent
@@ -20,17 +22,17 @@ import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.api.ext.toType
-import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.features.JIRFeatureEventImpl
 import org.opentaint.ir.impl.features.JIRFeaturesChain
+import org.opentaint.ir.impl.features.classpaths.AbstractJIRResolvedResult.JIRResolvedClassResultImpl
+import org.opentaint.ir.impl.features.classpaths.AbstractJIRResolvedResult.JIRResolvedTypeResultImpl
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.types.JIRArrayTypeImpl
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import org.opentaint.ir.impl.types.substition.JIRSubstitutor
 import org.opentaint.ir.impl.vfs.ClasspathVfs
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
-import java.util.*
 
 class JIRClasspathImpl(
     private val locationsRegistrySnapshot: LocationsRegistrySnapshot,
@@ -54,12 +56,16 @@ class JIRClasspathImpl(
     }
 
     override fun findClassOrNull(name: String): JIRClassOrInterface? {
-        return featuresChain.newRequest(name).call<JIRClasspathExtFeature, Optional<JIRClassOrInterface>> {
+        return featuresChain.call<JIRClasspathExtFeature, JIRResolvedClassResult> {
             it.tryFindClass(this, name)
-        }?.orElse(null)
+        }?.clazz
     }
 
-    override fun typeOf(jIRClass: JIRClassOrInterface, nullability: Boolean?, annotations: List<JIRAnnotation>): JIRRefType {
+    override fun typeOf(
+        jIRClass: JIRClassOrInterface,
+        nullability: Boolean?,
+        annotations: List<JIRAnnotation>
+    ): JIRRefType {
         return JIRClassTypeImpl(
             this,
             jIRClass.name,
@@ -79,9 +85,9 @@ class JIRClasspathImpl(
     }
 
     override fun findTypeOrNull(name: String): JIRType? {
-        return featuresChain.newRequest(name).call<JIRClasspathExtFeature, Optional<JIRType>> {
+        return featuresChain.call<JIRClasspathExtFeature, JIRResolvedTypeResult> {
             it.tryFindType(this, name)
-        }?.orElse(null)
+        }?.type
     }
 
     override suspend fun <T : JIRClasspathTask> execute(task: T): T {
@@ -91,7 +97,7 @@ class JIRClasspathImpl(
             val parentScope = this
             locations.map {
                 async {
-                    val sources = db.persistence.findClassSources(it)
+                    val sources = db.persistence.findClassSources(db, it)
                         .takeIf { it.isNotEmpty() } ?: it.jIRLocation?.classes?.map { entry ->
                         ClassSourceImpl(location = it, className = entry.key, byteCode = entry.value)
                     } ?: emptyList()
@@ -108,38 +114,53 @@ class JIRClasspathImpl(
         return task
     }
 
+    override fun findClasses(name: String): Set<JIRClassOrInterface> {
+        return featuresChain.features.filterIsInstance<JIRClasspathExtFeature>().flatMap { feature ->
+            feature.findClasses(this, name).orEmpty()
+        }.toSet()
+    }
+
     override fun close() {
         locationsRegistrySnapshot.close()
     }
 
-    private inner class JIRClasspathFeatureImpl: JIRClasspathExtFeature{
+    private inner class JIRClasspathFeatureImpl : JIRClasspathExtFeature {
 
-        override fun tryFindClass(classpath: JIRClasspath, name: String): Optional<JIRClassOrInterface> {
+        override fun tryFindClass(classpath: JIRClasspath, name: String): JIRResolvedClassResult {
             val source = classpathVfs.firstClassOrNull(name)
             val jIRClass = source?.let { toJIRClass(it.source) }
-                ?: db.persistence.findClassSourceByName(this@JIRClasspathImpl, locationsRegistrySnapshot.locations, name)?.let {
+                ?: db.persistence.findClassSourceByName(classpath, name)?.let {
                     toJIRClass(it)
                 }
-            return Optional.ofNullable(jIRClass)
+            return JIRResolvedClassResultImpl(name, jIRClass)
         }
 
-        override fun tryFindType(classpath: JIRClasspath, name: String): Optional<JIRType>? {
+        override fun tryFindType(classpath: JIRClasspath, name: String): JIRResolvedTypeResult {
             if (name.endsWith("[]")) {
                 val targetName = name.removeSuffix("[]")
-                return findTypeOrNull(targetName)?.let {
-                    Optional.of(JIRArrayTypeImpl(it, true))
-                }
+                return JIRResolvedTypeResultImpl(name,
+                    findTypeOrNull(targetName)?.let { JIRArrayTypeImpl(it, true) }
+                )
             }
-            val predefined = PredefinedPrimitives.of(name, this@JIRClasspathImpl)
+            val predefined = PredefinedPrimitives.of(name, classpath)
             if (predefined != null) {
-                return Optional.of(predefined)
+                return JIRResolvedTypeResultImpl(name, predefined)
             }
-            val clazz = findClassOrNull(name) ?: return Optional.empty()
-            return Optional.of(typeOf(clazz))
+            val clazz = findClassOrNull(name) ?: return JIRResolvedTypeResultImpl(name, null)
+            return JIRResolvedTypeResultImpl(name, typeOf(clazz))
         }
 
-        override fun event(result: Any, input: Array<Any>): JIRFeatureEvent {
-            return JIRFeatureEventImpl(this, result, input)
+        override fun findClasses(classpath: JIRClasspath, name: String): List<JIRClassOrInterface> {
+            val vfsClasses = classpathVfs.findClassNodes(name).map { toJIRClass(it.source) }
+            val persistedClasses = db.persistence.findClassSources(classpath, name).map { toJIRClass(it) }
+            return buildSet {
+                addAll(vfsClasses)
+                addAll(persistedClasses)
+            }.toList()
+        }
+
+        override fun event(result: Any): JIRFeatureEvent {
+            return JIRFeatureEventImpl(this, result)
         }
 
     }

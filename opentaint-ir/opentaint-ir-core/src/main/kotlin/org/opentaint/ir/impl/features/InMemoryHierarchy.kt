@@ -153,7 +153,7 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
                         .fetch()
                         .mapNotNull { (className, classId, locationId, byteCode) ->
                             val source = PersistenceClassSource(
-                                classpath = classpath,
+                                db = classpath.db,
                                 classId = classId!!,
                                 className = className!!,
                                 locationId = locationId!!

@@ -3,7 +3,6 @@ package org.opentaint.ir.impl.cfg
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.JIRMethodRef
 import org.opentaint.ir.api.JIRType
 import org.opentaint.ir.api.JIRTypedMethod
 import org.opentaint.ir.api.TypeName
@@ -12,7 +11,6 @@ import org.opentaint.ir.api.cfg.JIRRawCallExpr
 import org.opentaint.ir.api.cfg.JIRRawSpecialCallExpr
 import org.opentaint.ir.api.cfg.JIRRawStaticCallExpr
 import org.opentaint.ir.api.cfg.TypedMethodRef
-import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.api.ext.hasAnnotation
 import org.opentaint.ir.api.ext.jvmName
@@ -160,47 +158,14 @@ fun JIRTypedMethod.methodRef(): TypedMethodRef {
     )
 }
 
-class JIRMethodRefImpl(method: JIRMethod) : JIRMethodRef {
-    private val classpath = method.enclosingClass.classpath
-
-    private val className: String = method.enclosingClass.name
-    private val name: String = method.name
-    private val description: String = method.description
-
-    override val method get() = classpath.findClass(className).findMethodOrNull(name, description)!!
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as JIRMethodRefImpl
-
-        if (className != other.className) return false
-        if (name != other.name) return false
-        return description == other.description
-    }
-
-    override fun hashCode(): Int {
-        var result = className.hashCode()
-        result = 31 * result + name.hashCode()
-        result = 31 * result + description.hashCode()
-        return result
-    }
-
-}
-
 class JIRInstLocationImpl(
-    val methodRef: JIRMethodRef,
+    override val method: JIRMethod,
     override val index: Int,
     override val lineNumber: Int
 ) : JIRInstLocation {
 
     override fun toString(): String {
-        return "${methodRef.method.enclosingClass.name}#${methodRef.method.name}:$lineNumber"
-    }
-
-    override val method: JIRMethod by softLazy {
-        methodRef.method
+        return "${method.enclosingClass.name}#${method.name}:$lineNumber"
     }
 
     override fun equals(other: Any?): Boolean {
@@ -210,12 +175,12 @@ class JIRInstLocationImpl(
         other as JIRInstLocationImpl
 
         if (index != other.index) return false
-        return methodRef == other.methodRef
+        return method == other.method
     }
 
     override fun hashCode(): Int {
         var result = index
-        result = 31 * result + methodRef.hashCode()
+        result = 31 * result + method.hashCode()
         return result
     }
 

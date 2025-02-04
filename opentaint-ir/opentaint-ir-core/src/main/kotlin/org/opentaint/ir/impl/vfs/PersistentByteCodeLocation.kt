@@ -2,7 +2,6 @@ package org.opentaint.ir.impl.vfs
 
 import org.opentaint.ir.api.JavaVersion
 import org.opentaint.ir.api.JIRByteCodeLocation
-import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRDatabase
 import org.opentaint.ir.api.JIRDatabasePersistence
 import org.opentaint.ir.api.RegisteredLocation
@@ -19,17 +18,17 @@ class PersistentByteCodeLocation(
     private val cachedLocation: JIRByteCodeLocation? = null
 ) : RegisteredLocation {
 
-    constructor(jIRdb: JIRDatabase, record: BytecodelocationsRecord, location: JIRByteCodeLocation? = null) : this(
-        jIRdb.persistence,
-        jIRdb.runtimeVersion,
+    constructor(db: JIRDatabase, record: BytecodelocationsRecord, location: JIRByteCodeLocation? = null) : this(
+        db.persistence,
+        db.runtimeVersion,
         record.id!!,
         record,
         location
     )
 
-    constructor(cp: JIRClasspath, locationId: Long) : this(
-        cp.db.persistence,
-        cp.db.runtimeVersion,
+    constructor(db: JIRDatabase, locationId: Long) : this(
+        db.persistence,
+        db.runtimeVersion,
         locationId,
         null,
         null

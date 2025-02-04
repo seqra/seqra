@@ -28,7 +28,7 @@ interface JIRVirtualMethod : JIRMethod {
         get() = JIRInstListImpl(emptyList())
 
     override fun flowGraph(): JIRGraph {
-        return MethodInstructionsFeature.flowGraph(this)
+        return MethodInstructionsFeature.flowGraph(this).flowGraph
     }
 }
 

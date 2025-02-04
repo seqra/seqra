@@ -179,7 +179,7 @@ class JIRDatabaseImpl(
             val parentScope = this
             locations.map {
                 async {
-                    val addedClasses = persistence.findClassSources(it)
+                    val addedClasses = persistence.findClassSources(this@JIRDatabaseImpl, it)
                     parentScope.ifActive { featureRegistry.index(it, addedClasses) }
                 }
             }.joinAll()

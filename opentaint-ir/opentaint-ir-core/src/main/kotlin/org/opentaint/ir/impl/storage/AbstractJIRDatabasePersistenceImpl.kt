@@ -3,18 +3,20 @@ package org.opentaint.ir.impl.storage
 import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRDatabase
 import org.opentaint.ir.api.JIRDatabasePersistence
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.impl.FeaturesRegistry
 import org.opentaint.ir.impl.JIRInternalSignal
-import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.fs.JavaRuntime
+import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.info
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
 import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
+import org.jooq.Condition
 import org.jooq.DSLContext
 import java.io.Closeable
 import java.io.File
@@ -94,35 +96,41 @@ abstract class AbstractJIRDatabasePersistenceImpl(
         }
     }
 
-    override fun findClassSourceByName(
-        cp: JIRClasspath,
-        locations: List<RegisteredLocation>,
-        fullName: String
-    ): ClassSource? {
-        val ids = locations.map { it.id }
+    override fun findClassSourceByName(cp: JIRClasspath, fullName: String): ClassSource? {
         val symbolId = findSymbolId(fullName) ?: return null
-        val found = jooq.select(CLASSES.LOCATION_ID, CLASSES.BYTECODE).from(CLASSES)
-            .where(CLASSES.NAME.eq(symbolId).and(CLASSES.LOCATION_ID.`in`(ids)))
-            .fetchAny() ?: return null
-        val locationId = found.component1()!!
-        val byteCode = found.component2()!!
-        return ClassSourceImpl(
-            location = PersistentByteCodeLocation(cp, locationId),
-            className = fullName,
-            byteCode = byteCode
-        )
+        return cp.db.classSources(CLASSES.NAME.eq(symbolId).and(cp.clause), single = true).firstOrNull()
     }
 
-    override fun findClassSources(location: RegisteredLocation): List<ClassSource> {
-        val classes = jooq.select(CLASSES.LOCATION_ID, CLASSES.BYTECODE, SYMBOLS.NAME).from(CLASSES)
+    override fun findClassSources(db: JIRDatabase, location: RegisteredLocation): List<ClassSource> {
+        return db.classSources(CLASSES.LOCATION_ID.eq(location.id))
+    }
+
+    override fun findClassSources(cp: JIRClasspath, fullName: String): List<ClassSource> {
+        val symbolId = findSymbolId(fullName) ?: return emptyList()
+        return cp.db.classSources(CLASSES.NAME.eq(symbolId).and(cp.clause))
+    }
+
+    private val JIRClasspath.clause: Condition
+        get() {
+            val ids = registeredLocations.map { it.id }
+            return CLASSES.LOCATION_ID.`in`(ids)
+        }
+
+    private fun JIRDatabase.classSources(clause: Condition, single: Boolean = false): List<ClassSource> {
+        val classesQuery = jooq.select(CLASSES.LOCATION_ID, CLASSES.ID, CLASSES.BYTECODE, SYMBOLS.NAME).from(CLASSES)
             .join(SYMBOLS).on(CLASSES.NAME.eq(SYMBOLS.ID))
-            .where(CLASSES.LOCATION_ID.eq(location.id))
-            .fetch()
-        return classes.map { (locationId, array, name) ->
-            ClassSourceImpl(
-                location = location,
+            .where(clause)
+        val classes = when {
+            single -> listOfNotNull(classesQuery.fetchAny())
+            else -> classesQuery.fetch()
+        }
+        return classes.map { (locationId, classId, bytecode, name) ->
+            PersistenceClassSource(
+                db = this,
                 className = name!!,
-                byteCode = array!!
+                classId = classId!!,
+                locationId = locationId!!,
+                cachedByteCode = bytecode
             )
         }
     }

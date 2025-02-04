@@ -7,7 +7,6 @@ import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstLocation
 import org.opentaint.ir.api.cfg.JIRInstVisitor
 import org.opentaint.ir.impl.cfg.JIRInstLocationImpl
-import org.opentaint.ir.impl.cfg.JIRMethodRefImpl
 
 /**
  * This is adopted specially for IFDS [JIRApplicationGraph] that
@@ -26,7 +25,7 @@ class SimplifiedJIRApplicationGraph(
     // For backward analysis we may want for method to start with "neutral" operation =>
     //  we add noop to the beginning of every method
     private fun getStartInst(method: JIRMethod): JIRNoopInst {
-        return JIRNoopInst(JIRInstLocationImpl(JIRMethodRefImpl(method), -1, -1))
+        return JIRNoopInst(JIRInstLocationImpl(method, -1, -1))
     }
 
     override fun predecessors(node: JIRInst): Sequence<JIRInst> {

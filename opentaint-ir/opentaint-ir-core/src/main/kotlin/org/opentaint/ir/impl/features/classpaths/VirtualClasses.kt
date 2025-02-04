@@ -5,9 +5,9 @@ import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRClasspathExtFeature
 import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.impl.features.classpaths.AbstractJIRResolvedResult.JIRResolvedClassResultImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualClass
 import org.opentaint.ir.impl.features.classpaths.virtual.VirtualClassesBuilder
-import java.util.*
 
 open class VirtualClasses(
     val classes: List<JIRVirtualClass>,
@@ -30,13 +30,17 @@ open class VirtualClasses(
 
     private val map = classes.associateBy { it.name }
 
-    override fun tryFindClass(classpath: JIRClasspath, name: String): Optional<JIRClassOrInterface>? {
+    override fun tryFindClass(classpath: JIRClasspath, name: String): JIRClasspathExtFeature.JIRResolvedClassResult? {
         val clazz = map[name]
         if (clazz != null) {
             clazz.bind(classpath, virtualLocation)
-            return Optional.of(clazz)
+            return JIRResolvedClassResultImpl(name, clazz)
         }
         return null
+    }
+
+    override fun findClasses(classpath: JIRClasspath, name: String): List<JIRClassOrInterface>? {
+        return listOfNotNull(map[name])
     }
 
 }

@@ -113,7 +113,7 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
                 cursor.fetchNext(batchSize).map { record ->
                     val id = record.get(CLASSES.ID)!!
                     id to PersistenceClassSource(
-                        classpath = this,
+                        db = db,
                         classId = record.get(CLASSES.ID)!!,
                         className = record.get("name_name") as String,
                         locationId = record.get(CLASSES.LOCATION_ID)!!
@@ -140,7 +140,7 @@ private fun SelectConditionStep<Record3<Long?, String?, Long?>>.batchingProcess(
         .fetch()
         .mapNotNull { (classId, className, locationId) ->
             classId!! to PersistenceClassSource(
-                classpath = cp,
+                db = cp.db,
                 classId = classId,
                 className = className!!,
                 locationId = locationId!!

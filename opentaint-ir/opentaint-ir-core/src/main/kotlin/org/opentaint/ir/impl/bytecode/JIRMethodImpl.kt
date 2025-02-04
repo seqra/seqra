@@ -4,6 +4,9 @@ import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRMethodExtFeature
+import org.opentaint.ir.api.JIRMethodExtFeature.JIRFlowGraphResult
+import org.opentaint.ir.api.JIRMethodExtFeature.JIRInstListResult
+import org.opentaint.ir.api.JIRMethodExtFeature.JIRRawInstListResult
 import org.opentaint.ir.api.JIRParameter
 import org.opentaint.ir.api.TypeName
 import org.opentaint.ir.api.cfg.JIRGraph
@@ -62,18 +65,15 @@ class JIRMethodImpl(
 
     override val rawInstList: JIRInstList<JIRRawInst>
         get() {
-            return featuresChain.newRequest(this)
-                .call<JIRMethodExtFeature, JIRInstList<JIRRawInst>> { it.rawInstList(this) }!!
+            return featuresChain.call<JIRMethodExtFeature, JIRRawInstListResult> { it.rawInstList(this) }!!.rawInstList
         }
 
     override fun flowGraph(): JIRGraph {
-        return featuresChain.newRequest(this)
-            .call<JIRMethodExtFeature, JIRGraph> { it.flowGraph(this) }!!
+        return featuresChain.call<JIRMethodExtFeature, JIRFlowGraphResult> { it.flowGraph(this) }!!.flowGraph
     }
 
     override val instList: JIRInstList<JIRInst> get() {
-        return featuresChain.newRequest(this)
-            .call<JIRMethodExtFeature, JIRInstList<JIRInst>> { it.instList(this) }!!
+        return featuresChain.call<JIRMethodExtFeature, JIRInstListResult> { it.instList(this) }!!.instList
     }
 
     override fun equals(other: Any?): Boolean {

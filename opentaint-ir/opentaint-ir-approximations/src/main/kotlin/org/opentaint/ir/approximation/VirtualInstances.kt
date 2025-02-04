@@ -2,6 +2,9 @@ package org.opentaint.ir.approximation
 
 import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRMethodExtFeature
+import org.opentaint.ir.api.JIRMethodExtFeature.JIRFlowGraphResult
+import org.opentaint.ir.api.JIRMethodExtFeature.JIRInstListResult
+import org.opentaint.ir.api.JIRMethodExtFeature.JIRRawInstListResult
 import org.opentaint.ir.api.TypeName
 import org.opentaint.ir.api.cfg.JIRGraph
 import org.opentaint.ir.api.cfg.JIRInst
@@ -27,21 +30,20 @@ class JIREnrichedVirtualMethod(
 ) : JIRVirtualMethodImpl(name, access, returnType, parameters, description) {
 
     override val rawInstList: JIRInstList<JIRRawInst>
-        get() = featuresChain
-            .newRequest(this)
-            .call<JIRMethodExtFeature, JIRInstList<JIRRawInst>> { it.rawInstList(this) }!!
+        get() = featuresChain.call<JIRMethodExtFeature, JIRRawInstListResult> {
+            it.rawInstList(this)
+        }!!.rawInstList
 
     override val instList: JIRInstList<JIRInst>
-        get() = featuresChain
-            .newRequest(this)
-            .call<JIRMethodExtFeature, JIRInstList<JIRInst>> { it.instList(this) }!!
+        get() = featuresChain.call<JIRMethodExtFeature, JIRInstListResult> {
+            it.instList(this)
+        }!!.instList
 
     override fun asmNode(): MethodNode = asmNode
 
-    override fun flowGraph(): JIRGraph =
-        featuresChain
-            .newRequest(this)
-            .call<JIRMethodExtFeature, JIRGraph> { it.flowGraph(this) }!!
+    override fun flowGraph(): JIRGraph =featuresChain.call<JIRMethodExtFeature, JIRFlowGraphResult> {
+        it.flowGraph(this)
+    }!!.flowGraph
 
     override val signature: String?
         get() = null

@@ -3,14 +3,17 @@ package org.opentaint.ir.impl.features.classpaths
 import com.google.common.cache.CacheBuilder
 import com.google.common.cache.CacheStats
 import mu.KLogging
-import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRClasspathExtFeature
+import org.opentaint.ir.api.JIRClasspathExtFeature.JIRResolvedClassResult
+import org.opentaint.ir.api.JIRClasspathExtFeature.JIRResolvedTypeResult
 import org.opentaint.ir.api.JIRFeatureEvent
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRMethodExtFeature
-import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.JIRMethodExtFeature.JIRFlowGraphResult
+import org.opentaint.ir.api.JIRMethodExtFeature.JIRInstListResult
+import org.opentaint.ir.api.JIRMethodExtFeature.JIRRawInstListResult
 import org.opentaint.ir.api.cfg.JIRGraph
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstList
@@ -18,8 +21,10 @@ import org.opentaint.ir.api.cfg.JIRRawInst
 import org.opentaint.ir.impl.JIRCacheSegmentSettings
 import org.opentaint.ir.impl.JIRCacheSettings
 import org.opentaint.ir.impl.ValueStoreType
+import org.opentaint.ir.impl.features.classpaths.AbstractJIRInstResult.JIRFlowGraphResultImpl
+import org.opentaint.ir.impl.features.classpaths.AbstractJIRInstResult.JIRInstListResultImpl
+import org.opentaint.ir.impl.features.classpaths.AbstractJIRInstResult.JIRRawInstListResultImpl
 import java.text.NumberFormat
-import java.util.*
 
 /**
  * any class cache should extend this class
@@ -29,10 +34,10 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
     companion object : KLogging()
 
     private val classesCache = segmentBuilder(settings.classes)
-        .build<String, Optional<JIRClassOrInterface>>()
+        .build<String, JIRResolvedClassResult>()
 
     private val typesCache = segmentBuilder(settings.types)
-        .build<String, Optional<JIRType>>()
+        .build<String, JIRResolvedTypeResult>()
 
     private val rawInstCache = segmentBuilder(settings.rawInstLists)
         .build<JIRMethod, JIRInstList<JIRRawInst>>()
@@ -43,55 +48,38 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
     private val cfgCache = segmentBuilder(settings.flowGraphs)
         .build<JIRMethod, JIRGraph>()
 
-    override fun tryFindClass(classpath: JIRClasspath, name: String): Optional<JIRClassOrInterface>? {
+    override fun tryFindClass(classpath: JIRClasspath, name: String): JIRResolvedClassResult? {
         return classesCache.getIfPresent(name)
     }
 
-    override fun tryFindType(classpath: JIRClasspath, name: String): Optional<JIRType>? {
+    override fun tryFindType(classpath: JIRClasspath, name: String): JIRResolvedTypeResult? {
         return typesCache.getIfPresent(name)
     }
 
-    override fun flowGraph(method: JIRMethod) = cfgCache.getIfPresent(method)
-    override fun instList(method: JIRMethod) = instCache.getIfPresent(method)
-    override fun rawInstList(method: JIRMethod) = rawInstCache.getIfPresent(method)
+    override fun flowGraph(method: JIRMethod) = cfgCache.getIfPresent(method)?.let {
+        JIRFlowGraphResultImpl(method, it)
+    }
+    override fun instList(method: JIRMethod) = instCache.getIfPresent(method)?.let {
+        JIRInstListResultImpl(method, it)
+    }
+    override fun rawInstList(method: JIRMethod) = rawInstCache.getIfPresent(method)?.let {
+        JIRRawInstListResultImpl(method, it)
+    }
 
     override fun on(event: JIRFeatureEvent) {
-        val result = event.result
-        val input = event.input
-        when (result) {
-            is Optional<*> -> {
-                if (result.isPresent) {
-                    val found = result.get()
-                    if (found is JIRClassOrInterface) {
-                        classesCache.put(found.name, Optional.of(found))
-                    } else if (found is JIRClassType && found.typeParameters.isEmpty()) {
-                        typesCache.put(found.typeName, Optional.of(found))
-                    }
-                } else {
-                    val name = input[0] as String
-                    classesCache.put(name, Optional.empty())
-                    typesCache.put(name, Optional.empty())
+        when (val result = event.result) {
+            is JIRResolvedClassResult -> classesCache.put(result.name, result)
+
+            is JIRResolvedTypeResult -> {
+                val found = result.type
+                if (found != null && found is JIRClassType) {
+                    typesCache.put(result.name, result)
                 }
             }
 
-            is JIRGraph -> {
-                val method = input[0] as JIRMethod
-                cfgCache.put(method, result)
-            }
-
-            is JIRInstList<*> -> {
-                val method = input[0] as JIRMethod
-                if (result.instructions.isEmpty()) {
-                    instCache.put(method, result as JIRInstList<JIRInst>)
-                    rawInstCache.put(method, result as JIRInstList<JIRRawInst>)
-                    return
-                }
-                if (result.instructions.first() is JIRInst) {
-                    instCache.put(method, result as JIRInstList<JIRInst>)
-                } else {
-                    rawInstCache.put(method, result as JIRInstList<JIRRawInst>)
-                }
-            }
+            is JIRFlowGraphResult -> cfgCache.put(result.method, result.flowGraph)
+            is JIRInstListResult -> instCache.put(result.method, result.instList)
+            is JIRRawInstListResult -> rawInstCache.put(result.method, result.rawInstList)
         }
     }
 

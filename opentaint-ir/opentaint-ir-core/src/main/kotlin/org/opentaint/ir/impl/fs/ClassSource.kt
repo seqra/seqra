@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.fs
 
 import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRDatabase
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
@@ -23,7 +23,7 @@ class LazyClassSourceImpl(
 }
 
 class PersistenceClassSource(
-    private val classpath: JIRClasspath,
+    private val db: JIRDatabase,
     override val className: String,
     val classId: Long,
     val locationId: Long,
@@ -31,17 +31,17 @@ class PersistenceClassSource(
 ) : ClassSource {
 
     private constructor(persistenceClassSource: PersistenceClassSource, byteCode: ByteArray) : this(
-        persistenceClassSource.classpath,
+        persistenceClassSource.db,
         persistenceClassSource.className,
         persistenceClassSource.classId,
         persistenceClassSource.locationId,
         byteCode
     )
 
-    override val location = PersistentByteCodeLocation(classpath, locationId)
+    override val location = PersistentByteCodeLocation(db, locationId)
 
     override val byteCode by lazy {
-        cachedByteCode ?: classpath.db.persistence.findBytecode(classId)
+        cachedByteCode ?: db.persistence.findBytecode(classId)
     }
 
     fun bind(byteCode: ByteArray?) = when {

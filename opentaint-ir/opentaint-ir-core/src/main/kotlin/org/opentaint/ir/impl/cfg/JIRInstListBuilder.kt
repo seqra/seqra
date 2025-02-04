@@ -157,7 +157,6 @@ import org.opentaint.ir.api.ext.toType
 class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawInst>) : JIRRawInstVisitor<JIRInst?>, JIRRawExprVisitor<JIRExpr> {
 
     val classpath: JIRClasspath = method.enclosingClass.classpath
-    private val methodRef = JIRMethodRefImpl(method)
 
     private val instMap = identityMap<JIRRawInst, JIRInst>()
     private var currentLineNumber = 0
@@ -288,7 +287,7 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
     }
 
     private fun newLocation(): JIRInstLocation {
-        return JIRInstLocationImpl(methodRef, index, currentLineNumber).also {
+        return JIRInstLocationImpl(method, index, currentLineNumber).also {
             index++
         }
     }

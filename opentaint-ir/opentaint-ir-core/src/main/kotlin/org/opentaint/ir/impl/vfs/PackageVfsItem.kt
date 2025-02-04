@@ -24,6 +24,11 @@ class PackageVfsItem(folderName: String?, parent: PackageVfsItem?) :
         return locationsClasses.asSequence().firstOrNull { predicate(it.key) }?.value
     }
 
+    fun findClasses(className: String, predicate: (Long) -> Boolean): List<ClassVfsItem> {
+        val locationsClasses = classes[className] ?: return emptyList()
+        return locationsClasses.asSequence().filter { predicate(it.key) }.map { it.value }.toList()
+    }
+
     fun visit(visitor: VfsVisitor) {
         visitor.visitPackage(this)
         subpackages.values.forEach {

@@ -7,10 +7,6 @@ class JIRFeaturesChain(val features: List<JIRClasspathFeature>) {
 
     fun newRequest(vararg input: Any) = JIRFeaturesRequest(features, arrayOf(*input))
 
-}
-
-class JIRFeaturesRequest(val features: List<JIRClasspathFeature>, val input: Array<Any>) {
-
     inline fun <reified T : JIRClasspathFeature, W> call(call: (T) -> W?): W? {
         var result: W? = null
         var event: JIRFeatureEvent? = null
@@ -18,7 +14,7 @@ class JIRFeaturesRequest(val features: List<JIRClasspathFeature>, val input: Arr
             if (feature is T) {
                 result = call(feature)
                 if (result != null) {
-                    event = feature.event(result, input)
+                    event = feature.event(result)
                     break
                 }
             }
@@ -31,13 +27,16 @@ class JIRFeaturesRequest(val features: List<JIRClasspathFeature>, val input: Arr
         return result
     }
 
+}
+
+class JIRFeaturesRequest(val features: List<JIRClasspathFeature>, val input: Array<Any>) {
+
     inline fun <reified T : JIRClasspathFeature> run(call: (T) -> Unit) {
         for (feature in features) {
             if (feature is T) {
                 call(feature)
             }
         }
-
     }
 
 }
@@ -45,5 +44,4 @@ class JIRFeaturesRequest(val features: List<JIRClasspathFeature>, val input: Arr
 class JIRFeatureEventImpl(
     override val feature: JIRClasspathFeature,
     override val result: Any,
-    override val input: Array<Any>
 ) : JIRFeatureEvent
