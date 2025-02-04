@@ -1,3 +1,4 @@
+import org.jetbrains.dokka.gradle.DokkaTaskPartial
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 val kotlinVersion: String by rootProject
@@ -73,6 +74,13 @@ allprojects {
     }
 
     tasks {
+
+        withType(DokkaTaskPartial::class).configureEach {
+            dokkaSourceSets.configureEach {
+                includes.from("README.md")
+            }
+        }
+
         withType<JavaCompile> {
             sourceCompatibility = "1.8"
             targetCompatibility = "1.8"
