@@ -67,7 +67,7 @@ class UnusedVariableAnalyzer(
             return false
         }
         if (inst is JIRAssignInst) {
-            if (inst.lhv is JIRArrayAccess && isUsedAt((inst.lhv as JIRArrayAccess).index)) {
+            if (inst.lhv is JIRArrayAccess && isUsedAt((inst.lhv as JIRArrayAccess))) {
                 return true
             }
             return isUsedAt(inst.rhv) && (inst.lhv !is JIRLocal || inst.rhv !is JIRLocal)

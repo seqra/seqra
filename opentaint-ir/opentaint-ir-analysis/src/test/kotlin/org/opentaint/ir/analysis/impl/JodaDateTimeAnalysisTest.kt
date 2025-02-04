@@ -1,11 +1,14 @@
 package org.opentaint.ir.analysis.impl
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.encodeToStream
 import org.opentaint.ir.analysis.JIRNaivePoints2EngineFactory
 import org.opentaint.ir.analysis.JIRSimplifiedGraphFactory
 import org.opentaint.ir.analysis.analyzers.NpeAnalyzer
 import org.opentaint.ir.analysis.analyzers.UnusedVariableAnalyzer
 import org.opentaint.ir.analysis.engine.Analyzer
 import org.opentaint.ir.analysis.engine.BidiIFDSForTaintAnalysis
+import org.opentaint.ir.analysis.engine.ClassUnitResolver
 import org.opentaint.ir.analysis.engine.IFDSInstanceProvider
 import org.opentaint.ir.analysis.engine.IFDSUnitInstance
 import org.opentaint.ir.analysis.engine.IFDSUnitTraverser
@@ -22,24 +25,23 @@ import org.junit.jupiter.api.Test
 class JodaDateTimeAnalysisTest : BaseTest() {
     companion object : WithDB(Usages, InMemoryHierarchy)
 
-    fun testOne(analyzer: Analyzer, unitResolver: UnitResolver<*>, ifdsInstanceProvider: IFDSInstanceProvider) {
+    private fun testOne(analyzer: Analyzer, unitResolver: UnitResolver<*>, ifdsInstanceProvider: IFDSInstanceProvider) {
         val clazz = cp.findClass<DateTime>()
 
         val graph = JIRSimplifiedGraphFactory().createGraph(cp)
         val points2Engine = JIRNaivePoints2EngineFactory.createPoints2Engine(graph)
         val engine = IFDSUnitTraverser(graph, analyzer, unitResolver, points2Engine.obtainDevirtualizer(), ifdsInstanceProvider)
         clazz.declaredMethods.forEach { engine.addStart(it) }
-        val result = engine.analyze().toDumpable().foundVulnerabilities
+        val result = engine.analyze().toDumpable()
 
-        result.forEachIndexed { ind, vulnerability ->
-            println("VULNERABILITY $ind:")
-            println(vulnerability)
-        }
+        println("Vulnerabilities found: ${result.foundVulnerabilities.size}")
+        val json = Json { prettyPrint = true }
+        json.encodeToStream(result, System.out)
     }
 
     @Test
     fun `test Unused variable analysis`() {
-        testOne(UnusedVariableAnalyzer(JIRSimplifiedGraphFactory().createGraph(cp)), MethodUnitResolver, IFDSUnitInstance)
+        testOne(UnusedVariableAnalyzer(JIRSimplifiedGraphFactory().createGraph(cp)), ClassUnitResolver(false), IFDSUnitInstance)
     }
 
     @Test

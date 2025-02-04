@@ -1,8 +1,7 @@
 package org.opentaint.ir.analysis.impl
 
-import juliet.testcasesupport.AbstractTestCase
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.analysis.DumpableVulnerabilityInstance
+import org.opentaint.ir.analysis.AnalysisEngine
 import org.opentaint.ir.analysis.JIRNaivePoints2EngineFactory
 import org.opentaint.ir.analysis.JIRSimplifiedGraphFactory
 import org.opentaint.ir.analysis.analyzers.NpeAnalyzer
@@ -10,18 +9,9 @@ import org.opentaint.ir.analysis.engine.BidiIFDSForTaintAnalysis
 import org.opentaint.ir.analysis.engine.IFDSUnitTraverser
 import org.opentaint.ir.analysis.engine.SingletonUnitResolver
 import org.opentaint.ir.analysis.graph.JIRApplicationGraphImpl
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.constructors
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.methods
-import org.opentaint.ir.impl.features.InMemoryHierarchy
-import org.opentaint.ir.impl.features.Usages
-import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.impl.features.usagesExt
-import org.opentaint.ir.testing.BaseTest
-import org.opentaint.ir.testing.WithDB
-import org.opentaint.ir.testing.allClasspath
 import org.opentaint.ir.testing.analysis.NPEExamples
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -30,58 +20,18 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.*
 import java.util.stream.Stream
-import kotlin.streams.asStream
 
-class NpeAnalysisTest : BaseTest() {
-    companion object : WithDB(Usages, InMemoryHierarchy) {
+class NpeAnalysisTest : BaseAnalysisTest() {
+    companion object {
         @JvmStatic
-        fun provideClassesForJuliet476(): Stream<Arguments> = runBlocking {
-            val cp = db.classpath(allClasspath)
-            val hierarchyExt = cp.hierarchyExt()
-            val baseClass = cp.findClass<AbstractTestCase>()
-            val classes = hierarchyExt.findSubClasses(baseClass, false)
-            classes.toArguments("CWE476")
-        }
+        fun provideClassesForJuliet476(): Stream<Arguments> =
+            provideClassesForJuliet(476, listOf("null_check_after_deref"))
 
         @JvmStatic
-        fun provideClassesForJuliet690(): Stream<Arguments> = runBlocking {
-            val cp = db.classpath(allClasspath)
-            val hierarchyExt = cp.hierarchyExt()
-            val baseClass = cp.findClass<AbstractTestCase>()
-            val classes = hierarchyExt.findSubClasses(baseClass, false)
-            classes.toArguments("CWE690")
-        }
+        fun provideClassesForJuliet690(): Stream<Arguments> =
+            provideClassesForJuliet(690)
 
-        private fun Sequence<JIRClassOrInterface>.toArguments(cwe: String): Stream<Arguments> = map { it.name }
-            .filter { it.contains(cwe) }
-            .filterNot { className -> bannedTests.any { className.contains(it) } }
-//            .filter { it.contains("Integer_68a") }
-            .sorted()
-            .map { Arguments.of(it) }
-            .asStream()
-
-        private val bannedTests = listOf(
-            // not NPE problems
-            "null_check_after_deref",
-
-            // TODO: containers not supported
-            "_72", "_73", "_74",
-
-            // TODO/Won't fix(?): dead parts of switches shouldn't be analyzed
-            "_15",
-
-            // TODO/Won't fix(?): passing through channels not supported
-            "_75",
-
-            // TODO/Won't fix(?): constant private/static methods not analyzed
-            "_11", "_08",
-
-            // TODO/Won't fix(?): unmodified non-final private variables not analyzed
-            "_05", "_07",
-
-            // TODO/Won't fix(?): unmodified non-final static variables not analyzed
-            "_10", "_14"
-        )
+        private val vulnerabilityType = NpeAnalyzer.value
     }
 
     @Test
@@ -226,26 +176,6 @@ class NpeAnalysisTest : BaseTest() {
         testJuliet(className)
     }
 
-    private fun testJuliet(className: String) {
-        val clazz = cp.findClass(className)
-        val goodMethod = clazz.methods.single { it.name == "good" }
-        val badMethod = clazz.methods.single { it.name == "bad" }
-
-        val goodNPE = findNpeSources(goodMethod)
-        val badNPE = findNpeSources(badMethod)
-
-        assertTrue(goodNPE.isEmpty())
-        assertTrue(badNPE.isNotEmpty())
-    }
-
-    private inline fun <reified T> testOneMethod(methodName: String, expectedLocations: Collection<String>) {
-        val method = cp.findClass<T>().declaredMethods.single { it.name == methodName }
-        val npes = findNpeSources(method)
-
-        // TODO: think about better assertions here
-        assertEquals(expectedLocations.toSet(), npes.map { it.sink }.toSet())
-    }
-
     @Test
     fun `analyse something`() {
         val testingMethod = cp.findClass<NPEExamples>().declaredMethods.single { it.name == "id" }
@@ -253,12 +183,22 @@ class NpeAnalysisTest : BaseTest() {
         print(results)
     }
 
-    private fun findNpeSources(method: JIRMethod): List<DumpableVulnerabilityInstance> {
-        val graph = JIRSimplifiedGraphFactory().createGraph(cp)
-        val points2Engine = JIRNaivePoints2EngineFactory.createPoints2Engine(graph)
-        val ifds = IFDSUnitTraverser(graph, NpeAnalyzer(graph), SingletonUnitResolver, points2Engine.obtainDevirtualizer(), BidiIFDSForTaintAnalysis)
-        ifds.addStart(method)
-        val result = ifds.analyze().toDumpable()
-        return result.foundVulnerabilities.filter { it.vulnerabilityType == NpeAnalyzer.value }
-    }
+    private fun testJuliet(className: String) = testSingleJulietClass(engine, vulnerabilityType, className)
+
+    private inline fun <reified T> testOneMethod(methodName: String, expectedLocations: Collection<String>) =
+        testOneAnalysisOnOneMethod<T>(engine, vulnerabilityType, methodName, expectedLocations)
+
+    private val engine: AnalysisEngine
+        get() {
+            val graph = JIRSimplifiedGraphFactory().createGraph(cp)
+            val points2Engine = JIRNaivePoints2EngineFactory.createPoints2Engine(graph)
+
+            return IFDSUnitTraverser(
+                graph,
+                NpeAnalyzer(graph),
+                SingletonUnitResolver,
+                points2Engine.obtainDevirtualizer(),
+                BidiIFDSForTaintAnalysis
+            )
+        }
 }

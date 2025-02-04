@@ -25,7 +25,8 @@ class SimplifiedJIRApplicationGraph(
     // For backward analysis we may want for method to start with "neutral" operation =>
     //  we add noop to the beginning of every method
     private fun getStartInst(method: JIRMethod): JIRNoopInst {
-        return JIRNoopInst(JIRInstLocationImpl(method, -1, -1))
+        val methodEntryLineNumber = method.flowGraph().entries.firstOrNull()?.lineNumber
+        return JIRNoopInst(JIRInstLocationImpl(method, -1, methodEntryLineNumber?.let { it - 1 } ?: -1))
     }
 
     override fun predecessors(node: JIRInst): Sequence<JIRInst> {
