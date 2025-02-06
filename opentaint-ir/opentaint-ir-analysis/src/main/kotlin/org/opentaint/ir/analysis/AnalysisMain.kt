@@ -38,17 +38,13 @@ data class VulnerabilityInstance(
     val vulnerabilityType: String,
     val realisationsGraph: TaintRealisationsGraph
 ) {
-    private fun JIRInst.prettyPrint(): String {
-        return "${toString()} (${location.method.enclosingClass.name}#${location.method.name}:${location.lineNumber})"
-    }
-
     fun toDumpable(maxPathsCount: Int): DumpableVulnerabilityInstance {
         return DumpableVulnerabilityInstance(
             vulnerabilityType,
-            realisationsGraph.sources.map { it.statement.prettyPrint() },
-            realisationsGraph.sink.statement.prettyPrint(),
+            realisationsGraph.sources.map { it.statement.toString() },
+            realisationsGraph.sink.statement.toString(),
             realisationsGraph.getAllPaths().take(maxPathsCount).map { intermediatePoints ->
-                intermediatePoints.map { it.statement.prettyPrint() }
+                intermediatePoints.map { it.statement.toString() }
             }.toList()
         )
     }
