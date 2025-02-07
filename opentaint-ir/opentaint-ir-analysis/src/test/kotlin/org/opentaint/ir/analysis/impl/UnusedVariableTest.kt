@@ -1,50 +1,24 @@
 package org.opentaint.ir.analysis.impl
 
-import juliet.testcasesupport.AbstractTestCase
-import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.analysis.DumpableVulnerabilityInstance
+import org.opentaint.ir.analysis.AnalysisEngine
 import org.opentaint.ir.analysis.JIRNaivePoints2EngineFactory
 import org.opentaint.ir.analysis.JIRSimplifiedGraphFactory
 import org.opentaint.ir.analysis.UnusedVariableAnalysisFactory
 import org.opentaint.ir.analysis.analyzers.UnusedVariableAnalyzer
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.methods
-import org.opentaint.ir.api.ext.packageName
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
-import org.opentaint.ir.impl.features.hierarchyExt
-import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
-import org.opentaint.ir.testing.allClasspath
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.*
 import java.util.stream.Stream
-import kotlin.streams.asStream
 
-class UnusedVariableTest : BaseTest() {
+class UnusedVariableTest : BaseAnalysisTest() {
     companion object : WithDB(Usages, InMemoryHierarchy) {
         @JvmStatic
-        fun provideClassesForJuliet563(): Stream<Arguments> = runBlocking {
-            val cp = db.classpath(allClasspath)
-            val hierarchyExt = cp.hierarchyExt()
-            val baseClass = cp.findClass<AbstractTestCase>()
-            val classes = hierarchyExt.findSubClasses(baseClass, false)
-            classes.toArguments("CWE563")
-        }
-
-        private fun Sequence<JIRClassOrInterface>.toArguments(cwe: String): Stream<Arguments> = map { it.name }
-            .filter { it.contains(cwe) }
-            .filterNot { className -> bannedTests.any { className.contains(it) } }
-            .sorted()
-            .map { Arguments.of(it) }
-            .asStream()
-
-        private val bannedTests = listOf(
+        fun provideClassesForJuliet563(): Stream<Arguments> = provideClassesForJuliet(563, listOf(
             // Unused variables are already optimized out by cfg
             "unused_uninit_variable_", "unused_init_variable_int", "unused_init_variable_long", "unused_init_variable_String_",
 
@@ -53,51 +27,21 @@ class UnusedVariableTest : BaseTest() {
 
             // Expected answers are strange, seems to be problem in tests
             "_12",
+        ))
 
-            // TODO: containers not supported
-            "_72", "_73", "_74",
-
-            // TODO/Won't fix(?): dead parts of switches shouldn't be analyzed
-            "_15",
-
-            // TODO/Won't fix(?): passing through channels not supported
-            "_75",
-
-            // TODO/Won't fix(?): constant private/static methods not analyzed
-            "_11", "_08",
-
-            // TODO/Won't fix(?): unmodified non-final private variables not analyzed
-            "_05", "_07",
-
-            // TODO/Won't fix(?): unmodified non-final static variables not analyzed
-            "_10", "_14"
-        )
+        private val vulnerabilityType = UnusedVariableAnalyzer.value
     }
 
     @ParameterizedTest
     @MethodSource("provideClassesForJuliet563")
     fun `test on Juliet's CWE 563`(className: String) {
-        testJuliet(className)
+        testSingleJulietClass(engine, vulnerabilityType, className)
     }
 
-    private fun testJuliet(className: String) {
-        val clazz = cp.findClass(className)
-        val goodMethod = clazz.methods.single { it.name == "good" }
-        val badMethod = clazz.methods.single { it.name == "bad" }
-
-        val good = findUnusedVariables(goodMethod)
-        val bad = findUnusedVariables(badMethod)
-        val message = clazz.packageName + "" + className
-        assertTrue(bad.isNotEmpty(), "not found problem in bad method of $message")
-        assertTrue(good.isEmpty(), "found problem in good method of $message")
-    }
-
-    private fun findUnusedVariables(method: JIRMethod): List<DumpableVulnerabilityInstance> {
-        val graph = JIRSimplifiedGraphFactory().createGraph(cp)
-        val points2Engine = JIRNaivePoints2EngineFactory.createPoints2Engine(graph)
-        val ifds = UnusedVariableAnalysisFactory().createAnalysisEngine(graph, points2Engine)
-        ifds.addStart(method)
-        val result = ifds.analyze()
-        return result.toDumpable().foundVulnerabilities.filter { it.vulnerabilityType == UnusedVariableAnalyzer.value }
-    }
+    private val engine: AnalysisEngine
+        get() {
+            val graph = JIRSimplifiedGraphFactory().createGraph(cp)
+            val points2Engine = JIRNaivePoints2EngineFactory.createPoints2Engine(graph)
+            return UnusedVariableAnalysisFactory().createAnalysisEngine(graph, points2Engine)
+        }
 }

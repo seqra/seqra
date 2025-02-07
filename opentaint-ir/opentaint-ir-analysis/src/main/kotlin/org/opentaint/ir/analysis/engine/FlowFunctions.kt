@@ -40,9 +40,9 @@ interface FlowFunctionsSpace {
 }
 
 interface Analyzer {
+    val name: String
     val backward: Analyzer
     val flowFunctions: FlowFunctionsSpace
-    val name: String
 
     fun calculateSources(ifdsResult: IFDSResult): AnalysisResult
 }
