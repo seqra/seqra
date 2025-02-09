@@ -845,7 +845,7 @@ class MethodNodeBuilder(
     }
 
     override fun visitJIRRawClassConstant(value: JIRRawClassConstant) {
-        currentInsnList.add(LdcInsnNode(value.className.jvmClassName))
+        currentInsnList.add(LdcInsnNode(Type.getType(value.className.jvmTypeName)))
         updateStackInfo(1)
     }
 
