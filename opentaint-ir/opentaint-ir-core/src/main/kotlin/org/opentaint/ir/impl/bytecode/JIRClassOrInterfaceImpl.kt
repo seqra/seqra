@@ -26,8 +26,6 @@ class JIRClassOrInterfaceImpl(
     private val featuresChain: JIRFeaturesChain,
 ) : JIRClassOrInterface {
 
-    private val hasClassFeatures = featuresChain.features.any { it is JIRClassExtFeature }
-
     private val cachedInfo: ClassInfo? = when (classSource) {
         is LazyClassSourceImpl -> classSource.info // that means that we are loading bytecode. It can be removed let's cache info
         is ClassSourceImpl -> classSource.info // we can easily read link let's do it
@@ -36,7 +34,7 @@ class JIRClassOrInterfaceImpl(
 
     private val extensionData by lazy(PUBLICATION) {
         HashMap<String, Any>().also { map ->
-            featuresChain.newRequest().run<JIRClassExtFeature> {
+            featuresChain.run<JIRClassExtFeature> {
                 map.putAll(it.extensionValuesOf(this).orEmpty())
             }
         }
@@ -115,55 +113,12 @@ class JIRClassOrInterfaceImpl(
     override val declaredFields: List<JIRField>
         get() {
             val default = info.fields.map { JIRFieldImpl(this, it) }
-            if (hasClassFeatures) {
-                val additional = TreeSet<JIRField> { o1, o2 -> o1.name.compareTo(o2.name) }
-                featuresChain.newRequest().run<JIRClassExtFeature> {
-                    it.fieldsOf(this, default)?.let {
-                        additional.addAll(it)
-                    }
-                }
-                if (additional.isNotEmpty()) {
-                    val additionalMap = additional.associateBy { it.name }.toMutableMap()
-                    // we need to preserve order of methods
-                    return default.map {
-                        val uniqueName = it.name
-                        additionalMap[uniqueName]?.also {
-                            additionalMap.remove(uniqueName)
-                        } ?: it
-                    } + additionalMap.values
-                }
-            }
-            return default
+            return default.joinFeatureFields(this, featuresChain)
         }
-
-    private val JIRMethod.uniqueName: String get() = name + description
 
     override val declaredMethods: List<JIRMethod> by lazy(PUBLICATION) {
         val default = info.methods.map { toJIRMethod(it, featuresChain) }
-        if (hasClassFeatures) {
-            val additional = TreeSet<JIRMethod> { o1, o2 ->
-                o1.uniqueName.compareTo(o2.uniqueName)
-            }
-            featuresChain.newRequest().run<JIRClassExtFeature> {
-                it.methodsOf(this, default)?.let {
-                    additional.addAll(it)
-                }
-            }
-            if (additional.isNotEmpty()) {
-                val additionalMap = additional.associateBy { it.uniqueName }.toMutableMap()
-                // we need to preserve order of methods
-                default.map {
-                    val uniqueName = it.uniqueName
-                    additionalMap[uniqueName]?.also {
-                        additionalMap.remove(uniqueName)
-                    } ?: it
-                } + additionalMap.values
-            } else {
-                default
-            }
-        } else {
-            default
-        }
+        default.joinFeatureMethods(this, featuresChain)
     }
 
     override fun equals(other: Any?): Boolean {
@@ -180,4 +135,60 @@ class JIRClassOrInterfaceImpl(
     override fun toString(): String {
         return "(id:${declaration.location.id})$name"
     }
+}
+
+fun List<JIRField>.joinFeatureFields(
+    jIRClassOrInterface: JIRClassOrInterface,
+    featuresChain: JIRFeaturesChain
+): List<JIRField> {
+    val hasClassFeatures = featuresChain.features.any { it is JIRClassExtFeature }
+    if (hasClassFeatures) {
+        val additional = TreeSet<JIRField> { o1, o2 -> o1.name.compareTo(o2.name) }
+        featuresChain.run<JIRClassExtFeature> {
+            it.fieldsOf(jIRClassOrInterface, this)?.let {
+                additional.addAll(it)
+            }
+        }
+        if (additional.isNotEmpty()) {
+            return appendOrOverride(additional) { it.name }
+        }
+    }
+    return this
+}
+
+fun List<JIRMethod>.joinFeatureMethods(
+    jIRClassOrInterface: JIRClassOrInterface,
+    featuresChain: JIRFeaturesChain
+): List<JIRMethod> {
+    val hasClassFeatures = featuresChain.features.any { it is JIRClassExtFeature }
+    if (hasClassFeatures) {
+        val additional = TreeSet<JIRMethod> { o1, o2 ->
+            o1.uniqueName.compareTo(o2.uniqueName)
+        }
+        featuresChain.run<JIRClassExtFeature> {
+            it.methodsOf(jIRClassOrInterface, this)?.let {
+                additional.addAll(it)
+            }
+        }
+        if (additional.isNotEmpty()) {
+            return appendOrOverride(additional) { it.uniqueName }
+        }
+    }
+    return this
+}
+
+private val JIRMethod.uniqueName: String get() = name + description
+
+private inline fun <T> List<T>.appendOrOverride(additional: Set<T>, getKey: (T) -> String): List<T> {
+    if (additional.isNotEmpty()) {
+        val additionalMap = additional.associateBy(getKey).toMutableMap()
+        // we need to preserve order
+        return map {
+            val uniqueName = getKey(it)
+            additionalMap[uniqueName]?.also {
+                additionalMap.remove(uniqueName)
+            } ?: it
+        } + additionalMap.values
+    }
+    return this
 }

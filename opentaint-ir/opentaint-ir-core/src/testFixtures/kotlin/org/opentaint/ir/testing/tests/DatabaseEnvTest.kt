@@ -457,6 +457,46 @@ abstract class DatabaseEnvTest {
     }
 
     @Test
+    fun `virtual class methods override should work`() {
+        val fakeClassName = "fakeClass"
+        val fakeMethodName1 = "fakeMethod1"
+        val fakeMethodName2 = "fakeMethod2"
+        val cp = runBlocking {
+            cp.db.classpath(allClasspath, listOf(
+                VirtualClasses.builder {
+                    virtualClass(fakeClassName) {
+                        method(fakeMethodName1) {
+                            returnType(PredefinedPrimitives.Int)
+                            params(PredefinedPrimitives.Int)
+                        }
+                    }
+                },
+                VirtualClassContent.builder {
+                    content {
+                        matcher { it.name == fakeClassName }
+                        method { builder, _ ->
+                            builder.name(fakeMethodName2)
+                            builder.returnType(PredefinedPrimitives.Int)
+                            builder.params(PredefinedPrimitives.Int)
+                        }
+                    }
+                }
+            ))
+        }
+        val clazz = cp.findClass(fakeClassName)
+        assertTrue(clazz is JIRVirtualClass)
+
+        with(clazz){
+            val method = findDeclaredMethodOrNull(fakeMethodName2, "(I)I")
+            assertTrue(method is JIRVirtualMethod)
+            assertNotNull(method?.enclosingClass)
+        }
+
+        val classes = cp.findClasses(fakeClassName)
+        assertEquals(1, classes.size)
+    }
+
+    @Test
     fun `virtual fields and methods of virtual classes`() {
         val fakeFieldName = "fakeField"
         val fakeMethodName = "fakeMethod"

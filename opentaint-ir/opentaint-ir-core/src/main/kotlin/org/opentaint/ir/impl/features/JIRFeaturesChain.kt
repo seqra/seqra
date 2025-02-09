@@ -5,7 +5,13 @@ import org.opentaint.ir.api.JIRFeatureEvent
 
 class JIRFeaturesChain(val features: List<JIRClasspathFeature>) {
 
-    fun newRequest(vararg input: Any) = JIRFeaturesRequest(features, arrayOf(*input))
+    inline fun <reified T : JIRClasspathFeature> run(call: (T) -> Unit) {
+        for (feature in features) {
+            if (feature is T) {
+                call(feature)
+            }
+        }
+    }
 
     inline fun <reified T : JIRClasspathFeature, W> call(call: (T) -> W?): W? {
         var result: W? = null
@@ -26,19 +32,6 @@ class JIRFeaturesChain(val features: List<JIRClasspathFeature>) {
         }
         return result
     }
-
-}
-
-class JIRFeaturesRequest(val features: List<JIRClasspathFeature>, val input: Array<Any>) {
-
-    inline fun <reified T : JIRClasspathFeature> run(call: (T) -> Unit) {
-        for (feature in features) {
-            if (feature is T) {
-                call(feature)
-            }
-        }
-    }
-
 }
 
 class JIRFeatureEventImpl(

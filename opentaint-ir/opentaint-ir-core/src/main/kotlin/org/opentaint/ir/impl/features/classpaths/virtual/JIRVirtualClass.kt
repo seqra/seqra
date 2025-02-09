@@ -7,6 +7,9 @@ import org.opentaint.ir.api.JIRDeclaration
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.objectClass
 import org.opentaint.ir.impl.bytecode.JIRDeclarationImpl
+import org.opentaint.ir.impl.bytecode.joinFeatureFields
+import org.opentaint.ir.impl.bytecode.joinFeatureMethods
+import org.opentaint.ir.impl.features.JIRFeaturesChain
 import org.opentaint.ir.impl.features.classpaths.VirtualLocation
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.ClassNode
@@ -25,16 +28,23 @@ interface JIRVirtualClass : JIRClassOrInterface {
 open class JIRVirtualClassImpl(
     override val name: String,
     override val access: Int = Opcodes.ACC_PUBLIC,
-    override val declaredFields: List<JIRVirtualField>,
-    override val declaredMethods: List<JIRVirtualMethod>
+    private val initialFields: List<JIRVirtualField>,
+    private val initialMethods: List<JIRVirtualMethod>
 ) : JIRVirtualClass {
 
-    init {
-        declaredFields.forEach { it.bind(this) }
-        declaredMethods.forEach { it.bind(this) }
-    }
+    private val featuresChain get() = JIRFeaturesChain(classpath.features.orEmpty())
 
     private lateinit var virtualLocation: VirtualLocation
+
+    override val declaredFields: List<JIRVirtualField> by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        val default = initialFields.onEach { it.bind(this) }
+        default.joinFeatureFields(this, featuresChain).map { it as JIRVirtualField }
+    }
+
+    override val declaredMethods: List<JIRVirtualMethod> by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        val default = initialMethods.onEach { it.bind(this) }
+        default.joinFeatureMethods(this, featuresChain).map { it as JIRVirtualMethod }
+    }
 
     override val declaration: JIRDeclaration
         get() = JIRDeclarationImpl.of(virtualLocation, this)
