@@ -14,13 +14,17 @@ import org.opentaint.ir.api.cfg.JIRGtExpr
 import org.opentaint.ir.api.cfg.JIRIfInst
 import org.opentaint.ir.api.cfg.JIRInt
 import org.opentaint.ir.api.cfg.JIRLocalVar
+import org.opentaint.ir.api.cfg.JIRReturnInst
 import org.opentaint.ir.api.ext.cfg.callExpr
 import org.opentaint.ir.api.ext.cfg.locals
 import org.opentaint.ir.api.ext.cfg.values
 import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.ext.humanReadableSignature
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.primitives.Primitives
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnJre
@@ -178,6 +182,17 @@ class InstructionsTest : BaseTest() {
             failed.isEmpty(),
             "Failed to process methods: \n${failed.joinToString("\n") { it.enclosingClass.name + "#" + it.name }}"
         )
+    }
+
+    @Test
+    fun `resolving primitive types for local variables should work`() {
+        val clazz = cp.findClass<Primitives>()
+        clazz.declaredMethods.filter { !it.isConstructor }.forEach {
+            val returnValue = (it.instList.last() as JIRReturnInst).returnValue
+            assertNotNull(returnValue!!)
+            val expected = cp.findTypeOrNull(it.returnType.typeName)
+            assertEquals(expected, returnValue.type, "types not matched for ${it.humanReadableSignature}")
+        }
     }
 }
 
