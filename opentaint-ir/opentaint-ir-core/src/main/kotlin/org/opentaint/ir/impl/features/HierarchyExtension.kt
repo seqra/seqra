@@ -9,7 +9,6 @@ import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.ext.JAVA_OBJECT
-import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findDeclaredMethodOrNull
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.storage.BatchedSequence
@@ -54,26 +53,27 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
 
     }
 
-    override fun findSubClasses(name: String, allHierarchy: Boolean): Sequence<JIRClassOrInterface> {
+    override fun findSubClasses(name: String, allHierarchy: Boolean, includeOwn: Boolean): Sequence<JIRClassOrInterface> {
         val jIRClass = cp.findClassOrNull(name) ?: return emptySequence()
-        if (jIRClass.isFinal) {
-            return emptySequence()
-        }
-        if (cp.db.isInstalled(InMemoryHierarchy)) {
-            return cp.findSubclassesInMemory(name, allHierarchy, false)
-        }
-        return findSubClasses(jIRClass, allHierarchy)
+        return when {
+            jIRClass.isFinal -> emptySequence()
+            cp.db.isInstalled(InMemoryHierarchy) -> cp.findSubclassesInMemory(name, allHierarchy, false)
+            else -> findSubClasses(jIRClass, allHierarchy, false)
+        }.appendOwn(jIRClass, includeOwn)
     }
 
-    override fun classWithSubClasses(name: String, allHierarchy: Boolean): Sequence<JIRClassOrInterface> {
-        return sequenceOf(cp.findClass(name)) + findSubClasses(name, allHierarchy)
+    private fun Sequence<JIRClassOrInterface>.appendOwn(root: JIRClassOrInterface, includeOwn: Boolean): Sequence<JIRClassOrInterface> {
+        return if(includeOwn) sequenceOf(root) + this else this
     }
 
-    override fun findSubClasses(jIRClass: JIRClassOrInterface, allHierarchy: Boolean): Sequence<JIRClassOrInterface> {
+    override fun findSubClasses(jIRClass: JIRClassOrInterface, allHierarchy: Boolean, includeOwn: Boolean): Sequence<JIRClassOrInterface> {
         if (jIRClass.isFinal) {
-            return emptySequence()
+            return emptySequence<JIRClassOrInterface>().appendOwn(jIRClass, includeOwn)
         }
-        return findSubClasses(jIRClass, allHierarchy, false)
+        return when {
+            jIRClass.isFinal -> emptySequence()
+            else -> explicitSubClasses(jIRClass, allHierarchy, false)
+        }.appendOwn(jIRClass, includeOwn)
     }
 
     override fun findOverrides(jIRMethod: JIRMethod, includeAbstract: Boolean): Sequence<JIRMethod> {
@@ -82,12 +82,12 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
         }
         val desc = jIRMethod.description
         val name = jIRMethod.name
-        return findSubClasses(jIRMethod.enclosingClass, allHierarchy = true, true)
+        return explicitSubClasses(jIRMethod.enclosingClass, allHierarchy = true, true)
             .mapNotNull { it.findDeclaredMethodOrNull(name, desc) }
             .filter { !it.isPrivate }
     }
 
-    private fun findSubClasses(
+    private fun explicitSubClasses(
         jIRClass: JIRClassOrInterface,
         allHierarchy: Boolean,
         full: Boolean

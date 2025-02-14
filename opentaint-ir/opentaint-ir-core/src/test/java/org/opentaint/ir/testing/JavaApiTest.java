@@ -4,13 +4,9 @@ import com.google.common.collect.Lists;
 import org.opentaint.ir.api.JIRClassOrInterface;
 import org.opentaint.ir.api.JIRClasspath;
 import org.opentaint.ir.api.JIRDatabase;
-import org.opentaint.ir.api.cfg.JIRArgument;
-import org.opentaint.ir.api.cfg.JIRExpr;
-import org.opentaint.ir.api.cfg.TypedExprResolver;
 import org.opentaint.ir.impl.Opentaint-IR;
 import org.opentaint.ir.impl.JIRSettings;
 import org.opentaint.ir.impl.features.Usages;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
