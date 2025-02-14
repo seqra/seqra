@@ -29,16 +29,15 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
                 SELECT Classes.name, ClassHierarchies.class_id FROM ClassHierarchies
                     JOIN Symbols ON Symbols.id = ClassHierarchies.super_id
                     JOIN Classes ON Classes.id = ClassHierarchies.class_id
-                    WHERE Symbols.name = ? and ($sinceId is null or ClassHierarchies.class_id > $sinceId)
+                    WHERE Symbols.name = ?
                 UNION ALL
                 SELECT Classes.name, ClassHierarchies.class_id FROM ClassHierarchies
                     JOIN Classes ON Classes.id = ClassHierarchies.class_id
-                    JOIN Hierarchy ON Hierarchy.class_name_id = ClassHierarchies.super_id
-                    WHERE $sinceId is null or ClassHierarchies.id > $sinceId)
+                    JOIN Hierarchy ON Hierarchy.class_name_id = ClassHierarchies.super_id)
             SELECT DISTINCT Classes.id, Classes.location_id,  Symbols.name as name_name, Classes.bytecode from Hierarchy
                 JOIN Classes ON Classes.id = hierarchy.class_id
                 JOIN Symbols ON Symbols.id = Classes.name
-             WHERE location_id in ($locationIds)
+             WHERE location_id in ($locationIds) and ($sinceId is null or Hierarchy.class_id > $sinceId)
              ORDER BY Classes.id
         """.trimIndent()
 
