@@ -23,6 +23,7 @@ import org.opentaint.ir.api.ext.isNullable
 import org.opentaint.ir.api.ext.jIRdbSignature
 import org.opentaint.ir.api.ext.jvmSignature
 import org.opentaint.ir.api.ext.methods
+import org.opentaint.ir.api.ext.toType
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.VirtualClassContent
 import org.opentaint.ir.impl.features.classpaths.VirtualClasses
@@ -41,6 +42,7 @@ import org.opentaint.ir.testing.allClasspath
 import org.opentaint.ir.testing.hierarchies.Creature
 import org.opentaint.ir.testing.skipAssertionsOn
 import org.opentaint.ir.testing.structure.FieldsAndMethods
+import org.opentaint.ir.testing.structure.HiddenFieldSuperClass.HiddenFieldSuccClass
 import org.opentaint.ir.testing.usages.Generics
 import org.opentaint.ir.testing.usages.HelloWorldAnonymousClasses
 import org.opentaint.ir.testing.usages.WithInner
@@ -486,7 +488,7 @@ abstract class DatabaseEnvTest {
         val clazz = cp.findClass(fakeClassName)
         assertTrue(clazz is JIRVirtualClass)
 
-        with(clazz){
+        with(clazz) {
             val method = findDeclaredMethodOrNull(fakeMethodName2, "(I)I")
             assertTrue(method is JIRVirtualMethod)
             assertNotNull(method?.enclosingClass)
@@ -605,6 +607,12 @@ abstract class DatabaseEnvTest {
         val optional = cache.tryFindClass(cp, existedClass)
         assertNotNull(optional)
         assertNotNull(optional!!.clazz)
+    }
+
+    @Test
+    fun `hidden fields`() {
+        val hiddenFieldSuccClass = cp.findClass<HiddenFieldSuccClass>()
+        assertTrue(hiddenFieldSuccClass.toType().fields.size == hiddenFieldSuccClass.fields.size)
     }
 
     private inline fun <reified T> findSubClasses(allHierarchy: Boolean = false): Sequence<JIRClassOrInterface> {

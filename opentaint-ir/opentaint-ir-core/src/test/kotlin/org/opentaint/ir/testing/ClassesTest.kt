@@ -32,5 +32,6 @@ class ClassesTest : DatabaseEnvTest() {
             assertEquals(count, classes.size, "Expected count for $name is $count but was ${classes.size}")
         }
     }
+
 }
 
