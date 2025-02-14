@@ -780,7 +780,10 @@ class RawInstListBuilder(
     private fun buildUnary(insn: InsnNode) {
         val operand = pop()
         val expr = when (val opcode = insn.opcode) {
-            in Opcodes.INEG..Opcodes.DNEG -> JIRRawNegExpr(operand.typeName, operand)
+            in Opcodes.INEG..Opcodes.DNEG -> {
+                val resolvedType = maxOfPrimitiveTypes(operand.typeName.typeName, PredefinedPrimitives.Int)
+                JIRRawNegExpr(TypeNameImpl(resolvedType), operand)
+            }
             Opcodes.ARRAYLENGTH -> JIRRawLengthExpr(PredefinedPrimitives.Int.typeName(), operand)
             else -> error("Unknown unary opcode $opcode")
         }

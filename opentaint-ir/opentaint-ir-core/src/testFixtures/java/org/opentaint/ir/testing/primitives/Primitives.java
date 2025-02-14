@@ -21,4 +21,24 @@ public class Primitives {
     public int example(char s, char c) {
         return s + c;
     }
+
+    public int unaryExample(char a) {
+        return -a;
+    }
+
+    public int unaryExample(byte a) {
+        return -a;
+    }
+
+    public int unaryExample(short a) {
+        return -a;
+    }
+
+    public long unaryExample(long a) {
+        return -a;
+    }
+
+    public float unaryExample(float a) {
+        return -a;
+    }
 }
