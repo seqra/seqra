@@ -765,9 +765,9 @@ class RawInstListBuilder(
 
     private fun resolveType(left: TypeName, right: TypeName): TypeName {
         val leftName = left.typeName
-        val rightName = right.typeName
         val leftIsPrimitive = PredefinedPrimitives.matches(leftName)
-        if (leftIsPrimitive && leftName != rightName) {
+        if (leftIsPrimitive) {
+            val rightName = right.typeName
             val max = maxOfPrimitiveTypes(leftName, rightName)
             return when {
                 max.lessThen(PredefinedPrimitives.Int)-> TypeNameImpl(PredefinedPrimitives.Int)
