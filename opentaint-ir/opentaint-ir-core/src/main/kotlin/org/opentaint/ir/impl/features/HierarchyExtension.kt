@@ -9,6 +9,7 @@ import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.ext.JAVA_OBJECT
+import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findDeclaredMethodOrNull
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.storage.BatchedSequence
@@ -62,6 +63,10 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
             return cp.findSubclassesInMemory(name, allHierarchy, false)
         }
         return findSubClasses(jIRClass, allHierarchy)
+    }
+
+    override fun classWithSubClasses(name: String, allHierarchy: Boolean): Sequence<JIRClassOrInterface> {
+        return sequenceOf(cp.findClass(name)) + findSubClasses(name, allHierarchy)
     }
 
     override fun findSubClasses(jIRClass: JIRClassOrInterface, allHierarchy: Boolean): Sequence<JIRClassOrInterface> {

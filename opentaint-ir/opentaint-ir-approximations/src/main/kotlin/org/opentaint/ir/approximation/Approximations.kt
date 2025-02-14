@@ -55,24 +55,26 @@ object Approximations : JIRFeature<Any?, Any?>, JIRClassExtFeature, JIRInstExtFe
     ): ByteCodeIndexer = ApproximationIndexer(originalToApproximation, approximationToOriginal)
 
     override fun onSignal(signal: JIRSignal) {
-        val persistence = signal.jIRdb.persistence
-        persistence.read { jooq ->
-            val approxSymbol = persistence.findSymbolId(approximationAnnotationClassName)
-            jooq.select(CLASSES.NAME, ANNOTATIONVALUES.CLASS_SYMBOL)
-                .from(ANNOTATIONS)
-                .join(CLASSES).on(ANNOTATIONS.CLASS_ID.eq(CLASSES.ID))
-                .join(ANNOTATIONVALUES).on(ANNOTATIONVALUES.ANNOTATION_ID.eq(ANNOTATIONS.ID))
-                .where(
-                    ANNOTATIONS.ANNOTATION_NAME.eq(approxSymbol).and(
-                        ANNOTATIONVALUES.NAME.eq("value")
+        if (signal is JIRSignal.BeforeIndexing) {
+            val persistence = signal.jIRdb.persistence
+            persistence.read { jooq ->
+                val approxSymbol = persistence.findSymbolId(approximationAnnotationClassName)
+                jooq.select(CLASSES.NAME, ANNOTATIONVALUES.CLASS_SYMBOL)
+                    .from(ANNOTATIONS)
+                    .join(CLASSES).on(ANNOTATIONS.CLASS_ID.eq(CLASSES.ID))
+                    .join(ANNOTATIONVALUES).on(ANNOTATIONVALUES.ANNOTATION_ID.eq(ANNOTATIONS.ID))
+                    .where(
+                        ANNOTATIONS.ANNOTATION_NAME.eq(approxSymbol).and(
+                            ANNOTATIONVALUES.NAME.eq("value")
+                        )
                     )
-                )
-                .fetch().forEach { (approximation, original) ->
-                    val approximationClassName = persistence.findSymbolName(approximation!!).toApproximationName()
-                    val originalClassName = persistence.findSymbolName(original!!).toOriginalName()
-                    originalToApproximation[originalClassName] = approximationClassName
-                    approximationToOriginal[approximationClassName] = originalClassName
-                }
+                    .fetch().forEach { (approximation, original) ->
+                        val approximationClassName = persistence.findSymbolName(approximation!!).toApproximationName()
+                        val originalClassName = persistence.findSymbolName(original!!).toOriginalName()
+                        originalToApproximation[originalClassName] = approximationClassName
+                        approximationToOriginal[approximationClassName] = originalClassName
+                    }
+            }
         }
     }
 

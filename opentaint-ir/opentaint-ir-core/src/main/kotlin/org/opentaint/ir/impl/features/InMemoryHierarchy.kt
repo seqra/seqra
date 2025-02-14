@@ -89,6 +89,9 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
             is JIRSignal.Drop -> {
                 hierarchies[signal.jIRdb]?.clear()
             }
+            is JIRSignal.Closed -> {
+                hierarchies.remove(signal.jIRdb)
+            }
 
             else -> Unit
         }
