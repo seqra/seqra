@@ -2,25 +2,11 @@ package org.opentaint.ir.impl.analysis.impl
 
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.PredefinedPrimitives
-import org.opentaint.ir.api.cfg.BsmStringArg
-import org.opentaint.ir.api.cfg.DefaultJIRInstVisitor
-import org.opentaint.ir.api.cfg.JIRAssignInst
-import org.opentaint.ir.api.cfg.JIRCatchInst
-import org.opentaint.ir.api.cfg.JIRDynamicCallExpr
-import org.opentaint.ir.api.cfg.JIRGotoInst
-import org.opentaint.ir.api.cfg.JIRGraph
-import org.opentaint.ir.api.cfg.JIRIfInst
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRInstRef
-import org.opentaint.ir.api.cfg.JIRLocalVar
-import org.opentaint.ir.api.cfg.JIRStaticCallExpr
-import org.opentaint.ir.api.cfg.JIRStringConstant
-import org.opentaint.ir.api.cfg.JIRSwitchInst
-import org.opentaint.ir.api.cfg.JIRValue
-import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
+import org.opentaint.ir.api.cfg.*
 import org.opentaint.ir.api.ext.autoboxIfNeeded
 import org.opentaint.ir.api.ext.findTypeOrNull
 import org.opentaint.ir.impl.cfg.JIRGraphImpl
+import org.opentaint.ir.impl.cfg.VirtualMethodRefImpl
 import org.opentaint.ir.impl.cfg.methodRef
 import kotlin.collections.set
 
@@ -61,10 +47,11 @@ class StringConcatSimplifier(val jIRGraph: JIRGraph) : DefaultJIRInstVisitor<JIR
                     val firstStr = stringify(inst, first, result)
                     val secondStr = stringify(inst, second, result)
 
-                    val concatMethod = stringType.methods.first {
+                    val concatMethod = stringType.declaredMethods.first {
                         it.name == "concat" && it.parameters.size == 1 && it.parameters.first().type == stringType
                     }
-                    val newConcatExpr = JIRVirtualCallExpr(concatMethod.methodRef(), firstStr, listOf(secondStr))
+                    val methodRef = VirtualMethodRefImpl.of(stringType, concatMethod)
+                    val newConcatExpr = JIRVirtualCallExpr(methodRef, firstStr, listOf(secondStr))
                     result += JIRAssignInst(inst.location, lhv, newConcatExpr)
                     instructionReplacements[inst] = result.first()
                     catchReplacements[inst] = result
@@ -107,7 +94,8 @@ class StringConcatSimplifier(val jIRGraph: JIRGraph) : DefaultJIRInstVisitor<JIR
                 val method = boxedType.methods.first {
                     it.name == "toString" && it.parameters.isEmpty()
                 }
-                val toStringExpr = JIRVirtualCallExpr(method.methodRef(), value, emptyList())
+                val methodRef = VirtualMethodRefImpl.of(boxedType, method)
+                val toStringExpr = JIRVirtualCallExpr(methodRef, value, emptyList())
                 val assignment = JIRLocalVar("${value}String", stringType)
                 instList += JIRAssignInst(inst.location, assignment, toStringExpr)
                 assignment

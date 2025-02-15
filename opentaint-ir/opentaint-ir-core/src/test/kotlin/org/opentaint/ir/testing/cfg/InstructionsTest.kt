@@ -7,25 +7,19 @@ import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClassProcessingTask
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.api.cfg.JIRArgument
-import org.opentaint.ir.api.cfg.JIRAssignInst
-import org.opentaint.ir.api.cfg.JIRGeExpr
-import org.opentaint.ir.api.cfg.JIRGtExpr
-import org.opentaint.ir.api.cfg.JIRIfInst
-import org.opentaint.ir.api.cfg.JIRInt
-import org.opentaint.ir.api.cfg.JIRLocalVar
-import org.opentaint.ir.api.cfg.JIRReturnInst
+import org.opentaint.ir.api.cfg.*
 import org.opentaint.ir.api.ext.cfg.callExpr
 import org.opentaint.ir.api.ext.cfg.locals
 import org.opentaint.ir.api.ext.cfg.values
 import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.api.ext.humanReadableSignature
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.cfg.RealMethodResolution.Virtual
+import org.opentaint.ir.testing.cfg.RealMethodResolution.VirtualImpl
 import org.opentaint.ir.testing.primitives.Primitives
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnJre
 import org.junit.jupiter.api.condition.EnabledOnJre
@@ -193,6 +187,17 @@ class InstructionsTest : BaseTest() {
             val expected = cp.findTypeOrNull(it.returnType.typeName)
             assertEquals(expected, returnValue.type, "types not matched for ${it.humanReadableSignature}")
         }
+    }
+
+    @Test
+    fun `method resolution based on var`() {
+        val clazz = cp.findClass<RealMethodResolution>()
+        val insts = clazz.findMethodOrNull("test")!!.instList
+        val actionCallExpr = insts.instructions.firstNotNullOf {
+            (it as? JIRCallInst)?.callExpr.takeIf { it is JIRVirtualCallExpr }
+        } as JIRVirtualCallExpr
+        assertEquals(cp.findClass<VirtualImpl>(), actionCallExpr.method.method.enclosingClass)
+        assertEquals(cp.findClass<Virtual>(), actionCallExpr.declaredMethod.method.enclosingClass)
     }
 }
 

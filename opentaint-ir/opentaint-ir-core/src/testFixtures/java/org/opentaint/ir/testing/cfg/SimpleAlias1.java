@@ -52,3 +52,20 @@ class Benchmark {
         return new Object();
     }
 }
+
+class RealMethodResolution {
+    interface Virtual {
+        void action(Object any);
+    }
+
+    static class VirtualImpl implements Virtual {
+        public void action(Object any) {
+            System.out.println(any);
+        }
+    }
+
+    public void test() {
+        Virtual v = new VirtualImpl();
+        v.action(new Object());
+    }
+}
