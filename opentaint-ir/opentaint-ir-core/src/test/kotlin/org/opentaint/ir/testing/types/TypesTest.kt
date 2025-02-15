@@ -1,16 +1,18 @@
 package org.opentaint.ir.testing.types
 
 import org.opentaint.ir.api.JIRArrayType
+import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRPrimitiveType
 import org.opentaint.ir.api.JIRTypeVariable
 import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.api.ext.toType
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
+import org.opentaint.ir.impl.types.signature.JvmClassRefType
 import org.opentaint.ir.impl.types.substition.JIRSubstitutor
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotEquals
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.io.InputStream
 
 class TypesTest : BaseTypesTest() {
 
@@ -74,7 +76,8 @@ class TypesTest : BaseTypesTest() {
 
     @Test
     fun `interfaces types test`() {
-        val sessionCacheVisitorType = cp.findClass("sun.security.ssl.SSLSessionContextImpl\$SessionCacheVisitor").toType()
+        val sessionCacheVisitorType =
+            cp.findClass("sun.security.ssl.SSLSessionContextImpl\$SessionCacheVisitor").toType()
         val cacheVisitorType = sessionCacheVisitorType.interfaces.first()
         val firstParam = cacheVisitorType.typeArguments.first()
 
@@ -88,23 +91,50 @@ class TypesTest : BaseTypesTest() {
 
     @Test
     fun `raw types equality`() {
-        val rawType1 = JIRClassTypeImpl(cp, listClass, null, JIRSubstitutor.empty, false, emptyList())
-        val rawType2 = JIRClassTypeImpl(cp, listClass, null, JIRSubstitutor.empty, false, emptyList())
+        val rawType1 = rawList()
+        val rawType2 = rawList()
         assertEquals(rawType1, rawType2)
     }
 
-    interface X : List<String>
-    interface Y : List<String>
-
     @Test
     fun `parametrized types equality`() {
-        val rawType = JIRClassTypeImpl(cp, listClass, null, JIRSubstitutor.empty, false, emptyList())
-        val type1 = cp.findClass<X>().toType().interfaces.first()
-        val type2 = cp.findClass<Y>().toType().interfaces.first()
+        val rawType = rawList()
+        val type1 = listType<String>()
+        val type2 = listType<String>()
         assertNotEquals(rawType, type1)
         assertNotEquals(rawType, type2)
 
-        assertNotEquals(type1, type2)
+        assertEquals(type1, type2)
     }
+
+    @Test
+    fun `parametrized typed method equality`() {
+
+        val objectList = listType<Any>()
+        val stringList1 = listType<String>()
+        val stringList2 = listType<String>()
+        val isList = listType<InputStream>()
+
+        assertEquals(stringList1.iterator, stringList2.iterator)
+        assertNotEquals(isList.iterator, stringList1.iterator)
+        assertNotEquals(objectList.iterator, stringList1.iterator)
+    }
+
+    private inline fun <reified T> listType(raw: Boolean = false): JIRClassType {
+        val elementName = T::class.java.name
+        return JIRClassTypeImpl(
+            cp, listClass, null,
+            when {
+                raw -> emptyList()
+                else -> listOf(JvmClassRefType(elementName, false, emptyList()))
+            }, false, emptyList()
+        )
+    }
+
+    private fun rawList(): JIRClassType {
+        return JIRClassTypeImpl(cp, listClass, null, JIRSubstitutor.empty, false, emptyList())
+    }
+
+    private val JIRClassType.iterator get() = findMethodOrNull { it.name == "iterator" && it.parameters.isEmpty() }
 
 }

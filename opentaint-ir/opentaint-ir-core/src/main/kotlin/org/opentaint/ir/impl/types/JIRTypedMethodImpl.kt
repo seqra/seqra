@@ -1,15 +1,8 @@
 package org.opentaint.ir.impl.types
 
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.JIRRefType
-import org.opentaint.ir.api.JIRType
-import org.opentaint.ir.api.JIRTypeVariableDeclaration
-import org.opentaint.ir.api.JIRTypedMethod
-import org.opentaint.ir.api.JIRTypedMethodParameter
-import org.opentaint.ir.api.MethodResolution
+import org.opentaint.ir.api.*
 import org.opentaint.ir.api.ext.findTypeOrNull
 import org.opentaint.ir.api.ext.isNullable
-import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.bytecode.JIRAnnotationImpl
 import org.opentaint.ir.impl.bytecode.JIRMethodImpl
 import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
@@ -119,6 +112,21 @@ class JIRTypedMethodImpl(
         }
         val info = info
         return classpath.typeOf(info.substitutor.substitute(variableSignature.fieldType))
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is JIRTypedMethodImpl) return false
+
+        if (enclosingType != other.enclosingType) return false
+        if (method != other.method) return false
+        return typeArguments == other.typeArguments
+    }
+
+    override fun hashCode(): Int {
+        var result = enclosingType.hashCode()
+        result = 31 * result + method.hashCode()
+        return result
     }
 
 }
