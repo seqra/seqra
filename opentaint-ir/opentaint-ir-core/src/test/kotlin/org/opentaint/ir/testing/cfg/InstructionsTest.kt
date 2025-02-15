@@ -8,17 +8,17 @@ import org.opentaint.ir.api.JIRClassProcessingTask
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.api.cfg.*
+import org.opentaint.ir.api.ext.*
 import org.opentaint.ir.api.ext.cfg.callExpr
 import org.opentaint.ir.api.ext.cfg.locals
 import org.opentaint.ir.api.ext.cfg.values
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.findMethodOrNull
-import org.opentaint.ir.api.ext.humanReadableSignature
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.cfg.RealMethodResolution.Virtual
 import org.opentaint.ir.testing.cfg.RealMethodResolution.VirtualImpl
+import org.opentaint.ir.testing.structure.FieldsAndMethods
 import org.opentaint.ir.testing.primitives.Primitives
+import org.opentaint.ir.testing.Common
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnJre
@@ -199,6 +199,33 @@ class InstructionsTest : BaseTest() {
         assertEquals(cp.findClass<VirtualImpl>(), actionCallExpr.method.method.enclosingClass)
         assertEquals(cp.findClass<Virtual>(), actionCallExpr.declaredMethod.method.enclosingClass)
     }
+
+    @Test
+    fun `resolving field descriptors should work`() {
+        val parent = cp.findClass<Common.Common1>()
+        val child = cp.findClass<FieldsAndMethods.Common1Child>()
+
+        // public int field
+        val methodWithPublicFieldInt = child.findMethodOrNull("accessIntField")!!
+        val assignInstInt = methodWithPublicFieldInt.instList
+            .filterIsInstance<JIRAssignInst>()
+            .single()
+        val fieldInt = (assignInstInt.rhv as JIRFieldRef).field
+
+        assertEquals(parent, fieldInt.enclosingType.jIRClass)
+        assertEquals(cp.int, fieldInt.fieldType)
+
+        // public boolean field
+        val methodWithPublicFieldBoolean = child.findMethodOrNull("accessBooleanField")!!
+        val assignInstBoolean = methodWithPublicFieldBoolean.instList
+            .filterIsInstance<JIRAssignInst>()
+            .single()
+        val fieldBoolean = (assignInstBoolean.rhv as JIRFieldRef).field
+
+        assertEquals(child, fieldBoolean.enclosingType.jIRClass)
+        assertEquals(cp.boolean, fieldBoolean.fieldType)
+    }
+
 }
 
 fun JIRMethod.dumpInstructions(): String {
