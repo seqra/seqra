@@ -1,33 +1,11 @@
 package org.opentaint.ir.impl
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.joinAll
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
-import org.opentaint.ir.api.JavaVersion
-import org.opentaint.ir.api.JIRByteCodeLocation
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRClasspathFeature
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.JIRDatabasePersistence
-import org.opentaint.ir.api.JIRFeature
-import org.opentaint.ir.api.RegisteredLocation
+import kotlinx.coroutines.*
+import org.opentaint.ir.api.*
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.KotlinMetadata
 import org.opentaint.ir.impl.features.classpaths.MethodInstructionsFeature
-import org.opentaint.ir.impl.fs.JavaRuntime
-import org.opentaint.ir.impl.fs.asByteCodeLocation
-import org.opentaint.ir.impl.fs.filterExisted
-import org.opentaint.ir.impl.fs.lazySources
-import org.opentaint.ir.impl.fs.sources
+import org.opentaint.ir.impl.fs.*
 import org.opentaint.ir.impl.storage.PersistentLocationRegistry
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
 import org.opentaint.ir.impl.vfs.RemoveLocationsVisitor
@@ -154,7 +132,7 @@ class JIRDatabaseImpl(
                     parentScope.ifActive { featureRegistry.index(location, sources) }
                 }
             }.joinAll()
-            if(createIndexes) {
+            if (createIndexes) {
                 persistence.createIndexes()
             }
             locationsRegistry.afterProcessing(this@process)

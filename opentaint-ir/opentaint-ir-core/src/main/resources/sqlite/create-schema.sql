@@ -125,3 +125,5 @@ CREATE TABLE IF NOT EXISTS "AnnotationValues"(
     CONSTRAINT "fk_AnnotationValues_ref_annotation_id__id" FOREIGN KEY ("ref_annotation_id") REFERENCES "Annotations" ("id") ON DELETE CASCADE ON UPDATE RESTRICT,
     CONSTRAINT "fk_AnnotationValues_class_symbol__id" FOREIGN KEY ("class_symbol") REFERENCES "Symbols" ("id") ON DELETE CASCADE ON UPDATE RESTRICT
 );
+
+VACUUM;

@@ -4,13 +4,7 @@ import org.opentaint.ir.api.JIRByteCodeLocation
 import org.opentaint.ir.api.JIRDatabase
 import org.opentaint.ir.api.LocationType
 import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.impl.CleanupResult
-import org.opentaint.ir.impl.FeaturesRegistry
-import org.opentaint.ir.impl.JIRInternalSignal
-import org.opentaint.ir.impl.LocationsRegistry
-import org.opentaint.ir.impl.LocationsRegistrySnapshot
-import org.opentaint.ir.impl.RefreshResult
-import org.opentaint.ir.impl.RegistrationResult
+import org.opentaint.ir.impl.*
 import org.opentaint.ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
 import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
@@ -31,7 +25,8 @@ class PersistentLocationRegistry(private val jIRdb: JIRDatabase, private val fea
 
     init {
         persistence.write { jooq ->
-            jooq.deleteFrom(BYTECODELOCATIONS)
+            jooq.update(BYTECODELOCATIONS)
+                .set(BYTECODELOCATIONS.STATE, LocationState.OUTDATED.ordinal)
                 .where(BYTECODELOCATIONS.STATE.notEqual(LocationState.PROCESSED.ordinal))
                 .execute()
         }
