@@ -113,6 +113,11 @@ allprojects {
 
         jacocoTestReport {
             dependsOn(test) // tests are required to run before generating the report
+            classDirectories.setFrom(files(classDirectories.files.map {
+                fileTree(it) {
+                    excludes.add("org/opentaint/ir/impl/storage/jooq/**")
+                }
+            }))
             reports {
                 xml.required.set(true)
                 html.required.set(true)
