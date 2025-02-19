@@ -1,12 +1,18 @@
 package org.opentaint.ir.analysis.graph
 
+import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.cfg.JIRExpr
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstLocation
 import org.opentaint.ir.api.cfg.JIRInstVisitor
+import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
+import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.api.ext.isSubClassOf
 import org.opentaint.ir.impl.cfg.JIRInstLocationImpl
+import org.opentaint.ir.impl.features.hierarchyExt
 
 /**
  * This is adopted specially for IFDS [JIRApplicationGraph] that
@@ -19,8 +25,23 @@ class SimplifiedJIRApplicationGraph(
     private val impl: JIRApplicationGraphImpl,
     private val bannedPackagePrefixes: List<String> = defaultBannedPackagePrefixes,
 ) : JIRApplicationGraph by impl {
+    private val hierarchyExtension = runBlocking {
+        classpath.hierarchyExt()
+    }
 
     private val visitedCallers: MutableMap<JIRMethod, MutableSet<JIRInst>> = mutableMapOf()
+
+    private val cache: MutableMap<JIRMethod, List<JIRMethod>> = mutableMapOf()
+
+    private fun getOverrides(method: JIRMethod): List<JIRMethod> {
+        return if (cache.containsKey(method)) {
+            cache[method]!!
+        } else {
+            val res = hierarchyExtension.findOverrides(method).toList()
+            cache[method] = res
+            res
+        }
+    }
 
     // For backward analysis we may want for method to start with "neutral" operation =>
     //  we add noop to the beginning of every method
@@ -51,18 +72,41 @@ class SimplifiedJIRApplicationGraph(
         }
     }
 
-    override fun callees(node: JIRInst): Sequence<JIRMethod> = impl.callees(node).filterNot { callee ->
-        bannedPackagePrefixes.any { callee.enclosingClass.name.startsWith(it) }
-    }.map {
-        val curSet = visitedCallers.getOrPut(it) { mutableSetOf() }
-        curSet.add(node)
-        it
+    private fun calleesUnmarked(node: JIRInst): Sequence<JIRMethod> {
+        val callees = impl.callees(node).filterNot { callee ->
+            bannedPackagePrefixes.any { callee.enclosingClass.name.startsWith(it) }
+        }
+
+        val callExpr = node.callExpr as? JIRVirtualCallExpr ?: return callees
+        val instanceClass = (callExpr.instance.type as? JIRClassType)?.jIRClass ?: return callees
+
+        return callees
+            .flatMap { callee ->
+                val allOverrides = getOverrides(callee)
+                    .filter {
+                        it.enclosingClass isSubClassOf instanceClass ||
+                                // TODO: use only down-most override here
+                                instanceClass isSubClassOf it.enclosingClass
+                    }
+
+                // TODO: maybe filter inaccessible methods here?
+                allOverrides + sequenceOf(callee)
+            }
+    }
+
+    override fun callees(node: JIRInst): Sequence<JIRMethod> {
+        return calleesUnmarked(node).also {
+            it.forEach {
+                visitedCallers.getOrPut(it) { mutableSetOf() }.add(node)
+            }
+        }
     }
 
     /**
      * This is IFDS-algorithm aware optimization.
      * In IFDS we don't need all method callers, we need only method callers which we visited earlier.
      */
+    // TODO: Think if this optimization is really needed
     override fun callers(method: JIRMethod): Sequence<JIRInst> = visitedCallers.getOrDefault(method, mutableSetOf()).asSequence()
 
     override fun entryPoint(method: JIRMethod): Sequence<JIRInst> = sequenceOf(getStartInst(method))

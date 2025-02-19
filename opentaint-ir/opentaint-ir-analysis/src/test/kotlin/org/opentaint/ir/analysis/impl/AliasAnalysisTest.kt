@@ -1,12 +1,15 @@
 package org.opentaint.ir.analysis.impl
 
-import org.opentaint.ir.analysis.AliasAnalysisFactory
-import org.opentaint.ir.analysis.JIRNaivePoints2EngineFactory
-import org.opentaint.ir.analysis.JIRSimplifiedGraphFactory
+import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.analyzers.TaintAnalysisNode
 import org.opentaint.ir.analysis.engine.DomainFact
+import org.opentaint.ir.analysis.engine.MethodUnitResolver
+import org.opentaint.ir.analysis.engine.runAnalysis
 import org.opentaint.ir.analysis.graph.SimplifiedJIRApplicationGraph
+import org.opentaint.ir.analysis.newAliasRunner
+import org.opentaint.ir.analysis.newApplicationGraph
 import org.opentaint.ir.analysis.paths.toPath
+import org.opentaint.ir.analysis.toDumpable
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.cfg.JIRAssignInst
 import org.opentaint.ir.api.cfg.JIRInst
@@ -130,12 +133,19 @@ class AliasAnalysisTest : BaseTest() {
         val bannedPackagePrefixes = SimplifiedJIRApplicationGraph.defaultBannedPackagePrefixes
             .plus("pointerbench.benchmark.internal")
 
-        val graph = JIRSimplifiedGraphFactory(bannedPackagePrefixes).createGraph(cp)
-        val points2Engine = JIRNaivePoints2EngineFactory.createPoints2Engine(graph)
-        val factory = AliasAnalysisFactory(::generates, ::isSink)
-        val ifds = factory.createAnalysisEngine(graph, points2Engine)
-        ifds.addStart(method)
-        val result = ifds.analyze()
+        val graph = runBlocking {
+            cp.newApplicationGraph(
+                SimplifiedJIRApplicationGraph.defaultBannedPackagePrefixes + bannedPackagePrefixes
+            )
+        }
+
+        val result = runAnalysis(
+            graph,
+            MethodUnitResolver,
+            newAliasRunner(::generates, ::isSink),
+            listOf(method)
+        )
+
         return result.toDumpable().foundVulnerabilities.map { it.sink }
     }
 }

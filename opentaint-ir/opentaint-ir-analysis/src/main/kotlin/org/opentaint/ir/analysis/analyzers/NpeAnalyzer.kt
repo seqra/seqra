@@ -1,87 +1,95 @@
 package org.opentaint.ir.analysis.analyzers
 
-import org.opentaint.ir.analysis.AnalysisResult
-import org.opentaint.ir.analysis.VulnerabilityInstance
 import org.opentaint.ir.analysis.engine.Analyzer
+import org.opentaint.ir.analysis.engine.AnalyzerFactory
 import org.opentaint.ir.analysis.engine.DomainFact
 import org.opentaint.ir.analysis.engine.FlowFunctionsSpace
-import org.opentaint.ir.analysis.engine.IFDSResult
-import org.opentaint.ir.analysis.engine.IFDSVertex
-import org.opentaint.ir.analysis.engine.SpaceId
+import org.opentaint.ir.analysis.engine.IfdsEdge
+import org.opentaint.ir.analysis.engine.IfdsVertex
+import org.opentaint.ir.analysis.engine.PathEdgeFact
+import org.opentaint.ir.analysis.engine.SummaryFact
+import org.opentaint.ir.analysis.engine.VulnerabilityLocation
 import org.opentaint.ir.analysis.engine.ZEROFact
 import org.opentaint.ir.analysis.paths.AccessPath
 import org.opentaint.ir.analysis.paths.ElementAccessor
 import org.opentaint.ir.analysis.paths.FieldAccessor
 import org.opentaint.ir.analysis.paths.isDereferencedAt
+import org.opentaint.ir.analysis.paths.minus
 import org.opentaint.ir.analysis.paths.startsWith
+import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.paths.toPathOrNull
 import org.opentaint.ir.api.JIRArrayType
+import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.cfg.JIRArgument
+import org.opentaint.ir.api.cfg.JIRAssignInst
 import org.opentaint.ir.api.cfg.JIRCallExpr
 import org.opentaint.ir.api.cfg.JIRConstant
 import org.opentaint.ir.api.cfg.JIREqExpr
 import org.opentaint.ir.api.cfg.JIRExpr
 import org.opentaint.ir.api.cfg.JIRIfInst
 import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRInstanceCallExpr
 import org.opentaint.ir.api.cfg.JIRNeqExpr
 import org.opentaint.ir.api.cfg.JIRNewArrayExpr
 import org.opentaint.ir.api.cfg.JIRNewExpr
 import org.opentaint.ir.api.cfg.JIRNullConstant
 import org.opentaint.ir.api.cfg.JIRValue
 import org.opentaint.ir.api.cfg.locals
+import org.opentaint.ir.api.cfg.values
+import org.opentaint.ir.api.ext.cfg.callExpr
 import org.opentaint.ir.api.ext.fields
 import org.opentaint.ir.api.ext.isNullable
 
-class NpeAnalyzer(
-    graph: JIRApplicationGraph,
-    maxPathLength: Int = 5
-) : Analyzer {
-    override val flowFunctions: FlowFunctionsSpace = NPEForwardFunctions(graph, maxPathLength)
-    override val name: String = value
+fun NpeAnalyzerFactory(maxPathLength: Int = 5) = AnalyzerFactory { graph ->
+    NpeAnalyzer(graph, maxPathLength)
+}
 
-    override val backward: Analyzer = object : Analyzer {
-        override val backward: Analyzer
-            get() = this@NpeAnalyzer
-        override val flowFunctions: FlowFunctionsSpace
-            get() = NPEBackwardFunctions(graph, maxPathLength)
-        override val name: String
-            get() = value
+class NpeAnalyzer(graph: JIRApplicationGraph, maxPathLength: Int) : Analyzer {
+    override val flowFunctions: FlowFunctionsSpace = NpeForwardFunctions(graph.classpath, maxPathLength)
 
-        override fun calculateSources(ifdsResult: IFDSResult): AnalysisResult {
-            error("Do not call sources for backward analyzer instance")
-        }
+    companion object {
+        const val vulnerabilityType: String = "npe-analysis"
     }
 
-    companion object : SpaceId {
-        override val value: String = "npe-analysis"
-    }
-
-    override fun calculateSources(ifdsResult: IFDSResult): AnalysisResult {
-        val vulnerabilities = mutableListOf<VulnerabilityInstance>()
-        ifdsResult.resultFacts.forEach { (inst, facts) ->
-            facts.filterIsInstance<NPETaintNode>().forEach { fact ->
-                if (fact.activation == null && fact.variable.isDereferencedAt(inst)) {
-                    vulnerabilities.add(
-                        VulnerabilityInstance(
-                            value,
-                            ifdsResult.resolveTaintRealisationsGraph(IFDSVertex(inst, fact))
-                        )
-                    )
-                }
-            }
+    override fun getSummaryFacts(edge: IfdsEdge): List<SummaryFact> {
+        val vulnerabilities = mutableListOf<VulnerabilityLocation>()
+        val (inst, fact0) = edge.v
+        if (fact0 is NpeTaintNode && fact0.activation == null && fact0.variable.isDereferencedAt(inst)) {
+            vulnerabilities.add(VulnerabilityLocation(vulnerabilityType, edge.v))
         }
-        return AnalysisResult(vulnerabilities)
+        return vulnerabilities
+
+        // TODO: get rid of copy-paste here
+//        val v = edge.v
+//        val curInst = v.statement
+//        val fact = (v.domainFact as? TaintNode) ?: return vulnerabilities
+//
+//        if (!fact.variable.isOnHeap) {
+//            return vulnerabilities
+//        }
+//
+//        val newFact = if (fact.activation == null) fact.updateActivation(curInst) else fact // TODO: think between pred and curInst
+//        val newStatements = graph.predecessors(v.statement)
+//        logger.warn { "Forward-to-backward: $newFact to inst $newStatements, context = ${edge.u.domainFact}" }
+//        return vulnerabilities + newStatements.flatMap { newStatement ->
+//            graph.exitPoints(edge.method).map {
+//                PathEdgeFact(
+//                    IfdsEdge(
+//                        IfdsVertex(it, edge.u.domainFact),
+//                        IfdsVertex(newStatement, newFact)
+//                    )
+//                )
+//            }
+//        }.toList()
     }
 }
 
-private class NPEForwardFunctions(
-    graph: JIRApplicationGraph,
+private class NpeForwardFunctions(
+    cp: JIRClasspath,
     private val maxPathLength: Int
-) : AbstractTaintForwardFunctions(graph) {
-
-    override val inIds: List<SpaceId> get() = listOf(NpeAnalyzer, ZEROFact.id)
+) : AbstractTaintForwardFunctions(cp) {
 
     private val JIRIfInst.pathComparedWithNull: AccessPath?
         get() {
@@ -96,36 +104,27 @@ private class NPEForwardFunctions(
         }
 
     override fun transmitDataFlow(from: JIRExpr, to: JIRValue, atInst: JIRInst, fact: DomainFact, dropFact: Boolean): List<DomainFact> {
-        val default = if (dropFact) emptyList() else listOf(fact)
+        val default = if (dropFact && fact != ZEROFact) emptyList() else listOf(fact)
         val toPath = to.toPathOrNull()?.limit(maxPathLength) ?: return default
-        val factPath = when (fact) {
-            is NPETaintNode -> fact.variable
-            ZEROFact -> null
-            else -> return emptyList()
+
+        if (fact == ZEROFact) {
+            return if (from is JIRNullConstant || (from is JIRCallExpr && from.method.method.treatAsNullable)) {
+                listOf(ZEROFact, NpeTaintNode(toPath)) // taint is generated here
+            } else if (from is JIRNewArrayExpr && (from.type as JIRArrayType).elementType.nullable != false) {
+                val arrayElemPath = AccessPath.fromOther(toPath, List((from.type as JIRArrayType).dimensions) { ElementAccessor })
+                listOf(ZEROFact, NpeTaintNode(arrayElemPath.limit(maxPathLength)))
+            } else {
+                listOf(ZEROFact)
+            }
         }
 
-        if (factPath.isDereferencedAt(atInst)) {
+        if (fact !is NpeTaintNode) {
             return emptyList()
         }
 
-        if (from is JIRNullConstant || (from is JIRCallExpr && from.method.method.treatAsNullable)) {
-            return if (fact == ZEROFact) {
-                listOf(ZEROFact, NPETaintNode(toPath)) // taint is generated here
-            } else {
-                if (factPath.startsWith(toPath)) {
-                    emptyList()
-                } else {
-                    default
-                }
-            }
-        }
-
-        if (from is JIRNewArrayExpr && fact == ZEROFact) {
-            val arrayType = from.type as JIRArrayType
-            if (arrayType.elementType.nullable != false) {
-                val arrayElemPath = AccessPath.fromOther(toPath, List(arrayType.dimensions) { ElementAccessor })
-                return listOf(ZEROFact, NPETaintNode(arrayElemPath))
-            }
+        val factPath = fact.variable
+        if (factPath.isDereferencedAt(atInst)) {
+            return emptyList()
         }
 
         if (from is JIRNewExpr || from is JIRNewArrayExpr || from is JIRConstant || (from is JIRCallExpr && !from.method.method.treatAsNullable)) {
@@ -136,21 +135,14 @@ private class NPEForwardFunctions(
             }
         }
 
-        if (fact == ZEROFact) {
-            return listOf(ZEROFact)
-        }
-
-        fact as NPETaintNode
-
         // TODO: slightly differs from original paper, think what's correct
         val fromPath = from.toPathOrNull()?.limit(maxPathLength) ?: return default
-
         return normalFactFlow(fact, fromPath, toPath, dropFact, maxPathLength)
     }
 
     override fun transmitDataFlowAtNormalInst(inst: JIRInst, nextInst: JIRInst, fact: DomainFact): List<DomainFact> {
         val factPath = when (fact) {
-            is NPETaintNode -> fact.variable
+            is NpeTaintNode -> fact.variable
             ZEROFact -> null
             else -> return emptyList()
         }
@@ -164,45 +156,40 @@ private class NPEForwardFunctions(
         }
 
         // Following are some ad-hoc magic for if statements to change facts after instructions like if (x != null)
-        val currentBranch = graph.methodOf(inst).flowGraph().ref(nextInst)
+        val nextInstIsTrueBranch = nextInst.location.index == inst.trueBranch.index
         if (fact == ZEROFact) {
             if (inst.pathComparedWithNull != null) {
-                if ((inst.condition is JIREqExpr && currentBranch == inst.trueBranch) ||
-                    (inst.condition is JIRNeqExpr && currentBranch == inst.falseBranch)) {
+                if ((inst.condition is JIREqExpr && nextInstIsTrueBranch) ||
+                    (inst.condition is JIRNeqExpr && !nextInstIsTrueBranch)
+                ) {
                     // This is a hack: instructions like `return null` in branch of next will be considered only if
                     //  the fact holds (otherwise we could not get there)
-                    return listOf(NPETaintNode(inst.pathComparedWithNull!!))
+                    return listOf(NpeTaintNode(inst.pathComparedWithNull!!))
                 }
             }
             return listOf(ZEROFact)
         }
 
-        fact as NPETaintNode
+        fact as NpeTaintNode
 
         // This handles cases like if (x != null) expr1 else expr2, where edges to expr1 and to expr2 should be different
         // (because x == null will be held at expr2 but won't be held at expr1)
         val expr = inst.condition
-        val comparedPath = inst.pathComparedWithNull ?: return listOf(fact)
+        if (inst.pathComparedWithNull != fact.variable) {
+            return listOf(fact)
+        }
 
-        if ((expr is JIREqExpr && currentBranch == inst.trueBranch) || (expr is JIRNeqExpr && currentBranch == inst.falseBranch)) {
+        return if ((expr is JIREqExpr && nextInstIsTrueBranch) || (expr is JIRNeqExpr && !nextInstIsTrueBranch)) {
             // comparedPath is null in this branch
-            if (fact.variable.startsWith(comparedPath) && fact.activation == null) {
-                if (fact.variable == comparedPath) {
-                    return listOf(ZEROFact)
-                }
-                return emptyList()
-            }
-            return listOf(fact)
+            listOf(ZEROFact)
         } else {
-            // comparedPath is not null in this branch
-            if (fact.variable == comparedPath)
-                return emptyList()
-            return listOf(fact)
+            emptyList()
         }
     }
 
-    override fun obtainStartFacts(startStatement: JIRInst): Collection<DomainFact> {
+    override fun obtainPossibleStartFacts(startStatement: JIRInst): Collection<DomainFact> {
         val result = mutableListOf<DomainFact>(ZEROFact)
+//        return result
 
         val method = startStatement.location.method
 
@@ -213,13 +200,13 @@ private class NPEForwardFunctions(
         result += method.flowGraph().locals
             .filterIsInstance<JIRArgument>()
             .filter { method.parameters[it.index].isNullable != false }
-            .map { NPETaintNode(AccessPath.fromLocal(it)) }
+            .map { NpeTaintNode(AccessPath.fromLocal(it)) }
 
         // Possibly null statics
         // TODO: handle statics in a more general manner
         result += method.enclosingClass.fields
             .filter { it.isNullable != false && it.isStatic }
-            .map { NPETaintNode(AccessPath.fromStaticField(it)) }
+            .map { NpeTaintNode(AccessPath.fromStaticField(it)) }
 
         val thisInstance = method.thisInstance
 
@@ -227,7 +214,7 @@ private class NPEForwardFunctions(
         result += method.enclosingClass.fields
             .filter { it.isNullable != false && !it.isStatic }
             .map {
-                NPETaintNode(
+                NpeTaintNode(
                     AccessPath.fromOther(AccessPath.fromLocal(thisInstance), listOf(FieldAccessor(it)))
                 )
             }
@@ -236,12 +223,126 @@ private class NPEForwardFunctions(
     }
 }
 
-private class NPEBackwardFunctions(
+fun NpePrecalcBackwardAnalyzerFactory(maxPathLength: Int = 5) = AnalyzerFactory { graph ->
+    NpePrecalcBackwardAnalyzer(graph, maxPathLength)
+}
+
+private class NpePrecalcBackwardAnalyzer(val graph: JIRApplicationGraph, maxPathLength: Int) : Analyzer {
+    override val flowFunctions: FlowFunctionsSpace = NpePrecalcBackwardFunctions(graph, maxPathLength)
+
+    override val saveSummaryEdgesAndCrossUnitCalls: Boolean
+        get() = false
+
+    override fun getSummaryFacts(edge: IfdsEdge): List<SummaryFact> = buildList {
+        if (edge.v.statement in graph.exitPoints(edge.method)) {
+            add(PathEdgeFact(IfdsEdge(edge.v, edge.v)))
+        }
+    }
+}
+
+class NpePrecalcBackwardFunctions(graph: JIRApplicationGraph, maxPathLength: Int)
+    : AbstractTaintBackwardFunctions(graph, maxPathLength) {
+    override fun transmitBackDataFlow(from: JIRValue, to: JIRExpr, atInst: JIRInst, fact: DomainFact, dropFact: Boolean): List<DomainFact> {
+        val thisInstance = atInst.location.method.thisInstance.toPath()
+        if (fact == ZEROFact) {
+            val derefs = atInst.values
+                .mapNotNull { it.toPathOrNull() }
+                .filter { it.isDereferencedAt(atInst) }
+                .filterNot { it == thisInstance }
+                .map { NpeTaintNode(it) }
+            return listOf(ZEROFact) + derefs
+        }
+
+        if (fact !is TaintNode) {
+            return emptyList()
+        }
+
+        val factPath = (fact as? TaintNode)?.variable
+        val default = if (dropFact) emptyList() else listOf(fact)
+        val toPath = to.toPathOrNull() ?: return default
+        val fromPath = from.toPathOrNull() ?: return default
+
+        val diff = factPath.minus(fromPath)
+        if (diff != null) {
+            return listOf(fact.moveToOtherPath(AccessPath.fromOther(toPath, diff).limit(maxPathLength))).filterNot {
+                it.variable == thisInstance
+            }
+        }
+        return default
+    }
+
+    override fun obtainPossibleStartFacts(startStatement: JIRInst): List<DomainFact> {
+        val values = startStatement.values
+        return listOf(ZEROFact) + values
+            .mapNotNull { it.toPathOrNull() }
+            .filterNot { it == startStatement.location.method.thisInstance.toPath() }
+            .map { NpeTaintNode(it) }
+    }
+}
+
+fun NpeFlowdroidBackwardAnalyzerFactory(maxPathLength: Int = 5) = AnalyzerFactory { graph ->
+    NpeFlowdroidBackwardAnalyzer(graph, maxPathLength)
+}
+
+class NpeFlowdroidBackwardAnalyzer(
+    val graph: JIRApplicationGraph,
+    maxPathLength: Int = 5
+) : Analyzer {
+    override val flowFunctions: FlowFunctionsSpace = NpeBackwardFunctions(graph, maxPathLength)
+
+    override val saveSummaryEdgesAndCrossUnitCalls: Boolean
+        get() = false
+
+    override fun getSummaryFacts(edge: IfdsEdge): List<SummaryFact> {
+        val v = edge.v
+        val curInst = v.statement
+        val fact = (v.domainFact as? TaintNode) ?: return emptyList()
+        var canBeKilled = false
+
+        if (!fact.variable.isOnHeap) {
+            return emptyList()
+        }
+
+        if (curInst is JIRAssignInst && fact.variable.startsWith(curInst.lhv.toPath())) {
+            canBeKilled = true
+        }
+
+        if (curInst in graph.exitPoints(v.method)) {
+            canBeKilled = true
+        }
+
+        curInst.callExpr?.let { callExpr ->
+            if (callExpr is JIRInstanceCallExpr && fact.variable.startsWith(callExpr.instance.toPathOrNull())) {
+                canBeKilled = true
+            }
+            callExpr.args.forEach {
+                if (fact.variable.startsWith(it.toPathOrNull())) {
+                    canBeKilled = true
+                }
+            }
+        }
+
+        if (canBeKilled) {
+            val newStatements = graph.predecessors(v.statement)
+            return newStatements.flatMap { newStatement ->
+                graph.exitPoints(edge.method).map {
+                    PathEdgeFact(
+                        IfdsEdge(
+                            IfdsVertex(it, edge.u.domainFact),
+                            IfdsVertex(newStatement, fact)
+                        )
+                    )
+                }
+            }.toList()
+        }
+        return emptyList()
+    }
+}
+
+private class NpeBackwardFunctions(
     graph: JIRApplicationGraph,
     maxPathLength: Int,
-) : AbstractTaintBackwardFunctions(graph, maxPathLength) {
-    override val inIds: List<SpaceId> = listOf(NpeAnalyzer, ZEROFact.id)
-}
+) : AbstractTaintBackwardFunctions(graph, maxPathLength)
 
 private val JIRMethod.treatAsNullable: Boolean
     get() {

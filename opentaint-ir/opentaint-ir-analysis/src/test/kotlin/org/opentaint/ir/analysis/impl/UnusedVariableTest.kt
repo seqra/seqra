@@ -1,10 +1,13 @@
 package org.opentaint.ir.analysis.impl
 
-import org.opentaint.ir.analysis.AnalysisEngine
-import org.opentaint.ir.analysis.JIRNaivePoints2EngineFactory
-import org.opentaint.ir.analysis.JIRSimplifiedGraphFactory
-import org.opentaint.ir.analysis.UnusedVariableAnalysisFactory
+import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.analysis.UnusedVariableRunner
+import org.opentaint.ir.analysis.VulnerabilityInstance
 import org.opentaint.ir.analysis.analyzers.UnusedVariableAnalyzer
+import org.opentaint.ir.analysis.engine.SingletonUnitResolver
+import org.opentaint.ir.analysis.engine.runAnalysis
+import org.opentaint.ir.analysis.newApplicationGraph
+import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.testing.WithDB
@@ -27,21 +30,24 @@ class UnusedVariableTest : BaseAnalysisTest() {
 
             // Expected answers are strange, seems to be problem in tests
             "_12",
+
+            // The variable isn't expected to be detected as unused actually
+            "_81"
         ))
 
-        private val vulnerabilityType = UnusedVariableAnalyzer.value
+        private const val vulnerabilityType = UnusedVariableAnalyzer.vulnerabilityType
     }
 
     @ParameterizedTest
     @MethodSource("provideClassesForJuliet563")
     fun `test on Juliet's CWE 563`(className: String) {
-        testSingleJulietClass(engine, vulnerabilityType, className)
+        testSingleJulietClass(vulnerabilityType, className)
     }
 
-    private val engine: AnalysisEngine
-        get() {
-            val graph = JIRSimplifiedGraphFactory().createGraph(cp)
-            val points2Engine = JIRNaivePoints2EngineFactory.createPoints2Engine(graph)
-            return UnusedVariableAnalysisFactory().createAnalysisEngine(graph, points2Engine)
+    override fun launchAnalysis(methods: List<JIRMethod>): List<VulnerabilityInstance> {
+        val graph = runBlocking {
+            cp.newApplicationGraph()
         }
+        return runAnalysis(graph, SingletonUnitResolver, UnusedVariableRunner, methods)
+    }
 }

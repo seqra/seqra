@@ -1,38 +1,21 @@
 package org.opentaint.ir.analysis.engine
 
-import org.opentaint.ir.analysis.AnalysisResult
 import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.cfg.JIRInst
 
-interface FlowFunctionInstance {
-    val inIds: List<SpaceId>
+fun interface FlowFunctionInstance {
     fun compute(fact: DomainFact): Collection<DomainFact>
-
-//    fun compute(facts: Collection<DomainFact>): Set<DomainFact> {
-//        return facts.flatMap { compute(it) }.toSet()
-//    }
 }
 
-interface SpaceId {
-    val value: String
-}
-
-interface DomainFact {
-    val id: SpaceId
-}
+interface DomainFact
 
 object ZEROFact : DomainFact {
-    override val id = object : SpaceId {
-        override val value: String = "ZERO fact id"
-    }
-
     override fun toString() = "[ZERO fact]"
 }
 
 interface FlowFunctionsSpace {
-    val inIds: List<SpaceId>
-    fun obtainAllPossibleStartFacts(startStatement: JIRInst): Collection<DomainFact> = obtainStartFacts(startStatement)
-    fun obtainStartFacts(startStatement: JIRInst): Collection<DomainFact>
+    fun obtainPossibleStartFacts(startStatement: JIRInst): Collection<DomainFact>
     fun obtainSequentFlowFunction(current: JIRInst, next: JIRInst): FlowFunctionInstance
     fun obtainCallToStartFlowFunction(callStatement: JIRInst, callee: JIRMethod): FlowFunctionInstance
     fun obtainCallToReturnFlowFunction(callStatement: JIRInst, returnSite: JIRInst): FlowFunctionInstance
@@ -40,9 +23,16 @@ interface FlowFunctionsSpace {
 }
 
 interface Analyzer {
-    val name: String
-    val backward: Analyzer
     val flowFunctions: FlowFunctionsSpace
 
-    fun calculateSources(ifdsResult: IFDSResult): AnalysisResult
+    val saveSummaryEdgesAndCrossUnitCalls: Boolean
+        get() = true
+
+    fun getSummaryFacts(edge: IfdsEdge): List<SummaryFact> = emptyList()
+
+    fun getSummaryFactsPostIfds(ifdsResult: IfdsResult): List<SummaryFact> = emptyList()
+}
+
+fun interface AnalyzerFactory {
+    fun newAnalyzer(graph: JIRApplicationGraph): Analyzer
 }

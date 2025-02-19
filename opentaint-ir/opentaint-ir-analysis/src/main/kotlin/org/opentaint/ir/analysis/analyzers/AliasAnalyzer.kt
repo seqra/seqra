@@ -1,26 +1,34 @@
 package org.opentaint.ir.analysis.analyzers
 
-import org.opentaint.ir.analysis.AnalysisResult
-import org.opentaint.ir.analysis.VulnerabilityInstance
+import org.opentaint.ir.analysis.engine.AnalyzerFactory
 import org.opentaint.ir.analysis.engine.DomainFact
-import org.opentaint.ir.analysis.engine.IFDSResult
-import org.opentaint.ir.analysis.engine.IFDSVertex
+import org.opentaint.ir.analysis.engine.IfdsResult
+import org.opentaint.ir.analysis.engine.IfdsVertex
+import org.opentaint.ir.analysis.engine.VulnerabilityLocation
 import org.opentaint.ir.analysis.paths.FieldAccessor
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.cfg.JIRArgument
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRLocal
 import org.opentaint.ir.api.cfg.values
 
-class AliasAnalyzer(
-    graph: JIRApplicationGraph,
+fun AliasAnalyzerFactory(
     generates: (JIRInst) -> List<DomainFact>,
     isSink: (JIRInst, DomainFact) -> Boolean,
     maxPathLength: Int = 5
-) : TaintAnalyzer(graph, generates, isSink, maxPathLength) {
+) = AnalyzerFactory { graph ->
+    AliasAnalyzer(graph.classpath, generates, isSink, maxPathLength)
+}
 
-    override fun calculateSources(ifdsResult: IFDSResult): AnalysisResult {
-        val vulnerabilities = mutableListOf<VulnerabilityInstance>()
+private class AliasAnalyzer(
+    cp: JIRClasspath,
+    generates: (JIRInst) -> List<DomainFact>,
+    isSink: (JIRInst, DomainFact) -> Boolean,
+    maxPathLength: Int
+) : TaintAnalyzer(cp, generates, isSink, maxPathLength) {
+
+    override fun getSummaryFactsPostIfds(ifdsResult: IfdsResult): List<VulnerabilityLocation> {
+        val vulnerabilities = mutableListOf<VulnerabilityLocation>()
         ifdsResult.resultFacts.forEach { (inst, facts) ->
             facts.filterIsInstance<TaintAnalysisNode>().forEach { fact ->
                 if (isSink(inst, fact)) {
@@ -44,17 +52,15 @@ class AliasAnalyzer(
                         }
 
                         vulnerabilities.add(
-                            VulnerabilityInstance(
-                                value,
-                                ifdsResult.resolveTaintRealisationsGraph(IFDSVertex(inst, fact))
+                            VulnerabilityLocation(
+                                vulnerabilityType,
+                                IfdsVertex(inst, fact)
                             )
                         )
                     }
                 }
             }
         }
-        return AnalysisResult(vulnerabilities)
+        return vulnerabilities
     }
-
-    override val name: String = value
 }

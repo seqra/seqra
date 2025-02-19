@@ -4,15 +4,27 @@ import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.packageName
 
-interface UnitResolver<UnitType> {
+fun interface UnitResolver<UnitType> {
     fun resolve(method: JIRMethod): UnitType
-}
 
-object MethodUnitResolver: UnitResolver<JIRMethod> {
-    override fun resolve(method: JIRMethod): JIRMethod {
-        return method
+    companion object {
+        fun getByName(name: String): UnitResolver<*> {
+            return when (name) {
+                "method"    -> MethodUnitResolver
+                "class"     -> ClassUnitResolver(false)
+                "package"   -> PackageUnitResolver
+                "singleton" -> SingletonUnitResolver
+                else        -> error("Unknown unit resolver $name")
+            }
+        }
     }
 }
+
+val MethodUnitResolver = UnitResolver { method -> method }
+
+val PackageUnitResolver = UnitResolver { method -> method.enclosingClass.packageName }
+
+val SingletonUnitResolver = UnitResolver { _ -> Unit }
 
 class ClassUnitResolver(private val includeNested: Boolean): UnitResolver<JIRClassOrInterface> {
     override fun resolve(method: JIRMethod): JIRClassOrInterface {
@@ -22,14 +34,4 @@ class ClassUnitResolver(private val includeNested: Boolean): UnitResolver<JIRCla
             method.enclosingClass
         }
     }
-}
-
-object PackageUnitResolver: UnitResolver<String> {
-    override fun resolve(method: JIRMethod): String {
-        return method.enclosingClass.packageName
-    }
-}
-
-object SingletonUnitResolver: UnitResolver<Unit> {
-    override fun resolve(method: JIRMethod) = Unit
 }

@@ -1,72 +1,67 @@
 package org.opentaint.ir.analysis.analyzers
 
-import org.opentaint.ir.analysis.AnalysisResult
-import org.opentaint.ir.analysis.VulnerabilityInstance
 import org.opentaint.ir.analysis.engine.Analyzer
+import org.opentaint.ir.analysis.engine.AnalyzerFactory
 import org.opentaint.ir.analysis.engine.DomainFact
 import org.opentaint.ir.analysis.engine.FlowFunctionsSpace
-import org.opentaint.ir.analysis.engine.IFDSResult
-import org.opentaint.ir.analysis.engine.IFDSVertex
-import org.opentaint.ir.analysis.engine.SpaceId
+import org.opentaint.ir.analysis.engine.IfdsResult
+import org.opentaint.ir.analysis.engine.IfdsVertex
+import org.opentaint.ir.analysis.engine.VulnerabilityLocation
 import org.opentaint.ir.analysis.engine.ZEROFact
 import org.opentaint.ir.analysis.paths.toPathOrNull
+import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.cfg.JIRExpr
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRValue
 
 abstract class TaintAnalyzer(
-    graph: JIRApplicationGraph,
+    cp: JIRClasspath,
     generates: (JIRInst) -> List<DomainFact>,
     val isSink: (JIRInst, DomainFact) -> Boolean,
-    maxPathLength: Int = 5
+    maxPathLength: Int
 ) : Analyzer {
-    override val flowFunctions: FlowFunctionsSpace = TaintForwardFunctions(graph, maxPathLength, generates)
-    override val backward: Analyzer = object : Analyzer {
-        override val name: String
-            get() = this@TaintAnalyzer.name
+    override val flowFunctions: FlowFunctionsSpace = TaintForwardFunctions(cp, maxPathLength, generates)
 
-        override val backward: Analyzer
-            get() = this@TaintAnalyzer
-        override val flowFunctions: FlowFunctionsSpace
-            get() = TaintBackwardFunctions(graph, maxPathLength)
-
-        override fun calculateSources(ifdsResult: IFDSResult): AnalysisResult {
-            error("Do not call sources for backward analyzer instance")
-        }
+    companion object {
+        val vulnerabilityType: String = "taint analysis"
     }
 
-    companion object : SpaceId {
-        override val value: String = "taint analysis"
-    }
-
-    override fun calculateSources(ifdsResult: IFDSResult): AnalysisResult {
-        val vulnerabilities = mutableListOf<VulnerabilityInstance>()
+    override fun getSummaryFactsPostIfds(ifdsResult: IfdsResult): List<VulnerabilityLocation> {
+        val vulnerabilities = mutableListOf<VulnerabilityLocation>()
         ifdsResult.resultFacts.forEach { (inst, facts) ->
             facts.filterIsInstance<TaintAnalysisNode>().forEach { fact ->
                 if (isSink(inst, fact)) {
                     fact.variable.let {
-                        vulnerabilities.add(
-                            VulnerabilityInstance(
-                                value,
-                                ifdsResult.resolveTaintRealisationsGraph(IFDSVertex(inst, fact))
-                            )
-                        )
+                        vulnerabilities.add(VulnerabilityLocation(vulnerabilityType, IfdsVertex(inst, fact)))
                     }
                 }
             }
         }
-        return AnalysisResult(vulnerabilities)
+        return vulnerabilities
+    }
+}
+
+fun TaintBackwardAnalyzerFactory(maxPathLength: Int = 5) = AnalyzerFactory { graph ->
+    TaintBackwardAnalyzer(graph, maxPathLength)
+}
+
+private class TaintBackwardAnalyzer(graph: JIRApplicationGraph, maxPathLength: Int) : Analyzer {
+    override val saveSummaryEdgesAndCrossUnitCalls: Boolean
+        get() = false
+
+    override val flowFunctions: FlowFunctionsSpace = TaintBackwardFunctions(graph, maxPathLength)
+
+    override fun getSummaryFactsPostIfds(ifdsResult: IfdsResult): List<VulnerabilityLocation> {
+        error("Do not call sources for backward analyzer instance")
     }
 }
 
 private class TaintForwardFunctions(
-    graph: JIRApplicationGraph,
+    cp: JIRClasspath,
     private val maxPathLength: Int,
     private val generates: (JIRInst) -> List<DomainFact>,
-) : AbstractTaintForwardFunctions(graph) {
-
-    override val inIds: List<SpaceId> get() = listOf(TaintAnalyzer, ZEROFact.id)
+) : AbstractTaintForwardFunctions(cp) {
 
     override fun transmitDataFlow(from: JIRExpr, to: JIRValue, atInst: JIRInst, fact: DomainFact, dropFact: Boolean): List<DomainFact> {
         if (fact == ZEROFact) {
@@ -91,7 +86,7 @@ private class TaintForwardFunctions(
         return listOf(fact)
     }
 
-    override fun obtainStartFacts(startStatement: JIRInst): Collection<DomainFact> {
+    override fun obtainPossibleStartFacts(startStatement: JIRInst): Collection<DomainFact> {
         return listOf(ZEROFact)
     }
 }
@@ -99,6 +94,4 @@ private class TaintForwardFunctions(
 private class TaintBackwardFunctions(
     graph: JIRApplicationGraph,
     maxPathLength: Int,
-) : AbstractTaintBackwardFunctions(graph, maxPathLength) {
-    override val inIds: List<SpaceId> = listOf(TaintAnalyzer, ZEROFact.id)
-}
+) : AbstractTaintBackwardFunctions(graph, maxPathLength)

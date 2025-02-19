@@ -2,7 +2,8 @@ package org.opentaint.ir.analysis.impl
 
 import juliet.testcasesupport.AbstractTestCase
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.analysis.AnalysisEngine
+import org.opentaint.ir.analysis.VulnerabilityInstance
+import org.opentaint.ir.analysis.toDumpable
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.findClass
@@ -34,6 +35,7 @@ abstract class BaseAnalysisTest : BaseTest() {
             .map { it.name }
             .filter { it.contains(cwe) }
             .filterNot { className -> (commonJulietBans + cweSpecificBans).any { className.contains(it) } }
+//            .filter { it.contains("StringBuilder_01") }
             .sorted()
             .map { Arguments.of(it) }
             .asStream()
@@ -55,18 +57,19 @@ abstract class BaseAnalysisTest : BaseTest() {
             "_05", "_07",
 
             // TODO/Won't fix(?): unmodified non-final static variables not analyzed
-            "_10", "_14"
+            "_10", "_14",
         )
     }
 
+    protected abstract fun launchAnalysis(methods: List<JIRMethod>): List<VulnerabilityInstance>
+
     protected inline fun <reified T> testOneAnalysisOnOneMethod(
-        engine: AnalysisEngine,
         vulnerabilityType: String,
         methodName: String,
         expectedLocations: Collection<String>,
     ) {
         val method = cp.findClass<T>().declaredMethods.single { it.name == methodName }
-        val sinks = findSinks(method, engine, vulnerabilityType)
+        val sinks = findSinks(method, vulnerabilityType)
 
         // TODO: think about better assertions here
         assertEquals(expectedLocations.size, sinks.size)
@@ -75,21 +78,24 @@ abstract class BaseAnalysisTest : BaseTest() {
         }
     }
 
-    protected fun testSingleJulietClass(engine: AnalysisEngine, vulnerabilityType: String, className: String) {
+    protected fun testSingleJulietClass(vulnerabilityType: String, className: String) {
         val clazz = cp.findClass(className)
         val goodMethod = clazz.methods.single { it.name == "good" }
         val badMethod = clazz.methods.single { it.name == "bad" }
 
-        val goodNPE = findSinks(goodMethod, engine, vulnerabilityType)
-        val badNPE = findSinks(badMethod, engine, vulnerabilityType)
+        val goodIssues = findSinks(goodMethod, vulnerabilityType)
+        val badIssues = findSinks(badMethod, vulnerabilityType)
 
-        assertTrue(goodNPE.isEmpty())
-        assertTrue(badNPE.isNotEmpty())
+        assertTrue(goodIssues.isEmpty())
+        assertTrue(badIssues.isNotEmpty())
     }
 
-    protected fun findSinks(method: JIRMethod, engine: AnalysisEngine, vulnerabilityType: String): Set<String> {
-        engine.addStart(method)
-        val sinks = engine.analyze().toDumpable().foundVulnerabilities.filter { it.vulnerabilityType == vulnerabilityType }
+    protected fun findSinks(method: JIRMethod, vulnerabilityType: String): Set<String> {
+        val sinks = launchAnalysis(listOf(method))
+            .toDumpable()
+            .foundVulnerabilities
+            .filter { it.vulnerabilityType == vulnerabilityType }
+
         return sinks.map { it.sink }.toSet()
     }
 }

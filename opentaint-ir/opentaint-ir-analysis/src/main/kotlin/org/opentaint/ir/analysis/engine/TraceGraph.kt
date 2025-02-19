@@ -2,47 +2,47 @@ package org.opentaint.ir.analysis.engine
 
 import org.opentaint.ir.analysis.DumpableVulnerabilityInstance
 
-class TaintRealisationsGraph(
-    val sink: IFDSVertex,
-    val sources: Set<IFDSVertex>,
-    val edges: Map<IFDSVertex, Set<IFDSVertex>>,
+class TraceGraph(
+    val sink: IfdsVertex,
+    val sources: Set<IfdsVertex>,
+    val edges: Map<IfdsVertex, Set<IfdsVertex>>,
 ) {
 
-    private fun getAllPaths(curPath: MutableList<IFDSVertex>): Sequence<List<IFDSVertex>> = sequence {
-        val v = curPath.last()
+    private fun getAllTraces(curTrace: MutableList<IfdsVertex>): Sequence<List<IfdsVertex>> = sequence {
+        val v = curTrace.last()
 
         if (v == sink) {
-            yield(curPath.toList())
+            yield(curTrace.toList())
             return@sequence
         }
 
         for (u in edges[v].orEmpty()) {
-            if (u !in curPath) {
-                curPath.add(u)
-                yieldAll(getAllPaths(curPath))
-                curPath.removeLast()
+            if (u !in curTrace) {
+                curTrace.add(u)
+                yieldAll(getAllTraces(curTrace))
+                curTrace.removeLast()
             }
         }
     }
 
-    fun getAllPaths(): Sequence<List<IFDSVertex>> = sequence {
+    fun getAllTraces(): Sequence<List<IfdsVertex>> = sequence {
         sources.forEach {
-            yieldAll(getAllPaths(mutableListOf(it)))
+            yieldAll(getAllTraces(mutableListOf(it)))
         }
     }
 
-    fun toVulnerability(vulnerabilityType: String, maxPathsCount: Int = 100): DumpableVulnerabilityInstance {
+    fun toVulnerability(vulnerabilityType: String, maxTracesCount: Int = 100): DumpableVulnerabilityInstance {
         return DumpableVulnerabilityInstance(
             vulnerabilityType,
             sources.map { it.statement.toString() },
             sink.statement.toString(),
-            getAllPaths().take(maxPathsCount).map { intermediatePoints ->
+            getAllTraces().take(maxTracesCount).map { intermediatePoints ->
                 intermediatePoints.map { it.statement.toString() }
             }.toList()
         )
     }
 
-    fun mergeWithUpGraph(upGraph: TaintRealisationsGraph, entryPoints: Set<IFDSVertex>): TaintRealisationsGraph {
+    fun mergeWithUpGraph(upGraph: TraceGraph, entryPoints: Set<IfdsVertex>): TraceGraph {
         val validEntryPoints = entryPoints.intersect(edges.keys).ifEmpty {
             return this
         }
@@ -54,6 +54,10 @@ class TaintRealisationsGraph(
             newEdges[source] = newEdges.getOrDefault(source, emptySet()) + dests
         }
         newEdges[upGraph.sink] = newEdges.getOrDefault(upGraph.sink, emptySet()) + validEntryPoints
-        return TaintRealisationsGraph(sink, newSources, newEdges)
+        return TraceGraph(sink, newSources, newEdges)
+    }
+
+    companion object {
+        fun bySink(sink: IfdsVertex) = TraceGraph(sink, setOf(sink), emptyMap())
     }
 }

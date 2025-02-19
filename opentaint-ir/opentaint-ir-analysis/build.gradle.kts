@@ -19,6 +19,7 @@ dependencies {
     testImplementation(group = "joda-time", name = "joda-time", version = "2.12.5")
 
     implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version = "1.4.1")
+    implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version = coroutinesVersion)
     implementation(group = "io.github.microutils", name = "kotlin-logging", version = "1.8.3")
     implementation(group =  "org.slf4j", name = "slf4j-simple", version = "1.6.1")
 }

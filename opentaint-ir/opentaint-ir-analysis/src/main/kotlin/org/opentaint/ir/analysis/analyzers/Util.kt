@@ -3,12 +3,20 @@ package org.opentaint.ir.analysis.analyzers
 import org.opentaint.ir.analysis.paths.AccessPath
 import org.opentaint.ir.analysis.paths.minus
 import org.opentaint.ir.analysis.paths.startsWith
+import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.cfg.JIRArgument
 import org.opentaint.ir.api.cfg.JIRThis
 import org.opentaint.ir.api.ext.toType
 
 val JIRMethod.thisInstance: JIRThis
     get() = JIRThis(enclosingClass.toType())
+
+fun JIRClasspath.getFormalParamsOf(method: JIRMethod): List<JIRArgument> {
+    return method.parameters.map {
+        JIRArgument.of(it.index, it.name, findTypeOrNull(it.type.typeName)!!)
+    }
+}
 
 fun normalFactFlow(fact: TaintNode, fromPath: AccessPath, toPath: AccessPath, dropFact: Boolean, maxPathLength: Int): List<TaintNode> {
     val factPath = fact.variable

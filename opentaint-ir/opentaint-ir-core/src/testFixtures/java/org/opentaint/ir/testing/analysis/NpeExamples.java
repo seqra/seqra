@@ -3,7 +3,7 @@ package org.opentaint.ir.testing.analysis;
 import org.jetbrains.annotations.NotNull;
 
 @SuppressWarnings("ALL")
-public class NPEExamples {
+public class NpeExamples {
 
     static class SimpleClassWithField {
         public String field;
@@ -89,7 +89,7 @@ public class NPEExamples {
         SimpleClassWithField x = z.g;
         x.field = null;
     }
-
+    
     int npeOnLength() {
         String x = "abc";
         String y = "def";
