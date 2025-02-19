@@ -1,10 +1,14 @@
 package org.opentaint.ir.testing
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.ext.HierarchyExtension
+import org.opentaint.ir.api.ext.findMethodOrNull
+import org.opentaint.ir.api.ext.findTypeOrNull
 import org.opentaint.ir.impl.features.duplicatedClasses
 import org.opentaint.ir.impl.features.hierarchyExt
+import org.opentaint.ir.testing.structure.EnumExample
 import org.opentaint.ir.testing.tests.DatabaseEnvTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -24,7 +28,7 @@ class ClassesTest : DatabaseEnvTest() {
     @Test
     fun `diagnostics should work`() {
         val duplicates = runBlocking { cp.duplicatedClasses() }
-        println(duplicates.entries.joinToString("\n") { it.key + " found " + it.value + " times"})
+        println(duplicates.entries.joinToString("\n") { it.key + " found " + it.value + " times" })
         assertTrue(duplicates.isNotEmpty())
         assertTrue(duplicates.values.all { it > 1 })
         duplicates.entries.forEach { (name, count) ->
@@ -33,5 +37,12 @@ class ClassesTest : DatabaseEnvTest() {
         }
     }
 
+    @Test
+    fun `enum constructor methods`() {
+        val enumType = cp.findTypeOrNull<EnumExample>() as JIRClassType
+        val parameters = enumType.findMethodOrNull("<init>", desc = null)!!.parameters
+        assertEquals("java.lang.String", parameters.first().type.typeName)
+        assertEquals("int", parameters[1].type.typeName)
+    }
 }
 

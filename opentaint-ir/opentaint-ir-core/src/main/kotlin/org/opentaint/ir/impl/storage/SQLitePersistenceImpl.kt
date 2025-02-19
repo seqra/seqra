@@ -56,12 +56,17 @@ class SQLitePersistenceImpl(
     private val runtimeProcessed: Boolean
         get() {
             try {
-                val count = jooq.fetchCount(
-                    BYTECODELOCATIONS,
-                    BYTECODELOCATIONS.STATE.notEqual(LocationState.PROCESSED.ordinal)
-                        .and(BYTECODELOCATIONS.RUNTIME.isTrue)
-                )
-                return count == 0
+                val hasBytecodeLocations = jooq.meta().tables
+                    .any { it.name.equals(BYTECODELOCATIONS.bytecodelocations().name, true) }
+                if (hasBytecodeLocations) {
+                    val count = jooq.fetchCount(
+                        BYTECODELOCATIONS,
+                        BYTECODELOCATIONS.STATE.notEqual(LocationState.PROCESSED.ordinal)
+                            .and(BYTECODELOCATIONS.RUNTIME.isTrue)
+                    )
+                    return count == 0
+                }
+                return false
             } catch (e: Exception) {
                 logger.warn("can't check that runtime libraries is processed with", e)
                 return false

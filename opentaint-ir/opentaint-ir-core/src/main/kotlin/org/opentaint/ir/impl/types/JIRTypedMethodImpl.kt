@@ -79,7 +79,7 @@ class JIRTypedMethodImpl(
                     enclosingMethod = this,
                     substitutor = methodInfo.substitutor,
                     parameter = jIRParameter,
-                    jvmType = methodInfo.impl?.parameterTypes?.get(index)
+                    jvmType = methodInfo.impl?.parameterTypes?.getOrNull(index)
                 )
             }
         }
@@ -91,7 +91,8 @@ class JIRTypedMethodImpl(
         val type = if (impl == null) {
             classpath.findTypeOrNull(typeName)
                 ?.copyWithAnnotations(
-                    (method as? JIRMethodImpl)?.returnTypeAnnotationInfos?.map { JIRAnnotationImpl(it, classpath) } ?: listOf()
+                    (method as? JIRMethodImpl)?.returnTypeAnnotationInfos?.map { JIRAnnotationImpl(it, classpath) }
+                        ?: listOf()
                 )
                 ?: throw IllegalStateException("Can't resolve type by name $typeName")
         } else {
