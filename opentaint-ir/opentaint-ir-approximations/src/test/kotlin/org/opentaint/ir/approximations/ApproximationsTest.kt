@@ -1,30 +1,23 @@
 package org.opentaint.ir.approximations
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.api.JavaVersion
 import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.cfg.JIRAssignInst
-import org.opentaint.ir.api.cfg.JIRCallInst
-import org.opentaint.ir.api.cfg.JIRFieldRef
-import org.opentaint.ir.api.cfg.JIRRawAssignInst
-import org.opentaint.ir.api.cfg.JIRRawCallInst
-import org.opentaint.ir.api.cfg.JIRRawFieldRef
+import org.opentaint.ir.api.cfg.*
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findDeclaredFieldOrNull
-import org.opentaint.ir.approximation.Approximations
+import org.opentaint.ir.approximation.*
 import org.opentaint.ir.approximation.Approximations.findApproximationByOriginOrNull
 import org.opentaint.ir.approximation.Approximations.findOriginalByApproximationOrNull
-import org.opentaint.ir.approximation.JIREnrichedVirtualField
-import org.opentaint.ir.approximation.JIREnrichedVirtualMethod
-import org.opentaint.ir.approximation.toApproximationName
-import org.opentaint.ir.approximation.toOriginalName
 import org.opentaint.ir.approximations.target.KotlinClass
+import org.opentaint.ir.impl.fs.JarLocation
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.allClasspath
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.opentaint.ir.testing.guavaLib
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.io.File
 
 class ApproximationsTest : BaseTest() {
     companion object : WithDB(Approximations)
@@ -189,5 +182,27 @@ class ApproximationsTest : BaseTest() {
         }
 
         assertTrue(types.none { findOriginalByApproximationOrNull(it.toApproximationName()) != null })
+    }
+
+    @Test
+    fun `run around guava`() {
+        runAlongLib(guavaLib)
+    }
+
+    private fun runAlongLib(file: File) {
+        val classes = JarLocation(file, isRuntime = false, object : JavaVersion {
+            override val majorVersion: Int
+                get() = 8
+        }).classes
+        assertNotNull(classes)
+        classes!!.forEach {
+            val clazz = cp.findClass(it.key)
+            if (!clazz.isAnnotation && !clazz.isInterface) {
+                println("Testing class: ${it.key}")
+                clazz.declaredMethods.forEach {
+                    it.flowGraph()
+                }
+            }
+        }
     }
 }
