@@ -2,6 +2,7 @@ package org.opentaint.ir.impl.types
 
 import org.opentaint.ir.api.*
 import org.opentaint.ir.api.ext.findTypeOrNull
+import org.opentaint.ir.api.ext.isEnum
 import org.opentaint.ir.api.ext.isNullable
 import org.opentaint.ir.impl.bytecode.JIRAnnotationImpl
 import org.opentaint.ir.impl.bytecode.JIRMethodImpl
@@ -74,6 +75,17 @@ class JIRTypedMethodImpl(
     override val parameters: List<JIRTypedMethodParameter>
         get() {
             val methodInfo = info
+            if (method.isConstructor && method.enclosingClass.isEnum) {
+                return method.parameters.map { jIRParameter ->
+                    JIRTypedMethodParameterImpl(
+                        enclosingMethod = this,
+                        substitutor = methodInfo.substitutor,
+                        parameter = jIRParameter,
+                        jvmType = null
+                    )
+                }
+            }
+
             return method.parameters.mapIndexed { index, jIRParameter ->
                 JIRTypedMethodParameterImpl(
                     enclosingMethod = this,
