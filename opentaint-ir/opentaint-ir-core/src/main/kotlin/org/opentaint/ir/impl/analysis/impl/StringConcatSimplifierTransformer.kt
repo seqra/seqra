@@ -1,28 +1,31 @@
 package org.opentaint.ir.impl.analysis.impl
 
 import org.opentaint.ir.api.JIRClassType
+import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.cfg.*
 import org.opentaint.ir.api.ext.autoboxIfNeeded
 import org.opentaint.ir.api.ext.findTypeOrNull
-import org.opentaint.ir.impl.cfg.JIRGraphImpl
+import org.opentaint.ir.impl.cfg.JIRInstListImpl
 import org.opentaint.ir.impl.cfg.VirtualMethodRefImpl
 import org.opentaint.ir.impl.cfg.methodRef
 import kotlin.collections.set
 
-class StringConcatSimplifier(val jIRGraph: JIRGraph) : DefaultJIRInstVisitor<JIRInst> {
+class StringConcatSimplifierTransformer(classpath: JIRClasspath, private val list: JIRInstList<JIRInst>) : DefaultJIRInstVisitor<JIRInst> {
+
     override val defaultInstHandler: (JIRInst) -> JIRInst
         get() = { it }
+
     private val instructionReplacements = mutableMapOf<JIRInst, JIRInst>()
     private val instructions = mutableListOf<JIRInst>()
     private val catchReplacements = mutableMapOf<JIRInst, MutableList<JIRInst>>()
     private val instructionIndices = mutableMapOf<JIRInst, Int>()
 
-    private val stringType = jIRGraph.classpath.findTypeOrNull<String>() as JIRClassType
+    private val stringType = classpath.findTypeOrNull<String>() as JIRClassType
 
-    fun build(): JIRGraph {
+    fun transform(): JIRInstList<JIRInst> {
         var changed = false
-        for (inst in jIRGraph) {
+        for (inst in list) {
             if (inst is JIRAssignInst) {
                 val lhv = inst.lhv
                 val rhv = inst.rhv
@@ -64,15 +67,14 @@ class StringConcatSimplifier(val jIRGraph: JIRGraph) : DefaultJIRInstVisitor<JIR
             }
         }
 
-        if (!changed) return jIRGraph
+        if (!changed) return list
 
         /**
          * after we changed the instruction list, we need to examine new instruction list and
          * remap all the old JIRInstRef's to new ones
          */
         instructionIndices.putAll(instructions.indices.map { instructions[it] to it })
-        val mappedInstructions = instructions.map { it.accept(this) }
-        return JIRGraphImpl(jIRGraph.method, mappedInstructions)
+        return JIRInstListImpl(instructions.map { it.accept(this) })
     }
 
     private fun stringify(inst: JIRInst, value: JIRValue, instList: MutableList<JIRInst>): JIRValue {
@@ -104,13 +106,16 @@ class StringConcatSimplifier(val jIRGraph: JIRGraph) : DefaultJIRInstVisitor<JIR
     }
 
     private fun indexOf(instRef: JIRInstRef) = JIRInstRef(
-        instructionIndices[instructionReplacements.getOrDefault(jIRGraph.inst(instRef), jIRGraph.inst(instRef))] ?: -1
+        instructionIndices[instructionReplacements.getOrDefault(list.get(instRef.index), list.get(instRef.index))] ?: -1
     )
 
-    private fun indicesOf(instRef: JIRInstRef) =
-        catchReplacements.getOrDefault(jIRGraph.inst(instRef), listOf(jIRGraph.inst(instRef))).map {
+    private fun indicesOf(instRef: JIRInstRef): List<JIRInstRef> {
+        val index = list.get(instRef.index)
+        return catchReplacements.getOrDefault(index, listOf(index)).map {
             JIRInstRef(instructions.indexOf(it))
+
         }
+    }
 
     override fun visitJIRCatchInst(inst: JIRCatchInst): JIRInst = JIRCatchInst(
         inst.location,
