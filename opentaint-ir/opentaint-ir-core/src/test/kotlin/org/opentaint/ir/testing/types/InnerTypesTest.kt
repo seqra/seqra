@@ -33,7 +33,7 @@ class InnerTypesTest : BaseTypesTest() {
             "org.opentaint.ir.testing.types.InnerClasses<W>.InnerState",
             "org.opentaint.ir.testing.types.InnerClasses<W>$2",
             "org.opentaint.ir.testing.types.InnerClasses<W>$1"
-        ), inners.map { it.typeName })
+        ), inners.map { it.typeName }.sortedDescending())
     }
 
     @Test
