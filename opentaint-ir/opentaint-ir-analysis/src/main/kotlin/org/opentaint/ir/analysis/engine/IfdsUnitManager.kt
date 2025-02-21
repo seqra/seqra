@@ -49,7 +49,9 @@ class IfdsUnitManager<UnitType>(
         val progressLoggerJob = launch {
             while (isActive) {
                 delay(1000)
-                logger.info { "Current progress: ${unitJobs.values.count { it.isCompleted }} / $unitsCount units completed" }
+                logger.info {
+                    "Current progress: ${unitJobs.values.count { it.isCompleted }} / $unitsCount units completed"
+                }
             }
         }
 

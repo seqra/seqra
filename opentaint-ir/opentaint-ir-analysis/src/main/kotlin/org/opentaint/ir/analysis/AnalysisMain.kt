@@ -4,20 +4,19 @@ import mu.KLogging
 import org.opentaint.ir.analysis.analyzers.AliasAnalyzerFactory
 import org.opentaint.ir.analysis.analyzers.NpeAnalyzerFactory
 import org.opentaint.ir.analysis.analyzers.NpePrecalcBackwardAnalyzerFactory
+import org.opentaint.ir.analysis.analyzers.SqlInjectionAnalyzerFactory
+import org.opentaint.ir.analysis.analyzers.SqlInjectionBackwardAnalyzerFactory
 import org.opentaint.ir.analysis.analyzers.TaintAnalysisNode
+import org.opentaint.ir.analysis.analyzers.TaintAnalyzerFactory
 import org.opentaint.ir.analysis.analyzers.TaintBackwardAnalyzerFactory
+import org.opentaint.ir.analysis.analyzers.TaintNode
 import org.opentaint.ir.analysis.analyzers.UnusedVariableAnalyzerFactory
-import org.opentaint.ir.analysis.engine.DomainFact
 import org.opentaint.ir.analysis.engine.IfdsBaseUnitRunner
-import org.opentaint.ir.analysis.engine.ParallelBidiIfdsUnitRunner
 import org.opentaint.ir.analysis.engine.SequentialBidiIfdsUnitRunner
 import org.opentaint.ir.analysis.engine.TraceGraph
-import org.opentaint.ir.analysis.graph.JIRApplicationGraphImpl
-import org.opentaint.ir.analysis.graph.SimplifiedJIRApplicationGraph
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.cfg.JIRExpr
 import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.impl.features.usagesExt
 
 @Serializable
 data class DumpableVulnerabilityInstance(
@@ -61,6 +60,11 @@ data class AnalysisConfig(val analyses: Map<String, AnalysesOptions>)
 
 val UnusedVariableRunner = IfdsBaseUnitRunner(UnusedVariableAnalyzerFactory)
 
+fun newSqlInjectionRunner(maxPathLength: Int = 5) = SequentialBidiIfdsUnitRunner(
+    IfdsBaseUnitRunner(SqlInjectionAnalyzerFactory(maxPathLength)),
+    IfdsBaseUnitRunner(SqlInjectionBackwardAnalyzerFactory(maxPathLength)),
+)
+
 fun newNpeRunner(maxPathLength: Int = 5) = SequentialBidiIfdsUnitRunner(
     IfdsBaseUnitRunner(NpeAnalyzerFactory(maxPathLength)),
     IfdsBaseUnitRunner(NpePrecalcBackwardAnalyzerFactory(maxPathLength)),
@@ -68,20 +72,29 @@ fun newNpeRunner(maxPathLength: Int = 5) = SequentialBidiIfdsUnitRunner(
 
 fun newAliasRunner(
     generates: (JIRInst) -> List<TaintAnalysisNode>,
-    isSink: (JIRInst, DomainFact) -> Boolean,
+    sanitizes: (JIRExpr, TaintNode) -> Boolean,
+    sinks: (JIRInst) -> List<TaintAnalysisNode>,
     maxPathLength: Int = 5
-) = ParallelBidiIfdsUnitRunner(
-    IfdsBaseUnitRunner(AliasAnalyzerFactory(generates, isSink, maxPathLength)),
-    IfdsBaseUnitRunner(TaintBackwardAnalyzerFactory(maxPathLength)),
+) = IfdsBaseUnitRunner(AliasAnalyzerFactory(generates, sanitizes, sinks, maxPathLength))
+
+fun newTaintRunner(
+    isSourceMethod: (JIRMethod) -> Boolean,
+    isSanitizeMethod: (JIRMethod) -> Boolean,
+    isSinkMethod: (JIRMethod) -> Boolean,
+    maxPathLength: Int = 5
+) = SequentialBidiIfdsUnitRunner(
+    IfdsBaseUnitRunner(TaintAnalyzerFactory(isSourceMethod, isSanitizeMethod, isSinkMethod, maxPathLength)),
+    IfdsBaseUnitRunner(TaintBackwardAnalyzerFactory(isSourceMethod, isSinkMethod, maxPathLength))
 )
 
-suspend fun JIRClasspath.newApplicationGraph(bannedPackagePrefixes: List<String>? = null): JIRApplicationGraph {
-    val mainGraph = JIRApplicationGraphImpl(this, usagesExt())
-    return if (bannedPackagePrefixes != null) {
-        SimplifiedJIRApplicationGraph(mainGraph, bannedPackagePrefixes)
-    } else {
-        SimplifiedJIRApplicationGraph(mainGraph)
-    }
-}
+fun newTaintRunner(
+    sourceMethodMatchers: List<String>,
+    sanitizeMethodMatchers: List<String>,
+    sinkMethodMatchers: List<String>,
+    maxPathLength: Int = 5
+) = SequentialBidiIfdsUnitRunner(
+    IfdsBaseUnitRunner(TaintAnalyzerFactory(sourceMethodMatchers, sanitizeMethodMatchers, sinkMethodMatchers, maxPathLength)),
+    IfdsBaseUnitRunner(TaintBackwardAnalyzerFactory(sourceMethodMatchers, sinkMethodMatchers, maxPathLength))
+)
 
 internal val logger = object : KLogging() {}.logger

@@ -28,14 +28,14 @@ abstract class BaseAnalysisTest : BaseTest() {
             val hierarchyExt = cp.hierarchyExt()
             val baseClass = cp.findClass<AbstractTestCase>()
             val classes = hierarchyExt.findSubClasses(baseClass, false)
-            classes.toArguments("CWE$cweNum", cweSpecificBans)
+            classes.toArguments("CWE${cweNum}_", cweSpecificBans)
         }
 
         private fun Sequence<JIRClassOrInterface>.toArguments(cwe: String, cweSpecificBans: List<String>): Stream<Arguments> = this
             .map { it.name }
             .filter { it.contains(cwe) }
             .filterNot { className -> (commonJulietBans + cweSpecificBans).any { className.contains(it) } }
-//            .filter { it.contains("StringBuilder_01") }
+//            .filter { it.contains("_66") }
             .sorted()
             .map { Arguments.of(it) }
             .asStream()

@@ -6,7 +6,7 @@ import org.opentaint.ir.analysis.analyzers.NpeAnalyzer
 import org.opentaint.ir.analysis.engine.SingletonUnitResolver
 import org.opentaint.ir.analysis.engine.runAnalysis
 import org.opentaint.ir.analysis.graph.JIRApplicationGraphImpl
-import org.opentaint.ir.analysis.newApplicationGraph
+import org.opentaint.ir.analysis.graph.newApplicationGraph
 import org.opentaint.ir.analysis.newNpeRunner
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.constructors

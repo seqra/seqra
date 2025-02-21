@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.ApplicationGraph
@@ -62,7 +61,7 @@ private class IfdsInstance<UnitType>(
         }
     }
 
-    private fun addStart(method: JIRMethod) {
+    private fun addStartMethod(method: JIRMethod) {
         require(unitResolver.resolve(method) == unit)
         for (sPoint in graph.entryPoint(method)) {
             for (sFact in flowSpace.obtainPossibleStartFacts(sPoint)) {
@@ -99,21 +98,11 @@ private class IfdsInstance<UnitType>(
 
     private val workList = Channel<IfdsEdge>(Channel.UNLIMITED)
 
-    private suspend fun takeNewEdge(): IfdsEdge? {
-        return try {
-            withTimeout(30) {
-                workList.receive()
-            }
-        } catch (_: Exception) {
-            null
-        }
-    }
-
     private suspend fun runTabulationAlgorithm(): Unit = coroutineScope {
-        startMethods.forEach { addStart(it) }
+        startMethods.forEach { addStartMethod(it) }
 
         while (isActive) {
-            val curEdge = takeNewEdge() ?: throw EmptyQueueCancellationException
+            val curEdge = workList.tryReceive().getOrNull() ?: throw EmptyQueueCancellationException
 
             if (visitedMethods.add(curEdge.method)) {
                 summary // Listen for incoming updates

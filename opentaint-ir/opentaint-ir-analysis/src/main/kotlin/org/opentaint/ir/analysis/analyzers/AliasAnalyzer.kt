@@ -6,32 +6,35 @@ import org.opentaint.ir.analysis.engine.IfdsResult
 import org.opentaint.ir.analysis.engine.IfdsVertex
 import org.opentaint.ir.analysis.engine.VulnerabilityLocation
 import org.opentaint.ir.analysis.paths.FieldAccessor
-import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.cfg.JIRArgument
+import org.opentaint.ir.api.cfg.JIRExpr
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRLocal
 import org.opentaint.ir.api.cfg.values
 
 fun AliasAnalyzerFactory(
     generates: (JIRInst) -> List<DomainFact>,
-    isSink: (JIRInst, DomainFact) -> Boolean,
+    sanitizes: (JIRExpr, TaintNode) -> Boolean,
+    sinks: (JIRInst) -> List<TaintAnalysisNode>,
     maxPathLength: Int = 5
 ) = AnalyzerFactory { graph ->
-    AliasAnalyzer(graph.classpath, generates, isSink, maxPathLength)
+    AliasAnalyzer(graph, generates, sanitizes, sinks, maxPathLength)
 }
 
 private class AliasAnalyzer(
-    cp: JIRClasspath,
+    graph: JIRApplicationGraph,
     generates: (JIRInst) -> List<DomainFact>,
-    isSink: (JIRInst, DomainFact) -> Boolean,
-    maxPathLength: Int
-) : TaintAnalyzer(cp, generates, isSink, maxPathLength) {
+    sanitizes: (JIRExpr, TaintNode) -> Boolean,
+    sinks: (JIRInst) -> List<TaintAnalysisNode>,
+    maxPathLength: Int,
+) : TaintAnalyzer(graph, generates, sanitizes, sinks, maxPathLength) {
 
     override fun getSummaryFactsPostIfds(ifdsResult: IfdsResult): List<VulnerabilityLocation> {
         val vulnerabilities = mutableListOf<VulnerabilityLocation>()
         ifdsResult.resultFacts.forEach { (inst, facts) ->
             facts.filterIsInstance<TaintAnalysisNode>().forEach { fact ->
-                if (isSink(inst, fact)) {
+                if (fact in sinks(inst)) {
                     fact.variable.let {
                         val name = when (val x = it.value) {
                             is JIRArgument -> x.name

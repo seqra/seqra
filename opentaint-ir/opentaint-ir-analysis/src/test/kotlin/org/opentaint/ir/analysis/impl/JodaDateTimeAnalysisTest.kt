@@ -9,7 +9,7 @@ import org.opentaint.ir.analysis.engine.IfdsUnitRunner
 import org.opentaint.ir.analysis.engine.MethodUnitResolver
 import org.opentaint.ir.analysis.engine.UnitResolver
 import org.opentaint.ir.analysis.engine.runAnalysis
-import org.opentaint.ir.analysis.newApplicationGraph
+import org.opentaint.ir.analysis.graph.newApplicationGraph
 import org.opentaint.ir.analysis.newNpeRunner
 import org.opentaint.ir.analysis.toDumpable
 import org.opentaint.ir.api.ext.findClass
@@ -25,7 +25,7 @@ class JodaDateTimeAnalysisTest : BaseTest() {
 
     private fun <UnitType> testOne(unitResolver: UnitResolver<UnitType>, ifdsUnitRunner: IfdsUnitRunner) {
         val clazz = cp.findClass<DateTime>()
-        val result = runAnalysis(graph, unitResolver, ifdsUnitRunner, clazz.declaredMethods, 1000).toDumpable()
+        val result = runAnalysis(graph, unitResolver, ifdsUnitRunner, clazz.declaredMethods).toDumpable()
 
         println("Vulnerabilities found: ${result.foundVulnerabilities.size}")
         val json = Json { prettyPrint = true }

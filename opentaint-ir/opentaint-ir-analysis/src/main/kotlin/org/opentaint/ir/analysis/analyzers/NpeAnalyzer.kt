@@ -5,7 +5,6 @@ import org.opentaint.ir.analysis.engine.AnalyzerFactory
 import org.opentaint.ir.analysis.engine.DomainFact
 import org.opentaint.ir.analysis.engine.FlowFunctionsSpace
 import org.opentaint.ir.analysis.engine.IfdsEdge
-import org.opentaint.ir.analysis.engine.IfdsVertex
 import org.opentaint.ir.analysis.engine.PathEdgeFact
 import org.opentaint.ir.analysis.engine.SummaryFact
 import org.opentaint.ir.analysis.engine.VulnerabilityLocation
@@ -23,14 +22,12 @@ import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.cfg.JIRArgument
-import org.opentaint.ir.api.cfg.JIRAssignInst
 import org.opentaint.ir.api.cfg.JIRCallExpr
 import org.opentaint.ir.api.cfg.JIRConstant
 import org.opentaint.ir.api.cfg.JIREqExpr
 import org.opentaint.ir.api.cfg.JIRExpr
 import org.opentaint.ir.api.cfg.JIRIfInst
 import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRInstanceCallExpr
 import org.opentaint.ir.api.cfg.JIRNeqExpr
 import org.opentaint.ir.api.cfg.JIRNewArrayExpr
 import org.opentaint.ir.api.cfg.JIRNewExpr
@@ -38,7 +35,6 @@ import org.opentaint.ir.api.cfg.JIRNullConstant
 import org.opentaint.ir.api.cfg.JIRValue
 import org.opentaint.ir.api.cfg.locals
 import org.opentaint.ir.api.cfg.values
-import org.opentaint.ir.api.ext.cfg.callExpr
 import org.opentaint.ir.api.ext.fields
 import org.opentaint.ir.api.ext.isNullable
 
@@ -271,6 +267,9 @@ class NpePrecalcBackwardFunctions(graph: JIRApplicationGraph, maxPathLength: Int
         return default
     }
 
+    override fun transmitDataFlowAtNormalInst(inst: JIRInst, nextInst: JIRInst, fact: DomainFact): List<DomainFact> =
+        listOf(fact)
+
     override fun obtainPossibleStartFacts(startStatement: JIRInst): List<DomainFact> {
         val values = startStatement.values
         return listOf(ZEROFact) + values
@@ -279,70 +278,6 @@ class NpePrecalcBackwardFunctions(graph: JIRApplicationGraph, maxPathLength: Int
             .map { NpeTaintNode(it) }
     }
 }
-
-fun NpeFlowdroidBackwardAnalyzerFactory(maxPathLength: Int = 5) = AnalyzerFactory { graph ->
-    NpeFlowdroidBackwardAnalyzer(graph, maxPathLength)
-}
-
-class NpeFlowdroidBackwardAnalyzer(
-    val graph: JIRApplicationGraph,
-    maxPathLength: Int = 5
-) : Analyzer {
-    override val flowFunctions: FlowFunctionsSpace = NpeBackwardFunctions(graph, maxPathLength)
-
-    override val saveSummaryEdgesAndCrossUnitCalls: Boolean
-        get() = false
-
-    override fun getSummaryFacts(edge: IfdsEdge): List<SummaryFact> {
-        val v = edge.v
-        val curInst = v.statement
-        val fact = (v.domainFact as? TaintNode) ?: return emptyList()
-        var canBeKilled = false
-
-        if (!fact.variable.isOnHeap) {
-            return emptyList()
-        }
-
-        if (curInst is JIRAssignInst && fact.variable.startsWith(curInst.lhv.toPath())) {
-            canBeKilled = true
-        }
-
-        if (curInst in graph.exitPoints(v.method)) {
-            canBeKilled = true
-        }
-
-        curInst.callExpr?.let { callExpr ->
-            if (callExpr is JIRInstanceCallExpr && fact.variable.startsWith(callExpr.instance.toPathOrNull())) {
-                canBeKilled = true
-            }
-            callExpr.args.forEach {
-                if (fact.variable.startsWith(it.toPathOrNull())) {
-                    canBeKilled = true
-                }
-            }
-        }
-
-        if (canBeKilled) {
-            val newStatements = graph.predecessors(v.statement)
-            return newStatements.flatMap { newStatement ->
-                graph.exitPoints(edge.method).map {
-                    PathEdgeFact(
-                        IfdsEdge(
-                            IfdsVertex(it, edge.u.domainFact),
-                            IfdsVertex(newStatement, fact)
-                        )
-                    )
-                }
-            }.toList()
-        }
-        return emptyList()
-    }
-}
-
-private class NpeBackwardFunctions(
-    graph: JIRApplicationGraph,
-    maxPathLength: Int,
-) : AbstractTaintBackwardFunctions(graph, maxPathLength)
 
 private val JIRMethod.treatAsNullable: Boolean
     get() {

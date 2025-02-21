@@ -2,16 +2,17 @@ package org.opentaint.ir.analysis.impl
 
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.analyzers.TaintAnalysisNode
-import org.opentaint.ir.analysis.engine.DomainFact
+import org.opentaint.ir.analysis.analyzers.TaintNode
 import org.opentaint.ir.analysis.engine.MethodUnitResolver
 import org.opentaint.ir.analysis.engine.runAnalysis
 import org.opentaint.ir.analysis.graph.SimplifiedJIRApplicationGraph
+import org.opentaint.ir.analysis.graph.newApplicationGraph
 import org.opentaint.ir.analysis.newAliasRunner
-import org.opentaint.ir.analysis.newApplicationGraph
 import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.toDumpable
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.cfg.JIRAssignInst
+import org.opentaint.ir.api.cfg.JIRExpr
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.ext.cfg.callExpr
 import org.opentaint.ir.api.ext.findClass
@@ -121,13 +122,9 @@ class AliasAnalysisTest : BaseTest() {
         }
     }
 
-    private fun isSink(inst: JIRInst, fact: DomainFact): Boolean {
-        if (fact !is TaintAnalysisNode || fact.activation != null) {
-            return false
-        }
-        return inst.callExpr?.method?.name == "test" &&
-                inst.callExpr?.method?.method?.enclosingClass?.simpleName == "Benchmark"
-    }
+    private fun isSanitizer(expr: JIRExpr, fact: TaintNode): Boolean = TODO()
+
+    private fun sinks(inst: JIRInst): List<TaintAnalysisNode> = TODO()
 
     private fun findTaints(method: JIRMethod): List<String> {
         val bannedPackagePrefixes = SimplifiedJIRApplicationGraph.defaultBannedPackagePrefixes
@@ -142,7 +139,7 @@ class AliasAnalysisTest : BaseTest() {
         val result = runAnalysis(
             graph,
             MethodUnitResolver,
-            newAliasRunner(::generates, ::isSink),
+            newAliasRunner(::generates, ::isSanitizer, ::sinks),
             listOf(method)
         )
 

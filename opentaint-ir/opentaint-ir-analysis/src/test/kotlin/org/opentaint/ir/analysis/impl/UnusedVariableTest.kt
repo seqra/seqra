@@ -6,7 +6,7 @@ import org.opentaint.ir.analysis.VulnerabilityInstance
 import org.opentaint.ir.analysis.analyzers.UnusedVariableAnalyzer
 import org.opentaint.ir.analysis.engine.SingletonUnitResolver
 import org.opentaint.ir.analysis.engine.runAnalysis
-import org.opentaint.ir.analysis.newApplicationGraph
+import org.opentaint.ir.analysis.graph.newApplicationGraph
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages

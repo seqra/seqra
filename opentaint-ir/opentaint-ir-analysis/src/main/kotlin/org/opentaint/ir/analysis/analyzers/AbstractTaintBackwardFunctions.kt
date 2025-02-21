@@ -4,8 +4,6 @@ import org.opentaint.ir.analysis.engine.DomainFact
 import org.opentaint.ir.analysis.engine.FlowFunctionInstance
 import org.opentaint.ir.analysis.engine.FlowFunctionsSpace
 import org.opentaint.ir.analysis.engine.ZEROFact
-import org.opentaint.ir.analysis.paths.AccessPath
-import org.opentaint.ir.analysis.paths.minus
 import org.opentaint.ir.analysis.paths.startsWith
 import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.paths.toPathOrNull
@@ -28,33 +26,16 @@ abstract class AbstractTaintBackwardFunctions(
         return listOf(ZEROFact)
     }
 
-    open fun transmitBackDataFlow(from: JIRValue, to: JIRExpr, atInst: JIRInst, fact: DomainFact, dropFact: Boolean): List<DomainFact> {
-        if (fact == ZEROFact) {
-            return listOf(ZEROFact)
-        }
+    abstract fun transmitBackDataFlow(from: JIRValue, to: JIRExpr, atInst: JIRInst, fact: DomainFact, dropFact: Boolean): List<DomainFact>
 
-        if (fact !is TaintNode) {
-            return emptyList()
-        }
-
-        val factPath = (fact as? TaintNode)?.variable
-        val default = if (dropFact) emptyList() else listOf(fact)
-        val toPath = to.toPathOrNull() ?: return default
-        val fromPath = from.toPathOrNull() ?: return default
-
-        val diff = factPath.minus(fromPath)
-        if (diff != null && factPath != fromPath) {
-            return listOf(fact.moveToOtherPath(AccessPath.fromOther(toPath, diff).limit(maxPathLength)))
-        }
-        return default
-    }
+    abstract fun transmitDataFlowAtNormalInst(inst: JIRInst, nextInst: JIRInst, fact: DomainFact): List<DomainFact>
 
     override fun obtainSequentFlowFunction(current: JIRInst, next: JIRInst) = FlowFunctionInstance { fact ->
         // fact.activation != current needed here to jump over assignment where the fact appeared
         if (current is JIRAssignInst && (fact !is TaintNode || fact.activation != current)) {
             transmitBackDataFlow(current.lhv, current.rhv, current, fact, dropFact = false)
         } else {
-            listOf(fact)
+            transmitDataFlowAtNormalInst(current, next, fact)
         }
     }
 
@@ -137,7 +118,7 @@ abstract class AbstractTaintBackwardFunctions(
             }
         }
 
-        listOf(fact)
+        transmitDataFlowAtNormalInst(callStatement, returnSite, fact)
     }
 
     override fun obtainExitToReturnSiteFlowFunction(
