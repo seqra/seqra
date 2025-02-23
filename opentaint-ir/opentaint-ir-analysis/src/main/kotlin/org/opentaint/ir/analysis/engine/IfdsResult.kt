@@ -64,9 +64,7 @@ class IfdsResult(
                     }
                     is PredecessorKind.Unknown -> {
                         addEdge(pred.predEdge.v, lastVertex)
-                        if (pred.predEdge.u == pred.predEdge.v && !stopAtMethodStart) {
-                            sources.add(pred.predEdge.v)
-                        } else { // Turning point
+                        if (pred.predEdge.u != pred.predEdge.v) {
                             // TODO: ideally, we should analyze the place from which the edge was given to ifds,
                             //  for now we just go to method start
                             dfs(IfdsEdge(pred.predEdge.u, pred.predEdge.u), pred.predEdge.v, stopAtMethodStart)

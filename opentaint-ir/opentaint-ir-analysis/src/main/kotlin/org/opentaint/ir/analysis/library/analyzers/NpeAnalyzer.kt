@@ -206,9 +206,9 @@ private class NpeForwardFunctions(
 
         val thisInstance = method.thisInstance
 
-        // Possibly null fields
+        // Possibly null public non-final fields
         result += method.enclosingClass.fields
-            .filter { it.isNullable != false && !it.isStatic }
+            .filter { it.isNullable != false && !it.isStatic && it.isPublic && !it.isFinal }
             .map {
                 NpeTaintNode(
                     AccessPath.fromOther(AccessPath.fromLocal(thisInstance), listOf(FieldAccessor(it)))
