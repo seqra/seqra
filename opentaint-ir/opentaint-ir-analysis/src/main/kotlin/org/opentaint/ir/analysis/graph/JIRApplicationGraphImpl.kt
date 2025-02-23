@@ -6,14 +6,13 @@ import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.ext.cfg.callExpr
 import org.opentaint.ir.impl.features.SyncUsagesExtension
-import org.opentaint.ir.impl.features.usagesExt
 
 /**
  * Possible we will need JIRRawInst instead of JIRInst
  */
-open class JIRApplicationGraphImpl(
+class JIRApplicationGraphImpl(
     override val classpath: JIRClasspath,
-    protected val usages: SyncUsagesExtension
+    private val usages: SyncUsagesExtension
 ) : JIRApplicationGraph {
     private val methods = mutableSetOf<JIRMethod>()
 
@@ -55,14 +54,5 @@ open class JIRApplicationGraphImpl(
 
     override fun methodOf(node: JIRInst): JIRMethod {
         return node.location.method.also { methods.add(it) }
-    }
-}
-
-suspend fun JIRClasspath.newApplicationGraph(bannedPackagePrefixes: List<String>? = null): JIRApplicationGraph {
-    val mainGraph = JIRApplicationGraphImpl(this, usagesExt())
-    return if (bannedPackagePrefixes != null) {
-        SimplifiedJIRApplicationGraph(mainGraph, bannedPackagePrefixes)
-    } else {
-        SimplifiedJIRApplicationGraph(mainGraph)
     }
 }

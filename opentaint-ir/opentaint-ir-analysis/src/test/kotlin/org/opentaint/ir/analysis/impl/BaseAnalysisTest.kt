@@ -2,7 +2,7 @@ package org.opentaint.ir.analysis.impl
 
 import juliet.testcasesupport.AbstractTestCase
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.analysis.VulnerabilityInstance
+import org.opentaint.ir.analysis.engine.VulnerabilityInstance
 import org.opentaint.ir.analysis.toDumpable
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRMethod

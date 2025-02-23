@@ -21,9 +21,9 @@ import org.opentaint.ir.impl.features.hierarchyExt
  *  3. Adds a special [JIRNoopInst] instruction to the beginning of each method
  *    (because backward analysis may want for method to start with neutral instruction)
  */
-class SimplifiedJIRApplicationGraph(
+internal class SimplifiedJIRApplicationGraph(
     private val impl: JIRApplicationGraphImpl,
-    private val bannedPackagePrefixes: List<String> = defaultBannedPackagePrefixes,
+    private val bannedPackagePrefixes: List<String>,
 ) : JIRApplicationGraph by impl {
     private val hierarchyExtension = runBlocking {
         classpath.hierarchyExt()
@@ -112,15 +112,6 @@ class SimplifiedJIRApplicationGraph(
     override fun entryPoint(method: JIRMethod): Sequence<JIRInst> = sequenceOf(getStartInst(method))
 
     companion object {
-        val defaultBannedPackagePrefixes: List<String> = listOf(
-            "kotlin.",
-            "java.",
-            "jdk.internal.",
-            "sun.",
-//            "kotlin.jvm.internal.",
-//            "java.security.",
-//            "java.util.regex."
-        )
     }
 }
 

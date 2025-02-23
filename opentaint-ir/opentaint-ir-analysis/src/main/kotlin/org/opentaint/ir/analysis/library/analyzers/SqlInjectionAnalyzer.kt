@@ -1,4 +1,4 @@
-package org.opentaint.ir.analysis.analyzers
+package org.opentaint.ir.analysis.library.analyzers
 
 fun SqlInjectionAnalyzerFactory(maxPathLength: Int) = TaintAnalyzerFactory(
     sqlSourceMatchers,

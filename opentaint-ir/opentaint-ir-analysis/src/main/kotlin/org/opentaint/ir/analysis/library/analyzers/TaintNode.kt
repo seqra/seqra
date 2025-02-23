@@ -1,11 +1,15 @@
-package org.opentaint.ir.analysis.analyzers
+package org.opentaint.ir.analysis.library.analyzers
 
 import org.opentaint.ir.analysis.engine.DomainFact
 import org.opentaint.ir.analysis.paths.AccessPath
 import org.opentaint.ir.api.cfg.JIRInst
 
 /**
- * activation == null <=> activation point is passed
+ * Abstract implementation for [DomainFact] that can be used for analysis where dataflow facts correlate with
+ * variables/values
+ *
+ * @property activation is the activation point, as described in ARF14. Null value means that activation point was
+ * passed (so, for analyses that do not use backward runner to taint aliases, [activation] will always be null).
  */
 abstract class TaintNode(val variable: AccessPath, val activation: JIRInst? = null): DomainFact {
     protected abstract val nodeType: String

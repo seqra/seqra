@@ -1,14 +1,14 @@
 package org.opentaint.ir.analysis.impl
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.analysis.analyzers.TaintAnalysisNode
-import org.opentaint.ir.analysis.analyzers.TaintNode
-import org.opentaint.ir.analysis.engine.MethodUnitResolver
-import org.opentaint.ir.analysis.engine.runAnalysis
-import org.opentaint.ir.analysis.graph.SimplifiedJIRApplicationGraph
-import org.opentaint.ir.analysis.graph.newApplicationGraph
-import org.opentaint.ir.analysis.newAliasRunner
+import org.opentaint.ir.analysis.graph.defaultBannedPackagePrefixes
+import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
+import org.opentaint.ir.analysis.library.MethodUnitResolver
+import org.opentaint.ir.analysis.library.analyzers.TaintAnalysisNode
+import org.opentaint.ir.analysis.library.analyzers.TaintNode
+import org.opentaint.ir.analysis.library.newAliasRunner
 import org.opentaint.ir.analysis.paths.toPath
+import org.opentaint.ir.analysis.runAnalysis
 import org.opentaint.ir.analysis.toDumpable
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.cfg.JIRAssignInst
@@ -127,12 +127,12 @@ class AliasAnalysisTest : BaseTest() {
     private fun sinks(inst: JIRInst): List<TaintAnalysisNode> = TODO()
 
     private fun findTaints(method: JIRMethod): List<String> {
-        val bannedPackagePrefixes = SimplifiedJIRApplicationGraph.defaultBannedPackagePrefixes
+        val bannedPackagePrefixes = defaultBannedPackagePrefixes
             .plus("pointerbench.benchmark.internal")
 
         val graph = runBlocking {
-            cp.newApplicationGraph(
-                SimplifiedJIRApplicationGraph.defaultBannedPackagePrefixes + bannedPackagePrefixes
+            cp.newApplicationGraphForAnalysis(
+                defaultBannedPackagePrefixes + bannedPackagePrefixes
             )
         }
 

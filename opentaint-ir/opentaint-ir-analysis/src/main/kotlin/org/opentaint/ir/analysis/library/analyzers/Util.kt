@@ -1,4 +1,4 @@
-package org.opentaint.ir.analysis.analyzers
+package org.opentaint.ir.analysis.library.analyzers
 
 import org.opentaint.ir.analysis.paths.AccessPath
 import org.opentaint.ir.analysis.paths.minus

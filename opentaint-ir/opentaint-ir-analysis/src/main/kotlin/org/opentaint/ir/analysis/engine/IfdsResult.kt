@@ -1,6 +1,9 @@
 package org.opentaint.ir.analysis.engine
 import org.opentaint.ir.api.cfg.JIRInst
 
+/**
+ * Aggregates all facts and edges found by tabulation algorithm
+ */
 class IfdsResult(
     val pathEdges: List<IfdsEdge>,
     val resultFacts: Map<JIRInst, Set<DomainFact>>,
@@ -86,6 +89,9 @@ class IfdsResult(
         }
     }
 
+    /**
+     * Builds a graph with traces to given [vertex].
+     */
     fun resolveTraceGraph(vertex: IfdsVertex): TraceGraph {
         return TraceGraphBuilder(vertex).build()
     }

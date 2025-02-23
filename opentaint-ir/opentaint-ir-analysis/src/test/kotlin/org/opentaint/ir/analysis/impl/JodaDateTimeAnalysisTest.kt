@@ -3,14 +3,14 @@ package org.opentaint.ir.analysis.impl
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
-import org.opentaint.ir.analysis.UnusedVariableRunner
-import org.opentaint.ir.analysis.engine.ClassUnitResolver
 import org.opentaint.ir.analysis.engine.IfdsUnitRunner
-import org.opentaint.ir.analysis.engine.MethodUnitResolver
 import org.opentaint.ir.analysis.engine.UnitResolver
-import org.opentaint.ir.analysis.engine.runAnalysis
-import org.opentaint.ir.analysis.graph.newApplicationGraph
-import org.opentaint.ir.analysis.newNpeRunner
+import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
+import org.opentaint.ir.analysis.library.MethodUnitResolver
+import org.opentaint.ir.analysis.library.UnusedVariableRunner
+import org.opentaint.ir.analysis.library.getClassUnitResolver
+import org.opentaint.ir.analysis.library.newNpeRunner
+import org.opentaint.ir.analysis.runAnalysis
 import org.opentaint.ir.analysis.toDumpable
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.impl.features.InMemoryHierarchy
@@ -34,7 +34,7 @@ class JodaDateTimeAnalysisTest : BaseTest() {
 
     @Test
     fun `test Unused variable analysis`() {
-        testOne(ClassUnitResolver(false), UnusedVariableRunner)
+        testOne(getClassUnitResolver(false), UnusedVariableRunner)
     }
 
     @Test
@@ -43,6 +43,6 @@ class JodaDateTimeAnalysisTest : BaseTest() {
     }
 
     private val graph = runBlocking {
-        cp.newApplicationGraph()
+        cp.newApplicationGraphForAnalysis()
     }
 }

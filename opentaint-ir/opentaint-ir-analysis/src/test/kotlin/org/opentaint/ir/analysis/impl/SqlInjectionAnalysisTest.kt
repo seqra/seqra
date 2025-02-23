@@ -1,12 +1,12 @@
 package org.opentaint.ir.analysis.impl
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.analysis.VulnerabilityInstance
-import org.opentaint.ir.analysis.analyzers.TaintAnalyzer
-import org.opentaint.ir.analysis.engine.SingletonUnitResolver
-import org.opentaint.ir.analysis.engine.runAnalysis
-import org.opentaint.ir.analysis.graph.newApplicationGraph
-import org.opentaint.ir.analysis.newSqlInjectionRunner
+import org.opentaint.ir.analysis.engine.VulnerabilityInstance
+import org.opentaint.ir.analysis.library.analyzers.TaintAnalyzer
+import org.opentaint.ir.analysis.library.SingletonUnitResolver
+import org.opentaint.ir.analysis.runAnalysis
+import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
+import org.opentaint.ir.analysis.library.newSqlInjectionRunner
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
@@ -32,7 +32,7 @@ class SqlInjectionAnalysisTest : BaseAnalysisTest() {
 
     override fun launchAnalysis(methods: List<JIRMethod>): List<VulnerabilityInstance> {
         val graph = runBlocking {
-            cp.newApplicationGraph()
+            cp.newApplicationGraphForAnalysis()
         }
         return runAnalysis(graph, SingletonUnitResolver, newSqlInjectionRunner(), methods)
     }

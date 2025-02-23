@@ -2,7 +2,13 @@ package org.opentaint.ir.analysis.engine
 
 import org.opentaint.ir.analysis.DumpableVulnerabilityInstance
 
-class TraceGraph(
+/**
+ * A directed graph with selected [sink] and [sources], where each path from one of [sources] to [sink] is a trace.
+ *
+ * @property sink is usually some interesting vertex that we want to reach (e.g. vertex that produces vulnerability)
+ * @property sources are the entry points, e.g. the vertices with [ZEROFact] or method starts
+ */
+data class TraceGraph(
     val sink: IfdsVertex,
     val sources: Set<IfdsVertex>,
     val edges: Map<IfdsVertex, Set<IfdsVertex>>,
@@ -25,6 +31,9 @@ class TraceGraph(
         }
     }
 
+    /**
+     * Returns a sequence with all traces from [sources] to [sink]
+     */
     fun getAllTraces(): Sequence<List<IfdsVertex>> = sequence {
         sources.forEach {
             yieldAll(getAllTraces(mutableListOf(it)))
@@ -42,6 +51,15 @@ class TraceGraph(
         )
     }
 
+    /**
+     * Merges two graphs.
+     *
+     * [sink] will be chosen from receiver, and edges from both graphs will be merged.
+     * Also, all edges from [upGraph]'s sink to [entryPoints] will be added
+     * (these are edges "connecting" [upGraph] with receiver).
+     *
+     * Informally, this method extends receiver's traces from one side using [upGraph].
+     */
     fun mergeWithUpGraph(upGraph: TraceGraph, entryPoints: Set<IfdsVertex>): TraceGraph {
         val validEntryPoints = entryPoints.intersect(edges.keys).ifEmpty {
             return this
