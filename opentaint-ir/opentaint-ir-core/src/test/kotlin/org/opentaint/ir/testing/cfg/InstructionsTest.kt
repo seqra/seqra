@@ -13,12 +13,12 @@ import org.opentaint.ir.api.ext.cfg.callExpr
 import org.opentaint.ir.api.ext.cfg.locals
 import org.opentaint.ir.api.ext.cfg.values
 import org.opentaint.ir.testing.BaseTest
+import org.opentaint.ir.testing.Common
 import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.cfg.RealMethodResolution.Virtual
 import org.opentaint.ir.testing.cfg.RealMethodResolution.VirtualImpl
-import org.opentaint.ir.testing.structure.FieldsAndMethods
 import org.opentaint.ir.testing.primitives.Primitives
-import org.opentaint.ir.testing.Common
+import org.opentaint.ir.testing.structure.FieldsAndMethods
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnJre
@@ -226,6 +226,15 @@ class InstructionsTest : BaseTest() {
         assertEquals(cp.boolean, fieldBoolean.fieldType)
     }
 
+    @Test
+    fun `private call with invokevirtual instruction`() {
+        val clazz = cp.findClass("VirtualInstructions")
+        val instList = clazz.declaredMethods.first { it.name == "run" }.instList
+        val callDoSmth = instList.mapNotNull { it.callExpr }. first {
+            it.toString().contains("doSmth")
+        }
+        assertEquals("doSmth", callDoSmth.method.method.name)
+    }
 }
 
 fun JIRMethod.dumpInstructions(): String {

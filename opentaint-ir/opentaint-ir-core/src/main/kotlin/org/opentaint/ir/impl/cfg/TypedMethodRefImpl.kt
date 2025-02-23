@@ -22,6 +22,10 @@ abstract class MethodSignatureRef(
         private val alwaysTrue: (JIRTypedMethod) -> Boolean = { true }
     }
 
+    private fun predicate(additionalFilter: (JIRTypedMethod) -> Boolean = alwaysTrue): (JIRTypedMethod) -> Boolean = {
+        it.name == name && additionalFilter(it) && it.method.description == description
+    }
+
     protected val description: String = buildString {
         append("(")
         argTypes.forEach {
@@ -32,17 +36,16 @@ abstract class MethodSignatureRef(
     }
 
     private fun List<JIRTypedMethod>.findMethod(filter: (JIRTypedMethod) -> Boolean = alwaysTrue): JIRTypedMethod? {
-        return firstOrNull { it.name == name && filter(it) && it.method.description == description }
+        return firstOrNull(predicate(filter))
     }
 
     protected fun JIRClassType.findTypedMethod(filter: (JIRTypedMethod) -> Boolean = alwaysTrue): JIRTypedMethod {
-        return findMethodOrNull(filter) ?: throw IllegalStateException(this.methodNotFoundMessage)
+        return findMethodOrNull(predicate(filter)) ?: throw IllegalStateException(this.methodNotFoundMessage)
     }
 
     protected fun JIRClassType.findTypedMethodOrNull(filter: (JIRTypedMethod) -> Boolean = alwaysTrue): JIRTypedMethod? {
-        var methodOrNull = findMethodOrNull {
-            it.name == name && filter(it) && it.method.description == description
-        }
+        var methodOrNull = findMethodOrNull(predicate(filter))
+
         if (methodOrNull == null && jIRClass.packageName == "java.lang.invoke") {
             methodOrNull = findMethodOrNull {
                 val method = it.method
@@ -177,11 +180,11 @@ class VirtualMethodRefImpl(
     }
 
     override val method: JIRTypedMethod by softLazy {
-        actualType.findTypedMethodOrNull { !it.isPrivate } ?: declaredMethod
+        actualType.findTypedMethodOrNull() ?: declaredMethod
     }
 
     override val declaredMethod: JIRTypedMethod by softLazy {
-        type.findTypedMethod { !it.isPrivate }
+        type.findTypedMethod()
     }
 }
 
