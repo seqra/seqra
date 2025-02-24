@@ -76,6 +76,40 @@ class JIRUnknownField(enclosingClass: JIRUnknownClass, name: String, type: TypeN
     }
 }
 
+/**
+ * Feature for mocking references to unknown classes. I.e let's assume that we have:
+ *
+ * ```
+ * class Bar {
+ *
+ *      int x = 0;
+ *
+ *      public void run() {
+ *          System.out.println("Hello world");
+ *      }
+ * }
+ *
+ * class Foo extends Bar {
+ *
+ *      Bar f = new Bar();
+ *
+ *      public void call() {
+ *          System.out.println(f.x);
+ *          run();
+ *      }
+ * }
+ * ```
+ *
+ * Let's assume that we have classpath that contains class `Foo` and doesn't contain `Bar`. Default behavior for
+ * classpath is to fail on trying to access class that doesn't exist. i.e parsing method instructions will fail, reading
+ * class hierarchy will fail, resolving method will fail.
+ *
+ * UnknownClasses feature fix this behaviour. All references pointing to nowhere will be resolved as special implementation
+ * of [JIRClassOrInterface] instance. Such instance will have **empty** [JIRClassOrInterface.declaredFields] and
+ * [JIRClassOrInterface.declaredMethods] but all resolutions done through [JIRClassOrInterface.lookup] interface will return
+ * mocked instances
+ *
+ */
 object UnknownClasses : JIRClasspathExtFeature {
     override fun tryFindClass(classpath: JIRClasspath, name: String): JIRClasspathExtFeature.JIRResolvedClassResult {
         return JIRResolvedClassResultImpl(name, JIRUnknownClass(classpath, name))
