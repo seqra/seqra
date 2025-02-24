@@ -16,7 +16,10 @@ import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.StringConcatSimplifier
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.impl.fs.JarLocation
-import org.opentaint.ir.testing.*
+import org.opentaint.ir.testing.BaseTest
+import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.guavaLib
+import org.opentaint.ir.testing.kotlinxCoroutines
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -238,14 +241,9 @@ class JIRGraphChecker(val method: JIRMethod, val jIRGraph: JIRGraph) : JIRInstVi
 
 class IRTest : BaseTest() {
 
-    companion object : WithDB(InMemoryHierarchy)
+    companion object : WithDB(InMemoryHierarchy, StringConcatSimplifier)
 
     private val target = Files.createTempDirectory("jIRdb-temp")
-
-    override val cp: JIRClasspath = runBlocking {
-        val features = listOf(StringConcatSimplifier)
-        db.classpath(allClasspath, features)
-    }
 
     private val ext = runBlocking { cp.hierarchyExt() }
 

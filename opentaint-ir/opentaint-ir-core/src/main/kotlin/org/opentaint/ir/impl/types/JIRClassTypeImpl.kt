@@ -1,21 +1,10 @@
 package org.opentaint.ir.impl.types
 
-import org.opentaint.ir.api.JIRAnnotation
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRRefType
-import org.opentaint.ir.api.JIRType
-import org.opentaint.ir.api.JIRTypedField
-import org.opentaint.ir.api.JIRTypedMethod
+import org.opentaint.ir.api.*
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.packageName
 import org.opentaint.ir.api.ext.toType
-import org.opentaint.ir.impl.types.signature.JvmClassRefType
-import org.opentaint.ir.impl.types.signature.JvmParameterizedType
-import org.opentaint.ir.impl.types.signature.JvmType
-import org.opentaint.ir.impl.types.signature.TypeResolutionImpl
-import org.opentaint.ir.impl.types.signature.TypeSignature
+import org.opentaint.ir.impl.types.signature.*
 import org.opentaint.ir.impl.types.substition.JIRSubstitutor
 import org.opentaint.ir.impl.types.substition.substitute
 import kotlin.LazyThreadSafetyMode.PUBLICATION
@@ -47,6 +36,7 @@ open class JIRClassTypeImpl(
 
     private val resolutionImpl by lazy(PUBLICATION) { TypeSignature.withDeclarations(jIRClass) as? TypeResolutionImpl }
     private val declaredTypeParameters by lazy(PUBLICATION) { jIRClass.typeParameters }
+    override val lookup: JIRLookup<JIRTypedField, JIRTypedMethod> = JIRClassTypeLookupImpl(this)
 
     override val jIRClass: JIRClassOrInterface get() = classpath.findClass(name)
 

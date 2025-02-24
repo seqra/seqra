@@ -1,32 +1,18 @@
 package org.opentaint.ir.impl
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.joinAll
-import kotlinx.coroutines.withContext
-import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.JIRAnnotation
-import org.opentaint.ir.api.JIRArrayType
-import org.opentaint.ir.api.JIRByteCodeLocation
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRClasspathExtFeature
+import kotlinx.coroutines.*
+import org.opentaint.ir.api.*
 import org.opentaint.ir.api.JIRClasspathExtFeature.JIRResolvedClassResult
 import org.opentaint.ir.api.JIRClasspathExtFeature.JIRResolvedTypeResult
-import org.opentaint.ir.api.JIRClasspathFeature
-import org.opentaint.ir.api.JIRClasspathTask
-import org.opentaint.ir.api.JIRFeatureEvent
-import org.opentaint.ir.api.JIRRefType
-import org.opentaint.ir.api.JIRType
-import org.opentaint.ir.api.PredefinedPrimitives
-import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.api.ext.toType
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.features.JIRFeatureEventImpl
 import org.opentaint.ir.impl.features.JIRFeaturesChain
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRResolvedResult.JIRResolvedClassResultImpl
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRResolvedResult.JIRResolvedTypeResultImpl
+import org.opentaint.ir.impl.features.classpaths.JIRUnknownClass
+import org.opentaint.ir.impl.features.classpaths.UnknownClasses
+import org.opentaint.ir.impl.features.classpaths.isResolveAllToUnknown
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.types.JIRArrayTypeImpl
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
@@ -45,7 +31,11 @@ class JIRClasspathImpl(
     override val registeredLocations: List<RegisteredLocation> = locationsRegistrySnapshot.locations
 
     private val classpathVfs = ClasspathVfs(globalClassVFS, locationsRegistrySnapshot)
-    private val featuresChain = JIRFeaturesChain(features + JIRClasspathFeatureImpl())
+    private val featuresChain = run{
+        val strictFeatures = features.filter { it !is UnknownClasses }
+        val hasUnknownClasses = strictFeatures.size != features.size
+        JIRFeaturesChain(strictFeatures + listOfNotNull(JIRClasspathFeatureImpl(), UnknownClasses.takeIf { hasUnknownClasses }) )
+    }
 
     override suspend fun refreshed(closeOld: Boolean): JIRClasspath {
         return db.new(this).also {
@@ -120,22 +110,29 @@ class JIRClasspathImpl(
         }.toSet()
     }
 
+    override fun isInstalled(feature: JIRClasspathFeature): Boolean {
+        return featuresChain.features.contains(feature)
+    }
+
     override fun close() {
         locationsRegistrySnapshot.close()
     }
 
     private inner class JIRClasspathFeatureImpl : JIRClasspathExtFeature {
 
-        override fun tryFindClass(classpath: JIRClasspath, name: String): JIRResolvedClassResult {
+        override fun tryFindClass(classpath: JIRClasspath, name: String): JIRResolvedClassResult? {
             val source = classpathVfs.firstClassOrNull(name)
             val jIRClass = source?.let { toJIRClass(it.source) }
                 ?: db.persistence.findClassSourceByName(classpath, name)?.let {
                     toJIRClass(it)
                 }
+            if (jIRClass == null && isResolveAllToUnknown) {
+                return null
+            }
             return JIRResolvedClassResultImpl(name, jIRClass)
         }
 
-        override fun tryFindType(classpath: JIRClasspath, name: String): JIRResolvedTypeResult {
+        override fun tryFindType(classpath: JIRClasspath, name: String): JIRResolvedTypeResult? {
             if (name.endsWith("[]")) {
                 val targetName = name.removeSuffix("[]")
                 return JIRResolvedTypeResultImpl(name,
@@ -146,8 +143,11 @@ class JIRClasspathImpl(
             if (predefined != null) {
                 return JIRResolvedTypeResultImpl(name, predefined)
             }
-            val clazz = findClassOrNull(name) ?: return JIRResolvedTypeResultImpl(name, null)
-            return JIRResolvedTypeResultImpl(name, typeOf(clazz))
+            return when (val clazz = findClassOrNull(name)) {
+                null -> JIRResolvedTypeResultImpl(name, null)
+                is JIRUnknownClass -> null // delegating to UnknownClass feature
+                else -> JIRResolvedTypeResultImpl(name, typeOf(clazz))
+            }
         }
 
         override fun findClasses(classpath: JIRClasspath, name: String): List<JIRClassOrInterface> {

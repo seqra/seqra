@@ -2,10 +2,7 @@ package org.opentaint.ir.impl.cfg
 
 import org.opentaint.ir.api.*
 import org.opentaint.ir.api.cfg.*
-import org.opentaint.ir.api.ext.findMethodOrNull
-import org.opentaint.ir.api.ext.hasAnnotation
 import org.opentaint.ir.api.ext.jvmName
-import org.opentaint.ir.api.ext.packageName
 import org.opentaint.ir.impl.cfg.util.typeName
 import org.opentaint.ir.impl.softLazy
 import org.opentaint.ir.impl.weakLazy
@@ -18,14 +15,6 @@ abstract class MethodSignatureRef(
         returnType: TypeName,
 ) : TypedMethodRef {
 
-    companion object {
-        private val alwaysTrue: (JIRTypedMethod) -> Boolean = { true }
-    }
-
-    private fun predicate(additionalFilter: (JIRTypedMethod) -> Boolean = alwaysTrue): (JIRTypedMethod) -> Boolean = {
-        it.name == name && additionalFilter(it) && it.method.description == description
-    }
-
     protected val description: String = buildString {
         append("(")
         argTypes.forEach {
@@ -33,30 +22,6 @@ abstract class MethodSignatureRef(
         }
         append(")")
         append(returnType.typeName.jvmName())
-    }
-
-    private fun List<JIRTypedMethod>.findMethod(filter: (JIRTypedMethod) -> Boolean = alwaysTrue): JIRTypedMethod? {
-        return firstOrNull(predicate(filter))
-    }
-
-    protected fun JIRClassType.findTypedMethod(filter: (JIRTypedMethod) -> Boolean = alwaysTrue): JIRTypedMethod {
-        return findMethodOrNull(predicate(filter)) ?: throw IllegalStateException(this.methodNotFoundMessage)
-    }
-
-    protected fun JIRClassType.findTypedMethodOrNull(filter: (JIRTypedMethod) -> Boolean = alwaysTrue): JIRTypedMethod? {
-        var methodOrNull = findMethodOrNull(predicate(filter))
-
-        if (methodOrNull == null && jIRClass.packageName == "java.lang.invoke") {
-            methodOrNull = findMethodOrNull {
-                val method = it.method
-                method.name == name && method.hasAnnotation("java.lang.invoke.MethodHandle\$PolymorphicSignature")
-            } // weak consumption. may fail
-        }
-        return methodOrNull
-    }
-
-    fun JIRClassType.findClassMethod(filter: (JIRTypedMethod) -> Boolean = alwaysTrue): JIRTypedMethod? {
-        return declaredMethods.findMethod(filter) ?: superType?.findClassMethod(filter)
     }
 
     override fun equals(other: Any?): Boolean {
@@ -94,6 +59,10 @@ abstract class MethodSignatureRef(
             }
         }
 
+    fun JIRType.throwNotFoundException(): Nothing {
+        throw IllegalStateException(this.methodNotFoundMessage)
+    }
+
 }
 
 class TypedStaticMethodRefImpl(
@@ -111,7 +80,7 @@ class TypedStaticMethodRefImpl(
     )
 
     override val method: JIRTypedMethod by weakLazy {
-        type.findClassMethod { it.isStatic } ?: throw IllegalStateException(methodNotFoundMessage)
+        type.lookup.staticMethod(name, description) ?: throw IllegalStateException(methodNotFoundMessage)
     }
 }
 
@@ -130,7 +99,7 @@ class TypedSpecialMethodRefImpl(
     )
 
     override val method: JIRTypedMethod by weakLazy {
-        type.findClassMethod() ?: throw IllegalStateException(methodNotFoundMessage)
+        type.lookup.specialMethod(name, description) ?: type.throwNotFoundException()
     }
 
 }
@@ -180,11 +149,11 @@ class VirtualMethodRefImpl(
     }
 
     override val method: JIRTypedMethod by softLazy {
-        actualType.findTypedMethodOrNull() ?: declaredMethod
+        actualType.lookup.method(name, description) ?: declaredMethod
     }
 
     override val declaredMethod: JIRTypedMethod by softLazy {
-        type.findTypedMethod()
+        type.lookup.method(name, description) ?: type.throwNotFoundException()
     }
 }
 
@@ -203,7 +172,7 @@ class TypedMethodRefImpl(
     )
 
     override val method: JIRTypedMethod by softLazy {
-        type.findTypedMethod()
+        type.lookup.method(name, description) ?: type.throwNotFoundException()
     }
 
 }

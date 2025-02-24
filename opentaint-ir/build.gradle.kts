@@ -9,7 +9,7 @@ val includeDokka: String? by project
 
 group = "org.opentaint.ir"
 
-project.version = semVer ?: "1.1-SNAPSHOT"
+project.version = semVer ?: "1.2-SNAPSHOT"
 
 buildscript {
     repositories {

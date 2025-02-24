@@ -1,8 +1,6 @@
 package org.opentaint.ir.approximations
 
-import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.JavaVersion
-import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.cfg.*
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findDeclaredFieldOrNull
@@ -13,29 +11,24 @@ import org.opentaint.ir.approximations.target.KotlinClass
 import org.opentaint.ir.impl.fs.JarLocation
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
-import org.opentaint.ir.testing.allClasspath
 import org.opentaint.ir.testing.guavaLib
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.io.File
 
 class ApproximationsTest : BaseTest() {
-    companion object : WithDB(Approximations)
 
-    override val cp: JIRClasspath = runBlocking {
-        val features = listOf(Approximations)
-        db.classpath(allClasspath, features)
-    }
+    companion object : WithDB(Approximations)
 
     @Test
     fun `kotlin approximation`() {
-        val classec = cp.findClass<KotlinClass>()
+        val classes = cp.findClass<KotlinClass>()
 
         val originalClassName = KotlinClass::class.qualifiedName!!.toOriginalName()
         val approximation = findApproximationByOriginOrNull(originalClassName)
 
         assertNotNull(approximation)
-        assertEquals(classec.name, findOriginalByApproximationOrNull(approximation!!.toApproximationName()))
+        assertEquals(classes.name, findOriginalByApproximationOrNull(approximation!!.toApproximationName()))
     }
 
     @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")

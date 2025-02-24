@@ -8,12 +8,16 @@ import org.opentaint.ir.api.JIRClassProcessingTask
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.api.cfg.*
-import org.opentaint.ir.api.ext.*
+import org.opentaint.ir.api.ext.boolean
 import org.opentaint.ir.api.ext.cfg.callExpr
 import org.opentaint.ir.api.ext.cfg.locals
 import org.opentaint.ir.api.ext.cfg.values
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.ext.humanReadableSignature
+import org.opentaint.ir.api.ext.int
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.Common
+import org.opentaint.ir.testing.Common.CommonClass
 import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.cfg.RealMethodResolution.Virtual
 import org.opentaint.ir.testing.cfg.RealMethodResolution.VirtualImpl
@@ -192,7 +196,7 @@ class InstructionsTest : BaseTest() {
     @Test
     fun `method resolution based on var`() {
         val clazz = cp.findClass<RealMethodResolution>()
-        val insts = clazz.findMethodOrNull("test")!!.instList
+        val insts = clazz.declaredMethods.first { it.name == "test" }.instList
         val actionCallExpr = insts.instructions.firstNotNullOf {
             (it as? JIRCallInst)?.callExpr.takeIf { it is JIRVirtualCallExpr }
         } as JIRVirtualCallExpr
@@ -206,7 +210,7 @@ class InstructionsTest : BaseTest() {
         val child = cp.findClass<FieldsAndMethods.Common1Child>()
 
         // public int field
-        val methodWithPublicFieldInt = child.findMethodOrNull("accessIntField")!!
+        val methodWithPublicFieldInt = child.declaredMethods.first { it.name == "accessIntField" }
         val assignInstInt = methodWithPublicFieldInt.instList
             .filterIsInstance<JIRAssignInst>()
             .single()
@@ -216,7 +220,7 @@ class InstructionsTest : BaseTest() {
         assertEquals(cp.int, fieldInt.fieldType)
 
         // public boolean field
-        val methodWithPublicFieldBoolean = child.findMethodOrNull("accessBooleanField")!!
+        val methodWithPublicFieldBoolean = child.declaredMethods.first { it.name == "accessBooleanField" }
         val assignInstBoolean = methodWithPublicFieldBoolean.instList
             .filterIsInstance<JIRAssignInst>()
             .single()
@@ -230,10 +234,20 @@ class InstructionsTest : BaseTest() {
     fun `private call with invokevirtual instruction`() {
         val clazz = cp.findClass("VirtualInstructions")
         val instList = clazz.declaredMethods.first { it.name == "run" }.instList
-        val callDoSmth = instList.mapNotNull { it.callExpr }. first {
+        val callDoSmth = instList.mapNotNull { it.callExpr }.first {
             it.toString().contains("doSmth")
         }
         assertEquals("doSmth", callDoSmth.method.method.name)
+    }
+
+    @Test
+    fun `call default method should be resolved`() {
+        val clazz = cp.findClass<CommonClass>()
+        val instList = clazz.declaredMethods.first { it.name == "run" }.instList
+        val callDefaultMethod = instList.mapNotNull { it.callExpr }.first {
+            it.toString().contains("defaultMethod")
+        }
+        assertEquals("defaultMethod", callDefaultMethod.method.method.name)
     }
 }
 

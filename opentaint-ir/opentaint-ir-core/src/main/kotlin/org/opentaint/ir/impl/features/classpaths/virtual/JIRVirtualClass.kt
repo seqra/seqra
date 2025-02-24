@@ -1,11 +1,8 @@
 package org.opentaint.ir.impl.features.classpaths.virtual
 
-import org.opentaint.ir.api.JIRAnnotation
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRDeclaration
-import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.*
 import org.opentaint.ir.api.ext.objectClass
+import org.opentaint.ir.impl.bytecode.JIRClassLookupImpl
 import org.opentaint.ir.impl.bytecode.JIRDeclarationImpl
 import org.opentaint.ir.impl.bytecode.joinFeatureFields
 import org.opentaint.ir.impl.bytecode.joinFeatureMethods
@@ -33,8 +30,9 @@ open class JIRVirtualClassImpl(
 ) : JIRVirtualClass {
 
     private val featuresChain get() = JIRFeaturesChain(classpath.features.orEmpty())
-
     private lateinit var virtualLocation: VirtualLocation
+
+    override val lookup: JIRLookup<JIRField, JIRMethod> = JIRClassLookupImpl(this)
 
     override val declaredFields: List<JIRVirtualField> by lazy(LazyThreadSafetyMode.PUBLICATION) {
         val default = initialFields.onEach { it.bind(this) }

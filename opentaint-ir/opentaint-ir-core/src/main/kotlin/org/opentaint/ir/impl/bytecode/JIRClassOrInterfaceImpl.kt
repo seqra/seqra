@@ -1,12 +1,6 @@
 package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.JIRAnnotation
-import org.opentaint.ir.api.JIRClassExtFeature
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRField
-import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.*
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.impl.features.JIRFeaturesChain
@@ -31,6 +25,8 @@ class JIRClassOrInterfaceImpl(
         is ClassSourceImpl -> classSource.info // we can easily read link let's do it
         else -> null // maybe we do not need to do right now
     }
+
+    override val lookup: JIRLookup<JIRField, JIRMethod> = JIRClassLookupImpl(this)
 
     private val extensionData by lazy(PUBLICATION) {
         HashMap<String, Any>().also { map ->
@@ -135,6 +131,7 @@ class JIRClassOrInterfaceImpl(
     override fun toString(): String {
         return "(id:${declaration.location.id})$name"
     }
+
 }
 
 fun List<JIRField>.joinFeatureFields(

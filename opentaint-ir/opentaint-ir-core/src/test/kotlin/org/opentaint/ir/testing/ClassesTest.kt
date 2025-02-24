@@ -4,7 +4,6 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.ext.HierarchyExtension
-import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.api.ext.findTypeOrNull
 import org.opentaint.ir.impl.features.duplicatedClasses
 import org.opentaint.ir.impl.features.hierarchyExt
@@ -41,7 +40,7 @@ class ClassesTest : DatabaseEnvTest() {
     @Test
     fun `enum constructor methods`() {
         val enumType = cp.findTypeOrNull<SimpleEnum>() as JIRClassType
-        val parameters = enumType.findMethodOrNull("<init>", desc = null)!!.parameters
+        val parameters = enumType.declaredMethods.first { it.method.isConstructor }.parameters
         assertEquals("java.lang.String", parameters.first().type.typeName)
         assertEquals("int", parameters[1].type.typeName)
     }
@@ -49,7 +48,7 @@ class ClassesTest : DatabaseEnvTest() {
     @Test
     fun `enum constructor methods with fields`() {
         val enumType = cp.findTypeOrNull<EnumWithField>() as JIRClassType
-        val parameters = enumType.findMethodOrNull("<init>", desc = null)!!.parameters
+        val parameters = enumType.declaredMethods.first { it.method.isConstructor }.parameters
         assertEquals("java.lang.String", parameters.first().type.typeName)
         assertEquals("int", parameters[1].type.typeName)
         assertEquals("int", parameters[2].type.typeName)

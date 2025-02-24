@@ -2,6 +2,7 @@ package org.opentaint.ir.testing
 
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRClasspathFeature
 import org.opentaint.ir.api.JIRDatabase
 import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.impl.opentaint-ir
@@ -17,7 +18,7 @@ abstract class BaseTest {
 
     protected open val cp: JIRClasspath = runBlocking {
         val withDB = this@BaseTest.javaClass.withDB
-        withDB.db.classpath(allClasspath)
+        withDB.db.classpath(allClasspath, withDB.cpFeatures.toList())
     }
 
     @AfterEach
@@ -40,7 +41,7 @@ val Class<*>.withDB: WithDB
         return s.withDB
     }
 
-open class WithDB(vararg features: JIRFeature<*, *>) {
+open class WithDB(vararg features: Any) {
 
     protected var allFeatures = features.toList().toTypedArray()
 
@@ -48,12 +49,15 @@ open class WithDB(vararg features: JIRFeature<*, *>) {
         System.setProperty("org.opentaint.ir.impl.storage.defaultBatchSize", "500")
     }
 
+    val dbFeatures = allFeatures.mapNotNull { it as? JIRFeature<*,*> }.toTypedArray()
+    val cpFeatures = allFeatures.mapNotNull { it as? JIRClasspathFeature }.toTypedArray()
+
     open var db = runBlocking {
         opentaint-ir {
 //            persistent("D:\\work\\opentaint-ir\\jIRdb-index.db")
             loadByteCode(allClasspath)
             useProcessJavaRuntime()
-            installFeatures(*allFeatures)
+            installFeatures(*dbFeatures)
         }.also {
             it.awaitBackgroundJobs()
         }
@@ -82,7 +86,7 @@ open class WithRestoredDB(vararg features: JIRFeature<*, *>) : WithDB(*features)
                 persistent(jdbcLocation)
                 loadByteCode(allClasspath)
                 useProcessJavaRuntime()
-                installFeatures(*allFeatures)
+                installFeatures(*dbFeatures)
             }.also {
                 it.awaitBackgroundJobs()
             }
