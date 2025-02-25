@@ -10,7 +10,7 @@ import org.opentaint.ir.impl.features.SyncUsagesExtension
 /**
  * Possible we will need JIRRawInst instead of JIRInst
  */
-class JIRApplicationGraphImpl(
+open class JIRApplicationGraphImpl(
     override val classpath: JIRClasspath,
     private val usages: SyncUsagesExtension
 ) : JIRApplicationGraph {
