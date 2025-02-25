@@ -22,7 +22,7 @@ class JIRUnknownClass(override var classpath: JIRClasspath, name: String) : JIRV
 }
 
 class JIRUnknownMethod(
-    enclosingClass: JIRUnknownClass,
+    enclosingClass: JIRClassOrInterface,
     name: String,
     description: String,
     returnType: TypeName,
@@ -35,17 +35,17 @@ class JIRUnknownMethod(
 ) {
 
     companion object {
-        fun method(type: JIRUnknownClass, name: String, description: String): JIRMethod {
+        fun method(type: JIRClassOrInterface, name: String, description: String): JIRMethod {
             val methodType = Type.getMethodType(description)
             val returnType = TypeNameImpl(methodType.returnType.className.jIRdbName())
             val paramsType = methodType.argumentTypes.map { TypeNameImpl(it.className.jIRdbName()) }
             return JIRUnknownMethod(type, name, description, returnType, paramsType)
         }
 
-        fun typedMethod(type: JIRUnknownType, name: String, description: String): JIRTypedMethod {
+        fun typedMethod(type: JIRClassType, name: String, description: String): JIRTypedMethod {
             return JIRTypedMethodImpl(
                 type,
-                method(type.jIRClass as JIRUnknownClass, name, description),
+                method(type.jIRClass, name, description),
                 JIRSubstitutor.empty
             )
         }
@@ -56,7 +56,7 @@ class JIRUnknownMethod(
     }
 }
 
-class JIRUnknownField(enclosingClass: JIRUnknownClass, name: String, type: TypeName) :
+class JIRUnknownField(enclosingClass: JIRClassOrInterface, name: String, type: TypeName) :
     JIRVirtualFieldImpl(name, type = type) {
 
     companion object {
@@ -64,7 +64,7 @@ class JIRUnknownField(enclosingClass: JIRUnknownClass, name: String, type: TypeN
         fun typedField(type: JIRClassType, name: String, fieldType: TypeName): JIRTypedField {
             return JIRTypedFieldImpl(
                 type,
-                JIRUnknownField(type.jIRClass as JIRUnknownClass, name, fieldType),
+                JIRUnknownField(type.jIRClass, name, fieldType),
                 JIRSubstitutor.empty
             )
         }
@@ -117,6 +117,43 @@ object UnknownClasses : JIRClasspathExtFeature {
 
     override fun tryFindType(classpath: JIRClasspath, name: String): JIRClasspathExtFeature.JIRResolvedTypeResult {
         return AbstractJIRResolvedResult.JIRResolvedTypeResultImpl(name, JIRUnknownType(classpath, name))
+    }
+}
+
+/**
+ * Used for mocking of methods and fields refs that doesn't exist in code base of classpath
+ * ```
+ * class Bar {
+ *
+ *      int x = 0;
+ *
+ *      public void run() {
+ *          System.out.println("Hello world");
+ *      }
+ * }
+ *
+ * class Foo extends Bar {
+ *
+ *      Bar f = new Bar();
+ *
+ *      public void call() {
+ *          System.out.println(f.y);
+ *          f.runSomething();
+ *      }
+ * }
+ * ```
+ *
+ * 3-address representation of bytecode for Foo class can't resolve `Bar#y` field and `Bar#runSomething`
+ * method by default. With this feature such methods and fields will be resolved as JIRUnknownField and JIRUnknownMethod
+ */
+object UnknownClassMethodsAndFields : JIRLookupExtFeature {
+
+    override fun lookup(clazz: JIRClassOrInterface): JIRLookup<JIRField, JIRMethod> {
+        return JIRUnknownClassLookup(clazz)
+    }
+
+    override fun lookup(type: JIRClassType): JIRLookup<JIRTypedField, JIRTypedMethod> {
+        return JIRUnknownTypeLookup(type)
     }
 }
 

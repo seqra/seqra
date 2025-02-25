@@ -2,8 +2,11 @@ package org.opentaint.ir.impl.features
 
 import org.opentaint.ir.api.JIRClasspathFeature
 import org.opentaint.ir.api.JIRFeatureEvent
+import org.opentaint.ir.api.JIRLookupExtFeature
 
 class JIRFeaturesChain(val features: List<JIRClasspathFeature>) {
+
+    val classLookups = features.filterIsInstance<JIRLookupExtFeature>()
 
     inline fun <reified T : JIRClasspathFeature> run(call: (T) -> Unit) {
         for (feature in features) {

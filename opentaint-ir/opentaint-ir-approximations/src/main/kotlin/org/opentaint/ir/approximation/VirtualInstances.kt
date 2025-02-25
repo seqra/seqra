@@ -2,9 +2,7 @@ package org.opentaint.ir.approximation
 
 import org.opentaint.ir.api.JIRAnnotation
 import org.opentaint.ir.api.JIRMethodExtFeature
-import org.opentaint.ir.api.JIRMethodExtFeature.JIRFlowGraphResult
-import org.opentaint.ir.api.JIRMethodExtFeature.JIRInstListResult
-import org.opentaint.ir.api.JIRMethodExtFeature.JIRRawInstListResult
+import org.opentaint.ir.api.JIRMethodExtFeature.*
 import org.opentaint.ir.api.TypeName
 import org.opentaint.ir.api.cfg.JIRGraph
 import org.opentaint.ir.api.cfg.JIRInst
@@ -41,7 +39,7 @@ class JIREnrichedVirtualMethod(
 
     override fun asmNode(): MethodNode = asmNode
 
-    override fun flowGraph(): JIRGraph =featuresChain.call<JIRMethodExtFeature, JIRFlowGraphResult> {
+    override fun flowGraph(): JIRGraph = featuresChain.call<JIRMethodExtFeature, JIRFlowGraphResult> {
         it.flowGraph(this)
     }!!.flowGraph
 

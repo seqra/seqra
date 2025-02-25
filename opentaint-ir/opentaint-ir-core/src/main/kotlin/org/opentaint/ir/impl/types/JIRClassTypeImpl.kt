@@ -4,12 +4,13 @@ import org.opentaint.ir.api.*
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.packageName
 import org.opentaint.ir.api.ext.toType
+import org.opentaint.ir.impl.bytecode.TypeDelegatingLookup
 import org.opentaint.ir.impl.types.signature.*
 import org.opentaint.ir.impl.types.substition.JIRSubstitutor
 import org.opentaint.ir.impl.types.substition.substitute
 import kotlin.LazyThreadSafetyMode.PUBLICATION
 
-open class JIRClassTypeImpl(
+class JIRClassTypeImpl(
     override val classpath: JIRClasspath,
     val name: String,
     override val outerType: JIRClassTypeImpl? = null,
@@ -36,7 +37,12 @@ open class JIRClassTypeImpl(
 
     private val resolutionImpl by lazy(PUBLICATION) { TypeSignature.withDeclarations(jIRClass) as? TypeResolutionImpl }
     private val declaredTypeParameters by lazy(PUBLICATION) { jIRClass.typeParameters }
-    override val lookup: JIRLookup<JIRTypedField, JIRTypedMethod> = JIRClassTypeLookupImpl(this)
+
+    override val lookup: JIRLookup<JIRTypedField, JIRTypedMethod> = TypeDelegatingLookup(
+        this,
+        classpath.features?.filterIsInstance<JIRLookupExtFeature>().orEmpty(),
+        JIRClassTypeLookupImpl(this)
+    )
 
     override val jIRClass: JIRClassOrInterface get() = classpath.findClass(name)
 

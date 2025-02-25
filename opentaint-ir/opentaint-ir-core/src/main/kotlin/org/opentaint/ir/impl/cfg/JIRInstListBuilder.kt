@@ -290,7 +290,7 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
 
     override fun visitJIRRawFieldRef(value: JIRRawFieldRef): JIRExpr {
         val type = value.declaringClass.asType() as JIRClassType
-        val field = type.lookup.field(value.fieldName, value.declaringClass)
+        val field = type.lookup.field(value.fieldName, value.typeName)
             ?: throw IllegalStateException("${type.typeName}#${value.fieldName} not found")
         return JIRFieldRef(value.instance?.accept(this) as? JIRValue, field)
     }

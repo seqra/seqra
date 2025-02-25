@@ -26,7 +26,11 @@ class JIRClassOrInterfaceImpl(
         else -> null // maybe we do not need to do right now
     }
 
-    override val lookup: JIRLookup<JIRField, JIRMethod> = JIRClassLookupImpl(this)
+    override val lookup: JIRLookup<JIRField, JIRMethod> = ClassDelegatingLookup(
+        this,
+        featuresChain.classLookups,
+        JIRClassLookupImpl(this)
+    )
 
     private val extensionData by lazy(PUBLICATION) {
         HashMap<String, Any>().also { map ->

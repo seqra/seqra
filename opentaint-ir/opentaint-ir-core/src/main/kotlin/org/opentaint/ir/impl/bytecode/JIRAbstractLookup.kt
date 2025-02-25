@@ -1,8 +1,6 @@
 package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.ir.api.JIRAccessible
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.JIRTypedMethod
+import org.opentaint.ir.api.*
 import org.opentaint.ir.api.ext.hasAnnotation
 import org.opentaint.ir.api.ext.packageName
 
@@ -75,4 +73,59 @@ internal interface PolymorphicSignatureSupport {
         val index = map { it.method }.indexOf(name)
         return if (index >= 0) get(index) else null
     }
+}
+
+abstract class DelegatingLookup<Field : JIRAccessible, Method : JIRAccessible>(
+    private val ext: List<JIRLookupExtFeature>,
+    private val delegate: JIRLookup<Field, Method>
+) : JIRLookup<Field, Method> {
+
+    abstract fun lookupOf(feature: JIRLookupExtFeature): JIRLookup<Field, Method>
+
+    override fun field(name: String): Field? {
+        return delegateCall { field(name) }
+    }
+
+    override fun field(name: String, typeName: TypeName?): Field? {
+        return delegateCall { field(name, typeName) }
+    }
+
+    override fun method(name: String, description: String): Method? {
+        return delegateCall { method(name, description) }
+    }
+
+    override fun staticMethod(name: String, description: String): Method? {
+        return delegateCall { staticMethod(name, description) }
+    }
+
+    override fun specialMethod(name: String, description: String): Method? {
+        return delegateCall { specialMethod(name, description) }
+    }
+
+    private inline fun <Result> delegateCall(call: JIRLookup<Field, Method>.() -> Result?): Result? {
+        val result = delegate.call()
+        if (result == null) {
+            ext.forEach { e ->
+                lookupOf(e).call()?.let {
+                    return it
+                }
+            }
+        }
+        return result
+    }
+
+}
+
+class ClassDelegatingLookup(
+    private val clazz: JIRClassOrInterface, ext: List<JIRLookupExtFeature>,
+    delegate: JIRLookup<JIRField, JIRMethod>
+) : DelegatingLookup<JIRField, JIRMethod>(ext, delegate) {
+    override fun lookupOf(feature: JIRLookupExtFeature): JIRLookup<JIRField, JIRMethod> = feature.lookup(clazz)
+}
+
+class TypeDelegatingLookup(
+    private val type: JIRClassType, ext: List<JIRLookupExtFeature>,
+    delegate: JIRLookup<JIRTypedField, JIRTypedMethod>
+) : DelegatingLookup<JIRTypedField, JIRTypedMethod>(ext, delegate) {
+    override fun lookupOf(feature: JIRLookupExtFeature): JIRLookup<JIRTypedField, JIRTypedMethod> = feature.lookup(type)
 }

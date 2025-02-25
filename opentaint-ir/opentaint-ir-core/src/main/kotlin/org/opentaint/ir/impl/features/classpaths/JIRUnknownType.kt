@@ -37,7 +37,7 @@ class JIRUnknownType(override var classpath: JIRClasspath, private val name: Str
         get() = Opcodes.ACC_PUBLIC
 }
 
-class JIRUnknownClassLookup(val clazz: JIRUnknownClass) : JIRLookup<JIRField, JIRMethod> {
+open class JIRUnknownClassLookup(val clazz: JIRClassOrInterface) : JIRLookup<JIRField, JIRMethod> {
 
     override fun specialMethod(name: String, description: String): JIRMethod = method(name, description)
     override fun staticMethod(name: String, description: String): JIRMethod = method(name, description)
@@ -52,7 +52,7 @@ class JIRUnknownClassLookup(val clazz: JIRUnknownClass) : JIRLookup<JIRField, JI
 
 }
 
-class JIRUnknownTypeLookup(val type: JIRUnknownType) : JIRLookup<JIRTypedField, JIRTypedMethod> {
+open class JIRUnknownTypeLookup(val type: JIRClassType) : JIRLookup<JIRTypedField, JIRTypedMethod> {
 
     override fun specialMethod(name: String, description: String): JIRTypedMethod = method(name, description)
     override fun staticMethod(name: String, description: String): JIRTypedMethod = method(name, description)
