@@ -15,5 +15,15 @@ public class EnumExamples {
         final int statusCode;
     }
 
+    public enum EnumWithStaticInstance {
+        C1, C2;
+
+        public static final EnumWithStaticInstance instance = C1;
+    }
+
+    public static void main(String[] args) {
+        System.out.println(EnumWithStaticInstance.values().length);
+    }
+
 }
 

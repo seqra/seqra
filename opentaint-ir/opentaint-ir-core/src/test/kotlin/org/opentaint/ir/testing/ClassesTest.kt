@@ -4,11 +4,12 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.ext.HierarchyExtension
+import org.opentaint.ir.api.ext.enumValues
+import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findTypeOrNull
 import org.opentaint.ir.impl.features.duplicatedClasses
 import org.opentaint.ir.impl.features.hierarchyExt
-import org.opentaint.ir.testing.structure.EnumExamples.EnumWithField
-import org.opentaint.ir.testing.structure.EnumExamples.SimpleEnum
+import org.opentaint.ir.testing.structure.EnumExamples.*
 import org.opentaint.ir.testing.tests.DatabaseEnvTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -52,6 +53,13 @@ class ClassesTest : DatabaseEnvTest() {
         assertEquals("java.lang.String", parameters.first().type.typeName)
         assertEquals("int", parameters[1].type.typeName)
         assertEquals("int", parameters[2].type.typeName)
+    }
+
+    @Test
+    fun `enum values filter out static instances`() {
+        val enumType = cp.findClass<EnumWithStaticInstance>()
+        assertEquals(2, enumType.enumValues!!.size)
+        assertEquals(listOf("C1", "C2"), enumType.enumValues!!.map { it.name })
     }
 }
 
