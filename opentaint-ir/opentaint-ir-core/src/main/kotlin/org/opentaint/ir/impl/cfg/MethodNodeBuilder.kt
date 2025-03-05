@@ -523,7 +523,7 @@ class MethodNodeBuilder(
 
     override fun visitJIRRawInstanceOfExpr(expr: JIRRawInstanceOfExpr) {
         expr.operand.accept(this)
-        currentInsnList.add(TypeInsnNode(Opcodes.INSTANCEOF, expr.typeName.internalDesc))
+        currentInsnList.add(TypeInsnNode(Opcodes.INSTANCEOF, expr.targetType.internalDesc))
     }
 
     private val BsmHandle.asAsmHandle: Handle
