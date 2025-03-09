@@ -27,4 +27,16 @@ class KotlinInstructionsTest: BaseInstructionsTest() {
 
     @Test
     fun `kotlin equals test`() = runTest(Equals::class.java.name)
+
+    @Test
+    fun `kotlin different receivers test`() = runTest(DifferentReceivers::class.java.name)
+
+    @Test
+    fun `kotlin sequence test`() = runTest(KotlinSequence::class.java.name)
+
+    @Test
+    fun `kotlin range test`() = runTest(Ranges::class.java.name)
+
+    @Test
+    fun `kotlin overloading test`() = runTest(Overloading::class.java.name)
 }
