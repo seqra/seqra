@@ -5,7 +5,7 @@ val semVer: String? by project
 val includeDokka: String? by project
 
 group = "org.opentaint.ir"
-version = semVer ?: "1.2-SNAPSHOT"
+version = semVer ?: "1.3-SNAPSHOT"
 
 plugins {
     kotlin("jvm") version Versions.kotlin
