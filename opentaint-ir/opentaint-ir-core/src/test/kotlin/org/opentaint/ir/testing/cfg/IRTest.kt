@@ -14,7 +14,6 @@ import org.opentaint.ir.impl.cfg.JIRInstListBuilder
 import org.opentaint.ir.impl.cfg.RawInstListBuilder
 import org.opentaint.ir.impl.cfg.Simplifier
 import org.opentaint.ir.impl.cfg.util.ExprMapper
-import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.StringConcatSimplifier
 import org.opentaint.ir.impl.fs.JarLocation
@@ -238,7 +237,7 @@ class JIRGraphChecker(val method: JIRMethod, val jIRGraph: JIRGraph) : JIRInstVi
 
 class IRTest : BaseInstructionsTest() {
 
-    companion object : WithDB(InMemoryHierarchy, StringConcatSimplifier)
+    companion object : WithDB(StringConcatSimplifier)
 
     @Test
     fun `get ir of simple method`() {

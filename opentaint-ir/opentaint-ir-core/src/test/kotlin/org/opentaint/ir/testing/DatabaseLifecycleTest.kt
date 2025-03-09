@@ -20,6 +20,7 @@ import java.io.File
 import java.nio.file.Files
 import java.util.*
 
+@LifecycleTest
 class DatabaseLifecycleTest {
 
     private var db = runBlocking {

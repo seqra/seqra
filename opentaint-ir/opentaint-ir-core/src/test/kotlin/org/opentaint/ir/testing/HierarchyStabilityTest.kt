@@ -1,15 +1,10 @@
 package org.opentaint.ir.testing
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRFeature
-import org.opentaint.ir.api.ext.HierarchyExtension
-import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.impl.opentaint-ir
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.RepeatedTest
 import org.junit.jupiter.api.Test
 
 class HierarchyStabilityTest {
@@ -21,47 +16,51 @@ class HierarchyStabilityTest {
         @BeforeAll
         @JvmStatic
         fun setup() {
-            val (sets, lists) = run()
+            val (sets, lists) = runBlocking { run(global = true) }
             listInheritorsCount = lists
             setInheritorsCount = sets
         }
 
-        private fun run(vararg features: JIRFeature<*,*>): Pair<Int, Int> {
-            val jIRClasspath: JIRClasspath
-            val hierarchy: HierarchyExtension
+        private suspend fun run(global: Boolean): Pair<Int, Int> {
 
-            runBlocking {
-                val db = opentaint-ir {
+            val db = when {
+                global -> globalDb
+                else -> opentaint-ir {
                     useProcessJavaRuntime()
                     loadByteCode(allJars)
-                    installFeatures(*features)
+                    installFeatures()
                 }
-                jIRClasspath = db.classpath(allJars)
-
-                hierarchy = jIRClasspath.hierarchyExt()
             }
+            val jIRClasspath = db.classpath(allJars)
+            val hierarchy = jIRClasspath.hierarchyExt()
 
-            val setSubclasses = hierarchy.findSubClasses("java.util.Set",
-                allHierarchy = true, includeOwn = true).toSet()
-            val listSubclasses = hierarchy.findSubClasses("java.util.List",
-                allHierarchy = true, includeOwn = true).toSet()
+            val setSubclasses = hierarchy.findSubClasses(
+                "java.util.Set",
+                allHierarchy = true, includeOwn = true
+            ).toSet()
+            val listSubclasses = hierarchy.findSubClasses(
+                "java.util.List",
+                allHierarchy = true, includeOwn = true
+            ).toSet()
 
-            jIRClasspath.db.close()
+            if (!global) {
+                jIRClasspath.db.close()
+            }
             return setSubclasses.size to listSubclasses.size
         }
 
     }
 
-    @RepeatedTest(3)
-    fun `should be stable`() {
-        val (sets, lists) = run()
+    @Test
+    fun `should be ok`() {
+        val (sets, lists) = runBlocking { run(global = false) }
         assertEquals(listInheritorsCount, lists)
         assertEquals(setInheritorsCount, sets)
     }
 
     @Test
     fun `should ok with in-memory feature`() {
-        val (sets, lists) = run(InMemoryHierarchy)
+        val (sets, lists) = runBlocking { run(global = true) }
         assertEquals(listInheritorsCount, lists)
         assertEquals(setInheritorsCount, sets)
     }

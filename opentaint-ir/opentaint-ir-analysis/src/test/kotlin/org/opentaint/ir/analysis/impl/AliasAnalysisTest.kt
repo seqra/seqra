@@ -15,10 +15,8 @@ import org.opentaint.ir.api.cfg.JIRExpr
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.ext.cfg.callExpr
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.impl.features.InMemoryHierarchy
-import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.testing.BaseTest
-import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.WithGlobalDB
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.params.ParameterizedTest
@@ -29,7 +27,7 @@ import kotlin.streams.asStream
 
 @Disabled("Needs modifications after introduction of summaries")
 class AliasAnalysisTest : BaseTest() {
-    companion object : WithDB(Usages, InMemoryHierarchy) {
+    companion object : WithGlobalDB() {
 
         @JvmStatic
         fun provideForPointerBenchBasic(): Stream<Arguments> = listOf(

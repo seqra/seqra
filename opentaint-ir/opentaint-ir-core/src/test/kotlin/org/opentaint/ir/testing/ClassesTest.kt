@@ -14,12 +14,10 @@ import org.opentaint.ir.testing.tests.DatabaseEnvTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
 
-@ExtendWith(CleanDB::class)
 class ClassesTest : DatabaseEnvTest() {
 
-    companion object : WithDB()
+    companion object : WithGlobalDB()
 
     override val cp: JIRClasspath = runBlocking { db.classpath(allClasspath) }
 

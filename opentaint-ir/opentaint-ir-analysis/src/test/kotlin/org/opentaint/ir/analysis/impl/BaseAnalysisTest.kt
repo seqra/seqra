@@ -7,12 +7,10 @@ import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.methods
-import org.opentaint.ir.impl.features.InMemoryHierarchy
-import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.testing.BaseTest
-import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.WithGlobalDB
 import org.opentaint.ir.testing.allClasspath
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -21,7 +19,7 @@ import java.util.stream.Stream
 import kotlin.streams.asStream
 
 abstract class BaseAnalysisTest : BaseTest() {
-    companion object : WithDB(UnknownClasses, Usages, InMemoryHierarchy) {
+    companion object : WithGlobalDB(UnknownClasses) {
         @JvmStatic
         fun provideClassesForJuliet(cweNum: Int, cweSpecificBans: List<String> = emptyList()): Stream<Arguments> = runBlocking {
             val cp = db.classpath(allClasspath)

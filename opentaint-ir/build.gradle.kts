@@ -89,17 +89,21 @@ allprojects {
             }
         }
 
-        withType<Test> {
-            useJUnitPlatform()
-            testLogging {
-                events("passed", "skipped", "failed")
+        test {
+            useJUnitPlatform {
+                excludeTags(Tests.lifecycleTag)
             }
-            finalizedBy(jacocoTestReport) // report is always generated after tests run
-            jvmArgs = listOf("-Xmx2g", "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=heapdump.hprof")
+            setup(jacocoTestReport)
+        }
+
+        val lifecycleTest by creating(Test::class) {
+            useJUnitPlatform {
+                includeTags(Tests.lifecycleTag)
+            }
+            setup(jacocoTestReport)
         }
 
         jacocoTestReport {
-            dependsOn(test) // tests are required to run before generating the report
             classDirectories.setFrom(files(classDirectories.files.map {
                 fileTree(it) {
                     excludes.add("org/opentaint/ir/impl/storage/jooq/**")

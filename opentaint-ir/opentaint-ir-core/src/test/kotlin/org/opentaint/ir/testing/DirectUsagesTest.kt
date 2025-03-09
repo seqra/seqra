@@ -7,7 +7,6 @@ import org.opentaint.ir.api.ext.CONSTRUCTOR
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.usedFields
 import org.opentaint.ir.api.ext.usedMethods
-import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.testing.usages.direct.DirectA
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -15,7 +14,7 @@ import org.junit.jupiter.api.Test
 
 class DirectUsagesTest : BaseTest() {
 
-    companion object : WithDB(Usages)
+    companion object : WithGlobalDB()
 
     @Test
     fun `find methods used in method`() {

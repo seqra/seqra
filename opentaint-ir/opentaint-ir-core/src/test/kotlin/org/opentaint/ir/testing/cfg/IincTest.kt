@@ -1,14 +1,11 @@
 package org.opentaint.ir.testing.cfg
 
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.testing.WithDB
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class IincTest : BaseInstructionsTest() {
-
-    companion object : WithDB()
 
     @Test
     fun `iinc should work`() {

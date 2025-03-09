@@ -11,15 +11,13 @@ import org.opentaint.ir.analysis.library.newNpeRunnerFactory
 import org.opentaint.ir.analysis.runAnalysis
 import org.opentaint.ir.analysis.sarif.SarifReport
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.impl.features.InMemoryHierarchy
-import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.testing.BaseTest
-import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.WithGlobalDB
 import org.joda.time.DateTime
 import org.junit.jupiter.api.Test
 
 class JodaDateTimeAnalysisTest : BaseTest() {
-    companion object : WithDB(Usages, InMemoryHierarchy)
+    companion object : WithGlobalDB()
 
     private fun <UnitType> testOne(unitResolver: UnitResolver<UnitType>, ifdsUnitRunnerFactory: IfdsUnitRunnerFactory) {
         val clazz = cp.findClass<DateTime>()

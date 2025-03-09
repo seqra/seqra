@@ -1,12 +1,11 @@
 package org.opentaint.ir.testing;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.Lists;
 import org.opentaint.ir.api.JIRClassOrInterface;
 import org.opentaint.ir.api.JIRClasspath;
 import org.opentaint.ir.api.JIRDatabase;
-import org.opentaint.ir.impl.Opentaint-IR;
-import org.opentaint.ir.impl.JIRSettings;
-import org.opentaint.ir.impl.features.Usages;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -17,39 +16,45 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class JavaApiTest {
 
-    @Test
-    public void createJirdb() throws ExecutionException, InterruptedException, IOException {
-        System.out.println("Creating database");
-        try (JIRDatabase instance = Opentaint-IR.async(new JIRSettings().installFeatures(Usages.INSTANCE)).get()) {
-            System.out.println("Database is ready: " + instance);
+    private final Supplier<JIRDatabase> db = Suppliers.memoize(() -> {
+        try {
+            return BaseTestKt.getGlobalDb();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
+    });
+
+    @Test
+    public void createJirdb() {
+        System.out.println("Creating database");
+        JIRDatabase database = db.get();
+        assertNotNull(database);
+        System.out.println("Database is ready: " + database);
     }
 
     @Test
     public void createClasspath() throws ExecutionException, InterruptedException, IOException {
         System.out.println("Creating database");
-        try (JIRDatabase instance = Opentaint-IR.async(new JIRSettings().installFeatures(Usages.INSTANCE)).get()) {
-            try (JIRClasspath classpath = instance.asyncClasspath(Lists.newArrayList()).get()) {
-                JIRClassOrInterface clazz = classpath.findClassOrNull("java.lang.String");
-                assertNotNull(clazz);
-                assertNotNull(classpath.asyncRefreshed(false).get());
-            }
-            System.out.println("Database is ready: " + instance);
+        JIRDatabase instance = db.get();
+        try (JIRClasspath classpath = instance.asyncClasspath(Lists.newArrayList()).get()) {
+            JIRClassOrInterface clazz = classpath.findClassOrNull("java.lang.String");
+            assertNotNull(clazz);
+            assertNotNull(classpath.asyncRefreshed(false).get());
         }
+        System.out.println("Database is ready: " + instance);
     }
 
     @Test
     public void jIRdbOperations() throws ExecutionException, InterruptedException, IOException {
         System.out.println("Creating database");
-        try (JIRDatabase instance = Opentaint-IR.async(new JIRSettings().installFeatures(Usages.INSTANCE)).get()) {
-            instance.asyncLoad(getAllClasspath()).get();
-            System.out.println("asyncLoad finished");
-            instance.asyncRefresh().get();
-            System.out.println("asyncRefresh finished");
-            instance.asyncRebuildFeatures().get();
-            System.out.println("asyncRebuildFeatures finished");
-            instance.asyncAwaitBackgroundJobs().get();
-            System.out.println("asyncAwaitBackgroundJobs finished");
-        }
+        JIRDatabase instance = db.get();
+        instance.asyncLoad(getAllClasspath()).get();
+        System.out.println("asyncLoad finished");
+        instance.asyncRefresh().get();
+        System.out.println("asyncRefresh finished");
+        instance.asyncRebuildFeatures().get();
+        System.out.println("asyncRebuildFeatures finished");
+        instance.asyncAwaitBackgroundJobs().get();
+        System.out.println("asyncAwaitBackgroundJobs finished");
     }
 }

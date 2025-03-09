@@ -10,26 +10,35 @@ import org.opentaint.ir.impl.opentaint-ir
 import org.opentaint.ir.impl.storage.LocationState
 import org.opentaint.ir.impl.storage.SQLitePersistenceImpl
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
+import org.opentaint.ir.testing.LifecycleTest
 import org.opentaint.ir.testing.allClasspath
 import org.jooq.DSLContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.io.File
 import java.nio.file.Files
 
+@LifecycleTest
 class IncompleteDataTest {
 
-    private val jdbcLocation = Files.createTempFile("jIRdb-", null).toFile().absolutePath
-    private lateinit var javaHome: File
+    companion object {
+        private val jdbcLocation = Files.createTempFile("jIRdb-", null).toFile().absolutePath
+        private val javaHome: File = JIRSettings().useProcessJavaRuntime().jre
+        val db = newDB(true).also {
+            it.close()
+        }
 
-    @BeforeEach
-    fun setupDB() {
-        javaHome = JIRSettings().useProcessJavaRuntime().jre
-        runBlocking {
-            newDB(true).also {
-                it.close()
+        private fun newDB(awaitBackground: Boolean) = runBlocking {
+            opentaint-ir {
+                useProcessJavaRuntime()
+                persistent(jdbcLocation)
+                installFeatures(Usages, Builders)
+                loadByteCode(allClasspath)
+            }.also {
+                if (awaitBackground) {
+                    it.awaitBackgroundJobs()
+                }
             }
         }
     }
@@ -86,19 +95,6 @@ class IncompleteDataTest {
         persistence.use {
             it.write {
                 action(it)
-            }
-        }
-    }
-
-    private fun newDB(awaitBackground: Boolean) = runBlocking {
-        opentaint-ir {
-            useProcessJavaRuntime()
-            persistent(jdbcLocation)
-            installFeatures(Usages, Builders)
-            loadByteCode(allClasspath)
-        }.also {
-            if (awaitBackground) {
-                it.awaitBackgroundJobs()
             }
         }
     }

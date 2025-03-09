@@ -3,11 +3,9 @@ package org.opentaint.ir.testing.features
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.impl.features.Builders
-import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.buildersExtension
 import org.opentaint.ir.testing.BaseTest
-import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.WithGlobalDB
 import org.opentaint.ir.testing.builders.Hierarchy.HierarchyInterface
 import org.opentaint.ir.testing.builders.Interfaces.Interface
 import org.opentaint.ir.testing.builders.Simple
@@ -20,7 +18,7 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 class BuildersTest : BaseTest() {
 
-    companion object : WithDB(InMemoryHierarchy, Builders)
+    companion object : WithGlobalDB()
 
     private val ext = runBlocking {
         cp.buildersExtension()

@@ -17,7 +17,6 @@ import org.opentaint.ir.api.ext.humanReadableSignature
 import org.opentaint.ir.api.ext.int
 import org.opentaint.ir.testing.Common
 import org.opentaint.ir.testing.Common.CommonClass
-import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.cfg.RealMethodResolution.Virtual
 import org.opentaint.ir.testing.cfg.RealMethodResolution.VirtualImpl
 import org.opentaint.ir.testing.primitives.Primitives
@@ -34,8 +33,6 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.activation.DataHandler
 
 class InstructionsTest : BaseInstructionsTest() {
-
-    companion object : WithDB()
 
     @Test
     fun `assign inst`() {

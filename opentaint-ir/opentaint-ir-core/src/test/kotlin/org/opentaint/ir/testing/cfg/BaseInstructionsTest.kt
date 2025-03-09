@@ -10,6 +10,7 @@ import org.opentaint.ir.impl.bytecode.JIRDatabaseClassWriter
 import org.opentaint.ir.impl.cfg.MethodNodeBuilder
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.testing.BaseTest
+import org.opentaint.ir.testing.WithGlobalDB
 import org.junit.jupiter.api.Assertions
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.util.CheckClassAdapter
@@ -19,6 +20,8 @@ import java.nio.file.Files
 import java.nio.file.Paths
 
 abstract class BaseInstructionsTest : BaseTest() {
+
+    companion object : WithGlobalDB()
 
     private val target = Files.createTempDirectory("jIRdb-temp")
 

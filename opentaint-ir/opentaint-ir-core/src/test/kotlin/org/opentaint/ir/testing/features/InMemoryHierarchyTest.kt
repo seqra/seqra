@@ -10,10 +10,9 @@ import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.WithGlobalDB
 import org.opentaint.ir.testing.WithRestoredDB
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.w3c.dom.Document
 import java.util.*
@@ -109,7 +108,7 @@ abstract class BaseInMemoryHierarchyTest : BaseTest() {
 }
 
 class InMemoryHierarchyTest : BaseInMemoryHierarchyTest() {
-    companion object : WithDB(InMemoryHierarchy)
+    companion object : WithGlobalDB()
 }
 
 class RegularHierarchyTest : BaseInMemoryHierarchyTest() {
@@ -120,5 +119,6 @@ class RegularHierarchyTest : BaseInMemoryHierarchyTest() {
 }
 
 class RestoredInMemoryHierarchyTest : BaseInMemoryHierarchyTest() {
+
     companion object : WithRestoredDB(InMemoryHierarchy)
 }

@@ -5,15 +5,14 @@ import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.impl.cfg.util.JIRLoop
 import org.opentaint.ir.impl.cfg.util.loops
-import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.testing.BaseTest
-import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.WithGlobalDB
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class LoopsTest : BaseTest() {
 
-    companion object : WithDB(InMemoryHierarchy)
+    companion object : WithGlobalDB()
 
     @Test
     fun `loop inside loop should work`() {
