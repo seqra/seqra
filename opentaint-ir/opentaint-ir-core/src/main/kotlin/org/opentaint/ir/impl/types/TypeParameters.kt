@@ -1,12 +1,7 @@
 package org.opentaint.ir.impl.types
 
 import kotlinx.collections.immutable.toPersistentMap
-import org.opentaint.ir.api.JIRAccessible
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.JIRRefType
-import org.opentaint.ir.api.JIRTypeVariableDeclaration
-import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclaration
+import org.opentaint.ir.api.*
 import org.opentaint.ir.impl.types.signature.MethodResolutionImpl
 import org.opentaint.ir.impl.types.signature.MethodSignature
 import org.opentaint.ir.impl.types.signature.TypeResolutionImpl

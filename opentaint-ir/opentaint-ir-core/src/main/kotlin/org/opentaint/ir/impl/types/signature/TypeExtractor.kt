@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl.types.signature
 
+import org.opentaint.ir.api.JvmType
 import org.opentaint.ir.impl.types.signature.JvmPrimitiveType.Companion.of
 import org.opentaint.ir.impl.types.signature.TypeExtractor.IncompleteToken.InnerClass
 import org.opentaint.ir.impl.types.signature.TypeExtractor.IncompleteToken.TopLevelType
@@ -65,7 +66,7 @@ internal class TypeExtractor(private val typeRegistrant: TypeRegistrant) :
         val isParameterized: Boolean
         val name: String
 
-        fun toToken(): JvmType?
+        fun toToken(): AbstractJvmType?
 
         abstract class AbstractBase() : IncompleteToken {
 
@@ -108,7 +109,7 @@ internal class TypeExtractor(private val typeRegistrant: TypeRegistrant) :
 
         class TopLevelType(private val internalName: String) : AbstractBase() {
 
-            override fun toToken(): JvmType {
+            override fun toToken(): AbstractJvmType {
                 return if (isParameterized) JvmParameterizedType(name, parameters, null, listOf()) else JvmClassRefType(name, null, listOf())
             }
 
@@ -125,7 +126,7 @@ internal class TypeExtractor(private val typeRegistrant: TypeRegistrant) :
 
         class InnerClass(private val internalName: String, private val outerTypeToken: IncompleteToken?) :
             AbstractBase() {
-            override fun toToken(): JvmType {
+            override fun toToken(): AbstractJvmType {
                 return if (isParameterized || outerTypeToken!!.isParameterized) JvmParameterizedType.JvmNestedType(
                     name,
                     parameters,

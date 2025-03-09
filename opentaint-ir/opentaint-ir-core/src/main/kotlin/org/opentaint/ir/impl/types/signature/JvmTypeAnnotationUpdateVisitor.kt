@@ -1,6 +1,7 @@
 package org.opentaint.ir.impl.types.signature
 
 import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JvmType
 import org.opentaint.ir.api.ext.isNotNullAnnotation
 import org.opentaint.ir.api.ext.isNullableAnnotation
 import org.opentaint.ir.impl.bytecode.JIRAnnotationImpl
@@ -176,7 +177,7 @@ private class JvmTypeAnnotationUpdateVisitor(private val cp: JIRClasspath)
     private fun unexpectedStepType(stepType: Int, kind: String): Nothing =
         error("Unexpected step type $stepType for $kind")
 
-    private fun handleInnerType(type: JvmType, context: AnnotationUpdateVisitorContext): JvmType {
+    private fun handleInnerType(type: AbstractJvmType, context: AnnotationUpdateVisitorContext): AbstractJvmType {
         context.step++
         return type
     }

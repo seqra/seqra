@@ -1,16 +1,9 @@
 package org.opentaint.ir.impl.types
 
-import org.opentaint.ir.api.JIRParameter
-import org.opentaint.ir.api.JIRRefType
-import org.opentaint.ir.api.JIRType
-import org.opentaint.ir.api.JIRTypedMethod
-import org.opentaint.ir.api.JIRTypedMethodParameter
+import org.opentaint.ir.api.*
 import org.opentaint.ir.api.ext.isNullable
-import org.opentaint.ir.api.throwClassNotFound
 import org.opentaint.ir.impl.bytecode.JIRAnnotationImpl
 import org.opentaint.ir.impl.bytecode.JIRMethodImpl
-import org.opentaint.ir.impl.types.signature.JvmType
-import org.opentaint.ir.impl.types.substition.JIRSubstitutor
 
 class JIRTypedMethodParameterImpl(
     override val enclosingMethod: JIRTypedMethod,

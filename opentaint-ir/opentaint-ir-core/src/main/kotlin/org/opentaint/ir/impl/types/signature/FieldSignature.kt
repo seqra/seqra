@@ -1,10 +1,7 @@
 package org.opentaint.ir.impl.types.signature
 
 import mu.KLogging
-import org.opentaint.ir.api.FieldResolution
-import org.opentaint.ir.api.JIRField
-import org.opentaint.ir.api.Malformed
-import org.opentaint.ir.api.Pure
+import org.opentaint.ir.api.*
 import org.opentaint.ir.impl.bytecode.JIRFieldImpl
 import org.opentaint.ir.impl.bytecode.kmType
 import org.opentaint.ir.impl.types.allVisibleTypeParameters

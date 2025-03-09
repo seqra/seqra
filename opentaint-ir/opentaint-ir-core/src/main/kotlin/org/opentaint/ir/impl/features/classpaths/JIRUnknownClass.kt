@@ -10,7 +10,7 @@ import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualParameter
 import org.opentaint.ir.impl.types.JIRTypedFieldImpl
 import org.opentaint.ir.impl.types.JIRTypedMethodImpl
 import org.opentaint.ir.impl.types.TypeNameImpl
-import org.opentaint.ir.impl.types.substition.JIRSubstitutor
+import org.opentaint.ir.impl.types.substition.JIRSubstitutorImpl
 import org.objectweb.asm.Type
 
 class JIRUnknownClass(override var classpath: JIRClasspath, name: String) : JIRVirtualClassImpl(
@@ -46,7 +46,7 @@ class JIRUnknownMethod(
             return JIRTypedMethodImpl(
                 type,
                 method(type.jIRClass, name, description),
-                JIRSubstitutor.empty
+                JIRSubstitutorImpl.empty
             )
         }
     }
@@ -65,7 +65,7 @@ class JIRUnknownField(enclosingClass: JIRClassOrInterface, name: String, type: T
             return JIRTypedFieldImpl(
                 type,
                 JIRUnknownField(type.jIRClass, name, fieldType),
-                JIRSubstitutor.empty
+                JIRSubstitutorImpl.empty
             )
         }
 

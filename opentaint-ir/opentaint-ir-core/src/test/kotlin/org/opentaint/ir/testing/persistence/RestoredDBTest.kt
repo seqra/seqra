@@ -4,11 +4,13 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.impl.features.hierarchyExt
+import org.opentaint.ir.testing.LifecycleTest
 import org.opentaint.ir.testing.WithRestoredDB
 import org.opentaint.ir.testing.allClasspath
 import org.opentaint.ir.testing.tests.DatabaseEnvTest
 import org.opentaint.ir.testing.withDB
 
+@LifecycleTest
 class RestoredDBTest : DatabaseEnvTest() {
 
     companion object : WithRestoredDB()

@@ -2,6 +2,8 @@ package org.opentaint.ir.impl.types.signature
 
 import kotlinx.metadata.KmType
 import kotlinx.metadata.KmTypeParameter
+import org.opentaint.ir.api.JvmType
+import org.opentaint.ir.api.JvmTypeParameterDeclaration
 import org.opentaint.ir.impl.bytecode.isNullable
 
 /**
@@ -69,7 +71,7 @@ internal object JvmTypeKMetadataUpdateVisitor : JvmTypeVisitor<KmType> {
         }
     }
 
-    private fun visitFinal(type: JvmType, context: KmType): JvmType {
+    private fun visitFinal(type: AbstractJvmType, context: KmType): JvmType {
         return type.copyWith(context.isNullable)
     }
 }

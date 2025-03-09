@@ -9,7 +9,7 @@ import org.opentaint.ir.api.ext.findMethodOrNull
 import org.opentaint.ir.api.ext.toType
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import org.opentaint.ir.impl.types.signature.JvmClassRefType
-import org.opentaint.ir.impl.types.substition.JIRSubstitutor
+import org.opentaint.ir.impl.types.substition.JIRSubstitutorImpl
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.io.InputStream
@@ -132,7 +132,7 @@ class TypesTest : BaseTypesTest() {
     }
 
     private fun rawList(): JIRClassType {
-        return JIRClassTypeImpl(cp, listClass, null, JIRSubstitutor.empty, false, emptyList())
+        return JIRClassTypeImpl(cp, listClass, null, JIRSubstitutorImpl.empty, false, emptyList())
     }
 
     private val JIRClassType.iterator get() = findMethodOrNull { it.name == "iterator" && it.parameters.isEmpty() }

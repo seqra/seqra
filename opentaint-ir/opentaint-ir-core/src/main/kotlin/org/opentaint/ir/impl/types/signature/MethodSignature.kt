@@ -1,10 +1,7 @@
 package org.opentaint.ir.impl.types.signature
 
 import mu.KLogging
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.Malformed
-import org.opentaint.ir.api.MethodResolution
-import org.opentaint.ir.api.Pure
+import org.opentaint.ir.api.*
 import org.opentaint.ir.impl.bytecode.JIRMethodImpl
 import org.opentaint.ir.impl.bytecode.kmFunction
 import org.opentaint.ir.impl.bytecode.kmReturnType

@@ -1,15 +1,10 @@
 package org.opentaint.ir.impl.types.substition
 
-import org.opentaint.ir.impl.types.signature.JvmArrayType
+import org.opentaint.ir.api.JvmType
+import org.opentaint.ir.api.JvmTypeParameterDeclaration
+import org.opentaint.ir.impl.types.signature.*
 import org.opentaint.ir.impl.types.signature.JvmBoundWildcard.JvmLowerBoundWildcard
 import org.opentaint.ir.impl.types.signature.JvmBoundWildcard.JvmUpperBoundWildcard
-import org.opentaint.ir.impl.types.signature.JvmClassRefType
-import org.opentaint.ir.impl.types.signature.JvmParameterizedType
-import org.opentaint.ir.impl.types.signature.JvmType
-import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclaration
-import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclarationImpl
-import org.opentaint.ir.impl.types.signature.JvmTypeVariable
-import org.opentaint.ir.impl.types.signature.JvmTypeVisitor
 
 internal class VisitorContext(private val processed: HashSet<Any> = HashSet()) {
 

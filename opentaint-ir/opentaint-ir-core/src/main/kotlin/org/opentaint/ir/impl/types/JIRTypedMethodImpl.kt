@@ -10,7 +10,7 @@ import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
 import org.opentaint.ir.impl.types.signature.FieldSignature
 import org.opentaint.ir.impl.types.signature.MethodResolutionImpl
 import org.opentaint.ir.impl.types.signature.MethodSignature
-import org.opentaint.ir.impl.types.substition.JIRSubstitutor
+import org.opentaint.ir.impl.types.substition.JIRSubstitutorImpl
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.LocalVariableNode
 
@@ -38,7 +38,7 @@ class JIRTypedMethodImpl(
         val substitutor = if (!method.isStatic) {
             parentSubstitutor.newScope(impl?.typeVariables.orEmpty())
         } else {
-            JIRSubstitutor.empty.newScope(impl?.typeVariables.orEmpty())
+            JIRSubstitutorImpl.empty.newScope(impl?.typeVariables.orEmpty())
         }
 
         TypedMethodInfo(

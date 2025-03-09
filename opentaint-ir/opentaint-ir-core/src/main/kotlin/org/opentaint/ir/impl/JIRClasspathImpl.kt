@@ -16,7 +16,7 @@ import org.opentaint.ir.impl.features.classpaths.isResolveAllToUnknown
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.types.JIRArrayTypeImpl
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
-import org.opentaint.ir.impl.types.substition.JIRSubstitutor
+import org.opentaint.ir.impl.types.substition.JIRSubstitutorImpl
 import org.opentaint.ir.impl.vfs.ClasspathVfs
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
 
@@ -60,7 +60,7 @@ class JIRClasspathImpl(
             this,
             jIRClass.name,
             jIRClass.outerClass?.toType() as? JIRClassTypeImpl,
-            JIRSubstitutor.empty,
+            JIRSubstitutorImpl.empty,
             nullability,
             annotations
         )

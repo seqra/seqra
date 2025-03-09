@@ -3,13 +3,23 @@ package org.opentaint.ir.impl.types.substition
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap
+import org.opentaint.ir.api.JIRSubstitutor
+import org.opentaint.ir.api.JvmType
+import org.opentaint.ir.api.JvmTypeParameterDeclaration
 import org.opentaint.ir.api.ext.isNotNullAnnotation
-import org.opentaint.ir.impl.types.signature.*
+import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclarationImpl
+import org.opentaint.ir.impl.types.signature.JvmTypeVariable
+import org.opentaint.ir.impl.types.signature.copyWith
 
 class JIRSubstitutorImpl(
     // map declaration -> actual type or type variable
     override val substitutions: PersistentMap<JvmTypeParameterDeclaration, JvmType> = persistentMapOf()
 ) : JIRSubstitutor {
+
+    companion object {
+
+        val empty = JIRSubstitutorImpl()
+    }
 
     private val substitutionTypeVisitor = object : RecursiveJvmTypeVisitor {
 

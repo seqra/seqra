@@ -1,21 +1,9 @@
 package org.opentaint.ir.impl.types
 
-import org.opentaint.ir.api.JIRAccessible
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRRefType
-import org.opentaint.ir.api.JIRType
-import org.opentaint.ir.api.JIRTypeVariableDeclaration
-import org.opentaint.ir.api.PredefinedPrimitives
+import org.opentaint.ir.api.*
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.objectType
-import org.opentaint.ir.impl.types.signature.JvmArrayType
-import org.opentaint.ir.impl.types.signature.JvmBoundWildcard
-import org.opentaint.ir.impl.types.signature.JvmClassRefType
-import org.opentaint.ir.impl.types.signature.JvmParameterizedType
-import org.opentaint.ir.impl.types.signature.JvmPrimitiveType
-import org.opentaint.ir.impl.types.signature.JvmType
-import org.opentaint.ir.impl.types.signature.JvmTypeVariable
-import org.opentaint.ir.impl.types.signature.JvmUnboundWildcard
+import org.opentaint.ir.impl.types.signature.*
 
 internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = null): JIRType {
     return when (jvmType) {
@@ -72,6 +60,7 @@ internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = 
         is JvmBoundWildcard.JvmLowerBoundWildcard -> JIRBoundedWildcardImpl(
             upperBounds = emptyList(), lowerBounds = listOf(typeOf(jvmType.bound) as JIRRefType)
         )
+        else -> throw IllegalStateException("Unsupported type")
     }
 }
 

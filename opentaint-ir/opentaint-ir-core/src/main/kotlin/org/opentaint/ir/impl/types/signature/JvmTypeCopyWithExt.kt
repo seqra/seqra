@@ -1,6 +1,7 @@
 package org.opentaint.ir.impl.types.signature
 
 import org.opentaint.ir.api.JIRAnnotation
+import org.opentaint.ir.api.JvmType
 
 private data class JvmTypeUpdate(val newNullability: Boolean?, val newAnnotations: List<JIRAnnotation>)
 

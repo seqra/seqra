@@ -5,16 +5,19 @@ import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.packageName
 import org.opentaint.ir.api.ext.toType
 import org.opentaint.ir.impl.bytecode.TypeDelegatingLookup
-import org.opentaint.ir.impl.types.signature.*
-import org.opentaint.ir.impl.types.substition.JIRSubstitutor
-import org.opentaint.ir.impl.types.substition.substitute
+import org.opentaint.ir.impl.types.signature.JvmClassRefType
+import org.opentaint.ir.impl.types.signature.JvmParameterizedType
+import org.opentaint.ir.impl.types.signature.TypeResolutionImpl
+import org.opentaint.ir.impl.types.signature.TypeSignature
+import org.opentaint.ir.impl.types.substition.JIRSubstitutorImpl
+import org.opentaint.ir.impl.types.substition.SafeSubstitution
 import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 class JIRClassTypeImpl(
     override val classpath: JIRClasspath,
     val name: String,
     override val outerType: JIRClassTypeImpl? = null,
-    private val substitutor: JIRSubstitutor = JIRSubstitutor.empty,
+    private val substitutor: JIRSubstitutor = JIRSubstitutorImpl.empty,
     override val nullable: Boolean?,
     override val annotations: List<JIRAnnotation>
 ) : JIRClassType {
@@ -116,7 +119,7 @@ class JIRClassTypeImpl(
                         outerMethod?.allVisibleTypeParameters() ?: outerClass?.allVisibleTypeParameters()
                         )?.values?.toList().orEmpty()
                 val innerSubstitutor = when {
-                    it.isStatic -> JIRSubstitutor.empty.newScope(innerParameters)
+                    it.isStatic -> JIRSubstitutorImpl.empty.newScope(innerParameters)
                     else -> substitutor.newScope(innerParameters)
                 }
                 JIRClassTypeImpl(classpath, it.name, this, innerSubstitutor, true, annotations)
@@ -229,13 +232,22 @@ class JIRClassTypeImpl(
         val superParameters = superClass.directTypeParameters()
         val substitutions = (superType as? JvmParameterizedType)?.parameterTypes
         if (substitutions == null || superParameters.size != substitutions.size) {
-            return JIRSubstitutor.empty
+            return JIRSubstitutorImpl.empty
         }
         return substitutor.fork(superParameters.mapIndexed { index, declaration -> declaration to substitutions[index] }
             .toMap())
 
     }
 
+}
+
+private fun JIRClasspath.substitute(
+    name: String,
+    parameters: List<JvmType>,
+    substitutor: JIRSubstitutor?
+): JIRSubstitutor {
+    val genericsSubstitutor = features?.firstNotNullOfOrNull { it as? JIRGenericsSubstitutionFeature } ?: SafeSubstitution
+    return genericsSubstitutor.substitute(findClass(name), parameters, substitutor)
 }
 
 fun JvmType.isReferencesClass(name: String): Boolean {

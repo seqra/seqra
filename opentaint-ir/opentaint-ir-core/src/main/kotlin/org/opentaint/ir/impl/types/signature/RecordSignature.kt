@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl.types.signature
 
+import org.opentaint.ir.api.JvmType
 import org.opentaint.ir.api.Malformed
 import org.opentaint.ir.api.Pure
 import org.opentaint.ir.api.RecordComponentResolution

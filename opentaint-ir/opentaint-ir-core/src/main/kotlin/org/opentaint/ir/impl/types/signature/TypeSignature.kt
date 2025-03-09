@@ -1,9 +1,6 @@
 package org.opentaint.ir.impl.types.signature
 
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.Malformed
-import org.opentaint.ir.api.Pure
-import org.opentaint.ir.api.TypeResolution
+import org.opentaint.ir.api.*
 import org.opentaint.ir.impl.bytecode.kMetadata
 import org.opentaint.ir.impl.types.allVisibleTypeParameters
 import org.opentaint.ir.impl.types.substition.RecursiveJvmTypeVisitor

@@ -1,9 +1,6 @@
 package org.opentaint.ir.impl.types.signature
 
-import org.opentaint.ir.api.FieldResolution
-import org.opentaint.ir.api.MethodResolution
-import org.opentaint.ir.api.RecordComponentResolution
-import org.opentaint.ir.api.TypeResolution
+import org.opentaint.ir.api.*
 
 internal class FieldResolutionImpl(val fieldType: JvmType) : FieldResolution
 
