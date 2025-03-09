@@ -19,6 +19,7 @@ import org.opentaint.ir.testing.Common
 import org.opentaint.ir.testing.Common.CommonClass
 import org.opentaint.ir.testing.cfg.RealMethodResolution.Virtual
 import org.opentaint.ir.testing.cfg.RealMethodResolution.VirtualImpl
+import org.opentaint.ir.testing.hierarchies.Inheritance
 import org.opentaint.ir.testing.primitives.Primitives
 import org.opentaint.ir.testing.structure.FieldsAndMethods
 import org.junit.jupiter.api.Assertions.*
