@@ -36,6 +36,7 @@ allprojects {
 
     repositories {
         mavenCentral()
+        maven("https://jitpack.io")
         maven("https://s01.oss.sonatype.org/content/repositories/orgopentaintsoot-1004/")
         maven("https://plugins.gradle.org/m2")
         maven("https://www.jetbrains.com/intellij-repository/releases")

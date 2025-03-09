@@ -1,6 +1,6 @@
 package org.opentaint.ir.analysis.impl
 
-import juliet.testcasesupport.AbstractTestCase
+import juliet.support.AbstractTestCase
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.engine.VulnerabilityInstance
 import org.opentaint.ir.api.JIRClassOrInterface

@@ -13,8 +13,11 @@ dependencies {
     implementation(Libs.kotlinx_serialization_json)
 
     testImplementation(testFixtures(project(":opentaint-ir-core")))
-    testImplementation(Libs.javax_servlet_api)
-    testImplementation(Libs.joda_time)
-    testImplementation(files("src/test/resources/juliet.jar"))
+    testImplementation(project(":opentaint-ir-api"))
     testImplementation(files("src/test/resources/pointerbench.jar"))
+    testImplementation(Libs.joda_time)
+    testImplementation(Libs.juliet_support)
+    for (cweNum in listOf(89, 476, 563, 690)) {
+        testImplementation(Libs.juliet_cwe(cweNum))
+    }
 }

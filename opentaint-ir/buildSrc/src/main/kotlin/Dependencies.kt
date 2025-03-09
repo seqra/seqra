@@ -15,6 +15,7 @@ object Versions {
     const val jmh = "1.21"
     const val joda_time = "2.12.5"
     const val jooq = "3.14.16"
+    const val juliet = "1.3.2"
     const val junit = "5.9.2"
     const val kotlin = "1.7.21"
     const val kotlin_logging = "1.8.3"
@@ -264,6 +265,20 @@ object Libs {
         group = "org.ow2.asm",
         name = "asm-util",
         version = Versions.asm
+    )
+
+    // https://github.com/Opentaint/juliet-java-test-suite
+    val juliet_support = dep(
+        group = "com.github.Opentaint.juliet-java-test-suite",
+        name = "support",
+        version = Versions.juliet
+    )
+
+    @Suppress("FunctionName")
+    fun juliet_cwe(cweNum: Int) = dep(
+        group = "com.github.Opentaint.juliet-java-test-suite",
+        name = "cwe${cweNum}",
+        version = Versions.juliet
     )
 }
 
