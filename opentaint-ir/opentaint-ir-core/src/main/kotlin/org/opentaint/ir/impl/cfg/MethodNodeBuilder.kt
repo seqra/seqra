@@ -249,26 +249,30 @@ class MethodNodeBuilder(
             is JIRRawLtExpr -> Triple(JIRRawInt(0), Opcodes.IFLT, Opcodes.IF_ICMPLT)
             else -> error("Unknown condition expr: $cond")
         }
+        val elseBranchTarget: LabelNode
         currentInsnList.add(
             when {
                 cond.lhv == zeroValue -> {
                     cond.rhv.accept(this)
-                    JumpInsnNode(zeroCmpOpcode, trueTarget)
+                    elseBranchTarget = trueTarget
+                    JumpInsnNode(zeroCmpOpcode, falseTarget)
                 }
 
                 cond.rhv == zeroValue -> {
                     cond.lhv.accept(this)
+                    elseBranchTarget = falseTarget
                     JumpInsnNode(zeroCmpOpcode, trueTarget)
                 }
 
                 else -> {
                     cond.lhv.accept(this)
                     cond.rhv.accept(this)
+                    elseBranchTarget = falseTarget
                     JumpInsnNode(defaultOpcode, trueTarget)
                 }
             }
         )
-        currentInsnList.add(JumpInsnNode(Opcodes.GOTO, falseTarget))
+        currentInsnList.add(JumpInsnNode(Opcodes.GOTO, elseBranchTarget))
         updateStackInfo(-stackSize)
     }
 
@@ -696,7 +700,7 @@ class MethodNodeBuilder(
 
     override fun visitJIRRawInt(value: JIRRawInt) {
         currentInsnList.add(
-            when (value.value) {
+            when (value.value as Comparable<Int>) {
                 in -1..5 -> InsnNode(Opcodes.ICONST_0 + value.value)
                 in Byte.MIN_VALUE..Byte.MAX_VALUE -> IntInsnNode(Opcodes.BIPUSH, value.value)
                 in Short.MIN_VALUE..Short.MAX_VALUE -> IntInsnNode(Opcodes.SIPUSH, value.value)
@@ -708,8 +712,8 @@ class MethodNodeBuilder(
 
     override fun visitJIRRawLong(value: JIRRawLong) {
         currentInsnList.add(
-            when (value.value) {
-                in 0..1 -> InsnNode(Opcodes.LCONST_0 + value.value.toInt())
+            when {
+                (value.value as Comparable<Long>).let { it >= 0 && it <= 1 } -> InsnNode(Opcodes.LCONST_0 + value.value.toInt())
                 else -> LdcInsnNode(value.value)
             }
         )
@@ -718,7 +722,7 @@ class MethodNodeBuilder(
 
     override fun visitJIRRawFloat(value: JIRRawFloat) {
         currentInsnList.add(
-            when (value.value) {
+            when (value.value as Comparable<Float>) {
                 0.0F -> InsnNode(Opcodes.FCONST_0)
                 1.0F -> InsnNode(Opcodes.FCONST_1)
                 2.0F -> InsnNode(Opcodes.FCONST_2)
@@ -730,7 +734,7 @@ class MethodNodeBuilder(
 
     override fun visitJIRRawDouble(value: JIRRawDouble) {
         currentInsnList.add(
-            when (value.value) {
+            when (value.value as Comparable<Double>) {
                 0.0 -> InsnNode(Opcodes.DCONST_0)
                 1.0 -> InsnNode(Opcodes.DCONST_1)
                 else -> LdcInsnNode(value.value)
