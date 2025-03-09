@@ -568,7 +568,7 @@ class MethodNodeBuilder(
                         is BsmHandle -> it.asAsmHandle
                         else -> error("Unknown arg of bsm: $it")
                     }
-                }.toTypedArray()
+                }.reversed().toTypedArray()
             )
         )
         updateStackInfo(-expr.args.size + 1)
