@@ -6,11 +6,14 @@ import org.opentaint.ir.impl.cfg.util.OBJECT_CLASS
 import org.opentaint.ir.impl.types.TypeNameImpl
 import org.objectweb.asm.Opcodes
 
-class JIRUnknownType(override var classpath: JIRClasspath, private val name: String) : JIRClassType {
+class JIRUnknownType(override var classpath: JIRClasspath, private val name: String, private val location: VirtualLocation) : JIRClassType {
 
     override val lookup: JIRLookup<JIRTypedField, JIRTypedMethod> = JIRUnknownTypeLookup(this)
 
-    override val jIRClass: JIRClassOrInterface get() = JIRUnknownClass(classpath, name)
+    override val jIRClass: JIRClassOrInterface = JIRUnknownClass(classpath, name).also {
+        it.bind(classpath, location)
+    }
+
     override val outerType: JIRClassType? = null
     override val declaredMethods: List<JIRTypedMethod> = emptyList()
     override val methods: List<JIRTypedMethod> = emptyList()

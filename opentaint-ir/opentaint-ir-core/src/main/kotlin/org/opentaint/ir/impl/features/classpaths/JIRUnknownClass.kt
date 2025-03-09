@@ -111,12 +111,17 @@ class JIRUnknownField(enclosingClass: JIRClassOrInterface, name: String, type: T
  *
  */
 object UnknownClasses : JIRClasspathExtFeature {
+
+    private val location = VirtualLocation()
+
     override fun tryFindClass(classpath: JIRClasspath, name: String): JIRClasspathExtFeature.JIRResolvedClassResult {
-        return JIRResolvedClassResultImpl(name, JIRUnknownClass(classpath, name))
+        return JIRResolvedClassResultImpl(name, JIRUnknownClass(classpath, name).also {
+            it.bind(classpath, location)
+        })
     }
 
     override fun tryFindType(classpath: JIRClasspath, name: String): JIRClasspathExtFeature.JIRResolvedTypeResult {
-        return AbstractJIRResolvedResult.JIRResolvedTypeResultImpl(name, JIRUnknownType(classpath, name))
+        return AbstractJIRResolvedResult.JIRResolvedTypeResultImpl(name, JIRUnknownType(classpath, name, location))
     }
 }
 

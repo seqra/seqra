@@ -21,6 +21,8 @@ class UnknownClassesTest : BaseTest() {
         assertTrue(clazz is JIRUnknownClass)
         assertTrue(clazz.declaredMethods.isEmpty())
         assertTrue(clazz.declaredFields.isEmpty())
+
+        assertNotNull(clazz.declaration.location)
     }
 
     @Test
