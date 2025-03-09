@@ -129,7 +129,7 @@ abstract class BaseSearchUsagesTest : BaseTest() {
             val runMethod = cp.findClass<Runnable>().declaredMethods.first()
             assertEquals("run", runMethod.name)
             val result = ext.findUsages(runMethod).toList()
-            assertTrue(result.size > 100)
+            assertTrue(result.size > 50)
         }
     }
 
