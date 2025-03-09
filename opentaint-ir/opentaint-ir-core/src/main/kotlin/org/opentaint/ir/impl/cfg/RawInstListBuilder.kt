@@ -171,7 +171,6 @@ class RawInstListBuilder(
     private val laterAssignments = identityMap<AbstractInsnNode, MutableMap<Int, JIRRawValue>>()
     private val laterStackAssignments = identityMap<AbstractInsnNode, MutableMap<Int, JIRRawValue>>()
     private val localTypeRefinement = identityMap<JIRRawLocalVar, JIRRawLocalVar>()
-    private val postfixInstructions = hashMapOf<Int, JIRRawInst>()
 
     private var labelCounter = 0
     private var localCounter = 0
@@ -196,12 +195,13 @@ class RawInstListBuilder(
     private fun buildInstructions() {
         currentFrame = createInitialFrame()
         frames[ENTRY] = currentFrame
-        methodNode.instructions.forEachIndexed { index, insn ->
+        val nodes = methodNode.instructions.toList()
+        nodes.forEachIndexed { index, insn ->
             when (insn) {
                 is InsnNode -> buildInsnNode(insn)
                 is FieldInsnNode -> buildFieldInsnNode(insn)
                 is FrameNode -> buildFrameNode(insn)
-                is IincInsnNode -> buildIincInsnNode(insn)
+                is IincInsnNode -> buildIincInsnNode(insn, nodes.getOrNull(index + 1))
                 is IntInsnNode -> buildIntInsnNode(insn)
                 is InvokeDynamicInsnNode -> buildInvokeDynamicInsn(insn)
                 is JumpInsnNode -> buildJumpInsnNode(insn)
@@ -233,11 +233,14 @@ class RawInstListBuilder(
             val insnList = instructionList(insn)
             val frame = frames[insn]!!
             for ((variable, value) in assignments) {
-                if (value != frame[variable]) {
-                    if (insn.isBranchingInst || insn.isTerminateInst) {
-                        insnList.addInst(insn, JIRRawAssignInst(method, value, frame[variable]!!), insnList.lastIndex)
+                val frameVariable = frame[variable]
+                if (frameVariable != null && value != frameVariable) {
+                    if (insn.isBranchingInst) {
+                        insnList.addInst(insn, JIRRawAssignInst(method, value, frameVariable), 0)
+                    }else if(insn.isTerminateInst) {
+                        insnList.addInst(insn, JIRRawAssignInst(method, value, frameVariable), insnList.lastIndex)
                     } else {
-                        insnList.addInst(insn, JIRRawAssignInst(method, value, frame[variable]!!))
+                        insnList.addInst(insn, JIRRawAssignInst(method, value, frameVariable))
                     }
                 }
             }
@@ -358,11 +361,16 @@ class RawInstListBuilder(
         return currentFrame.locals.getValue(variable)
     }
 
-    private fun local(variable: Int, expr: JIRRawValue, insn: AbstractInsnNode): JIRRawAssignInst? {
+    private fun local(variable: Int, expr: JIRRawValue, insn: AbstractInsnNode, override: Boolean = false): JIRRawAssignInst? {
         val oldVar = currentFrame.locals[variable]
         return if (oldVar != null) {
             if (oldVar.typeName == expr.typeName || (expr is JIRRawNullConstant && !oldVar.typeName.isPrimitive)) {
-                JIRRawAssignInst(method, oldVar, expr)
+                if (override) {
+                    currentFrame = currentFrame.put(variable, expr)
+                    JIRRawAssignInst(method, expr, expr)
+                } else {
+                    JIRRawAssignInst(method, oldVar, expr)
+                }
             } else if (expr is JIRRawSimpleValue) {
                 currentFrame = currentFrame.put(variable, expr)
                 null
@@ -386,7 +394,7 @@ class RawInstListBuilder(
     private fun instructionList(insn: AbstractInsnNode) = instructions.getOrPut(insn, ::mutableListOf)
 
     private fun addInstruction(insn: AbstractInsnNode, inst: JIRRawInst, index: Int? = null) {
-            instructionList(insn).addInst(insn, inst, index)
+        instructionList(insn).addInst(insn, inst, index)
     }
 
     private fun MutableList<JIRRawInst>.addInst(node: AbstractInsnNode, inst: JIRRawInst, index: Int? = null) {
@@ -394,18 +402,6 @@ class RawInstListBuilder(
             add(index, inst)
         } else {
             add(inst)
-        }
-        if (postfixInstructions.isNotEmpty()) {
-            when {
-                node.isBranchingInst -> postfixInstructions.forEach {
-                    instructionList(node).add(0, it.value)
-                }
-
-                inst !is JIRRawReturnInst -> postfixInstructions.forEach {
-                    instructionList(node).add(it.value)
-                }
-            }
-            postfixInstructions.clear()
         }
     }
 
@@ -808,7 +804,7 @@ class RawInstListBuilder(
      * a helper function that helps to merge local variables from several predecessor frames into one map
      * if all the predecessor frames are known (meaning we already visited all the corresponding instructions
      * in the bytecode) --- merge process is trivial
-     * if some predecessor frames are unknown, we remebmer them and add requried assignment instructions after
+     * if some predecessor frames are unknown, we remember them and add required assignment instructions after
      * the full construction process is complete, see #buildRequiredAssignments function
      */
     private fun SortedMap<Int, TypeName>.copyLocals(predFrames: Map<AbstractInsnNode, Frame?>): Map<Int, JIRRawValue> =
@@ -998,13 +994,18 @@ class RawInstListBuilder(
         }
     }
 
-    private fun buildIincInsnNode(insnNode: IincInsnNode) {
+    private fun buildIincInsnNode(insnNode: IincInsnNode, nextInst: AbstractInsnNode?) {
         val variable = insnNode.`var`
         val local = local(variable)
-        postfixInstructions[variable] = JIRRawAssignInst(method, local,
-            JIRRawAddExpr(local.typeName, local, JIRRawInt(insnNode.incr))
-        )
-        local(variable, local, insnNode)
+        val incrementedVariable = when {
+            nextInst != null && nextInst.isBranchingInst -> local
+            nextInst != null && (
+                    (nextInst is VarInsnNode && nextInst.`var` == variable) || nextInst is LabelNode) -> local
+            else -> nextRegister(local.typeName)
+        }
+        val add = JIRRawAddExpr(local.typeName, local, JIRRawInt(insnNode.incr))
+        instructionList(insnNode) += JIRRawAssignInst(method, incrementedVariable, add)
+        local(variable, incrementedVariable, insnNode, override = incrementedVariable != local)
     }
 
     private fun buildIntInsnNode(insnNode: IntInsnNode) {
@@ -1409,10 +1410,6 @@ class RawInstListBuilder(
 
             in Opcodes.ILOAD..Opcodes.ALOAD -> {
                 push(local(variable))
-                postfixInstructions[variable]?.let {
-                    postfixInstructions.remove(variable)
-                    instructionList(insnNode).add(it) // do not reuse `addInstruction` function here
-                }
             }
             else -> error("Unknown opcode ${insnNode.opcode} in VarInsnNode")
         }

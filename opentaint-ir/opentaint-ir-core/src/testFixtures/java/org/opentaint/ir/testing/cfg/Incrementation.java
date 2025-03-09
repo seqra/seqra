@@ -30,4 +30,27 @@ public class Incrementation {
         return result;
     }
 
+    static public int[] iincIf(boolean x, boolean y) {
+        int xx = 0;
+        if (x != y) {
+            xx++;
+        }
+        return new int[xx];
+    }
+
+    static public int iincWhile() {
+        int x = 0;
+        int y = 0;
+        while (x++ < 2) {
+            y++;
+        }
+        return y;
+    }
+
+    static public int iincIf2(int x) {
+        if (x++ == 1) {
+            return x;
+        }
+        return x + 1;
+    }
 }

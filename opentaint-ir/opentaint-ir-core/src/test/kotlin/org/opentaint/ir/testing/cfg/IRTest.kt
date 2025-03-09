@@ -262,6 +262,13 @@ class IRTest : BaseInstructionsTest() {
     }
 
     @Test
+    fun `get ir of random class`() {
+        val clazz = cp.findClass("kotlinx.coroutines.channels.ChannelsKt__DeprecatedKt\$filterIndexed\$1")
+        val method = clazz.declaredMethods.first { it.name == "invokeSuspend" }
+        JIRGraphChecker(method, method.flowGraph()).check()
+    }
+
+    @Test
     fun `get ir of self`() {
         testClass(cp.findClass<JIRClasspathImpl>())
         testClass(cp.findClass<JIRClassOrInterfaceImpl>())
@@ -280,10 +287,10 @@ class IRTest : BaseInstructionsTest() {
     }
 
     // todo: make this test green
-//    @Test
+    @Test
     fun `get ir of kotlinx-coroutines`() {
 //        testClass(cp.findClass("kotlinx.coroutines.ThreadContextElementKt"))
-        runAlongLib(kotlinxCoroutines)
+        runAlongLib(kotlinxCoroutines, false)
     }
 
     @AfterEach
@@ -293,7 +300,7 @@ class IRTest : BaseInstructionsTest() {
         }
     }
 
-    private fun runAlongLib(file: File) {
+    private fun runAlongLib(file: File, validateLineNumbers: Boolean = true) {
         println("Run along: ${file.absolutePath}")
 
         val classes = JarLocation(file, isRuntime = false, object : JavaVersion {
@@ -305,7 +312,7 @@ class IRTest : BaseInstructionsTest() {
             val clazz = cp.findClass(it.key)
             if (!clazz.isAnnotation && !clazz.isInterface) {
                 println("Testing class: ${it.key}")
-                testClass(clazz)
+                testClass(clazz, validateLineNumbers)
             }
         }
     }

@@ -24,15 +24,15 @@ abstract class BaseInstructionsTest : BaseTest() {
 
     val ext = runBlocking { cp.hierarchyExt() }
 
-    protected fun testClass(klass: JIRClassOrInterface) {
-        testAndLoadClass(klass, false)
+    protected fun testClass(klass: JIRClassOrInterface, validateLineNumbers: Boolean = true) {
+        testAndLoadClass(klass, false, validateLineNumbers)
     }
 
     protected fun testAndLoadClass(klass: JIRClassOrInterface): Class<*> {
-        return testAndLoadClass(klass, true)!!
+        return testAndLoadClass(klass, true, validateLineNumbers = true)!!
     }
 
-    private fun testAndLoadClass(klass: JIRClassOrInterface, loadClass: Boolean): Class<*>? {
+    private fun testAndLoadClass(klass: JIRClassOrInterface, loadClass: Boolean, validateLineNumbers: Boolean): Class<*>? {
         try {
             val classNode = klass.asmNode()
             classNode.methods = klass.declaredMethods.filter { it.enclosingClass == klass }.map {
@@ -40,31 +40,25 @@ abstract class BaseInstructionsTest : BaseTest() {
                     it.asmNode()
                 } else {
                     try {
-//            val oldBody = it.body()
-//            println()
-//            println("Old body: ${oldBody.print()}")
                         val instructionList = it.rawInstList
                         it.instList.forEachIndexed { index, inst ->
                             Assertions.assertEquals(index, inst.location.index, "indexes not matched for $it at $index")
                         }
-//            println("Instruction list: $instructionList")
                         val graph = it.flowGraph()
                         if (!it.enclosingClass.isKotlin) {
                             val methodMsg = "$it should have line number"
-                            graph.instructions.forEach {
-                                Assertions.assertTrue(it.lineNumber > 0, methodMsg)
+                            if (validateLineNumbers) {
+                                graph.instructions.forEach {
+                                    Assertions.assertTrue(it.lineNumber > 0, methodMsg)
+                                }
                             }
                         }
                         graph.applyAndGet(OverridesResolver(ext)) {}
                         JIRGraphChecker(it, graph).check()
-//            println("Graph: $graph")
-//            graph.view("/usr/bin/dot", "/usr/bin/firefox", false)
-//            graph.blockGraph().view("/usr/bin/dot", "/usr/bin/firefox")
                         val newBody = MethodNodeBuilder(it, instructionList).build()
-//            println("New body: ${newBody.print()}")
-//            println()
                         newBody
-                    } catch (e: Exception) {
+                    } catch (e: Throwable) {
+                        it.dumpInstructions()
                         throw IllegalStateException("error handling $it", e)
                     }
 
