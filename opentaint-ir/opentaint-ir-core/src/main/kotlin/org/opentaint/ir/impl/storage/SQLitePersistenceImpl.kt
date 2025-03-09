@@ -57,7 +57,7 @@ class SQLitePersistenceImpl(
         get() {
             try {
                 val hasBytecodeLocations = jooq.meta().tables
-                    .any { it.name.equals(BYTECODELOCATIONS.bytecodelocations().name, true) }
+                    .any { it.name.equals(BYTECODELOCATIONS.name, true) }
                 if (hasBytecodeLocations) {
                     val count = jooq.fetchCount(
                         BYTECODELOCATIONS,
