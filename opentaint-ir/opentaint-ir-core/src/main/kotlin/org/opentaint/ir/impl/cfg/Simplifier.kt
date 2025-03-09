@@ -37,7 +37,11 @@ internal class Simplifier {
             // (e.g. `a = b` and `b = a`) and not used anywhere else; also need to run several times
             // because of potential dependencies between such variables
             val assignmentsMap = computeAssignments(instructionList)
-            val replacements = assignmentsMap.filterValues { it.size == 1 }.map { it.key to it.value.first() }.toMap()
+            val replacements = assignmentsMap
+                .filter { (assignmentsMap[it.value.first()]?.let { it.size == 1 } ?: true) }
+                .filterValues { it.size == 1 }
+                .map { it.key to it.value.first() }
+                .toMap()
             instructionList = instructionList
                 .filterNot(InstructionFilter {
                     if (it !is JIRRawAssignInst) return@InstructionFilter false
@@ -153,7 +157,7 @@ internal class Simplifier {
                 val rhv = inst.rhv
                 if (inst.lhv is JIRRawSimpleValue
                     && rhv is JIRRawLocalVar
-                    && uses.getOrDefault(inst.rhv, emptySet()).firstOrNull() == inst
+                    && uses.getOrDefault(inst.rhv, emptySet()).let { it.size == 1 && it.firstOrNull() == inst }
                     && rhv !in reservedValues
                 ) {
                     val lhv = inst.lhv

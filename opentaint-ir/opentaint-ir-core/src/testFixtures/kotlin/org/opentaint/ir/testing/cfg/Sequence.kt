@@ -2,17 +2,16 @@ package org.opentaint.ir.testing.cfg
 
 class KotlinSequence {
 
-    val xs = listOf("a", "b", "c", "d").asSequence()
+    val xs = listOf("a", "b", "c", "d")
 
     fun box(): String {
-        val s = StringBuilder()
+        var s = ""
 
         for ((i, _) in xs.withIndex()) {
-            s.append("$i;")
+            s += "$i;"
         }
 
-        val ss = s.toString()
-        return if (ss == "0;1;2;3;") "OK" else "fail: '$ss'"
+        return if (s == "0;1;2;3;") "OK" else "fail: '$s'"
     }
 
 }
