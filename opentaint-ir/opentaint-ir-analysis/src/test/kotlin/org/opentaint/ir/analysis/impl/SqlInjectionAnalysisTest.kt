@@ -4,7 +4,7 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.engine.VulnerabilityInstance
 import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
 import org.opentaint.ir.analysis.library.SingletonUnitResolver
-import org.opentaint.ir.analysis.library.analyzers.TaintAnalyzer
+import org.opentaint.ir.analysis.library.analyzers.SqlInjectionAnalyzer
 import org.opentaint.ir.analysis.library.newSqlInjectionRunnerFactory
 import org.opentaint.ir.analysis.runAnalysis
 import org.opentaint.ir.api.JIRMethod
@@ -21,7 +21,7 @@ class SqlInjectionAnalysisTest : BaseAnalysisTest() {
         @JvmStatic
         fun provideClassesForJuliet89(): Stream<Arguments> = provideClassesForJuliet(89, emptyList())
 
-        private const val vulnerabilityType = TaintAnalyzer.vulnerabilityType
+        private val vulnerabilityType = SqlInjectionAnalyzer.vulnerabilityDescription.ruleId
     }
 
     @ParameterizedTest

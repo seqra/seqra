@@ -9,7 +9,6 @@ import org.opentaint.ir.analysis.library.analyzers.TaintNode
 import org.opentaint.ir.analysis.library.newAliasRunnerFactory
 import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.runAnalysis
-import org.opentaint.ir.analysis.toDumpable
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.cfg.JIRAssignInst
 import org.opentaint.ir.api.cfg.JIRExpr
@@ -143,6 +142,6 @@ class AliasAnalysisTest : BaseTest() {
             listOf(method)
         )
 
-        return result.toDumpable().foundVulnerabilities.map { it.sink }
+        return result.map { it.traceGraph.sink.statement.toString() }
     }
 }

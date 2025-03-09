@@ -136,7 +136,7 @@ class MainIfdsUnitManager<UnitType>(
         logger.info { "Restoring traces..." }
 
         foundVulnerabilities
-            .map { VulnerabilityInstance(it.vulnerabilityType, extendTraceGraph(it.sink.traceGraph)) }
+            .map { VulnerabilityInstance(it.vulnerabilityDescription, extendTraceGraph(it.sink.traceGraph)) }
             .filter {
                 it.traceGraph.sources.any { source ->
                     graph.methodOf(source.statement) in startMethods || source.domainFact == ZEROFact

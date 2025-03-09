@@ -15,6 +15,8 @@ import org.opentaint.ir.analysis.engine.ZEROFact
 import org.opentaint.ir.analysis.paths.AccessPath
 import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.paths.toPathOrNull
+import org.opentaint.ir.analysis.sarif.SarifMessage
+import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
@@ -37,7 +39,10 @@ class UnusedVariableAnalyzer(val graph: JIRApplicationGraph) : AbstractAnalyzer(
         get() = true
 
     companion object {
-        const val vulnerabilityType: String = "unused variable analysis"
+        const val ruleId: String = "unused-variable"
+        private val vulnerabilityMessage = SarifMessage("Assigned value is unused")
+
+        val vulnerabilityDescription = VulnerabilityDescription(vulnerabilityMessage, ruleId)
     }
 
     private fun AccessPath.isUsedAt(expr: JIRExpr): Boolean {
@@ -86,7 +91,7 @@ class UnusedVariableAnalyzer(val graph: JIRApplicationGraph) : AbstractAnalyzer(
         }
         used.filterValues { !it }.keys.map {
             add(
-                NewSummaryFact(VulnerabilityLocation(vulnerabilityType, IfdsVertex(it, ZEROFact)))
+                NewSummaryFact(VulnerabilityLocation(vulnerabilityDescription, IfdsVertex(it, ZEROFact)))
             )
         }
     }

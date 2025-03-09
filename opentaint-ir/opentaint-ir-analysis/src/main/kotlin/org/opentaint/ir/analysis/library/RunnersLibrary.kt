@@ -9,11 +9,8 @@ import org.opentaint.ir.analysis.library.analyzers.NpePrecalcBackwardAnalyzerFac
 import org.opentaint.ir.analysis.library.analyzers.SqlInjectionAnalyzerFactory
 import org.opentaint.ir.analysis.library.analyzers.SqlInjectionBackwardAnalyzerFactory
 import org.opentaint.ir.analysis.library.analyzers.TaintAnalysisNode
-import org.opentaint.ir.analysis.library.analyzers.TaintAnalyzerFactory
-import org.opentaint.ir.analysis.library.analyzers.TaintBackwardAnalyzerFactory
 import org.opentaint.ir.analysis.library.analyzers.TaintNode
 import org.opentaint.ir.analysis.library.analyzers.UnusedVariableAnalyzerFactory
-import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.cfg.JIRExpr
 import org.opentaint.ir.api.cfg.JIRInst
 
@@ -37,23 +34,3 @@ fun newAliasRunnerFactory(
     sinks: (JIRInst) -> List<TaintAnalysisNode>,
     maxPathLength: Int = 5
 ) = BaseIfdsUnitRunnerFactory(AliasAnalyzerFactory(generates, sanitizes, sinks, maxPathLength))
-
-fun newTaintRunnerFactory(
-    isSourceMethod: (JIRMethod) -> Boolean,
-    isSanitizeMethod: (JIRMethod) -> Boolean,
-    isSinkMethod: (JIRMethod) -> Boolean,
-    maxPathLength: Int = 5
-) = BidiIfdsUnitRunnerFactory(
-    BaseIfdsUnitRunnerFactory(TaintAnalyzerFactory(isSourceMethod, isSanitizeMethod, isSinkMethod, maxPathLength)),
-    BaseIfdsUnitRunnerFactory(TaintBackwardAnalyzerFactory(isSourceMethod, isSinkMethod, maxPathLength))
-)
-
-fun newTaintRunnerFactory(
-    sourceMethodMatchers: List<String>,
-    sanitizeMethodMatchers: List<String>,
-    sinkMethodMatchers: List<String>,
-    maxPathLength: Int = 5
-) = BidiIfdsUnitRunnerFactory(
-    BaseIfdsUnitRunnerFactory(TaintAnalyzerFactory(sourceMethodMatchers, sanitizeMethodMatchers, sinkMethodMatchers, maxPathLength)),
-    BaseIfdsUnitRunnerFactory(TaintBackwardAnalyzerFactory(sourceMethodMatchers, sinkMethodMatchers, maxPathLength))
-)

@@ -19,6 +19,8 @@ import org.opentaint.ir.analysis.paths.minus
 import org.opentaint.ir.analysis.paths.startsWith
 import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.paths.toPathOrNull
+import org.opentaint.ir.analysis.sarif.SarifMessage
+import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
 import org.opentaint.ir.api.JIRArrayType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
@@ -51,14 +53,16 @@ class NpeAnalyzer(graph: JIRApplicationGraph, maxPathLength: Int) : AbstractAnal
         get() = true
 
     companion object {
-        const val vulnerabilityType: String = "npe-analysis"
+        const val ruleId: String = "npe-deref"
     }
 
     override fun handleNewEdge(edge: IfdsEdge): List<AnalysisDependentEvent> = buildList {
         val (inst, fact0) = edge.v
 
         if (fact0 is NpeTaintNode && fact0.activation == null && fact0.variable.isDereferencedAt(inst)) {
-            add(NewSummaryFact((VulnerabilityLocation(vulnerabilityType, edge.v))))
+            val message = "Dereference of possibly-null ${fact0.variable}"
+            val desc = VulnerabilityDescription(SarifMessage(message), ruleId)
+            add(NewSummaryFact((VulnerabilityLocation(desc, edge.v))))
             verticesWithTraceGraphNeeded.add(edge.v)
         }
 

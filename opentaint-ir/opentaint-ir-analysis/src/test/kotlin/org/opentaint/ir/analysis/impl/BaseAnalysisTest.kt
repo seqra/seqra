@@ -3,7 +3,6 @@ package org.opentaint.ir.analysis.impl
 import juliet.testcasesupport.AbstractTestCase
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.engine.VulnerabilityInstance
-import org.opentaint.ir.analysis.toDumpable
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.findClass
@@ -93,10 +92,9 @@ abstract class BaseAnalysisTest : BaseTest() {
 
     protected fun findSinks(method: JIRMethod, vulnerabilityType: String): Set<String> {
         val sinks = launchAnalysis(listOf(method))
-            .toDumpable()
-            .foundVulnerabilities
-            .filter { it.vulnerabilityType == vulnerabilityType }
+            .filter { it.vulnerabilityDescription.ruleId == vulnerabilityType }
+            .map { it.traceGraph.sink.toString() }
 
-        return sinks.map { it.sink }.toSet()
+        return sinks.toSet()
     }
 }

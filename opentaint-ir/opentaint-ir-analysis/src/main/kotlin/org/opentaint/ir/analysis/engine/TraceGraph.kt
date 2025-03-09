@@ -1,7 +1,5 @@
 package org.opentaint.ir.analysis.engine
 
-import org.opentaint.ir.analysis.DumpableVulnerabilityInstance
-
 /**
  * A directed graph with selected [sink] and [sources], where each path from one of [sources] to [sink] is a trace.
  *
@@ -38,17 +36,6 @@ data class TraceGraph(
         sources.forEach {
             yieldAll(getAllTraces(mutableListOf(it)))
         }
-    }
-
-    fun toVulnerability(vulnerabilityType: String, maxTracesCount: Int = 100): DumpableVulnerabilityInstance {
-        return DumpableVulnerabilityInstance(
-            vulnerabilityType,
-            sources.map { it.statement.toString() },
-            sink.statement.toString(),
-            getAllTraces().take(maxTracesCount).map { intermediatePoints ->
-                intermediatePoints.map { it.statement.toString() }
-            }.toList()
-        )
     }
 
     /**

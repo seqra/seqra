@@ -3,6 +3,7 @@ package org.opentaint.ir.analysis.engine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
 import org.opentaint.ir.api.JIRMethod
 import java.util.concurrent.ConcurrentHashMap
 
@@ -17,7 +18,7 @@ sealed interface SummaryFact {
 /**
  * [SummaryFact] that denotes a possible vulnerability at [sink]
  */
-data class VulnerabilityLocation(val vulnerabilityType: String, val sink: IfdsVertex) : SummaryFact {
+data class VulnerabilityLocation(val vulnerabilityDescription: VulnerabilityDescription, val sink: IfdsVertex) : SummaryFact {
     override val method: JIRMethod = sink.method
 }
 
