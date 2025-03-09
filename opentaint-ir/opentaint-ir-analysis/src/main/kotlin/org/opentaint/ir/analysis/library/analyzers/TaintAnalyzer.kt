@@ -152,18 +152,19 @@ private class TaintForwardFunctions(
             }
         }
 
-        return if (from.values.any { it.toPathOrNull().startsWith(fact.variable) || fact.variable.startsWith(it.toPathOrNull()) }) {
+        if (from.values.any { it.toPathOrNull().startsWith(fact.variable) || fact.variable.startsWith(it.toPathOrNull()) }) {
             val instanceOrNull = (from as? JIRInstanceCallExpr)?.instance
             if (instanceOrNull != null && !sanitizes(from, fact)) {
-                default + newPossibleTaint + fact.moveToOtherPath(instanceOrNull.toPath())
-            } else {
-                default + newPossibleTaint
+                val instancePath = instanceOrNull.toPathOrNull()
+                if (instancePath != null) {
+                    return default + newPossibleTaint + fact.moveToOtherPath(instancePath)
+                }
             }
+            return default + newPossibleTaint
         } else if (fact.variable.startsWith(toPath)) {
-            emptyList()
-        } else {
-            default
+            return emptyList()
         }
+        return default
     }
 
     override fun transmitDataFlowAtNormalInst(inst: JIRInst, nextInst: JIRInst, fact: DomainFact): List<DomainFact> {
