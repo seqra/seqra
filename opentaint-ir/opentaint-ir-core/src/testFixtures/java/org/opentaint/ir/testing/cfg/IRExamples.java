@@ -120,9 +120,10 @@ public class IRExamples {
     public int testArrays(String[] arg) {
         int index = 12;
         String x = arg[index];
-        if(x != null) {
+        if (x != null) {
             return x.length();
         }
         return -1;
     }
+
 }

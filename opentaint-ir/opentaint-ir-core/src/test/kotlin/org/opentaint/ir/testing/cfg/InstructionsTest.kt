@@ -15,7 +15,6 @@ import org.opentaint.ir.api.ext.cfg.values
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.humanReadableSignature
 import org.opentaint.ir.api.ext.int
-import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.Common
 import org.opentaint.ir.testing.Common.CommonClass
 import org.opentaint.ir.testing.WithDB
@@ -34,7 +33,7 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import javax.activation.DataHandler
 
-class InstructionsTest : BaseTest() {
+class InstructionsTest : BaseInstructionsTest() {
 
     companion object : WithDB()
 
@@ -249,6 +248,47 @@ class InstructionsTest : BaseTest() {
         }
         assertEquals("defaultMethod", callDefaultMethod.method.method.name)
     }
+
+    @Test
+    fun `iinc should work`() {
+        val clazz = cp.findClass<Incrementation>()
+
+        val javaClazz = testAndLoadClass(clazz)
+        val method = javaClazz.methods.first { it.name == "iinc" }
+        val res = method.invoke(null, 0)
+        assertEquals(0, res)
+    }
+
+    @Test
+    fun `iinc arrayIntIdx should work`() {
+        val clazz = cp.findClass<Incrementation>()
+
+        val javaClazz = testAndLoadClass(clazz)
+        val method = javaClazz.methods.first { it.name == "iincArrayIntIdx" }
+        val res = method.invoke(null)
+        assertArrayEquals(intArrayOf(1, 0, 2), res as IntArray)
+    }
+
+    @Test
+    fun `iinc arrayByteIdx should work`() {
+        val clazz = cp.findClass<Incrementation>()
+
+        val javaClazz = testAndLoadClass(clazz)
+        val method = javaClazz.methods.first { it.name == "iincArrayByteIdx" }
+        val res = method.invoke(null)
+        assertArrayEquals(intArrayOf(1, 0, 2), res as IntArray)
+    }
+
+    @Test
+    fun `iinc for`() {
+        val clazz = cp.findClass<Incrementation>()
+
+        val javaClazz = testAndLoadClass(clazz)
+        val method = javaClazz.methods.first { it.name == "iincFor" }
+        val res = method.invoke(null)
+        assertArrayEquals(intArrayOf(0, 1, 2, 3, 4), res as IntArray)
+    }
+
 }
 
 fun JIRMethod.dumpInstructions(): String {

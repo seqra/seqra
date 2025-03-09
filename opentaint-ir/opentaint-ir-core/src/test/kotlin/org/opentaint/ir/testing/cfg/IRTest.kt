@@ -1,22 +1,23 @@
 package org.opentaint.ir.testing.cfg
 
-import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.*
 import org.opentaint.ir.api.cfg.*
-import org.opentaint.ir.api.ext.*
+import org.opentaint.ir.api.ext.HierarchyExtension
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.ext.toType
 import org.opentaint.ir.impl.JIRClasspathImpl
 import org.opentaint.ir.impl.JIRDatabaseImpl
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
-import org.opentaint.ir.impl.bytecode.JIRDatabaseClassWriter
 import org.opentaint.ir.impl.bytecode.JIRMethodImpl
-import org.opentaint.ir.impl.cfg.*
+import org.opentaint.ir.impl.cfg.JIRBlockGraphImpl
+import org.opentaint.ir.impl.cfg.JIRInstListBuilder
+import org.opentaint.ir.impl.cfg.RawInstListBuilder
+import org.opentaint.ir.impl.cfg.Simplifier
 import org.opentaint.ir.impl.cfg.util.ExprMapper
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.StringConcatSimplifier
-import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.impl.fs.JarLocation
-import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.guavaLib
 import org.opentaint.ir.testing.kotlinxCoroutines
@@ -24,11 +25,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
-import org.objectweb.asm.ClassWriter
-import org.objectweb.asm.util.CheckClassAdapter
 import java.io.File
-import java.net.URLClassLoader
-import java.nio.file.Files
 
 class OverridesResolver(
     private val hierarchyExtension: HierarchyExtension
@@ -239,13 +236,9 @@ class JIRGraphChecker(val method: JIRMethod, val jIRGraph: JIRGraph) : JIRInstVi
     }
 }
 
-class IRTest : BaseTest() {
+class IRTest : BaseInstructionsTest() {
 
     companion object : WithDB(InMemoryHierarchy, StringConcatSimplifier)
-
-    private val target = Files.createTempDirectory("jIRdb-temp")
-
-    private val ext = runBlocking { cp.hierarchyExt() }
 
     @Test
     fun `get ir of simple method`() {
@@ -268,7 +261,7 @@ class IRTest : BaseTest() {
         testClass(cp.findClass<BinarySearchTree<*>.BinarySearchTreeIterator>())
     }
 
-        @Test
+    @Test
     fun `get ir of self`() {
         testClass(cp.findClass<JIRClasspathImpl>())
         testClass(cp.findClass<JIRClassOrInterfaceImpl>())
@@ -317,54 +310,4 @@ class IRTest : BaseTest() {
         }
     }
 
-    private fun testClass(klass: JIRClassOrInterface) = try {
-        val classNode = klass.asmNode()
-        classNode.methods = klass.declaredMethods.filter { it.enclosingClass == klass }.map {
-            if (it.isAbstract || it.name.contains("$\$forInline")) {
-                it.asmNode()
-            } else {
-                try {
-//            val oldBody = it.body()
-//            println()
-//            println("Old body: ${oldBody.print()}")
-                    val instructionList = it.rawInstList
-                    it.instList.forEachIndexed { index, inst ->
-                        assertEquals(index, inst.location.index, "indexes not matched for $it at $index")
-                    }
-//            println("Instruction list: $instructionList")
-                    val graph = it.flowGraph()
-                    if (!it.enclosingClass.isKotlin) {
-                        graph.instructions.forEach {
-                            assertTrue(it.lineNumber > 0, "$it should have line number")
-                        }
-                    }
-                    graph.applyAndGet(OverridesResolver(ext)) {}
-                    JIRGraphChecker(it, graph).check()
-//            println("Graph: $graph")
-//            graph.view("/usr/bin/dot", "/usr/bin/firefox", false)
-//            graph.blockGraph().view("/usr/bin/dot", "/usr/bin/firefox")
-                    val newBody = MethodNodeBuilder(it, instructionList).build()
-//            println("New body: ${newBody.print()}")
-//            println()
-                    newBody
-                } catch (e: Exception) {
-                    throw IllegalStateException("error handling $it", e)
-                }
-
-            }
-        }
-        val cw = JIRDatabaseClassWriter(cp, ClassWriter.COMPUTE_FRAMES)
-        val checker = CheckClassAdapter(classNode)
-        classNode.accept(checker)
-        val targetDir = target.resolve(klass.packageName.replace('.', '/'))
-        val targetFile = targetDir.resolve("${klass.simpleName}.class").toFile().also {
-            it.parentFile?.mkdirs()
-        }
-        targetFile.writeBytes(cw.toByteArray())
-
-        val classloader = URLClassLoader(arrayOf(target.toUri().toURL()))
-        classloader.loadClass(klass.name)
-    } catch (e: NoClassInClasspathException) {
-        System.err.println(e.localizedMessage)
-    }
 }
