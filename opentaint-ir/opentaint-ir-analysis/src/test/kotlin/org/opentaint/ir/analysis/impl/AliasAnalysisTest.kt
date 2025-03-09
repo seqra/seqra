@@ -6,7 +6,7 @@ import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
 import org.opentaint.ir.analysis.library.MethodUnitResolver
 import org.opentaint.ir.analysis.library.analyzers.TaintAnalysisNode
 import org.opentaint.ir.analysis.library.analyzers.TaintNode
-import org.opentaint.ir.analysis.library.newAliasRunner
+import org.opentaint.ir.analysis.library.newAliasRunnerFactory
 import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.runAnalysis
 import org.opentaint.ir.analysis.toDumpable
@@ -139,7 +139,7 @@ class AliasAnalysisTest : BaseTest() {
         val result = runAnalysis(
             graph,
             MethodUnitResolver,
-            newAliasRunner(::generates, ::isSanitizer, ::sinks),
+            newAliasRunnerFactory(::generates, ::isSanitizer, ::sinks),
             listOf(method)
         )
 

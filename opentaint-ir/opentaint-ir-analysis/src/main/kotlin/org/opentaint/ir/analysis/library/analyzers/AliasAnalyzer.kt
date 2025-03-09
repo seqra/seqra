@@ -1,9 +1,11 @@
 package org.opentaint.ir.analysis.library.analyzers
 
+import org.opentaint.ir.analysis.engine.AnalysisDependentEvent
 import org.opentaint.ir.analysis.engine.AnalyzerFactory
 import org.opentaint.ir.analysis.engine.DomainFact
 import org.opentaint.ir.analysis.engine.IfdsResult
 import org.opentaint.ir.analysis.engine.IfdsVertex
+import org.opentaint.ir.analysis.engine.NewSummaryFact
 import org.opentaint.ir.analysis.engine.VulnerabilityLocation
 import org.opentaint.ir.analysis.paths.FieldAccessor
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
@@ -30,9 +32,8 @@ private class AliasAnalyzer(
     maxPathLength: Int,
 ) : TaintAnalyzer(graph, generates, sanitizes, sinks, maxPathLength) {
 
-    override fun getSummaryFactsPostIfds(ifdsResult: IfdsResult): List<VulnerabilityLocation> {
-        val vulnerabilities = mutableListOf<VulnerabilityLocation>()
-        ifdsResult.resultFacts.forEach { (inst, facts) ->
+    override fun handleIfdsResult(ifdsResult: IfdsResult): List<AnalysisDependentEvent> = buildList {
+        ifdsResult.resultFacts.map { (inst, facts) ->
             facts.filterIsInstance<TaintAnalysisNode>().forEach { fact ->
                 if (fact in sinks(inst)) {
                     fact.variable.let {
@@ -54,16 +55,20 @@ private class AliasAnalyzer(
                             append(it.accesses.joinToString("."))
                         }
 
-                        vulnerabilities.add(
-                            VulnerabilityLocation(
-                                vulnerabilityType,
-                                IfdsVertex(inst, fact)
+                        verticesWithTraceGraphNeeded.add(IfdsVertex(inst, fact))
+
+                        add(
+                            NewSummaryFact(
+                                VulnerabilityLocation(
+                                    vulnerabilityType,
+                                    IfdsVertex(inst, fact)
+                                )
                             )
                         )
                     }
                 }
             }
         }
-        return vulnerabilities
+        addAll(super.handleIfdsResult(ifdsResult))
     }
 }

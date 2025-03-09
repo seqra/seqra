@@ -17,8 +17,9 @@ The analysis entry point is the [runAnalysis] method. To call it, you have to pr
 * `graph` — an application graph that is used for analysis. To obtain this graph, one should call the [newApplicationGraphForAnalysis] method.
 * `unitResolver` — an object that groups methods into units. Choose one from `UnitResolversLibrary`.
 Note that, in general, larger units mean more precise but also more resource-consuming analysis.
-* `ifdsUnitRunner` — an [IfdsUnitRunner] instance, which is used to analyze each unit. This is what defines concrete analysis.
-  Ready-to-use runners are located in `RunnersLibrary`.
+* `ifdsUnitRunnerFactory` — an [IfdsUnitRunnerFactory] instance, that can create runners. Runners are used to analyze each unit. 
+So this factory is what define concrete analysis.
+  Ready-to-use runner factories are located in `RunnersLibrary`.
 * `methods` — a list of methods to analyze.
 
 For example, to detect the unused variables in the given `analyzedClass` methods, you may run the following code
@@ -31,9 +32,9 @@ val applicationGraph = runBlocking {
 
 val methodsToAnalyze = analyzedClass.declaredMethods
 val unitResolver = MethodUnitResolver
-val runner = UnusedVariableRunner
+val runnerFactory = UnusedVariableRunnerFactory
 
-runAnalysis(applicationGraph, unitResolver, runner, methodsToAnalyze)
+runAnalysis(applicationGraph, unitResolver, runnerFactory, methodsToAnalyze)
 ```
 
 ## Implemented runners
@@ -47,7 +48,7 @@ By now, the following runners are implemented:
 
 ## Implementing your own analysis
 
-To implement a simple one-pass analysis, use [IfdsBaseUnitRunner].
+To implement a simple one-pass analysis, use [IfdsBaseUnitRunnerFactory].
 To instantiate it, you need an [AnalyzerFactory] instance, which is an object that can create [Analyzer] via
 [JIRApplicationGraph].
 
@@ -55,21 +56,20 @@ To instantiate an [Analyzer] interface, you have to specify the following:
 
 * `flowFunctions`, which describe the dataflow facts and their transmissions during the analysis;
 
-* how these facts produce vulnerabilities, i.e., you have to implement `getSummaryFacts` and 
-  `getSummaryFactsPostIfds` methods.
+* semantics for these dataflow facts, i.e. how these facts produce vulnerabilities, summaries, etc. 
+This should be done by implementing `handleNewEdge`, `handleNewCrossUnitCall` and `handleIfdsResult` methods.
 
-To implement bidirectional analysis, you may use composite [SequentialBidiIfdsUnitRunner] and [ParallelBidiIfdsUnitRunner].
+To implement bidirectional analysis, you may use composite [BidiIfdsUnitRunnerFactory].
 
 <!--- MODULE opentaint-ir-analysis -->
 <!--- INDEX org.opentaint.ir.analysis -->
 
 [runAnalysis]: https://opentaint-ir.org/docs/opentaint-ir-analysis/org.opentaint.ir.analysis/run-analysis.html
 [newApplicationGraphForAnalysis]: https://opentaint-ir.org/docs/opentaint-ir-analysis/org.opentaint.ir.analysis.graph/new-application-graph-for-analysis.html
-[IfdsUnitRunner]: https://opentaint-ir.org/docs/opentaint-ir-analysis/org.opentaint.ir.analysis.engine/-ifds-unit-runner/index.html
+[IfdsUnitRunnerFactory]: https://opentaint-ir.org/docs/opentaint-ir-analysis/org.opentaint.ir.analysis.engine/-ifds-unit-runner-factory/index.html
 [JIRClasspath]: https://opentaint-ir.org/docs/opentaint-ir-api/org.opentaint.ir.api/-jIR-classpath/index.html
-[IfdsBaseUnitRunner]: https://opentaint-ir.org/docs/opentaint-ir-analysis/org.opentaint.ir.analysis.engine/-ifds-base-unit-runner/index.html
+[IfdsBaseUnitRunnerFactory]: https://opentaint-ir.org/docs/opentaint-ir-analysis/org.opentaint.ir.analysis.engine/-ifds-base-unit-runner-factory/index.html
 [AnalyzerFactory]: https://opentaint-ir.org/docs/opentaint-ir-analysis/org.opentaint.ir.analysis.engine/-analyzer-factory/index.html
 [Analyzer]: https://opentaint-ir.org/docs/opentaint-ir-analysis/org.opentaint.ir.analysis.engine/-analyzer/index.html
 [JIRApplicationGraph]: https://opentaint-ir.org/docs/opentaint-ir-api/org.opentaint.ir.api.analysis/-jIR-application-graph/index.html
-[SequentialBidiIfdsUnitRunner]: https://opentaint-ir.org/docs/opentaint-ir-analysis/org.opentaint.ir.analysis.engine/-sequential-bidi-ifds-unit-runner/index.html
-[ParallelBidiIfdsUnitRunner]: https://opentaint-ir.org/docs/opentaint-ir-analysis/org.opentaint.ir.analysis.engine/-parallel-bidi-ifds-unit-runner/index.html
+[BidiIfdsUnitRunnerFactory]: https://opentaint-ir.org/docs/opentaint-ir-analysis/org.opentaint.ir.analysis.engine/-bidi-ifds-unit-runner-factory/index.html

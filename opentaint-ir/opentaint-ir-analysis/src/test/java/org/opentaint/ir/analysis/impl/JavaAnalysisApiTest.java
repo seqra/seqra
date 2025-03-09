@@ -1,7 +1,7 @@
 package org.opentaint.ir.analysis.impl;
 
 import org.opentaint.ir.analysis.AnalysisMain;
-import org.opentaint.ir.analysis.engine.IfdsUnitRunner;
+import org.opentaint.ir.analysis.engine.IfdsUnitRunnerFactory;
 import org.opentaint.ir.analysis.engine.UnitResolver;
 import org.opentaint.ir.analysis.graph.ApplicationGraphFactory;
 import org.opentaint.ir.analysis.library.RunnersLibrary;
@@ -43,7 +43,7 @@ public class JavaAnalysisApiTest {
                 .asyncNewApplicationGraphForAnalysis(classpath, null)
                 .get();
         UnitResolver<?> resolver = UnitResolversLibrary.getMethodUnitResolver();
-        IfdsUnitRunner runner = RunnersLibrary.getUnusedVariableRunner();
+        IfdsUnitRunnerFactory runner = RunnersLibrary.getUnusedVariableRunnerFactory();
 
         AnalysisMain.runAnalysis(
                 applicationGraph,

@@ -1,12 +1,15 @@
 package org.opentaint.ir.analysis.library.analyzers
 
-import org.opentaint.ir.analysis.engine.Analyzer
+import org.opentaint.ir.analysis.engine.AbstractAnalyzer
+import org.opentaint.ir.analysis.engine.AnalysisDependentEvent
 import org.opentaint.ir.analysis.engine.AnalyzerFactory
+import org.opentaint.ir.analysis.engine.CrossUnitCallFact
 import org.opentaint.ir.analysis.engine.DomainFact
 import org.opentaint.ir.analysis.engine.FlowFunctionInstance
 import org.opentaint.ir.analysis.engine.FlowFunctionsSpace
 import org.opentaint.ir.analysis.engine.IfdsResult
 import org.opentaint.ir.analysis.engine.IfdsVertex
+import org.opentaint.ir.analysis.engine.NewSummaryFact
 import org.opentaint.ir.analysis.engine.VulnerabilityLocation
 import org.opentaint.ir.analysis.engine.ZEROFact
 import org.opentaint.ir.analysis.paths.AccessPath
@@ -27,10 +30,11 @@ import org.opentaint.ir.api.cfg.JIRTerminatingInst
 import org.opentaint.ir.api.cfg.values
 import org.opentaint.ir.api.ext.cfg.callExpr
 
-class UnusedVariableAnalyzer(
-    val graph: JIRApplicationGraph
-) : Analyzer {
+class UnusedVariableAnalyzer(val graph: JIRApplicationGraph) : AbstractAnalyzer(graph) {
     override val flowFunctions: FlowFunctionsSpace = UnusedVariableForwardFunctions(graph.classpath)
+
+    override val isMainAnalyzer: Boolean
+        get() = true
 
     companion object {
         const val vulnerabilityType: String = "unused variable analysis"
@@ -63,7 +67,11 @@ class UnusedVariableAnalyzer(
         return false
     }
 
-    override fun getSummaryFactsPostIfds(ifdsResult: IfdsResult): List<VulnerabilityLocation> {
+    override fun handleNewCrossUnitCall(fact: CrossUnitCallFact): List<AnalysisDependentEvent> {
+        return emptyList()
+    }
+
+    override fun handleIfdsResult(ifdsResult: IfdsResult): List<AnalysisDependentEvent> = buildList {
         val used: MutableMap<JIRInst, Boolean> = mutableMapOf()
         ifdsResult.resultFacts.forEach { (inst, facts) ->
             facts.filterIsInstance<UnusedVariableNode>().forEach { fact ->
@@ -76,10 +84,11 @@ class UnusedVariableAnalyzer(
                 }
             }
         }
-        val vulnerabilities = used.filterValues { !it }.keys.map {
-            VulnerabilityLocation(vulnerabilityType, IfdsVertex(it, ZEROFact))
+        used.filterValues { !it }.keys.map {
+            add(
+                NewSummaryFact(VulnerabilityLocation(vulnerabilityType, IfdsVertex(it, ZEROFact)))
+            )
         }
-        return vulnerabilities
     }
 }
 

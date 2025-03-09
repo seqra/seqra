@@ -1,16 +1,15 @@
 package org.opentaint.ir.analysis.engine
 
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.yield
+import kotlinx.coroutines.withContext
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.ApplicationGraph
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
@@ -18,103 +17,67 @@ import org.opentaint.ir.api.cfg.JIRInst
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * This is a basic [IfdsUnitRunner], which launches one [IfdsInstance] for each [run] call.
+ * This is a basic [IfdsUnitRunnerFactory], which creates one [BaseIfdsUnitRunner] for each [newRunner] call.
  *
- * @property analyzerFactory used to build [Analyzer] instance, which then will be used by launched [IfdsInstance].
+ * @property analyzerFactory used to build [Analyzer] instance, which then will be used by launched [BaseIfdsUnitRunner].
  */
-class IfdsBaseUnitRunner(private val analyzerFactory: AnalyzerFactory) : IfdsUnitRunner {
-    override suspend fun <UnitType> run(
+class BaseIfdsUnitRunnerFactory(private val analyzerFactory: AnalyzerFactory) : IfdsUnitRunnerFactory {
+    override fun <UnitType> newRunner(
         graph: JIRApplicationGraph,
-        summary: Summary,
+        manager: IfdsUnitManager<UnitType>,
         unitResolver: UnitResolver<UnitType>,
         unit: UnitType,
         startMethods: List<JIRMethod>
-    ) {
+    ): IfdsUnitRunner<UnitType> {
         val analyzer = analyzerFactory.newAnalyzer(graph)
-        val instance = IfdsInstance(graph, analyzer, summary, unitResolver, unit, startMethods)
-        instance.analyze()
+        return BaseIfdsUnitRunner(graph, analyzer, manager, unitResolver, unit, startMethods)
     }
 }
 
 /**
  * Encapsulates launch of tabulation algorithm, described in RHS95, for one unit
  */
-private class IfdsInstance<UnitType>(
+private class BaseIfdsUnitRunner<UnitType>(
     private val graph: ApplicationGraph<JIRMethod, JIRInst>,
     private val analyzer: Analyzer,
-    private val summary: Summary,
+    private val manager: IfdsUnitManager<UnitType>,
     private val unitResolver: UnitResolver<UnitType>,
-    private val unit: UnitType,
-    startMethods: List<JIRMethod>
-) {
+    unit: UnitType,
+    private val startMethods: List<JIRMethod>
+) : AbstractIfdsUnitRunner<UnitType>(unit) {
 
     private val pathEdges: MutableSet<IfdsEdge> = ConcurrentHashMap.newKeySet()
     private val summaryEdges: MutableMap<IfdsVertex, MutableSet<IfdsVertex>> = mutableMapOf()
     private val callSitesOf: MutableMap<IfdsVertex, MutableSet<IfdsEdge>> = mutableMapOf()
     private val pathEdgesPreds: MutableMap<IfdsEdge, MutableSet<PathEdgePredecessor>> = ConcurrentHashMap()
-    private val verticesWithTraceGraphNeeded: MutableSet<IfdsVertex> = ConcurrentHashMap.newKeySet()
-    private val summaryHandlers: MutableMap<JIRMethod, SummarySender> = ConcurrentHashMap()
-    private val visitedMethods: MutableSet<JIRMethod> = mutableSetOf()
 
-    private val flowSpace get() = analyzer.flowFunctions
+    private val flowSpace = analyzer.flowFunctions
 
     /**
      * Queue containing all unprocessed path edges.
      */
     private val workList = Channel<IfdsEdge>(Channel.UNLIMITED)
 
-    init {
-        // Adding initial facts to workList
-        for (method in startMethods) {
-            require(unitResolver.resolve(method) == unit)
-            for (sPoint in graph.entryPoint(method)) {
-                for (sFact in flowSpace.obtainPossibleStartFacts(sPoint)) {
-                    val vertex = IfdsVertex(sPoint, sFact)
-                    val edge = IfdsEdge(vertex, vertex)
-                    propagate(edge, PathEdgePredecessor(edge, PredecessorKind.NoPredecessor))
-                }
-            }
-        }
-    }
-
-    /**
-     * Sends given [fact] to [summary], also remembering to restore [TraceGraph], if needed.
-     */
-    private fun stashSummaryFact(fact: SummaryFact) {
-        val handler = summaryHandlers.computeIfAbsent(fact.method) { summary.createSender(fact.method) }
-        handler.send(fact)
-        if (fact is VulnerabilityLocation) {
-            verticesWithTraceGraphNeeded.add(fact.sink)
-        }
-        if (fact is CrossUnitCallFact) {
-            verticesWithTraceGraphNeeded.add(fact.callerVertex)
-        }
-    }
-
     /**
      * This method should be called each time new path edge is observed.
      * It will check if the edge is new and, if success, add it to [workList]
      * and summarize all [SummaryFact]s produces by the edge.
      *
-     * @param e the new path edge
+     * @param edge the new path edge
      * @param pred the description of predecessor of the edge
      */
-    private fun propagate(e: IfdsEdge, pred: PathEdgePredecessor): Boolean {
-        pathEdgesPreds.computeIfAbsent(e) {
+    private suspend fun propagate(edge: IfdsEdge, pred: PathEdgePredecessor): Boolean {
+        require(unitResolver.resolve(edge.method) == unit)
+
+        pathEdgesPreds.computeIfAbsent(edge) {
             ConcurrentHashMap.newKeySet()
         }.add(pred)
 
-        if (pathEdges.add(e)) {
-            require(workList.trySend(e).isSuccess)
-
-            analyzer.getSummaryFacts(e).forEach {
-                stashSummaryFact(it)
+        if (pathEdges.add(edge)) {
+            workList.send(edge)
+            analyzer.handleNewEdge(edge).forEach {
+                manager.handleEvent(it, this)
             }
-
-            if (analyzer.saveSummaryEdgesAndCrossUnitCalls && e.v.statement in graph.exitPoints(e.method)) {
-                stashSummaryFact(PathEdgeFact(e))
-            }
-
             return true
         }
         return false
@@ -127,22 +90,18 @@ private class IfdsInstance<UnitType>(
      * Implementation of tabulation algorithm, based on RHS95. It slightly differs from the original in the following:
      *
      * - We do not analyze the whole supergraph (represented by [graph]), but only the methods that belong to our [unit];
-     * - Path edges are added to [workList] not only by the main cycle, but they can also be obtained from [summary];
+     * - Path edges are added to [workList] not only by the main cycle, but they can also be obtained from [manager];
      * - By summary edge we understand the path edge from the start node of the method to its exit node;
      * - The supergraph is explored dynamically, and we do not inverse flow functions when new summary edge is found, i.e.
      * the extension from Chapter 4 of NLR10 is implemented.
      */
     private suspend fun runTabulationAlgorithm(): Unit = coroutineScope {
         while (isActive) {
-            val curEdge = workList.tryReceive().getOrNull() ?: throw EmptyQueueCancellationException
-
-            if (visitedMethods.add(curEdge.method)) {
-                // Listen for incoming updates
-                summary
-                    .getFactsFiltered<PathEdgeFact>(curEdge.method, null)
-                    .filter { it.edge.u.statement in graph.entryPoint(curEdge.method) } // Filter out backward edges
-                    .onEach { propagate(it.edge, PathEdgePredecessor(it.edge, PredecessorKind.Unknown)) }
-                    .launchIn(this)
+            val curEdge = workList.tryReceive().getOrNull() ?: run {
+                manager.handleEvent(QueueEmptinessChanged(true), this@BaseIfdsUnitRunner)
+                workList.receive().also {
+                    manager.handleEvent(QueueEmptinessChanged(false), this@BaseIfdsUnitRunner)
+                }
             }
 
             val (u, v) = curEdge
@@ -166,46 +125,48 @@ private class IfdsInstance<UnitType>(
                             for (sFact in factsAtStart) {
                                 val sVertex = IfdsVertex(sPoint, sFact)
 
-                                // Requesting to analyze callee from sVertex, similar to lines 14-16 of RHS95
-                                // Also, receiving summary edges for callee that start from sVertex
-                                val exitVertices: Flow<IfdsVertex> = if (callee.isExtern) {
-//                                    stashSummaryFact(PathEdgeFact(IfdsEdge(sVertex, sVertex)))
-                                    summary.getFactsFiltered<PathEdgeFact>(callee, sVertex)
-                                        .filter { it.edge.u == sVertex && it.edge.v.statement in graph.exitPoints(callee) }
-                                        .map { it.edge.v }
-                                } else {
-                                    val nextEdge = IfdsEdge(sVertex, sVertex)
-                                    propagate(nextEdge, PathEdgePredecessor(curEdge, PredecessorKind.CallToStart))
-
-                                    // .toList() is needed below to avoid ConcurrentModificationException
-                                    summaryEdges[sVertex].orEmpty().toList().asFlow()
-                                }
-
-                                // Propagation through summary edges
-                                exitVertices.onEach { (eStatement, eFact) ->
-                                    val finalFacts =
-                                        flowSpace.obtainExitToReturnSiteFlowFunction(curVertex, returnSite, eStatement)
-                                            .compute(eFact)
+                                val handleExitVertex: suspend (IfdsVertex) -> Unit = { (eStatement, eFact) ->
+                                    val finalFacts = flowSpace
+                                        .obtainExitToReturnSiteFlowFunction(curVertex, returnSite, eStatement)
+                                        .compute(eFact)
                                     for (finalFact in finalFacts) {
                                         val summaryEdge = IfdsEdge(IfdsVertex(sPoint, sFact), IfdsVertex(eStatement, eFact))
                                         val newEdge = IfdsEdge(u, IfdsVertex(returnSite, finalFact))
                                         propagate(newEdge, PathEdgePredecessor(curEdge, PredecessorKind.ThroughSummary(summaryEdge)))
                                     }
-                                }.launchIn(this)
+                                }
 
-                                // Saving additional info
                                 if (callee.isExtern) {
-                                    if (analyzer.saveSummaryEdgesAndCrossUnitCalls) {
-//                                        launch {
-//                                            summary.getFactsFiltered<TraceGraphFact>(callee, null)
-//                                                .filter { sVertex in it.graph.edges.keys }
-//                                                .first()
-//                                            stashSummaryFact(CrossUnitCallFact(v, sVertex))
-//                                        }
-                                        stashSummaryFact(CrossUnitCallFact(v, sVertex))
+                                    // Notify about cross-unit call
+                                    analyzer.handleNewCrossUnitCall(CrossUnitCallFact(v, sVertex)).forEach {
+                                        manager.handleEvent(it, this@BaseIfdsUnitRunner)
                                     }
+
+                                    // Waiting for exit vertices and handling them
+                                    val exitVertices = flow {
+                                        manager.handleEvent(
+                                            SubscriptionForSummaryEdges(callee, this@flow),
+                                            this@BaseIfdsUnitRunner
+                                        )
+                                    }
+                                    exitVertices
+                                        .filter { it.u == sVertex }
+                                        .map { it.v }
+                                        .onEach(handleExitVertex)
+                                        .launchIn(this)
                                 } else {
+                                    // Save info about call for summary-facts that will be found later
                                     callSitesOf.getOrPut(sVertex) { mutableSetOf() }.add(curEdge)
+
+                                    // Initiating analysis for callee
+                                    val nextEdge = IfdsEdge(sVertex, sVertex)
+                                    propagate(nextEdge, PathEdgePredecessor(curEdge, PredecessorKind.CallToStart))
+
+                                    // Handling already-found summary edges
+                                    // .toList() is needed below to avoid ConcurrentModificationException
+                                    for (exitVertex in summaryEdges[sVertex].orEmpty().toList()) {
+                                        handleExitVertex(exitVertex)
+                                    }
                                 }
                             }
                         }
@@ -239,7 +200,6 @@ private class IfdsInstance<UnitType>(
                     }
                 }
             }
-            yield()
         }
     }
 
@@ -254,30 +214,33 @@ private class IfdsInstance<UnitType>(
     }
 
     /**
-     * Finds summary facts that need [IfdsResult] and restores traces for all vertices that need it
+     * Performs some initialization and runs tabulation algorithm, sending all relevant events to [manager].
      */
-    private fun postActions() {
-        analyzer.getSummaryFactsPostIfds(ifdsResult).forEach { vulnerability ->
-            stashSummaryFact(vulnerability)
-        }
+    override suspend fun run() = coroutineScope {
+        try {
+            // Adding initial facts to workList
+            for (method in startMethods) {
+                require(unitResolver.resolve(method) == unit)
+                for (sPoint in graph.entryPoint(method)) {
+                    for (sFact in flowSpace.obtainPossibleStartFacts(sPoint)) {
+                        val vertex = IfdsVertex(sPoint, sFact)
+                        val edge = IfdsEdge(vertex, vertex)
+                        propagate(edge, PathEdgePredecessor(edge, PredecessorKind.NoPredecessor))
+                    }
+                }
+            }
 
-        verticesWithTraceGraphNeeded.forEach { vertex ->
-            val graph = ifdsResult.resolveTraceGraph(vertex)
-            stashSummaryFact(TraceGraphFact(graph))
+            runTabulationAlgorithm()
+        } finally {
+            withContext(NonCancellable) {
+                analyzer.handleIfdsResult(ifdsResult).forEach {
+                    manager.handleEvent(it, this@BaseIfdsUnitRunner)
+                }
+            }
         }
     }
 
-    /**
-     * Runs tabulation algorithm and updates [summary] with everything that is relevant.
-     */
-    suspend fun analyze() = coroutineScope {
-        try {
-            runTabulationAlgorithm()
-        } catch (_: EmptyQueueCancellationException) {}
-        finally {
-            postActions()
-        }
+    override suspend fun submitNewEdge(edge: IfdsEdge) {
+        propagate(edge, PathEdgePredecessor(edge, PredecessorKind.Unknown))
     }
 }
-
-private object EmptyQueueCancellationException: CancellationException()

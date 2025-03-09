@@ -1,12 +1,13 @@
 package org.opentaint.ir.analysis.library.analyzers
 
-import org.opentaint.ir.analysis.engine.Analyzer
+import org.opentaint.ir.analysis.engine.AbstractAnalyzer
+import org.opentaint.ir.analysis.engine.AnalysisDependentEvent
 import org.opentaint.ir.analysis.engine.AnalyzerFactory
 import org.opentaint.ir.analysis.engine.DomainFact
+import org.opentaint.ir.analysis.engine.EdgeForOtherRunnerQuery
 import org.opentaint.ir.analysis.engine.FlowFunctionsSpace
 import org.opentaint.ir.analysis.engine.IfdsEdge
-import org.opentaint.ir.analysis.engine.PathEdgeFact
-import org.opentaint.ir.analysis.engine.SummaryFact
+import org.opentaint.ir.analysis.engine.NewSummaryFact
 import org.opentaint.ir.analysis.engine.VulnerabilityLocation
 import org.opentaint.ir.analysis.engine.ZEROFact
 import org.opentaint.ir.analysis.paths.AccessPath
@@ -96,18 +97,20 @@ open class TaintAnalyzer(
     sanitizes: (JIRExpr, TaintNode) -> Boolean,
     val sinks: (JIRInst) -> List<TaintAnalysisNode>,
     maxPathLength: Int
-) : Analyzer {
+) : AbstractAnalyzer(graph) {
     override val flowFunctions: FlowFunctionsSpace = TaintForwardFunctions(graph, maxPathLength, generates, sanitizes)
+
+    override val isMainAnalyzer: Boolean
+        get() = true
 
     companion object {
         const val vulnerabilityType: String = "taint analysis"
     }
 
-    override fun getSummaryFacts(edge: IfdsEdge): List<SummaryFact> {
-        return if (edge.v.domainFact in sinks(edge.v.statement)) {
-            listOf(VulnerabilityLocation(vulnerabilityType, edge.v))
-        } else {
-            emptyList()
+    override fun handleNewEdge(edge: IfdsEdge): List<AnalysisDependentEvent> = buildList {
+        if (edge.v.domainFact in sinks(edge.v.statement)) {
+            add(NewSummaryFact(VulnerabilityLocation(vulnerabilityType, edge.v)))
+            verticesWithTraceGraphNeeded.add(edge.v)
         }
     }
 }
@@ -138,15 +141,15 @@ private class TaintBackwardAnalyzer(
     generates: (JIRInst) -> List<DomainFact>,
     sinks: (JIRInst) -> List<TaintAnalysisNode>,
     maxPathLength: Int
-) : Analyzer {
-    override val saveSummaryEdgesAndCrossUnitCalls: Boolean
+) : AbstractAnalyzer(graph) {
+    override val isMainAnalyzer: Boolean
         get() = false
 
     override val flowFunctions: FlowFunctionsSpace = TaintBackwardFunctions(graph, generates, sinks, maxPathLength)
 
-    override fun getSummaryFacts(edge: IfdsEdge): List<SummaryFact> = buildList {
+    override fun handleNewEdge(edge: IfdsEdge): List<AnalysisDependentEvent> = buildList {
         if (edge.v.statement in graph.exitPoints(edge.method)) {
-            add(PathEdgeFact(IfdsEdge(edge.v, edge.v)))
+            add(EdgeForOtherRunnerQuery(IfdsEdge(edge.v, edge.v)))
         }
     }
 }

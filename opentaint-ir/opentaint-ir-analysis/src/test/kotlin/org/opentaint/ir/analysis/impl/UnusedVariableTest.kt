@@ -4,7 +4,7 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.engine.VulnerabilityInstance
 import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
 import org.opentaint.ir.analysis.library.SingletonUnitResolver
-import org.opentaint.ir.analysis.library.UnusedVariableRunner
+import org.opentaint.ir.analysis.library.UnusedVariableRunnerFactory
 import org.opentaint.ir.analysis.library.analyzers.UnusedVariableAnalyzer
 import org.opentaint.ir.analysis.runAnalysis
 import org.opentaint.ir.api.JIRMethod
@@ -48,6 +48,6 @@ class UnusedVariableTest : BaseAnalysisTest() {
         val graph = runBlocking {
             cp.newApplicationGraphForAnalysis()
         }
-        return runAnalysis(graph, SingletonUnitResolver, UnusedVariableRunner, methods)
+        return runAnalysis(graph, SingletonUnitResolver, UnusedVariableRunnerFactory, methods)
     }
 }

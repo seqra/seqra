@@ -40,51 +40,48 @@ interface FlowFunctionsSpace {
 }
 
 /**
- * [Analyzer] interface describes how facts are propagated and how vulnerabilities are produced by these facts during
- * the run of tabulation algorithm by [IfdsBaseUnitRunner].
- *
- * There are two methods that can turn facts into vulnerabilities or other [SummaryFact]s: [getSummaryFacts] and
- * [getSummaryFactsPostIfds]. First is called during the analysis, each time a new path edge is found, and second
- * is called only after all path edges were found.
- * While some analyses really need full set of facts to find vulnerabilities, most analyses can report [SummaryFact]s
- * right after some fact is reached, so [getSummaryFacts] is a recommended way to report vulnerabilities when possible.
+ * [Analyzer] interface describes how facts are propagated and how [AnalysisDependentEvent]s are produced by these facts during
+ * the run of tabulation algorithm by [BaseIfdsUnitRunner].
  *
  * Note that methods and properties of this interface may be accessed concurrently from different threads,
  * so the implementations should be thread-safe.
  *
  * @property flowFunctions a [FlowFunctionsSpace] instance that describes how facts are generated and propagated
  * during run of tabulation algorithm.
- *
- * @property saveSummaryEdgesAndCrossUnitCalls when true, summary edges and cross-unit calls will be automatically
- * saved to summary (usually this property is true for forward analyzers and false for backward analyzers).
  */
 interface Analyzer {
     val flowFunctions: FlowFunctionsSpace
 
-    val saveSummaryEdgesAndCrossUnitCalls: Boolean
-        get() = true
-
     /**
-     * This method is called by [IfdsBaseUnitRunner] each time a new path edge is found.
+     * This method is called by [BaseIfdsUnitRunner] each time a new path edge is found.
      *
-     * @return [SummaryFact]s that are produced by this edge, that need to be saved to summary.
+     * @return [AnalysisDependentEvent]s that are produced by this edge.
+     * Usually these are [NewSummaryFact] events with [SummaryEdgeFact] or [VulnerabilityLocation] facts
      */
-    fun getSummaryFacts(edge: IfdsEdge): List<SummaryFact> = emptyList()
+    fun handleNewEdge(edge: IfdsEdge): List<AnalysisDependentEvent>
 
     /**
-     * This method is called once by [IfdsBaseUnitRunner] when the propagation of facts is finished
+     * This method is called by [BaseIfdsUnitRunner] each time a new cross-unit called is observed.
+     *
+     * @return [AnalysisDependentEvent]s that are produced by this [fact].
+     */
+    fun handleNewCrossUnitCall(fact: CrossUnitCallFact): List<AnalysisDependentEvent>
+
+    /**
+     * This method is called once by [BaseIfdsUnitRunner] when the propagation of facts is finished
      * (normally or due to cancellation).
      *
-     * @return [SummaryFact]s that can be obtained after the facts propagation was completed.
+     * @return [AnalysisDependentEvent]s that should be processed after the facts propagation was completed
+     * (usually these are some [NewSummaryFact]s).
      */
-    fun getSummaryFactsPostIfds(ifdsResult: IfdsResult): List<SummaryFact> = emptyList()
+    fun handleIfdsResult(ifdsResult: IfdsResult): List<AnalysisDependentEvent>
 }
 
 /**
  * A functional interface that allows to produce [Analyzer] by [JIRApplicationGraph].
  *
- * It simplifies instantiation of [IfdsUnitRunner]s because this way you don't have to pass graph and reversed
- * graph to [Analyzer]s directly, relying on runner to do it by itself.
+ * It simplifies instantiation of [IfdsUnitRunnerFactory]s because this way you don't have to pass graph and reversed
+ * graph to analyzers' constructors directly, relying on runner to do it by itself.
  */
 fun interface AnalyzerFactory {
     fun newAnalyzer(graph: JIRApplicationGraph): Analyzer
