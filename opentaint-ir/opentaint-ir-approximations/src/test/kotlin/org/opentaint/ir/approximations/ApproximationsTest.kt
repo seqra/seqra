@@ -78,6 +78,8 @@ class ApproximationsTest : BaseTest() {
         assertTrue("sameApproximationTarget" in originalFieldsNames)
         assertTrue("anotherApproximationTarget" in originalFieldsNames)
         assertTrue("fieldWithoutApproximation" in originalFieldsNames)
+
+        assertEquals(fields, classec.declaredFields)
     }
 
     @Test
@@ -103,6 +105,8 @@ class ApproximationsTest : BaseTest() {
 
         assertTrue(originalMethods.size == 1)
         assertTrue("methodWithoutApproximation" in originalMethodsNames)
+
+        assertEquals(methods, classec.declaredMethods)
     }
 
     @Test

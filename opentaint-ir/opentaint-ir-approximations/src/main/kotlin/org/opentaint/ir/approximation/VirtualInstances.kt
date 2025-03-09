@@ -43,6 +43,22 @@ class JIREnrichedVirtualMethod(
         it.flowGraph(this)
     }!!.flowGraph
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as JIREnrichedVirtualMethod
+
+        if (name != other.name) return false
+        if (enclosingClass != other.enclosingClass) return false
+        if (description != other.description) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int =
+        name.hashCode() * 31 + enclosingClass.hashCode()
+
     override val signature: String?
         get() = null
 }
@@ -63,4 +79,18 @@ class JIREnrichedVirtualField(
 ) : JIRVirtualFieldImpl(name, access, type) {
     override val signature: String?
         get() = null
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as JIREnrichedVirtualField
+
+        if (name != other.name) return false
+        if (enclosingClass != other.enclosingClass) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int = name.hashCode() * 31 + enclosingClass.hashCode()
 }
