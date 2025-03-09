@@ -7,25 +7,18 @@ import org.jooq.meta.jaxb.Jdbc
 import org.jooq.meta.jaxb.Target
 import java.nio.file.Paths
 
-val asmVersion: String by rootProject
-val kotlinVersion: String by rootProject
-val coroutinesVersion: String by rootProject
-val kmetadataVersion: String by rootProject
-val jooqVersion: String by rootProject
-val sqlLiteVersion: String by rootProject
-
 buildscript {
-    val jooqVersion: String by rootProject
-    val sqlLiteVersion: String by rootProject
-
+    repositories {
+        mavenCentral()
+    }
     dependencies {
-        classpath(group = "org.jooq", name = "jooq-meta", version = jooqVersion)
-        classpath(group = "org.jooq", name = "jooq-meta-extensions", version = jooqVersion)
-        classpath(group = "org.jooq", name = "jooq-codegen", version = jooqVersion)
-        classpath(group = "org.jooq", name = "jooq-kotlin", version = jooqVersion)
-        classpath(group = "org.postgresql", name = "postgresql", version = "42.5.1")
-        classpath(group = "org.xerial", name = "sqlite-jdbc", version = sqlLiteVersion)
-        classpath(group = "com.zaxxer", name = "HikariCP", version = "5.0.1")
+        classpath(Libs.jooq_meta)
+        classpath(Libs.jooq_meta_extensions)
+        classpath(Libs.jooq_codegen)
+        classpath(Libs.jooq_kotlin)
+        // classpath(Libs.postgresql)
+        // classpath(Libs.hikaricp)
+        // classpath(Libs.sqlite)
     }
 }
 
@@ -40,35 +33,29 @@ kotlin.sourceSets["main"].kotlin {
 dependencies {
     implementation(project(":opentaint-ir-api"))
 
-    implementation(group = "io.github.microutils", name = "kotlin-logging", version = "1.8.3")
-    implementation(group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8", version = kotlinVersion)
-    implementation(group = "org.jetbrains.kotlin", name = "kotlin-reflect", version = kotlinVersion)
-    implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-cbor", version = "1.3.3")
-    implementation(group = "info.leadinglight", name = "jdot", version = "1.0")
+    implementation(Libs.kotlin_logging)
+    implementation(Libs.kotlinx_metadata_jvm)
+    implementation(Libs.kotlinx_serialization_cbor)
+    implementation(Libs.jdot)
+    implementation(Libs.guava)
+    implementation(Libs.postgresql)
+    implementation(Libs.hikaricp)
+    implementation(Libs.sqlite)
 
-    implementation(group = "org.postgresql", name = "postgresql", version = "42.5.1")
-    implementation(group = "com.zaxxer", name = "HikariCP", version = "5.0.1")
-    implementation(group = "org.xerial", name = "sqlite-jdbc", version = sqlLiteVersion)
-
-    implementation(group = "com.google.guava", name = "guava", version = "31.1-jre")
-    implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-metadata-jvm", version = kmetadataVersion)
-    testImplementation(group = "javax.activation", name = "activation", version = "1.1")
-    testImplementation(group = "javax.mail", name = "mail", version = "1.4.7")
-    testImplementation(group = "joda-time", name = "joda-time", version = "2.12.5")
-
-    testImplementation(files("src/test/resources/samples"))
+    testImplementation(Libs.javax_activation)
+    testImplementation(Libs.javax_mail)
+    testImplementation(Libs.joda_time)
+    testImplementation(Libs.slf4j_simple)
+    // testImplementation(files("src/test/resources/samples"))
 
     testFixturesImplementation(project(":opentaint-ir-api"))
-
-    testFixturesImplementation(platform("org.junit:junit-bom:5.9.0"))
-    testFixturesImplementation(group = "org.jetbrains.kotlin", name = "kotlin-reflect", version = kotlinVersion)
-    testFixturesImplementation(group = "org.junit.jupiter", name = "junit-jupiter")
-    testFixturesImplementation(group = "com.google.guava", name = "guava", version = "31.1-jre")
-    testFixturesImplementation(group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version = coroutinesVersion)
-    testFixturesImplementation(group = "org.mockito", name = "mockito-core", version = "4.8.0")
-    testFixturesImplementation(group = "org.jetbrains", name = "annotations", version = "20.1.0")
-    testImplementation(group =  "org.slf4j", name = "slf4j-simple", version = "1.6.1")
-
+    testFixturesImplementation(kotlin("reflect"))
+    testFixturesImplementation(platform(Libs.junit_bom))
+    testFixturesImplementation(Libs.junit_jupiter)
+    testFixturesImplementation(Libs.guava)
+    testFixturesImplementation(Libs.mockito_core)
+    testFixturesImplementation(Libs.jetbrains_annotations)
+    testFixturesImplementation(Libs.kotlinx_coroutines_core)
 }
 
 tasks.register("generateSqlScheme") {

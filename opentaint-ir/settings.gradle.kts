@@ -1,7 +1,15 @@
 rootProject.name = "opentaint-ir"
 
 plugins {
+    `gradle-enterprise`
     id("org.danilopianini.gradle-pre-commit-git-hooks") version "1.0.25"
+}
+
+gradleEnterprise {
+    buildScan {
+        termsOfServiceUrl = "https://gradle.com/terms-of-service"
+        termsOfServiceAgree = "yes"
+    }
 }
 
 gitHooks {

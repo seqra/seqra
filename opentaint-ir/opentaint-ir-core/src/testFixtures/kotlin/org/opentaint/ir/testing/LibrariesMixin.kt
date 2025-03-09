@@ -11,7 +11,7 @@ val allClasspath: List<File>
 
 val guavaLib: File
     get() {
-        val guavaUrl = classpath.first { it.contains("guava-31.1-jre.jar") }
+        val guavaUrl = classpath.first { it.contains("guava-") }
         return File(guavaUrl).also {
             Assertions.assertTrue(it.isFile && it.exists())
         }
@@ -19,8 +19,8 @@ val guavaLib: File
 
 val kotlinxCoroutines: File
     get() {
-        val corotines = classpath.first { it.contains("kotlinx-coroutines-") }
-        return File(corotines).also {
+        val coroutines = classpath.first { it.contains("kotlinx-coroutines-") }
+        return File(coroutines).also {
             Assertions.assertTrue(it.isFile && it.exists())
         }
     }

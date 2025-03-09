@@ -21,7 +21,9 @@ class JarFacadeTest {
         private val java11Version = parseRuntimeVersion("11.0.15")
     }
 
-    private val junitPlatformCommons = allClasspath.first { it.absolutePath.contains("junit-platform-commons-1.9") }
+    private val junitPlatformCommons = allClasspath.first {
+        it.absolutePath.contains("junit-platform-commons-")
+    }
 
     @Test
     fun `test for java 8`() {

@@ -49,12 +49,12 @@ open class WithDB(vararg features: Any) {
         System.setProperty("org.opentaint.ir.impl.storage.defaultBatchSize", "500")
     }
 
-    val dbFeatures = allFeatures.mapNotNull { it as? JIRFeature<*,*> }.toTypedArray()
+    val dbFeatures = allFeatures.mapNotNull { it as? JIRFeature<*, *> }.toTypedArray()
     val cpFeatures = allFeatures.mapNotNull { it as? JIRClasspathFeature }.toTypedArray()
 
     open var db = runBlocking {
         opentaint-ir {
-//            persistent("D:\\work\\opentaint-ir\\jIRdb-index.db")
+            // persistent("D:\\work\\opentaint-ir\\jIRdb-index.db")
             loadByteCode(allClasspath)
             useProcessJavaRuntime()
             installFeatures(*dbFeatures)

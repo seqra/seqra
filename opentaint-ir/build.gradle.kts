@@ -1,40 +1,23 @@
 import org.jetbrains.dokka.gradle.DokkaTaskPartial
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-val kotlinVersion: String by rootProject
-val coroutinesVersion: String by rootProject
-val junit5Version: String by project
 val semVer: String? by project
 val includeDokka: String? by project
 
 group = "org.opentaint.ir"
-
-project.version = semVer ?: "1.2-SNAPSHOT"
-
-buildscript {
-    repositories {
-        mavenCentral()
-        maven(url = "https://plugins.gradle.org/m2/")
-    }
-}
+version = semVer ?: "1.2-SNAPSHOT"
 
 plugins {
-    val kotlinVersion = "1.7.21"
-
+    kotlin("jvm") version Versions.kotlin
+    kotlin("plugin.allopen") version Versions.kotlin
+    kotlin("plugin.serialization") version Versions.kotlin apply false
+    with(Plugins.Dokka) { id(id) version (version) }
+    with(Plugins.Licenser) { id(id) version (version) }
     `java-library`
+    `java-test-fixtures`
     `maven-publish`
     signing
-    `java-test-fixtures`
-    kotlin("jvm") version kotlinVersion
-    kotlin("plugin.allopen") version kotlinVersion
-    id("org.jetbrains.dokka") version "1.7.20"
-
-    id("org.cadixdev.licenser") version "0.6.1"
     jacoco
-}
-
-repositories {
-    mavenCentral()
 }
 
 allprojects {
@@ -42,13 +25,13 @@ allprojects {
     version = rootProject.version
 
     apply {
-        plugin("maven-publish")
         plugin("kotlin")
         plugin("org.jetbrains.kotlin.plugin.allopen")
-        plugin("org.cadixdev.licenser")
-        plugin("jacoco")
+        plugin(Plugins.Dokka.id)
+        plugin(Plugins.Licenser.id)
+        plugin("maven-publish")
         plugin("signing")
-        plugin("org.jetbrains.dokka")
+        plugin("jacoco")
     }
 
     repositories {
@@ -60,33 +43,26 @@ allprojects {
     }
 
     dependencies {
-        implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version = coroutinesVersion)
+        // Kotlin
+        implementation(platform(kotlin("bom")))
+        implementation(kotlin("stdlib-jdk8"))
 
-        implementation(group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8", version = kotlinVersion)
-        implementation(group = "org.jetbrains.kotlin", name = "kotlin-reflect", version = kotlinVersion)
+        // JUnit
+        testImplementation(platform(Libs.junit_bom))
+        testImplementation(Libs.junit_jupiter)
 
-        testImplementation("org.junit.jupiter:junit-jupiter") {
-            version {
-                strictly(junit5Version)
-            }
-        }
-        testImplementation(group = "com.google.guava", name = "guava", version = "31.1-jre")
+        // Test dependencies
+        testRuntimeOnly(Libs.guava)
     }
 
     tasks {
-
-        withType(DokkaTaskPartial::class).configureEach {
-            dokkaSourceSets.configureEach {
-                includes.from("README.md")
-            }
-        }
-
         withType<JavaCompile> {
             sourceCompatibility = "1.8"
             targetCompatibility = "1.8"
             options.encoding = "UTF-8"
             options.compilerArgs = options.compilerArgs + "-Xlint:all"
         }
+
         withType<KotlinCompile> {
             kotlinOptions {
                 jvmTarget = "1.8"
@@ -99,6 +75,7 @@ allprojects {
                 allWarningsAsErrors = false
             }
         }
+
         compileTestKotlin {
             kotlinOptions {
                 jvmTarget = "1.8"
@@ -109,6 +86,15 @@ allprojects {
                 )
                 allWarningsAsErrors = false
             }
+        }
+
+        withType<Test> {
+            useJUnitPlatform()
+            testLogging {
+                events("passed", "skipped", "failed")
+            }
+            finalizedBy(jacocoTestReport) // report is always generated after tests run
+            jvmArgs = listOf("-Xmx2g", "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=heapdump.hprof")
         }
 
         jacocoTestReport {
@@ -124,13 +110,10 @@ allprojects {
             }
         }
 
-        withType<Test> {
-            useJUnitPlatform()
-            jvmArgs = listOf("-Xmx2g", "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=heapdump.hprof")
-            testLogging {
-                events("passed", "skipped", "failed")
+        withType<DokkaTaskPartial> {
+            dokkaSourceSets.configureEach {
+                includes.from("README.md")
             }
-            finalizedBy(jacocoTestReport) // report is always generated after tests run
         }
     }
 
@@ -145,7 +128,18 @@ allprojects {
     }
 }
 
-val repoUrl: String? = project.properties["repoUrl"] as? String ?: "https://maven.pkg.github.com/Opentaint/opentaint-ir"
+tasks.dokkaHtmlMultiModule {
+    removeChildTasks(
+        listOf(
+            project(":opentaint-ir-examples"),
+            project(":opentaint-ir-cli"),
+            project(":opentaint-ir-benchmarks")
+        )
+    )
+}
+
+val repoUrl: String? = project.properties["repoUrl"] as? String
+    ?: "https://maven.pkg.github.com/Opentaint/opentaint-ir"
 
 if (!repoUrl.isNullOrEmpty()) {
     configure(
@@ -207,20 +201,6 @@ if (!repoUrl.isNullOrEmpty()) {
     }
 }
 
-configure(listOf(rootProject)) {
-    tasks {
-        dokkaHtmlMultiModule {
-            removeChildTasks(
-                listOf(
-                    project(":opentaint-ir-examples"),
-                    project(":opentaint-ir-cli"),
-                    project(":opentaint-ir-benchmarks")
-                )
-            )
-        }
-    }
-}
-
 fun MavenPublication.signPublication(project: Project) = with(project) {
     signing {
         val gpgKey: String? by project
@@ -257,6 +237,11 @@ fun MavenPublication.addPom() {
             }
         }
     }
+}
+
+tasks.wrapper {
+    gradleVersion = "8.3"
+    distributionType = Wrapper.DistributionType.ALL
 }
 
 val aggregatedTasks = listOf("check", "build", "test", "lifecycleTest")
