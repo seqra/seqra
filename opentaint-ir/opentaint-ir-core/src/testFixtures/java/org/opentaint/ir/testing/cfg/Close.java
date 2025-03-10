@@ -1,5 +1,7 @@
 package org.opentaint.ir.testing.cfg;
 
+import com.google.common.collect.Lists;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.SequenceInputStream;
@@ -9,10 +11,10 @@ import java.util.List;
 
 public class Close {
 
-    public Object test() {
+    public static Object test() {
         byte[] buf = new byte[42];
 
-        List<CloseableBAOS> list = List.of(new CloseableBAOS(buf),
+        List<CloseableBAOS> list = Lists.newArrayList(new CloseableBAOS(buf),
                 new CloseableBAOS(buf), new CloseableBAOS(buf),
                 new CloseableBAOS(buf));
 

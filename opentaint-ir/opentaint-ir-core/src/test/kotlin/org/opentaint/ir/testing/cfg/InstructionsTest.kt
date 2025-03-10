@@ -247,6 +247,52 @@ class InstructionsTest : BaseInstructionsTest() {
         assertEquals("defaultMethod", callDefaultMethod.method.method.name)
     }
 
+    @Test
+    fun `condition in for should work`() {
+        val clazz = cp.findClass<Conditionals>()
+
+        val javaClazz = testAndLoadClass(clazz)
+        val method = javaClazz.methods.first { it.name == "conditionInFor" }
+        val res = method.invoke(null)
+        assertNull(res)
+    }
+
+    @Test
+    fun `lambda test`() {
+        val clazz = cp.findClass<Lambdas>()
+        val javaClazz = testAndLoadClass(clazz)
+        val method = javaClazz.methods.first { it.name == "lambdaTest" }
+        val res = method.invoke(null)
+        assertNull(res)
+    }
+
+    @Test
+    fun `hierarchy test`() {
+        val clazz = cp.findClass<Inheritance>()
+        val javaClazz = testAndLoadClass(clazz)
+        val method = javaClazz.methods.first { it.name == "test" }
+        val res = method.invoke(null, null)
+        assertNull(res)
+    }
+
+    @Test
+    fun `instance method ref bug`() {
+        val clazz = cp.findClass<Close>()
+        val javaClazz = testAndLoadClass(clazz)
+        val method = javaClazz.methods.first { it.name == "test" }
+        val res = method.invoke(null)
+        assertNull(res)
+    }
+
+    @Test
+    fun `big decimal test`() {
+        val clazz = cp.findClass<MultiplyTests>()
+        val javaClazz = testAndLoadClass(clazz)
+        val method = javaClazz.methods.first { it.name == "test" }
+        val res = method.invoke(null)
+        assertNull(res)
+    }
+
 }
 
 fun JIRMethod.dumpInstructions(): String {

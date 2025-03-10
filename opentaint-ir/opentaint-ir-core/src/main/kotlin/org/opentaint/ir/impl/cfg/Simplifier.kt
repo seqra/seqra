@@ -229,3 +229,20 @@ private class SimplifierCollector : AbstractFullRawExprSetCollector() {
     }
 
 }
+
+private class RawLocalVarCollector(private val localVar: JIRRawValue) : AbstractFullRawExprSetCollector() {
+
+    var hasVar = false
+
+    override fun ifMatches(expr: JIRRawExpr) {
+        if (!hasVar) {
+            hasVar = expr is JIRRawValue && expr == localVar
+        }
+    }
+}
+
+fun JIRRawInst.hasExpr(variable: JIRRawValue): Boolean {
+    return RawLocalVarCollector(variable).also {
+        accept(it)
+    }.hasVar
+}
