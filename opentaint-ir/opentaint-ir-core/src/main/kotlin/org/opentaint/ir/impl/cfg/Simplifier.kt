@@ -39,7 +39,7 @@ internal class Simplifier {
             val assignmentsMap = computeAssignments(instructionList)
             val replacements = assignmentsMap
                 .filter { (assignmentsMap[it.value.first()]?.let { it.size == 1 } ?: true) }
-                .filterValues { it.size == 1 }
+                .filterValues { it.size == 1 && it.first() is JIRRawLocalVar }
                 .map { it.key to it.value.first() }
                 .toMap()
             instructionList = instructionList
@@ -162,10 +162,17 @@ internal class Simplifier {
                 ) {
                     val lhv = inst.lhv
                     val lhvUsage = uses.getOrDefault(lhv, emptySet()).firstOrNull()
+                    val assignInstructionToReplacement = instList.firstOrNull { it is JIRRawAssignInst && it.lhv == lhv }
+                    val didNotAssignedBefore =
+                        lhvUsage == null ||
+                                assignInstructionToReplacement == null ||
+                                !instList.isBefore(assignInstructionToReplacement, lhvUsage)
                     if (lhvUsage == null || !instList.isBefore(lhvUsage, inst)) {
-                        replacements[rhv] = lhv
-                        reservedValues += lhv
-                        replacedInsts += inst
+                        if (didNotAssignedBefore) {
+                            replacements[rhv] = lhv
+                            reservedValues += lhv
+                            replacedInsts += inst
+                        }
                     }
                 }
             }
@@ -178,13 +185,13 @@ internal class Simplifier {
         return indexOf(one) < indexOf(another)
     }
 
-    private fun computeAssignments(instList: JIRInstListImpl<JIRRawInst>): Map<JIRRawSimpleValue, Set<JIRRawSimpleValue>> {
-        val assignments = mutableMapOf<JIRRawSimpleValue, MutableSet<JIRRawSimpleValue>>()
+    private fun computeAssignments(instList: JIRInstListImpl<JIRRawInst>): Map<JIRRawSimpleValue, Set<JIRRawExpr>> {
+        val assignments = mutableMapOf<JIRRawSimpleValue, MutableSet<JIRRawExpr>>()
         for (inst in instList) {
             if (inst is JIRRawAssignInst) {
                 val lhv = inst.lhv
                 val rhv = inst.rhv
-                if (lhv is JIRRawLocalVar && rhv is JIRRawLocalVar) {
+                if (lhv is JIRRawLocalVar) {
                     assignments.getOrPut(lhv, ::mutableSetOf).add(rhv)
                 }
             }
