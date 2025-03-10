@@ -7,11 +7,13 @@ import org.opentaint.ir.api.TypeName
 import org.opentaint.ir.api.cfg.*
 import org.opentaint.ir.impl.cfg.util.*
 import org.opentaint.ir.impl.types.TypeNameImpl
-import org.objectweb.asm.ConstantDynamic
-import org.objectweb.asm.Handle
-import org.objectweb.asm.Opcodes
-import org.objectweb.asm.Type
+import org.objectweb.asm.*
 import org.objectweb.asm.tree.*
+import org.objectweb.asm.util.Printer
+import org.objectweb.asm.util.Textifier
+import org.objectweb.asm.util.TraceMethodVisitor
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.util.*
 
 private fun Int.toPrimitiveType(): TypeName = when (this) {
@@ -192,6 +194,26 @@ class RawInstListBuilder(
         return Simplifier().simplify(method.enclosingClass.classpath, localsNormalizedInstructionList)
     }
 
+//    fun insnToString(insn: AbstractInsnNode): String {
+//        insn.accept(mp)
+//        val sw = StringWriter()
+//        printer.print(PrintWriter(sw))
+//        printer.getText().clear()
+//        return sw.toString()
+//    }
+//
+//    private val printer: Printer = Textifier()
+//    private val mp = TraceMethodVisitor(printer)
+//
+//    fun printMethod(methodNode: MethodNode): String {
+//        val  inList = methodNode.instructions;
+//        var s = ""
+//        s += methodNode.name + "\n"
+//        for(i in 0 until methodNode.instructions.size()){
+//            s += insnToString(inList.get(i))
+//        }
+//        return s
+//    }
     private fun buildInstructions() {
         currentFrame = createInitialFrame()
         frames[ENTRY] = currentFrame

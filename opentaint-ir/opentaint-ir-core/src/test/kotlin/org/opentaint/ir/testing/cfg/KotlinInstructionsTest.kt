@@ -39,4 +39,19 @@ class KotlinInstructionsTest: BaseInstructionsTest() {
 
     @Test
     fun `kotlin overloading test`() = runTest(Overloading::class.java.name)
+
+    @Test
+    fun `kotlin try catch finally`() = runTest(TryCatchFinally::class.java.name)
+
+    @Test
+    fun `kotlin method with exception`() = runTest(InvokeMethodWithException::class.java.name)
+
+    @Test
+    fun `kotlin typecast`() = runTest(DoubleComparison::class.java.name)
+
+    @Test
+    fun `kotlin when expr`() = runTest(WhenExpr::class.java.name)
+
+    @Test
+    fun `kotlin default args`() = runTest(DefaultArgs::class.java.name)
 }
