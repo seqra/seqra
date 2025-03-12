@@ -194,26 +194,26 @@ class RawInstListBuilder(
         return Simplifier().simplify(method.enclosingClass.classpath, localsNormalizedInstructionList)
     }
 
-//    fun insnToString(insn: AbstractInsnNode): String {
-//        insn.accept(mp)
-//        val sw = StringWriter()
-//        printer.print(PrintWriter(sw))
-//        printer.getText().clear()
-//        return sw.toString()
-//    }
-//
-//    private val printer: Printer = Textifier()
-//    private val mp = TraceMethodVisitor(printer)
-//
-//    fun printMethod(methodNode: MethodNode): String {
-//        val  inList = methodNode.instructions;
-//        var s = ""
-//        s += methodNode.name + "\n"
-//        for(i in 0 until methodNode.instructions.size()){
-//            s += insnToString(inList.get(i))
-//        }
-//        return s
-//    }
+    fun insnToString(insn: AbstractInsnNode): String {
+        insn.accept(mp)
+        val sw = StringWriter()
+        printer.print(PrintWriter(sw))
+        printer.getText().clear()
+        return sw.toString()
+    }
+
+    private val printer: Printer = Textifier()
+    private val mp = TraceMethodVisitor(printer)
+
+    fun printMethod(methodNode: MethodNode): String {
+        val  inList = methodNode.instructions;
+        var s = ""
+        s += methodNode.name + "\n"
+        for(i in 0 until methodNode.instructions.size()){
+            s += insnToString(inList.get(i))
+        }
+        return s
+    }
     private fun buildInstructions() {
         currentFrame = createInitialFrame()
         frames[ENTRY] = currentFrame
@@ -859,7 +859,7 @@ class RawInstListBuilder(
 
                     else -> frame.locals.filterKeys { it in this }.mapValues {
                         when {
-                            it.value is JIRRawLocalVar && it.value.typeName != this[it.key]!! -> JIRRawLocalVar(
+                            it.value is JIRRawLocalVar && it.value.typeName != this[it.key]!! && this[it.key] != TOP -> JIRRawLocalVar(
                                 (it.value as JIRRawLocalVar).name,
                                 this[it.key]!!
                             ).also { newLocal ->
@@ -932,7 +932,7 @@ class RawInstListBuilder(
 
                 else -> frame.stack.withIndex().filter { it.index in this }.map {
                     when {
-                        it.value is JIRRawLocalVar && it.value.typeName != this[it.index]!! -> JIRRawLocalVar(
+                        it.value is JIRRawLocalVar && it.value.typeName != this[it.index]!! && this[it.index] != TOP -> JIRRawLocalVar(
                             (it.value as JIRRawLocalVar).name,
                             this[it.index]!!
                         ).also { newLocal ->
