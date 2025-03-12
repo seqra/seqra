@@ -173,6 +173,8 @@ class RawInstListBuilder(
     private val laterAssignments = identityMap<AbstractInsnNode, MutableMap<Int, JIRRawValue>>()
     private val laterStackAssignments = identityMap<AbstractInsnNode, MutableMap<Int, JIRRawValue>>()
     private val localTypeRefinement = identityMap<JIRRawLocalVar, JIRRawLocalVar>()
+    private val blackListForTypeRefinement = listOf(TOP, NULL, UNINIT_THIS)
+    private val postfixInstructions = hashMapOf<Int, JIRRawInst>()
 
     private var labelCounter = 0
     private var localCounter = 0
@@ -859,7 +861,7 @@ class RawInstListBuilder(
 
                     else -> frame.locals.filterKeys { it in this }.mapValues {
                         when {
-                            it.value is JIRRawLocalVar && it.value.typeName != this[it.key]!! && this[it.key] != TOP -> JIRRawLocalVar(
+                            it.value is JIRRawLocalVar && it.value.typeName != this[it.key]!! && this[it.key] !in blackListForTypeRefinement -> JIRRawLocalVar(
                                 (it.value as JIRRawLocalVar).name,
                                 this[it.key]!!
                             ).also { newLocal ->
@@ -932,7 +934,7 @@ class RawInstListBuilder(
 
                 else -> frame.stack.withIndex().filter { it.index in this }.map {
                     when {
-                        it.value is JIRRawLocalVar && it.value.typeName != this[it.index]!! && this[it.index] != TOP -> JIRRawLocalVar(
+                        it.value is JIRRawLocalVar && it.value.typeName != this[it.index]!! && this[it.index] !in blackListForTypeRefinement -> JIRRawLocalVar(
                             (it.value as JIRRawLocalVar).name,
                             this[it.index]!!
                         ).also { newLocal ->
