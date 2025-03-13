@@ -28,9 +28,6 @@ private fun Int.toPrimitiveType(): TypeName = when (this) {
     else -> error("Unknown primitive type opcode: $this")
 }.typeName()
 
-private val TOP = "TOP".typeName()
-private val UNINIT_THIS = "UNINIT_THIS".typeName()
-
 private fun parsePrimitiveType(opcode: Int) = when (opcode) {
     0 -> TOP
     1 -> PredefinedPrimitives.Int.typeName()

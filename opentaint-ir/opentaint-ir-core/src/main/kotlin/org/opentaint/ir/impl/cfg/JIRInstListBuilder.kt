@@ -3,6 +3,7 @@ package org.opentaint.ir.impl.cfg
 import org.opentaint.ir.api.*
 import org.opentaint.ir.api.cfg.*
 import org.opentaint.ir.api.ext.*
+import org.opentaint.ir.impl.cfg.util.UNINIT_THIS
 
 /** This class stores state and is NOT THREAD SAFE. Use it carefully */
 class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawInst>) : JIRRawInstVisitor<JIRInst?>, JIRRawExprVisitor<JIRExpr> {
@@ -53,7 +54,13 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
         JIRInstRef(inst2Index[labels.getValue(labelRef)]!!)
 
     override fun visitJIRRawAssignInst(inst: JIRRawAssignInst): JIRInst = handle(inst) {
-        val lhv = inst.lhv.accept(this) as JIRValue
+        val preprocessedLhv =
+            if (inst.lhv is JIRRawLocalVar && inst.lhv.typeName == UNINIT_THIS) {
+                JIRRawLocalVar((inst.lhv as JIRRawLocalVar).name, inst.rhv.typeName)
+            } else {
+                inst.lhv
+            }
+        val lhv = preprocessedLhv.accept(this) as JIRValue
         val rhv = inst.rhv.accept(this)
         JIRAssignInst(newLocation(), lhv, rhv)
     }
