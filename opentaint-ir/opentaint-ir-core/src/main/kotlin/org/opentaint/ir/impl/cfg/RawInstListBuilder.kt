@@ -257,7 +257,9 @@ class RawInstListBuilder(
             for ((variable, value) in assignments) {
                 val frameVariable = frame[variable]
                 if (frameVariable != null && value != frameVariable) {
-                    if (insn.isBranchingInst || insn.isTerminateInst) {
+                    if (insn.isBranchingInst) {
+                        insnList.addInst(insn, JIRRawAssignInst(method, value, frameVariable), 0)
+                    }else if(insn.isTerminateInst) {
                         insnList.addInst(insn, JIRRawAssignInst(method, value, frameVariable), insnList.lastIndex)
                     } else {
                         insnList.addInst(insn, JIRRawAssignInst(method, value, frameVariable))
@@ -276,16 +278,6 @@ class RawInstListBuilder(
                         insnList.addInst(insn, JIRRawAssignInst(method, value, frame.stack[variable]))
                     }
                 }
-            }
-        }
-    }
-
-    private fun buildRequiredAssignments2() {
-        for ((insn, assignments) in laterAssignments) {
-            println(insn)
-            for ((variable, value) in assignments) {
-                println(variable)
-                println(value)
             }
         }
     }
@@ -397,12 +389,18 @@ class RawInstListBuilder(
             if (oldVar.typeName == expr.typeName || (expr is JIRRawNullConstant && !oldVar.typeName.isPrimitive)) {
                 if (override) {
                     currentFrame = currentFrame.put(variable, expr)
+                    JIRRawAssignInst(method, expr, expr)
+                } else {
+                    JIRRawAssignInst(method, oldVar, expr)
                 }
-                JIRRawAssignInst(method, oldVar, expr)
             } else if (expr is JIRRawSimpleValue) {
                 currentFrame = currentFrame.put(variable, expr)
                 null
-            } else {
+            } else if (oldVar is JIRRawArgument) {
+                currentFrame = currentFrame.put(variable, expr)
+                JIRRawAssignInst(method, oldVar, expr)
+            }
+            else {
                 val assignment = nextRegisterDeclaredVariable(expr.typeName, variable, insn)
                 currentFrame = currentFrame.put(variable, assignment)
                 JIRRawAssignInst(method, oldVar, expr)
@@ -497,22 +495,15 @@ class RawInstListBuilder(
     private fun createInitialFrame(): Frame {
         val locals = hashMapOf<Int, JIRRawValue>()
         argCounter = 0
-//        val locals = hashMapOf<Int, Pair<JIRRawValue, LabelNode?>>()
-        argCounter = methodNode.localVariables.maxOf { it.index }
-        for ((i, local) in methodNode.localVariables.withIndex()) {
-            val argument = JIRRawArgument.of(i, local.name, TypeNameImpl(local.desc))
-            locals[local.index] = argument
-            localVarsToDestructionLabel[local.index] = local.end
+        if (!method.isStatic) {
+            locals[argCounter++] = thisRef()
         }
-//        if (!method.isStatic) {
-//            locals[argCounter++] = thisRef()
-//        }
-//        for (parameter in method.parameters) {
-//            val argument = JIRRawArgument.of(parameter.index, parameter.name, parameter.type)
-//            locals[argCounter] = argument
-//            if (argument.typeName.isDWord) argCounter += 2
-//            else argCounter++
-//        }
+        for (parameter in method.parameters) {
+            val argument = JIRRawArgument.of(parameter.index, parameter.name, parameter.type)
+            locals[argCounter] = argument
+            if (argument.typeName.isDWord) argCounter += 2
+            else argCounter++
+        }
 
         return Frame(locals.toPersistentMap(), persistentListOf())
     }
@@ -1179,13 +1170,6 @@ class RawInstListBuilder(
         } else if (predecessors.size == predecessorFrames.size) {
             currentFrame = mergeFrames(predecessors.zip(predecessorFrames).toMap())
         }
-
-        for ((localVarIndex, _) in currentFrame.locals) {
-            if (localVarsToDestructionLabel[localVarIndex] == insnNode) {
-                currentFrame.locals.remove(localVarIndex)
-            }
-        }
-
         val catchEntries = methodNode.tryCatchBlocks.filter { it.handler == insnNode }
 
         if (catchEntries.isNotEmpty()) {
