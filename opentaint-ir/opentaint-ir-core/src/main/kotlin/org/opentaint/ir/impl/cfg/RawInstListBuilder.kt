@@ -172,7 +172,6 @@ class RawInstListBuilder(
     private val localTypeRefinement = identityMap<JIRRawLocalVar, JIRRawLocalVar>()
     private val blackListForTypeRefinement = listOf(TOP, NULL, UNINIT_THIS)
     private val localVarsToDestructionLabel = hashMapOf<Int, LabelNode>()
-    private val postfixInstructions = hashMapOf<Int, JIRRawInst>()
 
     private var labelCounter = 0
     private var localCounter = 0
@@ -214,6 +213,7 @@ class RawInstListBuilder(
         }
         return s
     }
+
     private fun buildInstructions() {
         currentFrame = createInitialFrame()
         frames[ENTRY] = currentFrame
@@ -223,7 +223,7 @@ class RawInstListBuilder(
                 is InsnNode -> buildInsnNode(insn)
                 is FieldInsnNode -> buildFieldInsnNode(insn)
                 is FrameNode -> buildFrameNode(insn)
-                is IincInsnNode -> buildIincInsnNode(insn, nodes.getOrNull(index + 1))
+                is IincInsnNode -> buildIincInsnNode(insn)
                 is IntInsnNode -> buildIntInsnNode(insn)
                 is InvokeDynamicInsnNode -> buildInvokeDynamicInsn(insn)
                 is JumpInsnNode -> buildJumpInsnNode(insn)
@@ -258,11 +258,12 @@ class RawInstListBuilder(
                 val frameVariable = frame[variable]
                 if (frameVariable != null && value != frameVariable) {
                     if (insn.isBranchingInst) {
-                        insnList.addInst(insn, JIRRawAssignInst(method, value, frameVariable), 0)
-                    }else if(insn.isTerminateInst) {
-                        insnList.addInst(insn, JIRRawAssignInst(method, value, frameVariable), insnList.lastIndex)
+                        val index = insnList.indexOf(additionalSections[insn]) // -1 will be converted to 0 next line
+                        insnList.addInst(JIRRawAssignInst(method, value, frameVariable), index + 1)
+                    } else if (insn.isTerminateInst) {
+                        insnList.addInst(JIRRawAssignInst(method, value, frameVariable), insnList.lastIndex)
                     } else {
-                        insnList.addInst(insn, JIRRawAssignInst(method, value, frameVariable))
+                        insnList.addInst(JIRRawAssignInst(method, value, frameVariable))
                     }
                 }
             }
@@ -273,9 +274,9 @@ class RawInstListBuilder(
             for ((variable, value) in assignments) {
                 if (value != frame.stack[variable]) {
                     if (insn.isBranchingInst || insn.isTerminateInst) {
-                        insnList.addInst(insn, JIRRawAssignInst(method, value, frame.stack[variable]), insnList.lastIndex)
+                        insnList.addInst(JIRRawAssignInst(method, value, frame.stack[variable]), insnList.lastIndex)
                     } else {
-                        insnList.addInst(insn, JIRRawAssignInst(method, value, frame.stack[variable]))
+                        insnList.addInst(JIRRawAssignInst(method, value, frame.stack[variable]))
                     }
                 }
             }
@@ -393,14 +394,10 @@ class RawInstListBuilder(
                 } else {
                     JIRRawAssignInst(method, oldVar, expr)
                 }
-            } else if (expr is JIRRawSimpleValue) {
-                currentFrame = currentFrame.put(variable, expr)
-                null
             } else if (oldVar is JIRRawArgument) {
                 currentFrame = currentFrame.put(variable, expr)
                 JIRRawAssignInst(method, oldVar, expr)
-            }
-            else {
+            } else {
                 val assignment = nextRegisterDeclaredVariable(expr.typeName, variable, insn)
                 currentFrame = currentFrame.put(variable, assignment)
                 JIRRawAssignInst(method, oldVar, expr)
@@ -420,10 +417,10 @@ class RawInstListBuilder(
     private fun instructionList(insn: AbstractInsnNode) = instructions.getOrPut(insn, ::mutableListOf)
 
     private fun addInstruction(insn: AbstractInsnNode, inst: JIRRawInst, index: Int? = null) {
-        instructionList(insn).addInst(insn, inst, index)
+        instructionList(insn).addInst(inst, index)
     }
 
-    private fun MutableList<JIRRawInst>.addInst(node: AbstractInsnNode, inst: JIRRawInst, index: Int? = null) {
+    private fun MutableList<JIRRawInst>.addInst(inst: JIRRawInst, index: Int? = null) {
         if (index != null) {
             add(index, inst)
         } else {
@@ -1020,9 +1017,10 @@ class RawInstListBuilder(
         }
     }
 
-    private fun buildIincInsnNode(insnNode: IincInsnNode, nextInst: AbstractInsnNode?) {
+    private fun buildIincInsnNode(insnNode: IincInsnNode) {
         val variable = insnNode.`var`
         val local = local(variable)
+        val nextInst = insnNode.next
         val incrementedVariable = when {
             nextInst != null && nextInst.isBranchingInst -> local
             nextInst != null && nextInst is VarInsnNode && nextInst.`var` == variable -> local
@@ -1124,7 +1122,15 @@ class RawInstListBuilder(
                     Opcodes.IF_ACMPNE -> JIRRawNeqExpr(boolTypeName, pop(), rhv)
                     else -> error("Unknown jump opcode $opcode")
                 }
-                addInstruction(insnNode, JIRRawIfInst(method, expr, target, falseTarget.ref))
+                if (labels.any { it.value.name == target.name }) { // jump will be up in instruction list
+                    val nextLabel = nextLabel()
+                    addInstruction(insnNode, JIRRawIfInst(method, expr, nextLabel.ref, falseTarget.ref))
+                    addInstruction(insnNode, nextLabel)
+                    additionalSections[insnNode] = nextLabel
+                    addInstruction(insnNode, JIRRawGotoInst(method, target))
+                } else {
+                    addInstruction(insnNode, JIRRawIfInst(method, expr, target, falseTarget.ref))
+                }
                 if (insnNode.next !is LabelNode) {
                     addInstruction(insnNode, falseTarget)
                 }

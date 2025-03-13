@@ -70,13 +70,22 @@ class IincTest : BaseInstructionsTest() {
         assertEquals(4, method.invoke(null, 2))
     }
 
-//    @Test
+    @Test
     fun `iinc while`() {
         val clazz = cp.findClass<Incrementation>()
 
         val javaClazz = testAndLoadClass(clazz)
         val method = javaClazz.methods.first { it.name == "iincWhile" }
-        assertEquals(2, method.invoke(null) as IntArray)
+        assertEquals(2, method.invoke(null))
+    }
+
+    @Test
+    fun `iinc custom while`() {
+        val clazz = cp.findClass<Incrementation>()
+
+        val javaClazz = testAndLoadClass(clazz)
+        val method = javaClazz.methods.first { it.name == "iincCustomWhile" }
+        assertEquals("OK", method.invoke(null))
     }
 
 }
