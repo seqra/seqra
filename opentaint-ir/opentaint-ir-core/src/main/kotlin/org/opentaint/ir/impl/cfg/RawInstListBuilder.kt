@@ -171,7 +171,7 @@ class RawInstListBuilder(
     private val laterStackAssignments = identityMap<AbstractInsnNode, MutableMap<Int, JIRRawValue>>()
     private val localTypeRefinement = identityMap<JIRRawLocalVar, JIRRawLocalVar>()
     private val blackListForTypeRefinement = listOf(TOP, NULL, UNINIT_THIS)
-    private val localVarsToDestructionLabel = hashMapOf<Int, LabelNode>()
+    private val additionalSections = hashMapOf<AbstractInsnNode, JIRRawInst>()
 
     private var labelCounter = 0
     private var localCounter = 0
