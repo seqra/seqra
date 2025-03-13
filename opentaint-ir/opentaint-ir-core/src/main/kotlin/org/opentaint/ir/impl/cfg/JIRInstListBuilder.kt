@@ -14,6 +14,7 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
     private var currentLineNumber = 0
     private var index = 0
     private val labels = instList.filterIsInstance<JIRRawLabelInst>().associateBy { it.ref }
+    private val convertedLocalVars = mutableMapOf<JIRRawLocalVar, JIRRawLocalVar>()
     private val inst2Index: Map<JIRRawInst, Int> = identityMap<JIRRawInst, Int>().also {
         var index = 0
         for (inst in instList) {
@@ -55,10 +56,14 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
 
     override fun visitJIRRawAssignInst(inst: JIRRawAssignInst): JIRInst = handle(inst) {
         val preprocessedLhv =
-            if (inst.lhv is JIRRawLocalVar && inst.lhv.typeName == UNINIT_THIS) {
-                JIRRawLocalVar((inst.lhv as JIRRawLocalVar).name, inst.rhv.typeName)
-            } else {
-                inst.lhv
+            inst.lhv.let { unprocessedLhv ->
+                if (unprocessedLhv is JIRRawLocalVar && unprocessedLhv.typeName == UNINIT_THIS) {
+                    convertedLocalVars.getOrPut(unprocessedLhv) {
+                        JIRRawLocalVar(unprocessedLhv.name, inst.rhv.typeName)
+                    }
+                } else {
+                    unprocessedLhv
+                }
             }
         val lhv = preprocessedLhv.accept(this) as JIRValue
         val rhv = inst.rhv.accept(this)
@@ -293,7 +298,9 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
     }
 
     override fun visitJIRRawLocalVar(value: JIRRawLocalVar): JIRExpr =
-        JIRLocalVar(value.name, value.typeName.asType())
+        convertedLocalVars[value]?.let { replacementForLocalVar ->
+            JIRLocalVar(replacementForLocalVar.name, replacementForLocalVar.typeName.asType())
+        } ?: JIRLocalVar(value.name, value.typeName.asType())
 
     override fun visitJIRRawFieldRef(value: JIRRawFieldRef): JIRExpr {
         val type = value.declaringClass.asType() as JIRClassType
