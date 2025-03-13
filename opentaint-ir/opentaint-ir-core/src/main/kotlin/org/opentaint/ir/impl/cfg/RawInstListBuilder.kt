@@ -400,7 +400,7 @@ class RawInstListBuilder(
             } else {
                 val assignment = nextRegisterDeclaredVariable(expr.typeName, variable, insn)
                 currentFrame = currentFrame.put(variable, assignment)
-                JIRRawAssignInst(method, oldVar, expr)
+                JIRRawAssignInst(method, assignment, expr)
             }
         } else {
             val newLocal = nextRegisterDeclaredVariable(expr.typeName, variable, insn)

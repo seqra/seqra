@@ -88,4 +88,16 @@ class IincTest : BaseInstructionsTest() {
         assertEquals("OK", method.invoke(null))
     }
 
+    @Test
+    fun `kotlin iinc`() = runKotlinTest(Iinc::class.java.name)
+
+    @Test
+    fun `kotlin iinc2`() = runKotlinTest(Iinc2::class.java.name)
+
+    @Test
+    fun `kotlin iinc3`() = runKotlinTest(Iinc3::class.java.name)
+
+    @Test
+    fun `kotlin iinc4`() = runKotlinTest(Iinc4::class.java.name)
+
 }

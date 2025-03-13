@@ -285,13 +285,6 @@ class IRTest : BaseInstructionsTest() {
         runAlongLib(guavaLib)
     }
 
-    @Test
-    fun `get ir of zxc`() {
-
-        val method = cp.findClass<RawInstListBuilder>().declaredMethods.first { it.name == "buildRequiredAssignments2" }
-        JIRGraphChecker(method, method.flowGraph()).check()
-    }
-
     // todo: make this test green
     @Test
     fun `get ir of kotlinx-coroutines`() {

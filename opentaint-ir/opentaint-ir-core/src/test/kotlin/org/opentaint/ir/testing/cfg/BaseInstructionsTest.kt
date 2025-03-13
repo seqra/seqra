@@ -27,6 +27,17 @@ abstract class BaseInstructionsTest : BaseTest() {
 
     val ext = runBlocking { cp.hierarchyExt() }
 
+    fun runKotlinTest(className: String) {
+        val clazz = cp.findClassOrNull(className)
+        Assertions.assertNotNull(clazz)
+
+        val javaClazz = testAndLoadClass(clazz!!)
+        val clazzInstance = javaClazz.constructors.first().newInstance()
+        val method = javaClazz.methods.first { it.name == "box" }
+        val res = method.invoke(clazzInstance)
+        Assertions.assertEquals("OK", res)
+    }
+
     protected fun testClass(klass: JIRClassOrInterface, validateLineNumbers: Boolean = true) {
         testAndLoadClass(klass, false, validateLineNumbers)
     }
@@ -39,7 +50,6 @@ abstract class BaseInstructionsTest : BaseTest() {
         try {
             val classNode = klass.asmNode()
             classNode.methods = klass.declaredMethods.filter { it.enclosingClass == klass }.map {
-                println(it.name)
                 if (it.isAbstract || it.name.contains("$\$forInline")) {
                     it.asmNode()
                 } else {
