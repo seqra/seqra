@@ -10,7 +10,9 @@ class Equals {
 
     fun equals4(a: Float?, b: Float?) = if (a is Float && b is Float) a == b else null!!
 
-    fun equals5(a: Any?, b: Any?) = if (a is Float && b is Float) a == b else null!!
+    fun equals5(a: Any?, b: Any?): Boolean {
+        return if (a is Float && b is Float) a == b else null!!
+    }
 
     fun box(): String {
         if (-0.0F != 0.0F) return "fail 0"
@@ -20,7 +22,7 @@ class Equals {
         if (!equals4(-0.0F, 0.0F)) return "fail 4"
 
         // Smart casts behavior in 1.2
-        if (equals5(-0.0F, 0.0F)) return "fail 5"
+        if (!equals5(-0.0F, 0.0F)) return "fail 5"
 
         return "OK"
     }
