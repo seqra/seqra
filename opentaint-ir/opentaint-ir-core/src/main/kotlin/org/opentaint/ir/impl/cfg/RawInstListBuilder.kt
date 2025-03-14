@@ -970,7 +970,9 @@ class RawInstListBuilder(
             while (current !is LabelNode) current = current.previous
             current to predecessors[current]!!
         }
-        val predecessorFrames = blockPredecessors.associateWith { frames[it] }
+        val predecessorFrames = blockPredecessors
+            .associateWith { frames[it] }
+            .filter { predecessors[it.key] == null || !predecessors[it.key]!!.contains(currentEntry) }
         assert(predecessorFrames.isNotEmpty())
         lastFrameState = when (insnNode.type) {
             Opcodes.F_NEW -> FrameState.parseNew(insnNode)
@@ -1012,6 +1014,11 @@ class RawInstListBuilder(
             )
 
             addInstruction(currentEntry, catchInst, index = 1)
+            var curInst = currentEntry as AbstractInsnNode
+            while (curInst != insnNode) {
+                frames[curInst] = currentFrame
+                curInst = curInst.next
+            }
 
             push(throwable)
         }
