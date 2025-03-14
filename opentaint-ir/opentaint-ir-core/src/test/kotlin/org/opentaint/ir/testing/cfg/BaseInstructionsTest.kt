@@ -80,11 +80,7 @@ abstract class BaseInstructionsTest : BaseTest() {
             }
             val cw = JIRDatabaseClassWriter(cp, ClassWriter.COMPUTE_FRAMES)
             val checker = CheckClassAdapter(cw)
-            try {
-                classNode.accept(checker)
-            } catch (ex: Throwable) {
-                println(ex)
-            }
+            classNode.accept(checker)
             val targetDir = target.resolve(klass.packageName.replace('.', '/'))
             val targetFile = targetDir.resolve("${klass.simpleName}.class").toFile().also {
                 it.parentFile?.mkdirs()
