@@ -46,4 +46,7 @@ class KotlinInstructionsTest: BaseInstructionsTest() {
     @Test
     fun `kotlin default args`() = runKotlinTest(DefaultArgs::class.java.name)
 
+    @Test
+    fun `kotlin arrays`() = runKotlinTest(Arrays::class.java.name)
+
 }

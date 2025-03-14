@@ -65,6 +65,7 @@ class MethodNodeBuilder(
         val mn = MethodNode()
         mn.name = method.name
         mn.desc = method.description
+        mn.signature = method.signature
         mn.access = method.access
         mn.parameters = method.parameters.map {
             ParameterNode(
