@@ -26,6 +26,9 @@ class KotlinInstructionsTest: BaseInstructionsTest() {
     fun `kotlin range test`() = runKotlinTest(Ranges::class.java.name)
 
     @Test
+    fun `kotlin range test 2`() = runKotlinTest(Ranges2::class.java.name)
+
+    @Test
     fun `kotlin overloading test`() = runKotlinTest(Overloading::class.java.name)
 
     @Test

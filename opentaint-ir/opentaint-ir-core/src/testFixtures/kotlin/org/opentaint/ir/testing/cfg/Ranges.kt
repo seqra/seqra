@@ -52,3 +52,29 @@ class Ranges {
     }
 
 }
+
+class Ranges2 {
+
+    fun isDigit(a: Int) : String {
+        val aa = ArrayList<Int> ()
+        aa.add(239)
+
+        return when(a) {
+            in aa -> "array list"
+            in 0..9 -> "digit"
+            !in 0..100 -> "not small"
+            else -> "something"
+        }
+    }
+
+    fun assertDigit(i: Int, expected: String): String {
+        val result = isDigit(i)
+        return if (result == expected) "" else "fail: isDigit($i) = \"$result\""
+    }
+
+    fun box(): String {
+        val result = assertDigit(0, "digit")
+        if (result == "") return "OK"
+        return result
+    }
+}
