@@ -62,6 +62,7 @@ class MethodNodeBuilder(
     fun build(): MethodNode {
         initializeFrame(method)
         buildInstructionList()
+        insertNopInstructions()
         val mn = MethodNode()
         mn.name = method.name
         mn.desc = method.description
@@ -773,4 +774,23 @@ class MethodNodeBuilder(
         error("Could not load method constant $value")
     }
 
+    //We have to insert NOP instructions in empty basic blocks to handle situations with empty handlers of try/catch
+    private fun insertNopInstructions() {
+        val firstLabelIndex = currentInsnList.indexOfFirst { it is LabelNode }
+        val nodesBetweenLabels = mutableListOf<AbstractInsnNode>()
+        var i = firstLabelIndex + 1
+        while (i < currentInsnList.size()) {
+            when (val curInst = currentInsnList[i]) {
+                is LabelNode -> {
+                    if (nodesBetweenLabels.all { it is LineNumberNode }) {
+                        currentInsnList.insertBefore(curInst, InsnNode(Opcodes.NOP))
+                        ++i
+                    }
+                    nodesBetweenLabels.clear()
+                }
+                else -> nodesBetweenLabels.add(curInst)
+            }
+            ++i
+        }
+    }
 }
