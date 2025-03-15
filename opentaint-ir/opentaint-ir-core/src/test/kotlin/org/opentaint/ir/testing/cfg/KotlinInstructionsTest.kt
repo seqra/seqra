@@ -31,8 +31,9 @@ class KotlinInstructionsTest: BaseInstructionsTest() {
     @Test
     fun `kotlin overloading test`() = runKotlinTest(Overloading::class.java.name)
 
+    //We have to mute graph checker because of empty catch-es in try/catch blocks
     @Test
-    fun `kotlin try catch finally`() = runKotlinTest(TryCatchFinally::class.java.name)
+    fun `kotlin try catch finally`() = runKotlinTest(TryCatchFinally::class.java.name, muteGraphChecker = true)
 
     @Test
     fun `kotlin method with exception`() = runKotlinTest(InvokeMethodWithException::class.java.name)

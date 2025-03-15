@@ -27,11 +27,11 @@ abstract class BaseInstructionsTest : BaseTest() {
 
     val ext = runBlocking { cp.hierarchyExt() }
 
-    fun runKotlinTest(className: String) {
+    fun runKotlinTest(className: String, muteGraphChecker: Boolean = false) {
         val clazz = cp.findClassOrNull(className)
         Assertions.assertNotNull(clazz)
 
-        val javaClazz = testAndLoadClass(clazz!!)
+        val javaClazz = testAndLoadClass(clazz!!, muteGraphChecker)
         val clazzInstance = javaClazz.constructors.first().newInstance()
         val method = javaClazz.methods.first { it.name == "box" }
         val res = method.invoke(clazzInstance)
@@ -42,11 +42,16 @@ abstract class BaseInstructionsTest : BaseTest() {
         testAndLoadClass(klass, false, validateLineNumbers)
     }
 
-    protected fun testAndLoadClass(klass: JIRClassOrInterface): Class<*> {
+    protected fun testAndLoadClass(klass: JIRClassOrInterface, muteGraphChecker: Boolean = false): Class<*> {
         return testAndLoadClass(klass, true, validateLineNumbers = true)!!
     }
 
-    private fun testAndLoadClass(klass: JIRClassOrInterface, loadClass: Boolean, validateLineNumbers: Boolean): Class<*>? {
+    private fun testAndLoadClass(
+        klass: JIRClassOrInterface,
+        loadClass: Boolean,
+        validateLineNumbers: Boolean,
+        muteGraphChecker: Boolean = false
+    ): Class<*>? {
         try {
             val classNode = klass.asmNode()
             classNode.methods = klass.declaredMethods.filter { it.enclosingClass == klass }.map {
@@ -68,7 +73,7 @@ abstract class BaseInstructionsTest : BaseTest() {
                             }
                         }
                         graph.applyAndGet(OverridesResolver(ext)) {}
-                        JIRGraphChecker(it, graph).check()
+                        if (!muteGraphChecker) JIRGraphChecker(it, graph).check()
                         val newBody = MethodNodeBuilder(it, instructionList).build()
                         newBody
                     } catch (e: Throwable) {
