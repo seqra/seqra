@@ -17,6 +17,14 @@ val guavaLib: File
         }
     }
 
+val asmLib: File
+    get() {
+        val asmUrl = classpath.first { it.contains("/asm/") }
+        return File(asmUrl).also {
+            Assertions.assertTrue(it.isFile && it.exists())
+        }
+    }
+
 val kotlinxCoroutines: File
     get() {
         val coroutines = classpath.first { it.contains("kotlinx-coroutines-") }

@@ -283,7 +283,11 @@ class IRTest : BaseInstructionsTest() {
         runAlongLib(guavaLib)
     }
 
-    // todo: make this test green
+    @Test
+    fun `get ir of asm`() {
+        runAlongLib(asmLib, muteGraphChecker = true)
+    }
+
     @Test
     fun `get ir of kotlinx-coroutines`() {
         runAlongLib(kotlinxCoroutines, false)
@@ -301,7 +305,7 @@ class IRTest : BaseInstructionsTest() {
         }
     }
 
-    private fun runAlongLib(file: File, validateLineNumbers: Boolean = true) {
+    private fun runAlongLib(file: File, validateLineNumbers: Boolean = true, muteGraphChecker: Boolean = false) {
         println("Run along: ${file.absolutePath}")
 
         val classes = JarLocation(file, isRuntime = false, object : JavaVersion {
@@ -313,7 +317,7 @@ class IRTest : BaseInstructionsTest() {
             val clazz = cp.findClass(it.key)
             if (!clazz.isAnnotation && !clazz.isInterface) {
                 println("Testing class: ${it.key}")
-                testClass(clazz, validateLineNumbers)
+                testClass(clazz, validateLineNumbers, muteGraphChecker)
             }
         }
     }

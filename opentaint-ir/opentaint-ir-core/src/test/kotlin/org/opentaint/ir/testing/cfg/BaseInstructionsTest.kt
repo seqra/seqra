@@ -38,12 +38,12 @@ abstract class BaseInstructionsTest : BaseTest() {
         Assertions.assertEquals("OK", res)
     }
 
-    protected fun testClass(klass: JIRClassOrInterface, validateLineNumbers: Boolean = true) {
-        testAndLoadClass(klass, false, validateLineNumbers)
+    protected fun testClass(klass: JIRClassOrInterface, validateLineNumbers: Boolean = true, muteGraphChecker: Boolean = false) {
+        testAndLoadClass(klass, false, validateLineNumbers, muteGraphChecker)
     }
 
     protected fun testAndLoadClass(klass: JIRClassOrInterface, muteGraphChecker: Boolean = false): Class<*> {
-        return testAndLoadClass(klass, true, validateLineNumbers = true)!!
+        return testAndLoadClass(klass, true, validateLineNumbers = true, muteGraphChecker = muteGraphChecker)!!
     }
 
     private fun testAndLoadClass(

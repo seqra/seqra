@@ -142,6 +142,33 @@ private val AbstractInsnNode.isBranchingInst
 private val AbstractInsnNode.isTerminateInst
     get() = this is InsnNode && (this.opcode == Opcodes.ATHROW || this.opcode in Opcodes.IRETURN..Opcodes.RETURN)
 
+private fun LabelNode.isBetween(labelStart: LabelNode, labelEnd: LabelNode): Boolean {
+    var curNode: AbstractInsnNode? = this
+    var left = false
+    var right = false
+    while (curNode != null) {
+        if (curNode == labelStart) {
+            left = true
+            break
+        }
+        if (curNode == labelEnd && curNode != this) {
+            return false
+        }
+        curNode = curNode.previous
+
+    }
+    if (!left) return false
+    curNode = this
+    while (curNode != null) {
+        if (curNode == labelEnd) {
+            right = true
+            break
+        }
+        curNode = curNode.next
+    }
+    return right
+}
+
 private val TryCatchBlockNode.typeOrDefault get() = this.type ?: THROWABLE_CLASS
 
 private val Collection<TryCatchBlockNode>.commonTypeOrDefault
@@ -363,29 +390,6 @@ class RawInstListBuilder(
         return currentFrame.locals.getValue(variable)
     }
 
-//    fun LabelNode.isBetween(labelStart: LabelNode, labelEnd: LabelNode): Boolean {
-//        var curNode: AbstractInsnNode = labelStart
-//        while (curNode != labelEnd && curNode != null) {
-//            if (this == curNode) {
-//                return true
-//            }
-//            curNode = curNode.next
-//        }
-//        return this == curNode
-//    }
-//
-//    val instrLabel = methodNode.instructions.takeWhile { it != insn }.last { it is LabelNode } as LabelNode
-//    val locals = methodNode.localVariables.filter { it.index == variable }
-//    locals.map { instrLabel.isBetween(it.start, it.end) }
-//    locals
-
-    //    val oldVar = currentFrame.locals[variable]?.let {
-//            if (expr.typeName.isPrimitive.xor(it.typeName.isPrimitive)) {
-//                null
-//            } else {
-//                it
-//            }
-//        }
     private fun local(
         variable: Int,
         expr: JIRRawValue,
@@ -900,6 +904,8 @@ class RawInstListBuilder(
                     else -> {
                         val assignment = nextRegister(type)
                         for ((node, frame) in predFrames) {
+                            //TODO! Make anything with that (we should take into account subtyping)
+                            //assigment.isSubtypeOf(frame[variable]!!.typeName)
                             if (frame != null) {
                                 if (node.isBranchingInst) {
                                     addInstruction(node, JIRRawAssignInst(method, assignment, frame[variable]!!), 0)
@@ -1170,7 +1176,7 @@ class RawInstListBuilder(
         }
     }
 
-    private fun mergeFrames(frames: Map<AbstractInsnNode, Frame>): Frame {
+    private fun mergeFrames(frames: Map<AbstractInsnNode, Frame>, curLabel: LabelNode): Frame {
         val frameSet = frames.values
         if (frames.isEmpty()) return currentFrame
         if (frames.size == 1) return frameSet.first()
@@ -1178,9 +1184,18 @@ class RawInstListBuilder(
         val allLocals = frameSet.flatMap { it.locals.keys }
         val localTypes = allLocals
             .filter { local -> frameSet.all { local in it.locals } }
-            .associateWith {
-                val types = frameSet.map { frame -> frame[it]!!.typeName }
-                types.firstOrNull { it != NULL } ?: NULL
+            .associateWith { ind ->
+                val types = frameSet.map { frame -> frame[ind]!!.typeName }
+                //If we have several variables types for one register we have to search right type in debug info otherwise we cannot guarantee anything
+                if (types.toSet().size != 1) {
+                    methodNode.localVariables
+                        .firstOrNull { curLabel.isBetween(it.start, it.end) && it.index == ind }
+                        ?.desc
+                        ?.let { TypeNameImpl(it) }
+                        ?: types.firstOrNull { it != NULL } ?: NULL
+                } else {
+                    types.firstOrNull { it != NULL } ?: NULL
+                }
             }
             .toSortedMap()
         val newLocals = localTypes.copyLocals(frames).toPersistentMap()
@@ -1206,7 +1221,7 @@ class RawInstListBuilder(
         if (predecessorFrames.size == 1) {
             currentFrame = predecessorFrames.first()
         } else if (predecessors.size == predecessorFrames.size) {
-            currentFrame = mergeFrames(predecessors.zip(predecessorFrames).toMap())
+            currentFrame = mergeFrames(predecessors.zip(predecessorFrames).toMap(), insnNode)
         }
         val catchEntries = methodNode.tryCatchBlocks.filter { it.handler == insnNode }
 
