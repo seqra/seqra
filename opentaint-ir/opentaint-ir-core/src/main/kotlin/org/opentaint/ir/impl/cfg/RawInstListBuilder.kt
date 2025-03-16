@@ -193,27 +193,6 @@ class RawInstListBuilder(
         return Simplifier().simplify(method.enclosingClass.classpath, localsNormalizedInstructionList)
     }
 
-    fun insnToString(insn: AbstractInsnNode): String {
-        insn.accept(mp)
-        val sw = StringWriter()
-        printer.print(PrintWriter(sw))
-        printer.getText().clear()
-        return sw.toString()
-    }
-
-    private val printer: Printer = Textifier()
-    private val mp = TraceMethodVisitor(printer)
-
-    fun printMethod(methodNode: MethodNode): String {
-        val inList = methodNode.instructions;
-        var s = ""
-        s += methodNode.name + "\n"
-        for (i in 0 until methodNode.instructions.size()) {
-            s += insnToString(inList.get(i))
-        }
-        return s
-    }
-
     private fun buildInstructions() {
         currentFrame = createInitialFrame()
         frames[ENTRY] = currentFrame
@@ -1062,6 +1041,11 @@ class RawInstListBuilder(
             }
 
             push(throwable)
+        }
+        var curNode: AbstractInsnNode = insnNode
+        while (curNode !is LabelNode) {
+            curNode = curNode.previous
+            frames[curNode] = currentFrame
         }
     }
 
