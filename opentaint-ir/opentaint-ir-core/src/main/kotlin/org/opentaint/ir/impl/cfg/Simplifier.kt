@@ -108,6 +108,13 @@ internal class Simplifier {
                     val lhv = inst.lhv
                     val rhv = inst.rhv
                     if (lhv is JIRRawSimpleValue && rhv is JIRRawSimpleValue) {
+                        val iterator = equalities.entries.iterator()
+                        while (iterator.hasNext()) {
+                            val entry = iterator.next()
+                            if (entry.value == lhv) {
+                                iterator.remove()
+                            }
+                        }
                         if (equalities[lhv] != rhv) {
                             equalities[lhv] = rhv
                             instructions += inst
