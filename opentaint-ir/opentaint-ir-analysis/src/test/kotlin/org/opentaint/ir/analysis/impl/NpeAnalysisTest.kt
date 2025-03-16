@@ -44,7 +44,7 @@ class NpeAnalysisTest : BaseAnalysisTest() {
 
     @Test
     fun `analyze simple NPE`() {
-        testOneMethod<NpeExamples>("npeOnLength", listOf("%3 = %2.length()"))
+        testOneMethod<NpeExamples>("npeOnLength", listOf("%3 = %0.length()"))
     }
 
     @Test
@@ -56,7 +56,7 @@ class NpeAnalysisTest : BaseAnalysisTest() {
     fun `analyze NPE after fun with two exits`() {
         testOneMethod<NpeExamples>(
             "npeAfterTwoExits",
-            listOf("%4 = %2.length()", "%5 = %3.length()")
+            listOf("%4 = %0.length()", "%5 = %1.length()")
         )
     }
 

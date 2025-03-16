@@ -17,9 +17,7 @@ import org.opentaint.ir.impl.cfg.util.ExprMapper
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.StringConcatSimplifier
 import org.opentaint.ir.impl.fs.JarLocation
-import org.opentaint.ir.testing.WithDB
-import org.opentaint.ir.testing.guavaLib
-import org.opentaint.ir.testing.kotlinxCoroutines
+import org.opentaint.ir.testing.*
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -288,8 +286,12 @@ class IRTest : BaseInstructionsTest() {
     // todo: make this test green
     @Test
     fun `get ir of kotlinx-coroutines`() {
-//        testClass(cp.findClass("kotlinx.coroutines.ThreadContextElementKt"))
         runAlongLib(kotlinxCoroutines, false)
+    }
+
+    @Test
+    fun `get ir of kotlin stdlib`() {
+        runAlongLib(kotlinStdLib, false)
     }
 
     @AfterEach

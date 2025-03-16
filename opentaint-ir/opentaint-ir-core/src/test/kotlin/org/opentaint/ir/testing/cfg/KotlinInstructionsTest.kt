@@ -36,6 +36,15 @@ class KotlinInstructionsTest: BaseInstructionsTest() {
     fun `kotlin try catch finally`() = runKotlinTest(TryCatchFinally::class.java.name, muteGraphChecker = true)
 
     @Test
+    fun `kotlin try catch finally 2`() = runKotlinTest(TryCatchFinally2::class.java.name, muteGraphChecker = true)
+
+    @Test
+    fun `kotlin try catch finally 3`() = runKotlinTest(TryCatchFinally3::class.java.name, muteGraphChecker = true)
+
+    @Test
+    fun `kotlin try catch finally 4`() = runKotlinTest(TryCatchFinally4::class.java.name, muteGraphChecker = true)
+
+    @Test
     fun `kotlin method with exception`() = runKotlinTest(InvokeMethodWithException::class.java.name)
 
     @Test

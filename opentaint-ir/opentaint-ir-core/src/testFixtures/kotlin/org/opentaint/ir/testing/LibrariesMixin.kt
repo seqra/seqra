@@ -25,6 +25,14 @@ val kotlinxCoroutines: File
         }
     }
 
+val kotlinStdLib: File
+    get() {
+        val kotlinStdLib = classpath.first { it.contains("/kotlin-stdlib/") }
+        return File(kotlinStdLib).also {
+            Assertions.assertTrue(it.isFile && it.exists())
+        }
+    }
+
 val allJars: List<File>
     get() {
         return classpath.filter { it.endsWith(".jar") }.map { File(it) }

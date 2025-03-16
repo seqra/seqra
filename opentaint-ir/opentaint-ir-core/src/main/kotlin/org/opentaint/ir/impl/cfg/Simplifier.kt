@@ -39,7 +39,7 @@ internal class Simplifier {
             val assignmentsMap = computeAssignments(instructionList)
             val replacements = assignmentsMap
                 .filter { (assignmentsMap[it.value.first()]?.let { it.size == 1 } ?: true) }
-                .filterValues { it.size == 1 && it.first() is JIRRawLocalVar }
+                .filterValues { it.first() is JIRRawLocalVar && it.drop(1).all { it !is JIRRawLocalVar } }
                 .map { it.key to it.value.first() }
                 .toMap()
             instructionList = instructionList

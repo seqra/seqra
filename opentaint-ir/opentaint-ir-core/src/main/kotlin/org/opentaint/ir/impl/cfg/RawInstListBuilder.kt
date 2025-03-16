@@ -455,7 +455,7 @@ class RawInstListBuilder(
             ?.desc
             ?.typeName()
 
-        return if (declaredTypeName != null && !declaredTypeName.isPrimitive) {
+        return if (declaredTypeName != null && !declaredTypeName.isPrimitive && !typeName.isArray) {
             JIRRawLocalVar("%${localCounter++}", declaredTypeName)
         } else {
             JIRRawLocalVar("%${localCounter++}", typeName)
