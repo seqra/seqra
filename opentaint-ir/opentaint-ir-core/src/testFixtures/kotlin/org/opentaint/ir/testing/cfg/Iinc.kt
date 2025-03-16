@@ -152,7 +152,3 @@ class Iinc4 {
     }
 
 }
-
-fun main() {
-    println(Iinc3().box())
-}
