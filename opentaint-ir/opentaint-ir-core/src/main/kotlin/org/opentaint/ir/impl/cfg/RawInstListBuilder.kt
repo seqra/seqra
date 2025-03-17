@@ -142,7 +142,7 @@ private val AbstractInsnNode.isBranchingInst
 private val AbstractInsnNode.isTerminateInst
     get() = this is InsnNode && (this.opcode == Opcodes.ATHROW || this.opcode in Opcodes.IRETURN..Opcodes.RETURN)
 
-private fun LabelNode.isBetween(labelStart: LabelNode, labelEnd: LabelNode): Boolean {
+private fun AbstractInsnNode.isBetween(labelStart: AbstractInsnNode, labelEnd: AbstractInsnNode): Boolean {
     var curNode: AbstractInsnNode? = this
     var left = false
     var right = false
@@ -397,7 +397,7 @@ class RawInstListBuilder(
         override: Boolean = false
     ): JIRRawAssignInst? {
         val oldVar = currentFrame.locals[variable]?.let {
-            if (expr.typeName.isPrimitive.xor(it.typeName.isPrimitive)) {
+            if (expr.typeName.isPrimitive.xor(it.typeName.isPrimitive) && it.typeName.typeName != PredefinedPrimitives.Null) {
                 null
             } else {
                 it
@@ -854,7 +854,10 @@ class RawInstListBuilder(
      * if some predecessor frames are unknown, we remember them and add required assignment instructions after
      * the full construction process is complete, see #buildRequiredAssignments function
      */
-    private fun SortedMap<Int, TypeName>.copyLocals(predFrames: Map<AbstractInsnNode, Frame?>): Map<Int, JIRRawValue> =
+    private fun SortedMap<Int, TypeName>.copyLocals(
+        predFrames: Map<AbstractInsnNode, Frame?>,
+        curLabel: LabelNode
+    ): Map<Int, JIRRawValue> =
         when {
             // should not happen usually, but sometimes there are some "handing" blocks in the bytecode that are
             // not connected to any other part of the code
@@ -894,10 +897,22 @@ class RawInstListBuilder(
             // complex case --- we have a multiple predecessor frames and some of them may be unknown
             else -> mapNotNull { (variable, type) ->
                 val options = predFrames.values.map { it?.get(variable) }.toSet()
+                val actualLocalFromDebugInfo =
+                    methodNode.localVariables
+                        .filter { it.index == variable }
+                        .firstOrNull { curLabel.isBetween(it.start, it.end) }
+                val isArg =
+                    if (actualLocalFromDebugInfo == null) {
+                        variable < argCounter
+                    }
+                    else {
+                        actualLocalFromDebugInfo.start == methodNode.instructions.firstOrNull { it is LabelNode }
+                    }
+
                 val value = when {
                     type == TOP -> null
                     options.size == 1 -> options.singleOrNull()
-                    variable < argCounter -> frames.values.mapNotNull { it[variable] }.firstOrNull {
+                    variable < argCounter && isArg -> frames.values.mapNotNull { it[variable] }.firstOrNull {
                         it is JIRRawArgument || it is JIRRawThis
                     }
 
@@ -1014,12 +1029,12 @@ class RawInstListBuilder(
 
         if (catchEntries.isEmpty()) {
             currentFrame = Frame(
-                lastFrameState.locals.copyLocals(predecessorFrames).toPersistentMap(),
+                lastFrameState.locals.copyLocals(predecessorFrames, currentEntry).toPersistentMap(),
                 lastFrameState.stack.copyStack(predecessorFrames).toPersistentList()
             )
         } else {
             currentFrame = Frame(
-                lastFrameState.locals.copyLocals(predecessorFrames).toPersistentMap(),
+                lastFrameState.locals.copyLocals(predecessorFrames, currentEntry).toPersistentMap(),
                 persistentListOf()
             )
 
@@ -1206,7 +1221,7 @@ class RawInstListBuilder(
                 }
             }
             .toSortedMap()
-        val newLocals = localTypes.copyLocals(frames).toPersistentMap()
+        val newLocals = localTypes.copyLocals(frames, curLabel).toPersistentMap()
 
         val stackIndices = frameSet.flatMap { it.stack.indices }.toSortedSet()
         val stackRanges = stackIndices
@@ -1228,7 +1243,7 @@ class RawInstListBuilder(
         val predecessorFrames = predecessors.mapNotNull { frames[it] }
         if (predecessorFrames.size == 1) {
             currentFrame = predecessorFrames.first()
-        } else if (predecessors.size == predecessorFrames.size) {
+        } else {
             currentFrame = mergeFrames(predecessors.zip(predecessorFrames).toMap(), insnNode)
         }
         val catchEntries = methodNode.tryCatchBlocks.filter { it.handler == insnNode }
