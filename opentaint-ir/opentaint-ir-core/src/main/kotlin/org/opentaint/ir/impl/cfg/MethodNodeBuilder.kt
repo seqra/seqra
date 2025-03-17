@@ -7,6 +7,7 @@ import org.opentaint.ir.api.cfg.*
 import org.opentaint.ir.impl.cfg.util.*
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes
+import org.objectweb.asm.Opcodes.H_GFrontendTATIC
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
 
@@ -545,7 +546,11 @@ class MethodNodeBuilder(
             tag,
             declaringClass.jvmClassName,
             name,
-            "(${argTypes.joinToString("") { it.jvmTypeName }})${returnType.jvmTypeName}",
+            if (argTypes.isEmpty() && tag <= H_GFrontendTATIC) {
+               returnType.jvmTypeName
+            } else {
+                "(${argTypes.joinToString("") { it.jvmTypeName }})${returnType.jvmTypeName}"
+            },
             isInterface
         )
     private val JIRRawMethodConstant.asAsmType: Type
