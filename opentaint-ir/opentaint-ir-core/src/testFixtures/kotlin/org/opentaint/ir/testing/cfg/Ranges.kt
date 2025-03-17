@@ -55,26 +55,51 @@ class Ranges {
 
 class Ranges2 {
 
-    fun isDigit(a: Int) : String {
-        val aa = ArrayList<Int> ()
-        aa.add(239)
-
-        return when(a) {
-            in aa -> "array list"
+    fun assertDigit(i: Int): String {
+        val res = when (i) {
             in 0..9 -> "digit"
-            !in 0..100 -> "not small"
-            else -> "something"
+            !in 0..100 -> "not small1 $i"
+            else -> "something $i"
         }
+        if (res == "digit") return "OK"
+        return "fail $res"
     }
 
-    fun assertDigit(i: Int, expected: String): String {
-        val result = isDigit(i)
-        return if (result == expected) "" else "fail: isDigit($i) = \"$result\""
+    fun assertDigit2(i: Int): String {
+        val res = when (i) {
+            in 9 downTo 0 -> "digit"
+            !in 0..100 -> "not small2 $i"
+            else -> "something"
+        }
+        if (res == "digit") return "OK"
+        return "fail $res"
+    }
+
+    fun assertDigit3(i: Int): String {
+        val res = when (i) {
+            !in 0..9 -> "f1 $i"
+            else -> "d"
+        }
+        if (res == "d") return "OK"
+        return "fail $res"
+    }
+
+    fun assertDigit4(i: Int): String {
+        val res = when (i) {
+            !in 9 downTo 0 -> "f2 $i"
+            else -> "d"
+        }
+        if (res == "d") return "OK"
+        return "fail $res"
     }
 
     fun box(): String {
-        val result = assertDigit(0, "digit")
-        if (result == "") return "OK"
-        return result
+        (0..9 step 2).map {
+            assertDigit(it).let { if (it != "OK") return it }
+            assertDigit2(it).let { if (it != "OK") return it }
+            assertDigit3(it).let { if (it != "OK") return it }
+            assertDigit4(it).let { if (it != "OK") return it }
+        }
+        return "OK"
     }
 }

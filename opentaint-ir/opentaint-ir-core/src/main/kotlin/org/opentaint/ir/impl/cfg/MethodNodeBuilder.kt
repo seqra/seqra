@@ -248,42 +248,38 @@ class MethodNodeBuilder(
                 cond.lhv.typeName.isPrimitive -> Triple(JIRRawInt(0), Opcodes.IFNE, Opcodes.IF_ICMPNE)
                 else -> Triple(JIRRawNull(), Opcodes.IFNONNULL, Opcodes.IF_ACMPNE)
             }
-
-            is JIRRawGeExpr -> Triple(JIRRawInt(0), Opcodes.IFGE, Opcodes.IF_ICMPGE).also { shouldReverse = true }
-            is JIRRawGtExpr -> Triple(JIRRawInt(0), Opcodes.IFGT, Opcodes.IF_ICMPGT).also { shouldReverse = true }
-            is JIRRawLeExpr -> Triple(JIRRawInt(0), Opcodes.IFLE, Opcodes.IF_ICMPLE).also { shouldReverse = true }
-            is JIRRawLtExpr -> Triple(JIRRawInt(0), Opcodes.IFLT, Opcodes.IF_ICMPLT).also { shouldReverse = true }
+            is JIRRawGeExpr -> Triple(JIRRawInt(0), Opcodes.IFGE, Opcodes.IF_ICMPGE)
+            is JIRRawGtExpr -> Triple(JIRRawInt(0), Opcodes.IFGT, Opcodes.IF_ICMPGT)
+            is JIRRawLeExpr -> Triple(JIRRawInt(0), Opcodes.IFLE, Opcodes.IF_ICMPLE)
+            is JIRRawLtExpr -> Triple(JIRRawInt(0), Opcodes.IFLT, Opcodes.IF_ICMPLT)
             else -> error("Unknown condition expr: $cond")
         }
-        val elseBranchTarget: LabelNode
         currentInsnList.add(
             when {
                 cond.lhv == zeroValue -> {
                     cond.rhv.accept(this)
-                    if (shouldReverse) {
-                        elseBranchTarget = trueTarget
-                        JumpInsnNode(zeroCmpOpcode, falseTarget)
-                    } else {
-                        elseBranchTarget = falseTarget
-                        JumpInsnNode(zeroCmpOpcode, trueTarget)
-                    }
+                    val invertedZeroCmpOpcode =
+                        when (zeroCmpOpcode) {
+                            Opcodes.IFGE -> Opcodes.IFLE
+                            Opcodes.IFGT -> Opcodes.IFLT
+                            Opcodes.IFLE -> Opcodes.IFGE
+                            Opcodes.IFLT -> Opcodes.IFGT
+                            else -> zeroCmpOpcode
+                        }
+                    JumpInsnNode(invertedZeroCmpOpcode, trueTarget)
                 }
-
                 cond.rhv == zeroValue -> {
                     cond.lhv.accept(this)
-                    elseBranchTarget = falseTarget
                     JumpInsnNode(zeroCmpOpcode, trueTarget)
                 }
-
                 else -> {
                     cond.lhv.accept(this)
                     cond.rhv.accept(this)
-                    elseBranchTarget = falseTarget
                     JumpInsnNode(defaultOpcode, trueTarget)
                 }
             }
         )
-        currentInsnList.add(JumpInsnNode(Opcodes.GOTO, elseBranchTarget))
+        currentInsnList.add(JumpInsnNode(Opcodes.GOTO, falseTarget))
         updateStackInfo(-stackSize)
     }
 

@@ -277,7 +277,7 @@ class InstructionsTest : BaseInstructionsTest() {
     }
 
     @Test
-    @Disabled("Unexpected behavior on java 8 and 11")
+    @DisabledOnJre(JRE.JAVA_8, JRE.JAVA_11)
     fun `instance method ref bug`() {
         val clazz = cp.findClass<Close>()
         val javaClazz = testAndLoadClass(clazz)

@@ -10,6 +10,8 @@ import org.opentaint.ir.testing.WithGlobalDB
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.DisabledOnJre
+import org.junit.jupiter.api.condition.JRE
 
 class LoopsTest : BaseTest() {
 
@@ -70,13 +72,17 @@ class LoopsTest : BaseTest() {
         }
     }
 
+    //Disabled on JAVA_8 because of different bytecode and different lineNumbers for loops
     @Test
+    @DisabledOnJre(JRE.JAVA_8)
     fun `combined loops`() {
         val clazz = cp.findClass<JavaTasks>()
         with(clazz.findMethod("sortTimes").loops) {
             assertEquals(3, size)
             with(first()) {
-                Assertions.assertTrue(head.lineNumber == 53 || head.lineNumber == 51)
+                assertEquals(53, head.lineNumber)
+                assertEquals(listOf(53, 61, 73), exits.map { it.lineNumber }.toSet().sorted())
+                assertSources(53, 75)
             }
 
             with(get(1)) {
