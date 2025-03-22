@@ -3,7 +3,9 @@ package org.opentaint.ir.impl.cfg
 import org.opentaint.ir.api.*
 import org.opentaint.ir.api.cfg.*
 import org.opentaint.ir.api.ext.*
+import org.opentaint.ir.impl.cfg.util.LAMBDA_METAFACTORY_CLASS
 import org.opentaint.ir.impl.cfg.util.UNINIT_THIS
+import org.opentaint.ir.impl.cfg.util.typeName
 
 /** This class stores state and is NOT THREAD SAFE. Use it carefully */
 class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawInst>) : JIRRawInstVisitor<JIRInst?>, JIRRawExprVisitor<JIRExpr> {
@@ -243,29 +245,53 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
     override fun visitJIRRawInstanceOfExpr(expr: JIRRawInstanceOfExpr): JIRExpr =
         JIRInstanceOfExpr(classpath.boolean, expr.operand.accept(this) as JIRValue, expr.targetType.asType())
 
+    private val lambdaMetaFactory: TypeName by lazy { LAMBDA_METAFACTORY_CLASS.typeName() }
+    private val lambdaMetaFactoryMethodName: String = "metafactory"
+
     override fun visitJIRRawDynamicCallExpr(expr: JIRRawDynamicCallExpr): JIRExpr {
-        val lambdaBases = expr.bsmArgs.filterIsInstance<BsmHandle>()
-        when (lambdaBases.size) {
-            1 -> {
-                val base = lambdaBases.first()
-                val klass = base.declaringClass.asType() as JIRClassType
-                val ref = TypedMethodRefImpl(klass, base.name, base.argTypes, base.returnType)
-
-                return JIRLambdaExpr(ref, expr.args.map { it.accept(this) as JIRValue })
-            }
-
-            else -> {
-
-                return JIRDynamicCallExpr(
-                    classpath.methodRef(expr),
-                    expr.bsmArgs,
-                    expr.callSiteMethodName,
-                    expr.callSiteArgTypes.map { it.asType() },
-                    expr.callSiteReturnType.asType(),
-                    expr.args.map { it.accept(this) as JIRValue }
-                )
-            }
+        if (expr.bsm.declaringClass == lambdaMetaFactory && expr.bsm.name == lambdaMetaFactoryMethodName) {
+            val lambdaExpr = tryResolveJIRLambdaExpr(expr)
+            if (lambdaExpr != null) return lambdaExpr
         }
+
+        return JIRDynamicCallExpr(
+            classpath.methodRef(expr),
+            expr.bsmArgs,
+            expr.callSiteMethodName,
+            expr.callSiteArgTypes.map { it.asType() },
+            expr.callSiteReturnType.asType(),
+            expr.callSiteArgs.map { it.accept(this) as JIRValue }
+        )
+    }
+
+    private fun tryResolveJIRLambdaExpr(expr: JIRRawDynamicCallExpr): JIRLambdaExpr? {
+        if (expr.bsmArgs.size != 3) return null
+        val (interfaceMethodType, implementation, dynamicMethodType) = expr.bsmArgs
+
+        if (interfaceMethodType !is BsmMethodTypeArg) return null
+        if (dynamicMethodType !is BsmMethodTypeArg) return null
+        if (implementation !is BsmHandle) return null
+
+        // Check implementation signature match (starts with) call site arguments
+        for ((index, argType) in expr.callSiteArgTypes.withIndex()) {
+            if (argType != implementation.argTypes.getOrNull(index)) return null
+        }
+
+        val klass = implementation.declaringClass.asType() as JIRClassType
+        val actualMethod = TypedMethodRefImpl(
+            klass, implementation.name, implementation.argTypes, implementation.returnType
+        )
+
+        return JIRLambdaExpr(
+            classpath.methodRef(expr),
+            actualMethod,
+            interfaceMethodType,
+            dynamicMethodType,
+            expr.callSiteMethodName,
+            expr.callSiteArgTypes.map { it.asType() },
+            expr.callSiteReturnType.asType(),
+            expr.callSiteArgs.map { it.accept(this) as JIRValue }
+        )
     }
 
     override fun visitJIRRawVirtualCallExpr(expr: JIRRawVirtualCallExpr): JIRExpr {

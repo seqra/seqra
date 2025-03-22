@@ -15,6 +15,7 @@ internal const val METHOD_HANDLE_CLASS = "Ljava.lang.invoke.MethodHandle;"
 internal const val METHOD_HANDLES_CLASS = "Ljava.lang.invoke.MethodHandles;"
 internal const val METHOD_HANDLES_LOOKUP_CLASS = "Ljava.lang.invoke.MethodHandles\$Lookup;"
 internal const val METHOD_TYPE_CLASS = "Ljava.lang.invoke.MethodType;"
+internal const val LAMBDA_METAFACTORY_CLASS = "Ljava.lang.invoke.LambdaMetafactory;"
 internal val TOP = "TOP".typeName()
 internal val UNINIT_THIS = "UNINIT_THIS".typeName()
 
