@@ -27,7 +27,7 @@ abstract class BaseInstructionsTest : BaseTest() {
 
     val ext = runBlocking { cp.hierarchyExt() }
 
-    fun runKotlinTest(className: String, muteGraphChecker: Boolean = false) {
+    fun runTest(className: String, muteGraphChecker: Boolean = false) {
         val clazz = cp.findClassOrNull(className)
         Assertions.assertNotNull(clazz)
 

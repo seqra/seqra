@@ -1,14 +1,11 @@
 package org.opentaint.ir.testing.cfg
 
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.testing.WithDB
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class IincTest : BaseInstructionsTest() {
-
-    companion object : WithDB()
 
     @Test
     fun `iinc should work`() {
@@ -89,15 +86,15 @@ class IincTest : BaseInstructionsTest() {
     }
 
     @Test
-    fun `kotlin iinc`() = runKotlinTest(Iinc::class.java.name)
+    fun `kotlin iinc`() = runTest(Iinc::class.java.name)
 
     @Test
-    fun `kotlin iinc2`() = runKotlinTest(Iinc2::class.java.name)
+    fun `kotlin iinc2`() = runTest(Iinc2::class.java.name)
 
     @Test
-    fun `kotlin iinc3`() = runKotlinTest(Iinc3::class.java.name)
+    fun `kotlin iinc3`() = runTest(Iinc3::class.java.name)
 
     @Test
-    fun `kotlin iinc4`() = runKotlinTest(Iinc4::class.java.name)
+    fun `kotlin iinc4`() = runTest(Iinc4::class.java.name)
 
 }

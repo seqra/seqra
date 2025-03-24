@@ -1,13 +1,13 @@
 package org.opentaint.ir.testing.cfg
 
 import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.WithGlobalDB
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class InvokeDynamicTest : BaseInstructionsTest() {
 
-    companion object : WithDB()
+    companion object : WithGlobalDB()
 
     @Test
     fun `test unary function`() = runStaticMethod<InvokeDynamicExamples>("testUnaryFunction")
