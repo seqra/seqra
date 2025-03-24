@@ -66,3 +66,6 @@ internal fun TypeName.baseElementType(): TypeName {
     } while (next != null)
     return current!!
 }
+
+val lambdaMetaFactory: TypeName  = LAMBDA_METAFACTORY_CLASS.typeName()
+val lambdaMetaFactoryMethodName: String = "metafactory"

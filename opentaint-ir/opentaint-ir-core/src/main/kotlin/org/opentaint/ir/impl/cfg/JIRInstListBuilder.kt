@@ -3,9 +3,9 @@ package org.opentaint.ir.impl.cfg
 import org.opentaint.ir.api.*
 import org.opentaint.ir.api.cfg.*
 import org.opentaint.ir.api.ext.*
-import org.opentaint.ir.impl.cfg.util.LAMBDA_METAFACTORY_CLASS
 import org.opentaint.ir.impl.cfg.util.UNINIT_THIS
-import org.opentaint.ir.impl.cfg.util.typeName
+import org.opentaint.ir.impl.cfg.util.lambdaMetaFactory
+import org.opentaint.ir.impl.cfg.util.lambdaMetaFactoryMethodName
 
 /** This class stores state and is NOT THREAD SAFE. Use it carefully */
 class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawInst>) : JIRRawInstVisitor<JIRInst?>, JIRRawExprVisitor<JIRExpr> {
@@ -244,9 +244,6 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
 
     override fun visitJIRRawInstanceOfExpr(expr: JIRRawInstanceOfExpr): JIRExpr =
         JIRInstanceOfExpr(classpath.boolean, expr.operand.accept(this) as JIRValue, expr.targetType.asType())
-
-    private val lambdaMetaFactory: TypeName by lazy { LAMBDA_METAFACTORY_CLASS.typeName() }
-    private val lambdaMetaFactoryMethodName: String = "metafactory"
 
     override fun visitJIRRawDynamicCallExpr(expr: JIRRawDynamicCallExpr): JIRExpr {
         if (expr.bsm.declaringClass == lambdaMetaFactory && expr.bsm.name == lambdaMetaFactoryMethodName) {
