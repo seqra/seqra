@@ -86,12 +86,12 @@ class SQLitePersistenceImpl(
         }
     }
 
-    override fun getScript(name: String): String {
-        return javaClass.classLoader.getResourceAsStream("sqlite/$name")?.reader()?.readText()
-            ?: throw IllegalStateException("no sql script for sqlite/$name found")
-    }
-
     override fun createIndexes() {
-        jooq.executeQueries(getScript("add-indexes.sql"))
+        jooq.executeQueries("add-indexes.sql".sqlScript())
     }
+}
+
+fun String.sqlScript(): String {
+    return SQLitePersistenceImpl::class.java.classLoader.getResourceAsStream("sqlite/${this}")?.reader()?.readText()
+        ?: throw IllegalStateException("no sql script for sqlite/${this} found")
 }

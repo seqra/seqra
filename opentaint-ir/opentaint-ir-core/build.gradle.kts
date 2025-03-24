@@ -1,9 +1,6 @@
 import org.jooq.codegen.GenerationTool
+import org.jooq.meta.jaxb.*
 import org.jooq.meta.jaxb.Configuration
-import org.jooq.meta.jaxb.Database
-import org.jooq.meta.jaxb.Generate
-import org.jooq.meta.jaxb.Generator
-import org.jooq.meta.jaxb.Jdbc
 import org.jooq.meta.jaxb.Target
 import java.nio.file.Paths
 
@@ -18,7 +15,7 @@ buildscript {
         classpath(Libs.jooq_kotlin)
         // classpath(Libs.postgresql)
         // classpath(Libs.hikaricp)
-        // classpath(Libs.sqlite)
+         classpath(Libs.sqlite)
     }
 }
 
@@ -38,15 +35,13 @@ dependencies {
     implementation(Libs.kotlinx_serialization_cbor)
     implementation(Libs.jdot)
     implementation(Libs.guava)
-    implementation(Libs.postgresql)
-    implementation(Libs.hikaricp)
     implementation(Libs.sqlite)
 
     testImplementation(Libs.javax_activation)
     testImplementation(Libs.javax_mail)
     testImplementation(Libs.joda_time)
     testImplementation(Libs.slf4j_simple)
-    // testImplementation(files("src/test/resources/samples"))
+    testImplementation(Libs.hikaricp)
 
     testFixturesImplementation(project(":opentaint-ir-api"))
     testFixturesImplementation(kotlin("reflect"))
@@ -58,10 +53,10 @@ dependencies {
     testFixturesImplementation(Libs.kotlinx_coroutines_core)
 }
 
-tasks.register("generateSqlScheme") {
-    val databaseLocation = project.properties["database_location"]
-    if (databaseLocation != null) {
-        val url = "jdbc:sqlite:file:$databaseLocation"
+tasks {
+    register("generateSqlScheme") {
+        val location = "src/main/resources/sqlite/empty.db"
+        val url = "jdbc:sqlite:file:$location"
         val driver = "org.sqlite.JDBC"
         GenerationTool.generate(
             Configuration()
@@ -86,12 +81,18 @@ tasks.register("generateSqlScheme") {
                 )
         )
     }
-}
 
-tasks.register<JavaExec>("generateDocSvgs") {
-    dependsOn("testClasses")
-    mainClass.set("org.opentaint.jIRdb.impl.cfg.IRSvgGeneratorKt")
-    classpath = sourceSets.test.get().runtimeClasspath
-    val svgDocs = Paths.get(rootDir.absolutePath, "docs", "svg").toFile()
-    args = listOf(svgDocs.absolutePath)
+    register<JavaExec>("generateDocSvgs") {
+        dependsOn("testClasses")
+        mainClass.set("org.opentaint.jIRdb.impl.cfg.IRSvgGeneratorKt")
+        classpath = sourceSets.test.get().runtimeClasspath
+        val svgDocs = Paths.get(rootDir.absolutePath, "docs", "svg").toFile()
+        args = listOf(svgDocs.absolutePath)
+    }
+
+    processResources {
+        filesMatching("**/*.properties") {
+            expand("version" to project.version)
+        }
+    }
 }

@@ -3,28 +3,22 @@
  */
 package org.opentaint.ir.impl.storage.jooq.tables.references
 
-import org.opentaint.ir.impl.storage.jooq.tables.Annotationvalues
-import org.opentaint.ir.impl.storage.jooq.tables.Builders
-import org.opentaint.ir.impl.storage.jooq.tables.Bytecodelocations
-import org.opentaint.ir.impl.storage.jooq.tables.Calls
-import org.opentaint.ir.impl.storage.jooq.tables.Classes
-import org.opentaint.ir.impl.storage.jooq.tables.Classhierarchies
-import org.opentaint.ir.impl.storage.jooq.tables.Classinnerclasses
-import org.opentaint.ir.impl.storage.jooq.tables.Fields
-import org.opentaint.ir.impl.storage.jooq.tables.Methodparameters
-import org.opentaint.ir.impl.storage.jooq.tables.Methods
-import org.opentaint.ir.impl.storage.jooq.tables.Outerclasses
-import org.opentaint.ir.impl.storage.jooq.tables.Symbols
+import org.opentaint.ir.impl.storage.jooq.tables.*
 
 /**
  * The table <code>Annotations</code>.
  */
-val ANNOTATIONS = org.opentaint.ir.impl.storage.jooq.tables.Annotations.ANNOTATIONS
+val ANNOTATIONS = Annotations.ANNOTATIONS
 
 /**
  * The table <code>AnnotationValues</code>.
  */
 val ANNOTATIONVALUES = Annotationvalues.ANNOTATIONVALUES
+
+/**
+ * The table <code>ApplicationMetadata</code>.
+ */
+val APPLICATIONMETADATA = Applicationmetadata.APPLICATIONMETADATA
 
 /**
  * The table <code>Builders</code>.
@@ -75,6 +69,11 @@ val METHODS = Methods.METHODS
  * The table <code>OuterClasses</code>.
  */
 val OUTERCLASSES = Outerclasses.OUTERCLASSES
+
+/**
+ * The table <code>Refactorings</code>.
+ */
+val REFACTORINGS = Refactorings.REFACTORINGS
 
 /**
  * The table <code>Symbols</code>.

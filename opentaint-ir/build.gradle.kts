@@ -5,14 +5,14 @@ val semVer: String? by project
 val includeDokka: String? by project
 
 group = "org.opentaint.ir"
-version = semVer ?: "1.3-SNAPSHOT"
+version = semVer ?: "1.4-SNAPSHOT"
 
 plugins {
     kotlin("jvm") version Versions.kotlin
     kotlin("plugin.allopen") version Versions.kotlin
     kotlin("plugin.serialization") version Versions.kotlin apply false
-    with(Plugins.Dokka) { id(id) version (version) }
-    with(Plugins.Licenser) { id(id) version (version) }
+    id(Plugins.Dokka)
+    id(Plugins.Licenser)
     `java-library`
     `java-test-fixtures`
     `maven-publish`
@@ -94,6 +94,13 @@ allprojects {
                 excludeTags(Tests.lifecycleTag)
             }
             setup(jacocoTestReport)
+        }
+
+        jar {
+            manifest {
+                attributes["Implementation-Title"] = project.name
+                attributes["Implementation-Version"] = archiveVersion
+            }
         }
 
         val lifecycleTest by creating(Test::class) {

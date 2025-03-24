@@ -1,12 +1,14 @@
 @file:Suppress("PublicApiImplicitType", "MemberVisibilityCanBePrivate", "unused", "ConstPropertyName")
 
+import org.gradle.plugin.use.PluginDependenciesSpec
+
 object Versions {
     const val asm = "9.5"
     const val dokka = "1.7.20"
     const val gradle_download = "5.3.0"
     const val gradle_versions = "0.47.0"
-    const val guava = "31.1-jre"
     const val hikaricp = "5.0.1"
+    const val guava = "31.1-jre"
     const val javax_activation = "1.1"
     const val javax_mail = "1.4.7"
     const val javax_servlet_api = "2.5"
@@ -27,7 +29,6 @@ object Versions {
     const val kotlinx_serialization = "1.4.1"
     const val licenser = "0.6.1"
     const val mockito = "4.8.0"
-    const val postgresql = "42.5.1"
     const val shadow = "8.1.1"
     const val slf4j = "1.7.36"
     const val soot_opentaint_fork = "4.4.0-FORK-2"
@@ -157,13 +158,6 @@ object Libs {
         version = Versions.kotlinx_cli
     )
 
-    // https://github.com/pgjdbc/pgjdbc
-    val postgresql = dep(
-        group = "org.postgresql",
-        name = "postgresql",
-        version = Versions.postgresql
-    )
-
     // https://github.com/brettwooldridge/HikariCP
     val hikaricp = dep(
         group = "com.zaxxer",
@@ -283,39 +277,46 @@ object Libs {
 }
 
 object Plugins {
+
+    abstract class ProjectPlugin(val version: String, val id: String)
+
     // https://github.com/Kotlin/dokka
-    object Dokka {
-        const val version = Versions.dokka
-        const val id = "org.jetbrains.dokka"
-    }
+    object Dokka: ProjectPlugin(
+        version = Versions.dokka,
+        id = "org.jetbrains.dokka"
+    )
 
     // https://github.com/michel-kraemer/gradle-download-task
-    object GradleDownload {
-        const val version = Versions.gradle_download
-        const val id = "de.undercouch.download"
-    }
+    object GradleDownload: ProjectPlugin(
+        version = Versions.gradle_download,
+        id = "de.undercouch.download"
+    )
 
     // https://github.com/ben-manes/gradle-versions-plugin
-    object GradleVersions {
-        const val version = Versions.gradle_versions
-        const val id = "com.github.ben-manes.versions"
-    }
+    object GradleVersions: ProjectPlugin(
+        version = Versions.gradle_versions,
+        id = "com.github.ben-manes.versions"
+    )
 
     // https://github.com/Kotlin/kotlinx-benchmark
-    object KotlinxBenchmark {
-        const val version = Versions.kotlinx_benchmark
-        const val id = "org.jetbrains.kotlinx.benchmark"
-    }
+    object KotlinxBenchmark : ProjectPlugin(
+        version = Versions.kotlinx_benchmark,
+        id = "org.jetbrains.kotlinx.benchmark"
+    )
 
     // https://github.com/CadixDev/licenser
-    object Licenser {
-        const val version = Versions.licenser
-        const val id = "org.cadixdev.licenser"
-    }
+    object Licenser : ProjectPlugin(
+        version = Versions.licenser,
+        id = "org.cadixdev.licenser"
+    )
 
     // https://github.com/johnrengelman/shadow
-    object Shadow {
-        const val version = Versions.shadow
-        const val id = "com.github.johnrengelman.shadow"
-    }
+    object Shadow : ProjectPlugin(
+        version = Versions.shadow,
+        id = "com.github.johnrengelman.shadow"
+    )
+}
+
+fun PluginDependenciesSpec.id(plugin: Plugins.ProjectPlugin) {
+    id(plugin.id).version(plugin.version)
 }

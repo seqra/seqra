@@ -1,25 +1,12 @@
 package org.opentaint.ir.impl.features
 
-import org.opentaint.ir.api.ByteCodeIndexer
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.JIRDatabasePersistence
-import org.opentaint.ir.api.JIRFeature
-import org.opentaint.ir.api.JIRSignal
-import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.api.*
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
-import org.opentaint.ir.impl.storage.BatchedSequence
-import org.opentaint.ir.impl.storage.defaultBatchSize
-import org.opentaint.ir.impl.storage.eqOrNull
-import org.opentaint.ir.impl.storage.executeQueries
+import org.opentaint.ir.impl.storage.*
 import org.opentaint.ir.impl.storage.jooq.tables.references.CALLS
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
-import org.opentaint.ir.impl.storage.longHash
-import org.opentaint.ir.impl.storage.runBatch
-import org.opentaint.ir.impl.storage.setNullableLong
-import org.opentaint.ir.impl.storage.withoutAutoCommit
 import org.jooq.DSLContext
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.ClassNode
@@ -60,12 +47,11 @@ private class MethodMap(size: Int) {
     }
 }
 
-class UsagesIndexer(persistence: JIRDatabasePersistence, private val location: RegisteredLocation) :
+class UsagesIndexer(private val location: RegisteredLocation) :
     ByteCodeIndexer {
 
     // callee_class -> (callee_name, callee_desc, opcode) -> caller
     private val usages = hashMapOf<String, HashMap<Triple<String, String?, Int>, HashMap<String, MethodMap>>>()
-    private val interner = persistence.symbolInterner
 
     override fun index(classNode: ClassNode) {
         val callerClass = Type.getObjectType(classNode.name).className
@@ -105,23 +91,19 @@ class UsagesIndexer(persistence: JIRDatabasePersistence, private val location: R
                 }
             }
         }
-        names.forEach {
-            interner.findOrNew(it)
-        }
+
         jooq.withoutAutoCommit { conn ->
-            interner.flush(conn)
             conn.runBatch(CALLS) {
                 usages.forEach { (calleeClass, calleeEntry) ->
-                    val calleeId = calleeClass.className.symbolId
+                    val calleeId = calleeClass.className
                     calleeEntry.forEach { (info, callers) ->
                         val (calleeName, calleeDesc, opcode) = info
                         callers.forEach { (caller, offsets) ->
-                            val callerId = if (calleeClass == caller) calleeId else caller.symbolId
-                            setLong(1, calleeId)
-                            setLong(2, calleeName.symbolId)
+                            setString(1, calleeId)
+                            setString(2, calleeName)
                             setNullableLong(3, calleeDesc?.longHash)
                             setInt(4, opcode)
-                            setLong(5, callerId)
+                            setString(5, caller)
                             setBytes(6, offsets.result())
                             setLong(7, location.id)
                             addBatch()
@@ -131,40 +113,37 @@ class UsagesIndexer(persistence: JIRDatabasePersistence, private val location: R
             }
         }
     }
-
-    private inline val String.symbolId get() = interner.findOrNew(this)
 }
 
 object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
 
+    fun create(jooq: DSLContext, drop: Boolean) {
+        if (drop) {
+            jooq.executeQueries("usages/drop-schema.sql".sqlScript())
+        }
+        jooq.executeQueries("usages/create-schema.sql".sqlScript())
+    }
+
     override fun onSignal(signal: JIRSignal) {
         val jIRdb = signal.jIRdb
         when (signal) {
-            is JIRSignal.BeforeIndexing -> {
-                jIRdb.persistence.write {
-                    if (signal.clearOnStart) {
-                        it.executeQueries(jIRdb.persistence.getScript("usages/drop-schema.sql"))
-                    }
-                    it.executeQueries(jIRdb.persistence.getScript("usages/create-schema.sql"))
+            is JIRSignal.BeforeIndexing -> jIRdb.persistence.write {
+                if (signal.clearOnStart) {
+                    it.executeQueries("usages/drop-schema.sql".sqlScript())
                 }
+                it.executeQueries("usages/create-schema.sql".sqlScript())
             }
 
-            is JIRSignal.LocationRemoved -> {
-                jIRdb.persistence.write {
-                    it.deleteFrom(CALLS).where(CALLS.LOCATION_ID.eq(signal.location.id)).execute()
-                }
+            is JIRSignal.LocationRemoved -> jIRdb.persistence.write {
+                it.deleteFrom(CALLS).where(CALLS.LOCATION_ID.eq(signal.location.id)).execute()
             }
 
-            is JIRSignal.AfterIndexing -> {
-                jIRdb.persistence.write {
-                    it.executeQueries(jIRdb.persistence.getScript("usages/add-indexes.sql"))
-                }
+            is JIRSignal.AfterIndexing -> jIRdb.persistence.write {
+                it.executeQueries("usages/add-indexes.sql".sqlScript())
             }
 
-            is JIRSignal.Drop -> {
-                jIRdb.persistence.write {
-                    it.deleteFrom(CALLS).execute()
-                }
+            is JIRSignal.Drop -> jIRdb.persistence.write {
+                it.deleteFrom(CALLS).execute()
             }
 
             else -> Unit
@@ -178,18 +157,19 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
     fun syncQuery(classpath: JIRClasspath, req: UsageFeatureRequest): Sequence<UsageFeatureResponse> {
         val locationIds = classpath.registeredLocations.map { it.id }
         val persistence = classpath.db.persistence
-        val name = (req.methodName ?: req.field).let { persistence.findSymbolId(it!!) }
+        val name = req.methodName ?: req.field
         val desc = req.description?.longHash
-        val className = req.className.map { persistence.findSymbolId(it) }
+        val className = req.className
 
         val calls = persistence.read { jooq ->
             jooq.select(CLASSES.ID, CALLS.CALLER_METHOD_OFFSFrontend, SYMBOLS.NAME, CLASSES.LOCATION_ID)
                 .from(CALLS)
                 .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
-                .join(CLASSES).on(CLASSES.NAME.eq(CALLS.CALLER_CLASS_SYMBOL_ID).and(CLASSES.LOCATION_ID.eq(CALLS.LOCATION_ID)))
+                .join(CLASSES)
+                .on(SYMBOLS.NAME.eq(CALLS.CALLER_CLASS_NAME).and(CLASSES.LOCATION_ID.eq(CALLS.LOCATION_ID)))
                 .where(
-                    CALLS.CALLEE_CLASS_SYMBOL_ID.`in`(className)
-                        .and(CALLS.CALLEE_NAME_SYMBOL_ID.eq(name))
+                    CALLS.CALLEE_CLASS_NAME.`in`(className)
+                        .and(CALLS.CALLEE_NAME.eq(name))
                         .and(CALLS.CALLEE_DESC_HASH.eqOrNull(desc))
                         .and(CALLS.OPCODE.`in`(req.opcodes))
                         .and(CALLS.LOCATION_ID.`in`(locationIds))
@@ -227,7 +207,7 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
         }
     }
 
-    override fun newIndexer(jIRdb: JIRDatabase, location: RegisteredLocation) = UsagesIndexer(jIRdb.persistence, location)
+    override fun newIndexer(jIRdb: JIRDatabase, location: RegisteredLocation) = UsagesIndexer(location)
 
     private fun ByteArray.toShortArray(): ShortArray {
         val byteArray = this

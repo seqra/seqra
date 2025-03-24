@@ -3,17 +3,35 @@
  */
 package org.opentaint.ir.impl.storage.jooq.indexes
 
+import org.opentaint.ir.impl.storage.jooq.tables.*
 import org.jooq.Index
 import org.jooq.impl.DSL
 import org.jooq.impl.Internal
-import org.opentaint.ir.impl.storage.jooq.tables.Builders
-import org.opentaint.ir.impl.storage.jooq.tables.Calls
 
 // -------------------------------------------------------------------------
 // INDEX definitions
 // -------------------------------------------------------------------------
 
-val BUILDERSJOIN: Index = Internal.createIndex(DSL.name("BuildersJoin"), Builders.BUILDERS, arrayOf(Builders.BUILDERS.BUILDER_CLASS_SYMBOL_ID), false)
-val BUILDERSSEARCH: Index = Internal.createIndex(DSL.name("BuildersSearch"), Builders.BUILDERS, arrayOf(Builders.BUILDERS.LOCATION_ID, Builders.BUILDERS.CLASS_SYMBOL_ID, Builders.BUILDERS.PRIORITY), false)
+val ANNOTATIONS_CLASSID: Index = Internal.createIndex(DSL.name("Annotations_classId"), Annotations.ANNOTATIONS, arrayOf(Annotations.ANNOTATIONS.CLASS_ID), false)
+val ANNOTATIONS_FIELDID: Index = Internal.createIndex(DSL.name("Annotations_fieldId"), Annotations.ANNOTATIONS, arrayOf(Annotations.ANNOTATIONS.FIELD_ID), false)
+val ANNOTATIONS_METHODID: Index = Internal.createIndex(DSL.name("Annotations_methodId"), Annotations.ANNOTATIONS, arrayOf(Annotations.ANNOTATIONS.METHOD_ID), false)
+val ANNOTATIONS_PARAMSID: Index = Internal.createIndex(DSL.name("Annotations_paramsId"), Annotations.ANNOTATIONS, arrayOf(Annotations.ANNOTATIONS.PARAM_ID), false)
+val BUILDERSJOIN: Index = Internal.createIndex(DSL.name("BuildersJoin"), Builders.BUILDERS, arrayOf(Builders.BUILDERS.BUILDER_CLASS_NAME), false)
+val BUILDERSSEARCH: Index = Internal.createIndex(DSL.name("BuildersSearch"), Builders.BUILDERS, arrayOf(Builders.BUILDERS.LOCATION_ID, Builders.BUILDERS.CLASS_NAME, Builders.BUILDERS.PRIORITY), false)
 val BUILDERSSORTING: Index = Internal.createIndex(DSL.name("BuildersSorting"), Builders.BUILDERS, arrayOf(Builders.BUILDERS.PRIORITY), false)
-val CALLSSEARCH: Index = Internal.createIndex(DSL.name("CallsSearch"), Calls.CALLS, arrayOf(Calls.CALLS.OPCODE, Calls.CALLS.LOCATION_ID, Calls.CALLS.CALLEE_CLASS_SYMBOL_ID, Calls.CALLS.CALLEE_NAME_SYMBOL_ID, Calls.CALLS.CALLEE_DESC_HASH), false)
+val BYTECODELOCATIONS_HASH: Index = Internal.createIndex(DSL.name("Bytecodelocations_hash"), Bytecodelocations.BYTECODELOCATIONS, arrayOf(Bytecodelocations.BYTECODELOCATIONS.UNIQUEID), true)
+val CALLSSEARCH: Index = Internal.createIndex(DSL.name("CallsSearch"), Calls.CALLS, arrayOf(Calls.CALLS.OPCODE, Calls.CALLS.LOCATION_ID, Calls.CALLS.CALLEE_CLASS_NAME, Calls.CALLS.CALLEE_NAME, Calls.CALLS.CALLEE_DESC_HASH), false)
+val `CLASS HIERARCHIES`: Index = Internal.createIndex(DSL.name("Class Hierarchies"), Classhierarchies.CLASSHIERARCHIES, arrayOf(Classhierarchies.CLASSHIERARCHIES.SUPER_ID), false)
+val CLASSES_LOCATION: Index = Internal.createIndex(DSL.name("Classes_location"), Classes.CLASSES, arrayOf(Classes.CLASSES.LOCATION_ID), false)
+val CLASSES_NAME: Index = Internal.createIndex(DSL.name("Classes_name"), Classes.CLASSES, arrayOf(Classes.CLASSES.NAME), false)
+val CLASSES_OUTERMETHODID: Index = Internal.createIndex(DSL.name("Classes_outerMethodId"), Classes.CLASSES, arrayOf(Classes.CLASSES.OUTER_METHOD), false)
+val CLASSHIERARCHIES_CLASSID: Index = Internal.createIndex(DSL.name("ClassHierarchies_classId"), Classhierarchies.CLASSHIERARCHIES, arrayOf(Classhierarchies.CLASSHIERARCHIES.CLASS_ID), false)
+val CLASSHIERARCHIES_SUPERID: Index = Internal.createIndex(DSL.name("ClassHierarchies_superId"), Classhierarchies.CLASSHIERARCHIES, arrayOf(Classhierarchies.CLASSHIERARCHIES.SUPER_ID), false)
+val CLASSINNERCLASSES_CLASSID: Index = Internal.createIndex(DSL.name("ClassInnerClasses_classId"), Classinnerclasses.CLASSINNERCLASSES, arrayOf(Classinnerclasses.CLASSINNERCLASSES.CLASS_ID), false)
+val CLASSINNERCLASSES_INNERCLASSID: Index = Internal.createIndex(DSL.name("ClassInnerClasses_innerClassId"), Classinnerclasses.CLASSINNERCLASSES, arrayOf(Classinnerclasses.CLASSINNERCLASSES.INNER_CLASS_ID), false)
+val FIELDS_CLASS_ID_NAME: Index = Internal.createIndex(DSL.name("Fields_class_id_name"), Fields.FIELDS, arrayOf(Fields.FIELDS.CLASS_ID, Fields.FIELDS.NAME), true)
+val FIELDS_CLASSID: Index = Internal.createIndex(DSL.name("Fields_classId"), Fields.FIELDS, arrayOf(Fields.FIELDS.CLASS_ID), false)
+val METHODPARAMETERS_METHODID: Index = Internal.createIndex(DSL.name("MethodParameters_methodId"), Methodparameters.METHODPARAMETERS, arrayOf(Methodparameters.METHODPARAMETERS.METHOD_ID), false)
+val METHODS_CLASS_ID_NAME_DESC: Index = Internal.createIndex(DSL.name("Methods_class_id_name_desc"), Methods.METHODS, arrayOf(Methods.METHODS.CLASS_ID, Methods.METHODS.NAME, Methods.METHODS.DESC), true)
+val METHODS_CLASSID: Index = Internal.createIndex(DSL.name("Methods_classId"), Methods.METHODS, arrayOf(Methods.METHODS.CLASS_ID), false)
+val SYMBOLS_NAME: Index = Internal.createIndex(DSL.name("Symbols_name"), Symbols.SYMBOLS, arrayOf(Symbols.SYMBOLS.NAME), true)

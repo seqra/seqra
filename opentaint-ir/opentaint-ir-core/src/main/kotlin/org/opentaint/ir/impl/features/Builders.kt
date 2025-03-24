@@ -1,13 +1,6 @@
 package org.opentaint.ir.impl.features
 
-import org.opentaint.ir.api.ByteCodeIndexer
-import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.JIRDatabasePersistence
-import org.opentaint.ir.api.JIRFeature
-import org.opentaint.ir.api.JIRSignal
-import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.api.*
 import org.opentaint.ir.api.ext.jvmPrimitiveNames
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
@@ -75,12 +68,12 @@ class BuildersIndexer(val persistence: JIRDatabasePersistence, private val locat
         jooq.withoutAutoCommit { conn ->
             conn.runBatch(BUILDERS) {
                 potentialBuilders.forEach { (calleeClass, builders) ->
-                    val calleeId = calleeClass.className.symbolId
+                    val calleeId = calleeClass.className
                     builders.forEach {
                         val (callerClass, offset, priority) = it
-                        val callerId = callerClass.className.symbolId
-                        setLong(1, calleeId)
-                        setLong(2, callerId)
+                        val callerId = callerClass.className
+                        setString(1, calleeId)
+                        setString(2, callerId)
                         setInt(3, priority)
                         setInt(4, offset)
                         setLong(5, location.id)
@@ -91,8 +84,6 @@ class BuildersIndexer(val persistence: JIRDatabasePersistence, private val locat
         }
     }
 
-    private inline val String.symbolId
-        get() = persistence.findSymbolId(this) ?: throw IllegalStateException("Id not found for name: $this")
 }
 
 data class BuildersResponse(
@@ -103,23 +94,28 @@ data class BuildersResponse(
 
 object Builders : JIRFeature<Set<String>, BuildersResponse> {
 
+    fun create(jooq: DSLContext, drop: Boolean) {
+        if (drop) {
+            jooq.executeQueries(dropScheme)
+        }
+        jooq.executeQueries(createScheme)
+    }
+
     private val createScheme = """
         CREATE TABLE IF NOT EXISTS "Builders"(
-            "class_symbol_id"               BIGINT NOT NULL,
-            "builder_class_symbol_id"       BIGINT NOT NULL,
+            "class_name"                    VARCHAR(256) NOT NULL,
+            "builder_class_name"            VARCHAR(256) NOT NULL,
             "priority"                      INTEGER NOT NULL,
             "offset"      					INTEGER NOT NULL,
             "location_id"                   BIGINT NOT NULL,
-            CONSTRAINT "fk_class_symbol_id" FOREIGN KEY ("class_symbol_id") REFERENCES "Symbols" ("id") ON DELETE CASCADE,
-            CONSTRAINT "fk_builder_class_symbol_id" FOREIGN KEY ("builder_class_symbol_id") REFERENCES "Symbols" ("id") ON DELETE CASCADE,
-            CONSTRAINT "fk_location_id" FOREIGN KEY ("location_id") REFERENCES "BytecodeLocations" ("id") ON DELETE CASCADE
+        CONSTRAINT "fk_location_id" FOREIGN KEY ("location_id") REFERENCES "BytecodeLocations" ("id") ON DELETE CASCADE
         );
     """.trimIndent()
 
     private val createIndex = """
-		    CREATE INDEX IF NOT EXISTS "BuildersSearch" ON "Builders"(location_id, class_symbol_id, priority);
+            CREATE INDEX IF NOT EXISTS "BuildersSearch" ON "Builders"(location_id, class_name, priority);
             CREATE INDEX IF NOT EXISTS "BuildersSorting" ON "Builders"(priority);
-            CREATE INDEX IF NOT EXISTS "BuildersJoin" ON "Builders"(builder_class_symbol_id);
+            CREATE INDEX IF NOT EXISTS "BuildersJoin" ON "Builders"(builder_class_name);
     """.trimIndent()
 
     private val dropScheme = """
@@ -169,15 +165,15 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
     fun syncQuery(classpath: JIRClasspath, req: Set<String>): Sequence<BuildersResponse> {
         val locationIds = classpath.registeredLocations.map { it.id }
         val persistence = classpath.db.persistence
-        val classNameIds = req.map { persistence.findSymbolId(it) }
         return sequence {
             val result = persistence.read { jooq ->
                 jooq.select(BUILDERS.OFFSET, SYMBOLS.NAME, CLASSES.ID, CLASSES.LOCATION_ID, BUILDERS.PRIORITY)
                     .from(BUILDERS)
-                    .join(SYMBOLS).on(SYMBOLS.ID.eq(BUILDERS.BUILDER_CLASS_SYMBOL_ID))
-                    .join(CLASSES).on(CLASSES.NAME.eq(BUILDERS.BUILDER_CLASS_SYMBOL_ID).and(BUILDERS.LOCATION_ID.eq(CLASSES.LOCATION_ID)))
+                    .join(SYMBOLS).on(SYMBOLS.NAME.eq(BUILDERS.BUILDER_CLASS_NAME))
+                    .join(CLASSES).on(CLASSES.NAME.eq(SYMBOLS.ID).and(BUILDERS.LOCATION_ID.eq(CLASSES.LOCATION_ID)))
                     .where(
-                        BUILDERS.CLASS_SYMBOL_ID.`in`(classNameIds).and(BUILDERS.LOCATION_ID.`in`(locationIds))
+                        BUILDERS.CLASS_NAME.`in`(req).and(BUILDERS.LOCATION_ID.`in`(locationIds))
+
                     )
                     .limit(100)
                     .fetch()

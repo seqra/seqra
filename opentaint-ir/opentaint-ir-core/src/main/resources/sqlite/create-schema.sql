@@ -1,3 +1,11 @@
+CREATE TABLE IF NOT EXISTS "Applicationmetadata"(
+    version VARCHAR(64)
+);
+
+CREATE TABLE IF NOT EXISTS "Refactorings"(
+    name VARCHAR(64)
+);
+
 CREATE TABLE IF NOT EXISTS "BytecodeLocations"(
     "id"         BIGINT PRIMARY KEY,
     "path"       VARCHAR(1024) NOT NULL,

@@ -7,7 +7,6 @@ import org.opentaint.ir.api.JIRDatabase
 import org.opentaint.ir.api.JIRDatabasePersistence
 import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.impl.fs.JavaRuntime
-import org.opentaint.ir.impl.storage.PostgresPersistenceImpl
 import org.opentaint.ir.impl.storage.SQLitePersistenceImpl
 import java.io.File
 import java.time.Duration
@@ -162,22 +161,7 @@ enum class PredefinedPersistenceType : JIRPersistenceType {
                 clearOnStart = settings.persistentClearOnStart ?: false
             )
         }
-    },
-    POSTGRES {
-        override fun newPersistence(
-            runtime: JavaRuntime,
-            featuresRegistry: FeaturesRegistry,
-            settings: JIRSettings
-        ): JIRDatabasePersistence {
-            return PostgresPersistenceImpl(
-                javaRuntime = runtime,
-                featuresRegistry = featuresRegistry,
-                jIRdbUrl = settings.persistentLocation,
-                clearOnStart = settings.persistentClearOnStart ?: false
-            )
-        }
-    };
-
+    }
 }
 
 class JIRByteCodeCache(val prefixes: List<String> = persistentListOf("java.", "javax.", "kotlinx.", "kotlin."))
@@ -208,9 +192,11 @@ class JIRCacheSettings {
     }
 
     @JvmOverloads
-    fun rawInstLists(maxSize: Long, expiration: Duration, valueStoreType: ValueStoreType = ValueStoreType.STRONG) = apply {
-        rawInstLists = JIRCacheSegmentSettings(maxSize = maxSize, expiration = expiration, valueStoreType = valueStoreType)
-    }
+    fun rawInstLists(maxSize: Long, expiration: Duration, valueStoreType: ValueStoreType = ValueStoreType.STRONG) =
+        apply {
+            rawInstLists =
+                JIRCacheSegmentSettings(maxSize = maxSize, expiration = expiration, valueStoreType = valueStoreType)
+        }
 
     @JvmOverloads
     fun instLists(maxSize: Long, expiration: Duration, valueStoreType: ValueStoreType = ValueStoreType.STRONG) = apply {
@@ -218,8 +204,10 @@ class JIRCacheSettings {
     }
 
     @JvmOverloads
-    fun flowGraphs(maxSize: Long, expiration: Duration, valueStoreType: ValueStoreType = ValueStoreType.STRONG) = apply {
-        flowGraphs = JIRCacheSegmentSettings(maxSize = maxSize, expiration = expiration, valueStoreType = valueStoreType)
-    }
+    fun flowGraphs(maxSize: Long, expiration: Duration, valueStoreType: ValueStoreType = ValueStoreType.STRONG) =
+        apply {
+            flowGraphs =
+                JIRCacheSegmentSettings(maxSize = maxSize, expiration = expiration, valueStoreType = valueStoreType)
+        }
 
 }
