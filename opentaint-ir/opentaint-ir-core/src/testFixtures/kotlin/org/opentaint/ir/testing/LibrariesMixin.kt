@@ -19,7 +19,7 @@ val guavaLib: File
 
 val asmLib: File
     get() {
-        val asmUrl = classpath.first { it.contains("/asm/") }
+        val asmUrl = classpath.first { it.contains("${File.separator}asm${File.separator}") }
         return File(asmUrl).also {
             Assertions.assertTrue(it.isFile && it.exists())
         }
@@ -35,7 +35,7 @@ val kotlinxCoroutines: File
 
 val kotlinStdLib: File
     get() {
-        val kotlinStdLib = classpath.first { it.contains("/kotlin-stdlib/") }
+        val kotlinStdLib = classpath.first { it.contains("${File.separator}kotlin-stdlib${File.separator}") }
         return File(kotlinStdLib).also {
             Assertions.assertTrue(it.isFile && it.exists())
         }

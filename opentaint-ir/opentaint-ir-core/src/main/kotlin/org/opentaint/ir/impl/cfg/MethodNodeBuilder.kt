@@ -80,6 +80,17 @@ class MethodNodeBuilder(
         mn.tryCatchBlocks = tryCatchNodeList
         mn.maxLocals = localIndex
         mn.maxStack = maxStack + 1
+        //At this moment, we're just copying annotations from original method without any modifications
+//        with(method.asmNode()) {
+//            mn.visibleAnnotations = visibleAnnotations
+//            mn.visibleTypeAnnotations = visibleTypeAnnotations
+//            mn.visibleLocalVariableAnnotations = visibleLocalVariableAnnotations
+//            mn.visibleParameterAnnotations = visibleParameterAnnotations
+//            mn.invisibleAnnotations = invisibleAnnotations
+//            mn.invisibleTypeAnnotations = invisibleTypeAnnotations
+//            mn.invisibleLocalVariableAnnotations = invisibleLocalVariableAnnotations
+//            mn.invisibleParameterAnnotations = invisibleParameterAnnotations
+//        }
         return mn
     }
 

@@ -23,7 +23,6 @@ import org.opentaint.ir.testing.hierarchies.Inheritance
 import org.opentaint.ir.testing.primitives.Primitives
 import org.opentaint.ir.testing.structure.FieldsAndMethods
 import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnJre
 import org.junit.jupiter.api.condition.EnabledOnJre
@@ -293,6 +292,11 @@ class InstructionsTest : BaseInstructionsTest() {
         val method = javaClazz.methods.first { it.name == "test" }
         val res = method.invoke(null)
         assertNull(res)
+    }
+
+    @Test
+    fun `arg assignment`() {
+        runTest(ArgAssignmentExample::class.java.name)
     }
 
 }
