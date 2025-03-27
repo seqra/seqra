@@ -2,7 +2,7 @@ rootProject.name = "opentaint-ir"
 
 plugins {
     `gradle-enterprise`
-    id("org.danilopianini.gradle-pre-commit-git-hooks") version "1.0.25"
+    id("org.danilopianini.gradle-pre-commit-git-hooks") version "1.1.11"
 }
 
 gradleEnterprise {
@@ -14,10 +14,9 @@ gradleEnterprise {
 
 gitHooks {
     preCommit {
-        // Content can be added at the bottom of the script
-        from(file("pre-commit").toURI().toURL())
+        from(file("pre-commit"))
     }
-    createHooks() // actual hooks creation
+    createHooks(true)
 }
 
 include("opentaint-ir-api")
