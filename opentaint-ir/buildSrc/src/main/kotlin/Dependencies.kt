@@ -99,7 +99,7 @@ object Libs {
     // https://github.com/Kotlin/kotlinx.collections.immutable
     val kotlinx_collections_immutable = dep(
         group = "org.jetbrains.kotlinx",
-        name = "kotlinx-collections-immutable",
+        name = "kotlinx-collections-immutable-jvm",
         version = Versions.kotlinx_collections_immutable
     )
 
