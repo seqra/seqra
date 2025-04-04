@@ -6,6 +6,7 @@ import org.opentaint.ir.api.JIRPrimitiveType
 import org.opentaint.ir.api.JIRTypeVariable
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.findMethodOrNull
+import org.opentaint.ir.api.ext.humanReadableSignature
 import org.opentaint.ir.api.ext.toType
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import org.opentaint.ir.impl.types.signature.JvmClassRefType
@@ -118,6 +119,15 @@ class TypesTest : BaseTypesTest() {
         assertEquals(stringList1.iterator, stringList2.iterator)
         assertNotEquals(isList.iterator, stringList1.iterator)
         assertNotEquals(objectList.iterator, stringList1.iterator)
+    }
+
+    @Test
+    fun `humanReadableSignature should work`() {
+        val type = listType<String>()
+        assertEquals(
+            "java.util.List<java.lang.String>#isEmpty():boolean",
+            type.declaredMethods.first { it.name == "isEmpty" }.humanReadableSignature
+        )
     }
 
     private inline fun <reified T> listType(raw: Boolean = false): JIRClassType {

@@ -56,7 +56,11 @@ data class AppVersion(val major: Int, val minor: Int) : Comparable<AppVersion> {
 
 class PersistenceService(private val persistence: AbstractJIRDatabasePersistenceImpl) {
 
-    companion object : KLogging()
+    companion object : KLogging() {
+
+        private val defaultVersion = AppVersion(1, 3)
+
+    }
 
     private val refactorings = JIRRefactoringChain(
         listOf(
@@ -82,12 +86,18 @@ class PersistenceService(private val persistence: AbstractJIRDatabasePersistence
         persistence.read {
             logger.info("Starting app version $currentAppVersion")
             version = try {
-                val appVersion = it.selectFrom(APPLICATIONMETADATA).fetch().first()
-                logger.info("Restored app version is ${appVersion.version}")
-                AppVersion.parse(appVersion.version!!)
+                val appVersion = it.selectFrom(APPLICATIONMETADATA).fetch().firstOrNull()
+                if (appVersion != null) {
+                    logger.info("Restored app version is ${appVersion.version}")
+                    AppVersion.parse(appVersion.version!!)
+                } else {
+                    // this is startup on empty database
+                    // there is no records in AppMetadata table
+                    currentAppVersion
+                }
             } catch (e: Exception) {
-                logger.info("fail to restore app version. Use [1.3] as fallback")
-                AppVersion(1, 3)
+                logger.info("fail to restore app version. Use [$defaultVersion] as fallback")
+                defaultVersion
             }
             classIdGen.set(CLASSES.ID.maxId ?: 0)
             symbolsIdGen.set(SYMBOLS.ID.maxId ?: 0)

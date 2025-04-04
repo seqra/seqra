@@ -5,53 +5,22 @@ import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClassProcessingTask
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.PredefinedPrimitives
-import org.opentaint.ir.api.ext.HierarchyExtension
-import org.opentaint.ir.api.ext.constructors
-import org.opentaint.ir.api.ext.enumValues
-import org.opentaint.ir.api.ext.fields
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.findClassOrNull
-import org.opentaint.ir.api.ext.findDeclaredFieldOrNull
-import org.opentaint.ir.api.ext.findDeclaredMethodOrNull
-import org.opentaint.ir.api.ext.findMethodOrNull
-import org.opentaint.ir.api.ext.hasBody
-import org.opentaint.ir.api.ext.humanReadableSignature
-import org.opentaint.ir.api.ext.isEnum
-import org.opentaint.ir.api.ext.isLocal
-import org.opentaint.ir.api.ext.isMemberClass
-import org.opentaint.ir.api.ext.isNullable
-import org.opentaint.ir.api.ext.jIRdbSignature
-import org.opentaint.ir.api.ext.jvmSignature
-import org.opentaint.ir.api.ext.methods
-import org.opentaint.ir.api.ext.toType
+import org.opentaint.ir.api.ext.*
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.VirtualClassContent
 import org.opentaint.ir.impl.features.classpaths.VirtualClasses
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualClass
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualField
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualMethod
-import org.opentaint.ir.testing.A
-import org.opentaint.ir.testing.B
-import org.opentaint.ir.testing.Bar
-import org.opentaint.ir.testing.C
-import org.opentaint.ir.testing.D
-import org.opentaint.ir.testing.Enums
-import org.opentaint.ir.testing.Foo
-import org.opentaint.ir.testing.SuperDuper
-import org.opentaint.ir.testing.allClasspath
+import org.opentaint.ir.testing.*
 import org.opentaint.ir.testing.hierarchies.Creature
-import org.opentaint.ir.testing.skipAssertionsOn
 import org.opentaint.ir.testing.structure.FieldsAndMethods
 import org.opentaint.ir.testing.structure.HiddenFieldSuperClass.HiddenFieldSuccClass
 import org.opentaint.ir.testing.usages.Generics
 import org.opentaint.ir.testing.usages.HelloWorldAnonymousClasses
 import org.opentaint.ir.testing.usages.WithInner
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.JRE
@@ -208,7 +177,7 @@ abstract class DatabaseEnvTest {
             assertEquals(DocumentType::class.java.name, returnType.typeName)
             assertEquals("getDoctype()org.w3c.dom.DocumentType;", jIRdbSignature)
             assertEquals("getDoctype()Lorg/w3c/dom/DocumentType;", jvmSignature)
-            assertEquals("org.w3c.dom.DocumentType getDoctype()", humanReadableSignature)
+            assertEquals("org.w3c.dom.Document#getDoctype():org.w3c.dom.DocumentType", humanReadableSignature)
             assertTrue(isPublic)
         }
 
@@ -217,12 +186,12 @@ abstract class DatabaseEnvTest {
             assertEquals(Element::class.java.name, returnType.typeName)
             assertEquals("createElement(java.lang.String;)org.w3c.dom.Element;", jIRdbSignature)
             assertEquals("createElement(Ljava/lang/String;)Lorg/w3c/dom/Element;", jvmSignature)
-            assertEquals("org.w3c.dom.Element createElement(java.lang.String)", humanReadableSignature)
+            assertEquals("org.w3c.dom.Document#createElement(java.lang.String):org.w3c.dom.Element", humanReadableSignature)
         }
 
         with(methods.first { it.name == "importNode" }) {
             assertEquals("importNode(org.w3c.dom.Node;boolean;)org.w3c.dom.Node;", jIRdbSignature)
-            assertEquals("org.w3c.dom.Node importNode(org.w3c.dom.Node,boolean)", humanReadableSignature)
+            assertEquals("org.w3c.dom.Document#importNode(org.w3c.dom.Node,boolean):org.w3c.dom.Node", humanReadableSignature)
         }
     }
 
