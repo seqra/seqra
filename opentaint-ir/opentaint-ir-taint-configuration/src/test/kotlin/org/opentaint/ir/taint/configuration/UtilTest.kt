@@ -1,4 +1,4 @@
-package org.opentaint.ir.configuration
+package org.opentaint.ir.taint.configuration
 
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test

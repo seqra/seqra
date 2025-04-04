@@ -1,4 +1,4 @@
-package org.opentaint.ir.configuration
+package org.opentaint.ir.taint.configuration
 
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.JIRClasspath
@@ -15,7 +15,8 @@ import org.opentaint.ir.impl.types.TypeNameImpl
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.allClasspath
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class ConfigurationTest : BaseTest() {

@@ -1,6 +1,5 @@
-package org.opentaint.ir.configuration
+package org.opentaint.ir.taint.configuration
 
-import org.opentaint.ir.api.JIRField
 import org.opentaint.ir.api.JIRMethod
 
 sealed interface TaintConfigurationItem

@@ -1,4 +1,4 @@
-package org.opentaint.ir.configuration
+package org.opentaint.ir.taint.configuration
 
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.decodeFromString
