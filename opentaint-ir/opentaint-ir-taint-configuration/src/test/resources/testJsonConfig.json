@@ -1,0 +1,483 @@
+[
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "com.service.model"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*Request"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "set.*|init\\^"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "AnyArgument"
+        },
+        "to": {
+          "_": "This"
+        }
+      },
+      {
+        "_": "CopyMark",
+        "from": {
+          "_": "This"
+        },
+        "to": {
+          "_": "Result"
+        },
+        "mark": {
+          "name": "VALIDATED_CROSS_SITE_SCRIPTING_REFLECTED"
+        }
+      }
+    ]
+  },
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*Base64.*"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": ".*encode.*"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyMark",
+        "from": {
+          "_": "Argument",
+          "number": 0
+        },
+        "to": {
+          "_": "Result"
+        },
+        "mark": {
+          "name": "BASE64_ENCODED"
+        }
+      }
+    ]
+  },
+  {
+    "_": "MethodSink",
+    "ruleNote": "System Information Leak",
+    "cwe": [
+      497
+    ],
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.util"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "Properties"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "store|save"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "And",
+      "args": [
+        {
+          "_": "Or",
+          "args": [
+            {
+              "_": "ContainsMark",
+              "position": {
+                "_": "This"
+              },
+              "mark": {
+                "name": "SYSTEMINFO"
+              }
+            },
+            {
+              "_": "ContainsMark",
+              "position": {
+                "_": "Argument",
+                "number": 1
+              },
+              "mark": {
+                "name": "SYSTEMINFO"
+              }
+            }
+          ]
+        },
+        {
+          "_": "Not",
+          "condition": {
+            "_": "Or",
+            "args": [
+              {
+                "_": "ContainsMark",
+                "position": {
+                  "_": "This"
+                },
+                "mark": {
+                  "name": "A"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "_": "MethodSource",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.lang"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "System"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "getProperty"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "And",
+      "args": [
+        {
+          "_": "IsType",
+          "position": {
+            "_": "Argument",
+            "number": 0
+          },
+          "type": {
+            "_": "ClassMatcher",
+            "packageMatcher": {
+              "_": "NameIsEqualTo",
+              "name": "java.lang"
+            },
+            "classNameMatcher": {
+              "_": "NameMatches",
+              "pattern": "String(Builder)?|StringBuffer"
+            }
+          }
+        },
+        {
+          "_": "Not",
+          "condition": {
+            "_": "ConstantMatches",
+            "position": {
+              "_": "Argument",
+              "number": 0
+            },
+            "pattern": "(line.separator|file.separator|user.dir|user.home|os.name)$"
+          }
+        },
+        {
+          "_": "Not",
+          "condition": {
+            "_": "SourceFunctionMatches",
+            "position": {
+              "_": "Argument",
+              "number": 0
+            },
+            "sourceFunction": {
+              "cls": {
+                "packageMatcher": {
+                  "_": "NameIsEqualTo",
+                  "name": "java.lang"
+                },
+                "classNameMatcher": {
+                  "_": "NameIsEqualTo",
+                  "name": "System"
+                }
+              },
+              "functionName": {
+                "_": "NameMatches",
+                "pattern": "(lineSeparator)$"
+              },
+              "parametersMatchers": [
+              ],
+              "returnTypeMatcher": {
+                "_": "AnyTypeMatches"
+              },
+              "applyToOverrides": false,
+              "functionLabel": null,
+              "modifier": -1,
+              "exclude": [
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "actionsAfter": [
+      {
+        "_": "AssignMark",
+        "position": {
+          "_": "Result"
+        },
+        "mark": {
+          "name": "PROPERTY"
+        }
+      },
+      {
+        "_": "AssignMark",
+        "position": {
+          "_": "Result"
+        },
+        "mark": {
+          "name": "SYSTEMINFO"
+        }
+      }
+    ]
+  },
+  {
+    "_": "Cleaner",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameMatches",
+          "pattern": "java\\..*|org\\..*\\.collections"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*List|.*Set"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "clear"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": false,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "RemoveAllMarks",
+        "position": {
+          "_": "This"
+        }
+      },
+      {
+        "_": "RemoveMark",
+        "position": {
+          "_": "This"
+        },
+        "mark": {
+          "name": "Mark"
+        }
+      }
+    ]
+  },
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.lang"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "StringBuilder"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "init^"
+      },
+      "parametersMatchers": [
+        {
+          "index": 0,
+          "typeMatcher": {
+            "_": "ClassMatcher",
+            "packageMatcher": {
+              "_": "NameIsEqualTo",
+              "name": "java.lang"
+            },
+            "classNameMatcher": {
+              "_": "NameIsEqualTo",
+              "name": "String"
+            }
+          }
+        }
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "Argument",
+          "number": 0
+        },
+        "to": {
+          "_": "This"
+        }
+      }
+    ]
+  },
+  {
+    "_": "MethodSink",
+    "ruleNote": "System Information Leak",
+    "cwe": [
+      497
+    ],
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.io"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": "Writer|OutputStream"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "write.*"
+      },
+      "parametersMatchers": [
+        {
+          "index": 0,
+          "typeMatcher": {
+            "_": "PrimitiveNameMatches",
+            "name": "int"
+          }
+        }
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "And",
+      "args": [
+        {
+          "_": "IsType",
+          "position": {
+            "_": "Argument",
+            "number": 0
+          },
+          "type": {
+            "_": "PrimitiveNameMatches",
+            "name": "int"
+          }
+        },
+        {
+          "_": "IsConstant",
+          "position": {
+            "_": "Argument",
+            "number": 0
+          }
+        },
+        {
+          "_": "ConstantEq",
+          "position": {
+            "_": "Argument",
+            "number": 0
+          },
+          "constant": {
+            "_": "IntValue",
+            "value": 0
+          }
+        }
+      ]
+    }
+  }
+]

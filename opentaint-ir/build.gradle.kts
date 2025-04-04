@@ -160,6 +160,7 @@ if (!repoUrl.isNullOrEmpty()) {
             project(":opentaint-ir-core"),
             project(":opentaint-ir-analysis"),
             project(":opentaint-ir-approximations"),
+            project(":opentaint-ir-taint-configuration"),
         )
     ) {
         tasks {
