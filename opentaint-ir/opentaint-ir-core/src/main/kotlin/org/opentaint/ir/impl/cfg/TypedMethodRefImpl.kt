@@ -2,6 +2,7 @@ package org.opentaint.ir.impl.cfg
 
 import org.opentaint.ir.api.*
 import org.opentaint.ir.api.cfg.*
+import org.opentaint.ir.api.ext.findType
 import org.opentaint.ir.api.ext.jvmName
 import org.opentaint.ir.impl.cfg.util.typeName
 import org.opentaint.ir.impl.softLazy
@@ -60,7 +61,7 @@ abstract class MethodSignatureRef(
         }
 
     fun JIRType.throwNotFoundException(): Nothing {
-        throw IllegalStateException(this.methodNotFoundMessage)
+        throw MethodNotFoundException(this.methodNotFoundMessage)
     }
 
 }
@@ -73,14 +74,14 @@ class TypedStaticMethodRefImpl(
 ) : MethodSignatureRef(type, name, argTypes, returnType) {
 
     constructor(classpath: JIRClasspath, raw: JIRRawStaticCallExpr) : this(
-            classpath.findTypeOrNull(raw.declaringClass.typeName) as JIRClassType,
+            classpath.findType(raw.declaringClass.typeName) as JIRClassType,
             raw.methodName,
             raw.argumentTypes,
             raw.returnType
     )
 
     override val method: JIRTypedMethod by weakLazy {
-        type.lookup.staticMethod(name, description) ?: throw IllegalStateException(methodNotFoundMessage)
+        type.lookup.staticMethod(name, description) ?: type.throwNotFoundException()
     }
 }
 
@@ -92,7 +93,7 @@ class TypedSpecialMethodRefImpl(
 ) : MethodSignatureRef(type, name, argTypes, returnType) {
 
     constructor(classpath: JIRClasspath, raw: JIRRawSpecialCallExpr) : this(
-            classpath.findTypeOrNull(raw.declaringClass.typeName) as JIRClassType,
+            classpath.findType(raw.declaringClass.typeName) as JIRClassType,
             raw.methodName,
             raw.argumentTypes,
             raw.returnType
@@ -114,7 +115,7 @@ class VirtualMethodRefImpl(
 
     companion object {
         private fun JIRRawCallExpr.resolvedType(classpath: JIRClasspath): Pair<JIRClassType, JIRClassType> {
-            val declared = classpath.findTypeOrNull(declaringClass.typeName) as JIRClassType
+            val declared = classpath.findType(declaringClass.typeName) as JIRClassType
             if (this is JIRRawInstanceExpr) {
                 val instance = instance
                 if (instance is JIRRawLocal) {
@@ -165,7 +166,7 @@ class TypedMethodRefImpl(
 ) : MethodSignatureRef(type, name, argTypes, returnType) {
 
     constructor(classpath: JIRClasspath, raw: JIRRawCallExpr) : this(
-            classpath.findTypeOrNull(raw.declaringClass.typeName) as JIRClassType,
+            classpath.findType(raw.declaringClass.typeName) as JIRClassType,
             raw.methodName,
             raw.argumentTypes,
             raw.returnType
