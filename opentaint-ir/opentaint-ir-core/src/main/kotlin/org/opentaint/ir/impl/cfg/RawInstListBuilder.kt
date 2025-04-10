@@ -1469,7 +1469,7 @@ class RawInstListBuilder(
         repeat(insnNode.dims) {
             dimensions += pop()
         }
-        val expr = JIRRawNewArrayExpr(insnNode.desc.typeName(), dimensions)
+        val expr = JIRRawNewArrayExpr(insnNode.desc.typeName(), dimensions.reversed())
         val assignment = nextRegister(expr.typeName)
         addInstruction(insnNode, JIRRawAssignInst(method, assignment, expr))
         push(assignment)
