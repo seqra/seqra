@@ -16,6 +16,8 @@ import org.opentaint.ir.testing.*
 import org.opentaint.ir.testing.hierarchies.Creature
 import org.opentaint.ir.testing.structure.FieldsAndMethods
 import org.opentaint.ir.testing.structure.HiddenFieldSuperClass.HiddenFieldSuccClass
+import org.opentaint.ir.testing.types.AAA
+import org.opentaint.ir.testing.types.AAA.CCC
 import org.opentaint.ir.testing.usages.Generics
 import org.opentaint.ir.testing.usages.HelloWorldAnonymousClasses
 import org.opentaint.ir.testing.usages.WithInner
@@ -582,6 +584,24 @@ abstract class DatabaseEnvTest {
     fun `hidden fields`() {
         val hiddenFieldSuccClass = cp.findClass<HiddenFieldSuccClass>()
         assertTrue(hiddenFieldSuccClass.toType().fields.size == hiddenFieldSuccClass.fields.size)
+    }
+
+    @Test
+    fun `static flag on classes`() {
+        val aaa = cp.findClass<AAA>()
+
+        val bbb = cp.findClass<AAA.BBB>()
+        val ccc = cp.findClass<CCC>()
+        assertFalse(bbb.isStatic)
+        assertTrue(ccc.isStatic)
+
+        assertTrue(ccc.innerClasses.isEmpty())
+        assertTrue(bbb.innerClasses.isEmpty())
+
+        val inners = aaa.innerClasses.toList()
+        assertEquals(2, inners.size)
+        assertTrue(inners.first { it.name.contains("CCC") }.isStatic)
+        assertFalse(inners.first { it.name.contains("BBB") }.isStatic)
     }
 
     private inline fun <reified T> findSubClasses(allHierarchy: Boolean = false): Sequence<JIRClassOrInterface> {

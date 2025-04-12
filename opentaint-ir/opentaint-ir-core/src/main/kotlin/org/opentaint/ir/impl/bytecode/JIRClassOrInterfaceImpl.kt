@@ -76,7 +76,7 @@ class JIRClassOrInterfaceImpl(
 
     override val innerClasses: List<JIRClassOrInterface>
         get() {
-            return info.innerClasses.map {
+            return info.innerClasses.filter { it != name }.map {
                 classpath.findClass(it)
             }
         }
