@@ -16,8 +16,10 @@ import org.opentaint.ir.impl.storage.defaultBatchSize
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSHIERARCHIES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
+import org.jooq.Condition
 import org.jooq.Record3
 import org.jooq.SelectConditionStep
+import org.jooq.impl.DSL
 import java.util.concurrent.Future
 
 @Suppress("SqlResolve")
@@ -152,25 +154,28 @@ private fun SelectConditionStep<Record3<Long?, String?, Long?>>.batchingProcess(
         }
 }
 
+private fun List<Long>.where(offset: Long?): Condition {
+    return when (offset) {
+        null -> CLASSES.LOCATION_ID.`in`(this)
+        else -> CLASSES.LOCATION_ID.`in`(this).and(CLASSES.ID.greaterThan(offset))
+    }
+}
+
 internal fun JIRClasspath.allClassesExceptObject(direct: Boolean): Sequence<PersistenceClassSource> {
     val locationIds = registeredLocations.map { it.id }
     if (direct) {
         return BatchedSequence(defaultBatchSize) { offset, batchSize ->
             db.persistence.read { jooq ->
-                val whereCondition = if (offset == null) {
-                    CLASSES.LOCATION_ID.`in`(locationIds)
-                } else {
-                    CLASSES.LOCATION_ID.`in`(locationIds).and(
-                        CLASSES.ID.greaterThan(offset)
-                    )
-                }
+                val whereCondition = locationIds.where(offset)
                 jooq.select(CLASSES.ID, SYMBOLS.NAME, CLASSES.LOCATION_ID)
                     .from(CLASSES)
                     .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
                     .where(
                         whereCondition
-                            .and(CLASSES.ID.notIn(jooq.select(CLASSHIERARCHIES.SUPER_ID).from(
-                                CLASSHIERARCHIES)))
+                            .and(DSL.notExists(
+                                jooq.select(CLASSHIERARCHIES.ID).from(CLASSHIERARCHIES)
+                                .where(CLASSHIERARCHIES.CLASS_ID.eq(CLASSES.ID).and(CLASSHIERARCHIES.IS_CLASS_REF.eq(true)))
+                            ))
                             .and(SYMBOLS.NAME.notEqual(JAVA_OBJECT))
                     )
                     .batchingProcess(this, batchSize)
@@ -179,13 +184,7 @@ internal fun JIRClasspath.allClassesExceptObject(direct: Boolean): Sequence<Pers
         }
         return BatchedSequence(defaultBatchSize) { offset, batchSize ->
             db.persistence.read { jooq ->
-                val whereCondition = if (offset == null) {
-                    CLASSES.LOCATION_ID.`in`(locationIds)
-                } else {
-                    CLASSES.LOCATION_ID.`in`(locationIds).and(
-                        CLASSES.ID.greaterThan(offset)
-                    )
-                }
+                val whereCondition = locationIds.where(offset)
 
                 jooq.select(CLASSES.ID, SYMBOLS.NAME, CLASSES.LOCATION_ID)
                     .from(CLASSES)

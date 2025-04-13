@@ -1,14 +1,6 @@
 package org.opentaint.ir.impl.features
 
-import org.opentaint.ir.api.ByteCodeIndexer
-import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.JIRDatabasePersistence
-import org.opentaint.ir.api.JIRFeature
-import org.opentaint.ir.api.JIRSignal
-import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.api.*
 import org.opentaint.ir.api.ext.JAVA_OBJECT
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
@@ -17,6 +9,7 @@ import org.opentaint.ir.impl.storage.defaultBatchSize
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSHIERARCHIES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
+import org.opentaint.ir.impl.storage.withoutAutoCommit
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.objectweb.asm.Type
@@ -29,19 +22,21 @@ typealias InMemoryHierarchyCache = ConcurrentHashMap<Long, ConcurrentHashMap<Lon
 private val objectJvmName = Type.getInternalName(Any::class.java)
 
 class InMemoryHierarchyIndexer(
-    private val persistence: JIRDatabasePersistence,
+    persistence: JIRDatabasePersistence,
     private val location: RegisteredLocation,
     private val hierarchy: InMemoryHierarchyCache
 ) : ByteCodeIndexer {
 
+    private val interner = persistence.symbolInterner
+
     override fun index(classNode: ClassNode) {
-        val clazzSymbolId = persistence.findSymbolId(classNode.name.className) ?: return
+        val clazzSymbolId = interner.findOrNew(classNode.name.className)
         val superName = classNode.superName
         val superclasses = when {
             superName != null && superName != objectJvmName -> classNode.interfaces + superName
             else -> classNode.interfaces
         }
-        superclasses.mapNotNull { persistence.findSymbolId(it.className) }
+        superclasses.map { interner.findOrNew(it.className) }
             .forEach {
                 hierarchy.getOrPut(it) { ConcurrentHashMap() }
                     .getOrPut(location.id) { ConcurrentHashMap.newKeySet() }
@@ -50,6 +45,9 @@ class InMemoryHierarchyIndexer(
     }
 
     override fun flush(jooq: DSLContext) {
+        jooq.withoutAutoCommit { conn ->
+            interner.flush(conn)
+        }
     }
 }
 
