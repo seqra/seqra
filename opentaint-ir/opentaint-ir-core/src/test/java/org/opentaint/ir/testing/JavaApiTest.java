@@ -56,5 +56,6 @@ public class JavaApiTest {
         System.out.println("asyncRebuildFeatures finished");
         instance.asyncAwaitBackgroundJobs().get();
         System.out.println("asyncAwaitBackgroundJobs finished");
+        instance.getFeatures();
     }
 }

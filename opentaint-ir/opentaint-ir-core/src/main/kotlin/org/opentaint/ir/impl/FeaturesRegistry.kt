@@ -1,24 +1,18 @@
 package org.opentaint.ir.impl
 
-import org.opentaint.ir.api.ByteCodeIndexer
-import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.JIRFeature
-import org.opentaint.ir.api.JIRSignal
-import org.opentaint.ir.api.RegisteredLocation
+import kotlinx.collections.immutable.toPersistentList
+import org.opentaint.ir.api.*
 import org.opentaint.ir.impl.fs.fullAsmNode
 import java.io.Closeable
 
-class FeaturesRegistry(private val features: List<JIRFeature<*, *>>) : Closeable {
+class FeaturesRegistry(features: List<JIRFeature<*, *>>) : Closeable {
+
+    val features = features.toPersistentList()
 
     private lateinit var jIRdb: JIRDatabase
 
     fun bind(jIRdb: JIRDatabase) {
         this.jIRdb = jIRdb
-    }
-
-    fun has(feature: JIRFeature<*, *>): Boolean {
-        return features.contains(feature)
     }
 
     fun index(location: RegisteredLocation, classes: List<ClassSource>) {
@@ -40,10 +34,6 @@ class FeaturesRegistry(private val features: List<JIRFeature<*, *>>) : Closeable
 
     fun broadcast(signal: JIRInternalSignal) {
         features.forEach { it.onSignal(signal.asJIRSignal(jIRdb)) }
-    }
-
-    fun forEach(action: (JIRDatabase, JIRFeature<*, *>) -> Unit) {
-        features.forEach { action(jIRdb, it) }
     }
 
     override fun close() {

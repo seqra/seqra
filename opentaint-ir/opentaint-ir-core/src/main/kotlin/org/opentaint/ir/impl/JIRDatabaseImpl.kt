@@ -181,9 +181,8 @@ class JIRDatabaseImpl(
         backgroundJobs.values.joinAll()
     }
 
-    override fun isInstalled(feature: JIRFeature<*, *>): Boolean {
-        return featureRegistry.has(feature)
-    }
+    override val features: List<JIRFeature<*, *>>
+        get() = featureRegistry.features
 
     suspend fun afterStart() {
         hooks.forEach { it.afterStart() }
