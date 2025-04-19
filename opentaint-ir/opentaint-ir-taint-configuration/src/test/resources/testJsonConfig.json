@@ -479,5 +479,56 @@
         }
       ]
     }
+  },
+  {
+    "_": "MethodSink",
+    "ruleNote": "Test rule for isType matcher",
+    "cwe": [
+      -1
+    ],
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.util"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "List"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "removeAll"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": false,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "IsType",
+      "position": {
+        "_": "Argument",
+        "number": 0
+      },
+      "type": {
+        "_": "ClassMatcher",
+        "packageMatcher": {
+          "_": "NameMatches",
+          "pattern": "java\\..*"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": "List.*"
+        }
+      }
+    }
   }
 ]

@@ -1,6 +1,5 @@
 package org.opentaint.ir.taint.configuration
 
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
@@ -8,7 +7,6 @@ import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
 import org.opentaint.ir.api.*
 import org.opentaint.ir.api.ext.*
-import org.opentaint.ir.impl.features.hierarchyExt
 import java.nio.file.Path
 import kotlin.io.path.readText
 
@@ -275,31 +273,49 @@ class TaintConfigurationFeature private constructor(
                 return mkOr(types.flatMap { type -> position.map { TypeMatches(it, type) } })
             }
 
-            typeMatcher as ClassMatcher
-
-            val pkgMatcher = typeMatcher.pkg
-            val clsMatcher = typeMatcher.classNameMatcher
-            val cp = method.enclosingClass.classpath
-
-            if (pkgMatcher is NameExactMatcher && clsMatcher is NameExactMatcher) {
-                val type = cp.findTypeOrNull("${pkgMatcher.name}$DOT_DELIMITER${clsMatcher.name}")
-                    ?: return mkOr(emptyList())
-                return mkOr(position.map { TypeMatches(it, type) })
-            }
-
-            val alternatives = typeMatcher.extractAlternatives()
+            val typeMatchers = (typeMatcher as ClassMatcher).extractAlternatives()
+            val unresolvedMatchers = mutableListOf<ClassMatcher>()
             val disjuncts = mutableListOf<Condition>()
 
-            alternatives.forEach { classMatcher ->
-                val allClasses = runBlocking {
-                    cp.hierarchyExt().findSubClasses(cp.objectClass, allHierarchy = true, includeOwn = true)
+            val cp = method.enclosingClass.classpath
+
+            for (matcher in typeMatchers) {
+                val pkgMatcher = matcher.pkg
+                val clsMatcher = matcher.classNameMatcher
+
+                if (pkgMatcher !is NameExactMatcher || clsMatcher !is NameExactMatcher) {
+                    unresolvedMatchers += matcher
+                    continue
                 }
 
-                val types = allClasses.filter {
-                    matches(classMatcher.pkg, it.packageName) && matches(classMatcher.classNameMatcher, it.simpleName)
+                val type = cp.findTypeOrNull("${pkgMatcher.name}$DOT_DELIMITER${clsMatcher.name}")
+                    ?: continue
+
+                position.mapTo(disjuncts) { TypeMatches(it, type) }
+            }
+
+            if (unresolvedMatchers.isNotEmpty()) {
+                val allClassNames = cp.registeredLocations.flatMapTo(hashSetOf()) {
+                    val names = it.jIRLocation?.classNames ?: return@flatMapTo emptyList()
+                    names.map { name ->
+                        val packageName = name.substringBeforeLast(DOT_DELIMITER, missingDelimiterValue = "")
+                        val simpleName = name.substringAfterLast(DOT_DELIMITER)
+                        packageName to simpleName
+                    }
                 }
 
-                disjuncts += types.flatMap { type -> position.map { TypeMatches(it, type.toType()) } }.toList()
+                unresolvedMatchers.forEach { classMatcher ->
+                    val matchedClassNames = allClassNames.filter { (packageName, simpleName) ->
+                        matches(classMatcher.pkg, packageName) && matches(classMatcher.classNameMatcher, simpleName)
+                    }
+
+                    matchedClassNames.flatMapTo(disjuncts) { (packageName, simpleName) ->
+                        val type = cp.findTypeOrNull("${packageName}$DOT_DELIMITER${simpleName}")
+                            ?: return@flatMapTo emptyList()
+
+                        position.map { TypeMatches(it, type) }
+                    }
+                }
             }
 
             return mkOr(disjuncts)

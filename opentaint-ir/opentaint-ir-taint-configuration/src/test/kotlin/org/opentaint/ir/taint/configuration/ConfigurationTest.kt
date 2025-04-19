@@ -104,4 +104,15 @@ class ConfigurationTest : BaseTest() {
 
         assertTrue(rules.singleOrNull() != null)
     }
+
+    @Test
+    fun testIsTypeMatcher() {
+        @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
+        val method = cp.findClass<java.util.List<*>>().methods.single {
+            it.name == "removeAll" && it.parameters.size == 1
+        }
+        val rules = taintFeature.getConfigForMethod(method)
+
+        assertTrue(rules.singleOrNull() != null)
+    }
 }
