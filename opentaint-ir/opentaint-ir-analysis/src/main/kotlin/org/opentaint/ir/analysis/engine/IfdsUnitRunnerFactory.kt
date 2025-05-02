@@ -7,8 +7,6 @@ import kotlinx.coroutines.launch
 import org.opentaint.ir.api.core.analysis.ApplicationGraph
 import org.opentaint.ir.api.core.cfg.CoreInst
 import org.opentaint.ir.api.core.cfg.CoreInstLocation
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 
 /**
  * Represents a runner and allows to manipulate it.

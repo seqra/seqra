@@ -3,8 +3,9 @@ package org.opentaint.ir.analysis.engine
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import org.opentaint.ir.analysis.graph.reversed
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.core.analysis.ApplicationGraph
+import org.opentaint.ir.api.core.cfg.CoreInst
+import org.opentaint.ir.api.core.cfg.CoreInstLocation
 
 /**
  * This factory produces composite runners. Each of them launches two runners (backward and forward)
@@ -28,18 +29,21 @@ import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
  * @param isParallel if true, the produced composite runner will launch backward and forward runners in parallel.
  * Otherwise, the backward runner will be executed first, and after it, the forward runner will be executed.
  */
-class BidiIfdsUnitRunnerFactory(
-    private val forwardRunnerFactory: IfdsUnitRunnerFactory,
-    private val backwardRunnerFactory: IfdsUnitRunnerFactory,
+class BidiIfdsUnitRunnerFactory<Method, Location, Statement>(
+    private val forwardRunnerFactory: IfdsUnitRunnerFactory<Method, Location, Statement>,
+    private val backwardRunnerFactory: IfdsUnitRunnerFactory<Method, Location, Statement>,
     private val isParallel: Boolean = true
-) : IfdsUnitRunnerFactory {
+) : IfdsUnitRunnerFactory<Method, Location, Statement>
+        where Location : CoreInstLocation<Method>,
+              Statement : CoreInst<Location, Method, *> {
+
     private inner class BidiIfdsUnitRunner<UnitType>(
-        graph: JIRApplicationGraph,
-        private val manager: IfdsUnitManager<UnitType>,
-        private val unitResolver: UnitResolver<UnitType>,
+        graph: ApplicationGraph<Method, Statement>,
+        private val manager: IfdsUnitManager<UnitType, Method, Location, Statement>,
+        private val unitResolver: UnitResolver<UnitType, Method>,
         unit: UnitType,
-        startMethods: List<JIRMethod>,
-    ) : AbstractIfdsUnitRunner<UnitType>(unit) {
+        startMethods: List<Method>,
+    ) : AbstractIfdsUnitRunner<UnitType, Method, Location, Statement>(unit) {
 
         @Volatile
         private var forwardQueueIsEmpty: Boolean = false
@@ -47,65 +51,82 @@ class BidiIfdsUnitRunnerFactory(
         @Volatile
         private var backwardQueueIsEmpty: Boolean = false
 
-        private val forwardManager: IfdsUnitManager<UnitType> = object : IfdsUnitManager<UnitType> by manager {
+        private val forwardManager: IfdsUnitManager<UnitType, Method, Location, Statement> =
+            object : IfdsUnitManager<UnitType, Method, Location, Statement> by manager {
 
-            override suspend fun handleEvent(event: IfdsUnitRunnerEvent, runner: IfdsUnitRunner<UnitType>) {
-                when (event) {
-                    is EdgeForOtherRunnerQuery -> {
-                        if (unitResolver.resolve(event.edge.method) == unit) {
-                            backwardRunner.submitNewEdge(event.edge)
-                        } else {
+                override suspend fun handleEvent(
+                    event: IfdsUnitRunnerEvent,
+                    runner: IfdsUnitRunner<UnitType, Method, Location, Statement>
+                ) {
+                    when (event) {
+                        is EdgeForOtherRunnerQuery<*, *, *> -> {
+                            @Suppress("UNCHECKED_CAST")
+                            event as EdgeForOtherRunnerQuery<Method, Location, Statement>
+                            if (unitResolver.resolve(event.edge.method) == unit) {
+                                backwardRunner.submitNewEdge(event.edge)
+                            } else {
+                                manager.handleEvent(event, this@BidiIfdsUnitRunner)
+                            }
+                        }
+
+                        is NewSummaryFact<*> -> {
+                            manager.handleEvent(event, this@BidiIfdsUnitRunner)
+                        }
+
+                        is QueueEmptinessChanged -> {
+                            forwardQueueIsEmpty = event.isEmpty
+                            val newEvent = QueueEmptinessChanged(backwardQueueIsEmpty && forwardQueueIsEmpty)
+                            manager.handleEvent(newEvent, this@BidiIfdsUnitRunner)
+                        }
+
+                        is SubscriptionForSummaryEdges<*, *, *> -> {
                             manager.handleEvent(event, this@BidiIfdsUnitRunner)
                         }
                     }
-                    is NewSummaryFact -> {
-                        manager.handleEvent(event, this@BidiIfdsUnitRunner)
-                    }
-                    is QueueEmptinessChanged -> {
-                        forwardQueueIsEmpty = event.isEmpty
-                        val newEvent = QueueEmptinessChanged(backwardQueueIsEmpty && forwardQueueIsEmpty)
-                        manager.handleEvent(newEvent, this@BidiIfdsUnitRunner)
-                    }
-                    is SubscriptionForSummaryEdges -> {
-                        manager.handleEvent(event, this@BidiIfdsUnitRunner)
+                }
+            }
+
+        private val backwardManager: IfdsUnitManager<UnitType, Method, Location, Statement> =
+            object : IfdsUnitManager<UnitType, Method, Location, Statement> {
+                override suspend fun handleEvent(
+                    event: IfdsUnitRunnerEvent,
+                    runner: IfdsUnitRunner<UnitType, Method, Location, Statement>
+                ) {
+                    when (event) {
+                        is EdgeForOtherRunnerQuery<*, *, *> -> {
+                            @Suppress("UNCHECKED_CAST")
+                            event as EdgeForOtherRunnerQuery<Method, Location, Statement>
+                            if (unitResolver.resolve(event.edge.method) == unit) {
+                                forwardRunner.submitNewEdge(event.edge)
+                            }
+                        }
+
+                        is NewSummaryFact<*> -> {
+                            manager.handleEvent(event, this@BidiIfdsUnitRunner)
+                        }
+
+                        is QueueEmptinessChanged -> {
+                            backwardQueueIsEmpty = event.isEmpty
+                            if (!isParallel && event.isEmpty) {
+                                runner.job?.cancel() ?: error("Runner job is not instantiated")
+                            }
+                            val newEvent =
+                                QueueEmptinessChanged(backwardQueueIsEmpty && forwardQueueIsEmpty)
+                            manager.handleEvent(newEvent, this@BidiIfdsUnitRunner)
+                        }
+
+                        is SubscriptionForSummaryEdges<*, *, *> -> {}
                     }
                 }
             }
-        }
 
-        private val backwardManager: IfdsUnitManager<UnitType> = object : IfdsUnitManager<UnitType> {
-            override suspend fun handleEvent(event: IfdsUnitRunnerEvent, runner: IfdsUnitRunner<UnitType>) {
-                when (event) {
-                    is EdgeForOtherRunnerQuery -> {
-                        if (unitResolver.resolve(event.edge.method) == unit) {
-                            forwardRunner.submitNewEdge(event.edge)
-                        }
-                    }
-                    is NewSummaryFact -> {
-                        manager.handleEvent(event, this@BidiIfdsUnitRunner)
-                    }
-                    is QueueEmptinessChanged -> {
-                        backwardQueueIsEmpty = event.isEmpty
-                        if (!isParallel && event.isEmpty) {
-                            runner.job?.cancel() ?: error("Runner job is not instantiated")
-                        }
-                        val newEvent =
-                            QueueEmptinessChanged(backwardQueueIsEmpty && forwardQueueIsEmpty)
-                        manager.handleEvent(newEvent, this@BidiIfdsUnitRunner)
-                    }
-
-                    is SubscriptionForSummaryEdges -> {}
-                }
-            }
-        }
-
-        private val backwardRunner: IfdsUnitRunner<UnitType> = backwardRunnerFactory
+        private val backwardRunner: IfdsUnitRunner<UnitType, Method, Location, Statement> = backwardRunnerFactory
             .newRunner(graph.reversed, backwardManager, unitResolver, unit, startMethods)
 
-        private val forwardRunner: IfdsUnitRunner<UnitType> = forwardRunnerFactory
+        private val forwardRunner: IfdsUnitRunner<UnitType, Method, Location, Statement> = forwardRunnerFactory
             .newRunner(graph, forwardManager, unitResolver, unit, startMethods)
 
-        override suspend fun submitNewEdge(edge: IfdsEdge) {
+        override suspend fun submitNewEdge(edge: IfdsEdge<Method, Location, Statement>) {
             forwardRunner.submitNewEdge(edge)
         }
 
@@ -128,10 +149,10 @@ class BidiIfdsUnitRunnerFactory(
     }
 
     override fun <UnitType> newRunner(
-        graph: JIRApplicationGraph,
-        manager: IfdsUnitManager<UnitType>,
-        unitResolver: UnitResolver<UnitType>,
+        graph: ApplicationGraph<Method, Statement>,
+        manager: IfdsUnitManager<UnitType, Method, Location, Statement>,
+        unitResolver: UnitResolver<UnitType, Method>,
         unit: UnitType,
-        startMethods: List<JIRMethod>
-    ): IfdsUnitRunner<UnitType> = BidiIfdsUnitRunner(graph, manager, unitResolver, unit, startMethods)
+        startMethods: List<Method>
+    ): IfdsUnitRunner<UnitType, Method, Location, Statement> = BidiIfdsUnitRunner(graph, manager, unitResolver, unit, startMethods)
 }

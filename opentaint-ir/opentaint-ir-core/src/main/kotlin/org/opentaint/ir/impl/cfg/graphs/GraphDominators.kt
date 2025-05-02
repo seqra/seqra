@@ -2,7 +2,7 @@ package org.opentaint.ir.impl.cfg.graphs
 
 import org.opentaint.ir.api.jvm.cfg.JIRBasicBlock
 import org.opentaint.ir.api.jvm.cfg.JIRBlockGraph
-import org.opentaint.ir.api.jvm.cfg.JIRBytecodeGraph
+import org.opentaint.ir.api.core.cfg.JIRBytecodeGraph
 import org.opentaint.ir.api.jvm.cfg.JIRCatchInst
 import org.opentaint.ir.api.jvm.cfg.JIRGraph
 import org.opentaint.ir.api.jvm.cfg.JIRInst

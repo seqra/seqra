@@ -1,8 +1,8 @@
 package org.opentaint.ir.analysis.impl.custom
 
-import org.opentaint.ir.api.jvm.cfg.JIRBytecodeGraph
+import org.opentaint.ir.api.core.cfg.Graph
 
-abstract class AbstractFlowAnalysis<NODE, T>(override val graph: JIRBytecodeGraph<NODE>) : FlowAnalysis<NODE, T> {
+abstract class AbstractFlowAnalysis<NODE, T>(override val graph: Graph<NODE>) : FlowAnalysis<NODE, T> {
 
     override fun newEntryFlow(): T = newFlow()
 

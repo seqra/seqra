@@ -5,10 +5,9 @@ import org.opentaint.ir.analysis.library.PackageUnitResolver
 import org.opentaint.ir.analysis.library.SingletonUnitResolver
 import org.opentaint.ir.analysis.library.getClassUnitResolver
 import org.opentaint.ir.analysis.runAnalysis
-import org.opentaint.ir.api.jvm.JIRMethod
 
 /**
- * Sets a mapping from [JIRMethod] to abstract domain [UnitType].
+ * Sets a mapping from a [Method] to abstract domain [UnitType].
  *
  * Therefore, it splits all methods into units, containing one or more method each
  * (unit is a set of methods with same value of [UnitType] returned by [resolve]).

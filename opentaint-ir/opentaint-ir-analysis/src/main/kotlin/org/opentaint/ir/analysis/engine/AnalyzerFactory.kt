@@ -1,5 +1,6 @@
 package org.opentaint.ir.analysis.engine
 
+import org.opentaint.ir.api.core.CoreMethod
 import org.opentaint.ir.api.core.analysis.ApplicationGraph
 import org.opentaint.ir.api.core.cfg.CoreInst
 import org.opentaint.ir.api.core.cfg.CoreInstLocation
@@ -27,7 +28,7 @@ object ZEROFact : DomainFact {
  * Implementations of the interface should provide all four kinds of flow functions mentioned in RHS95,
  * thus fully describing how the facts are propagated through the supergraph.
  */
-interface FlowFunctionsSpace<Statement : CoreInst<*, Method, *>, Method> {
+interface FlowFunctionsSpace<Statement : CoreInst<*, Method, *>, Method : CoreMethod<Statement>> {
     /**
      * @return facts that may hold when analysis is started from [startStatement]
      * (these are needed to initiate worklist in ifds analysis)
@@ -50,7 +51,8 @@ interface FlowFunctionsSpace<Statement : CoreInst<*, Method, *>, Method> {
  * during run of tabulation algorithm.
  */
 interface Analyzer<Method, Location, Statement>
-        where Location : CoreInstLocation<Method>,
+        where Method : CoreMethod<Statement>,
+              Location : CoreInstLocation<Method>,
               Statement : CoreInst<Location, Method, *> {
     val flowFunctions: FlowFunctionsSpace<Statement, Method>
 
@@ -86,7 +88,8 @@ interface Analyzer<Method, Location, Statement>
  * graph to analyzers' constructors directly, relying on runner to do it by itself.
  */
 fun interface AnalyzerFactory<Method, Location, Statement>
-        where Location : CoreInstLocation<Method>,
+        where Method : CoreMethod<Statement>,
+              Location : CoreInstLocation<Method>,
               Statement : CoreInst<Location, Method, *> {
     fun newAnalyzer(graph: ApplicationGraph<Method, Statement>): Analyzer<Method, Location, Statement>
 }

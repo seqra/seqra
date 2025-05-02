@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import org.opentaint.ir.api.core.CoreMethod
 import org.opentaint.ir.api.core.analysis.ApplicationGraph
 import org.opentaint.ir.api.core.cfg.CoreInst
 import org.opentaint.ir.api.core.cfg.CoreInstLocation
@@ -22,8 +23,10 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class BaseIfdsUnitRunnerFactory<Method, Location, Statement>(
     private val analyzerFactory: AnalyzerFactory<Method, Location, Statement>
-) : IfdsUnitRunnerFactory<Method, Location, Statement> where Location : CoreInstLocation<Method>,
-                                                   Statement : CoreInst<Location, Method, *> {
+) : IfdsUnitRunnerFactory<Method, Location, Statement>
+        where Method : CoreMethod<Statement>,
+              Location : CoreInstLocation<Method>,
+              Statement : CoreInst<Location, Method, *> {
     override fun <UnitType> newRunner(
         graph: ApplicationGraph<Method, Statement>,
         manager: IfdsUnitManager<UnitType, Method, Location, Statement>,
@@ -46,8 +49,10 @@ private class BaseIfdsUnitRunner<UnitType, Method, Location, Statement>(
     private val unitResolver: UnitResolver<UnitType, Method>,
     unit: UnitType,
     private val startMethods: List<Method>
-) : AbstractIfdsUnitRunner<UnitType, Method, Location, Statement>(unit) where Location : CoreInstLocation<Method>,
-                                                 Statement : CoreInst<Location, Method, *> {
+) : AbstractIfdsUnitRunner<UnitType, Method, Location, Statement>(unit)
+        where Method : CoreMethod<Statement>,
+              Location : CoreInstLocation<Method>,
+              Statement : CoreInst<Location, Method, *> {
     private val pathEdges: MutableSet<IfdsEdge<Method, Location, Statement>> = ConcurrentHashMap.newKeySet()
     private val summaryEdges: MutableMap<IfdsVertex<Method, Location, Statement>, MutableSet<IfdsVertex<Method, Location, Statement>>> = mutableMapOf()
     private val callSitesOf: MutableMap<IfdsVertex<Method, Location, Statement>, MutableSet<IfdsEdge<Method, Location, Statement>>> = mutableMapOf()

@@ -1,6 +1,6 @@
 package org.opentaint.ir.analysis.impl.custom
 
-import org.opentaint.ir.api.jvm.cfg.JIRBytecodeGraph
+import org.opentaint.ir.api.core.cfg.JIRBytecodeGraph
 
 interface FlowAnalysis<NODE, T> {
 

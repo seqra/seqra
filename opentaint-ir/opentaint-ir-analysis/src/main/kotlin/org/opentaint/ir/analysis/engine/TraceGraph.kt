@@ -1,18 +1,26 @@
 package org.opentaint.ir.analysis.engine
 
+import org.opentaint.ir.api.core.CoreMethod
+import org.opentaint.ir.api.core.cfg.CoreInst
+import org.opentaint.ir.api.core.cfg.CoreInstLocation
+
 /**
  * A directed graph with selected [sink] and [sources], where each path from one of [sources] to [sink] is a trace.
  *
  * @property sink is usually some interesting vertex that we want to reach (e.g. vertex that produces vulnerability)
  * @property sources are the entry points, e.g. the vertices with [ZEROFact] or method starts
  */
-data class TraceGraph(
-    val sink: IfdsVertex,
-    val sources: Set<IfdsVertex>,
-    val edges: Map<IfdsVertex, Set<IfdsVertex>>,
-) {
+data class TraceGraph<Method, Location, Statement>(
+    val sink: IfdsVertex<Method, Location, Statement>,
+    val sources: Set<IfdsVertex<Method, Location, Statement>>,
+    val edges: Map<IfdsVertex<Method, Location, Statement>, Set<IfdsVertex<Method, Location, Statement>>>,
+) where Method : CoreMethod<Statement>,
+        Location : CoreInstLocation<Method>,
+        Statement : CoreInst<Location, Method, *> {
 
-    private fun getAllTraces(curTrace: MutableList<IfdsVertex>): Sequence<List<IfdsVertex>> = sequence {
+    private fun getAllTraces(
+        curTrace: MutableList<IfdsVertex<Method, Location, Statement>>
+    ): Sequence<List<IfdsVertex<Method, Location, Statement>>> = sequence {
         val v = curTrace.last()
 
         if (v == sink) {
@@ -32,7 +40,7 @@ data class TraceGraph(
     /**
      * Returns a sequence with all traces from [sources] to [sink]
      */
-    fun getAllTraces(): Sequence<List<IfdsVertex>> = sequence {
+    fun getAllTraces(): Sequence<List<IfdsVertex<Method, Location, Statement>>> = sequence {
         sources.forEach {
             yieldAll(getAllTraces(mutableListOf(it)))
         }
@@ -47,7 +55,10 @@ data class TraceGraph(
      *
      * Informally, this method extends receiver's traces from one side using [upGraph].
      */
-    fun mergeWithUpGraph(upGraph: TraceGraph, entryPoints: Set<IfdsVertex>): TraceGraph {
+    fun mergeWithUpGraph(
+        upGraph: TraceGraph<Method, Location, Statement>,
+        entryPoints: Set<IfdsVertex<Method, Location, Statement>>
+    ): TraceGraph<Method, Location, Statement> {
         val validEntryPoints = entryPoints.intersect(edges.keys).ifEmpty {
             return this
         }
@@ -63,6 +74,8 @@ data class TraceGraph(
     }
 
     companion object {
-        fun bySink(sink: IfdsVertex) = TraceGraph(sink, setOf(sink), emptyMap())
+        fun <Method : CoreMethod<Statement>, Location : CoreInstLocation<Method>, Statement : CoreInst<Location, Method, *>> bySink(
+            sink: IfdsVertex<Method, Location, Statement>
+        ) = TraceGraph(sink, setOf(sink), emptyMap())
     }
 }

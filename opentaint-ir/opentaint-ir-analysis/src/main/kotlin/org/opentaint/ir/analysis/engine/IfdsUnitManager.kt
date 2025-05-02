@@ -3,7 +3,6 @@ package org.opentaint.ir.analysis.engine
 import kotlinx.coroutines.flow.FlowCollector
 import org.opentaint.ir.api.core.cfg.CoreInst
 import org.opentaint.ir.api.core.cfg.CoreInstLocation
-import org.opentaint.ir.api.jvm.JIRMethod
 
 /**
  * Implementations of this interface manage one or more runners and should be responsible for:
