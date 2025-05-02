@@ -24,14 +24,18 @@ sealed interface PredecessorKind {
     object Unknown : PredecessorKind
     object Sequent : PredecessorKind
     object CallToStart : PredecessorKind
-    class ThroughSummary(val summaryEdge: IfdsEdge<*, *, *>) : PredecessorKind
+    class ThroughSummary<Method, Location, Statement>(
+        val summaryEdge: IfdsEdge<Method, Location, Statement>
+    ) : PredecessorKind where Location : CoreInstLocation<Method>,
+                              Statement : CoreInst<Location, Method, *>
 }
 
 /**
  * Contains info about predecessor of path edge.
  * Used mainly to restore traces.
  */
-data class PathEdgePredecessor(
-    val predEdge: IfdsEdge<*, *, *>,
+data class PathEdgePredecessor<Method, Location, Statement>(
+    val predEdge: IfdsEdge<Method, Location, Statement>,
     val kind: PredecessorKind
-)
+) where Location : CoreInstLocation<Method>,
+        Statement : CoreInst<Location, Method, *>

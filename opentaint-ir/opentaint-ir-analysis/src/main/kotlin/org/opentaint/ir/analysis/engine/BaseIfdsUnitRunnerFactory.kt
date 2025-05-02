@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class BaseIfdsUnitRunnerFactory<Method, Location, Statement>(
     private val analyzerFactory: AnalyzerFactory<Method, Location, Statement>
-) : IfdsUnitRunnerFactory<Method, Statement> where Location : CoreInstLocation<Method>,
+) : IfdsUnitRunnerFactory<Method, Location, Statement> where Location : CoreInstLocation<Method>,
                                                    Statement : CoreInst<Location, Method, *> {
     override fun <UnitType> newRunner(
         graph: ApplicationGraph<Method, Statement>,
@@ -30,7 +30,7 @@ class BaseIfdsUnitRunnerFactory<Method, Location, Statement>(
         unitResolver: UnitResolver<UnitType, Method>,
         unit: UnitType,
         startMethods: List<Method>
-    ): IfdsUnitRunner<UnitType> {
+    ): IfdsUnitRunner<UnitType, Method, Location, Statement> {
         val analyzer = analyzerFactory.newAnalyzer(graph)
         return BaseIfdsUnitRunner(graph, analyzer, manager, unitResolver, unit, startMethods)
     }
@@ -42,16 +42,16 @@ class BaseIfdsUnitRunnerFactory<Method, Location, Statement>(
 private class BaseIfdsUnitRunner<UnitType, Method, Location, Statement>(
     private val graph: ApplicationGraph<Method, Statement>,
     private val analyzer: Analyzer<Method, Location, Statement>,
-    private val manager: IfdsUnitManager<UnitType>,
+    private val manager: IfdsUnitManager<UnitType, Method, Location, Statement>,
     private val unitResolver: UnitResolver<UnitType, Method>,
     unit: UnitType,
     private val startMethods: List<Method>
-) : AbstractIfdsUnitRunner<UnitType>(unit) where Location : CoreInstLocation<Method>,
+) : AbstractIfdsUnitRunner<UnitType, Method, Location, Statement>(unit) where Location : CoreInstLocation<Method>,
                                                  Statement : CoreInst<Location, Method, *> {
     private val pathEdges: MutableSet<IfdsEdge<Method, Location, Statement>> = ConcurrentHashMap.newKeySet()
     private val summaryEdges: MutableMap<IfdsVertex<Method, Location, Statement>, MutableSet<IfdsVertex<Method, Location, Statement>>> = mutableMapOf()
     private val callSitesOf: MutableMap<IfdsVertex<Method, Location, Statement>, MutableSet<IfdsEdge<Method, Location, Statement>>> = mutableMapOf()
-    private val pathEdgesPreds: MutableMap<IfdsEdge<Method, Location, Statement>, MutableSet<PathEdgePredecessor>> = ConcurrentHashMap()
+    private val pathEdgesPreds: MutableMap<IfdsEdge<Method, Location, Statement>, MutableSet<PathEdgePredecessor<Method, Location, Statement>>> = ConcurrentHashMap()
 
     private val flowSpace = analyzer.flowFunctions
 
@@ -68,7 +68,10 @@ private class BaseIfdsUnitRunner<UnitType, Method, Location, Statement>(
      * @param edge the new path edge
      * @param pred the description of predecessor of the edge
      */
-    private suspend fun propagate(edge: IfdsEdge<Method, Location, Statement>, pred: PathEdgePredecessor): Boolean {
+    private suspend fun propagate(
+        edge: IfdsEdge<Method, Location, Statement>,
+        pred: PathEdgePredecessor<Method, Location, Statement>
+    ): Boolean {
         require(unitResolver.resolve(edge.method) == unit)
 
         pathEdgesPreds.computeIfAbsent(edge) {
@@ -213,7 +216,7 @@ private class BaseIfdsUnitRunner<UnitType, Method, Location, Statement>(
         }
     }
 
-    private val ifdsResult: IfdsResult by lazy {
+    private val ifdsResult: IfdsResult<Method, Location, Statement> by lazy {
         val allEdges = pathEdges.toList()
 
         val resultFacts = allEdges.groupBy({ it.v.statement }) {
@@ -250,7 +253,7 @@ private class BaseIfdsUnitRunner<UnitType, Method, Location, Statement>(
         }
     }
 
-    override suspend fun submitNewEdge(edge: IfdsEdge) {
+    override suspend fun submitNewEdge(edge: IfdsEdge<Method, Location, Statement>) {
         propagate(edge, PathEdgePredecessor(edge, PredecessorKind.Unknown))
     }
 }

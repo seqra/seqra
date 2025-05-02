@@ -34,7 +34,7 @@ interface IfdsUnitRunner<UnitType, Method, Location, Statement>
      * Submits a new [IfdsEdge] to runner's queue. Should be called only after [launchIn].
      * Note that this method can be called from different threads.
      */
-    suspend fun submitNewEdge(edge: IfdsEdge<>)
+    suspend fun submitNewEdge(edge: IfdsEdge<Method, Location, Statement>)
 }
 
 /**
@@ -42,7 +42,11 @@ interface IfdsUnitRunner<UnitType, Method, Location, Statement>
  * Inheritors should only implement [submitNewEdge] and a suspendable [run] method.
  * The latter is the main method of runner, that should do all its work.
  */
-abstract class AbstractIfdsUnitRunner<UnitType>(final override val unit: UnitType) : IfdsUnitRunner<UnitType> {
+abstract class AbstractIfdsUnitRunner<UnitType, Method, Location, Statement>(
+    final override val unit: UnitType
+) : IfdsUnitRunner<UnitType, Method, Location, Statement>
+        where Location : CoreInstLocation<Method>,
+              Statement : CoreInst<Location, Method, *> {
     /**
      * The main method of the runner, which will be called by [launchIn]
      */
@@ -63,7 +67,9 @@ abstract class AbstractIfdsUnitRunner<UnitType>(final override val unit: UnitTyp
 /**
  * Produces a runner for any given unit.
  */
-interface IfdsUnitRunnerFactory<Method, Statement : CoreInst<*, Method, *>> {
+interface IfdsUnitRunnerFactory<Method, Location, Statement>
+    where Location : CoreInstLocation<Method>,
+          Statement : CoreInst<Location, Method, *> {
     /**
      * Produces a runner for given [unit], using given [startMethods] as entry points.
      * All start methods should belong to the [unit].
@@ -77,9 +83,9 @@ interface IfdsUnitRunnerFactory<Method, Statement : CoreInst<*, Method, *>> {
      */
     fun <UnitType> newRunner(
         graph: ApplicationGraph<Method, Statement>,
-        manager: IfdsUnitManager<UnitType>,
-        unitResolver: UnitResolver<UnitType>,
+        manager: IfdsUnitManager<UnitType, Method, Location, Statement>,
+        unitResolver: UnitResolver<UnitType, Method>,
         unit: UnitType,
         startMethods: List<Method>
-    ) : IfdsUnitRunner<UnitType>
+    ) : IfdsUnitRunner<UnitType, Method, Location, Statement>
 }

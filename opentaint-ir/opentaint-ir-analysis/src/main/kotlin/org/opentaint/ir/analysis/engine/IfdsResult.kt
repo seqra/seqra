@@ -1,26 +1,36 @@
 package org.opentaint.ir.analysis.engine
+import org.opentaint.ir.api.core.cfg.CoreInst
+import org.opentaint.ir.api.core.cfg.CoreInstLocation
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 
 /**
  * Aggregates all facts and edges found by tabulation algorithm
  */
-class IfdsResult(
-    val pathEdges: List<IfdsEdge>,
+class IfdsResult<Method, Location, Statement>(
+    val pathEdges: List<IfdsEdge<Method, Location, Statement>>,
     val resultFacts: Map<JIRInst, Set<DomainFact>>,
-    val pathEdgesPreds: Map<IfdsEdge, Set<PathEdgePredecessor>>
-) {
-    private inner class TraceGraphBuilder(private val sink: IfdsVertex) {
-        private val sources: MutableSet<IfdsVertex> = mutableSetOf()
-        private val edges: MutableMap<IfdsVertex, MutableSet<IfdsVertex>> = mutableMapOf()
-        private val visited: MutableSet<IfdsEdge> = mutableSetOf()
+    val pathEdgesPreds: Map<IfdsEdge<Method, Location, Statement>, Set<PathEdgePredecessor<Method, Location, Statement>>>
+) where Location : CoreInstLocation<Method>,
+        Statement : CoreInst<Location, Method, *> {
+    private inner class TraceGraphBuilder(private val sink: IfdsVertex<Method, Location, Statement>) {
+        private val sources: MutableSet<IfdsVertex<Method, Location, Statement>> = mutableSetOf()
+        private val edges: MutableMap<IfdsVertex<Method, Location, Statement>, MutableSet<IfdsVertex<Method, Location, Statement>>> = mutableMapOf()
+        private val visited: MutableSet<IfdsEdge<Method, Location, Statement>> = mutableSetOf()
 
-        private fun addEdge(from: IfdsVertex, to: IfdsVertex) {
+        private fun addEdge(
+            from: IfdsVertex<Method, Location, Statement>,
+            to: IfdsVertex<Method, Location, Statement>
+        ) {
             if (from != to) {
                 edges.getOrPut(from) { mutableSetOf() }.add(to)
             }
         }
 
-        private fun dfs(e: IfdsEdge, lastVertex: IfdsVertex, stopAtMethodStart: Boolean) {
+        private fun dfs(
+            e: IfdsEdge<Method, Location, Statement>,
+            lastVertex: IfdsVertex<Method, Location, Statement>,
+            stopAtMethodStart: Boolean
+        ) {
             if (e in visited) {
                 return
             }
@@ -55,7 +65,10 @@ class IfdsResult(
                             dfs(pred.predEdge, pred.predEdge.v, stopAtMethodStart)
                         }
                     }
-                    is PredecessorKind.ThroughSummary -> {
+                    is PredecessorKind.ThroughSummary<*, *, *> -> {
+                        @Suppress("UNCHECKED_CAST")
+                        pred.kind as PredecessorKind.ThroughSummary<Method, Location, Statement>
+
                         val summaryEdge = pred.kind.summaryEdge
                         addEdge(summaryEdge.v, lastVertex) // Return to next vertex
                         addEdge(pred.predEdge.v, summaryEdge.u) // Call to start
@@ -90,7 +103,7 @@ class IfdsResult(
     /**
      * Builds a graph with traces to given [vertex].
      */
-    fun resolveTraceGraph(vertex: IfdsVertex): TraceGraph {
+    fun resolveTraceGraph(vertex: IfdsVertex<Method, Location, Statement>): TraceGraph {
         return TraceGraphBuilder(vertex).build()
     }
 }
