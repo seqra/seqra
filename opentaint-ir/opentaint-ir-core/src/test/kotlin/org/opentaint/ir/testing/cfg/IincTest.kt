@@ -1,6 +1,6 @@
 package org.opentaint.ir.testing.cfg
 
-import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.jvm.ext.findClass
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

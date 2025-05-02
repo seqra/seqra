@@ -1,8 +1,8 @@
 package org.opentaint.ir.impl.storage
 
 import mu.KLogging
-import org.opentaint.ir.api.JIRDBSymbolsInterner
-import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.api.jvm.JIRDBSymbolsInterner
+import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.impl.storage.jooq.tables.references.*
 import org.opentaint.ir.impl.types.*
 import org.jooq.DSLContext

@@ -1,11 +1,11 @@
 package org.opentaint.ir.testing
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRField
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.Pure
-import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRField
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.Pure
+import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.impl.types.signature.*
 import org.opentaint.ir.impl.types.typeParameters
 import org.opentaint.ir.testing.usages.Generics

@@ -1,16 +1,16 @@
 package org.opentaint.ir.analysis.graph
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRExpr
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRInstLocation
-import org.opentaint.ir.api.cfg.JIRInstVisitor
-import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
-import org.opentaint.ir.api.ext.cfg.callExpr
-import org.opentaint.ir.api.ext.isSubClassOf
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
+import org.opentaint.ir.api.jvm.cfg.JIRInstVisitor
+import org.opentaint.ir.api.jvm.cfg.JIRVirtualCallExpr
+import org.opentaint.ir.api.jvm.ext.cfg.callExpr
+import org.opentaint.ir.api.jvm.ext.isSubClassOf
 import org.opentaint.ir.impl.cfg.JIRInstLocationImpl
 import org.opentaint.ir.impl.features.hierarchyExt
 

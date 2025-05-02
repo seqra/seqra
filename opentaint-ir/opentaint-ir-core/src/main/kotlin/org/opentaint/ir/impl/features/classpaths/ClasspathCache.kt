@@ -3,21 +3,21 @@ package org.opentaint.ir.impl.features.classpaths
 import com.google.common.cache.CacheBuilder
 import com.google.common.cache.CacheStats
 import mu.KLogging
-import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRClasspathExtFeature
-import org.opentaint.ir.api.JIRClasspathExtFeature.JIRResolvedClassResult
-import org.opentaint.ir.api.JIRClasspathExtFeature.JIRResolvedTypeResult
-import org.opentaint.ir.api.JIRFeatureEvent
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.JIRMethodExtFeature
-import org.opentaint.ir.api.JIRMethodExtFeature.JIRFlowGraphResult
-import org.opentaint.ir.api.JIRMethodExtFeature.JIRInstListResult
-import org.opentaint.ir.api.JIRMethodExtFeature.JIRRawInstListResult
-import org.opentaint.ir.api.cfg.JIRGraph
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRInstList
-import org.opentaint.ir.api.cfg.JIRRawInst
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRClasspathExtFeature
+import org.opentaint.ir.api.jvm.JIRClasspathExtFeature.JIRResolvedClassResult
+import org.opentaint.ir.api.jvm.JIRClasspathExtFeature.JIRResolvedTypeResult
+import org.opentaint.ir.api.jvm.JIRFeatureEvent
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRMethodExtFeature
+import org.opentaint.ir.api.jvm.JIRMethodExtFeature.JIRFlowGraphResult
+import org.opentaint.ir.api.jvm.JIRMethodExtFeature.JIRInstListResult
+import org.opentaint.ir.api.jvm.JIRMethodExtFeature.JIRRawInstListResult
+import org.opentaint.ir.api.jvm.cfg.JIRGraph
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.core.cfg.InstList
+import org.opentaint.ir.api.jvm.cfg.JIRRawInst
 import org.opentaint.ir.impl.JIRCacheSegmentSettings
 import org.opentaint.ir.impl.JIRCacheSettings
 import org.opentaint.ir.impl.ValueStoreType
@@ -40,19 +40,19 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
         .build<String, JIRResolvedTypeResult>()
 
     private val rawInstCache = segmentBuilder(settings.rawInstLists)
-        .build<JIRMethod, JIRInstList<JIRRawInst>>()
+        .build<JIRMethod, InstList<JIRRawInst>>()
 
     private val instCache = segmentBuilder(settings.instLists)
-        .build<JIRMethod, JIRInstList<JIRInst>>()
+        .build<JIRMethod, InstList<JIRInst>>()
 
     private val cfgCache = segmentBuilder(settings.flowGraphs)
         .build<JIRMethod, JIRGraph>()
 
-    override fun tryFindClass(classpath: JIRClasspath, name: String): JIRResolvedClassResult? {
+    override fun tryFindClass(classpath: JIRProject, name: String): JIRResolvedClassResult? {
         return classesCache.getIfPresent(name)
     }
 
-    override fun tryFindType(classpath: JIRClasspath, name: String): JIRResolvedTypeResult? {
+    override fun tryFindType(classpath: JIRProject, name: String): JIRResolvedTypeResult? {
         return typesCache.getIfPresent(name)
     }
 

@@ -21,26 +21,26 @@ import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.paths.toPathOrNull
 import org.opentaint.ir.analysis.sarif.SarifMessage
 import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
-import org.opentaint.ir.api.JIRArrayType
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRArgument
-import org.opentaint.ir.api.cfg.JIRCallExpr
-import org.opentaint.ir.api.cfg.JIRConstant
-import org.opentaint.ir.api.cfg.JIREqExpr
-import org.opentaint.ir.api.cfg.JIRExpr
-import org.opentaint.ir.api.cfg.JIRIfInst
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRNeqExpr
-import org.opentaint.ir.api.cfg.JIRNewArrayExpr
-import org.opentaint.ir.api.cfg.JIRNewExpr
-import org.opentaint.ir.api.cfg.JIRNullConstant
-import org.opentaint.ir.api.cfg.JIRValue
-import org.opentaint.ir.api.cfg.locals
-import org.opentaint.ir.api.cfg.values
-import org.opentaint.ir.api.ext.fields
-import org.opentaint.ir.api.ext.isNullable
+import org.opentaint.ir.api.jvm.JIRArrayType
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.cfg.JIRArgument
+import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRConstant
+import org.opentaint.ir.api.jvm.cfg.JIREqExpr
+import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRIfInst
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRNeqExpr
+import org.opentaint.ir.api.jvm.cfg.JIRNewArrayExpr
+import org.opentaint.ir.api.jvm.cfg.JIRNewExpr
+import org.opentaint.ir.api.jvm.cfg.JIRNullConstant
+import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.ir.api.jvm.cfg.locals
+import org.opentaint.ir.api.jvm.cfg.values
+import org.opentaint.ir.api.jvm.ext.fields
+import org.opentaint.ir.api.jvm.ext.isNullable
 
 fun NpeAnalyzerFactory(maxPathLength: Int) = AnalyzerFactory { graph ->
     NpeAnalyzer(graph, maxPathLength)
@@ -76,7 +76,7 @@ class NpeAnalyzer(graph: JIRApplicationGraph, maxPathLength: Int) : AbstractAnal
 }
 
 private class NpeForwardFunctions(
-    cp: JIRClasspath,
+    cp: JIRProject,
     private val maxPathLength: Int
 ) : AbstractTaintForwardFunctions(cp) {
 

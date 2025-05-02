@@ -5,8 +5,21 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
-import org.opentaint.ir.api.*
-import org.opentaint.ir.api.ext.*
+import org.opentaint.ir.api.core.TypeName
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRClasspathFeature
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRPrimitiveType
+import org.opentaint.ir.api.jvm.PredefinedJIRPrimitives
+import org.opentaint.ir.api.jvm.ext.allSuperHierarchySequence
+import org.opentaint.ir.api.jvm.ext.boolean
+import org.opentaint.ir.api.jvm.ext.byte
+import org.opentaint.ir.api.jvm.ext.char
+import org.opentaint.ir.api.jvm.ext.double
+import org.opentaint.ir.api.jvm.ext.float
+import org.opentaint.ir.api.jvm.ext.int
+import org.opentaint.ir.api.jvm.ext.long
+import org.opentaint.ir.api.jvm.ext.short
 import java.nio.file.Path
 import kotlin.io.path.readText
 
@@ -209,7 +222,7 @@ class TaintConfigurationFeature private constructor(
         when (position) {
             AnyArgument -> method.parameters.isNotEmpty()
             is Argument -> position.number in method.parameters.indices
-            Result -> method.returnType.typeName != PredefinedPrimitives.Void
+            Result -> method.returnType.typeName != PredefinedJIRPrimitives.Void
             ThisArgument -> !method.isStatic
         }
 

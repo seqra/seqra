@@ -2,9 +2,9 @@
 package org.opentaint.ir.analysis.library
 
 import org.opentaint.ir.analysis.engine.UnitResolver
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.ext.packageName
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.ext.packageName
 
 val MethodUnitResolver = UnitResolver { method -> method }
 val PackageUnitResolver = UnitResolver { method -> method.enclosingClass.packageName }

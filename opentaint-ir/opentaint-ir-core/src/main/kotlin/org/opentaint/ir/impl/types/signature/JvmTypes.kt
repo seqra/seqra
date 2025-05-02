@@ -1,9 +1,9 @@
 package org.opentaint.ir.impl.types.signature
 
-import org.opentaint.ir.api.JIRAnnotation
-import org.opentaint.ir.api.JvmType
-import org.opentaint.ir.api.JvmTypeParameterDeclaration
-import org.opentaint.ir.api.PredefinedPrimitives
+import org.opentaint.ir.api.jvm.JIRAnnotation
+import org.opentaint.ir.api.jvm.JvmType
+import org.opentaint.ir.api.jvm.JvmTypeParameterDeclaration
+import org.opentaint.ir.api.jvm.PredefinedJIRPrimitives
 
 /**
  * @property isNullable denotes the nullability of the type in terms of Kotlin type system.
@@ -153,15 +153,15 @@ internal class JvmPrimitiveType(val ref: String, annotations: List<JIRAnnotation
     companion object {
         fun of(descriptor: Char): JvmType {
             return when (descriptor) {
-                'V' -> JvmPrimitiveType(PredefinedPrimitives.Void)
-                'Z' -> JvmPrimitiveType(PredefinedPrimitives.Boolean)
-                'B' -> JvmPrimitiveType(PredefinedPrimitives.Byte)
-                'S' -> JvmPrimitiveType(PredefinedPrimitives.Short)
-                'C' -> JvmPrimitiveType(PredefinedPrimitives.Char)
-                'I' -> JvmPrimitiveType(PredefinedPrimitives.Int)
-                'J' -> JvmPrimitiveType(PredefinedPrimitives.Long)
-                'F' -> JvmPrimitiveType(PredefinedPrimitives.Float)
-                'D' -> JvmPrimitiveType(PredefinedPrimitives.Double)
+                'V' -> JvmPrimitiveType(PredefinedJIRPrimitives.Void)
+                'Z' -> JvmPrimitiveType(PredefinedJIRPrimitives.Boolean)
+                'B' -> JvmPrimitiveType(PredefinedJIRPrimitives.Byte)
+                'S' -> JvmPrimitiveType(PredefinedJIRPrimitives.Short)
+                'C' -> JvmPrimitiveType(PredefinedJIRPrimitives.Char)
+                'I' -> JvmPrimitiveType(PredefinedJIRPrimitives.Int)
+                'J' -> JvmPrimitiveType(PredefinedJIRPrimitives.Long)
+                'F' -> JvmPrimitiveType(PredefinedJIRPrimitives.Float)
+                'D' -> JvmPrimitiveType(PredefinedJIRPrimitives.Double)
                 else -> throw IllegalArgumentException("Not a valid primitive type descriptor: $descriptor")
             }
         }

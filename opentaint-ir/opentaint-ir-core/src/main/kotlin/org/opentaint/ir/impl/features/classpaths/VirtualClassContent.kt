@@ -1,10 +1,10 @@
 package org.opentaint.ir.impl.features.classpaths
 
-import org.opentaint.ir.api.JIRClassExtFeature
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRField
-import org.opentaint.ir.api.JIRInstExtFeature
-import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.jvm.JIRClassExtFeature
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRField
+import org.opentaint.ir.api.jvm.JIRInstExtFeature
+import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.impl.features.classpaths.virtual.VirtualClassesBuilder
 
 class VirtualClassContent(private val builders: List<VirtualClassContentBuilder>) : JIRClassExtFeature,

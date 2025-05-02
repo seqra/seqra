@@ -6,9 +6,9 @@ import org.opentaint.ir.analysis.engine.DomainFact
 import org.opentaint.ir.analysis.engine.IfdsResult
 import org.opentaint.ir.analysis.engine.IfdsVertex
 import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRExpr
-import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 
 fun AliasAnalyzerFactory(
     generates: (JIRInst) -> List<DomainFact>,

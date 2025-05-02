@@ -1,7 +1,13 @@
 package org.opentaint.ir.impl.types
 
 import org.opentaint.ir.api.*
-import org.opentaint.ir.api.ext.packageName
+import org.opentaint.ir.api.core.TypeName
+import org.opentaint.ir.api.jvm.JIRAccessible
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRLookup
+import org.opentaint.ir.api.jvm.JIRTypedField
+import org.opentaint.ir.api.jvm.JIRTypedMethod
+import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.impl.bytecode.JIRAbstractLookup
 import org.opentaint.ir.impl.bytecode.PolymorphicSignatureSupport
 

@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.fs
 
-import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.api.jvm.ClassSource
+import org.opentaint.ir.api.jvm.RegisteredLocation
 
 val RegisteredLocation.sources: List<ClassSource>
     get() {

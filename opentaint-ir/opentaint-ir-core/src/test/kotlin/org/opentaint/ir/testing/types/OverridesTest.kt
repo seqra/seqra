@@ -1,11 +1,11 @@
 package org.opentaint.ir.testing.types
 
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.JIRTypedMethod
-import org.opentaint.ir.api.ext.constructors
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.methods
-import org.opentaint.ir.api.ext.toType
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRTypedMethod
+import org.opentaint.ir.api.jvm.ext.constructors
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.methods
+import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.testing.hierarchies.Overrides
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue

@@ -2,7 +2,7 @@ package org.opentaint.ir.taint.configuration
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.jvm.JIRType
 
 interface ConditionVisitor<R> {
     fun visit(condition: And): R

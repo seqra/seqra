@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.fs
 
 import com.google.common.hash.Hashing
-import org.opentaint.ir.api.JIRByteCodeLocation
+import org.opentaint.ir.api.jvm.JIRByteCodeLocation
 import java.io.File
 import java.nio.charset.StandardCharsets
 

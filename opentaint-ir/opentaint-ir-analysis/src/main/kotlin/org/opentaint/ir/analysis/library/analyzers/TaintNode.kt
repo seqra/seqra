@@ -2,7 +2,7 @@ package org.opentaint.ir.analysis.library.analyzers
 
 import org.opentaint.ir.analysis.engine.DomainFact
 import org.opentaint.ir.analysis.paths.AccessPath
-import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 
 /**
  * Abstract implementation for [DomainFact] that can be used for analysis where dataflow facts correlate with

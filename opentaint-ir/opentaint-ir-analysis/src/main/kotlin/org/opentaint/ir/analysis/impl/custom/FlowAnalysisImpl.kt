@@ -1,7 +1,7 @@
 package org.opentaint.ir.analysis.impl.custom
 
-import org.opentaint.ir.api.cfg.JIRBytecodeGraph
-import org.opentaint.ir.api.cfg.JIRGotoInst
+import org.opentaint.ir.api.jvm.cfg.JIRBytecodeGraph
+import org.opentaint.ir.api.jvm.cfg.JIRGotoInst
 import java.util.*
 
 enum class Flow {

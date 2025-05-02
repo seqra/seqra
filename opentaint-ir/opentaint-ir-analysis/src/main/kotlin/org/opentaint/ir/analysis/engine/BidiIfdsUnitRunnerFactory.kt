@@ -3,8 +3,8 @@ package org.opentaint.ir.analysis.engine
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import org.opentaint.ir.analysis.graph.reversed
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 
 /**
  * This factory produces composite runners. Each of them launches two runners (backward and forward)

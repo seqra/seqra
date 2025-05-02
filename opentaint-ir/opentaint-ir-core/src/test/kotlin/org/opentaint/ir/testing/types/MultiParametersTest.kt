@@ -1,10 +1,10 @@
 package org.opentaint.ir.testing.types
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRTypeVariable
-import org.opentaint.ir.api.JIRTypedField
-import org.opentaint.ir.api.JIRTypedMethod
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRTypeVariable
+import org.opentaint.ir.api.jvm.JIRTypedField
+import org.opentaint.ir.api.jvm.JIRTypedMethod
 import org.opentaint.ir.testing.types.MultipleParametrization.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

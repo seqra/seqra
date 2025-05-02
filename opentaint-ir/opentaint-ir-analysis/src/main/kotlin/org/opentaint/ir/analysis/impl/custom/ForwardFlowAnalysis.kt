@@ -1,6 +1,6 @@
 package org.opentaint.ir.analysis.impl.custom
 
-import org.opentaint.ir.api.cfg.JIRBytecodeGraph
+import org.opentaint.ir.api.jvm.cfg.JIRBytecodeGraph
 
 abstract class ForwardFlowAnalysis<NODE, T>(graph: JIRBytecodeGraph<NODE>) : FlowAnalysisImpl<NODE, T>(graph) {
 

@@ -1,10 +1,10 @@
 package org.opentaint.ir.testing.cfg
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.impl.cfg.toFile
 import org.opentaint.ir.impl.opentaint-ir
 import org.opentaint.ir.testing.allClasspath
@@ -14,7 +14,7 @@ import java.io.File
 class IRSvgGenerator(private val folder: File) : Closeable {
 
     private val db: JIRDatabase
-    private val cp: JIRClasspath
+    private val cp: JIRProject
 
     init {
         if (!folder.exists()) {

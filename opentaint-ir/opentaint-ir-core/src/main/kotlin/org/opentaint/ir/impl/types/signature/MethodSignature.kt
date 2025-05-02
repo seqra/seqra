@@ -1,7 +1,10 @@
 package org.opentaint.ir.impl.types.signature
 
 import mu.KLogging
-import org.opentaint.ir.api.*
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.Malformed
+import org.opentaint.ir.api.jvm.MethodResolution
+import org.opentaint.ir.api.jvm.Pure
 import org.opentaint.ir.impl.bytecode.JIRMethodImpl
 import org.opentaint.ir.impl.bytecode.kmFunction
 import org.opentaint.ir.impl.bytecode.kmReturnType
@@ -9,6 +12,7 @@ import org.opentaint.ir.impl.bytecode.kmType
 import org.opentaint.ir.impl.types.allVisibleTypeParameters
 import org.opentaint.ir.impl.types.substition.RecursiveJvmTypeVisitor
 import org.opentaint.ir.impl.types.substition.fixDeclarationVisitor
+import org.opentaint.ir.api.jvm.JvmType
 import org.objectweb.asm.signature.SignatureVisitor
 
 val logger = object : KLogging() {}.logger

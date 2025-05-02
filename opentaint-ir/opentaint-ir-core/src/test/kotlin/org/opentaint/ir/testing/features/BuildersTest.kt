@@ -1,8 +1,8 @@
 package org.opentaint.ir.testing.features
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.impl.features.buildersExtension
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithGlobalDB

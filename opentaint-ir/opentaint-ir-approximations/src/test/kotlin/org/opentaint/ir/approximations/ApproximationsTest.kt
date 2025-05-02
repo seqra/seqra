@@ -1,14 +1,17 @@
 package org.opentaint.ir.approximations
 
-import org.opentaint.ir.api.JavaVersion
-import org.opentaint.ir.api.cfg.*
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.findDeclaredFieldOrNull
+import org.opentaint.ir.api.jvm.JavaVersion
+import org.opentaint.ir.api.jvm.cfg.*
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.findDeclaredFieldOrNull
 import org.opentaint.ir.approximation.*
 import org.opentaint.ir.approximation.Approximations.findApproximationByOriginOrNull
 import org.opentaint.ir.approximation.Approximations.findOriginalByApproximationOrNull
 import org.opentaint.ir.approximations.target.KotlinClass
 import org.opentaint.ir.impl.fs.JarLocation
+import org.opentaint.ir.api.jvm.cfg.JIRRawAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRRawCallInst
+import org.opentaint.ir.api.jvm.cfg.JIRRawFieldRef
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.guavaLib

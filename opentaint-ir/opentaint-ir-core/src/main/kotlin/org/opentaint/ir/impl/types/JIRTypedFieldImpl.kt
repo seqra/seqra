@@ -1,11 +1,17 @@
 package org.opentaint.ir.impl.types
 
 import org.opentaint.ir.api.*
-import org.opentaint.ir.api.ext.isNullable
+import org.opentaint.ir.api.jvm.JIRField
+import org.opentaint.ir.api.jvm.ext.isNullable
 import org.opentaint.ir.impl.bytecode.JIRAnnotationImpl
 import org.opentaint.ir.impl.bytecode.JIRFieldImpl
 import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
 import org.opentaint.ir.impl.types.signature.FieldSignature
+import org.opentaint.ir.api.jvm.JIRRefType
+import org.opentaint.ir.api.jvm.JIRSubstitutor
+import org.opentaint.ir.api.jvm.JIRType
+import org.opentaint.ir.api.jvm.JIRTypedField
+import org.opentaint.ir.api.jvm.throwClassNotFound
 import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 class JIRTypedFieldImpl(

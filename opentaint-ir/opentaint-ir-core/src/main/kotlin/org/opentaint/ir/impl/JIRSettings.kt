@@ -2,10 +2,10 @@ package org.opentaint.ir.impl
 
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
-import org.opentaint.ir.api.Hook
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.JIRDatabasePersistence
-import org.opentaint.ir.api.JIRFeature
+import org.opentaint.ir.api.jvm.Hook
+import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.JIRDatabasePersistence
+import org.opentaint.ir.api.jvm.JIRFeature
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.storage.SQLitePersistenceImpl
 import java.io.File

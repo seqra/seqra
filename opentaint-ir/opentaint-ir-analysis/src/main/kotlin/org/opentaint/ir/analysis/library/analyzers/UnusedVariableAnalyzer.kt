@@ -17,20 +17,20 @@ import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.paths.toPathOrNull
 import org.opentaint.ir.analysis.sarif.SarifMessage
 import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRArrayAccess
-import org.opentaint.ir.api.cfg.JIRAssignInst
-import org.opentaint.ir.api.cfg.JIRBranchingInst
-import org.opentaint.ir.api.cfg.JIRExpr
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRLocal
-import org.opentaint.ir.api.cfg.JIRSpecialCallExpr
-import org.opentaint.ir.api.cfg.JIRStaticCallExpr
-import org.opentaint.ir.api.cfg.JIRTerminatingInst
-import org.opentaint.ir.api.cfg.values
-import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRBranchingInst
+import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRLocal
+import org.opentaint.ir.api.jvm.cfg.JIRSpecialCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRStaticCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRTerminatingInst
+import org.opentaint.ir.api.jvm.cfg.values
+import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 
 class UnusedVariableAnalyzer(val graph: JIRApplicationGraph) : AbstractAnalyzer(graph) {
     override val flowFunctions: FlowFunctionsSpace = UnusedVariableForwardFunctions(graph.classpath)
@@ -102,7 +102,7 @@ val UnusedVariableAnalyzerFactory = AnalyzerFactory { graph ->
 }
 
 private class UnusedVariableForwardFunctions(
-    val classpath: JIRClasspath
+    val classpath: JIRProject
 ) : FlowFunctionsSpace {
 
     override fun obtainPossibleStartFacts(startStatement: JIRInst): Collection<DomainFact> {

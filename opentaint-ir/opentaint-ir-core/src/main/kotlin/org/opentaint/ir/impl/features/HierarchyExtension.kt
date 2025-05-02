@@ -4,12 +4,12 @@ package org.opentaint.ir.impl.features
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.ext.HierarchyExtension
-import org.opentaint.ir.api.ext.JAVA_OBJECT
-import org.opentaint.ir.api.ext.findDeclaredMethodOrNull
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.ext.HierarchyExtension
+import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
+import org.opentaint.ir.api.jvm.ext.findDeclaredMethodOrNull
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.storage.BatchedSequence
 import org.opentaint.ir.impl.storage.defaultBatchSize
@@ -23,7 +23,7 @@ import org.jooq.impl.DSL
 import java.util.concurrent.Future
 
 @Suppress("SqlResolve")
-class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension {
+class HierarchyExtensionImpl(private val cp: JIRProject) : HierarchyExtension {
 
     companion object {
         private fun allHierarchyQuery(locationIds: String, sinceId: Long?) = """
@@ -101,7 +101,7 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
         return cp.subClasses(name, allHierarchy).map { cp.toJIRClass(it) }
     }
 
-    private fun JIRClasspath.subClasses(
+    private fun JIRProject.subClasses(
         name: String,
         allHierarchy: Boolean
     ): Sequence<PersistenceClassSource> {
@@ -133,14 +133,14 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
     }
 }
 
-suspend fun JIRClasspath.hierarchyExt(): HierarchyExtensionImpl {
+suspend fun JIRProject.hierarchyExt(): HierarchyExtensionImpl {
     db.awaitBackgroundJobs()
     return HierarchyExtensionImpl(this)
 }
 
-fun JIRClasspath.asyncHierarchy(): Future<HierarchyExtension> = GlobalScope.future { hierarchyExt() }
+fun JIRProject.asyncHierarchy(): Future<HierarchyExtension> = GlobalScope.future { hierarchyExt() }
 
-private fun SelectConditionStep<Record3<Long?, String?, Long?>>.batchingProcess(cp: JIRClasspath, batchSize: Int): List<Pair<Long, PersistenceClassSource>>{
+private fun SelectConditionStep<Record3<Long?, String?, Long?>>.batchingProcess(cp: JIRProject, batchSize: Int): List<Pair<Long, PersistenceClassSource>>{
     return orderBy(CLASSES.ID)
         .limit(batchSize)
         .fetch()
@@ -161,7 +161,7 @@ private fun List<Long>.where(offset: Long?): Condition {
     }
 }
 
-internal fun JIRClasspath.allClassesExceptObject(direct: Boolean): Sequence<PersistenceClassSource> {
+internal fun JIRProject.allClassesExceptObject(direct: Boolean): Sequence<PersistenceClassSource> {
     val locationIds = registeredLocations.map { it.id }
     if (direct) {
         return BatchedSequence(defaultBatchSize) { offset, batchSize ->

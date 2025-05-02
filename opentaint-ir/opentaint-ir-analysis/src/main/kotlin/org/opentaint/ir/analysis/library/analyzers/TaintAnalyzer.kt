@@ -16,18 +16,18 @@ import org.opentaint.ir.analysis.paths.startsWith
 import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.paths.toPathOrNull
 import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRArgument
-import org.opentaint.ir.api.cfg.JIRAssignInst
-import org.opentaint.ir.api.cfg.JIRCallExpr
-import org.opentaint.ir.api.cfg.JIRExpr
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRInstanceCallExpr
-import org.opentaint.ir.api.cfg.JIRValue
-import org.opentaint.ir.api.cfg.locals
-import org.opentaint.ir.api.cfg.values
-import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.cfg.JIRArgument
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.ir.api.jvm.cfg.locals
+import org.opentaint.ir.api.jvm.cfg.values
+import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 
 fun isSourceMethodToGenerates(isSourceMethod: (JIRMethod) -> Boolean): (JIRInst) -> List<TaintAnalysisNode> {
     return generates@{ inst: JIRInst ->

@@ -1,12 +1,12 @@
 package org.opentaint.ir.testing
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.ext.HierarchyExtension
-import org.opentaint.ir.api.ext.enumValues
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.findTypeOrNull
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.ext.HierarchyExtension
+import org.opentaint.ir.api.jvm.ext.enumValues
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.findTypeOrNull
 import org.opentaint.ir.impl.features.duplicatedClasses
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.testing.structure.EnumExamples.*
@@ -19,7 +19,7 @@ class ClassesTest : DatabaseEnvTest() {
 
     companion object : WithGlobalDB()
 
-    override val cp: JIRClasspath = runBlocking { db.classpath(allClasspath) }
+    override val cp: JIRProject = runBlocking { db.classpath(allClasspath) }
 
     override val hierarchyExt: HierarchyExtension
         get() = runBlocking { cp.hierarchyExt() }

@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.fs
 
-import org.opentaint.ir.api.JavaVersion
-import org.opentaint.ir.api.JIRByteCodeLocation
+import org.opentaint.ir.api.jvm.JavaVersion
+import org.opentaint.ir.api.jvm.JIRByteCodeLocation
 import java.io.File
 import java.nio.file.Paths
 

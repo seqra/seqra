@@ -1,9 +1,9 @@
 package org.opentaint.ir.impl.cfg.util
 
-import org.opentaint.ir.api.PredefinedPrimitives
-import org.opentaint.ir.api.TypeName
-import org.opentaint.ir.api.ext.jIRdbName
-import org.opentaint.ir.api.ext.jvmName
+import org.opentaint.ir.api.core.TypeName
+import org.opentaint.ir.api.jvm.PredefinedJIRPrimitives
+import org.opentaint.ir.api.jvm.ext.jIRdbName
+import org.opentaint.ir.api.jvm.ext.jvmName
 import org.opentaint.ir.impl.types.TypeNameImpl
 
 internal val NULL = "null".typeName()
@@ -36,14 +36,14 @@ val TypeName.internalDesc: String
         else -> this.jvmClassName
     }
 
-val TypeName.isPrimitive get() = PredefinedPrimitives.matches(typeName)
+val TypeName.isPrimitive get() = PredefinedJIRPrimitives.matches(typeName)
 val TypeName.isArray get() = typeName.endsWith("[]")
 val TypeName.isClass get() = !isPrimitive && !isArray
 
 internal val TypeName.isDWord
     get() = when (typeName) {
-        PredefinedPrimitives.Long -> true
-        PredefinedPrimitives.Double -> true
+        PredefinedJIRPrimitives.Long -> true
+        PredefinedJIRPrimitives.Double -> true
         else -> false
     }
 
@@ -67,5 +67,5 @@ internal fun TypeName.baseElementType(): TypeName {
     return current!!
 }
 
-val lambdaMetaFactory: TypeName  = LAMBDA_METAFACTORY_CLASS.typeName()
+val lambdaMetaFactory: TypeName = LAMBDA_METAFACTORY_CLASS.typeName()
 val lambdaMetaFactoryMethodName: String = "metafactory"

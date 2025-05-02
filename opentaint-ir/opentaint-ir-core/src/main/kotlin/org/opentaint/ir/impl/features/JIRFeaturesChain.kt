@@ -1,8 +1,8 @@
 package org.opentaint.ir.impl.features
 
-import org.opentaint.ir.api.JIRClasspathFeature
-import org.opentaint.ir.api.JIRFeatureEvent
-import org.opentaint.ir.api.JIRLookupExtFeature
+import org.opentaint.ir.api.jvm.JIRClasspathFeature
+import org.opentaint.ir.api.jvm.JIRFeatureEvent
+import org.opentaint.ir.api.jvm.JIRLookupExtFeature
 
 class JIRFeaturesChain(val features: List<JIRClasspathFeature>) {
 

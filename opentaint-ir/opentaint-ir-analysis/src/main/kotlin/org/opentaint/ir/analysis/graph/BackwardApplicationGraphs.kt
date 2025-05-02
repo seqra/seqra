@@ -1,11 +1,11 @@
 @file:JvmName("BackwardApplicationGraphs")
 package org.opentaint.ir.analysis.graph
 
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.ApplicationGraph
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.core.analysis.ApplicationGraph
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 
 private class BackwardApplicationGraph<Method, Statement>(
     val forward: ApplicationGraph<Method, Statement>
@@ -34,7 +34,7 @@ val <Method, Statement> ApplicationGraph<Method, Statement>.reversed
 
 private class BackwardJIRApplicationGraph(val forward: JIRApplicationGraph) :
     JIRApplicationGraph, ApplicationGraph<JIRMethod, JIRInst> by BackwardApplicationGraph(forward) {
-    override val classpath: JIRClasspath
+    override val classpath: JIRProject
         get() = forward.classpath
 }
 

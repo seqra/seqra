@@ -1,21 +1,9 @@
 package org.opentaint.ir.impl.types
 
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
-import kotlinx.serialization.descriptors.SerialDescriptor
-import kotlinx.serialization.descriptors.buildClassSerialDescriptor
-import kotlinx.serialization.descriptors.serialDescriptor
-import kotlinx.serialization.encoding.CompositeDecoder
-import kotlinx.serialization.encoding.Decoder
-import kotlinx.serialization.encoding.Encoder
-import kotlinx.serialization.encoding.decodeStructure
-import kotlinx.serialization.encoding.encodeStructure
-import kotlinx.serialization.serializer
-import org.opentaint.ir.api.TypeName
-import org.opentaint.ir.api.ext.jIRdbName
+import org.opentaint.ir.api.core.TypeName
+import org.opentaint.ir.api.jvm.ext.jIRdbName
 import org.opentaint.ir.impl.storage.AnnotationValueKind
 import org.objectweb.asm.Type
 

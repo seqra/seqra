@@ -4,19 +4,19 @@ package org.opentaint.ir.impl.features
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
-import org.opentaint.ir.api.FieldUsageMode
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRField
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.ext.HierarchyExtension
-import org.opentaint.ir.api.ext.findDeclaredFieldOrNull
-import org.opentaint.ir.api.ext.findDeclaredMethodOrNull
-import org.opentaint.ir.api.ext.packageName
+import org.opentaint.ir.api.jvm.FieldUsageMode
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRField
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.ext.HierarchyExtension
+import org.opentaint.ir.api.jvm.ext.findDeclaredFieldOrNull
+import org.opentaint.ir.api.jvm.ext.findDeclaredMethodOrNull
+import org.opentaint.ir.api.jvm.ext.packageName
 import org.objectweb.asm.Opcodes
 import java.util.concurrent.Future
 
-class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, private val cp: JIRClasspath) {
+class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, private val cp: JIRProject) {
 
     /**
      * find all methods that call this method
@@ -117,14 +117,14 @@ class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, pr
     }
 }
 
-suspend fun JIRClasspath.usagesExt(): SyncUsagesExtension {
+suspend fun JIRProject.usagesExt(): SyncUsagesExtension {
     if (!db.isInstalled(Usages)) {
         throw IllegalStateException("This extension requires `Usages` feature to be installed")
     }
     return SyncUsagesExtension(hierarchyExt(), this)
 }
 
-fun JIRClasspath.asyncUsages(): Future<SyncUsagesExtension> = GlobalScope.future { usagesExt() }
+fun JIRProject.asyncUsages(): Future<SyncUsagesExtension> = GlobalScope.future { usagesExt() }
 
-suspend fun JIRClasspath.findUsages(method: JIRMethod) = usagesExt().findUsages(method)
-suspend fun JIRClasspath.findUsages(field: JIRField, mode: FieldUsageMode) = usagesExt().findUsages(field, mode)
+suspend fun JIRProject.findUsages(method: JIRMethod) = usagesExt().findUsages(method)
+suspend fun JIRProject.findUsages(field: JIRField, mode: FieldUsageMode) = usagesExt().findUsages(field, mode)

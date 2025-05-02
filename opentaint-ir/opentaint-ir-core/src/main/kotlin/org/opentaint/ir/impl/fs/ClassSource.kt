@@ -1,9 +1,9 @@
 package org.opentaint.ir.impl.fs
 
-import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.api.throwClassNotFound
+import org.opentaint.ir.api.jvm.ClassSource
+import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.RegisteredLocation
+import org.opentaint.ir.api.jvm.throwClassNotFound
 import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
 
 class ClassSourceImpl(

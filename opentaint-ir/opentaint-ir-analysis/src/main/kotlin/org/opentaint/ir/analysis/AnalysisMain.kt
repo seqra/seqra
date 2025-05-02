@@ -9,8 +9,8 @@ import org.opentaint.ir.analysis.engine.SummaryStorage
 import org.opentaint.ir.analysis.engine.UnitResolver
 import org.opentaint.ir.analysis.engine.VulnerabilityInstance
 import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 
 internal val logger = object : KLogging() {}.logger
 

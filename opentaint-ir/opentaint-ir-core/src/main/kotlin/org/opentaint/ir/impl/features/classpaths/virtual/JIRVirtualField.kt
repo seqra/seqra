@@ -1,10 +1,10 @@
 package org.opentaint.ir.impl.features.classpaths.virtual
 
-import org.opentaint.ir.api.JIRAnnotation
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRDeclaration
-import org.opentaint.ir.api.JIRField
-import org.opentaint.ir.api.TypeName
+import org.opentaint.ir.api.core.TypeName
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRDeclaration
+import org.opentaint.ir.api.jvm.JIRField
+import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.impl.bytecode.JIRDeclarationImpl
 import org.objectweb.asm.Opcodes
 

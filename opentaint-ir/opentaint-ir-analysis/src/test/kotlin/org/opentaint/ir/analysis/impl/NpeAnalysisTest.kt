@@ -8,9 +8,9 @@ import org.opentaint.ir.analysis.library.SingletonUnitResolver
 import org.opentaint.ir.analysis.library.analyzers.NpeAnalyzer
 import org.opentaint.ir.analysis.library.newNpeRunnerFactory
 import org.opentaint.ir.analysis.runAnalysis
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.ext.constructors
-import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.ext.constructors
+import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.ir.testing.analysis.NpeExamples
 import org.junit.jupiter.api.Assertions.*

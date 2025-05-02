@@ -1,7 +1,14 @@
 package org.opentaint.ir.impl.features
 
-import org.opentaint.ir.api.*
-import org.opentaint.ir.api.ext.jvmPrimitiveNames
+import org.opentaint.ir.api.jvm.ByteCodeIndexer
+import org.opentaint.ir.api.jvm.ClassSource
+import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.JIRDatabasePersistence
+import org.opentaint.ir.api.jvm.JIRFeature
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRSignal
+import org.opentaint.ir.api.jvm.RegisteredLocation
+import org.opentaint.ir.api.jvm.ext.jvmPrimitiveNames
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.executeQueries
@@ -158,11 +165,11 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
         }
     }
 
-    override suspend fun query(classpath: JIRClasspath, req: Set<String>): Sequence<BuildersResponse> {
+    override suspend fun query(classpath: JIRProject, req: Set<String>): Sequence<BuildersResponse> {
         return syncQuery(classpath, req)
     }
 
-    fun syncQuery(classpath: JIRClasspath, req: Set<String>): Sequence<BuildersResponse> {
+    fun syncQuery(classpath: JIRProject, req: Set<String>): Sequence<BuildersResponse> {
         val locationIds = classpath.registeredLocations.map { it.id }
         val persistence = classpath.db.persistence
         return sequence {

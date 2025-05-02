@@ -11,8 +11,8 @@ import org.opentaint.ir.analysis.library.analyzers.SqlInjectionBackwardAnalyzerF
 import org.opentaint.ir.analysis.library.analyzers.TaintAnalysisNode
 import org.opentaint.ir.analysis.library.analyzers.TaintNode
 import org.opentaint.ir.analysis.library.analyzers.UnusedVariableAnalyzerFactory
-import org.opentaint.ir.api.cfg.JIRExpr
-import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 
 //TODO: add docs here
 val UnusedVariableRunnerFactory = BaseIfdsUnitRunnerFactory(UnusedVariableAnalyzerFactory)

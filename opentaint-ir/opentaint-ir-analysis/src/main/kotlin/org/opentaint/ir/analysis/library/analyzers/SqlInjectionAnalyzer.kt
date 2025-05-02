@@ -4,7 +4,7 @@ import org.opentaint.ir.analysis.engine.AnalyzerFactory
 import org.opentaint.ir.analysis.engine.IfdsVertex
 import org.opentaint.ir.analysis.sarif.SarifMessage
 import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 
 class SqlInjectionAnalyzer(
     graph: JIRApplicationGraph,

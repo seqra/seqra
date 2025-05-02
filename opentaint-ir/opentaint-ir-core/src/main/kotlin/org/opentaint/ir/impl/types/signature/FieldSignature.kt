@@ -1,12 +1,17 @@
 package org.opentaint.ir.impl.types.signature
 
 import mu.KLogging
-import org.opentaint.ir.api.*
+import org.opentaint.ir.api.jvm.FieldResolution
+import org.opentaint.ir.api.jvm.JIRField
+import org.opentaint.ir.api.jvm.Malformed
+import org.opentaint.ir.api.jvm.Pure
 import org.opentaint.ir.impl.bytecode.JIRFieldImpl
 import org.opentaint.ir.impl.bytecode.kmType
 import org.opentaint.ir.impl.types.allVisibleTypeParameters
 import org.opentaint.ir.impl.types.substition.RecursiveJvmTypeVisitor
 import org.opentaint.ir.impl.types.substition.fixDeclarationVisitor
+import org.opentaint.ir.api.jvm.JvmType
+import org.opentaint.ir.api.jvm.JvmTypeParameterDeclaration
 import org.objectweb.asm.signature.SignatureReader
 
 internal class FieldSignature(private val field: JIRField?) : TypeRegistrant {

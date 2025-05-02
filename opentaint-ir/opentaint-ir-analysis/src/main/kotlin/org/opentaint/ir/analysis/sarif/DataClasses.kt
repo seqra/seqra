@@ -7,8 +7,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import org.opentaint.ir.analysis.engine.IfdsVertex
 import org.opentaint.ir.analysis.engine.VulnerabilityInstance
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 import java.io.OutputStream
 import java.nio.file.Path
 import java.nio.file.Paths

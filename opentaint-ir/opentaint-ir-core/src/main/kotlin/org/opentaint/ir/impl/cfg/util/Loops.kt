@@ -2,8 +2,8 @@
 
 package org.opentaint.ir.impl.cfg.util
 
-import org.opentaint.ir.api.cfg.JIRGraph
-import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRGraph
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.impl.cfg.graphs.findDominators
 import java.util.*
 import kotlin.LazyThreadSafetyMode.PUBLICATION

@@ -1,6 +1,6 @@
 package org.opentaint.ir.impl.types.signature
 
-import org.opentaint.ir.api.JvmType
+import org.opentaint.ir.api.jvm.JvmType
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.signature.SignatureVisitor
 

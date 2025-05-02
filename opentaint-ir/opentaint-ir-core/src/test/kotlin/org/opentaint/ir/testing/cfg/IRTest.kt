@@ -1,11 +1,10 @@
 package org.opentaint.ir.testing.cfg
 
-import org.opentaint.ir.api.*
-import org.opentaint.ir.api.cfg.*
-import org.opentaint.ir.api.ext.HierarchyExtension
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.toType
-import org.opentaint.ir.impl.JIRClasspathImpl
+import org.opentaint.ir.api.core.TypeName
+import org.opentaint.ir.api.jvm.ext.HierarchyExtension
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.toType
+import org.opentaint.ir.impl.JIRProjectImpl
 import org.opentaint.ir.impl.JIRDatabaseImpl
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.bytecode.JIRMethodImpl
@@ -17,6 +16,30 @@ import org.opentaint.ir.impl.cfg.util.ExprMapper
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.StringConcatSimplifier
 import org.opentaint.ir.impl.fs.JarLocation
+import org.opentaint.ir.api.jvm.JavaVersion
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRTypedMethod
+import org.opentaint.ir.api.jvm.cfg.DefaultJIRExprVisitor
+import org.opentaint.ir.api.jvm.cfg.DefaultJIRInstVisitor
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRCallInst
+import org.opentaint.ir.api.jvm.cfg.JIRCatchInst
+import org.opentaint.ir.api.jvm.cfg.JIREnterMonitorInst
+import org.opentaint.ir.api.jvm.cfg.JIRExitMonitorInst
+import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRGotoInst
+import org.opentaint.ir.api.jvm.cfg.JIRGraph
+import org.opentaint.ir.api.jvm.cfg.JIRIfInst
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstVisitor
+import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
+import org.opentaint.ir.api.jvm.cfg.JIRSpecialCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRSwitchInst
+import org.opentaint.ir.api.jvm.cfg.JIRTerminatingInst
+import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
+import org.opentaint.ir.api.jvm.cfg.JIRVirtualCallExpr
 import org.opentaint.ir.testing.*
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
@@ -267,7 +290,7 @@ class IRTest : BaseInstructionsTest() {
 
     @Test
     fun `get ir of self`() {
-        testClass(cp.findClass<JIRClasspathImpl>())
+        testClass(cp.findClass<JIRProjectImpl>())
         testClass(cp.findClass<JIRClassOrInterfaceImpl>())
         testClass(cp.findClass<JIRMethodImpl>())
         testClass(cp.findClass<RawInstListBuilder>())

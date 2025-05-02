@@ -1,13 +1,13 @@
 package org.opentaint.ir.approximation
 
-import org.opentaint.ir.api.JIRAnnotation
-import org.opentaint.ir.api.JIRMethodExtFeature
-import org.opentaint.ir.api.JIRMethodExtFeature.*
-import org.opentaint.ir.api.TypeName
-import org.opentaint.ir.api.cfg.JIRGraph
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRInstList
-import org.opentaint.ir.api.cfg.JIRRawInst
+import org.opentaint.ir.api.jvm.JIRMethodExtFeature
+import org.opentaint.ir.api.jvm.JIRMethodExtFeature.*
+import org.opentaint.ir.api.core.TypeName
+import org.opentaint.ir.api.jvm.cfg.JIRGraph
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.core.cfg.InstList
+import org.opentaint.ir.api.jvm.JIRAnnotation
+import org.opentaint.ir.api.jvm.cfg.JIRRawInst
 import org.opentaint.ir.impl.features.JIRFeaturesChain
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualFieldImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualMethodImpl
@@ -27,12 +27,12 @@ class JIREnrichedVirtualMethod(
     override val annotations: List<JIRAnnotation>
 ) : JIRVirtualMethodImpl(name, access, returnType, parameters, description) {
 
-    override val rawInstList: JIRInstList<JIRRawInst>
+    override val rawInstList: InstList<JIRRawInst>
         get() = featuresChain.call<JIRMethodExtFeature, JIRRawInstListResult> {
             it.rawInstList(this)
         }!!.rawInstList
 
-    override val instList: JIRInstList<JIRInst>
+    override val instList: InstList<JIRInst>
         get() = featuresChain.call<JIRMethodExtFeature, JIRInstListResult> {
             it.instList(this)
         }!!.instList

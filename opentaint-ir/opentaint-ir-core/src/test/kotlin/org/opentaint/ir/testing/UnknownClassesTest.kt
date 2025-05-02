@@ -1,9 +1,9 @@
 package org.opentaint.ir.testing
 
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.ext.cfg.callExpr
-import org.opentaint.ir.api.ext.cfg.fieldRef
-import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.ext.cfg.callExpr
+import org.opentaint.ir.api.jvm.ext.cfg.fieldRef
+import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.impl.features.classpaths.JIRUnknownClass
 import org.opentaint.ir.impl.features.classpaths.UnknownClassMethodsAndFields
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses

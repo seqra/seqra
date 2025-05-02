@@ -5,7 +5,7 @@ import org.opentaint.ir.analysis.library.PackageUnitResolver
 import org.opentaint.ir.analysis.library.SingletonUnitResolver
 import org.opentaint.ir.analysis.library.getClassUnitResolver
 import org.opentaint.ir.analysis.runAnalysis
-import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.jvm.JIRMethod
 
 /**
  * Sets a mapping from [JIRMethod] to abstract domain [UnitType].
@@ -15,11 +15,11 @@ import org.opentaint.ir.api.JIRMethod
  *
  * To get more info about how it is used in analysis, see [runAnalysis].
  */
-fun interface UnitResolver<UnitType> {
-    fun resolve(method: JIRMethod): UnitType
+fun interface UnitResolver<UnitType, Method> {
+    fun resolve(method: Method): UnitType
 
     companion object {
-        fun getByName(name: String): UnitResolver<*> {
+        fun <Method> getByName(name: String): UnitResolver<*, Method> {
             return when (name) {
                 "method"    -> MethodUnitResolver
                 "class"     -> getClassUnitResolver(false)

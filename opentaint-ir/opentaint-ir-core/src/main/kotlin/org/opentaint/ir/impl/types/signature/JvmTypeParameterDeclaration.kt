@@ -1,8 +1,8 @@
 package org.opentaint.ir.impl.types.signature
 
-import org.opentaint.ir.api.JIRAccessible
-import org.opentaint.ir.api.JvmType
-import org.opentaint.ir.api.JvmTypeParameterDeclaration
+import org.opentaint.ir.api.jvm.JIRAccessible
+import org.opentaint.ir.api.jvm.JvmType
+import org.opentaint.ir.api.jvm.JvmTypeParameterDeclaration
 
 internal class JvmTypeParameterDeclarationImpl(
     override val symbol: String,

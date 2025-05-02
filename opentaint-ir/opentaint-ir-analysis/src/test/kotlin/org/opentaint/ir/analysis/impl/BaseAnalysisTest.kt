@@ -3,10 +3,10 @@ package org.opentaint.ir.analysis.impl
 import juliet.support.AbstractTestCase
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.engine.VulnerabilityInstance
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.methods
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.methods
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.testing.BaseTest

@@ -1,17 +1,17 @@
 package org.opentaint.ir.analysis.graph
 
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.ir.impl.features.SyncUsagesExtension
 
 /**
  * Possible we will need JIRRawInst instead of JIRInst
  */
 open class JIRApplicationGraphImpl(
-    override val classpath: JIRClasspath,
+    override val classpath: JIRProject,
     private val usages: SyncUsagesExtension
 ) : JIRApplicationGraph {
     private val methods = mutableSetOf<JIRMethod>()

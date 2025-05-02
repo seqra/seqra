@@ -8,10 +8,10 @@ import kotlinx.metadata.KmValueParameter
 import kotlinx.metadata.jvm.fieldSignature
 import kotlinx.metadata.jvm.signature
 import mu.KLogging
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRField
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.JIRParameter
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRField
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRParameter
 import org.opentaint.ir.impl.features.classpaths.KotlinMetadata
 import org.opentaint.ir.impl.features.classpaths.KotlinMetadataHolder
 

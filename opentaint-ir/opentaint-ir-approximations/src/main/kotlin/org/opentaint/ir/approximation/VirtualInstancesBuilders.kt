@@ -1,7 +1,7 @@
 package org.opentaint.ir.approximation
 
-import org.opentaint.ir.api.JIRAnnotation
-import org.opentaint.ir.api.TypeName
+import org.opentaint.ir.api.core.TypeName
+import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.impl.features.JIRFeaturesChain
 import org.opentaint.ir.impl.features.classpaths.virtual.VirtualClassesBuilder
 import org.objectweb.asm.tree.MethodNode

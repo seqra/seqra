@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.fs
 
 import mu.KLogging
-import org.opentaint.ir.api.LocationType
+import org.opentaint.ir.api.jvm.LocationType
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths

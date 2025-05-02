@@ -1,5 +1,5 @@
 package org.opentaint.ir.analysis.engine
-import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 
 /**
  * Aggregates all facts and edges found by tabulation algorithm

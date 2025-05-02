@@ -2,9 +2,23 @@ package org.opentaint.ir.impl
 
 import kotlinx.coroutines.*
 import org.opentaint.ir.api.*
-import org.opentaint.ir.api.JIRClasspathExtFeature.JIRResolvedClassResult
-import org.opentaint.ir.api.JIRClasspathExtFeature.JIRResolvedTypeResult
-import org.opentaint.ir.api.ext.toType
+import org.opentaint.ir.api.jvm.ClassSource
+import org.opentaint.ir.api.jvm.JIRAnnotation
+import org.opentaint.ir.api.jvm.JIRArrayType
+import org.opentaint.ir.api.jvm.JIRByteCodeLocation
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRClasspathExtFeature
+import org.opentaint.ir.api.jvm.JIRRefType
+import org.opentaint.ir.api.jvm.JIRType
+import org.opentaint.ir.api.jvm.PredefinedJIRPrimitives
+import org.opentaint.ir.api.jvm.JIRClasspathExtFeature.JIRResolvedClassResult
+import org.opentaint.ir.api.jvm.JIRClasspathExtFeature.JIRResolvedTypeResult
+import org.opentaint.ir.api.jvm.JIRClasspathFeature
+import org.opentaint.ir.api.jvm.JIRClasspathTask
+import org.opentaint.ir.api.jvm.JIRFeatureEvent
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.RegisteredLocation
+import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.features.JIRFeatureEventImpl
 import org.opentaint.ir.impl.features.JIRFeaturesChain
@@ -20,12 +34,12 @@ import org.opentaint.ir.impl.types.substition.JIRSubstitutorImpl
 import org.opentaint.ir.impl.vfs.ClasspathVfs
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
 
-class JIRClasspathImpl(
+class JIRProjectImpl(
     private val locationsRegistrySnapshot: LocationsRegistrySnapshot,
     override val db: JIRDatabaseImpl,
     override val features: List<JIRClasspathFeature>,
     globalClassVFS: GlobalClassesVfs
-) : JIRClasspath {
+) : JIRProject {
 
     override val locations: List<JIRByteCodeLocation> = locationsRegistrySnapshot.locations.mapNotNull { it.jIRLocation }
     override val registeredLocations: List<RegisteredLocation> = locationsRegistrySnapshot.locations
@@ -37,7 +51,7 @@ class JIRClasspathImpl(
         JIRFeaturesChain(strictFeatures + listOfNotNull(JIRClasspathFeatureImpl(), UnknownClasses.takeIf { hasUnknownClasses }) )
     }
 
-    override suspend fun refreshed(closeOld: Boolean): JIRClasspath {
+    override suspend fun refreshed(closeOld: Boolean): JIRProject {
         return db.new(this).also {
             if (closeOld) {
                 close()
@@ -94,7 +108,7 @@ class JIRClasspathImpl(
 
                     sources.forEach {
                         if (parentScope.isActive && task.shouldProcess(it)) {
-                            task.process(it, this@JIRClasspathImpl)
+                            task.process(it, this@JIRProjectImpl)
                         }
                     }
                 }
@@ -120,7 +134,7 @@ class JIRClasspathImpl(
 
     private inner class JIRClasspathFeatureImpl : JIRClasspathExtFeature {
 
-        override fun tryFindClass(classpath: JIRClasspath, name: String): JIRResolvedClassResult? {
+        override fun tryFindClass(classpath: JIRProject, name: String): JIRResolvedClassResult? {
             val source = classpathVfs.firstClassOrNull(name)
             val jIRClass = source?.let { toJIRClass(it.source) }
                 ?: db.persistence.findClassSourceByName(classpath, name)?.let {
@@ -132,14 +146,14 @@ class JIRClasspathImpl(
             return JIRResolvedClassResultImpl(name, jIRClass)
         }
 
-        override fun tryFindType(classpath: JIRClasspath, name: String): JIRResolvedTypeResult? {
+        override fun tryFindType(classpath: JIRProject, name: String): JIRResolvedTypeResult? {
             if (name.endsWith("[]")) {
                 val targetName = name.removeSuffix("[]")
                 return JIRResolvedTypeResultImpl(name,
                     findTypeOrNull(targetName)?.let { JIRArrayTypeImpl(it, true) }
                 )
             }
-            val predefined = PredefinedPrimitives.of(name, classpath)
+            val predefined = PredefinedJIRPrimitives.of(name, classpath)
             if (predefined != null) {
                 return JIRResolvedTypeResultImpl(name, predefined)
             }
@@ -150,7 +164,7 @@ class JIRClasspathImpl(
             }
         }
 
-        override fun findClasses(classpath: JIRClasspath, name: String): List<JIRClassOrInterface> {
+        override fun findClasses(classpath: JIRProject, name: String): List<JIRClassOrInterface> {
             val vfsClasses = classpathVfs.findClassNodes(name).map { toJIRClass(it.source) }
             val persistedClasses = db.persistence.findClassSources(classpath, name).map { toJIRClass(it) }
             return buildSet {

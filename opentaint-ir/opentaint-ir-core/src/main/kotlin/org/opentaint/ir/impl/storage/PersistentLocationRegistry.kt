@@ -1,9 +1,9 @@
 package org.opentaint.ir.impl.storage
 
-import org.opentaint.ir.api.JIRByteCodeLocation
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.LocationType
-import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.api.jvm.JIRByteCodeLocation
+import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.LocationType
+import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.impl.*
 import org.opentaint.ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
@@ -208,7 +208,7 @@ class PersistentLocationRegistry(private val jIRdb: JIRDatabase, private val fea
         val record = BytecodelocationsRecord().also {
             it.path = path
             it.uniqueid = fileSystemId
-            it.runtime = type == LocationType.RUNTIME
+            it.runtime = type == org.opentaint.ir.api.jvm.LocationType.RUNTIME
         }
         record.insert()
         return record

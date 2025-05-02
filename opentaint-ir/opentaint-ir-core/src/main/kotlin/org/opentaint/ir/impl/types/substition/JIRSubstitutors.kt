@@ -1,9 +1,14 @@
 package org.opentaint.ir.impl.types.substition
 
 import org.opentaint.ir.api.*
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.impl.cfg.util.OBJECT_CLASS
 import org.opentaint.ir.impl.types.signature.JvmClassRefType
 import org.opentaint.ir.impl.types.typeParameters
+import org.opentaint.ir.api.jvm.JIRGenericsSubstitutionFeature
+import org.opentaint.ir.api.jvm.JIRSubstitutor
+import org.opentaint.ir.api.jvm.JvmType
+import org.opentaint.ir.api.jvm.JvmTypeParameterDeclaration
 
 private fun List<JvmTypeParameterDeclaration>.substitute(
     parameters: List<JvmType>,

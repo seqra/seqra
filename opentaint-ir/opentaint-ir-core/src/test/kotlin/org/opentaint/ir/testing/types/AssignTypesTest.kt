@@ -1,8 +1,8 @@
 package org.opentaint.ir.testing.types
 
-import org.opentaint.ir.api.ext.isAssignable
-import org.opentaint.ir.api.ext.objectType
-import org.opentaint.ir.api.throwClassNotFound
+import org.opentaint.ir.api.jvm.ext.isAssignable
+import org.opentaint.ir.api.jvm.ext.objectType
+import org.opentaint.ir.api.jvm.throwClassNotFound
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

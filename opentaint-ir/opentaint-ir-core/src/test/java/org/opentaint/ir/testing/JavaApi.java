@@ -1,9 +1,9 @@
 package org.opentaint.ir.testing;
 
-import org.opentaint.ir.api.JIRDatabase;
-import org.opentaint.ir.api.cfg.JIRArgument;
-import org.opentaint.ir.api.cfg.JIRExpr;
-import org.opentaint.ir.api.cfg.TypedExprResolver;
+import org.opentaint.ir.api.jvm.JIRDatabase;
+import org.opentaint.ir.api.jvm.cfg.JIRArgument;
+import org.opentaint.ir.api.jvm.cfg.JIRExpr;
+import org.opentaint.ir.api.jvm.cfg.TypedExprResolver;
 import org.opentaint.ir.impl.Opentaint-IR;
 import org.opentaint.ir.impl.JIRCacheSettings;
 import org.opentaint.ir.impl.JIRSettings;

@@ -1,13 +1,13 @@
 package org.opentaint.ir.testing.types
 
-import org.opentaint.ir.api.JIRArrayType
-import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRPrimitiveType
-import org.opentaint.ir.api.JIRTypeVariable
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.findMethodOrNull
-import org.opentaint.ir.api.ext.humanReadableSignature
-import org.opentaint.ir.api.ext.toType
+import org.opentaint.ir.api.jvm.JIRArrayType
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRPrimitiveType
+import org.opentaint.ir.api.jvm.JIRTypeVariable
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.findMethodOrNull
+import org.opentaint.ir.api.jvm.ext.humanReadableSignature
+import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import org.opentaint.ir.impl.types.signature.JvmClassRefType
 import org.opentaint.ir.impl.types.substition.JIRSubstitutorImpl

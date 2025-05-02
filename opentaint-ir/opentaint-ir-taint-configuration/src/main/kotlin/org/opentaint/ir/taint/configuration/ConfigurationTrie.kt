@@ -1,7 +1,7 @@
 package org.opentaint.ir.taint.configuration
 
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.ext.packageName
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.ext.packageName
 
 class ConfigurationTrie(
     configuration: List<SerializedTaintConfigurationItem>,

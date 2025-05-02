@@ -1,8 +1,9 @@
 package org.opentaint.ir.analysis.engine
 
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.core.analysis.ApplicationGraph
+import org.opentaint.ir.api.core.cfg.CoreInst
+import org.opentaint.ir.api.core.cfg.CoreInstLocation
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 
 /**
  * Interface for flow functions -- mappings of kind DomainFact -> Collection of DomainFacts
@@ -27,16 +28,16 @@ object ZEROFact : DomainFact {
  * Implementations of the interface should provide all four kinds of flow functions mentioned in RHS95,
  * thus fully describing how the facts are propagated through the supergraph.
  */
-interface FlowFunctionsSpace {
+interface FlowFunctionsSpace<Statement : CoreInst<*, Method, *>, Method> {
     /**
      * @return facts that may hold when analysis is started from [startStatement]
      * (these are needed to initiate worklist in ifds analysis)
      */
-    fun obtainPossibleStartFacts(startStatement: JIRInst): Collection<DomainFact>
-    fun obtainSequentFlowFunction(current: JIRInst, next: JIRInst): FlowFunctionInstance
-    fun obtainCallToStartFlowFunction(callStatement: JIRInst, callee: JIRMethod): FlowFunctionInstance
-    fun obtainCallToReturnFlowFunction(callStatement: JIRInst, returnSite: JIRInst): FlowFunctionInstance
-    fun obtainExitToReturnSiteFlowFunction(callStatement: JIRInst, returnSite: JIRInst, exitStatement: JIRInst): FlowFunctionInstance
+    fun obtainPossibleStartFacts(startStatement: Statement): Collection<DomainFact>
+    fun obtainSequentFlowFunction(current: Statement, next: Statement): FlowFunctionInstance
+    fun obtainCallToStartFlowFunction(callStatement: Statement, callee: Method): FlowFunctionInstance
+    fun obtainCallToReturnFlowFunction(callStatement: Statement, returnSite: Statement): FlowFunctionInstance
+    fun obtainExitToReturnSiteFlowFunction(callStatement: Statement, returnSite: Statement, exitStatement: Statement): FlowFunctionInstance
 }
 
 /**
@@ -49,8 +50,10 @@ interface FlowFunctionsSpace {
  * @property flowFunctions a [FlowFunctionsSpace] instance that describes how facts are generated and propagated
  * during run of tabulation algorithm.
  */
-interface Analyzer {
-    val flowFunctions: FlowFunctionsSpace
+interface Analyzer<Method, Location, Statement>
+        where Location : CoreInstLocation<Method>,
+              Statement : CoreInst<Location, Method, *> {
+    val flowFunctions: FlowFunctionsSpace<Statement, Method>
 
     /**
      * This method is called by [BaseIfdsUnitRunner] each time a new path edge is found.
@@ -58,14 +61,14 @@ interface Analyzer {
      * @return [AnalysisDependentEvent]s that are produced by this edge.
      * Usually these are [NewSummaryFact] events with [SummaryEdgeFact] or [VulnerabilityLocation] facts
      */
-    fun handleNewEdge(edge: IfdsEdge): List<AnalysisDependentEvent>
+    fun handleNewEdge(edge: IfdsEdge<Method, Location, Statement>): List<AnalysisDependentEvent>
 
     /**
      * This method is called by [BaseIfdsUnitRunner] each time a new cross-unit called is observed.
      *
      * @return [AnalysisDependentEvent]s that are produced by this [fact].
      */
-    fun handleNewCrossUnitCall(fact: CrossUnitCallFact): List<AnalysisDependentEvent>
+    fun handleNewCrossUnitCall(fact: CrossUnitCallFact<Method, Location, Statement>): List<AnalysisDependentEvent>
 
     /**
      * This method is called once by [BaseIfdsUnitRunner] when the propagation of facts is finished
@@ -78,11 +81,13 @@ interface Analyzer {
 }
 
 /**
- * A functional interface that allows to produce [Analyzer] by [JIRApplicationGraph].
+ * A functional interface that allows to produce [Analyzer] by [ApplicationGraph].
  *
  * It simplifies instantiation of [IfdsUnitRunnerFactory]s because this way you don't have to pass graph and reversed
  * graph to analyzers' constructors directly, relying on runner to do it by itself.
  */
-fun interface AnalyzerFactory {
-    fun newAnalyzer(graph: JIRApplicationGraph): Analyzer
+fun interface AnalyzerFactory<Method, Location, Statement>
+        where Location : CoreInstLocation<Method>,
+              Statement : CoreInst<Location, Method, *> {
+    fun newAnalyzer(graph: ApplicationGraph<Method, Statement>): Analyzer<Method, Location, Statement>
 }

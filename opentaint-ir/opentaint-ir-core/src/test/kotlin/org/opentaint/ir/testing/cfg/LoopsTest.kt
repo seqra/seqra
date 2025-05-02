@@ -1,8 +1,8 @@
 package org.opentaint.ir.testing.cfg
 
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.impl.cfg.util.JIRLoop
 import org.opentaint.ir.impl.cfg.util.loops
 import org.opentaint.ir.testing.BaseTest

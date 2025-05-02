@@ -4,7 +4,7 @@ package org.opentaint.ir.impl.features
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
-import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRProject
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
 import org.jooq.impl.DSL
@@ -14,7 +14,7 @@ import org.jooq.impl.DSL
  *
  * @return map with name and count of classes
  */
-suspend fun JIRClasspath.duplicatedClasses(): Map<String, Int> {
+suspend fun JIRProject.duplicatedClasses(): Map<String, Int> {
     db.awaitBackgroundJobs()
     return db.persistence.read {
         it.select(SYMBOLS.NAME, DSL.count(SYMBOLS.NAME)).from(CLASSES)
@@ -29,4 +29,4 @@ suspend fun JIRClasspath.duplicatedClasses(): Map<String, Int> {
 
 }
 
-fun JIRClasspath.asyncDuplicatedClasses() = GlobalScope.future { duplicatedClasses() }
+fun JIRProject.asyncDuplicatedClasses() = GlobalScope.future { duplicatedClasses() }

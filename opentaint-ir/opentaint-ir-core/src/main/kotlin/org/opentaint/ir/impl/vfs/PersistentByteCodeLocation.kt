@@ -1,10 +1,10 @@
 package org.opentaint.ir.impl.vfs
 
-import org.opentaint.ir.api.JavaVersion
-import org.opentaint.ir.api.JIRByteCodeLocation
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.JIRDatabasePersistence
-import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.api.jvm.JavaVersion
+import org.opentaint.ir.api.jvm.JIRByteCodeLocation
+import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.JIRDatabasePersistence
+import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS

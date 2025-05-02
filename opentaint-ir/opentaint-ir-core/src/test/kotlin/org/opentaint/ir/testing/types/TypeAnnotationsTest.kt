@@ -1,10 +1,10 @@
 package org.opentaint.ir.testing.types
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRAnnotation
-import org.opentaint.ir.api.JIRArrayType
-import org.opentaint.ir.api.JIRBoundedWildcard
-import org.opentaint.ir.api.JIRClassType
+import org.opentaint.ir.api.jvm.JIRAnnotation
+import org.opentaint.ir.api.jvm.JIRArrayType
+import org.opentaint.ir.api.jvm.JIRBoundedWildcard
+import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

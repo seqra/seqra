@@ -3,16 +3,16 @@ package org.opentaint.ir.analysis.library.analyzers
 import org.opentaint.ir.analysis.paths.AccessPath
 import org.opentaint.ir.analysis.paths.minus
 import org.opentaint.ir.analysis.paths.startsWith
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.cfg.JIRArgument
-import org.opentaint.ir.api.cfg.JIRThis
-import org.opentaint.ir.api.ext.toType
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRArgument
+import org.opentaint.ir.api.jvm.cfg.JIRThis
+import org.opentaint.ir.api.jvm.ext.toType
 
 val JIRMethod.thisInstance: JIRThis
     get() = JIRThis(enclosingClass.toType())
 
-fun JIRClasspath.getFormalParamsOf(method: JIRMethod): List<JIRArgument> {
+fun JIRProject.getFormalParamsOf(method: JIRMethod): List<JIRArgument> {
     return method.parameters.map {
         JIRArgument.of(it.index, it.name, findTypeOrNull(it.type.typeName)!!)
     }

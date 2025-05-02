@@ -1,10 +1,10 @@
 package org.opentaint.ir.impl.types.signature
 
 import kotlinx.metadata.KmTypeParameter
-import org.opentaint.ir.api.JIRAccessible
-import org.opentaint.ir.api.JvmType
-import org.opentaint.ir.api.JvmTypeParameterDeclaration
-import org.opentaint.ir.api.Resolution
+import org.opentaint.ir.api.jvm.JIRAccessible
+import org.opentaint.ir.api.jvm.JvmType
+import org.opentaint.ir.api.jvm.JvmTypeParameterDeclaration
+import org.opentaint.ir.api.jvm.Resolution
 import org.objectweb.asm.signature.SignatureReader
 import org.objectweb.asm.signature.SignatureVisitor
 

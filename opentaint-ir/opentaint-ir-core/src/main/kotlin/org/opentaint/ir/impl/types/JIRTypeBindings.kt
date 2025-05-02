@@ -1,14 +1,19 @@
 package org.opentaint.ir.impl.types
 
-import org.opentaint.ir.api.*
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.objectType
+import org.opentaint.ir.api.jvm.JIRAccessible
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRRefType
+import org.opentaint.ir.api.jvm.JIRType
+import org.opentaint.ir.api.jvm.JIRTypeVariableDeclaration
+import org.opentaint.ir.api.jvm.JvmType
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.objectType
 import org.opentaint.ir.impl.types.signature.*
 
-internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = null): JIRType {
+internal fun JIRProject.typeOf(jvmType: JvmType, parameters: List<JvmType>? = null): JIRType {
     return when (jvmType) {
         is JvmPrimitiveType -> {
-            PredefinedPrimitives.of(jvmType.ref, this, jvmType.annotations)
+            org.opentaint.ir.api.jvm.PredefinedJIRPrimitives.of(jvmType.ref, this, jvmType.annotations)
                 ?: throw IllegalStateException("primitive type ${jvmType.ref} not found")
         }
 
@@ -66,7 +71,7 @@ internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = 
 
 class JIRTypeVariableDeclarationImpl(
     override val symbol: String,
-    private val classpath: JIRClasspath,
+    private val classpath: JIRProject,
     private val jvmBounds: List<JvmType>,
     override val owner: JIRAccessible
 ) : JIRTypeVariableDeclaration {

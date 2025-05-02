@@ -2,11 +2,11 @@ package org.opentaint.ir.testing
 
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.ext.CONSTRUCTOR
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.usedFields
-import org.opentaint.ir.api.ext.usedMethods
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.ext.CONSTRUCTOR
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.usedFields
+import org.opentaint.ir.api.jvm.ext.usedMethods
 import org.opentaint.ir.testing.usages.direct.DirectA
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -97,7 +97,7 @@ class DirectUsagesTest : BaseTest() {
         )
     }
 
-    private inline fun <reified T> JIRClasspath.fieldsUsages(): List<Pair<String, List<Pair<String, List<String>>>>> {
+    private inline fun <reified T> JIRProject.fieldsUsages(): List<Pair<String, List<Pair<String, List<String>>>>> {
         return runBlocking {
             val classId = findClass<T>()
 
@@ -114,7 +114,7 @@ class DirectUsagesTest : BaseTest() {
         }
     }
 
-    private inline fun <reified T> JIRClasspath.methodsUsages(): List<Pair<String, List<String>>> {
+    private inline fun <reified T> JIRProject.methodsUsages(): List<Pair<String, List<String>>> {
         return runBlocking {
             val jIRClass = findClass<T>()
 

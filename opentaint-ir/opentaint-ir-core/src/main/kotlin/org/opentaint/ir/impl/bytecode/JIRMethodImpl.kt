@@ -1,18 +1,18 @@
 package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.ir.api.JIRAnnotation
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.JIRMethodExtFeature
-import org.opentaint.ir.api.JIRMethodExtFeature.JIRFlowGraphResult
-import org.opentaint.ir.api.JIRMethodExtFeature.JIRInstListResult
-import org.opentaint.ir.api.JIRMethodExtFeature.JIRRawInstListResult
-import org.opentaint.ir.api.JIRParameter
-import org.opentaint.ir.api.TypeName
-import org.opentaint.ir.api.cfg.JIRGraph
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRInstList
-import org.opentaint.ir.api.cfg.JIRRawInst
+import org.opentaint.ir.api.jvm.JIRMethodExtFeature
+import org.opentaint.ir.api.jvm.JIRMethodExtFeature.JIRFlowGraphResult
+import org.opentaint.ir.api.jvm.JIRMethodExtFeature.JIRInstListResult
+import org.opentaint.ir.api.jvm.JIRMethodExtFeature.JIRRawInstListResult
+import org.opentaint.ir.api.jvm.cfg.JIRGraph
+import org.opentaint.ir.api.core.cfg.InstList
+import org.opentaint.ir.api.jvm.JIRAnnotation
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRParameter
+import org.opentaint.ir.api.core.TypeName
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRRawInst
 import org.opentaint.ir.impl.features.JIRFeaturesChain
 import org.opentaint.ir.impl.types.AnnotationInfo
 import org.opentaint.ir.impl.types.MethodInfo
@@ -63,7 +63,7 @@ class JIRMethodImpl(
         return enclosingClass.asmNode().methods.first { it.name == name && it.desc == methodInfo.desc }.jsrInlined
     }
 
-    override val rawInstList: JIRInstList<JIRRawInst>
+    override val rawInstList: InstList<JIRRawInst>
         get() {
             return featuresChain.call<JIRMethodExtFeature, JIRRawInstListResult> { it.rawInstList(this) }!!.rawInstList
         }
@@ -72,7 +72,8 @@ class JIRMethodImpl(
         return featuresChain.call<JIRMethodExtFeature, JIRFlowGraphResult> { it.flowGraph(this) }!!.flowGraph
     }
 
-    override val instList: JIRInstList<JIRInst> get() {
+    override val instList: InstList<JIRInst>
+        get() {
         return featuresChain.call<JIRMethodExtFeature, JIRInstListResult> { it.instList(this) }!!.instList
     }
 

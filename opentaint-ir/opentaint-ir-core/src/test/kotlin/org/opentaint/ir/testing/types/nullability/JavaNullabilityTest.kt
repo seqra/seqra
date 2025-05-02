@@ -1,7 +1,7 @@
 package org.opentaint.ir.testing.types.nullability
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRClassType
+import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.testing.types.BaseTypesTest
 import org.opentaint.ir.testing.types.NullAnnotationExamples
 import org.junit.jupiter.api.Assertions.assertEquals

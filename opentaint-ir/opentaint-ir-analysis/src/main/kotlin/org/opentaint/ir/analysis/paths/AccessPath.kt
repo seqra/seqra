@@ -1,7 +1,7 @@
 package org.opentaint.ir.analysis.paths
 
-import org.opentaint.ir.api.JIRField
-import org.opentaint.ir.api.cfg.JIRLocal
+import org.opentaint.ir.api.jvm.JIRField
+import org.opentaint.ir.api.jvm.cfg.JIRLocal
 
 /**
  * This class is used to represent an access path that is needed for problems

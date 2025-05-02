@@ -1,6 +1,6 @@
 package org.opentaint.ir.analysis.paths
 
-import org.opentaint.ir.api.JIRField
+import org.opentaint.ir.api.jvm.JIRField
 
 sealed interface Accessor
 

@@ -7,7 +7,7 @@ import org.opentaint.ir.analysis.library.SingletonUnitResolver
 import org.opentaint.ir.analysis.library.UnusedVariableRunnerFactory
 import org.opentaint.ir.analysis.library.analyzers.UnusedVariableAnalyzer
 import org.opentaint.ir.analysis.runAnalysis
-import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.testing.WithDB

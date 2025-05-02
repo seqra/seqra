@@ -1,12 +1,25 @@
 package org.opentaint.ir.impl.features.classpaths
 
 import org.opentaint.ir.api.*
-import org.opentaint.ir.api.ext.objectType
+import org.opentaint.ir.api.core.TypeName
+import org.opentaint.ir.api.jvm.JIRAnnotation
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRField
+import org.opentaint.ir.api.jvm.JIRLookup
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRRefType
+import org.opentaint.ir.api.jvm.JIRTypeVariableDeclaration
+import org.opentaint.ir.api.jvm.JIRTypedField
+import org.opentaint.ir.api.jvm.JIRTypedMethod
+import org.opentaint.ir.api.jvm.ext.objectType
 import org.opentaint.ir.impl.cfg.util.OBJECT_CLASS
 import org.opentaint.ir.impl.types.TypeNameImpl
 import org.objectweb.asm.Opcodes
 
-class JIRUnknownType(override var classpath: JIRClasspath, private val name: String, private val location: VirtualLocation) : JIRClassType {
+class JIRUnknownType(override var classpath: JIRProject, private val name: String, private val location: VirtualLocation) :
+    JIRClassType {
 
     override val lookup: JIRLookup<JIRTypedField, JIRTypedMethod> = JIRUnknownTypeLookup(this)
 

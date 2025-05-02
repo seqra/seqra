@@ -10,10 +10,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.ApplicationGraph
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.core.analysis.ApplicationGraph
+import org.opentaint.ir.api.core.cfg.CoreInst
+import org.opentaint.ir.api.core.cfg.CoreInstLocation
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -21,13 +20,16 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * @property analyzerFactory used to build [Analyzer] instance, which then will be used by launched [BaseIfdsUnitRunner].
  */
-class BaseIfdsUnitRunnerFactory(private val analyzerFactory: AnalyzerFactory) : IfdsUnitRunnerFactory {
+class BaseIfdsUnitRunnerFactory<Method, Location, Statement>(
+    private val analyzerFactory: AnalyzerFactory<Method, Location, Statement>
+) : IfdsUnitRunnerFactory<Method, Statement> where Location : CoreInstLocation<Method>,
+                                                   Statement : CoreInst<Location, Method, *> {
     override fun <UnitType> newRunner(
-        graph: JIRApplicationGraph,
-        manager: IfdsUnitManager<UnitType>,
-        unitResolver: UnitResolver<UnitType>,
+        graph: ApplicationGraph<Method, Statement>,
+        manager: IfdsUnitManager<UnitType, Method, Location, Statement>,
+        unitResolver: UnitResolver<UnitType, Method>,
         unit: UnitType,
-        startMethods: List<JIRMethod>
+        startMethods: List<Method>
     ): IfdsUnitRunner<UnitType> {
         val analyzer = analyzerFactory.newAnalyzer(graph)
         return BaseIfdsUnitRunner(graph, analyzer, manager, unitResolver, unit, startMethods)
@@ -37,26 +39,26 @@ class BaseIfdsUnitRunnerFactory(private val analyzerFactory: AnalyzerFactory) : 
 /**
  * Encapsulates launch of tabulation algorithm, described in RHS95, for one unit
  */
-private class BaseIfdsUnitRunner<UnitType>(
-    private val graph: ApplicationGraph<JIRMethod, JIRInst>,
-    private val analyzer: Analyzer,
+private class BaseIfdsUnitRunner<UnitType, Method, Location, Statement>(
+    private val graph: ApplicationGraph<Method, Statement>,
+    private val analyzer: Analyzer<Method, Location, Statement>,
     private val manager: IfdsUnitManager<UnitType>,
-    private val unitResolver: UnitResolver<UnitType>,
+    private val unitResolver: UnitResolver<UnitType, Method>,
     unit: UnitType,
-    private val startMethods: List<JIRMethod>
-) : AbstractIfdsUnitRunner<UnitType>(unit) {
-
-    private val pathEdges: MutableSet<IfdsEdge> = ConcurrentHashMap.newKeySet()
-    private val summaryEdges: MutableMap<IfdsVertex, MutableSet<IfdsVertex>> = mutableMapOf()
-    private val callSitesOf: MutableMap<IfdsVertex, MutableSet<IfdsEdge>> = mutableMapOf()
-    private val pathEdgesPreds: MutableMap<IfdsEdge, MutableSet<PathEdgePredecessor>> = ConcurrentHashMap()
+    private val startMethods: List<Method>
+) : AbstractIfdsUnitRunner<UnitType>(unit) where Location : CoreInstLocation<Method>,
+                                                 Statement : CoreInst<Location, Method, *> {
+    private val pathEdges: MutableSet<IfdsEdge<Method, Location, Statement>> = ConcurrentHashMap.newKeySet()
+    private val summaryEdges: MutableMap<IfdsVertex<Method, Location, Statement>, MutableSet<IfdsVertex<Method, Location, Statement>>> = mutableMapOf()
+    private val callSitesOf: MutableMap<IfdsVertex<Method, Location, Statement>, MutableSet<IfdsEdge<Method, Location, Statement>>> = mutableMapOf()
+    private val pathEdgesPreds: MutableMap<IfdsEdge<Method, Location, Statement>, MutableSet<PathEdgePredecessor>> = ConcurrentHashMap()
 
     private val flowSpace = analyzer.flowFunctions
 
     /**
      * Queue containing all unprocessed path edges.
      */
-    private val workList = Channel<IfdsEdge>(Channel.UNLIMITED)
+    private val workList = Channel<IfdsEdge<Method, Location, Statement>>(Channel.UNLIMITED)
 
     /**
      * This method should be called each time new path edge is observed.
@@ -66,7 +68,7 @@ private class BaseIfdsUnitRunner<UnitType>(
      * @param edge the new path edge
      * @param pred the description of predecessor of the edge
      */
-    private suspend fun propagate(edge: IfdsEdge, pred: PathEdgePredecessor): Boolean {
+    private suspend fun propagate(edge: IfdsEdge<Method, Location, Statement>, pred: PathEdgePredecessor): Boolean {
         require(unitResolver.resolve(edge.method) == unit)
 
         pathEdgesPreds.computeIfAbsent(edge) {
@@ -83,7 +85,7 @@ private class BaseIfdsUnitRunner<UnitType>(
         return false
     }
 
-    private val JIRMethod.isExtern: Boolean
+    private val Method.isExtern: Boolean
         get() = unitResolver.resolve(this) != unit
 
     /**
@@ -125,16 +127,24 @@ private class BaseIfdsUnitRunner<UnitType>(
                             for (sFact in factsAtStart) {
                                 val sVertex = IfdsVertex(sPoint, sFact)
 
-                                val handleExitVertex: suspend (IfdsVertex) -> Unit = { (eStatement, eFact) ->
-                                    val finalFacts = flowSpace
-                                        .obtainExitToReturnSiteFlowFunction(curVertex, returnSite, eStatement)
-                                        .compute(eFact)
-                                    for (finalFact in finalFacts) {
-                                        val summaryEdge = IfdsEdge(IfdsVertex(sPoint, sFact), IfdsVertex(eStatement, eFact))
-                                        val newEdge = IfdsEdge(u, IfdsVertex(returnSite, finalFact))
-                                        propagate(newEdge, PathEdgePredecessor(curEdge, PredecessorKind.ThroughSummary(summaryEdge)))
+                                val handleExitVertex: suspend (IfdsVertex<Method, Location, Statement>) -> Unit =
+                                    { (eStatement, eFact) ->
+                                        val finalFacts = flowSpace
+                                            .obtainExitToReturnSiteFlowFunction(curVertex, returnSite, eStatement)
+                                            .compute(eFact)
+                                        for (finalFact in finalFacts) {
+                                            val summaryEdge =
+                                                IfdsEdge(IfdsVertex(sPoint, sFact), IfdsVertex(eStatement, eFact))
+                                            val newEdge = IfdsEdge(u, IfdsVertex(returnSite, finalFact))
+                                            propagate(
+                                                newEdge,
+                                                PathEdgePredecessor(
+                                                    curEdge,
+                                                    PredecessorKind.ThroughSummary(summaryEdge)
+                                                )
+                                            )
+                                        }
                                     }
-                                }
 
                                 if (callee.isExtern) {
                                     // Notify about cross-unit call
@@ -224,7 +234,7 @@ private class BaseIfdsUnitRunner<UnitType>(
                 for (sPoint in graph.entryPoint(method)) {
                     for (sFact in flowSpace.obtainPossibleStartFacts(sPoint)) {
                         val vertex = IfdsVertex(sPoint, sFact)
-                        val edge = IfdsEdge(vertex, vertex)
+                        val edge = IfdsEdge<Method, Location, Statement>(vertex, vertex)
                         propagate(edge, PathEdgePredecessor(edge, PredecessorKind.NoPredecessor))
                     }
                 }

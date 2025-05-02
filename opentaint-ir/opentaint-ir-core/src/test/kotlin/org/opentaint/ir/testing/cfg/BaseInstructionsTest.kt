@@ -1,11 +1,11 @@
 package org.opentaint.ir.testing.cfg
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.NoClassInClasspathException
-import org.opentaint.ir.api.cfg.applyAndGet
-import org.opentaint.ir.api.ext.isKotlin
-import org.opentaint.ir.api.ext.packageName
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.NoClassInClasspathException
+import org.opentaint.ir.api.jvm.cfg.applyAndGet
+import org.opentaint.ir.api.jvm.ext.isKotlin
+import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.impl.bytecode.JIRDatabaseClassWriter
 import org.opentaint.ir.impl.cfg.MethodNodeBuilder
 import org.opentaint.ir.impl.features.hierarchyExt

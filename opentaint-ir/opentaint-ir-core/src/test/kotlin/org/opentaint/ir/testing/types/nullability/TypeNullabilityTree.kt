@@ -1,12 +1,12 @@
 package org.opentaint.ir.testing.types.nullability
 
-import org.opentaint.ir.api.JIRArrayType
-import org.opentaint.ir.api.JIRBoundedWildcard
-import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRType
-import org.opentaint.ir.api.JIRTypeVariable
-import org.opentaint.ir.api.JIRTypeVariableDeclaration
-import org.opentaint.ir.api.JIRUnboundWildcard
+import org.opentaint.ir.api.jvm.JIRArrayType
+import org.opentaint.ir.api.jvm.JIRBoundedWildcard
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRType
+import org.opentaint.ir.api.jvm.JIRTypeVariable
+import org.opentaint.ir.api.jvm.JIRTypeVariableDeclaration
+import org.opentaint.ir.api.jvm.JIRUnboundWildcard
 
 data class TypeNullabilityTree(val isNullable: Boolean?, val innerTypes: List<TypeNullabilityTree>)
 

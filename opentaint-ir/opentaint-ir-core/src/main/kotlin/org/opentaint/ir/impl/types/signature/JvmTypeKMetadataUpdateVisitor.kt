@@ -2,8 +2,8 @@ package org.opentaint.ir.impl.types.signature
 
 import kotlinx.metadata.KmType
 import kotlinx.metadata.KmTypeParameter
-import org.opentaint.ir.api.JvmType
-import org.opentaint.ir.api.JvmTypeParameterDeclaration
+import org.opentaint.ir.api.jvm.JvmType
+import org.opentaint.ir.api.jvm.JvmTypeParameterDeclaration
 import org.opentaint.ir.impl.bytecode.isNullable
 
 /**

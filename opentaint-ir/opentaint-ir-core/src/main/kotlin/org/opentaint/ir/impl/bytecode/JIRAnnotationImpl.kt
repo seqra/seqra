@@ -1,8 +1,8 @@
 package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.ir.api.JIRAnnotation
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.ext.enumValues
+import org.opentaint.ir.api.jvm.JIRAnnotation
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.ext.enumValues
 import org.opentaint.ir.impl.types.AnnotationInfo
 import org.opentaint.ir.impl.types.AnnotationValue
 import org.opentaint.ir.impl.types.AnnotationValueList
@@ -13,7 +13,7 @@ import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 class JIRAnnotationImpl(
     private val info: AnnotationInfo,
-    private val classpath: JIRClasspath
+    private val classpath: JIRProject
 ) : JIRAnnotation {
 
     override val jIRClass by lazy(PUBLICATION) {

@@ -1,17 +1,33 @@
 package org.opentaint.ir.impl.analysis.impl
 
-import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.PredefinedPrimitives
-import org.opentaint.ir.api.cfg.*
-import org.opentaint.ir.api.ext.autoboxIfNeeded
-import org.opentaint.ir.api.ext.findTypeOrNull
-import org.opentaint.ir.impl.cfg.JIRInstListImpl
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.PredefinedJIRPrimitives
+import org.opentaint.ir.api.core.cfg.InstList
+import org.opentaint.ir.api.jvm.ext.autoboxIfNeeded
+import org.opentaint.ir.api.jvm.ext.findTypeOrNull
+import org.opentaint.ir.impl.cfg.InstListImpl
 import org.opentaint.ir.impl.cfg.VirtualMethodRefImpl
 import org.opentaint.ir.impl.cfg.methodRef
+import org.opentaint.ir.api.jvm.cfg.BsmStringArg
+import org.opentaint.ir.api.jvm.cfg.DefaultJIRInstVisitor
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRCatchInst
+import org.opentaint.ir.api.jvm.cfg.JIRDynamicCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRGotoInst
+import org.opentaint.ir.api.jvm.cfg.JIRIfInst
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstRef
+import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
+import org.opentaint.ir.api.jvm.cfg.JIRStaticCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
+import org.opentaint.ir.api.jvm.cfg.JIRSwitchInst
+import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.ir.api.jvm.cfg.JIRVirtualCallExpr
 import kotlin.collections.set
 
-class StringConcatSimplifierTransformer(classpath: JIRClasspath, private val list: JIRInstList<JIRInst>) : DefaultJIRInstVisitor<JIRInst> {
+class StringConcatSimplifierTransformer(classpath: JIRProject, private val list: InstList<JIRInst>) :
+    DefaultJIRInstVisitor<JIRInst> {
 
     override val defaultInstHandler: (JIRInst) -> JIRInst
         get() = { it }
@@ -23,7 +39,7 @@ class StringConcatSimplifierTransformer(classpath: JIRClasspath, private val lis
 
     private val stringType = classpath.findTypeOrNull<String>() as JIRClassType
 
-    fun transform(): JIRInstList<JIRInst> {
+    fun transform(): InstList<JIRInst> {
         var changed = false
         for (inst in list) {
             if (inst is JIRAssignInst) {
@@ -74,12 +90,12 @@ class StringConcatSimplifierTransformer(classpath: JIRClasspath, private val lis
          * remap all the old JIRInstRef's to new ones
          */
         instructionIndices.putAll(instructions.indices.map { instructions[it] to it })
-        return JIRInstListImpl(instructions.map { it.accept(this) })
+        return InstListImpl(instructions.map { it.accept(this) })
     }
 
     private fun stringify(inst: JIRInst, value: JIRValue, instList: MutableList<JIRInst>): JIRValue {
         return when {
-            PredefinedPrimitives.matches(value.type.typeName) -> {
+            PredefinedJIRPrimitives.matches(value.type.typeName) -> {
                 val boxedType = value.type.autoboxIfNeeded() as JIRClassType
                 val method = boxedType.methods.first {
                     it.name == "toString" && it.parameters.size == 1 && it.parameters.first().type == value.type

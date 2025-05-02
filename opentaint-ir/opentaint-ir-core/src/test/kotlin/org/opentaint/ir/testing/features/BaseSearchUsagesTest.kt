@@ -1,9 +1,9 @@
 package org.opentaint.ir.testing.features
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.FieldUsageMode
-import org.opentaint.ir.api.ext.CONSTRUCTOR
-import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.jvm.FieldUsageMode
+import org.opentaint.ir.api.jvm.ext.CONSTRUCTOR
+import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithGlobalDB

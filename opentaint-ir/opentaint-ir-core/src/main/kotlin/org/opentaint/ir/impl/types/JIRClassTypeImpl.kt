@@ -1,9 +1,22 @@
 package org.opentaint.ir.impl.types
 
 import org.opentaint.ir.api.*
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.packageName
-import org.opentaint.ir.api.ext.toType
+import org.opentaint.ir.api.jvm.JIRAnnotation
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRGenericsSubstitutionFeature
+import org.opentaint.ir.api.jvm.JIRLookup
+import org.opentaint.ir.api.jvm.JIRLookupExtFeature
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRRefType
+import org.opentaint.ir.api.jvm.JIRSubstitutor
+import org.opentaint.ir.api.jvm.JIRType
+import org.opentaint.ir.api.jvm.JIRTypedField
+import org.opentaint.ir.api.jvm.JIRTypedMethod
+import org.opentaint.ir.api.jvm.JvmType
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.packageName
+import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.impl.bytecode.TypeDelegatingLookup
 import org.opentaint.ir.impl.types.signature.JvmClassRefType
 import org.opentaint.ir.impl.types.signature.JvmParameterizedType
@@ -14,7 +27,7 @@ import org.opentaint.ir.impl.types.substition.SafeSubstitution
 import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 class JIRClassTypeImpl(
-    override val classpath: JIRClasspath,
+    override val classpath: JIRProject,
     val name: String,
     override val outerType: JIRClassTypeImpl? = null,
     private val substitutor: JIRSubstitutor = JIRSubstitutorImpl.empty,
@@ -23,7 +36,7 @@ class JIRClassTypeImpl(
 ) : JIRClassType {
 
     constructor(
-        classpath: JIRClasspath,
+        classpath: JIRProject,
         name: String,
         outerType: JIRClassTypeImpl? = null,
         parameters: List<JvmType>,
@@ -241,7 +254,7 @@ class JIRClassTypeImpl(
 
 }
 
-private fun JIRClasspath.substitute(
+private fun JIRProject.substitute(
     name: String,
     parameters: List<JvmType>,
     substitutor: JIRSubstitutor?

@@ -1,6 +1,11 @@
 package org.opentaint.ir.impl.features
 
-import org.opentaint.ir.api.*
+import org.opentaint.ir.api.jvm.ByteCodeIndexer
+import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.JIRFeature
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRSignal
+import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.*
@@ -150,11 +155,11 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
         }
     }
 
-    override suspend fun query(classpath: JIRClasspath, req: UsageFeatureRequest): Sequence<UsageFeatureResponse> {
+    override suspend fun query(classpath: JIRProject, req: UsageFeatureRequest): Sequence<UsageFeatureResponse> {
         return syncQuery(classpath, req)
     }
 
-    fun syncQuery(classpath: JIRClasspath, req: UsageFeatureRequest): Sequence<UsageFeatureResponse> {
+    fun syncQuery(classpath: JIRProject, req: UsageFeatureRequest): Sequence<UsageFeatureResponse> {
         val locationIds = classpath.registeredLocations.map { it.id }
         val persistence = classpath.db.persistence
         val name = req.methodName ?: req.field

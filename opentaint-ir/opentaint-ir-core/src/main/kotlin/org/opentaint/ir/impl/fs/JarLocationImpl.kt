@@ -1,8 +1,8 @@
 package org.opentaint.ir.impl.fs
 
 import mu.KLogging
-import org.opentaint.ir.api.JavaVersion
-import org.opentaint.ir.api.LocationType
+import org.opentaint.ir.api.jvm.JavaVersion
+import org.opentaint.ir.api.jvm.LocationType
 import java.io.File
 import java.util.jar.JarFile
 

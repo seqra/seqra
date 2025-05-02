@@ -1,11 +1,11 @@
 package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRDeclaration
-import org.opentaint.ir.api.JIRField
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.JIRParameter
-import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRDeclaration
+import org.opentaint.ir.api.jvm.JIRField
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRParameter
+import org.opentaint.ir.api.jvm.RegisteredLocation
 
 class JIRDeclarationImpl(override val location: RegisteredLocation, override val relativePath: String) : JIRDeclaration {
 

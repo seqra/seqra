@@ -1,20 +1,20 @@
 package org.opentaint.ir.analysis.impl.custom
 
-import org.opentaint.ir.api.JIRRefType
-import org.opentaint.ir.api.cfg.JIRArrayAccess
-import org.opentaint.ir.api.cfg.JIRAssignInst
-import org.opentaint.ir.api.cfg.JIRCallExpr
-import org.opentaint.ir.api.cfg.JIRCastExpr
-import org.opentaint.ir.api.cfg.JIREnterMonitorInst
-import org.opentaint.ir.api.cfg.JIRFieldRef
-import org.opentaint.ir.api.cfg.JIRGraph
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRInstanceCallExpr
-import org.opentaint.ir.api.cfg.JIRLocal
-import org.opentaint.ir.api.cfg.JIRValue
-import org.opentaint.ir.api.ext.cfg.arrayRef
-import org.opentaint.ir.api.ext.cfg.callExpr
-import org.opentaint.ir.api.ext.cfg.fieldRef
+import org.opentaint.ir.api.jvm.JIRRefType
+import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
+import org.opentaint.ir.api.jvm.cfg.JIREnterMonitorInst
+import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
+import org.opentaint.ir.api.jvm.cfg.JIRGraph
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRLocal
+import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.ir.api.jvm.ext.cfg.arrayRef
+import org.opentaint.ir.api.jvm.ext.cfg.callExpr
+import org.opentaint.ir.api.jvm.ext.cfg.fieldRef
 
 class NullAnalysisMap : HashMap<JIRValue, NullableState> {
 

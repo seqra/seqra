@@ -1,6 +1,6 @@
 package org.opentaint.ir.impl.fs
 
-import org.opentaint.ir.api.JavaVersion
+import org.opentaint.ir.api.jvm.JavaVersion
 
 private class JavaVersionImpl(override val majorVersion: Int) : JavaVersion
 

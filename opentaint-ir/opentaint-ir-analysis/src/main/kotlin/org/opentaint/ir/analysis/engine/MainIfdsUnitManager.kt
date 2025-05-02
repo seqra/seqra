@@ -13,8 +13,8 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import org.opentaint.ir.analysis.logger
 import org.opentaint.ir.analysis.runAnalysis
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import java.util.concurrent.ConcurrentHashMap
 
 /**

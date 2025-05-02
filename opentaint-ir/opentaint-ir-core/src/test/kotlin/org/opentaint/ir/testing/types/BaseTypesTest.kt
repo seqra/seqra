@@ -1,7 +1,7 @@
 package org.opentaint.ir.testing.types
 
-import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithGlobalDB
 import org.junit.jupiter.api.Assertions.*

@@ -1,15 +1,15 @@
 package org.opentaint.ir.analysis.paths
 
-import org.opentaint.ir.api.cfg.JIRArrayAccess
-import org.opentaint.ir.api.cfg.JIRCastExpr
-import org.opentaint.ir.api.cfg.JIRExpr
-import org.opentaint.ir.api.cfg.JIRFieldRef
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRInstanceCallExpr
-import org.opentaint.ir.api.cfg.JIRLengthExpr
-import org.opentaint.ir.api.cfg.JIRLocal
-import org.opentaint.ir.api.cfg.JIRValue
-import org.opentaint.ir.api.cfg.values
+import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
+import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
+import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRLengthExpr
+import org.opentaint.ir.api.jvm.cfg.JIRLocal
+import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.ir.api.jvm.cfg.values
 
 internal fun JIRExpr.toPathOrNull(): AccessPath? {
     if (this is JIRCastExpr) {

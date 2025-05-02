@@ -1,9 +1,14 @@
 package org.opentaint.ir.testing
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRType
-import org.opentaint.ir.api.ext.*
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRType
+import org.opentaint.ir.api.jvm.ext.autoboxIfNeeded
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.findTypeOrNull
+import org.opentaint.ir.api.jvm.ext.isSubClassOf
+import org.opentaint.ir.api.jvm.ext.short
+import org.opentaint.ir.api.jvm.ext.unboxIfNeeded
 import org.opentaint.ir.testing.hierarchies.Creature
 import org.opentaint.ir.testing.hierarchies.Creature.*
 import org.junit.jupiter.api.Assertions.*

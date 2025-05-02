@@ -6,11 +6,11 @@ import org.opentaint.ir.analysis.engine.UnitResolver;
 import org.opentaint.ir.analysis.graph.ApplicationGraphFactory;
 import org.opentaint.ir.analysis.library.RunnersLibrary;
 import org.opentaint.ir.analysis.library.UnitResolversLibrary;
-import org.opentaint.ir.api.JIRClassOrInterface;
-import org.opentaint.ir.api.JIRClasspath;
-import org.opentaint.ir.api.JIRDatabase;
-import org.opentaint.ir.api.JIRMethod;
-import org.opentaint.ir.api.analysis.JIRApplicationGraph;
+import org.opentaint.ir.api.jvm.JIRClassOrInterface;
+import org.opentaint.ir.api.jvm.JIRProject;
+import org.opentaint.ir.api.jvm.JIRDatabase;
+import org.opentaint.ir.api.jvm.JIRMethod;
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph;
 import org.opentaint.ir.impl.Opentaint-IR;
 import org.opentaint.ir.impl.JIRSettings;
 import org.opentaint.ir.impl.features.InMemoryHierarchy;
@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 public class JavaAnalysisApiTest {
-    private static JIRClasspath classpath;
+    private static JIRProject classpath;
 
     @BeforeAll
     public static void initClasspath() throws ExecutionException, InterruptedException {

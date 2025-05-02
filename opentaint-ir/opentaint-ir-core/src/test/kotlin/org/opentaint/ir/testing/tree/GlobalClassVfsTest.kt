@@ -1,7 +1,7 @@
 package org.opentaint.ir.testing.tree
 
 import kotlinx.collections.immutable.persistentListOf
-import org.opentaint.ir.api.ClassSource
+import org.opentaint.ir.api.jvm.ClassSource
 import org.opentaint.ir.impl.fs.ClassSourceImpl
 import org.opentaint.ir.impl.vfs.ClassVfsItem
 import org.opentaint.ir.impl.vfs.ClasspathVfs

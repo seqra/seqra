@@ -3,9 +3,9 @@ package org.opentaint.ir.testing
 import com.google.common.cache.AbstractCache
 import com.google.common.collect.Iterators
 import kotlinx.coroutines.*
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.findClassOrNull
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.findClassOrNull
 import org.opentaint.ir.impl.JIRDatabaseImpl
 import org.opentaint.ir.impl.fs.BuildFolderLocation
 import org.opentaint.ir.impl.opentaint-ir
@@ -141,7 +141,7 @@ class DatabaseLifecycleTest {
         db.awaitBackgroundJobs()
         val cps = (1..10).map { db.classpath(listOf(guavaLibClone)) }
 
-        fun JIRClasspath.accessMethod() {
+        fun JIRProject.accessMethod() {
 
             val abstractCacheClass = findClass<AbstractCache<*, *>>()
 

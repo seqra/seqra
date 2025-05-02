@@ -1,8 +1,8 @@
 package org.opentaint.ir.impl.bytecode
 
 import org.objectweb.asm.TypeReference
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRField
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.impl.types.AnnotationInfo
 import org.opentaint.ir.impl.types.FieldInfo
 import org.opentaint.ir.impl.types.TypeNameImpl

@@ -1,11 +1,11 @@
 package org.opentaint.ir.impl.storage
 
-import org.opentaint.ir.api.ClassSource
-import org.opentaint.ir.api.JIRByteCodeLocation
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.JIRDatabasePersistence
-import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.api.jvm.ClassSource
+import org.opentaint.ir.api.jvm.JIRByteCodeLocation
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.JIRDatabasePersistence
+import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.impl.FeaturesRegistry
 import org.opentaint.ir.impl.JIRInternalSignal
 import org.opentaint.ir.impl.fs.JavaRuntime
@@ -96,7 +96,7 @@ abstract class AbstractJIRDatabasePersistenceImpl(
         }
     }
 
-    override fun findClassSourceByName(cp: JIRClasspath, fullName: String): ClassSource? {
+    override fun findClassSourceByName(cp: JIRProject, fullName: String): ClassSource? {
         val symbolId = findSymbolId(fullName) ?: return null
         return cp.db.classSources(CLASSES.NAME.eq(symbolId).and(cp.clause), single = true).firstOrNull()
     }
@@ -105,12 +105,12 @@ abstract class AbstractJIRDatabasePersistenceImpl(
         return db.classSources(CLASSES.LOCATION_ID.eq(location.id))
     }
 
-    override fun findClassSources(cp: JIRClasspath, fullName: String): List<ClassSource> {
+    override fun findClassSources(cp: JIRProject, fullName: String): List<ClassSource> {
         val symbolId = findSymbolId(fullName) ?: return emptyList()
         return cp.db.classSources(CLASSES.NAME.eq(symbolId).and(cp.clause))
     }
 
-    private val JIRClasspath.clause: Condition
+    private val JIRProject.clause: Condition
         get() {
             val ids = registeredLocations.map { it.id }
             return CLASSES.LOCATION_ID.`in`(ids)

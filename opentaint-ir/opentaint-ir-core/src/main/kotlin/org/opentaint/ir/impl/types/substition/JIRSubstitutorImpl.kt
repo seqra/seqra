@@ -3,10 +3,10 @@ package org.opentaint.ir.impl.types.substition
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap
-import org.opentaint.ir.api.JIRSubstitutor
-import org.opentaint.ir.api.JvmType
-import org.opentaint.ir.api.JvmTypeParameterDeclaration
-import org.opentaint.ir.api.ext.isNotNullAnnotation
+import org.opentaint.ir.api.jvm.JIRSubstitutor
+import org.opentaint.ir.api.jvm.JvmType
+import org.opentaint.ir.api.jvm.JvmTypeParameterDeclaration
+import org.opentaint.ir.api.jvm.ext.isNotNullAnnotation
 import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclarationImpl
 import org.opentaint.ir.impl.types.signature.JvmTypeVariable
 import org.opentaint.ir.impl.types.signature.copyWith

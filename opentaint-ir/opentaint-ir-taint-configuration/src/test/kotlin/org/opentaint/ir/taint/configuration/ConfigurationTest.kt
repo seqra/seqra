@@ -1,11 +1,11 @@
 package org.opentaint.ir.taint.configuration
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.ext.constructors
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.methods
-import org.opentaint.ir.api.ext.objectType
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.ext.constructors
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.methods
+import org.opentaint.ir.api.jvm.ext.objectType
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.features.classpaths.VirtualLocation
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualClassImpl
@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test
 class ConfigurationTest : BaseTest() {
     companion object : WithDB()
 
-    override val cp: JIRClasspath = runBlocking {
+    override val cp: JIRProject = runBlocking {
         val configPath = "/testJsonConfig.json"
         val testConfig = this::class.java.getResourceAsStream(configPath)
             ?: error("No such resource found: $configPath")

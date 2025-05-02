@@ -1,11 +1,11 @@
 package org.opentaint.ir.impl.cfg.graphs
 
-import org.opentaint.ir.api.cfg.JIRBasicBlock
-import org.opentaint.ir.api.cfg.JIRBlockGraph
-import org.opentaint.ir.api.cfg.JIRBytecodeGraph
-import org.opentaint.ir.api.cfg.JIRCatchInst
-import org.opentaint.ir.api.cfg.JIRGraph
-import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRBasicBlock
+import org.opentaint.ir.api.jvm.cfg.JIRBlockGraph
+import org.opentaint.ir.api.jvm.cfg.JIRBytecodeGraph
+import org.opentaint.ir.api.jvm.cfg.JIRCatchInst
+import org.opentaint.ir.api.jvm.cfg.JIRGraph
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 import java.util.*
 
 /**

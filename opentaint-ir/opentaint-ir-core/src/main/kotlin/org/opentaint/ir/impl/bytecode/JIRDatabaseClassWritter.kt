@@ -1,14 +1,14 @@
 package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.ext.findClass
 import org.objectweb.asm.ClassWriter
 
 /**
  * ASM class writer with opentaint-ir specific resolution of common superclasses
  */
-class JIRDatabaseClassWriter(val classpath: JIRClasspath, flags: Int) : ClassWriter(flags) {
+class JIRDatabaseClassWriter(val classpath: JIRProject, flags: Int) : ClassWriter(flags) {
 
     /*
    * We need to overwrite this method here, as we are generating multiple classes that might reference each other. See

@@ -1,9 +1,9 @@
 package org.opentaint.ir.impl.types.signature
 
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JvmType
-import org.opentaint.ir.api.ext.isNotNullAnnotation
-import org.opentaint.ir.api.ext.isNullableAnnotation
+import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JvmType
+import org.opentaint.ir.api.jvm.ext.isNotNullAnnotation
+import org.opentaint.ir.api.jvm.ext.isNullableAnnotation
 import org.opentaint.ir.impl.bytecode.JIRAnnotationImpl
 import org.opentaint.ir.impl.types.AnnotationInfo
 import org.objectweb.asm.TypePath
@@ -48,9 +48,9 @@ private data class AnnotationUpdateVisitorContext(val annotationInfo: Annotation
  * These cases can be distinguished by looking at [AnnotationUpdateVisitorContext.finished] property
  * after visiting ownertype.
  *
- * @param cp [JIRClasspath] instance needed to instantiate [JIRAnnotationImpl]
+ * @param cp [JIRProject] instance needed to instantiate [JIRAnnotationImpl]
  */
-private class JvmTypeAnnotationUpdateVisitor(private val cp: JIRClasspath)
+private class JvmTypeAnnotationUpdateVisitor(private val cp: JIRProject)
     : JvmTypeVisitor<AnnotationUpdateVisitorContext> {
     override fun visitUpperBound(
         type: JvmBoundWildcard.JvmUpperBoundWildcard,
@@ -187,7 +187,7 @@ private class JvmTypeAnnotationUpdateVisitor(private val cp: JIRClasspath)
  * Adds all given type annotations to proper parts of type (which is given as receiver).
  * Also, for nullability annotations, changes the nullability of corresponding parts of type
  */
-internal fun JvmType.withTypeAnnotations(annotationInfos: List<AnnotationInfo>, cp: JIRClasspath): JvmType {
+internal fun JvmType.withTypeAnnotations(annotationInfos: List<AnnotationInfo>, cp: JIRProject): JvmType {
     val visitor = JvmTypeAnnotationUpdateVisitor(cp)
     return annotationInfos.fold(this) { type, annotationInfo ->
         visitor.visitType(type, AnnotationUpdateVisitorContext(annotationInfo))

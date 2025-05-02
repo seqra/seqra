@@ -3,9 +3,9 @@ package org.opentaint.ir.testing;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.Lists;
-import org.opentaint.ir.api.JIRClassOrInterface;
-import org.opentaint.ir.api.JIRClasspath;
-import org.opentaint.ir.api.JIRDatabase;
+import org.opentaint.ir.api.jvm.JIRClassOrInterface;
+import org.opentaint.ir.api.jvm.JIRProject;
+import org.opentaint.ir.api.jvm.JIRDatabase;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -36,7 +36,7 @@ public class JavaApiTest {
     public void createClasspath() throws ExecutionException, InterruptedException, IOException {
         System.out.println("Creating database");
         JIRDatabase instance = db.get();
-        try (JIRClasspath classpath = instance.asyncClasspath(Lists.newArrayList()).get()) {
+        try (JIRProject classpath = instance.asyncClasspath(Lists.newArrayList()).get()) {
             JIRClassOrInterface clazz = classpath.findClassOrNull("java.lang.String");
             assertNotNull(clazz);
             assertNotNull(classpath.asyncRefreshed(false).get());

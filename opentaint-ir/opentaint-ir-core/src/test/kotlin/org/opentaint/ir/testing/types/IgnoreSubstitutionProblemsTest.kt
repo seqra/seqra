@@ -1,11 +1,11 @@
 package org.opentaint.ir.testing.types
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.ext.cfg.fieldRef
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.packageName
-import org.opentaint.ir.api.ext.toType
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.ext.cfg.fieldRef
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.packageName
+import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.impl.bytecode.JIRDatabaseClassWriter
 import org.opentaint.ir.impl.types.substition.IgnoreSubstitutionProblems
 import org.opentaint.ir.testing.BaseTest

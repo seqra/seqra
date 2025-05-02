@@ -10,7 +10,7 @@ import org.opentaint.ir.analysis.library.getClassUnitResolver
 import org.opentaint.ir.analysis.library.newNpeRunnerFactory
 import org.opentaint.ir.analysis.runAnalysis
 import org.opentaint.ir.analysis.sarif.SarifReport
-import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithGlobalDB
 import org.joda.time.DateTime

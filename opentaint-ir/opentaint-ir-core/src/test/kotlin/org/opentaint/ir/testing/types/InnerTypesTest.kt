@@ -1,7 +1,7 @@
 package org.opentaint.ir.testing.types
 
-import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRTypeVariable
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRTypeVariable
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.io.Closeable

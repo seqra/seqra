@@ -1,12 +1,12 @@
 package org.opentaint.ir.analysis.impl
 
 import org.opentaint.ir.analysis.impl.custom.NullAssumptionAnalysis
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.cfg.JIRAssignInst
-import org.opentaint.ir.api.cfg.JIRInstanceCallExpr
-import org.opentaint.ir.api.cfg.JIRLocal
-import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRLocal
+import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithGlobalDB
 import org.opentaint.ir.testing.cfg.NullAssumptionAnalysisExample
