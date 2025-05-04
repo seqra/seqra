@@ -6,27 +6,31 @@ import org.opentaint.ir.analysis.engine.DomainFact
 import org.opentaint.ir.analysis.engine.IfdsResult
 import org.opentaint.ir.analysis.engine.IfdsVertex
 import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
+import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.jvm.cfg.JIRExpr
 import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
 
-fun AliasAnalyzerFactory(
+fun JIRAliasAnalyzerFactory(
     generates: (JIRInst) -> List<DomainFact>,
     sanitizes: (JIRExpr, TaintNode) -> Boolean,
     sinks: (JIRInst) -> List<TaintAnalysisNode>,
     maxPathLength: Int = 5
 ) = AnalyzerFactory { graph ->
-    AliasAnalyzer(graph, generates, sanitizes, sinks, maxPathLength)
+    JIRAliasAnalyzer(graph as JIRApplicationGraph, generates, sanitizes, sinks, maxPathLength)
 }
 
-private class AliasAnalyzer(
+private class JIRAliasAnalyzer(
     graph: JIRApplicationGraph,
     override val generates: (JIRInst) -> List<DomainFact>,
     override val sanitizes: (JIRExpr, TaintNode) -> Boolean,
     override val sinks: (JIRInst) -> List<TaintAnalysisNode>,
     maxPathLength: Int,
-) : TaintAnalyzer(graph, maxPathLength) {
-    override fun generateDescriptionForSink(sink: IfdsVertex): VulnerabilityDescription = TODO()
+) : TaintAnalyzer<JIRMethod, JIRInstLocation, JIRInst>(graph, maxPathLength) {
+    override fun generateDescriptionForSink(sink: IfdsVertex<JIRMethod, JIRInstLocation, JIRInst>): VulnerabilityDescription =
+        TODO()
 
-    override fun handleIfdsResult(ifdsResult: IfdsResult): List<AnalysisDependentEvent> = TODO()
+    override fun handleIfdsResult(ifdsResult: IfdsResult<JIRMethod, JIRInstLocation, JIRInst>): List<AnalysisDependentEvent> =
+        TODO()
 }

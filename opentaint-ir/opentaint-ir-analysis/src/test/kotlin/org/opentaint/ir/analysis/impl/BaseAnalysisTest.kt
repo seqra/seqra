@@ -5,6 +5,8 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.engine.VulnerabilityInstance
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.api.jvm.ext.methods
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
@@ -59,7 +61,7 @@ abstract class BaseAnalysisTest : BaseTest() {
         )
     }
 
-    protected abstract fun launchAnalysis(methods: List<JIRMethod>): List<VulnerabilityInstance>
+    protected abstract fun launchAnalysis(methods: List<JIRMethod>): List<VulnerabilityInstance<JIRMethod, JIRInstLocation, JIRInst>>
 
     protected inline fun <reified T> testOneAnalysisOnOneMethod(
         vulnerabilityType: String,

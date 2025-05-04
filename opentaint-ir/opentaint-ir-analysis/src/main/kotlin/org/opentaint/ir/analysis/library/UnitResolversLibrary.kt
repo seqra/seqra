@@ -2,19 +2,23 @@
 package org.opentaint.ir.analysis.library
 
 import org.opentaint.ir.analysis.engine.UnitResolver
+import org.opentaint.ir.api.core.CoreMethod
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.ext.packageName
 
-val MethodUnitResolver = UnitResolver { method -> method }
-val PackageUnitResolver = UnitResolver { method -> method.enclosingClass.packageName }
-val SingletonUnitResolver = UnitResolver { _ -> Unit }
+// TODO caelmbleidd add cache?????
+fun <Method> methodUnitResolver() = UnitResolver<Method, Method> { method -> method }
 
-fun getClassUnitResolver(includeNested: Boolean): UnitResolver<JIRClassOrInterface> {
-    return ClassUnitResolver(includeNested)
+// TODO caelmbleidd extract java
+val JIRPackageUnitResolver = UnitResolver<String, JIRMethod> { method -> method.enclosingClass.packageName }
+val JIRSingletonUnitResolver = UnitResolver<Unit, JIRMethod> { _ -> Unit }
+
+fun getJIRClassUnitResolver(includeNested: Boolean): UnitResolver<JIRClassOrInterface, JIRMethod> {
+    return JIRClassUnitResolver(includeNested)
 }
 
-private class ClassUnitResolver(private val includeNested: Boolean): UnitResolver<JIRClassOrInterface> {
+private class JIRClassUnitResolver(private val includeNested: Boolean): UnitResolver<JIRClassOrInterface, JIRMethod> {
     override fun resolve(method: JIRMethod): JIRClassOrInterface {
         return if (includeNested) {
             generateSequence(method.enclosingClass) { it.outerClass }.last()

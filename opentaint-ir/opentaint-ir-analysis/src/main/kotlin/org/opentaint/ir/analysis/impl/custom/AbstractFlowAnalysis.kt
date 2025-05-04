@@ -1,8 +1,8 @@
 package org.opentaint.ir.analysis.impl.custom
 
-import org.opentaint.ir.api.core.cfg.Graph
+import org.opentaint.ir.api.core.cfg.ControlFlowGraph
 
-abstract class AbstractFlowAnalysis<NODE, T>(override val graph: Graph<NODE>) : FlowAnalysis<NODE, T> {
+abstract class AbstractFlowAnalysis<NODE, T>(override val graph: ControlFlowGraph<NODE>) : FlowAnalysis<NODE, T> {
 
     override fun newEntryFlow(): T = newFlow()
 

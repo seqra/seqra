@@ -16,6 +16,7 @@ import org.opentaint.ir.api.jvm.ext.cfg.arrayRef
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.ir.api.jvm.ext.cfg.fieldRef
 
+// TODO caelmbleidd Java specific analysis
 class NullAnalysisMap : HashMap<JIRValue, NullableState> {
 
     constructor() : super()

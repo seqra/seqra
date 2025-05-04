@@ -17,6 +17,7 @@ import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.paths.toPathOrNull
 import org.opentaint.ir.analysis.sarif.SarifMessage
 import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
+import org.opentaint.ir.api.core.analysis.ApplicationGraph
 import org.opentaint.ir.api.jvm.JIRProject
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
@@ -25,6 +26,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRBranchingInst
 import org.opentaint.ir.api.jvm.cfg.JIRExpr
 import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
 import org.opentaint.ir.api.jvm.cfg.JIRLocal
 import org.opentaint.ir.api.jvm.cfg.JIRSpecialCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRStaticCallExpr
@@ -32,8 +34,10 @@ import org.opentaint.ir.api.jvm.cfg.JIRTerminatingInst
 import org.opentaint.ir.api.jvm.cfg.values
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 
-class UnusedVariableAnalyzer(val graph: JIRApplicationGraph) : AbstractAnalyzer(graph) {
-    override val flowFunctions: FlowFunctionsSpace = UnusedVariableForwardFunctions(graph.classpath)
+class JIRUnusedVariableAnalyzer(
+    val graph: JIRApplicationGraph
+) : AbstractAnalyzer<JIRMethod, JIRInstLocation, JIRInst>(graph) {
+    override val flowFunctions: FlowFunctionsSpace<JIRInst, JIRMethod> = JIRUnusedVariableForwardFunctions(graph.classpath)
 
     override val isMainAnalyzer: Boolean
         get() = true
@@ -72,11 +76,15 @@ class UnusedVariableAnalyzer(val graph: JIRApplicationGraph) : AbstractAnalyzer(
         return false
     }
 
-    override fun handleNewCrossUnitCall(fact: CrossUnitCallFact): List<AnalysisDependentEvent> {
+    override fun handleNewCrossUnitCall(
+        fact: CrossUnitCallFact<JIRMethod, JIRInstLocation, JIRInst>
+    ): List<AnalysisDependentEvent> {
         return emptyList()
     }
 
-    override fun handleIfdsResult(ifdsResult: IfdsResult): List<AnalysisDependentEvent> = buildList {
+    override fun handleIfdsResult(
+        ifdsResult: IfdsResult<JIRMethod, JIRInstLocation, JIRInst>
+    ): List<AnalysisDependentEvent> = buildList {
         val used: MutableMap<JIRInst, Boolean> = mutableMapOf()
         ifdsResult.resultFacts.forEach { (inst, facts) ->
             facts.filterIsInstance<UnusedVariableNode>().forEach { fact ->
@@ -97,13 +105,13 @@ class UnusedVariableAnalyzer(val graph: JIRApplicationGraph) : AbstractAnalyzer(
     }
 }
 
-val UnusedVariableAnalyzerFactory = AnalyzerFactory { graph ->
-    UnusedVariableAnalyzer(graph)
+val JIRUnusedVariableAnalyzerFactory = AnalyzerFactory { graph ->
+    JIRUnusedVariableAnalyzer(graph as JIRApplicationGraph)
 }
 
-private class UnusedVariableForwardFunctions(
+private class JIRUnusedVariableForwardFunctions(
     val classpath: JIRProject
-) : FlowFunctionsSpace {
+) : FlowFunctionsSpace<JIRInst, JIRMethod> {
 
     override fun obtainPossibleStartFacts(startStatement: JIRInst): Collection<DomainFact> {
         return listOf(ZEROFact)

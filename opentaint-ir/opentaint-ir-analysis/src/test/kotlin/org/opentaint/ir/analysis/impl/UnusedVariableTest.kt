@@ -3,19 +3,19 @@ package org.opentaint.ir.analysis.impl
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.engine.VulnerabilityInstance
 import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
-import org.opentaint.ir.analysis.library.SingletonUnitResolver
+import org.opentaint.ir.analysis.library.JIRSingletonUnitResolver
 import org.opentaint.ir.analysis.library.UnusedVariableRunnerFactory
-import org.opentaint.ir.analysis.library.analyzers.UnusedVariableAnalyzer
+import org.opentaint.ir.analysis.library.analyzers.JIRUnusedVariableAnalyzer
 import org.opentaint.ir.analysis.runAnalysis
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.testing.WithDB
-import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
-import java.util.*
 import java.util.stream.Stream
 
 class UnusedVariableTest : BaseAnalysisTest() {
@@ -35,7 +35,7 @@ class UnusedVariableTest : BaseAnalysisTest() {
             "_81"
         ))
 
-        private const val vulnerabilityType = UnusedVariableAnalyzer.ruleId
+        private const val vulnerabilityType = JIRUnusedVariableAnalyzer.ruleId
     }
 
     @ParameterizedTest
@@ -44,10 +44,10 @@ class UnusedVariableTest : BaseAnalysisTest() {
         testSingleJulietClass(vulnerabilityType, className)
     }
 
-    override fun launchAnalysis(methods: List<JIRMethod>): List<VulnerabilityInstance> {
+    override fun launchAnalysis(methods: List<JIRMethod>): List<VulnerabilityInstance<JIRMethod, JIRInstLocation, JIRInst>> {
         val graph = runBlocking {
             cp.newApplicationGraphForAnalysis()
         }
-        return runAnalysis(graph, SingletonUnitResolver, UnusedVariableRunnerFactory, methods)
+        return runAnalysis(graph, JIRSingletonUnitResolver, UnusedVariableRunnerFactory, methods)
     }
 }

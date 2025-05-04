@@ -24,6 +24,7 @@ import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
 import org.opentaint.ir.api.jvm.JIRArrayType
 import org.opentaint.ir.api.jvm.JIRProject
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.jvm.cfg.JIRArgument
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
@@ -32,6 +33,7 @@ import org.opentaint.ir.api.jvm.cfg.JIREqExpr
 import org.opentaint.ir.api.jvm.cfg.JIRExpr
 import org.opentaint.ir.api.jvm.cfg.JIRIfInst
 import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
 import org.opentaint.ir.api.jvm.cfg.JIRNeqExpr
 import org.opentaint.ir.api.jvm.cfg.JIRNewArrayExpr
 import org.opentaint.ir.api.jvm.cfg.JIRNewExpr
@@ -42,12 +44,16 @@ import org.opentaint.ir.api.jvm.cfg.values
 import org.opentaint.ir.api.jvm.ext.fields
 import org.opentaint.ir.api.jvm.ext.isNullable
 
-fun NpeAnalyzerFactory(maxPathLength: Int) = AnalyzerFactory { graph ->
-    NpeAnalyzer(graph, maxPathLength)
+fun JIRNpeAnalyzerFactory(maxPathLength: Int) = AnalyzerFactory { graph ->
+    JIRNpeAnalyzer(graph as JIRApplicationGraph, maxPathLength)
 }
 
-class NpeAnalyzer(graph: JIRApplicationGraph, maxPathLength: Int) : AbstractAnalyzer(graph) {
-    override val flowFunctions: FlowFunctionsSpace = NpeForwardFunctions(graph.classpath, maxPathLength)
+class JIRNpeAnalyzer(
+    graph: JIRApplicationGraph,
+    maxPathLength: Int
+) : AbstractAnalyzer<JIRMethod, JIRInstLocation, JIRInst>(graph) {
+    override val flowFunctions: FlowFunctionsSpace<JIRInst, JIRMethod> =
+        NpeForwardFunctions(graph.classpath, maxPathLength)
 
     override val isMainAnalyzer: Boolean
         get() = true
@@ -56,7 +62,7 @@ class NpeAnalyzer(graph: JIRApplicationGraph, maxPathLength: Int) : AbstractAnal
         const val ruleId: String = "npe-deref"
     }
 
-    override fun handleNewEdge(edge: IfdsEdge): List<AnalysisDependentEvent> = buildList {
+    override fun handleNewEdge(edge: IfdsEdge<JIRMethod, JIRInstLocation, JIRInst>): List<AnalysisDependentEvent> = buildList {
         val (inst, fact0) = edge.v
 
         if (fact0 is NpeTaintNode && fact0.activation == null && fact0.variable.isDereferencedAt(inst)) {
@@ -69,7 +75,9 @@ class NpeAnalyzer(graph: JIRApplicationGraph, maxPathLength: Int) : AbstractAnal
         addAll(super.handleNewEdge(edge))
     }
 
-    override fun handleNewCrossUnitCall(fact: CrossUnitCallFact): List<AnalysisDependentEvent> = buildList {
+    override fun handleNewCrossUnitCall(
+        fact: CrossUnitCallFact<JIRMethod, JIRInstLocation, JIRInst>
+    ): List<AnalysisDependentEvent> = buildList {
         add(EdgeForOtherRunnerQuery(IfdsEdge(fact.calleeVertex, fact.calleeVertex)))
         addAll(super.handleNewCrossUnitCall(fact))
     }
@@ -78,7 +86,7 @@ class NpeAnalyzer(graph: JIRApplicationGraph, maxPathLength: Int) : AbstractAnal
 private class NpeForwardFunctions(
     cp: JIRProject,
     private val maxPathLength: Int
-) : AbstractTaintForwardFunctions(cp) {
+) : AbstractTaintForwardFunctions<JIRMethod, JIRInstLocation, JIRInst, JIRValue, JIRExpr, JIRType>(cp) {
 
     private val JIRIfInst.pathComparedWithNull: AccessPath?
         get() {
@@ -212,25 +220,31 @@ private class NpeForwardFunctions(
     }
 }
 
-fun NpePrecalcBackwardAnalyzerFactory(maxPathLength: Int) = AnalyzerFactory { graph ->
-    NpePrecalcBackwardAnalyzer(graph, maxPathLength)
+fun jIRNpePrecalcBackwardAnalyzerFactory(maxPathLength: Int) = AnalyzerFactory { graph ->
+    JIRNpePrecalcBackwardAnalyzer(graph as JIRApplicationGraph, maxPathLength)
 }
 
-private class NpePrecalcBackwardAnalyzer(val graph: JIRApplicationGraph, maxPathLength: Int) : AbstractAnalyzer(graph) {
-    override val flowFunctions: FlowFunctionsSpace = NpePrecalcBackwardFunctions(graph, maxPathLength)
+private class JIRNpePrecalcBackwardAnalyzer(
+    val graph: JIRApplicationGraph,
+    maxPathLength: Int
+) : AbstractAnalyzer<JIRMethod, JIRInstLocation, JIRInst>(graph) {
+    override val flowFunctions: FlowFunctionsSpace<JIRInst, JIRMethod> =
+        JIRNpePrecalcBackwardFunctions(graph, maxPathLength)
 
     override val isMainAnalyzer: Boolean
         get() = false
 
-    override fun handleNewEdge(edge: IfdsEdge): List<AnalysisDependentEvent> = buildList {
+    override fun handleNewEdge(edge: IfdsEdge<JIRMethod, JIRInstLocation, JIRInst>): List<AnalysisDependentEvent> = buildList {
         if (edge.v.statement in graph.exitPoints(edge.method)) {
             add(EdgeForOtherRunnerQuery((IfdsEdge(edge.v, edge.v))))
         }
     }
 }
 
-class NpePrecalcBackwardFunctions(graph: JIRApplicationGraph, maxPathLength: Int)
-    : AbstractTaintBackwardFunctions(graph, maxPathLength) {
+class JIRNpePrecalcBackwardFunctions(
+    graph: JIRApplicationGraph,
+    maxPathLength: Int
+) : AbstractTaintBackwardFunctions<JIRMethod, JIRInstLocation, JIRInst, JIRValue, JIRExpr, JIRType>(graph, maxPathLength) {
     override fun transmitBackDataFlow(from: JIRValue, to: JIRExpr, atInst: JIRInst, fact: DomainFact, dropFact: Boolean): List<DomainFact> {
         val thisInstance = atInst.location.method.thisInstance.toPath()
         if (fact == ZEROFact) {

@@ -9,6 +9,7 @@ import org.opentaint.ir.analysis.engine.IfdsVertex
 import org.opentaint.ir.analysis.engine.VulnerabilityInstance
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
 import java.io.OutputStream
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -37,7 +38,7 @@ data class SarifLocation(val physicalLocation: SarifPhysicalLocation, val logica
 
         private val currentPath: Path = Paths.get("").toAbsolutePath()
 
-        fun fromInst(inst: JIRInst): SarifLocation = SarifLocation(
+        fun fromJIRInst(inst: JIRInst): SarifLocation = SarifLocation(
             physicalLocation = SarifPhysicalLocation(
                 SarifArtifactLocation("${currentPath.relativize(Path(inst.location.method.declaration.location.path))}"),
                 SarifRegion(inst.location.lineNumber)
@@ -64,10 +65,10 @@ data class SarifThreadFlow(val locations: List<SarifThreadFlowLocation>)
 @Serializable
 data class SarifCodeFlow(val threadFlows: List<SarifThreadFlow>) {
     companion object {
-        fun fromTrace(trace: List<IfdsVertex>): SarifCodeFlow {
+        fun fromJIRTrace(trace: List<IfdsVertex<JIRMethod, JIRInstLocation, JIRInst>>): SarifCodeFlow {
             val threadFlow = trace.map {
                 SarifThreadFlowLocation(
-                    SarifLocation.fromInst(it.statement),
+                    SarifLocation.fromJIRInst(it.statement),
                     SarifState(SarifDomainFact(it.domainFact.toString()))
                 )
             }
@@ -85,12 +86,12 @@ data class SarifResult(
     val codeFlows: List<SarifCodeFlow>
 ) {
     companion object {
-        fun fromVulnerabilityInstance(instance: VulnerabilityInstance, maxPathsCount: Int): SarifResult = SarifResult(
+        fun fromJIRVulnerabilityInstance(instance: VulnerabilityInstance<JIRMethod, JIRInstLocation, JIRInst>, maxPathsCount: Int): SarifResult = SarifResult(
             instance.vulnerabilityDescription.ruleId,
             instance.vulnerabilityDescription.message,
             instance.vulnerabilityDescription.level,
-            listOf(SarifLocation.fromInst(instance.traceGraph.sink.statement)),
-            instance.traceGraph.getAllTraces().take(maxPathsCount).map { SarifCodeFlow.fromTrace(it) }.toList()
+            listOf(SarifLocation.fromJIRInst(instance.traceGraph.sink.statement)),
+            instance.traceGraph.getAllTraces().take(maxPathsCount).map { SarifCodeFlow.fromJIRTrace(it) }.toList()
         )
     }
 }
@@ -143,8 +144,8 @@ data class SarifReport(
             encodeDefaults = false
         }
 
-        fun fromVulnerabilities(
-            vulnerabilities: List<VulnerabilityInstance>,
+        fun fromJIRVulnerabilities(
+            vulnerabilities: List<VulnerabilityInstance<JIRMethod, JIRInstLocation, JIRInst>>,
             pathsCount: Int = defaultPathsCount
         ): SarifReport = SarifReport(
             version = defaultVersion,
@@ -152,7 +153,7 @@ data class SarifReport(
             runs = listOf(
                 SarifRun(
                     IfdsTool,
-                    vulnerabilities.map { SarifResult.fromVulnerabilityInstance(it, pathsCount) }
+                    vulnerabilities.map { SarifResult.fromJIRVulnerabilityInstance(it, pathsCount) }
                 )
             )
         )

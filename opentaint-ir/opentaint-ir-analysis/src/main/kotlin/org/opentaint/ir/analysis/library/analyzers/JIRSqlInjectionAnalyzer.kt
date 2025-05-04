@@ -4,12 +4,15 @@ import org.opentaint.ir.analysis.engine.AnalyzerFactory
 import org.opentaint.ir.analysis.engine.IfdsVertex
 import org.opentaint.ir.analysis.sarif.SarifMessage
 import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
+import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
 
-class SqlInjectionAnalyzer(
+class JIRSqlInjectionAnalyzer(
     graph: JIRApplicationGraph,
     maxPathLength: Int
-) : TaintAnalyzer(graph, maxPathLength) {
+) : TaintAnalyzer<JIRMethod, JIRInstLocation, JIRInst>(graph, maxPathLength) {
     override val generates = isSourceMethodToGenerates(sqlSourceMatchers.asMethodMatchers)
     override val sanitizes = isSanitizeMethodToSanitizes(sqlSanitizeMatchers.asMethodMatchers)
     override val sinks = isSinkMethodToSinks(sqlSinkMatchers.asMethodMatchers)
@@ -21,10 +24,10 @@ class SqlInjectionAnalyzer(
         val vulnerabilityDescription = VulnerabilityDescription(vulnerabilityMessage, ruleId)
     }
 
-    override fun generateDescriptionForSink(sink: IfdsVertex): VulnerabilityDescription = vulnerabilityDescription
+    override fun generateDescriptionForSink(sink: IfdsVertex<JIRMethod, JIRInstLocation, JIRInst>): VulnerabilityDescription = vulnerabilityDescription
 }
 
-class SqlInjectionBackwardAnalyzer(
+class JIRSqlInjectionBackwardAnalyzer(
     graph: JIRApplicationGraph,
     maxPathLength: Int
 ) : TaintBackwardAnalyzer(graph, maxPathLength) {
@@ -32,12 +35,12 @@ class SqlInjectionBackwardAnalyzer(
     override val sinks = isSinkMethodToSinks(sqlSinkMatchers.asMethodMatchers)
 }
 
-fun SqlInjectionAnalyzerFactory(maxPathLength: Int) = AnalyzerFactory { graph ->
-    SqlInjectionAnalyzer(graph, maxPathLength)
+fun JIRSqlInjectionAnalyzerFactory(maxPathLength: Int) = AnalyzerFactory { graph ->
+    JIRSqlInjectionAnalyzer(graph as JIRApplicationGraph, maxPathLength)
 }
 
-fun SqlInjectionBackwardAnalyzerFactory(maxPathLength: Int) = AnalyzerFactory { graph ->
-    SqlInjectionBackwardAnalyzer(graph, maxPathLength)
+fun JIRSqlInjectionBackwardAnalyzerFactory(maxPathLength: Int) = AnalyzerFactory { graph ->
+    JIRSqlInjectionBackwardAnalyzer(graph as JIRApplicationGraph, maxPathLength)
 }
 
 private val sqlSourceMatchers = listOf(

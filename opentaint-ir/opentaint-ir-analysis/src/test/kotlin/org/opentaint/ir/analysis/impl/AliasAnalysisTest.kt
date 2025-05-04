@@ -3,10 +3,10 @@ package org.opentaint.ir.analysis.impl
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.graph.defaultBannedPackagePrefixes
 import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
-import org.opentaint.ir.analysis.library.MethodUnitResolver
 import org.opentaint.ir.analysis.library.analyzers.TaintAnalysisNode
 import org.opentaint.ir.analysis.library.analyzers.TaintNode
-import org.opentaint.ir.analysis.library.newAliasRunnerFactory
+import org.opentaint.ir.analysis.library.methodUnitResolver
+import org.opentaint.ir.analysis.library.newJIRAliasRunnerFactory
 import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.runAnalysis
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -135,8 +135,8 @@ class AliasAnalysisTest : BaseTest() {
 
         val result = runAnalysis(
             graph,
-            MethodUnitResolver,
-            newAliasRunnerFactory(::generates, ::isSanitizer, ::sinks),
+            methodUnitResolver(),
+            newJIRAliasRunnerFactory(::generates, ::isSanitizer, ::sinks),
             listOf(method)
         )
 

@@ -25,11 +25,19 @@ private class BackwardApplicationGraph<Method, Statement>(
     override fun methodOf(node: Statement) = forward.methodOf(node)
 }
 
-val <Method, Statement> ApplicationGraph<Method, Statement>.reversed
-    get() = if (this is BackwardApplicationGraph) {
+@Suppress("UNCHECKED_CAST")
+val <Method, Statement> ApplicationGraph<Method, Statement>.reversed: ApplicationGraph<Method, Statement>
+    get() = when (this) { // TODO rewrite it
+        is JIRApplicationGraph -> this.reversed as ApplicationGraph<Method, Statement>
+        is BackwardApplicationGraph -> this.forward
+        else -> BackwardApplicationGraph(this)
+    }
+
+val JIRApplicationGraph.reversed: JIRApplicationGraph
+    get() = if (this is BackwardJIRApplicationGraph) {
         this.forward
     } else {
-        BackwardApplicationGraph(this)
+        BackwardJIRApplicationGraph(this)
     }
 
 private class BackwardJIRApplicationGraph(val forward: JIRApplicationGraph) :
@@ -38,9 +46,3 @@ private class BackwardJIRApplicationGraph(val forward: JIRApplicationGraph) :
         get() = forward.classpath
 }
 
-val JIRApplicationGraph.reversed: JIRApplicationGraph
-    get() = if (this is BackwardJIRApplicationGraph) {
-        this.forward
-    } else {
-        BackwardJIRApplicationGraph(this)
-    }

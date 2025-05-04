@@ -1,10 +1,11 @@
 package org.opentaint.ir.analysis.engine
 
-import org.opentaint.ir.analysis.library.MethodUnitResolver
-import org.opentaint.ir.analysis.library.PackageUnitResolver
-import org.opentaint.ir.analysis.library.SingletonUnitResolver
-import org.opentaint.ir.analysis.library.getClassUnitResolver
+import org.opentaint.ir.analysis.library.JIRPackageUnitResolver
+import org.opentaint.ir.analysis.library.JIRSingletonUnitResolver
+import org.opentaint.ir.analysis.library.getJIRClassUnitResolver
+import org.opentaint.ir.analysis.library.methodUnitResolver
 import org.opentaint.ir.analysis.runAnalysis
+import org.opentaint.ir.api.jvm.JIRMethod
 
 /**
  * Sets a mapping from a [Method] to abstract domain [UnitType].
@@ -18,12 +19,12 @@ fun interface UnitResolver<UnitType, Method> {
     fun resolve(method: Method): UnitType
 
     companion object {
-        fun <Method> getByName(name: String): UnitResolver<*, Method> {
+        fun getJIRResolverByName(name: String): UnitResolver<*, JIRMethod> { // TODO can we use an asterisk here?
             return when (name) {
-                "method"    -> MethodUnitResolver
-                "class"     -> getClassUnitResolver(false)
-                "package"   -> PackageUnitResolver
-                "singleton" -> SingletonUnitResolver
+                "method"    -> methodUnitResolver()
+                "class"     -> getJIRClassUnitResolver(false)
+                "package"   -> JIRPackageUnitResolver
+                "singleton" -> JIRSingletonUnitResolver
                 else        -> error("Unknown unit resolver $name")
             }
         }

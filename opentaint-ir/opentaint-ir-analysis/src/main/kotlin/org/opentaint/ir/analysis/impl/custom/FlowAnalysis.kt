@@ -1,13 +1,13 @@
 package org.opentaint.ir.analysis.impl.custom
 
-import org.opentaint.ir.api.core.cfg.JIRBytecodeGraph
+import org.opentaint.ir.api.core.cfg.Graph
 
 interface FlowAnalysis<NODE, T> {
 
     val ins: MutableMap<NODE, T>
     val outs: MutableMap<NODE, T>
 
-    val graph: JIRBytecodeGraph<NODE>
+    val graph: Graph<NODE>
 
     val isForward: Boolean
 

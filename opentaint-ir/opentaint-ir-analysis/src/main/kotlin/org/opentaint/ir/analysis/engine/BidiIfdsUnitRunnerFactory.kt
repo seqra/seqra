@@ -3,6 +3,7 @@ package org.opentaint.ir.analysis.engine
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import org.opentaint.ir.analysis.graph.reversed
+import org.opentaint.ir.api.core.CoreMethod
 import org.opentaint.ir.api.core.analysis.ApplicationGraph
 import org.opentaint.ir.api.core.cfg.CoreInst
 import org.opentaint.ir.api.core.cfg.CoreInstLocation
@@ -34,7 +35,8 @@ class BidiIfdsUnitRunnerFactory<Method, Location, Statement>(
     private val backwardRunnerFactory: IfdsUnitRunnerFactory<Method, Location, Statement>,
     private val isParallel: Boolean = true
 ) : IfdsUnitRunnerFactory<Method, Location, Statement>
-        where Location : CoreInstLocation<Method>,
+        where Method : CoreMethod<Statement>,
+              Location : CoreInstLocation<Method>,
               Statement : CoreInst<Location, Method, *> {
 
     private inner class BidiIfdsUnitRunner<UnitType>(

@@ -16,18 +16,25 @@ import org.opentaint.ir.analysis.paths.startsWith
 import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.paths.toPathOrNull
 import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
+import org.opentaint.ir.api.core.CoreMethod
+import org.opentaint.ir.api.core.analysis.ApplicationGraph
+import org.opentaint.ir.api.core.cfg.CoreInst
+import org.opentaint.ir.api.core.cfg.CoreInstLocation
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.jvm.cfg.JIRArgument
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRExpr
 import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
 import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.cfg.locals
 import org.opentaint.ir.api.jvm.cfg.values
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
+import javax.swing.plaf.nimbus.State
 
 fun isSourceMethodToGenerates(isSourceMethod: (JIRMethod) -> Boolean): (JIRInst) -> List<TaintAnalysisNode> {
     return generates@{ inst: JIRInst ->
@@ -70,25 +77,29 @@ internal val List<String>.asMethodMatchers: (JIRMethod) -> Boolean
         any { it.toRegex().matches("${method.enclosingClass.name}#${method.name}") }
     }
 
-abstract class TaintAnalyzer(
-    graph: JIRApplicationGraph,
+abstract class TaintAnalyzer<Method, Location, Statement>(
+    graph: ApplicationGraph<Method, Statement>,
     maxPathLength: Int
-) : AbstractAnalyzer(graph) {
+) : AbstractAnalyzer<Method, Location, Statement>(graph)
+        where Method : CoreMethod<Statement>,
+              Location : CoreInstLocation<Method>,
+              Statement : CoreInst<Location, Method, *> {
     abstract val generates: (JIRInst) -> List<DomainFact>
     abstract val sanitizes: (JIRExpr, TaintNode) -> Boolean
     abstract val sinks: (JIRInst) -> List<TaintAnalysisNode>
 
-    override val flowFunctions: FlowFunctionsSpace by lazy {
-        TaintForwardFunctions(graph, maxPathLength, generates, sanitizes)
+    @Suppress("UNCHECKED_CAST")
+    override val flowFunctions: FlowFunctionsSpace<Statement, Method> by lazy {
+        TaintForwardFunctions(graph as JIRApplicationGraph, maxPathLength, generates, sanitizes) as FlowFunctionsSpace<Statement, Method>
     }
 
     override val isMainAnalyzer: Boolean
         get() = true
 
-    protected abstract fun generateDescriptionForSink(sink: IfdsVertex): VulnerabilityDescription
+    protected abstract fun generateDescriptionForSink(sink: IfdsVertex<Method, Location, Statement>): VulnerabilityDescription
 
-    override fun handleNewEdge(edge: IfdsEdge): List<AnalysisDependentEvent> = buildList {
-        if (edge.v.domainFact in sinks(edge.v.statement)) {
+    override fun handleNewEdge(edge: IfdsEdge<Method, Location, Statement>): List<AnalysisDependentEvent> = buildList {
+        if (edge.v.domainFact in sinks(edge.v.statement as JIRInst)) {
             val desc = generateDescriptionForSink(edge.v)
             add(NewSummaryFact(VulnerabilityLocation(desc, edge.v)))
             verticesWithTraceGraphNeeded.add(edge.v)
@@ -99,22 +110,23 @@ abstract class TaintAnalyzer(
 abstract class TaintBackwardAnalyzer(
     val graph: JIRApplicationGraph,
     maxPathLength: Int
-) : AbstractAnalyzer(graph) {
+) : AbstractAnalyzer<JIRMethod, JIRInstLocation, JIRInst>(graph) {
     abstract val generates: (JIRInst) -> List<DomainFact>
     abstract val sinks: (JIRInst) -> List<TaintAnalysisNode>
 
     override val isMainAnalyzer: Boolean
         get() = false
 
-    override val flowFunctions: FlowFunctionsSpace by lazy {
+    override val flowFunctions: FlowFunctionsSpace<JIRInst, JIRMethod> by lazy {
         TaintBackwardFunctions(graph, generates, sinks, maxPathLength)
     }
 
-    override fun handleNewEdge(edge: IfdsEdge): List<AnalysisDependentEvent> = buildList {
-        if (edge.v.statement in graph.exitPoints(edge.method)) {
-            add(EdgeForOtherRunnerQuery(IfdsEdge(edge.v, edge.v)))
+    override fun handleNewEdge(edge: IfdsEdge<JIRMethod, JIRInstLocation, JIRInst>): List<AnalysisDependentEvent> =
+        buildList {
+            if (edge.v.statement in graph.exitPoints(edge.method)) {
+                add(EdgeForOtherRunnerQuery(IfdsEdge(edge.v, edge.v)))
+            }
         }
-    }
 }
 
 private class TaintForwardFunctions(
@@ -122,7 +134,7 @@ private class TaintForwardFunctions(
     private val maxPathLength: Int,
     private val generates: (JIRInst) -> List<DomainFact>,
     private val sanitizes: (JIRExpr, TaintNode) -> Boolean
-) : AbstractTaintForwardFunctions(graph.classpath) {
+) : AbstractTaintForwardFunctions<JIRMethod, JIRInstLocation, JIRInst, JIRValue, JIRExpr, JIRType>(graph.classpath) {
     override fun transmitDataFlow(from: JIRExpr, to: JIRValue, atInst: JIRInst, fact: DomainFact, dropFact: Boolean): List<DomainFact> {
         if (fact == ZEROFact) {
             return listOf(ZEROFact) + generates(atInst)
@@ -208,7 +220,7 @@ private class TaintBackwardFunctions(
     val generates: (JIRInst) -> List<DomainFact>,
     val sinks: (JIRInst) -> List<TaintAnalysisNode>,
     maxPathLength: Int,
-) : AbstractTaintBackwardFunctions(graph, maxPathLength) {
+) : AbstractTaintBackwardFunctions<JIRMethod, JIRInstLocation, JIRInst, JIRValue, JIRExpr, JIRType>(graph, maxPathLength) {
     override fun transmitBackDataFlow(from: JIRValue, to: JIRExpr, atInst: JIRInst, fact: DomainFact, dropFact: Boolean): List<DomainFact> {
         if (fact == ZEROFact) {
             return listOf(ZEROFact) + sinks(atInst)

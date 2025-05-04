@@ -24,6 +24,9 @@ class JIRBlockGraphImpl(
 
     override val exits: List<JIRBasicBlock> get() = filter { successors(it).isEmpty() }
 
+    override val instructions: List<JIRBasicBlock>
+        get() = _basicBlocks.toList()
+
     init {
         val inst2Block = mutableMapOf<JIRInst, JIRBasicBlock>()
 

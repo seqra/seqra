@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import org.opentaint.ir.api.core.CoreMethod
 import org.opentaint.ir.api.core.analysis.ApplicationGraph
 import org.opentaint.ir.api.core.cfg.CoreInst
 import org.opentaint.ir.api.core.cfg.CoreInstLocation
@@ -21,7 +22,8 @@ import org.opentaint.ir.api.core.cfg.CoreInstLocation
  * [AbstractIfdsUnitRunner] should be extended.
  */
 interface IfdsUnitRunner<UnitType, Method, Location, Statement>
-        where Location : CoreInstLocation<Method>,
+        where Method : CoreMethod<Statement>,
+              Location : CoreInstLocation<Method>,
               Statement : CoreInst<Location, Method, *> {
     val unit: UnitType
     val job: Job?
@@ -43,7 +45,8 @@ interface IfdsUnitRunner<UnitType, Method, Location, Statement>
 abstract class AbstractIfdsUnitRunner<UnitType, Method, Location, Statement>(
     final override val unit: UnitType
 ) : IfdsUnitRunner<UnitType, Method, Location, Statement>
-        where Location : CoreInstLocation<Method>,
+        where Method : CoreMethod<Statement>,
+              Location : CoreInstLocation<Method>,
               Statement : CoreInst<Location, Method, *> {
     /**
      * The main method of the runner, which will be called by [launchIn]
@@ -66,7 +69,8 @@ abstract class AbstractIfdsUnitRunner<UnitType, Method, Location, Statement>(
  * Produces a runner for any given unit.
  */
 interface IfdsUnitRunnerFactory<Method, Location, Statement>
-    where Location : CoreInstLocation<Method>,
+    where Method : CoreMethod<Statement>,
+          Location : CoreInstLocation<Method>,
           Statement : CoreInst<Location, Method, *> {
     /**
      * Produces a runner for given [unit], using given [startMethods] as entry points.

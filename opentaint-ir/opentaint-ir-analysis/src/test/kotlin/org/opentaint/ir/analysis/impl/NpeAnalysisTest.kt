@@ -4,16 +4,17 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.engine.VulnerabilityInstance
 import org.opentaint.ir.analysis.graph.JIRApplicationGraphImpl
 import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
-import org.opentaint.ir.analysis.library.SingletonUnitResolver
-import org.opentaint.ir.analysis.library.analyzers.NpeAnalyzer
-import org.opentaint.ir.analysis.library.newNpeRunnerFactory
+import org.opentaint.ir.analysis.library.JIRSingletonUnitResolver
+import org.opentaint.ir.analysis.library.analyzers.JIRNpeAnalyzer
+import org.opentaint.ir.analysis.library.newJIRNpeRunnerFactory
 import org.opentaint.ir.analysis.runAnalysis
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
 import org.opentaint.ir.api.jvm.ext.constructors
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.ir.testing.analysis.NpeExamples
-import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -32,7 +33,7 @@ class NpeAnalysisTest : BaseAnalysisTest() {
         fun provideClassesForJuliet690(): Stream<Arguments> =
             provideClassesForJuliet(690)
 
-        private const val vulnerabilityType = NpeAnalyzer.ruleId
+        private const val vulnerabilityType = JIRNpeAnalyzer.ruleId
     }
 
     @Test
@@ -195,10 +196,10 @@ class NpeAnalysisTest : BaseAnalysisTest() {
     private inline fun <reified T> testOneMethod(methodName: String, expectedLocations: Collection<String>) =
         testOneAnalysisOnOneMethod<T>(vulnerabilityType, methodName, expectedLocations)
 
-    override fun launchAnalysis(methods: List<JIRMethod>): List<VulnerabilityInstance> {
+    override fun launchAnalysis(methods: List<JIRMethod>): List<VulnerabilityInstance<JIRMethod, JIRInstLocation, JIRInst>> {
         val graph = runBlocking {
             cp.newApplicationGraphForAnalysis()
         }
-        return runAnalysis(graph, SingletonUnitResolver, newNpeRunnerFactory(), methods)
+        return runAnalysis(graph, JIRSingletonUnitResolver, newJIRNpeRunnerFactory(), methods)
     }
 }
