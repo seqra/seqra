@@ -1,7 +1,6 @@
 package org.opentaint.ir.impl
 
 import kotlinx.coroutines.*
-import org.opentaint.ir.api.*
 import org.opentaint.ir.api.jvm.ClassSource
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRArrayType
