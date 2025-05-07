@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.fs
 
 import kotlinx.collections.immutable.toImmutableList
-import org.opentaint.ir.api.jvm.ClassSource
+import org.opentaint.ir.api.ClassSource
 import org.opentaint.ir.impl.storage.AnnotationValueKind
 import org.opentaint.ir.impl.types.*
 import org.objectweb.asm.ClassReader
@@ -98,7 +98,7 @@ private fun MethodNode.asMethodInfo(): MethodInfo {
         parametersInfo = List(params.size) { index ->
             ParameterInfo(
                 index = index,
-                name = parameters?.get(index)?.name,
+                name = argumentName(index),
                 access = parameters?.get(index)?.access ?: Opcodes.ACC_PUBLIC,
                 type = params[index],
                 annotations = visibleParameterAnnotations?.get(index)?.asAnnotationInfos(true).orEmpty()
@@ -106,6 +106,17 @@ private fun MethodNode.asMethodInfo(): MethodInfo {
             )
         }
     )
+}
+
+private fun MethodNode.argumentName(argIndex :Int): String? {
+    localVariables?.let {
+        (argIndex + 1 - (access and Opcodes.ACC_STATIC).countOneBits()).run {
+            if (it.size > this) {
+                return ArrayList(it).sortedBy(LocalVariableNode::index)[this].name
+            }
+        }
+    }
+    return parameters?.get(argIndex)?.name
 }
 
 private fun FieldNode.asFieldInfo() = FieldInfo(
