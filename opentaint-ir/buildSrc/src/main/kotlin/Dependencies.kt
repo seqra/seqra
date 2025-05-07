@@ -34,6 +34,7 @@ object Versions {
     const val soot_opentaint_fork = "4.4.0-FORK-2"
     const val sootup = "1.0.0"
     const val sqlite = "3.41.2.2"
+    const val gson = "2.10.1"
 }
 
 fun dep(group: String, name: String, version: String): String = "$group:$name:$version"
@@ -266,6 +267,13 @@ object Libs {
         group = "com.github.Opentaint.juliet-java-test-suite",
         name = "support",
         version = Versions.juliet
+    )
+
+    // https://github.com/google/gson
+    val gson = dep(
+        group = "com.google.code.gson",
+        name = "gson",
+        version = Versions.gson
     )
 
     @Suppress("FunctionName")
