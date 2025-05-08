@@ -88,6 +88,7 @@ class MethodNodeBuilder(
             mn.invisibleAnnotations = invisibleAnnotations
             mn.invisibleTypeAnnotations = invisibleTypeAnnotations
             mn.invisibleParameterAnnotations = invisibleParameterAnnotations
+            mn.annotationDefault = annotationDefault
 
             //            this two line of code relies on labels in method body properly organized.
 
