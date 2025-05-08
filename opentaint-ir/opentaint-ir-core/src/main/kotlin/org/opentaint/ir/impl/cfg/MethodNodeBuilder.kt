@@ -1,86 +1,9 @@
 package org.opentaint.ir.impl.cfg
 
-import org.opentaint.ir.api.core.TypeName
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.PredefinedJIRPrimitives
-import org.opentaint.ir.api.core.cfg.InstList
-import org.opentaint.ir.api.jvm.cfg.BsmDoubleArg
-import org.opentaint.ir.api.jvm.cfg.BsmFloatArg
-import org.opentaint.ir.api.jvm.cfg.BsmHandle
-import org.opentaint.ir.api.jvm.cfg.BsmIntArg
-import org.opentaint.ir.api.jvm.cfg.BsmLongArg
-import org.opentaint.ir.api.jvm.cfg.BsmMethodTypeArg
-import org.opentaint.ir.api.jvm.cfg.BsmStringArg
-import org.opentaint.ir.api.jvm.cfg.BsmTypeArg
-import org.opentaint.ir.api.jvm.cfg.JIRRawAddExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawAndExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawArgument
-import org.opentaint.ir.api.jvm.cfg.JIRRawArrayAccess
-import org.opentaint.ir.api.jvm.cfg.JIRRawAssignInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawBool
-import org.opentaint.ir.api.jvm.cfg.JIRRawByte
-import org.opentaint.ir.api.jvm.cfg.JIRRawCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawCallInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawCastExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawCatchInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawChar
-import org.opentaint.ir.api.jvm.cfg.JIRRawClassConstant
-import org.opentaint.ir.api.jvm.cfg.JIRRawCmpExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawCmpgExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawCmplExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawComplexValue
-import org.opentaint.ir.api.jvm.cfg.JIRRawDivExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawDouble
-import org.opentaint.ir.api.jvm.cfg.JIRRawDynamicCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawEnterMonitorInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawEqExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawExitMonitorInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawExprVisitor
-import org.opentaint.ir.api.jvm.cfg.JIRRawFieldRef
-import org.opentaint.ir.api.jvm.cfg.JIRRawFloat
-import org.opentaint.ir.api.jvm.cfg.JIRRawGeExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawGotoInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawGtExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawIfInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawInstVisitor
-import org.opentaint.ir.api.jvm.cfg.JIRRawInstanceOfExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawInt
-import org.opentaint.ir.api.jvm.cfg.JIRRawInterfaceCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawLabelInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawLabelRef
-import org.opentaint.ir.api.jvm.cfg.JIRRawLeExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawLengthExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawLineNumberInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawLocalVar
-import org.opentaint.ir.api.jvm.cfg.JIRRawLong
-import org.opentaint.ir.api.jvm.cfg.JIRRawLtExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawMethodConstant
-import org.opentaint.ir.api.jvm.cfg.JIRRawMethodType
-import org.opentaint.ir.api.jvm.cfg.JIRRawMulExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawNegExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawNeqExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawNewArrayExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawNewExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawNullConstant
-import org.opentaint.ir.api.jvm.cfg.JIRRawOrExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawRemExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawReturnInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawShlExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawShort
-import org.opentaint.ir.api.jvm.cfg.JIRRawShrExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawSpecialCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawStaticCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawStringConstant
-import org.opentaint.ir.api.jvm.cfg.JIRRawSubExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawSwitchInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawThis
-import org.opentaint.ir.api.jvm.cfg.JIRRawThrowInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawUshrExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawValue
-import org.opentaint.ir.api.jvm.cfg.JIRRawVirtualCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawXorExpr
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.PredefinedPrimitives
+import org.opentaint.ir.api.TypeName
+import org.opentaint.ir.api.cfg.*
 import org.opentaint.ir.impl.cfg.util.*
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes
@@ -88,45 +11,45 @@ import org.objectweb.asm.Opcodes.H_GFrontendTATIC
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
 
-private val PredefinedJIRPrimitives.smallIntegers get() = setOf(Boolean, Byte, Char, Short, Int)
+private val PredefinedPrimitives.smallIntegers get() = setOf(Boolean, Byte, Char, Short, Int)
 
 private val TypeName.shortInt
     get() = when (this.typeName) {
-        PredefinedJIRPrimitives.Long -> 1
-        in PredefinedJIRPrimitives.smallIntegers -> 0
-        PredefinedJIRPrimitives.Float -> 2
-        PredefinedJIRPrimitives.Double -> 3
+        PredefinedPrimitives.Long -> 1
+        in PredefinedPrimitives.smallIntegers -> 0
+        PredefinedPrimitives.Float -> 2
+        PredefinedPrimitives.Double -> 3
         else -> 4
     }
 private val TypeName.longInt
     get() = when (this.typeName) {
-        PredefinedJIRPrimitives.Boolean -> 5
-        PredefinedJIRPrimitives.Byte -> 5
-        PredefinedJIRPrimitives.Short -> 7
-        PredefinedJIRPrimitives.Char -> 6
-        PredefinedJIRPrimitives.Int -> 0
-        PredefinedJIRPrimitives.Long -> 1
-        PredefinedJIRPrimitives.Float -> 2
-        PredefinedJIRPrimitives.Double -> 3
+        PredefinedPrimitives.Boolean -> 5
+        PredefinedPrimitives.Byte -> 5
+        PredefinedPrimitives.Short -> 7
+        PredefinedPrimitives.Char -> 6
+        PredefinedPrimitives.Int -> 0
+        PredefinedPrimitives.Long -> 1
+        PredefinedPrimitives.Float -> 2
+        PredefinedPrimitives.Double -> 3
         else -> 4
     }
 
 private val TypeName.typeInt
     get() = when (typeName) {
-        PredefinedJIRPrimitives.Char -> Opcodes.T_CHAR
-        PredefinedJIRPrimitives.Boolean -> Opcodes.T_BOOLEAN
-        PredefinedJIRPrimitives.Byte -> Opcodes.T_BYTE
-        PredefinedJIRPrimitives.Double -> Opcodes.T_DOUBLE
-        PredefinedJIRPrimitives.Float -> Opcodes.T_FLOAT
-        PredefinedJIRPrimitives.Int -> Opcodes.T_INT
-        PredefinedJIRPrimitives.Long -> Opcodes.T_LONG
-        PredefinedJIRPrimitives.Short -> Opcodes.T_SHORT
+        PredefinedPrimitives.Char -> Opcodes.T_CHAR
+        PredefinedPrimitives.Boolean -> Opcodes.T_BOOLEAN
+        PredefinedPrimitives.Byte -> Opcodes.T_BYTE
+        PredefinedPrimitives.Double -> Opcodes.T_DOUBLE
+        PredefinedPrimitives.Float -> Opcodes.T_FLOAT
+        PredefinedPrimitives.Int -> Opcodes.T_INT
+        PredefinedPrimitives.Long -> Opcodes.T_LONG
+        PredefinedPrimitives.Short -> Opcodes.T_SHORT
         else -> error("$typeName is not primitive type")
     }
 
 class MethodNodeBuilder(
     val method: JIRMethod,
-    val instList: InstList<JIRRawInst>
+    val instList: JIRInstList<JIRRawInst>
 ) : JIRRawInstVisitor<Unit>, JIRRawExprVisitor<Unit> {
     private var localIndex = 0
     private var stackSize = 0
@@ -327,10 +250,9 @@ class MethodNodeBuilder(
         val trueTarget = label(inst.trueBranch)
         val falseTarget = label(inst.falseBranch)
         val cond = inst.condition
-        var shouldReverse = false
         val (zeroValue, zeroCmpOpcode, defaultOpcode) = when (cond) {
             is JIRRawEqExpr -> when {
-                cond.lhv.typeName == PredefinedJIRPrimitives.Null.typeName() -> Triple(
+                cond.lhv.typeName == PredefinedPrimitives.Null.typeName() -> Triple(
                     JIRRawNull(),
                     Opcodes.IFNULL,
                     Opcodes.IF_ACMPEQ
@@ -341,7 +263,7 @@ class MethodNodeBuilder(
             }
 
             is JIRRawNeqExpr -> when {
-                cond.lhv.typeName == PredefinedJIRPrimitives.Null.typeName() -> Triple(
+                cond.lhv.typeName == PredefinedPrimitives.Null.typeName() -> Triple(
                     JIRRawNull(),
                     Opcodes.IFNONNULL,
                     Opcodes.IF_ACMPNE
@@ -437,7 +359,7 @@ class MethodNodeBuilder(
         expr.lhv.accept(this)
         expr.rhv.accept(this)
         val opcode = when (expr.lhv.typeName.typeName) {
-            PredefinedJIRPrimitives.Float -> Opcodes.FCMPG
+            PredefinedPrimitives.Float -> Opcodes.FCMPG
             else -> Opcodes.DCMPG
         }
         currentInsnList.add(InsnNode(opcode))
@@ -448,7 +370,7 @@ class MethodNodeBuilder(
         expr.lhv.accept(this)
         expr.rhv.accept(this)
         val opcode = when (expr.lhv.typeName.typeName) {
-            PredefinedJIRPrimitives.Float -> Opcodes.FCMPL
+            PredefinedPrimitives.Float -> Opcodes.FCMPL
             else -> Opcodes.DCMPL
         }
         currentInsnList.add(InsnNode(opcode))
@@ -571,35 +493,35 @@ class MethodNodeBuilder(
             when {
                 originalType.isPrimitive && targetType.isPrimitive -> {
                     val opcode = when (originalType.typeName) {
-                        PredefinedJIRPrimitives.Long -> when (targetType.typeName) {
-                            PredefinedJIRPrimitives.Int -> Opcodes.L2I
-                            PredefinedJIRPrimitives.Float -> Opcodes.L2F
-                            PredefinedJIRPrimitives.Double -> Opcodes.L2D
+                        PredefinedPrimitives.Long -> when (targetType.typeName) {
+                            PredefinedPrimitives.Int -> Opcodes.L2I
+                            PredefinedPrimitives.Float -> Opcodes.L2F
+                            PredefinedPrimitives.Double -> Opcodes.L2D
                             else -> error("Impossible cast from $originalType to $targetType")
                         }
 
-                        in PredefinedJIRPrimitives.smallIntegers -> when (targetType.typeName) {
-                            PredefinedJIRPrimitives.Long -> Opcodes.I2L
-                            PredefinedJIRPrimitives.Float -> Opcodes.I2F
-                            PredefinedJIRPrimitives.Double -> Opcodes.I2D
-                            PredefinedJIRPrimitives.Byte -> Opcodes.I2B
-                            PredefinedJIRPrimitives.Char -> Opcodes.I2C
-                            PredefinedJIRPrimitives.Short -> Opcodes.I2S
-                            PredefinedJIRPrimitives.Boolean -> Opcodes.NOP
+                        in PredefinedPrimitives.smallIntegers -> when (targetType.typeName) {
+                            PredefinedPrimitives.Long -> Opcodes.I2L
+                            PredefinedPrimitives.Float -> Opcodes.I2F
+                            PredefinedPrimitives.Double -> Opcodes.I2D
+                            PredefinedPrimitives.Byte -> Opcodes.I2B
+                            PredefinedPrimitives.Char -> Opcodes.I2C
+                            PredefinedPrimitives.Short -> Opcodes.I2S
+                            PredefinedPrimitives.Boolean -> Opcodes.NOP
                             else -> error("Impossible cast from $originalType to $targetType")
                         }
 
-                        PredefinedJIRPrimitives.Float -> when (targetType.typeName) {
-                            PredefinedJIRPrimitives.Int -> Opcodes.F2I
-                            PredefinedJIRPrimitives.Long -> Opcodes.F2L
-                            PredefinedJIRPrimitives.Double -> Opcodes.F2D
+                        PredefinedPrimitives.Float -> when (targetType.typeName) {
+                            PredefinedPrimitives.Int -> Opcodes.F2I
+                            PredefinedPrimitives.Long -> Opcodes.F2L
+                            PredefinedPrimitives.Double -> Opcodes.F2D
                             else -> error("Impossible cast from $originalType to $targetType")
                         }
 
-                        PredefinedJIRPrimitives.Double -> when (targetType.typeName) {
-                            PredefinedJIRPrimitives.Int -> Opcodes.D2I
-                            PredefinedJIRPrimitives.Long -> Opcodes.D2L
-                            PredefinedJIRPrimitives.Float -> Opcodes.D2F
+                        PredefinedPrimitives.Double -> when (targetType.typeName) {
+                            PredefinedPrimitives.Int -> Opcodes.D2I
+                            PredefinedPrimitives.Long -> Opcodes.D2L
+                            PredefinedPrimitives.Float -> Opcodes.D2F
                             else -> error("Impossible cast from $originalType to $targetType")
                         }
 
@@ -708,7 +630,7 @@ class MethodNodeBuilder(
             )
         )
         updateStackInfo(-(expr.args.size + 1))
-        if (expr.returnType != PredefinedJIRPrimitives.Void.typeName())
+        if (expr.returnType != PredefinedPrimitives.Void.typeName())
             updateStackInfo(1)
     }
 
@@ -724,7 +646,7 @@ class MethodNodeBuilder(
             )
         )
         updateStackInfo(-(expr.args.size + 1))
-        if (expr.returnType != PredefinedJIRPrimitives.Void.typeName())
+        if (expr.returnType != PredefinedPrimitives.Void.typeName())
             updateStackInfo(1)
     }
 
@@ -735,11 +657,12 @@ class MethodNodeBuilder(
                 Opcodes.INVOKESTATIC,
                 expr.declaringClass.jvmClassName,
                 expr.methodName,
-                expr.methodDesc
+                expr.methodDesc,
+                expr.isInterfaceMethodCall
             )
         )
         updateStackInfo(-expr.args.size)
-        if (expr.returnType != PredefinedJIRPrimitives.Void.typeName())
+        if (expr.returnType != PredefinedPrimitives.Void.typeName())
             updateStackInfo(1)
     }
 
@@ -755,7 +678,7 @@ class MethodNodeBuilder(
             )
         )
         updateStackInfo(-(expr.args.size + 1))
-        if (expr.returnType != PredefinedJIRPrimitives.Void.typeName())
+        if (expr.returnType != PredefinedPrimitives.Void.typeName())
             updateStackInfo(1)
     }
 

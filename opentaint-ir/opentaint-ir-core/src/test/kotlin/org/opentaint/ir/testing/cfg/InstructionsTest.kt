@@ -3,18 +3,18 @@ package org.opentaint.ir.testing.cfg
 import com.sun.mail.imap.IMAPMessage
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRClassProcessingTask
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.RegisteredLocation
-import org.opentaint.ir.api.jvm.cfg.*
-import org.opentaint.ir.api.jvm.ext.boolean
-import org.opentaint.ir.api.jvm.ext.cfg.callExpr
-import org.opentaint.ir.api.jvm.ext.cfg.locals
-import org.opentaint.ir.api.jvm.ext.cfg.values
-import org.opentaint.ir.api.jvm.ext.findClass
-import org.opentaint.ir.api.jvm.ext.humanReadableSignature
-import org.opentaint.ir.api.jvm.ext.int
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRClassProcessingTask
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.RegisteredLocation
+import org.opentaint.ir.api.cfg.*
+import org.opentaint.ir.api.ext.boolean
+import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.api.ext.cfg.locals
+import org.opentaint.ir.api.ext.cfg.values
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.ext.humanReadableSignature
+import org.opentaint.ir.api.ext.int
 import org.opentaint.ir.testing.Common
 import org.opentaint.ir.testing.Common.CommonClass
 import org.opentaint.ir.testing.cfg.RealMethodResolution.Virtual
@@ -245,6 +245,16 @@ class InstructionsTest : BaseInstructionsTest() {
             it.toString().contains("defaultMethod")
         }
         assertEquals("defaultMethod", callDefaultMethod.method.method.name)
+    }
+
+    @Test
+    fun `static interface method call`() {
+        val clazz = cp.findClass<StaticInterfaceMethodCall>()
+
+        val javaClazz = testAndLoadClass(clazz)
+        val method = javaClazz.methods.first { it.name == "callStaticInterfaceMethod" }
+        val res = method.invoke(null)
+        assertNull(res)
     }
 
     @Test
