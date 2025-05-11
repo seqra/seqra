@@ -1,56 +1,74 @@
 package org.opentaint.ir.analysis.paths
 
-import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
-import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
-import org.opentaint.ir.api.jvm.cfg.JIRExpr
-import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
-import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRLengthExpr
-import org.opentaint.ir.api.jvm.cfg.JIRLocal
-import org.opentaint.ir.api.jvm.cfg.JIRValue
-import org.opentaint.ir.api.jvm.cfg.values
+import org.opentaint.ir.api.cfg.JIRArrayAccess
+import org.opentaint.ir.api.cfg.JIRCastExpr
+import org.opentaint.ir.api.cfg.JIRExpr
+import org.opentaint.ir.api.cfg.JIRFieldRef
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRInstanceCallExpr
+import org.opentaint.ir.api.cfg.JIRLengthExpr
+import org.opentaint.ir.api.cfg.JIRSimpleValue
+import org.opentaint.ir.api.cfg.JIRValue
+import org.opentaint.ir.api.cfg.values
 
+/**
+ * Converts `JIRExpr` (in particular, `JIRValue`) to `AccessPath`.
+ *   - For `JIRSimpleValue`, this method simply wraps the value.
+ *   - For `JIRArrayAccess` and `JIRFieldRef`, this method "reverses" it and recursively constructs a list of accessors (`ElementAccessor` for array access, `FieldAccessor` for field access).
+ *   - Returns `null` when the conversion to `AccessPath` is not possible.
+ *
+ * Example:
+ *   `x.f[0].y` is `AccessPath(value = x, accesses = [Field(f), Element(0), Field(y)])`
+ */
 internal fun JIRExpr.toPathOrNull(): AccessPath? {
-    if (this is JIRCastExpr) {
-        return operand.toPathOrNull()
-    }
-    if (this is JIRLocal) {
-        return AccessPath.fromLocal(this)
-    }
-
-    if (this is JIRArrayAccess) {
-        return array.toPathOrNull()?.let {
-            AccessPath.fromOther(it, listOf(ElementAccessor))
+    return when (this) {
+        is JIRSimpleValue -> {
+            AccessPath.from(this)
         }
-    }
 
-    if (this is JIRFieldRef) {
-        val instance = instance // enables smart cast
+        is JIRCastExpr -> {
+            operand.toPathOrNull()
+        }
 
-        return if (instance == null) {
-            AccessPath.fromStaticField(field.field)
-        } else {
-            instance.toPathOrNull()?.let {
-                AccessPath.fromOther(it, listOf(FieldAccessor(field.field)))
+        is JIRArrayAccess -> {
+            array.toPathOrNull()?.let {
+                it / listOf(ElementAccessor(index))
             }
         }
+
+        is JIRFieldRef -> {
+            val instance = instance // enables smart cast
+
+            if (instance == null) {
+                AccessPath.fromStaticField(field.field)
+            } else {
+                instance.toPathOrNull()?.let { it / FieldAccessor(field.field) }
+            }
+        }
+
+        else -> null
     }
-    return null
 }
 
 internal fun JIRValue.toPath(): AccessPath {
     return toPathOrNull() ?: error("Unable to build access path for value $this")
 }
 
-internal fun AccessPath?.minus(other: AccessPath): List<Accessor>? {
+// this = value.x.y[0]
+// this = (value, accesses = listOf(Field, Field, Element))
+//
+// other = value.x
+// other = (value, accesses = listOf(Field))
+//
+// (this - other) = listOf(Field, Element) = ".y[0]"
+internal operator fun AccessPath?.minus(other: AccessPath): List<Accessor>? {
     if (this == null) {
         return null
     }
     if (value != other.value) {
         return null
     }
-    if (accesses.take(other.accesses.size) != other.accesses) {
+    if (this.accesses.take(other.accesses.size) != other.accesses) {
         return null
     }
 
@@ -61,8 +79,14 @@ internal fun AccessPath?.startsWith(other: AccessPath?): Boolean {
     if (this == null || other == null) {
         return false
     }
-
-    return minus(other) != null
+    if (this.value != other.value) {
+        return false
+    }
+    // Unnecessary check:
+    // if (this.accesses.size < other.accesses.size) {
+    //     return false
+    // }
+    return this.accesses.take(other.accesses.size) == other.accesses
 }
 
 fun AccessPath?.isDereferencedAt(expr: JIRExpr): Boolean {
@@ -70,15 +94,15 @@ fun AccessPath?.isDereferencedAt(expr: JIRExpr): Boolean {
         return false
     }
 
-    (expr as? JIRInstanceCallExpr)?.let {
-        val instancePath = it.instance.toPathOrNull()
+    if (expr is JIRInstanceCallExpr) {
+        val instancePath = expr.instance.toPathOrNull()
         if (instancePath.startsWith(this)) {
             return true
         }
     }
 
-    (expr as? JIRLengthExpr)?.let {
-        val arrayPath = it.array.toPathOrNull()
+    if (expr is JIRLengthExpr) {
+        val arrayPath = expr.array.toPathOrNull()
         if (arrayPath.startsWith(this)) {
             return true
         }
@@ -87,7 +111,7 @@ fun AccessPath?.isDereferencedAt(expr: JIRExpr): Boolean {
     return expr.values
         .mapNotNull { it.toPathOrNull() }
         .any {
-            it.minus(this)?.isNotEmpty() == true
+            (it - this)?.isNotEmpty() == true
         }
 }
 
@@ -97,4 +121,28 @@ fun AccessPath?.isDereferencedAt(inst: JIRInst): Boolean {
     }
 
     return inst.operands.any { isDereferencedAt(it) }
+}
+
+internal fun JIRValue.isTaintedWith(fact: JIRValue): Boolean {
+    if (this == fact) {
+        return true
+    }
+
+    return when (this) {
+        is JIRFieldRef -> {
+            if (this.instance != null) {
+                this.instance!!.isTaintedWith(fact)
+            } else {
+                // static field
+                // TODO: ?
+                false
+            }
+        }
+
+        is JIRArrayAccess -> {
+            this.array.isTaintedWith(fact)
+        }
+
+        else -> false
+    }
 }

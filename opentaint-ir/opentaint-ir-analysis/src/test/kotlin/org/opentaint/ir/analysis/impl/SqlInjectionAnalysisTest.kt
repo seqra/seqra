@@ -1,18 +1,20 @@
 package org.opentaint.ir.analysis.impl
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.analysis.engine.SingletonUnitResolver
 import org.opentaint.ir.analysis.engine.VulnerabilityInstance
 import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
-import org.opentaint.ir.analysis.library.JIRSingletonUnitResolver
-import org.opentaint.ir.analysis.library.analyzers.JIRSqlInjectionAnalyzer
-import org.opentaint.ir.analysis.library.newJIRSqlInjectionRunnerFactory
+import org.opentaint.ir.analysis.library.analyzers.SqlInjectionAnalyzer
+import org.opentaint.ir.analysis.library.newSqlInjectionRunnerFactory
 import org.opentaint.ir.analysis.runAnalysis
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.analysis.SqlInjectionExamples
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -21,12 +23,21 @@ import java.util.stream.Stream
 class SqlInjectionAnalysisTest : BaseAnalysisTest() {
     companion object : WithDB(Usages, InMemoryHierarchy) {
         @JvmStatic
-        fun provideClassesForJuliet89(): Stream<Arguments> = provideClassesForJuliet(89, listOf(
+        fun provideClassesForJuliet89(): Stream<Arguments> = provideClassesForJuliet(89, specificBansCwe89)
+
+        private val vulnerabilityType = SqlInjectionAnalyzer.vulnerabilityDescription.ruleId
+        private val specificBansCwe89: List<String> = listOf(
             // Not working yet (#156)
             "s03", "s04"
-        ))
+        )
+    }
 
-        private val vulnerabilityType = JIRSqlInjectionAnalyzer.vulnerabilityDescription.ruleId
+    @Test
+    fun `simple SQL injection`() {
+        val methodName = "bad"
+        val method = cp.findClass<SqlInjectionExamples>().declaredMethods.single { it.name == methodName }
+        val sinks = findSinks(method, vulnerabilityType)
+        assertTrue(sinks.isNotEmpty())
     }
 
     @ParameterizedTest
@@ -35,10 +46,17 @@ class SqlInjectionAnalysisTest : BaseAnalysisTest() {
         testSingleJulietClass(vulnerabilityType, className)
     }
 
-    override fun launchAnalysis(methods: List<JIRMethod>): List<VulnerabilityInstance<JIRMethod, JIRInstLocation, JIRInst>> {
+    @Test
+    fun `test on specific Juliet's CWE 89`() {
+        val className = "juliet.testcases.CWE89_SQL_Injection.s01.CWE89_SQL_Injection__Environment_executeBatch_01"
+
+        testSingleJulietClass(vulnerabilityType, className)
+    }
+
+    override fun launchAnalysis(methods: List<JIRMethod>): List<VulnerabilityInstance> {
         val graph = runBlocking {
             cp.newApplicationGraphForAnalysis()
         }
-        return runAnalysis(graph, JIRSingletonUnitResolver, newJIRSqlInjectionRunnerFactory(), methods)
+        return runAnalysis(graph, SingletonUnitResolver, newSqlInjectionRunnerFactory(), methods)
     }
 }

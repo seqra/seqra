@@ -4,10 +4,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import org.opentaint.ir.api.core.CoreMethod
-import org.opentaint.ir.api.core.analysis.ApplicationGraph
-import org.opentaint.ir.api.core.cfg.CoreInst
-import org.opentaint.ir.api.core.cfg.CoreInstLocation
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.analysis.JIRApplicationGraph
 
 /**
  * Represents a runner and allows to manipulate it.
@@ -21,10 +19,7 @@ import org.opentaint.ir.api.core.cfg.CoreInstLocation
  * It is not recommended to implement this interface directly, instead,
  * [AbstractIfdsUnitRunner] should be extended.
  */
-interface IfdsUnitRunner<UnitType, Method, Location, Statement>
-        where Method : CoreMethod<Statement>,
-              Location : CoreInstLocation<Method>,
-              Statement : CoreInst<Location, Method, *> {
+interface IfdsUnitRunner {
     val unit: UnitType
     val job: Job?
 
@@ -34,7 +29,7 @@ interface IfdsUnitRunner<UnitType, Method, Location, Statement>
      * Submits a new [IfdsEdge] to runner's queue. Should be called only after [launchIn].
      * Note that this method can be called from different threads.
      */
-    suspend fun submitNewEdge(edge: IfdsEdge<Method, Location, Statement>)
+    suspend fun submitNewEdge(edge: IfdsEdge)
 }
 
 /**
@@ -42,20 +37,16 @@ interface IfdsUnitRunner<UnitType, Method, Location, Statement>
  * Inheritors should only implement [submitNewEdge] and a suspendable [run] method.
  * The latter is the main method of runner, that should do all its work.
  */
-abstract class AbstractIfdsUnitRunner<UnitType, Method, Location, Statement>(
-    final override val unit: UnitType
-) : IfdsUnitRunner<UnitType, Method, Location, Statement>
-        where Method : CoreMethod<Statement>,
-              Location : CoreInstLocation<Method>,
-              Statement : CoreInst<Location, Method, *> {
+abstract class AbstractIfdsUnitRunner(
+    final override val unit: UnitType,
+) : IfdsUnitRunner {
     /**
      * The main method of the runner, which will be called by [launchIn]
      */
     protected abstract suspend fun run()
 
     private var _job: Job? = null
-
-    final override val job: Job? by ::_job
+    final override val job: Job? get() = _job
 
     final override fun launchIn(scope: CoroutineScope): Job = scope.launch(start = CoroutineStart.LAZY) {
         run()
@@ -68,10 +59,7 @@ abstract class AbstractIfdsUnitRunner<UnitType, Method, Location, Statement>(
 /**
  * Produces a runner for any given unit.
  */
-interface IfdsUnitRunnerFactory<Method, Location, Statement>
-    where Method : CoreMethod<Statement>,
-          Location : CoreInstLocation<Method>,
-          Statement : CoreInst<Location, Method, *> {
+interface IfdsUnitRunnerFactory {
     /**
      * Produces a runner for given [unit], using given [startMethods] as entry points.
      * All start methods should belong to the [unit].
@@ -83,11 +71,11 @@ interface IfdsUnitRunnerFactory<Method, Location, Statement>
      *
      * @param unitResolver will be used to get units of methods observed during analysis.
      */
-    fun <UnitType> newRunner(
-        graph: ApplicationGraph<Method, Statement>,
-        manager: IfdsUnitManager<UnitType, Method, Location, Statement>,
-        unitResolver: UnitResolver<UnitType, Method>,
+    fun newRunner(
+        graph: JIRApplicationGraph,
+        manager: IfdsUnitManager,
+        unitResolver: UnitResolver,
         unit: UnitType,
-        startMethods: List<Method>
-    ) : IfdsUnitRunner<UnitType, Method, Location, Statement>
+        startMethods: List<JIRMethod>,
+    ): IfdsUnitRunner
 }

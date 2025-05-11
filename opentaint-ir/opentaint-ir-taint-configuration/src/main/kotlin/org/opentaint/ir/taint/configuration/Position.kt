@@ -3,7 +3,7 @@ package org.opentaint.ir.taint.configuration
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-interface PositionResolver<R> {
+fun interface PositionResolver<out R> {
     fun resolve(position: Position): R
 }
 
@@ -11,17 +11,27 @@ interface PositionResolver<R> {
 sealed interface Position
 
 @Serializable
-@SerialName("Argument")
-data class Argument(val number: Int) : Position
-
-@Serializable
 @SerialName("AnyArgument")
 object AnyArgument : Position
 
 @Serializable
+@SerialName("Argument")
+data class Argument(@SerialName("number") val index: Int) : Position
+
+@Serializable
 @SerialName("This")
-object ThisArgument : Position
+object This : Position {
+    override fun toString(): String = javaClass.simpleName
+}
 
 @Serializable
 @SerialName("Result")
-object Result : Position
+object Result : Position {
+    override fun toString(): String = javaClass.simpleName
+}
+
+@Serializable
+@SerialName("ResultAnyElement")
+object ResultAnyElement : Position {
+    override fun toString(): String = javaClass.simpleName
+}

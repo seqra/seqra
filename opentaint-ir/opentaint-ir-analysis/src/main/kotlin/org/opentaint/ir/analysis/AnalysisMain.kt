@@ -1,30 +1,21 @@
 @file:JvmName("AnalysisMain")
+
 package org.opentaint.ir.analysis
 
 import kotlinx.serialization.Serializable
-import mu.KLogging
 import org.opentaint.ir.analysis.engine.IfdsUnitRunnerFactory
 import org.opentaint.ir.analysis.engine.MainIfdsUnitManager
 import org.opentaint.ir.analysis.engine.SummaryStorage
 import org.opentaint.ir.analysis.engine.UnitResolver
 import org.opentaint.ir.analysis.engine.VulnerabilityInstance
 import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
-import org.opentaint.ir.api.core.CoreMethod
-import org.opentaint.ir.api.core.analysis.ApplicationGraph
-import org.opentaint.ir.api.core.cfg.CoreInst
-import org.opentaint.ir.api.core.cfg.CoreInstLocation
-import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
-
-internal val logger = object : KLogging() {}.logger
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.analysis.JIRApplicationGraph
 
 typealias AnalysesOptions = Map<String, String>
 
-interface AnalysisConfig {
-    val analyses: Map<String, AnalysesOptions>
-}
-
 @Serializable
-data class JIRAnalysisConfig(override val analyses: Map<String, AnalysesOptions>) : AnalysisConfig
+data class AnalysisConfig(val analyses: Map<String, AnalysesOptions>)
 
 /**
  * This is the entry point for every analysis.
@@ -53,12 +44,12 @@ data class JIRAnalysisConfig(override val analyses: Map<String, AnalysesOptions>
  * (like searching for reachable methods and splitting them into units) and postcalculations (like restoring traces), so
  * the actual running time of this method may be longer.
  */
-fun <Method : CoreMethod<Statement>, Location : CoreInstLocation<Method>, Statement : CoreInst<Location, Method, *>> runAnalysis(
-    graph: ApplicationGraph<Method, Statement>,
-    unitResolver: UnitResolver<*, Method>,
-    ifdsUnitRunnerFactory: IfdsUnitRunnerFactory<Method, Location, Statement>,
-    methods: List<Method>,
-    timeoutMillis: Long = Long.MAX_VALUE
-): List<VulnerabilityInstance<Method, Location, Statement>> {
+fun runAnalysis(
+    graph: JIRApplicationGraph,
+    unitResolver: UnitResolver,
+    ifdsUnitRunnerFactory: IfdsUnitRunnerFactory,
+    methods: List<JIRMethod>,
+    timeoutMillis: Long = Long.MAX_VALUE,
+): List<VulnerabilityInstance> {
     return MainIfdsUnitManager(graph, unitResolver, ifdsUnitRunnerFactory, methods, timeoutMillis).analyze()
 }

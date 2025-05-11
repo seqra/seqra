@@ -1,17 +1,17 @@
 package org.opentaint.ir.impl.cfg
 
 import kotlinx.collections.immutable.toPersistentSet
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRProject
-import org.opentaint.ir.api.jvm.cfg.JIRBranchingInst
-import org.opentaint.ir.api.jvm.cfg.JIRCatchInst
-import org.opentaint.ir.api.jvm.cfg.JIRGraph
-import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.cfg.JIRInstRef
-import org.opentaint.ir.api.jvm.cfg.JIRInstVisitor
-import org.opentaint.ir.api.jvm.cfg.JIRTerminatingInst
-import org.opentaint.ir.api.jvm.ext.isSubClassOf
+import org.opentaint.ir.api.JIRClassType
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.cfg.JIRBranchingInst
+import org.opentaint.ir.api.cfg.JIRCatchInst
+import org.opentaint.ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRInstRef
+import org.opentaint.ir.api.cfg.JIRInstVisitor
+import org.opentaint.ir.api.cfg.JIRTerminatingInst
+import org.opentaint.ir.api.ext.isSubClassOf
 import java.util.Collections.singleton
 
 class JIRGraphImpl(
@@ -19,7 +19,7 @@ class JIRGraphImpl(
     override val instructions: List<JIRInst>,
 ) : Iterable<JIRInst>, JIRGraph {
 
-    override val classpath: JIRProject get() = method.enclosingClass.classpath
+    override val classpath: JIRClasspath get() = method.enclosingClass.classpath
 
     private val predecessorMap = hashMapOf<JIRInst, Set<JIRInst>>()
     private val successorMap = hashMapOf<JIRInst, Set<JIRInst>>()
@@ -31,7 +31,7 @@ class JIRGraphImpl(
     private val exceptionResolver = JIRExceptionResolver(classpath)
 
     override val entry: JIRInst get() = instructions.first()
-    override val exits: List<JIRInst> get() = instructions.filterIsInstance<JIRTerminatingInst>()
+    override val exits: List<JIRInst> by lazy { instructions.filterIsInstance<JIRTerminatingInst>() }
 
     /**
      * returns a map of possible exceptions that may be thrown from this method
@@ -89,15 +89,15 @@ class JIRGraphImpl(
     /**
      * `successors` and `predecessors` represent normal control flow
      */
-    override fun successors(node: JIRInst): Set<JIRInst> = successorMap.getOrDefault(node, emptySet())
-    override fun predecessors(node: JIRInst): Set<JIRInst> = predecessorMap.getOrDefault(node, emptySet())
+    override fun successors(node: JIRInst): Set<JIRInst> = successorMap[node] ?: emptySet()
+    override fun predecessors(node: JIRInst): Set<JIRInst> = predecessorMap[node] ?: emptySet()
 
     /**
      * `throwers` and `catchers` represent control flow when an exception occurs
      * `throwers` returns an empty set for every instruction except `JIRCatchInst`
      */
-    override fun throwers(node: JIRInst): Set<JIRInst> = throwPredecessors.getOrDefault(node, emptySet())
-    override fun catchers(node: JIRInst): Set<JIRCatchInst> = throwSuccessors.getOrDefault(node, emptySet())
+    override fun throwers(node: JIRInst): Set<JIRInst> = throwPredecessors[node] ?: emptySet()
+    override fun catchers(node: JIRInst): Set<JIRCatchInst> = throwSuccessors[node] ?: emptySet()
 
     override fun previous(inst: JIRInstRef): JIRInst = previous(inst(inst))
     override fun next(inst: JIRInstRef): JIRInst = next(inst(inst))
@@ -133,17 +133,17 @@ class JIRGraphImpl(
     }
 }
 
-fun JIRGraph.filter(visitor: JIRInstVisitor<Boolean>) =
+fun JIRGraph.filter(visitor: JIRInstVisitor<Boolean>): JIRGraph =
     JIRGraphImpl(method, instructions.filter { it.accept(visitor) })
 
-fun JIRGraph.filterNot(visitor: JIRInstVisitor<Boolean>) =
+fun JIRGraph.filterNot(visitor: JIRInstVisitor<Boolean>): JIRGraph =
     JIRGraphImpl(method, instructions.filterNot { it.accept(visitor) })
 
-fun JIRGraph.map(visitor: JIRInstVisitor<JIRInst>) =
+fun JIRGraph.map(visitor: JIRInstVisitor<JIRInst>): JIRGraph =
     JIRGraphImpl(method, instructions.map { it.accept(visitor) })
 
-fun JIRGraph.mapNotNull(visitor: JIRInstVisitor<JIRInst?>) =
+fun JIRGraph.mapNotNull(visitor: JIRInstVisitor<JIRInst?>): JIRGraph =
     JIRGraphImpl(method, instructions.mapNotNull { it.accept(visitor) })
 
-fun JIRGraph.flatMap(visitor: JIRInstVisitor<Collection<JIRInst>>) =
+fun JIRGraph.flatMap(visitor: JIRInstVisitor<Collection<JIRInst>>): JIRGraph =
     JIRGraphImpl(method, instructions.flatMap { it.accept(visitor) })

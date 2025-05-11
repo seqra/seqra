@@ -3,14 +3,14 @@ package org.opentaint.ir.analysis.impl;
 import org.opentaint.ir.analysis.AnalysisMain;
 import org.opentaint.ir.analysis.engine.IfdsUnitRunnerFactory;
 import org.opentaint.ir.analysis.engine.UnitResolver;
+import org.opentaint.ir.analysis.engine.UnitResolverKt;
 import org.opentaint.ir.analysis.graph.ApplicationGraphFactory;
 import org.opentaint.ir.analysis.library.RunnersLibrary;
-import org.opentaint.ir.analysis.library.UnitResolversLibrary;
-import org.opentaint.ir.api.jvm.JIRClassOrInterface;
-import org.opentaint.ir.api.jvm.JIRProject;
-import org.opentaint.ir.api.jvm.JIRDatabase;
-import org.opentaint.ir.api.jvm.JIRMethod;
-import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph;
+import org.opentaint.ir.api.JIRClassOrInterface;
+import org.opentaint.ir.api.JIRClasspath;
+import org.opentaint.ir.api.JIRDatabase;
+import org.opentaint.ir.api.JIRMethod;
+import org.opentaint.ir.api.analysis.JIRApplicationGraph;
 import org.opentaint.ir.impl.Opentaint-IR;
 import org.opentaint.ir.impl.JIRSettings;
 import org.opentaint.ir.impl.features.InMemoryHierarchy;
@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 public class JavaAnalysisApiTest {
-    private static JIRProject classpath;
+    private static JIRClasspath classpath;
 
     @BeforeAll
     public static void initClasspath() throws ExecutionException, InterruptedException {
@@ -40,9 +40,9 @@ public class JavaAnalysisApiTest {
 
         List<JIRMethod> methodsToAnalyze = analyzedClass.getDeclaredMethods();
         JIRApplicationGraph applicationGraph = ApplicationGraphFactory
-                .asyncNewApplicationGraphForAnalysis(classpath, null)
+                .newApplicationGraphForAnalysisAsync(classpath, null)
                 .get();
-        UnitResolver<?, JIRMethod> resolver = UnitResolversLibrary.methodUnitResolver();
+        UnitResolver resolver = UnitResolverKt.getMethodUnitResolver();
         IfdsUnitRunnerFactory runner = RunnersLibrary.getUnusedVariableRunnerFactory();
 
         AnalysisMain.runAnalysis(
@@ -60,7 +60,7 @@ public class JavaAnalysisApiTest {
         bannedPackages.add("my.package.that.wont.be.analyzed");
 
         JIRApplicationGraph customGraph = ApplicationGraphFactory
-                .asyncNewApplicationGraphForAnalysis(classpath, bannedPackages)
+                .newApplicationGraphForAnalysisAsync(classpath, bannedPackages)
                 .get();
         Assertions.assertNotNull(customGraph);
     }

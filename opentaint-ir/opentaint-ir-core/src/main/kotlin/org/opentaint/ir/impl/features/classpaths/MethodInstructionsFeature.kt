@@ -23,6 +23,7 @@ class MethodInstructionsFeature(
     private val JIRMethod.methodFeatures
         get() = enclosingClass.classpath.features?.filterIsInstance<JIRInstExtFeature>().orEmpty()
 
+    @Synchronized
     override fun flowGraph(method: JIRMethod): JIRMethodExtFeature.JIRFlowGraphResult {
         return JIRFlowGraphResultImpl(method, JIRGraphImpl(method, method.instList.instructions))
     }

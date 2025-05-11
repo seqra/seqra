@@ -7,8 +7,8 @@ object Versions {
     const val dokka = "1.7.20"
     const val gradle_download = "5.3.0"
     const val gradle_versions = "0.47.0"
-    const val hikaricp = "5.0.1"
     const val guava = "31.1-jre"
+    const val hikaricp = "5.0.1"
     const val javax_activation = "1.1"
     const val javax_mail = "1.4.7"
     const val javax_servlet_api = "2.5"
@@ -21,6 +21,7 @@ object Versions {
     const val junit = "5.9.2"
     const val kotlin = "1.7.21"
     const val kotlin_logging = "1.8.3"
+    const val kotlin_logging5 = "5.1.0"
     const val kotlinx_benchmark = "0.4.4"
     const val kotlinx_cli = "0.3.5"
     const val kotlinx_collections_immutable = "0.3.5"
@@ -34,7 +35,6 @@ object Versions {
     const val soot_opentaint_fork = "4.4.0-FORK-2"
     const val sootup = "1.0.0"
     const val sqlite = "3.41.2.2"
-    const val gson = "2.10.1"
 }
 
 fun dep(group: String, name: String, version: String): String = "$group:$name:$version"
@@ -64,6 +64,13 @@ object Libs {
         group = "io.github.microutils",
         name = "kotlin-logging",
         version = Versions.kotlin_logging
+    )
+
+    // https://github.com/oshai/kotlin-logging
+    val kotlin_logging5 = dep(
+        group = "io.github.oshai",
+        name = "kotlin-logging",
+        version = Versions.kotlin_logging5
     )
 
     // https://github.com/qos-ch/slf4j
@@ -100,7 +107,7 @@ object Libs {
     // https://github.com/Kotlin/kotlinx.collections.immutable
     val kotlinx_collections_immutable = dep(
         group = "org.jetbrains.kotlinx",
-        name = "kotlinx-collections-immutable-jvm",
+        name = "kotlinx-collections-immutable",
         version = Versions.kotlinx_collections_immutable
     )
 
@@ -134,6 +141,11 @@ object Libs {
     )
 
     // https://github.com/Kotlin/kotlinx.serialization
+    val kotlinx_serialization_core = dep(
+        group = "org.jetbrains.kotlinx",
+        name = "kotlinx-serialization-core",
+        version = Versions.kotlinx_serialization
+    )
     val kotlinx_serialization_json = dep(
         group = "org.jetbrains.kotlinx",
         name = "kotlinx-serialization-json",
@@ -269,13 +281,6 @@ object Libs {
         version = Versions.juliet
     )
 
-    // https://github.com/google/gson
-    val gson = dep(
-        group = "com.google.code.gson",
-        name = "gson",
-        version = Versions.gson
-    )
-
     @Suppress("FunctionName")
     fun juliet_cwe(cweNum: Int) = dep(
         group = "com.github.Opentaint.juliet-java-test-suite",
@@ -285,46 +290,48 @@ object Libs {
 }
 
 object Plugins {
-
-    abstract class ProjectPlugin(val version: String, val id: String)
+    abstract class Plugin(
+        val version: String,
+        val id: String,
+    )
 
     // https://github.com/Kotlin/dokka
-    object Dokka: ProjectPlugin(
+    object Dokka : Plugin(
         version = Versions.dokka,
         id = "org.jetbrains.dokka"
     )
 
     // https://github.com/michel-kraemer/gradle-download-task
-    object GradleDownload: ProjectPlugin(
+    object GradleDownload : Plugin(
         version = Versions.gradle_download,
         id = "de.undercouch.download"
     )
 
     // https://github.com/ben-manes/gradle-versions-plugin
-    object GradleVersions: ProjectPlugin(
+    object GradleVersions : Plugin(
         version = Versions.gradle_versions,
         id = "com.github.ben-manes.versions"
     )
 
     // https://github.com/Kotlin/kotlinx-benchmark
-    object KotlinxBenchmark : ProjectPlugin(
+    object KotlinxBenchmark : Plugin(
         version = Versions.kotlinx_benchmark,
         id = "org.jetbrains.kotlinx.benchmark"
     )
 
     // https://github.com/CadixDev/licenser
-    object Licenser : ProjectPlugin(
+    object Licenser : Plugin(
         version = Versions.licenser,
         id = "org.cadixdev.licenser"
     )
 
     // https://github.com/johnrengelman/shadow
-    object Shadow : ProjectPlugin(
+    object Shadow : Plugin(
         version = Versions.shadow,
         id = "com.github.johnrengelman.shadow"
     )
 }
 
-fun PluginDependenciesSpec.id(plugin: Plugins.ProjectPlugin) {
+fun PluginDependenciesSpec.id(plugin: Plugins.Plugin) {
     id(plugin.id).version(plugin.version)
 }

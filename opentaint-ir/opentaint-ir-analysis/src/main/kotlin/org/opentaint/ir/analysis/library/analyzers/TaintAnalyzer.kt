@@ -1,5 +1,10 @@
 package org.opentaint.ir.analysis.library.analyzers
 
+import io.github.oshai.kotlinlogging.KotlinLogging
+import org.opentaint.ir.analysis.config.BasicConditionEvaluator
+import org.opentaint.ir.analysis.config.CallPositionToJIRValueResolver
+import org.opentaint.ir.analysis.config.FactAwareConditionEvaluator
+import org.opentaint.ir.analysis.config.TaintActionEvaluator
 import org.opentaint.ir.analysis.engine.AbstractAnalyzer
 import org.opentaint.ir.analysis.engine.AnalysisDependentEvent
 import org.opentaint.ir.analysis.engine.DomainFact
@@ -10,37 +15,43 @@ import org.opentaint.ir.analysis.engine.IfdsVertex
 import org.opentaint.ir.analysis.engine.NewSummaryFact
 import org.opentaint.ir.analysis.engine.VulnerabilityLocation
 import org.opentaint.ir.analysis.engine.ZEROFact
-import org.opentaint.ir.analysis.paths.AccessPath
+import org.opentaint.ir.analysis.ifds2.taint.Tainted
+import org.opentaint.ir.analysis.ifds2.taint.toDomainFact
 import org.opentaint.ir.analysis.paths.minus
 import org.opentaint.ir.analysis.paths.startsWith
 import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.paths.toPathOrNull
 import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
-import org.opentaint.ir.api.core.CoreMethod
-import org.opentaint.ir.api.core.analysis.ApplicationGraph
-import org.opentaint.ir.api.core.cfg.CoreInst
-import org.opentaint.ir.api.core.cfg.CoreInstLocation
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.JIRType
-import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.jvm.cfg.JIRArgument
-import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
-import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRExpr
-import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
-import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRValue
-import org.opentaint.ir.api.jvm.cfg.locals
-import org.opentaint.ir.api.jvm.cfg.values
-import org.opentaint.ir.api.jvm.ext.cfg.callExpr
-import javax.swing.plaf.nimbus.State
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.cfg.JIRArgument
+import org.opentaint.ir.api.cfg.JIRAssignInst
+import org.opentaint.ir.api.cfg.JIRCallExpr
+import org.opentaint.ir.api.cfg.JIRExpr
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRInstanceCallExpr
+import org.opentaint.ir.api.cfg.JIRValue
+import org.opentaint.ir.api.cfg.locals
+import org.opentaint.ir.api.cfg.values
+import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.api.ext.findTypeOrNull
+import org.opentaint.ir.taint.configuration.AnyArgument
+import org.opentaint.ir.taint.configuration.Argument
+import org.opentaint.ir.taint.configuration.AssignMark
+import org.opentaint.ir.taint.configuration.Result
+import org.opentaint.ir.taint.configuration.ResultAnyElement
+import org.opentaint.ir.taint.configuration.TaintEntryPointSource
+import org.opentaint.ir.taint.configuration.TaintMethodSink
+import org.opentaint.ir.taint.configuration.This
+
+private val logger = KotlinLogging.logger {}
 
 fun isSourceMethodToGenerates(isSourceMethod: (JIRMethod) -> Boolean): (JIRInst) -> List<TaintAnalysisNode> {
     return generates@{ inst: JIRInst ->
-        val callExpr = inst.callExpr?.takeIf { isSourceMethod(it.method.method) } ?: return@generates emptyList()
+        val callExpr = inst.callExpr?.takeIf { isSourceMethod(it.method.method) }
+            ?: return@generates emptyList()
         if (inst is JIRAssignInst && isSourceMethod(callExpr.method.method)) {
-            listOf(TaintAnalysisNode(inst.lhv.toPath()))
+            listOf(TaintAnalysisNode(inst.lhv.toPath(), nodeType = "TAINT"))
         } else {
             emptyList()
         }
@@ -49,15 +60,16 @@ fun isSourceMethodToGenerates(isSourceMethod: (JIRMethod) -> Boolean): (JIRInst)
 
 fun isSinkMethodToSinks(isSinkMethod: (JIRMethod) -> Boolean): (JIRInst) -> List<TaintAnalysisNode> {
     return sinks@{ inst: JIRInst ->
-        val callExpr = inst.callExpr?.takeIf { isSinkMethod(it.method.method) } ?: return@sinks emptyList()
+        val callExpr = inst.callExpr?.takeIf { isSinkMethod(it.method.method) }
+            ?: return@sinks emptyList()
         callExpr.values
             .mapNotNull { it.toPathOrNull() }
-            .map { TaintAnalysisNode(it) }
+            .map { TaintAnalysisNode(it, nodeType = "TAINT") }
     }
 }
 
 fun isSanitizeMethodToSanitizes(isSanitizeMethod: (JIRMethod) -> Boolean): (JIRExpr, TaintNode) -> Boolean {
-    return { expr: JIRExpr, fact: TaintNode ->
+    return sanitizes@{ expr: JIRExpr, fact: TaintNode ->
         if (expr !is JIRCallExpr) {
             false
         } else {
@@ -77,65 +89,139 @@ internal val List<String>.asMethodMatchers: (JIRMethod) -> Boolean
         any { it.toRegex().matches("${method.enclosingClass.name}#${method.name}") }
     }
 
-abstract class TaintAnalyzer<Method, Location, Statement>(
-    graph: ApplicationGraph<Method, Statement>,
-    maxPathLength: Int
-) : AbstractAnalyzer<Method, Location, Statement>(graph)
-        where Method : CoreMethod<Statement>,
-              Location : CoreInstLocation<Method>,
-              Statement : CoreInst<Location, Method, *> {
+abstract class TaintAnalyzer(
+    graph: JIRApplicationGraph,
+    maxPathLength: Int,
+) : AbstractAnalyzer(graph) {
     abstract val generates: (JIRInst) -> List<DomainFact>
     abstract val sanitizes: (JIRExpr, TaintNode) -> Boolean
     abstract val sinks: (JIRInst) -> List<TaintAnalysisNode>
 
-    @Suppress("UNCHECKED_CAST")
-    override val flowFunctions: FlowFunctionsSpace<Statement, Method> by lazy {
-        TaintForwardFunctions(graph as JIRApplicationGraph, maxPathLength, generates, sanitizes) as FlowFunctionsSpace<Statement, Method>
+    override val flowFunctions: FlowFunctionsSpace by lazy {
+        TaintForwardFunctions(graph, maxPathLength, generates, sanitizes)
     }
 
     override val isMainAnalyzer: Boolean
         get() = true
 
-    protected abstract fun generateDescriptionForSink(sink: IfdsVertex<Method, Location, Statement>): VulnerabilityDescription
+    // private val skipped: MutableMap<JIRMethod, Boolean> = mutableMapOf()
+    // override fun isSkipped(method: JIRMethod): Boolean {
+    //     return skipped.getOrPut(method) {
+    //         // TODO: read the config and assign True if there is a MethodSource item, and False otherwise.
+    //         // Note: the computed value is cached.
+    //
+    //         fun <T> magic(): T = TODO()
+    //         val current: JIRInst = magic()
+    //         val conditionEvaluator = BasicConditionEvaluator(CallPositionToJIRValueResolver(current))
+    //
+    //         // FIXME: we need the call itself in order to evaluate the condition
+    //         for (item in config.items) {
+    //             if (item is TaintMethodSource) {
+    //                 item.condition.accept(conditionEvaluator)
+    //             }
+    //         }
+    //
+    //         TODO()
+    //     }
+    // }
 
-    override fun handleNewEdge(edge: IfdsEdge<Method, Location, Statement>): List<AnalysisDependentEvent> = buildList {
-        if (edge.v.domainFact in sinks(edge.v.statement as JIRInst)) {
-            val desc = generateDescriptionForSink(edge.v)
-            add(NewSummaryFact(VulnerabilityLocation(desc, edge.v)))
-            verticesWithTraceGraphNeeded.add(edge.v)
+    protected abstract fun generateDescriptionForSink(sink: IfdsVertex): VulnerabilityDescription
+
+    override fun handleNewEdge(edge: IfdsEdge): List<AnalysisDependentEvent> = buildList {
+        val configOk = run {
+            val callExpr = edge.to.statement.callExpr ?: return@run false
+            val callee = callExpr.method.method
+
+            val config = (flowFunctions as TaintForwardFunctions)
+                .taintConfigurationFeature?.let { feature ->
+                    logger.trace { "Extracting config for $callee" }
+                    feature.getConfigForMethod(callee)
+                } ?: return@run false
+
+            // TODO: not always we want to skip sinks on ZeroFacts. Some rules might have ConstantTrue or just true (when evaluated with ZeroFact) condition.
+            if (edge.to.domainFact !is TaintNode) {
+                return@run false
+            }
+
+            // Determine whether 'edge.to' is a sink via config:
+            val conditionEvaluator = FactAwareConditionEvaluator(
+                Tainted(edge.to.domainFact),
+                CallPositionToJIRValueResolver(edge.to.statement),
+            )
+            var isSink = false
+            var triggeredItem: TaintMethodSink? = null
+            for (item in config.filterIsInstance<TaintMethodSink>()) {
+                if (item.condition.accept(conditionEvaluator)) {
+                    isSink = true
+                    triggeredItem = item
+                    break
+                }
+                // FIXME: unconditionally let it be the sink.
+                // isSink = true
+                // triggeredItem = item
+                // break
+            }
+            if (isSink) {
+                val desc = generateDescriptionForSink(edge.to)
+                val vulnerability = VulnerabilityLocation(desc, edge.to, edge, rule = triggeredItem)
+                logger.info { "Found sink: $vulnerability in ${vulnerability.method}" }
+                add(NewSummaryFact(vulnerability))
+                verticesWithTraceGraphNeeded.add(edge.to)
+            }
+            true
         }
+
+        if (!configOk) {
+            // "config"-less behavior:
+            if (edge.to.domainFact in sinks(edge.to.statement)) {
+                val desc = generateDescriptionForSink(edge.to)
+                val vulnerability = VulnerabilityLocation(desc, edge.to, edge)
+                logger.info { "Found sink: $vulnerability in ${vulnerability.method}" }
+                add(NewSummaryFact(vulnerability))
+                verticesWithTraceGraphNeeded.add(edge.to)
+            }
+        }
+
+        // "Default" behavior:
+        addAll(super.handleNewEdge(edge))
     }
 }
 
 abstract class TaintBackwardAnalyzer(
-    val graph: JIRApplicationGraph,
-    maxPathLength: Int
-) : AbstractAnalyzer<JIRMethod, JIRInstLocation, JIRInst>(graph) {
+    graph: JIRApplicationGraph,
+    maxPathLength: Int,
+) : AbstractAnalyzer(graph) {
     abstract val generates: (JIRInst) -> List<DomainFact>
     abstract val sinks: (JIRInst) -> List<TaintAnalysisNode>
 
     override val isMainAnalyzer: Boolean
         get() = false
 
-    override val flowFunctions: FlowFunctionsSpace<JIRInst, JIRMethod> by lazy {
+    override val flowFunctions: FlowFunctionsSpace by lazy {
         TaintBackwardFunctions(graph, generates, sinks, maxPathLength)
     }
 
-    override fun handleNewEdge(edge: IfdsEdge<JIRMethod, JIRInstLocation, JIRInst>): List<AnalysisDependentEvent> =
-        buildList {
-            if (edge.v.statement in graph.exitPoints(edge.method)) {
-                add(EdgeForOtherRunnerQuery(IfdsEdge(edge.v, edge.v)))
-            }
+    override fun handleNewEdge(edge: IfdsEdge): List<AnalysisDependentEvent> = buildList {
+        if (edge.to.statement in graph.exitPoints(edge.method)) {
+            add(EdgeForOtherRunnerQuery(IfdsEdge(edge.to, edge.to)))
         }
+    }
 }
 
 private class TaintForwardFunctions(
     graph: JIRApplicationGraph,
     private val maxPathLength: Int,
     private val generates: (JIRInst) -> List<DomainFact>,
-    private val sanitizes: (JIRExpr, TaintNode) -> Boolean
-) : AbstractTaintForwardFunctions<JIRMethod, JIRInstLocation, JIRInst, JIRValue, JIRExpr, JIRType>(graph.classpath) {
-    override fun transmitDataFlow(from: JIRExpr, to: JIRValue, atInst: JIRInst, fact: DomainFact, dropFact: Boolean): List<DomainFact> {
+    private val sanitizes: (JIRExpr, TaintNode) -> Boolean,
+) : AbstractTaintForwardFunctions(graph.classpath) {
+
+    override fun transmitDataFlow(
+        from: JIRExpr,
+        to: JIRValue,
+        atInst: JIRInst,
+        fact: DomainFact,
+        dropFact: Boolean,
+    ): List<DomainFact> {
         if (fact == ZEROFact) {
             return listOf(ZEROFact) + generates(atInst)
         }
@@ -144,7 +230,10 @@ private class TaintForwardFunctions(
             return emptyList()
         }
 
-        val default = if (dropFact || (sanitizes(from, fact) && fact.variable == (from as? JIRInstanceCallExpr)?.instance?.toPath())) {
+        val default: List<DomainFact> = if (
+            dropFact ||
+            (sanitizes(from, fact) && fact.variable == (from as? JIRInstanceCallExpr)?.instance?.toPath())
+        ) {
             emptyList()
         } else {
             listOf(fact)
@@ -164,7 +253,12 @@ private class TaintForwardFunctions(
             }
         }
 
-        if (from.values.any { it.toPathOrNull().startsWith(fact.variable) || fact.variable.startsWith(it.toPathOrNull()) }) {
+        if (
+            from.values.any {
+                it.toPathOrNull().startsWith(fact.variable) ||
+                    fact.variable.startsWith(it.toPathOrNull())
+            }
+        ) {
             val instanceOrNull = (from as? JIRInstanceCallExpr)?.instance
             if (instanceOrNull != null && !sanitizes(from, fact)) {
                 val instancePath = instanceOrNull.toPathOrNull()
@@ -179,39 +273,106 @@ private class TaintForwardFunctions(
         return default
     }
 
-    override fun transmitDataFlowAtNormalInst(inst: JIRInst, nextInst: JIRInst, fact: DomainFact): List<DomainFact> {
+    override fun transmitDataFlowAtNormalInst(
+        inst: JIRInst,
+        nextInst: JIRInst, // unused
+        fact: DomainFact,
+    ): List<DomainFact> {
+        // Generate new facts:
         if (fact == ZEROFact) {
-            return generates(inst) + listOf(ZEROFact)
+            return listOf(ZEROFact) + generates(inst)
         }
 
         if (fact !is TaintNode) {
             return emptyList()
         }
 
+        // Pass-through:
         val callExpr = inst.callExpr ?: return listOf(fact)
-        val instance = (callExpr as? JIRInstanceCallExpr)?.instance ?: return listOf(fact)
-        val factIsPassed = callExpr.values.any {
-            it.toPathOrNull().startsWith(fact.variable) || fact.variable.startsWith(it.toPathOrNull())
+        if (callExpr !is JIRInstanceCallExpr) {
+            return listOf(fact)
         }
+        val instance = callExpr.instance
 
+        // Sanitize:
         if (instance.toPath() == fact.variable && sanitizes(callExpr, fact)) {
             return emptyList()
         }
 
-        return if (factIsPassed && !sanitizes(callExpr, fact)) {
-            listOf(fact) + fact.moveToOtherPath(instance.toPath())
-        } else {
-            listOf(fact)
-        }
+        // TODO: do no do this:
+        // val factIsPassed = callExpr.values.any {
+        //     it.toPathOrNull().startsWith(fact.variable) || fact.variable.startsWith(it.toPathOrNull())
+        // }
+        // return if (factIsPassed && !sanitizes(callExpr, fact)) {
+        //     // Pass-through, but also (?) taint the 'instance'
+        //     listOf(fact) + fact.moveToOtherPath(instance.toPath())
+        // } else {
+        //     // Pass-through
+        //     listOf(fact)
+        // }
+
+        // Pass-through
+        return listOf(fact)
     }
 
-    override fun obtainPossibleStartFacts(startStatement: JIRInst): Collection<DomainFact> {
-        val method = startStatement.location.method
+    override fun obtainPossibleStartFacts(startStatement: JIRInst): List<DomainFact> = buildList {
+        add(ZEROFact)
 
-        // Possibly null arguments
-        return listOf(ZEROFact) + method.flowGraph().locals
-            .filterIsInstance<JIRArgument>()
-            .map { TaintAnalysisNode(AccessPath.fromLocal(it)) }
+        val method = startStatement.location.method
+        val config = taintConfigurationFeature?.let { feature ->
+            logger.trace { "Extracting config for $method" }
+            feature.getConfigForMethod(method)
+        }
+        if (config != null) {
+            val conditionEvaluator = BasicConditionEvaluator { position ->
+                when (position) {
+                    This -> method.thisInstance
+
+                    is Argument -> method.flowGraph().locals
+                        .filterIsInstance<JIRArgument>()
+                        .singleOrNull { it.index == position.index }
+                        ?: error("Cannot resolve $position for $method")
+
+                    AnyArgument -> error("Unexpected $position")
+                    Result -> error("Unexpected $position")
+                    ResultAnyElement -> error("Unexpected $position")
+                }
+            }
+            val actionEvaluator = TaintActionEvaluator { position ->
+                when (position) {
+                    This -> method.thisInstance.toPathOrNull()
+                        ?: error("Cannot resolve $position for $method")
+
+                    is Argument -> {
+                        val p = method.parameters[position.index]
+                        val t = cp.findTypeOrNull(p.type)
+                        if (t != null) {
+                            JIRArgument.of(p.index, p.name, t).toPathOrNull()
+                        } else {
+                            null
+                        }
+                            ?: error("Cannot resolve $position for $method")
+                    }
+
+                    AnyArgument -> error("Unexpected $position")
+                    Result -> error("Unexpected $position")
+                    ResultAnyElement -> error("Unexpected $position")
+                }
+            }
+            for (item in config.filterIsInstance<TaintEntryPointSource>()) {
+                if (item.condition.accept(conditionEvaluator)) {
+                    for (action in item.actionsAfter) {
+                        when (action) {
+                            is AssignMark -> {
+                                add(actionEvaluator.evaluate(action).toDomainFact())
+                            }
+
+                            else -> error("$action is not supported for $item")
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -220,8 +381,15 @@ private class TaintBackwardFunctions(
     val generates: (JIRInst) -> List<DomainFact>,
     val sinks: (JIRInst) -> List<TaintAnalysisNode>,
     maxPathLength: Int,
-) : AbstractTaintBackwardFunctions<JIRMethod, JIRInstLocation, JIRInst, JIRValue, JIRExpr, JIRType>(graph, maxPathLength) {
-    override fun transmitBackDataFlow(from: JIRValue, to: JIRExpr, atInst: JIRInst, fact: DomainFact, dropFact: Boolean): List<DomainFact> {
+) : AbstractTaintBackwardFunctions(graph, maxPathLength) {
+
+    override fun transmitBackDataFlow(
+        from: JIRValue,
+        to: JIRExpr,
+        atInst: JIRInst,
+        fact: DomainFact,
+        dropFact: Boolean,
+    ): List<DomainFact> {
         if (fact == ZEROFact) {
             return listOf(ZEROFact) + sinks(atInst)
         }
@@ -238,15 +406,20 @@ private class TaintBackwardFunctions(
         if (toPath != null) {
             val diff = factPath.minus(fromPath)
             if (diff != null) {
-                return listOf(fact.moveToOtherPath(AccessPath.fromOther(toPath, diff).limit(maxPathLength)))
+                val newPath = (toPath / diff).limit(maxPathLength)
+                return listOf(fact.moveToOtherPath(newPath))
             }
         } else if (factPath.startsWith(fromPath) || (to is JIRInstanceCallExpr && factPath.startsWith(to.instance.toPath()))) {
-            return to.values.mapNotNull { it.toPathOrNull() }.map { TaintAnalysisNode(it) }
+            return to.values.mapNotNull { it.toPathOrNull() }.map { TaintAnalysisNode(it, nodeType = "TAINT") }
         }
         return default
     }
 
-    override fun transmitDataFlowAtNormalInst(inst: JIRInst, nextInst: JIRInst, fact: DomainFact): List<DomainFact> {
+    override fun transmitDataFlowAtNormalInst(
+        inst: JIRInst,
+        nextInst: JIRInst,
+        fact: DomainFact,
+    ): List<DomainFact> {
         if (fact == ZEROFact) {
             return listOf(fact) + sinks(inst)
         }
@@ -256,7 +429,7 @@ private class TaintBackwardFunctions(
 
         val callExpr = inst.callExpr as? JIRInstanceCallExpr ?: return listOf(fact)
         if (fact.variable.startsWith(callExpr.instance.toPath())) {
-            return inst.values.mapNotNull { it.toPathOrNull() }.map { TaintAnalysisNode(it) }
+            return inst.values.mapNotNull { it.toPathOrNull() }.map { TaintAnalysisNode(it, nodeType = "TAINT") }
         }
 
         return listOf(fact)

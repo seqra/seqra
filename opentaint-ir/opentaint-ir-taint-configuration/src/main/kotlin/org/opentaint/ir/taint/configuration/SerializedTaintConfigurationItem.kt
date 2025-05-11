@@ -2,9 +2,12 @@ package org.opentaint.ir.taint.configuration
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 @Serializable
 sealed interface SerializedTaintConfigurationItem {
+    @SerialName("methodInfo")
     val methodInfo: FunctionMatcher
 
     fun updateMethodInfo(updatedMethodInfo: FunctionMatcher): SerializedTaintConfigurationItem =
@@ -20,40 +23,67 @@ sealed interface SerializedTaintConfigurationItem {
 @Serializable
 @SerialName("EntryPointSource")
 data class SerializedTaintEntryPointSource(
-    override val methodInfo: FunctionMatcher,
-    val condition: Condition,
-    val actionsAfter: List<Action>,
+    @SerialName("methodInfo") override val methodInfo: FunctionMatcher,
+    @SerialName("condition") val condition: Condition,
+    @SerialName("actionsAfter") val actionsAfter: List<Action>,
 ) : SerializedTaintConfigurationItem
 
 @Serializable
 @SerialName("MethodSource")
 data class SerializedTaintMethodSource(
-    override val methodInfo: FunctionMatcher,
-    val condition: Condition,
-    val actionsAfter: List<Action>,
+    @SerialName("methodInfo") override val methodInfo: FunctionMatcher,
+    @SerialName("condition") val condition: Condition,
+    @SerialName("actionsAfter") val actionsAfter: List<Action>,
 ) : SerializedTaintConfigurationItem
 
 @Serializable
 @SerialName("MethodSink")
 data class SerializedTaintMethodSink(
-    val ruleNote: String,
-    val cwe: List<Int>,
-    override val methodInfo: FunctionMatcher,
-    val condition: Condition
+    @SerialName("ruleNote") val ruleNote: String,
+    @SerialName("cwe") val cwe: List<Int>,
+    @SerialName("methodInfo") override val methodInfo: FunctionMatcher,
+    @SerialName("condition") val condition: Condition,
 ) : SerializedTaintConfigurationItem
 
 @Serializable
 @SerialName("PassThrough")
 data class SerializedTaintPassThrough(
-    override val methodInfo: FunctionMatcher,
-    val condition: Condition,
-    val actionsAfter: List<Action>,
+    @SerialName("methodInfo") override val methodInfo: FunctionMatcher,
+    @SerialName("condition") val condition: Condition,
+    @SerialName("actionsAfter") val actionsAfter: List<Action>,
 ) : SerializedTaintConfigurationItem
 
 @Serializable
 @SerialName("Cleaner")
 data class SerializedTaintCleaner(
-    override val methodInfo: FunctionMatcher,
-    val condition: Condition,
-    val actionsAfter: List<Action>,
+    @SerialName("methodInfo") override val methodInfo: FunctionMatcher,
+    @SerialName("condition") val condition: Condition,
+    @SerialName("actionsAfter") val actionsAfter: List<Action>,
 ) : SerializedTaintConfigurationItem
+
+fun main() {
+    val methodSource = SerializedTaintMethodSource(
+        methodInfo = FunctionMatcher(
+            cls = ClassMatcher(
+                pkg = NameExactMatcher("java.util"),
+                classNameMatcher = NameExactMatcher("Scanner")
+            ),
+            functionName = NamePatternMatcher("findInLine|findWithinHorizon|nextLine|useDelimiter|useLocale|useRadix|skip|reset"),
+            parametersMatchers = emptyList(),
+            returnTypeMatcher = AnyTypeMatcher,
+            applyToOverrides = true,
+            functionLabel = null,
+            modifier = -1,
+            exclude = emptyList()
+        ),
+        condition = ConstantTrue,
+        actionsAfter = listOf(
+            CopyAllMarks(from = This, to = Result)
+        )
+    )
+    val json = Json {
+        prettyPrint = true
+    }
+    val methodSourceJson = json.encodeToString(methodSource)
+    println("methodSource.toJson() = $methodSourceJson")
+}

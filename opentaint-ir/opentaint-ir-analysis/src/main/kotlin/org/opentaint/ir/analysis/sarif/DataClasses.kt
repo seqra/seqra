@@ -7,9 +7,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import org.opentaint.ir.analysis.engine.IfdsVertex
 import org.opentaint.ir.analysis.engine.VulnerabilityInstance
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.cfg.JIRInst
 import java.io.OutputStream
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -31,14 +30,17 @@ data class SarifPhysicalLocation(val artifactLocation: SarifArtifactLocation, va
 data class SarifLogicalLocation(val fullyQualifiedName: String)
 
 @Serializable
-data class SarifLocation(val physicalLocation: SarifPhysicalLocation, val logicalLocations: List<SarifLogicalLocation>) {
+data class SarifLocation(
+    val physicalLocation: SarifPhysicalLocation,
+    val logicalLocations: List<SarifLogicalLocation>,
+) {
     companion object {
         private val JIRMethod.fullyQualifiedName: String
             get() = "${enclosingClass.name}#${name}"
 
         private val currentPath: Path = Paths.get("").toAbsolutePath()
 
-        fun fromJIRInst(inst: JIRInst): SarifLocation = SarifLocation(
+        fun fromInst(inst: JIRInst): SarifLocation = SarifLocation(
             physicalLocation = SarifPhysicalLocation(
                 SarifArtifactLocation("${currentPath.relativize(Path(inst.location.method.declaration.location.path))}"),
                 SarifRegion(inst.location.lineNumber)
@@ -65,10 +67,10 @@ data class SarifThreadFlow(val locations: List<SarifThreadFlowLocation>)
 @Serializable
 data class SarifCodeFlow(val threadFlows: List<SarifThreadFlow>) {
     companion object {
-        fun fromJIRTrace(trace: List<IfdsVertex<JIRMethod, JIRInstLocation, JIRInst>>): SarifCodeFlow {
+        fun fromTrace(trace: List<IfdsVertex>): SarifCodeFlow {
             val threadFlow = trace.map {
                 SarifThreadFlowLocation(
-                    SarifLocation.fromJIRInst(it.statement),
+                    SarifLocation.fromInst(it.statement),
                     SarifState(SarifDomainFact(it.domainFact.toString()))
                 )
             }
@@ -83,15 +85,15 @@ data class SarifResult(
     val message: SarifMessage,
     val level: SarifSeverityLevel,
     val locations: List<SarifLocation>,
-    val codeFlows: List<SarifCodeFlow>
+    val codeFlows: List<SarifCodeFlow>,
 ) {
     companion object {
-        fun fromJIRVulnerabilityInstance(instance: VulnerabilityInstance<JIRMethod, JIRInstLocation, JIRInst>, maxPathsCount: Int): SarifResult = SarifResult(
-            instance.vulnerabilityDescription.ruleId,
-            instance.vulnerabilityDescription.message,
-            instance.vulnerabilityDescription.level,
-            listOf(SarifLocation.fromJIRInst(instance.traceGraph.sink.statement)),
-            instance.traceGraph.getAllTraces().take(maxPathsCount).map { SarifCodeFlow.fromJIRTrace(it) }.toList()
+        fun fromVulnerabilityInstance(instance: VulnerabilityInstance, maxPathsCount: Int): SarifResult = SarifResult(
+            instance.location.vulnerabilityDescription.ruleId,
+            instance.location.vulnerabilityDescription.message,
+            instance.location.vulnerabilityDescription.level,
+            listOf(SarifLocation.fromInst(instance.traceGraph.sink.statement)),
+            instance.traceGraph.getAllTraces().take(maxPathsCount).map { SarifCodeFlow.fromTrace(it) }.toList()
         )
     }
 }
@@ -125,7 +127,7 @@ data class SarifReport(
     @SerialName("\$schema")
     val schema: String,
 
-    val runs: List<SarifRun>
+    val runs: List<SarifRun>,
 ) {
     fun encodeToStream(stream: OutputStream) {
         json.encodeToStream(this, stream)
@@ -144,16 +146,16 @@ data class SarifReport(
             encodeDefaults = false
         }
 
-        fun fromJIRVulnerabilities(
-            vulnerabilities: List<VulnerabilityInstance<JIRMethod, JIRInstLocation, JIRInst>>,
-            pathsCount: Int = defaultPathsCount
+        fun fromVulnerabilities(
+            vulnerabilities: List<VulnerabilityInstance>,
+            pathsCount: Int = defaultPathsCount,
         ): SarifReport = SarifReport(
             version = defaultVersion,
             schema = defaultSchema,
             runs = listOf(
                 SarifRun(
                     IfdsTool,
-                    vulnerabilities.map { SarifResult.fromJIRVulnerabilityInstance(it, pathsCount) }
+                    vulnerabilities.map { SarifResult.fromVulnerabilityInstance(it, pathsCount) }
                 )
             )
         )
@@ -162,13 +164,20 @@ data class SarifReport(
 
 @Serializable
 enum class SarifSeverityLevel {
-    @SerialName("error") ERROR,
-    @SerialName("warning") WARNING,
-    @SerialName("note") NOTE
+    @SerialName("error")
+    ERROR,
+
+    @SerialName("warning")
+    WARNING,
+
+    @SerialName("note")
+    NOTE
 }
 
 data class VulnerabilityDescription(
     val message: SarifMessage,
     val ruleId: String,
-    val level: SarifSeverityLevel = SarifSeverityLevel.WARNING
+    val level: SarifSeverityLevel = SarifSeverityLevel.WARNING,
+    // TODO: don't miss the triggered rule!
+    // TODO: add val rule: Rule,
 )

@@ -3,22 +3,32 @@ package org.opentaint.ir.analysis.library.analyzers
 import org.opentaint.ir.analysis.paths.AccessPath
 import org.opentaint.ir.analysis.paths.minus
 import org.opentaint.ir.analysis.paths.startsWith
-import org.opentaint.ir.api.jvm.JIRProject
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.cfg.JIRArgument
-import org.opentaint.ir.api.jvm.cfg.JIRThis
-import org.opentaint.ir.api.jvm.ext.toType
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRParameter
+import org.opentaint.ir.api.cfg.JIRArgument
+import org.opentaint.ir.api.cfg.JIRThis
+import org.opentaint.ir.api.ext.toType
 
 val JIRMethod.thisInstance: JIRThis
     get() = JIRThis(enclosingClass.toType())
 
-fun JIRProject.getFormalParamsOf(method: JIRMethod): List<JIRArgument> {
-    return method.parameters.map {
-        JIRArgument.of(it.index, it.name, findTypeOrNull(it.type.typeName)!!)
-    }
+fun JIRClasspath.getArgument(param: JIRParameter): JIRArgument? {
+    val t = findTypeOrNull(param.type.typeName) ?: return null
+    return JIRArgument.of(param.index, param.name, t)
 }
 
-fun normalFactFlow(fact: TaintNode, fromPath: AccessPath, toPath: AccessPath, dropFact: Boolean, maxPathLength: Int): List<TaintNode> {
+fun JIRClasspath.getArgumentsOf(method: JIRMethod): List<JIRArgument> {
+    return method.parameters.map { getArgument(it)!! }
+}
+
+fun normalFactFlow(
+    fact: TaintNode,
+    fromPath: AccessPath,
+    toPath: AccessPath,
+    dropFact: Boolean,
+    maxPathLength: Int,
+): List<TaintNode> {
     val factPath = fact.variable
     val default = if (dropFact) emptyList() else listOf(fact)
 
@@ -26,8 +36,9 @@ fun normalFactFlow(fact: TaintNode, fromPath: AccessPath, toPath: AccessPath, dr
     //  #AnalysisTest.`dereferencing copy of value saved before null assignment produce no npe`
     val diff = factPath.minus(fromPath)
     if (diff != null && (fact.activation == null || fromPath != factPath)) {
+        val newPath = (toPath / diff).limit(maxPathLength)
         return default
-            .plus(fact.moveToOtherPath(AccessPath.fromOther(toPath, diff).limit(maxPathLength)))
+            .plus(fact.moveToOtherPath(newPath))
             .distinct()
     }
 

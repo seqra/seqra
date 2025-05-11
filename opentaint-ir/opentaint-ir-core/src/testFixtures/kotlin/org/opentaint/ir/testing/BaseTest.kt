@@ -45,7 +45,6 @@ val Class<*>.withDB: JIRDatabaseHolder
     }
 
 interface JIRDatabaseHolder {
-
     val classpathFeatures: List<JIRClasspathFeature>
     val db: JIRDatabase
     fun cleanup()
@@ -64,7 +63,17 @@ open class WithDB(vararg features: Any) : JIRDatabaseHolder {
 
     override var db = runBlocking {
         opentaint-ir {
-            // persistent("D:\\work\\opentaint-ir\\jIRdb-index.db")
+            val persistentLocation = System.getenv("OPENTAINT_IR_PERSISTENT")
+            if (persistentLocation != null) {
+                persistent(persistentLocation)
+            }
+
+            // val ci = System.getenv("CI")
+            // println("CI=$ci")
+            // if (ci != "true") {
+            //     persistent("/tmp/index.db")
+            // }
+
             loadByteCode(allClasspath)
             useProcessJavaRuntime()
             keepLocalVariableNames()
@@ -74,7 +83,7 @@ open class WithDB(vararg features: Any) : JIRDatabaseHolder {
         }
     }
 
-    override  fun cleanup() {
+    override fun cleanup() {
         db.close()
     }
 }
@@ -83,7 +92,7 @@ val globalDb by lazy {
     WithDB(Usages, Builders, InMemoryHierarchy).db
 }
 
-open class WithGlobalDB(vararg _classpathFeatures: JIRClasspathFeature): JIRDatabaseHolder {
+open class WithGlobalDB(vararg _classpathFeatures: JIRClasspathFeature) : JIRDatabaseHolder {
 
     init {
         System.setProperty("org.opentaint.ir.impl.storage.defaultBatchSize", "500")

@@ -1,22 +1,21 @@
 package org.opentaint.ir.analysis.impl.custom
 
-import org.opentaint.ir.api.jvm.JIRRefType
-import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
-import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
-import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
-import org.opentaint.ir.api.jvm.cfg.JIREnterMonitorInst
-import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
-import org.opentaint.ir.api.jvm.cfg.JIRGraph
-import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRLocal
-import org.opentaint.ir.api.jvm.cfg.JIRValue
-import org.opentaint.ir.api.jvm.ext.cfg.arrayRef
-import org.opentaint.ir.api.jvm.ext.cfg.callExpr
-import org.opentaint.ir.api.jvm.ext.cfg.fieldRef
+import org.opentaint.ir.api.JIRRefType
+import org.opentaint.ir.api.cfg.JIRArrayAccess
+import org.opentaint.ir.api.cfg.JIRAssignInst
+import org.opentaint.ir.api.cfg.JIRCallExpr
+import org.opentaint.ir.api.cfg.JIRCastExpr
+import org.opentaint.ir.api.cfg.JIREnterMonitorInst
+import org.opentaint.ir.api.cfg.JIRFieldRef
+import org.opentaint.ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRInstanceCallExpr
+import org.opentaint.ir.api.cfg.JIRLocal
+import org.opentaint.ir.api.cfg.JIRValue
+import org.opentaint.ir.api.ext.cfg.arrayAccess
+import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.api.ext.cfg.fieldRef
 
-// TODO caelmbleidd Java specific analysis
 class NullAnalysisMap : HashMap<JIRValue, NullableState> {
 
     constructor() : super()
@@ -54,7 +53,7 @@ open class NullAssumptionAnalysis(graph: JIRGraph) : BackwardFlowAnalysis<JIRIns
 
         // if we have an array ref, set the info for this ref to TOP,
         // because we need to be conservative here
-        ins.arrayRef?.let {
+        ins.arrayAccess?.let {
             onArrayAccess(it, out)
         }
         // same for field refs, but also set the receiver object to non-null, if there is one

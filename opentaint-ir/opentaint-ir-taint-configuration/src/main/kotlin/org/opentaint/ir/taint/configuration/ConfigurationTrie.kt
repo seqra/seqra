@@ -1,11 +1,11 @@
 package org.opentaint.ir.taint.configuration
 
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.ext.packageName
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.ext.packageName
 
 class ConfigurationTrie(
     configuration: List<SerializedTaintConfigurationItem>,
-    private val nameMatcher: (NameMatcher, String) -> Boolean
+    private val nameMatcher: (NameMatcher, String) -> Boolean,
 ) {
     private val unprocessedRules: MutableList<SerializedTaintConfigurationItem> = configuration.toMutableList()
     private val rootNode: RootNode = RootNode()
@@ -137,7 +137,7 @@ class ConfigurationTrie(
     }
 
     private data class Leaf(
-        override val value: String
+        override val value: String,
     ) : Node() {
         override val children: MutableMap<String, Node>
             get() = error("Leaf nodes do not have children")

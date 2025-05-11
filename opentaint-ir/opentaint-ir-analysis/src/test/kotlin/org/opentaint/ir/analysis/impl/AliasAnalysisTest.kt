@@ -1,20 +1,20 @@
 package org.opentaint.ir.analysis.impl
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.analysis.engine.MethodUnitResolver
 import org.opentaint.ir.analysis.graph.defaultBannedPackagePrefixes
 import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
 import org.opentaint.ir.analysis.library.analyzers.TaintAnalysisNode
 import org.opentaint.ir.analysis.library.analyzers.TaintNode
-import org.opentaint.ir.analysis.library.methodUnitResolver
-import org.opentaint.ir.analysis.library.newJIRAliasRunnerFactory
+import org.opentaint.ir.analysis.library.newAliasRunnerFactory
 import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.runAnalysis
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
-import org.opentaint.ir.api.jvm.cfg.JIRExpr
-import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.ext.cfg.callExpr
-import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.cfg.JIRAssignInst
+import org.opentaint.ir.api.cfg.JIRExpr
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithGlobalDB
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -113,7 +113,7 @@ class AliasAnalysisTest : BaseTest() {
             inst.callExpr?.method?.name == "taint" &&
             inst.callExpr?.method?.method?.enclosingClass?.simpleName == "Benchmark"
         ) {
-            listOf(TaintAnalysisNode(inst.lhv.toPath()))
+            listOf(TaintAnalysisNode(inst.lhv.toPath(), nodeType = "TAINT"))
         } else {
             emptyList()
         }
@@ -135,8 +135,8 @@ class AliasAnalysisTest : BaseTest() {
 
         val result = runAnalysis(
             graph,
-            methodUnitResolver(),
-            newJIRAliasRunnerFactory(::generates, ::isSanitizer, ::sinks),
+            MethodUnitResolver,
+            newAliasRunnerFactory(::generates, ::isSanitizer, ::sinks),
             listOf(method)
         )
 

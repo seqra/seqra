@@ -1,30 +1,27 @@
 package org.opentaint.ir.analysis.graph
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.jvm.cfg.JIRExpr
-import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
-import org.opentaint.ir.api.jvm.cfg.JIRInstVisitor
-import org.opentaint.ir.api.jvm.cfg.JIRVirtualCallExpr
-import org.opentaint.ir.api.jvm.ext.cfg.callExpr
-import org.opentaint.ir.api.jvm.ext.isSubClassOf
+import org.opentaint.ir.api.JIRClassType
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
+import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.api.ext.isSubClassOf
 import org.opentaint.ir.impl.cfg.JIRInstLocationImpl
 import org.opentaint.ir.impl.features.hierarchyExt
 
 /**
  * This is adopted specially for IFDS [JIRApplicationGraph] that
  *  1. Ignores method calls matching [bannedPackagePrefixes] (i.e., treats them as simple instructions with no callees)
- *  2. In [callers] returns only callsites that were visited before
+ *  2. In [callers] returns only call sites that were visited before
  *  3. Adds a special [JIRNoopInst] instruction to the beginning of each method
  *    (because backward analysis may want for method to start with neutral instruction)
  */
 internal class SimplifiedJIRApplicationGraph(
-    private val impl: JIRApplicationGraphImpl,
+    private val graph: JIRApplicationGraph,
     private val bannedPackagePrefixes: List<String>,
-) : JIRApplicationGraph by impl {
+) : JIRApplicationGraph by graph {
     private val hierarchyExtension = runBlocking {
         classpath.hierarchyExt()
     }
@@ -46,34 +43,42 @@ internal class SimplifiedJIRApplicationGraph(
     // For backward analysis we may want for method to start with "neutral" operation =>
     //  we add noop to the beginning of every method
     private fun getStartInst(method: JIRMethod): JIRNoopInst {
-        val methodEntryLineNumber = method.flowGraph().entries.firstOrNull()?.lineNumber
-        return JIRNoopInst(JIRInstLocationImpl(method, -1, methodEntryLineNumber?.let { it - 1 } ?: -1))
+        val lineNumber = method.flowGraph().entries.firstOrNull()?.lineNumber?.let { it - 1 } ?: -1
+        return JIRNoopInst(JIRInstLocationImpl(method, -1, lineNumber))
     }
 
     override fun predecessors(node: JIRInst): Sequence<JIRInst> {
         val method = methodOf(node)
-        return if (node == getStartInst(method)) {
-            emptySequence()
-        } else {
-            if (node in impl.entryPoint(method)) {
+        return when (node) {
+            getStartInst(method) -> {
+                emptySequence()
+            }
+
+            in graph.entryPoints(method) -> {
                 sequenceOf(getStartInst(method))
-            } else {
-                impl.predecessors(node)
+            }
+
+            else -> {
+                graph.predecessors(node)
             }
         }
     }
 
     override fun successors(node: JIRInst): Sequence<JIRInst> {
         val method = methodOf(node)
-        return if (node == getStartInst(method)) {
-            impl.entryPoint(method)
-        } else {
-            impl.successors(node)
+        return when (node) {
+            getStartInst(method) -> {
+                graph.entryPoints(method)
+            }
+
+            else -> {
+                graph.successors(node)
+            }
         }
     }
 
     private fun calleesUnmarked(node: JIRInst): Sequence<JIRMethod> {
-        val callees = impl.callees(node).filterNot { callee ->
+        val callees = graph.callees(node).filterNot { callee ->
             bannedPackagePrefixes.any { callee.enclosingClass.name.startsWith(it) }
         }
 
@@ -85,8 +90,8 @@ internal class SimplifiedJIRApplicationGraph(
                 val allOverrides = getOverrides(callee)
                     .filter {
                         it.enclosingClass isSubClassOf instanceClass ||
-                                // TODO: use only down-most override here
-                                instanceClass isSubClassOf it.enclosingClass
+                            // TODO: use only down-most override here
+                            instanceClass isSubClassOf it.enclosingClass
                     }
 
                 // TODO: maybe filter inaccessible methods here?
@@ -96,8 +101,8 @@ internal class SimplifiedJIRApplicationGraph(
 
     override fun callees(node: JIRInst): Sequence<JIRMethod> {
         return calleesUnmarked(node).also {
-            it.forEach {
-                visitedCallers.getOrPut(it) { mutableSetOf() }.add(node)
+            it.forEach { method ->
+                visitedCallers.getOrPut(method) { mutableSetOf() }.add(node)
             }
         }
     }
@@ -107,21 +112,20 @@ internal class SimplifiedJIRApplicationGraph(
      * In IFDS we don't need all method callers, we need only method callers which we visited earlier.
      */
     // TODO: Think if this optimization is really needed
-    override fun callers(method: JIRMethod): Sequence<JIRInst> = visitedCallers.getOrDefault(method, mutableSetOf()).asSequence()
+    override fun callers(method: JIRMethod): Sequence<JIRInst> =
+        visitedCallers[method].orEmpty().asSequence()
 
-    override fun entryPoint(method: JIRMethod): Sequence<JIRInst> = sequenceOf(getStartInst(method))
-
-    companion object {
-    }
-}
-
-data class JIRNoopInst(override val location: JIRInstLocation): JIRInst {
-    override val operands: List<JIRExpr>
-        get() = emptyList()
-
-    override fun <T> accept(visitor: JIRInstVisitor<T>): T {
-        return visitor.visitExternalJIRInst(this)
+    override fun entryPoints(method: JIRMethod): Sequence<JIRInst> = try {
+        sequenceOf(getStartInst(method))
+    } catch (e: Throwable) {
+        emptySequence()
     }
 
-    override fun toString(): String = "noop"
+    override fun exitPoints(method: JIRMethod): Sequence<JIRInst> = try {
+        graph.exitPoints(method)
+    } catch (e: Throwable) {
+        emptySequence()
+    }
+
+    companion object
 }

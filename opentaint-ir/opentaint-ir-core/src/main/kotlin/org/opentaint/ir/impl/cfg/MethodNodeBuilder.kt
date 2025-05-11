@@ -4,14 +4,115 @@ import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRParameter
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.TypeName
-import org.opentaint.ir.api.cfg.*
-import org.opentaint.ir.impl.cfg.util.*
+import org.opentaint.ir.api.cfg.BsmDoubleArg
+import org.opentaint.ir.api.cfg.BsmFloatArg
+import org.opentaint.ir.api.cfg.BsmHandle
+import org.opentaint.ir.api.cfg.BsmIntArg
+import org.opentaint.ir.api.cfg.BsmLongArg
+import org.opentaint.ir.api.cfg.BsmMethodTypeArg
+import org.opentaint.ir.api.cfg.BsmStringArg
+import org.opentaint.ir.api.cfg.BsmTypeArg
+import org.opentaint.ir.api.cfg.JIRInstList
+import org.opentaint.ir.api.cfg.JIRRawAddExpr
+import org.opentaint.ir.api.cfg.JIRRawAndExpr
+import org.opentaint.ir.api.cfg.JIRRawArgument
+import org.opentaint.ir.api.cfg.JIRRawArrayAccess
+import org.opentaint.ir.api.cfg.JIRRawAssignInst
+import org.opentaint.ir.api.cfg.JIRRawBool
+import org.opentaint.ir.api.cfg.JIRRawByte
+import org.opentaint.ir.api.cfg.JIRRawCallExpr
+import org.opentaint.ir.api.cfg.JIRRawCallInst
+import org.opentaint.ir.api.cfg.JIRRawCastExpr
+import org.opentaint.ir.api.cfg.JIRRawCatchInst
+import org.opentaint.ir.api.cfg.JIRRawChar
+import org.opentaint.ir.api.cfg.JIRRawClassConstant
+import org.opentaint.ir.api.cfg.JIRRawCmpExpr
+import org.opentaint.ir.api.cfg.JIRRawCmpgExpr
+import org.opentaint.ir.api.cfg.JIRRawCmplExpr
+import org.opentaint.ir.api.cfg.JIRRawComplexValue
+import org.opentaint.ir.api.cfg.JIRRawDivExpr
+import org.opentaint.ir.api.cfg.JIRRawDouble
+import org.opentaint.ir.api.cfg.JIRRawDynamicCallExpr
+import org.opentaint.ir.api.cfg.JIRRawEnterMonitorInst
+import org.opentaint.ir.api.cfg.JIRRawEqExpr
+import org.opentaint.ir.api.cfg.JIRRawExitMonitorInst
+import org.opentaint.ir.api.cfg.JIRRawExpr
+import org.opentaint.ir.api.cfg.JIRRawExprVisitor
+import org.opentaint.ir.api.cfg.JIRRawFieldRef
+import org.opentaint.ir.api.cfg.JIRRawFloat
+import org.opentaint.ir.api.cfg.JIRRawGeExpr
+import org.opentaint.ir.api.cfg.JIRRawGotoInst
+import org.opentaint.ir.api.cfg.JIRRawGtExpr
+import org.opentaint.ir.api.cfg.JIRRawIfInst
+import org.opentaint.ir.api.cfg.JIRRawInst
+import org.opentaint.ir.api.cfg.JIRRawInstVisitor
+import org.opentaint.ir.api.cfg.JIRRawInstanceOfExpr
+import org.opentaint.ir.api.cfg.JIRRawInt
+import org.opentaint.ir.api.cfg.JIRRawInterfaceCallExpr
+import org.opentaint.ir.api.cfg.JIRRawLabelInst
+import org.opentaint.ir.api.cfg.JIRRawLabelRef
+import org.opentaint.ir.api.cfg.JIRRawLeExpr
+import org.opentaint.ir.api.cfg.JIRRawLengthExpr
+import org.opentaint.ir.api.cfg.JIRRawLineNumberInst
+import org.opentaint.ir.api.cfg.JIRRawLocalVar
+import org.opentaint.ir.api.cfg.JIRRawLong
+import org.opentaint.ir.api.cfg.JIRRawLtExpr
+import org.opentaint.ir.api.cfg.JIRRawMethodConstant
+import org.opentaint.ir.api.cfg.JIRRawMethodType
+import org.opentaint.ir.api.cfg.JIRRawMulExpr
+import org.opentaint.ir.api.cfg.JIRRawNegExpr
+import org.opentaint.ir.api.cfg.JIRRawNeqExpr
+import org.opentaint.ir.api.cfg.JIRRawNewArrayExpr
+import org.opentaint.ir.api.cfg.JIRRawNewExpr
+import org.opentaint.ir.api.cfg.JIRRawNullConstant
+import org.opentaint.ir.api.cfg.JIRRawOrExpr
+import org.opentaint.ir.api.cfg.JIRRawRemExpr
+import org.opentaint.ir.api.cfg.JIRRawReturnInst
+import org.opentaint.ir.api.cfg.JIRRawShlExpr
+import org.opentaint.ir.api.cfg.JIRRawShort
+import org.opentaint.ir.api.cfg.JIRRawShrExpr
+import org.opentaint.ir.api.cfg.JIRRawSpecialCallExpr
+import org.opentaint.ir.api.cfg.JIRRawStaticCallExpr
+import org.opentaint.ir.api.cfg.JIRRawStringConstant
+import org.opentaint.ir.api.cfg.JIRRawSubExpr
+import org.opentaint.ir.api.cfg.JIRRawSwitchInst
+import org.opentaint.ir.api.cfg.JIRRawThis
+import org.opentaint.ir.api.cfg.JIRRawThrowInst
+import org.opentaint.ir.api.cfg.JIRRawUshrExpr
+import org.opentaint.ir.api.cfg.JIRRawValue
+import org.opentaint.ir.api.cfg.JIRRawVirtualCallExpr
+import org.opentaint.ir.api.cfg.JIRRawXorExpr
+import org.opentaint.ir.impl.cfg.util.elementType
+import org.opentaint.ir.impl.cfg.util.internalDesc
+import org.opentaint.ir.impl.cfg.util.isDWord
+import org.opentaint.ir.impl.cfg.util.isPrimitive
+import org.opentaint.ir.impl.cfg.util.jvmClassName
+import org.opentaint.ir.impl.cfg.util.jvmTypeName
+import org.opentaint.ir.impl.cfg.util.typeName
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Opcodes.H_GFrontendTATIC
 import org.objectweb.asm.Type
-import org.objectweb.asm.tree.*
-import java.util.ArrayList
+import org.objectweb.asm.tree.AbstractInsnNode
+import org.objectweb.asm.tree.FieldInsnNode
+import org.objectweb.asm.tree.InsnList
+import org.objectweb.asm.tree.InsnNode
+import org.objectweb.asm.tree.IntInsnNode
+import org.objectweb.asm.tree.InvokeDynamicInsnNode
+import org.objectweb.asm.tree.JumpInsnNode
+import org.objectweb.asm.tree.LabelNode
+import org.objectweb.asm.tree.LdcInsnNode
+import org.objectweb.asm.tree.LineNumberNode
+import org.objectweb.asm.tree.LocalVariableNode
+import org.objectweb.asm.tree.LookupSwitchInsnNode
+import org.objectweb.asm.tree.MethodInsnNode
+import org.objectweb.asm.tree.MethodNode
+import org.objectweb.asm.tree.MultiANewArrayInsnNode
+import org.objectweb.asm.tree.ParameterNode
+import org.objectweb.asm.tree.TableSwitchInsnNode
+import org.objectweb.asm.tree.TryCatchBlockNode
+import org.objectweb.asm.tree.TypeInsnNode
+import org.objectweb.asm.tree.VarInsnNode
 
 private val PredefinedPrimitives.smallIntegers get() = setOf(Boolean, Byte, Char, Short, Int)
 
@@ -51,7 +152,7 @@ private val TypeName.typeInt
 
 class MethodNodeBuilder(
     val method: JIRMethod,
-    val instList: JIRInstList<JIRRawInst>
+    val instList: JIRInstList<JIRRawInst>,
 ) : JIRRawInstVisitor<Unit>, JIRRawExprVisitor<Unit> {
     private var localIndex = 0
     private var stackSize = 0
@@ -82,7 +183,7 @@ class MethodNodeBuilder(
         mn.tryCatchBlocks = tryCatchNodeList
         mn.maxLocals = localIndex
         mn.maxStack = maxStack + 1
-        //At this moment, we're just copying annotations from original method without any modifications
+        // At this moment, we're just copying annotations from original method without any modifications
         with(method.asmNode()) {
             mn.visibleAnnotations = visibleAnnotations
             mn.visibleTypeAnnotations = visibleTypeAnnotations
@@ -756,7 +857,7 @@ class MethodNodeBuilder(
 
     override fun visitJIRRawInt(value: JIRRawInt) {
         currentInsnList.add(
-            when (value.value as Comparable<Int>) {
+            when (value.value) {
                 in -1..5 -> InsnNode(Opcodes.ICONST_0 + value.value)
                 in Byte.MIN_VALUE..Byte.MAX_VALUE -> IntInsnNode(Opcodes.BIPUSH, value.value)
                 in Short.MIN_VALUE..Short.MAX_VALUE -> IntInsnNode(Opcodes.SIPUSH, value.value)
@@ -778,10 +879,16 @@ class MethodNodeBuilder(
 
     override fun visitJIRRawFloat(value: JIRRawFloat) {
         currentInsnList.add(
-            when (value.value as Comparable<Float>) {
-                0.0F -> InsnNode(Opcodes.FCONST_0)
-                1.0F -> InsnNode(Opcodes.FCONST_1)
-                2.0F -> InsnNode(Opcodes.FCONST_2)
+            // Note: The case to Any forces Float to box, which is necessary here
+            // since 0.0 == -0.0`, but `Box(0.0) != Box(-0.0)`.
+            // The latter is preferred here because we only want to
+            // "push constant 0.0f onto the stack" (`fconst_0` instruction)
+            // when `value.value` is exactly "zero" (0.0), NOT "negative zero" (-0.0).
+            @Suppress("USELESS_CAST")
+            when (value.value as Any) {
+                0.0f -> InsnNode(Opcodes.FCONST_0)
+                1.0f -> InsnNode(Opcodes.FCONST_1)
+                2.0f -> InsnNode(Opcodes.FCONST_2)
                 else -> LdcInsnNode(value.value)
             }
         )
@@ -790,7 +897,13 @@ class MethodNodeBuilder(
 
     override fun visitJIRRawDouble(value: JIRRawDouble) {
         currentInsnList.add(
-            when (value.value as Comparable<Double>) {
+            // Note: The case to Any forces Double to box, which is necessary here
+            // since 0.0 == -0.0`, but `Box(0.0) != Box(-0.0)`.
+            // The latter is preferred here because we only want to
+            // "push constant 0.0d onto the stack" (`dconst_0` instruction)
+            // when `value.value` is exactly "zero" (0.0), NOT "negative zero" (-0.0).
+            @Suppress("USELESS_CAST")
+            when (value.value as Any) {
                 0.0 -> InsnNode(Opcodes.DCONST_0)
                 1.0 -> InsnNode(Opcodes.DCONST_1)
                 else -> LdcInsnNode(value.value)
@@ -822,7 +935,7 @@ class MethodNodeBuilder(
         error("Could not load method constant $value")
     }
 
-    //We have to insert NOP instructions in empty basic blocks to handle situations with empty handlers of try/catch
+    // We have to insert NOP instructions in empty basic blocks to handle situations with empty handlers of try/catch
     private fun insertNopInstructions() {
         val firstLabelIndex = currentInsnList.indexOfFirst { it is LabelNode }
         val nodesBetweenLabels = mutableListOf<AbstractInsnNode>()

@@ -89,7 +89,7 @@ public class NpeExamples {
         SimpleClassWithField x = z.g;
         x.field = null;
     }
-    
+
     int npeOnLength() {
         String x = "abc";
         String y = "def";
@@ -117,6 +117,19 @@ public class NpeExamples {
             return x.length();
         }
         return -1;
+    }
+
+    int checkedAccessWithField() {
+        SimpleClassWithField x = new SimpleClassWithField("abc");
+        int s = 0;
+        if (x.field != null) {
+            s += x.field.length();
+        }
+        x.field = null;
+        if (x.field != null) {
+            s += x.field.length();
+        }
+        return s;
     }
 
     int consecutiveNPEs(String x, boolean flag) {
