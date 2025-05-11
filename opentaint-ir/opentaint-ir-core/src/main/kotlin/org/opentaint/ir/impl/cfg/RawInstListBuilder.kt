@@ -1,15 +1,121 @@
 package org.opentaint.ir.impl.cfg
 
-import kotlinx.collections.immutable.*
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRParameter
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.TypeName
-import org.opentaint.ir.api.cfg.*
-import org.opentaint.ir.impl.cfg.util.*
+import org.opentaint.ir.api.cfg.BsmArg
+import org.opentaint.ir.api.cfg.BsmDoubleArg
+import org.opentaint.ir.api.cfg.BsmFloatArg
+import org.opentaint.ir.api.cfg.BsmHandle
+import org.opentaint.ir.api.cfg.BsmIntArg
+import org.opentaint.ir.api.cfg.BsmLongArg
+import org.opentaint.ir.api.cfg.BsmMethodTypeArg
+import org.opentaint.ir.api.cfg.BsmStringArg
+import org.opentaint.ir.api.cfg.BsmTypeArg
+import org.opentaint.ir.api.cfg.JIRInstList
+import org.opentaint.ir.api.cfg.JIRRawAddExpr
+import org.opentaint.ir.api.cfg.JIRRawAndExpr
+import org.opentaint.ir.api.cfg.JIRRawArgument
+import org.opentaint.ir.api.cfg.JIRRawArrayAccess
+import org.opentaint.ir.api.cfg.JIRRawAssignInst
+import org.opentaint.ir.api.cfg.JIRRawCallExpr
+import org.opentaint.ir.api.cfg.JIRRawCallInst
+import org.opentaint.ir.api.cfg.JIRRawCastExpr
+import org.opentaint.ir.api.cfg.JIRRawCatchEntry
+import org.opentaint.ir.api.cfg.JIRRawCatchInst
+import org.opentaint.ir.api.cfg.JIRRawClassConstant
+import org.opentaint.ir.api.cfg.JIRRawCmpExpr
+import org.opentaint.ir.api.cfg.JIRRawCmpgExpr
+import org.opentaint.ir.api.cfg.JIRRawCmplExpr
+import org.opentaint.ir.api.cfg.JIRRawDivExpr
+import org.opentaint.ir.api.cfg.JIRRawDynamicCallExpr
+import org.opentaint.ir.api.cfg.JIRRawEnterMonitorInst
+import org.opentaint.ir.api.cfg.JIRRawEqExpr
+import org.opentaint.ir.api.cfg.JIRRawExitMonitorInst
+import org.opentaint.ir.api.cfg.JIRRawFieldRef
+import org.opentaint.ir.api.cfg.JIRRawGeExpr
+import org.opentaint.ir.api.cfg.JIRRawGotoInst
+import org.opentaint.ir.api.cfg.JIRRawGtExpr
+import org.opentaint.ir.api.cfg.JIRRawIfInst
+import org.opentaint.ir.api.cfg.JIRRawInst
+import org.opentaint.ir.api.cfg.JIRRawInstanceOfExpr
+import org.opentaint.ir.api.cfg.JIRRawInterfaceCallExpr
+import org.opentaint.ir.api.cfg.JIRRawLabelInst
+import org.opentaint.ir.api.cfg.JIRRawLabelRef
+import org.opentaint.ir.api.cfg.JIRRawLeExpr
+import org.opentaint.ir.api.cfg.JIRRawLengthExpr
+import org.opentaint.ir.api.cfg.JIRRawLineNumberInst
+import org.opentaint.ir.api.cfg.JIRRawLocalVar
+import org.opentaint.ir.api.cfg.JIRRawLtExpr
+import org.opentaint.ir.api.cfg.JIRRawMethodConstant
+import org.opentaint.ir.api.cfg.JIRRawMethodType
+import org.opentaint.ir.api.cfg.JIRRawMulExpr
+import org.opentaint.ir.api.cfg.JIRRawNegExpr
+import org.opentaint.ir.api.cfg.JIRRawNeqExpr
+import org.opentaint.ir.api.cfg.JIRRawNewArrayExpr
+import org.opentaint.ir.api.cfg.JIRRawNewExpr
+import org.opentaint.ir.api.cfg.JIRRawNullConstant
+import org.opentaint.ir.api.cfg.JIRRawOrExpr
+import org.opentaint.ir.api.cfg.JIRRawRemExpr
+import org.opentaint.ir.api.cfg.JIRRawReturnInst
+import org.opentaint.ir.api.cfg.JIRRawShlExpr
+import org.opentaint.ir.api.cfg.JIRRawShrExpr
+import org.opentaint.ir.api.cfg.JIRRawSimpleValue
+import org.opentaint.ir.api.cfg.JIRRawSpecialCallExpr
+import org.opentaint.ir.api.cfg.JIRRawStaticCallExpr
+import org.opentaint.ir.api.cfg.JIRRawStringConstant
+import org.opentaint.ir.api.cfg.JIRRawSubExpr
+import org.opentaint.ir.api.cfg.JIRRawSwitchInst
+import org.opentaint.ir.api.cfg.JIRRawThis
+import org.opentaint.ir.api.cfg.JIRRawThrowInst
+import org.opentaint.ir.api.cfg.JIRRawUshrExpr
+import org.opentaint.ir.api.cfg.JIRRawValue
+import org.opentaint.ir.api.cfg.JIRRawVirtualCallExpr
+import org.opentaint.ir.api.cfg.JIRRawXorExpr
+import org.opentaint.ir.impl.cfg.util.CLASS_CLASS
+import org.opentaint.ir.impl.cfg.util.ExprMapper
+import org.opentaint.ir.impl.cfg.util.METHOD_HANDLES_CLASS
+import org.opentaint.ir.impl.cfg.util.METHOD_HANDLES_LOOKUP_CLASS
+import org.opentaint.ir.impl.cfg.util.METHOD_HANDLE_CLASS
+import org.opentaint.ir.impl.cfg.util.METHOD_TYPE_CLASS
+import org.opentaint.ir.impl.cfg.util.NULL
+import org.opentaint.ir.impl.cfg.util.OBJECT_CLASS
+import org.opentaint.ir.impl.cfg.util.STRING_CLASS
+import org.opentaint.ir.impl.cfg.util.THROWABLE_CLASS
+import org.opentaint.ir.impl.cfg.util.TOP
+import org.opentaint.ir.impl.cfg.util.UNINIT_THIS
+import org.opentaint.ir.impl.cfg.util.asArray
+import org.opentaint.ir.impl.cfg.util.elementType
+import org.opentaint.ir.impl.cfg.util.isArray
+import org.opentaint.ir.impl.cfg.util.isDWord
+import org.opentaint.ir.impl.cfg.util.isPrimitive
+import org.opentaint.ir.impl.cfg.util.typeName
 import org.opentaint.ir.impl.types.TypeNameImpl
 import org.objectweb.asm.*
-import org.objectweb.asm.tree.*
+import org.objectweb.asm.tree.AbstractInsnNode
+import org.objectweb.asm.tree.FieldInsnNode
+import org.objectweb.asm.tree.FrameNode
+import org.objectweb.asm.tree.IincInsnNode
+import org.objectweb.asm.tree.InsnNode
+import org.objectweb.asm.tree.IntInsnNode
+import org.objectweb.asm.tree.InvokeDynamicInsnNode
+import org.objectweb.asm.tree.JumpInsnNode
+import org.objectweb.asm.tree.LabelNode
+import org.objectweb.asm.tree.LdcInsnNode
+import org.objectweb.asm.tree.LineNumberNode
+import org.objectweb.asm.tree.LocalVariableNode
+import org.objectweb.asm.tree.LookupSwitchInsnNode
+import org.objectweb.asm.tree.MethodInsnNode
+import org.objectweb.asm.tree.MethodNode
+import org.objectweb.asm.tree.MultiANewArrayInsnNode
+import org.objectweb.asm.tree.TableSwitchInsnNode
+import org.objectweb.asm.tree.TryCatchBlockNode
+import org.objectweb.asm.tree.TypeInsnNode
+import org.objectweb.asm.tree.VarInsnNode
 import java.util.*
 
 const val LOCAL_VAR_START_CHARACTER = '%'
@@ -56,30 +162,30 @@ private fun parseType(any: Any): TypeName = when (any) {
     else -> error("Unexpected local type $any")
 }
 
-private fun List<*>?.parseLocals(): SortedMap<Int, TypeName> {
-    if (this == null) return sortedMapOf()
-    val result = mutableMapOf<Int, TypeName>()
+private fun List<*>?.parseLocals(): Array<TypeName?> {
+    if (this == null || isEmpty()) return emptyArray()
+
+    var result = arrayOfNulls<TypeName>(16)
+    var realSize = 0
+
     var index = 0
     for (any in this) {
         val type = parseType(any!!)
-        result[index] = type
+
+        result = result.add(index, type)
+        realSize = index + 1
+
         when {
             type.isDWord -> index += 2
             else -> ++index
         }
     }
-    return result.toSortedMap()
+
+    return result.copyOf(realSize)
 }
 
-private fun List<*>?.parseStack(): SortedMap<Int, TypeName> {
-    if (this == null) return sortedMapOf()
-    val result = mutableMapOf<Int, TypeName>()
-    for ((index, any) in this.withIndex()) {
-        val type = parseType(any!!)
-        result[index] = type
-    }
-    return result.toSortedMap()
-}
+private fun List<*>?.parseStack(): List<TypeName> =
+    this?.map { parseType(it!!) } ?: emptyList()
 
 private val primitiveWeights = mapOf(
     PredefinedPrimitives.Boolean to 0,
@@ -203,7 +309,7 @@ class RawInstListBuilder(
     private var localCounter = 0
     private var argCounter = 0
 
-    fun build(): JIRInstListImpl<JIRRawInst> {
+    fun build(): JIRInstList<JIRRawInst> {
         buildGraph()
 
         buildInstructions()
@@ -260,7 +366,7 @@ class RawInstListBuilder(
             val insnList = instructionList(insn)
             val frame = frames[insn]!!
             for ((variable, value) in assignments) {
-                val frameVariable = frame[variable]
+                val frameVariable = frame.findLocal(variable)
                 if (frameVariable != null && value != frameVariable) {
                     if (insn.isBranchingInst) {
                         val index = insnList.indexOf(additionalSections[insn]) // -1 will be converted to 0 next line
@@ -318,8 +424,8 @@ class RawInstListBuilder(
      * needed to handle ASM FrameNode instructions
      */
     private data class FrameState(
-        val locals: SortedMap<Int, TypeName>,
-        val stack: SortedMap<Int, TypeName>
+        private val locals: Array<TypeName?>,
+        val stack: List<TypeName>,
     ) {
         companion object {
             fun parseNew(insn: FrameNode): FrameState {
@@ -328,32 +434,52 @@ class RawInstListBuilder(
         }
 
         fun appendFrame(insn: FrameNode): FrameState {
-            val maxKey = this.locals.keys.maxOrNull() ?: -1
-            val lastType = locals[maxKey]
+            val lastType = locals.lastOrNull()
             val insertKey = when {
                 lastType == null -> 0
-                lastType.isDWord -> maxKey + 2
-                else -> maxKey + 1
+                lastType.isDWord -> locals.lastIndex + 2
+                else -> locals.lastIndex + 1
             }
+
             val appendedLocals = insn.local.parseLocals()
-            val newLocals = this.locals.toMutableMap()
-            for ((index, type) in appendedLocals) {
-                newLocals[insertKey + index] = type
+
+            val newLocals = locals.copyOf(insertKey + appendedLocals.size)
+            for (index in appendedLocals.indices) {
+                newLocals[insertKey + index] = appendedLocals[index]
             }
-            return copy(locals = newLocals.toSortedMap(), stack = sortedMapOf())
+
+            return copy(locals = newLocals, stack = emptyList())
         }
 
         fun dropFrame(inst: FrameNode): FrameState {
-            val newLocals = this.locals.toList().dropLast(inst.local.size).toMap()
-            return copy(locals = newLocals.toSortedMap(), stack = sortedMapOf())
+            val newLocals = locals.copyOf(locals.size - inst.local.size).trimEndNulls()
+            return copy(locals = newLocals, stack = emptyList())
         }
 
-        fun copy0(): FrameState = this.copy(stack = sortedMapOf())
+        fun copy0(): FrameState = this.copy(stack = emptyList())
 
         fun copy1(insn: FrameNode): FrameState {
             val newStack = insn.stack.parseStack()
             return this.copy(stack = newStack)
         }
+
+        fun localsUnsafe(): Array<TypeName?> = locals
+    }
+
+    private fun FrameState.copyToFrame(
+        predFrames: Map<AbstractInsnNode, Frame?>,
+        curLabel: LabelNode,
+        copyStack: Boolean,
+    ): Frame {
+        val locals = localsUnsafe().copyLocals(predFrames, curLabel)
+
+        val stack = if (copyStack) {
+            stack.copyStack(predFrames).toPersistentList()
+        } else {
+            persistentListOf()
+        }
+
+        return Frame(locals, stack)
     }
 
     /**
@@ -361,11 +487,23 @@ class RawInstListBuilder(
      * during the execution of the instruction
      */
     private data class Frame(
-        val locals: PersistentMap<Int, JIRRawValue>,
-        val stack: PersistentList<JIRRawValue>
+        private val locals: Array<JIRRawValue?>,
+        val stack: PersistentList<JIRRawValue>,
     ) {
-        fun put(variable: Int, value: JIRRawValue): Frame = copy(locals = locals.put(variable, value), stack = stack)
-        operator fun get(variable: Int) = locals[variable]
+        fun putLocal(variable: Int, value: JIRRawValue): Frame {
+            val newLocals = locals.copyOf(maxOf(locals.size, variable + 1))
+            newLocals[variable] = value
+            return copy(locals = newLocals, stack = stack)
+        }
+
+        fun hasLocal(variable: Int): Boolean = findLocal(variable) != null
+
+        fun maxLocal(): Int = locals.lastIndex
+
+        fun findLocal(variable: Int): JIRRawValue? = locals.getOrNull(variable)
+
+        fun getLocal(variable: Int): JIRRawValue = locals.getOrNull(variable)
+            ?: error("No local variable $variable")
 
         fun push(value: JIRRawValue) = copy(locals = locals, stack = stack.add(value))
         fun peek() = stack.last()
@@ -386,16 +524,16 @@ class RawInstListBuilder(
     private fun peek(): JIRRawValue = currentFrame.peek()
 
     private fun local(variable: Int): JIRRawValue {
-        return currentFrame.locals.getValue(variable)
+        return currentFrame.getLocal(variable)
     }
 
     private fun local(
         variable: Int,
         expr: JIRRawValue,
         insn: AbstractInsnNode,
-        override: Boolean = false
+        override: Boolean = false,
     ): JIRRawAssignInst {
-        val oldVar = currentFrame.locals[variable]?.let {
+        val oldVar = currentFrame.findLocal(variable)?.let {
             val infoFromLocalVars =
                 methodNode.localVariables.find { it.index == variable && insn.isBetween(it.start, it.end) }
             val isArg =
@@ -412,34 +550,34 @@ class RawInstListBuilder(
         return if (oldVar != null) {
             if (oldVar.typeName == expr.typeName || (expr is JIRRawNullConstant && !oldVar.typeName.isPrimitive)) {
                 if (override) {
-                    currentFrame = currentFrame.put(variable, expr)
+                    currentFrame = currentFrame.putLocal(variable, expr)
                     JIRRawAssignInst(method, expr, expr)
                 } else {
                     JIRRawAssignInst(method, oldVar, expr)
                 }
             } else if (oldVar is JIRRawArgument) {
-                currentFrame = currentFrame.put(variable, expr)
+                currentFrame = currentFrame.putLocal(variable, expr)
                 JIRRawAssignInst(method, oldVar, expr)
             } else {
                 val assignment = nextRegisterDeclaredVariable(expr.typeName, variable, insn)
-                currentFrame = currentFrame.put(variable, assignment)
+                currentFrame = currentFrame.putLocal(variable, assignment)
                 JIRRawAssignInst(method, assignment, expr)
             }
         } else {
-            //We have to get type if rhv expression is NULL
+            // We have to get type if rhv expression is NULL
             val typeOfNewAssigment =
                 if (expr.typeName.typeName == PredefinedPrimitives.Null) {
                     methodNode.localVariables
                         .find { it.index == variable && insn.isBetween(it.start, it.end) }
                         ?.desc?.typeName()
-                        ?: currentFrame.locals[variable]?.typeName
+                        ?: currentFrame.findLocal(variable)?.typeName
                         ?: "java.lang.Object".typeName()
                 } else {
                     expr.typeName
                 }
             val newLocal = nextRegisterDeclaredVariable(typeOfNewAssigment, variable, insn)
             val result = JIRRawAssignInst(method, newLocal, expr)
-            currentFrame = currentFrame.put(variable, newLocal)
+            currentFrame = currentFrame.putLocal(variable, newLocal)
             result
         }
     }
@@ -520,17 +658,22 @@ class RawInstListBuilder(
             var current: AbstractInsnNode = tryCatchBlock.start
             while (current != tryCatchBlock.end) {
                 predecessors.getOrPut(tryCatchBlock.handler, ::mutableListOf).add(current)
-                current = current.next
+                current = current.next ?: error("Unexpected instruction")
             }
         }
     }
 
     private fun createInitialFrame(): Frame {
-        val locals = hashMapOf<Int, JIRRawValue>()
+        var locals = arrayOfNulls<JIRRawValue>(16)
+        var localsRealSize = 0
+
         argCounter = 0
         var staticInc = 0
         if (!method.isStatic) {
-            locals[argCounter++] = thisRef()
+            locals = locals.add(argCounter, thisRef())
+            localsRealSize = argCounter + 1
+
+            argCounter++
             staticInc = 1
         }
         val variables = methodNode.localVariables.orEmpty().sortedBy(LocalVariableNode::index)
@@ -546,12 +689,15 @@ class RawInstListBuilder(
 
         for (parameter in method.parameters) {
             val argument = JIRRawArgument.of(parameter.index, getName(parameter), parameter.type)
-            locals[argCounter] = argument
+
+            locals = locals.add(argCounter, argument)
+            localsRealSize = argCounter + 1
+
             if (argument.typeName.isDWord) argCounter += 2
             else argCounter++
         }
 
-        return Frame(locals.toPersistentMap(), persistentListOf())
+        return Frame(locals.copyOf(localsRealSize), persistentListOf())
     }
 
     private fun thisRef() = JIRRawThis(method.enclosingClass.name.typeName())
@@ -886,14 +1032,14 @@ class RawInstListBuilder(
      * if some predecessor frames are unknown, we remember them and add required assignment instructions after
      * the full construction process is complete, see #buildRequiredAssignments function
      */
-    private fun SortedMap<Int, TypeName>.copyLocals(
+    private fun Array<TypeName?>.copyLocals(
         predFrames: Map<AbstractInsnNode, Frame?>,
-        curLabel: LabelNode
-    ): Map<Int, JIRRawValue> =
+        curLabel: LabelNode,
+    ): Array<JIRRawValue?> =
         when {
             // should not happen usually, but sometimes there are some "handing" blocks in the bytecode that are
             // not connected to any other part of the code
-            predFrames.isEmpty() -> this.mapValues { nextRegister(it.value) }
+            predFrames.isEmpty() -> Array(size) { idx -> this[idx]?.let { nextRegister(it) } }
 
             // simple case --- current block has only one predecessor, we can simply copy all the local variables from
             // predecessor to new frame; however we sometimes can refine the information about types of local variables
@@ -902,73 +1048,96 @@ class RawInstListBuilder(
             predFrames.size == 1 -> {
                 val (node, frame) = predFrames.toList().first()
                 when (frame) {
-                    null -> this.mapNotNull { (variable, type) ->
-                        when (type) {
-                            TOP -> null
-                            else -> variable to nextRegister(type).also {
-                                laterAssignments.getOrPut(node, ::mutableMapOf)[variable] = it
+                    null -> Array(size) { variable ->
+                        when (val type = this[variable]) {
+                            null, TOP -> null
+                            else -> {
+                                nextRegister(type).also {
+                                    laterAssignments.getOrPut(node, ::mutableMapOf)[variable] = it
+                                }
                             }
                         }
-                    }.toMap()
+                    }.trimEndNulls()
 
-                    else -> frame.locals.filterKeys { it in this }.mapValues {
-                        val value = it.value
-                        when {
-                            value is JIRRawLocalVar && value.typeName != this[it.key]!! && this[it.key] !in blackListForTypeRefinement ->
-                                JIRRawLocalVar(
-                                    value.index,
-                                    value.name,
-                                    this[it.key]!!
-                                ).also { newLocal ->
-                                    localTypeRefinement[value] = newLocal
-                                }
-                            else -> value
+                    else -> Array(size) { variable ->
+                        val type = this[variable] ?: return@Array null
+                        val value = frame.findLocal(variable) ?: return@Array null
+
+                        if (value is JIRRawLocalVar && value.typeName != type && type !in blackListForTypeRefinement) {
+                            JIRRawLocalVar(value.index, value.name, type).also { newLocal ->
+                                localTypeRefinement[value] = newLocal
+                            }
+                        } else {
+                            value
                         }
-                    }
+                    }.trimEndNulls()
                 }
             }
 
             // complex case --- we have a multiple predecessor frames and some of them may be unknown
-            else -> mapNotNull { (variable, type) ->
-                val options = predFrames.values.map { it?.get(variable) }.toSet()
-                val actualLocalFromDebugInfo =
-                    methodNode.localVariables
-                        .filter { it.index == variable }
-                        .firstOrNull { curLabel.isBetween(it.start, it.end) }
-                val isArg =
-                    if (actualLocalFromDebugInfo == null) {
-                        variable < argCounter
-                    } else {
-                        actualLocalFromDebugInfo.start == methodNode.instructions.firstOrNull { it is LabelNode }
+            else -> Array(size) { variable ->
+                val type = this[variable] ?: return@Array null
+                if (type == TOP) return@Array null
+
+                var allFramesSameValue: JIRRawValue? = null
+                var valueInitialized = false
+                var allFramesHaveSameValue = true
+
+                for (frame in predFrames.values) {
+                    val frameValue = frame?.findLocal(variable)
+
+                    if (!valueInitialized) {
+                        valueInitialized = true
+                        allFramesSameValue = frameValue
+                        continue
                     }
 
-                val value = when {
-                    type == TOP -> null
-                    options.size == 1 -> options.singleOrNull()
-                    variable < argCounter && isArg -> frames.values.mapNotNull { it[variable] }.firstOrNull {
-                        it is JIRRawArgument || it is JIRRawThis
-                    }
-
-                    else -> {
-                        val assignment = nextRegister(type)
-                        for ((node, frame) in predFrames) {
-                            //TODO! Make anything with that (we should take into account subtyping)
-                            //assigment.isSubtypeOf(frame[variable]!!.typeName)
-                            if (frame != null) {
-                                if (node.isBranchingInst) {
-                                    addInstruction(node, JIRRawAssignInst(method, assignment, frame[variable]!!), 0)
-                                } else {
-                                    addInstruction(node, JIRRawAssignInst(method, assignment, frame[variable]!!))
-                                }
-                            } else {
-                                laterAssignments.getOrPut(node, ::mutableMapOf)[variable] = assignment
-                            }
-                        }
-                        assignment
+                    if (allFramesSameValue != frameValue) {
+                        allFramesHaveSameValue = false
+                        break
                     }
                 }
-                value?.let { variable to it }
-            }.toMap()
+
+                if (allFramesHaveSameValue) {
+                    return@Array allFramesSameValue
+                }
+
+                val actualLocalFromDebugInfo = methodNode.localVariables
+                    .firstOrNull { it.index == variable && curLabel.isBetween(it.start, it.end) }
+
+                val isArg = if (actualLocalFromDebugInfo == null) {
+                    variable < argCounter
+                } else {
+                    actualLocalFromDebugInfo.start == methodNode.instructions.firstOrNull { it is LabelNode }
+                }
+
+                if (variable < argCounter && isArg) {
+                    val value = frames.values.firstOrNull {
+                        val value = it.findLocal(variable)
+                        value != null && (value is JIRRawArgument || value is JIRRawThis)
+                    }?.getLocal(variable)
+
+                    return@Array value
+                }
+
+                val assignment = nextRegister(type)
+                for ((node, frame) in predFrames) {
+                    // TODO! Make anything with that (we should take into account subtyping)
+                    // assigment.isSubtypeOf(frame[variable]!!.typeName)
+                    if (frame != null) {
+                        val inst = JIRRawAssignInst(method, assignment, frame.getLocal(variable))
+                        if (node.isBranchingInst) {
+                            addInstruction(node, inst, 0)
+                        } else {
+                            addInstruction(node, inst)
+                        }
+                    } else {
+                        laterAssignments.getOrPut(node, ::mutableMapOf)[variable] = assignment
+                    }
+                }
+
+                assignment
+            }.trimEndNulls()
         }
 
     /**
@@ -978,10 +1147,10 @@ class RawInstListBuilder(
      * if some predecessor frames are unknown, we remebmer them and add requried assignment instructions after
      * the full construction process is complete, see #buildRequiredAssignments function
      */
-    private fun SortedMap<Int, TypeName>.copyStack(predFrames: Map<AbstractInsnNode, Frame?>): List<JIRRawValue> = when {
+    private fun List<TypeName>.copyStack(predFrames: Map<AbstractInsnNode, Frame?>): List<JIRRawValue> = when {
         // should not happen usually, but sometimes there are some "handing" blocks in the bytecode that are
         // not connected to any other part of the code
-        predFrames.isEmpty() -> this.values.map { nextRegister(it) }
+        predFrames.isEmpty() -> this.map { nextRegister(it) }
 
         // simple case --- current block has only one predecessor, we can simply copy all the local variables from
         // predecessor to new frame; however we sometimes can refine the information about types of local variables
@@ -990,7 +1159,7 @@ class RawInstListBuilder(
         predFrames.size == 1 -> {
             val (node, frame) = predFrames.toList().first()
             when (frame) {
-                null -> this.mapNotNull { (variable, type) ->
+                null -> this.mapIndexedNotNull { variable, type ->
                     when (type) {
                         TOP -> null
                         else -> nextRegister(type).also {
@@ -999,17 +1168,15 @@ class RawInstListBuilder(
                     }
                 }
 
-                else -> frame.stack.withIndex().filter { it.index in this }.map {
+                else -> frame.stack.withIndex().filter { it.index in this.indices }.map {
                     val value = it.value
                     when {
-                        value is JIRRawLocalVar && value.typeName != this[it.index]!! && this[it.index] !in blackListForTypeRefinement ->
-                            JIRRawLocalVar(
-                                value.index,
-                                value.name,
-                                this[it.index]!!
-                            ).also { newLocal ->
-                                localTypeRefinement[value] = newLocal
-                            }
+                        value is JIRRawLocalVar && value.typeName != this[it.index] && this[it.index] !in blackListForTypeRefinement -> JIRRawLocalVar(
+                            value.index, value.name, this[it.index]
+                        ).also { newLocal ->
+                            localTypeRefinement[value] = newLocal
+                        }
+
                         else -> value
                     }
                 }
@@ -1017,7 +1184,7 @@ class RawInstListBuilder(
         }
 
         // complex case --- we have a multiple predecessor frames and some of them may be unknown
-        else -> this.mapNotNull { (variable, type) ->
+        else -> this.mapIndexedNotNull { variable, type ->
             val options = predFrames.values.map { it?.stack?.get(variable) }.toSet()
             when (options.size) {
                 1 -> options.singleOrNull()
@@ -1063,15 +1230,9 @@ class RawInstListBuilder(
         val catchEntries = methodNode.tryCatchBlocks.filter { it.handler == currentEntry }
 
         if (catchEntries.isEmpty()) {
-            currentFrame = Frame(
-                lastFrameState.locals.copyLocals(predecessorFrames, currentEntry).toPersistentMap(),
-                lastFrameState.stack.copyStack(predecessorFrames).toPersistentList()
-            )
+            currentFrame = lastFrameState.copyToFrame(predecessorFrames, currentEntry, copyStack = true)
         } else {
-            currentFrame = Frame(
-                lastFrameState.locals.copyLocals(predecessorFrames, currentEntry).toPersistentMap(),
-                persistentListOf()
-            )
+            currentFrame = lastFrameState.copyToFrame(predecessorFrames, currentEntry, copyStack = false)
 
             val throwable = nextRegister(catchEntries.commonTypeOrDefault.typeName())
             val entries = catchEntries.map {
@@ -1112,13 +1273,15 @@ class RawInstListBuilder(
         val prevInst = insnNode.previous
         val incrementedVariable = when {
             nextInst != null && nextInst.isBranchingInst -> local
+
             nextInst != null && nextInst is VarInsnNode && nextInst.`var` == variable -> local
-            //Workaround for if (x++) if x is function argument
-            prevInst != null && local is JIRRawArgument && prevInst is VarInsnNode && prevInst.`var` == variable -> nextRegister(
-                local.typeName
-            )
+
+            // Workaround for if (x++) if x is function argument
+            prevInst != null && local is JIRRawArgument && prevInst is VarInsnNode && prevInst.`var` == variable ->
+                nextRegister(local.typeName)
 
             local is JIRRawArgument -> local
+
             else -> nextRegister(local.typeName)
         }
         val add = JIRRawAddExpr(local.typeName, local, JIRRawInt(insnNode.incr))
@@ -1246,33 +1409,51 @@ class RawInstListBuilder(
         if (frames.isEmpty()) return currentFrame
         if (frames.size == 1) return frameSet.first()
 
-        val allLocals = frameSet.flatMap { it.locals.keys }
-        val localTypes = allLocals
-            .filter { local -> frameSet.all { local in it.locals } }
-            .associateWith { ind ->
-                val types = frameSet.map { frame -> frame[ind]!!.typeName }
-                //If we have several variables types for one register we have to search right type in debug info otherwise we cannot guarantee anything
-                if (types.toSet().size != 1) {
-                    methodNode.localVariables
-                        .firstOrNull { curLabel.isBetween(it.start, it.end) && it.index == ind }
-                        ?.desc
-                        ?.let { TypeNameImpl(it) }
-                        ?: types.firstOrNull { it != NULL } ?: NULL
-                } else {
-                    types.firstOrNull { it != NULL } ?: NULL
+        val maxLocalVar = frameSet.minOf { it.maxLocal() }
+        val localTypes = Array(maxLocalVar + 1) { local ->
+            if (!frameSet.all { it.hasLocal(local) }) return@Array null
+
+            var type: TypeName? = null
+            for (frame in frameSet) {
+                val frameType = frame.getLocal(local).typeName
+                if (type == null || type == frameType) {
+                    type = frameType
+                    continue
+                }
+
+                // If we have several variables types for one register we have to search right type in debug info otherwise we cannot guarantee anything
+                val debugType = methodNode.localVariables
+                    .firstOrNull { curLabel.isBetween(it.start, it.end) && it.index == local }
+                    ?.desc
+                    ?.let { TypeNameImpl(it) }
+
+                type = when {
+                    debugType != null -> debugType
+                    frameType != NULL -> frameType
+                    else -> type
+                }
+
+                break
+            }
+
+            type ?: NULL
+        }
+        val newLocals = localTypes.copyLocals(frames, curLabel)
+
+        val maxStackIndex = frameSet.minOf { it.stack.lastIndex }
+        val stackRanges = mutableListOf<TypeName>()
+        for (i in 0..maxStackIndex) {
+            var type = NULL
+            for (frame in frameSet) {
+                val frameType = frame.stack[i].typeName
+                if (frameType != NULL) {
+                    type = frameType
+                    break
                 }
             }
-            .toSortedMap()
-        val newLocals = localTypes.copyLocals(frames, curLabel).toPersistentMap()
+            stackRanges.add(type)
+        }
 
-        val stackIndices = frameSet.flatMap { it.stack.indices }.toSortedSet()
-        val stackRanges = stackIndices
-            .filter { stack -> frameSet.all { stack in it.stack.indices } }
-            .associateWith {
-                val types = frameSet.map { frame -> frame.stack[it].typeName }
-                types.firstOrNull { it != NULL } ?: NULL
-            }
-            .toSortedMap()
         val newStack = stackRanges.copyStack(frames).toPersistentList()
 
         return Frame(newLocals, newStack)
@@ -1556,11 +1737,10 @@ class RawInstListBuilder(
     private fun buildVarInsnNode(insnNode: VarInsnNode) {
         val variable = insnNode.`var`
         when (insnNode.opcode) {
-            in Opcodes.ISTORE..Opcodes.ASTORE -> local(
-                variable,
-                pop(),
-                insnNode
-            ).let { addInstruction(insnNode, it) }
+            in Opcodes.ISTORE..Opcodes.ASTORE -> {
+                val inst = local(variable, pop(), insnNode)
+                addInstruction(insnNode, inst)
+            }
 
             in Opcodes.ILOAD..Opcodes.ALOAD -> {
                 push(local(variable))
@@ -1569,4 +1749,29 @@ class RawInstListBuilder(
             else -> error("Unknown opcode ${insnNode.opcode} in VarInsnNode")
         }
     }
+}
+
+private fun <T> Array<T?>.trimEndNulls(): Array<T?> {
+    var realSize = size
+
+    while (realSize > 0 && this[realSize - 1] == null) {
+        realSize--
+    }
+
+    if (realSize == size) {
+        return this
+    }
+
+    return this.copyOf(realSize)
+}
+
+private fun <T> Array<T?>.add(index: Int, value: T): Array<T?> {
+    if (index < size) {
+        this[index] = value
+        return this
+    }
+
+    val result = copyOf(size * 2)
+    result[index] = value
+    return result
 }
