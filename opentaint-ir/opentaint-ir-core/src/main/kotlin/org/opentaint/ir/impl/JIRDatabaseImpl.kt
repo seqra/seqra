@@ -1,14 +1,7 @@
 package org.opentaint.ir.impl
 
 import kotlinx.coroutines.*
-import org.opentaint.ir.api.jvm.JavaVersion
-import org.opentaint.ir.api.jvm.JIRByteCodeLocation
-import org.opentaint.ir.api.jvm.JIRClasspathFeature
-import org.opentaint.ir.api.jvm.JIRDatabase
-import org.opentaint.ir.api.jvm.JIRDatabasePersistence
-import org.opentaint.ir.api.jvm.JIRFeature
-import org.opentaint.ir.api.jvm.JIRProject
-import org.opentaint.ir.api.jvm.RegisteredLocation
+import org.opentaint.ir.api.*
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.KotlinMetadata
 import org.opentaint.ir.impl.features.classpaths.MethodInstructionsFeature
@@ -60,12 +53,12 @@ class JIRDatabaseImpl(
 
     private fun List<JIRClasspathFeature>?.appendBuiltInFeatures(): List<JIRClasspathFeature> {
         if (this != null && any { it is ClasspathCache }) {
-            return this + listOf(KotlinMetadata, MethodInstructionsFeature)
+            return this + listOf(KotlinMetadata, MethodInstructionsFeature(settings.keepLocalVariableNames))
         }
-        return listOf(ClasspathCache(settings.cacheSettings), KotlinMetadata, MethodInstructionsFeature) + orEmpty()
+        return listOf(ClasspathCache(settings.cacheSettings), KotlinMetadata, MethodInstructionsFeature(settings.keepLocalVariableNames)) + orEmpty()
     }
 
-    override suspend fun classpath(dirOrJars: List<File>, features: List<JIRClasspathFeature>?): JIRProject {
+    override suspend fun classpath(dirOrJars: List<File>, features: List<JIRClasspathFeature>?): JIRClasspath {
         assertNotClosed()
         val existedLocations = dirOrJars.filterExisted().map { it.asByteCodeLocation(javaRuntime.version) }
         val processed = locationsRegistry.registerIfNeeded(existedLocations.toList())
@@ -73,8 +66,8 @@ class JIRDatabaseImpl(
         return classpathOf(processed, features)
     }
 
-    override fun classpathOf(locations: List<RegisteredLocation>, features: List<JIRClasspathFeature>?): JIRProject {
-        return JIRProjectImpl(
+    override fun classpathOf(locations: List<RegisteredLocation>, features: List<JIRClasspathFeature>?): JIRClasspath {
+        return JIRClasspathImpl(
             locationsRegistry.newSnapshot(locations),
             this,
             features.appendBuiltInFeatures(),
@@ -82,9 +75,9 @@ class JIRDatabaseImpl(
         )
     }
 
-    fun new(cp: JIRProjectImpl): JIRProject {
+    fun new(cp: JIRClasspathImpl): JIRClasspath {
         assertNotClosed()
-        return JIRProjectImpl(
+        return JIRClasspathImpl(
             locationsRegistry.newSnapshot(cp.registeredLocations),
             cp.db,
             cp.features,

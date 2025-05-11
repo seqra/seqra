@@ -2,6 +2,7 @@ package org.opentaint.ir.impl.cfg
 
 import kotlinx.collections.immutable.*
 import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRParameter
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.TypeName
 import org.opentaint.ir.api.cfg.*
@@ -10,6 +11,8 @@ import org.opentaint.ir.impl.types.TypeNameImpl
 import org.objectweb.asm.*
 import org.objectweb.asm.tree.*
 import java.util.*
+
+const val LOCAL_VAR_START_CHARACTER = '%'
 
 private fun Int.toPrimitiveType(): TypeName = when (this) {
     Opcodes.T_CHAR -> PredefinedPrimitives.Char
@@ -178,7 +181,8 @@ internal fun <K, V> Map<out K, V>.toIdentityMap(): Map<K, V> = toMap()
 
 class RawInstListBuilder(
     val method: JIRMethod,
-    private val methodNode: MethodNode
+    private val methodNode: MethodNode,
+    private val keepLocalVariableNames: Boolean,
 ) {
     private val frames = identityMap<AbstractInsnNode, Frame>()
     private val labels = identityMap<LabelNode, JIRRawLabelInst>()
@@ -392,8 +396,10 @@ class RawInstListBuilder(
         override: Boolean = false
     ): JIRRawAssignInst {
         val oldVar = currentFrame.locals[variable]?.let {
-            val infoFromLocalVars = methodNode.localVariables.find { it.index == variable && insn.isBetween(it.start, it.end) }
-            val isArg = variable < argCounter && infoFromLocalVars != null && infoFromLocalVars.start == methodNode.instructions.firstOrNull { it is LabelNode }
+            val infoFromLocalVars =
+                methodNode.localVariables.find { it.index == variable && insn.isBetween(it.start, it.end) }
+            val isArg =
+                variable < argCounter && infoFromLocalVars != null && infoFromLocalVars.start == methodNode.instructions.firstOrNull { it is LabelNode }
             if (expr.typeName.isPrimitive.xor(it.typeName.isPrimitive)
                 && it.typeName.typeName != PredefinedPrimitives.Null
                 && !isArg
@@ -457,7 +463,7 @@ class RawInstListBuilder(
     }
 
     private fun nextRegister(typeName: TypeName): JIRRawValue {
-        return JIRRawLocalVar("%${localCounter++}", typeName)
+        return JIRRawLocalVar(localCounter, "$LOCAL_VAR_START_CHARACTER${localCounter++}", typeName)
     }
 
     private fun nextRegisterDeclaredVariable(typeName: TypeName, variable: Int, insn: AbstractInsnNode): JIRRawValue {
@@ -465,15 +471,17 @@ class RawInstListBuilder(
             .filterIsInstance<LabelNode>()
             .firstOrNull()
 
-        val declaredTypeName = methodNode.localVariables
+        val lvNode = methodNode.localVariables
             .singleOrNull { it.index == variable && it.start == nextLabel }
-            ?.desc
-            ?.typeName()
+
+        val declaredTypeName = lvNode?.desc?.typeName()
+        val idx = localCounter++
+        val lvName = lvNode?.name?.takeIf { keepLocalVariableNames } ?: "$LOCAL_VAR_START_CHARACTER$idx"
 
         return if (declaredTypeName != null && !declaredTypeName.isPrimitive && !typeName.isArray) {
-            JIRRawLocalVar("%${localCounter++}", declaredTypeName)
+            JIRRawLocalVar(idx, lvName, declaredTypeName)
         } else {
-            JIRRawLocalVar("%${localCounter++}", typeName)
+            JIRRawLocalVar(idx, lvName, typeName)
         }
     }
 
@@ -520,11 +528,24 @@ class RawInstListBuilder(
     private fun createInitialFrame(): Frame {
         val locals = hashMapOf<Int, JIRRawValue>()
         argCounter = 0
+        var staticInc = 0
         if (!method.isStatic) {
             locals[argCounter++] = thisRef()
+            staticInc = 1
         }
+        val variables = methodNode.localVariables.orEmpty().sortedBy(LocalVariableNode::index)
+
+        fun getName(parameter: JIRParameter): String? {
+            val idx = parameter.index + staticInc
+            return if (idx < variables.size) {
+                variables[idx].name
+            } else {
+                parameter.name
+            }
+        }
+
         for (parameter in method.parameters) {
-            val argument = JIRRawArgument.of(parameter.index, parameter.name, parameter.type)
+            val argument = JIRRawArgument.of(parameter.index, getName(parameter), parameter.type)
             locals[argCounter] = argument
             if (argument.typeName.isDWord) argCounter += 2
             else argCounter++
@@ -891,15 +912,17 @@ class RawInstListBuilder(
                     }.toMap()
 
                     else -> frame.locals.filterKeys { it in this }.mapValues {
+                        val value = it.value
                         when {
-                            it.value is JIRRawLocalVar && it.value.typeName != this[it.key]!! && this[it.key] !in blackListForTypeRefinement -> JIRRawLocalVar(
-                                (it.value as JIRRawLocalVar).name,
-                                this[it.key]!!
-                            ).also { newLocal ->
-                                localTypeRefinement[it.value as JIRRawLocalVar] = newLocal
-                            }
-
-                            else -> it.value
+                            value is JIRRawLocalVar && value.typeName != this[it.key]!! && this[it.key] !in blackListForTypeRefinement ->
+                                JIRRawLocalVar(
+                                    value.index,
+                                    value.name,
+                                    this[it.key]!!
+                                ).also { newLocal ->
+                                    localTypeRefinement[value] = newLocal
+                                }
+                            else -> value
                         }
                     }
                 }
@@ -977,15 +1000,17 @@ class RawInstListBuilder(
                 }
 
                 else -> frame.stack.withIndex().filter { it.index in this }.map {
+                    val value = it.value
                     when {
-                        it.value is JIRRawLocalVar && it.value.typeName != this[it.index]!! && this[it.index] !in blackListForTypeRefinement -> JIRRawLocalVar(
-                            (it.value as JIRRawLocalVar).name,
-                            this[it.index]!!
-                        ).also { newLocal ->
-                            localTypeRefinement[it.value as JIRRawLocalVar] = newLocal
-                        }
-
-                        else -> it.value
+                        value is JIRRawLocalVar && value.typeName != this[it.index]!! && this[it.index] !in blackListForTypeRefinement ->
+                            JIRRawLocalVar(
+                                value.index,
+                                value.name,
+                                this[it.index]!!
+                            ).also { newLocal ->
+                                localTypeRefinement[value] = newLocal
+                            }
+                        else -> value
                     }
                 }
             }
@@ -1089,7 +1114,10 @@ class RawInstListBuilder(
             nextInst != null && nextInst.isBranchingInst -> local
             nextInst != null && nextInst is VarInsnNode && nextInst.`var` == variable -> local
             //Workaround for if (x++) if x is function argument
-            prevInst != null && local is JIRRawArgument && prevInst is VarInsnNode && prevInst.`var` == variable -> nextRegister(local.typeName)
+            prevInst != null && local is JIRRawArgument && prevInst is VarInsnNode && prevInst.`var` == variable -> nextRegister(
+                local.typeName
+            )
+
             local is JIRRawArgument -> local
             else -> nextRegister(local.typeName)
         }

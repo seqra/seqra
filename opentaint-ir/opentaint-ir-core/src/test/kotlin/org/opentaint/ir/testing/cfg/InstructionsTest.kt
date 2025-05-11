@@ -44,8 +44,19 @@ class InstructionsTest : BaseInstructionsTest() {
         val instructions = method.instList.instructions
         val firstUse = instructions.indexOfFirst { it.callExpr?.method?.method == use }
         val assign = instructions[firstUse + 1] as JIRAssignInst
-        assertEquals("%4", (assign.lhv as JIRLocalVar).name)
-        assertEquals("%1", (assign.rhv as JIRLocalVar).name)
+        assertEquals("b", (assign.lhv as JIRLocalVar).name)
+        assertEquals("a", (assign.rhv as JIRLocalVar).name)
+    }
+
+    @Test
+    fun `invoke inst`() {
+        val clazz = cp.findClass<SimpleAlias1>()
+        val method = clazz.declaredMethods.first { it.name == "invoke" }
+        val instructions = method.instList.instructions
+        val usedArgumentExprs = instructions.filter { it.callExpr?.method?.method?.name == "println" }
+            .flatMap { it.callExpr?.args.orEmpty() }
+        val usedArgumentNames = usedArgumentExprs.map { (it as JIRArgument).name }
+        assertEquals(listOf("i", "j", "b", "d"), usedArgumentNames)
     }
 
     @Test

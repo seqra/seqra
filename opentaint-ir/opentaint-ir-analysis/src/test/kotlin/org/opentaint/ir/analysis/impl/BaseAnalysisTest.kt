@@ -3,12 +3,10 @@ package org.opentaint.ir.analysis.impl
 import juliet.support.AbstractTestCase
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.engine.VulnerabilityInstance
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
-import org.opentaint.ir.api.jvm.ext.findClass
-import org.opentaint.ir.api.jvm.ext.methods
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.ext.methods
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.testing.BaseTest
@@ -61,7 +59,7 @@ abstract class BaseAnalysisTest : BaseTest() {
         )
     }
 
-    protected abstract fun launchAnalysis(methods: List<JIRMethod>): List<VulnerabilityInstance<JIRMethod, JIRInstLocation, JIRInst>>
+    protected abstract fun launchAnalysis(methods: List<JIRMethod>): List<VulnerabilityInstance>
 
     protected inline fun <reified T> testOneAnalysisOnOneMethod(
         vulnerabilityType: String,
@@ -74,7 +72,9 @@ abstract class BaseAnalysisTest : BaseTest() {
         // TODO: think about better assertions here
         assertEquals(expectedLocations.size, sinks.size)
         expectedLocations.forEach { expected ->
-            assertTrue(sinks.any { it.contains(expected) })
+            assertTrue(sinks.any { it.contains(expected) }) {
+                "$expected unmatched in:\n${sinks.joinToString("\n")}"
+            }
         }
     }
 

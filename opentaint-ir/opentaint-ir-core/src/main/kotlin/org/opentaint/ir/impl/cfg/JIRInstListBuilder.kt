@@ -1,166 +1,16 @@
 package org.opentaint.ir.impl.cfg
 
-import org.opentaint.ir.api.core.cfg.InstList
-import org.opentaint.ir.api.jvm.cfg.BsmHandle
-import org.opentaint.ir.api.jvm.cfg.BsmMethodTypeArg
-import org.opentaint.ir.api.jvm.cfg.JIRRawAddExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawAndExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawArgument
-import org.opentaint.ir.api.jvm.cfg.JIRRawArrayAccess
-import org.opentaint.ir.api.jvm.cfg.JIRRawAssignInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawBinaryExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawBool
-import org.opentaint.ir.api.jvm.cfg.JIRRawByte
-import org.opentaint.ir.api.jvm.cfg.JIRRawCallInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawCastExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawCatchInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawChar
-import org.opentaint.ir.api.jvm.cfg.JIRRawClassConstant
-import org.opentaint.ir.api.jvm.cfg.JIRRawCmpExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawCmpgExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawCmplExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawDivExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawDouble
-import org.opentaint.ir.api.jvm.cfg.JIRRawDynamicCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawEnterMonitorInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawEqExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawExitMonitorInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawFieldRef
-import org.opentaint.ir.api.jvm.cfg.JIRRawFloat
-import org.opentaint.ir.api.jvm.cfg.JIRRawGeExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawGotoInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawGtExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawIfInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawInstanceOfExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawInt
-import org.opentaint.ir.api.jvm.cfg.JIRRawInterfaceCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawLabelInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawLabelRef
-import org.opentaint.ir.api.jvm.cfg.JIRRawLeExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawLengthExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawLineNumberInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawLocalVar
-import org.opentaint.ir.api.jvm.cfg.JIRRawLong
-import org.opentaint.ir.api.jvm.cfg.JIRRawLtExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawMethodConstant
-import org.opentaint.ir.api.jvm.cfg.JIRRawMethodType
-import org.opentaint.ir.api.jvm.cfg.JIRRawMulExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawNegExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawNeqExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawNewArrayExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawNewExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawNullConstant
-import org.opentaint.ir.api.jvm.cfg.JIRRawOrExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawRemExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawReturnInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawShlExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawShort
-import org.opentaint.ir.api.jvm.cfg.JIRRawShrExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawSpecialCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawStaticCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawStringConstant
-import org.opentaint.ir.api.jvm.cfg.JIRRawSubExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawSwitchInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawThis
-import org.opentaint.ir.api.jvm.cfg.JIRRawThrowInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawUshrExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawVirtualCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawXorExpr
-import org.opentaint.ir.api.jvm.ext.boolean
-import org.opentaint.ir.api.jvm.ext.byte
-import org.opentaint.ir.api.jvm.ext.char
-import org.opentaint.ir.api.jvm.ext.double
-import org.opentaint.ir.api.jvm.ext.float
-import org.opentaint.ir.api.jvm.ext.int
-import org.opentaint.ir.api.jvm.ext.long
-import org.opentaint.ir.api.jvm.ext.short
+import org.opentaint.ir.api.*
+import org.opentaint.ir.api.cfg.*
+import org.opentaint.ir.api.ext.*
 import org.opentaint.ir.impl.cfg.util.UNINIT_THIS
 import org.opentaint.ir.impl.cfg.util.lambdaMetaFactory
 import org.opentaint.ir.impl.cfg.util.lambdaMetaFactoryMethodName
-import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.JIRProject
-import org.opentaint.ir.api.jvm.JIRType
-import org.opentaint.ir.api.core.TypeName
-import org.opentaint.ir.api.jvm.cfg.JIRAddExpr
-import org.opentaint.ir.api.jvm.cfg.JIRAndExpr
-import org.opentaint.ir.api.jvm.cfg.JIRArgument
-import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
-import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
-import org.opentaint.ir.api.jvm.cfg.JIRBinaryExpr
-import org.opentaint.ir.api.jvm.cfg.JIRBool
-import org.opentaint.ir.api.jvm.cfg.JIRByte
-import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRCallInst
-import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
-import org.opentaint.ir.api.jvm.cfg.JIRCatchInst
-import org.opentaint.ir.api.jvm.cfg.JIRChar
-import org.opentaint.ir.api.jvm.cfg.JIRClassConstant
-import org.opentaint.ir.api.jvm.cfg.JIRCmpExpr
-import org.opentaint.ir.api.jvm.cfg.JIRCmpgExpr
-import org.opentaint.ir.api.jvm.cfg.JIRCmplExpr
-import org.opentaint.ir.api.jvm.cfg.JIRConditionExpr
-import org.opentaint.ir.api.jvm.cfg.JIRDivExpr
-import org.opentaint.ir.api.jvm.cfg.JIRDouble
-import org.opentaint.ir.api.jvm.cfg.JIRDynamicCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIREnterMonitorInst
-import org.opentaint.ir.api.jvm.cfg.JIREqExpr
-import org.opentaint.ir.api.jvm.cfg.JIRExitMonitorInst
-import org.opentaint.ir.api.jvm.cfg.JIRExpr
-import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
-import org.opentaint.ir.api.jvm.cfg.JIRFloat
-import org.opentaint.ir.api.jvm.cfg.JIRGeExpr
-import org.opentaint.ir.api.jvm.cfg.JIRGotoInst
-import org.opentaint.ir.api.jvm.cfg.JIRGtExpr
-import org.opentaint.ir.api.jvm.cfg.JIRIfInst
-import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
-import org.opentaint.ir.api.jvm.cfg.JIRInstRef
-import org.opentaint.ir.api.jvm.cfg.JIRInstanceOfExpr
-import org.opentaint.ir.api.jvm.cfg.JIRInt
-import org.opentaint.ir.api.jvm.cfg.JIRLambdaExpr
-import org.opentaint.ir.api.jvm.cfg.JIRLeExpr
-import org.opentaint.ir.api.jvm.cfg.JIRLengthExpr
-import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
-import org.opentaint.ir.api.jvm.cfg.JIRLong
-import org.opentaint.ir.api.jvm.cfg.JIRLtExpr
-import org.opentaint.ir.api.jvm.cfg.JIRMethodConstant
-import org.opentaint.ir.api.jvm.cfg.JIRMethodType
-import org.opentaint.ir.api.jvm.cfg.JIRMulExpr
-import org.opentaint.ir.api.jvm.cfg.JIRNegExpr
-import org.opentaint.ir.api.jvm.cfg.JIRNeqExpr
-import org.opentaint.ir.api.jvm.cfg.JIRNewArrayExpr
-import org.opentaint.ir.api.jvm.cfg.JIRNewExpr
-import org.opentaint.ir.api.jvm.cfg.JIRNullConstant
-import org.opentaint.ir.api.jvm.cfg.JIROrExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawExprVisitor
-import org.opentaint.ir.api.jvm.cfg.JIRRawInstVisitor
-import org.opentaint.ir.api.jvm.cfg.JIRRemExpr
-import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
-import org.opentaint.ir.api.jvm.cfg.JIRShlExpr
-import org.opentaint.ir.api.jvm.cfg.JIRShort
-import org.opentaint.ir.api.jvm.cfg.JIRShrExpr
-import org.opentaint.ir.api.jvm.cfg.JIRSpecialCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRStaticCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
-import org.opentaint.ir.api.jvm.cfg.JIRSubExpr
-import org.opentaint.ir.api.jvm.cfg.JIRSwitchInst
-import org.opentaint.ir.api.jvm.cfg.JIRThis
-import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
-import org.opentaint.ir.api.jvm.cfg.JIRUshrExpr
-import org.opentaint.ir.api.jvm.cfg.JIRValue
-import org.opentaint.ir.api.jvm.cfg.JIRVirtualCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRXorExpr
-import org.opentaint.ir.api.jvm.ext.findTypeOrNull
-import org.opentaint.ir.api.jvm.ext.objectType
-import org.opentaint.ir.api.jvm.ext.toType
 
 /** This class stores state and is NOT THREAD SAFE. Use it carefully */
-class JIRInstListBuilder(val method: JIRMethod, val instList: InstList<JIRRawInst>) : JIRRawInstVisitor<JIRInst?>,
-    JIRRawExprVisitor<JIRExpr> {
+class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawInst>) : JIRRawInstVisitor<JIRInst?>, JIRRawExprVisitor<JIRExpr> {
 
-    val classpath: JIRProject = method.enclosingClass.classpath
+    val classpath: JIRClasspath = method.enclosingClass.classpath
 
     private val instMap = identityMap<JIRRawInst, JIRInst>()
     private var currentLineNumber = 0
@@ -180,8 +30,8 @@ class JIRInstListBuilder(val method: JIRMethod, val instList: InstList<JIRRawIns
         index = 0
     }
 
-    fun buildInstList(): InstList<JIRInst> {
-        return InstListImpl(instList.mapNotNull { convertRawInst(it) }).also {
+    fun buildInstList(): JIRInstList<JIRInst> {
+        return JIRInstListImpl(instList.mapNotNull { convertRawInst(it) }).also {
             reset()
         }
     }
@@ -211,7 +61,7 @@ class JIRInstListBuilder(val method: JIRMethod, val instList: InstList<JIRRawIns
             inst.lhv.let { unprocessedLhv ->
                 if (unprocessedLhv is JIRRawLocalVar && unprocessedLhv.typeName == UNINIT_THIS) {
                     convertedLocalVars.getOrPut(unprocessedLhv) {
-                        JIRRawLocalVar(unprocessedLhv.name, inst.rhv.typeName)
+                        JIRRawLocalVar(unprocessedLhv.index, unprocessedLhv.name, inst.rhv.typeName)
                     }
                 } else {
                     unprocessedLhv
@@ -472,8 +322,8 @@ class JIRInstListBuilder(val method: JIRMethod, val instList: InstList<JIRRawIns
 
     override fun visitJIRRawLocalVar(value: JIRRawLocalVar): JIRExpr =
         convertedLocalVars[value]?.let { replacementForLocalVar ->
-            JIRLocalVar(replacementForLocalVar.name, replacementForLocalVar.typeName.asType())
-        } ?: JIRLocalVar(value.name, value.typeName.asType())
+            JIRLocalVar(replacementForLocalVar.index, replacementForLocalVar.name, replacementForLocalVar.typeName.asType())
+        } ?: JIRLocalVar(value.index, value.name, value.typeName.asType())
 
     override fun visitJIRRawFieldRef(value: JIRRawFieldRef): JIRExpr {
         val type = value.declaringClass.asType() as JIRClassType

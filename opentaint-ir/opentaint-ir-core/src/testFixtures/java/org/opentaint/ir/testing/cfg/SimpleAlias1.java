@@ -23,6 +23,13 @@ public class SimpleAlias1 {
         Benchmark.test("b",
                 "{allocId:1, mayAlias:[a,b], notMayAlias:[], mustAlias:[a,b], notMustAlias:[]}");
     }
+
+    public void invoke(int i, long j, byte b, double d) {
+        System.out.println(i);
+        System.out.println(j);
+        System.out.println(b);
+        System.out.println(d);
+    }
 }
 
 class A {

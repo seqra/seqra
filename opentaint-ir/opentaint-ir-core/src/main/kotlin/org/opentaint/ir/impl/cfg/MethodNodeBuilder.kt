@@ -1,6 +1,7 @@
 package org.opentaint.ir.impl.cfg
 
 import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRParameter
 import org.opentaint.ir.api.PredefinedPrimitives
 import org.opentaint.ir.api.TypeName
 import org.opentaint.ir.api.cfg.*
@@ -10,6 +11,7 @@ import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Opcodes.H_GFrontendTATIC
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
+import java.util.ArrayList
 
 private val PredefinedPrimitives.smallIntegers get() = setOf(Boolean, Byte, Char, Short, Int)
 
@@ -100,12 +102,26 @@ class MethodNodeBuilder(
     }
 
     private fun initializeFrame(method: JIRMethod) {
+        var staticInc = 0
         if (!method.isStatic) {
             val thisRef = JIRRawThis(method.enclosingClass.name.typeName())
             locals[thisRef] = localIndex++
+            staticInc = 1
         }
+
+        val variables = method.asmNode().localVariables.orEmpty().sortedBy(LocalVariableNode::index)
+
+        fun getName(parameter: JIRParameter): String? {
+            val idx = parameter.index + staticInc
+            return if (idx < variables.size) {
+                variables[idx].name
+            } else {
+                parameter.name
+            }
+        }
+
         for (parameter in method.parameters) {
-            val argument = JIRRawArgument.of(parameter.index, parameter.name, parameter.type)
+            val argument = JIRRawArgument.of(parameter.index, getName(parameter), parameter.type)
             locals[argument] = localIndex
             if (argument.typeName.isDWord) localIndex += 2
             else localIndex++

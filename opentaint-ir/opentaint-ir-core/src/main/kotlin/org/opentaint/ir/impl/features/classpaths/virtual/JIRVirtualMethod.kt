@@ -1,18 +1,18 @@
 package org.opentaint.ir.impl.features.classpaths.virtual
 
-import org.opentaint.ir.api.jvm.JIRDeclaration
-import org.opentaint.ir.api.jvm.cfg.JIRGraph
-import org.opentaint.ir.api.core.cfg.InstList
-import org.opentaint.ir.api.jvm.JIRAnnotation
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.JIRParameter
-import org.opentaint.ir.api.core.TypeName
-import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawInst
+import org.opentaint.ir.api.JIRAnnotation
+import org.opentaint.ir.api.JIRClassOrInterface
+import org.opentaint.ir.api.JIRDeclaration
+import org.opentaint.ir.api.JIRMethod
+import org.opentaint.ir.api.JIRParameter
+import org.opentaint.ir.api.TypeName
+import org.opentaint.ir.api.cfg.JIRGraph
+import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.cfg.JIRInstList
+import org.opentaint.ir.api.cfg.JIRRawInst
 import org.opentaint.ir.impl.bytecode.JIRDeclarationImpl
-import org.opentaint.ir.impl.cfg.InstListImpl
-import org.opentaint.ir.impl.features.classpaths.MethodInstructionsFeature
+import org.opentaint.ir.impl.cfg.JIRGraphImpl
+import org.opentaint.ir.impl.cfg.JIRInstListImpl
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.MethodNode
 
@@ -22,14 +22,12 @@ interface JIRVirtualMethod : JIRMethod {
 
     override fun asmNode() = MethodNode()
 
-    override val rawInstList: InstList<JIRRawInst>
-        get() = InstListImpl(emptyList())
-    override val instList: InstList<JIRInst>
-        get() = InstListImpl(emptyList())
+    override val rawInstList: JIRInstList<JIRRawInst>
+        get() = JIRInstListImpl(emptyList())
+    override val instList: JIRInstList<JIRInst>
+        get() = JIRInstListImpl(emptyList())
 
-    override fun flowGraph(): JIRGraph {
-        return MethodInstructionsFeature.flowGraph(this).flowGraph
-    }
+    override fun flowGraph(): JIRGraph = JIRGraphImpl(this, instList.instructions)
 }
 
 open class JIRVirtualParameter(

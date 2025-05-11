@@ -1,19 +1,8 @@
 package org.opentaint.ir.impl.cfg
 
-import org.opentaint.ir.api.jvm.JIRProject
-import org.opentaint.ir.api.jvm.cfg.AbstractFullRawExprSetCollector
-import org.opentaint.ir.api.jvm.cfg.JIRRawAssignInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawCatchInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawComplexValue
-import org.opentaint.ir.api.jvm.cfg.JIRRawConstant
-import org.opentaint.ir.api.jvm.cfg.JIRRawExpr
-import org.opentaint.ir.api.jvm.cfg.JIRRawInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawLabelInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawLocalVar
-import org.opentaint.ir.api.jvm.cfg.JIRRawNullConstant
-import org.opentaint.ir.api.jvm.cfg.JIRRawSimpleValue
-import org.opentaint.ir.api.jvm.cfg.JIRRawValue
-import org.opentaint.ir.api.jvm.ext.cfg.applyAndGet
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.cfg.*
+import org.opentaint.ir.api.ext.cfg.applyAndGet
 import org.opentaint.ir.impl.cfg.util.ExprMapper
 import org.opentaint.ir.impl.cfg.util.InstructionFilter
 
@@ -24,8 +13,7 @@ import org.opentaint.ir.impl.cfg.util.InstructionFilter
  * the frames merging)
  */
 internal class Simplifier {
-
-    fun simplify(jIRProject: JIRProject, instList: InstListImpl<JIRRawInst>): InstListImpl<JIRRawInst> {
+    fun simplify(jIRClasspath: JIRClasspath, instList: JIRInstListImpl<JIRRawInst>): JIRInstListImpl<JIRRawInst> {
         // clear the assignments that are repeated inside single basic block
         var instructionList = cleanRepeatedAssignments(instList)
 
@@ -37,9 +25,9 @@ internal class Simplifier {
             val oldSize = instructionList.instructions.size
             instructionList = instructionList.filterNot(InstructionFilter {
                 it is JIRRawAssignInst
-                        && it.lhv is JIRRawSimpleValue
-                        && it.rhv is JIRRawValue
-                        && uses.getOrDefault(it.lhv, 0) == 0
+                    && it.lhv is JIRRawSimpleValue
+                    && it.rhv is JIRRawValue
+                    && uses.getOrDefault(it.lhv, 0) == 0
             })
         } while (instructionList.instructions.size != oldSize)
 
@@ -48,11 +36,33 @@ internal class Simplifier {
             // (e.g. `a = b` and `b = a`) and not used anywhere else; also need to run several times
             // because of potential dependencies between such variables
             val assignmentsMap = computeAssignments(instructionList)
-            val replacements = assignmentsMap
-                .filter { (assignmentsMap[it.value.first()]?.let { it.size == 1 } ?: true) }
-                .filterValues { it.first() is JIRRawLocalVar && it.drop(1).all { it !is JIRRawLocalVar } }
-                .map { it.key to it.value.first() }
-                .toMap()
+            val replacements = buildMap {
+                for ((to, froms) in assignmentsMap) {
+                    if (froms.drop(1).any { it is JIRRawLocalVar }) {
+                        continue
+                    }
+                    val firstFrom = (froms.first() as? JIRRawLocalVar) ?: continue
+                    val fromAssignments = assignmentsMap[firstFrom]
+                    if (fromAssignments != null && fromAssignments.size != 1) {
+                        continue
+                    }
+                    put(to, firstFrom)
+                }
+            }
+
+            val extendedReplacements = buildMap<JIRRawExpr, _> {
+                for ((to, from) in replacements) {
+                    if (!to.name.startsWith(LOCAL_VAR_START_CHARACTER)) {
+                        val actual = to.copy(typeName = from.typeName)
+                        // to keep original names ---------^
+                        put(to, actual)
+                        put(from, actual)
+                    } else {
+                        put(to, from)
+                    }
+                }
+            }
+
             instructionList = instructionList
                 .filterNot(InstructionFilter {
                     if (it !is JIRRawAssignInst) return@InstructionFilter false
@@ -60,7 +70,7 @@ internal class Simplifier {
                     val rhv = it.rhv as? JIRRawSimpleValue ?: return@InstructionFilter false
                     replacements[lhv] == rhv && replacements[rhv] == lhv
                 })
-                .map(ExprMapper(replacements.toMap()))
+                .map(ExprMapper(extendedReplacements))
                 .filterNot(InstructionFilter {
                     it is JIRRawAssignInst && it.rhv == it.lhv
                 })
@@ -81,7 +91,7 @@ internal class Simplifier {
         return normalizeTypes(instructionList)
     }
 
-    private fun computeUseCases(instList: InstListImpl<JIRRawInst>): Map<JIRRawSimpleValue, Set<JIRRawInst>> {
+    private fun computeUseCases(instList: JIRInstListImpl<JIRRawInst>): Map<JIRRawSimpleValue, Set<JIRRawInst>> {
         val uses = hashMapOf<JIRRawSimpleValue, MutableSet<JIRRawInst>>()
         for (inst in instList) {
             when (inst) {
@@ -110,7 +120,7 @@ internal class Simplifier {
         return uses
     }
 
-    private fun cleanRepeatedAssignments(instList: InstListImpl<JIRRawInst>): InstListImpl<JIRRawInst> {
+    private fun cleanRepeatedAssignments(instList: JIRInstListImpl<JIRRawInst>): JIRInstListImpl<JIRRawInst> {
         val instructions = mutableListOf<JIRRawInst>()
         val equalities = hashMapOf<JIRRawSimpleValue, JIRRawSimpleValue>()
         for (inst in instList) {
@@ -143,10 +153,10 @@ internal class Simplifier {
                 else -> instructions += inst
             }
         }
-        return InstListImpl(instructions)
+        return JIRInstListImpl(instructions)
     }
 
-    private fun cleanSelfAssignments(instList: InstListImpl<JIRRawInst>): InstListImpl<JIRRawInst> {
+    private fun cleanSelfAssignments(instList: JIRInstListImpl<JIRRawInst>): JIRInstListImpl<JIRRawInst> {
         val instructions = mutableListOf<JIRRawInst>()
         for (inst in instList) {
             when (inst) {
@@ -159,11 +169,11 @@ internal class Simplifier {
                 else -> instructions += inst
             }
         }
-        return InstListImpl(instructions)
+        return JIRInstListImpl(instructions)
     }
 
     private fun computeReplacements(
-        instList: InstListImpl<JIRRawInst>,
+        instList: JIRInstListImpl<JIRRawInst>,
         uses: Map<JIRRawSimpleValue, Set<JIRRawInst>>
     ): Pair<Map<JIRRawLocalVar, JIRRawValue>, Set<JIRRawInst>> {
         val replacements = mutableMapOf<JIRRawLocalVar, JIRRawValue>()
@@ -172,19 +182,22 @@ internal class Simplifier {
 
         for (inst in instList) {
             if (inst is JIRRawAssignInst) {
+                val lhv = inst.lhv
                 val rhv = inst.rhv
-                if (inst.lhv is JIRRawSimpleValue
+                if (lhv is JIRRawSimpleValue
                     && rhv is JIRRawLocalVar
-                    && uses.getOrDefault(inst.rhv, emptySet()).let { it.size == 1 && it.firstOrNull() == inst }
+                    && uses.getOrDefault(rhv, emptySet()).let { it.size == 1 && it.firstOrNull() == inst }
                     && rhv !in reservedValues
                 ) {
-                    val lhv = inst.lhv
                     val lhvUsage = uses.getOrDefault(lhv, emptySet()).firstOrNull()
                     val assignInstructionToReplacement = instList.firstOrNull { it is JIRRawAssignInst && it.lhv == lhv }
+                    val assignInstructionToRhv = instList.firstOrNull { it is JIRRawAssignInst && it.lhv == rhv}
                     val didNotAssignedBefore =
                         lhvUsage == null ||
-                                assignInstructionToReplacement == null ||
-                                !instList.isBefore(assignInstructionToReplacement, lhvUsage)
+                            assignInstructionToReplacement == null ||
+                            !instList.isBefore(assignInstructionToReplacement, lhvUsage) ||
+                            assignInstructionToRhv == null ||
+                            instList.areSequential(assignInstructionToRhv, inst)
                     if (lhvUsage == null || !instList.isBefore(lhvUsage, inst)) {
                         if (didNotAssignedBefore) {
                             replacements[rhv] = lhv
@@ -199,12 +212,16 @@ internal class Simplifier {
         return replacements to replacedInsts
     }
 
-    private fun InstListImpl<JIRRawInst>.isBefore(one: JIRRawInst, another: JIRRawInst): Boolean {
+    private fun JIRInstListImpl<JIRRawInst>.isBefore(one: JIRRawInst, another: JIRRawInst): Boolean {
         return indexOf(one) < indexOf(another)
     }
 
-    private fun computeAssignments(instList: InstListImpl<JIRRawInst>): Map<JIRRawSimpleValue, Set<JIRRawExpr>> {
-        val assignments = mutableMapOf<JIRRawSimpleValue, MutableSet<JIRRawExpr>>()
+    private fun JIRInstListImpl<JIRRawInst>.areSequential(one: JIRRawInst, another: JIRRawInst): Boolean {
+        return indexOf(one) + 1 == indexOf(another)
+    }
+
+    private fun computeAssignments(instList: JIRInstListImpl<JIRRawInst>): Map<JIRRawLocalVar, Set<JIRRawExpr>> {
+        val assignments = mutableMapOf<JIRRawLocalVar, MutableSet<JIRRawExpr>>()
         for (inst in instList) {
             if (inst is JIRRawAssignInst) {
                 val lhv = inst.lhv
@@ -218,8 +235,8 @@ internal class Simplifier {
     }
 
     private fun normalizeTypes(
-        instList: InstListImpl<JIRRawInst>
-    ): InstListImpl<JIRRawInst> {
+        instList: JIRInstListImpl<JIRRawInst>
+    ): JIRInstListImpl<JIRRawInst> {
         val types = mutableMapOf<JIRRawLocalVar, MutableSet<String>>()
         for (inst in instList) {
             if (inst is JIRRawAssignInst && inst.lhv is JIRRawLocalVar && inst.rhv !is JIRRawNullConstant) {
@@ -231,7 +248,7 @@ internal class Simplifier {
         }
         val replacement = types.filterValues { it.size > 1 }
             .mapValues {
-                JIRRawLocalVar(it.key.name, it.key.typeName)
+                JIRRawLocalVar(it.key.index, it.key.name, it.key.typeName)
             }
         return instList.map(ExprMapper(replacement.toMap()))
     }
