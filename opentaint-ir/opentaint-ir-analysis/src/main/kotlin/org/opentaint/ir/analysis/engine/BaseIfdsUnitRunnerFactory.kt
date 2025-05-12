@@ -76,15 +76,11 @@ internal class BaseIfdsUnitRunner(
     ): Boolean {
         require(unitResolver.resolve(edge.method) == unit)
 
-        pathEdgesPreds.computeIfAbsent(edge) { ConcurrentHashMap.newKeySet() }.add(pred)
-
-        // Update edge's reason:
-        edge.reason = pred.predEdge
+        pathEdgesPreds.computeIfAbsent(edge) {
+            ConcurrentHashMap.newKeySet()
+        }.add(pred)
 
         if (pathEdges.add(edge)) {
-            if (edge.from.statement.toString() == "noop" && edge.to.domainFact != ZEROFact) {
-                logger.trace { "Propagating $edge in ${edge.method} via ${edge.reason}" }
-            }
             workList.send(edge)
             analyzer.handleNewEdge(edge).forEach {
                 manager.handleEvent(it, this)
@@ -368,9 +364,6 @@ internal class BaseIfdsUnitRunner(
         } finally {
             logger.info { "Finishing ${this@BaseIfdsUnitRunner} for $unit" }
             logger.info { "Total ${pathEdges.size} path edges for $unit using $analyzer" }
-            // for ((i, edge) in pathEdges.sortedBy { it.toString() }.withIndex()) {
-            //     logger.debug { " - [${i + 1}/${pathEdges.size}] $edge" }
-            // }
 
             // Post-process left-over events:
             withContext(NonCancellable) {

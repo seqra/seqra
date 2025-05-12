@@ -13,8 +13,6 @@ data class IfdsEdge(
         require(from.method == to.method)
     }
 
-    var reason: IfdsEdge? = null
-
     val method: JIRMethod
         get() = from.method
 }
