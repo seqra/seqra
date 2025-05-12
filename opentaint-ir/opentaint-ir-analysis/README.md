@@ -1,4 +1,4 @@
-# The `opentaint-ir-analysis` module
+# Module `opentaint-ir-analysis` 
 
 The `opentaint-ir-analysis` module allows launching application dataflow analyses.
 It contains an API to write custom analyses, and several ready-to-use analyses.

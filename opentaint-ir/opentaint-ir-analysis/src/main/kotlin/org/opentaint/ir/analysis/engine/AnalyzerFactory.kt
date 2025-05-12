@@ -20,7 +20,7 @@ interface DomainFact
  * A special [DomainFact] that always holds
  */
 object ZEROFact : DomainFact {
-    override fun toString(): String = "[ZERO fact]"
+    override fun toString() = "[ZERO fact]"
 }
 
 /**

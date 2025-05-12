@@ -1,6 +1,6 @@
 package org.opentaint.ir.analysis.impl
 
-import io.github.oshai.kotlinlogging.KotlinLogging
+import mu.KotlinLogging
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.engine.SingletonUnitResolver
 import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis

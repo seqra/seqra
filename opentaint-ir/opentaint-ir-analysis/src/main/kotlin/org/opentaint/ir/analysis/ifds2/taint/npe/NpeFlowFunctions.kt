@@ -2,7 +2,7 @@
 
 package org.opentaint.ir.analysis.ifds2.taint.npe
 
-import io.github.oshai.kotlinlogging.KotlinLogging
+import mu.KotlinLogging
 import org.opentaint.ir.analysis.config.BasicConditionEvaluator
 import org.opentaint.ir.analysis.config.CallPositionToAccessPathResolver
 import org.opentaint.ir.analysis.config.CallPositionToJIRValueResolver

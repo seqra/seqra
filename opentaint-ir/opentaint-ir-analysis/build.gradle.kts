@@ -9,7 +9,6 @@ dependencies {
     api(project(":opentaint-ir-taint-configuration"))
 
     implementation(Libs.kotlin_logging)
-    implementation(Libs.kotlin_logging5)
     implementation(Libs.slf4j_simple)
     implementation(Libs.kotlinx_coroutines_core)
     implementation(Libs.kotlinx_serialization_json)

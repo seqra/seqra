@@ -7,8 +7,8 @@ object Versions {
     const val dokka = "1.7.20"
     const val gradle_download = "5.3.0"
     const val gradle_versions = "0.47.0"
-    const val guava = "31.1-jre"
     const val hikaricp = "5.0.1"
+    const val guava = "31.1-jre"
     const val javax_activation = "1.1"
     const val javax_mail = "1.4.7"
     const val javax_servlet_api = "2.5"
@@ -21,7 +21,6 @@ object Versions {
     const val junit = "5.9.2"
     const val kotlin = "1.7.21"
     const val kotlin_logging = "1.8.3"
-    const val kotlin_logging5 = "5.1.0"
     const val kotlinx_benchmark = "0.4.4"
     const val kotlinx_cli = "0.3.5"
     const val kotlinx_collections_immutable = "0.3.5"
@@ -66,13 +65,6 @@ object Libs {
         version = Versions.kotlin_logging
     )
 
-    // https://github.com/oshai/kotlin-logging
-    val kotlin_logging5 = dep(
-        group = "io.github.oshai",
-        name = "kotlin-logging",
-        version = Versions.kotlin_logging5
-    )
-
     // https://github.com/qos-ch/slf4j
     val slf4j_simple = dep(
         group = "org.slf4j",
@@ -107,7 +99,7 @@ object Libs {
     // https://github.com/Kotlin/kotlinx.collections.immutable
     val kotlinx_collections_immutable = dep(
         group = "org.jetbrains.kotlinx",
-        name = "kotlinx-collections-immutable",
+        name = "kotlinx-collections-immutable-jvm",
         version = Versions.kotlinx_collections_immutable
     )
 
@@ -290,48 +282,46 @@ object Libs {
 }
 
 object Plugins {
-    abstract class Plugin(
-        val version: String,
-        val id: String,
-    )
+
+    abstract class ProjectPlugin(val version: String, val id: String)
 
     // https://github.com/Kotlin/dokka
-    object Dokka : Plugin(
+    object Dokka: ProjectPlugin(
         version = Versions.dokka,
         id = "org.jetbrains.dokka"
     )
 
     // https://github.com/michel-kraemer/gradle-download-task
-    object GradleDownload : Plugin(
+    object GradleDownload: ProjectPlugin(
         version = Versions.gradle_download,
         id = "de.undercouch.download"
     )
 
     // https://github.com/ben-manes/gradle-versions-plugin
-    object GradleVersions : Plugin(
+    object GradleVersions: ProjectPlugin(
         version = Versions.gradle_versions,
         id = "com.github.ben-manes.versions"
     )
 
     // https://github.com/Kotlin/kotlinx-benchmark
-    object KotlinxBenchmark : Plugin(
+    object KotlinxBenchmark : ProjectPlugin(
         version = Versions.kotlinx_benchmark,
         id = "org.jetbrains.kotlinx.benchmark"
     )
 
     // https://github.com/CadixDev/licenser
-    object Licenser : Plugin(
+    object Licenser : ProjectPlugin(
         version = Versions.licenser,
         id = "org.cadixdev.licenser"
     )
 
     // https://github.com/johnrengelman/shadow
-    object Shadow : Plugin(
+    object Shadow : ProjectPlugin(
         version = Versions.shadow,
         id = "com.github.johnrengelman.shadow"
     )
 }
 
-fun PluginDependenciesSpec.id(plugin: Plugins.Plugin) {
+fun PluginDependenciesSpec.id(plugin: Plugins.ProjectPlugin) {
     id(plugin.id).version(plugin.version)
 }

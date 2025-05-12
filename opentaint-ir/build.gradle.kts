@@ -188,7 +188,7 @@ if (!repoUrl.isNullOrEmpty()) {
                 register<MavenPublication>("jar") {
                     from(components["java"])
                     artifact(tasks.named("sourcesJar"))
-                    // artifact(tasks.named("dokkaJavadocJar"))
+                    artifact(tasks.named("dokkaJavadocJar"))
 
                     groupId = "org.opentaint.ir"
                     artifactId = project.name

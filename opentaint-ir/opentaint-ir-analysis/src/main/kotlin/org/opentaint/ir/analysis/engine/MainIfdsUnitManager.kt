@@ -1,6 +1,6 @@
 package org.opentaint.ir.analysis.engine
 
-import io.github.oshai.kotlinlogging.KotlinLogging
+import mu.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.consumeEach

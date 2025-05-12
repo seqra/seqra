@@ -1,6 +1,6 @@
 package org.opentaint.ir.analysis.ifds2.taint.npe
 
-import io.github.oshai.kotlinlogging.KotlinLogging
+import mu.KotlinLogging
 import org.opentaint.ir.analysis.config.CallPositionToJIRValueResolver
 import org.opentaint.ir.analysis.config.FactAwareConditionEvaluator
 import org.opentaint.ir.analysis.ifds2.Analyzer

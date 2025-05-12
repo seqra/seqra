@@ -10,12 +10,13 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import mu.KotlinLogging
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.ext.cfg.callExpr
 import java.util.concurrent.ConcurrentHashMap
 
-private val logger = io.github.oshai.kotlinlogging.KotlinLogging.logger {}
+private val logger = KotlinLogging.logger {}
 
 /**
  * This is a basic [IfdsUnitRunnerFactory], which creates one [BaseIfdsUnitRunner] for each [newRunner] call.
