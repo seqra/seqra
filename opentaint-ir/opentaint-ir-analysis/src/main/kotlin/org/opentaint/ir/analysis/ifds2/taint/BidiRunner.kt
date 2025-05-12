@@ -58,7 +58,7 @@ class BidiRunner(
             override fun subscribeOnSummaryEdges(
                 method: JIRMethod,
                 scope: CoroutineScope,
-                handler: suspend (TaintEdge) -> Unit,
+                handler: (TaintEdge) -> Unit,
             ) {
                 manager.subscribeOnSummaryEdges(method, scope, handler)
             }
@@ -91,7 +91,7 @@ class BidiRunner(
             override fun subscribeOnSummaryEdges(
                 method: JIRMethod,
                 scope: CoroutineScope,
-                handler: suspend (TaintEdge) -> Unit,
+                handler: (TaintEdge) -> Unit,
             ) {
                 // TODO: ignore?
                 manager.subscribeOnSummaryEdges(method, scope, handler)

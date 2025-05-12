@@ -11,7 +11,7 @@ interface Manager<out Fact, in Event> {
     fun subscribeOnSummaryEdges(
         method: JIRMethod,
         scope: CoroutineScope,
-        handler: suspend (Edge<Fact>) -> Unit,
+        handler: (Edge<Fact>) -> Unit,
     )
 }
 
