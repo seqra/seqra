@@ -70,12 +70,9 @@ class TaintAnalyzer(
             var triggeredItem: TaintMethodSink? = null
             for (item in config.filterIsInstance<TaintMethodSink>()) {
                 defaultBehavior = false
-                try {
-                    if (item.condition.accept(conditionEvaluator)) {
-                        triggeredItem = item
-                        break
-                    }
-                } catch (_: IllegalStateException) {
+                if (item.condition.accept(conditionEvaluator)) {
+                    triggeredItem = item
+                    break
                 }
                 // FIXME: unconditionally let it be the sink.
                 // triggeredItem = item
@@ -83,7 +80,7 @@ class TaintAnalyzer(
             }
             if (triggeredItem != null) {
                 // logger.info { "Found sink at ${edge.to} in ${edge.method} on $triggeredItem" }
-                val message = "SINK" // TODO
+                val message = triggeredItem.ruleNote
                 val vulnerability = Vulnerability(message, sink = edge.to, edge = edge, rule = triggeredItem)
                 // logger.info { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
                 add(NewVulnerability(vulnerability))
