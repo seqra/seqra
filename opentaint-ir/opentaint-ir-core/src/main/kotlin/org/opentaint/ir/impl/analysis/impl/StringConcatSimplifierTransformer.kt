@@ -36,10 +36,10 @@ class StringConcatSimplifierTransformer(
         return inst
     }
 
-    private val instructionReplacements: MutableMap<JIRInst, JIRInst> = mutableMapOf()
-    private val instructions: MutableList<JIRInst> = mutableListOf()
-    private val catchReplacements: MutableMap<JIRInst, MutableList<JIRInst>> = mutableMapOf()
-    private val instructionIndices: MutableMap<JIRInst, Int> = mutableMapOf()
+    private val instructionReplacements = mutableMapOf<JIRInst, JIRInst>()
+    private val instructions = mutableListOf<JIRInst>()
+    private val catchReplacements = mutableMapOf<JIRInst, MutableList<JIRInst>>()
+    private val instructionIndices = mutableMapOf<JIRInst, Int>()
 
     private val stringType = classpath.findTypeOrNull<String>() as JIRClassType
 

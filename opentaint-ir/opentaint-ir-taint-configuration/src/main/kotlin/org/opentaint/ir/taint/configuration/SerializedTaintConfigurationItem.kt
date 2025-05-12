@@ -2,8 +2,6 @@ package org.opentaint.ir.taint.configuration
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 @Serializable
 sealed interface SerializedTaintConfigurationItem {
@@ -60,30 +58,3 @@ data class SerializedTaintCleaner(
     @SerialName("condition") val condition: Condition,
     @SerialName("actionsAfter") val actionsAfter: List<Action>,
 ) : SerializedTaintConfigurationItem
-
-fun main() {
-    val methodSource = SerializedTaintMethodSource(
-        methodInfo = FunctionMatcher(
-            cls = ClassMatcher(
-                pkg = NameExactMatcher("java.util"),
-                classNameMatcher = NameExactMatcher("Scanner")
-            ),
-            functionName = NamePatternMatcher("findInLine|findWithinHorizon|nextLine|useDelimiter|useLocale|useRadix|skip|reset"),
-            parametersMatchers = emptyList(),
-            returnTypeMatcher = AnyTypeMatcher,
-            applyToOverrides = true,
-            functionLabel = null,
-            modifier = -1,
-            exclude = emptyList()
-        ),
-        condition = ConstantTrue,
-        actionsAfter = listOf(
-            CopyAllMarks(from = This, to = Result)
-        )
-    )
-    val json = Json {
-        prettyPrint = true
-    }
-    val methodSourceJson = json.encodeToString(methodSource)
-    println("methodSource.toJson() = $methodSourceJson")
-}

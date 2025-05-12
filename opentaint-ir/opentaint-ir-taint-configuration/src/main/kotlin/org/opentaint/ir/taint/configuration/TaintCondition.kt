@@ -1,5 +1,3 @@
-@file:Suppress("PublicApiImplicitType")
-
 package org.opentaint.ir.taint.configuration
 
 import kotlinx.serialization.SerialName

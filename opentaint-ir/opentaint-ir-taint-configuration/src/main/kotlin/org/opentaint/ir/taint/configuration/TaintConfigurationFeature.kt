@@ -1,5 +1,3 @@
-@file:Suppress("PublicApiImplicitType")
-
 package org.opentaint.ir.taint.configuration
 
 import kotlinx.serialization.decodeFromString
@@ -103,9 +101,13 @@ class TaintConfigurationFeature private constructor(
         }
 
         val classRules = getClassRules(method.enclosingClass)
+
         val destination = mutableListOf<TaintConfigurationItem>()
+
         classRules.mapNotNullTo(destination) {
+
             val functionMatcher = it.methodInfo
+
             if (!functionMatcher.matches(method)) return@mapNotNullTo null
             it.resolveForMethod(method)
         }
@@ -311,7 +313,7 @@ class TaintConfigurationFeature private constructor(
             val typeMatcher = condition.typeMatcher
 
             if (typeMatcher is AnyTypeMatcher) {
-                return mkTrue()
+                return mkOr(position.map { ConstantTrue })
             }
 
             if (typeMatcher is PrimitiveNameMatcher) {

@@ -45,6 +45,7 @@ val Class<*>.withDB: JIRDatabaseHolder
     }
 
 interface JIRDatabaseHolder {
+
     val classpathFeatures: List<JIRClasspathFeature>
     val db: JIRDatabase
     fun cleanup()
@@ -63,17 +64,6 @@ open class WithDB(vararg features: Any) : JIRDatabaseHolder {
 
     override var db = runBlocking {
         opentaint-ir {
-            val persistentLocation = System.getenv("OPENTAINT_IR_PERSISTENT")
-            if (persistentLocation != null) {
-                persistent(persistentLocation)
-            }
-
-            // val ci = System.getenv("CI")
-            // println("CI=$ci")
-            // if (ci != "true") {
-            //     persistent("/tmp/index.db")
-            // }
-
             loadByteCode(allClasspath)
             useProcessJavaRuntime()
             keepLocalVariableNames()
