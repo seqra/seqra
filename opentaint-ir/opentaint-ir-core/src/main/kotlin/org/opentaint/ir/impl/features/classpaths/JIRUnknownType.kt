@@ -1,25 +1,16 @@
 package org.opentaint.ir.impl.features.classpaths
 
 import org.opentaint.ir.api.*
-import org.opentaint.ir.api.core.TypeName
-import org.opentaint.ir.api.jvm.JIRAnnotation
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRField
-import org.opentaint.ir.api.jvm.JIRLookup
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.JIRProject
-import org.opentaint.ir.api.jvm.JIRRefType
-import org.opentaint.ir.api.jvm.JIRTypeVariableDeclaration
-import org.opentaint.ir.api.jvm.JIRTypedField
-import org.opentaint.ir.api.jvm.JIRTypedMethod
-import org.opentaint.ir.api.jvm.ext.objectType
+import org.opentaint.ir.api.ext.objectType
 import org.opentaint.ir.impl.cfg.util.OBJECT_CLASS
 import org.opentaint.ir.impl.types.TypeNameImpl
 import org.objectweb.asm.Opcodes
 
-class JIRUnknownType(override var classpath: JIRProject, private val name: String, private val location: VirtualLocation) :
-    JIRClassType {
+class JIRUnknownType(
+    override var classpath: JIRClasspath,
+    private val name: String,
+    private val location: VirtualLocation
+) : JIRClassType {
 
     override val lookup: JIRLookup<JIRTypedField, JIRTypedMethod> = JIRUnknownTypeLookup(this)
 
@@ -55,30 +46,36 @@ class JIRUnknownType(override var classpath: JIRProject, private val name: Strin
 
 open class JIRUnknownClassLookup(val clazz: JIRClassOrInterface) : JIRLookup<JIRField, JIRMethod> {
 
-    override fun specialMethod(name: String, description: String): JIRMethod = method(name, description)
-    override fun staticMethod(name: String, description: String): JIRMethod = method(name, description)
+    override fun specialMethod(name: String, description: String): JIRMethod =
+        JIRUnknownMethod.method(clazz, name, access = Opcodes.ACC_PUBLIC, description)
+
+    override fun staticMethod(name: String, description: String): JIRMethod =
+        JIRUnknownMethod.method(clazz, name, access = Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, description)
 
     override fun field(name: String, typeName: TypeName?): JIRField {
         return JIRUnknownField(clazz, name, typeName ?: TypeNameImpl(OBJECT_CLASS))
     }
 
     override fun method(name: String, description: String): JIRMethod {
-        return JIRUnknownMethod.method(clazz, name, description)
+        return JIRUnknownMethod.method(clazz, name, access = Opcodes.ACC_PUBLIC, description)
     }
 
 }
 
 open class JIRUnknownTypeLookup(val type: JIRClassType) : JIRLookup<JIRTypedField, JIRTypedMethod> {
 
-    override fun specialMethod(name: String, description: String): JIRTypedMethod = method(name, description)
-    override fun staticMethod(name: String, description: String): JIRTypedMethod = method(name, description)
+    override fun specialMethod(name: String, description: String): JIRTypedMethod =
+        JIRUnknownMethod.typedMethod(type, name, access = Opcodes.ACC_PUBLIC, description)
+
+    override fun staticMethod(name: String, description: String): JIRTypedMethod =
+        JIRUnknownMethod.typedMethod(type, name, access = Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, description)
 
     override fun field(name: String, typeName: TypeName?): JIRTypedField {
         return JIRUnknownField.typedField(type, name, typeName ?: TypeNameImpl(OBJECT_CLASS))
     }
 
     override fun method(name: String, description: String): JIRTypedMethod {
-        return JIRUnknownMethod.typedMethod(type, name, description)
+        return JIRUnknownMethod.typedMethod(type, name, access = Opcodes.ACC_PUBLIC, description)
     }
 
 }

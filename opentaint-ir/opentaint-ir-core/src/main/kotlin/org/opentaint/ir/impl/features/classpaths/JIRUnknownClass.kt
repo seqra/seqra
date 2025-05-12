@@ -1,10 +1,7 @@
 package org.opentaint.ir.impl.features.classpaths
 
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRClasspathExtFeature
-import org.opentaint.ir.api.jvm.JIRLookup
-import org.opentaint.ir.api.jvm.ext.jIRdbName
+import org.opentaint.ir.api.*
+import org.opentaint.ir.api.ext.jIRdbName
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRResolvedResult.JIRResolvedClassResultImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualClassImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualFieldImpl
@@ -14,16 +11,9 @@ import org.opentaint.ir.impl.types.JIRTypedFieldImpl
 import org.opentaint.ir.impl.types.JIRTypedMethodImpl
 import org.opentaint.ir.impl.types.TypeNameImpl
 import org.opentaint.ir.impl.types.substition.JIRSubstitutorImpl
-import org.opentaint.ir.api.jvm.JIRField
-import org.opentaint.ir.api.jvm.JIRLookupExtFeature
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.JIRProject
-import org.opentaint.ir.api.jvm.JIRTypedField
-import org.opentaint.ir.api.jvm.JIRTypedMethod
-import org.opentaint.ir.api.core.TypeName
 import org.objectweb.asm.Type
 
-class JIRUnknownClass(override var classpath: JIRProject, name: String) : JIRVirtualClassImpl(
+class JIRUnknownClass(override var classpath: JIRClasspath, name: String) : JIRVirtualClassImpl(
     name,
     initialFields = emptyList(),
     initialMethods = emptyList()
@@ -34,28 +24,30 @@ class JIRUnknownClass(override var classpath: JIRProject, name: String) : JIRVir
 class JIRUnknownMethod(
     enclosingClass: JIRClassOrInterface,
     name: String,
+    access: Int,
     description: String,
     returnType: TypeName,
     params: List<TypeName>
 ) : JIRVirtualMethodImpl(
     name,
+    access,
     returnType = returnType,
     parameters = params.mapIndexed { index, typeName -> JIRVirtualParameter(index, typeName) },
     description = description
 ) {
 
     companion object {
-        fun method(type: JIRClassOrInterface, name: String, description: String): JIRMethod {
+        fun method(type: JIRClassOrInterface, name: String, access: Int, description: String): JIRMethod {
             val methodType = Type.getMethodType(description)
             val returnType = TypeNameImpl(methodType.returnType.className.jIRdbName())
             val paramsType = methodType.argumentTypes.map { TypeNameImpl(it.className.jIRdbName()) }
-            return JIRUnknownMethod(type, name, description, returnType, paramsType)
+            return JIRUnknownMethod(type, name, access, description, returnType, paramsType)
         }
 
-        fun typedMethod(type: JIRClassType, name: String, description: String): JIRTypedMethod {
+        fun typedMethod(type: JIRClassType, name: String, access: Int, description: String): JIRTypedMethod {
             return JIRTypedMethodImpl(
                 type,
-                method(type.jIRClass, name, description),
+                method(type.jIRClass, name, access, description),
                 JIRSubstitutorImpl.empty
             )
         }
@@ -124,13 +116,13 @@ object UnknownClasses : JIRClasspathExtFeature {
 
     private val location = VirtualLocation()
 
-    override fun tryFindClass(classpath: JIRProject, name: String): JIRClasspathExtFeature.JIRResolvedClassResult {
+    override fun tryFindClass(classpath: JIRClasspath, name: String): JIRClasspathExtFeature.JIRResolvedClassResult {
         return JIRResolvedClassResultImpl(name, JIRUnknownClass(classpath, name).also {
             it.bind(classpath, location)
         })
     }
 
-    override fun tryFindType(classpath: JIRProject, name: String): JIRClasspathExtFeature.JIRResolvedTypeResult {
+    override fun tryFindType(classpath: JIRClasspath, name: String): JIRClasspathExtFeature.JIRResolvedTypeResult {
         return AbstractJIRResolvedResult.JIRResolvedTypeResultImpl(name, JIRUnknownType(classpath, name, location))
     }
 }
@@ -172,4 +164,4 @@ object UnknownClassMethodsAndFields : JIRLookupExtFeature {
     }
 }
 
-val JIRProject.isResolveAllToUnknown: Boolean get() = isInstalled(UnknownClasses)
+val JIRClasspath.isResolveAllToUnknown: Boolean get() = isInstalled(UnknownClasses)
