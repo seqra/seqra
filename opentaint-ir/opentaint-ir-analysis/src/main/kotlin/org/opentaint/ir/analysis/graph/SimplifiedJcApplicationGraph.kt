@@ -118,14 +118,16 @@ internal class SimplifiedJIRApplicationGraph(
     override fun entryPoints(method: JIRMethod): Sequence<JIRInst> = try {
         sequenceOf(getStartInst(method))
     } catch (e: Throwable) {
+        // we couldn't find instructions list
+        // TODO: maybe fix flowGraph()
         emptySequence()
     }
 
     override fun exitPoints(method: JIRMethod): Sequence<JIRInst> = try {
         graph.exitPoints(method)
     } catch (e: Throwable) {
+        // we couldn't find instructions list
+        // TODO: maybe fix flowGraph()
         emptySequence()
     }
-
-    companion object
 }
