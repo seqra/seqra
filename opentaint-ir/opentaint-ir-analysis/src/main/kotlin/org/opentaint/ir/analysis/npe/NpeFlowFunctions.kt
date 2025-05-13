@@ -139,15 +139,10 @@ class ForwardNpeFlowFunctions(
                 if (item.condition.accept(conditionEvaluator)) {
                     for (action in item.actionsAfter) {
                         val result = when (action) {
-                            is AssignMark -> {
-                                actionEvaluator.evaluate(action)
-                            }
-
+                            is AssignMark -> actionEvaluator.evaluate(action)
                             else -> error("$action is not supported for $item")
                         }
-                        result.onSome {
-                            addAll(it)
-                        }
+                        result.onSome { addAll(it) }
                     }
                 }
             }
@@ -407,10 +402,7 @@ class ForwardNpeFlowFunctions(
                         if (item.condition.accept(conditionEvaluator)) {
                             for (action in item.actionsAfter) {
                                 val result = when (action) {
-                                    is AssignMark -> {
-                                        actionEvaluator.evaluate(action)
-                                    }
-
+                                    is AssignMark -> actionEvaluator.evaluate(action)
                                     else -> error("$action is not supported for $item")
                                 }
                                 result.onSome {
@@ -568,7 +560,7 @@ class ForwardNpeFlowFunctions(
             if (callExpr is JIRInstanceCallExpr) {
                 addAll(
                     transmitTaintInstanceToThis(
-                        fact,
+                        fact = fact,
                         at = callStatement,
                         from = callExpr.instance,
                         to = callee.thisInstance
