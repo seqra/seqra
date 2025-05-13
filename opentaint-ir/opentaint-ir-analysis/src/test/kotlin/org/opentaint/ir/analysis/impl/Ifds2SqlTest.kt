@@ -4,8 +4,8 @@ import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.opentaint.ir.analysis.engine.SingletonUnitResolver
 import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
+import org.opentaint.ir.analysis.ifds2.taint.TaintManager
 import org.opentaint.ir.analysis.ifds2.taint.Vulnerability
-import org.opentaint.ir.analysis.ifds2.taint.runTaintAnalysis
 import org.opentaint.ir.analysis.impl.BaseAnalysisTest.Companion.provideClassesForJuliet
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
@@ -24,6 +24,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
+import kotlin.time.Duration.Companion.seconds
 
 private val logger = KotlinLogging.logger {}
 
@@ -118,6 +119,7 @@ class Ifds2SqlTest : BaseTest() {
             cp.newApplicationGraphForAnalysis()
         }
         val unitResolver = SingletonUnitResolver
-        return runTaintAnalysis(graph, unitResolver, methods)
+        val manager = TaintManager(graph, unitResolver)
+        return manager.analyze(methods, timeout = 30.seconds)
     }
 }
