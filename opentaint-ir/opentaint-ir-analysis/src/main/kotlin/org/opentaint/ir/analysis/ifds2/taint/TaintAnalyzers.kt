@@ -98,27 +98,6 @@ class TaintAnalyzer(
                 add(NewVulnerability(vulnerability))
                 // verticesWithTraceGraphNeeded.add(edge.to)
             }
-
-            if (Globals.TAINTED_LOOP_BOUND_SINK) {
-                val statement = edge.to.statement
-                val fact = edge.to.fact
-                if (statement is JIRIfInst && fact is Tainted) {
-                    val loopHeads = loopsCache.getOrPut(statement.location.method) {
-                        statement.location.method.flowGraph().loops.map { it.head }
-                    }
-                    if (statement in loopHeads) {
-                        for (s in statement.condition.operands) {
-                            val p = s.toPath()
-                            if (p == fact.variable) {
-                                val message = "Tainted loop operand"
-                                val vulnerability = Vulnerability(message, sink = edge.to, edge = edge)
-                                logger.debug { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
-                                add(NewVulnerability(vulnerability))
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 
