@@ -222,9 +222,9 @@ class TaintManager(
                 val method = event.edge.method
                 val unit = unitResolver.resolve(method)
                 val otherRunner = runnerForUnit[unit] ?: run {
-                    error("No runner for $unit")
-                    // logger.trace { "Ignoring event=$event for non-existing runner for unit=$unit" }
-                    // return
+                    // error("No runner for $unit")
+                    logger.trace { "Ignoring event=$event for non-existing runner for unit=$unit" }
+                    return
                 }
                 otherRunner.submitNewEdge(event.edge)
             }
