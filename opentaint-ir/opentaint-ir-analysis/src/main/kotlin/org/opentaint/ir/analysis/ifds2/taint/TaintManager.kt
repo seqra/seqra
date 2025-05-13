@@ -41,9 +41,9 @@ class TaintManager(
     private val useBidiRunner: Boolean = false,
 ) : Manager<TaintFact, TaintEvent> {
 
-    private val methodsForUnit: MutableMap<UnitType, MutableSet<JIRMethod>> = hashMapOf()
-    private val runnerForUnit: MutableMap<UnitType, TaintRunner> = hashMapOf()
-    private val queueIsEmpty: MutableMap<UnitType, Boolean> = ConcurrentHashMap()
+    private val methodsForUnit = hashMapOf<UnitType, HashSet<JIRMethod>>()
+    private val runnerForUnit= hashMapOf<UnitType, TaintRunner>()
+    private val queueIsEmpty = ConcurrentHashMap<UnitType, Boolean>()
 
     private val summaryEdgesStorage = SummaryStorageImpl<SummaryEdge>()
     private val vulnerabilitiesStorage = SummaryStorageImpl<Vulnerability>()
