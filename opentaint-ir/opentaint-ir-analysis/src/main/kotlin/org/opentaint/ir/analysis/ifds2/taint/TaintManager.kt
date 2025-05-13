@@ -38,6 +38,7 @@ private val logger = KotlinLogging.logger {}
 class TaintManager(
     private val graph: JIRApplicationGraph,
     private val unitResolver: UnitResolver,
+    private val useBidiRunner: Boolean = false,
 ) : Manager<TaintFact, TaintEvent> {
 
     private val methodsForUnit: MutableMap<UnitType, MutableSet<JIRMethod>> = hashMapOf()
@@ -55,7 +56,7 @@ class TaintManager(
         check(unit !in runnerForUnit) { "Runner for $unit already exists" }
 
         logger.debug { "Creating a new runner for $unit" }
-        val runner = if (Globals.BIDI_RUNNER) {
+        val runner = if (useBidiRunner) {
             BidiRunner(
                 manager = this@TaintManager,
                 unitResolver = unitResolver,
