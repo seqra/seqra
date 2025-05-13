@@ -109,9 +109,6 @@ class UniRunner<Fact, Event>(
             }
 
             // Add edge to worklist:
-            if (workList.isEmpty) {
-                manager.handleControlEvent(queueIsNotEmpty)
-            }
             workList.trySend(edge).getOrThrow()
 
             return true
@@ -125,6 +122,7 @@ class UniRunner<Fact, Event>(
             val edge = workList.tryReceive().getOrElse {
                 manager.handleControlEvent(queueIsEmpty)
                 val edge = workList.receive()
+                manager.handleControlEvent(queueIsNotEmpty)
                 edge
             }
             tabulationAlgorithmStep(edge, this@coroutineScope)
