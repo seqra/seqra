@@ -122,27 +122,3 @@ fun AccessPath?.isDereferencedAt(inst: JIRInst): Boolean {
 
     return inst.operands.any { isDereferencedAt(it) }
 }
-
-internal fun JIRValue.isTaintedWith(fact: JIRValue): Boolean {
-    if (this == fact) {
-        return true
-    }
-
-    return when (this) {
-        is JIRFieldRef -> {
-            if (this.instance != null) {
-                this.instance!!.isTaintedWith(fact)
-            } else {
-                // static field
-                // TODO: ?
-                false
-            }
-        }
-
-        is JIRArrayAccess -> {
-            this.array.isTaintedWith(fact)
-        }
-
-        else -> false
-    }
-}
