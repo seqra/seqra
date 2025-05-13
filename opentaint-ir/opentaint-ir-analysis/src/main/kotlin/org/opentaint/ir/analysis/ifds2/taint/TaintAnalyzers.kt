@@ -77,24 +77,20 @@ class TaintAnalyzer(
                 // break
             }
             if (triggeredItem != null) {
-                // logger.info { "Found sink at ${edge.to} in ${edge.method} on $triggeredItem" }
                 val message = triggeredItem.ruleNote
                 val vulnerability = Vulnerability(message, sink = edge.to, edge = edge, rule = triggeredItem)
                 logger.debug { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
                 add(NewVulnerability(vulnerability))
-                // verticesWithTraceGraphNeeded.add(edge.to)
             }
         }
 
         if (defaultBehavior) {
             // Default ("config"-less) behavior:
             if (isSink(edge.to.statement, edge.to.fact)) {
-                // logger.info { "Found sink at ${edge.to} in ${edge.method}" }
                 val message = "SINK" // TODO
                 val vulnerability = Vulnerability(message, sink = edge.to, edge = edge)
                 logger.debug { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
                 add(NewVulnerability(vulnerability))
-                // verticesWithTraceGraphNeeded.add(edge.to)
             }
         }
     }
