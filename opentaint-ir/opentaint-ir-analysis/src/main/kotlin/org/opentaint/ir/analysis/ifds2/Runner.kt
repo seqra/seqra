@@ -31,12 +31,12 @@ interface Runner<Fact> {
 @Suppress("RecursivePropertyAccessor")
 val Runner<*>.pathEdges: Set<Edge<*>>
     get() = when (this) {
-        is RunnerImpl<*, *> -> pathEdges
+        is UniRunner<*, *> -> pathEdges
         is BidiRunner -> forwardRunner.pathEdges + backwardRunner.pathEdges
         else -> error("Cannot extract pathEdges for $this")
     }
 
-class RunnerImpl<Fact, Event>(
+class UniRunner<Fact, Event>(
     private val graph: JIRApplicationGraph,
     private val analyzer: Analyzer<Fact, Event>,
     private val manager: Manager<Fact, Event>,
@@ -55,7 +55,7 @@ class RunnerImpl<Fact, Event>(
     private val queueIsNotEmpty = QueueEmptinessChanged(runner = this, isEmpty = false)
 
     private val Edge<Fact>.reasons: List<Reason>
-        get() = this@RunnerImpl.reasons[this]!!.toList()
+        get() = this@UniRunner.reasons[this]!!.toList()
 
     override suspend fun run(startMethods: List<JIRMethod>) {
         for (method in startMethods) {
