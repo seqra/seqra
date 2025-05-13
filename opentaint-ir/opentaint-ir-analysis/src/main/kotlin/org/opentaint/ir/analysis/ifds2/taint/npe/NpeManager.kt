@@ -47,9 +47,9 @@ class NpeManager(
     private val unitResolver: UnitResolver,
 ) : Manager<TaintFact, TaintEvent> {
 
-    private val methodsForUnit: MutableMap<UnitType, MutableSet<JIRMethod>> = hashMapOf()
-    private val runnerForUnit: MutableMap<UnitType, TaintRunner> = hashMapOf()
-    private val queueIsEmpty: MutableMap<UnitType, Boolean> = ConcurrentHashMap()
+    private val methodsForUnit = hashMapOf<UnitType, HashSet<JIRMethod>>()
+    private val runnerForUnit = hashMapOf<UnitType, TaintRunner>()
+    private val queueIsEmpty = ConcurrentHashMap<UnitType, Boolean>()
 
     private val summaryEdgesStorage = SummaryStorageImpl<SummaryEdge>()
     private val vulnerabilitiesStorage = SummaryStorageImpl<Vulnerability>()
@@ -71,7 +71,7 @@ class NpeManager(
     private fun addStart(method: JIRMethod) {
         logger.info { "Adding start method: $method" }
         val unit = unitResolver.resolve(method)
-        methodsForUnit.getOrPut(unit) { mutableSetOf() }.add(method)
+        methodsForUnit.getOrPut(unit) { hashSetOf() }.add(method)
         // TODO: val isNew = (...).add(); if (isNew) { deps.forEach { addStart(it) } }
     }
 
