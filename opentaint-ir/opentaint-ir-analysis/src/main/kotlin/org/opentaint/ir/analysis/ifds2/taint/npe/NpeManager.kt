@@ -30,12 +30,9 @@ import org.opentaint.ir.analysis.ifds2.taint.TaintEdge
 import org.opentaint.ir.analysis.ifds2.taint.TaintEvent
 import org.opentaint.ir.analysis.ifds2.taint.TaintFact
 import org.opentaint.ir.analysis.ifds2.taint.TaintRunner
-import org.opentaint.ir.analysis.ifds2.taint.Tainted
 import org.opentaint.ir.analysis.ifds2.taint.Vulnerability
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.taint.configuration.TaintMark
-import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
