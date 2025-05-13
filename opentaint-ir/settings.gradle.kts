@@ -19,12 +19,10 @@ gitHooks {
     createHooks(true)
 }
 
-include("opentaint-ir-api-core")
-include("opentaint-ir-api-jvm")
+include("opentaint-ir-api")
 include("opentaint-ir-core")
 include("opentaint-ir-analysis")
 include("opentaint-ir-examples")
 include("opentaint-ir-benchmarks")
-include("opentaint-ir-cli")
 include("opentaint-ir-approximations")
 include("opentaint-ir-taint-configuration")

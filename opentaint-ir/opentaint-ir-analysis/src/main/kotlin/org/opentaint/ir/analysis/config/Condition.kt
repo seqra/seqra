@@ -1,10 +1,10 @@
 package org.opentaint.ir.analysis.config
 
-import org.opentaint.ir.analysis.ifds2.taint.Tainted
-import org.opentaint.ir.analysis.paths.Maybe
-import org.opentaint.ir.analysis.paths.onSome
-import org.opentaint.ir.analysis.paths.startsWith
-import org.opentaint.ir.analysis.paths.toPath
+import org.opentaint.ir.analysis.taint.Tainted
+import org.opentaint.ir.analysis.ifds.Maybe
+import org.opentaint.ir.analysis.ifds.onSome
+import org.opentaint.ir.analysis.util.startsWith
+import org.opentaint.ir.analysis.ifds.toPath
 import org.opentaint.ir.api.cfg.JIRBool
 import org.opentaint.ir.api.cfg.JIRConstant
 import org.opentaint.ir.api.cfg.JIRInt

@@ -1,0 +1,14 @@
+package org.opentaint.ir.analysis.ifds
+
+interface Analyzer<Fact, out Event> {
+    val flowFunctions: FlowFunctions<Fact>
+
+    fun handleNewEdge(
+        edge: Edge<Fact>,
+    ): List<Event>
+
+    fun handleCrossUnitCall(
+        caller: Vertex<Fact>,
+        callee: Vertex<Fact>,
+    ): List<Event>
+}

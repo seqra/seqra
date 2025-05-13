@@ -1,11 +1,11 @@
 package org.opentaint.ir.analysis.config
 
-import org.opentaint.ir.analysis.paths.AccessPath
-import org.opentaint.ir.analysis.paths.ElementAccessor
-import org.opentaint.ir.analysis.paths.Maybe
-import org.opentaint.ir.analysis.paths.fmap
-import org.opentaint.ir.analysis.paths.toMaybe
-import org.opentaint.ir.analysis.paths.toPathOrNull
+import org.opentaint.ir.analysis.ifds.AccessPath
+import org.opentaint.ir.analysis.ifds.ElementAccessor
+import org.opentaint.ir.analysis.ifds.Maybe
+import org.opentaint.ir.analysis.ifds.fmap
+import org.opentaint.ir.analysis.ifds.toMaybe
+import org.opentaint.ir.analysis.ifds.toPathOrNull
 import org.opentaint.ir.api.cfg.JIRAssignInst
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstanceCallExpr

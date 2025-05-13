@@ -3,13 +3,13 @@ package org.opentaint.ir.analysis.impl
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.analysis.ifds2.FlowFunctions
-import org.opentaint.ir.analysis.ifds2.taint.ForwardTaintFlowFunctions
-import org.opentaint.ir.analysis.ifds2.taint.TaintFact
-import org.opentaint.ir.analysis.ifds2.taint.Tainted
-import org.opentaint.ir.analysis.ifds2.taint.Zero
-import org.opentaint.ir.analysis.library.analyzers.getArgument
-import org.opentaint.ir.analysis.paths.toPath
+import org.opentaint.ir.analysis.ifds.FlowFunctions
+import org.opentaint.ir.analysis.util.getArgument
+import org.opentaint.ir.analysis.ifds.toPath
+import org.opentaint.ir.analysis.taint.ForwardTaintFlowFunctions
+import org.opentaint.ir.analysis.taint.TaintFact
+import org.opentaint.ir.analysis.taint.Tainted
+import org.opentaint.ir.analysis.taint.Zero
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
@@ -40,9 +40,10 @@ class TaintFlowFunctionsTest : BaseTest() {
     companion object : WithDB(Usages, InMemoryHierarchy)
 
     override val cp: JIRClasspath = runBlocking {
-        val defaultConfigResource = this.javaClass.getResourceAsStream("/config_test.json")
-        if (defaultConfigResource != null) {
-            val configJson = defaultConfigResource.bufferedReader().readText()
+        val configFileName = "config_test.json"
+        val configResource = this.javaClass.getResourceAsStream("/$configFileName")
+        if (configResource != null) {
+            val configJson = configResource.bufferedReader().readText()
             val configurationFeature = TaintConfigurationFeature.fromJson(configJson)
             db.classpath(allClasspath, listOf(configurationFeature) + classpathFeatures)
         } else {
@@ -50,13 +51,13 @@ class TaintFlowFunctionsTest : BaseTest() {
         }
     }
 
-    private val stringType = cp.findTypeOrNull<String>() as JIRClassType
-
     private val graph: JIRApplicationGraph = mockk {
         every { callees(any()) } answers {
             sequenceOf(arg<JIRInst>(0).callExpr!!.method.method)
         }
     }
+
+    private val stringType = cp.findTypeOrNull<String>() as JIRClassType
 
     private val testMethod = mockk<JIRMethod> {
         every { name } returns "test"
@@ -106,7 +107,7 @@ class TaintFlowFunctionsTest : BaseTest() {
     fun `test call flow function assign mark`() {
         // "x := test(...)", where 'test' is a source, should result in 'x' to be tainted
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
-        val callStatement = JIRAssignInst(location = mockk(), lhv = x, rhv = mockk<JIRCallExpr>() {
+        val callStatement = JIRAssignInst(location = mockk(), lhv = x, rhv = mockk<JIRCallExpr> {
             every { method } returns mockk {
                 every { method } returns testMethod
             }
@@ -122,7 +123,7 @@ class TaintFlowFunctionsTest : BaseTest() {
     fun `test call flow function remove mark`() {
         // "test(x)", where 'x' is tainted, should result in 'x' NOT to be tainted
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
-        val callStatement = JIRCallInst(location = mockk(), callExpr = mockk<JIRCallExpr>() {
+        val callStatement = JIRCallInst(location = mockk(), callExpr = mockk<JIRCallExpr> {
             every { method } returns mockk {
                 every { method } returns testMethod
             }
@@ -140,7 +141,7 @@ class TaintFlowFunctionsTest : BaseTest() {
         // "y := test(x)" should result in 'y' to be tainted only when 'x' is tainted
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
         val y: JIRLocal = JIRLocalVar(2, "y", stringType)
-        val callStatement = JIRAssignInst(location = mockk(), lhv = y, rhv = mockk<JIRCallExpr>() {
+        val callStatement = JIRAssignInst(location = mockk(), lhv = y, rhv = mockk<JIRCallExpr> {
             every { method } returns mockk {
                 every { method } returns testMethod
             }
@@ -162,15 +163,15 @@ class TaintFlowFunctionsTest : BaseTest() {
     fun `test call to start flow function`() {
         // "test(x)", where 'x' is tainted, should result in 'x' (formal argument of 'test') to be tainted
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
-        val callStatement = JIRCallInst(location = mockk(), callExpr = mockk<JIRCallExpr>() {
+        val callStatement = JIRCallInst(location = mockk(), callExpr = mockk<JIRCallExpr> {
             every { method } returns mockk {
                 every { method } returns testMethod
             }
             every { args } returns listOf(x)
         })
         val flowSpace: FlowFunctions<TaintFact> = ForwardTaintFlowFunctions(cp, graph)
-        val f = flowSpace.obtainCallToStartFlowFunction(callStatement, calleeStart = mockk() {
-            every { location } returns mockk() {
+        val f = flowSpace.obtainCallToStartFlowFunction(callStatement, calleeStart = mockk {
+            every { location } returns mockk {
                 every { method } returns testMethod
             }
         })
@@ -189,7 +190,7 @@ class TaintFlowFunctionsTest : BaseTest() {
     fun `test exit flow function`() {
         // "x := test()" + "return y", where 'y' is tainted, should result in 'x' to be tainted
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
-        val callStatement = JIRAssignInst(location = mockk(), lhv = x, rhv = mockk<JIRCallExpr>() {
+        val callStatement = JIRAssignInst(location = mockk(), lhv = x, rhv = mockk<JIRCallExpr> {
             every { method } returns mockk {
                 every { method } returns testMethod
             }
