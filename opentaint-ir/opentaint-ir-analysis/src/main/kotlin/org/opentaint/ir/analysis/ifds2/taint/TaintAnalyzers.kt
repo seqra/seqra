@@ -82,7 +82,7 @@ class TaintAnalyzer(
                 // logger.info { "Found sink at ${edge.to} in ${edge.method} on $triggeredItem" }
                 val message = triggeredItem.ruleNote
                 val vulnerability = Vulnerability(message, sink = edge.to, edge = edge, rule = triggeredItem)
-                // logger.info { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
+                logger.debug { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
                 add(NewVulnerability(vulnerability))
                 // verticesWithTraceGraphNeeded.add(edge.to)
             }
@@ -94,7 +94,7 @@ class TaintAnalyzer(
                 // logger.info { "Found sink at ${edge.to} in ${edge.method}" }
                 val message = "SINK" // TODO
                 val vulnerability = Vulnerability(message, sink = edge.to, edge = edge)
-                // logger.info { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
+                logger.debug { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
                 add(NewVulnerability(vulnerability))
                 // verticesWithTraceGraphNeeded.add(edge.to)
             }
@@ -112,6 +112,7 @@ class TaintAnalyzer(
                             if (p == fact.variable) {
                                 val message = "Tainted loop operand"
                                 val vulnerability = Vulnerability(message, sink = edge.to, edge = edge)
+                                logger.debug { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
                                 add(NewVulnerability(vulnerability))
                             }
                         }

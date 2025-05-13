@@ -103,6 +103,14 @@ class Runner<Fact, Event>(
 
         // Handle only NEW edges:
         if (pathEdges.add(edge)) {
+            val doPrintOnlyForward = true
+            val doPrintZero = false
+            if (!doPrintOnlyForward || edge.from.statement.toString() == "noop") {
+                if (doPrintZero || edge.to.fact != Zero) {
+                    logger.trace { "Propagating edge=$edge in method=${edge.method.name} with reason=${reason}" }
+                }
+            }
+
             // Send edge to analyzer/manager:
             for (event in analyzer.handleNewEdge(edge)) {
                 manager.handleEvent(event)
