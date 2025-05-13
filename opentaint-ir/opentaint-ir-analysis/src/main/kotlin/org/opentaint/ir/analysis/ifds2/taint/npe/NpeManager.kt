@@ -125,12 +125,6 @@ class NpeManager(
         val stopper = launch(Dispatchers.IO) {
             logger.info { "Stopper job started" }
             stopRendezvous.receive()
-            // delay(100)
-            // @OptIn(ExperimentalCoroutinesApi::class)
-            // if (runnerForUnit.values.any { !it.workList.isEmpty }) {
-            //     logger.warn { "NOT all runners have empty work list" }
-            //     error("?")
-            // }
             logger.info { "Stopping all runners..." }
             allJobs.forEach { it.cancel() }
             logger.info { "Stopper job finished" }
