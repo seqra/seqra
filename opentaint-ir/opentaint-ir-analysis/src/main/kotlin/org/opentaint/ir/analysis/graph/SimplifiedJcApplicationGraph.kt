@@ -30,16 +30,6 @@ internal class SimplifiedJIRApplicationGraph(
 
     private val cache: MutableMap<JIRMethod, List<JIRMethod>> = mutableMapOf()
 
-    private fun getOverrides(method: JIRMethod): List<JIRMethod> {
-        return if (cache.containsKey(method)) {
-            cache[method]!!
-        } else {
-            val res = hierarchyExtension.findOverrides(method).toList()
-            cache[method] = res
-            res
-        }
-    }
-
     // For backward analysis we may want for method to start with "neutral" operation =>
     //  we add noop to the beginning of every method
     private fun getStartInst(method: JIRMethod): JIRNoopInst {
@@ -74,6 +64,16 @@ internal class SimplifiedJIRApplicationGraph(
             else -> {
                 graph.successors(node)
             }
+        }
+    }
+
+    private fun getOverrides(method: JIRMethod): List<JIRMethod> {
+        return if (cache.containsKey(method)) {
+            cache[method]!!
+        } else {
+            val res = hierarchyExtension.findOverrides(method).toList()
+            cache[method] = res
+            res
         }
     }
 
