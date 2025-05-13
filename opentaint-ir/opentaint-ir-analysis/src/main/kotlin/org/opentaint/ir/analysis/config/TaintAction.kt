@@ -1,10 +1,10 @@
 package org.opentaint.ir.analysis.config
 
-import org.opentaint.ir.analysis.taint.Tainted
 import org.opentaint.ir.analysis.ifds.AccessPath
 import org.opentaint.ir.analysis.ifds.Maybe
 import org.opentaint.ir.analysis.ifds.fmap
 import org.opentaint.ir.analysis.ifds.map
+import org.opentaint.ir.analysis.taint.Tainted
 import org.opentaint.ir.taint.configuration.AssignMark
 import org.opentaint.ir.taint.configuration.CopyAllMarks
 import org.opentaint.ir.taint.configuration.CopyMark
