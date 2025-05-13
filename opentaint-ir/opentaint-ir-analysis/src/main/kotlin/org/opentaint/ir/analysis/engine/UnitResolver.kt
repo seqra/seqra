@@ -9,15 +9,31 @@ import org.opentaint.ir.api.ext.packageName
 
 interface UnitType
 
-data class MethodUnit(val method: JIRMethod) : UnitType
+data class MethodUnit(val method: JIRMethod) : UnitType {
+    override fun toString(): String {
+        return "MethodUnit(${method.name})"
+    }
+}
 
-data class ClassUnit(val clazz: JIRClassOrInterface) : UnitType
+data class ClassUnit(val clazz: JIRClassOrInterface) : UnitType {
+    override fun toString(): String {
+        return "ClassUnit(${clazz.simpleName})"
+    }
+}
 
-data class PackageUnit(val packageName: String) : UnitType
+data class PackageUnit(val packageName: String) : UnitType {
+    override fun toString(): String {
+        return "PackageUnit($packageName)"
+    }
+}
 
-object UnknownUnit : UnitType
+object UnknownUnit : UnitType {
+    override fun toString(): String = javaClass.simpleName
+}
 
-object SingletonUnit : UnitType
+object SingletonUnit : UnitType {
+    override fun toString(): String = javaClass.simpleName
+}
 
 /**
  * Sets a mapping from [JIRMethod] to abstract domain [UnitType].
