@@ -61,10 +61,14 @@ class BasicConditionEvaluator(
     }
 
     override fun visit(condition: IsType): Boolean {
+        // Note: TaintConfigurationFeature.ConditionSpecializer is responsible for
+        // expanding IsType condition upon parsing the taint configuration.
         error("Unexpected condition: $condition")
     }
 
     override fun visit(condition: AnnotationType): Boolean {
+        // Note: TaintConfigurationFeature.ConditionSpecializer is responsible for
+        // expanding AnnotationType condition upon parsing the taint configuration.
         error("Unexpected condition: $condition")
     }
 
