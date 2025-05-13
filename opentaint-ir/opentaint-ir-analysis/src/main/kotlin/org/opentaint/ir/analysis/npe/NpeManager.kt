@@ -46,8 +46,8 @@ class NpeManager(
     private val unitResolver: UnitResolver,
 ) : Manager<TaintFact, TaintEvent> {
 
-    private val methodsForUnit = hashMapOf<UnitType, HashSet<JIRMethod>>()
-    private val runnerForUnit = hashMapOf<UnitType, TaintRunner>()
+    private val methodsForUnit: MutableMap<UnitType, MutableSet<JIRMethod>> = hashMapOf()
+    private val runnerForUnit: MutableMap<UnitType, TaintRunner> = hashMapOf()
     private val queueIsEmpty = ConcurrentHashMap<UnitType, Boolean>()
 
     private val summaryEdgesStorage = SummaryStorageImpl<SummaryEdge>()
@@ -198,6 +198,7 @@ class NpeManager(
                 queueIsEmpty[event.runner.unit] = event.isEmpty
                 if (event.isEmpty) {
                     if (runnerForUnit.keys.all { queueIsEmpty[it] == true }) {
+                        logger.debug { "All runners are empty" }
                         stopRendezvous.trySend(Unit).getOrNull()
                     }
                 }
