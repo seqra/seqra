@@ -45,7 +45,7 @@ class BidiRunner(
                 }
             }
 
-            override fun handleControlEvent(event: ControlEvent) {
+            override suspend fun handleControlEvent(event: ControlEvent) {
                 when (event) {
                     is QueueEmptinessChanged -> {
                         forwardQueueIsEmpty = event.isEmpty
@@ -78,7 +78,7 @@ class BidiRunner(
                 }
             }
 
-            override fun handleControlEvent(event: ControlEvent) {
+            override suspend fun handleControlEvent(event: ControlEvent) {
                 when (event) {
                     is QueueEmptinessChanged -> {
                         backwardQueueIsEmpty = event.isEmpty

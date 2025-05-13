@@ -238,7 +238,7 @@ class NpeManager(
         }
     }
 
-    override fun handleControlEvent(event: ControlEvent) {
+    override suspend fun handleControlEvent(event: ControlEvent) {
         when (event) {
             is QueueEmptinessChanged -> {
                 queueIsEmpty[event.runner.unit] = event.isEmpty
