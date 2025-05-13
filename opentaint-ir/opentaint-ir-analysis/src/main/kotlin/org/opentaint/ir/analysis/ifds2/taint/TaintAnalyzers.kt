@@ -37,8 +37,6 @@ class TaintAnalyzer(
         return false
     }
 
-    private val loopsCache: MutableMap<JIRMethod, List<JIRInst>> = hashMapOf()
-
     override fun handleNewEdge(
         edge: TaintEdge,
     ): List<TaintEvent> = buildList {
