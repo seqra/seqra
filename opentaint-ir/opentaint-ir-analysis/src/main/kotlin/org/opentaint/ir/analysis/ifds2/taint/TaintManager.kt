@@ -22,7 +22,7 @@ import org.opentaint.ir.analysis.graph.reversed
 import org.opentaint.ir.analysis.ifds2.ControlEvent
 import org.opentaint.ir.analysis.ifds2.Manager
 import org.opentaint.ir.analysis.ifds2.QueueEmptinessChanged
-import org.opentaint.ir.analysis.ifds2.Runner
+import org.opentaint.ir.analysis.ifds2.RunnerImpl
 import org.opentaint.ir.analysis.ifds2.pathEdges
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
@@ -63,7 +63,7 @@ class TaintManager(
                 unit = unit,
                 { manager ->
                     val analyzer = TaintAnalyzer(graph)
-                    Runner(
+                    RunnerImpl(
                         graph = graph,
                         analyzer = analyzer,
                         manager = manager,
@@ -73,7 +73,7 @@ class TaintManager(
                 },
                 { manager ->
                     val analyzer = BackwardTaintAnalyzer(graph)
-                    Runner(
+                    RunnerImpl(
                         graph = graph.reversed,
                         analyzer = analyzer,
                         manager = manager,
@@ -84,7 +84,7 @@ class TaintManager(
             )
         } else {
             val analyzer = TaintAnalyzer(graph)
-            Runner(graph, analyzer, this@TaintManager, unitResolver, unit)
+            RunnerImpl(graph, analyzer, this@TaintManager, unitResolver, unit)
         }
 
         runnerForUnit[unit] = runner

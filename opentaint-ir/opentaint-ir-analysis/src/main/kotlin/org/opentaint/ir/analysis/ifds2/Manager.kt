@@ -18,6 +18,6 @@ interface Manager<out Fact, in Event> {
 sealed interface ControlEvent
 
 data class QueueEmptinessChanged(
-    val runner: IRunner<*>,
+    val runner: Runner<*>,
     val isEmpty: Boolean,
 ) : ControlEvent
