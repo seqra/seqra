@@ -17,7 +17,6 @@ import org.opentaint.ir.api.cfg.JIRReturnInst
 import org.opentaint.ir.api.cfg.JIRValue
 import org.opentaint.ir.api.ext.cfg.callExpr
 
-@Suppress("PublicApiImplicitType")
 abstract class AbstractTaintBackwardFunctions(
     protected val graph: JIRApplicationGraph,
     protected val maxPathLength: Int,

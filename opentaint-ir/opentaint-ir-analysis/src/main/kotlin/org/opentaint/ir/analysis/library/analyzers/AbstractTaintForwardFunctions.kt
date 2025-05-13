@@ -1,5 +1,3 @@
-@file:Suppress("LiftReturnOrAssignment")
-
 package org.opentaint.ir.analysis.library.analyzers
 
 import mu.KotlinLogging
@@ -40,7 +38,6 @@ import org.opentaint.ir.taint.configuration.TaintPassThrough
 
 private val logger = KotlinLogging.logger {}
 
-@Suppress("PublicApiImplicitType")
 abstract class AbstractTaintForwardFunctions(
     protected val cp: JIRClasspath,
 ) : FlowFunctionsSpace {

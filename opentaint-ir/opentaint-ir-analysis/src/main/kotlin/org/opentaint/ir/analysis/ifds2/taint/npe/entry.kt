@@ -1,5 +1,3 @@
-@file:Suppress("LiftReturnOrAssignment")
-
 package org.opentaint.ir.analysis.ifds2.taint.npe
 
 import org.opentaint.ir.analysis.engine.UnitResolver

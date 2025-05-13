@@ -1,5 +1,3 @@
-@file:Suppress("PublicApiImplicitType")
-
 package org.opentaint.ir.analysis.engine
 
 import org.opentaint.ir.analysis.runAnalysis

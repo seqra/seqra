@@ -1,5 +1,3 @@
-@file:Suppress("LiftReturnOrAssignment")
-
 package org.opentaint.ir.analysis.ifds2.taint.npe
 
 import mu.KotlinLogging
@@ -64,7 +62,6 @@ import org.opentaint.ir.taint.configuration.This
 
 private val logger = KotlinLogging.logger {}
 
-@Suppress("PublicApiImplicitType")
 class ForwardNpeFlowFunctions(
     private val cp: JIRClasspath,
     private val graph: JIRApplicationGraph,

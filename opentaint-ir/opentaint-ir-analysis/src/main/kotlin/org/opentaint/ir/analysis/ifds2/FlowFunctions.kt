@@ -1,5 +1,3 @@
-@file:Suppress("LiftReturnOrAssignment")
-
 package org.opentaint.ir.analysis.ifds2
 
 import org.opentaint.ir.api.JIRMethod
