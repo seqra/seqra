@@ -104,11 +104,11 @@ class TaintManager(
         val unit = unitResolver.resolve(method)
         if (unit == UnknownUnit) return
         val isNew = methodsForUnit.getOrPut(unit) { hashSetOf() }.add(method)
-        if (isNew) {
-            for (dep in getAllCallees(method)) {
-                addStart(dep)
-            }
-        }
+        // if (isNew) {
+        //     for (dep in getAllCallees(method)) {
+        //         addStart(dep)
+        //     }
+        // }
     }
 
     @OptIn(ExperimentalTime::class)
