@@ -98,7 +98,7 @@ class RunnerImpl<Fact, Event>(
             "Propagated edge must be in the same unit"
         }
 
-        reasons.getOrPut(edge) { mutableSetOf() }.add(reason)
+        reasons.computeIfAbsent(edge) { ConcurrentHashMap.newKeySet() }.add(reason)
 
         // Handle only NEW edges:
         if (pathEdges.add(edge)) {
