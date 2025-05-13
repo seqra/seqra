@@ -8,9 +8,9 @@ import org.opentaint.ir.analysis.engine.UnitResolver
 import org.opentaint.ir.analysis.engine.UnitType
 import org.opentaint.ir.analysis.ifds2.ControlEvent
 import org.opentaint.ir.analysis.ifds2.Edge
-import org.opentaint.ir.analysis.ifds2.Runner
 import org.opentaint.ir.analysis.ifds2.Manager
 import org.opentaint.ir.analysis.ifds2.QueueEmptinessChanged
+import org.opentaint.ir.analysis.ifds2.Runner
 import org.opentaint.ir.api.JIRMethod
 
 class BidiRunner(
