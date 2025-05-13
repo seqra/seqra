@@ -299,3 +299,12 @@ class TaintManager(
             .launchIn(scope)
     }
 }
+
+fun runTaintAnalysis(
+    graph: JIRApplicationGraph,
+    unitResolver: UnitResolver,
+    startMethods: List<JIRMethod>,
+): List<Vulnerability> {
+    val manager = TaintManager(graph, unitResolver)
+    return manager.analyze(startMethods)
+}
