@@ -29,6 +29,7 @@ import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.taint.configuration.TaintMark
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.DurationUnit
 import kotlin.time.ExperimentalTime
@@ -114,6 +115,7 @@ class TaintManager(
     @OptIn(ExperimentalTime::class)
     fun analyze(
         startMethods: List<JIRMethod>,
+        timeout: Duration = 3600.seconds,
     ): List<Vulnerability> = runBlocking(Dispatchers.Default) {
         val timeStart = TimeSource.Monotonic.markNow()
 
@@ -170,7 +172,7 @@ class TaintManager(
         allJobs.forEach { it.start() }
 
         // Await all runners:
-        withTimeoutOrNull(3600.seconds) {
+        withTimeoutOrNull(timeout) {
             allJobs.joinAll()
         } ?: run {
             allJobs.forEach { it.cancel() }
