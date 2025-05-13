@@ -262,3 +262,12 @@ class NpeManager(
             .launchIn(scope)
     }
 }
+
+fun runNpeAnalysis(
+    graph: JIRApplicationGraph,
+    unitResolver: UnitResolver,
+    startMethods: List<JIRMethod>,
+): List<Vulnerability> {
+    val manager = NpeManager(graph, unitResolver)
+    return manager.analyze(startMethods)
+}
