@@ -232,16 +232,15 @@ class TaintManager(
         }
     }
 
-    override suspend fun handleControlEvent(event: ControlEvent) {
+    override fun handleControlEvent(event: ControlEvent) {
         when (event) {
             is QueueEmptinessChanged -> {
                 logger.trace { "Runner ${event.runner.unit} is empty: ${event.isEmpty}" }
                 queueIsEmpty[event.runner.unit] = event.isEmpty
                 if (event.isEmpty) {
-                    yield()
                     if (runnerForUnit.keys.all { queueIsEmpty[it] == true }) {
                         logger.debug { "All runners are empty" }
-                        stopRendezvous.send(Unit)
+                        stopRendezvous.trySend(Unit).getOrNull()
                     }
                 }
             }
