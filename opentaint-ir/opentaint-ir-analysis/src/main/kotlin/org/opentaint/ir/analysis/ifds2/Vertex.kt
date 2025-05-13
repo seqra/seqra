@@ -21,6 +21,3 @@ data class Vertex<out Fact>(
         }
     }
 }
-
-fun Vertex<TaintFact>.toIfds(): IfdsVertex =
-    IfdsVertex(statement, fact.toDomainFact())

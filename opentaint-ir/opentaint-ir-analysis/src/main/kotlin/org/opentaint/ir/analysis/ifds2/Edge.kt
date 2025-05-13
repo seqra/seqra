@@ -23,8 +23,6 @@ data class Edge<out Fact>(
     }
 }
 
-fun Edge<TaintFact>.toIfds(): IfdsEdge = IfdsEdge(from.toIfds(), to.toIfds())
-
 sealed class Reason {
 
     object Initial : Reason()
