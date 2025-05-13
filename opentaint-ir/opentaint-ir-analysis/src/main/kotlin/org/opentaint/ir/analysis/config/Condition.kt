@@ -133,7 +133,7 @@ class BasicConditionEvaluator(
 class FactAwareConditionEvaluator(
     private val fact: Tainted,
     private val basicConditionEvaluator: BasicConditionEvaluator,
-) : ConditionVisitor<Boolean> by basicConditionEvaluator {
+) : ConditionVisitor<Boolean> {
 
     constructor(
         fact: Tainted,
@@ -151,4 +151,31 @@ class FactAwareConditionEvaluator(
         return false
     }
 
+    override fun visit(condition: And): Boolean {
+        return condition.args.all { it.accept(this) }
+    }
+
+    override fun visit(condition: Or): Boolean {
+        return condition.args.any { it.accept(this) }
+    }
+
+    override fun visit(condition: Not): Boolean {
+        return !condition.arg.accept(this)
+    }
+
+    override fun visit(condition: ConstantTrue): Boolean {
+        return true
+    }
+
+    override fun visit(condition: IsConstant): Boolean = basicConditionEvaluator.visit(condition)
+    override fun visit(condition: IsType): Boolean = basicConditionEvaluator.visit(condition)
+    override fun visit(condition: AnnotationType): Boolean = basicConditionEvaluator.visit(condition)
+    override fun visit(condition: ConstantEq): Boolean = basicConditionEvaluator.visit(condition)
+    override fun visit(condition: ConstantLt): Boolean = basicConditionEvaluator.visit(condition)
+    override fun visit(condition: ConstantGt): Boolean = basicConditionEvaluator.visit(condition)
+    override fun visit(condition: ConstantMatches): Boolean = basicConditionEvaluator.visit(condition)
+    override fun visit(condition: SourceFunctionMatches): Boolean = basicConditionEvaluator.visit(condition)
+    override fun visit(condition: TypeMatches): Boolean = basicConditionEvaluator.visit(condition)
+
+    override fun visit(condition: Condition): Boolean = basicConditionEvaluator.visit(condition)
 }
