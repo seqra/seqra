@@ -1,7 +1,7 @@
 package org.opentaint.ir.analysis.impl
 
-import mu.KotlinLogging
 import kotlinx.coroutines.runBlocking
+import mu.KotlinLogging
 import org.opentaint.ir.analysis.engine.SingletonUnitResolver
 import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
 import org.opentaint.ir.analysis.ifds2.taint.Vulnerability
@@ -85,7 +85,7 @@ class Ifds2SqlTest : BaseTest() {
     }
 
     private fun testSingleJulietClass(className: String) {
-        println(className)
+        logger.info { className }
 
         val clazz = cp.findClass(className)
         val badMethod = clazz.methods.single { it.name == "bad" }
