@@ -104,27 +104,6 @@ abstract class TaintAnalyzer(
     override val isMainAnalyzer: Boolean
         get() = true
 
-    // private val skipped: MutableMap<JIRMethod, Boolean> = mutableMapOf()
-    // override fun isSkipped(method: JIRMethod): Boolean {
-    //     return skipped.getOrPut(method) {
-    //         // TODO: read the config and assign True if there is a MethodSource item, and False otherwise.
-    //         // Note: the computed value is cached.
-    //
-    //         fun <T> magic(): T = TODO()
-    //         val current: JIRInst = magic()
-    //         val conditionEvaluator = BasicConditionEvaluator(CallPositionToJIRValueResolver(current))
-    //
-    //         // FIXME: we need the call itself in order to evaluate the condition
-    //         for (item in config.items) {
-    //             if (item is TaintMethodSource) {
-    //                 item.condition.accept(conditionEvaluator)
-    //             }
-    //         }
-    //
-    //         TODO()
-    //     }
-    // }
-
     protected abstract fun generateDescriptionForSink(sink: IfdsVertex): VulnerabilityDescription
 
     override fun handleNewEdge(edge: IfdsEdge): List<AnalysisDependentEvent> = buildList {

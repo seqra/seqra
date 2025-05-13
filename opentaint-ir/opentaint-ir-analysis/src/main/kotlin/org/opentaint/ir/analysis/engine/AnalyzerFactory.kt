@@ -70,8 +70,6 @@ interface FlowFunctionsSpace {
 interface Analyzer {
     val flowFunctions: FlowFunctionsSpace
 
-    fun isSkipped(method: JIRMethod): Boolean = false
-
     /**
      * This method is called by [BaseIfdsUnitRunner] each time a new path edge is found.
      *

@@ -164,12 +164,6 @@ class RunnerImpl<Fact, Event>(
 
             // Propagate through the call:
             for (callee in currentCallees) {
-                // TODO: check whether we need to analyze the callee (or it was skipped due to MethodSource)
-                if (analyzer.isSkipped(callee)) {
-                    logger.info { "Skipping method $callee" }
-                    continue
-                }
-
                 for (calleeStart in graph.entryPoints(callee)) {
                     val factsAtCalleeStart = flowSpace
                         .obtainCallToStartFlowFunction(current, calleeStart)
