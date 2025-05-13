@@ -95,18 +95,22 @@ class SummaryStorageImpl<T> : SummaryStorage<T>
     private val summaries: MutableMap<JIRMethod, MutableSet<T>> = ConcurrentHashMap()
     private val outFlows: MutableMap<JIRMethod, MutableSharedFlow<T>> = ConcurrentHashMap()
 
+    private fun getFlow(method: JIRMethod): MutableSharedFlow<T> {
+        return outFlows.getOrPut(method) {
+            MutableSharedFlow(replay = Int.MAX_VALUE)
+        }
+    }
+
     override fun add(fact: T) {
         val isNew = summaries.computeIfAbsent(fact.method) { ConcurrentHashMap.newKeySet() }.add(fact)
         if (isNew) {
-            val flow = outFlows.computeIfAbsent(fact.method) {
-                MutableSharedFlow(replay = Int.MAX_VALUE)
-            }
+            val flow = getFlow(fact.method)
             check(flow.tryEmit(fact))
         }
     }
 
     override fun getFacts(method: JIRMethod): SharedFlow<T> {
-        return outFlows[method] ?: MutableSharedFlow()
+        return getFlow(method)
     }
 
     override fun getCurrentFacts(method: JIRMethod): List<T> {
