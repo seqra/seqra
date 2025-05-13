@@ -1,8 +1,8 @@
 package org.opentaint.ir.analysis.impl
 
-import mu.KotlinLogging
 import juliet.support.AbstractTestCase
 import kotlinx.coroutines.runBlocking
+import mu.KotlinLogging
 import org.opentaint.ir.analysis.engine.VulnerabilityInstance
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
@@ -102,7 +102,7 @@ abstract class BaseAnalysisTest : BaseTest() {
     }
 
     protected fun testSingleJulietClass(vulnerabilityType: String, className: String) {
-        println(className)
+        logger.info { className }
 
         val clazz = cp.findClass(className)
         val badMethod = clazz.methods.single { it.name == "bad" }
