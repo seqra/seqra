@@ -46,7 +46,7 @@ class UniRunner<Fact, Event>(
 
     private val flowSpace: FlowFunctions<Fact> = analyzer.flowFunctions
     private val workList: Channel<Edge<Fact>> = Channel(Channel.UNLIMITED)
-    private val pathEdges = ConcurrentHashMap.newKeySet<Edge<Fact>>()
+    internal val pathEdges: MutableSet<Edge<Fact>> = ConcurrentHashMap.newKeySet()
     private val reasons = ConcurrentHashMap<Edge<Fact>, MutableSet<Reason>>()
     private val summaryEdges = hashMapOf<Vertex<Fact>, HashSet<Vertex<Fact>>>()
     private val callerPathEdgeOf = hashMapOf<Vertex<Fact>, HashSet<Edge<Fact>>>()
