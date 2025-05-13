@@ -13,8 +13,6 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.yield
-import mu.KotlinLogging
 import org.opentaint.ir.analysis.engine.SummaryStorageImpl
 import org.opentaint.ir.analysis.engine.UnitResolver
 import org.opentaint.ir.analysis.engine.UnitType
@@ -239,14 +237,13 @@ class NpeManager(
         }
     }
 
-    override suspend fun handleControlEvent(event: ControlEvent) {
+    override fun handleControlEvent(event: ControlEvent) {
         when (event) {
             is QueueEmptinessChanged -> {
                 queueIsEmpty[event.runner.unit] = event.isEmpty
                 if (event.isEmpty) {
-                    yield()
                     if (runnerForUnit.keys.all { queueIsEmpty[it] == true }) {
-                        stopRendezvous.send(Unit)
+                        stopRendezvous.trySend(Unit).getOrNull()
                     }
                 }
             }

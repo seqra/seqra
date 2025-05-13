@@ -6,7 +6,7 @@ import org.opentaint.ir.api.JIRMethod
 interface Manager<out Fact, in Event> {
     fun handleEvent(event: Event)
 
-    suspend fun handleControlEvent(event: ControlEvent)
+    fun handleControlEvent(event: ControlEvent)
 
     fun subscribeOnSummaryEdges(
         method: JIRMethod,

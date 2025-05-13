@@ -22,7 +22,6 @@ typealias Method = JIRMethod
 typealias Statement = JIRInst
 
 interface IRunner<Fact> {
-
     val unit: UnitType
 
     suspend fun run(startMethods: List<Method>)
@@ -117,7 +116,9 @@ class Runner<Fact, Event>(
             }
 
             // Add edge to worklist:
-            // workList.send(edge)
+            if (workList.isEmpty) {
+                manager.handleControlEvent(QueueEmptinessChanged(this@Runner, false))
+            }
             workList.trySend(edge).getOrThrow()
 
             return true
@@ -131,7 +132,6 @@ class Runner<Fact, Event>(
             val edge = workList.tryReceive().getOrElse {
                 manager.handleControlEvent(QueueEmptinessChanged(this@Runner, true))
                 val edge = workList.receive()
-                manager.handleControlEvent(QueueEmptinessChanged(this@Runner, false))
                 edge
             }
             tabulationAlgorithmStep(edge, this@coroutineScope)

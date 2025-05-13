@@ -13,8 +13,6 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.yield
-import mu.KotlinLogging
 import org.opentaint.ir.analysis.engine.SummaryStorageImpl
 import org.opentaint.ir.analysis.engine.UnitResolver
 import org.opentaint.ir.analysis.engine.UnitType
@@ -56,6 +54,7 @@ class TaintManager(
     ): TaintRunner {
         check(unit !in runnerForUnit) { "Runner for $unit already exists" }
 
+        logger.debug { "Creating a new runner for $unit" }
         val runner = if (Globals.BIDI_RUNNER) {
             BidiRunner(
                 manager = this@TaintManager,
@@ -91,12 +90,24 @@ class TaintManager(
         return runner
     }
 
+    private fun getAllCallees(method: JIRMethod): Set<JIRMethod> {
+        val result: MutableSet<JIRMethod> = hashSetOf()
+        for (inst in method.flowGraph().instructions) {
+            result += graph.callees(inst)
+        }
+        return result
+    }
+
     private fun addStart(method: JIRMethod) {
         logger.info { "Adding start method: $method" }
         val unit = unitResolver.resolve(method)
         if (unit == UnknownUnit) return
-        methodsForUnit.getOrPut(unit) { mutableSetOf() }.add(method)
-        // TODO: val isNew = (...).add(); if (isNew) { deps.forEach { addStart(it) } }
+        val isNew = methodsForUnit.getOrPut(unit) { hashSetOf() }.add(method)
+        if (isNew) {
+            for (dep in getAllCallees(method)) {
+                addStart(dep)
+            }
+        }
     }
 
     @OptIn(ExperimentalTime::class)
@@ -150,7 +161,7 @@ class TaintManager(
             stopRendezvous.receive()
             // delay(100)
             // @OptIn(ExperimentalCoroutinesApi::class)
-            // if (runnerForUnit.values.any { !it.workList.isEmpty }) {
+            // if (runnerForUnit.values.any { !(it as Runner<TaintFact, TaintEvent>).workList.isEmpty }) {
             //     logger.warn { "NOT all runners have empty work list" }
             //     error("?")
             // }
@@ -252,22 +263,24 @@ class TaintManager(
                 val method = event.edge.method
                 val unit = unitResolver.resolve(method)
                 val otherRunner = runnerForUnit[unit] ?: run {
-                    logger.trace { "Ignoring event=$event for non-existing runner for unit=$unit" }
-                    return
+                    error("No runner for $unit")
+                    // logger.trace { "Ignoring event=$event for non-existing runner for unit=$unit" }
+                    // return
                 }
                 otherRunner.submitNewEdge(event.edge)
             }
         }
     }
 
-    override suspend fun handleControlEvent(event: ControlEvent) {
+    override fun handleControlEvent(event: ControlEvent) {
         when (event) {
             is QueueEmptinessChanged -> {
+                logger.trace { "Runner ${event.runner.unit} is empty: ${event.isEmpty}" }
                 queueIsEmpty[event.runner.unit] = event.isEmpty
                 if (event.isEmpty) {
-                    yield()
                     if (runnerForUnit.keys.all { queueIsEmpty[it] == true }) {
-                        stopRendezvous.send(Unit)
+                        logger.debug { "All runners are empty" }
+                        stopRendezvous.trySend(Unit).getOrNull()
                     }
                 }
             }
