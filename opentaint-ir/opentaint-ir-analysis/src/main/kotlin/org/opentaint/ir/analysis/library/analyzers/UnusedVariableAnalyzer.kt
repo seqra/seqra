@@ -61,7 +61,7 @@ class UnusedVariableAnalyzer(graph: JIRApplicationGraph) : AbstractAnalyzer(grap
             return isUsedAt(callExpr)
         }
         if (inst is JIRAssignInst) {
-            if (inst.lhv is JIRArrayAccess && isUsedAt(inst.lhv as JIRArrayAccess)) {
+            if (inst.lhv is JIRArrayAccess && isUsedAt((inst.lhv as JIRArrayAccess))) {
                 return true
             }
             return isUsedAt(inst.rhv) && (inst.lhv !is JIRLocal || inst.rhv !is JIRLocal)
@@ -102,7 +102,7 @@ val UnusedVariableAnalyzerFactory = AnalyzerFactory { graph ->
 }
 
 private class UnusedVariableForwardFunctions(
-    val classpath: JIRClasspath,
+    val classpath: JIRClasspath
 ) : FlowFunctionsSpace {
 
     override fun obtainPossibleStartFacts(startStatement: JIRInst): Collection<DomainFact> {
@@ -136,9 +136,8 @@ private class UnusedVariableForwardFunctions(
         }
 
         if (fromPath == fact.variable) {
-            return@FlowFunctionInstance default + UnusedVariableNode(toPath, fact.initStatement)
+            return@FlowFunctionInstance default.plus(UnusedVariableNode(toPath, fact.initStatement))
         }
-
         default
     }
 
@@ -151,7 +150,7 @@ private class UnusedVariableForwardFunctions(
             if (callExpr !is JIRStaticCallExpr && callExpr !is JIRSpecialCallExpr) {
                 return@FlowFunctionInstance listOf(ZEROFact)
             }
-            return@FlowFunctionInstance formalParams.map { UnusedVariableNode(it.toPath(), callStatement) } + ZEROFact
+            return@FlowFunctionInstance formalParams.map { UnusedVariableNode(it.toPath(), callStatement) }.plus(ZEROFact)
         }
 
         if (fact !is UnusedVariableNode) {

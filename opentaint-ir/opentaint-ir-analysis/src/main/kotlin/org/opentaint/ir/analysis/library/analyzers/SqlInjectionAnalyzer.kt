@@ -8,7 +8,7 @@ import org.opentaint.ir.api.analysis.JIRApplicationGraph
 
 class SqlInjectionAnalyzer(
     graph: JIRApplicationGraph,
-    maxPathLength: Int,
+    maxPathLength: Int
 ) : TaintAnalyzer(graph, maxPathLength) {
     override val generates = isSourceMethodToGenerates(sqlSourceMatchers.asMethodMatchers)
     override val sanitizes = isSanitizeMethodToSanitizes(sqlSanitizeMatchers.asMethodMatchers)
@@ -26,7 +26,7 @@ class SqlInjectionAnalyzer(
 
 class SqlInjectionBackwardAnalyzer(
     graph: JIRApplicationGraph,
-    maxPathLength: Int,
+    maxPathLength: Int
 ) : TaintBackwardAnalyzer(graph, maxPathLength) {
     override val generates = isSourceMethodToGenerates(sqlSourceMatchers.asMethodMatchers)
     override val sinks = isSinkMethodToSinks(sqlSinkMatchers.asMethodMatchers)

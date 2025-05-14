@@ -52,10 +52,7 @@ abstract class TaintNode(
     }
 }
 
-class NpeTaintNode(
-    variable: AccessPath,
-    activation: JIRInst? = null,
-) : TaintNode(variable, activation) {
+class NpeTaintNode(variable: AccessPath, activation: JIRInst? = null): TaintNode(variable, activation) {
     override val nodeType: String
         get() = "NPE"
 

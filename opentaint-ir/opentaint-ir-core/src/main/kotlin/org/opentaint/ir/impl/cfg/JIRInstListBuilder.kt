@@ -312,7 +312,7 @@ class JIRInstListBuilder(
 
     private fun convertBinary(
         expr: JIRRawBinaryExpr,
-        handler: (JIRType, JIRValue, JIRValue) -> JIRBinaryExpr,
+        handler: (JIRType, JIRValue, JIRValue) -> JIRBinaryExpr
     ): JIRBinaryExpr {
         val type = expr.typeName.asType()
         val lhv = expr.lhv.accept(this) as JIRValue
@@ -389,14 +389,10 @@ class JIRInstListBuilder(
     override fun visitJIRRawCastExpr(expr: JIRRawCastExpr): JIRExpr =
         JIRCastExpr(expr.typeName.asType(), expr.operand.accept(this) as JIRValue)
 
-    override fun visitJIRRawNewExpr(expr: JIRRawNewExpr): JIRExpr =
-        JIRNewExpr(expr.typeName.asType())
+    override fun visitJIRRawNewExpr(expr: JIRRawNewExpr): JIRExpr = JIRNewExpr(expr.typeName.asType())
 
     override fun visitJIRRawNewArrayExpr(expr: JIRRawNewArrayExpr): JIRExpr =
-        JIRNewArrayExpr(
-            expr.typeName.asType(),
-            expr.dimensions.map { it.accept(this) as JIRValue }
-        )
+        JIRNewArrayExpr(expr.typeName.asType(), expr.dimensions.map { it.accept(this) as JIRValue })
 
     override fun visitJIRRawInstanceOfExpr(expr: JIRRawInstanceOfExpr): JIRExpr =
         JIRInstanceOfExpr(classpath.boolean, expr.operand.accept(this) as JIRValue, expr.targetType.asType())

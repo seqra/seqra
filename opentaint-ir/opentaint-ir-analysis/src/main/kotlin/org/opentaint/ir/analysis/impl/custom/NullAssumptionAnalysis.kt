@@ -12,7 +12,7 @@ import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstanceCallExpr
 import org.opentaint.ir.api.cfg.JIRLocal
 import org.opentaint.ir.api.cfg.JIRValue
-import org.opentaint.ir.api.ext.cfg.arrayAccess
+import org.opentaint.ir.api.ext.cfg.arrayRef
 import org.opentaint.ir.api.ext.cfg.callExpr
 import org.opentaint.ir.api.ext.cfg.fieldRef
 
@@ -53,7 +53,7 @@ open class NullAssumptionAnalysis(graph: JIRGraph) : BackwardFlowAnalysis<JIRIns
 
         // if we have an array ref, set the info for this ref to TOP,
         // because we need to be conservative here
-        ins.arrayAccess?.let {
+        ins.arrayRef?.let {
             onArrayAccess(it, out)
         }
         // same for field refs, but also set the receiver object to non-null, if there is one

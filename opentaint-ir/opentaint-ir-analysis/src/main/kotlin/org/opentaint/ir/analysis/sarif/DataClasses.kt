@@ -30,10 +30,7 @@ data class SarifPhysicalLocation(val artifactLocation: SarifArtifactLocation, va
 data class SarifLogicalLocation(val fullyQualifiedName: String)
 
 @Serializable
-data class SarifLocation(
-    val physicalLocation: SarifPhysicalLocation,
-    val logicalLocations: List<SarifLogicalLocation>,
-) {
+data class SarifLocation(val physicalLocation: SarifPhysicalLocation, val logicalLocations: List<SarifLogicalLocation>) {
     companion object {
         private val JIRMethod.fullyQualifiedName: String
             get() = "${enclosingClass.name}#${name}"
@@ -85,7 +82,7 @@ data class SarifResult(
     val message: SarifMessage,
     val level: SarifSeverityLevel,
     val locations: List<SarifLocation>,
-    val codeFlows: List<SarifCodeFlow>,
+    val codeFlows: List<SarifCodeFlow>
 ) {
     companion object {
         fun fromVulnerabilityInstance(instance: VulnerabilityInstance, maxPathsCount: Int): SarifResult = SarifResult(
@@ -127,7 +124,7 @@ data class SarifReport(
     @SerialName("\$schema")
     val schema: String,
 
-    val runs: List<SarifRun>,
+    val runs: List<SarifRun>
 ) {
     fun encodeToStream(stream: OutputStream) {
         json.encodeToStream(this, stream)
@@ -148,7 +145,7 @@ data class SarifReport(
 
         fun fromVulnerabilities(
             vulnerabilities: List<VulnerabilityInstance>,
-            pathsCount: Int = defaultPathsCount,
+            pathsCount: Int = defaultPathsCount
         ): SarifReport = SarifReport(
             version = defaultVersion,
             schema = defaultSchema,
@@ -164,20 +161,13 @@ data class SarifReport(
 
 @Serializable
 enum class SarifSeverityLevel {
-    @SerialName("error")
-    ERROR,
-
-    @SerialName("warning")
-    WARNING,
-
-    @SerialName("note")
-    NOTE
+    @SerialName("error") ERROR,
+    @SerialName("warning") WARNING,
+    @SerialName("note") NOTE
 }
 
 data class VulnerabilityDescription(
     val message: SarifMessage,
     val ruleId: String,
-    val level: SarifSeverityLevel = SarifSeverityLevel.WARNING,
-    // TODO: don't miss the triggered rule!
-    // TODO: add val rule: Rule,
+    val level: SarifSeverityLevel = SarifSeverityLevel.WARNING
 )

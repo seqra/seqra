@@ -73,7 +73,7 @@ open class WithDB(vararg features: Any) : JIRDatabaseHolder {
         }
     }
 
-    override fun cleanup() {
+    override  fun cleanup() {
         db.close()
     }
 }
@@ -82,7 +82,7 @@ val globalDb by lazy {
     WithDB(Usages, Builders, InMemoryHierarchy).db
 }
 
-open class WithGlobalDB(vararg _classpathFeatures: JIRClasspathFeature) : JIRDatabaseHolder {
+open class WithGlobalDB(vararg _classpathFeatures: JIRClasspathFeature): JIRDatabaseHolder {
 
     init {
         System.setProperty("org.opentaint.ir.impl.storage.defaultBatchSize", "500")

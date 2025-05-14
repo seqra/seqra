@@ -1,5 +1,4 @@
 @file:JvmName("AnalysisMain")
-
 package org.opentaint.ir.analysis
 
 import kotlinx.serialization.Serializable
@@ -49,7 +48,7 @@ fun runAnalysis(
     unitResolver: UnitResolver,
     ifdsUnitRunnerFactory: IfdsUnitRunnerFactory,
     methods: List<JIRMethod>,
-    timeoutMillis: Long = Long.MAX_VALUE,
+    timeoutMillis: Long = Long.MAX_VALUE
 ): List<VulnerabilityInstance> {
     return MainIfdsUnitManager(graph, unitResolver, ifdsUnitRunnerFactory, methods, timeoutMillis).analyze()
 }

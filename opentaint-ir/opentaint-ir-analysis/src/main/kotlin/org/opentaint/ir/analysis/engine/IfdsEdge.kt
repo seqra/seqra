@@ -31,5 +31,5 @@ sealed interface PredecessorKind {
  */
 data class PathEdgePredecessor(
     val predEdge: IfdsEdge,
-    val kind: PredecessorKind,
+    val kind: PredecessorKind
 )

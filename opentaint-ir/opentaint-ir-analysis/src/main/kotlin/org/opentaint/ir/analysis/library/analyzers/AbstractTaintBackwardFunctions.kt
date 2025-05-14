@@ -26,24 +26,11 @@ abstract class AbstractTaintBackwardFunctions(
         return listOf(ZEROFact)
     }
 
-    abstract fun transmitBackDataFlow(
-        from: JIRValue,
-        to: JIRExpr,
-        atInst: JIRInst,
-        fact: DomainFact,
-        dropFact: Boolean,
-    ): List<DomainFact>
+    abstract fun transmitBackDataFlow(from: JIRValue, to: JIRExpr, atInst: JIRInst, fact: DomainFact, dropFact: Boolean): List<DomainFact>
 
-    abstract fun transmitDataFlowAtNormalInst(
-        inst: JIRInst,
-        nextInst: JIRInst,
-        fact: DomainFact,
-    ): List<DomainFact>
+    abstract fun transmitDataFlowAtNormalInst(inst: JIRInst, nextInst: JIRInst, fact: DomainFact): List<DomainFact>
 
-    override fun obtainSequentFlowFunction(
-        current: JIRInst,
-        next: JIRInst,
-    ) = FlowFunctionInstance { fact ->
+    override fun obtainSequentFlowFunction(current: JIRInst, next: JIRInst) = FlowFunctionInstance { fact ->
         // fact.activation != current needed here to jump over assignment where the fact appeared
         if (current is JIRAssignInst && (fact !is TaintNode || fact.activation != current)) {
             transmitBackDataFlow(current.lhv, current.rhv, current, fact, dropFact = false)
@@ -54,7 +41,7 @@ abstract class AbstractTaintBackwardFunctions(
 
     override fun obtainCallToStartFlowFunction(
         callStatement: JIRInst,
-        callee: JIRMethod,
+        callee: JIRMethod
     ): FlowFunctionInstance = FlowFunctionInstance { fact ->
         val callExpr = callStatement.callExpr ?: error("Call statement should have non-null callExpr")
 
@@ -138,7 +125,7 @@ abstract class AbstractTaintBackwardFunctions(
     override fun obtainExitToReturnSiteFlowFunction(
         callStatement: JIRInst,
         returnSite: JIRInst,
-        exitStatement: JIRInst,
+        exitStatement: JIRInst
     ): FlowFunctionInstance = FlowFunctionInstance { fact ->
         val callExpr = callStatement.callExpr ?: error("Call statement should have non-null callExpr")
         val actualParams = callExpr.args
@@ -151,15 +138,7 @@ abstract class AbstractTaintBackwardFunctions(
             }
 
             if (callExpr is JIRInstanceCallExpr) {
-                addAll(
-                    transmitBackDataFlow(
-                        callee.thisInstance,
-                        callExpr.instance,
-                        exitStatement,
-                        fact,
-                        dropFact = true
-                    )
-                )
+                addAll(transmitBackDataFlow(callee.thisInstance, callExpr.instance, exitStatement, fact, dropFact = true))
             }
 
             if (fact is TaintNode && fact.variable.isStatic) {
