@@ -26,6 +26,7 @@ interface Runner<Fact> {
 
     suspend fun run(startMethods: List<Method>)
     fun submitNewEdge(edge: Edge<Fact>)
+    fun getAggregate(): Aggregate<Fact>
 }
 
 @Suppress("RecursivePropertyAccessor")
@@ -254,7 +255,7 @@ class UniRunner<Fact, Event>(
         return resultFacts
     }
 
-    private fun getAggregate(): Aggregate<Fact> {
+    override fun getAggregate(): Aggregate<Fact> {
         val facts = getFinalFacts()
         return Aggregate(pathEdges, facts, reasons)
     }

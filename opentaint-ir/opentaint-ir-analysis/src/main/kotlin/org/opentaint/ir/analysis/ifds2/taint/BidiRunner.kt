@@ -6,6 +6,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.opentaint.ir.analysis.engine.UnitResolver
 import org.opentaint.ir.analysis.engine.UnitType
+import org.opentaint.ir.analysis.ifds2.Aggregate
 import org.opentaint.ir.analysis.ifds2.ControlEvent
 import org.opentaint.ir.analysis.ifds2.Edge
 import org.opentaint.ir.analysis.ifds2.Manager
@@ -119,5 +120,9 @@ class BidiRunner(
 
         backwardRunnerJob.join()
         forwardRunnerJob.join()
+    }
+
+    override fun getAggregate(): Aggregate<TaintFact> {
+        return forwardRunner.getAggregate()
     }
 }

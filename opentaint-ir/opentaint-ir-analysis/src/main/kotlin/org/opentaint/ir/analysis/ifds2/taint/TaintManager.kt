@@ -19,6 +19,7 @@ import org.opentaint.ir.analysis.engine.UnitResolver
 import org.opentaint.ir.analysis.engine.UnitType
 import org.opentaint.ir.analysis.engine.UnknownUnit
 import org.opentaint.ir.analysis.graph.reversed
+import org.opentaint.ir.analysis.ifds2.Aggregate
 import org.opentaint.ir.analysis.ifds2.ControlEvent
 import org.opentaint.ir.analysis.ifds2.Manager
 import org.opentaint.ir.analysis.ifds2.QueueEmptinessChanged
@@ -256,6 +257,10 @@ class TaintManager(
             .getFacts(method)
             .onEach { handler(it.edge) }
             .launchIn(scope)
+    }
+
+    fun getAggregates() : Map<UnitType, Aggregate<TaintFact>> {
+        return runnerForUnit.mapValues { it.value.getAggregate() }
     }
 }
 
