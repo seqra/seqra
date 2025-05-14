@@ -97,7 +97,7 @@ abstract class TaintAnalyzer(
     abstract val sanitizes: (JIRExpr, TaintNode) -> Boolean
     abstract val sinks: (JIRInst) -> List<TaintAnalysisNode>
 
-    override val flowFunctions: FlowFunctionsSpace by lazy {
+    override val flowFunctions: TaintForwardFunctions by lazy {
         TaintForwardFunctions(graph, maxPathLength, generates, sanitizes)
     }
 
@@ -111,11 +111,8 @@ abstract class TaintAnalyzer(
             val callExpr = edge.to.statement.callExpr ?: return@run false
             val callee = callExpr.method.method
 
-            val config = (flowFunctions as TaintForwardFunctions)
-                .taintConfigurationFeature?.let { feature ->
-                    logger.trace { "Extracting config for $callee" }
-                    feature.getConfigForMethod(callee)
-                } ?: return@run false
+            val config = flowFunctions.taintConfigurationFeature?.getConfigForMethod(callee)
+                ?: return@run false
 
             // TODO: not always we want to skip sinks on ZeroFacts. Some rules might have ConstantTrue or just true (when evaluated with ZeroFact) condition.
             if (edge.to.domainFact !is TaintNode) {
@@ -176,7 +173,7 @@ abstract class TaintBackwardAnalyzer(
     override val isMainAnalyzer: Boolean
         get() = false
 
-    override val flowFunctions: FlowFunctionsSpace by lazy {
+    override val flowFunctions: TaintBackwardFunctions by lazy {
         TaintBackwardFunctions(graph, generates, sinks, maxPathLength)
     }
 
@@ -187,7 +184,7 @@ abstract class TaintBackwardAnalyzer(
     }
 }
 
-private class TaintForwardFunctions(
+class TaintForwardFunctions(
     graph: JIRApplicationGraph,
     private val maxPathLength: Int,
     private val generates: (JIRInst) -> List<DomainFact>,
@@ -298,10 +295,7 @@ private class TaintForwardFunctions(
         add(ZEROFact)
 
         val method = startStatement.location.method
-        val config = taintConfigurationFeature?.let { feature ->
-            logger.trace { "Extracting config for $method" }
-            feature.getConfigForMethod(method)
-        }
+        val config = taintConfigurationFeature?.getConfigForMethod(method)
         if (config != null) {
             val conditionEvaluator = BasicConditionEvaluator { position ->
                 when (position) {
@@ -355,7 +349,7 @@ private class TaintForwardFunctions(
     }
 }
 
-private class TaintBackwardFunctions(
+class TaintBackwardFunctions(
     graph: JIRApplicationGraph,
     val generates: (JIRInst) -> List<DomainFact>,
     val sinks: (JIRInst) -> List<TaintAnalysisNode>,

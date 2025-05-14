@@ -64,10 +64,7 @@ class ForwardTaintFlowFunctions(
         add(Zero)
 
         // Extract initial facts from the config:
-        val config = taintConfigurationFeature?.let { feature ->
-            logger.trace { "Extracting config for $method" }
-            feature.getConfigForMethod(method)
-        }
+        val config = taintConfigurationFeature?.getConfigForMethod(method)
         if (config != null) {
             // Note: both condition and action evaluator require a custom position resolver.
             val conditionEvaluator = BasicConditionEvaluator { position ->
@@ -246,10 +243,7 @@ class ForwardTaintFlowFunctions(
             return@FlowFunction setOf(fact)
         }
 
-        val config = taintConfigurationFeature?.let { feature ->
-            logger.trace { "Extracting config for $callee" }
-            feature.getConfigForMethod(callee)
-        }
+        val config = taintConfigurationFeature?.getConfigForMethod(callee)
 
         // If 'fact' is ZeroFact, handle MethodSource. If there are no suitable MethodSource items, perform default.
         // For other facts (Tainted only?), handle PassThrough/Cleaner items.

@@ -134,10 +134,7 @@ abstract class AbstractTaintForwardFunctions(
             return@FlowFunctionInstance setOf(fact)
         }
 
-        val config = taintConfigurationFeature?.let { feature ->
-            logger.trace { "Extracting config for $callee" }
-            feature.getConfigForMethod(callee)
-        }
+        val config = taintConfigurationFeature?.getConfigForMethod(callee)
 
         if (fact == ZEROFact) {
             val facts = mutableSetOf<Tainted>()

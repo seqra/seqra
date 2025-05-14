@@ -49,10 +49,7 @@ class TaintAnalyzer(
             val callExpr = edge.to.statement.callExpr ?: return@run
             val callee = callExpr.method.method
 
-            val config = taintConfigurationFeature?.let { feature ->
-                logger.trace { "Extracting config for $callee" }
-                feature.getConfigForMethod(callee)
-            } ?: return@run
+            val config = taintConfigurationFeature?.getConfigForMethod(callee) ?: return@run
 
             // TODO: not always we want to skip sinks on Zero facts.
             //  Some rules might have ConstantTrue or just true (when evaluated with Zero fact) condition.
