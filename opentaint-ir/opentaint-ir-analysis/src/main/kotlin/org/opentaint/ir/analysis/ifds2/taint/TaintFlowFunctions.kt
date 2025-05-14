@@ -714,11 +714,12 @@ class BackwardTaintFlowFunctions(
 
         buildSet {
             // Transmit facts on arguments (from 'formal' back to 'actual'), if they are passed by-ref:
-            // TODO: "if passed by-ref" part is not implemented here yet
-            val actualParams = callExpr.args
-            val formalParams = project.getArgumentsOf(callee)
-            for ((formal, actual) in formalParams.zip(actualParams)) {
-                addAll(transmitTaintArgumentFormalToActual(fact, from = formal, to = actual))
+            if (fact.variable.isOnHeap) {
+                val actualParams = callExpr.args
+                val formalParams = project.getArgumentsOf(callee)
+                for ((formal, actual) in formalParams.zip(actualParams)) {
+                    addAll(transmitTaintArgumentFormalToActual(fact, from = formal, to = actual))
+                }
             }
 
             // Transmit facts on instance (from 'this' to 'instance'):
