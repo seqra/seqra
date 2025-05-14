@@ -114,6 +114,8 @@ allprojects {
             classDirectories.setFrom(files(classDirectories.files.map {
                 fileTree(it) {
                     excludes.add("org/opentaint/ir/impl/storage/jooq/**")
+                    excludes.add("org/opentaint/ir/examples/**")
+                    excludes.add("org/opentaint/ir/testing/**")
                 }
             }))
             reports {
