@@ -13,7 +13,6 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.yield
 import mu.KotlinLogging
 import org.opentaint.ir.analysis.engine.SummaryStorageImpl
 import org.opentaint.ir.analysis.engine.UnitResolver

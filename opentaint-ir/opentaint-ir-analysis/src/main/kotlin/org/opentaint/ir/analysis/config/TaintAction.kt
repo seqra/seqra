@@ -59,38 +59,3 @@ class TaintActionEvaluator(
         return setOf(fact)
     }
 }
-
-class FactAwareTaintActionEvaluator(
-    private val fact: Tainted,
-    private val evaluator: TaintActionEvaluator,
-) : TaintActionVisitor<Collection<Tainted>> {
-
-    constructor(
-        fact: Tainted,
-        positionResolver: PositionResolver<AccessPath>,
-    ) : this(fact, TaintActionEvaluator(positionResolver))
-
-    override fun visit(action: CopyAllMarks): Collection<Tainted> {
-        return evaluator.evaluate(action, fact)
-    }
-
-    override fun visit(action: CopyMark): Collection<Tainted> {
-        return evaluator.evaluate(action, fact)
-    }
-
-    override fun visit(action: AssignMark): Collection<Tainted> {
-        return setOf(fact, evaluator.evaluate(action))
-    }
-
-    override fun visit(action: RemoveAllMarks): Collection<Tainted> {
-        return evaluator.evaluate(action, fact)
-    }
-
-    override fun visit(action: RemoveMark): Collection<Tainted> {
-        return evaluator.evaluate(action, fact)
-    }
-
-    override fun visit(action: Action): Collection<Tainted> {
-        error("$this cannot handle $action")
-    }
-}

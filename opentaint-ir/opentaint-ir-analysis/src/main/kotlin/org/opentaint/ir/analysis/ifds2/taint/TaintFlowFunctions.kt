@@ -245,19 +245,6 @@ class ForwardTaintFlowFunctions(
 
         val config = taintConfigurationFeature?.getConfigForMethod(callee)
 
-        // If 'fact' is ZeroFact, handle MethodSource. If there are no suitable MethodSource items, perform default.
-        // For other facts (Tainted only?), handle PassThrough/Cleaner items.
-        // TODO: what to do with "other facts" on CopyAllMarks/RemoveAllMarks?
-
-        // TODO: the call-to-return flow function should also return (or somehow mark internally)
-        //  whether we need to analyze the callee. For example, when we have MethodSource,
-        //  PassThrough or Cleaner for a call statement, we do not need to analyze the callee at all.
-        //  However, when we do not have such items in our config, we have to perform the whole analysis
-        //  of the callee: calling call-to-start flow function, launching the analysis of the callee,
-        //  awaiting for summary edges, and finally executing the exit-to-return flow function.
-        //  In such case, the call-to-return flow function should return empty list of facts,
-        //  since they are going to be "handled by the summary edge".
-
         if (fact == Zero) {
             return@FlowFunction buildSet {
                 add(Zero)
@@ -284,12 +271,6 @@ class ForwardTaintFlowFunctions(
             }
         }
         check(fact is Tainted)
-
-        // TODO: handle 'activation' (c.f. Boomerang) here
-
-        // if (config == null) {
-        //     return@FlowFunction emptyList()
-        // }
 
         if (config != null) {
             val facts = mutableSetOf<Tainted>()
@@ -501,16 +482,6 @@ class BackwardTaintFlowFunctions(
         val toPath = to.toPathOrNull()
 
         if (toPath != null) {
-            // TODO: think about arrays here
-            // // Adhoc taint array:
-            // if (fromPath.accesses.isNotEmpty()
-            //     && fromPath.accesses.last() is ElementAccessor
-            //     && fromPath.copy(accesses = fromPath.accesses.dropLast(1)) == fact.variable
-            // ) {
-            //     val newTaint = fact.copy(variable = toPath)
-            //     return setOf(fact, newTaint)
-            // }
-
             val tail = fact.variable - fromPath
             if (tail != null) {
                 // Both 'from' and 'to' are tainted now:

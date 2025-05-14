@@ -112,11 +112,6 @@ class BackwardTaintAnalyzer(
         return statement in graph.exitPoints(statement.location.method)
     }
 
-    private fun isSink(statement: JIRInst, fact: TaintFact): Boolean {
-        // TODO
-        return false
-    }
-
     override fun handleNewEdge(
         edge: TaintEdge,
     ): List<TaintEvent> = buildList {
