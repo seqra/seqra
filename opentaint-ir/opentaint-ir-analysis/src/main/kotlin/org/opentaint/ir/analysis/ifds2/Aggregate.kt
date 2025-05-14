@@ -15,9 +15,8 @@ class Aggregate<Fact>(
 
     fun buildTraceGraph(sink: Vertex<Fact>): TraceGraph<Fact> {
         val sources: MutableSet<Vertex<Fact>> = hashSetOf()
-        val edges: MutableMap<Vertex<Fact>, MutableSet<Vertex<Fact>>> =
-            hashMapOf()
-        val visited: MutableSet<Edge<Fact>> = hashSetOf()
+        val edges: MutableMap<Vertex<Fact>, MutableSet<Vertex<Fact>>> = hashMapOf()
+        val visited: MutableSet<Pair<Edge<Fact>, Vertex<Fact>>> = hashSetOf()
 
         fun addEdge(
             from: Vertex<Fact>,
@@ -33,10 +32,11 @@ class Aggregate<Fact>(
             lastVertex: Vertex<Fact>,
             stopAtMethodStart: Boolean,
         ) {
-            if (!visited.add(edge)) {
+            if (!visited.add(edge to lastVertex)) {
                 return
             }
 
+            // Note: loop-edge represents method start
             if (stopAtMethodStart && edge.from == edge.to) {
                 addEdge(edge.from, lastVertex)
                 return
@@ -96,7 +96,6 @@ class Aggregate<Fact>(
                     }
 
                     is Reason.Initial -> {
-                        // TODO: check
                         sources.add(vertex)
                         addEdge(edge.to, lastVertex)
                     }
