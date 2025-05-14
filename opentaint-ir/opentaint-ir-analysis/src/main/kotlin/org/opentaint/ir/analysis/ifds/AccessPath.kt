@@ -73,9 +73,13 @@ data class AccessPath internal constructor(
 }
 
 fun JIRExpr.toPathOrNull(): AccessPath? = when (this) {
-    is JIRSimpleValue -> AccessPath.from(this)
-
+    is JIRValue -> toPathOrNull()
     is JIRCastExpr -> operand.toPathOrNull()
+    else -> null
+}
+
+fun JIRValue.toPathOrNull(): AccessPath? = when (this) {
+    is JIRSimpleValue -> AccessPath.from(this)
 
     is JIRArrayAccess -> {
         array.toPathOrNull()?.let {
