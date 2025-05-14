@@ -28,7 +28,7 @@ object Versions {
     const val kotlinx_metadata = "0.5.0"
     const val kotlinx_serialization = "1.4.1"
     const val licenser = "0.6.1"
-    const val mockito = "4.8.0"
+    const val mockk = "1.13.3"
     const val shadow = "8.1.1"
     const val slf4j = "1.7.36"
     const val soot_opentaint_fork = "4.4.0-FORK-2"
@@ -203,11 +203,11 @@ object Libs {
         version = Versions.jdot
     )
 
-    // https://github.com/mockito/mockito
-    val mockito_core = dep(
-        group = "org.mockito",
-        name = "mockito-core",
-        version = Versions.mockito
+    // https://github.com/mockk/mockk
+    val mockk = dep(
+        group = "io.mockk",
+        name = "mockk",
+        version = Versions.mockk
     )
 
     // https://github.com/JetBrains/java-annotations

@@ -21,4 +21,5 @@ dependencies {
     for (cweNum in listOf(89, 476, 563, 690)) {
         testImplementation(Libs.juliet_cwe(cweNum))
     }
+    testImplementation(Libs.mockk)
 }
