@@ -16,11 +16,14 @@ dependencies {
 
     testImplementation(testFixtures(project(":opentaint-ir-core")))
     testImplementation(project(":opentaint-ir-api"))
+    testImplementation(kotlin("test"))
+    testImplementation(Libs.mockk)
+
+    // Additional deps for analysis:
     testImplementation(files("src/test/resources/pointerbench.jar"))
     testImplementation(Libs.joda_time)
     testImplementation(Libs.juliet_support)
     for (cweNum in listOf(89, 476, 563, 690)) {
         testImplementation(Libs.juliet_cwe(cweNum))
     }
-    testImplementation(Libs.mockk)
 }

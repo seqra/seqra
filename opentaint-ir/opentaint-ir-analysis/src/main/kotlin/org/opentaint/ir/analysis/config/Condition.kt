@@ -41,20 +41,20 @@ open class BasicConditionEvaluator(
         return false
     }
 
-    override fun visit(condition: And): Boolean {
-        return condition.args.all { it.accept(this) }
-    }
-
-    override fun visit(condition: Or): Boolean {
-        return condition.args.any { it.accept(this) }
+    override fun visit(condition: ConstantTrue): Boolean {
+        return true
     }
 
     override fun visit(condition: Not): Boolean {
         return !condition.arg.accept(this)
     }
 
-    override fun visit(condition: ConstantTrue): Boolean {
-        return true
+    override fun visit(condition: And): Boolean {
+        return condition.args.all { it.accept(this) }
+    }
+
+    override fun visit(condition: Or): Boolean {
+        return condition.args.any { it.accept(this) }
     }
 
     override fun visit(condition: IsConstant): Boolean {
@@ -89,8 +89,6 @@ open class BasicConditionEvaluator(
                     // TODO: if 'value' is not string, convert it to string and compare with 'constant.value'
                     value is JIRStringConstant && value.value == constant.value
                 }
-
-                else -> error("Unexpected constant: $constant")
             }
         }
         return false
