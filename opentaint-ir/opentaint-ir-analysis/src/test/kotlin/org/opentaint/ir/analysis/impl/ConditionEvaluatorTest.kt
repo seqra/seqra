@@ -3,7 +3,11 @@ package org.opentaint.ir.analysis.impl
 import io.mockk.every
 import io.mockk.mockk
 import org.opentaint.ir.analysis.config.BasicConditionEvaluator
+import org.opentaint.ir.analysis.config.FactAwareConditionEvaluator
+import org.opentaint.ir.analysis.ifds.Maybe
 import org.opentaint.ir.analysis.ifds.toMaybe
+import org.opentaint.ir.analysis.ifds.toPath
+import org.opentaint.ir.analysis.taint.Tainted
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRPrimitiveType
 import org.opentaint.ir.api.JIRType
@@ -13,6 +17,7 @@ import org.opentaint.ir.api.cfg.JIRBool
 import org.opentaint.ir.api.cfg.JIRInt
 import org.opentaint.ir.api.cfg.JIRStringConstant
 import org.opentaint.ir.api.cfg.JIRThis
+import org.opentaint.ir.api.cfg.JIRValue
 import org.opentaint.ir.taint.configuration.And
 import org.opentaint.ir.taint.configuration.AnnotationType
 import org.opentaint.ir.taint.configuration.Argument
@@ -33,6 +38,7 @@ import org.opentaint.ir.taint.configuration.Not
 import org.opentaint.ir.taint.configuration.Or
 import org.opentaint.ir.taint.configuration.Position
 import org.opentaint.ir.taint.configuration.SourceFunctionMatches
+import org.opentaint.ir.taint.configuration.TaintMark
 import org.opentaint.ir.taint.configuration.This
 import org.opentaint.ir.taint.configuration.TypeMatches
 import org.junit.jupiter.api.Test
@@ -40,7 +46,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class BasicConditionEvaluatorTest {
+class ConditionEvaluatorTest {
 
     private val cp = mockk<JIRClasspath>()
 
@@ -62,7 +68,7 @@ class BasicConditionEvaluatorTest {
     private val thisPos: Position = This
     private val thisValue = JIRThis(type = mockk())
 
-    private val evaluator: ConditionVisitor<Boolean> = BasicConditionEvaluator { position ->
+    private val positionResolver: (position: Position) -> Maybe<JIRValue> = { position ->
         when (position) {
             intArg -> intValue
             boolArg -> boolValue
@@ -71,6 +77,7 @@ class BasicConditionEvaluatorTest {
             else -> null
         }.toMaybe()
     }
+    private val evaluator: ConditionVisitor<Boolean> = BasicConditionEvaluator(positionResolver)
 
     @Test
     fun `True is true`() {
@@ -306,5 +313,16 @@ class BasicConditionEvaluatorTest {
     fun `external Condition is false`() {
         val condition: Condition = mockk()
         assertFalse(evaluator.visit(condition))
+    }
+
+    @Test
+    fun `FactAwareConditionEvaluator supports ContainsMark`() {
+        val fact = Tainted(intValue.toPath(), TaintMark("FOO"))
+        val factAwareEvaluator = FactAwareConditionEvaluator(fact, positionResolver)
+        assertTrue(factAwareEvaluator.visit(ContainsMark(intArg, TaintMark("FOO"))))
+        assertFalse(factAwareEvaluator.visit(ContainsMark(intArg, TaintMark("BAR"))))
+        assertFalse(factAwareEvaluator.visit(ContainsMark(stringArg, TaintMark("FOO"))))
+        assertFalse(factAwareEvaluator.visit(ContainsMark(stringArg, TaintMark("BAR"))))
+        assertFalse(factAwareEvaluator.visit(ContainsMark(position = mockk(), TaintMark("FOO"))))
     }
 }
