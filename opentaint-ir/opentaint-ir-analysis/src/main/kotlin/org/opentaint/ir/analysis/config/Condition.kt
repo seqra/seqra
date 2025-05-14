@@ -1,6 +1,8 @@
 package org.opentaint.ir.analysis.config
 
 import org.opentaint.ir.analysis.ifds2.taint.Tainted
+import org.opentaint.ir.analysis.paths.Maybe
+import org.opentaint.ir.analysis.paths.onSome
 import org.opentaint.ir.analysis.paths.startsWith
 import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.api.cfg.JIRBool
@@ -30,8 +32,8 @@ import org.opentaint.ir.taint.configuration.PositionResolver
 import org.opentaint.ir.taint.configuration.SourceFunctionMatches
 import org.opentaint.ir.taint.configuration.TypeMatches
 
-class BasicConditionEvaluator(
-    internal val positionResolver: PositionResolver<JIRValue>,
+open class BasicConditionEvaluator(
+    internal val positionResolver: PositionResolver<Maybe<JIRValue>>,
 ) : ConditionVisitor<Boolean> {
 
     // Default condition handler:
@@ -56,8 +58,8 @@ class BasicConditionEvaluator(
     }
 
     override fun visit(condition: IsConstant): Boolean {
-        val value = positionResolver.resolve(condition.position)
-        return value is JIRConstant
+        positionResolver.resolve(condition.position).onSome { return it is JIRConstant }
+        return false
     }
 
     override fun visit(condition: IsType): Boolean {
@@ -73,51 +75,59 @@ class BasicConditionEvaluator(
     }
 
     override fun visit(condition: ConstantEq): Boolean {
-        val value = positionResolver.resolve(condition.position)
-        return when (val constant = condition.value) {
-            is ConstantBooleanValue -> {
-                value is JIRBool && value.value == constant.value
-            }
+        positionResolver.resolve(condition.position).onSome { value ->
+            return when (val constant = condition.value) {
+                is ConstantBooleanValue -> {
+                    value is JIRBool && value.value == constant.value
+                }
 
-            is ConstantIntValue -> {
-                value is JIRInt && value.value == constant.value
-            }
+                is ConstantIntValue -> {
+                    value is JIRInt && value.value == constant.value
+                }
 
-            is ConstantStringValue -> {
-                // TODO: if 'value' is not string, convert it to string and compare with 'constant.value'
-                value is JIRStringConstant && value.value == constant.value
-            }
+                is ConstantStringValue -> {
+                    // TODO: if 'value' is not string, convert it to string and compare with 'constant.value'
+                    value is JIRStringConstant && value.value == constant.value
+                }
 
-            else -> error("Unexpected constant: $constant")
+                else -> error("Unexpected constant: $constant")
+            }
         }
+        return false
     }
 
     override fun visit(condition: ConstantLt): Boolean {
-        val value = positionResolver.resolve(condition.position)
-        return when (val constant = condition.value) {
-            is ConstantIntValue -> {
-                value is JIRInt && value.value < constant.value
-            }
+        positionResolver.resolve(condition.position).onSome { value ->
+            return when (val constant = condition.value) {
+                is ConstantIntValue -> {
+                    value is JIRInt && value.value < constant.value
+                }
 
-            else -> error("Unexpected constant: $constant")
+                else -> error("Unexpected constant: $constant")
+            }
         }
+        return false
     }
 
     override fun visit(condition: ConstantGt): Boolean {
-        val value = positionResolver.resolve(condition.position)
-        return when (val constant = condition.value) {
-            is ConstantIntValue -> {
-                value is JIRInt && value.value > constant.value
-            }
+        positionResolver.resolve(condition.position).onSome { value ->
+            return when (val constant = condition.value) {
+                is ConstantIntValue -> {
+                    value is JIRInt && value.value > constant.value
+                }
 
-            else -> error("Unexpected constant: $constant")
+                else -> error("Unexpected constant: $constant")
+            }
         }
+        return false
     }
 
     override fun visit(condition: ConstantMatches): Boolean {
-        val value = positionResolver.resolve(condition.position)
-        val re = condition.pattern.toRegex()
-        return re.matches(value.toString())
+        positionResolver.resolve(condition.position).onSome { value ->
+            val re = condition.pattern.toRegex()
+            return re.matches(value.toString())
+        }
+        return false
     }
 
     override fun visit(condition: SourceFunctionMatches): Boolean {
@@ -129,57 +139,24 @@ class BasicConditionEvaluator(
     }
 
     override fun visit(condition: TypeMatches): Boolean {
-        val value = positionResolver.resolve(condition.position)
-        return value.type.isAssignable(condition.type)
+        positionResolver.resolve(condition.position).onSome { value ->
+            return value.type.isAssignable(condition.type)
+        }
+        return false
     }
 }
 
 class FactAwareConditionEvaluator(
     private val fact: Tainted,
-    private val basicConditionEvaluator: BasicConditionEvaluator,
-) : ConditionVisitor<Boolean> {
-
-    constructor(
-        fact: Tainted,
-        positionResolver: PositionResolver<JIRValue>,
-    ) : this(fact, BasicConditionEvaluator(positionResolver))
+    positionResolver: PositionResolver<Maybe<JIRValue>>,
+) : BasicConditionEvaluator(positionResolver) {
 
     override fun visit(condition: ContainsMark): Boolean {
-        if (fact.mark == condition.mark) {
-            val value = basicConditionEvaluator.positionResolver.resolve(condition.position)
+        if (fact.mark != condition.mark) return false
+        positionResolver.resolve(condition.position).onSome { value ->
             val variable = value.toPath()
-            if (variable.startsWith(fact.variable)) {
-                return true
-            }
+            return variable.startsWith(fact.variable)
         }
         return false
     }
-
-    override fun visit(condition: And): Boolean {
-        return condition.args.all { it.accept(this) }
-    }
-
-    override fun visit(condition: Or): Boolean {
-        return condition.args.any { it.accept(this) }
-    }
-
-    override fun visit(condition: Not): Boolean {
-        return !condition.arg.accept(this)
-    }
-
-    override fun visit(condition: ConstantTrue): Boolean {
-        return true
-    }
-
-    override fun visit(condition: IsConstant): Boolean = basicConditionEvaluator.visit(condition)
-    override fun visit(condition: IsType): Boolean = basicConditionEvaluator.visit(condition)
-    override fun visit(condition: AnnotationType): Boolean = basicConditionEvaluator.visit(condition)
-    override fun visit(condition: ConstantEq): Boolean = basicConditionEvaluator.visit(condition)
-    override fun visit(condition: ConstantLt): Boolean = basicConditionEvaluator.visit(condition)
-    override fun visit(condition: ConstantGt): Boolean = basicConditionEvaluator.visit(condition)
-    override fun visit(condition: ConstantMatches): Boolean = basicConditionEvaluator.visit(condition)
-    override fun visit(condition: SourceFunctionMatches): Boolean = basicConditionEvaluator.visit(condition)
-    override fun visit(condition: TypeMatches): Boolean = basicConditionEvaluator.visit(condition)
-
-    override fun visit(condition: Condition): Boolean = basicConditionEvaluator.visit(condition)
 }

@@ -2,6 +2,9 @@ package org.opentaint.ir.analysis.config
 
 import org.opentaint.ir.analysis.paths.AccessPath
 import org.opentaint.ir.analysis.paths.ElementAccessor
+import org.opentaint.ir.analysis.paths.Maybe
+import org.opentaint.ir.analysis.paths.fmap
+import org.opentaint.ir.analysis.paths.toMaybe
 import org.opentaint.ir.analysis.paths.toPathOrNull
 import org.opentaint.ir.api.cfg.JIRAssignInst
 import org.opentaint.ir.api.cfg.JIRInst
@@ -18,56 +21,31 @@ import org.opentaint.ir.taint.configuration.This
 
 class CallPositionToAccessPathResolver(
     private val callStatement: JIRInst,
-) : PositionResolver<AccessPath> {
+) : PositionResolver<Maybe<AccessPath>> {
     private val callExpr = callStatement.callExpr
         ?: error("Call statement should have non-null callExpr")
 
-    override fun resolve(position: Position): AccessPath = when (position) {
-        AnyArgument -> error("Unexpected $position")
-
-        is Argument -> callExpr.args[position.index].toPathOrNull()
-            ?: error("Cannot resolve $position for $callStatement")
-
-        This -> (callExpr as? JIRInstanceCallExpr)?.instance?.toPathOrNull()
-            ?: error("Cannot resolve $position for $callStatement")
-
-        Result -> if (callStatement is JIRAssignInst) {
-            callStatement.lhv.toPathOrNull()
-        } else {
-            callExpr.toPathOrNull()
-        } ?: error("Cannot resolve $position for $callStatement")
-
-        ResultAnyElement -> {
-            val path = if (callStatement is JIRAssignInst) {
-                callStatement.lhv.toPathOrNull()
-            } else {
-                callExpr.toPathOrNull()
-            } ?: error("Cannot resolve $position for $callStatement")
-            path / ElementAccessor(null)
-        }
+    override fun resolve(position: Position): Maybe<AccessPath> = when (position) {
+        AnyArgument -> Maybe.none()
+        is Argument -> callExpr.args[position.index].toPathOrNull().toMaybe()
+        This -> (callExpr as? JIRInstanceCallExpr)?.instance?.toPathOrNull().toMaybe()
+        Result -> (callStatement as? JIRAssignInst)?.lhv?.toPathOrNull().toMaybe()
+        ResultAnyElement -> (callStatement as? JIRAssignInst)?.lhv?.toPathOrNull().toMaybe()
+            .fmap { it / ElementAccessor(null) }
     }
 }
 
 class CallPositionToJIRValueResolver(
     private val callStatement: JIRInst,
-) : PositionResolver<JIRValue> {
+) : PositionResolver<Maybe<JIRValue>> {
     private val callExpr = callStatement.callExpr
         ?: error("Call statement should have non-null callExpr")
 
-    override fun resolve(position: Position): JIRValue = when (position) {
-        AnyArgument -> error("Unexpected $position")
-
-        is Argument -> callExpr.args[position.index]
-
-        This -> (callExpr as? JIRInstanceCallExpr)?.instance
-            ?: error("Cannot resolve $position for $callStatement")
-
-        Result -> if (callStatement is JIRAssignInst) {
-            callStatement.lhv
-        } else {
-            error("Cannot resolve $position for $callStatement")
-        }
-
-        ResultAnyElement -> error("Cannot resolve $position for $callStatement")
+    override fun resolve(position: Position): Maybe<JIRValue> = when (position) {
+        AnyArgument -> Maybe.none()
+        is Argument -> Maybe.some(callExpr.args[position.index])
+        This -> (callExpr as? JIRInstanceCallExpr)?.instance.toMaybe()
+        Result -> (callStatement as? JIRAssignInst)?.lhv.toMaybe()
+        ResultAnyElement -> Maybe.none()
     }
 }

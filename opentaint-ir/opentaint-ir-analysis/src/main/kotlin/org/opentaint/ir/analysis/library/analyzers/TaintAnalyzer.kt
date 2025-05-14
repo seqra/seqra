@@ -9,7 +9,6 @@ import org.opentaint.ir.analysis.engine.AbstractAnalyzer
 import org.opentaint.ir.analysis.engine.AnalysisDependentEvent
 import org.opentaint.ir.analysis.engine.DomainFact
 import org.opentaint.ir.analysis.engine.EdgeForOtherRunnerQuery
-import org.opentaint.ir.analysis.engine.FlowFunctionsSpace
 import org.opentaint.ir.analysis.engine.IfdsEdge
 import org.opentaint.ir.analysis.engine.IfdsVertex
 import org.opentaint.ir.analysis.engine.NewSummaryFact
@@ -17,8 +16,11 @@ import org.opentaint.ir.analysis.engine.VulnerabilityLocation
 import org.opentaint.ir.analysis.engine.ZEROFact
 import org.opentaint.ir.analysis.ifds2.taint.Tainted
 import org.opentaint.ir.analysis.ifds2.taint.toDomainFact
+import org.opentaint.ir.analysis.paths.Maybe
 import org.opentaint.ir.analysis.paths.minus
+import org.opentaint.ir.analysis.paths.onSome
 import org.opentaint.ir.analysis.paths.startsWith
+import org.opentaint.ir.analysis.paths.toMaybe
 import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.paths.toPathOrNull
 import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
@@ -299,12 +301,12 @@ class TaintForwardFunctions(
         if (config != null) {
             val conditionEvaluator = BasicConditionEvaluator { position ->
                 when (position) {
-                    This -> method.thisInstance
+                    This -> Maybe.some(method.thisInstance)
 
                     is Argument -> method.flowGraph().locals
                         .filterIsInstance<JIRArgument>()
                         .singleOrNull { it.index == position.index }
-                        ?: error("Cannot resolve $position for $method")
+                        .toMaybe()
 
                     AnyArgument -> error("Unexpected $position")
                     Result -> error("Unexpected $position")
@@ -313,18 +315,13 @@ class TaintForwardFunctions(
             }
             val actionEvaluator = TaintActionEvaluator { position ->
                 when (position) {
-                    This -> method.thisInstance.toPathOrNull()
-                        ?: error("Cannot resolve $position for $method")
+                    This -> method.thisInstance.toPathOrNull().toMaybe()
 
                     is Argument -> {
                         val p = method.parameters[position.index]
-                        val t = cp.findTypeOrNull(p.type)
-                        if (t != null) {
-                            JIRArgument.of(p.index, p.name, t).toPathOrNull()
-                        } else {
-                            null
-                        }
-                            ?: error("Cannot resolve $position for $method")
+                        cp.findTypeOrNull(p.type)
+                            ?.let { t -> JIRArgument.of(p.index, p.name, t).toPathOrNull() }
+                            .toMaybe()
                     }
 
                     AnyArgument -> error("Unexpected $position")
@@ -335,12 +332,12 @@ class TaintForwardFunctions(
             for (item in config.filterIsInstance<TaintEntryPointSource>()) {
                 if (item.condition.accept(conditionEvaluator)) {
                     for (action in item.actionsAfter) {
-                        when (action) {
-                            is AssignMark -> {
-                                add(actionEvaluator.evaluate(action).toDomainFact())
-                            }
-
+                        val result = when (action) {
+                            is AssignMark -> actionEvaluator.evaluate(action)
                             else -> error("$action is not supported for $item")
+                        }
+                        result.onSome {
+                            addAll(it.map { fact -> fact.toDomainFact() })
                         }
                     }
                 }

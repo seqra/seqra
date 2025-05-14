@@ -16,9 +16,12 @@ import org.opentaint.ir.analysis.library.analyzers.getArgumentsOf
 import org.opentaint.ir.analysis.library.analyzers.thisInstance
 import org.opentaint.ir.analysis.paths.AccessPath
 import org.opentaint.ir.analysis.paths.ElementAccessor
+import org.opentaint.ir.analysis.paths.Maybe
 import org.opentaint.ir.analysis.paths.isDereferencedAt
 import org.opentaint.ir.analysis.paths.minus
+import org.opentaint.ir.analysis.paths.onSome
 import org.opentaint.ir.analysis.paths.startsWith
+import org.opentaint.ir.analysis.paths.toMaybe
 import org.opentaint.ir.analysis.paths.toPath
 import org.opentaint.ir.analysis.paths.toPathOrNull
 import org.opentaint.ir.api.JIRArrayType
@@ -107,12 +110,12 @@ class ForwardNpeFlowFunctions(
             // Note: both condition and action evaluator require a custom position resolver.
             val conditionEvaluator = BasicConditionEvaluator { position ->
                 when (position) {
-                    This -> method.thisInstance
+                    This -> Maybe.some( method.thisInstance)
 
-                    is Argument -> run {
+                    is Argument -> {
                         val p = method.parameters[position.index]
-                        cp.getArgument(p)
-                    } ?: error("Cannot resolve $position for $method")
+                        cp.getArgument(p).toMaybe()
+                    }
 
                     AnyArgument -> error("Unexpected $position")
                     Result -> error("Unexpected $position")
@@ -121,13 +124,12 @@ class ForwardNpeFlowFunctions(
             }
             val actionEvaluator = TaintActionEvaluator { position ->
                 when (position) {
-                    This -> method.thisInstance.toPathOrNull()
-                        ?: error("Cannot resolve $position for $method")
+                    This -> method.thisInstance.toPathOrNull().toMaybe()
 
-                    is Argument -> run {
+                    is Argument -> {
                         val p = method.parameters[position.index]
-                        cp.getArgument(p)?.toPathOrNull()
-                    } ?: error("Cannot resolve $position for $method")
+                        cp.getArgument(p)?.toPathOrNull().toMaybe()
+                    }
 
                     AnyArgument -> error("Unexpected $position")
                     Result -> error("Unexpected $position")
@@ -139,12 +141,15 @@ class ForwardNpeFlowFunctions(
             for (item in config.filterIsInstance<TaintEntryPointSource>()) {
                 if (item.condition.accept(conditionEvaluator)) {
                     for (action in item.actionsAfter) {
-                        when (action) {
+                        val result = when (action) {
                             is AssignMark -> {
-                                add(actionEvaluator.evaluate(action))
+                                actionEvaluator.evaluate(action)
                             }
 
                             else -> error("$action is not supported for $item")
+                        }
+                        result.onSome {
+                            addAll(it)
                         }
                     }
                 }
@@ -404,12 +409,15 @@ class ForwardNpeFlowFunctions(
                     for (item in config.filterIsInstance<TaintMethodSource>()) {
                         if (item.condition.accept(conditionEvaluator)) {
                             for (action in item.actionsAfter) {
-                                when (action) {
+                                val result = when (action) {
                                     is AssignMark -> {
-                                        add(actionEvaluator.evaluate(action))
+                                        actionEvaluator.evaluate(action)
                                     }
 
                                     else -> error("$action is not supported for $item")
+                                }
+                                result.onSome {
+                                    addAll(it)
                                 }
                             }
                         }
@@ -438,26 +446,17 @@ class ForwardNpeFlowFunctions(
                 // Handle PassThrough config items:
                 for (item in config.filterIsInstance<TaintPassThrough>()) {
                     if (item.condition.accept(conditionEvaluator)) {
-                        defaultBehavior = false
                         for (action in item.actionsAfter) {
-                            when (action) {
-                                is CopyMark -> {
-                                    facts += actionEvaluator.evaluate(action, fact)
-                                }
-
-                                is CopyAllMarks -> {
-                                    facts += actionEvaluator.evaluate(action, fact)
-                                }
-
-                                is RemoveMark -> {
-                                    facts += actionEvaluator.evaluate(action, fact)
-                                }
-
-                                is RemoveAllMarks -> {
-                                    facts += actionEvaluator.evaluate(action, fact)
-                                }
-
+                            val result = when (action) {
+                                is CopyMark -> actionEvaluator.evaluate(action, fact)
+                                is CopyAllMarks -> actionEvaluator.evaluate(action, fact)
+                                is RemoveMark -> actionEvaluator.evaluate(action, fact)
+                                is RemoveAllMarks -> actionEvaluator.evaluate(action, fact)
                                 else -> error("$action is not supported for $item")
+                            }
+                            result.onSome {
+                                facts += it
+                                defaultBehavior = false
                             }
                         }
                     }
@@ -466,18 +465,15 @@ class ForwardNpeFlowFunctions(
                 // Handle Cleaner config items:
                 for (item in config.filterIsInstance<TaintCleaner>()) {
                     if (item.condition.accept(conditionEvaluator)) {
-                        defaultBehavior = false
                         for (action in item.actionsAfter) {
-                            when (action) {
-                                is RemoveMark -> {
-                                    facts += actionEvaluator.evaluate(action, fact)
-                                }
-
-                                is RemoveAllMarks -> {
-                                    facts += actionEvaluator.evaluate(action, fact)
-                                }
-
+                            val result = when (action) {
+                                is RemoveMark -> actionEvaluator.evaluate(action, fact)
+                                is RemoveAllMarks -> actionEvaluator.evaluate(action, fact)
                                 else -> error("$action is not supported for $item")
+                            }
+                            result.onSome {
+                                facts += it
+                                defaultBehavior = false
                             }
                         }
                     }

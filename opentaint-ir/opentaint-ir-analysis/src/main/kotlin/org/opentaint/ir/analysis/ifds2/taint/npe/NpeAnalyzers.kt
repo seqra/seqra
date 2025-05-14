@@ -89,24 +89,20 @@ class NpeAnalyzer(
                 // break
             }
             if (triggeredItem != null) {
-                // logger.info { "Found sink at ${edge.to} in ${edge.method} on $triggeredItem" }
+                logger.trace { "Found sink at ${edge.to} in ${edge.method} on $triggeredItem" }
                 val message = triggeredItem.ruleNote
                 val vulnerability = Vulnerability(message, sink = edge.to, edge = edge, rule = triggeredItem)
-                // logger.info { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
                 add(NewVulnerability(vulnerability))
-                // verticesWithTraceGraphNeeded.add(edge.to)
             }
         }
 
         if (defaultBehavior) {
             // Default ("config"-less) behavior:
             if (isSink(edge.to.statement, edge.to.fact)) {
-                // logger.info { "Found sink at ${edge.to} in ${edge.method}" }
+                logger.trace { "Found sink at ${edge.to} in ${edge.method}" }
                 val message = "SINK" // TODO
                 val vulnerability = Vulnerability(message, sink = edge.to, edge = edge)
-                // logger.info { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
                 add(NewVulnerability(vulnerability))
-                // verticesWithTraceGraphNeeded.add(edge.to)
             }
         }
     }
@@ -118,36 +114,3 @@ class NpeAnalyzer(
         add(EdgeForOtherRunner(TaintEdge(callee, callee)))
     }
 }
-
-// class BackwardTaintAnalyzer(
-//     private val graph: JIRApplicationGraph,
-// ) : Analyzer<TaintFact, TaintEvent> {
-//
-//     override val flowFunctions: BackwardNpeFlowFunctions by lazy {
-//         BackwardNpeFlowFunctions(graph.classpath, graph)
-//     }
-//
-//     private fun isExitPoint(statement: JIRInst): Boolean {
-//         return statement in graph.exitPoints(statement.location.method)
-//     }
-//
-//     private fun isSink(statement: JIRInst, fact: TaintFact): Boolean {
-//         // TODO
-//         return false
-//     }
-//
-//     override fun handleNewEdge(
-//         edge: TaintEdge,
-//     ): List<TaintEvent> = buildList {
-//         if (isExitPoint(edge.to.statement)) {
-//             add(EdgeForOtherRunner(Edge(edge.to, edge.to)))
-//         }
-//     }
-//
-//     override fun handleCrossUnitCall(
-//         caller: TaintVertex,
-//         callee: TaintVertex,
-//     ): List<TaintEvent> {
-//         return emptyList()
-//     }
-// }
