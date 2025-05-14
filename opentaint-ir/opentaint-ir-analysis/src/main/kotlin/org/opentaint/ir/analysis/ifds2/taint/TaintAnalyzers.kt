@@ -5,13 +5,9 @@ import org.opentaint.ir.analysis.config.CallPositionToJIRValueResolver
 import org.opentaint.ir.analysis.config.FactAwareConditionEvaluator
 import org.opentaint.ir.analysis.ifds2.Analyzer
 import org.opentaint.ir.analysis.ifds2.Edge
-import org.opentaint.ir.analysis.paths.toPath
-import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRIfInst
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.ext.cfg.callExpr
-import org.opentaint.ir.impl.cfg.util.loops
 import org.opentaint.ir.taint.configuration.TaintConfigurationFeature
 import org.opentaint.ir.taint.configuration.TaintMethodSink
 
@@ -62,22 +58,14 @@ class TaintAnalyzer(
                 edge.to.fact,
                 CallPositionToJIRValueResolver(edge.to.statement),
             )
-            var triggeredItem: TaintMethodSink? = null
             for (item in config.filterIsInstance<TaintMethodSink>()) {
-                defaultBehavior = false
                 if (item.condition.accept(conditionEvaluator)) {
-                    triggeredItem = item
-                    break
+                    defaultBehavior = false
+                    val message = item.ruleNote
+                    val vulnerability = Vulnerability(message, sink = edge.to, edge = edge, rule = item)
+                    logger.debug { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
+                    add(NewVulnerability(vulnerability))
                 }
-                // FIXME: unconditionally let it be the sink.
-                // triggeredItem = item
-                // break
-            }
-            if (triggeredItem != null) {
-                val message = triggeredItem.ruleNote
-                val vulnerability = Vulnerability(message, sink = edge.to, edge = edge, rule = triggeredItem)
-                logger.debug { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
-                add(NewVulnerability(vulnerability))
             }
         }
 

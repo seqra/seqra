@@ -77,22 +77,14 @@ class NpeAnalyzer(
                 edge.to.fact,
                 CallPositionToJIRValueResolver(edge.to.statement),
             )
-            var triggeredItem: TaintMethodSink? = null
             for (item in config.filterIsInstance<TaintMethodSink>()) {
-                defaultBehavior = false
                 if (item.condition.accept(conditionEvaluator)) {
-                    triggeredItem = item
-                    break
+                    defaultBehavior = false
+                    logger.trace { "Found sink at ${edge.to} in ${edge.method} on $item" }
+                    val message = item.ruleNote
+                    val vulnerability = Vulnerability(message, sink = edge.to, edge = edge, rule = item)
+                    add(NewVulnerability(vulnerability))
                 }
-                // FIXME: unconditionally let it be the sink.
-                // triggeredItem = item
-                // break
-            }
-            if (triggeredItem != null) {
-                logger.trace { "Found sink at ${edge.to} in ${edge.method} on $triggeredItem" }
-                val message = triggeredItem.ruleNote
-                val vulnerability = Vulnerability(message, sink = edge.to, edge = edge, rule = triggeredItem)
-                add(NewVulnerability(vulnerability))
             }
         }
 
