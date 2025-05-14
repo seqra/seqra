@@ -15,7 +15,7 @@ import org.opentaint.ir.analysis.engine.NewSummaryFact
 import org.opentaint.ir.analysis.engine.VulnerabilityLocation
 import org.opentaint.ir.analysis.engine.ZEROFact
 import org.opentaint.ir.analysis.ifds2.taint.Tainted
-import org.opentaint.ir.analysis.ifds2.taint.toDomainFact
+import org.opentaint.ir.analysis.engine.toDomainFact
 import org.opentaint.ir.analysis.paths.Maybe
 import org.opentaint.ir.analysis.paths.minus
 import org.opentaint.ir.analysis.paths.onSome

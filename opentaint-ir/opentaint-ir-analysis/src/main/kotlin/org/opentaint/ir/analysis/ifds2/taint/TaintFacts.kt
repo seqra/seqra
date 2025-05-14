@@ -20,14 +20,3 @@ data class Tainted(
 ) : TaintFact {
     constructor(fact: TaintNode) : this(fact.variable, TaintMark(fact.nodeType))
 }
-
-fun TaintFact.toDomainFact(): DomainFact = when (this) {
-    Zero -> ZEROFact
-
-    is Tainted -> {
-        when (mark.name) {
-            "NPE" -> NpeTaintNode(variable)
-            else -> TaintAnalysisNode(variable, nodeType = mark.name)
-        }
-    }
-}

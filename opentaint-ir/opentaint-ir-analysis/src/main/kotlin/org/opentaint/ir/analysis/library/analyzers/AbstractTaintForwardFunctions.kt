@@ -11,7 +11,7 @@ import org.opentaint.ir.analysis.engine.FlowFunctionInstance
 import org.opentaint.ir.analysis.engine.FlowFunctionsSpace
 import org.opentaint.ir.analysis.engine.ZEROFact
 import org.opentaint.ir.analysis.ifds2.taint.Tainted
-import org.opentaint.ir.analysis.ifds2.taint.toDomainFact
+import org.opentaint.ir.analysis.engine.toDomainFact
 import org.opentaint.ir.analysis.paths.onSome
 import org.opentaint.ir.analysis.paths.startsWith
 import org.opentaint.ir.analysis.paths.toPath
