@@ -1,7 +1,5 @@
 package org.opentaint.ir.analysis.ifds2
 
-import org.opentaint.ir.analysis.engine.IfdsEdge
-import org.opentaint.ir.analysis.ifds2.taint.TaintFact
 import org.opentaint.ir.api.JIRMethod
 
 data class Edge<out Fact>(
@@ -14,13 +12,6 @@ data class Edge<out Fact>(
 
     val method: JIRMethod
         get() = from.method
-
-    companion object {
-        // constructor
-        operator fun invoke(edge: IfdsEdge): Edge<TaintFact> {
-            return Edge(Vertex(edge.from), Vertex(edge.to))
-        }
-    }
 }
 
 sealed class Reason {

@@ -21,12 +21,6 @@ data class Tainted(
     constructor(fact: TaintNode) : this(fact.variable, TaintMark(fact.nodeType))
 }
 
-fun DomainFact.toFact(): TaintFact = when (this) {
-    ZEROFact -> Zero
-    is TaintNode -> Tainted(this)
-    else -> error("Go away") //  object : TaintFact {}
-}
-
 fun TaintFact.toDomainFact(): DomainFact = when (this) {
     Zero -> ZEROFact
 
