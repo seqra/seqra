@@ -1,8 +1,9 @@
 package org.opentaint.ir.analysis.impl;
 
-import org.opentaint.ir.analysis.ifds.UnitResolver;
 import org.opentaint.ir.analysis.graph.ApplicationGraphFactory;
+import org.opentaint.ir.analysis.ifds.UnitResolver;
 import org.opentaint.ir.analysis.ifds.UnitResolverKt;
+import org.opentaint.ir.analysis.taint.TaintManagerKt;
 import org.opentaint.ir.api.JIRClassOrInterface;
 import org.opentaint.ir.api.JIRClasspath;
 import org.opentaint.ir.api.JIRDatabase;
@@ -39,8 +40,8 @@ public class JavaAnalysisApiTest {
         JIRApplicationGraph applicationGraph = ApplicationGraphFactory
                 .newApplicationGraphForAnalysisAsync(classpath, null)
                 .get();
-        UnitResolver resolver = UnitResolverKt.getMethodUnitResolver();
-        // TODO: run analysis
+        UnitResolver unitResolver = UnitResolverKt.getMethodUnitResolver();
+        TaintManagerKt.runTaintAnalysis(applicationGraph, unitResolver, methodsToAnalyze);
     }
 
     @Test
