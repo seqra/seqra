@@ -47,7 +47,7 @@ class IfdsNpeTest : BaseAnalysisTest() {
 
     @Test
     fun `analyze simple NPE`() {
-        testOneMethod<NpeExamples>("npeOnLength", listOf("%3 = %0.length()"))
+        testOneMethod<NpeExamples>("npeOnLength", listOf("%3 = x.length()"))
     }
 
     @Test
@@ -59,7 +59,7 @@ class IfdsNpeTest : BaseAnalysisTest() {
     fun `analyze NPE after fun with two exits`() {
         testOneMethod<NpeExamples>(
             "npeAfterTwoExits",
-            listOf("%4 = %0.length()", "%5 = %1.length()")
+            listOf("%4 = x.length()", "%5 = y.length()")
         )
     }
 
@@ -78,7 +78,7 @@ class IfdsNpeTest : BaseAnalysisTest() {
     fun `consecutive NPEs handled properly`() {
         testOneMethod<NpeExamples>(
             "consecutiveNPEs",
-            listOf("%2 = arg$0.length()", "%4 = arg$0.length()")
+            listOf("a = x.length()", "c = x.length()")
         )
     }
 
@@ -86,7 +86,7 @@ class IfdsNpeTest : BaseAnalysisTest() {
     fun `npe on virtual call when possible`() {
         testOneMethod<NpeExamples>(
             "possibleNPEOnVirtualCall",
-            listOf("%0 = arg$0.length()")
+            listOf("%0 = x.length()")
         )
     }
 
@@ -145,7 +145,7 @@ class IfdsNpeTest : BaseAnalysisTest() {
 
     @Test
     fun `NPE on uninitialized array element dereferencing`() {
-        testOneMethod<NpeExamples>("simpleArrayNPE", listOf("%5 = %4.length()"))
+        testOneMethod<NpeExamples>("simpleArrayNPE", listOf("b = %4.length()"))
     }
 
     @Test
@@ -167,7 +167,7 @@ class IfdsNpeTest : BaseAnalysisTest() {
 
     @Test
     fun `dereferencing field of null object`() {
-        testOneMethod<NpeExamples>("npeOnFieldDeref", listOf("%1 = %0.field"))
+        testOneMethod<NpeExamples>("npeOnFieldDeref", listOf("s = a.field"))
     }
 
     @Test
@@ -217,8 +217,8 @@ class IfdsNpeTest : BaseAnalysisTest() {
 
         // TODO: think about better assertions here
         Assertions.assertEquals(expectedLocations.size, sinks.size)
-        // expectedLocations.forEach { expected ->
-        //     Assertions.assertTrue(sinks.map { it.traceGraph.sink.toString() }.any { it.contains(expected) })
-        // }
+        expectedLocations.forEach { expected ->
+            Assertions.assertTrue(sinks.map { it.sink.toString() }.any { it.contains(expected) })
+        }
     }
 }
