@@ -3,6 +3,7 @@ package org.opentaint.ir.analysis.impl
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
 import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
+import org.opentaint.ir.analysis.npe.NpeManager
 import org.opentaint.ir.analysis.taint.TaintManager
 import org.opentaint.ir.analysis.unused.UnusedVariableManager
 import org.opentaint.ir.api.JIRClasspath
@@ -21,7 +22,7 @@ private val logger = mu.KotlinLogging.logger {}
 class JodaDateTimeAnalysisTest : BaseTest() {
 
     companion object : WithGlobalDB()
-    
+
     override val cp: JIRClasspath = runBlocking {
         val configFileName = "config_small.json"
         val configResource = this.javaClass.getResourceAsStream("/$configFileName")
@@ -46,6 +47,16 @@ class JodaDateTimeAnalysisTest : BaseTest() {
         val methods = clazz.declaredMethods
         val unitResolver = SingletonUnitResolver
         val manager = TaintManager(graph, unitResolver)
+        val sinks = manager.analyze(methods, timeout = 60.seconds)
+        logger.info { "Vulnerabilities found: ${sinks.size}" }
+    }
+
+    @Test
+    fun `test NPE analysis`() {
+        val clazz = cp.findClass<DateTime>()
+        val methods = clazz.declaredMethods
+        val unitResolver = SingletonUnitResolver
+        val manager = NpeManager(graph, unitResolver)
         val sinks = manager.analyze(methods, timeout = 60.seconds)
         logger.info { "Vulnerabilities found: ${sinks.size}" }
     }

@@ -1,8 +1,12 @@
 package org.opentaint.ir.analysis.impl
 
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.opentaint.ir.analysis.ifds.ClassUnitResolver
 import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
+import org.opentaint.ir.analysis.sarif.sarifReportFromVulnerabilities
 import org.opentaint.ir.analysis.taint.TaintManager
+import org.opentaint.ir.analysis.taint.toSarif
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.methods
 import org.opentaint.ir.impl.features.InMemoryHierarchy
@@ -29,6 +33,10 @@ class IfdsSqlTest : BaseAnalysisTest() {
             // Not working yet (#156)
             "s03", "s04"
         )
+    }
+
+    private val myJson = Json {
+        prettyPrint = true
     }
 
     @Test
@@ -79,5 +87,8 @@ class IfdsSqlTest : BaseAnalysisTest() {
         val graph = manager.vulnerabilityTraceGraph(sink)
         val trace = graph.getAllTraces().first()
         assertTrue(trace.isNotEmpty())
+        val sarif = sarifReportFromVulnerabilities(listOf(sink.toSarif(graph)))
+        val sarifJson = myJson.encodeToString(sarif)
+        logger.info { "SARIF:\n$sarifJson" }
     }
 }

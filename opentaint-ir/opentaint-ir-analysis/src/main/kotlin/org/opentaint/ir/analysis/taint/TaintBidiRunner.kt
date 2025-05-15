@@ -14,7 +14,7 @@ import org.opentaint.ir.analysis.ifds.UnitResolver
 import org.opentaint.ir.analysis.ifds.UnitType
 import org.opentaint.ir.api.JIRMethod
 
-class BidiRunner(
+class TaintBidiRunner(
     val manager: TaintManager,
     val unitResolver: UnitResolver,
     override val unit: UnitType,

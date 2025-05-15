@@ -59,7 +59,7 @@ class TaintManager(
 
         logger.debug { "Creating a new runner for $unit" }
         val runner = if (useBidiRunner) {
-            BidiRunner(
+            TaintBidiRunner(
                 manager = this@TaintManager,
                 unitResolver = unitResolver,
                 unit = unit,

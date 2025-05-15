@@ -4,7 +4,7 @@ import org.opentaint.ir.analysis.ifds.AccessPath
 import org.opentaint.ir.analysis.ifds.Edge
 import org.opentaint.ir.analysis.ifds.Runner
 import org.opentaint.ir.analysis.ifds.UniRunner
-import org.opentaint.ir.analysis.taint.BidiRunner
+import org.opentaint.ir.analysis.taint.TaintBidiRunner
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRParameter
@@ -26,7 +26,7 @@ fun JIRClasspath.getArgumentsOf(method: JIRMethod): List<JIRArgument> {
 
 fun Runner<*>.getGetPathEdges(): Set<Edge<*>> = when (this) {
     is UniRunner<*, *> -> pathEdges
-    is BidiRunner -> forwardRunner.getGetPathEdges() + backwardRunner.getGetPathEdges()
+    is TaintBidiRunner -> forwardRunner.getGetPathEdges() + backwardRunner.getGetPathEdges()
     else -> error("Cannot extract pathEdges for $this")
 }
 
