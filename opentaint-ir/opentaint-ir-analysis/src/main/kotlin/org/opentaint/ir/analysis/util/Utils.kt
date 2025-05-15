@@ -24,9 +24,9 @@ fun JIRClasspath.getArgumentsOf(method: JIRMethod): List<JIRArgument> {
     return method.parameters.map { getArgument(it)!! }
 }
 
-fun Runner<*>.getGetPathEdges(): Set<Edge<*>> = when (this) {
+internal fun Runner<*>.getPathEdges(): Set<Edge<*>> = when (this) {
     is UniRunner<*, *> -> pathEdges
-    is TaintBidiRunner -> forwardRunner.getGetPathEdges() + backwardRunner.getGetPathEdges()
+    is TaintBidiRunner -> forwardRunner.getPathEdges() + backwardRunner.getPathEdges()
     else -> error("Cannot extract pathEdges for $this")
 }
 

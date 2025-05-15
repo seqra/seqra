@@ -25,7 +25,7 @@ import org.opentaint.ir.analysis.ifds.UnitResolver
 import org.opentaint.ir.analysis.ifds.UnitType
 import org.opentaint.ir.analysis.ifds.UnknownUnit
 import org.opentaint.ir.analysis.ifds.Vertex
-import org.opentaint.ir.analysis.util.getGetPathEdges
+import org.opentaint.ir.analysis.util.getPathEdges
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import java.util.concurrent.ConcurrentHashMap
@@ -160,7 +160,7 @@ open class TaintManager(
                 delay(1.seconds)
                 logger.info {
                     "Progress: propagated ${
-                        runnerForUnit.values.sumOf { it.getGetPathEdges().size }
+                        runnerForUnit.values.sumOf { it.getPathEdges().size }
                     } path edges"
                 }
             }
@@ -207,7 +207,7 @@ open class TaintManager(
         logger.info { "Total sinks: ${foundVulnerabilities.size}" }
         logger.info {
             "Total propagated ${
-                runnerForUnit.values.sumOf { it.getGetPathEdges().size }
+                runnerForUnit.values.sumOf { it.getPathEdges().size }
             } path edges"
         }
         logger.info {

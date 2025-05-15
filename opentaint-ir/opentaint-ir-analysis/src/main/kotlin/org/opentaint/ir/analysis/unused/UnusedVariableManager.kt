@@ -24,7 +24,7 @@ import org.opentaint.ir.analysis.ifds.UnitResolver
 import org.opentaint.ir.analysis.ifds.UnitType
 import org.opentaint.ir.analysis.ifds.UnknownUnit
 import org.opentaint.ir.analysis.ifds.Vertex
-import org.opentaint.ir.analysis.util.getGetPathEdges
+import org.opentaint.ir.analysis.util.getPathEdges
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.cfg.JIRInst
@@ -129,7 +129,7 @@ class UnusedVariableManager(
                 delay(1.seconds)
                 logger.info {
                     "Progress: propagated ${
-                        runnerForUnit.values.sumOf { it.getGetPathEdges().size }
+                        runnerForUnit.values.sumOf { it.getPathEdges().size }
                     } path edges"
                 }
             }
@@ -197,7 +197,7 @@ class UnusedVariableManager(
         logger.info { "Total sinks: ${foundVulnerabilities.size}" }
         logger.info {
             "Total propagated ${
-                runnerForUnit.values.sumOf { it.getGetPathEdges().size }
+                runnerForUnit.values.sumOf { it.getPathEdges().size }
             } path edges"
         }
         logger.info {
