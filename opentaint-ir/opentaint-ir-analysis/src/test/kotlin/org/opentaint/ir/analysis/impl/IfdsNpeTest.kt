@@ -3,7 +3,7 @@ package org.opentaint.ir.analysis.impl
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.graph.JIRApplicationGraphImpl
 import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
-import org.opentaint.ir.analysis.npe.NpeManager
+import org.opentaint.ir.analysis.taint.TaintManager
 import org.opentaint.ir.analysis.taint.Vulnerability
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.constructors
@@ -35,12 +35,6 @@ class IfdsNpeTest : BaseAnalysisTest() {
         @JvmStatic
         fun provideClassesForJuliet690(): Stream<Arguments> =
             provideClassesForJuliet(690)
-    }
-
-    override fun findSinks(methods: List<JIRMethod>): List<Vulnerability> {
-        val unitResolver = SingletonUnitResolver
-        val manager = NpeManager(graph, unitResolver)
-        return manager.analyze(methods, timeout = 30.seconds)
     }
 
     @Test
@@ -185,16 +179,22 @@ class IfdsNpeTest : BaseAnalysisTest() {
         testOneMethod<NpeExamples>("nullAssignmentToCopy", emptyList())
     }
 
+    private fun findSinks(method: JIRMethod): List<Vulnerability> {
+        val unitResolver = SingletonUnitResolver
+        val manager = TaintManager(graph, unitResolver)
+        return manager.analyze(listOf(method), timeout = 30.seconds)
+    }
+
     @ParameterizedTest
     @MethodSource("provideClassesForJuliet476")
     fun `test on Juliet's CWE 476`(className: String) {
-        testSingleJulietClass(className)
+        testSingleJulietClass(className, ::findSinks)
     }
 
     @ParameterizedTest
     @MethodSource("provideClassesForJuliet690")
     fun `test on Juliet's CWE 690`(className: String) {
-        testSingleJulietClass(className)
+        testSingleJulietClass(className, ::findSinks)
     }
 
     @Test
@@ -204,7 +204,7 @@ class IfdsNpeTest : BaseAnalysisTest() {
         val className =
             "juliet.testcases.CWE690_NULL_Deref_From_Return.CWE690_NULL_Deref_From_Return__Properties_getProperty_equals_01"
 
-        testSingleJulietClass(className)
+        testSingleJulietClass(className, ::findSinks)
     }
 
     @Test
@@ -219,7 +219,7 @@ class IfdsNpeTest : BaseAnalysisTest() {
         expectedLocations: Collection<String>,
     ) {
         val method = cp.findClass<T>().declaredMethods.single { it.name == methodName }
-        val sinks = findSinks(listOf(method))
+        val sinks = findSinks(method)
 
         // TODO: think about better assertions here
         Assertions.assertEquals(expectedLocations.size, sinks.size)

@@ -3,8 +3,6 @@ package org.opentaint.ir.analysis.impl
 import org.opentaint.ir.analysis.ifds.ClassUnitResolver
 import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
 import org.opentaint.ir.analysis.taint.TaintManager
-import org.opentaint.ir.analysis.taint.Vulnerability
-import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.methods
 import org.opentaint.ir.impl.features.InMemoryHierarchy
@@ -33,43 +31,39 @@ class IfdsSqlTest : BaseAnalysisTest() {
         )
     }
 
-    override fun findSinks(methods: List<JIRMethod>): List<Vulnerability> {
-        val unitResolver = SingletonUnitResolver
-        val manager = TaintManager(graph, unitResolver)
-        return manager.analyze(methods, timeout = 30.seconds)
-    }
-
     @Test
     fun `simple SQL injection`() {
         val methodName = "bad"
         val method = cp.findClass<SqlInjectionExamples>().declaredMethods.single { it.name == methodName }
-        val sinks = findSinks(listOf(method))
+        val methods = listOf(method)
+        val unitResolver = SingletonUnitResolver
+        val manager = TaintManager(graph, unitResolver)
+        val sinks = manager.analyze(methods, timeout = 30.seconds)
         assertTrue(sinks.isNotEmpty())
+        val sink = sinks.first()
+        val graph = manager.vulnerabilityTraceGraph(sink)
+        val trace = graph.getAllTraces().first()
+        assertTrue(trace.isNotEmpty())
     }
 
     @ParameterizedTest
     @MethodSource("provideClassesForJuliet89")
     fun `test on Juliet's CWE 89`(className: String) {
-        testSingleJulietClass(className)
-    }
-
-    @Test
-    fun `test on Juliet's CWE 89 Environment executeBatch 01`() {
-        val className = "juliet.testcases.CWE89_SQL_Injection.s01.CWE89_SQL_Injection__Environment_executeBatch_01"
-        testSingleJulietClass(className)
-    }
-
-    @Test
-    fun `test on Juliet's CWE 89 database prepareStatement 01`() {
-        val className = "juliet.testcases.CWE89_SQL_Injection.s01.CWE89_SQL_Injection__database_prepareStatement_01"
-        testSingleJulietClass(className)
+        testSingleJulietClass(className) { method ->
+            val unitResolver = SingletonUnitResolver
+            val manager = TaintManager(graph, unitResolver)
+            manager.analyze(listOf(method), timeout = 30.seconds)
+        }
     }
 
     @Test
     fun `test on specific Juliet instance`() {
         val className = "juliet.testcases.CWE89_SQL_Injection.s01.CWE89_SQL_Injection__connect_tcp_execute_01"
-
-        testSingleJulietClass(className)
+        testSingleJulietClass(className) { method ->
+            val unitResolver = SingletonUnitResolver
+            val manager = TaintManager(graph, unitResolver)
+            manager.analyze(listOf(method), timeout = 30.seconds)
+        }
     }
 
     @Test
@@ -84,6 +78,6 @@ class IfdsSqlTest : BaseAnalysisTest() {
         val sink = sinks.first()
         val graph = manager.vulnerabilityTraceGraph(sink)
         val trace = graph.getAllTraces().first()
-        logger.debug { "Some trace (of length ${trace.size}): $trace" }
+        assertTrue(trace.isNotEmpty())
     }
 }

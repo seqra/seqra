@@ -88,9 +88,7 @@ abstract class BaseAnalysisTest : BaseTest() {
         }
     }
 
-    protected abstract fun findSinks(methods: List<JIRMethod>): List<Vulnerability>
-
-    protected fun testSingleJulietClass(className: String) {
+    protected fun testSingleJulietClass(className: String, findSinks: (JIRMethod) -> List<Vulnerability>) {
         logger.info { className }
 
         val clazz = cp.findClass(className)
@@ -98,7 +96,7 @@ abstract class BaseAnalysisTest : BaseTest() {
         val goodMethod = clazz.methods.single { it.name == "good" }
 
         logger.info { "Searching for sinks in BAD method: $badMethod" }
-        val badIssues = findSinks(listOf(badMethod))
+        val badIssues = findSinks(badMethod)
         logger.info { "Total ${badIssues.size} issues in BAD method" }
         for (issue in badIssues) {
             logger.debug { "  - $issue" }
@@ -106,7 +104,7 @@ abstract class BaseAnalysisTest : BaseTest() {
         assertTrue(badIssues.isNotEmpty()) { "Must find some sinks in 'bad' for $className" }
 
         logger.info { "Searching for sinks in GOOD method: $goodMethod" }
-        val goodIssues = findSinks(listOf(goodMethod))
+        val goodIssues = findSinks(goodMethod)
         logger.info { "Total ${goodIssues.size} issues in GOOD method" }
         for (issue in goodIssues) {
             logger.debug { "  - $issue" }
