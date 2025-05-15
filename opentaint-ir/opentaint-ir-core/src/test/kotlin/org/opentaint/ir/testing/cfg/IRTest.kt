@@ -1,29 +1,7 @@
 package org.opentaint.ir.testing.cfg
 
-import org.opentaint.ir.api.JavaVersion
-import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.JIRTypedMethod
-import org.opentaint.ir.api.TypeName
-import org.opentaint.ir.api.cfg.JIRAssignInst
-import org.opentaint.ir.api.cfg.JIRCallExpr
-import org.opentaint.ir.api.cfg.JIRCallInst
-import org.opentaint.ir.api.cfg.JIRCatchInst
-import org.opentaint.ir.api.cfg.JIREnterMonitorInst
-import org.opentaint.ir.api.cfg.JIRExitMonitorInst
-import org.opentaint.ir.api.cfg.JIRExpr
-import org.opentaint.ir.api.cfg.JIRExprVisitor
-import org.opentaint.ir.api.cfg.JIRGotoInst
-import org.opentaint.ir.api.cfg.JIRGraph
-import org.opentaint.ir.api.cfg.JIRIfInst
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRInstVisitor
-import org.opentaint.ir.api.cfg.JIRReturnInst
-import org.opentaint.ir.api.cfg.JIRSpecialCallExpr
-import org.opentaint.ir.api.cfg.JIRSwitchInst
-import org.opentaint.ir.api.cfg.JIRTerminatingInst
-import org.opentaint.ir.api.cfg.JIRThrowInst
-import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
+import org.opentaint.ir.api.*
+import org.opentaint.ir.api.cfg.*
 import org.opentaint.ir.api.ext.HierarchyExtension
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.toType
@@ -39,42 +17,27 @@ import org.opentaint.ir.impl.cfg.util.ExprMapper
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.StringConcatSimplifier
 import org.opentaint.ir.impl.fs.JarLocation
-import org.opentaint.ir.testing.WithDB
-import org.opentaint.ir.testing.asmLib
-import org.opentaint.ir.testing.guavaLib
-import org.opentaint.ir.testing.kotlinStdLib
-import org.opentaint.ir.testing.kotlinxCoroutines
+import org.opentaint.ir.testing.*
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import java.io.File
 
 class OverridesResolver(
-    private val hierarchyExtension: HierarchyExtension,
-) : JIRExprVisitor.Default<Sequence<JIRTypedMethod>>,
-    JIRInstVisitor.Default<Sequence<JIRTypedMethod>> {
+    private val hierarchyExtension: HierarchyExtension
+) : DefaultJIRInstVisitor<Sequence<JIRTypedMethod>>, DefaultJIRExprVisitor<Sequence<JIRTypedMethod>> {
+    override val defaultInstHandler: (JIRInst) -> Sequence<JIRTypedMethod>
+        get() = { emptySequence() }
+    override val defaultExprHandler: (JIRExpr) -> Sequence<JIRTypedMethod>
+        get() = { emptySequence() }
 
-    override fun defaultVisitJIRExpr(expr: JIRExpr): Sequence<JIRTypedMethod> {
-        return emptySequence()
-    }
-
-    override fun defaultVisitJIRInst(inst: JIRInst): Sequence<JIRTypedMethod> {
-        return emptySequence()
-    }
-
-    private fun JIRClassType.getMethod(
-        name: String,
-        argTypes: List<TypeName>,
-        returnType: TypeName,
-    ): JIRTypedMethod {
+    private fun JIRClassType.getMethod(name: String, argTypes: List<TypeName>, returnType: TypeName): JIRTypedMethod {
         return methods.firstOrNull { typedMethod ->
             val jIRMethod = typedMethod.method
-            jIRMethod.name == name
-                && jIRMethod.returnType.typeName == returnType.typeName
-                && jIRMethod.parameters.map { param -> param.type.typeName } == argTypes.map { it.typeName }
+            jIRMethod.name == name &&
+                    jIRMethod.returnType.typeName == returnType.typeName &&
+                    jIRMethod.parameters.map { param -> param.type.typeName } == argTypes.map { it.typeName }
         } ?: error("Could not find a method with correct signature")
     }
 
@@ -83,14 +46,6 @@ class OverridesResolver(
             val klass = enclosingClass.toType()
             return klass.getMethod(name, parameters.map { it.type }, returnType)
         }
-
-    override fun visitJIRVirtualCallExpr(expr: JIRVirtualCallExpr): Sequence<JIRTypedMethod> {
-        return hierarchyExtension.findOverrides(expr.method.method).map { it.typedMethod }
-    }
-
-    override fun visitJIRSpecialCallExpr(expr: JIRSpecialCallExpr): Sequence<JIRTypedMethod> {
-        return hierarchyExtension.findOverrides(expr.method.method).map { it.typedMethod }
-    }
 
     override fun visitJIRAssignInst(inst: JIRAssignInst): Sequence<JIRTypedMethod> {
         if (inst.rhv is JIRCallExpr) return inst.rhv.accept(this)
@@ -101,20 +56,26 @@ class OverridesResolver(
         return inst.callExpr.accept(this)
     }
 
+    override fun visitJIRVirtualCallExpr(expr: JIRVirtualCallExpr): Sequence<JIRTypedMethod> {
+        return hierarchyExtension.findOverrides(expr.method.method).map { it.typedMethod }
+    }
+
+    override fun visitJIRSpecialCallExpr(expr: JIRSpecialCallExpr): Sequence<JIRTypedMethod> {
+        return hierarchyExtension.findOverrides(expr.method.method).map { it.typedMethod }
+    }
+
 }
 
-class JIRGraphChecker(
-    val method: JIRMethod,
-    val jIRGraph: JIRGraph,
-) : JIRInstVisitor<Unit> {
-
+class JIRGraphChecker(val method: JIRMethod, val jIRGraph: JIRGraph) : JIRInstVisitor<Unit> {
     fun check() {
         try {
             jIRGraph.entry
         } catch (e: Exception) {
             println(
                 "Fail on method ${method.enclosingClass.simpleName}#${method.name}(${
-                    method.parameters.joinToString(",") { it.type.typeName }
+                    method.parameters.joinToString(
+                        ","
+                    ) { it.type.typeName }
                 })"
             )
             throw e
@@ -149,10 +110,6 @@ class JIRGraphChecker(
                 assertTrue(blockGraph.successors(block).isNotEmpty())
             }
         }
-    }
-
-    override fun visitExternalJIRInst(inst: JIRInst) {
-        // Do nothing
     }
 
     override fun visitJIRAssignInst(inst: JIRAssignInst) {
@@ -272,6 +229,8 @@ class JIRGraphChecker(
         assertTrue(jIRGraph.throwers(inst).isEmpty())
     }
 
+    override fun visitExternalJIRInst(inst: JIRInst) {
+    }
 }
 
 class IRTest : BaseInstructionsTest() {

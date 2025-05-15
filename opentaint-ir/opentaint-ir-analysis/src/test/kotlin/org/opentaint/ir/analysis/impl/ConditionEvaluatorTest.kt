@@ -310,12 +310,6 @@ class ConditionEvaluatorTest {
     }
 
     @Test
-    fun `external Condition is false`() {
-        val condition: Condition = mockk()
-        assertFalse(evaluator.visit(condition))
-    }
-
-    @Test
     fun `FactAwareConditionEvaluator supports ContainsMark`() {
         val fact = Tainted(intValue.toPath(), TaintMark("FOO"))
         val factAwareEvaluator = FactAwareConditionEvaluator(fact, positionResolver)

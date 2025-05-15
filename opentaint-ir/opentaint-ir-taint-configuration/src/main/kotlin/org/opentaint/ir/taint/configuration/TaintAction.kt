@@ -12,8 +12,6 @@ interface TaintActionVisitor<out R> {
     fun visit(action: AssignMark): R
     fun visit(action: RemoveAllMarks): R
     fun visit(action: RemoveMark): R
-
-    fun visit(action: Action): R
 }
 
 interface Action {

@@ -36,11 +36,6 @@ open class BasicConditionEvaluator(
     internal val positionResolver: PositionResolver<Maybe<JIRValue>>,
 ) : ConditionVisitor<Boolean> {
 
-    // Default condition handler:
-    override fun visit(condition: Condition): Boolean {
-        return false
-    }
-
     override fun visit(condition: ConstantTrue): Boolean {
         return true
     }

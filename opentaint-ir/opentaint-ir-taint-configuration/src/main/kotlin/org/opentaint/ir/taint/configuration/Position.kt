@@ -11,14 +11,14 @@ fun interface PositionResolver<out R> {
 sealed interface Position
 
 @Serializable
+@SerialName("Argument")
+data class Argument(@SerialName("number") val index: Int) : Position
+
+@Serializable
 @SerialName("AnyArgument")
 object AnyArgument : Position {
     override fun toString(): String = javaClass.simpleName
 }
-
-@Serializable
-@SerialName("Argument")
-data class Argument(@SerialName("number") val index: Int) : Position
 
 @Serializable
 @SerialName("This")

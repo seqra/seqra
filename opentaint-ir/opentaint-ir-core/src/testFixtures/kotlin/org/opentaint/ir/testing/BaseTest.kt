@@ -64,6 +64,7 @@ open class WithDB(vararg features: Any) : JIRDatabaseHolder {
 
     override var db = runBlocking {
         opentaint-ir {
+            // persistent("D:\\work\\opentaint-ir\\jIRdb-index.db")
             loadByteCode(allClasspath)
             useProcessJavaRuntime()
             keepLocalVariableNames()

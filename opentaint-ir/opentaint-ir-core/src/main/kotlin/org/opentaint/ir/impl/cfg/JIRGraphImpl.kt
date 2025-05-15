@@ -133,17 +133,17 @@ class JIRGraphImpl(
     }
 }
 
-fun JIRGraph.filter(visitor: JIRInstVisitor<Boolean>): JIRGraph =
+fun JIRGraph.filter(visitor: JIRInstVisitor<Boolean>) =
     JIRGraphImpl(method, instructions.filter { it.accept(visitor) })
 
-fun JIRGraph.filterNot(visitor: JIRInstVisitor<Boolean>): JIRGraph =
+fun JIRGraph.filterNot(visitor: JIRInstVisitor<Boolean>) =
     JIRGraphImpl(method, instructions.filterNot { it.accept(visitor) })
 
-fun JIRGraph.map(visitor: JIRInstVisitor<JIRInst>): JIRGraph =
+fun JIRGraph.map(visitor: JIRInstVisitor<JIRInst>) =
     JIRGraphImpl(method, instructions.map { it.accept(visitor) })
 
-fun JIRGraph.mapNotNull(visitor: JIRInstVisitor<JIRInst?>): JIRGraph =
+fun JIRGraph.mapNotNull(visitor: JIRInstVisitor<JIRInst?>) =
     JIRGraphImpl(method, instructions.mapNotNull { it.accept(visitor) })
 
-fun JIRGraph.flatMap(visitor: JIRInstVisitor<Collection<JIRInst>>): JIRGraph =
+fun JIRGraph.flatMap(visitor: JIRInstVisitor<Collection<JIRInst>>) =
     JIRGraphImpl(method, instructions.flatMap { it.accept(visitor) })

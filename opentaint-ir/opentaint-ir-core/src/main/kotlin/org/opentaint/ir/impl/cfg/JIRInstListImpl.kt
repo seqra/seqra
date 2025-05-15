@@ -7,21 +7,22 @@ import org.opentaint.ir.api.cfg.JIRRawInstVisitor
 import org.opentaint.ir.api.cfg.JIRRawLabelInst
 
 open class JIRInstListImpl<INST>(
-    instructions: List<INST>,
+    instructions: List<INST>
 ) : Iterable<INST>, JIRInstList<INST> {
-    protected val _instructions: MutableList<INST> = instructions.toMutableList()
+    protected val _instructions = instructions.toMutableList()
+
     override val instructions: List<INST> get() = _instructions
 
-    override val size: Int get() = instructions.size
-    override val indices: IntRange get() = instructions.indices
-    override val lastIndex: Int get() = instructions.lastIndex
+    override val size get() = instructions.size
+    override val indices get() = instructions.indices
+    override val lastIndex get() = instructions.lastIndex
 
-    override operator fun get(index: Int): INST = instructions[index]
-    override fun getOrNull(index: Int): INST? = instructions.getOrNull(index)
-
+    override operator fun get(index: Int) = instructions[index]
+    override fun getOrNull(index: Int) = instructions.getOrNull(index)
+    fun getOrElse(index: Int, defaultValue: (Int) -> INST) = instructions.getOrElse(index, defaultValue)
     override fun iterator(): Iterator<INST> = instructions.iterator()
 
-    override fun toMutableList(): JIRMutableInstList<INST> = JIRMutableInstListImpl(_instructions)
+    override fun toMutableList() = JIRMutableInstListImpl(_instructions)
 
     override fun toString(): String = _instructions.joinToString(separator = "\n") {
         when (it) {
@@ -31,8 +32,8 @@ open class JIRInstListImpl<INST>(
     }
 }
 
-class JIRMutableInstListImpl<INST>(instructions: List<INST>) :
-    JIRInstListImpl<INST>(instructions), JIRMutableInstList<INST> {
+class JIRMutableInstListImpl<INST>(instructions: List<INST>) : JIRInstListImpl<INST>(instructions),
+    JIRMutableInstList<INST> {
 
     override fun insertBefore(inst: INST, vararg newInstructions: INST) = insertBefore(inst, newInstructions.toList())
     override fun insertBefore(inst: INST, newInstructions: Collection<INST>) {
@@ -57,17 +58,17 @@ class JIRMutableInstListImpl<INST>(instructions: List<INST>) :
     }
 }
 
-fun JIRInstList<JIRRawInst>.filter(visitor: JIRRawInstVisitor<Boolean>): JIRInstList<JIRRawInst> =
+fun JIRInstList<JIRRawInst>.filter(visitor: JIRRawInstVisitor<Boolean>) =
     JIRInstListImpl(instructions.filter { it.accept(visitor) })
 
-fun JIRInstList<JIRRawInst>.filterNot(visitor: JIRRawInstVisitor<Boolean>): JIRInstList<JIRRawInst> =
+fun JIRInstList<JIRRawInst>.filterNot(visitor: JIRRawInstVisitor<Boolean>) =
     JIRInstListImpl(instructions.filterNot { it.accept(visitor) })
 
-fun JIRInstList<JIRRawInst>.map(visitor: JIRRawInstVisitor<JIRRawInst>): JIRInstList<JIRRawInst> =
+fun JIRInstList<JIRRawInst>.map(visitor: JIRRawInstVisitor<JIRRawInst>) =
     JIRInstListImpl(instructions.map { it.accept(visitor) })
 
-fun JIRInstList<JIRRawInst>.mapNotNull(visitor: JIRRawInstVisitor<JIRRawInst?>): JIRInstList<JIRRawInst> =
+fun JIRInstList<JIRRawInst>.mapNotNull(visitor: JIRRawInstVisitor<JIRRawInst?>) =
     JIRInstListImpl(instructions.mapNotNull { it.accept(visitor) })
 
-fun JIRInstList<JIRRawInst>.flatMap(visitor: JIRRawInstVisitor<Collection<JIRRawInst>>): JIRInstList<JIRRawInst> =
+fun JIRInstList<JIRRawInst>.flatMap(visitor: JIRRawInstVisitor<Collection<JIRRawInst>>) =
     JIRInstListImpl(instructions.flatMap { it.accept(visitor) })

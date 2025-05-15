@@ -1,20 +1,7 @@
 package org.opentaint.ir.impl.cfg
 
-import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.JIRType
-import org.opentaint.ir.api.JIRTypedMethod
-import org.opentaint.ir.api.MethodNotFoundException
-import org.opentaint.ir.api.TypeName
-import org.opentaint.ir.api.cfg.JIRInstLocation
-import org.opentaint.ir.api.cfg.JIRRawCallExpr
-import org.opentaint.ir.api.cfg.JIRRawInstanceExpr
-import org.opentaint.ir.api.cfg.JIRRawLocal
-import org.opentaint.ir.api.cfg.JIRRawSpecialCallExpr
-import org.opentaint.ir.api.cfg.JIRRawStaticCallExpr
-import org.opentaint.ir.api.cfg.TypedMethodRef
-import org.opentaint.ir.api.cfg.VirtualTypedMethodRef
+import org.opentaint.ir.api.*
+import org.opentaint.ir.api.cfg.*
 import org.opentaint.ir.api.ext.findType
 import org.opentaint.ir.api.ext.jvmName
 import org.opentaint.ir.impl.cfg.util.typeName
@@ -23,10 +10,10 @@ import org.opentaint.ir.impl.weakLazy
 import org.objectweb.asm.Type
 
 abstract class MethodSignatureRef(
-    val type: JIRClassType,
-    override val name: String,
-    argTypes: List<TypeName>,
-    returnType: TypeName,
+        val type: JIRClassType,
+        override val name: String,
+        argTypes: List<TypeName>,
+        returnType: TypeName,
 ) : TypedMethodRef {
 
     protected val description: String = buildString {
@@ -80,17 +67,17 @@ abstract class MethodSignatureRef(
 }
 
 class TypedStaticMethodRefImpl(
-    type: JIRClassType,
-    name: String,
-    argTypes: List<TypeName>,
-    returnType: TypeName,
+        type: JIRClassType,
+        name: String,
+        argTypes: List<TypeName>,
+        returnType: TypeName
 ) : MethodSignatureRef(type, name, argTypes, returnType) {
 
     constructor(classpath: JIRClasspath, raw: JIRRawStaticCallExpr) : this(
-        classpath.findType(raw.declaringClass.typeName) as JIRClassType,
-        raw.methodName,
-        raw.argumentTypes,
-        raw.returnType
+            classpath.findType(raw.declaringClass.typeName) as JIRClassType,
+            raw.methodName,
+            raw.argumentTypes,
+            raw.returnType
     )
 
     override val method: JIRTypedMethod by weakLazy {
@@ -99,17 +86,17 @@ class TypedStaticMethodRefImpl(
 }
 
 class TypedSpecialMethodRefImpl(
-    type: JIRClassType,
-    name: String,
-    argTypes: List<TypeName>,
-    returnType: TypeName,
+        type: JIRClassType,
+        name: String,
+        argTypes: List<TypeName>,
+        returnType: TypeName
 ) : MethodSignatureRef(type, name, argTypes, returnType) {
 
     constructor(classpath: JIRClasspath, raw: JIRRawSpecialCallExpr) : this(
-        classpath.findType(raw.declaringClass.typeName) as JIRClassType,
-        raw.methodName,
-        raw.argumentTypes,
-        raw.returnType
+            classpath.findType(raw.declaringClass.typeName) as JIRClassType,
+            raw.methodName,
+            raw.argumentTypes,
+            raw.returnType
     )
 
     override val method: JIRTypedMethod by weakLazy {
@@ -119,11 +106,11 @@ class TypedSpecialMethodRefImpl(
 }
 
 class VirtualMethodRefImpl(
-    type: JIRClassType,
-    private val actualType: JIRClassType,
-    name: String,
-    argTypes: List<TypeName>,
-    returnType: TypeName,
+        type: JIRClassType,
+        private val actualType: JIRClassType,
+        name: String,
+        argTypes: List<TypeName>,
+        returnType: TypeName
 ) : MethodSignatureRef(type, name, argTypes, returnType), VirtualTypedMethodRef {
 
     companion object {
@@ -144,20 +131,20 @@ class VirtualMethodRefImpl(
         fun of(classpath: JIRClasspath, raw: JIRRawCallExpr): VirtualMethodRefImpl {
             val (declared, actual) = raw.resolvedType(classpath)
             return VirtualMethodRefImpl(
-                declared,
-                actual,
-                raw.methodName,
-                raw.argumentTypes,
-                raw.returnType
+                    declared,
+                    actual,
+                    raw.methodName,
+                    raw.argumentTypes,
+                    raw.returnType
             )
         }
 
         fun of(type: JIRClassType, method: JIRTypedMethod): VirtualMethodRefImpl {
             return VirtualMethodRefImpl(
-                type, type,
-                method.name,
-                method.method.parameters.map { it.type },
-                method.method.returnType
+                    type, type,
+                    method.name,
+                    method.method.parameters.map { it.type },
+                    method.method.returnType
             )
         }
     }
@@ -172,17 +159,17 @@ class VirtualMethodRefImpl(
 }
 
 class TypedMethodRefImpl(
-    type: JIRClassType,
-    name: String,
-    argTypes: List<TypeName>,
-    returnType: TypeName,
+        type: JIRClassType,
+        name: String,
+        argTypes: List<TypeName>,
+        returnType: TypeName
 ) : MethodSignatureRef(type, name, argTypes, returnType) {
 
     constructor(classpath: JIRClasspath, raw: JIRRawCallExpr) : this(
-        classpath.findType(raw.declaringClass.typeName) as JIRClassType,
-        raw.methodName,
-        raw.argumentTypes,
-        raw.returnType
+            classpath.findType(raw.declaringClass.typeName) as JIRClassType,
+            raw.methodName,
+            raw.argumentTypes,
+            raw.returnType
     )
 
     override val method: JIRTypedMethod by softLazy {
@@ -201,17 +188,17 @@ fun JIRClasspath.methodRef(expr: JIRRawCallExpr): TypedMethodRef {
 
 fun JIRTypedMethod.methodRef(): TypedMethodRef {
     return TypedMethodRefImpl(
-        enclosingType as JIRClassType,
-        method.name,
-        method.parameters.map { it.type },
-        method.returnType
+            enclosingType as JIRClassType,
+            method.name,
+            method.parameters.map { it.type },
+            method.returnType
     )
 }
 
 class JIRInstLocationImpl(
-    override val method: JIRMethod,
-    override val index: Int,
-    override val lineNumber: Int,
+        override val method: JIRMethod,
+        override val index: Int,
+        override val lineNumber: Int
 ) : JIRInstLocation {
 
     override fun toString(): String {

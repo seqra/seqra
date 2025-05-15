@@ -3,23 +3,7 @@ package org.opentaint.ir.impl.analysis.impl
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.PredefinedPrimitives
-import org.opentaint.ir.api.cfg.BsmStringArg
-import org.opentaint.ir.api.cfg.JIRAssignInst
-import org.opentaint.ir.api.cfg.JIRCatchInst
-import org.opentaint.ir.api.cfg.JIRDynamicCallExpr
-import org.opentaint.ir.api.cfg.JIRGotoInst
-import org.opentaint.ir.api.cfg.JIRIfInst
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRInstList
-import org.opentaint.ir.api.cfg.JIRInstRef
-import org.opentaint.ir.api.cfg.JIRInstVisitor
-import org.opentaint.ir.api.cfg.JIRLocalVar
-import org.opentaint.ir.api.cfg.JIRStaticCallExpr
-import org.opentaint.ir.api.cfg.JIRStringConstant
-import org.opentaint.ir.api.cfg.JIRSwitchInst
-import org.opentaint.ir.api.cfg.JIRValue
-import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
-import org.opentaint.ir.api.cfg.values
+import org.opentaint.ir.api.cfg.*
 import org.opentaint.ir.api.ext.autoboxIfNeeded
 import org.opentaint.ir.api.ext.findTypeOrNull
 import org.opentaint.ir.impl.cfg.JIRInstListImpl
@@ -27,14 +11,11 @@ import org.opentaint.ir.impl.cfg.VirtualMethodRefImpl
 import org.opentaint.ir.impl.cfg.methodRef
 import kotlin.collections.set
 
-class StringConcatSimplifierTransformer(
-    classpath: JIRClasspath,
-    private val list: JIRInstList<JIRInst>,
-) : JIRInstVisitor.Default<JIRInst> {
+class StringConcatSimplifierTransformer(classpath: JIRClasspath, private val list: JIRInstList<JIRInst>) :
+    DefaultJIRInstVisitor<JIRInst> {
 
-    override fun defaultVisitJIRInst(inst: JIRInst): JIRInst {
-        return inst
-    }
+    override val defaultInstHandler: (JIRInst) -> JIRInst
+        get() = { it }
 
     private val instructionReplacements = mutableMapOf<JIRInst, JIRInst>()
     private val instructions = mutableListOf<JIRInst>()
@@ -130,11 +111,11 @@ class StringConcatSimplifierTransformer(
     }
 
     private fun indexOf(instRef: JIRInstRef) = JIRInstRef(
-        instructionIndices[instructionReplacements.getOrDefault(list[instRef.index], list[instRef.index])] ?: -1
+        instructionIndices[instructionReplacements.getOrDefault(list.get(instRef.index), list.get(instRef.index))] ?: -1
     )
 
     private fun indicesOf(instRef: JIRInstRef): List<JIRInstRef> {
-        val index = list[instRef.index]
+        val index = list.get(instRef.index)
         return catchReplacements.getOrDefault(index, listOf(index)).map {
             JIRInstRef(instructions.indexOf(it))
 
