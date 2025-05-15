@@ -208,13 +208,6 @@ class IfdsNpeTest : BaseAnalysisTest() {
         testSingleJulietClass(className, ::findSinks)
     }
 
-    @Test
-    fun `analyse something`() {
-        val testingMethod = cp.findClass<NpeExamples>().declaredMethods.single { it.name == "id" }
-        val results = testingMethod.flowGraph()
-        print(results)
-    }
-
     private inline fun <reified T> testOneMethod(
         methodName: String,
         expectedLocations: Collection<String>,
