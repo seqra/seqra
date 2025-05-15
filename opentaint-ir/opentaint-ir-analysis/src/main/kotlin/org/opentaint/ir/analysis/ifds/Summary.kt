@@ -14,6 +14,21 @@ interface Summary {
     val method: JIRMethod
 }
 
+interface SummaryEdge<out Fact> : Summary {
+    val edge: Edge<Fact>
+
+    override val method: JIRMethod
+        get() = edge.method
+}
+
+interface Vulnerability<out Fact> : Summary {
+    val message: String
+    val sink: Vertex<Fact>
+
+    override val method: JIRMethod
+        get() = sink.method
+}
+
 /**
  * Contains summaries for many methods and allows to update them and subscribe for them.
  */

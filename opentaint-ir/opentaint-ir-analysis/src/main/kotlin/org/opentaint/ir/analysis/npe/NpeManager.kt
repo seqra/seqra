@@ -23,12 +23,13 @@ import org.opentaint.ir.analysis.ifds.UnitType
 import org.opentaint.ir.analysis.taint.EdgeForOtherRunner
 import org.opentaint.ir.analysis.taint.NewSummaryEdge
 import org.opentaint.ir.analysis.taint.NewVulnerability
-import org.opentaint.ir.analysis.taint.SummaryEdge
+import org.opentaint.ir.analysis.taint.TaintSummaryEdge
 import org.opentaint.ir.analysis.taint.TaintEdge
 import org.opentaint.ir.analysis.taint.TaintEvent
-import org.opentaint.ir.analysis.taint.TaintFact
+import org.opentaint.ir.analysis.taint.TaintDomainFact
 import org.opentaint.ir.analysis.taint.TaintRunner
-import org.opentaint.ir.analysis.taint.Vulnerability
+import org.opentaint.ir.analysis.taint.TaintVulnerability
+import org.opentaint.ir.analysis.taint.TaintZeroFact
 import org.opentaint.ir.analysis.util.getGetPathEdges
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
@@ -44,14 +45,14 @@ private val logger = mu.KotlinLogging.logger {}
 class NpeManager(
     private val graph: JIRApplicationGraph,
     private val unitResolver: UnitResolver,
-) : Manager<TaintFact, TaintEvent> {
+) : Manager<TaintDomainFact, TaintEvent> {
 
     private val methodsForUnit: MutableMap<UnitType, MutableSet<JIRMethod>> = hashMapOf()
     private val runnerForUnit: MutableMap<UnitType, TaintRunner> = hashMapOf()
     private val queueIsEmpty = ConcurrentHashMap<UnitType, Boolean>()
 
-    private val summaryEdgesStorage = SummaryStorageImpl<SummaryEdge>()
-    private val vulnerabilitiesStorage = SummaryStorageImpl<Vulnerability>()
+    private val summaryEdgesStorage = SummaryStorageImpl<TaintSummaryEdge>()
+    private val vulnerabilitiesStorage = SummaryStorageImpl<TaintVulnerability>()
 
     private val stopRendezvous = Channel<Unit>(Channel.RENDEZVOUS)
 
@@ -61,7 +62,14 @@ class NpeManager(
         check(unit !in runnerForUnit) { "Runner for $unit already exists" }
 
         val analyzer = NpeAnalyzer(graph)
-        val runner = UniRunner(graph, analyzer, this@NpeManager, unitResolver, unit)
+        val runner = UniRunner(
+            graph = graph,
+            analyzer = analyzer,
+            manager = this@NpeManager,
+            unitResolver = unitResolver,
+            unit = unit,
+            zeroFact = TaintZeroFact
+        )
 
         runnerForUnit[unit] = runner
         return runner
@@ -78,7 +86,7 @@ class NpeManager(
     fun analyze(
         startMethods: List<JIRMethod>,
         timeout: Duration = 3600.seconds,
-    ): List<Vulnerability> = runBlocking(Dispatchers.Default) {
+    ): List<TaintVulnerability> = runBlocking(Dispatchers.Default) {
         val timeStart = TimeSource.Monotonic.markNow()
 
         // Add start methods:
@@ -173,7 +181,7 @@ class NpeManager(
     override fun handleEvent(event: TaintEvent) {
         when (event) {
             is NewSummaryEdge -> {
-                summaryEdgesStorage.add(SummaryEdge(event.edge))
+                summaryEdgesStorage.add(TaintSummaryEdge(event.edge))
             }
 
             is NewVulnerability -> {
@@ -222,7 +230,7 @@ fun runNpeAnalysis(
     graph: JIRApplicationGraph,
     unitResolver: UnitResolver,
     startMethods: List<JIRMethod>,
-): List<Vulnerability> {
+): List<TaintVulnerability> {
     val manager = NpeManager(graph, unitResolver)
     return manager.analyze(startMethods)
 }

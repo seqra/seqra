@@ -5,9 +5,9 @@ import org.opentaint.ir.analysis.ifds.Edge
 sealed interface Event
 
 data class NewSummaryEdge(
-    val edge: Edge<Fact>,
+    val edge: Edge<UnusedVariableDomainFact>,
 ) : Event
 
 data class NewVulnerability(
-    val vulnerability: Vulnerability,
+    val vulnerability: UnusedVariableVulnerability,
 ) : Event

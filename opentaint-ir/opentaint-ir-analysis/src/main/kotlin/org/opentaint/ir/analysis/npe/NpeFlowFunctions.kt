@@ -14,9 +14,9 @@ import org.opentaint.ir.analysis.ifds.onSome
 import org.opentaint.ir.analysis.ifds.toMaybe
 import org.opentaint.ir.analysis.ifds.toPath
 import org.opentaint.ir.analysis.ifds.toPathOrNull
-import org.opentaint.ir.analysis.taint.TaintFact
+import org.opentaint.ir.analysis.taint.TaintDomainFact
 import org.opentaint.ir.analysis.taint.Tainted
-import org.opentaint.ir.analysis.taint.Zero
+import org.opentaint.ir.analysis.taint.TaintZeroFact
 import org.opentaint.ir.analysis.util.getArgument
 import org.opentaint.ir.analysis.util.getArgumentsOf
 import org.opentaint.ir.analysis.util.startsWith
@@ -65,7 +65,7 @@ private val logger = mu.KotlinLogging.logger {}
 class ForwardNpeFlowFunctions(
     private val cp: JIRClasspath,
     private val graph: JIRApplicationGraph,
-) : FlowFunctions<TaintFact> {
+) : FlowFunctions<TaintDomainFact> {
 
     internal val taintConfigurationFeature: TaintConfigurationFeature? by lazy {
         cp.features
@@ -75,7 +75,7 @@ class ForwardNpeFlowFunctions(
 
     override fun obtainPossibleStartFacts(
         method: JIRMethod,
-    ): Collection<TaintFact> = buildSet {
+    ): Collection<TaintDomainFact> = buildSet {
         addAll(obtainPossibleStartFactsBasic(method))
 
         // Possibly null arguments:
@@ -89,9 +89,9 @@ class ForwardNpeFlowFunctions(
 
     private fun obtainPossibleStartFactsBasic(
         method: JIRMethod,
-    ): Collection<TaintFact> = buildSet {
+    ): Collection<TaintDomainFact> = buildSet {
         // Zero (reachability) fact always present at entrypoint:
-        add(Zero)
+        add(TaintZeroFact)
 
         // Possibly null arguments:
         // for (p in method.parameters.filter { it.isNullable != false }) {
@@ -211,7 +211,7 @@ class ForwardNpeFlowFunctions(
         return listOf(fact)
     }
 
-    private fun generates(inst: JIRInst): Collection<TaintFact> = buildList {
+    private fun generates(inst: JIRInst): Collection<TaintDomainFact> = buildList {
         if (inst is JIRAssignInst) {
             val toPath = inst.lhv.toPath()
             val from = inst.rhv
@@ -240,7 +240,7 @@ class ForwardNpeFlowFunctions(
     override fun obtainSequentFlowFunction(
         current: JIRInst,
         next: JIRInst,
-    ) = FlowFunction<TaintFact> { fact ->
+    ) = FlowFunction<TaintDomainFact> { fact ->
         if (fact is Tainted && fact.mark == TaintMark.NULLNESS) {
             if (fact.variable.isDereferencedAt(current)) {
                 return@FlowFunction emptySet()
@@ -250,7 +250,7 @@ class ForwardNpeFlowFunctions(
         if (current is JIRIfInst) {
             val nextIsTrueBranch = next.location.index == current.trueBranch.index
             val pathComparedWithNull = current.pathComparedWithNull
-            if (fact == Zero) {
+            if (fact == TaintZeroFact) {
                 if (pathComparedWithNull != null) {
                     if ((current.condition is JIREqExpr && nextIsTrueBranch) ||
                         (current.condition is JIRNeqExpr && !nextIsTrueBranch)
@@ -268,15 +268,15 @@ class ForwardNpeFlowFunctions(
                 }
                 if ((expr is JIREqExpr && nextIsTrueBranch) || (expr is JIRNeqExpr && !nextIsTrueBranch)) {
                     // comparedPath is null in this branch
-                    return@FlowFunction listOf(Zero)
+                    return@FlowFunction listOf(TaintZeroFact)
                 } else {
                     return@FlowFunction emptyList()
                 }
             }
         }
 
-        if (fact is Zero) {
-            return@FlowFunction listOf(Zero) + generates(current)
+        if (fact is TaintZeroFact) {
+            return@FlowFunction listOf(TaintZeroFact) + generates(current)
         }
         check(fact is Tainted)
 
@@ -346,7 +346,7 @@ class ForwardNpeFlowFunctions(
     override fun obtainCallToReturnSiteFlowFunction(
         callStatement: JIRInst,
         returnSite: JIRInst, // FIXME: unused?
-    ) = FlowFunction<TaintFact> { fact ->
+    ) = FlowFunction<TaintDomainFact> { fact ->
         if (fact is Tainted && fact.mark == TaintMark.NULLNESS) {
             if (fact.variable.isDereferencedAt(callStatement)) {
                 return@FlowFunction emptySet()
@@ -376,9 +376,9 @@ class ForwardNpeFlowFunctions(
 
         val config = taintConfigurationFeature?.getConfigForMethod(callee)
 
-        if (fact == Zero) {
+        if (fact == TaintZeroFact) {
             return@FlowFunction buildSet {
-                add(Zero)
+                add(TaintZeroFact)
 
                 if (callStatement is JIRAssignInst) {
                     val toPath = callStatement.lhv.toPath()
@@ -529,10 +529,10 @@ class ForwardNpeFlowFunctions(
     override fun obtainCallToStartFlowFunction(
         callStatement: JIRInst,
         calleeStart: JIRInst,
-    ) = FlowFunction<TaintFact> { fact ->
+    ) = FlowFunction<TaintDomainFact> { fact ->
         val callee = calleeStart.location.method
 
-        if (fact == Zero) {
+        if (fact == TaintZeroFact) {
             // return@FlowFunction obtainPossibleStartFacts(callee)
             return@FlowFunction obtainPossibleStartFactsBasic(callee)
         }
@@ -579,12 +579,12 @@ class ForwardNpeFlowFunctions(
         callStatement: JIRInst,
         returnSite: JIRInst, // unused
         exitStatement: JIRInst,
-    ) = FlowFunction<TaintFact> { fact ->
+    ) = FlowFunction<TaintDomainFact> { fact ->
         // TODO: do we even need to return non-empty list for zero fact here?
-        if (fact == Zero) {
+        if (fact == TaintZeroFact) {
             // return@FlowFunction listOf(Zero)
             return@FlowFunction buildSet {
-                add(Zero)
+                add(TaintZeroFact)
                 if (exitStatement is JIRReturnInst && callStatement is JIRAssignInst) {
                     // Note: returnValue can be null here in some weird cases, e.g. in lambda.
                     exitStatement.returnValue?.let { returnValue ->

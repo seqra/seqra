@@ -4,10 +4,8 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
 import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
 import org.opentaint.ir.analysis.taint.TaintManager
-import org.opentaint.ir.analysis.taint.Vulnerability
 import org.opentaint.ir.analysis.unused.UnusedVariableManager
 import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.taint.configuration.TaintConfigurationFeature

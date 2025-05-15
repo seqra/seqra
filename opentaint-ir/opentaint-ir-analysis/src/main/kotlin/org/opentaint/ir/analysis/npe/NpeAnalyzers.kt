@@ -9,10 +9,10 @@ import org.opentaint.ir.analysis.taint.NewSummaryEdge
 import org.opentaint.ir.analysis.taint.NewVulnerability
 import org.opentaint.ir.analysis.taint.TaintEdge
 import org.opentaint.ir.analysis.taint.TaintEvent
-import org.opentaint.ir.analysis.taint.TaintFact
+import org.opentaint.ir.analysis.taint.TaintDomainFact
 import org.opentaint.ir.analysis.taint.TaintVertex
 import org.opentaint.ir.analysis.taint.Tainted
-import org.opentaint.ir.analysis.taint.Vulnerability
+import org.opentaint.ir.analysis.taint.TaintVulnerability
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.ext.cfg.callExpr
@@ -24,7 +24,7 @@ private val logger = mu.KotlinLogging.logger {}
 
 class NpeAnalyzer(
     private val graph: JIRApplicationGraph,
-) : Analyzer<TaintFact, TaintEvent> {
+) : Analyzer<TaintDomainFact, TaintEvent> {
 
     override val flowFunctions: ForwardNpeFlowFunctions by lazy {
         ForwardNpeFlowFunctions(graph.classpath, graph)
@@ -47,7 +47,7 @@ class NpeAnalyzer(
         if (edge.to.fact is Tainted && edge.to.fact.mark == TaintMark.NULLNESS) {
             if (edge.to.fact.variable.isDereferencedAt(edge.to.statement)) {
                 val message = "NPE" // TODO
-                val vulnerability = Vulnerability(message, sink = edge.to, edge = edge)
+                val vulnerability = TaintVulnerability(message, sink = edge.to)
                 logger.info { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
                 add(NewVulnerability(vulnerability))
             }
@@ -74,7 +74,7 @@ class NpeAnalyzer(
                 if (item.condition.accept(conditionEvaluator)) {
                     logger.trace { "Found sink at ${edge.to} in ${edge.method} on $item" }
                     val message = item.ruleNote
-                    val vulnerability = Vulnerability(message, sink = edge.to, edge = edge, rule = item)
+                    val vulnerability = TaintVulnerability(message, sink = edge.to, rule = item)
                     add(NewVulnerability(vulnerability))
                 }
             }

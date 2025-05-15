@@ -1,18 +1,27 @@
 package org.opentaint.ir.analysis.ifds
 
-import org.opentaint.ir.analysis.taint.Zero
 import org.opentaint.ir.api.cfg.JIRInst
 
 /**
  * Aggregates all facts and edges found by the tabulation algorithm.
  */
-class Aggregate<Fact>(
-    pathEdges: Collection<Edge<Fact>>,
+class IfdsResult<Fact> internal constructor(
+    val pathEdgesBySink: Map<Vertex<Fact>, Collection<Edge<Fact>>>,
     val facts: Map<JIRInst, Set<Fact>>,
     val reasons: Map<Edge<Fact>, Set<Reason<Fact>>>,
+    val zeroFact: Fact?,
 ) {
-    private val pathEdgesBySink: Map<Vertex<Fact>, Collection<Edge<Fact>>> =
-        pathEdges.groupByTo(HashMap()) { it.to }
+    constructor(
+        pathEdges: Collection<Edge<Fact>>,
+        facts: Map<JIRInst, Set<Fact>>,
+        reasons: Map<Edge<Fact>, Set<Reason<Fact>>>,
+        zeroFact: Fact?,
+    ) : this(
+        pathEdges.groupByTo(HashMap()) { it.to },
+        facts,
+        reasons,
+        zeroFact
+    )
 
     fun buildTraceGraph(sink: Vertex<Fact>): TraceGraph<Fact> {
         val sources: MutableSet<Vertex<Fact>> = hashSetOf()
@@ -45,8 +54,7 @@ class Aggregate<Fact>(
             }
 
             val vertex = edge.to
-            // FIXME: not all domains have "Zero" fact!
-            if (vertex.fact == Zero) {
+            if (vertex.fact == zeroFact) {
                 addEdge(vertex, lastVertex)
                 sources.add(vertex)
                 return

@@ -3,7 +3,7 @@ package org.opentaint.ir.analysis.impl
 import juliet.support.AbstractTestCase
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
-import org.opentaint.ir.analysis.taint.Vulnerability
+import org.opentaint.ir.analysis.ifds.Vulnerability
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
@@ -88,7 +88,7 @@ abstract class BaseAnalysisTest : BaseTest() {
         }
     }
 
-    protected fun testSingleJulietClass(className: String, findSinks: (JIRMethod) -> List<Vulnerability>) {
+    protected fun testSingleJulietClass(className: String, findSinks: (JIRMethod) -> List<Vulnerability<*>>) {
         logger.info { className }
 
         val clazz = cp.findClass(className)

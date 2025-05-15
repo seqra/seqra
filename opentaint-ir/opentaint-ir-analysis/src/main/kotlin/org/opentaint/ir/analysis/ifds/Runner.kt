@@ -6,7 +6,7 @@ import kotlinx.coroutines.channels.getOrElse
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import org.opentaint.ir.analysis.graph.JIRNoopInst
-import org.opentaint.ir.analysis.taint.Zero
+import org.opentaint.ir.analysis.taint.TaintZeroFact
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.cfg.JIRInst
@@ -20,7 +20,7 @@ interface Runner<Fact> {
 
     suspend fun run(startMethods: List<JIRMethod>)
     fun submitNewEdge(edge: Edge<Fact>, reason: Reason<Fact>)
-    fun getAggregate(): Aggregate<Fact>
+    fun getIfdsResult(): IfdsResult<Fact>
 }
 
 class UniRunner<Fact, Event>(
@@ -29,6 +29,7 @@ class UniRunner<Fact, Event>(
     private val manager: Manager<Fact, Event>,
     private val unitResolver: UnitResolver,
     override val unit: UnitType,
+    private val zeroFact: Fact?,
 ) : Runner<Fact> {
 
     private val flowSpace: FlowFunctions<Fact> = analyzer.flowFunctions
@@ -81,7 +82,7 @@ class UniRunner<Fact, Event>(
             val doPrintOnlyForward = true
             val doPrintZero = false
             if (!doPrintOnlyForward || edge.from.statement is JIRNoopInst) {
-                if (doPrintZero || edge.to.fact != Zero) {
+                if (doPrintZero || edge.to.fact != TaintZeroFact) {
                     logger.trace { "Propagating edge=$edge in method=${edge.method.name} with reason=${reason}" }
                 }
             }
@@ -233,8 +234,8 @@ class UniRunner<Fact, Event>(
         return resultFacts
     }
 
-    override fun getAggregate(): Aggregate<Fact> {
+    override fun getIfdsResult(): IfdsResult<Fact> {
         val facts = getFinalFacts()
-        return Aggregate(pathEdges, facts, reasons)
+        return IfdsResult(pathEdges, facts, reasons, zeroFact)
     }
 }

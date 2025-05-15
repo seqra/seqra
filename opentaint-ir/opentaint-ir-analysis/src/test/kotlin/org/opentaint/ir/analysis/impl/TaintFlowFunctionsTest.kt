@@ -7,9 +7,9 @@ import org.opentaint.ir.analysis.ifds.FlowFunctions
 import org.opentaint.ir.analysis.util.getArgument
 import org.opentaint.ir.analysis.ifds.toPath
 import org.opentaint.ir.analysis.taint.ForwardTaintFlowFunctions
-import org.opentaint.ir.analysis.taint.TaintFact
+import org.opentaint.ir.analysis.taint.TaintDomainFact
 import org.opentaint.ir.analysis.taint.Tainted
-import org.opentaint.ir.analysis.taint.Zero
+import org.opentaint.ir.analysis.taint.TaintZeroFact
 import org.opentaint.ir.api.JIRClassType
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
@@ -82,11 +82,11 @@ class TaintFlowFunctionsTest : BaseTest() {
 
     @Test
     fun `test obtain start facts`() {
-        val flowSpace: FlowFunctions<TaintFact> = ForwardTaintFlowFunctions(cp, graph)
+        val flowSpace: FlowFunctions<TaintDomainFact> = ForwardTaintFlowFunctions(cp, graph)
         val facts = flowSpace.obtainPossibleStartFacts(testMethod).toList()
         val arg0 = cp.getArgument(testMethod.parameters[0])!!
         val arg0Taint = Tainted(arg0.toPath(), TaintMark("EXAMPLE"))
-        Assertions.assertEquals(listOf(Zero, arg0Taint), facts)
+        Assertions.assertEquals(listOf(TaintZeroFact, arg0Taint), facts)
     }
 
     @Test
@@ -95,7 +95,7 @@ class TaintFlowFunctionsTest : BaseTest() {
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
         val y: JIRLocal = JIRLocalVar(2, "y", stringType)
         val inst = JIRAssignInst(location = mockk(), lhv = x, rhv = y)
-        val flowSpace: FlowFunctions<TaintFact> = ForwardTaintFlowFunctions(cp, graph)
+        val flowSpace: FlowFunctions<TaintDomainFact> = ForwardTaintFlowFunctions(cp, graph)
         val f = flowSpace.obtainSequentFlowFunction(inst, next = mockk())
         val yTaint = Tainted(y.toPath(), TaintMark("TAINT"))
         val xTaint = Tainted(x.toPath(), TaintMark("TAINT"))
@@ -112,11 +112,11 @@ class TaintFlowFunctionsTest : BaseTest() {
                 every { method } returns testMethod
             }
         })
-        val flowSpace: FlowFunctions<TaintFact> = ForwardTaintFlowFunctions(cp, graph)
+        val flowSpace: FlowFunctions<TaintDomainFact> = ForwardTaintFlowFunctions(cp, graph)
         val f = flowSpace.obtainCallToReturnSiteFlowFunction(callStatement, returnSite = mockk())
         val xTaint = Tainted(x.toPath(), TaintMark("EXAMPLE"))
-        val facts = f.compute(Zero).toList()
-        Assertions.assertEquals(listOf(Zero, xTaint), facts)
+        val facts = f.compute(TaintZeroFact).toList()
+        Assertions.assertEquals(listOf(TaintZeroFact, xTaint), facts)
     }
 
     @Test
@@ -129,7 +129,7 @@ class TaintFlowFunctionsTest : BaseTest() {
             }
             every { args } returns listOf(x)
         })
-        val flowSpace: FlowFunctions<TaintFact> = ForwardTaintFlowFunctions(cp, graph)
+        val flowSpace: FlowFunctions<TaintDomainFact> = ForwardTaintFlowFunctions(cp, graph)
         val f = flowSpace.obtainCallToReturnSiteFlowFunction(callStatement, returnSite = mockk())
         val xTaint = Tainted(x.toPath(), TaintMark("REMOVE"))
         val facts = f.compute(xTaint).toList()
@@ -147,7 +147,7 @@ class TaintFlowFunctionsTest : BaseTest() {
             }
             every { args } returns listOf(x)
         })
-        val flowSpace: FlowFunctions<TaintFact> = ForwardTaintFlowFunctions(cp, graph)
+        val flowSpace: FlowFunctions<TaintDomainFact> = ForwardTaintFlowFunctions(cp, graph)
         val f = flowSpace.obtainCallToReturnSiteFlowFunction(callStatement, returnSite = mockk())
         val xTaint = Tainted(x.toPath(), TaintMark("COPY"))
         val yTaint = Tainted(y.toPath(), TaintMark("COPY"))
@@ -169,7 +169,7 @@ class TaintFlowFunctionsTest : BaseTest() {
             }
             every { args } returns listOf(x)
         })
-        val flowSpace: FlowFunctions<TaintFact> = ForwardTaintFlowFunctions(cp, graph)
+        val flowSpace: FlowFunctions<TaintDomainFact> = ForwardTaintFlowFunctions(cp, graph)
         val f = flowSpace.obtainCallToStartFlowFunction(callStatement, calleeStart = mockk {
             every { location } returns mockk {
                 every { method } returns testMethod
@@ -199,7 +199,7 @@ class TaintFlowFunctionsTest : BaseTest() {
         val exitStatement = JIRReturnInst(location = mockk {
             every { method } returns testMethod
         }, returnValue = y)
-        val flowSpace: FlowFunctions<TaintFact> = ForwardTaintFlowFunctions(cp, graph)
+        val flowSpace: FlowFunctions<TaintDomainFact> = ForwardTaintFlowFunctions(cp, graph)
         val f = flowSpace.obtainExitToReturnSiteFlowFunction(callStatement, returnSite = mockk(), exitStatement)
         val yTaint = Tainted(y.toPath(), TaintMark("TAINT"))
         val xTaint = Tainted(x.toPath(), TaintMark("TAINT"))

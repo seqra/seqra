@@ -9,12 +9,12 @@ data class NewSummaryEdge(
 ) : TaintEvent
 
 data class NewVulnerability(
-    val vulnerability: Vulnerability,
+    val vulnerability: TaintVulnerability,
 ) : TaintEvent
 
 data class EdgeForOtherRunner(
     val edge: TaintEdge,
-    val reason: Reason<TaintFact>
+    val reason: Reason<TaintDomainFact>
 ) : TaintEvent {
     init {
         // TODO: remove this check

@@ -4,9 +4,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import org.opentaint.ir.analysis.ifds.Aggregate
 import org.opentaint.ir.analysis.ifds.ControlEvent
 import org.opentaint.ir.analysis.ifds.Edge
+import org.opentaint.ir.analysis.ifds.IfdsResult
 import org.opentaint.ir.analysis.ifds.Manager
 import org.opentaint.ir.analysis.ifds.QueueEmptinessChanged
 import org.opentaint.ir.analysis.ifds.Reason
@@ -18,8 +18,8 @@ class BidiRunner(
     val manager: TaintManager,
     val unitResolver: UnitResolver,
     override val unit: UnitType,
-    newForwardRunner: (Manager<TaintFact, TaintEvent>) -> TaintRunner,
-    newBackwardRunner: (Manager<TaintFact, TaintEvent>) -> TaintRunner,
+    newForwardRunner: (Manager<TaintDomainFact, TaintEvent>) -> TaintRunner,
+    newBackwardRunner: (Manager<TaintDomainFact, TaintEvent>) -> TaintRunner,
 ) : TaintRunner {
 
     @Volatile
@@ -28,8 +28,8 @@ class BidiRunner(
     @Volatile
     private var backwardQueueIsEmpty: Boolean = false
 
-    private val forwardManager: Manager<TaintFact, TaintEvent> =
-        object : Manager<TaintFact, TaintEvent> {
+    private val forwardManager: Manager<TaintDomainFact, TaintEvent> =
+        object : Manager<TaintDomainFact, TaintEvent> {
             override fun handleEvent(event: TaintEvent) {
                 when (event) {
                     is EdgeForOtherRunner -> {
@@ -65,8 +65,8 @@ class BidiRunner(
             }
         }
 
-    private val backwardManager: Manager<TaintFact, TaintEvent> =
-        object : Manager<TaintFact, TaintEvent> {
+    private val backwardManager: Manager<TaintDomainFact, TaintEvent> =
+        object : Manager<TaintDomainFact, TaintEvent> {
             override fun handleEvent(event: TaintEvent) {
                 when (event) {
                     is EdgeForOtherRunner -> {
@@ -107,7 +107,7 @@ class BidiRunner(
         check(backwardRunner.unit == unit)
     }
 
-    override fun submitNewEdge(edge: Edge<TaintFact>, reason: Reason<TaintFact>) {
+    override fun submitNewEdge(edge: Edge<TaintDomainFact>, reason: Reason<TaintDomainFact>) {
         forwardRunner.submitNewEdge(edge, reason)
     }
 
@@ -122,7 +122,7 @@ class BidiRunner(
         forwardRunnerJob.join()
     }
 
-    override fun getAggregate(): Aggregate<TaintFact> {
-        return forwardRunner.getAggregate()
+    override fun getIfdsResult(): IfdsResult<TaintDomainFact> {
+        return forwardRunner.getIfdsResult()
     }
 }
