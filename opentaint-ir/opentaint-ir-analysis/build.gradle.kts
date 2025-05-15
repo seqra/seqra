@@ -12,7 +12,7 @@ dependencies {
     implementation(Libs.slf4j_simple)
     implementation(Libs.kotlinx_coroutines_core)
     implementation(Libs.kotlinx_serialization_json)
-    implementation(Libs.sarif4k)
+    api(Libs.sarif4k)
 
     testImplementation(testFixtures(project(":opentaint-ir-core")))
     testImplementation(project(":opentaint-ir-api"))

@@ -37,14 +37,14 @@ import kotlin.time.TimeSource
 
 private val logger = mu.KotlinLogging.logger {}
 
-class TaintManager(
-    private val graph: JIRApplicationGraph,
-    private val unitResolver: UnitResolver,
+open class TaintManager(
+    protected val graph: JIRApplicationGraph,
+    protected val unitResolver: UnitResolver,
     private val useBidiRunner: Boolean = false,
 ) : Manager<TaintDomainFact, TaintEvent> {
 
     private val methodsForUnit: MutableMap<UnitType, MutableSet<JIRMethod>> = hashMapOf()
-    private val runnerForUnit: MutableMap<UnitType, TaintRunner> = hashMapOf()
+    protected val runnerForUnit: MutableMap<UnitType, TaintRunner> = hashMapOf()
     private val queueIsEmpty = ConcurrentHashMap<UnitType, Boolean>()
 
     private val summaryEdgesStorage = SummaryStorageImpl<TaintSummaryEdge>()
@@ -52,7 +52,7 @@ class TaintManager(
 
     private val stopRendezvous = Channel<Unit>(Channel.RENDEZVOUS)
 
-    private fun newRunner(
+    protected open fun newRunner(
         unit: UnitType,
     ): TaintRunner {
         check(unit !in runnerForUnit) { "Runner for $unit already exists" }
