@@ -19,10 +19,12 @@ import org.opentaint.ir.analysis.ifds.ControlEvent
 import org.opentaint.ir.analysis.ifds.Manager
 import org.opentaint.ir.analysis.ifds.QueueEmptinessChanged
 import org.opentaint.ir.analysis.ifds.SummaryStorageImpl
+import org.opentaint.ir.analysis.ifds.TraceGraph
 import org.opentaint.ir.analysis.ifds.UniRunner
 import org.opentaint.ir.analysis.ifds.UnitResolver
 import org.opentaint.ir.analysis.ifds.UnitType
 import org.opentaint.ir.analysis.ifds.UnknownUnit
+import org.opentaint.ir.analysis.ifds.Vertex
 import org.opentaint.ir.analysis.util.getGetPathEdges
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
@@ -225,7 +227,7 @@ class TaintManager(
                     logger.trace { "Ignoring event=$event for non-existing runner for unit=$unit" }
                     return
                 }
-                otherRunner.submitNewEdge(event.edge)
+                otherRunner.submitNewEdge(event.edge, event.reason)
             }
         }
     }
@@ -255,8 +257,37 @@ class TaintManager(
             .launchIn(scope)
     }
 
-    fun getAggregates(): Map<UnitType, Aggregate<TaintFact>> {
-        return runnerForUnit.mapValues { it.value.getAggregate() }
+    fun vulnerabilityTraceGraph(vulnerability: Vulnerability): TraceGraph<TaintFact> {
+        val aggregate = getAggregateForMethod(vulnerability.method)
+        val initialGraph = aggregate.buildTraceGraph(vulnerability.sink)
+        val resultGraph = initialGraph.copy(unresolvedCrossUnitCalls = emptyMap())
+
+        val resolvedCrossUnitEdges = hashSetOf<Pair<Vertex<TaintFact>, Vertex<TaintFact>>>()
+        val unresolvedCrossUnitCalls = initialGraph.unresolvedCrossUnitCalls.entries.toMutableList()
+        while (unresolvedCrossUnitCalls.isNotEmpty()) {
+            val (caller, callees) = unresolvedCrossUnitCalls.removeLast()
+
+            val unresolvedCallees = hashSetOf<Vertex<TaintFact>>()
+            for (callee in callees) {
+                if (resolvedCrossUnitEdges.add(caller to callee)) {
+                    unresolvedCallees.add(callee)
+                }
+            }
+            if (unresolvedCallees.isEmpty()) continue
+
+            val callerAggregate = getAggregateForMethod(caller.method)
+            val callerGraph = callerAggregate.buildTraceGraph(caller)
+            resultGraph.mergeWithUpGraph(callerGraph, unresolvedCallees)
+            unresolvedCrossUnitCalls += callerGraph.unresolvedCrossUnitCalls.entries
+        }
+
+        return resultGraph
+    }
+
+    private fun getAggregateForMethod(method: JIRMethod): Aggregate<TaintFact> {
+        val unit = unitResolver.resolve(method)
+        val runner = runnerForUnit[unit] ?: error("No runner for $unit")
+        return runner.getAggregate()
     }
 }
 

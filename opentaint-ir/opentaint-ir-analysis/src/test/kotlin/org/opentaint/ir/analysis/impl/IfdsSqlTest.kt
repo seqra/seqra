@@ -81,9 +81,9 @@ class IfdsSqlTest : BaseAnalysisTest() {
         val manager = TaintManager(graph, unitResolver, useBidiRunner = true)
         val sinks = manager.analyze(listOf(badMethod), timeout = 30.seconds)
         assertTrue(sinks.isNotEmpty())
-        val aggregates = manager.getAggregates()
-        logger.debug { "Aggregates: $aggregates" }
-        val graphs = aggregates.mapValues { it.value.buildTraceGraph(sinks.first().sink) }
-        assertTrue(graphs.isNotEmpty())
+        val sink = sinks.first()
+        val graph = manager.vulnerabilityTraceGraph(sink)
+        val trace = graph.getAllTraces().first()
+        logger.debug { "Some trace (of length ${trace.size}): $trace" }
     }
 }

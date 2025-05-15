@@ -3,6 +3,7 @@ package org.opentaint.ir.analysis.npe
 import org.opentaint.ir.analysis.config.CallPositionToJIRValueResolver
 import org.opentaint.ir.analysis.config.FactAwareConditionEvaluator
 import org.opentaint.ir.analysis.ifds.Analyzer
+import org.opentaint.ir.analysis.ifds.Reason
 import org.opentaint.ir.analysis.taint.EdgeForOtherRunner
 import org.opentaint.ir.analysis.taint.NewSummaryEdge
 import org.opentaint.ir.analysis.taint.NewVulnerability
@@ -84,6 +85,6 @@ class NpeAnalyzer(
         caller: TaintVertex,
         callee: TaintVertex,
     ): List<TaintEvent> = buildList {
-        add(EdgeForOtherRunner(TaintEdge(callee, callee)))
+        add(EdgeForOtherRunner(TaintEdge(callee, callee), Reason.CrossUnitCall(caller)))
     }
 }

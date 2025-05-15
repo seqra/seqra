@@ -2,8 +2,9 @@ package org.opentaint.ir.analysis.ifds
 
 data class TraceGraph<Fact>(
     val sink: Vertex<Fact>,
-    val sources: Set<Vertex<Fact>>,
-    val edges: Map<Vertex<Fact>, Set<Vertex<Fact>>>,
+    val sources: MutableSet<Vertex<Fact>>,
+    val edges: MutableMap<Vertex<Fact>, MutableSet<Vertex<Fact>>>,
+    val unresolvedCrossUnitCalls: Map<Vertex<Fact>, Set<Vertex<Fact>>>,
 ) {
     /**
      * Returns all traces from [sources] to [sink].
@@ -32,35 +33,18 @@ data class TraceGraph<Fact>(
     }
 
     /**
-     * Merges two graphs.
-     *
-     * [sink] will be chosen from receiver, and edges from both graphs will be merged.
-     * Also, all edges from [upGraph]'s sink to [entryPoints] will be added
-     * (these are edges "connecting" [upGraph] with receiver).
-     *
-     * Informally, this method extends receiver's traces from one side using [upGraph].
+     * Merges [upGraph] into this graph.
      */
     fun mergeWithUpGraph(
         upGraph: TraceGraph<Fact>,
         entryPoints: Set<Vertex<Fact>>,
-    ): TraceGraph<Fact> {
-        val validEntryPoints = entryPoints.intersect(edges.keys)
-        if (validEntryPoints.isEmpty()) return this
+    ) {
+        sources.addAll(upGraph.sources)
 
-        val newSources = sources + upGraph.sources
-        val newEdges = edges.toMutableMap()
-        for ((source, destinations) in upGraph.edges) {
-            newEdges[source] = newEdges.getOrDefault(source, emptySet()) + destinations
+        for (edge in upGraph.edges) {
+            edges.getOrPut(edge.key) { hashSetOf() }.addAll(edge.value)
         }
-        newEdges[upGraph.sink] = newEdges.getOrDefault(upGraph.sink, emptySet()) + validEntryPoints
-        return TraceGraph(sink, newSources, newEdges)
-    }
 
-    companion object {
-        fun <Fact> bySink(
-            sink: Vertex<Fact>,
-        ): TraceGraph<Fact> {
-            return TraceGraph(sink, setOf(sink), emptyMap())
-        }
+        edges.getOrPut(upGraph.sink) { hashSetOf() }.addAll(entryPoints)
     }
 }

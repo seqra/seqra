@@ -4,6 +4,7 @@ import org.opentaint.ir.analysis.config.CallPositionToJIRValueResolver
 import org.opentaint.ir.analysis.config.FactAwareConditionEvaluator
 import org.opentaint.ir.analysis.ifds.Analyzer
 import org.opentaint.ir.analysis.ifds.Edge
+import org.opentaint.ir.analysis.ifds.Reason
 import org.opentaint.ir.api.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.ext.cfg.callExpr
@@ -66,7 +67,7 @@ class TaintAnalyzer(
         caller: TaintVertex,
         callee: TaintVertex,
     ): List<TaintEvent> = buildList {
-        add(EdgeForOtherRunner(TaintEdge(callee, callee)))
+        add(EdgeForOtherRunner(TaintEdge(callee, callee), Reason.CrossUnitCall(caller)))
     }
 }
 
@@ -86,7 +87,7 @@ class BackwardTaintAnalyzer(
         edge: TaintEdge,
     ): List<TaintEvent> = buildList {
         if (isExitPoint(edge.to.statement)) {
-            add(EdgeForOtherRunner(Edge(edge.to, edge.to)))
+            add(EdgeForOtherRunner(Edge(edge.to, edge.to), reason = Reason.External))
         }
     }
 

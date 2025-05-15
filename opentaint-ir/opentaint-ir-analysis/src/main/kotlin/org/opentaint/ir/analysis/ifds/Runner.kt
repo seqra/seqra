@@ -19,7 +19,7 @@ interface Runner<Fact> {
     val unit: UnitType
 
     suspend fun run(startMethods: List<JIRMethod>)
-    fun submitNewEdge(edge: Edge<Fact>)
+    fun submitNewEdge(edge: Edge<Fact>, reason: Reason<Fact>)
     fun getAggregate(): Aggregate<Fact>
 }
 
@@ -33,7 +33,7 @@ class UniRunner<Fact, Event>(
 
     private val flowSpace: FlowFunctions<Fact> = analyzer.flowFunctions
     private val workList: Channel<Edge<Fact>> = Channel(Channel.UNLIMITED)
-    private val reasons = ConcurrentHashMap<Edge<Fact>, MutableSet<Reason>>()
+    private val reasons = ConcurrentHashMap<Edge<Fact>, MutableSet<Reason<Fact>>>()
     internal val pathEdges: MutableSet<Edge<Fact>> = ConcurrentHashMap.newKeySet()
 
     private val summaryEdges: MutableMap<Vertex<Fact>, MutableSet<Vertex<Fact>>> = hashMapOf()
@@ -57,20 +57,18 @@ class UniRunner<Fact, Event>(
             for (start in graph.entryPoints(method)) {
                 val vertex = Vertex(start, startFact)
                 val edge = Edge(vertex, vertex) // loop
-                val reason = Reason.Initial
-                propagate(edge, reason)
+                propagate(edge, Reason.Initial)
             }
         }
     }
 
-    override fun submitNewEdge(edge: Edge<Fact>) {
-        // TODO: add default-argument 'reason = Reason.External' to 'submitNewEdge'
-        propagate(edge, Reason.External)
+    override fun submitNewEdge(edge: Edge<Fact>, reason: Reason<Fact>) {
+        propagate(edge, reason)
     }
 
     private fun propagate(
         edge: Edge<Fact>,
-        reason: Reason,
+        reason: Reason<Fact>,
     ): Boolean {
         require(unitResolver.resolve(edge.method) == unit) {
             "Propagated edge must be in the same unit"
@@ -137,8 +135,7 @@ class UniRunner<Fact, Event>(
                 for (returnSiteFact in factsAtReturnSite) {
                     val returnSiteVertex = Vertex(returnSite, returnSiteFact)
                     val newEdge = Edge(startVertex, returnSiteVertex)
-                    val reason = Reason.Sequent(currentEdge)
-                    propagate(newEdge, reason)
+                    propagate(newEdge, Reason.Sequent(currentEdge))
                 }
             }
 
@@ -172,8 +169,7 @@ class UniRunner<Fact, Event>(
                             // Initialize analysis of callee:
                             run {
                                 val newEdge = Edge(calleeStartVertex, calleeStartVertex) // loop
-                                val reason = Reason.CallToStart(currentEdge)
-                                propagate(newEdge, reason)
+                                propagate(newEdge, Reason.CallToStart(currentEdge))
                             }
 
                             // Handle already-found summary edges:
@@ -204,8 +200,7 @@ class UniRunner<Fact, Event>(
                 for (nextFact in factsAtNext) {
                     val nextVertex = Vertex(next, nextFact)
                     val newEdge = Edge(startVertex, nextVertex)
-                    val reason = Reason.Sequent(currentEdge)
-                    propagate(newEdge, reason)
+                    propagate(newEdge, Reason.Sequent(currentEdge))
                 }
             }
         }
@@ -225,8 +220,7 @@ class UniRunner<Fact, Event>(
             for (returnSiteFact in finalFacts) {
                 val returnSiteVertex = Vertex(returnSite, returnSiteFact)
                 val newEdge = Edge(startVertex, returnSiteVertex)
-                val reason = Reason.ThroughSummary(currentEdge, summaryEdge)
-                propagate(newEdge, reason)
+                propagate(newEdge, Reason.ThroughSummary(currentEdge, summaryEdge))
             }
         }
     }

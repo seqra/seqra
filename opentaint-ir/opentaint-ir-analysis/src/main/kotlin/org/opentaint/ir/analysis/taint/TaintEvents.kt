@@ -1,5 +1,7 @@
 package org.opentaint.ir.analysis.taint
 
+import org.opentaint.ir.analysis.ifds.Reason
+
 sealed interface TaintEvent
 
 data class NewSummaryEdge(
@@ -12,6 +14,7 @@ data class NewVulnerability(
 
 data class EdgeForOtherRunner(
     val edge: TaintEdge,
+    val reason: Reason<TaintFact>
 ) : TaintEvent {
     init {
         // TODO: remove this check
