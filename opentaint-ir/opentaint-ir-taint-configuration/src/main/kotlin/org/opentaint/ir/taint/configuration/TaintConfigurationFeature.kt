@@ -47,23 +47,23 @@ class TaintConfigurationFeature private constructor(
             .map {
                 when (it) {
                     is SerializedTaintEntryPointSource -> it.copy(
-                        condition = it.condition.accept(ConditionSimplifier())
+                        condition = it.condition.accept(conditionSimplifier)
                     )
 
                     is SerializedTaintMethodSource -> it.copy(
-                        condition = it.condition.accept(ConditionSimplifier())
+                        condition = it.condition.accept(conditionSimplifier)
                     )
 
                     is SerializedTaintMethodSink -> it.copy(
-                        condition = it.condition.accept(ConditionSimplifier())
+                        condition = it.condition.accept(conditionSimplifier)
                     )
 
                     is SerializedTaintPassThrough -> it.copy(
-                        condition = it.condition.accept(ConditionSimplifier())
+                        condition = it.condition.accept(conditionSimplifier)
                     )
 
                     is SerializedTaintCleaner -> it.copy(
-                        condition = it.condition.accept(ConditionSimplifier())
+                        condition = it.condition.accept(conditionSimplifier)
                     )
                 }
             }
@@ -225,7 +225,7 @@ class TaintConfigurationFeature private constructor(
 
     private fun Condition.resolve(method: JIRMethod): Condition = this
         .accept(ConditionSpecializer(method))
-        .accept(ConditionSimplifier())
+        .accept(conditionSimplifier)
 
     private fun List<Action>.resolve(method: JIRMethod): List<Action> =
         flatMap { it.accept(ActionSpecializer(method)) }
@@ -416,7 +416,7 @@ class TaintConfigurationFeature private constructor(
         override fun visit(condition: Condition): Condition = condition
     }
 
-    private inner class ConditionSimplifier : ConditionVisitor<Condition> {
+    private val conditionSimplifier = object : ConditionVisitor<Condition> {
         override fun visit(condition: And): Condition {
             val queue = ArrayDeque(condition.args)
             val args = mutableListOf<Condition>()
