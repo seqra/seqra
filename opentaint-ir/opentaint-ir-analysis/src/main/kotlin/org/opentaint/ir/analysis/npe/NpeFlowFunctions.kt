@@ -218,7 +218,7 @@ class ForwardNpeFlowFunctions(
             if (from is JIRNullConstant || (from is JIRCallExpr && from.method.method.isNullable == true)) {
                 add(Tainted(toPath, TaintMark.NULLNESS))
             } else if (from is JIRNewArrayExpr && (from.type as JIRArrayType).elementType.nullable != false) {
-                val accessors = List((from.type as JIRArrayType).dimensions) { ElementAccessor(null) }
+                val accessors = List((from.type as JIRArrayType).dimensions) { ElementAccessor }
                 val path = toPath / accessors
                 add(Tainted(path, TaintMark.NULLNESS))
             }

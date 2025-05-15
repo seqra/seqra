@@ -83,7 +83,7 @@ fun JIRValue.toPathOrNull(): AccessPath? = when (this) {
 
     is JIRArrayAccess -> {
         array.toPathOrNull()?.let {
-            it / ElementAccessor(index)
+            it / ElementAccessor
         }
     }
 

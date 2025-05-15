@@ -28,5 +28,3 @@ object ElementAccessor : Accessor {
         return "*"
     }
 }
-
-fun ElementAccessor(index: JIRValue?) = ElementAccessor

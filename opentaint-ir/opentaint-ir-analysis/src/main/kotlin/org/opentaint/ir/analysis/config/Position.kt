@@ -31,7 +31,7 @@ class CallPositionToAccessPathResolver(
         This -> (callExpr as? JIRInstanceCallExpr)?.instance?.toPathOrNull().toMaybe()
         Result -> (callStatement as? JIRAssignInst)?.lhv?.toPathOrNull().toMaybe()
         ResultAnyElement -> (callStatement as? JIRAssignInst)?.lhv?.toPathOrNull().toMaybe()
-            .fmap { it / ElementAccessor(null) }
+            .fmap { it / ElementAccessor }
     }
 }
 
