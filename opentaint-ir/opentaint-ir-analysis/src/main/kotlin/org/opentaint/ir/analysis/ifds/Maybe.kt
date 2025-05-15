@@ -21,7 +21,7 @@ value class Maybe<out T> private constructor(
 
         fun <T> some(value: T): Maybe<T> = Maybe(value)
 
-        fun <T> from(value: T?): Maybe<T> = if (value == null) none() else some(value)
+        fun <T : Any> from(value: T?): Maybe<T> = if (value == null) none() else some(value)
     }
 }
 
@@ -41,4 +41,4 @@ inline fun <T> Maybe<T>.onNone(body: () -> Unit): Maybe<T> {
     return this
 }
 
-fun <T> T?.toMaybe(): Maybe<T> = Maybe.from(this)
+fun <T : Any> T?.toMaybe(): Maybe<T> = Maybe.from(this)
