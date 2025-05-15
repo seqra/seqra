@@ -1,7 +1,6 @@
 package org.opentaint.ir.analysis.ifds
 
 import org.opentaint.ir.api.JIRField
-import org.opentaint.ir.api.cfg.JIRValue
 
 sealed interface Accessor {
     fun toSuffix(): String
@@ -10,21 +9,11 @@ sealed interface Accessor {
 data class FieldAccessor(
     val field: JIRField,
 ) : Accessor {
-    override fun toSuffix(): String {
-        return ".${field.name}"
-    }
-
-    override fun toString(): String {
-        return field.name
-    }
+    override fun toSuffix(): String = ".${field.name}"
+    override fun toString(): String = field.name
 }
 
 object ElementAccessor : Accessor {
-    override fun toSuffix(): String {
-        return "[*]"
-    }
-
-    override fun toString(): String {
-        return "*"
-    }
+    override fun toSuffix(): String = "[*]"
+    override fun toString(): String = "*"
 }
