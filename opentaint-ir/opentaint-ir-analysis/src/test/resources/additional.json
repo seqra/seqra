@@ -535,7 +535,7 @@
       },
       "functionName": {
         "_": "NameMatches",
-        "pattern": "put"
+        "pattern": "put|replace"
       },
       "applyToOverrides": true,
       "exclude": [],
