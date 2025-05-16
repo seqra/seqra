@@ -58,17 +58,15 @@ class EntryPointPositionToJIRValueResolver(
     val cp: JIRClasspath,
     val method: JIRMethod,
 ) : PositionResolver<Maybe<JIRValue>> {
-    override fun resolve(position: Position): Maybe<JIRValue> {
-        return when (position) {
-            This -> Maybe.some(method.thisInstance)
+    override fun resolve(position: Position): Maybe<JIRValue> = when (position) {
+        This -> Maybe.some(method.thisInstance)
 
-            is Argument -> {
-                val p = method.parameters[position.index]
-                cp.getArgument(p).toMaybe()
-            }
-
-            AnyArgument, Result, ResultAnyElement -> error("Unexpected $position")
+        is Argument -> {
+            val p = method.parameters[position.index]
+            cp.getArgument(p).toMaybe()
         }
+
+        AnyArgument, Result, ResultAnyElement -> error("Unexpected $position")
     }
 }
 
@@ -76,16 +74,14 @@ class EntryPointPositionToAccessPathResolver(
     val cp: JIRClasspath,
     val method: JIRMethod,
 ) : PositionResolver<Maybe<AccessPath>> {
-    override fun resolve(position: Position): Maybe<AccessPath> {
-        return when (position) {
-            This -> method.thisInstance.toPathOrNull().toMaybe()
+    override fun resolve(position: Position): Maybe<AccessPath> = when (position) {
+        This -> method.thisInstance.toPathOrNull().toMaybe()
 
-            is Argument -> {
-                val p = method.parameters[position.index]
-                cp.getArgument(p)?.toPathOrNull().toMaybe()
-            }
-
-            AnyArgument, Result, ResultAnyElement -> error("Unexpected $position")
+        is Argument -> {
+            val p = method.parameters[position.index]
+            cp.getArgument(p)?.toPathOrNull().toMaybe()
         }
+
+        AnyArgument, Result, ResultAnyElement -> error("Unexpected $position")
     }
 }
