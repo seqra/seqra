@@ -1,9 +1,10 @@
 package org.opentaint.ir.analysis.impl;
 
+import kotlin.time.DurationUnit;
 import org.opentaint.ir.analysis.graph.ApplicationGraphFactory;
 import org.opentaint.ir.analysis.ifds.UnitResolver;
 import org.opentaint.ir.analysis.ifds.UnitResolverKt;
-import org.opentaint.ir.analysis.taint.TaintManagerKt;
+import org.opentaint.ir.analysis.taint.TaintManager;
 import org.opentaint.ir.api.JIRClassOrInterface;
 import org.opentaint.ir.api.JIRClasspath;
 import org.opentaint.ir.api.JIRDatabase;
@@ -21,6 +22,8 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+
+import static kotlin.time.DurationKt.toDuration;
 
 public class JavaAnalysisApiTest {
     private static JIRClasspath classpath;
@@ -41,7 +44,8 @@ public class JavaAnalysisApiTest {
                 .newApplicationGraphForAnalysisAsync(classpath, null)
                 .get();
         UnitResolver unitResolver = UnitResolverKt.getMethodUnitResolver();
-        TaintManagerKt.runTaintAnalysis(applicationGraph, unitResolver, methodsToAnalyze);
+        TaintManager manager = new TaintManager(applicationGraph, unitResolver, false);
+        manager.analyze(methodsToAnalyze, toDuration(30, DurationUnit.SECONDS));
     }
 
     @Test

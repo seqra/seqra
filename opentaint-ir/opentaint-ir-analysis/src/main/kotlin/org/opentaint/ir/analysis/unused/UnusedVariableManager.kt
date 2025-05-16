@@ -241,12 +241,3 @@ class UnusedVariableManager(
             .launchIn(scope)
     }
 }
-
-fun runUnusedVariableAnalysis(
-    graph: JIRApplicationGraph,
-    unitResolver: UnitResolver,
-    startMethods: List<JIRMethod>,
-): List<UnusedVariableVulnerability> {
-    val manager = UnusedVariableManager(graph, unitResolver)
-    return manager.analyze(startMethods)
-}
