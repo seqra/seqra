@@ -1,8 +1,6 @@
 package org.opentaint.ir.analysis.impl
 
-import org.opentaint.ir.analysis.ifds.ClassUnitResolver
 import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
-import org.opentaint.ir.analysis.taint.TaintManager
 import org.opentaint.ir.analysis.unused.UnusedVariableManager
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.methods
@@ -16,8 +14,6 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
 import kotlin.time.Duration.Companion.seconds
-
-private val logger = mu.KotlinLogging.logger {}
 
 class IfdsUnusedTest : BaseAnalysisTest() {
 
@@ -55,7 +51,8 @@ class IfdsUnusedTest : BaseAnalysisTest() {
 
     @Test
     fun `test on specific Juliet instance`() {
-        val className = "juliet.testcases.CWE563_Unused_Variable.CWE563_Unused_Variable__unused_init_variable_StringBuilder_01"
+        val className =
+            "juliet.testcases.CWE563_Unused_Variable.CWE563_Unused_Variable__unused_init_variable_StringBuilder_01"
         val clazz = cp.findClass(className)
         val badMethod = clazz.methods.single { it.name == "bad" }
         val unitResolver = SingletonUnitResolver
