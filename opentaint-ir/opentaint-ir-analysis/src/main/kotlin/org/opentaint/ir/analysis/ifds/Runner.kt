@@ -160,7 +160,7 @@ class UniRunner<Fact, Event>(
                                 if (summaryEdge.from == calleeStartVertex) {
                                     handleSummaryEdge(currentEdge, summaryEdge)
                                 } else {
-                                    logger.debug { "Skipping unsuitable summary edge: $summaryEdge" }
+                                    logger.trace { "Skipping unsuitable summary edge: $summaryEdge" }
                                 }
                             }
                         } else {
