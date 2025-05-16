@@ -14,7 +14,7 @@ import org.opentaint.ir.api.cfg.values
 import org.opentaint.ir.api.ext.cfg.callExpr
 
 internal fun AccessPath.isUsedAt(expr: JIRExpr): Boolean {
-    return this in expr.values.map { it.toPathOrNull() }
+    return expr.values.any { it.toPathOrNull() == this }
 }
 
 internal fun AccessPath.isUsedAt(inst: JIRInst): Boolean {
