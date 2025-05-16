@@ -56,7 +56,7 @@ class TaintAnalyzer(
                 if (item.condition.accept(conditionEvaluator)) {
                     val message = item.ruleNote
                     val vulnerability = TaintVulnerability(message, sink = edge.to, rule = item)
-                    logger.debug { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
+                    logger.info { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
                     add(NewVulnerability(vulnerability))
                 }
             }
