@@ -375,12 +375,6 @@ class ForwardNpeFlowFunctions(
         }
         check(fact is Tainted)
 
-        // TODO: handle 'activation' (c.f. Boomerang) here
-
-        // if (config == null) {
-        //     return@FlowFunction emptyList()
-        // }
-
         if (config != null) {
             // FIXME: adhoc
             if (callee.enclosingClass.name == "java.lang.StringBuilder" && callee.name == "append") {
@@ -492,7 +486,6 @@ class ForwardNpeFlowFunctions(
         val callee = calleeStart.location.method
 
         if (fact == TaintZeroFact) {
-            // return@FlowFunction obtainPossibleStartFacts(callee)
             return@FlowFunction obtainPossibleStartFactsBasic(callee)
         }
         check(fact is Tainted)
