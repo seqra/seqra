@@ -2,8 +2,8 @@ package org.opentaint.ir.impl.types
 
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.serialization.Serializable
-import org.opentaint.ir.api.core.TypeName
 import org.opentaint.ir.api.jvm.ext.jIRdbName
+import org.opentaint.ir.api.jvm.TypeName
 import org.opentaint.ir.impl.storage.AnnotationValueKind
 import org.objectweb.asm.Type
 
@@ -25,13 +25,13 @@ class ClassInfo(
     val innerClasses: List<String>,
     val interfaces: List<String>,
     val annotations: List<AnnotationInfo>,
-    val bytecode: ByteArray
+    val bytecode: ByteArray,
 )
 
 @Serializable
 class OuterClassRef(
     val className: String,
-    val name: String?
+    val name: String?,
 )
 
 @Serializable
@@ -55,7 +55,7 @@ class FieldInfo(
     val signature: String?,
     val access: Int,
     val type: String,
-    val annotations: List<AnnotationInfo>
+    val annotations: List<AnnotationInfo>,
 )
 
 @Serializable
@@ -73,7 +73,7 @@ class ParameterInfo(
     val index: Int,
     val access: Int,
     val name: String?,
-    val annotations: List<AnnotationInfo>
+    val annotations: List<AnnotationInfo>,
 )
 
 @Serializable

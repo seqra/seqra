@@ -42,23 +42,23 @@ class OverridesTest : BaseTypesTest() {
         assertEquals(0, impl1.declaredFields.size)
         with(impl1.fields) {
             assertEquals(2, size)
-            first { it.name == "protectedMain" }.fieldType.assertClassType<String>()
-            first { it.name == "publicMain" }.fieldType.assertClassType<String>()
+            first { it.name == "protectedMain" }.type.assertClassType<String>()
+            first { it.name == "publicMain" }.type.assertClassType<String>()
         }
 
         val impl2 = cp.findClass<Overrides.Impl2>().toType()
         assertEquals(3, impl2.declaredFields.size)
         with(impl2.fields) {
             assertEquals(5, size)
-            assertEquals("java.util.List<java.io.Closeable>", first { it.name == "publicMain1" }.fieldType.typeName)
-            assertEquals("java.util.List<java.io.Closeable>", first { it.name == "protectedMain1" }.fieldType.typeName)
+            assertEquals("java.util.List<java.io.Closeable>", first { it.name == "publicMain1" }.type.typeName)
+            assertEquals("java.util.List<java.io.Closeable>", first { it.name == "protectedMain1" }.type.typeName)
 
             with(first { it.name == "main" }) {
-                fieldType.assertClassType<String>()
+                type.assertClassType<String>()
                 enclosingType.assertClassType<Overrides.Impl2>()
             }
-            first { it.name == "publicMain" }.fieldType.assertClassType<String>()
-            first { it.name == "protectedMain" }.fieldType.assertClassType<String>()
+            first { it.name == "publicMain" }.type.assertClassType<String>()
+            first { it.name == "protectedMain" }.type.assertClassType<String>()
         }
     }
 

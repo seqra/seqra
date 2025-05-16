@@ -1,23 +1,40 @@
 package org.opentaint.ir.analysis.unused
 
-import org.opentaint.ir.analysis.ifds.AccessPath
+import org.opentaint.ir.analysis.ifds.CommonAccessPath
+import org.opentaint.ir.analysis.ifds.JIRAccessPath
 import org.opentaint.ir.analysis.ifds.toPathOrNull
-import org.opentaint.ir.api.cfg.JIRArrayAccess
-import org.opentaint.ir.api.cfg.JIRAssignInst
-import org.opentaint.ir.api.cfg.JIRBranchingInst
-import org.opentaint.ir.api.cfg.JIRExpr
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRLocal
-import org.opentaint.ir.api.cfg.JIRSpecialCallExpr
-import org.opentaint.ir.api.cfg.JIRTerminatingInst
-import org.opentaint.ir.api.cfg.values
-import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.api.common.cfg.CommonExpr
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRBranchingInst
+import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRLocal
+import org.opentaint.ir.api.jvm.cfg.JIRSpecialCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRTerminatingInst
+import org.opentaint.ir.api.jvm.cfg.values
+import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 
-internal fun AccessPath.isUsedAt(expr: JIRExpr): Boolean {
+internal fun CommonAccessPath.isUsedAt(expr: CommonExpr): Boolean {
+    if (this is JIRAccessPath && expr is JIRExpr) {
+        return isUsedAt(expr)
+    }
+    error("Cannot determine whether path $this is used at expr: $expr")
+}
+
+internal fun CommonAccessPath.isUsedAt(inst: CommonInst<*, *>): Boolean {
+    if (this is JIRAccessPath && inst is JIRInst) {
+        return isUsedAt(inst)
+    }
+    error("Cannot determine whether path $this is used at inst: $inst")
+}
+
+internal fun JIRAccessPath.isUsedAt(expr: JIRExpr): Boolean {
     return expr.values.any { it.toPathOrNull() == this }
 }
 
-internal fun AccessPath.isUsedAt(inst: JIRInst): Boolean {
+internal fun JIRAccessPath.isUsedAt(inst: JIRInst): Boolean {
     val callExpr = inst.callExpr
 
     if (callExpr != null) {

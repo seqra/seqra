@@ -1,17 +1,17 @@
 package org.opentaint.ir.analysis.config
 
-import org.opentaint.ir.analysis.ifds.AccessPath
-import org.opentaint.ir.analysis.ifds.ElementAccessor
 import org.opentaint.ir.analysis.ifds.Maybe
 import org.opentaint.ir.analysis.ifds.onSome
 import org.opentaint.ir.analysis.ifds.toPath
 import org.opentaint.ir.analysis.taint.Tainted
-import org.opentaint.ir.api.cfg.JIRBool
-import org.opentaint.ir.api.cfg.JIRConstant
-import org.opentaint.ir.api.cfg.JIRInt
-import org.opentaint.ir.api.cfg.JIRStringConstant
-import org.opentaint.ir.api.cfg.JIRValue
-import org.opentaint.ir.api.ext.isAssignable
+import org.opentaint.ir.analysis.util.removeTrailingElementAccessors
+import org.opentaint.ir.api.common.cfg.CommonValue
+import org.opentaint.ir.api.jvm.JIRType
+import org.opentaint.ir.api.jvm.cfg.JIRBool
+import org.opentaint.ir.api.jvm.cfg.JIRConstant
+import org.opentaint.ir.api.jvm.cfg.JIRInt
+import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
+import org.opentaint.ir.api.jvm.ext.isAssignable
 import org.opentaint.ir.taint.configuration.And
 import org.opentaint.ir.taint.configuration.AnnotationType
 import org.opentaint.ir.taint.configuration.ConditionVisitor
@@ -32,8 +32,10 @@ import org.opentaint.ir.taint.configuration.PositionResolver
 import org.opentaint.ir.taint.configuration.SourceFunctionMatches
 import org.opentaint.ir.taint.configuration.TypeMatches
 
+// TODO: replace 'JIRInt' with 'CommonInt', etc
+
 open class BasicConditionEvaluator(
-    internal val positionResolver: PositionResolver<Maybe<JIRValue>>,
+    internal val positionResolver: PositionResolver<Maybe<CommonValue>>,
 ) : ConditionVisitor<Boolean> {
 
     override fun visit(condition: ConstantTrue): Boolean {
@@ -133,7 +135,10 @@ open class BasicConditionEvaluator(
 
     override fun visit(condition: TypeMatches): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
-            return value.type.isAssignable(condition.type)
+            return when (val valueType = value.type) {
+                is JIRType -> valueType.isAssignable(condition.type)
+                else -> error("Cannot evaluate $condition for $valueType")
+            }
         }
         return false
     }
@@ -141,7 +146,7 @@ open class BasicConditionEvaluator(
 
 class FactAwareConditionEvaluator(
     private val fact: Tainted,
-    positionResolver: PositionResolver<Maybe<JIRValue>>,
+    positionResolver: PositionResolver<Maybe<CommonValue>>,
 ) : BasicConditionEvaluator(positionResolver) {
 
     override fun visit(condition: ContainsMark): Boolean {
@@ -157,13 +162,5 @@ class FactAwareConditionEvaluator(
             return variable == fact.variable
         }
         return false
-    }
-
-    private fun AccessPath.removeTrailingElementAccessors(): AccessPath {
-        val accesses = accesses.toMutableList()
-        while (accesses.lastOrNull() is ElementAccessor) {
-            accesses.removeLast()
-        }
-        return AccessPath(value, accesses)
     }
 }

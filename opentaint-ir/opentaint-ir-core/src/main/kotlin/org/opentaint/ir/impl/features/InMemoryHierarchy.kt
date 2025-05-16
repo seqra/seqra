@@ -1,15 +1,6 @@
 package org.opentaint.ir.impl.features
 
-import org.opentaint.ir.api.*
-import org.opentaint.ir.api.jvm.ByteCodeIndexer
-import org.opentaint.ir.api.jvm.ClassSource
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRDatabase
-import org.opentaint.ir.api.jvm.JIRDatabasePersistence
-import org.opentaint.ir.api.jvm.JIRFeature
-import org.opentaint.ir.api.jvm.JIRProject
-import org.opentaint.ir.api.jvm.JIRSignal
-import org.opentaint.ir.api.jvm.RegisteredLocation
+import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
@@ -104,11 +95,11 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
         }
     }
 
-    override suspend fun query(classpath: JIRProject, req: InMemoryHierarchyReq): Sequence<ClassSource> {
+    override suspend fun query(classpath: JIRClasspath, req: InMemoryHierarchyReq): Sequence<ClassSource> {
         return syncQuery(classpath, req)
     }
 
-    fun syncQuery(classpath: JIRProject, req: InMemoryHierarchyReq): Sequence<ClassSource> {
+    fun syncQuery(classpath: JIRClasspath, req: InMemoryHierarchyReq): Sequence<ClassSource> {
         val persistence = classpath.db.persistence
         val locationIds = classpath.registeredLocations.map { it.id }
         if (req.name == JAVA_OBJECT) {
@@ -183,7 +174,7 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
 
 }
 
-internal fun JIRProject.findSubclassesInMemory(
+internal fun JIRClasspath.findSubclassesInMemory(
     name: String,
     allHierarchy: Boolean,
     full: Boolean

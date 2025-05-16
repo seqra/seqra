@@ -21,7 +21,7 @@ class TypeAnnotationsTest : BaseTypesTest() {
         )
 
         val fields = clazz.declaredFields.filter { it.name in expectedAnnotations.keys }
-        val actualAnnotations = fields.associate { it.name to it.fieldType.annotations.simplified }
+        val actualAnnotations = fields.associate { it.name to it.type.annotations.simplified }
 
         assertEquals(expectedAnnotations, actualAnnotations)
     }

@@ -3,28 +3,26 @@ package org.opentaint.ir.analysis.impl
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.analysis.ifds.FlowFunctions
-import org.opentaint.ir.analysis.util.getArgument
 import org.opentaint.ir.analysis.ifds.toPath
 import org.opentaint.ir.analysis.taint.ForwardTaintFlowFunctions
-import org.opentaint.ir.analysis.taint.TaintDomainFact
-import org.opentaint.ir.analysis.taint.Tainted
 import org.opentaint.ir.analysis.taint.TaintZeroFact
-import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRArgument
-import org.opentaint.ir.api.cfg.JIRAssignInst
-import org.opentaint.ir.api.cfg.JIRCallExpr
-import org.opentaint.ir.api.cfg.JIRCallInst
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRLocal
-import org.opentaint.ir.api.cfg.JIRLocalVar
-import org.opentaint.ir.api.cfg.JIRReturnInst
-import org.opentaint.ir.api.ext.cfg.callExpr
-import org.opentaint.ir.api.ext.findTypeOrNull
-import org.opentaint.ir.api.ext.packageName
+import org.opentaint.ir.analysis.taint.Tainted
+import org.opentaint.ir.analysis.util.getArgument
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.cfg.JIRArgument
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRCallInst
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRLocal
+import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
+import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
+import org.opentaint.ir.api.jvm.ext.cfg.callExpr
+import org.opentaint.ir.api.jvm.ext.findTypeOrNull
+import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.taint.configuration.TaintConfigurationFeature
@@ -52,6 +50,7 @@ class TaintFlowFunctionsTest : BaseTest() {
     }
 
     private val graph: JIRApplicationGraph = mockk {
+        every { project } returns cp
         every { callees(any()) } answers {
             sequenceOf(arg<JIRInst>(0).callExpr!!.method.method)
         }
@@ -82,7 +81,7 @@ class TaintFlowFunctionsTest : BaseTest() {
 
     @Test
     fun `test obtain start facts`() {
-        val flowSpace: FlowFunctions<TaintDomainFact> = ForwardTaintFlowFunctions(cp, graph)
+        val flowSpace = ForwardTaintFlowFunctions(graph)
         val facts = flowSpace.obtainPossibleStartFacts(testMethod).toList()
         val arg0 = cp.getArgument(testMethod.parameters[0])!!
         val arg0Taint = Tainted(arg0.toPath(), TaintMark("EXAMPLE"))
@@ -95,7 +94,7 @@ class TaintFlowFunctionsTest : BaseTest() {
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
         val y: JIRLocal = JIRLocalVar(2, "y", stringType)
         val inst = JIRAssignInst(location = mockk(), lhv = x, rhv = y)
-        val flowSpace: FlowFunctions<TaintDomainFact> = ForwardTaintFlowFunctions(cp, graph)
+        val flowSpace = ForwardTaintFlowFunctions(graph)
         val f = flowSpace.obtainSequentFlowFunction(inst, next = mockk())
         val yTaint = Tainted(y.toPath(), TaintMark("TAINT"))
         val xTaint = Tainted(x.toPath(), TaintMark("TAINT"))
@@ -112,7 +111,7 @@ class TaintFlowFunctionsTest : BaseTest() {
                 every { method } returns testMethod
             }
         })
-        val flowSpace: FlowFunctions<TaintDomainFact> = ForwardTaintFlowFunctions(cp, graph)
+        val flowSpace = ForwardTaintFlowFunctions(graph)
         val f = flowSpace.obtainCallToReturnSiteFlowFunction(callStatement, returnSite = mockk())
         val xTaint = Tainted(x.toPath(), TaintMark("EXAMPLE"))
         val facts = f.compute(TaintZeroFact).toList()
@@ -129,7 +128,7 @@ class TaintFlowFunctionsTest : BaseTest() {
             }
             every { args } returns listOf(x)
         })
-        val flowSpace: FlowFunctions<TaintDomainFact> = ForwardTaintFlowFunctions(cp, graph)
+        val flowSpace = ForwardTaintFlowFunctions(graph)
         val f = flowSpace.obtainCallToReturnSiteFlowFunction(callStatement, returnSite = mockk())
         val xTaint = Tainted(x.toPath(), TaintMark("REMOVE"))
         val facts = f.compute(xTaint).toList()
@@ -147,7 +146,7 @@ class TaintFlowFunctionsTest : BaseTest() {
             }
             every { args } returns listOf(x)
         })
-        val flowSpace: FlowFunctions<TaintDomainFact> = ForwardTaintFlowFunctions(cp, graph)
+        val flowSpace = ForwardTaintFlowFunctions(graph)
         val f = flowSpace.obtainCallToReturnSiteFlowFunction(callStatement, returnSite = mockk())
         val xTaint = Tainted(x.toPath(), TaintMark("COPY"))
         val yTaint = Tainted(y.toPath(), TaintMark("COPY"))
@@ -169,7 +168,7 @@ class TaintFlowFunctionsTest : BaseTest() {
             }
             every { args } returns listOf(x)
         })
-        val flowSpace: FlowFunctions<TaintDomainFact> = ForwardTaintFlowFunctions(cp, graph)
+        val flowSpace = ForwardTaintFlowFunctions(graph)
         val f = flowSpace.obtainCallToStartFlowFunction(callStatement, calleeStart = mockk {
             every { location } returns mockk {
                 every { method } returns testMethod
@@ -199,7 +198,7 @@ class TaintFlowFunctionsTest : BaseTest() {
         val exitStatement = JIRReturnInst(location = mockk {
             every { method } returns testMethod
         }, returnValue = y)
-        val flowSpace: FlowFunctions<TaintDomainFact> = ForwardTaintFlowFunctions(cp, graph)
+        val flowSpace = ForwardTaintFlowFunctions(graph)
         val f = flowSpace.obtainExitToReturnSiteFlowFunction(callStatement, returnSite = mockk(), exitStatement)
         val yTaint = Tainted(y.toPath(), TaintMark("TAINT"))
         val xTaint = Tainted(x.toPath(), TaintMark("TAINT"))

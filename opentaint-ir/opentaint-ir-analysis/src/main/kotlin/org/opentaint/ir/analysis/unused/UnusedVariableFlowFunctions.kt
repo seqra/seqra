@@ -2,35 +2,39 @@ package org.opentaint.ir.analysis.unused
 
 import org.opentaint.ir.analysis.ifds.FlowFunction
 import org.opentaint.ir.analysis.ifds.FlowFunctions
+import org.opentaint.ir.analysis.ifds.isOnHeap
 import org.opentaint.ir.analysis.ifds.toPath
 import org.opentaint.ir.analysis.ifds.toPathOrNull
 import org.opentaint.ir.analysis.util.getArgumentsOf
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRAssignInst
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRSpecialCallExpr
-import org.opentaint.ir.api.cfg.JIRStaticCallExpr
-import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.Project
+import org.opentaint.ir.api.common.analysis.ApplicationGraph
+import org.opentaint.ir.api.common.cfg.CommonAssignInst
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.common.ext.callExpr
+import org.opentaint.ir.api.jvm.cfg.JIRSpecialCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRStaticCallExpr
 
-class UnusedVariableFlowFunctions(
-    private val graph: JIRApplicationGraph,
-) : FlowFunctions<UnusedVariableDomainFact> {
-    private val cp: JIRClasspath
-        get() = graph.classpath
+class UnusedVariableFlowFunctions<Method, Statement>(
+    private val graph: ApplicationGraph<Method, Statement>,
+) : FlowFunctions<UnusedVariableDomainFact, Method, Statement>
+    where Method : CommonMethod<Method, Statement>,
+          Statement : CommonInst<Method, Statement> {
+
+    private val cp: Project
+        get() = graph.project
 
     override fun obtainPossibleStartFacts(
-        method: JIRMethod,
+        method: Method,
     ): Collection<UnusedVariableDomainFact> {
         return setOf(UnusedVariableZeroFact)
     }
 
     override fun obtainSequentFlowFunction(
-        current: JIRInst,
-        next: JIRInst,
+        current: Statement,
+        next: Statement,
     ) = FlowFunction<UnusedVariableDomainFact> { fact ->
-        if (current !is JIRAssignInst) {
+        if (current !is CommonAssignInst<*, *>) {
             return@FlowFunction setOf(fact)
         }
 
@@ -61,18 +65,19 @@ class UnusedVariableFlowFunctions(
     }
 
     override fun obtainCallToReturnSiteFlowFunction(
-        callStatement: JIRInst,
-        returnSite: JIRInst,
+        callStatement: Statement,
+        returnSite: Statement,
     ) = obtainSequentFlowFunction(callStatement, returnSite)
 
     override fun obtainCallToStartFlowFunction(
-        callStatement: JIRInst,
-        calleeStart: JIRInst,
+        callStatement: Statement,
+        calleeStart: Statement,
     ) = FlowFunction<UnusedVariableDomainFact> { fact ->
         val callExpr = callStatement.callExpr
             ?: error("Call statement should have non-null callExpr")
 
         if (fact == UnusedVariableZeroFact) {
+            // FIXME: use common?
             if (callExpr !is JIRStaticCallExpr && callExpr !is JIRSpecialCallExpr) {
                 return@FlowFunction setOf(UnusedVariableZeroFact)
             }
@@ -91,9 +96,9 @@ class UnusedVariableFlowFunctions(
     }
 
     override fun obtainExitToReturnSiteFlowFunction(
-        callStatement: JIRInst,
-        returnSite: JIRInst,
-        exitStatement: JIRInst,
+        callStatement: Statement,
+        returnSite: Statement,
+        exitStatement: Statement,
     ) = FlowFunction<UnusedVariableDomainFact> { fact ->
         if (fact == UnusedVariableZeroFact) {
             setOf(UnusedVariableZeroFact)

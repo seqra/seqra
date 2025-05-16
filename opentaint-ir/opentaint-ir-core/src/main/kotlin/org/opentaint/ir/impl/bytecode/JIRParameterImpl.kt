@@ -1,10 +1,10 @@
 package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.ir.api.jvm.JIRDeclaration
 import org.opentaint.ir.api.jvm.JIRAnnotation
+import org.opentaint.ir.api.jvm.JIRDeclaration
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRParameter
-import org.opentaint.ir.api.core.TypeName
+import org.opentaint.ir.api.jvm.TypeName
 import org.opentaint.ir.impl.types.ParameterInfo
 import org.opentaint.ir.impl.types.TypeNameImpl
 

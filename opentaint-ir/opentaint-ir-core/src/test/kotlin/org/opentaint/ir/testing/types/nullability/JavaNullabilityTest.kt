@@ -49,15 +49,15 @@ class JavaNullabilityTest : BaseTypesTest() {
         val containerOfUndefined = clazz.declaredFields.single { it.name == "containerOfUndefined" }
         val containerOfNotNull = clazz.declaredFields.single { it.name == "containerOfNotNull" }
 
-        val containerOfUndefinedFieldsNullability = (containerOfUndefined.fieldType as JIRClassType)
+        val containerOfUndefinedFieldsNullability = (containerOfUndefined.type as JIRClassType)
             .fields
             .sortedBy { it.name }
-            .map { it.fieldType.nullabilityTree }
+            .map { it.type.nullabilityTree }
 
-        val containerOfNotNullFieldsNullability = (containerOfNotNull.fieldType as JIRClassType)
+        val containerOfNotNullFieldsNullability = (containerOfNotNull.type as JIRClassType)
             .fields
             .sortedBy { it.name }
-            .map { it.fieldType.nullabilityTree }
+            .map { it.type.nullabilityTree }
 
         // E -> String or E -> @NotNull String
         val expectedNullability = listOf(
@@ -89,10 +89,10 @@ class JavaNullabilityTest : BaseTypesTest() {
         val clazz = findType<NullAnnotationExamples>()
         val containerOfNullable = clazz.declaredFields.single { it.name == "containerOfNullable" }
 
-        val containerOfNullableFieldsNullability = (containerOfNullable.fieldType as JIRClassType)
+        val containerOfNullableFieldsNullability = (containerOfNullable.type as JIRClassType)
             .fields
             .sortedBy { it.name }
-            .map { it.fieldType.nullabilityTree }
+            .map { it.type.nullabilityTree }
 
         // E -> @Nullable String
         val expectedNullability = listOf(

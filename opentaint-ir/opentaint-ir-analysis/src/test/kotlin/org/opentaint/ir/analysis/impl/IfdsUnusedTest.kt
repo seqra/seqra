@@ -2,8 +2,8 @@ package org.opentaint.ir.analysis.impl
 
 import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
 import org.opentaint.ir.analysis.unused.UnusedVariableManager
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.methods
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.methods
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.testing.WithDB

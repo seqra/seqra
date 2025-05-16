@@ -1,8 +1,10 @@
+@file:Suppress("FunctionName")
+
 package org.opentaint.ir.analysis.ifds
 
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.ext.packageName
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.ext.packageName
 
 interface UnitType
 
@@ -24,26 +26,27 @@ data class PackageUnit(val packageName: String) : UnitType {
     }
 }
 
-object UnknownUnit : UnitType {
-    override fun toString(): String = javaClass.simpleName
-}
-
 object SingletonUnit : UnitType {
     override fun toString(): String = javaClass.simpleName
 }
 
+object UnknownUnit : UnitType {
+    override fun toString(): String = javaClass.simpleName
+}
+
 /**
- * Sets a mapping from [JIRMethod] to abstract domain [UnitType].
+ * Sets a mapping from a [Method] to abstract domain [UnitType].
  *
  * Therefore, it splits all methods into units, containing one or more method each
  * (unit is a set of methods with same value of [UnitType] returned by [resolve]).
+ *
+ * To get more info about how it is used in analysis, see [runAnalysis].
  */
-fun interface UnitResolver {
-
-    fun resolve(method: JIRMethod): UnitType
+fun interface UnitResolver<Method> {
+    fun resolve(method: Method): UnitType
 
     companion object {
-        fun getByName(name: String): UnitResolver = when (name) {
+        fun getByName(name: String): UnitResolver<JIRMethod> = when (name) {
             "method" -> MethodUnitResolver
             "class" -> ClassUnitResolver(false)
             "package" -> PackageUnitResolver
@@ -53,24 +56,32 @@ fun interface UnitResolver {
     }
 }
 
-val MethodUnitResolver = UnitResolver { method ->
+fun interface JIRUnitResolver : UnitResolver<JIRMethod>
+
+val MethodUnitResolver = JIRUnitResolver { method ->
     MethodUnit(method)
 }
 
-@Suppress("FunctionName")
-fun ClassUnitResolver(includeNested: Boolean) = UnitResolver { method ->
-    val clazz = if (includeNested) {
-        generateSequence(method.enclosingClass) { it.outerClass }.last()
-    } else {
-        method.enclosingClass
-    }
+private val ClassUnitResolverWithNested = JIRUnitResolver { method ->
+    val clazz = generateSequence(method.enclosingClass) { it.outerClass }.last()
+    ClassUnit(clazz)
+}
+private val ClassUnitResolverWithoutNested = JIRUnitResolver { method ->
+    val clazz = method.enclosingClass
     ClassUnit(clazz)
 }
 
-val PackageUnitResolver = UnitResolver { method ->
+fun ClassUnitResolver(includeNested: Boolean) =
+    if (includeNested) {
+        ClassUnitResolverWithNested
+    } else {
+        ClassUnitResolverWithoutNested
+    }
+
+val PackageUnitResolver = JIRUnitResolver { method ->
     PackageUnit(method.enclosingClass.packageName)
 }
 
-val SingletonUnitResolver = UnitResolver { _ ->
+val SingletonUnitResolver = JIRUnitResolver {
     SingletonUnit
 }

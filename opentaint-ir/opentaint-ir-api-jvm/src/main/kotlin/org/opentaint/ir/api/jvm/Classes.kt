@@ -1,25 +1,31 @@
 package org.opentaint.ir.api.jvm
 
-import org.opentaint.ir.api.core.CoreMethod
-import org.opentaint.ir.api.core.TypeName
+import org.opentaint.ir.api.common.CommonClass
+import org.opentaint.ir.api.common.CommonClassField
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.CommonMethodParameter
+import org.opentaint.ir.api.common.CommonTypeName
+import org.opentaint.ir.api.common.Project
 import org.opentaint.ir.api.jvm.cfg.JIRGraph
-import org.opentaint.ir.api.core.cfg.InstList
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstList
 import org.opentaint.ir.api.jvm.cfg.JIRRawInst
 import org.opentaint.ir.api.jvm.ext.CONSTRUCTOR
-import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodNode
 
 @JvmDefaultWithoutCompatibility
-interface JIRClassOrInterface: JIRAnnotatedSymbol, JIRAccessible {
+interface JIRClassOrInterface : JIRAnnotatedSymbol, JIRAccessible, CommonClass {
 
-    val classpath: JIRProject
+    val classpath: JIRClasspath
+    override val project: JIRClasspath
+        get() = classpath
 
     val declaredFields: List<JIRField>
     val declaredMethods: List<JIRMethod>
 
-    val simpleName: String
+    override val simpleName: String
     val signature: String?
     val isAnonymous: Boolean
 
@@ -68,25 +74,25 @@ interface JIRAnnotation : JIRSymbol {
 
 }
 
-interface JIRMethod : JIRSymbol, JIRAnnotatedSymbol, JIRAccessible, CoreMethod<JIRInst> {
+interface JIRMethod : JIRSymbol, JIRAnnotatedSymbol, JIRAccessible, CommonMethod<JIRMethod, JIRInst> {
 
     /** reference to class */
-    val enclosingClass: JIRClassOrInterface
+    override val enclosingClass: JIRClassOrInterface
 
     val description: String
 
-    val returnType: TypeName
+    override val returnType: TypeName
 
     val signature: String?
-    val parameters: List<JIRParameter>
+    override val parameters: List<JIRParameter>
 
     val exceptions: List<TypeName>
 
     fun asmNode(): MethodNode
     override fun flowGraph(): JIRGraph
 
-    val rawInstList: InstList<JIRRawInst>
-    val instList: InstList<JIRInst>
+    val rawInstList: JIRInstList<JIRRawInst>
+    val instList: JIRInstList<JIRInst>
 
     /**
      * is method has `native` modifier
@@ -119,17 +125,19 @@ interface JIRMethod : JIRSymbol, JIRAnnotatedSymbol, JIRAccessible, CoreMethod<J
 
 }
 
-interface JIRField : JIRAnnotatedSymbol, JIRAccessible {
-
-    val enclosingClass: JIRClassOrInterface
-    val type: TypeName
-    val signature: String?
+interface JIRField : JIRAnnotatedSymbol, JIRAccessible, CommonClassField {
+    override val enclosingClass: JIRClassOrInterface
+    override val type: TypeName
+    override val signature: String?
 }
 
-interface JIRParameter : JIRAnnotated, JIRAccessible {
-    val type: TypeName
-    val name: String?
-    val index: Int
-    val method: JIRMethod
+interface JIRParameter : JIRAnnotated, JIRAccessible, CommonMethodParameter {
+    override val type: TypeName
+    override val name: String?
+    override val index: Int
+    override val method: JIRMethod
 }
 
+interface TypeName : CommonTypeName {
+    override val typeName: String
+}

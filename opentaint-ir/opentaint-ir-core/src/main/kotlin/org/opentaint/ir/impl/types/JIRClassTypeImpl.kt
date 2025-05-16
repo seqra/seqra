@@ -1,19 +1,6 @@
 package org.opentaint.ir.impl.types
 
-import org.opentaint.ir.api.*
-import org.opentaint.ir.api.jvm.JIRAnnotation
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRGenericsSubstitutionFeature
-import org.opentaint.ir.api.jvm.JIRLookup
-import org.opentaint.ir.api.jvm.JIRLookupExtFeature
-import org.opentaint.ir.api.jvm.JIRProject
-import org.opentaint.ir.api.jvm.JIRRefType
-import org.opentaint.ir.api.jvm.JIRSubstitutor
-import org.opentaint.ir.api.jvm.JIRType
-import org.opentaint.ir.api.jvm.JIRTypedField
-import org.opentaint.ir.api.jvm.JIRTypedMethod
-import org.opentaint.ir.api.jvm.JvmType
+import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.api.jvm.ext.toType
@@ -27,7 +14,7 @@ import org.opentaint.ir.impl.types.substition.SafeSubstitution
 import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 class JIRClassTypeImpl(
-    override val classpath: JIRProject,
+    override val classpath: JIRClasspath,
     val name: String,
     override val outerType: JIRClassTypeImpl? = null,
     private val substitutor: JIRSubstitutor = JIRSubstitutorImpl.empty,
@@ -36,7 +23,7 @@ class JIRClassTypeImpl(
 ) : JIRClassType {
 
     constructor(
-        classpath: JIRProject,
+        classpath: JIRClasspath,
         name: String,
         outerType: JIRClassTypeImpl? = null,
         parameters: List<JvmType>,
@@ -254,7 +241,7 @@ class JIRClassTypeImpl(
 
 }
 
-private fun JIRProject.substitute(
+private fun JIRClasspath.substitute(
     name: String,
     parameters: List<JvmType>,
     substitutor: JIRSubstitutor?

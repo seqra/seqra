@@ -1,7 +1,7 @@
 package org.opentaint.ir.taint.configuration
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.ext.constructors
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.api.jvm.ext.methods
@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test
 class ConfigurationTest : BaseTest() {
     companion object : WithDB()
 
-    override val cp: JIRProject = runBlocking {
+    override val cp: JIRClasspath = runBlocking {
         val configPath = "/testJsonConfig.json"
         val testConfig = this::class.java.getResourceAsStream(configPath)
             ?: error("No such resource found: $configPath")

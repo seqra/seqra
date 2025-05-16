@@ -1,20 +1,20 @@
 package org.opentaint.ir.impl.cfg
 
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.cfg.AbstractFullRawExprSetCollector
-import org.opentaint.ir.api.cfg.JIRInstList
-import org.opentaint.ir.api.cfg.JIRRawAssignInst
-import org.opentaint.ir.api.cfg.JIRRawCatchInst
-import org.opentaint.ir.api.cfg.JIRRawComplexValue
-import org.opentaint.ir.api.cfg.JIRRawConstant
-import org.opentaint.ir.api.cfg.JIRRawExpr
-import org.opentaint.ir.api.cfg.JIRRawInst
-import org.opentaint.ir.api.cfg.JIRRawLabelInst
-import org.opentaint.ir.api.cfg.JIRRawLocalVar
-import org.opentaint.ir.api.cfg.JIRRawNullConstant
-import org.opentaint.ir.api.cfg.JIRRawSimpleValue
-import org.opentaint.ir.api.cfg.JIRRawValue
-import org.opentaint.ir.api.ext.cfg.applyAndGet
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.cfg.AbstractFullRawExprSetCollector
+import org.opentaint.ir.api.jvm.cfg.JIRInstList
+import org.opentaint.ir.api.jvm.cfg.JIRRawAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRRawCatchInst
+import org.opentaint.ir.api.jvm.cfg.JIRRawComplexValue
+import org.opentaint.ir.api.jvm.cfg.JIRRawConstant
+import org.opentaint.ir.api.jvm.cfg.JIRRawExpr
+import org.opentaint.ir.api.jvm.cfg.JIRRawInst
+import org.opentaint.ir.api.jvm.cfg.JIRRawLabelInst
+import org.opentaint.ir.api.jvm.cfg.JIRRawLocalVar
+import org.opentaint.ir.api.jvm.cfg.JIRRawNullConstant
+import org.opentaint.ir.api.jvm.cfg.JIRRawSimpleValue
+import org.opentaint.ir.api.jvm.cfg.JIRRawValue
+import org.opentaint.ir.api.jvm.ext.cfg.applyAndGet
 import org.opentaint.ir.impl.cfg.util.ExprMapper
 import org.opentaint.ir.impl.cfg.util.InstructionFilter
 

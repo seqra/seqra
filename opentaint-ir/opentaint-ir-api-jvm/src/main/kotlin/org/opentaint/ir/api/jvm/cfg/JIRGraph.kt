@@ -1,19 +1,13 @@
 package org.opentaint.ir.api.jvm.cfg
 
-import org.opentaint.ir.api.core.cfg.ControlFlowGraph
-import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRProject
-
-interface JIRBytecodeGraph<NODE> : ControlFlowGraph<NODE> {
-    fun throwers(node: NODE): Set<NODE>
-    fun catchers(node: NODE): Set<NODE>
-}
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRMethod
 
 interface JIRGraph : JIRBytecodeGraph<JIRInst> {
 
     val method: JIRMethod
-    val classpath: JIRProject
+    val classpath: JIRClasspath
     override val instructions: List<JIRInst>
     val entry: JIRInst
     override val exits: List<JIRInst>

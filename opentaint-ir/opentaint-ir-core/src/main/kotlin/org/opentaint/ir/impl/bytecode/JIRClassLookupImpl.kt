@@ -1,12 +1,7 @@
 package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.ir.api.core.TypeName
+import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.api.jvm.ext.packageName
-import org.opentaint.ir.api.jvm.JIRAccessible
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRField
-import org.opentaint.ir.api.jvm.JIRLookup
-import org.opentaint.ir.api.jvm.JIRMethod
 
 class JIRClassLookupImpl(val clazz: JIRClassOrInterface) : JIRLookup<JIRField, JIRMethod> {
 

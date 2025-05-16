@@ -1,14 +1,18 @@
 package org.opentaint.ir.api.jvm.cfg
 
-abstract class AbstractFullRawExprSetCollector : JIRRawExprVisitor<Unit>, DefaultJIRRawInstVisitor<Unit> {
+import org.opentaint.ir.api.common.cfg.CommonExpr
+import org.opentaint.ir.api.common.cfg.CommonInst
 
-    override val defaultInstHandler: (JIRRawInst) -> Unit
-        get() = {
-            it.operands.forEach {
-                ifMatches(it)
-                it.accept(this)
-            }
+abstract class AbstractFullRawExprSetCollector :
+    JIRRawExprVisitor<Unit>,
+    JIRRawInstVisitor.Default<Unit> {
+
+    override fun defaultVisitJIRRawInst(inst: JIRRawInst) {
+        inst.operands.forEach {
+            ifMatches(it)
+            it.accept(this)
         }
+    }
 
     private fun visitBinaryExpr(expr: JIRRawBinaryExpr) {
         ifMatches(expr)
@@ -115,15 +119,28 @@ abstract class AbstractFullRawExprSetCollector : JIRRawExprVisitor<Unit>, Defaul
     abstract fun ifMatches(expr: JIRRawExpr)
 }
 
-abstract class AbstractFullExprSetCollector : JIRExprVisitor<Any>, DefaultJIRInstVisitor<Any> {
+abstract class AbstractFullExprSetCollector :
+    JIRExprVisitor.Default<Any>,
+    JIRInstVisitor.Default<Any> {
 
-    override val defaultInstHandler: (JIRInst) -> Any
-        get() = {
-            it.operands.forEach {
-                ifMatches(it)
-                it.accept(this)
-            }
+    override fun defaultVisitCommonExpr(expr: CommonExpr): Any {
+        TODO("Not yet implemented")
+    }
+
+    override fun defaultVisitCommonInst(inst: CommonInst<*, *>) {
+        TODO("Not yet implemented")
+    }
+
+    override fun defaultVisitJIRExpr(expr: JIRExpr) {
+        ifMatches(expr)
+    }
+
+    override fun defaultVisitJIRInst(inst: JIRInst) {
+        inst.operands.forEach {
+            ifMatches(it)
+            it.accept(this)
         }
+    }
 
     private fun visitBinaryExpr(expr: JIRBinaryExpr) {
         ifMatches(expr)
@@ -233,21 +250,6 @@ abstract class AbstractFullExprSetCollector : JIRExprVisitor<Any>, DefaultJIRIns
         expr.values.forEach { it.accept(this) }
         return Unit
     }
-
-    override fun visitExternalJIRExpr(expr: JIRExpr): Any = ifMatches(expr)
-    override fun visitJIRBool(value: JIRBool): Any = ifMatches(value)
-    override fun visitJIRByte(value: JIRByte): Any = ifMatches(value)
-    override fun visitJIRChar(value: JIRChar): Any = ifMatches(value)
-    override fun visitJIRShort(value: JIRShort): Any = ifMatches(value)
-    override fun visitJIRInt(value: JIRInt): Any = ifMatches(value)
-    override fun visitJIRLong(value: JIRLong): Any = ifMatches(value)
-    override fun visitJIRFloat(value: JIRFloat): Any = ifMatches(value)
-    override fun visitJIRDouble(value: JIRDouble): Any = ifMatches(value)
-    override fun visitJIRNullConstant(value: JIRNullConstant): Any = ifMatches(value)
-    override fun visitJIRStringConstant(value: JIRStringConstant): Any = ifMatches(value)
-    override fun visitJIRClassConstant(value: JIRClassConstant): Any = ifMatches(value)
-    override fun visitJIRMethodConstant(value: JIRMethodConstant): Any = ifMatches(value)
-    override fun visitJIRMethodType(value: JIRMethodType): Any = ifMatches(value)
 
     abstract fun ifMatches(expr: JIRExpr)
 }

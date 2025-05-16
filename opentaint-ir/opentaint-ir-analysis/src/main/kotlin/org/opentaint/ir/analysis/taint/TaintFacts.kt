@@ -1,6 +1,6 @@
 package org.opentaint.ir.analysis.taint
 
-import org.opentaint.ir.analysis.ifds.AccessPath
+import org.opentaint.ir.analysis.ifds.CommonAccessPath
 import org.opentaint.ir.taint.configuration.TaintMark
 
 sealed interface TaintDomainFact
@@ -10,6 +10,6 @@ object TaintZeroFact : TaintDomainFact {
 }
 
 data class Tainted(
-    val variable: AccessPath,
+    val variable: CommonAccessPath,
     val mark: TaintMark,
 ) : TaintDomainFact

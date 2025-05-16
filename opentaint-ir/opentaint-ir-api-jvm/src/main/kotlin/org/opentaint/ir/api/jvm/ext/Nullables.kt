@@ -2,12 +2,13 @@
 
 package org.opentaint.ir.api.jvm.ext
 
-import org.opentaint.ir.api.core.TypeName
+import org.opentaint.ir.api.jvm.JIRAnnotated
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRParameter
-import org.opentaint.ir.api.jvm.JIRAnnotated
+import org.opentaint.ir.api.jvm.PredefinedPrimitives
+import org.opentaint.ir.api.jvm.TypeName
 
 val JIRAnnotation.isNotNullAnnotation: Boolean
     get() = NullabilityAnnotations.notNullAnnotations.any { matches(it) }
@@ -28,7 +29,7 @@ private object NullabilityAnnotations {
 
 private fun JIRAnnotated.isNullable(type: TypeName): Boolean? =
     when {
-        org.opentaint.ir.api.jvm.PredefinedJIRPrimitives.matches(type.typeName) -> false
+        PredefinedPrimitives.matches(type.typeName) -> false
         annotations.any { it.isNotNullAnnotation } -> false
         annotations.any { it.isNullableAnnotation } -> true
         else -> null

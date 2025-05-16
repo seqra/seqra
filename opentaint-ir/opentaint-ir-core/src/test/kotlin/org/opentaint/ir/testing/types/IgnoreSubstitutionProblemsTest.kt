@@ -32,7 +32,7 @@ class IgnoreSubstitutionProblemsTest : BaseTest() {
             it.typeParameters
             it.returnType
             it.method.instList.forEach {
-                it.fieldRef?.field?.fieldType
+                it.fieldRef?.field?.type
             }
         }
     }

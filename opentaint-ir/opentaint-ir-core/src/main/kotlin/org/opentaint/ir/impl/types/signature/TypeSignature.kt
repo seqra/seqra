@@ -1,15 +1,10 @@
 package org.opentaint.ir.impl.types.signature
 
-import org.opentaint.ir.api.*
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.Malformed
-import org.opentaint.ir.api.jvm.Pure
-import org.opentaint.ir.api.jvm.TypeResolution
+import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.impl.bytecode.kMetadata
 import org.opentaint.ir.impl.types.allVisibleTypeParameters
 import org.opentaint.ir.impl.types.substition.RecursiveJvmTypeVisitor
 import org.opentaint.ir.impl.types.substition.fixDeclarationVisitor
-import org.opentaint.ir.api.jvm.JvmType
 import org.objectweb.asm.signature.SignatureVisitor
 
 internal class TypeSignature(jIRClass: JIRClassOrInterface) :

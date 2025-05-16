@@ -1,9 +1,9 @@
 package org.opentaint.ir.impl.cfg
 
-import org.opentaint.ir.api.*
-import org.opentaint.ir.api.cfg.*
-import org.opentaint.ir.api.ext.findType
-import org.opentaint.ir.api.ext.jvmName
+import org.opentaint.ir.api.jvm.*
+import org.opentaint.ir.api.jvm.cfg.*
+import org.opentaint.ir.api.jvm.ext.findType
+import org.opentaint.ir.api.jvm.ext.jvmName
 import org.opentaint.ir.impl.cfg.util.typeName
 import org.opentaint.ir.impl.softLazy
 import org.opentaint.ir.impl.weakLazy

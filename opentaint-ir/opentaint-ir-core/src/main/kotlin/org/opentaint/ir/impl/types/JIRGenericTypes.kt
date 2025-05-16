@@ -3,7 +3,7 @@ package org.opentaint.ir.impl.types
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRBoundedWildcard
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.JIRTypeVariable
@@ -12,7 +12,7 @@ import org.opentaint.ir.api.jvm.JIRUnboundWildcard
 import org.opentaint.ir.api.jvm.ext.objectClass
 import kotlin.LazyThreadSafetyMode.PUBLICATION
 
-class JIRUnboundWildcardImpl(override val classpath: JIRProject) :
+class JIRUnboundWildcardImpl(override val classpath: JIRClasspath) :
     JIRUnboundWildcard {
 
     override val nullable: Boolean = true
@@ -37,7 +37,7 @@ class JIRBoundedWildcardImpl(
 
     override val annotations: List<JIRAnnotation> = listOf()
 
-    override val classpath: JIRProject
+    override val classpath: JIRClasspath
         get() = upperBounds.firstOrNull()?.classpath ?: lowerBounds.firstOrNull()?.classpath
         ?: throw IllegalStateException("Upper or lower bound should be specified")
 
@@ -63,7 +63,7 @@ class JIRBoundedWildcardImpl(
 }
 
 class JIRTypeVariableImpl(
-    override val classpath: JIRProject,
+    override val classpath: JIRClasspath,
     private val declaration: JIRTypeVariableDeclaration,
     override val nullable: Boolean?,
     override val annotations: List<JIRAnnotation> = listOf()

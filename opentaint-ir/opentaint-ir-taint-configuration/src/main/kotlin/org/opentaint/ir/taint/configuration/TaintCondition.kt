@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
-import org.opentaint.ir.api.JIRType
+import org.opentaint.ir.api.jvm.JIRType
 
 interface ConditionVisitor<out R> {
     fun visit(condition: ConstantTrue): R

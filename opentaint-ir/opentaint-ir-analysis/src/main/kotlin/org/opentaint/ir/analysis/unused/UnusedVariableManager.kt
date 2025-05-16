@@ -25,9 +25,9 @@ import org.opentaint.ir.analysis.ifds.UnitType
 import org.opentaint.ir.analysis.ifds.UnknownUnit
 import org.opentaint.ir.analysis.ifds.Vertex
 import org.opentaint.ir.analysis.util.getPathEdges
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.analysis.ApplicationGraph
+import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -37,23 +37,27 @@ import kotlin.time.TimeSource
 
 private val logger = mu.KotlinLogging.logger {}
 
-class UnusedVariableManager(
-    private val graph: JIRApplicationGraph,
-    private val unitResolver: UnitResolver,
-) : Manager<UnusedVariableDomainFact, Event> {
+class UnusedVariableManager<Method, Statement>(
+    private val graph: ApplicationGraph<Method, Statement>,
+    private val unitResolver: UnitResolver<Method>,
+) : Manager<UnusedVariableDomainFact, UnusedVariableEvent<Method, Statement>, Method, Statement>
+    where Method : CommonMethod<Method, Statement>,
+          Statement : CommonInst<Method, Statement> {
 
-    private val methodsForUnit: MutableMap<UnitType, MutableSet<JIRMethod>> = hashMapOf()
-    private val runnerForUnit: MutableMap<UnitType, Runner<UnusedVariableDomainFact>> = hashMapOf()
+    private val methodsForUnit: MutableMap<UnitType, MutableSet<Method>> = hashMapOf()
+    private val runnerForUnit: MutableMap<UnitType, Runner<UnusedVariableDomainFact, Method, Statement>> = hashMapOf()
     private val queueIsEmpty = ConcurrentHashMap<UnitType, Boolean>()
 
-    private val summaryEdgesStorage = SummaryStorageImpl<UnusedVariableSummaryEdge>()
-    private val vulnerabilitiesStorage = SummaryStorageImpl<UnusedVariableVulnerability>()
+    private val summaryEdgesStorage =
+        SummaryStorageImpl<UnusedVariableSummaryEdge<Method, Statement>, Method, Statement>()
+    private val vulnerabilitiesStorage =
+        SummaryStorageImpl<UnusedVariableVulnerability<Method, Statement>, Method, Statement>()
 
     private val stopRendezvous = Channel<Unit>(Channel.RENDEZVOUS)
 
     private fun newRunner(
         unit: UnitType,
-    ): Runner<UnusedVariableDomainFact> {
+    ): Runner<UnusedVariableDomainFact, Method, Statement> {
         check(unit !in runnerForUnit) { "Runner for $unit already exists" }
 
         logger.debug { "Creating a new runner for $unit" }
@@ -71,15 +75,15 @@ class UnusedVariableManager(
         return runner
     }
 
-    private fun getAllCallees(method: JIRMethod): Set<JIRMethod> {
-        val result: MutableSet<JIRMethod> = hashSetOf()
+    private fun getAllCallees(method: Method): Set<Method> {
+        val result: MutableSet<Method> = hashSetOf()
         for (inst in method.flowGraph().instructions) {
             result += graph.callees(inst)
         }
         return result
     }
 
-    private fun addStart(method: JIRMethod) {
+    private fun addStart(method: Method) {
         logger.info { "Adding start method: $method" }
         val unit = unitResolver.resolve(method)
         if (unit == UnknownUnit) return
@@ -94,9 +98,9 @@ class UnusedVariableManager(
     @JvmName("analyze") // needed for Java interop because of inline class (Duration)
     @OptIn(ExperimentalTime::class)
     fun analyze(
-        startMethods: List<JIRMethod>,
+        startMethods: List<Method>,
         timeout: Duration = 3600.seconds,
-    ): List<UnusedVariableVulnerability> = runBlocking {
+    ): List<UnusedVariableVulnerability<Method, Statement>> = runBlocking {
         val timeStart = TimeSource.Monotonic.markNow()
 
         // Add start methods:
@@ -169,11 +173,12 @@ class UnusedVariableManager(
             val result = runner.getIfdsResult()
             val allFacts = result.facts
 
-            val used = hashMapOf<JIRInst, Boolean>()
+            val used = hashMapOf<Statement, Boolean>()
             for ((inst, facts) in allFacts) {
                 for (fact in facts) {
                     if (fact is UnusedVariable) {
-                        used.putIfAbsent(fact.initStatement, false)
+                        @Suppress("UNCHECKED_CAST")
+                        used.putIfAbsent(fact.initStatement as Statement, false)
                         if (fact.variable.isUsedAt(inst)) {
                             used[fact.initStatement] = true
                         }
@@ -209,7 +214,7 @@ class UnusedVariableManager(
         foundVulnerabilities
     }
 
-    override fun handleEvent(event: Event) {
+    override fun handleEvent(event: UnusedVariableEvent<Method, Statement>) {
         when (event) {
             is NewSummaryEdge -> {
                 summaryEdgesStorage.add(UnusedVariableSummaryEdge(event.edge))
@@ -232,9 +237,9 @@ class UnusedVariableManager(
     }
 
     override fun subscribeOnSummaryEdges(
-        method: JIRMethod,
+        method: Method,
         scope: CoroutineScope,
-        handler: (Edge<UnusedVariableDomainFact>) -> Unit,
+        handler: (Edge<UnusedVariableDomainFact, Method, Statement>) -> Unit,
     ) {
         summaryEdgesStorage
             .getFacts(method)

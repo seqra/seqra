@@ -4,11 +4,11 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.graph.JIRApplicationGraphImpl
 import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
 import org.opentaint.ir.analysis.npe.NpeManager
-import org.opentaint.ir.analysis.taint.TaintManager
 import org.opentaint.ir.analysis.taint.TaintVulnerability
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.ext.constructors
-import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.ext.constructors
+import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.usagesExt
@@ -180,7 +180,7 @@ class IfdsNpeTest : BaseAnalysisTest() {
         testOneMethod<NpeExamples>("nullAssignmentToCopy", emptyList())
     }
 
-    private fun findSinks(method: JIRMethod): List<TaintVulnerability> {
+    private fun findSinks(method: JIRMethod): List<TaintVulnerability<JIRMethod, JIRInst>> {
         val unitResolver = SingletonUnitResolver
         val manager = NpeManager(graph, unitResolver)
         return manager.analyze(listOf(method), timeout = 30.seconds)

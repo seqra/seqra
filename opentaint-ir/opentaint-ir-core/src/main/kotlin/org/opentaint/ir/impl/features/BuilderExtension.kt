@@ -6,13 +6,13 @@ import org.opentaint.ir.api.jvm.JIRArrayType
 import org.opentaint.ir.api.jvm.JIRBoundedWildcard
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.ext.HierarchyExtension
 import org.opentaint.ir.api.jvm.ext.toType
 
-class BuildersExtension(private val classpath: JIRProject, private val hierarchyExtension: HierarchyExtension) {
+class BuildersExtension(private val classpath: JIRClasspath, private val hierarchyExtension: HierarchyExtension) {
 
     fun findBuildMethods(jIRClass: JIRClassOrInterface, includeSubclasses: Boolean = false): Sequence<JIRMethod> {
         val hierarchy = hierarchyExtension.findSubClasses(jIRClass, true).toMutableSet().also {
@@ -44,7 +44,7 @@ class BuildersExtension(private val classpath: JIRProject, private val hierarchy
     }
 }
 
-suspend fun JIRProject.buildersExtension(): BuildersExtension {
+suspend fun JIRClasspath.buildersExtension(): BuildersExtension {
     if (!db.isInstalled(Builders)) {
         throw IllegalStateException("This extension requires `Builders` feature to be installed")
     }

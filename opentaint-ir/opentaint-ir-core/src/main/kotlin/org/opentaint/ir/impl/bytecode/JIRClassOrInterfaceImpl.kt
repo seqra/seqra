@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl.bytecode
 
+import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.api.jvm.ext.findMethodOrNull
 import org.opentaint.ir.impl.features.JIRFeaturesChain
@@ -9,20 +10,12 @@ import org.opentaint.ir.impl.fs.fullAsmNode
 import org.opentaint.ir.impl.fs.info
 import org.opentaint.ir.impl.types.ClassInfo
 import org.opentaint.ir.impl.weakLazy
-import org.opentaint.ir.api.jvm.ClassSource
-import org.opentaint.ir.api.jvm.JIRAnnotation
-import org.opentaint.ir.api.jvm.JIRClassExtFeature
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRField
-import org.opentaint.ir.api.jvm.JIRLookup
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.JIRProject
 import org.objectweb.asm.tree.ClassNode
 import java.util.*
 import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 class JIRClassOrInterfaceImpl(
-    override val classpath: JIRProject,
+    override val classpath: JIRClasspath,
     private val classSource: ClassSource,
     private val featuresChain: JIRFeaturesChain,
 ) : JIRClassOrInterface {

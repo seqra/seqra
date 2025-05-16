@@ -3,7 +3,7 @@ package org.opentaint.ir.approximation
 import org.opentaint.ir.api.jvm.ByteCodeIndexer
 import org.opentaint.ir.api.jvm.JIRClassExtFeature
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.JIRFeature
 import org.opentaint.ir.api.jvm.JIRField
@@ -11,11 +11,11 @@ import org.opentaint.ir.api.jvm.JIRInstExtFeature
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRSignal
 import org.opentaint.ir.api.jvm.RegisteredLocation
-import org.opentaint.ir.api.core.cfg.InstList
+import org.opentaint.ir.api.jvm.cfg.JIRInstList
 import org.opentaint.ir.api.jvm.cfg.JIRRawInst
 import org.opentaint.ir.approximation.TransformerIntoVirtual.transformMethodIntoVirtual
 import org.opentaint.ir.approximation.annotation.Approximate
-import org.opentaint.ir.impl.cfg.InstListImpl
+import org.opentaint.ir.impl.cfg.JIRInstListImpl
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.jooq.tables.references.ANNOTATIONS
 import org.opentaint.ir.impl.storage.jooq.tables.references.ANNOTATIONVALUES
@@ -43,7 +43,7 @@ object Approximations : JIRFeature<Any?, Any?>, JIRClassExtFeature, JIRInstExtFe
     private val originalToApproximation: ConcurrentMap<OriginalClassName, ApproximationClassName> = ConcurrentHashMap()
     private val approximationToOriginal: ConcurrentMap<ApproximationClassName, OriginalClassName> = ConcurrentHashMap()
 
-    override suspend fun query(classpath: JIRProject, req: Any?): Sequence<Any?> {
+    override suspend fun query(classpath: JIRClasspath, req: Any?): Sequence<Any?> {
         // returns an empty sequence for now, all requests are made using
         // findApproximationOrNull and findOriginalByApproximation functions
         return emptySequence()
@@ -100,8 +100,8 @@ object Approximations : JIRFeature<Any?, Any?>, JIRClassExtFeature, JIRInstExtFe
         }
     }
 
-    override fun transformRawInstList(method: JIRMethod, list: InstList<JIRRawInst>): InstList<JIRRawInst> {
-        return InstListImpl(list.map { it.accept(InstSubstitutorForApproximations) })
+    override fun transformRawInstList(method: JIRMethod, list: JIRInstList<JIRRawInst>): JIRInstList<JIRRawInst> {
+        return JIRInstListImpl(list.map { it.accept(InstSubstitutorForApproximations) })
     }
 
     /**

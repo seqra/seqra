@@ -2,7 +2,7 @@ package org.opentaint.ir.impl.types
 
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRArrayType
-import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.JIRType
 
@@ -24,7 +24,7 @@ class JIRArrayTypeImpl(
         return JIRArrayTypeImpl(elementType, nullability, annotations)
     }
 
-    override val classpath: JIRProject
+    override val classpath: JIRClasspath
         get() = elementType.classpath
 
     override fun equals(other: Any?): Boolean {

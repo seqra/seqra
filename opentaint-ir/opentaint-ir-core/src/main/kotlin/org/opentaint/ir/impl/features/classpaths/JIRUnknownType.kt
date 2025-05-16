@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.features.classpaths
 
-import org.opentaint.ir.api.*
-import org.opentaint.ir.api.ext.objectType
+import org.opentaint.ir.api.jvm.*
+import org.opentaint.ir.api.jvm.ext.objectType
 import org.opentaint.ir.impl.cfg.util.OBJECT_CLASS
 import org.opentaint.ir.impl.types.TypeNameImpl
 import org.objectweb.asm.Opcodes

@@ -1,12 +1,7 @@
 package org.opentaint.ir.impl
 
 import kotlinx.collections.immutable.toPersistentList
-import org.opentaint.ir.api.jvm.ByteCodeIndexer
-import org.opentaint.ir.api.jvm.ClassSource
-import org.opentaint.ir.api.jvm.JIRDatabase
-import org.opentaint.ir.api.jvm.JIRFeature
-import org.opentaint.ir.api.jvm.JIRSignal
-import org.opentaint.ir.api.jvm.RegisteredLocation
+import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.impl.fs.fullAsmNode
 import java.io.Closeable
 

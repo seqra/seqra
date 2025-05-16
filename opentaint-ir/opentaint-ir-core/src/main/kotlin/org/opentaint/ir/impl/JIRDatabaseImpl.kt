@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl
 
 import kotlinx.coroutines.*
-import org.opentaint.ir.api.*
+import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.KotlinMetadata
 import org.opentaint.ir.impl.features.classpaths.MethodInstructionsFeature

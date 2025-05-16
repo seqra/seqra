@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.features.classpaths
 
-import org.opentaint.ir.api.*
-import org.opentaint.ir.api.ext.jIRdbName
+import org.opentaint.ir.api.jvm.*
+import org.opentaint.ir.api.jvm.ext.jIRdbName
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRResolvedResult.JIRResolvedClassResultImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualClassImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualFieldImpl

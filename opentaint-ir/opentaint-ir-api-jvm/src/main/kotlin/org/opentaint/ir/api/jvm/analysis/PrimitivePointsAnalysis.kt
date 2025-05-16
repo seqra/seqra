@@ -1,12 +1,12 @@
 package org.opentaint.ir.api.jvm.analysis
 
-import org.opentaint.ir.api.jvm.JIRType
-import org.opentaint.ir.api.jvm.ext.objectType
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRField
-import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRLocal
+import org.opentaint.ir.api.jvm.ext.objectType
 
 class FullObjectsSet(type: JIRType) : JIRPointsToSet {
 
@@ -21,7 +21,7 @@ class FullObjectsSet(type: JIRType) : JIRPointsToSet {
     override val possibleClasses: Set<JIRClassOrInterface>? = null
 }
 
-class PrimitivePointsAnalysis(private val classpath: JIRProject) : JIRPointsToAnalysis<JIRInst> {
+class PrimitivePointsAnalysis(private val classpath: JIRClasspath) : JIRPointsToAnalysis<JIRInst> {
 
     override fun reachingObjects(local: JIRLocal, context: JIRInst?): JIRPointsToSet {
         return FullObjectsSet(local.type)

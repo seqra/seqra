@@ -28,7 +28,7 @@ kotlin.sourceSets["main"].kotlin {
 }
 
 dependencies {
-    implementation(project(":opentaint-ir-api"))
+    implementation(project(":opentaint-ir-api-jvm"))
 
     implementation(Libs.kotlin_logging)
     implementation(Libs.kotlinx_metadata_jvm)
@@ -43,7 +43,7 @@ dependencies {
     testImplementation(Libs.slf4j_simple)
     testImplementation(Libs.hikaricp)
 
-    testFixturesImplementation(project(":opentaint-ir-api"))
+    testFixturesImplementation(project(":opentaint-ir-api-jvm"))
     testFixturesImplementation(kotlin("reflect"))
     testFixturesImplementation(platform(Libs.junit_bom))
     testFixturesImplementation(Libs.junit_jupiter)

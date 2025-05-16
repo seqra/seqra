@@ -1,7 +1,5 @@
 package org.opentaint.ir.api.jvm
 
-import org.opentaint.ir.api.core.TypeName
-
 /**
  * lookup for fields and methods in [JIRClassOrInterface] and [JIRClassType].
  *

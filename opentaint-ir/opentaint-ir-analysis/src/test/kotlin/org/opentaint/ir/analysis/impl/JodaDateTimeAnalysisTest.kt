@@ -6,9 +6,9 @@ import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
 import org.opentaint.ir.analysis.npe.NpeManager
 import org.opentaint.ir.analysis.taint.TaintManager
 import org.opentaint.ir.analysis.unused.UnusedVariableManager
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.ext.findClass
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.taint.configuration.TaintConfigurationFeature
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithGlobalDB

@@ -24,14 +24,14 @@ class TypesTest : BaseTypesTest() {
         assertEquals(2, fields.size)
 
         with(fields.first()) {
-            assertTrue(fieldType is JIRPrimitiveType)
+            assertTrue(type is JIRPrimitiveType)
             assertEquals("value", name)
-            assertEquals("int", fieldType.typeName)
+            assertEquals("int", type.typeName)
         }
         with(fields.get(1)) {
-            assertTrue(fieldType is JIRArrayType)
+            assertTrue(type is JIRArrayType)
             assertEquals("intArray", name)
-            assertEquals("int[]", fieldType.typeName)
+            assertEquals("int[]", type.typeName)
         }
 
         val methods = primitiveAndArrays.declaredMethods.filterNot { it.method.isConstructor }

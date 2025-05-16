@@ -15,10 +15,10 @@ class KotlinJavaInteropNullabilityTest : BaseTypesTest() {
         val clazz = findType<NullAnnotationExamples>()
         val containerOfUndefined = clazz.declaredFields.single { it.name == "ktContainerOfUndefined" }
 
-        val containerOfUndefinedFieldsNullability = (containerOfUndefined.fieldType as JIRClassType)
+        val containerOfUndefinedFieldsNullability = (containerOfUndefined.type as JIRClassType)
             .fields
             .sortedBy { it.name }
-            .map { it.fieldType.nullabilityTree }
+            .map { it.type.nullabilityTree }
 
         // E -> String
         val expectedNullability = listOf(
@@ -47,10 +47,10 @@ class KotlinJavaInteropNullabilityTest : BaseTypesTest() {
         val clazz = findType<NullAnnotationExamples>()
         val containerOfNotNull = clazz.declaredFields.single { it.name == "ktContainerOfNotNull" }
 
-        val containerOfNotNullFields = (containerOfNotNull.fieldType as JIRClassType)
+        val containerOfNotNullFields = (containerOfNotNull.type as JIRClassType)
             .fields
             .sortedBy { it.name }
-            .map { it.fieldType.nullabilityTree }
+            .map { it.type.nullabilityTree }
 
         // E -> @NotNull String
         val expectedNullability = listOf(
@@ -79,10 +79,10 @@ class KotlinJavaInteropNullabilityTest : BaseTypesTest() {
         val clazz = findType<NullAnnotationExamples>()
         val containerOfNotNull = clazz.declaredFields.single { it.name == "ktContainerOfNullable" }
 
-        val containerOfNotNullFields = (containerOfNotNull.fieldType as JIRClassType)
+        val containerOfNotNullFields = (containerOfNotNull.type as JIRClassType)
             .fields
             .sortedBy { it.name }
-            .map { it.fieldType.nullabilityTree }
+            .map { it.type.nullabilityTree }
 
         // E -> @Nullable String
         val expectedNullability = listOf(
@@ -111,10 +111,10 @@ class KotlinJavaInteropNullabilityTest : BaseTypesTest() {
         val clazz = findType<KotlinNullabilityExamples>()
         val containerOfNullable = clazz.declaredFields.single { it.name == "javaContainerOfNullable" }
 
-        val containerOfNullableFields = (containerOfNullable.fieldType as JIRClassType)
+        val containerOfNullableFields = (containerOfNullable.type as JIRClassType)
             .fields
             .sortedBy { it.name }
-            .map { it.fieldType.nullabilityTree }
+            .map { it.type.nullabilityTree }
 
         // E -> String?
         val expectedNullability = listOf(
@@ -145,10 +145,10 @@ class KotlinJavaInteropNullabilityTest : BaseTypesTest() {
         val clazz = findType<KotlinNullabilityExamples>()
         val containerOfNotNull = clazz.declaredFields.single { it.name == "javaContainerOfNotNull" }
 
-        val containerOfNotNullFields = (containerOfNotNull.fieldType as JIRClassType)
+        val containerOfNotNullFields = (containerOfNotNull.type as JIRClassType)
             .fields
             .sortedBy { it.name }
-            .map { it.fieldType.nullabilityTree }
+            .map { it.type.nullabilityTree }
 
         // E -> String
         val expectedNullability = listOf(

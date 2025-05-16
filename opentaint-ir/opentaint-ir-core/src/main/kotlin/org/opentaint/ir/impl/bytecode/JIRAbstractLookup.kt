@@ -1,15 +1,6 @@
 package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.ir.api.core.TypeName
-import org.opentaint.ir.api.jvm.JIRAccessible
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRField
-import org.opentaint.ir.api.jvm.JIRLookup
-import org.opentaint.ir.api.jvm.JIRLookupExtFeature
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.JIRTypedField
-import org.opentaint.ir.api.jvm.JIRTypedMethod
+import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.api.jvm.ext.hasAnnotation
 import org.opentaint.ir.api.jvm.ext.packageName
 

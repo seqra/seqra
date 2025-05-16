@@ -9,20 +9,23 @@ import org.opentaint.ir.api.jvm.cfg.JIRInstRef
 import org.opentaint.ir.api.jvm.cfg.JIRTerminatingInst
 
 class JIRBlockGraphImpl(
-    override val jIRGraph: JIRGraph
+    override val jIRGraph: JIRGraph,
 ) : Iterable<JIRBasicBlock>, JIRBlockGraph {
+
     private val _basicBlocks = mutableListOf<JIRBasicBlock>()
     private val predecessorMap = mutableMapOf<JIRBasicBlock, MutableSet<JIRBasicBlock>>()
     private val successorMap = mutableMapOf<JIRBasicBlock, MutableSet<JIRBasicBlock>>()
     private val catchersMap = mutableMapOf<JIRBasicBlock, MutableSet<JIRBasicBlock>>()
     private val throwersMap = mutableMapOf<JIRBasicBlock, MutableSet<JIRBasicBlock>>()
 
-    override val entry: JIRBasicBlock get() = first()
+    override val entry: JIRBasicBlock
+        get() = first()
 
     override val entries: List<JIRBasicBlock>
         get() = listOf(entry)
 
-    override val exits: List<JIRBasicBlock> get() = filter { successors(it).isEmpty() }
+    override val exits: List<JIRBasicBlock>
+        get() = filter { successors(it).isEmpty() }
 
     override val instructions: List<JIRBasicBlock>
         get() = _basicBlocks.toList()
@@ -52,8 +55,8 @@ class JIRBlockGraphImpl(
             }
             when {
                 inst is JIRBranchingInst
-                        || inst is JIRTerminatingInst
-                        || jIRGraph.predecessors(inst).size > 1 -> {
+                    || inst is JIRTerminatingInst
+                    || jIRGraph.predecessors(inst).size > 1 -> {
                     if (shouldBeAddedBefore) currentRefs += currentRef
                     createBlock()
                     if (!shouldBeAddedBefore) {

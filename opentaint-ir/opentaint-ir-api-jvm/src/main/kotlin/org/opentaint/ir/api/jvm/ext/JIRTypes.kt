@@ -2,17 +2,7 @@
 
 package org.opentaint.ir.api.jvm.ext
 
-import org.opentaint.ir.api.*
-import org.opentaint.ir.api.jvm.TypeNotFoundException
-import org.opentaint.ir.api.jvm.throwClassNotFound
-import org.opentaint.ir.api.jvm.JIRArrayType
-import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRPrimitiveType
-import org.opentaint.ir.api.jvm.JIRProject
-import org.opentaint.ir.api.jvm.JIRRefType
-import org.opentaint.ir.api.jvm.JIRType
-import org.opentaint.ir.api.jvm.JIRTypedField
-import org.opentaint.ir.api.jvm.JIRTypedMethod
+import org.opentaint.ir.api.jvm.*
 import java.lang.Boolean
 import java.lang.Byte
 import java.lang.Double
@@ -179,14 +169,15 @@ fun JIRClassType.findMethodOrNull(predicate: (JIRTypedMethod) -> kotlin.Boolean)
     return methods.firstOrNull(predicate)
 }
 
-val JIRTypedMethod.humanReadableSignature: String get() {
-    val params = parameters.joinToString(",") { it.type.typeName }
-    val generics = typeParameters.takeIf { it.isNotEmpty() }?.let{
-        it.joinToString(prefix = "<", separator = ",", postfix = ">") { it.symbol }
-    } ?: ""
-    return "${enclosingType.typeName}#$generics$name($params):${returnType.typeName}"
-}
+val JIRTypedMethod.humanReadableSignature: String
+    get() {
+        val params = parameters.joinToString(",") { it.type.typeName }
+        val generics = typeParameters.takeIf { it.isNotEmpty() }?.let {
+            it.joinToString(prefix = "<", separator = ",", postfix = ">") { it.symbol }
+        } ?: ""
+        return "${enclosingType.typeName}#$generics$name($params):${returnType.typeName}"
+    }
 
-fun JIRProject.findType(name: String): JIRType {
+fun JIRClasspath.findType(name: String): JIRType {
     return findTypeOrNull(name) ?: throw TypeNotFoundException(name)
 }

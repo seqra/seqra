@@ -1,10 +1,10 @@
 package org.opentaint.ir.testing
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRClasspathFeature
-import org.opentaint.ir.api.JIRDatabase
-import org.opentaint.ir.api.JIRFeature
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRClasspathFeature
+import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.JIRFeature
 import org.opentaint.ir.impl.features.Builders
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages

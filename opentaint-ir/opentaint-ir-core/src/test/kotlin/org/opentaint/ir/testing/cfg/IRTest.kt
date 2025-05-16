@@ -1,10 +1,39 @@
 package org.opentaint.ir.testing.cfg
 
-import org.opentaint.ir.api.*
-import org.opentaint.ir.api.cfg.*
-import org.opentaint.ir.api.ext.HierarchyExtension
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.toType
+import org.opentaint.ir.api.common.cfg.CommonAssignInst
+import org.opentaint.ir.api.common.cfg.CommonCallInst
+import org.opentaint.ir.api.common.cfg.CommonExpr
+import org.opentaint.ir.api.common.cfg.CommonGotoInst
+import org.opentaint.ir.api.common.cfg.CommonIfInst
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.common.cfg.CommonReturnInst
+import org.opentaint.ir.api.jvm.JavaVersion
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRTypedMethod
+import org.opentaint.ir.api.jvm.TypeName
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRCallInst
+import org.opentaint.ir.api.jvm.cfg.JIRCatchInst
+import org.opentaint.ir.api.jvm.cfg.JIREnterMonitorInst
+import org.opentaint.ir.api.jvm.cfg.JIRExitMonitorInst
+import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRExprVisitor
+import org.opentaint.ir.api.jvm.cfg.JIRGotoInst
+import org.opentaint.ir.api.jvm.cfg.JIRGraph
+import org.opentaint.ir.api.jvm.cfg.JIRIfInst
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstVisitor
+import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
+import org.opentaint.ir.api.jvm.cfg.JIRSpecialCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRSwitchInst
+import org.opentaint.ir.api.jvm.cfg.JIRTerminatingInst
+import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
+import org.opentaint.ir.api.jvm.cfg.JIRVirtualCallExpr
+import org.opentaint.ir.api.jvm.ext.HierarchyExtension
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.impl.JIRClasspathImpl
 import org.opentaint.ir.impl.JIRDatabaseImpl
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
@@ -17,27 +46,46 @@ import org.opentaint.ir.impl.cfg.util.ExprMapper
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.StringConcatSimplifier
 import org.opentaint.ir.impl.fs.JarLocation
-import org.opentaint.ir.testing.*
+import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.asmLib
+import org.opentaint.ir.testing.guavaLib
+import org.opentaint.ir.testing.kotlinStdLib
+import org.opentaint.ir.testing.kotlinxCoroutines
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import java.io.File
 
 class OverridesResolver(
-    private val hierarchyExtension: HierarchyExtension
-) : DefaultJIRInstVisitor<Sequence<JIRTypedMethod>>, DefaultJIRExprVisitor<Sequence<JIRTypedMethod>> {
-    override val defaultInstHandler: (JIRInst) -> Sequence<JIRTypedMethod>
-        get() = { emptySequence() }
-    override val defaultExprHandler: (JIRExpr) -> Sequence<JIRTypedMethod>
-        get() = { emptySequence() }
+    private val hierarchyExtension: HierarchyExtension,
+) : JIRExprVisitor.Default<Sequence<JIRTypedMethod>>,
+    JIRInstVisitor.Default<Sequence<JIRTypedMethod>> {
+
+    override fun defaultVisitCommonExpr(expr: CommonExpr): Sequence<JIRTypedMethod> {
+        TODO("Not yet implemented")
+    }
+
+    override fun defaultVisitCommonInst(inst: CommonInst<*, *>): Sequence<JIRTypedMethod> {
+        TODO("Not yet implemented")
+    }
+
+    override fun defaultVisitJIRExpr(expr: JIRExpr): Sequence<JIRTypedMethod> {
+        return emptySequence()
+    }
+
+    override fun defaultVisitJIRInst(inst: JIRInst): Sequence<JIRTypedMethod> {
+        return emptySequence()
+    }
 
     private fun JIRClassType.getMethod(name: String, argTypes: List<TypeName>, returnType: TypeName): JIRTypedMethod {
         return methods.firstOrNull { typedMethod ->
             val jIRMethod = typedMethod.method
             jIRMethod.name == name &&
-                    jIRMethod.returnType.typeName == returnType.typeName &&
-                    jIRMethod.parameters.map { param -> param.type.typeName } == argTypes.map { it.typeName }
+                jIRMethod.returnType.typeName == returnType.typeName &&
+                jIRMethod.parameters.map { param -> param.type.typeName } == argTypes.map { it.typeName }
         } ?: error("Could not find a method with correct signature")
     }
 
@@ -66,7 +114,11 @@ class OverridesResolver(
 
 }
 
-class JIRGraphChecker(val method: JIRMethod, val jIRGraph: JIRGraph) : JIRInstVisitor<Unit> {
+class JIRGraphChecker(
+    val method: JIRMethod,
+    val jIRGraph: JIRGraph,
+) : JIRInstVisitor<Unit> {
+
     fun check() {
         try {
             jIRGraph.entry
@@ -110,6 +162,10 @@ class JIRGraphChecker(val method: JIRMethod, val jIRGraph: JIRGraph) : JIRInstVi
                 assertTrue(blockGraph.successors(block).isNotEmpty())
             }
         }
+    }
+
+    override fun visitExternalJIRInst(inst: JIRInst) {
+        // Do nothing
     }
 
     override fun visitJIRAssignInst(inst: JIRAssignInst) {
@@ -229,7 +285,28 @@ class JIRGraphChecker(val method: JIRMethod, val jIRGraph: JIRGraph) : JIRInstVi
         assertTrue(jIRGraph.throwers(inst).isEmpty())
     }
 
-    override fun visitExternalJIRInst(inst: JIRInst) {
+    override fun visitExternalCommonInst(inst: CommonInst<*, *>) {
+        TODO("Not yet implemented")
+    }
+
+    override fun visitCommonAssignInst(inst: CommonAssignInst<*, *>) {
+        TODO("Not yet implemented")
+    }
+
+    override fun visitCommonCallInst(inst: CommonCallInst<*, *>) {
+        TODO("Not yet implemented")
+    }
+
+    override fun visitCommonReturnInst(inst: CommonReturnInst<*, *>) {
+        TODO("Not yet implemented")
+    }
+
+    override fun visitCommonGotoInst(inst: CommonGotoInst<*, *>) {
+        TODO("Not yet implemented")
+    }
+
+    override fun visitCommonIfInst(inst: CommonIfInst<*, *>) {
+        TODO("Not yet implemented")
     }
 }
 

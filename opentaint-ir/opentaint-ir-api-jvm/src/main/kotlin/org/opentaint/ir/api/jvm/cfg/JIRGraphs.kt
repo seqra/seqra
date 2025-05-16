@@ -7,13 +7,11 @@ abstract class TypedExprResolver<T : JIRExpr> : AbstractFullExprSetCollector() {
 }
 
 class LocalResolver : TypedExprResolver<JIRLocal>() {
-
     override fun ifMatches(expr: JIRExpr) {
         if (expr is JIRLocal) {
             result.add(expr)
         }
     }
-
 }
 
 class ValueResolver : TypedExprResolver<JIRValue>() {

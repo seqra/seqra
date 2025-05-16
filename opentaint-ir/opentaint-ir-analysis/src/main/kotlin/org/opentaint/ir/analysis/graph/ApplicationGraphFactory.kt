@@ -5,15 +5,17 @@ package org.opentaint.ir.analysis.graph
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.impl.features.usagesExt
 import java.util.concurrent.CompletableFuture
 
 /**
  * Creates an instance of [SimplifiedJIRApplicationGraph], see its docs for more info.
  */
-suspend fun JIRClasspath.newApplicationGraphForAnalysis(bannedPackagePrefixes: List<String>? = null): JIRApplicationGraph {
+suspend fun JIRClasspath.newApplicationGraphForAnalysis(
+    bannedPackagePrefixes: List<String>? = null,
+): JIRApplicationGraph {
     val mainGraph = JIRApplicationGraphImpl(this, usagesExt())
     return if (bannedPackagePrefixes != null) {
         SimplifiedJIRApplicationGraph(mainGraph, bannedPackagePrefixes)

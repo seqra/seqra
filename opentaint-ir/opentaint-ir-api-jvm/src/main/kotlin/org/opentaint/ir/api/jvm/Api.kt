@@ -53,13 +53,13 @@ interface JIRDatabase : Closeable {
      * @param dirOrJars list of byte-code resources to be processed and included in classpath
      * @return new classpath instance associated with specified byte-code locations
      */
-    suspend fun classpath(dirOrJars: List<File>, features: List<JIRClasspathFeature>?): JIRProject
-    suspend fun classpath(dirOrJars: List<File>): JIRProject = classpath(dirOrJars, null)
+    suspend fun classpath(dirOrJars: List<File>, features: List<JIRClasspathFeature>?): JIRClasspath
+    suspend fun classpath(dirOrJars: List<File>): JIRClasspath = classpath(dirOrJars, null)
     fun asyncClasspath(dirOrJars: List<File>) = GlobalScope.future { classpath(dirOrJars) }
     fun asyncClasspath(dirOrJars: List<File>, features: List<JIRClasspathFeature>?) =
         GlobalScope.future { classpath(dirOrJars, features) }
 
-    fun classpathOf(locations: List<RegisteredLocation>, features: List<JIRClasspathFeature>?): JIRProject
+    fun classpathOf(locations: List<RegisteredLocation>, features: List<JIRClasspathFeature>?): JIRClasspath
 
     /**
      * process and index single byte-code resource
@@ -137,9 +137,9 @@ interface JIRDatabasePersistence : Closeable {
     val symbolInterner: JIRDBSymbolsInterner
     fun findBytecode(classId: Long): ByteArray
 
-    fun findClassSourceByName(cp: JIRProject, fullName: String): ClassSource?
+    fun findClassSourceByName(cp: JIRClasspath, fullName: String): ClassSource?
     fun findClassSources(db: JIRDatabase, location: RegisteredLocation): List<ClassSource>
-    fun findClassSources(cp: JIRProject, fullName: String): List<ClassSource>
+    fun findClassSources(cp: JIRClasspath, fullName: String): List<ClassSource>
 
     fun createIndexes() {}
 }

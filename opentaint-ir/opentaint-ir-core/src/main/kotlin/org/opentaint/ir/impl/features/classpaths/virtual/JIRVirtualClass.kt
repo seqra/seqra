@@ -1,8 +1,6 @@
 package org.opentaint.ir.impl.features.classpaths.virtual
 
-import org.opentaint.ir.api.*
-import org.opentaint.ir.api.jvm.JIRAnnotation
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.api.jvm.ext.objectClass
 import org.opentaint.ir.impl.bytecode.JIRClassLookupImpl
 import org.opentaint.ir.impl.bytecode.JIRDeclarationImpl
@@ -10,11 +8,6 @@ import org.opentaint.ir.impl.bytecode.joinFeatureFields
 import org.opentaint.ir.impl.bytecode.joinFeatureMethods
 import org.opentaint.ir.impl.features.JIRFeaturesChain
 import org.opentaint.ir.impl.features.classpaths.VirtualLocation
-import org.opentaint.ir.api.jvm.JIRDeclaration
-import org.opentaint.ir.api.jvm.JIRField
-import org.opentaint.ir.api.jvm.JIRLookup
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.JIRProject
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.ClassNode
 
@@ -25,7 +18,7 @@ interface JIRVirtualClass : JIRClassOrInterface {
 
     override fun <T> extensionValue(key: String): T? = null
 
-    fun bind(classpath: JIRProject, virtualLocation: VirtualLocation) {
+    fun bind(classpath: JIRClasspath, virtualLocation: VirtualLocation) {
     }
 }
 
@@ -91,9 +84,9 @@ open class JIRVirtualClassImpl(
     override val outerMethod: JIRMethod?
         get() = null
 
-    override lateinit var classpath: JIRProject
+    override lateinit var classpath: JIRClasspath
 
-    override fun bind(classpath: JIRProject, virtualLocation: VirtualLocation) {
+    override fun bind(classpath: JIRClasspath, virtualLocation: VirtualLocation) {
         this.classpath = classpath
         this.virtualLocation = virtualLocation
     }

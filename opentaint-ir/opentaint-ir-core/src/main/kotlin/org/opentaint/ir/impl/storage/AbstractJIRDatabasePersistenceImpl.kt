@@ -2,7 +2,7 @@ package org.opentaint.ir.impl.storage
 
 import org.opentaint.ir.api.jvm.ClassSource
 import org.opentaint.ir.api.jvm.JIRByteCodeLocation
-import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.JIRDatabasePersistence
 import org.opentaint.ir.api.jvm.RegisteredLocation
@@ -18,7 +18,6 @@ import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
 import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
 import org.jooq.Condition
 import org.jooq.DSLContext
-import java.io.Closeable
 import java.io.File
 
 val defaultBatchSize: Int get() = System.getProperty("org.opentaint.ir.impl.storage.defaultBatchSize", "100").toInt()
@@ -26,8 +25,8 @@ val defaultBatchSize: Int get() = System.getProperty("org.opentaint.ir.impl.stor
 abstract class AbstractJIRDatabasePersistenceImpl(
     private val javaRuntime: JavaRuntime,
     private val featuresRegistry: FeaturesRegistry,
-    private val clearOnStart: Boolean
-) : JIRDatabasePersistence, Closeable {
+    private val clearOnStart: Boolean,
+) : JIRDatabasePersistence {
 
     companion object {
         private const val cachesPrefix = "org.opentaint.opentaint-ir.persistence.caches"
@@ -96,7 +95,7 @@ abstract class AbstractJIRDatabasePersistenceImpl(
         }
     }
 
-    override fun findClassSourceByName(cp: JIRProject, fullName: String): ClassSource? {
+    override fun findClassSourceByName(cp: JIRClasspath, fullName: String): ClassSource? {
         val symbolId = findSymbolId(fullName) ?: return null
         return cp.db.classSources(CLASSES.NAME.eq(symbolId).and(cp.clause), single = true).firstOrNull()
     }
@@ -105,12 +104,12 @@ abstract class AbstractJIRDatabasePersistenceImpl(
         return db.classSources(CLASSES.LOCATION_ID.eq(location.id))
     }
 
-    override fun findClassSources(cp: JIRProject, fullName: String): List<ClassSource> {
+    override fun findClassSources(cp: JIRClasspath, fullName: String): List<ClassSource> {
         val symbolId = findSymbolId(fullName) ?: return emptyList()
         return cp.db.classSources(CLASSES.NAME.eq(symbolId).and(cp.clause))
     }
 
-    private val JIRProject.clause: Condition
+    private val JIRClasspath.clause: Condition
         get() {
             val ids = registeredLocations.map { it.id }
             return CLASSES.LOCATION_ID.`in`(ids)

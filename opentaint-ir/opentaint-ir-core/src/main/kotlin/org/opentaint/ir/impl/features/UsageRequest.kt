@@ -16,4 +16,3 @@ class UsageFeatureResponse(
     val source: ClassSource,
     val offsets: ShortArray
 )
-

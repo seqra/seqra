@@ -1,24 +1,35 @@
 package org.opentaint.ir.analysis.ifds
 
-sealed interface Reason<out Fact> {
-    object Initial : Reason<Nothing>
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonInst
 
-    object External : Reason<Nothing>
+sealed interface Reason<out Fact, out Method, out Statement> {
+    object Initial : Reason<Nothing, Nothing, Nothing>
 
-    data class CrossUnitCall<Fact>(
-        val caller: Vertex<Fact>,
-    ) : Reason<Fact>
+    object External : Reason<Nothing, Nothing, Nothing>
 
-    data class Sequent<Fact>(
-        val edge: Edge<Fact>,
-    ) : Reason<Fact>
+    data class CrossUnitCall<Fact, Method, Statement>(
+        val caller: Vertex<Fact, Method, Statement>,
+    ) : Reason<Fact, Method, Statement>
+        where Method : CommonMethod<Method, Statement>,
+              Statement : CommonInst<Method, Statement>
 
-    data class CallToStart<Fact>(
-        val edge: Edge<Fact>,
-    ) : Reason<Fact>
+    data class Sequent<Fact, Method, Statement>(
+        val edge: Edge<Fact, Method, Statement>,
+    ) : Reason<Fact, Method, Statement>
+        where Method : CommonMethod<Method, Statement>,
+              Statement : CommonInst<Method, Statement>
 
-    data class ThroughSummary<Fact>(
-        val edge: Edge<Fact>,
-        val summaryEdge: Edge<Fact>,
-    ) : Reason<Fact>
+    data class CallToStart<Fact, Method, Statement>(
+        val edge: Edge<Fact, Method, Statement>,
+    ) : Reason<Fact, Method, Statement>
+        where Method : CommonMethod<Method, Statement>,
+              Statement : CommonInst<Method, Statement>
+
+    data class ThroughSummary<Fact, Method, Statement>(
+        val edge: Edge<Fact, Method, Statement>,
+        val summaryEdge: Edge<Fact, Method, Statement>,
+    ) : Reason<Fact, Method, Statement>
+        where Method : CommonMethod<Method, Statement>,
+              Statement : CommonInst<Method, Statement>
 }

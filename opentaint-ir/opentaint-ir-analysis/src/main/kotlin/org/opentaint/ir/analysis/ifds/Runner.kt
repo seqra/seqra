@@ -7,43 +7,51 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import org.opentaint.ir.analysis.graph.JIRNoopInst
 import org.opentaint.ir.analysis.taint.TaintZeroFact
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.analysis.ApplicationGraph
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.common.ext.callExpr
 import java.util.concurrent.ConcurrentHashMap
 
 private val logger = mu.KotlinLogging.logger {}
 
-interface Runner<Fact> {
+interface Runner<Fact, Method, Statement>
+    where Method : CommonMethod<Method, Statement>,
+          Statement : CommonInst<Method, Statement> {
+
     val unit: UnitType
 
-    suspend fun run(startMethods: List<JIRMethod>)
-    fun submitNewEdge(edge: Edge<Fact>, reason: Reason<Fact>)
-    fun getIfdsResult(): IfdsResult<Fact>
+    suspend fun run(startMethods: List<Method>)
+    fun submitNewEdge(edge: Edge<Fact, Method, Statement>, reason: Reason<Fact, Method, Statement>)
+    fun getIfdsResult(): IfdsResult<Fact, Method, Statement>
 }
 
-class UniRunner<Fact, Event>(
-    private val graph: JIRApplicationGraph,
-    private val analyzer: Analyzer<Fact, Event>,
-    private val manager: Manager<Fact, Event>,
-    private val unitResolver: UnitResolver,
+class UniRunner<Fact, Event, Method, Statement>(
+    private val graph: ApplicationGraph<Method, Statement>,
+    private val analyzer: Analyzer<Fact, Event, Method, Statement>,
+    private val manager: Manager<Fact, Event, Method, Statement>,
+    private val unitResolver: UnitResolver<Method>,
     override val unit: UnitType,
     private val zeroFact: Fact?,
-) : Runner<Fact> {
+) : Runner<Fact, Method, Statement>
+    where Method : CommonMethod<Method, Statement>,
+          Statement : CommonInst<Method, Statement> {
 
-    private val flowSpace: FlowFunctions<Fact> = analyzer.flowFunctions
-    private val workList: Channel<Edge<Fact>> = Channel(Channel.UNLIMITED)
-    private val reasons = ConcurrentHashMap<Edge<Fact>, MutableSet<Reason<Fact>>>()
-    internal val pathEdges: MutableSet<Edge<Fact>> = ConcurrentHashMap.newKeySet()
+    private val flowSpace: FlowFunctions<Fact, Method, Statement> = analyzer.flowFunctions
+    private val workList: Channel<Edge<Fact, Method, Statement>> = Channel(Channel.UNLIMITED)
+    internal val pathEdges: MutableSet<Edge<Fact, Method, Statement>> = ConcurrentHashMap.newKeySet()
+    private val reasons =
+        ConcurrentHashMap<Edge<Fact, Method, Statement>, MutableSet<Reason<Fact, Method, Statement>>>()
 
-    private val summaryEdges: MutableMap<Vertex<Fact>, MutableSet<Vertex<Fact>>> = hashMapOf()
-    private val callerPathEdgeOf: MutableMap<Vertex<Fact>, MutableSet<Edge<Fact>>> = hashMapOf()
+    private val summaryEdges: MutableMap<Vertex<Fact, Method, Statement>, MutableSet<Vertex<Fact, Method, Statement>>> =
+        hashMapOf()
+    private val callerPathEdgeOf: MutableMap<Vertex<Fact, Method, Statement>, MutableSet<Edge<Fact, Method, Statement>>> =
+        hashMapOf()
 
     private val queueIsEmpty = QueueEmptinessChanged(runner = this, isEmpty = true)
     private val queueIsNotEmpty = QueueEmptinessChanged(runner = this, isEmpty = false)
 
-    override suspend fun run(startMethods: List<JIRMethod>) {
+    override suspend fun run(startMethods: List<Method>) {
         for (method in startMethods) {
             addStart(method)
         }
@@ -51,7 +59,7 @@ class UniRunner<Fact, Event>(
         tabulationAlgorithm()
     }
 
-    private fun addStart(method: JIRMethod) {
+    private fun addStart(method: Method) {
         require(unitResolver.resolve(method) == unit)
         val startFacts = flowSpace.obtainPossibleStartFacts(method)
         for (startFact in startFacts) {
@@ -63,13 +71,13 @@ class UniRunner<Fact, Event>(
         }
     }
 
-    override fun submitNewEdge(edge: Edge<Fact>, reason: Reason<Fact>) {
+    override fun submitNewEdge(edge: Edge<Fact, Method, Statement>, reason: Reason<Fact, Method, Statement>) {
         propagate(edge, reason)
     }
 
     private fun propagate(
-        edge: Edge<Fact>,
-        reason: Reason<Fact>,
+        edge: Edge<Fact, Method, Statement>,
+        reason: Reason<Fact, Method, Statement>,
     ): Boolean {
         require(unitResolver.resolve(edge.method) == unit) {
             "Propagated edge must be in the same unit"
@@ -113,11 +121,11 @@ class UniRunner<Fact, Event>(
         }
     }
 
-    private val JIRMethod.isExtern: Boolean
+    private val Method.isExtern: Boolean
         get() = unitResolver.resolve(this) != unit
 
     private fun tabulationAlgorithmStep(
-        currentEdge: Edge<Fact>,
+        currentEdge: Edge<Fact, Method, Statement>,
         scope: CoroutineScope,
     ) {
         val (startVertex, currentVertex) = currentEdge
@@ -208,8 +216,8 @@ class UniRunner<Fact, Event>(
     }
 
     private fun handleSummaryEdge(
-        currentEdge: Edge<Fact>,
-        summaryEdge: Edge<Fact>,
+        currentEdge: Edge<Fact, Method, Statement>,
+        summaryEdge: Edge<Fact, Method, Statement>,
     ) {
         val (startVertex, currentVertex) = currentEdge
         val caller = currentVertex.statement
@@ -226,15 +234,15 @@ class UniRunner<Fact, Event>(
         }
     }
 
-    private fun getFinalFacts(): Map<JIRInst, Set<Fact>> {
-        val resultFacts: MutableMap<JIRInst, MutableSet<Fact>> = hashMapOf()
+    private fun getFinalFacts(): Map<Statement, Set<Fact>> {
+        val resultFacts: MutableMap<Statement, MutableSet<Fact>> = hashMapOf()
         for (edge in pathEdges) {
             resultFacts.getOrPut(edge.to.statement) { hashSetOf() }.add(edge.to.fact)
         }
         return resultFacts
     }
 
-    override fun getIfdsResult(): IfdsResult<Fact> {
+    override fun getIfdsResult(): IfdsResult<Fact, Method, Statement> {
         val facts = getFinalFacts()
         return IfdsResult(pathEdges, facts, reasons, zeroFact)
     }

@@ -1,15 +1,6 @@
 package org.opentaint.ir.impl.types
 
-import org.opentaint.ir.api.*
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.MethodResolution
-import org.opentaint.ir.api.jvm.throwClassNotFound
-import org.opentaint.ir.api.jvm.JIRRefType
-import org.opentaint.ir.api.jvm.JIRSubstitutor
-import org.opentaint.ir.api.jvm.JIRType
-import org.opentaint.ir.api.jvm.JIRTypeVariableDeclaration
-import org.opentaint.ir.api.jvm.JIRTypedMethod
-import org.opentaint.ir.api.jvm.JIRTypedMethodParameter
+import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.api.jvm.ext.findTypeOrNull
 import org.opentaint.ir.api.jvm.ext.isEnum
 import org.opentaint.ir.api.jvm.ext.isNullable

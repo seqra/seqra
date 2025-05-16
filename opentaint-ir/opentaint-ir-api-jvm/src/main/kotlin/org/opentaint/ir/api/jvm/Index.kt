@@ -13,7 +13,7 @@ interface ByteCodeIndexer {
 
 interface JIRFeature<REQ, RES> {
 
-    suspend fun query(classpath: JIRProject, req: REQ): Sequence<RES>
+    suspend fun query(classpath: JIRClasspath, req: REQ): Sequence<RES>
 
     fun newIndexer(jIRdb: JIRDatabase, location: RegisteredLocation): ByteCodeIndexer
 
@@ -44,6 +44,6 @@ sealed class JIRSignal(val jIRdb: JIRDatabase) {
 
 }
 
-suspend fun <REQ, RES> JIRProject.query(feature: JIRFeature<REQ, RES>, req: REQ): Sequence<RES> {
+suspend fun <REQ, RES> JIRClasspath.query(feature: JIRFeature<REQ, RES>, req: REQ): Sequence<RES> {
     return feature.query(this, req)
 }

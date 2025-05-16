@@ -208,7 +208,7 @@ class PersistentLocationRegistry(private val jIRdb: JIRDatabase, private val fea
         val record = BytecodelocationsRecord().also {
             it.path = path
             it.uniqueid = fileSystemId
-            it.runtime = type == org.opentaint.ir.api.jvm.LocationType.RUNTIME
+            it.runtime = type == LocationType.RUNTIME
         }
         record.insert()
         return record

@@ -3,28 +3,36 @@ package org.opentaint.ir.analysis.unused
 import org.opentaint.ir.analysis.ifds.Analyzer
 import org.opentaint.ir.analysis.ifds.Edge
 import org.opentaint.ir.analysis.ifds.Vertex
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.analysis.ApplicationGraph
+import org.opentaint.ir.api.common.cfg.CommonInst
 
-class UnusedVariableAnalyzer(
-    private val graph: JIRApplicationGraph,
-) : Analyzer<UnusedVariableDomainFact, Event> {
+class UnusedVariableAnalyzer<Method, Statement>(
+    private val graph: ApplicationGraph<Method, Statement>,
+) : Analyzer<UnusedVariableDomainFact, UnusedVariableEvent<Method, Statement>, Method, Statement>
+    where Method : CommonMethod<Method, Statement>,
+          Statement : CommonInst<Method, Statement> {
 
-    override val flowFunctions: UnusedVariableFlowFunctions by lazy {
+    override val flowFunctions: UnusedVariableFlowFunctions<Method, Statement> by lazy {
         UnusedVariableFlowFunctions(graph)
     }
 
-    private fun isExitPoint(statement: JIRInst): Boolean {
+    private fun isExitPoint(statement: Statement): Boolean {
         return statement in graph.exitPoints(statement.location.method)
     }
 
-    override fun handleNewEdge(edge: Edge<UnusedVariableDomainFact>): List<Event> = buildList {
+    override fun handleNewEdge(
+        edge: Edge<UnusedVariableDomainFact, Method, Statement>,
+    ): List<UnusedVariableEvent<Method, Statement>> = buildList {
         if (isExitPoint(edge.to.statement)) {
             add(NewSummaryEdge(edge))
         }
     }
 
-    override fun handleCrossUnitCall(caller: Vertex<UnusedVariableDomainFact>, callee: Vertex<UnusedVariableDomainFact>): List<Event> {
+    override fun handleCrossUnitCall(
+        caller: Vertex<UnusedVariableDomainFact, Method, Statement>,
+        callee: Vertex<UnusedVariableDomainFact, Method, Statement>,
+    ): List<UnusedVariableEvent<Method, Statement>> {
         return emptyList()
     }
 }

@@ -1,13 +1,13 @@
 package org.opentaint.ir.analysis.ifds
 
-import org.opentaint.ir.api.JIRField
+import org.opentaint.ir.api.common.CommonClassField
 
 sealed interface Accessor {
     fun toSuffix(): String
 }
 
 data class FieldAccessor(
-    val field: JIRField,
+    val field: CommonClassField,
 ) : Accessor {
     override fun toSuffix(): String = ".${field.name}"
     override fun toString(): String = field.name

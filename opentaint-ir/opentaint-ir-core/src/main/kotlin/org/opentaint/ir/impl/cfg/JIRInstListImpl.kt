@@ -1,13 +1,13 @@
 package org.opentaint.ir.impl.cfg
 
-import org.opentaint.ir.api.cfg.JIRInstList
-import org.opentaint.ir.api.cfg.JIRMutableInstList
-import org.opentaint.ir.api.cfg.JIRRawInst
-import org.opentaint.ir.api.cfg.JIRRawInstVisitor
-import org.opentaint.ir.api.cfg.JIRRawLabelInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstList
+import org.opentaint.ir.api.jvm.cfg.JIRMutableInstList
+import org.opentaint.ir.api.jvm.cfg.JIRRawInst
+import org.opentaint.ir.api.jvm.cfg.JIRRawInstVisitor
+import org.opentaint.ir.api.jvm.cfg.JIRRawLabelInst
 
 open class JIRInstListImpl<INST>(
-    instructions: List<INST>
+    instructions: List<INST>,
 ) : Iterable<INST>, JIRInstList<INST> {
     protected val _instructions = instructions.toMutableList()
 
@@ -32,7 +32,9 @@ open class JIRInstListImpl<INST>(
     }
 }
 
-class JIRMutableInstListImpl<INST>(instructions: List<INST>) : JIRInstListImpl<INST>(instructions),
+class JIRMutableInstListImpl<INST>(
+    instructions: List<INST>,
+) : JIRInstListImpl<INST>(instructions),
     JIRMutableInstList<INST> {
 
     override fun insertBefore(inst: INST, vararg newInstructions: INST) = insertBefore(inst, newInstructions.toList())

@@ -129,4 +129,3 @@ interface JIRAccessible {
         }
 
 }
-

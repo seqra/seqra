@@ -156,7 +156,8 @@ val repoUrl: String? = project.properties["repoUrl"] as? String
 if (!repoUrl.isNullOrEmpty()) {
     configure(
         listOf(
-            project(":opentaint-ir-api"),
+            project(":opentaint-ir-api-common"),
+            project(":opentaint-ir-api-jvm"),
             project(":opentaint-ir-core"),
             project(":opentaint-ir-analysis"),
             project(":opentaint-ir-approximations"),

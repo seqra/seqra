@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.fs
 
 import kotlinx.collections.immutable.toImmutableList
-import org.opentaint.ir.api.ClassSource
+import org.opentaint.ir.api.jvm.ClassSource
 import org.opentaint.ir.impl.storage.AnnotationValueKind
 import org.opentaint.ir.impl.types.*
 import org.objectweb.asm.ClassReader

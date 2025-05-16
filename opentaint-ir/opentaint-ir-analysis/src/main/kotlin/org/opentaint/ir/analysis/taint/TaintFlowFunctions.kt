@@ -2,32 +2,39 @@ package org.opentaint.ir.analysis.taint
 
 import org.opentaint.ir.analysis.config.BasicConditionEvaluator
 import org.opentaint.ir.analysis.config.CallPositionToAccessPathResolver
-import org.opentaint.ir.analysis.config.CallPositionToJIRValueResolver
+import org.opentaint.ir.analysis.config.CallPositionToValueResolver
 import org.opentaint.ir.analysis.config.EntryPointPositionToAccessPathResolver
-import org.opentaint.ir.analysis.config.EntryPointPositionToJIRValueResolver
+import org.opentaint.ir.analysis.config.EntryPointPositionToValueResolver
 import org.opentaint.ir.analysis.config.FactAwareConditionEvaluator
 import org.opentaint.ir.analysis.config.TaintActionEvaluator
 import org.opentaint.ir.analysis.ifds.ElementAccessor
 import org.opentaint.ir.analysis.ifds.FlowFunction
 import org.opentaint.ir.analysis.ifds.FlowFunctions
+import org.opentaint.ir.analysis.ifds.isOnHeap
+import org.opentaint.ir.analysis.ifds.isStatic
+import org.opentaint.ir.analysis.ifds.minus
 import org.opentaint.ir.analysis.ifds.onSome
 import org.opentaint.ir.analysis.ifds.toPath
 import org.opentaint.ir.analysis.ifds.toPathOrNull
 import org.opentaint.ir.analysis.util.getArgumentsOf
+import org.opentaint.ir.analysis.util.isConstructor
 import org.opentaint.ir.analysis.util.startsWith
 import org.opentaint.ir.analysis.util.thisInstance
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRAssignInst
-import org.opentaint.ir.api.cfg.JIRDynamicCallExpr
-import org.opentaint.ir.api.cfg.JIRExpr
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRInstanceCallExpr
-import org.opentaint.ir.api.cfg.JIRReturnInst
-import org.opentaint.ir.api.cfg.JIRThis
-import org.opentaint.ir.api.cfg.JIRValue
-import org.opentaint.ir.api.ext.cfg.callExpr
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.Project
+import org.opentaint.ir.api.common.analysis.ApplicationGraph
+import org.opentaint.ir.api.common.cfg.CommonAssignInst
+import org.opentaint.ir.api.common.cfg.CommonExpr
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.common.cfg.CommonInstanceCallExpr
+import org.opentaint.ir.api.common.cfg.CommonReturnInst
+import org.opentaint.ir.api.common.cfg.CommonThis
+import org.opentaint.ir.api.common.cfg.CommonValue
+import org.opentaint.ir.api.common.ext.callExpr
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRDynamicCallExpr
 import org.opentaint.ir.taint.configuration.AssignMark
 import org.opentaint.ir.taint.configuration.CopyAllMarks
 import org.opentaint.ir.taint.configuration.CopyMark
@@ -41,27 +48,43 @@ import org.opentaint.ir.taint.configuration.TaintPassThrough
 
 private val logger = mu.KotlinLogging.logger {}
 
-class ForwardTaintFlowFunctions(
-    private val cp: JIRClasspath,
-    private val graph: JIRApplicationGraph,
-) : FlowFunctions<TaintDomainFact> {
+class ForwardTaintFlowFunctions<Method, Statement>(
+    private val graph: ApplicationGraph<Method, Statement>,
+) : FlowFunctions<TaintDomainFact, Method, Statement>
+    where Method : CommonMethod<Method, Statement>,
+          Statement : CommonInst<Method, Statement> {
+
+    private val cp: Project
+        get() = graph.project
 
     internal val taintConfigurationFeature: TaintConfigurationFeature? by lazy {
-        cp.features
-            ?.singleOrNull { it is TaintConfigurationFeature }
-            ?.let { it as TaintConfigurationFeature }
+        val cp = cp
+        if (cp is JIRClasspath) {
+            cp.features
+                ?.singleOrNull { it is TaintConfigurationFeature }
+                ?.let { it as TaintConfigurationFeature }
+        } else {
+            null
+        }
     }
 
     override fun obtainPossibleStartFacts(
-        method: JIRMethod,
+        method: Method,
     ): Collection<TaintDomainFact> = buildSet {
         // Zero (reachability) fact always present at entrypoint:
         add(TaintZeroFact)
 
         // Extract initial facts from the config:
-        val config = taintConfigurationFeature?.getConfigForMethod(method)
+        val config = taintConfigurationFeature?.let { feature ->
+            if (method is JIRMethod) {
+                logger.trace { "Extracting config for $method" }
+                feature.getConfigForMethod(method)
+            } else {
+                error("Cannot extract config for $method")
+            }
+        }
         if (config != null) {
-            val conditionEvaluator = BasicConditionEvaluator(EntryPointPositionToJIRValueResolver(cp, method))
+            val conditionEvaluator = BasicConditionEvaluator(EntryPointPositionToValueResolver(cp, method))
             val actionEvaluator = TaintActionEvaluator(EntryPointPositionToAccessPathResolver(cp, method))
 
             // Handle EntryPointSource config items:
@@ -81,8 +104,8 @@ class ForwardTaintFlowFunctions(
 
     private fun transmitTaintAssign(
         fact: Tainted,
-        from: JIRExpr,
-        to: JIRValue,
+        from: CommonExpr,
+        to: CommonValue,
     ): Collection<Tainted> {
         val toPath = to.toPath()
         val fromPath = from.toPathOrNull()
@@ -91,7 +114,7 @@ class ForwardTaintFlowFunctions(
             // Adhoc taint array:
             if (fromPath.accesses.isNotEmpty()
                 && fromPath.accesses.last() is ElementAccessor
-                && fromPath == (fact.variable / ElementAccessor)
+                && fromPath == (fact.variable + ElementAccessor)
             ) {
                 val newTaint = fact.copy(variable = toPath)
                 return setOf(fact, newTaint)
@@ -100,7 +123,7 @@ class ForwardTaintFlowFunctions(
             val tail = fact.variable - fromPath
             if (tail != null) {
                 // Both 'from' and 'to' are tainted now:
-                val newPath = toPath / tail
+                val newPath = toPath + tail
                 val newTaint = fact.copy(variable = newPath)
                 return setOf(fact, newTaint)
             }
@@ -117,22 +140,22 @@ class ForwardTaintFlowFunctions(
 
     private fun transmitTaintNormal(
         fact: Tainted,
-        inst: JIRInst,
+        inst: Statement,
     ): List<Tainted> {
         // Pass-through:
         return listOf(fact)
     }
 
     override fun obtainSequentFlowFunction(
-        current: JIRInst,
-        next: JIRInst,
+        current: Statement,
+        next: Statement,
     ) = FlowFunction<TaintDomainFact> { fact ->
         if (fact is TaintZeroFact) {
             return@FlowFunction listOf(TaintZeroFact)
         }
         check(fact is Tainted)
 
-        if (current is JIRAssignInst) {
+        if (current is CommonAssignInst<*, *>) {
             transmitTaintAssign(fact, from = current.rhv, to = current.lhv)
         } else {
             transmitTaintNormal(fact, current)
@@ -141,51 +164,51 @@ class ForwardTaintFlowFunctions(
 
     private fun transmitTaint(
         fact: Tainted,
-        from: JIRValue,
-        to: JIRValue,
+        from: CommonValue,
+        to: CommonValue,
     ): Collection<Tainted> = buildSet {
         val fromPath = from.toPath()
         val toPath = to.toPath()
 
         val tail = (fact.variable - fromPath) ?: return@buildSet
-        val newPath = toPath / tail
+        val newPath = toPath + tail
         val newTaint = fact.copy(variable = newPath)
         add(newTaint)
     }
 
     private fun transmitTaintArgumentActualToFormal(
         fact: Tainted,
-        from: JIRValue, // actual
-        to: JIRValue, // formal
+        from: CommonValue, // actual
+        to: CommonValue, // formal
     ): Collection<Tainted> = transmitTaint(fact, from, to)
 
     private fun transmitTaintArgumentFormalToActual(
         fact: Tainted,
-        from: JIRValue, // formal
-        to: JIRValue, // actual
+        from: CommonValue, // formal
+        to: CommonValue, // actual
     ): Collection<Tainted> = transmitTaint(fact, from, to)
 
     private fun transmitTaintInstanceToThis(
         fact: Tainted,
-        from: JIRValue, // instance
-        to: JIRThis, // this
+        from: CommonValue, // instance
+        to: CommonThis, // this
     ): Collection<Tainted> = transmitTaint(fact, from, to)
 
     private fun transmitTaintThisToInstance(
         fact: Tainted,
-        from: JIRThis, // this
-        to: JIRValue, // instance
+        from: CommonThis, // this
+        to: CommonValue, // instance
     ): Collection<Tainted> = transmitTaint(fact, from, to)
 
     private fun transmitTaintReturn(
         fact: Tainted,
-        from: JIRValue,
-        to: JIRValue,
+        from: CommonValue,
+        to: CommonValue,
     ): Collection<Tainted> = transmitTaint(fact, from, to)
 
     override fun obtainCallToReturnSiteFlowFunction(
-        callStatement: JIRInst,
-        returnSite: JIRInst, // FIXME: unused?
+        callStatement: Statement,
+        returnSite: Statement, // FIXME: unused?
     ) = FlowFunction<TaintDomainFact> { fact ->
         val callExpr = callStatement.callExpr
             ?: error("Call statement should have non-null callExpr")
@@ -208,14 +231,21 @@ class ForwardTaintFlowFunctions(
             return@FlowFunction setOf(fact)
         }
 
-        val config = taintConfigurationFeature?.getConfigForMethod(callee)
+        val config = taintConfigurationFeature?.let { feature ->
+            if (callee is JIRMethod) {
+                logger.trace { "Extracting config for $callee" }
+                feature.getConfigForMethod(callee)
+            } else {
+                error("Cannot extract config for $callee")
+            }
+        }
 
         if (fact == TaintZeroFact) {
             return@FlowFunction buildSet {
                 add(TaintZeroFact)
 
                 if (config != null) {
-                    val conditionEvaluator = BasicConditionEvaluator(CallPositionToJIRValueResolver(callStatement))
+                    val conditionEvaluator = BasicConditionEvaluator(CallPositionToValueResolver(callStatement))
                     val actionEvaluator = TaintActionEvaluator(CallPositionToAccessPathResolver(callStatement))
 
                     // Handle MethodSource config items:
@@ -237,7 +267,7 @@ class ForwardTaintFlowFunctions(
 
         if (config != null) {
             val facts = mutableSetOf<Tainted>()
-            val conditionEvaluator = FactAwareConditionEvaluator(fact, CallPositionToJIRValueResolver(callStatement))
+            val conditionEvaluator = FactAwareConditionEvaluator(fact, CallPositionToValueResolver(callStatement))
             val actionEvaluator = TaintActionEvaluator(CallPositionToAccessPathResolver(callStatement))
             var defaultBehavior = true
 
@@ -314,7 +344,7 @@ class ForwardTaintFlowFunctions(
                 }
             }
 
-            if (callExpr is JIRInstanceCallExpr) {
+            if (callExpr is CommonInstanceCallExpr) {
                 // Possibly tainted instance:
                 if (fact.variable.startsWith(callExpr.instance.toPathOrNull())) {
                     return@FlowFunction emptyList() // Will be handled by summary edge
@@ -323,7 +353,7 @@ class ForwardTaintFlowFunctions(
 
         }
 
-        if (callStatement is JIRAssignInst) {
+        if (callStatement is CommonAssignInst<*, *>) {
             // Possibly tainted lhv:
             if (fact.variable.startsWith(callStatement.lhv.toPathOrNull())) {
                 return@FlowFunction emptyList() // Overridden by rhv
@@ -335,8 +365,8 @@ class ForwardTaintFlowFunctions(
     }
 
     override fun obtainCallToStartFlowFunction(
-        callStatement: JIRInst,
-        calleeStart: JIRInst,
+        callStatement: Statement,
+        calleeStart: Statement,
     ) = FlowFunction<TaintDomainFact> { fact ->
         val callee = calleeStart.location.method
 
@@ -357,7 +387,7 @@ class ForwardTaintFlowFunctions(
             }
 
             // Transmit facts on instance (from 'instance' to 'this'):
-            if (callExpr is JIRInstanceCallExpr) {
+            if (callExpr is CommonInstanceCallExpr) {
                 addAll(transmitTaintInstanceToThis(fact, from = callExpr.instance, to = callee.thisInstance))
             }
 
@@ -369,9 +399,9 @@ class ForwardTaintFlowFunctions(
     }
 
     override fun obtainExitToReturnSiteFlowFunction(
-        callStatement: JIRInst,
-        returnSite: JIRInst, // unused
-        exitStatement: JIRInst,
+        callStatement: Statement,
+        returnSite: Statement, // unused
+        exitStatement: Statement,
     ) = FlowFunction<TaintDomainFact> { fact ->
         if (fact == TaintZeroFact) {
             return@FlowFunction listOf(TaintZeroFact)
@@ -393,7 +423,7 @@ class ForwardTaintFlowFunctions(
             }
 
             // Transmit facts on instance (from 'this' to 'instance'):
-            if (callExpr is JIRInstanceCallExpr) {
+            if (callExpr is CommonInstanceCallExpr) {
                 addAll(transmitTaintThisToInstance(fact, from = callee.thisInstance, to = callExpr.instance))
             }
 
@@ -403,7 +433,7 @@ class ForwardTaintFlowFunctions(
             }
 
             // Transmit facts on return value (from 'returnValue' to 'lhv'):
-            if (exitStatement is JIRReturnInst && callStatement is JIRAssignInst) {
+            if (exitStatement is CommonReturnInst<*, *> && callStatement is CommonAssignInst<*, *>) {
                 // Note: returnValue can be null here in some weird cases, e.g. in lambda.
                 exitStatement.returnValue?.let { returnValue ->
                     addAll(transmitTaintReturn(fact, from = returnValue, to = callStatement.lhv))
@@ -413,21 +443,25 @@ class ForwardTaintFlowFunctions(
     }
 }
 
-class BackwardTaintFlowFunctions(
-    private val project: JIRClasspath,
-    private val graph: JIRApplicationGraph,
-) : FlowFunctions<TaintDomainFact> {
+class BackwardTaintFlowFunctions<Method, Statement>(
+    private val graph: ApplicationGraph<Method, Statement>,
+) : FlowFunctions<TaintDomainFact, Method, Statement>
+    where Method : CommonMethod<Method, Statement>,
+          Statement : CommonInst<Method, Statement> {
+
+    private val cp: Project
+        get() = graph.project
 
     override fun obtainPossibleStartFacts(
-        method: JIRMethod,
+        method: Method,
     ): Collection<TaintDomainFact> {
         return listOf(TaintZeroFact)
     }
 
     private fun transmitTaintBackwardAssign(
         fact: Tainted,
-        from: JIRValue,
-        to: JIRExpr,
+        from: CommonValue,
+        to: CommonExpr,
     ): Collection<TaintDomainFact> {
         val fromPath = from.toPath()
         val toPath = to.toPathOrNull()
@@ -436,7 +470,7 @@ class BackwardTaintFlowFunctions(
             val tail = fact.variable - fromPath
             if (tail != null) {
                 // Both 'from' and 'to' are tainted now:
-                val newPath = toPath / tail
+                val newPath = toPath + tail
                 val newTaint = fact.copy(variable = newPath)
                 return setOf(fact, newTaint)
             }
@@ -453,22 +487,22 @@ class BackwardTaintFlowFunctions(
 
     private fun transmitTaintBackwardNormal(
         fact: Tainted,
-        inst: JIRInst,
+        inst: Statement,
     ): List<TaintDomainFact> {
         // Pass-through:
         return listOf(fact)
     }
 
     override fun obtainSequentFlowFunction(
-        current: JIRInst,
-        next: JIRInst,
+        current: Statement,
+        next: Statement,
     ) = FlowFunction<TaintDomainFact> { fact ->
         if (fact is TaintZeroFact) {
             return@FlowFunction listOf(TaintZeroFact)
         }
         check(fact is Tainted)
 
-        if (current is JIRAssignInst) {
+        if (current is CommonAssignInst<*, *>) {
             transmitTaintBackwardAssign(fact, from = current.lhv, to = current.rhv)
         } else {
             transmitTaintBackwardNormal(fact, current)
@@ -477,51 +511,51 @@ class BackwardTaintFlowFunctions(
 
     private fun transmitTaint(
         fact: Tainted,
-        from: JIRValue,
-        to: JIRValue,
+        from: CommonValue,
+        to: CommonValue,
     ): Collection<Tainted> = buildSet {
         val fromPath = from.toPath()
         val toPath = to.toPath()
 
         val tail = (fact.variable - fromPath) ?: return@buildSet
-        val newPath = toPath / tail
+        val newPath = toPath + tail
         val newTaint = fact.copy(variable = newPath)
         add(newTaint)
     }
 
     private fun transmitTaintArgumentActualToFormal(
         fact: Tainted,
-        from: JIRValue, // actual
-        to: JIRValue, // formal
+        from: CommonValue, // actual
+        to: CommonValue, // formal
     ): Collection<Tainted> = transmitTaint(fact, from, to)
 
     private fun transmitTaintArgumentFormalToActual(
         fact: Tainted,
-        from: JIRValue, // formal
-        to: JIRValue, // actual
+        from: CommonValue, // formal
+        to: CommonValue, // actual
     ): Collection<Tainted> = transmitTaint(fact, from, to)
 
     private fun transmitTaintInstanceToThis(
         fact: Tainted,
-        from: JIRValue, // instance
-        to: JIRThis, // this
+        from: CommonValue, // instance
+        to: CommonThis, // this
     ): Collection<Tainted> = transmitTaint(fact, from, to)
 
     private fun transmitTaintThisToInstance(
         fact: Tainted,
-        from: JIRThis, // this
-        to: JIRValue, // instance
+        from: CommonThis, // this
+        to: CommonValue, // instance
     ): Collection<Tainted> = transmitTaint(fact, from, to)
 
     private fun transmitTaintReturn(
         fact: Tainted,
-        from: JIRValue,
-        to: JIRValue,
+        from: CommonValue,
+        to: CommonValue,
     ): Collection<Tainted> = transmitTaint(fact, from, to)
 
     override fun obtainCallToReturnSiteFlowFunction(
-        callStatement: JIRInst,
-        returnSite: JIRInst, // FIXME: unused?
+        callStatement: Statement,
+        returnSite: Statement, // FIXME: unused?
     ) = FlowFunction<TaintDomainFact> { fact ->
         // TODO: pass-through on invokedynamic-based String concatenation
 
@@ -547,7 +581,7 @@ class BackwardTaintFlowFunctions(
                 }
             }
 
-            if (callExpr is JIRInstanceCallExpr) {
+            if (callExpr is CommonInstanceCallExpr) {
                 // Possibly tainted instance:
                 if (fact.variable.startsWith(callExpr.instance.toPathOrNull())) {
                     return@FlowFunction emptyList() // Will be handled by summary edge
@@ -556,7 +590,7 @@ class BackwardTaintFlowFunctions(
 
         }
 
-        if (callStatement is JIRAssignInst) {
+        if (callStatement is CommonAssignInst<*, *>) {
             // Possibly tainted rhv:
             if (fact.variable.startsWith(callStatement.rhv.toPathOrNull())) {
                 return@FlowFunction emptyList() // Overridden by lhv
@@ -568,8 +602,8 @@ class BackwardTaintFlowFunctions(
     }
 
     override fun obtainCallToStartFlowFunction(
-        callStatement: JIRInst,
-        calleeStart: JIRInst,
+        callStatement: Statement,
+        calleeStart: Statement,
     ) = FlowFunction<TaintDomainFact> { fact ->
         val callee = calleeStart.location.method
 
@@ -584,13 +618,13 @@ class BackwardTaintFlowFunctions(
         buildSet {
             // Transmit facts on arguments (from 'actual' to 'formal'):
             val actualParams = callExpr.args
-            val formalParams = project.getArgumentsOf(callee)
+            val formalParams = cp.getArgumentsOf(callee)
             for ((formal, actual) in formalParams.zip(actualParams)) {
                 addAll(transmitTaintArgumentActualToFormal(fact, from = actual, to = formal))
             }
 
             // Transmit facts on instance (from 'instance' to 'this'):
-            if (callExpr is JIRInstanceCallExpr) {
+            if (callExpr is CommonInstanceCallExpr) {
                 addAll(transmitTaintInstanceToThis(fact, from = callExpr.instance, to = callee.thisInstance))
             }
 
@@ -600,7 +634,7 @@ class BackwardTaintFlowFunctions(
             }
 
             // Transmit facts on return value (from 'returnValue' to 'lhv'):
-            if (calleeStart is JIRReturnInst && callStatement is JIRAssignInst) {
+            if (calleeStart is CommonReturnInst<*, *> && callStatement is CommonAssignInst<*, *>) {
                 // Note: returnValue can be null here in some weird cases, e.g. in lambda.
                 calleeStart.returnValue?.let { returnValue ->
                     addAll(
@@ -616,9 +650,9 @@ class BackwardTaintFlowFunctions(
     }
 
     override fun obtainExitToReturnSiteFlowFunction(
-        callStatement: JIRInst,
-        returnSite: JIRInst,
-        exitStatement: JIRInst,
+        callStatement: Statement,
+        returnSite: Statement,
+        exitStatement: Statement,
     ) = FlowFunction<TaintDomainFact> { fact ->
         if (fact == TaintZeroFact) {
             return@FlowFunction listOf(TaintZeroFact)
@@ -633,7 +667,7 @@ class BackwardTaintFlowFunctions(
             // Transmit facts on arguments (from 'formal' back to 'actual'), if they are passed by-ref:
             if (fact.variable.isOnHeap) {
                 val actualParams = callExpr.args
-                val formalParams = project.getArgumentsOf(callee)
+                val formalParams = cp.getArgumentsOf(callee)
                 for ((formal, actual) in formalParams.zip(actualParams)) {
                     addAll(
                         transmitTaintArgumentFormalToActual(
@@ -646,7 +680,7 @@ class BackwardTaintFlowFunctions(
             }
 
             // Transmit facts on instance (from 'this' to 'instance'):
-            if (callExpr is JIRInstanceCallExpr) {
+            if (callExpr is CommonInstanceCallExpr) {
                 addAll(
                     transmitTaintThisToInstance(
                         fact = fact,

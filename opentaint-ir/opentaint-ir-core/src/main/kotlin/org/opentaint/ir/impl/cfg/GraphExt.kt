@@ -6,41 +6,39 @@ import info.leadinglight.jdot.Node
 import info.leadinglight.jdot.enums.Color
 import info.leadinglight.jdot.enums.Shape
 import info.leadinglight.jdot.impl.Util
-import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRInstExtFeature
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.PredefinedPrimitives
-import org.opentaint.ir.api.cfg.DefaultJIRExprVisitor
-import org.opentaint.ir.api.cfg.DefaultJIRInstVisitor
-import org.opentaint.ir.api.cfg.JIRArrayAccess
-import org.opentaint.ir.api.cfg.JIRAssignInst
-import org.opentaint.ir.api.cfg.JIRBasicBlock
-import org.opentaint.ir.api.cfg.JIRBlockGraph
-import org.opentaint.ir.api.cfg.JIRCallInst
-import org.opentaint.ir.api.cfg.JIRCastExpr
-import org.opentaint.ir.api.cfg.JIRDivExpr
-import org.opentaint.ir.api.cfg.JIRDynamicCallExpr
-import org.opentaint.ir.api.cfg.JIRExitMonitorInst
-import org.opentaint.ir.api.cfg.JIRExpr
-import org.opentaint.ir.api.cfg.JIRFieldRef
-import org.opentaint.ir.api.cfg.JIRGotoInst
-import org.opentaint.ir.api.cfg.JIRGraph
-import org.opentaint.ir.api.cfg.JIRIfInst
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRInstList
-import org.opentaint.ir.api.cfg.JIRLambdaExpr
-import org.opentaint.ir.api.cfg.JIRLengthExpr
-import org.opentaint.ir.api.cfg.JIRNewArrayExpr
-import org.opentaint.ir.api.cfg.JIRNewExpr
-import org.opentaint.ir.api.cfg.JIRRawInst
-import org.opentaint.ir.api.cfg.JIRRemExpr
-import org.opentaint.ir.api.cfg.JIRSpecialCallExpr
-import org.opentaint.ir.api.cfg.JIRStaticCallExpr
-import org.opentaint.ir.api.cfg.JIRSwitchInst
-import org.opentaint.ir.api.cfg.JIRThrowInst
-import org.opentaint.ir.api.cfg.JIRVirtualCallExpr
-import org.opentaint.ir.api.ext.findTypeOrNull
+import org.opentaint.ir.api.common.cfg.CommonExpr
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.PredefinedPrimitives
+import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRBasicBlock
+import org.opentaint.ir.api.jvm.cfg.JIRBlockGraph
+import org.opentaint.ir.api.jvm.cfg.JIRCallInst
+import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
+import org.opentaint.ir.api.jvm.cfg.JIRDivExpr
+import org.opentaint.ir.api.jvm.cfg.JIRDynamicCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRExitMonitorInst
+import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRExprVisitor
+import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
+import org.opentaint.ir.api.jvm.cfg.JIRGotoInst
+import org.opentaint.ir.api.jvm.cfg.JIRGraph
+import org.opentaint.ir.api.jvm.cfg.JIRIfInst
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstVisitor
+import org.opentaint.ir.api.jvm.cfg.JIRLambdaExpr
+import org.opentaint.ir.api.jvm.cfg.JIRLengthExpr
+import org.opentaint.ir.api.jvm.cfg.JIRNewArrayExpr
+import org.opentaint.ir.api.jvm.cfg.JIRNewExpr
+import org.opentaint.ir.api.jvm.cfg.JIRRemExpr
+import org.opentaint.ir.api.jvm.cfg.JIRSpecialCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRStaticCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRSwitchInst
+import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
+import org.opentaint.ir.api.jvm.cfg.JIRVirtualCallExpr
+import org.opentaint.ir.api.jvm.ext.findTypeOrNull
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
@@ -208,19 +206,32 @@ fun JIRBlockGraph.toFile(dotCmd: String, file: File? = null): Path {
  * - all the declared checked exception types
  * - 'java.lang.Throwable' for any potential unchecked types
  */
-open class JIRExceptionResolver(val classpath: JIRClasspath) : DefaultJIRExprVisitor<List<JIRClassType>>,
-    DefaultJIRInstVisitor<List<JIRClassType>> {
+open class JIRExceptionResolver(
+    val classpath: JIRClasspath,
+) : JIRExprVisitor.Default<List<JIRClassType>>,
+    JIRInstVisitor.Default<List<JIRClassType>> {
+
     private val throwableType = classpath.findTypeOrNull<Throwable>() as JIRClassType
     private val errorType = classpath.findTypeOrNull<Error>() as JIRClassType
     private val runtimeExceptionType = classpath.findTypeOrNull<RuntimeException>() as JIRClassType
     private val nullPointerExceptionType = classpath.findTypeOrNull<NullPointerException>() as JIRClassType
     private val arithmeticExceptionType = classpath.findTypeOrNull<ArithmeticException>() as JIRClassType
 
-    override val defaultExprHandler: (JIRExpr) -> List<JIRClassType>
-        get() = { emptyList() }
+    override fun defaultVisitCommonExpr(expr: CommonExpr): List<JIRClassType> {
+        TODO("Not yet implemented")
+    }
 
-    override val defaultInstHandler: (JIRInst) -> List<JIRClassType>
-        get() = { emptyList() }
+    override fun defaultVisitCommonInst(inst: CommonInst<*, *>): List<JIRClassType> {
+        TODO("Not yet implemented")
+    }
+
+    override fun defaultVisitJIRExpr(expr: JIRExpr): List<JIRClassType> {
+        return emptyList()
+    }
+
+    override fun defaultVisitJIRInst(inst: JIRInst): List<JIRClassType> {
+        return emptyList()
+    }
 
     override fun visitJIRAssignInst(inst: JIRAssignInst): List<JIRClassType> {
         return inst.lhv.accept(this) + inst.rhv.accept(this)

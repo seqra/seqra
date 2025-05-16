@@ -1,21 +1,29 @@
 package org.opentaint.ir.impl.analysis.impl
 
-import org.opentaint.ir.api.JIRClassType
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.PredefinedPrimitives
-import org.opentaint.ir.api.cfg.*
-import org.opentaint.ir.api.ext.autoboxIfNeeded
-import org.opentaint.ir.api.ext.findTypeOrNull
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.PredefinedPrimitives
+import org.opentaint.ir.api.jvm.cfg.*
+import org.opentaint.ir.api.jvm.ext.autoboxIfNeeded
+import org.opentaint.ir.api.jvm.ext.findTypeOrNull
 import org.opentaint.ir.impl.cfg.JIRInstListImpl
 import org.opentaint.ir.impl.cfg.VirtualMethodRefImpl
 import org.opentaint.ir.impl.cfg.methodRef
 import kotlin.collections.set
 
-class StringConcatSimplifierTransformer(classpath: JIRClasspath, private val list: JIRInstList<JIRInst>) :
-    DefaultJIRInstVisitor<JIRInst> {
+class StringConcatSimplifierTransformer(
+    classpath: JIRClasspath,
+    private val list: JIRInstList<JIRInst>,
+) : JIRInstVisitor.Default<JIRInst> {
 
-    override val defaultInstHandler: (JIRInst) -> JIRInst
-        get() = { it }
+    override fun defaultVisitCommonInst(inst: CommonInst<*, *>): JIRInst {
+        TODO("Not yet implemented")
+    }
+
+    override fun defaultVisitJIRInst(inst: JIRInst): JIRInst {
+        return inst
+    }
 
     private val instructionReplacements = mutableMapOf<JIRInst, JIRInst>()
     private val instructions = mutableListOf<JIRInst>()

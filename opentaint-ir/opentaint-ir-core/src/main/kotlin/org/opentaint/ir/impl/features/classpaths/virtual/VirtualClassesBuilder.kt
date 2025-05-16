@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.features.classpaths.virtual
 
-import org.opentaint.ir.api.core.TypeName
-import org.opentaint.ir.api.jvm.PredefinedJIRPrimitives
+import org.opentaint.ir.api.jvm.PredefinedPrimitives
+import org.opentaint.ir.api.jvm.TypeName
 import org.opentaint.ir.api.jvm.ext.jvmName
 import org.opentaint.ir.impl.features.classpaths.VirtualClasses
 import org.opentaint.ir.impl.types.TypeNameImpl
@@ -87,7 +87,7 @@ open class VirtualClassesBuilder {
 
         var access = Opcodes.ACC_PUBLIC
             private set
-        var returnType: TypeName = TypeNameImpl(PredefinedJIRPrimitives.Void)
+        var returnType: TypeName = TypeNameImpl(PredefinedPrimitives.Void)
             private set
         var parameters: List<TypeName> = emptyList()
             private set

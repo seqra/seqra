@@ -47,8 +47,8 @@ class RecursiveTypesTest : BaseTypesTest() {
         runBlocking {
             val comparable5 = findType<ComparableTest5>()
             with(comparable5.superType!!.fields) {
-                first { it.name == "stateT" }.fieldType.assertClassType<Int>()
-                first { it.name == "stateW" }.fieldType.assertClassType<Int>()
+                first { it.name == "stateT" }.type.assertClassType<Int>()
+                first { it.name == "stateW" }.type.assertClassType<Int>()
             }
         }
     }

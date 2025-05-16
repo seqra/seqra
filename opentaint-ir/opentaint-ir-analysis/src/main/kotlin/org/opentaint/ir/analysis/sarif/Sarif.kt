@@ -17,9 +17,8 @@ import io.github.detekt.sarif4k.Tool
 import io.github.detekt.sarif4k.ToolComponent
 import io.github.detekt.sarif4k.Version
 import org.opentaint.ir.analysis.ifds.Vertex
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.cfg.JIRInst
-import java.io.File
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonInst
 
 private const val SARIF_SCHEMA =
     "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
@@ -27,12 +26,14 @@ private const val OPENTAINT-IR_INFORMATION_URI =
     "https://github.com/Opentaint/opentaint-ir/blob/develop/opentaint-ir-analysis/README.md"
 private const val DEFAULT_PATH_COUNT = 3
 
-fun sarifReportFromVulnerabilities(
-    vulnerabilities: List<VulnerabilityInstance<*>>,
+fun <Method, Statement> sarifReportFromVulnerabilities(
+    vulnerabilities: List<VulnerabilityInstance<*, Method, Statement>>,
     maxPathsCount: Int = DEFAULT_PATH_COUNT,
     isDeduplicate: Boolean = true,
-    sourceFileResolver: SourceFileResolver = SourceFileResolver { null },
-): SarifSchema210 {
+    sourceFileResolver: SourceFileResolver<Statement> = SourceFileResolver { null },
+): SarifSchema210
+    where Method : CommonMethod<Method, Statement>,
+          Statement : CommonInst<Method, Statement> {
     return SarifSchema210(
         schema = SARIF_SCHEMA,
         version = Version.The210,
@@ -53,7 +54,12 @@ fun sarifReportFromVulnerabilities(
                             text = instance.description.message
                         ),
                         level = instance.description.level,
-                        locations = listOf(instToSarifLocation(instance.traceGraph.sink.statement, sourceFileResolver)),
+                        locations = listOfNotNull(
+                            instToSarifLocation(
+                                instance.traceGraph.sink.statement,
+                                sourceFileResolver
+                            )
+                        ),
                         codeFlows = instance.traceGraph
                             .getAllTraces()
                             .take(maxPathsCount)
@@ -66,17 +72,16 @@ fun sarifReportFromVulnerabilities(
     )
 }
 
-private val JIRMethod.fullyQualifiedName: String
+private val CommonMethod<*, *>.fullyQualifiedName: String
     get() = "${enclosingClass.name}#${name}"
 
-private fun instToSarifLocation(inst: JIRInst, sourceFileResolver: SourceFileResolver): Location {
-    val sourceLocation = sourceFileResolver.resolve(inst)
-        ?: run {
-            val registeredLocation = inst.location.method.declaration.location
-            val classFile = inst.location.method.enclosingClass.name
-                .replace('.', '/') + ".class"
-            File(registeredLocation.path).resolve(classFile).path
-        }
+private fun <Method, Statement> instToSarifLocation(
+    inst: Statement,
+    sourceFileResolver: SourceFileResolver<Statement>,
+): Location?
+    where Method : CommonMethod<Method, Statement>,
+          Statement : CommonInst<Method, Statement> {
+    val sourceLocation = sourceFileResolver.resolve(inst) ?: return null
     return Location(
         physicalLocation = PhysicalLocation(
             artifactLocation = ArtifactLocation(
@@ -94,11 +99,13 @@ private fun instToSarifLocation(inst: JIRInst, sourceFileResolver: SourceFileRes
     )
 }
 
-private fun traceToSarifCodeFlow(
-    trace: List<Vertex<*>>,
-    sourceFileResolver: SourceFileResolver,
+private fun <Method, Statement> traceToSarifCodeFlow(
+    trace: List<Vertex<*, Method, Statement>>,
+    sourceFileResolver: SourceFileResolver<Statement>,
     isDeduplicate: Boolean = true,
-): CodeFlow {
+): CodeFlow
+    where Method : CommonMethod<Method, Statement>,
+          Statement : CommonInst<Method, Statement> {
     return CodeFlow(
         threadFlows = listOf(
             ThreadFlow(
@@ -123,8 +130,8 @@ private fun List<ThreadFlowLocation>.deduplicate(): List<ThreadFlowLocation> {
     if (isEmpty()) return emptyList()
 
     return listOf(first()) + zipWithNext { a, b ->
-        val aLine = a.location!!.physicalLocation!!.region!!.startLine!!
-        val bLine = b.location!!.physicalLocation!!.region!!.startLine!!
+        val aLine = a.location?.physicalLocation?.region?.startLine
+        val bLine = b.location?.physicalLocation?.region?.startLine
         if (aLine != bLine) {
             b
         } else {

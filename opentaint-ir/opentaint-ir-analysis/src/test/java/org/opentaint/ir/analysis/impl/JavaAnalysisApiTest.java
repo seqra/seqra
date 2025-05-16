@@ -5,11 +5,12 @@ import org.opentaint.ir.analysis.graph.ApplicationGraphFactory;
 import org.opentaint.ir.analysis.ifds.UnitResolver;
 import org.opentaint.ir.analysis.ifds.UnitResolverKt;
 import org.opentaint.ir.analysis.taint.TaintManager;
-import org.opentaint.ir.api.JIRClassOrInterface;
-import org.opentaint.ir.api.JIRClasspath;
-import org.opentaint.ir.api.JIRDatabase;
-import org.opentaint.ir.api.JIRMethod;
-import org.opentaint.ir.api.analysis.JIRApplicationGraph;
+import org.opentaint.ir.api.jvm.JIRClassOrInterface;
+import org.opentaint.ir.api.jvm.JIRClasspath;
+import org.opentaint.ir.api.jvm.JIRDatabase;
+import org.opentaint.ir.api.jvm.JIRMethod;
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph;
+import org.opentaint.ir.api.jvm.cfg.JIRInst;
 import org.opentaint.ir.impl.Opentaint-IR;
 import org.opentaint.ir.impl.JIRSettings;
 import org.opentaint.ir.impl.features.InMemoryHierarchy;
@@ -43,8 +44,8 @@ public class JavaAnalysisApiTest {
         JIRApplicationGraph applicationGraph = ApplicationGraphFactory
                 .newApplicationGraphForAnalysisAsync(classpath, null)
                 .get();
-        UnitResolver unitResolver = UnitResolverKt.getMethodUnitResolver();
-        TaintManager manager = new TaintManager(applicationGraph, unitResolver, false);
+        UnitResolver<JIRMethod> unitResolver = UnitResolverKt.getMethodUnitResolver();
+        TaintManager<JIRMethod, JIRInst> manager = new TaintManager<>(applicationGraph, unitResolver, false);
         manager.analyze(methodsToAnalyze, toDuration(30, DurationUnit.SECONDS));
     }
 

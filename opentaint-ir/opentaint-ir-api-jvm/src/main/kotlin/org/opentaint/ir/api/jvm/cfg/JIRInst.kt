@@ -1,16 +1,20 @@
 package org.opentaint.ir.api.jvm.cfg
 
-import org.opentaint.ir.api.core.cfg.CoreExpr
-import org.opentaint.ir.api.core.cfg.CoreExprVisitor
-import org.opentaint.ir.api.core.cfg.CoreAssignInst
-import org.opentaint.ir.api.core.cfg.CoreCallInst
-import org.opentaint.ir.api.core.cfg.CoreGotoInst
-import org.opentaint.ir.api.core.cfg.CoreIfInst
-import org.opentaint.ir.api.core.cfg.CoreInst
-import org.opentaint.ir.api.core.cfg.CoreInstLocation
-import org.opentaint.ir.api.core.cfg.CoreReturnInst
-import org.opentaint.ir.api.core.cfg.CoreValue
-import org.opentaint.ir.api.core.cfg.InstVisitor
+import org.opentaint.ir.api.common.cfg.CommonArgument
+import org.opentaint.ir.api.common.cfg.CommonArrayAccess
+import org.opentaint.ir.api.common.cfg.CommonAssignInst
+import org.opentaint.ir.api.common.cfg.CommonCallExpr
+import org.opentaint.ir.api.common.cfg.CommonCallInst
+import org.opentaint.ir.api.common.cfg.CommonExpr
+import org.opentaint.ir.api.common.cfg.CommonFieldRef
+import org.opentaint.ir.api.common.cfg.CommonGotoInst
+import org.opentaint.ir.api.common.cfg.CommonIfInst
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.common.cfg.CommonInstLocation
+import org.opentaint.ir.api.common.cfg.CommonInstanceCallExpr
+import org.opentaint.ir.api.common.cfg.CommonReturnInst
+import org.opentaint.ir.api.common.cfg.CommonThis
+import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.JIRTypedField
@@ -25,20 +29,18 @@ interface VirtualTypedMethodRef : TypedMethodRef {
     val declaredMethod: JIRTypedMethod
 }
 
-interface JIRInstLocation : CoreInstLocation<JIRMethod> {
+interface JIRInstLocation : CommonInstLocation<JIRMethod, JIRInst> {
     override val method: JIRMethod
+    override val index: Int
+    override val lineNumber: Int
 }
 
-interface JIRInst : CoreInst<JIRInstLocation, JIRMethod, JIRExpr> {
+interface JIRInst : CommonInst<JIRMethod, JIRInst> {
     override val location: JIRInstLocation
     override val operands: List<JIRExpr>
 
-    override val lineNumber: Int get() = location.lineNumber
-
-    override fun <T> accept(visitor: InstVisitor<T>): T {
-        require(visitor is JIRInstVisitor<*>) { "TODO message" } // TODO this is wrong
-        return accept(visitor as JIRInstVisitor<T>)
-    }
+    val lineNumber: Int
+        get() = location.lineNumber
 
     fun <T> accept(visitor: JIRInstVisitor<T>): T
 }
@@ -61,15 +63,14 @@ abstract class AbstractJIRInst(override val location: JIRInstLocation) : JIRInst
 }
 
 data class JIRInstRef(
-    val index: Int
+    val index: Int,
 )
 
 class JIRAssignInst(
     location: JIRInstLocation,
     override val lhv: JIRValue,
-    override val rhv: JIRExpr
-) : AbstractJIRInst(location), CoreAssignInst<JIRInstLocation, JIRMethod, JIRValue, JIRExpr, JIRType> {
-
+    override val rhv: JIRExpr,
+) : AbstractJIRInst(location), CommonAssignInst<JIRMethod, JIRInst> {
     override val operands: List<JIRExpr>
         get() = listOf(lhv, rhv)
 
@@ -82,7 +83,7 @@ class JIRAssignInst(
 
 class JIREnterMonitorInst(
     location: JIRInstLocation,
-    val monitor: JIRValue
+    val monitor: JIRValue,
 ) : AbstractJIRInst(location) {
     override val operands: List<JIRExpr>
         get() = listOf(monitor)
@@ -96,7 +97,7 @@ class JIREnterMonitorInst(
 
 class JIRExitMonitorInst(
     location: JIRInstLocation,
-    val monitor: JIRValue
+    val monitor: JIRValue,
 ) : AbstractJIRInst(location) {
     override val operands: List<JIRExpr>
         get() = listOf(monitor)
@@ -110,8 +111,8 @@ class JIRExitMonitorInst(
 
 class JIRCallInst(
     location: JIRInstLocation,
-    val callExpr: JIRCallExpr
-) : AbstractJIRInst(location), CoreCallInst<JIRInstLocation, JIRMethod, JIRExpr> {
+    val callExpr: JIRCallExpr,
+) : AbstractJIRInst(location), CommonCallInst<JIRMethod, JIRInst> {
     override val operands: List<JIRExpr>
         get() = listOf(callExpr)
 
@@ -126,8 +127,8 @@ interface JIRTerminatingInst : JIRInst
 
 class JIRReturnInst(
     location: JIRInstLocation,
-    val returnValue: JIRValue?
-) : AbstractJIRInst(location), JIRTerminatingInst, CoreReturnInst<JIRInstLocation, JIRMethod, JIRExpr> {
+    override val returnValue: JIRValue?,
+) : AbstractJIRInst(location), JIRTerminatingInst, CommonReturnInst<JIRMethod, JIRInst> {
     override val operands: List<JIRExpr>
         get() = listOfNotNull(returnValue)
 
@@ -140,7 +141,7 @@ class JIRReturnInst(
 
 class JIRThrowInst(
     location: JIRInstLocation,
-    val throwable: JIRValue
+    val throwable: JIRValue,
 ) : AbstractJIRInst(location), JIRTerminatingInst {
     override val operands: List<JIRExpr>
         get() = listOf(throwable)
@@ -156,7 +157,7 @@ class JIRCatchInst(
     location: JIRInstLocation,
     val throwable: JIRValue,
     val throwableTypes: List<JIRType>,
-    val throwers: List<JIRInstRef>
+    val throwers: List<JIRInstRef>,
 ) : AbstractJIRInst(location) {
     override val operands: List<JIRExpr>
         get() = listOf(throwable)
@@ -174,8 +175,8 @@ interface JIRBranchingInst : JIRInst {
 
 class JIRGotoInst(
     location: JIRInstLocation,
-    val target: JIRInstRef
-) : AbstractJIRInst(location), JIRBranchingInst, CoreGotoInst<JIRInstLocation, JIRMethod, JIRExpr> {
+    val target: JIRInstRef,
+) : AbstractJIRInst(location), JIRBranchingInst, CommonGotoInst<JIRMethod, JIRInst> {
     override val operands: List<JIRExpr>
         get() = emptyList()
 
@@ -193,8 +194,8 @@ class JIRIfInst(
     location: JIRInstLocation,
     val condition: JIRConditionExpr,
     val trueBranch: JIRInstRef,
-    val falseBranch: JIRInstRef
-) : AbstractJIRInst(location), JIRBranchingInst, CoreIfInst<JIRInstLocation, JIRMethod, JIRExpr> {
+    val falseBranch: JIRInstRef,
+) : AbstractJIRInst(location), JIRBranchingInst, CommonIfInst<JIRMethod, JIRInst> {
     override val operands: List<JIRExpr>
         get() = listOf(condition)
 
@@ -212,7 +213,7 @@ class JIRSwitchInst(
     location: JIRInstLocation,
     val key: JIRValue,
     val branches: Map<JIRValue, JIRInstRef>,
-    val default: JIRInstRef
+    val default: JIRInstRef,
 ) : AbstractJIRInst(location), JIRBranchingInst {
     override val operands: List<JIRExpr>
         get() = listOf(key) + branches.keys
@@ -227,15 +228,11 @@ class JIRSwitchInst(
     }
 }
 
-interface JIRExpr : CoreExpr<JIRType, JIRValue> {
+interface JIRExpr : CommonExpr {
     override val type: JIRType
     override val operands: List<JIRValue>
 
-    fun <T> accept(visitor: JIRExprVisitor<T>): T // TODO visitor for CoreExpr?
-
-    override fun <T> accept(visitor: CoreExprVisitor<T>): T {
-        TODO("Not yet implemented")
-    }
+    fun <T> accept(visitor: JIRExprVisitor<T>): T
 }
 
 interface JIRBinaryExpr : JIRExpr {
@@ -246,7 +243,7 @@ interface JIRBinaryExpr : JIRExpr {
 data class JIRAddExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRBinaryExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -261,7 +258,7 @@ data class JIRAddExpr(
 data class JIRAndExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRBinaryExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -276,7 +273,7 @@ data class JIRAndExpr(
 data class JIRCmpExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRBinaryExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -291,7 +288,7 @@ data class JIRCmpExpr(
 data class JIRCmpgExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRBinaryExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -306,7 +303,7 @@ data class JIRCmpgExpr(
 data class JIRCmplExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRBinaryExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -321,7 +318,7 @@ data class JIRCmplExpr(
 data class JIRDivExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRBinaryExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -336,7 +333,7 @@ data class JIRDivExpr(
 data class JIRMulExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRBinaryExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -353,7 +350,7 @@ interface JIRConditionExpr : JIRBinaryExpr
 data class JIREqExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRConditionExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -368,7 +365,7 @@ data class JIREqExpr(
 data class JIRNeqExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRConditionExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -383,7 +380,7 @@ data class JIRNeqExpr(
 data class JIRGeExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRConditionExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -398,7 +395,7 @@ data class JIRGeExpr(
 data class JIRGtExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRConditionExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -413,7 +410,7 @@ data class JIRGtExpr(
 data class JIRLeExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRConditionExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -428,7 +425,7 @@ data class JIRLeExpr(
 data class JIRLtExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRConditionExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -443,7 +440,7 @@ data class JIRLtExpr(
 data class JIROrExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRBinaryExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -458,7 +455,7 @@ data class JIROrExpr(
 data class JIRRemExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRBinaryExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -473,7 +470,7 @@ data class JIRRemExpr(
 data class JIRShlExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRBinaryExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -488,7 +485,7 @@ data class JIRShlExpr(
 data class JIRShrExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRBinaryExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -503,7 +500,7 @@ data class JIRShrExpr(
 data class JIRSubExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRBinaryExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -518,7 +515,7 @@ data class JIRSubExpr(
 data class JIRUshrExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRBinaryExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -533,7 +530,7 @@ data class JIRUshrExpr(
 data class JIRXorExpr(
     override val type: JIRType,
     override val lhv: JIRValue,
-    override val rhv: JIRValue
+    override val rhv: JIRValue,
 ) : JIRBinaryExpr {
     override val operands: List<JIRValue>
         get() = listOf(lhv, rhv)
@@ -547,7 +544,7 @@ data class JIRXorExpr(
 
 data class JIRLengthExpr(
     override val type: JIRType,
-    val array: JIRValue
+    val array: JIRValue,
 ) : JIRExpr {
     override val operands: List<JIRValue>
         get() = listOf(array)
@@ -561,7 +558,7 @@ data class JIRLengthExpr(
 
 data class JIRNegExpr(
     override val type: JIRType,
-    val operand: JIRValue
+    val operand: JIRValue,
 ) : JIRExpr {
     override val operands: List<JIRValue>
         get() = listOf(operand)
@@ -575,7 +572,7 @@ data class JIRNegExpr(
 
 data class JIRCastExpr(
     override val type: JIRType,
-    val operand: JIRValue
+    val operand: JIRValue,
 ) : JIRExpr {
     override val operands: List<JIRValue>
         get() = listOf(operand)
@@ -588,7 +585,7 @@ data class JIRCastExpr(
 }
 
 data class JIRNewExpr(
-    override val type: JIRType
+    override val type: JIRType,
 ) : JIRExpr {
     override val operands: List<JIRValue>
         get() = emptyList()
@@ -602,7 +599,7 @@ data class JIRNewExpr(
 
 data class JIRNewArrayExpr(
     override val type: JIRType,
-    val dimensions: List<JIRValue>
+    val dimensions: List<JIRValue>,
 ) : JIRExpr {
 
     override val operands: List<JIRValue>
@@ -629,7 +626,7 @@ data class JIRNewArrayExpr(
 data class JIRInstanceOfExpr(
     override val type: JIRType,
     val operand: JIRValue,
-    val targetType: JIRType
+    val targetType: JIRType,
 ) : JIRExpr {
     override val operands: List<JIRValue>
         get() = listOf(operand)
@@ -641,29 +638,29 @@ data class JIRInstanceOfExpr(
     }
 }
 
-interface JIRCallExpr : JIRExpr {
-    val method: JIRTypedMethod
-    val args: List<JIRValue>
+interface JIRCallExpr : JIRExpr, CommonCallExpr {
+    override val method: JIRTypedMethod
+    override val args: List<JIRValue>
 
-    override val type get() = method.returnType
+    override val type: JIRType
+        get() = method.returnType
 
     override val operands: List<JIRValue>
         get() = args
 }
 
-interface JIRInstanceCallExpr : JIRCallExpr {
-    val instance: JIRValue
+interface JIRInstanceCallExpr : JIRCallExpr, CommonInstanceCallExpr {
+    override val instance: JIRValue
     val declaredMethod: JIRTypedMethod
 
     override val operands: List<JIRValue>
         get() = listOf(instance) + args
-
 }
 
 data class JIRPhiExpr(
     override val type: JIRType,
     val values: List<JIRValue>,
-    val args: List<JIRArgument>
+    val args: List<JIRArgument>,
 ) : JIRExpr {
 
     override val operands: List<JIRValue>
@@ -689,7 +686,7 @@ data class JIRLambdaExpr(
     val callSiteMethodName: String,
     val callSiteArgTypes: List<JIRType>,
     val callSiteReturnType: JIRType,
-    val callSiteArgs: List<JIRValue>
+    val callSiteArgs: List<JIRValue>,
 ) : JIRCallExpr {
 
     override val method get() = bsmRef.method
@@ -706,7 +703,7 @@ data class JIRDynamicCallExpr(
     val callSiteMethodName: String,
     val callSiteArgTypes: List<JIRType>,
     val callSiteReturnType: JIRType,
-    val callSiteArgs: List<JIRValue>
+    val callSiteArgs: List<JIRValue>,
 ) : JIRCallExpr {
 
     override val method get() = bsmRef.method
@@ -785,17 +782,14 @@ data class JIRSpecialCallExpr(
     }
 }
 
-interface JIRValue : JIRExpr, CoreValue<JIRValue, JIRType>
+interface JIRValue : JIRExpr, CommonValue
 
 interface JIRSimpleValue : JIRValue {
-
     override val operands: List<JIRValue>
         get() = emptyList()
-
 }
 
-data class JIRThis(override val type: JIRType) : JIRLocal {
-
+data class JIRThis(override val type: JIRType) : JIRLocal, CommonThis {
     override val name: String
         get() = "this"
 
@@ -810,7 +804,14 @@ interface JIRLocal : JIRSimpleValue {
     val name: String
 }
 
-data class JIRArgument(val index: Int, override val name: String, override val type: JIRType) : JIRLocal {
+/**
+ * @param name isn't considered in `equals` and `hashcode`
+ */
+data class JIRArgument(
+    override val index: Int,
+    override val name: String,
+    override val type: JIRType,
+) : JIRLocal, CommonArgument {
 
     companion object {
         @JvmStatic
@@ -824,23 +825,69 @@ data class JIRArgument(val index: Int, override val name: String, override val t
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
         return visitor.visitJIRArgument(this)
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as JIRArgument
+
+        if (index != other.index) return false
+        if (type != other.type) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = index
+        result = 31 * result + type.hashCode()
+        return result
+    }
 }
 
-data class JIRLocalVar(override val name: String, override val type: JIRType) : JIRLocal {
+/**
+ * @param name isn't considered in `equals` and `hashcode`
+ */
+data class JIRLocalVar(
+    val index: Int,
+    override val name: String,
+    override val type: JIRType,
+) : JIRLocal {
+
     override fun toString(): String = name
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
         return visitor.visitJIRLocalVar(this)
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as JIRLocalVar
+
+        if (index != other.index) return false
+        if (type != other.type) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = index
+        result = 31 * result + type.hashCode()
+        return result
     }
 }
 
 interface JIRComplexValue : JIRValue
 
 data class JIRFieldRef(
-    val instance: JIRValue?,
-    val field: JIRTypedField
-) : JIRComplexValue {
-    override val type: JIRType get() = this.field.fieldType
+    override val instance: JIRValue?,
+    override val field: JIRTypedField,
+) : JIRComplexValue, CommonFieldRef {
+
+    override val type: JIRType
+        get() = this.field.type
 
     override val operands: List<JIRValue>
         get() = instance?.let { listOf(it) }.orEmpty()
@@ -853,14 +900,15 @@ data class JIRFieldRef(
 }
 
 data class JIRArrayAccess(
-    val array: JIRValue,
-    val index: JIRValue,
-    override val type: JIRType
-) : JIRComplexValue {
-    override fun toString(): String = "$array[$index]"
+    override val array: JIRValue,
+    override val index: JIRValue,
+    override val type: JIRType,
+) : JIRComplexValue, CommonArrayAccess {
 
     override val operands: List<JIRValue>
         get() = listOf(array, index)
+
+    override fun toString(): String = "$array[$index]"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
         return visitor.visitJIRArrayAccess(this)
@@ -1185,7 +1233,7 @@ data class JIRClassConstant(val klass: JIRType, override val type: JIRType) : JI
 
 data class JIRMethodConstant(
     val method: JIRTypedMethod,
-    override val type: JIRType
+    override val type: JIRType,
 ) : JIRConstant {
     override fun toString(): String = "${method.method.enclosingClass.name}::${method.name}${
         method.parameters.joinToString(
@@ -1203,7 +1251,7 @@ data class JIRMethodConstant(
 data class JIRMethodType(
     val argumentTypes: List<JIRType>,
     val returnType: JIRType,
-    override val type: JIRType
+    override val type: JIRType,
 ) : JIRConstant {
     override fun toString(): String = "${
         argumentTypes.joinToString(

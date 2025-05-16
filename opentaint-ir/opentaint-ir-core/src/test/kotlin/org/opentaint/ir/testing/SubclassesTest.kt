@@ -1,7 +1,7 @@
 package org.opentaint.ir.testing
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.junit.jupiter.api.AfterEach
@@ -16,7 +16,7 @@ class SubclassesTest : BaseTest() {
     private val withDB = WithDB()
 
     private val anotherDb = withDB.db
-    private val anotherCp: JIRProject by lazy {
+    private val anotherCp: JIRClasspath by lazy {
         runBlocking {
             anotherDb.awaitBackgroundJobs()
             anotherDb.classpath(allClasspath)

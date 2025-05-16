@@ -1,7 +1,7 @@
 package org.opentaint.ir.api.jvm.cfg
 
-import org.opentaint.ir.api.core.TypeName
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.TypeName
 
 sealed interface JIRRawInst {
     val owner: JIRMethod
@@ -745,6 +745,7 @@ data class JIRRawStaticCallExpr(
     override val argumentTypes: List<TypeName>,
     override val returnType: TypeName,
     override val args: List<JIRRawValue>,
+    val isInterfaceMethodCall: Boolean = false,
 ) : JIRRawCallExpr {
     override fun toString(): String =
         "$declaringClass.$methodName${args.joinToString(prefix = "(", postfix = ")", separator = ", ")}"
@@ -789,6 +790,9 @@ data class JIRRawThis(override val typeName: TypeName) : JIRRawSimpleValue {
     }
 }
 
+/**
+ * @param name isn't considered in `equals` and `hashcode`
+ */
 data class JIRRawArgument(val index: Int, override val name: String, override val typeName: TypeName) : JIRRawLocal {
     companion object {
         @JvmStatic
@@ -802,13 +806,52 @@ data class JIRRawArgument(val index: Int, override val name: String, override va
     override fun <T> accept(visitor: JIRRawExprVisitor<T>): T {
         return visitor.visitJIRRawArgument(this)
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as JIRRawArgument
+
+        if (index != other.index) return false
+        if (typeName != other.typeName) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = index
+        result = 31 * result + typeName.hashCode()
+        return result
+    }
 }
 
-data class JIRRawLocalVar(override val name: String, override val typeName: TypeName) : JIRRawLocal {
+/**
+ * @param name isn't considered in `equals` and `hashcode`
+ */
+data class JIRRawLocalVar(val index: Int, override val name: String, override val typeName: TypeName) : JIRRawLocal {
     override fun toString(): String = name
 
     override fun <T> accept(visitor: JIRRawExprVisitor<T>): T {
         return visitor.visitJIRRawLocalVar(this)
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as JIRRawLocalVar
+
+        if (index != other.index) return false
+        if (typeName != other.typeName) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = index
+        result = 31 * result + typeName.hashCode()
+        return result
     }
 }
 

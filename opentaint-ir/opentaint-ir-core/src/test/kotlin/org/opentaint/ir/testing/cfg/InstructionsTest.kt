@@ -3,18 +3,18 @@ package org.opentaint.ir.testing.cfg
 import com.sun.mail.imap.IMAPMessage
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRClassProcessingTask
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.api.cfg.*
-import org.opentaint.ir.api.ext.boolean
-import org.opentaint.ir.api.ext.cfg.callExpr
-import org.opentaint.ir.api.ext.cfg.locals
-import org.opentaint.ir.api.ext.cfg.values
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.humanReadableSignature
-import org.opentaint.ir.api.ext.int
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRClassProcessingTask
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.RegisteredLocation
+import org.opentaint.ir.api.jvm.cfg.*
+import org.opentaint.ir.api.jvm.ext.boolean
+import org.opentaint.ir.api.jvm.ext.cfg.callExpr
+import org.opentaint.ir.api.jvm.ext.cfg.locals
+import org.opentaint.ir.api.jvm.ext.cfg.values
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.humanReadableSignature
+import org.opentaint.ir.api.jvm.ext.int
 import org.opentaint.ir.testing.Common
 import org.opentaint.ir.testing.Common.CommonClass
 import org.opentaint.ir.testing.cfg.RealMethodResolution.Virtual
@@ -225,7 +225,7 @@ class InstructionsTest : BaseInstructionsTest() {
         val fieldInt = (assignInstInt.rhv as JIRFieldRef).field
 
         assertEquals(parent, fieldInt.enclosingType.jIRClass)
-        assertEquals(cp.int, fieldInt.fieldType)
+        assertEquals(cp.int, fieldInt.type)
 
         // public boolean field
         val methodWithPublicFieldBoolean = child.declaredMethods.first { it.name == "accessBooleanField" }
@@ -235,7 +235,7 @@ class InstructionsTest : BaseInstructionsTest() {
         val fieldBoolean = (assignInstBoolean.rhv as JIRFieldRef).field
 
         assertEquals(child, fieldBoolean.enclosingType.jIRClass)
-        assertEquals(cp.boolean, fieldBoolean.fieldType)
+        assertEquals(cp.boolean, fieldBoolean.type)
     }
 
     @Test

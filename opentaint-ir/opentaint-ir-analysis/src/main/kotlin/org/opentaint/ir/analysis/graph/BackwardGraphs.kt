@@ -2,19 +2,19 @@
 
 package org.opentaint.ir.analysis.graph
 
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.analysis.ApplicationGraph
-import org.opentaint.ir.api.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.common.Project
+import org.opentaint.ir.api.common.analysis.ApplicationGraph
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 
-private class BackwardApplicationGraph<Method, Statement>(
+private class BackwardApplicationGraphImpl<Method, Statement>(
     val forward: ApplicationGraph<Method, Statement>,
 ) : ApplicationGraph<Method, Statement> {
 
-    init {
-        require(forward !is BackwardApplicationGraph)
-    }
+    override val project: Project
+        get() = forward.project
 
     override fun predecessors(node: Statement) = forward.successors(node)
     override fun successors(node: Statement) = forward.predecessors(node)
@@ -28,28 +28,26 @@ private class BackwardApplicationGraph<Method, Statement>(
     override fun methodOf(node: Statement) = forward.methodOf(node)
 }
 
-val <Method, Statement> ApplicationGraph<Method, Statement>.reversed
-    get() = if (this is BackwardApplicationGraph) {
-        this.forward
-    } else {
-        BackwardApplicationGraph(this)
+@Suppress("UNCHECKED_CAST")
+val <Method, Statement> ApplicationGraph<Method, Statement>.reversed: ApplicationGraph<Method, Statement>
+    get() = when (this) {
+        is JIRApplicationGraph -> this.reversed as ApplicationGraph<Method, Statement>
+        is BackwardApplicationGraphImpl -> this.forward
+        else -> BackwardApplicationGraphImpl(this)
     }
 
-internal class BackwardJIRApplicationGraph(val forward: JIRApplicationGraph) :
-    JIRApplicationGraph,
-    ApplicationGraph<JIRMethod, JIRInst> by BackwardApplicationGraph(forward) {
+private class BackwardJIRApplicationGraphImpl(
+    val forward: JIRApplicationGraph,
+) : JIRApplicationGraph,
+    ApplicationGraph<JIRMethod, JIRInst> by BackwardApplicationGraphImpl(forward) {
 
-    init {
-        require(forward !is BackwardJIRApplicationGraph)
-    }
-
-    override val classpath: JIRClasspath
-        get() = forward.classpath
+    override val project: JIRClasspath
+        get() = forward.project
 }
 
 val JIRApplicationGraph.reversed: JIRApplicationGraph
-    get() = if (this is BackwardJIRApplicationGraph) {
+    get() = if (this is BackwardJIRApplicationGraphImpl) {
         this.forward
     } else {
-        BackwardJIRApplicationGraph(this)
+        BackwardJIRApplicationGraphImpl(this)
     }

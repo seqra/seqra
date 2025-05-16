@@ -4,7 +4,7 @@ import com.google.common.cache.CacheBuilder
 import com.google.common.cache.CacheStats
 import mu.KLogging
 import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRClasspathExtFeature
 import org.opentaint.ir.api.jvm.JIRClasspathExtFeature.JIRResolvedClassResult
 import org.opentaint.ir.api.jvm.JIRClasspathExtFeature.JIRResolvedTypeResult
@@ -16,7 +16,7 @@ import org.opentaint.ir.api.jvm.JIRMethodExtFeature.JIRInstListResult
 import org.opentaint.ir.api.jvm.JIRMethodExtFeature.JIRRawInstListResult
 import org.opentaint.ir.api.jvm.cfg.JIRGraph
 import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.core.cfg.InstList
+import org.opentaint.ir.api.jvm.cfg.JIRInstList
 import org.opentaint.ir.api.jvm.cfg.JIRRawInst
 import org.opentaint.ir.impl.JIRCacheSegmentSettings
 import org.opentaint.ir.impl.JIRCacheSettings
@@ -40,19 +40,19 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
         .build<String, JIRResolvedTypeResult>()
 
     private val rawInstCache = segmentBuilder(settings.rawInstLists)
-        .build<JIRMethod, InstList<JIRRawInst>>()
+        .build<JIRMethod, JIRInstList<JIRRawInst>>()
 
     private val instCache = segmentBuilder(settings.instLists)
-        .build<JIRMethod, InstList<JIRInst>>()
+        .build<JIRMethod, JIRInstList<JIRInst>>()
 
     private val cfgCache = segmentBuilder(settings.flowGraphs)
         .build<JIRMethod, JIRGraph>()
 
-    override fun tryFindClass(classpath: JIRProject, name: String): JIRResolvedClassResult? {
+    override fun tryFindClass(classpath: JIRClasspath, name: String): JIRResolvedClassResult? {
         return classesCache.getIfPresent(name)
     }
 
-    override fun tryFindType(classpath: JIRProject, name: String): JIRResolvedTypeResult? {
+    override fun tryFindType(classpath: JIRClasspath, name: String): JIRResolvedTypeResult? {
         return typesCache.getIfPresent(name)
     }
 

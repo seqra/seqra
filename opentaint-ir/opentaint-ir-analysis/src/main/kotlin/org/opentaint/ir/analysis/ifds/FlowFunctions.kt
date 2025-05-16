@@ -1,19 +1,21 @@
 package org.opentaint.ir.analysis.ifds
 
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonInst
 
 fun interface FlowFunction<Fact> {
     fun compute(fact: Fact): Collection<Fact>
 }
 
-interface FlowFunctions<Fact> {
+interface FlowFunctions<Fact, Method, Statement>
+    where Method : CommonMethod<Method, Statement>,
+          Statement : CommonInst<Method, Statement> {
 
     /**
      * Method for obtaining initial domain facts at the method entrypoint.
      * Commonly, it is only `listOf(Zero)`.
      */
-    fun obtainPossibleStartFacts(method: JIRMethod): Collection<Fact>
+    fun obtainPossibleStartFacts(method: Method): Collection<Fact>
 
     /**
      * Sequent flow function.
@@ -27,8 +29,8 @@ interface FlowFunctions<Fact> {
      * ```
      */
     fun obtainSequentFlowFunction(
-        current: JIRInst,
-        next: JIRInst,
+        current: Statement,
+        next: Statement,
     ): FlowFunction<Fact>
 
     /**
@@ -43,8 +45,8 @@ interface FlowFunctions<Fact> {
      * ```
      */
     fun obtainCallToReturnSiteFlowFunction(
-        callStatement: JIRInst,
-        returnSite: JIRInst,
+        callStatement: Statement,
+        returnSite: Statement,
     ): FlowFunction<Fact>
 
     /**
@@ -64,8 +66,8 @@ interface FlowFunctions<Fact> {
      * ```
      */
     fun obtainCallToStartFlowFunction(
-        callStatement: JIRInst,
-        calleeStart: JIRInst,
+        callStatement: Statement,
+        calleeStart: Statement,
     ): FlowFunction<Fact>
 
     /**
@@ -85,8 +87,8 @@ interface FlowFunctions<Fact> {
      * ```
      */
     fun obtainExitToReturnSiteFlowFunction(
-        callStatement: JIRInst,
-        returnSite: JIRInst,
-        exitStatement: JIRInst,
+        callStatement: Statement,
+        returnSite: Statement,
+        exitStatement: Statement,
     ): FlowFunction<Fact>
 }

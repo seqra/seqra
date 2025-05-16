@@ -1,13 +1,13 @@
 package org.opentaint.ir.approximation
 
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.impl.features.JIRFeaturesChain
 
 object TransformerIntoVirtual {
-    fun JIRProject.transformMethodIntoVirtual(
+    fun JIRClasspath.transformMethodIntoVirtual(
         to: JIRClassOrInterface,
         method: JIRMethod
     ): JIREnrichedVirtualMethod = with(method) {

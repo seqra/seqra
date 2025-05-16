@@ -1,6 +1,6 @@
 package org.opentaint.ir.analysis.config
 
-import org.opentaint.ir.analysis.ifds.AccessPath
+import org.opentaint.ir.analysis.ifds.CommonAccessPath
 import org.opentaint.ir.analysis.ifds.Maybe
 import org.opentaint.ir.analysis.ifds.fmap
 import org.opentaint.ir.analysis.ifds.map
@@ -13,7 +13,7 @@ import org.opentaint.ir.taint.configuration.RemoveAllMarks
 import org.opentaint.ir.taint.configuration.RemoveMark
 
 class TaintActionEvaluator(
-    private val positionResolver: PositionResolver<Maybe<AccessPath>>,
+    private val positionResolver: PositionResolver<Maybe<CommonAccessPath>>,
 ) {
     fun evaluate(action: CopyAllMarks, fact: Tainted): Maybe<Collection<Tainted>> =
         positionResolver.resolve(action.from).map { from ->

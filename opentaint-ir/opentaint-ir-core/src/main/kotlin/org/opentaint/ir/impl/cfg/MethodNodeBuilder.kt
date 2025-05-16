@@ -1,10 +1,10 @@
 package org.opentaint.ir.impl.cfg
 
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.JIRParameter
-import org.opentaint.ir.api.PredefinedPrimitives
-import org.opentaint.ir.api.TypeName
-import org.opentaint.ir.api.cfg.*
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRParameter
+import org.opentaint.ir.api.jvm.PredefinedPrimitives
+import org.opentaint.ir.api.jvm.TypeName
+import org.opentaint.ir.api.jvm.cfg.*
 import org.opentaint.ir.impl.cfg.util.*
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes

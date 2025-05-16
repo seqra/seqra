@@ -1,23 +1,18 @@
 package org.opentaint.ir.impl.types
 
-import org.opentaint.ir.api.jvm.JIRAccessible
-import org.opentaint.ir.api.jvm.JIRProject
-import org.opentaint.ir.api.jvm.JIRRefType
-import org.opentaint.ir.api.jvm.JIRType
-import org.opentaint.ir.api.jvm.JIRTypeVariableDeclaration
-import org.opentaint.ir.api.jvm.JvmType
+import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.api.jvm.ext.objectType
 import org.opentaint.ir.impl.types.signature.*
 
-internal fun JIRProject.typeOf(jvmType: JvmType, parameters: List<JvmType>? = null): JIRType {
+internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = null): JIRType {
     return when (jvmType) {
         is JvmPrimitiveType -> {
-            org.opentaint.ir.api.jvm.PredefinedJIRPrimitives.of(jvmType.ref, this, jvmType.annotations)
+            PredefinedPrimitives.of(jvmType.ref, this, jvmType.annotations)
                 ?: throw IllegalStateException("primitive type ${jvmType.ref} not found")
         }
 
-        is JvmClassRefType -> typeOf(findClass(jvmType.name), jvmType.isNullable, jvmType.annotations)
+        is JvmClassRefType -> classTypeOf(findClass(jvmType.name), jvmType.isNullable, jvmType.annotations)
         is JvmArrayType -> arrayTypeOf(typeOf(jvmType.elementType), jvmType.isNullable, jvmType.annotations)
         is JvmParameterizedType -> {
             val params = parameters ?: jvmType.parameterTypes
@@ -31,7 +26,7 @@ internal fun JIRProject.typeOf(jvmType: JvmType, parameters: List<JvmType>? = nu
                         jvmType.annotations
                     )
                 // raw types
-                else -> typeOf(findClass(jvmType.name)).copyWithNullability(jvmType.isNullable)
+                else -> classTypeOf(findClass(jvmType.name)).copyWithNullability(jvmType.isNullable)
             }
         }
 
@@ -71,7 +66,7 @@ internal fun JIRProject.typeOf(jvmType: JvmType, parameters: List<JvmType>? = nu
 
 class JIRTypeVariableDeclarationImpl(
     override val symbol: String,
-    private val classpath: JIRProject,
+    private val classpath: JIRClasspath,
     private val jvmBounds: List<JvmType>,
     override val owner: JIRAccessible
 ) : JIRTypeVariableDeclaration {

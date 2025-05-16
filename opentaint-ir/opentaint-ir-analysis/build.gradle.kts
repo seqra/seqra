@@ -4,8 +4,8 @@ plugins {
 }
 
 dependencies {
+    api(project(":opentaint-ir-api-jvm"))
     api(project(":opentaint-ir-core"))
-    api(project(":opentaint-ir-api"))
     api(project(":opentaint-ir-taint-configuration"))
 
     implementation(Libs.kotlin_logging)
@@ -14,8 +14,8 @@ dependencies {
     implementation(Libs.kotlinx_serialization_json)
     api(Libs.sarif4k)
 
+    testImplementation(project(":opentaint-ir-api-jvm"))
     testImplementation(testFixtures(project(":opentaint-ir-core")))
-    testImplementation(project(":opentaint-ir-api"))
     testImplementation(kotlin("test"))
     testImplementation(Libs.mockk)
 

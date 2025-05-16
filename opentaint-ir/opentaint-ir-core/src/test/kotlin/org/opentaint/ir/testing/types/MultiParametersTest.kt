@@ -21,13 +21,13 @@ class MultiParametersTest : BaseTypesTest() {
         runBlocking {
             val test1 = findType<SuperTest1<*, *, *>>()
             with(test1.field(SuperTest1<*, *, *>::stateT)) {
-                assertEquals("T", (fieldType as JIRTypeVariable).symbol)
+                assertEquals("T", (type as JIRTypeVariable).symbol)
             }
             with(test1.field(SuperTest1<*, *, *>::stateW)) {
-                assertEquals("W", (fieldType as JIRTypeVariable).symbol)
+                assertEquals("W", (type as JIRTypeVariable).symbol)
             }
             with(test1.field(SuperTest1<*, *, *>::stateZ)) {
-                assertEquals("Z", (fieldType as JIRTypeVariable).symbol)
+                assertEquals("Z", (type as JIRTypeVariable).symbol)
             }
         }
     }
@@ -37,14 +37,14 @@ class MultiParametersTest : BaseTypesTest() {
         runBlocking {
             val test2 = findType<SuperTest2<*, *>>()
             with(test2.field(SuperTest1<*, *, *>::stateT)) {
-                fieldType.assertClassType<String>()
+                type.assertClassType<String>()
             }
             with(test2.field(SuperTest1<*, *, *>::stateW)) {
-                val variable = fieldType as JIRTypeVariable
+                val variable = type as JIRTypeVariable
                 assertEquals("W", variable.symbol)
             }
             with(test2.field(SuperTest1<*, *, *>::stateZ)) {
-                assertEquals("Z", (fieldType as JIRTypeVariable).symbol)
+                assertEquals("Z", (type as JIRTypeVariable).symbol)
             }
         }
     }
@@ -54,14 +54,14 @@ class MultiParametersTest : BaseTypesTest() {
         runBlocking {
             val test2 = findType<SuperTest3>()
             with(test2.field(SuperTest1<*, *, *>::stateT)) {
-                fieldType.assertClassType<String>()
+                type.assertClassType<String>()
             }
             with(test2.field(SuperTest1<*, *, *>::stateW)) {
-                val variable = fieldType
+                val variable = type
                 assertEquals(finalW, variable.typeName)
             }
             with(test2.field(SuperTest1<*, *, *>::stateZ)) {
-                val variable = fieldType
+                val variable = type
                 assertEquals(finalZ, variable.typeName)
             }
         }

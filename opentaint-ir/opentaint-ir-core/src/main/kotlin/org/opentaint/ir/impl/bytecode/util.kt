@@ -1,6 +1,6 @@
 package org.opentaint.ir.impl.bytecode
 
-import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.commons.JSRInlinerAdapter
@@ -20,7 +20,7 @@ val MethodNode.jsrInlined: MethodNode
         }
     }
 
-internal fun ClassNode.computeFrames(classpath: JIRProject): ClassNode {
+internal fun ClassNode.computeFrames(classpath: JIRClasspath): ClassNode {
     return toByteArray(classpath).toClassNode()
 }
 
@@ -35,7 +35,7 @@ internal fun ClassNode.inlineJsrs() {
     this.methods = methods.map { it.jsrInlined }
 }
 
-private fun ClassNode.toByteArray(classpath: JIRProject): ByteArray {
+private fun ClassNode.toByteArray(classpath: JIRClasspath): ByteArray {
     this.inlineJsrs()
     val cw = JIRDatabaseClassWriter(classpath, ClassWriter.COMPUTE_FRAMES)
     this.accept(cw)

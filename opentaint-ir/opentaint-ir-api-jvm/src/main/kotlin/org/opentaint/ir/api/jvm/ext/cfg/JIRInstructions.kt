@@ -2,14 +2,16 @@
 
 package org.opentaint.ir.api.jvm.ext.cfg
 
-import org.opentaint.ir.api.core.cfg.InstList
-import org.opentaint.ir.api.jvm.cfg.DefaultJIRExprVisitor
-import org.opentaint.ir.api.jvm.cfg.DefaultJIRInstVisitor
+import org.opentaint.ir.api.common.cfg.CommonExpr
+import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRExprVisitor
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstList
+import org.opentaint.ir.api.jvm.cfg.JIRInstVisitor
 import org.opentaint.ir.api.jvm.cfg.JIRLocal
 import org.opentaint.ir.api.jvm.cfg.JIRRawExpr
 import org.opentaint.ir.api.jvm.cfg.JIRRawExprVisitor
@@ -19,17 +21,17 @@ import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.cfg.LocalResolver
 import org.opentaint.ir.api.jvm.cfg.ValueResolver
 
-fun InstList<JIRRawInst>.apply(visitor: JIRRawInstVisitor<Unit>): InstList<JIRRawInst> {
+fun JIRInstList<JIRRawInst>.apply(visitor: JIRRawInstVisitor<Unit>): JIRInstList<JIRRawInst> {
     instructions.forEach { it.accept(visitor) }
     return this
 }
 
-fun <R, E, T : JIRRawInstVisitor<E>> InstList<JIRRawInst>.applyAndGet(visitor: T, getter: (T) -> R): R {
+fun <R, E, T : JIRRawInstVisitor<E>> JIRInstList<JIRRawInst>.applyAndGet(visitor: T, getter: (T) -> R): R {
     instructions.forEach { it.accept(visitor) }
     return getter(visitor)
 }
 
-fun <T> InstList<JIRRawInst>.collect(visitor: JIRRawInstVisitor<T>): Collection<T> {
+fun <T> JIRInstList<JIRRawInst>.collect(visitor: JIRRawInstVisitor<T>): Collection<T> {
     return instructions.map { it.accept(visitor) }
 }
 
@@ -43,42 +45,64 @@ fun <R, E, T : JIRRawExprVisitor<E>> JIRRawExpr.applyAndGet(visitor: T, getter: 
     return getter(visitor)
 }
 
-object FieldRefVisitor : DefaultJIRExprVisitor<JIRFieldRef?>, DefaultJIRInstVisitor<JIRFieldRef?> {
+object FieldRefVisitor :
+    JIRExprVisitor.Default<JIRFieldRef?>,
+    JIRInstVisitor.Default<JIRFieldRef?> {
 
-    override val defaultExprHandler: (JIRExpr) -> JIRFieldRef?
-        get() = { null }
+    override fun defaultVisitCommonExpr(expr: CommonExpr): JIRFieldRef? {
+        TODO("Not yet implemented")
+    }
 
-    override val defaultInstHandler: (JIRInst) -> JIRFieldRef?
-        get() = {
-            it.operands.map { it.accept(this) }.firstOrNull { it != null }
-        }
+    override fun defaultVisitCommonInst(inst: CommonInst<*, *>): JIRFieldRef? {
+        TODO("Not yet implemented")
+    }
+
+    override fun defaultVisitJIRExpr(expr: JIRExpr): JIRFieldRef? {
+        return expr.operands.filterIsInstance<JIRFieldRef>().firstOrNull()
+    }
+
+    override fun defaultVisitJIRInst(inst: JIRInst): JIRFieldRef? {
+        return inst.operands.map { it.accept(this) }.firstOrNull { it != null }
+    }
 
     override fun visitJIRFieldRef(value: JIRFieldRef): JIRFieldRef {
         return value
     }
 }
 
-object ArrayAccessVisitor : DefaultJIRExprVisitor<JIRArrayAccess?>, DefaultJIRInstVisitor<JIRArrayAccess?> {
+object ArrayAccessVisitor :
+    JIRExprVisitor.Default<JIRArrayAccess?>,
+    JIRInstVisitor.Default<JIRArrayAccess?> {
 
-    override val defaultExprHandler: (JIRExpr) -> JIRArrayAccess?
-        get() = {
-            it.operands.filterIsInstance<JIRArrayAccess>().firstOrNull()
-        }
+    override fun defaultVisitCommonExpr(expr: CommonExpr): JIRArrayAccess? {
+        TODO("Not yet implemented")
+    }
 
-    override val defaultInstHandler: (JIRInst) -> JIRArrayAccess?
-        get() = {
-            it.operands.map { it.accept(this) }.firstOrNull { it != null }
-        }
+    override fun defaultVisitCommonInst(inst: CommonInst<*, *>): JIRArrayAccess? {
+        TODO("Not yet implemented")
+    }
 
+    override fun defaultVisitJIRExpr(expr: JIRExpr): JIRArrayAccess? {
+        return expr.operands.filterIsInstance<JIRArrayAccess>().firstOrNull()
+    }
+
+    override fun defaultVisitJIRInst(inst: JIRInst): JIRArrayAccess? {
+        return inst.operands.map { it.accept(this) }.firstOrNull { it != null }
+    }
+
+    override fun visitJIRArrayAccess(value: JIRArrayAccess): JIRArrayAccess {
+        return value
+    }
 }
 
-object CallExprVisitor : DefaultJIRInstVisitor<JIRCallExpr?> {
+object CallExprVisitor : JIRInstVisitor.Default<JIRCallExpr?> {
+    override fun defaultVisitCommonInst(inst: CommonInst<*, *>): JIRCallExpr? {
+        TODO("Not yet implemented")
+    }
 
-    override val defaultInstHandler: (JIRInst) -> JIRCallExpr?
-        get() = {
-            it.operands.filterIsInstance<JIRCallExpr>().firstOrNull()
-        }
-
+    override fun defaultVisitJIRInst(inst: JIRInst): JIRCallExpr? {
+        return inst.operands.filterIsInstance<JIRCallExpr>().firstOrNull()
+    }
 }
 
 val JIRInst.fieldRef: JIRFieldRef?
@@ -96,7 +120,7 @@ val JIRInst.callExpr: JIRCallExpr?
         return accept(CallExprVisitor)
     }
 
-val InstList<JIRInst>.locals: Set<JIRLocal>
+val JIRInstList<JIRInst>.locals: Set<JIRLocal>
     get() {
         val resolver = LocalResolver().also { res ->
             forEach { it.accept(res) }
@@ -104,7 +128,7 @@ val InstList<JIRInst>.locals: Set<JIRLocal>
         return resolver.result
     }
 
-val InstList<JIRInst>.values: Set<JIRValue>
+val JIRInstList<JIRInst>.values: Set<JIRValue>
     get() {
         val resolver = ValueResolver().also { res ->
             forEach { it.accept(res) }

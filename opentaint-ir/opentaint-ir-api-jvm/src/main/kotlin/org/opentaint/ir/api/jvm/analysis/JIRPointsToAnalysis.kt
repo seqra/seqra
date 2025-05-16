@@ -1,8 +1,8 @@
 package org.opentaint.ir.api.jvm.analysis
 
-import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRField
+import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.cfg.JIRLocal
 
 interface JIRPointsToAnalysis<Context> {

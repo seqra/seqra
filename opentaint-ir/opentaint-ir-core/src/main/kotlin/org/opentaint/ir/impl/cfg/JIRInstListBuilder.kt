@@ -1,8 +1,8 @@
 package org.opentaint.ir.impl.cfg
 
-import org.opentaint.ir.api.*
-import org.opentaint.ir.api.cfg.*
-import org.opentaint.ir.api.ext.*
+import org.opentaint.ir.api.jvm.*
+import org.opentaint.ir.api.jvm.cfg.*
+import org.opentaint.ir.api.jvm.ext.*
 import org.opentaint.ir.impl.cfg.util.UNINIT_THIS
 import org.opentaint.ir.impl.cfg.util.lambdaMetaFactory
 import org.opentaint.ir.impl.cfg.util.lambdaMetaFactoryMethodName

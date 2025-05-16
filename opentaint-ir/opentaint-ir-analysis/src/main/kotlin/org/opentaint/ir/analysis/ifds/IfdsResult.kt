@@ -1,20 +1,23 @@
 package org.opentaint.ir.analysis.ifds
 
-import org.opentaint.ir.api.cfg.JIRInst
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonInst
 
 /**
  * Aggregates all facts and edges found by the tabulation algorithm.
  */
-class IfdsResult<Fact> internal constructor(
-    val pathEdgesBySink: Map<Vertex<Fact>, Collection<Edge<Fact>>>,
-    val facts: Map<JIRInst, Set<Fact>>,
-    val reasons: Map<Edge<Fact>, Set<Reason<Fact>>>,
+class IfdsResult<Fact, Method, Statement> internal constructor(
+    val pathEdgesBySink: Map<Vertex<Fact, Method, Statement>, Collection<Edge<Fact, Method, Statement>>>,
+    val facts: Map<Statement, Set<Fact>>,
+    val reasons: Map<Edge<Fact, Method, Statement>, Set<Reason<Fact, Method, Statement>>>,
     val zeroFact: Fact?,
-) {
+) where Method : CommonMethod<Method, Statement>,
+        Statement : CommonInst<Method, Statement> {
+
     constructor(
-        pathEdges: Collection<Edge<Fact>>,
-        facts: Map<JIRInst, Set<Fact>>,
-        reasons: Map<Edge<Fact>, Set<Reason<Fact>>>,
+        pathEdges: Collection<Edge<Fact, Method, Statement>>,
+        facts: Map<Statement, Set<Fact>>,
+        reasons: Map<Edge<Fact, Method, Statement>, Set<Reason<Fact, Method, Statement>>>,
         zeroFact: Fact?,
     ) : this(
         pathEdges.groupByTo(HashMap()) { it.to },
@@ -23,15 +26,19 @@ class IfdsResult<Fact> internal constructor(
         zeroFact
     )
 
-    fun buildTraceGraph(sink: Vertex<Fact>): TraceGraph<Fact> {
-        val sources: MutableSet<Vertex<Fact>> = hashSetOf()
-        val edges: MutableMap<Vertex<Fact>, MutableSet<Vertex<Fact>>> = hashMapOf()
-        val unresolvedCrossUnitCalls: MutableMap<Vertex<Fact>, MutableSet<Vertex<Fact>>> = hashMapOf()
-        val visited: MutableSet<Pair<Edge<Fact>, Vertex<Fact>>> = hashSetOf()
+    fun buildTraceGraph(sink: Vertex<Fact, Method, Statement>): TraceGraph<Fact, Method, Statement> {
+        val sources: MutableSet<Vertex<Fact, Method, Statement>> =
+            hashSetOf()
+        val edges: MutableMap<Vertex<Fact, Method, Statement>, MutableSet<Vertex<Fact, Method, Statement>>> =
+            hashMapOf()
+        val unresolvedCrossUnitCalls: MutableMap<Vertex<Fact, Method, Statement>, MutableSet<Vertex<Fact, Method, Statement>>> =
+            hashMapOf()
+        val visited: MutableSet<Pair<Edge<Fact, Method, Statement>, Vertex<Fact, Method, Statement>>> =
+            hashSetOf()
 
         fun addEdge(
-            from: Vertex<Fact>,
-            to: Vertex<Fact>,
+            from: Vertex<Fact, Method, Statement>,
+            to: Vertex<Fact, Method, Statement>,
         ) {
             if (from != to) {
                 edges.getOrPut(from) { hashSetOf() }.add(to)
@@ -39,8 +46,8 @@ class IfdsResult<Fact> internal constructor(
         }
 
         fun dfs(
-            edge: Edge<Fact>,
-            lastVertex: Vertex<Fact>,
+            edge: Edge<Fact, Method, Statement>,
+            lastVertex: Vertex<Fact, Method, Statement>,
             stopAtMethodStart: Boolean,
         ) {
             if (!visited.add(edge to lastVertex)) {
@@ -62,7 +69,7 @@ class IfdsResult<Fact> internal constructor(
 
             for (reason in reasons[edge].orEmpty()) {
                 when (reason) {
-                    is Reason.Sequent<Fact> -> {
+                    is Reason.Sequent<Fact, Method, Statement> -> {
                         val predEdge = reason.edge
                         if (predEdge.to.fact == vertex.fact) {
                             dfs(predEdge, lastVertex, stopAtMethodStart)
@@ -72,7 +79,7 @@ class IfdsResult<Fact> internal constructor(
                         }
                     }
 
-                    is Reason.CallToStart<Fact> -> {
+                    is Reason.CallToStart<Fact, Method, Statement> -> {
                         val predEdge = reason.edge
                         if (!stopAtMethodStart) {
                             addEdge(predEdge.to, lastVertex)
@@ -80,7 +87,7 @@ class IfdsResult<Fact> internal constructor(
                         }
                     }
 
-                    is Reason.ThroughSummary<Fact> -> {
+                    is Reason.ThroughSummary<Fact, Method, Statement> -> {
                         val predEdge = reason.edge
                         val summaryEdge = reason.summaryEdge
                         addEdge(summaryEdge.to, lastVertex) // Return to next vertex
@@ -89,7 +96,7 @@ class IfdsResult<Fact> internal constructor(
                         dfs(predEdge, predEdge.to, stopAtMethodStart) // Continue normal analysis
                     }
 
-                    is Reason.CrossUnitCall<Fact> -> {
+                    is Reason.CrossUnitCall<Fact, Method, Statement> -> {
                         addEdge(edge.to, lastVertex)
                         unresolvedCrossUnitCalls.getOrPut(reason.caller) { hashSetOf() }.add(edge.to)
                     }

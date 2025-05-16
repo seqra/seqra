@@ -102,4 +102,3 @@ private fun JIRGraph.loopBodyOf(header: JIRInst, inst: JIRInst): MutableList<JIR
 private fun MutableList<JIRInst>.union(another: List<JIRInst>): MutableList<JIRInst> = apply {
     addAll(another.filter { !contains(it) })
 }
-

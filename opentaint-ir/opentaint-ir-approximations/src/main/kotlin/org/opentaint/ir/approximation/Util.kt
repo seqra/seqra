@@ -1,6 +1,6 @@
 package org.opentaint.ir.approximation
 
-import org.opentaint.ir.api.core.TypeName
+import org.opentaint.ir.api.jvm.TypeName
 import org.opentaint.ir.approximation.Approximations.findOriginalByApproximationOrNull
 import org.opentaint.ir.impl.types.TypeNameImpl
 

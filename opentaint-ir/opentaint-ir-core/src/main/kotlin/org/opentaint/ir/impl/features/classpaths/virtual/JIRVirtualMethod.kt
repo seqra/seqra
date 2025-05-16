@@ -1,15 +1,15 @@
 package org.opentaint.ir.impl.features.classpaths.virtual
 
-import org.opentaint.ir.api.JIRAnnotation
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.JIRDeclaration
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.JIRParameter
-import org.opentaint.ir.api.TypeName
-import org.opentaint.ir.api.cfg.JIRGraph
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRInstList
-import org.opentaint.ir.api.cfg.JIRRawInst
+import org.opentaint.ir.api.jvm.JIRAnnotation
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRDeclaration
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRParameter
+import org.opentaint.ir.api.jvm.TypeName
+import org.opentaint.ir.api.jvm.cfg.JIRGraph
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstList
+import org.opentaint.ir.api.jvm.cfg.JIRRawInst
 import org.opentaint.ir.impl.bytecode.JIRDeclarationImpl
 import org.opentaint.ir.impl.cfg.JIRGraphImpl
 import org.opentaint.ir.impl.cfg.JIRInstListImpl
@@ -32,7 +32,7 @@ interface JIRVirtualMethod : JIRMethod {
 
 open class JIRVirtualParameter(
     override val index: Int,
-    override val type: TypeName
+    override val type: TypeName,
 ) : JIRParameter {
 
     override val declaration: JIRDeclaration
@@ -60,7 +60,7 @@ open class JIRVirtualMethodImpl(
     override val access: Int = Opcodes.ACC_PUBLIC,
     override val returnType: TypeName,
     override val parameters: List<JIRVirtualParameter>,
-    override val description: String
+    override val description: String,
 ) : JIRVirtualMethod {
 
     init {

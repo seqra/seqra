@@ -2,8 +2,8 @@
 
 package org.opentaint.ir.api.jvm.ext
 
-import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.objectweb.asm.Opcodes
@@ -30,7 +30,7 @@ val JIRClassOrInterface.isEnum: Boolean
     }
 
 fun JIRClassOrInterface.toType(): JIRClassType {
-    return classpath.typeOf(this) as JIRClassType
+    return classpath.classTypeOf(this) as JIRClassType
 }
 
 val JIRClassOrInterface.packageName get() = name.substringBeforeLast(".", missingDelimiterValue = "")

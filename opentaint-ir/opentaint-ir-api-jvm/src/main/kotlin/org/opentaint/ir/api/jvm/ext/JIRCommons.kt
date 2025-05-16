@@ -2,27 +2,21 @@
 
 package org.opentaint.ir.api.jvm.ext
 
-import org.opentaint.ir.api.jvm.throwClassNotFound
-import org.opentaint.ir.api.jvm.JIRAnnotated
-import org.opentaint.ir.api.jvm.JIRAnnotation
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.JIRProject
-import org.opentaint.ir.api.jvm.PredefinedJIRPrimitives
+import org.opentaint.ir.api.jvm.*
 import java.io.Serializable
+import java.lang.Cloneable
 
 fun String.jvmName(): String {
     return when {
-        this == PredefinedJIRPrimitives.Boolean -> "Z"
-        this == PredefinedJIRPrimitives.Byte -> "B"
-        this == PredefinedJIRPrimitives.Char -> "C"
-        this == PredefinedJIRPrimitives.Short -> "S"
-        this == PredefinedJIRPrimitives.Int -> "I"
-        this == PredefinedJIRPrimitives.Float -> "F"
-        this == PredefinedJIRPrimitives.Long -> "J"
-        this == PredefinedJIRPrimitives.Double -> "D"
-        this == PredefinedJIRPrimitives.Void -> "V"
+        this == PredefinedPrimitives.Boolean -> "Z"
+        this == PredefinedPrimitives.Byte -> "B"
+        this == PredefinedPrimitives.Char -> "C"
+        this == PredefinedPrimitives.Short -> "S"
+        this == PredefinedPrimitives.Int -> "I"
+        this == PredefinedPrimitives.Float -> "F"
+        this == PredefinedPrimitives.Long -> "J"
+        this == PredefinedPrimitives.Double -> "D"
+        this == PredefinedPrimitives.Void -> "V"
         endsWith("[]") -> {
             val elementName = substring(0, length - 2)
             "[" + elementName.jvmName()
@@ -36,15 +30,15 @@ val jvmPrimitiveNames = hashSetOf("Z", "B", "C", "S", "I", "F", "J", "D", "V")
 
 fun String.jIRdbName(): String {
     return when {
-        this == "Z" -> PredefinedJIRPrimitives.Boolean
-        this == "B" -> PredefinedJIRPrimitives.Byte
-        this == "C" -> PredefinedJIRPrimitives.Char
-        this == "S" -> PredefinedJIRPrimitives.Short
-        this == "I" -> PredefinedJIRPrimitives.Int
-        this == "F" -> PredefinedJIRPrimitives.Float
-        this == "J" -> PredefinedJIRPrimitives.Long
-        this == "D" -> PredefinedJIRPrimitives.Double
-        this == "V" -> PredefinedJIRPrimitives.Void
+        this == "Z" -> PredefinedPrimitives.Boolean
+        this == "B" -> PredefinedPrimitives.Byte
+        this == "C" -> PredefinedPrimitives.Char
+        this == "S" -> PredefinedPrimitives.Short
+        this == "I" -> PredefinedPrimitives.Int
+        this == "F" -> PredefinedPrimitives.Float
+        this == "J" -> PredefinedPrimitives.Long
+        this == "D" -> PredefinedPrimitives.Double
+        this == "V" -> PredefinedPrimitives.Void
         startsWith("[") -> {
             val elementName = substring(1, length)
             elementName.jIRdbName() + "[]"
@@ -58,16 +52,16 @@ fun String.jIRdbName(): String {
     }
 }
 
-val JIRProject.objectType: JIRClassType
+val JIRClasspath.objectType: JIRClassType
     get() = findTypeOrNull<Any>() as? JIRClassType ?: throwClassNotFound<Any>()
 
-val JIRProject.objectClass: JIRClassOrInterface
+val JIRClasspath.objectClass: JIRClassOrInterface
     get() = findClass<Any>()
 
-val JIRProject.cloneableClass: JIRClassOrInterface
+val JIRClasspath.cloneableClass: JIRClassOrInterface
     get() = findClass<Cloneable>()
 
-val JIRProject.serializableClass: JIRClassOrInterface
+val JIRClasspath.serializableClass: JIRClassOrInterface
     get() = findClass<Serializable>()
 
 // call with SAFE. comparator works only on methods from one hierarchy

@@ -140,10 +140,10 @@ class KotlinNullabilityTest : BaseTypesTest() {
         val clazz = findType<KotlinNullabilityExamples>()
         val field = clazz.declaredFields.single { it.name == "containerOfNotNull" }
 
-        val fieldsNullability = (field.fieldType as JIRClassType)
+        val fieldsNullability = (field.type as JIRClassType)
             .fields
             .sortedBy { it.name }
-            .map { it.fieldType.nullabilityTree }
+            .map { it.type.nullabilityTree }
 
         // E -> String
         val expectedNullability = listOf(
@@ -172,10 +172,10 @@ class KotlinNullabilityTest : BaseTypesTest() {
         val clazz = findType<KotlinNullabilityExamples>()
         val field = clazz.declaredFields.single { it.name == "containerOfNullable" }
 
-        val fieldsNullability = (field.fieldType as JIRClassType)
+        val fieldsNullability = (field.type as JIRClassType)
             .fields
             .sortedBy { it.name }
-            .map { it.fieldType.nullabilityTree }
+            .map { it.type.nullabilityTree }
 
         // E -> String?
         val expectedNullability = listOf(
@@ -202,14 +202,14 @@ class KotlinNullabilityTest : BaseTypesTest() {
     @Test
     fun `nullability after passing nullable type through chain of notnull type variables`() = runBlocking {
         val clazz = findType<KotlinNullabilityExamples>()
-        val fieldType = clazz.declaredFields.single { it.name == "someContainerProducer" }.fieldType
+        val fieldType = clazz.declaredFields.single { it.name == "someContainerProducer" }.type
         val innerMethodType =
             (fieldType as JIRClassType).declaredMethods.single { it.name == "produceContainer" }.returnType
 
         val fieldsNullability = (innerMethodType as JIRClassType)
             .fields
             .sortedBy { it.name }
-            .map { it.fieldType.nullabilityTree }
+            .map { it.type.nullabilityTree }
 
         // P -> Int?, E -> P
         val expectedNullability = listOf(

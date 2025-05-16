@@ -9,9 +9,6 @@ import org.opentaint.ir.approximation.Approximations.findApproximationByOriginOr
 import org.opentaint.ir.approximation.Approximations.findOriginalByApproximationOrNull
 import org.opentaint.ir.approximations.target.KotlinClass
 import org.opentaint.ir.impl.fs.JarLocation
-import org.opentaint.ir.api.jvm.cfg.JIRRawAssignInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawCallInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawFieldRef
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.guavaLib
@@ -153,7 +150,7 @@ class ApproximationsTest : BaseTest() {
             val rhv = inst.rhv
             if (rhv is JIRFieldRef) {
                 types += rhv.type.typeName
-                types += rhv.field.fieldType.typeName
+                types += rhv.field.type.typeName
                 types += rhv.field.enclosingType.typeName
             }
         }

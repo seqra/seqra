@@ -1,10 +1,10 @@
 package org.opentaint.ir.testing
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.JIRParameter
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.methods
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRParameter
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.methods
 import org.opentaint.ir.impl.fs.asClassInfo
 import org.opentaint.ir.impl.types.ParameterInfo
 import org.junit.jupiter.api.Assertions

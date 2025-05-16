@@ -1,15 +1,39 @@
 package org.opentaint.ir.analysis.npe
 
-import org.opentaint.ir.analysis.ifds.AccessPath
+import org.opentaint.ir.analysis.ifds.CommonAccessPath
+import org.opentaint.ir.analysis.ifds.JIRAccessPath
+import org.opentaint.ir.analysis.ifds.minus
 import org.opentaint.ir.analysis.ifds.toPathOrNull
 import org.opentaint.ir.analysis.util.startsWith
-import org.opentaint.ir.api.cfg.JIRExpr
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.cfg.JIRInstanceCallExpr
-import org.opentaint.ir.api.cfg.JIRLengthExpr
-import org.opentaint.ir.api.cfg.values
+import org.opentaint.ir.api.common.cfg.CommonExpr
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRLengthExpr
+import org.opentaint.ir.api.jvm.cfg.values
 
-fun AccessPath?.isDereferencedAt(expr: JIRExpr): Boolean {
+internal fun CommonAccessPath?.isDereferencedAt(expr: CommonExpr): Boolean {
+    if (this == null) {
+        return false
+    }
+    if (this is JIRAccessPath && expr is JIRExpr) {
+        return isDereferencedAt(expr)
+    }
+    error("Cannot check whether path $this is dereferenced at expr: $expr")
+}
+
+internal fun CommonAccessPath?.isDereferencedAt(inst: CommonInst<*, *>): Boolean {
+    if (this == null) {
+        return false
+    }
+    if (this is JIRAccessPath && inst is JIRInst) {
+        return isDereferencedAt(inst)
+    }
+    error("Cannot check whether path $this is dereferenced at inst: $inst")
+}
+
+internal fun JIRAccessPath?.isDereferencedAt(expr: JIRExpr): Boolean {
     if (this == null) {
         return false
     }
@@ -35,7 +59,7 @@ fun AccessPath?.isDereferencedAt(expr: JIRExpr): Boolean {
         }
 }
 
-fun AccessPath?.isDereferencedAt(inst: JIRInst): Boolean {
+internal fun JIRAccessPath?.isDereferencedAt(inst: JIRInst): Boolean {
     if (this == null) return false
     return inst.operands.any { isDereferencedAt(it) }
 }

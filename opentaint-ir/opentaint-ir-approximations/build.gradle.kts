@@ -1,5 +1,4 @@
 dependencies {
-    implementation(project(":opentaint-ir-api-core"))
     implementation(project(":opentaint-ir-api-jvm"))
     implementation(project(":opentaint-ir-core"))
     implementation(testFixtures(project(":opentaint-ir-core")))

@@ -1,8 +1,8 @@
 package org.opentaint.ir.taint.configuration
 
-import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRClasspath
 
-fun JIRProject.taintConfigurationFeature(): TaintConfigurationFeature = features
+fun JIRClasspath.taintConfigurationFeature(): TaintConfigurationFeature = features
     ?.singleOrNull { it is TaintConfigurationFeature } as? TaintConfigurationFeature
     ?: error("No taint configuration feature found")
 

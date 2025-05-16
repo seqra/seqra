@@ -40,4 +40,3 @@ open class DummyCodeLocation(private val name: String) : JIRByteCodeLocation, Re
         get() = emptySet()
 
 }
-

@@ -2,7 +2,7 @@ package org.opentaint.ir.testing
 
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRProject
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.ext.HierarchyExtension
 import org.opentaint.ir.api.jvm.ext.enumValues
 import org.opentaint.ir.api.jvm.ext.findClass
@@ -19,7 +19,7 @@ class ClassesTest : DatabaseEnvTest() {
 
     companion object : WithGlobalDB()
 
-    override val cp: JIRProject = runBlocking { db.classpath(allClasspath) }
+    override val cp: JIRClasspath = runBlocking { db.classpath(allClasspath) }
 
     override val hierarchyExt: HierarchyExtension
         get() = runBlocking { cp.hierarchyExt() }
@@ -60,4 +60,3 @@ class ClassesTest : DatabaseEnvTest() {
         assertEquals(listOf("C1", "C2"), enumType.enumValues!!.map { it.name })
     }
 }
-
