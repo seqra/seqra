@@ -87,14 +87,6 @@ class ForwardNpeFlowFunctions(
         // Zero (reachability) fact always present at entrypoint:
         add(TaintZeroFact)
 
-        // Possibly null arguments:
-        // for (p in method.parameters.filter { it.isNullable != false }) {
-        //     val t = cp.findTypeOrNull(p.type)!!
-        //     val arg = JIRArgument.of(p.index, p.name, t)
-        //     val path = AccessPath.from(arg)
-        //     add(Tainted(path, TaintMark.NULLNESS))
-        // }
-
         // Extract initial facts from the config:
         val config = taintConfigurationFeature?.getConfigForMethod(method)
         if (config != null) {
