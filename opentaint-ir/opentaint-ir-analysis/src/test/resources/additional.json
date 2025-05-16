@@ -519,5 +519,47 @@
         }
       }
     ]
+  },
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.util"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "Map"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "put"
+      },
+      "applyToOverrides": true,
+      "exclude": [],
+      "functionLabel": null,
+      "modifier": -1,
+      "parametersMatchers": [],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      }
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "Argument",
+          "number": 1
+        },
+        "to": {
+          "_": "This"
+        }
+      }
+    ]
   }
 ]
