@@ -561,5 +561,47 @@
         }
       }
     ]
+  },
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "Base64"
+        },
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "org.apache.commons.codec.binary"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "decodeBase64"
+      },
+      "applyToOverrides": true,
+      "exclude": [],
+      "functionLabel": null,
+      "modifier": -1,
+      "parametersMatchers": [],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      }
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "Argument",
+          "number": 0
+        },
+        "to": {
+          "_": "Result"
+        }
+      }
+    ]
   }
 ]
