@@ -3,17 +3,16 @@ package org.opentaint.ir.analysis.taint
 import org.opentaint.ir.analysis.config.BasicConditionEvaluator
 import org.opentaint.ir.analysis.config.CallPositionToAccessPathResolver
 import org.opentaint.ir.analysis.config.CallPositionToJIRValueResolver
+import org.opentaint.ir.analysis.config.EntryPointPositionToAccessPathResolver
+import org.opentaint.ir.analysis.config.EntryPointPositionToJIRValueResolver
 import org.opentaint.ir.analysis.config.FactAwareConditionEvaluator
 import org.opentaint.ir.analysis.config.TaintActionEvaluator
 import org.opentaint.ir.analysis.ifds.ElementAccessor
 import org.opentaint.ir.analysis.ifds.FlowFunction
 import org.opentaint.ir.analysis.ifds.FlowFunctions
-import org.opentaint.ir.analysis.ifds.Maybe
 import org.opentaint.ir.analysis.ifds.onSome
-import org.opentaint.ir.analysis.ifds.toMaybe
 import org.opentaint.ir.analysis.ifds.toPath
 import org.opentaint.ir.analysis.ifds.toPathOrNull
-import org.opentaint.ir.analysis.util.getArgument
 import org.opentaint.ir.analysis.util.getArgumentsOf
 import org.opentaint.ir.analysis.util.startsWith
 import org.opentaint.ir.analysis.util.thisInstance
@@ -29,21 +28,16 @@ import org.opentaint.ir.api.cfg.JIRReturnInst
 import org.opentaint.ir.api.cfg.JIRThis
 import org.opentaint.ir.api.cfg.JIRValue
 import org.opentaint.ir.api.ext.cfg.callExpr
-import org.opentaint.ir.taint.configuration.AnyArgument
-import org.opentaint.ir.taint.configuration.Argument
 import org.opentaint.ir.taint.configuration.AssignMark
 import org.opentaint.ir.taint.configuration.CopyAllMarks
 import org.opentaint.ir.taint.configuration.CopyMark
 import org.opentaint.ir.taint.configuration.RemoveAllMarks
 import org.opentaint.ir.taint.configuration.RemoveMark
-import org.opentaint.ir.taint.configuration.Result
-import org.opentaint.ir.taint.configuration.ResultAnyElement
 import org.opentaint.ir.taint.configuration.TaintCleaner
 import org.opentaint.ir.taint.configuration.TaintConfigurationFeature
 import org.opentaint.ir.taint.configuration.TaintEntryPointSource
 import org.opentaint.ir.taint.configuration.TaintMethodSource
 import org.opentaint.ir.taint.configuration.TaintPassThrough
-import org.opentaint.ir.taint.configuration.This
 
 private val logger = mu.KotlinLogging.logger {}
 
@@ -67,35 +61,8 @@ class ForwardTaintFlowFunctions(
         // Extract initial facts from the config:
         val config = taintConfigurationFeature?.getConfigForMethod(method)
         if (config != null) {
-            // Note: both condition and action evaluator require a custom position resolver.
-            val conditionEvaluator = BasicConditionEvaluator { position ->
-                when (position) {
-                    This -> Maybe.some(method.thisInstance)
-
-                    is Argument -> {
-                        val p = method.parameters[position.index]
-                        cp.getArgument(p).toMaybe()
-                    }
-
-                    AnyArgument -> error("Unexpected $position")
-                    Result -> error("Unexpected $position")
-                    ResultAnyElement -> error("Unexpected $position")
-                }
-            }
-            val actionEvaluator = TaintActionEvaluator { position ->
-                when (position) {
-                    This -> method.thisInstance.toPathOrNull().toMaybe()
-
-                    is Argument -> {
-                        val p = method.parameters[position.index]
-                        cp.getArgument(p)?.toPathOrNull().toMaybe()
-                    }
-
-                    AnyArgument -> error("Unexpected $position")
-                    Result -> error("Unexpected $position")
-                    ResultAnyElement -> error("Unexpected $position")
-                }
-            }
+            val conditionEvaluator = BasicConditionEvaluator(EntryPointPositionToJIRValueResolver(cp, method))
+            val actionEvaluator = TaintActionEvaluator(EntryPointPositionToAccessPathResolver(cp, method))
 
             // Handle EntryPointSource config items:
             for (item in config.filterIsInstance<TaintEntryPointSource>()) {

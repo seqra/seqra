@@ -6,6 +6,10 @@ import org.opentaint.ir.analysis.ifds.Maybe
 import org.opentaint.ir.analysis.ifds.fmap
 import org.opentaint.ir.analysis.ifds.toMaybe
 import org.opentaint.ir.analysis.ifds.toPathOrNull
+import org.opentaint.ir.analysis.util.getArgument
+import org.opentaint.ir.analysis.util.thisInstance
+import org.opentaint.ir.api.JIRClasspath
+import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.cfg.JIRAssignInst
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.cfg.JIRInstanceCallExpr
@@ -47,5 +51,41 @@ class CallPositionToJIRValueResolver(
         This -> (callExpr as? JIRInstanceCallExpr)?.instance.toMaybe()
         Result -> (callStatement as? JIRAssignInst)?.lhv.toMaybe()
         ResultAnyElement -> Maybe.none()
+    }
+}
+
+class EntryPointPositionToJIRValueResolver(
+    val cp: JIRClasspath,
+    val method: JIRMethod,
+) : PositionResolver<Maybe<JIRValue>> {
+    override fun resolve(position: Position): Maybe<JIRValue> {
+        return when (position) {
+            This -> Maybe.some(method.thisInstance)
+
+            is Argument -> {
+                val p = method.parameters[position.index]
+                cp.getArgument(p).toMaybe()
+            }
+
+            AnyArgument, Result, ResultAnyElement -> error("Unexpected $position")
+        }
+    }
+}
+
+class EntryPointPositionToAccessPathResolver(
+    val cp: JIRClasspath,
+    val method: JIRMethod,
+) : PositionResolver<Maybe<AccessPath>> {
+    override fun resolve(position: Position): Maybe<AccessPath> {
+        return when (position) {
+            This -> method.thisInstance.toPathOrNull().toMaybe()
+
+            is Argument -> {
+                val p = method.parameters[position.index]
+                cp.getArgument(p)?.toPathOrNull().toMaybe()
+            }
+
+            AnyArgument, Result, ResultAnyElement -> error("Unexpected $position")
+        }
     }
 }
