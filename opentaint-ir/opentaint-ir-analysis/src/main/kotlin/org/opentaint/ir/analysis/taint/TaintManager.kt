@@ -122,6 +122,7 @@ open class TaintManager(
         }
     }
 
+    @JvmName("analyze") // needed for Java interop because of inline class (Duration)
     @OptIn(ExperimentalTime::class)
     fun analyze(
         startMethods: List<JIRMethod>,
