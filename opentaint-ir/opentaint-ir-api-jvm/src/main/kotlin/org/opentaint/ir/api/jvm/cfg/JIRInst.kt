@@ -1,5 +1,6 @@
 package org.opentaint.ir.api.jvm.cfg
 
+import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonArgument
 import org.opentaint.ir.api.common.cfg.CommonArrayAccess
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
@@ -38,9 +39,6 @@ interface JIRInstLocation : CommonInstLocation<JIRMethod, JIRInst> {
 interface JIRInst : CommonInst<JIRMethod, JIRInst> {
     override val location: JIRInstLocation
     override val operands: List<JIRExpr>
-
-    val lineNumber: Int
-        get() = location.lineNumber
 
     fun <T> accept(visitor: JIRInstVisitor<T>): T
 }
@@ -639,8 +637,11 @@ data class JIRInstanceOfExpr(
 }
 
 interface JIRCallExpr : JIRExpr, CommonCallExpr {
-    override val method: JIRTypedMethod
+    val method: JIRTypedMethod
     override val args: List<JIRValue>
+
+    override val callee: JIRMethod
+        get() = method.method
 
     override val type: JIRType
         get() = method.returnType
