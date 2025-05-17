@@ -41,7 +41,7 @@ class TaintAnalyzer<Method, Statement>(
 
         run {
             val callExpr = edge.to.statement.callExpr ?: return@run
-            val callee = callExpr.method.method
+            val callee = callExpr.callee
 
             val config = taintConfigurationFeature?.let { feature ->
                 if (callee is JIRMethod) {
