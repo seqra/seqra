@@ -52,7 +52,7 @@ class TaintFlowFunctionsTest : BaseTest() {
     private val graph: JIRApplicationGraph = mockk {
         every { project } returns cp
         every { callees(any()) } answers {
-            sequenceOf(arg<JIRInst>(0).callExpr!!.method.method)
+            sequenceOf(arg<JIRInst>(0).callExpr!!.callee)
         }
     }
 
@@ -107,9 +107,7 @@ class TaintFlowFunctionsTest : BaseTest() {
         // "x := test(...)", where 'test' is a source, should result in 'x' to be tainted
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
         val callStatement = JIRAssignInst(location = mockk(), lhv = x, rhv = mockk<JIRCallExpr> {
-            every { method } returns mockk {
-                every { method } returns testMethod
-            }
+            every { callee } returns testMethod
         })
         val flowSpace = ForwardTaintFlowFunctions(graph)
         val f = flowSpace.obtainCallToReturnSiteFlowFunction(callStatement, returnSite = mockk())
@@ -123,9 +121,7 @@ class TaintFlowFunctionsTest : BaseTest() {
         // "test(x)", where 'x' is tainted, should result in 'x' NOT to be tainted
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
         val callStatement = JIRCallInst(location = mockk(), callExpr = mockk<JIRCallExpr> {
-            every { method } returns mockk {
-                every { method } returns testMethod
-            }
+            every { callee } returns testMethod
             every { args } returns listOf(x)
         })
         val flowSpace = ForwardTaintFlowFunctions(graph)
@@ -141,9 +137,7 @@ class TaintFlowFunctionsTest : BaseTest() {
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
         val y: JIRLocal = JIRLocalVar(2, "y", stringType)
         val callStatement = JIRAssignInst(location = mockk(), lhv = y, rhv = mockk<JIRCallExpr> {
-            every { method } returns mockk {
-                every { method } returns testMethod
-            }
+            every { callee } returns testMethod
             every { args } returns listOf(x)
         })
         val flowSpace = ForwardTaintFlowFunctions(graph)
@@ -163,9 +157,7 @@ class TaintFlowFunctionsTest : BaseTest() {
         // "test(x)", where 'x' is tainted, should result in 'x' (formal argument of 'test') to be tainted
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
         val callStatement = JIRCallInst(location = mockk(), callExpr = mockk<JIRCallExpr> {
-            every { method } returns mockk {
-                every { method } returns testMethod
-            }
+            every { callee } returns testMethod
             every { args } returns listOf(x)
         })
         val flowSpace = ForwardTaintFlowFunctions(graph)
@@ -190,9 +182,7 @@ class TaintFlowFunctionsTest : BaseTest() {
         // "x := test()" + "return y", where 'y' is tainted, should result in 'x' to be tainted
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
         val callStatement = JIRAssignInst(location = mockk(), lhv = x, rhv = mockk<JIRCallExpr> {
-            every { method } returns mockk {
-                every { method } returns testMethod
-            }
+            every { callee } returns testMethod
         })
         val y: JIRLocal = JIRLocalVar(1, "y", stringType)
         val exitStatement = JIRReturnInst(location = mockk {
