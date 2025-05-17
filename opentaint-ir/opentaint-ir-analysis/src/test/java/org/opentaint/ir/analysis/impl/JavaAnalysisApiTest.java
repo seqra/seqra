@@ -45,7 +45,7 @@ public class JavaAnalysisApiTest {
                 .newApplicationGraphForAnalysisAsync(classpath, null)
                 .get();
         UnitResolver<JIRMethod> unitResolver = UnitResolverKt.getMethodUnitResolver();
-        TaintManager<JIRMethod, JIRInst> manager = new TaintManager<>(applicationGraph, unitResolver, false);
+        TaintManager<JIRMethod, JIRInst> manager = new TaintManager<>(applicationGraph, unitResolver, false, null);
         manager.analyze(methodsToAnalyze, toDuration(30, DurationUnit.SECONDS));
     }
 
