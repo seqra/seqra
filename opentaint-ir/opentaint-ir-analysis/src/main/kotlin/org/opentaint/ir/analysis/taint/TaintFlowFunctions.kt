@@ -42,6 +42,7 @@ import org.opentaint.ir.taint.configuration.RemoveAllMarks
 import org.opentaint.ir.taint.configuration.RemoveMark
 import org.opentaint.ir.taint.configuration.TaintCleaner
 import org.opentaint.ir.taint.configuration.TaintConfigurationFeature
+import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.ir.taint.configuration.TaintEntryPointSource
 import org.opentaint.ir.taint.configuration.TaintMethodSource
 import org.opentaint.ir.taint.configuration.TaintPassThrough
@@ -50,6 +51,16 @@ private val logger = mu.KotlinLogging.logger {}
 
 class ForwardTaintFlowFunctions<Method, Statement>(
     private val graph: ApplicationGraph<Method, Statement>,
+    val getConfigForMethod: ForwardTaintFlowFunctions<Method, Statement>.(Method) -> List<TaintConfigurationItem>? = { method ->
+        taintConfigurationFeature?.let { feature ->
+            if (method is JIRMethod) {
+                logger.trace { "Extracting config for $method" }
+                feature.getConfigForMethod(method)
+            } else {
+                error("Cannot extract config for $method")
+            }
+        }
+    },
 ) : FlowFunctions<TaintDomainFact, Method, Statement>
     where Method : CommonMethod<Method, Statement>,
           Statement : CommonInst<Method, Statement> {
@@ -75,14 +86,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
         add(TaintZeroFact)
 
         // Extract initial facts from the config:
-        val config = taintConfigurationFeature?.let { feature ->
-            if (method is JIRMethod) {
-                logger.trace { "Extracting config for $method" }
-                feature.getConfigForMethod(method)
-            } else {
-                error("Cannot extract config for $method")
-            }
-        }
+        val config = getConfigForMethod(method)
         if (config != null) {
             val conditionEvaluator = BasicConditionEvaluator(EntryPointPositionToValueResolver(cp, method))
             val actionEvaluator = TaintActionEvaluator(EntryPointPositionToAccessPathResolver(cp, method))
@@ -212,7 +216,9 @@ class ForwardTaintFlowFunctions<Method, Statement>(
     ) = FlowFunction<TaintDomainFact> { fact ->
         val callExpr = callStatement.callExpr
             ?: error("Call statement should have non-null callExpr")
-        val callee = callExpr.callee
+
+        @Suppress("UNCHECKED_CAST")
+        val callee = callExpr.callee as Method
 
         // FIXME: handle taint pass-through on invokedynamic-based String concatenation:
         if (fact is Tainted
@@ -231,14 +237,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
             return@FlowFunction setOf(fact)
         }
 
-        val config = taintConfigurationFeature?.let { feature ->
-            if (callee is JIRMethod) {
-                logger.trace { "Extracting config for $callee" }
-                feature.getConfigForMethod(callee)
-            } else {
-                error("Cannot extract config for $callee")
-            }
-        }
+        val config = getConfigForMethod(callee)
 
         if (fact == TaintZeroFact) {
             return@FlowFunction buildSet {
