@@ -133,3 +133,64 @@ fun JIRValue.toPathOrNull(): JIRAccessPath? = when (this) {
 fun JIRValue.toPath(): JIRAccessPath {
     return toPathOrNull() ?: error("Unable to build access path for value $this")
 }
+
+    override val accesses: List<Accessor>,
+) : CommonAccessPath {
+
+    init {
+        if (value == null) {
+            require(accesses.isNotEmpty())
+            val a = accesses[0]
+            require(a is FieldAccessor)
+            require(a.field is JIRField)
+            require(a.field.isStatic)
+        }
+    }
+
+        // for (accessor in accesses) {
+        //         throw IllegalArgumentException("Unexpected static field: ${accessor.field}")
+        //     }
+        // }
+
+    }
+
+        //     throw IllegalArgumentException("Unexpected static field: ${accessor.field}")
+        // }
+
+    }
+
+    override fun toString(): String {
+        return value.toString() + accesses.joinToString("") { it.toSuffix() }
+    }
+
+    companion object {
+
+        //     require(field.isStatic) { "Expected static field" }
+        //     return JIRAccessPath(null, listOf(FieldAccessor(field)))
+        // }
+    }
+}
+
+    else -> null
+}
+
+    //     array.toPathOrNull()?.let {
+    //         it + ElementAccessor
+    //     }
+    // }
+
+    //     val instance = instance
+    //     if (instance == null) {
+    //         JIRAccessPath.from(field.field)
+    //     } else {
+    //         instance.toPathOrNull()?.let {
+    //             it + FieldAccessor(field.field)
+    //         }
+    //     }
+    // }
+
+    else -> null
+}
+
+    return toPathOrNull() ?: error("Unable to build access path for value $this")
+}

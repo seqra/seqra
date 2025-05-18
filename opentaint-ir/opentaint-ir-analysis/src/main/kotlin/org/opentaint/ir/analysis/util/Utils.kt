@@ -56,6 +56,7 @@ fun CommonAccessPath?.startsWith(other: CommonAccessPath?): Boolean {
     if (this is JIRAccessPath && other is JIRAccessPath) {
         return startsWith(other)
     }
+    }
     error("Cannot determine whether the path $this starts with other path: $other")
 }
 
@@ -86,12 +87,27 @@ fun JIRAccessPath?.startsWith(other: JIRAccessPath?): Boolean {
     return this.accesses.take(other.accesses.size) == other.accesses
 }
 
+    if (this == null || other == null) {
+        return false
+    }
+    if (this.value != other.value) {
+        return false
+    }
+    return this.accesses.take(other.accesses.size) == other.accesses
+}
+
 internal fun JIRAccessPath.removeTrailingElementAccessors(): JIRAccessPath {
     val accesses = accesses.toMutableList()
     while (accesses.lastOrNull() is ElementAccessor) {
         accesses.removeLast()
     }
     return JIRAccessPath(value, accesses)
+}
+
+    val accesses = accesses.toMutableList()
+    while (accesses.lastOrNull() is ElementAccessor) {
+        accesses.removeLast()
+    }
 }
 
 internal fun Runner<*, *, *>.getPathEdges(): Set<Edge<*, *, *>> = when (this) {
