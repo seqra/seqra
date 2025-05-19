@@ -50,15 +50,20 @@ object JIRTraits : Traits<JIRMethod, JIRInst> {
         return toPathOrNull()
     }
 
+    override fun CommonValue.toPathOrNull(): AccessPath? {
+        check(this is JIRValue)
+        return toPathOrNull()
+    }
+
+    override fun CommonValue.toPath(): AccessPath {
+        check(this is JIRValue)
+        return toPath()
+    }
+
     fun JIRExpr.toPathOrNull(): AccessPath? = when (this) {
         is JIRValue -> toPathOrNull()
         is JIRCastExpr -> operand.toPathOrNull()
         else -> null
-    }
-
-    override fun CommonValue.toPathOrNull(): AccessPath? {
-        check(this is JIRValue)
-        return toPathOrNull()
     }
 
     fun JIRValue.toPathOrNull(): AccessPath? = when (this) {
@@ -85,11 +90,6 @@ object JIRTraits : Traits<JIRMethod, JIRInst> {
         else -> null
     }
 
-    override fun CommonValue.toPath(): AccessPath {
-        check(this is JIRValue)
-        return toPath()
-    }
-
     fun JIRValue.toPath(): AccessPath {
         return toPathOrNull() ?: error("Unable to build access path for value $this")
     }
@@ -106,22 +106,22 @@ object JIRTraits : Traits<JIRMethod, JIRInst> {
         return toPathOrNull()
     }
 
-        else -> null
-    }
-
     override fun CommonValue.toPathOrNull(): AccessPath? {
         return toPathOrNull()
     }
 
+    override fun CommonValue.toPath(): AccessPath {
+        return toPath()
+    }
+
+        else -> null
+    }
+
         }
 
         }
 
         else -> null
-    }
-
-    override fun CommonValue.toPath(): AccessPath {
-        return toPath()
     }
 
         return toPathOrNull() ?: error("Unable to build access path for value $this")
