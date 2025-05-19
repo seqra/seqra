@@ -18,7 +18,6 @@ interface JIRTypedField : JIRAccessible, CommonTypedField {
 }
 
 interface JIRTypedMethod : JIRAccessible, CommonTypedMethod<JIRMethod, JIRInst> {
-    val name: String
     override val returnType: JIRType
 
     val typeParameters: List<JIRTypeVariableDeclaration>
@@ -42,9 +41,6 @@ interface JIRTypedMethodParameter : CommonTypedMethodParameter {
 
 interface JIRType : CommonType {
     val classpath: JIRClasspath
-    override val typeName: String
-
-    override val nullable: Boolean?
     val annotations: List<JIRAnnotation>
 
     fun copyWithAnnotations(annotations: List<JIRAnnotation>): JIRType
@@ -56,8 +52,7 @@ interface JIRPrimitiveType : JIRType {
 }
 
 interface JIRRefType : JIRType, CommonRefType {
-
-    override val jIRClass: JIRClassOrInterface
+    val jIRClass: JIRClassOrInterface
 
     fun copyWithNullability(nullability: Boolean?): JIRRefType
 }
@@ -67,8 +62,6 @@ interface JIRArrayType : JIRRefType, CommonArrayType {
 
     override val jIRClass: JIRClassOrInterface
         get() = classpath.objectClass
-
-    override val dimensions: Int
 }
 
 interface JIRClassType : JIRRefType, JIRAccessible, CommonClassType {

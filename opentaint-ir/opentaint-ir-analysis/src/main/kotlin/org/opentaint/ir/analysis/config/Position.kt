@@ -6,8 +6,8 @@ import org.opentaint.ir.analysis.ifds.Maybe
 import org.opentaint.ir.analysis.ifds.fmap
 import org.opentaint.ir.analysis.ifds.toMaybe
 import org.opentaint.ir.analysis.ifds.toPathOrNull
+import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.analysis.util.getArgument
-import org.opentaint.ir.analysis.util.thisInstance
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.Project
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
@@ -55,11 +55,12 @@ class CallPositionToValueResolver(
 }
 
 class EntryPointPositionToValueResolver(
-    val cp: Project,
     val method: CommonMethod<*, *>,
+    val cp: Project,
+    val traits: Traits<*, *>,
 ) : PositionResolver<Maybe<CommonValue>> {
     override fun resolve(position: Position): Maybe<CommonValue> = when (position) {
-        This -> Maybe.some(method.thisInstance)
+        This -> Maybe.some(traits.thisInstance(method))
 
         is Argument -> {
             val p = method.parameters[position.index]
@@ -71,11 +72,12 @@ class EntryPointPositionToValueResolver(
 }
 
 class EntryPointPositionToAccessPathResolver(
-    val cp: Project,
     val method: CommonMethod<*, *>,
+    val cp: Project,
+    val traits: Traits<*, *>,
 ) : PositionResolver<Maybe<CommonAccessPath>> {
     override fun resolve(position: Position): Maybe<CommonAccessPath> = when (position) {
-        This -> method.thisInstance.toPathOrNull().toMaybe()
+        This -> traits.thisInstance(method).toPathOrNull().toMaybe()
 
         is Argument -> {
             val p = method.parameters[position.index]

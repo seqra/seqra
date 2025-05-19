@@ -13,7 +13,6 @@ import org.opentaint.ir.api.common.Project
 import org.opentaint.ir.api.common.cfg.CommonArgument
 import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.common.cfg.CommonThis
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -21,19 +20,6 @@ import org.opentaint.ir.api.jvm.JIRParameter
 import org.opentaint.ir.api.jvm.cfg.JIRArgument
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.ext.toType
-
-// TODO: rewrite
-internal val CommonMethod<*, *>.isConstructor: Boolean
-    get() = when (this) {
-        is JIRMethod -> isConstructor
-        else -> error("Cannot determine whether method is constructor: $this")
-    }
-
-val CommonMethod<*, *>.thisInstance: CommonThis
-    get() = when (this) {
-        is JIRMethod -> thisInstance
-        else -> error("Cannot get 'this' for method: $this")
-    }
 
 fun Project.getArgument(param: CommonMethodParameter): CommonArgument? {
     return when {

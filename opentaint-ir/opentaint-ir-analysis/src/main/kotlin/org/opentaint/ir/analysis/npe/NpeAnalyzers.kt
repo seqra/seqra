@@ -13,6 +13,7 @@ import org.opentaint.ir.analysis.taint.TaintEvent
 import org.opentaint.ir.analysis.taint.TaintVertex
 import org.opentaint.ir.analysis.taint.TaintVulnerability
 import org.opentaint.ir.analysis.taint.Tainted
+import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -26,12 +27,13 @@ private val logger = mu.KotlinLogging.logger {}
 
 class NpeAnalyzer<Method, Statement>(
     private val graph: ApplicationGraph<Method, Statement>,
-) : Analyzer<TaintDomainFact, TaintEvent<Method, Statement>, Method, Statement>
+    private val traits: Traits<Method, Statement>,
+    ) : Analyzer<TaintDomainFact, TaintEvent<Method, Statement>, Method, Statement>
     where Method : CommonMethod<Method, Statement>,
           Statement : CommonInst<Method, Statement> {
 
     override val flowFunctions: ForwardNpeFlowFunctions<Method, Statement> by lazy {
-        ForwardNpeFlowFunctions(graph)
+        ForwardNpeFlowFunctions(graph,traits)
     }
 
     private val taintConfigurationFeature: TaintConfigurationFeature?

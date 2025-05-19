@@ -5,6 +5,7 @@ import org.opentaint.ir.analysis.graph.JIRApplicationGraphImpl
 import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
 import org.opentaint.ir.analysis.npe.NpeManager
 import org.opentaint.ir.analysis.taint.TaintVulnerability
+import org.opentaint.ir.analysis.util.JIRTraits
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.constructors
@@ -182,7 +183,7 @@ class IfdsNpeTest : BaseAnalysisTest() {
 
     private fun findSinks(method: JIRMethod): List<TaintVulnerability<JIRMethod, JIRInst>> {
         val unitResolver = SingletonUnitResolver
-        val manager = NpeManager(graph, unitResolver)
+        val manager = NpeManager(graph, JIRTraits, unitResolver)
         return manager.analyze(listOf(method), timeout = 30.seconds)
     }
 

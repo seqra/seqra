@@ -7,6 +7,7 @@ import org.opentaint.ir.analysis.ifds.UnknownUnit
 import org.opentaint.ir.analysis.taint.TaintManager
 import org.opentaint.ir.analysis.taint.TaintRunner
 import org.opentaint.ir.analysis.taint.TaintZeroFact
+import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -15,8 +16,9 @@ private val logger = mu.KotlinLogging.logger {}
 
 class NpeManager<Method, Statement>(
     graph: ApplicationGraph<Method, Statement>,
+    traits: Traits<Method, Statement>,
     unitResolver: UnitResolver<Method>,
-) : TaintManager<Method, Statement>(graph, unitResolver, useBidiRunner = false)
+) : TaintManager<Method, Statement>(graph, traits, unitResolver, useBidiRunner = false)
     where Method : CommonMethod<Method, Statement>,
           Statement : CommonInst<Method, Statement> {
 
@@ -25,7 +27,7 @@ class NpeManager<Method, Statement>(
     ): TaintRunner<Method, Statement> {
         check(unit !in runnerForUnit) { "Runner for $unit already exists" }
 
-        val analyzer = NpeAnalyzer(graph)
+        val analyzer = NpeAnalyzer(graph, traits)
         val runner = UniRunner(
             graph = graph,
             analyzer = analyzer,

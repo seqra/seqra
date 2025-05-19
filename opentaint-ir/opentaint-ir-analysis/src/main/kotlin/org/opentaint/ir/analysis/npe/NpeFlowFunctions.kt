@@ -20,10 +20,9 @@ import org.opentaint.ir.analysis.ifds.toPathOrNull
 import org.opentaint.ir.analysis.taint.TaintDomainFact
 import org.opentaint.ir.analysis.taint.TaintZeroFact
 import org.opentaint.ir.analysis.taint.Tainted
+import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.analysis.util.getArgumentsOf
-import org.opentaint.ir.analysis.util.isConstructor
 import org.opentaint.ir.analysis.util.startsWith
-import org.opentaint.ir.analysis.util.thisInstance
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.Project
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
@@ -65,6 +64,7 @@ private val logger = mu.KotlinLogging.logger {}
 
 class ForwardNpeFlowFunctions<Method, Statement>(
     private val graph: ApplicationGraph<Method, Statement>,
+    private val traits: Traits<Method, Statement>,
 ) : FlowFunctions<TaintDomainFact, Method, Statement>
     where Method : CommonMethod<Method, Statement>,
           Statement : CommonInst<Method, Statement> {
@@ -116,8 +116,8 @@ class ForwardNpeFlowFunctions<Method, Statement>(
             }
         }
         if (config != null) {
-            val conditionEvaluator = BasicConditionEvaluator(EntryPointPositionToValueResolver(cp, method))
-            val actionEvaluator = TaintActionEvaluator(EntryPointPositionToAccessPathResolver(cp, method))
+            val conditionEvaluator = BasicConditionEvaluator(EntryPointPositionToValueResolver(method, cp, traits))
+            val actionEvaluator = TaintActionEvaluator(EntryPointPositionToAccessPathResolver(method, cp, traits))
 
             // Handle EntryPointSource config items:
             for (item in config.filterIsInstance<TaintEntryPointSource>()) {
@@ -342,7 +342,9 @@ class ForwardNpeFlowFunctions<Method, Statement>(
 
         val callExpr = callStatement.callExpr
             ?: error("Call statement should have non-null callExpr")
-        val callee = callExpr.callee
+
+        @Suppress("UNCHECKED_CAST")
+        val callee = callExpr.callee as Method
 
         // FIXME: handle taint pass-through on invokedynamic-based String concatenation:
         if (fact is Tainted
@@ -468,7 +470,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
         }
 
         // FIXME: adhoc for constructors:
-        if (callee.isConstructor) {
+        if (traits.isConstructor(callee)) {
             return@FlowFunction listOf(fact)
         }
 
@@ -550,7 +552,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
                         fact = fact,
                         at = callStatement,
                         from = callExpr.instance,
-                        to = callee.thisInstance
+                        to = traits.thisInstance(callee)
                     )
                 )
             }
@@ -612,7 +614,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
                     transmitTaintThisToInstance(
                         fact = fact,
                         at = callStatement,
-                        from = callee.thisInstance,
+                        from = traits.thisInstance(callee),
                         to = callExpr.instance
                     )
                 )

@@ -6,6 +6,7 @@ import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
 import org.opentaint.ir.analysis.npe.NpeManager
 import org.opentaint.ir.analysis.taint.TaintManager
 import org.opentaint.ir.analysis.unused.UnusedVariableManager
+import org.opentaint.ir.analysis.util.JIRTraits
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.jvm.ext.findClass
@@ -46,7 +47,7 @@ class JodaDateTimeAnalysisTest : BaseTest() {
         val clazz = cp.findClass<DateTime>()
         val methods = clazz.declaredMethods
         val unitResolver = SingletonUnitResolver
-        val manager = TaintManager(graph, unitResolver)
+        val manager = TaintManager(graph, JIRTraits, unitResolver)
         val sinks = manager.analyze(methods, timeout = 60.seconds)
         logger.info { "Vulnerabilities found: ${sinks.size}" }
     }
@@ -56,7 +57,7 @@ class JodaDateTimeAnalysisTest : BaseTest() {
         val clazz = cp.findClass<DateTime>()
         val methods = clazz.declaredMethods
         val unitResolver = SingletonUnitResolver
-        val manager = NpeManager(graph, unitResolver)
+        val manager = NpeManager(graph, JIRTraits, unitResolver)
         val sinks = manager.analyze(methods, timeout = 60.seconds)
         logger.info { "Vulnerabilities found: ${sinks.size}" }
     }

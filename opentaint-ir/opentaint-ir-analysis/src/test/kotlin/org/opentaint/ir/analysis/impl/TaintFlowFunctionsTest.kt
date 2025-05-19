@@ -7,6 +7,7 @@ import org.opentaint.ir.analysis.ifds.toPath
 import org.opentaint.ir.analysis.taint.ForwardTaintFlowFunctions
 import org.opentaint.ir.analysis.taint.TaintZeroFact
 import org.opentaint.ir.analysis.taint.Tainted
+import org.opentaint.ir.analysis.util.JIRTraits
 import org.opentaint.ir.analysis.util.getArgument
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClasspath
@@ -81,7 +82,7 @@ class TaintFlowFunctionsTest : BaseTest() {
 
     @Test
     fun `test obtain start facts`() {
-        val flowSpace = ForwardTaintFlowFunctions(graph)
+        val flowSpace = ForwardTaintFlowFunctions(graph, JIRTraits)
         val facts = flowSpace.obtainPossibleStartFacts(testMethod).toList()
         val arg0 = cp.getArgument(testMethod.parameters[0])!!
         val arg0Taint = Tainted(arg0.toPath(), TaintMark("EXAMPLE"))
@@ -94,7 +95,7 @@ class TaintFlowFunctionsTest : BaseTest() {
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
         val y: JIRLocal = JIRLocalVar(2, "y", stringType)
         val inst = JIRAssignInst(location = mockk(), lhv = x, rhv = y)
-        val flowSpace = ForwardTaintFlowFunctions(graph)
+        val flowSpace = ForwardTaintFlowFunctions(graph, JIRTraits)
         val f = flowSpace.obtainSequentFlowFunction(inst, next = mockk())
         val yTaint = Tainted(y.toPath(), TaintMark("TAINT"))
         val xTaint = Tainted(x.toPath(), TaintMark("TAINT"))
@@ -109,7 +110,7 @@ class TaintFlowFunctionsTest : BaseTest() {
         val callStatement = JIRAssignInst(location = mockk(), lhv = x, rhv = mockk<JIRCallExpr> {
             every { callee } returns testMethod
         })
-        val flowSpace = ForwardTaintFlowFunctions(graph)
+        val flowSpace = ForwardTaintFlowFunctions(graph, JIRTraits)
         val f = flowSpace.obtainCallToReturnSiteFlowFunction(callStatement, returnSite = mockk())
         val xTaint = Tainted(x.toPath(), TaintMark("EXAMPLE"))
         val facts = f.compute(TaintZeroFact).toList()
@@ -124,7 +125,7 @@ class TaintFlowFunctionsTest : BaseTest() {
             every { callee } returns testMethod
             every { args } returns listOf(x)
         })
-        val flowSpace = ForwardTaintFlowFunctions(graph)
+        val flowSpace = ForwardTaintFlowFunctions(graph, JIRTraits)
         val f = flowSpace.obtainCallToReturnSiteFlowFunction(callStatement, returnSite = mockk())
         val xTaint = Tainted(x.toPath(), TaintMark("REMOVE"))
         val facts = f.compute(xTaint).toList()
@@ -140,7 +141,7 @@ class TaintFlowFunctionsTest : BaseTest() {
             every { callee } returns testMethod
             every { args } returns listOf(x)
         })
-        val flowSpace = ForwardTaintFlowFunctions(graph)
+        val flowSpace = ForwardTaintFlowFunctions(graph, JIRTraits)
         val f = flowSpace.obtainCallToReturnSiteFlowFunction(callStatement, returnSite = mockk())
         val xTaint = Tainted(x.toPath(), TaintMark("COPY"))
         val yTaint = Tainted(y.toPath(), TaintMark("COPY"))
@@ -160,7 +161,7 @@ class TaintFlowFunctionsTest : BaseTest() {
             every { callee } returns testMethod
             every { args } returns listOf(x)
         })
-        val flowSpace = ForwardTaintFlowFunctions(graph)
+        val flowSpace = ForwardTaintFlowFunctions(graph, JIRTraits)
         val f = flowSpace.obtainCallToStartFlowFunction(callStatement, calleeStart = mockk {
             every { location } returns mockk {
                 every { method } returns testMethod
@@ -188,7 +189,7 @@ class TaintFlowFunctionsTest : BaseTest() {
         val exitStatement = JIRReturnInst(location = mockk {
             every { method } returns testMethod
         }, returnValue = y)
-        val flowSpace = ForwardTaintFlowFunctions(graph)
+        val flowSpace = ForwardTaintFlowFunctions(graph, JIRTraits)
         val f = flowSpace.obtainExitToReturnSiteFlowFunction(callStatement, returnSite = mockk(), exitStatement)
         val yTaint = Tainted(y.toPath(), TaintMark("TAINT"))
         val xTaint = Tainted(x.toPath(), TaintMark("TAINT"))

@@ -5,11 +5,11 @@ import org.opentaint.ir.analysis.config.FactAwareConditionEvaluator
 import org.opentaint.ir.analysis.ifds.Analyzer
 import org.opentaint.ir.analysis.ifds.Edge
 import org.opentaint.ir.analysis.ifds.Reason
+import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.ext.callExpr
-import org.opentaint.ir.taint.configuration.TaintConfigurationFeature
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.ir.taint.configuration.TaintMethodSink
 
@@ -17,6 +17,7 @@ private val logger = mu.KotlinLogging.logger {}
 
 class TaintAnalyzer<Method, Statement>(
     private val graph: ApplicationGraph<Method, Statement>,
+    private val traits: Traits<Method, Statement>,
     private val getConfigForMethod: (ForwardTaintFlowFunctions<Method, Statement>.(Method) -> List<TaintConfigurationItem>?)? = null,
 ) : Analyzer<TaintDomainFact, TaintEvent<Method, Statement>, Method, Statement>
     where Method : CommonMethod<Method, Statement>,
@@ -24,9 +25,9 @@ class TaintAnalyzer<Method, Statement>(
 
     override val flowFunctions: ForwardTaintFlowFunctions<Method, Statement> by lazy {
         if (getConfigForMethod != null) {
-            ForwardTaintFlowFunctions(graph, getConfigForMethod)
+            ForwardTaintFlowFunctions(graph, traits, getConfigForMethod)
         } else {
-            ForwardTaintFlowFunctions(graph)
+            ForwardTaintFlowFunctions(graph, traits)
         }
     }
 
@@ -81,12 +82,13 @@ class TaintAnalyzer<Method, Statement>(
 
 class BackwardTaintAnalyzer<Method, Statement>(
     private val graph: ApplicationGraph<Method, Statement>,
+    private val traits: Traits<Method, Statement>,
 ) : Analyzer<TaintDomainFact, TaintEvent<Method, Statement>, Method, Statement>
     where Method : CommonMethod<Method, Statement>,
           Statement : CommonInst<Method, Statement> {
 
     override val flowFunctions: BackwardTaintFlowFunctions<Method, Statement> by lazy {
-        BackwardTaintFlowFunctions(graph)
+        BackwardTaintFlowFunctions(graph, traits)
     }
 
     private fun isExitPoint(statement: Statement): Boolean {

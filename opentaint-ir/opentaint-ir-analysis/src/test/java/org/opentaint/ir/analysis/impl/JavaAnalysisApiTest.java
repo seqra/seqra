@@ -5,6 +5,7 @@ import org.opentaint.ir.analysis.graph.ApplicationGraphFactory;
 import org.opentaint.ir.analysis.ifds.UnitResolver;
 import org.opentaint.ir.analysis.ifds.UnitResolverKt;
 import org.opentaint.ir.analysis.taint.TaintManager;
+import org.opentaint.ir.analysis.util.JIRTraits;
 import org.opentaint.ir.api.jvm.JIRClassOrInterface;
 import org.opentaint.ir.api.jvm.JIRClasspath;
 import org.opentaint.ir.api.jvm.JIRDatabase;
@@ -45,7 +46,7 @@ public class JavaAnalysisApiTest {
                 .newApplicationGraphForAnalysisAsync(classpath, null)
                 .get();
         UnitResolver<JIRMethod> unitResolver = UnitResolverKt.getMethodUnitResolver();
-        TaintManager<JIRMethod, JIRInst> manager = new TaintManager<>(applicationGraph, unitResolver, false, null);
+        TaintManager<JIRMethod, JIRInst> manager = new TaintManager<>(applicationGraph, JIRTraits.INSTANCE, unitResolver, false, null);
         manager.analyze(methodsToAnalyze, toDuration(30, DurationUnit.SECONDS));
     }
 
