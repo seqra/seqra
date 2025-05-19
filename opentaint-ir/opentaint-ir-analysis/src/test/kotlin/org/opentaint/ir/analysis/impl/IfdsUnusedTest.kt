@@ -42,22 +42,22 @@ class IfdsUnusedTest : BaseAnalysisTest() {
 
     @ParameterizedTest
     @MethodSource("provideClassesForJuliet563")
-    fun `test on Juliet's CWE 563`(className: String) {
+    fun `test on Juliet's CWE 563`(className: String) = with(JIRTraits) {
         testSingleJulietClass(className) { method ->
             val unitResolver = SingletonUnitResolver
-            val manager = UnusedVariableManager(graph, JIRTraits, unitResolver)
+            val manager = UnusedVariableManager(graph, unitResolver)
             manager.analyze(listOf(method), timeout = 30.seconds)
         }
     }
 
     @Test
-    fun `test on specific Juliet instance`() {
+    fun `test on specific Juliet instance`() = with(JIRTraits) {
         val className =
             "juliet.testcases.CWE563_Unused_Variable.CWE563_Unused_Variable__unused_init_variable_StringBuilder_01"
         val clazz = cp.findClass(className)
         val badMethod = clazz.methods.single { it.name == "bad" }
         val unitResolver = SingletonUnitResolver
-        val manager = UnusedVariableManager(graph, JIRTraits, unitResolver)
+        val manager = UnusedVariableManager(graph, unitResolver)
         val sinks = manager.analyze(listOf(badMethod), timeout = 30.seconds)
         Assertions.assertTrue(sinks.isNotEmpty())
     }

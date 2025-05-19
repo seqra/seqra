@@ -1,16 +1,20 @@
 package org.opentaint.ir.analysis.util
 
 import org.opentaint.ir.analysis.ifds.AccessPath
-import org.opentaint.ir.analysis.ifds.toPath
-import org.opentaint.ir.analysis.ifds.toPathOrNull
+import org.opentaint.ir.analysis.ifds.ElementAccessor
+import org.opentaint.ir.analysis.ifds.FieldAccessor
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonThis
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
+import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
 import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRSimpleValue
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.toType
@@ -18,67 +22,108 @@ import org.opentaint.ir.api.jvm.ext.toType
 /**
  * Extensions for analysis.
  */
-abstract class Traits<out Method, out Statement>
+interface Traits<out Method, out Statement>
     where Method : CommonMethod<Method, Statement>,
           Statement : CommonInst<Method, Statement> {
 
-    abstract fun thisInstance(method: @UnsafeVariance Method): CommonThis
-    abstract fun isConstructor(method: @UnsafeVariance Method): Boolean
+    val @UnsafeVariance Method.thisInstance: CommonThis
+    val @UnsafeVariance Method.isConstructor: Boolean
 
-    abstract fun toPathOrNull(expr: CommonExpr): AccessPath?
-    abstract fun toPath(value: CommonValue): AccessPath
+    fun CommonExpr.toPathOrNull(): AccessPath?
+    fun CommonValue.toPathOrNull(): AccessPath?
+    fun CommonValue.toPath(): AccessPath
 
-    val scope: Scope = Scope()
-
-    inner class Scope {
-        val @UnsafeVariance Method.thisInstance: CommonThis
-            get() = thisInstance(this)
-
-        val @UnsafeVariance Method.isConstructor: Boolean
-            get() = isConstructor(this)
-
-        fun CommonExpr.toPathOrNull(): AccessPath? = toPathOrNull(this)
-
-        fun CommonValue.toPath(): AccessPath = toPath(this)
-    }
 }
 
 // JVM
-object JIRTraits : Traits<JIRMethod, JIRInst>() {
-    override fun thisInstance(method: JIRMethod): JIRThis {
-        return JIRThis(method.enclosingClass.toType())
+object JIRTraits : Traits<JIRMethod, JIRInst> {
+
+    override val JIRMethod.thisInstance: JIRThis
+        get() = JIRThis(enclosingClass.toType())
+
+    @Suppress("EXTENSION_SHADOWED_BY_MEMBER")
+    override val JIRMethod.isConstructor: Boolean
+        get() = isConstructor
+
+    override fun CommonExpr.toPathOrNull(): AccessPath? {
+        check(this is JIRExpr)
+        return toPathOrNull()
     }
 
-    override fun isConstructor(method: JIRMethod): Boolean {
-        return method.isConstructor
+    fun JIRExpr.toPathOrNull(): AccessPath? = when (this) {
+        is JIRValue -> toPathOrNull()
+        is JIRCastExpr -> operand.toPathOrNull()
+        else -> null
     }
 
-    override fun toPathOrNull(expr: CommonExpr): AccessPath? {
-        check(expr is JIRExpr)
-        return expr.toPathOrNull()
+    override fun CommonValue.toPathOrNull(): AccessPath? {
+        check(this is JIRValue)
+        return toPathOrNull()
     }
 
-    override fun toPath(value: CommonValue): AccessPath {
-        check(value is JIRValue)
-        return value.toPath()
+    fun JIRValue.toPathOrNull(): AccessPath? = when (this) {
+        is JIRSimpleValue -> AccessPath(this, emptyList())
+
+        is JIRArrayAccess -> {
+            array.toPathOrNull()?.let {
+                it + ElementAccessor
+            }
+        }
+
+        is JIRFieldRef -> {
+            val instance = instance
+            if (instance == null) {
+                require(field.isStatic) { "Expected static field" }
+                AccessPath(null, listOf(FieldAccessor(field.field)))
+            } else {
+                instance.toPathOrNull()?.let {
+                    it + FieldAccessor(field.field)
+                }
+            }
+        }
+
+        else -> null
+    }
+
+    override fun CommonValue.toPath(): AccessPath {
+        check(this is JIRValue)
+        return toPath()
+    }
+
+    fun JIRValue.toPath(): AccessPath {
+        return toPathOrNull() ?: error("Unable to build access path for value $this")
     }
 }
 
-    }
-
         // TODO
-        return false
-    }
+        get() = false
 
         TODO()
         // return project.classTypeOf(this)
     }
 
-    override fun toPathOrNull(expr: CommonExpr): AccessPath? {
-        return expr.toPathOrNull()
+    override fun CommonExpr.toPathOrNull(): AccessPath? {
+        return toPathOrNull()
     }
 
-    override fun toPath(value: CommonValue): AccessPath {
-        return value.toPath()
+        else -> null
+    }
+
+    override fun CommonValue.toPathOrNull(): AccessPath? {
+        return toPathOrNull()
+    }
+
+        }
+
+        }
+
+        else -> null
+    }
+
+    override fun CommonValue.toPath(): AccessPath {
+        return toPath()
+    }
+
+        return toPathOrNull() ?: error("Unable to build access path for value $this")
     }
 }

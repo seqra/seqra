@@ -25,15 +25,15 @@ import org.opentaint.ir.taint.configuration.TaintMethodSink
 
 private val logger = mu.KotlinLogging.logger {}
 
+context(Traits<Method, Statement>)
 class NpeAnalyzer<Method, Statement>(
     private val graph: ApplicationGraph<Method, Statement>,
-    private val traits: Traits<Method, Statement>,
 ) : Analyzer<TaintDomainFact, TaintEvent<Method, Statement>, Method, Statement>
     where Method : CommonMethod<Method, Statement>,
           Statement : CommonInst<Method, Statement> {
 
     override val flowFunctions: ForwardNpeFlowFunctions<Method, Statement> by lazy {
-        ForwardNpeFlowFunctions(graph, traits)
+        ForwardNpeFlowFunctions(graph)
     }
 
     private val taintConfigurationFeature: TaintConfigurationFeature?
@@ -51,7 +51,7 @@ class NpeAnalyzer<Method, Statement>(
         }
 
         if (edge.to.fact is Tainted && edge.to.fact.mark == TaintMark.NULLNESS) {
-            if (edge.to.fact.variable.isDereferencedAt(edge.to.statement, traits)) {
+            if (edge.to.fact.variable.isDereferencedAt(edge.to.statement)) {
                 val message = "NPE" // TODO
                 val vulnerability = TaintVulnerability(message, sink = edge.to)
                 logger.info { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
@@ -81,7 +81,6 @@ class NpeAnalyzer<Method, Statement>(
             // Determine whether 'edge.to' is a sink via config:
             val conditionEvaluator = FactAwareConditionEvaluator(
                 edge.to.fact,
-                traits,
                 CallPositionToValueResolver(edge.to.statement),
             )
             for (item in config.filterIsInstance<TaintMethodSink>()) {

@@ -8,15 +8,15 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
 
+context(Traits<Method, Statement>)
 class UnusedVariableAnalyzer<Method, Statement>(
     private val graph: ApplicationGraph<Method, Statement>,
-    private val traits: Traits<Method, Statement>,
 ) : Analyzer<UnusedVariableDomainFact, UnusedVariableEvent<Method, Statement>, Method, Statement>
     where Method : CommonMethod<Method, Statement>,
           Statement : CommonInst<Method, Statement> {
 
     override val flowFunctions: UnusedVariableFlowFunctions<Method, Statement> by lazy {
-        UnusedVariableFlowFunctions(graph,traits)
+        UnusedVariableFlowFunctions(graph)
     }
 
     private fun isExitPoint(statement: Statement): Boolean {

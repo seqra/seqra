@@ -89,7 +89,10 @@ abstract class BaseAnalysisTest : BaseTest() {
         }
     }
 
-    protected fun testSingleJulietClass(className: String, findSinks: (JIRMethod) -> List<Vulnerability<*, JIRMethod, JIRInst>>) {
+    protected fun testSingleJulietClass(
+        className: String,
+        findSinks: (JIRMethod) -> List<Vulnerability<*, JIRMethod, JIRInst>>,
+    ) {
         logger.info { className }
 
         val clazz = cp.findClass(className)

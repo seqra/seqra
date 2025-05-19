@@ -41,12 +41,12 @@ class IfdsSqlTest : BaseAnalysisTest() {
     }
 
     @Test
-    fun `simple SQL injection`() {
+    fun `simple SQL injection`() = with(JIRTraits) {
         val methodName = "bad"
         val method = cp.findClass<SqlInjectionExamples>().declaredMethods.single { it.name == methodName }
         val methods = listOf(method)
         val unitResolver = SingletonUnitResolver
-        val manager = TaintManager(graph, JIRTraits, unitResolver)
+        val manager = TaintManager(graph, unitResolver)
         val sinks = manager.analyze(methods, timeout = 30.seconds)
         assertTrue(sinks.isNotEmpty())
         val sink = sinks.first()
@@ -57,31 +57,31 @@ class IfdsSqlTest : BaseAnalysisTest() {
 
     @ParameterizedTest
     @MethodSource("provideClassesForJuliet89")
-    fun `test on Juliet's CWE 89`(className: String) {
+    fun `test on Juliet's CWE 89`(className: String) = with(JIRTraits) {
         testSingleJulietClass(className) { method ->
             val unitResolver = SingletonUnitResolver
-            val manager = TaintManager(graph, JIRTraits, unitResolver)
+            val manager = TaintManager(graph, unitResolver)
             manager.analyze(listOf(method), timeout = 30.seconds)
         }
     }
 
     @Test
-    fun `test on specific Juliet instance`() {
+    fun `test on specific Juliet instance`() = with(JIRTraits) {
         val className = "juliet.testcases.CWE89_SQL_Injection.s01.CWE89_SQL_Injection__connect_tcp_execute_01"
         testSingleJulietClass(className) { method ->
             val unitResolver = SingletonUnitResolver
-            val manager = TaintManager(graph, JIRTraits, unitResolver)
+            val manager = TaintManager(graph, unitResolver)
             manager.analyze(listOf(method), timeout = 30.seconds)
         }
     }
 
     @Test
-    fun `test bidirectional runner and other stuff`() {
+    fun `test bidirectional runner and other stuff`() = with(JIRTraits) {
         val className = "juliet.testcases.CWE89_SQL_Injection.s01.CWE89_SQL_Injection__Environment_executeBatch_51a"
         val clazz = cp.findClass(className)
         val badMethod = clazz.methods.single { it.name == "bad" }
         val unitResolver = ClassUnitResolver(true)
-        val manager = TaintManager(graph, JIRTraits, unitResolver, useBidiRunner = true)
+        val manager = TaintManager(graph, unitResolver, useBidiRunner = true)
         val sinks = manager.analyze(listOf(badMethod), timeout = 30.seconds)
         assertTrue(sinks.isNotEmpty())
         val sink = sinks.first()

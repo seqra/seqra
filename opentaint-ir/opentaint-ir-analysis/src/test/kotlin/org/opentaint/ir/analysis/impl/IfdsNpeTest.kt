@@ -181,9 +181,9 @@ class IfdsNpeTest : BaseAnalysisTest() {
         testOneMethod<NpeExamples>("nullAssignmentToCopy", emptyList())
     }
 
-    private fun findSinks(method: JIRMethod): List<TaintVulnerability<JIRMethod, JIRInst>> {
+    private fun findSinks(method: JIRMethod): List<TaintVulnerability<JIRMethod, JIRInst>> = with(JIRTraits) {
         val unitResolver = SingletonUnitResolver
-        val manager = NpeManager(graph, JIRTraits, unitResolver)
+        val manager = NpeManager(graph, unitResolver)
         return manager.analyze(listOf(method), timeout = 30.seconds)
     }
 

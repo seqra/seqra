@@ -40,9 +40,9 @@ import kotlin.time.TimeSource
 
 private val logger = mu.KotlinLogging.logger {}
 
+context(Traits<Method, Statement>)
 open class TaintManager<Method, Statement>(
     protected val graph: ApplicationGraph<Method, Statement>,
-    protected val traits: Traits<Method, Statement>,
     protected val unitResolver: UnitResolver<Method>,
     private val useBidiRunner: Boolean = false,
     private val getConfigForMethod: (ForwardTaintFlowFunctions<Method, Statement>.(Method) -> List<TaintConfigurationItem>?)? = null,
@@ -71,7 +71,7 @@ open class TaintManager<Method, Statement>(
                 unitResolver = unitResolver,
                 unit = unit,
                 { manager ->
-                    val analyzer = TaintAnalyzer(graph, traits, getConfigForMethod)
+                    val analyzer = TaintAnalyzer(graph, getConfigForMethod)
                     UniRunner(
                         graph = graph,
                         analyzer = analyzer,
@@ -82,7 +82,7 @@ open class TaintManager<Method, Statement>(
                     )
                 },
                 { manager ->
-                    val analyzer = BackwardTaintAnalyzer(graph, traits)
+                    val analyzer = BackwardTaintAnalyzer(graph)
                     UniRunner(
                         graph = graph.reversed,
                         analyzer = analyzer,
@@ -94,7 +94,7 @@ open class TaintManager<Method, Statement>(
                 }
             )
         } else {
-            val analyzer = TaintAnalyzer(graph, traits, getConfigForMethod)
+            val analyzer = TaintAnalyzer(graph, getConfigForMethod)
             UniRunner(
                 graph = graph,
                 analyzer = analyzer,

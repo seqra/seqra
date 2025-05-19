@@ -2,19 +2,17 @@ package org.opentaint.ir.analysis.npe
 
 import org.opentaint.ir.analysis.ifds.AccessPath
 import org.opentaint.ir.analysis.ifds.minus
-import org.opentaint.ir.analysis.ifds.toPathOrNull
 import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.analysis.util.startsWith
 import org.opentaint.ir.analysis.util.values
+import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRLengthExpr
 
-internal fun AccessPath?.isDereferencedAt(
-    expr: CommonExpr,
-    traits: Traits<*, *>,
-): Boolean {
+context(Traits<CommonMethod<*, *>, CommonInst<*, *>>)
+internal fun AccessPath?.isDereferencedAt(expr: CommonExpr): Boolean {
     if (this == null) {
         return false
     }
@@ -34,16 +32,14 @@ internal fun AccessPath?.isDereferencedAt(
     }
 
     return expr.values
-        .mapNotNull { traits.toPathOrNull(it) }
+        .mapNotNull { it.toPathOrNull() }
         .any {
             (it - this)?.isNotEmpty() == true
         }
 }
 
-internal fun AccessPath?.isDereferencedAt(
-    inst: CommonInst<*, *>,
-    traits: Traits<*, *>,
-): Boolean {
+context(Traits<CommonMethod<*, *>, CommonInst<*, *>>)
+internal fun AccessPath?.isDereferencedAt(inst: CommonInst<*, *>): Boolean {
     if (this == null) return false
-    return inst.operands.any { isDereferencedAt(it, traits) }
+    return inst.operands.any { isDereferencedAt(it) }
 }

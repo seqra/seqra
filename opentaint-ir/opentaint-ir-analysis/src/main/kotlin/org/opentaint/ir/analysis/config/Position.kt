@@ -22,22 +22,20 @@ import org.opentaint.ir.taint.configuration.Result
 import org.opentaint.ir.taint.configuration.ResultAnyElement
 import org.opentaint.ir.taint.configuration.This
 
+context(Traits<CommonMethod<*, *>, CommonInst<*, *>>)
 class CallPositionToAccessPathResolver(
     private val callStatement: CommonInst<*, *>,
-    private val traits: Traits<*, *>,
 ) : PositionResolver<Maybe<AccessPath>> {
     private val callExpr = callStatement.callExpr
         ?: error("Call statement should have non-null callExpr")
 
-    override fun resolve(position: Position): Maybe<AccessPath> = with(traits.scope) {
-        when (position) {
-            AnyArgument -> Maybe.none()
-            is Argument -> callExpr.args[position.index].toPathOrNull().toMaybe()
-            This -> (callExpr as? CommonInstanceCallExpr)?.instance?.toPathOrNull().toMaybe()
-            Result -> (callStatement as? CommonAssignInst)?.lhv?.toPathOrNull().toMaybe()
-            ResultAnyElement -> (callStatement as? CommonAssignInst)?.lhv?.toPathOrNull().toMaybe()
-                .fmap { it + ElementAccessor }
-        }
+    override fun resolve(position: Position): Maybe<AccessPath> = when (position) {
+        AnyArgument -> Maybe.none()
+        is Argument -> callExpr.args[position.index].toPathOrNull().toMaybe()
+        This -> (callExpr as? CommonInstanceCallExpr)?.instance?.toPathOrNull().toMaybe()
+        Result -> (callStatement as? CommonAssignInst)?.lhv?.toPathOrNull().toMaybe()
+        ResultAnyElement -> (callStatement as? CommonAssignInst)?.lhv?.toPathOrNull().toMaybe()
+            .fmap { it + ElementAccessor }
     }
 }
 
@@ -56,40 +54,36 @@ class CallPositionToValueResolver(
     }
 }
 
+context(Traits<CommonMethod<*, *>, CommonInst<*, *>>)
 class EntryPointPositionToValueResolver(
     private val method: CommonMethod<*, *>,
     private val cp: Project,
-    private val traits: Traits<*, *>,
 ) : PositionResolver<Maybe<CommonValue>> {
-    override fun resolve(position: Position): Maybe<CommonValue> = with(traits.scope) {
-        when (position) {
-            This -> Maybe.some(method.thisInstance)
+    override fun resolve(position: Position): Maybe<CommonValue> = when (position) {
+        This -> Maybe.some(method.thisInstance)
 
-            is Argument -> {
-                val p = method.parameters[position.index]
-                cp.getArgument(p).toMaybe()
-            }
-
-            AnyArgument, Result, ResultAnyElement -> error("Unexpected $position")
+        is Argument -> {
+            val p = method.parameters[position.index]
+            cp.getArgument(p).toMaybe()
         }
+
+        AnyArgument, Result, ResultAnyElement -> error("Unexpected $position")
     }
 }
 
+context(Traits<CommonMethod<*, *>, CommonInst<*, *>>)
 class EntryPointPositionToAccessPathResolver(
     private val method: CommonMethod<*, *>,
     private val cp: Project,
-    private val traits: Traits<*, *>,
 ) : PositionResolver<Maybe<AccessPath>> {
-    override fun resolve(position: Position): Maybe<AccessPath> = with(traits.scope) {
-        when (position) {
-            This -> method.thisInstance.toPathOrNull().toMaybe()
+    override fun resolve(position: Position): Maybe<AccessPath> = when (position) {
+        This -> method.thisInstance.toPathOrNull().toMaybe()
 
-            is Argument -> {
-                val p = method.parameters[position.index]
-                cp.getArgument(p)?.let { traits.toPathOrNull(it) }.toMaybe()
-            }
-
-            AnyArgument, Result, ResultAnyElement -> error("Unexpected $position")
+        is Argument -> {
+            val p = method.parameters[position.index]
+            cp.getArgument(p)?.toPathOrNull().toMaybe()
         }
+
+        AnyArgument, Result, ResultAnyElement -> error("Unexpected $position")
     }
 }
