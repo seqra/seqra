@@ -34,9 +34,6 @@ fun Project.getArgumentsOf(method: CommonMethod<*, *>): List<CommonArgument> {
     }
 }
 
-val JIRMethod.thisInstance: JIRThis
-    get() = JIRThis(enclosingClass.toType())
-
 fun JIRClasspath.getArgument(param: JIRParameter): JIRArgument? {
     val t = findTypeOrNull(param.type.typeName) ?: return null
     return JIRArgument.of(param.index, param.name, t)
