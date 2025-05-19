@@ -59,6 +59,7 @@ class TaintAnalyzer<Method, Statement>(
             // Determine whether 'edge.to' is a sink via config:
             val conditionEvaluator = FactAwareConditionEvaluator(
                 edge.to.fact,
+                traits,
                 CallPositionToValueResolver(edge.to.statement),
             )
             for (item in config.filterIsInstance<TaintMethodSink>()) {

@@ -2,6 +2,7 @@ package org.opentaint.ir.analysis.impl
 
 import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
 import org.opentaint.ir.analysis.unused.UnusedVariableManager
+import org.opentaint.ir.analysis.util.JIRTraits
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.api.jvm.ext.methods
 import org.opentaint.ir.impl.features.InMemoryHierarchy
@@ -44,7 +45,7 @@ class IfdsUnusedTest : BaseAnalysisTest() {
     fun `test on Juliet's CWE 563`(className: String) {
         testSingleJulietClass(className) { method ->
             val unitResolver = SingletonUnitResolver
-            val manager = UnusedVariableManager(graph, unitResolver)
+            val manager = UnusedVariableManager(graph, JIRTraits, unitResolver)
             manager.analyze(listOf(method), timeout = 30.seconds)
         }
     }
@@ -56,7 +57,7 @@ class IfdsUnusedTest : BaseAnalysisTest() {
         val clazz = cp.findClass(className)
         val badMethod = clazz.methods.single { it.name == "bad" }
         val unitResolver = SingletonUnitResolver
-        val manager = UnusedVariableManager(graph, unitResolver)
+        val manager = UnusedVariableManager(graph, JIRTraits, unitResolver)
         val sinks = manager.analyze(listOf(badMethod), timeout = 30.seconds)
         Assertions.assertTrue(sinks.isNotEmpty())
     }

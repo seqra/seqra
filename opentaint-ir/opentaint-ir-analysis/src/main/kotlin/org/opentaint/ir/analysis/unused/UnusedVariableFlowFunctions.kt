@@ -1,28 +1,35 @@
 package org.opentaint.ir.analysis.unused
 
+import org.opentaint.ir.analysis.ifds.AccessPath
 import org.opentaint.ir.analysis.ifds.FlowFunction
 import org.opentaint.ir.analysis.ifds.FlowFunctions
 import org.opentaint.ir.analysis.ifds.isOnHeap
-import org.opentaint.ir.analysis.ifds.toPath
-import org.opentaint.ir.analysis.ifds.toPathOrNull
+import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.analysis.util.getArgumentsOf
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.Project
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
+import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.common.ext.callExpr
 import org.opentaint.ir.api.jvm.cfg.JIRSpecialCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRStaticCallExpr
 
 class UnusedVariableFlowFunctions<Method, Statement>(
     private val graph: ApplicationGraph<Method, Statement>,
+    private val traits: Traits<Method, Statement>,
 ) : FlowFunctions<UnusedVariableDomainFact, Method, Statement>
     where Method : CommonMethod<Method, Statement>,
           Statement : CommonInst<Method, Statement> {
 
     private val cp: Project
         get() = graph.project
+
+    // TODO: inline
+    private fun CommonExpr.toPathOrNull(): AccessPath? = traits.toPathOrNull(this)
+    private fun CommonValue.toPath(): AccessPath = traits.toPath(this)
 
     override fun obtainPossibleStartFacts(
         method: Method,

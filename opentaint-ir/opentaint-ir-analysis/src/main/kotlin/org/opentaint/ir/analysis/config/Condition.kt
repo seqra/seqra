@@ -2,8 +2,8 @@ package org.opentaint.ir.analysis.config
 
 import org.opentaint.ir.analysis.ifds.Maybe
 import org.opentaint.ir.analysis.ifds.onSome
-import org.opentaint.ir.analysis.ifds.toPath
 import org.opentaint.ir.analysis.taint.Tainted
+import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.analysis.util.removeTrailingElementAccessors
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRType
@@ -146,13 +146,14 @@ open class BasicConditionEvaluator(
 
 class FactAwareConditionEvaluator(
     private val fact: Tainted,
+    private val traits: Traits<*, *>,
     positionResolver: PositionResolver<Maybe<CommonValue>>,
 ) : BasicConditionEvaluator(positionResolver) {
 
     override fun visit(condition: ContainsMark): Boolean {
         if (fact.mark != condition.mark) return false
         positionResolver.resolve(condition.position).onSome { value ->
-            val variable = value.toPath()
+            val variable = traits.toPath(value)
 
             // FIXME: Adhoc for arrays
             val variableWithoutStars = variable.removeTrailingElementAccessors()

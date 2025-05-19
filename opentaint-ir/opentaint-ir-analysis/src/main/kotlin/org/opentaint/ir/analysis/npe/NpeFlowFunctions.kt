@@ -7,16 +7,14 @@ import org.opentaint.ir.analysis.config.EntryPointPositionToAccessPathResolver
 import org.opentaint.ir.analysis.config.EntryPointPositionToValueResolver
 import org.opentaint.ir.analysis.config.FactAwareConditionEvaluator
 import org.opentaint.ir.analysis.config.TaintActionEvaluator
+import org.opentaint.ir.analysis.ifds.AccessPath
 import org.opentaint.ir.analysis.ifds.ElementAccessor
 import org.opentaint.ir.analysis.ifds.FlowFunction
 import org.opentaint.ir.analysis.ifds.FlowFunctions
-import org.opentaint.ir.analysis.ifds.JIRAccessPath
 import org.opentaint.ir.analysis.ifds.isOnHeap
 import org.opentaint.ir.analysis.ifds.isStatic
 import org.opentaint.ir.analysis.ifds.minus
 import org.opentaint.ir.analysis.ifds.onSome
-import org.opentaint.ir.analysis.ifds.toPath
-import org.opentaint.ir.analysis.ifds.toPathOrNull
 import org.opentaint.ir.analysis.taint.TaintDomainFact
 import org.opentaint.ir.analysis.taint.TaintZeroFact
 import org.opentaint.ir.analysis.taint.Tainted
@@ -27,6 +25,7 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.Project
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
+import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonThis
 import org.opentaint.ir.api.common.cfg.CommonValue
@@ -71,6 +70,12 @@ class ForwardNpeFlowFunctions<Method, Statement>(
 
     private val cp: Project
         get() = graph.project
+
+    // TODO: inline
+    private fun CommonExpr.toPathOrNull(): AccessPath? = traits.toPathOrNull(this)
+    private fun CommonValue.toPath(): AccessPath = traits.toPath(this)
+    private fun AccessPath?.isDereferencedAt(expr: CommonExpr): Boolean = isDereferencedAt(expr, traits)
+    private fun AccessPath?.isDereferencedAt(inst: CommonInst<*, *>): Boolean = isDereferencedAt(inst, traits)
 
     internal val taintConfigurationFeature: TaintConfigurationFeature? by lazy {
         val cp = cp
@@ -212,7 +217,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
         }
     }
 
-    private val JIRIfInst.pathComparedWithNull: JIRAccessPath?
+    private val JIRIfInst.pathComparedWithNull: AccessPath?
         get() {
             val expr = condition
             return if (expr.rhv is JIRNullConstant) {
@@ -390,8 +395,12 @@ class ForwardNpeFlowFunctions<Method, Statement>(
                 }
 
                 if (config != null) {
-                    val conditionEvaluator = BasicConditionEvaluator(CallPositionToValueResolver(callStatement))
-                    val actionEvaluator = TaintActionEvaluator(CallPositionToAccessPathResolver(callStatement))
+                    val conditionEvaluator = BasicConditionEvaluator(
+                        CallPositionToValueResolver(callStatement)
+                    )
+                    val actionEvaluator = TaintActionEvaluator(
+                        CallPositionToAccessPathResolver(callStatement, traits)
+                    )
 
                     // Handle MethodSource config items:
                     for (item in config.filterIsInstance<TaintMethodSource>()) {
@@ -418,8 +427,12 @@ class ForwardNpeFlowFunctions<Method, Statement>(
                 // Skip rules for StringBuilder::append in NPE analysis.
             } else {
                 val facts = mutableSetOf<Tainted>()
-                val conditionEvaluator = FactAwareConditionEvaluator(fact, CallPositionToValueResolver(callStatement))
-                val actionEvaluator = TaintActionEvaluator(CallPositionToAccessPathResolver(callStatement))
+                val conditionEvaluator = FactAwareConditionEvaluator(
+                    fact, traits, CallPositionToValueResolver(callStatement)
+                )
+                val actionEvaluator = TaintActionEvaluator(
+                    CallPositionToAccessPathResolver(callStatement, traits)
+                )
                 var defaultBehavior = true
 
                 // Handle PassThrough config items:

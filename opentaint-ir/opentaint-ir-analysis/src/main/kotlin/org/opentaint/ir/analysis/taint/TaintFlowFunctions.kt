@@ -7,6 +7,7 @@ import org.opentaint.ir.analysis.config.EntryPointPositionToAccessPathResolver
 import org.opentaint.ir.analysis.config.EntryPointPositionToValueResolver
 import org.opentaint.ir.analysis.config.FactAwareConditionEvaluator
 import org.opentaint.ir.analysis.config.TaintActionEvaluator
+import org.opentaint.ir.analysis.ifds.AccessPath
 import org.opentaint.ir.analysis.ifds.ElementAccessor
 import org.opentaint.ir.analysis.ifds.FlowFunction
 import org.opentaint.ir.analysis.ifds.FlowFunctions
@@ -14,8 +15,6 @@ import org.opentaint.ir.analysis.ifds.isOnHeap
 import org.opentaint.ir.analysis.ifds.isStatic
 import org.opentaint.ir.analysis.ifds.minus
 import org.opentaint.ir.analysis.ifds.onSome
-import org.opentaint.ir.analysis.ifds.toPath
-import org.opentaint.ir.analysis.ifds.toPathOrNull
 import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.analysis.util.getArgumentsOf
 import org.opentaint.ir.analysis.util.startsWith
@@ -67,6 +66,10 @@ class ForwardTaintFlowFunctions<Method, Statement>(
 
     private val cp: Project
         get() = graph.project
+
+    // TODO: inline
+    private fun CommonExpr.toPathOrNull(): AccessPath? = traits.toPathOrNull(this)
+    private fun CommonValue.toPath(): AccessPath = traits.toPath(this)
 
     internal val taintConfigurationFeature: TaintConfigurationFeature? by lazy {
         val cp = cp
@@ -244,8 +247,12 @@ class ForwardTaintFlowFunctions<Method, Statement>(
                 add(TaintZeroFact)
 
                 if (config != null) {
-                    val conditionEvaluator = BasicConditionEvaluator(CallPositionToValueResolver(callStatement))
-                    val actionEvaluator = TaintActionEvaluator(CallPositionToAccessPathResolver(callStatement))
+                    val conditionEvaluator = BasicConditionEvaluator(
+                        CallPositionToValueResolver(callStatement)
+                    )
+                    val actionEvaluator = TaintActionEvaluator(
+                        CallPositionToAccessPathResolver(callStatement, traits)
+                    )
 
                     // Handle MethodSource config items:
                     for (item in config.filterIsInstance<TaintMethodSource>()) {
@@ -266,8 +273,12 @@ class ForwardTaintFlowFunctions<Method, Statement>(
 
         if (config != null) {
             val facts = mutableSetOf<Tainted>()
-            val conditionEvaluator = FactAwareConditionEvaluator(fact, CallPositionToValueResolver(callStatement))
-            val actionEvaluator = TaintActionEvaluator(CallPositionToAccessPathResolver(callStatement))
+            val conditionEvaluator = FactAwareConditionEvaluator(
+                fact, traits, CallPositionToValueResolver(callStatement)
+            )
+            val actionEvaluator = TaintActionEvaluator(
+                CallPositionToAccessPathResolver(callStatement, traits)
+            )
             var defaultBehavior = true
 
             // Handle PassThrough config items:
@@ -470,6 +481,10 @@ class BackwardTaintFlowFunctions<Method, Statement>(
     private val cp: Project
         get() = graph.project
 
+    // TODO: inline
+    private fun CommonExpr.toPathOrNull(): AccessPath? = traits.toPathOrNull(this)
+    private fun CommonValue.toPath(): AccessPath = traits.toPath(this)
+
     override fun obtainPossibleStartFacts(
         method: Method,
     ): Collection<TaintDomainFact> {
@@ -481,7 +496,7 @@ class BackwardTaintFlowFunctions<Method, Statement>(
         from: CommonValue,
         to: CommonExpr,
     ): Collection<TaintDomainFact> {
-        val fromPath = from.toPath()
+        val fromPath = traits.toPath(from)
         val toPath = to.toPathOrNull()
 
         if (toPath != null) {

@@ -1,39 +1,20 @@
 package org.opentaint.ir.analysis.npe
 
-import org.opentaint.ir.analysis.ifds.CommonAccessPath
-import org.opentaint.ir.analysis.ifds.JIRAccessPath
+import org.opentaint.ir.analysis.ifds.AccessPath
 import org.opentaint.ir.analysis.ifds.minus
 import org.opentaint.ir.analysis.ifds.toPathOrNull
+import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.analysis.util.startsWith
+import org.opentaint.ir.analysis.util.values
 import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.jvm.cfg.JIRExpr
-import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRLengthExpr
-import org.opentaint.ir.api.jvm.cfg.values
 
-internal fun CommonAccessPath?.isDereferencedAt(expr: CommonExpr): Boolean {
-    if (this == null) {
-        return false
-    }
-    if (this is JIRAccessPath && expr is JIRExpr) {
-        return isDereferencedAt(expr)
-    }
-    error("Cannot check whether path $this is dereferenced at expr: $expr")
-}
-
-internal fun CommonAccessPath?.isDereferencedAt(inst: CommonInst<*, *>): Boolean {
-    if (this == null) {
-        return false
-    }
-    if (this is JIRAccessPath && inst is JIRInst) {
-        return isDereferencedAt(inst)
-    }
-    error("Cannot check whether path $this is dereferenced at inst: $inst")
-}
-
-internal fun JIRAccessPath?.isDereferencedAt(expr: JIRExpr): Boolean {
+internal fun AccessPath?.isDereferencedAt(
+    expr: CommonExpr,
+    traits: Traits<*, *>,
+): Boolean {
     if (this == null) {
         return false
     }
@@ -53,13 +34,16 @@ internal fun JIRAccessPath?.isDereferencedAt(expr: JIRExpr): Boolean {
     }
 
     return expr.values
-        .mapNotNull { it.toPathOrNull() }
+        .mapNotNull { traits.toPathOrNull(it) }
         .any {
             (it - this)?.isNotEmpty() == true
         }
 }
 
-internal fun JIRAccessPath?.isDereferencedAt(inst: JIRInst): Boolean {
+internal fun AccessPath?.isDereferencedAt(
+    inst: CommonInst<*, *>,
+    traits: Traits<*, *>,
+): Boolean {
     if (this == null) return false
-    return inst.operands.any { isDereferencedAt(it) }
+    return inst.operands.any { isDereferencedAt(it, traits) }
 }

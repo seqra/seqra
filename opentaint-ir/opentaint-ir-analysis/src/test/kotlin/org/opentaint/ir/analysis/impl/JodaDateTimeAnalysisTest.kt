@@ -67,7 +67,7 @@ class JodaDateTimeAnalysisTest : BaseTest() {
         val clazz = cp.findClass<DateTime>()
         val methods = clazz.declaredMethods
         val unitResolver = SingletonUnitResolver
-        val manager = UnusedVariableManager(graph, unitResolver)
+        val manager = UnusedVariableManager(graph, JIRTraits, unitResolver)
         val sinks = manager.analyze(methods, timeout = 60.seconds)
         logger.info { "Unused variables found: ${sinks.size}" }
     }

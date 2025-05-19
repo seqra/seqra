@@ -1,9 +1,8 @@
 package org.opentaint.ir.analysis.util
 
-import org.opentaint.ir.analysis.ifds.CommonAccessPath
+import org.opentaint.ir.analysis.ifds.AccessPath
 import org.opentaint.ir.analysis.ifds.Edge
 import org.opentaint.ir.analysis.ifds.ElementAccessor
-import org.opentaint.ir.analysis.ifds.JIRAccessPath
 import org.opentaint.ir.analysis.ifds.Runner
 import org.opentaint.ir.analysis.ifds.UniRunner
 import org.opentaint.ir.analysis.taint.TaintBidiRunner
@@ -35,22 +34,6 @@ fun Project.getArgumentsOf(method: CommonMethod<*, *>): List<CommonArgument> {
     }
 }
 
-fun CommonAccessPath?.startsWith(other: CommonAccessPath?): Boolean {
-    if (this == null || other == null) {
-        return false
-    }
-    if (this is JIRAccessPath && other is JIRAccessPath) {
-        return startsWith(other)
-    }
-    }
-    error("Cannot determine whether the path $this starts with other path: $other")
-}
-
-internal fun CommonAccessPath.removeTrailingElementAccessors(): CommonAccessPath = when (this) {
-    is JIRAccessPath -> removeTrailingElementAccessors()
-    else -> error("Cannot remove trailing element accessors for path: $this")
-}
-
 val JIRMethod.thisInstance: JIRThis
     get() = JIRThis(enclosingClass.toType())
 
@@ -63,7 +46,7 @@ fun JIRClasspath.getArgumentsOf(method: JIRMethod): List<JIRArgument> {
     return method.parameters.map { getArgument(it)!! }
 }
 
-fun JIRAccessPath?.startsWith(other: JIRAccessPath?): Boolean {
+fun AccessPath?.startsWith(other: AccessPath?): Boolean {
     if (this == null || other == null) {
         return false
     }
@@ -73,27 +56,12 @@ fun JIRAccessPath?.startsWith(other: JIRAccessPath?): Boolean {
     return this.accesses.take(other.accesses.size) == other.accesses
 }
 
-    if (this == null || other == null) {
-        return false
+internal fun AccessPath.removeTrailingElementAccessors(): AccessPath {
+    var index = accesses.size
+    while (index > 0 && accesses[index - 1] is ElementAccessor) {
+        index--
     }
-    if (this.value != other.value) {
-        return false
-    }
-    return this.accesses.take(other.accesses.size) == other.accesses
-}
-
-internal fun JIRAccessPath.removeTrailingElementAccessors(): JIRAccessPath {
-    val accesses = accesses.toMutableList()
-    while (accesses.lastOrNull() is ElementAccessor) {
-        accesses.removeLast()
-    }
-    return JIRAccessPath(value, accesses)
-}
-
-    val accesses = accesses.toMutableList()
-    while (accesses.lastOrNull() is ElementAccessor) {
-        accesses.removeLast()
-    }
+    return AccessPath(value, accesses.subList(0, index))
 }
 
 internal fun Runner<*, *, *>.getPathEdges(): Set<Edge<*, *, *>> = when (this) {
@@ -130,16 +98,14 @@ class CommonValueResolver : TypedCommonExprResolver<CommonValue>() {
     }
 }
 
-// TODO: consider renaming to "values"
-val CommonExpr.coreValues: Set<CommonValue>
+val CommonExpr.values: Set<CommonValue>
     get() {
         val resolver = CommonValueResolver()
         accept(resolver)
         return resolver.result
     }
 
-// TODO: consider renaming to "values"
-val CommonInst<*, *>.coreValues: Set<CommonValue>
+val CommonInst<*, *>.values: Set<CommonValue>
     get() {
         val resolver = CommonValueResolver()
         accept(resolver)

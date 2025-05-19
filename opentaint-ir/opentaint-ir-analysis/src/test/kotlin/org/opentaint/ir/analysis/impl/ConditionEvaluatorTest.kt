@@ -8,6 +8,7 @@ import org.opentaint.ir.analysis.ifds.Maybe
 import org.opentaint.ir.analysis.ifds.toMaybe
 import org.opentaint.ir.analysis.ifds.toPath
 import org.opentaint.ir.analysis.taint.Tainted
+import org.opentaint.ir.analysis.util.JIRTraits
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRPrimitiveType
 import org.opentaint.ir.api.jvm.JIRType
@@ -21,7 +22,6 @@ import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.taint.configuration.And
 import org.opentaint.ir.taint.configuration.AnnotationType
 import org.opentaint.ir.taint.configuration.Argument
-import org.opentaint.ir.taint.configuration.Condition
 import org.opentaint.ir.taint.configuration.ConditionVisitor
 import org.opentaint.ir.taint.configuration.ConstantBooleanValue
 import org.opentaint.ir.taint.configuration.ConstantEq
@@ -312,7 +312,7 @@ class ConditionEvaluatorTest {
     @Test
     fun `FactAwareConditionEvaluator supports ContainsMark`() {
         val fact = Tainted(intValue.toPath(), TaintMark("FOO"))
-        val factAwareEvaluator = FactAwareConditionEvaluator(fact, positionResolver)
+        val factAwareEvaluator = FactAwareConditionEvaluator(fact, JIRTraits, positionResolver)
         assertTrue(factAwareEvaluator.visit(ContainsMark(intArg, TaintMark("FOO"))))
         assertFalse(factAwareEvaluator.visit(ContainsMark(intArg, TaintMark("BAR"))))
         assertFalse(factAwareEvaluator.visit(ContainsMark(stringArg, TaintMark("FOO"))))
