@@ -4,6 +4,8 @@ import juliet.support.AbstractTestCase
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
 import org.opentaint.ir.analysis.ifds.Vulnerability
+import org.opentaint.ir.analysis.util.JIRTraits
+import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
@@ -23,7 +25,7 @@ import kotlin.streams.asStream
 
 private val logger = mu.KotlinLogging.logger {}
 
-abstract class BaseAnalysisTest : BaseTest() {
+abstract class BaseAnalysisTest : BaseTest(), Traits<JIRMethod, JIRInst> by JIRTraits {
 
     companion object : WithGlobalDB(UnknownClasses) {
 

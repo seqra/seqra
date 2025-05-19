@@ -1,17 +1,13 @@
 package org.opentaint.ir.analysis.impl
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
 import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
 import org.opentaint.ir.analysis.npe.NpeManager
 import org.opentaint.ir.analysis.taint.TaintManager
 import org.opentaint.ir.analysis.unused.UnusedVariableManager
-import org.opentaint.ir.analysis.util.JIRTraits
 import org.opentaint.ir.api.jvm.JIRClasspath
-import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.taint.configuration.TaintConfigurationFeature
-import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithGlobalDB
 import org.opentaint.ir.testing.allClasspath
 import org.joda.time.DateTime
@@ -20,7 +16,7 @@ import kotlin.time.Duration.Companion.seconds
 
 private val logger = mu.KotlinLogging.logger {}
 
-class JodaDateTimeAnalysisTest : BaseTest() {
+class JodaDateTimeAnalysisTest : BaseAnalysisTest() {
 
     companion object : WithGlobalDB()
 
@@ -36,14 +32,8 @@ class JodaDateTimeAnalysisTest : BaseTest() {
         }
     }
 
-    private val graph: JIRApplicationGraph by lazy {
-        runBlocking {
-            cp.newApplicationGraphForAnalysis()
-        }
-    }
-
     @Test
-    fun `test taint analysis`() = with(JIRTraits) {
+    fun `test taint analysis`() {
         val clazz = cp.findClass<DateTime>()
         val methods = clazz.declaredMethods
         val unitResolver = SingletonUnitResolver
@@ -53,7 +43,7 @@ class JodaDateTimeAnalysisTest : BaseTest() {
     }
 
     @Test
-    fun `test NPE analysis`() = with(JIRTraits) {
+    fun `test NPE analysis`() {
         val clazz = cp.findClass<DateTime>()
         val methods = clazz.declaredMethods
         val unitResolver = SingletonUnitResolver
@@ -63,7 +53,7 @@ class JodaDateTimeAnalysisTest : BaseTest() {
     }
 
     @Test
-    fun `test unused variables analysis`() = with(JIRTraits) {
+    fun `test unused variables analysis`() {
         val clazz = cp.findClass<DateTime>()
         val methods = clazz.declaredMethods
         val unitResolver = SingletonUnitResolver

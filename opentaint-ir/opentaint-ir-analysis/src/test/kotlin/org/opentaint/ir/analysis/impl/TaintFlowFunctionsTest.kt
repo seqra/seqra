@@ -7,6 +7,7 @@ import org.opentaint.ir.analysis.taint.ForwardTaintFlowFunctions
 import org.opentaint.ir.analysis.taint.TaintZeroFact
 import org.opentaint.ir.analysis.taint.Tainted
 import org.opentaint.ir.analysis.util.JIRTraits
+import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.analysis.util.getArgument
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClasspath
@@ -33,7 +34,7 @@ import org.opentaint.ir.testing.allClasspath
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
-class TaintFlowFunctionsTest : BaseTest() {
+class TaintFlowFunctionsTest : BaseTest(), Traits<JIRMethod, JIRInst> by JIRTraits {
 
     companion object : WithDB(Usages, InMemoryHierarchy)
 
@@ -80,7 +81,7 @@ class TaintFlowFunctionsTest : BaseTest() {
     }
 
     @Test
-    fun `test obtain start facts`() = with(JIRTraits) {
+    fun `test obtain start facts`() {
         val flowSpace = ForwardTaintFlowFunctions(graph)
         val facts = flowSpace.obtainPossibleStartFacts(testMethod).toList()
         val arg0 = cp.getArgument(testMethod.parameters[0])!!
@@ -89,7 +90,7 @@ class TaintFlowFunctionsTest : BaseTest() {
     }
 
     @Test
-    fun `test sequential flow function assign mark`() = with(JIRTraits) {
+    fun `test sequential flow function assign mark`() {
         // "x := y", where 'y' is tainted, should result in both 'x' and 'y' to be tainted
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
         val y: JIRLocal = JIRLocalVar(2, "y", stringType)
@@ -103,7 +104,7 @@ class TaintFlowFunctionsTest : BaseTest() {
     }
 
     @Test
-    fun `test call flow function assign mark`() = with(JIRTraits) {
+    fun `test call flow function assign mark`() {
         // "x := test(...)", where 'test' is a source, should result in 'x' to be tainted
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
         val callStatement = JIRAssignInst(location = mockk(), lhv = x, rhv = mockk<JIRCallExpr> {
@@ -117,7 +118,7 @@ class TaintFlowFunctionsTest : BaseTest() {
     }
 
     @Test
-    fun `test call flow function remove mark`() = with(JIRTraits) {
+    fun `test call flow function remove mark`() {
         // "test(x)", where 'x' is tainted, should result in 'x' NOT to be tainted
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
         val callStatement = JIRCallInst(location = mockk(), callExpr = mockk<JIRCallExpr> {
@@ -132,7 +133,7 @@ class TaintFlowFunctionsTest : BaseTest() {
     }
 
     @Test
-    fun `test call flow function copy mark`() = with(JIRTraits) {
+    fun `test call flow function copy mark`() {
         // "y := test(x)" should result in 'y' to be tainted only when 'x' is tainted
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
         val y: JIRLocal = JIRLocalVar(2, "y", stringType)
@@ -153,7 +154,7 @@ class TaintFlowFunctionsTest : BaseTest() {
     }
 
     @Test
-    fun `test call to start flow function`() = with(JIRTraits) {
+    fun `test call to start flow function`() {
         // "test(x)", where 'x' is tainted, should result in 'x' (formal argument of 'test') to be tainted
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
         val callStatement = JIRCallInst(location = mockk(), callExpr = mockk<JIRCallExpr> {
@@ -178,7 +179,7 @@ class TaintFlowFunctionsTest : BaseTest() {
     }
 
     @Test
-    fun `test exit flow function`() = with(JIRTraits) {
+    fun `test exit flow function`() {
         // "x := test()" + "return y", where 'y' is tainted, should result in 'x' to be tainted
         val x: JIRLocal = JIRLocalVar(1, "x", stringType)
         val callStatement = JIRAssignInst(location = mockk(), lhv = x, rhv = mockk<JIRCallExpr> {

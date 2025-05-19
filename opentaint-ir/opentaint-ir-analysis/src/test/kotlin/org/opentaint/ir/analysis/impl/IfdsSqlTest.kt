@@ -7,7 +7,6 @@ import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
 import org.opentaint.ir.analysis.sarif.sarifReportFromVulnerabilities
 import org.opentaint.ir.analysis.taint.TaintManager
 import org.opentaint.ir.analysis.taint.toSarif
-import org.opentaint.ir.analysis.util.JIRTraits
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.api.jvm.ext.methods
 import org.opentaint.ir.impl.features.InMemoryHierarchy
@@ -41,7 +40,7 @@ class IfdsSqlTest : BaseAnalysisTest() {
     }
 
     @Test
-    fun `simple SQL injection`() = with(JIRTraits) {
+    fun `simple SQL injection`() {
         val methodName = "bad"
         val method = cp.findClass<SqlInjectionExamples>().declaredMethods.single { it.name == methodName }
         val methods = listOf(method)
@@ -57,7 +56,7 @@ class IfdsSqlTest : BaseAnalysisTest() {
 
     @ParameterizedTest
     @MethodSource("provideClassesForJuliet89")
-    fun `test on Juliet's CWE 89`(className: String) = with(JIRTraits) {
+    fun `test on Juliet's CWE 89`(className: String) {
         testSingleJulietClass(className) { method ->
             val unitResolver = SingletonUnitResolver
             val manager = TaintManager(graph, unitResolver)
@@ -66,7 +65,7 @@ class IfdsSqlTest : BaseAnalysisTest() {
     }
 
     @Test
-    fun `test on specific Juliet instance`() = with(JIRTraits) {
+    fun `test on specific Juliet instance`() {
         val className = "juliet.testcases.CWE89_SQL_Injection.s01.CWE89_SQL_Injection__connect_tcp_execute_01"
         testSingleJulietClass(className) { method ->
             val unitResolver = SingletonUnitResolver
@@ -76,7 +75,7 @@ class IfdsSqlTest : BaseAnalysisTest() {
     }
 
     @Test
-    fun `test bidirectional runner and other stuff`() = with(JIRTraits) {
+    fun `test bidirectional runner and other stuff`() {
         val className = "juliet.testcases.CWE89_SQL_Injection.s01.CWE89_SQL_Injection__Environment_executeBatch_51a"
         val clazz = cp.findClass(className)
         val badMethod = clazz.methods.single { it.name == "bad" }

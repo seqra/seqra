@@ -8,12 +8,15 @@ import org.opentaint.ir.analysis.ifds.Maybe
 import org.opentaint.ir.analysis.ifds.toMaybe
 import org.opentaint.ir.analysis.taint.Tainted
 import org.opentaint.ir.analysis.util.JIRTraits
+import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRPrimitiveType
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.PredefinedPrimitive
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
 import org.opentaint.ir.api.jvm.cfg.JIRBool
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInt
 import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRThis
@@ -45,7 +48,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class ConditionEvaluatorTest {
+class ConditionEvaluatorTest : Traits<JIRMethod, JIRInst> by JIRTraits {
 
     private val cp = mockk<JIRClasspath>()
 
@@ -309,7 +312,7 @@ class ConditionEvaluatorTest {
     }
 
     @Test
-    fun `FactAwareConditionEvaluator supports ContainsMark`() = with(JIRTraits) {
+    fun `FactAwareConditionEvaluator supports ContainsMark`() {
         val fact = Tainted(intValue.toPath(), TaintMark("FOO"))
         val factAwareEvaluator = FactAwareConditionEvaluator(fact, positionResolver)
         assertTrue(factAwareEvaluator.visit(ContainsMark(intArg, TaintMark("FOO"))))
