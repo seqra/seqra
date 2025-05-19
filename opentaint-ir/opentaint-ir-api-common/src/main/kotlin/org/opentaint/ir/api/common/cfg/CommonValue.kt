@@ -1,6 +1,6 @@
 package org.opentaint.ir.api.common.cfg
 
-import org.opentaint.ir.api.common.CommonTypedField
+import org.opentaint.ir.api.common.CommonClassField
 
 interface CommonValue : CommonExpr {
     interface Visitor<out T> {
@@ -28,7 +28,7 @@ interface CommonArgument : CommonValue {
 
 interface CommonFieldRef : CommonValue {
     val instance: CommonValue?
-    val field: CommonTypedField
+    val classField: CommonClassField
 }
 
 interface CommonArrayAccess : CommonValue {

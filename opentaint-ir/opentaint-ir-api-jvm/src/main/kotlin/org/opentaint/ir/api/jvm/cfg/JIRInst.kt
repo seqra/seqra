@@ -1,5 +1,6 @@
 package org.opentaint.ir.api.jvm.cfg
 
+import org.opentaint.ir.api.common.CommonClassField
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonArgument
 import org.opentaint.ir.api.common.cfg.CommonArrayAccess
@@ -884,7 +885,7 @@ interface JIRComplexValue : JIRValue
 
 data class JIRFieldRef(
     override val instance: JIRValue?,
-    override val field: JIRTypedField,
+    val field: JIRTypedField,
 ) : JIRComplexValue, CommonFieldRef {
 
     override val type: JIRType
@@ -892,6 +893,9 @@ data class JIRFieldRef(
 
     override val operands: List<JIRValue>
         get() = instance?.let { listOf(it) }.orEmpty()
+
+    override val classField: CommonClassField
+        get() = this.field.field
 
     override fun toString(): String = "${instance ?: field.enclosingType.typeName}.${field.name}"
 
