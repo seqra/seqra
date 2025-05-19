@@ -165,29 +165,17 @@ fun JIRValue.toPath(): JIRAccessPath {
 
     companion object {
 
-        //     require(field.isStatic) { "Expected static field" }
-        //     return JIRAccessPath(null, listOf(FieldAccessor(field)))
-        // }
+            // require(field.isStatic) { "Expected static field" }
+        }
     }
 }
 
     else -> null
 }
 
-    //     array.toPathOrNull()?.let {
-    //         it + ElementAccessor
-    //     }
-    // }
+    }
 
-    //     val instance = instance
-    //     if (instance == null) {
-    //         JIRAccessPath.from(field.field)
-    //     } else {
-    //         instance.toPathOrNull()?.let {
-    //             it + FieldAccessor(field.field)
-    //         }
-    //     }
-    // }
+    }
 
     else -> null
 }
