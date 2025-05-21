@@ -2,6 +2,7 @@ package org.opentaint.ir.analysis.util
 
 import org.opentaint.ir.analysis.ifds.AccessPath
 import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonThis
@@ -20,5 +21,7 @@ interface Traits<out Method, out Statement>
     fun CommonExpr.toPathOrNull(): AccessPath?
     fun CommonValue.toPathOrNull(): AccessPath?
     fun CommonValue.toPath(): AccessPath
+
+    val CommonCallExpr.callee: CommonMethod<*, *>
 
 }

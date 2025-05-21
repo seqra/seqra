@@ -4,10 +4,12 @@ import org.opentaint.ir.analysis.ifds.AccessPath
 import org.opentaint.ir.analysis.ifds.ElementAccessor
 import org.opentaint.ir.analysis.ifds.FieldAccessor
 import org.opentaint.ir.analysis.util.toPathOrNull
+import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
+import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
 import org.opentaint.ir.api.jvm.cfg.JIRExpr
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
@@ -16,6 +18,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRSimpleValue
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.toType
+import org.opentaint.ir.analysis.util.callee as _callee
 import org.opentaint.ir.analysis.util.thisInstance as _thisInstance
 import org.opentaint.ir.analysis.util.toPath as _toPath
 import org.opentaint.ir.analysis.util.toPathOrNull as _toPathOrNull
@@ -43,10 +46,19 @@ object JIRTraits : Traits<JIRMethod, JIRInst> {
         check(this is JIRValue)
         return _toPath()
     }
+
+    override val CommonCallExpr.callee: JIRMethod
+        get() {
+            check(this is JIRCallExpr)
+            return _callee
+        }
 }
 
 val JIRMethod.thisInstance: JIRThis
     get() = JIRThis(enclosingClass.toType())
+
+val JIRCallExpr.callee: JIRMethod
+    get() = method.method
 
 fun JIRExpr.toPathOrNull(): AccessPath? = when (this) {
     is JIRValue -> toPathOrNull()

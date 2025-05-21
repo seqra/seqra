@@ -639,10 +639,8 @@ data class JIRInstanceOfExpr(
 
 interface JIRCallExpr : JIRExpr, CommonCallExpr {
     val method: JIRTypedMethod
-    override val args: List<JIRValue>
 
-    override val callee: JIRMethod
-        get() = method.method
+    override val args: List<JIRValue>
 
     override val type: JIRType
         get() = method.returnType

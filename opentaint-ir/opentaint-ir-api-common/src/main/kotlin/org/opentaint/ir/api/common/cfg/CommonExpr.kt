@@ -1,6 +1,5 @@
 package org.opentaint.ir.api.common.cfg
 
-import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.CommonType
 
 interface CommonExpr {
@@ -33,7 +32,7 @@ interface CommonExpr {
 
 interface CommonCallExpr : CommonExpr {
     // val method: CommonTypedMethod<*, *>
-    val callee: CommonMethod<*, *>
+    // val callee: CommonMethod<*, *>
     val args: List<CommonValue>
 
     // override val type: CommonType
