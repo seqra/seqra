@@ -2,7 +2,6 @@ package org.opentaint.ir.api.jvm
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
-import org.opentaint.ir.api.common.CommonClass
 import org.opentaint.ir.api.common.Project
 import org.opentaint.ir.api.jvm.cfg.JIRGraph
 import org.opentaint.ir.api.jvm.cfg.JIRInst
@@ -48,11 +47,6 @@ interface JIRClasspath : Closeable, Project {
      * @return class or interface or null if there is no such class found in locations
      */
     override fun findTypeOrNull(name: String): JIRType?
-
-    override fun typeOf(clazz: CommonClass): JIRClassType {
-        check(clazz is JIRClassOrInterface)
-        return classTypeOf(clazz)
-    }
 
     fun classTypeOf(
         jIRClass: JIRClassOrInterface,
