@@ -25,7 +25,7 @@ interface Traits<out Method, out Statement>
     fun CommonValue.toPathOrNull(): AccessPath?
     fun CommonValue.toPath(): AccessPath
 
-    val CommonCallExpr.callee: CommonMethod<*, *>
+    val CommonCallExpr.callee: Method
 
     fun Project.getArgument(param: CommonMethodParameter): CommonArgument?
     fun Project.getArgumentsOf(method: @UnsafeVariance Method): List<CommonArgument>
