@@ -3,11 +3,17 @@ package org.opentaint.ir.analysis.util
 import org.opentaint.ir.analysis.ifds.AccessPath
 import org.opentaint.ir.analysis.ifds.ElementAccessor
 import org.opentaint.ir.analysis.ifds.FieldAccessor
+import org.opentaint.ir.analysis.util.getArgument
 import org.opentaint.ir.analysis.util.toPathOrNull
+import org.opentaint.ir.api.common.CommonMethodParameter
+import org.opentaint.ir.api.common.Project
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.api.common.cfg.CommonValue
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRParameter
+import org.opentaint.ir.api.jvm.cfg.JIRArgument
 import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
@@ -19,6 +25,8 @@ import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.analysis.util.callee as _callee
+import org.opentaint.ir.analysis.util.getArgument as _getArgument
+import org.opentaint.ir.analysis.util.getArgumentsOf as _getArgumentsOf
 import org.opentaint.ir.analysis.util.thisInstance as _thisInstance
 import org.opentaint.ir.analysis.util.toPath as _toPath
 import org.opentaint.ir.analysis.util.toPathOrNull as _toPathOrNull
@@ -52,6 +60,17 @@ object JIRTraits : Traits<JIRMethod, JIRInst> {
             check(this is JIRCallExpr)
             return _callee
         }
+
+    override fun Project.getArgument(param: CommonMethodParameter): JIRArgument? {
+        check(this is JIRClasspath)
+        check(param is JIRParameter)
+        return _getArgument(param)
+    }
+
+    override fun Project.getArgumentsOf(method: JIRMethod): List<JIRArgument> {
+        check(this is JIRClasspath)
+        return _getArgumentsOf(method)
+    }
 }
 
 val JIRMethod.thisInstance: JIRThis
@@ -92,4 +111,13 @@ fun JIRValue.toPathOrNull(): AccessPath? = when (this) {
 
 fun JIRValue.toPath(): AccessPath {
     return toPathOrNull() ?: error("Unable to build access path for value $this")
+}
+
+fun JIRClasspath.getArgument(param: JIRParameter): JIRArgument? {
+    val t = findTypeOrNull(param.type.typeName) ?: return null
+    return JIRArgument.of(param.index, param.name, t)
+}
+
+fun JIRClasspath.getArgumentsOf(method: JIRMethod): List<JIRArgument> {
+    return method.parameters.map { getArgument(it)!! }
 }
