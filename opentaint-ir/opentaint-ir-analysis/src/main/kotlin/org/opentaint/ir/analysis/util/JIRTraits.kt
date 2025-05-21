@@ -31,7 +31,20 @@ import org.opentaint.ir.analysis.util.thisInstance as _thisInstance
 import org.opentaint.ir.analysis.util.toPath as _toPath
 import org.opentaint.ir.analysis.util.toPathOrNull as _toPathOrNull
 
-object JIRTraits : Traits<JIRMethod, JIRInst> {
+// Ensure that all methods are default-implemented in the interface itself:
+private object JIRTraitsImpl : JIRTraits
+
+/**
+ * JVM-specific extensions for analysis.
+ *
+ * ### Usage:
+ * ```
+ * class MyClass {
+ *     companion object : JIRTraits
+ * }
+ * ```
+ */
+interface JIRTraits : Traits<JIRMethod, JIRInst> {
 
     override val JIRMethod.thisInstance: JIRThis
         get() = _thisInstance

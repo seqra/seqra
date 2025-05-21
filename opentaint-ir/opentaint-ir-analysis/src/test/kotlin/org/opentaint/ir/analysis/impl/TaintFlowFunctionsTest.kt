@@ -7,7 +7,6 @@ import org.opentaint.ir.analysis.taint.ForwardTaintFlowFunctions
 import org.opentaint.ir.analysis.taint.TaintZeroFact
 import org.opentaint.ir.analysis.taint.Tainted
 import org.opentaint.ir.analysis.util.JIRTraits
-import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -34,9 +33,9 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.analysis.util.getArgument as _getArgument
 
-class TaintFlowFunctionsTest : BaseTest(), Traits<JIRMethod, JIRInst> by JIRTraits {
+class TaintFlowFunctionsTest : BaseTest() {
 
-    companion object : WithDB(Usages, InMemoryHierarchy)
+    companion object : WithDB(Usages, InMemoryHierarchy), JIRTraits
 
     override val cp: JIRClasspath = runBlocking {
         val configFileName = "config_test.json"
