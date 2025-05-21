@@ -8,7 +8,6 @@ import org.opentaint.ir.analysis.taint.TaintZeroFact
 import org.opentaint.ir.analysis.taint.Tainted
 import org.opentaint.ir.analysis.util.JIRTraits
 import org.opentaint.ir.analysis.util.Traits
-import org.opentaint.ir.analysis.util.getArgument
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -33,6 +32,7 @@ import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.allClasspath
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import org.opentaint.ir.analysis.util.getArgument as _getArgument
 
 class TaintFlowFunctionsTest : BaseTest(), Traits<JIRMethod, JIRInst> by JIRTraits {
 
@@ -168,7 +168,7 @@ class TaintFlowFunctionsTest : BaseTest(), Traits<JIRMethod, JIRInst> by JIRTrai
             }
         })
         val xTaint = Tainted(x.toPath(), TaintMark("TAINT"))
-        val arg0: JIRArgument = cp.getArgument(testMethod.parameters[0])!!
+        val arg0: JIRArgument = cp._getArgument(testMethod.parameters[0])!!
         val arg0Taint = Tainted(arg0.toPath(), TaintMark("TAINT"))
         val facts = f.compute(xTaint).toList()
         Assertions.assertEquals(listOf(arg0Taint), facts)
