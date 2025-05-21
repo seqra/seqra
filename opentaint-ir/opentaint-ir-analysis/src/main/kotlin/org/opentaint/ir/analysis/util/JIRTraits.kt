@@ -31,9 +31,6 @@ import org.opentaint.ir.analysis.util.thisInstance as _thisInstance
 import org.opentaint.ir.analysis.util.toPath as _toPath
 import org.opentaint.ir.analysis.util.toPathOrNull as _toPathOrNull
 
-// Ensure that all methods are default-implemented in the interface itself:
-private object JIRTraitsImpl : JIRTraits
-
 /**
  * JVM-specific extensions for analysis.
  *
@@ -84,6 +81,9 @@ interface JIRTraits : Traits<JIRMethod, JIRInst> {
         check(this is JIRClasspath)
         return _getArgumentsOf(method)
     }
+
+    // Ensure that all methods are default-implemented in the interface itself:
+    companion object : JIRTraits
 }
 
 val JIRMethod.thisInstance: JIRThis
