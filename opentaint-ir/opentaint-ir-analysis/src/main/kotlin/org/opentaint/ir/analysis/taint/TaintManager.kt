@@ -62,7 +62,10 @@ open class TaintManager<Method, Statement>(
     protected open fun newRunner(
         unit: UnitType,
     ): TaintRunner<Method, Statement> {
-        check(unit !in runnerForUnit) { "Runner for $unit already exists" }
+        // check(unit !in runnerForUnit) { "Runner for $unit already exists" }
+        if (unit in runnerForUnit) {
+            return runnerForUnit[unit]!!
+        }
 
         logger.debug { "Creating a new runner for $unit" }
         val runner = if (useBidiRunner) {
