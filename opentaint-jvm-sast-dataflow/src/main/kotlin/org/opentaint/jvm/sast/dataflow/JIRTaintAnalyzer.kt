@@ -1,15 +1,14 @@
 package org.opentaint.api.checkers
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.analysis.engine.PackageUnitResolver
-import org.opentaint.ir.analysis.engine.UnitResolver
+import org.opentaint.ir.analysis.graph.JIRApplicationGraphImpl
 import org.opentaint.ir.analysis.graph.defaultBannedPackagePrefixes
-import org.opentaint.ir.analysis.graph.newApplicationGraphForAnalysis
-import org.opentaint.ir.analysis.ifds2.TraceGraph
-import org.opentaint.ir.analysis.ifds2.Vertex
-import org.opentaint.ir.analysis.ifds2.taint.TaintFact
-import org.opentaint.ir.analysis.ifds2.taint.TaintManager
-import org.opentaint.ir.analysis.ifds2.taint.Vulnerability
+import org.opentaint.ir.analysis.ifds.PackageUnitResolver
+import org.opentaint.ir.analysis.ifds.TraceGraph
+import org.opentaint.ir.analysis.ifds.UnitResolver
+import org.opentaint.ir.analysis.ifds.Vertex
+import org.opentaint.ir.analysis.taint.TaintDomainFact
+import org.opentaint.ir.analysis.taint.TaintVulnerability
 import org.opentaint.ir.api.JIRClasspath
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.RegisteredLocation
@@ -17,6 +16,8 @@ import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.ext.findClass
 import org.opentaint.ir.api.ext.isSubClassOf
 import org.opentaint.ir.approximation.JIREnrichedVirtualMethod
+import org.opentaint.ir.impl.features.hierarchyExt
+import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.ir.taint.configuration.ConstantTrue
 import org.opentaint.ir.taint.configuration.TaintMethodSink
 import org.opentaint.ir.taint.configuration.TaintPassThrough
@@ -43,29 +44,34 @@ class JIRTaintAnalyzer(
     val analysisCwe: Set<Int>?,
     val analysisUnit: UnitResolver = PackageUnitResolver
 ) {
-
     private val ifdsAnalysisGraph by lazy {
-        runBlocking {
-            // todo: ban dependencies?
-            cp.newApplicationGraphForAnalysis(bannedPackagePrefixes = defaultBannedPackagePrefixes)
-        }
+        val usages = runBlocking { cp.usagesExt() }
+        val hierarchy = runBlocking { cp.hierarchyExt() }
+
+        val mainGraph = JIRApplicationGraphImpl(cp, usages)
+        JIRSimplifiedApplicationGraph(
+            mainGraph, hierarchy,
+            bannedLocations = dependenciesLocations,
+            bannedPackagePrefixes = defaultBannedPackagePrefixes
+        )
     }
 
     private val taintConfig by lazy { taintConfig() }
 
     data class IfdsVulnerablity(
-        val vulnerability: Vulnerability,
-        val traceGraph: TraceGraph<TaintFact>,
+        val vulnerability: TaintVulnerability,
+        val entryPoints: Set<JIRMethod>,
+        val traceGraph: TraceGraph<TaintDomainFact>,
     )
 
     private lateinit var ifdsTraces: List<IfdsVulnerablity>
 
-    fun analyzeWithIfds(entrypoints: List<JIRMethod>): List<ReachedSink> {
-        ifdsTraces = analyzeTaintWithIfdsEngine(entrypoints)
+    fun analyzeWithIfds(entryPoints: List<JIRMethod>): List<ReachedSink> {
+        ifdsTraces = analyzeTaintWithIfdsEngine(entryPoints)
         return ifdsReachedSinks(ifdsTraces)
     }
 
-    fun analyzeWithOpentaint(entrypoints: List<JIRMethod>): List<ReachedSink> {
+    fun analyzeWithOpentaint(entryPoints: List<JIRMethod>): List<ReachedSink> {
         val options = UMachineOptions(
             pathSelectionStrategies = listOf(
                 PathSelectionStrategy.DFS,
@@ -96,17 +102,17 @@ class JIRTaintAnalyzer(
         val taintAnalysis = TaintAnalysis(taintConfig)
 
         JIRMachine(cp, options, jirOptions, interpreterObserver = taintAnalysis).use { machine ->
-            machine.analyze(entrypoints)
+            machine.analyze(entryPoints)
         }
 
         return taintAnalysis.reachedSinks()
     }
 
-    fun filterIfdsTracesWithOpentaint(entrypoints: List<JIRMethod>): List<ReachedSink> {
+    fun filterIfdsTracesWithOpentaint(entryPoints: List<JIRMethod>): List<ReachedSink> {
         check(this::ifdsTraces.isInitialized) { "No ifds traces" }
 
-        val targets = buildTargetsFromIfdsTraces(ifdsTraces, entrypoints.toSet())
-        val entrypointsWithTargets = targets.keys.toList()
+        val targets = buildTargetsFromIfdsTraces(ifdsTraces, entryPoints.toSet())
+        val entryPointsWithTargets = targets.keys.toList()
 
         val options = UMachineOptions(
             pathSelectionStrategies = listOf(
@@ -143,7 +149,7 @@ class JIRTaintAnalyzer(
         logger.debug { targets.printActiveTargets() }
 
         JIRMachine(cp, options, jirOptions, taintAnalysis).use { machine ->
-            machine.analyze(entrypointsWithTargets) { ep -> targets[ep] ?: emptyList() }
+            machine.analyze(entryPointsWithTargets) { ep -> targets[ep] ?: emptyList() }
         }
 
         logger.debug { targets.printActiveTargets() }
@@ -152,20 +158,23 @@ class JIRTaintAnalyzer(
     }
 
     private fun analyzeTaintWithIfdsEngine(
-        entrypoints: List<JIRMethod>,
+        entryPoints: List<JIRMethod>,
     ): List<IfdsVulnerablity> {
-        val ifdsEngine = TaintManager(ifdsAnalysisGraph, analysisUnit, timeout = 10.minutes)
-        val allVulnerabilities = ifdsEngine.analyze(entrypoints)
+        val ifdsEngine = JIRIfdsTaintAnalyzer(ifdsAnalysisGraph, analysisUnit)
+        val allVulnerabilities = ifdsEngine.analyze(entryPoints, timeout = 10.minutes)
 
         // todo: IFDS cwe config
         val vulnerabilities = analysisCwe?.let { cwe ->
             allVulnerabilities.filter {
-                val rule = it.first.rule ?: error("No rule")
+                val rule = it.rule ?: error("No rule")
                 rule.cwe.intersect(cwe).isNotEmpty()
             }
         } ?: allVulnerabilities
 
-        return vulnerabilities.map { IfdsVulnerablity(it.first, it.second) }
+        return vulnerabilities.map {
+            val traceGraphWithEntryPoints = ifdsEngine.vulnerabilityTraceGraphWithEntryPoints(it)
+            IfdsVulnerablity(it, traceGraphWithEntryPoints.entryPoints, traceGraphWithEntryPoints.graph)
+        }
     }
 
     private fun buildTargetsFromIfdsTraces(
@@ -174,10 +183,10 @@ class JIRTaintAnalyzer(
     ): Map<JIRMethod, List<TaintAnalysis.TaintTarget>> {
         val result = hashMapOf<JIRMethod, MutableList<TaintAnalysis.TaintTarget>>()
         for (instance in instances) {
-            val entrypoints = instance.entrypoints()
+            val entryPoints = instance.entryPoints()
             val targets = resolveIfdsTraceTargets(instance)
 
-            for (entrypoint in entrypoints) {
+            for (entrypoint in entryPoints) {
                 check(entrypoint in possibleEp) { "Unexpected EP: $entrypoint" }
                 result.getOrPut(entrypoint) { mutableListOf() } += targets
             }
@@ -187,16 +196,20 @@ class JIRTaintAnalyzer(
 
     private fun resolveIfdsTraceTargets(instance: IfdsVulnerablity): Set<TaintAnalysis.TaintTarget> {
         val initialTargets = hashSetOf<TaintAnalysis.TaintTarget>()
-        val resolvedTargets = hashMapOf<Vertex<TaintFact>, TaintAnalysis.TaintTarget>()
+        val resolvedTargets = hashMapOf<Vertex<TaintDomainFact>, TaintAnalysis.TaintTarget>()
 
-        val vertexPredecessors = hashMapOf<Vertex<TaintFact>, MutableSet<Vertex<TaintFact>>>()
+        val vertexPredecessors = hashMapOf<Vertex<TaintDomainFact>, MutableSet<Vertex<TaintDomainFact>>>()
         for ((vertex, successors) in instance.traceGraph.edges) {
             successors.forEach { succ ->
                 vertexPredecessors.getOrPut(succ) { hashSetOf() }.add(vertex)
             }
         }
 
-        fun dfs(vertex: Vertex<TaintFact>, prevTarget: TaintAnalysis.TaintTarget, path: MutableSet<Vertex<TaintFact>>) {
+        fun dfs(
+            vertex: Vertex<TaintDomainFact>,
+            prevTarget: TaintAnalysis.TaintTarget,
+            path: MutableSet<Vertex<TaintDomainFact>>
+        ) {
             val target = resolveVertexTarget(vertex, resolvedTargets)
 
             // todo: remove hack with locations
@@ -242,23 +255,21 @@ class JIRTaintAnalyzer(
     }
 
     private fun resolveVertexTarget(
-        vertex: Vertex<TaintFact>,
-        cache: MutableMap<Vertex<TaintFact>, TaintAnalysis.TaintTarget>,
+        vertex: Vertex<TaintDomainFact>,
+        cache: MutableMap<Vertex<TaintDomainFact>, TaintAnalysis.TaintTarget>,
     ): TaintAnalysis.TaintTarget = cache.getOrPut(vertex) {
         TaintAnalysis.TaintIntermediateTarget(resolveLocationInst(vertex))
     }
 
-    private fun IfdsVulnerablity.entrypoints(): Set<JIRMethod> {
-        val entrypoints = traceGraph.entryPoints.mapTo(hashSetOf()) { it.method }
-
-        if (entrypoints.size > 1) {
-            logger.warn { "Possibly wrong entrypoints: $entrypoints" }
+    private fun IfdsVulnerablity.entryPoints(): Set<JIRMethod> {
+        if (entryPoints.size > 1) {
+            logger.warn { "Possibly wrong entry points: $entryPoints" }
         }
 
-        return entrypoints
+        return entryPoints
     }
 
-    private fun resolveLocationInst(vertex: Vertex<TaintFact>): JIRInst {
+    private fun resolveLocationInst(vertex: Vertex<TaintDomainFact>): JIRInst {
         if (vertex.statement in vertex.method.instList) {
             return vertex.statement
         }
@@ -297,7 +308,7 @@ class JIRTaintAnalyzer(
 
     private fun ifdsReachedSinks(instances: List<IfdsVulnerablity>): List<ReachedSink> =
         instances.flatMap {
-            it.entrypoints().map { ep ->
+            it.entryPoints().map { ep ->
                 ReachedSink(
                     entrypoint = ep,
                     sinkLocation = it.vulnerability.sink.statement,
