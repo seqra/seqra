@@ -1,5 +1,6 @@
 package org.opentaint.api.checkers
 
+import io.github.detekt.sarif4k.SarifSchema210
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.analysis.graph.JIRApplicationGraphImpl
 import org.opentaint.ir.analysis.graph.defaultBannedPackagePrefixes
@@ -7,6 +8,9 @@ import org.opentaint.ir.analysis.ifds.PackageUnitResolver
 import org.opentaint.ir.analysis.ifds.TraceGraph
 import org.opentaint.ir.analysis.ifds.UnitResolver
 import org.opentaint.ir.analysis.ifds.Vertex
+import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
+import org.opentaint.ir.analysis.sarif.VulnerabilityInstance
+import org.opentaint.ir.analysis.sarif.sarifReportFromVulnerabilities
 import org.opentaint.ir.analysis.taint.TaintDomainFact
 import org.opentaint.ir.analysis.taint.TaintVulnerability
 import org.opentaint.ir.api.JIRClasspath
@@ -33,6 +37,7 @@ import org.opentaint.api.targets.TaintConfigurationProvider
 import org.opentaint.logger
 import org.opentaint.machine.JIRMachine
 import org.opentaint.machine.JIRMachineOptions
+import java.util.IdentityHashMap
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
@@ -64,7 +69,10 @@ class JIRTaintAnalyzer(
         val traceGraph: TraceGraph<TaintDomainFact>,
     )
 
+    private val opentaintTargetMapping = IdentityHashMap<TaintAnalysis.TaintMethodSinkTarget, IfdsVulnerablity>()
+
     private lateinit var ifdsTraces: List<IfdsVulnerablity>
+    private lateinit var verifiedIfdsTraces: List<IfdsVulnerablity>
 
     fun analyzeWithIfds(entryPoints: List<JIRMethod>): List<ReachedSink> {
         ifdsTraces = analyzeTaintWithIfdsEngine(entryPoints)
@@ -101,8 +109,10 @@ class JIRTaintAnalyzer(
 
         val taintAnalysis = TaintAnalysis(taintConfig)
 
-        JIRMachine(cp, options, jirOptions, interpreterObserver = taintAnalysis).use { machine ->
-            machine.analyze(entryPoints)
+        if (entryPoints.isNotEmpty()) {
+            JIRMachine(cp, options, jirOptions, interpreterObserver = taintAnalysis).use { machine ->
+                machine.analyze(entryPoints)
+            }
         }
 
         return taintAnalysis.reachedSinks()
@@ -146,15 +156,36 @@ class JIRTaintAnalyzer(
         val taintAnalysis = TaintAnalysis(taintConfig)
         targets.values.forEach { tgts -> tgts.forEach { taintAnalysis.addTarget(it) } }
 
-        logger.debug { targets.printActiveTargets() }
-
-        JIRMachine(cp, options, jirOptions, taintAnalysis).use { machine ->
-            machine.analyze(entryPointsWithTargets) { ep -> targets[ep] ?: emptyList() }
+        if (entryPointsWithTargets.isNotEmpty()) {
+            JIRMachine(cp, options, jirOptions, taintAnalysis).use { machine ->
+                logger.debug { targets.printActiveTargets() }
+                machine.analyze(entryPointsWithTargets) { ep -> targets[ep] ?: emptyList() }
+                logger.debug { targets.printActiveTargets() }
+            }
         }
 
-        logger.debug { targets.printActiveTargets() }
+        verifiedIfdsTraces = taintAnalysis.verifiedTraces()
 
         return taintAnalysis.reachedSinks()
+    }
+
+    fun generateSarifReportFromIfdsTraces(sourceFileResolver: JIRSourceFileResolver): SarifSchema210 =
+        generateSarifReportFromTraces(sourceFileResolver, ifdsTraces)
+
+    fun generateSarifReportFromVerifiedIfdsTraces(sourceFileResolver: JIRSourceFileResolver): SarifSchema210 =
+        generateSarifReportFromTraces(sourceFileResolver, verifiedIfdsTraces)
+
+    private fun generateSarifReportFromTraces(
+        sourceFileResolver: JIRSourceFileResolver,
+        traces: List<IfdsVulnerablity>
+    ): SarifSchema210 {
+        val vulnerabilityInstances = traces.mapNotNull { vulnerability ->
+            val rule = vulnerability.vulnerability.rule ?: return@mapNotNull null
+            val cwe = rule.cwe.joinToString { "CWE-$it" }
+            val ruleId = "$cwe; ${rule.ruleNote}"
+            VulnerabilityInstance(vulnerability.traceGraph, VulnerabilityDescription(ruleId, message = ""))
+        }
+        return sarifReportFromVulnerabilities(vulnerabilityInstances, sourceFileResolver = sourceFileResolver)
     }
 
     private fun analyzeTaintWithIfdsEngine(
@@ -242,6 +273,7 @@ class JIRTaintAnalyzer(
             ConstantTrue,
             instance.vulnerability.rule ?: error("No rule")
         )
+        opentaintTargetMapping[sinkTarget] = instance
         resolvedTargets[sinkVertex] = sinkTarget
 
         val dfsPath = hashSetOf(sinkVertex)
@@ -318,8 +350,11 @@ class JIRTaintAnalyzer(
         }
 
     private fun TaintAnalysis.reachedSinks(): List<ReachedSink> =
-        reachedSinks.map { ReachedSink(it.first.entrypoint, it.first.currentStatement, it.second) }
+        reachedSinks.map { ReachedSink(it.state.entrypoint, it.state.currentStatement, it.rule) }
 
+
+    private fun TaintAnalysis.verifiedTraces(): List<IfdsVulnerablity> =
+        reachedSinks.mapNotNull { rs -> rs.target?.let { opentaintTargetMapping[it] } }
 
     private fun Map<JIRMethod, List<TaintAnalysis.TaintTarget>>.printActiveTargets(): String = buildString {
         values.flatten().filterNot { it.isRemoved }.forEach {
