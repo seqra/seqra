@@ -54,31 +54,33 @@ dependencies {
 
 tasks {
     register("generateSqlScheme") {
-        val location = "src/main/resources/sqlite/empty.db"
-        val url = "jdbc:sqlite:file:$location"
-        val driver = "org.sqlite.JDBC"
-        GenerationTool.generate(
-            Configuration()
-                .withJdbc(
-                    Jdbc()
-                        .withDriver(driver)
-                        .withUrl(url)
-                )
-                .withGenerator(
-                    Generator()
-                        .withName("org.jooq.codegen.KotlinGenerator")
-                        .withDatabase(Database())
-                        .withGenerate(
-                            Generate()
-                                .withDeprecationOnUnknownTypes(false)
-                        )
-                        .withTarget(
-                            Target()
-                                .withPackageName("org.opentaint.ir.impl.storage.jooq")
-                                .withDirectory(project.file("src/main/jooq").absolutePath)
-                        )
-                )
-        )
+        doLast {
+            val location = "src/main/resources/sqlite/empty.db"
+            val url = "jdbc:sqlite:file:$location"
+            val driver = "org.sqlite.JDBC"
+            GenerationTool.generate(
+                Configuration()
+                    .withJdbc(
+                        Jdbc()
+                            .withDriver(driver)
+                            .withUrl(url)
+                    )
+                    .withGenerator(
+                        Generator()
+                            .withName("org.jooq.codegen.KotlinGenerator")
+                            .withDatabase(Database())
+                            .withGenerate(
+                                Generate()
+                                    .withDeprecationOnUnknownTypes(false)
+                            )
+                            .withTarget(
+                                Target()
+                                    .withPackageName("org.opentaint.ir.impl.storage.jooq")
+                                    .withDirectory(project.file("src/main/jooq").absolutePath)
+                            )
+                    )
+            )
+        }
     }
 
     register<JavaExec>("generateDocSvgs") {
