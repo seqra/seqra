@@ -45,8 +45,7 @@ class TaintAnalyzer<Method, Statement>(
         run {
             val callExpr = edge.to.statement.callExpr ?: return@run
 
-            @Suppress("UNCHECKED_CAST")
-            val callee = callExpr.callee as Method
+            val callee = callExpr.callee
 
             val config = with(flowFunctions) { getConfigForMethod(callee) } ?: return@run
 

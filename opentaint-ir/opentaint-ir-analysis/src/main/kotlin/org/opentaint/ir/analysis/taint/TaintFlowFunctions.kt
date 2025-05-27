@@ -218,8 +218,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
         val callExpr = callStatement.callExpr
             ?: error("Call statement should have non-null callExpr")
 
-        @Suppress("UNCHECKED_CAST")
-        val callee = callExpr.callee as Method
+        val callee = callExpr.callee
 
         // FIXME: handle taint pass-through on invokedynamic-based String concatenation:
         if (fact is Tainted

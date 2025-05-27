@@ -19,7 +19,6 @@ import org.opentaint.ir.analysis.taint.TaintDomainFact
 import org.opentaint.ir.analysis.taint.TaintZeroFact
 import org.opentaint.ir.analysis.taint.Tainted
 import org.opentaint.ir.analysis.util.Traits
-import org.opentaint.ir.analysis.util.getArgumentsOf
 import org.opentaint.ir.analysis.util.startsWith
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.Project
@@ -341,8 +340,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
         val callExpr = callStatement.callExpr
             ?: error("Call statement should have non-null callExpr")
 
-        @Suppress("UNCHECKED_CAST")
-        val callee = callExpr.callee as Method
+        val callee = callExpr.callee
 
         // FIXME: handle taint pass-through on invokedynamic-based String concatenation:
         if (fact is Tainted
