@@ -15,7 +15,6 @@ import org.opentaint.ir.analysis.ifds.isStatic
 import org.opentaint.ir.analysis.ifds.minus
 import org.opentaint.ir.analysis.ifds.onSome
 import org.opentaint.ir.analysis.util.Traits
-import org.opentaint.ir.analysis.util.getArgumentsOf
 import org.opentaint.ir.analysis.util.startsWith
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.Project
