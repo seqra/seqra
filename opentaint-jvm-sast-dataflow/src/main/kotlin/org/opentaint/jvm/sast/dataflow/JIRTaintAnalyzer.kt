@@ -107,7 +107,7 @@ class JIRTaintAnalyzer(
             dependenciesLocations = dependenciesLocations
         )
 
-        val taintAnalysis = TaintAnalysis(taintConfig)
+        val taintAnalysis = TaintAnalysis(taintConfig, collectStates = false)
 
         if (entryPoints.isNotEmpty()) {
             JIRMachine(cp, options, jirOptions, interpreterObserver = taintAnalysis).use { machine ->
@@ -153,13 +153,17 @@ class JIRTaintAnalyzer(
             dependenciesLocations = dependenciesLocations
         )
 
-        val taintAnalysis = TaintAnalysis(taintConfig)
+        val taintAnalysis = TaintAnalysis(taintConfig, collectStates = false)
         targets.values.forEach { tgts -> tgts.forEach { taintAnalysis.addTarget(it) } }
 
         if (entryPointsWithTargets.isNotEmpty()) {
             JIRMachine(cp, options, jirOptions, taintAnalysis).use { machine ->
                 logger.debug { targets.printActiveTargets() }
-                machine.analyze(entryPointsWithTargets) { ep -> targets[ep] ?: emptyList() }
+                try {
+                    machine.analyze(entryPointsWithTargets) { ep -> targets[ep] ?: emptyList() }
+                } catch (ex: Throwable) {
+                    logger.error("Machine error", ex)
+                }
                 logger.debug { targets.printActiveTargets() }
             }
         }
@@ -217,12 +221,29 @@ class JIRTaintAnalyzer(
             val entryPoints = instance.entryPoints()
             val targets = resolveIfdsTraceTargets(instance)
 
+            try {
+                targets.forEach { verifyTarget(it, hashSetOf()) }
+            } catch (ex: Exception) {
+                logger.error("Bad target: $ex")
+                continue
+            }
+
             for (entrypoint in entryPoints) {
                 check(entrypoint in possibleEp) { "Unexpected EP: $entrypoint" }
                 result.getOrPut(entrypoint) { mutableListOf() } += targets
             }
         }
         return result
+    }
+
+    private fun verifyTarget(target: TaintAnalysis.TaintTarget, path: MutableSet<TaintAnalysis.TaintTarget>) {
+        if (!path.add(target)) {
+            error("Recursive target")
+        }
+
+        target.children.forEach { verifyTarget(it as TaintAnalysis.TaintTarget, path) }
+
+        path.remove(target)
     }
 
     private fun resolveIfdsTraceTargets(instance: IfdsVulnerablity): Set<TaintAnalysis.TaintTarget> {
@@ -350,7 +371,7 @@ class JIRTaintAnalyzer(
         }
 
     private fun TaintAnalysis.reachedSinks(): List<ReachedSink> =
-        reachedSinks.map { ReachedSink(it.state.entrypoint, it.state.currentStatement, it.rule) }
+        reachedSinks.map { ReachedSink(it.entrypoint, it.statement, it.rule) }
 
 
     private fun TaintAnalysis.verifiedTraces(): List<IfdsVulnerablity> =
