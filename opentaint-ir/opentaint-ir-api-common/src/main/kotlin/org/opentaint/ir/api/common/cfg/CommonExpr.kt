@@ -1,9 +1,7 @@
 package org.opentaint.ir.api.common.cfg
 
-import org.opentaint.ir.api.common.CommonType
-
 interface CommonExpr {
-    val type: CommonType
+    val typeName: String
     val operands: List<CommonValue>
 
     interface Visitor<out T> : CommonValue.Visitor<T> {

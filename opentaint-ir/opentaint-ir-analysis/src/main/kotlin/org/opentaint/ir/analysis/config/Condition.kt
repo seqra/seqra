@@ -8,11 +8,11 @@ import org.opentaint.ir.analysis.util.removeTrailingElementAccessors
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
-import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.cfg.JIRBool
 import org.opentaint.ir.api.jvm.cfg.JIRConstant
 import org.opentaint.ir.api.jvm.cfg.JIRInt
 import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
+import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.isAssignable
 import org.opentaint.ir.taint.configuration.And
 import org.opentaint.ir.taint.configuration.AnnotationType
@@ -137,9 +137,12 @@ open class BasicConditionEvaluator(
 
     override fun visit(condition: TypeMatches): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
-            return when (val valueType = value.type) {
-                is JIRType -> valueType.isAssignable(condition.type)
-                else -> error("Cannot evaluate $condition for $valueType")
+            return when (value) {
+                is JIRValue -> {
+                    value.type.isAssignable(condition.type)
+                }
+
+                else -> error("Cannot evaluate $condition for $value")
             }
         }
         return false

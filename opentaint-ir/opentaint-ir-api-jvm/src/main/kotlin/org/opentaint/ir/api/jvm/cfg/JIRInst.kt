@@ -1,7 +1,6 @@
 package org.opentaint.ir.api.jvm.cfg
 
 import org.opentaint.ir.api.common.CommonClassField
-import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonArgument
 import org.opentaint.ir.api.common.cfg.CommonArrayAccess
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
@@ -228,8 +227,11 @@ class JIRSwitchInst(
 }
 
 interface JIRExpr : CommonExpr {
-    override val type: JIRType
+    val type: JIRType
     override val operands: List<JIRValue>
+
+    override val typeName: String
+        get() = type.typeName
 
     fun <T> accept(visitor: JIRExprVisitor<T>): T
 }
