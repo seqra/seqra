@@ -188,7 +188,7 @@ class MavenProjectResolver(
 
         private const val DEPGRAPH_PLUGIN_ID = "com.github.ferstl:depgraph-maven-plugin:4.0.2:graph"
 
-        private const val MAVEN_EXECUTABLE_NAME = "mvn"
+        private const val MAVEN_EXECUTABLE_NAME = "/usr/bin/mvn"
 
         private val mavenCommandFlags = listOf(
             "-f",

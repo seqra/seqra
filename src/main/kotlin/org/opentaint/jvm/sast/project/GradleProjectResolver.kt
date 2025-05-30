@@ -240,7 +240,7 @@ class GradleProjectResolver(
         fun isGradleProjectRoot(directory: Path): Boolean =
             gradleProjectFiles.any { directory.resolve(it).exists() }
 
-        private const val GRADLE_SYSTEM_EXECUTABLE = "gradle"
+        private const val GRADLE_SYSTEM_EXECUTABLE = "/usr/bin/gradle"
         private const val GRADLE_WRAPPER = "gradlew"
 
         private fun resolveGradleExecutable(directory: Path): String {
