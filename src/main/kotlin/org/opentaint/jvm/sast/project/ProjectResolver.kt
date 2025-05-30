@@ -4,7 +4,6 @@ import org.opentaint.logger
 import java.nio.file.FileVisitResult
 import java.nio.file.Path
 import kotlin.io.path.ExperimentalPathApi
-import kotlin.io.path.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.visitFileTree
@@ -90,13 +89,3 @@ fun Path.resolve(other: List<String>): Path = other.fold(this) { path, o -> path
 fun Path.createParentDirectories() = also {
     parent?.createDirectories()
 }
-
-
-fun main() {
-    val sourceRoot = Path("data/PublicCMS/")
-    val resolverPath = Path("IdeaProjects/opentaint/resolver-tmp")
-
-    val projects = ProjectResolver.resolveProjects(sourceRoot, resolverPath)
-    println(projects)
-}
-

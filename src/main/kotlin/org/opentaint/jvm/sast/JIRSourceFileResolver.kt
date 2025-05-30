@@ -5,6 +5,7 @@ import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.RegisteredLocation
 import org.opentaint.ir.api.cfg.JIRInst
 import org.opentaint.ir.api.ext.packageName
+import org.opentaint.machine.logger
 import java.nio.file.Path
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.extension
@@ -12,31 +13,35 @@ import kotlin.io.path.relativeTo
 import kotlin.io.path.walk
 
 class JIRSourceFileResolver(
-    private val projectLocations: Set<RegisteredLocation>,
-    private val sourcesRoot: Path
+    private val projectLocationsSourceRoots: Map<RegisteredLocation, Path>
 ) : SourceFileResolver {
-    private val allJavaSources: Map<String, List<Path>> by lazy {
-        @OptIn(ExperimentalPathApi::class)
-        val allJavaFiles = sourcesRoot.walk().filter { it.extension == "java" }
-        allJavaFiles.toList().groupBy { it.fileName.toString() }
+    private val locationJavaSources: Map<RegisteredLocation, Map<String, List<Path>>> by lazy {
+        projectLocationsSourceRoots.mapValues { (_, sourcesRoot) ->
+            @OptIn(ExperimentalPathApi::class)
+            val allJavaFiles = sourcesRoot.walk().filter { it.extension == "java" }
+            allJavaFiles.toList().groupBy { it.fileName.toString() }
+        }
     }
 
     override fun resolve(inst: JIRInst): String? {
         val instLocationCls = inst.location.method.enclosingClass
 
-        if (instLocationCls.declaration.location.isRuntime) return null
-        if (instLocationCls.declaration.location !in projectLocations) return null
+        val location = instLocationCls.declaration.location
+        if (location.isRuntime) return null
 
+        val javaSources = locationJavaSources[location] ?: return null
         val sourceFileName = classSourceFileName(instLocationCls)
-        val relatedSourceFiles = allJavaSources[sourceFileName].orEmpty()
+        val relatedSourceFiles = javaSources[sourceFileName].orEmpty()
 
         val sourceFilesWithCorrectPackage = relatedSourceFiles.filter { packageMatches(it, instLocationCls) }
 
         if (sourceFilesWithCorrectPackage.size == 1) {
-            return sourceFilesWithCorrectPackage.single().relativeTo(sourcesRoot).toString()
+            val sourceRoot = projectLocationsSourceRoots.getValue(location)
+            return sourceFilesWithCorrectPackage.single().relativeTo(sourceRoot).toString()
         }
 
-        TODO("Source not resolved")
+        logger.warn { "Source file was not resolved for: ${instLocationCls.name}" }
+        return null
     }
 
     private fun classSourceFileName(cls: JIRClassOrInterface): String =
