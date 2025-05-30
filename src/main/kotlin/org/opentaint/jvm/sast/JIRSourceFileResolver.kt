@@ -13,6 +13,7 @@ import kotlin.io.path.relativeTo
 import kotlin.io.path.walk
 
 class JIRSourceFileResolver(
+    private val projectSourceRoot: Path,
     private val projectLocationsSourceRoots: Map<RegisteredLocation, Path>
 ) : SourceFileResolver {
     private val locationJavaSources: Map<RegisteredLocation, Map<String, List<Path>>> by lazy {
@@ -36,8 +37,7 @@ class JIRSourceFileResolver(
         val sourceFilesWithCorrectPackage = relatedSourceFiles.filter { packageMatches(it, instLocationCls) }
 
         if (sourceFilesWithCorrectPackage.size == 1) {
-            val sourceRoot = projectLocationsSourceRoots.getValue(location)
-            return sourceFilesWithCorrectPackage.single().relativeTo(sourceRoot).toString()
+            return sourceFilesWithCorrectPackage.single().relativeTo(projectSourceRoot).toString()
         }
 
         logger.warn { "Source file was not resolved for: ${instLocationCls.name}" }

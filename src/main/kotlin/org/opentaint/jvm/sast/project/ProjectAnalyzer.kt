@@ -171,6 +171,7 @@ class ProjectAnalyzer(
         )
 
         val sourcesResolver = JIRSourceFileResolver(
+            project.sourceRoot,
             locationProjectModules.mapValues { (_, module) -> module.projectModuleSourceRoot }
         )
 
