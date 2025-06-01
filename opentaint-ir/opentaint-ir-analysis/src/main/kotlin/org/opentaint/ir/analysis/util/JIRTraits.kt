@@ -15,15 +15,23 @@ import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRParameter
 import org.opentaint.ir.api.jvm.cfg.JIRArgument
 import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
+import org.opentaint.ir.api.jvm.cfg.JIRBool
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
+import org.opentaint.ir.api.jvm.cfg.JIRConstant
 import org.opentaint.ir.api.jvm.cfg.JIRExpr
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInt
 import org.opentaint.ir.api.jvm.cfg.JIRSimpleValue
+import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.toType
+import org.opentaint.ir.taint.configuration.ConstantBooleanValue
+import org.opentaint.ir.taint.configuration.ConstantIntValue
+import org.opentaint.ir.taint.configuration.ConstantStringValue
+import org.opentaint.ir.taint.configuration.ConstantValue
 import org.opentaint.ir.analysis.util.callee as _callee
 import org.opentaint.ir.analysis.util.getArgument as _getArgument
 import org.opentaint.ir.analysis.util.getArgumentsOf as _getArgumentsOf
@@ -80,6 +88,58 @@ interface JIRTraits : Traits<JIRMethod, JIRInst> {
     override fun Project.getArgumentsOf(method: JIRMethod): List<JIRArgument> {
         check(this is JIRClasspath)
         return _getArgumentsOf(method)
+    }
+
+    override fun CommonValue.isConstant(): Boolean {
+        check(this is JIRValue)
+        return this is JIRConstant
+    }
+
+    override fun CommonValue.eqConstant(constant: ConstantValue): Boolean {
+        check(this is JIRValue)
+        return when (constant) {
+            is ConstantBooleanValue -> {
+                this is JIRBool && value == constant.value
+            }
+
+            is ConstantIntValue -> {
+                this is JIRInt && value == constant.value
+            }
+
+            is ConstantStringValue -> {
+                // TODO: if 'value' is not string, convert it to string and compare with 'constant.value'
+                this is JIRStringConstant && value == constant.value
+            }
+        }
+    }
+
+    override fun CommonValue.ltConstant(constant: ConstantValue): Boolean {
+        check(this is JIRValue)
+        return when (constant) {
+            is ConstantIntValue -> {
+                this is JIRInt && value < constant.value
+            }
+
+            else -> error("Unexpected constant: $constant")
+        }
+    }
+
+    override fun CommonValue.gtConstant(constant: ConstantValue): Boolean {
+        check(this is JIRValue)
+        return when (constant) {
+            is ConstantIntValue -> {
+                this is JIRInt && value > constant.value
+            }
+
+            else -> error("Unexpected constant: $constant")
+        }
+    }
+
+    override fun CommonValue.matches(pattern: String): Boolean {
+        check(this is JIRValue)
+        val s = this.toString()
+        val re = pattern.toRegex()
+        return re.matches(s)
     }
 
     // Ensure that all methods are default-implemented in the interface itself:

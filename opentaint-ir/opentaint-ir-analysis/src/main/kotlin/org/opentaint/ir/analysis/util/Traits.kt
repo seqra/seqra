@@ -10,6 +10,7 @@ import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonThis
 import org.opentaint.ir.api.common.cfg.CommonValue
+import org.opentaint.ir.taint.configuration.ConstantValue
 
 /**
  * Extensions for analysis.
@@ -29,5 +30,11 @@ interface Traits<out Method, out Statement>
 
     fun Project.getArgument(param: CommonMethodParameter): CommonArgument?
     fun Project.getArgumentsOf(method: @UnsafeVariance Method): List<CommonArgument>
+
+    fun CommonValue.isConstant(): Boolean
+    fun CommonValue.eqConstant(constant: ConstantValue): Boolean
+    fun CommonValue.ltConstant(constant: ConstantValue): Boolean
+    fun CommonValue.gtConstant(constant: ConstantValue): Boolean
+    fun CommonValue.matches(pattern: String): Boolean
 
 }

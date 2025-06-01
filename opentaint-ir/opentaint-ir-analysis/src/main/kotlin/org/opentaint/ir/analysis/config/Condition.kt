@@ -8,22 +8,17 @@ import org.opentaint.ir.analysis.util.removeTrailingElementAccessors
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
-import org.opentaint.ir.api.jvm.cfg.JIRBool
-import org.opentaint.ir.api.jvm.cfg.JIRConstant
 import org.opentaint.ir.api.jvm.cfg.JIRInt
-import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.isAssignable
 import org.opentaint.ir.taint.configuration.And
 import org.opentaint.ir.taint.configuration.AnnotationType
 import org.opentaint.ir.taint.configuration.ConditionVisitor
-import org.opentaint.ir.taint.configuration.ConstantBooleanValue
 import org.opentaint.ir.taint.configuration.ConstantEq
 import org.opentaint.ir.taint.configuration.ConstantGt
 import org.opentaint.ir.taint.configuration.ConstantIntValue
 import org.opentaint.ir.taint.configuration.ConstantLt
 import org.opentaint.ir.taint.configuration.ConstantMatches
-import org.opentaint.ir.taint.configuration.ConstantStringValue
 import org.opentaint.ir.taint.configuration.ConstantTrue
 import org.opentaint.ir.taint.configuration.ContainsMark
 import org.opentaint.ir.taint.configuration.IsConstant
@@ -36,6 +31,7 @@ import org.opentaint.ir.taint.configuration.TypeMatches
 
 // TODO: replace 'JIRInt' with 'CommonInt', etc
 
+context(Traits<CommonMethod<*, *>, CommonInst<*, *>>)
 open class BasicConditionEvaluator(
     internal val positionResolver: PositionResolver<Maybe<CommonValue>>,
 ) : ConditionVisitor<Boolean> {
@@ -56,11 +52,6 @@ open class BasicConditionEvaluator(
         return condition.args.any { it.accept(this) }
     }
 
-    override fun visit(condition: IsConstant): Boolean {
-        positionResolver.resolve(condition.position).onSome { return it is JIRConstant }
-        return false
-    }
-
     override fun visit(condition: IsType): Boolean {
         // Note: TaintConfigurationFeature.ConditionSpecializer is responsible for
         // expanding IsType condition upon parsing the taint configuration.
@@ -73,56 +64,37 @@ open class BasicConditionEvaluator(
         error("Unexpected condition: $condition")
     }
 
+    override fun visit(condition: IsConstant): Boolean {
+        positionResolver.resolve(condition.position).onSome {
+            return it.isConstant()
+        }
+        return false
+    }
+
     override fun visit(condition: ConstantEq): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
-            return when (val constant = condition.value) {
-                is ConstantBooleanValue -> {
-                    value is JIRBool && value.value == constant.value
-                }
-
-                is ConstantIntValue -> {
-                    value is JIRInt && value.value == constant.value
-                }
-
-                is ConstantStringValue -> {
-                    // TODO: if 'value' is not string, convert it to string and compare with 'constant.value'
-                    value is JIRStringConstant && value.value == constant.value
-                }
-            }
+            return value.eqConstant(condition.value)
         }
         return false
     }
 
     override fun visit(condition: ConstantLt): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
-            return when (val constant = condition.value) {
-                is ConstantIntValue -> {
-                    value is JIRInt && value.value < constant.value
-                }
-
-                else -> error("Unexpected constant: $constant")
-            }
+           return value.ltConstant(condition.value)
         }
         return false
     }
 
     override fun visit(condition: ConstantGt): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
-            return when (val constant = condition.value) {
-                is ConstantIntValue -> {
-                    value is JIRInt && value.value > constant.value
-                }
-
-                else -> error("Unexpected constant: $constant")
-            }
+            return value.gtConstant(condition.value)
         }
         return false
     }
 
     override fun visit(condition: ConstantMatches): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
-            val re = condition.pattern.toRegex()
-            return re.matches(value.toString())
+            return value.matches(condition.pattern)
         }
         return false
     }
