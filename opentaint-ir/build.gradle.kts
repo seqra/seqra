@@ -136,7 +136,6 @@ allprojects {
     license {
         include("**/*.kt")
         include("**/*.java")
-        exclude("**/antlr/*")
         header(rootProject.file("docs/copyright/COPYRIGHT_HEADER.txt"))
     }
 }
