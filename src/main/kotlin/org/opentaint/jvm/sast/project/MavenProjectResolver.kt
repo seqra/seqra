@@ -2,7 +2,8 @@ package org.opentaint.jvm.sast.project
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import org.opentaint.logger
+import org.opentaint.jvm.sast.project.ProjectResolver.Companion.logger
+import org.opentaint.jvm.sast.project.ProjectResolver.Companion.tryJavaToolchains
 import java.nio.file.FileVisitResult
 import java.nio.file.Path
 import kotlin.io.path.ExperimentalPathApi
@@ -25,6 +26,8 @@ class MavenProjectResolver(
     private val resolvedProjectDependencies = mutableListOf<Path>()
     private val resolvedModules = mutableListOf<ProjectResolver.ProjectModuleClasses>()
 
+    private lateinit var javaToolchain: JavaToolchain
+
     override fun resolveProject(): ProjectResolver.Project? {
         logger.info { "Maven build start for: $projectSourceRoot" }
         if (!buildProject()) {
@@ -37,7 +40,7 @@ class MavenProjectResolver(
             logger.error { "Maven dependency resolution failed for: $projectSourceRoot" }
         }
 
-        return ProjectResolver.Project(projectSourceRoot, resolvedModules, resolvedProjectDependencies)
+        return ProjectResolver.Project(projectSourceRoot, javaToolchain, resolvedModules, resolvedProjectDependencies)
     }
 
     private fun registerModule(moduleRoot: Path, processModuleContent: (Path) -> Unit) {
@@ -49,10 +52,8 @@ class MavenProjectResolver(
     @OptIn(ExperimentalPathApi::class)
     private fun buildProject(): Boolean {
         val args = listOf(MAVEN_EXECUTABLE_NAME) + listOf("clean", "package") + mavenCommandFlags
-        val status = ProjectResolver.runCommand(projectSourceRoot, args)
-        if (status != 0) {
-            return false
-        }
+
+        javaToolchain = tryJavaToolchains { ProjectResolver.runCommand(projectSourceRoot, args, it) } ?: return false
 
         projectSourceRoot.visitFileTree {
             onPreVisitDirectory { directory, _ ->
@@ -82,7 +83,7 @@ class MavenProjectResolver(
             "-DuseArtifactIdInFileName=true",
         )
 
-        val status = ProjectResolver.runCommand(projectSourceRoot, args)
+        val status = ProjectResolver.runCommand(projectSourceRoot, args, javaToolchain)
         if (status != 0) {
             return false
         }
@@ -160,8 +161,6 @@ class MavenProjectResolver(
 
         val artifactDir: List<String> by lazy { groupId.split(".") + listOf(artifactId, version) }
 
-        val remoteId: String by lazy { resolveRemoteId(this) }
-
         val snapshotVersion: String by lazy {
             resolveSnapshotVersion(this) ?: version
         }
@@ -210,16 +209,20 @@ class MavenProjectResolver(
         )
 
         private fun resolveSnapshotVersion(artifact: MavenArtifact): String? {
+            val remoteId = resolveRemoteId(artifact) ?: return null
             val metadataPath = mavenLocalRepoPath.resolve(artifact.artifactDir)
-                .resolve("maven-metadata-${artifact.remoteId}.xml")
+                .resolve("maven-metadata-${remoteId}.xml")
 
             if (!metadataPath.exists()) return null
 
-            TODO("Maven snapshot")
+            logger.warn { "TODO: Maven resolver snapshot: ${artifact.artifactName}" }
+
+            return null
         }
 
-        private fun resolveRemoteId(artifact: MavenArtifact): String {
+        private fun resolveRemoteId(artifact: MavenArtifact): String? {
             val remotesPath = mavenLocalRepoPath.resolve(artifact.artifactDir).resolve("_remote.repositories")
+            if (!remotesPath.exists()) return null
             return remotesPath.useLines { lines ->
                 lines
                     .filterNot { it.isBlank() || it.startsWith("#") }
@@ -229,7 +232,7 @@ class MavenProjectResolver(
                     .map { it[1].trim() }
                     .map { it.substring(0, it.lastIndex) } // drop last symbol
                     .firstOrNull()
-            } ?: ""
+            }
         }
     }
 }

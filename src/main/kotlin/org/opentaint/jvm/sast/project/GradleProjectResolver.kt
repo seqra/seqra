@@ -3,7 +3,8 @@ package org.opentaint.jvm.sast.project
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import org.opentaint.logger
+import org.opentaint.jvm.sast.project.ProjectResolver.Companion.logger
+import org.opentaint.jvm.sast.project.ProjectResolver.Companion.tryJavaToolchains
 import java.nio.file.FileVisitResult
 import java.nio.file.Path
 import kotlin.io.path.ExperimentalPathApi
@@ -36,6 +37,8 @@ class GradleProjectResolver(
         resolvedModules += ProjectResolver.ProjectModuleClasses(moduleRoot, libs)
     }
 
+    private lateinit var javaToolchain: JavaToolchain
+
     override fun resolveProject(): ProjectResolver.Project? {
         logger.info { "Gradle build start for: $projectSourceRoot" }
         if (!buildProject()) {
@@ -48,19 +51,15 @@ class GradleProjectResolver(
             logger.error { "Gradle dependency resolution failed for: $projectSourceRoot" }
         }
 
-        return ProjectResolver.Project(projectSourceRoot, resolvedModules, resolvedProjectDependencies)
+        return ProjectResolver.Project(projectSourceRoot, javaToolchain, resolvedModules, resolvedProjectDependencies)
     }
 
     @OptIn(ExperimentalPathApi::class)
     private fun buildProject(): Boolean {
         val gradleExecutable = resolveGradleExecutable(projectSourceRoot)
-        val args =
-            listOf(gradleExecutable) + gradleBuildFlags + listOf("clean", "jar") // todo: maybe use assemble task?
+        val args = listOf(gradleExecutable) + gradleBuildFlags + listOf("clean", "jar") // todo: maybe use assemble task?
 
-        val status = ProjectResolver.runCommand(projectSourceRoot, args)
-        if (status != 0) {
-            return false
-        }
+        javaToolchain = tryJavaToolchains { ProjectResolver.runCommand(projectSourceRoot, args, it) } ?: return false
 
         projectSourceRoot.visitFileTree {
             onPreVisitDirectory { directory, _ ->
@@ -96,7 +95,7 @@ class GradleProjectResolver(
             projectSourceRoot, dependencyResolverInitScript, depGraphOutFolder
         )
 
-        val status = ProjectResolver.runCommand(projectSourceRoot, args)
+        val status = ProjectResolver.runCommand(projectSourceRoot, args, javaToolchain)
         if (status != 0) {
             return false
         }

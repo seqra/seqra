@@ -74,10 +74,11 @@ class JIRTaintAnalyzer(
     private lateinit var ifdsTraces: List<IfdsVulnerablity>
     private lateinit var verifiedIfdsTraces: List<IfdsVulnerablity>
 
-    fun analyzeWithIfds(entryPoints: List<JIRMethod>): List<ReachedSink> {
+    fun analyzeWithIfds(entryPoints: List<JIRMethod>) {
         ifdsTraces = analyzeTaintWithIfdsEngine(entryPoints)
-        return ifdsReachedSinks(ifdsTraces)
     }
+
+    fun ifdsReachedSinks(): List<ReachedSink> = ifdsReachedSinks(ifdsTraces)
 
     fun analyzeWithOpentaint(entryPoints: List<JIRMethod>): List<ReachedSink> {
         val options = UMachineOptions(
@@ -183,11 +184,15 @@ class JIRTaintAnalyzer(
         sourceFileResolver: JIRSourceFileResolver,
         traces: List<IfdsVulnerablity>
     ): SarifSchema210 {
-        val vulnerabilityInstances = traces.mapNotNull { vulnerability ->
-            val rule = vulnerability.vulnerability.rule ?: return@mapNotNull null
-            val cwe = rule.cwe.joinToString { "CWE-$it" }
-            val ruleId = "$cwe; ${rule.ruleNote}"
-            VulnerabilityInstance(vulnerability.traceGraph, VulnerabilityDescription(ruleId, message = ""))
+        val vulnerabilityInstances = mutableListOf<VulnerabilityInstance<TaintDomainFact>>()
+        traces.forEach { vulnerability ->
+            val rule = vulnerability.vulnerability.rule ?: return@forEach
+            rule.cwe.mapTo(vulnerabilityInstances) { cwe ->
+                VulnerabilityInstance(
+                    vulnerability.traceGraph,
+                    VulnerabilityDescription(ruleId = "CWE-$cwe", message = rule.ruleNote)
+                )
+            }
         }
         return sarifReportFromVulnerabilities(vulnerabilityInstances, sourceFileResolver = sourceFileResolver)
     }

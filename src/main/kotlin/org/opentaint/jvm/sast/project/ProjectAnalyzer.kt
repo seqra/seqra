@@ -6,6 +6,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
+import mu.KLogging
 import org.opentaint.ir.api.ByteCodeIndexer
 import org.opentaint.ir.api.JIRClassOrInterface
 import org.opentaint.ir.api.JIRClasspath
@@ -27,7 +28,6 @@ import org.objectweb.asm.tree.ClassNode
 import org.opentaint.jvm.sast.dataflow.JIRSourceFileResolver
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.machine.TypeScorer
-import org.opentaint.machine.logger
 import org.opentaint.types.ClassScorer
 import org.opentaint.types.scoreClassNode
 import org.opentaint.util.classpathWithApproximations
@@ -126,7 +126,14 @@ class ProjectAnalyzer(
         allCpFiles.addAll(dependencyFiles)
 
         db = opentaint-ir {
-            useProcessJavaRuntime()
+            when (val toolchain = project.javaToolchain) {
+                is JavaToolchain.ConcreteJavaToolchain -> {
+                    useJavaRuntime(File(toolchain.javaHome))
+                }
+                JavaToolchain.DefaultJavaToolchain -> {
+                    useProcessJavaRuntime()
+                }
+            }
 
             installFeatures(ProjectClassIndexerFeature())
             installFeatures(InMemoryHierarchy)
@@ -219,4 +226,8 @@ class ProjectAnalyzer(
             .filter { it.instList.size > 0 }
             .filter { it.isPublic || it.isProtected }
             .filter { !it.isConstructor }
+
+    companion object {
+        private val logger = object : KLogging() {}.logger
+    }
 }

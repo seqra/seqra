@@ -1,6 +1,8 @@
 package org.opentaint.jvm.sast.project
 
-import org.opentaint.logger
+import mu.KLogging
+import org.zeroturnaround.exec.ProcessExecutor
+import org.zeroturnaround.exec.stream.slf4j.Slf4jStream
 import java.nio.file.FileVisitResult
 import java.nio.file.Path
 import kotlin.io.path.ExperimentalPathApi
@@ -20,11 +22,33 @@ sealed interface ProjectResolver {
 
     data class Project(
         val sourceRoot: Path,
+        val javaToolchain: JavaToolchain,
         val modules: List<ProjectModuleClasses>,
         val dependencies: List<Path>
     )
 
     companion object {
+        val logger = object : KLogging() {}.logger
+
+        private val JAVA_8_HOME: String? by lazy { System.getenv("JAVA_8_HOME") }
+        private val JAVA_11_HOME: String? by lazy { System.getenv("JAVA_11_HOME") }
+        private val JAVA_17_HOME: String? by lazy { System.getenv("JAVA_17_HOME") }
+
+        private val availableJavaToolchains: List<JavaToolchain> by lazy {
+            listOfNotNull(JAVA_8_HOME, JAVA_11_HOME, JAVA_17_HOME)
+                .map { JavaToolchain.ConcreteJavaToolchain(it) }
+                .ifEmpty { listOf(JavaToolchain.DefaultJavaToolchain) }
+        }
+
+        fun tryJavaToolchains(block: (JavaToolchain) -> Int): JavaToolchain? {
+            val toolchains = availableJavaToolchains.iterator()
+            while (toolchains.hasNext()) {
+                val toolchain = toolchains.next()
+                if (block(toolchain) == 0) return toolchain
+            }
+            return null
+        }
+
         @OptIn(ExperimentalPathApi::class)
         fun resolveProjects(rootDir: Path, resolverWorkDir: Path): List<Project> {
             resolverWorkDir.createParentDirectories()
@@ -73,14 +97,21 @@ sealed interface ProjectResolver {
             return resolvedProjects
         }
 
-        internal fun runCommand(workDir: Path, args: List<String>): Int {
-            val builder = ProcessBuilder(args)
-            builder.directory(workDir.toFile())
-            builder.inheritIO()
-
-            val process = builder.start()
-            return process.waitFor()
-        }
+        internal fun runCommand(workDir: Path, args: List<String>, javaToolchain: JavaToolchain): Int =
+            ProcessExecutor()
+                .command(args)
+                .apply {
+                    when (javaToolchain) {
+                        JavaToolchain.DefaultJavaToolchain -> {}
+                        is JavaToolchain.ConcreteJavaToolchain -> {
+                            environment("JAVA_HOME", javaToolchain.javaHome)
+                        }
+                    }
+                }
+                .directory(workDir.toFile())
+                .redirectOutput(Slf4jStream.of(logger.underlyingLogger as ch.qos.logback.classic.Logger).asDebug())
+                .redirectError(Slf4jStream.of(logger.underlyingLogger as ch.qos.logback.classic.Logger).asDebug())
+                .executeNoTimeout().exitValue
     }
 }
 
