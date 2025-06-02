@@ -37,4 +37,5 @@ interface Traits<out Method, out Statement>
     fun CommonValue.gtConstant(constant: ConstantValue): Boolean
     fun CommonValue.matches(pattern: String): Boolean
 
+    fun CommonExpr.toPaths(): List<AccessPath> = listOfNotNull(toPathOrNull())
 }
