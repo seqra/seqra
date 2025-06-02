@@ -161,7 +161,9 @@ class ForwardTaintFlowFunctions<Method, Statement>(
         check(fact is Tainted)
 
         if (current is CommonAssignInst<*, *>) {
-            transmitTaintAssign(fact, from = current.rhv, to = current.lhv)
+            } else {
+                transmitTaintAssign(fact, from = current.rhv, to = current.lhv)
+            }
         } else {
             transmitTaintNormal(fact, current)
         }
