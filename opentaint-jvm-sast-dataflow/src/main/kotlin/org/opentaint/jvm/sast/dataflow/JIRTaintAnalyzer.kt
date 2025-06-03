@@ -199,9 +199,8 @@ class JIRTaintAnalyzer(
 
     private fun analyzeTaintWithIfdsEngine(
         entryPoints: List<JIRMethod>,
-    ): List<IfdsVulnerablity> {
-        val ifdsEngine = JIRIfdsTaintAnalyzer(ifdsAnalysisGraph, analysisUnit)
-        val allVulnerabilities = ifdsEngine.analyze(entryPoints, timeout = 10.minutes)
+    ): List<IfdsVulnerablity> = JIRIfdsTaintAnalyzer(ifdsAnalysisGraph, analysisUnit).use { ifdsEngine ->
+        val allVulnerabilities = ifdsEngine.runAnalysis(entryPoints, timeout = 10.minutes)
 
         // todo: IFDS cwe config
         val vulnerabilities = analysisCwe?.let { cwe ->
@@ -211,7 +210,7 @@ class JIRTaintAnalyzer(
             }
         } ?: allVulnerabilities
 
-        return vulnerabilities.map {
+        vulnerabilities.map {
             val traceGraphWithEntryPoints = ifdsEngine.vulnerabilityTraceGraphWithEntryPoints(it)
             IfdsVulnerablity(it, traceGraphWithEntryPoints.entryPoints, traceGraphWithEntryPoints.graph)
         }
