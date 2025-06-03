@@ -139,7 +139,7 @@ class ProjectAnalyzer(
             installFeatures(InMemoryHierarchy)
             installFeatures(Usages)
             installFeatures(ClassScorer(TypeScorer, ::scoreClassNode))
-            installFeatures(Approximations)
+//            installFeatures(Approximations)
 
             loadByteCode(allCpFiles)
         }
@@ -153,7 +153,9 @@ class ProjectAnalyzer(
         val configurationFeature = TaintConfigurationFeature.fromJson(configJson)
         val features = listOf(configurationFeature, UnknownClasses)
 
-        cp = db.classpathWithApproximations(allCpFiles, features)
+        // todo: fix approximations with multiple JIRDatabase instances
+//        cp = db.classpathWithApproximations(allCpFiles, features)
+        cp = db.classpath(allCpFiles, features)
 
         val missedModules = project.modules.toSet() - locationProjectModules.values.toSet()
         if (missedModules.isNotEmpty()) {
