@@ -208,8 +208,8 @@ class ProjectAnalyzer(
 
     private fun allProjectEntryPoints(): List<JIRMethod> =
         projectPublicClasses()
-            .flatMap { it.publicAndProtectedMethods() }
-            .toMutableList().also {
+            .flatMapTo(mutableListOf()) { it.publicAndProtectedMethods() }
+            .also {
                 it.sortWith(compareBy<JIRMethod> { it.enclosingClass.name }.thenBy { it.name })
             }
 
