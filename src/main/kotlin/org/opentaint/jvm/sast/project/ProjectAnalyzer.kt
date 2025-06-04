@@ -15,7 +15,6 @@ import org.opentaint.ir.api.JIRFeature
 import org.opentaint.ir.api.JIRMethod
 import org.opentaint.ir.api.JIRSignal
 import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.approximation.Approximations
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.classpaths.JIRUnknownClass
@@ -30,7 +29,6 @@ import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.machine.TypeScorer
 import org.opentaint.types.ClassScorer
 import org.opentaint.types.scoreClassNode
-import org.opentaint.util.classpathWithApproximations
 import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
@@ -174,6 +172,7 @@ class ProjectAnalyzer(
         val analyzer = JIRTaintAnalyzer(
             cp,
             opentaintTimeout = symbolicExecutionTimeout,
+            symbolicExecutionEnabled = useSymbolicExecution,
             projectLocations = projectLocations,
             dependenciesLocations = dependenciesLocations,
             analysisCwe = cwe.takeIf { it.isNotEmpty() }?.toSet(),

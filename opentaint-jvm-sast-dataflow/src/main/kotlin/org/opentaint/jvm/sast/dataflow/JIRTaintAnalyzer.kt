@@ -47,6 +47,7 @@ class JIRTaintAnalyzer(
     val projectLocations: Set<RegisteredLocation>,
     val dependenciesLocations: Set<RegisteredLocation>,
     val opentaintTimeout: Duration,
+    val symbolicExecutionEnabled: Boolean,
     val analysisCwe: Set<Int>?,
     val analysisUnit: UnitResolver = PackageUnitResolver
 ) {
@@ -213,8 +214,29 @@ class JIRTaintAnalyzer(
             }
         } ?: allVulnerabilities
 
+
+        if (!symbolicExecutionEnabled) {
+            // todo: fix trace generation
+            val vulnerabilityStub = vulnerabilities.firstOrNull() ?: return@use emptyList()
+            val emptyTraceGraph = TraceGraph(
+                vulnerabilityStub.sink,
+                sources = hashSetOf(),
+                edges = hashMapOf(),
+                unresolvedCrossUnitCalls = emptyMap()
+            )
+            return@use vulnerabilities.map {
+                IfdsVulnerablity(
+                    it,
+                    entryPoints = emptySet(),
+                    traceGraph = emptyTraceGraph.copy(sink = it.sink)
+                )
+            }
+        }
+
         vulnerabilities.map {
-            val traceGraphWithEntryPoints = ifdsEngine.vulnerabilityTraceGraphWithEntryPoints(it)
+            val traceGraphWithEntryPoints = ifdsEngine.vulnerabilityTraceGraphWithEntryPoints(
+                it, resolveEntryPoints = !symbolicExecutionEnabled
+            )
             IfdsVulnerablity(it, traceGraphWithEntryPoints.entryPoints, traceGraphWithEntryPoints.graph)
         }
     }
