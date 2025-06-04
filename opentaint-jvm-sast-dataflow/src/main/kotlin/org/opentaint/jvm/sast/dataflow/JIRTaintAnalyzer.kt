@@ -2,6 +2,7 @@ package org.opentaint.api.checkers
 
 import io.github.detekt.sarif4k.SarifSchema210
 import kotlinx.coroutines.runBlocking
+import mu.KLogging
 import org.opentaint.ir.analysis.graph.JIRApplicationGraphImpl
 import org.opentaint.ir.analysis.graph.defaultBannedPackagePrefixes
 import org.opentaint.ir.analysis.ifds.PackageUnitResolver
@@ -34,12 +35,12 @@ import org.opentaint.UMachineOptions
 import org.opentaint.api.targets.TaintAnalysis
 import org.opentaint.api.targets.TaintConfigurationFeatureProvider
 import org.opentaint.api.targets.TaintConfigurationProvider
-import org.opentaint.logger
 import org.opentaint.machine.JIRMachine
 import org.opentaint.machine.JIRMachineOptions
 import java.util.IdentityHashMap
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 class JIRTaintAnalyzer(
     val cp: JIRClasspath,
@@ -200,9 +201,11 @@ class JIRTaintAnalyzer(
     private fun analyzeTaintWithIfdsEngine(
         entryPoints: List<JIRMethod>,
     ): List<IfdsVulnerablity> = JIRIfdsTaintAnalyzer(ifdsAnalysisGraph, analysisUnit).use { ifdsEngine ->
-        val allVulnerabilities = ifdsEngine.runAnalysis(entryPoints, timeout = 10.minutes)
+        runCatching { ifdsEngine.runAnalysis(entryPoints, timeout = 10.minutes, cancellationTimeout = 30.seconds) }
+            .onFailure { logger.error(it) { "Ifds engine failed" } }
 
         // todo: IFDS cwe config
+        val allVulnerabilities = ifdsEngine.getVulnerabilities()
         val vulnerabilities = analysisCwe?.let { cwe ->
             allVulnerabilities.filter {
                 val rule = it.rule ?: error("No rule")
@@ -386,5 +389,9 @@ class JIRTaintAnalyzer(
             appendLine("-".repeat(20))
             appendLine(it)
         }
+    }
+
+    companion object {
+        val logger = object : KLogging() {}.logger
     }
 }
