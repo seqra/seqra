@@ -3,7 +3,7 @@
 import org.gradle.plugin.use.PluginDependenciesSpec
 
 object Versions {
-    const val antlr = "4.13.1"
+    const val antlr = "4.9.3"
     const val asm = "9.5"
     const val dokka = "1.7.20"
     const val gradle_download = "5.3.0"
