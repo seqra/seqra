@@ -11,3 +11,8 @@ interface ControlFlowGraph<out Statement> : Graph<Statement> {
 
     val instructions: List<Statement>
 }
+
+interface BytecodeGraph <out Statement> : ControlFlowGraph<Statement> {
+    fun throwers(node: @UnsafeVariance Statement): Set<Statement>
+    fun catchers(node: @UnsafeVariance Statement): Set<Statement>
+}

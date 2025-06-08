@@ -10,6 +10,8 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.ext.callExpr
+import org.opentaint.ir.api.jvm.cfg.JIRIfInst
+import org.opentaint.ir.impl.cfg.util.loops
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.ir.taint.configuration.TaintMethodSink
 
@@ -66,6 +68,27 @@ class TaintAnalyzer<Method, Statement>(
                     val vulnerability = TaintVulnerability(message, sink = edge.to, rule = item)
                     logger.info { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
                     add(NewVulnerability(vulnerability))
+                }
+            }
+        }
+
+        if (TaintAnalysisOptions.UNTRUSTED_LOOP_BOUND_SINK) {
+            val statement = edge.to.statement
+            val fact = edge.to.fact
+            if (fact is Tainted && fact.mark.name == "UNTRUSTED") {
+                if (statement is JIRIfInst) {
+                    val loops = statement.location.method.flowGraph().loops
+                    val loopHeads = loops.map { it.head }
+                    if (statement in loopHeads) {
+                        for (s in statement.condition.operands) {
+                            val p = s.toPath()
+                            if (p == fact.variable) {
+                                val message = "Untrusted loop bound"
+                                val vulnerability = TaintVulnerability(message, sink = edge.to)
+                                add(NewVulnerability(vulnerability))
+                            }
+                        }
+                    }
                 }
             }
         }

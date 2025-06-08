@@ -30,7 +30,10 @@ import org.opentaint.ir.api.common.ext.callExpr
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRBinaryExpr
+import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
 import org.opentaint.ir.api.jvm.cfg.JIRDynamicCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRNegExpr
 import org.opentaint.ir.taint.configuration.AssignMark
 import org.opentaint.ir.taint.configuration.CopyAllMarks
 import org.opentaint.ir.taint.configuration.CopyMark
@@ -161,8 +164,35 @@ class ForwardTaintFlowFunctions<Method, Statement>(
         check(fact is Tainted)
 
         if (current is CommonAssignInst<*, *>) {
-            } else {
-                transmitTaintAssign(fact, from = current.rhv, to = current.lhv)
+            when (val rhv = current.rhv) {
+                }
+
+                is JIRBinaryExpr -> {
+                    val facts: MutableSet<TaintDomainFact> = mutableSetOf()
+                    facts += transmitTaintAssign(fact, from = rhv.lhv, to = current.lhv)
+                    facts += transmitTaintAssign(fact, from = rhv.rhv, to = current.lhv)
+                    facts
+                }
+
+                is JIRNegExpr -> {
+                    transmitTaintAssign(fact, from = rhv.operand, to = current.lhv)
+                }
+
+                is JIRCastExpr -> {
+                    transmitTaintAssign(fact, from = rhv.operand, to = current.lhv)
+                }
+
+                }
+
+                }
+
+                }
+
+                }
+
+                else -> {
+                    transmitTaintAssign(fact, from = current.rhv, to = current.lhv)
+                }
             }
         } else {
             transmitTaintNormal(fact, current)
