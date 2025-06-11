@@ -17,7 +17,7 @@ import org.opentaint.ir.analysis.ifds.onSome
 import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.analysis.util.startsWith
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.Project
+import org.opentaint.ir.api.common.CommonProject
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonExpr
@@ -65,7 +65,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
     where Method : CommonMethod<Method, Statement>,
           Statement : CommonInst<Method, Statement> {
 
-    private val cp: Project
+    private val cp: CommonProject
         get() = graph.project
 
     // // TODO: inline
@@ -507,7 +507,7 @@ class BackwardTaintFlowFunctions<Method, Statement>(
     where Method : CommonMethod<Method, Statement>,
           Statement : CommonInst<Method, Statement> {
 
-    private val cp: Project
+    private val cp: CommonProject
         get() = graph.project
 
     override fun obtainPossibleStartFacts(

@@ -3,7 +3,7 @@ package org.opentaint.ir.analysis.util
 import org.opentaint.ir.analysis.ifds.AccessPath
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.CommonMethodParameter
-import org.opentaint.ir.api.common.Project
+import org.opentaint.ir.api.common.CommonProject
 import org.opentaint.ir.api.common.cfg.CommonArgument
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonExpr
@@ -28,8 +28,8 @@ interface Traits<out Method, out Statement>
 
     val CommonCallExpr.callee: Method
 
-    fun Project.getArgument(param: CommonMethodParameter): CommonArgument?
-    fun Project.getArgumentsOf(method: @UnsafeVariance Method): List<CommonArgument>
+    fun CommonProject.getArgument(param: CommonMethodParameter): CommonArgument?
+    fun CommonProject.getArgumentsOf(method: @UnsafeVariance Method): List<CommonArgument>
 
     fun CommonValue.isConstant(): Boolean
     fun CommonValue.eqConstant(constant: ConstantValue): Boolean

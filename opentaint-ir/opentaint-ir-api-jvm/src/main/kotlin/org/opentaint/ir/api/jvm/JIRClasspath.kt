@@ -2,7 +2,7 @@ package org.opentaint.ir.api.jvm
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
-import org.opentaint.ir.api.common.Project
+import org.opentaint.ir.api.common.CommonProject
 import org.opentaint.ir.api.jvm.cfg.JIRGraph
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstList
@@ -16,7 +16,7 @@ import java.util.concurrent.Future
  * Classpath **must be** closed when it's not needed anymore.
  * This will release references from database to possibly outdated libraries
  */
-interface JIRClasspath : Closeable, Project {
+interface JIRClasspath : Closeable, CommonProject {
 
     /** locations of this classpath */
     val db: JIRDatabase

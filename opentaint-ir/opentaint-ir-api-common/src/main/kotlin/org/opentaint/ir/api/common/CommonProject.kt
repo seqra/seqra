@@ -1,7 +1,5 @@
 package org.opentaint.ir.api.common
 
-interface Project : AutoCloseable {
+interface CommonProject : AutoCloseable {
     fun findTypeOrNull(name: String): CommonType?
-
-    fun typeOf(clazz: CommonClass): CommonClassType
 }

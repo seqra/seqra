@@ -5,7 +5,6 @@ import org.opentaint.ir.api.common.CommonClassField
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.CommonMethodParameter
 import org.opentaint.ir.api.common.CommonTypeName
-import org.opentaint.ir.api.common.Project
 import org.opentaint.ir.api.jvm.cfg.JIRGraph
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstList

@@ -21,7 +21,7 @@ import org.opentaint.ir.analysis.taint.Tainted
 import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.analysis.util.startsWith
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.Project
+import org.opentaint.ir.api.common.CommonProject
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -66,7 +66,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
     where Method : CommonMethod<Method, Statement>,
           Statement : CommonInst<Method, Statement> {
 
-    private val cp: Project
+    private val cp: CommonProject
         get() = graph.project
 
     internal val taintConfigurationFeature: TaintConfigurationFeature? by lazy {

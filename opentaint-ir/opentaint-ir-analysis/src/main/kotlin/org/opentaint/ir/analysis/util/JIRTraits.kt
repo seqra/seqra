@@ -6,7 +6,7 @@ import org.opentaint.ir.analysis.ifds.FieldAccessor
 import org.opentaint.ir.analysis.util.getArgument
 import org.opentaint.ir.analysis.util.toPathOrNull
 import org.opentaint.ir.api.common.CommonMethodParameter
-import org.opentaint.ir.api.common.Project
+import org.opentaint.ir.api.common.CommonProject
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.api.common.cfg.CommonValue
@@ -79,13 +79,13 @@ interface JIRTraits : Traits<JIRMethod, JIRInst> {
             return _callee
         }
 
-    override fun Project.getArgument(param: CommonMethodParameter): JIRArgument? {
+    override fun CommonProject.getArgument(param: CommonMethodParameter): JIRArgument? {
         check(this is JIRClasspath)
         check(param is JIRParameter)
         return _getArgument(param)
     }
 
-    override fun Project.getArgumentsOf(method: JIRMethod): List<JIRArgument> {
+    override fun CommonProject.getArgumentsOf(method: JIRMethod): List<JIRArgument> {
         check(this is JIRClasspath)
         return _getArgumentsOf(method)
     }

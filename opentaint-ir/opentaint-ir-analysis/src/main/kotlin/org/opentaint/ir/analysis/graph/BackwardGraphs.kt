@@ -2,7 +2,7 @@
 
 package org.opentaint.ir.analysis.graph
 
-import org.opentaint.ir.api.common.Project
+import org.opentaint.ir.api.common.CommonProject
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -13,7 +13,7 @@ private class BackwardApplicationGraphImpl<Method, Statement>(
     val forward: ApplicationGraph<Method, Statement>,
 ) : ApplicationGraph<Method, Statement> {
 
-    override val project: Project
+    override val project: CommonProject
         get() = forward.project
 
     override fun predecessors(node: Statement) = forward.successors(node)

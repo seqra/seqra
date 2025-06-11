@@ -6,9 +6,8 @@ import org.opentaint.ir.analysis.ifds.Maybe
 import org.opentaint.ir.analysis.ifds.fmap
 import org.opentaint.ir.analysis.ifds.toMaybe
 import org.opentaint.ir.analysis.util.Traits
-import org.opentaint.ir.analysis.util.getArgument
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.Project
+import org.opentaint.ir.api.common.CommonProject
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonInstanceCallExpr
@@ -57,7 +56,7 @@ class CallPositionToValueResolver(
 context(Traits<CommonMethod<*, *>, CommonInst<*, *>>)
 class EntryPointPositionToValueResolver(
     private val method: CommonMethod<*, *>,
-    private val cp: Project,
+    private val cp: CommonProject,
 ) : PositionResolver<Maybe<CommonValue>> {
     override fun resolve(position: Position): Maybe<CommonValue> = when (position) {
         This -> Maybe.some(method.thisInstance)
@@ -74,7 +73,7 @@ class EntryPointPositionToValueResolver(
 context(Traits<CommonMethod<*, *>, CommonInst<*, *>>)
 class EntryPointPositionToAccessPathResolver(
     private val method: CommonMethod<*, *>,
-    private val cp: Project,
+    private val cp: CommonProject,
 ) : PositionResolver<Maybe<AccessPath>> {
     override fun resolve(position: Position): Maybe<AccessPath> = when (position) {
         This -> method.thisInstance.toPathOrNull().toMaybe()
