@@ -17,3 +17,8 @@ object ElementAccessor : Accessor {
     override fun toSuffix(): String = "[*]"
     override fun toString(): String = "*"
 }
+
+): Accessor {
+    override fun toSuffix(): String = ".${field.name}"
+    override fun toString(): String = field.name
+}

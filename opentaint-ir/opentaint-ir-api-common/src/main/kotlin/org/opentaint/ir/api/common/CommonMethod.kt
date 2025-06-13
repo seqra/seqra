@@ -1,7 +1,7 @@
 package org.opentaint.ir.api.common
 
-import org.opentaint.ir.api.common.cfg.ControlFlowGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.common.cfg.ControlFlowGraph
 
 interface CommonMethod<out Method, out Statement>
     where Method : CommonMethod<Method, Statement>,
