@@ -128,6 +128,22 @@ class TaintAnalyzer<Method, Statement>(
                 }
             }
         }
+        if (TaintAnalysisOptions.UNTRUSTED_INDEX_ARRAY_ACCESS_SINK) {
+            val statement = edge.to.statement
+            val fact = edge.to.fact
+            if (fact is Tainted && fact.mark.name == "UNTRUSTED") {
+                    for (op in statement.operands) {
+                            val arg = op.index
+                            if (arg.toPath() == fact.variable) {
+                                val message = "Untrusted index for access array"
+                                val vulnerability = TaintVulnerability(message, sink = edge.to)
+                                add(NewVulnerability(vulnerability))
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     override fun handleCrossUnitCall(
