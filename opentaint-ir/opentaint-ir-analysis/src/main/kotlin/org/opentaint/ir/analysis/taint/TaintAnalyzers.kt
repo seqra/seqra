@@ -89,7 +89,19 @@ class TaintAnalyzer<Method, Statement>(
                             }
                         }
                     }
+                    val loops = statement.location.method.flowGraph().loops
+                    if (loops.any { statement in it.instructions }) {
+                        for (s in statement.condition.operands) {
+                            val p = s.toPath()
+                            if (p == fact.variable) {
+                                val message = "Untrusted loop bound"
+                                val vulnerability = TaintVulnerability(message, sink = edge.to)
+                                add(NewVulnerability(vulnerability))
+                            }
+                        }
+                    }
                 }
+
             }
         }
     }
