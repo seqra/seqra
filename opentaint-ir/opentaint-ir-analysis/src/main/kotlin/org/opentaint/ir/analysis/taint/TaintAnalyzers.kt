@@ -111,7 +111,21 @@ class TaintAnalyzer<Method, Statement>(
                         }
                     }
                 }
-
+            }
+        }
+        if (TaintAnalysisOptions.UNTRUSTED_ARRAY_SIZE_SINK) {
+            val statement = edge.to.statement
+            val fact = edge.to.fact
+            if (fact is Tainted && fact.mark.name == "UNTRUSTED") {
+                    val expr = statement.rhv
+                        val arg = expr.params.first()
+                        if (arg.toPath() == fact.variable) {
+                            val message = "Untrusted array size"
+                            val vulnerability = TaintVulnerability(message, sink = edge.to)
+                            add(NewVulnerability(vulnerability))
+                        }
+                    }
+                }
             }
         }
     }
