@@ -167,6 +167,15 @@ class ForwardTaintFlowFunctions<Method, Statement>(
             when (val rhv = current.rhv) {
                 }
 
+                    val facts: MutableSet<TaintDomainFact> = mutableSetOf()
+                    for (operand in rhv.operands) {
+                        facts += transmitTaintAssign(fact, from = operand, to = current.lhv)
+                    }
+                    // For empty phi, pass-through:
+                    val pass = transmitTaintNormal(fact, current)
+                    facts + pass
+                }
+
                 is JIRBinaryExpr -> {
                     val facts: MutableSet<TaintDomainFact> = mutableSetOf()
                     facts += transmitTaintAssign(fact, from = rhv.lhv, to = current.lhv)
@@ -184,10 +193,22 @@ class ForwardTaintFlowFunctions<Method, Statement>(
 
                 }
 
+                    val facts: MutableSet<TaintDomainFact> = mutableSetOf()
+                    facts += transmitTaintAssign(fact, from = rhv.lhv, to = current.lhv)
+                    facts += transmitTaintAssign(fact, from = rhv.rhv, to = current.lhv)
+                    facts
                 }
 
                 }
 
+                    transmitTaintAssign(fact, from = rhv.arg, to = current.lhv)
+                }
+
+                }
+
+                }
+
+                    transmitTaintAssign(fact, from = rhv.operand, to = current.lhv)
                 }
 
                 else -> {
