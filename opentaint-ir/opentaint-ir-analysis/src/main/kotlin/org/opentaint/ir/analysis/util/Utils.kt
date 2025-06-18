@@ -28,7 +28,7 @@ internal fun AccessPath.removeTrailingElementAccessors(): AccessPath {
     return AccessPath(value, accesses.subList(0, index))
 }
 
-internal fun Runner<*, *, *>.getPathEdges(): Set<Edge<*, *, *>> = when (this) {
+fun Runner<*, *, *>.getPathEdges(): Set<Edge<*, *, *>> = when (this) {
     is UniRunner<*, *, *, *> -> pathEdges
     is TaintBidiRunner<*, *> -> forwardRunner.getPathEdges() + backwardRunner.getPathEdges()
     else -> error("Cannot extract pathEdges for $this")

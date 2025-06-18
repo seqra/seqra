@@ -51,7 +51,7 @@ open class TaintManager<Method, Statement>(
           Statement : CommonInst<Method, Statement> {
 
     protected val methodsForUnit: MutableMap<UnitType, MutableSet<Method>> = hashMapOf()
-    protected val runnerForUnit: MutableMap<UnitType, TaintRunner<Method, Statement>> = hashMapOf()
+    val runnerForUnit: MutableMap<UnitType, TaintRunner<Method, Statement>> = hashMapOf()
     private val queueIsEmpty = ConcurrentHashMap<UnitType, Boolean>()
 
     private val summaryEdgesStorage = SummaryStorageImpl<TaintSummaryEdge<Method, Statement>, Method, Statement>()
