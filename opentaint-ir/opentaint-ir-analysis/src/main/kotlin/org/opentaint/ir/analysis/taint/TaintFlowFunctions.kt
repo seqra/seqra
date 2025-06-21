@@ -168,8 +168,8 @@ class ForwardTaintFlowFunctions<Method, Statement>(
                 }
 
                     val facts: MutableSet<TaintDomainFact> = mutableSetOf()
-                    for (operand in rhv.operands) {
-                        facts += transmitTaintAssign(fact, from = operand, to = current.lhv)
+                    for (input in rhv.inputs) {
+                        facts += transmitTaintAssign(fact, from = input, to = current.lhv)
                     }
                     // For empty phi, pass-through:
                     val pass = transmitTaintNormal(fact, current)
@@ -215,6 +215,13 @@ class ForwardTaintFlowFunctions<Method, Statement>(
                     transmitTaintAssign(fact, from = current.rhv, to = current.lhv)
                 }
             }
+            val facts: MutableSet<TaintDomainFact> = mutableSetOf()
+            for (input in current.inputs) {
+                facts += transmitTaintAssign(fact, from = input, to = current.lhv)
+            }
+            // For empty phi, pass-through:
+            val pass = transmitTaintNormal(fact, current)
+            facts + pass
         } else {
             transmitTaintNormal(fact, current)
         }
