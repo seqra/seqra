@@ -115,4 +115,44 @@ class ConfigurationTest : BaseTest() {
 
         assertTrue(rules.singleOrNull() != null)
     }
+
+    @Test
+    fun testAnnotationOnParameter() {
+        val method = cp.findClass<JavaExamples>().methods.single {
+            it.name == "someMethodWithAnnotatedParameter"
+        }
+        val rules = taintFeature.getConfigForMethod(method)
+
+        assertTrue(rules.singleOrNull() != null)
+    }
+
+    @Test
+    fun testAnnotationOnParameterAbsent() {
+        val method = cp.findClass<JavaExamples>().methods.single {
+            it.name == "someMethodWithoutAnnotatedParameter"
+        }
+        val rules = taintFeature.getConfigForMethod(method)
+
+        assertTrue(rules.isEmpty())
+    }
+
+    @Test
+    fun testAnnotationOnMethod() {
+        val method = cp.findClass<JavaExamples>().methods.single {
+            it.name == "someAnnotatedMethod"
+        }
+        val rules = taintFeature.getConfigForMethod(method)
+
+        assertTrue(rules.singleOrNull() != null)
+    }
+
+    @Test
+    fun testAnnotationOnMethodAbsent() {
+        val method = cp.findClass<JavaExamples>().methods.single {
+            it.name == "someNotAnnotatedMethod"
+        }
+        val rules = taintFeature.getConfigForMethod(method)
+
+        assertTrue(rules.isEmpty())
+    }
 }

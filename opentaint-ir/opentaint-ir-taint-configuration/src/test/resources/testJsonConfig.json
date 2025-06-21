@@ -530,5 +530,102 @@
         }
       }
     }
+  },
+  {
+    "_": "MethodSink",
+    "ruleNote": "Test rule for annotation matcher",
+    "cwe": [],
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "someMethodWithAnnotatedParameter"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": false,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "AnnotationType",
+      "position": {
+        "_": "Argument",
+        "number": 0
+      },
+      "type": {
+        "_": "ClassMatcher",
+        "packageMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "MyParameterAnnotation"
+        }
+      }
+    }
+  },
+  {
+    "_": "MethodSink",
+    "ruleNote": "Test rule for annotation matcher",
+    "cwe": [],
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "someAnnotatedMethod"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": false,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "AnnotationType",
+      "position": {
+        "_": "This"
+      },
+      "type": {
+        "_": "ClassMatcher",
+        "packageMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "MyMethodAnnotation"
+        }
+      }
+    }
   }
 ]

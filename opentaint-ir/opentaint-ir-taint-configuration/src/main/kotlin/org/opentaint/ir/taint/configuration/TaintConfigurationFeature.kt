@@ -383,8 +383,12 @@ class TaintConfigurationFeature private constructor(
                     return annotations?.any { matcher.matches(it.name) } ?: false
                 }
 
+                This -> {
+                    val annotations = method.annotations
+                    return annotations.any { matcher.matches(it.name) }
+                }
+
                 Result -> TODO("What does it mean?")
-                This -> TODO("What does it mean?")
                 AnyArgument -> error("Must not occur here")
                 ResultAnyElement -> error("Must not occur here")
             }
