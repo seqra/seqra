@@ -15,6 +15,7 @@ import org.opentaint.ir.testing.allClasspath
 import org.opentaint.ir.testing.analysis.UntrustedLoopBound
 import org.junit.jupiter.api.Test
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 
 private val logger = KotlinLogging.logger {}
 
@@ -43,7 +44,7 @@ class Ifds2UpperBoundTest : BaseAnalysisTest() {
         val method = cp.findClass<T>().declaredMethods.single { it.name == methodName }
         val unitResolver = SingletonUnitResolver
         val manager = TaintManager(graph, unitResolver)
-        val sinks = manager.analyze(listOf(method))
+        val sinks = manager.analyze(listOf(method), timeout = 60.seconds)
         logger.info { "Sinks: ${sinks.size}" }
         for (sink in sinks) {
             logger.info { sink }
