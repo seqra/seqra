@@ -1,8 +1,11 @@
 package org.opentaint.ir.testing.cfg
 
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRLambdaExpr
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.testing.WithGlobalDB
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class InvokeDynamicTest : BaseInstructionsTest() {
@@ -26,6 +29,18 @@ class InvokeDynamicTest : BaseInstructionsTest() {
 
     @Test
     fun `test complex invoke dynamic`() = runStaticMethod<InvokeDynamicExamples>("testComplexInvokeDynamic")
+
+    @Test
+    fun `test resolving virtual lambda`() {
+        val clazz = cp.findClass<InvokeDynamicExamples.CollectionWithInnerMap>()
+        val method = clazz.declaredMethods.find { it.name == "putAll" }!!
+        val instructions = method.instList
+        val first = instructions[0] as JIRAssignInst
+        assertTrue(first.rhv is JIRLambdaExpr)
+        val third = instructions[2] as JIRAssignInst
+        assertTrue(third.rhv is JIRLambdaExpr)
+        runStaticMethod<InvokeDynamicExamples>("testNonStaticLambda")
+    }
 
     private inline fun <reified T> runStaticMethod(name: String) {
         val clazz = cp.findClass<T>()

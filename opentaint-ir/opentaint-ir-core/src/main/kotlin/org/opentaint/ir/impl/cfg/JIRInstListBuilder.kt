@@ -269,9 +269,24 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
         if (dynamicMethodType !is BsmMethodTypeArg) return null
         if (implementation !is BsmHandle) return null
 
+        val argTypes: List<TypeName>
+        val tag = implementation.tag
+        if (tag == 6) {
+            // Invoke static case
+            argTypes = implementation.argTypes
+        } else {
+            // Invoke non-static case
+            check(tag == 5 || tag == 7 || tag == 8 || tag == 9) {
+                "Unexpected tag for invoke dynamic $tag"
+            }
+            argTypes = implementation.argTypes.toMutableList()
+            // Adding 'this' type as first argument type
+            argTypes.add(0, implementation.declaringClass)
+        }
+
         // Check implementation signature match (starts with) call site arguments
         for ((index, argType) in expr.callSiteArgTypes.withIndex()) {
-            if (argType != implementation.argTypes.getOrNull(index)) return null
+            if (argType != argTypes.getOrNull(index)) return null
         }
 
         val klass = implementation.declaringClass.asType() as JIRClassType
