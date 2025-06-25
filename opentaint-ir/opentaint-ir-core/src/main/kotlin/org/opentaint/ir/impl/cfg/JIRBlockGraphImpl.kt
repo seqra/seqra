@@ -10,7 +10,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRTerminatingInst
 
 class JIRBlockGraphImpl(
     override val jIRGraph: JIRGraph,
-) : Iterable<JIRBasicBlock>, JIRBlockGraph {
+) : JIRBlockGraph {
 
     private val _basicBlocks = mutableListOf<JIRBasicBlock>()
     private val predecessorMap = mutableMapOf<JIRBasicBlock, MutableSet<JIRBasicBlock>>()
@@ -18,17 +18,17 @@ class JIRBlockGraphImpl(
     private val catchersMap = mutableMapOf<JIRBasicBlock, MutableSet<JIRBasicBlock>>()
     private val throwersMap = mutableMapOf<JIRBasicBlock, MutableSet<JIRBasicBlock>>()
 
+    override val instructions: List<JIRBasicBlock>
+        get() = _basicBlocks
+
     override val entry: JIRBasicBlock
-        get() = first()
+        get() = instructions.first()
 
     override val entries: List<JIRBasicBlock>
         get() = listOf(entry)
 
     override val exits: List<JIRBasicBlock>
-        get() = filter { successors(it).isEmpty() }
-
-    override val instructions: List<JIRBasicBlock>
-        get() = _basicBlocks.toList()
+        get() = instructions.filter { successors(it).isEmpty() }
 
     init {
         val inst2Block = mutableMapOf<JIRInst, JIRBasicBlock>()
@@ -107,14 +107,12 @@ class JIRBlockGraphImpl(
     /**
      * `successors` and `predecessors` represent normal control flow
      */
-    override fun predecessors(node: JIRBasicBlock): Set<JIRBasicBlock> = predecessorMap.getOrDefault(node, emptySet())
-    override fun successors(node: JIRBasicBlock): Set<JIRBasicBlock> = successorMap.getOrDefault(node, emptySet())
+    override fun predecessors(node: JIRBasicBlock): Set<JIRBasicBlock> = predecessorMap[node].orEmpty()
+    override fun successors(node: JIRBasicBlock): Set<JIRBasicBlock> = successorMap[node].orEmpty()
 
     /**
      * `throwers` and `catchers` represent control flow when an exception occurs
      */
-    override fun catchers(node: JIRBasicBlock): Set<JIRBasicBlock> = catchersMap.getOrDefault(node, emptySet())
-    override fun throwers(node: JIRBasicBlock): Set<JIRBasicBlock> = throwersMap.getOrDefault(node, emptySet())
-
-    override fun iterator(): Iterator<JIRBasicBlock> = _basicBlocks.iterator()
+    override fun catchers(node: JIRBasicBlock): Set<JIRBasicBlock> = catchersMap[node].orEmpty()
+    override fun throwers(node: JIRBasicBlock): Set<JIRBasicBlock> = throwersMap[node].orEmpty()
 }

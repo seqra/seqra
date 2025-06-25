@@ -3,7 +3,6 @@ package org.opentaint.ir.impl.cfg.graphs
 import org.opentaint.ir.api.common.cfg.BytecodeGraph
 import org.opentaint.ir.api.jvm.cfg.JIRBasicBlock
 import org.opentaint.ir.api.jvm.cfg.JIRBlockGraph
-import org.opentaint.ir.api.jvm.cfg.JIRBytecodeGraph
 import org.opentaint.ir.api.jvm.cfg.JIRCatchInst
 import org.opentaint.ir.api.jvm.cfg.JIRGraph
 import org.opentaint.ir.api.jvm.cfg.JIRInst
@@ -16,7 +15,7 @@ import java.util.*
  */
 open class GraphDominators<NODE>(val graph: BytecodeGraph<NODE>) {
 
-    private val nodes = graph.toList()
+    private val nodes = graph.instructions
     private val size = nodes.size
 
     private val heads = graph.entries
@@ -63,7 +62,7 @@ open class GraphDominators<NODE>(val graph: BytecodeGraph<NODE>) {
 
     private val NODE.indexOf: Int
         get() {
-            val index = graph.indexOf(this)
+            val index = nodes.indexOf(this)
             return index.takeIf { it >= 0 } ?: error("No node with index $this in the graph")
         }
 

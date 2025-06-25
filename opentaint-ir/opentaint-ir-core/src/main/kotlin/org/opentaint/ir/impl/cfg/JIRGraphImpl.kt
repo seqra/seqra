@@ -17,7 +17,7 @@ import java.util.Collections.singleton
 class JIRGraphImpl(
     override val method: JIRMethod,
     override val instructions: List<JIRInst>,
-) : Iterable<JIRInst>, JIRGraph {
+) : JIRGraph {
 
     override val classpath: JIRClasspath get() = method.enclosingClass.classpath
 
@@ -120,8 +120,6 @@ class JIRGraphImpl(
     override fun blockGraph(): JIRBlockGraphImpl = JIRBlockGraphImpl(this)
 
     override fun toString(): String = instructions.joinToString("\n")
-
-    override fun iterator(): Iterator<JIRInst> = instructions.iterator()
 
     private fun <KEY, VALUE> MutableMap<KEY, Set<VALUE>>.add(key: KEY, value: VALUE) {
         val current = this[key]
