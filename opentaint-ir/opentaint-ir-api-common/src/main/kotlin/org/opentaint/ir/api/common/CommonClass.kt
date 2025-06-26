@@ -3,12 +3,10 @@ package org.opentaint.ir.api.common
 interface CommonClass {
     val project: CommonProject
     val name: String
-    val simpleName: String
 }
 
-interface CommonClassField {
+interface CommonField {
+    val enclosingClass: CommonClass?
     val name: String
     val type: CommonTypeName
-    val signature: String?
-    val enclosingClass: CommonClass
 }

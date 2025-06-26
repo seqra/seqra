@@ -15,12 +15,3 @@ interface CommonType {
 interface CommonTypeName {
     val typeName: String
 }
-
-interface CommonRefType : CommonType
-
-interface CommonArrayType : CommonRefType {
-    val elementType: CommonType
-    val dimensions: Int
-}
-
-interface CommonClassType : CommonRefType

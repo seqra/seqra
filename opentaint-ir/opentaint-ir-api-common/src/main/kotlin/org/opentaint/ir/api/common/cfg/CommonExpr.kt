@@ -29,12 +29,7 @@ interface CommonExpr {
 }
 
 interface CommonCallExpr : CommonExpr {
-    // val method: CommonTypedMethod<*, *>
-    // val callee: CommonMethod<*, *>
     val args: List<CommonValue>
-
-    // override val type: CommonType
-    //     get() = method.returnType
 
     override val operands: List<CommonValue>
         get() = args

@@ -1,6 +1,5 @@
 package org.opentaint.ir.api.jvm.cfg
 
-import org.opentaint.ir.api.common.CommonClassField
 import org.opentaint.ir.api.common.cfg.CommonArgument
 import org.opentaint.ir.api.common.cfg.CommonArrayAccess
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
@@ -16,6 +15,7 @@ import org.opentaint.ir.api.common.cfg.CommonInstanceCallExpr
 import org.opentaint.ir.api.common.cfg.CommonReturnInst
 import org.opentaint.ir.api.common.cfg.CommonThis
 import org.opentaint.ir.api.common.cfg.CommonValue
+import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.JIRTypedField
@@ -689,7 +689,6 @@ data class JIRLambdaExpr(
     val callSiteArgTypes: List<JIRType>,
     val callSiteReturnType: JIRType,
     val callSiteArgs: List<JIRValue>,
-    val isNewInvokeSpecial: Boolean,
 ) : JIRCallExpr {
 
     override val method get() = bsmRef.method
@@ -892,7 +891,7 @@ data class JIRFieldRef(
     override val type: JIRType
         get() = this.field.type
 
-    override val classField: CommonClassField
+    override val classField: JIRField
         get() = this.field.field
 
     override val operands: List<JIRValue>

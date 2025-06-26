@@ -1,7 +1,6 @@
 package org.opentaint.ir.analysis.ifds
 
 import org.opentaint.ir.api.common.cfg.CommonValue
-import org.opentaint.ir.api.jvm.JIRField
 
 data class AccessPath internal constructor(
     val value: CommonValue?,
@@ -12,9 +11,7 @@ data class AccessPath internal constructor(
             require(accesses.isNotEmpty())
             val a = accesses[0]
             require(a is FieldAccessor)
-            if (a.field is JIRField) {
-                require(a.field.isStatic)
-            }
+            require(a.isStatic)
         }
     }
 
@@ -22,8 +19,8 @@ data class AccessPath internal constructor(
 
     operator fun plus(accesses: List<Accessor>): AccessPath {
         for (accessor in accesses) {
-            if (accessor is FieldAccessor && accessor.field is JIRField && accessor.field.isStatic) {
-                throw IllegalArgumentException("Unexpected static field: ${accessor.field}")
+            if (accessor is FieldAccessor && accessor.isStatic) {
+                throw IllegalArgumentException("Unexpected static field: ${accessor.name}")
             }
         }
 
@@ -31,8 +28,8 @@ data class AccessPath internal constructor(
     }
 
     operator fun plus(accessor: Accessor): AccessPath {
-        if (accessor is FieldAccessor && accessor.field is JIRField && accessor.field.isStatic) {
-            throw IllegalArgumentException("Unexpected static field: ${accessor.field}")
+        if (accessor is FieldAccessor && accessor.isStatic) {
+            throw IllegalArgumentException("Unexpected static field: ${accessor.name}")
         }
 
         return AccessPath(value, this.accesses + accessor)

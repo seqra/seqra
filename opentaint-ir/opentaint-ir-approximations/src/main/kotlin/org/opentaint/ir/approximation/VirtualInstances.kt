@@ -24,7 +24,7 @@ class JIREnrichedVirtualMethod(
     private val featuresChain: JIRFeaturesChain,
     override val exceptions: List<TypeName>,
     private val asmNode: MethodNode,
-    override val annotations: List<JIRAnnotation>
+    override val annotations: List<JIRAnnotation>,
 ) : JIRVirtualMethodImpl(name, access, returnType, parameters, description) {
 
     override val rawInstList: JIRInstList<JIRRawInst>
@@ -68,14 +68,14 @@ class JIREnrichedVirtualParameter(
     type: TypeName,
     override val name: String?,
     override val annotations: List<JIRAnnotation>,
-    override val access: Int
+    override val access: Int,
 ) : JIRVirtualParameter(index, type)
 
 class JIREnrichedVirtualField(
     name: String,
     access: Int,
     type: TypeName,
-    override val annotations: List<JIRAnnotation>
+    override val annotations: List<JIRAnnotation>,
 ) : JIRVirtualFieldImpl(name, access, type) {
     override val signature: String?
         get() = null

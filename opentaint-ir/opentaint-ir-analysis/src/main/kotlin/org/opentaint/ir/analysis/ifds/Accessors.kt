@@ -1,24 +1,18 @@
 package org.opentaint.ir.analysis.ifds
 
-import org.opentaint.ir.api.common.CommonClassField
-
 sealed interface Accessor {
     fun toSuffix(): String
 }
 
 data class FieldAccessor(
-    val field: CommonClassField,
+    val name: String,
+    val isStatic: Boolean = false,
 ) : Accessor {
-    override fun toSuffix(): String = ".${field.name}"
-    override fun toString(): String = field.name
+    override fun toSuffix(): String = ".${name}"
+    override fun toString(): String = name
 }
 
 object ElementAccessor : Accessor {
     override fun toSuffix(): String = "[*]"
     override fun toString(): String = "*"
-}
-
-): Accessor {
-    override fun toSuffix(): String = ".${field.name}"
-    override fun toString(): String = field.name
 }

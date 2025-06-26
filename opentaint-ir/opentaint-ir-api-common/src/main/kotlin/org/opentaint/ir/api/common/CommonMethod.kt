@@ -7,17 +7,14 @@ interface CommonMethod<out Method, out Statement>
     where Method : CommonMethod<Method, Statement>,
           Statement : CommonInst<Method, Statement> {
 
+    val enclosingClass: CommonClass // TODO: remove
     val name: String
-    val enclosingClass: CommonClass
-    val returnType: CommonTypeName
     val parameters: List<CommonMethodParameter>
+    val returnType: CommonTypeName
 
     fun flowGraph(): ControlFlowGraph<Statement>
 }
 
 interface CommonMethodParameter {
-    // val type: CommonTypeName
-    // val name: String?
-    // val index: Int
-    // val method: CommonMethod<*, *>
+    val type: CommonTypeName
 }

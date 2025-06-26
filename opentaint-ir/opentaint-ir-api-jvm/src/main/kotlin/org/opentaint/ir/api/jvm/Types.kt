@@ -1,31 +1,27 @@
 package org.opentaint.ir.api.jvm
 
-import org.opentaint.ir.api.common.CommonArrayType
-import org.opentaint.ir.api.common.CommonClassType
-import org.opentaint.ir.api.common.CommonRefType
 import org.opentaint.ir.api.common.CommonType
-import org.opentaint.ir.api.common.CommonTypedField
-import org.opentaint.ir.api.common.CommonTypedMethod
-import org.opentaint.ir.api.common.CommonTypedMethodParameter
-import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.objectClass
 import org.objectweb.asm.tree.LocalVariableNode
 
-interface JIRTypedField : JIRAccessible, CommonTypedField {
-    override val field: JIRField
-    override val type: JIRType
+interface JIRTypedField : JIRAccessible {
+    val field: JIRField
+    val name: String
+    val type: JIRType
     val enclosingType: JIRRefType
 }
 
-interface JIRTypedMethod : JIRAccessible, CommonTypedMethod<JIRMethod, JIRInst> {
-    override val returnType: JIRType
+// CommonTypedMethod<JIRMethod, JIRInst>
+interface JIRTypedMethod : JIRAccessible {
+    val name: String
+    val returnType: JIRType
 
     val typeParameters: List<JIRTypeVariableDeclaration>
     val typeArguments: List<JIRRefType>
 
-    override val parameters: List<JIRTypedMethodParameter>
+    val parameters: List<JIRTypedMethodParameter>
     val exceptions: List<JIRRefType>
-    override val method: JIRMethod
+    val method: JIRMethod
 
     val enclosingType: JIRRefType
 
@@ -33,10 +29,11 @@ interface JIRTypedMethod : JIRAccessible, CommonTypedMethod<JIRMethod, JIRInst> 
 
 }
 
-interface JIRTypedMethodParameter : CommonTypedMethodParameter {
-    override val type: JIRType
-    override val name: String?
-    override val enclosingMethod: JIRTypedMethod
+// CommonTypedMethodParameter
+interface JIRTypedMethodParameter {
+    val type: JIRType
+    val name: String?
+    val enclosingMethod: JIRTypedMethod
 }
 
 interface JIRType : CommonType {
@@ -51,20 +48,21 @@ interface JIRPrimitiveType : JIRType {
         get() = false
 }
 
-interface JIRRefType : JIRType, CommonRefType {
+interface JIRRefType : JIRType {
     val jIRClass: JIRClassOrInterface
 
     fun copyWithNullability(nullability: Boolean?): JIRRefType
 }
 
-interface JIRArrayType : JIRRefType, CommonArrayType {
-    override val elementType: JIRType
+interface JIRArrayType : JIRRefType {
+    val elementType: JIRType
+    val dimensions: Int
 
     override val jIRClass: JIRClassOrInterface
         get() = classpath.objectClass
 }
 
-interface JIRClassType : JIRRefType, JIRAccessible, CommonClassType {
+interface JIRClassType : JIRRefType, JIRAccessible {
 
     val outerType: JIRClassType?
 
@@ -110,7 +108,6 @@ interface JIRUnboundWildcard : JIRRefType {
         get() = classpath.objectClass
 
     override fun copyWithAnnotations(annotations: List<JIRAnnotation>): JIRType = this
-
 }
 
 interface JIRTypeVariableDeclaration {

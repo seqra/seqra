@@ -1,7 +1,7 @@
 package org.opentaint.ir.api.jvm
 
 import org.opentaint.ir.api.common.CommonClass
-import org.opentaint.ir.api.common.CommonClassField
+import org.opentaint.ir.api.common.CommonField
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.CommonMethodParameter
 import org.opentaint.ir.api.common.CommonTypeName
@@ -24,7 +24,7 @@ interface JIRClassOrInterface : JIRAnnotatedSymbol, JIRAccessible, CommonClass {
     val declaredFields: List<JIRField>
     val declaredMethods: List<JIRMethod>
 
-    override val simpleName: String
+    val simpleName: String
     val signature: String?
     val isAnonymous: Boolean
 
@@ -124,19 +124,17 @@ interface JIRMethod : JIRSymbol, JIRAnnotatedSymbol, JIRAccessible, CommonMethod
 
 }
 
-interface JIRField : JIRAnnotatedSymbol, JIRAccessible, CommonClassField {
+interface JIRField : JIRAnnotatedSymbol, JIRAccessible, CommonField {
     override val enclosingClass: JIRClassOrInterface
     override val type: TypeName
-    override val signature: String?
+    val signature: String?
 }
 
 interface JIRParameter : JIRAnnotated, JIRAccessible, CommonMethodParameter {
-    /*override*/ val type: TypeName
-    /*override*/ val name: String?
-    /*override*/ val index: Int
-    /*override*/ val method: JIRMethod
+    override val type: TypeName
+    val name: String?
+    val index: Int
+    val method: JIRMethod
 }
 
-interface TypeName : CommonTypeName {
-    override val typeName: String
-}
+interface TypeName : CommonTypeName
