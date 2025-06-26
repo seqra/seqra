@@ -1,0 +1,131 @@
+rules:
+  - id: java-xxe-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: Parsing untrusted XML data with insufficient safety control
+    metadata:
+      provenance:
+        - https://github.com/semgrep/semgrep-rules/tree/develop/java/lang/security/audit/xxe
+        - https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/xml-decoder.yaml
+        - https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/xml/rule-XsltTransform.yml
+    languages:
+      - java
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-not-inside: |
+                  ...
+                  $FACTORY.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+                  ...
+              - pattern-not-inside: |
+                  ...
+                  $FACTORY.setFeature("http://javax.xml.XMLConstants/feature/secure-processing", true);
+                  ...
+              - pattern-not-inside: |
+                  ...
+                  $FACTORY.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+                  ...
+              - pattern-not-inside: |
+                  ...
+                  $FACTORY.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+                  ...
+              - pattern-not-inside: |
+                  ...
+                  $FACTORY.setAttribute("http://javax.xml.XMLConstants/property/accessExternalDTD", "");
+                  ...
+              - pattern-not-inside: |
+                  ...
+                  $FACTORY.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+                  ...
+              - pattern-not-inside: |
+                  ...
+                  $FACTORY.setAttribute("http://javax.xml.XMLConstants/property/accessExternalSchema", "");
+                  ...
+              - pattern-either:
+                  - pattern-not-inside: |
+                      ...
+                      $FACTORY.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+                      ...
+                  - pattern-not-inside: |
+                      ...
+                      $FACTORY.setFeature("http://xml.org/sax/features/external-general-entities", false);
+                      ...
+              - pattern-either:
+                  - patterns:
+                      - pattern-inside: |
+                          $FACTORY = SAXParserFactory.newInstance();
+                          ...
+                      - pattern: $FACTORY.newSAXParser().parse($UNTRUSTED);
+                  - patterns:
+                      - pattern-inside: |
+                          $FACTORY = new SAXReader(...);
+                          ...
+                      - pattern: $FACTORY.read($UNTRUSTED);
+                  - patterns:
+                      - pattern-inside: |
+                          $FACTORY = DocumentBuilderFactory.newInstance();
+                          ...
+                      - pattern: |
+                          $DOCBUILDER = $FACTORY.newDocumentBuilder();
+                          ...
+                          $DOCBUILDER.parse($UNTRUSTED, ...);
+                  - patterns:
+                      - pattern-inside: |
+                          $FACTORY = XMLReaderFactory.createXMLReader();
+                          ...
+                      - pattern: $FACTORY.parse($UNTRUSTED);
+
+          - patterns:
+              - pattern-either:
+                  - patterns:
+                      - pattern-not-inside: |
+                          $RETURNTYPE $METHOD(...) {
+                            ...
+                            $XMLFACTORY.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, Boolean.FALSE);
+                            ...
+                          }
+                      - pattern-not-inside: |
+                          $RETURNTYPE $METHOD(...) {
+                            ...
+                            $XMLFACTORY.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
+                            ...
+                          }
+                      - pattern-not-inside: |
+                          $RETURNTYPE $METHOD(...) {
+                            ...
+                            $XMLFACTORY.setProperty("javax.xml.stream.isSupportingExternalEntities", Boolean.FALSE);
+                            ...
+                          }
+                      - pattern-not-inside: |
+                          $RETURNTYPE $METHOD(...) {
+                            ...
+                            $XMLFACTORY.setProperty("javax.xml.stream.isSupportingExternalEntities", false);
+                            ...
+                          }
+                  - patterns:
+                      - pattern-not-inside: |
+                          $RETURNTYPE $METHOD(...) {
+                            ...
+                            $XMLFACTORY.setProperty(XMLInputFactory.SUPPORT_DTD, Boolean.FALSE);
+                            ...
+                          }
+                      - pattern-not-inside: |
+                          $RETURNTYPE $METHOD(...) {
+                            ...
+                            $XMLFACTORY.setProperty(XMLInputFactory.SUPPORT_DTD, false);
+                            ...
+                          }
+              - pattern: |
+                  $XMLFACTORY.createXMLStreamReader($UNTRUSTED);
+
+          - patterns:
+              - pattern: |
+                  (org.apache.commons.digester3.Digester $DIGESTER).parse($UNTRUSTED)
+
+          - pattern: (javax.xml.transform.TransformerFactory $T).newTransformer($UNTRUSTED, ...)
+          - pattern: (javax.xml.transform.Transformer $T).transform($UNTRUSTED, ...)
+
+          - pattern: new java.beans.XMLDecoder($UNTRUSTED);
+          - pattern: new java.beans.XMLDecoder($UNTRUSTED, $OWNER);
+          - pattern: new java.beans.XMLDecoder($UNTRUSTED, $OWNER, $EXCEPTION_LISTENER);

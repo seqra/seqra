@@ -1,0 +1,86 @@
+rules:
+  - id: csrf-disabled-in-spring-app
+    severity: WARNING
+    message: >-
+      CSRF protection is disabled for this configuration. This is a security risk.
+    metadata:
+      cwe:
+        - CWE-352
+      short-description: CSRF protection is disabled for this configuration
+      full-description: |-
+        Disabling CSRF protection in a Java web application (for example, via `http.csrf().disable()` in Spring Security)
+        removes the server-side check that ensures state‑changing requests (like POST, PUT, DELETE) actually come from
+        the legitimate application pages. When this protection is turned off, any website can cause a victim's browser—while
+        the user is logged in—to silently send authenticated requests to your application, because the browser automatically
+        includes cookies, session IDs, and some auth headers.
+
+        The consequences can include:
+
+        - **Unauthorized actions under the victim's account** — changing passwords or email addresses, updating profiles,
+          posting content, or making purchases and transfers without the user's consent.
+        - **Compromise of data integrity** — attackers can modify or delete data, approve or reject workflows,
+          or change configuration/settings in admin panels.
+        - **Escalation to broader compromise** — CSRF can be chained with other vulnerabilities
+          (e.g., weak auth flows, missing audit/logging) to lead to account takeover or full application compromise.
+        - **Business and legal impact** — fraudulent transactions, data tampering, and loss of user trust,
+          potentially triggering regulatory or compliance violations.
+      references:
+        - https://owasp.org/www-community/attacks/csrf
+        - https://en.wikipedia.org/wiki/Cross-site_request_forgery
+      provenance: https://find-sec-bugs.github.io/bugs.htm#SPRING_CSRF_PROTECTION_DISABLED
+    languages:
+      - java
+      - kt
+    pattern-either:
+      - pattern: (org.springframework.security.config.annotation.web.builders.HttpSecurity $H). ... .csrf().disable();
+      - pattern: (org.springframework.security.config.annotation.web.configurers.CsrfConfigurer $C).disable();
+
+  - id: unrestricted-request-mapping
+    severity: WARNING
+    message: >-
+      Detected a method annotated with 'RequestMapping' that does not specify
+      the HTTP method. CSRF protections are not enabled for GET, HEAD, TRACE,
+      or OPTIONS, and by default all HTTP methods are allowed when the HTTP method
+      is not explicitly specified. This means that a method that performs state
+      changes could be vulnerable to CSRF attacks. To mitigate, add the 'method'
+      field and specify the HTTP method (such as 'RequestMethod.POST').
+    metadata:
+      cwe:
+        - CWE-352
+      short-description: RequestMapping that does not specify the HTTP method might cause vulnerability to CSRF attacks
+      full-description: |-
+        When a Spring MVC handler is mapped with `@RequestMapping(...)` **without specifying the HTTP method**
+        (e.g. `@RequestMapping("/transfer")` instead of `@PostMapping("/transfer")` or
+        `@RequestMapping(value="/transfer", method = RequestMethod.POST)`),
+        Spring will by default allow that endpoint to be called with **any HTTP method**, including `GET`.
+
+        If Spring Security CSRF protection is enabled, it typically **only enforces CSRF tokens
+        on “unsafe” methods** (POST, PUT, PATCH, DELETE). If your state‑changing logic is unintentionally callable via `GET`,
+        that request path will generally **not require a CSRF token**, allowing attackers to trigger
+        sensitive actions with a simple cross-site `GET` request (e.g. an `<img>` tag or auto-submitting form).
+
+        The consequences can include:
+
+        - **Unauthorized state changes** — money transfers, order submissions, account updates, or other
+          business actions performed as the logged-in user, simply by visiting a malicious page.
+        - **Data integrity issues** — records can be modified or deleted, workflows approved, or
+          configurations changed via a GET request the developer thought was “POST‑only.”
+        - **Broader compromise when combined with other flaws** — missing HTTP method constraints can become
+          a pivot for account takeover or privilege escalation if admin or highly sensitive actions are exposed.
+        - **Regulatory and business impact** — fraudulent transactions, corrupted data, and loss of user trust,
+          with potential compliance violations (e.g., for financial or personal data).
+      references:
+        - https://find-sec-bugs.github.io/bugs.htm#SPRING_CSRF_UNRESTRICTED_REQUEST_MAPPING
+        - https://owasp.org/www-community/attacks/csrf
+        - https://en.wikipedia.org/wiki/Cross-site_request_forgery
+      provenance: https://find-sec-bugs.github.io/bugs.htm#SPRING_CSRF_UNRESTRICTED_REQUEST_MAPPING
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern: |
+          @RequestMapping(...)
+          $RETURNTYPE $METHOD(...) { ... }
+      - pattern-not: |
+          @RequestMapping(..., method = $X, ...)
+          $RETURNTYPE $METHOD(...) { ... }

@@ -1,0 +1,85 @@
+rules:
+  - id: spring-sqli-sink
+    options:
+      lib: true
+    severity: NOTE
+    message: SQL query with unescaped untrusted data
+    metadata:
+      license: LGPL 2.1 (GNU Lesser General Public License, Version 2.1)
+      provenance:
+        - https://find-sec-bugs.github.io/bugs.htm#SQL_INJECTION
+        - https://github.com/semgrep/semgrep-rules/blob/develop/java/spring/security/audit/spring-sqli.yaml
+        - https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/rules/lgpl-cc/java/inject/rule-SqlInjection.yml
+    languages:
+      - java
+    mode: taint
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: (javax.jdo.PersistenceManager $PM).newQuery($UNTRUSTED)
+              - pattern: (javax.jdo.PersistenceManager $PM).newQuery(..., $UNTRUSTED)
+              - pattern: (javax.jdo.Query $Q).setFilter($UNTRUSTED)
+              - pattern: (javax.jdo.Query $Q).setGrouping($UNTRUSTED)
+              - pattern: (Statement $S).$SQLFUNC(..., $UNTRUSTED, ...)
+              - pattern: (CallableStatement $S).$SQLFUNC(..., $UNTRUSTED, ...)
+              - pattern: (PreparedStatement $P).$SQLFUNC(..., $UNTRUSTED, ...)
+              - pattern: (Connection $C).createStatement(...).$SQLFUNC(..., $UNTRUSTED, ...)
+              - pattern: (Connection $C).prepareStatement(...).$SQLFUNC(..., $UNTRUSTED, ...)
+              - pattern: (io.vertx.sqlclient.SqlClient $O).query($UNTRUSTED, ...)
+              - pattern: (io.vertx.sqlclient.SqlClient $O).preparedQuery($UNTRUSTED, ...)
+              - pattern: (io.vertx.sqlclient.SqlConnection $O).prepare($UNTRUSTED, ...)
+              - pattern: (org.apache.turbine.om.peer.BasePeer $O).executeQuery($UNTRUSTED, ...)
+              - pattern: org.apache.torque.util.BasePeer.executeQuery($UNTRUSTED, ...)
+              - pattern: org.apache.torque.util.BasePeer.executeStatement($UNTRUSTED, ...)
+              - pattern: (javax.persistence.EntityManager $O).createQuery($UNTRUSTED, ...)
+              - pattern: (javax.persistence.EntityManager $O).createNativeQuery($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).createQuery($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).createScript($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).createUpdate($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).execute($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).prepareBatch($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).select($UNTRUSTED, ...)
+              - pattern: new org.jdbi.v3.core.statement.Script($H, $UNTRUSTED)
+              - pattern: new org.jdbi.v3.core.statement.Update($H, $UNTRUSTED)
+              - pattern: new org.jdbi.v3.core.statement.PreparedBatch($H, $UNTRUSTED)
+
+              - pattern: (EntityManager $EM).createQuery($UNTRUSTED, ...)
+              - pattern: (EntityManager $EM).createNativeQuery($UNTRUSTED, ...)
+              - pattern: (javax.jdo.PersistenceManager $PM).newQuery($UNTRUSTED)
+              - pattern: (javax.jdo.PersistenceManager $PM).newQuery(..., $UNTRUSTED)
+              - pattern: (javax.jdo.Query $Q).setFilter($UNTRUSTED)
+              - pattern: (javax.jdo.Query $Q).setGrouping($UNTRUSTED)
+              - pattern: (org.springframework.jdbc.core.JdbcTemplate $TEMPL).$JDBC_TEMPLATE_METHOD($UNTRUSTED, ...);
+              - pattern: (org.springframework.jdbc.core.JdbcOperations $O).$JDBC_TEMPLATE_METHOD($UNTRUSTED, ...);
+              - pattern: new org.springframework.jdbc.core.PreparedStatementCreatorFactory($UNTRUSTED, ...)
+              - pattern: (org.springframework.jdbc.core.PreparedStatementCreatorFactory $F).newPreparedStatementCreator($UNTRUSTED, ...)
+              - pattern: org.springframework.jdbc.core.namedparam.NamedParameterBatchUpdateUtils.$M($UNTRUSTED, ...)
+              - pattern: org.springframework.jdbc.core.BatchUpdateUtils.$M($UNTRUSTED,...)
+              - pattern: org.hibernate.criterion.Restrictions.sqlRestriction($UNTRUSTED, ...)
+              - pattern: (org.hibernate.Session $S).createQuery((String $UNTRUSTED), ...)
+              - pattern: (org.hibernate.Session $S).createSQLQuery($UNTRUSTED, ...)
+              - pattern: (org.hibernate.Session $S).connection().prepareStatement($UNTRUSTED)
+              - pattern: (io.vertx.sqlclient.SqlClient $O).query($UNTRUSTED, ...)
+              - pattern: (io.vertx.sqlclient.SqlClient $O).preparedQuery($UNTRUSTED, ...)
+              - pattern: (io.vertx.sqlclient.SqlConnection $O).prepare($UNTRUSTED, ...)
+              - pattern: (org.apache.turbine.om.peer.BasePeer $O).executeQuery($UNTRUSTED, ...)
+              - pattern: org.apache.torque.util.BasePeer.executeQuery($UNTRUSTED, ...)
+              - pattern: org.apache.torque.util.BasePeer.executeStatement($UNTRUSTED, ...)
+              - pattern: (javax.persistence.EntityManager $O).createQuery($UNTRUSTED, ...)
+              - pattern: (javax.persistence.EntityManager $O).createNativeQuery($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).createQuery($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).createScript($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).createUpdate($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).execute($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).prepareBatch($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).select($UNTRUSTED, ...)
+              - pattern: new org.jdbi.v3.core.statement.Script($H, $UNTRUSTED)
+              - pattern: new org.jdbi.v3.core.statement.Update($H, $UNTRUSTED)
+              - pattern: new org.jdbi.v3.core.statement.PreparedBatch($H, $UNTRUSTED)
+          - metavariable-regex:
+              metavariable: $SQLFUNC
+              regex: execute|executeQuery|createQuery|executeUpdate|executeLargeUpdate|query|addBatch|nativeSQL|create|prepare|prepareStatement|prepareCall
+          - metavariable-regex:
+              metavariable: $JDBC_TEMPLATE_METHOD
+              regex: (query|queryForList|queryForMap|queryForRowSet|queryForInt|queryForLong|queryForObject|update|execute|insert|executeUpdate|batchUpdate)
+          - focus-metavariable: $UNTRUSTED

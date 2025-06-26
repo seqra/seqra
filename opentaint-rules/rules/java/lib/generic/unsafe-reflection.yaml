@@ -1,0 +1,11 @@
+rules:
+  - id: java-unsafe-reflection-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: Using reflection on user-manipulated name
+    languages:
+      - java
+    pattern-either:
+      - pattern: java.lang.Class.forName($UNTRUSTED,...)
+      - pattern: java.lang.reflect.Method.invoke($UNTRUSTED,...)

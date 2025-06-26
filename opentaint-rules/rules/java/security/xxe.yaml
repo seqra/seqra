@@ -1,0 +1,229 @@
+rules:
+  - id: xxe-in-servlet-app
+    severity: ERROR
+    message: >-
+      Potential XXE: untrusted input is parsed as an XML with safety flags disabled
+    metadata:
+      cwe: CWE-611
+      short-description: XML parsing of an untrusted input
+      full-description: |-
+        XML External Entity (XXE) is a vulnerability that occurs when an application parses untrusted
+        XML with a parser that allows external entities or DTDs. An attacker can craft XML that causes
+        the server to read local files, make HTTP requests to internal systems (SSRF), or consume excessive resources (DoS).
+        In Java servlet applications, this often happens when request bodies are parsed as XML with default, insecure parser settings.
+
+        ```java
+        // Vulnerable servlet code: parses XML from the request with default settings
+
+        import jakarta.servlet.ServletException;
+        import jakarta.servlet.http.HttpServlet;
+        import jakarta.servlet.http.HttpServletRequest;
+        import jakarta.servlet.http.HttpServletResponse;
+
+        import org.w3c.dom.Document;
+        import javax.xml.parsers.DocumentBuilder;
+        import javax.xml.parsers.DocumentBuilderFactory;
+        import java.io.IOException;
+
+        public class XmlUploadServlet extends HttpServlet {
+
+            @Override
+            protected void doPost(HttpServletRequest request,
+                                  HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                try {
+                    // DEFAULT configuration — vulnerable to XXE
+                    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+                    DocumentBuilder builder = factory.newDocumentBuilder();
+
+                    // Attacker-controlled XML from the request body
+                    Document doc = builder.parse(request.getInputStream());
+
+                    // Process the XML document...
+                } catch (Exception e) {
+                    throw new ServletException(e);
+                }
+            }
+        }
+        ```
+
+        To remediate this issue, configure XML parsers to disallow DTDs and external entities,
+        enable secure processing features, and upgrade to a recent JDK/XML library version that
+        supports these controls. Where possible, avoid XML or use data formats/parsers that do not support external entities.
+
+        ```java
+        // Safe servlet code: XXE protections enabled
+
+        import jakarta.servlet.ServletException;
+        import jakarta.servlet.http.HttpServlet;
+        import jakarta.servlet.http.HttpServletRequest;
+        import jakarta.servlet.http.HttpServletResponse;
+
+        import org.w3c.dom.Document;
+        import javax.xml.XMLConstants;
+        import javax.xml.parsers.DocumentBuilder;
+        import javax.xml.parsers.DocumentBuilderFactory;
+        import java.io.IOException;
+
+        public class SafeXmlUploadServlet extends HttpServlet {
+
+            @Override
+            protected void doPost(HttpServletRequest request,
+                                  HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                try {
+                    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+
+                    // Enable secure processing
+                    factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+
+                    // Completely disallow DOCTYPE declarations
+                    factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+
+                    // Disable external entities
+                    factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+                    factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+                    factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+
+                    // Additional hardening
+                    factory.setXIncludeAware(false);
+                    factory.setExpandEntityReferences(false);
+
+                    // For JDKs that support it: block all external access
+                    try {
+                        factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+                        factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+                    } catch (IllegalArgumentException ignored) {
+                        // Attributes not supported in older JDKs; safe to ignore
+                    }
+
+                    DocumentBuilder builder = factory.newDocumentBuilder();
+                    Document doc = builder.parse(request.getInputStream());
+
+                    // Safely process the XML document...
+                } catch (Exception e) {
+                    throw new ServletException(e);
+                }
+            }
+        }
+        ```
+
+        Additional recommended steps:
+
+        - Validate and constrain inputs (e.g., size limits on request bodies).
+        - Prefer libraries or APIs that do not support DTD/entities when possible.
+        - Turn off XML features you do not need (schema validation, XInclude, etc.).
+        - Consider switching to JSON if XML's advanced features are unnecessary.
+      references:
+        - https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html
+        - https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing
+      provenance:
+        - https://github.com/semgrep/semgrep-rules/tree/develop/java/lang/security/audit/xxe
+        - https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/xml-decoder.yaml
+        - https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/xml/rule-XsltTransform.yml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/xxe-sinks.yaml#java-xxe-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: xxe-in-spring-app
+    severity: ERROR
+    message: >-
+      Potential XXE: untrusted input is parsed as an XML with safety flags disabled
+    metadata:
+      cwe: CWE-611
+      short-description: XML parsing of an untrusted input
+      full-description: |-
+        XML External Entity (XXE) in Spring applications occurs when the application parses XML
+        that comes (directly or indirectly) from users, and the XML parser is allowed to process
+        external entities or DTDs. An attacker can supply a crafted XML document that causes the parser to:
+
+        - Read local files (e.g., configuration, secrets).
+        - Make arbitrary HTTP requests from the server (SSRF).
+        - Potentially trigger denial of service.
+
+        This often happens in Spring MVC / Spring Boot apps when developers manually use low-level XML APIs
+        (e.g., `DocumentBuilderFactory`, `SAXParserFactory`) with unsafe defaults, or when XML marshalling libraries are not hardened.
+
+        ```java
+        // Vulnerable code sample (Spring Boot / Spring MVC)
+
+        @RestController
+        @RequestMapping("/api")
+        public class XmlController {
+
+            @PostMapping(value = "/process-xml", consumes = MediaType.APPLICATION_XML_VALUE)
+            public String processXml(@RequestBody String xml) throws Exception {
+                // Insecure: default configuration may allow DTDs and external entities
+                DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+                DocumentBuilder builder = dbf.newDocumentBuilder();
+
+                Document doc = builder.parse(new InputSource(new StringReader(xml)));
+
+                // Application logic using parsed XML...
+                String value = doc.getElementsByTagName("name").item(0).getTextContent();
+                return "Received: " + value;
+            }
+        }
+        ```
+
+        To remediate this issue, configure all XML parsers in the Spring application to reject
+        DTDs and external entities, or avoid XML entirely if possible (use JSON, for example).
+        With JAXP/DOM, harden `DocumentBuilderFactory` as follows:
+
+        ```java
+        // Safe XML parsing configuration
+
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+
+        // Completely disallow DOCTYPE declarations (strong protection against XXE)
+        dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+
+        // Disable external entities
+        dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+
+        // Extra hardening
+        dbf.setXIncludeAware(false);
+        dbf.setExpandEntityReferences(false);
+
+        DocumentBuilder builder = dbf.newDocumentBuilder();
+        Document doc = builder.parse(new InputSource(new StringReader(xml)));
+        ```
+
+        Additional Spring-specific guidelines:
+
+        - Prefer higher-level, framework-managed XML handling where Spring already applies
+          secure defaults, and verify the underlying parser's XXE settings (JAXP, JAXB, Jackson XML, etc.).
+        - Disable DTDs and external entities in any other XML-related factories
+          (`SAXParserFactory`, `XMLInputFactory`, etc.) used in beans or libraries within the Spring context.
+        - If your code uses third-party XML libraries, consult their documentation for XXE-safe configuration
+          and ensure those beans are created/configured securely in your Spring configuration.
+      references:
+        - https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html
+        - https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing
+      provenance:
+        - https://github.com/semgrep/semgrep-rules/tree/develop/java/lang/security/audit/xxe
+        - https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/xml-decoder.yaml
+        - https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/xml/rule-XsltTransform.yml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/xxe-sinks.yaml#java-xxe-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'

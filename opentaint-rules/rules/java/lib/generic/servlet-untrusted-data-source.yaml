@@ -1,0 +1,39 @@
+rules:
+  - id: java-servlet-untrusted-data-source
+    options:
+      lib: true
+    severity: NOTE
+    message: Untrusted data flows from here
+    languages:
+      - java
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern: |
+                  $RETURNTYPE $ENTRYPOINT(..., HttpServletRequest $UNTRUSTED,...) {
+                  ...
+                  }
+              - metavariable-pattern:
+                  metavariable: $ENTRYPOINT
+                  pattern-either:
+                    - pattern: doDelete
+                    - pattern: doGet
+                    - pattern: doPost
+                    - pattern: doDelete
+                    - pattern: doTrace
+          - pattern: |
+              $UNTRUSTED = (MessageBodyReader $READER).readFrom(...);
+          - pattern: |
+              (javax.servlet.http.Cookie[] $COOKIES) = (HttpServletRequest $REQ).getCookies();
+              ...
+              $UNTRUSTED = $COOKIES[...].getValue();
+          - patterns:
+            - pattern: |
+                $FILES = ($FILE_UPLOAD_TYPE $SFU).parseRequest((HttpServletRequest $REQ));
+                ...
+                $UNTRUSTED =  $FILES.iterator().next().getName();
+            - metavariable-regex:
+                metavariable: $FILE_UPLOAD_TYPE
+                regex: .*FileUpload.*
+          - pattern: |
+              $UNTRUSTED = ($X.servlet.http.Part $PART).getSubmittedFileName();

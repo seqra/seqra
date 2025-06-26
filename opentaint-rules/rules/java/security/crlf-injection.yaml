@@ -1,0 +1,616 @@
+rules:
+  - id: http-response-splitting-in-servlet-app
+    severity: WARNING
+    message: >-
+      Older Java application servers are vulnerable to HTTP response splitting, which
+      may occur if an HTTP request can be injected with CRLF characters.
+    metadata:
+      cwe:
+        - CWE-113
+      short-description: HTTP response splitting
+      full-description: |-
+        HTTP request/response splitting is a class of HTTP header injection vulnerabilities that occurs when untrusted input is inserted into HTTP headers without proper validation or encoding. An attacker can inject carriage return (`\r`) and line feed (`\n`) characters (CRLF) into header values, prematurely terminating one HTTP request/response and starting another. In Java web applications (Servlets, JSP, Spring MVC, etc.), this typically happens when user-controlled data is written directly into HTTP headers (including `Location` for redirects) without sanitization, enabling cache poisoning, cross-site scripting, and request smuggling/splitting attacks.
+
+        ```java
+        // Vulnerable code sample
+
+        import jakarta.servlet.ServletException;
+        import jakarta.servlet.http.HttpServlet;
+        import jakarta.servlet.http.HttpServletRequest;
+        import jakarta.servlet.http.HttpServletResponse;
+
+        import java.io.IOException;
+
+        public class ProfileServlet extends HttpServlet {
+
+            @Override
+            protected void doGet(HttpServletRequest request,
+                                HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                // Attacker controls the 'user' parameter, e.g.:
+                // ?user=alice%0D%0ASet-Cookie:%20session=attacker
+                String user = request.getParameter("user");
+
+                // VULNERABLE: unvalidated user input goes directly into an HTTP header
+                response.setHeader("X-User", user);
+
+                // Another common pattern: unsafe redirect parameter
+                // e.g. ?next=%0D%0ASet-Cookie:%20session=attacker
+                String next = request.getParameter("next");
+                response.sendRedirect("/home?next=" + next);
+
+                // If 'user' or 'next' contain CRLF sequences, the attacker can
+                // inject additional headers or even a second HTTP response.
+            }
+        }
+        ```
+
+        To remediate this issue, never write untrusted input directly into HTTP header fields (including `Location` for redirects) without strict validation and encoding:
+
+        1. **Reject CR (`\r`) and LF (`\n`) characters in any value that may end up in a header.**
+        2. **Validate header-related input with a whitelist (allow-list) of safe characters and/or specific patterns.** For example, language codes, tokens, or IDs should match a narrow regex.
+        3. **For URLs and query parameters, use proper URL encoding** (`URLEncoder`) instead of concatenation.
+        4. **Prefer framework helpers that enforce invariants**, such as `HttpServletResponse.encodeRedirectURL(...)`, and avoid exposing raw header manipulation to untrusted values.
+        5. **Upgrade and configure your servlet container / app server** (Tomcat, Jetty, etc.) to ensure it rejects illegal CRLF in headers, but do not rely on this as the only defense.
+
+        Safe example with validation and encoding:
+
+        ```java
+        import jakarta.servlet.ServletException;
+        import jakarta.servlet.http.HttpServlet;
+        import jakarta.servlet.http.HttpServletRequest;
+        import jakarta.servlet.http.HttpServletResponse;
+
+        import java.io.IOException;
+        import java.net.URLEncoder;
+        import java.nio.charset.StandardCharsets;
+
+        public class SafeProfileServlet extends HttpServlet {
+
+            @Override
+            protected void doGet(HttpServletRequest request,
+                                HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                String user = request.getParameter("user");
+                if (user == null) {
+                    user = "anonymous";
+                }
+
+                // 1. Reject CR/LF explicitly
+                if (user.contains("\r") || user.contains("\n")) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid user");
+                    return;
+                }
+
+                // 2. Optionally enforce a strict pattern for header-safe data
+                if (!user.matches("^[A-Za-z0-9_-]{1,32}$")) {
+                    user = "anonymous"; // or reject the request
+                }
+
+                // SAFE: header value is validated and free of CRLF
+                response.setHeader("X-User", user);
+
+                // 3. When building URLs, encode untrusted input as a query parameter
+                String next = request.getParameter("next");
+                if (next == null) {
+                    next = "/";
+                }
+
+                // Reject CR/LF and other dangerous patterns if you later interpret 'next'
+                if (next.contains("\r") || next.contains("\n")) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid next parameter");
+                    return;
+                }
+
+                String encodedNext = URLEncoder.encode(next, StandardCharsets.UTF_8);
+                String redirectUrl = response.encodeRedirectURL("/home?next=" + encodedNext);
+                response.sendRedirect(redirectUrl);
+            }
+        }
+        ```
+      references:
+        - https://owasp.org/www-community/attacks/HTTP_Response_Splitting
+        - https://en.wikipedia.org/wiki/HTTP_response_splitting
+      license: MIT
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/cookie/rule-HttpResponseSplitting.yml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/http-response-splitting-sinks.yaml#java-http-response-splitting-sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: http-response-splitting-in-spring-app
+    severity: WARNING
+    message: >-
+      Older Java application servers are vulnerable to HTTP response splitting, which
+      may occur if an HTTP request can be injected with CRLF characters.
+    metadata:
+      cwe:
+        - CWE-113
+      short-description: HTTP response splitting
+      full-description: |-
+        HTTP request/response splitting (often referred to as HTTP response splitting) is an HTTP header injection vulnerability that occurs when untrusted input is placed into HTTP headers without proper validation or encoding. An attacker can inject carriage return (`\r`) and line feed (`\n`) characters (CRLF) into header values to terminate the current header section and start a new header or response.
+        In Spring MVC / Spring Boot applications, this typically happens when user-controlled data is used directly in:
+
+        - Response headers (via `HttpServletResponse` or `ResponseEntity`)
+        - Redirect URLs (e.g. using `"redirect:" + userInput`)
+
+        allowing an attacker to poison caches, inject responses, or perform XSS via crafted HTTP responses.
+
+        ```java
+        // Vulnerable code sample — Spring MVC / Spring Boot
+
+        package com.example.demo;
+
+        import jakarta.servlet.http.HttpServletResponse;
+        import org.springframework.stereotype.Controller;
+        import org.springframework.web.bind.annotation.GetMapping;
+        import org.springframework.web.bind.annotation.RequestParam;
+
+        import java.io.IOException;
+
+        @Controller
+        public class ProfileController {
+
+            // Example 1: header injection
+            @GetMapping("/profile")
+            public void profile(@RequestParam(name = "user", required = false) String user,
+                                HttpServletResponse response) throws IOException {
+
+                // Attacker-supplied: ?user=alice%0D%0ASet-Cookie:%20session=attacker
+                if (user == null) {
+                    user = "anonymous";
+                }
+
+                // VULNERABLE: unvalidated input used directly as header value
+                response.setHeader("X-User", user);
+
+                response.getWriter().write("Profile");
+            }
+
+            // Example 2: unsafe redirect
+            @GetMapping("/go")
+            public String redirect(@RequestParam("next") String next) {
+
+                // Attacker-supplied:
+                // ?next=%0D%0ASet-Cookie:%20session=attacker
+                // or more complex payloads
+                //
+                // VULNERABLE in designs/versions that don't sanitize CRLF properly:
+                // user input is concatenated into the redirect target, which will be
+                // used as the Location header.
+                return "redirect:" + next;
+            }
+        }
+        ```
+
+        To remediate this issue, validate and sanitize all untrusted data before using it in HTTP headers or redirect URLs, and rely on safe builders/encoders instead of string concatenation:
+
+        1. **Never place raw user input into headers** (`setHeader`, `addHeader`, `ResponseEntity.header`, or `redirect:` URL fragments).
+        2. **Explicitly reject CR (`\r`) and LF (`\n`) in all values that might be used in headers or redirect URLs.**
+        3. **Use strict allow-lists / regex validation** for header and redirect parameters (e.g. only allow alphanumerics and a small set of safe characters).
+        4. **Build URLs using Spring utilities** such as `UriComponentsBuilder`, which properly encodes query parameters rather than concatenating strings.
+        5. **Keep Spring Framework and your servlet container up to date** so built‑in CRLF defenses are present, but do not rely on them as the only safeguard.
+
+        Safe example:
+
+        ```java
+        package com.example.demo;
+
+        import jakarta.servlet.http.HttpServletResponse;
+        import org.springframework.stereotype.Controller;
+        import org.springframework.web.bind.annotation.GetMapping;
+        import org.springframework.web.bind.annotation.RequestParam;
+        import org.springframework.web.util.UriComponentsBuilder;
+
+        import java.io.IOException;
+        import java.nio.charset.StandardCharsets;
+
+        @Controller
+        public class SafeProfileController {
+
+            @GetMapping("/profile")
+            public void profile(@RequestParam(name = "user", required = false) String user,
+                                HttpServletResponse response) throws IOException {
+
+                if (user == null) {
+                    user = "anonymous";
+                }
+
+                // 1. Reject CR/LF to prevent header injection
+                if (user.contains("\r") || user.contains("\n")) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid user");
+                    return;
+                }
+
+                // 2. Enforce a strict pattern for header-safe values
+                if (!user.matches("^[A-Za-z0-9_-]{1,32}$")) {
+                    user = "anonymous";  // or reject the request instead
+                }
+
+                // SAFE: header value is validated and free from CRLF
+                response.setHeader("X-User", user);
+
+                response.getWriter().write("Profile");
+            }
+
+            @GetMapping("/go")
+            public String safeRedirect(@RequestParam(name = "next", required = false) String next) {
+
+                if (next == null || next.isBlank()) {
+                    next = "/home";
+                }
+
+                // 3. Reject CR/LF in redirect target
+                if (next.contains("\r") || next.contains("\n")) {
+                    // In a real app, log and redirect to a safe default
+                    next = "/home";
+                }
+
+                // 4. Optionally, enforce a stricter rule: only allow local paths
+                if (!next.startsWith("/")) {
+                    next = "/home";
+                }
+
+                // 5. Build and encode the redirect URL safely
+                String url = UriComponentsBuilder
+                        .fromPath(next)
+                        // Example of adding an encoded query parameter:
+                        // .queryParam("ref", "someRef")
+                        .build()
+                        .encode(StandardCharsets.UTF_8)
+                        .toUriString();
+
+                // SAFE: Spring will use the encoded URL as the Location header
+                return "redirect:" + url;
+            }
+        }
+        ```
+      references:
+        - https://owasp.org/www-community/attacks/HTTP_Response_Splitting
+        - https://en.wikipedia.org/wiki/HTTP_response_splitting
+      license: MIT
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/cookie/rule-HttpResponseSplitting.yml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/http-response-splitting-sinks.yaml#java-http-response-splitting-sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: java-servlet-smtp-crlf-injection
+    severity: ERROR
+    message: >-
+      Potential CRLF injection into SMTP message:
+      the application was found calling `MimeMessage` methods without encoding
+      new line characters. Much like HTTP, Simple Mail Transfer Protocol (SMTP) is a
+      text based protocol that uses headers to convey additional directives for how
+      email messages should be treated. An adversary could potentially cause email
+      messages to be sent to unintended recipients by abusing the CC or BCC headers
+      if they were able to inject them.
+    metadata:
+      cwe: CWE-77
+      short-description: CRLF injection into SMTP message
+      full-description: |-
+        CRLF (Carriage Return + Line Feed, `\r\n`) injection into an SMTP `MimeMessage` occurs when untrusted input is placed directly into email headers (e.g., `Subject`, `To`, `From`, custom headers) without properly validating or stripping newline characters.
+
+        Because SMTP and MIME use `\r\n` to separate headers and the message body, an attacker who can inject `\r\n` into a header field can prematurely terminate that header and start injecting new headers or even alter the body. This can be abused to:
+
+        - Add unintended recipients (`Bcc`, `Cc`, additional `To`).
+        - Spoof or modify headers (e.g., `From`, `Reply-To`, `X-...`).
+        - Manipulate message content or spam/abuse mail infrastructure.
+
+        In Java, this often happens when using `MimeMessage` (e.g., via Jakarta Mail / JavaMail) with user-supplied values for headers without sanitization, or when bypassing built-in validation by using low-level header methods.
+
+        ---
+
+        Vulnerable code sample
+
+        ```java
+        public void sendEmail(HttpServletRequest request) throws MessagingException {
+            String to = request.getParameter("to");
+            String subject = request.getParameter("subject");
+            String body = request.getParameter("message");
+
+            Session session = getMailSession();
+            MimeMessage message = new MimeMessage(session);
+
+            // User-controlled values, no validation
+            message.setFrom(new InternetAddress("noreply@example.com"));
+            message.setRecipient(Message.RecipientType.TO, new InternetAddress(to));
+
+            // Vulnerable: subject comes directly from user input
+            // If subject contains "\r\nBcc: victim@example.com", that may create a new header line
+            message.setHeader("Subject", subject); // bad: manual header setting
+
+            // Also dangerous when using generic headers
+            String trackingId = request.getParameter("trackingId");
+            message.setHeader("X-Tracking-Id", trackingId); // unvalidated header value
+
+            message.setText(body);
+
+            Transport.send(message);
+        }
+        ```
+
+        If an attacker supplies a value like:
+
+        ```text
+        subject = "Hello\r\nBcc: attacker@example.com"
+        ```
+
+        and the underlying library does not strip or reject CR/LF characters for that header-setting method, the generated email may contain an injected `Bcc` header, silently copying all messages to the attacker.
+
+        ---
+
+        To remediate this issue, ensure that any user-controlled input used in email headers is strictly validated and cannot contain CR (`\r`) or LF (`\n`) characters, and avoid low-level header methods where safer, higher-level APIs exist.
+
+        Key steps:
+
+        1. **Disallow CR and LF in header fields**
+          Strip or reject any input that contains `\r` or `\n` if it will be used in a header (e.g., `Subject`, `From`, `To`, `Reply-To`, custom `X-*` headers).
+
+        2. **Use high-level `MimeMessage` APIs**
+          Prefer methods like `setSubject`, `setFrom`, `setRecipients`, which usually perform syntax checks, instead of `setHeader` / `addHeader` with raw values. Do not manually craft header lines.
+
+        3. **Apply strict validation**
+          - For email addresses: validate against a reasonable email regex and/or let `InternetAddress` parse and validate addresses, and reject invalid ones.
+          - For subjects / custom header values: define allowed character sets or patterns (e.g., letters, numbers, spaces, basic punctuation) and reject anything else.
+
+        4. **Keep your mail library up to date**
+          Use the latest Jakarta Mail / JavaMail version, as many unsafe behaviors (including header validation) have been tightened over time. But even with updated libraries, you should still validate input.
+
+        Safe code sample:
+
+        ```java
+        public void sendEmail(HttpServletRequest request) throws MessagingException {
+            String toParam = request.getParameter("to");
+            String subjectParam = request.getParameter("subject");
+            String bodyParam = request.getParameter("message");
+            String trackingIdParam = request.getParameter("trackingId");
+
+            // Basic null checks omitted for brevity
+
+            // 1. Validate and sanitize inputs
+
+            // Reject CR and LF in any header-bound fields
+            if (containsCRLF(subjectParam) || containsCRLF(trackingIdParam) || containsCRLF(toParam)) {
+                throw new IllegalArgumentException("Invalid input");
+            }
+
+            // Validate email address format via InternetAddress
+            InternetAddress toAddress;
+            try {
+                toAddress = new InternetAddress(toParam, true); // 'true' for strict validation
+            } catch (AddressException ex) {
+                throw new IllegalArgumentException("Invalid recipient address", ex);
+            }
+
+            // Optionally, normalize subject to a safe subset of characters
+            String safeSubject = subjectParam.replaceAll("[\r\n]", "").trim();
+
+            // Optionally, validate custom header (e.g., alphanumeric + dash only)
+            String safeTrackingId = trackingIdParam.replaceAll("[^A-Za-z0-9\\-]", "");
+
+            // 2. Use higher-level MimeMessage APIs
+
+            Session session = getMailSession();
+            MimeMessage message = new MimeMessage(session);
+
+            message.setFrom(new InternetAddress("noreply@example.com"));
+            message.setRecipient(Message.RecipientType.TO, toAddress);
+
+            // Use setSubject, which encodes and validates header correctly
+            message.setSubject(safeSubject, "UTF-8");
+
+            // Custom headers: still only after sanitization
+            if (!safeTrackingId.isEmpty()) {
+                message.setHeader("X-Tracking-Id", safeTrackingId);
+            }
+
+            message.setText(bodyParam, "UTF-8");
+
+            Transport.send(message);
+        }
+
+        private boolean containsCRLF(String value) {
+            return value != null && (value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0);
+        }
+        ```
+
+        In this remediated version:
+
+        - All header-bound values are checked for `\r` and `\n`.
+        - Email address is validated via `InternetAddress`.
+        - `setSubject` is used instead of `setHeader("Subject", …)`.
+        - Custom header is sanitized to a safe character set before being used.
+      references:
+        - https://owasp.org/www-community/vulnerabilities/CRLF_Injection
+        - https://owasp.org/www-community/attacks/Email_Injection
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/smtp/rule-InsecureSmtp.yml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/smtp-injection-sinks.yaml#java-smtp-crlf-injection-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: spring-smtp-crlf-injection
+    severity: ERROR
+    message: >-
+      Potential CRLF injection into SMTP message:
+      The application was found calling `MimeMessage` methods without encoding
+      new line characters. Much like HTTP, Simple Mail Transfer Protocol (SMTP) is a
+      text based protocol that uses headers to convey additional directives for how
+      email messages should be treated. An adversary could potentially cause email
+      messages to be sent to unintended recipients by abusing the CC or BCC headers
+      if they were able to inject them.
+    metadata:
+      cwe: CWE-77
+      short-description: CRLF injection into SMTP message
+      full-description: |-
+        CRLF (Carriage Return + Line Feed, `\r\n`) injection into an SMTP `MimeMessage` occurs when untrusted input is placed directly into email headers (e.g., `Subject`, `To`, `From`, custom headers) without properly validating or stripping newline characters.
+
+        Because SMTP and MIME use `\r\n` to separate headers and the message body, an attacker who can inject `\r\n` into a header field can prematurely terminate that header and start injecting new headers or even alter the body. This can be abused to:
+
+        - Add unintended recipients (`Bcc`, `Cc`, additional `To`).
+        - Spoof or modify headers (e.g., `From`, `Reply-To`, `X-...`).
+        - Manipulate message content or spam/abuse mail infrastructure.
+
+        In Java, this often happens when using `MimeMessage` (e.g., via Jakarta Mail / JavaMail) with user-supplied values for headers without sanitization, or when bypassing built-in validation by using low-level header methods.
+
+        ---
+
+        Vulnerable code sample
+
+        ```java
+        public void sendEmail(HttpServletRequest request) throws MessagingException {
+            String to = request.getParameter("to");
+            String subject = request.getParameter("subject");
+            String body = request.getParameter("message");
+
+            Session session = getMailSession();
+            MimeMessage message = new MimeMessage(session);
+
+            // User-controlled values, no validation
+            message.setFrom(new InternetAddress("noreply@example.com"));
+            message.setRecipient(Message.RecipientType.TO, new InternetAddress(to));
+
+            // Vulnerable: subject comes directly from user input
+            // If subject contains "\r\nBcc: victim@example.com", that may create a new header line
+            message.setHeader("Subject", subject); // bad: manual header setting
+
+            // Also dangerous when using generic headers
+            String trackingId = request.getParameter("trackingId");
+            message.setHeader("X-Tracking-Id", trackingId); // unvalidated header value
+
+            message.setText(body);
+
+            Transport.send(message);
+        }
+        ```
+
+        If an attacker supplies a value like:
+
+        ```text
+        subject = "Hello\r\nBcc: attacker@example.com"
+        ```
+
+        and the underlying library does not strip or reject CR/LF characters for that header-setting method, the generated email may contain an injected `Bcc` header, silently copying all messages to the attacker.
+
+        ---
+
+        To remediate this issue, ensure that any user-controlled input used in email headers is strictly validated and cannot contain CR (`\r`) or LF (`\n`) characters, and avoid low-level header methods where safer, higher-level APIs exist.
+
+        Key steps:
+
+        1. **Disallow CR and LF in header fields**
+          Strip or reject any input that contains `\r` or `\n` if it will be used in a header (e.g., `Subject`, `From`, `To`, `Reply-To`, custom `X-*` headers).
+
+        2. **Use high-level `MimeMessage` APIs**
+          Prefer methods like `setSubject`, `setFrom`, `setRecipients`, which usually perform syntax checks, instead of `setHeader` / `addHeader` with raw values. Do not manually craft header lines.
+
+        3. **Apply strict validation**
+          - For email addresses: validate against a reasonable email regex and/or let `InternetAddress` parse and validate addresses, and reject invalid ones.
+          - For subjects / custom header values: define allowed character sets or patterns (e.g., letters, numbers, spaces, basic punctuation) and reject anything else.
+
+        4. **Keep your mail library up to date**
+          Use the latest Jakarta Mail / JavaMail version, as many unsafe behaviors (including header validation) have been tightened over time. But even with updated libraries, you should still validate input.
+
+        Safe code sample:
+
+        ```java
+        public void sendEmail(HttpServletRequest request) throws MessagingException {
+            String toParam = request.getParameter("to");
+            String subjectParam = request.getParameter("subject");
+            String bodyParam = request.getParameter("message");
+            String trackingIdParam = request.getParameter("trackingId");
+
+            // Basic null checks omitted for brevity
+
+            // 1. Validate and sanitize inputs
+
+            // Reject CR and LF in any header-bound fields
+            if (containsCRLF(subjectParam) || containsCRLF(trackingIdParam) || containsCRLF(toParam)) {
+                throw new IllegalArgumentException("Invalid input");
+            }
+
+            // Validate email address format via InternetAddress
+            InternetAddress toAddress;
+            try {
+                toAddress = new InternetAddress(toParam, true); // 'true' for strict validation
+            } catch (AddressException ex) {
+                throw new IllegalArgumentException("Invalid recipient address", ex);
+            }
+
+            // Optionally, normalize subject to a safe subset of characters
+            String safeSubject = subjectParam.replaceAll("[\r\n]", "").trim();
+
+            // Optionally, validate custom header (e.g., alphanumeric + dash only)
+            String safeTrackingId = trackingIdParam.replaceAll("[^A-Za-z0-9\\-]", "");
+
+            // 2. Use higher-level MimeMessage APIs
+
+            Session session = getMailSession();
+            MimeMessage message = new MimeMessage(session);
+
+            message.setFrom(new InternetAddress("noreply@example.com"));
+            message.setRecipient(Message.RecipientType.TO, toAddress);
+
+            // Use setSubject, which encodes and validates header correctly
+            message.setSubject(safeSubject, "UTF-8");
+
+            // Custom headers: still only after sanitization
+            if (!safeTrackingId.isEmpty()) {
+                message.setHeader("X-Tracking-Id", safeTrackingId);
+            }
+
+            message.setText(bodyParam, "UTF-8");
+
+            Transport.send(message);
+        }
+
+        private boolean containsCRLF(String value) {
+            return value != null && (value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0);
+        }
+        ```
+
+        In this remediated version:
+
+        - All header-bound values are checked for `\r` and `\n`.
+        - Email address is validated via `InternetAddress`.
+        - `setSubject` is used instead of `setHeader("Subject", …)`.
+        - Custom header is sanitized to a safe character set before being used.
+      references:
+        - https://owasp.org/www-community/vulnerabilities/CRLF_Injection
+        - https://owasp.org/www-community/attacks/Email_Injection
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/smtp/rule-InsecureSmtp.yml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/smtp-injection-sinks.yaml#java-smtp-crlf-injection-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'

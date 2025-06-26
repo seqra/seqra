@@ -1,0 +1,289 @@
+rules:
+  - id: do-privileged-use
+    severity: NOTE
+    message: >-
+      Marking code as privileged enables a piece of trusted code to temporarily
+      enable access to more resources than are available directly to the code
+      that called it. Be very careful in your use of the privileged construct,
+      and always remember to make the privileged code section as small
+      as possible.
+    metadata:
+      cwe:
+        - CWE-269
+      short-description: Privileged code execution should be very carefully analysed
+      references:
+        - https://docs.oracle.com/javase/8/docs/technotes/guides/security/doprivileged.html
+        - https://wiki.sei.cmu.edu/confluence/display/java/Privilege+Escalation
+        - http://phrack.org/papers/escaping_the_java_sandbox.html
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/do-privileged-use.yaml
+    languages:
+      - java
+    patterns:
+      - pattern-either:
+          - pattern: java.security.AccessController.doPrivileged(...);
+          - pattern: class $ACTION implements java.security.PrivilegedAction { ... }
+
+  - id: trust-boundary-violation
+    severity: NOTE
+    message: |
+      A trust boundary can be thought of as line drawn through a program. On one side
+      of the line, data is untrusted. On the other side of the line, data is assumed
+      to be trustworthy. The purpose of validation logic is to allow data to safely
+      cross the trust boundary - to move from untrusted to trusted. A trust boundary
+      violation occurs when a program blurs the line between what is trusted and what
+      is untrusted. By combining trusted and untrusted data in the same data
+      structure, it becomes easier for programmers to mistakenly trust unvalidated
+      data.
+    metadata:
+      cwe: CWE-501
+      short-description: Trust boundary violation is a bad app design
+      references:
+        - https://cwe.mitre.org/data/definitions/501.html
+      provenance: https://semgrep.dev/r/gitlab.find_sec_bugs.TRUST_BOUNDARY_VIOLATION-1
+    languages:
+      - java
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - patterns:
+                  - pattern-inside: |
+                      @$ANNOTATION(...)
+                      $RETURNTYPE $METHOD(..., HttpServletRequest $REQ,...) {
+                        ...
+                      }
+                  - metavariable-pattern:
+                      metavariable: $ANNOTATION
+                      pattern-either:
+                        - pattern: RequestMapping
+                        - pattern: DeleteMapping
+                        - pattern: GetMapping
+                        - pattern: PatchMapping
+                        - pattern: PostMapping
+                        - pattern: PutMapping
+              - patterns:
+                  - pattern-inside: |
+                      $RETURNTYPE $RESTMETHOD(..., HttpServletRequest $REQ,...) {
+                        ...
+                      }
+                  - metavariable-pattern:
+                      metavariable: $RESTMETHOD
+                      pattern-either:
+                        - pattern: doDelete
+                        - pattern: doGet
+                        - pattern: doPost
+                        - pattern: doDelete
+                        - pattern: doTrace
+          - pattern: |
+              $REQ.$FUNC(...)
+          - pattern-not: |
+              $REQ.getSession()
+    pattern-propagators:
+      - pattern: $RES = org.owasp.esapi.ESAPI.encoder().encodeForHTML($IN)
+        from: $IN
+        to: $RES
+    pattern-sinks:
+      - patterns:
+          - pattern: (HttpServletRequest $REQ).getSession().$FUNC($NAME, $VALUE);
+          - metavariable-regex:
+              metavariable: $FUNC
+              regex: ^(putValue|setAttribute)$
+
+  - id: cookie-missing-httponly
+    severity: WARNING
+    message: >-
+      A cookie was detected without setting the 'HttpOnly' flag. The 'HttpOnly' flag
+      for cookies instructs the browser to forbid client-side scripts from reading the
+      cookie. Set the 'HttpOnly' flag by calling 'cookie.setHttpOnly(true);'
+    metadata:
+      cwe:
+        - CWE-1004
+      short-description: Sensitive cookie without 'HttpOnly' flag
+      references:
+        - https://owasp.org/Top10/A05_2021-Security_Misconfiguration
+      provenance: https://find-sec-bugs.github.io/bugs.htm#HTTPONLY_COOKIE
+    languages:
+      - java
+    pattern-either:
+      - patterns:
+          - pattern: |
+              javax.servlet.http.Cookie $C = new Cookie(..., ...);
+              ...
+              (HttpServletResponse $RESP).addCookie($C);
+          - pattern-not-inside: |
+              javax.servlet.http.Cookie $C = new Cookie(..., ...);
+              ...
+              $C.setHttpOnly(true);
+              ...
+              (HttpServletResponse $RESP).addCookie($C);
+      - pattern: (javax.servlet.http.Cookie $C).setHttpOnly(false);
+
+  - id: persistent-cookie
+    severity: NOTE
+    options:
+      # todo metavariable-comparison is not supported
+      disabled: metavariable-comparison is not supported
+    message: |
+      Storing sensitive data in a persistent cookie for an extended period can lead to a breach of
+      confidentiality or account compromise.
+    metadata:
+      cwe: CWE-614
+      short-description: Storing sensitive data in a persistent cookie for an extended period can lead to a breach of confidentiality or account compromise
+      provenance: https://semgrep.dev/r/gitlab.find_sec_bugs.COOKIE_PERSISTENT-1
+    languages:
+      - java
+    patterns:
+      - pattern-inside: |
+          (javax.servlet.http.Cookie $C).setMaxAge($AGE);
+      - metavariable-comparison:
+          comparison: $AGE >= 31536000
+          metavariable: $AGE
+
+  - id: permissive-cors
+    severity: WARNING
+    message: >-
+      Permissive CORS policy will allow a malicious application to communicate with
+      the victim application in an inappropriate way, leading to spoofing, data theft,
+      relay and other attacks.
+    metadata:
+      cwe:
+        - CWE-183
+      short-description: Permissive CORS policy causes security risks
+      full-description: |-
+        A permissive Cross-Origin Resource Sharing (CORS) configuration (for example, sending `Access-Control-Allow-Origin: *`)
+        allows any website to make cross-origin requests to your application from a user's browser.
+        If the API exposes sensitive data and/or accepts browser credentials (cookies, HTTP authentication,
+        bearer tokens from JavaScript), this can let an attacker's site read data or perform actions as the logged-in user.
+        CORS is not an authentication or authorization mechanism; treating it as one or configuring it too
+        broadly is a common misconfiguration that breaks the browser's same-origin policy and enables data exfiltration
+        from protected endpoints.
+
+        > Note: Modern browsers do not allow `Access-Control-Allow-Credentials: true`
+        together with the literal wildcard `*`, but developers often implement the logical
+        equivalent by reflecting the `Origin` header for any origin. Both cases are “permissive CORS” and vulnerable.
+
+
+        ### Vulnerable code sample
+
+        Example using a Java Servlet `Filter` that unconditionally allows any origin:
+
+        ```java
+        import jakarta.servlet.*;
+        import jakarta.servlet.annotation.WebFilter;
+        import jakarta.servlet.http.HttpServletResponse;
+        import java.io.IOException;
+
+        @WebFilter("/*")
+        public class CorsFilter implements Filter {
+
+            @Override
+            public void doFilter(ServletRequest request,
+                                ServletResponse response,
+                                FilterChain chain)
+                    throws IOException, ServletException {
+
+                HttpServletResponse httpResp = (HttpServletResponse) response;
+
+                // VULNERABLE: allows any origin to read responses
+                httpResp.setHeader("Access-Control-Allow-Origin", "*");
+                httpResp.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+                httpResp.setHeader("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization");
+                httpResp.setHeader("Access-Control-Allow-Credentials", "true"); // also unsafe pattern
+
+                chain.doFilter(request, response);
+            }
+        }
+        ```
+
+        Impact:
+
+        - Any website can issue cross-origin AJAX/fetch requests to these endpoints.
+        - If the application relies on cookies or other automatic credentials, and CORS is
+          configured permissively (for example, with `Allow-Credentials: true` and origin reflection),
+          the attacker's site can read sensitive responses as the victim user (e.g., profile data,
+          account details, CSRF-protected actions' results).
+        - Even without credentials, responses that were intended only for your own frontend become
+          readable to arbitrary third-party sites (e.g., internal APIs, metadata, rate-limit info, etc.).
+
+
+        ### To remediate this issue
+
+        Configure CORS to allow **only known, trusted origins** and avoid wildcards for endpoints that return anything non-public.
+        Do not reflect arbitrary `Origin` values, and avoid combining broad origin rules with `Access-Control-Allow-Credentials: true`.
+
+        Example safer Servlet `Filter` using an explicit allowlist:
+
+        ```java
+        import jakarta.servlet.*;
+        import jakarta.servlet.annotation.WebFilter;
+        import jakarta.servlet.http.HttpServletRequest;
+        import jakarta.servlet.http.HttpServletResponse;
+        import java.io.IOException;
+        import java.util.Set;
+
+        @WebFilter("/*")
+        public class CorsFilter implements Filter {
+
+            // Explicitly allowed front-end origins
+            private static final Set<String> ALLOWED_ORIGINS = Set.of(
+                "https://app.example.com",
+                "https://admin.example.com"
+            );
+
+            @Override
+            public void doFilter(ServletRequest request,
+                                ServletResponse response,
+                                FilterChain chain)
+                    throws IOException, ServletException {
+
+                HttpServletRequest httpReq = (HttpServletRequest) request;
+                HttpServletResponse httpResp = (HttpServletResponse) response;
+
+                String origin = httpReq.getHeader("Origin");
+                if (origin != null && ALLOWED_ORIGINS.contains(origin)) {
+                    httpResp.setHeader("Access-Control-Allow-Origin", origin);
+                    httpResp.setHeader("Vary", "Origin"); // ensure caches differentiate by Origin
+                    httpResp.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+                    httpResp.setHeader("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization");
+                    httpResp.setHeader("Access-Control-Allow-Credentials", "true");
+                }
+
+                // Optionally handle preflight (OPTIONS) requests here if needed
+
+                chain.doFilter(request, response);
+            }
+        }
+        ```
+
+        Key remediation points:
+
+        - Replace `Access-Control-Allow-Origin: *` with a strict allowlist of trusted origins.
+        - Only enable `Access-Control-Allow-Credentials: true` when strictly necessary and **never** for arbitrary/unvalidated origins.
+        - Treat all endpoints exposed via CORS as if they are accessible to any code running in those allowed origins' contexts; do not rely on CORS for access control.
+        - For APIs intended to be truly public, using `*` is acceptable only if you are certain that:
+          - No cookies or other automatic browser credentials are involved, and
+          - All returned data is safe to be read by any third-party website.
+      references:
+        - https://en.wikipedia.org/wiki/Cross-origin_resource_sharing
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/permissive-cors.yaml
+    languages:
+      - java
+    patterns:
+      - pattern-either:
+        - pattern: (HttpServletResponse $RES).addHeader("$NAME", "$VALUE");
+        - pattern: (HttpServletResponse $RES).setHeader("$NAME", "$VALUE");
+        - pattern: (ServerHttpResponse $RES).getHeaders().add("$NAME", "$VALUE");
+        - pattern: (HttpHeaders $HEADERS).set("$NAME", "$VALUE");
+        - pattern: (ServerWebExchange $SWE).getResponse().getHeaders().add("$NAME", "$VALUE");
+        - pattern: (HttpServletResponse $RES).addHeader("$NAME", "$VALUE");
+        - pattern: (HttpServletResponse $RES).setHeader("$NAME", "$VALUE");
+        - pattern: (ServerHttpResponse $RES).getHeaders().add("$NAME", "$VALUE");
+        - pattern: (ServerWebExchange $SWE).getResponse().getHeaders().add("$NAME", "$VALUE");
+        - pattern: ResponseEntity.$RES().header("$NAME", "$VALUE")
+        - pattern: ServerResponse.$RES().header("$NAME", "$VALUE")
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: (?i)access-control-allow-origin
+      - metavariable-regex:
+          metavariable: $VALUE
+          regex: (?i)^\*|null$

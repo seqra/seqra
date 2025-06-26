@@ -1,0 +1,58 @@
+rules:
+  - id: java-saml-ignore-comments
+    severity: WARNING
+    message: >-
+      SAML parses attestations as an XML document. By processing XML comments, comment
+      fields can end up modifying the interpretation of input fields. This could allow
+      an adversary to insert an XML comment to break up the attestation's username
+      or other fields, allowing an attacker to bypass authorization or authentication checks.
+    metadata:
+      cwe: CWE-1390
+      short-description: Weak authentication
+      full-description: |-
+        SAML parses attestations as an XML document. By processing XML comments, comment
+        fields can end up modifying the interpretation of input fields. This could allow
+        an adversary to insert an XML comment to break up the attestation's username
+        or other fields, allowing an attacker to bypass authorization or authentication checks.
+
+        To remediate this issue, when using `org.opensaml.xml.parse.BasicParserPool` ensure
+        `setIgnoreComments(false)` is not called.
+
+        The default value of `ignoreComments` is true, which is safe.
+      references:
+        - https://javadoc.io/doc/org.opensaml/xmltooling/latest/org/opensaml/xml/parse/BasicParserPool.html#ignoreComments
+        - https://developer.okta.com/blog/2018/02/27/a-breakdown-of-the-new-saml-authentication-bypass-vulnerability
+        - https://cheatsheetseries.owasp.org/cheatsheets/SAML_Security_Cheat_Sheet.html
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/xml/rule-SAMLIgnoreComments.yml
+    languages:
+      - java
+    pattern: (org.opensaml.xml.parse.BasicParserPool $POOL).setIgnoreComments(false);
+
+  - id: java-jwt-decode-without-verify
+    severity: WARNING
+    message: >-
+      Detected the decoding of a JWT token without a verify step.
+      JWT tokens must be verified before use, otherwise the token's
+      integrity is unknown. This means a malicious actor could forge
+      a JWT token with any claims. Call '.verify()' before using the token.
+    metadata:
+      cwe:
+        - CWE-345
+      short-description: Decoding of a JWT token without a verify step
+      references:
+        - https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures
+      provenance: https://semgrep.dev/blog/2020/hardcoded-secrets-unverified-tokens-and-other-common-jwt-mistakes/
+    languages:
+      - java
+    patterns:
+      - pattern: |
+          com.auth0.jwt.JWT.decode(...);
+      - pattern-not-inside: |-
+          class $CLASS {
+            ...
+            $RETURNTYPE $FUNC (...) {
+              ...
+              $VERIFIER.verify(...);
+              ...
+            }
+          }

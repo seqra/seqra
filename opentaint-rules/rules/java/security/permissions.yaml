@@ -1,0 +1,95 @@
+rules:
+  - id: dangerous-permissions
+    severity: WARNING
+    message: >-
+      The application was found to permit the `RuntimePermission` of `createClassLoader`,
+      `ReflectPermission` of `suppressAccessChecks`, or both.
+
+      By granting the `RuntimePermission` of `createClassLoader`, a compromised application
+      could instantiate their own class loaders and load arbitrary classes.
+
+      By granting the `ReflectPermission` of `suppressAccessChecks` an application will no longer
+      check Java language access checks on fields and methods of a class. This will effectively
+      grant access to protected and private members.
+    metadata:
+      cwe: CWE-732
+      short-description: Weak runtime and/or reflection permissions cause security risks
+      references:
+        - https://docs.oracle.com/javase/8/docs/api/java/lang/RuntimePermission.html
+        - https://docs.oracle.com/javase/8/docs/api/java/lang/reflect/ReflectPermission.html
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/perm/rule-DangerousPermissions.yml
+    languages:
+      - java
+    pattern-either:
+      - pattern: |
+          $RUNVAR = new java.lang.RuntimePermission("createClassLoader");
+          ...
+          (java.security.PermissionCollection $PC).add($RUNVAR);
+      - pattern: |
+          $REFVAR = new java.lang.ReflectPermission("suppressAccessChecks");
+          ...
+          (java.security.PermissionCollection $PC).add($REFVAR);
+
+  - id: overly-permissive-file-permission-inline
+    severity: WARNING
+    message: |
+      The application was found setting file permissions to overly permissive values. Consider
+      using the following values if the application user is the only process to access
+      the file:
+
+      - `r--` - read only access to the file
+      - `w--` - write only access to the file
+      - `rw-` - read/write access to the file
+    metadata:
+      cwe: CWE-732
+      short-description: Setting file permissions to overly permissive values
+      full-description: |-
+        The application was found setting file permissions to overly permissive values.
+        Such configurations make files readable, writable, or executable by any user on the system,
+        which can expose sensitive data, allow unauthorized modification of files, or enable arbitrary code execution.
+        Consider using the following values if the application user is the only process to access
+        the file:
+
+        - `r--` - read only access to the file
+        - `w--` - write only access to the file
+        - `rw-` - read/write access to the file
+
+        Example setting read/write permissions for only the owner of a `Path`:
+        ```
+        // Get a reference to the path
+        Path path = Paths.get("/tmp/somefile");
+        // Create a PosixFilePermission set from java.nio.file.attribute
+        Set<PosixFilePermission> permissions =
+        java.nio.file.attribute.PosixFilePermissions.fromString("rw-------");
+        // Set the permissions
+        java.nio.file.Files.setPosixFilePermissions(path, permissions);
+        ```
+      references:
+        - https://en.wikipedia.org/wiki/File-system_permissions#Symbolic_notation
+      provenance: |
+        - https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/perm/rule-OverlyPermissiveFilePermissionInline.yml
+        - https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/overly-permissive-file-permission.yaml
+    languages:
+      - java
+    patterns:
+      - pattern-either:
+          - pattern: java.nio.file.Files.setPosixFilePermissions(..., java.nio.file.attribute.PosixFilePermissions.fromString("$PERM_STRING"));
+          - pattern: |
+              $PERMISSIONS = java.nio.file.attribute.PosixFilePermissions.fromString("$PERM_STRING");
+              ...
+              java.nio.file.Files.setPosixFilePermissions(..., $PERMISSIONS);
+          - pattern: |
+              $P.add(java.nio.file.attribute.PosixFilePermission.OTHERS_READ);
+              ...
+              java.nio.file.Files.setPosixFilePermissions($FILE, $P);
+          - pattern: |
+              $P.add(java.nio.file.attribute.PosixFilePermission.OTHERS_WRITE);
+              ...
+              java.nio.file.Files.setPosixFilePermissions($FILE, $P);
+          - pattern: |-
+              $P.add(java.nio.file.attribute.PosixFilePermission.OTHERS_EXECUTE);
+              ...
+              java.nio.file.Files.setPosixFilePermissions($FILE, $P);
+      - metavariable-regex:
+          metavariable: $PERM_STRING
+          regex: (^......r..$)|(^.......w.$)|(^........x$)

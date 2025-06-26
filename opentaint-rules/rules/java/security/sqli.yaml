@@ -1,0 +1,231 @@
+rules:
+  - id: sql-injection-in-servlet-app
+    severity: ERROR
+    message: >-
+      Potential SQL injection: detected unescaped input from a user-manipulated data source going into a SQL sink or statement
+    metadata:
+      cwe: CWE-89
+      short-description: Potential SQL injection
+      full-description: |-
+        SQL injection is a vulnerability where untrusted input is concatenated into SQL queries and sent to the database without
+        proper validation or parameterization. In Java servlet applications, this typically happens when request parameters
+        are directly embedded into SQL strings. An attacker can craft input that changes the structure of the SQL query,
+        allowing unauthorized data access, data modification, or even full compromise of the database.
+
+        Vulnerable code sample
+
+        ```java
+        public class UserProfileServlet extends HttpServlet {
+
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                String userId = request.getParameter("userId"); // untrusted input
+
+                try (Connection conn = dataSource.getConnection();
+                    Statement stmt = conn.createStatement()) {
+
+                    // Vulnerable: userId is concatenated directly into the SQL string
+                    String sql = "SELECT * FROM users WHERE id = '" + userId + "'";
+                    ResultSet rs = stmt.executeQuery(sql);
+
+                    // ... process result set ...
+
+                } catch (SQLException e) {
+                    throw new ServletException(e);
+                }
+            }
+        }
+        ```
+
+        To remediate this issue, always use parameterized queries (e.g., `PreparedStatement`)
+        instead of string concatenation, and validate input where appropriate.
+        This prevents user input from being interpreted as SQL code.
+
+        Safe code sample using `PreparedStatement`:
+
+        ```java
+        public class UserProfileServlet extends HttpServlet {
+
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                String userId = request.getParameter("userId");
+
+                // Example of simple input validation (optional but recommended)
+                if (userId == null || !userId.matches("\\d+")) { // expect numeric ID
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid user id.");
+                    return;
+                }
+
+                try (Connection conn = dataSource.getConnection();
+                    PreparedStatement ps = conn.prepareStatement(
+                            "SELECT * FROM users WHERE id = ?")) {
+
+                    ps.setInt(1, Integer.parseInt(userId));  // bind parameter
+                    ResultSet rs = ps.executeQuery();
+
+                    // ... process result set safely ...
+
+                } catch (SQLException e) {
+                    throw new ServletException(e);
+                }
+            }
+        }
+        ```
+
+        Additional best practices include using least-privilege database accounts, avoiding constructing dynamic SQL where possible,
+        and centralizing database access logic to enforce safe patterns throughout the application.
+      references:
+        - https://owasp.org/www-community/attacks/SQL_Injection
+        - https://en.wikipedia.org/wiki/SQL_injection
+      license: LGPL 2.1 (GNU Lesser General Public License, Version 2.1)
+      provenance:
+        - https://find-sec-bugs.github.io/bugs.htm#SQL_INJECTION
+        - https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/rules/lgpl-cc/java/inject/rule-SqlInjection.yml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/servlet-sqli-sinks.yaml#java-servlet-sqli-sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: sql-injection-in-spring-app
+    severity: ERROR
+    message: >-
+      Potential SQL injection: detected unescaped input from a user-manipulated data source going into a SQL sink or statement
+    metadata:
+      cwe: CWE-89
+      short-description: Potential SQL injection
+      full-description: |-
+        SQL injection is a vulnerability where untrusted input is concatenated into SQL queries and
+        sent to the database without proper validation or parameterization. In Spring-based applications
+        (e.g., Spring MVC + JdbcTemplate or Spring Data/JPA), this typically occurs when request parameters
+        or method arguments are directly embedded into SQL or JPQL/HQL strings. An attacker can craft input
+        that alters the query's structure, leading to data theft, data manipulation, or full database compromise.
+
+        Vulnerable code sample
+
+        ```java
+        // Example: Spring MVC controller using JdbcTemplate insecurely
+
+        @RestController
+        @RequestMapping("/users")
+        public class UserController {
+
+            private final JdbcTemplate jdbcTemplate;
+
+            public UserController(JdbcTemplate jdbcTemplate) {
+                this.jdbcTemplate = jdbcTemplate;
+            }
+
+            @GetMapping("/search")
+            public User getUser(@RequestParam String username) {
+                // Vulnerable: username is concatenated directly into the SQL query
+                String sql = "SELECT id, username, email FROM users WHERE username = '" + username + "'";
+
+                return jdbcTemplate.queryForObject(
+                        sql,
+                        (rs, rowNum) -> new User(
+                                rs.getLong("id"),
+                                rs.getString("username"),
+                                rs.getString("email")
+                        )
+                );
+            }
+        }
+        ```
+
+        To remediate this issue, always use parameterized queries
+        (e.g., `JdbcTemplate` with `?` placeholders, `PreparedStatement`, or Spring Data JPA method queries)
+        instead of string concatenation, and validate input where appropriate. This ensures user input is treated as data, not executable SQL.
+
+        Safe code sample using `JdbcTemplate` with parameters:
+
+        ```java
+        @RestController
+        @RequestMapping("/users")
+        public class UserController {
+
+            private final JdbcTemplate jdbcTemplate;
+
+            public UserController(JdbcTemplate jdbcTemplate) {
+                this.jdbcTemplate = jdbcTemplate;
+            }
+
+            @GetMapping("/search")
+            public User getUser(@RequestParam String username) {
+                // Optional but recommended: validate/normalize input
+                if (username == null || username.isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid username");
+                }
+
+                String sql = "SELECT id, username, email FROM users WHERE username = ?";
+
+                return jdbcTemplate.queryForObject(
+                        sql,
+                        new Object[]{username},    // bind parameter
+                        (rs, rowNum) -> new User(
+                                rs.getLong("id"),
+                                rs.getString("username"),
+                                rs.getString("email")
+                        )
+                );
+            }
+        }
+        ```
+
+        Safe code sample using Spring Data JPA (also parameterized under the hood):
+
+        ```java
+        public interface UserRepository extends JpaRepository<User, Long> {
+
+            // Derived query method — parameters are safely bound
+            Optional<User> findByUsername(String username);
+        }
+
+        @RestController
+        @RequestMapping("/users")
+        public class UserController {
+
+            private final UserRepository userRepository;
+
+            public UserController(UserRepository userRepository) {
+                this.userRepository = userRepository;
+            }
+
+            @GetMapping("/search")
+            public User getUser(@RequestParam String username) {
+                return userRepository.findByUsername(username)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+            }
+        }
+        ```
+
+        Additional best practices include using least-privilege database accounts, avoiding dynamic SQL/JPQL when possible, and centralizing data access in repositories or service layers that enforce safe patterns throughout the Spring application.
+      references:
+        - https://owasp.org/www-community/attacks/SQL_Injection
+        - https://en.wikipedia.org/wiki/SQL_injection
+      license: LGPL 2.1 (GNU Lesser General Public License, Version 2.1)
+      provenance:
+        - https://find-sec-bugs.github.io/bugs.htm#SQL_INJECTION
+        - https://github.com/semgrep/semgrep-rules/blob/develop/java/spring/security/audit/spring-sqli.yaml
+        - https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/rules/lgpl-cc/java/inject/rule-SqlInjection.yml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/spring/jdbc-sqli-sinks.yaml#spring-sqli-sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'

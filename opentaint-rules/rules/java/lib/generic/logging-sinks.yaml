@@ -1,0 +1,46 @@
+rules:
+  - id: java-logging-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: Logging the data
+    metadata:
+      provenance: https://semgrep.dev/r/gitlab.find_sec_bugs.CRLF_INJECTION_LOGS-1
+    languages:
+      - java
+    mode: taint
+    pattern-sanitizers:
+      - pattern: org.apache.commons.text.StringEscapeUtils.escapeJava(...);
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $STATIC_LOGGER.$METHOD(...,$DATA,...);
+              - pattern: (Logger $LOG).$METHOD(..., $DATA,...);
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(log|logp|logrb|entering|exiting|fine|finer|finest|info|debug|trace|warn|warning|config|error|severe)$
+          - metavariable-pattern:
+              metavariable: $STATIC_LOGGER
+              pattern-either:
+                - pattern: org.pmw.tinylog.Logger
+                - pattern: org.apache.log4j.Logger
+                - pattern: org.apache.logging.log4j.Logger
+                - pattern: org.slf4j.Logger
+                - pattern: org.apache.commons.logging.Log
+                - pattern: java.util.logging.Logger
+
+  - id: seam-log-injection-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: Potential injection into Seam logging expression language
+    metadata:
+      provenance: https://find-sec-bugs.github.io/bugs.htm#SEAM_LOG_INJECTION
+    languages:
+      - java
+    patterns:
+      - pattern: |
+          (org.jboss.seam.log.Log $LOGGER).$LEVEL($DATA,...)
+      - metavariable-regex:
+          metavariable: $LEVEL
+          regex: (debug|error|fatal|info|trace|warn)

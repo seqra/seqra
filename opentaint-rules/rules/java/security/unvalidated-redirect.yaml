@@ -1,0 +1,249 @@
+rules:
+  - id: unvalidated-redirect-in-servlet-app
+    severity: WARNING
+    message: >-
+      Application redirects to a destination URL specified by a user-supplied
+      parameter that is not validated. This could direct users to malicious locations.
+      Consider using an allowlist to validate URLs.
+    metadata:
+      cwe:
+        - CWE-601
+      short-description: Application redirects to user-manipulated URL which can be malicious
+      full-description: |-
+        Unvalidated redirects (also called “open redirects”) occur when a web application accepts
+        untrusted input that specifies a URL to redirect to, and then performs the redirect without
+        sufficient validation. Attackers can exploit this to send users to malicious websites while making
+        the link appear to come from a trusted domain (phishing),
+        bypass intermediate access checks, or chain the redirect into broader attacks.
+
+        Vulnerable code sample
+
+        ```java
+        // A simple Java Servlet example
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+
+            // "url" parameter is taken directly from user input
+            String url = request.getParameter("url");
+
+            if (url != null && !url.isEmpty()) {
+                // VULNERABLE: redirects to any URL provided by the user
+                response.sendRedirect(url);
+            } else {
+                response.sendRedirect("home.jsp");
+            }
+        }
+        ```
+
+        To remediate this issue, avoid redirecting to arbitrary URLs from user-controlled input.
+        Prefer server-side mapping of identifiers to known-safe destinations, or strictly validate and
+        restrict redirect targets (e.g., to internal paths or a small whitelist of external domains).
+
+        More secure approach using an internal whitelist of paths:
+
+        ```java
+        // Example of safer redirect handling
+        private static final Set<String> ALLOWED_TARGETS = Set.of(
+            "home",
+            "profile",
+            "orders"
+        );
+
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+
+            String target = request.getParameter("target");  // e.g., "home", "profile"
+            String redirectPath = "/home.jsp";              // default safe page
+
+            if (target != null && ALLOWED_TARGETS.contains(target)) {
+                switch (target) {
+                    case "home":
+                        redirectPath = "/home.jsp";
+                        break;
+                    case "profile":
+                        redirectPath = "/user/profile.jsp";
+                        break;
+                    case "orders":
+                        redirectPath = "/orders/list.jsp";
+                        break;
+                }
+            }
+
+            // Only redirect to application-internal paths
+            response.sendRedirect(request.getContextPath() + redirectPath);
+        }
+        ```
+
+        If you must support external redirects, validate strictly that the destination is on an approved list of domains and reject all others:
+
+        ```java
+        private static final Set<String> ALLOWED_DOMAINS = Set.of("example.com", "trusted-partner.com");
+
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+
+            String url = request.getParameter("url");
+            if (url == null) {
+                response.sendRedirect(request.getContextPath() + "/home.jsp");
+                return;
+            }
+
+            try {
+                URI uri = new URI(url);
+
+                // Require an explicit host and approved scheme
+                String host = uri.getHost();
+                String scheme = uri.getScheme();
+
+                if (host != null
+                        && ( "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme) )
+                        && ALLOWED_DOMAINS.contains(host.toLowerCase())) {
+
+                    response.sendRedirect(uri.toString());
+                } else {
+                    // Fallback to a safe internal page
+                    response.sendRedirect(request.getContextPath() + "/home.jsp");
+                }
+            } catch (URISyntaxException e) {
+                // Invalid URL; redirect to safe internal page
+                response.sendRedirect(request.getContextPath() + "/home.jsp");
+            }
+        }
+        ```
+      references:
+        - https://find-sec-bugs.github.io/bugs.htm#UNVALIDATED_REDIRECT
+        - https://cwe.mitre.org/data/definitions/601.html
+      provenance: https://find-sec-bugs.github.io/bugs.htm#UNVALIDATED_REDIRECT
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/servlet-unvalidated-redirect-sinks.yaml#java-servlet-unvalidated-redirect-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$URL'
+
+  - id: unvalidated-redirect-in-spring-app
+    severity: WARNING
+    message: >-
+      Application redirects to a destination URL specified by a user-supplied
+      parameter that is not validated. This could direct users to malicious locations.
+      Consider using an allowlist to validate URLs.
+    metadata:
+      cwe:
+        - CWE-601
+      short-description: Application redirects to user-manipulated URL which can be malicious
+      full-description: |-
+        Unvalidated redirects (also called “open redirects”) occur when a web application accepts untrusted input that specifies a URL to redirect to, and then performs the redirect without sufficient validation. In Spring MVC/Boot applications, this often happens when controllers return a `redirect:` view or `RedirectView` using user-supplied data. Attackers can exploit this to trick users into visiting malicious sites via URLs that appear to be from a trusted domain, or to chain redirects into other attacks.
+
+        Vulnerable code sample
+
+        ```java
+        @Controller
+        public class RedirectController {
+
+            @GetMapping("/redirect")
+            public String redirect(@RequestParam("url") String url) {
+                // VULNERABLE: unvalidated user-controlled URL
+                return "redirect:" + url;
+            }
+        }
+        ```
+
+        Or with `RedirectView`:
+
+        ```java
+        @Controller
+        public class RedirectController {
+
+            @GetMapping("/redirect")
+            public RedirectView redirect(@RequestParam("url") String url) {
+                // VULNERABLE: unvalidated user-controlled URL
+                return new RedirectView(url);
+            }
+        }
+        ```
+
+        To remediate this issue, avoid redirecting to arbitrary URLs derived directly from user input. Prefer mapping short, controlled identifiers to known internal routes, or if external redirects are required, strictly validate against a whitelist of allowed hosts and schemes.
+
+        Example: safer internal redirects using a target name instead of a full URL:
+
+        ```java
+        @Controller
+        public class SafeRedirectController {
+
+            private static final Map<String, String> ALLOWED_TARGETS = Map.of(
+                "home",    "/home",
+                "profile", "/user/profile",
+                "orders",  "/orders/list"
+            );
+
+            @GetMapping("/redirect")
+            public String redirect(
+                    @RequestParam(value = "target", required = false) String target) {
+
+                // Default safe page
+                String path = ALLOWED_TARGETS.getOrDefault(target, "/home");
+
+                // Only internal paths, no scheme/host
+                return "redirect:" + path;
+            }
+        }
+        ```
+
+        Example: if you must support external redirects, validate against an allowlist of domains:
+
+        ```java
+        @Controller
+        public class ExternalRedirectController {
+
+            private static final Set<String> ALLOWED_DOMAINS = Set.of(
+                "example.com",
+                "trusted-partner.com"
+            );
+
+            @GetMapping("/external-redirect")
+            public String externalRedirect(
+                    @RequestParam("url") String url,
+                    HttpServletRequest request) {
+
+                try {
+                    URI uri = new URI(url);
+                    String host   = uri.getHost();
+                    String scheme = uri.getScheme();
+
+                    if (host != null
+                            && ("http".equalsIgnoreCase(scheme)
+                                || "https".equalsIgnoreCase(scheme))
+                            && ALLOWED_DOMAINS.contains(host.toLowerCase())) {
+
+                        // Safe: host and scheme validated against allowlist
+                        return "redirect:" + uri.toString();
+                    }
+                } catch (URISyntaxException e) {
+                    // fall through to safe default
+                }
+
+                // Fallback to a safe internal page on any failure or disallowed host
+                return "redirect:/home";
+            }
+        }
+        ```
+      references:
+        - https://find-sec-bugs.github.io/bugs.htm#UNVALIDATED_REDIRECT
+        - https://cwe.mitre.org/data/definitions/601.html
+      provenance: https://find-sec-bugs.github.io/bugs.htm#UNVALIDATED_REDIRECT
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/spring/unvalidated-redirect-sinks.yaml#spring-unvalidated-redirect-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$URL'

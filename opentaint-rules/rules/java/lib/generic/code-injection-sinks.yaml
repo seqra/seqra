@@ -1,0 +1,96 @@
+rules:
+  - id: ognl-injection-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: Untrusted input reaches OGNL expression
+    metadata:
+      provenance: https://find-sec-bugs.github.io/bugs.htm#OGNL_INJECTION
+    languages:
+      - java
+    patterns:
+      - pattern-either:
+          - pattern: ognl.Ognl.getValue($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).getGetMethod($T, $INPUT,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).getSetMethod($T, $INPUT,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).getField($T, $INPUT,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).setProperties($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).setProperty($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).getValue($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).setValue($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).getGetMethod($T, $INPUT,...);
+          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).getSetMethod($T, $INPUT,...);
+          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).getField($T, $INPUT,...);
+          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).setProperties($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).setProperty($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).getValue($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).setValue($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).translateVariables($INPUT,...);
+          - pattern: com.opensymphony.xwork2.util.TextParseUtil.translateVariables($INPUT, ...);
+          - pattern: com.opensymphony.xwork2.util.TextParseUtil.translateVariablesCollection($INPUT,...);
+          - pattern: com.opensymphony.xwork2.util.TextParseUtil.shallBeIncluded($INPUT,...);
+    # TODO: commaDelimitedStringToSet is propagator!
+          - pattern: com.opensymphony.xwork2.util.TextParseUtil.commaDelimitedStringToSet($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.util.OgnlTextParser $P).evaluate($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.util.OgnlTextParser $P).setProperties($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).setProperty($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).getValue($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).setValue($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).callMethod($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).compile($INPUT,...);
+          - pattern: (org.apache.struts2.util.VelocityStrutsUtil $P).evaluate($INPUT,...);
+          - pattern: (org.apache.struts2.util.StrutsUtil $P).isTrue($INPUT,...);
+          - pattern: (org.apache.struts2.util.StrutsUtil $P).findString($INPUT,...);
+          - pattern: (org.apache.struts2.util.StrutsUtil $P).findValue($INPUT,...);
+          - pattern: (org.apache.struts2.util.StrutsUtil $P).getText($INPUT,...);
+          - pattern: (org.apache.struts2.util.StrutsUtil $P).translateVariables($INPUT,...);
+          - pattern: (org.apache.struts2.util.StrutsUtil $P).makeSelectList($INPUT,...);
+          - pattern: (org.apache.struts2.views.jsp.ui.OgnlTool $P).findValue($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.util.ValueStack $P).findString($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.util.ValueStack $P).findValue($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.util.ValueStack $P).setValue($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.util.ValueStack $P).setParameter($INPUT,...);
+
+  - id: dangerous-groovy-shell
+    options:
+      lib: true
+    severity: NOTE
+    message: Groovy shell run of externally-manipulated script
+    metadata:
+      provenance: https://find-sec-bugs.github.io/bugs.htm#GROOVY_SHELL
+    languages:
+      - java
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  $SHELL.parse($UNTRUSTED)
+              - pattern: |
+                  $SHELL.evaluate($UNTRUSTED)
+              - pattern: |
+                  $SHELL.parseClass($UNTRUSTED)
+          - pattern-either:
+              - pattern-inside: |
+                  groovy.lang.GroovyShell $SHELL = ...;
+                  ...
+              - pattern-inside: |
+                  groovy.lang.GroovyClassLoader $SHELL = ...;
+                  ...
+      - pattern: groovy.util.Eval.me($UNTRUSTED)
+      - pattern: groovy.util.Eval.x($X, $UNTRUSTED)
+      - pattern: groovy.util.Eval.xy($X, $Y, $UNTRUSTED)
+      - pattern: groovy.util.Eval.xyz($X, $Y, $Z, $UNTRUSTED)
+
+  - id: dangerous-script-engine-eval
+    options:
+      lib: true
+    severity: NOTE
+    message: Risky code evaluation with user-controled value
+    metadata:
+      provenance: https://find-sec-bugs.github.io/bugs.htm#SCRIPT_ENGINE_INJECTION
+    languages:
+      - java
+    pattern-either:
+      - pattern: (javax.script.ScriptEngine $SE).eval($UNTRUSTED)
+      - pattern: (javax.script.Invocable $INVC).invokeFunction(..., $UNTRUSTED)
+      - pattern: (javax.script.Invocable $INVC).invokeMethod(..., $UNTRUSTED)

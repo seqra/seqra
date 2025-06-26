@@ -1,0 +1,40 @@
+rules:
+  - id: spring-untrusted-data-source
+    options:
+      lib: true
+    severity: NOTE
+    message: Untrusted data flows from here
+    languages:
+      - java
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern: |
+                  @$ANNOTATION(...)
+                  $RETURNTYPE $METHODNAME(..., $TYPE $UNTRUSTED,...) {
+                    ...
+                  }
+              - metavariable-regex:
+                  metavariable: $TYPE
+                  regex: ^(?!(Integer|Long|Float|Double|Char|Boolean|int|long|float|double|char|boolean|BindingResult|HttpMethod|java.util.TimeZone|java.util.Locale|java.util.ZoneId))
+              - metavariable-pattern:
+                  metavariable: $ANNOTATION
+                  patterns:
+                    - pattern-either:
+                        - pattern: RequestMapping
+                        - pattern: DeleteMapping
+                        - pattern: GetMapping
+                        - pattern: PatchMapping
+                        - pattern: PostMapping
+                        - pattern: PutMapping
+          - pattern: |
+              $UNTRUSTED = (MessageBodyReader $READER).readFrom(...);
+# TODO: this will cause duplicate findings with servlet rules!
+          - pattern: |
+              (javax.servlet.http.Cookie[] $COOKIES) = (HttpServletRequest $REQ).getCookies();
+              ...
+              $COOKIES[...].getValue();
+          - pattern: |
+              Cookie $COOKIE = org.springframework.web.util.WebUtils.getCookie(...);
+              ...
+              $COOKIE.getValue()

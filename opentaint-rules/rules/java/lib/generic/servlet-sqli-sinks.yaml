@@ -1,0 +1,48 @@
+rules:
+  - id: java-servlet-sqli-sink
+    options:
+      lib: true
+    severity: NOTE
+    message: SQL query with unescaped untrusted data
+    metadata:
+      license: LGPL 2.1 (GNU Lesser General Public License, Version 2.1)
+      provenance:
+        - https://find-sec-bugs.github.io/bugs.htm#SQL_INJECTION
+        - https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/rules/lgpl-cc/java/inject/rule-SqlInjection.yml
+    languages:
+      - java
+    mode: taint
+    pattern-sanitizers:
+      - pattern: (CriteriaBuilder $CB).$ANY(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: (javax.jdo.PersistenceManager $PM).newQuery($UNTRUSTED)
+              - pattern: (javax.jdo.PersistenceManager $PM).newQuery(..., $UNTRUSTED)
+              - pattern: (javax.jdo.Query $Q).setFilter($UNTRUSTED)
+              - pattern: (javax.jdo.Query $Q).setGrouping($UNTRUSTED)
+              - pattern: (Statement $S).$SQLFUNC(..., $UNTRUSTED, ...)
+              - pattern: (CallableStatement $S).$SQLFUNC(..., $UNTRUSTED, ...)
+              - pattern: (PreparedStatement $P).$SQLFUNC(..., $UNTRUSTED, ...)
+              - pattern: (Connection $C).createStatement(...).$SQLFUNC(..., $UNTRUSTED, ...)
+              - pattern: (Connection $C).prepareStatement(...).$SQLFUNC(..., $UNTRUSTED, ...)
+              - pattern: (io.vertx.sqlclient.SqlClient $O).query($UNTRUSTED, ...)
+              - pattern: (io.vertx.sqlclient.SqlClient $O).preparedQuery($UNTRUSTED, ...)
+              - pattern: (io.vertx.sqlclient.SqlConnection $O).prepare($UNTRUSTED, ...)
+              - pattern: (org.apache.turbine.om.peer.BasePeer $O).executeQuery($UNTRUSTED, ...)
+              - pattern: org.apache.torque.util.BasePeer.executeQuery($UNTRUSTED, ...)
+              - pattern: org.apache.torque.util.BasePeer.executeStatement($UNTRUSTED, ...)
+              - pattern: (javax.persistence.EntityManager $O).createQuery($UNTRUSTED, ...)
+              - pattern: (javax.persistence.EntityManager $O).createNativeQuery($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).createQuery($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).createScript($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).createUpdate($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).execute($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).prepareBatch($UNTRUSTED, ...)
+              - pattern: (org.jdbi.v3.core.Handle $H).select($UNTRUSTED, ...)
+              - pattern: new org.jdbi.v3.core.statement.Script($H, $UNTRUSTED)
+              - pattern: new org.jdbi.v3.core.statement.Update($H, $UNTRUSTED)
+              - pattern: new org.jdbi.v3.core.statement.PreparedBatch($H, $UNTRUSTED)
+          - metavariable-regex:
+              metavariable: $SQLFUNC
+              regex: execute|executeQuery|createQuery|query|addBatch|nativeSQL|create|prepare

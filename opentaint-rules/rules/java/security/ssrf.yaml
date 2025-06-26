@@ -1,0 +1,380 @@
+rules:
+  - id: ssrf-in-servlet-app
+    severity: ERROR
+    message: >-
+      Potential SSRF: the web server receives a URL or similar request from an upstream component and retrieves the contents of this URL,
+      it does not sufficiently ensure that the request is being sent to the expected destination.
+    metadata:
+      cwe: CWE-918
+      short-description: Potential server-side request forgery (SSRF)
+      full-description: |-
+        Server-Side Request Forgery (SSRF) in Java servlet applications occurs when the server makes HTTP or other network requests based on user‑supplied input (such as a URL) without proper validation. An attacker can abuse this to make the server connect to internal services (e.g., `http://127.0.0.1:8080/`, cloud metadata services, or other internal hosts) that are not otherwise exposed to the internet, potentially leading to data exfiltration, port scanning, or further compromise.
+
+        Vulnerable code sample:
+
+        ```java
+        import javax.servlet.ServletException;
+        import javax.servlet.http.HttpServlet;
+        import javax.servlet.http.HttpServletRequest;
+        import javax.servlet.http.HttpServletResponse;
+        import java.io.*;
+        import java.net.HttpURLConnection;
+        import java.net.URL;
+
+        public class ProxyServlet extends HttpServlet {
+
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                // User controls the full URL
+                String targetUrl = request.getParameter("url");
+                if (targetUrl == null) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing 'url' parameter");
+                    return;
+                }
+
+                // Dangerous: directly using unvalidated user input as a target URL
+                URL url = new URL(targetUrl);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+
+                response.setStatus(conn.getResponseCode());
+                try (InputStream in = conn.getInputStream();
+                    OutputStream out = response.getOutputStream()) {
+                    byte[] buffer = new byte[4096];
+                    int len;
+                    while ((len = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, len);
+                    }
+                }
+            }
+        }
+        ```
+
+        To remediate this issue, avoid letting clients control arbitrary URLs. Prefer designing APIs so that clients pass identifiers or resource names, not full addresses, and resolve those to known safe locations on the server side. If you truly must fetch external URLs, strictly validate and constrain where the server is allowed to connect (e.g., protocol, host allowlist, and blocking internal IP ranges).
+
+        Safer pattern using an allowlist of hosts and restricting the scheme:
+
+        ```java
+        import javax.servlet.ServletException;
+        import javax.servlet.http.*;
+        import java.io.*;
+        import java.net.*;
+        import java.nio.charset.StandardCharsets;
+        import java.util.Set;
+
+        public class SafeProxyServlet extends HttpServlet {
+
+            // Only allow requests to these external hosts
+            private static final Set<String> ALLOWED_HOSTS = Set.of(
+                    "api.example.com",
+                    "services.partner.com"
+            );
+
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                String targetUrl = request.getParameter("url");
+                if (targetUrl == null) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing 'url' parameter");
+                    return;
+                }
+
+                URI uri;
+                try {
+                    uri = new URI(targetUrl);
+                } catch (URISyntaxException e) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid URL");
+                    return;
+                }
+
+                // 1. Restrict scheme
+                String scheme = uri.getScheme();
+                if (scheme == null ||
+                        !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unsupported scheme");
+                    return;
+                }
+
+                // 2. Restrict host to an allowlist
+                String host = uri.getHost();
+                if (host == null || !ALLOWED_HOSTS.contains(host.toLowerCase())) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Host not allowed");
+                    return;
+                }
+
+                // 3. Optional: resolve host and reject private/internal IP ranges
+                InetAddress address = InetAddress.getByName(host);
+                if (address.isAnyLocalAddress() ||
+                        address.isLoopbackAddress() ||
+                        address.isSiteLocalAddress()) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Internal addresses are not allowed");
+                    return;
+                }
+
+                URL url = uri.toURL();
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(5000);
+                conn.setRequestMethod("GET");
+
+                int status = conn.getResponseCode();
+                response.setStatus(status);
+
+                InputStream in = (status >= 200 && status < 400)
+                        ? conn.getInputStream()
+                        : conn.getErrorStream();
+
+                if (in != null) {
+                    try (in; OutputStream out = response.getOutputStream()) {
+                        byte[] buffer = new byte[4096];
+                        int len;
+                        while ((len = in.read(buffer)) != -1) {
+                            out.write(buffer, 0, len);
+                        }
+                    }
+                }
+            }
+        }
+        ```
+
+        Additional best practices include:
+
+        - Prefer mapping user input to predefined backend endpoints (e.g., `?reportId=123` instead of `?url=http://...`), never giving direct control over full URLs.
+        - Enforce network-level controls (firewall rules, security groups) to prevent application servers from reaching sensitive internal services (e.g., cloud metadata endpoints).
+        - Disable or tightly restrict any generic “URL fetch” or “proxy” functionality unless it is strictly required.
+      references:
+        - https://owasp.org/www-community/attacks/Server_Side_Request_Forgery
+        - https://portswigger.net/web-security/ssrf
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/ssrf/rule-SSRF.yml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/ssrf-sinks.yaml#java-ssrf-sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: ssrf-in-spring-app
+    severity: ERROR
+    message: >-
+      Potential SSRF: the web server receives a URL or similar request from an upstream component and retrieves the contents of this URL,
+      but it does not sufficiently ensure that the request is being sent to the expected destination.
+    metadata:
+      cwe: CWE-918
+      short-description: Potential server-side request forgery (SSRF)
+      full-description: |-
+        Server-Side Request Forgery (SSRF) in Spring-based applications (e.g., Spring MVC / Spring Boot)
+        occurs when controllers or services make outbound HTTP (or other network) requests using user-controlled input
+        (such as a URL) without strict validation or restriction. Attackers can exploit this to make the application server connect to internal or otherwise protected services (e.g., `http://127.0.0.1:8080/`, cloud metadata services, internal admin panels), leading to data exposure, internal port scanning, or further compromise.
+
+        Vulnerable code sample:
+
+        ```java
+        import org.springframework.http.ResponseEntity;
+        import org.springframework.web.bind.annotation.*;
+        import org.springframework.web.client.RestTemplate;
+
+        @RestController
+        @RequestMapping("/proxy")
+        public class ProxyController {
+
+            private final RestTemplate restTemplate = new RestTemplate();
+
+            @GetMapping
+            public ResponseEntity<String> proxy(@RequestParam("url") String targetUrl) {
+                // User controls full URL (e.g., https://evil.com?url=http://127.0.0.1:8080/admin)
+                if (targetUrl == null || targetUrl.isBlank()) {
+                    return ResponseEntity.badRequest().body("Missing 'url' parameter");
+                }
+
+                // Vulnerable: directly using unvalidated user input as the target
+                String body = restTemplate.getForObject(targetUrl, String.class);
+                return ResponseEntity.ok(body);
+            }
+        }
+        ```
+
+        To remediate this issue, avoid letting clients control arbitrary URLs. Instead, design APIs so that clients pass logical identifiers or resource names, which your server maps to predefined, trusted endpoints. If you must fetch external URLs based on user input, strictly validate and constrain where the server may connect (e.g., use an allowlist of domains, restrict schemes to HTTP/HTTPS, and block internal IP ranges).
+
+        Safer code sample using an allowlist and basic IP checks:
+
+        ```java
+        import org.springframework.http.ResponseEntity;
+        import org.springframework.web.bind.annotation.*;
+        import org.springframework.web.client.RestTemplate;
+
+        import java.net.*;
+        import java.util.Set;
+
+        @RestController
+        @RequestMapping("/safe-proxy")
+        public class SafeProxyController {
+
+            private final RestTemplate restTemplate = new RestTemplate();
+
+            // Only allow outbound requests to these hosts
+            private static final Set<String> ALLOWED_HOSTS = Set.of(
+                    "api.example.com",
+                    "services.partner.com"
+            );
+
+            @GetMapping
+            public ResponseEntity<String> proxy(@RequestParam("url") String targetUrl) {
+                if (targetUrl == null || targetUrl.isBlank()) {
+                    return ResponseEntity.badRequest().body("Missing 'url' parameter");
+                }
+
+                URI uri;
+                try {
+                    uri = new URI(targetUrl);
+                } catch (URISyntaxException e) {
+                    return ResponseEntity.badRequest().body("Invalid URL");
+                }
+
+                // 1. Restrict scheme
+                String scheme = uri.getScheme();
+                if (scheme == null ||
+                        !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
+                    return ResponseEntity.badRequest().body("Unsupported scheme");
+                }
+
+                // 2. Restrict host to an allowlist
+                String host = uri.getHost();
+                if (host == null || !ALLOWED_HOSTS.contains(host.toLowerCase())) {
+                    return ResponseEntity.status(403).body("Host not allowed");
+                }
+
+                // 3. Resolve IP and block internal/loopback addresses
+                try {
+                    InetAddress addr = InetAddress.getByName(host);
+                    if (addr.isAnyLocalAddress()
+                            || addr.isLoopbackAddress()
+                            || addr.isSiteLocalAddress()) {
+                        return ResponseEntity.status(403).body("Internal addresses are not allowed");
+                    }
+                } catch (UnknownHostException e) {
+                    return ResponseEntity.badRequest().body("Unable to resolve host");
+                }
+
+                // 4. Perform the request to the validated URL
+                String body = restTemplate.getForObject(uri, String.class);
+                return ResponseEntity.ok(body);
+            }
+        }
+        ```
+
+        Additional Spring-focused recommendations:
+
+        - Prefer patterns like `GET /reports/{id}` where `{id}` maps to known backend URLs in configuration or code, instead of `GET /proxy?url=...`.
+        - Centralize outbound HTTP access (e.g., through a service or a custom `RestTemplate` / `WebClient` bean) and enforce host/URL policies there.
+        - Combine application-level protections with network-level controls (firewalls, security groups, service mesh policies) to block access to internal services and metadata endpoints (e.g., `169.254.169.254` on cloud platforms).
+      references:
+        - https://owasp.org/www-community/attacks/Server_Side_Request_Forgery
+        - https://portswigger.net/web-security/ssrf
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/ssrf/rule-SSRF.yml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/ssrf-sinks.yaml#java-ssrf-sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: java-servlet-parameter-pollution
+    severity: ERROR
+    message: |
+      The application was found including unvalidated user input into a URL, which could lead to
+      HTTP Parameter Pollution (HPP) or worse, Server Side Request Forgery (SSRF). This could
+      allow an adversary to override the value of a URL or a request parameter.  HTTP Parameter
+      Pollution
+      (HPP) attacks consist of injecting encoded query string delimiters into other existing
+      parameters. If a web
+      application does not properly sanitize the user input, an adversary may modify the logic of
+      these
+      requests to other applications.
+
+      To remediate this issue, never allow user input directly into creation of a URL or URL
+      parameter. Consider
+      using a map to look up user-supplied information and return exact values to be used in the
+      generation of
+      requests.
+
+      Example using a map to look up a key to be used in a HTTP request:
+      ```
+      HashMap<String, String> lookupTable = new HashMap<>();
+      lookupTable.put("key1", "value1");
+      lookupTable.put("key2", "value2");
+      String userInput = request.getParameter("key");
+
+      // Create a CloseableHttpClient, ideally any requests issued should be done
+      // out-of-band from the servlet request itself (such as using a separate thread/scheduler
+      system)
+      try (final CloseableHttpClient httpClient = HttpClients.createDefault()) {
+          // Lookup the value from our user input from our lookupTable
+          String value = lookupTable.getOrDefault(userInput, "value1");
+          // Construct the url, with the hardcoded url and only pass in the value from the
+      lookupTable,
+          // not direct user input
+          final HttpGet httpget = new HttpGet("https://example.com/getId?key="+value);
+          // Execute the request
+          CloseableHttpResponse clientResponse = httpClient.execute(httpget);
+          // Read the response
+          byte[] responseData = clientResponse.getEntity().getContent().readAllBytes();
+          // Handle the response
+          // ...
+      }
+      ```
+
+      If using a map is not possible, the user-supplied input must be encoded prior to use, and
+      never allow full
+      URLs:
+      ```
+      // Get user input
+      String userInput = request.getParameter("key");
+      // Encode the string using java.net.URLEncoder with the UTF-8 character set
+      String encodedString = java.net.URLEncoder.encode(userInput, StandardCharsets.UTF_8);
+      // Create a CloseableHttpClient, ideally any requests issued should be done
+      // out-of-band from the servlet request itself (such as using a separate thread/scheduler
+      system)
+      try (final CloseableHttpClient httpClient = HttpClients.createDefault()) {
+        // Construct the url, with the hardcoded url and only pass in the encoded value, never a
+      full URL
+        final HttpGet httpget = new HttpGet("https://example.com/getId?key="+encodedString);
+        // Execute the request
+        CloseableHttpResponse clientResponse = httpClient.execute(httpget);
+        // Read the response
+        byte[] responseData = clientResponse.getEntity().getContent().readAllBytes();
+        // handle the response
+      }
+      ```
+
+      For more information on SSRF see OWASP:
+      https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html
+
+      For more information on HTTP Parameter Pollution see:
+      https://en.wikipedia.org/wiki/HTTP_parameter_pollution
+    metadata:
+      cwe: "CWE-88"
+      short-description: "Improper neutralization of argument delimiters in a command ('Argument Injection')"
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/ssrf-sinks.yaml#java-http-parameter-pollution-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'

@@ -1,0 +1,19 @@
+rules:
+  - id: java-smtp-crlf-injection-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: Unvalidated user-manipulated data reaches sensitive MimeMessage parts
+    metadata:
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/smtp/rule-InsecureSmtp.yml
+    languages:
+      - java
+    mode: taint
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: "(MimeMessage $M).setSubject($UNTRUSTED)"
+              - pattern: "(MimeMessage $M).setHeader(..., $UNTRUSTED, ...)"
+              - pattern: "(MimeMessage $M).addHeader(..., $UNTRUSTED, ...)"
+              - pattern: "(MimeMessage $M).setDescription($UNTRUSTED)"
+              - pattern: "(MimeMessage $M).setDisposition($UNTRUSTED)"

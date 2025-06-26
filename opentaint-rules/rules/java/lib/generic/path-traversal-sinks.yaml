@@ -1,0 +1,118 @@
+rules:
+  - id: java-path-traversal-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: Use a file with untrusted path
+    metadata:
+      short-description: Unvalidated user data flows into template engine
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/spring/security/injection/tainted-file-path.yaml
+    languages:
+      - java
+    mode: taint
+    pattern-sanitizers:
+      - pattern: org.apache.commons.io.FilenameUtils.getName(...)
+      - pattern: org.apache.commons.io.FilenameUtils.getExtension(...)
+      - pattern: io.github.pixee.security.Filenames.toSimpleFileName(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: new java.io.FileReader($FILE, ...)
+              - pattern: new java.io.FileWriter($FILE, ...)
+              - pattern: new java.io.FileInputStream($FILE)
+              - pattern: new java.io.FileOutputStream($FILE, ...)
+              - pattern: new java.io.RandomAccessFile($FILE, ...)
+              - pattern: java.io.File.createTempFile(..., $FILE, ...)
+
+              - pattern: (java.io.File $FILE).exists()
+              - pattern: (java.io.File $FILE).isFile()
+              - pattern: (java.io.File $FILE).isDirectory()
+              - pattern: (java.io.File $FILE).delete()
+              - pattern: (java.io.File $FILE).deleteOnExit()
+              - pattern: (java.io.File $FILE).createNewFile()
+              - pattern: (java.io.File $FILE).mkdir()
+              - pattern: (java.io.File $FILE).mkdirs()
+              - pattern: (java.io.File $FILE).setExecutable(...)
+              - pattern: (java.io.File $FILE).setReadable(...)
+              - pattern: (java.io.File $FILE).setWritable(...)
+
+              - pattern: java.nio.file.Files.copy(..., $FILE, ...)
+              - pattern: java.nio.file.Files.createDirectories($FILE, ...)
+              - pattern: java.nio.file.Files.createDirectory($FILE, ...)
+              - pattern: java.nio.file.Files.createFile($FILE, ...)
+              - pattern: java.nio.file.Files.createLink(..., $FILE, ...)
+              - pattern: java.nio.file.Files.createSymbolicLink(..., $FILE, ...)
+              - pattern: java.nio.file.Files.createTempFile(..., $FILE, ...)
+              - pattern: java.nio.file.Files.createTempDirectory(..., $FILE, ...)
+              - pattern: java.nio.file.Files.delete($FILE)
+              - pattern: java.nio.file.Files.deleteIfExists($FILE)
+              - pattern: java.nio.file.Files.exists($FILE, ...)
+              - pattern: java.nio.file.Files.find($FILE, ...)
+              - pattern: java.nio.file.Files.move(..., $FILE, ...)
+              - pattern: java.nio.file.Files.newBufferedReader($FILE, ...)
+              - pattern: java.nio.file.Files.newBufferedWriter($FILE, ...)
+              - pattern: java.nio.file.Files.newByteChannel($FILE, ...)
+              - pattern: java.nio.file.Files.newDirectoryStream($FILE, ...)
+              - pattern: java.nio.file.Files.newInputStream($FILE, ...)
+              - pattern: java.nio.file.Files.newOutputStream($FILE, ...)
+              - pattern: java.nio.file.Files.notExists($FILE, ...)
+              - pattern: java.nio.file.Files.readAllBytes($FILE, ...)
+              - pattern: java.nio.file.Files.readAllLines($FILE, ...)
+              - pattern: java.nio.file.Files.readSymbolicPath($FILE, ...)
+              - pattern: java.nio.file.Files.setLastModifiedTime($FILE, ...)
+              - pattern: java.nio.file.Files.setOwner($FILE, ...)
+              - pattern: java.nio.file.Files.setPosixFilePermissions($FILE, ...)
+              - pattern: java.nio.file.Files.walk($FILE, ...)
+              - pattern: java.nio.file.Files.walkFileTree($FILE, ...)
+              - pattern: java.nio.file.Files.write($FILE, ...)
+
+              - pattern: org.apache.commons.io.FileUtils.cleanDirectory(..., $FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.copyDirectory(..., $FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.copyFile(..., $FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.copyFileToDirectory(..., $FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.delete($FILE)
+              - pattern: org.apache.commons.io.FileUtils.deleteDirectory($FILE)
+              - pattern: org.apache.commons.io.FileUtils.deleteQuietly($FILE)
+              - pattern: org.apache.commons.io.FileUtils.forceDelete($FILE)
+              - pattern: org.apache.commons.io.FileUtils.forceDeleteOnExit($FILE)
+              - pattern: org.apache.commons.io.FileUtils.forceMkDir($FILE)
+              - pattern: org.apache.commons.io.FileUtils.forceMkDirParent($FILE)
+              - pattern: org.apache.commons.io.FileUtils.iterateFiles($FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.iterateFilesAndDirs($FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.listFiles($FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.listFilesAndDirs($FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.moveFile(..., $FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.moveToDirectory(..., $FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.newOutputStream($FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.openOutputStream($FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.openInputStream($FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.readFileToByteArray($FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.readFileToString($FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.readLines($FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.streamFiles($FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.touch($FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.write($FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.writeByteArrayToFile($FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.writeLines($FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.writeStringToFile($FILE, ...)
+
+              - pattern: new org.springframework.core.io.ClassPathResource($FILE, ...)
+              - pattern: org.springframework.util.ResourceUtils.getFile($FILE, ...)
+              - pattern: org.springframework.util.FileSystemUtils.$FILE_SYSTEM_UTILS_METHOD(..., $FILE, ...)
+              - pattern: org.springframework.util.FileCopyUtils.$FILE_COPY_UTILS_METHOD(..., $FILE, ...)
+              - pattern: new org.springframework.core.io.FileSystemResource($FILE)
+
+              - pattern: new javax.xml.transform.StreamSource($FILE, ...)
+              - pattern: new javax.activation.FileDataSource($FILE, ...)
+              - patterns:
+                  - pattern-either:
+                      - pattern: (Class $C).$CLASS_FUNC($FILE)
+                      - pattern: (ClassLoader $CL).$CLASS_FUNC($FILE)
+                  - metavariable-pattern:
+                      metavariable: $CLASS_FUNC
+                      pattern-either:
+                        - pattern: getResourceAsStream
+                        - pattern: getResource
+                        - pattern: getResources
+                        - pattern: resources
+          - focus-metavariable: $FILE

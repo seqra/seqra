@@ -1,0 +1,337 @@
+rules:
+  - id: log-injection-in-servlet-app
+    severity: NOTE
+    message: >-
+      When data from an untrusted source is put into a logger and not neutralized correctly,
+      an attacker could forge log entries or include malicious content.
+    metadata:
+      cwe: CWE-117
+      short-description: Logging an untrusted data might cause unwanted log entries forging
+      full-description: |-
+        Logging untrusted user input directly into application logs can lead to **log injection / log forging** vulnerabilities.
+        An attacker can include control characters (such as `\r` and `\n`) or log-format tokens in their input so that, when it is logged,
+        it creates fake log entries, hides or alters real events, or breaks log parsers and SIEM rules. In some cases, untrusted data
+        in log messages can also trigger dangerous features of logging frameworks (e.g., message lookups),
+        potentially escalating to more severe issues such as remote code execution if the framework is misconfigured or unpatched.
+        Additionally, logging unfiltered user input increases the risk of leaking sensitive or personal data into logs.
+
+        ```java
+        // Vulnerable code sample
+        import java.io.IOException;
+        import javax.servlet.ServletException;
+        import javax.servlet.http.*;
+        import org.apache.logging.log4j.LogManager;
+        import org.apache.logging.log4j.Logger;
+
+        public class LoginServlet extends HttpServlet {
+
+            private static final Logger logger = LogManager.getLogger(LoginServlet.class);
+
+            @Override
+            protected void doPost(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                String username = request.getParameter("username"); // Untrusted user input
+
+                // VULNERABLE: user input is concatenated directly into the log message
+                logger.warn("Failed login attempt for user: " + username);
+
+                // ...
+            }
+        }
+        ```
+
+        To remediate this issue, validate and sanitize all untrusted data before logging,
+        avoid using user input as the log message or pattern itself, and use parameterized
+        logging APIs so the framework treats the data as values, not as formatting or lookup expressions.
+        Also ensure your logging framework is up to date and dangerous features
+        (such as JNDI lookups in older Log4j2 versions) are disabled.
+
+        A safer approach might look like this:
+
+        ```java
+        import java.io.IOException;
+        import javax.servlet.ServletException;
+        import javax.servlet.http.*;
+        import org.apache.logging.log4j.LogManager;
+        import org.apache.logging.log4j.Logger;
+
+        public class LoginServlet extends HttpServlet {
+
+            private static final Logger logger = LogManager.getLogger(LoginServlet.class);
+
+            @Override
+            protected void doPost(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                String username = request.getParameter("username");
+
+                // Sanitize untrusted input for logging: remove CR/LF and other control chars
+                String safeUsername = sanitizeForLog(username);
+
+                // SAFE: use parameterized logging; user data is treated purely as data
+                logger.warn("Failed login attempt for user [{}]", safeUsername);
+
+                // ...
+            }
+
+            private String sanitizeForLog(String value) {
+                if (value == null) {
+                    return "";
+                }
+                // Replace CR, LF, and TAB with a safe placeholder; extend as needed
+                return value.replaceAll("[\\r\\n\\t]", "_");
+            }
+        }
+        ```
+
+        Additional best practices include: not logging secrets (passwords, tokens, full credit card numbers),
+        standardizing a log format, and reviewing log sinks/consumers (parsers, SIEMs) to ensure they are robust against malformed records.
+      refernces:
+        - https://owasp.org/www-community/attacks/Log_Injection
+        - https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html
+      provenance: https://semgrep.dev/r/gitlab.find_sec_bugs.CRLF_INJECTION_LOGS-1
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/logging-sinks.yaml#java-logging-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$DATA'
+
+  - id: log-injection-in-spring-app
+    severity: NOTE
+    message: >-
+      When data from an untrusted source is put into a logger and not neutralized correctly,
+      an attacker could forge log entries or include malicious content.
+    metadata:
+      cwe: CWE-117
+      short-description: Logging an untrusted data might cause unwanted log entries forging
+      full-description: |-
+        Logging untrusted user input directly in Spring-based Java web applications (e.g., Spring MVC / Spring Boot)
+        can lead to **log injection / log forging** and **information disclosure**.
+        Attackers can submit data containing control characters (`\r`, `\n`) to inject fake log entries or
+        hide real ones, or supply strings that interact badly with log parsers / SIEM rules.
+        If vulnerable logging libraries or patterns are used (e.g., unsafe Log4j2 configurations),
+        crafted values can even trigger dangerous features such as message lookups.
+        Logging unfiltered request data in Spring controllers also increases the risk of
+        accidentally storing credentials, tokens, and other sensitive data in logs.
+
+        ```java
+        // Vulnerable Spring Boot controller example
+
+        import org.slf4j.Logger;
+        import org.slf4j.LoggerFactory;
+        import org.springframework.http.ResponseEntity;
+        import org.springframework.web.bind.annotation.*;
+
+        @RestController
+        @RequestMapping("/login")
+        public class LoginController {
+
+            private static final Logger logger = LoggerFactory.getLogger(LoginController.class);
+
+            @PostMapping
+            public ResponseEntity<String> login(
+                    @RequestParam String username,   // untrusted
+                    @RequestParam String password) { // untrusted & sensitive
+
+                // VULNERABLE:
+                // - Direct string concatenation with untrusted input
+                // - Logs sensitive data (password)
+                // - Allows CR/LF and other control characters in logs
+                logger.warn("Failed login for user: " + username + " with password: " + password);
+
+                return ResponseEntity.status(401).body("Login failed");
+            }
+        }
+        ```
+
+        To remediate this issue, treat all Spring MVC / WebFlux request data as untrusted, sanitize before logging,
+        avoid logging secrets, and use parameterized logging. Ensure your logging framework (Logback, Log4j2, etc.)
+        is up to date and configured securely (e.g., no unsafe message lookups in Log4j2). A safer Spring example:
+
+        ```java
+        import org.slf4j.Logger;
+        import org.slf4j.LoggerFactory;
+        import org.springframework.http.*;
+        import org.springframework.web.bind.annotation.*;
+
+        @RestController
+        @RequestMapping("/login")
+        public class LoginController {
+
+            private static final Logger logger = LoggerFactory.getLogger(LoginController.class);
+
+            @PostMapping
+            public ResponseEntity<String> login(@RequestParam String username,
+                                                @RequestParam String password) {
+
+                // Do NOT log passwords or other secrets
+                String safeUsername = sanitizeForLog(username);
+
+                // SAFE-ER: parameterized logging + sanitized data
+                logger.warn("Failed login attempt for user [{}]", safeUsername);
+
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Login failed");
+            }
+
+            private String sanitizeForLog(String value) {
+                if (value == null) {
+                    return "";
+                }
+                // Remove CR, LF, TAB and other control characters; extend as needed
+                return value.replaceAll("[\\r\\n\\t\\x00-\\x1F]", "_");
+            }
+        }
+        ```
+
+        Additional Spring-focused hardening steps:
+
+        - Configure centralized logging in `application.yml` / `application.properties` to avoid logging raw request
+          bodies and headers by default (e.g., be cautious with `logging.level.org.springframework.web.filter.CommonsRequestLoggingFilter=DEBUG`).
+        - Implement a `OncePerRequestFilter` or `HandlerInterceptor` to normalize or strip dangerous
+          characters from values that are logged across the application.
+        - Ensure dependencies (Logback / Log4j2 / SLF4J) are on supported, patched versions;
+          for Log4j2, avoid deprecated message lookup features and unsafe patterns.
+      refernces:
+        - https://owasp.org/www-community/attacks/Log_Injection
+        - https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html
+      provenance: https://semgrep.dev/r/gitlab.find_sec_bugs.CRLF_INJECTION_LOGS-1
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/logging-sinks.yaml#java-logging-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$DATA'
+
+  - id: seam-log-injection
+    severity: ERROR
+    message: >-
+      Seam Logging API support an expression language to introduce bean property to log messages.
+      The expression language can also be the source to unwanted code execution.
+      In this context, an expression is built with a dynamic value.
+      The source of the value(s) should be verified to avoid that unfiltered values fall into this risky
+      code evaluation.
+    metadata:
+      cwe:
+        - CWE-95
+      short-description: Potential injection of unwanted Seam Logging API expression language
+      full-description: |-
+        Seam's Logging API integrates with Java Expression Language (EL) so that any `#{...}`
+        found in log messages is evaluated against the Seam/JSF context before being written.
+        If user-controlled data is allowed to influence those expressions (or is concatenated inside `#{...}`),
+        an attacker can inject arbitrary EL. This can lead to unauthorized data access, privilege escalation,
+        or even remote code execution, depending on the available EL functions and Seam components.
+
+        When developers assume that `log.info("...")` just writes a literal string—without realizing that `#{}`
+        is interpreted as EL—any untrusted input included inside or affecting `#{...}` can become an
+        expression language injection point.
+
+        ---
+
+        **Vulnerable code sample**
+
+        ```java
+        import org.jboss.seam.annotations.Name;
+        import org.jboss.seam.log.Log;
+        import org.jboss.seam.log.Logging;
+
+        import javax.faces.context.FacesContext;
+        import java.util.Map;
+
+        @Name("loginAction")
+        public class LoginAction {
+
+            private static final Log log = Logging.getLog(LoginAction.class);
+
+            public void login() {
+                Map<String, String> params = FacesContext.getCurrentInstance()
+                        .getExternalContext()
+                        .getRequestParameterMap();
+
+                // Attacker controls the "username" request parameter
+                String username = params.get("username");
+
+                // VULNERABLE: Seam will evaluate anything in #{...} as EL
+                // If "username" is something like: "user} #{someDangerousBean.doSomething()} {"
+                // the injected expression gets evaluated in the application context.
+                log.info("Login failed for user #{"+ username +"}");
+
+                // ... authentication logic ...
+            }
+        }
+        ```
+
+        ---
+
+        To remediate this issue, avoid evaluating EL on untrusted data and treat log messages as plain text.
+        Do not build `#{...}` expressions from user input. Prefer parameterized logging that does **not** invoke EL,
+        or escape/strip EL metacharacters if there is any chance they come from untrusted sources.
+        In many cases, the safest approach is to move away from Seam's EL-aware `Log` in favor of standard
+        logging frameworks (e.g., SLF4J + Logback/Log4j2).
+
+        **Safer patterns:**
+
+        1. **Use Seam's parameterized logging (no EL)**
+
+        ```java
+        // This form uses MessageFormat-style parameters, not EL
+        log.info("Login failed for user {0}", username);
+        ```
+
+        2. **Or use a standard logging framework**
+
+        ```java
+        import org.slf4j.Logger;
+        import org.slf4j.LoggerFactory;
+
+        public class LoginAction {
+
+            private static final Logger logger = LoggerFactory.getLogger(LoginAction.class);
+
+            public void login() {
+                Map<String, String> params = FacesContext.getCurrentInstance()
+                        .getExternalContext()
+                        .getRequestParameterMap();
+
+                String username = params.get("username");
+
+                // SLF4J-style placeholders — no EL evaluation
+                logger.info("Login failed for user '{}'", username);
+
+                // ... authentication logic ...
+            }
+        }
+        ```
+
+        3. **Additional defensive steps:**
+
+        - Do not construct strings containing `#{` and `}` from untrusted data.
+        - If you must log raw user input, treat it as data only:
+          - Sanitize or escape `#`, `{`, and `}` if your logging configuration or any other layer might interpret EL.
+        - Consider disabling or avoiding any logging mechanism that evaluates EL at runtime, especially on production systems exposed to untrusted users.
+        - Apply general input validation where appropriate, but do not rely on validation alone to prevent EL injection.
+      references:
+        - https://owasp.org/www-community/vulnerabilities/Expression_Language_Injection
+      provenance: https://find-sec-bugs.github.io/bugs.htm#SEAM_LOG_INJECTION
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/seam-untrusted-data-source.yaml#seam-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/logging-sinks.yaml#seam-log-injection-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$DATA'

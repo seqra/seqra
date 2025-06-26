@@ -1,0 +1,452 @@
+rules:
+  - id: xpath-injection-in-servlet-app
+    severity: ERROR
+    message: >-
+      Potential XPath injection: detected input from a HTTPServletRequest going into a XPath evaluate or compile command.
+    metadata:
+      cwe: CWE-643
+      short-description: XPath Injection
+      full-description: |-
+        XPath Injection in Java occurs when untrusted data is concatenated into an XPath expression
+        that is then evaluated on an XML document. An attacker can inject XPath syntax
+        (such as additional predicates or logical operators) to change the query's meaning,
+        bypass authentication or authorization checks, or access sensitive data.
+        It is conceptually similar to SQL injection, but targets XML data sources and
+        XPath processors instead of relational databases.
+
+        ```java
+        // Vulnerable code sample
+        import javax.xml.xpath.*;
+        import org.w3c.dom.Document;
+
+        public class AuthService {
+
+            private final XPath xPath;
+            private final Document usersDoc; // XML like: <users><user><username>...</username>...
+
+            public AuthService(Document usersDoc) {
+                this.usersDoc = usersDoc;
+                this.xPath = XPathFactory.newInstance().newXPath();
+            }
+
+            public boolean authenticate(String username, String password) throws Exception {
+                // VULNERABLE: user input is concatenated directly into the XPath expression
+                String expression = "/users/user[username='" + username + "' and password='" + password + "']";
+
+                // If attacker sets username to: ' or '1'='1
+                // the expression becomes: /users/user[username='' or '1'='1' and password='...']
+                // which can match any user and bypass auth.
+                XPathExpression compiled = xPath.compile(expression);
+                Object result = compiled.evaluate(usersDoc, XPathConstants.NODE);
+                return result != null;
+            }
+        }
+        ```
+
+        To remediate this issue, avoid building XPath expressions via string concatenation with untrusted input,
+        validate and constrain any user input used in queries, and prefer designs where comparisons are done in code
+        rather than in dynamically built XPath. For example, instead of injecting untrusted data into the query,
+        select candidate nodes with a static XPath and compare values in Java:
+
+        ```java
+        // Safer approach: do not concatenate untrusted input into the XPath
+        import javax.xml.xpath.*;
+        import org.w3c.dom.*;
+
+        public class SafeAuthService {
+
+            private final XPath xPath;
+            private final Document usersDoc;
+
+            public SafeAuthService(Document usersDoc) {
+                this.usersDoc = usersDoc;
+                this.xPath = XPathFactory.newInstance().newXPath();
+            }
+
+            public boolean authenticate(String username, String password) throws Exception {
+                // 1. Validate input (length, charset, etc.) — example:
+                if (username == null || password == null
+                        || username.length() > 50 || password.length() > 100
+                        || !username.matches("[A-Za-z0-9._-]+")) {
+                    return false;
+                }
+
+                // 2. Use a static XPath to get all user nodes (no user input inside XPath)
+                XPathExpression compiled = xPath.compile("/users/user");
+                NodeList users = (NodeList) compiled.evaluate(usersDoc, XPathConstants.NODESET);
+
+                // 3. Compare in code instead of in XPath
+                for (int i = 0; i < users.getLength(); i++) {
+                    Element user = (Element) users.item(i);
+                    String u = user.getElementsByTagName("username").item(0).getTextContent();
+                    String p = user.getElementsByTagName("password").item(0).getTextContent();
+                    if (username.equals(u) && password.equals(p)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+        ```
+
+        In addition, prefer using standard, hardened authentication and data-storage mechanisms
+        (e.g., databases with parameterized queries, hashed passwords) instead of custom XML-based auth;
+        if XPath must be used, restrict allowed characters, escape or encode any user-controlled values
+        before inserting them into expressions, and keep XPath expressions as static as possible.
+      references:
+        - https://owasp.org/www-community/attacks/XPATH_Injection
+        - https://cheatsheetseries.owasp.org/cheatsheets/XML_Security_Cheat_Sheet.html
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/tainted-xpath-from-http-request.yaml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/data-query-injection-sinks.yaml#java-xpath-injection-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: xpath-injection-in-spring-app
+    severity: ERROR
+    message: >-
+      Potential XPath injection: detected input from a HTTP request going into a XPath evaluate or compile command.
+    metadata:
+      cwe: CWE-643
+      short-description: XPath Injection
+      full-description: |-
+        XPath Injection in Java occurs when untrusted data is concatenated into an XPath expression that is then evaluated on an XML document.
+        An attacker can inject XPath syntax (such as additional predicates or logical operators) to change the query's meaning,
+        bypass authentication or authorization checks, or access sensitive data. It is conceptually similar to SQL injection,
+        but targets XML data sources and XPath processors instead of relational databases.
+
+        ```java
+        // Vulnerable code sample
+        import javax.xml.xpath.*;
+        import org.w3c.dom.Document;
+
+        public class AuthService {
+
+            private final XPath xPath;
+            private final Document usersDoc; // XML like: <users><user><username>...</username>...
+
+            public AuthService(Document usersDoc) {
+                this.usersDoc = usersDoc;
+                this.xPath = XPathFactory.newInstance().newXPath();
+            }
+
+            public boolean authenticate(String username, String password) throws Exception {
+                // VULNERABLE: user input is concatenated directly into the XPath expression
+                String expression = "/users/user[username='" + username + "' and password='" + password + "']";
+
+                // If attacker sets username to: ' or '1'='1
+                // the expression becomes: /users/user[username='' or '1'='1' and password='...']
+                // which can match any user and bypass auth.
+                XPathExpression compiled = xPath.compile(expression);
+                Object result = compiled.evaluate(usersDoc, XPathConstants.NODE);
+                return result != null;
+            }
+        }
+        ```
+
+        To remediate this issue, avoid building XPath expressions via string concatenation with untrusted input,
+        validate and constrain any user input used in queries, and prefer designs where comparisons are done in code
+        rather than in dynamically built XPath. For example, instead of injecting untrusted data into the query,
+         select candidate nodes with a static XPath and compare values in Java:
+
+        ```java
+        // Safer approach: do not concatenate untrusted input into the XPath
+        import javax.xml.xpath.*;
+        import org.w3c.dom.*;
+
+        public class SafeAuthService {
+
+            private final XPath xPath;
+            private final Document usersDoc;
+
+            public SafeAuthService(Document usersDoc) {
+                this.usersDoc = usersDoc;
+                this.xPath = XPathFactory.newInstance().newXPath();
+            }
+
+            public boolean authenticate(String username, String password) throws Exception {
+                // 1. Validate input (length, charset, etc.) — example:
+                if (username == null || password == null
+                        || username.length() > 50 || password.length() > 100
+                        || !username.matches("[A-Za-z0-9._-]+")) {
+                    return false;
+                }
+
+                // 2. Use a static XPath to get all user nodes (no user input inside XPath)
+                XPathExpression compiled = xPath.compile("/users/user");
+                NodeList users = (NodeList) compiled.evaluate(usersDoc, XPathConstants.NODESET);
+
+                // 3. Compare in code instead of in XPath
+                for (int i = 0; i < users.getLength(); i++) {
+                    Element user = (Element) users.item(i);
+                    String u = user.getElementsByTagName("username").item(0).getTextContent();
+                    String p = user.getElementsByTagName("password").item(0).getTextContent();
+                    if (username.equals(u) && password.equals(p)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+        ```
+
+        In addition, prefer using standard, hardened authentication and data-storage mechanisms
+        (e.g., databases with parameterized queries, hashed passwords) instead of custom XML-based auth;
+        if XPath must be used, restrict allowed characters, escape or encode any user-controlled values
+        before inserting them into expressions, and keep XPath expressions as static as possible.
+      references:
+        - https://owasp.org/www-community/attacks/XPATH_Injection
+        - https://cheatsheetseries.owasp.org/cheatsheets/XML_Security_Cheat_Sheet.html
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/tainted-xpath-from-http-request.yaml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/data-query-injection-sinks.yaml#java-xpath-injection-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: mongodb-injection-in-servlet-app
+    severity: ERROR
+    message: >-
+      Potential NoSQL injection: detected untrusted user input going into NoSQL query using the 'where' evaluation operator.
+    metadata:
+      cwe: CWE-943
+      short-description: MongoDB query injection
+      full-description: |-
+        MongoDB `$where` injection in Java is a form of NoSQL injection that occurs when
+        untrusted user input is concatenated into a `$where` clause (server-side JavaScript)
+        and sent to MongoDB. Because `$where` executes JavaScript on the database server,
+        an attacker who controls any part of that expression can inject arbitrary JavaScript,
+        bypass authentication/authorization checks, read or modify data, or cause denial of service.
+
+        Vulnerable code sample
+
+        ```java
+        import com.mongodb.DB;
+        import com.mongodb.DBCollection;
+        import com.mongodb.DBCursor;
+        import com.mongodb.DBObject;
+        import com.mongodb.BasicDBObject;
+
+        import javax.servlet.http.HttpServletRequest;
+
+        public class LoginService {
+
+            private final DB db;
+
+            public LoginService(DB db) {
+                this.db = db;
+            }
+
+            public boolean login(HttpServletRequest request) {
+                String username = request.getParameter("username");  // untrusted input
+                String password = request.getParameter("password");  // untrusted input
+
+                DBCollection users = db.getCollection("users");
+
+                // VULNERABLE: user input is concatenated into a $where JavaScript expression
+                String whereClause =
+                        "this.username == '" + username + "' && this.password == '" + password + "'";
+
+                DBObject query = new BasicDBObject("$where", whereClause);
+
+                DBCursor cursor = users.find(query);
+                return cursor.hasNext();
+            }
+        }
+        ```
+
+        In this example, an attacker can craft `username` or `password` so that the resulting
+        `whereClause` becomes malicious JavaScript executed by MongoDB.
+
+        To remediate this issue, avoid using `$where` with string concatenation altogether and always treat
+        user input as data, not code. Use standard field-based queries and parameterization instead of embedding
+        user input into JavaScript expressions. Where possible, disable server‑side JavaScript in MongoDB
+        and apply normal secure coding practices (validation, least privilege, hashed passwords, etc.).
+
+        A safer version of the same logic using field-based queries:
+
+        ```java
+        import com.mongodb.client.MongoCollection;
+        import com.mongodb.client.MongoDatabase;
+        import com.mongodb.client.model.Filters;
+        import org.bson.Document;
+
+        import javax.servlet.http.HttpServletRequest;
+
+        public class SafeLoginService {
+
+            private final MongoDatabase db;
+
+            public SafeLoginService(MongoDatabase db) {
+                this.db = db;
+            }
+
+            public boolean login(HttpServletRequest request) {
+                String username = request.getParameter("username");  // still untrusted
+                String password = request.getParameter("password");  // still untrusted
+
+                MongoCollection<Document> users = db.getCollection("users");
+
+                // SAFE: user input is bound as values, not executed as code
+                Document user = users.find(
+                        Filters.and(
+                                Filters.eq("username", username),
+                                Filters.eq("password", password) // in reality, compare password hashes
+                        )
+                ).first();
+
+                return user != null;
+            }
+        }
+        ```
+
+        Key remediation steps:
+        - Do not use `$where` with dynamic strings built from user input.
+        - Use field-based queries (`Filters.eq`, `Filters.and`, `new Document("field", value)`, etc.).
+        - If you must use `$where`, never concatenate raw user input; use strict whitelisting and controlled templates (but prefer avoiding `$where` completely).
+        - Configure MongoDB to restrict or disable server-side JavaScript where feasible.
+      references:
+        - https://owasp.org/www-community/attacks/NoSQL_Injection
+        - https://www.mongodb.com/docs/manual/core/server-side-javascript/#security-considerations
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/mongodb/security/injection/audit/mongodb-nosqli.yaml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/data-query-injection-sinks.yaml#java-mongodb-nosql-injection
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$INPUT'
+
+  - id: mongodb-injection-in-spring-app
+    severity: ERROR
+    message: >-
+      Potential NoSQL injection: detected untrusted user input going into NoSQL query using the 'where' evaluation operator.
+    metadata:
+      cwe: CWE-943
+      short-description: MongoDB query injection
+      full-description: |-
+        MongoDB `$where` injection in Java is a form of NoSQL injection that occurs when
+        untrusted user input is concatenated into a `$where` clause (server-side JavaScript)
+        and sent to MongoDB. Because `$where` executes JavaScript on the database server,
+        an attacker who controls any part of that expression can inject arbitrary JavaScript,
+        bypass authentication/authorization checks, read or modify data, or cause denial of service.
+
+        Vulnerable code sample
+
+        ```java
+        import com.mongodb.DB;
+        import com.mongodb.DBCollection;
+        import com.mongodb.DBCursor;
+        import com.mongodb.DBObject;
+        import com.mongodb.BasicDBObject;
+
+        import javax.servlet.http.HttpServletRequest;
+
+        public class LoginService {
+
+            private final DB db;
+
+            public LoginService(DB db) {
+                this.db = db;
+            }
+
+            public boolean login(HttpServletRequest request) {
+                String username = request.getParameter("username");  // untrusted input
+                String password = request.getParameter("password");  // untrusted input
+
+                DBCollection users = db.getCollection("users");
+
+                // VULNERABLE: user input is concatenated into a $where JavaScript expression
+                String whereClause =
+                        "this.username == '" + username + "' && this.password == '" + password + "'";
+
+                DBObject query = new BasicDBObject("$where", whereClause);
+
+                DBCursor cursor = users.find(query);
+                return cursor.hasNext();
+            }
+        }
+        ```
+
+        In this example, an attacker can craft `username` or `password` so that the resulting
+        `whereClause` becomes malicious JavaScript executed by MongoDB.
+
+        To remediate this issue, avoid using `$where` with string concatenation altogether and always treat
+        user input as data, not code. Use standard field-based queries and parameterization instead of embedding
+        user input into JavaScript expressions. Where possible, disable server‑side JavaScript in MongoDB
+        and apply normal secure coding practices (validation, least privilege, hashed passwords, etc.).
+
+        A safer version of the same logic using field-based queries:
+
+        ```java
+        import com.mongodb.client.MongoCollection;
+        import com.mongodb.client.MongoDatabase;
+        import com.mongodb.client.model.Filters;
+        import org.bson.Document;
+
+        import javax.servlet.http.HttpServletRequest;
+
+        public class SafeLoginService {
+
+            private final MongoDatabase db;
+
+            public SafeLoginService(MongoDatabase db) {
+                this.db = db;
+            }
+
+            public boolean login(HttpServletRequest request) {
+                String username = request.getParameter("username");  // still untrusted
+                String password = request.getParameter("password");  // still untrusted
+
+                MongoCollection<Document> users = db.getCollection("users");
+
+                // SAFE: user input is bound as values, not executed as code
+                Document user = users.find(
+                        Filters.and(
+                                Filters.eq("username", username),
+                                Filters.eq("password", password) // in reality, compare password hashes
+                        )
+                ).first();
+
+                return user != null;
+            }
+        }
+        ```
+
+        Key remediation steps:
+        - Do not use `$where` with dynamic strings built from user input.
+        - Use field-based queries (`Filters.eq`, `Filters.and`, `new Document("field", value)`, etc.).
+        - If you must use `$where`, never concatenate raw user input; use strict whitelisting and controlled templates (but prefer avoiding `$where` completely).
+        - Configure MongoDB to restrict or disable server-side JavaScript where feasible.
+      references:
+        - https://owasp.org/www-community/attacks/NoSQL_Injection
+        - https://www.mongodb.com/docs/manual/core/server-side-javascript/#security-considerations
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/mongodb/security/injection/audit/mongodb-nosqli.yaml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/data-query-injection-sinks.yaml#java-mongodb-nosql-injection
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$INPUT'

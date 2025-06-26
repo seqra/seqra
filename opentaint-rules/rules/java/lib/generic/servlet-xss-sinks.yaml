@@ -1,0 +1,40 @@
+rules:
+  - id: java-servlet-xss-sink
+    options:
+      lib: true
+    severity: NOTE
+    message: Direct write of unvalidated user input into response
+    metadata:
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/xss/no-direct-response-writer.yaml
+    languages:
+      - java
+    mode: taint
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: Encode.forHtml(...)
+          - pattern: (PolicyFactory $POLICY).sanitize(...)
+          - pattern: (AntiSamy $AS).scan(...)
+          - pattern: JSoup.clean(...)
+          - pattern: HtmlUtils.htmlEscape(...)
+          - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(...)
+          - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(...)
+          - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(...)
+          - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(...)
+
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(...)
+              - pattern: |
+                  (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(...)
+              - pattern: |
+                  (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
+              - pattern: |
+                  (java.io.PrintWriter $WRITER).$WRITE(...)
+              - pattern: |
+                  (PrintWriter $WRITER).$WRITE(...)
+              - pattern: |
+                  (javax.servlet.ServletOutputStream $WRITER).$WRITE(...)
+              - pattern: |
+                  (ServletOutputStream $WRITER).$WRITE(...)

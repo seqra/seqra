@@ -1,0 +1,654 @@
+rules:
+  - id: bean-injection
+    severity: ERROR
+    message: >-
+      An attacker can set arbitrary bean properties that can compromise system integrity.
+      An attacker can leverage this functionality to access special bean properties like class.classLoader
+      that will allow them to override system properties and potentially execute arbitrary code.
+    metadata:
+      cwe: CWE-15
+      short-description: An attacker can set arbitrary bean properties
+      full-description: |-
+        When untrusted data is passed directly into `org.apache.commons.beanutils.BeanUtilsBean.populate(...)`,
+        an attacker can control which bean properties are set and to what values.
+        Because BeanUtils uses reflection and supports nested property paths,
+        this can lead to a *mass assignment* (over-posting) vulnerability:
+        users can modify fields that should be server-controlled (e.g., roles, flags, internal configuration),
+        and, in some environments and older BeanUtils versions, even reach sensitive objects via special properties like `class`
+        (e.g., `class.classLoader...`) and chain this into more severe attacks.
+
+        ```java
+        import org.apache.commons.beanutils.BeanUtilsBean;
+
+        public class UserDto {
+            private String username;
+            private String email;
+            private boolean admin;      // should never be settable by the client
+
+            // getters and setters omitted for brevity
+        }
+
+        // Somewhere in a controller/servlet:
+        UserDto user = new UserDto();
+
+        // UNSAFE: request parameters are used directly to populate the bean
+        // e.g. attacker sends: username=hacker&admin=true
+        BeanUtilsBean beanUtils = BeanUtilsBean.getInstance();
+        beanUtils.populate(user, request.getParameterMap());
+
+        // user.getAdmin() may now be true, even though that was supposed to be server‑controlled
+        ```
+
+        To remediate this issue, never pass raw, unvalidated, or unfiltered external input directly to `BeanUtilsBean.populate`. Use one or more of the following strategies:
+
+        1. **Whitelist properties before populating** (recommended pattern)
+
+          Only allow a fixed set of safe property names to be set from user input.
+
+          ```java
+          import org.apache.commons.beanutils.BeanUtilsBean;
+
+          private static final Set<String> ALLOWED_PROPERTIES = Set.of("username", "email");
+
+          public void bindUser(HttpServletRequest request, UserDto user) throws Exception {
+              Map<String, String[]> rawParams = request.getParameterMap();
+              Map<String, Object> safeParams = new HashMap<>();
+
+              for (String name : ALLOWED_PROPERTIES) {
+                  if (rawParams.containsKey(name)) {
+                      String[] values = rawParams.get(name);
+                      if (values != null && values.length > 0) {
+                          // Add any additional validation/sanitization here
+                          safeParams.put(name, values[0]);
+                      }
+                  }
+              }
+
+              BeanUtilsBean.getInstance().populate(user, safeParams);
+          }
+          ```
+
+        2. **Avoid generic `populate` for security‑sensitive objects**
+
+          For beans holding permissions, roles, internal configuration, or framework/container objects, set fields explicitly:
+
+          ```java
+          UserDto user = new UserDto();
+          user.setUsername(request.getParameter("username"));
+          user.setEmail(request.getParameter("email"));
+          // never bind admin or other sensitive fields from the request
+          ```
+
+        3. **Upgrade and configure BeanUtils to suppress dangerous properties**
+
+          If you must use `populate` broadly:
+
+          - Use a recent version of Apache Commons BeanUtils that supports `BeanIntrospector`.
+          - Suppress access to the `class` property (and any others you deem sensitive), so property paths like `class.classLoader` cannot be resolved.
+
+          Conceptually (exact APIs may vary by version):
+
+          ```java
+          import org.apache.commons.beanutils.BeanUtilsBean;
+          import org.apache.commons.beanutils.PropertyUtilsBean;
+          import org.apache.commons.beanutils.BeanIntrospector;
+          import org.apache.commons.beanutils.DefaultBeanIntrospector;
+          import org.apache.commons.beanutils.SuppressPropertiesBeanIntrospector;
+
+          PropertyUtilsBean propertyUtils = new PropertyUtilsBean();
+
+          // Remove default and add a version that suppresses the "class" property
+          propertyUtils.removeBeanIntrospector(DefaultBeanIntrospector.INSTANCE);
+          propertyUtils.addBeanIntrospector(DefaultBeanIntrospector.INSTANCE);
+          propertyUtils.addBeanIntrospector(SuppressPropertiesBeanIntrospector.SUPPRESS_CLASS);
+
+          BeanUtilsBean safeBeanUtils = new BeanUtilsBean(null, propertyUtils);
+
+          // Then use safeBeanUtils.populate(...) with already-filtered input
+          ```
+
+          Even with this configuration, **you still need a whitelist** of allowed business properties;
+          suppressing `class` only helps against certain reflection-based exploit chains,
+          not against business-logic abuse (e.g., setting `admin=true`).
+      references:
+        - https://owasp.org/www-community/vulnerabilities/Mass_assignment
+        - https://en.wikipedia.org/wiki/Mass_assignment_vulnerability
+      provenance: https://semgrep.dev/r/gitlab.find_sec_bugs.BEAN_PROPERTY_INJECTION-1
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/security/external-configuration-control.yaml#bean-injection-sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: bean-injection-sink
+    options:
+      lib: true
+    severity: NOTE
+    mode: taint
+    metadata:
+      provenance: https://semgrep.dev/r/gitlab.find_sec_bugs.BEAN_PROPERTY_INJECTION-1
+    message: Beans are populated from untrusted user-controlled data
+    languages:
+      - java
+    pattern-propagators:
+      - pattern: $MAP = (javax.servlet.http.HttpServletRequest $REQ).getParameterMap()
+        from: $REQ
+        to: $MAP
+    pattern-sinks:
+      - pattern-either:
+          - pattern: (BeanUtilsBean $B).populate(..., $UNTRUSTED);
+          - pattern: org.apache.commons.beanutils.BeanUtils.populate(..., $UNTRUSTED);
+
+  - id: sql-catalog-external-manipulation-in-servlet-app
+    severity: ERROR
+    message: >-
+      The application was found using user-supplied input in a `java.sql.Connection`'s
+      `setCatalog` call. This could allow an adversary to supply a different database for the
+      lifetime of the connection. Allowing external control of system settings can disrupt service
+      or cause an application to behave in unexpected, and potentially malicious ways. Most likely
+      this would only cause an error by providing a nonexistent catalog name.
+    metadata:
+      cwe: CWE-15
+      short-description: External control of SQL catalog selection
+      full-description: >-
+        When untrusted data is passed into `java.sql.Connection.setCatalog(String)`, an attacker can control which database/catalog the application is using. This is similar in effect to letting the user choose the SQL `USE <database>` statement. In multi-tenant or multi-schema setups, this can break isolation between tenants, bypass authorization logic, and expose or corrupt data held in other catalogs that the database account can access. This is generally categorized as *external control of system or configuration settings* and is closely related to injection-style vulnerabilities.
+
+        Vulnerable code sample
+
+        ```java
+        public void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws SQLException, IOException {
+
+            // User-controlled input (e.g., from query string: ?catalog=other_tenant_db)
+            String catalog = request.getParameter("catalog");
+
+            Connection conn = dataSource.getConnection();
+
+            // VULNERABLE: external control of the active database/catalog
+            conn.setCatalog(catalog);
+
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT id, email FROM users WHERE id = ?")) {
+                ps.setInt(1, Integer.parseInt(request.getParameter("id")));
+                ResultSet rs = ps.executeQuery();
+                // ...
+            }
+        }
+        ```
+
+        If the underlying database user has access to multiple catalogs (for example, one per tenant), an attacker can supply another tenant's catalog name (or guess other internal catalogs) and read or modify data that should not be available to them.
+
+        To remediate this issue, ensure that the catalog is never directly controlled by untrusted input. Instead:
+
+        1. **Do not accept arbitrary catalog names from clients.**
+          Determine the catalog on the server side based on:
+          - The authenticated user/tenant, and/or
+          - Static configuration (e.g., per-environment settings), not request parameters.
+
+        2. **Use a strict whitelist or mapping.**
+          If you must vary the catalog, map safe, server-side identifiers to catalog names. Never pass raw client-provided strings to `setCatalog`.
+
+        3. **Enforce least privilege at the database level.**
+          The DB account used by the application should only have access to the specific catalog(s) it legitimately needs; avoid a single highly privileged account that can access every catalog.
+
+        Safer code example (server-side mapping & validation)
+
+        ```java
+        // Preconfigured, server-side mapping from tenant ID to allowed catalog
+        private static final Map<String, String> TENANT_CATALOGS = Map.of(
+            "tenantA", "tenant_a_db",
+            "tenantB", "tenant_b_db"
+        );
+
+        public void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws SQLException, IOException {
+
+            String tenantId = getAuthenticatedTenantId(request);  // e.g., from session/JWT
+
+            String catalog = TENANT_CATALOGS.get(tenantId);
+            if (catalog == null) {
+                // Unknown or unauthorized tenant; do not proceed
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Unauthorized tenant");
+                return;
+            }
+
+            try (Connection conn = dataSource.getConnection()) {
+                // Safe: catalog comes from trusted server-side configuration
+                conn.setCatalog(catalog);
+
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "SELECT id, email FROM users WHERE id = ?")) {
+                    ps.setInt(1, Integer.parseInt(request.getParameter("id")));
+                    ResultSet rs = ps.executeQuery();
+                    // ...
+                }
+            }
+        }
+
+        private String getAuthenticatedTenantId(HttpServletRequest request) {
+            // Implementation-specific: derive from authentication/authorization context
+            return (String) request.getAttribute("tenantId");
+        }
+        ```
+      references:
+        - https://cwe.mitre.org/data/definitions/15.html
+        - https://owasp.org/www-community/attacks/Injection
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/unsafe/rule-ExternalConfigControl.yml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/security/external-configuration-control.yaml#java-sql-catalog-sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: sql-catalog-external-manipulation-in-spring-app
+    severity: ERROR
+    message: >-
+      The application was found using user-supplied input in a `java.sql.Connection`'s
+      `setCatalog` call. This could allow an adversary to supply a different database for the
+      lifetime of the connection. Allowing external control of system settings can disrupt service
+      or cause an application to behave in unexpected, and potentially malicious ways. Most likely
+      this would only cause an error by providing a nonexistent catalog name.
+    metadata:
+      cwe: CWE-15
+      short-description: External control of SQL catalog selection
+      full-description: >-
+        When untrusted data is passed into `java.sql.Connection.setCatalog(String)` in a Spring application
+        (e.g., from a controller parameter), an attacker can influence which database/catalog the application
+        uses for subsequent queries. In multi-tenant or multi-schema Spring setups, this may allow a user to
+        switch to another tenant's catalog, bypass tenant isolation and authorization checks, and read or
+        modify data belonging to other tenants. This is a form of *external control of system or configuration
+        settings* and is closely related to injection-style vulnerabilities.
+
+        Vulnerable code sample
+
+        ```java
+        @RestController
+        @RequestMapping("/users")
+        public class UserController {
+
+            private final DataSource dataSource;
+
+            public UserController(DataSource dataSource) {
+                this.dataSource = dataSource;
+            }
+
+            // Example request: GET /users?catalog=other_tenant_db&id=1
+            @GetMapping
+            public List<User> getUsers(
+                    @RequestParam String catalog,
+                    @RequestParam int id) throws SQLException {
+
+                Connection conn = DataSourceUtils.getConnection(dataSource);
+                try {
+                    // VULNERABLE: user controls the active catalog
+                    conn.setCatalog(catalog);
+
+                    try (PreparedStatement ps = conn.prepareStatement(
+                            "SELECT id, email FROM users WHERE id = ?")) {
+                        ps.setInt(1, id);
+                        try (ResultSet rs = ps.executeQuery()) {
+                            List<User> result = new ArrayList<>();
+                            while (rs.next()) {
+                                User u = new User();
+                                u.setId(rs.getInt("id"));
+                                u.setEmail(rs.getString("email"));
+                                result.add(u);
+                            }
+                            return result;
+                        }
+                    }
+                } finally {
+                    DataSourceUtils.releaseConnection(conn, dataSource);
+                }
+            }
+        }
+        ```
+
+        If the Spring application's database account has access to multiple catalogs, a malicious client
+        can pass another catalog name via `catalog` and access or modify data in other tenants' databases.
+
+        To remediate this issue, ensure the catalog is determined exclusively by trusted, server-side logic,
+        not directly from HTTP parameters, headers, or other untrusted input. In Spring applications:
+
+        1. **Do not bind catalog/schema directly from request parameters.**
+          The controller should not have a `@RequestParam catalog` (or equivalent) that is passed into `setCatalog`.
+
+        2. **Derive tenant/catalog from authentication context.**
+          Use Spring Security to determine the authenticated user/tenant (`Principal`, `@AuthenticationPrincipal`,
+          or a custom `TenantContext`) and map that to an allowed catalog using server-side configuration.
+
+        3. **Use a strict whitelist/mapping.**
+          Maintain a fixed mapping on the server between tenant IDs and catalog names; do not use user-supplied strings as catalog names.
+
+        4. **Enforce least privilege at the DB level.**
+          Configure the DataSource to connect with a DB user that only has access to the catalogs required for that tenant/application.
+
+        Safer code example (Spring MVC with tenant → catalog mapping)
+
+        ```java
+        @Component
+        public class TenantCatalogResolver {
+
+            // Server-side, trusted mapping
+            private static final Map<String, String> TENANT_TO_CATALOG = Map.of(
+                "tenantA", "tenant_a_db",
+                "tenantB", "tenant_b_db"
+            );
+
+            public String resolveCatalogForTenant(String tenantId) {
+                String catalog = TENANT_TO_CATALOG.get(tenantId);
+                if (catalog == null) {
+                    throw new IllegalArgumentException("Unknown tenant: " + tenantId);
+                }
+                return catalog;
+            }
+        }
+
+        @RestController
+        @RequestMapping("/users")
+        public class SafeUserController {
+
+            private final DataSource dataSource;
+            private final TenantCatalogResolver tenantCatalogResolver;
+
+            public SafeUserController(DataSource dataSource,
+                                      TenantCatalogResolver tenantCatalogResolver) {
+                this.dataSource = dataSource;
+                this.tenantCatalogResolver = tenantCatalogResolver;
+            }
+
+            @GetMapping
+            public List<User> getUsers(
+                    @RequestParam int id,
+                    @AuthenticationPrincipal CustomUserDetails userDetails) throws SQLException {
+
+                String tenantId = userDetails.getTenantId(); // from Spring Security
+                String catalog = tenantCatalogResolver.resolveCatalogForTenant(tenantId);
+
+                Connection conn = DataSourceUtils.getConnection(dataSource);
+                try {
+                    // Safe: catalog comes from trusted, server-side mapping
+                    conn.setCatalog(catalog);
+
+                    try (PreparedStatement ps = conn.prepareStatement(
+                            "SELECT id, email FROM users WHERE id = ?")) {
+                        ps.setInt(1, id);
+                        try (ResultSet rs = ps.executeQuery()) {
+                            List<User> result = new ArrayList<>();
+                            while (rs.next()) {
+                                User u = new User();
+                                u.setId(rs.getInt("id"));
+                                u.setEmail(rs.getString("email"));
+                                result.add(u);
+                            }
+                            return result;
+                        }
+                    }
+                } finally {
+                    DataSourceUtils.releaseConnection(conn, dataSource);
+                }
+            }
+        }
+        ```
+
+        In more advanced Spring setups, you can also implement multi-tenancy by using `AbstractRoutingDataSource`
+        or a similar mechanism, where routing is based on a trusted `TenantContext` and **not** on raw HTTP input.
+      references:
+        - https://cwe.mitre.org/data/definitions/15.html
+        - https://owasp.org/www-community/attacks/Injection
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/unsafe/rule-ExternalConfigControl.yml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/security/external-configuration-control.yaml#java-sql-catalog-sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: java-sql-catalog-sink
+    options:
+      lib: true
+    severity: NOTE
+    message: Setting SQL connection catalog with user-manipulated data
+    metadata:
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/unsafe/rule-ExternalConfigControl.yml
+    languages:
+      - java
+    patterns:
+      - pattern: (java.sql.Connection $CONN).setCatalog($UNTRUSTED);
+
+  - id: unsafe-reflection-in-servlet-app
+    severity: WARNING
+    message: >-
+      If an attacker can supply values that the application then uses to determine which
+      class to instantiate or which method to invoke,
+      the potential exists for the attacker to create control flow paths through the application
+      that were not intended by the application developers.
+      This attack vector may allow the attacker to bypass authentication or access control
+      checks or otherwise cause the application to behave in an unexpected manner.
+    metadata:
+      cwe:
+        - CWE-470
+      short-description: Allowing user input to control which classes or methods are used can let attackers manipulate program flow
+      full-description: |-
+        Unsafe reflection in Java occurs when user-controlled input is used to determine which classes or methods
+        are loaded or invoked via the reflection API (e.g., `Class.forName`, `Method.invoke`).
+        If an attacker can influence the class name passed to `Class.forName`, they may be able to load arbitrary
+        application or library classes, trigger dangerous static initializers or constructors,
+        or chain into further vulnerabilities, leading to code execution, privilege escalation, or denial of service.
+
+        Vulnerable code sample
+
+        ```java
+        import javax.servlet.*;
+        import javax.servlet.http.*;
+        import java.io.IOException;
+
+        public class DynamicLoaderServlet extends HttpServlet {
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                // User-controlled data from request parameter
+                String className = request.getParameter("className");
+
+                try {
+                    // UNSAFE: user input directly controls Class.forName
+                    Class<?> clazz = Class.forName(className);
+                    Object instance = clazz.getDeclaredConstructor().newInstance();
+
+                    // Do something with the instance...
+                    response.getWriter().println("Loaded class: " + clazz.getName());
+                } catch (Exception e) {
+                    throw new ServletException(e);
+                }
+            }
+        }
+        ```
+
+        To remediate this issue, never pass raw user input directly into `Class.forName` (or other reflection APIs). Instead:
+
+        - Use an allowlist (fixed set) of permitted classes or a mapping from user input to known-safe classes.
+        - Validate input strictly (e.g., only allow known identifiers, not full class names from the client).
+        - Prefer explicit logic (e.g., `if/else`, `switch`, enums, or a configuration map) over arbitrary reflective loading.
+
+        Safe example using a whitelist mapping:
+
+        ```java
+        import javax.servlet.*;
+        import javax.servlet.http.*;
+        import java.io.IOException;
+        import java.util.HashMap;
+        import java.util.Map;
+
+        public class SafeDynamicLoaderServlet extends HttpServlet {
+
+            // Allowlist of logical names to actual classes
+            private static final Map<String, Class<?>> ALLOWED_CLASSES = new HashMap<>();
+            static {
+                ALLOWED_CLASSES.put("basicReport", com.example.reports.BasicReport.class);
+                ALLOWED_CLASSES.put("summaryReport", com.example.reports.SummaryReport.class);
+                // Add more allowed classes here
+            }
+
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                String type = request.getParameter("reportType");
+
+                Class<?> clazz = ALLOWED_CLASSES.get(type);
+                if (clazz == null) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid report type");
+                    return;
+                }
+
+                try {
+                    Object instance = clazz.getDeclaredConstructor().newInstance();
+                    // Safe: only instances of known, vetted classes are created
+                    response.getWriter().println("Generated report of type: " + type);
+                } catch (Exception e) {
+                    throw new ServletException(e);
+                }
+            }
+        }
+        ```
+      references:
+        - https://cwe.mitre.org/data/definitions/470.html
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/unsafe-reflection.yaml#java-unsafe-reflection-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: unsafe-reflection-in-spring-app
+    severity: WARNING
+    message: >-
+      If an attacker can supply values that the application then uses to determine which
+      class to instantiate or which method to invoke,
+      the potential exists for the attacker to create control flow paths through the application
+      that were not intended by the application developers.
+      This attack vector may allow the attacker to bypass authentication or access control
+      checks or otherwise cause the application to behave in an unexpected manner.
+    metadata:
+      cwe:
+        - CWE-470
+      short-description: Allowing user input to control which classes or methods are used can let attackers manipulate program flow
+      full-description: |-
+        Unsafe reflection in Java occurs when user-controlled input is used to determine which classes or methods
+        are loaded or invoked via the reflection API (e.g., `Class.forName`, `Method.invoke`).
+        If an attacker can influence the class name passed to `Class.forName`, they may be able to load arbitrary
+        application or library classes, trigger dangerous static initializers or constructors,
+        or chain into further vulnerabilities, leading to code execution, privilege escalation, or denial of service.
+
+        Vulnerable code sample
+
+        ```java
+        import javax.servlet.*;
+        import javax.servlet.http.*;
+        import java.io.IOException;
+
+        public class DynamicLoaderServlet extends HttpServlet {
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                // User-controlled data from request parameter
+                String className = request.getParameter("className");
+
+                try {
+                    // UNSAFE: user input directly controls Class.forName
+                    Class<?> clazz = Class.forName(className);
+                    Object instance = clazz.getDeclaredConstructor().newInstance();
+
+                    // Do something with the instance...
+                    response.getWriter().println("Loaded class: " + clazz.getName());
+                } catch (Exception e) {
+                    throw new ServletException(e);
+                }
+            }
+        }
+        ```
+
+        To remediate this issue, never pass raw user input directly into `Class.forName` (or other reflection APIs). Instead:
+
+        - Use an allowlist (fixed set) of permitted classes or a mapping from user input to known-safe classes.
+        - Validate input strictly (e.g., only allow known identifiers, not full class names from the client).
+        - Prefer explicit logic (e.g., `if/else`, `switch`, enums, or a configuration map) over arbitrary reflective loading.
+
+        Safe example using a whitelist mapping:
+
+        ```java
+        import javax.servlet.*;
+        import javax.servlet.http.*;
+        import java.io.IOException;
+        import java.util.HashMap;
+        import java.util.Map;
+
+        public class SafeDynamicLoaderServlet extends HttpServlet {
+
+            // Allowlist of logical names to actual classes
+            private static final Map<String, Class<?>> ALLOWED_CLASSES = new HashMap<>();
+            static {
+                ALLOWED_CLASSES.put("basicReport", com.example.reports.BasicReport.class);
+                ALLOWED_CLASSES.put("summaryReport", com.example.reports.SummaryReport.class);
+                // Add more allowed classes here
+            }
+
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                String type = request.getParameter("reportType");
+
+                Class<?> clazz = ALLOWED_CLASSES.get(type);
+                if (clazz == null) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid report type");
+                    return;
+                }
+
+                try {
+                    Object instance = clazz.getDeclaredConstructor().newInstance();
+                    // Safe: only instances of known, vetted classes are created
+                    response.getWriter().println("Generated report of type: " + type);
+                } catch (Exception e) {
+                    throw new ServletException(e);
+                }
+            }
+        }
+        ```
+      references:
+        - https://cwe.mitre.org/data/definitions/470.html
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/unsafe-reflection.yaml#java-unsafe-reflection-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'

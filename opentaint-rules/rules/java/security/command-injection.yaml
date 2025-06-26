@@ -1,0 +1,233 @@
+rules:
+  - id: os-command-injection-in-servlet-app
+    severity: ERROR
+    message: >-
+      Potential OS command injection: command line depends on a user provided value
+    metadata:
+      cwe: CWE-78
+      short-description: Command line depends on a user provided value
+      full-description: |-
+        Operating System (OS) Command Injection is a vulnerability that occurs when an application
+        constructs and executes system-level commands using untrusted input. In Java, this commonly
+        appears when user-supplied data is concatenated into a command string passed to `Runtime.exec()`
+        or `ProcessBuilder`. If that input is not strictly validated or constrained, an attacker can
+        append additional commands or alter command arguments, leading to arbitrary command execution
+        with the privileges of the running Java process. This can result in data exfiltration,
+        server compromise, lateral movement, or complete takeover of the underlying host.
+
+        Vulnerable code sample
+        ```java
+        import javax.servlet.http.HttpServlet;
+        import javax.servlet.http.HttpServletRequest;
+        import javax.servlet.http.HttpServletResponse;
+
+        public class PingServlet extends HttpServlet {
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response) {
+                String host = request.getParameter("host"); // e.g. user-controlled input
+
+                // VULNERABLE: direct concatenation of untrusted input into OS command
+                String command = "ping -c 4 " + host;
+
+                try {
+                    Process process = Runtime.getRuntime().exec(command);
+                    // ... read output, return to user, etc.
+                } catch (Exception e) {
+                    // handle exception
+                }
+            }
+        }
+        ```
+
+        If an attacker sends `host=example.com; rm -rf /` (or platform-specific equivalents),
+        and the environment uses a shell to interpret `command`, the injected `rm -rf /` may be executed.
+
+        To remediate this issue, avoid constructing shell commands with untrusted input and prefer safer APIs
+        that do not rely on a shell. If you must invoke external programs, pass arguments as discrete parameters
+        (not a single concatenated string), and strictly validate or whitelist allowed values.
+
+        Safer approach 1 — use Java APIs instead of shell commands:
+        ```java
+        import javax.servlet.http.HttpServlet;
+        import javax.servlet.http.HttpServletRequest;
+        import javax.servlet.http.HttpServletResponse;
+        import java.net.InetAddress;
+
+        public class PingServlet extends HttpServlet {
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response) {
+                String host = request.getParameter("host");
+
+                try {
+                    // Basic validation (example: allow only hostnames/IPs with limited charset)
+                    if (!host.matches("^[a-zA-Z0-9._-]{1,255}$")) {
+                        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid host");
+                        return;
+                    }
+
+                    InetAddress address = InetAddress.getByName(host);
+                    boolean reachable = address.isReachable(5000); // 5 seconds timeout
+
+                    response.getWriter().println("Reachable: " + reachable);
+                } catch (Exception e) {
+                    // handle exception
+                }
+            }
+        }
+        ```
+
+        Safer approach 2 — if you must call an OS command, avoid a shell and separate arguments:
+        ```java
+        String host = request.getParameter("host");
+
+        // Strict validation / whitelisting
+        if (!host.matches("^[a-zA-Z0-9._-]{1,255}$")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid host");
+            return;
+        }
+
+        // Use ProcessBuilder with arguments array; do not invoke /bin/sh or cmd.exe
+        ProcessBuilder pb = new ProcessBuilder("ping", "-c", "4", host);
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+        // ... safely read output
+        ```
+
+        Key remediation steps:
+        - Do not concatenate untrusted input into command strings.
+        - Prefer native Java libraries over external commands where possible.
+        - If external commands are unavoidable:
+          - Avoid invoking a shell (`/bin/sh -c`, `cmd.exe /c`).
+          - Pass arguments as a list (`new ProcessBuilder("cmd", "arg1", "arg2")`), not a single string.
+          - Apply strict input validation and whitelisting (fixed set of allowed commands/arguments when feasible).
+        - Run the Java process with the least privileges necessary and apply OS-level hardening to reduce impact.
+      references:
+        - https://owasp.org/www-community/attacks/Command_Injection
+        - https://cwe.mitre.org/data/definitions/78.html
+      license: MIT
+      provenance: https://find-sec-bugs.github.io/bugs.htm#COMMAND_INJECTION
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/command-injection-sinks.yaml#command-injection-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: os-command-injection-in-spring-app
+    severity: ERROR
+    message: >-
+      Potential OS command injection: command line depends on a user provided value
+    metadata:
+      cwe: CWE-78
+      short-description: Command line depends on a user provided value
+      full-description: |-
+        OS Command Injection in a Spring application occurs when a controller or service uses untrusted HTTP input (from query parameters, path variables, request bodies, headers, etc.) to build and execute operating system commands. Because Spring automatically maps request data into method parameters, it's easy to accidentally pass user-controlled strings directly into `Runtime.exec()` or `ProcessBuilder`. If that input is not strictly validated or constrained, an attacker can inject additional commands or modify arguments, leading to arbitrary command execution with the privileges of the running Spring application.
+
+        Vulnerable code sample
+        ```java
+        import org.springframework.web.bind.annotation.GetMapping;
+        import org.springframework.web.bind.annotation.RequestParam;
+        import org.springframework.web.bind.annotation.RestController;
+
+        import java.io.BufferedReader;
+        import java.io.InputStreamReader;
+
+        @RestController
+        public class PingController {
+
+            @GetMapping("/ping")
+            public String ping(@RequestParam String host) {
+                // VULNERABLE: direct concatenation of untrusted input into OS command
+                String command = "ping -c 4 " + host;
+
+                StringBuilder output = new StringBuilder();
+                try {
+                    Process process = Runtime.getRuntime().exec(command); // OS command injection sink
+                    try (BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(process.getInputStream()))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            output.append(line).append('\n');
+                        }
+                    }
+                } catch (Exception e) {
+                    return "Error: " + e.getMessage();
+                }
+                return output.toString();
+            }
+        }
+        ```
+
+        To remediate this issue, avoid building shell commands from user input and prefer Java APIs or safe process invocation patterns. In Spring specifically, combine safer APIs with strong validation at the controller boundary.
+
+        Safer approach — validate input and avoid the shell
+        ```java
+        import jakarta.validation.constraints.Pattern;
+        import org.springframework.validation.annotation.Validated;
+        import org.springframework.web.bind.annotation.*;
+
+        import java.io.BufferedReader;
+        import java.io.InputStreamReader;
+
+        @RestController
+        @Validated
+        public class SafePingController {
+
+            @GetMapping("/ping")
+            public String ping(
+                    @RequestParam
+                    @Pattern(regexp = "^[a-zA-Z0-9._-]{1,255}$", message = "Invalid host")
+                    String host) {
+
+                // Prefer Java APIs (e.g., InetAddress) where possible.
+                // If you must call an OS command, use ProcessBuilder with separated args.
+                StringBuilder output = new StringBuilder();
+                try {
+                    ProcessBuilder pb = new ProcessBuilder("ping", "-c", "4", host);
+                    pb.redirectErrorStream(true);
+                    Process process = pb.start();
+
+                    try (BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(process.getInputStream()))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            output.append(line).append('\n');
+                        }
+                    }
+                } catch (Exception e) {
+                    return "Error: " + e.getMessage();
+                }
+                return output.toString();
+            }
+        }
+        ```
+
+        Key points in Spring:
+        - Do not concatenate request parameters, path variables, or body values into command strings.
+        - Prefer Java libraries (e.g., `InetAddress.isReachable`) instead of calling OS utilities where feasible.
+        - If external commands are unavoidable:
+          - Use `ProcessBuilder` with argument lists, not a single shell-processed string.
+          - Do not invoke a shell (`/bin/sh -c`, `cmd.exe /c`).
+          - Apply strong validation/whitelisting at the controller layer (`@Validated`, `@Pattern`, custom validators).
+        - Run the Spring application with least-privilege OS accounts and use defense-in-depth (containerization, AppArmor/SELinux, etc.) to minimize impact.
+      references:
+        - https://owasp.org/www-community/attacks/Command_Injection
+        - https://cwe.mitre.org/data/definitions/78.html
+      license: MIT
+      provenance: https://find-sec-bugs.github.io/bugs.htm#COMMAND_INJECTION
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/command-injection-sinks.yaml#command-injection-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'

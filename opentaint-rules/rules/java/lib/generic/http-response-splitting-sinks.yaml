@@ -1,0 +1,40 @@
+rules:
+  - id: java-http-response-splitting-sink
+    options:
+      lib: true
+    severity: NOTE
+    message: Improper neutralization of CRLF sequences in HTTP headers
+    metadata:
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/cookie/rule-HttpResponseSplitting.yml
+    languages:
+      - java
+    mode: taint
+    pattern-sanitizers:
+      - patterns:
+        - pattern: |
+            $CLEAN = $STR.replaceAll($REPLACER, "...");
+        - metavariable-regex:
+            metavariable: "$REPLACER"
+            regex: ".*\\[(?=.*\\\\r)(?=.*\\\\n).*\\]\\+"
+        - focus-metavariable: $CLEAN
+      - patterns:
+        - pattern: |
+              $CLEAN = org.apache.commons.text.StringEscapeUtils.escapeJava(...);
+        - focus-metavariable: $CLEAN
+      - by-side-effect: true
+        patterns:
+          - pattern: org.apache.commons.text.StringEscapeUtils.unescapeJava($CLEAN);
+          - focus-metavariable: $CLEAN
+    pattern-sinks:
+      - patterns:
+        - pattern-either:
+          - pattern: new javax.servlet.http.Cookie("$KEY", $UNTRUSTED);
+          - pattern: |
+              $C = new javax.servlet.http.Cookie("$KEY", $UNTRUSTED);
+              ...
+              C.setValue(...);
+          - pattern: ($X.servlet.http.HttpServletResponse $RES).setHeader("$KEY", $UNTRUSTED);
+          - pattern: ($X.servlet.http.HttpServletResponse $RES).addHeader("$KEY", $UNTRUSTED);
+          - pattern: ($X.servlet.http.HttpServletResponseWrapper $WRP).setHeader("$KEY", $UNTRUSTED);
+          - pattern: ($X.servlet.http.HttpServletResponseWrapper $WRP).addHeader("$KEY", $UNTRUSTED);
+        - focus-metavariable: $UNTRUSTED

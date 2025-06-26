@@ -1,0 +1,23 @@
+rules:
+  - id: seam-untrusted-data-source
+    options:
+      lib: true
+    message: Untrusted data flows from here
+    severity: NOTE
+    languages:
+      - java
+    pattern-either:
+      # TODO: support annotations for local variables and fields
+      # - pattern: |
+      #     @org.jboss.seam.annotations.In
+      #     ...
+      #     $TYPE $UNTRUSTED;
+      - pattern: |
+          @org.jboss.seam.annotations.In
+          public $RETURNTYPE $SETTER($TYPE $UNTRUSTED) { ... }
+      - pattern: |
+          $UNTRUSTED = javax.faces.context.FacesContext.getCurrentInstance().getExternalContext().getRequestParameterMap().get(...)
+      - pattern: |
+          $UNTRUSTED = javax.faces.context.FacesContext.getCurrentInstance().getExternalContext().getRequestHeaderMap().get(...)
+      - pattern: |
+          $UNTRUSTED = javax.faces.context.FacesContext.getCurrentInstance().getExternalContext().getRequestCookieMap().get(...)

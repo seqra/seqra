@@ -1,0 +1,54 @@
+rules:
+  - id: jackson-unsafe-deserialization
+    options:
+      lib: true
+    severity: NOTE
+    message: Jackson deserialization of JSON to Java objects with default typing, this can lead to RCE
+    metadata:
+      provenance: https://semgrep.dev/r/gitlab.java_deserialization_rule-JacksonUnsafeDeserialization
+    languages:
+      - java
+    patterns:
+      - pattern-either:
+        # TODO: support type annotations for fields and locals
+        # - patterns:
+        #   - pattern-either:
+        #     - pattern: |
+        #         @JsonTypeInfo(use = com.fasterxml.jackson.annotation.JsonTypeInfo.Id.CLASS,...)
+        #         $TYPE $VAR;
+        #     - pattern: |
+        #         @JsonTypeInfo(use = com.fasterxml.jackson.annotation.JsonTypeInfo.Id.MINIMAL_CLASS,...)
+        #         $TYPE $VAR;
+        #   - metavariable-regex:
+        #       metavariable: $TYPE
+        #       regex: (Object|Serializable|Comparable|Cloneable|Closeable|AutoCloseable|Handler|Referenceable|DataSource)
+        - pattern: |
+            (com.fasterxml.jackson.databind.ObjectMapper $OM).enableDefaultTyping(...);
+        - pattern: (com.fasterxml.jackson.databind.ObjectMapper.DefaultTypeResolverBuilder $RB).init(com.fasterxml.jackson.annotation.JsonTypeInfo.Id.CLASS, ...);
+        - pattern: (com.fasterxml.jackson.databind.ObjectMapper.DefaultTypeResolverBuilder $RB).init(com.fasterxml.jackson.annotation.JsonTypeInfo.Id.MINIMAL_CLASS, ...);
+        # TODO: support $TYPE.class
+        # - patterns:
+        #     - pattern: (com.fasterxml.jackson.databind.ObjectMapper $OM).activateDefaultTyping($B.builder(...). ... .allowIfBaseType($TYPE.class). ... );
+        #     - metavariable-regex:
+        #         metavariable: $TYPE
+        #         regex: (Object|Serializable|Comparable|Cloneable|Closeable|AutoCloseable|Handler|Referenceable|DataSource)
+        - pattern: (com.fasterxml.jackson.databind.ObjectMapper $OM).activateDefaultTyping((com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator $LFSTV), ObjectMapper.DefaultTyping.EVERYTHING);
+      - pattern-not-inside: |
+          (com.fasterxml.jackson.databind.ObjectMapper $OM).enable(MapperFeature.BLOCK_UNSAFE_POLYMORPHIC_BASE_TYPES); ...
+      - pattern-not-inside: |
+          JsonMapper.builder(...).enable(MapperFeature.BLOCK_UNSAFE_POLYMORPHIC_BASE_TYPES).build(); ...
+
+  - id: yaml-unsafe-deserialization-sink
+    options:
+      lib: true
+    severity: NOTE
+    message: Parsing of untrusted data with org.yaml.snakeyaml.Yaml() constructed with no arguments
+    metadata:
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/use-snakeyaml-constructor.yaml
+    languages:
+      - java
+    patterns:
+      - pattern: |
+          $Y = new org.yaml.snakeyaml.Yaml();
+          ...
+          $Y.load($YAML);

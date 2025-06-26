@@ -1,0 +1,354 @@
+rules:
+  - id: xss-in-servlet-app
+    severity: ERROR
+    message: >-
+      Potential XSS: writing user input directly to a web page.
+    metadata:
+      cwe: CWE-79
+      short-description: Potential cross-site scripting (XSS)
+      full-description: |-
+        Cross-Site Scripting (XSS) is a class of vulnerabilities that allows an attacker to inject malicious
+        client-side code (usually JavaScript) into web pages viewed by other users.
+        In Java servlet applications, this typically occurs when untrusted input
+        (e.g., request parameters, headers, form fields, query strings) is included in the HTTP response without proper output encoding.
+        Attackers can leverage this to steal session cookies, perform actions on behalf of victims, modify page content,
+        or conduct phishing attacks within the trusted site context.
+
+        **Vulnerable code sample**
+
+        ```java
+        import java.io.IOException;
+        import java.io.PrintWriter;
+        import javax.servlet.ServletException;
+        import javax.servlet.annotation.WebServlet;
+        import javax.servlet.http.HttpServlet;
+        import javax.servlet.http.HttpServletRequest;
+        import javax.servlet.http.HttpServletResponse;
+
+        @WebServlet("/greet")
+        public class GreetingServlet extends HttpServlet {
+
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                response.setContentType("text/html;charset=UTF-8");
+                PrintWriter out = response.getWriter();
+
+                // Untrusted input taken directly from the request
+                String name = request.getParameter("name");
+
+                // VULNERABLE: Unencoded user input is directly embedded into HTML
+                out.println("<html>");
+                out.println("<head><title>Greeting</title></head>");
+                out.println("<body>");
+                out.println("<h1>Hello, " + name + "!</h1>"); // XSS if 'name' contains HTML/JS
+                out.println("</body>");
+                out.println("</html>");
+            }
+        }
+        ```
+
+        An attacker could call `/greet?name=<script>alert('XSS')</script>` and the script would execute in the victim's browser.
+
+
+        To remediate this issue, always treat data from the client as untrusted and perform
+        **context-appropriate output encoding** before including it in the response.
+        For HTML content, escape characters such as `<`, `>`, `&`, `"`, `'` so they are rendered as text,
+        not executed as code. Also validate and constrain inputs on the server side to expected formats
+        (e.g., names, IDs) and avoid reflecting unnecessary user data.
+
+        Below is a safer version using Apache Commons Text for HTML encoding:
+
+        ```xml
+        <!-- Maven dependency example -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
+            <version>1.11.0</version>
+        </dependency>
+        ```
+
+        ```java
+        import java.io.IOException;
+        import java.io.PrintWriter;
+        import javax.servlet.ServletException;
+        import javax.servlet.annotation.WebServlet;
+        import javax.servlet.http.HttpServlet;
+        import javax.servlet.http.HttpServletRequest;
+        import javax.servlet.http.HttpServletResponse;
+        import org.apache.commons.text.StringEscapeUtils;
+
+        @WebServlet("/greet")
+        public class GreetingServletSafe extends HttpServlet {
+
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                response.setContentType("text/html;charset=UTF-8");
+                PrintWriter out = response.getWriter();
+
+                String name = request.getParameter("name");
+                if (name == null) {
+                    name = "";
+                }
+
+                // Encode untrusted input for HTML context
+                String safeName = StringEscapeUtils.escapeHtml4(name);
+
+                out.println("<html>");
+                out.println("<head><title>Greeting</title></head>");
+                out.println("<body>");
+                out.println("<h1>Hello, " + safeName + "!</h1>");
+                out.println("</body>");
+                out.println("</html>");
+            }
+        }
+        ```
+
+        Key remediation steps:
+        - Encode untrusted data according to the output context:
+          - HTML body → HTML escape
+          - HTML attributes → HTML attribute escape
+          - JavaScript context → JavaScript escape
+          - URL context → URL encode
+        - Apply server-side validation and whitelisting of allowed characters/values.
+        - Avoid constructing HTML/JavaScript by string concatenation where possible;
+          use safe templating or tag libraries that handle encoding (e.g., JSP `<c:out>`).
+        - Use security libraries and frameworks that provide standard encoding utilities.
+        references:
+          - https://owasp.org/www-community/attacks/xss/
+        provenance:
+        - https://github.com/semgrep/semgrep-rules/blob/develop/java/spring/security/injection/tainted-html-string.yaml
+        - https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/xss/no-direct-response-writer.yaml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/servlet-xss-sinks.yaml#java-servlet-xss-sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: xss-in-spring-app
+    severity: ERROR
+    message: >-
+      Potential XSS: writing user input directly to a web page.
+    metadata:
+      cwe: CWE-79
+      short-description: Potential cross-site scripting (XSS)
+      full-description: |-
+        Cross-Site Scripting (XSS) is a class of vulnerabilities that allows an attacker to inject malicious
+        client-side code (usually JavaScript) into web pages viewed by other users.
+        In Spring MVC applications, this typically occurs when untrusted input (e.g., request parameters, form fields, query strings)
+        is added to the model and then rendered in a view (JSP, Thymeleaf, etc.) without proper output encoding.
+        If the view engine renders user data as raw HTML, an attacker can inject scripts that execute in the victim's browser
+        in the context of your application (stealing cookies, hijacking sessions, modifying content, etc.).
+
+        **Vulnerable code sample**
+
+        Controller:
+
+        ```java
+        import org.springframework.stereotype.Controller;
+        import org.springframework.ui.Model;
+        import org.springframework.web.bind.annotation.GetMapping;
+        import org.springframework.web.bind.annotation.RequestParam;
+
+        @Controller
+        public class GreetingController {
+
+            @GetMapping("/greet")
+            public String greet(@RequestParam(required = false) String name, Model model) {
+                model.addAttribute("name", name);
+                return "greet"; // resolve to greet.html (Thymeleaf) or greet.jsp
+            }
+        }
+        ```
+
+        Thymeleaf view (`greet.html`) — **vulnerable**:
+
+        ```html
+        <!DOCTYPE html>
+        <html xmlns:th="http://www.thymeleaf.org">
+        <head>
+            <title>Greeting</title>
+        </head>
+        <body>
+            <!-- VULNERABLE: th:utext renders unescaped HTML/JS from user input -->
+            <h1 th:utext="'Hello, ' + ${name} + '!'"></h1>
+        </body>
+        </html>
+        ```
+
+        If a user accesses `/greet?name=<script>alert('XSS')</script>`, the script will be inserted into the page and executed by the browser.
+
+        (A similar issue occurs with JSP if you render `${param.name}` or `${name}` directly in the page without escaping,
+        or if you use scriptlets and concatenate request parameters into HTML.)
+
+
+        To remediate this issue, always treat data from the client as untrusted and ensure **context-appropriate output encoding**
+        in your views. In Spring MVC:
+
+        - Use the **escaping features of your view technology**:
+          - Thymeleaf: `th:text` or `[[${...}]]` (escaped) instead of `th:utext` or `[(${...})]` (unescaped).
+          - JSP: `<c:out value="${name}"/>` instead of printing `${name}` directly or using scriptlets.
+        - Avoid disabling default escaping in template engines unless absolutely necessary, and never do so for raw user input.
+        - Combine this with server-side validation that constrains inputs to expected formats.
+
+        **Safer Thymeleaf example**
+
+        Controller (same):
+
+        ```java
+        @Controller
+        public class GreetingController {
+
+            @GetMapping("/greet")
+            public String greet(@RequestParam(required = false, defaultValue = "") String name, Model model) {
+                model.addAttribute("name", name);
+                return "greet";
+            }
+        }
+        ```
+
+        Thymeleaf view (`greet.html`) — **safe**:
+
+        ```html
+        <!DOCTYPE html>
+        <html xmlns:th="http://www.thymeleaf.org">
+        <head>
+            <title>Greeting</title>
+        </head>
+        <body>
+            <!-- SAFE: th:text escapes HTML special characters -->
+            <h1 th:text="'Hello, ' + ${name} + '!'"></h1>
+        </body>
+        </html>
+        ```
+
+        Here, any `<`, `>`, `"`, `'`, and `&` characters in `name` are encoded as HTML entities (`&lt;`, `&gt;`, etc.),
+        so injected script tags are rendered as text instead of executed.
+
+        Additional recommended measures in Spring applications:
+        - Use Spring Security and configure HTTP headers like `Content-Security-Policy` (CSP) to limit the impact of any XSS that might slip through.
+        - Avoid building HTML/JavaScript via string concatenation in controllers; let the template engine handle rendering and escaping.
+        - For JSON APIs (`@RestController`), ensure the front-end framework properly escapes data when inserting it into the DOM.
+      references:
+        - https://owasp.org/www-community/attacks/xss/
+      provenance:
+        - https://github.com/semgrep/semgrep-rules/blob/develop/java/spring/security/injection/tainted-html-string.yaml
+        - https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/xss/no-direct-response-writer.yaml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/spring/spring-xss-sinks.yaml#spring-xss-sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: xssrequestwrapper-is-insecure
+    severity: WARNING
+    options:
+      # todo: clarify this pattern
+      disabled: pattern with concrete class name
+    message: >-
+      It looks like you're using an implementation of XSSRequestWrapper from dzone.
+      (https://www.javacodegeeks.com/2012/07/anti-cross-site-scripting-xss-filter.html)
+      The XSS filtering in this code is not secure and can be bypassed by malicious actors.
+      It is recommended to use a stack that automatically escapes in your view or templates
+      instead of filtering yourself.
+    metadata:
+      cwe:
+        - CWE-79
+      short-description: Insecure XSS filtering
+      references:
+        - https://www.javacodegeeks.com/2012/07/anti-cross-site-scripting-xss-filter.html
+      provenance: https://find-sec-bugs.github.io/bugs.htm#XSS_REQUEST_WRAPPER
+    languages:
+      - java
+    pattern-either:
+      - pattern: |
+          class XSSRequestWrapper extends HttpServletRequestWrapper {
+            ...
+          }
+      - pattern: |-
+          $P = $X.compile("</script>", $X.CASE_INSENSITIVE);
+          $V = $P.matcher(...).replaceAll("");
+
+  - id: wicket-xss
+    severity: WARNING
+    message: |
+      The application is disabling Wicket's string escaping functionality by calling `setEscapeModelStrings(false)`.
+      This could lead to Cross Site Scripting (XSS) if used with user-supplied input. XSS is an
+      attack which exploits a web application or system to treat user input
+      as markup or script code. It is important to encode the data depending on the specific context
+      it is used in. There are at least six context types:
+
+      - Inside HTML tags `<div>context 1</div>`
+      - Inside attributes: `<div class="context 2"></div>`
+      - Inside event attributes `<button onclick="context 3">button</button>`
+      - Inside script blocks: `<script>var x = "context 4"</script>`
+      - Unsafe element HTML assignment: `element.innerHTML = "context 5"`
+      - Inside URLs: `<iframe src="context 6"></iframe><a href="context 6">link</a>`
+
+      Script blocks alone have multiple ways they need to be encoded. Extra care must be taken if
+      user input is ever output inside of script tags.
+
+      User input that is displayed within the application must be encoded, sanitized or validated
+      to ensure it cannot be treated as HTML or executed as JavaScript code. Care must also be
+      taken to not mix server-side templating with client-side templating, as the server-side templating
+      will not encode things like {{ 7*7 }} which may execute client-side templating features.
+
+      It is _NOT_ advised to encode user input prior to inserting into a data store. The data will
+      need to be encoded depending on context of where it is output. It is much safer to force the displaying
+      system to handle the encoding and not attempt to guess how it should be encoded.
+
+      Use Wicket's built in escaping feature by calling `Component.setEscapeModelStrings(true);`
+    metadata:
+      cwe: CWE-79
+      short-description: Disabling Wicket's string escaping can lead to Cross Site Scripting (XSS)
+      full-description: |-
+        The application is disabling Wicket's string escaping functionality by calling `setEscapeModelStrings(false)`.
+        This could lead to Cross Site Scripting (XSS) if used with user-supplied input. XSS is an
+        attack which exploits a web application or system to treat user input
+        as markup or script code. It is important to encode the data depending on the specific context
+        it is used in. There are at least six context types:
+
+        - Inside HTML tags `<div>context 1</div>`
+        - Inside attributes: `<div class="context 2"></div>`
+        - Inside event attributes `<button onclick="context 3">button</button>`
+        - Inside script blocks: `<script>var x = "context 4"</script>`
+        - Unsafe element HTML assignment: `element.innerHTML = "context 5"`
+        - Inside URLs: `<iframe src="context 6"></iframe><a href="context 6">link</a>`
+
+        Script blocks alone have multiple ways they need to be encoded. Extra care must be taken if
+        user input is ever output inside of script tags.
+
+        User input that is displayed within the application must be encoded, sanitized or validated
+        to ensure it cannot be treated as HTML or executed as JavaScript code. Care must also be
+        taken to not mix server-side templating with client-side templating, as the server-side templating
+        will not encode things like {{ 7*7 }} which may execute client-side templating features.
+
+        It is _NOT_ advised to encode user input prior to inserting into a data store. The data will
+        need to be encoded depending on context of where it is output. It is much safer to force the displaying
+        system to handle the encoding and not attempt to guess how it should be encoded.
+
+        Use Wicket's built in escaping feature by calling `Component.setEscapeModelStrings(true);`
+      references:
+        - https://nightlies.apache.org/wicket/apidocs/9.x/org/apache/wicket/Component.html
+        - https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/xss/rule-WicketXSS.yml
+    languages:
+      - java
+    patterns:
+      - pattern: |
+          (org.apache.wicket.$A $OBJ).setEscapeModelStrings(false);

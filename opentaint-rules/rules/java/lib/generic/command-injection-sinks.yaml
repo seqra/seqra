@@ -1,0 +1,45 @@
+rules:
+  - id: command-injection-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: Executing OS command with user-controlled data
+    metadata:
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/inject/rule-CommandInjection.yml
+    languages:
+      - java
+    patterns:
+      - pattern-either:
+          - pattern: |
+              (ProcessBuilder $PB).command(..., $UNTRUSTED, ...);
+          - pattern:
+              new ProcessBuilder(..., $UNTRUSTED, ...);
+          - patterns:
+              - pattern: |
+                  (ProcessBuilder $PB).command().$ADD(..., $UNTRUSTED, ...);
+              - metavariable-regex:
+                  metavariable: $ADD
+                  regex: (add|addAll)
+          - patterns:
+              - pattern: |
+                  (java.lang.Runtime $R).$EXEC(..., $UNTRUSTED, ...);
+              - metavariable-regex:
+                  metavariable: $EXEC
+                  regex: (exec|loadLibrary|load)
+
+  - id: java-expression-language-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: Java EL evaluation directly with user-supplied input
+    metadata:
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/inject/rule-ELInjection.yml
+    languages:
+      - java
+    pattern-either:
+      - pattern: (ExpressionFactory $EXP).createValueExpression((ELContext $CTX), $EXPR, ...)
+      - pattern: (ExpressionFactory $EXP).createMethodExpression((ELContext $CTX), $EXPR, ...)
+      - pattern: $OBJECT.buildConstraintViolationWithTemplate($EXPR, ...)
+      - pattern: ($X.el.ELProcessor $P).eval(..., $EXPR, ...)
+      - pattern: ($X.el.ELProcessor $P).getValue(..., $EXPR, ...)
+      - pattern: ($X.el.ELProcessor $P).setValue(..., $EXPR, ...)

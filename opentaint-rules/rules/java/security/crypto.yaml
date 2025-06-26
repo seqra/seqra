@@ -1,0 +1,956 @@
+rules:
+  - id: jjwt-hs256
+    severity: WARNING
+    message: >-
+      'HS256' algorithm can be bruteforced, and thus is considered insecure
+      in a JWT token.
+    metadata:
+      cwe:
+        - CWE-327
+      short-description: Risky Cryptographic Algorithm for a JWT token.
+      provenance:
+    languages:
+      - java
+      - kt
+    mode: taint
+    pattern-sources:
+      - pattern: $JWTS = io.jsonwebtoken.Jwts.builder();
+    pattern-propagators:
+      - pattern: $MODIFIED = $ORIGINAL.$MD(...);
+        from: $ORIGINAL
+        to: $MODIFIED
+    pattern-sinks:
+      - pattern: $JWTS.signWith(SignatureAlgorithm.HS256, ...);
+
+  - id: jjwt-none-alg
+    severity: ERROR
+    message: >-
+      Detected use of the 'none' algorithm in a JWT token.
+      The 'none' algorithm assumes the integrity of the token has already
+      been verified. This would allow a malicious actor to forge a JWT token
+      that will automatically be verified. Do not explicitly use the 'none'
+      algorithm.
+    metadata:
+      cwe:
+        - CWE-327
+      short-description: Risky Cryptographic Algorithm for a JWT token.
+      references:
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures
+      provenance: https://semgrep.dev/blog/2020/hardcoded-secrets-unverified-tokens-and-other-common-jwt-mistakes/
+    languages:
+      - java
+    mode: taint
+    pattern-sources:
+      - pattern: $JWTS = io.jsonwebtoken.Jwts.builder();
+    pattern-propagators:
+      - patterns:
+        - pattern: $MODIFIED = $ORIGINAL.$MD(...);
+        - metavariable-pattern:
+            metavariable: $MD
+            pattern-not: signWith
+        from: $ORIGINAL
+        to: $MODIFIED
+    pattern-sanitizers:
+      - patterns:
+          - pattern: $JWTS.signWith(...)
+      - patterns:
+          - pattern: $JWTS.signWith(...)
+          - focus-metavariable: $JWTS
+        by-side-effect: true
+    pattern-sinks:
+      - pattern: $JWTS.compact();
+
+  - id: defaulthttpclient-is-deprecated
+    severity: WARNING
+    message: >-
+      DefaultHttpClient is deprecated. Further, it does not support connections
+      using TLS1.2, which makes using DefaultHttpClient a security hazard.
+      Use HttpClientBuilder instead.
+    metadata:
+      cwe:
+        - CWE-326
+      short-description: DefaultHttpClient is deprecated, its usage is not recommended for security reasons
+      references:
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures
+      provenance: https://find-sec-bugs.github.io/bugs.htm#DEFAULT_HTTP_CLIENT
+    languages:
+      - java
+      - kt
+    pattern: new DefaultHttpClient(...);
+
+  - id: avoid-implementing-custom-digests
+    severity: WARNING
+    message: >-
+      Cryptographic algorithms are notoriously difficult to get right. By implementing
+      a custom message digest, you risk introducing security issues into your program.
+      Use one of the many sound message digests already available to you:
+      MessageDigest sha256Digest = MessageDigest.getInstance("SHA256");
+    metadata:
+      cwe:
+        - CWE-327
+      short-description: Custom message digest implementation is too error-prone
+      references:
+        - https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html#custom-algorithms
+      provenance: https://find-sec-bugs.github.io/bugs.htm#CUSTOM_MESSAGE_DIGEST
+    languages:
+      - java
+      - kt
+    pattern: |-
+      class $CLASS extends MessageDigest {
+        ...
+      }
+
+  - id: insecure-hostname-verifier
+    options:
+      # todo: semantic meta var with regex
+      disabled: semantic meta var with regex
+    severity: WARNING
+    message: >-
+      Insecure HostnameVerifier implementation detected. This will accept
+      any SSL certificate with any hostname, which creates the possibility
+      for man-in-the-middle attacks.
+    metadata:
+      cwe:
+        - CWE-295
+      short-description: Insecure HostnameVerifier implementation
+      references:
+        - https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures
+      provenance: https://find-sec-bugs.github.io/bugs.htm#WEAK_HOSTNAME_VERIFIER
+    languages:
+      - java
+      - kt
+    pattern-either:
+      - patterns:
+          - pattern: |
+              class $CLASS implements HostnameVerifier {
+                ...
+                public $BOOLEAN verify(...) { return true; }
+              }
+          - pattern-not-inside: |
+              class $CLASS implements HostnameVerifier {
+                ...
+                public $BOOLEAN verify(...) { return $NOT_TRUE; }
+              }
+          - metavariable-regex:
+              metavariable: $NOT_TRUE
+              regex: "^(true)"
+      - pattern: (org.apache.http.conn.ssl.NoopHostnameVerifier $V).verify(...);
+      - pattern: new org.apache.http.conn.ssl.NoopHostnameVerifier();
+
+  - id: insecure-trust-manager
+    severity: WARNING
+    options:
+      # todo: semantic meta var with regex
+      disabled: semantic meta var with regex
+    message: >-
+      Insecure Implementation of SSL. Trusting all the certificates or accepting
+      self signed certificates is a critical Security Hole. This application is vulnerable
+      to MITM attacks.
+    metadata:
+      cwe:
+        - CWE-295
+      short-description: Accepting self signed certificates, which makes app vulnerable to MITM attacks
+      references:
+        - https://stackoverflow.com/questions/2642777/trusting-all-certificates-using-httpclient-over-https
+      provenance: https://find-sec-bugs.github.io/bugs.htm#WEAK_TRUST_MANAGER
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              class $CLASS implements X509TrustManager {
+                ...
+              }
+          - pattern-inside: |
+              class $CLASS implements X509ExtendedTrustManager {
+                ...
+              }
+      - pattern-either:
+          - pattern: |
+              $X.setHostnameVerifier(SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+          - pattern: |
+              $X.setHostnameVerifier(new AllowAllHostnameVerifier());
+          - pattern: |
+              $X.setDefaultHostnameVerifier(new NullHostnameVerifier());
+          - pattern: |
+              $Y = SSLContext.getInstance(...);
+              ...
+              $Y.init(null, ...);
+          - pattern: |
+              $Z = new TLSClientParameters(...);
+              ...
+              $Z.setDisableCNCheck(true);
+          - pattern: |
+              (SSLContext $CTX).init(null, ...);
+          - pattern: |
+              setSslSocketFactory(new NonValidatingSSLSocketFactory());
+          - pattern: public void checkClientTrusted(...) {}
+          - pattern: public void checkServerTrusted(...) {}
+          - patterns:
+              - pattern: public X509Certificate[] getAcceptedIssuers(...) { return null; }
+              - pattern-not-inside: public X509Certificate[] getAcceptedIssuers(...) { return $NOT_NULL; }
+              - metavariable-regex:
+                  metavariable: $NOT_NULL
+                  regex: ^(null)
+
+
+  - id: mongo-hostname-verification-disabled
+    severity: WARNING
+    message: Found MongoDB client with SSL hostname verification disabled
+    metadata:
+      cwe: CWE-295
+      short-description: MongoDB client with SSL hostname verification disabled
+      references:
+        - https://www.mongodb.com/docs/drivers/java/sync/current/fundamentals/connection/tls/#disable-hostname-verification
+    languages:
+      - java
+      - kt
+    pattern: $SETTINGS.invalidHostNameAllowed(true)
+
+  - id: weak-ec-key-size
+    severity: WARNING
+    message: Cryptographic implementations with insufficient key length is susceptible to bruteforce attacks.
+    metadata:
+      cwe: CWE-326
+      short-description: Cryptographic implementations with insufficient key length is susceptible to bruteforce attacks
+      license: LGPL-3.0-or-later
+      provenance: https://semgrep.dev/r/mobsf.mobsfscan.crypto.weak_key_size.weak_key_size
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $K = $G.getInstance("EC");
+              ...
+              $K.initialize(new ECGenParameterSpec("secp112r1"));
+          - pattern: |
+              $K = $G.getInstance("EC");
+              ...
+              $S = new ECGenParameterSpec("secp112r1");
+              ...
+              $K.initialize($S);
+          - pattern: |
+              $K = $G.getInstance("EC");
+              ...
+              $K.initialize(new ECGenParameterSpec("secp224r1"));
+          - pattern: |
+              $K = $G.getInstance("EC");
+              ...
+              $S = new ECGenParameterSpec("secp224r1");
+              ...
+              $K.initialize($S);
+
+  - id: des-is-deprecated
+    severity: WARNING
+    message: >-
+      DES is considered deprecated. AES is the recommended cipher.
+      Upgrade to use AES.
+    metadata:
+      cwe:
+        - CWE-326
+      short-description: DES is considered deprecated
+      references:
+        - https://www.nist.gov/news-events/news/2005/06/nist-withdraws-outdated-data-encryption-standard
+        - https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html#algorithms
+      provenance: https://find-sec-bugs.github.io/bugs.htm#DES_USAGE
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern-either:
+          - pattern: javax.crypto.Cipher.getInstance("$ALG", ...)
+          - pattern: |
+              $PROP = (java.util.Properties $P).getProperty(..., "$ALG");
+              ...
+              javax.crypto.Cipher.getInstance($PROP, ...);
+      - metavariable-regex:
+          metavariable: $ALG
+          regex: ^DES(/.+|$)
+
+  - id: desede-is-deprecated
+    severity: WARNING
+    message: >-
+      Triple DES (3DES or DESede) is considered deprecated. AES is the recommended cipher.
+      Upgrade to use AES.
+    metadata:
+      cwe:
+        - CWE-326
+      short-description: Triple DES (3DES or DESede) is considered deprecated
+      references:
+        - https://csrc.nist.gov/News/2017/Update-to-Current-Use-and-Deprecation-of-TDEA
+      provenance: https://find-sec-bugs.github.io/bugs.htm#TDES_USAGE
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern-either:
+          - pattern: javax.crypto.Cipher.getInstance("$ALG", ...)
+          - pattern: |
+              $PROP = (java.util.Properties $P).getProperty(..., "$ALG");
+              ...
+              javax.crypto.Cipher.getInstance($PROP, ...);
+      - metavariable-regex:
+          metavariable: $ALG
+          regex: DESede(/.+|$)
+
+  - id: ecb-cipher
+    severity: WARNING
+    message: >-
+      Cipher in ECB mode is detected. ECB mode produces the same output for the same
+      input each time which allows an attacker to intercept and replay the data.
+      Further, ECB mode does not provide any integrity checking.
+    metadata:
+      cwe:
+        - CWE-327
+      short-description: Cipher in ECB mode is detected, which is considered to be insecure.
+      references:
+        - https://find-sec-bugs.github.io/bugs.htm#CIPHER_INTEGRITY
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures
+      provenance: https://find-sec-bugs.github.io/bugs.htm#ECB_MODE
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern-either:
+          - pattern: javax.crypto.Cipher.getInstance("$ALG", ...)
+          - pattern: |
+              $PROP = (java.util.Properties $P).getProperty(..., "$ALG");
+              ...
+              javax.crypto.Cipher.getInstance($PROP, ...);
+      - metavariable-regex:
+          metavariable: $ALG
+          regex: .*ECB.*
+
+  - id: gcm-detection
+    severity: NOTE
+    message: >-
+      GCM detected, please check that IV/nonce is not reused, an Initialization
+      Vector (IV) is a nonce used to randomize the encryption, so that even if
+      multiple messages with identical plaintext are encrypted, the generated
+      corresponding ciphertexts are different. Unlike the Key, the IV usually
+      does not need to be secret, rather it is important that it is random and
+      unique. Certain encryption schemes the IV is exchanged in public as part of
+      the ciphertext. Reusing same Initialization Vector with the same Key to
+      encrypt multiple plaintext blocks allows an attacker to compare the
+      ciphertexts and then, with some assumptions on the content of the
+      messages, to gain important information about the data being encrypted.
+    metadata:
+      cwe:
+        - CWE-323
+      short-description: Reusing an Initialization Vector (IV) with the same key allows an attacker to compromise data confidentiality by comparing ciphertexts of different messages
+      references:
+        - https://cwe.mitre.org/data/definitions/323.html
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern-either:
+          - pattern: javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+          - pattern: (javax.crypto.Cipher $CIPHER).getInstance("AES/GCM/NoPadding")
+          - pattern: new GCMParameterSpec(...);
+
+  - id: gcm-nonce-reuse
+    severity: WARNING
+    message: GCM IV/nonce is reused, encryption can be totally useless
+    metadata:
+      cwe:
+        - CWE-323
+      short-description: GCM IV/nonce is reused, encryption can be totally useless
+      references:
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures
+        - https://www.youtube.com/watch?v=r1awgAl90wM
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/crypto/gcm-nonce-reuse.yaml
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern-either:
+          - pattern: new GCMParameterSpec(..., "...".getBytes(...), ...);
+          - pattern: byte[] $NONCE = "...".getBytes(...); ... new GCMParameterSpec(..., $NONCE, ...);
+
+  - id: no-null-cipher
+    severity: WARNING
+    message: >-
+      NullCipher was detected. This will not encrypt anything;
+      the cipher text will be the same as the plain text. Use
+      a valid, secure cipher: Cipher.getInstance("AES/CBC/PKCS7PADDING").
+    metadata:
+      cwe:
+        - CWE-327
+      short-description: NullCipher was detected, this will not encrypt anything
+      references:
+        - https://owasp.org/www-community/Using_the_Java_Cryptographic_Extensions
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures
+      provenance: https://find-sec-bugs.github.io/bugs.htm#NULL_CIPHER
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern-either:
+          - pattern: new NullCipher(...);
+          - pattern: new javax.crypto.NullCipher(...);
+
+  - id: no-static-initialization-vector
+    options:
+      disabled: Array initializers are not supported
+    severity: WARNING
+    message: >-
+      Initialization Vectors (IVs) for block ciphers should be randomly generated
+      each time they are used. Using a static IV means the same plaintext
+      encrypts to the same ciphertext every time, weakening the strength
+      of the encryption.
+    metadata:
+      cwe:
+        - CWE-329
+      short-description: Initialization Vectors (IVs) for block ciphers should be randomly generated each time they are used
+      references:
+        - https://cwe.mitre.org/data/definitions/329.html
+      provenance: https://find-sec-bugs.github.io/bugs.htm#STATIC_IV
+    languages:
+      - java
+      - kt
+    pattern-either:
+      - pattern: |
+          byte[] $IV = {
+              ...
+          };
+          ...
+          new IvParameterSpec($IV, ...);
+
+  - id: rsa-no-padding
+    severity: WARNING
+    message: >-
+      Using RSA without OAEP mode weakens the encryption.
+    metadata:
+      cwe:
+        - CWE-326
+      short-description: Using RSA without OAEP mode weakens the encryption
+      references:
+        - https://rdist.root.org/2009/10/06/why-rsa-encryption-padding-is-critical/
+      provenance: https://find-sec-bugs.github.io/bugs.htm#RSA_NO_PADDING
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern-either:
+          - pattern: javax.crypto.Cipher.getInstance("$ALG", ...)
+          - pattern: |
+              $PROP = (java.util.Properties $P).getProperty(..., "$ALG");
+              ...
+              javax.crypto.Cipher.getInstance($PROP, ...);
+      - metavariable-regex:
+          metavariable: $ALG
+          regex: /?RSA/[Nn][Oo][Nn][Ee]/NoPadding/?
+
+  - id: cbc-padding-oracle
+    severity: WARNING
+    message: >-
+      Using CBC with PKCS5Padding is susceptible to padding oracle attacks. A malicious actor
+      could discern the difference between plaintext with valid or invalid padding.
+      Further, CBC mode does not include any integrity checks.
+      Use 'AES/GCM/NoPadding' instead.
+    metadata:
+      cwe:
+        - CWE-327
+      short-description: Using CBC with PKCS5Padding is susceptible to padding oracle attacks
+      references:
+        - https://capec.mitre.org/data/definitions/463.html
+        - https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html#cipher-modes
+        - https://find-sec-bugs.github.io/bugs.htm#CIPHER_INTEGRITY
+      provenance: https://find-sec-bugs.github.io/bugs.htm#PADDING_ORACLE
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern: javax.crypto.Cipher.getInstance("$MODE")
+      - metavariable-regex:
+          metavariable: $MODE
+          regex: .*/CBC/PKCS5Padding/?
+
+  - id: use-of-blowfish
+    severity: WARNING
+    message: >-
+      Use of Blowfish was detected. Blowfish uses a 64-bit block size that makes it vulnerable to birthday attacks, and is therefore considered non-compliant.
+      Instead, use a strong, secure cipher: Cipher.getInstance("AES/CBC/PKCS7PADDING").
+    metadata:
+      cwe:
+        - CWE-327
+      short-description: Blowfish uses a 64-bit block size that makes it vulnerable to birthday attacks
+      references:
+        - https://owasp.org/www-community/Using_the_Java_Cryptographic_Extensions
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures
+        - https://googleprojectzero.blogspot.com/2022/10/rc4-is-still-considered-harmful.html
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/crypto/use-of-blowfish.yaml
+    languages:
+      - java
+      - kt
+    pattern-either:
+      - pattern: javax.crypto.Cipher.getInstance("Blowfish")
+      - pattern: (javax.crypto.Cipher $CIPHER).getInstance("Blowfish")
+
+  - id: use-of-default-aes
+    severity: WARNING
+    message: >-
+      Use of AES with no settings detected. By default, java.crypto.Cipher uses ECB mode. ECB doesn't provide message confidentiality
+      and is not semantically secure so should not be used.
+      Instead, use a strong, secure cipher: java.crypto.Cipher.getInstance("AES/CBC/PKCS7PADDING").
+    metadata:
+      cwe:
+        - CWE-327
+      short-description: Use of AES with no settings detected, so uses insecure ECB mode
+      references:
+        - https://owasp.org/www-community/Using_the_Java_Cryptographic_Extensions
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures
+        - https://googleprojectzero.blogspot.com/2022/10/rc4-is-still-considered-harmful.html
+    languages:
+      - java
+      - kt
+    pattern-either:
+      - pattern: javax.crypto.Cipher.getInstance("AES")
+      - pattern: (javax.crypto.Cipher $CIPHER).getInstance("AES")
+
+  - id: aes-hardcoded-key
+    severity: WARNING
+    message: Hardcoded encryption key makes AES symmetric encryption useless. An attacker can easily reverse engineer the application and recover the keys.
+    metadata:
+      cwe: CWE-321
+      short-description: Hardcoded encryption key makes AES symmetric encryption useless
+      references:
+        - https://github.com/MobSF/owasp-mstg/blob/master/Document/0x04g-Testing-Cryptography.md#common-configuration-issues-mstg-crypto-1-mstg-crypto-2-and-mstg-crypto-3
+      license: LGPL-3.0-or-later
+      provenance: https://semgrep.dev/r/mobsf.mobsfscan.crypto.aes_encryption_keys.aes_hardcoded_key
+    languages:
+      - java
+      - kt
+    pattern:
+      $S = new SecretKeySpec("...".getBytes(), "AES");
+      ...
+      $C.init(..., $S);
+
+  - id: use-of-md5
+    severity: WARNING
+    message: >-
+      Detected MD5 hash algorithm which is considered insecure. MD5 is not
+      collision resistant and is therefore not suitable as a cryptographic
+      signature. Use HMAC instead.
+    metadata:
+      cwe:
+        - CWE-328
+      short-description: MD5 hash algorithm is considered insecure
+      references:
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures
+      provenance: https://find-sec-bugs.github.io/bugs.htm#WEAK_MESSAGE_DIGEST_MD5
+    languages:
+      - java
+      - kt
+    pattern-either:
+      - patterns:
+        - pattern: |
+            MessageDigest.getInstance("$MD5", ...).digest(...);
+        - metavariable-regex:
+            metavariable: $MD5
+            regex: .*(MD5).*
+      - pattern: |
+          org.apache.commons.codec.digest.DigestUtils.getMd5Digest().digest(...)
+
+  - id: use-of-rc2
+    severity: WARNING
+    message: >-
+      Use of RC2 was detected. RC2 is vulnerable to related-key attacks,
+      and is therefore considered non-compliant. Instead, use a strong,
+      secure cipher: Cipher.getInstance("AES/CBC/PKCS7PADDING").
+    metadata:
+      cwe:
+        - CWE-327
+      short-description: RC2 is vulnerable to related-key attacks, and is therefore considered non-compliant
+      references:
+        - https://owasp.org/www-community/Using_the_Java_Cryptographic_Extensions
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures
+        - https://googleprojectzero.blogspot.com/2022/10/rc4-is-still-considered-harmful.html
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/crypto/use-of-rc2.yaml
+    languages:
+      - java
+      - kt
+    pattern: $CIPHER.getInstance("RC2")
+
+  - id: use-of-rc4
+    severity: WARNING
+    message: >-
+      Use of RC4 was detected. RC4 is vulnerable to several attacks, including
+      stream cipher attacks and bit flipping attacks. Instead, use a strong,
+      secure cipher: Cipher.getInstance("AES/CBC/PKCS7PADDING").
+    metadata:
+      cwe:
+        - CWE-327
+      short-description: RC4 is vulnerable to several attacks, including stream cipher attacks and bit flipping attacks
+      references:
+        - https://owasp.org/www-community/Using_the_Java_Cryptographic_Extensions
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures
+        - https://googleprojectzero.blogspot.com/2022/10/rc4-is-still-considered-harmful.html
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/crypto/use-of-rc4.yaml
+    languages:
+      - java
+      - kt
+    pattern: $CIPHER.getInstance("RC4")
+
+  - id: use-of-sha1
+    severity: WARNING
+    message: >-
+      Detected SHA1 hash algorithm which is considered insecure. SHA1 is not
+      collision resistant and is therefore not suitable as a cryptographic
+      signature. Instead, use PBKDF2 for password hashing
+      or SHA256 or SHA512 for other hash function applications.
+    metadata:
+      cwe:
+        - CWE-328
+      short-description: SHA1 is not collision resistant and is therefore not suitable as a cryptographic signature
+      references:
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures
+      provenance: https://find-sec-bugs.github.io/bugs.htm#WEAK_MESSAGE_DIGEST_SHA1
+    languages:
+      - java
+      - kt
+    pattern-either:
+      - patterns:
+          - pattern: |
+              java.security.MessageDigest.getInstance("$ALGO", ...).digest(...);
+          - metavariable-regex:
+              metavariable: $ALGO
+              regex: (SHA1|SHA-1)
+      - pattern: |
+          org.apache.commons.codec.digest.DigestUtils.getSha1Digest().digest(...)
+
+  - id: use-of-weak-rsa-key
+    severity: WARNING
+    message: RSA keys should be at least 2048 bits based on NIST recommendation.
+    options:
+      # todo metavariable-comparison is not supported
+      disabled: metavariable-comparison is not supported
+    metadata:
+      cwe:
+        - CWE-326
+      short-description: RSA keys should be at least 2048 bits based on NIST recommendation.
+      references:
+        - https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html#algorithms
+      provenance: https://find-sec-bugs.github.io/bugs.htm#RSA_KEY_SIZE
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern: |
+          KeyPairGenerator $KEY = $G.getInstance("RSA");
+          ...
+          $KEY.initialize($BITS);
+      - metavariable-comparison:
+          metavariable: $BITS
+          comparison: $BITS < 2048
+
+  - id: weak-random
+    severity: NOTE
+    message: >-
+      Detected use of the functions `Math.random()` or `java.util.Random()`. These are both not
+      cryptographically strong random number generators (RNGs). If you are using these
+      RNGs to create passwords or secret tokens, use `java.security.SecureRandom` instead.
+    metadata:
+      cwe:
+        - CWE-330
+      short-description: This RNG is cryptographically weak, `java.security.SecureRandom` is more secure
+      references:
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/crypto/weak-random.yaml
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern-either:
+          - pattern: java.lang.Math.random()
+          - patterns:
+              - pattern: |
+                  new $RANDOM(...).$FUNC(...)
+              - metavariable-pattern:
+                  metavariable: $RANDOM
+                  patterns:
+                    - pattern: java.util.Random
+                    - pattern-not: java.security.SecureRandom
+
+  - id: blowfish-insufficient-key-size
+    severity: WARNING
+    options:
+      # todo metavariable-comparison is not supported
+      disabled: metavariable-comparison is not supported
+    message: >-
+      Using less than 128 bits for Blowfish is considered insecure. Use 128 bits
+      or more, or switch to use AES instead.
+    metadata:
+      cwe:
+        - CWE-326
+      short-description: Using less than 128 bits for Blowfish is considered insecure
+      references:
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures
+      provenance: https://find-sec-bugs.github.io/bugs.htm#BLOWFISH_KEY_SIZE
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern: |
+          $KEYGEN = javax.crypto.KeyGenerator.getInstance("Blowfish");
+          ...
+          $KEYGEN.init($SIZE);
+      - metavariable-comparison:
+          metavariable: $SIZE
+          comparison: $SIZE < 128
+
+  - id: jwt-none-alg
+    severity: ERROR
+    message: >-
+      Detected use of the 'none' algorithm in a JWT token.
+      The 'none' algorithm assumes the integrity of the token has already
+      been verified. This would allow a malicious actor to forge a JWT token
+      that will automatically be verified. Do not explicitly use the 'none'
+      algorithm. Instead, use an algorithm such as 'HS256'.
+    metadata:
+      cwe:
+        - CWE-327
+      short-description: Do not explicitly use the 'none' JWT algorithm, as assumes the integrity of the token has already been verified
+      references:
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures
+      provenance: https://semgrep.dev/blog/2020/hardcoded-secrets-unverified-tokens-and-other-common-jwt-mistakes/
+    languages:
+      - java
+      - kt
+    pattern-either:
+      - pattern: |
+          $JWT.sign(com.auth0.jwt.algorithms.Algorithm.none());
+
+  - id: hazelcast-symmetric-encryption
+    severity: WARNING
+    message: >-
+      The network communications for Hazelcast is configured to use a deprecated symmetric cipher.
+      Consider using TLS/SSL when establishing communications across the Hazelcast cluster.
+    metadata:
+      cwe: CWE-326
+      short-description: Inadequate encryption strength
+      references:
+        - https://docs.hazelcast.com/imdg/4.2/security/tls-ssl
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/crypto/rule-HazelcastSymmetricEncryption.yml
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern: new com.hazelcast.config.SymmetricEncryptionConfig()
+
+  - id: weak-tls-protocol
+    severity: WARNING
+    options:
+      # todo metavariable-comparison is not supported
+      disabled: metavariable-comparison is not supported
+    message: |
+      Avoid initializing SSLContext with insecure protocols like `SSL`, `SSLv2`, or `SSLv3`.
+      These protocols are outdated and do not validate certificates by default. Additionally,
+      these older `SSL` versions have many known security issues.
+
+      Instead, use secure protocols like `TLSv1.2` or `TLSv1.3`.
+      ```
+      SSLContext context = SSLContext.getInstance("TLSv1.3");
+      ```
+    metadata:
+      cwe: CWE-295
+      short-description: Avoid initializing SSLContext with insecure protocols like `SSL`, `SSLv2`, or `SSLv3`
+      references:
+        - https://owasp.org/www-project-web-security-testing-guide/v41/4-Web_Application_Security_Testing/09-Testing_for_Weak_Cryptography/01-Testing_for_Weak_SSL_TLS_Ciphers_Insufficient_Transport_Layer_Protection
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/crypto/rule-WeakTLSProtocolSSLContext.yml
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern-either:
+          - pattern: javax.net.ssl.SSLContext.getInstance("$PROTO", ...)
+          - pattern: |
+              $PROP = (java.util.Properties $P).getProperty(..., "$PROTO");
+              ...
+              javax.net.ssl.SSLContext.getInstance($PROP, ...);
+      - metavariable-comparison:
+          metavariable: $PROTO
+          comparison: |
+            $PROTO not in ("TLS" "TLSv1.2" "TLSv1.3" "DTLSv1.2" "DTLSv1.3")
+
+  - id: weak-tls-protocol-version
+    severity: WARNING
+    options:
+      # todo array initializers are not supported
+      disabled: # array initializers are not supported
+    message: >-
+      The application was found enabling insecure TLS protocol versions. When enabling protocol versions for an `SSLContext`,
+      only the following versions should be allowed: TLSv1.2, TLSv1.3, DTLSv1.2, DTLSv1.3.
+      To mitigate potential security risks, it is strongly advised to enforce TLS 1.2 as the minimum
+      protocol version.
+    metadata:
+      cwe: CWE-326
+      short-description: Insecure TLS protocol versions
+      full-description: |-
+        The application was found enabling insecure TLS protocol versions. When enabling protocol
+        versions for an `SSLContext`, only the following versions should be allowed:
+        - TLSv1.2
+        - TLSv1.3
+        - DTLSv1.2
+        - DTLSv1.3
+
+        To mitigate potential security risks, it is strongly advised to enforce TLS 1.2 as the minimum
+        protocol version and disallow older versions such as TLS 1.0. Do note that newer versions of
+        Java do not even support TLS 1.0 and will throw `NoSuchAlgorithmException`. Versions of TLS
+        prior to 1.2 could expose the connection to downgrade attacks, where an adversary intercepts
+        the
+        connection and alters the requested protocol version to be a less secure one.
+
+        In many scenarios, relying on the default system configuration does not meet compliance
+        standards. This is due to the application being deployed across diverse systems with varying
+        configurations and Java versions. While the default value may be secure on modern and
+        up-to-date systems, it may not hold true for older systems. Consequently, it is highly
+        recommended to explicitly define a secure configuration in all cases.
+
+        Example configuring an SSLContext with TLSv1.2:
+        ```
+        // Create an SSLContext with TLSv1.2 explicitly
+        SSLContext tlsContext = SSLContext.getInstance("TLSv1.2"); // or TLSv1.3, DTLSv1.2, DTLSv1.3
+
+        // Alternatively, set the enabled protocols
+        SSLContext serverSslContext = SSLContext.getInstance("TLS");
+        SSLEngine serverEngine = serverSslContext.createSSLEngine();
+        // Calling setEnabledProtocols will override the original context's configured protocol version
+        serverEngine.setEnabledProtocols(new String[]{ "TLSv1.2" });
+        ```
+      references:
+        - https://docs.oracle.com/en/java/javase/11/docs/api/java.base/javax/net/ssl/SSLContext.html
+        - https://owasp.org/www-community/attacks/Manipulator-in-the-middle_attack
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/crypto/rule-WeakTLSProtocolVersion.yml
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              javax.net.ssl.SSLContext.getInstance("$UNSAFE_VERSION");
+          - pattern-inside: |
+              javax.net.ssl.SSLContext.getInstance(...);
+              ...
+              $ENGINE.setEnabledProtocols(new String[]{...,"$UNSAFE_VERSION",...});
+      - pattern-not-inside: |
+          $C = javax.net.ssl.SSLContext.getInstance(...);
+          ...
+          $ENGINE.setEnabledProtocols(new String[]{...,"TLSv1.2",...});
+      - pattern-not-inside: |
+          $C = javax.net.ssl.SSLContext.getInstance(...);
+          ...
+          $ENGINE.setEnabledProtocols(new String[]{...,"TLSv1.3",...});
+      - pattern-not-inside: |
+          $C = javax.net.ssl.SSLContext.getInstance(...);
+          ...
+          $ENGINE.setEnabledProtocols(new String[]{...,"DTLSv1.2",...});
+      - pattern-not-inside: |
+          $C = javax.net.ssl.SSLContext.getInstance(...);
+          ...
+          $ENGINE.setEnabledProtocols(new String[]{...,"DTLSv1.3",...});
+      - metavariable-regex:
+          metavariable: "$UNSAFE_VERSION"
+          regex: "^(TLS|(D)?TLSv1.(0|1))$"
+
+  - id: bad-hexa-conversion
+    severity: WARNING
+    message: >-
+      'Integer.toHexString()' strips leading zeroes from each byte if read byte-by-byte.
+      This mistake weakens the hash value computed since it introduces more collisions.
+      Use 'String.format("%02X", ...)' instead.
+    metadata:
+      cwe:
+        - CWE-704
+      short-description: Strippping leading zeroes from each byte, this weakens the hash value computed
+      references:
+        - https://cwe.mitre.org/data/definitions/704.html
+      provenance: https://find-sec-bugs.github.io/bugs.htm#BAD_HEXA_CONVERSION
+    languages:
+      - java
+      - kt
+    pattern: |-
+      $X $METHOD(...) {
+        ...
+        MessageDigest $MD = ...;
+        ...
+        $MD.digest(...);
+        ...
+        Integer.toHexString(...);
+      }
+
+  - id: insecure-smtp
+    severity: ERROR
+    options: # todo: multiple statements after sink
+      disabled: multiple statements after sink
+    message: >-
+      The Apache commons mail client by default does not enable TLS server identity.
+      This allows for an adversary who is in between the application and the target host to intercept
+      potentially sensitive information or transmit malicious data.
+      Enable checking server identity by calling `Email.setSSLCheckServerIdentity(true)`
+    metadata:
+      cwe:
+        - CWE-297
+      short-description: Improper validation of certificate with host mismatch
+      full-description: |-
+        The Apache commons mail client by default does not enable TLS server identity.
+        This allows for an adversary who is in between the application and the target host to intercept
+        potentially sensitive information or transmit malicious data.
+
+        Enable checking server identity by calling `Email.setSSLCheckServerIdentity(true)`
+
+        Example email client that enables TLS and server identity:
+        ```
+        // Create an email client
+        Email email = new SimpleEmail();
+        // Configure the email hostname
+        email.setHostName("smtp.mail.example.com");
+        // Set the port
+        email.setSmtpPort(465);
+        // Securely retrieve username and password values
+        String username = getUserNameFromKMSorSecretStore();
+        String password = getPasswordFromKMSorSecretStore();
+        // Configure the Authenticator
+        DefaultAuthenticator auth = new DefaultAuthenticator(username, password);
+        // Set the authenticator
+        email.setAuthenticator(auth);
+        // Ensure we use SSL on connect
+        email.setSSLOnConnect(true);
+        // Ensure we validate server identity
+        email.setSSLCheckServerIdentity(true);
+        // configure the rest of the email
+        email.setFrom("x@example.com");
+        email.setSubject("TestMail");
+        email.setMsg("This is a test mail ... :-)");
+        email.addTo("y@example.com");
+        email.send();
+        ```
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/smtp/rule-InsecureSmtp.yml
+    languages:
+      - java
+      - kt
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $E = new org.apache.commons.mail.SimpleEmail(...);
+              ...
+          - pattern: |
+              $E = new org.apache.commons.mail.Email(...);
+              ...
+          - pattern: |
+              $E = new org.apache.commons.mail.MultiPartEmail(...);
+              ...
+          - pattern: |
+              $E = new org.apache.commons.mail.HtmlEmail(...);
+              ...
+          - pattern: |
+              $E = new org.apache.commons.mail.ImageHtmlEmail(...);
+              ...
+      - pattern-not-inside: |
+          ...
+          $E.setSSLOnConnect(true);
+          ...
+          $E.setSSLCheckServerIdentity(true);

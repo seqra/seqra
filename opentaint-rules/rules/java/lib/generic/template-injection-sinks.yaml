@@ -1,0 +1,34 @@
+rules:
+  - id: java-ssti-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: Unvalidated user data flows into template engine
+    metadata:
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/ext
+    languages:
+      - java
+    patterns:
+      - pattern-either:
+        - pattern: new freemarker.template.Template(..., $UNTRUSTED, ...);
+        - pattern: |
+            $C = (freemarker.template.Configuration $CFG).getTemplate($UNTRUSTED);
+            ...
+            $C.process(...)
+        - pattern: (com.mitchellbosecke.pebble.PebbleEngine $PEBBLE).getLiteralTemplate($UNTRUSTED, ...);
+        - pattern: (com.mitchellbosecke.pebble.PebbleEngine $PEBBLE).getTemplate($UNTRUSTED, ...);
+        - pattern: (com.hubspot.jinjava.Jinjava $JINJAVA).render($UNTRUSTED, ...);
+        - pattern: (com.hubspot.jinjava.Jinjava $JINJAVA).renderForResult($UNTRUSTED, ...);
+        - pattern: (org.apache.velocity.app.Velocity $VELOCITY).evaluate($_, $_, $_, $UNTRUSTED, ...);
+        - pattern: (org.apache.velocity.app.Velocity $VELOCITY).mergeTemplate($_, $_, $UNTRUSTED, ...);
+        - pattern: (org.apache.velocity.app.VelocityEngine $VELOCITY_ENGINE).evaluate($_, $_, $_, $UNTRUSTED, ...);
+        - pattern: (org.apache.velocity.app.VelocityEngine $VELOCITY_ENGINE).mergeTemplate($_, $_, $UNTRUSTED, ...);
+        - pattern: (org.apache.velocity.runtime.RuntimeServices $VELOCITY_RUNTIME).evaluate($_, $_, $_, $UNTRUSTED, ...);
+        - pattern: (org.apache.velocity.runtime.RuntimeSingleton $VELOCITY_RUNTIME).parse($UNTRUSTED, ...);
+        - pattern: (org.apache.velocity.runtime.resource.util.StringResourceRepository $VELOCITY_REPO).putStringResource($_, $UNTRUSTED, ...);
+        - pattern: (org.thymeleaf.ITemplateEngine $THYMELEAF).$THYMELEAF_SINK($UNTRUSTED, ...);
+      - metavariable-pattern:
+          metavariable: $THYMELEAF_SINK
+          pattern-either:
+            - pattern: process
+            - pattern: processThrottled

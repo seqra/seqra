@@ -1,0 +1,38 @@
+rules:
+  - id: spring-unvalidated-redirect-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: Potential redirect to an untrusted URL
+    metadata:
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/spring/security/audit/spring-unvalidated-redirect.yaml
+    languages:
+      - java
+    pattern-either:
+      - pattern: new RedirectView($URL);
+      - pattern: new ModelAndView("redirect:" + $URL);
+      - pattern: (HttpServletResponse $RES).sendRedirect($URL);
+      - pattern: (HttpServletResponse $RES).addHeader("Location", $URL);
+      - patterns:
+        - pattern: |
+            @$ANNOTATION(...)
+            $RETURNTYPE $METHOD(...) {
+              ...
+              return "$REDIRECT" + $URL;
+              ...
+            }
+
+        - metavariable-regex:
+            metavariable: $REDIRECT
+            regex: "redirect:.*"
+
+        - metavariable-pattern:
+            metavariable: $ANNOTATION
+            patterns:
+              - pattern-either:
+                - pattern: RequestMapping
+                - pattern: DeleteMapping
+                - pattern: GetMapping
+                - pattern: PatchMapping
+                - pattern: PostMapping
+                - pattern: PutMapping

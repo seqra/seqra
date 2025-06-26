@@ -1,0 +1,13 @@
+rules:
+  - id: java-servlet-unvalidated-redirect-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: Potential redirect to an untrusted URL
+    metadata:
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/endpoint/rule-UnvalidatedRedirect.yml
+    languages:
+      - java
+    pattern-either:
+      - pattern: (HttpServletResponse $RES).sendRedirect($URL);
+      - pattern: (HttpServletResponse $RES).addHeader("Location", $URL);

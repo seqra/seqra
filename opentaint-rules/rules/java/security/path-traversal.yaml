@@ -1,0 +1,273 @@
+rules:
+  - id: path-traversal-in-servlet-app
+    severity: ERROR
+    message: >-
+      Potential path traversal: detected user input controlling a file path. An attacker could control the location of this
+      file, to include going backwards in the directory with '../'. To address this, ensure that user-controlled
+      variables in file paths are sanitized.
+    metadata:
+      cwe: CWE-22
+      short-description: Interaction with file system via untrusted path, potential path traversal
+      full-description: |-
+        Path traversal (also known as directory traversal) is a vulnerability that occurs when user-controlled input is used to construct filesystem paths without proper validation. An attacker can manipulate the path (for example, using sequences like `../`) to break out of intended directories and access or modify files elsewhere on the server, such as configuration files, source code, or sensitive data.
+
+        **Vulnerable code sample**
+
+        ```java
+        import javax.servlet.ServletException;
+        import javax.servlet.http.*;
+        import java.io.*;
+
+        public class DownloadServlet extends HttpServlet {
+
+            private static final String BASE_DIR = "/var/www/uploads/";
+
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                // User provides file name via query parameter ?file=...
+                String fileName = request.getParameter("file");
+
+                // VULNERABLE: directly concatenating user input into a file path
+                File file = new File(BASE_DIR + fileName);
+
+                if (!file.exists()) {
+                    response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                    return;
+                }
+
+                try (FileInputStream fis = new FileInputStream(file);
+                    OutputStream out = response.getOutputStream()) {
+
+                    response.setContentType("application/octet-stream");
+                    response.setHeader("Content-Disposition", "attachment; filename=\"" + file.getName() + "\"");
+
+                    byte[] buffer = new byte[4096];
+                    int read;
+                    while ((read = fis.read(buffer)) != -1) {
+                        out.write(buffer, 0, read);
+                    }
+                }
+            }
+        }
+        ```
+
+        An attacker could supply a value like `../../../../etc/passwd` as `file`, potentially reading sensitive files outside `/var/www/uploads/`.
+
+        To remediate this issue, validate and constrain all file path input and ensure that the resolved path stays within an expected directory. Prefer allowlists (known-safe file names or IDs) and use canonical/normalized paths for checks.
+
+        **Safer approach using `java.nio.file.Path` and canonical checks:**
+
+        ```java
+        import javax.servlet.ServletException;
+        import javax.servlet.http.*;
+        import java.io.*;
+        import java.nio.file.*;
+
+        public class SafeDownloadServlet extends HttpServlet {
+
+            private static final Path BASE_DIR = Paths.get("/var/www/uploads").toAbsolutePath().normalize();
+
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                String fileName = request.getParameter("file");
+                if (fileName == null || fileName.isEmpty()) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing file parameter");
+                    return;
+                }
+
+                // Optional: allowlist or pattern validation
+                // e.g., only letters, numbers, dot, dash, underscore
+                if (!fileName.matches("[A-Za-z0-9._-]+")) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid file name");
+                    return;
+                }
+
+                // Resolve and normalize the target path
+                Path target = BASE_DIR.resolve(fileName).normalize();
+
+                // Ensure the final path is still under the base directory
+                if (!target.startsWith(BASE_DIR)) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
+                    return;
+                }
+
+                if (!Files.exists(target) || !Files.isRegularFile(target)) {
+                    response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                    return;
+                }
+
+                response.setContentType("application/octet-stream");
+                response.setHeader("Content-Disposition", "attachment; filename=\"" + target.getFileName().toString() + "\"");
+
+                try (InputStream in = Files.newInputStream(target);
+                    OutputStream out = response.getOutputStream()) {
+
+                    byte[] buffer = new byte[4096];
+                    int read;
+                    while ((read = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, read);
+                    }
+                }
+            }
+        }
+        ```
+
+        Key remediation steps:
+        - Treat all path components from users as untrusted.
+        - Use allowlists for file names or map user inputs to internal IDs instead of raw paths where possible.
+        - Normalize/canonicalize paths (`normalize()`, `toRealPath()`) and verify they stay within an intended base directory.
+        - Avoid echoing raw paths or detailed errors back to the client.
+      references:
+        - https://owasp.org/www-community/attacks/Path_Traversal
+        - https://en.wikipedia.org/wiki/Directory_traversal
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/spring/security/injection/tainted-file-path.yaml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/path-traversal-sinks.yaml#java-path-traversal-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$FILE'
+
+  - id: path-traversal-in-spring-app
+    severity: ERROR
+    message: >-
+      Potential path traversal: detected user input controlling a file path. An attacker could control the location of this
+      file, to include going backwards in the directory with '../'. To address this, ensure that user-controlled
+      variables in file paths are sanitized.
+    metadata:
+      cwe: CWE-22
+      short-description: Interaction with file system via untrusted path, potential path traversal
+      full-description: |-
+        Path traversal (also known as directory traversal) in Spring-based Java applications occurs when user-controlled input is used to construct filesystem paths in controllers, services, or static resource handlers without proper validation. Attackers can exploit this by sending values containing `../` or absolute paths to escape the intended directory and access sensitive files (e.g., `/etc/passwd`, configuration files, source code) on the server.
+
+        **Vulnerable code sample**
+
+        ```java
+        import org.springframework.core.io.ByteArrayResource;
+        import org.springframework.http.*;
+        import org.springframework.web.bind.annotation.*;
+
+        import java.io.IOException;
+        import java.nio.file.*;
+
+        @RestController
+        @RequestMapping("/files")
+        public class FileDownloadController {
+
+            private static final String BASE_DIR = "/var/app/uploads/";
+
+            @GetMapping("/{*fileName}")
+            public ResponseEntity<ByteArrayResource> download(@PathVariable String fileName) throws IOException {
+
+                // VULNERABLE: directly concatenating user input into a file path
+                Path path = Paths.get(BASE_DIR + fileName);
+
+                if (!Files.exists(path)) {
+                    return ResponseEntity.notFound().build();
+                }
+
+                byte[] data = Files.readAllBytes(path);
+                ByteArrayResource resource = new ByteArrayResource(data);
+
+                return ResponseEntity.ok()
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .header(HttpHeaders.CONTENT_DISPOSITION,
+                                "attachment; filename=\"" + path.getFileName().toString() + "\"")
+                        .body(resource);
+            }
+        }
+        ```
+
+        An attacker could call `/files/../../../../etc/passwd` or URL-encoded variants and potentially retrieve sensitive system files instead of only files under `/var/app/uploads/`.
+
+        To remediate this issue, validate and constrain all file-related input in Spring controllers and services, normalize the path, and ensure the final resolved path stays within an allowed base directory. Prefer allowlists (permitted filenames/IDs) instead of accepting arbitrary paths.
+
+        **Safer Spring controller example using `Path` normalization and checks:**
+
+        ```java
+        import org.springframework.core.io.Resource;
+        import org.springframework.core.io.UrlResource;
+        import org.springframework.http.*;
+        import org.springframework.web.bind.annotation.*;
+        import org.springframework.web.server.ResponseStatusException;
+
+        import java.io.IOException;
+        import java.net.MalformedURLException;
+        import java.nio.file.*;
+
+        @RestController
+        @RequestMapping("/files")
+        public class SafeFileDownloadController {
+
+            private static final Path BASE_DIR =
+                    Paths.get("/var/app/uploads").toAbsolutePath().normalize();
+
+            @GetMapping("/{*fileName}")
+            public ResponseEntity<Resource> download(@PathVariable String fileName) {
+
+                // 1. Basic allowlist / pattern validation
+                if (fileName == null || !fileName.matches("[A-Za-z0-9._-]+")) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST, "Invalid file name");
+                }
+
+                // 2. Resolve and normalize against a fixed base directory
+                Path target = BASE_DIR.resolve(fileName).normalize();
+
+                // 3. Enforce that the resolved path is still under BASE_DIR
+                if (!target.startsWith(BASE_DIR)) {
+                    throw new ResponseStatusException(
+                            HttpStatus.FORBIDDEN, "Access denied");
+                }
+
+                if (!Files.exists(target) || !Files.isRegularFile(target)) {
+                    throw new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "File not found");
+                }
+
+                Resource resource;
+                try {
+                    resource = new UrlResource(target.toUri());
+                } catch (MalformedURLException e) {
+                    throw new ResponseStatusException(
+                            HttpStatus.INTERNAL_SERVER_ERROR, "Could not read file", e);
+                }
+
+                return ResponseEntity.ok()
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .header(HttpHeaders.CONTENT_DISPOSITION,
+                                "attachment; filename=\"" + target.getFileName().toString() + "\"")
+                        .body(resource);
+            }
+        }
+        ```
+
+        Additional Spring-specific recommendations:
+
+        - For static resources (e.g., via `WebMvcConfigurer#addResourceHandlers`), use `PathResourceResolver` and configure `setAllowedLocations(...)` so that only predefined directories can be served.
+        - Prefer storing and serving files from controlled locations (e.g., application storage directory or classpath) rather than arbitrary filesystem paths derived from user input.
+        - Consider mapping user-visible IDs to filenames on the server rather than exposing filenames directly.
+      references:
+        - https://owasp.org/www-community/attacks/Path_Traversal
+        - https://en.wikipedia.org/wiki/Directory_traversal
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/spring/security/injection/tainted-file-path.yaml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/path-traversal-sinks.yaml#java-path-traversal-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$FILE'

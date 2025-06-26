@@ -1,0 +1,45 @@
+rules:
+  - id: java-ssrf-sink
+    options:
+      lib: true
+    severity: NOTE
+    message: Requesting URL obtained from untrusted data without
+    metadata:
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/ssrf/rule-SSRF.yml
+    languages:
+      - java
+    patterns:
+      - pattern-either:
+          - pattern: new URL($UNTRUSTED).$FUNC(...);
+          - pattern: (java.net.URL $URL).$FUNC(..., $UNTRUSTED, ...);
+          - pattern: URI.create($UNTRUSTED).toURL().$FUNC();
+          - pattern: new InetSocketAddress($UNTRUSTED, ...);
+          - pattern: java.sql.DriverManager.getConnection($UNTRUSTED, ...);
+          - pattern: (org.springframework.web.client.RestTemplate $T).$REQ((java.net.URI $UNTRUSTED), ...)
+          - pattern: (org.springframework.web.client.RestTemplate $T).$REQ((java.lang.String $UNTRUSTED), ...)
+      - metavariable-pattern:
+          metavariable: $FUNC
+          pattern-either:
+            - pattern: connect
+            - pattern: GetContent
+            - pattern: openConnection
+            - pattern: openStream
+            - pattern: getContent
+
+  - id: java-http-parameter-pollution-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: Unvalidated user input has been included into a URL
+    metadata:
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/inject/rule-HttpParameterPollution.yml
+    languages:
+      - java
+    mode: taint
+    pattern-sanitizers:
+      - pattern: java.net.URLEncoder.encode($UNTRUSTED)
+      - pattern: com.google.common.net.UrlEscapers.urlPathSegmentEscaper().escape($UNTRUSTED)
+    pattern-sinks:
+      - pattern: new org.apache.http.client.methods.HttpGet(..., $UNTRUSTED, ...)
+      - pattern: new org.apache.commons.httpclient.methods.GetMethod(..., $UNTRUSTED, ...)
+      - pattern: (org.apache.commons.httpclient.methods.GetMethod $GM).setQueryString(..., $UNTRUSTED, ...)

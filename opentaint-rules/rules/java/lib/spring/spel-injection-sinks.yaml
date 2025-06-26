@@ -1,0 +1,42 @@
+rules:
+  - id: spel-injection-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: Dangerous SpEL expression evaluation
+    metadata:
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/ext
+    languages:
+      - java
+    patterns:
+      - pattern-either:
+        - pattern: |
+            org.springframework.expression.Expression $EXPRESSION = (SPELL_PARSER_TYPE $PARSER).SPEL_PARSE($UNTRUSTED, ...);
+            ...
+            $EXPRESSION.$SPEL_EXPR_FUNC();
+        - patterns:
+          - pattern: |
+              org.springframework.expression.Expression $EXPRESSION = ($SPELL_PARSER_TYPE $PARSER).$SPEL_PARSE($UNTRUSTED, ...);
+              ...
+              $EXPRESSION.$SPEL_EXPR_FUNC($EVALUATION_CONTEXT, ...);
+          - pattern-not-inside: |
+              org.springframework.expression.spel.support.SimpleEvaluationContext $EVALUATION_CONTEXT =
+                (org.springframework.expression.spel.support.SimpleEvaluationContext.Builder).build();
+      - metavariable-pattern:
+          metavariable: $SPEL_EXPR_FUNC
+          pattern-either:
+            - pattern: getValue
+            - pattern: setValue
+            - pattern: getValueType
+            - pattern: getValueTypeDescriptor
+      - metavariable-pattern:
+          metavariable: $SPELL_PARSER_TYPE
+          pattern-either:
+            - pattern: org.springframework.expression.common.TemplateAwareExpressionParser
+            - pattern: org.springframework.expression.spel.standard.SpelExpressionParser
+            - pattern: org.springframework.expression.ExpressionParser
+      - metavariable-pattern:
+          metavariable: $SPELL_PARSE
+          pattern-either:
+            - pattern: parseExpression
+            - pattern: parseRaw

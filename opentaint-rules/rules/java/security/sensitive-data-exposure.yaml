@@ -1,0 +1,404 @@
+rules:
+  - id: cookie-issecure-false
+    severity: WARNING
+    message: >-
+      Default session middleware settings: `setSecure` not set to true.
+      This ensures that the cookie is sent only over HTTPS to prevent cross-site scripting attacks.
+    metadata:
+      cwe:
+        - CWE-319:
+      short-description: Cleartext transmission of sensitive cookie value
+      references:
+        - https://docs.oracle.com/javaee/6/api/javax/servlet/http/Cookie.html#setSecure(boolean)
+        - https://owasp.org/www-community/controls/SecureCookieAttribute
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/servlets/security/cookie-issecure-false.yaml
+    languages:
+      - java
+    patterns:
+      - pattern: $COOKIE = new Cookie(...);
+      - pattern-not-inside: |
+          $COOKIE = new Cookie(...);
+          ...
+          $COOKIE.setSecure(...);
+      - pattern-not-inside: |
+          $COOKIE.setValue("");
+
+  - id: unencrypted-socket
+    severity: NOTE
+    message: >-
+      Detected use of a Java socket that is not encrypted.
+      As a result, the traffic could be read by an attacker intercepting the network traffic.
+      Use an SSLSocket created by 'SSLSocketFactory' or 'SSLServerSocketFactory' instead.
+    metadata:
+      cwe:
+        - CWE-319
+      short-description: Unencrypted socket
+      references:
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures
+      provenance: https://find-sec-bugs.github.io/bugs.htm#UNENCRYPTED_SOCKET
+    languages:
+      - java
+    pattern-either:
+      - pattern: new ServerSocket(...)
+      - pattern: new Socket(...)
+
+  - id: url-rewriting
+    severity: WARNING
+    message: >-
+      URL rewriting has significant security risks.
+      Since session ID appears in the URL, it may be easily seen by third parties.
+    metadata:
+      cwe:
+        - CWE-200
+      short-description: URL rewriting can expose session ID to third parties
+      full-description: |-
+        URL rewriting in Java web applications is a session-tracking technique where the server appends the session ID to URLs (for example, `;jsessionid=ABC123` or `?sessionid=...`) instead of, or in addition to, using cookies. This exposes the session identifier in browser history, logs, bookmarks, analytics systems, and `Referer` headers sent to third-party sites. If an attacker obtains such a URL, they can hijack the user's session. When URL rewriting is used in redirects or links to external domains, the risk of leaking the session ID increases significantly.
+
+        Vulnerable code sample
+
+        ```java
+        import javax.servlet.ServletException;
+        import javax.servlet.http.*;
+        import java.io.IOException;
+        import java.net.URLEncoder;
+        import java.nio.charset.StandardCharsets;
+
+        public class TrackingRedirectServlet extends HttpServlet {
+
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                String productId = request.getParameter("id");
+                if (productId == null) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing product id");
+                    return;
+                }
+
+                // Build URL to external partner site with tracking info
+                String target = "https://partner.example.com/track?product=" +
+                        URLEncoder.encode(productId, StandardCharsets.UTF_8.name());
+
+                // VULNERABLE:
+                // encodeRedirectURL may append ;jsessionid=<SESSION_ID> to the URL.
+                // That session ID can then appear in logs, browser history, and
+                // be leaked to the external domain via the Referer header.
+                String encoded = response.encodeRedirectURL(target);
+
+                response.sendRedirect(encoded);
+            }
+        }
+        ```
+
+        In this example, if URL rewriting is enabled, the container may transform `target` into something like:
+
+        `https://partner.example.com/track;jsessionid=ABC123?product=42`
+
+        The session ID `ABC123` can then be exposed outside the application's control, making session hijacking much easier.
+
+        To remediate this issue, prefer cookie-based session tracking and disable URL rewriting, especially for external or absolute URLs. Where URL rewriting cannot be fully disabled, restrict it to internal, relative URLs only, and never propagate session IDs to third-party domains.
+
+        Configuration-level mitigation (Servlet 3.0+), in `web.xml`:
+
+        ```xml
+        <session-config>
+            <!-- Use only cookies for session tracking -->
+            <tracking-mode>COOKIE</tracking-mode>
+        </session-config>
+        ```
+
+        Safer servlet code example:
+
+        ```java
+        import javax.servlet.ServletException;
+        import javax.servlet.http.*;
+        import java.io.IOException;
+        import java.net.URLEncoder;
+        import java.nio.charset.StandardCharsets;
+
+        public class SafeTrackingRedirectServlet extends HttpServlet {
+
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+
+                String productId = request.getParameter("id");
+                if (productId == null) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing product id");
+                    return;
+                }
+
+                String target = "https://partner.example.com/track?product=" +
+                        URLEncoder.encode(productId, StandardCharsets.UTF_8.name());
+
+                // SAFE: With tracking-mode=COOKIE, there is no need to use encodeRedirectURL
+                // for external URLs; the session ID will not be appended to the URL.
+                response.sendRedirect(target);
+            }
+        }
+        ```
+
+        Key remediation steps:
+        - Configure the application server to use only cookies for session tracking (`<tracking-mode>COOKIE</tracking-mode>`).
+        - Avoid calling `encodeURL` / `encodeRedirectURL` on absolute or external URLs.
+        - If URL rewriting must be used as a fallback for clients without cookies, restrict it to internal, relative paths and always over HTTPS.
+        - Additionally, harden session cookies (HttpOnly, Secure, appropriate SameSite, short lifetime, regeneration on login), to reduce the impact if a session ID is exposed.
+      references:
+        - https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html
+        - https://owasp.org/www-community/attacks/Session_hijacking_attack
+      provenance: https://find-sec-bugs.github.io/bugs.htm#URL_REWRITING
+    languages:
+      - java
+    patterns:
+      - metavariable-pattern:
+          metavariable: $METHOD
+          patterns:
+            - pattern-not: org.springframework.security.web.authentication.logout.LogoutSuccessHandler.onLogoutSuccess
+      - metavariable-pattern:
+          metavariable: $ANNOTATION
+          pattern-either:
+            - pattern: RequestMapping
+            - pattern: DeleteMapping
+            - pattern: GetMapping
+            - pattern: PatchMapping
+            - pattern: PostMapping
+            - pattern: PutMapping
+      - pattern-either:
+          - pattern: |
+              @$ANNOTATION(...)
+              $X $METHOD(...,HttpServletResponse $RES,...) {
+                ...
+                $RES.encodeURL(...);
+                ...
+              }
+          - pattern: |
+              @$ANNOTATION(...)
+              $X $METHOD(...,HttpServletResponse $RES,...) {
+                ...
+                $RES.encodeUrl(...);
+                ...
+              }
+          - pattern: |
+              @$ANNOTATION(...)
+              $X $METHOD(...,HttpServletResponse $RES,...) {
+                ...
+                $RES.encodeRedirectURL(...);
+                ...
+              }
+          - pattern: |
+              @$ANNOTATION(...)
+              $X $METHOD(...,HttpServletResponse $RES,...) {
+                ...
+                $RES.encodeRedirectUrl(...);
+                ...
+              }
+          - pattern: |
+              @$ANNOTATION(...)
+              $X $METHOD(...) {
+                ...
+                HttpServletResponse $RES = ...;
+                ...
+                $RES.encodeURL(...);
+                ...
+              }
+          - pattern: |
+              @$ANNOTATION(...)
+              $X $METHOD(...) {
+                ...
+                HttpServletResponse $RES = ...;
+                ...
+                $RES.encodeUrl(...);
+                ...
+              }
+          - pattern: |
+              @$ANNOTATION(...)
+              $X $METHOD(...) {
+                ...
+                HttpServletResponse $RES = ...;
+                ...
+                $RES.encodeRedirectURL(...);
+                ...
+              }
+          - pattern: |-
+              @$ANNOTATION(...)
+              $X $METHOD(...) {
+                ...
+                HttpServletResponse $RES = ...;
+                ...
+                $RES.encodeRedirectUrl(...);
+                ...
+              }
+
+  - id: file-disclosure-request-dispatcher
+    severity: ERROR
+    message: >-
+      The `HttpRequest.getRequestDispatcher()`'s `include` and `forward` methods will return
+      any file that is resolvable within the web application context. This includes the `web.xml`
+      file, any compiled classes, `jsp` files, and additional JAR or WAR libraries that are
+      accessible.
+    metadata:
+      cwe: CWE-552
+      short-description: Files or directories accessible to external parties
+      full-description: |-
+        The `HttpRequest.getRequestDispatcher()`'s `include` and `forward` methods will return
+        any file that is resolvable within the web application context. This includes the `web.xml`
+        file, any compiled classes, `jsp` files, and additional JAR or WAR libraries that are
+        accessible.
+
+        Never pass user-supplied input directly to any of these methods. Use a lookup table or
+        hardcode
+        which views or paths the user should be directed to. Another option is to use a simple HTTP
+        redirect by returning an empty response body with a 301 status code and a `Location` redirect
+        header. In Java servlets, this can be done by using the `response.sendRedirect(...)` method.
+
+        Example using a redirect instead of a `RequestDispatcher`:
+        ```
+        // Create a look up table or pull from a data source
+        HashMap<String, String> lookupTable = new HashMap<>();
+        lookupTable.put("key1", "/Resource1");
+        lookupTable.put("key2", "/Resource2");
+        // Get user input
+        String userInput = request.getParameter("key");
+        // Look up resource to redirect to from the user input
+        String redirectValue = lookupTable.getOrDefault(userInput, "/Resource1");
+        // Redirect the user
+        response.sendRedirect(redirectValue);
+        ```
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/inject/rule-FileDisclosureRequestDispatcher.yml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: file-disclosure-request-dispatcher-sink
+          as: sink
+      on:
+      - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+      rules:
+      - id: file-disclosure-request-dispatcher-sink
+        message: Request dispatcher called with untrusted path
+        severity: NOTE
+        languages:
+          - java
+        mode: taint
+        pattern-sinks:
+        - patterns:
+          - pattern-not-inside: |
+              $VAL = $MAP.getOrDefault(..., "...");
+              ...
+          - pattern-inside: |
+              $REQ = $HTTP.getRequestDispatcher($UNTRUSTED);
+              ...
+          - pattern-either:
+            - pattern: $REQ.include(...)
+            - pattern: $REQ.forward(...)
+
+  - id: jsp-file-disclosure
+    severity: ERROR
+    message: >-
+      The `org.springframework.web.servlet.ModelAndView` class may
+      potentially allow access to restricted files if called with user-supplied input.
+      The ModelAndView class looks up a view by name to resolve a `.jsp`
+      file. If this view name comes from user-supplied input, it could be abused to attempt
+      to return a JSP view that the user should not have access to.
+    metadata:
+      cwe: CWE-552
+      short-description: Files or directories accessible to external parties
+      full-description: |-
+        The `org.springframework.web.servlet.ModelAndView` class may
+        potentially allow access to restricted files if called with user-supplied input.
+
+        The ModelAndView class looks up a view by name to resolve a `.jsp`
+        file. If this view name comes from user-supplied input, it could be abused to attempt
+        to return a JSP view that the user should not have access to.
+
+        Use a lookup table or hardcode which views or paths the user should be directed to.
+
+        Example using a lookup table to resolve a view from a Spring MVC application:
+        ```
+        @RequestMapping(value="/mvc", method=RequestMethod.GET)
+        public ModelAndView mvc(HttpServletRequest request, HttpServletResponse response, Model model)
+        {
+          // Create a look up table or pull from a data source
+          HashMap<String, String> lookupTable = new HashMap<>();
+          lookupTable.put("key1", "view1");
+          lookupTable.put("key2", "view2");
+          // Get user input
+          String userInput = request.getParameter("key");
+          // Look up view from the user input
+          String viewValue = lookupTable.getOrDefault(userInput, "Resource1");
+          // return the new model and view
+          return new ModelAndView(viewValue);
+        }
+        ```
+
+        Example using a redirect instead of a `RequestDispatcher` in Spring:
+        ```
+        @RequestMapping(value="/mvc", method=RequestMethod.GET)
+        public void mvc(HttpServletRequest request, HttpServletResponse response, Model model)
+        {
+          // Create a look up table or pull from a data source
+          HashMap<String, String> lookupTable = new HashMap<>();
+          lookupTable.put("key1", "view1");
+          lookupTable.put("key2", "view2");
+          // Get user input
+          String userInput = request.getParameter("key");
+          // Look up resource to redirect to from the user input
+          String redirectValue = lookupTable.getOrDefault(userInput, "/Resource1");
+          // return the new model and view
+          response.sendRedirect(redirectValue);
+        }
+        ```
+      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/inject/rule-FileDisclosureSpringFramework.yml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: spring-file-disclosure-model-and-view-sink
+          as: sink
+      on:
+      - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+      rules:
+        - id: spring-file-disclosure-model-and-view-sink
+          message: ModelAndView called with untrusted path
+          severity: NOTE
+          languages:
+            - java
+          patterns:
+            - pattern-either:
+                - pattern: |
+                    new org.springframework.web.servlet.ModelAndView($UNTRUSTED, ...);
+                - pattern: |
+                    $MVC = new org.springframework.web.servlet.ModelAndView();
+                    ...
+                    $MVC.setViewName($UNTRUSTED);
+                - pattern: new org.apache.struts.action.ActionForward($UNTRUSTED)
+                - pattern: new org.apache.struts.action.ActionForward($UNTRUSTED, $SND)
+                - pattern: new org.apache.struts.action.ActionForward($FST, $UNTRUSTED, $TRD)
+                - pattern: new org.apache.struts.action.ActionForward($FST, $SND, $UNTRUSTED)
+                - pattern: |
+                    $ACTION = new org.apache.struts.action.ActionForward();
+                    ...
+                    $ACTION.setPath($UNTRUSTED)
+
+  - id: stacktrace-printing-in-error-message
+    severity: WARNING
+    message: >-
+      The application was found printing stack information to the default system output.
+      As stack trace data may contain sensitive information, it is recommended that the
+      output be logged using a secure logging framework. Log files should also be protected
+      with proper operating system permission levels.
+    metadata:
+      cwe: CWE-209
+      short-description: Information exposure through an error message
+      provenance: https://semgrep.dev/r/gitlab.find_sec_bugs.INFORMATION_EXPOSURE_THROUGH_AN_ERROR_MESSAGE-1
+    languages:
+      - java
+    pattern-either:
+      - pattern: |
+          (java.lang.Throwable $E).printStackTrace();
