@@ -42,7 +42,7 @@ open class NullAssumptionAnalysis(graph: JIRGraph) : BackwardFlowAnalysis<JIRIns
     override fun flowThrough(
         instIn: NullAnalysisMap?,
         ins: JIRInst,
-        instOut: NullAnalysisMap
+        instOut: NullAnalysisMap,
     ) {
         val out = instIn?.let { NullAnalysisMap(it) } ?: NullAnalysisMap()
 

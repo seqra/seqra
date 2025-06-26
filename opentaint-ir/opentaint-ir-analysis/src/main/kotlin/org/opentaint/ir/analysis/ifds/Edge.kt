@@ -6,7 +6,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 data class Edge<out Fact, out Statement : CommonInst>(
     val from: Vertex<Fact, Statement>,
     val to: Vertex<Fact, Statement>,
-)  {
+) {
     init {
         require(from.method == to.method)
     }

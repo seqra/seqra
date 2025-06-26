@@ -26,7 +26,7 @@ enum class Flow {
 private fun <NODE, T> JIRBytecodeGraph<NODE>.newScope(
     direction: FlowAnalysisDirection,
     entryFlow: T,
-    isForward: Boolean
+    isForward: Boolean,
 ): List<FlowEntry<NODE, T>> {
     val size = toList().size
     val s = ArrayDeque<FlowEntry<NODE, T>>(size)
@@ -125,7 +125,7 @@ private fun <NODE, T> JIRBytecodeGraph<NODE>.newScope(
 
 private fun <NODE, T> FlowEntry<NODE, T>.visitEntry(
     instructions: List<NODE>,
-    visited: MutableMap<NODE, FlowEntry<NODE, T>>
+    visited: MutableMap<NODE, FlowEntry<NODE, T>>,
 ): Array<FlowEntry<NODE, T>> {
     val n = instructions.size
     return Array(n) {
@@ -137,7 +137,7 @@ private fun <NODE, T> FlowEntry<NODE, T>.visitEntry(
 
 private fun <NODE, T> NODE.toEntry(
     pred: FlowEntry<NODE, T>?,
-    visited: MutableMap<NODE, FlowEntry<NODE, T>>
+    visited: MutableMap<NODE, FlowEntry<NODE, T>>,
 ): FlowEntry<NODE, T> {
     // either we reach a new node or a merge node, the latter one is rare
     // so put and restore should be better that a lookup
@@ -333,7 +333,7 @@ abstract class FlowAnalysisImpl<NODE, T>(graph: JIRBytecodeGraph<NODE>) : Abstra
     open fun runAnalysis(
         direction: FlowAnalysisDirection,
         inFlow: Map<NODE, T?>,
-        outFlow: Map<NODE, T?>
+        outFlow: Map<NODE, T?>,
     ): Int {
         val scope = graph.newScope(direction, newEntryFlow(), isForward).also {
             it.initFlow()

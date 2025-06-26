@@ -116,7 +116,7 @@ internal data class SplitRegex(val matchedParts: List<String>, val unmatchedPart
 
 private inline fun ClassMatcher.extractAlternativesToIfRequired(
     classMatcherModifier: (ClassMatcher, NameMatcher) -> ClassMatcher,
-    namePatternMatcher: NamePatternMatcher
+    namePatternMatcher: NamePatternMatcher,
 ): List<ClassMatcher> {
     val alternatives = namePatternMatcher.pattern.extractAlternatives()
 

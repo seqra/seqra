@@ -8,7 +8,6 @@ import org.opentaint.ir.analysis.util.removeTrailingElementAccessors
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
-import org.opentaint.ir.api.jvm.cfg.JIRInt
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.isAssignable
 import org.opentaint.ir.taint.configuration.And
@@ -16,7 +15,6 @@ import org.opentaint.ir.taint.configuration.AnnotationType
 import org.opentaint.ir.taint.configuration.ConditionVisitor
 import org.opentaint.ir.taint.configuration.ConstantEq
 import org.opentaint.ir.taint.configuration.ConstantGt
-import org.opentaint.ir.taint.configuration.ConstantIntValue
 import org.opentaint.ir.taint.configuration.ConstantLt
 import org.opentaint.ir.taint.configuration.ConstantMatches
 import org.opentaint.ir.taint.configuration.ConstantTrue
@@ -80,7 +78,7 @@ open class BasicConditionEvaluator(
 
     override fun visit(condition: ConstantLt): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
-           return value.ltConstant(condition.value)
+            return value.ltConstant(condition.value)
         }
         return false
     }

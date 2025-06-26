@@ -39,7 +39,7 @@ data class SerializedTaintMethodSink(
     val ruleNote: String,
     val cwe: List<Int>,
     override val methodInfo: FunctionMatcher,
-    val condition: Condition
+    val condition: Condition,
 ) : SerializedTaintConfigurationItem
 
 @Serializable

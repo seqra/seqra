@@ -6,8 +6,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstRef
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.impl.cfg.JIRBlockGraphImpl
-import java.util.*
-import kotlin.collections.ArrayDeque
+import java.util.BitSet
 
 class ReachingDefinitionsAnalysis(val blockGraph: JIRBlockGraphImpl) {
     val jIRGraph get() = blockGraph.jIRGraph

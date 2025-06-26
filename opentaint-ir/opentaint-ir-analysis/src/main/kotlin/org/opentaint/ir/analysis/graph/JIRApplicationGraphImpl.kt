@@ -2,9 +2,9 @@ package org.opentaint.ir.analysis.graph
 
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
-import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.impl.features.SyncUsagesExtension
 
 /**
