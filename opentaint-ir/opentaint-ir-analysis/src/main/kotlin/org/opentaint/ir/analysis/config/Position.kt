@@ -56,14 +56,14 @@ class CallPositionToValueResolver(
 context(Traits<CommonMethod, CommonInst>)
 class EntryPointPositionToValueResolver(
     private val method: CommonMethod,
-    private val cp: CommonProject,
+    private val project: CommonProject,
 ) : PositionResolver<Maybe<CommonValue>> {
     override fun resolve(position: Position): Maybe<CommonValue> = when (position) {
         This -> Maybe.some(method.thisInstance)
 
         is Argument -> {
             val p = method.parameters[position.index]
-            cp.getArgument(p).toMaybe()
+            project.getArgument(p).toMaybe()
         }
 
         AnyArgument, Result, ResultAnyElement -> error("Unexpected $position")
@@ -73,14 +73,14 @@ class EntryPointPositionToValueResolver(
 context(Traits<CommonMethod, CommonInst>)
 class EntryPointPositionToAccessPathResolver(
     private val method: CommonMethod,
-    private val cp: CommonProject,
+    private val project: CommonProject,
 ) : PositionResolver<Maybe<AccessPath>> {
     override fun resolve(position: Position): Maybe<AccessPath> = when (position) {
         This -> method.thisInstance.toPathOrNull().toMaybe()
 
         is Argument -> {
             val p = method.parameters[position.index]
-            cp.getArgument(p)?.toPathOrNull().toMaybe()
+            project.getArgument(p)?.toPathOrNull().toMaybe()
         }
 
         AnyArgument, Result, ResultAnyElement -> error("Unexpected $position")

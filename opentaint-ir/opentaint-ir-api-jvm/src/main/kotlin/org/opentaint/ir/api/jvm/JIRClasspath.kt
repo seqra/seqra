@@ -46,7 +46,7 @@ interface JIRClasspath : Closeable, CommonProject {
      *
      * @return class or interface or null if there is no such class found in locations
      */
-    override fun findTypeOrNull(name: String): JIRType?
+    fun findTypeOrNull(name: String): JIRType?
 
     fun classTypeOf(
         jIRClass: JIRClassOrInterface,

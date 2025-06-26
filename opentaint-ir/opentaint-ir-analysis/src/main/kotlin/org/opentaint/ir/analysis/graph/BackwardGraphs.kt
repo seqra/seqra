@@ -2,8 +2,10 @@
 
 package org.opentaint.ir.analysis.graph
 
+import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.CommonProject
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
+import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
@@ -11,7 +13,9 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 
 private class BackwardApplicationGraphImpl<Method, Statement>(
     val forward: ApplicationGraph<Method, Statement>,
-) : ApplicationGraph<Method, Statement> {
+) : ApplicationGraph<Method, Statement>
+    where Method : CommonMethod,
+          Statement : CommonInst {
 
     override val project: CommonProject
         get() = forward.project
@@ -30,6 +34,8 @@ private class BackwardApplicationGraphImpl<Method, Statement>(
 
 @Suppress("UNCHECKED_CAST")
 val <Method, Statement> ApplicationGraph<Method, Statement>.reversed: ApplicationGraph<Method, Statement>
+    where Method : CommonMethod,
+          Statement : CommonInst
     get() = when (this) {
         is JIRApplicationGraph -> this.reversed as ApplicationGraph<Method, Statement>
         is BackwardApplicationGraphImpl -> this.forward

@@ -31,7 +31,6 @@ import org.opentaint.ir.api.common.ext.callExpr
 import org.opentaint.ir.api.jvm.JIRArrayType
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.cfg.JIRArgument
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
@@ -91,8 +90,8 @@ class ForwardNpeFlowFunctions<Method, Statement>(
 
         // Possibly null arguments:
         for (p in method.parameters.filter { it.isNullable != false }) {
-            val t = cp.findTypeOrNull(p.type.typeName)!!
-            val arg = JIRArgument.of(p.index, p.name, t as JIRType)
+            val t = (cp as JIRClasspath).findTypeOrNull(p.type.typeName)!!
+            val arg = JIRArgument.of(p.index, p.name, t)
             val path = arg.toPath()
             add(Tainted(path, TaintMark.NULLNESS))
         }
