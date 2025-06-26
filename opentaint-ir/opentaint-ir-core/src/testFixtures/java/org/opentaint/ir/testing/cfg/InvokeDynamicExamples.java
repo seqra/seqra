@@ -82,6 +82,29 @@ public class InvokeDynamicExamples {
         return expected.equals(actual) ? "OK" : "BAD";
     }
 
+    static class A {
+        private final String prefix;
+
+        public A(String prefix) {
+            this.prefix = prefix;
+        }
+
+        @Override
+        public String toString() {
+            return prefix + "456";
+        }
+    }
+
+    private static String invokeDynamicConstructor(Function<String, A> f){
+        A a = f.apply("123");
+        return a.toString();
+    }
+
+    public static String testInvokeDynamicConstructor() {
+        final String result = invokeDynamicConstructor(A::new);
+        return "123456".equals(result) ? "OK" : "BAD";
+    }
+
     public static class CollectionWithInnerMap {
         private final Map<String, String> innerMap;
 

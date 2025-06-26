@@ -689,6 +689,7 @@ data class JIRLambdaExpr(
     val callSiteArgTypes: List<JIRType>,
     val callSiteReturnType: JIRType,
     val callSiteArgs: List<JIRValue>,
+    val isNewInvokeSpecial: Boolean,
 ) : JIRCallExpr {
 
     override val method get() = bsmRef.method
