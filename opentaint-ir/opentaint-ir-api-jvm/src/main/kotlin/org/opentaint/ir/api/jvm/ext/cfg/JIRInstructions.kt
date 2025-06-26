@@ -53,7 +53,7 @@ object FieldRefVisitor :
         TODO("Not yet implemented")
     }
 
-    override fun defaultVisitCommonInst(inst: CommonInst<*, *>): JIRFieldRef? {
+    override fun defaultVisitCommonInst(inst: CommonInst): JIRFieldRef? {
         TODO("Not yet implemented")
     }
 
@@ -78,7 +78,7 @@ object ArrayAccessVisitor :
         TODO("Not yet implemented")
     }
 
-    override fun defaultVisitCommonInst(inst: CommonInst<*, *>): JIRArrayAccess? {
+    override fun defaultVisitCommonInst(inst: CommonInst): JIRArrayAccess? {
         TODO("Not yet implemented")
     }
 
@@ -96,7 +96,7 @@ object ArrayAccessVisitor :
 }
 
 object CallExprVisitor : JIRInstVisitor.Default<JIRCallExpr?> {
-    override fun defaultVisitCommonInst(inst: CommonInst<*, *>): JIRCallExpr? {
+    override fun defaultVisitCommonInst(inst: CommonInst): JIRCallExpr? {
         TODO("Not yet implemented")
     }
 

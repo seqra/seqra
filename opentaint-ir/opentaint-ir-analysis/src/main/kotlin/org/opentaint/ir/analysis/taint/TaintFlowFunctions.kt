@@ -48,6 +48,7 @@ import org.opentaint.ir.taint.configuration.TaintPassThrough
 
 private val logger = mu.KotlinLogging.logger {}
 
+// TODO: replace <Method> with CommonMethod, <Statement> with CommonInst
 context(Traits<Method, Statement>)
 class ForwardTaintFlowFunctions<Method, Statement>(
     private val graph: ApplicationGraph<Method, Statement>,
@@ -62,8 +63,8 @@ class ForwardTaintFlowFunctions<Method, Statement>(
         }
     },
 ) : FlowFunctions<TaintDomainFact, Method, Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+    where Method : CommonMethod,
+          Statement : CommonInst {
 
     private val cp: CommonProject
         get() = graph.project
@@ -163,7 +164,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
         }
         check(fact is Tainted)
 
-        if (current is CommonAssignInst<*, *>) {
+        if (current is CommonAssignInst) {
             when (val rhv = current.rhv) {
                 }
 
@@ -420,7 +421,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
 
         }
 
-        if (callStatement is CommonAssignInst<*, *>) {
+        if (callStatement is CommonAssignInst) {
             // Possibly tainted lhv:
             if (fact.variable.startsWith(callStatement.lhv.toPathOrNull())) {
                 return@FlowFunction emptyList() // Overridden by rhv
@@ -435,7 +436,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
         callStatement: Statement,
         calleeStart: Statement,
     ) = FlowFunction<TaintDomainFact> { fact ->
-        val callee = calleeStart.location.method
+        val callee = graph.methodOf(calleeStart)
 
         if (fact == TaintZeroFact) {
             return@FlowFunction obtainPossibleStartFacts(callee)
@@ -483,7 +484,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
 
         val callExpr = callStatement.callExpr
             ?: error("Call statement should have non-null callExpr")
-        val callee = exitStatement.location.method
+        val callee = graph.methodOf(exitStatement)
 
         buildSet {
             // Transmit facts on arguments (from 'formal' back to 'actual'), if they are passed by-ref:
@@ -518,7 +519,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
             }
 
             // Transmit facts on return value (from 'returnValue' to 'lhv'):
-            if (exitStatement is CommonReturnInst<*, *> && callStatement is CommonAssignInst<*, *>) {
+            if (exitStatement is CommonReturnInst && callStatement is CommonAssignInst) {
                 // Note: returnValue can be null here in some weird cases, e.g. in lambda.
                 exitStatement.returnValue?.let { returnValue ->
                     addAll(transmitTaintReturn(fact, from = returnValue, to = callStatement.lhv))
@@ -532,8 +533,8 @@ context(Traits<Method, Statement>)
 class BackwardTaintFlowFunctions<Method, Statement>(
     private val graph: ApplicationGraph<Method, Statement>,
 ) : FlowFunctions<TaintDomainFact, Method, Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+    where Method : CommonMethod,
+          Statement : CommonInst {
 
     private val cp: CommonProject
         get() = graph.project
@@ -588,7 +589,7 @@ class BackwardTaintFlowFunctions<Method, Statement>(
         }
         check(fact is Tainted)
 
-        if (current is CommonAssignInst<*, *>) {
+        if (current is CommonAssignInst) {
             transmitTaintBackwardAssign(fact, from = current.lhv, to = current.rhv)
         } else {
             transmitTaintBackwardNormal(fact, current)
@@ -676,7 +677,7 @@ class BackwardTaintFlowFunctions<Method, Statement>(
 
         }
 
-        if (callStatement is CommonAssignInst<*, *>) {
+        if (callStatement is CommonAssignInst) {
             // Possibly tainted rhv:
             if (fact.variable.startsWith(callStatement.rhv.toPathOrNull())) {
                 return@FlowFunction emptyList() // Overridden by lhv
@@ -691,7 +692,7 @@ class BackwardTaintFlowFunctions<Method, Statement>(
         callStatement: Statement,
         calleeStart: Statement,
     ) = FlowFunction<TaintDomainFact> { fact ->
-        val callee = calleeStart.location.method
+        val callee = graph.methodOf(calleeStart)
 
         if (fact == TaintZeroFact) {
             return@FlowFunction obtainPossibleStartFacts(callee)
@@ -726,7 +727,7 @@ class BackwardTaintFlowFunctions<Method, Statement>(
             }
 
             // Transmit facts on return value (from 'returnValue' to 'lhv'):
-            if (calleeStart is CommonReturnInst<*, *> && callStatement is CommonAssignInst<*, *>) {
+            if (calleeStart is CommonReturnInst && callStatement is CommonAssignInst) {
                 // Note: returnValue can be null here in some weird cases, e.g. in lambda.
                 calleeStart.returnValue?.let { returnValue ->
                     addAll(
@@ -753,7 +754,7 @@ class BackwardTaintFlowFunctions<Method, Statement>(
 
         val callExpr = callStatement.callExpr
             ?: error("Call statement should have non-null callExpr")
-        val callee = exitStatement.location.method
+        val callee = graph.methodOf(exitStatement)
 
         buildSet {
             // Transmit facts on arguments (from 'formal' back to 'actual'), if they are passed by-ref:

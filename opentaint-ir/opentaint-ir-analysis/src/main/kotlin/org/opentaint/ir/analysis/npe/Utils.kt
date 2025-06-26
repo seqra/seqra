@@ -11,7 +11,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRLengthExpr
 
-context(Traits<CommonMethod<*, *>, CommonInst<*, *>>)
+context(Traits<CommonMethod, CommonInst>)
 internal fun AccessPath?.isDereferencedAt(expr: CommonExpr): Boolean {
     if (this == null) {
         return false
@@ -38,8 +38,8 @@ internal fun AccessPath?.isDereferencedAt(expr: CommonExpr): Boolean {
         }
 }
 
-context(Traits<CommonMethod<*, *>, CommonInst<*, *>>)
-internal fun AccessPath?.isDereferencedAt(inst: CommonInst<*, *>): Boolean {
+context(Traits<CommonMethod, CommonInst>)
+internal fun AccessPath?.isDereferencedAt(inst: CommonInst): Boolean {
     if (this == null) return false
     return inst.operands.any { isDereferencedAt(it) }
 }

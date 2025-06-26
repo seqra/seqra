@@ -5,7 +5,6 @@ import org.opentaint.ir.analysis.graph.JIRApplicationGraphImpl
 import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
 import org.opentaint.ir.analysis.npe.NpeManager
 import org.opentaint.ir.analysis.taint.TaintVulnerability
-import org.opentaint.ir.analysis.util.JIRTraits
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.constructors
@@ -21,7 +20,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
-import java.util.*
+import java.util.StringTokenizer
 import java.util.stream.Stream
 import kotlin.time.Duration.Companion.seconds
 
@@ -181,7 +180,7 @@ class IfdsNpeTest : BaseAnalysisTest() {
         testOneMethod<NpeExamples>("nullAssignmentToCopy", emptyList())
     }
 
-    private fun findSinks(method: JIRMethod): List<TaintVulnerability<JIRMethod, JIRInst>> {
+    private fun findSinks(method: JIRMethod): List<TaintVulnerability<JIRInst>> {
         val unitResolver = SingletonUnitResolver
         val manager = NpeManager(graph, unitResolver)
         return manager.analyze(listOf(method), timeout = 30.seconds)

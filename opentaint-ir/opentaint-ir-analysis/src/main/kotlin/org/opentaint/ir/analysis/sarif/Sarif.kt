@@ -19,6 +19,7 @@ import io.github.detekt.sarif4k.Version
 import org.opentaint.ir.analysis.ifds.Vertex
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 
 private const val SARIF_SCHEMA =
     "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
@@ -26,14 +27,12 @@ private const val OPENTAINT-IR_INFORMATION_URI =
     "https://github.com/Opentaint/opentaint-ir/blob/develop/opentaint-ir-analysis/README.md"
 private const val DEFAULT_PATH_COUNT = 3
 
-fun <Method, Statement> sarifReportFromVulnerabilities(
-    vulnerabilities: List<VulnerabilityInstance<*, Method, Statement>>,
+fun <Statement : CommonInst> sarifReportFromVulnerabilities(
+    vulnerabilities: List<VulnerabilityInstance<*, Statement>>,
     maxPathsCount: Int = DEFAULT_PATH_COUNT,
     isDeduplicate: Boolean = true,
     sourceFileResolver: SourceFileResolver<Statement> = SourceFileResolver { null },
-): SarifSchema210
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+): SarifSchema210 {
     return SarifSchema210(
         schema = SARIF_SCHEMA,
         version = Version.The210,
@@ -72,15 +71,13 @@ fun <Method, Statement> sarifReportFromVulnerabilities(
     )
 }
 
-private val CommonMethod<*, *>.fullyQualifiedName: String
+private val CommonMethod.fullyQualifiedName: String
     get() = "${enclosingClass.name}#${name}"
 
-private fun <Method, Statement> instToSarifLocation(
+private fun <Statement : CommonInst> instToSarifLocation(
     inst: Statement,
     sourceFileResolver: SourceFileResolver<Statement>,
-): Location?
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+): Location? {
     val sourceLocation = sourceFileResolver.resolve(inst) ?: return null
     return Location(
         physicalLocation = PhysicalLocation(
@@ -88,24 +85,22 @@ private fun <Method, Statement> instToSarifLocation(
                 uri = sourceLocation
             ),
             region = Region(
-                startLine = inst.location.lineNumber.toLong()
+                startLine = if (inst is JIRInst) inst.location.lineNumber.toLong() else null,
             )
         ),
         logicalLocations = listOf(
             LogicalLocation(
-                fullyQualifiedName = inst.location.method.fullyQualifiedName
+                fullyQualifiedName = if (inst is JIRInst) inst.location.method.fullyQualifiedName else null
             )
         )
     )
 }
 
-private fun <Method, Statement> traceToSarifCodeFlow(
-    trace: List<Vertex<*, Method, Statement>>,
+private fun <Statement : CommonInst> traceToSarifCodeFlow(
+    trace: List<Vertex<*, Statement>>,
     sourceFileResolver: SourceFileResolver<Statement>,
     isDeduplicate: Boolean = true,
-): CodeFlow
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+): CodeFlow {
     return CodeFlow(
         threadFlows = listOf(
             ThreadFlow(

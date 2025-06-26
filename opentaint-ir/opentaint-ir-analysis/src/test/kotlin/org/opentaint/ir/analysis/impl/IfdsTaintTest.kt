@@ -20,7 +20,7 @@ class IfdsTaintTest : BaseAnalysisTest() {
         testOneMethod<TaintExamples>("bad")
     }
 
-    private fun findSinks(method: JIRMethod): List<TaintVulnerability<JIRMethod, JIRInst>> {
+    private fun findSinks(method: JIRMethod): List<TaintVulnerability<JIRInst>> {
         val unitResolver = SingletonUnitResolver
         val manager = TaintManager(graph, unitResolver)
         return manager.analyze(listOf(method), timeout = 3000.seconds)

@@ -28,7 +28,7 @@ internal fun AccessPath.removeTrailingElementAccessors(): AccessPath {
     return AccessPath(value, accesses.subList(0, index))
 }
 
-fun Runner<*, *, *>.getPathEdges(): Set<Edge<*, *, *>> = when (this) {
+fun Runner<*, *, *>.getPathEdges(): Set<Edge<*, *>> = when (this) {
     is UniRunner<*, *, *, *> -> pathEdges
     is TaintBidiRunner<*, *> -> forwardRunner.getPathEdges() + backwardRunner.getPathEdges()
     else -> error("Cannot extract pathEdges for $this")
@@ -45,7 +45,7 @@ abstract class AbstractFullCommonExprSetCollector :
         expr.operands.forEach { it.accept(this) }
     }
 
-    override fun defaultVisitCommonInst(inst: CommonInst<*, *>) {
+    override fun defaultVisitCommonInst(inst: CommonInst) {
         inst.operands.forEach { it.accept(this) }
     }
 }
@@ -69,7 +69,7 @@ val CommonExpr.values: Set<CommonValue>
         return resolver.result
     }
 
-val CommonInst<*, *>.values: Set<CommonValue>
+val CommonInst.values: Set<CommonValue>
     get() {
         val resolver = CommonValueResolver()
         accept(resolver)

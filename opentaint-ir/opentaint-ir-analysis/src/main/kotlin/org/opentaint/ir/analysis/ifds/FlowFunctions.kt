@@ -8,8 +8,8 @@ fun interface FlowFunction<Fact> {
 }
 
 interface FlowFunctions<Fact, Method, Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+    where Method : CommonMethod,
+          Statement : CommonInst {
 
     /**
      * Method for obtaining initial domain facts at the method entrypoint.

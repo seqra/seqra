@@ -16,36 +16,37 @@ import java.util.concurrent.ConcurrentHashMap
 private val logger = mu.KotlinLogging.logger {}
 
 interface Runner<Fact, Method, Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+    where Method : CommonMethod,
+          Statement : CommonInst {
 
+    val graph: ApplicationGraph<Method, Statement>
     val unit: UnitType
 
     suspend fun run(startMethods: List<Method>)
-    fun submitNewEdge(edge: Edge<Fact, Method, Statement>, reason: Reason<Fact, Method, Statement>)
-    fun getIfdsResult(): IfdsResult<Fact, Method, Statement>
+    fun submitNewEdge(edge: Edge<Fact, Statement>, reason: Reason<Fact, Statement>)
+    fun getIfdsResult(): IfdsResult<Fact, Statement>
 }
 
 class UniRunner<Fact, Event, Method, Statement>(
-    private val graph: ApplicationGraph<Method, Statement>,
-    private val analyzer: Analyzer<Fact, Event, Method, Statement>,
     private val manager: Manager<Fact, Event, Method, Statement>,
+    override val graph: ApplicationGraph<Method, Statement>,
+    private val analyzer: Analyzer<Fact, Event, Method, Statement>,
     private val unitResolver: UnitResolver<Method>,
     override val unit: UnitType,
     private val zeroFact: Fact?,
 ) : Runner<Fact, Method, Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+    where Method : CommonMethod,
+          Statement : CommonInst {
 
     private val flowSpace: FlowFunctions<Fact, Method, Statement> = analyzer.flowFunctions
-    private val workList: Channel<Edge<Fact, Method, Statement>> = Channel(Channel.UNLIMITED)
-    internal val pathEdges: MutableSet<Edge<Fact, Method, Statement>> = ConcurrentHashMap.newKeySet()
+    private val workList: Channel<Edge<Fact, Statement>> = Channel(Channel.UNLIMITED)
+    internal val pathEdges: MutableSet<Edge<Fact, Statement>> = ConcurrentHashMap.newKeySet()
     private val reasons =
-        ConcurrentHashMap<Edge<Fact, Method, Statement>, MutableSet<Reason<Fact, Method, Statement>>>()
+        ConcurrentHashMap<Edge<Fact, Statement>, MutableSet<Reason<Fact, Statement>>>()
 
-    private val summaryEdges: MutableMap<Vertex<Fact, Method, Statement>, MutableSet<Vertex<Fact, Method, Statement>>> =
+    private val summaryEdges: MutableMap<Vertex<Fact, Statement>, MutableSet<Vertex<Fact, Statement>>> =
         hashMapOf()
-    private val callerPathEdgeOf: MutableMap<Vertex<Fact, Method, Statement>, MutableSet<Edge<Fact, Method, Statement>>> =
+    private val callerPathEdgeOf: MutableMap<Vertex<Fact, Statement>, MutableSet<Edge<Fact, Statement>>> =
         hashMapOf()
 
     private val queueIsEmpty = QueueEmptinessChanged(runner = this, isEmpty = true)
@@ -71,15 +72,15 @@ class UniRunner<Fact, Event, Method, Statement>(
         }
     }
 
-    override fun submitNewEdge(edge: Edge<Fact, Method, Statement>, reason: Reason<Fact, Method, Statement>) {
+    override fun submitNewEdge(edge: Edge<Fact, Statement>, reason: Reason<Fact, Statement>) {
         propagate(edge, reason)
     }
 
     private fun propagate(
-        edge: Edge<Fact, Method, Statement>,
-        reason: Reason<Fact, Method, Statement>,
+        edge: Edge<Fact, Statement>,
+        reason: Reason<Fact, Statement>,
     ): Boolean {
-        require(unitResolver.resolve(edge.method) == unit) {
+        require(unitResolver.resolve(graph.methodOf(edge.from.statement)) == unit) {
             "Propagated edge must be in the same unit"
         }
 
@@ -91,7 +92,11 @@ class UniRunner<Fact, Event, Method, Statement>(
             val doPrintZero = false
             if (!doPrintOnlyForward || edge.from.statement is JIRNoopInst) {
                 if (doPrintZero || edge.to.fact != TaintZeroFact) {
-                    logger.trace { "Propagating edge=$edge in method=${edge.method.name} with reason=${reason}" }
+                    logger.trace {
+                        "Propagating edge=${edge} in method=${
+                            graph.methodOf(edge.from.statement).name
+                        } with reason=${reason}"
+                    }
                 }
             }
 
@@ -125,7 +130,7 @@ class UniRunner<Fact, Event, Method, Statement>(
         get() = unitResolver.resolve(this) != unit
 
     private fun tabulationAlgorithmStep(
-        currentEdge: Edge<Fact, Method, Statement>,
+        currentEdge: Edge<Fact, Statement>,
         scope: CoroutineScope,
     ) {
         val (startVertex, currentVertex) = currentEdge
@@ -133,7 +138,7 @@ class UniRunner<Fact, Event, Method, Statement>(
 
         val currentCallees = graph.callees(current).toList()
         val currentIsCall = current.callExpr != null
-        val currentIsExit = current in graph.exitPoints(current.location.method)
+        val currentIsExit = current in graph.exitPoints(graph.methodOf(current))
 
         if (currentIsCall) {
             // Propagate through the call-to-return-site edge:
@@ -216,8 +221,8 @@ class UniRunner<Fact, Event, Method, Statement>(
     }
 
     private fun handleSummaryEdge(
-        currentEdge: Edge<Fact, Method, Statement>,
-        summaryEdge: Edge<Fact, Method, Statement>,
+        currentEdge: Edge<Fact, Statement>,
+        summaryEdge: Edge<Fact, Statement>,
     ) {
         val (startVertex, currentVertex) = currentEdge
         val caller = currentVertex.statement
@@ -242,7 +247,7 @@ class UniRunner<Fact, Event, Method, Statement>(
         return resultFacts
     }
 
-    override fun getIfdsResult(): IfdsResult<Fact, Method, Statement> {
+    override fun getIfdsResult(): IfdsResult<Fact, Statement> {
         val facts = getFinalFacts()
         return IfdsResult(pathEdges, facts, reasons, zeroFact)
     }

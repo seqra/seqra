@@ -46,16 +46,16 @@ open class TaintManager<Method, Statement>(
     protected val unitResolver: UnitResolver<Method>,
     private val useBidiRunner: Boolean = false,
     private val getConfigForMethod: (ForwardTaintFlowFunctions<Method, Statement>.(Method) -> List<TaintConfigurationItem>?)? = null,
-) : Manager<TaintDomainFact, TaintEvent<Method, Statement>, Method, Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+) : Manager<TaintDomainFact, TaintEvent<Statement>, Method, Statement>
+    where Method : CommonMethod,
+          Statement : CommonInst {
 
     protected val methodsForUnit: MutableMap<UnitType, MutableSet<Method>> = hashMapOf()
     val runnerForUnit: MutableMap<UnitType, TaintRunner<Method, Statement>> = hashMapOf()
     private val queueIsEmpty = ConcurrentHashMap<UnitType, Boolean>()
 
-    private val summaryEdgesStorage = SummaryStorageImpl<TaintSummaryEdge<Method, Statement>, Method, Statement>()
-    private val vulnerabilitiesStorage = SummaryStorageImpl<TaintVulnerability<Method, Statement>, Method, Statement>()
+    private val summaryEdgesStorage = SummaryStorageImpl<TaintSummaryEdge<Statement>>()
+    private val vulnerabilitiesStorage = SummaryStorageImpl<TaintVulnerability<Statement>>()
 
     private val stopRendezvous = Channel<Unit>(Channel.RENDEZVOUS)
 
@@ -71,14 +71,15 @@ open class TaintManager<Method, Statement>(
         val runner = if (useBidiRunner) {
             TaintBidiRunner(
                 manager = this@TaintManager,
+                graph = graph,
                 unitResolver = unitResolver,
                 unit = unit,
                 { manager ->
                     val analyzer = TaintAnalyzer(graph, getConfigForMethod)
                     UniRunner(
+                        manager = manager,
                         graph = graph,
                         analyzer = analyzer,
-                        manager = manager,
                         unitResolver = unitResolver,
                         unit = unit,
                         zeroFact = TaintZeroFact
@@ -87,9 +88,9 @@ open class TaintManager<Method, Statement>(
                 { manager ->
                     val analyzer = BackwardTaintAnalyzer(graph)
                     UniRunner(
+                        manager = manager,
                         graph = graph.reversed,
                         analyzer = analyzer,
-                        manager = manager,
                         unitResolver = unitResolver,
                         unit = unit,
                         zeroFact = TaintZeroFact
@@ -99,9 +100,9 @@ open class TaintManager<Method, Statement>(
         } else {
             val analyzer = TaintAnalyzer(graph, getConfigForMethod)
             UniRunner(
+                manager = this@TaintManager,
                 graph = graph,
                 analyzer = analyzer,
-                manager = this@TaintManager,
                 unitResolver = unitResolver,
                 unit = unit,
                 zeroFact = TaintZeroFact
@@ -115,7 +116,8 @@ open class TaintManager<Method, Statement>(
     private fun getAllCallees(method: Method): Set<Method> {
         val result: MutableSet<Method> = hashSetOf()
         for (inst in method.flowGraph().instructions) {
-            result += graph.callees(inst)
+            @Suppress("UNCHECKED_CAST")
+            result += graph.callees(inst as Statement)
         }
         return result
     }
@@ -137,7 +139,7 @@ open class TaintManager<Method, Statement>(
     fun analyze(
         startMethods: List<Method>,
         timeout: Duration = 3600.seconds,
-    ): List<TaintVulnerability<Method, Statement>> = runBlocking(Dispatchers.Default) {
+    ): List<TaintVulnerability<Statement>> = runBlocking(Dispatchers.Default) {
         val timeStart = TimeSource.Monotonic.markNow()
 
         // Add start methods:
@@ -229,7 +231,7 @@ open class TaintManager<Method, Statement>(
         foundVulnerabilities
     }
 
-    override fun handleEvent(event: TaintEvent<Method, Statement>) {
+    override fun handleEvent(event: TaintEvent<Statement>) {
         when (event) {
             is NewSummaryEdge -> {
                 summaryEdgesStorage.add(TaintSummaryEdge(event.edge))
@@ -240,7 +242,7 @@ open class TaintManager<Method, Statement>(
             }
 
             is EdgeForOtherRunner -> {
-                val method = event.edge.method
+                val method = graph.methodOf(event.edge.from.statement)
                 val unit = unitResolver.resolve(method)
                 val otherRunner = runnerForUnit[unit] ?: run {
                     // error("No runner for $unit")
@@ -269,7 +271,7 @@ open class TaintManager<Method, Statement>(
     override fun subscribeOnSummaryEdges(
         method: Method,
         scope: CoroutineScope,
-        handler: (TaintEdge<Method, Statement>) -> Unit,
+        handler: (TaintEdge<Statement>) -> Unit,
     ) {
         summaryEdgesStorage
             .getFacts(method)
@@ -278,19 +280,20 @@ open class TaintManager<Method, Statement>(
     }
 
     fun vulnerabilityTraceGraph(
-        vulnerability: TaintVulnerability<Method, Statement>,
-    ): TraceGraph<TaintDomainFact, Method, Statement> {
-        val result = getIfdsResultForMethod(vulnerability.method)
+        vulnerability: TaintVulnerability<Statement>,
+    ): TraceGraph<TaintDomainFact, Statement> {
+        @Suppress("UNCHECKED_CAST")
+        val result = getIfdsResultForMethod(vulnerability.method as Method)
         val initialGraph = result.buildTraceGraph(vulnerability.sink)
         val resultGraph = initialGraph.copy(unresolvedCrossUnitCalls = emptyMap())
 
         val resolvedCrossUnitEdges =
-            hashSetOf<Pair<Vertex<TaintDomainFact, Method, Statement>, Vertex<TaintDomainFact, Method, Statement>>>()
+            hashSetOf<Pair<Vertex<TaintDomainFact, Statement>, Vertex<TaintDomainFact, Statement>>>()
         val unresolvedCrossUnitCalls = initialGraph.unresolvedCrossUnitCalls.entries.toMutableList()
         while (unresolvedCrossUnitCalls.isNotEmpty()) {
             val (caller, callees) = unresolvedCrossUnitCalls.removeLast()
 
-            val unresolvedCallees = hashSetOf<Vertex<TaintDomainFact, Method, Statement>>()
+            val unresolvedCallees = hashSetOf<Vertex<TaintDomainFact, Statement>>()
             for (callee in callees) {
                 if (resolvedCrossUnitEdges.add(caller to callee)) {
                     unresolvedCallees.add(callee)
@@ -299,7 +302,8 @@ open class TaintManager<Method, Statement>(
 
             if (unresolvedCallees.isEmpty()) continue
 
-            val callerResult = getIfdsResultForMethod(caller.method)
+            @Suppress("UNCHECKED_CAST")
+            val callerResult = getIfdsResultForMethod(caller.method as Method)
             val callerGraph = callerResult.buildTraceGraph(caller)
             resultGraph.mergeWithUpGraph(callerGraph, unresolvedCallees)
             unresolvedCrossUnitCalls += callerGraph.unresolvedCrossUnitCalls.entries
@@ -308,7 +312,7 @@ open class TaintManager<Method, Statement>(
         return resultGraph
     }
 
-    private fun getIfdsResultForMethod(method: Method): IfdsResult<TaintDomainFact, Method, Statement> {
+    private fun getIfdsResultForMethod(method: Method): IfdsResult<TaintDomainFact, Statement> {
         val unit = unitResolver.resolve(method)
         val runner = runnerForUnit[unit] ?: error("No runner for $unit")
         return runner.getIfdsResult()

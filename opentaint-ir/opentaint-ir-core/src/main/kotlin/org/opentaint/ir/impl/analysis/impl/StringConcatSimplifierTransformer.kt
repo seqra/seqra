@@ -17,7 +17,7 @@ class StringConcatSimplifierTransformer(
     private val list: JIRInstList<JIRInst>,
 ) : JIRInstVisitor.Default<JIRInst> {
 
-    override fun defaultVisitCommonInst(inst: CommonInst<*, *>): JIRInst {
+    override fun defaultVisitCommonInst(inst: CommonInst): JIRInst {
         TODO("Not yet implemented")
     }
 

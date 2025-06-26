@@ -38,7 +38,11 @@ abstract class BaseInstructionsTest : BaseTest() {
         Assertions.assertEquals("OK", res)
     }
 
-    protected fun testClass(klass: JIRClassOrInterface, validateLineNumbers: Boolean = true, muteGraphChecker: Boolean = false) {
+    protected fun testClass(
+        klass: JIRClassOrInterface,
+        validateLineNumbers: Boolean = true,
+        muteGraphChecker: Boolean = false,
+    ) {
         testAndLoadClass(klass, false, validateLineNumbers, muteGraphChecker)
     }
 
@@ -50,39 +54,45 @@ abstract class BaseInstructionsTest : BaseTest() {
         klass: JIRClassOrInterface,
         loadClass: Boolean,
         validateLineNumbers: Boolean,
-        muteGraphChecker: Boolean = false
+        muteGraphChecker: Boolean = false,
     ): Class<*>? {
         try {
             val classNode = klass.asmNode()
-            classNode.methods = klass.declaredMethods.filter { it.enclosingClass == klass }.map {
-                if (it.isAbstract || it.name.contains("$\$forInline")) {
-                    it.asmNode()
-                } else {
-                    try {
-                        val instructionList = it.rawInstList
-                        it.instList.forEachIndexed { index, inst ->
-                            Assertions.assertEquals(index, inst.location.index, "indexes not matched for $it at $index")
-                        }
-                        val graph = it.flowGraph()
-                        if (!it.enclosingClass.isKotlin) {
-                            val methodMsg = "$it should have line number"
-                            if (validateLineNumbers) {
-                                graph.instructions.forEach {
-                                    Assertions.assertTrue(it.lineNumber > 0, methodMsg)
+            classNode.methods = klass.declaredMethods
+                .filter { it.enclosingClass == klass }
+                .map { method ->
+                    if (method.isAbstract || method.name.contains("$\$forInline")) {
+                        method.asmNode()
+                    } else {
+                        try {
+                            val instructionList = method.rawInstList
+                            method.instList.forEachIndexed { index, inst ->
+                                Assertions.assertEquals(
+                                    index,
+                                    inst.location.index,
+                                    "indexes not matched for $method at $index"
+                                )
+                            }
+                            val graph = method.flowGraph()
+                            if (!method.enclosingClass.isKotlin) {
+                                val methodMsg = "$method should have line number"
+                                if (validateLineNumbers) {
+                                    graph.instructions.forEach { inst ->
+                                        Assertions.assertTrue(inst.location.lineNumber > 0, methodMsg)
+                                    }
                                 }
                             }
+                            graph.applyAndGet(OverridesResolver(ext)) {}
+                            if (!muteGraphChecker) JIRGraphChecker(method, graph).check()
+                            val newBody = MethodNodeBuilder(method, instructionList).build()
+                            newBody
+                        } catch (e: Throwable) {
+                            method.dumpInstructions()
+                            throw IllegalStateException("error handling $method", e)
                         }
-                        graph.applyAndGet(OverridesResolver(ext)) {}
-                        if (!muteGraphChecker) JIRGraphChecker(it, graph).check()
-                        val newBody = MethodNodeBuilder(it, instructionList).build()
-                        newBody
-                    } catch (e: Throwable) {
-                        it.dumpInstructions()
-                        throw IllegalStateException("error handling $it", e)
-                    }
 
+                    }
                 }
-            }
             val cw = JIRDatabaseClassWriter(cp, ClassWriter.COMPUTE_FRAMES)
             val checker = CheckClassAdapter(cw)
             classNode.accept(checker)
@@ -92,7 +102,6 @@ abstract class BaseInstructionsTest : BaseTest() {
             }
             targetFile.writeBytes(cw.toByteArray())
             if (loadClass) {
-
                 val cp = listOf(target.toUri().toURL()) + System.getProperty("java.class.path")
                     .split(File.pathSeparatorChar)
                     .map { Paths.get(it).toUri().toURL() }

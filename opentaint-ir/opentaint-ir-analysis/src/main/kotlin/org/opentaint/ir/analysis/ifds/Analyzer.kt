@@ -4,17 +4,17 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 interface Analyzer<Fact, out Event, Method, Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+    where Method : CommonMethod,
+          Statement : CommonInst {
 
     val flowFunctions: FlowFunctions<Fact, Method, Statement>
 
     fun handleNewEdge(
-        edge: Edge<Fact, Method, Statement>,
+        edge: Edge<Fact, Statement>,
     ): List<Event>
 
     fun handleCrossUnitCall(
-        caller: Vertex<Fact, Method, Statement>,
-        callee: Vertex<Fact, Method, Statement>,
+        caller: Vertex<Fact, Statement>,
+        callee: Vertex<Fact, Statement>,
     ): List<Event>
 }

@@ -21,9 +21,9 @@ import org.opentaint.ir.taint.configuration.Result
 import org.opentaint.ir.taint.configuration.ResultAnyElement
 import org.opentaint.ir.taint.configuration.This
 
-context(Traits<CommonMethod<*, *>, CommonInst<*, *>>)
+context(Traits<CommonMethod, CommonInst>)
 class CallPositionToAccessPathResolver(
-    private val callStatement: CommonInst<*, *>,
+    private val callStatement: CommonInst,
 ) : PositionResolver<Maybe<AccessPath>> {
     private val callExpr = callStatement.callExpr
         ?: error("Call statement should have non-null callExpr")
@@ -39,7 +39,7 @@ class CallPositionToAccessPathResolver(
 }
 
 class CallPositionToValueResolver(
-    private val callStatement: CommonInst<*, *>,
+    private val callStatement: CommonInst,
 ) : PositionResolver<Maybe<CommonValue>> {
     private val callExpr = callStatement.callExpr
         ?: error("Call statement should have non-null callExpr")
@@ -53,9 +53,9 @@ class CallPositionToValueResolver(
     }
 }
 
-context(Traits<CommonMethod<*, *>, CommonInst<*, *>>)
+context(Traits<CommonMethod, CommonInst>)
 class EntryPointPositionToValueResolver(
-    private val method: CommonMethod<*, *>,
+    private val method: CommonMethod,
     private val cp: CommonProject,
 ) : PositionResolver<Maybe<CommonValue>> {
     override fun resolve(position: Position): Maybe<CommonValue> = when (position) {
@@ -70,9 +70,9 @@ class EntryPointPositionToValueResolver(
     }
 }
 
-context(Traits<CommonMethod<*, *>, CommonInst<*, *>>)
+context(Traits<CommonMethod, CommonInst>)
 class EntryPointPositionToAccessPathResolver(
-    private val method: CommonMethod<*, *>,
+    private val method: CommonMethod,
     private val cp: CommonProject,
 ) : PositionResolver<Maybe<AccessPath>> {
     override fun resolve(position: Position): Maybe<AccessPath> = when (position) {

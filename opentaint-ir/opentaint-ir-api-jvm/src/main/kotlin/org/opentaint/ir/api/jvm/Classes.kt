@@ -73,7 +73,7 @@ interface JIRAnnotation : JIRSymbol {
 
 }
 
-interface JIRMethod : JIRSymbol, JIRAnnotatedSymbol, JIRAccessible, CommonMethod<JIRMethod, JIRInst> {
+interface JIRMethod : JIRSymbol, JIRAnnotatedSymbol, JIRAccessible, CommonMethod {
 
     /** reference to class */
     override val enclosingClass: JIRClassOrInterface

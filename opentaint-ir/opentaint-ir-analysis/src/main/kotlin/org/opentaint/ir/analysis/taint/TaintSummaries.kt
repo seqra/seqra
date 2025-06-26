@@ -6,16 +6,12 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.taint.configuration.TaintMethodSink
 
-data class TaintSummaryEdge<Method, Statement>(
-    override val edge: TaintEdge<Method, Statement>,
-) : SummaryEdge<TaintDomainFact, Method, Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement>
+data class TaintSummaryEdge<Statement : CommonInst>(
+    override val edge: TaintEdge< Statement>,
+) : SummaryEdge<TaintDomainFact, Statement>
 
-data class TaintVulnerability<Method, Statement>(
+data class TaintVulnerability<Statement : CommonInst>(
     override val message: String,
-    override val sink: TaintVertex<Method, Statement>,
+    override val sink: TaintVertex<Statement>,
     val rule: TaintMethodSink? = null,
-) : Vulnerability<TaintDomainFact, Method, Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement>
+) : Vulnerability<TaintDomainFact, Statement>

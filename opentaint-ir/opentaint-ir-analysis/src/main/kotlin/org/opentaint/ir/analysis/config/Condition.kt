@@ -31,7 +31,7 @@ import org.opentaint.ir.taint.configuration.TypeMatches
 
 // TODO: replace 'JIRInt' with 'CommonInt', etc
 
-context(Traits<CommonMethod<*, *>, CommonInst<*, *>>)
+context(Traits<CommonMethod, CommonInst>)
 open class BasicConditionEvaluator(
     internal val positionResolver: PositionResolver<Maybe<CommonValue>>,
 ) : ConditionVisitor<Boolean> {
@@ -121,7 +121,7 @@ open class BasicConditionEvaluator(
     }
 }
 
-context(Traits<CommonMethod<*, *>, CommonInst<*, *>>)
+context(Traits<CommonMethod, CommonInst>)
 class FactAwareConditionEvaluator(
     private val fact: Tainted,
     positionResolver: PositionResolver<Maybe<CommonValue>>,

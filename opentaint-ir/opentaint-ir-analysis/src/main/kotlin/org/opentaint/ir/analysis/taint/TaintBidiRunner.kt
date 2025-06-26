@@ -13,17 +13,19 @@ import org.opentaint.ir.analysis.ifds.Reason
 import org.opentaint.ir.analysis.ifds.UnitResolver
 import org.opentaint.ir.analysis.ifds.UnitType
 import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 class TaintBidiRunner<Method, Statement>(
     val manager: TaintManager<Method, Statement>,
+    override val graph: ApplicationGraph<Method, Statement>,
     val unitResolver: UnitResolver<Method>,
     override val unit: UnitType,
-    newForwardRunner: (Manager<TaintDomainFact, TaintEvent<Method, Statement>, Method, Statement>) -> TaintRunner<Method, Statement>,
-    newBackwardRunner: (Manager<TaintDomainFact, TaintEvent<Method, Statement>, Method, Statement>) -> TaintRunner<Method, Statement>,
+    newForwardRunner: (Manager<TaintDomainFact, TaintEvent<Statement>, Method, Statement>) -> TaintRunner<Method, Statement>,
+    newBackwardRunner: (Manager<TaintDomainFact, TaintEvent<Statement>, Method, Statement>) -> TaintRunner<Method, Statement>,
 ) : TaintRunner<Method, Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+    where Method : CommonMethod,
+          Statement : CommonInst {
 
     @Volatile
     private var forwardQueueIsEmpty: Boolean = false
@@ -31,12 +33,13 @@ class TaintBidiRunner<Method, Statement>(
     @Volatile
     private var backwardQueueIsEmpty: Boolean = false
 
-    private val forwardManager: Manager<TaintDomainFact, TaintEvent<Method, Statement>, Method, Statement> =
-        object : Manager<TaintDomainFact, TaintEvent<Method, Statement>, Method, Statement> {
-            override fun handleEvent(event: TaintEvent<Method, Statement>) {
+    private val forwardManager: Manager<TaintDomainFact, TaintEvent<Statement>, Method, Statement> =
+        object : Manager<TaintDomainFact, TaintEvent<Statement>, Method, Statement> {
+            override fun handleEvent(event: TaintEvent<Statement>) {
                 when (event) {
-                    is EdgeForOtherRunner<Method, Statement> -> {
-                        if (unitResolver.resolve(event.edge.method) == unit) {
+                    is EdgeForOtherRunner<Statement> -> {
+                        val m = graph.methodOf(event.edge.from.statement)
+                        if (unitResolver.resolve(m) == unit) {
                             // Submit new edge directly to the backward runner:
                             backwardRunner.submitNewEdge(event.edge, event.reason)
                         } else {
@@ -62,18 +65,19 @@ class TaintBidiRunner<Method, Statement>(
             override fun subscribeOnSummaryEdges(
                 method: Method,
                 scope: CoroutineScope,
-                handler: (TaintEdge<Method, Statement>) -> Unit,
+                handler: (TaintEdge<Statement>) -> Unit,
             ) {
                 manager.subscribeOnSummaryEdges(method, scope, handler)
             }
         }
 
-    private val backwardManager: Manager<TaintDomainFact, TaintEvent<Method, Statement>, Method, Statement> =
-        object : Manager<TaintDomainFact, TaintEvent<Method, Statement>, Method, Statement> {
-            override fun handleEvent(event: TaintEvent<Method, Statement>) {
+    private val backwardManager: Manager<TaintDomainFact, TaintEvent<Statement>, Method, Statement> =
+        object : Manager<TaintDomainFact, TaintEvent<Statement>, Method, Statement> {
+            override fun handleEvent(event: TaintEvent<Statement>) {
                 when (event) {
                     is EdgeForOtherRunner -> {
-                        check(unitResolver.resolve(event.edge.method) == unit)
+                        val m = graph.methodOf(event.edge.from.statement)
+                        check(unitResolver.resolve(m) == unit)
                         // Submit new edge directly to the forward runner:
                         forwardRunner.submitNewEdge(event.edge, event.reason)
                     }
@@ -95,7 +99,7 @@ class TaintBidiRunner<Method, Statement>(
             override fun subscribeOnSummaryEdges(
                 method: Method,
                 scope: CoroutineScope,
-                handler: (TaintEdge<Method, Statement>) -> Unit,
+                handler: (TaintEdge<Statement>) -> Unit,
             ) {
                 // TODO: ignore?
                 manager.subscribeOnSummaryEdges(method, scope, handler)
@@ -111,8 +115,8 @@ class TaintBidiRunner<Method, Statement>(
     }
 
     override fun submitNewEdge(
-        edge: Edge<TaintDomainFact, Method, Statement>,
-        reason: Reason<TaintDomainFact, Method, Statement>,
+        edge: Edge<TaintDomainFact, Statement>,
+        reason: Reason<TaintDomainFact, Statement>,
     ) {
         forwardRunner.submitNewEdge(edge, reason)
     }
@@ -128,7 +132,7 @@ class TaintBidiRunner<Method, Statement>(
         forwardRunnerJob.join()
     }
 
-    override fun getIfdsResult(): IfdsResult<TaintDomainFact, Method, Statement> {
+    override fun getIfdsResult(): IfdsResult<TaintDomainFact, Statement> {
         return forwardRunner.getIfdsResult()
     }
 }

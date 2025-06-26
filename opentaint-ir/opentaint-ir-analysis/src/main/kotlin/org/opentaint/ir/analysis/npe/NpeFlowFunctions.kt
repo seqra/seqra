@@ -39,6 +39,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRDynamicCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIREqExpr
 import org.opentaint.ir.api.jvm.cfg.JIRExpr
 import org.opentaint.ir.api.jvm.cfg.JIRIfInst
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRNeqExpr
 import org.opentaint.ir.api.jvm.cfg.JIRNewArrayExpr
@@ -63,8 +64,8 @@ context(Traits<Method, Statement>)
 class ForwardNpeFlowFunctions<Method, Statement>(
     private val graph: ApplicationGraph<Method, Statement>,
 ) : FlowFunctions<TaintDomainFact, Method, Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+    where Method : CommonMethod,
+          Statement : CommonInst {
 
     private val cp: CommonProject
         get() = graph.project
@@ -196,7 +197,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
     private fun generates(
         inst: Statement,
     ): Collection<TaintDomainFact> = buildList {
-        if (inst is CommonAssignInst<*, *>) {
+        if (inst is CommonAssignInst) {
             val toPath = inst.lhv.toPath()
             val from = inst.rhv
             if (from is JIRNullConstant || (from is JIRCallExpr && from.method.method.isNullable == true)) {
@@ -232,6 +233,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
         }
 
         if (current is JIRIfInst) {
+            check(next is JIRInst)
             val nextIsTrueBranch = next.location.index == current.trueBranch.index
             val pathComparedWithNull = current.pathComparedWithNull
             if (fact == TaintZeroFact) {
@@ -524,7 +526,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
         callStatement: Statement,
         calleeStart: Statement,
     ) = FlowFunction<TaintDomainFact> { fact ->
-        val callee = calleeStart.location.method
+        val callee = graph.methodOf(calleeStart)
 
         if (fact == TaintZeroFact) {
             return@FlowFunction obtainPossibleStartFactsBasic(callee)
@@ -593,7 +595,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
 
         val callExpr = callStatement.callExpr
             ?: error("Call statement should have non-null callExpr")
-        val callee = exitStatement.location.method
+        val callee = graph.methodOf(exitStatement)
 
         buildSet {
             // Transmit facts on arguments (from 'formal' back to 'actual'), if they are passed by-ref:

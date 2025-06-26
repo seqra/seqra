@@ -28,9 +28,9 @@ private val logger = mu.KotlinLogging.logger {}
 context(Traits<Method, Statement>)
 class NpeAnalyzer<Method, Statement>(
     private val graph: ApplicationGraph<Method, Statement>,
-) : Analyzer<TaintDomainFact, TaintEvent<Method, Statement>, Method, Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+) : Analyzer<TaintDomainFact, TaintEvent<Statement>, Method, Statement>
+    where Method : CommonMethod,
+          Statement : CommonInst {
 
     override val flowFunctions: ForwardNpeFlowFunctions<Method, Statement> by lazy {
         ForwardNpeFlowFunctions(graph)
@@ -40,12 +40,12 @@ class NpeAnalyzer<Method, Statement>(
         get() = flowFunctions.taintConfigurationFeature
 
     private fun isExitPoint(statement: Statement): Boolean {
-        return statement in graph.exitPoints(statement.location.method)
+        return statement in graph.exitPoints(graph.methodOf(statement))
     }
 
     override fun handleNewEdge(
-        edge: TaintEdge<Method, Statement>,
-    ): List<TaintEvent<Method, Statement>> = buildList {
+        edge: TaintEdge<Statement>,
+    ): List<TaintEvent<Statement>> = buildList {
         if (isExitPoint(edge.to.statement)) {
             add(NewSummaryEdge(edge))
         }
@@ -54,7 +54,10 @@ class NpeAnalyzer<Method, Statement>(
             if (edge.to.fact.variable.isDereferencedAt(edge.to.statement)) {
                 val message = "NPE" // TODO
                 val vulnerability = TaintVulnerability(message, sink = edge.to)
-                logger.info { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
+                logger.info {
+                    val m = graph.methodOf(vulnerability.sink.statement)
+                    "Found sink=${vulnerability.sink} in $m"
+                }
                 add(NewVulnerability(vulnerability))
             }
         }
@@ -85,9 +88,12 @@ class NpeAnalyzer<Method, Statement>(
             )
             for (item in config.filterIsInstance<TaintMethodSink>()) {
                 if (item.condition.accept(conditionEvaluator)) {
-                    logger.trace { "Found sink at ${edge.to} in ${edge.method} on $item" }
                     val message = item.ruleNote
                     val vulnerability = TaintVulnerability(message, sink = edge.to, rule = item)
+                    logger.trace {
+                        val m = graph.methodOf(vulnerability.sink.statement)
+                        "Found sink=${vulnerability.sink} in $m on $item"
+                    }
                     add(NewVulnerability(vulnerability))
                 }
             }
@@ -95,9 +101,9 @@ class NpeAnalyzer<Method, Statement>(
     }
 
     override fun handleCrossUnitCall(
-        caller: TaintVertex<Method, Statement>,
-        callee: TaintVertex<Method, Statement>,
-    ): List<TaintEvent<Method, Statement>> = buildList {
+        caller: TaintVertex<Statement>,
+        callee: TaintVertex<Statement>,
+    ): List<TaintEvent<Statement>> = buildList {
         add(EdgeForOtherRunner(TaintEdge(callee, callee), Reason.CrossUnitCall(caller)))
     }
 }

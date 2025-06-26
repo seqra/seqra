@@ -223,7 +223,7 @@ open class JIRExceptionResolver(
         TODO("Not yet implemented")
     }
 
-    override fun defaultVisitCommonInst(inst: CommonInst<*, *>): List<JIRClassType> {
+    override fun defaultVisitCommonInst(inst: CommonInst): List<JIRClassType> {
         TODO("Not yet implemented")
     }
 

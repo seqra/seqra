@@ -19,8 +19,8 @@ class NpeManager<Method, Statement>(
     graph: ApplicationGraph<Method, Statement>,
     unitResolver: UnitResolver<Method>,
 ) : TaintManager<Method, Statement>(graph, unitResolver, useBidiRunner = false)
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+    where Method : CommonMethod,
+          Statement : CommonInst {
 
     override fun newRunner(
         unit: UnitType,

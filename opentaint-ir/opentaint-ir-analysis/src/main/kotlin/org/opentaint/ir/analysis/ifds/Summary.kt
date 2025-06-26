@@ -11,89 +11,83 @@ import java.util.concurrent.ConcurrentHashMap
  * A common interface for anything that should be remembered
  * and used after the analysis of some unit is completed.
  */
-interface Summary<out Method : CommonMethod<Method, *>> {
+interface Summary<out Method : CommonMethod> {
     val method: Method
 }
 
-interface SummaryEdge<out Fact, out Method, out Statement> : Summary<Method>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+interface SummaryEdge<out Fact, out Statement : CommonInst> : Summary<CommonMethod> {
 
-    val edge: Edge<Fact, Method, Statement>
+    val edge: Edge<Fact, Statement>
 
-    override val method: Method
+    override val method: CommonMethod
         get() = edge.method
 }
 
-interface Vulnerability<out Fact, out Method, out Statement> : Summary<Method>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+interface Vulnerability<out Fact, out Statement : CommonInst> : Summary<CommonMethod> {
     val message: String
-    val sink: Vertex<Fact, Method, Statement>
+    val sink: Vertex<Fact, Statement>
 
-    override val method: Method
+    override val method: CommonMethod
         get() = sink.method
 }
 
 /**
  * Contains summaries for many methods and allows to update them and subscribe for them.
  */
-interface SummaryStorage<T : Summary<Method>, out Method, out Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+interface SummaryStorage<T : Summary<*>> {
 
     /**
      * A list of all methods for which summaries are not empty.
      */
-    val knownMethods: List<Method>
+    val knownMethods: List<CommonMethod>
 
     /**
-     * Adds [fact] to summary of its method.
+     * Adds [summary] the summaries storage of its method.
      */
-    fun add(fact: T)
+    fun add(summary: T)
 
     /**
      * @return a flow with all facts summarized for the given [method].
      * Already received facts, along with the facts that will be sent to this storage later,
      * will be emitted to the returned flow.
      */
-    fun getFacts(method: @UnsafeVariance Method): Flow<T>
+    fun getFacts(method: CommonMethod): Flow<T>
 
     /**
      * @return a list will all facts summarized for the given [method] so far.
      */
-    fun getCurrentFacts(method: @UnsafeVariance Method): List<T>
+    fun getCurrentFacts(method: CommonMethod): List<T>
 }
 
-class SummaryStorageImpl<T : Summary<Method>, out Method, out Statement> : SummaryStorage<T, Method, Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+class SummaryStorageImpl<T : Summary<*>> : SummaryStorage<T> {
 
-    private val summaries = ConcurrentHashMap<Method, MutableSet<T>>()
-    private val outFlows = ConcurrentHashMap<Method, MutableSharedFlow<T>>()
+    private val summaries = ConcurrentHashMap<CommonMethod, MutableSet<T>>()
+    private val outFlows = ConcurrentHashMap<CommonMethod, MutableSharedFlow<T>>()
 
-    override val knownMethods: List<Method>
+    override val knownMethods: List<CommonMethod>
         get() = summaries.keys.toList()
 
-    private fun getFlow(method: Method): MutableSharedFlow<T> {
+    private fun getFlow(method: CommonMethod): MutableSharedFlow<T> {
         return outFlows.computeIfAbsent(method) {
             MutableSharedFlow(replay = Int.MAX_VALUE)
         }
     }
 
-    override fun add(fact: T) {
-        val isNew = summaries.computeIfAbsent(fact.method) { ConcurrentHashMap.newKeySet() }.add(fact)
+    override fun add(summary: T) {
+        val isNew = summaries.computeIfAbsent(summary.method) {
+            ConcurrentHashMap.newKeySet()
+        }.add(summary)
         if (isNew) {
-            val flow = getFlow(fact.method)
-            check(flow.tryEmit(fact))
+            val flow = getFlow(summary.method)
+            check(flow.tryEmit(summary))
         }
     }
 
-    override fun getFacts(method: @UnsafeVariance Method): SharedFlow<T> {
+    override fun getFacts(method: CommonMethod): SharedFlow<T> {
         return getFlow(method)
     }
 
-    override fun getCurrentFacts(method: @UnsafeVariance Method): List<T> {
+    override fun getCurrentFacts(method: CommonMethod): List<T> {
         return getFacts(method).replayCache
     }
 }

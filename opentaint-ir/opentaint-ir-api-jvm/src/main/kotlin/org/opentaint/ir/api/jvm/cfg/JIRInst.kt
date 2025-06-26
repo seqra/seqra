@@ -30,15 +30,18 @@ interface VirtualTypedMethodRef : TypedMethodRef {
     val declaredMethod: JIRTypedMethod
 }
 
-interface JIRInstLocation : CommonInstLocation<JIRMethod, JIRInst> {
+interface JIRInstLocation : CommonInstLocation {
     override val method: JIRMethod
     override val index: Int
     override val lineNumber: Int
 }
 
-interface JIRInst : CommonInst<JIRMethod, JIRInst> {
+interface JIRInst : CommonInst {
     override val location: JIRInstLocation
     override val operands: List<JIRExpr>
+
+    override val method: JIRMethod
+        get() = location.method
 
     fun <T> accept(visitor: JIRInstVisitor<T>): T
 }
@@ -68,7 +71,7 @@ class JIRAssignInst(
     location: JIRInstLocation,
     override val lhv: JIRValue,
     override val rhv: JIRExpr,
-) : AbstractJIRInst(location), CommonAssignInst<JIRMethod, JIRInst> {
+) : AbstractJIRInst(location), CommonAssignInst {
     override val operands: List<JIRExpr>
         get() = listOf(lhv, rhv)
 
@@ -110,7 +113,7 @@ class JIRExitMonitorInst(
 class JIRCallInst(
     location: JIRInstLocation,
     val callExpr: JIRCallExpr,
-) : AbstractJIRInst(location), CommonCallInst<JIRMethod, JIRInst> {
+) : AbstractJIRInst(location), CommonCallInst {
     override val operands: List<JIRExpr>
         get() = listOf(callExpr)
 
@@ -126,7 +129,7 @@ interface JIRTerminatingInst : JIRInst
 class JIRReturnInst(
     location: JIRInstLocation,
     override val returnValue: JIRValue?,
-) : AbstractJIRInst(location), JIRTerminatingInst, CommonReturnInst<JIRMethod, JIRInst> {
+) : AbstractJIRInst(location), JIRTerminatingInst, CommonReturnInst {
     override val operands: List<JIRExpr>
         get() = listOfNotNull(returnValue)
 
@@ -174,7 +177,7 @@ interface JIRBranchingInst : JIRInst {
 class JIRGotoInst(
     location: JIRInstLocation,
     val target: JIRInstRef,
-) : AbstractJIRInst(location), JIRBranchingInst, CommonGotoInst<JIRMethod, JIRInst> {
+) : AbstractJIRInst(location), JIRBranchingInst, CommonGotoInst {
     override val operands: List<JIRExpr>
         get() = emptyList()
 
@@ -193,7 +196,7 @@ class JIRIfInst(
     val condition: JIRConditionExpr,
     val trueBranch: JIRInstRef,
     val falseBranch: JIRInstRef,
-) : AbstractJIRInst(location), JIRBranchingInst, CommonIfInst<JIRMethod, JIRInst> {
+) : AbstractJIRInst(location), JIRBranchingInst, CommonIfInst {
     override val operands: List<JIRExpr>
         get() = listOf(condition)
 

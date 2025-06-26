@@ -21,9 +21,9 @@ context(Traits<Method, Statement>)
 class TaintAnalyzer<Method, Statement>(
     private val graph: ApplicationGraph<Method, Statement>,
     private val getConfigForMethod: (ForwardTaintFlowFunctions<Method, Statement>.(Method) -> List<TaintConfigurationItem>?)? = null,
-) : Analyzer<TaintDomainFact, TaintEvent<Method, Statement>, Method, Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+) : Analyzer<TaintDomainFact, TaintEvent<Statement>, Method, Statement>
+    where Method : CommonMethod,
+          Statement : CommonInst {
 
     override val flowFunctions: ForwardTaintFlowFunctions<Method, Statement> by lazy {
         if (getConfigForMethod != null) {
@@ -34,12 +34,12 @@ class TaintAnalyzer<Method, Statement>(
     }
 
     private fun isExitPoint(statement: Statement): Boolean {
-        return statement in graph.exitPoints(statement.location.method)
+        return statement in graph.exitPoints(graph.methodOf(statement))
     }
 
     override fun handleNewEdge(
-        edge: TaintEdge<Method, Statement>,
-    ): List<TaintEvent<Method, Statement>> = buildList {
+        edge: TaintEdge<Statement>,
+    ): List<TaintEvent<Statement>> = buildList {
         if (isExitPoint(edge.to.statement)) {
             add(NewSummaryEdge(edge))
         }
@@ -66,7 +66,9 @@ class TaintAnalyzer<Method, Statement>(
                 if (item.condition.accept(conditionEvaluator)) {
                     val message = item.ruleNote
                     val vulnerability = TaintVulnerability(message, sink = edge.to, rule = item)
-                    logger.info { "Found sink=${vulnerability.sink} in ${vulnerability.method}" }
+                    logger.info {
+                        "Found sink=${vulnerability.sink} in ${vulnerability.method} on $item"
+                    }
                     add(NewVulnerability(vulnerability))
                 }
             }
@@ -147,9 +149,9 @@ class TaintAnalyzer<Method, Statement>(
     }
 
     override fun handleCrossUnitCall(
-        caller: TaintVertex<Method, Statement>,
-        callee: TaintVertex<Method, Statement>,
-    ): List<TaintEvent<Method, Statement>> = buildList {
+        caller: TaintVertex<Statement>,
+        callee: TaintVertex<Statement>,
+    ): List<TaintEvent<Statement>> = buildList {
         add(EdgeForOtherRunner(TaintEdge(callee, callee), Reason.CrossUnitCall(caller)))
     }
 }
@@ -157,30 +159,30 @@ class TaintAnalyzer<Method, Statement>(
 context(Traits<Method, Statement>)
 class BackwardTaintAnalyzer<Method, Statement>(
     private val graph: ApplicationGraph<Method, Statement>,
-) : Analyzer<TaintDomainFact, TaintEvent<Method, Statement>, Method, Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+) : Analyzer<TaintDomainFact, TaintEvent<Statement>, Method, Statement>
+    where Method : CommonMethod,
+          Statement : CommonInst {
 
     override val flowFunctions: BackwardTaintFlowFunctions<Method, Statement> by lazy {
         BackwardTaintFlowFunctions(graph)
     }
 
     private fun isExitPoint(statement: Statement): Boolean {
-        return statement in graph.exitPoints(statement.location.method)
+        return statement in graph.exitPoints(graph.methodOf(statement))
     }
 
     override fun handleNewEdge(
-        edge: TaintEdge<Method, Statement>,
-    ): List<TaintEvent<Method, Statement>> = buildList {
+        edge: TaintEdge<Statement>,
+    ): List<TaintEvent<Statement>> = buildList {
         if (isExitPoint(edge.to.statement)) {
             add(EdgeForOtherRunner(Edge(edge.to, edge.to), reason = Reason.External))
         }
     }
 
     override fun handleCrossUnitCall(
-        caller: TaintVertex<Method, Statement>,
-        callee: TaintVertex<Method, Statement>,
-    ): List<TaintEvent<Method, Statement>> {
+        caller: TaintVertex<Statement>,
+        callee: TaintVertex<Statement>,
+    ): List<TaintEvent<Statement>> {
         return emptyList()
     }
 }

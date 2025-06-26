@@ -12,19 +12,19 @@ context(Traits<Method, Statement>)
 class UnusedVariableAnalyzer<Method, Statement>(
     private val graph: ApplicationGraph<Method, Statement>,
 ) : Analyzer<UnusedVariableDomainFact, UnusedVariableEvent<Method, Statement>, Method, Statement>
-    where Method : CommonMethod<Method, Statement>,
-          Statement : CommonInst<Method, Statement> {
+    where Method : CommonMethod,
+          Statement : CommonInst {
 
     override val flowFunctions: UnusedVariableFlowFunctions<Method, Statement> by lazy {
         UnusedVariableFlowFunctions(graph)
     }
 
     private fun isExitPoint(statement: Statement): Boolean {
-        return statement in graph.exitPoints(statement.location.method)
+        return statement in graph.exitPoints(graph.methodOf(statement))
     }
 
     override fun handleNewEdge(
-        edge: Edge<UnusedVariableDomainFact, Method, Statement>,
+        edge: Edge<UnusedVariableDomainFact, Statement>,
     ): List<UnusedVariableEvent<Method, Statement>> = buildList {
         if (isExitPoint(edge.to.statement)) {
             add(NewSummaryEdge(edge))
@@ -32,8 +32,8 @@ class UnusedVariableAnalyzer<Method, Statement>(
     }
 
     override fun handleCrossUnitCall(
-        caller: Vertex<UnusedVariableDomainFact, Method, Statement>,
-        callee: Vertex<UnusedVariableDomainFact, Method, Statement>,
+        caller: Vertex<UnusedVariableDomainFact, Statement>,
+        callee: Vertex<UnusedVariableDomainFact, Statement>,
     ): List<UnusedVariableEvent<Method, Statement>> {
         return emptyList()
     }

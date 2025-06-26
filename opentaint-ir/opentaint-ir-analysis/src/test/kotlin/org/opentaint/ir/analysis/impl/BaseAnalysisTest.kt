@@ -92,7 +92,7 @@ abstract class BaseAnalysisTest : BaseTest() {
 
     protected fun testSingleJulietClass(
         className: String,
-        findSinks: (JIRMethod) -> List<Vulnerability<*, JIRMethod, JIRInst>>,
+        findSinks: (JIRMethod) -> List<Vulnerability<*, JIRInst>>,
     ) {
         logger.info { className }
 

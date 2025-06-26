@@ -127,7 +127,7 @@ abstract class AbstractFullExprSetCollector :
         TODO("Not yet implemented")
     }
 
-    override fun defaultVisitCommonInst(inst: CommonInst<*, *>) {
+    override fun defaultVisitCommonInst(inst: CommonInst) {
         TODO("Not yet implemented")
     }
 
