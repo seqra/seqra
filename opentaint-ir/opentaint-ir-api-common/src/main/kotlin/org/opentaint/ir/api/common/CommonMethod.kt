@@ -16,8 +16,8 @@ interface CommonMethod<out Method, out Statement>
 }
 
 interface CommonMethodParameter {
-    val type: CommonTypeName
-    val name: String?
-    val index: Int
-    val method: CommonMethod<*, *>
+    // val type: CommonTypeName
+    // val name: String?
+    // val index: Int
+    // val method: CommonMethod<*, *>
 }

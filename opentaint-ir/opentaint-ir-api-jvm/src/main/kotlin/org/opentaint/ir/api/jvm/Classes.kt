@@ -131,10 +131,10 @@ interface JIRField : JIRAnnotatedSymbol, JIRAccessible, CommonClassField {
 }
 
 interface JIRParameter : JIRAnnotated, JIRAccessible, CommonMethodParameter {
-    override val type: TypeName
-    override val name: String?
-    override val index: Int
-    override val method: JIRMethod
+    /*override*/ val type: TypeName
+    /*override*/ val name: String?
+    /*override*/ val index: Int
+    /*override*/ val method: JIRMethod
 }
 
 interface TypeName : CommonTypeName {
