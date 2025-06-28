@@ -53,6 +53,9 @@ class TaintFlowFunctionsTest : BaseTest() {
         every { callees(any()) } answers {
             sequenceOf(arg<JIRInst>(0).getCallExpr()!!.callee)
         }
+        every { methodOf(any()) } answers {
+            arg<JIRInst>(0).location.method
+        }
     }
 
     private val stringType = cp.findTypeOrNull<String>() as JIRClassType
