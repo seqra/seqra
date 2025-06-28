@@ -287,7 +287,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
         // FIXME: handle taint pass-through on invokedynamic-based String concatenation:
         if (fact is Tainted
             && callExpr is JIRDynamicCallExpr
-            && callee.enclosingClass.name == "java.lang.invoke.StringConcatFactory"
+            && (callee as JIRMethod).enclosingClass.name == "java.lang.invoke.StringConcatFactory"
             && callStatement is JIRAssignInst
         ) {
             for (arg in callExpr.args) {

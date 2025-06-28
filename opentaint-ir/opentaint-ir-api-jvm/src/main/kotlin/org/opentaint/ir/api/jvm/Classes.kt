@@ -74,7 +74,7 @@ interface JIRAnnotation : JIRSymbol {
 interface JIRMethod : JIRSymbol, JIRAnnotatedSymbol, JIRAccessible, CommonMethod {
 
     /** reference to class */
-    override val enclosingClass: JIRClassOrInterface
+    val enclosingClass: JIRClassOrInterface
 
     val description: String
 

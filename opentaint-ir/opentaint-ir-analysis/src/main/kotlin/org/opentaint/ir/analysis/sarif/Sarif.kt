@@ -17,7 +17,6 @@ import io.github.detekt.sarif4k.Tool
 import io.github.detekt.sarif4k.ToolComponent
 import io.github.detekt.sarif4k.Version
 import org.opentaint.ir.analysis.ifds.Vertex
-import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 
@@ -71,9 +70,6 @@ fun <Statement : CommonInst> sarifReportFromVulnerabilities(
     )
 }
 
-private val CommonMethod.fullyQualifiedName: String
-    get() = "${enclosingClass.name}#${name}"
-
 private fun <Statement : CommonInst> instToSarifLocation(
     inst: Statement,
     sourceFileResolver: SourceFileResolver<Statement>,
@@ -90,7 +86,12 @@ private fun <Statement : CommonInst> instToSarifLocation(
         ),
         logicalLocations = listOf(
             LogicalLocation(
-                fullyQualifiedName = if (inst is JIRInst) inst.location.method.fullyQualifiedName else null
+                fullyQualifiedName = if (inst is JIRInst) {
+                    val method = inst.location.method
+                    "${method.enclosingClass.name}#${method.name}"
+                } else {
+                    null
+                }
             )
         )
     )
