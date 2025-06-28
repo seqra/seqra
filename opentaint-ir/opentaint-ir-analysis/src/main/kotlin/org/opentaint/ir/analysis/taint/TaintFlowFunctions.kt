@@ -26,7 +26,6 @@ import org.opentaint.ir.api.common.cfg.CommonInstanceCallExpr
 import org.opentaint.ir.api.common.cfg.CommonReturnInst
 import org.opentaint.ir.api.common.cfg.CommonThis
 import org.opentaint.ir.api.common.cfg.CommonValue
-import org.opentaint.ir.api.common.ext.callExpr
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
@@ -280,7 +279,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
         callStatement: Statement,
         returnSite: Statement, // FIXME: unused?
     ) = FlowFunction<TaintDomainFact> { fact ->
-        val callExpr = callStatement.callExpr
+        val callExpr = callStatement.getCallExpr()
             ?: error("Call statement should have non-null callExpr")
 
         val callee = callExpr.callee
@@ -447,7 +446,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
         }
         check(fact is Tainted)
 
-        val callExpr = callStatement.callExpr
+        val callExpr = callStatement.getCallExpr()
             ?: error("Call statement should have non-null callExpr")
 
         buildSet {
@@ -486,7 +485,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
         }
         check(fact is Tainted)
 
-        val callExpr = callStatement.callExpr
+        val callExpr = callStatement.getCallExpr()
             ?: error("Call statement should have non-null callExpr")
         val callee = graph.methodOf(exitStatement)
 
@@ -655,7 +654,7 @@ class BackwardTaintFlowFunctions<Method, Statement>(
         }
         check(fact is Tainted)
 
-        val callExpr = callStatement.callExpr
+        val callExpr = callStatement.getCallExpr()
             ?: error("Call statement should have non-null callExpr")
         val callee = callExpr.callee
 
@@ -703,7 +702,7 @@ class BackwardTaintFlowFunctions<Method, Statement>(
         }
         check(fact is Tainted)
 
-        val callExpr = callStatement.callExpr
+        val callExpr = callStatement.getCallExpr()
             ?: error("Call statement should have non-null callExpr")
 
         buildSet {
@@ -756,7 +755,7 @@ class BackwardTaintFlowFunctions<Method, Statement>(
         }
         check(fact is Tainted)
 
-        val callExpr = callStatement.callExpr
+        val callExpr = callStatement.getCallExpr()
             ?: error("Call statement should have non-null callExpr")
         val callee = graph.methodOf(exitStatement)
 

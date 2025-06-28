@@ -32,16 +32,18 @@ interface VirtualTypedMethodRef : TypedMethodRef {
 
 interface JIRInstLocation : CommonInstLocation {
     override val method: JIRMethod
-    override val index: Int
-    override val lineNumber: Int
+    val index: Int
+    val lineNumber: Int
 }
 
 interface JIRInst : CommonInst {
     override val location: JIRInstLocation
-    override val operands: List<JIRExpr>
+    val operands: List<JIRExpr>
 
     override val method: JIRMethod
         get() = location.method
+    val lineNumber: Int
+        get() = location.lineNumber
 
     fun <T> accept(visitor: JIRInstVisitor<T>): T
 }
@@ -231,7 +233,7 @@ class JIRSwitchInst(
 
 interface JIRExpr : CommonExpr {
     val type: JIRType
-    override val operands: List<JIRValue>
+    val operands: List<JIRValue>
 
     override val typeName: String
         get() = type.typeName

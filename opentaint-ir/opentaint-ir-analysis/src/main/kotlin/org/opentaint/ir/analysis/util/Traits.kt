@@ -37,5 +37,10 @@ interface Traits<out Method, out Statement>
     fun CommonValue.gtConstant(constant: ConstantValue): Boolean
     fun CommonValue.matches(pattern: String): Boolean
 
+    // TODO: remove
     fun CommonExpr.toPaths(): List<AccessPath> = listOfNotNull(toPathOrNull())
+
+    fun @UnsafeVariance Statement.getCallExpr(): CommonCallExpr?
+    fun CommonExpr.getValues(): Set<CommonValue>
+    fun @UnsafeVariance Statement.getOperands(): List<CommonExpr>
 }

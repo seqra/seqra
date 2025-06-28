@@ -27,7 +27,6 @@ import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonThis
 import org.opentaint.ir.api.common.cfg.CommonValue
-import org.opentaint.ir.api.common.ext.callExpr
 import org.opentaint.ir.api.jvm.JIRArrayType
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -338,7 +337,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
             }
         }
 
-        val callExpr = callStatement.callExpr
+        val callExpr = callStatement.getCallExpr()
             ?: error("Call statement should have non-null callExpr")
 
         val callee = callExpr.callee
@@ -532,7 +531,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
         }
         check(fact is Tainted)
 
-        val callExpr = callStatement.callExpr
+        val callExpr = callStatement.getCallExpr()
             ?: error("Call statement should have non-null callExpr")
 
         buildSet {
@@ -592,7 +591,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
         }
         check(fact is Tainted)
 
-        val callExpr = callStatement.callExpr
+        val callExpr = callStatement.getCallExpr()
             ?: error("Call statement should have non-null callExpr")
         val callee = graph.methodOf(exitStatement)
 

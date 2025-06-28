@@ -9,9 +9,11 @@ import org.opentaint.ir.analysis.graph.JIRNoopInst
 import org.opentaint.ir.analysis.taint.TaintZeroFact
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
+import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.common.ext.callExpr
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 import java.util.concurrent.ConcurrentHashMap
+import org.opentaint.ir.api.jvm.ext.cfg.callExpr as jIRCallExpr
 
 private val logger = mu.KotlinLogging.logger {}
 
@@ -33,10 +35,16 @@ class UniRunner<Fact, Event, Method, Statement>(
     private val analyzer: Analyzer<Fact, Event, Method, Statement>,
     private val unitResolver: UnitResolver<Method>,
     override val unit: UnitType,
-    private val zeroFact: Fact?,
+    private val zeroFact: Fact,
 ) : Runner<Fact, Method, Statement>
     where Method : CommonMethod,
           Statement : CommonInst {
+
+    private val Statement.callExpr: CommonCallExpr?
+        get() = when (this) {
+            is JIRInst -> jIRCallExpr
+            else -> error("Unsupported statement type: $this")
+        }
 
     private val flowSpace: FlowFunctions<Fact, Method, Statement> = analyzer.flowFunctions
     private val workList: Channel<Edge<Fact, Statement>> = Channel(Channel.UNLIMITED)

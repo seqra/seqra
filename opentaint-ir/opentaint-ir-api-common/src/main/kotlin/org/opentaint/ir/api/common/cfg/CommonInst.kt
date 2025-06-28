@@ -4,12 +4,11 @@ import org.opentaint.ir.api.common.CommonMethod
 
 interface CommonInst {
     val location: CommonInstLocation
-    val operands: List<CommonExpr>
+    // val operands: List<CommonExpr>
 
+    // TODO: replace with extension property
     val method: CommonMethod
         get() = location.method
-    val lineNumber: Int
-        get() = location.lineNumber
 
     interface Visitor<out T> {
         fun visitExternalCommonInst(inst: CommonInst): T
@@ -41,8 +40,8 @@ interface CommonInst {
 
 interface CommonInstLocation {
     val method: CommonMethod
-    val index: Int
-    val lineNumber: Int
+    // val index: Int
+    // val lineNumber: Int
 }
 
 interface CommonAssignInst : CommonInst {

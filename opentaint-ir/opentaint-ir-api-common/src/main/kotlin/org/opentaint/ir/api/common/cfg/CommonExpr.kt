@@ -2,7 +2,7 @@ package org.opentaint.ir.api.common.cfg
 
 interface CommonExpr {
     val typeName: String
-    val operands: List<CommonValue>
+    // val operands: List<CommonValue>
 
     interface Visitor<out T> : CommonValue.Visitor<T> {
         fun visitExternalCommonExpr(expr: CommonExpr): T
@@ -31,8 +31,8 @@ interface CommonExpr {
 interface CommonCallExpr : CommonExpr {
     val args: List<CommonValue>
 
-    override val operands: List<CommonValue>
-        get() = args
+    // val operands: List<CommonValue>
+    //     get() = args
 
     override fun <T> acceptCommonExpr(visitor: CommonExpr.Visitor<T>): T {
         return visitor.visitCommonCallExpr(this)

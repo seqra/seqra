@@ -19,7 +19,6 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRLocal
 import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
-import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.ir.api.jvm.ext.findTypeOrNull
 import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.impl.features.InMemoryHierarchy
@@ -52,7 +51,7 @@ class TaintFlowFunctionsTest : BaseTest() {
     private val graph: JIRApplicationGraph = mockk {
         every { project } returns cp
         every { callees(any()) } answers {
-            sequenceOf(arg<JIRInst>(0).callExpr!!.callee)
+            sequenceOf(arg<JIRInst>(0).getCallExpr()!!.callee)
         }
     }
 

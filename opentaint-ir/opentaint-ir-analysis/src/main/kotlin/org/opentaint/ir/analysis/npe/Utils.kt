@@ -4,7 +4,6 @@ import org.opentaint.ir.analysis.ifds.AccessPath
 import org.opentaint.ir.analysis.ifds.minus
 import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.analysis.util.startsWith
-import org.opentaint.ir.analysis.util.values
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -31,15 +30,14 @@ internal fun AccessPath?.isDereferencedAt(expr: CommonExpr): Boolean {
         }
     }
 
-    return expr.values
+    return expr
+        .getValues()
         .mapNotNull { it.toPathOrNull() }
-        .any {
-            (it - this)?.isNotEmpty() == true
-        }
+        .any { (it - this)?.isNotEmpty() == true }
 }
 
 context(Traits<CommonMethod, CommonInst>)
 internal fun AccessPath?.isDereferencedAt(inst: CommonInst): Boolean {
     if (this == null) return false
-    return inst.operands.any { isDereferencedAt(it) }
+    return inst.getOperands().any { isDereferencedAt(it) }
 }

@@ -9,7 +9,6 @@ import org.opentaint.ir.api.common.CommonProject
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.common.ext.callExpr
 import org.opentaint.ir.api.jvm.cfg.JIRSpecialCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRStaticCallExpr
 
@@ -72,7 +71,7 @@ class UnusedVariableFlowFunctions<Method, Statement>(
         callStatement: Statement,
         calleeStart: Statement,
     ) = FlowFunction<UnusedVariableDomainFact> { fact ->
-        val callExpr = callStatement.callExpr
+        val callExpr = callStatement.getCallExpr()
             ?: error("Call statement should have non-null callExpr")
 
         if (fact == UnusedVariableZeroFact) {

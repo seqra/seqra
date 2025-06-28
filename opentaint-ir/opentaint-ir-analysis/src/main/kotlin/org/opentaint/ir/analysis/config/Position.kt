@@ -12,7 +12,6 @@ import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonInstanceCallExpr
 import org.opentaint.ir.api.common.cfg.CommonValue
-import org.opentaint.ir.api.common.ext.callExpr
 import org.opentaint.ir.taint.configuration.AnyArgument
 import org.opentaint.ir.taint.configuration.Argument
 import org.opentaint.ir.taint.configuration.Position
@@ -25,7 +24,7 @@ context(Traits<CommonMethod, CommonInst>)
 class CallPositionToAccessPathResolver(
     private val callStatement: CommonInst,
 ) : PositionResolver<Maybe<AccessPath>> {
-    private val callExpr = callStatement.callExpr
+    private val callExpr = callStatement.getCallExpr()
         ?: error("Call statement should have non-null callExpr")
 
     override fun resolve(position: Position): Maybe<AccessPath> = when (position) {
@@ -38,10 +37,11 @@ class CallPositionToAccessPathResolver(
     }
 }
 
+context(Traits<CommonMethod, CommonInst>)
 class CallPositionToValueResolver(
     private val callStatement: CommonInst,
 ) : PositionResolver<Maybe<CommonValue>> {
-    private val callExpr = callStatement.callExpr
+    private val callExpr = callStatement.getCallExpr()
         ?: error("Call statement should have non-null callExpr")
 
     override fun resolve(position: Position): Maybe<CommonValue> = when (position) {

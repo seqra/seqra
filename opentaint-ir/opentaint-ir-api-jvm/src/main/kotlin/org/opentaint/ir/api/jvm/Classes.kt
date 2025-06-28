@@ -18,8 +18,6 @@ import org.objectweb.asm.tree.MethodNode
 interface JIRClassOrInterface : JIRAnnotatedSymbol, JIRAccessible, CommonClass {
 
     val classpath: JIRClasspath
-    override val project: JIRClasspath
-        get() = classpath
 
     val declaredFields: List<JIRField>
     val declaredMethods: List<JIRMethod>

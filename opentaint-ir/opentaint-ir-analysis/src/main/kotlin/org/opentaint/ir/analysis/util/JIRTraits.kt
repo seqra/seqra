@@ -27,6 +27,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRSimpleValue
 import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.ir.api.jvm.cfg.values
 import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.taint.configuration.ConstantBooleanValue
 import org.opentaint.ir.taint.configuration.ConstantIntValue
@@ -38,6 +39,7 @@ import org.opentaint.ir.analysis.util.getArgumentsOf as _getArgumentsOf
 import org.opentaint.ir.analysis.util.thisInstance as _thisInstance
 import org.opentaint.ir.analysis.util.toPath as _toPath
 import org.opentaint.ir.analysis.util.toPathOrNull as _toPathOrNull
+import org.opentaint.ir.api.jvm.ext.cfg.callExpr as _callExpr
 
 /**
  * JVM-specific extensions for analysis.
@@ -140,6 +142,19 @@ interface JIRTraits : Traits<JIRMethod, JIRInst> {
         val s = this.toString()
         val re = pattern.toRegex()
         return re.matches(s)
+    }
+
+    override fun JIRInst.getCallExpr(): CommonCallExpr? {
+        return _callExpr
+    }
+
+    override fun CommonExpr.getValues(): Set<CommonValue> {
+        check(this is JIRExpr)
+        return values
+    }
+
+    override fun JIRInst.getOperands(): List<JIRExpr> {
+        return operands
     }
 
     // Ensure that all methods are default-implemented in the interface itself:

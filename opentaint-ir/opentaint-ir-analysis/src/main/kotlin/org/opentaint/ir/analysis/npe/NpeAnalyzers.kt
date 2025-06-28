@@ -17,7 +17,6 @@ import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.common.ext.callExpr
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.taint.configuration.TaintConfigurationFeature
 import org.opentaint.ir.taint.configuration.TaintMark
@@ -63,7 +62,7 @@ class NpeAnalyzer<Method, Statement>(
         }
 
         run {
-            val callExpr = edge.to.statement.callExpr ?: return@run
+            val callExpr = edge.to.statement.getCallExpr() ?: return@run
             val callee = callExpr.callee
 
             val config = taintConfigurationFeature?.let { feature ->

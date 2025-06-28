@@ -9,14 +9,14 @@ class IfdsResult<Fact, Statement : CommonInst> internal constructor(
     val pathEdgesBySink: Map<Vertex<Fact, Statement>, Collection<Edge<Fact, Statement>>>,
     val facts: Map<Statement, Set<Fact>>,
     val reasons: Map<Edge<Fact, Statement>, Set<Reason<Fact, Statement>>>,
-    val zeroFact: Fact?,
+    val zeroFact: Fact,
 ) {
 
     constructor(
         pathEdges: Collection<Edge<Fact, Statement>>,
         facts: Map<Statement, Set<Fact>>,
         reasons: Map<Edge<Fact, Statement>, Set<Reason<Fact, Statement>>>,
-        zeroFact: Fact?,
+        zeroFact: Fact,
     ) : this(
         pathEdges.groupByTo(HashMap()) { it.to },
         facts,

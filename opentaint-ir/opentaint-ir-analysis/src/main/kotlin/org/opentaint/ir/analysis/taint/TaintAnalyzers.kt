@@ -9,7 +9,6 @@ import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.common.ext.callExpr
 import org.opentaint.ir.api.jvm.cfg.JIRIfInst
 import org.opentaint.ir.impl.cfg.util.loops
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
@@ -45,7 +44,7 @@ class TaintAnalyzer<Method, Statement>(
         }
 
         run {
-            val callExpr = edge.to.statement.callExpr ?: return@run
+            val callExpr = edge.to.statement.getCallExpr() ?: return@run
 
             val callee = callExpr.callee
 
