@@ -43,6 +43,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRNeqExpr
 import org.opentaint.ir.api.jvm.cfg.JIRNewArrayExpr
 import org.opentaint.ir.api.jvm.cfg.JIRNullConstant
 import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
+import org.opentaint.ir.api.jvm.ext.findType
 import org.opentaint.ir.api.jvm.ext.isNullable
 import org.opentaint.ir.taint.configuration.AssignMark
 import org.opentaint.ir.taint.configuration.CopyAllMarks
@@ -89,7 +90,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
 
         // Possibly null arguments:
         for (p in method.parameters.filter { it.isNullable != false }) {
-            val t = (cp as JIRClasspath).findTypeOrNull(p.type.typeName)!!
+            val t = (cp as JIRClasspath).findType(p.type.typeName)
             val arg = JIRArgument.of(p.index, p.name, t)
             val path = arg.toPath()
             add(Tainted(path, TaintMark.NULLNESS))
