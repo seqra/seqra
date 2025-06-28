@@ -7,8 +7,6 @@ import info.leadinglight.jdot.enums.Color
 import info.leadinglight.jdot.enums.Shape
 import info.leadinglight.jdot.enums.Style
 import info.leadinglight.jdot.impl.Util
-import org.opentaint.ir.api.common.cfg.CommonExpr
-import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
@@ -218,14 +216,6 @@ open class JIRExceptionResolver(
     private val runtimeExceptionType = classpath.findTypeOrNull<RuntimeException>() as JIRClassType
     private val nullPointerExceptionType = classpath.findTypeOrNull<NullPointerException>() as JIRClassType
     private val arithmeticExceptionType = classpath.findTypeOrNull<ArithmeticException>() as JIRClassType
-
-    override fun defaultVisitCommonExpr(expr: CommonExpr): List<JIRClassType> {
-        TODO("Not yet implemented")
-    }
-
-    override fun defaultVisitCommonInst(inst: CommonInst): List<JIRClassType> {
-        TODO("Not yet implemented")
-    }
 
     override fun defaultVisitJIRExpr(expr: JIRExpr): List<JIRClassType> {
         return emptyList()

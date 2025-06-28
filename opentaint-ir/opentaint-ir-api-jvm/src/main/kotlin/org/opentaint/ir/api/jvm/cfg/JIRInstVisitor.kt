@@ -1,8 +1,6 @@
 package org.opentaint.ir.api.jvm.cfg
 
-import org.opentaint.ir.api.common.cfg.CommonInst
-
-interface JIRInstVisitor<out T> : CommonInst.Visitor<T> {
+interface JIRInstVisitor<out T> {
     fun visitExternalJIRInst(inst: JIRInst): T
 
     fun visitJIRAssignInst(inst: JIRAssignInst): T
@@ -16,7 +14,7 @@ interface JIRInstVisitor<out T> : CommonInst.Visitor<T> {
     fun visitJIRIfInst(inst: JIRIfInst): T
     fun visitJIRSwitchInst(inst: JIRSwitchInst): T
 
-    interface Default<out T> : JIRInstVisitor<T>, CommonInst.Visitor.Default<T> {
+    interface Default<out T> : JIRInstVisitor<T> {
         fun defaultVisitJIRInst(inst: JIRInst): T
 
         override fun visitExternalJIRInst(inst: JIRInst): T = defaultVisitJIRInst(inst)

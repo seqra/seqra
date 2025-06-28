@@ -1,8 +1,5 @@
 package org.opentaint.ir.api.jvm.cfg
 
-import org.opentaint.ir.api.common.cfg.CommonExpr
-import org.opentaint.ir.api.common.cfg.CommonValue
-
 interface JIRValueVisitor<out T> {
     fun visitExternalJIRValue(value: JIRValue): T
 
@@ -25,7 +22,7 @@ interface JIRValueVisitor<out T> {
     fun visitJIRMethodConstant(value: JIRMethodConstant): T
     fun visitJIRMethodType(value: JIRMethodType): T
 
-    interface Default<out T> : JIRValueVisitor<T>, CommonValue.Visitor<T> {
+    interface Default<out T> : JIRValueVisitor<T> {
         fun defaultVisitJIRValue(value: JIRValue): T
 
         override fun visitExternalJIRValue(value: JIRValue): T = defaultVisitJIRValue(value)
@@ -51,7 +48,7 @@ interface JIRValueVisitor<out T> {
     }
 }
 
-interface JIRExprVisitor<out T> : JIRValueVisitor<T>, CommonExpr.Visitor<T> {
+interface JIRExprVisitor<out T> : JIRValueVisitor<T> {
     fun visitExternalJIRExpr(expr: JIRExpr): T
 
     fun visitJIRAddExpr(expr: JIRAddExpr): T
@@ -87,7 +84,7 @@ interface JIRExprVisitor<out T> : JIRValueVisitor<T>, CommonExpr.Visitor<T> {
     fun visitJIRStaticCallExpr(expr: JIRStaticCallExpr): T
     fun visitJIRSpecialCallExpr(expr: JIRSpecialCallExpr): T
 
-    interface Default<out T> : JIRExprVisitor<T>, JIRValueVisitor.Default<T>, CommonExpr.Visitor.Default<T> {
+    interface Default<out T> : JIRExprVisitor<T>, JIRValueVisitor.Default<T> {
         fun defaultVisitJIRExpr(expr: JIRExpr): T
 
         override fun defaultVisitJIRValue(value: JIRValue): T = defaultVisitJIRExpr(value)

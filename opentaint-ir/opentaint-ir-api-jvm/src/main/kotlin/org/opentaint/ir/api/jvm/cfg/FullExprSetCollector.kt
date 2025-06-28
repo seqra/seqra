@@ -123,14 +123,6 @@ abstract class AbstractFullExprSetCollector :
     JIRExprVisitor.Default<Any>,
     JIRInstVisitor.Default<Any> {
 
-    override fun defaultVisitCommonExpr(expr: CommonExpr): Any {
-        TODO("Not yet implemented")
-    }
-
-    override fun defaultVisitCommonInst(inst: CommonInst) {
-        TODO("Not yet implemented")
-    }
-
     override fun defaultVisitJIRExpr(expr: JIRExpr) {
         ifMatches(expr)
     }

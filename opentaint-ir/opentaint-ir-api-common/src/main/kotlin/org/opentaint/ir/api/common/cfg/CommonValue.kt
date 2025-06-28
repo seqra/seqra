@@ -2,22 +2,7 @@ package org.opentaint.ir.api.common.cfg
 
 import org.opentaint.ir.api.common.CommonField
 
-interface CommonValue : CommonExpr {
-    interface Visitor<out T> {
-        fun visitExternalCommonValue(value: CommonValue): T
-
-        interface Default<out T> : Visitor<T> {
-            fun defaultVisitCommonValue(value: CommonValue): T
-
-            override fun visitExternalCommonValue(value: CommonValue): T = defaultVisitCommonValue(value)
-        }
-    }
-
-    fun <T> accept(visitor: Visitor<T>): T = acceptCommonValue(visitor)
-    fun <T> acceptCommonValue(visitor: Visitor<T>): T {
-        return visitor.visitExternalCommonValue(this)
-    }
-}
+interface CommonValue : CommonExpr
 
 interface CommonThis : CommonValue
 

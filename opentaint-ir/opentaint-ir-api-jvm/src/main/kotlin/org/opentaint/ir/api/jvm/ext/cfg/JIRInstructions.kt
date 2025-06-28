@@ -49,14 +49,6 @@ object FieldRefVisitor :
     JIRExprVisitor.Default<JIRFieldRef?>,
     JIRInstVisitor.Default<JIRFieldRef?> {
 
-    override fun defaultVisitCommonExpr(expr: CommonExpr): JIRFieldRef? {
-        TODO("Not yet implemented")
-    }
-
-    override fun defaultVisitCommonInst(inst: CommonInst): JIRFieldRef? {
-        TODO("Not yet implemented")
-    }
-
     override fun defaultVisitJIRExpr(expr: JIRExpr): JIRFieldRef? {
         return expr.operands.filterIsInstance<JIRFieldRef>().firstOrNull()
     }
@@ -74,14 +66,6 @@ object ArrayAccessVisitor :
     JIRExprVisitor.Default<JIRArrayAccess?>,
     JIRInstVisitor.Default<JIRArrayAccess?> {
 
-    override fun defaultVisitCommonExpr(expr: CommonExpr): JIRArrayAccess? {
-        TODO("Not yet implemented")
-    }
-
-    override fun defaultVisitCommonInst(inst: CommonInst): JIRArrayAccess? {
-        TODO("Not yet implemented")
-    }
-
     override fun defaultVisitJIRExpr(expr: JIRExpr): JIRArrayAccess? {
         return expr.operands.filterIsInstance<JIRArrayAccess>().firstOrNull()
     }
@@ -96,10 +80,6 @@ object ArrayAccessVisitor :
 }
 
 object CallExprVisitor : JIRInstVisitor.Default<JIRCallExpr?> {
-    override fun defaultVisitCommonInst(inst: CommonInst): JIRCallExpr? {
-        TODO("Not yet implemented")
-    }
-
     override fun defaultVisitJIRInst(inst: JIRInst): JIRCallExpr? {
         return inst.operands.filterIsInstance<JIRCallExpr>().firstOrNull()
     }

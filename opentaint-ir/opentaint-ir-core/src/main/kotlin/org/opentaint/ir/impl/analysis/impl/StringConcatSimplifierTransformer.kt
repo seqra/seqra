@@ -1,10 +1,25 @@
 package org.opentaint.ir.impl.analysis.impl
 
-import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
-import org.opentaint.ir.api.jvm.cfg.*
+import org.opentaint.ir.api.jvm.cfg.BsmStringArg
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRCatchInst
+import org.opentaint.ir.api.jvm.cfg.JIRDynamicCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRGotoInst
+import org.opentaint.ir.api.jvm.cfg.JIRIfInst
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstList
+import org.opentaint.ir.api.jvm.cfg.JIRInstRef
+import org.opentaint.ir.api.jvm.cfg.JIRInstVisitor
+import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
+import org.opentaint.ir.api.jvm.cfg.JIRStaticCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
+import org.opentaint.ir.api.jvm.cfg.JIRSwitchInst
+import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.ir.api.jvm.cfg.JIRVirtualCallExpr
+import org.opentaint.ir.api.jvm.cfg.values
 import org.opentaint.ir.api.jvm.ext.autoboxIfNeeded
 import org.opentaint.ir.api.jvm.ext.findTypeOrNull
 import org.opentaint.ir.impl.cfg.JIRInstListImpl
@@ -16,10 +31,6 @@ class StringConcatSimplifierTransformer(
     classpath: JIRClasspath,
     private val list: JIRInstList<JIRInst>,
 ) : JIRInstVisitor.Default<JIRInst> {
-
-    override fun defaultVisitCommonInst(inst: CommonInst): JIRInst {
-        TODO("Not yet implemented")
-    }
 
     override fun defaultVisitJIRInst(inst: JIRInst): JIRInst {
         return inst
