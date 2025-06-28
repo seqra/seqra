@@ -11,7 +11,6 @@ interface JIRTypedField : JIRAccessible {
     val enclosingType: JIRRefType
 }
 
-// CommonTypedMethod<JIRMethod, JIRInst>
 interface JIRTypedMethod : JIRAccessible {
     val name: String
     val returnType: JIRType
@@ -29,7 +28,6 @@ interface JIRTypedMethod : JIRAccessible {
 
 }
 
-// CommonTypedMethodParameter
 interface JIRTypedMethodParameter {
     val type: JIRType
     val name: String?
