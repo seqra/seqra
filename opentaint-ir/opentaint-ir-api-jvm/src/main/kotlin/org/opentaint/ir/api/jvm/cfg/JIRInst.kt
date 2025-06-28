@@ -788,24 +788,47 @@ data class JIRSpecialCallExpr(
 
 interface JIRValue : JIRExpr, CommonValue
 
-interface JIRSimpleValue : JIRValue {
+interface JIRImmediate : JIRValue {
     override val operands: List<JIRValue>
         get() = emptyList()
 }
 
-data class JIRThis(override val type: JIRType) : JIRLocal, CommonThis {
-    override val name: String
-        get() = "this"
-
-    override fun toString(): String = "this"
-
-    override fun <T> accept(visitor: JIRExprVisitor<T>): T {
-        return visitor.visitJIRThis(this)
-    }
+interface JIRLocal : JIRImmediate {
+    val name: String
 }
 
-interface JIRLocal : JIRSimpleValue {
-    val name: String
+/**
+ * @param name isn't considered in `equals` and `hashcode`
+ */
+data class JIRLocalVar(
+    val index: Int,
+    override val name: String,
+    override val type: JIRType,
+) : JIRLocal {
+
+    override fun toString(): String = name
+
+    override fun <T> accept(visitor: JIRExprVisitor<T>): T {
+        return visitor.visitJIRLocalVar(this)
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as JIRLocalVar
+
+        if (index != other.index) return false
+        if (type != other.type) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = index
+        result = 31 * result + type.hashCode()
+        return result
+    }
 }
 
 /**
@@ -849,46 +872,26 @@ data class JIRArgument(
     }
 }
 
-/**
- * @param name isn't considered in `equals` and `hashcode`
- */
-data class JIRLocalVar(
-    val index: Int,
-    override val name: String,
-    override val type: JIRType,
-) : JIRLocal {
+interface JIRRef : JIRValue
 
-    override fun toString(): String = name
+data class JIRThis(
+    override val type: JIRType,
+) : JIRRef, CommonThis {
+
+    override val operands: List<JIRValue>
+        get() = emptyList()
+
+    override fun toString(): String = "this"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
-        return visitor.visitJIRLocalVar(this)
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as JIRLocalVar
-
-        if (index != other.index) return false
-        if (type != other.type) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = index
-        result = 31 * result + type.hashCode()
-        return result
+        return visitor.visitJIRThis(this)
     }
 }
-
-interface JIRComplexValue : JIRValue
 
 data class JIRFieldRef(
     val instance: JIRValue?,
     val field: JIRTypedField,
-) : JIRComplexValue {
+) : JIRRef {
 
     override val type: JIRType
         get() = this.field.type
@@ -907,7 +910,7 @@ data class JIRArrayAccess(
     val array: JIRValue,
     val index: JIRValue,
     override val type: JIRType,
-) : JIRComplexValue {
+) : JIRRef {
 
     override val operands: List<JIRValue>
         get() = listOf(array, index)
@@ -919,7 +922,7 @@ data class JIRArrayAccess(
     }
 }
 
-interface JIRConstant : JIRSimpleValue
+interface JIRConstant : JIRImmediate
 
 interface JIRNumericConstant : JIRConstant {
 

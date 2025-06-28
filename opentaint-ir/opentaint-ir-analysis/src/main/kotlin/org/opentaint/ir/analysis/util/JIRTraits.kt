@@ -23,7 +23,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRExpr
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInt
-import org.opentaint.ir.api.jvm.cfg.JIRSimpleValue
+import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRValue
@@ -174,7 +174,9 @@ fun JIRExpr.toPathOrNull(): AccessPath? = when (this) {
 }
 
 fun JIRValue.toPathOrNull(): AccessPath? = when (this) {
-    is JIRSimpleValue -> AccessPath(this, emptyList())
+    is JIRImmediate -> AccessPath(this, emptyList())
+
+    is JIRThis -> AccessPath(this, emptyList())
 
     is JIRArrayAccess -> {
         array.toPathOrNull()?.let {
