@@ -1,7 +1,5 @@
 package org.opentaint.ir.api.jvm
 
-import org.opentaint.ir.api.common.CommonClass
-import org.opentaint.ir.api.common.CommonField
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.CommonMethodParameter
 import org.opentaint.ir.api.common.CommonTypeName
@@ -15,7 +13,7 @@ import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodNode
 
 @JvmDefaultWithoutCompatibility
-interface JIRClassOrInterface : JIRAnnotatedSymbol, JIRAccessible, CommonClass {
+interface JIRClassOrInterface : JIRAnnotatedSymbol, JIRAccessible {
 
     val classpath: JIRClasspath
 
@@ -122,9 +120,9 @@ interface JIRMethod : JIRSymbol, JIRAnnotatedSymbol, JIRAccessible, CommonMethod
 
 }
 
-interface JIRField : JIRAnnotatedSymbol, JIRAccessible, CommonField {
-    override val enclosingClass: JIRClassOrInterface
-    override val type: TypeName
+interface JIRField : JIRAnnotatedSymbol, JIRAccessible {
+    val enclosingClass: JIRClassOrInterface
+    val type: TypeName
     val signature: String?
 }
 

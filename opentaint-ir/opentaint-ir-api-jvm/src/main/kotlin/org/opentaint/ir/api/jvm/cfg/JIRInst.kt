@@ -1,12 +1,10 @@
 package org.opentaint.ir.api.jvm.cfg
 
 import org.opentaint.ir.api.common.cfg.CommonArgument
-import org.opentaint.ir.api.common.cfg.CommonArrayAccess
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonCallInst
 import org.opentaint.ir.api.common.cfg.CommonExpr
-import org.opentaint.ir.api.common.cfg.CommonFieldRef
 import org.opentaint.ir.api.common.cfg.CommonGotoInst
 import org.opentaint.ir.api.common.cfg.CommonIfInst
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -15,7 +13,6 @@ import org.opentaint.ir.api.common.cfg.CommonInstanceCallExpr
 import org.opentaint.ir.api.common.cfg.CommonReturnInst
 import org.opentaint.ir.api.common.cfg.CommonThis
 import org.opentaint.ir.api.common.cfg.CommonValue
-import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.JIRTypedField
@@ -815,7 +812,7 @@ interface JIRLocal : JIRSimpleValue {
  * @param name isn't considered in `equals` and `hashcode`
  */
 data class JIRArgument(
-    override val index: Int,
+    val index: Int,
     override val name: String,
     override val type: JIRType,
 ) : JIRLocal, CommonArgument {
@@ -889,15 +886,12 @@ data class JIRLocalVar(
 interface JIRComplexValue : JIRValue
 
 data class JIRFieldRef(
-    override val instance: JIRValue?,
+    val instance: JIRValue?,
     val field: JIRTypedField,
-) : JIRComplexValue, CommonFieldRef {
+) : JIRComplexValue {
 
     override val type: JIRType
         get() = this.field.type
-
-    override val classField: JIRField
-        get() = this.field.field
 
     override val operands: List<JIRValue>
         get() = listOfNotNull(instance)
@@ -910,10 +904,10 @@ data class JIRFieldRef(
 }
 
 data class JIRArrayAccess(
-    override val array: JIRValue,
-    override val index: JIRValue,
+    val array: JIRValue,
+    val index: JIRValue,
     override val type: JIRType,
-) : JIRComplexValue, CommonArrayAccess {
+) : JIRComplexValue {
 
     override val operands: List<JIRValue>
         get() = listOf(array, index)
