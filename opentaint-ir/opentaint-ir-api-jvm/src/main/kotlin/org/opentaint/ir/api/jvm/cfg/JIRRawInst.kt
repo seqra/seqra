@@ -597,7 +597,7 @@ data class JIRRawNewArrayExpr(
     override fun <T> accept(visitor: JIRRawExprVisitor<T>): T {
         return visitor.visitJIRRawNewArrayExpr(this)
     }
-    
+
     companion object {
         private val regexToProcessDimensions = Regex("\\[(.*?)]")
 
@@ -640,6 +640,9 @@ sealed interface JIRRawCallExpr : JIRRawExpr {
 
 sealed interface JIRRawInstanceExpr: JIRRawCallExpr {
     val instance: JIRRawValue
+
+    override val operands: List<JIRRawValue>
+        get() = listOf(instance) + args
 }
 
 sealed interface BsmArg
@@ -709,9 +712,6 @@ data class JIRRawVirtualCallExpr(
     override val instance: JIRRawValue,
     override val args: List<JIRRawValue>,
 ) : JIRRawInstanceExpr {
-    override val operands: List<JIRRawValue>
-        get() = listOf(instance) + args
-
     override fun toString(): String =
         "$instance.$methodName${args.joinToString(prefix = "(", postfix = ")", separator = ", ")}"
 
@@ -728,9 +728,6 @@ data class JIRRawInterfaceCallExpr(
     override val instance: JIRRawValue,
     override val args: List<JIRRawValue>,
 ) : JIRRawInstanceExpr {
-    override val operands: List<JIRRawValue>
-        get() = listOf(instance) + args
-
     override fun toString(): String =
         "$instance.$methodName${args.joinToString(prefix = "(", postfix = ")", separator = ", ")}"
 
@@ -771,12 +768,12 @@ data class JIRRawSpecialCallExpr(
     }
 }
 
-sealed interface JIRRawValue : JIRRawExpr {
+sealed interface JIRRawValue : JIRRawExpr
+
+sealed interface JIRRawSimpleValue : JIRRawValue {
     override val operands: List<JIRRawValue>
         get() = emptyList()
 }
-
-sealed interface JIRRawSimpleValue : JIRRawValue
 
 sealed interface JIRRawLocal : JIRRawSimpleValue {
     val name: String
@@ -793,7 +790,11 @@ data class JIRRawThis(override val typeName: TypeName) : JIRRawSimpleValue {
 /**
  * @param name isn't considered in `equals` and `hashcode`
  */
-data class JIRRawArgument(val index: Int, override val name: String, override val typeName: TypeName) : JIRRawLocal {
+data class JIRRawArgument(
+    val index: Int,
+    override val name: String,
+    override val typeName: TypeName,
+) : JIRRawLocal {
     companion object {
         @JvmStatic
         fun of(index: Int, name: String?, typeName: TypeName): JIRRawArgument {
@@ -829,7 +830,11 @@ data class JIRRawArgument(val index: Int, override val name: String, override va
 /**
  * @param name isn't considered in `equals` and `hashcode`
  */
-data class JIRRawLocalVar(val index: Int, override val name: String, override val typeName: TypeName) : JIRRawLocal {
+data class JIRRawLocalVar(
+    val index: Int,
+    override val name: String,
+    override val typeName: TypeName,
+) : JIRRawLocal {
     override fun toString(): String = name
 
     override fun <T> accept(visitor: JIRRawExprVisitor<T>): T {
@@ -863,12 +868,16 @@ data class JIRRawFieldRef(
     val fieldName: String,
     override val typeName: TypeName
 ) : JIRRawComplexValue {
+
     constructor(declaringClass: TypeName, fieldName: String, typeName: TypeName) : this(
         null,
         declaringClass,
         fieldName,
         typeName
     )
+
+    override val operands: List<JIRRawValue>
+        get() = listOfNotNull(instance)
 
     override fun toString(): String = "${instance ?: declaringClass}.$fieldName"
 
@@ -882,6 +891,9 @@ data class JIRRawArrayAccess(
     val index: JIRRawValue,
     override val typeName: TypeName
 ) : JIRRawComplexValue {
+    override val operands: List<JIRRawValue>
+        get() = listOf(array, index)
+
     override fun toString(): String = "$array[$index]"
 
     override fun <T> accept(visitor: JIRRawExprVisitor<T>): T {

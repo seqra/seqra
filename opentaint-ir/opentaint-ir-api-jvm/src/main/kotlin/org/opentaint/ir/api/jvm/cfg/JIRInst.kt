@@ -241,6 +241,9 @@ interface JIRExpr : CommonExpr {
 interface JIRBinaryExpr : JIRExpr {
     val lhv: JIRValue
     val rhv: JIRValue
+
+    override val operands: List<JIRValue>
+        get() = listOf(lhv, rhv)
 }
 
 data class JIRAddExpr(
@@ -248,9 +251,6 @@ data class JIRAddExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRBinaryExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv + $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -263,9 +263,6 @@ data class JIRAndExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRBinaryExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv & $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -278,9 +275,6 @@ data class JIRCmpExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRBinaryExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv cmp $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -293,9 +287,6 @@ data class JIRCmpgExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRBinaryExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv cmpg $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -308,9 +299,6 @@ data class JIRCmplExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRBinaryExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv cmpl $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -323,9 +311,6 @@ data class JIRDivExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRBinaryExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv / $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -338,9 +323,6 @@ data class JIRMulExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRBinaryExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv * $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -355,9 +337,6 @@ data class JIREqExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRConditionExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv == $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -370,9 +349,6 @@ data class JIRNeqExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRConditionExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv != $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -385,9 +361,6 @@ data class JIRGeExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRConditionExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv >= $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -400,9 +373,6 @@ data class JIRGtExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRConditionExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv > $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -415,9 +385,6 @@ data class JIRLeExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRConditionExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv <= $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -430,9 +397,6 @@ data class JIRLtExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRConditionExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv < $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -445,9 +409,6 @@ data class JIROrExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRBinaryExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv | $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -460,9 +421,6 @@ data class JIRRemExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRBinaryExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv % $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -475,9 +433,6 @@ data class JIRShlExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRBinaryExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv << $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -490,9 +445,6 @@ data class JIRShrExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRBinaryExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv >> $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -505,9 +457,6 @@ data class JIRSubExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRBinaryExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv - $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -520,9 +469,6 @@ data class JIRUshrExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRBinaryExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv u<< $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -535,9 +481,6 @@ data class JIRXorExpr(
     override val lhv: JIRValue,
     override val rhv: JIRValue,
 ) : JIRBinaryExpr {
-    override val operands: List<JIRValue>
-        get() = listOf(lhv, rhv)
-
     override fun toString(): String = "$lhv ^ $rhv"
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
@@ -668,7 +611,7 @@ data class JIRPhiExpr(
 ) : JIRExpr {
 
     override val operands: List<JIRValue>
-        get() = values
+        get() = values + args
 
     override fun <T> accept(visitor: JIRExprVisitor<T>): T {
         return visitor.visitJIRPhiExpr(this)
