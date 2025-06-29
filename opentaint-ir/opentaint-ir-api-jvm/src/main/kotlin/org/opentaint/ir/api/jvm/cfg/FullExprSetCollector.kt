@@ -1,8 +1,5 @@
 package org.opentaint.ir.api.jvm.cfg
 
-import org.opentaint.ir.api.common.cfg.CommonExpr
-import org.opentaint.ir.api.common.cfg.CommonInst
-
 abstract class AbstractFullRawExprSetCollector :
     JIRRawExprVisitor<Unit>,
     JIRRawInstVisitor.Default<Unit> {
