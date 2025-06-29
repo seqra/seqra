@@ -1,10 +1,10 @@
 package org.opentaint.jvm.sast.dataflow
 
-import org.opentaint.ir.analysis.sarif.SourceFileResolver
-import org.opentaint.ir.api.JIRClassOrInterface
-import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.ext.packageName
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.RegisteredLocation
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.ext.packageName
+import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.machine.logger
 import java.nio.file.Path
 import kotlin.io.path.ExperimentalPathApi
@@ -15,7 +15,7 @@ import kotlin.io.path.walk
 class JIRSourceFileResolver(
     private val projectSourceRoot: Path,
     private val projectLocationsSourceRoots: Map<RegisteredLocation, Path>
-) : SourceFileResolver {
+) : SourceFileResolver<JIRInst> {
     private val locationJavaSources: Map<RegisteredLocation, Map<String, List<Path>>> by lazy {
         projectLocationsSourceRoots.mapValues { (_, sourcesRoot) ->
             @OptIn(ExperimentalPathApi::class)

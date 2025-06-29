@@ -3,23 +3,12 @@ package org.opentaint.api.checkers
 import io.github.detekt.sarif4k.SarifSchema210
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
-import org.opentaint.ir.analysis.graph.JIRApplicationGraphImpl
-import org.opentaint.ir.analysis.graph.defaultBannedPackagePrefixes
-import org.opentaint.ir.analysis.ifds.PackageUnitResolver
-import org.opentaint.ir.analysis.ifds.TraceGraph
-import org.opentaint.ir.analysis.ifds.UnitResolver
-import org.opentaint.ir.analysis.ifds.Vertex
-import org.opentaint.ir.analysis.sarif.VulnerabilityDescription
-import org.opentaint.ir.analysis.sarif.VulnerabilityInstance
-import org.opentaint.ir.analysis.sarif.sarifReportFromVulnerabilities
-import org.opentaint.ir.analysis.taint.TaintDomainFact
-import org.opentaint.ir.analysis.taint.TaintVulnerability
-import org.opentaint.ir.api.JIRClasspath
-import org.opentaint.ir.api.JIRMethod
-import org.opentaint.ir.api.RegisteredLocation
-import org.opentaint.ir.api.cfg.JIRInst
-import org.opentaint.ir.api.ext.findClass
-import org.opentaint.ir.api.ext.isSubClassOf
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.RegisteredLocation
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.isSubClassOf
 import org.opentaint.ir.approximation.JIREnrichedVirtualMethod
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.impl.features.usagesExt
@@ -35,6 +24,18 @@ import org.opentaint.UMachineOptions
 import org.opentaint.api.targets.TaintAnalysis
 import org.opentaint.api.targets.TaintConfigurationFeatureProvider
 import org.opentaint.api.targets.TaintConfigurationProvider
+import org.opentaint.dataflow.ifds.TraceGraph
+import org.opentaint.dataflow.ifds.UnitResolver
+import org.opentaint.dataflow.ifds.Vertex
+import org.opentaint.dataflow.jvm.graph.JIRApplicationGraphImpl
+import org.opentaint.dataflow.jvm.graph.defaultBannedPackagePrefixes
+import org.opentaint.dataflow.jvm.ifds.PackageUnitResolver
+import org.opentaint.dataflow.jvm.util.JIRTraits
+import org.opentaint.dataflow.sarif.VulnerabilityDescription
+import org.opentaint.dataflow.sarif.VulnerabilityInstance
+import org.opentaint.dataflow.sarif.sarifReportFromVulnerabilities
+import org.opentaint.dataflow.taint.TaintDomainFact
+import org.opentaint.dataflow.taint.TaintVulnerability
 import org.opentaint.machine.JIRMachine
 import org.opentaint.machine.JIRMachineOptions
 import java.util.IdentityHashMap
@@ -49,7 +50,7 @@ class JIRTaintAnalyzer(
     val opentaintTimeout: Duration,
     val symbolicExecutionEnabled: Boolean,
     val analysisCwe: Set<Int>?,
-    val analysisUnit: UnitResolver = PackageUnitResolver
+    val analysisUnit: UnitResolver<JIRMethod> = PackageUnitResolver
 ) {
     private val ifdsAnalysisGraph by lazy {
         val usages = runBlocking { cp.usagesExt() }
@@ -66,9 +67,9 @@ class JIRTaintAnalyzer(
     private val taintConfig by lazy { taintConfig() }
 
     data class IfdsVulnerablity(
-        val vulnerability: TaintVulnerability,
+        val vulnerability: TaintVulnerability<JIRInst>,
         val entryPoints: Set<JIRMethod>,
-        val traceGraph: TraceGraph<TaintDomainFact>,
+        val traceGraph: TraceGraph<TaintDomainFact, JIRInst>,
     )
 
     private val opentaintTargetMapping = IdentityHashMap<TaintAnalysis.TaintMethodSinkTarget, IfdsVulnerablity>()
@@ -186,7 +187,7 @@ class JIRTaintAnalyzer(
         sourceFileResolver: JIRSourceFileResolver,
         traces: List<IfdsVulnerablity>
     ): SarifSchema210 {
-        val vulnerabilityInstances = mutableListOf<VulnerabilityInstance<TaintDomainFact>>()
+        val vulnerabilityInstances = mutableListOf<VulnerabilityInstance<TaintDomainFact, JIRInst>>()
         traces.forEach { vulnerability ->
             val rule = vulnerability.vulnerability.rule ?: return@forEach
             rule.cwe.mapTo(vulnerabilityInstances) { cwe ->
@@ -196,7 +197,10 @@ class JIRTaintAnalyzer(
                 )
             }
         }
-        return sarifReportFromVulnerabilities(vulnerabilityInstances, sourceFileResolver = sourceFileResolver)
+
+        with(JIRTraits) {
+            return sarifReportFromVulnerabilities(vulnerabilityInstances, sourceFileResolver = sourceFileResolver)
+        }
     }
 
     private fun analyzeTaintWithIfdsEngine(
@@ -218,7 +222,7 @@ class JIRTaintAnalyzer(
         if (!symbolicExecutionEnabled) {
             // todo: fix trace generation
             val vulnerabilityStub = vulnerabilities.firstOrNull() ?: return@use emptyList()
-            val emptyTraceGraph = TraceGraph(
+            val emptyTraceGraph = TraceGraph<TaintDomainFact, JIRInst>(
                 vulnerabilityStub.sink,
                 sources = hashSetOf(),
                 edges = hashMapOf(),
@@ -277,9 +281,9 @@ class JIRTaintAnalyzer(
 
     private fun resolveIfdsTraceTargets(instance: IfdsVulnerablity): Set<TaintAnalysis.TaintTarget> {
         val initialTargets = hashSetOf<TaintAnalysis.TaintTarget>()
-        val resolvedTargets = hashMapOf<Vertex<TaintDomainFact>, TaintAnalysis.TaintTarget>()
+        val resolvedTargets = hashMapOf<Vertex<TaintDomainFact, JIRInst>, TaintAnalysis.TaintTarget>()
 
-        val vertexPredecessors = hashMapOf<Vertex<TaintDomainFact>, MutableSet<Vertex<TaintDomainFact>>>()
+        val vertexPredecessors = hashMapOf<Vertex<TaintDomainFact, JIRInst>, MutableSet<Vertex<TaintDomainFact, JIRInst>>>()
         for ((vertex, successors) in instance.traceGraph.edges) {
             successors.forEach { succ ->
                 vertexPredecessors.getOrPut(succ) { hashSetOf() }.add(vertex)
@@ -287,9 +291,9 @@ class JIRTaintAnalyzer(
         }
 
         fun dfs(
-            vertex: Vertex<TaintDomainFact>,
+            vertex: Vertex<TaintDomainFact, JIRInst>,
             prevTarget: TaintAnalysis.TaintTarget,
-            path: MutableSet<Vertex<TaintDomainFact>>
+            path: MutableSet<Vertex<TaintDomainFact, JIRInst>>
         ) {
             val target = resolveVertexTarget(vertex, resolvedTargets)
 
@@ -337,8 +341,8 @@ class JIRTaintAnalyzer(
     }
 
     private fun resolveVertexTarget(
-        vertex: Vertex<TaintDomainFact>,
-        cache: MutableMap<Vertex<TaintDomainFact>, TaintAnalysis.TaintTarget>,
+        vertex: Vertex<TaintDomainFact, JIRInst>,
+        cache: MutableMap<Vertex<TaintDomainFact, JIRInst>, TaintAnalysis.TaintTarget>,
     ): TaintAnalysis.TaintTarget = cache.getOrPut(vertex) {
         TaintAnalysis.TaintIntermediateTarget(resolveLocationInst(vertex))
     }
@@ -351,12 +355,13 @@ class JIRTaintAnalyzer(
         return entryPoints
     }
 
-    private fun resolveLocationInst(vertex: Vertex<TaintDomainFact>): JIRInst {
-        if (vertex.statement in vertex.method.instList) {
+    private fun resolveLocationInst(vertex: Vertex<TaintDomainFact, JIRInst>): JIRInst {
+        val method = vertex.method as JIRMethod
+        if (vertex.statement in method.instList) {
             return vertex.statement
         }
 
-        return vertex.method.flowGraph().entry
+        return method.flowGraph().entry
     }
 
     class FixedConfig(val base: TaintConfigurationProvider) : TaintConfigurationProvider by base {
