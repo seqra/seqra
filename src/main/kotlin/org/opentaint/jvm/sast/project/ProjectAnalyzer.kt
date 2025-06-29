@@ -42,7 +42,9 @@ class ProjectAnalyzer(
     private val resultDir: Path,
     private val cwe: List<Int>,
     private val useSymbolicExecution: Boolean,
-    private val symbolicExecutionTimeout: Duration
+    private val symbolicExecutionTimeout: Duration,
+    private val ifdsAnalysisTimeout: Duration,
+    private val debugIfdsSummaryDumpPath: Path?
 ) {
     fun analyze() {
         initializeCp()
@@ -171,11 +173,13 @@ class ProjectAnalyzer(
     private fun runAnalyzer() {
         val analyzer = JIRTaintAnalyzer(
             cp,
+            ifdsTimeout = ifdsAnalysisTimeout,
             opentaintTimeout = symbolicExecutionTimeout,
             symbolicExecutionEnabled = useSymbolicExecution,
             projectLocations = projectLocations,
             dependenciesLocations = dependenciesLocations,
             analysisCwe = cwe.takeIf { it.isNotEmpty() }?.toSet(),
+            debugSummaryDump = debugIfdsSummaryDumpPath,
         )
 
         val sourcesResolver = JIRSourceFileResolver(
