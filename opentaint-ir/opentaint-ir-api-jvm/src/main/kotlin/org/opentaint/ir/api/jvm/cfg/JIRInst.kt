@@ -1,10 +1,12 @@
 package org.opentaint.ir.api.jvm.cfg
 
 import org.opentaint.ir.api.common.cfg.CommonArgument
+import org.opentaint.ir.api.common.cfg.CommonArrayAccess
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonCallInst
 import org.opentaint.ir.api.common.cfg.CommonExpr
+import org.opentaint.ir.api.common.cfg.CommonFieldRef
 import org.opentaint.ir.api.common.cfg.CommonGotoInst
 import org.opentaint.ir.api.common.cfg.CommonIfInst
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -832,9 +834,9 @@ data class JIRArgument(
 interface JIRRef : JIRValue
 
 data class JIRFieldRef(
-    val instance: JIRValue?,
+    override val instance: JIRValue?,
     val field: JIRTypedField,
-) : JIRRef {
+) : JIRRef, CommonFieldRef {
 
     override val type: JIRType
         get() = this.field.type
@@ -850,10 +852,10 @@ data class JIRFieldRef(
 }
 
 data class JIRArrayAccess(
-    val array: JIRValue,
-    val index: JIRValue,
+    override val array: JIRValue,
+    override val index: JIRValue,
     override val type: JIRType,
-) : JIRRef {
+) : JIRRef, CommonArrayAccess {
 
     override val operands: List<JIRValue>
         get() = listOf(array, index)
