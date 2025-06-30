@@ -774,6 +774,20 @@ data class JIRLocalVar(
     }
 }
 
+data class JIRThis(
+    override val type: JIRType,
+) : JIRImmediate, CommonThis {
+
+    override val operands: List<JIRValue>
+        get() = emptyList()
+
+    override fun toString(): String = "this"
+
+    override fun <T> accept(visitor: JIRExprVisitor<T>): T {
+        return visitor.visitJIRThis(this)
+    }
+}
+
 /**
  * @param name isn't considered in `equals` and `hashcode`
  */
@@ -816,20 +830,6 @@ data class JIRArgument(
 }
 
 interface JIRRef : JIRValue
-
-data class JIRThis(
-    override val type: JIRType,
-) : JIRRef, CommonThis {
-
-    override val operands: List<JIRValue>
-        get() = emptyList()
-
-    override fun toString(): String = "this"
-
-    override fun <T> accept(visitor: JIRExprVisitor<T>): T {
-        return visitor.visitJIRThis(this)
-    }
-}
 
 data class JIRFieldRef(
     val instance: JIRValue?,

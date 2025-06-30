@@ -176,8 +176,6 @@ fun JIRExpr.toPathOrNull(): AccessPath? = when (this) {
 fun JIRValue.toPathOrNull(): AccessPath? = when (this) {
     is JIRImmediate -> AccessPath(this, emptyList())
 
-    is JIRThis -> AccessPath(this, emptyList())
-
     is JIRArrayAccess -> {
         array.toPathOrNull()?.let {
             it + ElementAccessor
