@@ -7,9 +7,16 @@ import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.findSubclassesInMemory
 import org.opentaint.ir.impl.features.hierarchyExt
+import org.opentaint.ir.impl.storage.dslContext
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
-import org.opentaint.ir.testing.*
-import org.junit.jupiter.api.Assertions.*
+import org.opentaint.ir.testing.BaseTest
+import org.opentaint.ir.testing.LifecycleTest
+import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.WithGlobalDB
+import org.opentaint.ir.testing.WithRestoredDB
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.w3c.dom.Document
 import java.util.*
@@ -68,7 +75,7 @@ abstract class BaseInMemoryHierarchyTest : BaseTest() {
 
     @Test
     fun `find subclasses of Any`() {
-        val numberOfClasses = cp.db.persistence.read { it.fetchCount(CLASSES) }
+        val numberOfClasses = cp.db.persistence.read { it.dslContext.fetchCount(CLASSES) }
         assertEquals(numberOfClasses - 1, findSubClasses<Any>(allHierarchy = true).count())
     }
 

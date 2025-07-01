@@ -1,0 +1,2 @@
+-- DROP TABLE IF EXISTS "Entities";
+DROP TABLE IF EXISTS "Types";

@@ -1,32 +1,183 @@
 @file:JvmName("JIRHierarchies")
+@file:Suppress("SqlResolve", "SqlSourceToSinkFlow")
 
 package org.opentaint.ir.impl.features
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
+import org.opentaint.ir.api.jvm.ClassSource
+import org.opentaint.ir.api.jvm.JIRDBContext
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.ext.HierarchyExtension
 import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
 import org.opentaint.ir.api.jvm.ext.findDeclaredMethodOrNull
+import org.opentaint.ir.api.jvm.storage.ers.Entity
+import org.opentaint.ir.api.jvm.storage.ers.EntityIterable
+import org.opentaint.ir.api.jvm.storage.ers.Transaction
+import org.opentaint.ir.api.jvm.storage.ers.compressed
+import org.opentaint.ir.api.jvm.storage.ers.links
+import org.opentaint.ir.impl.asSymbolId
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.storage.BatchedSequence
 import org.opentaint.ir.impl.storage.defaultBatchSize
+import org.opentaint.ir.impl.storage.dslContext
+import org.opentaint.ir.impl.storage.ers.toClassSourceSequence
+import org.opentaint.ir.impl.storage.execute
+import org.opentaint.ir.impl.storage.isSqlContext
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSHIERARCHIES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
+import org.opentaint.ir.impl.storage.txn
 import org.jooq.Condition
 import org.jooq.Record3
 import org.jooq.SelectConditionStep
 import org.jooq.impl.DSL
 import java.util.concurrent.Future
 
-@Suppress("SqlResolve")
-class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension {
+suspend fun JIRClasspath.hierarchyExt(): HierarchyExtension {
+    db.awaitBackgroundJobs()
+    val isSqlDb = db.persistence.read { context ->
+        context.isSqlContext
+    }
+    return if (isSqlDb) HierarchyExtensionSQL(this) else HierarchyExtensionERS(this)
+}
+
+fun JIRClasspath.asyncHierarchyExt(): Future<HierarchyExtension> = GlobalScope.future { hierarchyExt() }
+
+internal fun JIRClasspath.allClassesExceptObject(context: JIRDBContext, direct: Boolean): Sequence<ClassSource> {
+    val locationIds = registeredLocations.mapTo(mutableSetOf()) { it.id }
+    return context.execute(
+        sqlAction = { jooq ->
+            if (direct) {
+                BatchedSequence(defaultBatchSize) { offset, batchSize ->
+                    jooq.select(CLASSES.ID, SYMBOLS.NAME, CLASSES.LOCATION_ID)
+                        .from(CLASSES)
+                        .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
+                        .where(
+                            locationIds.greaterThan(offset).and(
+                                DSL.notExists(
+                                    jooq.select(CLASSHIERARCHIES.ID).from(CLASSHIERARCHIES)
+                                        .where(
+                                            CLASSHIERARCHIES.CLASS_ID.eq(CLASSES.ID)
+                                                .and(CLASSHIERARCHIES.IS_CLASS_REF.eq(true))
+                                        )
+                                )
+                            ).and(SYMBOLS.NAME.notEqual(JAVA_OBJECT))
+                        )
+                        .batchingProcess(this, batchSize)
+                }
+            } else {
+                BatchedSequence(defaultBatchSize) { offset, batchSize ->
+                    jooq.select(CLASSES.ID, SYMBOLS.NAME, CLASSES.LOCATION_ID)
+                        .from(CLASSES)
+                        .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
+                        .where(locationIds.greaterThan(offset).and(SYMBOLS.NAME.notEqual(JAVA_OBJECT)))
+                        .batchingProcess(this, batchSize)
+                }
+            }
+        },
+        noSqlAction = { txn ->
+            val objectNameId = db.persistence.findSymbolId(JAVA_OBJECT)
+            txn.all("Class").asSequence().filter { clazz ->
+                clazz.getCompressed<Long>("nameId") != objectNameId &&
+                        clazz.getCompressed<Long>("locationId") in locationIds &&
+                        (!direct || links(clazz, "inherits").asIterable.isEmpty)
+            }.toClassSourceSequence(db).toList().asSequence()
+        }
+    )
+}
+
+private abstract class HierarchyExtensionBase(protected val cp: JIRClasspath) : HierarchyExtension {
+
+    override fun findSubClasses(
+        name: String,
+        entireHierarchy: Boolean,
+        includeOwn: Boolean
+    ): Sequence<JIRClassOrInterface> {
+        return findSubClasses(cp.findClassOrNull(name) ?: return emptySequence(), entireHierarchy, includeOwn)
+    }
+
+    override fun findSubClasses(
+        jIRClass: JIRClassOrInterface,
+        entireHierarchy: Boolean,
+        includeOwn: Boolean
+    ): Sequence<JIRClassOrInterface> {
+        return when {
+            jIRClass.isFinal -> emptySequence()
+            else -> explicitSubClasses(jIRClass, entireHierarchy, false)
+        }.appendOwn(jIRClass, includeOwn)
+    }
+
+    override fun findOverrides(jIRMethod: JIRMethod, includeAbstract: Boolean): Sequence<JIRMethod> {
+        if (jIRMethod.isFinal || jIRMethod.isConstructor || jIRMethod.isStatic || jIRMethod.isClassInitializer) {
+            return emptySequence()
+        }
+        val desc = jIRMethod.description
+        val name = jIRMethod.name
+        return explicitSubClasses(jIRMethod.enclosingClass, entireHierarchy = true, true)
+            .mapNotNull { it.findDeclaredMethodOrNull(name, desc) }
+            .filter { !it.isPrivate }
+    }
+
+    protected abstract fun explicitSubClasses(
+        jIRClass: JIRClassOrInterface,
+        entireHierarchy: Boolean,
+        full: Boolean
+    ): Sequence<JIRClassOrInterface>
+}
+
+private class HierarchyExtensionERS(cp: JIRClasspath) : HierarchyExtensionBase(cp) {
+    override fun explicitSubClasses(
+        jIRClass: JIRClassOrInterface,
+        entireHierarchy: Boolean,
+        full: Boolean
+    ): Sequence<JIRClassOrInterface> {
+        val name = jIRClass.name
+        val db = cp.db
+        if (db.isInstalled(InMemoryHierarchy)) {
+            return cp.findSubclassesInMemory(name, entireHierarchy, full)
+        }
+        val persistence = db.persistence
+        return persistence.read { context ->
+            val txn = context.txn
+            if (name == JAVA_OBJECT) {
+                cp.allClassesExceptObject(context, !entireHierarchy)
+            } else {
+                val locationIds = cp.registeredLocations.mapTo(mutableSetOf()) { it.id }
+                val nameId = name.asSymbolId(persistence.symbolInterner)
+                if (entireHierarchy) {
+                    entireHierarchy(txn, nameId, mutableListOf())
+                } else {
+                    directSubClasses(txn, nameId)
+                }.asSequence().filter { clazz -> clazz.getCompressed<Long>("locationId") in locationIds }
+                    .toClassSourceSequence(db)
+            }
+        }.map { cp.toJIRClass(it) }
+    }
+
+    private fun entireHierarchy(txn: Transaction, nameId: Long, result: MutableList<Entity>): Iterable<Entity> {
+        val subClasses = directSubClasses(txn, nameId)
+        if (subClasses.isNotEmpty) {
+            result += subClasses
+            subClasses.forEach { clazz ->
+                entireHierarchy(txn, clazz.getCompressed<Long>("nameId")!!, result)
+            }
+        }
+        return result
+    }
+
+    private fun directSubClasses(txn: Transaction, nameId: Long): EntityIterable {
+        val clazz = txn.find("Class", "nameId", nameId.compressed).firstOrNull() ?: return EntityIterable.EMPTY
+        return (links(clazz, "inheritedBy").asIterable + links(clazz, "implementedBy").asIterable)
+    }
+}
+
+private class HierarchyExtensionSQL(cp: JIRClasspath) : HierarchyExtensionBase(cp) {
 
     companion object {
-        private fun allHierarchyQuery(locationIds: String, sinceId: Long?) = """
+        fun entireHierarchyQuery(locationIds: String, sinceId: Long?) = """
             WITH RECURSIVE Hierarchy(class_name_id, class_id) AS (
                 SELECT Classes.name, ClassHierarchies.class_id FROM ClassHierarchies
                     JOIN Symbols ON Symbols.id = ClassHierarchies.super_id
@@ -43,7 +194,7 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
              ORDER BY Classes.id
         """.trimIndent()
 
-        private fun directSubClassesQuery(locationIds: String, sinceId: Long?) = """
+        fun directSubClassesQuery(locationIds: String, sinceId: Long?) = """
             SELECT Classes.id, Classes.location_id, SymbolsName.name as name_name, Classes.bytecode FROM ClassHierarchies
                 JOIN Symbols ON Symbols.id = ClassHierarchies.super_id
                 JOIN Symbols as SymbolsName ON SymbolsName.id = Classes.name
@@ -54,68 +205,38 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
 
     }
 
-    override fun findSubClasses(name: String, allHierarchy: Boolean, includeOwn: Boolean): Sequence<JIRClassOrInterface> {
-        val jIRClass = cp.findClassOrNull(name) ?: return emptySequence()
-        return when {
-            jIRClass.isFinal -> emptySequence()
-            cp.db.isInstalled(InMemoryHierarchy) -> cp.findSubclassesInMemory(name, allHierarchy, false)
-            else -> findSubClasses(jIRClass, allHierarchy, false)
-        }.appendOwn(jIRClass, includeOwn)
-    }
-
-    private fun Sequence<JIRClassOrInterface>.appendOwn(root: JIRClassOrInterface, includeOwn: Boolean): Sequence<JIRClassOrInterface> {
-        return if(includeOwn) sequenceOf(root) + this else this
-    }
-
-    override fun findSubClasses(jIRClass: JIRClassOrInterface, allHierarchy: Boolean, includeOwn: Boolean): Sequence<JIRClassOrInterface> {
-        if (jIRClass.isFinal) {
-            return emptySequence<JIRClassOrInterface>().appendOwn(jIRClass, includeOwn)
-        }
-        return when {
-            jIRClass.isFinal -> emptySequence()
-            else -> explicitSubClasses(jIRClass, allHierarchy, false)
-        }.appendOwn(jIRClass, includeOwn)
-    }
-
-    override fun findOverrides(jIRMethod: JIRMethod, includeAbstract: Boolean): Sequence<JIRMethod> {
-        if (jIRMethod.isFinal || jIRMethod.isConstructor || jIRMethod.isStatic || jIRMethod.isClassInitializer) {
-            return emptySequence()
-        }
-        val desc = jIRMethod.description
-        val name = jIRMethod.name
-        return explicitSubClasses(jIRMethod.enclosingClass, allHierarchy = true, true)
-            .mapNotNull { it.findDeclaredMethodOrNull(name, desc) }
-            .filter { !it.isPrivate }
-    }
-
-    private fun explicitSubClasses(
+    override fun explicitSubClasses(
         jIRClass: JIRClassOrInterface,
-        allHierarchy: Boolean,
+        entireHierarchy: Boolean,
         full: Boolean
     ): Sequence<JIRClassOrInterface> {
-        if (cp.db.isInstalled(InMemoryHierarchy)) {
-            return cp.findSubclassesInMemory(jIRClass.name, allHierarchy, full)
-        }
         val name = jIRClass.name
-
-        return cp.subClasses(name, allHierarchy).map { cp.toJIRClass(it) }
-    }
-
-    private fun JIRClasspath.subClasses(
-        name: String,
-        allHierarchy: Boolean
-    ): Sequence<PersistenceClassSource> {
-        val locationIds = registeredLocations.joinToString(", ") { it.id.toString() }
-        if (name == JAVA_OBJECT) {
-            return allClassesExceptObject(!allHierarchy)
+        if (cp.db.isInstalled(InMemoryHierarchy)) {
+            return cp.findSubclassesInMemory(name, entireHierarchy, full)
         }
-        return BatchedSequence(defaultBatchSize) { offset, batchSize ->
-            val query = when {
-                allHierarchy -> allHierarchyQuery(locationIds, offset)
-                else -> directSubClassesQuery(locationIds, offset)
-            }
-            db.persistence.read {
-                val cursor = it.fetchLazy(query, name)
+        return cp.subClasses(name, entireHierarchy).map { cp.toJIRClass(it) }
+    }
+}
+
+private fun Sequence<JIRClassOrInterface>.appendOwn(
+    root: JIRClassOrInterface,
+    includeOwn: Boolean
+): Sequence<JIRClassOrInterface> {
+    return if (includeOwn) sequenceOf(root) + this else this
+}
+
+private fun JIRClasspath.subClasses(name: String, entireHierarchy: Boolean): Sequence<ClassSource> {
+    return db.persistence.read { context ->
+        if (name == JAVA_OBJECT) {
+            allClassesExceptObject(context, !entireHierarchy)
+        } else {
+            val locationIds = registeredLocations.joinToString(", ") { it.id.toString() }
+            BatchedSequence(defaultBatchSize) { offset, batchSize ->
+                val query = when {
+                    entireHierarchy -> HierarchyExtensionSQL.entireHierarchyQuery(locationIds, offset)
+                    else -> HierarchyExtensionSQL.directSubClassesQuery(locationIds, offset)
+                }
+                val cursor = context.dslContext.fetchLazy(query, name)
                 cursor.fetchNext(batchSize).map { record ->
                     val id = record.get(CLASSES.ID)!!
                     id to PersistenceClassSource(
@@ -129,18 +250,13 @@ class HierarchyExtensionImpl(private val cp: JIRClasspath) : HierarchyExtension 
                 }
             }
         }
-
     }
 }
 
-suspend fun JIRClasspath.hierarchyExt(): HierarchyExtensionImpl {
-    db.awaitBackgroundJobs()
-    return HierarchyExtensionImpl(this)
-}
-
-fun JIRClasspath.asyncHierarchy(): Future<HierarchyExtension> = GlobalScope.future { hierarchyExt() }
-
-private fun SelectConditionStep<Record3<Long?, String?, Long?>>.batchingProcess(cp: JIRClasspath, batchSize: Int): List<Pair<Long, PersistenceClassSource>>{
+private fun SelectConditionStep<Record3<Long?, String?, Long?>>.batchingProcess(
+    cp: JIRClasspath,
+    batchSize: Int
+): List<Pair<Long, PersistenceClassSource>> {
     return orderBy(CLASSES.ID)
         .limit(batchSize)
         .fetch()
@@ -154,43 +270,9 @@ private fun SelectConditionStep<Record3<Long?, String?, Long?>>.batchingProcess(
         }
 }
 
-private fun List<Long>.where(offset: Long?): Condition {
+private fun Collection<Long>.greaterThan(offset: Long?): Condition {
     return when (offset) {
         null -> CLASSES.LOCATION_ID.`in`(this)
         else -> CLASSES.LOCATION_ID.`in`(this).and(CLASSES.ID.greaterThan(offset))
     }
 }
-
-internal fun JIRClasspath.allClassesExceptObject(direct: Boolean): Sequence<PersistenceClassSource> {
-    val locationIds = registeredLocations.map { it.id }
-    if (direct) {
-        return BatchedSequence(defaultBatchSize) { offset, batchSize ->
-            db.persistence.read { jooq ->
-                val whereCondition = locationIds.where(offset)
-                jooq.select(CLASSES.ID, SYMBOLS.NAME, CLASSES.LOCATION_ID)
-                    .from(CLASSES)
-                    .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
-                    .where(
-                        whereCondition
-                            .and(DSL.notExists(
-                                jooq.select(CLASSHIERARCHIES.ID).from(CLASSHIERARCHIES)
-                                .where(CLASSHIERARCHIES.CLASS_ID.eq(CLASSES.ID).and(CLASSHIERARCHIES.IS_CLASS_REF.eq(true)))
-                            ))
-                            .and(SYMBOLS.NAME.notEqual(JAVA_OBJECT))
-                    )
-                    .batchingProcess(this, batchSize)
-                }
-            }
-        }
-        return BatchedSequence(defaultBatchSize) { offset, batchSize ->
-            db.persistence.read { jooq ->
-                val whereCondition = locationIds.where(offset)
-
-                jooq.select(CLASSES.ID, SYMBOLS.NAME, CLASSES.LOCATION_ID)
-                    .from(CLASSES)
-                    .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
-                    .where(whereCondition.and(SYMBOLS.NAME.notEqual(JAVA_OBJECT)))
-                    .batchingProcess(this, batchSize)
-            }
-        }
-    }

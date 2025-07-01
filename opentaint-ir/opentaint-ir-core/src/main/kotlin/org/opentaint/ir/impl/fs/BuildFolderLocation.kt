@@ -31,15 +31,15 @@ class BuildFolderLocation(folder: File) : AbstractByteCodeLocation(folder) {
 
     override fun createRefreshed() = BuildFolderLocation(jarOrFolder)
 
-    override val classes: Map<String, ByteArray>?
+    override val classes: Map<String, ByteArray>
         get() {
             try {
                 return dirClasses?.mapValues { (_, file) ->
                     Files.newInputStream(file.toPath()).use { it.readBytes() }
-                } ?: return null
+                } ?: return emptyMap()
             } catch (e: Exception) {
                 logger.warn(e) { "error loading classes from build folder: ${jarOrFolder.absolutePath}. returning empty loader" }
-                return null
+                return emptyMap()
             }
         }
 

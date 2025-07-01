@@ -2,18 +2,26 @@ package org.opentaint.ir.testing
 
 import com.google.common.cache.AbstractCache
 import com.google.common.collect.Iterators
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.api.jvm.ext.findClassOrNull
 import org.opentaint.ir.impl.JIRDatabaseImpl
 import org.opentaint.ir.impl.fs.BuildFolderLocation
 import org.opentaint.ir.impl.opentaint-ir
-import org.opentaint.ir.impl.storage.PersistentLocationRegistry
+import org.opentaint.ir.impl.storage.PersistentLocationsRegistry
+import org.opentaint.ir.impl.storage.dslContext
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -195,7 +203,7 @@ class DatabaseLifecycleTest {
                 }
             }
             db.persistence.read {
-                it.select(CLASSES.ID, BYTECODELOCATIONS.ID).from(CLASSES)
+                it.dslContext.select(CLASSES.ID, BYTECODELOCATIONS.ID).from(CLASSES)
                     .leftJoin(BYTECODELOCATIONS).on(BYTECODELOCATIONS.ID.eq(CLASSES.LOCATION_ID))
                     .where(BYTECODELOCATIONS.ID.isNull).fetch { (_, _) ->
                         fail<Any>("there should not be such records")
@@ -210,7 +218,7 @@ class DatabaseLifecycleTest {
         tempFolder.deleteRecursively()
     }
 
-    private fun withRegistry(action: PersistentLocationRegistry.() -> Unit) {
-        (db.locationsRegistry as PersistentLocationRegistry).action()
+    private fun withRegistry(action: PersistentLocationsRegistry.() -> Unit) {
+        (db.locationsRegistry as PersistentLocationsRegistry).action()
     }
 }

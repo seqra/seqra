@@ -12,6 +12,7 @@ import org.opentaint.ir.api.jvm.ext.methods
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.WithRAMDB
 import org.opentaint.ir.testing.analysis.SqlInjectionExamples
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -23,9 +24,9 @@ import kotlin.time.Duration.Companion.seconds
 
 private val logger = mu.KotlinLogging.logger {}
 
-class IfdsSqlTest : BaseAnalysisTest() {
+abstract class IfdsSqlTest : BaseAnalysisTest() {
 
-    companion object : WithDB(Usages, InMemoryHierarchy) {
+    companion object {
         @JvmStatic
         fun provideClassesForJuliet89(): Stream<Arguments> = provideClassesForJuliet(89, specificBansCwe89)
 
@@ -91,4 +92,12 @@ class IfdsSqlTest : BaseAnalysisTest() {
         val sarifJson = myJson.encodeToString(sarif)
         logger.info { "SARIF:\n$sarifJson" }
     }
+}
+
+class IfdsSqlSqlTest : IfdsSqlTest() {
+    companion object : WithDB(Usages, InMemoryHierarchy)
+}
+
+class IfdsSqlRAMTest : IfdsSqlTest() {
+    companion object : WithRAMDB(Usages, InMemoryHierarchy)
 }

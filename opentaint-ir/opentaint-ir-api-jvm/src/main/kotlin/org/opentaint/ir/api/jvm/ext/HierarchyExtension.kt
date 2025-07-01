@@ -9,20 +9,28 @@ import org.opentaint.ir.api.jvm.JIRMethod
 interface HierarchyExtension {
 
     /**
-     * find all subclasses or implementations if name points to interface. If [allHierarchy] is true then search
+     * find all subclasses or implementations if name points to interface. If [entireHierarchy] is true then search
      * will be done recursively
      *
      * @return list with unique ClassId
      */
-    fun findSubClasses(name: String, allHierarchy: Boolean, includeOwn: Boolean = false): Sequence<JIRClassOrInterface>
+    fun findSubClasses(
+        name: String,
+        entireHierarchy: Boolean,
+        includeOwn: Boolean = false
+    ): Sequence<JIRClassOrInterface>
 
     /**
-     * find all subclasses or implementations if name points to interface. If [allHierarchy] is true then search
+     * find all subclasses or implementations if name points to interface. If [entireHierarchy] is true then search
      * will be done recursively
      *
      * @return list with unique ClassId
      */
-    fun findSubClasses(jIRClass: JIRClassOrInterface, allHierarchy: Boolean, includeOwn: Boolean = false): Sequence<JIRClassOrInterface>
+    fun findSubClasses(
+        jIRClass: JIRClassOrInterface,
+        entireHierarchy: Boolean,
+        includeOwn: Boolean = false
+    ): Sequence<JIRClassOrInterface>
 
     /**
      * find overrides of current method

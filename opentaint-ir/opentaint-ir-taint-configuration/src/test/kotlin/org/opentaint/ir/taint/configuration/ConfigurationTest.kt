@@ -14,12 +14,14 @@ import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualParameter
 import org.opentaint.ir.impl.types.TypeNameImpl
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.WithRAMDB
 import org.opentaint.ir.testing.allClasspath
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-class ConfigurationTest : BaseTest() {
+open class ConfigurationTest : BaseTest() {
+
     companion object : WithDB()
 
     override val cp: JIRClasspath = runBlocking {
@@ -155,4 +157,9 @@ class ConfigurationTest : BaseTest() {
 
         assertTrue(rules.isEmpty())
     }
+}
+
+class ConfigurationRAMTest : ConfigurationTest() {
+
+    companion object : WithRAMDB()
 }

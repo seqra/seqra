@@ -1,7 +1,6 @@
 package org.opentaint.ir.testing.persistence
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.impl.FeaturesRegistry
 import org.opentaint.ir.impl.JIRSettings
 import org.opentaint.ir.impl.features.Builders
 import org.opentaint.ir.impl.features.Usages
@@ -9,6 +8,7 @@ import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.opentaint-ir
 import org.opentaint.ir.impl.storage.LocationState
 import org.opentaint.ir.impl.storage.SQLitePersistenceImpl
+import org.opentaint.ir.impl.storage.dslContext
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
 import org.opentaint.ir.testing.LifecycleTest
 import org.opentaint.ir.testing.allClasspath
@@ -52,7 +52,7 @@ class IncompleteDataTest {
         }
         val db = newDB(true)
         db.persistence.read {
-            val count = it.fetchCount(
+            val count = it.dslContext.fetchCount(
                 BYTECODELOCATIONS,
                 BYTECODELOCATIONS.STATE.notEqual(LocationState.PROCESSED.ordinal)
             )
@@ -76,7 +76,7 @@ class IncompleteDataTest {
         }
         val db = newDB(true)
         db.persistence.read {
-            it.selectFrom(BYTECODELOCATIONS)
+            it.dslContext.selectFrom(BYTECODELOCATIONS)
                 .where(BYTECODELOCATIONS.STATE.notEqual(LocationState.PROCESSED.ordinal))
                 .fetch {
                     assertTrue(
@@ -90,11 +90,11 @@ class IncompleteDataTest {
 
     private fun withPersistence(action: (DSLContext) -> Unit) {
         val persistence = SQLitePersistenceImpl(
-            JavaRuntime(javaHome), FeaturesRegistry(emptyList()), jdbcLocation, false
+            JavaRuntime(javaHome), false, jdbcLocation
         )
         persistence.use {
             it.write {
-                action(it)
+                action(it.dslContext)
             }
         }
     }

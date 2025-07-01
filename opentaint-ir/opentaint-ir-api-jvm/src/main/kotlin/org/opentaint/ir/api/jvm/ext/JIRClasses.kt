@@ -30,7 +30,7 @@ val JIRClassOrInterface.isEnum: Boolean
     }
 
 fun JIRClassOrInterface.toType(): JIRClassType {
-    return classpath.classTypeOf(this) as JIRClassType
+    return classpath.typeOf(this) as JIRClassType
 }
 
 val JIRClassOrInterface.packageName get() = name.substringBeforeLast(".", missingDelimiterValue = "")

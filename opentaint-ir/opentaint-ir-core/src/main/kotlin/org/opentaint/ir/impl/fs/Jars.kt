@@ -1,5 +1,8 @@
 package org.opentaint.ir.impl.fs
 
+import jetbrains.exodus.util.LightByteArrayOutputStream
+import java.io.InputStream
+import java.io.OutputStream
 import java.util.jar.Attributes
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
@@ -60,12 +63,30 @@ class JarFacade(private val runtimeVersion: Int, private val getter: () -> JarFi
         }
     }
 
-    val bytecode: Map<String, ByteArray>?
+    val bytecode: Map<String, ByteArray>
         get() {
-            val jarFile = getter() ?: return null
+            val jarFile = getter() ?: return emptyMap()
             return jarFile.use {
-                classes.map { it.key to jarFile.getInputStream(it.value).readBytes() }
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE * 8)
+                classes.map { it.key to jarFile.getInputStream(it.value).readBytes(buffer) }
             }.toMap()
         }
 
+}
+
+private fun InputStream.readBytes(buffer: ByteArray): ByteArray {
+    val tempOutput = LightByteArrayOutputStream(available())
+    copyTo(tempOutput, buffer)
+    return tempOutput.toByteArray()
+}
+
+private fun InputStream.copyTo(out: OutputStream, buffer: ByteArray): Long {
+    var bytesCopied: Long = 0
+    var bytes = read(buffer)
+    while (bytes >= 0) {
+        out.write(buffer, 0, bytes)
+        bytesCopied += bytes
+        bytes = read(buffer)
+    }
+    return bytesCopied
 }

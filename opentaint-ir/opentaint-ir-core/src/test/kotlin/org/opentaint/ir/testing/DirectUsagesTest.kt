@@ -1,6 +1,5 @@
 package org.opentaint.ir.testing
 
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.ext.CONSTRUCTOR
@@ -121,7 +120,7 @@ class DirectUsagesTest : BaseTest() {
             val methods = jIRClass.declaredMethods
 
             methods.map {
-                it.name to it.usedMethods.map { it.enclosingClass.name + "#" + it.name }.toImmutableList()
+                it.name to it.usedMethods.map { it.enclosingClass.name + "#" + it.name }
             }.filterNot { it.second.isEmpty() }.sortedBy { it.first }
         }
     }

@@ -5,8 +5,12 @@ import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.KotlinMetadata
 import org.opentaint.ir.impl.features.classpaths.MethodInstructionsFeature
-import org.opentaint.ir.impl.fs.*
-import org.opentaint.ir.impl.storage.PersistentLocationRegistry
+import org.opentaint.ir.impl.fs.JavaRuntime
+import org.opentaint.ir.impl.fs.asByteCodeLocation
+import org.opentaint.ir.impl.fs.filterExisted
+import org.opentaint.ir.impl.fs.lazySources
+import org.opentaint.ir.impl.fs.sources
+import org.opentaint.ir.impl.storage.SQLITE_DATABASE_PERSISTENCE_SPI
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
 import org.opentaint.ir.impl.vfs.RemoveLocationsVisitor
 import java.io.File
@@ -16,15 +20,16 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class JIRDatabaseImpl(
     internal val javaRuntime: JavaRuntime,
-    override val persistence: JIRDatabasePersistence,
-    val featureRegistry: FeaturesRegistry,
     private val settings: JIRSettings
 ) : JIRDatabase {
+
+    override val persistence: JIRDatabasePersistence
+    internal val featuresRegistry: FeaturesRegistry
+    internal val locationsRegistry: LocationsRegistry
 
     private val classesVfs = GlobalClassesVfs()
     private val hooks = settings.hooks.map { it(this) }
 
-    internal val locationsRegistry: LocationsRegistry
     private val backgroundJobs = ConcurrentHashMap<Int, Job>()
 
     private val isClosed = AtomicBoolean()
@@ -33,14 +38,17 @@ class JIRDatabaseImpl(
     private val backgroundScope = BackgroundScope()
 
     init {
-        featureRegistry.bind(this)
-        locationsRegistry = PersistentLocationRegistry(this, featureRegistry)
+        val persistenceId = (settings.persistenceId ?: SQLITE_DATABASE_PERSISTENCE_SPI)
+        val persistenceSPI = JIRDatabasePersistenceSPI.getProvider(persistenceId)
+        persistence = persistenceSPI.newPersistence(javaRuntime, settings)
+        featuresRegistry = FeaturesRegistry(settings.features).apply { bind(this@JIRDatabaseImpl) }
+        locationsRegistry = persistenceSPI.newLocationsRegistry(this)
     }
 
-    override val locations: List<RegisteredLocation>
-        get() = locationsRegistry.actualLocations
+    override val locations: List<RegisteredLocation> get() = locationsRegistry.actualLocations
 
     suspend fun restore() {
+        featuresRegistry.broadcast(JIRInternalSignal.BeforeIndexing(settings.persistenceClearOnStart ?: false))
         persistence.setup()
         locationsRegistry.cleanup()
         val runtime = JavaRuntime(settings.jre).allLocations
@@ -55,7 +63,11 @@ class JIRDatabaseImpl(
         if (this != null && any { it is ClasspathCache }) {
             return this + listOf(KotlinMetadata, MethodInstructionsFeature(settings.keepLocalVariableNames))
         }
-        return listOf(ClasspathCache(settings.cacheSettings), KotlinMetadata, MethodInstructionsFeature(settings.keepLocalVariableNames)) + orEmpty()
+        return listOf(
+            ClasspathCache(settings.cacheSettings),
+            KotlinMetadata,
+            MethodInstructionsFeature(settings.keepLocalVariableNames)
+        ) + orEmpty()
     }
 
     override suspend fun classpath(dirOrJars: List<File>, features: List<JIRClasspathFeature>?): JIRClasspath {
@@ -129,7 +141,7 @@ class JIRDatabaseImpl(
                             )
                         )
                     }
-                    parentScope.ifActive { featureRegistry.index(location, sources) }
+                    parentScope.ifActive { featuresRegistry.index(location, sources) }
                 }
             }.joinAll()
             if (createIndexes) {
@@ -150,7 +162,7 @@ class JIRDatabaseImpl(
 
     override suspend fun rebuildFeatures() {
         awaitBackgroundJobs()
-        featureRegistry.broadcast(JIRInternalSignal.Drop)
+        featuresRegistry.broadcast(JIRInternalSignal.Drop)
 
         withContext(Dispatchers.IO) {
             val locations = locationsRegistry.actualLocations
@@ -158,7 +170,7 @@ class JIRDatabaseImpl(
             locations.map {
                 async {
                     val addedClasses = persistence.findClassSources(this@JIRDatabaseImpl, it)
-                    parentScope.ifActive { featureRegistry.index(it, addedClasses) }
+                    parentScope.ifActive { featuresRegistry.index(it, addedClasses) }
                 }
             }.joinAll()
         }
@@ -182,7 +194,7 @@ class JIRDatabaseImpl(
     }
 
     override val features: List<JIRFeature<*, *>>
-        get() = featureRegistry.features
+        get() = featuresRegistry.features
 
     suspend fun afterStart() {
         hooks.forEach { it.afterStart() }

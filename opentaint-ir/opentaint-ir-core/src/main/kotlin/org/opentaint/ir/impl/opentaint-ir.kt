@@ -12,16 +12,8 @@ suspend fun opentaint-ir(builder: JIRSettings.() -> Unit): JIRDatabase {
 }
 
 suspend fun opentaint-ir(settings: JIRSettings): JIRDatabase {
-    val featureRegistry = FeaturesRegistry(settings.features)
     val javaRuntime = JavaRuntime(settings.jre)
-    val persistence = (settings.persistentType ?: PredefinedPersistenceType.SQLITE)
-        .newPersistence(javaRuntime, featureRegistry, settings)
-    return JIRDatabaseImpl(
-        javaRuntime = javaRuntime,
-        persistence = persistence,
-        featureRegistry = featureRegistry,
-        settings = settings
-    ).also {
+    return JIRDatabaseImpl(javaRuntime = javaRuntime, settings = settings).also {
         it.restore()
         it.afterStart()
     }

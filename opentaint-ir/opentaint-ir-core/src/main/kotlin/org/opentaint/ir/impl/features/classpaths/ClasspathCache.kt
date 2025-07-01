@@ -1,7 +1,5 @@
 package org.opentaint.ir.impl.features.classpaths
 
-import com.google.common.cache.CacheBuilder
-import com.google.common.cache.CacheStats
 import mu.KLogging
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClasspath
@@ -18,94 +16,123 @@ import org.opentaint.ir.api.jvm.cfg.JIRGraph
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstList
 import org.opentaint.ir.api.jvm.cfg.JIRRawInst
+import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
 import org.opentaint.ir.impl.JIRCacheSegmentSettings
 import org.opentaint.ir.impl.JIRCacheSettings
-import org.opentaint.ir.impl.ValueStoreType
+import org.opentaint.ir.impl.caches.PluggableCache
+import org.opentaint.ir.impl.caches.PluggableCacheProvider
+import org.opentaint.ir.impl.caches.PluggableCacheStats
+import org.opentaint.ir.impl.caches.guava.GUAVA_CACHE_PROVIDER_ID
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRInstResult.JIRFlowGraphResultImpl
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRInstResult.JIRInstListResultImpl
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRInstResult.JIRRawInstListResultImpl
 import java.text.NumberFormat
+
+private val PLUGGABLE_CACHE_PROVIDER_ID: String
+    get() = System.getProperty("org.opentaint.ir.impl.features.classpaths.cacheProviderId", GUAVA_CACHE_PROVIDER_ID)
 
 /**
  * any class cache should extend this class
  */
 open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, JIRMethodExtFeature {
 
-    companion object : KLogging()
+    private companion object : KLogging() {
 
-    private val classesCache = segmentBuilder(settings.classes)
-        .build<String, JIRResolvedClassResult>()
+        private val cacheProvider = PluggableCacheProvider.getProvider(PLUGGABLE_CACHE_PROVIDER_ID)
 
-    private val typesCache = segmentBuilder(settings.types)
-        .build<String, JIRResolvedTypeResult>()
+        fun <K : Any, V : Any> newSegment(settings: JIRCacheSegmentSettings): PluggableCache<K, V> {
+            with(settings) {
+                return cacheProvider.newCache {
+                    maximumSize = maxSize.toInt()
+                    expirationDuration = expiration
+                    valueRefType = valueStoreType
+                }
+            }
+        }
+    }
 
-    private val rawInstCache = segmentBuilder(settings.rawInstLists)
-        .build<JIRMethod, JIRInstList<JIRRawInst>>()
+    private val classesCache = newSegment<String, JIRResolvedClassResult>(settings.classes)
 
-    private val instCache = segmentBuilder(settings.instLists)
-        .build<JIRMethod, JIRInstList<JIRInst>>()
+    private val typesCache = newSegment<TypeKey, JIRResolvedTypeResult>(settings.types)
 
-    private val cfgCache = segmentBuilder(settings.flowGraphs)
-        .build<JIRMethod, JIRGraph>()
+    private val rawInstCache = newSegment<JIRMethod, JIRInstList<JIRRawInst>>(settings.rawInstLists)
+
+    private val instCache = newSegment<JIRMethod, JIRInstList<JIRInst>>(settings.instLists)
+
+    private val cfgCache = newSegment<JIRMethod, JIRGraph>(settings.flowGraphs)
+
+    private var javaObjectResolvedClass: JIRResolvedClassResult? = null
+    private var javaObjectResolvedType: JIRResolvedTypeResult? = null
+    private var javaObjectResolvedNotNullType: JIRResolvedTypeResult? = null
+    private var javaObjectResolvedNullableType: JIRResolvedTypeResult? = null
 
     override fun tryFindClass(classpath: JIRClasspath, name: String): JIRResolvedClassResult? {
-        return classesCache.getIfPresent(name)
+        return if (name == JAVA_OBJECT) javaObjectResolvedClass else classesCache[name]
     }
 
-    override fun tryFindType(classpath: JIRClasspath, name: String): JIRResolvedTypeResult? {
-        return typesCache.getIfPresent(name)
+    override fun tryFindType(classpath: JIRClasspath, name: String, nullable: Boolean?): JIRResolvedTypeResult? {
+        if (name == JAVA_OBJECT) {
+            return when (nullable) {
+                null -> javaObjectResolvedType
+                true -> javaObjectResolvedNullableType
+                false -> javaObjectResolvedNotNullType
+            }
+        }
+        return typesCache[TypeKey(name, nullable)]
     }
 
-    override fun flowGraph(method: JIRMethod) = cfgCache.getIfPresent(method)?.let {
+    override fun flowGraph(method: JIRMethod) = cfgCache[method]?.let {
         JIRFlowGraphResultImpl(method, it)
     }
-    override fun instList(method: JIRMethod) = instCache.getIfPresent(method)?.let {
+
+    override fun instList(method: JIRMethod) = instCache[method]?.let {
         JIRInstListResultImpl(method, it)
     }
-    override fun rawInstList(method: JIRMethod) = rawInstCache.getIfPresent(method)?.let {
+
+    override fun rawInstList(method: JIRMethod) = rawInstCache[method]?.let {
         JIRRawInstListResultImpl(method, it)
     }
 
     override fun on(event: JIRFeatureEvent) {
         when (val result = event.result) {
-            is JIRResolvedClassResult -> classesCache.put(result.name, result)
+            is JIRResolvedClassResult -> {
+                val name = result.name
+                if (name == JAVA_OBJECT) {
+                    javaObjectResolvedClass = result
+                } else {
+                    classesCache[name] = result
+                }
+            }
 
             is JIRResolvedTypeResult -> {
                 val found = result.type
                 if (found != null && found is JIRClassType) {
-                    typesCache.put(result.name, result)
+                    val nullable = found.nullable
+                    val typeName = result.name
+                    if (typeName == JAVA_OBJECT) {
+                        when (nullable) {
+                            null -> javaObjectResolvedType = result
+                            true -> javaObjectResolvedNullableType = result
+                            false -> javaObjectResolvedNotNullType = result
+                        }
+                    } else {
+                        typesCache[TypeKey(typeName, nullable)] = result
+                    }
                 }
             }
 
-            is JIRFlowGraphResult -> cfgCache.put(result.method, result.flowGraph)
-            is JIRInstListResult -> instCache.put(result.method, result.instList)
-            is JIRRawInstListResult -> rawInstCache.put(result.method, result.rawInstList)
+            is JIRFlowGraphResult -> cfgCache[result.method] = result.flowGraph
+            is JIRInstListResult -> instCache[result.method] = result.instList
+            is JIRRawInstListResult -> rawInstCache[result.method] = result.rawInstList
         }
     }
 
-    protected fun segmentBuilder(settings: JIRCacheSegmentSettings)
-            : CacheBuilder<Any, Any> {
-        val maxSize = settings.maxSize
-        val expiration = settings.expiration
-
-        return CacheBuilder.newBuilder()
-            .expireAfterAccess(expiration)
-            .recordStats()
-            .maximumSize(maxSize).let {
-                when (settings.valueStoreType) {
-                    ValueStoreType.WEAK -> it.weakValues()
-                    ValueStoreType.SOFT -> it.softValues()
-                    else -> it
-                }
-            }
-    }
-
-    open fun stats(): Map<String, CacheStats> = buildMap {
-        this["classes"] = classesCache.stats()
-        this["types"] = typesCache.stats()
-        this["cfg"] = cfgCache.stats()
-        this["raw-instructions"] = rawInstCache.stats()
-        this["instructions"] = instCache.stats()
+    open fun stats(): Map<String, PluggableCacheStats> = buildMap {
+        this["classes"] = classesCache.getStats()
+        this["types"] = typesCache.getStats()
+        this["cfg"] = cfgCache.getStats()
+        this["raw-instructions"] = rawInstCache.getStats()
+        this["instructions"] = instCache.getStats()
     }
 
     open fun dumpStats() {
@@ -114,13 +141,15 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
             .forEach { (key, stat) ->
                 logger.info(
                     "$key cache hit rate: ${
-                        stat.hitRate().forPercentages()
-                    }, total count ${stat.requestCount()}"
+                        stat.hitRate.forPercentages()
+                    }, total count ${stat.requestCount}"
                 )
             }
     }
 
-    protected fun Double.forPercentages(): String {
+    private fun Double.forPercentages(): String {
         return NumberFormat.getPercentInstance().format(this)
     }
+
+    private data class TypeKey(val typeName: String, val nullable: Boolean? = null)
 }

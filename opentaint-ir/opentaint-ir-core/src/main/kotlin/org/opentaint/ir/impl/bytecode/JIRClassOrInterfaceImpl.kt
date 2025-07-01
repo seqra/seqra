@@ -26,6 +26,14 @@ class JIRClassOrInterfaceImpl(
         else -> null // maybe we do not need to do right now
     }
 
+    private val interfacesArray: Array<JIRClassOrInterface> by lazy(PUBLICATION) {
+        info.interfaces.map { classpath.findClass(it) }.toTypedArray()
+    }
+
+    private val innerClassesArray: Array<JIRClassOrInterface> by lazy(PUBLICATION) {
+        info.innerClasses.filter { it != name }.map { classpath.findClass(it) }.toTypedArray()
+    }
+
     override val lookup: JIRLookup<JIRField, JIRMethod> = ClassDelegatingLookup(
         this,
         featuresChain.classLookups,
@@ -53,33 +61,17 @@ class JIRClassOrInterfaceImpl(
     override val annotations: List<JIRAnnotation>
         get() = info.annotations.map { JIRAnnotationImpl(it, classpath) }
 
-    override val interfaces: List<JIRClassOrInterface>
-        get() {
-            return info.interfaces.map {
-                classpath.findClass(it)
-            }
-        }
+    override val interfaces: List<JIRClassOrInterface> get() = interfacesArray.asList()
 
-    override val superClass: JIRClassOrInterface?
-        get() {
-            return info.superClass?.let {
-                classpath.findClass(it)
-            }
-        }
+    override val superClass: JIRClassOrInterface? by lazy(PUBLICATION) {
+        info.superClass?.let { classpath.findClass(it) }
+    }
 
-    override val outerClass: JIRClassOrInterface?
-        get() {
-            return info.outerClass?.className?.let {
-                classpath.findClass(it)
-            }
-        }
+    override val outerClass: JIRClassOrInterface? by lazy(PUBLICATION) {
+        info.outerClass?.className?.let { classpath.findClass(it) }
+    }
 
-    override val innerClasses: List<JIRClassOrInterface>
-        get() {
-            return info.innerClasses.filter { it != name }.map {
-                classpath.findClass(it)
-            }
-        }
+    override val innerClasses: List<JIRClassOrInterface> get() = innerClassesArray.asList()
 
     override val access: Int
         get() = info.access
@@ -110,11 +102,10 @@ class JIRClassOrInterfaceImpl(
             return null
         }
 
-    override val declaredFields: List<JIRField>
-        get() {
-            val default = info.fields.map { JIRFieldImpl(this, it) }
-            return default.joinFeatureFields(this, featuresChain)
-        }
+    override val declaredFields: List<JIRField> by lazy(PUBLICATION) {
+        val default = info.fields.map { JIRFieldImpl(this, it) }
+        default.joinFeatureFields(this, featuresChain)
+    }
 
     override val declaredMethods: List<JIRMethod> by lazy(PUBLICATION) {
         val default = info.methods.map { toJIRMethod(it, featuresChain) }

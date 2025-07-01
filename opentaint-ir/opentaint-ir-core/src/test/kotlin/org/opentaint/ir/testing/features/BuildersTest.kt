@@ -3,9 +3,13 @@ package org.opentaint.ir.testing.features
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.packageName
+import org.opentaint.ir.impl.features.Builders
+import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.buildersExtension
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithGlobalDB
+import org.opentaint.ir.testing.WithRAMDB
 import org.opentaint.ir.testing.builders.Hierarchy.HierarchyInterface
 import org.opentaint.ir.testing.builders.Interfaces.Interface
 import org.opentaint.ir.testing.builders.Simple
@@ -16,9 +20,7 @@ import org.junit.jupiter.api.condition.DisabledOnJre
 import org.junit.jupiter.api.condition.JRE
 import javax.xml.parsers.DocumentBuilderFactory
 
-class BuildersTest : BaseTest() {
-
-    companion object : WithGlobalDB()
+abstract class BuildersTest : BaseTest() {
 
     private val ext = runBlocking {
         cp.buildersExtension()
@@ -63,7 +65,9 @@ class BuildersTest : BaseTest() {
     @Test
     fun `works for jooq`() {
         val builders = ext.findBuildMethods(cp.findClass<DSLContext>()).toList()
-        assertEquals("org.jooq.impl.DSL#using", builders.first().loggable)
+        assertEquals("org.jooq.impl.DSL#using", builders.first {
+            it.enclosingClass.packageName.startsWith("org.jooq")
+        }.loggable)
     }
 
     @Test
@@ -74,4 +78,12 @@ class BuildersTest : BaseTest() {
     }
 
     private val JIRMethod.loggable get() = enclosingClass.name + "#" + name
+}
+
+class BuildersSqlTest : BuildersTest() {
+    companion object : WithGlobalDB()
+}
+
+class BuildersRamTest : BuildersTest() {
+    companion object : WithRAMDB(Builders, InMemoryHierarchy)
 }

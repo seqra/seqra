@@ -36,11 +36,11 @@ class HierarchyStabilityTest {
 
             val setSubclasses = hierarchy.findSubClasses(
                 "java.util.Set",
-                allHierarchy = true, includeOwn = true
+                entireHierarchy = true, includeOwn = true
             ).toSet()
             val listSubclasses = hierarchy.findSubClasses(
                 "java.util.List",
-                allHierarchy = true, includeOwn = true
+                entireHierarchy = true, includeOwn = true
             ).toSet()
 
             if (!global) {

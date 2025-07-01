@@ -11,8 +11,7 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
 
-class ParameterNamesTest : BaseTest() {
-    companion object : WithDB()
+abstract class ParameterNamesTest : BaseTest() {
 
     private val target = Files.createTempDirectory("jIRdb-temp")
 
@@ -35,4 +34,12 @@ class ParameterNamesTest : BaseTest() {
                 ?.parametersInfo?.map(ParameterInfo::name)
                 ?: parameters.map(JIRParameter::name)
         }
+}
+
+class ParameterNamesSqlTest : ParameterNamesTest() {
+    companion object : WithDB()
+}
+
+class ParameterNamesRAMTest : ParameterNamesTest() {
+    companion object : WithRAMDB()
 }

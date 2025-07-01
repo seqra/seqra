@@ -3,6 +3,7 @@ package org.opentaint.ir.impl.fs
 import mu.KLogging
 import org.opentaint.ir.api.jvm.JavaVersion
 import org.opentaint.ir.api.jvm.LocationType
+import org.opentaint.ir.impl.softLazy
 import java.io.File
 import java.util.jar.JarFile
 
@@ -26,15 +27,14 @@ open class JarLocation(
 
     override fun currentHash() = fileChecksum
 
-    override val classes: Map<String, ByteArray>?
-        get() {
-            try {
-                return jarFacade.bytecode
-            } catch (e: Exception) {
-                logger.warn(e) { "error loading classes from jar: ${jarOrFolder.absolutePath}. returning empty loader" }
-                return null
-            }
+    override val classes: Map<String, ByteArray> by softLazy {
+        try {
+            jarFacade.bytecode
+        } catch (e: Exception) {
+            logger.warn(e) { "error loading classes from jar: ${jarOrFolder.absolutePath}. returning empty loader" }
+            emptyMap()
         }
+    }
 
     override val classNames: Set<String>?
         get() = jarFacade.classes.keys

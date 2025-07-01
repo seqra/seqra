@@ -4,7 +4,6 @@ import org.opentaint.ir.api.jvm.ClassSource
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.throwClassNotFound
-import org.opentaint.ir.impl.vfs.PersistentByteCodeLocation
 
 class ClassSourceImpl(
     override val location: RegisteredLocation,
@@ -38,7 +37,7 @@ class PersistenceClassSource(
         byteCode
     )
 
-    override val location = PersistentByteCodeLocation(db, locationId)
+    override val location = db.persistence.findLocation(locationId)
 
     override val byteCode by lazy {
         cachedByteCode ?: db.persistence.findBytecode(classId)

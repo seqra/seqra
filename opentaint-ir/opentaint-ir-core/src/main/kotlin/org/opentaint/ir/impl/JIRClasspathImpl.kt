@@ -10,6 +10,7 @@ import org.opentaint.ir.impl.features.JIRFeatureEventImpl
 import org.opentaint.ir.impl.features.JIRFeaturesChain
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRResolvedResult.JIRResolvedClassResultImpl
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRResolvedResult.JIRResolvedTypeResultImpl
+import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.JIRUnknownClass
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.features.classpaths.isResolveAllToUnknown
@@ -31,10 +32,14 @@ class JIRClasspathImpl(
     override val registeredLocations: List<RegisteredLocation> = locationsRegistrySnapshot.locations
 
     private val classpathVfs = ClasspathVfs(globalClassVFS, locationsRegistrySnapshot)
-    private val featuresChain = run{
+    private val featuresChain = run {
         val strictFeatures = features.filter { it !is UnknownClasses }
         val hasUnknownClasses = strictFeatures.size != features.size
-        JIRFeaturesChain(strictFeatures + listOfNotNull(JIRClasspathFeatureImpl(), UnknownClasses.takeIf { hasUnknownClasses }) )
+        JIRFeaturesChain(
+            strictFeatures + listOfNotNull(
+                JIRClasspathFeatureImpl(),
+                UnknownClasses.takeIf { hasUnknownClasses })
+        )
     }
 
     override suspend fun refreshed(closeOld: Boolean): JIRClasspath {
@@ -51,19 +56,25 @@ class JIRClasspathImpl(
         }?.clazz
     }
 
-    override fun classTypeOf(
+    override fun typeOf(
         jIRClass: JIRClassOrInterface,
         nullability: Boolean?,
         annotations: List<JIRAnnotation>
-    ): JIRClassType {
-        return JIRClassTypeImpl(
-            this,
-            jIRClass.name,
-            jIRClass.outerClass?.toType() as? JIRClassTypeImpl,
-            JIRSubstitutorImpl.empty,
-            nullability,
-            annotations
-        )
+    ): JIRRefType {
+        val jIRRefType = findTypeOrNullWithNullability(jIRClass.name, nullability) as? JIRRefType
+        jIRRefType?.let {
+            //
+            // NB! cached type can have a different set of annotations,e.g., if it has
+            // been substituted by a "substitutor"
+            //
+            val cachedAnnotations = jIRRefType.annotations
+            if (cachedAnnotations.size == annotations.size) {
+                if (annotations.isEmpty() || cachedAnnotations.toSet() == annotations.toSet()) {
+                    return jIRRefType
+                }
+            }
+        }
+        return newClassType(jIRClass, nullability, annotations)
     }
 
     override fun arrayTypeOf(elementType: JIRType, nullability: Boolean?, annotations: List<JIRAnnotation>): JIRArrayType {
@@ -71,13 +82,15 @@ class JIRClasspathImpl(
     }
 
     override fun toJIRClass(source: ClassSource): JIRClassOrInterface {
-        return JIRClassOrInterfaceImpl(this, source, featuresChain)
+        // findClassOrNull() can return instance of JIRVirtualClass which is not expected here
+        // also a duplicate class with different location can be cached
+        return (findCachedClass(source.className) as? JIRClassOrInterfaceImpl)?.run {
+            if (source.location.id == declaration.location.id) this else null
+        } ?: newClassOrInterface(source)
     }
 
     override fun findTypeOrNull(name: String): JIRType? {
-        return featuresChain.call<JIRClasspathExtFeature, JIRResolvedTypeResult> {
-            it.tryFindType(this, name)
-        }?.type
+        return findTypeOrNullWithNullability(name)
     }
 
     override suspend fun <T : JIRClasspathTask> execute(task: T): T {
@@ -118,13 +131,42 @@ class JIRClasspathImpl(
         locationsRegistrySnapshot.close()
     }
 
+    private fun findTypeOrNullWithNullability(name: String, nullable: Boolean? = null): JIRType? {
+        return featuresChain.call<JIRClasspathExtFeature, JIRResolvedTypeResult> {
+            it.tryFindType(this, name, nullable)
+        }?.type
+    }
+
+    private fun newClassType(
+        jIRClass: JIRClassOrInterface,
+        nullability: Boolean?,
+        annotations: List<JIRAnnotation>
+    ): JIRClassTypeImpl {
+        return JIRClassTypeImpl(
+            this,
+            jIRClass.name,
+            jIRClass.outerClass?.toType() as? JIRClassTypeImpl,
+            JIRSubstitutorImpl.empty,
+            nullability,
+            annotations
+        )
+    }
+
+    private fun newClassOrInterface(source: ClassSource) = JIRClassOrInterfaceImpl(this, source, featuresChain)
+
+    private fun findCachedClass(name: String): JIRClassOrInterface? {
+        return featuresChain.call<JIRClasspathExtFeature, JIRResolvedClassResult> { feature ->
+            if (feature is ClasspathCache) feature.tryFindClass(this, name) else null
+        }?.clazz ?: findClassOrNull(name)
+    }
+
     private inner class JIRClasspathFeatureImpl : JIRClasspathExtFeature {
 
         override fun tryFindClass(classpath: JIRClasspath, name: String): JIRResolvedClassResult? {
             val source = classpathVfs.firstClassOrNull(name)
-            val jIRClass = source?.let { toJIRClass(it.source) }
+            val jIRClass = source?.let { newClassOrInterface(it.source) }
                 ?: db.persistence.findClassSourceByName(classpath, name)?.let {
-                    toJIRClass(it)
+                    newClassOrInterface(it)
                 }
             if (jIRClass == null && isResolveAllToUnknown) {
                 return null
@@ -132,7 +174,7 @@ class JIRClasspathImpl(
             return JIRResolvedClassResultImpl(name, jIRClass)
         }
 
-        override fun tryFindType(classpath: JIRClasspath, name: String): JIRResolvedTypeResult? {
+        override fun tryFindType(classpath: JIRClasspath, name: String, nullable: Boolean?): JIRResolvedTypeResult? {
             if (name.endsWith("[]")) {
                 val targetName = name.removeSuffix("[]")
                 return JIRResolvedTypeResultImpl(name,
@@ -146,12 +188,13 @@ class JIRClasspathImpl(
             return when (val clazz = findClassOrNull(name)) {
                 null -> JIRResolvedTypeResultImpl(name, null)
                 is JIRUnknownClass -> null // delegating to UnknownClass feature
-                else -> JIRResolvedTypeResultImpl(name, classTypeOf(clazz))
+                else -> JIRResolvedTypeResultImpl(name, newClassType(clazz, nullable, clazz.annotations))
             }
         }
 
         override fun findClasses(classpath: JIRClasspath, name: String): List<JIRClassOrInterface> {
-            val vfsClasses = classpathVfs.findClassNodes(name).map { toJIRClass(it.source) }
+            val findClassNodes = classpathVfs.findClassNodes(name)
+            val vfsClasses = findClassNodes.map { toJIRClass(it.source) }
             val persistedClasses = db.persistence.findClassSources(classpath, name).map { toJIRClass(it) }
             return buildSet {
                 addAll(vfsClasses)

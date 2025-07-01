@@ -2,13 +2,13 @@
 
 package org.opentaint.ir.api.jvm.ext
 
-import kotlinx.collections.immutable.toImmutableList
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.FieldInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
+import java.util.*
 
 const val CONSTRUCTOR = "<init>"
 
@@ -61,7 +61,7 @@ val JIRMethod.usedMethods: List<JIRMethod>
                 }
             }
         }
-        return result.toImmutableList()
+        return result.toList()
     }
 
 class FieldUsagesResult(
@@ -99,7 +99,7 @@ val JIRMethod.usedFields: FieldUsagesResult
             }
         }
         return FieldUsagesResult(
-            reads = reads.toImmutableList(),
-            writes = writes.toImmutableList()
+            reads = reads.toList(),
+            writes = writes.toList()
         )
     }

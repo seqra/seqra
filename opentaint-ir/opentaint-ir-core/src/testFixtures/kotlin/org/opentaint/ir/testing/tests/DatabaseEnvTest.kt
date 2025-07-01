@@ -14,6 +14,7 @@ import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualField
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualMethod
 import org.opentaint.ir.testing.*
 import org.opentaint.ir.testing.hierarchies.Creature
+import org.opentaint.ir.testing.skipAssertionsOn
 import org.opentaint.ir.testing.structure.FieldsAndMethods
 import org.opentaint.ir.testing.structure.HiddenFieldSuperClass.HiddenFieldSuccClass
 import org.opentaint.ir.testing.types.AAA
@@ -245,7 +246,7 @@ abstract class DatabaseEnvTest {
         val clazz = cp.findClassOrNull<SuperDuper>()
         assertNotNull(clazz!!)
 
-        with(hierarchyExt.findSubClasses(clazz, allHierarchy = true).toList()) {
+        with(hierarchyExt.findSubClasses(clazz, entireHierarchy = true).toList()) {
             assertEquals(4, size) {
                 "expected 4 but got only: ${joinToString { it.name }}"
             }

@@ -8,7 +8,10 @@ object Versions {
     const val dokka = "1.7.20"
     const val gradle_download = "5.3.0"
     const val gradle_versions = "0.47.0"
-    const val hikaricp = "5.0.1"
+
+    // hikaricp version compatible with Java 8
+    const val hikaricp = "4.0.3"
+
     const val guava = "31.1-jre"
     const val javax_activation = "1.1"
     const val javax_mail = "1.4.7"
@@ -36,6 +39,9 @@ object Versions {
     const val soot_opentaint_fork = "4.4.0-FORK-2"
     const val sootup = "1.0.0"
     const val sqlite = "3.41.2.2"
+    const val xodus = "2.0.1"
+    const val rocks_db = "9.1.1"
+    const val lmdb_java = "0.9.0"
 }
 
 fun dep(group: String, name: String, version: String): String = "$group:$name:$version"
@@ -275,6 +281,30 @@ object Libs {
         version = Versions.juliet
     )
 
+    val xodusUtils = dep(
+        group = "org.jetbrains.xodus",
+        name = "xodus-utils",
+        version = Versions.xodus
+    )
+
+    val xodusApi = dep(
+        group = "org.jetbrains.xodus",
+        name = "xodus-openAPI",
+        version = Versions.xodus
+    )
+
+    val xodusEnvironment = dep(
+        group = "org.jetbrains.xodus",
+        name = "xodus-environment",
+        version = Versions.xodus
+    )
+
+    val lmdb_java = dep(
+        group = "org.lmdbjava",
+        name = "lmdbjava",
+        version = Versions.lmdb_java
+    )
+
     @Suppress("FunctionName")
     fun juliet_cwe(cweNum: Int) = dep(
         group = "com.github.Opentaint.juliet-java-test-suite",
@@ -294,6 +324,12 @@ object Libs {
         group = "org.antlr",
         name = "antlr4",
         version = Versions.antlr
+    )
+
+    val rocks_db = dep(
+        group = "org.rocksdb",
+        name = "rocksdbjni",
+        version = Versions.rocks_db
     )
 }
 

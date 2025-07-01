@@ -1,93 +1,120 @@
 package org.opentaint.ir.impl.storage
 
-import org.opentaint.ir.impl.FeaturesRegistry
+import mu.KotlinLogging
+import org.opentaint.ir.api.jvm.ClassSource
+import org.opentaint.ir.api.jvm.JIRDBContext
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.RegisteredLocation
+import org.opentaint.ir.api.jvm.storage.ers.EntityRelationshipStorage
+import org.opentaint.ir.impl.JIRDBSymbolsInternerImpl
 import org.opentaint.ir.impl.fs.JavaRuntime
-import org.opentaint.ir.impl.fs.logger
-import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
-import org.jooq.DSLContext
+import org.opentaint.ir.impl.fs.PersistenceClassSource
+import org.opentaint.ir.impl.fs.info
+import org.opentaint.ir.impl.storage.ers.BuiltInBindingProvider
+import org.opentaint.ir.impl.storage.ers.sql.SqlEntityRelationshipStorage
+import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
+import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
+import org.jooq.Condition
 import org.jooq.SQLDialect
 import org.jooq.conf.Settings
 import org.jooq.impl.DSL
-import org.sqlite.SQLiteConfig
-import org.sqlite.SQLiteDataSource
 import java.sql.Connection
-import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
+val defaultBatchSize: Int get() = System.getProperty("org.opentaint.ir.impl.storage.defaultBatchSize", "100").toInt()
+
 class SQLitePersistenceImpl(
     javaRuntime: JavaRuntime,
-    featuresRegistry: FeaturesRegistry,
-    location: String? = null,
-    clearOnStart: Boolean
-) : AbstractJIRDatabasePersistenceImpl(javaRuntime, featuresRegistry, clearOnStart) {
-
-    private var connection: Connection? = null
-    override val jooq: DSLContext
-
+    clearOnStart: Boolean,
+    val location: String?,
+) : AbstractJIRDbPersistence(javaRuntime) {
+    private val dataSource = configuredSQLiteDataSource(location)
+    private val connection: Connection = dataSource.connection
+    internal val jooq = DSL.using(connection, SQLDialect.SQLITE, Settings().withExecuteLogging(false))
     private val lock = ReentrantLock()
+    private val persistenceService = SQLitePersistenceService(this)
+    override val ers: EntityRelationshipStorage = SqlEntityRelationshipStorage(dataSource, BuiltInBindingProvider)
 
-    init {
-        val config = SQLiteConfig().also {
-            it.setSynchronous(SQLiteConfig.SynchronousMode.OFF)
-            it.setJournalMode(SQLiteConfig.JournalMode.OFF)
-            it.setPageSize(32_768)
-            it.setCacheSize(-8_000)
-            it.setSharedCache(true)
-        }
-        val props = listOfNotNull(
-            ("mode" to "memory").takeIf { location == null },
-            "rewriteBatchedStatements" to "true",
-            "useServerPrepStmts" to "false"
-        ).joinToString("&") { "${it.first}=${it.second}" }
-        val dataSource = SQLiteDataSource(config).also {
-            it.url = "jdbc:sqlite:file:${location ?: ("jIRdb-" + UUID.randomUUID())}?$props"
-        }
-        connection = dataSource.connection
-        jooq = DSL.using(connection, SQLDialect.SQLITE, Settings().withExecuteLogging(false))
-        write {
-            if (clearOnStart || !runtimeProcessed) {
-                jooq.executeQueriesFrom("sqlite/drop-schema.sql")
-            }
-            jooq.executeQueriesFrom("sqlite/create-schema.sql")
-        }
+    companion object {
+        private val logger = KotlinLogging.logger {}
     }
 
-    private val runtimeProcessed: Boolean
-        get() {
-            try {
-                val hasBytecodeLocations = jooq.meta().tables
-                    .any { it.name.equals(BYTECODELOCATIONS.name, true) }
-                if (hasBytecodeLocations) {
-                    val count = jooq.fetchCount(
-                        BYTECODELOCATIONS,
-                        BYTECODELOCATIONS.STATE.notEqual(LocationState.PROCESSED.ordinal)
-                            .and(BYTECODELOCATIONS.RUNTIME.isTrue)
-                    )
-                    return count == 0
-                }
-                return false
-            } catch (e: Exception) {
-                logger.warn("can't check that runtime libraries is processed with", e)
-                return false
-            }
+    init {
+        if (clearOnStart || !runtimeProcessed) {
+            jooq.executeQueriesFrom("sqlite/drop-schema.sql")
         }
+        jooq.executeQueriesFrom("sqlite/create-schema.sql")
+    }
 
-    override fun <T> write(action: (DSLContext) -> T): T = lock.withLock {
-        action(jooq)
+    override val symbolInterner = JIRDBSymbolsInternerImpl().apply { setup(this@SQLitePersistenceImpl) }
+
+    override fun <T> read(action: (JIRDBContext) -> T): T {
+        return action(toJIRDBContext(jooq))
+    }
+
+    override fun <T> write(action: (JIRDBContext) -> T): T = lock.withLock {
+        action(toJIRDBContext(jooq))
     }
 
     override fun close() {
-        super.close()
         try {
-            connection?.close()
+            ers.close()
+            connection.close()
+            super.close()
         } catch (e: Exception) {
-            // ignore
+            logger.warn(e) { "Failed to close SQL persistence" }
         }
     }
 
     override fun createIndexes() {
         jooq.executeQueries("add-indexes.sql".sqlScript())
+    }
+
+    override fun setup() {
+        persistenceService.setup()
+    }
+
+    override fun persist(location: RegisteredLocation, classes: List<ClassSource>) {
+        val allClasses = classes.map { it.info }
+        persistenceService.persist(location, allClasses)
+    }
+
+    override fun findClassSourceByName(cp: JIRClasspath, fullName: String): ClassSource? {
+        val symbolId = findSymbolId(fullName)
+        return cp.db.classSources(CLASSES.NAME.eq(symbolId).and(cp.clause), single = true).firstOrNull()
+    }
+
+    override fun findClassSources(db: JIRDatabase, location: RegisteredLocation): List<ClassSource> {
+        return db.classSources(CLASSES.LOCATION_ID.eq(location.id))
+    }
+
+    override fun findClassSources(cp: JIRClasspath, fullName: String): List<ClassSource> {
+        val symbolId = findSymbolId(fullName)
+        return cp.db.classSources(CLASSES.NAME.eq(symbolId).and(cp.clause))
+    }
+
+    private val JIRClasspath.clause: Condition
+        get() {
+            val ids = registeredLocations.map { it.id }
+            return CLASSES.LOCATION_ID.`in`(ids)
+        }
+
+    private fun JIRDatabase.classSources(clause: Condition, single: Boolean = false): List<ClassSource> = read { context ->
+        val jooq = context.dslContext
+        val classesQuery =
+            jooq.select(CLASSES.LOCATION_ID, CLASSES.ID, CLASSES.BYTECODE, SYMBOLS.NAME).from(CLASSES).join(SYMBOLS)
+                .on(CLASSES.NAME.eq(SYMBOLS.ID)).where(clause)
+        val classes = when {
+            single -> listOfNotNull(classesQuery.fetchAny())
+            else -> classesQuery.fetch()
+        }
+        classes.map { (locationId, classId, bytecode, name) ->
+            PersistenceClassSource(
+                db = this, className = name!!, classId = classId!!, locationId = locationId!!, cachedByteCode = bytecode
+            )
+        }
     }
 }
 

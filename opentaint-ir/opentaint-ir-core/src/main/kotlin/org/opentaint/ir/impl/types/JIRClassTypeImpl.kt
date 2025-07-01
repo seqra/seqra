@@ -126,26 +126,22 @@ class JIRClassTypeImpl(
             }
         }
 
-    override val declaredMethods: List<JIRTypedMethod>
-        get() {
-            return typedMethods(true, fromSuperTypes = false, jIRClass.packageName)
-        }
+    override val declaredMethods: List<JIRTypedMethod> by lazy(PUBLICATION) {
+        typedMethods(true, fromSuperTypes = false, jIRClass.packageName)
+    }
 
-    override val methods: List<JIRTypedMethod>
-        get() {
-            //let's calculate visible methods from super types
-            return typedMethods(true, fromSuperTypes = true, jIRClass.packageName)
-        }
+    override val methods: List<JIRTypedMethod> by lazy(PUBLICATION) {
+        //let's calculate visible methods from super types
+        typedMethods(true, fromSuperTypes = true, jIRClass.packageName)
+    }
 
-    override val declaredFields: List<JIRTypedField>
-        get() {
-            return typedFields(true, fromSuperTypes = false, jIRClass.packageName)
-        }
+    override val declaredFields: List<JIRTypedField> by lazy(PUBLICATION) {
+        typedFields(true, fromSuperTypes = false, jIRClass.packageName)
+    }
 
-    override val fields: List<JIRTypedField>
-        get() {
-            return typedFields(true, fromSuperTypes = true, jIRClass.packageName)
-        }
+    override val fields: List<JIRTypedField> by lazy(PUBLICATION) {
+        typedFields(true, fromSuperTypes = true, jIRClass.packageName)
+    }
 
     override fun copyWithNullability(nullability: Boolean?) =
         JIRClassTypeImpl(classpath, name, outerType, substitutor, nullability, annotations)

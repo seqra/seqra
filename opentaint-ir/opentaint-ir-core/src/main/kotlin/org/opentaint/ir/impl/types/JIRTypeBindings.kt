@@ -12,7 +12,7 @@ internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = 
                 ?: throw IllegalStateException("primitive type ${jvmType.ref} not found")
         }
 
-        is JvmClassRefType -> classTypeOf(findClass(jvmType.name), jvmType.isNullable, jvmType.annotations)
+        is JvmClassRefType -> typeOf(findClass(jvmType.name), jvmType.isNullable, jvmType.annotations)
         is JvmArrayType -> arrayTypeOf(typeOf(jvmType.elementType), jvmType.isNullable, jvmType.annotations)
         is JvmParameterizedType -> {
             val params = parameters ?: jvmType.parameterTypes
@@ -26,7 +26,7 @@ internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = 
                         jvmType.annotations
                     )
                 // raw types
-                else -> classTypeOf(findClass(jvmType.name)).copyWithNullability(jvmType.isNullable)
+                else -> typeOf(findClass(jvmType.name)).copyWithNullability(jvmType.isNullable)
             }
         }
 

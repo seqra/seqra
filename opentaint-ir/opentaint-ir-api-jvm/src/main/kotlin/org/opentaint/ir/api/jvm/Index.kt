@@ -1,6 +1,5 @@
 package org.opentaint.ir.api.jvm
 
-import org.jooq.DSLContext
 import org.objectweb.asm.tree.ClassNode
 
 /** index builder */
@@ -8,7 +7,7 @@ interface ByteCodeIndexer {
 
     fun index(classNode: ClassNode)
 
-    fun flush(jooq: DSLContext)
+    fun flush(context: JIRDBContext)
 }
 
 interface JIRFeature<REQ, RES> {
@@ -18,7 +17,6 @@ interface JIRFeature<REQ, RES> {
     fun newIndexer(jIRdb: JIRDatabase, location: RegisteredLocation): ByteCodeIndexer
 
     fun onSignal(signal: JIRSignal)
-
 }
 
 sealed class JIRSignal(val jIRdb: JIRDatabase) {

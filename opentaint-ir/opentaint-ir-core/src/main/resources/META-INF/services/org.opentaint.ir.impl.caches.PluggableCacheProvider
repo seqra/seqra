@@ -1,0 +1,2 @@
+org.opentaint.ir.impl.caches.guava.GuavaCacheProvider
+org.opentaint.ir.impl.caches.xodus.XodusCacheProvider

@@ -122,8 +122,15 @@ object UnknownClasses : JIRClasspathExtFeature {
         })
     }
 
-    override fun tryFindType(classpath: JIRClasspath, name: String): JIRClasspathExtFeature.JIRResolvedTypeResult {
-        return AbstractJIRResolvedResult.JIRResolvedTypeResultImpl(name, JIRUnknownType(classpath, name, location))
+    override fun tryFindType(
+        classpath: JIRClasspath,
+        name: String,
+        nullable: Boolean?
+    ): JIRClasspathExtFeature.JIRResolvedTypeResult {
+        return AbstractJIRResolvedResult.JIRResolvedTypeResultImpl(
+            name,
+            JIRUnknownType(classpath, name, location, nullable ?: true)
+        )
     }
 }
 

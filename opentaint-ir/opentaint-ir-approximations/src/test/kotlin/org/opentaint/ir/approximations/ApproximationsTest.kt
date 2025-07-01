@@ -7,18 +7,21 @@ import org.opentaint.ir.api.jvm.ext.findDeclaredFieldOrNull
 import org.opentaint.ir.approximation.*
 import org.opentaint.ir.approximation.Approximations.findApproximationByOriginOrNull
 import org.opentaint.ir.approximation.Approximations.findOriginalByApproximationOrNull
+import org.opentaint.ir.approximation.JIREnrichedVirtualField
+import org.opentaint.ir.approximation.JIREnrichedVirtualMethod
+import org.opentaint.ir.approximation.toApproximationName
+import org.opentaint.ir.approximation.toOriginalName
 import org.opentaint.ir.approximations.target.KotlinClass
 import org.opentaint.ir.impl.fs.JarLocation
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.WithRAMDB
 import org.opentaint.ir.testing.guavaLib
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.io.File
 
-class ApproximationsTest : BaseTest() {
-
-    companion object : WithDB(Approximations)
+abstract class ApproximationsTest : BaseTest() {
 
     @Test
     fun `kotlin approximation`() {
@@ -191,8 +194,8 @@ class ApproximationsTest : BaseTest() {
             override val majorVersion: Int
                 get() = 8
         }).classes
-        assertNotNull(classes)
-        classes!!.forEach {
+        assertFalse(classes.isEmpty())
+        classes.forEach {
             val clazz = cp.findClass(it.key)
             if (!clazz.isAnnotation && !clazz.isInterface) {
                 println("Testing class: ${it.key}")
@@ -202,4 +205,14 @@ class ApproximationsTest : BaseTest() {
             }
         }
     }
+}
+
+class ApproximationsSqlTest : ApproximationsTest() {
+
+    companion object : WithDB(Approximations)
+}
+
+class ApproximationsRAMTest : ApproximationsTest() {
+
+    companion object : WithRAMDB(Approximations)
 }

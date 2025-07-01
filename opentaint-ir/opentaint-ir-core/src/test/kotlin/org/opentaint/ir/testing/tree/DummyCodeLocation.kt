@@ -22,8 +22,8 @@ open class DummyCodeLocation(private val name: String) : JIRByteCodeLocation, Re
 
     override val type = LocationType.APP
 
-    override val classes: Map<String, ByteArray>?
-        get() = null
+    override val classes: Map<String, ByteArray>
+        get() = emptyMap()
 
     override val jarOrFolder: File
         get() = TODO("Not yet implemented")

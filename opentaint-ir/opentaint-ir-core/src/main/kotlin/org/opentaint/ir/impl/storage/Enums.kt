@@ -24,7 +24,7 @@ enum class AnnotationValueKind {
                 is Byte -> value.toString()
                 is Boolean -> value.toString()
                 else -> throw IllegalStateException("Unknown type ${value.javaClass}")
-            }
+            }.replace("\u0000", "")
         }
     }
 

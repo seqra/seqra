@@ -48,16 +48,16 @@ interface JIRClasspath : Closeable, CommonProject {
      */
     fun findTypeOrNull(name: String): JIRType?
 
-    fun classTypeOf(
+    fun typeOf(
         jIRClass: JIRClassOrInterface,
         nullability: Boolean? = null,
-        annotations: List<JIRAnnotation> = listOf(),
-    ): JIRClassType
+        annotations: List<JIRAnnotation> = listOf()
+    ): JIRRefType
 
     fun arrayTypeOf(
         elementType: JIRType,
         nullability: Boolean? = null,
-        annotations: List<JIRAnnotation> = listOf(),
+        annotations: List<JIRAnnotation> = listOf()
     ): JIRArrayType
 
     fun toJIRClass(source: ClassSource): JIRClassOrInterface
@@ -145,7 +145,7 @@ interface JIRClasspathExtFeature : JIRClasspathFeature {
     /**
      * semantic is the same as for `tryFindClass` method
      */
-    fun tryFindType(classpath: JIRClasspath, name: String): JIRResolvedTypeResult? = null
+    fun tryFindType(classpath: JIRClasspath, name: String, nullable: Boolean? = null): JIRResolvedTypeResult? = null
 
     fun findClasses(classpath: JIRClasspath, name: String): List<JIRClassOrInterface>? = null
 

@@ -13,6 +13,7 @@ import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.WithRAMDB
 import org.opentaint.ir.testing.analysis.NpeExamples
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Disabled
@@ -26,9 +27,9 @@ import kotlin.time.Duration.Companion.seconds
 
 private val logger = mu.KotlinLogging.logger {}
 
-class IfdsNpeTest : BaseAnalysisTest() {
+abstract class IfdsNpeTest : BaseAnalysisTest() {
 
-    companion object : WithDB(Usages, InMemoryHierarchy) {
+    companion object {
         @JvmStatic
         fun provideClassesForJuliet476(): Stream<Arguments> =
             provideClassesForJuliet(476, listOf("null_check_after_deref"))
@@ -221,4 +222,12 @@ class IfdsNpeTest : BaseAnalysisTest() {
             Assertions.assertTrue(sinks.map { it.sink.toString() }.any { it.contains(expected) })
         }
     }
+}
+
+class IfdsNpeSqlTest : IfdsNpeTest() {
+    companion object : WithDB(Usages, InMemoryHierarchy)
+}
+
+class IfdsNpeRAMTest : IfdsNpeTest() {
+    companion object : WithRAMDB(Usages, InMemoryHierarchy)
 }

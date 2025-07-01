@@ -4,10 +4,19 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import org.opentaint.ir.api.jvm.Hook
 import org.opentaint.ir.api.jvm.JIRDatabase
-import org.opentaint.ir.api.jvm.JIRDatabasePersistence
 import org.opentaint.ir.api.jvm.JIRFeature
-import org.opentaint.ir.impl.fs.JavaRuntime
-import org.opentaint.ir.impl.storage.SQLitePersistenceImpl
+import org.opentaint.ir.api.jvm.JIRPersistenceImplSettings
+import org.opentaint.ir.api.jvm.JIRPersistenceSettings
+import org.opentaint.ir.api.jvm.storage.ers.EmptyErsSettings
+import org.opentaint.ir.api.jvm.storage.ers.ErsSettings
+import org.opentaint.ir.impl.storage.SQLITE_DATABASE_PERSISTENCE_SPI
+import org.opentaint.ir.impl.storage.ers.ERS_DATABASE_PERSISTENCE_SPI
+import org.opentaint.ir.impl.storage.ers.kv.KV_ERS_SPI
+import org.opentaint.ir.impl.storage.ers.ram.RAM_ERS_SPI
+import org.opentaint.ir.impl.storage.ers.sql.SQL_ERS_SPI
+import org.opentaint.ir.impl.storage.kv.lmdb.LMDB_KEY_VALUE_STORAGE_SPI
+import org.opentaint.ir.impl.storage.kv.rocks.ROCKS_KEY_VALUE_STORAGE_SPI
+import org.opentaint.ir.impl.storage.kv.xodus.XODUS_KEY_VALUE_STORAGE_SPI
 import java.io.File
 import java.time.Duration
 
@@ -21,13 +30,16 @@ class JIRSettings {
         private set
 
     /** persisted  */
-    var persistentType: JIRPersistenceType? = null
-        private set
+    val persistenceId: String?
+        get() = persistenceSettings.persistenceId
 
-    var persistentLocation: String? = null
-        private set
+    val persistenceLocation: String?
+        get() = persistenceSettings.persistenceLocation
 
-    var persistentClearOnStart: Boolean? = null
+    val persistenceClearOnStart: Boolean?
+        get() = persistenceSettings.persistenceClearOnStart
+
+    var persistenceSettings: JIRPersistenceSettings = JIRPersistenceSettings()
 
     var keepLocalVariableNames: Boolean = false
         private set
@@ -65,11 +77,15 @@ class JIRSettings {
     fun persistent(
         location: String,
         clearOnStart: Boolean = false,
-        type: JIRPersistenceType = PredefinedPersistenceType.SQLITE
+        implSettings: JIRPersistenceImplSettings = JIRSQLitePersistenceSettings
     ) = apply {
-        persistentLocation = location
-        persistentClearOnStart = clearOnStart
-        persistentType = type
+        persistenceSettings.persistenceLocation = location
+        persistenceSettings.persistenceClearOnStart = clearOnStart
+        persistenceSettings.implSettings = implSettings
+    }
+
+    fun persistenceImpl(persistenceImplSettings: JIRPersistenceImplSettings) = apply {
+        persistenceSettings.implSettings = persistenceImplSettings
     }
 
     fun caching(settings: JIRCacheSettings.() -> Unit) = apply {
@@ -145,32 +161,6 @@ class JIRSettings {
     }
 }
 
-interface JIRPersistenceType {
-
-    fun newPersistence(
-        runtime: JavaRuntime,
-        featuresRegistry: FeaturesRegistry,
-        settings: JIRSettings
-    ): JIRDatabasePersistence
-}
-
-enum class PredefinedPersistenceType : JIRPersistenceType {
-    SQLITE {
-        override fun newPersistence(
-            runtime: JavaRuntime,
-            featuresRegistry: FeaturesRegistry,
-            settings: JIRSettings
-        ): JIRDatabasePersistence {
-            return SQLitePersistenceImpl(
-                javaRuntime = runtime,
-                featuresRegistry = featuresRegistry,
-                location = settings.persistentLocation,
-                clearOnStart = settings.persistentClearOnStart ?: false
-            )
-        }
-    }
-}
-
 class JIRByteCodeCache(val prefixes: List<String> = persistentListOf("java.", "javax.", "kotlinx.", "kotlin."))
 
 data class JIRCacheSegmentSettings(
@@ -217,4 +207,41 @@ class JIRCacheSettings {
                 JIRCacheSegmentSettings(maxSize = maxSize, expiration = expiration, valueStoreType = valueStoreType)
         }
 
+}
+
+object JIRSQLitePersistenceSettings : JIRPersistenceImplSettings {
+    override val persistenceId: String
+        get() = SQLITE_DATABASE_PERSISTENCE_SPI
+}
+
+open class JIRErsSettings(
+    val ersId: String,
+    val ersSettings: ErsSettings = EmptyErsSettings
+) : JIRPersistenceImplSettings {
+
+    override val persistenceId: String
+        get() = ERS_DATABASE_PERSISTENCE_SPI
+}
+
+object JIRRamErsSettings : JIRErsSettings(RAM_ERS_SPI)
+
+object JIRSqlErsSettings : JIRErsSettings(SQL_ERS_SPI)
+
+/**
+ * Id of pluggable K/V storage being passed for [org.opentaint.ir.impl.storage.ers.kv.KVEntityRelationshipStorageSPI].
+ */
+open class JIRKvErsSettings(val kvId: String) : ErsSettings
+
+object JIRXodusKvErsSettings : JIRErsSettings(KV_ERS_SPI, JIRKvErsSettings(XODUS_KEY_VALUE_STORAGE_SPI))
+
+object JIRRocksKvErsSettings : JIRErsSettings(KV_ERS_SPI, JIRKvErsSettings(ROCKS_KEY_VALUE_STORAGE_SPI))
+
+// by default, mapSize is 1Gb
+class JIRLmdbErsSettings(val mapSize: Long = 0x40_00_00_00) : JIRKvErsSettings(LMDB_KEY_VALUE_STORAGE_SPI)
+
+object JIRLmdbKvErsSettings : JIRErsSettings(KV_ERS_SPI, JIRLmdbErsSettings()) {
+
+    fun withMapSize(mapSize: Long): JIRErsSettings {
+        return JIRErsSettings(KV_ERS_SPI, JIRLmdbErsSettings(mapSize))
+    }
 }

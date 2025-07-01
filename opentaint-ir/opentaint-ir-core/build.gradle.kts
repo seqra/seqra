@@ -1,6 +1,9 @@
 import org.jooq.codegen.GenerationTool
-import org.jooq.meta.jaxb.*
 import org.jooq.meta.jaxb.Configuration
+import org.jooq.meta.jaxb.Database
+import org.jooq.meta.jaxb.Generate
+import org.jooq.meta.jaxb.Generator
+import org.jooq.meta.jaxb.Jdbc
 import org.jooq.meta.jaxb.Target
 import java.nio.file.Paths
 
@@ -15,7 +18,7 @@ buildscript {
         classpath(Libs.jooq_kotlin)
         // classpath(Libs.postgresql)
         // classpath(Libs.hikaricp)
-         classpath(Libs.sqlite)
+        classpath(Libs.sqlite)
     }
 }
 
@@ -25,6 +28,7 @@ plugins {
 
 kotlin.sourceSets["main"].kotlin {
     srcDir("src/main/jooq")
+    srcDir("src/main/ers/jooq")
 }
 
 dependencies {
@@ -36,6 +40,11 @@ dependencies {
     implementation(Libs.jdot)
     implementation(Libs.guava)
     implementation(Libs.sqlite)
+    implementation(Libs.xodusUtils)
+    implementation(Libs.xodusEnvironment)
+    implementation(Libs.hikaricp)
+    implementation(Libs.lmdb_java)
+    implementation(Libs.rocks_db)
 
     testImplementation(Libs.javax_activation)
     testImplementation(Libs.javax_mail)
@@ -55,30 +64,20 @@ dependencies {
 tasks {
     register("generateSqlScheme") {
         doLast {
-            val location = "src/main/resources/sqlite/empty.db"
-            val url = "jdbc:sqlite:file:$location"
-            val driver = "org.sqlite.JDBC"
-            GenerationTool.generate(
-                Configuration()
-                    .withJdbc(
-                        Jdbc()
-                            .withDriver(driver)
-                            .withUrl(url)
-                    )
-                    .withGenerator(
-                        Generator()
-                            .withName("org.jooq.codegen.KotlinGenerator")
-                            .withDatabase(Database())
-                            .withGenerate(
-                                Generate()
-                                    .withDeprecationOnUnknownTypes(false)
-                            )
-                            .withTarget(
-                                Target()
-                                    .withPackageName("org.opentaint.ir.impl.storage.jooq")
-                                    .withDirectory(project.file("src/main/jooq").absolutePath)
-                            )
-                    )
+            generateSqlScheme(
+                dbLocation = "src/main/resources/sqlite/empty.db",
+                sourceSet = "src/main/jooq",
+                packageName = "org.opentaint.ir.impl.storage.jooq"
+            )
+        }
+    }
+
+    register("generateErsSqlScheme") {
+        doLast {
+            generateSqlScheme(
+                dbLocation = "src/main/resources/ers/sqlite/empty.db",
+                sourceSet = "src/main/ers/jooq",
+                packageName = "org.opentaint.ir.impl.storage.ers.jooq"
             )
         }
     }
@@ -96,4 +95,35 @@ tasks {
             expand("version" to project.version)
         }
     }
+}
+
+fun generateSqlScheme(
+    dbLocation: String,
+    sourceSet: String,
+    packageName: String
+) {
+    val url = "jdbc:sqlite:file:${project.projectDir}/$dbLocation"
+    val driver = "org.sqlite.JDBC"
+    GenerationTool.generate(
+        Configuration()
+            .withJdbc(
+                Jdbc()
+                    .withDriver(driver)
+                    .withUrl(url)
+            )
+            .withGenerator(
+                Generator()
+                    .withName("org.jooq.codegen.KotlinGenerator")
+                    .withDatabase(Database())
+                    .withGenerate(
+                        Generate()
+                            .withDeprecationOnUnknownTypes(false)
+                    )
+                    .withTarget(
+                        Target()
+                            .withPackageName(packageName)
+                            .withDirectory(project.file(sourceSet).absolutePath)
+                    )
+            )
+    )
 }

@@ -17,21 +17,11 @@ class JIRFeaturesChain(val features: List<JIRClasspathFeature>) {
     }
 
     inline fun <reified T : JIRClasspathFeature, W> call(call: (T) -> W?): W? {
-        var result: W? = null
-        var event: JIRFeatureEvent? = null
-        for (feature in features) {
-            if (feature is T) {
-                result = call(feature)
-                if (result != null) {
-                    event = feature.event(result)
-                    break
-                }
-            }
-        }
-        if (result != null && event != null) {
-            for (feature in features) {
-                feature.on(event)
-            }
+        val (result: W?, event: JIRFeatureEvent?) = features.firstNotNullOfOrNull { feature ->
+            (feature as? T)?.let(call)?.let { result -> result to feature.event(result) }
+        } ?: return null
+        event?.let {
+            features.forEach { feature -> feature.on(event) }
         }
         return result
     }

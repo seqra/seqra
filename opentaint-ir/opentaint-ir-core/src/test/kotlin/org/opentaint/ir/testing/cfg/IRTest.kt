@@ -47,13 +47,14 @@ import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.StringConcatSimplifier
 import org.opentaint.ir.impl.fs.JarLocation
 import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.WithRAMDB
 import org.opentaint.ir.testing.asmLib
 import org.opentaint.ir.testing.guavaLib
 import org.opentaint.ir.testing.kotlinStdLib
 import org.opentaint.ir.testing.kotlinxCoroutines
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
@@ -278,9 +279,7 @@ class JIRGraphChecker(
     }
 }
 
-class IRTest : BaseInstructionsTest() {
-
-    companion object : WithDB(StringConcatSimplifier)
+abstract class IRTest : BaseInstructionsTest() {
 
     @Test
     fun `get ir of simple method`() {
@@ -357,8 +356,8 @@ class IRTest : BaseInstructionsTest() {
             override val majorVersion: Int
                 get() = 8
         }).classes
-        assertNotNull(classes)
-        classes!!.forEach {
+        assertFalse(classes.isEmpty())
+        classes.forEach {
             val clazz = cp.findClass(it.key)
             if (!clazz.isAnnotation && !clazz.isInterface) {
                 println("Testing class: ${it.key}")
@@ -366,5 +365,14 @@ class IRTest : BaseInstructionsTest() {
             }
         }
     }
+}
 
+class IRSqlTest : IRTest() {
+
+    companion object : WithDB(StringConcatSimplifier)
+}
+
+class IRRAMTest : IRTest() {
+
+    companion object : WithRAMDB(StringConcatSimplifier)
 }

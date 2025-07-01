@@ -41,7 +41,7 @@ interface JIRByteCodeLocation {
      */
     fun resolve(classFullName: String): ByteArray?
 
-    val classes: Map<String, ByteArray>?
+    val classes: Map<String, ByteArray>
     val classNames: Set<String>?
 
 }

@@ -5,6 +5,9 @@ import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRClasspathFeature
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.JIRFeature
+import org.opentaint.ir.api.jvm.JIRPersistenceImplSettings
+import org.opentaint.ir.impl.JIRRamErsSettings
+import org.opentaint.ir.impl.JIRSQLitePersistenceSettings
 import org.opentaint.ir.impl.features.Builders
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
@@ -38,9 +41,7 @@ val Class<*>.withDB: JIRDatabaseHolder
             return comp
         }
         val s = superclass
-        if (superclass == null) {
-            throw IllegalStateException("can't find WithDB companion object. Please check that test class has it.")
-        }
+            ?: throw IllegalStateException("can't find WithDB companion object. Please check that test class has it.")
         return s.withDB
     }
 
@@ -65,6 +66,7 @@ open class WithDB(vararg features: Any) : JIRDatabaseHolder {
     override var db = runBlocking {
         opentaint-ir {
             // persistent("D:\\work\\opentaint-ir\\jIRdb-index.db")
+            persistenceImpl(persistenceImpl())
             loadByteCode(allClasspath)
             useProcessJavaRuntime()
             keepLocalVariableNames()
@@ -74,16 +76,27 @@ open class WithDB(vararg features: Any) : JIRDatabaseHolder {
         }
     }
 
-    override  fun cleanup() {
+    override fun cleanup() {
         db.close()
     }
+
+    internal open fun persistenceImpl(): JIRPersistenceImplSettings = JIRSQLitePersistenceSettings
+}
+
+open class WithRAMDB(vararg features: Any) : WithDB(*features) {
+
+    override fun persistenceImpl() = JIRRamErsSettings
 }
 
 val globalDb by lazy {
     WithDB(Usages, Builders, InMemoryHierarchy).db
 }
 
-open class WithGlobalDB(vararg _classpathFeatures: JIRClasspathFeature): JIRDatabaseHolder {
+val globalRAMDb by lazy {
+    WithRAMDB(Usages, Builders, InMemoryHierarchy).db
+}
+
+open class WithGlobalDB(vararg _classpathFeatures: JIRClasspathFeature) : JIRDatabaseHolder {
 
     init {
         System.setProperty("org.opentaint.ir.impl.storage.defaultBatchSize", "500")
@@ -92,6 +105,20 @@ open class WithGlobalDB(vararg _classpathFeatures: JIRClasspathFeature): JIRData
     override val classpathFeatures: List<JIRClasspathFeature> = _classpathFeatures.toList()
 
     override val db: JIRDatabase get() = globalDb
+
+    override fun cleanup() {
+    }
+}
+
+open class WithGlobalRAMDB(vararg _classpathFeatures: JIRClasspathFeature) : JIRDatabaseHolder {
+
+    init {
+        System.setProperty("org.opentaint.ir.impl.storage.defaultBatchSize", "500")
+    }
+
+    override val classpathFeatures: List<JIRClasspathFeature> = _classpathFeatures.toList()
+
+    override val db: JIRDatabase get() = globalRAMDb
 
     override fun cleanup() {
     }

@@ -7,6 +7,7 @@ import org.opentaint.ir.api.jvm.ext.methods
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.WithRAMDB
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -15,9 +16,9 @@ import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
 import kotlin.time.Duration.Companion.seconds
 
-class IfdsUnusedTest : BaseAnalysisTest() {
+abstract class IfdsUnusedTest : BaseAnalysisTest() {
 
-    companion object : WithDB(Usages, InMemoryHierarchy) {
+    companion object {
         @JvmStatic
         fun provideClassesForJuliet563(): Stream<Arguments> = provideClassesForJuliet(
             563, listOf(
@@ -60,4 +61,14 @@ class IfdsUnusedTest : BaseAnalysisTest() {
         val sinks = manager.analyze(listOf(badMethod), timeout = 30.seconds)
         Assertions.assertTrue(sinks.isNotEmpty())
     }
+}
+
+class IfdsUnusedSqlTest : IfdsUnusedTest() {
+
+    companion object : WithDB(Usages, InMemoryHierarchy)
+}
+
+class IfdsUnusedRAMTest : IfdsUnusedTest() {
+
+    companion object : WithRAMDB(Usages, InMemoryHierarchy)
 }

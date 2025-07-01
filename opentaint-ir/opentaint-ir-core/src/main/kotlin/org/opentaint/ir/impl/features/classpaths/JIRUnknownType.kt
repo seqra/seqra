@@ -6,7 +6,12 @@ import org.opentaint.ir.impl.cfg.util.OBJECT_CLASS
 import org.opentaint.ir.impl.types.TypeNameImpl
 import org.objectweb.asm.Opcodes
 
-class JIRUnknownType(override var classpath: JIRClasspath, private val name: String, private val location: VirtualLocation) : JIRClassType {
+class JIRUnknownType(
+    override var classpath: JIRClasspath,
+    private val name: String,
+    private val location: VirtualLocation,
+    override var nullable: Boolean
+) : JIRClassType {
 
     override val lookup: JIRLookup<JIRTypedField, JIRTypedMethod> = JIRUnknownTypeLookup(this)
 
@@ -28,8 +33,6 @@ class JIRUnknownType(override var classpath: JIRClasspath, private val name: Str
     override val typeName: String
         get() = name
 
-    override val nullable: Boolean
-        get() = true
     override val annotations: List<JIRAnnotation> = emptyList()
 
     override fun copyWithAnnotations(annotations: List<JIRAnnotation>) = this

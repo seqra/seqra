@@ -3,11 +3,15 @@ package org.opentaint.ir.impl
 import org.opentaint.ir.api.jvm.JIRByteCodeLocation
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import java.io.Closeable
+import java.util.concurrent.ConcurrentHashMap
 
 interface LocationsRegistry : Closeable {
     // all locations
     val actualLocations: List<RegisteredLocation>
     val runtimeLocations: List<RegisteredLocation>
+
+    // all snapshot associated with classpaths
+    val snapshots: ConcurrentHashMap.KeySetView<LocationsRegistrySnapshot, Boolean>
 
     fun cleanup(): CleanupResult
     fun refresh(): RefreshResult

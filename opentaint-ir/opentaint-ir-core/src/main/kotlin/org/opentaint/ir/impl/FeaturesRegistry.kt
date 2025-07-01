@@ -3,6 +3,7 @@ package org.opentaint.ir.impl
 import kotlinx.collections.immutable.toPersistentList
 import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.impl.fs.fullAsmNode
+import org.objectweb.asm.tree.ClassNode
 import java.io.Closeable
 
 class FeaturesRegistry(features: List<JIRFeature<*, *>>) : Closeable {
@@ -16,17 +17,23 @@ class FeaturesRegistry(features: List<JIRFeature<*, *>>) : Closeable {
     }
 
     fun index(location: RegisteredLocation, classes: List<ClassSource>) {
+        val classNodes = hashMapOf<ClassSource, ClassNode>()
         features.forEach { feature ->
-            feature.index(location, classes)
+            feature.index(location, classes) { source ->
+                classNodes.getOrPut(source) {
+                    source.fullAsmNode
+                }
+            }
         }
     }
 
     private fun <REQ, RES> JIRFeature<RES, REQ>.index(
         location: RegisteredLocation,
-        classes: List<ClassSource>
+        classes: List<ClassSource>,
+        classNodeProvider: (ClassSource) -> ClassNode
     ) {
         val indexer = newIndexer(jIRdb, location)
-        classes.forEach { index(it, indexer) }
+        classes.forEach { index(it, indexer, classNodeProvider) }
         jIRdb.persistence.write {
             indexer.flush(it)
         }
@@ -39,8 +46,8 @@ class FeaturesRegistry(features: List<JIRFeature<*, *>>) : Closeable {
     override fun close() {
     }
 
-    private fun index(source: ClassSource, builder: ByteCodeIndexer) {
-        builder.index(source.fullAsmNode)
+    private fun index(source: ClassSource, builder: ByteCodeIndexer, classNodeProvider: (ClassSource) -> ClassNode) {
+        builder.index(classNodeProvider(source))
     }
 }
 

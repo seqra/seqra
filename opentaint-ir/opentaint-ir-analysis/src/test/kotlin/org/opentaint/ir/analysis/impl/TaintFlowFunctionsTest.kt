@@ -27,12 +27,13 @@ import org.opentaint.ir.taint.configuration.TaintConfigurationFeature
 import org.opentaint.ir.taint.configuration.TaintMark
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.WithRAMDB
 import org.opentaint.ir.testing.allClasspath
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.analysis.util.getArgument as _getArgument
 
-class TaintFlowFunctionsTest : BaseTest() {
+open class TaintFlowFunctionsTest : BaseTest() {
 
     companion object : WithDB(Usages, InMemoryHierarchy), JIRTraits
 
@@ -197,4 +198,9 @@ class TaintFlowFunctionsTest : BaseTest() {
         val facts = f.compute(yTaint).toList()
         Assertions.assertEquals(listOf(xTaint), facts)
     }
+}
+
+class TaintFlowFunctionsRAMTest : TaintFlowFunctionsTest() {
+
+    companion object : WithRAMDB(Usages, InMemoryHierarchy)
 }

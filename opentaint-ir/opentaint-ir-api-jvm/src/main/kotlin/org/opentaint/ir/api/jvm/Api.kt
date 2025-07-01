@@ -2,10 +2,13 @@ package org.opentaint.ir.api.jvm
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
+import org.opentaint.ir.api.jvm.storage.ers.EntityRelationshipStorage
+import org.opentaint.ir.api.jvm.storage.ers.Transaction
 import org.jooq.DSLContext
 import java.io.Closeable
 import java.io.File
 import java.sql.Connection
+import java.util.concurrent.ConcurrentHashMap
 
 enum class LocationType {
     RUNTIME,
@@ -124,13 +127,15 @@ interface JIRDatabasePersistence : Closeable {
 
     val locations: List<JIRByteCodeLocation>
 
+    val ers: EntityRelationshipStorage
+
     fun setup()
 
-    fun <T> write(action: (DSLContext) -> T): T
-    fun <T> read(action: (DSLContext) -> T): T
+    fun <T> write(action: (JIRDBContext) -> T): T
+    fun <T> read(action: (JIRDBContext) -> T): T
 
     fun persist(location: RegisteredLocation, classes: List<ClassSource>)
-    fun findSymbolId(symbol: String): Long?
+    fun findSymbolId(symbol: String): Long
     fun findSymbolName(symbolId: Long): String
     fun findLocation(locationId: Long): RegisteredLocation
 
@@ -144,6 +149,44 @@ interface JIRDatabasePersistence : Closeable {
     fun createIndexes() {}
 }
 
+/**
+ * Abstract database access context contains several named context objects.
+ * Normally, there should be implemented specific context classes for each persistence
+ * implementation with its specific context objects.
+ *
+ * For SQLite persistence, JIRDBContext should contain [DSLContext] object and may contain [Connection] object.
+ *
+ * For [EntityRelationshipStorage] persistence, JIRDBContext should contain [Transaction] object.
+ */
+@Suppress("UNCHECKED_CAST")
+class JIRDBContext private constructor() {
+
+    private val contextObjects = ConcurrentHashMap<ContextProperty<*>, Any>()
+
+    fun <T : Any> setContextObject(contextKey: ContextProperty<T>, contextObject: T) = apply {
+        contextObjects[contextKey] = contextObject
+    }
+
+    fun <T : Any> getContextObject(property: ContextProperty<T>): T =
+        contextObjects[property] as? T?
+            ?: throw NullPointerException("JIRDBContext doesn't contain context object $property")
+
+    fun <T : Any> hasContextObject(property: ContextProperty<T>): Boolean = contextObjects.containsKey(property)
+
+    companion object {
+        fun <T : Any> of(contextKey: ContextProperty<T>, contextObject: T): JIRDBContext {
+            return JIRDBContext().apply { this(contextKey, contextObject) }
+        }
+
+        fun empty() = JIRDBContext()
+    }
+}
+
+interface ContextProperty<T : Any>
+
+operator fun <T : Any> JIRDBContext.invoke(contextKey: ContextProperty<T>, contextObject: T) =
+    setContextObject(contextKey, contextObject)
+
 interface RegisteredLocation {
     val jIRLocation: JIRByteCodeLocation?
     val id: Long
@@ -152,7 +195,7 @@ interface RegisteredLocation {
 }
 
 interface JIRDBSymbolsInterner {
-    val jooq: DSLContext
     fun findOrNew(symbol: String): Long
-    fun flush(conn: Connection)
+    fun findSymbolName(symbolId: Long): String?
+    fun flush(context: JIRDBContext)
 }

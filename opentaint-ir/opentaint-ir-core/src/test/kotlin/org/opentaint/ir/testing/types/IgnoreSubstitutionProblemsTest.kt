@@ -10,13 +10,14 @@ import org.opentaint.ir.impl.bytecode.JIRDatabaseClassWriter
 import org.opentaint.ir.impl.types.substition.IgnoreSubstitutionProblems
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDB
+import org.opentaint.ir.testing.WithRAMDB
 import org.junit.jupiter.api.Test
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.util.CheckClassAdapter
 import java.nio.file.Files
 
-class IgnoreSubstitutionProblemsTest : BaseTest() {
+open class IgnoreSubstitutionProblemsTest : BaseTest() {
 
     companion object : WithDB(IgnoreSubstitutionProblems)
 
@@ -58,5 +59,8 @@ class IgnoreSubstitutionProblemsTest : BaseTest() {
         }
         targetFile.writeBytes(cw.toByteArray())
     }
+}
 
+class IgnoreSubstitutionProblemsRAMTest : IgnoreSubstitutionProblemsTest() {
+    companion object : WithRAMDB(IgnoreSubstitutionProblems)
 }
