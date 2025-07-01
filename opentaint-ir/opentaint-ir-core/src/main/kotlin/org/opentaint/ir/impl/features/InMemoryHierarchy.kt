@@ -89,10 +89,12 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
                             txn.all("Class").map { clazz ->
                                 val locationId: Long? = clazz.getCompressed("locationId")
                                 val classSymbolId: Long? = clazz.getCompressed("nameId")
-                                val superClasses =
-                                    links(clazz, "inherits").asIterable + links(clazz, "implements").asIterable
-                                superClasses.forEach { superClass ->
-                                    val nameId by propertyOf<Long>(superClass, compressed = true)
+                                val superClasses = mutableListOf<Long>()
+                                clazz.getCompressed<Long>("inherits")?.let { nameId -> superClasses += nameId }
+                                links(clazz, "implements").asIterable.forEach { anInterface ->
+                                    anInterface.getCompressed<Long>("nameId")?.let { nameId -> superClasses += nameId }
+                                }
+                                superClasses.forEach { nameId ->
                                     result += (Triple(classSymbolId, nameId, locationId))
                                 }
                             }

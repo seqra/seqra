@@ -293,10 +293,10 @@ There are the following basic queries available on the instance of `Transaction`
 - `Transaction.all()` gets all entities of specified type;
 - `Transaction.find()` gets entities of specified type with specified property equal to specified value;
 - `Transaction.findLt()` gets entities of specified type with specified property less than specified value;
-- `Transaction.findOrLt()` gets entities of specified type with specified property equal to or less than specified
+- `Transaction.findEqOrLt()` gets entities of specified type with specified property equal to or less than specified
   value;
 - `Transaction.findGt()` gets entities of specified type with specified property greater than specified value;
-- `Transaction.findOrGt()` gets entities of specified type with specified property equal to or greater than specified
+- `Transaction.findEqOrGt()` gets entities of specified type with specified property equal to or greater than specified
   value.
 
 Enumerate all users:

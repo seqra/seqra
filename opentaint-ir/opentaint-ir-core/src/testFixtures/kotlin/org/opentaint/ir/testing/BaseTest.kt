@@ -126,7 +126,13 @@ open class WithGlobalRAMDB(vararg _classpathFeatures: JIRClasspathFeature) : JIR
 
 open class WithRestoredDB(vararg features: JIRFeature<*, *>) : WithDB(*features) {
 
-    private val jdbcLocation = Files.createTempFile("jIRdb-", null).toFile().absolutePath
+    private val location by lazy {
+        if (implSettings is JIRSQLitePersistenceSettings) {
+            Files.createTempFile("jIRdb-", null).toFile().absolutePath
+        } else {
+            Files.createTempDirectory("jIRdb-").toFile().absolutePath
+        }
+    }
 
     var tempDb: JIRDatabase? = newDB()
 
@@ -135,11 +141,17 @@ open class WithRestoredDB(vararg features: JIRFeature<*, *>) : WithDB(*features)
         tempDb = null
     }
 
+    open val implSettings: JIRPersistenceImplSettings get() = JIRSQLitePersistenceSettings
+
     private fun newDB(before: () -> Unit = {}): JIRDatabase {
         before()
         return runBlocking {
             opentaint-ir {
-                persistent(jdbcLocation)
+                require(implSettings !is JIRRamErsSettings) { "cannot restore in-RAM database" }
+                persistent(
+                    location = location,
+                    implSettings = implSettings
+                )
                 loadByteCode(allClasspath)
                 useProcessJavaRuntime()
                 keepLocalVariableNames()

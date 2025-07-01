@@ -3,6 +3,7 @@ package org.opentaint.ir.api.jvm.storage.ers.typed
 import org.opentaint.ir.api.jvm.storage.ers.Entity
 import org.opentaint.ir.api.jvm.storage.ers.EntityId
 import org.opentaint.ir.api.jvm.storage.ers.EntityIterable
+import org.opentaint.ir.api.jvm.storage.ers.FindOption
 import org.opentaint.ir.api.jvm.storage.ers.Transaction
 
 fun <ENTITY_TYPE : ErsType> Transaction.newEntity(type: ENTITY_TYPE): TypedEntity<ENTITY_TYPE> =
@@ -14,6 +15,8 @@ fun <ENTITY_TYPE : ErsType> Transaction.getEntityOrNull(id: TypedEntityId<ENTITY
 fun <ENTITY_TYPE : ErsType> Transaction.getTypeId(type: ENTITY_TYPE): TypeId<ENTITY_TYPE> =
     TypeIdImpl(getTypeId(type.typeName))
 
+/// region find extension functions
+
 fun <ENTITY_TYPE : ErsType, VALUE : Any> Transaction.find(
     property: ErsProperty<ENTITY_TYPE, VALUE, ErsSearchability.Searchable>,
     value: VALUE
@@ -24,6 +27,65 @@ fun <ENTITY_TYPE : ErsType, VALUE : Any> Transaction.find(
         value = value
     )
 )
+
+fun <ENTITY_TYPE : ErsType, VALUE : Any> Transaction.findLt(
+    property: ErsProperty<ENTITY_TYPE, VALUE, ErsSearchability.Searchable>,
+    value: VALUE
+): TypedEntityIterable<ENTITY_TYPE> = TypedEntityIterableImpl(
+    findLt(
+        type = property.ownerType.typeName,
+        propertyName = property.name,
+        value = value
+    )
+)
+
+fun <ENTITY_TYPE : ErsType, VALUE : Any> Transaction.findEqOrLt(
+    property: ErsProperty<ENTITY_TYPE, VALUE, ErsSearchability.Searchable>,
+    value: VALUE
+): TypedEntityIterable<ENTITY_TYPE> = TypedEntityIterableImpl(
+    findEqOrLt(
+        type = property.ownerType.typeName,
+        propertyName = property.name,
+        value = value
+    )
+)
+
+fun <ENTITY_TYPE : ErsType, VALUE : Any> Transaction.findGt(
+    property: ErsProperty<ENTITY_TYPE, VALUE, ErsSearchability.Searchable>,
+    value: VALUE
+): TypedEntityIterable<ENTITY_TYPE> = TypedEntityIterableImpl(
+    findGt(
+        type = property.ownerType.typeName,
+        propertyName = property.name,
+        value = value
+    )
+)
+
+fun <ENTITY_TYPE : ErsType, VALUE : Any> Transaction.findEqOrGt(
+    property: ErsProperty<ENTITY_TYPE, VALUE, ErsSearchability.Searchable>,
+    value: VALUE
+): TypedEntityIterable<ENTITY_TYPE> = TypedEntityIterableImpl(
+    findEqOrGt(
+        type = property.ownerType.typeName,
+        propertyName = property.name,
+        value = value
+    )
+)
+
+fun <ENTITY_TYPE : ErsType, VALUE : Any> Transaction.find(
+    property: ErsProperty<ENTITY_TYPE, VALUE, ErsSearchability.Searchable>,
+    value: VALUE,
+    option: FindOption
+): TypedEntityIterable<ENTITY_TYPE> = TypedEntityIterableImpl(
+    find(
+        type = property.ownerType.typeName,
+        propertyName = property.name,
+        value = value,
+        option = option
+    )
+)
+
+/// endregion
 
 fun <ENTITY_TYPE : ErsType> Transaction.all(type: ENTITY_TYPE): TypedEntityIterable<ENTITY_TYPE> =
     TypedEntityIterableImpl(all(type.typeName))

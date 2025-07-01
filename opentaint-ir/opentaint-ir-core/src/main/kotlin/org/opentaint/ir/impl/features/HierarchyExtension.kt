@@ -17,7 +17,6 @@ import org.opentaint.ir.api.jvm.storage.ers.Entity
 import org.opentaint.ir.api.jvm.storage.ers.EntityIterable
 import org.opentaint.ir.api.jvm.storage.ers.Transaction
 import org.opentaint.ir.api.jvm.storage.ers.compressed
-import org.opentaint.ir.api.jvm.storage.ers.links
 import org.opentaint.ir.impl.asSymbolId
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.storage.BatchedSequence
@@ -81,9 +80,9 @@ internal fun JIRClasspath.allClassesExceptObject(context: JIRDBContext, direct: 
         noSqlAction = { txn ->
             val objectNameId = db.persistence.findSymbolId(JAVA_OBJECT)
             txn.all("Class").asSequence().filter { clazz ->
-                clazz.getCompressed<Long>("nameId") != objectNameId &&
+                (!direct || clazz.getCompressed<Long>("inherits") == null) &&
                         clazz.getCompressed<Long>("locationId") in locationIds &&
-                        (!direct || links(clazz, "inherits").asIterable.isEmpty)
+                        clazz.getCompressed<Long>("nameId") != objectNameId
             }.toClassSourceSequence(db).toList().asSequence()
         }
     )
@@ -148,16 +147,16 @@ private class HierarchyExtensionERS(cp: JIRClasspath) : HierarchyExtensionBase(c
                 val locationIds = cp.registeredLocations.mapTo(mutableSetOf()) { it.id }
                 val nameId = name.asSymbolId(persistence.symbolInterner)
                 if (entireHierarchy) {
-                    entireHierarchy(txn, nameId, mutableListOf())
+                    entireHierarchy(txn, nameId, mutableSetOf())
                 } else {
                     directSubClasses(txn, nameId)
                 }.asSequence().filter { clazz -> clazz.getCompressed<Long>("locationId") in locationIds }
                     .toClassSourceSequence(db)
-            }
-        }.map { cp.toJIRClass(it) }
+            }.map { cp.toJIRClass(it) }.toList().asSequence()
+        }
     }
 
-    private fun entireHierarchy(txn: Transaction, nameId: Long, result: MutableList<Entity>): Iterable<Entity> {
+    private fun entireHierarchy(txn: Transaction, nameId: Long, result: MutableSet<Entity>): Iterable<Entity> {
         val subClasses = directSubClasses(txn, nameId)
         if (subClasses.isNotEmpty) {
             result += subClasses
@@ -169,8 +168,11 @@ private class HierarchyExtensionERS(cp: JIRClasspath) : HierarchyExtensionBase(c
     }
 
     private fun directSubClasses(txn: Transaction, nameId: Long): EntityIterable {
-        val clazz = txn.find("Class", "nameId", nameId.compressed).firstOrNull() ?: return EntityIterable.EMPTY
-        return (links(clazz, "inheritedBy").asIterable + links(clazz, "implementedBy").asIterable)
+        val nameIdCompressed = nameId.compressed
+        txn.find("Interface", "nameId", nameIdCompressed).firstOrNull()?.let { i ->
+            return i.getLinks("implementedBy")
+        }
+        return txn.find("Class", "inherits", nameIdCompressed)
     }
 }
 

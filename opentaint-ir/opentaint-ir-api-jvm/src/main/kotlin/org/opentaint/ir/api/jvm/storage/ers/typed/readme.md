@@ -26,6 +26,7 @@ Inside the entity type, you can declare which properties and links it has:
 object UserType : ErsType {
     val login by property(String::class)
     val password by property(String::class)
+    val age by property(Int::class)
     val avatar by property(ByteArray::class, searchability = ErsSearchability.NonSearchable)
     val profile by link(UserProfileType)
 }
@@ -70,6 +71,18 @@ Next, you can:
 
 Currently, there are two basic queries available on the instance of `Transaction`:
 
+There are the following basic queries available on the instance of `Transaction`:
+
+- `Transaction.all()` gets all entities of specified type;
+- `Transaction.find()` gets entities with specified property equal to specified value;
+- `Transaction.findLt()` gets entities with specified property less than specified value;
+- `Transaction.findEqOrLt()` gets entities with specified property equal to or less than specified
+  value;
+- `Transaction.findGt()` gets entities with specified property greater than specified value;
+- `Transaction.findEqOrGt()` gets entities with specified property equal to or greater than specified
+  value.
+
+Simple examples:
 1. Enumerate all users:
     ```kotlin
     txn.all(UserType).forEach { user ->
@@ -81,4 +94,30 @@ Currently, there are two basic queries available on the instance of `Transaction
     txn.find(UserType.password, "42").forEach { user ->
         // ...
     }
+    ```
+3. Enumerate all users having age equal to or less than 42:
+   ```kotlin
+   txn.findEqOrLt(UserType.age, 42).forEach { user ->
+       // ...
+   }
+   ```
+
+Queries return instances of `TypedEntityIterable<ENTITY_TYPE>`. `TypedEntityIterable<ENTITY_TYPE>` is 
+`Iterable<TypedEntity<ENTITY_TYPE>>`. In addition, there are tree binary operations on instances of `EntityIterable`:
+_intersect_, _union_ (`+`) and _minus_ (`-`).
+
+**NOTE:** some ERS implementations can use two consecutive queries to implement these operations.
+
+Query combination examples:
+1. To get users with age `42` _and_ having login `user@cia.gov`:
+    ```kotlin
+    val users = txn.find(UserType.age, 42).intersect(txn.find(UserType.login, "user@cia.gov")) 
+    ```
+2. To get users with age equal to or greater than `42` _or_ having login `user@cia.gov`:
+    ```kotlin
+    val users = txn.findEqOrGt(UserType.age, 42) + txn.find(UserType.login, "user@cia.gov") 
+    ```
+3. To get users with age greater than `42` _not_ having login `user@cia.gov`:
+    ```kotlin
+    val users = txn.findGt(UserType.age, 42) - txn.find(UserType.login, "user@cia.gov") 
     ```

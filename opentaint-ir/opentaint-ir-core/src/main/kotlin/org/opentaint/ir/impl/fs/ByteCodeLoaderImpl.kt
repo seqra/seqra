@@ -12,11 +12,7 @@ val RegisteredLocation.sources: List<ClassSource>
 
 val RegisteredLocation.lazySources: List<ClassSource>
     get() {
-        val classNames = jIRLocation?.classNames ?: return emptyList()
-        if (classNames.any { it.startsWith("java.") }) {
-            return sources
-        }
-        return classNames.map {
+        return (jIRLocation?.classNames ?: return emptyList()).map {
             LazyClassSourceImpl(this, it)
         }
     }

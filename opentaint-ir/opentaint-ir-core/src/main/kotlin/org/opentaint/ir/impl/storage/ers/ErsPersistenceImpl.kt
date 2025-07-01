@@ -21,6 +21,7 @@ import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.info
 import org.opentaint.ir.impl.storage.AbstractJIRDbPersistence
 import org.opentaint.ir.impl.storage.AnnotationValueKind
+import org.opentaint.ir.impl.storage.ers.ram.RAMEntityRelationshipStorage
 import org.opentaint.ir.impl.storage.toJIRDBContext
 import org.opentaint.ir.impl.storage.txn
 import org.opentaint.ir.impl.types.AnnotationInfo
@@ -59,8 +60,14 @@ class ErsPersistenceImpl(
     }
 
     override fun <T> read(action: (JIRDBContext) -> T): T {
-        return ers.transactionalOptimistic(attempts = 10) { txn ->
-            action(toJIRDBContext(txn))
+        return if (ers is RAMEntityRelationshipStorage) { // RAMEntityRelationshipStorage doesn't support readonly transactions
+            ers.transactionalOptimistic(attempts = 10) { txn ->
+                action(toJIRDBContext(txn))
+            }
+        } else {
+            ers.transactional(readonly = true) { txn ->
+                action(toJIRDBContext(txn))
+            }
         }
     }
 
@@ -162,12 +169,8 @@ class ErsPersistenceImpl(
             allClasses.forEach { classInfo ->
                 if (classInfo.superClass != null) {
                     classEntities[classInfo.name]?.let { clazz ->
-                        val inherits = links(clazz, "inherits")
                         classInfo.superClass.takeIf { JAVA_OBJECT != it }?.let { superClassName ->
-                            txn.findOrNew("SuperClass", "nameId", superClassName.asSymbolId(symbolInterner).compressed)
-                                .also { superClass ->
-                                    inherits += superClass
-                                }
+                            clazz["inherits"] = superClassName.asSymbolId(symbolInterner).compressed
                         }
                     }
                 }
@@ -180,6 +183,7 @@ class ErsPersistenceImpl(
                             txn.findOrNew("Interface", "nameId", interfaceName.asSymbolId(symbolInterner).compressed)
                                 .also { interfaceClass ->
                                     implements += interfaceClass
+                                    links(interfaceClass, "implementedBy") += clazz
                                 }
                         }
                     }

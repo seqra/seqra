@@ -117,7 +117,7 @@ abstract class AbstractJIRDbPersistence(
 
     override fun close() {
         try {
-            symbolInterner.setup(this)
+            symbolInterner.close()
         } catch (e: Exception) {
             // ignore
         }
