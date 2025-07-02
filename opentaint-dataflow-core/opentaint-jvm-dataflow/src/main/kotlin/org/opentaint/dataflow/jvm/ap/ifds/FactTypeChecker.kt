@@ -162,7 +162,7 @@ class FactTypeChecker(private val cp: JIRClasspath) {
 
         if (requiredType.isFinal) return false
 
-        val requiredTypeId = persistence.findSymbolId(requiredType.name) ?: return true
+        val requiredTypeId = persistence.findSymbolId(requiredType.name)
 
         val unprocessedSubclasses = mutableListOf<Long>()
         val processedSubClasses = hashSetOf<Long>()
