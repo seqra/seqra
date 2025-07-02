@@ -1,0 +1,789 @@
+[
+  {
+    "_": "MethodSource",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.lang"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "System"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "getenv"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "AssignMark",
+        "position": {
+          "_": "Result"
+        },
+        "mark": {
+          "name": "ENVIRONMENT"
+        }
+      }
+    ]
+  },
+  {
+    "_": "MethodSink",
+    "ruleNote": "SQL Injection",
+    "cwe": [
+      89
+    ],
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.sql"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": "Statement"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "execute|executeQuery|executeUpdate|executeLargeUpdate"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "Or",
+      "args": [
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "Argument",
+            "number": 0
+          },
+          "mark": {
+            "name": "UNTRUSTED"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "Argument",
+            "number": 0
+          },
+          "mark": {
+            "name": "INJECTION"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "Argument",
+            "number": 0
+          },
+          "mark": {
+            "name": "ENVIRONMENT"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "_": "MethodSink",
+    "ruleNote": "SQL Injection",
+    "cwe": [
+      89
+    ],
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.sql"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": "Statement"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "executeBatch|executeLargeBatch"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "Or",
+      "args": [
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "UNTRUSTED"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "INJECTION"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "ENVIRONMENT"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "_": "MethodSink",
+    "ruleNote": "SQL Injection",
+    "cwe": [
+      89
+    ],
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.sql"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": "PreparedStatement"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "execute|executeQuery|executeUpdate|executeLargeUpdate"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "Or",
+      "args": [
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "UNTRUSTED"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "INJECTION"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "ENVIRONMENT"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.lang"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "String"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "split"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "This"
+        },
+        "to": {
+          "_": "ResultAnyElement"
+        }
+      }
+    ]
+  },
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.lang"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "String"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "concat"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "Argument",
+          "number": 0
+        },
+        "to": {
+          "_": "Result"
+        }
+      },
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "This"
+        },
+        "to": {
+          "_": "Result"
+        }
+      }
+    ]
+  },
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.lang"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "StringBuilder"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "append"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "Argument",
+          "number": 0
+        },
+        "to": {
+          "_": "This"
+        }
+      },
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "Argument",
+          "number": 0
+        },
+        "to": {
+          "_": "Result"
+        }
+      },
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "This"
+        },
+        "to": {
+          "_": "Result"
+        }
+      }
+    ]
+  },
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.lang"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "StringBuilder"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "toString"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "This"
+        },
+        "to": {
+          "_": "Result"
+        }
+      }
+    ]
+  },
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.sql"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "Statement"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "addBatch"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "Argument",
+          "number": 0
+        },
+        "to": {
+          "_": "This"
+        }
+      }
+    ]
+  },
+  {
+    "_": "MethodSource",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.sql"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "ResultSet"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "get.*"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "AssignMark",
+        "position": {
+          "_": "Result"
+        },
+        "mark": {
+          "name": "UNTRUSTED"
+        }
+      }
+    ]
+  },
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.sql"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "Connection"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "prepareStatement"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "Argument",
+          "number": 0
+        },
+        "to": {
+          "_": "Result"
+        }
+      }
+    ]
+  },
+  {
+    "_": "MethodSource",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.io"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "BufferedReader"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "readLine"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "AssignMark",
+        "position": {
+          "_": "Result"
+        },
+        "mark": {
+          "name": "UNTRUSTED"
+        }
+      }
+    ]
+  },
+  {
+    "_": "MethodSource",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.util"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "Properties"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "getProperty"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "AssignMark",
+        "position": {
+          "_": "Result"
+        },
+        "mark": {
+          "name": "NULLNESS"
+        }
+      }
+    ]
+  },
+  {
+    "_": "MethodSource",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.lang"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "System"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "getProperty"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "AssignMark",
+        "position": {
+          "_": "Result"
+        },
+        "mark": {
+          "name": "NULLNESS"
+        }
+      }
+    ]
+  },
+  {
+    "_": "MethodSource",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "source"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "AssignMark",
+        "position": {
+          "_": "Result"
+        },
+        "mark": {
+          "name": "DEBUG"
+        }
+      }
+    ]
+  },
+  {
+    "_": "MethodSink",
+    "ruleNote": "DEBUG",
+    "cwe": [],
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "sink"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ContainsMark",
+      "position": {
+        "_": "Argument",
+        "number": 0
+      },
+      "mark": {
+        "name": "DEBUG"
+      }
+    }
+  }
+]

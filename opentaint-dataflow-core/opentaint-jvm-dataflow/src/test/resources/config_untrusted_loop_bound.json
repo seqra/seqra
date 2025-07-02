@@ -1,0 +1,45 @@
+[
+  {
+    "_": "MethodSource",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*Message"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "readInt"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "AssignMark",
+        "position": {
+          "_": "Result"
+        },
+        "mark": {
+          "name": "UNTRUSTED"
+        }
+      }
+    ]
+  }
+]

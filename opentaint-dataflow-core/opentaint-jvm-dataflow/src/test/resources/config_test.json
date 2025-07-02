@@ -1,0 +1,174 @@
+[
+  {
+    "_": "EntryPointSource",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "com.example"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "test"
+      },
+      "parametersMatchers": [],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": false,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": []
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "AssignMark",
+        "position": {
+          "_": "Argument",
+          "number": 0
+        },
+        "mark": {
+          "name": "EXAMPLE"
+        }
+      }
+    ]
+  },
+  {
+    "_": "MethodSource",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "com.example"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "test"
+      },
+      "parametersMatchers": [
+      ],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": [
+      ]
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "AssignMark",
+        "position": {
+          "_": "Result"
+        },
+        "mark": {
+          "name": "EXAMPLE"
+        }
+      }
+    ]
+  },
+  {
+    "_": "Cleaner",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "com.example"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "test"
+      },
+      "applyToOverrides": true,
+      "exclude": [],
+      "functionLabel": null,
+      "modifier": -1,
+      "parametersMatchers": [],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      }
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "RemoveMark",
+        "mark": {
+          "name": "REMOVE"
+        },
+        "position": {
+          "_": "Argument",
+          "number": 0
+        }
+      }
+    ]
+  },
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "com.example"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "test"
+      },
+      "applyToOverrides": true,
+      "exclude": [],
+      "functionLabel": null,
+      "modifier": -1,
+      "parametersMatchers": [],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      }
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyMark",
+        "mark": {
+          "name": "COPY"
+        },
+        "from": {
+          "_": "Argument",
+          "number": 0
+        },
+        "to": {
+          "_": "Result"
+        }
+      }
+    ]
+  }
+]

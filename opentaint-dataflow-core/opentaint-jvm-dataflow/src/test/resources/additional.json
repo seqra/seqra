@@ -1,0 +1,607 @@
+[
+  {
+    "_": "EntryPointSource",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": ".*"
+      },
+      "parametersMatchers": [],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": false,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": []
+    },
+    "condition": {
+      "_": "AnnotationType",
+      "position": {
+        "_": "Argument",
+        "number": 0
+      },
+      "type": {
+        "_": "ClassMatcher",
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "org.springframework.web.bind.annotation"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "RequestParam"
+        }
+      }
+    },
+    "actionsAfter": [
+      {
+        "_": "AssignMark",
+        "position": {
+          "_": "Argument",
+          "number": 0
+        },
+        "mark": {
+          "name": "XSS"
+        }
+      }
+    ]
+  },
+  {
+    "_": "EntryPointSource",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": ".*"
+      },
+      "parametersMatchers": [],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": false,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": []
+    },
+    "condition": {
+      "_": "AnnotationType",
+      "position": {
+        "_": "Argument",
+        "number": 1
+      },
+      "type": {
+        "_": "ClassMatcher",
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "org.springframework.web.bind.annotation"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "RequestParam"
+        }
+      }
+    },
+    "actionsAfter": [
+      {
+        "_": "AssignMark",
+        "position": {
+          "_": "Argument",
+          "number": 1
+        },
+        "mark": {
+          "name": "XSS"
+        }
+      }
+    ]
+  },
+  {
+    "_": "EntryPointSource",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": ".*"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": ".*"
+      },
+      "parametersMatchers": [],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": false,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": []
+    },
+    "condition": {
+      "_": "AnnotationType",
+      "position": {
+        "_": "Argument",
+        "number": 2
+      },
+      "type": {
+        "_": "ClassMatcher",
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "org.springframework.web.bind.annotation"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "RequestParam"
+        }
+      }
+    },
+    "actionsAfter": [
+      {
+        "_": "AssignMark",
+        "position": {
+          "_": "Argument",
+          "number": 2
+        },
+        "mark": {
+          "name": "XSS"
+        }
+      }
+    ]
+  },
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.net"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "URLDecoder"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "decode"
+      },
+      "parametersMatchers": [],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": []
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "Argument",
+          "number": 0
+        },
+        "to": {
+          "_": "Result"
+        }
+      }
+    ]
+  },
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.sql"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "Connection"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "prepareCall|prepareStatement"
+      },
+      "parametersMatchers": [],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": []
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "Argument",
+          "number": 0
+        },
+        "to": {
+          "_": "Result"
+        }
+      }
+    ]
+  },
+  {
+    "_": "MethodSink",
+    "ruleNote": "SQL Injection",
+    "cwe": [
+      89
+    ],
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.sql"
+        },
+        "classNameMatcher": {
+          "_": "NameMatches",
+          "pattern": "PreparedStatement"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "execute|executeQuery|executeUpdate|executeLargeUpdate"
+      },
+      "parametersMatchers": [],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": []
+    },
+    "condition": {
+      "_": "Or",
+      "args": [
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "NETWORK"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "ARGS"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "LDAP"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "FORM"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "WEBSERVICE"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "PROPERTY"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "ENVIRONMENT"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "ICC"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "STREAM"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "FILE_SYSTEM"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "JSON"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "STDIN"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "DATABASE"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "CHANNEL"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "WEB"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "CONSOLE"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "XML"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "XSS"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "GUI_FORM"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "NAMING"
+          }
+        },
+        {
+          "_": "ContainsMark",
+          "position": {
+            "_": "This"
+          },
+          "mark": {
+            "name": "REGISTRY"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.util"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "Map"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "get"
+      },
+      "parametersMatchers": [],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      },
+      "applyToOverrides": true,
+      "functionLabel": null,
+      "modifier": -1,
+      "exclude": []
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "This"
+        },
+        "to": {
+          "_": "Result"
+        }
+      }
+    ]
+  },
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "java.util"
+        },
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "Map"
+        }
+      },
+      "functionName": {
+        "_": "NameMatches",
+        "pattern": "put|replace"
+      },
+      "applyToOverrides": true,
+      "exclude": [],
+      "functionLabel": null,
+      "modifier": -1,
+      "parametersMatchers": [],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      }
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "Argument",
+          "number": 1
+        },
+        "to": {
+          "_": "This"
+        }
+      }
+    ]
+  },
+  {
+    "_": "PassThrough",
+    "methodInfo": {
+      "cls": {
+        "classNameMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "Base64"
+        },
+        "packageMatcher": {
+          "_": "NameIsEqualTo",
+          "name": "org.apache.commons.codec.binary"
+        }
+      },
+      "functionName": {
+        "_": "NameIsEqualTo",
+        "name": "decodeBase64"
+      },
+      "applyToOverrides": true,
+      "exclude": [],
+      "functionLabel": null,
+      "modifier": -1,
+      "parametersMatchers": [],
+      "returnTypeMatcher": {
+        "_": "AnyTypeMatches"
+      }
+    },
+    "condition": {
+      "_": "ConstantTrue"
+    },
+    "actionsAfter": [
+      {
+        "_": "CopyAllMarks",
+        "from": {
+          "_": "Argument",
+          "number": 0
+        },
+        "to": {
+          "_": "Result"
+        }
+      }
+    ]
+  }
+]
