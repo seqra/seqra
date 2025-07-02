@@ -1,7 +1,6 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 plugins {
     id("opentaint.kotlin-conventions")
+    kotlin("plugin.serialization") version Versions.kotlin
 }
 
 val samples by sourceSets.creating {
@@ -12,33 +11,27 @@ val samples by sourceSets.creating {
 
 dependencies {
     api(project(":opentaint-dataflow"))
+    implementation(project(":opentaint-util"))
 
-    implementation("${Versions.opentaint-irPackage}:opentaint-ir-api-common:${Versions.opentaint-ir}")
-    implementation("${Versions.opentaint-irPackage}:opentaint-ir-api-jvm:${Versions.opentaint-ir}")
-    implementation("${Versions.opentaint-irPackage}:opentaint-ir-core:${Versions.opentaint-ir}")
-    implementation("${Versions.opentaint-irPackage}:opentaint-ir-taint-configuration:${Versions.opentaint-ir}")
+    implementation(Libs.opentaint-ir_api_jvm)
+    implementation(Libs.opentaint-ir_core)
+    implementation(Libs.opentaint-ir_api_storage)
+    implementation(Libs.opentaint-ir_storage)
+    implementation(Libs.opentaint-ir_taint_configuration)
 
-    implementation("io.github.detekt.sarif4k", "sarif4k", Versions.sarif4k)
+    implementation("it.unimi.dsi:fastutil-core:8.5.13")
 
-    api("io.github.microutils:kotlin-logging:${Versions.klogging}")
+    implementation(Libs.sarif4k)
 
-    testImplementation("io.mockk:mockk:${Versions.mockk}")
-    testImplementation("org.junit.jupiter:junit-jupiter-params:${Versions.junitParams}")
+    testImplementation(Libs.mockk)
+    testImplementation(Libs.junit_jupiter_params)
 
     testImplementation(samples.output)
     testImplementation(files("src/test/resources/pointerbench.jar"))
     testImplementation("joda-time:joda-time:2.12.5")
-    testImplementation("com.github.Opentaint.juliet-java-test-suite:support:1.3.2")
+    testImplementation(Libs.juliet_support)
     for (cweNum in listOf(89, 476, 563, 690)) {
-        testImplementation("com.github.Opentaint.juliet-java-test-suite:cwe${cweNum}:1.3.2")
-    }
-}
-
-tasks.withType<KotlinCompile> {
-    kotlinOptions {
-        freeCompilerArgs = freeCompilerArgs + listOf(
-            "-Xcontext-receivers",
-        )
+        testImplementation(Libs.juliet_cwe(cweNum))
     }
 }
 

@@ -2,6 +2,7 @@ package org.opentaint.api.checkers
 
 import io.github.detekt.sarif4k.SarifSchema210
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
 import mu.KLogging
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -9,6 +10,7 @@ import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.api.jvm.ext.isSubClassOf
+import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.approximation.JIREnrichedVirtualMethod
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.impl.features.usagesExt
@@ -25,11 +27,14 @@ import org.opentaint.api.targets.TaintAnalysis
 import org.opentaint.api.targets.TaintConfigurationFeatureProvider
 import org.opentaint.api.targets.TaintConfigurationProvider
 import org.opentaint.dataflow.ifds.TraceGraph
-import org.opentaint.dataflow.ifds.UnitResolver
+import org.opentaint.dataflow.ifds.UnitType
+import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.ifds.Vertex
+import org.opentaint.dataflow.jvm.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.jvm.graph.JIRApplicationGraphImpl
 import org.opentaint.dataflow.jvm.graph.defaultBannedPackagePrefixes
-import org.opentaint.dataflow.jvm.ifds.PackageUnitResolver
+import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
+import org.opentaint.dataflow.jvm.ifds.PackageUnit
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import org.opentaint.dataflow.sarif.VulnerabilityDescription
 import org.opentaint.dataflow.sarif.VulnerabilityInstance
@@ -38,19 +43,22 @@ import org.opentaint.dataflow.taint.TaintDomainFact
 import org.opentaint.dataflow.taint.TaintVulnerability
 import org.opentaint.machine.JIRMachine
 import org.opentaint.machine.JIRMachineOptions
+import java.nio.file.Path
 import java.util.IdentityHashMap
+import kotlin.io.path.outputStream
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 class JIRTaintAnalyzer(
     val cp: JIRClasspath,
     val projectLocations: Set<RegisteredLocation>,
     val dependenciesLocations: Set<RegisteredLocation>,
+    val ifdsTimeout: Duration,
     val opentaintTimeout: Duration,
     val symbolicExecutionEnabled: Boolean,
     val analysisCwe: Set<Int>?,
-    val analysisUnit: UnitResolver<JIRMethod> = PackageUnitResolver
+    val debugSummaryDump: Path? = null,
+    val analysisUnit: JIRUnitResolver = PackageUnitResolver(bannedLocations = dependenciesLocations)
 ) {
     private val ifdsAnalysisGraph by lazy {
         val usages = runBlocking { cp.usagesExt() }
@@ -197,20 +205,27 @@ class JIRTaintAnalyzer(
                 )
             }
         }
-
         with(JIRTraits) {
             return sarifReportFromVulnerabilities(vulnerabilityInstances, sourceFileResolver = sourceFileResolver)
         }
     }
 
+    private fun createIfdsEngine() = TaintAnalysisUnitRunnerManager(ifdsAnalysisGraph, analysisUnit) { rule ->
+        when {
+            // todo: remove
+            rule is TaintPassThrough -> (rule.method as JIRMethod).enclosingClass.declaration.location !in projectLocations
+            rule is TaintMethodSink -> analysisCwe == null || rule.cwe.any { it in analysisCwe }
+            else -> true
+        }
+    }
+
     private fun analyzeTaintWithIfdsEngine(
         entryPoints: List<JIRMethod>,
-    ): List<IfdsVulnerablity> = JIRIfdsTaintAnalyzer(ifdsAnalysisGraph, analysisUnit).use { ifdsEngine ->
-        runCatching { ifdsEngine.runAnalysis(entryPoints, timeout = 10.minutes, cancellationTimeout = 30.seconds) }
+    ): List<IfdsVulnerablity> = createIfdsEngine().use { ifdsEngine ->
+        runCatching { ifdsEngine.runAnalysis(entryPoints, timeout = ifdsTimeout, cancellationTimeout = 30.seconds) }
             .onFailure { logger.error(it) { "Ifds engine failed" } }
 
-        // todo: IFDS cwe config
-        val allVulnerabilities = ifdsEngine.getVulnerabilities()
+        val allVulnerabilities = ifdsEngine.getOldVulnerabilities()
         val vulnerabilities = analysisCwe?.let { cwe ->
             allVulnerabilities.filter {
                 val rule = it.rule ?: error("No rule")
@@ -218,11 +233,19 @@ class JIRTaintAnalyzer(
             }
         } ?: allVulnerabilities
 
+        if (debugSummaryDump != null) {
+            logger.debug { "Start summaries dump: $debugSummaryDump" }
+            val json = Json { prettyPrint = true }
+            debugSummaryDump.outputStream().use { out ->
+                ifdsEngine.dumpSummariesJson(json, out)
+            }
+            logger.debug { "Finish summaries dump" }
+        }
 
-        if (!symbolicExecutionEnabled) {
+//        if (!symbolicExecutionEnabled) {
             // todo: fix trace generation
             val vulnerabilityStub = vulnerabilities.firstOrNull() ?: return@use emptyList()
-            val emptyTraceGraph = TraceGraph<TaintDomainFact, JIRInst>(
+            val emptyTraceGraph = TraceGraph(
                 vulnerabilityStub.sink,
                 sources = hashSetOf(),
                 edges = hashMapOf(),
@@ -235,14 +258,14 @@ class JIRTaintAnalyzer(
                     traceGraph = emptyTraceGraph.copy(sink = it.sink)
                 )
             }
-        }
+//        }
 
-        vulnerabilities.map {
-            val traceGraphWithEntryPoints = ifdsEngine.vulnerabilityTraceGraphWithEntryPoints(
-                it, resolveEntryPoints = !symbolicExecutionEnabled
-            )
-            IfdsVulnerablity(it, traceGraphWithEntryPoints.entryPoints, traceGraphWithEntryPoints.graph)
-        }
+//        vulnerabilities.map {
+//            val traceGraphWithEntryPoints = ifdsEngine.vulnerabilityTraceGraphWithEntryPoints(
+//                it, resolveEntryPoints = !symbolicExecutionEnabled
+//            )
+//            IfdsVulnerablity(it, traceGraphWithEntryPoints.entryPoints, traceGraphWithEntryPoints.graph)
+//        }
     }
 
     private fun buildTargetsFromIfdsTraces(
@@ -420,5 +443,15 @@ class JIRTaintAnalyzer(
 
     companion object {
         val logger = object : KLogging() {}.logger
+
+        class PackageUnitResolver(private val bannedLocations: Set<RegisteredLocation>) : JIRUnitResolver {
+            override fun resolve(method: JIRMethod): UnitType {
+                if (method.enclosingClass.declaration.location in bannedLocations) {
+                    return UnknownUnit
+                }
+
+                return PackageUnit(method.enclosingClass.packageName)
+            }
+        }
     }
 }

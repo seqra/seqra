@@ -1,0 +1,769 @@
+package org.opentaint.dataflow.jvm.ap.ifds
+
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRImmediate
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
+import org.opentaint.ir.api.jvm.ext.cfg.callExpr
+import org.opentaint.ir.taint.configuration.TaintMark
+import org.opentaint.dataflow.ifds.UnknownUnit
+import org.opentaint.dataflow.ifds.onSome
+import org.opentaint.dataflow.jvm.ap.ifds.AccessPath.AccessNode.Companion.iterator
+import org.opentaint.dataflow.jvm.ap.ifds.AccessTree.AccessNode
+import org.opentaint.dataflow.jvm.ap.ifds.Edge.FactToFact
+import org.opentaint.dataflow.jvm.ap.ifds.Edge.ZeroInitialEdge
+import org.opentaint.dataflow.jvm.ap.ifds.Edge.ZeroToFact
+import org.opentaint.dataflow.jvm.ap.ifds.Edge.ZeroToZero
+import org.opentaint.dataflow.jvm.ap.ifds.ExclusionSet.Empty
+import org.opentaint.dataflow.jvm.ap.ifds.MethodCallFlowFunction.Companion.applyEntryPointConfigDefault
+import org.opentaint.dataflow.jvm.ap.ifds.MethodCallFlowFunction.ZeroCallFact
+import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.rebase
+import org.opentaint.dataflow.jvm.ap.ifds.MethodSequentFlowFunction.Sequent
+import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
+
+interface MethodAnalyzer {
+    fun addInitialZeroFact()
+    fun addInitialFact(fact: Fact.TaintedTree)
+
+    fun tabulationAlgorithmStep(edge: Edge)
+
+    fun handleZeroToZeroMethodSummaryEdge(currentEdge: ZeroToZero, methodSummaries: List<ZeroInitialEdge>)
+
+    fun handleZeroToFactMethodSummaryEdge(summarySubs: List<ZeroToFactSub>, methodSummaries: List<FactToFact>)
+
+    fun handleFactToFactMethodSummaryEdge(summarySubs: List<FactToFactSub>, methodSummaries: List<FactToFact>)
+
+    fun handleMethodSinkRequirement(
+        currentEdge: FactToFact,
+        methodInitialFactBase: AccessPathBase,
+        methodSinkRequirement: Fact.TaintedPath,
+        methodInitialStatement: JIRInst
+    )
+
+    fun collectStats(stats: MethodStats)
+
+    data class ZeroToFactSub(
+        val currentEdge: ZeroToFact,
+        val methodInitialFactBase: AccessPathBase
+    )
+
+    data class FactToFactSub(
+        val currentEdge: FactToFact,
+        val methodInitialFactBase: AccessPathBase
+    )
+}
+
+class NormalMethodAnalyzer(
+    private val runner: AnalysisRunner,
+    private val entryPointStatement: JIRInst
+) : MethodAnalyzer {
+    private val graph: JIRApplicationGraph get() = runner.graph
+    private val unitResolver: JIRUnitResolver get() = runner.unitResolver
+    private val taintConfig: TaintRulesProvider get() = runner.taintConfiguration
+    private val factTypeChecker: FactTypeChecker get() = runner.factTypeChecker
+    private val taintSinkTracker: TaintSinkTracker get() = runner.sinkTracker
+
+    private var zeroInitialFactProcessed: Boolean = false
+    private val initialFacts = MethodInitialFacts(hashMapOf())
+    private val edges = MethodAnalyzerEdges(entryPointStatement)
+    private val pendingSummaryEdges = arrayListOf<Edge>()
+
+    private var unprocessedEdgesCount: Int = 0
+    private var analyzerSteps: Long = 0
+    private var summaryEdgesHandled: Long = 0
+
+    override fun collectStats(stats: MethodStats) {
+        stats.stats(entryPointStatement.location.method).apply {
+            steps += analyzerSteps
+            handledSummaries += summaryEdgesHandled
+            unprocessedEdges += unprocessedEdgesCount
+        }
+    }
+
+    override fun addInitialZeroFact() {
+        if (!zeroInitialFactProcessed) {
+            zeroInitialFactProcessed = true
+            propagateStartFacts()
+        }
+    }
+
+    override fun addInitialFact(fact: Fact.TaintedTree) {
+        // note: we can ignore fact exclusions here
+        val facts = initialFacts.getOrPut(fact.mark, fact.ap.base)
+        val addedFact = facts.addInitialFact(fact.ap.access) ?: return
+        addAbstractInitialFact(facts, fact.mark, fact.ap.base, addedFact)
+    }
+
+    private fun propagateStartFacts() {
+        addInitialZeroEdge()
+
+        applyEntryPointConfigDefault(taintConfig, entryPointStatement.location.method)
+            .onSome { facts ->
+                facts.forEach { fact -> addInitialZeroToFactEdge(fact) }
+            }
+    }
+
+    override fun tabulationAlgorithmStep(edge: Edge) {
+        analyzerSteps++
+        unprocessedEdgesCount--
+
+        val currentStatement = edge.statement
+        val callExpr = currentStatement.callExpr
+
+        if (callExpr != null) {
+            callStatementStep(currentStatement, callExpr, edge)
+        } else {
+            simpleStatementStep(currentStatement, edge)
+        }
+
+        if (unprocessedEdgesCount == 0) {
+            flushPendingSummaryEdges()
+        }
+    }
+
+    private fun simpleStatementStep(
+        currentStatement: JIRInst,
+        edge: Edge
+    ) {
+        val currentIsExit = currentStatement in graph.exitPoints(currentStatement.location.method)
+        if (currentIsExit) {
+            when (edge) {
+                is ZeroToZero -> newSummaryEdge(edge)
+
+                is ZeroToFact -> if (isValidMethodExitFact(currentStatement, edge.fact)) {
+                    newSummaryEdge(edge)
+                }
+
+                is FactToFact -> if (isValidMethodExitFact(currentStatement, edge.fact)) {
+                    newSummaryEdge(edge)
+                }
+            }
+        }
+
+        // Simple (sequential) propagation to the next instruction:
+        val flowFunction = MethodSequentFlowFunction(currentStatement, factTypeChecker)
+        val sequentialFacts = when (edge) {
+            is ZeroToZero -> flowFunction.propagateZeroToZero()
+            is ZeroToFact -> flowFunction.propagateZeroToFact(edge.fact)
+            is FactToFact -> flowFunction.propagateFactToFact(edge.initialFact, edge.fact)
+        }
+
+        for (successor in graph.successors(currentStatement)) {
+            for (sf in sequentialFacts) {
+                val newEdge = when (sf) {
+                    Sequent.ZeroToZero -> ZeroToZero(entryPointStatement, successor)
+
+                    is Sequent.ZeroToFact ->
+                        ZeroToFact(entryPointStatement, successor, sf.fact)
+
+                    is Sequent.FactToFact ->
+                        FactToFact(entryPointStatement, sf.initialFact, successor, sf.fact)
+                }
+
+                addSequentialEdge(edge, newEdge)
+            }
+        }
+    }
+
+    private fun callStatementStep(currentStatement: JIRInst, callExpr: JIRCallExpr, edge: Edge) {
+        val callees = graph.callees(currentStatement)
+            .filter { unitResolver.resolve(it) != UnknownUnit }
+            .toList()
+
+        val returnValue: JIRImmediate? = (currentStatement as? JIRAssignInst)?.lhv?.let {
+            it as? JIRImmediate ?: error("Non simple return value: $currentStatement")
+        }
+
+        val flowFunction = MethodCallFlowFunction(
+            taintConfig,
+            returnValue,
+            callExpr,
+            callees,
+            factTypeChecker,
+            edge.statement,
+            taintSinkTracker
+        )
+
+        val returnSites = graph.successors(currentStatement).toList()
+
+        when (edge) {
+            is ZeroInitialEdge ->{
+                val callFacts = when (edge) {
+                    is ZeroToZero -> flowFunction.propagateZeroToZero()
+                    is ZeroToFact -> flowFunction.propagateZeroToFact(edge.fact)
+                }
+
+                callFacts.forEach {
+                    propagateZeroCallFact(edge, it, returnSites)
+                }
+            }
+
+            is FactToFact -> flowFunction.propagateFactToFact(edge.initialFact, edge.fact).forEach {
+                propagateFactCallFact(edge, it, returnSites)
+            }
+        }
+    }
+
+    private fun propagateZeroCallFact(edge: ZeroInitialEdge, fact: ZeroCallFact, returnSites: List<JIRInst>) {
+        when (fact) {
+            MethodCallFlowFunction.CallToReturnZeroFact -> {
+                for (returnSite in returnSites) {
+                    val newEdge = ZeroToZero(entryPointStatement, returnSite)
+                    addSequentialEdge(edge, newEdge)
+                }
+            }
+
+            is MethodCallFlowFunction.CallToReturnZFact -> {
+                for (returnSite in returnSites) {
+                    val newEdge = ZeroToFact(entryPointStatement, returnSite, fact.fact)
+                    addSequentialEdge(edge, newEdge)
+                }
+            }
+
+            is MethodCallFlowFunction.CallToStartZeroFact -> {
+                val callerEdge = ZeroToZero(entryPointStatement, edge.statement)
+
+                val methodEntryPoints = graph.entryPoints(fact.method)
+                methodEntryPoints.forEach { ep ->
+                    handleMethodCall(callerEdge, ep)
+                }
+            }
+
+            is MethodCallFlowFunction.CallToStartZFact -> {
+                val callerEdge = ZeroToFact(entryPointStatement, edge.statement, fact.callerFact)
+
+                val methodEntryPoints = graph.entryPoints(fact.method)
+                methodEntryPoints.forEach { ep ->
+                    handleMethodCall(callerEdge, ep, fact.startFactBase)
+                }
+            }
+        }
+    }
+
+    private fun propagateFactCallFact(
+        edge: FactToFact,
+        fact: MethodCallFlowFunction.FactCallFact,
+        returnSites: List<JIRInst>
+    ) {
+        when (fact) {
+            is MethodCallFlowFunction.CallToReturnFFact -> {
+                for (returnSite in returnSites) {
+                    val newEdge = FactToFact(entryPointStatement, fact.initialFact, returnSite, fact.fact)
+                    addSequentialEdge(edge, newEdge)
+                }
+            }
+            is MethodCallFlowFunction.CallToStartFFact -> {
+                val callerEdge = FactToFact(entryPointStatement, fact.initialFact, edge.statement, fact.callerFact)
+
+                handleInputFactChange(edge.initialFact, callerEdge.initialFact)
+
+                val methodEntryPoints = graph.entryPoints(fact.method)
+                methodEntryPoints.forEach { ep ->
+                    handleMethodCall(callerEdge, ep, fact.startFactBase)
+                }
+            }
+
+            is MethodCallFlowFunction.SinkRequirement -> {
+                addSinkRequirement(edge, fact.initialFact)
+            }
+        }
+    }
+
+    private fun addInitialZeroEdge() {
+        val edge = ZeroToZero(entryPointStatement, entryPointStatement)
+        edges.add(edge).forEach { newEdge ->
+            enqueueNewEdge(newEdge)
+        }
+    }
+
+    private fun addInitialZeroToFactEdge(fact: Fact.TaintedTree) {
+        val edge = ZeroToFact(entryPointStatement, entryPointStatement, fact)
+        edges.add(edge).forEach { newEdge ->
+            enqueueNewEdge(newEdge)
+        }
+    }
+
+    private fun addInitialEdge(initialFact: Fact.TaintedPath, fact: Fact.TaintedTree) {
+        val edge = FactToFact(entryPointStatement, initialFact, entryPointStatement, fact)
+        edges.add(edge).forEach { newEdge ->
+            enqueueNewEdge(newEdge)
+        }
+    }
+
+    private fun addSequentialEdge(previousEdge: Edge, edge: Edge) {
+        edges.add(edge).forEach { newEdge ->
+            if (previousEdge is FactToFact && newEdge is FactToFact) {
+                handleInputFactChange(previousEdge.initialFact, newEdge.initialFact)
+            }
+
+            enqueueNewEdge(newEdge)
+        }
+    }
+
+    private fun enqueueNewEdge(edge: Edge) {
+        unprocessedEdgesCount++
+        runner.submitNewUnprocessedEdge(edge)
+    }
+
+    private fun handleInputFactChange(originalInputFact: Fact.TaintedPath, newInputFact: Fact.TaintedPath) {
+        if (originalInputFact == newInputFact) return
+
+        val facts = initialFacts.getOrPut(newInputFact.mark, newInputFact.ap.base)
+        facts.addAnalyzedInitialFact(newInputFact.ap.access, newInputFact.ap.exclusions)
+
+        addAbstractInitialFact(facts, newInputFact.mark, newInputFact.ap.base, facts.allAddedFacts())
+    }
+
+    private fun newSummaryEdge(edge: Edge) {
+        if (edge is ZeroToZero) {
+            runner.addNewSummaryEdges(entryPointStatement, listOf(edge))
+        } else {
+            pendingSummaryEdges.add(edge)
+        }
+    }
+
+    private fun flushPendingSummaryEdges() {
+        if (pendingSummaryEdges.isNotEmpty()) {
+            runner.addNewSummaryEdges(entryPointStatement, pendingSummaryEdges.toList())
+            pendingSummaryEdges.clear()
+        }
+    }
+
+    private fun handleMethodCall(currentEdge: ZeroToZero, methodEntryPoint: JIRInst) {
+        runner.subscribeOnMethodSummaries(currentEdge, methodEntryPoint)
+    }
+
+    private fun handleMethodCall(currentEdge: ZeroToFact, methodEntryPoint: JIRInst, methodInitialFactBase: AccessPathBase) {
+        runner.subscribeOnMethodSummaries(currentEdge, methodEntryPoint, methodInitialFactBase)
+    }
+
+    private fun handleMethodCall(currentEdge: FactToFact, methodEntryPoint: JIRInst, methodInitialFactBase: AccessPathBase) {
+        runner.subscribeOnMethodSummaries(currentEdge, methodEntryPoint, methodInitialFactBase)
+    }
+
+    private fun isApplicableExitToReturnEdge(edge: Edge): Boolean {
+        return edge.statement !is JIRThrowInst
+    }
+
+    override fun handleMethodSinkRequirement(
+        currentEdge: FactToFact,
+        methodInitialFactBase: AccessPathBase,
+        methodSinkRequirement: Fact.TaintedPath,
+        methodInitialStatement: JIRInst
+    ) {
+        val methodInitialFact = currentEdge.fact.rebase(methodInitialFactBase)
+        val summaryEdgeEffects = MethodSummaryEdgeApplicationUtils.tryApplySummaryEdge(
+            methodInitialFact, methodSinkRequirement
+        )
+
+        for (summaryEdgeEffect in summaryEdgeEffects) {
+            when (summaryEdgeEffect) {
+                is MethodSummaryEdgeApplicationUtils.SummaryEdgeTreeApplication.SummaryApRefinement -> continue
+                is MethodSummaryEdgeApplicationUtils.SummaryEdgeTreeApplication.SummaryExclusionRefinement -> {
+                    val refinedInitialFact = replaceFactExclusion(currentEdge.initialFact, summaryEdgeEffect.exclusion)
+                    addSinkRequirement(currentEdge, refinedInitialFact)
+                }
+            }
+        }
+    }
+
+    private fun addSinkRequirement(currentEdge: Edge, sinkRequirement: Fact.TaintedPath) {
+        if (currentEdge is FactToFact) {
+            handleInputFactChange(currentEdge.initialFact, sinkRequirement)
+        }
+        runner.addNewSinkRequirement(entryPointStatement, sinkRequirement)
+    }
+
+    override fun handleZeroToZeroMethodSummaryEdge(
+        currentEdge: ZeroToZero,
+        methodSummaries: List<ZeroInitialEdge>
+    ) {
+        summaryEdgesHandled++
+
+        val applicableSummaries = methodSummaries.filter { isApplicableExitToReturnEdge(it) }
+
+        for (methodSummary in applicableSummaries) {
+            when (methodSummary) {
+                is ZeroToZero -> {
+                    for (returnSite in graph.successors(currentEdge.statement)) {
+                        val newEdge = ZeroToZero(entryPointStatement, returnSite)
+                        addSequentialEdge(currentEdge, newEdge)
+                    }
+                }
+
+                is ZeroToFact -> {
+                    val summaryExitFact = mapMethodExitToReturnFlowFact(
+                        currentEdge.statement, methodSummary.statement, methodSummary.fact, factTypeChecker
+                    ) ?: continue
+
+                    for (returnSite in graph.successors(currentEdge.statement)) {
+                        val newEdge = ZeroToFact(entryPointStatement, returnSite, summaryExitFact)
+                        addSequentialEdge(currentEdge, newEdge)
+                    }
+                }
+            }
+        }
+    }
+
+    override fun handleZeroToFactMethodSummaryEdge(
+        summarySubs: List<MethodAnalyzer.ZeroToFactSub>,
+        methodSummaries: List<FactToFact>
+    ) {
+        summaryEdgesHandled++
+
+        val applicableSummaries = methodSummaries.filter { isApplicableExitToReturnEdge(it) }
+
+        for (sub in summarySubs) {
+            applyMethodSummaries(
+                currentEdgeInitialFact = Fact.Zero,
+                currentEdgeStatement = sub.currentEdge.statement,
+                currentEdgeFact = sub.currentEdge.fact,
+                methodInitialFactBase = sub.methodInitialFactBase,
+                methodSummaries = applicableSummaries,
+                refineInitialFact = { _, refinement ->
+                    check(refinement is ExclusionSet.Universe) { "Incorrect refinement" }
+                    Fact.Zero
+                },
+                handleSummaryEdge = { _, summaryFact ->
+                    handleZeroToFactMethodSummaryEdge(summaryFact, sub.currentEdge)
+                }
+            )
+        }
+    }
+
+    override fun handleFactToFactMethodSummaryEdge(
+        summarySubs: List<MethodAnalyzer.FactToFactSub>,
+        methodSummaries: List<FactToFact>
+    ) {
+        summaryEdgesHandled++
+
+        val applicableSummaries = methodSummaries.filter { isApplicableExitToReturnEdge(it) }
+
+        for (sub in summarySubs) {
+            applyMethodSummaries(
+                currentEdgeInitialFact = sub.currentEdge.initialFact,
+                currentEdgeStatement = sub.currentEdge.statement,
+                currentEdgeFact = sub.currentEdge.fact,
+                methodInitialFactBase = sub.methodInitialFactBase,
+                methodSummaries = applicableSummaries,
+                refineInitialFact = { initialFact: Fact.TaintedPath, refinement: ExclusionSet ->
+                    replaceFactExclusion(initialFact, refinement)
+                },
+                handleSummaryEdge = { initialFact: Fact.TaintedPath, summaryFact: Fact.TaintedTree ->
+                    handleFactToFactMethodSummaryEdge(initialFact, summaryFact, sub.currentEdge)
+                }
+            )
+        }
+    }
+
+    private fun <IF: Fact> applyMethodSummaries(
+        currentEdgeInitialFact: IF,
+        currentEdgeStatement: JIRInst,
+        currentEdgeFact: Fact.TaintedTree,
+        methodInitialFactBase: AccessPathBase,
+        methodSummaries: List<FactToFact>,
+        refineInitialFact: (fact: IF, refinement: ExclusionSet) -> IF,
+        handleSummaryEdge: (initialFact: IF, summaryFact: Fact.TaintedTree) -> Unit
+    ) {
+        val summaries = methodSummaries.groupBy { it.initialFact }
+        for ((summaryInitialFact, summaryEdges) in summaries) {
+            val methodInitialFact = currentEdgeFact.rebase(methodInitialFactBase)
+            val summaryEdgeEffects = MethodSummaryEdgeApplicationUtils.tryApplySummaryEdge(
+                methodInitialFact, summaryInitialFact
+            )
+
+            for (summaryEdgeEffect in summaryEdgeEffects) {
+                when (summaryEdgeEffect) {
+                    is MethodSummaryEdgeApplicationUtils.SummaryEdgeTreeApplication.SummaryApRefinement -> {
+                        for (methodSummary in summaryEdges) {
+                            val mappedSummaryFact = mapMethodExitToReturnFlowFact(
+                                currentEdgeStatement, methodSummary.statement, methodSummary.fact, factTypeChecker
+                            ) ?: continue
+
+                            val summaryFactApAccess = mappedSummaryFact.ap.access.concatToLeafAbstractNodes(
+                                factTypeChecker, summaryEdgeEffect.access
+                            ) ?: continue
+
+                            // todo: filter exclusions
+                            val summaryFactAp = with(mappedSummaryFact.ap) {
+                                AccessTree(base, summaryFactApAccess, currentEdgeFact.ap.exclusions)
+                            }
+                            val summaryFact = mappedSummaryFact.changeAP(summaryFactAp)
+
+                            handleSummaryEdge(currentEdgeInitialFact, summaryFact)
+                        }
+                    }
+
+                    is MethodSummaryEdgeApplicationUtils.SummaryEdgeTreeApplication.SummaryExclusionRefinement -> {
+                        val initialFact = refineInitialFact(currentEdgeInitialFact, summaryEdgeEffect.exclusion)
+
+                        for (methodSummary in summaryEdges) {
+                            val mappedSummaryFact = mapMethodExitToReturnFlowFact(
+                                currentEdgeStatement, methodSummary.statement, methodSummary.fact, factTypeChecker
+                            ) ?: continue
+
+                            // todo: filter exclusions
+                            val summaryFactAp = with(mappedSummaryFact.ap) {
+                                AccessTree(base, access, summaryEdgeEffect.exclusion)
+                            }
+                            val summaryFact = mappedSummaryFact.changeAP(summaryFactAp)
+
+                            handleSummaryEdge(initialFact, summaryFact)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleFactToFactMethodSummaryEdge(
+        initialFact: Fact.TaintedPath,
+        summaryFact: Fact.TaintedTree,
+        currentEdge: FactToFact
+    ) {
+        for (returnSite in graph.successors(currentEdge.statement)) {
+            val newEdge = FactToFact(entryPointStatement, initialFact, returnSite, summaryFact)
+            addSequentialEdge(currentEdge, newEdge)
+        }
+    }
+
+    private fun handleZeroToFactMethodSummaryEdge(summaryFact: Fact.TaintedTree, currentEdge: ZeroToFact) {
+        for (returnSite in graph.successors(currentEdge.statement)) {
+            val newEdge = ZeroToFact(entryPointStatement, returnSite, summaryFact)
+            addSequentialEdge(currentEdge, newEdge)
+        }
+    }
+
+    private fun replaceFactExclusion(
+        fact: Fact.TaintedPath,
+        exclusions: ExclusionSet
+    ): Fact.TaintedPath = with(fact.ap) {
+        fact.changeAP(AccessPath(base, access, exclusions))
+    }
+
+    private fun addAbstractInitialFact(
+        facts: MethodSameBaseInitialFact,
+        concreteFactMark: TaintMark,
+        concreteFactBase: AccessPathBase,
+        concreteFactAccess: AccessNode
+    ) {
+        abstractAccessPath(facts.analyzed, concreteFactAccess, mutableListOf()) { abstractAccess, abstractExcludes ->
+            val initialAbstractAccessNode = AccessPath.AccessNode.createNodeFromAp(abstractAccess.iterator())
+            val initialAbstractAp = AccessPath(concreteFactBase, initialAbstractAccessNode, abstractExcludes)
+            val initialAbstractFact = Fact.TaintedPath(concreteFactMark, initialAbstractAp)
+
+            val apAccess = AccessNode.createAbstractNodeFromAp(abstractAccess.iterator())
+            val ap = AccessTree(concreteFactBase, apAccess, abstractExcludes)
+            val fact = Fact.TaintedTree(concreteFactMark, ap)
+
+            facts.addAnalyzedInitialFact(initialAbstractAccessNode, abstractExcludes)
+            addInitialEdge(initialAbstractFact, fact)
+        }
+    }
+
+    private fun abstractAccessPath(
+        analyzedTrieRoot: AccessPathTrieNode,
+        added: AccessNode,
+        currentAp: MutableList<Accessor>,
+        createAbstractAp: (List<Accessor>, ExclusionSet) -> Unit
+    ) {
+        val currentLevelExclusions = analyzedTrieRoot.exclusions()
+        if (currentLevelExclusions == null) {
+            createAbstractAp(currentAp, Empty)
+            return
+        }
+
+        if (added.isFinal) {
+            val node = AccessNode.create()
+            abstractAccessPath(analyzedTrieRoot, FinalAccessor, node, currentAp, createAbstractAp)
+        }
+
+        added.elementAccess?.let {
+            abstractAccessPath(analyzedTrieRoot, ElementAccessor, it, currentAp, createAbstractAp)
+        }
+
+        added.forEachField { accessor, node ->
+            abstractAccessPath(analyzedTrieRoot, accessor, node, currentAp, createAbstractAp)
+        }
+    }
+
+    private fun abstractAccessPath(
+        analyzedTrieRoot: AccessPathTrieNode,
+        accessor: Accessor,
+        addedNode: AccessNode,
+        currentAp: MutableList<Accessor>,
+        createAbstractAp: (List<Accessor>, ExclusionSet) -> Unit
+    ) {
+        val node = analyzedTrieRoot.children[accessor]
+        if (node == null) {
+            val exclusions = analyzedTrieRoot.exclusions()
+
+            // We have no excludes -> continue with the most abstract fact
+            if (exclusions == null) {
+                createAbstractAp(currentAp, Empty)
+                return
+            }
+
+            // Concrete: a.b.* E
+            // Added: a.* S
+            if (exclusions.contains(accessor)) {
+                // We have initial fact that exclude {b} and we have no a.b fact yet
+                // Return a.b.* {}
+
+                currentAp.add(accessor)
+                createAbstractAp(currentAp, Empty)
+                currentAp.removeLast()
+
+                return
+            }
+
+            // We have no conflict with added facts
+            return
+        }
+
+        currentAp.add(accessor)
+        abstractAccessPath(node, addedNode, currentAp, createAbstractAp)
+        currentAp.removeLast()
+    }
+
+    class MethodInitialFacts(val facts: MutableMap<TaintMark, MethodSameMarkInitialFact>) {
+        fun getOrPut(mark: TaintMark, base: AccessPathBase): MethodSameBaseInitialFact = facts.getOrPut(mark) {
+            MethodSameMarkInitialFact(hashMapOf())
+        }.getOrPut(base)
+    }
+
+    class MethodSameMarkInitialFact(val facts: MutableMap<AccessPathBase, MethodSameBaseInitialFact>) {
+        fun getOrPut(base: AccessPathBase): MethodSameBaseInitialFact = facts.getOrPut(base) {
+            MethodSameBaseInitialFact(added = null, AccessPathTrieNode.empty())
+        }
+    }
+
+    class MethodSameBaseInitialFact(
+        private var added: AccessNode?,
+        val analyzed: AccessPathTrieNode
+    ) {
+        fun allAddedFacts(): AccessNode = added ?: AccessNode.create()
+
+        fun addInitialFact(ap: AccessNode): AccessNode? {
+            val currentNode = added ?: AccessNode.create()
+            val addedNode = currentNode.mergeAdd(ap)
+
+            if (addedNode === this.added) return null
+            this.added = addedNode
+            return addedNode
+        }
+
+        fun addAnalyzedInitialFact(ap: AccessPath.AccessNode?, exclusions: ExclusionSet) {
+            AccessPathTrieNode.add(analyzed, ap.iterator(), exclusions)
+        }
+    }
+
+    class AccessPathTrieNode(
+        val children: MutableMap<Accessor, AccessPathTrieNode>,
+        private var terminals: ExclusionSet?
+    ) {
+        fun exclusions(): ExclusionSet? = terminals
+
+        companion object {
+            fun empty() = AccessPathTrieNode(hashMapOf(), terminals = null)
+
+            fun add(
+                root: AccessPathTrieNode,
+                access: Iterator<Accessor>,
+                exclusions: ExclusionSet
+            ) {
+                if (!access.hasNext()) {
+                    val terminals = root.terminals
+                    if (terminals == null) {
+                        root.terminals = exclusions
+                    } else {
+                        root.terminals = terminals.union(exclusions)
+                    }
+                    return
+                }
+
+                val key = access.next()
+                val child = root.children.getOrPut(key) { empty() }
+                add(child, access, exclusions)
+            }
+        }
+    }
+}
+
+class EmptyMethodAnalyzer(
+    private val runner: AnalysisRunner,
+    private val entryPointStatement: JIRInst
+) : MethodAnalyzer {
+    private var zeroInitialFactProcessed: Boolean = false
+    private val taintedInitialFacts = hashMapOf<TaintMark, MutableSet<AccessPathBase>>()
+
+    override fun addInitialZeroFact() {
+        if (!zeroInitialFactProcessed) {
+            zeroInitialFactProcessed = true
+            runner.addNewSummaryEdges(
+                entryPointStatement,
+                listOf(ZeroToZero(entryPointStatement, entryPointStatement))
+            )
+        }
+    }
+
+    override fun addInitialFact(fact: Fact.TaintedTree) {
+        addSummary(fact.mark, fact.ap.base)
+    }
+
+    private fun addSummary(mark: TaintMark, base: AccessPathBase) {
+        val facts = taintedInitialFacts.getOrPut(mark) { hashSetOf() }
+        if (!facts.add(base)) return
+
+        val initialAp = AccessPath(base, access = null, exclusions = Empty)
+        val initialFact = Fact.TaintedPath(mark, initialAp)
+
+        val factAp = AccessTree(base, AccessNode.abstractNode(), exclusions = Empty)
+        val fact = Fact.TaintedTree(mark, factAp)
+
+        runner.addNewSummaryEdges(
+            entryPointStatement,
+            listOf(FactToFact(entryPointStatement, initialFact, entryPointStatement, fact))
+        )
+    }
+
+    override fun collectStats(stats: MethodStats) {
+        // No stats
+    }
+
+    override fun tabulationAlgorithmStep(edge: Edge) {
+        error("Empty method should not perform steps")
+    }
+
+    override fun handleFactToFactMethodSummaryEdge(
+        summarySubs: List<MethodAnalyzer.FactToFactSub>,
+        methodSummaries: List<FactToFact>
+    ) {
+        error("Empty method should not receive summary edges")
+    }
+
+    override fun handleZeroToFactMethodSummaryEdge(
+        summarySubs: List<MethodAnalyzer.ZeroToFactSub>,
+        methodSummaries: List<FactToFact>
+    ) {
+        error("Empty method should not receive summary edges")
+    }
+
+    override fun handleZeroToZeroMethodSummaryEdge(
+        currentEdge: ZeroToZero,
+        methodSummaries: List<ZeroInitialEdge>
+    ) {
+        error("Empty method should not receive summary edges")
+    }
+
+    override fun handleMethodSinkRequirement(
+        currentEdge: FactToFact,
+        methodInitialFactBase: AccessPathBase,
+        methodSinkRequirement: Fact.TaintedPath,
+        methodInitialStatement: JIRInst
+    ) {
+        error("Empty method should not receive sink requirements")
+    }
+}
