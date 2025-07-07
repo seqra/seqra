@@ -5,8 +5,8 @@ import org.opentaint.ir.api.jvm.ext.packageName
 
 class JIRClassLookupImpl(val clazz: JIRClassOrInterface) : JIRLookup<JIRField, JIRMethod> {
 
-    override fun field(name: String, typeName: TypeName?): JIRField? {
-        return JIRClassLookup.JIRFieldLookup(clazz, name).lookup()
+    override fun field(name: String, typeName: TypeName?, fieldKind: JIRLookup.FieldKind): JIRField? {
+        return JIRClassLookup.JIRFieldLookup(clazz, name, fieldKind).lookup()
     }
 
     override fun method(name: String, description: String): JIRMethod? {
@@ -74,7 +74,11 @@ internal abstract class JIRClassLookup<Result : JIRAccessible>(clazz: JIRClassOr
 
     }
 
-    internal class JIRFieldLookup(clazz: JIRClassOrInterface, private val name: String) : JIRClassLookup<JIRField>(clazz) {
+    internal class JIRFieldLookup(
+        clazz: JIRClassOrInterface,
+        private val name: String,
+        private val kind: JIRLookup.FieldKind
+    ) : JIRClassLookup<JIRField>(clazz) {
 
         override val JIRClassOrInterface.elements: List<JIRField>
             get() = entry.declaredFields
@@ -82,7 +86,13 @@ internal abstract class JIRClassLookup<Result : JIRAccessible>(clazz: JIRClassOr
         override fun JIRClassOrInterface.next() = listOfNotNull(superClass) + interfaces
 
         override val predicate: (JIRField) -> Boolean
-            get() = { it.name == name }
+            get() = { it.name == name && it.matchKind() }
+
+        private fun JIRField.matchKind(): Boolean = when (kind) {
+            JIRLookup.FieldKind.ANY -> true
+            JIRLookup.FieldKind.STATIC -> isStatic
+            JIRLookup.FieldKind.INSTANCE -> !isStatic
+        }
 
     }
 

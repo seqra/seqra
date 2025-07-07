@@ -4,6 +4,7 @@ import kotlinx.coroutines.*
 import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.api.jvm.JIRClasspathExtFeature.JIRResolvedClassResult
 import org.opentaint.ir.api.jvm.JIRClasspathExtFeature.JIRResolvedTypeResult
+import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
 import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
 import org.opentaint.ir.impl.features.JIRFeatureEventImpl
@@ -20,6 +21,7 @@ import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import org.opentaint.ir.impl.types.substition.JIRSubstitutorImpl
 import org.opentaint.ir.impl.vfs.ClasspathVfs
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
+import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 class JIRClasspathImpl(
     private val locationsRegistrySnapshot: LocationsRegistrySnapshot,
@@ -50,11 +52,17 @@ class JIRClasspathImpl(
         }
     }
 
-    override fun findClassOrNull(name: String): JIRClassOrInterface? {
-        return featuresChain.call<JIRClasspathExtFeature, JIRResolvedClassResult> {
+    private val javaObjectClass: JIRClassOrInterface? by lazy(PUBLICATION) {
+        findClassWithCache(JAVA_OBJECT)
+    }
+
+    override fun findClassOrNull(name: String): JIRClassOrInterface? =
+        if (JAVA_OBJECT == name) javaObjectClass else findClassWithCache(name)
+
+    private fun findClassWithCache(name: String): JIRClassOrInterface? =
+        featuresChain.call<JIRClasspathExtFeature, JIRResolvedClassResult> {
             it.tryFindClass(this, name)
         }?.clazz
-    }
 
     override fun typeOf(
         jIRClass: JIRClassOrInterface,
@@ -89,9 +97,12 @@ class JIRClasspathImpl(
         } ?: newClassOrInterface(source)
     }
 
-    override fun findTypeOrNull(name: String): JIRType? {
-        return findTypeOrNullWithNullability(name)
+    private val javaObjectType: JIRType? by lazy(PUBLICATION) {
+        findTypeOrNullWithNullability(JAVA_OBJECT)
     }
+
+    override fun findTypeOrNull(name: String): JIRType? =
+        if (JAVA_OBJECT == name) javaObjectType else findTypeOrNullWithNullability(name)
 
     override suspend fun <T : JIRClasspathTask> execute(task: T): T {
         val locations = registeredLocations.filter { task.shouldProcess(it) }

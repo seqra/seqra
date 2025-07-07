@@ -51,8 +51,10 @@ open class JIRUnknownClassLookup(val clazz: JIRClassOrInterface) : JIRLookup<JIR
     override fun staticMethod(name: String, description: String): JIRMethod =
         JIRUnknownMethod.method(clazz, name, access = Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, description)
 
-    override fun field(name: String, typeName: TypeName?): JIRField {
-        return JIRUnknownField(clazz, name, typeName ?: TypeNameImpl(OBJECT_CLASS))
+    override fun field(name: String, typeName: TypeName?, fieldKind: JIRLookup.FieldKind): JIRField {
+        val staticModifier = if (fieldKind == JIRLookup.FieldKind.STATIC) Opcodes.ACC_STATIC else 0
+        val fieldType = typeName ?: TypeNameImpl(OBJECT_CLASS)
+        return JIRUnknownField(clazz, name, access = Opcodes.ACC_PUBLIC or staticModifier, fieldType)
     }
 
     override fun method(name: String, description: String): JIRMethod {
@@ -69,8 +71,10 @@ open class JIRUnknownTypeLookup(val type: JIRClassType) : JIRLookup<JIRTypedFiel
     override fun staticMethod(name: String, description: String): JIRTypedMethod =
         JIRUnknownMethod.typedMethod(type, name, access = Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, description)
 
-    override fun field(name: String, typeName: TypeName?): JIRTypedField {
-        return JIRUnknownField.typedField(type, name, typeName ?: TypeNameImpl(OBJECT_CLASS))
+    override fun field(name: String, typeName: TypeName?, fieldKind: JIRLookup.FieldKind): JIRTypedField {
+        val staticModifier = if (fieldKind == JIRLookup.FieldKind.STATIC) Opcodes.ACC_STATIC else 0
+        val fieldType = typeName ?: TypeNameImpl(OBJECT_CLASS)
+        return JIRUnknownField.typedField(type, name, access = Opcodes.ACC_PUBLIC or staticModifier, fieldType)
     }
 
     override fun method(name: String, description: String): JIRTypedMethod {

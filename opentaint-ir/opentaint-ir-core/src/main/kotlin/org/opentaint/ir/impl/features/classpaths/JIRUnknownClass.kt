@@ -58,15 +58,15 @@ class JIRUnknownMethod(
     }
 }
 
-class JIRUnknownField(enclosingClass: JIRClassOrInterface, name: String, type: TypeName) :
-    JIRVirtualFieldImpl(name, type = type) {
+class JIRUnknownField(enclosingClass: JIRClassOrInterface, name: String, access: Int, type: TypeName) :
+    JIRVirtualFieldImpl(name, access, type = type) {
 
     companion object {
 
-        fun typedField(type: JIRClassType, name: String, fieldType: TypeName): JIRTypedField {
+        fun typedField(type: JIRClassType, name: String, access: Int, fieldType: TypeName): JIRTypedField {
             return JIRTypedFieldImpl(
                 type,
-                JIRUnknownField(type.jIRClass, name, fieldType),
+                JIRUnknownField(type.jIRClass, name, access, fieldType),
                 JIRSubstitutorImpl.empty
             )
         }

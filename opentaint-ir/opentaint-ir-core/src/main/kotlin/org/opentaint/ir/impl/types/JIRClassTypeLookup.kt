@@ -7,8 +7,8 @@ import org.opentaint.ir.impl.bytecode.PolymorphicSignatureSupport
 
 class JIRClassTypeLookupImpl(val type: JIRClassType) : JIRLookup<JIRTypedField, JIRTypedMethod> {
 
-    override fun field(name: String, typeName: TypeName?): JIRTypedField? {
-        return JIRClassTypeLookup.JIRTypedFieldLookup(type, name).lookup()
+    override fun field(name: String, typeName: TypeName?, fieldKind: JIRLookup.FieldKind): JIRTypedField? {
+        return JIRClassTypeLookup.JIRTypedFieldLookup(type, name, fieldKind).lookup()
     }
 
     override fun method(name: String, description: String): JIRTypedMethod? {
@@ -75,8 +75,11 @@ abstract class JIRClassTypeLookup<Result : JIRAccessible>(clazz: JIRClassType) :
 
     }
 
-    internal class JIRTypedFieldLookup(type: JIRClassType, private val name: String) :
-        JIRClassTypeLookup<JIRTypedField>(type) {
+    internal class JIRTypedFieldLookup(
+        type: JIRClassType,
+        private val name: String,
+        private val kind: JIRLookup.FieldKind
+    ) : JIRClassTypeLookup<JIRTypedField>(type) {
 
         override fun JIRClassType.next() = listOfNotNull(superType) + interfaces
 
@@ -84,7 +87,13 @@ abstract class JIRClassTypeLookup<Result : JIRAccessible>(clazz: JIRClassType) :
             get() = declaredFields
 
         override val predicate: (JIRTypedField) -> Boolean
-            get() = { it.name == name }
+            get() = { it.name == name && it.matchKind() }
+
+        private fun JIRTypedField.matchKind(): Boolean = when (kind) {
+            JIRLookup.FieldKind.ANY -> true
+            JIRLookup.FieldKind.STATIC -> isStatic
+            JIRLookup.FieldKind.INSTANCE -> !isStatic
+        }
 
     }
 

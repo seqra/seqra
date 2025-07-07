@@ -17,9 +17,7 @@ inline fun <reified T> JIRClasspath.findClassOrNull(): JIRClassOrInterface? {
 }
 
 inline fun <reified T> JIRClasspath.findTypeOrNull(): JIRType? {
-    return findClassOrNull(T::class.java.name)?.let {
-        typeOf(it)
-    }
+    return findTypeOrNull(T::class.java.name)
 }
 
 fun JIRClasspath.findTypeOrNull(typeName: TypeName): JIRType? {

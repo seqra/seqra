@@ -2,6 +2,7 @@ package org.opentaint.ir.impl.features
 
 import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
+import org.opentaint.ir.api.jvm.storage.ers.compressed
 import org.opentaint.ir.api.jvm.storage.ers.links
 import org.opentaint.ir.api.jvm.storage.ers.propertyOf
 import org.opentaint.ir.impl.asSymbolId
@@ -204,9 +205,12 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
                     }
                 },
                 noSqlAction = { txn ->
-                    txn.all("Class").asSequence()
-                        .filter { clazz ->
-                            clazz.getCompressed<Long>("nameId") in allSubclasses && clazz.getCompressed<Long>("locationId") in locationIds
+                    allSubclasses.asSequence()
+                        .flatMap { classNameId ->
+                            txn.find("Class", "nameId", classNameId.compressed)
+                                .filter { clazz ->
+                                    clazz.getCompressed<Long>("locationId") in locationIds
+                                }
                         }
                         .map { clazz ->
                             val classId: Long = clazz.id.instanceId

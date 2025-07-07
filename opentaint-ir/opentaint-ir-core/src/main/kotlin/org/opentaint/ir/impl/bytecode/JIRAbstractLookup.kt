@@ -86,8 +86,8 @@ abstract class DelegatingLookup<Field : JIRAccessible, Method : JIRAccessible>(
         return delegateCall { field(name) }
     }
 
-    override fun field(name: String, typeName: TypeName?): Field? {
-        return delegateCall { field(name, typeName) }
+    override fun field(name: String, typeName: TypeName?, fieldKind: JIRLookup.FieldKind): Field? {
+        return delegateCall { field(name, typeName, fieldKind) }
     }
 
     override fun method(name: String, description: String): Method? {
