@@ -17,6 +17,14 @@ val guavaLib: File
         }
     }
 
+val jgitLib: File
+    get() {
+        val jgitUrl = classpath.first { it.contains("jgit-") }
+        return File(jgitUrl).also {
+            Assertions.assertTrue(it.isFile && it.exists())
+        }
+    }
+
 val asmLib: File
     get() {
         val asmUrl = classpath.first { it.contains("${File.separator}asm${File.separator}") }

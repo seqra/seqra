@@ -59,6 +59,7 @@ dependencies {
     testFixturesImplementation(Libs.guava)
     testFixturesImplementation(Libs.jetbrains_annotations)
     testFixturesImplementation(Libs.kotlinx_coroutines_core)
+    testFixturesImplementation(Libs.jgit_test_only_lib)
 }
 
 tasks {

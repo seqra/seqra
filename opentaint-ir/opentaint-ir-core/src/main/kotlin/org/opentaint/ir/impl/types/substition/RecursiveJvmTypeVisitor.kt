@@ -87,7 +87,7 @@ internal val Map<String, JvmTypeParameterDeclaration>.fixDeclarationVisitor: Rec
         return object : RecursiveJvmTypeVisitor {
 
             override fun visitTypeVariable(type: JvmTypeVariable, context: VisitorContext): JvmType {
-                type.declaration = declarations[type.symbol]!!
+                type.declaration = declarations[type.symbol]
                 return type
             }
         }

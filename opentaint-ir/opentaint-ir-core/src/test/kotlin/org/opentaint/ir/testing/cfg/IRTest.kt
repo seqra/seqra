@@ -50,12 +50,14 @@ import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.WithRAMDB
 import org.opentaint.ir.testing.asmLib
 import org.opentaint.ir.testing.guavaLib
+import org.opentaint.ir.testing.jgitLib
 import org.opentaint.ir.testing.kotlinStdLib
 import org.opentaint.ir.testing.kotlinxCoroutines
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import java.io.File
@@ -325,6 +327,12 @@ abstract class IRTest : BaseInstructionsTest() {
     @Test
     fun `get ir of guava`() {
         runAlongLib(guavaLib)
+    }
+
+    @Test
+    @Disabled
+    fun `get ir of jgit`() {
+        runAlongLib(jgitLib)
     }
 
     @Test

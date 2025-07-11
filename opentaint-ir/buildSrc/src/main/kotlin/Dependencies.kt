@@ -4,7 +4,7 @@ import org.gradle.plugin.use.PluginDependenciesSpec
 
 object Versions {
     const val antlr = "4.9.3"
-    const val asm = "9.5"
+    const val asm = "9.7"
     const val dokka = "1.7.20"
     const val gradle_download = "5.3.0"
     const val gradle_versions = "0.47.0"
@@ -42,6 +42,9 @@ object Versions {
     const val xodus = "2.0.1"
     const val rocks_db = "9.1.1"
     const val lmdb_java = "0.9.0"
+
+    // libs for tests only
+    const val jgit_test_only_version = "5.9.0.202009080501-r"
 }
 
 fun dep(group: String, name: String, version: String): String = "$group:$name:$version"
@@ -330,6 +333,12 @@ object Libs {
         group = "org.rocksdb",
         name = "rocksdbjni",
         version = Versions.rocks_db
+    )
+
+    val jgit_test_only_lib = dep(
+        group = "org.eclipse.jgit",
+        name = "org.eclipse.jgit",
+        version = Versions.jgit_test_only_version
     )
 }
 

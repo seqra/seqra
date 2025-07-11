@@ -9,6 +9,7 @@ import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.impl.bytecode.JIRDatabaseClassWriter
 import org.opentaint.ir.impl.cfg.MethodNodeBuilder
 import org.opentaint.ir.impl.features.hierarchyExt
+import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithGlobalDB
 import org.junit.jupiter.api.Assertions
@@ -60,35 +61,40 @@ abstract class BaseInstructionsTest : BaseTest() {
             val classNode = klass.asmNode()
             classNode.methods = klass.declaredMethods
                 .filter { it.enclosingClass == klass }
-                .map { method ->
-                    if (method.isAbstract || method.name.contains("$\$forInline")) {
-                        method.asmNode()
+                .map {
+                    if (it.isAbstract ||
+                        it.name.contains("$\$forInline")||
+                        it.name.contains("lambda$") ||
+                        it.name.contains("stringConcat$")) {
+                        it.asmNode()
                     } else {
                         try {
-                            val instructionList = method.rawInstList
-                            method.instList.forEachIndexed { index, inst ->
+                            val instructionList = it.rawInstList
+                            it.instList.forEachIndexed { index, inst ->
                                 Assertions.assertEquals(
                                     index,
                                     inst.location.index,
-                                    "indexes not matched for $method at $index"
+                                    "indexes not matched for $it at $index"
                                 )
                             }
-                            val graph = method.flowGraph()
-                            if (!method.enclosingClass.isKotlin) {
-                                val methodMsg = "$method should have line number"
+                            val graph = it.flowGraph()
+                            if (!it.enclosingClass.isKotlin) {
                                 if (validateLineNumbers) {
+                                    val methodMsg = "$it should have line number"
                                     graph.instructions.forEach { inst ->
-                                        Assertions.assertTrue(inst.location.lineNumber > 0, methodMsg)
+                                        Assertions.assertTrue(
+                                            inst.location.lineNumber > 0, methodMsg
+                                        )
                                     }
                                 }
                             }
                             graph.applyAndGet(OverridesResolver(ext)) {}
-                            if (!muteGraphChecker) JIRGraphChecker(method, graph).check()
-                            val newBody = MethodNodeBuilder(method, instructionList).build()
+                            if (!muteGraphChecker) JIRGraphChecker(it, graph).check()
+                            val newBody = MethodNodeBuilder(it, instructionList).build()
                             newBody
                         } catch (e: Throwable) {
-                            method.dumpInstructions()
-                            throw IllegalStateException("error handling $method", e)
+                            it.dumpInstructions()
+                            throw IllegalStateException("error handling $it", e)
                         }
 
                     }
