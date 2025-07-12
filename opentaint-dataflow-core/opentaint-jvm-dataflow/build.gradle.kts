@@ -1,6 +1,7 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     id("opentaint.kotlin-conventions")
-    kotlin("plugin.serialization") version Versions.kotlin
 }
 
 val samples by sourceSets.creating {
@@ -11,15 +12,11 @@ val samples by sourceSets.creating {
 
 dependencies {
     api(project(":opentaint-dataflow"))
-    implementation(project(":opentaint-util"))
 
+    implementation(Libs.opentaint-ir_api_common)
     implementation(Libs.opentaint-ir_api_jvm)
     implementation(Libs.opentaint-ir_core)
-    implementation(Libs.opentaint-ir_api_storage)
-    implementation(Libs.opentaint-ir_storage)
     implementation(Libs.opentaint-ir_taint_configuration)
-
-    implementation("it.unimi.dsi:fastutil-core:8.5.13")
 
     implementation(Libs.sarif4k)
 
@@ -32,6 +29,12 @@ dependencies {
     testImplementation(Libs.juliet_support)
     for (cweNum in listOf(89, 476, 563, 690)) {
         testImplementation(Libs.juliet_cwe(cweNum))
+    }
+}
+
+tasks.withType<KotlinCompile> {
+    kotlinOptions {
+        freeCompilerArgs += "-Xcontext-receivers"
     }
 }
 

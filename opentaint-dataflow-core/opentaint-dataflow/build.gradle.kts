@@ -5,19 +5,14 @@ plugins {
 }
 
 dependencies {
-    implementation("${Versions.opentaint-irPackage}:opentaint-ir-api-common:${Versions.opentaint-ir}")
-    implementation("${Versions.opentaint-irPackage}:opentaint-ir-taint-configuration:${Versions.opentaint-ir}")
-
-    implementation("io.github.detekt.sarif4k", "sarif4k", Versions.sarif4k)
-
-    api("io.github.microutils:kotlin-logging:${Versions.klogging}")
+    implementation(Libs.opentaint-ir_api_common)
+    implementation(Libs.opentaint-ir_taint_configuration)
+    implementation(Libs.sarif4k)
 }
 
 tasks.withType<KotlinCompile> {
     kotlinOptions {
-        freeCompilerArgs = freeCompilerArgs + listOf(
-            "-Xcontext-receivers",
-        )
+        freeCompilerArgs += "-Xcontext-receivers"
     }
 }
 
