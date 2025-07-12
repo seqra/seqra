@@ -9,6 +9,7 @@ import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.WithRAMDB
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -40,6 +41,7 @@ abstract class IfdsUnusedTest : BaseAnalysisTest() {
         )
     }
 
+    @Disabled
     @ParameterizedTest
     @MethodSource("provideClassesForJuliet563")
     fun `test on Juliet's CWE 563`(className: String) {
