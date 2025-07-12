@@ -21,15 +21,14 @@ import org.opentaint.ir.analysis.taint.Tainted
 import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.analysis.util.startsWith
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.CommonProject
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonThis
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRArrayType
-import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.jvm.cfg.JIRArgument
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
@@ -66,13 +65,9 @@ class ForwardNpeFlowFunctions<Method, Statement>(
     where Method : CommonMethod,
           Statement : CommonInst {
 
-    private val cp: CommonProject
-        get() = graph.project
-
     internal val taintConfigurationFeature: TaintConfigurationFeature? by lazy {
-        val cp = cp
-        if (cp is JIRClasspath) {
-            cp.features
+        if (graph is JIRApplicationGraph) {
+            graph.cp.features
                 ?.singleOrNull { it is TaintConfigurationFeature }
                 ?.let { it as TaintConfigurationFeature }
         } else {
@@ -90,7 +85,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
 
         // Possibly null arguments:
         for (p in method.parameters.filter { it.isNullable != false }) {
-            val t = (cp as JIRClasspath).findType(p.type.typeName)
+            val t = (graph as JIRApplicationGraph).cp.findType(p.type.typeName)
             val arg = JIRArgument.of(p.index, p.name, t)
             val path = arg.toPath()
             add(Tainted(path, TaintMark.NULLNESS))
@@ -113,8 +108,8 @@ class ForwardNpeFlowFunctions<Method, Statement>(
             }
         }
         if (config != null) {
-            val conditionEvaluator = BasicConditionEvaluator(EntryPointPositionToValueResolver(method, cp))
-            val actionEvaluator = TaintActionEvaluator(EntryPointPositionToAccessPathResolver(method, cp))
+            val conditionEvaluator = BasicConditionEvaluator(EntryPointPositionToValueResolver(method))
+            val actionEvaluator = TaintActionEvaluator(EntryPointPositionToAccessPathResolver(method))
 
             // Handle EntryPointSource config items:
             for (item in config.filterIsInstance<TaintEntryPointSource>()) {
@@ -541,7 +536,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
         buildSet {
             // Transmit facts on arguments (from 'actual' to 'formal'):
             val actualParams = callExpr.args
-            val formalParams = cp.getArgumentsOf(callee)
+            val formalParams = getArgumentsOf(callee)
             for ((formal, actual) in formalParams.zip(actualParams)) {
                 addAll(
                     transmitTaintArgumentActualToFormal(
@@ -603,7 +598,7 @@ class ForwardNpeFlowFunctions<Method, Statement>(
             // Transmit facts on arguments (from 'formal' back to 'actual'), if they are passed by-ref:
             if (fact.variable.isOnHeap) {
                 val actualParams = callExpr.args
-                val formalParams = cp.getArgumentsOf(callee)
+                val formalParams = getArgumentsOf(callee)
                 for ((formal, actual) in formalParams.zip(actualParams)) {
                     addAll(
                         transmitTaintArgumentFormalToActual(

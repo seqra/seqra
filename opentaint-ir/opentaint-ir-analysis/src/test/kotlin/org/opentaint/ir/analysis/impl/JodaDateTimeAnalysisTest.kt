@@ -5,6 +5,7 @@ import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
 import org.opentaint.ir.analysis.npe.NpeManager
 import org.opentaint.ir.analysis.taint.TaintManager
 import org.opentaint.ir.analysis.unused.UnusedVariableManager
+import org.opentaint.ir.analysis.util.JIRTraits
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.taint.configuration.TaintConfigurationFeature
@@ -30,6 +31,8 @@ class JodaDateTimeAnalysisTest : BaseAnalysisTest() {
         } else {
             super.cp
         }
+    }.also {
+        JIRTraits.cp = it
     }
 
     @Test

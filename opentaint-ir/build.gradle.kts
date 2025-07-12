@@ -61,18 +61,16 @@ allprojects {
             sourceCompatibility = "1.8"
             targetCompatibility = "1.8"
             options.encoding = "UTF-8"
-            options.compilerArgs = options.compilerArgs + "-Xlint:all"
+            options.compilerArgs.add("-Xlint:all")
         }
 
         withType<KotlinCompile> {
             kotlinOptions {
                 jvmTarget = "1.8"
-                freeCompilerArgs = freeCompilerArgs + listOf(
-                    "-Xallow-result-return-type",
-                    "-Xsam-conversions=class",
-                    "-Xcontext-receivers",
-                    "-Xjvm-default=all"
-                )
+                freeCompilerArgs += "-Xallow-result-return-type"
+                freeCompilerArgs += "-Xsam-conversions=class"
+                freeCompilerArgs += "-Xcontext-receivers"
+                freeCompilerArgs += "-Xjvm-default=all"
                 allWarningsAsErrors = false
             }
         }
@@ -80,11 +78,9 @@ allprojects {
         compileTestKotlin {
             kotlinOptions {
                 jvmTarget = "1.8"
-                freeCompilerArgs = freeCompilerArgs + listOf(
-                    "-Xallow-result-return-type",
-                    "-Xsam-conversions=class",
-                    "-Xcontext-receivers"
-                )
+                freeCompilerArgs += "-Xallow-result-return-type"
+                freeCompilerArgs += "-Xsam-conversions=class"
+                freeCompilerArgs += "-Xcontext-receivers"
                 allWarningsAsErrors = false
             }
         }
@@ -150,7 +146,7 @@ tasks.dokkaHtmlMultiModule {
     )
 }
 
-val repoUrl: String? = project.properties["repoUrl"] as? String
+val repoUrl: String = project.properties["repoUrl"] as? String
     ?: "https://maven.pkg.github.com/Opentaint/opentaint-ir"
 
 if (!repoUrl.isNullOrEmpty()) {
@@ -254,7 +250,7 @@ fun MavenPublication.addPom() {
 }
 
 tasks.wrapper {
-    gradleVersion = "8.3"
+    gradleVersion = "8.9"
     distributionType = Wrapper.DistributionType.ALL
 }
 

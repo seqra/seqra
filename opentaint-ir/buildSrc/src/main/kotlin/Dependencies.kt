@@ -3,7 +3,6 @@
 import org.gradle.plugin.use.PluginDependenciesSpec
 
 object Versions {
-    const val antlr = "4.9.3"
     const val asm = "9.7"
     const val dokka = "1.7.20"
     const val gradle_download = "5.3.0"
@@ -25,7 +24,7 @@ object Versions {
     const val junit = "5.9.2"
     const val kotlin = "1.7.21"
     const val kotlin_logging = "1.8.3"
-    const val kotlinx_benchmark = "0.4.4"
+    const val kotlinx_benchmark = "0.4.6"
     const val kotlinx_cli = "0.3.5"
     const val kotlinx_collections_immutable = "0.3.5"
     const val kotlinx_coroutines = "1.6.4"
@@ -320,13 +319,6 @@ object Libs {
         group = "io.github.detekt.sarif4k",
         name = "sarif4k",
         version = Versions.sarif4k
-    )
-
-    // https://github.com/antlr/antlr4
-    val antlr = dep(
-        group = "org.antlr",
-        name = "antlr4",
-        version = Versions.antlr
     )
 
     val rocks_db = dep(

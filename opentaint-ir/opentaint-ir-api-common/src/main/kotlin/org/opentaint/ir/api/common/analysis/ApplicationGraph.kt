@@ -11,8 +11,6 @@ interface ApplicationGraph<Method, Statement>
     where Method : CommonMethod,
           Statement : CommonInst {
 
-    val project: CommonProject
-
     fun predecessors(node: Statement): Sequence<Statement>
     fun successors(node: Statement): Sequence<Statement>
 

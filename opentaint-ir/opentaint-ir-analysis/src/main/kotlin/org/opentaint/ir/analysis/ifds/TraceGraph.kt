@@ -12,11 +12,8 @@ data class TraceGraph<Fact, Statement : CommonInst>(
     /**
      * Returns all traces from [sources] to [sink].
      */
-    fun getAllTraces(): Sequence<List<Vertex<Fact, Statement>>> = sequence {
-        for (v in sources) {
-            yieldAll(getAllTraces(mutableListOf(v)))
-        }
-    }
+    fun getAllTraces(): Sequence<List<Vertex<Fact, Statement>>> =
+        sources.asSequence().flatMap { getAllTraces(mutableListOf(it)) }
 
     private fun getAllTraces(
         trace: MutableList<Vertex<Fact, Statement>>,

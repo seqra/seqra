@@ -17,7 +17,6 @@ import org.opentaint.ir.analysis.ifds.onSome
 import org.opentaint.ir.analysis.util.Traits
 import org.opentaint.ir.analysis.util.startsWith
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.CommonProject
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonExpr
@@ -26,8 +25,8 @@ import org.opentaint.ir.api.common.cfg.CommonInstanceCallExpr
 import org.opentaint.ir.api.common.cfg.CommonReturnInst
 import org.opentaint.ir.api.common.cfg.CommonThis
 import org.opentaint.ir.api.common.cfg.CommonValue
-import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRBinaryExpr
 import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
@@ -65,17 +64,13 @@ class ForwardTaintFlowFunctions<Method, Statement>(
     where Method : CommonMethod,
           Statement : CommonInst {
 
-    private val cp: CommonProject
-        get() = graph.project
-
     // // TODO: inline
     // private fun CommonExpr.toPathOrNull(): AccessPath? = traits.toPathOrNull(this)
     // private fun CommonValue.toPath(): AccessPath = traits.toPath(this)
 
     private val taintConfigurationFeature: TaintConfigurationFeature? by lazy {
-        val cp = cp
-        if (cp is JIRClasspath) {
-            cp.features
+        if (graph is JIRApplicationGraph) {
+            graph.cp.features
                 ?.singleOrNull { it is TaintConfigurationFeature }
                 ?.let { it as TaintConfigurationFeature }
         } else {
@@ -93,10 +88,10 @@ class ForwardTaintFlowFunctions<Method, Statement>(
         val config = getConfigForMethod(method)
         if (config != null) {
             val conditionEvaluator = BasicConditionEvaluator(
-                EntryPointPositionToValueResolver(method, cp)
+                EntryPointPositionToValueResolver(method)
             )
             val actionEvaluator = TaintActionEvaluator(
-                EntryPointPositionToAccessPathResolver(method, cp)
+                EntryPointPositionToAccessPathResolver(method)
             )
 
             // Handle EntryPointSource config items:
@@ -171,15 +166,6 @@ class ForwardTaintFlowFunctions<Method, Statement>(
             when (val rhv = current.rhv) {
                 }
 
-                    val facts: MutableSet<TaintDomainFact> = mutableSetOf()
-                    for (input in rhv.inputs) {
-                        facts += transmitTaintAssign(fact, from = input, to = current.lhv)
-                    }
-                    // For empty phi, pass-through:
-                    val pass = transmitTaintNormal(fact, current)
-                    facts + pass
-                }
-
                 is JIRBinaryExpr -> {
                     val facts: MutableSet<TaintDomainFact> = mutableSetOf()
                     facts += transmitTaintAssign(fact, from = rhv.lhv, to = current.lhv)
@@ -197,22 +183,16 @@ class ForwardTaintFlowFunctions<Method, Statement>(
 
                 }
 
-                    val facts: MutableSet<TaintDomainFact> = mutableSetOf()
-                    facts += transmitTaintAssign(fact, from = rhv.lhv, to = current.lhv)
-                    facts += transmitTaintAssign(fact, from = rhv.rhv, to = current.lhv)
-                    facts
-                }
-
-                }
-
-                    transmitTaintAssign(fact, from = rhv.arg, to = current.lhv)
                 }
 
                 }
 
                 }
 
-                    transmitTaintAssign(fact, from = rhv.operand, to = current.lhv)
+                }
+
+                }
+
                 }
 
                 else -> {
@@ -452,7 +432,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
         buildSet {
             // Transmit facts on arguments (from 'actual' to 'formal'):
             val actualParams = callExpr.args
-            val formalParams = cp.getArgumentsOf(callee)
+            val formalParams = getArgumentsOf(callee)
             for ((formal, actual) in formalParams.zip(actualParams)) {
                 addAll(transmitTaintArgumentActualToFormal(fact, from = actual, to = formal))
             }
@@ -493,7 +473,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
             // Transmit facts on arguments (from 'formal' back to 'actual'), if they are passed by-ref:
             if (fact.variable.isOnHeap) {
                 val actualParams = callExpr.args
-                val formalParams = cp.getArgumentsOf(callee)
+                val formalParams = getArgumentsOf(callee)
                 for ((formal, actual) in formalParams.zip(actualParams)) {
                     addAll(
                         transmitTaintArgumentFormalToActual(
@@ -538,9 +518,6 @@ class BackwardTaintFlowFunctions<Method, Statement>(
 ) : FlowFunctions<TaintDomainFact, Method, Statement>
     where Method : CommonMethod,
           Statement : CommonInst {
-
-    private val cp: CommonProject
-        get() = graph.project
 
     override fun obtainPossibleStartFacts(
         method: Method,
@@ -708,7 +685,7 @@ class BackwardTaintFlowFunctions<Method, Statement>(
         buildSet {
             // Transmit facts on arguments (from 'actual' to 'formal'):
             val actualParams = callExpr.args
-            val formalParams = cp.getArgumentsOf(callee)
+            val formalParams = getArgumentsOf(callee)
             for ((formal, actual) in formalParams.zip(actualParams)) {
                 addAll(transmitTaintArgumentActualToFormal(fact, from = actual, to = formal))
             }
@@ -763,7 +740,7 @@ class BackwardTaintFlowFunctions<Method, Statement>(
             // Transmit facts on arguments (from 'formal' back to 'actual'), if they are passed by-ref:
             if (fact.variable.isOnHeap) {
                 val actualParams = callExpr.args
-                val formalParams = cp.getArgumentsOf(callee)
+                val formalParams = getArgumentsOf(callee)
                 for ((formal, actual) in formalParams.zip(actualParams)) {
                     addAll(
                         transmitTaintArgumentFormalToActual(

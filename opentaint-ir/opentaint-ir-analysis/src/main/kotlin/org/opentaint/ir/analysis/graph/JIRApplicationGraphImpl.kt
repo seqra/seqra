@@ -11,7 +11,7 @@ import org.opentaint.ir.impl.features.SyncUsagesExtension
  * Possible we will need JIRRawInst instead of JIRInst
  */
 open class JIRApplicationGraphImpl(
-    override val project: JIRClasspath,
+    override val cp: JIRClasspath,
     private val usages: SyncUsagesExtension,
 ) : JIRApplicationGraph {
     override fun predecessors(node: JIRInst): Sequence<JIRInst> {

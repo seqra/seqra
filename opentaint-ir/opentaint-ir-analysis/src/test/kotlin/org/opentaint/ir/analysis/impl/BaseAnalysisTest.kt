@@ -82,6 +82,8 @@ abstract class BaseAnalysisTest : BaseTest() {
         } else {
             super.cp
         }
+    }.also {
+        JIRTraits.cp = it
     }
 
     protected val graph: JIRApplicationGraph by lazy {

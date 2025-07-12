@@ -9,5 +9,5 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
  * Interface for [JIRApplicationGraph] built with opentaint-ir.
  */
 interface JIRApplicationGraph : ApplicationGraph<JIRMethod, JIRInst> {
-    override val project: JIRClasspath
+    val cp: JIRClasspath
 }

@@ -5,6 +5,7 @@ import mu.KotlinLogging
 import org.opentaint.ir.analysis.ifds.SingletonUnitResolver
 import org.opentaint.ir.analysis.taint.TaintAnalysisOptions
 import org.opentaint.ir.analysis.taint.TaintManager
+import org.opentaint.ir.analysis.util.JIRTraits
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.impl.features.InMemoryHierarchy
@@ -32,6 +33,8 @@ class Ifds2UpperBoundTest : BaseAnalysisTest() {
         } else {
             super.cp
         }
+    }.also {
+        JIRTraits.cp = it
     }
 
     @Test

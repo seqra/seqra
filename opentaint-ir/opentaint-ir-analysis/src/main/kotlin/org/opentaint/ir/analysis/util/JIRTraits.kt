@@ -6,7 +6,6 @@ import org.opentaint.ir.analysis.ifds.FieldAccessor
 import org.opentaint.ir.analysis.util.getArgument
 import org.opentaint.ir.analysis.util.toPathOrNull
 import org.opentaint.ir.api.common.CommonMethodParameter
-import org.opentaint.ir.api.common.CommonProject
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.api.common.cfg.CommonValue
@@ -21,9 +20,9 @@ import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
 import org.opentaint.ir.api.jvm.cfg.JIRConstant
 import org.opentaint.ir.api.jvm.cfg.JIRExpr
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
+import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInt
-import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRValue
@@ -53,6 +52,9 @@ import org.opentaint.ir.api.jvm.ext.cfg.callExpr as _callExpr
  */
 interface JIRTraits : Traits<JIRMethod, JIRInst> {
 
+    val cp: JIRClasspath
+        get() = JIRTraits.cp
+
     override val JIRMethod.thisInstance: JIRThis
         get() = _thisInstance
 
@@ -81,15 +83,13 @@ interface JIRTraits : Traits<JIRMethod, JIRInst> {
             return _callee
         }
 
-    override fun CommonProject.getArgument(param: CommonMethodParameter): JIRArgument? {
-        check(this is JIRClasspath)
+    override fun getArgument(param: CommonMethodParameter): JIRArgument? {
         check(param is JIRParameter)
-        return _getArgument(param)
+        return cp._getArgument(param)
     }
 
-    override fun CommonProject.getArgumentsOf(method: JIRMethod): List<JIRArgument> {
-        check(this is JIRClasspath)
-        return _getArgumentsOf(method)
+    override fun getArgumentsOf(method: JIRMethod): List<JIRArgument> {
+        return cp._getArgumentsOf(method)
     }
 
     override fun CommonValue.isConstant(): Boolean {
@@ -158,7 +158,9 @@ interface JIRTraits : Traits<JIRMethod, JIRInst> {
     }
 
     // Ensure that all methods are default-implemented in the interface itself:
-    companion object : JIRTraits
+    companion object : JIRTraits {
+        override lateinit var cp: JIRClasspath
+    }
 }
 
 val JIRMethod.thisInstance: JIRThis

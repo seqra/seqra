@@ -6,6 +6,7 @@ import org.opentaint.ir.analysis.ifds.Analyzer
 import org.opentaint.ir.analysis.ifds.Edge
 import org.opentaint.ir.analysis.ifds.Reason
 import org.opentaint.ir.analysis.util.Traits
+import org.opentaint.ir.analysis.util.toPath
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -101,16 +102,6 @@ class TaintAnalyzer<Method, Statement>(
                             }
                         }
                     }
-                    if (loops.any { statement in it.instructions }) {
-                        for (s in statement.condition.operands) {
-                            val p = s.toPath()
-                            if (p == fact.variable) {
-                                val message = "Untrusted loop bound"
-                                val vulnerability = TaintVulnerability(message, sink = edge.to)
-                                add(NewVulnerability(vulnerability))
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -118,13 +109,6 @@ class TaintAnalyzer<Method, Statement>(
             val statement = edge.to.statement
             val fact = edge.to.fact
             if (fact is Tainted && fact.mark.name == "UNTRUSTED") {
-                    val expr = statement.rhv
-                        val arg = expr.params.first()
-                        if (arg.toPath() == fact.variable) {
-                            val message = "Untrusted array size"
-                            val vulnerability = TaintVulnerability(message, sink = edge.to)
-                            add(NewVulnerability(vulnerability))
-                        }
                     }
                 }
             }
@@ -133,13 +117,6 @@ class TaintAnalyzer<Method, Statement>(
             val statement = edge.to.statement
             val fact = edge.to.fact
             if (fact is Tainted && fact.mark.name == "UNTRUSTED") {
-                    for (op in statement.operands) {
-                            val arg = op.index
-                            if (arg.toPath() == fact.variable) {
-                                val message = "Untrusted index for access array"
-                                val vulnerability = TaintVulnerability(message, sink = edge.to)
-                                add(NewVulnerability(vulnerability))
-                            }
                         }
                     }
                 }

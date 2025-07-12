@@ -15,6 +15,6 @@ data class Edge<out Fact, out Statement : CommonInst>(
         get() = from.method
 
     override fun toString(): String {
-        return "$from -> $to"
+        return "(${from.fact} at ${from.statement}) -> (${to.fact} at ${to.statement}) in $method"
     }
 }

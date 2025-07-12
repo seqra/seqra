@@ -13,8 +13,15 @@ value class Maybe<out T> private constructor(
         return rawValue as T
     }
 
+    override fun toString(): String {
+        return if (isSome) "Some($rawValue)" else "None"
+    }
+
     companion object {
-        private val NONE_VALUE = Any()
+        private val NONE_VALUE = object {
+            // Note: toString() for debugger
+            override fun toString(): String = "None"
+        }
         private val NONE = Maybe<Nothing>(NONE_VALUE)
 
         fun none(): Maybe<Nothing> = NONE

@@ -41,7 +41,7 @@ abstract class IfdsUnusedTest : BaseAnalysisTest() {
         )
     }
 
-    @Disabled
+    @Disabled("#220")
     @ParameterizedTest
     @MethodSource("provideClassesForJuliet563")
     fun `test on Juliet's CWE 563`(className: String) {
