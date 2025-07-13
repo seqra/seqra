@@ -19,7 +19,6 @@
 package org.opentaint.dataflow.graph
 
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.CommonProject
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
 
@@ -28,9 +27,6 @@ private class BackwardApplicationGraphImpl<Method, Statement>(
 ) : ApplicationGraph<Method, Statement>
     where Method : CommonMethod,
           Statement : CommonInst {
-
-    override val project: CommonProject
-        get() = forward.project
 
     override fun predecessors(node: Statement) = forward.successors(node)
     override fun successors(node: Statement) = forward.predecessors(node)

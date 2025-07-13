@@ -16,9 +16,8 @@
 
 package org.opentaint.dataflow.jvm.npe
 
-import org.opentaint.ir.api.common.analysis.ApplicationGraph
-import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.taint.configuration.TaintConfigurationFeature
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
@@ -36,16 +35,17 @@ private val logger = mu.KotlinLogging.logger {}
 
 context(JIRTraits)
 class NpeManager(
-    graph: ApplicationGraph<JIRMethod, JIRInst>,
+    graph: JIRApplicationGraph,
     unitResolver: UnitResolver<JIRMethod>,
     private val getConfigForMethod: (JIRMethod) -> List<TaintConfigurationItem>?,
 ) : TaintManager<JIRMethod, JIRInst>(graph, unitResolver, useBidiRunner = false, getConfigForMethod) {
+
     override fun newRunner(
         unit: UnitType,
     ): TaintRunner<JIRMethod, JIRInst> {
         check(unit !in runnerForUnit) { "Runner for $unit already exists" }
 
-        val analyzer = NpeAnalyzer(graph, getConfigForMethod)
+        val analyzer = NpeAnalyzer(graph as JIRApplicationGraph, getConfigForMethod)
         val runner = UniRunner(
             graph = graph,
             analyzer = analyzer,
@@ -69,12 +69,12 @@ class NpeManager(
 }
 
 fun jirNpeManager(
-    graph: ApplicationGraph<JIRMethod, JIRInst>,
+    graph: JIRApplicationGraph,
     unitResolver: JIRUnitResolver,
-    getConfigForMethod: ((JIRMethod) -> List<TaintConfigurationItem>?)? = null
-): NpeManager = with(JIRTraits) {
+    getConfigForMethod: ((JIRMethod) -> List<TaintConfigurationItem>?)? = null,
+): NpeManager = with(JIRTraits(graph.cp)) {
     val config: (JIRMethod) -> List<TaintConfigurationItem>? = getConfigForMethod ?: run {
-        val taintConfigurationFeature = (graph.project as JIRClasspath).features
+        val taintConfigurationFeature = cp.features
             ?.singleOrNull { it is TaintConfigurationFeature }
             ?.let { it as TaintConfigurationFeature }
 

@@ -16,12 +16,14 @@
 
 package org.opentaint.dataflow.jvm.npe
 
-import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.ir.taint.configuration.TaintMark
 import org.opentaint.ir.taint.configuration.TaintMethodSink
+import org.opentaint.dataflow.config.CallPositionToValueResolver
+import org.opentaint.dataflow.config.FactAwareConditionEvaluator
 import org.opentaint.dataflow.ifds.Analyzer
 import org.opentaint.dataflow.ifds.Reason
 import org.opentaint.dataflow.jvm.util.JIRTraits
@@ -39,8 +41,8 @@ private val logger = mu.KotlinLogging.logger {}
 
 context(JIRTraits)
 class NpeAnalyzer(
-    private val graph: ApplicationGraph<JIRMethod, JIRInst>,
-    private val getConfigForMethod: (JIRMethod) -> List<TaintConfigurationItem>?
+    private val graph: JIRApplicationGraph,
+    private val getConfigForMethod: (JIRMethod) -> List<TaintConfigurationItem>?,
 ) : Analyzer<TaintDomainFact, TaintEvent<JIRInst>, JIRMethod, JIRInst> {
 
     override val flowFunctions: ForwardNpeFlowFunctions by lazy {
@@ -73,10 +75,10 @@ class NpeAnalyzer(
         }
 
         run {
-            val callExpr = edge.to.statement.getCallExpr() ?: return@run
-            val callee = callExpr.callee
+            val callExpr = getCallExpr(edge.to.statement) ?: return@run
+            val callee = getCallee(callExpr)
 
-            val config =  getConfigForMethod(callee) ?: return@run
+            val config = getConfigForMethod(callee) ?: return@run
 
             // TODO: not always we want to skip sinks on Zero facts.
             //  Some rules might have ConstantTrue or just true (when evaluated with Zero fact) condition.
@@ -85,9 +87,9 @@ class NpeAnalyzer(
             }
 
             // Determine whether 'edge.to' is a sink via config:
-            val conditionEvaluator = org.opentaint.dataflow.config.FactAwareConditionEvaluator(
+            val conditionEvaluator = FactAwareConditionEvaluator(
                 edgeToFact,
-                org.opentaint.dataflow.config.CallPositionToValueResolver(edge.to.statement),
+                CallPositionToValueResolver(edge.to.statement),
             )
             for (item in config.filterIsInstance<TaintMethodSink>()) {
                 if (item.condition.accept(conditionEvaluator)) {

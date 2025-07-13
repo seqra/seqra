@@ -18,7 +18,6 @@ package org.opentaint.dataflow.util
 
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.CommonMethodParameter
-import org.opentaint.ir.api.common.CommonProject
 import org.opentaint.ir.api.common.cfg.CommonArgument
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
@@ -37,43 +36,32 @@ interface Traits<out Method, out Statement>
     where Method : CommonMethod,
           Statement : CommonInst {
 
-    val @UnsafeVariance Method.thisInstance: CommonThis
-    val @UnsafeVariance Method.isConstructor: Boolean
+    fun convertToPathOrNull(expr: CommonExpr): AccessPath?
+    fun convertToPathOrNull(value: CommonValue): AccessPath?
+    fun convertToPath(value: CommonValue): AccessPath
 
-    fun CommonExpr.toPathOrNull(): AccessPath?
-    fun CommonValue.toPathOrNull(): AccessPath?
-    fun CommonValue.toPath(): AccessPath
+    fun getThisInstance(method: @UnsafeVariance Method): CommonThis
+    fun getArgument(param: CommonMethodParameter): CommonArgument?
+    fun getArgumentsOf(method: @UnsafeVariance Method): List<CommonArgument>
+    fun getCallee(callExpr: CommonCallExpr): Method
+    fun getCallExpr(statement: @UnsafeVariance Statement): CommonCallExpr?
+    fun getValues(expr: CommonExpr): Set<CommonValue>
+    fun getOperands(statement: @UnsafeVariance Statement): List<CommonExpr>
+    fun getArrayAllocation(statement: @UnsafeVariance Statement): CommonExpr?
+    fun getArrayAccessIndex(statement: @UnsafeVariance Statement): CommonValue?
+    fun getBranchExprCondition(statement: @UnsafeVariance Statement): CommonExpr?
 
-    val CommonCallExpr.callee: Method
+    fun isConstant(value: CommonValue): Boolean
+    fun eqConstant(value: CommonValue, constant: ConstantValue): Boolean
+    fun ltConstant(value: CommonValue, constant: ConstantValue): Boolean
+    fun gtConstant(value: CommonValue, constant: ConstantValue): Boolean
+    fun matches(value: CommonValue, pattern: String): Boolean
+    fun typeMatches(value: CommonValue, condition: TypeMatches): Boolean
 
-    fun CommonProject.getArgument(param: CommonMethodParameter): CommonArgument?
-    fun CommonProject.getArgumentsOf(method: @UnsafeVariance Method): List<CommonArgument>
-
-    fun CommonValue.isConstant(): Boolean
-    fun CommonValue.eqConstant(constant: ConstantValue): Boolean
-    fun CommonValue.ltConstant(constant: ConstantValue): Boolean
-    fun CommonValue.gtConstant(constant: ConstantValue): Boolean
-    fun CommonValue.matches(pattern: String): Boolean
-
-    // TODO: remove
-    fun CommonExpr.toPaths(): List<AccessPath> = listOfNotNull(toPathOrNull())
-
-    fun @UnsafeVariance Statement.getCallExpr(): CommonCallExpr?
-    fun CommonExpr.getValues(): Set<CommonValue>
-    fun @UnsafeVariance Statement.getOperands(): List<CommonExpr>
-    fun @UnsafeVariance Statement.getBranchExprCondition(): CommonExpr?
-
-    fun @UnsafeVariance Statement.getArrayAllocation(): CommonExpr?
-    fun @UnsafeVariance Statement.getArrayAccessIndex(): CommonValue?
-
-    fun @UnsafeVariance Statement.isLoopHead(): Boolean
-
-    fun @UnsafeVariance Statement.lineNumber(): Int?
-    fun @UnsafeVariance Statement.locationFQN(): String?
-
-    fun CommonValue.typeMatches(condition: TypeMatches): Boolean
-
-    fun CommonAssignInst.taintFlowRhsValues(): List<CommonExpr>
-
-    fun @UnsafeVariance Statement.taintPassThrough(): List<Pair<CommonValue, CommonValue>>?
+    fun isConstructor(method: @UnsafeVariance Method): Boolean
+    fun isLoopHead(statement: @UnsafeVariance Statement): Boolean
+    fun lineNumber(statement: @UnsafeVariance Statement): Int
+    fun locationFQN(statement: @UnsafeVariance Statement): String
+    fun taintFlowRhsValues(statement: CommonAssignInst): List<CommonExpr>
+    fun taintPassThrough(statement: @UnsafeVariance Statement): List<Pair<CommonValue, CommonValue>>?
 }

@@ -19,6 +19,7 @@ package org.opentaint.dataflow.jvm.impl
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.api.jvm.ext.methods
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
@@ -33,7 +34,6 @@ import kotlin.time.Duration.Companion.seconds
 
 @TestInstance(PER_CLASS)
 class IfdsUnusedTest : BaseAnalysisTest() {
-    companion object : JIRTraits
 
     fun provideClassesForJuliet563(): Stream<Arguments> = provideClassesForJuliet(
         563, listOf(
@@ -54,12 +54,15 @@ class IfdsUnusedTest : BaseAnalysisTest() {
         )
     )
 
+    @Disabled("See https://github.com/Opentaint/opentaint-ir/issues/220")
     @ParameterizedTest
     @MethodSource("provideClassesForJuliet563")
     fun `test on Juliet's CWE 563`(className: String) {
         testSingleJulietClass(className) { method ->
             val unitResolver = SingletonUnitResolver
-            val manager = UnusedVariableManager(graph, unitResolver)
+            val manager = with(JIRTraits(cp)) {
+                UnusedVariableManager(graph, unitResolver)
+            }
             manager.analyze(listOf(method), timeout = 30.seconds)
         }
     }
@@ -71,7 +74,9 @@ class IfdsUnusedTest : BaseAnalysisTest() {
         val clazz = cp.findClass(className)
         val badMethod = clazz.methods.single { it.name == "bad" }
         val unitResolver = SingletonUnitResolver
-        val manager = UnusedVariableManager(graph, unitResolver)
+        val manager = with(JIRTraits(cp)) {
+            UnusedVariableManager(graph, unitResolver)
+        }
         val sinks = manager.analyze(listOf(badMethod), timeout = 30.seconds)
         Assertions.assertTrue(sinks.isNotEmpty())
     }

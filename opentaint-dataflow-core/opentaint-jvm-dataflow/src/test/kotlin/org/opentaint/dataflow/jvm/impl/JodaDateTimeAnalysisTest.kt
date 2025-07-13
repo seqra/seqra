@@ -32,7 +32,6 @@ private val logger = mu.KotlinLogging.logger {}
 
 @TestInstance(PER_CLASS)
 class JodaDateTimeAnalysisTest : BaseAnalysisTest() {
-    companion object : JIRTraits
 
     @Test
     fun `test taint analysis`() {
@@ -59,7 +58,9 @@ class JodaDateTimeAnalysisTest : BaseAnalysisTest() {
         val clazz = cp.findClass<DateTime>()
         val methods = clazz.declaredMethods
         val unitResolver = SingletonUnitResolver
-        val manager = UnusedVariableManager(graph, unitResolver)
+        val manager = with(JIRTraits(cp)) {
+            UnusedVariableManager(graph, unitResolver)
+        }
         val sinks = manager.analyze(methods, timeout = 60.seconds)
         logger.info { "Unused variables found: ${sinks.size}" }
     }

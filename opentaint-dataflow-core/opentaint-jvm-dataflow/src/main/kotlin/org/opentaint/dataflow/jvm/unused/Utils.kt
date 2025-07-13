@@ -16,8 +16,6 @@
 
 package org.opentaint.dataflow.jvm.unused
 
-import org.opentaint.dataflow.ifds.AccessPath
-import org.opentaint.dataflow.util.Traits
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -28,19 +26,23 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRLocal
 import org.opentaint.ir.api.jvm.cfg.JIRSpecialCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRTerminatingInst
+import org.opentaint.dataflow.ifds.AccessPath
+import org.opentaint.dataflow.util.Traits
 
 context(Traits<CommonMethod, CommonInst>)
 internal fun AccessPath.isUsedAt(
     expr: CommonExpr,
 ): Boolean {
-    return expr.getValues().any { it.toPathOrNull() == this }
+    return getValues(expr).any {
+        convertToPathOrNull(it) == this
+    }
 }
 
 context(Traits<CommonMethod, CommonInst>)
 internal fun AccessPath.isUsedAt(
     inst: CommonInst,
 ): Boolean {
-    val callExpr = inst.getCallExpr()
+    val callExpr = getCallExpr(inst)
 
     if (callExpr != null) {
         // Don't count constructor calls as usages

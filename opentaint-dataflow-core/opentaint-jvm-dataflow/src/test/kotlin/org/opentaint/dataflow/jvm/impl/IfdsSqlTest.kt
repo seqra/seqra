@@ -41,7 +41,6 @@ private val logger = mu.KotlinLogging.logger {}
 
 @TestInstance(PER_CLASS)
 class IfdsSqlTest : BaseAnalysisTest() {
-    companion object: JIRTraits
 
     fun provideClassesForJuliet89(): Stream<Arguments> = provideClassesForJuliet(89, specificBansCwe89)
 
@@ -95,10 +94,12 @@ class IfdsSqlTest : BaseAnalysisTest() {
         val sinks = manager.analyze(listOf(badMethod), timeout = 30.seconds)
         assertTrue(sinks.isNotEmpty())
         val sink = sinks.first()
-        val graph = manager.vulnerabilityTraceGraph(sink)
-        val trace = graph.getAllTraces().first()
+        val traceGraph = manager.vulnerabilityTraceGraph(sink)
+        val trace = traceGraph.getAllTraces().first()
         assertTrue(trace.isNotEmpty())
-        val sarif = sarifReportFromVulnerabilities(listOf(sink.toSarif(graph)))
+        val sarif = with(JIRTraits(graph.cp)) {
+            sarifReportFromVulnerabilities(listOf(sink.toSarif(traceGraph)))
+        }
 
         val json = Json { prettyPrint = true }
         val sarifJson = json.encodeToString(sarif)

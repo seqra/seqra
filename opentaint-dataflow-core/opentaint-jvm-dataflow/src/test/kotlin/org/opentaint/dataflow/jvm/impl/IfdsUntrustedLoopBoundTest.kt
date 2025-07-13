@@ -32,6 +32,7 @@ private val logger = KotlinLogging.logger {}
 
 @TestInstance(PER_CLASS)
 class Ifds2UpperBoundTest : BaseAnalysisTest(configFileName = "config_untrusted_loop_bound.json") {
+
     @Test
     fun `analyze untrusted upper bound`() {
         TaintAnalysisOptions.UNTRUSTED_LOOP_BOUND_SINK = true

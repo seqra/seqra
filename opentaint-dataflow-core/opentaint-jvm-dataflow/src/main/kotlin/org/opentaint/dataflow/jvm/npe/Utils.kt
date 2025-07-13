@@ -16,44 +16,43 @@
 
 package org.opentaint.dataflow.jvm.npe
 
-import org.opentaint.dataflow.ifds.AccessPath
-import org.opentaint.dataflow.ifds.minus
-import org.opentaint.dataflow.util.Traits
-import org.opentaint.dataflow.util.startsWith
-import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.cfg.CommonExpr
-import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRLengthExpr
+import org.opentaint.ir.api.jvm.cfg.values
+import org.opentaint.dataflow.ifds.AccessPath
+import org.opentaint.dataflow.ifds.minus
+import org.opentaint.dataflow.jvm.util.JIRTraits
+import org.opentaint.dataflow.util.startsWith
 
-context(Traits<CommonMethod, CommonInst>)
-internal fun AccessPath?.isDereferencedAt(expr: CommonExpr): Boolean {
+context(JIRTraits)
+internal fun AccessPath?.isDereferencedAt(expr: JIRExpr): Boolean {
     if (this == null) {
         return false
     }
 
     if (expr is JIRInstanceCallExpr) {
-        val instancePath = expr.instance.toPathOrNull()
+        val instancePath = convertToPathOrNull(expr.instance)
         if (instancePath.startsWith(this)) {
             return true
         }
     }
 
     if (expr is JIRLengthExpr) {
-        val arrayPath = expr.array.toPathOrNull()
+        val arrayPath = convertToPathOrNull(expr.array)
         if (arrayPath.startsWith(this)) {
             return true
         }
     }
 
-    return expr
-        .getValues()
-        .mapNotNull { it.toPathOrNull() }
+    return expr.values
+        .mapNotNull { convertToPathOrNull(it) }
         .any { (it - this)?.isNotEmpty() == true }
 }
 
-context(Traits<CommonMethod, CommonInst>)
-internal fun AccessPath?.isDereferencedAt(inst: CommonInst): Boolean {
+context(JIRTraits)
+internal fun AccessPath?.isDereferencedAt(inst: JIRInst): Boolean {
     if (this == null) return false
-    return inst.getOperands().any { isDereferencedAt(it) }
+    return inst.operands.any { isDereferencedAt(it) }
 }

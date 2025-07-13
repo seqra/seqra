@@ -32,8 +32,8 @@ import io.github.detekt.sarif4k.ThreadFlowLocation
 import io.github.detekt.sarif4k.Tool
 import io.github.detekt.sarif4k.ToolComponent
 import io.github.detekt.sarif4k.Version
-import org.opentaint.dataflow.ifds.Vertex
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.dataflow.ifds.Vertex
 import org.opentaint.dataflow.util.Traits
 
 private const val SARIF_SCHEMA =
@@ -99,12 +99,12 @@ private fun <Statement : CommonInst> instToSarifLocation(
                 uri = sourceLocation
             ),
             region = Region(
-                startLine = inst.lineNumber()?.toLong()
+                startLine = lineNumber(inst).toLong()
             )
         ),
         logicalLocations = listOf(
             LogicalLocation(
-                fullyQualifiedName = inst.locationFQN()
+                fullyQualifiedName = locationFQN(inst)
             )
         )
     )

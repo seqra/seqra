@@ -39,7 +39,7 @@ internal class SimplifiedJIRApplicationGraph(
     private val bannedPackagePrefixes: List<String>,
 ) : JIRApplicationGraph by graph {
     private val hierarchyExtension = runBlocking {
-        project.hierarchyExt()
+        cp.hierarchyExt()
     }
 
     private val visitedCallers: MutableMap<JIRMethod, MutableSet<JIRInst>> = mutableMapOf()

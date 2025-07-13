@@ -16,11 +16,6 @@
 
 package org.opentaint.dataflow.config
 
-import org.opentaint.dataflow.ifds.Maybe
-import org.opentaint.dataflow.ifds.onSome
-import org.opentaint.dataflow.taint.Tainted
-import org.opentaint.dataflow.util.Traits
-import org.opentaint.dataflow.util.removeTrailingElementAccessors
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
@@ -40,6 +35,11 @@ import org.opentaint.ir.taint.configuration.Or
 import org.opentaint.ir.taint.configuration.PositionResolver
 import org.opentaint.ir.taint.configuration.SourceFunctionMatches
 import org.opentaint.ir.taint.configuration.TypeMatches
+import org.opentaint.dataflow.ifds.Maybe
+import org.opentaint.dataflow.ifds.onSome
+import org.opentaint.dataflow.taint.Tainted
+import org.opentaint.dataflow.util.Traits
+import org.opentaint.dataflow.util.removeTrailingElementAccessors
 
 context(Traits<CommonMethod, CommonInst>)
 open class BasicConditionEvaluator(
@@ -76,35 +76,35 @@ open class BasicConditionEvaluator(
 
     override fun visit(condition: IsConstant): Boolean {
         positionResolver.resolve(condition.position).onSome {
-            return it.isConstant()
+            return isConstant(it)
         }
         return false
     }
 
     override fun visit(condition: ConstantEq): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
-            return value.eqConstant(condition.value)
+            return eqConstant(value, condition.value)
         }
         return false
     }
 
     override fun visit(condition: ConstantLt): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
-            return value.ltConstant(condition.value)
+            return ltConstant(value, condition.value)
         }
         return false
     }
 
     override fun visit(condition: ConstantGt): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
-            return value.gtConstant(condition.value)
+            return gtConstant(value, condition.value)
         }
         return false
     }
 
     override fun visit(condition: ConstantMatches): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
-            return value.matches(condition.pattern)
+            return matches(value, condition.pattern)
         }
         return false
     }
@@ -119,7 +119,7 @@ open class BasicConditionEvaluator(
 
     override fun visit(condition: TypeMatches): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
-            return value.typeMatches(condition)
+            return typeMatches(value, condition)
         }
         return false
     }
@@ -134,7 +134,7 @@ class FactAwareConditionEvaluator(
     override fun visit(condition: ContainsMark): Boolean {
         if (fact.mark != condition.mark) return false
         positionResolver.resolve(condition.position).onSome { value ->
-            val variable = value.toPath()
+            val variable = convertToPath(value)
 
             // FIXME: Adhoc for arrays
             val variableWithoutStars = variable.removeTrailingElementAccessors()

@@ -22,6 +22,8 @@ import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.ir.taint.configuration.TaintMethodSink
+import org.opentaint.dataflow.config.CallPositionToValueResolver
+import org.opentaint.dataflow.config.FactAwareConditionEvaluator
 import org.opentaint.dataflow.ifds.Analyzer
 import org.opentaint.dataflow.ifds.Edge
 import org.opentaint.dataflow.ifds.Reason
@@ -53,9 +55,9 @@ class TaintAnalyzer<Method, Statement>(
         }
 
         run {
-            val callExpr = edge.to.statement.getCallExpr() ?: return@run
+            val callExpr = getCallExpr(edge.to.statement) ?: return@run
 
-            val callee = callExpr.callee
+            val callee = getCallee(callExpr)
 
             val config = getConfigForMethod(callee) ?: return@run
 
@@ -66,9 +68,9 @@ class TaintAnalyzer<Method, Statement>(
             }
 
             // Determine whether 'edge.to' is a sink via config:
-            val conditionEvaluator = org.opentaint.dataflow.config.FactAwareConditionEvaluator(
+            val conditionEvaluator = FactAwareConditionEvaluator(
                 edge.to.fact,
-                org.opentaint.dataflow.config.CallPositionToValueResolver(edge.to.statement),
+                CallPositionToValueResolver(edge.to.statement),
             )
             for (item in config.filterIsInstance<TaintMethodSink>()) {
                 if (item.condition.accept(conditionEvaluator)) {
@@ -86,11 +88,11 @@ class TaintAnalyzer<Method, Statement>(
             val statement = edge.to.statement
             val fact = edge.to.fact
             if (fact is Tainted && fact.mark.name == "UNTRUSTED") {
-                val branchExprCondition = statement.getBranchExprCondition()
-                if (branchExprCondition != null && statement.isLoopHead()) {
-                    val conditionOperands = branchExprCondition.getValues()
+                val branchExprCondition = getBranchExprCondition(statement)
+                if (branchExprCondition != null && isLoopHead(statement)) {
+                    val conditionOperands = getValues(branchExprCondition)
                     for (s in conditionOperands) {
-                        val p = s.toPath()
+                        val p = convertToPath(s)
                         if (p == fact.variable) {
                             val message = "Untrusted loop bound"
                             val vulnerability = TaintVulnerability(message, sink = edge.to)
@@ -104,10 +106,10 @@ class TaintAnalyzer<Method, Statement>(
             val statement = edge.to.statement
             val fact = edge.to.fact
             if (fact is Tainted && fact.mark.name == "UNTRUSTED") {
-                val arrayAllocation = statement.getArrayAllocation()
+                val arrayAllocation = getArrayAllocation(statement)
                 if (arrayAllocation != null) {
-                    for (arg in arrayAllocation.getValues()) {
-                        if (arg.toPath() == fact.variable) {
+                    for (arg in getValues(arrayAllocation)) {
+                        if (convertToPath(arg) == fact.variable) {
                             val message = "Untrusted array size"
                             val vulnerability = TaintVulnerability(message, sink = edge.to)
                             add(NewVulnerability(vulnerability))
@@ -120,9 +122,9 @@ class TaintAnalyzer<Method, Statement>(
             val statement = edge.to.statement
             val fact = edge.to.fact
             if (fact is Tainted && fact.mark.name == "UNTRUSTED") {
-                val arrayAccessIndex = statement.getArrayAccessIndex()
+                val arrayAccessIndex = getArrayAccessIndex(statement)
                 if (arrayAccessIndex != null) {
-                    if (arrayAccessIndex.toPath() == fact.variable) {
+                    if (convertToPath(arrayAccessIndex) == fact.variable) {
                         val message = "Untrusted index for access array"
                         val vulnerability = TaintVulnerability(message, sink = edge.to)
                         add(NewVulnerability(vulnerability))

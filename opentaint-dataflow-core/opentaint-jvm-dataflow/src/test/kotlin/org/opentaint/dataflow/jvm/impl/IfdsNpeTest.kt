@@ -43,6 +43,7 @@ private val logger = mu.KotlinLogging.logger {}
 
 @TestInstance(PER_CLASS)
 class IfdsNpeTest : BaseAnalysisTest() {
+
     fun provideClassesForJuliet476(): Stream<Arguments> =
         provideClassesForJuliet(476, listOf("null_check_after_deref"))
 

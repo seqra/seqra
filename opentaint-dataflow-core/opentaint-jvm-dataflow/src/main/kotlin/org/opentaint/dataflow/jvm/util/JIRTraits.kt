@@ -17,7 +17,6 @@
 package org.opentaint.dataflow.jvm.util
 
 import org.opentaint.ir.api.common.CommonMethodParameter
-import org.opentaint.ir.api.common.CommonProject
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonExpr
@@ -46,6 +45,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.cfg.values
+import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.ir.api.jvm.ext.isAssignable
 import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.impl.cfg.util.loops
@@ -57,192 +57,177 @@ import org.opentaint.ir.taint.configuration.TypeMatches
 import org.opentaint.dataflow.ifds.AccessPath
 import org.opentaint.dataflow.ifds.ElementAccessor
 import org.opentaint.dataflow.ifds.FieldAccessor
-import org.opentaint.dataflow.jvm.util.JIRTraits.Companion.getArgument
-import org.opentaint.dataflow.jvm.util.JIRTraits.Companion.toPathOrNull
 import org.opentaint.dataflow.util.Traits
-import org.opentaint.ir.api.jvm.ext.cfg.callExpr as _callExpr
-import org.opentaint.dataflow.jvm.util.callee as _callee
-import org.opentaint.dataflow.jvm.util.getArgument as _getArgument
-import org.opentaint.dataflow.jvm.util.getArgumentsOf as _getArgumentsOf
-import org.opentaint.dataflow.jvm.util.thisInstance as _thisInstance
-import org.opentaint.dataflow.jvm.util.toPath as _toPath
-import org.opentaint.dataflow.jvm.util.toPathOrNull as _toPathOrNull
 
 /**
  * JVM-specific extensions for analysis.
- *
- * ### Usage:
- * ```
- * class MyClass {
- *     companion object : JIRTraits
- * }
- * ```
  */
-interface JIRTraits : Traits<JIRMethod, JIRInst> {
+class JIRTraits(
+    val cp: JIRClasspath,
+) : Traits<JIRMethod, JIRInst> {
 
-    override val JIRMethod.thisInstance: JIRThis
-        get() = _thisInstance
-
-    @Suppress("EXTENSION_SHADOWED_BY_MEMBER")
-    override val JIRMethod.isConstructor: Boolean
-        get() = isConstructor
-
-    override fun CommonExpr.toPathOrNull(): AccessPath? {
-        check(this is JIRExpr)
-        return _toPathOrNull()
+    override fun convertToPathOrNull(expr: CommonExpr): AccessPath? {
+        check(expr is JIRExpr)
+        return expr.toPathOrNull()
     }
 
-    override fun CommonValue.toPathOrNull(): AccessPath? {
-        check(this is JIRValue)
-        return _toPathOrNull()
+    override fun convertToPathOrNull(value: CommonValue): AccessPath? {
+        check(value is JIRValue)
+        return value.toPathOrNull()
     }
 
-    override fun CommonValue.toPath(): AccessPath {
-        check(this is JIRValue)
-        return _toPath()
+    override fun convertToPath(value: CommonValue): AccessPath {
+        check(value is JIRValue)
+        return value.toPath()
     }
 
-    override val CommonCallExpr.callee: JIRMethod
-        get() {
-            check(this is JIRCallExpr)
-            return _callee
-        }
+    override fun getThisInstance(method: JIRMethod): JIRThis {
+        return method.thisInstance
+    }
 
-    override fun CommonProject.getArgument(param: CommonMethodParameter): JIRArgument? {
-        check(this is JIRClasspath)
+    override fun isConstructor(method: JIRMethod): Boolean {
+        return method.isConstructor
+    }
+
+    override fun getArgument(param: CommonMethodParameter): JIRArgument? {
         check(param is JIRParameter)
-        return _getArgument(param)
+        return cp.getArgument(param)
     }
 
-    override fun CommonProject.getArgumentsOf(method: JIRMethod): List<JIRArgument> {
-        check(this is JIRClasspath)
-        return _getArgumentsOf(method)
+    override fun getArgumentsOf(method: JIRMethod): List<JIRArgument> {
+        return cp.getArgumentsOf(method)
     }
 
-    override fun CommonValue.isConstant(): Boolean {
-        check(this is JIRValue)
-        return this is JIRConstant
+    override fun getCallee(callExpr: CommonCallExpr): JIRMethod {
+        check(callExpr is JIRCallExpr)
+        return callExpr.callee
     }
 
-    override fun CommonValue.eqConstant(constant: ConstantValue): Boolean {
-        check(this is JIRValue)
-        return when (constant) {
-            is ConstantBooleanValue -> {
-                this is JIRBool && value == constant.value
-            }
-
-            is ConstantIntValue -> {
-                this is JIRInt && value == constant.value
-            }
-
-            is ConstantStringValue -> {
-                // TODO: if 'value' is not string, convert it to string and compare with 'constant.value'
-                this is JIRStringConstant && value == constant.value
-            }
-        }
+    override fun getCallExpr(statement: JIRInst): JIRCallExpr? {
+        return statement.callExpr
     }
 
-    override fun CommonValue.ltConstant(constant: ConstantValue): Boolean {
-        check(this is JIRValue)
-        return when (constant) {
-            is ConstantIntValue -> {
-                this is JIRInt && value < constant.value
-            }
-
-            else -> error("Unexpected constant: $constant")
-        }
+    override fun getValues(expr: CommonExpr): Set<JIRValue> {
+        check(expr is JIRExpr)
+        return expr.values
     }
 
-    override fun CommonValue.gtConstant(constant: ConstantValue): Boolean {
-        check(this is JIRValue)
-        return when (constant) {
-            is ConstantIntValue -> {
-                this is JIRInt && value > constant.value
-            }
-
-            else -> error("Unexpected constant: $constant")
-        }
+    override fun getOperands(statement: JIRInst): List<JIRExpr> {
+        return statement.operands
     }
 
-    override fun CommonValue.matches(pattern: String): Boolean {
-        check(this is JIRValue)
-        val s = this.toString()
-        val re = pattern.toRegex()
-        return re.matches(s)
+    override fun getArrayAllocation(statement: JIRInst): JIRExpr? {
+        if (statement !is JIRAssignInst) return null
+        return statement.rhv as? JIRNewArrayExpr
     }
 
-    override fun JIRInst.getCallExpr(): CommonCallExpr? {
-        return _callExpr
-    }
+    override fun getArrayAccessIndex(statement: JIRInst): JIRValue? {
+        if (statement !is JIRAssignInst) return null
 
-    override fun CommonExpr.getValues(): Set<CommonValue> {
-        check(this is JIRExpr)
-        return values
-    }
-
-    override fun JIRInst.getOperands(): List<JIRExpr> {
-        return operands
-    }
-
-    override fun JIRInst.isLoopHead(): Boolean {
-        val loops = location.method.flowGraph().loops
-        return loops.any { loop -> this == loop.head }
-    }
-
-    override fun JIRInst.getBranchExprCondition(): CommonExpr? {
-        if (this !is JIRIfInst) return null
-        return condition
-    }
-
-    override fun JIRInst.getArrayAllocation(): CommonExpr? {
-        if (this !is JIRAssignInst) return null
-        return rhv as? JIRNewArrayExpr
-    }
-
-    override fun JIRInst.getArrayAccessIndex(): CommonValue? {
-        if (this !is JIRAssignInst) return null
-
-        val lhv = this.lhv
+        val lhv = statement.lhv
         if (lhv is JIRArrayAccess) return lhv.index
 
-        val rhv = this.rhv
+        val rhv = statement.rhv
         if (rhv is JIRArrayAccess) return rhv.index
 
         return null
     }
 
-    override fun JIRInst.lineNumber(): Int? = location.lineNumber
+    override fun getBranchExprCondition(statement: JIRInst): JIRExpr? {
+        if (statement !is JIRIfInst) return null
+        return statement.condition
+    }
 
-    override fun JIRInst.locationFQN(): String? {
-        val method = location.method
+    override fun isConstant(value: CommonValue): Boolean {
+        check(value is JIRValue)
+        return value is JIRConstant
+    }
+
+    override fun eqConstant(value: CommonValue, constant: ConstantValue): Boolean {
+        check(value is JIRValue)
+        return when (constant) {
+            is ConstantBooleanValue -> {
+                value is JIRBool && value.value == constant.value
+            }
+
+            is ConstantIntValue -> {
+                value is JIRInt && value.value == constant.value
+            }
+
+            is ConstantStringValue -> {
+                // TODO: if 'value' is not string, convert it to string and compare with 'constant.value'
+                value is JIRStringConstant && value.value == constant.value
+            }
+        }
+    }
+
+    override fun ltConstant(value: CommonValue, constant: ConstantValue): Boolean {
+        check(value is JIRValue)
+        return when (constant) {
+            is ConstantIntValue -> {
+                value is JIRInt && value.value < constant.value
+            }
+
+            else -> error("Unexpected constant: $constant")
+        }
+    }
+
+    override fun gtConstant(value: CommonValue, constant: ConstantValue): Boolean {
+        check(value is JIRValue)
+        return when (constant) {
+            is ConstantIntValue -> {
+                value is JIRInt && value.value > constant.value
+            }
+
+            else -> error("Unexpected constant: $constant")
+        }
+    }
+
+    override fun matches(value: CommonValue, pattern: String): Boolean {
+        check(value is JIRValue)
+        val s = value.toString()
+        val re = pattern.toRegex()
+        return re.matches(s)
+    }
+
+    override fun typeMatches(value: CommonValue, condition: TypeMatches): Boolean {
+        check(value is JIRValue)
+        return value.type.isAssignable(condition.type)
+    }
+
+    override fun isLoopHead(statement: JIRInst): Boolean {
+        val loops = statement.location.method.flowGraph().loops
+        return loops.any { loop -> statement == loop.head }
+    }
+
+    override fun lineNumber(statement: JIRInst): Int {
+        return statement.lineNumber
+    }
+
+    override fun locationFQN(statement: JIRInst): String {
+        val method = statement.location.method
         return "${method.enclosingClass.name}#${method.name}"
     }
 
-    override fun CommonValue.typeMatches(condition: TypeMatches): Boolean {
-        check(this is JIRValue)
-        return this.type.isAssignable(condition.type)
+    override fun taintFlowRhsValues(statement: CommonAssignInst): List<JIRExpr> {
+        check(statement is JIRAssignInst)
+        return when (val rhv = statement.rhv) {
+            is JIRBinaryExpr -> listOf(rhv.lhv, rhv.rhv)
+            is JIRNegExpr -> listOf(rhv.operand)
+            is JIRCastExpr -> listOf(rhv.operand)
+            else -> listOf(rhv)
+        }
     }
 
-    override fun CommonAssignInst.taintFlowRhsValues(): List<CommonExpr> =
-        when (val rhs = this.rhv as JIRExpr) {
-            is JIRBinaryExpr -> listOf(rhs.lhv, rhs.rhv)
-            is JIRNegExpr -> listOf(rhs.operand)
-            is JIRCastExpr -> listOf(rhs.operand)
-            else -> listOf(rhs)
-        }
-
-    override fun JIRInst.taintPassThrough(): List<Pair<CommonValue, CommonValue>>? {
-        if (this !is JIRAssignInst) return null
+    override fun taintPassThrough(statement: JIRInst): List<Pair<JIRValue, JIRValue>>? {
+        if (statement !is JIRAssignInst) return null
 
         // FIXME: handle taint pass-through on invokedynamic-based String concatenation:
-        val callExpr = rhv as? JIRDynamicCallExpr ?: return null
+        val callExpr = statement.rhv as? JIRDynamicCallExpr ?: return null
         if (callExpr.callee.enclosingClass.name != "java.lang.invoke.StringConcatFactory") return null
 
-        return callExpr.args.map { it to this.lhv }
+        return callExpr.args.map { it to statement.lhv }
     }
-
-    // Ensure that all methods are default-implemented in the interface itself:
-    companion object : JIRTraits
 }
 
 val JIRMethod.thisInstance: JIRThis
