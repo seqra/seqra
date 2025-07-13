@@ -78,7 +78,7 @@ class MethodAnalyzerEdges(private val initialStatement: JIRInst) {
 
         val addedAccessWithExclusions = edgeSet.add(edge.statement, accessWithExclusion)
 
-        return addedAccessWithExclusions.map { addedAccessWithExclusion ->
+        return listOfNotNull(addedAccessWithExclusions).map { addedAccessWithExclusion ->
             if (addedAccessWithExclusion === accessWithExclusion) return@map edge
 
             val newInitialAp = edge.initialFact.ap.let {
@@ -133,65 +133,36 @@ class MethodAnalyzerEdges(private val initialStatement: JIRInst) {
     }
 
     private class EdgeNonUniverseExclusionMergingStorage(maxInstIdx: Int) {
-        private val edges = arrayOfNulls<Any>(instructionStorageSize(maxInstIdx))
+        private val exclusions = arrayOfNulls<ExclusionSet>(instructionStorageSize(maxInstIdx))
+        private val edges = arrayOfNulls<AccessNode>(instructionStorageSize(maxInstIdx))
 
-        fun add(statement: JIRInst, accessWithExclusion: AccessWithExclusion): List<AccessWithExclusion> {
+        fun add(statement: JIRInst, accessWithExclusion: AccessWithExclusion): AccessWithExclusion? {
             val edgeSetIdx = instructionStorageIdx(statement)
-            val currentEdgeAccess = edges[edgeSetIdx]
+            val currentExclusion = exclusions[edgeSetIdx]
 
-            if (currentEdgeAccess == null) {
-                edges[edgeSetIdx] = accessWithExclusion
-                return listOf(accessWithExclusion)
+            if (currentExclusion == null) {
+                exclusions[edgeSetIdx] = accessWithExclusion.exclusion
+                edges[edgeSetIdx] = accessWithExclusion.access
+                return accessWithExclusion
             }
 
-            val edgeData = if (currentEdgeAccess is AccessWithExclusion) {
-                Object2ObjectOpenHashMap<ExclusionSet, EdgeMergeUtils.Storage>().also { map ->
-                    map[currentEdgeAccess.exclusion] = EdgeMergeUtils.Storage(
-                        currentEdgeAccess.exclusion, currentEdgeAccess.access, currentEdgesDelta = null
-                    )
-                }
-            } else {
-                @Suppress("UNCHECKED_CAST")
-                currentEdgeAccess as MutableMap<ExclusionSet, EdgeMergeUtils.Storage>
+            val currentAccess = edges[edgeSetIdx]!!
+            val mergedExclusion = currentExclusion.union(accessWithExclusion.exclusion)
+            if (mergedExclusion === currentExclusion) {
+                val (mergedAccess, accessDelta) = currentAccess.mergeAddDelta(accessWithExclusion.access)
+                if (accessDelta == null) return null
+
+                edges[edgeSetIdx] = mergedAccess
+                return AccessWithExclusion(accessDelta, currentExclusion)
             }
 
-            if (!add(accessWithExclusion, edgeData)) return emptyList()
-
-            if (edgeData.size == 1) {
-                val storage = edgeData.values.single()
-                edges[edgeSetIdx] = AccessWithExclusion(storage.edges, storage.exclusion)
-            } else {
-                edges[edgeSetIdx] = edgeData
-            }
-
-            val modifiedEdges = edgeData.mapNotNull { (ex, storage) ->
-                storage.getAndResetDelta()?.let { AccessWithExclusion(it, ex) }
-            }
-
-            return modifiedEdges
+            val mergedAccess = currentAccess.mergeAdd(accessWithExclusion.access)
+            exclusions[edgeSetIdx] = mergedExclusion
+            edges[edgeSetIdx] = mergedAccess
+            return AccessWithExclusion(mergedAccess, mergedExclusion)
         }
 
         data class AccessWithExclusion(val access: AccessNode, val exclusion: ExclusionSet)
-
-        private fun add(
-            accessWithExclusion: AccessWithExclusion,
-            data: MutableMap<ExclusionSet, EdgeMergeUtils.Storage>,
-        ): Boolean {
-            var modified = false
-            val queue = mutableListOf(accessWithExclusion)
-            while (queue.isNotEmpty()) {
-                val current = queue.removeLast()
-                modified = modified or EdgeMergeUtils.mergeAdd(
-                    access = current.access,
-                    exclusion = current.exclusion,
-                    allStorages = { data.values.iterator() },
-                    saveStorage = { ex, storage -> data[ex] = storage },
-                    removeStorage = { ex -> data.remove(ex) },
-                    enqueue = { ex, access -> queue.add(AccessWithExclusion(access, ex)) }
-                )
-            }
-            return modified
-        }
     }
 
     private abstract class EdgeStorage<Storage : Any>(initialStatement: JIRInst) :

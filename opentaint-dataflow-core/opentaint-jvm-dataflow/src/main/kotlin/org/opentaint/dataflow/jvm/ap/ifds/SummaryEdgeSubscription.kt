@@ -1010,65 +1010,58 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: JIRInst) {
     }
 
     private class MethodTaintedSummariesMergingStorage(val initialAccess: AccessPath.AccessNode?) {
-        private var emptyExclusionSummaries: EdgeMergeUtils.Storage? = null
-        private var concreteExclusionSummaries = persistentHashMapOf<ExclusionSet.Concrete, EdgeMergeUtils.Storage>()
+        private var exclusion: ExclusionSet? = null
+        private var edges: AccessNode? = null
+        private var edgesDelta: AccessNode? = null
 
         fun add(exitAccess: AccessNode, addedEx: ExclusionSet): Boolean {
-            var modified = false
-            val queue = mutableListOf<Pair<AccessNode, ExclusionSet>>()
-            queue.add(exitAccess to addedEx)
-
-            while (queue.isNotEmpty()) {
-                val (currentAccess, currentEx) = queue.removeLast()
-                modified = modified or EdgeMergeUtils.mergeAdd(
-                    access = currentAccess,
-                    exclusion = currentEx,
-                    allStorages = { summaryStorages().iterator() },
-                    saveStorage = { ex, storage -> saveStorage(ex, storage) },
-                    removeStorage = { ex -> removeStorage(ex) },
-                    enqueue = { ex, access -> queue.add(access to ex) }
-                )
+            val currentExclusion = exclusion
+            if (currentExclusion == null) {
+                exclusion = addedEx
+                edges = exitAccess
+                edgesDelta = exitAccess
+                return true
             }
 
-            return modified
+            val currentEdges = edges!!
+            val mergedExclusion = currentExclusion.union(addedEx)
+            if (mergedExclusion === currentExclusion) {
+                val (modifiedEdges, modificationDelta) = currentEdges.mergeAddDelta(exitAccess)
+                if (modificationDelta == null) return false
+
+                edges = modifiedEdges
+                edgesDelta = modificationDelta
+                return true
+            }
+
+            val mergedAp = currentEdges.mergeAdd(exitAccess)
+            exclusion = mergedExclusion
+            edges = mergedAp
+            edgesDelta = mergedAp
+
+            return true
         }
 
-        fun getAndResetDelta(): Sequence<FactToFactEdgeBuilder> =
-            summaryStorages().mapNotNull { storage ->
-                storage.getAndResetDelta()?.let { delta ->
-                    FactToFactEdgeBuilder()
-                        .setInitialAp(initialAccess)
-                        .setExitAp(delta)
-                        .setExclusion(storage.exclusion)
-                }
-            }
+        fun getAndResetDelta(): Sequence<FactToFactEdgeBuilder> {
+            val delta = edgesDelta ?: return emptySequence()
+            edgesDelta = null
 
-        fun summaries(): Sequence<FactToFactEdgeBuilder> =
-            summaryStorages().map { storage ->
-                FactToFactEdgeBuilder()
-                    .setInitialAp(initialAccess)
-                    .setExitAp(storage.edges)
-                    .setExclusion(storage.exclusion)
-            }
-
-        private fun saveStorage(exclusion: ExclusionSet, storage: EdgeMergeUtils.Storage) {
-            when (exclusion) {
-                ExclusionSet.Empty -> emptyExclusionSummaries = storage
-                is ExclusionSet.Concrete -> concreteExclusionSummaries = concreteExclusionSummaries.put(exclusion, storage)
-                ExclusionSet.Universe -> error("")
-            }
+            return FactToFactEdgeBuilder()
+                .setInitialAp(initialAccess)
+                .setExitAp(delta)
+                .setExclusion(exclusion!!)
+                .let { sequenceOf(it) }
         }
 
-        private fun removeStorage(exclusion: ExclusionSet) {
-            when (exclusion) {
-                ExclusionSet.Empty -> emptyExclusionSummaries = null
-                is ExclusionSet.Concrete -> concreteExclusionSummaries = concreteExclusionSummaries.remove(exclusion)
-                ExclusionSet.Universe -> error("")
-            }
+        fun summaries(): Sequence<FactToFactEdgeBuilder> {
+            val exclusion = this.exclusion ?: return emptySequence()
+            val edges = this.edges!!
+            return FactToFactEdgeBuilder()
+                .setInitialAp(initialAccess)
+                .setExitAp(edges)
+                .setExclusion(exclusion)
+                .let { sequenceOf(it) }
         }
-
-        private fun summaryStorages(): Sequence<EdgeMergeUtils.Storage> =
-            emptyExclusionSummaries?.let { sequenceOf(it) }.orEmpty() + concreteExclusionSummaries.values.asSequence()
     }
 
     sealed interface EdgeBuilder<B : EdgeBuilder<B>> {
