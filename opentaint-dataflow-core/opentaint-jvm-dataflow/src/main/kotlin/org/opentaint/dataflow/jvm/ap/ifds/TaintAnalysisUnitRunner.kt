@@ -1,13 +1,10 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.getOrElse
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
-import org.opentaint.dataflow.jvm.ap.ifds.TaintAnalysisUnitRunnerManager.WorkListEmptyEvent
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
-import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.rebase
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
@@ -18,15 +15,13 @@ class TaintAnalysisUnitRunner(
     private val manager: TaintAnalysisUnitRunnerManager,
     private val unit: UnitType,
     override val graph: JIRApplicationGraph,
+    override val callResolver: JIRCallResolver,
     override val unitResolver: JIRUnitResolver,
     override val taintConfiguration: TaintRulesProvider,
     override val factTypeChecker: FactTypeChecker,
     override val sinkTracker: TaintSinkTracker
 ) : AnalysisRunner, SummaryEdgeSubscriptionManager.SummaryEdgeProcessingCtx {
     private val workList: Channel<Any> = Channel(Channel.UNLIMITED)
-
-    private val queueIsEmpty = WorkListEmptyEvent(unit, isEmpty = true)
-    private val queueIsNotEmpty = WorkListEmptyEvent(unit, isEmpty = false)
 
     private val analyzers = mutableListOf<MethodAnalyzerStorage>()
     private val methodAnalyzers = hashMapOf<JIRMethod, MethodAnalyzerStorage>()
@@ -49,48 +44,46 @@ class TaintAnalysisUnitRunner(
         workList.cancel()
     }
 
-    suspend fun run(startMethods: List<JIRMethod>) {
+    suspend fun runLoop() {
+        tabulationAlgorithm()
+    }
+
+    fun submitStartMethods(startMethods: List<JIRMethod>) {
         for (method in startMethods) {
             addStart(method)
         }
-
-        tabulationAlgorithm()
     }
 
     private fun addStart(method: JIRMethod) {
         require(unitResolver.resolve(method) == unit)
-        for (start in graph.entryPoints(method)) {
-            val methodAnalyzers = methodAnalyzers(start)
-            methodAnalyzers.add(this, start)
-
-            methodAnalyzers.getAnalyzer(start).addInitialZeroFact()
-        }
+        addStartMethodEvent(method)
     }
 
-    fun submitExternalInitialZeroFact(methodEntryPoint: JIRInst) {
+    fun submitExternalInitialZeroFact(methodEntryPoint: MethodEntryPoint) {
         addUnprocessedEvent(ExternalInputFact.InputZero(methodEntryPoint))
     }
 
-    fun submitExternalInitialFact(methodEntryPoint: JIRInst, fact: Fact.TaintedTree) {
+    fun submitExternalInitialFact(methodEntryPoint: MethodEntryPoint, fact: Fact.TaintedTree) {
         addUnprocessedEvent(ExternalInputFact.InputFact(methodEntryPoint, fact))
     }
 
     sealed interface ExternalInputFact {
-        val methodEntryPoint: JIRInst
+        val methodEntryPoint: MethodEntryPoint
 
-        data class InputZero(override val methodEntryPoint: JIRInst) : ExternalInputFact
+        data class InputZero(override val methodEntryPoint: MethodEntryPoint) : ExternalInputFact
 
-        data class InputFact(override val methodEntryPoint: JIRInst, val fact: Fact.TaintedTree) : ExternalInputFact
+        data class InputFact(override val methodEntryPoint: MethodEntryPoint, val fact: Fact.TaintedTree) : ExternalInputFact
     }
 
     private suspend fun tabulationAlgorithm() = coroutineScope {
         while (isActive) {
-            val event = workList.tryReceive().getOrElse {
-                manager.handleControlEvent(queueIsEmpty)
-                workList.receive()
-            }
+            val event = workList.receive()
 
             when (event) {
+                is Edge -> {
+                    tabulationAlgorithmStep(event)
+                }
+
                 is ExternalInputFact -> {
                     handleNewInputFact(event)
                 }
@@ -99,15 +92,18 @@ class TaintAnalysisUnitRunner(
                     event.processMethodSummary()
                 }
 
-                is Edge -> {
-                    tabulationAlgorithmStep(event)
+                is JIRMethod -> {
+                    handleStartMethodEvent(event)
                 }
             }
 
             eventsEnqueued.decrement()
             eventsProcessed.increment()
+            manager.handleEventProcessed()
         }
     }
+
+    private fun addStartMethodEvent(method: JIRMethod) = addUnprocessedAnyEvent(method)
 
     private fun addUnprocessedEvent(event: ExternalInputFact) = addUnprocessedAnyEvent(event)
     private fun addUnprocessedEvent(edge: Edge) = addUnprocessedAnyEvent(edge)
@@ -117,9 +113,19 @@ class TaintAnalysisUnitRunner(
     }
 
     private fun addUnprocessedAnyEvent(event: Any) {
-        workList.trySend(event)
         eventsEnqueued.increment()
-        manager.handleControlEvent(queueIsNotEmpty)
+        manager.handleEventEnqueued()
+        workList.trySend(event)
+    }
+
+    private fun handleStartMethodEvent(method: JIRMethod) {
+        for (start in graph.entryPoints(method)) {
+            val methodEntryPoint = MethodEntryPoint(EmptyMethodContext, start)
+            val methodAnalyzers = methodAnalyzers(methodEntryPoint)
+            methodAnalyzers.add(this, methodEntryPoint)
+
+            methodAnalyzers.getAnalyzer(methodEntryPoint).addInitialZeroFact()
+        }
     }
 
     private fun handleNewInputFact(event: ExternalInputFact) {
@@ -129,28 +135,28 @@ class TaintAnalysisUnitRunner(
         }
     }
 
-    private fun submitMethodInitialZeroFact(methodEntryPoint: JIRInst) {
+    private fun submitMethodInitialZeroFact(methodEntryPoint: MethodEntryPoint) {
         val methodRunner = methodAnalyzers(methodEntryPoint)
         methodRunner.add(this, methodEntryPoint)
 
         methodRunner.getAnalyzer(methodEntryPoint).addInitialZeroFact()
     }
 
-    private fun submitMethodInitialFact(methodEntryPoint: JIRInst, fact: Fact.TaintedTree) {
+    private fun submitMethodInitialFact(methodEntryPoint: MethodEntryPoint, fact: Fact.TaintedTree) {
         val methodRunner = methodAnalyzers(methodEntryPoint)
         methodRunner.add(this, methodEntryPoint)
 
         methodRunner.getAnalyzer(methodEntryPoint).addInitialFact(fact)
     }
 
-    private fun methodAnalyzers(methodEntryPoint: JIRInst): MethodAnalyzerStorage =
-        methodAnalyzers(methodEntryPoint.location.method)
+    private fun methodAnalyzers(methodEntryPoint: MethodEntryPoint): MethodAnalyzerStorage =
+        methodAnalyzers(methodEntryPoint.method)
 
     private fun methodAnalyzers(method: JIRMethod): MethodAnalyzerStorage =
         methodAnalyzers.computeIfAbsent(method) { MethodAnalyzerStorage().also { analyzers.add(it) } }
 
     private fun propagateNew(edge: Edge) {
-        require(unitResolver.resolve(edge.initialStatement.location.method) == unit) {
+        require(unitResolver.resolve(edge.methodEntryPoint.method) == unit) {
             "Propagated edge must be in the same unit"
         }
 
@@ -159,8 +165,8 @@ class TaintAnalysisUnitRunner(
     }
 
     private fun tabulationAlgorithmStep(currentEdge: Edge) {
-        val methodRunners = methodAnalyzers(currentEdge.initialStatement)
-        val runner = methodRunners.getAnalyzer(currentEdge.initialStatement)
+        val methodRunners = methodAnalyzers(currentEdge.methodEntryPoint)
+        val runner = methodRunners.getAnalyzer(currentEdge.methodEntryPoint)
         runner.tabulationAlgorithmStep(currentEdge)
     }
 
@@ -173,7 +179,7 @@ class TaintAnalysisUnitRunner(
 
     override fun subscribeOnMethodSummaries(
         edge: Edge.ZeroToZero,
-        methodEntryPoint: JIRInst
+        methodEntryPoint: MethodEntryPoint
     )  = subscribeOnMethodSummaries(
         methodEntryPoint = methodEntryPoint,
         subscribe = { subscribeOnMethodSummary(methodEntryPoint, edge) },
@@ -183,7 +189,7 @@ class TaintAnalysisUnitRunner(
 
     override fun subscribeOnMethodSummaries(
         edge: Edge.ZeroToFact,
-        methodEntryPoint: JIRInst,
+        methodEntryPoint: MethodEntryPoint,
         methodFactBase: AccessPathBase
     )  = subscribeOnMethodSummaries(
         methodEntryPoint = methodEntryPoint,
@@ -194,7 +200,7 @@ class TaintAnalysisUnitRunner(
 
     override fun subscribeOnMethodSummaries(
         edge: Edge.FactToFact,
-        methodEntryPoint: JIRInst,
+        methodEntryPoint: MethodEntryPoint,
         methodFactBase: AccessPathBase
     ) = subscribeOnMethodSummaries(
         methodEntryPoint = methodEntryPoint,
@@ -204,12 +210,12 @@ class TaintAnalysisUnitRunner(
     )
 
     private inline fun subscribeOnMethodSummaries(
-        methodEntryPoint: JIRInst,
+        methodEntryPoint: MethodEntryPoint,
         subscribe: SummaryEdgeSubscriptionManager.() -> Boolean,
         submitThisUnitFact: () -> Unit,
         submitCrossUnitFact: TaintAnalysisUnitRunnerManager.() -> Unit,
     ) {
-        val method = methodEntryPoint.location.method
+        val method = methodEntryPoint.method
         if (method.isExtern) {
             // Subscribe on summary edges:
             if (externalMethodSummarySubscriptions.subscribe()) {
@@ -225,14 +231,14 @@ class TaintAnalysisUnitRunner(
         }
     }
 
-    override fun addNewSummaryEdges(initialStatement: JIRInst, edges: List<Edge>) {
-        manager.newSummaryEdges(initialStatement, edges)
+    override fun addNewSummaryEdges(methodEntryPoint: MethodEntryPoint, edges: List<Edge>) {
+        manager.newSummaryEdges(methodEntryPoint, edges)
     }
 
-    override fun addNewSinkRequirement(initialStatement: JIRInst, requirement: Fact.TaintedPath) {
-        manager.newSinkRequirement(initialStatement, requirement)
+    override fun addNewSinkRequirement(methodEntryPoint: MethodEntryPoint, requirement: Fact.TaintedPath) {
+        manager.newSinkRequirement(methodEntryPoint, requirement)
     }
 
-    override fun getMethodAnalyzer(methodEntryPoint: JIRInst): MethodAnalyzer =
+    override fun getMethodAnalyzer(methodEntryPoint: MethodEntryPoint): MethodAnalyzer =
         methodAnalyzers(methodEntryPoint).getAnalyzer(methodEntryPoint)
 }

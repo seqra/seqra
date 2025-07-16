@@ -235,6 +235,15 @@ class ProjectAnalyzer(
             .filter { it.isPublic || it.isProtected }
             .filter { !it.isConstructor }
 
+            // todo: hack to avoid problems with Juliet benchmark
+            .filterNot { it.isJulietGeneratedRunner() }
+
+    private fun JIRMethod.isJulietGeneratedRunner(): Boolean {
+        if (!isStatic || name != "main") return false
+
+        return enclosingClass.name.startsWith("testcases.CWE")
+    }
+
     companion object {
         private val logger = object : KLogging() {}.logger
     }

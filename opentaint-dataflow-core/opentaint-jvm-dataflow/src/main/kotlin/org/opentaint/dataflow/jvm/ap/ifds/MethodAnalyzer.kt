@@ -8,7 +8,6 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.ir.taint.configuration.TaintMark
-import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.ifds.onSome
 import org.opentaint.dataflow.jvm.ap.ifds.AccessPath.AccessNode.Companion.iterator
 import org.opentaint.dataflow.jvm.ap.ifds.AccessTree.AccessNode
@@ -21,7 +20,6 @@ import org.opentaint.dataflow.jvm.ap.ifds.MethodCallFlowFunction.Companion.apply
 import org.opentaint.dataflow.jvm.ap.ifds.MethodCallFlowFunction.ZeroCallFact
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.rebase
 import org.opentaint.dataflow.jvm.ap.ifds.MethodSequentFlowFunction.Sequent
-import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 
 interface MethodAnalyzer {
     fun addInitialZeroFact()
@@ -38,8 +36,7 @@ interface MethodAnalyzer {
     fun handleMethodSinkRequirement(
         currentEdge: FactToFact,
         methodInitialFactBase: AccessPathBase,
-        methodSinkRequirement: Fact.TaintedPath,
-        methodInitialStatement: JIRInst
+        methodSinkRequirement: Fact.TaintedPath
     )
 
     fun collectStats(stats: MethodStats)
@@ -57,25 +54,27 @@ interface MethodAnalyzer {
 
 class NormalMethodAnalyzer(
     private val runner: AnalysisRunner,
-    private val entryPointStatement: JIRInst
+    private val methodEntryPoint: MethodEntryPoint
 ) : MethodAnalyzer {
     private val graph: JIRApplicationGraph get() = runner.graph
-    private val unitResolver: JIRUnitResolver get() = runner.unitResolver
+    private val callResolver: JIRCallResolver get() = runner.callResolver
     private val taintConfig: TaintRulesProvider get() = runner.taintConfiguration
     private val factTypeChecker: FactTypeChecker get() = runner.factTypeChecker
     private val taintSinkTracker: TaintSinkTracker get() = runner.sinkTracker
 
     private var zeroInitialFactProcessed: Boolean = false
     private val initialFacts = MethodInitialFacts(hashMapOf())
-    private val edges = MethodAnalyzerEdges(entryPointStatement)
+    private val edges = MethodAnalyzerEdges(methodEntryPoint)
     private val pendingSummaryEdges = arrayListOf<Edge>()
 
     private var unprocessedEdgesCount: Int = 0
     private var analyzerSteps: Long = 0
     private var summaryEdgesHandled: Long = 0
 
+    private val methodExitPoints by lazy { graph.exitPoints(methodEntryPoint.method).toHashSet() }
+
     override fun collectStats(stats: MethodStats) {
-        stats.stats(entryPointStatement.location.method).apply {
+        stats.stats(methodEntryPoint.method).apply {
             steps += analyzerSteps
             handledSummaries += summaryEdgesHandled
             unprocessedEdges += unprocessedEdgesCount
@@ -99,7 +98,7 @@ class NormalMethodAnalyzer(
     private fun propagateStartFacts() {
         addInitialZeroEdge()
 
-        applyEntryPointConfigDefault(taintConfig, entryPointStatement.location.method)
+        applyEntryPointConfigDefault(taintConfig, methodEntryPoint.method)
             .onSome { facts ->
                 facts.forEach { fact -> addInitialZeroToFactEdge(fact) }
             }
@@ -109,13 +108,11 @@ class NormalMethodAnalyzer(
         analyzerSteps++
         unprocessedEdgesCount--
 
-        val currentStatement = edge.statement
-        val callExpr = currentStatement.callExpr
-
+        val callExpr = edge.statement.callExpr
         if (callExpr != null) {
-            callStatementStep(currentStatement, callExpr, edge)
+            callStatementStep(callExpr, edge)
         } else {
-            simpleStatementStep(currentStatement, edge)
+            simpleStatementStep(edge)
         }
 
         if (unprocessedEdgesCount == 0) {
@@ -123,43 +120,40 @@ class NormalMethodAnalyzer(
         }
     }
 
-    private fun simpleStatementStep(
-        currentStatement: JIRInst,
-        edge: Edge
-    ) {
-        val currentIsExit = currentStatement in graph.exitPoints(currentStatement.location.method)
+    private fun simpleStatementStep(edge: Edge) {
+        val currentIsExit = edge.statement in methodExitPoints
         if (currentIsExit) {
             when (edge) {
                 is ZeroToZero -> newSummaryEdge(edge)
 
-                is ZeroToFact -> if (isValidMethodExitFact(currentStatement, edge.fact)) {
+                is ZeroToFact -> if (isValidMethodExitFact(edge.statement, edge.fact)) {
                     newSummaryEdge(edge)
                 }
 
-                is FactToFact -> if (isValidMethodExitFact(currentStatement, edge.fact)) {
+                is FactToFact -> if (isValidMethodExitFact(edge.statement, edge.fact)) {
                     newSummaryEdge(edge)
                 }
             }
         }
 
         // Simple (sequential) propagation to the next instruction:
-        val flowFunction = MethodSequentFlowFunction(currentStatement, factTypeChecker)
+        val flowFunction = MethodSequentFlowFunction(edge.statement, factTypeChecker)
         val sequentialFacts = when (edge) {
             is ZeroToZero -> flowFunction.propagateZeroToZero()
             is ZeroToFact -> flowFunction.propagateZeroToFact(edge.fact)
             is FactToFact -> flowFunction.propagateFactToFact(edge.initialFact, edge.fact)
         }
 
-        for (successor in graph.successors(currentStatement)) {
+        for (successor in graph.successors(edge.statement)) {
             for (sf in sequentialFacts) {
                 val newEdge = when (sf) {
-                    Sequent.ZeroToZero -> ZeroToZero(entryPointStatement, successor)
+                    Sequent.ZeroToZero -> ZeroToZero(methodEntryPoint, successor)
 
                     is Sequent.ZeroToFact ->
-                        ZeroToFact(entryPointStatement, successor, sf.fact)
+                        ZeroToFact(methodEntryPoint, successor, sf.fact)
 
                     is Sequent.FactToFact ->
-                        FactToFact(entryPointStatement, sf.initialFact, successor, sf.fact)
+                        FactToFact(methodEntryPoint, sf.initialFact, successor, sf.fact)
                 }
 
                 addSequentialEdge(edge, newEdge)
@@ -167,29 +161,26 @@ class NormalMethodAnalyzer(
         }
     }
 
-    private fun callStatementStep(currentStatement: JIRInst, callExpr: JIRCallExpr, edge: Edge) {
-        val callees = graph.callees(currentStatement)
-            .filter { unitResolver.resolve(it) != UnknownUnit }
-            .toList()
-
-        val returnValue: JIRImmediate? = (currentStatement as? JIRAssignInst)?.lhv?.let {
-            it as? JIRImmediate ?: error("Non simple return value: $currentStatement")
+    private fun callStatementStep(callExpr: JIRCallExpr, edge: Edge) {
+        val returnValue: JIRImmediate? = (edge.statement as? JIRAssignInst)?.lhv?.let {
+            it as? JIRImmediate ?: error("Non simple return value: ${edge.statement}")
         }
 
         val flowFunction = MethodCallFlowFunction(
             taintConfig,
             returnValue,
             callExpr,
-            callees,
+            methodEntryPoint.context,
+            callResolver,
             factTypeChecker,
             edge.statement,
             taintSinkTracker
         )
 
-        val returnSites = graph.successors(currentStatement).toList()
+        val returnSites = graph.successors(edge.statement).toList()
 
         when (edge) {
-            is ZeroInitialEdge ->{
+            is ZeroInitialEdge -> {
                 val callFacts = when (edge) {
                     is ZeroToZero -> flowFunction.propagateZeroToZero()
                     is ZeroToFact -> flowFunction.propagateZeroToFact(edge.fact)
@@ -210,31 +201,35 @@ class NormalMethodAnalyzer(
         when (fact) {
             MethodCallFlowFunction.CallToReturnZeroFact -> {
                 for (returnSite in returnSites) {
-                    val newEdge = ZeroToZero(entryPointStatement, returnSite)
+                    val newEdge = ZeroToZero(methodEntryPoint, returnSite)
                     addSequentialEdge(edge, newEdge)
                 }
             }
 
             is MethodCallFlowFunction.CallToReturnZFact -> {
                 for (returnSite in returnSites) {
-                    val newEdge = ZeroToFact(entryPointStatement, returnSite, fact.fact)
+                    val newEdge = ZeroToFact(methodEntryPoint, returnSite, fact.fact)
                     addSequentialEdge(edge, newEdge)
                 }
             }
 
             is MethodCallFlowFunction.CallToStartZeroFact -> {
-                val callerEdge = ZeroToZero(entryPointStatement, edge.statement)
+                val callerEdge = ZeroToZero(methodEntryPoint, edge.statement)
 
-                val methodEntryPoints = graph.entryPoints(fact.method)
+                val methodEntryPoints = graph.entryPoints(fact.method.method)
+                    .map { MethodEntryPoint(fact.method.ctx, it) }
+
                 methodEntryPoints.forEach { ep ->
                     handleMethodCall(callerEdge, ep)
                 }
             }
 
             is MethodCallFlowFunction.CallToStartZFact -> {
-                val callerEdge = ZeroToFact(entryPointStatement, edge.statement, fact.callerFact)
+                val callerEdge = ZeroToFact(methodEntryPoint, edge.statement, fact.callerFact)
 
-                val methodEntryPoints = graph.entryPoints(fact.method)
+                val methodEntryPoints = graph.entryPoints(fact.method.method)
+                    .map { MethodEntryPoint(fact.method.ctx, it) }
+
                 methodEntryPoints.forEach { ep ->
                     handleMethodCall(callerEdge, ep, fact.startFactBase)
                 }
@@ -250,16 +245,18 @@ class NormalMethodAnalyzer(
         when (fact) {
             is MethodCallFlowFunction.CallToReturnFFact -> {
                 for (returnSite in returnSites) {
-                    val newEdge = FactToFact(entryPointStatement, fact.initialFact, returnSite, fact.fact)
+                    val newEdge = FactToFact(methodEntryPoint, fact.initialFact, returnSite, fact.fact)
                     addSequentialEdge(edge, newEdge)
                 }
             }
             is MethodCallFlowFunction.CallToStartFFact -> {
-                val callerEdge = FactToFact(entryPointStatement, fact.initialFact, edge.statement, fact.callerFact)
+                val callerEdge = FactToFact(methodEntryPoint, fact.initialFact, edge.statement, fact.callerFact)
 
                 handleInputFactChange(edge.initialFact, callerEdge.initialFact)
 
-                val methodEntryPoints = graph.entryPoints(fact.method)
+                val methodEntryPoints = graph.entryPoints(fact.method.method)
+                    .map { MethodEntryPoint(fact.method.ctx, it) }
+
                 methodEntryPoints.forEach { ep ->
                     handleMethodCall(callerEdge, ep, fact.startFactBase)
                 }
@@ -272,21 +269,21 @@ class NormalMethodAnalyzer(
     }
 
     private fun addInitialZeroEdge() {
-        val edge = ZeroToZero(entryPointStatement, entryPointStatement)
+        val edge = ZeroToZero(methodEntryPoint, methodEntryPoint.statement)
         edges.add(edge).forEach { newEdge ->
             enqueueNewEdge(newEdge)
         }
     }
 
     private fun addInitialZeroToFactEdge(fact: Fact.TaintedTree) {
-        val edge = ZeroToFact(entryPointStatement, entryPointStatement, fact)
+        val edge = ZeroToFact(methodEntryPoint, methodEntryPoint.statement, fact)
         edges.add(edge).forEach { newEdge ->
             enqueueNewEdge(newEdge)
         }
     }
 
     private fun addInitialEdge(initialFact: Fact.TaintedPath, fact: Fact.TaintedTree) {
-        val edge = FactToFact(entryPointStatement, initialFact, entryPointStatement, fact)
+        val edge = FactToFact(methodEntryPoint, initialFact, methodEntryPoint.statement, fact)
         edges.add(edge).forEach { newEdge ->
             enqueueNewEdge(newEdge)
         }
@@ -318,7 +315,7 @@ class NormalMethodAnalyzer(
 
     private fun newSummaryEdge(edge: Edge) {
         if (edge is ZeroToZero) {
-            runner.addNewSummaryEdges(entryPointStatement, listOf(edge))
+            runner.addNewSummaryEdges(methodEntryPoint, listOf(edge))
         } else {
             pendingSummaryEdges.add(edge)
         }
@@ -326,20 +323,20 @@ class NormalMethodAnalyzer(
 
     private fun flushPendingSummaryEdges() {
         if (pendingSummaryEdges.isNotEmpty()) {
-            runner.addNewSummaryEdges(entryPointStatement, pendingSummaryEdges.toList())
+            runner.addNewSummaryEdges(methodEntryPoint, pendingSummaryEdges.toList())
             pendingSummaryEdges.clear()
         }
     }
 
-    private fun handleMethodCall(currentEdge: ZeroToZero, methodEntryPoint: JIRInst) {
+    private fun handleMethodCall(currentEdge: ZeroToZero, methodEntryPoint: MethodEntryPoint) {
         runner.subscribeOnMethodSummaries(currentEdge, methodEntryPoint)
     }
 
-    private fun handleMethodCall(currentEdge: ZeroToFact, methodEntryPoint: JIRInst, methodInitialFactBase: AccessPathBase) {
+    private fun handleMethodCall(currentEdge: ZeroToFact, methodEntryPoint: MethodEntryPoint, methodInitialFactBase: AccessPathBase) {
         runner.subscribeOnMethodSummaries(currentEdge, methodEntryPoint, methodInitialFactBase)
     }
 
-    private fun handleMethodCall(currentEdge: FactToFact, methodEntryPoint: JIRInst, methodInitialFactBase: AccessPathBase) {
+    private fun handleMethodCall(currentEdge: FactToFact, methodEntryPoint: MethodEntryPoint, methodInitialFactBase: AccessPathBase) {
         runner.subscribeOnMethodSummaries(currentEdge, methodEntryPoint, methodInitialFactBase)
     }
 
@@ -350,8 +347,7 @@ class NormalMethodAnalyzer(
     override fun handleMethodSinkRequirement(
         currentEdge: FactToFact,
         methodInitialFactBase: AccessPathBase,
-        methodSinkRequirement: Fact.TaintedPath,
-        methodInitialStatement: JIRInst
+        methodSinkRequirement: Fact.TaintedPath
     ) {
         val methodInitialFact = currentEdge.fact.rebase(methodInitialFactBase)
         val summaryEdgeEffects = MethodSummaryEdgeApplicationUtils.tryApplySummaryEdge(
@@ -373,7 +369,7 @@ class NormalMethodAnalyzer(
         if (currentEdge is FactToFact) {
             handleInputFactChange(currentEdge.initialFact, sinkRequirement)
         }
-        runner.addNewSinkRequirement(entryPointStatement, sinkRequirement)
+        runner.addNewSinkRequirement(methodEntryPoint, sinkRequirement)
     }
 
     override fun handleZeroToZeroMethodSummaryEdge(
@@ -388,7 +384,7 @@ class NormalMethodAnalyzer(
             when (methodSummary) {
                 is ZeroToZero -> {
                     for (returnSite in graph.successors(currentEdge.statement)) {
-                        val newEdge = ZeroToZero(entryPointStatement, returnSite)
+                        val newEdge = ZeroToZero(methodEntryPoint, returnSite)
                         addSequentialEdge(currentEdge, newEdge)
                     }
                 }
@@ -399,7 +395,7 @@ class NormalMethodAnalyzer(
                     ) ?: continue
 
                     for (returnSite in graph.successors(currentEdge.statement)) {
-                        val newEdge = ZeroToFact(entryPointStatement, returnSite, summaryExitFact)
+                        val newEdge = ZeroToFact(methodEntryPoint, returnSite, summaryExitFact)
                         addSequentialEdge(currentEdge, newEdge)
                     }
                 }
@@ -524,14 +520,14 @@ class NormalMethodAnalyzer(
         currentEdge: FactToFact
     ) {
         for (returnSite in graph.successors(currentEdge.statement)) {
-            val newEdge = FactToFact(entryPointStatement, initialFact, returnSite, summaryFact)
+            val newEdge = FactToFact(methodEntryPoint, initialFact, returnSite, summaryFact)
             addSequentialEdge(currentEdge, newEdge)
         }
     }
 
     private fun handleZeroToFactMethodSummaryEdge(summaryFact: Fact.TaintedTree, currentEdge: ZeroToFact) {
         for (returnSite in graph.successors(currentEdge.statement)) {
-            val newEdge = ZeroToFact(entryPointStatement, returnSite, summaryFact)
+            val newEdge = ZeroToFact(methodEntryPoint, returnSite, summaryFact)
             addSequentialEdge(currentEdge, newEdge)
         }
     }
@@ -694,7 +690,7 @@ class NormalMethodAnalyzer(
 
 class EmptyMethodAnalyzer(
     private val runner: AnalysisRunner,
-    private val entryPointStatement: JIRInst
+    private val methodEntryPoint: MethodEntryPoint
 ) : MethodAnalyzer {
     private var zeroInitialFactProcessed: Boolean = false
     private val taintedInitialFacts = hashMapOf<TaintMark, MutableSet<AccessPathBase>>()
@@ -703,8 +699,8 @@ class EmptyMethodAnalyzer(
         if (!zeroInitialFactProcessed) {
             zeroInitialFactProcessed = true
             runner.addNewSummaryEdges(
-                entryPointStatement,
-                listOf(ZeroToZero(entryPointStatement, entryPointStatement))
+                methodEntryPoint,
+                listOf(ZeroToZero(methodEntryPoint, methodEntryPoint.statement))
             )
         }
     }
@@ -724,8 +720,8 @@ class EmptyMethodAnalyzer(
         val fact = Fact.TaintedTree(mark, factAp)
 
         runner.addNewSummaryEdges(
-            entryPointStatement,
-            listOf(FactToFact(entryPointStatement, initialFact, entryPointStatement, fact))
+            methodEntryPoint,
+            listOf(FactToFact(methodEntryPoint, initialFact, methodEntryPoint.statement, fact))
         )
     }
 
@@ -761,8 +757,7 @@ class EmptyMethodAnalyzer(
     override fun handleMethodSinkRequirement(
         currentEdge: FactToFact,
         methodInitialFactBase: AccessPathBase,
-        methodSinkRequirement: Fact.TaintedPath,
-        methodInitialStatement: JIRInst
+        methodSinkRequirement: Fact.TaintedPath
     ) {
         error("Empty method should not receive sink requirements")
     }

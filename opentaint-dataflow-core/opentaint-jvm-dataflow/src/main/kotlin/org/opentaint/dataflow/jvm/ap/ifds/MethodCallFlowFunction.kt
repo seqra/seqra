@@ -29,7 +29,8 @@ class MethodCallFlowFunction(
     private val config: TaintRulesProvider,
     private val returnValue: JIRImmediate?,
     private val callExpr: JIRCallExpr,
-    private val callees: List<JIRMethod>,
+    private val callerMethodContext: MethodContext,
+    private val callResolver: JIRCallResolver,
     private val factTypeChecker: FactTypeChecker,
     private val statement: JIRInst,
     private val sinkTracker: TaintSinkTracker
@@ -42,7 +43,7 @@ class MethodCallFlowFunction(
 
     data class CallToStartZeroFact(
         val callExpr: JIRCallExpr,
-        val method: JIRMethod
+        val method: MethodWithContext
     ) : ZeroCallFact
 
     data class CallToReturnFFact(
@@ -55,7 +56,7 @@ class MethodCallFlowFunction(
         val callerFact: Fact.TaintedTree,
         val startFactBase: AccessPathBase,
         val callExpr: JIRCallExpr,
-        val method: JIRMethod
+        val method: MethodWithContext
     ) : FactCallFact
 
     data class CallToReturnZFact(
@@ -66,7 +67,7 @@ class MethodCallFlowFunction(
         val callerFact: Fact.TaintedTree,
         val startFactBase: AccessPathBase,
         val callExpr: JIRCallExpr,
-        val method: JIRMethod
+        val method: MethodWithContext
     ) : ZeroCallFact
 
     data class SinkRequirement(
@@ -92,6 +93,7 @@ class MethodCallFlowFunction(
             return@buildSet
         }
 
+        val callees = callResolver.resolve(callExpr, statement, callerMethodContext)
         callees.mapTo(this) { CallToStartZeroFact(callExpr, it) }
     }
 
@@ -153,7 +155,7 @@ class MethodCallFlowFunction(
             callerFact: Fact.TaintedTree,
             startFactBase: AccessPathBase,
             callExpr: JIRCallExpr,
-            callee: JIRMethod
+            callee: MethodWithContext
         ) -> Unit,
     ) {
         run {
@@ -201,13 +203,15 @@ class MethodCallFlowFunction(
             callerFact: Fact.TaintedTree,
             startFactBase: AccessPathBase,
             callExpr: JIRCallExpr,
-            callee: JIRMethod
+            callee: MethodWithContext
         ) -> Unit,
     ) {
         if (!factCanBeModifiedByMethodCall(returnValue, callExpr, fact)) {
             addCallToReturn(factReader, fact)
             return
         }
+
+        val callees = callResolver.resolve(callExpr, statement, callerMethodContext)
 
         if (callees.isEmpty()) {
             addCallToReturn(factReader, fact)
@@ -216,11 +220,11 @@ class MethodCallFlowFunction(
 
         for (callee in callees) {
             // FIXME: adhoc for constructors:
-            if (callee.isConstructor) {
+            if (callee.method.isConstructor) {
                 addCallToReturn(factReader, fact)
             }
 
-            mapMethodCallToStartFlowFact(callee, callExpr, fact, factTypeChecker) { callerFact, startFactBase ->
+            mapMethodCallToStartFlowFact(callee.method, callExpr, fact, factTypeChecker) { callerFact, startFactBase ->
                 addCallToStart(factReader, callerFact, startFactBase, callExpr, callee)
             }
         }

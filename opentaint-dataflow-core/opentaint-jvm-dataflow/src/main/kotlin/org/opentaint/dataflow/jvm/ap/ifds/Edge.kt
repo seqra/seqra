@@ -4,13 +4,16 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.taint.configuration.TaintMark
 
 sealed interface Edge {
-    val initialStatement: JIRInst
+    val methodEntryPoint: MethodEntryPoint
     val statement: JIRInst
 
     sealed interface ZeroInitialEdge: Edge
 
-    class ZeroToZero(override val initialStatement: JIRInst, override val statement: JIRInst) : ZeroInitialEdge {
-        override fun toString(): String = "(Z -> Z)[$initialStatement -> $statement]]"
+    class ZeroToZero(
+        override val methodEntryPoint: MethodEntryPoint,
+        override val statement: JIRInst
+    ) : ZeroInitialEdge {
+        override fun toString(): String = "(Z -> Z)[$methodEntryPoint -> $statement]]"
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -18,27 +21,27 @@ sealed interface Edge {
 
             other as ZeroToZero
 
-            if (initialStatement != other.initialStatement) return false
+            if (methodEntryPoint != other.methodEntryPoint) return false
             if (statement != other.statement) return false
 
             return true
         }
 
         override fun hashCode(): Int {
-            var result = initialStatement.hashCode()
+            var result = methodEntryPoint.hashCode()
             result = 31 * result + statement.hashCode()
             return result
         }
     }
 
     class ZeroToFact private constructor(
-        override val initialStatement: JIRInst,
+        override val methodEntryPoint: MethodEntryPoint,
         override val statement: JIRInst,
         private val factMark: TaintMark,
         private val factAp: AccessTree
     ) : ZeroInitialEdge {
-        constructor(initialStatement: JIRInst, statement: JIRInst, fact: Fact.TaintedTree) :
-                this(initialStatement, statement, fact.mark, fact.ap)
+        constructor(methodEntryPoint: MethodEntryPoint, statement: JIRInst, fact: Fact.TaintedTree) :
+                this(methodEntryPoint, statement, fact.mark, fact.ap)
 
         init {
             check(fact.ap.exclusions is ExclusionSet.Universe) {
@@ -48,7 +51,7 @@ sealed interface Edge {
 
         val fact: Fact.TaintedTree get() = Fact.TaintedTree(factMark, factAp)
 
-        override fun toString(): String = "(Z -> $fact)[$initialStatement -> $statement]"
+        override fun toString(): String = "(Z -> $fact)[$methodEntryPoint -> $statement]"
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -56,7 +59,7 @@ sealed interface Edge {
 
             other as ZeroToFact
 
-            if (initialStatement != other.initialStatement) return false
+            if (methodEntryPoint != other.methodEntryPoint) return false
             if (statement != other.statement) return false
             if (factMark != other.factMark) return false
             if (factAp != other.factAp) return false
@@ -65,7 +68,7 @@ sealed interface Edge {
         }
 
         override fun hashCode(): Int {
-            var result = initialStatement.hashCode()
+            var result = methodEntryPoint.hashCode()
             result = 31 * result + statement.hashCode()
             result = 31 * result + factMark.hashCode()
             result = 31 * result + factAp.hashCode()
@@ -74,15 +77,15 @@ sealed interface Edge {
     }
 
     class FactToFact private constructor(
-        override val initialStatement: JIRInst,
+        override val methodEntryPoint: MethodEntryPoint,
         private val initialFactMark: TaintMark,
         private val initialFactAp: AccessPath,
         override val statement: JIRInst,
         private val factMark: TaintMark,
         private val factAp: AccessTree
     ) : Edge {
-        constructor(initialStatement: JIRInst, initialFact: Fact.TaintedPath, statement: JIRInst, fact: Fact.TaintedTree) :
-                this(initialStatement, initialFact.mark, initialFact.ap, statement, fact.mark, fact.ap)
+        constructor(methodEntryPoint: MethodEntryPoint, initialFact: Fact.TaintedPath, statement: JIRInst, fact: Fact.TaintedTree) :
+                this(methodEntryPoint, initialFact.mark, initialFact.ap, statement, fact.mark, fact.ap)
 
         init {
             check(fact.ap.exclusions !is ExclusionSet.Universe) {
@@ -94,7 +97,7 @@ sealed interface Edge {
 
         val fact: Fact.TaintedTree get() = Fact.TaintedTree(factMark, factAp)
 
-        override fun toString(): String = "($initialFact -> $fact)[$initialStatement -> $statement]"
+        override fun toString(): String = "($initialFact -> $fact)[$methodEntryPoint -> $statement]"
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -102,7 +105,7 @@ sealed interface Edge {
 
             other as FactToFact
 
-            if (initialStatement != other.initialStatement) return false
+            if (methodEntryPoint != other.methodEntryPoint) return false
             if (initialFactMark != other.initialFactMark) return false
             if (initialFactAp != other.initialFactAp) return false
             if (statement != other.statement) return false
@@ -113,7 +116,7 @@ sealed interface Edge {
         }
 
         override fun hashCode(): Int {
-            var result = initialStatement.hashCode()
+            var result = methodEntryPoint.hashCode()
             result = 31 * result + initialFactMark.hashCode()
             result = 31 * result + initialFactAp.hashCode()
             result = 31 * result + statement.hashCode()

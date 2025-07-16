@@ -27,21 +27,21 @@ class EdgeSerializer : KSerializer<Edge> {
 
     private fun Edge.repr(): EdgeRepresentation = when (this) {
         is Edge.ZeroToZero -> EdgeRepresentation(
-            initialStatement = initialStatement.repr(),
+            initialStatement = methodEntryPoint.statement.repr(),
             exitStatement = statement.repr(),
             initialFact = null,
             exitFact = null
         )
 
         is Edge.ZeroToFact -> EdgeRepresentation(
-            initialStatement = initialStatement.repr(),
+            initialStatement = methodEntryPoint.statement.repr(),
             exitStatement = statement.repr(),
             initialFact = null,
             exitFact = fact.repr()
         )
 
         is Edge.FactToFact -> EdgeRepresentation(
-            initialStatement = initialStatement.repr(),
+            initialStatement = methodEntryPoint.statement.repr(),
             exitStatement = statement.repr(),
             initialFact = initialFact.repr(),
             exitFact = fact.repr()

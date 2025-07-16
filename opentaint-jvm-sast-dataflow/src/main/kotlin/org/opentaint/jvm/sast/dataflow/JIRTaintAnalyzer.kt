@@ -12,7 +12,6 @@ import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.api.jvm.ext.isSubClassOf
 import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.approximation.JIREnrichedVirtualMethod
-import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.ir.taint.configuration.ConstantTrue
 import org.opentaint.ir.taint.configuration.TaintMethodSink
@@ -30,9 +29,9 @@ import org.opentaint.dataflow.ifds.TraceGraph
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.ifds.Vertex
+import org.opentaint.dataflow.jvm.ap.ifds.JIRSingleEntryPointApplicationGraph
 import org.opentaint.dataflow.jvm.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.jvm.graph.JIRApplicationGraphImpl
-import org.opentaint.dataflow.jvm.graph.defaultBannedPackagePrefixes
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.jvm.ifds.PackageUnit
 import org.opentaint.dataflow.jvm.util.JIRTraits
@@ -62,14 +61,8 @@ class JIRTaintAnalyzer(
 ) {
     private val ifdsAnalysisGraph by lazy {
         val usages = runBlocking { cp.usagesExt() }
-        val hierarchy = runBlocking { cp.hierarchyExt() }
-
         val mainGraph = JIRApplicationGraphImpl(cp, usages)
-        JIRSimplifiedApplicationGraph(
-            mainGraph, hierarchy,
-            bannedLocations = dependenciesLocations,
-            bannedPackagePrefixes = defaultBannedPackagePrefixes
-        )
+        JIRSingleEntryPointApplicationGraph(mainGraph)
     }
 
     private val taintConfig by lazy { taintConfig() }

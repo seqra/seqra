@@ -17,19 +17,22 @@ import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.taint.configuration.AnyArgument
 import org.opentaint.ir.taint.configuration.Argument
 import org.opentaint.ir.taint.configuration.Position
+import org.opentaint.ir.taint.configuration.PositionAccessor
 import org.opentaint.ir.taint.configuration.PositionResolver
+import org.opentaint.ir.taint.configuration.PositionWithAccess
 import org.opentaint.ir.taint.configuration.Result
 import org.opentaint.ir.taint.configuration.ResultAnyElement
 import org.opentaint.ir.taint.configuration.This
 import org.opentaint.dataflow.ifds.Maybe
+import org.opentaint.dataflow.ifds.flatFmap
+import org.opentaint.dataflow.ifds.fmap
 import org.opentaint.dataflow.ifds.toMaybe
 import org.opentaint.dataflow.jvm.util.getArgument
 import org.opentaint.dataflow.jvm.util.thisInstance
 
 sealed interface PositionAccess {
-    val base: AccessPathBase
-    data class Base(override val base: AccessPathBase) : PositionAccess
-    data class ArrayElement(override val base: AccessPathBase) : PositionAccess
+    data class Simple(val base: AccessPathBase) : PositionAccess
+    data class Complex(val base: PositionAccess, val accessor: Accessor) : PositionAccess
 }
 
 class CallPositionToAccessPathResolver(
@@ -37,37 +40,52 @@ class CallPositionToAccessPathResolver(
     private val returnValue: JIRImmediate?,
     private val readArgElementsIfArray: Boolean = false,
 ) : PositionResolver<Maybe<List<PositionAccess>>> {
-    override fun resolve(position: Position): Maybe<List<PositionAccess>> = when (position) {
+    override fun resolve(position: Position): Maybe<List<PositionAccess>> =
+        resolvePosition(position).fmap { resolvedPos ->
+            when (position) {
+                is Result -> if (returnValue != null && returnValue.type.mayBeArray()) {
+                    val withArrayAccess = PositionAccess.Complex(resolvedPos, ElementAccessor)
+                    listOf(resolvedPos, withArrayAccess)
+                } else {
+                    listOf(resolvedPos)
+                }
+
+                is Argument -> {
+                    val arg = callExpr.args[position.index]
+                    if (readArgElementsIfArray && arg.type.mayBeArray()) {
+                        val withArrayAccess = PositionAccess.Complex(resolvedPos, ElementAccessor)
+                        listOf(resolvedPos, withArrayAccess)
+                    } else {
+                        listOf(resolvedPos)
+                    }
+                }
+
+                else -> listOf(resolvedPos)
+            }
+        }
+
+    private fun resolvePosition(position: Position): Maybe<PositionAccess> = when (position) {
         AnyArgument -> Maybe.none()
-        is Argument -> callExpr.args.getOrNull(position.index)?.let { arg ->
-            if (readArgElementsIfArray && arg.type.mayBeArray()) {
-                // todo: hack for rules with arrays
-                arg.base()?.plus(arg.arrayElem() ?: emptyList())
-            } else {
-                arg.base()
-            }
-        }.toMaybe()
+        is Argument -> callExpr.args.getOrNull(position.index)?.base().toMaybe()
         This -> (callExpr as? JIRInstanceCallExpr)?.instance?.base().toMaybe()
+        Result -> returnValue?.base().toMaybe()
         ResultAnyElement -> returnValue?.arrayElem().toMaybe()
-        Result -> returnValue?.let {
-            if (it.type.mayBeArray()) {
-                // todo: hack for rules with arrays
-                it.base()?.plus(it.arrayElem() ?: emptyList())
-            } else {
-                it.base()
+        is PositionWithAccess -> resolvePosition(position.base).fmap { pos ->
+            val accessor = when (val a = position.access) {
+                PositionAccessor.ElementAccessor -> ElementAccessor
+                is PositionAccessor.FieldAccessor -> FieldAccessor(a.className, a.fieldName, a.fieldType)
             }
-        }.toMaybe()
+            PositionAccess.Complex(pos, accessor)
+        }
     }
 
     private fun JIRValue.base() = (this as JIRImmediate).base()
 
-    private fun JIRImmediate.base(): List<PositionAccess>? =
-        accessPathBase(this)?.let { listOf(PositionAccess.Base(it)) }
+    private fun JIRImmediate.base(): PositionAccess? =
+        accessPathBase(this)?.let { PositionAccess.Simple(it) }
 
-    private fun JIRValue.arrayElem() = (this as JIRImmediate).arrayElem()
-
-    private fun JIRImmediate.arrayElem(): List<PositionAccess>? =
-        accessPathBase(this)?.let { listOf(PositionAccess.ArrayElement(it)) }
+    private fun JIRImmediate.arrayElem(): PositionAccess? =
+        accessPathBase(this)?.let { PositionAccess.Complex(PositionAccess.Simple(it), ElementAccessor) }
 
     private fun JIRType.mayBeArray(): Boolean = when (this) {
         is JIRArrayType -> true
@@ -91,14 +109,24 @@ class CallPositionToJIRValueResolver(
         This -> (callExpr as? JIRInstanceCallExpr)?.instance.toMaybe()
         Result -> returnValue.toMaybe()
         ResultAnyElement -> Maybe.none()
+        is PositionWithAccess -> Maybe.none() // todo?
     }
 }
 
 class CalleePositionToAccessPath : PositionResolver<Maybe<List<PositionAccess>>> {
     override fun resolve(position: Position): Maybe<List<PositionAccess>> = when (position) {
         AnyArgument -> Maybe.none()
-        is Argument -> listOf(PositionAccess.Base(AccessPathBase.Argument(position.index))).toMaybe()
-        This -> listOf(PositionAccess.Base(AccessPathBase.This)).toMaybe()
+        is Argument -> listOf(PositionAccess.Simple(AccessPathBase.Argument(position.index))).toMaybe()
+        This -> listOf(PositionAccess.Simple(AccessPathBase.This)).toMaybe()
+
+        is PositionWithAccess -> resolve(position.base).flatFmap { pos ->
+            val accessor = when (val a = position.access) {
+                PositionAccessor.ElementAccessor -> ElementAccessor
+                is PositionAccessor.FieldAccessor -> FieldAccessor(a.className, a.fieldName, a.fieldType)
+            }
+            listOf(PositionAccess.Complex(pos, accessor))
+        }
+
         // Inapplicable callee positions
         Result -> Maybe.none()
         ResultAnyElement -> Maybe.none()
@@ -114,20 +142,22 @@ class CalleePositionToJIRValueResolver(
         AnyArgument -> Maybe.none()
         is Argument -> cp.getArgument(method.parameters[position.index]).toMaybe()
         This -> method.thisInstance.toMaybe()
+        is PositionWithAccess -> resolve(position.base).fmap { TODO() }
         // Inapplicable callee positions
         Result -> Maybe.none()
         ResultAnyElement -> Maybe.none()
     }
 }
 
-class MethodPositionTypeResolver(private val method: JIRMethod) : PositionResolver<JIRType?> {
-    private val cp = method.enclosingClass.classpath
+class MethodPositionBaseTypeResolver(private val method: JIRMethod) : PositionResolver<JIRType?> {
+    val cp = method.enclosingClass.classpath
 
     override fun resolve(position: Position): JIRType? = when (position) {
         This -> method.enclosingClass.toType()
         is Argument -> method.parameters.getOrNull(position.index)?.let { cp.findTypeOrNull(it.type.typeName) }
         Result -> cp.findTypeOrNull(method.returnType.typeName)
         ResultAnyElement -> cp.findTypeOrNull(method.returnType.typeName)
+        is PositionWithAccess -> resolve(position.base)
         AnyArgument -> error("Unexpected position: $position")
     }
 }

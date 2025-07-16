@@ -2,8 +2,8 @@ package org.opentaint.dataflow.jvm.ap.ifds
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -33,8 +33,6 @@ import org.opentaint.ir.taint.configuration.TaintPassThrough
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.jvm.ap.ifds.TaintSinkTracker.TaintVulnerability
-import org.opentaint.dataflow.taint.TaintVulnerability as OldTaintVulnerability
-import org.opentaint.dataflow.ifds.AccessPath as OldAccessPath
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.taint.TaintVertex
 import org.opentaint.dataflow.taint.TaintZeroFact
@@ -43,55 +41,56 @@ import java.io.OutputStream
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import org.opentaint.dataflow.ifds.AccessPath as OldAccessPath
+import org.opentaint.dataflow.taint.TaintVulnerability as OldTaintVulnerability
 
 class TaintAnalysisUnitRunnerManager(
     val graph: JIRApplicationGraph,
     val unitResolver: JIRUnitResolver,
     val taintRuleFilter: TaintRuleFilter? = null
 ): AutoCloseable {
-    data class WorkListEmptyEvent(val unit: UnitType, val isEmpty: Boolean)
-
     class UnitStorage {
         private val vulnerabilities = ConcurrentLinkedQueue<TaintVulnerability>()
-        private val methodSummaries = ConcurrentHashMap<JIRInst, SummaryEdgeStorageWithSubscribers>()
+        private val methodSummaries = ConcurrentHashMap<MethodEntryPoint, SummaryEdgeStorageWithSubscribers>()
 
         fun subscribeOnMethodEntryPointSummaries(
-            methodEntryPoint: JIRInst,
+            methodEntryPoint: MethodEntryPoint,
             handler: SummaryEdgeStorageWithSubscribers.Subscriber
         ) {
             val methodStorage = methodSummaryEdges(methodEntryPoint)
             methodStorage.subscribeOnEdges(handler)
         }
 
-        fun methodZeroSummaries(methodEntryPoint: JIRInst): Iterator<Edge.ZeroInitialEdge> {
+        fun methodZeroSummaries(methodEntryPoint: MethodEntryPoint): Iterator<Edge.ZeroInitialEdge> {
             val methodStorage = methodSummaryEdges(methodEntryPoint)
             return methodStorage.zeroEdgesIterator()
         }
 
-        fun methodFactSummaries(methodEntryPoint: JIRInst, initialFact: Fact.TaintedTree): Iterator<Edge.FactToFact> {
+        fun methodFactSummaries(methodEntryPoint: MethodEntryPoint, initialFact: Fact.TaintedTree): Iterator<Edge.FactToFact> {
             val methodStorage = methodSummaryEdges(methodEntryPoint)
             return methodStorage.factEdgesIterator(initialFact)
         }
 
-        fun addSummaryEdges(initialStatement: JIRInst, edges: List<Edge>) {
+        fun addSummaryEdges(initialStatement: MethodEntryPoint, edges: List<Edge>) {
             val methodStorage = methodSummaryEdges(initialStatement)
             methodStorage.addEdges(edges)
         }
 
-        fun methodSinkRequirements(initialStatement: JIRInst, initialFact: Fact.TaintedTree): Iterator<Fact.TaintedPath> {
+        fun methodSinkRequirements(initialStatement: MethodEntryPoint, initialFact: Fact.TaintedTree): Iterator<Fact.TaintedPath> {
             val methodStorage = methodSummaryEdges(initialStatement)
             return methodStorage.sinkRequirementIterator(initialFact)
         }
 
-        fun addSinkRequirement(initialStatement: JIRInst, requirement: Fact.TaintedPath) {
+        fun addSinkRequirement(initialStatement: MethodEntryPoint, requirement: Fact.TaintedPath) {
             val methodStorage = methodSummaryEdges(initialStatement)
             methodStorage.addSinkRequirement(requirement)
         }
 
-        private fun methodSummaryEdges(methodEntryPoint: JIRInst) =
+        private fun methodSummaryEdges(methodEntryPoint: MethodEntryPoint) =
             methodSummaries.computeIfAbsent(methodEntryPoint) { SummaryEdgeStorageWithSubscribers(methodEntryPoint) }
 
         fun addVulnerability(vulnerability: TaintVulnerability) {
@@ -107,10 +106,10 @@ class TaintAnalysisUnitRunnerManager(
         }
 
         fun allSummaries(): Map<JIRClassOrInterface, Map<JIRMethod, Sequence<Edge>>> {
-            val classSummaries = methodSummaries.entries.groupBy { it.key.location.method.enclosingClass }
+            val classSummaries = methodSummaries.entries.groupBy { it.key.method.enclosingClass }
             return classSummaries.mapValues { (_, summaries) ->
                 summaries.groupBy(
-                    { it.key.location.method },
+                    { it.key.method },
                     {
                         val zeroEdges = it.value.zeroEdgesIterator().asSequence()
                         val factEdges = it.value.factEdgesIterator().asSequence()
@@ -169,13 +168,13 @@ class TaintAnalysisUnitRunnerManager(
 
     }
 
-    private val methodsForUnit: MutableMap<UnitType, MutableSet<JIRMethod>> = hashMapOf()
-    private val runnerForUnit: MutableMap<UnitType, TaintAnalysisUnitRunner> = hashMapOf()
-    private val queueIsEmpty = ConcurrentHashMap<UnitType, Boolean>()
-
-    private val unitStorage: MutableMap<UnitType, UnitStorage> = hashMapOf()
-
+    private val runnerForUnit = ConcurrentHashMap<UnitType, TaintAnalysisUnitRunner>()
+    private val unitStorage = ConcurrentHashMap<UnitType, UnitStorage>()
+    private val runnerJobs = ConcurrentLinkedQueue<Job>()
     private val stopSignal = CompletableDeferred<Unit>()
+
+    private val totalEventsProcessed = AtomicInteger()
+    private val totalEventsEnqueued = AtomicInteger()
 
     @OptIn(DelicateCoroutinesApi::class)
     private val analyzerDispatcher = newFixedThreadPoolContext(
@@ -200,10 +199,6 @@ class TaintAnalysisUnitRunnerManager(
 
         (analyzerDispatcher.executor as? ExecutorService)?.shutdownNow()
         (progressDispatcher.executor as? ExecutorService)?.shutdownNow()
-    }
-
-    fun addStart(method: JIRMethod) {
-        registerEntryPoints(listOf(method))
     }
 
     // Analyze with compatibility
@@ -234,36 +229,27 @@ class TaintAnalysisUnitRunnerManager(
     fun runAnalysis(startMethods: List<JIRMethod>, timeout: Duration, cancellationTimeout: Duration) {
         val timeStart = TimeSource.Monotonic.markNow()
 
-        // Add start methods:
-        registerEntryPoints(startMethods)
+        val unitStartMethods = startMethods.groupBy { unitResolver.resolve(it) }.filterKeys { it != UnknownUnit }
 
-        // Determine all units:
-        val allUnits = methodsForUnit.keys.toList()
-        logger.info {
-            val numMethods = methodsForUnit.values.sumOf { it.size }
-            "Starting analysis of $numMethods methods in ${allUnits.size} units"
+        logger.info { "Starting analysis of ${startMethods.size} methods in ${unitStartMethods.size} units" }
+
+        handleEventEnqueued()
+
+        for ((unit, methods) in unitStartMethods) {
+            val runner = getOrSpawnUnitRunner(unit)
+            runner?.submitStartMethods(methods)
         }
 
-        // Spawn runner jobs:
-        val allJobs = allUnits.map { unit ->
-            // Create the runner:
-            val runner = newRunner(unit)
-
-            // Start the runner:
-            analyzerScope.launch(start = CoroutineStart.LAZY) {
-                val methods = methodsForUnit[unit].orEmpty().toList()
-                runner.run(methods)
-            }
-        }
+        handleEventProcessed()
 
         // Spawn progress job:
         val progress = progressScope.launch {
-            var previousEnqueuedEdges = -1L
+            var previousEnqueuedEdges = -1
             while (isActive) {
                 delay(10.seconds)
                 val currentEnqueuedEdges = reportRunnerProgress()
 
-                if (previousEnqueuedEdges == 0L && currentEnqueuedEdges == 0L) {
+                if (previousEnqueuedEdges == 0 && currentEnqueuedEdges == 0) {
                     logger.error { "No enqueued edges, but analyzer didn't finished" }
                     stopSignal.complete(Unit)
                 }
@@ -272,39 +258,22 @@ class TaintAnalysisUnitRunnerManager(
             }
         }
 
-        // Spawn stopper job:
-        val stopper = progressScope.launch {
-            stopSignal.await()
-            logger.info { "Stopping all runners..." }
-            allJobs.forEach { it.cancel() }
-        }
-
-        // Start all runner jobs:
-        val timeStartJobs = TimeSource.Monotonic.markNow()
-        allJobs.forEach { it.start() }
-
-        // Await all runners:
         runBlocking {
-            withTimeoutOrNull(timeout) {
-                allJobs.joinAll()
-            } ?: run {
+            val timeoutFailure = withTimeoutOrNull(timeout) { stopSignal.await() }
+            if (timeoutFailure == null) {
                 logger.warn { "Ifds analysis timeout" }
-                runnerForUnit.values.forEach { it.cancel() }
-
-                withTimeoutOrNull(cancellationTimeout) {
-                    allJobs.forEach { it.cancel() }
-                    allJobs.joinAll()
-                }
             }
+
+            runnerForUnit.elements().asSequence().forEach { it.cancel() }
 
             withTimeoutOrNull(cancellationTimeout) {
                 progress.cancelAndJoin()
-                stopper.cancelAndJoin()
+                runnerJobs.forEach { it.cancel() }
+                runnerJobs.joinAll()
             }
         }
 
         reportRunnerProgress()
-        logger.info { "All ${allJobs.size} jobs completed in ${timeStartJobs.elapsedNow()}" }
         logger.info { "Analysis done in ${timeStart.elapsedNow()}" }
     }
 
@@ -319,102 +288,100 @@ class TaintAnalysisUnitRunnerManager(
             .also { logger.info { "Total vulnerabilities: ${it.size}" } }
     }
 
-
-    private fun registerEntryPoints(methods: List<JIRMethod>) {
-        val methodsWithUnresolvedDependencies = mutableListOf<JIRMethod>()
-        for (method in methods) {
-            val unit = unitResolver.resolve(method)
-            if (unit == UnknownUnit) continue
-
-            val unitMethods = methodsForUnit.getOrPut(unit) { hashSetOf() }
-            if (unitMethods.add(method)) {
-                methodsWithUnresolvedDependencies.add(method)
-            }
-        }
-
-        val resolvedMethods = hashSetOf<JIRMethod>()
-        while (methodsWithUnresolvedDependencies.isNotEmpty()) {
-            val method = methodsWithUnresolvedDependencies.removeLast()
-            if (!resolvedMethods.add(method)) continue
-
-            val unit = unitResolver.resolve(method)
-            if (unit == UnknownUnit) continue
-
-            methodsForUnit.getOrPut(unit) { hashSetOf() }
-
-            for (inst in method.instList) {
-                graph.callees(inst).filterTo(methodsWithUnresolvedDependencies) { it !in resolvedMethods }
-            }
+    private fun getOrSpawnUnitRunner(unit: UnitType): TaintAnalysisUnitRunner? {
+        if (unit == UnknownUnit) return null
+        return runnerForUnit.computeIfAbsent(unit) {
+            spawnNewRunner(unit)
         }
     }
 
-    private fun newRunner(unit: UnitType): TaintAnalysisUnitRunner {
-        check(unit !in runnerForUnit) { "Runner for $unit already exists" }
+    private fun spawnNewRunner(unit: UnitType): TaintAnalysisUnitRunner {
         val storage = unitStorage.getOrPut(unit) { UnitStorage() }
-
         val sinkTracker = TaintSinkTracker(storage)
-        val runner = TaintAnalysisUnitRunner(this, unit, graph, unitResolver, taintConfig, factTypeChecker, sinkTracker)
-        runnerForUnit[unit] = runner
+        val callResolver = JIRCallResolver(graph, unitResolver)
+        val runner = TaintAnalysisUnitRunner(
+            this, unit, graph, callResolver, unitResolver, taintConfig, factTypeChecker, sinkTracker
+        )
+
+        val job = analyzerScope.launch { runner.runLoop() }
+        runnerJobs.add(job)
+
         return runner
     }
 
-    fun handleControlEvent(event: WorkListEmptyEvent) {
-        queueIsEmpty[event.unit] = event.isEmpty
-        if (event.isEmpty) {
-            if (runnerForUnit.keys.all { queueIsEmpty[it] == true }) {
-                logger.debug { "All runners are empty" }
-                stopSignal.complete(Unit)
-            }
+    fun handleEventEnqueued() {
+        totalEventsEnqueued.incrementAndGet()
+    }
+
+    fun handleEventProcessed() {
+        totalEventsProcessed.incrementAndGet()
+
+        val remainingEvents = totalEventsEnqueued.decrementAndGet()
+        if (remainingEvents == 0) {
+            logger.debug { "All runners are empty" }
+            stopSignal.complete(Unit)
         }
     }
 
-    fun handleCrossUnitZeroCall(methodEntryPoint: JIRInst) {
-        val unit = unitResolver.resolve(methodEntryPoint.location.method)
-        val runner = runnerForUnit[unit] ?: return
+    fun handleCrossUnitZeroCall(methodEntryPoint: MethodEntryPoint) {
+        val unit = unitResolver.resolve(methodEntryPoint.method)
+        val runner = getOrSpawnUnitRunner(unit) ?: return
         runner.submitExternalInitialZeroFact(methodEntryPoint)
     }
 
-    fun handleCrossUnitFactCall(methodEntryPoint: JIRInst, methodFact: Fact.TaintedTree) {
-        val unit = unitResolver.resolve(methodEntryPoint.location.method)
-        val runner = runnerForUnit[unit] ?: return
+    fun handleCrossUnitFactCall(methodEntryPoint: MethodEntryPoint, methodFact: Fact.TaintedTree) {
+        val unit = unitResolver.resolve(methodEntryPoint.method)
+        val runner = getOrSpawnUnitRunner(unit) ?: return
         runner.submitExternalInitialFact(methodEntryPoint, methodFact)
     }
 
-    fun newSummaryEdges(initialStatement: JIRInst, edges: List<Edge>) {
-        val unit = unitResolver.resolve(initialStatement.location.method)
+    fun newSummaryEdges(methodEntryPoint: MethodEntryPoint, edges: List<Edge>) {
+        val unit = unitResolver.resolve(methodEntryPoint.method)
+        getOrSpawnUnitRunner(unit) ?: return
+
         val storage = unitStorage.getValue(unit)
-        storage.addSummaryEdges(initialStatement, edges)
+        storage.addSummaryEdges(methodEntryPoint, edges)
     }
 
-    fun newSinkRequirement(initialStatement: JIRInst, requirement: Fact.TaintedPath) {
-        val unit = unitResolver.resolve(initialStatement.location.method)
+    fun newSinkRequirement(methodEntryPoint: MethodEntryPoint, requirement: Fact.TaintedPath) {
+        val unit = unitResolver.resolve(methodEntryPoint.method)
+        getOrSpawnUnitRunner(unit) ?: return
+
         val storage = unitStorage.getValue(unit)
-        storage.addSinkRequirement(initialStatement, requirement)
+        storage.addSinkRequirement(methodEntryPoint, requirement)
     }
 
     fun subscribeOnMethodEntryPointSummaries(
-        methodEntryPoint: JIRInst,
+        methodEntryPoint: MethodEntryPoint,
         handler: SummaryEdgeStorageWithSubscribers.Subscriber
     ) {
-        val unit = unitResolver.resolve(methodEntryPoint.location.method)
+        val unit = unitResolver.resolve(methodEntryPoint.method)
+        getOrSpawnUnitRunner(unit) ?: return
+
         val storage = unitStorage.getValue(unit)
         storage.subscribeOnMethodEntryPointSummaries(methodEntryPoint, handler)
     }
 
-    fun findZeroSummaryEdges(methodEntryPoint: JIRInst): Iterator<Edge.ZeroInitialEdge> {
-        val unit = unitResolver.resolve(methodEntryPoint.location.method)
+    fun findZeroSummaryEdges(methodEntryPoint: MethodEntryPoint): Iterator<Edge.ZeroInitialEdge> {
+        val unit = unitResolver.resolve(methodEntryPoint.method)
+        getOrSpawnUnitRunner(unit) ?: return emptyList<Edge.ZeroInitialEdge>().iterator()
+
         val storage = unitStorage.getValue(unit)
         return storage.methodZeroSummaries(methodEntryPoint)
     }
 
-    fun findFactSummaryEdges(methodEntryPoint: JIRInst, initialFact: Fact.TaintedTree): Iterator<Edge.FactToFact> {
-        val unit = unitResolver.resolve(methodEntryPoint.location.method)
+    fun findFactSummaryEdges(methodEntryPoint: MethodEntryPoint, initialFact: Fact.TaintedTree): Iterator<Edge.FactToFact> {
+        val unit = unitResolver.resolve(methodEntryPoint.method)
+        getOrSpawnUnitRunner(unit) ?: return emptyList<Edge.FactToFact>().iterator()
+
         val storage = unitStorage.getValue(unit)
         return storage.methodFactSummaries(methodEntryPoint, initialFact)
     }
 
-    fun findSinkRequirements(methodEntryPoint: JIRInst, initialFact: Fact.TaintedTree): Iterator<Fact.TaintedPath> {
-        val unit = unitResolver.resolve(methodEntryPoint.location.method)
+    fun findSinkRequirements(methodEntryPoint: MethodEntryPoint, initialFact: Fact.TaintedTree): Iterator<Fact.TaintedPath> {
+        val unit = unitResolver.resolve(methodEntryPoint.method)
+        getOrSpawnUnitRunner(unit) ?: return emptyList<Fact.TaintedPath>().iterator()
+
         val storage = unitStorage.getValue(unit)
         return storage.methodSinkRequirements(methodEntryPoint, initialFact)
     }
@@ -434,12 +401,10 @@ class TaintAnalysisUnitRunnerManager(
         json.encodeToStream(classSummaries, outputStream)
     }
 
-    private fun reportRunnerProgress(): Long {
+    private fun reportRunnerProgress(): Int {
         val stats = runnerForUnit.mapValues { it.value.stats() }
-        val totalProcessed = stats.values.sumOf { it.processed }
-        val totalEnqueued = stats.values.sumOf { it.enqueued }
 
-        logger.info { "Progress: ${totalProcessed}/${totalEnqueued}" }
+        logger.info { "Progress: ${totalEventsProcessed.get()}/${totalEventsEnqueued.get()}" }
         logger.info {
             val maxMemory = Runtime.getRuntime().maxMemory()
             val usedMemory = maxMemory - Runtime.getRuntime().freeMemory()
@@ -499,7 +464,7 @@ class TaintAnalysisUnitRunnerManager(
             }
         }
 
-        return totalEnqueued
+        return totalEventsEnqueued.get()
     }
 
     private fun percentToString(current: Long, total: Long): String {

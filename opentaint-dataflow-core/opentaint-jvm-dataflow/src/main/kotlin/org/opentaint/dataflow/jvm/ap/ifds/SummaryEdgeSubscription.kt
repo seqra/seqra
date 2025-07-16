@@ -16,9 +16,9 @@ class SummaryEdgeSubscriptionManager(
     private val manager: TaintAnalysisUnitRunnerManager,
     private val processingCtx: SummaryEdgeProcessingCtx
 ) {
-    private val methodSummarySubscriptions = Object2ObjectOpenHashMap<JIRInst, MethodSummarySubscription>()
+    private val methodSummarySubscriptions = Object2ObjectOpenHashMap<MethodEntryPoint, MethodSummarySubscription>()
 
-    private fun methodSubscriptions(methodEntryPoint: JIRInst) =
+    private fun methodSubscriptions(methodEntryPoint: MethodEntryPoint) =
         methodSummarySubscriptions.getOrPut(methodEntryPoint) {
             MethodSummarySubscription().also {
                 manager.subscribeOnMethodEntryPointSummaries(methodEntryPoint, methodSummaryHandler)
@@ -26,14 +26,14 @@ class SummaryEdgeSubscriptionManager(
         }
 
     fun subscribeOnMethodSummary(
-        methodEntryPoint: JIRInst,
+        methodEntryPoint: MethodEntryPoint,
         callerPathEdge: Edge.ZeroToZero
     ): Boolean {
         val methodSubscriptions = methodSubscriptions(methodEntryPoint)
 
         if (!methodSubscriptions.addZeroToZero(callerPathEdge)) return false
 
-        val callerAnalyzer = processingCtx.getMethodAnalyzer(callerPathEdge.initialStatement)
+        val callerAnalyzer = processingCtx.getMethodAnalyzer(callerPathEdge.methodEntryPoint)
         val summaries = manager.findZeroSummaryEdges(methodEntryPoint).asSequence().toList()
         if (summaries.isNotEmpty()) {
             callerAnalyzer.handleZeroToZeroMethodSummaryEdge(callerPathEdge, summaries)
@@ -43,14 +43,14 @@ class SummaryEdgeSubscriptionManager(
     }
 
     fun subscribeOnMethodSummary(
-        methodEntryPoint: JIRInst,
+        methodEntryPoint: MethodEntryPoint,
         calleeInitialFactBase: AccessPathBase,
         callerPathEdge: Edge.ZeroToFact
     ): Boolean {
         val methodSubscriptions = methodSubscriptions(methodEntryPoint)
 
         val addedSubscription = methodSubscriptions.addZeroToFact(calleeInitialFactBase, callerPathEdge) ?: return false
-        val callerAnalyzer = processingCtx.getMethodAnalyzer(callerPathEdge.initialStatement)
+        val callerAnalyzer = processingCtx.getMethodAnalyzer(callerPathEdge.methodEntryPoint)
 
         val calleeInitialFact = addedSubscription.callerPathEdge.fact.rebase(addedSubscription.calleeInitialFactBase)
         val summaries = manager.findFactSummaryEdges(methodEntryPoint, calleeInitialFact).asSequence().toList()
@@ -68,14 +68,14 @@ class SummaryEdgeSubscriptionManager(
     }
 
     fun subscribeOnMethodSummary(
-        methodEntryPoint: JIRInst,
+        methodEntryPoint: MethodEntryPoint,
         calleeInitialFactBase: AccessPathBase,
         callerPathEdge: Edge.FactToFact
     ): Boolean {
         val methodSubscriptions = methodSubscriptions(methodEntryPoint)
 
         val addedSubscription = methodSubscriptions.addFactToFact(calleeInitialFactBase, callerPathEdge) ?: return false
-        val callerAnalyzer = processingCtx.getMethodAnalyzer(callerPathEdge.initialStatement)
+        val callerAnalyzer = processingCtx.getMethodAnalyzer(callerPathEdge.methodEntryPoint)
 
         val calleeInitialFact = addedSubscription.callerPathEdge.fact.rebase(addedSubscription.calleeInitialFactBase)
         val summaries = manager.findFactSummaryEdges(methodEntryPoint, calleeInitialFact).asSequence().toList()
@@ -92,8 +92,7 @@ class SummaryEdgeSubscriptionManager(
             callerAnalyzer.handleMethodSinkRequirement(
                 addedSubscription.callerPathEdge,
                 addedSubscription.calleeInitialFactBase,
-                sinkRequirement,
-                methodEntryPoint
+                sinkRequirement
             )
         }
 
@@ -123,7 +122,7 @@ class SummaryEdgeSubscriptionManager(
             taintedStorage(callerPathEdge.fact.mark)
                 .addZeroToFact(
                     calleeInitialFactBase,
-                    callerPathEdge.initialStatement,
+                    callerPathEdge.methodEntryPoint,
                     callerPathEdge.statement,
                     callerPathEdge.fact.ap
                 )
@@ -133,7 +132,7 @@ class SummaryEdgeSubscriptionManager(
 
         fun findFactEdgeSub(
             summaryInitialFact: Fact.TaintedPath
-        ): Sequence<Pair<JIRInst, Sequence<FactEdgeSummarySubscription>>> {
+        ): Sequence<Pair<MethodEntryPoint, Sequence<FactEdgeSummarySubscription>>> {
             val m0 = summaryInitialFact.mark
             val same = sameMarkTaintedFactSubscriptions[m0]?.findFactEdge(summaryInitialFact.ap)?.map { (inst, subs) ->
                 inst to subs.map { it.setMarks(m0, m0) }
@@ -150,7 +149,7 @@ class SummaryEdgeSubscriptionManager(
 
         fun findZeroEdgeSub(
             summaryInitialFact: Fact.TaintedPath
-        ) : Sequence<Pair<JIRInst, Sequence<ZeroEdgeSummarySubscription>>>{
+        ) : Sequence<Pair<MethodEntryPoint, Sequence<ZeroEdgeSummarySubscription>>>{
             val m0 = summaryInitialFact.mark
             val same = sameMarkTaintedFactSubscriptions[m0]?.findZeroEdge(summaryInitialFact.ap)?.map { (inst, subs) ->
                 inst to subs.map { it.setMarks(m0) }
@@ -180,46 +179,46 @@ class SummaryEdgeSubscriptionManager(
     }
 
     private class MethodZeroFactSubscription {
-        private val subscriptions = Object2ObjectOpenHashMap<JIRInst, MutableSet<Edge.ZeroToZero>>()
+        private val subscriptions = Object2ObjectOpenHashMap<MethodEntryPoint, MutableSet<Edge.ZeroToZero>>()
 
         fun add(callerPathEdge: Edge.ZeroToZero): Boolean =
-            subscriptions.getOrPut(callerPathEdge.initialStatement) {
+            subscriptions.getOrPut(callerPathEdge.methodEntryPoint) {
                 ObjectOpenHashSet()
             }.add(callerPathEdge)
 
-        fun subscriptions(): Map<JIRInst, Set<Edge.ZeroToZero>> = subscriptions
+        fun subscriptions(): Map<MethodEntryPoint, Set<Edge.ZeroToZero>> = subscriptions
     }
 
     private class MethodTaintedFactSubscription {
-        private val subscriptions = Object2ObjectOpenHashMap<JIRInst, MutableMap<JIRInst, MethodAccessPathSubscription>>()
+        private val subscriptions = Object2ObjectOpenHashMap<MethodEntryPoint, MutableMap<JIRInst, MethodAccessPathSubscription>>()
 
         fun addZeroToFact(
             calleeInitialFactBase: AccessPathBase,
-            callerInitialStatement: JIRInst,
+            callerEntryPoint: MethodEntryPoint,
             callerExitStatement: JIRInst,
             callerFactAp: AccessTree
         ): ZeroEdgeSummarySubscription? =
-            subscriptions.getOrPut(callerInitialStatement) {
+            subscriptions.getOrPut(callerEntryPoint) {
                 Object2ObjectOpenHashMap()
             }.getOrPut(callerExitStatement) {
                 MethodAccessPathSubscription()
             }.addZeroToFact(calleeInitialFactBase, callerFactAp)
-                ?.setStatements(callerInitialStatement, callerExitStatement)
+                ?.setStatements(callerEntryPoint, callerExitStatement)
 
         fun addFactToFact(
             calleeInitialFactBase: AccessPathBase,
             callerPathEdge: Edge.FactToFact
         ): FactEdgeSummarySubscription? =
-            subscriptions.getOrPut(callerPathEdge.initialStatement) {
+            subscriptions.getOrPut(callerPathEdge.methodEntryPoint) {
                 Object2ObjectOpenHashMap()
             }.getOrPut(callerPathEdge.statement) {
                 MethodAccessPathSubscription()
             }.addFactToFact(calleeInitialFactBase, callerPathEdge.initialFact.ap, callerPathEdge.fact.ap)
-                ?.setStatements(callerPathEdge.initialStatement, callerPathEdge.statement)
+                ?.setStatements(callerPathEdge.methodEntryPoint, callerPathEdge.statement)
 
         fun findFactEdge(
             summaryInitialFactAp: AccessPath
-        ): Sequence<Pair<JIRInst, Sequence<FactEdgeSummarySubscription>>> =
+        ): Sequence<Pair<MethodEntryPoint, Sequence<FactEdgeSummarySubscription>>> =
             subscriptions.asSequence().map { (initialStmt, storage) ->
                 initialStmt to storage.asSequence().flatMap { (exitStmt, subs) ->
                     subs.findFactEdge(summaryInitialFactAp).map {
@@ -230,7 +229,7 @@ class SummaryEdgeSubscriptionManager(
 
         fun findZeroEdge(
             summaryInitialFactAp: AccessPath
-        ): Sequence<Pair<JIRInst, Sequence<ZeroEdgeSummarySubscription>>> =
+        ): Sequence<Pair<MethodEntryPoint, Sequence<ZeroEdgeSummarySubscription>>> =
             subscriptions.asSequence().map { (initialStmt, storage) ->
                 initialStmt to storage.asSequence().flatMap { (exitStmt, subs) ->
                     subs.findZeroEdge(summaryInitialFactAp).map {
@@ -381,7 +380,7 @@ class SummaryEdgeSubscriptionManager(
 
     data class FactEdgeSummarySubscription(
         private var calleeInitialFactApBase: AccessPathBase? = null,
-        private var callerInitialStatement: JIRInst? = null,
+        private var callerEntryPoint: MethodEntryPoint? = null,
         private var callerInitialFactMark: TaintMark? = null,
         private var callerInitialFactAp: AccessPath? = null,
         private var callerStatement: JIRInst? = null,
@@ -395,7 +394,7 @@ class SummaryEdgeSubscriptionManager(
 
         val callerPathEdge: Edge.FactToFact
             get() = Edge.FactToFact(
-                callerInitialStatement!!,
+                callerEntryPoint!!,
                 Fact.TaintedPath(callerInitialFactMark!!, callerInitialFactAp!!),
                 callerStatement!!,
                 Fact.TaintedTree(
@@ -433,15 +432,15 @@ class SummaryEdgeSubscriptionManager(
             callerInitialFactMark = initialFactMark
         }
 
-        fun setStatements(callerInitialStmt: JIRInst, callerExitStmt: JIRInst) = this.also {
-            callerInitialStatement = callerInitialStmt
+        fun setStatements(callerEntryPoint: MethodEntryPoint, callerExitStmt: JIRInst) = this.also {
+            this.callerEntryPoint = callerEntryPoint
             callerStatement = callerExitStmt
         }
     }
 
     data class ZeroEdgeSummarySubscription(
         private var calleeInitialFactApBase: AccessPathBase? = null,
-        private var callerPathEdgeInitialStatement: JIRInst? = null,
+        private var callerPathEdgeEntryPoint: MethodEntryPoint? = null,
         private var callerPathEdgeExitStatement: JIRInst? = null,
         private var callerPathEdgeFactMark: TaintMark? = null,
         private var callerPathEdgeFactApBase: AccessPathBase? = null,
@@ -452,7 +451,7 @@ class SummaryEdgeSubscriptionManager(
 
         val callerPathEdge: Edge.ZeroToFact
             get() = Edge.ZeroToFact(
-                callerPathEdgeInitialStatement!!,
+                callerPathEdgeEntryPoint!!,
                 callerPathEdgeExitStatement!!,
                 Fact.TaintedTree(
                     callerPathEdgeFactMark!!,
@@ -472,8 +471,8 @@ class SummaryEdgeSubscriptionManager(
             callerPathEdgeFactMark = mark
         }
 
-        fun setStatements(callerInitialStmt: JIRInst, callerExitStmt: JIRInst) = this.also {
-            callerPathEdgeInitialStatement = callerInitialStmt
+        fun setStatements(callerEntryPoint: MethodEntryPoint, callerExitStmt: JIRInst) = this.also {
+            callerPathEdgeEntryPoint = callerEntryPoint
             callerPathEdgeExitStatement = callerExitStmt
         }
 
@@ -492,7 +491,7 @@ class SummaryEdgeSubscriptionManager(
 
     private inner class NewSummaryEdgeEvent(private val summaryEdges: List<Edge>) : SummaryEvent {
         override fun processMethodSummary() {
-            val sameInitialStatementEdges = summaryEdges.groupBy { it.initialStatement }
+            val sameInitialStatementEdges = summaryEdges.groupBy { it.methodEntryPoint }
             for ((initialStatement, edges) in sameInitialStatementEdges) {
                 val subscriptions = methodSummarySubscriptions[initialStatement] ?: continue
                 processMethodSummary(subscriptions, edges)
@@ -553,18 +552,18 @@ class SummaryEdgeSubscriptionManager(
     }
 
     private inner class NewSinkRequirementEvent(
-        private val initialStatement: JIRInst,
+        private val methodEntryPoint: MethodEntryPoint,
         private val sinkRequirement: Fact.TaintedPath
     ) : SummaryEvent {
         override fun processMethodSummary() {
-            val subscriptions = methodSummarySubscriptions[initialStatement] ?: return
+            val subscriptions = methodSummarySubscriptions[methodEntryPoint] ?: return
 
             subscriptions.findFactEdgeSub(sinkRequirement).forEach { (ep, subscriptions) ->
                 val analyzer = processingCtx.getMethodAnalyzer(ep)
                 for (subscription in subscriptions) {
                     analyzer.handleMethodSinkRequirement(
                         subscription.callerPathEdge, subscription.calleeInitialFactBase,
-                        sinkRequirement, initialStatement
+                        sinkRequirement
                     )
                 }
             }
@@ -573,7 +572,7 @@ class SummaryEdgeSubscriptionManager(
 
     interface SummaryEdgeProcessingCtx {
         fun addSummaryEdgeEvent(event: SummaryEvent)
-        fun getMethodAnalyzer(methodEntryPoint: JIRInst): MethodAnalyzer
+        fun getMethodAnalyzer(methodEntryPoint: MethodEntryPoint): MethodAnalyzer
     }
 
     private val methodSummaryHandler = MethodSummaryEdgeHandler()
@@ -583,16 +582,16 @@ class SummaryEdgeSubscriptionManager(
             processingCtx.addSummaryEdgeEvent(NewSummaryEdgeEvent(edges))
         }
 
-        override fun newSinkRequirement(initialStatement: JIRInst, requirement: Fact.TaintedPath) {
-            processingCtx.addSummaryEdgeEvent(NewSinkRequirementEvent(initialStatement, requirement))
+        override fun newSinkRequirement(methodEntryPoint: MethodEntryPoint, requirement: Fact.TaintedPath) {
+            processingCtx.addSummaryEdgeEvent(NewSinkRequirementEvent(methodEntryPoint, requirement))
         }
     }
 }
 
-class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: JIRInst) {
+class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: MethodEntryPoint) {
     interface Subscriber {
         fun newSummaryEdges(edges: List<Edge>)
-        fun newSinkRequirement(initialStatement: JIRInst, requirement: Fact.TaintedPath)
+        fun newSinkRequirement(methodEntryPoint: MethodEntryPoint, requirement: Fact.TaintedPath)
     }
 
     private val subscribers = ConcurrentLinkedQueue<Subscriber>()
@@ -679,14 +678,14 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: JIRInst) {
 
         for ((mark, sameMarkEdges) in edgesWithSameMark) {
             val summariesStorage = zeroToFactSummaryEdges.computeIfAbsent(mark) {
-                MethodZeroToFactSummariesStorage(methodEntryPoint)
+                MethodZeroToFactSummariesStorage(methodEntryPoint.statement)
             }
 
             synchronized(summariesStorage) {
                 val addedEdgeBuilders = mutableListOf<ZeroToFactEdgeBuilder>()
                 summariesStorage.add(sameMarkEdges, addedEdgeBuilders)
                 addedEdgeBuilders.mapTo(added) {
-                    it.setInitialStatement(methodEntryPoint).setMark(mark).build()
+                    it.setEntryPoint(methodEntryPoint).setMark(mark).build()
                 }
             }
         }
@@ -702,13 +701,13 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: JIRInst) {
 
             val summariesStorage = if (initialMark == resultMark) {
                 taintedFactSameMarkSummaryEdges.computeIfAbsent(initialMark) {
-                    MethodFactToFactSummaries(methodEntryPoint)
+                    MethodFactToFactSummaries(methodEntryPoint.statement)
                 }
             } else {
                 taintedFactDifferentMarkSummaryEdges.computeIfAbsent(initialMark) {
                     ConcurrentHashMap()
                 }.computeIfAbsent(resultMark) {
-                    MethodFactToFactSummaries(methodEntryPoint)
+                    MethodFactToFactSummaries(methodEntryPoint.statement)
                 }
             }
 
@@ -716,7 +715,7 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: JIRInst) {
                 val addedEdgeBuilders = mutableListOf<FactToFactEdgeBuilder>()
                 summariesStorage.add(sameMarkEdges, addedEdgeBuilders)
                 addedEdgeBuilders.mapTo(added) {
-                    it.setInitialStatement(methodEntryPoint).setMarks(initialMark, resultMark).build()
+                    it.setEntryPoint(methodEntryPoint).setMarks(initialMark, resultMark).build()
                 }
             }
         }
@@ -738,7 +737,7 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: JIRInst) {
 
     private fun allZeroToFactSummaries() = zeroToFactSummaryEdges.asSequence()
         .flatMap { (mark, storage) ->
-            storage.allEdges().map { it.setInitialStatement(methodEntryPoint).setMark(mark).build() }
+            storage.allEdges().map { it.setEntryPoint(methodEntryPoint).setMark(mark).build() }
         }
 
     fun factEdgesIterator(initialFact: Fact.TaintedTree): Iterator<Edge.FactToFact> {
@@ -754,7 +753,7 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: JIRInst) {
             .orEmpty()
 
         return (sameFactEdges + differentFactEdges)
-            .map { it.setInitialStatement(methodEntryPoint).build() }
+            .map { it.setEntryPoint(methodEntryPoint).build() }
             .iterator()
     }
 
@@ -772,7 +771,7 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: JIRInst) {
         }
 
         return (sameFactEdges + differentFactEdges)
-            .map { it.setInitialStatement(methodEntryPoint).build() }
+            .map { it.setEntryPoint(methodEntryPoint).build() }
     }
 
     private fun MethodFactToFactSummaries.filterEdgesAndSetMarks(
@@ -800,8 +799,8 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: JIRInst) {
         val sourceSummaries = allZeroToFactSummaries().sumOf { it.fact.ap.access.size }
         val passSummaries = allFactToFactSummaries().sumOf { it.fact.ap.access.size }
 
-        stats.stats(methodEntryPoint.location.method).sourceSummaries += sourceSummaries
-        stats.stats(methodEntryPoint.location.method).passSummaries += passSummaries
+        stats.stats(methodEntryPoint.method).sourceSummaries += sourceSummaries
+        stats.stats(methodEntryPoint.method).passSummaries += passSummaries
     }
 
     private class MethodZeroToFactSummaries(methodEntryPoint: JIRInst) :
@@ -1065,19 +1064,19 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: JIRInst) {
     }
 
     sealed interface EdgeBuilder<B : EdgeBuilder<B>> {
-        fun setInitialStatement(statement: JIRInst): B
+        fun setEntryPoint(entryPoint: MethodEntryPoint): B
         fun setExitStatement(statement: JIRInst): B
     }
 
     private data class ZeroToFactEdgeBuilder(
-        private var initialStatement: JIRInst? = null,
+        private var entryPoint: MethodEntryPoint? = null,
         private var exitStatement: JIRInst? = null,
         private var exitFactAccess: AccessNode? = null,
         private var exitFactBase: AccessPathBase? = null,
         private var mark: TaintMark? = null
     ) : EdgeBuilder<ZeroToFactEdgeBuilder> {
         fun build(): Edge.ZeroToFact  = Edge.ZeroToFact(
-            initialStatement!!, exitStatement!!,
+            entryPoint!!, exitStatement!!,
             Fact.TaintedTree(
                 mark!!,
                 AccessTree(
@@ -1092,8 +1091,8 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: JIRInst) {
             this.mark = mark
         }
 
-        override fun setInitialStatement(statement: JIRInst) = this.also {
-            initialStatement = statement
+        override fun setEntryPoint(entryPoint: MethodEntryPoint) = this.also {
+            this.entryPoint = entryPoint
         }
 
         override fun setExitStatement(statement: JIRInst) = this.also {
@@ -1110,7 +1109,7 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: JIRInst) {
     }
 
     private data class FactToFactEdgeBuilder(
-        private var initialStatement: JIRInst? = null,
+        private var entryPoint: MethodEntryPoint? = null,
         private var exitStatement: JIRInst? = null,
         private var initialMark: TaintMark? = null,
         private var exitMark: TaintMark? = null,
@@ -1121,14 +1120,14 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: JIRInst) {
         var exitAp: AccessNode? = null,
     ) : EdgeBuilder<FactToFactEdgeBuilder> {
         fun build(): Edge.FactToFact = Edge.FactToFact(
-            initialStatement!!,
+            entryPoint!!,
             Fact.TaintedPath(initialMark!!, AccessPath(initialBase!!, initialAp, exclusion!!)),
             exitStatement!!,
             Fact.TaintedTree(exitMark!!, AccessTree(exitBase!!, exitAp!!, exclusion!!))
         )
 
-        override fun setInitialStatement(statement: JIRInst) = this.also {
-            initialStatement = statement
+        override fun setEntryPoint(entryPoint: MethodEntryPoint) = this.also {
+            this.entryPoint = entryPoint
         }
 
         override fun setExitStatement(statement: JIRInst) = this.also {

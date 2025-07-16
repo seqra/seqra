@@ -6,8 +6,8 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.taint.configuration.TaintMark
 import org.opentaint.dataflow.jvm.ap.ifds.AccessTree.AccessNode
 
-class MethodAnalyzerEdges(private val initialStatement: JIRInst) {
-    private val maxInstIdx = initialStatement.location.method.instList.maxOf { it.location.index }
+class MethodAnalyzerEdges(private val methodEntryPoint: MethodEntryPoint) {
+    private val maxInstIdx = methodEntryPoint.method.instList.maxOf { it.location.index }
 
     private val zeroToZeroEdges = SameInitialZeroFactEdges(maxInstIdx)
     private val zeroToFactEdges = Object2ObjectOpenHashMap<TaintMark, ZeroInitialFactEdgeStorage>()
@@ -17,7 +17,7 @@ class MethodAnalyzerEdges(private val initialStatement: JIRInst) {
     }
 
     fun add(edge: Edge): List<Edge> {
-        check(edge.initialStatement == initialStatement)
+        check(edge.methodEntryPoint == methodEntryPoint)
 
         return addEdge(edge)
     }
@@ -31,7 +31,7 @@ class MethodAnalyzerEdges(private val initialStatement: JIRInst) {
 
             is Edge.ZeroToFact -> {
                 val storage = zeroToFactEdges.getOrPut(edge.fact.mark) {
-                    ZeroInitialFactEdgeStorage(initialStatement, maxInstIdx)
+                    ZeroInitialFactEdgeStorage(methodEntryPoint.statement, maxInstIdx)
                 }
 
                 val edgeSet = storage.getOrCreate(edge.fact.ap.base)
@@ -45,7 +45,7 @@ class MethodAnalyzerEdges(private val initialStatement: JIRInst) {
                 val mergedAp = AccessTree(edge.fact.ap.base, addedAccess, ExclusionSet.Universe)
                 val mergedFact = edge.fact.changeAP(mergedAp)
 
-                return listOf(Edge.ZeroToFact(edge.initialStatement, edge.statement, mergedFact))
+                return listOf(Edge.ZeroToFact(edge.methodEntryPoint, edge.statement, mergedFact))
             }
 
             is Edge.FactToFact -> {
@@ -56,10 +56,12 @@ class MethodAnalyzerEdges(private val initialStatement: JIRInst) {
 
     private fun addTaintedFactEdge(edge: Edge.FactToFact): List<Edge.FactToFact> {
         val edgeStorage = if (edge.initialFact.mark == edge.fact.mark) {
-            taintedToFactSameEdges.getOrPut(edge.initialFact.mark) { TaintedInitialFactEdgeStorage(initialStatement) }
+            taintedToFactSameEdges.getOrPut(edge.initialFact.mark) {
+                TaintedInitialFactEdgeStorage(methodEntryPoint.statement)
+            }
         } else {
             taintedToFactDifferentEdges.getOrPut(edge.initialFact.mark to edge.fact.mark) {
-                TaintedInitialFactEdgeStorage(initialStatement)
+                TaintedInitialFactEdgeStorage(methodEntryPoint.statement)
             }
         }
 
@@ -90,7 +92,7 @@ class MethodAnalyzerEdges(private val initialStatement: JIRInst) {
             )
 
             Edge.FactToFact(
-                initialStatement = edge.initialStatement,
+                methodEntryPoint = edge.methodEntryPoint,
                 initialFact = edge.initialFact.changeAP(newInitialAp),
                 statement = edge.statement,
                 fact = edge.fact.changeAP(newExitAp)

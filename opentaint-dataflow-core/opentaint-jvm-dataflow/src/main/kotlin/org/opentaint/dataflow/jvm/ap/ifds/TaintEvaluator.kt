@@ -1,10 +1,10 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
-import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.mayReadField
-import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.readFieldTo
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
+import org.opentaint.ir.api.jvm.ext.ifArrayGetElementType
 import org.opentaint.ir.api.jvm.ext.isAssignable
 import org.opentaint.ir.taint.configuration.And
 import org.opentaint.ir.taint.configuration.AssignMark
@@ -31,58 +31,50 @@ class FactReader(val fact: Fact.TaintedTree) {
     private var refinement: ExclusionSet = ExclusionSet.Empty
     val hasRefinement: Boolean get() = refinement !is ExclusionSet.Empty
 
-    fun containsPosition(position: PositionAccess): Boolean {
-        when (position) {
-            is PositionAccess.Base -> {
-                if (!fact.ap.mayReadField(position.base, FinalAccessor)) return false
+    fun containsFinalPosition(position: PositionAccess): Boolean =
+        containsPosition(PositionAccess.Complex(position, FinalAccessor))
 
-                if (!fact.ap.access.contains(FinalAccessor)) {
-                    if (fact.ap.access.isAbstract) {
-                        refinement = refinement.add(FinalAccessor)
-                    }
-                    return false
+    fun containsPosition(position: PositionAccess): Boolean =
+        factAtPosition(position) != null
+
+    private fun factAtPosition(position: PositionAccess): AccessNode? {
+        val accessors = mutableListOf<Accessor>()
+        var currentPosition = position
+
+        while (true) {
+            when (currentPosition) {
+                is PositionAccess.Complex -> {
+                    accessors.add(currentPosition.accessor)
+                    currentPosition = currentPosition.base
                 }
 
-                return true
-            }
-
-            is PositionAccess.ArrayElement -> {
-                if (!fact.ap.mayReadField(position.base, ElementAccessor)) return false
-
-                if (!fact.ap.access.contains(ElementAccessor)) {
-                    if (fact.ap.access.isAbstract) {
-                        refinement = refinement.add(ElementAccessor)
+                is PositionAccess.Simple -> {
+                    if (fact.ap.base != currentPosition.base) {
+                        return null
                     }
-                    return false
+                    break
                 }
-
-                val arrayElement = fact.ap.readFieldTo(newBase = fact.ap.base, field = ElementAccessor)
-
-                if (!arrayElement.mayReadField(position.base, FinalAccessor)) return false
-
-                if (!arrayElement.access.contains(FinalAccessor)) {
-                    if (arrayElement.access.isAbstract) {
-                        refinement = refinement.add(FinalAccessor)
-                    }
-                    return false
-                }
-
-                return true
             }
         }
-    }
 
-    fun containsAccessor(accessor: Accessor): Boolean {
-        if (!fact.ap.mayReadField(fact.ap.base, accessor)) return false
+        var node = fact.ap.access
+        while (accessors.isNotEmpty()) {
+            val accessor = accessors.removeLast()
 
-        if (!fact.ap.access.contains(accessor)) {
-            if (fact.ap.access.isAbstract) {
+            if (node.contains(accessor)) {
+                if (accessor is FinalAccessor) return AccessNode.create(isFinal = true)
+                node = node.getChild(accessor) ?: error("Impossible")
+                continue
+            }
+
+            if (node.isAbstract) {
                 refinement = refinement.add(accessor)
             }
-            return false
+
+            return null
         }
 
-        return true
+        return node
     }
 
     fun refineFact(fact: Fact.TaintedPath): Fact.TaintedPath = with(fact.ap) {
@@ -141,7 +133,7 @@ class FactAwareConditionEvaluator(
     fun evalContainsMark(factReader: FactReader, mark: TaintMark, variable: PositionAccess): Boolean {
         if (factReader.fact.mark != mark) return false
 
-        if (factReader.containsPosition(variable)) {
+        if (factReader.containsFinalPosition(variable)) {
             hasEvaluatedContainsMark = true
             return true
         }
@@ -164,7 +156,7 @@ class TaintPassActionEvaluator(
     private val factTypeChecker: FactTypeChecker,
     private val factReader: FactReader
 ) {
-    private val positionTypeResolver = MethodPositionTypeResolver(method)
+    private val positionTypeResolver = MethodPositionBaseTypeResolver(method)
 
     fun evaluate(action: CopyAllMarks): Maybe<List<Fact.TaintedTree>> =
         positionResolver.resolve(action.from).flatMap { from ->
@@ -188,98 +180,79 @@ class TaintPassActionEvaluator(
         fromPosAccess: PositionAccess,
         toPosAccess: PositionAccess
     ): Maybe<List<Fact.TaintedTree>> {
-        if (fromPosAccess.base != factReader.fact.ap.base) return Maybe.none()
+        if (!factReader.containsPosition(fromPosAccess)) return Maybe.none()
 
-        check(fromPosAccess is PositionAccess.Base) { "Unexpected copy-from base: $fromPosAccess" }
+        val fromPositionBaseType = positionTypeResolver.resolve(fromPos)
+        val toPositionBaseType = positionTypeResolver.resolve(toPos)
 
-        val fromPositionType = positionTypeResolver.resolve(fromPos)
-        val toPositionType = positionTypeResolver.resolve(toPos)
-
-        val fact = factTypeChecker.filterFactByLocalType(fromPositionType, factReader.fact)
+        val fact = factTypeChecker.filterFactByLocalType(fromPositionBaseType, factReader.fact)
             ?: return Maybe.some(emptyList())
+
+        val factApDelta = readPosition(fact.ap.access, fromPosAccess)
 
         val copyFacts = mutableListOf<Fact.TaintedTree>()
 
         if (fromPos is This) {
             check(toPos !is This)
-            check(fromPositionType != null) { "Method instance has no type: $method" }
+            check(fromPosAccess is PositionAccess.Simple)
+            check(fromPositionBaseType != null) { "Method instance has no type: $method" }
 
-            if (factReader.containsAccessor(FinalAccessor)) {
-                val toFinalAccess = when (toPosAccess) {
-                    is PositionAccess.Base -> AccessNode.create(isFinal = true)
-                    is PositionAccess.ArrayElement -> AccessNode.create(isFinal = true).addParent(ElementAccessor)
-                }
-
-                val finalAp = AccessTree(
-                    toPosAccess.base,
-                    toFinalAccess,
-                    fact.ap.exclusions
-                )
-                copyFacts += fact.changeAP(finalAp)
+            if (factReader.containsFinalPosition(fromPosAccess)) {
+                val ap = mkAccessPath(toPosAccess, AccessNode.create(isFinal = true), fact.ap.exclusions)
+                copyFacts += fact.changeAP(ap)
             }
 
-            if (factReader.containsAccessor(ruleStorageField)) {
-                val access = fact.ap.access.getChild(ruleStorageField) ?: error("Impossible")
-
-                val toAccess = when (toPosAccess) {
-                    is PositionAccess.Base -> access
-                    is PositionAccess.ArrayElement -> access.addParent(ElementAccessor)
-                }
-
-                val ap = AccessTree(toPosAccess.base, toAccess, fact.ap.exclusions)
+            val ruleStoragePosition = PositionAccess.Complex(fromPosAccess, ruleStorageField)
+            if (factReader.containsPosition(ruleStoragePosition)) {
+                val ruleStorageAccess = readPosition(fact.ap.access, ruleStoragePosition)
+                val ap = mkAccessPath(toPosAccess, ruleStorageAccess, fact.ap.exclusions)
                 copyFacts += fact.changeAP(ap)
             }
 
             val remainingThisAccess = fact.ap.access.clearChild(FinalAccessor).clearChild(ruleStorageField)
             if (!remainingThisAccess.isEmpty) {
-                if (toPositionType == null || fromPositionType.isAssignable(toPositionType)) {
-                    val remainingAp = AccessTree(toPosAccess.base, remainingThisAccess, fact.ap.exclusions)
-                    copyFacts += fact.changeAP(remainingAp)
+                val toPositionType = resolvePositionType(toPositionBaseType, toPosAccess)
+                if (toPositionType == null || fromPositionBaseType.isAssignable(toPositionType)) {
+                    val ap = mkAccessPath(toPosAccess, remainingThisAccess, fact.ap.exclusions)
+                    copyFacts += fact.changeAP(ap)
                 }
             }
         } else if (toPos is This) {
-            check(toPosAccess is PositionAccess.Base) { "Unexpected copy-to base: $toPosAccess" }
+            check(fromPos !is This)
+            check(toPosAccess is PositionAccess.Simple) { "Unexpected copy-to base: $toPosAccess" }
+            check(toPositionBaseType != null) { "Method instance has no type: $method" }
 
-            if (factReader.containsAccessor(FinalAccessor)) {
-                val thisAp = AccessTree(
-                    toPosAccess.base,
-                    AccessNode.create(isFinal = true),
-                    fact.ap.exclusions
-                )
+            if (factReader.containsFinalPosition(fromPosAccess)) {
+                val thisAp = mkAccessPath(toPosAccess, AccessNode.create(isFinal = true), fact.ap.exclusions)
                 copyFacts += fact.changeAP(thisAp)
             }
 
-            val nonFinalAp = fact.ap.access.clearChild(FinalAccessor)
+            val nonFinalAp = factApDelta.clearChild(FinalAccessor)
             if (!nonFinalAp.isEmpty) {
-                check(toPositionType != null) { "Method instance has no type: $method" }
-
-                val apAccess = if (fromPositionType != null && fromPositionType.isAssignable(toPositionType)) {
+                val fromPositionType = resolvePositionType(fromPositionBaseType, fromPosAccess)
+                val apAccess = if (fromPositionType != null && fromPositionType.isAssignable(toPositionBaseType)) {
                     nonFinalAp
                 } else {
                     nonFinalAp.addParent(ruleStorageField)
                 }
 
-                val thisStorageAp = AccessTree(toPosAccess.base, apAccess, fact.ap.exclusions)
+                val thisStorageAp = mkAccessPath(toPosAccess, apAccess, fact.ap.exclusions)
                 copyFacts += fact.changeAP(thisStorageAp)
             }
         } else {
-            val toAccess = when (toPosAccess) {
-                is PositionAccess.Base -> fact.ap.access
-                is PositionAccess.ArrayElement -> fact.ap.access.addParent(ElementAccessor)
-            }
-            val ap = AccessTree(toPosAccess.base, toAccess, fact.ap.exclusions)
+            val ap = mkAccessPath(toPosAccess, factApDelta, fact.ap.exclusions)
             copyFacts += fact.changeAP(ap)
         }
 
         val wellTypedCopies = copyFacts.mapNotNull {
-            factTypeChecker.filterFactByLocalType(toPositionType, it)
+            factTypeChecker.filterFactByLocalType(toPositionBaseType, it)
         }
 
         if (wellTypedCopies.isEmpty()) {
             return Maybe.none()
         }
 
-        return Maybe.some(listOf(fact) + wellTypedCopies)
+        return Maybe.some(listOf(factReader.fact) + wellTypedCopies)
     }
 
     fun evaluate(action: RemoveAllMarks): Maybe<List<Fact.TaintedTree>> =
@@ -295,15 +268,52 @@ class TaintPassActionEvaluator(
     }
 
     private fun removeFact(from: PositionAccess): Maybe<List<Fact.TaintedTree>> {
-        if (from.base != factReader.fact.ap.base) return Maybe.none()
+        if (!factReader.containsPosition(from)) return Maybe.none()
 
-        when (from) {
-            is PositionAccess.Base -> {
-                return Maybe.some(emptyList())
+        if (from !is PositionAccess.Simple) {
+            TODO("Remove from complex: $from")
+        }
+
+        return Maybe.some(emptyList())
+    }
+
+    private fun resolvePositionType(baseType: JIRType?, position: PositionAccess): JIRType? =
+        when (position) {
+            is PositionAccess.Complex -> when (val access = position.accessor) {
+                ElementAccessor -> resolvePositionType(baseType, position.base)?.ifArrayGetElementType
+                is FieldAccessor -> positionTypeResolver.cp.findTypeOrNull(access.fieldType)
+                FinalAccessor -> null
             }
 
-            is PositionAccess.ArrayElement -> TODO("Remove from array access")
+            is PositionAccess.Simple -> baseType
         }
+
+    private fun readPosition(ap: AccessNode, position: PositionAccess): AccessNode {
+        val accessors = mutableListOf<Accessor>()
+        var currentPosition = position
+        while (true) {
+            when (currentPosition) {
+                is PositionAccess.Complex -> {
+                    accessors.add(currentPosition.accessor)
+                    currentPosition = currentPosition.base
+                }
+
+                is PositionAccess.Simple -> break
+            }
+        }
+
+        var result = ap
+        while (accessors.isNotEmpty()) {
+            val accessor = accessors.removeLast()
+            check(result.contains(accessor))
+            result = if (accessor is FinalAccessor) {
+                AccessNode.create(isFinal = true)
+            } else {
+                result.getChild(accessor) ?: error("Impossible")
+            }
+        }
+
+        return result
     }
 
     companion object {
@@ -320,16 +330,24 @@ class TaintSourceActionEvaluator(
 ) {
     fun evaluate(action: AssignMark): Maybe<List<Fact.TaintedTree>> =
         positionResolver.resolve(action.position).flatFmap { variable ->
-            val ap = mkAccessPath(variable)
+            val ap = mkAccessPath(variable, AccessNode.create(isFinal = true), ExclusionSet.Universe)
             listOf(Fact.TaintedTree(action.mark, ap))
         }
+}
 
-    private fun mkAccessPath(position: PositionAccess): AccessTree {
-        val accessor = when (position) {
-            is PositionAccess.Base -> AccessNode.create(isFinal = true)
-            is PositionAccess.ArrayElement -> AccessNode.create(isFinal = true).addParent(ElementAccessor)
+private fun mkAccessPath(position: PositionAccess, basicNode: AccessNode, exclusionSet: ExclusionSet): AccessTree {
+    var currentPosition = position
+    var result = basicNode
+    while (true) {
+        when (currentPosition) {
+            is PositionAccess.Complex -> {
+                result = result.addParent(currentPosition.accessor)
+                currentPosition = currentPosition.base
+            }
+
+            is PositionAccess.Simple -> {
+                return AccessTree(currentPosition.base, result, exclusionSet)
+            }
         }
-
-        return AccessTree(position.base, accessor, ExclusionSet.Universe)
     }
 }
