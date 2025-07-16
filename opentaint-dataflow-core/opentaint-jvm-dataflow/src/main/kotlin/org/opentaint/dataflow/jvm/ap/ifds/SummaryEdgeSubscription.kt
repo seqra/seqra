@@ -1030,7 +1030,7 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: JIRInst) {
                 if (modificationDelta == null) return false
 
                 edges = modifiedEdges
-                edgesDelta = modificationDelta
+                edgesDelta = edgesDelta?.mergeAdd(modificationDelta) ?: modificationDelta
                 return true
             }
 
