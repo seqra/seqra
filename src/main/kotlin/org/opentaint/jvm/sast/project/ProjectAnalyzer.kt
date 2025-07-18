@@ -1,7 +1,6 @@
 package org.opentaint.jvm.sast.project
 
 import bench.EncryptionUtils
-import bench.getPathFromEnv
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
@@ -33,6 +32,7 @@ import org.opentaint.types.scoreClassNode
 import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.io.path.Path
 import kotlin.io.path.div
 import kotlin.io.path.outputStream
 import kotlin.time.Duration
@@ -167,6 +167,9 @@ class ProjectAnalyzer(
             }
         }
     }
+
+    private fun getPathFromEnv(envVar: String): Path =
+        System.getenv(envVar)?.let { Path(it) } ?: error("$envVar not provided")
 
     private val json = Json {
         prettyPrint = true
