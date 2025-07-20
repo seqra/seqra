@@ -1,6 +1,7 @@
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.testing.Test
-import java.util.*
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import java.util.StringTokenizer
 
 object Tests {
     val lifecycleTag = "lifecycle"
@@ -10,6 +11,7 @@ object Tests {
 fun Test.setup(jacocoTestReport: TaskProvider<*>) {
     testLogging {
         events("passed", "skipped", "failed")
+        exceptionFormat = TestExceptionFormat.FULL
     }
     finalizedBy(jacocoTestReport) // report is always generated after tests run
     val majorJavaVersion =
