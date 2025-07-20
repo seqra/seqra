@@ -37,7 +37,9 @@ class JIREnrichedVirtualMethod(
             it.instList(this)
         }!!.instList
 
-    override fun asmNode(): MethodNode = asmNode
+    override fun <T> withAsmNode(body: (MethodNode) -> T): T = synchronized(asmNode) {
+        body(asmNode)
+    }
 
     override fun flowGraph(): JIRGraph = featuresChain.call<JIRMethodExtFeature, JIRFlowGraphResult> {
         it.flowGraph(this)

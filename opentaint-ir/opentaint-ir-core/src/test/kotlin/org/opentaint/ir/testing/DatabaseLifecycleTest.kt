@@ -59,7 +59,9 @@ class DatabaseLifecycleTest {
         val barKt = cp.findClass<BarKt>()
         db.awaitBackgroundJobs()
         assertTrue(testDirClone.deleteRecursively())
-        assertNotNull(barKt.declaredMethods.first().asmNode())
+        barKt.declaredMethods.first().withAsmNode { methodNode ->
+            assertNotNull(methodNode)
+        }
 
         db.refresh()
 
@@ -73,7 +75,9 @@ class DatabaseLifecycleTest {
         }
 
         with(cp.findClass<BarKt>()) {
-            assertNotNull(declaredMethods.first().asmNode())
+            declaredMethods.first().withAsmNode { methodNode ->
+                assertNotNull(methodNode)
+            }
         }
 
         cp.close()
@@ -91,7 +95,9 @@ class DatabaseLifecycleTest {
 
         assertNotNull(
             runBlocking {
-                barKt.declaredMethods.first().asmNode()
+                barKt.declaredMethods.first().withAsmNode { methodNode ->
+                    assertNotNull(methodNode)
+                }
             }
         )
     }
@@ -117,7 +123,9 @@ class DatabaseLifecycleTest {
         db.awaitBackgroundJobs() // is required for deleting jar
 
         assertTrue(guavaLibClone.deleteWithRetries(3))
-        assertNotNull(abstractCacheClass.declaredMethods.first().asmNode())
+        abstractCacheClass.declaredMethods.first().withAsmNode { methodNode ->
+            assertNotNull(methodNode)
+        }
 
         db.refresh()
         withRegistry {
@@ -139,9 +147,9 @@ class DatabaseLifecycleTest {
         val abstractCacheClass = cp.findClassOrNull<AbstractCache<*, *>>()
         assertNotNull(abstractCacheClass!!)
 
-        assertNotNull(
-            abstractCacheClass.declaredMethods.first().asmNode()
-        )
+        abstractCacheClass.declaredMethods.first().withAsmNode { methodNode ->
+            assertNotNull(methodNode)
+        }
     }
 
     @Test
@@ -153,9 +161,9 @@ class DatabaseLifecycleTest {
 
             val abstractCacheClass = findClass<AbstractCache<*, *>>()
 
-            assertNotNull(
-                abstractCacheClass.declaredMethods.first().asmNode()
-            )
+            abstractCacheClass.declaredMethods.first().withAsmNode { methodNode ->
+                assertNotNull(methodNode)
+            }
         }
         withContext(Dispatchers.IO) {
             cps.map {
@@ -176,7 +184,9 @@ class DatabaseLifecycleTest {
     fun `jar should not be blocked after method read`() = runBlocking {
         val cp = db.classpath(listOf(guavaLibClone))
         val clazz = cp.findClass<Iterators>()
-        assertNotNull(clazz.declaredMethods.first().asmNode())
+        clazz.declaredMethods.first().withAsmNode { methodNode ->
+            assertNotNull(methodNode)
+        }
         db.awaitBackgroundJobs()
         assertTrue(guavaLibClone.deleteWithRetries(3))
     }

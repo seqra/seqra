@@ -330,7 +330,7 @@ class InstructionsTest : BaseInstructionsTest() {
 fun JIRMethod.dumpInstructions(): String {
     return buildString {
         val textifier = Textifier()
-        asmNode().accept(TraceMethodVisitor(textifier))
+        withAsmNode { it.accept(TraceMethodVisitor(textifier)) }
         textifier.text.printList(this)
     }
 }

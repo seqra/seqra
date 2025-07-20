@@ -64,7 +64,7 @@ open class JIRVirtualClassImpl(
 
     override val simpleName: String get() = name.substringAfterLast(".")
 
-    override fun asmNode(): ClassNode {
+    override fun <T> withAsmNode(body: (ClassNode) -> T): T {
         throw IllegalStateException("Can't get ASM node for Virtual class")
     }
 

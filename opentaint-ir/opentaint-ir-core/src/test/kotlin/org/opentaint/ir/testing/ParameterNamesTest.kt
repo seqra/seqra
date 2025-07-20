@@ -29,8 +29,9 @@ abstract class ParameterNamesTest : BaseTest() {
 
     private val JIRMethod.parameterNames: List<String?>
         get() {
-            return enclosingClass.asmNode()
-                .asClassInfo(enclosingClass.bytecode()).methods.find { info -> info.name == name && info.desc == description }
+            return enclosingClass
+                .withAsmNode { it.asClassInfo(enclosingClass.bytecode()) }
+                .methods.find { info -> info.name == name && info.desc == description }
                 ?.parametersInfo?.map(ParameterInfo::name)
                 ?: parameters.map(JIRParameter::name)
         }

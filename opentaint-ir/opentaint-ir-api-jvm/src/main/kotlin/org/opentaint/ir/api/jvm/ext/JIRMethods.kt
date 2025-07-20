@@ -40,22 +40,23 @@ val JIRMethod.humanReadableSignature: String
 @get:JvmName("hasBody")
 val JIRMethod.hasBody: Boolean
     get() {
-        return !isNative && !isAbstract && asmNode().instructions.first != null
+        return !isNative && !isAbstract && withAsmNode { it.instructions.first != null }
     }
 
 val JIRMethod.usedMethods: List<JIRMethod>
     get() {
         val cp = enclosingClass.classpath
-        val methodNode = asmNode()
         val result = LinkedHashSet<JIRMethod>()
-        methodNode.instructions.forEach { instruction ->
-            when (instruction) {
-                is MethodInsnNode -> {
-                    val owner = Type.getObjectType(instruction.owner).className
-                    val clazz = cp.findClassOrNull(owner)
-                    if (clazz != null) {
-                        clazz.findMethodOrNull(instruction.name, instruction.desc)?.also {
-                            result.add(it)
+        withAsmNode { methodNode ->
+            methodNode.instructions.forEach { instruction ->
+                when (instruction) {
+                    is MethodInsnNode -> {
+                        val owner = Type.getObjectType(instruction.owner).className
+                        val clazz = cp.findClassOrNull(owner)
+                        if (clazz != null) {
+                            clazz.findMethodOrNull(instruction.name, instruction.desc)?.also {
+                                result.add(it)
+                            }
                         }
                     }
                 }
@@ -76,22 +77,23 @@ class FieldUsagesResult(
 val JIRMethod.usedFields: FieldUsagesResult
     get() {
         val cp = enclosingClass.classpath
-        val methodNode = asmNode()
         val reads = LinkedHashSet<JIRField>()
         val writes = LinkedHashSet<JIRField>()
-        methodNode.instructions.forEach { instruction ->
-            when (instruction) {
-                is FieldInsnNode -> {
-                    val owner = Type.getObjectType(instruction.owner).className
-                    val clazz = cp.findClassOrNull(owner)
-                    if (clazz != null) {
-                        val jIRClass = clazz.findFieldOrNull(instruction.name)
-                        if (jIRClass != null) {
-                            when (instruction.opcode) {
-                                Opcodes.GETFIELD -> reads.add(jIRClass)
-                                Opcodes.GFrontendTATIC -> reads.add(jIRClass)
-                                Opcodes.PUTFIELD -> writes.add(jIRClass)
-                                Opcodes.PUTSTATIC -> writes.add(jIRClass)
+        withAsmNode { methodNode ->
+            methodNode.instructions.forEach { instruction ->
+                when (instruction) {
+                    is FieldInsnNode -> {
+                        val owner = Type.getObjectType(instruction.owner).className
+                        val clazz = cp.findClassOrNull(owner)
+                        if (clazz != null) {
+                            val jIRClass = clazz.findFieldOrNull(instruction.name)
+                            if (jIRClass != null) {
+                                when (instruction.opcode) {
+                                    Opcodes.GETFIELD -> reads.add(jIRClass)
+                                    Opcodes.GFrontendTATIC -> reads.add(jIRClass)
+                                    Opcodes.PUTFIELD -> writes.add(jIRClass)
+                                    Opcodes.PUTSTATIC -> writes.add(jIRClass)
+                                }
                             }
                         }
                     }

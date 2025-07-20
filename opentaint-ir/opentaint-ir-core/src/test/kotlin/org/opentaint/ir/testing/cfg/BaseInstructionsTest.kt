@@ -58,7 +58,7 @@ abstract class BaseInstructionsTest : BaseTest() {
         muteGraphChecker: Boolean = false,
     ): Class<*>? {
         try {
-            val classNode = klass.asmNode()
+            val classNode = klass.withAsmNode { it } // fixme: safe only in single-thread environment
             classNode.methods = klass.declaredMethods
                 .filter { it.enclosingClass == klass }
                 .map { method ->
@@ -66,7 +66,7 @@ abstract class BaseInstructionsTest : BaseTest() {
                         method.name.contains("$\$forInline")||
                         method.name.contains("lambda$") ||
                         method.name.contains("stringConcat$")) {
-                        method.asmNode()
+                        method.withAsmNode { it } // fixme: safe only in single-thread environment
                     } else {
                         try {
                             val instructionList = method.rawInstList

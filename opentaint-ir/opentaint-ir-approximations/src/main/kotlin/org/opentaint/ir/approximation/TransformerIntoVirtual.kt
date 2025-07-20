@@ -22,6 +22,8 @@ object TransformerIntoVirtual {
 
         val exceptions = exceptions.map { it.eliminateApproximation() }
 
+        val methodNode = withAsmNode { it } // Safe since used under synchronization in JIREnrichedVirtualMethod
+
         (EnrichedVirtualMethodBuilder()
             .name(name)
             .access(access)
@@ -30,7 +32,7 @@ object TransformerIntoVirtual {
             .featuresChain(featuresChain)
             .exceptions(exceptions)
             .annotations(annotations)
-            .asmNode(asmNode())
+            .asmNode(methodNode)
             .build()
             .also { it.bind(to) }
     }

@@ -23,7 +23,6 @@ class MethodInstructionsFeature(
     private val JIRMethod.methodFeatures
         get() = enclosingClass.classpath.features?.filterIsInstance<JIRInstExtFeature>().orEmpty()
 
-    @Synchronized
     override fun flowGraph(method: JIRMethod): JIRMethodExtFeature.JIRFlowGraphResult {
         return JIRFlowGraphResultImpl(method, JIRGraphImpl(method, method.instList.instructions))
     }
@@ -36,7 +35,9 @@ class MethodInstructionsFeature(
     }
 
     override fun rawInstList(method: JIRMethod): JIRMethodExtFeature.JIRRawInstListResult {
-        val list: JIRInstList<JIRRawInst> = RawInstListBuilder(method, method.asmNode(), keepLocalVariableNames).build()
+        val list: JIRInstList<JIRRawInst> = method.withAsmNode { methodNode ->
+            RawInstListBuilder(method, methodNode, keepLocalVariableNames).build()
+        }
         return JIRRawInstListResultImpl(method, method.methodFeatures.fold(list) { value, feature ->
             feature.transformRawInstList(method, value)
         })

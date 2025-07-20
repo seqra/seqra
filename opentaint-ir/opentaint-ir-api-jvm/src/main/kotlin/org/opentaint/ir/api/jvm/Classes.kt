@@ -24,7 +24,8 @@ interface JIRClassOrInterface : JIRAnnotatedSymbol, JIRAccessible {
     val signature: String?
     val isAnonymous: Boolean
 
-    fun asmNode(): ClassNode
+    fun <T> withAsmNode(body: (ClassNode) -> T): T
+
     fun bytecode(): ByteArray
 
     val superClass: JIRClassOrInterface?
@@ -83,7 +84,8 @@ interface JIRMethod : JIRSymbol, JIRAnnotatedSymbol, JIRAccessible, CommonMethod
 
     val exceptions: List<TypeName>
 
-    fun asmNode(): MethodNode
+    fun <T> withAsmNode(body: (MethodNode) -> T): T
+
     override fun flowGraph(): JIRGraph
 
     val rawInstList: JIRInstList<JIRRawInst>

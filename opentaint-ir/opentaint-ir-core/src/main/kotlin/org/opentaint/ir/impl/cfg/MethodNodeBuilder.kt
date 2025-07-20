@@ -11,7 +11,6 @@ import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Opcodes.H_GFrontendTATIC
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
-import java.util.ArrayList
 
 private val PredefinedPrimitives.smallIntegers get() = setOf(Boolean, Byte, Char, Short, Int)
 
@@ -83,14 +82,14 @@ class MethodNodeBuilder(
         mn.maxLocals = localIndex
         mn.maxStack = maxStack + 1
         //At this moment, we're just copying annotations from original method without any modifications
-        with(method.asmNode()) {
-            mn.visibleAnnotations = visibleAnnotations
-            mn.visibleTypeAnnotations = visibleTypeAnnotations
-            mn.visibleParameterAnnotations = visibleParameterAnnotations
-            mn.invisibleAnnotations = invisibleAnnotations
-            mn.invisibleTypeAnnotations = invisibleTypeAnnotations
-            mn.invisibleParameterAnnotations = invisibleParameterAnnotations
-            mn.annotationDefault = annotationDefault
+        method.withAsmNode { originalMn ->
+            mn.visibleAnnotations = originalMn.visibleAnnotations
+            mn.visibleTypeAnnotations = originalMn.visibleTypeAnnotations
+            mn.visibleParameterAnnotations = originalMn.visibleParameterAnnotations
+            mn.invisibleAnnotations = originalMn.invisibleAnnotations
+            mn.invisibleTypeAnnotations = originalMn.invisibleTypeAnnotations
+            mn.invisibleParameterAnnotations = originalMn.invisibleParameterAnnotations
+            mn.annotationDefault = originalMn.annotationDefault
 
             //            this two line of code relies on labels in method body properly organized.
 
@@ -109,7 +108,7 @@ class MethodNodeBuilder(
             staticInc = 1
         }
 
-        val variables = method.asmNode().localVariables.orEmpty().sortedBy(LocalVariableNode::index)
+        val variables = method.withAsmNode { it.localVariables.orEmpty().sortedBy(LocalVariableNode::index) }
 
         fun getName(parameter: JIRParameter): String? {
             val idx = parameter.index + staticInc
