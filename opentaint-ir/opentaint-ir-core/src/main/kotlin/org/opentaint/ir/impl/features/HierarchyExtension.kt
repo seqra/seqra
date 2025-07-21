@@ -34,6 +34,7 @@ import org.jooq.Record3
 import org.jooq.SelectConditionStep
 import org.jooq.impl.DSL
 import java.util.concurrent.Future
+import org.opentaint.ir.impl.util.Sequence as Sequence
 
 suspend fun JIRClasspath.hierarchyExt(): HierarchyExtension {
     db.awaitBackgroundJobs()
@@ -138,21 +139,23 @@ private class HierarchyExtensionERS(cp: JIRClasspath) : HierarchyExtensionBase(c
         if (db.isInstalled(InMemoryHierarchy)) {
             return cp.findSubclassesInMemory(name, entireHierarchy, full)
         }
-        val persistence = db.persistence
-        return persistence.read { context ->
-            val txn = context.txn
-            if (name == JAVA_OBJECT) {
-                cp.allClassesExceptObject(context, !entireHierarchy)
-            } else {
-                val locationIds = cp.registeredLocations.mapTo(mutableSetOf()) { it.id }
-                val nameId = name.asSymbolId(persistence.symbolInterner)
-                if (entireHierarchy) {
-                    entireHierarchy(txn, nameId, mutableSetOf())
+        return Sequence {
+            val persistence = db.persistence
+            persistence.read { context ->
+                val txn = context.txn
+                if (name == JAVA_OBJECT) {
+                    cp.allClassesExceptObject(context, !entireHierarchy)
                 } else {
-                    directSubClasses(txn, nameId)
-                }.asSequence().filter { clazz -> clazz.getCompressed<Long>("locationId") in locationIds }
-                    .toClassSourceSequence(db)
-            }.map { cp.toJIRClass(it) }.toList().asSequence()
+                    val locationIds = cp.registeredLocations.mapTo(mutableSetOf()) { it.id }
+                    val nameId = name.asSymbolId(persistence.symbolInterner)
+                    if (entireHierarchy) {
+                        entireHierarchy(txn, nameId, mutableSetOf())
+                    } else {
+                        directSubClasses(txn, nameId)
+                    }.asSequence().filter { clazz -> clazz.getCompressed<Long>("locationId") in locationIds }
+                        .toClassSourceSequence(db)
+                }.mapTo(mutableListOf()) { cp.toJIRClass(it) }
+            }
         }
     }
 
@@ -233,12 +236,13 @@ private fun JIRClasspath.subClasses(name: String, entireHierarchy: Boolean): Seq
             allClassesExceptObject(context, !entireHierarchy)
         } else {
             val locationIds = registeredLocations.joinToString(", ") { it.id.toString() }
+            val dslContext = context.dslContext
             BatchedSequence(defaultBatchSize) { offset, batchSize ->
                 val query = when {
                     entireHierarchy -> HierarchyExtensionSQL.entireHierarchyQuery(locationIds, offset)
                     else -> HierarchyExtensionSQL.directSubClassesQuery(locationIds, offset)
                 }
-                val cursor = context.dslContext.fetchLazy(query, name)
+                val cursor = dslContext.fetchLazy(query, name)
                 cursor.fetchNext(batchSize).map { record ->
                     val id = record.get(CLASSES.ID)!!
                     id to PersistenceClassSource(

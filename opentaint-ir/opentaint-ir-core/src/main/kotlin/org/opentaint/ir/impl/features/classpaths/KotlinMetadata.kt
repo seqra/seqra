@@ -1,16 +1,13 @@
 package org.opentaint.ir.impl.features.classpaths
 
-import kotlinx.metadata.InconsistentKotlinMetadataException
 import kotlinx.metadata.KmConstructor
 import kotlinx.metadata.KmFunction
 import kotlinx.metadata.KmProperty
 import kotlinx.metadata.KmTypeParameter
-import kotlinx.metadata.jvm.KotlinClassHeader
 import kotlinx.metadata.jvm.KotlinClassMetadata
 import org.opentaint.ir.api.jvm.JIRClassExtFeature
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.ext.annotation
-import org.opentaint.ir.impl.bytecode.logger
 
 object KotlinMetadata : JIRClassExtFeature {
 
@@ -33,7 +30,7 @@ object KotlinMetadata : JIRClassExtFeature {
     private val JIRClassOrInterface.kMetadata: KotlinClassMetadata?
         get() {
             val kmParameters = annotation("kotlin.Metadata")?.values ?: return null
-            val kmHeader = KotlinClassHeader(
+            val metadata = kotlinx.metadata.jvm.Metadata(
                 kmParameters["k"] as? Int,
                 (kmParameters["mv"] as? List<Int>)?.toIntArray(),
                 (kmParameters["d1"] as? List<String>)?.toTypedArray(),
@@ -42,14 +39,7 @@ object KotlinMetadata : JIRClassExtFeature {
                 kmParameters["pn"] as? String,
                 kmParameters["xi"] as? Int,
             )
-            return try {
-                KotlinClassMetadata.read(kmHeader)
-            } catch (e: InconsistentKotlinMetadataException) {
-                logger.warn {
-                    "Can't parse Kotlin metadata annotation found on class $name, the class may be damaged"
-                }
-                null
-            }
+            return KotlinClassMetadata.readStrict(metadata)
         }
 
 }
@@ -57,23 +47,22 @@ object KotlinMetadata : JIRClassExtFeature {
 class KotlinMetadataHolder(meta: KotlinClassMetadata) {
 
     val functions: List<KmFunction> = when (meta) {
-        is KotlinClassMetadata.Class -> meta.toKmClass().functions
-        is KotlinClassMetadata.FileFacade -> meta.toKmPackage().functions
-        is KotlinClassMetadata.MultiFileClassPart -> meta.toKmPackage().functions
+        is KotlinClassMetadata.Class -> meta.kmClass.functions
+        is KotlinClassMetadata.FileFacade -> meta.kmPackage.functions
+        is KotlinClassMetadata.MultiFileClassPart -> meta.kmPackage.functions
         else -> listOf()
     }
 
     val constructors: List<KmConstructor> =
-        (meta as? KotlinClassMetadata.Class)?.toKmClass()?.constructors ?: emptyList()
+        (meta as? KotlinClassMetadata.Class)?.kmClass?.constructors ?: emptyList()
 
     val properties: List<KmProperty> = when (meta) {
-        is KotlinClassMetadata.Class -> meta.toKmClass().properties
-        is KotlinClassMetadata.FileFacade -> meta.toKmPackage().properties
-        is KotlinClassMetadata.MultiFileClassPart -> meta.toKmPackage().properties
+        is KotlinClassMetadata.Class -> meta.kmClass.properties
+        is KotlinClassMetadata.FileFacade -> meta.kmPackage.properties
+        is KotlinClassMetadata.MultiFileClassPart -> meta.kmPackage.properties
         else -> listOf()
     }
 
     val kmTypeParameters: List<KmTypeParameter>? =
-        (meta as? KotlinClassMetadata.Class)?.toKmClass()?.typeParameters
-
+        (meta as? KotlinClassMetadata.Class)?.kmClass?.typeParameters
 }

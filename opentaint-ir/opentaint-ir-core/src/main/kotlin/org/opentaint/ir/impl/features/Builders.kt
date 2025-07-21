@@ -1,6 +1,14 @@
 package org.opentaint.ir.impl.features
 
-import org.opentaint.ir.api.jvm.*
+import org.opentaint.ir.api.jvm.ByteCodeIndexer
+import org.opentaint.ir.api.jvm.ClassSource
+import org.opentaint.ir.api.jvm.JIRDBContext
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.JIRDatabasePersistence
+import org.opentaint.ir.api.jvm.JIRFeature
+import org.opentaint.ir.api.jvm.JIRSignal
+import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.ext.jvmPrimitiveNames
 import org.opentaint.ir.api.jvm.storage.ers.compressed
 import org.opentaint.ir.impl.fs.PersistenceClassSource
@@ -88,11 +96,11 @@ class BuildersIndexer(val persistence: JIRDatabasePersistence, private val locat
             },
             noSqlAction = { txn ->
                 potentialBuilders.forEach { (returnedClassInternalName, builders) ->
+                    val returnTypeId = persistence.findSymbolId(returnedClassInternalName.className)
                     builders.forEach { builder ->
                         val entity = txn.newEntity(BuilderEntity.BUILDER_ENTITY_TYPE)
                         entity[BuilderEntity.BUILDER_LOCATION_ID_PROPERTY] = location.id
-                        entity[BuilderEntity.RETURNED_CLASS_NAME_ID_PROPERTY] =
-                            persistence.findSymbolId(returnedClassInternalName.className)
+                        entity[BuilderEntity.RETURNED_CLASS_NAME_ID_PROPERTY] = returnTypeId
                         entity[BuilderEntity.BUILDER_CLASS_NAME_ID] =
                             persistence.findSymbolId(builder.callerClass.className)
                         entity[BuilderEntity.METHOD_OFFSET_PROPERTY] = builder.methodOffset
@@ -221,7 +229,8 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
                         jooq.select(BUILDERS.OFFSET, SYMBOLS.NAME, CLASSES.ID, CLASSES.LOCATION_ID, BUILDERS.PRIORITY)
                             .from(BUILDERS)
                             .join(SYMBOLS).on(SYMBOLS.NAME.eq(BUILDERS.BUILDER_CLASS_NAME))
-                            .join(CLASSES).on(CLASSES.NAME.eq(SYMBOLS.ID).and(BUILDERS.LOCATION_ID.eq(CLASSES.LOCATION_ID)))
+                            .join(CLASSES)
+                            .on(CLASSES.NAME.eq(SYMBOLS.ID).and(BUILDERS.LOCATION_ID.eq(CLASSES.LOCATION_ID)))
                             .where(
                                 BUILDERS.CLASS_NAME.`in`(req).and(BUILDERS.LOCATION_ID.`in`(locationIds))
                             )
@@ -241,6 +250,7 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
                             }
                     },
                     noSqlAction = { txn ->
+                        // TODO: review as resulting expression looks quite verbose and non-optimal
                         req
                             .asSequence()
                             .map { returnedClassName -> persistence.findSymbolId(returnedClassName) }
@@ -254,19 +264,25 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
                             .flatten()
                             .filter { builder -> builder[BuilderEntity.BUILDER_LOCATION_ID_PROPERTY] in locationIds }
                             .flatMap { builder ->
+                                val builderLocationId: Long = builder[BuilderEntity.BUILDER_LOCATION_ID_PROPERTY]!!
                                 val builderClassNameId: Long = builder[BuilderEntity.BUILDER_CLASS_NAME_ID]!!
-                                txn.find("Class", "nameId", builderClassNameId.compressed).map { builderClass ->
-                                    BuildersResponse(
-                                        source = PersistenceClassSource(
-                                            db = classpath.db,
-                                            locationId = builder[BuilderEntity.BUILDER_LOCATION_ID_PROPERTY]!!,
-                                            classId = builderClass.id.instanceId,
-                                            className = persistence.findSymbolName(builderClassNameId),
-                                        ),
-                                        methodOffset = builder[BuilderEntity.METHOD_OFFSET_PROPERTY]!!,
-                                        priority = builder[BuilderEntity.PRIORITY_PROPERTY] ?: 0
-                                    )
-                                }
+                                txn.find("Class", "nameId", builderClassNameId.compressed)
+                                    .mapNotNull { builderClass ->
+                                        if (builderClass.getCompressed<Long>("locationId") != builderLocationId) {
+                                            null
+                                        } else {
+                                            BuildersResponse(
+                                                source = PersistenceClassSource(
+                                                    db = classpath.db,
+                                                    locationId = builderLocationId,
+                                                    classId = builderClass.id.instanceId,
+                                                    className = persistence.findSymbolName(builderClassNameId),
+                                                ),
+                                                methodOffset = builder[BuilderEntity.METHOD_OFFSET_PROPERTY]!!,
+                                                priority = builder[BuilderEntity.PRIORITY_PROPERTY] ?: 0
+                                            )
+                                        }
+                                    }
                             }
                             .toList()
                     }

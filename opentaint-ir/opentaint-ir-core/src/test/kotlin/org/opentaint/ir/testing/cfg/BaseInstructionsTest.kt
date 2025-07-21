@@ -9,7 +9,6 @@ import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.impl.bytecode.JIRDatabaseClassWriter
 import org.opentaint.ir.impl.cfg.MethodNodeBuilder
 import org.opentaint.ir.impl.features.hierarchyExt
-import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithGlobalDB
 import org.junit.jupiter.api.Assertions
@@ -63,9 +62,10 @@ abstract class BaseInstructionsTest : BaseTest() {
                 .filter { it.enclosingClass == klass }
                 .map { method ->
                     if (method.isAbstract ||
-                        method.name.contains("$\$forInline")||
+                        method.name.contains("$\$forInline") ||
                         method.name.contains("lambda$") ||
-                        method.name.contains("stringConcat$")) {
+                        method.name.contains("stringConcat$")
+                    ) {
                         method.withAsmNode { it } // fixme: safe only in single-thread environment
                     } else {
                         try {

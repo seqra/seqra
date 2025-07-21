@@ -40,12 +40,7 @@ val TypeName.isPrimitive get() = PredefinedPrimitives.matches(typeName)
 val TypeName.isArray get() = typeName.endsWith("[]")
 val TypeName.isClass get() = !isPrimitive && !isArray
 
-internal val TypeName.isDWord
-    get() = when (typeName) {
-        PredefinedPrimitives.Long -> true
-        PredefinedPrimitives.Double -> true
-        else -> false
-    }
+internal val TypeName.isDWord get() = typeName == PredefinedPrimitives.Long || typeName == PredefinedPrimitives.Double
 
 internal fun String.typeName(): TypeName = TypeNameImpl(this.jIRdbName())
 internal fun TypeName.asArray(dimensions: Int = 1) = "$typeName${"[]".repeat(dimensions)}".typeName()

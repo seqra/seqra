@@ -1,10 +1,18 @@
 package org.opentaint.ir.impl.features
 
-import org.opentaint.ir.api.jvm.*
+import org.opentaint.ir.api.jvm.ByteCodeIndexer
+import org.opentaint.ir.api.jvm.ClassSource
+import org.opentaint.ir.api.jvm.JIRDBContext
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.JIRDatabasePersistence
+import org.opentaint.ir.api.jvm.JIRFeature
+import org.opentaint.ir.api.jvm.JIRSignal
+import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
 import org.opentaint.ir.api.jvm.storage.ers.compressed
 import org.opentaint.ir.api.jvm.storage.ers.links
-import org.opentaint.ir.api.jvm.storage.ers.propertyOf
 import org.opentaint.ir.impl.asSymbolId
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
@@ -21,6 +29,7 @@ import org.objectweb.asm.Type
 import org.objectweb.asm.tree.ClassNode
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.min
+import org.opentaint.ir.impl.util.Sequence as Sequence
 
 typealias InMemoryHierarchyCache = ConcurrentHashMap<Long, ConcurrentHashMap<Long, MutableSet<Long>>>
 
@@ -171,62 +180,64 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
         if (allSubclasses.isEmpty()) {
             return emptySequence()
         }
-        return persistence.read { context ->
-            context.execute(
-                sqlAction = { jooq ->
-                    val allIds = allSubclasses.toList()
-                    BatchedSequence<ClassSource>(defaultBatchSize) { offset, batchSize ->
-                        val index = offset ?: 0
-                        val ids = allIds.subList(index.toInt(), min(allIds.size, index.toInt() + batchSize))
-                        if (ids.isEmpty()) {
-                            emptyList()
-                        } else {
-                            jooq.select(
-                                SYMBOLS.NAME, CLASSES.ID, CLASSES.LOCATION_ID, when {
-                                    req.full -> CLASSES.BYTECODE
-                                    else -> DSL.inline(ByteArray(0)).`as`(CLASSES.BYTECODE)
-                                }
-                            ).from(CLASSES)
-                                .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
-                                .where(SYMBOLS.ID.`in`(ids).and(CLASSES.LOCATION_ID.`in`(locationIds)))
-                                .fetch()
-                                .mapNotNull { (className, classId, locationId, byteCode) ->
-                                    val source = PersistenceClassSource(
-                                        db = classpath.db,
-                                        classId = classId!!,
-                                        className = className!!,
-                                        locationId = locationId!!
-                                    ).let {
-                                        it.bind(byteCode.takeIf { req.full })
+        return Sequence {
+            persistence.read { context ->
+                context.execute(
+                    sqlAction = { jooq ->
+                        val allIds = allSubclasses.toList()
+                        BatchedSequence<ClassSource>(defaultBatchSize) { offset, batchSize ->
+                            val index = offset ?: 0
+                            val ids = allIds.subList(index.toInt(), min(allIds.size, index.toInt() + batchSize))
+                            if (ids.isEmpty()) {
+                                emptyList()
+                            } else {
+                                jooq.select(
+                                    SYMBOLS.NAME, CLASSES.ID, CLASSES.LOCATION_ID, when {
+                                        req.full -> CLASSES.BYTECODE
+                                        else -> DSL.inline(ByteArray(0)).`as`(CLASSES.BYTECODE)
                                     }
-                                    (batchSize + index) to source
-                                }
+                                ).from(CLASSES)
+                                    .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
+                                    .where(SYMBOLS.ID.`in`(ids).and(CLASSES.LOCATION_ID.`in`(locationIds)))
+                                    .fetch()
+                                    .mapNotNull { (className, classId, locationId, byteCode) ->
+                                        val source = PersistenceClassSource(
+                                            db = classpath.db,
+                                            classId = classId!!,
+                                            className = className!!,
+                                            locationId = locationId!!
+                                        ).let {
+                                            it.bind(byteCode.takeIf { req.full })
+                                        }
+                                        (batchSize + index) to source
+                                    }
+                            }
                         }
+                    },
+                    noSqlAction = { txn ->
+                        allSubclasses.asSequence()
+                            .flatMap { classNameId ->
+                                txn.find("Class", "nameId", classNameId.compressed)
+                                    .filter { clazz ->
+                                        clazz.getCompressed<Long>("locationId") in locationIds
+                                    }
+                            }
+                            .map { clazz ->
+                                val classId: Long = clazz.id.instanceId
+                                PersistenceClassSource(
+                                    db = classpath.db,
+                                    className = persistence.findSymbolName(clazz.getCompressed<Long>("nameId")!!),
+                                    classId = classId,
+                                    locationId = clazz.getCompressed<Long>("locationId")!!,
+                                    cachedByteCode = if (req.full) persistence.findBytecode(classId) else null
+                                )
+                            }
                     }
-                },
-                noSqlAction = { txn ->
-                    allSubclasses.asSequence()
-                        .flatMap { classNameId ->
-                            txn.find("Class", "nameId", classNameId.compressed)
-                                .filter { clazz ->
-                                    clazz.getCompressed<Long>("locationId") in locationIds
-                                }
-                        }
-                        .map { clazz ->
-                            val classId: Long = clazz.id.instanceId
-                            PersistenceClassSource(
-                                db = classpath.db,
-                                className = persistence.findSymbolName(clazz.getCompressed<Long>("nameId")!!),
-                                classId = classId,
-                                locationId = clazz.getCompressed<Long>("locationId")!!,
-                                cachedByteCode = if (req.full) persistence.findBytecode(classId) else null
-                            )
-                        }
-                        // Eager evaluation is needed, because all computations must be done within current transaction,
-                        // i.e. ERS can't be used outside `persistence.read { ... }`, when sequence is actually iterated
-                        .toList().asSequence()
-                }
-            )
+                )
+                    // Eager evaluation is needed, because all computations must be done within current transaction,
+                    // i.e. ERS can't be used outside `persistence.read { ... }`, when sequence is actually iterated
+                    .toList()
+            }
         }
     }
 

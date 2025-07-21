@@ -330,7 +330,6 @@ abstract class IRTest : BaseInstructionsTest() {
     }
 
     @Test
-    @Disabled
     fun `get ir of jgit`() {
         runAlongLib(jgitLib)
     }

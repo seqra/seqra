@@ -2,9 +2,9 @@ package org.opentaint.ir.impl.types.signature
 
 import kotlinx.metadata.KmType
 import kotlinx.metadata.KmTypeParameter
+import kotlinx.metadata.isNullable
 import org.opentaint.ir.api.jvm.JvmType
 import org.opentaint.ir.api.jvm.JvmTypeParameterDeclaration
-import org.opentaint.ir.impl.bytecode.isNullable
 
 /**
  * Recursively visits type and take all info about nullability from given kmType

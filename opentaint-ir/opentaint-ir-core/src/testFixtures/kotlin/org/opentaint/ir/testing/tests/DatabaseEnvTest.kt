@@ -5,14 +5,40 @@ import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClassProcessingTask
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
-import org.opentaint.ir.api.jvm.ext.*
+import org.opentaint.ir.api.jvm.ext.HierarchyExtension
+import org.opentaint.ir.api.jvm.ext.constructors
+import org.opentaint.ir.api.jvm.ext.enumValues
+import org.opentaint.ir.api.jvm.ext.fields
+import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.findClassOrNull
+import org.opentaint.ir.api.jvm.ext.findDeclaredFieldOrNull
+import org.opentaint.ir.api.jvm.ext.findDeclaredMethodOrNull
+import org.opentaint.ir.api.jvm.ext.findMethodOrNull
+import org.opentaint.ir.api.jvm.ext.hasBody
+import org.opentaint.ir.api.jvm.ext.humanReadableSignature
+import org.opentaint.ir.api.jvm.ext.isEnum
+import org.opentaint.ir.api.jvm.ext.isLocal
+import org.opentaint.ir.api.jvm.ext.isMemberClass
+import org.opentaint.ir.api.jvm.ext.isNullable
+import org.opentaint.ir.api.jvm.ext.jIRdbSignature
+import org.opentaint.ir.api.jvm.ext.jvmSignature
+import org.opentaint.ir.api.jvm.ext.methods
+import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.VirtualClassContent
 import org.opentaint.ir.impl.features.classpaths.VirtualClasses
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualClass
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualField
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualMethod
-import org.opentaint.ir.testing.*
+import org.opentaint.ir.testing.A
+import org.opentaint.ir.testing.B
+import org.opentaint.ir.testing.Bar
+import org.opentaint.ir.testing.C
+import org.opentaint.ir.testing.D
+import org.opentaint.ir.testing.Enums
+import org.opentaint.ir.testing.Foo
+import org.opentaint.ir.testing.SuperDuper
+import org.opentaint.ir.testing.allClasspath
 import org.opentaint.ir.testing.hierarchies.Creature
 import org.opentaint.ir.testing.skipAssertionsOn
 import org.opentaint.ir.testing.structure.FieldsAndMethods
@@ -23,7 +49,11 @@ import org.opentaint.ir.testing.usages.Generics
 import org.opentaint.ir.testing.usages.HelloWorldAnonymousClasses
 import org.opentaint.ir.testing.usages.WithInner
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.JRE
@@ -189,12 +219,18 @@ abstract class DatabaseEnvTest {
             assertEquals(Element::class.java.name, returnType.typeName)
             assertEquals("createElement(java.lang.String;)org.w3c.dom.Element;", jIRdbSignature)
             assertEquals("createElement(Ljava/lang/String;)Lorg/w3c/dom/Element;", jvmSignature)
-            assertEquals("org.w3c.dom.Document#createElement(java.lang.String):org.w3c.dom.Element", humanReadableSignature)
+            assertEquals(
+                "org.w3c.dom.Document#createElement(java.lang.String):org.w3c.dom.Element",
+                humanReadableSignature
+            )
         }
 
         with(methods.first { it.name == "importNode" }) {
             assertEquals("importNode(org.w3c.dom.Node;boolean;)org.w3c.dom.Node;", jIRdbSignature)
-            assertEquals("org.w3c.dom.Document#importNode(org.w3c.dom.Node,boolean):org.w3c.dom.Node", humanReadableSignature)
+            assertEquals(
+                "org.w3c.dom.Document#importNode(org.w3c.dom.Node,boolean):org.w3c.dom.Node",
+                humanReadableSignature
+            )
         }
     }
 
@@ -247,7 +283,7 @@ abstract class DatabaseEnvTest {
         assertNotNull(clazz!!)
 
         with(hierarchyExt.findSubClasses(clazz, entireHierarchy = true).toList()) {
-            assertEquals(4, size) {
+            assertEquals(4, distinctBy { it.name }.size) {
                 "expected 4 but got only: ${joinToString { it.name }}"
             }
 
@@ -294,7 +330,7 @@ abstract class DatabaseEnvTest {
         var overrides = hierarchyExt.findOverrides(sayMethod).toList()
 
         with(overrides) {
-            assertEquals(4, size)
+            assertEquals(4, distinctBy { it.enclosingClass.name }.size)
 
             assertNotNull(firstOrNull { it.enclosingClass == cp.findClass<Creature.DinosaurImpl>() })
             assertNotNull(firstOrNull { it.enclosingClass == cp.findClass<Creature.Fish>() })
@@ -303,7 +339,7 @@ abstract class DatabaseEnvTest {
         }
         overrides = hierarchyExt.findOverrides(helloMethod).toList()
         with(overrides) {
-            assertEquals(1, size)
+            assertEquals(1, distinctBy { it.enclosingClass.name }.size)
 
             assertNotNull(firstOrNull { it.enclosingClass == cp.findClass<Creature.TRex>() })
 

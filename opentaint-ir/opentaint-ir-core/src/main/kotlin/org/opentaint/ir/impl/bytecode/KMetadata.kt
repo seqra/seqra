@@ -1,6 +1,5 @@
 package org.opentaint.ir.impl.bytecode
 
-import kotlinx.metadata.Flag
 import kotlinx.metadata.KmConstructor
 import kotlinx.metadata.KmFunction
 import kotlinx.metadata.KmType
@@ -24,11 +23,11 @@ val JIRClassOrInterface.kMetadata: KotlinMetadataHolder?
 
 val JIRMethod.kmFunction: KmFunction?
     get() =
-        enclosingClass.kMetadata?.functions?.firstOrNull { it.signature?.name == name && it.signature?.desc == description }
+        enclosingClass.kMetadata?.functions?.firstOrNull { it.signature?.name == name && it.signature?.descriptor == description }
 
 val JIRMethod.kmConstructor: KmConstructor?
     get() =
-        enclosingClass.kMetadata?.constructors?.firstOrNull { it.signature?.name == name && it.signature?.desc == description }
+        enclosingClass.kMetadata?.constructors?.firstOrNull { it.signature?.name == name && it.signature?.descriptor == description }
 
 val JIRParameter.kmParameter: KmValueParameter?
     get() {
@@ -68,6 +67,3 @@ val JIRField.kmType: KmType?
 val JIRMethod.kmReturnType: KmType?
     get() =
         kmFunction?.returnType
-
-val KmType.isNullable: Boolean
-    get() = Flag.Type.IS_NULLABLE(flags)
