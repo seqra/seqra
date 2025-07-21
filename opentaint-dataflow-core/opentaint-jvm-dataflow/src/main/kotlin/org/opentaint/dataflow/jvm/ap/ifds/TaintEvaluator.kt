@@ -93,15 +93,17 @@ class FactReader(val fact: Fact.TaintedTree) {
 }
 
 class FactAwareConditionEvaluator(
+    traits: JIRTraits,
     private val facts: Iterable<FactReader>,
     private val accessPathResolver: PositionResolver<Maybe<List<PositionAccess>>>,
     positionResolver: PositionResolver<Maybe<JIRValue>>,
-) : BasicConditionEvaluator(positionResolver, JIRTraits) {
+) : BasicConditionEvaluator(positionResolver, traits) {
     constructor(
+        traits: JIRTraits,
         fact: FactReader,
         accessPathResolver: PositionResolver<Maybe<List<PositionAccess>>>,
         positionResolver: PositionResolver<Maybe<JIRValue>>
-    ) : this(listOf(fact), accessPathResolver, positionResolver)
+    ) : this(traits, listOf(fact), accessPathResolver, positionResolver)
 
     private var hasEvaluatedContainsMark: Boolean = false
 
@@ -143,8 +145,9 @@ class FactAwareConditionEvaluator(
 }
 
 class FactIgnoreConditionEvaluator(
+    traits: JIRTraits,
     positionResolver: PositionResolver<Maybe<JIRValue>>
-) : BasicConditionEvaluator(positionResolver, JIRTraits) {
+) : BasicConditionEvaluator(positionResolver, traits) {
     override fun visit(condition: ContainsMark): Boolean {
         return false
     }

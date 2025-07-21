@@ -74,6 +74,10 @@ class MethodCallFlowFunction(
         val initialFact: Fact.TaintedPath
     ) : FactCallFact
 
+    private val traits by lazy {
+        JIRTraits(statement.method.enclosingClass.classpath)
+    }
+
     fun propagateZeroToZero(): Set<ZeroCallFact> = buildSet {
         applyZeroFactSinkRules()
 
@@ -82,7 +86,7 @@ class MethodCallFlowFunction(
         applySourceConfig(
             config,
             method = callExpr.method.method,
-            conditionEvaluator = BasicConditionEvaluator(CallPositionToJIRValueResolver(callExpr, returnValue), JIRTraits),
+            conditionEvaluator = BasicConditionEvaluator(CallPositionToJIRValueResolver(callExpr, returnValue), traits),
             taintActionEvaluator = TaintSourceActionEvaluator(
                 CallPositionToAccessPathResolver(callExpr, returnValue)
             )
@@ -99,6 +103,7 @@ class MethodCallFlowFunction(
 
     private fun applyZeroFactSinkRules() {
         val conditionEvaluator = FactIgnoreConditionEvaluator(
+            traits,
             CallPositionToJIRValueResolver(callExpr, returnValue = null)
         )
 
@@ -170,6 +175,7 @@ class MethodCallFlowFunction(
         val apResolver = CallPositionToAccessPathResolver(callExpr, returnValue)
 
         val conditionEvaluator = FactAwareConditionEvaluator(
+            traits,
             factReader,
             apResolver,
             CallPositionToJIRValueResolver(callExpr, returnValue)
@@ -235,7 +241,7 @@ class MethodCallFlowFunction(
         val valueResolver = CallPositionToJIRValueResolver(callExpr, returnValue = null)
 
         val conditionEvaluator = FactAwareConditionEvaluator(
-            factReader, apResolver, valueResolver
+            traits, factReader, apResolver, valueResolver
         )
 
         for (rule in sinkRules(config, callExpr.method.method)) {
@@ -249,7 +255,7 @@ class MethodCallFlowFunction(
             }
 
             val conditionEvaluatorWithAssumptions = FactAwareConditionEvaluatorWithAssumptions(
-                factReader, apResolver, valueResolver
+                traits, factReader, apResolver, valueResolver
             )
 
             for (resultWithAssumption in conditionEvaluatorWithAssumptions.evalWithAssumptions(rule.condition)) {
@@ -269,7 +275,10 @@ class MethodCallFlowFunction(
         ) = applyEntryPointConfig(
             config,
             method = method,
-            conditionEvaluator = BasicConditionEvaluator(CalleePositionToJIRValueResolver(method), JIRTraits),
+            conditionEvaluator = BasicConditionEvaluator(
+                CalleePositionToJIRValueResolver(method),
+                JIRTraits(method.enclosingClass.classpath)
+            ),
             taintActionEvaluator = TaintSourceActionEvaluator(CalleePositionToAccessPath())
         )
 

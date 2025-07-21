@@ -22,13 +22,17 @@ import org.opentaint.ir.taint.configuration.TypeMatches
 import org.opentaint.dataflow.ifds.Maybe
 import org.opentaint.dataflow.ifds.onSome
 import org.opentaint.dataflow.jvm.ap.ifds.FactAwareConditionEvaluatorWithAssumptions.ResultWithFactAssumptions
+import org.opentaint.dataflow.jvm.util.JIRTraits
 
 class FactAwareConditionEvaluatorWithAssumptions(
+    traits: JIRTraits,
     private val factReader: FactReader,
     private val accessPathResolver: PositionResolver<Maybe<List<PositionAccess>>>,
     positionResolver: PositionResolver<Maybe<JIRValue>>,
 ) : ConditionVisitor<List<ResultWithFactAssumptions>> {
-    private val factAwareConditionEvaluator = FactAwareConditionEvaluator(factReader, accessPathResolver, positionResolver)
+    private val factAwareConditionEvaluator = FactAwareConditionEvaluator(
+        traits, factReader, accessPathResolver, positionResolver
+    )
 
     private var hasEvaluatedContainsMark: Boolean = false
 

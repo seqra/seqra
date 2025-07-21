@@ -26,7 +26,7 @@ class JIRCallResolver(
     private val graph: JIRApplicationGraph,
     private val unitResolver: JIRUnitResolver
 ) {
-    private val hierarchy = runBlocking { graph.project.hierarchyExt() }
+    private val hierarchy = runBlocking { graph.cp.hierarchyExt() }
 
     private val methodOverridesCache = ConcurrentHashMap<JIRMethod, List<JIRMethod>>()
 

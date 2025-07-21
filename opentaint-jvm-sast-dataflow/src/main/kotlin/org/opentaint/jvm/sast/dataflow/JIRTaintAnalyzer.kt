@@ -198,7 +198,7 @@ class JIRTaintAnalyzer(
                 )
             }
         }
-        with(JIRTraits) {
+        with(JIRTraits(cp)) {
             return sarifReportFromVulnerabilities(vulnerabilityInstances, sourceFileResolver = sourceFileResolver)
         }
     }

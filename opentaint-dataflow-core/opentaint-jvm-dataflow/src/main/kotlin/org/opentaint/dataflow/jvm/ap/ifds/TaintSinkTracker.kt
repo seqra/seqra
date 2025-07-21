@@ -6,6 +6,7 @@ import org.opentaint.ir.taint.configuration.PositionResolver
 import org.opentaint.ir.taint.configuration.TaintMethodSink
 import org.opentaint.dataflow.ifds.Maybe
 import org.opentaint.dataflow.jvm.ap.ifds.FactAwareConditionEvaluatorWithAssumptions.FactAssumption
+import org.opentaint.dataflow.jvm.util.JIRTraits
 import java.util.concurrent.ConcurrentHashMap
 
 class TaintSinkTracker(
@@ -65,6 +66,8 @@ class TaintSinkTracker(
         }
 
         fun vulnerabilityAssumptionsSatisfied(): Boolean {
+            val cp = edges.firstOrNull()?.statement?.method?.enclosingClass?.classpath ?: return false
+
             val factReaders = edges.mapTo(hashSetOf()) { it.fact }.map { fact ->
                 when (fact) {
                     is Fact.TaintedTree -> FactReader(fact)
@@ -72,7 +75,9 @@ class TaintSinkTracker(
                 }
             }
 
-            val evaluator = FactAwareConditionEvaluator(factReaders, NonePositionResolver, NonePositionResolver)
+            val evaluator = FactAwareConditionEvaluator(
+                JIRTraits(cp), factReaders, NonePositionResolver, NonePositionResolver
+            )
             for (edge in edges) {
                 val satisfied = edge.assumptions.all { assumption ->
                     factReaders.any { fact -> evaluator.evalContainsMark(fact, assumption.mark, assumption.position) }

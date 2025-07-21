@@ -121,7 +121,7 @@ class TaintAnalysisUnitRunnerManager(
     }
 
     private val taintConfigurationFeature: TaintConfigurationFeature? by lazy {
-        graph.project.features
+        graph.cp.features
             ?.singleOrNull { it is TaintConfigurationFeature }
             ?.let { it as TaintConfigurationFeature }
     }
@@ -191,7 +191,7 @@ class TaintAnalysisUnitRunnerManager(
 
     private val progressScope = CoroutineScope(progressDispatcher)
 
-    private val factTypeChecker = FactTypeChecker(graph.project)
+    private val factTypeChecker = FactTypeChecker(graph.cp)
 
     override fun close() {
         analyzerDispatcher.close()
@@ -212,7 +212,7 @@ class TaintAnalysisUnitRunnerManager(
     private fun convertToOldVulnerability(
         vulnerability: TaintVulnerability
     ): OldTaintVulnerability<JIRInst> = with(vulnerability) {
-        val stubAp = OldAccessPath(JIRThis(graph.project.objectType), emptyList())
+        val stubAp = OldAccessPath(JIRThis(graph.cp.objectType), emptyList())
         val convertedFact = when(val edgeFact = fact){
             Fact.Zero -> TaintZeroFact
             is Fact.TaintedPath -> Tainted(stubAp, edgeFact.mark)
