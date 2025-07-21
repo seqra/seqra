@@ -4,7 +4,7 @@ import org.gradle.plugin.use.PluginDependenciesSpec
 
 object Versions {
     const val asm = "9.6"
-    const val dokka = "1.7.20"
+    const val dokka = "1.9.20" // note: must be compatible with kotlin version
     const val gradle_download = "5.3.0"
     const val gradle_versions = "0.47.0"
 
