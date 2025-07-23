@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test
 
 class ClassesTest : DatabaseEnvTest() {
 
-    companion object : WithGlobalDB()
+    companion object : WithGlobalRAMDB()
 
     override val cp: JIRClasspath = runBlocking { db.classpath(allClasspath) }
 

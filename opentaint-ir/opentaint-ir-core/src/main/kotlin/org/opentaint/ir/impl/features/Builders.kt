@@ -220,7 +220,7 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
     }
 
     fun syncQuery(classpath: JIRClasspath, req: Set<String>): Sequence<BuildersResponse> {
-        val locationIds = classpath.registeredLocations.map { it.id }
+        val locationIds = classpath.registeredLocationIds
         val persistence = classpath.db.persistence
         return sequence {
             val result = persistence.read { context ->

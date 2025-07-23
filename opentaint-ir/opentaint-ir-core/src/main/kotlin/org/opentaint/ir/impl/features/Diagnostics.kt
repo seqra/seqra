@@ -23,7 +23,7 @@ suspend fun JIRClasspath.duplicatedClasses(): Map<String, Int> {
             sqlAction = { jooq ->
                 jooq.select(SYMBOLS.NAME, DSL.count(SYMBOLS.NAME)).from(CLASSES)
                     .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
-                    .where(CLASSES.LOCATION_ID.`in`(registeredLocations.map { it.id }))
+                    .where(CLASSES.LOCATION_ID.`in`(registeredLocationIds))
                     .groupBy(SYMBOLS.NAME)
                     .having(DSL.count(SYMBOLS.NAME).greaterThan(1))
                     .fetch()

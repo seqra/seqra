@@ -60,6 +60,7 @@ dependencies {
     testFixturesImplementation(Libs.jetbrains_annotations)
     testFixturesImplementation(Libs.kotlinx_coroutines_core)
     testFixturesImplementation(Libs.jgit_test_only_lib)
+    testFixturesImplementation(Libs.commons_compress_test_only_lib)
 }
 
 tasks {

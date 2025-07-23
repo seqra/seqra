@@ -44,6 +44,7 @@ object Versions {
 
     // libs for tests only
     const val jgit_test_only_version = "5.9.0.202009080501-r"
+    const val commons_compress_test_only_version = "1.21"
 }
 
 fun dep(group: String, name: String, version: String): String = "$group:$name:$version"
@@ -331,6 +332,12 @@ object Libs {
         group = "org.eclipse.jgit",
         name = "org.eclipse.jgit",
         version = Versions.jgit_test_only_version
+    )
+
+    val commons_compress_test_only_lib = dep(
+        group = "org.apache.commons",
+        name = "commons-compress",
+        version = Versions.commons_compress_test_only_version
     )
 }
 

@@ -25,6 +25,14 @@ val jgitLib: File
         }
     }
 
+val commonsCompressLib: File
+    get() {
+        val commonsCompressUrl = classpath.first { it.contains("commons-compress-") }
+        return File(commonsCompressUrl).also {
+            Assertions.assertTrue(it.isFile && it.exists())
+        }
+    }
+
 val asmLib: File
     get() {
         val asmUrl = classpath.first { it.contains("${File.separator}asm${File.separator}") }

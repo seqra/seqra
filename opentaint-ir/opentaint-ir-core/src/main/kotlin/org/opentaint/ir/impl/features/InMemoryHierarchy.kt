@@ -172,7 +172,7 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
             }
         }
 
-        val locationIds = classpath.registeredLocations.mapTo(mutableSetOf()) { it.id }
+        val locationIds = classpath.registeredLocationIds
         val classSymbolId = persistence.findSymbolId(req.name)
 
         val allSubclasses = hashSetOf<Long>()

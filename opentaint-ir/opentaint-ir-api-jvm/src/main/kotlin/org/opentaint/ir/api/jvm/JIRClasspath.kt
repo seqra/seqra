@@ -24,6 +24,7 @@ interface JIRClasspath : Closeable, CommonProject {
     /** locations of this classpath */
     val locations: List<JIRByteCodeLocation>
     val registeredLocations: List<RegisteredLocation>
+    val registeredLocationIds: Set<Long>
     val features: List<JIRClasspathFeature>?
 
     /**

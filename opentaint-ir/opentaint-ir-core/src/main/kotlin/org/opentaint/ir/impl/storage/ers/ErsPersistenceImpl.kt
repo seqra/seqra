@@ -227,7 +227,7 @@ class ErsPersistenceImpl(
     }
 
     private fun findClassSourcesImpl(context: JIRDBContext, cp: JIRClasspath, fullName: String): Sequence<ClassSource> {
-        val ids = cp.registeredLocations.mapTo(hashSetOf()) { it.id }
+        val ids = cp.registeredLocationIds
         return context.txn.find("Class", "nameId", findSymbolId(fullName).compressed)
             .asSequence().filter { it.getCompressed<Long>("locationId") in ids }
             .map { it.toClassSource(cp.db, fullName) }

@@ -1,10 +1,30 @@
 package org.opentaint.ir.impl
 
-import kotlinx.coroutines.*
-import org.opentaint.ir.api.jvm.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import org.opentaint.ir.api.jvm.JavaVersion
+import org.opentaint.ir.api.jvm.JIRByteCodeLocation
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRClasspathFeature
+import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.JIRDatabasePersistence
+import org.opentaint.ir.api.jvm.JIRFeature
+import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.KotlinMetadata
 import org.opentaint.ir.impl.features.classpaths.MethodInstructionsFeature
+import org.opentaint.ir.impl.features.classpaths.UnknownClassMethodsAndFields
+import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.filterExisting
@@ -60,14 +80,17 @@ class JIRDatabaseImpl(
     }
 
     private fun List<JIRClasspathFeature>?.appendBuiltInFeatures(): List<JIRClasspathFeature> {
-        if (this != null && any { it is ClasspathCache }) {
-            return this + listOf(KotlinMetadata, MethodInstructionsFeature(settings.keepLocalVariableNames))
+        return mutableListOf<JIRClasspathFeature>().also { result ->
+            result += orEmpty()
+            if (!result.any { it is ClasspathCache }) {
+                result += ClasspathCache(settings.cacheSettings)
+            }
+            result += KotlinMetadata
+            result += MethodInstructionsFeature(settings.keepLocalVariableNames)
+            if (result.any { it is UnknownClasses } && !result.any { it is UnknownClassMethodsAndFields }) {
+                result += UnknownClassMethodsAndFields
+            }
         }
-        return listOf(
-            ClasspathCache(settings.cacheSettings),
-            KotlinMetadata,
-            MethodInstructionsFeature(settings.keepLocalVariableNames)
-        ) + orEmpty()
     }
 
     override suspend fun classpath(dirOrJars: List<File>, features: List<JIRClasspathFeature>?): JIRClasspath {

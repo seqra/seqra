@@ -32,7 +32,7 @@ class JIRClasspathImpl(
 
     override val locations: List<JIRByteCodeLocation> = locationsRegistrySnapshot.locations.mapNotNull { it.jIRLocation }
     override val registeredLocations: List<RegisteredLocation> = locationsRegistrySnapshot.locations
-
+    override val registeredLocationIds: Set<Long> = locationsRegistrySnapshot.ids
     private val classpathVfs = ClasspathVfs(globalClassVFS, locationsRegistrySnapshot)
     private val featuresChain = run {
         val strictFeatures = features.filter { it !is UnknownClasses }

@@ -31,20 +31,15 @@ val JIRMethod.kmConstructor: KmConstructor?
 
 val JIRParameter.kmParameter: KmValueParameter?
     get() {
-        try {
-            method.kmFunction?.let {
-                // Shift needed to properly handle extension functions
-                val shift = if (it.receiverParameterType != null) 1 else 0
+        method.kmFunction?.let {
+            // Shift needed to properly handle extension functions
+            val shift = if (it.receiverParameterType != null) 1 else 0
 
-                // index - shift could be out of bounds if generated JVM parameter is fictive
-                // E.g., see how extension functions and coroutines are compiled
-                return it.valueParameters.getOrNull(index - shift)
-            }
-
-            return method.kmConstructor?.valueParameters?.get(index)
-        } catch (e: Exception) {
-            return null
+            // index - shift could be out of bounds if generated JVM parameter is fictive
+            // E.g., see how extension functions and coroutines are compiled
+            return it.valueParameters.getOrNull(index - shift)
         }
+        return method.kmConstructor?.valueParameters?.getOrNull(index)
     }
 
 // If parameter is a receiver parameter, it doesn't have KmValueParameter instance, but we still can get KmType for it

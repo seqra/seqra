@@ -1,12 +1,5 @@
 package org.opentaint.ir.testing.cfg
 
-import org.opentaint.ir.api.common.cfg.CommonAssignInst
-import org.opentaint.ir.api.common.cfg.CommonCallInst
-import org.opentaint.ir.api.common.cfg.CommonExpr
-import org.opentaint.ir.api.common.cfg.CommonGotoInst
-import org.opentaint.ir.api.common.cfg.CommonIfInst
-import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.common.cfg.CommonReturnInst
 import org.opentaint.ir.api.jvm.JavaVersion
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -45,10 +38,12 @@ import org.opentaint.ir.impl.cfg.Simplifier
 import org.opentaint.ir.impl.cfg.util.ExprMapper
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.StringConcatSimplifier
+import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.fs.JarLocation
 import org.opentaint.ir.testing.WithDB
 import org.opentaint.ir.testing.WithRAMDB
 import org.opentaint.ir.testing.asmLib
+import org.opentaint.ir.testing.commonsCompressLib
 import org.opentaint.ir.testing.guavaLib
 import org.opentaint.ir.testing.jgitLib
 import org.opentaint.ir.testing.kotlinStdLib
@@ -57,7 +52,6 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import java.io.File
@@ -79,8 +73,8 @@ class OverridesResolver(
         return methods.firstOrNull { typedMethod ->
             val jIRMethod = typedMethod.method
             jIRMethod.name == name &&
-                jIRMethod.returnType.typeName == returnType.typeName &&
-                jIRMethod.parameters.map { param -> param.type.typeName } == argTypes.map { it.typeName }
+                    jIRMethod.returnType.typeName == returnType.typeName &&
+                    jIRMethod.parameters.map { param -> param.type.typeName } == argTypes.map { it.typeName }
         } ?: error("Could not find a method with correct signature")
     }
 
@@ -335,6 +329,11 @@ abstract class IRTest : BaseInstructionsTest() {
     }
 
     @Test
+    fun `get ir of commons compress`() {
+        runAlongLib(commonsCompressLib)
+    }
+
+    @Test
     fun `get ir of asm`() {
         runAlongLib(asmLib, muteGraphChecker = true)
     }
@@ -376,10 +375,10 @@ abstract class IRTest : BaseInstructionsTest() {
 
 class IRSqlTest : IRTest() {
 
-    companion object : WithDB(StringConcatSimplifier)
+    companion object : WithDB(StringConcatSimplifier, UnknownClasses)
 }
 
 class IRRAMTest : IRTest() {
 
-    companion object : WithRAMDB(StringConcatSimplifier)
+    companion object : WithRAMDB(StringConcatSimplifier, UnknownClasses)
 }
