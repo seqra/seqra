@@ -223,7 +223,51 @@ class MethodSequentFlowFunction(private val currentInst: JIRInst, private val fa
                 propagateFact(fact)
                 return
             } else {
-                TODO()
+                /**
+                 * a.x = a | f(a)
+                 * -------------------
+                 * b = a | f(a), f(b)
+                 * a.x = b | f(b), f(b -> a.x), f(a -> a / {x})
+                 */
+
+                val auxiliaryBase = AccessPathBase.LocalVar(-1) // b
+                check(auxiliaryBase != instance)
+
+                fieldWrite(
+                    instance = instance,
+                    accessor = accessor,
+                    assignFrom = auxiliaryBase,
+                    fact = fact.rebase(auxiliaryBase), // f(b)
+                    propagateFact = {
+                        if (it.ap.base != auxiliaryBase) {
+                            propagateFact(it)
+                        }
+                    },
+                    propagateFactWithAccessorExclude = { f, a ->
+                        if (f.ap.base != auxiliaryBase) {
+                            propagateFactWithAccessorExclude(f, a)
+                        }
+                    }
+                )
+
+                fieldWrite(
+                    instance = instance,
+                    accessor = accessor,
+                    assignFrom = auxiliaryBase,
+                    fact = fact, // f(a)
+                    propagateFact = {
+                        if (it.ap.base != auxiliaryBase) {
+                            propagateFact(it)
+                        }
+                    },
+                    propagateFactWithAccessorExclude = { f, a ->
+                        if (f.ap.base != auxiliaryBase) {
+                            propagateFactWithAccessorExclude(f, a)
+                        }
+                    }
+                )
+
+                return
             }
         }
 
