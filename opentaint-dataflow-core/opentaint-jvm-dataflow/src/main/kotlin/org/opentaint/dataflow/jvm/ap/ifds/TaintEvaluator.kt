@@ -67,7 +67,7 @@ class FactReader(val fact: Fact.TaintedTree) {
                 continue
             }
 
-            if (node.isAbstract) {
+            if (node.isAbstract && !fact.ap.exclusions.contains(accessor)) {
                 refinement = refinement.add(accessor)
             }
 
