@@ -11,14 +11,20 @@ import org.lmdbjava.Env
 import org.lmdbjava.EnvFlags
 import java.io.File
 import java.nio.ByteBuffer
+import java.util.concurrent.ConcurrentHashMap
 
 internal class LmdbKeyValueStorage(location: String, settings: JIRLmdbErsSettings) : PluggableKeyValueStorage() {
 
+    private val mapNames: MutableSet<String> = ConcurrentHashMap<String, Boolean>().keySet(true)
     private val env = Env.create().apply {
         setMaxDbs(999999)
         setMaxReaders(9999999)
         setMapSize(settings.mapSize)
-    }.open(File(location), EnvFlags.MDB_NOTLS)
+    }.open(File(location), EnvFlags.MDB_NOTLS).apply {
+        dbiNames.forEach {
+            mapNames += String(it)
+        }
+    }
 
     override fun beginTransaction(): Transaction {
         return LmdbTransaction(this, env.txnWrite()).withFinishedState()
@@ -32,11 +38,14 @@ internal class LmdbKeyValueStorage(location: String, settings: JIRLmdbErsSetting
         env.close()
     }
 
-    internal fun getMap(lmdbTxn: org.lmdbjava.Txn<ByteBuffer>, map: String): Pair<Dbi<ByteBuffer>, Boolean>? {
+    internal fun getMap(
+        lmdbTxn: org.lmdbjava.Txn<ByteBuffer>,
+        map: String,
+        create: Boolean
+    ): Pair<Dbi<ByteBuffer>, Boolean>? {
         val duplicates = isMapWithKeyDuplicates?.invoke(map) == true
-        return if (lmdbTxn.isReadOnly) {
+        return if (lmdbTxn.isReadOnly || !create) {
             try {
-
                 env.openDbi(lmdbTxn, map.toByteArray(), null, false) to duplicates
             } catch (_: KeyNotFoundException) {
                 null
@@ -46,7 +55,9 @@ internal class LmdbKeyValueStorage(location: String, settings: JIRLmdbErsSetting
                 env.openDbi(lmdbTxn, map.toByteArray(), null, false, DbiFlags.MDB_CREATE, DbiFlags.MDB_DUPSORT)
             } else {
                 env.openDbi(lmdbTxn, map.toByteArray(), null, false, DbiFlags.MDB_CREATE)
-            } to duplicates
+            }.also { mapNames += map } to duplicates
         }
     }
+
+    internal fun getMapNames(): Set<String> = mapNames.toSortedSet()
 }

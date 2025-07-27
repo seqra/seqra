@@ -10,14 +10,14 @@ import org.opentaint.ir.api.jvm.storage.kv.forEachWithKey
 class KVEntity(override val id: EntityId, override val txn: KVErsTransaction) : Entity() {
 
     override fun getRawProperty(name: String): ByteArray? {
-        val propertiesMap = txn.ers.propertiesMap(id.typeId, name, txn.kvTxn)
+        val propertiesMap = txn.ers.propertiesMap(id.typeId, name, txn.kvTxn, create = false) ?: return null
         val keyEntry = txn.ers.longBinding.getBytesCompressed(id.instanceId)
         return txn.kvTxn.get(propertiesMap, keyEntry)
     }
 
     override fun setRawProperty(name: String, value: ByteArray?) {
         val kvTxn = txn.kvTxn
-        val propertiesMap = txn.ers.propertiesMap(id.typeId, name, kvTxn)
+        val propertiesMap = txn.ers.propertiesMap(id.typeId, name, kvTxn, create = true)!!
         val keyEntry = txn.ers.longBinding.getBytesCompressed(id.instanceId)
         val oldValue = kvTxn.get(propertiesMap, keyEntry)
         if (value != null) {
@@ -26,7 +26,7 @@ class KVEntity(override val id: EntityId, override val txn: KVErsTransaction) : 
                 return
             }
             kvTxn.put(propertiesMap, keyEntry, value)
-            val propertiesIndex = txn.ers.propertiesIndex(id.typeId, name, kvTxn)
+            val propertiesIndex = txn.ers.propertiesIndex(id.typeId, name, kvTxn, create = true)!!
             oldValue?.let {
                 kvTxn.delete(propertiesIndex, oldValue, keyEntry)
             }
@@ -34,23 +34,24 @@ class KVEntity(override val id: EntityId, override val txn: KVErsTransaction) : 
         } else {
             kvTxn.delete(propertiesMap, keyEntry)
             oldValue?.let {
-                kvTxn.delete(txn.ers.propertiesIndex(id.typeId, name, kvTxn), oldValue, keyEntry)
+                kvTxn.delete(txn.ers.propertiesIndex(id.typeId, name, kvTxn, create = true)!!, oldValue, keyEntry)
             }
         }
     }
 
     override fun getRawBlob(name: String): ByteArray? = txn.run {
         val keyEntry = ers.longBinding.getBytesCompressed(id.instanceId)
-        kvTxn.get(ers.blobsMap(id.typeId, name, kvTxn), keyEntry)
+        ers.blobsMap(id.typeId, name, kvTxn, create = false)?.let { kvTxn.get(it, keyEntry) }
     }
 
     override fun setRawBlob(name: String, blob: ByteArray?) {
         txn.run {
             val keyEntry = ers.longBinding.getBytesCompressed(id.instanceId)
+            val blobsMap = ers.blobsMap(id.typeId, name, kvTxn, create = true)!!
             if (blob == null) {
-                kvTxn.delete(ers.blobsMap(id.typeId, name, kvTxn), keyEntry)
+                kvTxn.delete(blobsMap, keyEntry)
             } else {
-                kvTxn.put(ers.blobsMap(id.typeId, name, kvTxn), keyEntry, blob)
+                kvTxn.put(blobsMap, keyEntry, blob)
             }
         }
     }
@@ -58,20 +59,22 @@ class KVEntity(override val id: EntityId, override val txn: KVErsTransaction) : 
     override fun getLinks(name: String): EntityIterable = txn.run {
         val targetTypeId = getLinkTargetType(id.typeId, name) ?: return EntityIterable.EMPTY
         val longBinding = ers.longBinding
-        val deletedMap = ers.deletedEntitiesMap(targetTypeId, txn.kvTxn)
         val keyEntry = longBinding.getBytesCompressed(id.instanceId)
-        return InstanceIdCollectionEntityIterable(
-            this, targetTypeId,
-            buildList {
-                kvTxn.navigateTo(ers.linkTargetsMap(id.typeId, name, kvTxn), keyEntry).use { cursor ->
-                    cursor.forEachWithKey(keyEntry) { _, instanceIdEntry ->
-                        if (!isDeleted(deletedMap, instanceIdEntry)) {
-                            add(longBinding.getObjectCompressed(instanceIdEntry))
+        ers.linkTargetsMap(id.typeId, name, kvTxn, create = false)?.let { linkTargetsMap ->
+            val deletedMap = ers.deletedEntitiesMap(targetTypeId, txn.kvTxn, create = false)
+            InstanceIdCollectionEntityIterable(
+                this, targetTypeId,
+                buildList {
+                    kvTxn.navigateTo(linkTargetsMap, keyEntry).use { cursor ->
+                        cursor.forEachWithKey(keyEntry) { _, instanceIdEntry ->
+                            if (deletedMap == null || !isDeleted(deletedMap, instanceIdEntry)) {
+                                add(longBinding.getObjectCompressed(instanceIdEntry))
+                            }
                         }
                     }
                 }
-            }
-        )
+            )
+        } ?: EntityIterable.EMPTY
     }
 
     override fun addLink(name: String, targetId: EntityId): Boolean {
@@ -82,14 +85,14 @@ class KVEntity(override val id: EntityId, override val txn: KVErsTransaction) : 
         } ?: txn.run {
             val nameEntry = ers.stringBinding.getBytes(name)
             kvTxn.put(
-                ers.linkTargetTypesMap(id.typeId, kvTxn),
+                ers.linkTargetTypesMap(id.typeId, kvTxn, create = true)!!,
                 nameEntry,
                 ers.intBinding.getBytesCompressed(targetId.typeId)
             )
         }
         return txn.run {
             kvTxn.put(
-                ers.linkTargetsMap(id.typeId, name, kvTxn),
+                ers.linkTargetsMap(id.typeId, name, kvTxn, create = true)!!,
                 ers.longBinding.getBytesCompressed(id.instanceId),
                 ers.longBinding.getBytesCompressed(targetId.instanceId)
             )
@@ -98,12 +101,14 @@ class KVEntity(override val id: EntityId, override val txn: KVErsTransaction) : 
 
     override fun deleteLink(name: String, targetId: EntityId): Boolean {
         return txn.run {
-            val longBinding = ers.longBinding
-            kvTxn.delete(
-                ers.linkTargetsMap(id.typeId, name, kvTxn),
-                longBinding.getBytesCompressed(id.instanceId),
-                longBinding.getBytesCompressed(targetId.instanceId)
-            )
+            ers.linkTargetsMap(id.typeId, name, kvTxn, create = false)?.let { linkTargetsMap ->
+                val longBinding = ers.longBinding
+                kvTxn.delete(
+                    linkTargetsMap,
+                    longBinding.getBytesCompressed(id.instanceId),
+                    longBinding.getBytesCompressed(targetId.instanceId)
+                )
+            } ?: false
         }
     }
 }

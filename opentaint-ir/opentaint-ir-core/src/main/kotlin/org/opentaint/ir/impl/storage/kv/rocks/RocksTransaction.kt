@@ -36,10 +36,18 @@ internal class RocksTransactionImpl private constructor(
     // implemented using `withFinishedState()` (see `create()` in `companion object`)
     override val isFinished: Boolean get() = false
 
-    override fun getNamedMap(name: String): NamedMap = when {
-        isReadonly -> storage.getNamedMapOrNull(name) ?: LazyRocksNamedMap(name, storage)
-        else -> storage.getOrCreateNamedMap(name)
-    }
+    override fun getNamedMap(name: String, create: Boolean): NamedMap? =
+        storage.getNamedMapOrNull(name) ?: run {
+            if (!create) {
+                null
+            } else if (isReadonly) {
+                LazyRocksNamedMap(name, storage)
+            } else {
+                storage.getOrCreateNamedMap(name)
+            }
+        }
+
+    override fun getMapNames(): Set<String> = storage.getMapNames()
 
     override fun get(map: NamedMap, key: ByteArray): ByteArray? = (map as RocksNamedMap).get(this, key)
     override fun put(map: NamedMap, key: ByteArray, value: ByteArray) = (map as RocksNamedMap).put(this, key, value)

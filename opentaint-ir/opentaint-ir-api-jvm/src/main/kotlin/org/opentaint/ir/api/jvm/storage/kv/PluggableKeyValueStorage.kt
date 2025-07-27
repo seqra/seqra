@@ -22,7 +22,7 @@ abstract class PluggableKeyValueStorage : Closeable {
 
     fun delete(map: String, key: ByteArray) = transactional { txn -> txn.delete(map, key) }
 
-    fun mapSize(map: String): Long = transactional { txn -> txn.getNamedMap(map).size(txn) }
+    fun mapSize(map: String): Long = transactional { txn -> txn.getNamedMap(map, create = false)?.size(txn) } ?: 0L
 
     fun all(map: String): List<Pair<ByteArray, ByteArray>> = readonlyTransactional { txn ->
         buildList {

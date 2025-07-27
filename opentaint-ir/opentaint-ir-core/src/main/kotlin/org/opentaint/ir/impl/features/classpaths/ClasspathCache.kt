@@ -22,34 +22,17 @@ import org.opentaint.ir.impl.JIRCacheSettings
 import org.opentaint.ir.impl.caches.PluggableCache
 import org.opentaint.ir.impl.caches.PluggableCacheProvider
 import org.opentaint.ir.impl.caches.PluggableCacheStats
-import org.opentaint.ir.impl.caches.guava.GUAVA_CACHE_PROVIDER_ID
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRInstResult.JIRFlowGraphResultImpl
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRInstResult.JIRInstListResultImpl
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRInstResult.JIRRawInstListResultImpl
 import java.text.NumberFormat
 
-private val PLUGGABLE_CACHE_PROVIDER_ID: String
-    get() = System.getProperty("org.opentaint.ir.impl.features.classpaths.cacheProviderId", GUAVA_CACHE_PROVIDER_ID)
-
 /**
  * any class cache should extend this class
  */
-open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, JIRMethodExtFeature {
+open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, JIRMethodExtFeature, KLogging() {
 
-    private companion object : KLogging() {
-
-        private val cacheProvider = PluggableCacheProvider.getProvider(PLUGGABLE_CACHE_PROVIDER_ID)
-
-        fun <K : Any, V : Any> newSegment(settings: JIRCacheSegmentSettings): PluggableCache<K, V> {
-            with(settings) {
-                return cacheProvider.newCache {
-                    maximumSize = maxSize.toInt()
-                    expirationDuration = expiration
-                    valueRefType = valueStoreType
-                }
-            }
-        }
-    }
+    private val cacheProvider = PluggableCacheProvider.getProvider(settings.cacheSpiId)
 
     private val classesCache = newSegment<String, JIRResolvedClassResult>(settings.classes)
 
@@ -145,6 +128,16 @@ open class ClasspathCache(settings: JIRCacheSettings) : JIRClasspathExtFeature, 
                     }, total count ${stat.requestCount}"
                 )
             }
+    }
+
+    private fun <K : Any, V : Any> newSegment(settings: JIRCacheSegmentSettings): PluggableCache<K, V> {
+        with(settings) {
+            return cacheProvider.newCache {
+                maximumSize = maxSize.toInt()
+                expirationDuration = expiration
+                valueRefType = valueStoreType
+            }
+        }
     }
 
     private fun Double.forPercentages(): String {

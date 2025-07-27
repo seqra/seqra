@@ -1,6 +1,16 @@
 package org.opentaint.ir.impl.features.classpaths
 
-import org.opentaint.ir.api.jvm.*
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRClasspathExtFeature
+import org.opentaint.ir.api.jvm.JIRField
+import org.opentaint.ir.api.jvm.JIRLookup
+import org.opentaint.ir.api.jvm.JIRLookupExtFeature
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRTypedField
+import org.opentaint.ir.api.jvm.JIRTypedMethod
+import org.opentaint.ir.api.jvm.TypeName
 import org.opentaint.ir.api.jvm.ext.jIRdbName
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRResolvedResult.JIRResolvedClassResultImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualClassImpl
@@ -19,6 +29,15 @@ class JIRUnknownClass(override var classpath: JIRClasspath, name: String) : JIRV
     initialMethods = emptyList()
 ) {
     override val lookup: JIRLookup<JIRField, JIRMethod> = JIRUnknownClassLookup(this)
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) {
+            return true
+        }
+        return other is JIRUnknownClass && other.name == name
+    }
+
+    override fun hashCode(): Int = name.hashCode()
 }
 
 class JIRUnknownMethod(
@@ -37,6 +56,7 @@ class JIRUnknownMethod(
 ) {
 
     companion object {
+
         fun method(type: JIRClassOrInterface, name: String, access: Int, description: String): JIRMethod {
             val methodType = Type.getMethodType(description)
             val returnType = TypeNameImpl(methodType.returnType.className.jIRdbName())
@@ -56,6 +76,15 @@ class JIRUnknownMethod(
     init {
         bind(enclosingClass)
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) {
+            return true
+        }
+        return other is JIRUnknownMethod && description == other.description
+    }
+
+    override fun hashCode(): Int = description.hashCode()
 }
 
 class JIRUnknownField(enclosingClass: JIRClassOrInterface, name: String, access: Int, type: TypeName) :
@@ -76,6 +105,16 @@ class JIRUnknownField(enclosingClass: JIRClassOrInterface, name: String, access:
     init {
         bind(enclosingClass)
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) {
+            return true
+        }
+        return other is JIRUnknownField && enclosingClass == other.enclosingClass && name == other.name
+    }
+
+    override fun hashCode(): Int = enclosingClass.hashCode() * 31 + name.hashCode()
+
 }
 
 /**
@@ -163,6 +202,9 @@ object UnknownClasses : JIRClasspathExtFeature {
 object UnknownClassMethodsAndFields : JIRLookupExtFeature {
 
     override fun lookup(clazz: JIRClassOrInterface): JIRLookup<JIRField, JIRMethod> {
+        if (clazz !is JIRUnknownClass) {
+            return TrivialLookup
+        }
         return JIRUnknownClassLookup(clazz)
     }
 
@@ -172,3 +214,15 @@ object UnknownClassMethodsAndFields : JIRLookupExtFeature {
 }
 
 val JIRClasspath.isResolveAllToUnknown: Boolean get() = isInstalled(UnknownClasses)
+
+private object TrivialLookup : JIRLookup<JIRField, JIRMethod> {
+
+    override fun field(name: String, typeName: TypeName?, fieldKind: JIRLookup.FieldKind): JIRField? = null
+
+    override fun method(name: String, description: String): JIRMethod? = null
+
+    override fun staticMethod(name: String, description: String): JIRMethod? = null
+
+    override fun specialMethod(name: String, description: String): JIRMethod? = null
+}
+

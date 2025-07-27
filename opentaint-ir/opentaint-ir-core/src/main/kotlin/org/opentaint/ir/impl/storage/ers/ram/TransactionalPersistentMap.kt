@@ -14,6 +14,10 @@ internal class TransactionalPersistentMap<K, V>(private val committed: Persisten
         return committed[key]
     }
 
+    fun entries(): Iterable<Map.Entry<K, V>> {
+        return (mutated ?: committed).entries
+    }
+
     fun put(key: K, value: V) {
         mutated()[key] = value
     }

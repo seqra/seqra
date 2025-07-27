@@ -4,7 +4,6 @@ import org.opentaint.ir.api.jvm.storage.ers.Binding
 import org.opentaint.ir.api.jvm.storage.ers.ERSConflictingTransactionException
 import org.opentaint.ir.api.jvm.storage.ers.EntityRelationshipStorage
 import org.opentaint.ir.api.jvm.storage.ers.Transaction
-import org.opentaint.ir.api.jvm.storage.kv.EmptyNamedMap
 import org.opentaint.ir.api.jvm.storage.kv.NamedMap
 import org.opentaint.ir.api.jvm.storage.kv.PluggableKeyValueStorage
 import org.opentaint.ir.impl.storage.ers.decorators.withAllDecorators
@@ -69,7 +68,8 @@ class KVEntityRelationshipStorage(private val kvStorage: PluggableKeyValueStorag
         kvTxn: org.opentaint.ir.api.jvm.storage.kv.Transaction
     ): Int? {
         entityTypes[type]?.let { return it }
-        return kvTxn.get(entityTypesMap(kvTxn), stringBinding.getBytes(type))?.let { typeIdEntry ->
+        val entityTypesMap = entityTypesMap(kvTxn, create = false) ?: return null
+        return kvTxn.get(entityTypesMap, stringBinding.getBytes(type))?.let { typeIdEntry ->
             intBinding.getObjectCompressed(typeIdEntry).also { entityTypes[type] = it }
         }
     }
@@ -80,38 +80,37 @@ class KVEntityRelationshipStorage(private val kvStorage: PluggableKeyValueStorag
     ): Int {
         return entityTypes.computeIfAbsent(type) {
             val typeEntry = stringBinding.getBytes(type)
-            kvTxn.get(entityTypesMap(kvTxn), typeEntry)?.let { typeIdEntry ->
+            val entityTypesMap = entityTypesMap(kvTxn, create = true)!!
+            kvTxn.get(entityTypesMap, typeEntry)?.let { typeIdEntry ->
                 intBinding.getObjectCompressed(typeIdEntry)
             } ?: run {
-                entityTypesMap(kvTxn).size(kvTxn).toInt().also { typeId ->
-                    kvTxn.put(entityTypesMap(kvTxn), typeEntry, intBinding.getBytesCompressed(typeId))
+                entityTypesMap.size(kvTxn).toInt().also { typeId ->
+                    kvTxn.put(entityTypesMap, typeEntry, intBinding.getBytesCompressed(typeId))
                 }
             }
         }
     }
 
-    private fun entityTypesMap(txn: org.opentaint.ir.api.jvm.storage.kv.Transaction): NamedMap {
-        return entityTypesMap ?: txn.getNamedMap(entityTypesMapName).also {
-            if (it !== EmptyNamedMap) {
-                entityTypesMap = it
-            }
+    private fun entityTypesMap(txn: org.opentaint.ir.api.jvm.storage.kv.Transaction, create: Boolean): NamedMap? {
+        return entityTypesMap ?: txn.getNamedMap(entityTypesMapName, create)?.also {
+            entityTypesMap = it
         }
     }
 
-    internal fun entityCountersMap(txn: org.opentaint.ir.api.jvm.storage.kv.Transaction): NamedMap {
-        return entityCountersMap ?: txn.getNamedMap(entityCountersMapName).also {
-            if (it !== EmptyNamedMap) {
-                entityCountersMap = it
-            }
+    internal fun entityCountersMap(txn: org.opentaint.ir.api.jvm.storage.kv.Transaction, create: Boolean): NamedMap? {
+        return entityCountersMap ?: txn.getNamedMap(entityCountersMapName, create)?.also {
+            entityCountersMap = it
         }
     }
 
-    internal fun deletedEntitiesMap(typeId: Int, txn: org.opentaint.ir.api.jvm.storage.kv.Transaction): NamedMap {
+    internal fun deletedEntitiesMap(
+        typeId: Int,
+        txn: org.opentaint.ir.api.jvm.storage.kv.Transaction,
+        create: Boolean
+    ): NamedMap? {
         return deletedEntitiesMaps.getOrElse(typeId) {
-            txn.getNamedMap(deletedEntitiesMapName(typeId)).also {
-                if (it !== EmptyNamedMap) {
-                    deletedEntitiesMaps[typeId] = it
-                }
+            txn.getNamedMap(deletedEntitiesMapName(typeId), create)?.also {
+                deletedEntitiesMaps[typeId] = it
             }
         }
     }
@@ -119,47 +118,68 @@ class KVEntityRelationshipStorage(private val kvStorage: PluggableKeyValueStorag
     internal fun propertiesMap(
         typeId: Int,
         propName: String,
-        txn: org.opentaint.ir.api.jvm.storage.kv.Transaction
-    ): NamedMap {
+        txn: org.opentaint.ir.api.jvm.storage.kv.Transaction,
+        create: Boolean
+    ): NamedMap? {
         return propertiesMaps.getOrElse(typeId with propName) {
-            txn.getNamedMap(propertiesMapName(typeId, propName)).also {
-                if (it !== EmptyNamedMap) {
-                    propertiesMaps[typeId with propName] = it
-                }
+            txn.getNamedMap(propertiesMapName(typeId, propName), create)?.also {
+                propertiesMaps[typeId with propName] = it
             }
         }
     }
 
+    /**
+     * Returns property name and type id if specified map name is a properties map name for this property and type id.
+     */
+    internal fun getPropNameFromMapName(mapName: String): Pair<String, Int>? =
+        mapName.getPropertyNameFromMapName("#properties")
+
+    /**
+     * Returns blob name and type id if specified map name is a blobs map name for this blob and type id.
+     */
+    internal fun getBlobNameFromMapName(mapName: String): Pair<String, Int>? =
+        mapName.getPropertyNameFromMapName("#blobs")
+
+    /**
+     * Returns link name and type id if specified map name is a linkTargets map name for this link and type id.
+     */
+    internal fun getLinkNameFromMapName(mapName: String): Pair<String, Int>? =
+        mapName.getPropertyNameFromMapName("#link_targets$withDuplicates")
+
     internal fun propertiesIndex(
         typeId: Int,
         propName: String,
-        txn: org.opentaint.ir.api.jvm.storage.kv.Transaction
-    ): NamedMap {
-        return propertiesIndices.getOrPut(typeId with propName) {
-            txn.getNamedMap(propertiesIndexName(typeId, propName))
+        txn: org.opentaint.ir.api.jvm.storage.kv.Transaction,
+        create: Boolean
+    ): NamedMap? {
+        return propertiesIndices.getOrElse(typeId with propName) {
+            txn.getNamedMap(propertiesIndexName(typeId, propName), create)?.also {
+                propertiesIndices[typeId with propName] = it
+            }
         }
     }
 
     internal fun blobsMap(
         typeId: Int,
         blobName: String,
-        txn: org.opentaint.ir.api.jvm.storage.kv.Transaction
-    ): NamedMap {
+        txn: org.opentaint.ir.api.jvm.storage.kv.Transaction,
+        create: Boolean
+    ): NamedMap? {
         return blobsMaps.getOrElse(typeId with blobName) {
-            txn.getNamedMap(blobsMapName(typeId, blobName)).also {
-                if (it !== EmptyNamedMap) {
-                    blobsMaps[typeId with blobName] = it
-                }
+            txn.getNamedMap(blobsMapName(typeId, blobName), create)?.also {
+                blobsMaps[typeId with blobName] = it
             }
         }
     }
 
-    internal fun linkTargetTypesMap(typeId: Int, txn: org.opentaint.ir.api.jvm.storage.kv.Transaction): NamedMap {
+    internal fun linkTargetTypesMap(
+        typeId: Int,
+        txn: org.opentaint.ir.api.jvm.storage.kv.Transaction,
+        create: Boolean
+    ): NamedMap? {
         return linkTargetTypesMaps.getOrElse(typeId) {
-            txn.getNamedMap(linkTargetTypesMapName(typeId)).also {
-                if (it !== EmptyNamedMap) {
-                    linkTargetTypesMaps[typeId] = it
-                }
+            txn.getNamedMap(linkTargetTypesMapName(typeId), create)?.also {
+                linkTargetTypesMaps[typeId] = it
             }
         }
     }
@@ -167,10 +187,13 @@ class KVEntityRelationshipStorage(private val kvStorage: PluggableKeyValueStorag
     internal fun linkTargetsMap(
         typeId: Int,
         linkName: String,
-        txn: org.opentaint.ir.api.jvm.storage.kv.Transaction
-    ): NamedMap {
-        return linkTargetsMaps.getOrPut(typeId with linkName) {
-            txn.getNamedMap(linkTargetsMapName(typeId, linkName))
+        txn: org.opentaint.ir.api.jvm.storage.kv.Transaction,
+        create: Boolean
+    ): NamedMap? {
+        return linkTargetsMaps.getOrElse(typeId with linkName) {
+            txn.getNamedMap(linkTargetsMapName(typeId, linkName), create)?.also {
+                linkTargetsMaps[typeId with linkName] = it
+            }
         }
     }
 }
@@ -190,25 +213,36 @@ private val entityTypesMapName = "${packageNamePrefix}entities_types"
  */
 private val entityCountersMapName = "${packageNamePrefix}entity_counters"
 
-private fun deletedEntitiesMapName(typeId: Int) = "${packageNamePrefix}$typeId#deleted_entities"
+private fun deletedEntitiesMapName(typeId: Int) = "$packageNamePrefix$typeId#deleted_entities"
 
 /**
  * InstanceId (Long) -> prop value (ByteArray)
  */
-private fun propertiesMapName(typeId: Int, name: String) = "${packageNamePrefix}$typeId#$name#properties"
+private fun propertiesMapName(typeId: Int, name: String) = "$packageNamePrefix$typeId#$name#properties"
 
 /**
  * InstanceId (Long) -> prop value (ByteArray)
  */
 private fun propertiesIndexName(typeId: Int, name: String) =
-    "${packageNamePrefix}$typeId#$name#properties_idx$withDuplicates"
+    "$packageNamePrefix$typeId#$name#properties_idx$withDuplicates"
 
 /**
  * InstanceId (Long) -> prop value (ByteArray)
  */
-private fun blobsMapName(typeId: Int, name: String) = "${packageNamePrefix}$typeId#$name#blobs"
+private fun blobsMapName(typeId: Int, name: String) = "$packageNamePrefix$typeId#$name#blobs"
 
-private fun linkTargetTypesMapName(typeId: Int) = "${packageNamePrefix}$typeId#link_target_types"
+private fun linkTargetTypesMapName(typeId: Int) = "$packageNamePrefix$typeId#link_target_types"
 
 private fun linkTargetsMapName(typeId: Int, name: String) =
-    "${packageNamePrefix}$typeId#$name#link_targets$withDuplicates"
+    "$packageNamePrefix$typeId#$name#link_targets$withDuplicates"
+
+private fun String.getPropertyNameFromMapName(suffix: String): Pair<String, Int>? {
+    if (!startsWith(packageNamePrefix) || !endsWith(suffix)) {
+        return null
+    }
+    val typeAndName = substring(packageNamePrefix.length, indexOf(suffix)).split('#')
+    if (typeAndName.size != 2) {
+        error("Invalid structure of map name")
+    }
+    return typeAndName[1] to typeAndName[0].toInt()
+}

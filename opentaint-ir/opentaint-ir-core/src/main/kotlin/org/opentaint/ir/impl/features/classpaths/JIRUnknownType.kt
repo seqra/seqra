@@ -41,6 +41,15 @@ class JIRUnknownType(
 
     override val access: Int
         get() = Opcodes.ACC_PUBLIC
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) {
+            return true
+        }
+        return other is JIRUnknownType && other.name == name
+    }
+
+    override fun hashCode(): Int = name.hashCode()
 }
 
 open class JIRUnknownClassLookup(val clazz: JIRClassOrInterface) : JIRLookup<JIRField, JIRMethod> {

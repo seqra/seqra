@@ -24,6 +24,7 @@ import org.opentaint.ir.api.jvm.storage.ers.typed.newEntity
 import org.opentaint.ir.api.jvm.storage.ers.typed.property
 import org.opentaint.ir.impl.storage.ers.kv.KV_ERS_SPI
 import org.opentaint.ir.impl.storage.ers.ram.RAM_ERS_SPI
+import org.opentaint.ir.impl.storage.ers.sql.SQL_ERS_SPI
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -72,6 +73,15 @@ abstract class EntityRelationshipStorageTest {
         val noSuchProperty: String? by propertyOf(user)
         assertNull(noSuchProperty)
 
+        // TODO: resolve this
+        if (ersSpi.id != SQL_ERS_SPI) {
+            txn.getPropertyNames("User").toList().let { props ->
+                assertEquals(2, props.size)
+                assertEquals("login", props[0])
+                assertEquals("password", props[1])
+            }
+        }
+
         user.deleteProperty("login")
         val deletedLogin: String? by propertyOf(user, "login")
         assertNull(deletedLogin)
@@ -94,6 +104,16 @@ abstract class EntityRelationshipStorageTest {
             user["seed"] = 2808.compressed
             user["login"] = "user2"
         }
+
+        // TODO: resolve this
+        if (ersSpi.id != SQL_ERS_SPI) {
+            txn.getPropertyNames("User").toList().let { props ->
+                assertEquals(2, props.size)
+                assertEquals("login", props[0])
+                assertEquals("seed", props[1])
+            }
+        }
+
         val found = txn.find("User", "seed", 2808.compressed)
         assertFalse(found.isEmpty)
         assertEquals(2L, found.size)

@@ -15,9 +15,11 @@ internal class XodusTransaction(
 
     override val isFinished: Boolean get() = xodusTxn.isFinished
 
-    override fun getNamedMap(name: String): NamedMap {
-        return XodusNamedMap(storage.getMap(xodusTxn, name))
+    override fun getNamedMap(name: String, create: Boolean): NamedMap? {
+        return storage.getMap(xodusTxn, name, create)?.let { XodusNamedMap(it) }
     }
+
+    override fun getMapNames(): Set<String> = storage.getMapNames(xodusTxn)
 
     override fun get(map: NamedMap, key: ByteArray): ByteArray? {
         map as XodusNamedMap

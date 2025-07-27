@@ -12,8 +12,12 @@ internal val ByteIterable.asByteArray: ByteArray
 
 internal fun environmentConfig(configurer: EnvironmentConfig.() -> Unit) = EnvironmentConfig().apply(configurer)
 
+fun <K : Any, V : Any> ObjectCacheBase<K, V>.getOrElse(key: K, retriever: (K) -> V): V {
+    return tryKey(key) ?: retriever(key)
+}
+
 fun <K : Any, V : Any> ObjectCacheBase<K, V>.getOrPut(key: K, retriever: (K) -> V): V {
-    return tryKey(key) ?: retriever(key).also { obj -> cacheObject(key, obj) }
+    return getOrElse(key, retriever).also { obj -> cacheObject(key, obj) }
 }
 
 fun <K : Any, V : Any> ObjectCacheBase<K, V>.getOrPutConcurrent(key: K, retriever: (K) -> V): V {

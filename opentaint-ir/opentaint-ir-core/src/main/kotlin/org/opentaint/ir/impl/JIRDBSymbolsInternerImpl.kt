@@ -105,7 +105,7 @@ class JIRDBSymbolsInternerImpl : JIRDBSymbolsInterner, Closeable {
                     val unwrapped = txn.unwrap
                     if (unwrapped is KVErsTransaction) {
                         val kvTxn = unwrapped.kvTxn
-                        val symbolsMap = kvTxn.getNamedMap(symbolsMapName)
+                        val symbolsMap = kvTxn.getNamedMap(symbolsMapName, create = true)!!
                         val stringBinding = BuiltInBindingProvider.getBinding(String::class.java)
                         val longBinding = BuiltInBindingProvider.getBinding(Long::class.java)
                         entries.forEach { (name, id) ->

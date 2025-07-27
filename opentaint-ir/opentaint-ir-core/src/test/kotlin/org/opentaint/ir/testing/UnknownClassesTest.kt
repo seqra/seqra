@@ -4,16 +4,21 @@ import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.ir.api.jvm.ext.cfg.fieldRef
 import org.opentaint.ir.api.jvm.ext.findClass
+import org.opentaint.ir.api.jvm.ext.findDeclaredMethodOrNull
+import org.opentaint.ir.api.jvm.ext.findFieldOrNull
+import org.opentaint.ir.api.jvm.ext.findMethodOrNull
+import org.opentaint.ir.api.jvm.ext.objectClass
 import org.opentaint.ir.impl.features.classpaths.JIRUnknownClass
 import org.opentaint.ir.impl.features.classpaths.UnknownClassMethodsAndFields
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class UnknownClassesTest : BaseTest() {
 
-    companion object : WithGlobalDB(UnknownClasses, UnknownClassMethodsAndFields)
+    companion object : WithGlobalDB(UnknownClasses)
 
     @Test
     fun `unknown class is resolved`() {
@@ -58,6 +63,18 @@ class UnknownClassesTest : BaseTest() {
         )
         clazz.forEach {
             it.declaredMethods.forEach { it.assertCfg() }
+        }
+    }
+
+    @Test
+    fun `object doesn't have unknown methods and fields`() {
+        cp.objectClass.let { clazz ->
+            assertTrue(clazz !is JIRUnknownClass)
+            assertTrue(clazz.declaredFields.isEmpty())
+            val xxxField = clazz.findFieldOrNull("xxx")
+            assertNull(xxxField)
+            val xxxMethod = clazz.findMethodOrNull("xxx", "(JILjava/lang/Exception;)V")
+            assertNull(xxxMethod)
         }
     }
 

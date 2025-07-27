@@ -208,7 +208,7 @@ class ErsPersistenceImpl(
         return read { context ->
             context.txn.find("Class", "locationId", location.id.compressed).map {
                 it.toClassSource(db, findSymbolName(it.getCompressed<Long>("nameId") ?: throw NullPointerException()))
-            }
+            }.toList()
         }
     }
 
@@ -229,7 +229,7 @@ class ErsPersistenceImpl(
     private fun findClassSourcesImpl(context: JIRDBContext, cp: JIRClasspath, fullName: String): Sequence<ClassSource> {
         val ids = cp.registeredLocationIds
         return context.txn.find("Class", "nameId", findSymbolId(fullName).compressed)
-            .asSequence().filter { it.getCompressed<Long>("locationId") in ids }
+            .filter { it.getCompressed<Long>("locationId") in ids }
             .map { it.toClassSource(cp.db, fullName) }
     }
 

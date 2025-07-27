@@ -30,20 +30,25 @@ internal class XodusKeyValueStorage(location: String) : PluggableKeyValueStorage
         env.close()
     }
 
-    internal fun getMap(xodusTxn: jetbrains.exodus.env.Transaction, map: String): Store {
-        return if (xodusTxn.isReadonly) {
-            env.computeInTransaction { txn ->
-                getMap(txn, map)
-            }
-        } else {
+    internal fun getMap(
+        xodusTxn: jetbrains.exodus.env.Transaction,
+        map: String,
+        create: Boolean
+    ): Store? {
+        return if (create || env.storeExists(map, xodusTxn)) {
             val duplicates = isMapWithKeyDuplicates?.invoke(map)
             env.openStore(
                 map,
                 if (duplicates == true) WITH_DUPLICATES_WITH_PREFIXING else WITHOUT_DUPLICATES_WITH_PREFIXING,
                 xodusTxn
             )
+        } else {
+            null
         }
     }
+
+    internal fun getMapNames(xodusTxn: jetbrains.exodus.env.Transaction): Set<String> =
+        env.getAllStoreNames(xodusTxn).toSortedSet()
 
     private fun jetbrains.exodus.env.Transaction.withNoStoreGetCache(): jetbrains.exodus.env.Transaction {
         this as TransactionBase

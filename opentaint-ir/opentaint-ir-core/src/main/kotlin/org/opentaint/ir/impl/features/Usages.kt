@@ -237,7 +237,7 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
                 noSqlAction = { txn ->
                     val classNameIds =
                         classNames.mapTo(mutableSetOf()) { className -> className.asSymbolId(symbolInterner) }
-                    txn.find("Callee", "calleeNameId", name.asSymbolId(symbolInterner).compressed).asSequence()
+                    txn.find("Callee", "calleeNameId", name.asSymbolId(symbolInterner).compressed)
                         .filter { callee ->
                             callee.getCompressedBlob<Long>("calleeClassId") in classNameIds &&
                                     callee.getCompressed<Long>("locationId")!! in locationIds &&

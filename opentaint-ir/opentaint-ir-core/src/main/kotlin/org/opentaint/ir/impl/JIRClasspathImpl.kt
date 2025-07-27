@@ -1,9 +1,26 @@
 package org.opentaint.ir.impl
 
-import kotlinx.coroutines.*
-import org.opentaint.ir.api.jvm.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.withContext
+import org.opentaint.ir.api.jvm.ClassSource
+import org.opentaint.ir.api.jvm.JIRAnnotation
+import org.opentaint.ir.api.jvm.JIRArrayType
+import org.opentaint.ir.api.jvm.JIRByteCodeLocation
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRClasspathExtFeature
 import org.opentaint.ir.api.jvm.JIRClasspathExtFeature.JIRResolvedClassResult
 import org.opentaint.ir.api.jvm.JIRClasspathExtFeature.JIRResolvedTypeResult
+import org.opentaint.ir.api.jvm.JIRClasspathFeature
+import org.opentaint.ir.api.jvm.JIRClasspathTask
+import org.opentaint.ir.api.jvm.JIRFeatureEvent
+import org.opentaint.ir.api.jvm.JIRRefType
+import org.opentaint.ir.api.jvm.JIRType
+import org.opentaint.ir.api.jvm.PredefinedPrimitives
+import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
 import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
@@ -34,15 +51,12 @@ class JIRClasspathImpl(
     override val registeredLocations: List<RegisteredLocation> = locationsRegistrySnapshot.locations
     override val registeredLocationIds: Set<Long> = locationsRegistrySnapshot.ids
     private val classpathVfs = ClasspathVfs(globalClassVFS, locationsRegistrySnapshot)
-    private val featuresChain = run {
-        val strictFeatures = features.filter { it !is UnknownClasses }
-        val hasUnknownClasses = strictFeatures.size != features.size
-        JIRFeaturesChain(
-            strictFeatures + listOfNotNull(
-                JIRClasspathFeatureImpl(),
-                UnknownClasses.takeIf { hasUnknownClasses })
-        )
-    }
+    private val featuresChain = JIRFeaturesChain(
+        if (!features.any { it is UnknownClasses }) {
+            features + JIRClasspathFeatureImpl()
+        } else {
+            features.filter { it !is UnknownClasses } + JIRClasspathFeatureImpl() + UnknownClasses
+        })
 
     override suspend fun refreshed(closeOld: Boolean): JIRClasspath {
         return db.new(this).also {

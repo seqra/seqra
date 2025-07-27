@@ -29,6 +29,21 @@ interface Transaction : Closeable {
      */
     fun getTypeId(type: String): Int
 
+    /**
+     * Returns set of property names ever being set to an entity of specified `type`.
+     */
+    fun getPropertyNames(type: String): Set<String> = emptySet()
+
+    /**
+     * Returns set of blob names ever being set to an entity of specified `type`.
+     */
+    fun getBlobNamesNames(type: String): Set<String> = emptySet()
+
+    /**
+     * Returns set of link names ever being set to an entity of specified `type`.
+     */
+    fun getLinkNamesNames(type: String): Set<String> = emptySet()
+
     fun all(type: String): EntityIterable
 
     fun <T : Any> find(type: String, propertyName: String, value: T): EntityIterable

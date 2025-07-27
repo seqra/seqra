@@ -9,6 +9,7 @@ import org.opentaint.ir.api.jvm.JIRPersistenceImplSettings
 import org.opentaint.ir.api.jvm.JIRPersistenceSettings
 import org.opentaint.ir.api.jvm.storage.ers.EmptyErsSettings
 import org.opentaint.ir.api.jvm.storage.ers.ErsSettings
+import org.opentaint.ir.impl.caches.guava.GUAVA_CACHE_PROVIDER_ID
 import org.opentaint.ir.impl.storage.SQLITE_DATABASE_PERSISTENCE_SPI
 import org.opentaint.ir.impl.storage.ers.ERS_DATABASE_PERSISTENCE_SPI
 import org.opentaint.ir.impl.storage.ers.kv.KV_ERS_SPI
@@ -172,6 +173,7 @@ data class JIRCacheSegmentSettings(
 enum class ValueStoreType { WEAK, SOFT, STRONG }
 
 class JIRCacheSettings {
+    var cacheSpiId: String = GUAVA_CACHE_PROVIDER_ID
     var classes: JIRCacheSegmentSettings = JIRCacheSegmentSettings()
     var types: JIRCacheSegmentSettings = JIRCacheSegmentSettings()
     var rawInstLists: JIRCacheSegmentSettings = JIRCacheSegmentSettings()
@@ -206,7 +208,6 @@ class JIRCacheSettings {
             flowGraphs =
                 JIRCacheSegmentSettings(maxSize = maxSize, expiration = expiration, valueStoreType = valueStoreType)
         }
-
 }
 
 object JIRSQLitePersistenceSettings : JIRPersistenceImplSettings {

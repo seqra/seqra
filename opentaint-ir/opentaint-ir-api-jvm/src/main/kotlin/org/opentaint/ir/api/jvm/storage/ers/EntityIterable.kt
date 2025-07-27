@@ -1,28 +1,28 @@
 package org.opentaint.ir.api.jvm.storage.ers
 
-interface EntityIterable : Iterable<Entity> {
+interface EntityIterable : Sequence<Entity> {
 
-    val size: Long
+    val size: Long get() = toEntityIdSet().size.toLong()
 
-    val isEmpty: Boolean
+    val isEmpty: Boolean get() = size == 0L
 
     val isNotEmpty: Boolean get() = !isEmpty
 
-    operator fun contains(e: Entity): Boolean
+    operator fun contains(e: Entity): Boolean = toEntityIdSet().contains(e.id)
 
     operator fun plus(other: EntityIterable): EntityIterable = when (other) {
         EMPTY -> this
-        else -> CollectionEntityIterable(union(other))
+        else -> this.union(other)
     }
 
     operator fun times(other: EntityIterable): EntityIterable = when (other) {
         EMPTY -> EMPTY
-        else -> CollectionEntityIterable(intersect(other))
+        else -> this.intersect(other)
     }
 
-    operator fun minus(other: EntityIterable): EntityIterable = when(other) {
+    operator fun minus(other: EntityIterable): EntityIterable = when (other) {
         EMPTY -> this
-        else -> CollectionEntityIterable(subtract(other))
+        else -> this.subtract(other)
     }
 
     fun deleteAll() = forEach { entity -> entity.delete() }
@@ -32,8 +32,6 @@ interface EntityIterable : Iterable<Entity> {
         val EMPTY: EntityIterable = object : EntityIterable {
 
             override val size = 0L
-
-            override val isEmpty = true
 
             override fun contains(e: Entity) = false
 
@@ -48,15 +46,15 @@ interface EntityIterable : Iterable<Entity> {
     }
 }
 
-class CollectionEntityIterable(private val set: Collection<Entity>) : EntityIterable {
+class CollectionEntityIterable(private val c: Collection<Entity>) : EntityIterable {
 
-    override val size = set.size.toLong()
+    override val size = c.size.toLong()
 
-    override val isEmpty = set.isEmpty()
+    override val isEmpty = c.isEmpty()
 
-    override fun contains(e: Entity) = e in set
+    override fun contains(e: Entity) = e in c
 
-    override fun iterator() = set.iterator()
+    override fun iterator() = c.iterator()
 }
 
 class EntityIdCollectionEntityIterable(

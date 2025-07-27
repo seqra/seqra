@@ -10,25 +10,29 @@ interface Transaction : Closeable {
 
     val isFinished: Boolean
 
-    fun getNamedMap(name: String): NamedMap
+    fun getNamedMap(name: String, create: Boolean = false): NamedMap?
 
-    fun get(map: String, key: ByteArray): ByteArray? = get(getNamedMap(map), key)
+    fun getMapNames(): Set<String>
+
+    fun get(map: String, key: ByteArray): ByteArray? = getNamedMap(map, create = false)?.let { get(it, key) }
 
     fun get(map: NamedMap, key: ByteArray): ByteArray?
 
-    fun put(map: String, key: ByteArray, value: ByteArray): Boolean = put(getNamedMap(map), key, value)
+    fun put(map: String, key: ByteArray, value: ByteArray): Boolean = put(getNamedMap(map, create = true)!!, key, value)
 
     fun put(map: NamedMap, key: ByteArray, value: ByteArray): Boolean
 
-    fun delete(map: String, key: ByteArray): Boolean = delete(getNamedMap(map), key)
+    fun delete(map: String, key: ByteArray): Boolean = getNamedMap(map, create = false)?.let { delete(it, key) } == true
 
     fun delete(map: NamedMap, key: ByteArray): Boolean
 
-    fun delete(map: String, key: ByteArray, value: ByteArray): Boolean = delete(getNamedMap(map), key, value)
+    fun delete(map: String, key: ByteArray, value: ByteArray): Boolean =
+        getNamedMap(map, create = false)?.let { delete(it, key, value) } == true
 
     fun delete(map: NamedMap, key: ByteArray, value: ByteArray): Boolean
 
-    fun navigateTo(map: String, key: ByteArray? = null): Cursor = navigateTo(getNamedMap(map), key)
+    fun navigateTo(map: String, key: ByteArray? = null): Cursor =
+        getNamedMap(map, create = false)?.let { navigateTo(it, key) } ?: EmptyCursor(this)
 
     fun navigateTo(map: NamedMap, key: ByteArray? = null): Cursor
 
@@ -46,13 +50,6 @@ interface NamedMap {
     val name: String
 
     fun size(txn: Transaction): Long
-}
-
-object EmptyNamedMap : NamedMap {
-
-    override val name = "EmptyNamedMap"
-
-    override fun size(txn: Transaction) = 0L
 }
 
 abstract class TransactionDecorator(val decorated: Transaction) : Transaction by decorated

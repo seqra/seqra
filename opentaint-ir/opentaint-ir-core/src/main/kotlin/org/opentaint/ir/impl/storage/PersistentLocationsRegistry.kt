@@ -66,7 +66,7 @@ class PersistentLocationsRegistry(private val jIRdb: JIRDatabaseImpl) : Location
                             jIRdb,
                             PersistentByteCodeLocationData.fromErsEntity(entity)
                         )
-                    }
+                    }.toList()
                 }
             )
         }
@@ -92,7 +92,7 @@ class PersistentLocationsRegistry(private val jIRdb: JIRDatabaseImpl) : Location
                             jIRdb,
                             PersistentByteCodeLocationData.fromErsEntity(entity)
                         )
-                    }
+                    }.toList()
                 }
             )
         }
@@ -126,7 +126,8 @@ class PersistentLocationsRegistry(private val jIRdb: JIRDatabaseImpl) : Location
             context.execute(
                 sqlAction = { jooq ->
                     jooq.update(BYTECODELOCATIONS)
-                        .set(BYTECODELOCATIONS.STATE, LocationState.PROCESSED.ordinal).where(BYTECODELOCATIONS.ID.`in`(ids))
+                        .set(BYTECODELOCATIONS.STATE, LocationState.PROCESSED.ordinal)
+                        .where(BYTECODELOCATIONS.ID.`in`(ids))
                         .execute()
                 },
                 noSqlAction = { txn ->
@@ -272,15 +273,15 @@ class PersistentLocationsRegistry(private val jIRdb: JIRDatabaseImpl) : Location
                         noSqlAction = { txn ->
                             txn.getEntityOrNull(BytecodeLocationEntity.BYTECODE_LOCATION_ENTITY_TYPE, toUpdate.id)
                                 ?.let {
-                                it.addLink(
-                                    BytecodeLocationEntity.UPDATED_LINK,
-                                    txn.getEntityOrNull(
-                                        BytecodeLocationEntity.BYTECODE_LOCATION_ENTITY_TYPE,
-                                        refreshed.id
-                                    )!!
-                                )
-                                it[BytecodeLocationEntity.STATE] = LocationState.OUTDATED.ordinal
-                            }
+                                    it.addLink(
+                                        BytecodeLocationEntity.UPDATED_LINK,
+                                        txn.getEntityOrNull(
+                                            BytecodeLocationEntity.BYTECODE_LOCATION_ENTITY_TYPE,
+                                            refreshed.id
+                                        )!!
+                                    )
+                                    it[BytecodeLocationEntity.STATE] = LocationState.OUTDATED.ordinal
+                                }
                         }
                     )
                 }
@@ -307,7 +308,7 @@ class PersistentLocationsRegistry(private val jIRdb: JIRDatabaseImpl) : Location
                 noSqlAction = { txn ->
                     txn.all(BytecodeLocationEntity.BYTECODE_LOCATION_ENTITY_TYPE)
                         .filter { it.getLinks(BytecodeLocationEntity.UPDATED_LINK).isNotEmpty }
-                        .map { PersistentByteCodeLocationData.fromErsEntity(it) }
+                        .map { PersistentByteCodeLocationData.fromErsEntity(it) }.toList()
                 }
             )
                 .filterNot { data -> snapshots.any { it.ids.contains(data.id) } }
@@ -367,8 +368,9 @@ class PersistentLocationsRegistry(private val jIRdb: JIRDatabaseImpl) : Location
                     value = path
                 )
                     .firstOrNull { it.get<String>(BytecodeLocationEntity.FILE_SYSTEM_ID) == fileSystemId }
-                    ?.let { PersistentByteCodeLocationData.fromErsEntity(it)
-                }
+                    ?.let {
+                        PersistentByteCodeLocationData.fromErsEntity(it)
+                    }
             }
         )
     }

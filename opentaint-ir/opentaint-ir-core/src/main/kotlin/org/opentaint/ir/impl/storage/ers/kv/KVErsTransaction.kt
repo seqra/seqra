@@ -51,7 +51,7 @@ class KVErsTransaction(
         val typeId = id.typeId
         deletedEntitiesCounts[typeId] = getDeletedEntitiesCount(typeId) + 1L
         kvTxn.put(
-            ers.deletedEntitiesMap(typeId, kvTxn),
+            ers.deletedEntitiesMap(typeId, kvTxn, create = true)!!,
             ers.longBinding.getBytesCompressed(id.instanceId),
             byteArrayOf(0)
         )
@@ -59,12 +59,26 @@ class KVErsTransaction(
 
     override fun isEntityDeleted(id: EntityId): Boolean {
         return getDeletedEntitiesCount(id.typeId) > 0L && isDeletedCache.getOrPut(id) {
-            isDeleted(ers.deletedEntitiesMap(id.typeId, kvTxn), ers.longBinding, id.instanceId)
+            ers.deletedEntitiesMap(id.typeId, kvTxn, create = false)?.let {
+                isDeleted(it, ers.longBinding, id.instanceId)
+            } ?: false
         }
     }
 
     override fun getTypeId(type: String): Int {
         return ers.getEntityTypeId(type, kvTxn) ?: -1
+    }
+
+    override fun getPropertyNames(type: String): Set<String> = getAttributeName(type) {
+        ers.getPropNameFromMapName(it)
+    }
+
+    override fun getBlobNamesNames(type: String): Set<String> = getAttributeName(type) {
+        ers.getBlobNameFromMapName(it)
+    }
+
+    override fun getLinkNamesNames(type: String): Set<String> = getAttributeName(type) {
+        ers.getLinkNameFromMapName(it)
     }
 
     override fun all(type: String): EntityIterable {
@@ -73,16 +87,20 @@ class KVErsTransaction(
         if (getDeletedEntitiesCount(typeId) == 0L) {
             return InstanceIdCollectionEntityIterable(this, typeId, (0 until entityCounter).toList())
         }
-        val deletedMap = ers.deletedEntitiesMap(typeId, kvTxn)
-        return InstanceIdCollectionEntityIterable(this, typeId,
-            buildList {
-                (0 until entityCounter).forEach { instanceId ->
-                    if (!isDeleted(deletedMap, ers.longBinding, instanceId)) {
-                        add(instanceId)
+        val deletedMap = ers.deletedEntitiesMap(typeId, kvTxn, create = false)
+        return if (deletedMap == null) {
+            InstanceIdCollectionEntityIterable(this, typeId, (0 until entityCounter).toList())
+        } else {
+            InstanceIdCollectionEntityIterable(this, typeId,
+                buildList {
+                    (0 until entityCounter).forEach { instanceId ->
+                        if (!isDeleted(deletedMap, ers.longBinding, instanceId)) {
+                            add(instanceId)
+                        }
                     }
                 }
-            }
-        )
+            )
+        }
     }
 
     override fun <T : Any> find(type: String, propertyName: String, value: T): EntityIterable {
@@ -148,11 +166,13 @@ class KVErsTransaction(
     internal fun getLinkTargetType(typeId: Int, linkName: String): Int? {
         return linkTargetTypes.getOrElse(typeId with linkName) {
             val nameEntry = ers.stringBinding.getBytes(linkName)
-            kvTxn.get(ers.linkTargetTypesMap(typeId, kvTxn), nameEntry)?.let { typeIdEntry ->
-                ers.intBinding.getObjectCompressed(typeIdEntry)
-            }?.also {
-                linkTargetTypes[typeId with linkName] = it
-            }
+            ers.linkTargetTypesMap(typeId, kvTxn, create = false)
+                ?.let { kvTxn.get(it, nameEntry) }
+                ?.let { typeIdEntry ->
+                    ers.intBinding.getObjectCompressed(typeIdEntry)
+                }?.also {
+                    linkTargetTypes[typeId with linkName] = it
+                }
         }
     }
 
@@ -167,35 +187,45 @@ class KVErsTransaction(
             return EntityIterable.EMPTY
         }
         val valueEntry = probablyCompressed(value)
-        return if (getDeletedEntitiesCount(typeId) == 0L) {
-            InstanceIdCollectionEntityIterable(this, typeId,
-                buildList {
-                    kvTxn.navigateTo(ers.propertiesIndex(typeId, propertyName, kvTxn), valueEntry).use { cursor ->
-                        cursor.cursorFun(valueEntry).forEach { (_, instanceIdEntry) ->
-                            add(ers.longBinding.getObjectCompressed(instanceIdEntry))
-                        }
-                    }
-                }
-            )
-        } else {
-            val deletedMap = ers.deletedEntitiesMap(typeId, kvTxn)
-            InstanceIdCollectionEntityIterable(this, typeId,
-                buildList {
-                    kvTxn.navigateTo(ers.propertiesIndex(typeId, propertyName, kvTxn), valueEntry).use { cursor ->
-                        cursor.cursorFun(valueEntry).forEach { (_, instanceIdEntry) ->
-                            if (!isDeleted(deletedMap, instanceIdEntry)) {
+        val index = ers.propertiesIndex(typeId, propertyName, kvTxn, create = false)
+        val deletedMap = ers.deletedEntitiesMap(typeId, kvTxn, create = false)
+        return if (deletedMap == null) {
+            if (index == null) {
+                EntityIterable.EMPTY
+            } else {
+                InstanceIdCollectionEntityIterable(this, typeId,
+                    buildList {
+                        kvTxn.navigateTo(index, valueEntry).use { cursor ->
+                            cursor.cursorFun(valueEntry).forEach { (_, instanceIdEntry) ->
                                 add(ers.longBinding.getObjectCompressed(instanceIdEntry))
                             }
                         }
                     }
-                }
-            )
+                )
+            }
+        } else {
+            if (index == null) {
+                EntityIterable.EMPTY
+            } else {
+                InstanceIdCollectionEntityIterable(this, typeId,
+                    buildList {
+                        kvTxn.navigateTo(index, valueEntry).use { cursor ->
+                            cursor.cursorFun(valueEntry).forEach { (_, instanceIdEntry) ->
+                                if (!isDeleted(deletedMap, instanceIdEntry)) {
+                                    add(ers.longBinding.getObjectCompressed(instanceIdEntry))
+                                }
+                            }
+                        }
+                    }
+                )
+            }
         }
     }
 
     private fun getEntityCounter(typeId: Int): Long? {
         return entityCounters.getOrElse(typeId) {
-            kvTxn.get(ers.entityCountersMap(kvTxn), ers.intBinding.getBytesCompressed(typeId))
+            ers.entityCountersMap(kvTxn, create = false)
+                ?.let { kvTxn.get(it, ers.intBinding.getBytesCompressed(typeId)) }
                 ?.let { entityCounterEntry ->
                     ers.longBinding.getObjectCompressed(entityCounterEntry)
                 }?.also {
@@ -205,24 +235,36 @@ class KVErsTransaction(
     }
 
     private fun getDeletedEntitiesCount(typeId: Int): Long {
-        return deletedEntitiesCounts.getOrPut(typeId) {
-            ers.deletedEntitiesMap(typeId, kvTxn).size(kvTxn)
+        return deletedEntitiesCounts.getOrElse(typeId) {
+            ers.deletedEntitiesMap(typeId, kvTxn, create = false)?.size(kvTxn)
+                ?.also { deletedEntitiesCounts[typeId] = it } ?: 0L
         }
     }
 
     private fun flushDirty() {
-        val entityCountersMap = this.ers.entityCountersMap(kvTxn)
-        dirtyEntityCounters.forEach { (typeId, entityCounter) ->
-            kvTxn.put(
-                entityCountersMap,
-                ers.intBinding.getBytesCompressed(typeId),
-                ers.longBinding.getBytesCompressed(entityCounter)
-            )
+        if (dirtyEntityCounters.isNotEmpty()) {
+            val entityCountersMap = this.ers.entityCountersMap(kvTxn, create = true)!!
+            dirtyEntityCounters.forEach { (typeId, entityCounter) ->
+                kvTxn.put(
+                    entityCountersMap,
+                    ers.intBinding.getBytesCompressed(typeId),
+                    ers.longBinding.getBytesCompressed(entityCounter)
+                )
+            }
         }
         dirtyEntityCounters.clear()
         // clear caches
         isDeletedCache.clear()
         linkTargetTypes.clear()
         entityCounters.clear()
+    }
+
+    private fun getAttributeName(type: String, checkMapNameFunc: (String) -> Pair<String, Int>?): Set<String> {
+        val typeId = ers.getEntityTypeId(type, kvTxn) ?: return emptySet()
+        return kvTxn.getMapNames().mapNotNullTo(mutableSetOf()) {
+            checkMapNameFunc(it)?.let { pair ->
+                pair.first.takeIf { pair.second == typeId }
+            }
+        }
     }
 }
