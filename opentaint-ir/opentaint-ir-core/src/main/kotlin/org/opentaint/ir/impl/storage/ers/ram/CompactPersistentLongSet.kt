@@ -44,18 +44,16 @@ internal class CompactPersistentLongSet(private val value: Any? = null) : Collec
                 if (value == element) {
                     this
                 } else {
-                    CompactPersistentLongSet(PackedPersistentLongSet().addAll(listOf(value, element)))
+                    CompactPersistentLongSet(PackedPersistentLongSet().addAll(listOf(value, element.interned)))
                 }
-
             is PackedPersistentLongSet -> {
-                val newValue = value.add(element)
+                val newValue = value.add(element.interned)
                 if (newValue === value) {
                     this
                 } else {
-                    CompactPersistentLongSet(value.add(element))
+                    CompactPersistentLongSet(newValue)
                 }
             }
-
             else -> throw illegalStateException()
         }
     }
@@ -69,16 +67,9 @@ internal class CompactPersistentLongSet(private val value: Any? = null) : Collec
                 if (newValue === value) {
                     this
                 } else {
-                    newValue.run {
-                        if (size == 1) {
-                            CompactPersistentLongSet(first().interned)
-                        } else {
-                            CompactPersistentLongSet(newValue)
-                        }
-                    }
+                    CompactPersistentLongSet(if (newValue.size == 1) newValue.first() else newValue)
                 }
             }
-
             else -> throw illegalStateException()
         }
     }
@@ -87,13 +78,13 @@ internal class CompactPersistentLongSet(private val value: Any? = null) : Collec
         IllegalStateException("CompactPersistentLongSet.value can only be Long or PersistentLongSet")
 }
 
-private val Any?.interned: Any?
+private val Long.interned: Long
     get() =
-        if (this is Long && this >= 0 && this < LongInterner.boxedLongs.size) LongInterner.boxedLongs[this.toInt()]
+        if (this in 0 until LongInterner.boxedLongs.size) LongInterner.boxedLongs[this.toInt()]
         else this
 
 // TODO: remove this interner if specialized persistent collections would be used
 object LongInterner {
 
-    val boxedLongs = Array<Any>(200000) { it.toLong() }
+    val boxedLongs = Array(200000) { it.toLong() }
 }

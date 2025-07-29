@@ -73,11 +73,11 @@ class KVErsTransaction(
         ers.getPropNameFromMapName(it)
     }
 
-    override fun getBlobNamesNames(type: String): Set<String> = getAttributeName(type) {
+    override fun getBlobNames(type: String): Set<String> = getAttributeName(type) {
         ers.getBlobNameFromMapName(it)
     }
 
-    override fun getLinkNamesNames(type: String): Set<String> = getAttributeName(type) {
+    override fun getLinkNames(type: String): Set<String> = getAttributeName(type) {
         ers.getLinkNameFromMapName(it)
     }
 

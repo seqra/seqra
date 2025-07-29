@@ -152,3 +152,22 @@ class Iinc4 {
     }
 
 }
+
+class Iinc5 {
+
+    fun box(): String {
+        val result = intArrayOf(0)
+        var i = 0
+
+        repeat(10) {
+            try {
+                result[i++]++
+            } catch (_: ArrayIndexOutOfBoundsException) {
+                result[0] += 2
+                i = 0
+            }
+        }
+
+        return if (result[0] == 15) "OK" else "Catch failed: ${result[0]}"
+    }
+}

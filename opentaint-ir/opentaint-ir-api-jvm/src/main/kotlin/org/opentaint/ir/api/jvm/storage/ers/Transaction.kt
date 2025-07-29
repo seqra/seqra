@@ -37,12 +37,12 @@ interface Transaction : Closeable {
     /**
      * Returns set of blob names ever being set to an entity of specified `type`.
      */
-    fun getBlobNamesNames(type: String): Set<String> = emptySet()
+    fun getBlobNames(type: String): Set<String> = emptySet()
 
     /**
      * Returns set of link names ever being set to an entity of specified `type`.
      */
-    fun getLinkNamesNames(type: String): Set<String> = emptySet()
+    fun getLinkNames(type: String): Set<String> = emptySet()
 
     fun all(type: String): EntityIterable
 

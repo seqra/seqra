@@ -35,9 +35,9 @@ internal class RAMTransaction(override val ers: RAMEntityRelationshipStorage) : 
 
     override fun getPropertyNames(type: String): Set<String> = dataContainerChecked.getPropertyNames(type)
 
-    override fun getBlobNamesNames(type: String): Set<String> = dataContainerChecked.getBlobNames(type)
+    override fun getBlobNames(type: String): Set<String> = dataContainerChecked.getBlobNames(type)
 
-    override fun getLinkNamesNames(type: String): Set<String> = dataContainerChecked.getLinkNames(type)
+    override fun getLinkNames(type: String): Set<String> = dataContainerChecked.getLinkNames(type)
 
     override fun all(type: String): EntityIterable = dataContainerChecked.all(this, type)
 

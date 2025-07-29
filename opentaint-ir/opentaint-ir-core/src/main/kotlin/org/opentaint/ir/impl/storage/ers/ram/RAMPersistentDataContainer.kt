@@ -219,7 +219,7 @@ internal class RAMPersistentDataContainer(
         } else {
             val blobs = blobs[blobsKey] ?: TransactionalPersistentLongMap()
             blobs.withMutableBlobs(blobsKey) {
-                put(id.instanceId, value)
+                put(id.instanceId, value.probablyCached())
             }
         }
     }

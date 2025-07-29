@@ -20,8 +20,8 @@ abstract class AbstractTransactionDecorator : Transaction {
     override fun deleteEntity(id: EntityId) = delegate.deleteEntity(id)
     override fun getTypeId(type: String): Int = delegate.getTypeId(type)
     override fun getPropertyNames(type: String): Set<String> = delegate.getPropertyNames(type)
-    override fun getBlobNamesNames(type: String): Set<String> = delegate.getBlobNamesNames(type)
-    override fun getLinkNamesNames(type: String): Set<String> = delegate.getLinkNamesNames(type)
+    override fun getBlobNames(type: String): Set<String> = delegate.getBlobNames(type)
+    override fun getLinkNames(type: String): Set<String> = delegate.getLinkNames(type)
     override fun all(type: String): EntityIterable = delegate.all(type)
     override fun <T : Any> find(type: String, propertyName: String, value: T): EntityIterable =
         delegate.find(type, propertyName, value)

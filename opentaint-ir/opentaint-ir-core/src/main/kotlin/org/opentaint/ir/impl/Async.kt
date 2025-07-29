@@ -24,16 +24,10 @@ class BackgroundScope : CoroutineScope {
 fun <W, T> softLazy(getter: () -> T): ReadOnlyProperty<W, T> {
     return object : ReadOnlyProperty<W, T> {
         @Volatile
-        var softRef = SoftReference<T>(null)
+        var softRef: SoftReference<T>? = null
 
         override fun getValue(thisRef: W, property: KProperty<*>): T {
-            var instance = softRef.get()
-            if (instance == null) {
-                instance = getter()
-                softRef = SoftReference(instance)
-                return instance
-            }
-            return instance
+            return softRef?.get() ?: getter().also { softRef = SoftReference(it) }
         }
     }
 }
@@ -41,16 +35,10 @@ fun <W, T> softLazy(getter: () -> T): ReadOnlyProperty<W, T> {
 fun <W, T> weakLazy(getter: () -> T): ReadOnlyProperty<W, T> {
     return object : ReadOnlyProperty<W, T> {
         @Volatile
-        var weakRef = WeakReference<T>(null)
+        var weakRef: WeakReference<T>? = null
 
         override fun getValue(thisRef: W, property: KProperty<*>): T {
-            var instance = weakRef.get()
-            if (instance == null) {
-                instance = getter()
-                weakRef = WeakReference(instance)
-                return instance
-            }
-            return instance
+            return weakRef?.get() ?: getter().also { weakRef = WeakReference(it) }
         }
     }
 }

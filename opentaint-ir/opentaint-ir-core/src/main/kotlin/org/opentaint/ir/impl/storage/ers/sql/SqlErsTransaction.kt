@@ -59,6 +59,18 @@ class SqlErsTransactionImpl(
         return getTypeIdOrNull(type) ?: return -1
     }
 
+    override fun getPropertyNames(type: String): Set<String> {
+        TODO("Not yet implemented")
+    }
+
+    override fun getBlobNames(type: String): Set<String> {
+        TODO("Not yet implemented")
+    }
+
+    override fun getLinkNames(type: String): Set<String> {
+        TODO("Not yet implemented")
+    }
+
     override fun all(type: String): EntityIterable {
         val typeId = getTypeIdOrNull(type) ?: return EntityIterable.EMPTY
         val entityTable = getEntityTableByTypeIdOrNull(typeId) ?: return EntityIterable.EMPTY
