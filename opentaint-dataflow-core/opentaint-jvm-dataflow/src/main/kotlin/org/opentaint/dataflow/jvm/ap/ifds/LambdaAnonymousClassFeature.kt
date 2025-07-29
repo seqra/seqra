@@ -279,9 +279,6 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
         val lambdaMethod: JIRMethod,
         private val lambdaInterfaceType: JIRClassOrInterface
     ) : JIRVirtualClassImpl(name, initialFields = fields, initialMethods = methods) {
-        init {
-            check(lambdaInterfaceType.isInterface)
-        }
 
         private lateinit var declarationLocation: RegisteredLocation
 
