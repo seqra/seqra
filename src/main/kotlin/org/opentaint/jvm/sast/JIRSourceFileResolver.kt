@@ -16,11 +16,13 @@ class JIRSourceFileResolver(
     private val projectSourceRoot: Path,
     private val projectLocationsSourceRoots: Map<RegisteredLocation, Path>
 ) : SourceFileResolver<JIRInst> {
-    private val locationJavaSources: Map<RegisteredLocation, Map<String, List<Path>>> by lazy {
+    private val locationSources: Map<RegisteredLocation, Map<String, List<Path>>> by lazy {
         projectLocationsSourceRoots.mapValues { (_, sourcesRoot) ->
             @OptIn(ExperimentalPathApi::class)
-            val allJavaFiles = sourcesRoot.walk().filter { it.extension == "java" }
-            allJavaFiles.toList().groupBy { it.fileName.toString() }
+            val allJavaAndKotlinFiles = sourcesRoot.walk().filter { file ->
+                file.extension.let { it == JAVA_EXTENSION || it == KOTLIN_EXTENSION }
+            }
+            allJavaAndKotlinFiles.toList().groupBy { it.fileName.toString() }
         }
     }
 
@@ -30,22 +32,45 @@ class JIRSourceFileResolver(
         val location = instLocationCls.declaration.location
         if (location.isRuntime) return null
 
-        val javaSources = locationJavaSources[location] ?: return null
-        val sourceFileName = classSourceFileName(instLocationCls)
-        val relatedSourceFiles = javaSources[sourceFileName].orEmpty()
+        val sources = locationSources[location] ?: return null
 
-        val sourceFilesWithCorrectPackage = relatedSourceFiles.filter { packageMatches(it, instLocationCls) }
+        val locationCls = mostOuterClass(instLocationCls)
+        val clsName = locationCls.simpleName
+        val sourceFileNameVariants = mutableListOf<String>()
 
-        if (sourceFilesWithCorrectPackage.size == 1) {
-            return sourceFilesWithCorrectPackage.single().relativeTo(projectSourceRoot).toString()
+        if (clsName.endsWith("Kt")) {
+            sourceFileNameVariants += clsName.removeSuffix("Kt") + ".$KOTLIN_EXTENSION"
+        }
+
+        sourceFileNameVariants += "$clsName.$JAVA_EXTENSION"
+        sourceFileNameVariants += "$clsName.$KOTLIN_EXTENSION"
+
+        for (sourceFileName in sourceFileNameVariants) {
+            val resolved = tryResolveSourceFile(sources, locationCls, sourceFileName) ?: continue
+            return resolved.relativeTo(projectSourceRoot).toString()
         }
 
         logger.warn { "Source file was not resolved for: ${instLocationCls.name}" }
         return null
     }
 
-    private fun classSourceFileName(cls: JIRClassOrInterface): String =
-        cls.outerClass?.let { classSourceFileName(it) } ?: "${cls.simpleName}.java"
+    private fun tryResolveSourceFile(
+        sources: Map<String, List<Path>>,
+        locationCls: JIRClassOrInterface,
+        sourceFileName: String
+    ): Path? {
+        val relatedSourceFiles = sources[sourceFileName] ?: return null
+        val sourceFilesWithCorrectPackage = relatedSourceFiles.filter { packageMatches(it, locationCls) }
+        return sourceFilesWithCorrectPackage.singleOrNull()
+    }
+
+    private fun mostOuterClass(cls: JIRClassOrInterface): JIRClassOrInterface {
+        var result = cls
+        while (true) {
+            result = result.outerClass ?: break
+        }
+        return result
+    }
 
     private fun packageMatches(sourceFile: Path, cls: JIRClassOrInterface): Boolean {
         val packageParts = cls.packageName.split(".").reversed()
@@ -54,5 +79,10 @@ class JIRSourceFileResolver(
         if (filePathParts.size < packageParts.size) return false
 
         return packageParts.zip(filePathParts).all { it.first == it.second.toString() }
+    }
+
+    companion object {
+        private const val JAVA_EXTENSION = "java"
+        private const val KOTLIN_EXTENSION = "kt"
     }
 }

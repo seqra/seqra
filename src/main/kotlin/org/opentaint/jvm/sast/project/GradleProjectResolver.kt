@@ -8,9 +8,10 @@ import org.opentaint.jvm.sast.project.ProjectResolver.Companion.tryJavaToolchain
 import java.nio.file.FileVisitResult
 import java.nio.file.Path
 import kotlin.io.path.ExperimentalPathApi
+import kotlin.io.path.OnErrorResult
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
-import kotlin.io.path.copyTo
+import kotlin.io.path.copyToRecursively
 import kotlin.io.path.createDirectories
 import kotlin.io.path.div
 import kotlin.io.path.exists
@@ -18,8 +19,10 @@ import kotlin.io.path.extension
 import kotlin.io.path.isDirectory
 import kotlin.io.path.isExecutable
 import kotlin.io.path.isRegularFile
+import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
 import kotlin.io.path.readText
+import kotlin.io.path.relativeTo
 import kotlin.io.path.visitFileTree
 import kotlin.io.path.walk
 import kotlin.io.path.writeText
@@ -32,7 +35,7 @@ class GradleProjectResolver(
     private val resolvedProjectDependencies = mutableListOf<Path>()
 
     private fun registerModule(moduleRoot: Path, snapshotLibs: (Path) -> List<Path>) {
-        val snapshotDir = resolverDir.resolve("libs_${resolvedModules.size}").createDirectories()
+        val snapshotDir = resolverDir.resolve("modules_${resolvedModules.size}").createDirectories()
         val libs = snapshotLibs(snapshotDir)
         resolvedModules += ProjectResolver.ProjectModuleClasses(moduleRoot, libs)
     }
@@ -57,19 +60,41 @@ class GradleProjectResolver(
     @OptIn(ExperimentalPathApi::class)
     private fun buildProject(): Boolean {
         val gradleExecutable = resolveGradleExecutable(projectSourceRoot)
-        val args = listOf(gradleExecutable) + gradleBuildFlags + listOf("clean", "jar") // todo: maybe use assemble task?
+
+        val buildTarget = "classes" // todo: maybe use testClasses (to include tests) or assemble task?
+        val args = listOf(gradleExecutable) + gradleBuildFlags + listOf("clean", buildTarget)
 
         javaToolchain = tryJavaToolchains { ProjectResolver.runCommand(projectSourceRoot, args, it) } ?: return false
 
         projectSourceRoot.visitFileTree {
             onPreVisitDirectory { directory, _ ->
                 if (isGradleProjectRoot(directory)) {
-                    val libs = directory.resolve("build").resolve("libs")
-                    if (libs.isDirectory()) {
-                        val jarFiles = libs.walk().filter { it.isRegularFile() && it.extension == "jar" }.toList()
-                        if (jarFiles.isNotEmpty()) {
-                            registerModule(directory) { libsSnapshotDir ->
-                                jarFiles.map { it.copyTo(libsSnapshotDir.resolve(it.name), overwrite = false) }
+                    val classesDir = directory.resolve("build").resolve("classes")
+                    if (classesDir.isDirectory()) {
+                        val languages = classesDir.listDirectoryEntries().filter { it.isDirectory() }
+                        val configurations = languages.flatMap { languageClasses ->
+                            languageClasses.listDirectoryEntries().filter { it.isDirectory() }
+                        }
+
+                        if (configurations.isNotEmpty()) {
+                            registerModule(directory) { snapshotDir ->
+                                configurations.map { configurationClasses ->
+                                    val configurationName = configurationClasses.relativeTo(classesDir)
+                                    val snapshotDestination = snapshotDir.resolve(configurationName)
+
+                                    snapshotDestination.createDirectories()
+                                    configurationClasses.copyToRecursively(
+                                        snapshotDestination,
+                                        onError = { src, _, ex ->
+                                            logger.error(ex) { "Failed to create classes snapshot for $src" }
+                                            OnErrorResult.SKIP_SUBTREE
+                                        },
+                                        followLinks = false,
+                                        overwrite = false
+                                    )
+
+                                    snapshotDestination
+                                }
                             }
                         }
                     }
