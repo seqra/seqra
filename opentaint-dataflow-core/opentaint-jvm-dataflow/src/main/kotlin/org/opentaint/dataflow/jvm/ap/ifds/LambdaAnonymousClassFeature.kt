@@ -48,17 +48,15 @@ import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualFieldImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualMethod
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualMethodImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualParameter
+import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import org.opentaint.ir.impl.types.JIRTypedFieldImpl
 import org.opentaint.ir.impl.types.TypeNameImpl
 import org.opentaint.ir.impl.types.substition.JIRSubstitutorImpl
 import java.util.Objects
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
 
 class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
     private val lambdaClasses = ConcurrentHashMap<String, JIRLambdaClass>()
-    private val lambdaClassNames = ConcurrentHashMap<JIRInstLocation, String>()
-    private val lambdaCounter = AtomicInteger(0)
 
     override fun tryFindClass(classpath: JIRClasspath, name: String): JIRClasspathExtFeature.JIRResolvedClassResult? {
         val clazz = lambdaClasses[name]
@@ -68,29 +66,25 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
         return null
     }
 
-    fun generateLambda(location: JIRInstLocation, lambda: JIRLambdaExpr): JIRLambdaClass? {
-        val lambdaClassName = lambdaClassNames.computeIfAbsent(location) {
-            "${lambda.callSiteReturnType.typeName}_\$lambda_${lambdaCounter.getAndIncrement()}"
+    fun generateLambda(location: JIRInstLocation, lambda: JIRLambdaExpr): JIRLambdaClass {
+        val lambdaClassName = with(location) {
+            "${method.enclosingClass.name}$${method.name}\$jir_lambda$${index}"
         }
 
-        return synchronized(lambdaClassName) {
-            val generatedCls = lambdaClasses[lambdaClassName]
-            if (generatedCls != null) return generatedCls
+        return lambdaClasses.computeIfAbsent(lambdaClassName) {
+            val lambdaMethod = resolveLambdaMethod(lambda)
+                ?: error("Lambda method resolution failed for: $lambda")
 
-            val lambdaMethod = resolveLambdaMethod(lambda) ?: return null
             val declaredMethods = mutableListOf<JIRVirtualMethod>()
             val declaredFields = mutableListOf<JIRVirtualField>()
-
-            val locationClass = location.method.enclosingClass
 
             val lambdaClass = JIRLambdaClass(
                 lambdaClassName, declaredFields, declaredMethods,
                 lambdaMethod.method, lambdaMethod.method.enclosingClass
             ).also {
+                val locationClass = location.method.enclosingClass
                 it.bindWithLocation(locationClass.classpath, locationClass.declaration.location)
             }
-
-            lambdaClasses[lambdaClassName] = lambdaClass
 
             generateLambdaClassBody(lambda, lambdaClass, declaredFields, declaredMethods)
 
@@ -106,9 +100,10 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
     ) {
         val method = lambdaClass.lambdaMethod
 
-        val cp = method.enclosingClass.classpath
-        val lambdaType = cp.findTypeOrNull(lambdaClass.name) as? JIRClassType
-            ?: error("Lambda generation failure")
+        val lambdaType = with(lambdaClass) {
+            // note: avoid classpath lookup since class wat not initialized yet
+            JIRClassTypeImpl(classpath, name, outerType = null, JIRSubstitutorImpl.empty, nullable = false, annotations)
+        }
 
         val fields = lambda.callSiteArgTypes.mapIndexed { fieldIdx, fieldType ->
             val typeName = fieldType.typeName.typeName()
@@ -131,8 +126,6 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
         fields: List<JIRTypedField>,
         lambdaType: JIRClassType
     ) {
-        val cp = method.enclosingClass.classpath
-
         val implMethodInstructions = InstListBuilder()
         val implMethod = JIRLambdaMethod(
             name = method.name,
@@ -166,7 +159,7 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
         }
 
         method.parameters.mapTo(args) {
-            JIRArgument(it.index, it.name ?: "arg_${it.index}", cp.findType(it.type.typeName))
+            JIRArgument(it.index, it.name ?: "arg_${it.index}", lambdaClass.classpath.findType(it.type.typeName))
         }
 
         val expectedArgTypes = mutableListOf<JIRType>()
@@ -207,7 +200,7 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
         }
 
         val retVal: JIRValue?
-        if (actualMethod.returnType == cp.void) {
+        if (actualMethod.returnType == lambdaClass.classpath.void) {
             retVal = null
             implMethodInstructions.addInstWithLocation(implMethod) { loc ->
                 JIRCallInst(loc, callExpr)
@@ -306,7 +299,7 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
             return other is JIRLambdaClass && name == other.name
         }
 
-        override fun toString(): String = "(lambda: $name)"
+        override fun toString(): String = "(lambda: $name/$lambdaMethod)"
 
         override fun bind(classpath: JIRClasspath, virtualLocation: VirtualLocation) {
             bindWithLocation(classpath, virtualLocation)
@@ -369,6 +362,8 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
             val location = JIRInstLocationImpl(method, idx, lineNumber = -1)
             buildInst(location)
         }
+
+        override fun toString(): String = mutableInstructions.joinToString(separator = "\n") { "  $it" }
     }
 
     companion object {

@@ -50,8 +50,6 @@ class LambdaExpressionToAnonymousClassTransformerFeature(
                         ?: error("Incorrect assign inst: $lambda")
 
                     val lambdaClass = lambdaAnonymousClassFeature.generateLambda(location, lambdaExpr)
-                        ?: error("Lambda class generation failed for $lambda")
-
                     val lambdaType = lambdaClass.toType()
 
                     val lambdaConstructor = lambdaClass.declaredMethods.single { it.isConstructor }
