@@ -7,6 +7,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
+import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.taint.configuration.TaintMark
 import org.opentaint.dataflow.ifds.onSome
 import org.opentaint.dataflow.jvm.ap.ifds.AccessPath.AccessNode.Companion.iterator
@@ -16,6 +17,8 @@ import org.opentaint.dataflow.jvm.ap.ifds.Edge.ZeroInitialEdge
 import org.opentaint.dataflow.jvm.ap.ifds.Edge.ZeroToFact
 import org.opentaint.dataflow.jvm.ap.ifds.Edge.ZeroToZero
 import org.opentaint.dataflow.jvm.ap.ifds.ExclusionSet.Empty
+import org.opentaint.dataflow.jvm.ap.ifds.MethodAnalyzer.MethodCallHandler
+import org.opentaint.dataflow.jvm.ap.ifds.MethodAnalyzer.MethodCallResolutionFailureHandler
 import org.opentaint.dataflow.jvm.ap.ifds.MethodCallFlowFunction.Companion.applyEntryPointConfigDefault
 import org.opentaint.dataflow.jvm.ap.ifds.MethodCallFlowFunction.ZeroCallFact
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.rebase
@@ -23,6 +26,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.MethodSequentFlowFunction.Sequent
 
 interface MethodAnalyzer {
     fun addInitialZeroFact()
+
     fun addInitialFact(fact: Fact.TaintedTree)
 
     fun tabulationAlgorithmStep(edge: Edge)
@@ -50,6 +54,25 @@ interface MethodAnalyzer {
         val currentEdge: FactToFact,
         val methodInitialFactBase: AccessPathBase
     )
+
+    sealed interface MethodCallHandler {
+        data class ZeroToZeroHandler(val currentEdge: ZeroToZero) : MethodCallHandler
+        data class ZeroToFactHandler(val currentEdge: ZeroToFact, val startFactBase: AccessPathBase) : MethodCallHandler
+        data class FactToFactHandler(val currentEdge: FactToFact, val startFactBase: AccessPathBase) : MethodCallHandler
+    }
+
+    sealed interface MethodCallResolutionFailureHandler {
+        object ZeroToZeroHandler : MethodCallResolutionFailureHandler
+        data class ZeroToFactHandler(val edge: ZeroInitialEdge, val callerFact: Fact.TaintedTree) : MethodCallResolutionFailureHandler
+        data class FactToFactHandler(val callerEdge: FactToFact, val callerFact: Fact.TaintedTree): MethodCallResolutionFailureHandler
+    }
+
+    fun handleResolvedMethodCall(method: MethodWithContext, handler: MethodCallHandler)
+
+    fun handleMethodCallResolutionFailure(
+        callExpr: JIRCallExpr,
+        handler: MethodCallResolutionFailureHandler
+    )
 }
 
 class NormalMethodAnalyzer(
@@ -57,10 +80,10 @@ class NormalMethodAnalyzer(
     private val methodEntryPoint: MethodEntryPoint
 ) : MethodAnalyzer {
     private val graph: JIRApplicationGraph get() = runner.graph
-    private val callResolver: JIRCallResolver get() = runner.callResolver
     private val taintConfig: TaintRulesProvider get() = runner.taintConfiguration
     private val factTypeChecker: FactTypeChecker get() = runner.factTypeChecker
     private val taintSinkTracker: TaintSinkTracker get() = runner.sinkTracker
+    private val lambdaTracker: JIRLambdaTracker get() = runner.lambdaTracker
 
     private var zeroInitialFactProcessed: Boolean = false
     private val initialFacts = MethodInitialFacts(hashMapOf())
@@ -89,10 +112,12 @@ class NormalMethodAnalyzer(
     }
 
     override fun addInitialFact(fact: Fact.TaintedTree) {
+        val checkedFact = checkInitialFactTypes(fact) ?: return
+
         // note: we can ignore fact exclusions here
-        val facts = initialFacts.getOrPut(fact.mark, fact.ap.base)
-        val addedFact = facts.addInitialFact(fact.ap.access) ?: return
-        addAbstractInitialFact(facts, fact.mark, fact.ap.base, addedFact)
+        val facts = initialFacts.getOrPut(checkedFact.mark, checkedFact.ap.base)
+        val addedFact = facts.addInitialFact(checkedFact.ap.access) ?: return
+        addAbstractInitialFact(facts, checkedFact.mark, checkedFact.ap.base, addedFact)
     }
 
     private fun propagateStartFacts() {
@@ -104,9 +129,23 @@ class NormalMethodAnalyzer(
             }
     }
 
+    private fun checkInitialFactTypes(fact: Fact.TaintedTree): Fact.TaintedTree? {
+        if (fact.ap.base !is AccessPathBase.This) return fact
+
+        val thisClass = when (methodEntryPoint.context) {
+            EmptyMethodContext -> methodEntryPoint.method.enclosingClass
+            is InstanceTypeMethodContext -> methodEntryPoint.context.type
+        }
+
+        val thisType = thisClass.toType()
+        return factTypeChecker.filterFactByLocalType(thisType, fact)
+    }
+
     override fun tabulationAlgorithmStep(edge: Edge) {
         analyzerSteps++
         unprocessedEdgesCount--
+
+        registerLambdaAllocationSite(edge.statement)
 
         val callExpr = edge.statement.callExpr
         if (callExpr != null) {
@@ -117,6 +156,13 @@ class NormalMethodAnalyzer(
 
         if (unprocessedEdgesCount == 0) {
             flushPendingSummaryEdges()
+        }
+    }
+
+    private fun registerLambdaAllocationSite(statement: JIRInst) {
+        val allocatedLambda = LambdaExpressionToAnonymousClassTransformerFeature.findLambdaAllocation(statement)
+        if (allocatedLambda != null) {
+            lambdaTracker.registerLambda(allocatedLambda)
         }
     }
 
@@ -170,8 +216,6 @@ class NormalMethodAnalyzer(
             taintConfig,
             returnValue,
             callExpr,
-            methodEntryPoint.context,
-            callResolver,
             factTypeChecker,
             edge.statement,
             taintSinkTracker
@@ -187,17 +231,22 @@ class NormalMethodAnalyzer(
                 }
 
                 callFacts.forEach {
-                    propagateZeroCallFact(edge, it, returnSites)
+                    propagateZeroCallFact(callExpr, edge, it, returnSites)
                 }
             }
 
             is FactToFact -> flowFunction.propagateFactToFact(edge.initialFact, edge.fact).forEach {
-                propagateFactCallFact(edge, it, returnSites)
+                propagateFactCallFact(callExpr, edge, it, returnSites)
             }
         }
     }
 
-    private fun propagateZeroCallFact(edge: ZeroInitialEdge, fact: ZeroCallFact, returnSites: List<JIRInst>) {
+    private fun propagateZeroCallFact(
+        callExpr: JIRCallExpr,
+        edge: ZeroInitialEdge,
+        fact: ZeroCallFact,
+        returnSites: List<JIRInst>
+    ) {
         when (fact) {
             MethodCallFlowFunction.CallToReturnZeroFact -> {
                 for (returnSite in returnSites) {
@@ -216,28 +265,22 @@ class NormalMethodAnalyzer(
             is MethodCallFlowFunction.CallToStartZeroFact -> {
                 val callerEdge = ZeroToZero(methodEntryPoint, edge.statement)
 
-                val methodEntryPoints = graph.entryPoints(fact.method.method)
-                    .map { MethodEntryPoint(fact.method.ctx, it) }
-
-                methodEntryPoints.forEach { ep ->
-                    handleMethodCall(callerEdge, ep)
-                }
+                val handler = MethodCallHandler.ZeroToZeroHandler(callerEdge)
+                val failureHandler = MethodCallResolutionFailureHandler.ZeroToZeroHandler
+                runner.resolveMethodCall(methodEntryPoint, callExpr, edge.statement, handler, failureHandler)
             }
 
             is MethodCallFlowFunction.CallToStartZFact -> {
                 val callerEdge = ZeroToFact(methodEntryPoint, edge.statement, fact.callerFact)
-
-                val methodEntryPoints = graph.entryPoints(fact.method.method)
-                    .map { MethodEntryPoint(fact.method.ctx, it) }
-
-                methodEntryPoints.forEach { ep ->
-                    handleMethodCall(callerEdge, ep, fact.startFactBase)
-                }
+                val handler = MethodCallHandler.ZeroToFactHandler(callerEdge, fact.startFactBase)
+                val failureHandler = MethodCallResolutionFailureHandler.ZeroToFactHandler(edge, fact.callerFact)
+                runner.resolveMethodCall(methodEntryPoint, callExpr, edge.statement, handler, failureHandler)
             }
         }
     }
 
     private fun propagateFactCallFact(
+        callExpr: JIRCallExpr,
         edge: FactToFact,
         fact: MethodCallFlowFunction.FactCallFact,
         returnSites: List<JIRInst>
@@ -254,12 +297,9 @@ class NormalMethodAnalyzer(
 
                 handleInputFactChange(edge.initialFact, callerEdge.initialFact)
 
-                val methodEntryPoints = graph.entryPoints(fact.method.method)
-                    .map { MethodEntryPoint(fact.method.ctx, it) }
-
-                methodEntryPoints.forEach { ep ->
-                    handleMethodCall(callerEdge, ep, fact.startFactBase)
-                }
+                val handler = MethodCallHandler.FactToFactHandler(callerEdge, fact.startFactBase)
+                val failureHandler = MethodCallResolutionFailureHandler.FactToFactHandler(callerEdge, fact.callerFact)
+                runner.resolveMethodCall(methodEntryPoint, callExpr, edge.statement, handler, failureHandler)
             }
 
             is MethodCallFlowFunction.SinkRequirement -> {
@@ -328,17 +368,48 @@ class NormalMethodAnalyzer(
         }
     }
 
-    private fun handleMethodCall(currentEdge: ZeroToZero, methodEntryPoint: MethodEntryPoint) {
-        runner.subscribeOnMethodSummaries(currentEdge, methodEntryPoint)
+    override fun handleResolvedMethodCall(method: MethodWithContext, handler: MethodCallHandler) {
+        for (ep in methodEntryPoints(method)) {
+            handleMethodCall(handler, ep)
+        }
     }
 
-    private fun handleMethodCall(currentEdge: ZeroToFact, methodEntryPoint: MethodEntryPoint, methodInitialFactBase: AccessPathBase) {
-        runner.subscribeOnMethodSummaries(currentEdge, methodEntryPoint, methodInitialFactBase)
+    private fun handleMethodCall(handler: MethodCallHandler, ep: MethodEntryPoint) = when(handler) {
+        is MethodCallHandler.ZeroToZeroHandler ->
+            runner.subscribeOnMethodSummaries(handler.currentEdge, ep)
+
+        is MethodCallHandler.ZeroToFactHandler ->
+            runner.subscribeOnMethodSummaries(handler.currentEdge, ep, handler.startFactBase)
+
+        is MethodCallHandler.FactToFactHandler ->
+            runner.subscribeOnMethodSummaries(handler.currentEdge, ep, handler.startFactBase)
     }
 
-    private fun handleMethodCall(currentEdge: FactToFact, methodEntryPoint: MethodEntryPoint, methodInitialFactBase: AccessPathBase) {
-        runner.subscribeOnMethodSummaries(currentEdge, methodEntryPoint, methodInitialFactBase)
+    override fun handleMethodCallResolutionFailure(
+        callExpr: JIRCallExpr,
+        handler: MethodCallResolutionFailureHandler
+    ) = when (handler) {
+        MethodCallResolutionFailureHandler.ZeroToZeroHandler -> {
+            // do nothing
+        }
+
+        is MethodCallResolutionFailureHandler.ZeroToFactHandler -> {
+            // If no callees resolved propagate as call-to-return
+            val stubFact = MethodCallFlowFunction.CallToReturnZFact(handler.callerFact)
+            val returnSites = graph.successors(handler.edge.statement).toList()
+            propagateZeroCallFact(callExpr, handler.edge, stubFact, returnSites)
+        }
+
+        is MethodCallResolutionFailureHandler.FactToFactHandler -> {
+            // If no callees resolved propagate as call-to-return
+            val stubFact = MethodCallFlowFunction.CallToReturnFFact(handler.callerEdge.initialFact, handler.callerFact)
+            val returnSites = graph.successors(handler.callerEdge.statement).toList()
+            propagateFactCallFact(callExpr, handler.callerEdge, stubFact, returnSites)
+        }
     }
+
+    private fun methodEntryPoints(method: MethodWithContext): Sequence<MethodEntryPoint> =
+        graph.entryPoints(method.method).map { MethodEntryPoint(method.ctx, it) }
 
     private fun isApplicableExitToReturnEdge(edge: Edge): Boolean {
         return edge.statement !is JIRThrowInst
@@ -760,5 +831,13 @@ class EmptyMethodAnalyzer(
         methodSinkRequirement: Fact.TaintedPath
     ) {
         error("Empty method should not receive sink requirements")
+    }
+
+    override fun handleResolvedMethodCall(method: MethodWithContext, handler: MethodCallHandler) {
+        error("Empty method should not method resolution results")
+    }
+
+    override fun handleMethodCallResolutionFailure(callExpr: JIRCallExpr, handler: MethodCallResolutionFailureHandler) {
+        error("Empty method should not method resolution results")
     }
 }

@@ -12,6 +12,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
 import org.opentaint.ir.api.jvm.cfg.JIRCatchInst
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRLambdaExpr
 import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRValue
@@ -19,8 +20,11 @@ import org.opentaint.ir.api.jvm.cfg.JIRVirtualCallExpr
 import org.opentaint.ir.api.jvm.ext.isSubClassOf
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.dataflow.ifds.UnknownUnit
+import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature.JIRLambdaClass
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
+import java.util.Optional
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.jvm.optionals.getOrNull
 
 class JIRCallResolver(
     private val graph: JIRApplicationGraph,
@@ -33,18 +37,31 @@ class JIRCallResolver(
     private fun methodOverrides(method: JIRMethod): List<JIRMethod> =
         methodOverridesCache.computeIfAbsent(method) {
             hierarchy.findOverrides(method, includeAbstract = false)
-                .filterTo(mutableListOf()) { unitResolver.resolve(it) != UnknownUnit }
+                .filterTo(mutableListOf()) {
+                    unitResolver.resolve(it) != UnknownUnit
+                            && it.enclosingClass !is JIRLambdaClass // Lambdas handled by JIRLambdaTracker
+                }
         }
 
-    fun resolve(call: JIRCallExpr, location: JIRInst, context: MethodContext): List<MethodWithContext> {
+    sealed interface MethodResolutionResult {
+        object MethodResolutionFailed : MethodResolutionResult
+        data class ConcreteMethod(val method: MethodWithContext) : MethodResolutionResult
+        data class Lambda(val instance: JIRVirtualCallExpr, val method: JIRMethod) : MethodResolutionResult
+    }
+
+    fun resolve(call: JIRCallExpr, location: JIRInst, context: MethodContext): List<MethodResolutionResult> {
         val method = call.method.method
         val methodIgnored = unitResolver.resolve(method) == UnknownUnit
 
         // todo: is it ok?
         // note: also ignore all possible method overrides
-        if (methodIgnored) return emptyList()
+        if (methodIgnored) return listOf(MethodResolutionResult.MethodResolutionFailed)
 
-        // todo: resolve lambda calls?
+        if (call is JIRLambdaExpr) {
+            // lambda expr is an allocation site. lambda calls resolved as virtual calls
+            return emptyList()
+        }
+
         if (call !is JIRVirtualCallExpr) {
             return attachContext(method, context, call, location)
         }
@@ -52,23 +69,35 @@ class JIRCallResolver(
         return resolveVirtualMethod(method, call, location, context)
     }
 
-    // note: we can't have more than one method at inst
-    private val methodOverridesAtLocation = ConcurrentHashMap<Pair<JIRInst, MethodContext>, List<MethodWithContext>>()
-
     private fun resolveVirtualMethod(
         method: JIRMethod,
         call: JIRVirtualCallExpr,
         location: JIRInst,
         context: MethodContext
-    ): List<MethodWithContext> {
-        val overrides = methodOverrides(method)
-        if (overrides.isEmpty()) {
-            return attachContext(method, context, call, location)
+    ): List<MethodResolutionResult> = buildList {
+        if (methodMayBeLambda(method)) {
+            this += MethodResolutionResult.Lambda(call, method)
         }
 
-        return methodOverridesAtLocation.computeIfAbsent(location to context) {
-            resolveVirtualMethodAtLocation(method, overrides, call, location, context)
+        val overrides = methodOverrides(method)
+        if (overrides.isEmpty()) {
+            if (!method.isAbstract) {
+                this += attachContext(method, context, call, location)
+            } else {
+                this += MethodResolutionResult.MethodResolutionFailed
+            }
+            return@buildList
         }
+
+        resolveVirtualMethodAtLocation(method, overrides, call, location, context)
+            .mapTo(this) { MethodResolutionResult.ConcreteMethod(it) }
+    }
+
+    private fun methodMayBeLambda(method: JIRMethod): Boolean {
+        if (!method.isAbstract) return false
+        if (!method.enclosingClass.isInterface) return false
+        // class is SAM
+        return method.enclosingClass.declaredMethods.count { it.isAbstract } == 1
     }
 
     private fun attachContext(
@@ -76,11 +105,14 @@ class JIRCallResolver(
         context: MethodContext,
         call: JIRCallExpr,
         location: JIRInst
-    ): List<MethodWithContext> {
-        if (call !is JIRInstanceCallExpr) return listOf(MethodWithContext(method, EmptyMethodContext))
+    ): List<MethodResolutionResult.ConcreteMethod> {
+        if (call !is JIRInstanceCallExpr) {
+            return listOf(MethodResolutionResult.ConcreteMethod(MethodWithContext(method, EmptyMethodContext)))
+        }
 
-        val instanceTypes = resolveValueClass(call.instance, location, context, hashSetOf())
+        val instanceTypes = resolveValueClass(call.instance, location, context)
         return attachContext(call, location, method, instanceTypes)
+            .map { MethodResolutionResult.ConcreteMethod(it) }
     }
 
     private fun attachContext(
@@ -114,7 +146,7 @@ class JIRCallResolver(
     ): List<MethodWithContext> {
         val methods = if (baseMethod.isAbstract) overrides else overrides + baseMethod
 
-        val instanceTypes = resolveValueClass(call.instance, location, context, hashSetOf())
+        val instanceTypes = resolveValueClass(call.instance, location, context)
         if (instanceTypes.isNullOrEmpty()) {
             return methods.flatMap { attachContext(call, location, baseMethod, instanceTypes) }
         }
@@ -125,6 +157,16 @@ class JIRCallResolver(
             }
         }.flatMap { attachContext(call, location, it, instanceTypes) }
     }
+
+    private val valueCache = ConcurrentHashMap<Triple<JIRValue, JIRInst, MethodContext>, Optional<Set<JIRClassOrInterface>>>()
+
+    private fun resolveValueClass(
+        value: JIRValue,
+        location: JIRInst,
+        context: MethodContext,
+    ): Set<JIRClassOrInterface>? = valueCache.computeIfAbsent(Triple(value, location, context)) {
+        resolveValueClass(value, location, context, hashSetOf()).let { Optional.ofNullable(it) }
+    }.getOrNull()
 
     private fun resolveValueClass(
         value: JIRValue,

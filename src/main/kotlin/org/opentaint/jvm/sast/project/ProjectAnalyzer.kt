@@ -26,6 +26,8 @@ import org.opentaint.ir.taint.configuration.TaintConfigurationFeature
 import org.objectweb.asm.tree.ClassNode
 import org.opentaint.jvm.sast.dataflow.JIRSourceFileResolver
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
+import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
+import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
 import org.opentaint.machine.TypeScorer
 import org.opentaint.types.ClassScorer
 import org.opentaint.types.scoreClassNode
@@ -153,8 +155,11 @@ class ProjectAnalyzer(
             bufferedReader().readText()
         }
 
+        val lambdaAnonymousClass = LambdaAnonymousClassFeature()
+        val lambdaTransformer = LambdaExpressionToAnonymousClassTransformerFeature(lambdaAnonymousClass)
+
         val configurationFeature = TaintConfigurationFeature.fromJson(configJson)
-        val features = listOf(configurationFeature, UnknownClasses)
+        val features = listOf(configurationFeature, UnknownClasses, lambdaAnonymousClass, lambdaTransformer)
 
         // todo: fix approximations with multiple JIRDatabase instances
 //        cp = db.classpathWithApproximations(allCpFiles, features)

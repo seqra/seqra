@@ -29,8 +29,6 @@ class MethodCallFlowFunction(
     private val config: TaintRulesProvider,
     private val returnValue: JIRImmediate?,
     private val callExpr: JIRCallExpr,
-    private val callerMethodContext: MethodContext,
-    private val callResolver: JIRCallResolver,
     private val factTypeChecker: FactTypeChecker,
     private val statement: JIRInst,
     private val sinkTracker: TaintSinkTracker
@@ -41,38 +39,21 @@ class MethodCallFlowFunction(
 
     object CallToReturnZeroFact: ZeroCallFact
 
-    data class CallToStartZeroFact(
-        val callExpr: JIRCallExpr,
-        val method: MethodWithContext
-    ) : ZeroCallFact
+    object CallToStartZeroFact : ZeroCallFact
 
-    data class CallToReturnFFact(
-        val initialFact: Fact.TaintedPath,
-        val fact: Fact.TaintedTree
-    ) : FactCallFact
+    data class CallToReturnFFact(val initialFact: Fact.TaintedPath, val fact: Fact.TaintedTree) : FactCallFact
 
     data class CallToStartFFact(
         val initialFact: Fact.TaintedPath,
         val callerFact: Fact.TaintedTree,
-        val startFactBase: AccessPathBase,
-        val callExpr: JIRCallExpr,
-        val method: MethodWithContext
+        val startFactBase: AccessPathBase
     ) : FactCallFact
 
-    data class CallToReturnZFact(
-        val fact: Fact.TaintedTree
-    ) : ZeroCallFact
+    data class CallToReturnZFact(val fact: Fact.TaintedTree) : ZeroCallFact
 
-    data class CallToStartZFact(
-        val callerFact: Fact.TaintedTree,
-        val startFactBase: AccessPathBase,
-        val callExpr: JIRCallExpr,
-        val method: MethodWithContext
-    ) : ZeroCallFact
+    data class CallToStartZFact(val callerFact: Fact.TaintedTree, val startFactBase: AccessPathBase) : ZeroCallFact
 
-    data class SinkRequirement(
-        val initialFact: Fact.TaintedPath
-    ) : FactCallFact
+    data class SinkRequirement(val initialFact: Fact.TaintedPath) : FactCallFact
 
     private val traits by lazy {
         JIRTraits(statement.method.enclosingClass.classpath)
@@ -97,8 +78,7 @@ class MethodCallFlowFunction(
             return@buildSet
         }
 
-        val callees = callResolver.resolve(callExpr, statement, callerMethodContext)
-        callees.mapTo(this) { CallToStartZeroFact(callExpr, it) }
+        this += CallToStartZeroFact
     }
 
     private fun applyZeroFactSinkRules() {
@@ -122,9 +102,9 @@ class MethodCallFlowFunction(
                 check(!factReader.hasRefinement) { "Can't refine Zero fact" }
                 this += CallToReturnZFact(fact)
             },
-            addCallToStart = { factReader, callerFact, startFactBase, callExpr, callee ->
+            addCallToStart = { factReader, callerFact, startFactBase ->
                 check(!factReader.hasRefinement) { "Can't refine Zero fact" }
-                this += CallToStartZFact(callerFact, startFactBase, callExpr, callee)
+                this += CallToStartZFact(callerFact, startFactBase)
             }
         )
     }
@@ -141,11 +121,11 @@ class MethodCallFlowFunction(
             addCallToReturn = { factReader, fact ->
                 this += CallToReturnFFact(factReader.refineFact(initialFact), factReader.refineFact(fact))
             },
-            addCallToStart = { factReader, callerFact, startFactBase, callExpr, callee ->
+            addCallToStart = { factReader, callerFact, startFactBase ->
                 this += CallToStartFFact(
                     factReader.refineFact(initialFact),
                     factReader.refineFact(callerFact),
-                    startFactBase, callExpr, callee
+                    startFactBase
                 )
             }
         )
@@ -155,13 +135,7 @@ class MethodCallFlowFunction(
         fact: Fact.TaintedTree,
         addSinkRequirement: (FactReader) -> Unit,
         addCallToReturn: (FactReader, Fact.TaintedTree) -> Unit,
-        addCallToStart: (
-            factReader: FactReader,
-            callerFact: Fact.TaintedTree,
-            startFactBase: AccessPathBase,
-            callExpr: JIRCallExpr,
-            callee: MethodWithContext
-        ) -> Unit,
+        addCallToStart: (factReader: FactReader, callerFact: Fact.TaintedTree, startFactBase: AccessPathBase) -> Unit,
     ) {
         run {
             val factReader = FactReader(fact)
@@ -204,35 +178,22 @@ class MethodCallFlowFunction(
         factReader: FactReader,
         fact: Fact.TaintedTree,
         addCallToReturn: (FactReader, Fact.TaintedTree) -> Unit,
-        addCallToStart: (
-            factReader: FactReader,
-            callerFact: Fact.TaintedTree,
-            startFactBase: AccessPathBase,
-            callExpr: JIRCallExpr,
-            callee: MethodWithContext
-        ) -> Unit,
+        addCallToStart: (factReader: FactReader, callerFact: Fact.TaintedTree, startFactBase: AccessPathBase) -> Unit,
     ) {
         if (!factCanBeModifiedByMethodCall(returnValue, callExpr, fact)) {
             addCallToReturn(factReader, fact)
             return
         }
 
-        val callees = callResolver.resolve(callExpr, statement, callerMethodContext)
+        val method = callExpr.method.method
 
-        if (callees.isEmpty()) {
+        // FIXME: adhoc for constructors:
+        if (method.isConstructor) {
             addCallToReturn(factReader, fact)
-            return
         }
 
-        for (callee in callees) {
-            // FIXME: adhoc for constructors:
-            if (callee.method.isConstructor) {
-                addCallToReturn(factReader, fact)
-            }
-
-            mapMethodCallToStartFlowFact(callee.method, callExpr, fact, factTypeChecker) { callerFact, startFactBase ->
-                addCallToStart(factReader, callerFact, startFactBase, callExpr, callee)
-            }
+        mapMethodCallToStartFlowFact(method, callExpr, fact, factTypeChecker) { callerFact, startFactBase ->
+            addCallToStart(factReader, callerFact, startFactBase)
         }
     }
 

@@ -5,6 +5,9 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
+import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.ext.findMethodOrNull
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.rebase
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
@@ -15,12 +18,15 @@ class TaintAnalysisUnitRunner(
     private val manager: TaintAnalysisUnitRunnerManager,
     private val unit: UnitType,
     override val graph: JIRApplicationGraph,
-    override val callResolver: JIRCallResolver,
-    override val unitResolver: JIRUnitResolver,
+    private val callResolver: JIRCallResolver,
+    private val unitResolver: JIRUnitResolver,
     override val taintConfiguration: TaintRulesProvider,
     override val factTypeChecker: FactTypeChecker,
     override val sinkTracker: TaintSinkTracker
 ) : AnalysisRunner, SummaryEdgeSubscriptionManager.SummaryEdgeProcessingCtx {
+    override val lambdaTracker: JIRLambdaTracker
+        get() = manager.lambdaTracker
+
     private val workList: Channel<Any> = Channel(Channel.UNLIMITED)
 
     private val analyzers = mutableListOf<MethodAnalyzerStorage>()
@@ -95,6 +101,10 @@ class TaintAnalysisUnitRunner(
                 is JIRMethod -> {
                     handleStartMethodEvent(event)
                 }
+
+                is LambdaResolvedEvent -> {
+                    handleLambdaResolvedEvent(event)
+                }
             }
 
             eventsEnqueued.decrement()
@@ -111,6 +121,8 @@ class TaintAnalysisUnitRunner(
     override fun addSummaryEdgeEvent(event: SummaryEdgeSubscriptionManager.SummaryEvent) {
         addUnprocessedAnyEvent(event)
     }
+
+    private fun addResolvedLambdaEvent(event: LambdaResolvedEvent) = addUnprocessedAnyEvent(event)
 
     private fun addUnprocessedAnyEvent(event: Any) {
         eventsEnqueued.increment()
@@ -241,4 +253,57 @@ class TaintAnalysisUnitRunner(
 
     override fun getMethodAnalyzer(methodEntryPoint: MethodEntryPoint): MethodAnalyzer =
         methodAnalyzers(methodEntryPoint).getAnalyzer(methodEntryPoint)
+
+    override fun resolveMethodCall(
+        callerEntryPoint: MethodEntryPoint,
+        callExpr: JIRCallExpr,
+        location: JIRInst,
+        handler: MethodAnalyzer.MethodCallHandler,
+        failureHandler: MethodAnalyzer.MethodCallResolutionFailureHandler
+    ) {
+        val callees = callResolver.resolve(callExpr, location, callerEntryPoint.context)
+
+        val analyzer = getMethodAnalyzer(callerEntryPoint)
+        for (resolvedCallee in callees) {
+            when (resolvedCallee) {
+                JIRCallResolver.MethodResolutionResult.MethodResolutionFailed -> {
+                    analyzer.handleMethodCallResolutionFailure(callExpr, failureHandler)
+                }
+
+                is JIRCallResolver.MethodResolutionResult.ConcreteMethod -> {
+                    analyzer.handleResolvedMethodCall(resolvedCallee.method, handler)
+                }
+
+                is JIRCallResolver.MethodResolutionResult.Lambda -> {
+                    val subscription = LambdaSubscription(this, callerEntryPoint, handler)
+                    lambdaTracker.subscribeOnLambda(resolvedCallee.method, subscription)
+                }
+            }
+        }
+    }
+
+    private data class LambdaSubscription(
+        private val runner: TaintAnalysisUnitRunner,
+        private val callerEntryPoint: MethodEntryPoint,
+        private val handler: MethodAnalyzer.MethodCallHandler
+    ) : JIRLambdaTracker.LambdaSubscriber {
+        override fun newLambda(method: JIRMethod, lambdaClass: LambdaAnonymousClassFeature.JIRLambdaClass) {
+            val methodImpl = lambdaClass.findMethodOrNull(method.name, method.description)
+                ?: error("Lambda class $lambdaClass has no lambda method $method")
+
+            val lambdaMethodWithContext = MethodWithContext(methodImpl, EmptyMethodContext)
+            runner.addResolvedLambdaEvent(LambdaResolvedEvent(callerEntryPoint, handler, lambdaMethodWithContext))
+        }
+    }
+
+    private data class LambdaResolvedEvent(
+        val callerEntryPoint: MethodEntryPoint,
+        val handler: MethodAnalyzer.MethodCallHandler,
+        val resolvedLambdaMethod: MethodWithContext
+    )
+
+    private fun handleLambdaResolvedEvent(event: LambdaResolvedEvent) {
+        val analyzer = getMethodAnalyzer(event.callerEntryPoint)
+        analyzer.handleResolvedMethodCall(event.resolvedLambdaMethod, event.handler)
+    }
 }

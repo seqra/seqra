@@ -53,6 +53,8 @@ class TaintAnalysisUnitRunnerManager(
     val unitResolver: JIRUnitResolver,
     val taintRuleFilter: TaintRuleFilter? = null
 ): AutoCloseable {
+    val lambdaTracker = JIRLambdaTracker()
+
     class UnitStorage {
         private val vulnerabilities = ConcurrentLinkedQueue<TaintVulnerability>()
         private val methodSummaries = ConcurrentHashMap<MethodEntryPoint, SummaryEdgeStorageWithSubscribers>()
