@@ -2,6 +2,7 @@ package org.opentaint.ir.testing.storage.ers
 
 import org.opentaint.ir.impl.storage.ers.ram.CompactPersistentLongSet
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class CompactPersistentLongSetTest {
@@ -20,5 +21,7 @@ class CompactPersistentLongSetTest {
         set = set.remove(3L)
         assertEquals(set.size, 1)
         assertEquals(setOf(1L), set.toSet())
+        set = set.remove(1L)
+        assertTrue(set.isEmpty())
     }
 }

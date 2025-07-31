@@ -30,6 +30,7 @@ import org.opentaint.ir.impl.features.classpaths.AbstractJIRResolvedResult.JIRRe
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRResolvedResult.JIRResolvedTypeResultImpl
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.JIRUnknownClass
+import org.opentaint.ir.impl.features.classpaths.UnknownClassMethodsAndFields
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.features.classpaths.isResolveAllToUnknown
 import org.opentaint.ir.impl.fs.ClassSourceImpl
@@ -55,7 +56,9 @@ class JIRClasspathImpl(
         if (!features.any { it is UnknownClasses }) {
             features + JIRClasspathFeatureImpl()
         } else {
-            features.filter { it !is UnknownClasses } + JIRClasspathFeatureImpl() + UnknownClasses
+            (features.filter { it !is UnknownClasses } + JIRClasspathFeatureImpl() + UnknownClasses).let {
+                it.filter { it !is UnknownClassMethodsAndFields } + UnknownClassMethodsAndFields
+            }
         })
 
     override suspend fun refreshed(closeOld: Boolean): JIRClasspath {
