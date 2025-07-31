@@ -40,7 +40,9 @@ class CallPositionToAccessPathResolver(
     private val returnValue: JIRImmediate?,
     private val readArgElementsIfArray: Boolean = false,
 ) : PositionResolver<Maybe<List<PositionAccess>>> {
-    override fun resolve(position: Position): Maybe<List<PositionAccess>> =
+    private val resolverCache = hashMapOf<Position, Maybe<List<PositionAccess>>>()
+
+    override fun resolve(position: Position): Maybe<List<PositionAccess>> = resolverCache.getOrPut(position) {
         resolvePosition(position).fmap { resolvedPos ->
             when (position) {
                 is Result -> if (returnValue != null && returnValue.type.mayBeArray()) {
@@ -63,6 +65,7 @@ class CallPositionToAccessPathResolver(
                 else -> listOf(resolvedPos)
             }
         }
+    }
 
     private fun resolvePosition(position: Position): Maybe<PositionAccess> = when (position) {
         AnyArgument -> Maybe.none()
