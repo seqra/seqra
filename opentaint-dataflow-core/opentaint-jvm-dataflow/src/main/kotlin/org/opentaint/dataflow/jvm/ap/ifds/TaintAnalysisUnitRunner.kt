@@ -10,6 +10,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.findMethodOrNull
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.rebase
+import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.jvm.util.concurrentReadSafeForEach
 import java.util.concurrent.atomic.LongAdder
@@ -26,6 +27,9 @@ class TaintAnalysisUnitRunner(
 ) : AnalysisRunner, SummaryEdgeSubscriptionManager.SummaryEdgeProcessingCtx {
     override val lambdaTracker: JIRLambdaTracker
         get() = manager.lambdaTracker
+
+    override val apManager: ApManager
+        get() = manager.apManager
 
     private val workList: Channel<Any> = Channel(Channel.UNLIMITED)
 
@@ -69,7 +73,7 @@ class TaintAnalysisUnitRunner(
         addUnprocessedEvent(ExternalInputFact.InputZero(methodEntryPoint))
     }
 
-    fun submitExternalInitialFact(methodEntryPoint: MethodEntryPoint, fact: Fact.TaintedTree) {
+    fun submitExternalInitialFact(methodEntryPoint: MethodEntryPoint, fact: Fact.FinalFact) {
         addUnprocessedEvent(ExternalInputFact.InputFact(methodEntryPoint, fact))
     }
 
@@ -78,7 +82,7 @@ class TaintAnalysisUnitRunner(
 
         data class InputZero(override val methodEntryPoint: MethodEntryPoint) : ExternalInputFact
 
-        data class InputFact(override val methodEntryPoint: MethodEntryPoint, val fact: Fact.TaintedTree) : ExternalInputFact
+        data class InputFact(override val methodEntryPoint: MethodEntryPoint, val fact: Fact.FinalFact) : ExternalInputFact
     }
 
     private suspend fun tabulationAlgorithm() = coroutineScope {
@@ -154,7 +158,7 @@ class TaintAnalysisUnitRunner(
         methodRunner.getAnalyzer(methodEntryPoint).addInitialZeroFact()
     }
 
-    private fun submitMethodInitialFact(methodEntryPoint: MethodEntryPoint, fact: Fact.TaintedTree) {
+    private fun submitMethodInitialFact(methodEntryPoint: MethodEntryPoint, fact: Fact.FinalFact) {
         val methodRunner = methodAnalyzers(methodEntryPoint)
         methodRunner.add(this, methodEntryPoint)
 
@@ -247,7 +251,7 @@ class TaintAnalysisUnitRunner(
         manager.newSummaryEdges(methodEntryPoint, edges)
     }
 
-    override fun addNewSinkRequirement(methodEntryPoint: MethodEntryPoint, requirement: Fact.TaintedPath) {
+    override fun addNewSinkRequirement(methodEntryPoint: MethodEntryPoint, requirement: Fact.InitialFact) {
         manager.newSinkRequirement(methodEntryPoint, requirement)
     }
 

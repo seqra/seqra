@@ -1,6 +1,112 @@
-package org.opentaint.dataflow.jvm.ap.ifds
+package org.opentaint.dataflow.jvm.ap.ifds.access.tree
 
-class AccessTree(val base: AccessPathBase, val access: AccessNode, val exclusions: ExclusionSet) {
+import org.opentaint.dataflow.jvm.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.jvm.ap.ifds.Accessor
+import org.opentaint.dataflow.jvm.ap.ifds.ElementAccessor
+import org.opentaint.dataflow.jvm.ap.ifds.ExclusionSet
+import org.opentaint.dataflow.jvm.ap.ifds.FactTypeChecker
+import org.opentaint.dataflow.jvm.ap.ifds.FieldAccessor
+import org.opentaint.dataflow.jvm.ap.ifds.FinalAccessor
+import org.opentaint.dataflow.jvm.ap.ifds.access.FactApDelta
+import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
+
+class AccessTree(
+    override val base: AccessPathBase,
+    val access: AccessNode,
+    override val exclusions: ExclusionSet
+) : FinalFactAp {
+    override fun rebase(newBase: AccessPathBase): FinalFactAp =
+        AccessTree(newBase, access, exclusions)
+
+    override fun exclude(accessor: Accessor): FinalFactAp =
+        AccessTree(base, access, exclusions.add(accessor))
+
+    override fun replaceExclusions(exclusions: ExclusionSet): FinalFactAp =
+        AccessTree(base, access, exclusions)
+
+    override fun startsWithAccessor(accessor: Accessor): Boolean = access.contains(accessor)
+
+    override fun isAbstract(): Boolean = access.isAbstract
+
+    override fun readAccessor(accessor: Accessor): FinalFactAp? =
+        access.getChild(accessor)?.let { AccessTree(base, it, exclusions) }
+
+    override fun prependAccessor(accessor: Accessor): FinalFactAp =
+        AccessTree(base, access.addParent(accessor), exclusions)
+
+    override fun clearAccessor(accessor: Accessor): FinalFactAp? {
+        val newAccess = access.clearChild(accessor).takeIf { !it.isEmpty } ?: return null
+        return AccessTree(base, newAccess, exclusions)
+    }
+
+    override fun removeAbstraction(): FinalFactAp? =
+        access.removeAbstraction().takeIf { !it.isEmpty }?.let { AccessTree(base, it, exclusions) }
+
+    override fun filterFact(filter: FactTypeChecker.FactApFilter): FinalFactAp? {
+        val filteredAccess = access.filterAccessNode(filter) ?: return null
+        return AccessTree(base, filteredAccess, exclusions)
+    }
+
+    private sealed interface Delta : FactApDelta
+
+    data object EmptyDelta : Delta {
+        override val isEmpty: Boolean get() = true
+    }
+
+    data class NodeDelta(val node: AccessNode) : Delta {
+        override val isEmpty: Boolean get() = false
+    }
+
+    override fun delta(other: InitialFactAp): List<FactApDelta> {
+        other as AccessPath
+
+        if (base != other.base) return emptyList()
+
+        var node = access
+        val access = other.access
+        if (access != null) {
+            for (accessor in access) {
+                if (accessor is FinalAccessor) {
+                    if (!node.isFinal) return emptyList()
+                    return listOf(EmptyDelta)
+                }
+
+                node = node.getChild(accessor) ?: return emptyList()
+            }
+        }
+
+        val filteredNode = when (val exclusion = other.exclusions) {
+            ExclusionSet.Empty -> node
+            is ExclusionSet.Concrete -> node.filter(exclusion)
+            ExclusionSet.Universe -> error("Unexpected universe exclusion in initial fact")
+        }
+
+        if (filteredNode.isEmpty) return emptyList()
+
+        if (!filteredNode.isAbstract) return listOf(NodeDelta(filteredNode))
+
+        val nonAbstractDelta = filteredNode
+            .removeAbstraction()
+            .takeIf { !it.isEmpty }
+            ?.let { NodeDelta(it) }
+
+        return listOfNotNull(nonAbstractDelta, EmptyDelta)
+    }
+
+    override fun concat(typeChecker: FactTypeChecker, delta: FactApDelta): FinalFactAp? {
+        when (val d = delta as Delta) {
+            EmptyDelta -> return this
+            is NodeDelta -> {
+                val concatenatedAccess = access.concatToLeafAbstractNodes(typeChecker, d.node) ?: return null
+                return AccessTree(base, concatenatedAccess, exclusions)
+            }
+        }
+    }
+
+    override val size: Int
+        get() = access.size
+
     override fun toString(): String = buildString {
         access.print(this, "$base", suffix = "/$exclusions")
         if (this[lastIndex] == '\n') {
@@ -130,8 +236,9 @@ class AccessTree(val base: AccessPathBase, val access: AccessNode, val exclusion
             }
         }
 
-        val isEmpty: Boolean get() =
-            !isAbstract && !isFinal && elementAccess == null && fields == null
+        val isEmpty: Boolean
+            get() =
+                !isAbstract && !isFinal && elementAccess == null && fields == null
 
         private fun fieldIndex(field: FieldAccessor): Int {
             if (fields == null) return -1
@@ -375,6 +482,25 @@ class AccessTree(val base: AccessPathBase, val access: AccessNode, val exclusion
             return create(isAbstract, isFinal, elementAccess, fields, fieldNodes) to delta
         }
 
+        fun filterAccessNode(filter: FactTypeChecker.FactApFilter): AccessNode? {
+            var result = this
+            result = result.filterElementAccess { child ->
+                when (val status = filter.check(ElementAccessor)) {
+                    FactTypeChecker.FilterResult.Accept -> child
+                    FactTypeChecker.FilterResult.Reject -> null
+                    is FactTypeChecker.FilterResult.FilterNext -> child.filterAccessNode(status.filter)
+                }
+            }
+            result = result.filterFields { field, child ->
+                when (val status = filter.check(field)) {
+                    FactTypeChecker.FilterResult.Accept -> child
+                    FactTypeChecker.FilterResult.Reject -> null
+                    is FactTypeChecker.FilterResult.FilterNext -> child.filterAccessNode(status.filter)
+                }
+            }
+            return result.takeIf { !it.isEmpty }
+        }
+
         fun concatToLeafAbstractNodes(typeChecker: FactTypeChecker, other: AccessNode): AccessNode? =
             concatToLeafAbstractNodes(
                 typeChecker, other, mutableListOf(), SUBSEQUENT_ARRAY_ELEMENTS_LIMIT
@@ -387,7 +513,8 @@ class AccessTree(val base: AccessPathBase, val access: AccessNode, val exclusion
             subsequentArrayElementLimit: Int
         ): AccessNode? {
             val concatNode = if (isAbstract && other != null) {
-                typeChecker.filterByAccessPathType(path, other)
+                val filter = typeChecker.accessPathFilter(path)
+                other.filterAccessNode(filter)
                     ?.limitElementAccess(limit = subsequentArrayElementLimit)
             } else null
 

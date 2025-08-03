@@ -4,16 +4,21 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.taint.configuration.TaintMark
-import org.opentaint.dataflow.jvm.ap.ifds.AccessTree.AccessNode
+import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
+import org.opentaint.dataflow.jvm.ap.ifds.access.MethodEdgesFinalApSet
+import org.opentaint.dataflow.jvm.ap.ifds.access.MethodEdgesInitialToFinalApSet
 
-class MethodAnalyzerEdges(private val methodEntryPoint: MethodEntryPoint) {
+class MethodAnalyzerEdges(
+    private val apManager: ApManager,
+    private val methodEntryPoint: MethodEntryPoint
+) {
     private val maxInstIdx = methodEntryPoint.method.instList.maxOf { it.location.index }
 
     private val zeroToZeroEdges = SameInitialZeroFactEdges(maxInstIdx)
-    private val zeroToFactEdges = Object2ObjectOpenHashMap<TaintMark, ZeroInitialFactEdgeStorage>()
-    private val taintedToFactSameEdges = Object2ObjectOpenHashMap<TaintMark, TaintedInitialFactEdgeStorage>()
+    private val zeroToFactEdges = Object2ObjectOpenHashMap<TaintMark, MethodEdgesFinalApSet>()
+    private val taintedToFactSameEdges = Object2ObjectOpenHashMap<TaintMark, MethodEdgesInitialToFinalApSet>()
     private val taintedToFactDifferentEdges by lazy {
-        Object2ObjectOpenHashMap<Pair<TaintMark, TaintMark>, TaintedInitialFactEdgeStorage>()
+        Object2ObjectOpenHashMap<Pair<TaintMark, TaintMark>, MethodEdgesInitialToFinalApSet>()
     }
 
     fun add(edge: Edge): List<Edge> {
@@ -31,21 +36,16 @@ class MethodAnalyzerEdges(private val methodEntryPoint: MethodEntryPoint) {
 
             is Edge.ZeroToFact -> {
                 val storage = zeroToFactEdges.getOrPut(edge.fact.mark) {
-                    ZeroInitialFactEdgeStorage(methodEntryPoint.statement, maxInstIdx)
+                    apManager.methodEdgesFinalApSet(methodEntryPoint.statement, maxInstIdx)
                 }
 
-                val edgeSet = storage.getOrCreate(edge.fact.ap.base)
+                val edgeAp = edge.fact.ap
+                val addedAp = storage.add(edge.statement, edgeAp) ?: return emptyList()
 
-                val edgeAccess = edge.fact.ap.access
-                val addedAccess = edgeSet.addEdge(edge.statement, edgeAccess)
+                if (addedAp === edgeAp) return listOf(edge)
 
-                if (addedAccess === edgeAccess) return listOf(edge)
-                if (addedAccess == null) return emptyList()
-
-                val mergedAp = AccessTree(edge.fact.ap.base, addedAccess, ExclusionSet.Universe)
-                val mergedFact = edge.fact.changeAP(mergedAp)
-
-                return listOf(Edge.ZeroToFact(edge.methodEntryPoint, edge.statement, mergedFact))
+                val addedFact = edge.fact.changeAP(addedAp)
+                return listOf(Edge.ZeroToFact(edge.methodEntryPoint, edge.statement, addedFact))
             }
 
             is Edge.FactToFact -> {
@@ -57,47 +57,29 @@ class MethodAnalyzerEdges(private val methodEntryPoint: MethodEntryPoint) {
     private fun addTaintedFactEdge(edge: Edge.FactToFact): List<Edge.FactToFact> {
         val edgeStorage = if (edge.initialFact.mark == edge.fact.mark) {
             taintedToFactSameEdges.getOrPut(edge.initialFact.mark) {
-                TaintedInitialFactEdgeStorage(methodEntryPoint.statement)
+                apManager.methodEdgesInitialToFinalApSet(methodEntryPoint.statement, maxInstIdx)
             }
         } else {
             taintedToFactDifferentEdges.getOrPut(edge.initialFact.mark to edge.fact.mark) {
-                TaintedInitialFactEdgeStorage(methodEntryPoint.statement)
+                apManager.methodEdgesInitialToFinalApSet(methodEntryPoint.statement, maxInstIdx)
             }
         }
 
-        val edgeStorageForInitialFact = edgeStorage.getOrCreate(edge.initialFact.ap.base)
-        val edgeStorageForExitFact = edgeStorageForInitialFact.getOrCreate(edge.fact.ap.base)
+        val initialAp = edge.initialFact.ap
+        val finalAp = edge.fact.ap
 
-        check(edge.initialFact.ap.exclusions == edge.fact.ap.exclusions) { "Edge exclusion mismatch" }
+        val (addedInitial, addedFinal) = edgeStorage.add(edge.statement, initialAp, finalAp) ?: return emptyList()
 
-        val edgeSet = edgeStorageForExitFact.getOrCreateNonUniverse(
-            edge.initialFact.ap.access, maxInstIdx
-        )
+        if (addedInitial === initialAp && addedFinal === finalAp) return listOf(edge)
 
-        val accessWithExclusion = EdgeNonUniverseExclusionMergingStorage.AccessWithExclusion(
-            edge.fact.ap.access, edge.fact.ap.exclusions
-        )
-
-        val addedAccessWithExclusions = edgeSet.add(edge.statement, accessWithExclusion)
-
-        return listOfNotNull(addedAccessWithExclusions).map { addedAccessWithExclusion ->
-            if (addedAccessWithExclusion === accessWithExclusion) return@map edge
-
-            val newInitialAp = edge.initialFact.ap.let {
-                AccessPath(it.base, it.access, addedAccessWithExclusion.exclusion)
-            }
-
-            val newExitAp = AccessTree(
-                edge.fact.ap.base, addedAccessWithExclusion.access, addedAccessWithExclusion.exclusion
-            )
-
+        return listOf(
             Edge.FactToFact(
                 methodEntryPoint = edge.methodEntryPoint,
-                initialFact = edge.initialFact.changeAP(newInitialAp),
+                initialFact = edge.initialFact.changeAP(addedInitial),
                 statement = edge.statement,
-                fact = edge.fact.changeAP(newExitAp)
+                fact = edge.fact.changeAP(addedFinal)
             )
-        }
+        )
     }
 
     private class SameInitialZeroFactEdges(maxInstIdx: Int) {
@@ -112,62 +94,7 @@ class MethodAnalyzerEdges(private val methodEntryPoint: MethodEntryPoint) {
         }
     }
 
-    private class ZeroInitialFactEdges(maxInstIdx: Int) {
-        private val edges = arrayOfNulls<AccessNode?>(instructionStorageSize(maxInstIdx))
-
-        fun addEdge(statement: JIRInst, accessPath: AccessNode): AccessNode? {
-            val factSetIdx = instructionStorageIdx(statement)
-            val factSet = edges[factSetIdx]
-
-            if (factSet == null) {
-                edges[factSetIdx] = accessPath
-                return accessPath
-            }
-
-            val mergedFacts = factSet.mergeAdd(accessPath)
-            if (mergedFacts === factSet) {
-                return null
-            }
-
-            edges[factSetIdx] = mergedFacts
-            return mergedFacts
-        }
-    }
-
-    private class EdgeNonUniverseExclusionMergingStorage(maxInstIdx: Int) {
-        private val exclusions = arrayOfNulls<ExclusionSet>(instructionStorageSize(maxInstIdx))
-        private val edges = arrayOfNulls<AccessNode>(instructionStorageSize(maxInstIdx))
-
-        fun add(statement: JIRInst, accessWithExclusion: AccessWithExclusion): AccessWithExclusion? {
-            val edgeSetIdx = instructionStorageIdx(statement)
-            val currentExclusion = exclusions[edgeSetIdx]
-
-            if (currentExclusion == null) {
-                exclusions[edgeSetIdx] = accessWithExclusion.exclusion
-                edges[edgeSetIdx] = accessWithExclusion.access
-                return accessWithExclusion
-            }
-
-            val currentAccess = edges[edgeSetIdx]!!
-            val mergedExclusion = currentExclusion.union(accessWithExclusion.exclusion)
-            if (mergedExclusion === currentExclusion) {
-                val (mergedAccess, accessDelta) = currentAccess.mergeAddDelta(accessWithExclusion.access)
-                if (accessDelta == null) return null
-
-                edges[edgeSetIdx] = mergedAccess
-                return AccessWithExclusion(accessDelta, currentExclusion)
-            }
-
-            val mergedAccess = currentAccess.mergeAdd(accessWithExclusion.access)
-            exclusions[edgeSetIdx] = mergedExclusion
-            edges[edgeSetIdx] = mergedAccess
-            return AccessWithExclusion(mergedAccess, mergedExclusion)
-        }
-
-        data class AccessWithExclusion(val access: AccessNode, val exclusion: ExclusionSet)
-    }
-
-    private abstract class EdgeStorage<Storage : Any>(initialStatement: JIRInst) :
+    abstract class EdgeStorage<Storage : Any>(initialStatement: JIRInst) :
         AccessPathBaseStorage<Storage>(initialStatement) {
         private val locals = Int2ObjectOpenHashMap<Storage>()
 
@@ -180,7 +107,7 @@ class MethodAnalyzerEdges(private val methodEntryPoint: MethodEntryPoint) {
 
         override fun getOrCreateConstant(base: AccessPathBase.Constant): Storage {
             val edges = constants ?: Object2ObjectOpenHashMap<AccessPathBase.Constant, Storage>()
-                    .also { constants = it }
+                .also { constants = it }
 
             return edges.getOrPut(base) { createStorage() }
         }
@@ -205,35 +132,9 @@ class MethodAnalyzerEdges(private val methodEntryPoint: MethodEntryPoint) {
             statics?.asSequence()?.map { body(it.key, it.value) } ?: emptySequence()
     }
 
-    private class TaintedInitialFactEdgeStorage(private val initialStatement: JIRInst) :
-        EdgeStorage<TaintedExitFactEdgeStorage>(initialStatement) {
-        override fun createStorage(): TaintedExitFactEdgeStorage = TaintedExitFactEdgeStorage(initialStatement)
-    }
-
-    private class TaintedExitFactEdgeStorage(initialStatement: JIRInst) :
-        EdgeStorage<TaintedFactAccessEdgeStorage>(initialStatement) {
-        override fun createStorage() = TaintedFactAccessEdgeStorage()
-    }
-
-    private class TaintedFactAccessEdgeStorage {
-        private val sameInitialAccessEdges = Object2ObjectOpenHashMap<AccessPath.AccessNode?, EdgeNonUniverseExclusionMergingStorage>()
-
-        fun getOrCreateNonUniverse(
-            initialAccess: AccessPath.AccessNode?,
-            maxInstIdx: Int
-        ): EdgeNonUniverseExclusionMergingStorage = sameInitialAccessEdges.getOrPut(initialAccess) {
-            EdgeNonUniverseExclusionMergingStorage(maxInstIdx)
-        }
-    }
-
-    private class ZeroInitialFactEdgeStorage(initialStatement: JIRInst, private val maxInstIdx: Int) :
-        EdgeStorage<ZeroInitialFactEdges>(initialStatement) {
-        override fun createStorage(): ZeroInitialFactEdges = ZeroInitialFactEdges(maxInstIdx)
-    }
-
     companion object {
-        private fun instructionStorageSize(maxInstIdx: Int): Int = maxInstIdx + INST_IDX_SHIFT + 1
-        private fun instructionStorageIdx(inst: JIRInst): Int = inst.location.index + INST_IDX_SHIFT
+        fun instructionStorageSize(maxInstIdx: Int): Int = maxInstIdx + INST_IDX_SHIFT + 1
+        fun instructionStorageIdx(inst: JIRInst): Int = inst.location.index + INST_IDX_SHIFT
 
         private const val INST_IDX_SHIFT = 2
     }

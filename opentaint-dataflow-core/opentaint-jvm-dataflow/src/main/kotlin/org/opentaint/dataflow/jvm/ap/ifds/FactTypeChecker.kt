@@ -52,28 +52,63 @@ class FactTypeChecker(private val cp: JIRClasspath) {
         if (!isCorrect) accessRejected.increment()
     }
 
-    private fun <T> T?.logCheck(isLocalCheck: Boolean): T? = also {
-        val result = this != null
-        if (isLocalCheck) result.logLocalFactCheck() else result.logAccessCheck()
+    sealed interface FilterResult {
+        data object Accept : FilterResult
+        data object Reject : FilterResult
+        data class FilterNext(val filter: FactApFilter) : FilterResult
     }
 
-    private fun Nothing?.logCheck(isLocalCheck: Boolean): Nothing? = also {
-        if (isLocalCheck) false.logLocalFactCheck() else false.logAccessCheck()
+    interface FactApFilter {
+        fun check(accessor: Accessor): FilterResult
     }
 
-    fun filterFactByLocalType(actualType: JIRType?, fact: Fact.TaintedTree): Fact.TaintedTree? {
+    object AlwaysAcceptFilter : FactApFilter {
+        override fun check(accessor: Accessor): FilterResult = FilterResult.Accept
+    }
+
+    private inner class AccessorFilter(
+        private val actualType: JIRType,
+        private val isLocalCheck: Boolean
+    ) : FactApFilter {
+        override fun check(accessor: Accessor): FilterResult = checkAccessor(accessor).also {
+            val result = it !== FilterResult.Reject
+            if (isLocalCheck) result.logLocalFactCheck() else result.logAccessCheck()
+        }
+
+        private fun checkAccessor(accessor: Accessor): FilterResult {
+            when (accessor) {
+                FinalAccessor -> return FilterResult.Accept
+                is FieldAccessor -> {
+                    if (actualType !is JIRRefType) return FilterResult.Reject
+                    val factType = fieldClassType(accessor) ?: return FilterResult.Accept
+                    if (!typeMayHaveSubtypeOf(actualType, factType)) return FilterResult.Reject
+                    return FilterResult.Accept
+                }
+
+                ElementAccessor -> {
+                    if (actualType !is JIRRefType) return FilterResult.Reject
+                    if (!typeMayBeArrayType(actualType)) return FilterResult.Reject
+
+                    val actualElementType = actualType.ifArrayGetElementType ?: return FilterResult.Accept
+
+                    return FilterResult.FilterNext(
+                        AccessorFilter(actualElementType, isLocalCheck)
+                    )
+                }
+            }
+        }
+    }
+
+    fun filterFactByLocalType(actualType: JIRType?, fact: Fact.FinalFact): Fact.FinalFact? {
         if (actualType == null) return fact
-        val filteredAccessors = filterAccessTree(actualType, fact.ap.access, isLocalCheck = true) ?: return null
-        val filteredAp = AccessTree(fact.ap.base, filteredAccessors, fact.ap.exclusions)
+        val filter = AccessorFilter(actualType, isLocalCheck = true)
+        val filteredAp = fact.ap.filterFact(filter) ?: return null
         return fact.changeAP(filteredAp)
     }
 
-    fun filterByAccessPathType(
-        accessPath: List<Accessor>,
-        accessors: AccessTree.AccessNode
-    ): AccessTree.AccessNode? {
-        val actualType = accessorActualType(accessPath) ?: return accessors
-        return filterAccessTree(actualType, accessors, isLocalCheck = false)
+    fun accessPathFilter(accessPath: List<Accessor>): FactApFilter {
+        val actualType = accessorActualType(accessPath) ?: return AlwaysAcceptFilter
+        return AccessorFilter(actualType, isLocalCheck = false)
     }
 
     private fun accessorActualType(accessPath: List<Accessor>): JIRType? {
@@ -95,33 +130,6 @@ class FactTypeChecker(private val cp: JIRClasspath) {
 
     private fun fieldClassType(accessor: FieldAccessor): JIRClassType? {
         return cp.findTypeOrNull(accessor.className) as? JIRClassType
-    }
-
-    private fun filterAccessTree(
-        actualType: JIRType,
-        accessTree: AccessTree.AccessNode,
-        isLocalCheck: Boolean
-    ): AccessTree.AccessNode? {
-        var resultAccessTree = accessTree
-        resultAccessTree = resultAccessTree.filterElementAccess { child ->
-            if (actualType !is JIRRefType) return@filterElementAccess null.logCheck(isLocalCheck)
-            if (!typeMayBeArrayType(actualType)) return@filterElementAccess null.logCheck(isLocalCheck)
-
-            val actualElementType = actualType.ifArrayGetElementType
-                ?: return@filterElementAccess child.logCheck(isLocalCheck)
-
-            filterAccessTree(actualElementType, child, isLocalCheck)
-        }
-
-        resultAccessTree = resultAccessTree.filterFields { field, child ->
-            if (actualType !is JIRRefType) return@filterFields null.logCheck(isLocalCheck)
-
-            val factType = fieldClassType(field) ?: return@filterFields child.logCheck(isLocalCheck)
-
-            child.takeIf { typeMayHaveSubtypeOf(actualType, factType) }.logCheck(isLocalCheck)
-        }
-
-        return resultAccessTree.takeIf { !it.isEmpty }
     }
 
     private fun typeMayBeArrayType(type: JIRRefType): Boolean = when (type) {

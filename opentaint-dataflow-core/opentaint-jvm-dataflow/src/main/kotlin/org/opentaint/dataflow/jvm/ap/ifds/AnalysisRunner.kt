@@ -5,6 +5,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.dataflow.jvm.ap.ifds.MethodAnalyzer.MethodCallHandler
 import org.opentaint.dataflow.jvm.ap.ifds.MethodAnalyzer.MethodCallResolutionFailureHandler
+import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
 
 interface AnalysisRunner {
     val graph: JIRApplicationGraph
@@ -12,10 +13,11 @@ interface AnalysisRunner {
     val factTypeChecker: FactTypeChecker
     val sinkTracker: TaintSinkTracker
     val lambdaTracker: JIRLambdaTracker
+    val apManager: ApManager
 
     fun submitNewUnprocessedEdge(edge: Edge)
     fun addNewSummaryEdges(methodEntryPoint: MethodEntryPoint, edges: List<Edge>)
-    fun addNewSinkRequirement(methodEntryPoint: MethodEntryPoint, requirement: Fact.TaintedPath)
+    fun addNewSinkRequirement(methodEntryPoint: MethodEntryPoint, requirement: Fact.InitialFact)
     fun subscribeOnMethodSummaries(edge: Edge.ZeroToZero, methodEntryPoint: MethodEntryPoint)
     fun subscribeOnMethodSummaries(edge: Edge.ZeroToFact, methodEntryPoint: MethodEntryPoint, methodFactBase: AccessPathBase)
     fun subscribeOnMethodSummaries(edge: Edge.FactToFact, methodEntryPoint: MethodEntryPoint, methodFactBase: AccessPathBase)

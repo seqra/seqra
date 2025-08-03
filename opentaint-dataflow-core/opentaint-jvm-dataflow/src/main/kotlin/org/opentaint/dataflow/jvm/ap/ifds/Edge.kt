@@ -2,6 +2,8 @@ package org.opentaint.dataflow.jvm.ap.ifds
 
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.taint.configuration.TaintMark
+import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
 
 sealed interface Edge {
     val methodEntryPoint: MethodEntryPoint
@@ -38,9 +40,9 @@ sealed interface Edge {
         override val methodEntryPoint: MethodEntryPoint,
         override val statement: JIRInst,
         private val factMark: TaintMark,
-        private val factAp: AccessTree
+        private val factAp: FinalFactAp
     ) : ZeroInitialEdge {
-        constructor(methodEntryPoint: MethodEntryPoint, statement: JIRInst, fact: Fact.TaintedTree) :
+        constructor(methodEntryPoint: MethodEntryPoint, statement: JIRInst, fact: Fact.FinalFact) :
                 this(methodEntryPoint, statement, fact.mark, fact.ap)
 
         init {
@@ -49,7 +51,7 @@ sealed interface Edge {
             }
         }
 
-        val fact: Fact.TaintedTree get() = Fact.TaintedTree(factMark, factAp)
+        val fact: Fact.FinalFact get() = Fact.FinalFact(factMark, factAp)
 
         override fun toString(): String = "(Z -> $fact)[$methodEntryPoint -> $statement]"
 
@@ -79,12 +81,12 @@ sealed interface Edge {
     class FactToFact private constructor(
         override val methodEntryPoint: MethodEntryPoint,
         private val initialFactMark: TaintMark,
-        private val initialFactAp: AccessPath,
+        private val initialFactAp: InitialFactAp,
         override val statement: JIRInst,
         private val factMark: TaintMark,
-        private val factAp: AccessTree
+        private val factAp: FinalFactAp
     ) : Edge {
-        constructor(methodEntryPoint: MethodEntryPoint, initialFact: Fact.TaintedPath, statement: JIRInst, fact: Fact.TaintedTree) :
+        constructor(methodEntryPoint: MethodEntryPoint, initialFact: Fact.InitialFact, statement: JIRInst, fact: Fact.FinalFact) :
                 this(methodEntryPoint, initialFact.mark, initialFact.ap, statement, fact.mark, fact.ap)
 
         init {
@@ -93,9 +95,9 @@ sealed interface Edge {
             }
         }
 
-        val initialFact: Fact.TaintedPath get() = Fact.TaintedPath(initialFactMark, initialFactAp)
+        val initialFact: Fact.InitialFact get() = Fact.InitialFact(initialFactMark, initialFactAp)
 
-        val fact: Fact.TaintedTree get() = Fact.TaintedTree(factMark, factAp)
+        val fact: Fact.FinalFact get() = Fact.FinalFact(factMark, factAp)
 
         override fun toString(): String = "($initialFact -> $fact)[$methodEntryPoint -> $statement]"
 

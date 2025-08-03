@@ -9,7 +9,6 @@ import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRValue
-import org.opentaint.dataflow.jvm.ap.ifds.AccessTree.AccessNode
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.clearField
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.excludeField
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.mayReadField
@@ -17,18 +16,23 @@ import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.mayRemoveAfter
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.readFieldTo
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.rebase
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.writeToField
+import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
 
-class MethodSequentFlowFunction(private val currentInst: JIRInst, private val factTypeChecker: FactTypeChecker) {
+class MethodSequentFlowFunction(
+    private val apManager: ApManager,
+    private val currentInst: JIRInst,
+    private val factTypeChecker: FactTypeChecker
+) {
 
     sealed interface Sequent {
         object ZeroToZero : Sequent
-        data class ZeroToFact(val fact: Fact.TaintedTree) : Sequent
-        data class FactToFact(val initialFact: Fact.TaintedPath, val fact: Fact.TaintedTree) : Sequent
+        data class ZeroToFact(val fact: Fact.FinalFact) : Sequent
+        data class FactToFact(val initialFact: Fact.InitialFact, val fact: Fact.FinalFact) : Sequent
     }
 
     fun propagateZeroToZero() = setOf(Sequent.ZeroToZero)
 
-    fun propagateZeroToFact(currentFact: Fact.TaintedTree) = buildSet<Sequent.ZeroToFact> {
+    fun propagateZeroToFact(currentFact: Fact.FinalFact) = buildSet<Sequent.ZeroToFact> {
         propagate(
             fact = currentFact,
             propagateFact = { fact ->
@@ -41,8 +45,8 @@ class MethodSequentFlowFunction(private val currentInst: JIRInst, private val fa
     }
 
     fun propagateFactToFact(
-        initialFact: Fact.TaintedPath,
-        currentFact: Fact.TaintedTree
+        initialFact: Fact.InitialFact,
+        currentFact: Fact.FinalFact
     ) = buildSet<Sequent.FactToFact> {
         propagate(
             fact = currentFact,
@@ -58,9 +62,9 @@ class MethodSequentFlowFunction(private val currentInst: JIRInst, private val fa
     }
 
     private fun propagate(
-        fact: Fact.TaintedTree,
-        propagateFact: (Fact.TaintedTree) -> Unit,
-        propagateFactWithAccessorExclude: (Fact.TaintedTree, Accessor) -> Unit
+        fact: Fact.FinalFact,
+        propagateFact: (Fact.FinalFact) -> Unit,
+        propagateFactWithAccessorExclude: (Fact.FinalFact, Accessor) -> Unit
     ) {
         if (currentInst !is JIRAssignInst) {
             propagateFact(fact)
@@ -75,9 +79,9 @@ class MethodSequentFlowFunction(private val currentInst: JIRInst, private val fa
     private fun sequentFlowAssign(
         assignFrom: JIRExpr,
         assignTo: JIRValue,
-        currentFact: Fact.TaintedTree,
-        propagateFact: (Fact.TaintedTree) -> Unit,
-        propagateFactWithAccessorExclude: (Fact.TaintedTree, Accessor) -> Unit
+        currentFact: Fact.FinalFact,
+        propagateFact: (Fact.FinalFact) -> Unit,
+        propagateFactWithAccessorExclude: (Fact.FinalFact, Accessor) -> Unit
     ) {
         var fact = currentFact
 
@@ -141,8 +145,8 @@ class MethodSequentFlowFunction(private val currentInst: JIRInst, private val fa
 
     private fun MethodFlowFunctionUtils.Access.filterFactBaseType(
         expectedType: JIRType?,
-        fact: Fact.TaintedTree
-    ): Fact.TaintedTree? {
+        fact: Fact.FinalFact
+    ): Fact.FinalFact? {
         if (fact.ap.base != this.base || expectedType == null) return fact
         return factTypeChecker.filterFactByLocalType(expectedType, fact)
     }
@@ -150,8 +154,8 @@ class MethodSequentFlowFunction(private val currentInst: JIRInst, private val fa
     private fun simpleAssign(
         assignTo: AccessPathBase,
         assignFrom: AccessPathBase?,
-        fact: Fact.TaintedTree,
-        propagateFact: (Fact.TaintedTree) -> Unit,
+        fact: Fact.FinalFact,
+        propagateFact: (Fact.FinalFact) -> Unit,
     ) {
         if (assignTo == assignFrom) {
             propagateFact(fact)
@@ -172,9 +176,9 @@ class MethodSequentFlowFunction(private val currentInst: JIRInst, private val fa
         assignTo: AccessPathBase,
         instance: AccessPathBase,
         accessor: Accessor,
-        fact: Fact.TaintedTree,
-        propagateFact: (Fact.TaintedTree) -> Unit,
-        propagateFactWithAccessorExclude: (Fact.TaintedTree, Accessor) -> Unit
+        fact: Fact.FinalFact,
+        propagateFact: (Fact.FinalFact) -> Unit,
+        propagateFactWithAccessorExclude: (Fact.FinalFact, Accessor) -> Unit
     ) {
         if (!fact.ap.mayReadField(instance, accessor)) {
             // Fact is irrelevant to current reading
@@ -182,10 +186,9 @@ class MethodSequentFlowFunction(private val currentInst: JIRInst, private val fa
             return
         }
 
-        if (fact.ap.access.isAbstract && accessor !in fact.ap.exclusions) {
-            val nonAbstractAccess = fact.ap.access.removeAbstraction()
-            if (!nonAbstractAccess.isEmpty) {
-                val nonAbstractAp = AccessTree(fact.ap.base, nonAbstractAccess, fact.ap.exclusions)
+        if (fact.ap.isAbstract() && accessor !in fact.ap.exclusions) {
+            val nonAbstractAp = fact.ap.removeAbstraction()
+            if (nonAbstractAp != null) {
                 val nonAbstractFact = fact.changeAP(nonAbstractAp)
                 fieldRead(
                     assignTo, instance, accessor, nonAbstractFact,
@@ -198,7 +201,7 @@ class MethodSequentFlowFunction(private val currentInst: JIRInst, private val fa
             return
         }
 
-        check(fact.ap.access.contains(accessor))
+        check(fact.ap.startsWithAccessor(accessor))
 
         val newAp = fact.ap.readFieldTo(newBase = assignTo, field = accessor)
         propagateFact(fact.changeAP(newAp))
@@ -213,9 +216,9 @@ class MethodSequentFlowFunction(private val currentInst: JIRInst, private val fa
         instance: AccessPathBase,
         accessor: Accessor,
         assignFrom: AccessPathBase?,
-        fact: Fact.TaintedTree,
-        propagateFact: (Fact.TaintedTree) -> Unit,
-        propagateFactWithAccessorExclude: (Fact.TaintedTree, Accessor) -> Unit
+        fact: Fact.FinalFact,
+        propagateFact: (Fact.FinalFact) -> Unit,
+        propagateFactWithAccessorExclude: (Fact.FinalFact, Accessor) -> Unit
     ) {
         if (assignFrom == instance) {
             if (fact.ap.base != instance) {
@@ -296,10 +299,9 @@ class MethodSequentFlowFunction(private val currentInst: JIRInst, private val fa
             return
         }
 
-        if (fact.ap.access.isAbstract && accessor !in fact.ap.exclusions) {
-            val nonAbstractAccess = fact.ap.access.removeAbstraction()
-            if (!nonAbstractAccess.isEmpty) {
-                val nonAbstractAp = AccessTree(fact.ap.base, nonAbstractAccess, fact.ap.exclusions)
+        if (fact.ap.isAbstract() && accessor !in fact.ap.exclusions) {
+            val nonAbstractAp = fact.ap.removeAbstraction()
+            if (nonAbstractAp != null) {
                 val nonAbstractFact = fact.changeAP(nonAbstractAp)
                 fieldWrite(
                     instance, accessor, assignFrom, nonAbstractFact,
@@ -312,23 +314,18 @@ class MethodSequentFlowFunction(private val currentInst: JIRInst, private val fa
             return
         }
 
-        check(fact.ap.access.contains(accessor))
+        check(fact.ap.startsWithAccessor(accessor))
 
         val newAp = fact.ap.clearField(accessor) ?: return
         propagateFact(fact.changeAP(newAp))
     }
 
     private fun propagateAbstractFactWithFieldExcluded(
-        fact: Fact.TaintedTree,
+        fact: Fact.FinalFact,
         accessor: Accessor,
-        propagateFactWithAccessorExclude: (Fact.TaintedTree, Accessor) -> Unit
+        propagateFactWithAccessorExclude: (Fact.FinalFact, Accessor) -> Unit
     ) {
-        val abstractAp = AccessTree(
-            fact.ap.base,
-            AccessNode.abstractNode(),
-            fact.ap.exclusions
-        )
-
+        val abstractAp = apManager.createAbstractAp(fact.ap.base, fact.ap.exclusions)
         val abstractFact = fact.changeAP(abstractAp)
         propagateFactWithAccessorExclude(abstractFact, accessor)
     }

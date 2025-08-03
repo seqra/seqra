@@ -7,6 +7,8 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.taint.configuration.TaintMark
+import org.opentaint.dataflow.jvm.ap.ifds.access.tree.AccessPath
+import org.opentaint.dataflow.jvm.ap.ifds.access.tree.AccessTree
 import org.opentaint.dataflow.jvm.util.SequenceSerializer
 
 class EdgeSerializer : KSerializer<Edge> {
@@ -48,13 +50,15 @@ class EdgeSerializer : KSerializer<Edge> {
         )
     }
 
-    private fun Fact.TaintedTree.repr(): FactRepresentation {
+    private fun Fact.FinalFact.repr(): FactRepresentation {
         val apRepr = mutableListOf<List<String>>()
+        ap as? AccessTree ?: TODO("Serialization is not supported for $this")
         ap.access.forEachPath { apRepr.add(it.repr()) }
         return FactRepresentation(mark, ap.base.toString(), apRepr, ap.exclusions.repr())
     }
 
-    private fun Fact.TaintedPath.repr(): FactRepresentation {
+    private fun Fact.InitialFact.repr(): FactRepresentation {
+        ap as? AccessPath ?: TODO("Serialization is not supported for $this")
         val apRepr = ap.access?.let { listOf(it.repr()) }
         return FactRepresentation(mark, ap.base.toString(), apRepr, ap.exclusions.repr())
     }

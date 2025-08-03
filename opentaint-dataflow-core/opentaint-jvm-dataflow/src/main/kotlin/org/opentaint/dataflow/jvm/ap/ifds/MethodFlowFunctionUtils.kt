@@ -9,6 +9,8 @@ import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
 
 object MethodFlowFunctionUtils {
     data class Access(val base: AccessPathBase, val accessor: Accessor?)
@@ -50,39 +52,29 @@ object MethodFlowFunctionUtils {
         else -> null
     }
 
-    fun AccessTree.rebase(newBase: AccessPathBase) = AccessTree(newBase, access, exclusions)
-    fun Fact.TaintedTree.rebase(newBase: AccessPathBase) = changeAP(ap.rebase(newBase))
+    fun Fact.FinalFact.rebase(newBase: AccessPathBase) = changeAP(ap.rebase(newBase))
 
-    fun AccessTree.mayReadField(base: AccessPathBase, field: Accessor): Boolean = when {
+    fun FinalFactAp.mayReadField(base: AccessPathBase, field: Accessor): Boolean = when {
         this.base != base -> false
-        access.contains(field) -> true
-        else -> access.isAbstract && field !in exclusions
+        startsWithAccessor(field) -> true
+        else -> isAbstract() && field !in exclusions
     }
 
-    fun AccessTree.mayRemoveAfterWrite(base: AccessPathBase, field: Accessor): Boolean = when {
+    fun FinalFactAp.mayRemoveAfterWrite(base: AccessPathBase, field: Accessor): Boolean = when {
         this.base != base -> false
-        access.contains(field) -> true
-        else -> access.isAbstract && field !in exclusions
+        startsWithAccessor(field) -> true
+        else -> isAbstract() && field !in exclusions
     }
 
-    fun AccessTree.readFieldTo(newBase: AccessPathBase, field: Accessor): AccessTree {
-        val newAccess = access.getChild(field) ?: error("Can't drop field")
-        return AccessTree(newBase, newAccess, exclusions)
-    }
+    fun FinalFactAp.readFieldTo(newBase: AccessPathBase, field: Accessor): FinalFactAp =
+        readAccessor(field)?.rebase(newBase) ?: error("Can't drop field")
 
-    fun AccessTree.writeToField(newBase: AccessPathBase, field: Accessor): AccessTree {
-        val newAccess = access.addParent(field)
-        return AccessTree(newBase, newAccess, exclusions)
-    }
+    fun FinalFactAp.writeToField(newBase: AccessPathBase, field: Accessor): FinalFactAp =
+        prependAccessor(field).rebase(newBase)
 
-    fun AccessTree.clearField(field: Accessor): AccessTree? {
-        val newAccess = access.clearChild(field).takeIf { !it.isEmpty } ?: return null
-        return AccessTree(base, newAccess, exclusions)
-    }
+    fun FinalFactAp.clearField(field: Accessor): FinalFactAp? = clearAccessor(field)
 
-    fun AccessPath.excludeField(field: Accessor) =
-        AccessPath(base, access, exclusions.add(field))
+    fun InitialFactAp.excludeField(field: Accessor) = exclude(field)
 
-    fun AccessTree.excludeField(field: Accessor) =
-        AccessTree(base, access, exclusions.add(field))
+    fun FinalFactAp.excludeField(field: Accessor) = exclude(field)
 }

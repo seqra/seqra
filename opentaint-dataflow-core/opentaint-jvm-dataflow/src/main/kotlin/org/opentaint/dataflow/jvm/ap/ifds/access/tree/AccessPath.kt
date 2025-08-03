@@ -1,6 +1,24 @@
-package org.opentaint.dataflow.jvm.ap.ifds
+package org.opentaint.dataflow.jvm.ap.ifds.access.tree
 
-class AccessPath(val base: AccessPathBase, val access: AccessNode?, val exclusions: ExclusionSet) {
+import org.opentaint.dataflow.jvm.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.jvm.ap.ifds.Accessor
+import org.opentaint.dataflow.jvm.ap.ifds.ExclusionSet
+import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
+
+class AccessPath(
+    override val base: AccessPathBase,
+    val access: AccessNode?,
+    override val exclusions: ExclusionSet
+): InitialFactAp {
+    override fun exclude(accessor: Accessor): InitialFactAp =
+        AccessPath(base, access, exclusions.add(accessor))
+
+    override fun replaceExclusions(exclusions: ExclusionSet): InitialFactAp =
+        AccessPath(base, access, exclusions)
+
+    override val size: Int
+        get() = access?.size ?: 0
+
     override fun toString(): String = "$base${access ?: ""}.*/$exclusions"
 
     override fun equals(other: Any?): Boolean {

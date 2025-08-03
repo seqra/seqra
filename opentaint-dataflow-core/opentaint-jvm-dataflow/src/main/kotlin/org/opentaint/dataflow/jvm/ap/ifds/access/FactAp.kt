@@ -1,0 +1,41 @@
+package org.opentaint.dataflow.jvm.ap.ifds.access
+
+import org.opentaint.dataflow.jvm.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.jvm.ap.ifds.Accessor
+import org.opentaint.dataflow.jvm.ap.ifds.ExclusionSet
+import org.opentaint.dataflow.jvm.ap.ifds.FactTypeChecker
+
+interface FactAp {
+    val base: AccessPathBase
+    val exclusions: ExclusionSet
+
+    val size: Int
+}
+
+interface FactApDelta {
+    val isEmpty: Boolean
+}
+
+interface InitialFactAp : FactAp {
+    fun exclude(accessor: Accessor): InitialFactAp
+    fun replaceExclusions(exclusions: ExclusionSet): InitialFactAp
+}
+
+interface FinalFactAp : FactAp {
+    fun rebase(newBase: AccessPathBase): FinalFactAp
+    fun exclude(accessor: Accessor): FinalFactAp
+    fun replaceExclusions(exclusions: ExclusionSet): FinalFactAp
+
+    fun startsWithAccessor(accessor: Accessor): Boolean
+    fun isAbstract(): Boolean
+
+    fun readAccessor(accessor: Accessor): FinalFactAp?
+    fun prependAccessor(accessor: Accessor): FinalFactAp
+    fun clearAccessor(accessor: Accessor): FinalFactAp?
+    fun removeAbstraction(): FinalFactAp?
+
+    fun delta(other: InitialFactAp): List<FactApDelta>
+    fun concat(typeChecker: FactTypeChecker, delta: FactApDelta): FinalFactAp?
+
+    fun filterFact(filter: FactTypeChecker.FactApFilter): FinalFactAp?
+}

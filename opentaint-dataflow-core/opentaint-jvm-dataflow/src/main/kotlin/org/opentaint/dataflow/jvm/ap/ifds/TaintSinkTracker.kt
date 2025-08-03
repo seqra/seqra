@@ -70,7 +70,7 @@ class TaintSinkTracker(
 
             val factReaders = edges.mapTo(hashSetOf()) { it.fact }.map { fact ->
                 when (fact) {
-                    is Fact.TaintedTree -> FactReader(fact)
+                    is Fact.FinalFact -> FactReader(fact)
                     else -> error("Unexpected fact: $fact")
                 }
             }

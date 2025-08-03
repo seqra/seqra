@@ -23,9 +23,11 @@ import org.opentaint.dataflow.ifds.Maybe
 import org.opentaint.dataflow.ifds.maybeFlatMap
 import org.opentaint.dataflow.ifds.merge
 import org.opentaint.dataflow.ifds.onSome
+import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
 import org.opentaint.dataflow.jvm.util.JIRTraits
 
 class MethodCallFlowFunction(
+    private val apManager: ApManager,
     private val config: TaintRulesProvider,
     private val returnValue: JIRImmediate?,
     private val callExpr: JIRCallExpr,
@@ -41,19 +43,19 @@ class MethodCallFlowFunction(
 
     object CallToStartZeroFact : ZeroCallFact
 
-    data class CallToReturnFFact(val initialFact: Fact.TaintedPath, val fact: Fact.TaintedTree) : FactCallFact
+    data class CallToReturnFFact(val initialFact: Fact.InitialFact, val fact: Fact.FinalFact) : FactCallFact
 
     data class CallToStartFFact(
-        val initialFact: Fact.TaintedPath,
-        val callerFact: Fact.TaintedTree,
+        val initialFact: Fact.InitialFact,
+        val callerFact: Fact.FinalFact,
         val startFactBase: AccessPathBase
     ) : FactCallFact
 
-    data class CallToReturnZFact(val fact: Fact.TaintedTree) : ZeroCallFact
+    data class CallToReturnZFact(val fact: Fact.FinalFact) : ZeroCallFact
 
-    data class CallToStartZFact(val callerFact: Fact.TaintedTree, val startFactBase: AccessPathBase) : ZeroCallFact
+    data class CallToStartZFact(val callerFact: Fact.FinalFact, val startFactBase: AccessPathBase) : ZeroCallFact
 
-    data class SinkRequirement(val initialFact: Fact.TaintedPath) : FactCallFact
+    data class SinkRequirement(val initialFact: Fact.InitialFact) : FactCallFact
 
     private val traits by lazy {
         JIRTraits(statement.method.enclosingClass.classpath)
@@ -69,6 +71,7 @@ class MethodCallFlowFunction(
             method = callExpr.method.method,
             conditionEvaluator = BasicConditionEvaluator(CallPositionToJIRValueResolver(callExpr, returnValue), traits),
             taintActionEvaluator = TaintSourceActionEvaluator(
+                apManager,
                 CallPositionToAccessPathResolver(callExpr, returnValue)
             )
         ).onSome { facts ->
@@ -92,7 +95,7 @@ class MethodCallFlowFunction(
             .forEach { sinkTracker.addVulnerability(Fact.Zero, statement, it) }
     }
 
-    fun propagateZeroToFact(currentFact: Fact.TaintedTree) = buildSet<ZeroCallFact> {
+    fun propagateZeroToFact(currentFact: Fact.FinalFact) = buildSet<ZeroCallFact> {
         propagateFact(
             fact = currentFact,
             addSinkRequirement = { factReader ->
@@ -110,8 +113,8 @@ class MethodCallFlowFunction(
     }
 
     fun propagateFactToFact(
-        initialFact: Fact.TaintedPath,
-        currentFact: Fact.TaintedTree
+        initialFact: Fact.InitialFact,
+        currentFact: Fact.FinalFact
     ) = buildSet<FactCallFact> {
         propagateFact(
             fact = currentFact,
@@ -132,10 +135,10 @@ class MethodCallFlowFunction(
     }
 
     private fun propagateFact(
-        fact: Fact.TaintedTree,
+        fact: Fact.FinalFact,
         addSinkRequirement: (FactReader) -> Unit,
-        addCallToReturn: (FactReader, Fact.TaintedTree) -> Unit,
-        addCallToStart: (factReader: FactReader, callerFact: Fact.TaintedTree, startFactBase: AccessPathBase) -> Unit,
+        addCallToReturn: (FactReader, Fact.FinalFact) -> Unit,
+        addCallToStart: (factReader: FactReader, callerFact: Fact.FinalFact, startFactBase: AccessPathBase) -> Unit,
     ) {
         run {
             val factReader = FactReader(fact)
@@ -156,6 +159,7 @@ class MethodCallFlowFunction(
         )
 
         val taintActionEvaluator = TaintPassActionEvaluator(
+            apManager,
             callExpr.method.method, apResolver, factTypeChecker, factReader
         )
 
@@ -176,9 +180,9 @@ class MethodCallFlowFunction(
 
     private fun propagateFact(
         factReader: FactReader,
-        fact: Fact.TaintedTree,
-        addCallToReturn: (FactReader, Fact.TaintedTree) -> Unit,
-        addCallToStart: (factReader: FactReader, callerFact: Fact.TaintedTree, startFactBase: AccessPathBase) -> Unit,
+        fact: Fact.FinalFact,
+        addCallToReturn: (FactReader, Fact.FinalFact) -> Unit,
+        addCallToStart: (factReader: FactReader, callerFact: Fact.FinalFact, startFactBase: AccessPathBase) -> Unit,
     ) {
         if (!factCanBeModifiedByMethodCall(returnValue, callExpr, fact)) {
             addCallToReturn(factReader, fact)
@@ -231,6 +235,7 @@ class MethodCallFlowFunction(
 
     companion object {
         fun applyEntryPointConfigDefault(
+            apManager: ApManager,
             config: TaintRulesProvider,
             method: JIRMethod
         ) = applyEntryPointConfig(
@@ -240,7 +245,7 @@ class MethodCallFlowFunction(
                 CalleePositionToJIRValueResolver(method),
                 JIRTraits(method.enclosingClass.classpath)
             ),
-            taintActionEvaluator = TaintSourceActionEvaluator(CalleePositionToAccessPath())
+            taintActionEvaluator = TaintSourceActionEvaluator(apManager, CalleePositionToAccessPath())
         )
 
         private fun sinkRules(config: TaintRulesProvider, method: JIRMethod) =
@@ -273,7 +278,7 @@ class MethodCallFlowFunction(
             taintActionEvaluator: TaintSourceActionEvaluator,
             condition: (T) -> Condition,
             actionsAfter: (T) -> List<Action>
-        ): Maybe<List<Fact.TaintedTree>> =
+        ): Maybe<List<Fact.FinalFact>> =
             config.rulesForMethod(method)
                 .filterIsInstance<T>()
                 .filter { condition(it).accept(conditionEvaluator) }
@@ -286,7 +291,7 @@ class MethodCallFlowFunction(
             method: JIRMethod,
             conditionEvaluator: ConditionVisitor<Boolean>,
             taintActionEvaluator: TaintPassActionEvaluator
-        ): Maybe<List<Fact.TaintedTree>> =
+        ): Maybe<List<Fact.FinalFact>> =
             config.rulesForMethod(method)
                 .filterIsInstance<TaintPassThrough>()
                 .filter { it.condition.accept(conditionEvaluator) }
@@ -306,7 +311,7 @@ class MethodCallFlowFunction(
             method: JIRMethod,
             conditionEvaluator: ConditionVisitor<Boolean>,
             taintActionEvaluator: TaintPassActionEvaluator
-        ): Maybe<List<Fact.TaintedTree>> =
+        ): Maybe<List<Fact.FinalFact>> =
             config.rulesForMethod(method)
                 .filterIsInstance<TaintCleaner>()
                 .filter { it.condition.accept(conditionEvaluator) }

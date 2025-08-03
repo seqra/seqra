@@ -2,11 +2,16 @@ package org.opentaint.dataflow.jvm.ap.ifds
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
-import kotlinx.collections.immutable.persistentHashMapOf
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.taint.configuration.TaintMark
-import org.opentaint.dataflow.jvm.ap.ifds.AccessTree.AccessNode
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.rebase
+import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
+import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.access.MethodAccessPathSubscription
+import org.opentaint.dataflow.jvm.ap.ifds.access.MethodFinalApSummariesStorage
+import org.opentaint.dataflow.jvm.ap.ifds.access.MethodInitialToFinalApSummariesStorage
+import org.opentaint.dataflow.jvm.ap.ifds.access.TaintSinkRequirementApStorage
 import org.opentaint.dataflow.jvm.util.concurrentReadSafeIterator
 import org.opentaint.dataflow.jvm.util.concurrentReadSafeMapIndexed
 import java.util.concurrent.ConcurrentHashMap
@@ -20,7 +25,7 @@ class SummaryEdgeSubscriptionManager(
 
     private fun methodSubscriptions(methodEntryPoint: MethodEntryPoint) =
         methodSummarySubscriptions.getOrPut(methodEntryPoint) {
-            MethodSummarySubscription().also {
+            MethodSummarySubscription(manager.apManager).also {
                 manager.subscribeOnMethodEntryPointSummaries(methodEntryPoint, methodSummaryHandler)
             }
         }
@@ -99,10 +104,14 @@ class SummaryEdgeSubscriptionManager(
         return true
     }
 
-    private class MethodSummarySubscription {
+    private class MethodSummarySubscription(
+        private val apManager: ApManager
+    ) {
         private val zeroFactSubscriptions = MethodZeroFactSubscription()
-        private val sameMarkTaintedFactSubscriptions = Object2ObjectOpenHashMap<TaintMark, MethodTaintedFactSubscription>()
-        private val differentMarkTaintedFactSubscriptions = Object2ObjectOpenHashMap<TaintMark, MutableMap<TaintMark, MethodTaintedFactSubscription>>()
+        private val sameMarkTaintedFactSubscriptions =
+            Object2ObjectOpenHashMap<TaintMark, MethodTaintedFactSubscription>()
+        private val differentMarkTaintedFactSubscriptions =
+            Object2ObjectOpenHashMap<TaintMark, MutableMap<TaintMark, MethodTaintedFactSubscription>>()
 
         fun addZeroToZero(callerPathEdge: Edge.ZeroToZero): Boolean =
             zeroFactSubscriptions.add(callerPathEdge)
@@ -131,7 +140,7 @@ class SummaryEdgeSubscriptionManager(
         fun zeroFactSubscriptions() = zeroFactSubscriptions.subscriptions()
 
         fun findFactEdgeSub(
-            summaryInitialFact: Fact.TaintedPath
+            summaryInitialFact: Fact.InitialFact
         ): Sequence<Pair<MethodEntryPoint, Sequence<FactEdgeSummarySubscription>>> {
             val m0 = summaryInitialFact.mark
             val same = sameMarkTaintedFactSubscriptions[m0]?.findFactEdge(summaryInitialFact.ap)?.map { (inst, subs) ->
@@ -148,8 +157,8 @@ class SummaryEdgeSubscriptionManager(
         }
 
         fun findZeroEdgeSub(
-            summaryInitialFact: Fact.TaintedPath
-        ) : Sequence<Pair<MethodEntryPoint, Sequence<ZeroEdgeSummarySubscription>>>{
+            summaryInitialFact: Fact.InitialFact
+        ): Sequence<Pair<MethodEntryPoint, Sequence<ZeroEdgeSummarySubscription>>> {
             val m0 = summaryInitialFact.mark
             val same = sameMarkTaintedFactSubscriptions[m0]?.findZeroEdge(summaryInitialFact.ap)?.map { (inst, subs) ->
                 inst to subs.map { it.setMarks(m0) }
@@ -162,20 +171,20 @@ class SummaryEdgeSubscriptionManager(
             mark1: TaintMark
         ): MethodTaintedFactSubscription {
             if (mark0 == mark1) {
-                return sameMarkTaintedFactSubscriptions.getOrPut(mark0) { MethodTaintedFactSubscription() }
+                return sameMarkTaintedFactSubscriptions.getOrPut(mark0) { MethodTaintedFactSubscription(apManager) }
             }
 
             return differentMarkTaintedFactSubscriptions.getOrPut(mark0) {
                 Object2ObjectOpenHashMap()
             }.getOrPut(mark1) {
-                MethodTaintedFactSubscription()
+                MethodTaintedFactSubscription(apManager)
             }
         }
 
         private fun taintedStorage(
             mark0: TaintMark
         ): MethodTaintedFactSubscription =
-            sameMarkTaintedFactSubscriptions.getOrPut(mark0) { MethodTaintedFactSubscription() }
+            sameMarkTaintedFactSubscriptions.getOrPut(mark0) { MethodTaintedFactSubscription(apManager) }
     }
 
     private class MethodZeroFactSubscription {
@@ -189,19 +198,22 @@ class SummaryEdgeSubscriptionManager(
         fun subscriptions(): Map<MethodEntryPoint, Set<Edge.ZeroToZero>> = subscriptions
     }
 
-    private class MethodTaintedFactSubscription {
-        private val subscriptions = Object2ObjectOpenHashMap<MethodEntryPoint, MutableMap<JIRInst, MethodAccessPathSubscription>>()
+    private class MethodTaintedFactSubscription(
+        private val apManager: ApManager
+    ) {
+        private val subscriptions =
+            Object2ObjectOpenHashMap<MethodEntryPoint, MutableMap<JIRInst, MethodAccessPathSubscription>>()
 
         fun addZeroToFact(
             calleeInitialFactBase: AccessPathBase,
             callerEntryPoint: MethodEntryPoint,
             callerExitStatement: JIRInst,
-            callerFactAp: AccessTree
+            callerFactAp: FinalFactAp
         ): ZeroEdgeSummarySubscription? =
             subscriptions.getOrPut(callerEntryPoint) {
                 Object2ObjectOpenHashMap()
             }.getOrPut(callerExitStatement) {
-                MethodAccessPathSubscription()
+                apManager.accessPathSubscription()
             }.addZeroToFact(calleeInitialFactBase, callerFactAp)
                 ?.setStatements(callerEntryPoint, callerExitStatement)
 
@@ -212,12 +224,12 @@ class SummaryEdgeSubscriptionManager(
             subscriptions.getOrPut(callerPathEdge.methodEntryPoint) {
                 Object2ObjectOpenHashMap()
             }.getOrPut(callerPathEdge.statement) {
-                MethodAccessPathSubscription()
+                apManager.accessPathSubscription()
             }.addFactToFact(calleeInitialFactBase, callerPathEdge.initialFact.ap, callerPathEdge.fact.ap)
                 ?.setStatements(callerPathEdge.methodEntryPoint, callerPathEdge.statement)
 
         fun findFactEdge(
-            summaryInitialFactAp: AccessPath
+            summaryInitialFactAp: InitialFactAp
         ): Sequence<Pair<MethodEntryPoint, Sequence<FactEdgeSummarySubscription>>> =
             subscriptions.asSequence().map { (initialStmt, storage) ->
                 initialStmt to storage.asSequence().flatMap { (exitStmt, subs) ->
@@ -228,7 +240,7 @@ class SummaryEdgeSubscriptionManager(
             }
 
         fun findZeroEdge(
-            summaryInitialFactAp: AccessPath
+            summaryInitialFactAp: InitialFactAp
         ): Sequence<Pair<MethodEntryPoint, Sequence<ZeroEdgeSummarySubscription>>> =
             subscriptions.asSequence().map { (initialStmt, storage) ->
                 initialStmt to storage.asSequence().flatMap { (exitStmt, subs) ->
@@ -239,155 +251,14 @@ class SummaryEdgeSubscriptionManager(
             }
     }
 
-    private class MethodAccessPathSubscription {
-        private val initialBaseSubscription = Object2ObjectOpenHashMap<AccessPathBase, FactEdgeSubscriptionStorage>()
-        private val initialBaseTreeSubscription = Object2ObjectOpenHashMap<AccessPathBase, ZeroEdgeSubscriptionStorage>()
-
-        fun addZeroToFact(
-            calleeInitialFactBase: AccessPathBase,
-            callerFactAp: AccessTree
-        ): ZeroEdgeSummarySubscription? =
-            initialBaseTreeSubscription.getOrPut(calleeInitialFactBase) {
-                ZeroEdgeSubscriptionStorage()
-            }.addZeroToFact(callerFactAp)?.setCalleeBase(calleeInitialFactBase)
-
-        fun addFactToFact(
-            calleeInitialBase: AccessPathBase,
-            callerInitialAp: AccessPath,
-            callerExitAp: AccessTree
-        ): FactEdgeSummarySubscription? = initialBaseSubscription.getOrPut(calleeInitialBase) {
-            FactEdgeSubscriptionStorage()
-        }.add(callerInitialAp, callerExitAp)
-            ?.setCalleeBase(calleeInitialBase)
-
-        fun findFactEdge(summaryInitialFactAp: AccessPath): Sequence<FactEdgeSummarySubscription> =
-            initialBaseSubscription[summaryInitialFactAp.base]
-                ?.findFactEdge()
-                ?.map { it.setCalleeBase(summaryInitialFactAp.base) }
-                .orEmpty()
-
-        fun findZeroEdge(summaryInitialFactAp: AccessPath): Sequence<ZeroEdgeSummarySubscription> =
-            initialBaseTreeSubscription[summaryInitialFactAp.base]
-                ?.findZeroEdge(summaryInitialFactAp.access)
-                ?.map { it.setCalleeBase(summaryInitialFactAp.base) }
-                .orEmpty()
-    }
-
-    private class FactEdgeSubscriptionStorage {
-        private var subscriptions = persistentHashMapOf<AccessPathBase, SummaryEdgeFactAbstractTreeSubscriptionStorage>()
-
-        fun add(
-            callerInitialAp: AccessPath,
-            callerExitAp: AccessTree
-        ): FactEdgeSummarySubscription? {
-            val storage = subscriptions[callerExitAp.base]
-                ?: SummaryEdgeFactAbstractTreeSubscriptionStorage().also {
-                    subscriptions = subscriptions.put(callerExitAp.base, it)
-                }
-
-            return storage.add(callerInitialAp, callerExitAp.access, callerExitAp.exclusions)
-                ?.setFactBase(callerExitAp.base)
-        }
-
-        fun findFactEdge(): Sequence<FactEdgeSummarySubscription> =
-            subscriptions.asSequence().flatMap { (base, storage) ->
-                storage.find().map { it.setFactBase(base) }
-            }
-    }
-
-    private class SummaryEdgeFactAbstractTreeSubscriptionStorage {
-        private val storage = Object2ObjectOpenHashMap<AccessPath, AccessNode>()
-
-        fun add(
-            callerInitialAp: AccessPath,
-            callerExitAp: AccessNode,
-            exclusion: ExclusionSet
-        ): FactEdgeSummarySubscription? {
-            check(exclusion == callerInitialAp.exclusions) { "Edge invariant" }
-
-            val current = storage[callerInitialAp]
-            if (current == null) {
-                storage[callerInitialAp] = callerExitAp
-                return FactEdgeSummarySubscription()
-                    .setCallerAp(callerExitAp)
-                    .setCallerInitialAp(callerInitialAp)
-                    .setCallerExclusion(callerInitialAp.exclusions)
-            }
-
-            val (mergedExitAp, delta) = current.mergeAddDelta(callerExitAp)
-            if (delta == null) return null
-
-            storage[callerInitialAp] = mergedExitAp
-
-            return FactEdgeSummarySubscription()
-                .setCallerAp(delta)
-                .setCallerInitialAp(callerInitialAp)
-                .setCallerExclusion(callerInitialAp.exclusions)
-        }
-
-        // todo: filter
-        fun find(): Sequence<FactEdgeSummarySubscription> = storage.asSequence()
-            .map { (callerInitialAp, callerExitAp) ->
-                FactEdgeSummarySubscription()
-                    .setCallerAp(callerExitAp)
-                    .setCallerInitialAp(callerInitialAp)
-                    .setCallerExclusion(callerInitialAp.exclusions)
-            }
-    }
-
-    private class ZeroEdgeSubscriptionStorage {
-        private var subscriptions = persistentHashMapOf<AccessPathBase, SummaryEdgeFactTreeSubscriptionStorage>()
-
-        fun addZeroToFact(callerFactAp: AccessTree): ZeroEdgeSummarySubscription? {
-            val storage = subscriptions[callerFactAp.base]
-                ?: SummaryEdgeFactTreeSubscriptionStorage().also {
-                    subscriptions = subscriptions.put(callerFactAp.base, it)
-                }
-
-            return storage.add(callerFactAp.access)?.setFactBase(callerFactAp.base)
-        }
-
-        fun findZeroEdge(
-            summaryInitialFact: AccessPath.AccessNode?
-        ): Sequence<ZeroEdgeSummarySubscription> =
-            subscriptions.asSequence().mapNotNull { (base, storage) ->
-                storage.findForSummaryFact(summaryInitialFact)?.setFactBase(base)
-            }
-    }
-
-    class SummaryEdgeFactTreeSubscriptionStorage {
-        private var callerPathEdgeFactAp: AccessNode? = null
-
-        fun findForSummaryFact(summaryFactAp: AccessPath.AccessNode?): ZeroEdgeSummarySubscription? =
-            callerPathEdgeFactAp?.filterStartsWith(summaryFactAp)?.let {
-                ZeroEdgeSummarySubscription().setFactAccessPath(it)
-            }
-
-        fun add(otherCallerPathEdgeFactAp: AccessNode): ZeroEdgeSummarySubscription? {
-            if (callerPathEdgeFactAp == null) {
-                callerPathEdgeFactAp = otherCallerPathEdgeFactAp
-                return ZeroEdgeSummarySubscription().setFactAccessPath(otherCallerPathEdgeFactAp)
-            }
-
-            val (mergedAccess, mergeAccessDelta) = callerPathEdgeFactAp!!.mergeAddDelta(otherCallerPathEdgeFactAp)
-            if (mergeAccessDelta == null) return null
-
-            callerPathEdgeFactAp = mergedAccess
-
-            return ZeroEdgeSummarySubscription().setFactAccessPath(mergeAccessDelta)
-        }
-    }
-
     data class FactEdgeSummarySubscription(
         private var calleeInitialFactApBase: AccessPathBase? = null,
         private var callerEntryPoint: MethodEntryPoint? = null,
         private var callerInitialFactMark: TaintMark? = null,
-        private var callerInitialFactAp: AccessPath? = null,
+        private var callerInitialFactAp: InitialFactAp? = null,
         private var callerStatement: JIRInst? = null,
         private var callerFactMark: TaintMark? = null,
-        private var callerFactApBase: AccessPathBase? = null,
-        private var callerFactApAccess: AccessNode? = null,
-        private var callerFactApExclusion: ExclusionSet? = null,
+        private var callerFactAp: FinalFactAp? = null,
     ) {
         val calleeInitialFactBase: AccessPathBase
             get() = calleeInitialFactApBase!!
@@ -395,36 +266,24 @@ class SummaryEdgeSubscriptionManager(
         val callerPathEdge: Edge.FactToFact
             get() = Edge.FactToFact(
                 callerEntryPoint!!,
-                Fact.TaintedPath(callerInitialFactMark!!, callerInitialFactAp!!),
+                Fact.InitialFact(callerInitialFactMark!!, callerInitialFactAp!!),
                 callerStatement!!,
-                Fact.TaintedTree(
+                Fact.FinalFact(
                     callerFactMark!!,
-                    AccessTree(
-                        callerFactApBase!!,
-                        callerFactApAccess!!,
-                        callerFactApExclusion!!
-                    )
+                    callerFactAp!!
                 )
             )
-
-        fun setCallerAp(callerApAccess: AccessNode) = this.also {
-            callerFactApAccess = callerApAccess
-        }
 
         fun setCalleeBase(base: AccessPathBase) = this.also {
             calleeInitialFactApBase = base
         }
 
-        fun setCallerInitialAp(ap: AccessPath) = this.also {
+        fun setCallerInitialAp(ap: InitialFactAp) = this.also {
             callerInitialFactAp = ap
         }
 
-        fun setCallerExclusion(exclusion: ExclusionSet) = this.also {
-            callerFactApExclusion = exclusion
-        }
-
-        fun setFactBase(base: AccessPathBase) = this.also {
-            callerFactApBase = base
+        fun setCallerAp(ap: FinalFactAp) = this.also {
+            callerFactAp = ap
         }
 
         fun setMarks(factMark: TaintMark, initialFactMark: TaintMark) = this.also {
@@ -443,8 +302,7 @@ class SummaryEdgeSubscriptionManager(
         private var callerPathEdgeEntryPoint: MethodEntryPoint? = null,
         private var callerPathEdgeExitStatement: JIRInst? = null,
         private var callerPathEdgeFactMark: TaintMark? = null,
-        private var callerPathEdgeFactApBase: AccessPathBase? = null,
-        private var callerPathEdgeFactApAccess: AccessNode? = null
+        private var callerPathEdgeFactAp: FinalFactAp? = null
     ) {
         val calleeInitialFactBase: AccessPathBase
             get() = calleeInitialFactApBase!!
@@ -453,19 +311,11 @@ class SummaryEdgeSubscriptionManager(
             get() = Edge.ZeroToFact(
                 callerPathEdgeEntryPoint!!,
                 callerPathEdgeExitStatement!!,
-                Fact.TaintedTree(
+                Fact.FinalFact(
                     callerPathEdgeFactMark!!,
-                    AccessTree(
-                        callerPathEdgeFactApBase!!,
-                        callerPathEdgeFactApAccess!!,
-                        ExclusionSet.Universe
-                    )
+                    callerPathEdgeFactAp!!
                 )
             )
-
-        fun setFactAccessPath(factAp: AccessNode) = this.also {
-            callerPathEdgeFactApAccess = factAp
-        }
 
         fun setMarks(mark: TaintMark) = this.also {
             callerPathEdgeFactMark = mark
@@ -480,8 +330,8 @@ class SummaryEdgeSubscriptionManager(
             calleeInitialFactApBase = base
         }
 
-        fun setFactBase(base: AccessPathBase) = this.also {
-            callerPathEdgeFactApBase = base
+        fun setCallerPathEdgeAp(ap: FinalFactAp) = this.also {
+            callerPathEdgeFactAp = ap
         }
     }
 
@@ -523,7 +373,10 @@ class SummaryEdgeSubscriptionManager(
             }
         }
 
-        fun processMethodFactSummary(subscriptionStorage: MethodSummarySubscription, summaryEdges: List<Edge.FactToFact>) {
+        fun processMethodFactSummary(
+            subscriptionStorage: MethodSummarySubscription,
+            summaryEdges: List<Edge.FactToFact>
+        ) {
             val sameInitialFactEdges = summaryEdges.groupBy { it.initialFact }
             for ((summaryInitialFact, summaries) in sameInitialFactEdges) {
                 subscriptionStorage.findFactEdgeSub(summaryInitialFact).forEach { (ep, subscriptions) ->
@@ -553,7 +406,7 @@ class SummaryEdgeSubscriptionManager(
 
     private inner class NewSinkRequirementEvent(
         private val methodEntryPoint: MethodEntryPoint,
-        private val sinkRequirement: Fact.TaintedPath
+        private val sinkRequirement: Fact.InitialFact
     ) : SummaryEvent {
         override fun processMethodSummary() {
             val subscriptions = methodSummarySubscriptions[methodEntryPoint] ?: return
@@ -582,25 +435,28 @@ class SummaryEdgeSubscriptionManager(
             processingCtx.addSummaryEdgeEvent(NewSummaryEdgeEvent(edges))
         }
 
-        override fun newSinkRequirement(methodEntryPoint: MethodEntryPoint, requirement: Fact.TaintedPath) {
+        override fun newSinkRequirement(methodEntryPoint: MethodEntryPoint, requirement: Fact.InitialFact) {
             processingCtx.addSummaryEdgeEvent(NewSinkRequirementEvent(methodEntryPoint, requirement))
         }
     }
 }
 
-class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: MethodEntryPoint) {
+class SummaryEdgeStorageWithSubscribers(
+    private val apManager: ApManager,
+    private val methodEntryPoint: MethodEntryPoint
+) {
     interface Subscriber {
         fun newSummaryEdges(edges: List<Edge>)
-        fun newSinkRequirement(methodEntryPoint: MethodEntryPoint, requirement: Fact.TaintedPath)
+        fun newSinkRequirement(methodEntryPoint: MethodEntryPoint, requirement: Fact.InitialFact)
     }
 
     private val subscribers = ConcurrentLinkedQueue<Subscriber>()
 
     private val zeroToZeroSummaryEdges = ArrayList<JIRInst>()
-    private val zeroToFactSummaryEdges = ConcurrentHashMap<TaintMark, MethodZeroToFactSummariesStorage>()
-    private val taintedFactSameMarkSummaryEdges = ConcurrentHashMap<TaintMark, MethodFactToFactSummaries>()
+    private val zeroToFactSummaryEdges = ConcurrentHashMap<TaintMark, MethodFinalApSummariesStorage>()
+    private val taintedFactSameMarkSummaryEdges = ConcurrentHashMap<TaintMark, MethodInitialToFinalApSummariesStorage>()
     private val taintedFactDifferentMarkSummaryEdges =
-        ConcurrentHashMap<TaintMark, ConcurrentHashMap<TaintMark, MethodFactToFactSummaries>>()
+        ConcurrentHashMap<TaintMark, ConcurrentHashMap<TaintMark, MethodInitialToFinalApSummariesStorage>>()
 
     fun addEdges(edges: List<Edge>) {
         val addedEdges = mutableListOf<Edge>()
@@ -617,54 +473,18 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: MethodEntr
         }
     }
 
-    private val taintedSinkRequirement = ConcurrentHashMap<TaintMark, MutableMap<AccessPathBase, TaintSinkRequirementStorage>>()
+    private val taintedSinkRequirement = ConcurrentHashMap<TaintMark, TaintSinkRequirementApStorage>()
 
-    fun addSinkRequirement(requirement: Fact.TaintedPath) {
+    fun addSinkRequirement(requirement: Fact.InitialFact) {
         val markRequirements = taintedSinkRequirement.computeIfAbsent(requirement.mark) {
-            ConcurrentHashMap()
+            apManager.taintSinkRequirementApStorage()
         }
 
-        val baseRequirements = markRequirements.computeIfAbsent(requirement.ap.base) {
-            TaintSinkRequirementStorage()
-        }
-
-        val addedRequirement = baseRequirements.mergeAdd(requirement) ?: return
+        val addedAp = markRequirements.add(requirement.ap) ?: return
+        val addedRequirement = Fact.InitialFact(requirement.mark, addedAp)
 
         for (subscriber in subscribers) {
             subscriber.newSinkRequirement(methodEntryPoint, addedRequirement)
-        }
-    }
-
-    private class TaintSinkRequirementStorage : AccessBasedStorage<TaintSinkRequirementStorage>() {
-        private var requirement: Fact.TaintedPath? = null
-
-        override fun createStorage() = TaintSinkRequirementStorage()
-
-        fun mergeAdd(requirement: Fact.TaintedPath): Fact.TaintedPath? =
-            getOrCreateNode(requirement.ap.access).mergeAddCurrent(requirement)
-
-        fun findRequirements(access: AccessNode): Sequence<Fact.TaintedPath> =
-            filterContains(access).mapNotNull { it.requirement }
-
-        private fun mergeAddCurrent(requirement: Fact.TaintedPath): Fact.TaintedPath? {
-            val current = this.requirement
-            if (current == null) {
-                this.requirement = requirement
-                return requirement
-            }
-
-            val currentExclusion = current.ap.exclusions
-            val mergedExclusion = currentExclusion.union(requirement.ap.exclusions)
-
-            if (mergedExclusion === currentExclusion) return null
-
-            val mergedFact = with(requirement.ap) {
-                val mergedAp = AccessPath(base, access, mergedExclusion)
-                requirement.changeAP(mergedAp)
-            }
-
-            this.requirement = mergedFact
-            return mergedFact
         }
     }
 
@@ -678,7 +498,7 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: MethodEntr
 
         for ((mark, sameMarkEdges) in edgesWithSameMark) {
             val summariesStorage = zeroToFactSummaryEdges.computeIfAbsent(mark) {
-                MethodZeroToFactSummariesStorage(methodEntryPoint.statement)
+                apManager.methodFinalApSummariesStorage(methodEntryPoint.statement)
             }
 
             synchronized(summariesStorage) {
@@ -701,13 +521,13 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: MethodEntr
 
             val summariesStorage = if (initialMark == resultMark) {
                 taintedFactSameMarkSummaryEdges.computeIfAbsent(initialMark) {
-                    MethodFactToFactSummaries(methodEntryPoint.statement)
+                    apManager.methodInitialToFinalApSummariesStorage(methodEntryPoint.statement)
                 }
             } else {
                 taintedFactDifferentMarkSummaryEdges.computeIfAbsent(initialMark) {
                     ConcurrentHashMap()
                 }.computeIfAbsent(resultMark) {
-                    MethodFactToFactSummaries(methodEntryPoint.statement)
+                    apManager.methodInitialToFinalApSummariesStorage(methodEntryPoint.statement)
                 }
             }
 
@@ -740,15 +560,15 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: MethodEntr
             storage.allEdges().map { it.setEntryPoint(methodEntryPoint).setMark(mark).build() }
         }
 
-    fun factEdgesIterator(initialFact: Fact.TaintedTree): Iterator<Edge.FactToFact> {
+    fun factEdgesIterator(initialFact: Fact.FinalFact): Iterator<Edge.FactToFact> {
         val sameFactEdges = taintedFactSameMarkSummaryEdges[initialFact.mark]
-            ?.filterEdgesAndSetMarks(initialFact.mark, initialFact.mark, initialFact.ap.base, initialFact.ap.access)
+            ?.filterEdgesAndSetMarks(initialFact.mark, initialFact.mark, initialFact.ap)
             .orEmpty()
 
         val differentFactEdges = taintedFactDifferentMarkSummaryEdges[initialFact.mark]
             ?.asSequence()
             ?.flatMap { (exitMark, storage) ->
-                storage.filterEdgesAndSetMarks(initialFact.mark, exitMark, initialFact.ap.base, initialFact.ap.access)
+                storage.filterEdgesAndSetMarks(initialFact.mark, exitMark, initialFact.ap)
             }
             .orEmpty()
 
@@ -774,539 +594,193 @@ class SummaryEdgeStorageWithSubscribers(private val methodEntryPoint: MethodEntr
             .map { it.setEntryPoint(methodEntryPoint).build() }
     }
 
-    private fun MethodFactToFactSummaries.filterEdgesAndSetMarks(
+    private fun MethodInitialToFinalApSummariesStorage.filterEdgesAndSetMarks(
         initialMark: TaintMark,
         exitMark: TaintMark,
-        filterBase: AccessPathBase,
-        filterAccess: AccessNode
-    ): Sequence<FactToFactEdgeBuilder> = filterEdges(filterBase, filterAccess)
+        filter: FinalFactAp,
+    ): Sequence<FactToFactEdgeBuilder> = filterEdges(filter)
         .map { it.setMarks(initialMark, exitMark) }
 
-    private fun MethodFactToFactSummaries.takeAllEdgesAndSetMarks(
+    private fun MethodInitialToFinalApSummariesStorage.takeAllEdgesAndSetMarks(
         initialMark: TaintMark,
         exitMark: TaintMark,
     ): Sequence<FactToFactEdgeBuilder> = allEdges()
         .map { it.setMarks(initialMark, exitMark) }
 
-    fun sinkRequirementIterator(initialFact: Fact.TaintedTree): Iterator<Fact.TaintedPath> =
+    fun sinkRequirementIterator(initialFact: Fact.FinalFact): Iterator<Fact.InitialFact> =
         taintedSinkRequirement[initialFact.mark]
-            ?.get(initialFact.ap.base)
-            ?.findRequirements(initialFact.ap.access)
+            ?.find(initialFact.ap)
+            ?.map { Fact.InitialFact(initialFact.mark, it) }
             .orEmpty()
             .iterator()
 
     fun collectStats(stats: MethodStats) {
-        val sourceSummaries = allZeroToFactSummaries().sumOf { it.fact.ap.access.size }
-        val passSummaries = allFactToFactSummaries().sumOf { it.fact.ap.access.size }
+        val sourceSummaries = allZeroToFactSummaries().sumOf { it.fact.ap.size }
+        val passSummaries = allFactToFactSummaries().sumOf { it.fact.ap.size }
 
         stats.stats(methodEntryPoint.method).sourceSummaries += sourceSummaries
         stats.stats(methodEntryPoint.method).passSummaries += passSummaries
     }
+}
 
-    private class MethodZeroToFactSummaries(methodEntryPoint: JIRInst) :
-        SummaryFactStorage<MethodZeroToFactSummaryEdgeStorage>(methodEntryPoint) {
-        override fun createStorage() = MethodZeroToFactSummaryEdgeStorage()
+sealed interface EdgeBuilder<B : EdgeBuilder<B>> {
+    fun setEntryPoint(entryPoint: MethodEntryPoint): B
+    fun setExitStatement(statement: JIRInst): B
+}
 
-        fun add(edges: List<Edge.ZeroToFact>, added: MutableList<ZeroToFactEdgeBuilder>) {
-            val sameExitBaseEdges = edges.groupBy { it.fact.ap.base }
-            for ((exitBase, sameBaseEdges) in sameExitBaseEdges) {
-                val storage = getOrCreate(exitBase)
-
-                val addedEdge = sameBaseEdges.fold(null as ZeroToFactEdgeBuilder?) { addedEdge, edge ->
-                    storage.add(edge.fact.ap.access) ?: addedEdge
-                }
-
-                if (addedEdge != null) {
-                    added.add(addedEdge.setExitFactBase(exitBase))
-                }
-            }
-        }
-
-        fun edgeSequence() = mapValues { base, storage ->
-            storage.summaryEdge()?.setExitFactBase(base)?.let { sequenceOf(it) }.orEmpty()
-        }.flatten()
-    }
-
-    private class MethodZeroToFactSummaryEdgeStorage {
-        private var summaryEdgeAccess: AccessNode? = null
-
-        fun add(edgeAccess: AccessNode): ZeroToFactEdgeBuilder? {
-            val summaryAccess = summaryEdgeAccess
-            if (summaryAccess == null) {
-                summaryEdgeAccess = edgeAccess
-                return ZeroToFactEdgeBuilder().setExitAccess(edgeAccess)
-            }
-
-            val mergedAccess = summaryAccess.mergeAdd(edgeAccess)
-            if (summaryAccess === mergedAccess) return null
-
-            summaryEdgeAccess = mergedAccess
-            return ZeroToFactEdgeBuilder().setExitAccess(mergedAccess)
-        }
-
-        fun summaryEdge(): ZeroToFactEdgeBuilder? = summaryEdgeAccess?.let {
-            ZeroToFactEdgeBuilder().setExitAccess(it)
-        }
-    }
-
-    private class MethodFactToFactSummaries(
-        private val methodEntryPoint: JIRInst
-    ) : SummaryFactStorage<MethodTaintedSummariesStorage>(methodEntryPoint) {
-        override fun createStorage() = MethodTaintedSummariesStorage(methodEntryPoint)
-
-        fun add(edges: List<Edge.FactToFact>, added: MutableList<FactToFactEdgeBuilder>) {
-            val sameInitialBaseEdges = edges.groupBy { it.initialFact.ap.base }
-            for ((initialBase, sameBaseEdges) in sameInitialBaseEdges) {
-                val baseAdded = mutableListOf<FactToFactEdgeBuilder>()
-                getOrCreate(initialBase).add(sameBaseEdges, baseAdded)
-                baseAdded.mapTo(added) { it.setInitialFactBase(initialBase) }
-            }
-        }
-
-        fun filterEdges(base: AccessPathBase, containsPattern: AccessNode): Sequence<FactToFactEdgeBuilder> =
-            find(base)
-                ?.filterEdges(containsPattern)
-                ?.map { it.setInitialFactBase(base) }
-                .orEmpty()
-
-        fun allEdges(): Sequence<FactToFactEdgeBuilder> = mapValues { base, storage ->
-            storage.allEdges().map { it.setInitialFactBase(base) }
-        }.flatten()
-    }
-
-    private class MethodTaintedSummariesGroupedByFact(methodEntryPoint: JIRInst) :
-        SummaryFactStorage<MethodTaintedSummariesGroupedByFactStorage>(methodEntryPoint) {
-        override fun createStorage() = MethodTaintedSummariesGroupedByFactStorage()
-
-        fun add(edges: List<Edge.FactToFact>, added: MutableList<FactToFactEdgeBuilder>) {
-            val sameExitBaseEdges = edges.groupBy { it.fact.ap.base }
-            for ((exitBase, sameBaseEdges) in sameExitBaseEdges) {
-
-                val baseAdded = mutableListOf<FactToFactEdgeBuilder>()
-                getOrCreate(exitBase).add(sameBaseEdges, baseAdded)
-                baseAdded.mapTo(added) { it.setExitFactBase(exitBase) }
-            }
-        }
-
-        fun filterEdges(containsPattern: AccessNode): Sequence<FactToFactEdgeBuilder> =
-            mapValues { base, storage ->
-                storage.findSummaries(containsPattern).map { it.setExitFactBase(base) }
-            }.flatten()
-
-        fun allEdges(): Sequence<FactToFactEdgeBuilder> =
-            mapValues { base, storage ->
-                storage.allSummaries().map { it.setExitFactBase(base) }
-            }.flatten()
-    }
-
-    private class MethodZeroToFactSummariesStorage(methodEntryPoint: JIRInst) :
-        MethodSummaryEdgesForExitPoint<Edge.ZeroToFact, ZeroToFactEdgeBuilder, MethodZeroToFactSummaries>(methodEntryPoint) {
-
-        override fun createStorage(): MethodZeroToFactSummaries = MethodZeroToFactSummaries(methodEntryPoint)
-
-        override fun storageAdd(
-            storage: MethodZeroToFactSummaries,
-            edges: List<Edge.ZeroToFact>,
-            added: MutableList<ZeroToFactEdgeBuilder>
-        ) = storage.add(edges, added)
-
-        override fun storageAllEdges(storage: MethodZeroToFactSummaries): Sequence<ZeroToFactEdgeBuilder> =
-            storage.edgeSequence()
-
-        override fun storageFilterEdges(
-            storage: MethodZeroToFactSummaries,
-            containsPattern: AccessNode
-        ): Sequence<ZeroToFactEdgeBuilder> {
-            error("Can't filter edges")
-        }
-    }
-
-    private class MethodTaintedSummariesStorage(methodEntryPoint: JIRInst) :
-        MethodSummaryEdgesForExitPoint<Edge.FactToFact, FactToFactEdgeBuilder, MethodTaintedSummariesGroupedByFact>(methodEntryPoint) {
-
-        override fun createStorage(): MethodTaintedSummariesGroupedByFact =
-            MethodTaintedSummariesGroupedByFact(methodEntryPoint)
-
-        override fun storageAdd(
-            storage: MethodTaintedSummariesGroupedByFact,
-            edges: List<Edge.FactToFact>,
-            added: MutableList<FactToFactEdgeBuilder>
-        ) = storage.add(edges, added)
-
-        override fun storageAllEdges(storage: MethodTaintedSummariesGroupedByFact): Sequence<FactToFactEdgeBuilder> =
-            storage.allEdges()
-
-        override fun storageFilterEdges(
-            storage: MethodTaintedSummariesGroupedByFact,
-            containsPattern: AccessNode
-        ): Sequence<FactToFactEdgeBuilder> = storage.filterEdges(containsPattern)
-    }
-
-    private class MethodTaintedSummariesInitialApStorage : AccessBasedStorage<MethodTaintedSummariesInitialApStorage>() {
-        private var current: MethodTaintedSummariesMergingStorage? = null
-
-        override fun createStorage() = MethodTaintedSummariesInitialApStorage()
-
-        fun getOrCreate(initialAccess: AccessPath.AccessNode?): MethodTaintedSummariesMergingStorage =
-            getOrCreateNode(initialAccess).getOrCreateCurrent(initialAccess)
-
-        fun findSummaries(containsPattern: AccessNode): Sequence<FactToFactEdgeBuilder> =
-            filterContains(containsPattern).flatMap { it.current?.summaries().orEmpty() }
-
-        fun allSummaries(): Sequence<FactToFactEdgeBuilder> =
-            allNodes().flatMap { it.current?.summaries().orEmpty() }
-
-        private fun getOrCreateCurrent(access: AccessPath.AccessNode?) =
-            current ?: MethodTaintedSummariesMergingStorage(access).also { current = it }
-    }
-
-    private class MethodTaintedSummariesGroupedByFactStorage {
-        private val nonUniverseAccessPath = MethodTaintedSummariesInitialApStorage()
-
-        fun add(edges: List<Edge.FactToFact>, added: MutableList<FactToFactEdgeBuilder>) {
-            addNonUniverseEdges(edges, added)
-        }
-
-        private fun addNonUniverseEdges(
-            edges: List<Edge.FactToFact>,
-            added: MutableList<FactToFactEdgeBuilder>
-        ) {
-            val modifiedStorages = mutableListOf<MethodTaintedSummariesMergingStorage>()
-
-            for (edge in edges) {
-                // edges here are already separated by marks, statements and bases
-                val initialAccess = edge.initialFact.ap.access
-                val exitAccess = edge.fact.ap.access
-
-                val exclusion = edge.initialFact.ap.exclusions
-                check(exclusion == edge.fact.ap.exclusions) { "Edge invariant" }
-
-                addNonUniverseEdge(initialAccess, exitAccess, exclusion, modifiedStorages)
-            }
-
-            modifiedStorages.flatMapTo(added) { it.getAndResetDelta() }
-        }
-
-        private fun addNonUniverseEdge(
-            initialAccess: AccessPath.AccessNode?,
-            exitAccess: AccessNode,
-            exclusion: ExclusionSet,
-            modifiedStorages: MutableList<MethodTaintedSummariesMergingStorage>
-        ) {
-            val storage = nonUniverseAccessPath.getOrCreate(initialAccess)
-            val storageModified = storage.add(exitAccess, exclusion)
-
-            if (storageModified) {
-                modifiedStorages.add(storage)
-            }
-        }
-
-        fun findSummaries(containsPattern: AccessNode): Sequence<FactToFactEdgeBuilder> =
-            nonUniverseAccessPath.findSummaries(containsPattern)
-
-        fun allSummaries(): Sequence<FactToFactEdgeBuilder> =
-            nonUniverseAccessPath.allSummaries()
-    }
-
-    private class MethodTaintedSummariesMergingStorage(val initialAccess: AccessPath.AccessNode?) {
-        private var exclusion: ExclusionSet? = null
-        private var edges: AccessNode? = null
-        private var edgesDelta: AccessNode? = null
-
-        fun add(exitAccess: AccessNode, addedEx: ExclusionSet): Boolean {
-            val currentExclusion = exclusion
-            if (currentExclusion == null) {
-                exclusion = addedEx
-                edges = exitAccess
-                edgesDelta = exitAccess
-                return true
-            }
-
-            val currentEdges = edges!!
-            val mergedExclusion = currentExclusion.union(addedEx)
-            if (mergedExclusion === currentExclusion) {
-                val (modifiedEdges, modificationDelta) = currentEdges.mergeAddDelta(exitAccess)
-                if (modificationDelta == null) return false
-
-                edges = modifiedEdges
-                edgesDelta = edgesDelta?.mergeAdd(modificationDelta) ?: modificationDelta
-                return true
-            }
-
-            val mergedAp = currentEdges.mergeAdd(exitAccess)
-            exclusion = mergedExclusion
-            edges = mergedAp
-            edgesDelta = mergedAp
-
-            return true
-        }
-
-        fun getAndResetDelta(): Sequence<FactToFactEdgeBuilder> {
-            val delta = edgesDelta ?: return emptySequence()
-            edgesDelta = null
-
-            return FactToFactEdgeBuilder()
-                .setInitialAp(initialAccess)
-                .setExitAp(delta)
-                .setExclusion(exclusion!!)
-                .let { sequenceOf(it) }
-        }
-
-        fun summaries(): Sequence<FactToFactEdgeBuilder> {
-            val exclusion = this.exclusion ?: return emptySequence()
-            val edges = this.edges!!
-            return FactToFactEdgeBuilder()
-                .setInitialAp(initialAccess)
-                .setExitAp(edges)
-                .setExclusion(exclusion)
-                .let { sequenceOf(it) }
-        }
-    }
-
-    sealed interface EdgeBuilder<B : EdgeBuilder<B>> {
-        fun setEntryPoint(entryPoint: MethodEntryPoint): B
-        fun setExitStatement(statement: JIRInst): B
-    }
-
-    private data class ZeroToFactEdgeBuilder(
-        private var entryPoint: MethodEntryPoint? = null,
-        private var exitStatement: JIRInst? = null,
-        private var exitFactAccess: AccessNode? = null,
-        private var exitFactBase: AccessPathBase? = null,
-        private var mark: TaintMark? = null
-    ) : EdgeBuilder<ZeroToFactEdgeBuilder> {
-        fun build(): Edge.ZeroToFact  = Edge.ZeroToFact(
-            entryPoint!!, exitStatement!!,
-            Fact.TaintedTree(
-                mark!!,
-                AccessTree(
-                    exitFactBase!!,
-                    exitFactAccess!!,
-                    ExclusionSet.Universe
-                )
-            )
+data class ZeroToFactEdgeBuilder(
+    private var entryPoint: MethodEntryPoint? = null,
+    private var exitStatement: JIRInst? = null,
+    private var exitFactAp: FinalFactAp? = null,
+    private var mark: TaintMark? = null
+) : EdgeBuilder<ZeroToFactEdgeBuilder> {
+    fun build(): Edge.ZeroToFact = Edge.ZeroToFact(
+        entryPoint!!, exitStatement!!,
+        Fact.FinalFact(
+            mark!!,
+            exitFactAp!!
         )
+    )
 
-        fun setMark(mark: TaintMark) = this.also {
-            this.mark = mark
-        }
-
-        override fun setEntryPoint(entryPoint: MethodEntryPoint) = this.also {
-            this.entryPoint = entryPoint
-        }
-
-        override fun setExitStatement(statement: JIRInst) = this.also {
-            exitStatement = statement
-        }
-
-        fun setExitAccess(access: AccessNode) = this.also {
-            exitFactAccess = access
-        }
-
-        fun setExitFactBase(base: AccessPathBase) = this.also {
-            exitFactBase = base
-        }
+    fun setMark(mark: TaintMark) = this.also {
+        this.mark = mark
     }
 
-    private data class FactToFactEdgeBuilder(
-        private var entryPoint: MethodEntryPoint? = null,
-        private var exitStatement: JIRInst? = null,
-        private var initialMark: TaintMark? = null,
-        private var exitMark: TaintMark? = null,
-        private var initialBase: AccessPathBase? = null,
-        private var exitBase: AccessPathBase? = null,
-        private var exclusion: ExclusionSet? = null,
-        private var initialAp: AccessPath.AccessNode? = null,
-        var exitAp: AccessNode? = null,
-    ) : EdgeBuilder<FactToFactEdgeBuilder> {
-        fun build(): Edge.FactToFact = Edge.FactToFact(
-            entryPoint!!,
-            Fact.TaintedPath(initialMark!!, AccessPath(initialBase!!, initialAp, exclusion!!)),
-            exitStatement!!,
-            Fact.TaintedTree(exitMark!!, AccessTree(exitBase!!, exitAp!!, exclusion!!))
-        )
-
-        override fun setEntryPoint(entryPoint: MethodEntryPoint) = this.also {
-            this.entryPoint = entryPoint
-        }
-
-        override fun setExitStatement(statement: JIRInst) = this.also {
-            exitStatement = statement
-        }
-
-        fun setMarks(initialMark: TaintMark, exitMark: TaintMark) = this.also {
-            this.initialMark = initialMark
-            this.exitMark = exitMark
-        }
-
-        fun setInitialFactBase(base: AccessPathBase) = this.also {
-            initialBase = base
-        }
-
-        fun setExitFactBase(base: AccessPathBase) = this.also {
-            exitBase = base
-        }
-
-        fun setExclusion(exclusion: ExclusionSet) = this.also {
-            this.exclusion = exclusion
-        }
-
-        fun setInitialAp(ap: AccessPath.AccessNode?) = this.also {
-            initialAp = ap
-        }
-
-        fun setExitAp(ap: AccessNode) = this.also {
-            exitAp = ap
-        }
+    override fun setEntryPoint(entryPoint: MethodEntryPoint) = this.also {
+        this.entryPoint = entryPoint
     }
 
-    private abstract class SummaryFactStorage<Storage : Any>(methodEntryPoint: JIRInst) :
-        AccessPathBaseStorage<Storage>(methodEntryPoint) {
-        private val locals = ConcurrentHashMap<Int, Storage>()
-        private var constants: ConcurrentHashMap<AccessPathBase.Constant, Storage>? = null
-        private var statics: ConcurrentHashMap<AccessPathBase.ClassStatic, Storage>? = null
-
-        override fun getOrCreateLocal(idx: Int): Storage =
-            locals.computeIfAbsent(idx) { createStorage() }
-
-        override fun findLocal(idx: Int): Storage? = locals[idx]
-
-        override fun <R : Any> mapLocalValues(body: (AccessPathBase, Storage) -> R): Sequence<R> =
-            locals.asSequence().map { (localVarIdx, storage) ->
-                body(AccessPathBase.LocalVar(localVarIdx), storage)
-            }
-
-        override fun getOrCreateConstant(base: AccessPathBase.Constant): Storage {
-            val summaries = constants ?: ConcurrentHashMap<AccessPathBase.Constant, Storage>()
-                .also { constants = it }
-
-            return summaries.computeIfAbsent(base) { createStorage() }
-        }
-
-        override fun findConstant(base: AccessPathBase.Constant): Storage? =
-            constants?.get(base)
-
-        override fun <R : Any> mapConstantValues(body: (AccessPathBase, Storage) -> R): Sequence<R> =
-            constants?.asSequence()?.map { body(it.key, it.value) } ?: emptySequence()
-
-        override fun getOrCreateClassStatic(base: AccessPathBase.ClassStatic): Storage {
-            val summaries = statics ?: ConcurrentHashMap<AccessPathBase.ClassStatic, Storage>()
-                .also { statics = it }
-
-            return summaries.computeIfAbsent(base) { createStorage() }
-        }
-
-        override fun findClassStatic(base: AccessPathBase.ClassStatic): Storage? =
-            statics?.get(base)
-
-        override fun <R : Any> mapClassStaticValues(body: (AccessPathBase, Storage) -> R): Sequence<R> =
-            statics?.asSequence()?.map { body(it.key, it.value) } ?: emptySequence()
+    override fun setExitStatement(statement: JIRInst) = this.also {
+        exitStatement = statement
     }
 
-    private abstract class MethodSummaryEdgesForExitPoint<E : Edge, B : EdgeBuilder<B>, Storage>(val methodEntryPoint: JIRInst) {
-        abstract fun createStorage(): Storage
-        abstract fun storageAdd(storage: Storage, edges: List<E>, added: MutableList<B>)
-
-        abstract fun storageAllEdges(storage: Storage): Sequence<B>
-
-        abstract fun storageFilterEdges(storage: Storage, containsPattern: AccessNode): Sequence<B>
-
-        private val exitPoints = arrayListOf<JIRInst>()
-        private val exitPointsStorage = arrayListOf<Storage>()
-
-        fun add(edges: List<E>, added: MutableList<B>) {
-            val edgesWithSameExitPoint = edges.groupBy { it.statement }
-
-            for ((exitPoint, exitPointEdges) in edgesWithSameExitPoint) {
-                val epIdx = exitPoints.indexOf(exitPoint)
-                val storage = if (epIdx != -1) {
-                    exitPointsStorage[epIdx]
-                } else {
-                    createStorage().also {
-                        exitPoints.add(exitPoint)
-                        exitPointsStorage.add(it)
-                    }
-                }
-
-                val storageAdded = mutableListOf<B>()
-                storageAdd(storage, exitPointEdges, storageAdded)
-                storageAdded.mapTo(added) { it.setExitStatement(exitPoint) }
-            }
-        }
-
-        fun allEdges(): Sequence<B> = processEdgeSequence { storageAllEdges(it) }
-
-        fun filterEdges(containsPattern: AccessNode): Sequence<B> = processEdgeSequence {
-            storageFilterEdges(it, containsPattern)
-        }
-
-        private inline fun processEdgeSequence(storageEdges: (Storage) -> Sequence<B>): Sequence<B> =
-            exitPointsStorage.concurrentReadSafeMapIndexed { idx, storage ->
-                val exitPoint = exitPoints[idx]
-                storageEdges(storage).map { it.setExitStatement(exitPoint) }
-            }.asSequence().flatten()
+    fun setExitAp(ap: FinalFactAp) = this.also {
+        exitFactAp = ap
     }
 }
 
-private abstract class AccessBasedStorage<S : AccessBasedStorage<S>> {
-    private var children = persistentHashMapOf<Accessor, S>()
+data class FactToFactEdgeBuilder(
+    private var entryPoint: MethodEntryPoint? = null,
+    private var exitStatement: JIRInst? = null,
+    private var initialMark: TaintMark? = null,
+    private var exitMark: TaintMark? = null,
+    private var initialAp: InitialFactAp? = null,
+    private var exitAp: FinalFactAp? = null,
+) : EdgeBuilder<FactToFactEdgeBuilder> {
+    fun build(): Edge.FactToFact = Edge.FactToFact(
+        entryPoint!!,
+        Fact.InitialFact(initialMark!!, initialAp!!),
+        exitStatement!!,
+        Fact.FinalFact(exitMark!!, exitAp!!)
+    )
 
-    abstract fun createStorage(): S
-
-    fun getOrCreateNode(access: AccessPath.AccessNode?): S {
-        if (access == null) {
-            @Suppress("UNCHECKED_CAST")
-            return this as S
-        }
-
-        var storage = this
-        for (accessor in access) {
-            storage = storage.getOrCreateChild(accessor)
-        }
-
-        @Suppress("UNCHECKED_CAST")
-        return storage as S
+    override fun setEntryPoint(entryPoint: MethodEntryPoint) = this.also {
+        this.entryPoint = entryPoint
     }
 
-    fun filterContains(pattern: AccessNode): Sequence<S> {
-        val nodes = mutableListOf<S>()
-        collectNodesContains(pattern, nodes)
-        return nodes.asSequence()
+    override fun setExitStatement(statement: JIRInst) = this.also {
+        exitStatement = statement
     }
 
-    private fun collectNodesContains(pattern: AccessNode, nodes: MutableList<S>) {
-        @Suppress("UNCHECKED_CAST")
-        nodes.add(this as S)
+    fun setMarks(initialMark: TaintMark, exitMark: TaintMark) = this.also {
+        this.initialMark = initialMark
+        this.exitMark = exitMark
+    }
 
-        if (pattern.isFinal) {
-            children[FinalAccessor]?.let { nodes.add(it) }
+    fun setInitialAp(ap: InitialFactAp) = this.also {
+        initialAp = ap
+    }
+
+    fun setExitAp(ap: FinalFactAp) = this.also {
+        exitAp = ap
+    }
+}
+
+abstract class SummaryFactStorage<Storage : Any>(methodEntryPoint: JIRInst) :
+    AccessPathBaseStorage<Storage>(methodEntryPoint) {
+    private val locals = ConcurrentHashMap<Int, Storage>()
+    private var constants: ConcurrentHashMap<AccessPathBase.Constant, Storage>? = null
+    private var statics: ConcurrentHashMap<AccessPathBase.ClassStatic, Storage>? = null
+
+    override fun getOrCreateLocal(idx: Int): Storage =
+        locals.computeIfAbsent(idx) { createStorage() }
+
+    override fun findLocal(idx: Int): Storage? = locals[idx]
+
+    override fun <R : Any> mapLocalValues(body: (AccessPathBase, Storage) -> R): Sequence<R> =
+        locals.asSequence().map { (localVarIdx, storage) ->
+            body(AccessPathBase.LocalVar(localVarIdx), storage)
         }
 
-        pattern.elementAccess?.let { elementAccessPattern ->
-            children[ElementAccessor]?.collectNodesContains(elementAccessPattern, nodes)
-        }
+    override fun getOrCreateConstant(base: AccessPathBase.Constant): Storage {
+        val summaries = constants ?: ConcurrentHashMap<AccessPathBase.Constant, Storage>()
+            .also { constants = it }
 
-        pattern.forEachField { field, fieldPattern ->
-            children[field]?.collectNodesContains(fieldPattern, nodes)
+        return summaries.computeIfAbsent(base) { createStorage() }
+    }
+
+    override fun findConstant(base: AccessPathBase.Constant): Storage? =
+        constants?.get(base)
+
+    override fun <R : Any> mapConstantValues(body: (AccessPathBase, Storage) -> R): Sequence<R> =
+        constants?.asSequence()?.map { body(it.key, it.value) } ?: emptySequence()
+
+    override fun getOrCreateClassStatic(base: AccessPathBase.ClassStatic): Storage {
+        val summaries = statics ?: ConcurrentHashMap<AccessPathBase.ClassStatic, Storage>()
+            .also { statics = it }
+
+        return summaries.computeIfAbsent(base) { createStorage() }
+    }
+
+    override fun findClassStatic(base: AccessPathBase.ClassStatic): Storage? =
+        statics?.get(base)
+
+    override fun <R : Any> mapClassStaticValues(body: (AccessPathBase, Storage) -> R): Sequence<R> =
+        statics?.asSequence()?.map { body(it.key, it.value) } ?: emptySequence()
+}
+
+abstract class MethodSummaryEdgesForExitPoint<E : Edge, B : EdgeBuilder<B>, Storage, Pattern>(
+    val methodEntryPoint: JIRInst
+) {
+    abstract fun createStorage(): Storage
+    abstract fun storageAdd(storage: Storage, edges: List<E>, added: MutableList<B>)
+
+    abstract fun storageAllEdges(storage: Storage): Sequence<B>
+
+    abstract fun storageFilterEdges(storage: Storage, containsPattern: Pattern): Sequence<B>
+
+    private val exitPoints = arrayListOf<JIRInst>()
+    private val exitPointsStorage = arrayListOf<Storage>()
+
+    fun add(edges: List<E>, added: MutableList<B>) {
+        val edgesWithSameExitPoint = edges.groupBy { it.statement }
+
+        for ((exitPoint, exitPointEdges) in edgesWithSameExitPoint) {
+            val epIdx = exitPoints.indexOf(exitPoint)
+            val storage = if (epIdx != -1) {
+                exitPointsStorage[epIdx]
+            } else {
+                createStorage().also {
+                    exitPoints.add(exitPoint)
+                    exitPointsStorage.add(it)
+                }
+            }
+
+            val storageAdded = mutableListOf<B>()
+            storageAdd(storage, exitPointEdges, storageAdded)
+            storageAdded.mapTo(added) { it.setExitStatement(exitPoint) }
         }
     }
 
-    fun allNodes(): Sequence<S> {
-        val storages = mutableListOf<S>()
+    fun allEdges(): Sequence<B> = processEdgeSequence { storageAllEdges(it) }
 
-        val unprocessedStorages = mutableListOf(this)
-        while (unprocessedStorages.isNotEmpty()) {
-            val storage = unprocessedStorages.removeLast()
-            @Suppress("UNCHECKED_CAST")
-            storages.add(storage as S)
-            unprocessedStorages.addAll(storage.children.values)
-        }
-
-        return storages.asSequence()
+    fun filterEdges(containsPattern: Pattern): Sequence<B> = processEdgeSequence {
+        storageFilterEdges(it, containsPattern)
     }
 
-    private fun getOrCreateChild(accessor: Accessor): S =
-        children.getOrElse(accessor) {
-            createStorage().also { children = children.put(accessor, it) }
-        }
+    private inline fun processEdgeSequence(storageEdges: (Storage) -> Sequence<B>): Sequence<B> =
+        exitPointsStorage.concurrentReadSafeMapIndexed { idx, storage ->
+            val exitPoint = exitPoints[idx]
+            storageEdges(storage).map { it.setExitStatement(exitPoint) }
+        }.asSequence().flatten()
 }

@@ -10,24 +10,22 @@ import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.taint.configuration.TaintMark
 import org.opentaint.dataflow.ifds.onSome
-import org.opentaint.dataflow.jvm.ap.ifds.AccessPath.AccessNode.Companion.iterator
-import org.opentaint.dataflow.jvm.ap.ifds.AccessTree.AccessNode
 import org.opentaint.dataflow.jvm.ap.ifds.Edge.FactToFact
 import org.opentaint.dataflow.jvm.ap.ifds.Edge.ZeroInitialEdge
 import org.opentaint.dataflow.jvm.ap.ifds.Edge.ZeroToFact
 import org.opentaint.dataflow.jvm.ap.ifds.Edge.ZeroToZero
-import org.opentaint.dataflow.jvm.ap.ifds.ExclusionSet.Empty
 import org.opentaint.dataflow.jvm.ap.ifds.MethodAnalyzer.MethodCallHandler
 import org.opentaint.dataflow.jvm.ap.ifds.MethodAnalyzer.MethodCallResolutionFailureHandler
 import org.opentaint.dataflow.jvm.ap.ifds.MethodCallFlowFunction.Companion.applyEntryPointConfigDefault
 import org.opentaint.dataflow.jvm.ap.ifds.MethodCallFlowFunction.ZeroCallFact
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.rebase
 import org.opentaint.dataflow.jvm.ap.ifds.MethodSequentFlowFunction.Sequent
+import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
 
 interface MethodAnalyzer {
     fun addInitialZeroFact()
 
-    fun addInitialFact(fact: Fact.TaintedTree)
+    fun addInitialFact(fact: Fact.FinalFact)
 
     fun tabulationAlgorithmStep(edge: Edge)
 
@@ -40,7 +38,7 @@ interface MethodAnalyzer {
     fun handleMethodSinkRequirement(
         currentEdge: FactToFact,
         methodInitialFactBase: AccessPathBase,
-        methodSinkRequirement: Fact.TaintedPath
+        methodSinkRequirement: Fact.InitialFact
     )
 
     fun collectStats(stats: MethodStats)
@@ -63,8 +61,8 @@ interface MethodAnalyzer {
 
     sealed interface MethodCallResolutionFailureHandler {
         object ZeroToZeroHandler : MethodCallResolutionFailureHandler
-        data class ZeroToFactHandler(val edge: ZeroInitialEdge, val callerFact: Fact.TaintedTree) : MethodCallResolutionFailureHandler
-        data class FactToFactHandler(val callerEdge: FactToFact, val callerFact: Fact.TaintedTree): MethodCallResolutionFailureHandler
+        data class ZeroToFactHandler(val edge: ZeroInitialEdge, val callerFact: Fact.FinalFact) : MethodCallResolutionFailureHandler
+        data class FactToFactHandler(val callerEdge: FactToFact, val callerFact: Fact.FinalFact): MethodCallResolutionFailureHandler
     }
 
     fun handleResolvedMethodCall(method: MethodWithContext, handler: MethodCallHandler)
@@ -84,10 +82,11 @@ class NormalMethodAnalyzer(
     private val factTypeChecker: FactTypeChecker get() = runner.factTypeChecker
     private val taintSinkTracker: TaintSinkTracker get() = runner.sinkTracker
     private val lambdaTracker: JIRLambdaTracker get() = runner.lambdaTracker
+    private val apManager: ApManager get() = runner.apManager
 
     private var zeroInitialFactProcessed: Boolean = false
-    private val initialFacts = MethodInitialFacts(hashMapOf())
-    private val edges = MethodAnalyzerEdges(methodEntryPoint)
+    private val initialFacts = apManager.initialFactAbstraction()
+    private val edges = MethodAnalyzerEdges(apManager, methodEntryPoint)
     private val pendingSummaryEdges = arrayListOf<Edge>()
 
     private var unprocessedEdgesCount: Int = 0
@@ -111,25 +110,23 @@ class NormalMethodAnalyzer(
         }
     }
 
-    override fun addInitialFact(fact: Fact.TaintedTree) {
+    override fun addInitialFact(fact: Fact.FinalFact) {
         val checkedFact = checkInitialFactTypes(fact) ?: return
-
-        // note: we can ignore fact exclusions here
-        val facts = initialFacts.getOrPut(checkedFact.mark, checkedFact.ap.base)
-        val addedFact = facts.addInitialFact(checkedFact.ap.access) ?: return
-        addAbstractInitialFact(facts, checkedFact.mark, checkedFact.ap.base, addedFact)
+        initialFacts.addAbstractedInitialFact(checkedFact).forEach { (initialFact, finalFact) ->
+            addInitialEdge(initialFact, finalFact)
+        }
     }
 
     private fun propagateStartFacts() {
         addInitialZeroEdge()
 
-        applyEntryPointConfigDefault(taintConfig, methodEntryPoint.method)
+        applyEntryPointConfigDefault(apManager, taintConfig, methodEntryPoint.method)
             .onSome { facts ->
                 facts.forEach { fact -> addInitialZeroToFactEdge(fact) }
             }
     }
 
-    private fun checkInitialFactTypes(fact: Fact.TaintedTree): Fact.TaintedTree? {
+    private fun checkInitialFactTypes(fact: Fact.FinalFact): Fact.FinalFact? {
         if (fact.ap.base !is AccessPathBase.This) return fact
 
         val thisClass = when (methodEntryPoint.context) {
@@ -183,7 +180,7 @@ class NormalMethodAnalyzer(
         }
 
         // Simple (sequential) propagation to the next instruction:
-        val flowFunction = MethodSequentFlowFunction(edge.statement, factTypeChecker)
+        val flowFunction = MethodSequentFlowFunction(apManager, edge.statement, factTypeChecker)
         val sequentialFacts = when (edge) {
             is ZeroToZero -> flowFunction.propagateZeroToZero()
             is ZeroToFact -> flowFunction.propagateZeroToFact(edge.fact)
@@ -213,6 +210,7 @@ class NormalMethodAnalyzer(
         }
 
         val flowFunction = MethodCallFlowFunction(
+            apManager,
             taintConfig,
             returnValue,
             callExpr,
@@ -315,14 +313,14 @@ class NormalMethodAnalyzer(
         }
     }
 
-    private fun addInitialZeroToFactEdge(fact: Fact.TaintedTree) {
+    private fun addInitialZeroToFactEdge(fact: Fact.FinalFact) {
         val edge = ZeroToFact(methodEntryPoint, methodEntryPoint.statement, fact)
         edges.add(edge).forEach { newEdge ->
             enqueueNewEdge(newEdge)
         }
     }
 
-    private fun addInitialEdge(initialFact: Fact.TaintedPath, fact: Fact.TaintedTree) {
+    private fun addInitialEdge(initialFact: Fact.InitialFact, fact: Fact.FinalFact) {
         val edge = FactToFact(methodEntryPoint, initialFact, methodEntryPoint.statement, fact)
         edges.add(edge).forEach { newEdge ->
             enqueueNewEdge(newEdge)
@@ -344,13 +342,11 @@ class NormalMethodAnalyzer(
         runner.submitNewUnprocessedEdge(edge)
     }
 
-    private fun handleInputFactChange(originalInputFact: Fact.TaintedPath, newInputFact: Fact.TaintedPath) {
+    private fun handleInputFactChange(originalInputFact: Fact.InitialFact, newInputFact: Fact.InitialFact) {
         if (originalInputFact == newInputFact) return
-
-        val facts = initialFacts.getOrPut(newInputFact.mark, newInputFact.ap.base)
-        facts.addAnalyzedInitialFact(newInputFact.ap.access, newInputFact.ap.exclusions)
-
-        addAbstractInitialFact(facts, newInputFact.mark, newInputFact.ap.base, facts.allAddedFacts())
+        initialFacts.registerNewInitialFact(newInputFact).forEach { (initialFact, finalFact) ->
+            addInitialEdge(initialFact, finalFact)
+        }
     }
 
     private fun newSummaryEdge(edge: Edge) {
@@ -418,7 +414,7 @@ class NormalMethodAnalyzer(
     override fun handleMethodSinkRequirement(
         currentEdge: FactToFact,
         methodInitialFactBase: AccessPathBase,
-        methodSinkRequirement: Fact.TaintedPath
+        methodSinkRequirement: Fact.InitialFact
     ) {
         val methodInitialFact = currentEdge.fact.rebase(methodInitialFactBase)
         val summaryEdgeEffects = MethodSummaryEdgeApplicationUtils.tryApplySummaryEdge(
@@ -427,8 +423,8 @@ class NormalMethodAnalyzer(
 
         for (summaryEdgeEffect in summaryEdgeEffects) {
             when (summaryEdgeEffect) {
-                is MethodSummaryEdgeApplicationUtils.SummaryEdgeTreeApplication.SummaryApRefinement -> continue
-                is MethodSummaryEdgeApplicationUtils.SummaryEdgeTreeApplication.SummaryExclusionRefinement -> {
+                is MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryApRefinement -> continue
+                is MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryExclusionRefinement -> {
                     val refinedInitialFact = replaceFactExclusion(currentEdge.initialFact, summaryEdgeEffect.exclusion)
                     addSinkRequirement(currentEdge, refinedInitialFact)
                 }
@@ -436,7 +432,7 @@ class NormalMethodAnalyzer(
         }
     }
 
-    private fun addSinkRequirement(currentEdge: Edge, sinkRequirement: Fact.TaintedPath) {
+    private fun addSinkRequirement(currentEdge: Edge, sinkRequirement: Fact.InitialFact) {
         if (currentEdge is FactToFact) {
             handleInputFactChange(currentEdge.initialFact, sinkRequirement)
         }
@@ -515,10 +511,10 @@ class NormalMethodAnalyzer(
                 currentEdgeFact = sub.currentEdge.fact,
                 methodInitialFactBase = sub.methodInitialFactBase,
                 methodSummaries = applicableSummaries,
-                refineInitialFact = { initialFact: Fact.TaintedPath, refinement: ExclusionSet ->
+                refineInitialFact = { initialFact: Fact.InitialFact, refinement: ExclusionSet ->
                     replaceFactExclusion(initialFact, refinement)
                 },
-                handleSummaryEdge = { initialFact: Fact.TaintedPath, summaryFact: Fact.TaintedTree ->
+                handleSummaryEdge = { initialFact: Fact.InitialFact, summaryFact: Fact.FinalFact ->
                     handleFactToFactMethodSummaryEdge(initialFact, summaryFact, sub.currentEdge)
                 }
             )
@@ -528,11 +524,11 @@ class NormalMethodAnalyzer(
     private fun <IF: Fact> applyMethodSummaries(
         currentEdgeInitialFact: IF,
         currentEdgeStatement: JIRInst,
-        currentEdgeFact: Fact.TaintedTree,
+        currentEdgeFact: Fact.FinalFact,
         methodInitialFactBase: AccessPathBase,
         methodSummaries: List<FactToFact>,
         refineInitialFact: (fact: IF, refinement: ExclusionSet) -> IF,
-        handleSummaryEdge: (initialFact: IF, summaryFact: Fact.TaintedTree) -> Unit
+        handleSummaryEdge: (initialFact: IF, summaryFact: Fact.FinalFact) -> Unit
     ) {
         val summaries = methodSummaries.groupBy { it.initialFact }
         for ((summaryInitialFact, summaryEdges) in summaries) {
@@ -543,27 +539,23 @@ class NormalMethodAnalyzer(
 
             for (summaryEdgeEffect in summaryEdgeEffects) {
                 when (summaryEdgeEffect) {
-                    is MethodSummaryEdgeApplicationUtils.SummaryEdgeTreeApplication.SummaryApRefinement -> {
+                    is MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryApRefinement -> {
                         for (methodSummary in summaryEdges) {
                             val mappedSummaryFact = mapMethodExitToReturnFlowFact(
                                 currentEdgeStatement, methodSummary.statement, methodSummary.fact, factTypeChecker
                             ) ?: continue
 
-                            val summaryFactApAccess = mappedSummaryFact.ap.access.concatToLeafAbstractNodes(
-                                factTypeChecker, summaryEdgeEffect.access
-                            ) ?: continue
-
                             // todo: filter exclusions
-                            val summaryFactAp = with(mappedSummaryFact.ap) {
-                                AccessTree(base, summaryFactApAccess, currentEdgeFact.ap.exclusions)
-                            }
+                            val summaryFactAp = mappedSummaryFact.ap.concat(factTypeChecker, summaryEdgeEffect.delta)
+                                ?.replaceExclusions(currentEdgeFact.ap.exclusions)
+                                ?: continue
                             val summaryFact = mappedSummaryFact.changeAP(summaryFactAp)
 
                             handleSummaryEdge(currentEdgeInitialFact, summaryFact)
                         }
                     }
 
-                    is MethodSummaryEdgeApplicationUtils.SummaryEdgeTreeApplication.SummaryExclusionRefinement -> {
+                    is MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryExclusionRefinement -> {
                         val initialFact = refineInitialFact(currentEdgeInitialFact, summaryEdgeEffect.exclusion)
 
                         for (methodSummary in summaryEdges) {
@@ -572,9 +564,7 @@ class NormalMethodAnalyzer(
                             ) ?: continue
 
                             // todo: filter exclusions
-                            val summaryFactAp = with(mappedSummaryFact.ap) {
-                                AccessTree(base, access, summaryEdgeEffect.exclusion)
-                            }
+                            val summaryFactAp = mappedSummaryFact.ap.replaceExclusions(summaryEdgeEffect.exclusion)
                             val summaryFact = mappedSummaryFact.changeAP(summaryFactAp)
 
                             handleSummaryEdge(initialFact, summaryFact)
@@ -586,8 +576,8 @@ class NormalMethodAnalyzer(
     }
 
     private fun handleFactToFactMethodSummaryEdge(
-        initialFact: Fact.TaintedPath,
-        summaryFact: Fact.TaintedTree,
+        initialFact: Fact.InitialFact,
+        summaryFact: Fact.FinalFact,
         currentEdge: FactToFact
     ) {
         for (returnSite in graph.successors(currentEdge.statement)) {
@@ -596,7 +586,7 @@ class NormalMethodAnalyzer(
         }
     }
 
-    private fun handleZeroToFactMethodSummaryEdge(summaryFact: Fact.TaintedTree, currentEdge: ZeroToFact) {
+    private fun handleZeroToFactMethodSummaryEdge(summaryFact: Fact.FinalFact, currentEdge: ZeroToFact) {
         for (returnSite in graph.successors(currentEdge.statement)) {
             val newEdge = ZeroToFact(methodEntryPoint, returnSite, summaryFact)
             addSequentialEdge(currentEdge, newEdge)
@@ -604,159 +594,9 @@ class NormalMethodAnalyzer(
     }
 
     private fun replaceFactExclusion(
-        fact: Fact.TaintedPath,
+        fact: Fact.InitialFact,
         exclusions: ExclusionSet
-    ): Fact.TaintedPath = with(fact.ap) {
-        fact.changeAP(AccessPath(base, access, exclusions))
-    }
-
-    private fun addAbstractInitialFact(
-        facts: MethodSameBaseInitialFact,
-        concreteFactMark: TaintMark,
-        concreteFactBase: AccessPathBase,
-        concreteFactAccess: AccessNode
-    ) {
-        abstractAccessPath(facts.analyzed, concreteFactAccess, mutableListOf()) { abstractAccess, abstractExcludes ->
-            val initialAbstractAccessNode = AccessPath.AccessNode.createNodeFromAp(abstractAccess.iterator())
-            val initialAbstractAp = AccessPath(concreteFactBase, initialAbstractAccessNode, abstractExcludes)
-            val initialAbstractFact = Fact.TaintedPath(concreteFactMark, initialAbstractAp)
-
-            val apAccess = AccessNode.createAbstractNodeFromAp(abstractAccess.iterator())
-            val ap = AccessTree(concreteFactBase, apAccess, abstractExcludes)
-            val fact = Fact.TaintedTree(concreteFactMark, ap)
-
-            facts.addAnalyzedInitialFact(initialAbstractAccessNode, abstractExcludes)
-            addInitialEdge(initialAbstractFact, fact)
-        }
-    }
-
-    private fun abstractAccessPath(
-        analyzedTrieRoot: AccessPathTrieNode,
-        added: AccessNode,
-        currentAp: MutableList<Accessor>,
-        createAbstractAp: (List<Accessor>, ExclusionSet) -> Unit
-    ) {
-        val currentLevelExclusions = analyzedTrieRoot.exclusions()
-        if (currentLevelExclusions == null) {
-            createAbstractAp(currentAp, Empty)
-            return
-        }
-
-        if (added.isFinal) {
-            val node = AccessNode.create()
-            abstractAccessPath(analyzedTrieRoot, FinalAccessor, node, currentAp, createAbstractAp)
-        }
-
-        added.elementAccess?.let {
-            abstractAccessPath(analyzedTrieRoot, ElementAccessor, it, currentAp, createAbstractAp)
-        }
-
-        added.forEachField { accessor, node ->
-            abstractAccessPath(analyzedTrieRoot, accessor, node, currentAp, createAbstractAp)
-        }
-    }
-
-    private fun abstractAccessPath(
-        analyzedTrieRoot: AccessPathTrieNode,
-        accessor: Accessor,
-        addedNode: AccessNode,
-        currentAp: MutableList<Accessor>,
-        createAbstractAp: (List<Accessor>, ExclusionSet) -> Unit
-    ) {
-        val node = analyzedTrieRoot.children[accessor]
-        if (node == null) {
-            val exclusions = analyzedTrieRoot.exclusions()
-
-            // We have no excludes -> continue with the most abstract fact
-            if (exclusions == null) {
-                createAbstractAp(currentAp, Empty)
-                return
-            }
-
-            // Concrete: a.b.* E
-            // Added: a.* S
-            if (exclusions.contains(accessor)) {
-                // We have initial fact that exclude {b} and we have no a.b fact yet
-                // Return a.b.* {}
-
-                currentAp.add(accessor)
-                createAbstractAp(currentAp, Empty)
-                currentAp.removeLast()
-
-                return
-            }
-
-            // We have no conflict with added facts
-            return
-        }
-
-        currentAp.add(accessor)
-        abstractAccessPath(node, addedNode, currentAp, createAbstractAp)
-        currentAp.removeLast()
-    }
-
-    class MethodInitialFacts(val facts: MutableMap<TaintMark, MethodSameMarkInitialFact>) {
-        fun getOrPut(mark: TaintMark, base: AccessPathBase): MethodSameBaseInitialFact = facts.getOrPut(mark) {
-            MethodSameMarkInitialFact(hashMapOf())
-        }.getOrPut(base)
-    }
-
-    class MethodSameMarkInitialFact(val facts: MutableMap<AccessPathBase, MethodSameBaseInitialFact>) {
-        fun getOrPut(base: AccessPathBase): MethodSameBaseInitialFact = facts.getOrPut(base) {
-            MethodSameBaseInitialFact(added = null, AccessPathTrieNode.empty())
-        }
-    }
-
-    class MethodSameBaseInitialFact(
-        private var added: AccessNode?,
-        val analyzed: AccessPathTrieNode
-    ) {
-        fun allAddedFacts(): AccessNode = added ?: AccessNode.create()
-
-        fun addInitialFact(ap: AccessNode): AccessNode? {
-            val currentNode = added ?: AccessNode.create()
-            val addedNode = currentNode.mergeAdd(ap)
-
-            if (addedNode === this.added) return null
-            this.added = addedNode
-            return addedNode
-        }
-
-        fun addAnalyzedInitialFact(ap: AccessPath.AccessNode?, exclusions: ExclusionSet) {
-            AccessPathTrieNode.add(analyzed, ap.iterator(), exclusions)
-        }
-    }
-
-    class AccessPathTrieNode(
-        val children: MutableMap<Accessor, AccessPathTrieNode>,
-        private var terminals: ExclusionSet?
-    ) {
-        fun exclusions(): ExclusionSet? = terminals
-
-        companion object {
-            fun empty() = AccessPathTrieNode(hashMapOf(), terminals = null)
-
-            fun add(
-                root: AccessPathTrieNode,
-                access: Iterator<Accessor>,
-                exclusions: ExclusionSet
-            ) {
-                if (!access.hasNext()) {
-                    val terminals = root.terminals
-                    if (terminals == null) {
-                        root.terminals = exclusions
-                    } else {
-                        root.terminals = terminals.union(exclusions)
-                    }
-                    return
-                }
-
-                val key = access.next()
-                val child = root.children.getOrPut(key) { empty() }
-                add(child, access, exclusions)
-            }
-        }
-    }
+    ): Fact.InitialFact = fact.changeAP(fact.ap.replaceExclusions(exclusions))
 }
 
 class EmptyMethodAnalyzer(
@@ -765,6 +605,7 @@ class EmptyMethodAnalyzer(
 ) : MethodAnalyzer {
     private var zeroInitialFactProcessed: Boolean = false
     private val taintedInitialFacts = hashMapOf<TaintMark, MutableSet<AccessPathBase>>()
+    private val apManager: ApManager get() = runner.apManager
 
     override fun addInitialZeroFact() {
         if (!zeroInitialFactProcessed) {
@@ -776,7 +617,7 @@ class EmptyMethodAnalyzer(
         }
     }
 
-    override fun addInitialFact(fact: Fact.TaintedTree) {
+    override fun addInitialFact(fact: Fact.FinalFact) {
         addSummary(fact.mark, fact.ap.base)
     }
 
@@ -784,11 +625,8 @@ class EmptyMethodAnalyzer(
         val facts = taintedInitialFacts.getOrPut(mark) { hashSetOf() }
         if (!facts.add(base)) return
 
-        val initialAp = AccessPath(base, access = null, exclusions = Empty)
-        val initialFact = Fact.TaintedPath(mark, initialAp)
-
-        val factAp = AccessTree(base, AccessNode.abstractNode(), exclusions = Empty)
-        val fact = Fact.TaintedTree(mark, factAp)
+        val initialFact = Fact.InitialFact(mark, apManager.mostAbstractInitialAp(base))
+        val fact = Fact.FinalFact(mark, apManager.mostAbstractFinalAp(base))
 
         runner.addNewSummaryEdges(
             methodEntryPoint,
@@ -828,7 +666,7 @@ class EmptyMethodAnalyzer(
     override fun handleMethodSinkRequirement(
         currentEdge: FactToFact,
         methodInitialFactBase: AccessPathBase,
-        methodSinkRequirement: Fact.TaintedPath
+        methodSinkRequirement: Fact.InitialFact
     ) {
         error("Empty method should not receive sink requirements")
     }

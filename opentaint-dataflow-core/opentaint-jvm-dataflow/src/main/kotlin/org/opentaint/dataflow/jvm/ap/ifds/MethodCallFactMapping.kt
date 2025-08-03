@@ -16,9 +16,9 @@ import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.rebase
 fun mapMethodExitToReturnFlowFact(
     callStatement: JIRInst,
     methodExit: JIRInst,
-    fact: Fact.TaintedTree,
+    fact: Fact.FinalFact,
     checker: FactTypeChecker
-): Fact.TaintedTree? = mapMethodExitToReturnFlowFact(
+): Fact.FinalFact? = mapMethodExitToReturnFlowFact(
     callStatement = callStatement,
     methodExit = methodExit,
     fact = fact,
@@ -30,9 +30,9 @@ fun mapMethodExitToReturnFlowFact(
 fun mapMethodCallToStartFlowFact(
     callee: JIRMethod,
     callExpr: JIRCallExpr,
-    fact: Fact.TaintedTree,
+    fact: Fact.FinalFact,
     checker: FactTypeChecker,
-    onMappedFact: (Fact.TaintedTree, AccessPathBase) -> Unit
+    onMappedFact: (Fact.FinalFact, AccessPathBase) -> Unit
 ) = mapMethodCallToStartFlowFact(
     callee = callee,
     callExpr = callExpr,
@@ -110,7 +110,7 @@ private inline fun <F: Fact> mapMethodExitToReturnFlowFact(
     }
 }
 
-fun isValidMethodExitFact(methodExit: JIRInst, fact: Fact.TaintedTree): Boolean =
+fun isValidMethodExitFact(methodExit: JIRInst, fact: Fact.FinalFact): Boolean =
     isValidMethodExitFact(methodExit, fact.ap.base)
 
 private fun isValidMethodExitFact(methodExit: JIRInst, factBase: AccessPathBase): Boolean {
@@ -171,7 +171,7 @@ private inline fun <F: Fact> mapMethodCallToStartFlowFact(
     }
 }
 
-fun factCanBeModifiedByMethodCall(returnValue: JIRImmediate?, callExpr: JIRCallExpr, fact: Fact.TaintedTree): Boolean =
+fun factCanBeModifiedByMethodCall(returnValue: JIRImmediate?, callExpr: JIRCallExpr, fact: Fact.FinalFact): Boolean =
     factCanBeModifiedByMethodCall(returnValue, callExpr, fact.ap.base)
 
 private fun factCanBeModifiedByMethodCall(
