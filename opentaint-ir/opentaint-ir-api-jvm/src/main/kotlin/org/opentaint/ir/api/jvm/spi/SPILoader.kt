@@ -11,11 +11,7 @@ open class SPILoader {
     inline fun <reified T : CommonSPI> loadSPI(id: String): T? {
         return spiCache[id]?.get() as? T ?: run {
             val clazz = T::class.java
-            var serviceLoader = ServiceLoader.load(clazz)
-            if (!serviceLoader.iterator().hasNext()) {
-                serviceLoader = ServiceLoader.load(clazz, clazz.getClassLoader())
-            }
-            serviceLoader.find { it.id == id }?.also {
+            ServiceLoader.load(clazz, clazz.getClassLoader()).find { it.id == id }?.also {
                 spiCache.putIfAbsent(id, SoftReference(it))
             }
         }
