@@ -34,7 +34,7 @@ import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.jvm.ap.ifds.TaintSinkTracker.TaintVulnerability
 import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
-import org.opentaint.dataflow.jvm.ap.ifds.access.tree.TreeApManager
+import org.opentaint.dataflow.jvm.ap.ifds.access.cactus.CactusApManager
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.taint.TaintVertex
 import org.opentaint.dataflow.taint.TaintZeroFact
@@ -57,7 +57,7 @@ class TaintAnalysisUnitRunnerManager(
 ): AutoCloseable {
     val lambdaTracker = JIRLambdaTracker()
 
-    val apManager: ApManager = TreeApManager
+    val apManager: ApManager = CactusApManager
 
     class UnitStorage(private val apManager: ApManager) {
         private val vulnerabilities = ConcurrentLinkedQueue<TaintVulnerability>()
