@@ -12,6 +12,7 @@ import org.opentaint.ir.api.jvm.JIRTypedMethod
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.TypeName
+import org.opentaint.ir.api.jvm.cfg.BsmHandleTag
 import org.opentaint.ir.api.jvm.cfg.BsmMethodTypeArg
 import org.opentaint.ir.api.jvm.cfg.JIRArgument
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
@@ -38,6 +39,8 @@ import org.opentaint.ir.api.jvm.ext.void
 import org.opentaint.ir.impl.bytecode.JIRDeclarationImpl
 import org.opentaint.ir.impl.cfg.JIRInstLocationImpl
 import org.opentaint.ir.impl.cfg.JIRMutableInstListImpl
+import org.opentaint.ir.impl.cfg.TypedSpecialMethodRefImpl
+import org.opentaint.ir.impl.cfg.TypedStaticMethodRefImpl
 import org.opentaint.ir.impl.cfg.VirtualMethodRefImpl
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRResolvedResult.JIRResolvedClassResultImpl
 import org.opentaint.ir.impl.features.classpaths.VirtualLocation
@@ -139,14 +142,16 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
         }
 
         val actualMethod = lambda.actualMethod.method
+        val actualMethodClass = actualMethod.enclosingType as? JIRClassType
+            ?: error("Unexpected lambda method: $actualMethod")
+
         val locals = mutableListOf<JIRLocalVar>()
         val args = mutableListOf<JIRValue>()
 
-        if (lambda.isNewInvokeSpecial) {
+        if (lambda.lambdaInvokeKind == BsmHandleTag.MethodHandle.NEW_INVOKE_SPECIAL) {
             implMethodInstructions.addInstWithLocation(implMethod) { loc ->
-                val type = actualMethod.enclosingType
-                val value = locals.mkLocal("new_value", type).also { args.add(it) }
-                JIRAssignInst(loc, value, JIRNewExpr(type))
+                val value = locals.mkLocal("new_value", actualMethodClass).also { args.add(it) }
+                JIRAssignInst(loc, value, JIRNewExpr(actualMethodClass))
             }
         }
 
@@ -163,8 +168,8 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
         }
 
         val expectedArgTypes = mutableListOf<JIRType>()
-        if (!actualMethod.isStatic) {
-            expectedArgTypes.add(actualMethod.enclosingType)
+        if (lambda.lambdaInvokeKind != BsmHandleTag.MethodHandle.INVOKE_STATIC) {
+            expectedArgTypes.add(actualMethodClass)
         }
         actualMethod.parameters.mapTo(expectedArgTypes) { it.type }
 
@@ -180,21 +185,29 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
             }
         }
 
-        val callExpr = when {
-            lambda.isNewInvokeSpecial -> {
-                check(actualMethod.method.isConstructor)
-                JIRSpecialCallExpr(lambda.actualMethod, args.first(), args.drop(1))
-            }
+        val argumentTypeNames = actualMethod.method.parameters.map { it.type }
+        val returnTypeName = actualMethod.method.returnType
 
-            actualMethod.isStatic -> {
-                JIRStaticCallExpr(lambda.actualMethod, args)
-            }
-
-            else -> {
-                val instanceArg = args.first()
-                val methodRef = VirtualMethodRefImpl.of(
-                    instanceArg.type as JIRClassType, lambda.actualMethod.method
+        val callExpr = when (lambda.lambdaInvokeKind) {
+            BsmHandleTag.MethodHandle.NEW_INVOKE_SPECIAL,
+            BsmHandleTag.MethodHandle.INVOKE_SPECIAL -> {
+                val methodRef = TypedSpecialMethodRefImpl(
+                    actualMethodClass, actualMethod.name, argumentTypeNames, returnTypeName
                 )
+                JIRSpecialCallExpr(methodRef, args.first(), args.drop(1))
+            }
+
+            BsmHandleTag.MethodHandle.INVOKE_STATIC -> {
+                val methodRef = TypedStaticMethodRefImpl(
+                    actualMethodClass, actualMethod.name, argumentTypeNames, returnTypeName
+                )
+                JIRStaticCallExpr(methodRef, args)
+            }
+
+            BsmHandleTag.MethodHandle.INVOKE_VIRTUAL,
+            BsmHandleTag.MethodHandle.INVOKE_INTERFACE -> {
+                val methodRef = VirtualMethodRefImpl.of(actualMethodClass, actualMethod)
+                val instanceArg = args.first()
                 JIRVirtualCallExpr(methodRef, instanceArg, args.drop(1))
             }
         }
