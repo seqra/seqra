@@ -6,7 +6,6 @@ import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
 
 import org.opentaint.util.assert
-import kotlin.random.Random
 
 typealias Cycle = List<Accessor>
 
@@ -269,10 +268,6 @@ class AccessCactus(
 
             this.size = size
             this.depth = depth
-
-            if (Random.nextDouble() < 0.000001) {
-                System.err.println("$size, $depth, ${fieldEdges.size}")
-            }
         }
 
         override fun hashCode(): Int = hash
