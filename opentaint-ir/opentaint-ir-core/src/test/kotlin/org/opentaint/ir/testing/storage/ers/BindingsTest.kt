@@ -56,6 +56,26 @@ class BindingsTest {
         assertEquals(Long.MAX_VALUE shr 17, serializeDeserializeCompressed(Long.MAX_VALUE shr 17))
     }
 
+    @Test
+    fun booleanBinding() {
+        assertEquals(false, serializeDeserialize(false))
+        assertEquals(true, serializeDeserialize(true))
+    }
+
+    @Test
+    fun doubleBinding() {
+        assertEquals(.0, serializeDeserialize(.0))
+        assertEquals(1.0, serializeDeserialize(1.0))
+        assertEquals(2.71281828, serializeDeserialize(2.71281828))
+        assertEquals(3.14159265259, serializeDeserialize(3.14159265259))
+        assertEquals(Double.NEGATIVE_INFINITY, serializeDeserialize(Double.NEGATIVE_INFINITY))
+        assertEquals(Double.POSITIVE_INFINITY, serializeDeserialize(Double.POSITIVE_INFINITY))
+        assertEquals(Double.MIN_VALUE, serializeDeserialize(Double.MIN_VALUE))
+        assertEquals(Double.MAX_VALUE, serializeDeserialize(Double.MAX_VALUE))
+        assertEquals(java.lang.Double.MIN_NORMAL, serializeDeserialize(java.lang.Double.MIN_NORMAL))
+        assertEquals(Double.NaN, serializeDeserialize(Double.NaN))
+    }
+
     private companion object {
         val hash = byteArrayOf(
             -17, -65, -67, 68, 85, 96, -17, -65, -67, 28, 4, 76, 28,

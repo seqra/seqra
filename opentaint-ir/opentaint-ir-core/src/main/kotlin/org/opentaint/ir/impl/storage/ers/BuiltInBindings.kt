@@ -23,6 +23,7 @@ private val builtInBindings: Array<BuiltInBinding<*>> = arrayOf(
     StringBinding,    // UTF-8 strings
     IntegerBinding,   // 4-byte signed integers
     LongBinding,      // 8-byte signed integers (longs)
+    DoubleBinging,    // 8-byte floating point numbers (doubles)
     BooleanBinding    // boolean values
 )
 
@@ -222,6 +223,17 @@ private object LongBinding : BuiltInBinding<Long>() {
     private val cachedBytesCompressed = Array(16384) { i ->
         getBytesCompressedUncached(i.toLong())
     }
+}
+
+private object DoubleBinging : BuiltInBinding<Double>() {
+
+    override val classes: Set<Class<*>> get() = setOf(Double::class.java, java.lang.Double::class.java)
+
+    override fun getBytes(obj: Double): ByteArray = LongBinding.getBytes(java.lang.Double.doubleToLongBits(obj))
+
+    override fun getObject(bytes: ByteArray, offset: Int): Double =
+        java.lang.Double.longBitsToDouble(LongBinding.getObject(bytes, offset))
+
 }
 
 private object BooleanBinding : BuiltInBinding<Boolean>() {
