@@ -636,7 +636,10 @@ data class JIRLambdaExpr(
     val callSiteArgTypes: List<JIRType>,
     val callSiteReturnType: JIRType,
     val callSiteArgs: List<JIRValue>,
+    val lambdaInvokeKind: BsmHandleTag.MethodHandle,
 ) : JIRCallExpr {
+    val isNewInvokeSpecial: Boolean
+        get() = lambdaInvokeKind == BsmHandleTag.MethodHandle.NEW_INVOKE_SPECIAL
 
     override val method get() = bsmRef.method
     override val args get() = callSiteArgs
