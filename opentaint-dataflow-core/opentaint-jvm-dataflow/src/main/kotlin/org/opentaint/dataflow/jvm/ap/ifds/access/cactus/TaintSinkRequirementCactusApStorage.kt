@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.jvm.ap.ifds.access.cactus
 
+import kotlinx.collections.immutable.persistentHashMapOf
 import org.opentaint.dataflow.jvm.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
@@ -21,20 +22,19 @@ class TaintSinkRequirementCactusApStorage : TaintSinkRequirementApStorage {
         based[fact.base]?.findRequirements()
 }
 
-private class TaintSinkRequirementStorage() {
-    private val requirements: MutableMap<AccessPathWithCycles.AccessNode?, AccessPathWithCycles?> =
-        mutableMapOf()
+private class TaintSinkRequirementStorage {
+    private var requirements = persistentHashMapOf<AccessPathWithCycles.AccessNode?, AccessPathWithCycles?>()
 
     fun mergeAdd(requirement: AccessPathWithCycles): AccessPathWithCycles? {
-        val oldValue = requirements.getOrDefault(requirement.access, null)
-        val newValue = oldValue.mergeAdd(requirement)
+        val oldValue = requirements[requirement.access]
+        val newValue = oldValue.mergeAdd(requirement) ?: return null
 
-        requirements[requirement.access] = newValue ?: oldValue
+        requirements = requirements.put(requirement.access, newValue)
         return newValue
     }
 
     fun findRequirements(): Sequence<AccessPathWithCycles> =
-        requirements.values.filterNotNull().asSequence()
+        requirements.values.asSequence().filterNotNull()
 }
 
 

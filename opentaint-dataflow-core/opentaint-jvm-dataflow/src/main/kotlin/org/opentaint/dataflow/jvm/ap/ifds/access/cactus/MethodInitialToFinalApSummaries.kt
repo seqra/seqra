@@ -1,7 +1,13 @@
 package org.opentaint.dataflow.jvm.ap.ifds.access.cactus
 
+import kotlinx.collections.immutable.persistentHashMapOf
 import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.dataflow.jvm.ap.ifds.*
+import org.opentaint.dataflow.jvm.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.jvm.ap.ifds.Edge
+import org.opentaint.dataflow.jvm.ap.ifds.ExclusionSet
+import org.opentaint.dataflow.jvm.ap.ifds.FactToFactEdgeBuilder
+import org.opentaint.dataflow.jvm.ap.ifds.MethodSummaryEdgesForExitPoint
+import org.opentaint.dataflow.jvm.ap.ifds.SummaryFactStorage
 import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.jvm.ap.ifds.access.MethodInitialToFinalApSummariesStorage
 import org.opentaint.dataflow.jvm.ap.ifds.access.cactus.AccessCactus.AccessNode as AccessCactusNode
@@ -93,17 +99,18 @@ private class MethodTaintedSummariesGroupedByFact(methodEntryPoint: JIRInst) :
 
 
 private class MethodTaintedSummariesInitialApStorage {
-
-    private val initialAccessToStorage: MutableMap<AccessPathWithCycles.AccessNode?, MethodTaintedSummariesMergingStorage> =
-        mutableMapOf()
+    private var initialAccessToStorage =
+        persistentHashMapOf<AccessPathWithCycles.AccessNode?, MethodTaintedSummariesMergingStorage>()
 
     fun getOrCreate(initialAccess: AccessPathWithCycles.AccessNode?): MethodTaintedSummariesMergingStorage =
-        initialAccessToStorage.getOrPut(initialAccess) {
-            MethodTaintedSummariesMergingStorage(initialAccess)
+        initialAccessToStorage.getOrElse(initialAccess) {
+            MethodTaintedSummariesMergingStorage(initialAccess).also {
+                initialAccessToStorage = initialAccessToStorage.put(initialAccess, it)
+            }
         }
 
     fun allSummaries(): Sequence<FactToFactEdgeBuilderBuilder> =
-        initialAccessToStorage.values.flatMap { it.summaries() }.asSequence()
+        initialAccessToStorage.values.asSequence().flatMap { it.summaries() }
 }
 
 private class MethodTaintedSummariesGroupedByFactStorage {
