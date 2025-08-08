@@ -212,16 +212,32 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
             }
         }
 
-        val retVal: JIRValue?
-        if (actualMethod.returnType == lambdaClass.classpath.void) {
-            retVal = null
-            implMethodInstructions.addInstWithLocation(implMethod) { loc ->
-                JIRCallInst(loc, callExpr)
+        val retVal: JIRValue? = when {
+            lambda.lambdaInvokeKind == BsmHandleTag.MethodHandle.NEW_INVOKE_SPECIAL -> {
+                implMethodInstructions.addInstWithLocation(implMethod) { loc ->
+                    JIRCallInst(loc, callExpr)
+                }
+
+                // Constructor doesn't have a return value. An allocated instance should be returned instead
+                args.first()
             }
-        } else {
-            retVal = locals.mkLocal("result", actualMethod.returnType)
-            implMethodInstructions.addInstWithLocation(implMethod) { loc ->
-                JIRAssignInst(loc, retVal, callExpr)
+
+            actualMethod.returnType == lambdaClass.classpath.void -> {
+                implMethodInstructions.addInstWithLocation(implMethod) { loc ->
+                    JIRCallInst(loc, callExpr)
+                }
+
+                // Void methods have no return value
+                null
+            }
+
+            else -> {
+                val retVal = locals.mkLocal("result", actualMethod.returnType)
+                implMethodInstructions.addInstWithLocation(implMethod) { loc ->
+                    JIRAssignInst(loc, retVal, callExpr)
+                }
+
+                retVal
             }
         }
 
