@@ -38,7 +38,7 @@ class FactAwareConditionEvaluatorWithAssumptions(
 
     fun evalWithAssumptions(condition: Condition): List<ResultWithFactAssumptions> = try {
         hasEvaluatedContainsMark = false
-        val result = condition.toNnf(negated = false).accept(this).filter { it.result }
+        val result = condition.accept(this).filter { it.result }
         if (hasEvaluatedContainsMark) result else emptyList()
     } finally {
         hasEvaluatedContainsMark = false
@@ -147,57 +147,6 @@ class FactAwareConditionEvaluatorWithAssumptions(
 
         private val Boolean.withoutAssumptions: List<ResultWithFactAssumptions>
             get() = if (this) trueWithoutAssumptions else falseWithoutAssumptions
-
-        fun Condition.toNnf(negated: Boolean): Condition = when (this) {
-            is Not -> arg.toNnf(!negated)
-
-            is And -> if (!negated) {
-                mkAndCondition(args) { it.toNnf(negated = false) }
-            } else {
-                mkOrCondition(args) { it.toNnf(negated = true) }
-            }
-
-            is Or -> if (!negated) {
-                mkOrCondition(args) { it.toNnf(negated = false) }
-            } else {
-                mkAndCondition(args) { it.toNnf(negated = true) }
-            }
-
-            else -> if (negated) Not(this) else this
-        }
-
-        private inline fun mkOrCondition(
-            args: List<Condition>,
-            op: (Condition) -> Condition
-        ): Or {
-            val result = mutableListOf<Condition>()
-            for (arg in args) {
-                val mappedArg = op(arg)
-                if (mappedArg is Or) {
-                    result.addAll(mappedArg.args)
-                } else {
-                    result.add(mappedArg)
-                }
-            }
-            return Or(result)
-        }
-
-
-        private inline fun mkAndCondition(
-            args: List<Condition>,
-            op: (Condition) -> Condition
-        ): And {
-            val result = mutableListOf<Condition>()
-            for (arg in args) {
-                val mappedArg = op(arg)
-                if (mappedArg is And) {
-                    result.addAll(mappedArg.args)
-                } else {
-                    result.add(mappedArg)
-                }
-            }
-            return And(result)
-        }
 
         private inline fun <reified T, R> List<List<T>>.cartesianProductMapTo(body: (Array<T>) -> R): List<R> {
             val resultSize = fold(1) { acc, lst -> acc * lst.size }

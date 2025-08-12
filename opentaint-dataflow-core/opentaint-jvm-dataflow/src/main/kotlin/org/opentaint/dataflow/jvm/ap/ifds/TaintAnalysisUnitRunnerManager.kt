@@ -29,6 +29,7 @@ import org.opentaint.ir.taint.configuration.CopyAllMarks
 import org.opentaint.ir.taint.configuration.Result
 import org.opentaint.ir.taint.configuration.TaintConfigurationFeature
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
+import org.opentaint.ir.taint.configuration.TaintMark
 import org.opentaint.ir.taint.configuration.TaintPassThrough
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
@@ -136,6 +137,9 @@ class TaintAnalysisUnitRunnerManager(
 
     private val taintConfig: TaintRulesProvider by lazy {
         val provider = object : TaintRulesProvider {
+            override fun taintMarks(): Set<TaintMark> =
+                taintConfigurationFeature?.getAllTaintMarks() ?: emptySet()
+
             override fun rulesForMethod(method: JIRMethod): Iterable<TaintConfigurationItem> {
                 val config = taintConfigurationFeature ?: return emptyList()
                 val rules = config.getConfigForMethod(method)
@@ -163,6 +167,8 @@ class TaintAnalysisUnitRunnerManager(
                 condition = ConstantTrue,
                 actionsAfter = possibleArgs.map { CopyAllMarks(from = it, to = Result) })
         }
+
+        override fun taintMarks(): Set<TaintMark> = base.taintMarks()
 
         override fun rulesForMethod(method: JIRMethod): Iterable<TaintConfigurationItem> {
             val baseRules = base.rulesForMethod(method)
