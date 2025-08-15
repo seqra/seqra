@@ -89,6 +89,8 @@ class NormalMethodAnalyzer(
     private val edges = MethodAnalyzerEdges(apManager, methodEntryPoint)
     private val pendingSummaryEdges = arrayListOf<Edge>()
 
+    private val reachability = LocalVariableReachability(methodEntryPoint.method, graph)
+
     private var unprocessedEdgesCount: Int = 0
     private var analyzerSteps: Long = 0
     private var summaryEdgesHandled: Long = 0
@@ -142,13 +144,21 @@ class NormalMethodAnalyzer(
         analyzerSteps++
         unprocessedEdgesCount--
 
-        registerLambdaAllocationSite(edge.statement)
+        val edgeFactBase = when (edge) {
+            is ZeroToZero -> null
+            is ZeroToFact -> edge.fact.ap.base
+            is FactToFact -> edge.fact.ap.base
+        }
 
-        val callExpr = edge.statement.callExpr
-        if (callExpr != null) {
-            callStatementStep(callExpr, edge)
-        } else {
-            simpleStatementStep(edge)
+        if (edgeFactBase == null || reachability.isReachable(edgeFactBase, edge.statement)) {
+            registerLambdaAllocationSite(edge.statement)
+
+            val callExpr = edge.statement.callExpr
+            if (callExpr != null) {
+                callStatementStep(callExpr, edge)
+            } else {
+                simpleStatementStep(edge)
+            }
         }
 
         if (unprocessedEdgesCount == 0) {
