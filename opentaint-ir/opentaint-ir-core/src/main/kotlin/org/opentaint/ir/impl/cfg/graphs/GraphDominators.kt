@@ -1,12 +1,8 @@
 package org.opentaint.ir.impl.cfg.graphs
 
 import org.opentaint.ir.api.common.cfg.BytecodeGraph
-import org.opentaint.ir.api.jvm.cfg.JIRBasicBlock
-import org.opentaint.ir.api.jvm.cfg.JIRBlockGraph
 import org.opentaint.ir.api.jvm.cfg.JIRCatchInst
-import org.opentaint.ir.api.jvm.cfg.JIRGraph
-import org.opentaint.ir.api.jvm.cfg.JIRInst
-import java.util.*
+import java.util.BitSet
 
 /**
  * Calculate dominators for basic blocks.
@@ -142,14 +138,6 @@ open class GraphDominators<NODE>(val graph: BytecodeGraph<NODE>) {
     }
 }
 
-fun JIRGraph.findDominators(): GraphDominators<JIRInst> {
-    return GraphDominators(this).also {
-        it.find()
-    }
-}
-
-fun JIRBlockGraph.findDominators(): GraphDominators<JIRBasicBlock> {
-    return GraphDominators(this).also {
-        it.find()
-    }
+fun <NODE> BytecodeGraph<NODE>.findDominators(): GraphDominators<NODE> {
+    return GraphDominators(this).also { it.find() }
 }

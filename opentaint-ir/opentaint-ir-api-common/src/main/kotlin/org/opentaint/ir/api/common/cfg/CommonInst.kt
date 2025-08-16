@@ -5,15 +5,12 @@ import org.opentaint.ir.api.common.CommonMethod
 interface CommonInst {
     val location: CommonInstLocation
 
-    // TODO: replace with extension property
     val method: CommonMethod
         get() = location.method
 }
 
 interface CommonInstLocation {
     val method: CommonMethod
-    // val index: Int
-    // val lineNumber: Int
 }
 
 interface CommonAssignInst : CommonInst {
@@ -21,7 +18,6 @@ interface CommonAssignInst : CommonInst {
     val rhv: CommonExpr
 }
 
-// TODO: add 'callExpr: CoreExpr' property
 interface CommonCallInst : CommonInst
 
 interface CommonReturnInst : CommonInst {

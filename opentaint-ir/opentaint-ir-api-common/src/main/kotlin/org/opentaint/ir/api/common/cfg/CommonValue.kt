@@ -7,8 +7,7 @@ interface CommonThis : CommonValue
 interface CommonArgument : CommonValue
 
 interface CommonFieldRef : CommonValue {
-    val instance: CommonValue? // null for static fields
-    // val classField: CommonField
+    val instance: CommonValue?
 }
 
 interface CommonArrayAccess : CommonValue {

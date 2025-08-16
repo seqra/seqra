@@ -93,8 +93,8 @@ class JIRBlockGraphImpl(
         (block.start.index..block.end.index).map { jIRGraph.instructions[it] }
 
     override fun block(inst: JIRInst): JIRBasicBlock {
-        assert(inst.location.method == jIRGraph.method) {
-            "required method of instruction ${jIRGraph.method} but got ${inst.location.method}"
+        assert(inst.method == jIRGraph.method) {
+            "required method of instruction ${jIRGraph.method} but got ${inst.method}"
         }
         for (basicBlock in entries) {
             if (basicBlock.contains(inst)) {
