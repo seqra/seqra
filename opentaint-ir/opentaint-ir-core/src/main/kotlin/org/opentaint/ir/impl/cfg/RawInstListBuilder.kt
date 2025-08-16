@@ -367,7 +367,7 @@ class RawInstListBuilder(
         val localTypeRefinementExprMap = localTypeRefinement as Map<JIRRawExpr, JIRRawExpr>
         val localsNormalizedInstructionList = originalInstructionList.map(ExprMapper(localTypeRefinementExprMap))
 
-        return Simplifier().simplify(method.enclosingClass.classpath, localsNormalizedInstructionList)
+        return Simplifier().simplify(localsNormalizedInstructionList)
     }
 
     private fun MutableList<JIRRawInst>.ensureFirstInstIsLineNumber() {

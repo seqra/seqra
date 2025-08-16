@@ -1,6 +1,5 @@
 package org.opentaint.ir.impl.cfg
 
-import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.cfg.AbstractFullRawExprSetCollector
 import org.opentaint.ir.api.jvm.cfg.JIRInstList
 import org.opentaint.ir.api.jvm.cfg.JIRRawAssignInst
@@ -25,7 +24,7 @@ import org.opentaint.ir.impl.cfg.util.InstructionFilter
  * the frames merging)
  */
 internal class Simplifier {
-    fun simplify(jIRClasspath: JIRClasspath, instList: JIRInstList<JIRRawInst>): JIRInstList<JIRRawInst> {
+    fun simplify(instList: JIRInstList<JIRRawInst>): JIRInstList<JIRRawInst> {
         // clear the assignments that are repeated inside single basic block
         var instructionList = cleanRepeatedAssignments(instList)
 
