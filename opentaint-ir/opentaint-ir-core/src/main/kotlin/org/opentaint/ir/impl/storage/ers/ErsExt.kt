@@ -51,6 +51,19 @@ fun <T> Sequence<T>.exactSingleOrNull(): T? {
     }
 }
 
+val Entity?.bytecode: LazyBytecode get() = LazyBytecode(this)
+
+class LazyBytecode(private val clazz: Entity?) {
+
+    private val blobName = "bytecode${notNullClass().id.instanceId and 0xff}"
+
+    operator fun invoke(): ByteArray? = clazz?.getRawBlob(blobName)
+
+    operator fun invoke(bytecode: ByteArray?) = notNullClass().setRawBlob(blobName, bytecode)
+
+    private fun notNullClass(): Entity = requireNotNull(clazz) { "Class entity cannot be null" }
+}
+
 private class ErsClassSource(
     private val persistence: ErsPersistenceImpl,
     override val className: String,

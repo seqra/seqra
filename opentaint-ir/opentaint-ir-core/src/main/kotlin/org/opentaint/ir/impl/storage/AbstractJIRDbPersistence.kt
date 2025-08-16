@@ -10,6 +10,7 @@ import org.opentaint.ir.impl.caches.xodus.XODUS_CACHE_PROVIDER_ID
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.logger
+import org.opentaint.ir.impl.storage.ers.bytecode
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import java.io.File
@@ -72,7 +73,7 @@ abstract class AbstractJIRDbPersistence(
                         jooq.select(CLASSES.BYTECODE).from(CLASSES).where(CLASSES.ID.eq(classId)).fetchAny()?.value1()
                     },
                     noSqlAction = { txn ->
-                        txn.getEntityOrNull("Class", classId)?.getRawBlob("bytecode")
+                        txn.getEntityOrNull("Class", classId).bytecode()
                     }
                 )
             } ?: throw IllegalArgumentException("Can't find bytecode for $classId")

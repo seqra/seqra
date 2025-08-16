@@ -110,7 +110,7 @@ class ErsPersistenceImpl(
                 val bytecode = classInfo.bytecode
                 val hc = bytecode.hash()
                 if (oldie != null) {
-                    if (oldie.get<Long>("hc") == hc && oldie.getRawBlob("bytecode") contentEquals bytecode) {
+                    if (oldie.get<Long>("hc") == hc && oldie.bytecode() contentEquals bytecode) {
                         // class hasn't changed
                         continue
                     }
@@ -119,7 +119,7 @@ class ErsPersistenceImpl(
                         .filterLocations(locationId)
                         .filter {
                             it.getCompressed<Long>("nameId") == classNameId &&
-                                    it.getRawBlob("bytecode") contentEquals bytecode
+                                    it.bytecode() contentEquals bytecode
                         }
                         .exactSingleOrNull()
                     if (sameClass != null) {
@@ -137,7 +137,7 @@ class ErsPersistenceImpl(
                     oldie?.set("isDeleted", true)
                     clazz["nameId"] = classNameId.compressed
                     clazz["locationId"] = locationIdValue
-                    clazz.setRawBlob("bytecode", bytecode)
+                    clazz.bytecode(bytecode)
                     clazz["hc"] = hc
                     classInfo.annotations.forEach { annotationInfo ->
                         annotationInfo.save(txn, clazz, RefKind.CLASS)
