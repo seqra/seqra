@@ -201,6 +201,13 @@ if (!repoUrl.isNullOrEmpty()) {
             publications {
                 register<MavenPublication>("jar") {
                     from(components["java"])
+                    setOf("apiElements", "runtimeElements")
+                        .flatMap { configName -> configurations[configName].hierarchy }
+                        .forEach { configuration ->
+                            configuration.dependencies.removeIf { dependency ->
+                                dependency.version.isNullOrBlank()
+                            }
+                        }
                     artifact(tasks.named("sourcesJar"))
                     artifact(tasks.named("dokkaJavadocJar"))
 
