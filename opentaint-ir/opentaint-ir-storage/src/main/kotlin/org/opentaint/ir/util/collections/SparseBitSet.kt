@@ -1,5 +1,6 @@
-package org.opentaint.ir.impl.storage.ers.ram
+package org.opentaint.ir.util.collections
 
+import org.opentaint.ir.impl.storage.ers.ram.interned
 import java.util.Collections
 import java.util.NavigableMap
 import java.util.TreeMap

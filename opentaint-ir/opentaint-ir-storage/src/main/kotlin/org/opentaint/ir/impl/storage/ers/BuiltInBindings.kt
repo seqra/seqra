@@ -19,12 +19,12 @@ fun <T : Any> Class<T>.getBinding(): Binding<T> = (when {
 fun <T : Any> getBinding(obj: T): Binding<T> = obj.javaClass.getBinding()
 
 private val builtInBindings: Array<BuiltInBinding<*>> = arrayOf(
-    ByteArrayBinding, // trivial binding with no conversion to make it possible to deal with ByteArray properties
     StringBinding,    // UTF-8 strings
-    IntegerBinding,   // 4-byte signed integers
     LongBinding,      // 8-byte signed integers (longs)
+    IntegerBinding,   // 4-byte signed integers
+    BooleanBinding,    // boolean values
     DoubleBinging,    // 8-byte floating point numbers (doubles)
-    BooleanBinding    // boolean values
+    ByteArrayBinding // trivial binding with no conversion to make it possible to deal with ByteArray properties
 )
 
 private abstract class BuiltInBinding<T : Any> : Binding<T> {

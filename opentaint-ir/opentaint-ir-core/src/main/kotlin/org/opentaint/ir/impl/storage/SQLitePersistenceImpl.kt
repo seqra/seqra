@@ -35,11 +35,15 @@ class SQLitePersistenceImpl(
     internal val jooq = DSL.using(connection, SQLDialect.SQLITE, Settings().withExecuteLogging(false))
     private val lock = ReentrantLock()
     private val persistenceService = SQLitePersistenceService(this)
+    private var ersInitialized = false
+
     override val ers: EntityRelationshipStorage by lazy {
         SqlEntityRelationshipStorage(
             dataSource,
             BuiltInBindingProvider
-        )
+        ).also {
+            ersInitialized = true
+        }
     }
 
     companion object {
@@ -65,7 +69,9 @@ class SQLitePersistenceImpl(
 
     override fun close() {
         try {
-            ers.close()
+            if (ersInitialized) {
+                ers.close()
+            }
             connection.close()
             super.close()
         } catch (e: Exception) {

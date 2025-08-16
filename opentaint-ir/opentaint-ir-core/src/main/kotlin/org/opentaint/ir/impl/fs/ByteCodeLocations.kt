@@ -19,7 +19,7 @@ fun File.asByteCodeLocation(runtimeVersion: JavaVersion, isRuntime: Boolean = fa
     if (!exists()) {
         throw IllegalArgumentException("file $absolutePath doesn't exist")
     }
-    if (isFile && name.endsWith(".jar") || name.endsWith(".jmod")) {
+    if (isJar()) {
         return mutableSetOf<File>().also { classPath(it) }.map { JarLocation(it, isRuntime, runtimeVersion) }
     } else if (isDirectory) {
         return listOf(BuildFolderLocation(this))
@@ -36,7 +36,7 @@ fun Collection<File>.filterExisting(): List<File> = filter { file ->
 }
 
 private fun File.classPath(classpath: MutableCollection<File>) {
-    if (exists() && classpath.add(this)) {
+    if (isJar() && exists() && classpath.add(this)) {
         JarFile(this).use { jarFile ->
             jarFile.manifest?.mainAttributes?.getValue("Class-Path")?.split(' ')?.forEach { ref ->
                 Paths.get(
@@ -46,3 +46,5 @@ private fun File.classPath(classpath: MutableCollection<File>) {
         }
     }
 }
+
+private fun File.isJar() = isFile && name.endsWith(".jar") || name.endsWith(".jmod")

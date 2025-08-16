@@ -3,6 +3,7 @@ package org.opentaint.ir.impl.storage.ers.ram
 import org.opentaint.ir.api.storage.ers.EntityId
 import org.opentaint.ir.api.storage.ers.EntityIterable
 import org.opentaint.ir.api.storage.ers.longRangeIterable
+import org.opentaint.ir.util.collections.SparseBitSet
 
 internal class RAMDataContainerImmutable(
     // map of entity types to their type ids

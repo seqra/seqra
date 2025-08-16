@@ -1,4 +1,4 @@
-package org.opentaint.ir.impl.storage.ers.ram
+package org.opentaint.ir.util.collections
 
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue

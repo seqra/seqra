@@ -4,6 +4,8 @@ import org.opentaint.ir.api.storage.ers.EntityId
 import org.opentaint.ir.api.storage.ers.EntityIterable
 import org.opentaint.ir.api.storage.ers.filterInstanceIds
 import org.opentaint.ir.api.storage.ers.longRangeIterable
+import org.opentaint.ir.util.collections.EmptySparseBitSet
+import org.opentaint.ir.util.collections.SparseBitSet
 
 internal class RAMDataContainerMutable(
     private var typeIdCounter: Int, // next free type id
@@ -89,7 +91,7 @@ internal class RAMDataContainerMutable(
         }
         val blobs = HashMap<AttributeKey, AttributesImmutable>().also { map ->
             this.blobs.entries().forEach { entry ->
-                map[entry.key] = toAttributesImmutable(entry.value.entries().map { it.key to it.value })
+                map[entry.key] = entry.value.entries().map { it.key to it.value }.toAttributesImmutable()
             }
         }
         return RAMDataContainerImmutable(

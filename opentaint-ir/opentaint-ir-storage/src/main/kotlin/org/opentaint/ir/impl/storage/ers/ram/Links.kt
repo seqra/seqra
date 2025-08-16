@@ -106,7 +106,7 @@ internal fun LinksMutable.toImmutable(): LinksImmutable {
         }
         linkList += instanceId to valueArray
     }
-    return LinksImmutable(targetTypeId, toAttributesImmutable(linkList))
+    return LinksImmutable(targetTypeId, linkList.toAttributesImmutable())
 }
 
 /**
