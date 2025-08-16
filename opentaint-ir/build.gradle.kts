@@ -172,7 +172,6 @@ if (!repoUrl.isNullOrEmpty()) {
             project(":opentaint-ir-api-storage"),
             project(":opentaint-ir-core"),
             project(":opentaint-ir-storage"),
-            project(":opentaint-ir-analysis"),
             project(":opentaint-ir-approximations"),
             project(":opentaint-ir-taint-configuration"),
         )
