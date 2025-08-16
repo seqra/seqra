@@ -193,7 +193,7 @@ internal class Simplifier {
         val reservedValues = hashSetOf<JIRRawValue>()
         val replacedInsts = hashSetOf<JIRRawInst>()
 
-        val instructionIndex = hashMapOf<JIRRawInst, Int>()
+        val instructionIndex = identityMap<JIRRawInst, Int>()
         val assignInstructions = mutableListOf<JIRRawAssignInst>()
         val firstValueAssignment = hashMapOf<JIRRawValue, JIRRawAssignInst>()
 

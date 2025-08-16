@@ -11,7 +11,7 @@ sealed interface JIRRawInst {
     fun <T> accept(visitor: JIRRawInstVisitor<T>): T
 }
 
-data class JIRRawAssignInst(
+class JIRRawAssignInst(
     override val owner: JIRMethod,
     val lhv: JIRRawValue,
     val rhv: JIRRawExpr
@@ -27,7 +27,7 @@ data class JIRRawAssignInst(
     }
 }
 
-data class JIRRawEnterMonitorInst(
+class JIRRawEnterMonitorInst(
     override val owner: JIRMethod,
     val monitor: JIRRawSimpleValue
 ) : JIRRawInst {
@@ -41,7 +41,7 @@ data class JIRRawEnterMonitorInst(
     }
 }
 
-data class JIRRawExitMonitorInst(
+class JIRRawExitMonitorInst(
     override val owner: JIRMethod,
     val monitor: JIRRawSimpleValue
 ) : JIRRawInst {
@@ -55,7 +55,7 @@ data class JIRRawExitMonitorInst(
     }
 }
 
-data class JIRRawCallInst(
+class JIRRawCallInst(
     override val owner: JIRMethod,
     val callExpr: JIRRawCallExpr
 ) : JIRRawInst {
@@ -73,7 +73,7 @@ data class JIRRawLabelRef(val name: String) {
     override fun toString() = name
 }
 
-data class JIRRawLineNumberInst(override val owner: JIRMethod, val lineNumber: Int, val start: JIRRawLabelRef) : JIRRawInst {
+class JIRRawLineNumberInst(override val owner: JIRMethod, val lineNumber: Int, val start: JIRRawLabelRef) : JIRRawInst {
 
     override val operands: List<JIRRawExpr>
         get() = emptyList()
@@ -85,7 +85,7 @@ data class JIRRawLineNumberInst(override val owner: JIRMethod, val lineNumber: I
     }
 }
 
-data class JIRRawLabelInst(
+class JIRRawLabelInst(
     override val owner: JIRMethod,
     val name: String
 ) : JIRRawInst {
@@ -101,7 +101,7 @@ data class JIRRawLabelInst(
     }
 }
 
-data class JIRRawReturnInst(
+class JIRRawReturnInst(
     override val owner: JIRMethod,
     val returnValue: JIRRawValue?
 ) : JIRRawInst {
@@ -115,7 +115,7 @@ data class JIRRawReturnInst(
     }
 }
 
-data class JIRRawThrowInst(
+class JIRRawThrowInst(
     override val owner: JIRMethod,
     val throwable: JIRRawValue
 ) : JIRRawInst {
@@ -135,7 +135,7 @@ data class JIRRawCatchEntry(
     val endExclusive: JIRRawLabelRef
 )
 
-data class JIRRawCatchInst(
+class JIRRawCatchInst(
     override val owner: JIRMethod,
     val throwable: JIRRawValue,
     val handler: JIRRawLabelRef,
@@ -155,7 +155,7 @@ sealed interface JIRRawBranchingInst : JIRRawInst {
     val successors: List<JIRRawLabelRef>
 }
 
-data class JIRRawGotoInst(
+class JIRRawGotoInst(
     override val owner: JIRMethod,
     val target: JIRRawLabelRef
 ) : JIRRawBranchingInst {
@@ -172,7 +172,7 @@ data class JIRRawGotoInst(
     }
 }
 
-data class JIRRawIfInst(
+class JIRRawIfInst(
     override val owner: JIRMethod,
     val condition: JIRRawConditionExpr,
     val trueBranch: JIRRawLabelRef,
@@ -191,7 +191,7 @@ data class JIRRawIfInst(
     }
 }
 
-data class JIRRawSwitchInst(
+class JIRRawSwitchInst(
     override val owner: JIRMethod,
     val key: JIRRawValue,
     val branches: Map<JIRRawValue, JIRRawLabelRef>,
