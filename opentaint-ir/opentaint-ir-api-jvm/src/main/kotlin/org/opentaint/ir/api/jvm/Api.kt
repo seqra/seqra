@@ -45,6 +45,11 @@ interface JavaVersion {
 @JvmDefaultWithoutCompatibility
 interface JIRDatabase : Closeable {
 
+    /**
+     * Unique id of the database. Databases built against same locations have the same id.
+     * Id changes if locations change. Databases with the same id can be considered as equal.
+     */
+    val id: String
     val locations: List<RegisteredLocation>
     val persistence: JIRDatabasePersistence
 
@@ -114,6 +119,7 @@ interface JIRDatabase : Closeable {
      * await background jobs
      */
     suspend fun awaitBackgroundJobs()
+    suspend fun cancelBackgroundJobs()
     fun asyncAwaitBackgroundJobs() = GlobalScope.future { awaitBackgroundJobs() }
 
     /**
@@ -122,10 +128,7 @@ interface JIRDatabase : Closeable {
      * The method can be used in order to "fix" current snapshot of the model.
      * Generally, there is no way to switch the database back to mutable.
      */
-    suspend fun setImmutable() {
-        awaitBackgroundJobs()
-        persistence.setImmutable()
-    }
+    suspend fun setImmutable()
 
     fun isInstalled(feature: JIRFeature<*, *>): Boolean = features.contains(feature)
 
@@ -139,6 +142,11 @@ interface JIRDatabasePersistence : Closeable {
     val ers: EntityRelationshipStorage
 
     fun setup()
+
+    /**
+     * Try to load code model by database id
+     */
+    fun tryLoad(databaseId: String): Boolean = false
 
     fun <T> write(action: (JIRDBContext) -> T): T
     fun <T> read(action: (JIRDBContext) -> T): T
@@ -163,7 +171,7 @@ interface JIRDatabasePersistence : Closeable {
      * The method can be used in order to "fix" current snapshot of the model.
      * Generally, there is no way to switch the persistence back to mutable.
      */
-    fun setImmutable() {}
+    fun setImmutable(databaseId: String) {}
 }
 
 /**

@@ -34,6 +34,7 @@ import org.opentaint.ir.impl.storage.SQLITE_DATABASE_PERSISTENCE_SPI
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
 import org.opentaint.ir.impl.vfs.RemoveLocationsVisitor
 import java.io.File
+import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -57,6 +58,9 @@ class JIRDatabaseImpl(
 
     private val backgroundScope = BackgroundScope()
 
+    @Volatile
+    private var isImmutable = false
+
     init {
         val persistenceId = (settings.persistenceId ?: SQLITE_DATABASE_PERSISTENCE_SPI)
         val persistenceSPI = JIRDatabasePersistenceSPI.getProvider(persistenceId)
@@ -65,6 +69,10 @@ class JIRDatabaseImpl(
         locationsRegistry = persistenceSPI.newLocationsRegistry(this)
     }
 
+    override val id: String
+        get() = locations.mapNotNull { it.jIRLocation?.fileSystemIdHash }
+            .fold(BigInteger.ZERO) { result, hash -> result xor hash }.toString(Character.MAX_RADIX)
+
     override val locations: List<RegisteredLocation> get() = locationsRegistry.actualLocations
 
     suspend fun restore() {
@@ -72,11 +80,17 @@ class JIRDatabaseImpl(
         persistence.setup()
         locationsRegistry.cleanup()
         val runtime = JavaRuntime(settings.jre).allLocations
-        locationsRegistry.setup(runtime).new.process(false)
-        locationsRegistry.registerIfNeeded(
+        val runtimeNew = locationsRegistry.setup(runtime).new
+        val registeredNew = locationsRegistry.registerIfNeeded(
             settings.predefinedDirOrJars.filter { it.exists() }
                 .flatMap { it.asByteCodeLocation(javaRuntime.version, isRuntime = false) }.distinct()
-        ).new.process(true)
+        ).new
+        if (canBeDumped() && persistence.tryLoad(id)) {
+            isImmutable = true
+        } else {
+            runtimeNew.process(false)
+            registeredNew.process(true)
+        }
     }
 
     private fun List<JIRClasspathFeature>?.appendBuiltInFeatures(): List<JIRClasspathFeature> {
@@ -135,6 +149,95 @@ class JIRDatabaseImpl(
         locationsRegistry.registerIfNeeded(locations).new.process(true)
     }
 
+    override suspend fun refresh() {
+        awaitBackgroundJobs()
+        locationsRegistry.refresh().new.process(true)
+        val result = locationsRegistry.cleanup()
+        classesVfs.visit(RemoveLocationsVisitor(result.outdated, settings.byteCodeSettings.prefixes))
+    }
+
+    override suspend fun rebuildFeatures() {
+        awaitBackgroundJobs()
+        featuresRegistry.broadcast(JIRInternalSignal.Drop)
+
+        withContext(Dispatchers.IO) {
+            val locations = locationsRegistry.actualLocations
+            val parentScope = this
+            locations.map {
+                async {
+                    val addedClasses = persistence.findClassSources(this@JIRDatabaseImpl, it)
+                    parentScope.ifActive { featuresRegistry.index(it, addedClasses) }
+                }
+            }.joinAll()
+        }
+    }
+
+    override fun watchFileSystemChanges(): JIRDatabase {
+        val delay = settings.watchFileSystemDelay?.toLong()
+        if (delay != null) { // just paranoid check
+            backgroundScope.launch {
+                while (true) {
+                    delay(delay)
+                    refresh()
+                }
+            }
+        }
+        return this
+    }
+
+    override suspend fun awaitBackgroundJobs() {
+        if (!isImmutable) {
+            backgroundJobs.values.joinAll()
+            if (canBeDumped()) {
+                persistence.setImmutable(id)
+                isImmutable = true
+            }
+        }
+    }
+
+    override suspend fun cancelBackgroundJobs() {
+        backgroundJobs.values.forEach {
+            it.cancel()
+        }
+        awaitBackgroundJobs()
+        backgroundJobs.clear()
+    }
+
+    override val features: List<JIRFeature<*, *>>
+        get() = featuresRegistry.features
+
+    suspend fun afterStart() {
+        hooks.forEach { it.afterStart() }
+    }
+
+    override suspend fun setImmutable() {
+        if (!isImmutable) {
+            backgroundJobs.values.joinAll()
+            persistence.setImmutable(id)
+            isImmutable = true
+        }
+    }
+
+    override fun close() {
+        isClosed.set(true)
+        locationsRegistry.close()
+        runBlocking {
+            cancelBackgroundJobs()
+        }
+        classesVfs.close()
+        backgroundScope.cancel()
+        persistence.close()
+        hooks.forEach { it.afterStop() }
+    }
+
+    private fun canBeDumped() =
+        settings.persistenceSettings.implSettings.let { persistenceSettings ->
+            persistenceSettings is JIRErsSettings &&
+                    persistenceSettings.ersSettings.let { ersSettings ->
+                        ersSettings is RamErsSettings && ersSettings.immutableDumpsPath != null
+                    }
+        }
+
     private suspend fun List<RegisteredLocation>.process(createIndexes: Boolean): List<RegisteredLocation> {
         withContext(Dispatchers.IO) {
             map { location ->
@@ -173,69 +276,6 @@ class JIRDatabaseImpl(
         return this
     }
 
-    override suspend fun refresh() {
-        awaitBackgroundJobs()
-        locationsRegistry.refresh().new.process(true)
-        val result = locationsRegistry.cleanup()
-        classesVfs.visit(RemoveLocationsVisitor(result.outdated, settings.byteCodeSettings.prefixes))
-    }
-
-    override suspend fun rebuildFeatures() {
-        awaitBackgroundJobs()
-        featuresRegistry.broadcast(JIRInternalSignal.Drop)
-
-        withContext(Dispatchers.IO) {
-            val locations = locationsRegistry.actualLocations
-            val parentScope = this
-            locations.map {
-                async {
-                    val addedClasses = persistence.findClassSources(this@JIRDatabaseImpl, it)
-                    parentScope.ifActive { featuresRegistry.index(it, addedClasses) }
-                }
-            }.joinAll()
-        }
-    }
-
-    override fun watchFileSystemChanges(): JIRDatabase {
-        val delay = settings.watchFileSystemDelay?.toLong()
-        if (delay != null) { // just paranoid check
-            backgroundScope.launch {
-                while (true) {
-                    delay(delay)
-                    refresh()
-                }
-            }
-        }
-        return this
-    }
-
-    override suspend fun awaitBackgroundJobs() {
-        backgroundJobs.values.joinAll()
-    }
-
-    override val features: List<JIRFeature<*, *>>
-        get() = featuresRegistry.features
-
-    suspend fun afterStart() {
-        hooks.forEach { it.afterStart() }
-    }
-
-    override fun close() {
-        isClosed.set(true)
-        locationsRegistry.close()
-        backgroundJobs.values.forEach {
-            it.cancel()
-        }
-        runBlocking {
-            awaitBackgroundJobs()
-        }
-        backgroundJobs.clear()
-        classesVfs.close()
-        backgroundScope.cancel()
-        persistence.close()
-        hooks.forEach { it.afterStop() }
-    }
-
     private fun assertNotClosed() {
         if (isClosed.get()) {
             throw IllegalStateException("Database is already closed")
@@ -247,5 +287,4 @@ class JIRDatabaseImpl(
             action()
         }
     }
-
 }

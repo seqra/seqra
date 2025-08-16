@@ -40,6 +40,11 @@ interface Transaction : Closeable {
     fun getTypeId(type: String): Int
 
     /**
+     * All entity type names with their ids.
+     */
+    fun getTypes(): Map<String, Int>
+
+    /**
      * Returns set of property names ever being set to an entity of specified `type`.
      */
     fun getPropertyNames(type: String): Set<String> = emptySet()

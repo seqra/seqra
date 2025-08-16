@@ -1,26 +1,43 @@
 package org.opentaint.ir.testing.storage.ers
 
-import org.opentaint.ir.api.storage.ers.EmptyErsSettings
 import org.opentaint.ir.api.storage.ers.EntityRelationshipStorage
 import org.opentaint.ir.api.storage.ers.EntityRelationshipStorageSPI
+import org.opentaint.ir.api.storage.ers.ErsSettings
 import org.opentaint.ir.api.storage.ers.compressed
 import org.opentaint.ir.api.storage.ers.nonSearchable
+import org.opentaint.ir.impl.JIRKvErsSettings
+import org.opentaint.ir.impl.RamErsSettings
+import org.opentaint.ir.impl.storage.ers.kv.KV_ERS_SPI
 import org.opentaint.ir.impl.storage.ers.ram.RAM_ERS_SPI
+import org.opentaint.ir.impl.storage.kv.lmdb.LMDB_KEY_VALUE_STORAGE_SPI
+import org.opentaint.ir.impl.storage.kv.rocks.ROCKS_KEY_VALUE_STORAGE_SPI
+import org.opentaint.ir.impl.storage.kv.xodus.XODUS_KEY_VALUE_STORAGE_SPI
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import java.nio.file.Files
+import kotlin.io.path.absolutePathString
 
-class RAMEntityRelationshipStorageImmutableTest {
+private val ramErsSettings by lazy {
+    RamErsSettings(
+        immutableDumpsPath = Files.createTempDirectory("ersImmutable").absolutePathString()
+    )
+}
+
+abstract class EntityRelationshipStorageImmutableTest {
 
     private val ersSpi by lazy(LazyThreadSafetyMode.NONE) {
-        EntityRelationshipStorageSPI.getProvider(RAM_ERS_SPI)
+        EntityRelationshipStorageSPI.getProvider(ersId)
     }
 
-    private lateinit var readonlyStorage: EntityRelationshipStorage
+    protected open val ersSettings: ErsSettings = ramErsSettings
+    protected abstract val ersId: String
+
+    private lateinit var immutableStorage: EntityRelationshipStorage
 
     @Test
     fun `get all users`() {
-        readonlyStorage.transactional { txn ->
+        immutableStorage.transactional { txn ->
             assertEquals(100L, txn.all("User").size)
             txn.all("User").forEachIndexed { i, user ->
                 assertEquals("login$i", user.get<String>("login"))
@@ -32,7 +49,7 @@ class RAMEntityRelationshipStorageImmutableTest {
 
     @Test
     fun `get all users in a group`() {
-        readonlyStorage.transactional { txn ->
+        immutableStorage.transactional { txn ->
             val groupUsers = txn.all("UserGroup").first().getLinks("user").toList()
             assertEquals(100, groupUsers.size)
             assertEquals(100L, txn.all("User").size)
@@ -44,7 +61,7 @@ class RAMEntityRelationshipStorageImmutableTest {
 
     @Test
     fun `find users by property`() {
-        readonlyStorage.transactional { txn ->
+        immutableStorage.transactional { txn ->
             repeat(100) { i ->
                 (txn.find("User", "login", "login$i") * txn.find("User", "password", "password$i")).first()
                     .let { user ->
@@ -58,7 +75,7 @@ class RAMEntityRelationshipStorageImmutableTest {
 
     @Test
     fun `find users by property in range`() {
-        readonlyStorage.transactional { txn ->
+        immutableStorage.transactional { txn ->
             assertEquals(100L, txn.findEqOrGt("User", "age", 20.compressed).size)
             assertEquals(90L, txn.findGt("User", "age", 20.compressed).size)
             assertEquals(40L, txn.findGt("User", "age", 25.compressed).size)
@@ -89,7 +106,7 @@ class RAMEntityRelationshipStorageImmutableTest {
 
     @Test
     fun `entity metadata`() {
-        readonlyStorage.transactional { txn ->
+        immutableStorage.transactional { txn ->
             txn.getPropertyNames("User").toList().let { props ->
                 assertEquals(5, props.size)
                 assertEquals("age", props[0])
@@ -111,7 +128,7 @@ class RAMEntityRelationshipStorageImmutableTest {
 
     @BeforeEach
     fun setUp() {
-        readonlyStorage = ersSpi.newStorage(persistenceLocation = null, settings = EmptyErsSettings).let { rwStorage ->
+        immutableStorage = ersSpi.newStorage(persistenceLocation = null, settings = ersSettings).let { rwStorage ->
             // populate some data
             rwStorage.transactional { txn ->
                 repeat(100) { i ->
@@ -128,7 +145,26 @@ class RAMEntityRelationshipStorageImmutableTest {
                     userGroup.addLink("user", user)
                 }
             }
-            rwStorage.asReadonly
+            rwStorage.asImmutable("31415925853")
         }
     }
+}
+
+class RAMEntityRelationshipStorageImmutableTest : EntityRelationshipStorageImmutableTest() {
+    override val ersId = RAM_ERS_SPI
+}
+
+class XodusEntityRelationshipStorageImmutableTest : EntityRelationshipStorageImmutableTest() {
+    override val ersSettings = JIRKvErsSettings(XODUS_KEY_VALUE_STORAGE_SPI)
+    override val ersId = KV_ERS_SPI
+}
+
+class LMDBEntityRelationshipStorageImmutableTest : EntityRelationshipStorageImmutableTest() {
+    override val ersSettings = JIRKvErsSettings(LMDB_KEY_VALUE_STORAGE_SPI)
+    override val ersId = KV_ERS_SPI
+}
+
+class RocksEntityRelationshipStorageImmutableTest : EntityRelationshipStorageImmutableTest() {
+    override val ersSettings = JIRKvErsSettings(ROCKS_KEY_VALUE_STORAGE_SPI)
+    override val ersId = KV_ERS_SPI
 }

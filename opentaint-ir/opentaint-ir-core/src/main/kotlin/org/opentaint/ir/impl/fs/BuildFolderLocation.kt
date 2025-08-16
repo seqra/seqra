@@ -3,6 +3,7 @@ package org.opentaint.ir.impl.fs
 import mu.KLogging
 import org.opentaint.ir.api.jvm.LocationType
 import java.io.File
+import java.math.BigInteger
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.streams.asSequence
@@ -11,23 +12,23 @@ class BuildFolderLocation(folder: File) : AbstractByteCodeLocation(folder) {
 
     companion object : KLogging()
 
+    override val currentHash: BigInteger
+        get() {
+            return BigInteger(
+                buildString {
+                    append(jarOrFolder.absolutePath)
+                    append(jarOrFolder.lastModified())
+                    jarOrFolder.walk().onEnter {
+                        append(it.lastModified())
+                        append(it.name)
+                        true
+                    }
+                }.shaHash
+            )
+        }
+
     override val type: LocationType
         get() = LocationType.APP
-
-    override val fileSystemId by lazy { currentHash() }
-
-    override fun currentHash(): String {
-        return buildString {
-            append(jarOrFolder.absolutePath)
-            append(jarOrFolder.lastModified())
-            jarOrFolder.walk().onEnter {
-                append(it.lastModified())
-                append(it.name)
-                true
-            }
-
-        }.shaHash
-    }
 
     override fun createRefreshed() = BuildFolderLocation(jarOrFolder)
 

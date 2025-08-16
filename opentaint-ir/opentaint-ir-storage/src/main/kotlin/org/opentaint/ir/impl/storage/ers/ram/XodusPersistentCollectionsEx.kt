@@ -35,7 +35,7 @@ internal inline fun <T> PersistentHashSet<*>.read(reader: ImmutablePersistentHas
 internal inline val PersistentHashSet<*>.size: Int get() = beginRead().size()
 
 internal operator fun PersistentHashSet<*>.contains(value: Long): Boolean =
-    value in (beginRead() as ImmutablePersistentHashSet<Long>)
+    value in (beginRead() as ImmutablePersistentHashSet)
 
 internal operator fun <K : Any, V> PersistentHashMap<K, V>.get(key: K): V? = current[key]
 

@@ -4,12 +4,20 @@ import org.opentaint.ir.api.storage.ers.EntityId
 import org.opentaint.ir.api.storage.ers.EntityIterable
 import org.opentaint.ir.api.storage.ers.longRangeIterable
 import org.opentaint.ir.util.collections.SparseBitSet
+import org.opentaint.ir.util.io.readString
+import org.opentaint.ir.util.io.readUnsignedOrderedLongs
+import org.opentaint.ir.util.io.readVlqUnsigned
+import org.opentaint.ir.util.io.writeString
+import org.opentaint.ir.util.io.writeUnsignedOrderedLongs
+import org.opentaint.ir.util.io.writeVlqUnsigned
+import java.io.InputStream
+import java.io.OutputStream
 
 internal class RAMDataContainerImmutable(
     // map of entity types to their type ids
     private val types: Map<String, Int>,
-    // arrays of instance info by typeId
-    // typeId is an index in the array, pair contains next free instance id and bit set of ids of deleted entities
+    // arrays of instance info by typeId.
+    // typeId is an index in the array, pair contains next free instance id and bit set of ids of deleted entities.
     private val instances: Array<Pair<Long, SparseBitSet>?>,
     // (typeId, propName) -> PropertiesImmutable
     private var properties: Map<AttributeKey, PropertiesImmutable>,
@@ -36,6 +44,8 @@ internal class RAMDataContainerImmutable(
     }
 
     override fun getTypeId(type: String): Int = types[type] ?: -1
+
+    override fun getEntityTypes(): Map<String, Int> = types
 
     override fun getOrAllocateTypeId(type: String): Pair<RAMDataContainer, Int> {
         return getTypeId(type).let {
@@ -148,6 +158,48 @@ internal class RAMDataContainerImmutable(
 
     override fun deleteLink(id: EntityId, linkName: String, targetId: EntityId): RAMDataContainer = cantModify()
 
+    fun dump(output: OutputStream) {
+        // save types
+        output.writeVlqUnsigned(types.size)
+        types.forEach { entry ->
+            output.writeString(entry.key)
+            output.writeVlqUnsigned(entry.value)
+        }
+
+        // save instance counters & deleted
+        output.writeVlqUnsigned(instances.size)
+        instances.forEachIndexed { i, pair ->
+            pair?.let { (freeInstanceId, deleted) ->
+                output.writeVlqUnsigned(i)
+                output.writeVlqUnsigned(freeInstanceId)
+                output.writeUnsignedOrderedLongs(deleted)
+            }
+        }
+        // marks end of instances since instances.size is not an index in the array
+        output.writeVlqUnsigned(instances.size)
+
+        // save properties
+        output.writeVlqUnsigned(properties.size)
+        properties.forEach { entry ->
+            output.writeAttributeKey(entry.key)
+            entry.value.dump(output)
+        }
+
+        //save links
+        output.writeVlqUnsigned(links.size)
+        links.forEach { entry ->
+            output.writeAttributeKey(entry.key)
+            entry.value.dump(output)
+        }
+
+        //save blobs
+        output.writeVlqUnsigned(blobs.size)
+        blobs.forEach { entry ->
+            output.writeAttributeKey(entry.key)
+            entry.value.dump(output)
+        }
+    }
+
     private fun getEntitiesWithPropertyFunction(
         type: String,
         propertyName: String,
@@ -161,4 +213,63 @@ internal class RAMDataContainerImmutable(
     private fun cantModify(): Nothing = throwError("cannot modify")
 
     private fun throwError(msg: String): Nothing = error("RAMDataContainerImmutable: $msg")
+}
+
+internal fun InputStream.readRAMDataContainerImmutable(): RAMDataContainerImmutable {
+    // load types
+    val typeCount = readVlqUnsigned().toInt()
+    val types = HashMap<String, Int>(typeCount).also { map ->
+        repeat(typeCount) {
+            map[requireNotNull(readString())] = readVlqUnsigned().toInt()
+        }
+    }
+    // load instance counters & deleted
+    val instances: Array<Pair<Long, SparseBitSet>?> = arrayOfNulls(readVlqUnsigned().toInt())
+    while (true) {
+        val index = readVlqUnsigned().toInt()
+        if (index !in instances.indices) break
+        val freeInstanceId = readVlqUnsigned()
+        val deleted = SparseBitSet(readUnsignedOrderedLongs())
+        instances[index] = Pair(freeInstanceId, deleted)
+    }
+    // load properties
+    val propertiesCount = readVlqUnsigned().toInt()
+    val properties = HashMap<AttributeKey, PropertiesImmutable>(propertiesCount).also { map ->
+        repeat(propertiesCount) {
+            val key = AttributeKey(typeId = readVlqUnsigned().toInt(), name = requireNotNull(readString()))
+            val value = readPropertiesImmutable()
+            map[key] = value
+        }
+    }
+    // load links
+    val linksCount = readVlqUnsigned().toInt()
+    val links = HashMap<AttributeKey, LinksImmutable>(linksCount).also { map ->
+        repeat(linksCount) {
+            val key = AttributeKey(typeId = readVlqUnsigned().toInt(), name = requireNotNull(readString()))
+            val value = readLinksImmutable()
+            map[key] = value
+        }
+    }
+    // load blobs
+    val blobsCount = readVlqUnsigned().toInt()
+    val blobs = HashMap<AttributeKey, AttributesImmutable>(blobsCount).also { map ->
+        repeat(blobsCount) {
+            val key = AttributeKey(typeId = readVlqUnsigned().toInt(), name = requireNotNull(readString()))
+            val value = readAttributesImmutable()
+            map[key] = value
+        }
+    }
+
+    return RAMDataContainerImmutable(
+        types = types,
+        instances = instances,
+        properties = properties,
+        links = links,
+        blobs = blobs
+    )
+}
+
+private fun OutputStream.writeAttributeKey(key: AttributeKey) {
+    writeVlqUnsigned(key.typeId)
+    writeString(key.name)
 }

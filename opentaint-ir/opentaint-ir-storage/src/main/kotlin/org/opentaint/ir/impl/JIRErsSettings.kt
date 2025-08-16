@@ -3,6 +3,10 @@ package org.opentaint.ir.impl
 import org.opentaint.ir.api.storage.ers.ErsSettings
 import org.opentaint.ir.impl.storage.kv.lmdb.LMDB_KEY_VALUE_STORAGE_SPI
 
+class RamErsSettings(
+    val immutableDumpsPath: String? = null
+) : ErsSettings
+
 /**
  * Id of pluggable K/V storage being passed for [org.opentaint.ir.impl.storage.ers.kv.KVEntityRelationshipStorageSPI].
  */

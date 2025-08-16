@@ -4,7 +4,9 @@ import mu.KLogging
 import org.opentaint.ir.api.jvm.JavaVersion
 import org.opentaint.ir.api.jvm.LocationType
 import org.opentaint.ir.impl.softLazy
+import org.opentaint.ir.util.io.mapReadonly
 import java.io.File
+import java.math.BigInteger
 import java.util.jar.JarFile
 
 open class JarLocation(
@@ -15,7 +17,8 @@ open class JarLocation(
 
     companion object : KLogging()
 
-    override val fileSystemId by lazy { fileChecksum }
+    override val currentHash: BigInteger
+        get() = BigInteger(jarOrFolder.mapReadonly().shaHash)
 
     override val type: LocationType
         get() = when {
@@ -24,8 +27,6 @@ open class JarLocation(
         }
 
     override fun createRefreshed() = JarLocation(jarOrFolder, isRuntime, runtimeVersion)
-
-    override fun currentHash() = fileChecksum
 
     override val classes: Map<String, ByteArray> by softLazy {
         try {
@@ -70,12 +71,4 @@ open class JarLocation(
     override fun hashCode(): Int {
         return jarOrFolder.hashCode()
     }
-
-    private val fileChecksum: String
-        get() {
-            return jarOrFolder.let {
-                it.absolutePath + it.lastModified() + it.length()
-            }.shaHash
-        }
-
 }

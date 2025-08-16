@@ -1,5 +1,6 @@
 package org.opentaint.ir.util.collections
 
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -21,7 +22,7 @@ class SparseBitSetTest {
      * - And the SparseBitSet should not be empty
      */
     @Test
-    fun `Verify that a bit can be set in the SparseBitSet`() {
+    fun `verify that a bit can be set in the SparseBitSet`() {
         val bitToSet = 5L
         val wasSet = sparseBitSet.set(bitToSet)
         assertTrue(wasSet)
@@ -36,7 +37,7 @@ class SparseBitSetTest {
      * - And the SparseBitSet should remain unchanged
      */
     @Test
-    fun `Verify that setting the same bit twice does not mutate the SparseBitSet`() {
+    fun `verify that setting the same bit twice does not mutate the SparseBitSet`() {
         val bitToSet = 5L
         sparseBitSet.set(bitToSet)
         val wasSetAgain = sparseBitSet.set(bitToSet)
@@ -51,7 +52,7 @@ class SparseBitSetTest {
      * - And the SparseBitSet should reflect that it is not empty if other bits are present
      */
     @Test
-    fun `Verify that a bit can be cleared from the SparseBitSet`() {
+    fun `verify that a bit can be cleared from the SparseBitSet`() {
         val bitToSet = 5L
         sparseBitSet.set(bitToSet)
         val wasCleared = sparseBitSet.clear(bitToSet)
@@ -66,7 +67,7 @@ class SparseBitSetTest {
      * - And the SparseBitSet should remain unchanged
      */
     @Test
-    fun `Verify that clearing a bit that is not set does not mutate the SparseBitSet`() {
+    fun `verify that clearing a bit that is not set does not mutate the SparseBitSet`() {
         val bitToSet = 5L
         sparseBitSet.set(bitToSet)
         val wasCleared = sparseBitSet.clear(10L)
@@ -82,9 +83,21 @@ class SparseBitSetTest {
      * - Then the result should indicate that the bit is not contained within the SparseBitSet
      */
     @Test
-    fun `Verify that testing a bit returns the correct result`() {
+    fun `verify that testing a bit returns the correct result`() {
         sparseBitSet.set(5L)
         assertTrue(sparseBitSet.test(5L))
         assertFalse(sparseBitSet.test(10L))
+    }
+
+    @Test
+    fun `verify iterator works correctly`() {
+        for (l in 5L..555L step 10) {
+            sparseBitSet.set(l)
+        }
+        val iterator = sparseBitSet.iterator()
+        for (l in 5L..555L step 10) {
+            assertTrue(iterator.hasNext())
+            assertEquals(l, iterator.next())
+        }
     }
 }

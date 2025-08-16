@@ -12,7 +12,7 @@ class TransactionalPersistentLongMap<V : Any>(
 
     fun keys(): Iterable<Long> = (mutated ?: committed.beginRead()).map { it.key }
 
-    fun entries(): Iterable<PersistentLongMap.Entry<V>> = (mutated ?: committed.beginRead())
+    fun entries(): PersistentLongMap.ImmutableMap<V> = (mutated ?: committed.beginRead())
 
     operator fun get(key: Long): V? {
         mutated?.let {

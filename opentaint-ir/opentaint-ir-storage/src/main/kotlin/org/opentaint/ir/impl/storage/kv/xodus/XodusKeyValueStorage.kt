@@ -20,12 +20,6 @@ internal class XodusKeyValueStorage(location: String) : PluggableKeyValueStorage
         }
     )
 
-    override var readonly: Boolean
-        get() = env.environmentConfig.envIsReadonly
-        set(value) {
-            env.environmentConfig.envIsReadonly = value
-        }
-
     override fun beginTransaction(): Transaction =
         XodusTransaction(this, env.beginTransaction().withNoStoreGetCache())
 

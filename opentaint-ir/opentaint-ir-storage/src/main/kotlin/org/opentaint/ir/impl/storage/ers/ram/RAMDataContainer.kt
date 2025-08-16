@@ -11,6 +11,8 @@ internal interface RAMDataContainer : MutableContainer<RAMDataContainer> {
 
     fun getTypeId(type: String): Int
 
+    fun getEntityTypes(): Map<String, Int>
+
     fun getOrAllocateTypeId(type: String): Pair<RAMDataContainer, Int>
 
     fun allocateInstanceId(typeId: Int): Pair<RAMDataContainer, Long>

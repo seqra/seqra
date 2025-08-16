@@ -6,6 +6,8 @@ import org.opentaint.ir.api.storage.ers.Entity
 import org.opentaint.ir.api.storage.ers.EntityId
 import org.opentaint.ir.api.storage.ers.EntityIterable
 import org.opentaint.ir.api.storage.ers.InstanceIdCollectionEntityIterable
+import org.opentaint.ir.util.io.writeVlqUnsigned
+import java.io.OutputStream
 
 internal class LinksMutable(
     internal val targetTypeId: Int = -1,
@@ -93,54 +95,9 @@ internal class LinksImmutable(
             }
         }
     }
-}
 
-internal fun LinksMutable.toImmutable(): LinksImmutable {
-    val linkList = mutableListOf<Pair<Long, ByteArray>>()
-    links.beginRead().forEach { link ->
-        val instanceId = link.key
-        val linkSet = link.value
-        var valueArray = byteArrayOf()
-        linkSet.forEach { targetId ->
-            valueArray += writeCompressedUnsignedLong(targetId)
-        }
-        linkList += instanceId to valueArray
+    fun dump(output: OutputStream) {
+        output.writeVlqUnsigned(targetTypeId)
+        attributes.dump(output)
     }
-    return LinksImmutable(targetTypeId, linkList.toAttributesImmutable())
-}
-
-/**
- * Returns read unsigned long value and the length of the byte array used for the value.
- */
-private fun readCompressedUnsignedLong(bytes: ByteArray, offset: Int): Pair<Long, Int> {
-    var len = 0
-    var result = 0L
-    while (true) {
-        val b = bytes[offset + len].toInt()
-        result += (b and 0x7F) shl (len * 7)
-        len++
-        if ((b and 0x80) != 0) break
-    }
-    return result to len
-}
-
-/**
- * Writes compressed unsigned long value to a new byte array.
- */
-private fun writeCompressedUnsignedLong(l: Long): ByteArray {
-    check(l >= 0)
-    var t = l
-    var len = 1
-    while (t > 127) {
-        t = t shr 7
-        len++
-    }
-    t = l
-    val result = ByteArray(len)
-    for (i in 0 until len) {
-        result[i] = (t and 0x7F).toByte()
-        t = t shr 7
-    }
-    result[len - 1] = (result[len - 1].toInt() or 0x80).toByte()
-    return result
 }

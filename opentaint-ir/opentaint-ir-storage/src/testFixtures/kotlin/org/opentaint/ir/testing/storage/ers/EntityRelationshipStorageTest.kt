@@ -463,6 +463,16 @@ abstract class EntityRelationshipStorageTest {
         }
     }
 
+    @Test
+    fun entityTypes() {
+        Assumptions.assumeTrue(ersSpi.id == KV_ERS_SPI || ersSpi.id == RAM_ERS_SPI)
+        addLink()
+        val types = txn.getTypes()
+        assertTrue(types.size == 2)
+        assertNotNull(types["User"])
+        assertNotNull(types["UserProfile"])
+    }
+
     object UserType : ErsType {
         val login by property(String::class)
         val password by property(String::class)

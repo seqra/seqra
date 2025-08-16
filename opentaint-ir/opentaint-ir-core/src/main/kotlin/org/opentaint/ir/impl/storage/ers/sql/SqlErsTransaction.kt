@@ -61,6 +61,10 @@ class SqlErsTransactionImpl(
         return getTypeIdOrNull(type) ?: return -1
     }
 
+    override fun getTypes(): Map<String, Int> {
+        TODO("Not yet implemented")
+    }
+
     override fun getPropertyNames(type: String): Set<String> {
         TODO("Not yet implemented")
     }

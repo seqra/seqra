@@ -5,76 +5,57 @@ import org.opentaint.ir.api.storage.asComparable
 import org.opentaint.ir.api.storage.ers.Entity
 import org.opentaint.ir.api.storage.ers.EntityId
 import org.opentaint.ir.api.storage.ers.EntityIterable
-import org.opentaint.ir.util.ByteArrayBuilder
+import org.opentaint.ir.util.io.writeByteBuffer
+import org.opentaint.ir.util.io.writeVlqUnsigned
+import java.io.OutputStream
+import java.nio.ByteBuffer
 import kotlin.math.min
 
-internal fun List<Pair<Long, ByteArray>>.toAttributesImmutable(): AttributesImmutable {
-    if (isEmpty()) {
-        return EmptyAttributesImmutable
-    }
-
-    val values = ByteArrayBuilder()
-    val instanceIds = LongArray(size)
-    val offsetAndLens = LongArray(size)
-    val differentValues = hashMapOf<ByteArrayKey, Long>()
-
-    var offset = 0
-
-    forEachIndexed { i, (instanceId, value) ->
-        instanceIds[i] = instanceId
-        val valueKey = value.asComparable()
-        var indexValue = differentValues[valueKey]
-        if (indexValue == null) {
-            val len = value.size
-            values.append(value)
-            indexValue = (len.toLong() shl 32) + offset
-            differentValues[valueKey] = indexValue
-            offset += len
-        }
-        offsetAndLens[i] = indexValue
-    }
-
-    return AttributesImmutable(values.toByteArray(), instanceIds, offsetAndLens)
-}
-
 internal open class AttributesImmutable(
-    private val values: ByteArray,
-    instanceIds: LongArray,
-    private val offsetAndLens: LongArray
+    values: ByteBuffer,
+    instanceIds: List<Long>,
+    private val offsetsAndLens: ByteBuffer,
+    sortedByValue: Boolean? = null,
 ) {
 
+    private val values = values.asReadOnlyBuffer()
     private val instanceIdCollection = instanceIds.toInstanceIdCollection(sorted = true)
+    private val offsetsAndLensLongs = offsetsAndLens.asLongBuffer().asReadOnlyBuffer()
     private val sortedByValue: Boolean // `true` if order of instance ids is the same as the one sorted by value
     private val sortedByValueInstanceIds by lazy {
         // NB!
         // We need stable sorting here, and java.util.Collections.sort() guarantees the sort is stable
         instanceIdCollection.asIterable()
-            .sortedBy { get(it)!!.asComparable() }.toLongArray().toInstanceIdCollection(sorted = false)
+            .sortedBy { get(it)!!.asComparable() }.toInstanceIdCollection(sorted = false)
     }
 
     init {
-        var sortedByValue = true
-        var prevId = Long.MIN_VALUE
-        var prevValue: ByteArrayKey? = null
-        for (i in instanceIds.indices) {
-            // check if instanceIds are sorted in ascending order and there are no duplicates
-            val currentId = instanceIds[i]
-            if (prevId >= currentId) {
-                error("AttributesImmutable: instanceIds should be sorted and have no duplicates")
-            }
-            prevId = currentId
-            // check if order of values is the same as order of ids
-            if (sortedByValue) {
-                val currentValue = ByteArrayKey(getByIndex(i))
-                prevValue?.let {
-                    if (it > currentValue) {
-                        sortedByValue = false
-                    }
+        if (sortedByValue != null) {
+            this.sortedByValue = sortedByValue
+        } else {
+            var sorted = true
+            var prevId = Long.MIN_VALUE
+            var prevValue: ByteArrayKey? = null
+            for (i in instanceIds.indices) {
+                // check if instanceIds are sorted in ascending order and there are no duplicates
+                val currentId = instanceIds[i]
+                if (prevId >= currentId) {
+                    error("AttributesImmutable: instanceIds should be sorted and have no duplicates")
                 }
-                prevValue = currentValue
+                prevId = currentId
+                // check if order of values is the same as order of ids
+                if (sorted) {
+                    val currentValue = ByteArrayKey(getByIndex(i))
+                    prevValue?.let {
+                        if (it > currentValue) {
+                            sorted = false
+                        }
+                    }
+                    prevValue = currentValue
+                }
             }
+            this.sortedByValue = sorted
         }
-        this.sortedByValue = sortedByValue
     }
 
     operator fun get(instanceId: Long): ByteArray? {
@@ -90,7 +71,7 @@ internal open class AttributesImmutable(
             return EmptyAttributesCursor
         }
         val ids = if (sortedByValue) instanceIdCollection else sortedByValueInstanceIds
-        val valueComparable = value.asComparable()
+        val valueComparable by lazy(LazyThreadSafetyMode.NONE) { value.asComparable() }
         // in order to find exact left or right bound, we have to use binary search without early break on equality
         var low = 0
         var high = ids.size - 1
@@ -98,7 +79,7 @@ internal open class AttributesImmutable(
         while (low <= high) {
             val mid = (low + high).ushr(1)
             val cmp = if (sortedByValue) {
-                val offsetAndLen = offsetAndLens[mid]
+                val offsetAndLen = offsetsAndLensLongs[mid]
                 val offset = offsetAndLen.toInt()
                 val len = (offsetAndLen shr 32).toInt()
                 -compareValueTo(offset, len, value)
@@ -141,11 +122,19 @@ internal open class AttributesImmutable(
         }
     }
 
+    fun dump(output: OutputStream) {
+        output.write(if (sortedByValue) 1 else 0)
+        output.writeByteBuffer(values)
+        instanceIdCollection.dump(output)
+        // save offsets and lens
+        output.writeByteBuffer(offsetsAndLens)
+    }
+
     private fun getByIndex(index: Int): ByteArray {
-        val offsetAndLen = offsetAndLens[index]
+        val offsetAndLen = offsetsAndLensLongs[index]
         val offset = offsetAndLen.toInt()
         val len = (offsetAndLen shr 32).toInt()
-        return values.sliceArray(offset until offset + len)
+        return ByteArray(len).also { values.sliceBuffer(offset, len).get(it) }
     }
 
     /**
@@ -159,8 +148,6 @@ internal open class AttributesImmutable(
         return len - other.size
     }
 }
-
-private object EmptyAttributesImmutable : AttributesImmutable(byteArrayOf(), longArrayOf(), longArrayOf())
 
 internal interface AttributesCursor {
 
@@ -211,8 +198,8 @@ internal class AttributesCursorEntityIterable(
                 val moved = if (forwardDirection) cursor.moveNext() else cursor.movePrev()
                 if (moved) {
                     val (instanceId, value) = cursor.current
-                    filter?.let { func ->
-                        if (!func(instanceId, value)) {
+                    filter?.let { predicate ->
+                        if (!predicate(instanceId, value)) {
                             return null
                         }
                     }
@@ -230,46 +217,58 @@ private interface InstanceIdCollection {
     val size: Int
     operator fun get(index: Int): Long
     fun getIndex(instanceId: Long): Int
+    fun dump(output: OutputStream)
 }
 
-private fun LongArray.toInstanceIdCollection(sorted: Boolean): InstanceIdCollection {
+private fun List<Long>.toInstanceIdCollection(sorted: Boolean): InstanceIdCollection {
     if (isEmpty()) {
-        return EmptyInstanceIdCollection
+        error("InstanceIdCollection should not be empty")
     }
     if (sorted && this[0] == 0L && this[size - 1] == (size - 1).toLong()) {
         return LongRangeInstanceIdCollection(0L until size)
     }
     return if (sorted) {
-        if (allInts()) {
-            SortedIntArrayInstanceIdCollection(toIntArray())
-        } else {
-            SortedLongArrayInstanceIdCollection(this)
-        }
-    } else if (allInts()) {
-        UnsortedIntArrayInstanceIdCollection(toIntArray())
+        SortedListInstanceIdCollection(this)
     } else {
-        UnsortedLongArrayInstanceIdCollection(this)
+        UnsortedListInstanceIdCollection(this)
     }
 }
 
-private object EmptyInstanceIdCollection : InstanceIdCollection {
-    override val size = 0
-    override fun get(index: Int) = error("Can't get in EmptyInstanceIdCollection")
-    override fun getIndex(instanceId: Long): Int = -1
+// InstanceIdCollection wrapping unsorted list of unsigned longs
+private class UnsortedListInstanceIdCollection(val instances: List<Long>) : InstanceIdCollection {
+    override val size: Int get() = instances.size
+    override fun get(index: Int): Long = instances[index]
+    override fun getIndex(instanceId: Long): Int = instances.indexOf(instanceId)
+    override fun dump(output: OutputStream) =
+        error("UnsortedListInstanceIdCollection.dump() should never be invoked")
 }
 
-// InstanceIdCollection wrapping unsorted LongArray
-private class UnsortedLongArrayInstanceIdCollection(val array: LongArray) : InstanceIdCollection {
-    override val size: Int get() = array.size
-    override fun get(index: Int): Long = array[index]
-    override fun getIndex(instanceId: Long): Int = array.indexOf(instanceId)
-}
-
-// InstanceIdCollection wrapping sorted LongArray
-private class SortedLongArrayInstanceIdCollection(val array: LongArray) : InstanceIdCollection {
-    override val size: Int get() = array.size
-    override fun get(index: Int): Long = array[index]
-    override fun getIndex(instanceId: Long): Int = array.binarySearch(instanceId)
+// InstanceIdCollection wrapping sorted list of unsigned longs
+private class SortedListInstanceIdCollection(val instances: List<Long>) : InstanceIdCollection {
+    override val size: Int get() = instances.size
+    override fun get(index: Int): Long = instances[index]
+    override fun getIndex(instanceId: Long): Int = instances.binarySearch(instanceId)
+    override fun dump(output: OutputStream) {
+        if (instances.last().isInt()) {
+            output.write(0) // mark implementation having all ints
+            output.writeByteBuffer(
+                ByteBuffer.allocate(instances.size * Int.SIZE_BYTES).apply {
+                    instances.forEach { instanceId ->
+                        putInt(instanceId.toInt())
+                    }
+                }.flip() as ByteBuffer
+            )
+        } else {
+            output.write(1) // mark implementation having all longs
+            output.writeByteBuffer(
+                ByteBuffer.allocate(instances.size * Long.SIZE_BYTES).apply {
+                    instances.forEach { instanceId ->
+                        putLong(instanceId)
+                    }
+                }.flip() as ByteBuffer
+            )
+        }
+    }
 }
 
 // InstanceIdCollection wrapping LongRange which is growing progression with step 1
@@ -277,40 +276,24 @@ private class LongRangeInstanceIdCollection(val range: LongRange) : InstanceIdCo
     override val size: Int get() = (range.last - range.first).toInt() + 1
     override fun get(index: Int): Long = range.first + index
     override fun getIndex(instanceId: Long): Int = (instanceId - range.first).toInt()
-}
-
-// InstanceIdCollection wrapping unsorted IntArray
-private class UnsortedIntArrayInstanceIdCollection(val array: IntArray) : InstanceIdCollection {
-    override val size: Int get() = array.size
-    override fun get(index: Int): Long = array[index].toLong()
-    override fun getIndex(instanceId: Long): Int = if (instanceId.isInt()) array.indexOf(instanceId.toInt()) else -1
-}
-
-// InstanceIdCollection wrapping sorted LongArray
-private class SortedIntArrayInstanceIdCollection(val array: IntArray) : InstanceIdCollection {
-    override val size: Int get() = array.size
-    override fun get(index: Int): Long = array[index].toLong()
-    override fun getIndex(instanceId: Long): Int =
-        if (instanceId.isInt()) array.binarySearch(instanceId.toInt()) else -1
+    override fun dump(output: OutputStream) {
+        output.write(2) // mark LongRangeInstanceIdCollection implementation
+        output.writeVlqUnsigned(range.first)
+        output.writeVlqUnsigned(range.last - range.first)
+    }
 }
 
 private fun Long.isInt() = this in 0L..Int.MAX_VALUE
 
-private fun LongArray.allInts(): Boolean {
-    return all { it.isInt() }
-}
-
-private fun LongArray.toIntArray(): IntArray {
-    return IntArray(size) { i -> this[i].toInt() }
-}
-
 private fun InstanceIdCollection.asIterable(): Iterable<Long> {
     return when (this) {
         is LongRangeInstanceIdCollection -> range
-        is SortedLongArrayInstanceIdCollection -> array.asIterable()
-        is UnsortedLongArrayInstanceIdCollection -> array.asIterable()
-        is SortedIntArrayInstanceIdCollection -> array.map { it.toLong() }
-        is UnsortedIntArrayInstanceIdCollection -> array.map { it.toLong() }
+        is SortedListInstanceIdCollection -> instances.asIterable()
+        is UnsortedListInstanceIdCollection -> instances.asIterable()
         else -> error("Unknown InstanceIdCollection class: $javaClass")
     }
+}
+
+private fun ByteBuffer.sliceBuffer(offset: Int, length: Int): ByteBuffer {
+    return duplicate().position(offset).limit(offset + length) as ByteBuffer
 }

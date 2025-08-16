@@ -7,6 +7,7 @@ import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
+import org.opentaint.ir.api.storage.ers.DumpableLoadableEntityRelationshipStorage
 import org.opentaint.ir.api.storage.ers.Entity
 import org.opentaint.ir.api.storage.ers.EntityRelationshipStorage
 import org.opentaint.ir.api.storage.ers.Transaction
@@ -56,6 +57,17 @@ class ErsPersistenceImpl(
 
     override fun setup() {
         /* no-op */
+    }
+
+    override fun tryLoad(databaseId: String): Boolean {
+        val ers = ers
+        if (ers is DumpableLoadableEntityRelationshipStorage) {
+            ers.load(databaseId)?.let {
+                this.ers = it
+                return true
+            }
+        }
+        return false
     }
 
     override fun <T> read(action: (JIRDBContext) -> T): T {
@@ -217,8 +229,8 @@ class ErsPersistenceImpl(
         }
     }
 
-    override fun setImmutable() {
-        ers = ers.asReadonly
+    override fun setImmutable(databaseId: String) {
+        ers = ers.asImmutable(databaseId)
     }
 
     override fun close() {

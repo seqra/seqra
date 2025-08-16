@@ -6,6 +6,7 @@ import org.opentaint.ir.api.storage.ers.BindingProvider
 import org.opentaint.ir.api.storage.ers.ERSConflictingTransactionException
 import org.opentaint.ir.api.storage.ers.EntityRelationshipStorage
 import org.opentaint.ir.api.storage.ers.Transaction
+import org.opentaint.ir.impl.storage.ers.EntityRelationshipStorageBase
 import org.opentaint.ir.impl.storage.ers.decorators.withAllDecorators
 import org.opentaint.ir.impl.storage.ers.jooq.tables.references.TYPES
 import org.opentaint.ir.impl.storage.ers.sql.SqlErsNames.ENTITY_ID_FIELD
@@ -38,7 +39,7 @@ private fun Connection.createSQLiteDSLContext(): DSLContext {
 class SqlEntityRelationshipStorage(
     dataSource: SQLiteDataSource,
     bindingProvider: BindingProvider
-) : EntityRelationshipStorage, BindingProvider by bindingProvider {
+) : EntityRelationshipStorageBase(), BindingProvider by bindingProvider {
     private val primaryConnection: Connection = dataSource.connection
     private val jooq: DSLContext = primaryConnection.createSQLiteDSLContext()
     private val connectionPool = run {

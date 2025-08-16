@@ -33,9 +33,10 @@ interface EntityRelationshipStorage : Closeable, BindingProvider {
     }
 
     /**
-     * Returns a read-only storage holding the latest available snapshot of data.
+     * Returns an immutable storage holding the latest available snapshot of data.
+     * `databaseId` can be used to dump the snapshot.
      */
-    val asReadonly: EntityRelationshipStorage get() = this
+    fun asImmutable(databaseId: String): EntityRelationshipStorage
 }
 
 interface EntityRelationshipStorageSPI : CommonSPI {

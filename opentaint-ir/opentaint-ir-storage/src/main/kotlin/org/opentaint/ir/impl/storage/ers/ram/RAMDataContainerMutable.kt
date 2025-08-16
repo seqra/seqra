@@ -4,6 +4,7 @@ import org.opentaint.ir.api.storage.ers.EntityId
 import org.opentaint.ir.api.storage.ers.EntityIterable
 import org.opentaint.ir.api.storage.ers.filterInstanceIds
 import org.opentaint.ir.api.storage.ers.longRangeIterable
+import org.opentaint.ir.util.ByteArrayBuilder
 import org.opentaint.ir.util.collections.EmptySparseBitSet
 import org.opentaint.ir.util.collections.SparseBitSet
 
@@ -66,9 +67,7 @@ internal class RAMDataContainerMutable(
     }
 
     override fun toImmutable(): RAMDataContainerImmutable {
-        val types = HashMap<String, Int>().also { map ->
-            this.types.entries().forEach { entry -> map[entry.key] = entry.value }
-        }
+        val types = this.types.entries().associate { it.key to it.value }
         val instances = arrayOfNulls<Pair<Long, SparseBitSet>>(this.instances.keys().max() + 1)
         this.instances.entries().forEach { entry ->
             val entities = entry.value
@@ -79,19 +78,20 @@ internal class RAMDataContainerMutable(
                         }
                     }
         }
+        val builder = ByteArrayBuilder()
         val properties = HashMap<AttributeKey, PropertiesImmutable>().also { map ->
             this.properties.entries().forEach { entry ->
-                map[entry.key] = entry.value.toImmutable()
+                map[entry.key] = entry.value.toImmutable(builder)
             }
         }
         val links = HashMap<AttributeKey, LinksImmutable>().also { map ->
             this.links.entries().forEach { entry ->
-                map[entry.key] = entry.value.toImmutable()
+                map[entry.key] = entry.value.toImmutable(builder)
             }
         }
         val blobs = HashMap<AttributeKey, AttributesImmutable>().also { map ->
             this.blobs.entries().forEach { entry ->
-                map[entry.key] = entry.value.entries().map { it.key to it.value }.toAttributesImmutable()
+                map[entry.key] = entry.value.entries().toAttributesImmutable(builder)
             }
         }
         return RAMDataContainerImmutable(
@@ -109,6 +109,8 @@ internal class RAMDataContainerMutable(
     }
 
     override fun getTypeId(type: String): Int = types[type] ?: -1
+
+    override fun getEntityTypes(): Map<String, Int> = types.entries().associate { it.key to it.value }
 
     override fun getOrAllocateTypeId(type: String): Pair<RAMDataContainer, Int> {
         types[type]?.let { id ->

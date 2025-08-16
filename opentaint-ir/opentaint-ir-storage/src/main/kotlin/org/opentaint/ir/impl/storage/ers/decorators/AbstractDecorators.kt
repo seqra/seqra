@@ -20,6 +20,7 @@ abstract class AbstractTransactionDecorator : Transaction {
     override fun getEntityUnsafe(id: EntityId): Entity = delegate.getEntityUnsafe(id)
     override fun deleteEntity(id: EntityId) = delegate.deleteEntity(id)
     override fun getTypeId(type: String): Int = delegate.getTypeId(type)
+    override fun getTypes(): Map<String, Int> = delegate.getTypes()
     override fun getPropertyNames(type: String): Set<String> = delegate.getPropertyNames(type)
     override fun getBlobNames(type: String): Set<String> = delegate.getBlobNames(type)
     override fun getLinkNames(type: String): Set<String> = delegate.getLinkNames(type)

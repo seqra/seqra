@@ -7,6 +7,7 @@ import org.opentaint.ir.api.storage.ByteArrayKey
 import org.opentaint.ir.api.storage.asComparable
 import org.opentaint.ir.api.storage.ers.EntityIterable
 import org.opentaint.ir.api.storage.ers.InstanceIdCollectionEntityIterable
+import java.io.OutputStream
 
 private typealias ValueIndex = Persistent23TreeMap<ByteArrayKey, CompactPersistentLongSet>
 
@@ -263,8 +264,6 @@ internal class PropertiesImmutable(private val attributes: AttributesImmutable) 
             v.asComparable() >= valueComparable
         }
     }
-}
 
-internal fun PropertiesMutable.toImmutable(): PropertiesImmutable {
-    return PropertiesImmutable(props.beginRead().map { it.key to it.value }.toAttributesImmutable())
+    fun dump(output: OutputStream) = attributes.dump(output)
 }

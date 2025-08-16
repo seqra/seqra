@@ -12,15 +12,4 @@ class XodusKVEntityRelationshipStorageTest : EntityRelationshipStorageTest() {
     override val ersSettings = JIRKvErsSettings(XODUS_KEY_VALUE_STORAGE_SPI)
 
     override val ersId = KV_ERS_SPI
-
-    @Test
-    fun `read-only storage throws ReadonlyTransactionException`() {
-        val storage = txn.ers
-        txn.close()
-        assertThrows(ReadonlyTransactionException::class.java) {
-            storage.asReadonly.transactional(false) {
-                it.newEntity("User")
-            }
-        }
-    }
 }

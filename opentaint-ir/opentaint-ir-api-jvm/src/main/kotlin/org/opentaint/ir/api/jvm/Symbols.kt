@@ -2,6 +2,7 @@ package org.opentaint.ir.api.jvm
 
 import org.objectweb.asm.Opcodes
 import java.io.File
+import java.math.BigInteger
 
 /**
  * Immutable structure represented a file system location of bytecode such as `jar` or build folder.
@@ -14,7 +15,17 @@ import java.io.File
  */
 interface JIRByteCodeLocation {
     val jarOrFolder: File
-    val fileSystemId: String //id based on from file system
+
+    /**
+     * Is being calculated each time when it is invoked.
+     */
+    val currentHash: BigInteger
+
+    /**
+     * Numeric id of this location calculated once using `currentHash` property.
+     */
+    val fileSystemIdHash: BigInteger
+    val fileSystemId: String get() = fileSystemIdHash.toString(Character.MAX_RADIX)
 
     val type: LocationType
 

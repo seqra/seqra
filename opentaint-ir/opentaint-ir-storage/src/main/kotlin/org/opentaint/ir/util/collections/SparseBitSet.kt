@@ -1,19 +1,15 @@
 package org.opentaint.ir.util.collections
 
 import org.opentaint.ir.impl.storage.ers.ram.interned
-import java.util.Collections
-import java.util.NavigableMap
-import java.util.TreeMap
+import java.util.*
 
-object EmptySparseBitSet: SparseBitSet(immutable = true)
+object EmptySparseBitSet : SparseBitSet(immutable = true)
 
-open class SparseBitSet(bits: Collection<Long> = emptyList(), immutable: Boolean = false) {
+open class SparseBitSet(bits: Iterable<Long> = emptyList(), immutable: Boolean = false) : Iterable<Long> {
 
-    private val map: NavigableMap<Long, Long> =
-        if (immutable) Collections.unmodifiableNavigableMap(TreeMap()) else TreeMap()
-
-    init {
-        bits.forEach { set(it) }
+    private val map = TreeMap<Long, Long>().let { map ->
+        bits.forEach { setBit(map, it, true) }
+        if (immutable) map.asImmutable() else map
     }
 
     val isEmpty: Boolean get() = map.isEmpty()
@@ -36,14 +32,16 @@ open class SparseBitSet(bits: Collection<Long> = emptyList(), immutable: Boolean
 
     fun test(bit: Long): Boolean {
         val bucket = bit shr 6
-        val pos = bit.toInt() and 0x3f;
+        val pos = bit.toInt() and 0x3f
         val mask = 1L shl pos
         return (map.getOrDefault(bucket, 0L) and mask) != 0L
     }
 
     fun contains(bit: Long) = test(bit)
 
-    private fun setBit(bit: Long, bitValue: Boolean): Boolean {
+    private fun setBit(bit: Long, bitValue: Boolean) = setBit(map, bit, bitValue)
+
+    private fun setBit(map: NavigableMap<Long, Long>, bit: Long, bitValue: Boolean): Boolean {
         val bucket = bit shr 6
         val pos = bit.toInt() and 0x3f
         val mask = 1L shl pos
@@ -65,4 +63,25 @@ open class SparseBitSet(bits: Collection<Long> = emptyList(), immutable: Boolean
 
         private const val ALL_BITS_SET = -1L
     }
+
+    override fun iterator(): Iterator<Long> = sequence {
+        map.forEach { entry ->
+            val base = entry.key shl 6
+            var value = entry.value as Long
+            var n = value.countOneBits()
+            var bit = value.countTrailingZeroBits()
+            value = value shr bit
+            while (n > 0) {
+                if ((value and 1L) != 0L) {
+                    yield(base + bit)
+                    --n
+                }
+                value = value shr 1
+                ++bit
+            }
+        }
+    }.iterator()
 }
+
+private fun NavigableMap<Long, Long>.asImmutable(): NavigableMap<Long, Long> =
+    Collections.unmodifiableNavigableMap(this)

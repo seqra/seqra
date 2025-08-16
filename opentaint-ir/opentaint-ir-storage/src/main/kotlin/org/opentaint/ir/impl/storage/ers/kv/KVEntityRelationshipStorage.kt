@@ -6,6 +6,8 @@ import org.opentaint.ir.api.storage.ers.EntityRelationshipStorage
 import org.opentaint.ir.api.storage.ers.Transaction
 import org.opentaint.ir.api.storage.kv.NamedMap
 import org.opentaint.ir.api.storage.kv.PluggableKeyValueStorage
+import org.opentaint.ir.api.storage.kv.forEach
+import org.opentaint.ir.impl.storage.ers.EntityRelationshipStorageBase
 import org.opentaint.ir.impl.storage.ers.decorators.withAllDecorators
 import org.opentaint.ir.impl.storage.ers.getBinding
 import java.util.concurrent.ConcurrentHashMap
@@ -14,7 +16,7 @@ internal val intClass = Int::class.java
 internal val longClass = Long::class.java
 internal val stringClass = String::class.java
 
-class KVEntityRelationshipStorage(private val kvStorage: PluggableKeyValueStorage) : EntityRelationshipStorage {
+class KVEntityRelationshipStorage(private val kvStorage: PluggableKeyValueStorage) : EntityRelationshipStorageBase() {
 
     private var entityTypesMap: NamedMap? = null
     private var entityCountersMap: NamedMap? = null
@@ -42,9 +44,6 @@ class KVEntityRelationshipStorage(private val kvStorage: PluggableKeyValueStorag
             }
         }.withAllDecorators()
     }
-
-    override val asReadonly: EntityRelationshipStorage
-        get() = this.apply { kvStorage.readonly = true }
 
     override fun close() = kvStorage.close()
 
@@ -74,6 +73,17 @@ class KVEntityRelationshipStorage(private val kvStorage: PluggableKeyValueStorag
         val entityTypesMap = entityTypesMap(kvTxn, create = false) ?: return null
         return kvTxn.get(entityTypesMap, stringBinding.getBytes(type))?.let { typeIdEntry ->
             intBinding.getObjectCompressed(typeIdEntry).also { entityTypes[type] = it }
+        }
+    }
+
+    internal fun getEntityTypes(kvTxn: org.opentaint.ir.api.storage.kv.Transaction): Map<String, Int> {
+        val entityTypesMap = entityTypesMap(kvTxn, create = false) ?: return emptyMap()
+        kvTxn.navigateTo(entityTypesMap).use { cursor ->
+            return sortedMapOf<String, Int>().also { map ->
+                cursor.forEach { key, value ->
+                    map[stringBinding.getObject(key)] = intBinding.getObjectCompressed(value)
+                }
+            }
         }
     }
 

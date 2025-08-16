@@ -16,13 +16,6 @@ abstract class PluggableKeyValueStorage : Closeable {
 
     fun <T> readonlyTransactional(action: (Transaction) -> T) = beginReadonlyTransaction().use(action)
 
-    /**
-     * Switches the storage to read-only mode and back. By default, does nothing.
-     */
-    open var readonly: Boolean
-        get() = false
-        set(_) {}
-
     fun get(map: String, key: ByteArray) = readonlyTransactional { txn -> txn.get(map, key) }
 
     fun put(map: String, key: ByteArray, value: ByteArray) = transactional { txn -> txn.put(map, key, value) }

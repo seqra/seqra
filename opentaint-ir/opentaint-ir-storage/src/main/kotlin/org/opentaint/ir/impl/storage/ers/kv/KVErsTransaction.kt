@@ -71,6 +71,8 @@ class KVErsTransaction(
         return ers.getEntityTypeId(type, kvTxn) ?: -1
     }
 
+    override fun getTypes(): Map<String, Int> = ers.getEntityTypes(kvTxn)
+
     override fun getPropertyNames(type: String): Set<String> = getAttributeName(type) {
         ers.getPropNameFromMapName(it)
     }

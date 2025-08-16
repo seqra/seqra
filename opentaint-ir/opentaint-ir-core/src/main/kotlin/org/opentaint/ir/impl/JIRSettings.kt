@@ -223,7 +223,7 @@ open class JIRErsSettings(
         get() = ERS_DATABASE_PERSISTENCE_SPI
 }
 
-object JIRRamErsSettings : JIRErsSettings(RAM_ERS_SPI)
+object JIRRamErsSettings : JIRErsSettings(RAM_ERS_SPI, RamErsSettings())
 
 object JIRSqlErsSettings : JIRErsSettings(SQL_ERS_SPI)
 
