@@ -14,7 +14,6 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
 
     private val instMap = identityMap<JIRRawInst, JIRInst>()
     private var currentLineNumber = 0
-    private var index = 0
     private val labels = instList.filterIsInstance<JIRRawLabelInst>().associateBy { it.ref }
     private val convertedLocalVars = mutableMapOf<JIRRawLocalVar, JIRRawLocalVar>()
     private val inst2Index: Map<JIRRawInst, Int> = identityMap<JIRRawInst, Int>().also {
@@ -27,7 +26,6 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
 
     private fun reset() {
         currentLineNumber = 0
-        index = 0
     }
 
     fun buildInstList(): JIRInstList<JIRInst> {
@@ -69,19 +67,19 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
             }
         val lhv = preprocessedLhv.accept(this) as JIRValue
         val rhv = inst.rhv.accept(this)
-        JIRAssignInst(newLocation(), lhv, rhv)
+        JIRAssignInst(newLocation(inst), lhv, rhv)
     }
 
     override fun visitJIRRawEnterMonitorInst(inst: JIRRawEnterMonitorInst): JIRInst = handle(inst) {
-        JIREnterMonitorInst(newLocation(), inst.monitor.accept(this) as JIRValue)
+        JIREnterMonitorInst(newLocation(inst), inst.monitor.accept(this) as JIRValue)
     }
 
     override fun visitJIRRawExitMonitorInst(inst: JIRRawExitMonitorInst): JIRInst = handle(inst) {
-        JIRExitMonitorInst(newLocation(), inst.monitor.accept(this) as JIRValue)
+        JIRExitMonitorInst(newLocation(inst), inst.monitor.accept(this) as JIRValue)
     }
 
     override fun visitJIRRawCallInst(inst: JIRRawCallInst): JIRInst = handle(inst) {
-        JIRCallInst(newLocation(), inst.callExpr.accept(this) as JIRCallExpr)
+        JIRCallInst(newLocation(inst), inst.callExpr.accept(this) as JIRCallExpr)
     }
 
     override fun visitJIRRawLabelInst(inst: JIRRawLabelInst): JIRInst? {
@@ -94,15 +92,15 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
     }
 
     override fun visitJIRRawReturnInst(inst: JIRRawReturnInst): JIRInst {
-        return JIRReturnInst(newLocation(), inst.returnValue?.accept(this) as? JIRValue)
+        return JIRReturnInst(newLocation(inst), inst.returnValue?.accept(this) as? JIRValue)
     }
 
     override fun visitJIRRawThrowInst(inst: JIRRawThrowInst): JIRInst {
-        return JIRThrowInst(newLocation(), inst.throwable.accept(this) as JIRValue)
+        return JIRThrowInst(newLocation(inst), inst.throwable.accept(this) as JIRValue)
     }
 
     override fun visitJIRRawCatchInst(inst: JIRRawCatchInst): JIRInst = handle(inst) {
-        val location = newLocation()
+        val location = newLocation(inst)
         val throwableTypes = inst.entries.map { it.acceptedThrowable.asType() }
         val throwers = inst.entries.flatMap {
             val result = mutableListOf<JIRInstRef>()
@@ -130,12 +128,12 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
     }
 
     override fun visitJIRRawGotoInst(inst: JIRRawGotoInst): JIRInst = handle(inst) {
-        JIRGotoInst(newLocation(), label2InstRef(inst.target))
+        JIRGotoInst(newLocation(inst), label2InstRef(inst.target))
     }
 
     override fun visitJIRRawIfInst(inst: JIRRawIfInst): JIRInst = handle(inst) {
         JIRIfInst(
-            newLocation(),
+            newLocation(inst),
             inst.condition.accept(this) as JIRConditionExpr,
             label2InstRef(inst.trueBranch),
             label2InstRef(inst.falseBranch)
@@ -144,17 +142,16 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
 
     override fun visitJIRRawSwitchInst(inst: JIRRawSwitchInst): JIRInst = handle(inst) {
         JIRSwitchInst(
-            newLocation(),
+            newLocation(inst),
             inst.key.accept(this) as JIRValue,
             inst.branches.map { it.key.accept(this) as JIRValue to label2InstRef(it.value) }.toMap(),
             label2InstRef(inst.default)
         )
     }
 
-    private fun newLocation(): JIRInstLocation {
-        return JIRInstLocationImpl(method, index, currentLineNumber).also {
-            index++
-        }
+    private fun newLocation(rawInst: JIRRawInst): JIRInstLocation {
+        val index = inst2Index.getValue(rawInst)
+        return JIRInstLocationImpl(method, index, currentLineNumber)
     }
 
     private fun convertBinary(
