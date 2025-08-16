@@ -1,6 +1,9 @@
 package org.opentaint.ir.impl.features.classpaths
 
 import mu.KLogging
+import org.opentaint.ir.api.caches.PluggableCache
+import org.opentaint.ir.api.caches.PluggableCacheProvider
+import org.opentaint.ir.api.caches.PluggableCacheStats
 import org.opentaint.ir.api.jvm.JIRCacheSegmentSettings
 import org.opentaint.ir.api.jvm.JIRCacheSettings
 import org.opentaint.ir.api.jvm.JIRClassType
@@ -19,9 +22,6 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstList
 import org.opentaint.ir.api.jvm.cfg.JIRRawInst
 import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
-import org.opentaint.ir.impl.caches.PluggableCache
-import org.opentaint.ir.impl.caches.PluggableCacheProvider
-import org.opentaint.ir.impl.caches.PluggableCacheStats
 import org.opentaint.ir.impl.caches.xodus.XODUS_CACHE_PROVIDER_ID
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRInstResult.JIRFlowGraphResultImpl
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRInstResult.JIRInstListResultImpl

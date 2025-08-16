@@ -4,6 +4,8 @@ dependencies {
     compileOnly(Libs.xodusEnvironment)
     compileOnly(Libs.lmdb_java)
     compileOnly(Libs.rocks_db)
+    compileOnly(Libs.guava)
+    compileOnly(Libs.xodusUtils)
 
     testImplementation(Libs.xodusEnvironment)
     testImplementation(Libs.lmdb_java)

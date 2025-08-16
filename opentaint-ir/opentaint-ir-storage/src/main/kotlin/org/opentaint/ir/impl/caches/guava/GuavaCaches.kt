@@ -2,12 +2,11 @@ package org.opentaint.ir.impl.caches.guava
 
 import com.google.common.cache.Cache
 import com.google.common.cache.CacheBuilder
-import org.opentaint.ir.api.jvm.ValueStoreType
-import org.opentaint.ir.impl.caches.PluggableCache
-import org.opentaint.ir.impl.caches.PluggableCacheBuilder
-import org.opentaint.ir.impl.caches.PluggableCacheProvider
-import org.opentaint.ir.impl.caches.PluggableCacheStats
-import java.time.Duration
+import org.opentaint.ir.api.caches.PluggableCache
+import org.opentaint.ir.api.caches.PluggableCacheBuilder
+import org.opentaint.ir.api.caches.PluggableCacheProvider
+import org.opentaint.ir.api.caches.PluggableCacheStats
+import org.opentaint.ir.api.caches.ValueStoreType
 
 const val GUAVA_CACHE_PROVIDER_ID = "org.opentaint.ir.impl.caches.guava.GuavaCacheProvider"
 
@@ -26,7 +25,7 @@ private class GuavaCacheBuilder<K : Any, V : Any> : PluggableCacheBuilder<K, V>(
                 .maximumSize(maximumSize.toLong())
                 .apply {
                     expirationDuration.let {
-                        if (it != Duration.ZERO) {
+                        if (it != java.time.Duration.ZERO) {
                             expireAfterAccess(it)
                         }
                     }

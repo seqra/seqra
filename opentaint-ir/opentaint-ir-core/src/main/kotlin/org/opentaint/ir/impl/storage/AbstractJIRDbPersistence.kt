@@ -1,11 +1,11 @@
 package org.opentaint.ir.impl.storage
 
+import org.opentaint.ir.api.caches.PluggableCache
+import org.opentaint.ir.api.caches.PluggableCacheProvider
 import org.opentaint.ir.api.jvm.JIRByteCodeLocation
 import org.opentaint.ir.api.jvm.JIRDatabasePersistence
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.storage.ers.getEntityOrNull
-import org.opentaint.ir.impl.caches.PluggableCache
-import org.opentaint.ir.impl.caches.PluggableCacheProvider
 import org.opentaint.ir.impl.caches.xodus.XODUS_CACHE_PROVIDER_ID
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.asByteCodeLocation
@@ -57,7 +57,7 @@ abstract class AbstractJIRDbPersistence(
                 ).mapNotNull {
                     try {
                         File(it.path).asByteCodeLocation(javaRuntime.version, isRuntime = it.runtime)
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         null
                     }
                 }.flatten().distinct()
@@ -115,7 +115,7 @@ abstract class AbstractJIRDbPersistence(
     override fun close() {
         try {
             symbolInterner.close()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // ignore
         }
     }

@@ -1,7 +1,8 @@
-package org.opentaint.ir.impl.caches
+package org.opentaint.ir.api.caches
 
-import org.opentaint.ir.api.jvm.ValueStoreType
 import java.time.Duration
+
+enum class ValueStoreType { WEAK, SOFT, STRONG }
 
 class PluggableCacheException(message: String) : RuntimeException(message)
 

@@ -3,12 +3,12 @@ package org.opentaint.ir.impl.caches.xodus
 import jetbrains.exodus.core.dataStructures.ConcurrentObjectCache
 import jetbrains.exodus.core.dataStructures.ObjectCacheBase
 import jetbrains.exodus.core.dataStructures.SoftConcurrentObjectCache
-import org.opentaint.ir.api.jvm.ValueStoreType
-import org.opentaint.ir.impl.caches.PluggableCache
-import org.opentaint.ir.impl.caches.PluggableCacheBuilder
-import org.opentaint.ir.impl.caches.PluggableCacheException
-import org.opentaint.ir.impl.caches.PluggableCacheProvider
-import org.opentaint.ir.impl.caches.PluggableCacheStats
+import org.opentaint.ir.api.caches.PluggableCache
+import org.opentaint.ir.api.caches.PluggableCacheBuilder
+import org.opentaint.ir.api.caches.PluggableCacheException
+import org.opentaint.ir.api.caches.PluggableCacheProvider
+import org.opentaint.ir.api.caches.PluggableCacheStats
+import org.opentaint.ir.api.caches.ValueStoreType
 
 const val XODUS_CACHE_PROVIDER_ID = "org.opentaint.ir.impl.caches.xodus.XodusCacheProvider"
 
@@ -35,7 +35,7 @@ private class XodusCacheBuilder<K : Any, V : Any> : PluggableCacheBuilder<K, V>(
 }
 
 /**
- * Generally, Xodus' [ObjectCacheBase] is not synchronized, but [XodusCacheBuilder] creates
+ * Generally, Xodus' [jetbrains.exodus.core.dataStructures.ObjectCacheBase] is not synchronized, but [XodusCacheBuilder] creates
  * its "concurrent" implementations which do not require synchronization. If this ever changes,
  * [XodusCache] should be synchronized.
  */

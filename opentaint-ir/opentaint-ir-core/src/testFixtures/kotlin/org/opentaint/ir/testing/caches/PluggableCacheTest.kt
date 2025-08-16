@@ -1,6 +1,6 @@
 package org.opentaint.ir.testing.caches
 
-import org.opentaint.ir.impl.caches.PluggableCache
+import org.opentaint.ir.api.caches.PluggableCache
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach

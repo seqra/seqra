@@ -1,4 +1,4 @@
-package org.opentaint.ir.impl.caches
+package org.opentaint.ir.api.caches
 
 import org.opentaint.ir.api.spi.CommonSPI
 import org.opentaint.ir.api.spi.SPILoader
