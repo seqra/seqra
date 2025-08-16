@@ -71,10 +71,9 @@ class PersistentByteCodeLocation(
         }
     }
 
-    override val jIRLocation: JIRByteCodeLocation?
-        get() {
-            return cachedLocation ?: data.toJIRLocation()
-        }
+    override val jIRLocation: JIRByteCodeLocation? by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        cachedLocation ?: data.toJIRLocation()
+    }
 
     override val path: String
         get() = data.path
@@ -122,4 +121,3 @@ class PersistentByteCodeLocation(
         }
     }
 }
-
