@@ -4,7 +4,7 @@ import org.opentaint.ir.api.jvm.JIRDBContext
 import org.opentaint.ir.api.jvm.JIRByteCodeLocation
 import org.opentaint.ir.api.jvm.LocationType
 import org.opentaint.ir.api.jvm.RegisteredLocation
-import org.opentaint.ir.api.jvm.storage.ers.getEntityOrNull
+import org.opentaint.ir.api.storage.ers.getEntityOrNull
 import org.opentaint.ir.impl.CleanupResult
 import org.opentaint.ir.impl.JIRDatabaseImpl
 import org.opentaint.ir.impl.JIRInternalSignal

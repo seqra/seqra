@@ -1,8 +1,8 @@
 package org.opentaint.ir.impl.storage.ers.sql
 
-import org.opentaint.ir.api.jvm.storage.ers.Entity
-import org.opentaint.ir.api.jvm.storage.ers.EntityId
-import org.opentaint.ir.api.jvm.storage.ers.EntityIterable
+import org.opentaint.ir.api.storage.ers.Entity
+import org.opentaint.ir.api.storage.ers.EntityId
+import org.opentaint.ir.api.storage.ers.EntityIterable
 import org.opentaint.ir.impl.storage.ers.sql.SqlErsNames.BLOB_VALUE_FIELD
 import org.opentaint.ir.impl.storage.ers.sql.SqlErsNames.ENTITY_ID_FIELD
 import org.opentaint.ir.impl.storage.ers.sql.SqlErsNames.LINK_SOURCE_ENTITY_ID_FIELD

@@ -1,7 +1,7 @@
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.testing.Test
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
-import java.util.StringTokenizer
+import java.util.*
 
 object Tests {
     val lifecycleTag = "lifecycle"
@@ -26,3 +26,5 @@ fun Test.setup(jacocoTestReport: TaskProvider<*>) {
         )
     }
 }
+
+fun Any.runtimeJavaVersion(): String = System.getProperty("java.specification.version")

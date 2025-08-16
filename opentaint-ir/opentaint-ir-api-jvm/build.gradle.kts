@@ -1,5 +1,6 @@
 dependencies {
     api(project(":opentaint-ir-api-common"))
+    api(project(":opentaint-ir-api-storage"))
 
     api(Libs.asm)
     api(Libs.asm_tree)

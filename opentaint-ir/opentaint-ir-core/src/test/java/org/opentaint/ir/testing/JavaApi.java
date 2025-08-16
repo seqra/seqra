@@ -1,14 +1,10 @@
 package org.opentaint.ir.testing;
 
 import org.opentaint.ir.api.jvm.JIRDatabase;
-import org.opentaint.ir.api.jvm.cfg.JIRArgument;
-import org.opentaint.ir.api.jvm.cfg.JIRExpr;
-import org.opentaint.ir.api.jvm.cfg.TypedExprResolver;
 import org.opentaint.ir.impl.Opentaint-IR;
 import org.opentaint.ir.impl.JIRCacheSettings;
 import org.opentaint.ir.impl.JIRSettings;
 import org.opentaint.ir.impl.features.Usages;
-import org.jetbrains.annotations.NotNull;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;

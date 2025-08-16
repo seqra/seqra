@@ -2,7 +2,7 @@ package org.opentaint.ir.impl.storage.ers
 
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.JIRDatabasePersistence
-import org.opentaint.ir.api.jvm.storage.ers.EntityRelationshipStorageSPI
+import org.opentaint.ir.api.storage.ers.EntityRelationshipStorageSPI
 import org.opentaint.ir.impl.JIRDatabaseImpl
 import org.opentaint.ir.impl.JIRDatabasePersistenceSPI
 import org.opentaint.ir.impl.JIRErsSettings

@@ -1,10 +1,10 @@
 package org.opentaint.ir.impl.features.classpaths
 
-import kotlinx.metadata.KmConstructor
-import kotlinx.metadata.KmFunction
-import kotlinx.metadata.KmProperty
-import kotlinx.metadata.KmTypeParameter
-import kotlinx.metadata.jvm.KotlinClassMetadata
+import kotlin.metadata.KmConstructor
+import kotlin.metadata.KmFunction
+import kotlin.metadata.KmProperty
+import kotlin.metadata.KmTypeParameter
+import kotlin.metadata.jvm.KotlinClassMetadata
 import org.opentaint.ir.api.jvm.JIRClassExtFeature
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.ext.annotation
@@ -30,7 +30,7 @@ object KotlinMetadata : JIRClassExtFeature {
     private val JIRClassOrInterface.kMetadata: KotlinClassMetadata?
         get() {
             val kmParameters = annotation("kotlin.Metadata")?.values ?: return null
-            val metadata = kotlinx.metadata.jvm.Metadata(
+            val metadata = kotlin.metadata.jvm.Metadata(
                 kmParameters["k"] as? Int,
                 (kmParameters["mv"] as? List<Int>)?.toIntArray(),
                 (kmParameters["d1"] as? List<String>)?.toTypedArray(),

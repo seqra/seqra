@@ -1,8 +1,8 @@
 package org.opentaint.ir.impl.storage.ers.sql
 
-import org.opentaint.ir.api.jvm.storage.ers.Entity
-import org.opentaint.ir.api.jvm.storage.ers.EntityId
-import org.opentaint.ir.api.jvm.storage.ers.EntityIterable
+import org.opentaint.ir.api.storage.ers.Entity
+import org.opentaint.ir.api.storage.ers.EntityId
+import org.opentaint.ir.api.storage.ers.EntityIterable
 import org.jooq.Condition
 import org.jooq.Field
 import org.jooq.Table

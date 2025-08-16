@@ -1,8 +1,8 @@
 package org.opentaint.ir.impl.storage.ers.sql
 
-import org.opentaint.ir.api.jvm.storage.ers.ErsSettings
-import org.opentaint.ir.api.jvm.storage.ers.EntityRelationshipStorage
-import org.opentaint.ir.api.jvm.storage.ers.EntityRelationshipStorageSPI
+import org.opentaint.ir.api.storage.ers.ErsSettings
+import org.opentaint.ir.api.storage.ers.EntityRelationshipStorage
+import org.opentaint.ir.api.storage.ers.EntityRelationshipStorageSPI
 import org.opentaint.ir.impl.storage.configuredSQLiteDataSource
 import org.opentaint.ir.impl.storage.ers.BuiltInBindingProvider
 

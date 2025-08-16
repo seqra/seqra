@@ -1,9 +1,9 @@
 package org.opentaint.ir.impl.features
 
 import org.opentaint.ir.api.jvm.*
-import org.opentaint.ir.api.jvm.storage.ers.compressed
-import org.opentaint.ir.api.jvm.storage.ers.links
-import org.opentaint.ir.api.jvm.storage.ers.nonSearchable
+import org.opentaint.ir.api.storage.ers.compressed
+import org.opentaint.ir.api.storage.ers.links
+import org.opentaint.ir.api.storage.ers.nonSearchable
 import org.opentaint.ir.impl.asSymbolId
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className

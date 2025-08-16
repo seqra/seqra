@@ -1,5 +1,4 @@
 plugins {
-    id("java")
     kotlin("plugin.serialization")
 }
 
@@ -15,6 +14,7 @@ dependencies {
     implementation(Libs.kotlinx_serialization_core)
     implementation(Libs.kotlinx_serialization_json) // for local tests only
 
+    testImplementation(testFixtures(project(":opentaint-ir-storage")))
     testImplementation(Libs.kotlin_logging)
 }
 

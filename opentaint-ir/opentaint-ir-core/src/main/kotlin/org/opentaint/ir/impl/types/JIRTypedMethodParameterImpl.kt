@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.types
 
 import org.opentaint.ir.api.jvm.*
-import org.opentaint.ir.api.jvm.ext.isNullable
+import org.opentaint.ir.impl.bytecode.isNullable
 import org.opentaint.ir.impl.bytecode.JIRAnnotationImpl
 import org.opentaint.ir.impl.bytecode.JIRMethodImpl
 

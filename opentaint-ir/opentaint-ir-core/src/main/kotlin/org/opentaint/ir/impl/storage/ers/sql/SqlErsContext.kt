@@ -1,6 +1,6 @@
 package org.opentaint.ir.impl.storage.ers.sql
 
-import org.opentaint.ir.api.jvm.storage.ers.EntityRelationshipStorage
+import org.opentaint.ir.api.storage.ers.EntityRelationshipStorage
 import org.opentaint.ir.impl.storage.ers.jooq.tables.references.TYPES
 import org.opentaint.ir.impl.storage.ers.sql.SqlErsNames.BLOB_VALUE_FIELD
 import org.opentaint.ir.impl.storage.ers.sql.SqlErsNames.ENTITY_ID_FIELD

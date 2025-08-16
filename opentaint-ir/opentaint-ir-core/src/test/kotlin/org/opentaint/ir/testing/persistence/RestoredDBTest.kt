@@ -4,7 +4,6 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRPersistenceImplSettings
 import org.opentaint.ir.api.jvm.ext.HierarchyExtension
-import org.opentaint.ir.impl.JIRRamErsSettings
 import org.opentaint.ir.impl.JIRXodusKvErsSettings
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.testing.LifecycleTest

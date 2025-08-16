@@ -2,10 +2,10 @@ package org.opentaint.ir.impl.storage.ers.sql
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
-import org.opentaint.ir.api.jvm.storage.ers.BindingProvider
-import org.opentaint.ir.api.jvm.storage.ers.ERSConflictingTransactionException
-import org.opentaint.ir.api.jvm.storage.ers.EntityRelationshipStorage
-import org.opentaint.ir.api.jvm.storage.ers.Transaction
+import org.opentaint.ir.api.storage.ers.BindingProvider
+import org.opentaint.ir.api.storage.ers.ERSConflictingTransactionException
+import org.opentaint.ir.api.storage.ers.EntityRelationshipStorage
+import org.opentaint.ir.api.storage.ers.Transaction
 import org.opentaint.ir.impl.storage.ers.decorators.withAllDecorators
 import org.opentaint.ir.impl.storage.ers.jooq.tables.references.TYPES
 import org.opentaint.ir.impl.storage.ers.sql.SqlErsNames.ENTITY_ID_FIELD

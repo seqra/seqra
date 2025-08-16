@@ -19,7 +19,7 @@ import org.opentaint.ir.api.jvm.ext.humanReadableSignature
 import org.opentaint.ir.api.jvm.ext.isEnum
 import org.opentaint.ir.api.jvm.ext.isLocal
 import org.opentaint.ir.api.jvm.ext.isMemberClass
-import org.opentaint.ir.api.jvm.ext.isNullable
+import org.opentaint.ir.impl.bytecode.isNullable
 import org.opentaint.ir.api.jvm.ext.jIRdbSignature
 import org.opentaint.ir.api.jvm.ext.jvmSignature
 import org.opentaint.ir.api.jvm.ext.methods

@@ -3,9 +3,9 @@ package org.opentaint.ir.impl
 import org.opentaint.ir.api.jvm.JIRDBContext
 import org.opentaint.ir.api.jvm.JIRDBSymbolsInterner
 import org.opentaint.ir.api.jvm.JIRDatabasePersistence
-import org.opentaint.ir.api.jvm.storage.ers.compressed
-import org.opentaint.ir.api.jvm.storage.ers.nonSearchable
-import org.opentaint.ir.api.jvm.storage.kv.forEach
+import org.opentaint.ir.api.storage.ers.compressed
+import org.opentaint.ir.api.storage.ers.nonSearchable
+import org.opentaint.ir.api.storage.kv.forEach
 import org.opentaint.ir.impl.storage.connection
 import org.opentaint.ir.impl.storage.ers.BuiltInBindingProvider
 import org.opentaint.ir.impl.storage.ers.decorators.unwrap

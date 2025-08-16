@@ -16,6 +16,7 @@ dependencies {
 
     testImplementation(project(":opentaint-ir-api-jvm"))
     testImplementation(testFixtures(project(":opentaint-ir-core")))
+    testImplementation(testFixtures(project(":opentaint-ir-storage")))
     testImplementation(kotlin("test"))
     testImplementation(Libs.mockk)
 

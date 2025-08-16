@@ -7,15 +7,14 @@ import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.JIRFeature
 import org.opentaint.ir.api.jvm.JIRPersistenceImplSettings
 import org.opentaint.ir.api.jvm.JIRPersistenceSettings
-import org.opentaint.ir.api.jvm.storage.ers.EmptyErsSettings
-import org.opentaint.ir.api.jvm.storage.ers.ErsSettings
+import org.opentaint.ir.api.storage.ers.EmptyErsSettings
+import org.opentaint.ir.api.storage.ers.ErsSettings
 import org.opentaint.ir.impl.caches.guava.GUAVA_CACHE_PROVIDER_ID
 import org.opentaint.ir.impl.storage.SQLITE_DATABASE_PERSISTENCE_SPI
 import org.opentaint.ir.impl.storage.ers.ERS_DATABASE_PERSISTENCE_SPI
 import org.opentaint.ir.impl.storage.ers.kv.KV_ERS_SPI
 import org.opentaint.ir.impl.storage.ers.ram.RAM_ERS_SPI
 import org.opentaint.ir.impl.storage.ers.sql.SQL_ERS_SPI
-import org.opentaint.ir.impl.storage.kv.lmdb.LMDB_KEY_VALUE_STORAGE_SPI
 import org.opentaint.ir.impl.storage.kv.rocks.ROCKS_KEY_VALUE_STORAGE_SPI
 import org.opentaint.ir.impl.storage.kv.xodus.XODUS_KEY_VALUE_STORAGE_SPI
 import java.io.File
@@ -228,17 +227,9 @@ object JIRRamErsSettings : JIRErsSettings(RAM_ERS_SPI)
 
 object JIRSqlErsSettings : JIRErsSettings(SQL_ERS_SPI)
 
-/**
- * Id of pluggable K/V storage being passed for [org.opentaint.ir.impl.storage.ers.kv.KVEntityRelationshipStorageSPI].
- */
-open class JIRKvErsSettings(val kvId: String) : ErsSettings
-
 object JIRXodusKvErsSettings : JIRErsSettings(KV_ERS_SPI, JIRKvErsSettings(XODUS_KEY_VALUE_STORAGE_SPI))
 
 object JIRRocksKvErsSettings : JIRErsSettings(KV_ERS_SPI, JIRKvErsSettings(ROCKS_KEY_VALUE_STORAGE_SPI))
-
-// by default, mapSize is 1Gb
-class JIRLmdbErsSettings(val mapSize: Long = 0x40_00_00_00) : JIRKvErsSettings(LMDB_KEY_VALUE_STORAGE_SPI)
 
 object JIRLmdbKvErsSettings : JIRErsSettings(KV_ERS_SPI, JIRLmdbErsSettings()) {
 

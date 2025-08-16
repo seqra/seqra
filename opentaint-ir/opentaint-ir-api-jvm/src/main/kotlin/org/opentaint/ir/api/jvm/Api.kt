@@ -2,8 +2,8 @@ package org.opentaint.ir.api.jvm
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
-import org.opentaint.ir.api.jvm.storage.ers.EntityRelationshipStorage
-import org.opentaint.ir.api.jvm.storage.ers.Transaction
+import org.opentaint.ir.api.storage.ers.EntityRelationshipStorage
+import org.opentaint.ir.api.storage.ers.Transaction
 import org.jooq.DSLContext
 import java.io.Closeable
 import java.io.File
@@ -62,8 +62,6 @@ interface JIRDatabase : Closeable {
     fun asyncClasspath(dirOrJars: List<File>, features: List<JIRClasspathFeature>?) =
         GlobalScope.future { classpath(dirOrJars, features) }
 
-    fun classpathOf(locations: List<RegisteredLocation>, features: List<JIRClasspathFeature>?): JIRClasspath
-
     /**
      * process and index single byte-code resource
      * @param dirOrJar build folder or jar file
@@ -118,6 +116,17 @@ interface JIRDatabase : Closeable {
     suspend fun awaitBackgroundJobs()
     fun asyncAwaitBackgroundJobs() = GlobalScope.future { awaitBackgroundJobs() }
 
+    /**
+     * Sets this database's internal state to immutable if corresponding backend supports this operation.
+     * If it does, any write operation is no longer possible.
+     * The method can be used in order to "fix" current snapshot of the model.
+     * Generally, there is no way to switch the database back to mutable.
+     */
+    suspend fun setImmutable() {
+        awaitBackgroundJobs()
+        persistence.setImmutable()
+    }
+
     fun isInstalled(feature: JIRFeature<*, *>): Boolean = features.contains(feature)
 
     val features: List<JIRFeature<*, *>>
@@ -147,6 +156,14 @@ interface JIRDatabasePersistence : Closeable {
     fun findClassSources(cp: JIRClasspath, fullName: String): List<ClassSource>
 
     fun createIndexes() {}
+
+    /**
+     * Sets this persistence's internal state to immutable if corresponding backend supports this operation.
+     * If it does, any write operation is no longer possible.
+     * The method can be used in order to "fix" current snapshot of the model.
+     * Generally, there is no way to switch the persistence back to mutable.
+     */
+    fun setImmutable() {}
 }
 
 /**

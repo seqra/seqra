@@ -1,0 +1,2 @@
+org.opentaint.ir.impl.storage.ers.ram.RAMEntityRelationshipStorageSPI
+org.opentaint.ir.impl.storage.ers.kv.KVEntityRelationshipStorageSPI

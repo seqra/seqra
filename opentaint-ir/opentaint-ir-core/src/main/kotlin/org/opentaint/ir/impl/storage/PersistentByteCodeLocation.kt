@@ -5,8 +5,8 @@ import org.opentaint.ir.api.jvm.JIRByteCodeLocation
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.JIRDatabasePersistence
 import org.opentaint.ir.api.jvm.RegisteredLocation
-import org.opentaint.ir.api.jvm.storage.ers.Entity
-import org.opentaint.ir.api.jvm.storage.ers.getEntityOrNull
+import org.opentaint.ir.api.storage.ers.Entity
+import org.opentaint.ir.api.storage.ers.getEntityOrNull
 import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
@@ -101,8 +101,8 @@ class PersistentByteCodeLocation(
 
     private fun PersistentByteCodeLocationData.toJIRLocation(): JIRByteCodeLocation? {
         try {
-            val newOne = File(path).asByteCodeLocation(runtimeVersion, isRuntime = runtime)
-            if (newOne.fileSystemId != fileSystemId) {
+            val newOne = File(path).asByteCodeLocation(runtimeVersion, isRuntime = runtime).singleOrNull()
+            if (newOne?.fileSystemId != fileSystemId) {
                 return null
             }
             return newOne

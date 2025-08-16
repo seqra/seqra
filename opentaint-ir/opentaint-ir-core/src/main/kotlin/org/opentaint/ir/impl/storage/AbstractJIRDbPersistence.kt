@@ -3,7 +3,7 @@ package org.opentaint.ir.impl.storage
 import org.opentaint.ir.api.jvm.JIRByteCodeLocation
 import org.opentaint.ir.api.jvm.JIRDatabasePersistence
 import org.opentaint.ir.api.jvm.RegisteredLocation
-import org.opentaint.ir.api.jvm.storage.ers.getEntityOrNull
+import org.opentaint.ir.api.storage.ers.getEntityOrNull
 import org.opentaint.ir.impl.JIRDBSymbolsInternerImpl
 import org.opentaint.ir.impl.asSymbolId
 import org.opentaint.ir.impl.caches.PluggableCache
@@ -62,7 +62,7 @@ abstract class AbstractJIRDbPersistence(
                     } catch (e: Exception) {
                         null
                     }
-                }
+                }.flatten().distinct()
             }
         }
 
@@ -129,7 +129,8 @@ abstract class AbstractJIRDbPersistence(
                 return read { context ->
                     context.execute(
                         sqlAction = { jooq ->
-                            val hasBytecodeLocations = jooq.meta().tables.any { it.name.equals(BYTECODELOCATIONS.name, true) }
+                            val hasBytecodeLocations =
+                                jooq.meta().tables.any { it.name.equals(BYTECODELOCATIONS.name, true) }
                             if (!hasBytecodeLocations) {
                                 return@execute false
                             }

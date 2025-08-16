@@ -14,7 +14,7 @@ import org.opentaint.ir.api.jvm.JIRSignal
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.cfg.JIRInstList
 import org.opentaint.ir.api.jvm.cfg.JIRRawInst
-import org.opentaint.ir.api.jvm.storage.ers.compressed
+import org.opentaint.ir.api.storage.ers.compressed
 import org.opentaint.ir.approximation.TransformerIntoVirtual.transformMethodIntoVirtual
 import org.opentaint.ir.approximation.annotation.Approximate
 import org.opentaint.ir.impl.cfg.JIRInstListImpl

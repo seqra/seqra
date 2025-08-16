@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.caches
 
-import org.opentaint.ir.api.jvm.spi.CommonSPI
-import org.opentaint.ir.api.jvm.spi.SPILoader
+import org.opentaint.ir.api.spi.CommonSPI
+import org.opentaint.ir.api.spi.SPILoader
 
 /**
  * Service Provider Interface to load pluggable implementation of [PluggableCacheBuilder] and [PluggableCache]

@@ -10,7 +10,7 @@ import org.opentaint.ir.api.jvm.JIRFeature
 import org.opentaint.ir.api.jvm.JIRSignal
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.ext.jvmPrimitiveNames
-import org.opentaint.ir.api.jvm.storage.ers.compressed
+import org.opentaint.ir.api.storage.ers.compressed
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.execute

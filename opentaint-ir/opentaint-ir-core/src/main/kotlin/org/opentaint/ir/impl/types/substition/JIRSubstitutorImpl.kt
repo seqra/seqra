@@ -6,7 +6,7 @@ import kotlinx.collections.immutable.toPersistentMap
 import org.opentaint.ir.api.jvm.JIRSubstitutor
 import org.opentaint.ir.api.jvm.JvmType
 import org.opentaint.ir.api.jvm.JvmTypeParameterDeclaration
-import org.opentaint.ir.api.jvm.ext.isNotNullAnnotation
+import org.opentaint.ir.impl.bytecode.isNotNullAnnotation
 import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclarationImpl
 import org.opentaint.ir.impl.types.signature.JvmTypeVariable
 import org.opentaint.ir.impl.types.signature.copyWith
@@ -148,5 +148,4 @@ class JIRSubstitutorImpl(
     override fun hashCode(): Int {
         return substitutions.hashCode()
     }
-
 }

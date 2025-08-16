@@ -2,7 +2,7 @@ package org.opentaint.ir.impl.storage.ers
 
 import org.opentaint.ir.api.jvm.ClassSource
 import org.opentaint.ir.api.jvm.JIRDatabase
-import org.opentaint.ir.api.jvm.storage.ers.Entity
+import org.opentaint.ir.api.storage.ers.Entity
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 
 fun Sequence<Entity>.toClassSourceSequence(db: JIRDatabase): Sequence<ClassSource> {

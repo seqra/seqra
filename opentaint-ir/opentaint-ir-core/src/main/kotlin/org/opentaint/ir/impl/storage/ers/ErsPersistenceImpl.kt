@@ -7,13 +7,13 @@ import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
-import org.opentaint.ir.api.jvm.storage.ers.Entity
-import org.opentaint.ir.api.jvm.storage.ers.EntityRelationshipStorage
-import org.opentaint.ir.api.jvm.storage.ers.Transaction
-import org.opentaint.ir.api.jvm.storage.ers.compressed
-import org.opentaint.ir.api.jvm.storage.ers.findOrNew
-import org.opentaint.ir.api.jvm.storage.ers.links
-import org.opentaint.ir.api.jvm.storage.ers.nonSearchable
+import org.opentaint.ir.api.storage.ers.Entity
+import org.opentaint.ir.api.storage.ers.EntityRelationshipStorage
+import org.opentaint.ir.api.storage.ers.Transaction
+import org.opentaint.ir.api.storage.ers.compressed
+import org.opentaint.ir.api.storage.ers.findOrNew
+import org.opentaint.ir.api.storage.ers.links
+import org.opentaint.ir.api.storage.ers.nonSearchable
 import org.opentaint.ir.impl.JIRDBSymbolsInternerImpl
 import org.opentaint.ir.impl.asSymbolId
 import org.opentaint.ir.impl.fs.JavaRuntime
@@ -21,7 +21,6 @@ import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.info
 import org.opentaint.ir.impl.storage.AbstractJIRDbPersistence
 import org.opentaint.ir.impl.storage.AnnotationValueKind
-import org.opentaint.ir.impl.storage.ers.ram.RAMEntityRelationshipStorage
 import org.opentaint.ir.impl.storage.toJIRDBContext
 import org.opentaint.ir.impl.storage.txn
 import org.opentaint.ir.impl.types.AnnotationInfo
@@ -37,7 +36,7 @@ import kotlin.concurrent.withLock
 class ErsPersistenceImpl(
     javaRuntime: JavaRuntime,
     clearOnStart: Boolean,
-    override val ers: EntityRelationshipStorage,
+    override var ers: EntityRelationshipStorage,
 ) : AbstractJIRDbPersistence(javaRuntime) {
     companion object {
         private val logger = KotlinLogging.logger {}
@@ -60,7 +59,7 @@ class ErsPersistenceImpl(
     }
 
     override fun <T> read(action: (JIRDBContext) -> T): T {
-        return if (ers is RAMEntityRelationshipStorage) { // RAMEntityRelationshipStorage doesn't support readonly transactions
+        return if (ers.isInRam) { // RAM storage doesn't support explicit readonly transactions
             ers.transactionalOptimistic(attempts = 10) { txn ->
                 action(toJIRDBContext(txn))
             }
@@ -216,6 +215,10 @@ class ErsPersistenceImpl(
         return read { context ->
             findClassSourcesImpl(context, cp, fullName).toList()
         }
+    }
+
+    override fun setImmutable() {
+        ers = ers.asReadonly
     }
 
     override fun close() {

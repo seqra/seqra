@@ -13,11 +13,11 @@ import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.ext.HierarchyExtension
 import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
 import org.opentaint.ir.api.jvm.ext.findDeclaredMethodOrNull
-import org.opentaint.ir.api.jvm.storage.ers.CollectionEntityIterable
-import org.opentaint.ir.api.jvm.storage.ers.Entity
-import org.opentaint.ir.api.jvm.storage.ers.EntityIterable
-import org.opentaint.ir.api.jvm.storage.ers.Transaction
-import org.opentaint.ir.api.jvm.storage.ers.compressed
+import org.opentaint.ir.api.storage.ers.CollectionEntityIterable
+import org.opentaint.ir.api.storage.ers.Entity
+import org.opentaint.ir.api.storage.ers.EntityIterable
+import org.opentaint.ir.api.storage.ers.Transaction
+import org.opentaint.ir.api.storage.ers.compressed
 import org.opentaint.ir.impl.asSymbolId
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.storage.BatchedSequence

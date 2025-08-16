@@ -21,7 +21,9 @@ gitHooks {
 
 include("opentaint-ir-api-common")
 include("opentaint-ir-api-jvm")
+include("opentaint-ir-api-storage")
 include("opentaint-ir-core")
+include("opentaint-ir-storage")
 include("opentaint-ir-analysis")
 include("opentaint-ir-examples")
 include("opentaint-ir-benchmarks")

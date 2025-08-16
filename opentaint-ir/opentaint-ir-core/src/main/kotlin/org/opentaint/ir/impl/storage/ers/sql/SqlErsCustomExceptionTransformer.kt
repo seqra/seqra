@@ -1,6 +1,6 @@
 package org.opentaint.ir.impl.storage.ers.sql
 
-import org.opentaint.ir.api.jvm.storage.ers.ERSConflictingTransactionException
+import org.opentaint.ir.api.storage.ers.ERSConflictingTransactionException
 import org.jooq.ExecuteContext
 import org.jooq.exception.DataAccessException
 import org.jooq.impl.DefaultExecuteListener

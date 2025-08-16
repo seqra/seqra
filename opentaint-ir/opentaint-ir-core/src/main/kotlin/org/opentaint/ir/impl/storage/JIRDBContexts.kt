@@ -3,7 +3,7 @@ package org.opentaint.ir.impl.storage
 import org.opentaint.ir.api.jvm.ContextProperty
 import org.opentaint.ir.api.jvm.JIRDBContext
 import org.opentaint.ir.api.jvm.invoke
-import org.opentaint.ir.api.jvm.storage.ers.Transaction
+import org.opentaint.ir.api.storage.ers.Transaction
 import org.jooq.DSLContext
 import java.sql.Connection
 

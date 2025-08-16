@@ -1,10 +1,10 @@
 package org.opentaint.ir.impl.storage.ers.sql
 
-import org.opentaint.ir.api.jvm.storage.ers.Entity
-import org.opentaint.ir.api.jvm.storage.ers.EntityId
-import org.opentaint.ir.api.jvm.storage.ers.EntityIterable
-import org.opentaint.ir.api.jvm.storage.ers.Transaction
-import org.opentaint.ir.api.jvm.storage.ers.probablyCompressed
+import org.opentaint.ir.api.storage.ers.Entity
+import org.opentaint.ir.api.storage.ers.EntityId
+import org.opentaint.ir.api.storage.ers.EntityIterable
+import org.opentaint.ir.api.storage.ers.Transaction
+import org.opentaint.ir.api.storage.ers.probablyCompressed
 import org.opentaint.ir.impl.storage.ers.sql.SqlErsNames.ENTITY_ID_FIELD
 import org.opentaint.ir.impl.storage.ers.sql.SqlErsNames.PROPERTY_VALUE_FIELD
 import org.opentaint.ir.impl.storage.executeQueriesFrom
@@ -47,6 +47,8 @@ class SqlErsTransactionImpl(
             .fetchOne()
             ?.let { SqlErsEntity(id, txn = this) }
     }
+
+    override fun getEntityUnsafe(id: EntityId): Entity = SqlErsEntity(id, txn = this)
 
     override fun deleteEntity(id: EntityId) {
         val entityTable = getEntityTableByTypeIdOrNull(id.typeId) ?: return

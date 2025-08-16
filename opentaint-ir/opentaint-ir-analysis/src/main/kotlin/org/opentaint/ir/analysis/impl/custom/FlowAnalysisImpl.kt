@@ -136,7 +136,7 @@ private fun <NODE, T> FlowEntry<NODE, T>.visitEntry(
 }
 
 private fun <NODE, T> NODE.toEntry(
-    pred: FlowEntry<NODE, T>?,
+    pred: FlowEntry<NODE, T>,
     visited: MutableMap<NODE, FlowEntry<NODE, T>>,
 ): FlowEntry<NODE, T> {
     // either we reach a new node or a merge node, the latter one is rare

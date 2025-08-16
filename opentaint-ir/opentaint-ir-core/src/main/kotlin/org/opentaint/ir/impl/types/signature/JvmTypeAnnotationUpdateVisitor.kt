@@ -2,8 +2,8 @@ package org.opentaint.ir.impl.types.signature
 
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JvmType
-import org.opentaint.ir.api.jvm.ext.isNotNullAnnotation
-import org.opentaint.ir.api.jvm.ext.isNullableAnnotation
+import org.opentaint.ir.impl.bytecode.isNotNullAnnotation
+import org.opentaint.ir.impl.bytecode.isNullableAnnotation
 import org.opentaint.ir.impl.bytecode.JIRAnnotationImpl
 import org.opentaint.ir.impl.types.AnnotationInfo
 import org.objectweb.asm.TypePath
