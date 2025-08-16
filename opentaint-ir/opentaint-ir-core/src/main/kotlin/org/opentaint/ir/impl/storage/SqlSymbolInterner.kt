@@ -4,12 +4,12 @@ import org.opentaint.ir.api.jvm.JIRDatabasePersistence
 import org.opentaint.ir.api.storage.ConcurrentSymbolInterner
 import org.opentaint.ir.api.storage.StorageContext
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
-import org.jooq.DSLContext
 
 class SqlSymbolInterner : ConcurrentSymbolInterner() {
 
     fun setup(persistence: JIRDatabasePersistence) = persistence.read { context ->
-        context.execute { jooq ->
+        context.execute {
+            val jooq = context.dslContext
             jooq.selectFrom(SYMBOLS).fetch().forEach {
                 val (id, name) = it
                 if (name != null && id != null) {
@@ -40,7 +40,7 @@ class SqlSymbolInterner : ConcurrentSymbolInterner() {
         }
     }
 
-    private fun StorageContext.execute(action: (DSLContext) -> Unit) {
+    private fun StorageContext.execute(action: () -> Unit) {
         execute(sqlAction = action, noSqlAction = { error("Can't execute NoSql action in SqlSymbolInterner") })
     }
 }

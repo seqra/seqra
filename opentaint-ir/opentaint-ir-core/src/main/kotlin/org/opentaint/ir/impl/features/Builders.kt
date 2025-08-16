@@ -14,6 +14,7 @@ import org.opentaint.ir.api.storage.ers.compressed
 import org.opentaint.ir.api.storage.ers.nonSearchable
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
+import org.opentaint.ir.impl.storage.dslContext
 import org.opentaint.ir.impl.storage.ers.filterDeleted
 import org.opentaint.ir.impl.storage.ers.filterLocations
 import org.opentaint.ir.impl.storage.ers.toClassSource
@@ -23,6 +24,7 @@ import org.opentaint.ir.impl.storage.jooq.tables.references.BUILDERS
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
 import org.opentaint.ir.impl.storage.runBatch
+import org.opentaint.ir.impl.storage.txn
 import org.opentaint.ir.impl.storage.withoutAutoCommit
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
@@ -79,8 +81,8 @@ class BuildersIndexer(val persistence: JIRDatabasePersistence, private val locat
 
     override fun flush(context: StorageContext) {
         context.execute(
-            sqlAction = { jooq ->
-                jooq.withoutAutoCommit { conn ->
+            sqlAction = {
+                context.dslContext.withoutAutoCommit { conn ->
                     conn.runBatch(BUILDERS) {
                         potentialBuilders.forEach { (calleeClass, builders) ->
                             val calleeId = calleeClass.className
@@ -98,7 +100,8 @@ class BuildersIndexer(val persistence: JIRDatabasePersistence, private val locat
                     }
                 }
             },
-            noSqlAction = { txn ->
+            noSqlAction = {
+                val txn = context.txn
                 potentialBuilders.forEach { (returnedClassInternalName, builders) ->
                     val returnTypeId = persistence.findSymbolId(returnedClassInternalName.className)
                     builders.forEach { builder ->
@@ -127,15 +130,16 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
 
     fun create(context: StorageContext, drop: Boolean) {
         context.execute(
-            sqlAction = { jooq ->
+            sqlAction = {
+                val jooq = context.dslContext
                 if (drop) {
                     jooq.executeQueries(dropScheme)
                 }
                 jooq.executeQueries(createScheme)
             },
-            noSqlAction = { txn ->
+            noSqlAction = {
                 if (drop) {
-                    txn.all(BuilderEntity.BUILDER_ENTITY_TYPE).deleteAll()
+                    context.txn.all(BuilderEntity.BUILDER_ENTITY_TYPE).deleteAll()
                 }
             }
         )
@@ -171,12 +175,12 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
                 signal.jIRdb.persistence.write { context ->
                     if (signal.clearOnStart) {
                         context.execute(
-                            sqlAction = { it.executeQueries(dropScheme) },
-                            noSqlAction = { it.all(type = BuilderEntity.BUILDER_ENTITY_TYPE).deleteAll() }
+                            sqlAction = { context.dslContext.executeQueries(dropScheme) },
+                            noSqlAction = { context.txn.all(type = BuilderEntity.BUILDER_ENTITY_TYPE).deleteAll() }
                         )
                     }
                     context.execute(
-                        sqlAction = { it.executeQueries(createScheme) },
+                        sqlAction = { context.dslContext.executeQueries(createScheme) },
                         noSqlAction = { /* no-op */ }
                     )
                 }
@@ -185,9 +189,11 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
             is JIRSignal.LocationRemoved -> {
                 signal.jIRdb.persistence.write { context ->
                     context.execute(
-                        sqlAction = { it.deleteFrom(BUILDERS).where(BUILDERS.LOCATION_ID.eq(signal.location.id)) },
-                        noSqlAction = { txn ->
-                            txn.find(
+                        sqlAction = {
+                            context.dslContext.deleteFrom(BUILDERS).where(BUILDERS.LOCATION_ID.eq(signal.location.id))
+                        },
+                        noSqlAction = {
+                            context.txn.find(
                                 type = BuilderEntity.BUILDER_ENTITY_TYPE,
                                 propertyName = BuilderEntity.BUILDER_LOCATION_ID_PROPERTY,
                                 value = signal.location.id.compressed
@@ -200,7 +206,7 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
             is JIRSignal.AfterIndexing -> {
                 signal.jIRdb.persistence.write { context ->
                     context.execute(
-                        sqlAction = { it.executeQueries(createIndex) },
+                        sqlAction = { context.dslContext.executeQueries(createIndex) },
                         noSqlAction = { /* no-op */ }
                     )
                 }
@@ -209,8 +215,8 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
             is JIRSignal.Drop -> {
                 signal.jIRdb.persistence.write { context ->
                     context.execute(
-                        sqlAction = { it.deleteFrom(BUILDERS).execute() },
-                        noSqlAction = { it.all(type = BuilderEntity.BUILDER_ENTITY_TYPE).deleteAll() }
+                        sqlAction = { context.dslContext.deleteFrom(BUILDERS).execute() },
+                        noSqlAction = { context.txn.all(type = BuilderEntity.BUILDER_ENTITY_TYPE).deleteAll() }
                     )
                 }
             }
@@ -229,7 +235,8 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
         return sequence {
             val result = persistence.read { context ->
                 context.execute(
-                    sqlAction = { jooq ->
+                    sqlAction = {
+                        val jooq = context.dslContext
                         jooq.select(BUILDERS.OFFSET, SYMBOLS.NAME, CLASSES.ID, CLASSES.LOCATION_ID, BUILDERS.PRIORITY)
                             .from(BUILDERS)
                             .join(SYMBOLS).on(SYMBOLS.NAME.eq(BUILDERS.BUILDER_CLASS_NAME))
@@ -253,10 +260,10 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
                                 )
                             }
                     },
-                    noSqlAction = { txn ->
+                    noSqlAction = {
+                        val txn = context.txn
                         // TODO: review as resulting expression looks quite verbose and non-optimal
-                        req
-                            .asSequence()
+                        req.asSequence()
                             .map { returnedClassName -> persistence.findSymbolId(returnedClassName) }
                             .map { returnedClassNameId ->
                                 txn.find(

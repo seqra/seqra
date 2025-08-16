@@ -15,11 +15,11 @@ data class AppVersion(val major: Int, val minor: Int) : Comparable<AppVersion> {
         fun read(context: StorageContext): AppVersion {
             return try {
                 val appVersion = context.execute(
-                    sqlAction = { jooq ->
-                        jooq.selectFrom(APPLICATIONMETADATA).fetch().firstOrNull()
+                    sqlAction = {
+                        context.dslContext.selectFrom(APPLICATIONMETADATA).fetch().firstOrNull()
                     },
-                    noSqlAction = { txn ->
-                        txn.all("ApplicationMetadata").firstOrNull()?.let { it["version"] }
+                    noSqlAction = {
+                        context.txn.all("ApplicationMetadata").firstOrNull()?.let { it["version"] }
                     }
                 )
                 appVersion?.run {
@@ -51,13 +51,15 @@ data class AppVersion(val major: Int, val minor: Int) : Comparable<AppVersion> {
 
     fun write(context: StorageContext) {
         context.execute(
-            sqlAction = { jooq ->
+            sqlAction = {
+                val jooq = context.dslContext
                 jooq.deleteFrom(APPLICATIONMETADATA).execute()
                 jooq.insertInto(APPLICATIONMETADATA)
                     .set(APPLICATIONMETADATA.VERSION, "$major.$minor")
                     .execute()
             },
-            noSqlAction = { txn ->
+            noSqlAction = {
+                val txn = context.txn
                 val metadata = txn.all("ApplicationMetadata").firstOrNull()
                     ?: context.txn.newEntity("ApplicationMetadata")
                 metadata["version"] = "$major.$minor"

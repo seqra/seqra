@@ -28,7 +28,8 @@ class JIRRefactoringChain(private val chain: List<JIRRefactoring>) {
     @OptIn(ExperimentalTime::class)
     fun execute(context: StorageContext) {
         context.execute(
-            sqlAction = { jooq ->
+            sqlAction = {
+                val jooq = context.dslContext
                 val applied = hashSetOf<String>()
                 try {
                     applied.addAll(jooq.select(REFACTORINGS.NAME).from(REFACTORINGS).fetchArray(REFACTORINGS.NAME))
@@ -47,7 +48,8 @@ class JIRRefactoringChain(private val chain: List<JIRRefactoring>) {
                     }
                 }
             },
-            noSqlAction = { txn ->
+            noSqlAction = {
+                val txn = context.txn
                 chain.forEach { refactoring ->
                     val refactoringName = refactoring.name
                     if (txn.find(REFACTORING_TYPE, "name", refactoringName).isEmpty) {

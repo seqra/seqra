@@ -57,11 +57,13 @@ class PersistentByteCodeLocation(
     val data by lazy {
         cachedData ?: persistence.read { context ->
             context.execute(
-                sqlAction = { jooq ->
+                sqlAction = {
+                    val jooq = context.dslContext
                     val record = jooq.fetchOne(BYTECODELOCATIONS, BYTECODELOCATIONS.ID.eq(id))!!
                     PersistentByteCodeLocationData.fromSqlRecord(record)
                 },
-                noSqlAction = { txn ->
+                noSqlAction = {
+                    val txn = context.txn
                     val entity = txn.getEntityOrNull(BytecodeLocationEntity.BYTECODE_LOCATION_ENTITY_TYPE, id)!!
                     PersistentByteCodeLocationData.fromErsEntity(entity)
                 }

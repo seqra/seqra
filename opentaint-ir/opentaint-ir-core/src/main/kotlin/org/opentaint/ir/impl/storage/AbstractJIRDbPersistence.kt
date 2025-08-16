@@ -9,7 +9,6 @@ import org.opentaint.ir.impl.caches.PluggableCacheProvider
 import org.opentaint.ir.impl.caches.xodus.XODUS_CACHE_PROVIDER_ID
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.asByteCodeLocation
-import org.opentaint.ir.impl.fs.logger
 import org.opentaint.ir.impl.storage.ers.bytecode
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
@@ -45,13 +44,13 @@ abstract class AbstractJIRDbPersistence(
         get() {
             return read { context ->
                 context.execute(
-                    sqlAction = { jooq ->
-                        jooq.selectFrom(BYTECODELOCATIONS).fetch().map {
+                    sqlAction = {
+                        context.dslContext.selectFrom(BYTECODELOCATIONS).fetch().map {
                             PersistentByteCodeLocationData.fromSqlRecord(it)
                         }
                     },
-                    noSqlAction = { txn ->
-                        txn.all(BytecodeLocationEntity.BYTECODE_LOCATION_ENTITY_TYPE).map {
+                    noSqlAction = {
+                        context.txn.all(BytecodeLocationEntity.BYTECODE_LOCATION_ENTITY_TYPE).map {
                             PersistentByteCodeLocationData.fromErsEntity(it)
                         }.toList()
                     }
@@ -69,11 +68,12 @@ abstract class AbstractJIRDbPersistence(
         return byteCodeCache.get(classId) {
             read { context ->
                 context.execute(
-                    sqlAction = { jooq ->
-                        jooq.select(CLASSES.BYTECODE).from(CLASSES).where(CLASSES.ID.eq(classId)).fetchAny()?.value1()
+                    sqlAction = {
+                        context.dslContext.select(CLASSES.BYTECODE).from(CLASSES).where(CLASSES.ID.eq(classId))
+                            .fetchAny()?.value1()
                     },
-                    noSqlAction = { txn ->
-                        txn.getEntityOrNull("Class", classId).bytecode()
+                    noSqlAction = {
+                        context.txn.getEntityOrNull("Class", classId).bytecode()
                     }
                 )
             } ?: throw IllegalArgumentException("Can't find bytecode for $classId")
@@ -92,12 +92,12 @@ abstract class AbstractJIRDbPersistence(
         return locationsCache.get(locationId) {
             val locationData = read { context ->
                 context.execute(
-                    sqlAction = { jooq ->
-                        jooq.fetchOne(BYTECODELOCATIONS, BYTECODELOCATIONS.ID.eq(locationId))
+                    sqlAction = {
+                        context.dslContext.fetchOne(BYTECODELOCATIONS, BYTECODELOCATIONS.ID.eq(locationId))
                             ?.let { PersistentByteCodeLocationData.fromSqlRecord(it) }
                     },
-                    noSqlAction = { txn ->
-                        txn.getEntityOrNull(BytecodeLocationEntity.BYTECODE_LOCATION_ENTITY_TYPE, locationId)
+                    noSqlAction = {
+                        context.txn.getEntityOrNull(BytecodeLocationEntity.BYTECODE_LOCATION_ENTITY_TYPE, locationId)
                             ?.let { PersistentByteCodeLocationData.fromErsEntity(it) }
                     }
                 ) ?: throw IllegalArgumentException("location not found by id $locationId")
@@ -122,34 +122,30 @@ abstract class AbstractJIRDbPersistence(
 
     protected val runtimeProcessed: Boolean
         get() {
-            try {
-                return read { context ->
-                    context.execute(
-                        sqlAction = { jooq ->
-                            val hasBytecodeLocations =
-                                jooq.meta().tables.any { it.name.equals(BYTECODELOCATIONS.name, true) }
-                            if (!hasBytecodeLocations) {
-                                return@execute false
-                            }
-
-                            val count = jooq.fetchCount(
-                                BYTECODELOCATIONS,
-                                BYTECODELOCATIONS.STATE.notEqual(LocationState.PROCESSED.ordinal)
-                                    .and(BYTECODELOCATIONS.RUNTIME.isTrue)
-                            )
-                            count == 0
-                        },
-                        noSqlAction = { txn ->
-                            txn.all(BytecodeLocationEntity.BYTECODE_LOCATION_ENTITY_TYPE).none {
-                                it.get<Boolean>(BytecodeLocationEntity.IS_RUNTIME) == true &&
-                                        it.get<Int>(BytecodeLocationEntity.STATE) != LocationState.PROCESSED.ordinal
-                            }
+            return read { context ->
+                context.execute(
+                    sqlAction = {
+                        val jooq = context.dslContext
+                        val hasBytecodeLocations =
+                            jooq.meta().tables.any { it.name.equals(BYTECODELOCATIONS.name, true) }
+                        if (!hasBytecodeLocations) {
+                            return@execute false
                         }
-                    )
-                }
-            } catch (e: Exception) {
-                logger.warn("can't check that runtime libraries is processed with", e)
-                return false
+
+                        val count = jooq.fetchCount(
+                            BYTECODELOCATIONS,
+                            BYTECODELOCATIONS.STATE.notEqual(LocationState.PROCESSED.ordinal)
+                                .and(BYTECODELOCATIONS.RUNTIME.isTrue)
+                        )
+                        count == 0
+                    },
+                    noSqlAction = {
+                        context.txn.all(BytecodeLocationEntity.BYTECODE_LOCATION_ENTITY_TYPE).none {
+                            it.get<Boolean>(BytecodeLocationEntity.IS_RUNTIME) == true &&
+                                    it.get<Int>(BytecodeLocationEntity.STATE) != LocationState.PROCESSED.ordinal
+                        }
+                    }
+                )
             }
         }
 }

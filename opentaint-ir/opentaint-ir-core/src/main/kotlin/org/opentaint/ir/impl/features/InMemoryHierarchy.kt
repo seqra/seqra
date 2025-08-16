@@ -18,6 +18,7 @@ import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.BatchedSequence
 import org.opentaint.ir.impl.storage.defaultBatchSize
+import org.opentaint.ir.impl.storage.dslContext
 import org.opentaint.ir.impl.storage.ers.filterDeleted
 import org.opentaint.ir.impl.storage.ers.filterLocations
 import org.opentaint.ir.impl.storage.ers.toClassSource
@@ -26,6 +27,7 @@ import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSHIERARCHIES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
 import org.opentaint.ir.impl.storage.toStorageContext
+import org.opentaint.ir.impl.storage.txn
 import org.opentaint.ir.impl.storage.withoutAutoCommit
 import org.opentaint.ir.impl.util.Sequence
 import org.jooq.impl.DSL
@@ -63,7 +65,8 @@ class InMemoryHierarchyIndexer(
 
     override fun flush(context: StorageContext) {
         context.execute(
-            sqlAction = { jooq ->
+            sqlAction = {
+                val jooq = context.dslContext
                 jooq.withoutAutoCommit { conn ->
                     interner.flush(toStorageContext(jooq, conn))
                 }
@@ -90,16 +93,16 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
                     }
                     val result = mutableListOf<Triple<Long?, Long?, Long?>>()
                     context.execute(
-                        sqlAction = { jooq ->
-                            jooq.select(CLASSES.NAME, CLASSHIERARCHIES.SUPER_ID, CLASSES.LOCATION_ID)
+                        sqlAction = {
+                            context.dslContext.select(CLASSES.NAME, CLASSHIERARCHIES.SUPER_ID, CLASSES.LOCATION_ID)
                                 .from(CLASSHIERARCHIES)
                                 .join(CLASSES).on(CLASSHIERARCHIES.CLASS_ID.eq(CLASSES.ID))
                                 .fetch().forEach { (classSymbolId, superClassId, locationId) ->
                                     result += (Triple(classSymbolId, superClassId, locationId))
                                 }
                         },
-                        noSqlAction = { txn ->
-                            txn.all("Class").filterDeleted().forEach { clazz ->
+                        noSqlAction = {
+                            context.txn.all("Class").filterDeleted().forEach { clazz ->
                                 val locationId: Long? = clazz.getCompressed("locationId")
                                 val classSymbolId: Long? = clazz.getCompressed("nameId")
                                 val superClasses = mutableListOf<Long>()
@@ -186,7 +189,7 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
         return Sequence {
             persistence.read { context ->
                 context.execute(
-                    sqlAction = { jooq ->
+                    sqlAction = {
                         val allIds = allSubclasses.toList()
                         BatchedSequence<ClassSource>(defaultBatchSize) { offset, batchSize ->
                             val index = offset ?: 0
@@ -194,7 +197,7 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
                             if (ids.isEmpty()) {
                                 emptyList()
                             } else {
-                                jooq.select(
+                                context.dslContext.select(
                                     SYMBOLS.NAME, CLASSES.ID, CLASSES.LOCATION_ID, when {
                                         req.full -> CLASSES.BYTECODE
                                         else -> DSL.inline(ByteArray(0)).`as`(CLASSES.BYTECODE)
@@ -217,10 +220,10 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
                             }
                         }
                     },
-                    noSqlAction = { txn ->
+                    noSqlAction = {
                         allSubclasses.asSequence()
                             .flatMap { classNameId ->
-                                txn.find("Class", "nameId", classNameId.compressed)
+                                context.txn.find("Class", "nameId", classNameId.compressed)
                                     .filterLocations(locationIds)
                                     .filterDeleted()
                             }

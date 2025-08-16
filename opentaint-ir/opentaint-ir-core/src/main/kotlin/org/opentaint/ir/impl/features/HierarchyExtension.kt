@@ -51,7 +51,8 @@ fun JIRClasspath.asyncHierarchyExt(): Future<HierarchyExtension> = GlobalScope.f
 internal fun JIRClasspath.allClassesExceptObject(context: StorageContext, direct: Boolean): Sequence<ClassSource> {
     val locationIds = registeredLocationIds
     return context.execute(
-        sqlAction = { jooq ->
+        sqlAction = {
+            val jooq = context.dslContext
             if (direct) {
                 BatchedSequence(defaultBatchSize) { offset, batchSize ->
                     jooq.select(CLASSES.ID, SYMBOLS.NAME, CLASSES.LOCATION_ID)
@@ -80,9 +81,9 @@ internal fun JIRClasspath.allClassesExceptObject(context: StorageContext, direct
                 }
             }
         },
-        noSqlAction = { txn ->
+        noSqlAction = {
             val objectNameId by lazy(LazyThreadSafetyMode.NONE) { db.persistence.findSymbolId(JAVA_OBJECT) }
-            txn.all("Class")
+            context.txn.all("Class")
                 .filterLocations(locationIds)
                 .filterDeleted()
                 .filter { clazz ->

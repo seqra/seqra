@@ -19,10 +19,12 @@ import org.opentaint.ir.approximation.TransformerIntoVirtual.transformMethodInto
 import org.opentaint.ir.approximation.annotation.Approximate
 import org.opentaint.ir.impl.cfg.JIRInstListImpl
 import org.opentaint.ir.impl.fs.className
+import org.opentaint.ir.impl.storage.dslContext
 import org.opentaint.ir.impl.storage.execute
 import org.opentaint.ir.impl.storage.jooq.tables.references.ANNOTATIONS
 import org.opentaint.ir.impl.storage.jooq.tables.references.ANNOTATIONVALUES
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
+import org.opentaint.ir.impl.storage.txn
 import org.opentaint.ir.impl.types.RefKind
 import org.objectweb.asm.tree.ClassNode
 import java.util.concurrent.ConcurrentHashMap
@@ -63,8 +65,8 @@ object Approximations : JIRFeature<Any?, Any?>, JIRClassExtFeature, JIRInstExtFe
             val approxSymbol = persistence.findSymbolId(approximationAnnotationClassName)
             persistence.read { context ->
                 context.execute(
-                    sqlAction = { jooq ->
-                        jooq.select(CLASSES.NAME, ANNOTATIONVALUES.CLASS_SYMBOL)
+                    sqlAction = {
+                        context.dslContext.select(CLASSES.NAME, ANNOTATIONVALUES.CLASS_SYMBOL)
                             .from(ANNOTATIONS)
                             .join(CLASSES).on(ANNOTATIONS.CLASS_ID.eq(CLASSES.ID))
                             .join(ANNOTATIONVALUES).on(ANNOTATIONVALUES.ANNOTATION_ID.eq(ANNOTATIONS.ID))
@@ -75,9 +77,9 @@ object Approximations : JIRFeature<Any?, Any?>, JIRClassExtFeature, JIRInstExtFe
                             )
                             .fetch().asSequence().map { record -> record.value1() to record.value2() }
                     },
-                    noSqlAction = { txn ->
+                    noSqlAction = {
                         val valueId = persistence.findSymbolId("value")
-                        txn.find("Annotation", "nameId", approxSymbol.compressed)
+                        context.txn.find("Annotation", "nameId", approxSymbol.compressed)
                             .filter { it.getCompressedBlob<Int>("refKind") == RefKind.CLASS.ordinal }
                             .flatMap { annotation ->
                                 annotation.getLink("ref").let { clazz ->

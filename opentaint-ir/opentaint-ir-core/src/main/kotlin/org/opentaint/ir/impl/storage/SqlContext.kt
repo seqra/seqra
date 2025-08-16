@@ -2,7 +2,6 @@ package org.opentaint.ir.impl.storage
 
 import org.opentaint.ir.api.storage.ContextProperty
 import org.opentaint.ir.api.storage.StorageContext
-import org.opentaint.ir.api.storage.ers.Transaction
 import org.opentaint.ir.api.storage.invoke
 import org.jooq.DSLContext
 import java.sql.Connection
@@ -26,11 +25,11 @@ val StorageContext.connection: Connection get() = getContextObject(ConnectionPro
 
 val StorageContext.isSqlContext: Boolean get() = hasContextObject(DSLContextProperty)
 
-fun <T> StorageContext.execute(sqlAction: (DSLContext) -> T, noSqlAction: (Transaction) -> T): T {
-    return if (isSqlContext) {
-        sqlAction(dslContext)
-    } else if (isErsContext) {
-        noSqlAction(txn)
+fun <T> StorageContext.execute(sqlAction: () -> T, noSqlAction: () -> T): T {
+    return if (isErsContext) {
+        noSqlAction()
+    } else if (isSqlContext) {
+        sqlAction()
     } else {
         throw IllegalArgumentException("StorageContext should support SQL or NoSQL persistence")
     }
