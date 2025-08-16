@@ -40,8 +40,8 @@ class IRSvgGenerator(private val folder: File) : Closeable {
             val fileName = "${it.enclosingClass.simpleName}-$fixedName-$index.svg"
             val graph = it.flowGraph()
             JIRGraphChecker(it, graph).check()
-            graph.toFile("dot", false, file = File(folder, "graph-$fileName"))
-            graph.blockGraph().toFile("dot", file = File(folder, "block-graph-$fileName"))
+            graph.toFile(File(folder, "graph-$fileName"))
+            graph.blockGraph().toFile(File(folder, "block-graph-$fileName"))
         }
     }
 

@@ -1,14 +1,18 @@
 rootProject.name = "opentaint-ir"
 
 plugins {
-    `gradle-enterprise`
+    id("com.gradle.develocity") version("3.18.2")
     id("org.danilopianini.gradle-pre-commit-git-hooks") version "1.1.11"
 }
 
-gradleEnterprise {
+develocity {
     buildScan {
-        termsOfServiceUrl = "https://gradle.com/terms-of-service"
-        termsOfServiceAgree = "yes"
+        // Accept the term of use for the build scan plugin:
+        termsOfUseUrl.set("https://gradle.com/help/legal-terms-of-use")
+        termsOfUseAgree.set("yes")
+
+        // Publish build scans on-demand, when `--scan` option is provided:
+        publishing.onlyIf { false }
     }
 }
 
