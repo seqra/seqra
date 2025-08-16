@@ -2,12 +2,11 @@ package org.opentaint.ir.impl.storage
 
 import mu.KotlinLogging
 import org.opentaint.ir.api.jvm.ClassSource
-import org.opentaint.ir.api.jvm.JIRDBContext
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.RegisteredLocation
+import org.opentaint.ir.api.storage.StorageContext
 import org.opentaint.ir.api.storage.ers.EntityRelationshipStorage
-import org.opentaint.ir.impl.JIRDBSymbolsInternerImpl
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.info
@@ -57,14 +56,14 @@ class SQLitePersistenceImpl(
         jooq.executeQueriesFrom("sqlite/create-schema.sql")
     }
 
-    override val symbolInterner = JIRDBSymbolsInternerImpl().apply { setup(this@SQLitePersistenceImpl) }
+    override val symbolInterner = SqlSymbolInterner().apply { setup(this@SQLitePersistenceImpl) }
 
-    override fun <T> read(action: (JIRDBContext) -> T): T {
-        return action(toJIRDBContext(jooq))
+    override fun <T> read(action: (StorageContext) -> T): T {
+        return action(toStorageContext(jooq))
     }
 
-    override fun <T> write(action: (JIRDBContext) -> T): T = lock.withLock {
-        action(toJIRDBContext(jooq))
+    override fun <T> write(action: (StorageContext) -> T): T = lock.withLock {
+        action(toStorageContext(jooq))
     }
 
     override fun close() {

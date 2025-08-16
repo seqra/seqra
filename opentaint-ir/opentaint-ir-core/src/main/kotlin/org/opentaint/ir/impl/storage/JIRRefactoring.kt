@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.storage
 
 import mu.KLogging
-import org.opentaint.ir.api.jvm.JIRDBContext
+import org.opentaint.ir.api.storage.StorageContext
 import org.opentaint.ir.impl.features.Builders
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.storage.jooq.tables.references.APPLICATIONMETADATA
@@ -18,7 +18,7 @@ abstract class JIRRefactoring {
     /**
      * executed inside transaction
      */
-    abstract fun run(context: JIRDBContext)
+    abstract fun run(context: StorageContext)
 }
 
 class JIRRefactoringChain(private val chain: List<JIRRefactoring>) {
@@ -26,7 +26,7 @@ class JIRRefactoringChain(private val chain: List<JIRRefactoring>) {
     companion object : KLogging()
 
     @OptIn(ExperimentalTime::class)
-    fun execute(context: JIRDBContext) {
+    fun execute(context: StorageContext) {
         context.execute(
             sqlAction = { jooq ->
                 val applied = hashSetOf<String>()
@@ -65,7 +65,7 @@ class JIRRefactoringChain(private val chain: List<JIRRefactoring>) {
 
 class AddAppMetadataAndRefactoring : JIRRefactoring() {
 
-    override fun run(context: JIRDBContext) {
+    override fun run(context: StorageContext) {
         // This refactoring is applicable only for SQL context
         if (context.isSqlContext) {
             val jooq = context.dslContext
@@ -81,7 +81,7 @@ class AddAppMetadataAndRefactoring : JIRRefactoring() {
 
 class UpdateUsageAndBuildersSchemeRefactoring : JIRRefactoring() {
 
-    override fun run(context: JIRDBContext) {
+    override fun run(context: StorageContext) {
         Usages.create(context, true)
         Builders.create(context, true)
     }

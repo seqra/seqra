@@ -29,15 +29,16 @@ kotlin.sourceSets["main"].kotlin {
 
 dependencies {
     api(project(":opentaint-ir-api-jvm"))
-    compileOnly(project(":opentaint-ir-storage"))
+    api(project(":opentaint-ir-storage"))
+    compileOnly(Libs.jooq)
+    compileOnly(Libs.sqlite)
+    compileOnly(Libs.hikaricp)
 
     implementation(Libs.kotlin_logging)
     implementation(Libs.kotlin_metadata_jvm)
     implementation(Libs.kotlinx_serialization_cbor)
     implementation(Libs.jdot)
     implementation(Libs.guava)
-    implementation(Libs.sqlite)
-    implementation(Libs.hikaricp)
     implementation(Libs.xodusUtils)
 
     testImplementation(testFixtures(project(":opentaint-ir-storage")))
@@ -50,7 +51,10 @@ dependencies {
     testImplementation(Libs.lmdb_java)
     testImplementation(Libs.rocks_db)
 
-    testFixturesImplementation(project(":opentaint-ir-api-jvm"))
+    testFixturesApi(Libs.jooq)
+    testFixturesApi(Libs.sqlite)
+    testFixturesApi(Libs.hikaricp)
+    testFixturesApi(project(":opentaint-ir-storage"))
     testFixturesImplementation(kotlin("reflect"))
     testFixturesImplementation(platform(Libs.junit_bom))
     testFixturesImplementation(Libs.junit_jupiter)

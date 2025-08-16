@@ -6,8 +6,8 @@ import org.opentaint.ir.api.jvm.ext.CONSTRUCTOR
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.ir.testing.BaseTest
-import org.opentaint.ir.testing.WithGlobalDB
-import org.opentaint.ir.testing.WithGlobalRAMDB
+import org.opentaint.ir.testing.WithGlobalDb
+import org.opentaint.ir.testing.WithGlobalSQLiteDb
 import org.opentaint.ir.testing.usages.fields.FieldA
 import org.opentaint.ir.testing.usages.fields.FieldB
 import org.opentaint.ir.testing.usages.methods.MethodA
@@ -171,14 +171,10 @@ abstract class BaseSearchUsagesTest : BaseTest() {
 
 }
 
-class InMemoryHierarchySearchUsagesTest : BaseSearchUsagesTest() {
-    companion object : WithGlobalDB()
-}
-
 class SearchUsagesTest : BaseSearchUsagesTest() {
-    companion object : WithGlobalDB()
+    companion object : WithGlobalDb()
 }
 
-class SearchUsagesRAMTest : BaseSearchUsagesTest() {
-    companion object : WithGlobalRAMDB()
+class SearchUsagesSQLiteTest : BaseSearchUsagesTest() {
+    companion object : WithGlobalSQLiteDb()
 }

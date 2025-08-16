@@ -2,7 +2,6 @@ package org.opentaint.ir.impl.features
 
 import org.opentaint.ir.api.jvm.ByteCodeIndexer
 import org.opentaint.ir.api.jvm.ClassSource
-import org.opentaint.ir.api.jvm.JIRDBContext
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
@@ -11,9 +10,10 @@ import org.opentaint.ir.api.jvm.JIRFeature
 import org.opentaint.ir.api.jvm.JIRSignal
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
+import org.opentaint.ir.api.storage.StorageContext
+import org.opentaint.ir.api.storage.asSymbolId
 import org.opentaint.ir.api.storage.ers.compressed
 import org.opentaint.ir.api.storage.ers.links
-import org.opentaint.ir.impl.asSymbolId
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.BatchedSequence
@@ -22,14 +22,14 @@ import org.opentaint.ir.impl.storage.execute
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSHIERARCHIES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
-import org.opentaint.ir.impl.storage.toJIRDBContext
+import org.opentaint.ir.impl.storage.toStorageContext
 import org.opentaint.ir.impl.storage.withoutAutoCommit
+import org.opentaint.ir.impl.util.Sequence
 import org.jooq.impl.DSL
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.ClassNode
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.min
-import org.opentaint.ir.impl.util.Sequence as Sequence
 
 typealias InMemoryHierarchyCache = ConcurrentHashMap<Long, ConcurrentHashMap<Long, MutableSet<Long>>>
 
@@ -58,11 +58,11 @@ class InMemoryHierarchyIndexer(
             }
     }
 
-    override fun flush(context: JIRDBContext) {
+    override fun flush(context: StorageContext) {
         context.execute(
             sqlAction = { jooq ->
                 jooq.withoutAutoCommit { conn ->
-                    interner.flush(toJIRDBContext(jooq, conn))
+                    interner.flush(toStorageContext(jooq, conn))
                 }
             },
             noSqlAction = {
@@ -96,7 +96,7 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
                                 }
                         },
                         noSqlAction = { txn ->
-                            txn.all("Class").map { clazz ->
+                            txn.all("Class").forEach { clazz ->
                                 val locationId: Long? = clazz.getCompressed("locationId")
                                 val classSymbolId: Long? = clazz.getCompressed("nameId")
                                 val superClasses = mutableListOf<Long>()

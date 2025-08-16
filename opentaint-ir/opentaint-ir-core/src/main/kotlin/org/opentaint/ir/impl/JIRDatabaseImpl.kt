@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl
 
+import com.google.common.hash.Hashing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,6 +20,7 @@ import org.opentaint.ir.api.jvm.JIRClasspathFeature
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.JIRDatabasePersistence
 import org.opentaint.ir.api.jvm.JIRFeature
+import org.opentaint.ir.api.jvm.JIRSettings
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.KotlinMetadata
@@ -30,13 +32,13 @@ import org.opentaint.ir.impl.fs.asByteCodeLocation
 import org.opentaint.ir.impl.fs.filterExisting
 import org.opentaint.ir.impl.fs.lazySources
 import org.opentaint.ir.impl.fs.sources
-import org.opentaint.ir.impl.storage.SQLITE_DATABASE_PERSISTENCE_SPI
+import org.opentaint.ir.impl.storage.ers.ERS_DATABASE_PERSISTENCE_SPI
 import org.opentaint.ir.impl.vfs.GlobalClassesVfs
 import org.opentaint.ir.impl.vfs.RemoveLocationsVisitor
 import java.io.File
 import java.math.BigInteger
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 class JIRDatabaseImpl(
@@ -53,7 +55,8 @@ class JIRDatabaseImpl(
 
     private val backgroundJobs = ConcurrentHashMap<Int, Job>()
 
-    private val isClosed = AtomicBoolean()
+    @Volatile
+    private var isClosed = false
     private val jobId = AtomicInteger()
 
     private val backgroundScope = BackgroundScope()
@@ -61,34 +64,40 @@ class JIRDatabaseImpl(
     @Volatile
     private var isImmutable = false
 
+    private val featuresHash: BigInteger
+
     init {
-        val persistenceId = (settings.persistenceId ?: SQLITE_DATABASE_PERSISTENCE_SPI)
+        val persistenceId = (settings.persistenceId ?: ERS_DATABASE_PERSISTENCE_SPI)
         val persistenceSPI = JIRDatabasePersistenceSPI.getProvider(persistenceId)
         persistence = persistenceSPI.newPersistence(javaRuntime, settings)
         featuresRegistry = FeaturesRegistry(settings.features).apply { bind(this@JIRDatabaseImpl) }
         locationsRegistry = persistenceSPI.newLocationsRegistry(this)
+        featuresHash = settings.features.fold(BigInteger.ZERO) { result, feature ->
+            result xor BigInteger(Hashing.sha256().hashString(feature.javaClass.name, StandardCharsets.UTF_8).asBytes())
+        }
     }
 
     override val id: String
         get() = locations.mapNotNull { it.jIRLocation?.fileSystemIdHash }
-            .fold(BigInteger.ZERO) { result, hash -> result xor hash }.toString(Character.MAX_RADIX)
+            .fold(featuresHash) { result, hash -> result xor hash }.toString(Character.MAX_RADIX)
 
     override val locations: List<RegisteredLocation> get() = locationsRegistry.actualLocations
 
     suspend fun restore() {
-        featuresRegistry.broadcast(JIRInternalSignal.BeforeIndexing(settings.persistenceClearOnStart ?: false))
         persistence.setup()
         locationsRegistry.cleanup()
-        val runtime = JavaRuntime(settings.jre).allLocations
-        val runtimeNew = locationsRegistry.setup(runtime).new
+        val runtime = JavaRuntime(settings.jre).allLocations.takeIf { settings.buildModelForJRE }
+        val runtimeNew = runtime?.let { locationsRegistry.setup(it).new }
         val registeredNew = locationsRegistry.registerIfNeeded(
             settings.predefinedDirOrJars.filter { it.exists() }
                 .flatMap { it.asByteCodeLocation(javaRuntime.version, isRuntime = false) }.distinct()
         ).new
         if (canBeDumped() && persistence.tryLoad(id)) {
             isImmutable = true
-        } else {
-            runtimeNew.process(false)
+        }
+        featuresRegistry.broadcast(JIRInternalSignal.BeforeIndexing(settings.persistenceClearOnStart ?: false))
+        if (!isImmutable) {
+            runtimeNew?.process(false)
             registeredNew.process(true)
         }
     }
@@ -219,7 +228,7 @@ class JIRDatabaseImpl(
     }
 
     override fun close() {
-        isClosed.set(true)
+        isClosed = true
         locationsRegistry.close()
         runBlocking {
             cancelBackgroundJobs()
@@ -239,6 +248,10 @@ class JIRDatabaseImpl(
         }
 
     private suspend fun List<RegisteredLocation>.process(createIndexes: Boolean): List<RegisteredLocation> {
+        if (isEmpty()) {
+            return this
+        }
+        assertIsMutable()
         withContext(Dispatchers.IO) {
             map { location ->
                 async {
@@ -277,9 +290,11 @@ class JIRDatabaseImpl(
     }
 
     private fun assertNotClosed() {
-        if (isClosed.get()) {
-            throw IllegalStateException("Database is already closed")
-        }
+        check(!isClosed) { "Database is already closed" }
+    }
+
+    private fun assertIsMutable() {
+        check(!isImmutable) { "Database is immutable" }
     }
 
     private inline fun CoroutineScope.ifActive(action: () -> Unit) {

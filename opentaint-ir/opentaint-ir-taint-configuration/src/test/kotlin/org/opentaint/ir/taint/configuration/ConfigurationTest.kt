@@ -13,8 +13,8 @@ import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualMethodImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualParameter
 import org.opentaint.ir.impl.types.TypeNameImpl
 import org.opentaint.ir.testing.BaseTest
-import org.opentaint.ir.testing.WithDB
-import org.opentaint.ir.testing.WithRAMDB
+import org.opentaint.ir.testing.WithDbImmutable
+import org.opentaint.ir.testing.WithSQLiteDb
 import org.opentaint.ir.testing.allClasspath
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test
 
 open class ConfigurationTest : BaseTest() {
 
-    companion object : WithDB()
+    companion object : WithDbImmutable()
 
     override val cp: JIRClasspath = runBlocking {
         val configPath = "/testJsonConfig.json"
@@ -159,7 +159,7 @@ open class ConfigurationTest : BaseTest() {
     }
 }
 
-class ConfigurationRAMTest : ConfigurationTest() {
+class ConfigurationSQLiteTest : ConfigurationTest() {
 
-    companion object : WithRAMDB()
+    companion object : WithSQLiteDb()
 }

@@ -6,19 +6,18 @@ package org.opentaint.ir.impl.features
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
 import org.opentaint.ir.api.jvm.ClassSource
-import org.opentaint.ir.api.jvm.JIRDBContext
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.ext.HierarchyExtension
 import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
 import org.opentaint.ir.api.jvm.ext.findDeclaredMethodOrNull
+import org.opentaint.ir.api.storage.StorageContext
 import org.opentaint.ir.api.storage.ers.CollectionEntityIterable
 import org.opentaint.ir.api.storage.ers.Entity
 import org.opentaint.ir.api.storage.ers.EntityIterable
 import org.opentaint.ir.api.storage.ers.Transaction
 import org.opentaint.ir.api.storage.ers.compressed
-import org.opentaint.ir.impl.asSymbolId
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.storage.BatchedSequence
 import org.opentaint.ir.impl.storage.defaultBatchSize
@@ -30,12 +29,12 @@ import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSHIERARCHIES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
 import org.opentaint.ir.impl.storage.txn
+import org.opentaint.ir.impl.util.Sequence
 import org.jooq.Condition
 import org.jooq.Record3
 import org.jooq.SelectConditionStep
 import org.jooq.impl.DSL
 import java.util.concurrent.Future
-import org.opentaint.ir.impl.util.Sequence as Sequence
 
 suspend fun JIRClasspath.hierarchyExt(): HierarchyExtension {
     db.awaitBackgroundJobs()
@@ -47,7 +46,7 @@ suspend fun JIRClasspath.hierarchyExt(): HierarchyExtension {
 
 fun JIRClasspath.asyncHierarchyExt(): Future<HierarchyExtension> = GlobalScope.future { hierarchyExt() }
 
-internal fun JIRClasspath.allClassesExceptObject(context: JIRDBContext, direct: Boolean): Sequence<ClassSource> {
+internal fun JIRClasspath.allClassesExceptObject(context: StorageContext, direct: Boolean): Sequence<ClassSource> {
     val locationIds = registeredLocationIds
     return context.execute(
         sqlAction = { jooq ->
@@ -141,21 +140,22 @@ private class HierarchyExtensionERS(cp: JIRClasspath) : HierarchyExtensionBase(c
             return cp.findSubclassesInMemory(name, entireHierarchy, full)
         }
         return Sequence {
-            val persistence = db.persistence
-            persistence.read { context ->
-                val txn = context.txn
-                if (name == JAVA_OBJECT) {
-                    cp.allClassesExceptObject(context, !entireHierarchy)
-                } else {
-                    val locationIds = cp.registeredLocationIds
-                    val nameId = name.asSymbolId(persistence.symbolInterner)
-                    if (entireHierarchy) {
-                        entireHierarchy(txn, nameId, mutableSetOf())
+            with(db.persistence) {
+                read { context ->
+                    val txn = context.txn
+                    if (name == JAVA_OBJECT) {
+                        cp.allClassesExceptObject(context, !entireHierarchy)
                     } else {
-                        directSubClasses(txn, nameId)
-                    }.filter { clazz -> clazz.getCompressed<Long>("locationId") in locationIds }
-                        .toClassSourceSequence(db)
-                }.mapTo(mutableListOf()) { cp.toJIRClass(it) }
+                        val locationIds = cp.registeredLocationIds
+                        val nameId = name.asSymbolId()
+                        if (entireHierarchy) {
+                            entireHierarchy(txn, nameId, mutableSetOf())
+                        } else {
+                            directSubClasses(txn, nameId)
+                        }.filter { clazz -> clazz.getCompressed<Long>("locationId") in locationIds }
+                            .toClassSourceSequence(db)
+                    }.mapTo(mutableListOf()) { cp.toJIRClass(it) }
+                }
             }
         }
     }

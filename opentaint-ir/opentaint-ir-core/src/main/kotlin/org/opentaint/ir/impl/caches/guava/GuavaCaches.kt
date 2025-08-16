@@ -2,7 +2,7 @@ package org.opentaint.ir.impl.caches.guava
 
 import com.google.common.cache.Cache
 import com.google.common.cache.CacheBuilder
-import org.opentaint.ir.impl.ValueStoreType
+import org.opentaint.ir.api.jvm.ValueStoreType
 import org.opentaint.ir.impl.caches.PluggableCache
 import org.opentaint.ir.impl.caches.PluggableCacheBuilder
 import org.opentaint.ir.impl.caches.PluggableCacheProvider

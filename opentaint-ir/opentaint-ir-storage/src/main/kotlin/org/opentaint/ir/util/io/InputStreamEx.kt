@@ -86,6 +86,21 @@ fun InputStream.readUnsignedOrderedLongs(): Iterable<Long> = Iterable {
 
 fun InputStream.readByteBuffer(direct: Boolean = true): ByteBuffer {
     val size = readVlqUnsigned().toInt()
+    if (this is BufferedInputStream) {
+        return if (direct) {
+            val position = position
+            val channel = decorated.channel
+            channel.map(FileChannel.MapMode.READ_ONLY, position, size.toLong()).also {
+                skipBytes(size)
+            }
+        } else {
+            ByteBuffer.allocate(size).also { buffer ->
+                check(decorated.channel.read(buffer) == size) {
+                    "Channel wasn't read fully"
+                }
+            }
+        }
+    }
     if (this is FileInputStream) {
         return if (direct) {
             val position = channel.position()
@@ -105,4 +120,27 @@ fun InputStream.readByteBuffer(direct: Boolean = true): ByteBuffer {
         "Channel wasn't read fully"
     }
     return result.flip() as ByteBuffer
+}
+
+fun InputStream.buffered(): InputStream = BufferedInputStream(this as FileInputStream)
+
+private class BufferedInputStream(`in`: FileInputStream) : java.io.BufferedInputStream(`in`, 0x10000) {
+
+    val decorated: FileInputStream get() = `in` as FileInputStream
+
+    val position: Long
+        get() {
+            val fileInputStreamPos = decorated.channel.position()
+            return fileInputStreamPos - count + pos
+        }
+
+    fun skipBytes(n: Int) {
+        if (count - pos > n) {
+            pos += n
+        } else {
+            decorated.channel.position(position + n)
+            count = 0
+            pos = 0
+        }
+    }
 }

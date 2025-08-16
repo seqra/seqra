@@ -1,7 +1,6 @@
 package org.opentaint.ir.approximation
 
 import org.opentaint.ir.api.jvm.ByteCodeIndexer
-import org.opentaint.ir.api.jvm.JIRDBContext
 import org.opentaint.ir.api.jvm.JIRClassExtFeature
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClasspath
@@ -14,6 +13,7 @@ import org.opentaint.ir.api.jvm.JIRSignal
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.cfg.JIRInstList
 import org.opentaint.ir.api.jvm.cfg.JIRRawInst
+import org.opentaint.ir.api.storage.StorageContext
 import org.opentaint.ir.api.storage.ers.compressed
 import org.opentaint.ir.approximation.TransformerIntoVirtual.transformMethodIntoVirtual
 import org.opentaint.ir.approximation.annotation.Approximate
@@ -176,7 +176,7 @@ private class ApproximationIndexer(
         approximationToOriginal[approximationClassName] = originalClassName
     }
 
-    override fun flush(context: JIRDBContext) {
+    override fun flush(context: StorageContext) {
         // do nothing
     }
 }

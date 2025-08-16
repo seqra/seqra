@@ -2,7 +2,6 @@ package org.opentaint.ir.impl.features
 
 import org.opentaint.ir.api.jvm.ByteCodeIndexer
 import org.opentaint.ir.api.jvm.ClassSource
-import org.opentaint.ir.api.jvm.JIRDBContext
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.JIRDatabasePersistence
@@ -10,7 +9,9 @@ import org.opentaint.ir.api.jvm.JIRFeature
 import org.opentaint.ir.api.jvm.JIRSignal
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.ext.jvmPrimitiveNames
+import org.opentaint.ir.api.storage.StorageContext
 import org.opentaint.ir.api.storage.ers.compressed
+import org.opentaint.ir.api.storage.ers.nonSearchable
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.execute
@@ -73,7 +74,7 @@ class BuildersIndexer(val persistence: JIRDatabasePersistence, private val locat
         }
     }
 
-    override fun flush(context: JIRDBContext) {
+    override fun flush(context: StorageContext) {
         context.execute(
             sqlAction = { jooq ->
                 jooq.withoutAutoCommit { conn ->
@@ -99,12 +100,12 @@ class BuildersIndexer(val persistence: JIRDatabasePersistence, private val locat
                     val returnTypeId = persistence.findSymbolId(returnedClassInternalName.className)
                     builders.forEach { builder ->
                         val entity = txn.newEntity(BuilderEntity.BUILDER_ENTITY_TYPE)
-                        entity[BuilderEntity.BUILDER_LOCATION_ID_PROPERTY] = location.id
-                        entity[BuilderEntity.RETURNED_CLASS_NAME_ID_PROPERTY] = returnTypeId
+                        entity[BuilderEntity.BUILDER_LOCATION_ID_PROPERTY] = location.id.compressed
+                        entity[BuilderEntity.RETURNED_CLASS_NAME_ID_PROPERTY] = returnTypeId.compressed
                         entity[BuilderEntity.BUILDER_CLASS_NAME_ID] =
-                            persistence.findSymbolId(builder.callerClass.className)
-                        entity[BuilderEntity.METHOD_OFFSET_PROPERTY] = builder.methodOffset
-                        entity[BuilderEntity.PRIORITY_PROPERTY] = builder.priority
+                            persistence.findSymbolId(builder.callerClass.className).compressed.nonSearchable
+                        entity[BuilderEntity.METHOD_OFFSET_PROPERTY] = builder.methodOffset.compressed.nonSearchable
+                        entity[BuilderEntity.PRIORITY_PROPERTY] = builder.priority.compressed.nonSearchable
                     }
                 }
             }
@@ -121,7 +122,7 @@ data class BuildersResponse(
 
 object Builders : JIRFeature<Set<String>, BuildersResponse> {
 
-    fun create(context: JIRDBContext, drop: Boolean) {
+    fun create(context: StorageContext, drop: Boolean) {
         context.execute(
             sqlAction = { jooq ->
                 if (drop) {
@@ -186,7 +187,7 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
                             txn.find(
                                 type = BuilderEntity.BUILDER_ENTITY_TYPE,
                                 propertyName = BuilderEntity.BUILDER_LOCATION_ID_PROPERTY,
-                                value = signal.location.id
+                                value = signal.location.id.compressed
                             ).deleteAll()
                         }
                     )
@@ -258,14 +259,17 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
                                 txn.find(
                                     type = BuilderEntity.BUILDER_ENTITY_TYPE,
                                     propertyName = BuilderEntity.RETURNED_CLASS_NAME_ID_PROPERTY,
-                                    value = returnedClassNameId
+                                    value = returnedClassNameId.compressed
                                 )
                             }
                             .flatten()
-                            .filter { builder -> builder[BuilderEntity.BUILDER_LOCATION_ID_PROPERTY] in locationIds }
-                            .flatMap { builder ->
-                                val builderLocationId: Long = builder[BuilderEntity.BUILDER_LOCATION_ID_PROPERTY]!!
-                                val builderClassNameId: Long = builder[BuilderEntity.BUILDER_CLASS_NAME_ID]!!
+                            .mapNotNull { builder ->
+                                val locationId = builder.getCompressed<Long>(BuilderEntity.BUILDER_LOCATION_ID_PROPERTY)
+                                if (locationId != null && locationId in locationIds) builder to locationId else null
+                            }
+                            .flatMap { (builder, builderLocationId) ->
+                                val builderClassNameId: Long =
+                                    builder.getCompressedBlob<Long>(BuilderEntity.BUILDER_CLASS_NAME_ID)!!
                                 txn.find("Class", "nameId", builderClassNameId.compressed)
                                     .mapNotNull { builderClass ->
                                         if (builderClass.getCompressed<Long>("locationId") != builderLocationId) {
@@ -278,8 +282,9 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
                                                     classId = builderClass.id.instanceId,
                                                     className = persistence.findSymbolName(builderClassNameId),
                                                 ),
-                                                methodOffset = builder[BuilderEntity.METHOD_OFFSET_PROPERTY]!!,
-                                                priority = builder[BuilderEntity.PRIORITY_PROPERTY] ?: 0
+                                                methodOffset = builder.getCompressedBlob<Int>(BuilderEntity.METHOD_OFFSET_PROPERTY)!!,
+                                                priority = builder.getCompressedBlob<Int>(BuilderEntity.PRIORITY_PROPERTY)
+                                                    ?: 0
                                             )
                                         }
                                     }

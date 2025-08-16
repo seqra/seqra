@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test
 
 class DirectUsagesTest : BaseTest() {
 
-    companion object : WithGlobalDB()
+    companion object : WithGlobalDbImmutable()
 
     @Test
     fun `find methods used in method`() {

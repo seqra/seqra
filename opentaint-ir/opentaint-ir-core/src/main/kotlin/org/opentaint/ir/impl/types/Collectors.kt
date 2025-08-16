@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.types
 
-import org.opentaint.ir.api.jvm.JIRDBSymbolsInterner
-import org.opentaint.ir.impl.asSymbolId
+import org.opentaint.ir.api.storage.SymbolInterner
+import org.opentaint.ir.api.storage.asSymbolId
 import org.opentaint.ir.impl.storage.AnnotationValueKind
 
 fun collectSymbols(classes: List<ClassInfo>): Set<String> = hashSetOf<String>().apply {
@@ -83,7 +83,7 @@ data class AnnotationValueItem(
 class AnnotationCollector(
     private val annotationIdGen: LongRef,
     private val annotationValueIdGen: LongRef,
-    private val symbolInterner: JIRDBSymbolsInterner
+    private val symbolInterner: SymbolInterner
 ) {
     val collected = ArrayList<AnnotationItem>()
     val collectedValues = ArrayList<AnnotationValueItem>()

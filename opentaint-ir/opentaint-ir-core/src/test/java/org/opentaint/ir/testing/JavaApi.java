@@ -1,9 +1,9 @@
 package org.opentaint.ir.testing;
 
+import org.opentaint.ir.api.jvm.JIRCacheSettings;
 import org.opentaint.ir.api.jvm.JIRDatabase;
+import org.opentaint.ir.api.jvm.JIRSettings;
 import org.opentaint.ir.impl.Opentaint-IR;
-import org.opentaint.ir.impl.JIRCacheSettings;
-import org.opentaint.ir.impl.JIRSettings;
 import org.opentaint.ir.impl.features.Usages;
 
 import java.time.Duration;

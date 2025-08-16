@@ -3,8 +3,12 @@ package org.opentaint.ir.impl.caches.xodus
 import jetbrains.exodus.core.dataStructures.ConcurrentObjectCache
 import jetbrains.exodus.core.dataStructures.ObjectCacheBase
 import jetbrains.exodus.core.dataStructures.SoftConcurrentObjectCache
-import org.opentaint.ir.impl.ValueStoreType
-import org.opentaint.ir.impl.caches.*
+import org.opentaint.ir.api.jvm.ValueStoreType
+import org.opentaint.ir.impl.caches.PluggableCache
+import org.opentaint.ir.impl.caches.PluggableCacheBuilder
+import org.opentaint.ir.impl.caches.PluggableCacheException
+import org.opentaint.ir.impl.caches.PluggableCacheProvider
+import org.opentaint.ir.impl.caches.PluggableCacheStats
 
 const val XODUS_CACHE_PROVIDER_ID = "org.opentaint.ir.impl.caches.xodus.XodusCacheProvider"
 

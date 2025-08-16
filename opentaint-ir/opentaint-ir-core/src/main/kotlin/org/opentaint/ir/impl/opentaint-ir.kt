@@ -5,6 +5,7 @@ package org.opentaint.ir.impl
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
 import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.JIRSettings
 import org.opentaint.ir.impl.fs.JavaRuntime
 
 suspend fun opentaint-ir(builder: JIRSettings.() -> Unit): JIRDatabase {

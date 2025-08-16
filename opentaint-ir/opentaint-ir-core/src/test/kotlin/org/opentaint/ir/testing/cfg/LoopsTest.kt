@@ -6,7 +6,7 @@ import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.impl.cfg.util.JIRLoop
 import org.opentaint.ir.impl.cfg.util.loops
 import org.opentaint.ir.testing.BaseTest
-import org.opentaint.ir.testing.WithGlobalDB
+import org.opentaint.ir.testing.WithGlobalDbImmutable
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -15,7 +15,7 @@ import org.junit.jupiter.api.condition.JRE
 
 class LoopsTest : BaseTest() {
 
-    companion object : WithGlobalDB()
+    companion object : WithGlobalDbImmutable()
 
     @Test
     fun `loop inside loop should work`() {

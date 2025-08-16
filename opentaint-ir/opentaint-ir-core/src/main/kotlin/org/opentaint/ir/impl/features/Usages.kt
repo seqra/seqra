@@ -1,10 +1,16 @@
 package org.opentaint.ir.impl.features
 
-import org.opentaint.ir.api.jvm.*
+import org.opentaint.ir.api.jvm.ByteCodeIndexer
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.JIRFeature
+import org.opentaint.ir.api.jvm.JIRSignal
+import org.opentaint.ir.api.jvm.RegisteredLocation
+import org.opentaint.ir.api.storage.StorageContext
+import org.opentaint.ir.api.storage.asSymbolId
 import org.opentaint.ir.api.storage.ers.compressed
 import org.opentaint.ir.api.storage.ers.links
 import org.opentaint.ir.api.storage.ers.nonSearchable
-import org.opentaint.ir.impl.asSymbolId
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.BatchedSequence
@@ -84,7 +90,7 @@ class UsagesIndexer(private val jIRdb: JIRDatabase, private val location: Regist
         }
     }
 
-    override fun flush(context: JIRDBContext) {
+    override fun flush(context: StorageContext) {
         context.execute(
             sqlAction = { jooq ->
                 jooq.withoutAutoCommit { conn ->
@@ -110,30 +116,31 @@ class UsagesIndexer(private val jIRdb: JIRDatabase, private val location: Regist
             },
             noSqlAction = { txn ->
                 val locationValue = location.id.compressed
-                val symbolInterner = jIRdb.persistence.symbolInterner
-                usages.forEach { (calleeClass, calleeEntry) ->
-                    val calleeClassId = calleeClass.className.asSymbolId(symbolInterner).compressed.nonSearchable
-                    calleeEntry.forEach { (info, callers) ->
-                        val (calleeName, calleeDesc, opcode) = info
-                        val calleeNameId = calleeName.asSymbolId(symbolInterner).compressed
-                        val calleeDescValue = calleeDesc?.longHash?.nonSearchable
-                        val opcodeValue = opcode.compressed.nonSearchable
-                        val callee = txn.newEntity("Callee").also { callee ->
-                            callee["locationId"] = locationValue
-                            callee["calleeClassId"] = calleeClassId
-                            callee["calleeNameId"] = calleeNameId
-                            if (calleeDescValue != null) {
-                                callee["calleeDesc"] = calleeDescValue
+                with(jIRdb.persistence) {
+                    usages.forEach { (calleeClass, calleeEntry) ->
+                        val calleeClassId = calleeClass.className.asSymbolId().compressed.nonSearchable
+                        calleeEntry.forEach { (info, callers) ->
+                            val (calleeName, calleeDesc, opcode) = info
+                            val calleeNameId = calleeName.asSymbolId().compressed
+                            val calleeDescValue = calleeDesc?.longHash?.nonSearchable
+                            val opcodeValue = opcode.compressed.nonSearchable
+                            val callee = txn.newEntity("Callee").also { callee ->
+                                callee["locationId"] = locationValue
+                                callee["calleeClassId"] = calleeClassId
+                                callee["calleeNameId"] = calleeNameId
+                                if (calleeDescValue != null) {
+                                    callee["calleeDesc"] = calleeDescValue
+                                }
+                                callee["opcode"] = opcodeValue
                             }
-                            callee["opcode"] = opcodeValue
-                        }
-                        val calls = links(callee, "calls")
-                        callers.forEach { (callerClass, offsets) ->
-                            txn.newEntity("Call").also { call ->
-                                calls += call
-                                call["callerId"] =
-                                    callerClass.className.asSymbolId(symbolInterner).compressed.nonSearchable
-                                call.setRawBlob("offsets", offsets.result())
+                            val calls = links(callee, "calls")
+                            callers.forEach { (callerClass, offsets) ->
+                                txn.newEntity("Call").also { call ->
+                                    calls += call
+                                    call["callerId"] =
+                                        callerClass.className.asSymbolId().compressed.nonSearchable
+                                    call.setRawBlob("offsets", offsets.result())
+                                }
                             }
                         }
                     }
@@ -145,7 +152,7 @@ class UsagesIndexer(private val jIRdb: JIRDatabase, private val location: Regist
 
 object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
 
-    fun create(context: JIRDBContext, drop: Boolean) {
+    fun create(context: StorageContext, drop: Boolean) {
         if (context.isSqlContext) {
             val jooq = context.dslContext
             if (drop) {
@@ -270,7 +277,7 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
 
     override fun newIndexer(jIRdb: JIRDatabase, location: RegisteredLocation) = UsagesIndexer(jIRdb, location)
 
-    private fun drop(context: JIRDBContext) {
+    private fun drop(context: StorageContext) {
         context.execute(
             sqlAction = { jooq ->
                 jooq.deleteFrom(CALLS).execute()
@@ -282,7 +289,7 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
         )
     }
 
-    private fun removeLocation(context: JIRDBContext, locationId: Long) {
+    private fun removeLocation(context: StorageContext, locationId: Long) {
         context.execute(
             sqlAction = { jooq ->
                 jooq.deleteFrom(CALLS).where(CALLS.LOCATION_ID.eq(locationId)).execute()

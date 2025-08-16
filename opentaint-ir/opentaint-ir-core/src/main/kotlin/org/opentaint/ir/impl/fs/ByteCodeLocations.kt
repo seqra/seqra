@@ -19,12 +19,13 @@ fun File.asByteCodeLocation(runtimeVersion: JavaVersion, isRuntime: Boolean = fa
     if (!exists()) {
         throw IllegalArgumentException("file $absolutePath doesn't exist")
     }
-    if (isJar()) {
-        return mutableSetOf<File>().also { classPath(it) }.map { JarLocation(it, isRuntime, runtimeVersion) }
+    return if (isJar()) {
+        mutableSetOf<File>().also { classPath(it) }.map { JarLocation(it, isRuntime, runtimeVersion) }
     } else if (isDirectory) {
-        return listOf(BuildFolderLocation(this))
+        listOf(BuildFolderLocation(this))
+    } else {
+        error("$absolutePath is nether a jar file nor a build directory")
     }
-    error("$absolutePath is nether a jar file nor a build directory")
 }
 
 fun Collection<File>.filterExisting(): List<File> = filter { file ->
@@ -36,15 +37,39 @@ fun Collection<File>.filterExisting(): List<File> = filter { file ->
 }
 
 private fun File.classPath(classpath: MutableCollection<File>) {
-    if (isJar() && exists() && classpath.add(this)) {
+    if (exists() && classpath.add(this) && isJar()) {
         JarFile(this).use { jarFile ->
-            jarFile.manifest?.mainAttributes?.getValue("Class-Path")?.split(' ')?.forEach { ref ->
-                Paths.get(
-                    if (ref.startsWith("file:")) ref.substring("file:".length) else ref
-                ).toFile().classPath(classpath)
+            jarFile.manifest?.mainAttributes?.getValue("Class-Path")?.classpathFiles()?.forEach { ref ->
+                Paths.get(ref).toFile().classPath(classpath)
             }
         }
     }
 }
 
 private fun File.isJar() = isFile && name.endsWith(".jar") || name.endsWith(".jmod")
+
+private const val file = "file:"
+
+private fun String.classpathFiles(): List<String> {
+    val fileOffsets = mutableListOf<Int>()
+    var prevOffset = -1
+    while (true) {
+        val offset = indexOf(file, prevOffset + 1)
+        if (offset == -1) break
+        fileOffsets.add(offset)
+        prevOffset = offset
+    }
+    if (fileOffsets.isEmpty()) return emptyList()
+    val result = mutableListOf<String>()
+    for (i in 1 until fileOffsets.size) {
+        result += substring(fileOffsets[i - 1] + file.length, fileOffsets[i]).remove0d0aFix20()
+    }
+    return result.also {
+        it += substring(fileOffsets.last() + file.length).remove0d0aFix20()
+    }
+}
+
+private fun String.remove0d0aFix20() = replace("\r", "")
+    .replace("\n", "")
+    .replace(" ", "")
+    .replace("%20", " ")

@@ -1,5 +1,6 @@
 package org.opentaint.ir.api.jvm
 
+import org.opentaint.ir.api.storage.StorageContext
 import org.objectweb.asm.tree.ClassNode
 
 /** index builder */
@@ -7,7 +8,7 @@ interface ByteCodeIndexer {
 
     fun index(classNode: ClassNode)
 
-    fun flush(context: JIRDBContext)
+    fun flush(context: StorageContext)
 }
 
 interface JIRFeature<REQ, RES> {

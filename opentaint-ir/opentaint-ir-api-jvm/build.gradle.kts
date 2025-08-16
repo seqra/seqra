@@ -9,6 +9,4 @@ dependencies {
 
     api(Libs.kotlinx_coroutines_core)
     api(Libs.kotlinx_coroutines_jdk8)
-
-    api(Libs.jooq)
 }

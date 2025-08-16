@@ -7,19 +7,19 @@ import org.opentaint.ir.api.jvm.ext.HierarchyExtension
 import org.opentaint.ir.impl.JIRXodusKvErsSettings
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.testing.LifecycleTest
-import org.opentaint.ir.testing.WithRestoredDB
+import org.opentaint.ir.testing.WithRestoredDb
 import org.opentaint.ir.testing.allClasspath
 import org.opentaint.ir.testing.tests.DatabaseEnvTest
-import org.opentaint.ir.testing.withDB
+import org.opentaint.ir.testing.withDb
 
 @LifecycleTest
 open class RestoredDBTest : DatabaseEnvTest() {
 
-    companion object : WithRestoredDB()
+    companion object : WithRestoredDb()
 
     override val cp: JIRClasspath by lazy {
         runBlocking {
-            val withDB = this@RestoredDBTest.javaClass.withDB
+            val withDB = this@RestoredDBTest.javaClass.withDb
             withDB.db.classpath(allClasspath)
         }
     }
@@ -30,7 +30,7 @@ open class RestoredDBTest : DatabaseEnvTest() {
 @LifecycleTest
 class RestoredXodusDBTest : RestoredDBTest() {
 
-    companion object : WithRestoredDB() {
+    companion object : WithRestoredDb() {
 
         override val implSettings: JIRPersistenceImplSettings get() = JIRXodusKvErsSettings
     }

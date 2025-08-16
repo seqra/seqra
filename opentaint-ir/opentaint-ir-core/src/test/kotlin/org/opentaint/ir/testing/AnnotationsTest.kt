@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test
 
 class AnnotationsTest : BaseTest() {
 
-    companion object : WithGlobalDB()
+    companion object : WithGlobalDbImmutable()
 
     @Test
     fun `field annotations`() = runBlocking {

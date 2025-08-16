@@ -2,9 +2,9 @@ package org.opentaint.ir.impl.storage
 
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.JIRDatabasePersistence
+import org.opentaint.ir.api.jvm.JIRSettings
 import org.opentaint.ir.impl.JIRDatabaseImpl
 import org.opentaint.ir.impl.JIRDatabasePersistenceSPI
-import org.opentaint.ir.impl.JIRSettings
 import org.opentaint.ir.impl.LocationsRegistry
 import org.opentaint.ir.impl.fs.JavaRuntime
 

@@ -6,7 +6,18 @@ import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.Pure
 import org.opentaint.ir.api.jvm.ext.findClass
-import org.opentaint.ir.impl.types.signature.*
+import org.opentaint.ir.impl.types.signature.FieldResolutionImpl
+import org.opentaint.ir.impl.types.signature.FieldSignature
+import org.opentaint.ir.impl.types.signature.JvmBoundWildcard
+import org.opentaint.ir.impl.types.signature.JvmClassRefType
+import org.opentaint.ir.impl.types.signature.JvmParameterizedType
+import org.opentaint.ir.impl.types.signature.JvmPrimitiveType
+import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclarationImpl
+import org.opentaint.ir.impl.types.signature.JvmTypeVariable
+import org.opentaint.ir.impl.types.signature.MethodResolutionImpl
+import org.opentaint.ir.impl.types.signature.MethodSignature
+import org.opentaint.ir.impl.types.signature.TypeResolutionImpl
+import org.opentaint.ir.impl.types.signature.TypeSignature
 import org.opentaint.ir.impl.types.typeParameters
 import org.opentaint.ir.testing.usages.Generics
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -14,7 +25,7 @@ import org.junit.jupiter.api.Test
 
 class SignatureTest : BaseTest() {
 
-    companion object : WithGlobalDB()
+    companion object : WithGlobalDbImmutable()
 
     @Test
     fun `get signature of class`() = runBlocking {

@@ -40,8 +40,8 @@ import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.StringConcatSimplifier
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.fs.JarLocation
-import org.opentaint.ir.testing.WithDB
-import org.opentaint.ir.testing.WithRAMDB
+import org.opentaint.ir.testing.WithDbImmutable
+import org.opentaint.ir.testing.WithSQLiteDb
 import org.opentaint.ir.testing.asmLib
 import org.opentaint.ir.testing.commonsCompressLib
 import org.opentaint.ir.testing.guavaLib
@@ -275,7 +275,9 @@ class JIRGraphChecker(
     }
 }
 
-abstract class IRTest : BaseInstructionsTest() {
+open class IRTest : BaseInstructionsTest() {
+
+    companion object : WithDbImmutable(StringConcatSimplifier, UnknownClasses)
 
     @Test
     fun `get ir of simple method`() {
@@ -373,12 +375,7 @@ abstract class IRTest : BaseInstructionsTest() {
     }
 }
 
-class IRSqlTest : IRTest() {
+class IRSQLiteTest : IRTest() {
 
-    companion object : WithDB(StringConcatSimplifier, UnknownClasses)
-}
-
-class IRRAMTest : IRTest() {
-
-    companion object : WithRAMDB(StringConcatSimplifier, UnknownClasses)
+    companion object : WithSQLiteDb(StringConcatSimplifier, UnknownClasses)
 }

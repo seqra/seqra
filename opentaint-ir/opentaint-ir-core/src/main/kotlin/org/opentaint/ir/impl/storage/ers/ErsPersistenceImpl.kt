@@ -2,11 +2,11 @@ package org.opentaint.ir.impl.storage.ers
 
 import mu.KotlinLogging
 import org.opentaint.ir.api.jvm.ClassSource
-import org.opentaint.ir.api.jvm.JIRDBContext
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
+import org.opentaint.ir.api.storage.StorageContext
 import org.opentaint.ir.api.storage.ers.DumpableLoadableEntityRelationshipStorage
 import org.opentaint.ir.api.storage.ers.Entity
 import org.opentaint.ir.api.storage.ers.EntityRelationshipStorage
@@ -15,18 +15,19 @@ import org.opentaint.ir.api.storage.ers.compressed
 import org.opentaint.ir.api.storage.ers.findOrNew
 import org.opentaint.ir.api.storage.ers.links
 import org.opentaint.ir.api.storage.ers.nonSearchable
-import org.opentaint.ir.impl.JIRDBSymbolsInternerImpl
-import org.opentaint.ir.impl.asSymbolId
+import org.opentaint.ir.impl.cfg.identityMap
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.info
 import org.opentaint.ir.impl.storage.AbstractJIRDbPersistence
 import org.opentaint.ir.impl.storage.AnnotationValueKind
-import org.opentaint.ir.impl.storage.toJIRDBContext
+import org.opentaint.ir.impl.storage.NoSqlSymbolInterner
+import org.opentaint.ir.impl.storage.toStorageContext
 import org.opentaint.ir.impl.storage.txn
 import org.opentaint.ir.impl.types.AnnotationInfo
 import org.opentaint.ir.impl.types.AnnotationValue
 import org.opentaint.ir.impl.types.AnnotationValueList
+import org.opentaint.ir.impl.types.ClassInfo
 import org.opentaint.ir.impl.types.ClassRef
 import org.opentaint.ir.impl.types.EnumRef
 import org.opentaint.ir.impl.types.PrimitiveValue
@@ -53,7 +54,7 @@ class ErsPersistenceImpl(
         }
     }
 
-    override val symbolInterner = JIRDBSymbolsInternerImpl().apply { setup(this@ErsPersistenceImpl) }
+    override val symbolInterner: NoSqlSymbolInterner = NoSqlSymbolInterner(ers).apply { setup() }
 
     override fun setup() {
         /* no-op */
@@ -64,27 +65,29 @@ class ErsPersistenceImpl(
         if (ers is DumpableLoadableEntityRelationshipStorage) {
             ers.load(databaseId)?.let {
                 this.ers = it
+                symbolInterner.ers = it
+                symbolInterner.setup()
                 return true
             }
         }
         return false
     }
 
-    override fun <T> read(action: (JIRDBContext) -> T): T {
+    override fun <T> read(action: (StorageContext) -> T): T {
         return if (ers.isInRam) { // RAM storage doesn't support explicit readonly transactions
             ers.transactionalOptimistic(attempts = 10) { txn ->
-                action(toJIRDBContext(txn))
+                action(toStorageContext(txn))
             }
         } else {
             ers.transactional(readonly = true) { txn ->
-                action(toJIRDBContext(txn))
+                action(toStorageContext(txn))
             }
         }
     }
 
-    override fun <T> write(action: (JIRDBContext) -> T): T = lock.withLock {
+    override fun <T> write(action: (StorageContext) -> T): T = lock.withLock {
         ers.transactional { txn ->
-            action(toJIRDBContext(txn))
+            action(toStorageContext(txn))
         }
     }
 
@@ -94,115 +97,39 @@ class ErsPersistenceImpl(
         }
         val allClasses = classes.map { it.info }
         val locationId = location.id.compressed
-        val classEntities = hashMapOf<String, Entity>()
+        val classEntities = identityMap<ClassInfo, Entity>()
         write { context ->
             val txn = context.txn
             allClasses.forEach { classInfo ->
                 txn.newEntity("Class").also { clazz ->
-                    classEntities[classInfo.name] = clazz
-                    clazz["nameId"] = classInfo.name.asSymbolId(symbolInterner).compressed
-                    clazz["access"] = classInfo.access.compressed.nonSearchable
-                    classInfo.signature?.let { signature ->
-                        clazz["signature"] = signature.nonSearchable
-                    }
-                    val fields = links(clazz, "fields")
-                    classInfo.fields.forEach { fieldInfo ->
-                        txn.newEntity("Field").also { field ->
-                            fields += field
-                            field["access"] = fieldInfo.access.compressed.nonSearchable
-                            field["nameId"] = fieldInfo.name.asSymbolId(symbolInterner).compressed
-                            fieldInfo.signature?.let { signature ->
-                                field["signature"] = signature.asSymbolId(symbolInterner).compressed.nonSearchable
-                            }
-                            field["typeId"] = fieldInfo.type.asSymbolId(symbolInterner).compressed.nonSearchable
-                            fieldInfo.annotations.forEach { annotationInfo ->
-                                annotationInfo.save(txn, clazz, RefKind.FIELD)
-                            }
-                        }
-                    }
-                    val methods = links(clazz, "methods")
-                    classInfo.methods.forEach { methodInfo ->
-                        txn.newEntity("Method").also { method ->
-                            methods += method
-                            method["access"] = methodInfo.access.compressed.nonSearchable
-                            method["nameId"] = methodInfo.name.asSymbolId(symbolInterner).compressed
-                            methodInfo.signature?.let { signature ->
-                                method["signature"] = signature.asSymbolId(symbolInterner).compressed.nonSearchable
-                            }
-                            method["desc"] = methodInfo.desc.asSymbolId(symbolInterner).compressed.nonSearchable
-                            method["returnClass"] =
-                                methodInfo.returnClass.asSymbolId(symbolInterner).compressed.nonSearchable
-                            methodInfo.annotations.forEach { annotationInfo ->
-                                annotationInfo.save(txn, clazz, RefKind.METHOD)
-                            }
-                            val parameters = links(method, "parameters")
-                            methodInfo.parametersInfo.forEach { parameterInfo ->
-                                txn.newEntity("Parameter").also { parameter ->
-                                    parameters += parameter
-                                    parameter["access"] = parameterInfo.access.compressed.nonSearchable
-                                    parameter["index"] = parameterInfo.index.compressed.nonSearchable
-                                    parameterInfo.name?.let { parameterName ->
-                                        parameter["nameId"] =
-                                            parameterName.asSymbolId(symbolInterner).compressed.nonSearchable
-                                    }
-                                    parameter["typeId"] =
-                                        parameterInfo.type.asSymbolId(symbolInterner).compressed.nonSearchable
-                                    parameterInfo.annotations.forEach { annotationInfo ->
-                                        annotationInfo.save(txn, clazz, RefKind.PARAM)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    val innerClasses = links(clazz, "innerClasses")
-                    classInfo.innerClasses.forEach { innerClassName ->
-                        txn.newEntity("InnerClass").also { innerClass ->
-                            innerClasses += innerClass
-                            innerClass["nameId"] = innerClassName.asSymbolId(symbolInterner).compressed.nonSearchable
-                        }
-                    }
-                }
-            }
-            allClasses.forEach { classInfo ->
-                classEntities[classInfo.name]?.let { clazz ->
+                    classEntities[classInfo] = clazz
+                    clazz["nameId"] = classInfo.name.asSymbolId().compressed
                     clazz["locationId"] = locationId
-                }
-            }
-            allClasses.forEach { classInfo ->
-                classEntities[classInfo.name]?.setRawBlob("bytecode", classInfo.bytecode)
-            }
-            allClasses.forEach { classInfo ->
-                classEntities[classInfo.name]?.let { clazz ->
-                    clazz["packageId"] =
-                        classInfo.name.substringBeforeLast('.').asSymbolId(symbolInterner).compressed.nonSearchable
+                    clazz.setRawBlob("bytecode", classInfo.bytecode)
+                    classInfo.annotations.forEach { annotationInfo ->
+                        annotationInfo.save(txn, clazz, RefKind.CLASS)
+                    }
                 }
             }
             allClasses.forEach { classInfo ->
                 if (classInfo.superClass != null) {
-                    classEntities[classInfo.name]?.let { clazz ->
+                    classEntities[classInfo]?.let { clazz ->
                         classInfo.superClass.takeIf { JAVA_OBJECT != it }?.let { superClassName ->
-                            clazz["inherits"] = superClassName.asSymbolId(symbolInterner).compressed
+                            clazz["inherits"] = superClassName.asSymbolId().compressed
                         }
                     }
                 }
-            }
-            allClasses.forEach { classInfo ->
                 if (classInfo.interfaces.isNotEmpty()) {
-                    classEntities[classInfo.name]?.let { clazz ->
+                    classEntities[classInfo]?.let { clazz ->
                         val implements = links(clazz, "implements")
                         classInfo.interfaces.forEach { interfaceName ->
-                            txn.findOrNew("Interface", "nameId", interfaceName.asSymbolId(symbolInterner).compressed)
+                            txn.findOrNew("Interface", "nameId", interfaceName.asSymbolId().compressed)
                                 .also { interfaceClass ->
                                     implements += interfaceClass
                                     links(interfaceClass, "implementedBy") += clazz
                                 }
                         }
                     }
-                }
-            }
-            allClasses.forEach { classInfo ->
-                classInfo.annotations.forEach { annotationInfo ->
-                    annotationInfo.save(txn, classEntities[classInfo.name]!!, RefKind.CLASS)
                 }
             }
             symbolInterner.flush(context)
@@ -230,6 +157,11 @@ class ErsPersistenceImpl(
     }
 
     override fun setImmutable(databaseId: String) {
+        if (ers.isInRam) {
+            write { context ->
+                symbolInterner.flush(context, force = true)
+            }
+        }
         ers = ers.asImmutable(databaseId)
     }
 
@@ -241,7 +173,11 @@ class ErsPersistenceImpl(
         }
     }
 
-    private fun findClassSourcesImpl(context: JIRDBContext, cp: JIRClasspath, fullName: String): Sequence<ClassSource> {
+    private fun findClassSourcesImpl(
+        context: StorageContext,
+        cp: JIRClasspath,
+        fullName: String
+    ): Sequence<ClassSource> {
         val ids = cp.registeredLocationIds
         return context.txn.find("Class", "nameId", findSymbolId(fullName).compressed)
             .filter { it.getCompressed<Long>("locationId") in ids }
@@ -250,7 +186,7 @@ class ErsPersistenceImpl(
 
     private fun AnnotationInfo.save(txn: Transaction, ref: Entity, refKind: RefKind): Entity {
         return txn.newEntity("Annotation").also { annotation ->
-            annotation["nameId"] = className.asSymbolId(symbolInterner).compressed
+            annotation["nameId"] = className.asSymbolId().compressed
             annotation["visible"] = visible.nonSearchable
             typeRef?.let { typeRef ->
                 annotation["typeRef"] = typeRef.nonSearchable
@@ -274,26 +210,25 @@ class ErsPersistenceImpl(
                 val valueLinks = links(annotation, "values")
                 flatValues.forEach { (name, value) ->
                     txn.newEntity("AnnotationValue").also { annotationValue ->
-                        annotationValue["nameId"] = name.asSymbolId(symbolInterner).compressed.nonSearchable
+                        annotationValue["nameId"] = name.asSymbolId().compressed.nonSearchable
                         valueLinks += annotationValue
                         when (value) {
                             is ClassRef -> {
                                 annotationValue["classSymbolId"] =
-                                    value.className.asSymbolId(symbolInterner).compressed.nonSearchable
+                                    value.className.asSymbolId().compressed.nonSearchable
                             }
 
                             is EnumRef -> {
                                 annotationValue["classSymbolId"] =
-                                    value.className.asSymbolId(symbolInterner).compressed.nonSearchable
+                                    value.className.asSymbolId().compressed.nonSearchable
                                 annotationValue["enumSymbolId"] =
-                                    value.enumName.asSymbolId(symbolInterner).compressed.nonSearchable
+                                    value.enumName.asSymbolId().compressed.nonSearchable
                             }
 
                             is PrimitiveValue -> {
                                 annotationValue["primitiveValueType"] = value.dataType.ordinal.compressed.nonSearchable
                                 annotationValue["primitiveValue"] =
-                                    AnnotationValueKind.serialize(value.value)
-                                        .asSymbolId(symbolInterner).compressed.nonSearchable
+                                    AnnotationValueKind.serialize(value.value).asSymbolId().compressed.nonSearchable
                             }
 
                             is AnnotationInfo -> {

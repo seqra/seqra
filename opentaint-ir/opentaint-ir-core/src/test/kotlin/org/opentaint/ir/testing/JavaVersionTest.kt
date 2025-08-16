@@ -1,6 +1,6 @@
 package org.opentaint.ir.testing
 
-import org.opentaint.ir.impl.JIRSettings
+import org.opentaint.ir.api.jvm.JIRSettings
 import org.opentaint.ir.impl.fs.JavaRuntime
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

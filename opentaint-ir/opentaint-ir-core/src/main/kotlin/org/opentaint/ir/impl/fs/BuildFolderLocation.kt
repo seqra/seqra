@@ -1,30 +1,30 @@
 package org.opentaint.ir.impl.fs
 
+import com.google.common.hash.Hashing
 import mu.KLogging
 import org.opentaint.ir.api.jvm.LocationType
+import org.opentaint.ir.util.io.mapReadonly
 import java.io.File
 import java.math.BigInteger
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.streams.asSequence
+import kotlin.text.Charsets.UTF_8
 
 class BuildFolderLocation(folder: File) : AbstractByteCodeLocation(folder) {
 
     companion object : KLogging()
 
+    @Suppress("UnstableApiUsage")
     override val currentHash: BigInteger
         get() {
-            return BigInteger(
-                buildString {
-                    append(jarOrFolder.absolutePath)
-                    append(jarOrFolder.lastModified())
-                    jarOrFolder.walk().onEnter {
-                        append(it.lastModified())
-                        append(it.name)
-                        true
-                    }
-                }.shaHash
-            )
+            return Hashing.sha256().newHasher().let { h ->
+                jarOrFolder.walk().filter { it.isFile }.sortedBy { it.name }.forEach {
+                    h.putString(it.name, UTF_8)
+                    h.putBytes(it.mapReadonly())
+                }
+                BigInteger(h.hash().asBytes())
+            }
         }
 
     override val type: LocationType

@@ -4,8 +4,6 @@ import org.opentaint.ir.api.jvm.JIRByteCodeLocation
 import org.opentaint.ir.api.jvm.JIRDatabasePersistence
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.storage.ers.getEntityOrNull
-import org.opentaint.ir.impl.JIRDBSymbolsInternerImpl
-import org.opentaint.ir.impl.asSymbolId
 import org.opentaint.ir.impl.caches.PluggableCache
 import org.opentaint.ir.impl.caches.PluggableCacheProvider
 import org.opentaint.ir.impl.caches.xodus.XODUS_CACHE_PROVIDER_ID
@@ -66,8 +64,6 @@ abstract class AbstractJIRDbPersistence(
             }
         }
 
-    abstract override val symbolInterner: JIRDBSymbolsInternerImpl
-
     override fun findBytecode(classId: Long): ByteArray {
         return byteCodeCache.get(classId) {
             read { context ->
@@ -84,7 +80,7 @@ abstract class AbstractJIRDbPersistence(
     }
 
     override fun findSymbolId(symbol: String): Long {
-        return symbol.asSymbolId(symbolInterner)
+        return symbol.asSymbolId()
     }
 
     override fun findSymbolName(symbolId: Long): String {

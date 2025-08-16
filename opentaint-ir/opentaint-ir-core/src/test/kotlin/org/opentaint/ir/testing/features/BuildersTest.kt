@@ -8,19 +8,23 @@ import org.opentaint.ir.impl.features.Builders
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.buildersExtension
 import org.opentaint.ir.testing.BaseTest
-import org.opentaint.ir.testing.WithGlobalDB
-import org.opentaint.ir.testing.WithRAMDB
+import org.opentaint.ir.testing.WithGlobalDbImmutable
+import org.opentaint.ir.testing.WithSQLiteDb
 import org.opentaint.ir.testing.builders.Hierarchy.HierarchyInterface
 import org.opentaint.ir.testing.builders.Interfaces.Interface
 import org.opentaint.ir.testing.builders.Simple
 import org.jooq.DSLContext
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnJre
 import org.junit.jupiter.api.condition.JRE
 import javax.xml.parsers.DocumentBuilderFactory
 
-abstract class BuildersTest : BaseTest() {
+open class BuildersTest : BaseTest() {
+
+    companion object : WithGlobalDbImmutable()
 
     private val ext = runBlocking {
         cp.buildersExtension()
@@ -80,10 +84,6 @@ abstract class BuildersTest : BaseTest() {
     private val JIRMethod.loggable get() = enclosingClass.name + "#" + name
 }
 
-class BuildersSqlTest : BuildersTest() {
-    companion object : WithGlobalDB()
-}
-
-class BuildersRamTest : BuildersTest() {
-    companion object : WithRAMDB(Builders, InMemoryHierarchy)
+class BuildersSQLiteTest : BuildersTest() {
+    companion object : WithSQLiteDb(Builders, InMemoryHierarchy)
 }

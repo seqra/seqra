@@ -3,12 +3,14 @@ package org.opentaint.ir.testing.types
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.testing.BaseTest
-import org.opentaint.ir.testing.WithGlobalDB
-import org.junit.jupiter.api.Assertions.*
+import org.opentaint.ir.testing.WithGlobalDbImmutable
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNotNull
 
 abstract class BaseTypesTest : BaseTest() {
 
-    companion object : WithGlobalDB()
+    companion object : WithGlobalDbImmutable()
 
     protected inline fun <reified T> findType(): JIRClassType {
         val found = cp.findTypeOrNull(T::class.java.name)

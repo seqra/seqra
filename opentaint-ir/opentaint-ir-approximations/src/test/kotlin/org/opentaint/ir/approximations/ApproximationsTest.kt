@@ -1,10 +1,15 @@
 package org.opentaint.ir.approximations
 
 import org.opentaint.ir.api.jvm.JavaVersion
-import org.opentaint.ir.api.jvm.cfg.*
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRCallInst
+import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
+import org.opentaint.ir.api.jvm.cfg.JIRRawAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRRawCallInst
+import org.opentaint.ir.api.jvm.cfg.JIRRawFieldRef
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.api.jvm.ext.findDeclaredFieldOrNull
-import org.opentaint.ir.approximation.*
+import org.opentaint.ir.approximation.Approximations
 import org.opentaint.ir.approximation.Approximations.findApproximationByOriginOrNull
 import org.opentaint.ir.approximation.Approximations.findOriginalByApproximationOrNull
 import org.opentaint.ir.approximation.JIREnrichedVirtualField
@@ -14,14 +19,21 @@ import org.opentaint.ir.approximation.toOriginalName
 import org.opentaint.ir.approximations.target.KotlinClass
 import org.opentaint.ir.impl.fs.JarLocation
 import org.opentaint.ir.testing.BaseTest
-import org.opentaint.ir.testing.WithDB
-import org.opentaint.ir.testing.WithRAMDB
+import org.opentaint.ir.testing.WithDb
+import org.opentaint.ir.testing.WithSQLiteDb
 import org.opentaint.ir.testing.guavaLib
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
 
-abstract class ApproximationsTest : BaseTest() {
+open class ApproximationsTest : BaseTest() {
+
+    // ApproximationsTest designed to work only with applied ApproximationIndexer
+    // So, if WithDbImmutable is used then indexing would be skipped and tests would fail
+    companion object : WithDb(Approximations)
 
     @Test
     fun `kotlin approximation`() {
@@ -207,12 +219,7 @@ abstract class ApproximationsTest : BaseTest() {
     }
 }
 
-class ApproximationsSqlTest : ApproximationsTest() {
+class ApproximationsSQLiteTest : ApproximationsTest() {
 
-    companion object : WithDB(Approximations)
-}
-
-class ApproximationsRAMTest : ApproximationsTest() {
-
-    companion object : WithRAMDB(Approximations)
+    companion object : WithSQLiteDb(Approximations)
 }

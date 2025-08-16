@@ -2,7 +2,7 @@ package org.opentaint.ir.impl.storage
 
 import mu.KLogging
 import org.opentaint.ir.api.jvm.RegisteredLocation
-import org.opentaint.ir.impl.asSymbolId
+import org.opentaint.ir.api.storage.asSymbolId
 import org.opentaint.ir.impl.storage.AppVersion.Companion.currentAppVersion
 import org.opentaint.ir.impl.storage.jooq.tables.references.ANNOTATIONS
 import org.opentaint.ir.impl.storage.jooq.tables.references.ANNOTATIONVALUES
@@ -102,7 +102,7 @@ class SQLitePersistenceService(private val persistence: SQLitePersistenceImpl) {
         persistence.write { context ->
             val jooq = context.dslContext
             jooq.withoutAutoCommit { conn ->
-                symbolInterner.flush(toJIRDBContext(jooq, conn))
+                symbolInterner.flush(toStorageContext(jooq, conn))
                 conn.insertElements(CLASSES, classes) { classInfo ->
                     val id = ++classIdCount
                     val packageName = classInfo.name.substringBeforeLast('.')

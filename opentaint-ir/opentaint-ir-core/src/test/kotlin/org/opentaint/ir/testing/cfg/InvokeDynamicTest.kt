@@ -3,14 +3,14 @@ package org.opentaint.ir.testing.cfg
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRLambdaExpr
 import org.opentaint.ir.api.jvm.ext.findClass
-import org.opentaint.ir.testing.WithGlobalDB
+import org.opentaint.ir.testing.WithGlobalDbImmutable
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class InvokeDynamicTest : BaseInstructionsTest() {
 
-    companion object : WithGlobalDB()
+    companion object : WithGlobalDbImmutable()
 
     @Test
     fun `test unary function`() = runStaticMethod<InvokeDynamicExamples>("testUnaryFunction")

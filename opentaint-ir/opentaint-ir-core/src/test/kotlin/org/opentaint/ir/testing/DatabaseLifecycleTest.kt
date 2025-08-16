@@ -11,6 +11,7 @@ import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.api.jvm.ext.findClassOrNull
 import org.opentaint.ir.impl.JIRDatabaseImpl
+import org.opentaint.ir.impl.JIRSQLitePersistenceSettings
 import org.opentaint.ir.impl.fs.BuildFolderLocation
 import org.opentaint.ir.impl.opentaint-ir
 import org.opentaint.ir.impl.storage.PersistentLocationsRegistry
@@ -199,6 +200,7 @@ class DatabaseLifecycleTest {
                 opentaint-ir {
                     useProcessJavaRuntime()
                     persistent(location)
+                    persistenceImpl(JIRSQLitePersistenceSettings)
                 }
             }
 
@@ -210,6 +212,7 @@ class DatabaseLifecycleTest {
                 opentaint-ir {
                     useProcessJavaRuntime()
                     persistent(location)
+                    persistenceImpl(JIRSQLitePersistenceSettings)
                 }
             }
             db.persistence.read {

@@ -7,7 +7,7 @@ import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.Path
 
-fun File.inputStream(): InputStream = FileInputStream(this)
+fun File.inputStream(): InputStream = FileInputStream(this).buffered()
 
 fun Path.inputStream(): InputStream = toFile().inputStream()
 

@@ -2,13 +2,12 @@ package org.opentaint.ir.api.jvm
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
+import org.opentaint.ir.api.storage.StorageContext
+import org.opentaint.ir.api.storage.SymbolInterner
+import org.opentaint.ir.api.storage.asSymbolId
 import org.opentaint.ir.api.storage.ers.EntityRelationshipStorage
-import org.opentaint.ir.api.storage.ers.Transaction
-import org.jooq.DSLContext
 import java.io.Closeable
 import java.io.File
-import java.sql.Connection
-import java.util.concurrent.ConcurrentHashMap
 
 enum class LocationType {
     RUNTIME,
@@ -148,15 +147,15 @@ interface JIRDatabasePersistence : Closeable {
      */
     fun tryLoad(databaseId: String): Boolean = false
 
-    fun <T> write(action: (JIRDBContext) -> T): T
-    fun <T> read(action: (JIRDBContext) -> T): T
+    fun <T> write(action: (StorageContext) -> T): T
+    fun <T> read(action: (StorageContext) -> T): T
 
     fun persist(location: RegisteredLocation, classes: List<ClassSource>)
     fun findSymbolId(symbol: String): Long
     fun findSymbolName(symbolId: Long): String
     fun findLocation(locationId: Long): RegisteredLocation
 
-    val symbolInterner: JIRDBSymbolsInterner
+    val symbolInterner: SymbolInterner
     fun findBytecode(classId: Long): ByteArray
 
     fun findClassSourceByName(cp: JIRClasspath, fullName: String): ClassSource?
@@ -172,55 +171,15 @@ interface JIRDatabasePersistence : Closeable {
      * Generally, there is no way to switch the persistence back to mutable.
      */
     fun setImmutable(databaseId: String) {}
-}
 
-/**
- * Abstract database access context contains several named context objects.
- * Normally, there should be implemented specific context classes for each persistence
- * implementation with its specific context objects.
- *
- * For SQLite persistence, JIRDBContext should contain [DSLContext] object and may contain [Connection] object.
- *
- * For [EntityRelationshipStorage] persistence, JIRDBContext should contain [Transaction] object.
- */
-@Suppress("UNCHECKED_CAST")
-class JIRDBContext private constructor() {
-
-    private val contextObjects = ConcurrentHashMap<ContextProperty<*>, Any>()
-
-    fun <T : Any> setContextObject(contextKey: ContextProperty<T>, contextObject: T) = apply {
-        contextObjects[contextKey] = contextObject
-    }
-
-    fun <T : Any> getContextObject(property: ContextProperty<T>): T =
-        contextObjects[property] as? T?
-            ?: throw NullPointerException("JIRDBContext doesn't contain context object $property")
-
-    fun <T : Any> hasContextObject(property: ContextProperty<T>): Boolean = contextObjects.containsKey(property)
-
-    companion object {
-        fun <T : Any> of(contextKey: ContextProperty<T>, contextObject: T): JIRDBContext {
-            return JIRDBContext().apply { this(contextKey, contextObject) }
-        }
-
-        fun empty() = JIRDBContext()
+    fun String.asSymbolId(): Long {
+        return asSymbolId(symbolInterner)
     }
 }
-
-interface ContextProperty<T : Any>
-
-operator fun <T : Any> JIRDBContext.invoke(contextKey: ContextProperty<T>, contextObject: T) =
-    setContextObject(contextKey, contextObject)
 
 interface RegisteredLocation {
     val jIRLocation: JIRByteCodeLocation?
     val id: Long
     val path: String
     val isRuntime: Boolean
-}
-
-interface JIRDBSymbolsInterner {
-    fun findOrNew(symbol: String): Long
-    fun findSymbolName(symbolId: Long): String?
-    fun flush(context: JIRDBContext)
 }

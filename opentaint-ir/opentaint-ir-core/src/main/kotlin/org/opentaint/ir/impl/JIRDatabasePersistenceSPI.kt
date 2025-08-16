@@ -2,6 +2,7 @@ package org.opentaint.ir.impl
 
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.JIRDatabasePersistence
+import org.opentaint.ir.api.jvm.JIRSettings
 import org.opentaint.ir.api.spi.CommonSPI
 import org.opentaint.ir.api.spi.SPILoader
 import org.opentaint.ir.impl.fs.JavaRuntime

@@ -1,9 +1,9 @@
 package org.opentaint.ir.impl.storage
 
-import org.opentaint.ir.api.jvm.JIRDBContext
 import org.opentaint.ir.api.jvm.JIRByteCodeLocation
 import org.opentaint.ir.api.jvm.LocationType
 import org.opentaint.ir.api.jvm.RegisteredLocation
+import org.opentaint.ir.api.storage.StorageContext
 import org.opentaint.ir.api.storage.ers.getEntityOrNull
 import org.opentaint.ir.impl.CleanupResult
 import org.opentaint.ir.impl.JIRDatabaseImpl
@@ -101,7 +101,7 @@ class PersistentLocationsRegistry(private val jIRdb: JIRDatabaseImpl) : Location
 
     override val snapshots: KeySetView<LocationsRegistrySnapshot, Boolean> = ConcurrentHashMap.newKeySet()
 
-    private fun JIRDBContext.save(location: JIRByteCodeLocation) =
+    private fun StorageContext.save(location: JIRByteCodeLocation) =
         PersistentByteCodeLocation(jIRdb, location.findOrNew(this), location)
 
     override fun setup(runtimeLocations: List<JIRByteCodeLocation>): RegistrationResult {
@@ -213,7 +213,7 @@ class PersistentLocationsRegistry(private val jIRdb: JIRDatabaseImpl) : Location
         }
     }
 
-    private fun JIRDBContext.deprecate(locations: List<RegisteredLocation>) {
+    private fun StorageContext.deprecate(locations: List<RegisteredLocation>) {
         locations.forEach {
             jIRdb.featuresRegistry.broadcast(JIRInternalSignal.LocationRemoved(it))
         }
@@ -328,7 +328,7 @@ class PersistentLocationsRegistry(private val jIRdb: JIRDatabaseImpl) : Location
         runtimeLocations = emptyList()
     }
 
-    private fun JIRByteCodeLocation.findOrNew(context: JIRDBContext): PersistentByteCodeLocationData {
+    private fun JIRByteCodeLocation.findOrNew(context: StorageContext): PersistentByteCodeLocationData {
         val existed = findOrNull(context)
         if (existed != null) {
             return existed
@@ -353,7 +353,7 @@ class PersistentLocationsRegistry(private val jIRdb: JIRDatabaseImpl) : Location
         )
     }
 
-    private fun JIRByteCodeLocation.findOrNull(context: JIRDBContext): PersistentByteCodeLocationData? {
+    private fun JIRByteCodeLocation.findOrNull(context: StorageContext): PersistentByteCodeLocationData? {
         return context.execute(
             sqlAction = { jooq ->
                 jooq.selectFrom(BYTECODELOCATIONS)

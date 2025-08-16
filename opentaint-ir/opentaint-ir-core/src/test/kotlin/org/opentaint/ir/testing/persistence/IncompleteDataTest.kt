@@ -1,7 +1,8 @@
 package org.opentaint.ir.testing.persistence
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.impl.JIRSettings
+import org.opentaint.ir.api.jvm.JIRSettings
+import org.opentaint.ir.impl.JIRSQLitePersistenceSettings
 import org.opentaint.ir.impl.features.Builders
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.fs.JavaRuntime
@@ -35,6 +36,7 @@ class IncompleteDataTest {
                 persistent(jdbcLocation)
                 installFeatures(Usages, Builders)
                 loadByteCode(allClasspath)
+                persistenceImpl(JIRSQLitePersistenceSettings)
             }.also {
                 if (awaitBackground) {
                     it.awaitBackgroundJobs()
