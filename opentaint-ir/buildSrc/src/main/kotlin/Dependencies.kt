@@ -29,7 +29,7 @@ object Versions {
     const val kotlinx_collections_immutable = "0.3.5"
     const val kotlinx_coroutines = "1.6.4"
     const val kotlin_metadata = kotlin
-    const val kotlinx_serialization = "1.4.1"
+    const val kotlinx_serialization = "1.8.0"
     const val licenser = "0.6.1"
     const val mockk = "1.13.3"
     const val sarif4k = "0.5.0"
