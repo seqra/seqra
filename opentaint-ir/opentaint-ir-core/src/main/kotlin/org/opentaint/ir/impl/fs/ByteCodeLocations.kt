@@ -46,7 +46,7 @@ private fun File.classPath(classpath: MutableCollection<File>) {
     }
 }
 
-private fun File.isJar() = isFile && name.endsWith(".jar") || name.endsWith(".jmod")
+fun File.isJar() = isFile && name.endsWith(".jar") || name.endsWith(".jmod")
 
 private const val file = "file:"
 

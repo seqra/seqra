@@ -68,7 +68,7 @@ class JarFacade(private val runtimeVersion: Int, private val getter: () -> JarFi
             val jarFile = getter() ?: return emptyMap()
             return jarFile.use {
                 val buffer = ByteArray(DEFAULT_BUFFER_SIZE * 8)
-                classes.map { it.key to jarFile.getInputStream(it.value).readBytes(buffer) }
+                classes.map { it.key to jarFile.getInputStream(it.value).use { it.readBytes(buffer) } }
             }.toMap()
         }
 

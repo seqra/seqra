@@ -5,6 +5,7 @@ package org.opentaint.ir.impl.features
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
 import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.impl.storage.ers.filterDeleted
 import org.opentaint.ir.impl.storage.execute
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.SYMBOLS
@@ -32,7 +33,7 @@ suspend fun JIRClasspath.duplicatedClasses(): Map<String, Int> {
             },
             noSqlAction = { txn ->
                 val result = mutableMapOf<String, Int>().also { result ->
-                    txn.all("Class").forEach { clazz ->
+                    txn.all("Class").filterDeleted().forEach { clazz ->
                         val className = persistence.findSymbolName(clazz.getCompressed<Long>("nameId")!!)
                         result[className] = result.getOrDefault(className, 0) + 1
                     }

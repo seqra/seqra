@@ -147,7 +147,7 @@ class PersistentLocationsRegistry(private val jIRdb: JIRDatabaseImpl) : Location
             val result = arrayListOf<RegisteredLocation>()
             val toAdd = arrayListOf<JIRByteCodeLocation>()
             val fsIds = uniqueLocations.map { it.fileSystemId }
-            val existed = context.execute(
+            val existing = context.execute(
                 sqlAction = { jooq ->
                     jooq.selectFrom(BYTECODELOCATIONS).where(BYTECODELOCATIONS.UNIQUEID.`in`(fsIds)).map { record ->
                         PersistentByteCodeLocationData.fromSqlRecord(record)
@@ -165,7 +165,7 @@ class PersistentLocationsRegistry(private val jIRdb: JIRDatabaseImpl) : Location
             ).associateBy { it.fileSystemId }
 
             uniqueLocations.forEach {
-                val found = existed[it.fileSystemId]
+                val found = existing[it.fileSystemId]
                 if (found == null) {
                     toAdd += it
                 } else {
@@ -329,9 +329,9 @@ class PersistentLocationsRegistry(private val jIRdb: JIRDatabaseImpl) : Location
     }
 
     private fun JIRByteCodeLocation.findOrNew(context: StorageContext): PersistentByteCodeLocationData {
-        val existed = findOrNull(context)
-        if (existed != null) {
-            return existed
+        val existing = findOrNull(context)
+        if (existing != null) {
+            return existing
         }
         return context.execute(
             sqlAction = { jooq ->
@@ -344,7 +344,12 @@ class PersistentLocationsRegistry(private val jIRdb: JIRDatabaseImpl) : Location
                 PersistentByteCodeLocationData.fromSqlRecord(record)
             },
             noSqlAction = { txn ->
-                val entity = txn.newEntity(BytecodeLocationEntity.BYTECODE_LOCATION_ENTITY_TYPE)
+                val entity =
+                    txn.find(
+                        type = BytecodeLocationEntity.BYTECODE_LOCATION_ENTITY_TYPE,
+                        propertyName = BytecodeLocationEntity.PATH,
+                        value = path
+                    ).firstOrNull() ?: txn.newEntity(BytecodeLocationEntity.BYTECODE_LOCATION_ENTITY_TYPE)
                 entity[BytecodeLocationEntity.PATH] = path
                 entity[BytecodeLocationEntity.FILE_SYSTEM_ID] = fileSystemId
                 entity[BytecodeLocationEntity.IS_RUNTIME] = type == LocationType.RUNTIME

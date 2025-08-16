@@ -17,6 +17,8 @@ import org.opentaint.ir.impl.storage.BatchedSequence
 import org.opentaint.ir.impl.storage.defaultBatchSize
 import org.opentaint.ir.impl.storage.dslContext
 import org.opentaint.ir.impl.storage.eqOrNull
+import org.opentaint.ir.impl.storage.ers.filterDeleted
+import org.opentaint.ir.impl.storage.ers.toClassSource
 import org.opentaint.ir.impl.storage.execute
 import org.opentaint.ir.impl.storage.executeQueries
 import org.opentaint.ir.impl.storage.isSqlContext
@@ -258,13 +260,15 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
                         .map { (call, locationId) ->
                             val callerId = call.getCompressedBlob<Long>("callerId")!!
                             val caller = symbolInterner.findSymbolName(callerId)!!
-                            val classId = txn.find("Class", "nameId", callerId.compressed).first().id.instanceId
+                            val clazz = txn.find("Class", "nameId", callerId.compressed)
+                                .filterDeleted()
+                                .first()
+                            val classId = clazz.id.instanceId
                             UsageFeatureResponse(
-                                source = PersistenceClassSource(
-                                    db = classpath.db,
+                                source = clazz.toClassSource(
+                                    persistence = persistence,
                                     className = caller,
-                                    classId = classId,
-                                    locationId = locationId,
+                                    nameId = callerId,
                                     cachedByteCode = persistence.findBytecode(classId)
                                 ),
                                 offsets = call.getRawBlob("offsets")!!.toShortArray()

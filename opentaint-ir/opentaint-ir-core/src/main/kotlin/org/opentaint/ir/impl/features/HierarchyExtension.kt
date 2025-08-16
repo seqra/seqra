@@ -22,6 +22,8 @@ import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.storage.BatchedSequence
 import org.opentaint.ir.impl.storage.defaultBatchSize
 import org.opentaint.ir.impl.storage.dslContext
+import org.opentaint.ir.impl.storage.ers.filterDeleted
+import org.opentaint.ir.impl.storage.ers.filterLocations
 import org.opentaint.ir.impl.storage.ers.toClassSourceSequence
 import org.opentaint.ir.impl.storage.execute
 import org.opentaint.ir.impl.storage.isSqlContext
@@ -79,12 +81,14 @@ internal fun JIRClasspath.allClassesExceptObject(context: StorageContext, direct
             }
         },
         noSqlAction = { txn ->
-            val objectNameId = db.persistence.findSymbolId(JAVA_OBJECT)
-            txn.all("Class").filter { clazz ->
-                (!direct || clazz.getCompressed<Long>("inherits") == null) &&
-                        clazz.getCompressed<Long>("locationId") in locationIds &&
-                        clazz.getCompressed<Long>("nameId") != objectNameId
-            }.toClassSourceSequence(db).toList().asSequence()
+            val objectNameId by lazy(LazyThreadSafetyMode.NONE) { db.persistence.findSymbolId(JAVA_OBJECT) }
+            txn.all("Class")
+                .filterLocations(locationIds)
+                .filterDeleted()
+                .filter { clazz ->
+                    (!direct || clazz.getCompressed<Long>("inherits") == null) &&
+                            clazz.getCompressed<Long>("nameId") != objectNameId
+                }.toClassSourceSequence(db).toList().asSequence()
         }
     )
 }

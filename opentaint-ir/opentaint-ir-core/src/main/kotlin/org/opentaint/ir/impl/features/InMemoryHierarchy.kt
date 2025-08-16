@@ -18,6 +18,9 @@ import org.opentaint.ir.impl.fs.PersistenceClassSource
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.BatchedSequence
 import org.opentaint.ir.impl.storage.defaultBatchSize
+import org.opentaint.ir.impl.storage.ers.filterDeleted
+import org.opentaint.ir.impl.storage.ers.filterLocations
+import org.opentaint.ir.impl.storage.ers.toClassSource
 import org.opentaint.ir.impl.storage.execute
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSHIERARCHIES
@@ -96,7 +99,7 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
                                 }
                         },
                         noSqlAction = { txn ->
-                            txn.all("Class").forEach { clazz ->
+                            txn.all("Class").filterDeleted().forEach { clazz ->
                                 val locationId: Long? = clazz.getCompressed("locationId")
                                 val classSymbolId: Long? = clazz.getCompressed("nameId")
                                 val superClasses = mutableListOf<Long>()
@@ -218,17 +221,16 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
                         allSubclasses.asSequence()
                             .flatMap { classNameId ->
                                 txn.find("Class", "nameId", classNameId.compressed)
-                                    .filter { clazz ->
-                                        clazz.getCompressed<Long>("locationId") in locationIds
-                                    }
+                                    .filterLocations(locationIds)
+                                    .filterDeleted()
                             }
                             .map { clazz ->
+                                val nameId = clazz.getCompressed<Long>("nameId")!!
                                 val classId: Long = clazz.id.instanceId
-                                PersistenceClassSource(
-                                    db = classpath.db,
-                                    className = persistence.findSymbolName(clazz.getCompressed<Long>("nameId")!!),
-                                    classId = classId,
-                                    locationId = clazz.getCompressed<Long>("locationId")!!,
+                                clazz.toClassSource(
+                                    persistence = persistence,
+                                    className = persistence.findSymbolName(nameId),
+                                    nameId = nameId,
                                     cachedByteCode = if (req.full) persistence.findBytecode(classId) else null
                                 )
                             }

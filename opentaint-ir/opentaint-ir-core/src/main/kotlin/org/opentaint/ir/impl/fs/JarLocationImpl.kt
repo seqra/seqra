@@ -23,13 +23,15 @@ open class JarLocation(
         get() {
             val jarFile = jarFile() ?: return BigInteger.ZERO
             return Hashing.sha256().newHasher().let { h ->
-                jarFile.entries().asSequence().filter { !it.isDirectory }.sortedBy { it.name }.forEach { entry ->
-                    h.putString(entry.name, UTF_8)
-                    h.putLong(entry.crc)
-                    h.putLong(entry.size)
-                    h.putLong(entry.compressedSize)
+                jarFile.use {
+                    it.entries().asSequence().filter { !it.isDirectory }.sortedBy { it.name }.forEach { entry ->
+                        h.putString(entry.name, UTF_8)
+                        h.putLong(entry.crc)
+                        h.putLong(entry.size)
+                        h.putLong(entry.compressedSize)
+                    }
+                    BigInteger(h.hash().asBytes())
                 }
-                BigInteger(h.hash().asBytes())
             }
         }
 
