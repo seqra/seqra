@@ -67,7 +67,7 @@ internal fun JIRClasspath.typeOf(jvmType: JvmType, parameters: List<JvmType>? = 
 class JIRTypeVariableDeclarationImpl(
     override val symbol: String,
     private val classpath: JIRClasspath,
-    private val jvmBounds: List<JvmType>,
+    val jvmBounds: List<JvmType>,
     override val owner: JIRAccessible
 ) : JIRTypeVariableDeclaration {
     override val bounds: List<JIRRefType> get() = jvmBounds.map { classpath.typeOf(it) as JIRRefType }

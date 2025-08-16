@@ -64,7 +64,7 @@ class JIRBoundedWildcardImpl(
 
 class JIRTypeVariableImpl(
     override val classpath: JIRClasspath,
-    private val declaration: JIRTypeVariableDeclaration,
+    val declaration: JIRTypeVariableDeclaration,
     override val nullable: Boolean?,
     override val annotations: List<JIRAnnotation> = listOf()
 ) : JIRTypeVariable {

@@ -4,7 +4,7 @@ import org.opentaint.ir.api.jvm.JIRAccessible
 import org.opentaint.ir.api.jvm.JvmType
 import org.opentaint.ir.api.jvm.JvmTypeParameterDeclaration
 
-internal class JvmTypeParameterDeclarationImpl(
+class JvmTypeParameterDeclarationImpl(
     override val symbol: String,
     override val owner: JIRAccessible,
     override val bounds: List<JvmType>? = null
