@@ -169,7 +169,9 @@ if (!repoUrl.isNullOrEmpty()) {
         listOf(
             project(":opentaint-ir-api-common"),
             project(":opentaint-ir-api-jvm"),
+            project(":opentaint-ir-api-storage"),
             project(":opentaint-ir-core"),
+            project(":opentaint-ir-storage"),
             project(":opentaint-ir-analysis"),
             project(":opentaint-ir-approximations"),
             project(":opentaint-ir-taint-configuration"),
