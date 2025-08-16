@@ -18,6 +18,7 @@ import org.opentaint.ir.impl.storage.defaultBatchSize
 import org.opentaint.ir.impl.storage.dslContext
 import org.opentaint.ir.impl.storage.eqOrNull
 import org.opentaint.ir.impl.storage.ers.filterDeleted
+import org.opentaint.ir.impl.storage.ers.filterLocations
 import org.opentaint.ir.impl.storage.ers.toClassSource
 import org.opentaint.ir.impl.storage.execute
 import org.opentaint.ir.impl.storage.executeQueries
@@ -262,11 +263,12 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
                             val locationId = callee.getCompressed<Long>("locationId")!!
                             callee.getLinks("calls").map { it to locationId }
                         }
-                        .map { (call, _) ->
+                        .map { (call, callerLocationId) ->
                             val callerId = call.getCompressedBlob<Long>("callerId")!!
                             val caller = symbolInterner.findSymbolName(callerId)!!
                             val clazz = txn.find("Class", "nameId", callerId.compressed)
                                 .filterDeleted()
+                                .filterLocations(callerLocationId)
                                 .first()
                             val classId = clazz.id.instanceId
                             UsageFeatureResponse(
