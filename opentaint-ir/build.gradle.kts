@@ -155,7 +155,6 @@ tasks.dokkaHtmlMultiModule {
     removeChildTasks(
         listOf(
             project(":opentaint-ir-examples"),
-            project(":opentaint-ir-cli"),
             project(":opentaint-ir-benchmarks")
         )
     )
