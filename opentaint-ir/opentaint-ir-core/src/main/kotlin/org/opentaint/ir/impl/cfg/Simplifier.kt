@@ -93,7 +93,7 @@ internal class Simplifier {
             val uses = computeUseCases(instructionList)
             val (replacements, instructionsToDelete) = computeReplacements(instructionList, uses)
             instructionList = instructionList
-                .map(ExprMapper(replacements.toMap()))
+                .map(ExprMapper(replacements))
                 .filter(InstructionFilter { it !in instructionsToDelete })
         } while (replacements.isNotEmpty())
 
@@ -188,49 +188,67 @@ internal class Simplifier {
     private fun computeReplacements(
         instList: JIRInstList<JIRRawInst>,
         uses: Map<JIRRawSimpleValue, Set<JIRRawInst>>,
-    ): Pair<Map<JIRRawLocalVar, JIRRawValue>, Set<JIRRawInst>> {
-        val replacements = mutableMapOf<JIRRawLocalVar, JIRRawValue>()
-        val reservedValues = mutableSetOf<JIRRawValue>()
-        val replacedInsts = mutableSetOf<JIRRawInst>()
+    ): Pair<Map<JIRRawExpr, JIRRawExpr>, Set<JIRRawInst>> {
+        val replacements = hashMapOf<JIRRawExpr, JIRRawExpr>()
+        val reservedValues = hashSetOf<JIRRawValue>()
+        val replacedInsts = hashSetOf<JIRRawInst>()
 
-        for (inst in instList) {
-            if (inst is JIRRawAssignInst) {
-                val lhv = inst.lhv
-                val rhv = inst.rhv
-                if (lhv is JIRRawSimpleValue
-                    && rhv is JIRRawLocalVar
-                    && uses.getOrDefault(rhv, emptySet()).let { it.size == 1 && it.firstOrNull() == inst }
-                    && rhv !in reservedValues
-                ) {
-                    val lhvUsage = uses.getOrDefault(lhv, emptySet()).firstOrNull()
-                    val assignInstructionToReplacement = instList.firstOrNull { it is JIRRawAssignInst && it.lhv == lhv }
-                    val assignInstructionToRhv = instList.firstOrNull { it is JIRRawAssignInst && it.lhv == rhv}
-                    val didNotAssignedBefore =
-                        lhvUsage == null ||
-                            assignInstructionToReplacement == null ||
-                            !instList.isBefore(assignInstructionToReplacement, lhvUsage) ||
-                            assignInstructionToRhv == null ||
-                            instList.areSequential(assignInstructionToRhv, inst)
-                    if (lhvUsage == null || !instList.isBefore(lhvUsage, inst)) {
-                        if (didNotAssignedBefore) {
-                            replacements[rhv] = lhv
-                            reservedValues += lhv
-                            replacedInsts += inst
-                        }
-                    }
-                }
+        val instructionIndex = hashMapOf<JIRRawInst, Int>()
+        val assignInstructions = mutableListOf<JIRRawAssignInst>()
+        val firstValueAssignment = hashMapOf<JIRRawValue, JIRRawAssignInst>()
+
+        for ((i, inst) in instList.withIndex()) {
+            instructionIndex[inst] = i
+
+            if (inst !is JIRRawAssignInst) continue
+
+            assignInstructions.add(inst)
+            firstValueAssignment.putIfAbsent(inst.lhv, inst)
+        }
+
+        for (inst in assignInstructions) {
+            val lhv = inst.lhv as? JIRRawSimpleValue ?: continue
+            val rhv = inst.rhv as? JIRRawLocalVar ?: continue
+
+            if (rhv in reservedValues) continue
+
+            val rhvUsage = uses[rhv]?.singleOrNull() ?: continue
+            if (rhvUsage != inst) continue
+
+            val lhvUsage = uses[lhv]?.firstOrNull()
+
+            if (lhvUsage != null && isBefore(instructionIndex, lhvUsage, inst)) continue
+
+            val assignInstructionToReplacement = firstValueAssignment[lhv]
+            val assignInstructionToRhv = firstValueAssignment[rhv]
+
+            val didNotAssignedBefore =
+                lhvUsage == null ||
+                        assignInstructionToReplacement == null ||
+                        !isBefore(instructionIndex, assignInstructionToReplacement, lhvUsage) ||
+                        assignInstructionToRhv == null ||
+                        areSequential(instructionIndex, assignInstructionToRhv, inst)
+
+            if (didNotAssignedBefore) {
+                replacements[rhv] = lhv
+                reservedValues += lhv
+                replacedInsts += inst
             }
         }
 
         return replacements to replacedInsts
     }
 
-    private fun JIRInstList<JIRRawInst>.isBefore(one: JIRRawInst, another: JIRRawInst): Boolean {
-        return indexOf(one) < indexOf(another)
+    private fun isBefore(instIndex: Map<JIRRawInst, Int>, one: JIRRawInst, another: JIRRawInst): Boolean {
+        val indexOfOne = instIndex[one] ?: error("Missed instruction: $one")
+        val indexOfAnother = instIndex[another] ?: error("Missed instruction: $another")
+        return indexOfOne < indexOfAnother
     }
 
-    private fun JIRInstList<JIRRawInst>.areSequential(one: JIRRawInst, another: JIRRawInst): Boolean {
-        return indexOf(one) + 1 == indexOf(another)
+    private fun areSequential(instIndex: Map<JIRRawInst, Int>, one: JIRRawInst, another: JIRRawInst): Boolean {
+        val indexOfOne = instIndex[one] ?: error("Missed instruction: $one")
+        val indexOfAnother = instIndex[another] ?: error("Missed instruction: $another")
+        return indexOfOne + 1 == indexOfAnother
     }
 
     private fun computeAssignments(instList: JIRInstList<JIRRawInst>): Map<JIRRawLocalVar, Set<JIRRawExpr>> {
