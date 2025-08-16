@@ -48,7 +48,7 @@ fun String.jIRdbName(): String {
             substring(1, length - 1).replace('/', '.')
         }
 
-        else -> this.replace('/', '.')
+        else -> error("Incorrect JVM name: $this")
     }
 }
 

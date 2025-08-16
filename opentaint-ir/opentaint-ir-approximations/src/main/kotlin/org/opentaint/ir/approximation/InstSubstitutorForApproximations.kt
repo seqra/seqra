@@ -382,7 +382,7 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
     private fun <T : JIRRawExpr> T.eliminateApproximations(typeName: TypeName, constructor: (TypeName) -> T): T {
         val className = typeName.typeName.toApproximationName()
         val originalClassName = findOriginalByApproximationOrNull(className) ?: return this
-        return constructor(TypeNameImpl(originalClassName))
+        return constructor(TypeNameImpl.fromTypeName(originalClassName))
     }
 
     override fun visitJIRRawLocalVar(value: JIRRawLocalVar): JIRRawExpr {

@@ -3,7 +3,7 @@ package org.opentaint.ir.impl.features.classpaths
 import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.api.jvm.ext.objectType
 import org.opentaint.ir.impl.cfg.util.OBJECT_CLASS
-import org.opentaint.ir.impl.types.TypeNameImpl
+import org.opentaint.ir.impl.cfg.util.typeNameFromJvmName
 import org.objectweb.asm.Opcodes
 
 class JIRUnknownType(
@@ -62,7 +62,7 @@ open class JIRUnknownClassLookup(val clazz: JIRClassOrInterface) : JIRLookup<JIR
 
     override fun field(name: String, typeName: TypeName?, fieldKind: JIRLookup.FieldKind): JIRField {
         val staticModifier = if (fieldKind == JIRLookup.FieldKind.STATIC) Opcodes.ACC_STATIC else 0
-        val fieldType = typeName ?: TypeNameImpl(OBJECT_CLASS)
+        val fieldType = typeName ?: OBJECT_CLASS.typeNameFromJvmName()
         return JIRUnknownField(clazz, name, access = Opcodes.ACC_PUBLIC or staticModifier, fieldType)
     }
 
@@ -82,7 +82,7 @@ open class JIRUnknownTypeLookup(val type: JIRClassType) : JIRLookup<JIRTypedFiel
 
     override fun field(name: String, typeName: TypeName?, fieldKind: JIRLookup.FieldKind): JIRTypedField {
         val staticModifier = if (fieldKind == JIRLookup.FieldKind.STATIC) Opcodes.ACC_STATIC else 0
-        val fieldType = typeName ?: TypeNameImpl(OBJECT_CLASS)
+        val fieldType = typeName ?: OBJECT_CLASS.typeNameFromJvmName()
         return JIRUnknownField.typedField(type, name, access = Opcodes.ACC_PUBLIC or staticModifier, fieldType)
     }
 

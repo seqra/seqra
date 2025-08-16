@@ -3,6 +3,7 @@ package org.opentaint.ir.impl.types
 import kotlinx.serialization.Serializable
 import org.opentaint.ir.api.jvm.ext.jIRdbName
 import org.opentaint.ir.api.jvm.TypeName
+import org.opentaint.ir.api.jvm.ext.jvmName
 import org.opentaint.ir.impl.storage.AnnotationValueKind
 import org.opentaint.ir.impl.util.adjustEmptyList
 import org.opentaint.ir.impl.util.interned
@@ -93,8 +94,13 @@ class ClassRef(val className: String) : AnnotationValue()
 class EnumRef(val className: String, val enumName: String) : AnnotationValue()
 
 @Serializable
-data class TypeNameImpl(private val jvmName: String) : TypeName {
+data class TypeNameImpl private constructor(private val jvmName: String) : TypeName {
     override val typeName: String = jvmName.jIRdbName().interned
 
     override fun toString(): String = typeName
+
+    companion object {
+        fun fromJvmName(jvmName: String): TypeNameImpl = TypeNameImpl(jvmName)
+        fun fromTypeName(typeName: String): TypeNameImpl = fromJvmName(typeName.jvmName())
+    }
 }

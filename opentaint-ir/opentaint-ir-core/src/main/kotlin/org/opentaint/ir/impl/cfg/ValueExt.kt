@@ -32,6 +32,7 @@ import org.opentaint.ir.api.jvm.ext.short
 import org.opentaint.ir.impl.cfg.util.NULL
 import org.opentaint.ir.impl.cfg.util.STRING_CLASS
 import org.opentaint.ir.impl.cfg.util.typeName
+import org.opentaint.ir.impl.cfg.util.typeNameFromJvmName
 
 @JvmName("rawNull")
 fun JIRRawNull() = JIRRawNullConstant(NULL)
@@ -92,7 +93,7 @@ fun JIRRawNumber(number: Number) = when (number) {
 
 @JvmName("rawString")
 fun JIRRawString(value: String) =
-    JIRRawStringConstant(value, STRING_CLASS.typeName())
+    JIRRawStringConstant(value, STRING_CLASS.typeNameFromJvmName())
 
 fun JIRClasspath.int(value: Int): JIRInt = JIRInt(value, int)
 fun JIRClasspath.byte(value: Byte): JIRByte = JIRByte(value, byte)

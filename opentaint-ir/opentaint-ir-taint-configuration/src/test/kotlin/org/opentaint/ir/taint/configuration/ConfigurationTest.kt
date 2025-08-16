@@ -38,11 +38,11 @@ open class ConfigurationTest : BaseTest() {
 
     @Test
     fun testVirtualMethod() {
-        val virtualParameter = JIRVirtualParameter(0, TypeNameImpl(cp.objectType.typeName))
+        val virtualParameter = JIRVirtualParameter(0, TypeNameImpl.fromTypeName(cp.objectType.typeName))
 
         val method = JIRVirtualMethodImpl(
             name = "setValue",
-            returnType = TypeNameImpl(cp.objectType.typeName),
+            returnType = TypeNameImpl.fromTypeName(cp.objectType.typeName),
             parameters = listOf(virtualParameter),
             description = ""
         )

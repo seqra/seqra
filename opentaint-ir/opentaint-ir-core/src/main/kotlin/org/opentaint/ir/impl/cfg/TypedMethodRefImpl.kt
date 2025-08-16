@@ -4,7 +4,7 @@ import org.opentaint.ir.api.jvm.*
 import org.opentaint.ir.api.jvm.cfg.*
 import org.opentaint.ir.api.jvm.ext.findType
 import org.opentaint.ir.api.jvm.ext.jvmName
-import org.opentaint.ir.impl.cfg.util.typeName
+import org.opentaint.ir.impl.cfg.util.typeNameFromJvmName
 import org.opentaint.ir.impl.softLazy
 import org.opentaint.ir.impl.weakLazy
 import org.objectweb.asm.Type
@@ -48,7 +48,7 @@ abstract class MethodSignatureRef(
 
     protected val JIRType.methodNotFoundMessage: String
         get() {
-            val argumentTypes = Type.getArgumentTypes(description).map { it.descriptor.typeName() }
+            val argumentTypes = Type.getArgumentTypes(description).map { it.descriptor.typeNameFromJvmName() }
             return buildString {
                 append("Can't find method '")
                 append(typeName)

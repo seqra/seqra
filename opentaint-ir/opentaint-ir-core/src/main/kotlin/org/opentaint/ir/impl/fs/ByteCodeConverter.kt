@@ -152,7 +152,7 @@ private fun FieldNode.asFieldInfo() = FieldInfo(
     name = name.interned,
     signature = signature,
     access = access,
-    type = Type.getObjectType(desc).className.interned,
+    type = Type.getType(desc).className.interned,
     annotations = concatLists(
         visibleAnnotations.asAnnotationInfos(true),
         invisibleAnnotations.asAnnotationInfos(false),

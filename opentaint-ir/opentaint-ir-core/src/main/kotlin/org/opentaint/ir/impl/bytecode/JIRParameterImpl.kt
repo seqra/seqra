@@ -30,7 +30,7 @@ class JIRParameterImpl(
         get() = info.annotations.map { JIRAnnotationImpl(it, method.enclosingClass.classpath) }
 
     override val type: TypeName
-        get() = TypeNameImpl(info.type)
+        get() = TypeNameImpl.fromTypeName(info.type)
 
     override fun toString(): String {
         return "$method $name"

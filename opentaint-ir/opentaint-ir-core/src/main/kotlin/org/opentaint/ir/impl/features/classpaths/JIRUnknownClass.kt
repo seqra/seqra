@@ -11,7 +11,6 @@ import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRTypedField
 import org.opentaint.ir.api.jvm.JIRTypedMethod
 import org.opentaint.ir.api.jvm.TypeName
-import org.opentaint.ir.api.jvm.ext.jIRdbName
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRResolvedResult.JIRResolvedClassResultImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualClassImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualFieldImpl
@@ -59,8 +58,8 @@ class JIRUnknownMethod(
 
         fun method(type: JIRClassOrInterface, name: String, access: Int, description: String): JIRMethod {
             val methodType = Type.getMethodType(description)
-            val returnType = TypeNameImpl(methodType.returnType.className.jIRdbName())
-            val paramsType = methodType.argumentTypes.map { TypeNameImpl(it.className.jIRdbName()) }
+            val returnType = TypeNameImpl.fromTypeName(methodType.returnType.className)
+            val paramsType = methodType.argumentTypes.map { TypeNameImpl.fromTypeName(it.className) }
             return JIRUnknownMethod(type, name, access, description, returnType, paramsType)
         }
 
