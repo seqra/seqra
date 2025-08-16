@@ -70,7 +70,7 @@ private fun Any.toAnnotationValue(): AnnotationValue {
         is Type -> ClassRef(className)
         is AnnotationNode -> asAnnotationInfo(true)
         is List<*> -> AnnotationValueList(mapNotNull { it?.toAnnotationValue() })
-        is Array<*> -> EnumRef((get(0) as String).className, get(1) as String)
+        is Array<*> -> EnumRef(Type.getType(get(0) as String).className, get(1) as String)
         is Boolean -> PrimitiveValue(AnnotationValueKind.BOOLEAN, this)
         is Byte -> PrimitiveValue(AnnotationValueKind.BYTE, this)
         is Char -> PrimitiveValue(AnnotationValueKind.CHAR, this)
