@@ -7,8 +7,6 @@ import org.junit.jupiter.api.Test
 
 class SparseBitSetTest {
 
-    //region Generated with Explyt. Tests for SparseBitSet
-
     private lateinit var sparseBitSet: SparseBitSet
 
     @BeforeEach
@@ -89,7 +87,4 @@ class SparseBitSetTest {
         assertTrue(sparseBitSet.test(5L))
         assertFalse(sparseBitSet.test(10L))
     }
-
-    //endregion
-
 }
