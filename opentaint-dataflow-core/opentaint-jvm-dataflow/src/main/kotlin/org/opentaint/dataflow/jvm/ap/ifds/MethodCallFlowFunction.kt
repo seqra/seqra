@@ -140,15 +140,9 @@ class MethodCallFlowFunction(
         addCallToReturn: (FactReader, Fact.FinalFact) -> Unit,
         addCallToStart: (factReader: FactReader, callerFact: Fact.FinalFact, startFactBase: AccessPathBase) -> Unit,
     ) {
-        run {
-            val factReader = FactReader(fact)
-            applyTaintedFactSinkRules(factReader)
-            if (factReader.hasRefinement) {
-                addSinkRequirement(factReader)
-            }
-        }
-
         val factReader = FactReader(fact)
+        applyTaintedFactSinkRules(factReader)
+
         val apResolver = CallPositionToAccessPathResolver(callExpr, returnValue)
 
         val conditionEvaluator = FactAwareConditionEvaluator(
@@ -165,6 +159,10 @@ class MethodCallFlowFunction(
 
         val passThroughFacts = applyPassThrough(config, callExpr.method.method, conditionEvaluator, taintActionEvaluator)
         val cleanerFacts = applyCleaner(config, callExpr.method.method, conditionEvaluator, taintActionEvaluator)
+
+        if (factReader.hasRefinement) {
+            addSinkRequirement(factReader)
+        }
 
         passThroughFacts.merge(cleanerFacts).onSome { facts ->
             facts.forEach {

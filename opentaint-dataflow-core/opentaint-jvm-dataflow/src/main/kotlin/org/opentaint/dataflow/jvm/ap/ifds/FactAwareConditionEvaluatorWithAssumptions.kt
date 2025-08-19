@@ -64,12 +64,17 @@ class FactAwareConditionEvaluatorWithAssumptions(
         }
     }
 
-    override fun visit(condition: Not): List<ResultWithFactAssumptions> =
-        condition.arg.accept(this).mapNotNull {
+    override fun visit(condition: Not): List<ResultWithFactAssumptions> {
+        if (condition.arg is ContainsMark) {
+            return trueWithoutAssumptions
+        }
+
+        return condition.arg.accept(this).mapNotNull {
             if (it.result) return@mapNotNull null
 
             it.copy(result = true)
         }
+    }
 
     override fun visit(condition: And): List<ResultWithFactAssumptions> {
         val args = condition.args.map { it.accept(this).filter { it.result } }

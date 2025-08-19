@@ -8,6 +8,7 @@ import org.opentaint.ir.taint.configuration.Condition
 import org.opentaint.ir.taint.configuration.ContainsMark
 import org.opentaint.ir.taint.configuration.CopyAllMarks
 import org.opentaint.ir.taint.configuration.CopyMark
+import org.opentaint.ir.taint.configuration.Not
 import org.opentaint.ir.taint.configuration.Or
 import org.opentaint.ir.taint.configuration.Position
 import org.opentaint.ir.taint.configuration.PositionResolver
@@ -111,6 +112,13 @@ class FactAwareConditionEvaluator(
 
     override fun visit(condition: Or): Boolean =
         condition.args.map { it.accept(this) }.any { it }
+
+    override fun visit(condition: Not): Boolean {
+        if (condition.arg is ContainsMark) {
+            return true
+        }
+        return super.visit(condition)
+    }
 
     override fun visit(condition: ContainsMark): Boolean {
         accessPathResolver.resolve(condition.position).onSome { variables ->
