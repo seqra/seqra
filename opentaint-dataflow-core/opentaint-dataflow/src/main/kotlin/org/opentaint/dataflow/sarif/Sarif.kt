@@ -42,8 +42,8 @@ private const val OPENTAINT_IR_INFORMATION_URI =
     "https://github.com/Opentaint/opentaint-ir/blob/develop/opentaint-ir-analysis/README.md"
 private const val DEFAULT_PATH_COUNT = 3
 
-context(Traits<*, Statement>)
 fun <Statement : CommonInst> sarifReportFromVulnerabilities(
+    traits: Traits<*, Statement>,
     vulnerabilities: List<VulnerabilityInstance<*, Statement>>,
     maxPathsCount: Int = DEFAULT_PATH_COUNT,
     isDeduplicate: Boolean = true,
@@ -71,6 +71,7 @@ fun <Statement : CommonInst> sarifReportFromVulnerabilities(
                         level = instance.description.level,
                         locations = listOfNotNull(
                             instToSarifLocation(
+                                traits,
                                 instance.traceGraph.sink.statement,
                                 sourceFileResolver
                             )
@@ -78,7 +79,7 @@ fun <Statement : CommonInst> sarifReportFromVulnerabilities(
                         codeFlows = instance.traceGraph
                             .getAllTraces()
                             .take(maxPathsCount)
-                            .map { traceToSarifCodeFlow(it, sourceFileResolver, isDeduplicate) }
+                            .map { traceToSarifCodeFlow(traits, it, sourceFileResolver, isDeduplicate) }
                             .toList(),
                     )
                 }
@@ -87,11 +88,11 @@ fun <Statement : CommonInst> sarifReportFromVulnerabilities(
     )
 }
 
-context(Traits<*, Statement>)
 private fun <Statement : CommonInst> instToSarifLocation(
+    traits: Traits<*, Statement>,
     inst: Statement,
     sourceFileResolver: SourceFileResolver<Statement>,
-): Location? {
+): Location? = with(traits) {
     val sourceLocation = sourceFileResolver.resolve(inst) ?: return null
     return Location(
         physicalLocation = PhysicalLocation(
@@ -104,14 +105,15 @@ private fun <Statement : CommonInst> instToSarifLocation(
         ),
         logicalLocations = listOf(
             LogicalLocation(
-                fullyQualifiedName = locationFQN(inst)
+                fullyQualifiedName = locationFQN(inst),
+                decoratedName = locationMachineName(inst)
             )
         )
     )
 }
 
-context(Traits<*, Statement>)
 private fun <Statement : CommonInst> traceToSarifCodeFlow(
+    traits: Traits<*, Statement>,
     trace: List<Vertex<*, Statement>>,
     sourceFileResolver: SourceFileResolver<Statement>,
     isDeduplicate: Boolean = true,
@@ -121,7 +123,7 @@ private fun <Statement : CommonInst> traceToSarifCodeFlow(
             ThreadFlow(
                 locations = trace.map {
                     ThreadFlowLocation(
-                        location = instToSarifLocation(it.statement, sourceFileResolver),
+                        location = instToSarifLocation(traits, it.statement, sourceFileResolver),
                         state = mapOf(
                             "fact" to MultiformatMessageString(
                                 text = it.fact.toString()

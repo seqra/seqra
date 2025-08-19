@@ -209,6 +209,9 @@ class JIRTraits(
         return "${method.enclosingClass.name}#${method.name}"
     }
 
+    override fun locationMachineName(statement: JIRInst): String =
+        "${statement.method}:${statement.location.index}:($statement)"
+
     override fun taintFlowRhsValues(statement: CommonAssignInst): List<JIRExpr> {
         check(statement is JIRAssignInst)
         return when (val rhv = statement.rhv) {

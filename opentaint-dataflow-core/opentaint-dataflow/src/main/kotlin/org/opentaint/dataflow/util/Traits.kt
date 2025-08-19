@@ -62,6 +62,7 @@ interface Traits<out Method, out Statement>
     fun isLoopHead(statement: @UnsafeVariance Statement): Boolean
     fun lineNumber(statement: @UnsafeVariance Statement): Int
     fun locationFQN(statement: @UnsafeVariance Statement): String
+    fun locationMachineName(statement: @UnsafeVariance Statement): String
     fun taintFlowRhsValues(statement: CommonAssignInst): List<CommonExpr>
     fun taintPassThrough(statement: @UnsafeVariance Statement): List<Pair<CommonValue, CommonValue>>?
 }
