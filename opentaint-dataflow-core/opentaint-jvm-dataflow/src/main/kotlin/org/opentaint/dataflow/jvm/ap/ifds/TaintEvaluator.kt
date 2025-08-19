@@ -1,11 +1,7 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.cfg.JIRValue
-import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
-import org.opentaint.ir.api.jvm.ext.ifArrayGetElementType
-import org.opentaint.ir.api.jvm.ext.isAssignable
 import org.opentaint.ir.taint.configuration.And
 import org.opentaint.ir.taint.configuration.AssignMark
 import org.opentaint.ir.taint.configuration.Condition
@@ -18,7 +14,6 @@ import org.opentaint.ir.taint.configuration.PositionResolver
 import org.opentaint.ir.taint.configuration.RemoveAllMarks
 import org.opentaint.ir.taint.configuration.RemoveMark
 import org.opentaint.ir.taint.configuration.TaintMark
-import org.opentaint.ir.taint.configuration.This
 import org.opentaint.dataflow.config.BasicConditionEvaluator
 import org.opentaint.dataflow.ifds.Maybe
 import org.opentaint.dataflow.ifds.flatFmap
@@ -190,69 +185,15 @@ class TaintPassActionEvaluator(
 
         val factApDelta = readPosition(fact.ap, fromPosAccess)
 
-        val copyFacts = mutableListOf<Fact.FinalFact>()
+        val ap = mkAccessPath(toPosAccess, factApDelta, fact.ap.exclusions)
+        val copiedFact = fact.changeAP(ap)
 
-        if (fromPos is This) {
-            check(toPos !is This)
-            check(fromPosAccess is PositionAccess.Simple)
-            check(fromPositionBaseType != null) { "Method instance has no type: $method" }
-
-            if (factReader.containsFinalPosition(fromPosAccess)) {
-                val ap = apManager.mkAccessPath(toPosAccess, fact.ap.exclusions)
-                copyFacts += fact.changeAP(ap)
-            }
-
-            val ruleStoragePosition = PositionAccess.Complex(fromPosAccess, ruleStorageField)
-            if (factReader.containsPosition(ruleStoragePosition)) {
-                val ruleStorageAccess = readPosition(fact.ap, ruleStoragePosition)
-                val ap = mkAccessPath(toPosAccess, ruleStorageAccess, fact.ap.exclusions)
-                copyFacts += fact.changeAP(ap)
-            }
-
-            val remainingThisAp = fact.ap.clearAccessor(FinalAccessor)?.clearAccessor(ruleStorageField)
-            if (remainingThisAp != null) {
-                val toPositionType = resolvePositionType(toPositionBaseType, toPosAccess)
-                if (toPositionType == null || fromPositionBaseType.isAssignable(toPositionType)) {
-                    val ap = mkAccessPath(toPosAccess, remainingThisAp, fact.ap.exclusions)
-                    copyFacts += fact.changeAP(ap)
-                }
-            }
-        } else if (toPos is This) {
-            check(fromPos !is This)
-            check(toPosAccess is PositionAccess.Simple) { "Unexpected copy-to base: $toPosAccess" }
-            check(toPositionBaseType != null) { "Method instance has no type: $method" }
-
-            if (factReader.containsFinalPosition(fromPosAccess)) {
-                val thisAp = apManager.mkAccessPath(toPosAccess, fact.ap.exclusions)
-                copyFacts += fact.changeAP(thisAp)
-            }
-
-            val nonFinalAp = factApDelta.clearAccessor(FinalAccessor)
-            if (nonFinalAp != null) {
-                val fromPositionType = resolvePositionType(fromPositionBaseType, fromPosAccess)
-                val apAccess = if (fromPositionType != null && fromPositionType.isAssignable(toPositionBaseType)) {
-                    nonFinalAp
-                } else {
-                    nonFinalAp.prependAccessor(ruleStorageField)
-                }
-
-                val thisStorageAp = mkAccessPath(toPosAccess, apAccess, fact.ap.exclusions)
-                copyFacts += fact.changeAP(thisStorageAp)
-            }
-        } else {
-            val ap = mkAccessPath(toPosAccess, factApDelta, fact.ap.exclusions)
-            copyFacts += fact.changeAP(ap)
-        }
-
-        val wellTypedCopies = copyFacts.mapNotNull {
-            factTypeChecker.filterFactByLocalType(toPositionBaseType, it)
-        }
-
-        if (wellTypedCopies.isEmpty()) {
+        val wellTypedCopy = factTypeChecker.filterFactByLocalType(toPositionBaseType, copiedFact)
+        if (wellTypedCopy == null) {
             return Maybe.none()
         }
 
-        return Maybe.some(listOf(factReader.fact) + wellTypedCopies)
+        return Maybe.some(listOf(factReader.fact) + wellTypedCopy)
     }
 
     fun evaluate(action: RemoveAllMarks): Maybe<List<Fact.FinalFact>> =
@@ -276,17 +217,6 @@ class TaintPassActionEvaluator(
 
         return Maybe.some(emptyList())
     }
-
-    private fun resolvePositionType(baseType: JIRType?, position: PositionAccess): JIRType? =
-        when (position) {
-            is PositionAccess.Complex -> when (val access = position.accessor) {
-                ElementAccessor -> resolvePositionType(baseType, position.base)?.ifArrayGetElementType
-                is FieldAccessor -> positionTypeResolver.cp.findTypeOrNull(access.fieldType)
-                FinalAccessor -> null
-            }
-
-            is PositionAccess.Simple -> baseType
-        }
 
     private fun readPosition(ap: FinalFactAp, position: PositionAccess): FinalFactAp {
         val accessors = mutableListOf<Accessor>()
@@ -314,14 +244,6 @@ class TaintPassActionEvaluator(
         }
 
         return result
-    }
-
-    companion object {
-        private val ruleStorageField = FieldAccessor(
-            className = JAVA_OBJECT, // todo: more precise storage
-            fieldName = "<rule-storage>",
-            fieldType = JAVA_OBJECT
-        )
     }
 }
 
