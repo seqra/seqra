@@ -156,7 +156,7 @@ class TaintPassActionEvaluator(
     fun evaluate(action: CopyAllMarks): Maybe<List<Fact.FinalFact>> =
         positionResolver.resolve(action.from).flatMap { from ->
             positionResolver.resolve(action.to).flatMap { to ->
-                copyFact(action.from, action.to, from, to)
+                copyAllFacts(action.from, action.to, from, to)
             }
         }
 
@@ -164,12 +164,12 @@ class TaintPassActionEvaluator(
         if (factReader.fact.mark != action.mark) return Maybe.none()
         return positionResolver.resolve(action.from).flatMap { from ->
             positionResolver.resolve(action.to).flatMap { to ->
-                copyFact(action.from, action.to, from, to)
+                copyFinalFact(action.to, from, to)
             }
         }
     }
 
-    private fun copyFact(
+    private fun copyAllFacts(
         fromPos: Position,
         toPos: Position,
         fromPosAccess: PositionAccess,
@@ -196,19 +196,39 @@ class TaintPassActionEvaluator(
         return Maybe.some(listOf(factReader.fact) + wellTypedCopy)
     }
 
+    private fun copyFinalFact(
+        toPos: Position,
+        fromPosAccess: PositionAccess,
+        toPosAccess: PositionAccess
+    ): Maybe<List<Fact.FinalFact>> {
+        if (!factReader.containsFinalPosition(fromPosAccess)) return Maybe.none()
+
+        val toFinalAp = apManager.mkAccessPath(toPosAccess, factReader.fact.ap.exclusions)
+        val copiedFact = factReader.fact.changeAP(toFinalAp)
+
+        val toPositionBaseType = positionTypeResolver.resolve(toPos)
+        val wellTypedCopy = factTypeChecker.filterFactByLocalType(toPositionBaseType, copiedFact)
+        if (wellTypedCopy == null) {
+            return Maybe.none()
+        }
+
+        return Maybe.some(listOf(factReader.fact) + wellTypedCopy)
+    }
+
+
     fun evaluate(action: RemoveAllMarks): Maybe<List<Fact.FinalFact>> =
         positionResolver.resolve(action.position).flatMap { variable ->
-            removeFact(variable)
+            removeAllFacts(variable)
         }
 
     fun evaluate(action: RemoveMark): Maybe<List<Fact.FinalFact>> {
         if (factReader.fact.mark != action.mark) return Maybe.none()
         return positionResolver.resolve(action.position).flatMap { variable ->
-            removeFact(variable)
+            removeFinalFact(variable)
         }
     }
 
-    private fun removeFact(from: PositionAccess): Maybe<List<Fact.FinalFact>> {
+    private fun removeAllFacts(from: PositionAccess): Maybe<List<Fact.FinalFact>> {
         if (!factReader.containsPosition(from)) return Maybe.none()
 
         if (from !is PositionAccess.Simple) {
@@ -216,6 +236,19 @@ class TaintPassActionEvaluator(
         }
 
         return Maybe.some(emptyList())
+    }
+
+    private fun removeFinalFact(from: PositionAccess): Maybe<List<Fact.FinalFact>> {
+        if (!factReader.containsFinalPosition(from)) return Maybe.none()
+
+        if (from !is PositionAccess.Simple) {
+            TODO("Remove from complex: $from")
+        }
+
+        val apWithoutFinal = factReader.fact.ap.clearAccessor(FinalAccessor)
+        val factWithoutFinal = apWithoutFinal?.let { factReader.fact.changeAP(it) }
+
+        return Maybe.some(listOfNotNull(factWithoutFinal))
     }
 
     private fun readPosition(ap: FinalFactAp, position: PositionAccess): FinalFactAp {
