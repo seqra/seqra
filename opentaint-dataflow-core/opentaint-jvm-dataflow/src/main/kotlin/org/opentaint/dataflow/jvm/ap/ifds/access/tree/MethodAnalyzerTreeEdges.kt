@@ -108,18 +108,13 @@ private class EdgeNonUniverseExclusionMergingStorage(maxInstIdx: Int) {
             return accessWithExclusion
         }
 
-        val currentAccess = edges[edgeSetIdx]!!
         val mergedExclusion = currentExclusion.union(accessWithExclusion.exclusion)
-        if (mergedExclusion === currentExclusion) {
-            val (mergedAccess, accessDelta) = currentAccess.mergeAddDelta(accessWithExclusion.access)
-            if (accessDelta == null) return null
-
-            edges[edgeSetIdx] = mergedAccess
-            return AccessWithExclusion(accessDelta, currentExclusion)
-        }
-
-        val mergedAccess = currentAccess.mergeAdd(accessWithExclusion.access)
         exclusions[edgeSetIdx] = mergedExclusion
+
+        val currentAccess = edges[edgeSetIdx]!!
+        val mergedAccess = currentAccess.mergeAdd(accessWithExclusion.access)
+        if (mergedAccess === currentAccess) return null
+
         edges[edgeSetIdx] = mergedAccess
         return AccessWithExclusion(mergedAccess, mergedExclusion)
     }
