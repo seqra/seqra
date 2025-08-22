@@ -30,7 +30,9 @@ class FactReader(val factAp: FinalFactAp) {
     val hasRefinement: Boolean get() = refinement !is ExclusionSet.Empty
 
     fun containsPositionWithTaintMark(position: PositionAccess, mark: TaintMark): Boolean {
-        return containsPosition(PositionAccess.Complex(position, TaintMarkAccessor(mark)))
+        val positionWithMark = PositionAccess.Complex(position, TaintMarkAccessor(mark))
+        val finalPositionWithMark = PositionAccess.Complex(positionWithMark, FinalAccessor)
+        return containsPosition(finalPositionWithMark)
     }
 
     fun containsPosition(position: PositionAccess): Boolean =
