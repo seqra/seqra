@@ -16,6 +16,7 @@ import org.opentaint.ir.api.jvm.ext.isAssignable
 import org.opentaint.ir.api.jvm.ext.objectType
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.InMemoryHierarchyCache
+import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
 import java.util.concurrent.atomic.LongAdder
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.isAccessible
@@ -77,7 +78,7 @@ class FactTypeChecker(private val cp: JIRClasspath) {
 
         private fun checkAccessor(accessor: Accessor): FilterResult {
             when (accessor) {
-                FinalAccessor -> return FilterResult.Accept
+                is TaintMarkAccessor, FinalAccessor -> return FilterResult.Accept
                 is FieldAccessor -> {
                     if (actualType !is JIRRefType) return FilterResult.Reject
                     val factType = fieldClassType(accessor) ?: return FilterResult.Accept
@@ -99,11 +100,10 @@ class FactTypeChecker(private val cp: JIRClasspath) {
         }
     }
 
-    fun filterFactByLocalType(actualType: JIRType?, fact: Fact.FinalFact): Fact.FinalFact? {
-        if (actualType == null) return fact
+    fun filterFactByLocalType(actualType: JIRType?, factAp: FinalFactAp): FinalFactAp? {
+        if (actualType == null) return factAp
         val filter = AccessorFilter(actualType, isLocalCheck = true)
-        val filteredAp = fact.ap.filterFact(filter) ?: return null
-        return fact.changeAP(filteredAp)
+        return factAp.filterFact(filter)
     }
 
     fun accessPathFilter(accessPath: List<Accessor>): FactApFilter {
@@ -120,7 +120,7 @@ class FactTypeChecker(private val cp: JIRClasspath) {
                 accessorActualType(prevAccessors)?.ifArrayGetElementType
             }
 
-            is FinalAccessor -> null
+            is TaintMarkAccessor, FinalAccessor -> null
         }
     }
 

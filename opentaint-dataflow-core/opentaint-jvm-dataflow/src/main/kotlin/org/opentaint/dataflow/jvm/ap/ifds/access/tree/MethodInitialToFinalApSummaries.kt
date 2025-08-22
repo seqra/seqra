@@ -56,7 +56,7 @@ private class MethodFactToFactSummaries(
     override fun createStorage() = MethodTaintedSummariesGroupedByFact(methodEntryPoint)
 
     fun add(edges: List<Edge.FactToFact>, added: MutableList<FactToFactEdgeBuilder>) {
-        val sameInitialBaseEdges = edges.groupBy { it.initialFact.ap.base }
+        val sameInitialBaseEdges = edges.groupBy { it.initialFactAp.base }
         for ((initialBase, sameBaseEdges) in sameInitialBaseEdges) {
             val baseAdded = mutableListOf<FactToFactEdgeBuilderBuilder>()
             getOrCreate(initialBase).add(sameBaseEdges, baseAdded)
@@ -81,7 +81,7 @@ private class MethodTaintedSummariesGroupedByFact(methodEntryPoint: JIRInst) :
     override fun createStorage() = MethodTaintedSummariesGroupedByFactStorage()
 
     fun add(edges: List<Edge.FactToFact>, added: MutableList<FactToFactEdgeBuilderBuilder>) {
-        val sameExitBaseEdges = edges.groupBy { it.fact.ap.base }
+        val sameExitBaseEdges = edges.groupBy { it.factAp.base }
         for ((exitBase, sameBaseEdges) in sameExitBaseEdges) {
 
             val baseAdded = mutableListOf<FactToFactEdgeBuilderBuilder>()
@@ -136,11 +136,11 @@ private class MethodTaintedSummariesGroupedByFactStorage {
 
         for (edge in edges) {
             // edges here are already separated by marks, statements and bases
-            val initialAccess = (edge.initialFact.ap as AccessPath).access
-            val exitAccess = (edge.fact.ap as AccessTree).access
+            val initialAccess = (edge.initialFactAp as AccessPath).access
+            val exitAccess = (edge.factAp as AccessTree).access
 
-            val exclusion = edge.initialFact.ap.exclusions
-            check(exclusion == edge.fact.ap.exclusions) { "Edge invariant" }
+            val exclusion = edge.initialFactAp.exclusions
+            check(exclusion == edge.factAp.exclusions) { "Edge invariant" }
 
             addNonUniverseEdge(initialAccess, exitAccess, exclusion, modifiedStorages)
         }

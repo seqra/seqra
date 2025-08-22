@@ -22,65 +22,34 @@ import org.opentaint.dataflow.ifds.flatMap
 import org.opentaint.dataflow.ifds.onSome
 import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
 import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.jvm.util.JIRTraits
 
-class FactReader(val fact: Fact.FinalFact) {
+class FactReader(val factAp: FinalFactAp) {
     private var refinement: ExclusionSet = ExclusionSet.Empty
     val hasRefinement: Boolean get() = refinement !is ExclusionSet.Empty
 
-    fun containsFinalPosition(position: PositionAccess): Boolean =
-        containsPosition(PositionAccess.Complex(position, FinalAccessor))
+    fun containsPositionWithTaintMark(position: PositionAccess, mark: TaintMark): Boolean {
+        return containsPosition(PositionAccess.Complex(position, TaintMarkAccessor(mark)))
+    }
 
-    fun containsPosition(position: PositionAccess): Boolean {
-        val accessors = mutableListOf<Accessor>()
-        var currentPosition = position
-
-        while (true) {
-            when (currentPosition) {
-                is PositionAccess.Complex -> {
-                    accessors.add(currentPosition.accessor)
-                    currentPosition = currentPosition.base
-                }
-
-                is PositionAccess.Simple -> {
-                    if (fact.ap.base != currentPosition.base) {
-                        return false
-                    }
-                    break
-                }
-            }
-        }
-
-        var node = fact.ap
-        while (accessors.isNotEmpty()) {
-            val accessor = accessors.removeLast()
-
-            if (node.startsWithAccessor(accessor)) {
-                if (accessor is FinalAccessor) return true
-                node = node.readAccessor(accessor) ?: error("Impossible")
-                continue
-            }
-
-            if (node.isAbstract() && !fact.ap.exclusions.contains(accessor)) {
+    fun containsPosition(position: PositionAccess): Boolean =
+        readPosition(factAp, position) { node, accessor ->
+            if (node.isAbstract() && !factAp.exclusions.contains(accessor)) {
                 refinement = refinement.add(accessor)
             }
+        } != null
 
-            return false
-        }
-
-        return true
+    fun refineFact(factAp: InitialFactAp): InitialFactAp {
+        if (!hasRefinement) return factAp
+        val refinedAp = factAp.replaceExclusions(factAp.exclusions.union(refinement))
+        return refinedAp
     }
 
-    fun refineFact(fact: Fact.InitialFact): Fact.InitialFact {
-        if (!hasRefinement) return fact
-        val refinedAp = fact.ap.replaceExclusions(fact.ap.exclusions.union(refinement))
-        return fact.changeAP(refinedAp)
-    }
-
-    fun refineFact(fact: Fact.FinalFact): Fact.FinalFact {
-        if (!hasRefinement) return fact
-        val refinedAp = fact.ap.replaceExclusions(fact.ap.exclusions.union(refinement))
-        return fact.changeAP(refinedAp)
+    fun refineFact(factAp: FinalFactAp): FinalFactAp {
+        if (!hasRefinement) return factAp
+        val refinedAp = factAp.replaceExclusions(factAp.exclusions.union(refinement))
+        return refinedAp
     }
 }
 
@@ -132,9 +101,7 @@ class FactAwareConditionEvaluator(
     }
 
     fun evalContainsMark(factReader: FactReader, mark: TaintMark, variable: PositionAccess): Boolean {
-        if (factReader.fact.mark != mark) return false
-
-        if (factReader.containsFinalPosition(variable)) {
+        if (factReader.containsPositionWithTaintMark(variable, mark)) {
             hasEvaluatedContainsMark = true
             return true
         }
@@ -154,25 +121,24 @@ class FactIgnoreConditionEvaluator(
 
 class TaintPassActionEvaluator(
     private val apManager: ApManager,
-    private val method: JIRMethod,
+    method: JIRMethod,
     private val positionResolver: PositionResolver<Maybe<List<PositionAccess>>>,
     private val factTypeChecker: FactTypeChecker,
-    private val factReader: FactReader
+    private val factReader: FactReader,
 ) {
     private val positionTypeResolver = MethodPositionBaseTypeResolver(method)
 
-    fun evaluate(action: CopyAllMarks): Maybe<List<Fact.FinalFact>> =
+    fun evaluate(action: CopyAllMarks): Maybe<List<FinalFactAp>> =
         positionResolver.resolve(action.from).flatMap { from ->
             positionResolver.resolve(action.to).flatMap { to ->
                 copyAllFacts(action.from, action.to, from, to)
             }
         }
 
-    fun evaluate(action: CopyMark): Maybe<List<Fact.FinalFact>> {
-        if (factReader.fact.mark != action.mark) return Maybe.none()
+    fun evaluate(action: CopyMark): Maybe<List<FinalFactAp>> {
         return positionResolver.resolve(action.from).flatMap { from ->
             positionResolver.resolve(action.to).flatMap { to ->
-                copyFinalFact(action.to, from, to)
+                copyFinalFact(action.to, from, to, action.mark)
             }
         }
     }
@@ -181,62 +147,59 @@ class TaintPassActionEvaluator(
         fromPos: Position,
         toPos: Position,
         fromPosAccess: PositionAccess,
-        toPosAccess: PositionAccess
-    ): Maybe<List<Fact.FinalFact>> {
-        if (!factReader.containsPosition(fromPosAccess)) return Maybe.none()
+        toPosAccess: PositionAccess,
+    ): Maybe<List<FinalFactAp>> {
+        if (!factReader.containsPosition(fromPosAccess)) {
+            return Maybe.none()
+        }
 
         val fromPositionBaseType = positionTypeResolver.resolve(fromPos)
         val toPositionBaseType = positionTypeResolver.resolve(toPos)
 
-        val fact = factTypeChecker.filterFactByLocalType(fromPositionBaseType, factReader.fact)
+        val fact = factTypeChecker.filterFactByLocalType(fromPositionBaseType, factReader.factAp)
             ?: return Maybe.some(emptyList())
 
-        val factApDelta = readPosition(fact.ap, fromPosAccess)
+        val factApDelta = readPosition(fact, fromPosAccess) { _, _ ->
+            error("Failed to read $fromPosAccess from $fact")
+        }!!
 
-        val ap = mkAccessPath(toPosAccess, factApDelta, fact.ap.exclusions)
-        val copiedFact = fact.changeAP(ap)
+        val copiedFact = mkAccessPath(toPosAccess, factApDelta, fact.exclusions)
 
         val wellTypedCopy = factTypeChecker.filterFactByLocalType(toPositionBaseType, copiedFact)
-        if (wellTypedCopy == null) {
-            return Maybe.none()
-        }
+            ?: return Maybe.none()
 
-        return Maybe.some(listOf(factReader.fact) + wellTypedCopy)
+        return Maybe.some(listOf(factReader.factAp) + wellTypedCopy)
     }
 
     private fun copyFinalFact(
         toPos: Position,
         fromPosAccess: PositionAccess,
-        toPosAccess: PositionAccess
-    ): Maybe<List<Fact.FinalFact>> {
-        if (!factReader.containsFinalPosition(fromPosAccess)) return Maybe.none()
+        toPosAccess: PositionAccess,
+        markRestriction: TaintMark
+    ): Maybe<List<FinalFactAp>> {
+        if (!factReader.containsPositionWithTaintMark(fromPosAccess, markRestriction)) return Maybe.none()
 
-        val toFinalAp = apManager.mkAccessPath(toPosAccess, factReader.fact.ap.exclusions)
-        val copiedFact = factReader.fact.changeAP(toFinalAp)
+        val copiedFact = apManager.mkAccessPath(toPosAccess, factReader.factAp.exclusions, markRestriction)
 
         val toPositionBaseType = positionTypeResolver.resolve(toPos)
         val wellTypedCopy = factTypeChecker.filterFactByLocalType(toPositionBaseType, copiedFact)
-        if (wellTypedCopy == null) {
-            return Maybe.none()
-        }
+            ?: return Maybe.none()
 
-        return Maybe.some(listOf(factReader.fact) + wellTypedCopy)
+        return Maybe.some(listOf(factReader.factAp) + wellTypedCopy)
     }
 
-
-    fun evaluate(action: RemoveAllMarks): Maybe<List<Fact.FinalFact>> =
+    fun evaluate(action: RemoveAllMarks): Maybe<List<FinalFactAp>> =
         positionResolver.resolve(action.position).flatMap { variable ->
             removeAllFacts(variable)
         }
 
-    fun evaluate(action: RemoveMark): Maybe<List<Fact.FinalFact>> {
-        if (factReader.fact.mark != action.mark) return Maybe.none()
+    fun evaluate(action: RemoveMark): Maybe<List<FinalFactAp>> {
         return positionResolver.resolve(action.position).flatMap { variable ->
-            removeFinalFact(variable)
+            removeFinalFact(variable, action.mark)
         }
     }
 
-    private fun removeAllFacts(from: PositionAccess): Maybe<List<Fact.FinalFact>> {
+    private fun removeAllFacts(from: PositionAccess): Maybe<List<FinalFactAp>> {
         if (!factReader.containsPosition(from)) return Maybe.none()
 
         if (from !is PositionAccess.Simple) {
@@ -246,45 +209,16 @@ class TaintPassActionEvaluator(
         return Maybe.some(emptyList())
     }
 
-    private fun removeFinalFact(from: PositionAccess): Maybe<List<Fact.FinalFact>> {
-        if (!factReader.containsFinalPosition(from)) return Maybe.none()
+    private fun removeFinalFact(from: PositionAccess, markRestriction: TaintMark): Maybe<List<FinalFactAp>> {
+        if (!factReader.containsPositionWithTaintMark(from, markRestriction)) return Maybe.none()
 
         if (from !is PositionAccess.Simple) {
             TODO("Remove from complex: $from")
         }
 
-        val apWithoutFinal = factReader.fact.ap.clearAccessor(FinalAccessor)
-        val factWithoutFinal = apWithoutFinal?.let { factReader.fact.changeAP(it) }
+        val factWithoutFinal = factReader.factAp.clearAccessor(TaintMarkAccessor(markRestriction))
 
         return Maybe.some(listOfNotNull(factWithoutFinal))
-    }
-
-    private fun readPosition(ap: FinalFactAp, position: PositionAccess): FinalFactAp {
-        val accessors = mutableListOf<Accessor>()
-        var currentPosition = position
-        while (true) {
-            when (currentPosition) {
-                is PositionAccess.Complex -> {
-                    accessors.add(currentPosition.accessor)
-                    currentPosition = currentPosition.base
-                }
-
-                is PositionAccess.Simple -> break
-            }
-        }
-
-        var result = ap
-        while (accessors.isNotEmpty()) {
-            val accessor = accessors.removeLast()
-            check(result.startsWithAccessor(accessor))
-            result = if (accessor is FinalAccessor) {
-                apManager.createFinalAp(ap.base, ap.exclusions)
-            } else {
-                result.readAccessor(accessor) ?: error("Impossible")
-            }
-        }
-
-        return result
     }
 }
 
@@ -292,20 +226,21 @@ class TaintSourceActionEvaluator(
     private val apManager: ApManager,
     private val positionResolver: PositionResolver<Maybe<List<PositionAccess>>>
 ) {
-    fun evaluate(action: AssignMark): Maybe<List<Fact.FinalFact>> =
+    fun evaluate(action: AssignMark): Maybe<List<FinalFactAp>> =
         positionResolver.resolve(action.position).flatFmap { variable ->
-            val ap = apManager.mkAccessPath(variable, ExclusionSet.Universe)
-            listOf(Fact.FinalFact(action.mark, ap))
+            val ap = apManager.mkAccessPath(variable, ExclusionSet.Universe, action.mark)
+            listOf(ap)
         }
 }
 
 private fun ApManager.mkAccessPath(
     position: PositionAccess,
-    exclusionSet: ExclusionSet
+    exclusionSet: ExclusionSet,
+    mark: TaintMark,
 ): FinalFactAp = mkAccessPath(
     position,
     // we use stub base and exclusion here
-    createFinalAp(AccessPathBase.This, ExclusionSet.Universe),
+    createFinalAp(AccessPathBase.This, ExclusionSet.Universe).prependAccessor(TaintMarkAccessor(mark)),
     exclusionSet
 )
 
@@ -324,4 +259,43 @@ private fun mkAccessPath(position: PositionAccess, basicAp: FinalFactAp, exclusi
             }
         }
     }
+}
+
+
+private inline fun readPosition(
+    ap: FinalFactAp,
+    position: PositionAccess,
+    onMismatch: (FinalFactAp, Accessor) -> Unit
+): FinalFactAp? {
+    val accessors = mutableListOf<Accessor>()
+    var currentPosition = position
+    while (true) {
+        when (currentPosition) {
+            is PositionAccess.Complex -> {
+                accessors.add(currentPosition.accessor)
+                currentPosition = currentPosition.base
+            }
+
+            is PositionAccess.Simple -> {
+                if (ap.base != currentPosition.base) {
+                    return null
+                }
+                break
+            }
+        }
+    }
+
+    var result = ap
+    while (accessors.isNotEmpty()) {
+        val accessor = accessors.removeLast()
+
+        if (!result.startsWithAccessor(accessor)) {
+            onMismatch(result, accessor)
+            return null
+        }
+
+        result =  result.readAccessor(accessor) ?: error("Impossible")
+    }
+
+    return result
 }

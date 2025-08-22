@@ -6,31 +6,61 @@ import org.opentaint.ir.taint.configuration.PositionResolver
 import org.opentaint.ir.taint.configuration.TaintMethodSink
 import org.opentaint.dataflow.ifds.Maybe
 import org.opentaint.dataflow.jvm.ap.ifds.FactAwareConditionEvaluatorWithAssumptions.FactAssumption
+import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import java.util.concurrent.ConcurrentHashMap
 
 class TaintSinkTracker(
     private val storage: TaintAnalysisUnitRunnerManager.UnitStorage
 ) {
-    data class TaintVulnerability(val rule: TaintMethodSink, val fact: Fact, val statement: JIRInst)
+
+    sealed interface TaintVulnerability {
+        val rule: TaintMethodSink
+        val statement: JIRInst
+    }
+
+    data class NormalVulnerability(
+        override val rule: TaintMethodSink,
+        override val statement: JIRInst,
+        val fact: FinalFactAp
+    ): TaintVulnerability
+
+    data class UnconditionalVulnerability(
+        override val rule: TaintMethodSink,
+        override val statement: JIRInst
+    ): TaintVulnerability
 
     private val reportedVulnerabilities = ConcurrentHashMap<TaintMethodSink, MutableSet<JIRInst>>()
 
-    fun addVulnerability(fact: Fact, statement: JIRInst, rule: TaintMethodSink) {
+    fun addNormalVulnerability(fact: FinalFactAp, statement: JIRInst, rule: TaintMethodSink) =
+        addVulnerability(statement, rule) {
+            NormalVulnerability(rule, statement, fact)
+        }
+
+    fun addUnconditionalVulnerability(statement: JIRInst, rule: TaintMethodSink) =
+        addVulnerability(statement, rule) {
+            UnconditionalVulnerability(rule, statement)
+        }
+
+    private inline fun addVulnerability(
+        statement: JIRInst,
+        rule: TaintMethodSink,
+        vulnerabilityBuilder: () -> TaintVulnerability
+    ) {
         val reportedVulnerabilitiesFoRule = reportedVulnerabilities.computeIfAbsent(rule) {
             ConcurrentHashMap.newKeySet()
         }
 
         // todo: current deduplication is incompatible with traces
         if (reportedVulnerabilitiesFoRule.add(statement)) {
-            storage.addVulnerability(TaintVulnerability(rule, fact, statement))
+            storage.addVulnerability(vulnerabilityBuilder())
         }
     }
 
     private val vulnerabilitiesWithAssumptions = ConcurrentHashMap<Pair<JIRInst, TaintMethodSink>, VulnWithAssumptions>()
 
     fun addVulnerabilityWithAssumption(
-        fact: Fact,
+        factAp: FinalFactAp,
         statement: JIRInst,
         rule: TaintMethodSink,
         assumptions: Set<FactAssumption>
@@ -42,18 +72,18 @@ class TaintSinkTracker(
         when (vulnerabilities) {
             BannedVulnerability -> return
             is VulnerabilityWithAssumptions -> {
-                vulnerabilities.add(EdgeWithAssumptions(fact, statement, assumptions))
+                vulnerabilities.add(EdgeWithAssumptions(factAp, statement, assumptions))
                 if (vulnerabilities.vulnerabilityAssumptionsSatisfied()) {
                     vulnerabilitiesWithAssumptions[statement to rule] = BannedVulnerability
 
                     // Report vulnerability with last edge
-                    addVulnerability(fact, statement, rule)
+                    addNormalVulnerability(factAp, statement, rule)
                 }
             }
         }
     }
 
-    data class EdgeWithAssumptions(val fact: Fact, val statement: JIRInst, val assumptions: Set<FactAssumption>)
+    data class EdgeWithAssumptions(val factAp: FinalFactAp, val statement: JIRInst, val assumptions: Set<FactAssumption>)
 
     private sealed interface VulnWithAssumptions
     private object BannedVulnerability : VulnWithAssumptions
@@ -68,12 +98,7 @@ class TaintSinkTracker(
         fun vulnerabilityAssumptionsSatisfied(): Boolean {
             val cp = edges.firstOrNull()?.statement?.method?.enclosingClass?.classpath ?: return false
 
-            val factReaders = edges.mapTo(hashSetOf()) { it.fact }.map { fact ->
-                when (fact) {
-                    is Fact.FinalFact -> FactReader(fact)
-                    else -> error("Unexpected fact: $fact")
-                }
-            }
+            val factReaders = edges.mapTo(hashSetOf()) { it.factAp }.map(::FactReader)
 
             val evaluator = FactAwareConditionEvaluator(
                 JIRTraits(cp), factReaders, NonePositionResolver, NonePositionResolver

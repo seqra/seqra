@@ -6,7 +6,8 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.taint.configuration.TaintMark
+import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.jvm.ap.ifds.access.tree.AccessPath
 import org.opentaint.dataflow.jvm.ap.ifds.access.tree.AccessTree
 import org.opentaint.dataflow.jvm.util.SequenceSerializer
@@ -39,28 +40,28 @@ class EdgeSerializer : KSerializer<Edge> {
             initialStatement = methodEntryPoint.statement.repr(),
             exitStatement = statement.repr(),
             initialFact = null,
-            exitFact = fact.repr()
+            exitFact = factAp.repr()
         )
 
         is Edge.FactToFact -> EdgeRepresentation(
             initialStatement = methodEntryPoint.statement.repr(),
             exitStatement = statement.repr(),
-            initialFact = initialFact.repr(),
-            exitFact = fact.repr()
+            initialFact = initialFactAp.repr(),
+            exitFact = factAp.repr()
         )
     }
 
-    private fun Fact.FinalFact.repr(): FactRepresentation {
+    private fun FinalFactAp.repr(): FactRepresentation {
         val apRepr = mutableListOf<List<String>>()
-        ap as? AccessTree ?: TODO("Serialization is not supported for $this")
-        ap.access.forEachPath { apRepr.add(it.repr()) }
-        return FactRepresentation(mark, ap.base.toString(), apRepr, ap.exclusions.repr())
+        this as? AccessTree ?: TODO("Serialization is not supported for $this")
+        access.forEachPath { apRepr.add(it.repr()) }
+        return FactRepresentation(base.toString(), apRepr, exclusions.repr())
     }
 
-    private fun Fact.InitialFact.repr(): FactRepresentation {
-        ap as? AccessPath ?: TODO("Serialization is not supported for $this")
-        val apRepr = ap.access?.let { listOf(it.repr()) }
-        return FactRepresentation(mark, ap.base.toString(), apRepr, ap.exclusions.repr())
+    private fun InitialFactAp.repr(): FactRepresentation {
+        this as? AccessPath ?: TODO("Serialization is not supported for $this")
+        val apRepr = access?.let { listOf(it.repr()) }
+        return FactRepresentation(base.toString(), apRepr, exclusions.repr())
     }
 
     private fun ExclusionSet.repr(): List<String>? = when (this) {
@@ -83,7 +84,6 @@ class EdgeSerializer : KSerializer<Edge> {
 
     @Serializable
     data class FactRepresentation(
-        val mark: TaintMark,
         val base: String,
         val ap: List<List<String>>?,
         val exclusion: List<String>?

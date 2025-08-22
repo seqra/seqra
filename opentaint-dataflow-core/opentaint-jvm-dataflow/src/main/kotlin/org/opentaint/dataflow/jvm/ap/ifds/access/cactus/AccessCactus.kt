@@ -145,12 +145,8 @@ class AccessCactus(
     class AccessNode private constructor(
         val isAbstract: Boolean,
         val isFinal: Boolean,
-        val elementEdge: Edge?,
-        val fieldEdges: Array<Edge>,
+        val allEdges: Array<Edge>
     ) {
-        val elementAccess: AccessNode? = (elementEdge as? BasicEdge)?.node
-        private val allEdges: List<Edge>
-            get() = fieldEdges.toList() + listOfNotNull(elementEdge)
 
         sealed interface Edge {
             val accessor: Accessor
@@ -178,6 +174,11 @@ class AccessCactus(
 
         data class CycleStartEdge(val cycleEdges: List<CycleEdge>): Edge {
             override val accessor: Accessor = cycleEdges.first().accessor
+
+            init {
+                // TaintMarkAccessors are not allowed in cycles
+                check(cycleEdges.none { it.accessor is TaintMarkAccessor })
+            }
 
             val cycleSize: Int
                 get() = cycleEdges.size
@@ -207,6 +208,17 @@ class AccessCactus(
             forEachEdge { edge ->
                 if (!edge.isLoop && rootAccessors.any { defaultFoldRule(it, edge.accessor) }) {
                     return false
+                }
+
+                val child = edge.node ?: return@forEachEdge
+                if (edge.accessor is TaintMarkAccessor) {
+                    if (child.allEdges.isNotEmpty()) {
+                        return false
+                    }
+                } else {
+                    if (child.isFinal) {
+                        return false
+                    }
                 }
             }
 
@@ -247,9 +259,8 @@ class AccessCactus(
             var hash = 0
             if (isAbstract) hash += 1
             if (isFinal) hash += 2
-            elementEdge?.let { hash += it.hashCode() shl 2 }
-            if (fieldEdges.isNotEmpty()) {
-                val fieldHash = fieldEdges.sumOf { it.hashCode() }
+            if (allEdges.isNotEmpty()) {
+                val fieldHash = allEdges.sumOf { it.hashCode() }
                 hash += fieldHash shl 5
             }
             this.hash = hash
@@ -270,6 +281,12 @@ class AccessCactus(
             this.depth = depth
         }
 
+        init {
+            if (isFinal) {
+                require(allEdges.isEmpty())
+            }
+        }
+
         override fun hashCode(): Int = hash
 
         override fun equals(other: Any?): Boolean {
@@ -279,9 +296,7 @@ class AccessCactus(
             if (hash != other.hash) return false
             if (isAbstract != other.isAbstract || isFinal != other.isFinal) return false
 
-            if (elementEdge != other.elementEdge) return false
-
-            return fieldEdges.contentEquals(other.fieldEdges)
+            return allEdges.contentEquals(other.allEdges)
         }
 
         override fun toString(): String = buildString {
@@ -313,22 +328,6 @@ class AccessCactus(
             }
         }
 
-        val hasFinal: Boolean
-            get() {
-                var result = false
-                forAllNodesRecursively { result = result || it.isFinal }
-                return result
-            }
-
-        // TODO: get rid of this method
-        inline fun forEachField(body: (FieldAccessor, AccessNode) -> Unit) {
-            for (edge in fieldEdges) {
-                edge.node?.let {
-                    body(edge.accessor as FieldAccessor, it)
-                }
-            }
-        }
-
         fun forEachChild(body: (Accessor, AccessNode) -> Unit) {
             forEachEdge { edge ->
                 edge.node?.let {
@@ -338,64 +337,38 @@ class AccessCactus(
         }
 
         private inline fun forEachEdge(body: (Edge) -> Unit) {
-            for (edge in fieldEdges) {
+            for (edge in allEdges) {
                 body(edge)
-            }
-            elementEdge?.let { body(it) }
-        }
-
-        // TODO: rewrite this method
-        fun forEachPath(body: (List<Accessor>) -> Unit) {
-            forEachPath(mutableListOf(), body)
-        }
-
-        private fun forEachPath(currentPath: MutableList<Accessor>, body: (List<Accessor>) -> Unit) {
-            if (isFinal) {
-                currentPath.add(FinalAccessor)
-                body(currentPath)
-                currentPath.removeLast()
-            }
-
-            if (isAbstract) {
-                body(currentPath)
-            }
-
-            if (elementAccess != null) {
-                currentPath.add(ElementAccessor)
-                elementAccess.forEachPath(currentPath, body)
-                currentPath.removeLast()
-            }
-
-            forEachField { field, node ->
-                currentPath.add(field)
-                node.forEachPath(currentPath, body)
-                currentPath.removeLast()
             }
         }
 
         val isEmpty: Boolean get() =
-            !isAbstract && !isFinal && elementEdge == null && fieldEdges.isEmpty()
+            !isAbstract && !isFinal && allEdges.isEmpty()
 
         val cycles: List<Cycle> get() =
             allEdges.filterIsInstance<CycleStartEdge>().map { cycleStartEdge ->
                 cycleStartEdge.cycleEdges.map { it.accessor }
             }
 
-        private fun fieldIndex(field: FieldAccessor): Int {
+        private fun accessorIndex(accessor: Accessor): Int {
             // TODO: replace with binary search (?)
-            return fieldEdges.indexOfFirst { it.accessor == field }
+            return allEdges.indexOfFirst { it.accessor == accessor }
         }
 
         private fun getEdge(accessor: Accessor): Edge? = when (accessor) {
-            is FieldAccessor -> fieldEdges.getOrNull(fieldIndex(accessor))
-            ElementAccessor -> elementEdge
-            FinalAccessor -> error("No edge can be attached to final accessor")
+            FinalAccessor -> {
+                if (isFinal) {
+                    BasicEdge.createWithoutFoldUnsafe(FinalAccessor, finalNode)
+                } else {
+                    null
+                }
+            }
+            else -> allEdges.getOrNull(accessorIndex(accessor))
         }
 
         fun contains(accessor: Accessor): Boolean = when (accessor) {
             FinalAccessor -> isFinal
-            ElementAccessor -> elementEdge != null
-            is FieldAccessor -> fieldIndex(accessor) >= 0
+            else -> accessorIndex(accessor) >= 0
         }
 
         fun getChild(accessor: Accessor): AccessNode? = getEdge(accessor)?.let { edge ->
@@ -417,7 +390,7 @@ class AccessCactus(
                 this
             }
 
-            return create(isAbstract = false, isFinal, cyclesUnrolled.elementEdge, cyclesUnrolled.fieldEdges)
+            return create(isAbstract = false, isFinal, cyclesUnrolled.allEdges)
         }
 
         // Tries to construct CycleStartEdge in assumption that cycle start is the **parent** of `this` node
@@ -525,6 +498,10 @@ class AccessCactus(
         private fun forAllNodesRecursively(body: (AccessNode) -> Unit) {
             body(this)
             forEachEdge { edge ->
+                // TODO: a little bit of a hack currently
+                if (edge.accessor is TaintMarkAccessor) {
+                    return@forEachEdge
+                }
                 edge.node?.forAllNodesRecursively(body)
             }
         }
@@ -652,30 +629,9 @@ class AccessCactus(
         fun clearChild(accessor: Accessor): AccessNode =
             with(unrollAll()) {
                 when (accessor) {
-                    FinalAccessor -> create(isAbstract, isFinal = false, elementEdge, fieldEdges)
-                    ElementAccessor -> create(isAbstract, isFinal, elementEdge = null, fieldEdges)
-                    is FieldAccessor -> removeSingleField(accessor)
+                    FinalAccessor -> create(isAbstract, isFinal = false, allEdges)
+                    else -> removeSingleAccessor(accessor)
                 }
-            }
-
-        fun filterElementAccess(filter: (AccessNode) -> AccessNode?): AccessNode =
-            with (unrollAll()) {
-                val elementAccess = getChild(ElementAccessor) ?: return this
-
-                val filtered = filter(elementAccess)
-
-                if (filtered == elementAccess) return this
-                return create(isAbstract, isFinal, elementEdge = filtered?.let { BasicEdge.create(ElementAccessor, it) }, fieldEdges)
-            }
-
-        fun filterFields(filter: (FieldAccessor, AccessNode) -> AccessNode?): AccessNode =
-            with(unrollAll()) {
-                val transformedFields = transformFields { edge ->
-                    val field = edge.accessor as FieldAccessor
-                    val newChild = filter(field, getChild(field)!!) ?: return@transformFields null
-                    BasicEdge.create(field, newChild)
-                } ?: return this
-                return create(isAbstract, isFinal, elementEdge, transformedFields)
             }
 
         fun filter(exclusion: ExclusionSet.Concrete): AccessNode {
@@ -690,28 +646,25 @@ class AccessCactus(
                     edge.takeIf { it.accessor !in exclusion }
                 }
 
-                return create(isAbstract, isFinal, transformedEdges.elementEdge, transformedEdges.fieldEdges)
+                return create(isAbstract, isFinal, transformedEdges.allEdges)
             }
         }
 
         private fun bulkMergeAddEdges(edges: List<BasicEdge>): AccessNode {
             if (edges.isEmpty()) return this
 
-            val fieldEdges = edges.filter { it.accessor is FieldAccessor }
-            val elementEdge = edges.singleOrNull { it.accessor is ElementAccessor }
+            val uniqueAccessors = mutableListOf<BasicEdge>()
+            val groupedUniqueAccessors = edges.groupByTo(hashMapOf(), { it.accessor }, { it.node })
 
-            val uniqueFields = mutableListOf<BasicEdge>()
-            val groupedUniqueFields = fieldEdges.groupByTo(hashMapOf(), { it.accessor }, { it.node })
-
-            for ((field, nodes) in groupedUniqueFields) {
-                val mergedNodes = nodes.reduce { acc, node -> acc.mergeAdd(node, listOf(field)) }
-                uniqueFields.add(BasicEdge.createWithoutFoldUnsafe(field, mergedNodes))
+            for ((accessor, nodes) in groupedUniqueAccessors) {
+                val mergedNodes = nodes.reduce { acc, node -> acc.mergeAdd(node, listOf(accessor)) }
+                uniqueAccessors.add(BasicEdge.createWithoutFoldUnsafe(accessor, mergedNodes))
             }
 
-            uniqueFields.sortBy { it.accessor as FieldAccessor }
-            val addedFieldEdges = AccessNode(isAbstract = false, isFinal = false, elementEdge, uniqueFields.toTypedArray())
+            uniqueAccessors.sortBy { it.accessor }
+            val addedAllEdges = AccessNode(isAbstract = false, isFinal = false, uniqueAccessors.toTypedArray())
 
-            return mergeAdd(addedFieldEdges)
+            return mergeAdd(addedAllEdges)
         }
 
         fun mergeAdd(other: AccessNode, rootAccessors: List<Accessor> = emptyList()): AccessNode {
@@ -771,16 +724,10 @@ class AccessCactus(
                 }
             } else null
 
-            var concatSucceeded = concatNode != null
-
             val resultNode = applyTransformEdges { edge ->
                 path.add(edge.accessor)
                 val concatenatedNode = edge.node?.concatToLeafAbstractNodes(typeChecker, other, path)
                 path.removeLast()
-
-                if (concatenatedNode != null) {
-                    concatSucceeded = true
-                }
 
                 when (edge) {
                     is BasicEdge -> {
@@ -806,7 +753,7 @@ class AccessCactus(
 
             val concatenatedNode = concatNode?.let { resultNode.mergeAdd(it, path) } ?: resultNode
 
-            return concatenatedNode.takeIf { !it.isEmpty && concatSucceeded }.also { // TODO: isEmpty is redundant (?)
+            return concatenatedNode.takeIf { !it.isEmpty }.also {
                 if (it == this) {
                     return this
                 }
@@ -915,40 +862,28 @@ class AccessCactus(
             val isAbstract = this.isAbstract || other.isAbstract
             val isFinal = this.isFinal || other.isFinal
 
-            val elementEdge = when {
-                other.elementEdge == null -> elementEdge?.let {
-                    foldCycles(it, rootAccessors).also { newEdge ->
-                        if (newEdge != it) {
-                            onOtherEdge(newEdge)
-                        }
-                    }
-                }
-                this.elementEdge == null -> other.foldCycles(other.elementEdge, rootAccessors).also(onOtherEdge)
-                else -> mergeTwoEdges(this.elementEdge, other, other.elementEdge, merge, rootAccessors)
-            }
-
             var modified = false
-            var fieldsModified = false
+            var accessorsModified = false
 
             var writeIdx = 0
             var thisIdx = 0
             var otherIdx = 0
 
-            val mergedEdges = arrayOfNulls<Edge>(fieldEdges.size + other.fieldEdges.size)
+            val mergedEdges = arrayOfNulls<Edge>(allEdges.size + other.allEdges.size)
 
             while (true) {
-                val thisEdge = fieldEdges.getOrNull(thisIdx)
-                val otherEdge = other.fieldEdges.getOrNull(otherIdx)
+                val thisEdge = allEdges.getOrNull(thisIdx)
+                val otherEdge = other.allEdges.getOrNull(otherIdx)
 
                 if (thisEdge == null && otherEdge == null) break
 
-                val fieldCmp = when {
+                val accessorsCmp = when {
                     otherEdge == null -> -1 // thisEdge != null
                     thisEdge == null -> 1 // otherEdge != null
-                    else -> (thisEdge.accessor as FieldAccessor).compareTo(otherEdge.accessor as FieldAccessor)
+                    else -> thisEdge.accessor.compareTo(otherEdge.accessor)
                 }
 
-                if (fieldCmp < 0) {
+                if (accessorsCmp < 0) {
                     mergedEdges[writeIdx] = foldCycles(thisEdge!!, rootAccessors).also {
                         if (it != thisEdge) {
                             onOtherEdge(it)
@@ -956,11 +891,11 @@ class AccessCactus(
                     }
                     thisIdx++
                     writeIdx++
-                } else if (fieldCmp > 0) {
+                } else if (accessorsCmp > 0) {
                     val normalizedOtherEdge = other.foldCycles(otherEdge!!, rootAccessors).also(onOtherEdge)
 
                     modified = true
-                    fieldsModified = true
+                    accessorsModified = true
 
                     mergedEdges[writeIdx] = normalizedOtherEdge
 
@@ -979,16 +914,15 @@ class AccessCactus(
                 }
             }
 
-            val fieldEdges = trimModifiedFields(modified, fieldsModified, writeIdx, fieldEdges, mergedEdges)
-            return AccessNode(isAbstract, isFinal, elementEdge, fieldEdges)
+            val allEdges = trimModifiedEdges(modified, accessorsModified, writeIdx, allEdges, mergedEdges)
+            return AccessNode(isAbstract, isFinal, allEdges)
         }
 
         private inline fun applyTransformEdges(
             transformer: (Edge) -> Edge?
         ): AccessNode {
-            val newFieldEdges = transformFields(transformer) ?: fieldEdges
-            val newElementEdge = elementEdge?.let(transformer)
-            return AccessNode(isAbstract, isFinal, newElementEdge, newFieldEdges)
+            val newAllEdges = transformAllEdges(transformer) ?: return this
+            return AccessNode(isAbstract, isFinal, newAllEdges)
         }
 
         private fun updateExistingEdge(
@@ -997,7 +931,6 @@ class AccessCactus(
         ): AccessNode {
             check(getEdge(accessor) != null)
 
-            // TODO: this can be done faster
             return applyTransformEdges { edge ->
                 if (edge.accessor == accessor) {
                     newEdge
@@ -1007,10 +940,10 @@ class AccessCactus(
             }
         }
 
-        private inline fun transformFields(
+        private inline fun transformAllEdges(
             transformer: (Edge) -> Edge?
         ): Array<Edge>? {
-            if (fieldEdges.isEmpty()) {
+            if (allEdges.isEmpty()) {
                 return null
             }
 
@@ -1018,14 +951,14 @@ class AccessCactus(
             var fieldsModified = false
 
             var writeIdx = 0
-            val transformedFieldEdges = arrayOfNulls<Edge>(fieldEdges.size)
+            val transformedAllEdges = arrayOfNulls<Edge>(allEdges.size)
 
-            for (i in fieldEdges.indices) {
-                val fieldEdge = fieldEdges[i]
+            for (i in allEdges.indices) {
+                val fieldEdge = allEdges[i]
 
                 val transformedEdge = transformer(fieldEdge)
                 if (transformedEdge === fieldEdge) {
-                    transformedFieldEdges[writeIdx] = fieldEdge
+                    transformedAllEdges[writeIdx] = fieldEdge
                     writeIdx++
                 } else {
                     modified = true
@@ -1035,84 +968,88 @@ class AccessCactus(
                         continue
                     }
 
-                    transformedFieldEdges[writeIdx] = transformedEdge
+                    transformedAllEdges[writeIdx] = transformedEdge
                     writeIdx++
                 }
             }
 
-            return trimModifiedFields(modified, fieldsModified, writeIdx, fieldEdges, transformedFieldEdges)
+            if (!modified) {
+                return null
+            }
+
+            return trimModifiedEdges(modified, fieldsModified, writeIdx, allEdges, transformedAllEdges)
         }
 
         @Suppress("UNUSED_PARAMETER")
-        private fun trimModifiedFields(
+        private fun trimModifiedEdges(
             modified: Boolean,
-            fieldsModified: Boolean,
+            accessorsModified: Boolean,
             writeIdx: Int,
-            originalFieldEdges: Array<Edge>,
-            fieldEdges: Array<Edge?>,
+            originalAllEdges: Array<Edge>,
+            allEdges: Array<Edge?>,
         ): Array<Edge> {
-            if (!fieldsModified) {
-                check(writeIdx == originalFieldEdges.size) { "Incorrect size" }
-                val trimmedEdges = if (writeIdx == fieldEdges.size) {
-                    fieldEdges
+            if (!accessorsModified) {
+                check(writeIdx == originalAllEdges.size) { "Incorrect size" }
+                val trimmedEdges = if (writeIdx == allEdges.size) {
+                    allEdges
                 } else {
-                    fieldEdges.copyOf(writeIdx)
+                    allEdges.copyOf(writeIdx)
                 }
 
                 @Suppress("UNCHECKED_CAST")
                 return trimmedEdges as Array<Edge>
             }
 
-            if (writeIdx != fieldEdges.size) {
-                val trimmedEdges = fieldEdges.copyOf(writeIdx)
+            if (writeIdx != allEdges.size) {
+                val trimmedEdges = allEdges.copyOf(writeIdx)
                 @Suppress("UNCHECKED_CAST")
                 return trimmedEdges as Array<Edge>
             } else {
                 @Suppress("UNCHECKED_CAST")
-                return fieldEdges as Array<Edge>
+                return allEdges as Array<Edge>
             }
         }
 
-        private fun removeSingleField(field: FieldAccessor): AccessNode {
-            val fieldIdx = fieldIndex(field)
-            if (fieldIdx < 0) return this
+        private fun removeSingleAccessor(accessor: Accessor): AccessNode {
+            val accessorIdx = accessorIndex(accessor)
+            if (accessorIdx < 0) return this
 
-            val newFieldSize = fieldEdges.size - 1
-            if (newFieldSize == 0) {
-                return create(isAbstract, isFinal, elementEdge, fieldEdges = emptyArray())
+            val newEdgesSize = allEdges.size - 1
+            if (newEdgesSize == 0) {
+                return create(isAbstract, isFinal, allEdges = emptyArray())
             }
 
-            val newFieldEdges = arrayOfNulls<Edge>(newFieldSize)
+            val newAllEdges = arrayOfNulls<Edge>(newEdgesSize)
 
-            fieldEdges.copyInto(newFieldEdges, endIndex = fieldIdx)
-            fieldEdges.copyInto(newFieldEdges, destinationOffset = fieldIdx, startIndex = fieldIdx + 1)
+            allEdges.copyInto(newAllEdges, endIndex = accessorIdx)
+            allEdges.copyInto(newAllEdges, destinationOffset = accessorIdx, startIndex = accessorIdx + 1)
 
             @Suppress("UNCHECKED_CAST")
             return create(
-                isAbstract, isFinal, elementEdge,
-                newFieldEdges as Array<Edge>
+                isAbstract, isFinal,
+                newAllEdges as Array<Edge>
             )
         }
 
         companion object {
             private val emptyNode = AccessNode(
                 isAbstract = false, isFinal = false,
-                elementEdge = null, fieldEdges = emptyArray()
+                allEdges = emptyArray()
             )
 
             private val abstractNode = AccessNode(
                 isAbstract = true, isFinal = false,
-                elementEdge = null, fieldEdges = emptyArray()
+                allEdges = emptyArray()
             )
 
             private val finalNode = AccessNode(
                 isAbstract = false, isFinal = true,
-                elementEdge = null, fieldEdges = emptyArray()
+                allEdges = emptyArray()
             )
 
             private val abstractFinalNode = AccessNode(
                 isAbstract = true, isFinal = true,
-                elementEdge = null, fieldEdges = emptyArray()
+                allEdges = emptyArray()
             )
 
             fun abstractNode(): AccessNode = abstractNode
@@ -1130,20 +1067,21 @@ class AccessCactus(
                 return when (high) {
                     ElementAccessor -> low === ElementAccessor
                     is FieldAccessor -> (low is FieldAccessor) && (low.className == high.className)
+                    is TaintMarkAccessor -> error("Unexpected TaintMarkAccessor")
                     FinalAccessor -> error("Unexpected FinalAccessor")
                 }
             }
 
             @JvmStatic
             private fun List<AccessNode>.squashAndMerge(): AccessNode {
-                if (size == 1 && single().depth == 1) {
+                if (size == 1 && single().allEdges.all { it.accessor is TaintMarkAccessor || it.node == null }) {
                     return single()
                 }
 
                 var isFinal = false
                 var isAbstract = false
-                var hasElementAccessor = false
-                val fieldAccessors = sortedSetOf<FieldAccessor>()
+                val accessors = sortedSetOf<Accessor>()
+                val taintMarksNodes: MutableMap<TaintMarkAccessor, Pair<Boolean, Boolean>> = mutableMapOf()
 
                 for (rootNode in this) {
                     rootNode.forAllNodesRecursively { node ->
@@ -1157,23 +1095,32 @@ class AccessCactus(
 
                             newAccessors.forEach { accessor ->
                                 when (accessor) {
-                                    is ElementAccessor -> hasElementAccessor = true
-                                    is FieldAccessor -> fieldAccessors.add(accessor)
                                     is FinalAccessor -> error("unexpected final accessor")
+                                    else -> accessors.add(accessor)
                                 }
+                            }
+
+                            val accessor = edge.accessor
+                            if (accessor is TaintMarkAccessor) {
+                                val (prevF, prevA) = taintMarksNodes.getOrDefault(accessor, false to false)
+                                taintMarksNodes[accessor] = (prevF || edge.node!!.isFinal) to (prevA || edge.node!!.isAbstract)
                             }
                         }
                     }
                 }
 
-                val elementEdge = if (hasElementAccessor) createLoop(ElementAccessor) else null
-                val newFieldEdges = arrayOfNulls<CycleStartEdge>(fieldAccessors.size)
-                var i = 0
-                for (access in fieldAccessors) {
-                    newFieldEdges[i++] = createLoop(access)
+                val newAllEdges = arrayOfNulls<Edge>(accessors.size)
+                for ((i, access) in accessors.withIndex()) {
+                    val newEdge = if (access is TaintMarkAccessor) {
+                        val (curIsFinal, curIsAbstract) = taintMarksNodes[access]!!
+                        BasicEdge.create(access, create(isAbstract = curIsAbstract, isFinal = curIsFinal))
+                    } else {
+                        createLoop(access)
+                    }
+                    newAllEdges[i] = newEdge
                 }
                 @Suppress("UNCHECKED_CAST")
-                return create(isAbstract, isFinal, elementEdge, newFieldEdges as Array<Edge>)
+                return create(isAbstract, isFinal = false, newAllEdges as Array<Edge>)
             }
 
             @JvmStatic
@@ -1186,54 +1133,45 @@ class AccessCactus(
 
             @JvmStatic
             private fun create(edge: Edge): AccessNode = when (edge.accessor) {
-                is FieldAccessor -> AccessNode(
-                    isAbstract = false, isFinal = false,
-                    elementEdge = null,
-                    fieldEdges = arrayOf(edge)
-                )
-                ElementAccessor -> AccessNode(
-                    isAbstract = false, isFinal = false,
-                    elementEdge = edge,
-                    fieldEdges = emptyArray()
-                )
                 FinalAccessor -> error("Edge can't have final accessor")
+                else -> AccessNode(
+                    isAbstract = false, isFinal = false,
+                    allEdges = arrayOf(edge)
+                )
             }
 
             @JvmStatic
             private fun create(
                 isAbstract: Boolean,
                 isFinal: Boolean,
-                elementEdge: Edge?,
-                fieldEdges: Array<Edge>
+                allEdges: Array<Edge>,
             ): AccessNode =
                 if (isAbstract) {
                     if (isFinal) {
-                        createElementAndField(abstractFinalNode, elementEdge, fieldEdges)
+                        createElementAndChildren(abstractFinalNode, allEdges)
                     } else {
-                        createElementAndField(abstractNode, elementEdge, fieldEdges)
+                        createElementAndChildren(abstractNode, allEdges)
                     }
                 } else {
                     if (isFinal) {
-                        createElementAndField(finalNode, elementEdge, fieldEdges)
+                        createElementAndChildren(finalNode, allEdges)
                     } else {
-                        createElementAndField(emptyNode, elementEdge, fieldEdges)
+                        createElementAndChildren(emptyNode, allEdges)
                     }
                 }
 
             @JvmStatic
-            private fun createElementAndField(
+            private fun createElementAndChildren(
                 base: AccessNode,
-                elementEdge: Edge?,
-                fieldEdges: Array<Edge>
+                allEdges: Array<Edge>
             ): AccessNode {
-                return if (elementEdge == null && fieldEdges.isEmpty()) {
+                return if (allEdges.isEmpty()) {
                     base
                 } else {
                     AccessNode(
                         isAbstract = base.isAbstract,
                         isFinal = base.isFinal,
-                        elementEdge = elementEdge,
-                        fieldEdges = fieldEdges
+                        allEdges = allEdges
                     )
                 }
             }

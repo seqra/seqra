@@ -3,23 +3,17 @@ package org.opentaint.dataflow.jvm.ap.ifds
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.taint.configuration.TaintMark
 import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
-import org.opentaint.dataflow.jvm.ap.ifds.access.MethodEdgesFinalApSet
-import org.opentaint.dataflow.jvm.ap.ifds.access.MethodEdgesInitialToFinalApSet
 
 class MethodAnalyzerEdges(
-    private val apManager: ApManager,
+    apManager: ApManager,
     private val methodEntryPoint: MethodEntryPoint
 ) {
     private val maxInstIdx = methodEntryPoint.method.instList.maxOf { it.location.index }
 
     private val zeroToZeroEdges = SameInitialZeroFactEdges(maxInstIdx)
-    private val zeroToFactEdges = Object2ObjectOpenHashMap<TaintMark, MethodEdgesFinalApSet>()
-    private val taintedToFactSameEdges = Object2ObjectOpenHashMap<TaintMark, MethodEdgesInitialToFinalApSet>()
-    private val taintedToFactDifferentEdges by lazy {
-        Object2ObjectOpenHashMap<Pair<TaintMark, TaintMark>, MethodEdgesInitialToFinalApSet>()
-    }
+    private val zeroToFactEdges = apManager.methodEdgesFinalApSet(methodEntryPoint.statement, maxInstIdx)
+    private val taintedToFactEdges = apManager.methodEdgesInitialToFinalApSet(methodEntryPoint.statement, maxInstIdx)
 
     fun add(edge: Edge): List<Edge> {
         check(edge.methodEntryPoint == methodEntryPoint)
@@ -35,17 +29,14 @@ class MethodAnalyzerEdges(
             }
 
             is Edge.ZeroToFact -> {
-                val storage = zeroToFactEdges.getOrPut(edge.fact.mark) {
-                    apManager.methodEdgesFinalApSet(methodEntryPoint.statement, maxInstIdx)
-                }
+                val storage = zeroToFactEdges
 
-                val edgeAp = edge.fact.ap
+                val edgeAp = edge.factAp
                 val addedAp = storage.add(edge.statement, edgeAp) ?: return emptyList()
 
                 if (addedAp === edgeAp) return listOf(edge)
 
-                val addedFact = edge.fact.changeAP(addedAp)
-                return listOf(Edge.ZeroToFact(edge.methodEntryPoint, edge.statement, addedFact))
+                return listOf(Edge.ZeroToFact(edge.methodEntryPoint, edge.statement, addedAp))
             }
 
             is Edge.FactToFact -> {
@@ -55,29 +46,19 @@ class MethodAnalyzerEdges(
     }
 
     private fun addTaintedFactEdge(edge: Edge.FactToFact): List<Edge.FactToFact> {
-        val edgeStorage = if (edge.initialFact.mark == edge.fact.mark) {
-            taintedToFactSameEdges.getOrPut(edge.initialFact.mark) {
-                apManager.methodEdgesInitialToFinalApSet(methodEntryPoint.statement, maxInstIdx)
-            }
-        } else {
-            taintedToFactDifferentEdges.getOrPut(edge.initialFact.mark to edge.fact.mark) {
-                apManager.methodEdgesInitialToFinalApSet(methodEntryPoint.statement, maxInstIdx)
-            }
-        }
+        val initialAp = edge.initialFactAp
+        val finalAp = edge.factAp
 
-        val initialAp = edge.initialFact.ap
-        val finalAp = edge.fact.ap
-
-        val (addedInitial, addedFinal) = edgeStorage.add(edge.statement, initialAp, finalAp) ?: return emptyList()
+        val (addedInitial, addedFinal) = taintedToFactEdges.add(edge.statement, initialAp, finalAp) ?: return emptyList()
 
         if (addedInitial === initialAp && addedFinal === finalAp) return listOf(edge)
 
         return listOf(
             Edge.FactToFact(
                 methodEntryPoint = edge.methodEntryPoint,
-                initialFact = edge.initialFact.changeAP(addedInitial),
+                initialFactAp = addedInitial,
                 statement = edge.statement,
-                fact = edge.fact.changeAP(addedFinal)
+                factAp = addedFinal
             )
         )
     }

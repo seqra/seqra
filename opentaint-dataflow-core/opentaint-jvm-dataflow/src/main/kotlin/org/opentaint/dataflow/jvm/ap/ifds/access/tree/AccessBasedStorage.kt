@@ -2,7 +2,6 @@ package org.opentaint.dataflow.jvm.ap.ifds.access.tree
 
 import kotlinx.collections.immutable.persistentHashMapOf
 import org.opentaint.dataflow.jvm.ap.ifds.Accessor
-import org.opentaint.dataflow.jvm.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.jvm.ap.ifds.FinalAccessor
 
 abstract class AccessBasedStorage<S : AccessBasedStorage<S>> {
@@ -39,12 +38,8 @@ abstract class AccessBasedStorage<S : AccessBasedStorage<S>> {
             children[FinalAccessor]?.let { nodes.add(it) }
         }
 
-        pattern.elementAccess?.let { elementAccessPattern ->
-            children[ElementAccessor]?.collectNodesContains(elementAccessPattern, nodes)
-        }
-
-        pattern.forEachField { field, fieldPattern ->
-            children[field]?.collectNodesContains(fieldPattern, nodes)
+        pattern.forEachAccessor { accessor, accessorPattern ->
+            children[accessor]?.collectNodesContains(accessorPattern, nodes)
         }
     }
 

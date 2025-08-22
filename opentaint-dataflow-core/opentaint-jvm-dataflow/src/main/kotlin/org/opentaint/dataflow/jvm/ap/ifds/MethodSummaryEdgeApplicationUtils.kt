@@ -1,6 +1,8 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
 import org.opentaint.dataflow.jvm.ap.ifds.access.FactApDelta
+import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
 
 object MethodSummaryEdgeApplicationUtils {
     sealed interface SummaryEdgeApplication {
@@ -9,13 +11,13 @@ object MethodSummaryEdgeApplicationUtils {
     }
 
     fun tryApplySummaryEdge(
-        methodInitialFact: Fact.FinalFact,
-        methodSummaryInitialFact: Fact.InitialFact,
+        methodInitialFactAp: FinalFactAp,
+        methodSummaryInitialFactAp: InitialFactAp,
     ): List<SummaryEdgeApplication> =
-        methodInitialFact.ap.delta(methodSummaryInitialFact.ap).map { delta ->
+        methodInitialFactAp.delta(methodSummaryInitialFactAp).map { delta ->
             if (delta.isEmpty) {
                 SummaryEdgeApplication.SummaryExclusionRefinement(
-                    methodInitialFact.ap.exclusions.union(methodSummaryInitialFact.ap.exclusions)
+                    methodInitialFactAp.exclusions.union(methodSummaryInitialFactAp.exclusions)
                 )
             } else {
                 SummaryEdgeApplication.SummaryApRefinement(delta)

@@ -26,7 +26,7 @@ import org.opentaint.dataflow.jvm.util.JIRTraits
 
 class FactAwareConditionEvaluatorWithAssumptions(
     traits: JIRTraits,
-    private val factReader: FactReader,
+    factReader: FactReader,
     private val accessPathResolver: PositionResolver<Maybe<List<PositionAccess>>>,
     positionResolver: PositionResolver<Maybe<JIRValue>>,
 ) : ConditionVisitor<List<ResultWithFactAssumptions>> {
@@ -45,23 +45,23 @@ class FactAwareConditionEvaluatorWithAssumptions(
     }
 
     override fun visit(condition: ContainsMark): List<ResultWithFactAssumptions> {
-        if (factReader.fact.mark == condition.mark) {
-            val result = condition.accept(factAwareConditionEvaluator)
-            hasEvaluatedContainsMark = hasEvaluatedContainsMark || result
-            return result.withoutAssumptions
-        } else {
-            val results = mutableListOf<ResultWithFactAssumptions>()
-            results += false.withoutAssumptions
-
-            accessPathResolver.resolve(condition.position).onSome { values ->
-                for (value in values) {
-                    val assumedFact = FactAssumption(condition.mark, value)
-                    results += ResultWithFactAssumptions(true, setOf(assumedFact))
-                }
-            }
-
-            return results
+        val result = condition.accept(factAwareConditionEvaluator)
+        hasEvaluatedContainsMark = hasEvaluatedContainsMark || result
+        if (result) {
+            return true.withoutAssumptions
         }
+
+        val results = mutableListOf<ResultWithFactAssumptions>()
+        results += false.withoutAssumptions
+
+        accessPathResolver.resolve(condition.position).onSome { values ->
+            for (value in values) {
+                val assumedFact = FactAssumption(condition.mark, value)
+                results += ResultWithFactAssumptions(true, setOf(assumedFact))
+            }
+        }
+
+        return results
     }
 
     override fun visit(condition: Not): List<ResultWithFactAssumptions> {

@@ -49,12 +49,12 @@ private class MethodZeroToFactSummaries(methodEntryPoint: JIRInst) :
     override fun createStorage() = MethodZeroToFactSummaryEdgeStorage()
 
     fun add(edges: List<Edge.ZeroToFact>, added: MutableList<ZeroToFactEdgeBuilder>) {
-        val sameExitBaseEdges = edges.groupBy { it.fact.ap.base }
+        val sameExitBaseEdges = edges.groupBy { it.factAp.base }
         for ((exitBase, sameBaseEdges) in sameExitBaseEdges) {
             val storage = getOrCreate(exitBase)
 
             val addedEdge = sameBaseEdges.fold(null as ZeroEdgeBuilderBuilder?) { addedEdge, edge ->
-                storage.add((edge.fact.ap as AccessTree).access) ?: addedEdge
+                storage.add((edge.factAp as AccessTree).access) ?: addedEdge
             }
 
             if (addedEdge != null) {

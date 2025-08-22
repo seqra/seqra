@@ -16,6 +16,8 @@
 
 package org.opentaint.dataflow.jvm.ap.ifds
 
+import org.opentaint.ir.taint.configuration.TaintMark
+
 sealed interface AccessPathBase {
     override fun toString(): String
 
@@ -40,19 +42,45 @@ sealed interface AccessPathBase {
     }
 }
 
-sealed interface Accessor {
-    fun toSuffix(): String
+sealed class Accessor : Comparable<Accessor> {
+    abstract fun toSuffix(): String
+    protected abstract val accessorClassId: Int
+
+    override fun compareTo(other: Accessor): Int {
+        if (accessorClassId != other.accessorClassId) {
+            return accessorClassId.compareTo(other.accessorClassId)
+        }
+
+        return when (this) {
+            ElementAccessor, FinalAccessor -> 0 // Definitely equal
+            is FieldAccessor -> this.compareToFieldAccessor(other as FieldAccessor)
+            is TaintMarkAccessor -> this.compareToTaintMarkAccessor(other as TaintMarkAccessor)
+        }
+    }
+}
+
+data class TaintMarkAccessor(val mark: TaintMark): Accessor() {
+    override fun toSuffix(): String = "![$mark]"
+    override fun toString(): String = "![$mark]"
+
+    override val accessorClassId: Int = 3
+
+    fun compareToTaintMarkAccessor(other: TaintMarkAccessor): Int {
+        return mark.name.compareTo(other.mark.name)
+    }
 }
 
 data class FieldAccessor(
     val className: String,
     val fieldName: String,
     val fieldType: String
-) : Accessor, Comparable<FieldAccessor> {
+) : Accessor() {
     override fun toSuffix(): String = ".$fieldName"
     override fun toString(): String = "${className}#${fieldName}:$fieldType"
 
-    override fun compareTo(other: FieldAccessor): Int {
+    override val accessorClassId: Int = 2
+
+    fun compareToFieldAccessor(other: FieldAccessor): Int {
         var result = fieldName.length.compareTo(other.fieldName.length)
 
         if (result == 0) {
@@ -71,12 +99,16 @@ data class FieldAccessor(
     }
 }
 
-object ElementAccessor : Accessor {
+object ElementAccessor : Accessor() {
     override fun toSuffix(): String = "[*]"
     override fun toString(): String = "*"
+
+    override val accessorClassId: Int = 0
 }
 
-object FinalAccessor : Accessor {
+object FinalAccessor : Accessor() {
     override fun toSuffix(): String = ".\$"
     override fun toString(): String = "\$"
+
+    override val accessorClassId: Int = 1
 }

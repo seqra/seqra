@@ -11,18 +11,18 @@ import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
 import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.ir.api.jvm.ext.toType
-import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.rebase
+import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
 
 fun mapMethodExitToReturnFlowFact(
     callStatement: JIRInst,
     methodExit: JIRInst,
-    fact: Fact.FinalFact,
+    factAp: FinalFactAp,
     checker: FactTypeChecker
-): Fact.FinalFact? = mapMethodExitToReturnFlowFact(
+): FinalFactAp? = mapMethodExitToReturnFlowFact(
     callStatement = callStatement,
     methodExit = methodExit,
-    fact = fact,
-    factApBase = { it.ap.base },
+    factAp = factAp,
+    factApBase = { it.base },
     checkFactType = { type, f -> checker.filterFactByLocalType(type, f) },
     rebaseFact = { f, base -> f.rebase(base) }
 )
@@ -30,40 +30,40 @@ fun mapMethodExitToReturnFlowFact(
 fun mapMethodCallToStartFlowFact(
     callee: JIRMethod,
     callExpr: JIRCallExpr,
-    fact: Fact.FinalFact,
+    factAp: FinalFactAp,
     checker: FactTypeChecker,
-    onMappedFact: (Fact.FinalFact, AccessPathBase) -> Unit
+    onMappedFact: (FinalFactAp, AccessPathBase) -> Unit
 ) = mapMethodCallToStartFlowFact(
     callee = callee,
     callExpr = callExpr,
-    fact = fact,
-    factApBase = { it.ap.base },
+    factAp = factAp,
+    factApBase = { it.base },
     checkFactType = { type, f -> checker.filterFactByLocalType(type, f) },
     onMappedFact = onMappedFact
 )
 
-private inline fun <F: Fact> mapMethodExitToReturnFlowFact(
+private inline fun mapMethodExitToReturnFlowFact(
     callStatement: JIRInst,
     methodExit: JIRInst,
-    fact: F,
-    factApBase: (F) -> AccessPathBase,
-    checkFactType: (JIRType, F) -> F?,
-    rebaseFact: (F, AccessPathBase) -> F,
-): F? {
+    factAp: FinalFactAp,
+    factApBase: (FinalFactAp) -> AccessPathBase,
+    checkFactType: (JIRType, FinalFactAp) -> FinalFactAp?,
+    rebaseFact: (FinalFactAp, AccessPathBase) -> FinalFactAp,
+): FinalFactAp? {
     val callExpr = callStatement.callExpr ?: error("Non call statement")
     val returnValue: JIRImmediate? = (callStatement as? JIRAssignInst)?.lhv?.let {
         it as? JIRImmediate ?: error("Non simple return value: $callStatement")
     }
 
-    when (val base = factApBase(fact)) {
-        is AccessPathBase.ClassStatic -> return fact
-        is AccessPathBase.Constant -> return fact
+    when (val base = factApBase(factAp)) {
+        is AccessPathBase.ClassStatic -> return factAp
+        is AccessPathBase.Constant -> return factAp
         is AccessPathBase.Argument -> {
-            val argExpr = callExpr.args.getOrNull(base.idx) ?: error("Call $callExpr has no arg $fact")
+            val argExpr = callExpr.args.getOrNull(base.idx) ?: error("Call $callExpr has no arg $factAp")
             val newBase = MethodFlowFunctionUtils.accessPathBase(argExpr) ?: return null
             if (newBase is AccessPathBase.Constant) return null
 
-           val checkedFact = checkFactType(argExpr.type, fact) ?: return null
+           val checkedFact = checkFactType(argExpr.type, factAp) ?: return null
 
             return rebaseFact(checkedFact, newBase)
         }
@@ -74,7 +74,7 @@ private inline fun <F: Fact> mapMethodExitToReturnFlowFact(
             val newBase = MethodFlowFunctionUtils.accessPathBase(callExpr.instance) ?: return null
             if (newBase is AccessPathBase.Constant) return null
 
-            val checkedFact = checkFactType(callExpr.instance.type, fact) ?: return null
+            val checkedFact = checkFactType(callExpr.instance.type, factAp) ?: return null
 
             return rebaseFact(checkedFact, newBase)
         }
@@ -94,7 +94,7 @@ private inline fun <F: Fact> mapMethodExitToReturnFlowFact(
                     if (newBase is AccessPathBase.Constant) return null
 
 
-                    val checkedFact = checkFactType(returnValue.type, fact) ?: return null
+                    val checkedFact = checkFactType(returnValue.type, factAp) ?: return null
 
                     return rebaseFact(checkedFact, newBase)
                 }
@@ -110,8 +110,8 @@ private inline fun <F: Fact> mapMethodExitToReturnFlowFact(
     }
 }
 
-fun isValidMethodExitFact(methodExit: JIRInst, fact: Fact.FinalFact): Boolean =
-    isValidMethodExitFact(methodExit, fact.ap.base)
+fun isValidMethodExitFact(methodExit: JIRInst, factAp: FinalFactAp): Boolean =
+    isValidMethodExitFact(methodExit, factAp.base)
 
 private fun isValidMethodExitFact(methodExit: JIRInst, factBase: AccessPathBase): Boolean {
     if (factBase !is AccessPathBase.LocalVar) return true
@@ -136,24 +136,24 @@ private fun isValidMethodExitFact(methodExit: JIRInst, factBase: AccessPathBase)
     }
 }
 
-private inline fun <F: Fact> mapMethodCallToStartFlowFact(
+private inline fun mapMethodCallToStartFlowFact(
     callee: JIRMethod,
     callExpr: JIRCallExpr,
-    fact: F,
-    factApBase: (F) -> AccessPathBase,
-    checkFactType: (JIRType, F) -> F?,
-    onMappedFact: (F, AccessPathBase) -> Unit,
+    factAp: FinalFactAp,
+    factApBase: (FinalFactAp) -> AccessPathBase,
+    checkFactType: (JIRType, FinalFactAp) -> FinalFactAp?,
+    onMappedFact: (FinalFactAp, AccessPathBase) -> Unit,
 ) {
-    val factBase = factApBase(fact)
+    val factBase = factApBase(factAp)
 
     if (factBase is AccessPathBase.ClassStatic) {
-        onMappedFact(fact, factBase)
+        onMappedFact(factAp, factBase)
     }
 
     if (callExpr is JIRInstanceCallExpr) {
         val instanceBase = MethodFlowFunctionUtils.accessPathBase(callExpr.instance)
         if (instanceBase == factBase) {
-            val checkedFact = checkFactType(callee.enclosingClass.toType(), fact)
+            val checkedFact = checkFactType(callee.enclosingClass.toType(), factAp)
             if (checkedFact != null) {
                 onMappedFact(checkedFact, AccessPathBase.This)
             }
@@ -163,7 +163,7 @@ private inline fun <F: Fact> mapMethodCallToStartFlowFact(
     for ((i, arg) in callExpr.args.withIndex()) {
         val argBase = MethodFlowFunctionUtils.accessPathBase(arg)
         if (argBase == factBase) {
-            val checkedFact = checkFactType(arg.type, fact)
+            val checkedFact = checkFactType(arg.type, factAp)
             if (checkedFact != null) {
                 onMappedFact(checkedFact, AccessPathBase.Argument(i))
             }
@@ -171,8 +171,8 @@ private inline fun <F: Fact> mapMethodCallToStartFlowFact(
     }
 }
 
-fun factCanBeModifiedByMethodCall(returnValue: JIRImmediate?, callExpr: JIRCallExpr, fact: Fact.FinalFact): Boolean =
-    factCanBeModifiedByMethodCall(returnValue, callExpr, fact.ap.base)
+fun factCanBeModifiedByMethodCall(returnValue: JIRImmediate?, callExpr: JIRCallExpr, factAp: FinalFactAp): Boolean =
+    factCanBeModifiedByMethodCall(returnValue, callExpr, factAp.base)
 
 private fun factCanBeModifiedByMethodCall(
     returnValue: JIRImmediate?,

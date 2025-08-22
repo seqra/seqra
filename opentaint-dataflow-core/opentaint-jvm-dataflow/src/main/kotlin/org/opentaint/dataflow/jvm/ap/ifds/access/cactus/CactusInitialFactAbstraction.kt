@@ -1,59 +1,56 @@
 package org.opentaint.dataflow.jvm.ap.ifds.access.cactus
 
-import org.opentaint.ir.taint.configuration.TaintMark
 import org.opentaint.dataflow.jvm.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.jvm.ap.ifds.Accessor
 import org.opentaint.dataflow.jvm.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.jvm.ap.ifds.ExclusionSet.Empty
-import org.opentaint.dataflow.jvm.ap.ifds.Fact
 import org.opentaint.dataflow.jvm.ap.ifds.FinalAccessor
+import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAbstraction
+import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.jvm.ap.ifds.access.cactus.AccessCactus.AccessNode as AccessCactusNode
 
 class CactusInitialFactAbstraction: InitialFactAbstraction {
-    private val initialFacts = MethodInitialFacts(hashMapOf())
+    private val initialFacts = MethodSameMarkInitialFact(hashMapOf())
 
-    override fun addAbstractedInitialFact(fact: Fact.FinalFact): List<Pair<Fact.InitialFact, Fact.FinalFact>> {
-        val factAp = fact.ap as AccessCactus
+    override fun addAbstractedInitialFact(factAp: FinalFactAp): List<Pair<InitialFactAp, FinalFactAp>> {
+        factAp as AccessCactus
 
         // note: we can ignore fact exclusions here
-        val facts = initialFacts.getOrPut(fact.mark, fact.ap.base)
+        val facts = initialFacts.getOrPut(factAp.base)
         val addedFact = facts.addInitialFact(factAp.access) ?: return emptyList()
 
-        val abstractFacts = mutableListOf<Pair<Fact.InitialFact, Fact.FinalFact>>()
-        addAbstractInitialFact(facts, fact.mark, factAp.base, addedFact, abstractFacts)
+        val abstractFacts = mutableListOf<Pair<InitialFactAp, FinalFactAp>>()
+        addAbstractInitialFact(facts, factAp.base, addedFact, abstractFacts)
         return abstractFacts
     }
 
-    override fun registerNewInitialFact(fact: Fact.InitialFact): List<Pair<Fact.InitialFact, Fact.FinalFact>> {
-        val factAp = fact.ap as AccessPathWithCycles
+    override fun registerNewInitialFact(factAp: InitialFactAp): List<Pair<InitialFactAp, FinalFactAp>> {
+        factAp as AccessPathWithCycles
 
-        val facts = initialFacts.getOrPut(fact.mark, fact.ap.base)
+        val facts = initialFacts.getOrPut(factAp.base)
         facts.addAnalyzedInitialFact(factAp.access, factAp.exclusions)
 
-        val abstractFacts = mutableListOf<Pair<Fact.InitialFact, Fact.FinalFact>>()
-        addAbstractInitialFact(facts, fact.mark, factAp.base, facts.allAddedFacts(), abstractFacts)
+        val abstractFacts = mutableListOf<Pair<InitialFactAp, FinalFactAp>>()
+        addAbstractInitialFact(facts, factAp.base, facts.allAddedFacts(), abstractFacts)
         return abstractFacts
     }
 
     private fun addAbstractInitialFact(
         facts: MethodSameBaseInitialFact,
-        concreteFactMark: TaintMark,
         concreteFactBase: AccessPathBase,
         concreteFactAccess: AccessCactusNode,
-        abstractFacts: MutableList<Pair<Fact.InitialFact, Fact.FinalFact>>
+        abstractFacts: MutableList<Pair<InitialFactAp, FinalFactAp>>
     ) {
         abstractAccessPath(facts.analyzed, concreteFactAccess, AccessPathWithCycles.AccessNode.Builder()) { builder, abstractExcludes ->
             val initialAbstractAccessNode = builder.build()
             val initialAbstractAp = AccessPathWithCycles(concreteFactBase, initialAbstractAccessNode, abstractExcludes)
-            val initialAbstractFact = Fact.InitialFact(concreteFactMark, initialAbstractAp)
 
             val apAccess = AccessCactusNode.createAbstractNodeFromAp(initialAbstractAccessNode)
             val ap = AccessCactus(concreteFactBase, apAccess, abstractExcludes)
-            val fact = Fact.FinalFact(concreteFactMark, ap)
 
             facts.addAnalyzedInitialFact(initialAbstractAccessNode, abstractExcludes)
-            abstractFacts.add(initialAbstractFact to fact)
+            abstractFacts.add(initialAbstractAp to ap)
         }
     }
 
@@ -118,12 +115,6 @@ class CactusInitialFactAbstraction: InitialFactAbstraction {
         currentAp.append(accessor, cycles)
         abstractAccessPath(node, addedNode, currentAp, createAbstractAp)
         currentAp.removeLast()
-    }
-
-    private class MethodInitialFacts(val facts: MutableMap<TaintMark, MethodSameMarkInitialFact>) {
-        fun getOrPut(mark: TaintMark, base: AccessPathBase): MethodSameBaseInitialFact = facts.getOrPut(mark) {
-            MethodSameMarkInitialFact(hashMapOf())
-        }.getOrPut(base)
     }
 
     private class MethodSameMarkInitialFact(val facts: MutableMap<AccessPathBase, MethodSameBaseInitialFact>) {

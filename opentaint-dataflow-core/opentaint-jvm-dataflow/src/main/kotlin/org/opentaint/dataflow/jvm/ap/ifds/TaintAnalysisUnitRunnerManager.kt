@@ -35,6 +35,8 @@ import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.jvm.ap.ifds.TaintSinkTracker.TaintVulnerability
 import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
+import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.jvm.ap.ifds.access.cactus.CactusApManager
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.taint.TaintVertex
@@ -77,9 +79,9 @@ class TaintAnalysisUnitRunnerManager(
             return methodStorage.zeroEdgesIterator()
         }
 
-        fun methodFactSummaries(methodEntryPoint: MethodEntryPoint, initialFact: Fact.FinalFact): Iterator<Edge.FactToFact> {
+        fun methodFactSummaries(methodEntryPoint: MethodEntryPoint, initialFactAp: FinalFactAp): Iterator<Edge.FactToFact> {
             val methodStorage = methodSummaryEdges(methodEntryPoint)
-            return methodStorage.factEdgesIterator(initialFact)
+            return methodStorage.factEdgesIterator(initialFactAp)
         }
 
         fun addSummaryEdges(initialStatement: MethodEntryPoint, edges: List<Edge>) {
@@ -87,12 +89,12 @@ class TaintAnalysisUnitRunnerManager(
             methodStorage.addEdges(edges)
         }
 
-        fun methodSinkRequirements(initialStatement: MethodEntryPoint, initialFact: Fact.FinalFact): Iterator<Fact.InitialFact> {
+        fun methodSinkRequirements(initialStatement: MethodEntryPoint, initialFactAp: FinalFactAp): Iterator<InitialFactAp> {
             val methodStorage = methodSummaryEdges(initialStatement)
-            return methodStorage.sinkRequirementIterator(initialFact)
+            return methodStorage.sinkRequirementIterator(initialFactAp)
         }
 
-        fun addSinkRequirement(initialStatement: MethodEntryPoint, requirement: Fact.InitialFact) {
+        fun addSinkRequirement(initialStatement: MethodEntryPoint, requirement: InitialFactAp) {
             val methodStorage = methodSummaryEdges(initialStatement)
             methodStorage.addSinkRequirement(requirement)
         }
@@ -179,7 +181,6 @@ class TaintAnalysisUnitRunnerManager(
 
             return baseRules
         }
-
     }
 
     private val runnerForUnit = ConcurrentHashMap<UnitType, TaintAnalysisUnitRunner>()
@@ -227,10 +228,9 @@ class TaintAnalysisUnitRunnerManager(
         vulnerability: TaintVulnerability
     ): OldTaintVulnerability<JIRInst> = with(vulnerability) {
         val stubAp = OldAccessPath(JIRThis(graph.cp.objectType), emptyList())
-        val convertedFact = when(val edgeFact = fact){
-            Fact.Zero -> TaintZeroFact
-            is Fact.InitialFact -> Tainted(stubAp, edgeFact.mark)
-            is Fact.FinalFact -> Tainted(stubAp, edgeFact.mark)
+        val convertedFact = when(vulnerability) {
+            is TaintSinkTracker.NormalVulnerability -> Tainted(stubAp, TaintMark("Unknown"))
+            is TaintSinkTracker.UnconditionalVulnerability -> TaintZeroFact
         }
 
         return OldTaintVulnerability(
@@ -343,10 +343,10 @@ class TaintAnalysisUnitRunnerManager(
         runner.submitExternalInitialZeroFact(methodEntryPoint)
     }
 
-    fun handleCrossUnitFactCall(methodEntryPoint: MethodEntryPoint, methodFact: Fact.FinalFact) {
+    fun handleCrossUnitFactCall(methodEntryPoint: MethodEntryPoint, methodFactAp: FinalFactAp) {
         val unit = unitResolver.resolve(methodEntryPoint.method)
         val runner = getOrSpawnUnitRunner(unit) ?: return
-        runner.submitExternalInitialFact(methodEntryPoint, methodFact)
+        runner.submitExternalInitialFact(methodEntryPoint, methodFactAp)
     }
 
     fun newSummaryEdges(methodEntryPoint: MethodEntryPoint, edges: List<Edge>) {
@@ -357,7 +357,7 @@ class TaintAnalysisUnitRunnerManager(
         storage.addSummaryEdges(methodEntryPoint, edges)
     }
 
-    fun newSinkRequirement(methodEntryPoint: MethodEntryPoint, requirement: Fact.InitialFact) {
+    fun newSinkRequirement(methodEntryPoint: MethodEntryPoint, requirement: InitialFactAp) {
         val unit = unitResolver.resolve(methodEntryPoint.method)
         getOrSpawnUnitRunner(unit) ?: return
 
@@ -384,20 +384,20 @@ class TaintAnalysisUnitRunnerManager(
         return storage.methodZeroSummaries(methodEntryPoint)
     }
 
-    fun findFactSummaryEdges(methodEntryPoint: MethodEntryPoint, initialFact: Fact.FinalFact): Iterator<Edge.FactToFact> {
+    fun findFactSummaryEdges(methodEntryPoint: MethodEntryPoint, initialFactAp: FinalFactAp): Iterator<Edge.FactToFact> {
         val unit = unitResolver.resolve(methodEntryPoint.method)
         getOrSpawnUnitRunner(unit) ?: return emptyList<Edge.FactToFact>().iterator()
 
         val storage = unitStorage.getValue(unit)
-        return storage.methodFactSummaries(methodEntryPoint, initialFact)
+        return storage.methodFactSummaries(methodEntryPoint, initialFactAp)
     }
 
-    fun findSinkRequirements(methodEntryPoint: MethodEntryPoint, initialFact: Fact.FinalFact): Iterator<Fact.InitialFact> {
+    fun findSinkRequirements(methodEntryPoint: MethodEntryPoint, initialFactAp: FinalFactAp): Iterator<InitialFactAp> {
         val unit = unitResolver.resolve(methodEntryPoint.method)
-        getOrSpawnUnitRunner(unit) ?: return emptyList<Fact.InitialFact>().iterator()
+        getOrSpawnUnitRunner(unit) ?: return emptyList<InitialFactAp>().iterator()
 
         val storage = unitStorage.getValue(unit)
-        return storage.methodSinkRequirements(methodEntryPoint, initialFact)
+        return storage.methodSinkRequirements(methodEntryPoint, initialFactAp)
     }
 
     @OptIn(ExperimentalSerializationApi::class)

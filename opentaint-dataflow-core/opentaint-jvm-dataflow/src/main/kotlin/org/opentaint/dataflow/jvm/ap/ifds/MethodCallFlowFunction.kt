@@ -24,6 +24,8 @@ import org.opentaint.dataflow.ifds.maybeFlatMap
 import org.opentaint.dataflow.ifds.merge
 import org.opentaint.dataflow.ifds.onSome
 import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
+import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.jvm.util.JIRTraits
 
 class MethodCallFlowFunction(
@@ -43,19 +45,19 @@ class MethodCallFlowFunction(
 
     object CallToStartZeroFact : ZeroCallFact
 
-    data class CallToReturnFFact(val initialFact: Fact.InitialFact, val fact: Fact.FinalFact) : FactCallFact
+    data class CallToReturnFFact(val initialFactAp: InitialFactAp, val factAp: FinalFactAp) : FactCallFact
 
     data class CallToStartFFact(
-        val initialFact: Fact.InitialFact,
-        val callerFact: Fact.FinalFact,
+        val initialFactAp: InitialFactAp,
+        val callerFactAp: FinalFactAp,
         val startFactBase: AccessPathBase
     ) : FactCallFact
 
-    data class CallToReturnZFact(val fact: Fact.FinalFact) : ZeroCallFact
+    data class CallToReturnZFact(val factAp: FinalFactAp) : ZeroCallFact
 
-    data class CallToStartZFact(val callerFact: Fact.FinalFact, val startFactBase: AccessPathBase) : ZeroCallFact
+    data class CallToStartZFact(val callerFactAp: FinalFactAp, val startFactBase: AccessPathBase) : ZeroCallFact
 
-    data class SinkRequirement(val initialFact: Fact.InitialFact) : FactCallFact
+    data class SinkRequirement(val initialFactAp: InitialFactAp) : FactCallFact
 
     private val traits by lazy {
         JIRTraits(statement.method.enclosingClass.classpath)
@@ -75,7 +77,7 @@ class MethodCallFlowFunction(
                 CallPositionToAccessPathResolver(callExpr, returnValue)
             )
         ).onSome { facts ->
-            facts.mapTo(this) { CallToReturnZFact(fact = it) }
+            facts.mapTo(this) { CallToReturnZFact(factAp = it) }
 
             // Skip method invocation
             return@buildSet
@@ -92,42 +94,42 @@ class MethodCallFlowFunction(
 
         sinkRules(config, callExpr.method.method)
             .filter { it.condition.accept(conditionEvaluator) }
-            .forEach { sinkTracker.addVulnerability(Fact.Zero, statement, it) }
+            .forEach { sinkTracker.addUnconditionalVulnerability(statement, it) }
     }
 
-    fun propagateZeroToFact(currentFact: Fact.FinalFact) = buildSet<ZeroCallFact> {
+    fun propagateZeroToFact(currentFactAp: FinalFactAp) = buildSet<ZeroCallFact> {
         propagateFact(
-            fact = currentFact,
+            factAp = currentFactAp,
             addSinkRequirement = { factReader ->
                 check(!factReader.hasRefinement) { "Can't refine Zero fact" }
             },
-            addCallToReturn = { factReader, fact ->
+            addCallToReturn = { factReader, factAp ->
                 check(!factReader.hasRefinement) { "Can't refine Zero fact" }
-                this += CallToReturnZFact(fact)
+                this += CallToReturnZFact(factAp)
             },
-            addCallToStart = { factReader, callerFact, startFactBase ->
+            addCallToStart = { factReader, callerFactAp, startFactBase ->
                 check(!factReader.hasRefinement) { "Can't refine Zero fact" }
-                this += CallToStartZFact(callerFact, startFactBase)
+                this += CallToStartZFact(callerFactAp, startFactBase)
             }
         )
     }
 
     fun propagateFactToFact(
-        initialFact: Fact.InitialFact,
-        currentFact: Fact.FinalFact
+        initialFactAp: InitialFactAp,
+        currentFactAp: FinalFactAp
     ) = buildSet<FactCallFact> {
         propagateFact(
-            fact = currentFact,
+            factAp = currentFactAp,
             addSinkRequirement = { factReader ->
-                this += SinkRequirement(factReader.refineFact(initialFact))
+                this += SinkRequirement(factReader.refineFact(initialFactAp))
             },
-            addCallToReturn = { factReader, fact ->
-                this += CallToReturnFFact(factReader.refineFact(initialFact), factReader.refineFact(fact))
+            addCallToReturn = { factReader, factAp ->
+                this += CallToReturnFFact(factReader.refineFact(initialFactAp), factReader.refineFact(factAp))
             },
-            addCallToStart = { factReader, callerFact, startFactBase ->
+            addCallToStart = { factReader, callerFactAp, startFactBase ->
                 this += CallToStartFFact(
-                    factReader.refineFact(initialFact),
-                    factReader.refineFact(callerFact),
+                    factReader.refineFact(initialFactAp),
+                    factReader.refineFact(callerFactAp),
                     startFactBase
                 )
             }
@@ -135,12 +137,12 @@ class MethodCallFlowFunction(
     }
 
     private fun propagateFact(
-        fact: Fact.FinalFact,
+        factAp: FinalFactAp,
         addSinkRequirement: (FactReader) -> Unit,
-        addCallToReturn: (FactReader, Fact.FinalFact) -> Unit,
-        addCallToStart: (factReader: FactReader, callerFact: Fact.FinalFact, startFactBase: AccessPathBase) -> Unit,
+        addCallToReturn: (FactReader, FinalFactAp) -> Unit,
+        addCallToStart: (factReader: FactReader, callerFact: FinalFactAp, startFactBase: AccessPathBase) -> Unit,
     ) {
-        val factReader = FactReader(fact)
+        val factReader = FactReader(factAp)
         applyTaintedFactSinkRules(factReader)
 
         val apResolver = CallPositionToAccessPathResolver(callExpr, returnValue)
@@ -173,17 +175,17 @@ class MethodCallFlowFunction(
             return
         }
 
-        propagateFact(factReader, fact, addCallToReturn, addCallToStart)
+        propagateFact(factReader, factAp, addCallToReturn, addCallToStart)
     }
 
     private fun propagateFact(
         factReader: FactReader,
-        fact: Fact.FinalFact,
-        addCallToReturn: (FactReader, Fact.FinalFact) -> Unit,
-        addCallToStart: (factReader: FactReader, callerFact: Fact.FinalFact, startFactBase: AccessPathBase) -> Unit,
+        factAp: FinalFactAp,
+        addCallToReturn: (FactReader, FinalFactAp) -> Unit,
+        addCallToStart: (factReader: FactReader, callerFactAp: FinalFactAp, startFactBase: AccessPathBase) -> Unit,
     ) {
-        if (!factCanBeModifiedByMethodCall(returnValue, callExpr, fact)) {
-            addCallToReturn(factReader, fact)
+        if (!factCanBeModifiedByMethodCall(returnValue, callExpr, factAp)) {
+            addCallToReturn(factReader, factAp)
             return
         }
 
@@ -191,10 +193,10 @@ class MethodCallFlowFunction(
 
         // FIXME: adhoc for constructors:
         if (method.isConstructor) {
-            addCallToReturn(factReader, fact)
+            addCallToReturn(factReader, factAp)
         }
 
-        mapMethodCallToStartFlowFact(method, callExpr, fact, factTypeChecker) { callerFact, startFactBase ->
+        mapMethodCallToStartFlowFact(method, callExpr, factAp, factTypeChecker) { callerFact, startFactBase ->
             addCallToStart(factReader, callerFact, startFactBase)
         }
     }
@@ -209,7 +211,7 @@ class MethodCallFlowFunction(
 
         for (rule in sinkRules(config, callExpr.method.method)) {
             if (conditionEvaluator.evalWithAssumptionsCheck(rule.condition)) {
-                sinkTracker.addVulnerability(factReader.fact, statement, rule)
+                sinkTracker.addNormalVulnerability(factReader.factAp, statement, rule)
                 continue
             }
 
@@ -225,7 +227,7 @@ class MethodCallFlowFunction(
                 if (!resultWithAssumption.result) continue
 
                 sinkTracker.addVulnerabilityWithAssumption(
-                    factReader.fact, statement, rule, resultWithAssumption.assumptions
+                    factReader.factAp, statement, rule, resultWithAssumption.assumptions
                 )
             }
         }
@@ -276,7 +278,7 @@ class MethodCallFlowFunction(
             taintActionEvaluator: TaintSourceActionEvaluator,
             condition: (T) -> Condition,
             actionsAfter: (T) -> List<Action>
-        ): Maybe<List<Fact.FinalFact>> =
+        ): Maybe<List<FinalFactAp>> =
             config.rulesForMethod(method)
                 .filterIsInstance<T>()
                 .filter { condition(it).accept(conditionEvaluator) }
@@ -289,7 +291,7 @@ class MethodCallFlowFunction(
             method: JIRMethod,
             conditionEvaluator: ConditionVisitor<Boolean>,
             taintActionEvaluator: TaintPassActionEvaluator
-        ): Maybe<List<Fact.FinalFact>> =
+        ): Maybe<List<FinalFactAp>> =
             config.rulesForMethod(method)
                 .filterIsInstance<TaintPassThrough>()
                 .filter { it.condition.accept(conditionEvaluator) }
@@ -309,7 +311,7 @@ class MethodCallFlowFunction(
             method: JIRMethod,
             conditionEvaluator: ConditionVisitor<Boolean>,
             taintActionEvaluator: TaintPassActionEvaluator
-        ): Maybe<List<Fact.FinalFact>> =
+        ): Maybe<List<FinalFactAp>> =
             config.rulesForMethod(method)
                 .filterIsInstance<TaintCleaner>()
                 .filter { it.condition.accept(conditionEvaluator) }

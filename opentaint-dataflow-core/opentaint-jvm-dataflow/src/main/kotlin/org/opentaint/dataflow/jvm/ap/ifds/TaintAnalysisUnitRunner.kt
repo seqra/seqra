@@ -9,8 +9,9 @@ import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.findMethodOrNull
 import org.opentaint.dataflow.ifds.UnitType
-import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.rebase
 import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
+import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.jvm.util.concurrentReadSafeForEach
 import java.util.concurrent.atomic.LongAdder
@@ -73,8 +74,8 @@ class TaintAnalysisUnitRunner(
         addUnprocessedEvent(ExternalInputFact.InputZero(methodEntryPoint))
     }
 
-    fun submitExternalInitialFact(methodEntryPoint: MethodEntryPoint, fact: Fact.FinalFact) {
-        addUnprocessedEvent(ExternalInputFact.InputFact(methodEntryPoint, fact))
+    fun submitExternalInitialFact(methodEntryPoint: MethodEntryPoint, factAp: FinalFactAp) {
+        addUnprocessedEvent(ExternalInputFact.InputFact(methodEntryPoint, factAp))
     }
 
     sealed interface ExternalInputFact {
@@ -82,7 +83,7 @@ class TaintAnalysisUnitRunner(
 
         data class InputZero(override val methodEntryPoint: MethodEntryPoint) : ExternalInputFact
 
-        data class InputFact(override val methodEntryPoint: MethodEntryPoint, val fact: Fact.FinalFact) : ExternalInputFact
+        data class InputFact(override val methodEntryPoint: MethodEntryPoint, val factAp: FinalFactAp) : ExternalInputFact
     }
 
     private suspend fun tabulationAlgorithm() = coroutineScope {
@@ -146,7 +147,7 @@ class TaintAnalysisUnitRunner(
 
     private fun handleNewInputFact(event: ExternalInputFact) {
         when (event) {
-            is ExternalInputFact.InputFact -> submitMethodInitialFact(event.methodEntryPoint, event.fact)
+            is ExternalInputFact.InputFact -> submitMethodInitialFact(event.methodEntryPoint, event.factAp)
             is ExternalInputFact.InputZero -> submitMethodInitialZeroFact(event.methodEntryPoint)
         }
     }
@@ -158,11 +159,11 @@ class TaintAnalysisUnitRunner(
         methodRunner.getAnalyzer(methodEntryPoint).addInitialZeroFact()
     }
 
-    private fun submitMethodInitialFact(methodEntryPoint: MethodEntryPoint, fact: Fact.FinalFact) {
+    private fun submitMethodInitialFact(methodEntryPoint: MethodEntryPoint, factAp: FinalFactAp) {
         val methodRunner = methodAnalyzers(methodEntryPoint)
         methodRunner.add(this, methodEntryPoint)
 
-        methodRunner.getAnalyzer(methodEntryPoint).addInitialFact(fact)
+        methodRunner.getAnalyzer(methodEntryPoint).addInitialFact(factAp)
     }
 
     private fun methodAnalyzers(methodEntryPoint: MethodEntryPoint): MethodAnalyzerStorage =
@@ -210,8 +211,8 @@ class TaintAnalysisUnitRunner(
     )  = subscribeOnMethodSummaries(
         methodEntryPoint = methodEntryPoint,
         subscribe = { subscribeOnMethodSummary(methodEntryPoint, methodFactBase, edge) },
-        submitThisUnitFact = { submitMethodInitialFact(methodEntryPoint, edge.fact.rebase(methodFactBase)) },
-        submitCrossUnitFact = { handleCrossUnitFactCall(methodEntryPoint, edge.fact.rebase(methodFactBase)) }
+        submitThisUnitFact = { submitMethodInitialFact(methodEntryPoint, edge.factAp.rebase(methodFactBase)) },
+        submitCrossUnitFact = { handleCrossUnitFactCall(methodEntryPoint, edge.factAp.rebase(methodFactBase)) }
     )
 
     override fun subscribeOnMethodSummaries(
@@ -221,8 +222,8 @@ class TaintAnalysisUnitRunner(
     ) = subscribeOnMethodSummaries(
         methodEntryPoint = methodEntryPoint,
         subscribe = { subscribeOnMethodSummary(methodEntryPoint, methodFactBase, edge) },
-        submitThisUnitFact = { submitMethodInitialFact(methodEntryPoint, edge.fact.rebase(methodFactBase)) },
-        submitCrossUnitFact = { handleCrossUnitFactCall(methodEntryPoint, edge.fact.rebase(methodFactBase)) }
+        submitThisUnitFact = { submitMethodInitialFact(methodEntryPoint, edge.factAp.rebase(methodFactBase)) },
+        submitCrossUnitFact = { handleCrossUnitFactCall(methodEntryPoint, edge.factAp.rebase(methodFactBase)) }
     )
 
     private inline fun subscribeOnMethodSummaries(
@@ -251,7 +252,7 @@ class TaintAnalysisUnitRunner(
         manager.newSummaryEdges(methodEntryPoint, edges)
     }
 
-    override fun addNewSinkRequirement(methodEntryPoint: MethodEntryPoint, requirement: Fact.InitialFact) {
+    override fun addNewSinkRequirement(methodEntryPoint: MethodEntryPoint, requirement: InitialFactAp) {
         manager.newSinkRequirement(methodEntryPoint, requirement)
     }
 

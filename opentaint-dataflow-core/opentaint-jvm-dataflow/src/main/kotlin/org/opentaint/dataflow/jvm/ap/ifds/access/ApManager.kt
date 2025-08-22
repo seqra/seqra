@@ -2,10 +2,8 @@ package org.opentaint.dataflow.jvm.ap.ifds.access
 
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.dataflow.jvm.ap.ifds.AccessPathBase
-import org.opentaint.dataflow.jvm.ap.ifds.Accessor
 import org.opentaint.dataflow.jvm.ap.ifds.Edge
 import org.opentaint.dataflow.jvm.ap.ifds.ExclusionSet
-import org.opentaint.dataflow.jvm.ap.ifds.Fact
 import org.opentaint.dataflow.jvm.ap.ifds.FactToFactEdgeBuilder
 import org.opentaint.dataflow.jvm.ap.ifds.SummaryEdgeSubscriptionManager.FactEdgeSummarySubscription
 import org.opentaint.dataflow.jvm.ap.ifds.SummaryEdgeSubscriptionManager.ZeroEdgeSummarySubscription
@@ -31,8 +29,8 @@ interface ApManager {
 }
 
 interface InitialFactAbstraction {
-    fun addAbstractedInitialFact(fact: Fact.FinalFact): List<Pair<Fact.InitialFact, Fact.FinalFact>>
-    fun registerNewInitialFact(fact: Fact.InitialFact): List<Pair<Fact.InitialFact, Fact.FinalFact>>
+    fun addAbstractedInitialFact(factAp: FinalFactAp): List<Pair<InitialFactAp, FinalFactAp>>
+    fun registerNewInitialFact(factAp: InitialFactAp): List<Pair<InitialFactAp, FinalFactAp>>
 }
 
 interface MethodAccessPathSubscription {

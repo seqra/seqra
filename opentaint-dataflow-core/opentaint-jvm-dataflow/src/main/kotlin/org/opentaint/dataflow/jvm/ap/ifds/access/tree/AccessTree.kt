@@ -7,6 +7,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.jvm.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.jvm.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.jvm.ap.ifds.FinalAccessor
+import org.opentaint.dataflow.jvm.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.jvm.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
@@ -137,9 +138,8 @@ class AccessTree(
     class AccessNode private constructor(
         val isAbstract: Boolean,
         val isFinal: Boolean,
-        val elementAccess: AccessNode?,
-        val fields: Array<FieldAccessor>?,
-        val fieldNodes: Array<AccessNode>?
+        val accessors: Array<Accessor>?,
+        val accessorNodes: Array<AccessNode>?,
     ) {
         private val hash: Int
         val size: Int
@@ -148,19 +148,17 @@ class AccessTree(
             var hash = 0
             if (isAbstract) hash += 1
             if (isFinal) hash += 2
-            elementAccess?.let { hash += it.hash shl 2 }
-            if (fieldNodes != null) {
-                val fieldHash = fieldNodes.sumOf { it.hash }
-                hash += fieldHash shl 5
+            if (accessorNodes != null) {
+                val accessorsHash = accessorNodes.sumOf { it.hash }
+                hash += accessorsHash shl 5
             }
             this.hash = hash
         }
 
         init {
             var size = 1
-            elementAccess?.let { size += it.size }
-            if (fieldNodes != null) {
-                size += fieldNodes.sumOf { it.size }
+            if (accessorNodes != null) {
+                size += accessorNodes.sumOf { it.size }
             }
             this.size = size
         }
@@ -174,10 +172,8 @@ class AccessTree(
             if (hash != other.hash) return false
             if (isAbstract != other.isAbstract || isFinal != other.isFinal) return false
 
-            if (elementAccess != other.elementAccess) return false
-
-            if (!fields.contentEquals(other.fields)) return false
-            return fieldNodes.contentEquals(other.fieldNodes)
+            if (!accessors.contentEquals(other.accessors)) return false
+            return accessorNodes.contentEquals(other.accessorNodes)
         }
 
         override fun toString(): String = buildString { print(this) }
@@ -193,17 +189,15 @@ class AccessTree(
                 }
             }
 
-            elementAccess?.print(builder, prefix + ElementAccessor.toSuffix())
-
-            forEachField { field, child ->
+            forEachAccessor { field, child ->
                 child.print(builder, prefix + field.toSuffix())
             }
         }
 
-        inline fun forEachField(body: (FieldAccessor, AccessNode) -> Unit) {
-            if (fields != null) {
-                for (i in fields.indices) {
-                    body(fields[i], fieldNodes!![i])
+        inline fun forEachAccessor(body: (Accessor, AccessNode) -> Unit) {
+            if (accessors != null) {
+                for (i in accessors.indices) {
+                    body(accessors[i], accessorNodes!![i])
                 }
             }
         }
@@ -223,13 +217,7 @@ class AccessTree(
                 body(currentPath)
             }
 
-            if (elementAccess != null) {
-                currentPath.add(ElementAccessor)
-                elementAccess.forEachPath(currentPath, body)
-                currentPath.removeLast()
-            }
-
-            forEachField { field, node ->
+            forEachAccessor { field, node ->
                 currentPath.add(field)
                 node.forEachPath(currentPath, body)
                 currentPath.removeLast()
@@ -238,56 +226,60 @@ class AccessTree(
 
         val isEmpty: Boolean
             get() =
-                !isAbstract && !isFinal && elementAccess == null && fields == null
+                !isAbstract && !isFinal && accessors == null
 
-        private fun fieldIndex(field: FieldAccessor): Int {
-            if (fields == null) return -1
-            return fields.binarySearch(field)
+        private fun accessorIndex(accessor: Accessor): Int {
+            if (accessors == null) return -1
+            return accessors.binarySearch(accessor)
         }
 
-        private fun getFieldNode(field: FieldAccessor): AccessNode? =
-            fieldNodes?.getOrNull(fieldIndex(field))
+        private fun getNodeByAccessor(accessor: Accessor): AccessNode? =
+            accessorNodes?.getOrNull(accessorIndex(accessor))
 
         fun contains(accessor: Accessor): Boolean = when (accessor) {
             FinalAccessor -> isFinal
-            ElementAccessor -> elementAccess != null
-            is FieldAccessor -> fieldIndex(accessor) >= 0
+            else -> accessorIndex(accessor) >= 0
         }
 
         fun getChild(accessor: Accessor): AccessNode? = when (accessor) {
-            FinalAccessor -> error("Can't get final child")
-            ElementAccessor -> elementAccess
-            is FieldAccessor -> getFieldNode(accessor)
+            FinalAccessor -> finalNode.takeIf { this.isFinal }
+            else -> getNodeByAccessor(accessor)
         }
 
         fun addParent(accessor: Accessor): AccessNode = when (accessor) {
             FinalAccessor -> error("Final parent")
             ElementAccessor -> create(elementAccess = limitElementAccess(limit = SUBSEQUENT_ARRAY_ELEMENTS_LIMIT))
             is FieldAccessor -> addParentFieldAccess(accessor)
+            is TaintMarkAccessor -> {
+                check(this == finalNode || this == abstractNode || this == abstractFinalNode)
+                create(accessor, this)
+            }
         }
 
         fun removeAbstraction(): AccessNode =
-            create(isAbstract = false, isFinal, elementAccess, fields, fieldNodes)
+            create(isAbstract = false, isFinal, accessors, accessorNodes)
 
         private fun limitElementAccess(limit: Int): AccessNode {
-            if (elementAccess == null) return this
-
             if (limit > 0) {
-                val limitedChild = elementAccess.limitElementAccess(limit - 1)
-                if (limitedChild === elementAccess) return this
-                return create(isAbstract, isFinal, limitedChild, fields, fieldNodes)
+                return transformAccessors { accessor, accessNode ->
+                    if (accessor is ElementAccessor) {
+                        accessNode.limitElementAccess(limit - 1)
+                    } else {
+                        accessNode
+                    }
+                }
             }
 
             return collapseElementAccess().also {
-                check(it.elementAccess == null) { "Array element limit invariant failure" }
+                check(it.getNodeByAccessor(ElementAccessor) == null) { "Array element limit invariant failure" }
             }
         }
 
         private fun collapseElementAccess(): AccessNode {
-            if (elementAccess == null) return this
+            val elementAccess = getNodeByAccessor(ElementAccessor) ?: return this
 
             val collapsedElementAccess = elementAccess.collapseElementAccess()
-            val result = create(isAbstract, isFinal, elementAccess = null, fields, fieldNodes)
+            val result = removeSingleAccessor(ElementAccessor)
             return result.mergeAdd(collapsedElementAccess)
         }
 
@@ -301,98 +293,72 @@ class AccessTree(
                 emptyNode
             }
 
-            return resultNode.bulkMergeAddFields(filteredNodes)
+            return resultNode.bulkMergeAddAccessors(filteredNodes)
                 .also { check(!it.isEmpty) { "Empty node after field normalization" } }
         }
 
         private fun limitFieldAccess(
             newRootFieldClassName: String,
-            filteredNodes: MutableList<Pair<FieldAccessor, AccessNode>>
+            filteredNodes: MutableList<in Pair<FieldAccessor, AccessNode>>
         ): AccessNode? {
-            val elementAccess = elementAccess?.limitFieldAccess(newRootFieldClassName, filteredNodes)
-
-            val transformedFields = transformFields { field, node ->
-                if (field.className == newRootFieldClassName) {
-                    filteredNodes += field to node
+            val limitedNode = transformAccessors { accessor, node ->
+                if (accessor is FieldAccessor && accessor.className == newRootFieldClassName) {
+                    filteredNodes += accessor to node
                     null
                 } else {
                     node.limitFieldAccess(newRootFieldClassName, filteredNodes)
                 }
             }
 
-            if (elementAccess === this.elementAccess && transformedFields == null) {
-                return this
-            }
-
-            val fields = transformedFields?.first ?: fields
-            val fieldNodes = transformedFields?.second ?: fieldNodes
-
-            val limitedNode = create(isAbstract, isFinal, elementAccess, fields, fieldNodes)
             return limitedNode.takeIf { !it.isEmpty }
         }
 
         fun clearChild(accessor: Accessor): AccessNode = when (accessor) {
-            FinalAccessor -> create(isAbstract, isFinal = false, elementAccess, fields, fieldNodes)
-            ElementAccessor -> create(isAbstract, isFinal, elementAccess = null, fields, fieldNodes)
-            is FieldAccessor -> removeSingleField(accessor)
-        }
-
-        fun filterElementAccess(filter: (AccessNode) -> AccessNode?): AccessNode {
-            if (elementAccess == null) return this
-
-            val filtered = filter(elementAccess)
-
-            if (filtered === elementAccess) return this
-            return create(isAbstract, isFinal, elementAccess = filtered, fields, fieldNodes)
-        }
-
-        fun filterFields(filter: (FieldAccessor, AccessNode) -> AccessNode?): AccessNode {
-            val transformedFields = transformFields { field, node -> filter(field, node) } ?: return this
-            return create(isAbstract, isFinal, elementAccess, transformedFields.first, transformedFields.second)
+            FinalAccessor -> create(isAbstract, isFinal = false, accessors, accessorNodes)
+            else -> removeSingleAccessor(accessor)
         }
 
         fun filter(exclusion: ExclusionSet.Concrete): AccessNode {
             val isFinal = this.isFinal && FinalAccessor !in exclusion
-            val elementAccess = elementAccess?.takeIf { ElementAccessor !in exclusion }
 
-            val transformedFields = transformFields { field, node ->
-                node.takeIf { field !in exclusion }
+            val transformedAccessors = transformAccessors(accessors, accessorNodes) { accessor, node ->
+                node.takeIf { accessor !in exclusion }
             }
 
-            if (isFinal == this.isFinal && elementAccess === this.elementAccess && transformedFields == null) {
+            if (isFinal == this.isFinal && transformedAccessors == null) {
                 return this
             }
 
-            val fields = transformedFields?.first ?: fields
-            val fieldNodes = transformedFields?.second ?: fieldNodes
+            val accessors = transformedAccessors?.first ?: accessors
+            val accessorNodes = transformedAccessors?.second ?: accessorNodes
 
-            return create(isAbstract, isFinal, elementAccess, fields, fieldNodes)
+            return create(isAbstract, isFinal, accessors, accessorNodes)
         }
 
-        private fun bulkMergeAddFields(fields: List<Pair<FieldAccessor, AccessNode>>): AccessNode {
-            if (fields.isEmpty()) return this
+        private fun bulkMergeAddAccessors(accessors: List<Pair<Accessor, AccessNode>>): AccessNode {
+            if (accessors.isEmpty()) return this
 
-            val uniqueFields = mutableListOf<Pair<FieldAccessor, AccessNode>>()
-            val groupedUniqueFields = fields.groupByTo(hashMapOf(), { it.first }, { it.second })
+            val uniqueAccessors = mutableListOf<Pair<Accessor, AccessNode>>()
+            val groupedUniqueAccessors = accessors.groupByTo(hashMapOf(), { it.first }, { it.second })
 
-            for ((field, nodes) in groupedUniqueFields) {
+            for ((accessor, nodes) in groupedUniqueAccessors) {
                 val mergedNodes = nodes.reduce { acc, node -> acc.mergeAdd(node) }
-                uniqueFields.add(field to mergedNodes)
+                uniqueAccessors.add(accessor to mergedNodes)
             }
 
-            uniqueFields.sortBy { it.first }
-            val addedFieldAccessors = Array(uniqueFields.size) { uniqueFields[it].first }
-            val addedFieldNodes = Array(uniqueFields.size) { uniqueFields[it].second }
+            uniqueAccessors.sortBy { it.first }
+            val addedAccessors = Array(uniqueAccessors.size) { uniqueAccessors[it].first }
+            val addedNodes = Array(uniqueAccessors.size) { uniqueAccessors[it].second }
 
-            val mergedFields = mergeFields(
-                addedFieldAccessors, addedFieldNodes, onOtherNode = { _, _ -> }
+            val mergedAccessors = mergeAccessors(
+                addedAccessors, addedNodes, onOtherNode = { _, _ -> }
             ) { _, thisNode, otherNode ->
                 thisNode.mergeAdd(otherNode)
             }
 
-            if (mergedFields == null) return this
+            if (mergedAccessors == null) return this
 
-            return create(isAbstract, isFinal, elementAccess, mergedFields.first, mergedFields.second)
+            return create(isAbstract, isFinal, mergedAccessors.first, mergedAccessors.second)
         }
 
         fun mergeAdd(other: AccessNode): AccessNode {
@@ -402,30 +368,23 @@ class AccessTree(
 
             val isFinal = this.isFinal || other.isFinal
 
-            val elementAccess = when {
-                this.elementAccess == null -> other.elementAccess
-                other.elementAccess == null -> this.elementAccess
-                else -> this.elementAccess.mergeAdd(other.elementAccess)
-            }
-
-            val mergedFields = mergeFields(
-                other.fields, other.fieldNodes, onOtherNode = { _, _ -> }
+            val mergedAccessors = mergeAccessors(
+                other.accessors, other.accessorNodes, onOtherNode = { _, _ -> }
             ) { _, thisNode, otherNode ->
                 thisNode.mergeAdd(otherNode)
             }
-
             if (
                 isAbstract == this.isAbstract
                 && isFinal == this.isFinal
-                && elementAccess === this.elementAccess
-                && mergedFields == null
+                && mergedAccessors == null
             ) {
                 return this
             }
 
-            val fields = mergedFields?.first ?: fields
-            val fieldNodes = mergedFields?.second ?: fieldNodes
-            return create(isAbstract, isFinal, elementAccess, fields, fieldNodes)
+            val accessors = mergedAccessors?.first ?: accessors
+            val accessorNodes = mergedAccessors?.second ?: accessorNodes
+
+            return create(isAbstract, isFinal, accessors, accessorNodes)
         }
 
         fun mergeAddDelta(other: AccessNode): Pair<AccessNode, AccessNode?> {
@@ -437,27 +396,21 @@ class AccessTree(
             val isAbstract = this.isAbstract || other.isAbstract
             val isAbstractDelta = !this.isAbstract && other.isAbstract
 
-            val (elementAccess, elementAccessDelta) = when {
-                this.elementAccess == null -> other.elementAccess to other.elementAccess
-                other.elementAccess == null -> this.elementAccess to null
-                else -> this.elementAccess.mergeAddDelta(other.elementAccess)
-            }
+            val deltaAccessors = arrayListOf<Accessor>()
+            val deltaAccessorNodes = arrayListOf<AccessNode>()
 
-            val deltaFields = arrayListOf<FieldAccessor>()
-            val deltaFieldNodes = arrayListOf<AccessNode>()
-
-            val mergedFields = mergeFields(
-                other.fields, other.fieldNodes,
+            val mergedAccessors = mergeAccessors(
+                other.accessors, other.accessorNodes,
                 onOtherNode = { field, node ->
-                    deltaFields.add(field)
-                    deltaFieldNodes.add(node)
+                    deltaAccessors.add(field)
+                    deltaAccessorNodes.add(node)
                 }
             ) { field, thisNode, otherNode ->
                 val (addedNode, addedNodeDelta) = thisNode.mergeAddDelta(otherNode)
 
                 if (addedNodeDelta != null) {
-                    deltaFields.add(field)
-                    deltaFieldNodes.add(addedNodeDelta)
+                    deltaAccessors.add(field)
+                    deltaAccessorNodes.add(addedNodeDelta)
                 }
 
                 addedNode
@@ -466,36 +419,28 @@ class AccessTree(
             if (
                 isAbstract == this.isAbstract
                 && isFinal == this.isFinal
-                && elementAccess === this.elementAccess
-                && mergedFields == null
+                && mergedAccessors == null
             ) {
                 return this to null
             }
 
             val delta = create(
-                isAbstractDelta, isFinalDelta, elementAccessDelta,
-                deltaFields.toTypedArray(), deltaFieldNodes.toTypedArray()
+                isAbstractDelta, isFinalDelta,
+                deltaAccessors.toTypedArray(), deltaAccessorNodes.toTypedArray(),
             ).takeIf { !it.isEmpty }
 
-            val fields = mergedFields?.first ?: fields
-            val fieldNodes = mergedFields?.second ?: fieldNodes
-            return create(isAbstract, isFinal, elementAccess, fields, fieldNodes) to delta
+            val accessors = mergedAccessors?.first ?: accessors
+            val accessorNodes = mergedAccessors?.second ?: accessorNodes
+
+            return create(isAbstract, isFinal, accessors, accessorNodes) to delta
         }
 
         fun filterAccessNode(filter: FactTypeChecker.FactApFilter): AccessNode? {
-            var result = this
-            result = result.filterElementAccess { child ->
-                when (val status = filter.check(ElementAccessor)) {
-                    FactTypeChecker.FilterResult.Accept -> child
+            val result = transformAccessors { accessor, accessNode ->
+                when (val status = filter.check(accessor)) {
+                    FactTypeChecker.FilterResult.Accept -> accessNode
                     FactTypeChecker.FilterResult.Reject -> null
-                    is FactTypeChecker.FilterResult.FilterNext -> child.filterAccessNode(status.filter)
-                }
-            }
-            result = result.filterFields { field, child ->
-                when (val status = filter.check(field)) {
-                    FactTypeChecker.FilterResult.Accept -> child
-                    FactTypeChecker.FilterResult.Reject -> null
-                    is FactTypeChecker.FilterResult.FilterNext -> child.filterAccessNode(status.filter)
+                    is FactTypeChecker.FilterResult.FilterNext -> accessNode.filterAccessNode(status.filter)
                 }
             }
             return result.takeIf { !it.isEmpty }
@@ -518,37 +463,34 @@ class AccessTree(
                     ?.limitElementAccess(limit = subsequentArrayElementLimit)
             } else null
 
-            val elementAccess = this.elementAccess?.let {
-                path.add(ElementAccessor)
-                it.concatToLeafAbstractNodes(
-                    typeChecker, other, path, subsequentArrayElementLimit - 1
-                ).also {
-                    path.removeLast()
+            val nestedAccessors = mutableListOf<Pair<Accessor, AccessNode>>()
+
+            forEachAccessor { accessor, node ->
+                val filteredOther = if (accessor is FieldAccessor) {
+                    other?.limitFieldAccess(accessor.className, nestedAccessors)
+                } else {
+                    other
+                }
+
+                val newSubsequentArrayLimit = if (accessor is ElementAccessor) {
+                    subsequentArrayElementLimit - 1
+                } else {
+                    SUBSEQUENT_ARRAY_ELEMENTS_LIMIT
+                }
+
+                path.add(accessor)
+                val concatenatedNode = node.concatToLeafAbstractNodes(
+                    typeChecker, filteredOther, path, newSubsequentArrayLimit
+                )
+                path.removeLast()
+
+                if (concatenatedNode != null) {
+                    nestedAccessors.add(accessor to concatenatedNode)
                 }
             }
 
-            val nestedFields = mutableListOf<Pair<FieldAccessor, AccessNode>>()
-
-            val currentThisFields = mutableListOf<Pair<FieldAccessor, AccessNode>>()
-            forEachField { field, node -> currentThisFields.add(field to node) }
-            for ((fieldClassName, entries) in currentThisFields.groupBy { it.first.className }) {
-                // todo: check that filtered branches are applicable to any leaf
-                val filteredOther = other?.limitFieldAccess(fieldClassName, nestedFields)
-                for ((field, node) in entries) {
-                    path.add(field)
-                    val concatenatedNode = node.concatToLeafAbstractNodes(
-                        typeChecker, filteredOther, path, SUBSEQUENT_ARRAY_ELEMENTS_LIMIT
-                    )
-                    path.removeLast()
-
-                    if (concatenatedNode != null) {
-                        nestedFields.add(field to concatenatedNode)
-                    }
-                }
-            }
-
-            val resultNode = create(isAbstract = false, isFinal, elementAccess, fields = null, fieldNodes = null)
-                .bulkMergeAddFields(nestedFields)
+            val resultNode = create(isAbstract = false, isFinal, accessors = null, accessorNodes = null)
+                .bulkMergeAddAccessors(nestedAccessors)
 
             val concatenatedNode = concatNode?.let { resultNode.mergeAdd(it) } ?: resultNode
 
@@ -565,66 +507,74 @@ class AccessTree(
 
             return when (val accessor = accessors.next()) {
                 FinalAccessor -> if (isFinal) finalNode else null
-                ElementAccessor -> elementAccess?.filterStartsWith(accessors)?.let { create(elementAccess = it) }
-                is FieldAccessor -> getFieldNode(accessor)?.filterStartsWith(accessors)?.let { create(accessor, it) }
+                else -> getNodeByAccessor(accessor)?.filterStartsWith(accessors)?.let { create(accessor, it) }
             }
         }
 
-        private inline fun mergeFields(
-            otherFields: Array<FieldAccessor>?,
+        private inline fun mergeAccessors(
+            otherFields: Array<Accessor>?,
             otherNodesE: Array<AccessNode>?,
-            onOtherNode: (FieldAccessor, AccessNode) -> Unit,
-            merge: (FieldAccessor, AccessNode, AccessNode) -> AccessNode
-        ): Pair<Array<FieldAccessor>, Array<AccessNode>>? {
-            if (otherFields == null) return null
+            onOtherNode: (Accessor, AccessNode) -> Unit,
+            merge: (Accessor, AccessNode, AccessNode) -> AccessNode
+        ) = mergeAccessors(accessors, accessorNodes, otherFields, otherNodesE, onOtherNode, merge)
+
+        private inline fun mergeAccessors(
+            accessors: Array<Accessor>?,
+            nodes: Array<AccessNode>?,
+            otherAccessors: Array<Accessor>?,
+            otherNodesE: Array<AccessNode>?,
+            onOtherNode: (Accessor, AccessNode) -> Unit,
+            merge: (Accessor, AccessNode, AccessNode) -> AccessNode
+        ): Pair<Array<Accessor>, Array<AccessNode>>? {
+            if (otherAccessors == null) return null
             val otherNodes = otherNodesE!!
 
-            if (fields == null) {
-                for (i in otherFields.indices) {
-                    onOtherNode(otherFields[i], otherNodes[i])
+            if (accessors == null) {
+                for (i in otherAccessors.indices) {
+                    onOtherNode(otherAccessors[i], otherNodes[i])
                 }
 
-                return otherFields to otherNodes
+                return otherAccessors to otherNodes
             }
 
-            val thisFields = fields
-            val thisNodes = fieldNodes!!
+            val thisAccessors = accessors
+            val thisNodes = nodes!!
 
             var modified = false
-            var fieldsModified = false
+            var accessorsModified = false
 
             var writeIdx = 0
             var thisIdx = 0
             var otherIdx = 0
 
-            val mergedFields = arrayOfNulls<FieldAccessor>(thisFields.size + otherFields.size)
-            val mergedNodes = arrayOfNulls<AccessNode>(thisFields.size + otherFields.size)
+            val mergedAccessors = arrayOfNulls<Accessor>(thisAccessors.size + otherAccessors.size)
+            val mergedNodes = arrayOfNulls<AccessNode>(thisAccessors.size + otherAccessors.size)
 
             while (true) {
-                val thisField = thisFields.getOrNull(thisIdx)
-                val otherField = otherFields.getOrNull(otherIdx)
+                val thisAccessor = thisAccessors.getOrNull(thisIdx)
+                val otherAccessor = otherAccessors.getOrNull(otherIdx)
 
-                if (thisField == null && otherField == null) break
+                if (thisAccessor == null && otherAccessor == null) break
 
-                val fieldCmp = when {
-                    otherField == null -> -1 // thisField != null
-                    thisField == null -> 1 // otherField != null
-                    else -> thisField.compareTo(otherField)
+                val accessorsCmp = when {
+                    otherAccessor == null -> -1 // thisField != null
+                    thisAccessor == null -> 1 // otherField != null
+                    else -> thisAccessor.compareTo(otherAccessor)
                 }
 
-                if (fieldCmp < 0) {
-                    mergedFields[writeIdx] = thisField
+                if (accessorsCmp < 0) {
+                    mergedAccessors[writeIdx] = thisAccessor
                     mergedNodes[writeIdx] = thisNodes[thisIdx]
                     thisIdx++
                     writeIdx++
-                } else if (fieldCmp > 0) {
+                } else if (accessorsCmp > 0) {
                     val otherNode = otherNodes[otherIdx]
-                    onOtherNode(otherField!!, otherNode)
+                    onOtherNode(otherAccessor!!, otherNode)
 
                     modified = true
-                    fieldsModified = true
+                    accessorsModified = true
 
-                    mergedFields[writeIdx] = otherField
+                    mergedAccessors[writeIdx] = otherAccessor
                     mergedNodes[writeIdx] = otherNode
                     otherIdx++
                     writeIdx++
@@ -632,13 +582,13 @@ class AccessTree(
                     val thisNode = thisNodes[thisIdx]
                     val otherNode = otherNodes[otherIdx]
 
-                    val mergedNode = merge(thisField!!, thisNode, otherNode)
+                    val mergedNode = merge(thisAccessor!!, thisNode, otherNode)
                     if (mergedNode === thisNode) {
-                        mergedFields[writeIdx] = thisField
+                        mergedAccessors[writeIdx] = thisAccessor
                         mergedNodes[writeIdx] = thisNode
                     } else {
                         modified = true
-                        mergedFields[writeIdx] = thisField
+                        mergedAccessors[writeIdx] = thisAccessor
                         mergedNodes[writeIdx] = mergedNode
                     }
 
@@ -648,108 +598,19 @@ class AccessTree(
                 }
             }
 
-            return trimModifiedFields(modified, fieldsModified, writeIdx, fields, mergedFields, mergedNodes)
+            return trimModifiedAccessors(modified, accessorsModified, writeIdx, thisAccessors, mergedAccessors, mergedNodes)
         }
 
-        private inline fun transformFields(
-            transformer: (FieldAccessor, AccessNode) -> AccessNode?
-        ): Pair<Array<FieldAccessor>, Array<AccessNode>>? {
-            if (fields == null) return null
-            val nodes = fieldNodes!!
-
-            var modified = false
-            var fieldsModified = false
-
-            var writeIdx = 0
-            val transformedFields = arrayOfNulls<FieldAccessor>(fields.size)
-            val transformedNodes = arrayOfNulls<AccessNode>(fields.size)
-
-            for (i in fields.indices) {
-                val field = fields[i]
-                val node = nodes[i]
-
-                val transformedNode = transformer(field, node)
-                if (transformedNode === node) {
-                    transformedFields[writeIdx] = field
-                    transformedNodes[writeIdx] = node
-                    writeIdx++
-                } else {
-                    modified = true
-
-                    if (transformedNode == null) {
-                        fieldsModified = true
-                        continue
-                    }
-
-                    transformedFields[writeIdx] = field
-                    transformedNodes[writeIdx] = transformedNode
-                    writeIdx++
-                }
-            }
-
-            return trimModifiedFields(modified, fieldsModified, writeIdx, fields, transformedFields, transformedNodes)
+        private fun transformAccessors(
+            transformer: (Accessor, AccessNode) -> AccessNode?
+        ): AccessNode {
+            val newAccessors = transformAccessors(accessors, accessorNodes, transformer) ?: return this
+            return create(isAbstract, isFinal, newAccessors.first, newAccessors.second)
         }
 
-        private fun trimModifiedFields(
-            modified: Boolean,
-            fieldsModified: Boolean,
-            writeIdx: Int,
-            originalFields: Array<FieldAccessor>,
-            fields: Array<FieldAccessor?>,
-            nodes: Array<AccessNode?>
-        ): Pair<Array<FieldAccessor>, Array<AccessNode>>? {
-            if (!modified) return null
-
-            if (!fieldsModified) {
-                check(writeIdx == originalFields.size) { "Incorrect size" }
-
-                val trimmedNodes = if (writeIdx == nodes.size) {
-                    nodes
-                } else {
-                    nodes.copyOf(writeIdx)
-                }
-
-                @Suppress("UNCHECKED_CAST")
-                return originalFields to trimmedNodes as Array<AccessNode>
-            }
-
-            if (writeIdx != fields.size) {
-                val trimmedFields = fields.copyOf(writeIdx)
-                val trimmedNodes = nodes.copyOf(writeIdx)
-                @Suppress("UNCHECKED_CAST")
-                return trimmedFields as Array<FieldAccessor> to trimmedNodes as Array<AccessNode>
-            } else {
-                @Suppress("UNCHECKED_CAST")
-                return fields as Array<FieldAccessor> to nodes as Array<AccessNode>
-            }
-        }
-
-        private fun removeSingleField(field: FieldAccessor): AccessNode {
-            val fields = fields ?: return this
-            val nodes = fieldNodes!!
-
-            val fieldIdx = fields.binarySearch(field)
-            if (fieldIdx < 0) return this
-
-            val newFieldSize = fields.size - 1
-            if (newFieldSize == 0) {
-                return create(isAbstract, isFinal, elementAccess, fields = null, fieldNodes = null)
-            }
-
-            val newFields = arrayOfNulls<FieldAccessor>(newFieldSize)
-            val newNodes = arrayOfNulls<AccessNode>(newFieldSize)
-
-            fields.copyInto(newFields, endIndex = fieldIdx)
-            fields.copyInto(newFields, destinationOffset = fieldIdx, startIndex = fieldIdx + 1)
-
-            nodes.copyInto(newNodes, endIndex = fieldIdx)
-            nodes.copyInto(newNodes, destinationOffset = fieldIdx, startIndex = fieldIdx + 1)
-
-            @Suppress("UNCHECKED_CAST")
-            return create(
-                isAbstract, isFinal, elementAccess,
-                newFields as Array<FieldAccessor>, newNodes as Array<AccessNode>
-            )
+        private fun removeSingleAccessor(accessor: Accessor): AccessNode {
+            val newAccessors = removeSingleAccessor(accessor, accessors, accessorNodes) ?: return this
+            return create(isAbstract, isFinal, newAccessors.first, newAccessors.second)
         }
 
         companion object {
@@ -757,25 +618,134 @@ class AccessTree(
 
             private val emptyNode = AccessNode(
                 isAbstract = false, isFinal = false,
-                elementAccess = null, fields = null, fieldNodes = null
+                accessors = null, accessorNodes = null
             )
 
             private val abstractNode = AccessNode(
                 isAbstract = true, isFinal = false,
-                elementAccess = null, fields = null, fieldNodes = null
+                accessors = null, accessorNodes = null
             )
 
             private val finalNode = AccessNode(
                 isAbstract = false, isFinal = true,
-                elementAccess = null, fields = null, fieldNodes = null
+                accessors = null, accessorNodes = null
             )
 
             private val abstractFinalNode = AccessNode(
                 isAbstract = true, isFinal = true,
-                elementAccess = null, fields = null, fieldNodes = null
+                accessors = null, accessorNodes = null
             )
 
             fun abstractNode(): AccessNode = abstractNode
+
+            @JvmStatic
+            private fun removeSingleAccessor(
+                accessor: Accessor,
+                accessors: Array<Accessor>?,
+                nodes: Array<AccessNode>?
+            ): Pair<Array<Accessor>?, Array<AccessNode>?>? {
+                if (accessors == null) {
+                    return null
+                }
+                nodes!!
+
+                val accessorIdx = accessors.binarySearch(accessor)
+                if (accessorIdx < 0) return null
+
+                val newAccessorsSize = accessors.size - 1
+                if (newAccessorsSize == 0) {
+                    return null to null
+                }
+
+                val newAccessors = arrayOfNulls<Accessor>(newAccessorsSize)
+                val newNodes = arrayOfNulls<AccessNode>(newAccessorsSize)
+
+                accessors.copyInto(newAccessors, endIndex = accessorIdx)
+                accessors.copyInto(newAccessors, destinationOffset = accessorIdx, startIndex = accessorIdx + 1)
+
+                nodes.copyInto(newNodes, endIndex = accessorIdx)
+                nodes.copyInto(newNodes, destinationOffset = accessorIdx, startIndex = accessorIdx + 1)
+
+                @Suppress("UNCHECKED_CAST")
+                return newAccessors as Array<Accessor> to newNodes as Array<AccessNode>
+            }
+
+            // Adding inline here leads to java.lang.VerifyError, seems to be issue with Kotlin compiler
+            @JvmStatic
+            private fun transformAccessors(
+                accessors: Array<Accessor>?,
+                nodes: Array<AccessNode>?,
+                transformer: (Accessor, AccessNode) -> AccessNode?,
+            ): Pair<Array<Accessor>, Array<AccessNode>>? {
+                if (accessors == null) return null
+                nodes!!
+
+                var modified = false
+                var accessorsModified = false
+
+                var writeIdx = 0
+                val transformedAccessors = arrayOfNulls<Accessor>(nodes.size)
+                val transformedNodes = arrayOfNulls<AccessNode>(nodes.size)
+
+                for (i in nodes.indices) {
+                    val field = accessors[i]
+                    val node = nodes[i]
+
+                    val transformedNode = transformer(field, node)
+                    if (transformedNode === node) {
+                        transformedAccessors[writeIdx] = field
+                        transformedNodes[writeIdx] = node
+                        writeIdx++
+                    } else {
+                        modified = true
+
+                        if (transformedNode == null) {
+                            accessorsModified = true
+                            continue
+                        }
+
+                        transformedAccessors[writeIdx] = field
+                        transformedNodes[writeIdx] = transformedNode
+                        writeIdx++
+                    }
+                }
+
+                return trimModifiedAccessors(modified, accessorsModified, writeIdx, accessors, transformedAccessors, transformedNodes)
+            }
+
+            private fun trimModifiedAccessors(
+                modified: Boolean,
+                accessorsModified: Boolean,
+                writeIdx: Int,
+                originalAccessors: Array<Accessor>,
+                accessors: Array<Accessor?>,
+                nodes: Array<AccessNode?>
+            ): Pair<Array<Accessor>, Array<AccessNode>>? {
+                if (!modified) return null
+
+                if (!accessorsModified) {
+                    check(writeIdx == originalAccessors.size) { "Incorrect size" }
+
+                    val trimmedNodes = if (writeIdx == nodes.size) {
+                        nodes
+                    } else {
+                        nodes.copyOf(writeIdx)
+                    }
+
+                    @Suppress("UNCHECKED_CAST")
+                    return originalAccessors to trimmedNodes as Array<AccessNode>
+                }
+
+                if (writeIdx != accessors.size) {
+                    val trimmedAccessors = accessors.copyOf(writeIdx)
+                    val trimmedNodes = nodes.copyOf(writeIdx)
+                    @Suppress("UNCHECKED_CAST")
+                    return trimmedAccessors as Array<Accessor> to trimmedNodes as Array<AccessNode>
+                } else {
+                    @Suppress("UNCHECKED_CAST")
+                    return accessors as Array<Accessor> to nodes as Array<AccessNode>
+                }
+            }
 
             @JvmStatic
             fun create(isAbstract: Boolean = false, isFinal: Boolean = false): AccessNode =
@@ -788,61 +758,54 @@ class AccessTree(
             @JvmStatic
             private fun create(elementAccess: AccessNode?): AccessNode =
                 elementAccess?.let { access ->
-                    AccessNode(
-                        isAbstract = false, isFinal = false,
-                        elementAccess = access,
-                        fields = null, fieldNodes = null
-                    )
+                    create(ElementAccessor, access)
                 } ?: emptyNode
 
             @JvmStatic
-            private fun create(field: FieldAccessor, node: AccessNode): AccessNode =
+            private fun create(accessor: Accessor, node: AccessNode): AccessNode =
                 AccessNode(
                     isAbstract = false, isFinal = false,
-                    elementAccess = null,
-                    fields = arrayOf(field), fieldNodes = arrayOf(node)
+                    accessors = arrayOf(accessor),
+                    accessorNodes = arrayOf(node)
                 )
 
             @JvmStatic
             private fun create(
                 isAbstract: Boolean,
                 isFinal: Boolean,
-                elementAccess: AccessNode?,
-                fields: Array<FieldAccessor>?,
-                fieldNodes: Array<AccessNode>?
+                accessors: Array<Accessor>?,
+                accessorNodes: Array<AccessNode>?
             ): AccessNode =
                 if (isAbstract) {
                     if (isFinal) {
-                        createElementAndField(abstractFinalNode, elementAccess, fields, fieldNodes)
+                        createElementAndField(abstractFinalNode, accessors, accessorNodes)
                     } else {
-                        createElementAndField(abstractNode, elementAccess, fields, fieldNodes)
+                        createElementAndField(abstractNode, accessors, accessorNodes)
                     }
                 } else {
                     if (isFinal) {
-                        createElementAndField(finalNode, elementAccess, fields, fieldNodes)
+                        createElementAndField(finalNode, accessors, accessorNodes)
                     } else {
-                        createElementAndField(emptyNode, elementAccess, fields, fieldNodes)
+                        createElementAndField(emptyNode, accessors, accessorNodes)
                     }
                 }
 
             @JvmStatic
             private fun createElementAndField(
                 base: AccessNode,
-                elementAccess: AccessNode?,
-                fields: Array<FieldAccessor>?,
-                fieldNodes: Array<AccessNode>?
+                accessors: Array<Accessor>?,
+                accessorNodes: Array<AccessNode>?,
             ): AccessNode {
-                val nonEmptyFields = fields?.takeIf { it.isNotEmpty() }
-                val nonEmptyFieldNodes = fieldNodes?.takeIf { nonEmptyFields != null }
-                return if (elementAccess == null && nonEmptyFields == null) {
+                val nonEmptyAccessors = accessors?.takeIf { it.isNotEmpty() }
+                val nonEmptyAccessorNodes = accessorNodes?.takeIf { nonEmptyAccessors != null }
+                return if (nonEmptyAccessors == null) {
                     base
                 } else {
                     AccessNode(
                         isAbstract = base.isAbstract,
                         isFinal = base.isFinal,
-                        elementAccess = elementAccess,
-                        fields = nonEmptyFields,
-                        fieldNodes = nonEmptyFieldNodes
+                        accessors = nonEmptyAccessors,
+                        accessorNodes = nonEmptyAccessorNodes
                     )
                 }
             }
@@ -855,8 +818,8 @@ class AccessTree(
 
                 return when (val accessor = accessors.next()) {
                     FinalAccessor -> finalNode
-                    ElementAccessor -> create(elementAccess = createAbstractNodeFromAp(accessors))
-                    is FieldAccessor -> create(field = accessor, node = createAbstractNodeFromAp(accessors))
+                    is TaintMarkAccessor -> create(accessor, createAbstractNodeFromAp(accessors))
+                    else -> create(accessor, createAbstractNodeFromAp(accessors))
                 }
             }
         }

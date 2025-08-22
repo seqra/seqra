@@ -52,8 +52,6 @@ object MethodFlowFunctionUtils {
         else -> null
     }
 
-    fun Fact.FinalFact.rebase(newBase: AccessPathBase) = changeAP(ap.rebase(newBase))
-
     fun FinalFactAp.mayReadField(base: AccessPathBase, field: Accessor): Boolean = when {
         this.base != base -> false
         startsWithAccessor(field) -> true
