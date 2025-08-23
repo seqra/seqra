@@ -31,6 +31,7 @@ import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.ifds.Vertex
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSingleEntryPointApplicationGraph
 import org.opentaint.dataflow.jvm.ap.ifds.TaintAnalysisUnitRunnerManager
+import org.opentaint.dataflow.jvm.ap.ifds.access.ApMode
 import org.opentaint.dataflow.jvm.graph.JIRApplicationGraphImpl
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.jvm.ifds.PackageUnit
@@ -53,6 +54,7 @@ class JIRTaintAnalyzer(
     val projectLocations: Set<RegisteredLocation>,
     val dependenciesLocations: Set<RegisteredLocation>,
     val ifdsTimeout: Duration,
+    val ifdsApMode: ApMode,
     val opentaintTimeout: Duration,
     val symbolicExecutionEnabled: Boolean,
     val analysisCwe: Set<Int>?,
@@ -203,7 +205,7 @@ class JIRTaintAnalyzer(
         }
     }
 
-    private fun createIfdsEngine() = TaintAnalysisUnitRunnerManager(ifdsAnalysisGraph, analysisUnit) { rule ->
+    private fun createIfdsEngine() = TaintAnalysisUnitRunnerManager(ifdsAnalysisGraph, analysisUnit, ifdsApMode) { rule ->
         when {
             // todo: remove
             rule is TaintPassThrough -> (rule.method as JIRMethod).enclosingClass.declaration.location !in projectLocations

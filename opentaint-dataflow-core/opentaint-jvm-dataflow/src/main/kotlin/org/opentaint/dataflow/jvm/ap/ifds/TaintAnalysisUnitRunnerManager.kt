@@ -35,9 +35,12 @@ import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.jvm.ap.ifds.TaintSinkTracker.TaintVulnerability
 import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
+import org.opentaint.dataflow.jvm.ap.ifds.access.ApMode
 import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.access.automata.AutomataApManager
 import org.opentaint.dataflow.jvm.ap.ifds.access.cactus.CactusApManager
+import org.opentaint.dataflow.jvm.ap.ifds.access.tree.TreeApManager
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.taint.TaintVertex
 import org.opentaint.dataflow.taint.TaintZeroFact
@@ -56,11 +59,16 @@ import org.opentaint.dataflow.taint.TaintVulnerability as OldTaintVulnerability
 class TaintAnalysisUnitRunnerManager(
     val graph: JIRApplicationGraph,
     val unitResolver: JIRUnitResolver,
+    apMode: ApMode = ApMode.Cactus,
     val taintRuleFilter: TaintRuleFilter? = null
 ): AutoCloseable {
     val lambdaTracker = JIRLambdaTracker()
 
-    val apManager: ApManager = CactusApManager
+    val apManager: ApManager = when (apMode) {
+        ApMode.Tree -> TreeApManager
+        ApMode.Cactus -> CactusApManager
+        ApMode.Automata -> AutomataApManager
+    }
 
     class UnitStorage(private val apManager: ApManager) {
         private val vulnerabilities = ConcurrentLinkedQueue<TaintVulnerability>()

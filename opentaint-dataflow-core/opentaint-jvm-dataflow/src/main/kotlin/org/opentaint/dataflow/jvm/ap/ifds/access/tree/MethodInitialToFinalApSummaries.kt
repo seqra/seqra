@@ -5,7 +5,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.jvm.ap.ifds.Edge
 import org.opentaint.dataflow.jvm.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.jvm.ap.ifds.FactToFactEdgeBuilder
-import org.opentaint.dataflow.jvm.ap.ifds.MethodSummaryEdgesForExitPoint
+import org.opentaint.dataflow.jvm.ap.ifds.MethodSummaryFactEdgesForExitPoint
 import org.opentaint.dataflow.jvm.ap.ifds.SummaryFactStorage
 import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.jvm.ap.ifds.access.MethodInitialToFinalApSummariesStorage
@@ -28,9 +28,7 @@ class MethodInitialToFinalApSummaries(
 }
 
 private class MethodTaintedSummariesStorage(methodEntryPoint: JIRInst) :
-    MethodSummaryEdgesForExitPoint<Edge.FactToFact, FactToFactEdgeBuilder, MethodFactToFactSummaries, AccessTree>(
-        methodEntryPoint
-    ) {
+    MethodSummaryFactEdgesForExitPoint<MethodFactToFactSummaries, AccessTree>(methodEntryPoint) {
 
     override fun createStorage(): MethodFactToFactSummaries =
         MethodFactToFactSummaries(methodEntryPoint)

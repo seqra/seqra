@@ -597,6 +597,12 @@ abstract class SummaryFactStorage<Storage : Any>(methodEntryPoint: JIRInst) :
         statics?.asSequence()?.map { body(it.key, it.value) } ?: emptySequence()
 }
 
+typealias MethodSummaryZeroEdgesForExitPoint<Storage, Pattern> =
+        MethodSummaryEdgesForExitPoint<Edge.ZeroToFact, ZeroToFactEdgeBuilder, Storage, Pattern>
+
+typealias MethodSummaryFactEdgesForExitPoint<Storage, Pattern> =
+        MethodSummaryEdgesForExitPoint<Edge.FactToFact, FactToFactEdgeBuilder, Storage, Pattern>
+
 abstract class MethodSummaryEdgesForExitPoint<E : Edge, B : EdgeBuilder<B>, Storage, Pattern>(
     val methodEntryPoint: JIRInst
 ) {
@@ -641,4 +647,10 @@ abstract class MethodSummaryEdgesForExitPoint<E : Edge, B : EdgeBuilder<B>, Stor
             val exitPoint = exitPoints[idx]
             storageEdges(storage).map { it.setExitStatement(exitPoint) }
         }.asSequence().flatten()
+
+    override fun toString(): String =
+        exitPointsStorage.concurrentReadSafeMapIndexed { idx, storage ->
+            val exitPoint = exitPoints[idx]
+            "($exitPoint: $storage)"
+        }.joinToString("\n")
 }

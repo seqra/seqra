@@ -28,6 +28,7 @@ import org.opentaint.jvm.sast.dataflow.JIRSourceFileResolver
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
+import org.opentaint.dataflow.jvm.ap.ifds.access.ApMode
 import org.opentaint.machine.TypeScorer
 import org.opentaint.types.ClassScorer
 import org.opentaint.types.scoreClassNode
@@ -47,6 +48,7 @@ class ProjectAnalyzer(
     private val useSymbolicExecution: Boolean,
     private val symbolicExecutionTimeout: Duration,
     private val ifdsAnalysisTimeout: Duration,
+    private val ifdsApMode: ApMode,
     private val debugIfdsSummaryDumpPath: Path?
 ) {
     fun analyze() {
@@ -185,6 +187,7 @@ class ProjectAnalyzer(
         val analyzer = JIRTaintAnalyzer(
             cp,
             ifdsTimeout = ifdsAnalysisTimeout,
+            ifdsApMode = ifdsApMode,
             opentaintTimeout = symbolicExecutionTimeout,
             symbolicExecutionEnabled = useSymbolicExecution,
             projectLocations = projectLocations,

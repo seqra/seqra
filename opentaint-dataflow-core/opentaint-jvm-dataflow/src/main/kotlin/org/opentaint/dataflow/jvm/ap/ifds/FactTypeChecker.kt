@@ -67,6 +67,10 @@ class FactTypeChecker(private val cp: JIRClasspath) {
         override fun check(accessor: Accessor): FilterResult = FilterResult.Accept
     }
 
+    object AlwaysRejectFilter : FactApFilter {
+        override fun check(accessor: Accessor): FilterResult = FilterResult.Reject
+    }
+
     private inner class AccessorFilter(
         private val actualType: JIRType,
         private val isLocalCheck: Boolean

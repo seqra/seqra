@@ -43,14 +43,14 @@ class TreeInitialFactAbstraction: InitialFactAbstraction {
         concreteFactAccess: AccessTreeNode,
         abstractFacts: MutableList<Pair<InitialFactAp, FinalFactAp>>
     ) {
-        abstractAccessPath(facts.analyzed, concreteFactAccess, mutableListOf()) { abstractAccess, abstractExcludes ->
+        abstractAccessPath(facts.analyzed, concreteFactAccess, mutableListOf()) { abstractAccess ->
             val initialAbstractAccessNode = AccessPath.AccessNode.createNodeFromAp(abstractAccess.iterator())
-            val initialAbstractAp = AccessPath(concreteFactBase, initialAbstractAccessNode, abstractExcludes)
+            val initialAbstractAp = AccessPath(concreteFactBase, initialAbstractAccessNode, Empty)
 
             val apAccess = AccessTreeNode.createAbstractNodeFromAp(abstractAccess.iterator())
-            val ap = AccessTree(concreteFactBase, apAccess, abstractExcludes)
+            val ap = AccessTree(concreteFactBase, apAccess, Empty)
 
-            facts.addAnalyzedInitialFact(initialAbstractAccessNode, abstractExcludes)
+            facts.addAnalyzedInitialFact(initialAbstractAccessNode, Empty)
             abstractFacts.add(initialAbstractAp to ap)
         }
     }
@@ -59,11 +59,11 @@ class TreeInitialFactAbstraction: InitialFactAbstraction {
         analyzedTrieRoot: AccessPathTrieNode,
         added: AccessTreeNode,
         currentAp: MutableList<Accessor>,
-        createAbstractAp: (List<Accessor>, ExclusionSet) -> Unit
+        createAbstractAp: (List<Accessor>) -> Unit
     ) {
         val currentLevelExclusions = analyzedTrieRoot.exclusions()
         if (currentLevelExclusions == null) {
-            createAbstractAp(currentAp, Empty)
+            createAbstractAp(currentAp)
             return
         }
 
@@ -82,7 +82,7 @@ class TreeInitialFactAbstraction: InitialFactAbstraction {
         accessor: Accessor,
         addedNode: AccessTreeNode,
         currentAp: MutableList<Accessor>,
-        createAbstractAp: (List<Accessor>, ExclusionSet) -> Unit
+        createAbstractAp: (List<Accessor>) -> Unit
     ) {
         val node = analyzedTrieRoot.children[accessor]
         if (node == null) {
@@ -90,7 +90,7 @@ class TreeInitialFactAbstraction: InitialFactAbstraction {
 
             // We have no excludes -> continue with the most abstract fact
             if (exclusions == null) {
-                createAbstractAp(currentAp, Empty)
+                createAbstractAp(currentAp)
                 return
             }
 
@@ -101,7 +101,7 @@ class TreeInitialFactAbstraction: InitialFactAbstraction {
                 // Return a.b.* {}
 
                 currentAp.add(accessor)
-                createAbstractAp(currentAp, Empty)
+                createAbstractAp(currentAp)
                 currentAp.removeLast()
 
                 return

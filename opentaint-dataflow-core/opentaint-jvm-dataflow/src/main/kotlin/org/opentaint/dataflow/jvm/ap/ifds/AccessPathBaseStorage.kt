@@ -60,4 +60,8 @@ abstract class AccessPathBaseStorage<V : Any>(initialStatement: JIRInst) {
 
         return result.asSequence() + mapLocalValues(body) + mapConstantValues(body) + mapClassStaticValues(body)
     }
+
+    override fun toString(): String = mapValues { base, v ->
+        "($base: $v)"
+    }.joinToString("\n")
 }
