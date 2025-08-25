@@ -1,6 +1,6 @@
 package org.opentaint.jvm.sast.project
 
-import bench.EncryptionUtils
+import org.opentaint.util.ConfigUtils
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
 import org.opentaint.ir.api.jvm.ByteCodeIndexer
@@ -149,7 +149,7 @@ class ProjectAnalyzer(
 
         db.awaitBackgroundJobs()
 
-        val configJson = EncryptionUtils.loadEncrypted(getPathFromEnv("opentaint_taint_config_path")) {
+        val configJson = ConfigUtils.loadEncrypted(getPathFromEnv("opentaint_taint_config_path")) {
             bufferedReader().readText()
         }
 

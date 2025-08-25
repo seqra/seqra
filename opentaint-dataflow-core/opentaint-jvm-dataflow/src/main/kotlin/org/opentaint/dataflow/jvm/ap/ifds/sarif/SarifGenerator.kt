@@ -49,7 +49,7 @@ class SarifGenerator(
             results = sarifResults,
         )
 
-        val sarifReport = LazySarifReport(runs = listOf(run))
+        val sarifReport = LazySarifReport.fromRuns(listOf(run))
         json.encodeToStream(sarifReport, output)
     }
 
