@@ -11,6 +11,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentHashMap
 import kotlinx.collections.immutable.toPersistentList
 import org.opentaint.dataflow.jvm.ap.ifds.Accessor
+import org.opentaint.dataflow.jvm.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.jvm.ap.ifds.FactTypeChecker
 import java.util.BitSet
 
@@ -200,7 +201,23 @@ class AccessGraph(
 
     fun clear(accessor: Accessor): AccessGraph? {
         val mutableCopy = mutable()
-        val mutableResult = mutableCopy.clear(accessor) ?: return null
+        val mutableResult = mutableCopy.clear(listOf(accessor)) ?: return null
+
+        if (mutableResult === mutableCopy) return this
+
+        return mutableResult.persist()
+            .removeUnreachableNodes()
+    }
+
+    fun filter(exclusionSet: ExclusionSet): AccessGraph? = when (exclusionSet) {
+        ExclusionSet.Empty -> this
+        ExclusionSet.Universe -> if (initialNodeIsFinal()) empty() else null
+        is ExclusionSet.Concrete -> filter(exclusionSet)
+    }
+
+    private fun filter(exclusionSet: ExclusionSet.Concrete): AccessGraph? {
+        val mutableCopy = mutable()
+        val mutableResult = mutableCopy.clear(exclusionSet.set) ?: return null
 
         if (mutableResult === mutableCopy) return this
 
@@ -272,6 +289,58 @@ class AccessGraph(
         return finalNodeMapping
     }
 
+    fun splitDelta(other: AccessGraph): List<Pair<AccessGraph, AccessGraph>> {
+        if (other.isEmpty()) return listOf(empty() to this)
+        if (this.isEmpty()) return emptyList()
+
+        val splitPoints = findGraphSplit(other)
+
+        val result = mutableListOf<Pair<AccessGraph, AccessGraph>>()
+        splitPoints.forEachNode { splitNode ->
+            val matchedPrefix = AccessGraph(initial, splitNode, edges, nodeSucc, nodePred)
+                .removeUnreachableNodes()
+                ?: return@forEachNode
+
+            if (!other.containsAll(matchedPrefix)) return@forEachNode
+
+            val deltaSuffix = AccessGraph(splitNode, final, edges, nodeSucc, nodePred)
+                .removeUnreachableNodes()
+                ?: return@forEachNode
+
+            result += matchedPrefix to deltaSuffix
+        }
+
+        return result
+    }
+
+    private fun findGraphSplit(other: AccessGraph): NodeSet {
+        val splitPoints = NodeSet()
+
+        val visitedNodes = hashSetOf<NodePair>()
+        val unprocessed = mutableListOf(NodePair(this.initial, other.initial))
+        while (unprocessed.isNotEmpty()) {
+            val nodePair = unprocessed.removeLast()
+            if (!visitedNodes.add(nodePair)) continue
+            val (thisNode, otherNode) = nodePair
+
+            if (otherNode == other.final) {
+                splitPoints.add(thisNode)
+            }
+
+            for (accessor in other.stateSuccessors(otherNode)) {
+                val thisSuccessor = this.getStateSuccessor(thisNode, accessor)
+                    ?: continue
+
+                val otherSuccessor = other.getStateSuccessor(otherNode, accessor)
+                    ?: error("No successor")
+
+                unprocessed.add(NodePair(thisSuccessor, otherSuccessor))
+            }
+        }
+
+        return splitPoints
+    }
+
     fun merge(other: AccessGraph): AccessGraph {
         val mutableCopy = mutable()
         val mergedMutable = mutableCopy.merge(other)
@@ -302,9 +371,7 @@ class AccessGraph(
         if (rejectedAccessors.isEmpty()) return this
 
         val mutableCopy = mutable()
-        val filtered = rejectedAccessors.fold(mutableCopy as MutableAccessGraph?) { graph, accessor ->
-            graph?.clear(accessor)
-        }
+        val filtered = mutableCopy.clear(rejectedAccessors)
 
         if (filtered === mutableCopy) return this
         if (filtered == null) return null
@@ -532,32 +599,35 @@ private class MutableAccessGraph(
         return freshNode
     }
 
-    fun clear(accessor: Accessor): MutableAccessGraph? {
+    fun clear(accessors: Iterable<Accessor>): MutableAccessGraph? {
         val initialSuccessors = nodeSuccessors(initial)
 
-        if (accessor !in initialSuccessors) return this
+        val accessorsToClear = accessors.filterTo(hashSetOf()) { initialSuccessors.contains(it) }
+        if (accessorsToClear.isEmpty()) return this
 
-        // We have only one transition from the start node and we remove it -> no more transitions to final node -> graph is empty
-        if (initialSuccessors.size == 1) return null
+        // We have to remove all transitions from the start node -> no more transitions to final node -> graph is empty
+        if (initialSuccessors.size == accessorsToClear.size) return null
 
         val initialPredecessors = nodePredecessors(initial)
         if (!initialPredecessors.isEmpty()) {
-            if (initialNodeIsReachableWithoutEdge(accessor)) {
+            if (initialNodeIsReachableWithoutEdges(accessorsToClear)) {
                 // Initial node is accessible through other edges. Can't remove accessor because it is in the loop.
                 return this
             }
         }
 
-        val (edgeFrom, edgeTo) = edges.remove(accessor) ?: error("No edge")
-        check(edgeFrom == initial)
+        for (accessor in accessorsToClear) {
+            val (edgeFrom, edgeTo) = edges.remove(accessor) ?: error("No edge")
+            check(edgeFrom == initial)
 
-        removeNodeSuccessor(initial, accessor)
-        removeNodePredecessor(edgeTo, accessor)
+            removeNodeSuccessor(initial, accessor)
+            removeNodePredecessor(edgeTo, accessor)
+        }
 
         return create(initial, final)
     }
 
-    private fun initialNodeIsReachableWithoutEdge(bannedAccessor: Accessor): Boolean {
+    private fun initialNodeIsReachableWithoutEdges(bannedAccessors: Set<Accessor>): Boolean {
         val visitedNodes = nodeSet(numNodes)
         val unprocessed = mutableListOf(initial)
 
@@ -566,7 +636,7 @@ private class MutableAccessGraph(
             if (!visitedNodes.add(node)) continue
 
             for (succAcc in nodeSuccessors(node)) {
-                if (succAcc == bannedAccessor) continue
+                if (succAcc in bannedAccessors) continue
 
                 val (_, edgeTo) = edges.getValue(succAcc)
                 if (edgeTo == initial) return true

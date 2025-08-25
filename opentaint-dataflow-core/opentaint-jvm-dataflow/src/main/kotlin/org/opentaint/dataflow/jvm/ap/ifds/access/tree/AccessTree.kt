@@ -49,6 +49,26 @@ class AccessTree(
         return AccessTree(base, filteredAccess, exclusions)
     }
 
+    override fun contains(factAp: InitialFactAp): Boolean {
+        factAp as AccessPath
+
+        if (base != factAp.base) return false
+
+        val otherAccess = factAp.access
+
+        if (otherAccess == null) {
+            return access.isAbstract
+        }
+
+        var node = access
+        for (accessor in otherAccess) {
+            if (accessor == FinalAccessor) return node.isFinal
+            node = node.getChild(accessor) ?: return false
+        }
+
+        return node.isAbstract
+    }
+
     private sealed interface Delta : FactApDelta
 
     data object EmptyDelta : Delta {

@@ -20,16 +20,18 @@ class MethodFinalAutomataApSummariesStorage(methodEntryPoint: JIRInst) : MethodF
 
     override fun allEdges(): Sequence<ZeroToFactEdgeBuilder> = storage.allEdges()
 
+    override fun filterEdges(finalFactBase: AccessPathBase): Sequence<ZeroToFactEdgeBuilder> =
+        storage.filterEdges(finalFactBase)
+
     private class ExitPointStorage(methodEntryPoint: JIRInst) :
-        MethodSummaryZeroEdgesForExitPoint<ApStorage, AccessGraphFinalFactAp>(methodEntryPoint) {
+        MethodSummaryZeroEdgesForExitPoint<ApStorage, AccessPathBase>(methodEntryPoint) {
         override fun createStorage(): ApStorage = ApStorage(methodEntryPoint)
 
         override fun storageFilterEdges(
             storage: ApStorage,
-            containsPattern: AccessGraphFinalFactAp
-        ): Sequence<ZeroToFactEdgeBuilder> {
-            error("Can't filter edges")
-        }
+            containsPattern: AccessPathBase
+        ): Sequence<ZeroToFactEdgeBuilder> =
+            storage.filter(containsPattern)
 
         override fun storageAllEdges(storage: ApStorage): Sequence<ZeroToFactEdgeBuilder> = storage.allEdges()
 
@@ -69,6 +71,16 @@ class MethodFinalAutomataApSummariesStorage(methodEntryPoint: JIRInst) : MethodF
                     .build()
             }
         }.flatten()
+
+        fun filter(finalFactBase: AccessPathBase): Sequence<ZeroToFactEdgeBuilder> {
+            val storage = find(finalFactBase) ?: return emptySequence()
+            return storage.allGraphs().map { ag ->
+                ZeroToFactEdgeBuilderBuilder()
+                    .setGraph(ag)
+                    .setBase(finalFactBase)
+                    .build()
+            }
+        }
     }
 
     private class ZeroToFactEdgeBuilderBuilder(

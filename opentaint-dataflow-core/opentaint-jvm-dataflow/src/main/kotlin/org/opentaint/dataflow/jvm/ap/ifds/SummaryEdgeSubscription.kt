@@ -25,6 +25,17 @@ class SummaryEdgeSubscriptionManager(
             }
         }
 
+    data class MethodEntryPointCaller(val callerEp: MethodEntryPoint, val statement: JIRInst)
+
+    fun methodEntryPointCallers(
+        entryPoint: MethodEntryPoint,
+        collectZeroCallsOnly: Boolean,
+        callers: MutableSet<MethodEntryPointCaller>
+    ) {
+        val subscribers = methodSummarySubscriptions[entryPoint] ?: return
+        return subscribers.collectCallers(collectZeroCallsOnly, callers)
+    }
+
     fun subscribeOnMethodSummary(
         methodEntryPoint: MethodEntryPoint,
         callerPathEdge: Edge.ZeroToZero
@@ -140,6 +151,14 @@ class SummaryEdgeSubscriptionManager(
         ): Sequence<Pair<MethodEntryPoint, Sequence<ZeroEdgeSummarySubscription>>> {
             return taintedFactSubscriptions.findZeroEdge(summaryInitialFactAp)
         }
+
+        fun collectCallers(collectZeroCallsOnly: Boolean, callers: MutableSet<MethodEntryPointCaller>) {
+            zeroFactSubscriptions.collectCallers(callers)
+
+            if (collectZeroCallsOnly) return
+
+            taintedFactSubscriptions.collectCallers(callers)
+        }
     }
 
     private class MethodZeroFactSubscription {
@@ -151,6 +170,12 @@ class SummaryEdgeSubscriptionManager(
             }.add(callerPathEdge)
 
         fun subscriptions(): Map<MethodEntryPoint, Set<Edge.ZeroToZero>> = subscriptions
+
+        fun collectCallers(callers: MutableSet<MethodEntryPointCaller>) {
+            subscriptions.forEach { (methodEp, sub) ->
+                sub.forEach { callers += MethodEntryPointCaller(methodEp, it.statement) }
+            }
+        }
     }
 
     private class MethodTaintedFactSubscription(
@@ -204,6 +229,12 @@ class SummaryEdgeSubscriptionManager(
                     }
                 }
             }
+
+        fun collectCallers(callers: MutableSet<MethodEntryPointCaller>) {
+            subscriptions.forEach { (methodEp, sub) ->
+                sub.keys.forEach { callers += MethodEntryPointCaller(methodEp, it) }
+            }
+        }
     }
 
     data class FactEdgeSummarySubscription(
@@ -458,6 +489,11 @@ class SummaryEdgeStorageWithSubscribers(
         return (zeroToZero + zeroToFact).iterator()
     }
 
+    fun zeroToFactEdgesIterator(factBase: AccessPathBase): Iterator<Edge.ZeroToFact> =
+        zeroToFactSummaryEdges.filterEdges(factBase).map {
+            it.setEntryPoint(methodEntryPoint).build()
+        }.iterator()
+
     private fun allZeroToZeroSummaries() =
         zeroToZeroSummaryEdges.concurrentReadSafeIterator().asSequence()
             .map { Edge.ZeroToZero(methodEntryPoint, it) }
@@ -467,14 +503,23 @@ class SummaryEdgeStorageWithSubscribers(
     }
 
     fun factEdgesIterator(initialFactAp: FinalFactAp): Iterator<Edge.FactToFact> {
-        val factEdges = taintedFactSummaryEdges.filterEdges(initialFactAp)
+        val factEdges = taintedFactSummaryEdges.filterEdges(initialFactAp, finalFactBase = null)
 
         return factEdges
             .map { it.setEntryPoint(methodEntryPoint).build() }
             .iterator()
     }
 
-    fun factEdgesIterator(): Iterator<Edge.FactToFact> = allFactToFactSummaries().iterator()
+    fun factToFactEdgesIterator(
+        initialFactAp: FinalFactAp,
+        finalFactBase: AccessPathBase
+    ): Iterator<Edge.FactToFact> {
+        val factEdges = taintedFactSummaryEdges.filterEdges(initialFactAp, finalFactBase)
+
+        return factEdges
+            .map { it.setEntryPoint(methodEntryPoint).build() }
+            .iterator()
+    }
 
     private fun allFactToFactSummaries(): Sequence<Edge.FactToFact> {
         return taintedFactSummaryEdges.allEdges()

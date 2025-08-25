@@ -26,6 +26,8 @@ interface ApManager {
 
     fun createFinalAp(base: AccessPathBase, exclusions: ExclusionSet): FinalFactAp
     fun createAbstractAp(base: AccessPathBase, exclusions: ExclusionSet): FinalFactAp
+
+    fun createFinalInitialAp(base: AccessPathBase, exclusions: ExclusionSet): InitialFactAp
 }
 
 interface InitialFactAbstraction {
@@ -52,10 +54,13 @@ interface MethodAccessPathSubscription {
 
 interface MethodEdgesFinalApSet {
     fun add(statement: JIRInst, ap: FinalFactAp): FinalFactAp?
+    fun collectApAtStatement(collection: MutableCollection<FinalFactAp>, statement: JIRInst)
 }
 
 interface MethodEdgesInitialToFinalApSet {
     fun add(statement: JIRInst, initialAp: InitialFactAp, finalAp: FinalFactAp): Pair<InitialFactAp, FinalFactAp>?
+    fun collectApAtStatement(collection: MutableCollection<Pair<InitialFactAp, FinalFactAp>>, statement: JIRInst)
+    fun collectApAtStatement(collection: MutableCollection<FinalFactAp>, statement: JIRInst, initialAp: InitialFactAp)
 }
 
 interface TaintSinkRequirementApStorage {
@@ -66,10 +71,11 @@ interface TaintSinkRequirementApStorage {
 interface MethodFinalApSummariesStorage {
     fun add(edges: List<Edge.ZeroToFact>, addedEdges: MutableList<ZeroToFactEdgeBuilder>)
     fun allEdges(): Sequence<ZeroToFactEdgeBuilder>
+    fun filterEdges(finalFactBase: AccessPathBase): Sequence<ZeroToFactEdgeBuilder>
 }
 
 interface MethodInitialToFinalApSummariesStorage {
     fun add(edges: List<Edge.FactToFact>, added: MutableList<FactToFactEdgeBuilder>)
-    fun filterEdges(pattern: FinalFactAp): Sequence<FactToFactEdgeBuilder>
+    fun filterEdges(pattern: FinalFactAp, finalFactBase: AccessPathBase?): Sequence<FactToFactEdgeBuilder>
     fun allEdges(): Sequence<FactToFactEdgeBuilder>
 }

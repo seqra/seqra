@@ -52,6 +52,10 @@ class AccessCactus(
         return AccessCactus(base, filteredAccess, exclusions)
     }
 
+    // todo: rewrite stub implementation
+    override fun contains(factAp: InitialFactAp): Boolean =
+        this.delta(factAp).any { it.isEmpty }
+
     private sealed interface Delta : FactApDelta
 
     data object EmptyDelta : Delta {

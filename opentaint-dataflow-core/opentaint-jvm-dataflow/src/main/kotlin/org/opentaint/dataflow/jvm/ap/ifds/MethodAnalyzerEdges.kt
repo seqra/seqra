@@ -4,6 +4,8 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
+import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
 
 class MethodAnalyzerEdges(
     apManager: ApManager,
@@ -61,6 +63,24 @@ class MethodAnalyzerEdges(
                 factAp = addedFinal
             )
         )
+    }
+
+    fun allZeroToFactFactsAtStatement(statement: JIRInst): List<FinalFactAp> {
+        val result = mutableListOf<FinalFactAp>()
+        zeroToFactEdges.collectApAtStatement(result, statement)
+        return result
+    }
+
+    fun allFactToFactFactsAtStatement(statement: JIRInst): List<Pair<InitialFactAp, FinalFactAp>> {
+        val result = mutableListOf<Pair<InitialFactAp, FinalFactAp>>()
+        taintedToFactEdges.collectApAtStatement(result, statement)
+        return result
+    }
+
+    fun allFactToFactFactsAtStatement(statement: JIRInst, initialFactAp: InitialFactAp): List<FinalFactAp> {
+        val result = mutableListOf<FinalFactAp>()
+        taintedToFactEdges.collectApAtStatement(result, statement, initialFactAp)
+        return result
     }
 
     private class SameInitialZeroFactEdges(maxInstIdx: Int) {

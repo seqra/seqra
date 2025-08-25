@@ -28,6 +28,15 @@ class MethodEdgesFinalTreeApSet(
 
         return AccessTree(ap.base, addedAccess, ExclusionSet.Universe)
     }
+
+    override fun collectApAtStatement(collection: MutableCollection<FinalFactAp>, statement: JIRInst) {
+        storage.forEachValue { base, edgeStore ->
+            val ap = edgeStore.apAtStatement(statement)
+            if (ap != null) {
+                collection += AccessTree(base, ap, ExclusionSet.Universe)
+            }
+        }
+    }
 }
 
 class MethodEdgesInitialToFinalTreeApSet(
@@ -70,6 +79,35 @@ class MethodEdgesInitialToFinalTreeApSet(
 
         return newInitialAp to newExitAp
     }
+
+    override fun collectApAtStatement(
+        collection: MutableCollection<Pair<InitialFactAp, FinalFactAp>>,
+        statement: JIRInst
+    ) {
+        edgeStorage.forEachValue { initialBase, storageForInitial ->
+            storageForInitial.forEachValue { finalFactBase, storage ->
+                storage.allApAtStatement(statement).forEach { edgeAp ->
+                    val initialAp = AccessPath(initialBase, edgeAp.initialAp, edgeAp.exclusion)
+                    val finalAp = AccessTree(finalFactBase, edgeAp.exitAp, edgeAp.exclusion)
+                    collection += initialAp to finalAp
+                }
+            }
+        }
+    }
+
+    override fun collectApAtStatement(
+        collection: MutableCollection<FinalFactAp>,
+        statement: JIRInst,
+        initialAp: InitialFactAp
+    ) {
+        val initialStorage = edgeStorage.find(initialAp.base) ?: return
+        initialStorage.forEachValue { finalFactBase, storage ->
+            val finalAp = storage.finalApAtStatement(statement, (initialAp as AccessPath).access)
+            if (finalAp != null) {
+                collection += AccessTree(finalFactBase, finalAp.access, finalAp.exclusion)
+            }
+        }
+    }
 }
 
 private class TaintedInitialFactEdgeStorage(private val initialStatement: JIRInst) :
@@ -82,6 +120,12 @@ private class TaintedExitFactEdgeStorage(initialStatement: JIRInst) :
     override fun createStorage() = TaintedFactAccessEdgeStorage()
 }
 
+private data class EdgeAp(
+    val exclusion: ExclusionSet,
+    val initialAp: AccessPath.AccessNode?,
+    val exitAp: AccessTreeNode
+)
+
 private class TaintedFactAccessEdgeStorage {
     private val sameInitialAccessEdges =
         Object2ObjectOpenHashMap<AccessPath.AccessNode?, EdgeNonUniverseExclusionMergingStorage>()
@@ -91,6 +135,20 @@ private class TaintedFactAccessEdgeStorage {
         maxInstIdx: Int
     ): EdgeNonUniverseExclusionMergingStorage = sameInitialAccessEdges.getOrPut(initialAccess) {
         EdgeNonUniverseExclusionMergingStorage(maxInstIdx)
+    }
+
+    fun allApAtStatement(statement: JIRInst): Sequence<EdgeAp> =
+        sameInitialAccessEdges.asSequence().mapNotNull { (initialAp, storage) ->
+            val finalAp = storage.allApAtStatement(statement) ?: return@mapNotNull null
+            EdgeAp(finalAp.exclusion, initialAp, finalAp.access)
+        }
+
+    fun finalApAtStatement(
+        statement: JIRInst,
+        initialAp: AccessPath.AccessNode?
+    ): EdgeNonUniverseExclusionMergingStorage.AccessWithExclusion? {
+        val storage = sameInitialAccessEdges[initialAp] ?: return null
+        return storage.allApAtStatement(statement)
     }
 }
 
@@ -117,6 +175,13 @@ private class EdgeNonUniverseExclusionMergingStorage(maxInstIdx: Int) {
 
         edges[edgeSetIdx] = mergedAccess
         return AccessWithExclusion(mergedAccess, mergedExclusion)
+    }
+
+    fun allApAtStatement(statement: JIRInst): AccessWithExclusion? {
+        val edgeSetIdx = instructionStorageIdx(statement)
+        val currentExclusion = exclusions[edgeSetIdx] ?: return null
+        val access = edges[edgeSetIdx] ?: return null
+        return AccessWithExclusion(access, currentExclusion)
     }
 
     data class AccessWithExclusion(val access: AccessTreeNode, val exclusion: ExclusionSet)
@@ -147,4 +212,7 @@ private class ZeroInitialFactEdges(maxInstIdx: Int) {
         edges[factSetIdx] = mergedFacts
         return mergedFacts
     }
+
+    fun apAtStatement(statement: JIRInst): AccessTreeNode? =
+        edges[instructionStorageIdx(statement)]
 }

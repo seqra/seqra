@@ -3,6 +3,8 @@ package org.opentaint.dataflow.jvm.ap.ifds.access.cactus
 import org.opentaint.dataflow.jvm.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.jvm.ap.ifds.Accessor
 import org.opentaint.dataflow.jvm.ap.ifds.ExclusionSet
+import org.opentaint.dataflow.jvm.ap.ifds.access.FactApDelta
+import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
 
 class AccessPathWithCycles(
@@ -10,11 +12,50 @@ class AccessPathWithCycles(
     val access: AccessNode?,
     override val exclusions: ExclusionSet
 ): InitialFactAp {
+    override fun rebase(newBase: AccessPathBase): InitialFactAp =
+        AccessPathWithCycles(newBase, access, exclusions)
+
     override fun exclude(accessor: Accessor): InitialFactAp =
         AccessPathWithCycles(base, access, exclusions.add(accessor))
 
     override fun replaceExclusions(exclusions: ExclusionSet): InitialFactAp =
         AccessPathWithCycles(base, access, exclusions)
+
+    // todo: rewrite stub implementation
+    override fun startsWithAccessor(accessor: Accessor): Boolean {
+        if (access == null) return false
+        return access.accessor == accessor
+    }
+
+    // todo: rewrite stub implementation
+    override fun readAccessor(accessor: Accessor): InitialFactAp? {
+        if (access == null) return null
+        if (access.accessor == accessor) {
+            return AccessPathWithCycles(base, access.next, exclusions)
+        }
+        return null
+    }
+
+    // todo: rewrite stub implementation
+    override fun prependAccessor(accessor: Accessor): InitialFactAp {
+        val node = AccessNode(accessor, next = access, cycles = emptyList())
+        return AccessPathWithCycles(base, node, exclusions)
+    }
+
+    // todo: rewrite stub implementation
+    override fun clearAccessor(accessor: Accessor): InitialFactAp? {
+        return null
+    }
+
+    // todo: rewrite stub implementation
+    override fun concat(delta: FactApDelta): InitialFactAp {
+        return this
+    }
+
+    // todo: rewrite stub implementation
+    override fun splitDelta(other: FinalFactAp): List<Pair<InitialFactAp, FactApDelta>> {
+        return emptyList()
+    }
 
     override val size: Int
         get() = access?.size ?: 0
@@ -88,7 +129,7 @@ class AccessPathWithCycles(
         }
     }
 
-    class AccessNode private constructor(
+    class AccessNode(
         val accessor: Accessor,
         val next: AccessNode?,
         val cycles: List<Cycle>

@@ -15,6 +15,7 @@ interface AnalysisRunner {
     val sinkTracker: TaintSinkTracker
     val lambdaTracker: JIRLambdaTracker
     val apManager: ApManager
+    val manager: TaintAnalysisUnitRunnerManager
 
     fun submitNewUnprocessedEdge(edge: Edge)
     fun addNewSummaryEdges(methodEntryPoint: MethodEntryPoint, edges: List<Edge>)
@@ -30,4 +31,10 @@ interface AnalysisRunner {
         handler: MethodCallHandler,
         failureHandler: MethodCallResolutionFailureHandler,
     )
+
+    fun resolvedMethodCalls(
+        callerEntryPoint: MethodEntryPoint,
+        callExpr: JIRCallExpr,
+        location: JIRInst
+    ): List<MethodWithContext>
 }

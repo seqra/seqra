@@ -16,12 +16,38 @@ import org.opentaint.ir.api.jvm.ext.isAssignable
 import org.opentaint.ir.api.jvm.ext.objectType
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.InMemoryHierarchyCache
+import org.opentaint.dataflow.jvm.ap.ifds.FactTypeChecker.AlwaysAcceptFilter
+import org.opentaint.dataflow.jvm.ap.ifds.FactTypeChecker.FactApFilter
+import org.opentaint.dataflow.jvm.ap.ifds.FactTypeChecker.FilterResult
 import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
 import java.util.concurrent.atomic.LongAdder
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.isAccessible
 
-class FactTypeChecker(private val cp: JIRClasspath) {
+interface FactTypeChecker {
+    fun filterFactByLocalType(actualType: JIRType?, factAp: FinalFactAp): FinalFactAp?
+    fun accessPathFilter(accessPath: List<Accessor>): FactApFilter
+
+    sealed interface FilterResult {
+        data object Accept : FilterResult
+        data object Reject : FilterResult
+        data class FilterNext(val filter: FactApFilter) : FilterResult
+    }
+
+    interface FactApFilter {
+        fun check(accessor: Accessor): FilterResult
+    }
+
+    object AlwaysAcceptFilter : FactApFilter {
+        override fun check(accessor: Accessor): FilterResult = FilterResult.Accept
+    }
+
+    object AlwaysRejectFilter : FactApFilter {
+        override fun check(accessor: Accessor): FilterResult = FilterResult.Reject
+    }
+}
+
+class FactTypeCheckerImpl(private val cp: JIRClasspath): FactTypeChecker {
     private val persistence: JIRDatabasePersistence
     private val hierarchy: InMemoryHierarchyCache
     private val registeredLocationIds: Set<Long>
@@ -51,24 +77,6 @@ class FactTypeChecker(private val cp: JIRClasspath) {
     private fun Boolean.logAccessCheck(): Boolean = also { isCorrect ->
         accessTotal.increment()
         if (!isCorrect) accessRejected.increment()
-    }
-
-    sealed interface FilterResult {
-        data object Accept : FilterResult
-        data object Reject : FilterResult
-        data class FilterNext(val filter: FactApFilter) : FilterResult
-    }
-
-    interface FactApFilter {
-        fun check(accessor: Accessor): FilterResult
-    }
-
-    object AlwaysAcceptFilter : FactApFilter {
-        override fun check(accessor: Accessor): FilterResult = FilterResult.Accept
-    }
-
-    object AlwaysRejectFilter : FactApFilter {
-        override fun check(accessor: Accessor): FilterResult = FilterResult.Reject
     }
 
     private inner class AccessorFilter(
@@ -104,13 +112,13 @@ class FactTypeChecker(private val cp: JIRClasspath) {
         }
     }
 
-    fun filterFactByLocalType(actualType: JIRType?, factAp: FinalFactAp): FinalFactAp? {
+    override fun filterFactByLocalType(actualType: JIRType?, factAp: FinalFactAp): FinalFactAp? {
         if (actualType == null) return factAp
         val filter = AccessorFilter(actualType, isLocalCheck = true)
         return factAp.filterFact(filter)
     }
 
-    fun accessPathFilter(accessPath: List<Accessor>): FactApFilter {
+    override fun accessPathFilter(accessPath: List<Accessor>): FactApFilter {
         val actualType = accessorActualType(accessPath) ?: return AlwaysAcceptFilter
         return AccessorFilter(actualType, isLocalCheck = false)
     }
@@ -128,7 +136,7 @@ class FactTypeChecker(private val cp: JIRClasspath) {
         }
     }
 
-    fun fieldAccessorType(accessor: FieldAccessor): JIRType? {
+    private fun fieldAccessorType(accessor: FieldAccessor): JIRType? {
         return cp.findTypeOrNull(accessor.fieldType)
     }
 

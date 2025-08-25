@@ -20,15 +20,23 @@ class MethodInitialToFinalApSummaries(
         storage.add(edges, added)
     }
 
-    override fun filterEdges(pattern: FinalFactAp): Sequence<FactToFactEdgeBuilder> =
-        storage.filterEdges(pattern as AccessTree)
+    override fun filterEdges(
+        pattern: FinalFactAp,
+        finalFactBase: AccessPathBase?
+    ): Sequence<FactToFactEdgeBuilder> =
+        storage.filterEdges(EdgeStoragePattern(pattern as AccessTree, finalFactBase))
 
     override fun allEdges(): Sequence<FactToFactEdgeBuilder> =
         storage.allEdges()
 }
 
+private class EdgeStoragePattern(
+    val initialFactPattern: AccessTree,
+    val finalFactBase: AccessPathBase?
+)
+
 private class MethodTaintedSummariesStorage(methodEntryPoint: JIRInst) :
-    MethodSummaryFactEdgesForExitPoint<MethodFactToFactSummaries, AccessTree>(methodEntryPoint) {
+    MethodSummaryFactEdgesForExitPoint<MethodFactToFactSummaries, EdgeStoragePattern>(methodEntryPoint) {
 
     override fun createStorage(): MethodFactToFactSummaries =
         MethodFactToFactSummaries(methodEntryPoint)
@@ -44,8 +52,8 @@ private class MethodTaintedSummariesStorage(methodEntryPoint: JIRInst) :
 
     override fun storageFilterEdges(
         storage: MethodFactToFactSummaries,
-        containsPattern: AccessTree
-    ): Sequence<FactToFactEdgeBuilder> = storage.filterEdges(containsPattern.base, containsPattern.access)
+        containsPattern: EdgeStoragePattern
+    ): Sequence<FactToFactEdgeBuilder> = storage.filterEdges(containsPattern)
 }
 
 private class MethodFactToFactSummaries(
@@ -62,11 +70,18 @@ private class MethodFactToFactSummaries(
         }
     }
 
-    fun filterEdges(base: AccessPathBase, containsPattern: AccessTreeNode): Sequence<FactToFactEdgeBuilder> =
-        find(base)
-            ?.filterEdges(containsPattern)
-            ?.map { it.setInitialFactBase(base).build() }
-            .orEmpty()
+    fun filterEdges(pattern: EdgeStoragePattern): Sequence<FactToFactEdgeBuilder> {
+        val initialFactBase = pattern.initialFactPattern.base
+        val storage = find(initialFactBase) ?: return emptySequence()
+
+        val edges = if (pattern.finalFactBase == null) {
+            storage.filterEdges(pattern.initialFactPattern.access)
+        } else {
+            storage.filterEdges(pattern.initialFactPattern.access, pattern.finalFactBase)
+        }
+
+        return edges.map { it.setInitialFactBase(initialFactBase).build() }
+    }
 
     fun allEdges(): Sequence<FactToFactEdgeBuilder> = mapValues { base, storage ->
         storage.allEdges().map { it.setInitialFactBase(base).build() }
@@ -92,6 +107,14 @@ private class MethodTaintedSummariesGroupedByFact(methodEntryPoint: JIRInst) :
         mapValues { base, storage ->
             storage.findSummaries(containsPattern).map { it.setExitFactBase(base) }
         }.flatten()
+
+    fun filterEdges(
+        containsPattern: AccessTreeNode,
+        finalFactBase: AccessPathBase
+    ): Sequence<FactToFactEdgeBuilderBuilder> {
+        val storage = find(finalFactBase) ?: return emptySequence()
+        return storage.findSummaries(containsPattern).map { it.setExitFactBase(finalFactBase) }
+    }
 
     fun allEdges(): Sequence<FactToFactEdgeBuilderBuilder> =
         mapValues { base, storage ->

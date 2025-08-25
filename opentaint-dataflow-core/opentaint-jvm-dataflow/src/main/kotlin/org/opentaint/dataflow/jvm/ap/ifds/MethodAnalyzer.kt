@@ -21,6 +21,8 @@ import org.opentaint.dataflow.jvm.ap.ifds.MethodSequentFlowFunction.Sequent
 import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
 import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.trace.MethodTraceResolver
+import org.opentaint.dataflow.jvm.ap.ifds.trace.TraceResolverCancellation
 
 interface MethodAnalyzer {
     fun addInitialZeroFact()
@@ -71,6 +73,21 @@ interface MethodAnalyzer {
         callExpr: JIRCallExpr,
         handler: MethodCallResolutionFailureHandler
     )
+
+    fun resolveIntraProceduralTraceSummary(
+        statement: JIRInst,
+        factAp: InitialFactAp
+    ): List<MethodTraceResolver.SummaryTrace>
+
+    fun resolveIntraProceduralTraceSummaryFromCall(
+        statement: JIRInst,
+        calleeEntry: MethodTraceResolver.TraceEntry.MethodEntry
+    ): List<MethodTraceResolver.SummaryTrace>
+
+    fun resolveIntraProceduralFullTrace(
+        summaryTrace: MethodTraceResolver.SummaryTrace,
+        cancellation: TraceResolverCancellation
+    ): MethodTraceResolver.FullTrace
 }
 
 class NormalMethodAnalyzer(
@@ -226,7 +243,8 @@ class NormalMethodAnalyzer(
             callExpr,
             factTypeChecker,
             edge.statement,
-            taintSinkTracker
+            taintSinkTracker,
+            methodEntryPoint,
         )
 
         val returnSites = graph.successors(edge.statement).toList()
@@ -605,6 +623,30 @@ class NormalMethodAnalyzer(
         factAp: InitialFactAp,
         exclusions: ExclusionSet
     ): InitialFactAp = factAp.replaceExclusions(exclusions)
+
+    override fun resolveIntraProceduralTraceSummary(
+        statement: JIRInst,
+        factAp: InitialFactAp
+    ): List<MethodTraceResolver.SummaryTrace> {
+        val resolver = MethodTraceResolver(runner, methodEntryPoint, edges)
+        return resolver.resolveIntraProceduralTrace(statement, factAp)
+    }
+
+    override fun resolveIntraProceduralTraceSummaryFromCall(
+        statement: JIRInst,
+        calleeEntry: MethodTraceResolver.TraceEntry.MethodEntry
+    ): List<MethodTraceResolver.SummaryTrace> {
+        val resolver = MethodTraceResolver(runner, methodEntryPoint, edges)
+        return resolver.resolveIntraProceduralTraceFromCall(statement, calleeEntry)
+    }
+
+    override fun resolveIntraProceduralFullTrace(
+        summaryTrace: MethodTraceResolver.SummaryTrace,
+        cancellation: TraceResolverCancellation
+    ): MethodTraceResolver.FullTrace {
+        val resolver = MethodTraceResolver(runner, methodEntryPoint, edges)
+        return resolver.resolveIntraProceduralFullTrace(summaryTrace, cancellation)
+    }
 }
 
 class EmptyMethodAnalyzer(
@@ -684,5 +726,23 @@ class EmptyMethodAnalyzer(
 
     override fun handleMethodCallResolutionFailure(callExpr: JIRCallExpr, handler: MethodCallResolutionFailureHandler) {
         error("Empty method should not method resolution results")
+    }
+
+    override fun resolveIntraProceduralTraceSummary(statement: JIRInst, factAp: InitialFactAp): List<MethodTraceResolver.SummaryTrace> {
+        TODO("Not yet implemented")
+    }
+
+    override fun resolveIntraProceduralFullTrace(
+        summaryTrace: MethodTraceResolver.SummaryTrace,
+        cancellation: TraceResolverCancellation
+    ): MethodTraceResolver.FullTrace {
+        TODO("Not yet implemented")
+    }
+
+    override fun resolveIntraProceduralTraceSummaryFromCall(
+        statement: JIRInst,
+        calleeEntry: MethodTraceResolver.TraceEntry.MethodEntry
+    ): List<MethodTraceResolver.SummaryTrace> {
+        error("Empty method have no calls")
     }
 }

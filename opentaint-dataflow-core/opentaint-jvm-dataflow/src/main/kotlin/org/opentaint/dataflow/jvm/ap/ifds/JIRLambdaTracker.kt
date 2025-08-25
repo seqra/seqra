@@ -23,6 +23,11 @@ class JIRLambdaTracker {
         methodLambdas.addSubscriber(subscriber)
     }
 
+    fun forEachRegisteredLambda(method: JIRMethod, subscriber: LambdaSubscriber) {
+        val methodLambdas = lambdaTrackers[method] ?: return
+        methodLambdas.forEachRegisteredLambda(subscriber)
+    }
+
     private class LambdaTracker(private val method: JIRMethod) {
         private val subscribers = hashSetOf<LambdaSubscriber>()
         private val registeredLambdas = hashSetOf<JIRLambdaClass>()
@@ -34,6 +39,10 @@ class JIRLambdaTracker {
 
         fun addSubscriber(subscriber: LambdaSubscriber) = synchronized(this) {
             if (!subscribers.add(subscriber)) return
+            registeredLambdas.forEach { subscriber.newLambda(method, it) }
+        }
+
+        fun forEachRegisteredLambda(subscriber: LambdaSubscriber) = synchronized(this) {
             registeredLambdas.forEach { subscriber.newLambda(method, it) }
         }
     }

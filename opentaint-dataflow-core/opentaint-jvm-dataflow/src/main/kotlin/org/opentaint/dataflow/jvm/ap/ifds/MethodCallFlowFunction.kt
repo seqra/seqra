@@ -4,23 +4,10 @@ import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.taint.configuration.Action
-import org.opentaint.ir.taint.configuration.AssignMark
-import org.opentaint.ir.taint.configuration.Condition
 import org.opentaint.ir.taint.configuration.ConditionVisitor
-import org.opentaint.ir.taint.configuration.CopyAllMarks
-import org.opentaint.ir.taint.configuration.CopyMark
-import org.opentaint.ir.taint.configuration.RemoveAllMarks
-import org.opentaint.ir.taint.configuration.RemoveMark
-import org.opentaint.ir.taint.configuration.TaintCleaner
-import org.opentaint.ir.taint.configuration.TaintConfigurationItem
-import org.opentaint.ir.taint.configuration.TaintEntryPointSource
 import org.opentaint.ir.taint.configuration.TaintMethodSink
-import org.opentaint.ir.taint.configuration.TaintMethodSource
-import org.opentaint.ir.taint.configuration.TaintPassThrough
 import org.opentaint.dataflow.config.BasicConditionEvaluator
 import org.opentaint.dataflow.ifds.Maybe
-import org.opentaint.dataflow.ifds.maybeFlatMap
 import org.opentaint.dataflow.ifds.merge
 import org.opentaint.dataflow.ifds.onSome
 import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
@@ -35,7 +22,8 @@ class MethodCallFlowFunction(
     private val callExpr: JIRCallExpr,
     private val factTypeChecker: FactTypeChecker,
     private val statement: JIRInst,
-    private val sinkTracker: TaintSinkTracker
+    private val sinkTracker: TaintSinkTracker,
+    private val methodEntryPoint: MethodEntryPoint,
 ) {
     sealed interface ZeroCallFact
 
@@ -64,7 +52,7 @@ class MethodCallFlowFunction(
     }
 
     fun propagateZeroToZero(): Set<ZeroCallFact> = buildSet {
-        applyZeroFactSinkRules()
+        applySinkRules(factReader = null)
 
         this += CallToReturnZeroFact
 
@@ -84,17 +72,6 @@ class MethodCallFlowFunction(
         }
 
         this += CallToStartZeroFact
-    }
-
-    private fun applyZeroFactSinkRules() {
-        val conditionEvaluator = FactIgnoreConditionEvaluator(
-            traits,
-            CallPositionToJIRValueResolver(callExpr, returnValue = null)
-        )
-
-        sinkRules(config, callExpr.method.method)
-            .filter { it.condition.accept(conditionEvaluator) }
-            .forEach { sinkTracker.addUnconditionalVulnerability(statement, it) }
     }
 
     fun propagateZeroToFact(currentFactAp: FinalFactAp) = buildSet<ZeroCallFact> {
@@ -138,12 +115,12 @@ class MethodCallFlowFunction(
 
     private fun propagateFact(
         factAp: FinalFactAp,
-        addSinkRequirement: (FactReader) -> Unit,
-        addCallToReturn: (FactReader, FinalFactAp) -> Unit,
-        addCallToStart: (factReader: FactReader, callerFact: FinalFactAp, startFactBase: AccessPathBase) -> Unit,
+        addSinkRequirement: (FinalFactReader) -> Unit,
+        addCallToReturn: (FinalFactReader, FinalFactAp) -> Unit,
+        addCallToStart: (factReader: FinalFactReader, callerFact: FinalFactAp, startFactBase: AccessPathBase) -> Unit,
     ) {
-        val factReader = FactReader(factAp)
-        applyTaintedFactSinkRules(factReader)
+        val factReader = FinalFactReader(factAp, apManager)
+        applySinkRules(factReader)
 
         val apResolver = CallPositionToAccessPathResolver(callExpr, returnValue)
 
@@ -179,10 +156,10 @@ class MethodCallFlowFunction(
     }
 
     private fun propagateFact(
-        factReader: FactReader,
+        factReader: FinalFactReader,
         factAp: FinalFactAp,
-        addCallToReturn: (FactReader, FinalFactAp) -> Unit,
-        addCallToStart: (factReader: FactReader, callerFactAp: FinalFactAp, startFactBase: AccessPathBase) -> Unit,
+        addCallToReturn: (FinalFactReader, FinalFactAp) -> Unit,
+        addCallToStart: (factReader: FinalFactReader, callerFactAp: FinalFactAp, startFactBase: AccessPathBase) -> Unit,
     ) {
         if (!factCanBeModifiedByMethodCall(returnValue, callExpr, factAp)) {
             addCallToReturn(factReader, factAp)
@@ -201,17 +178,34 @@ class MethodCallFlowFunction(
         }
     }
 
-    private fun applyTaintedFactSinkRules(factReader: FactReader) {
+    private fun applySinkRules(factReader: FinalFactReader?) {
         val apResolver = CallPositionToAccessPathResolver(callExpr, returnValue = null, readArgElementsIfArray = true)
         val valueResolver = CallPositionToJIRValueResolver(callExpr, returnValue = null)
+
+        val sinkRules = sinkRules(config, callExpr.method.method)
+        val remainingSinkRules = mutableListOf<TaintMethodSink>()
+
+        val noFactConditionEvaluator = FactIgnoreConditionEvaluator(traits, valueResolver)
+        for (rule in sinkRules) {
+            if (rule.condition.accept(noFactConditionEvaluator)) {
+                sinkTracker.addUnconditionalVulnerability(methodEntryPoint, statement, rule)
+                continue
+            }
+
+            remainingSinkRules += rule
+        }
+
+        if (factReader == null) return
 
         val conditionEvaluator = FactAwareConditionEvaluator(
             traits, factReader, apResolver, valueResolver
         )
 
-        for (rule in sinkRules(config, callExpr.method.method)) {
+        for (rule in remainingSinkRules) {
             if (conditionEvaluator.evalWithAssumptionsCheck(rule.condition)) {
-                sinkTracker.addNormalVulnerability(factReader.factAp, statement, rule)
+                for (fact in conditionEvaluator.facts()) {
+                    sinkTracker.addVulnerability(methodEntryPoint, fact, statement, rule)
+                }
                 continue
             }
 
@@ -226,9 +220,11 @@ class MethodCallFlowFunction(
             for (resultWithAssumption in conditionEvaluatorWithAssumptions.evalWithAssumptions(rule.condition)) {
                 if (!resultWithAssumption.result) continue
 
-                sinkTracker.addVulnerabilityWithAssumption(
-                    factReader.factAp, statement, rule, resultWithAssumption.assumptions
-                )
+                for (fact in conditionEvaluator.facts()) {
+                    sinkTracker.addVulnerabilityWithAssumption(
+                        methodEntryPoint, fact, statement, rule, resultWithAssumption.assumptions
+                    )
+                }
             }
         }
     }
@@ -249,42 +245,21 @@ class MethodCallFlowFunction(
         )
 
         private fun sinkRules(config: TaintRulesProvider, method: JIRMethod) =
-            config.rulesForMethod(method).filterIsInstance<TaintMethodSink>()
+            TaintConfigUtils.sinkRules(config, method)
 
         private fun applySourceConfig(
             config: TaintRulesProvider,
             method: JIRMethod,
             conditionEvaluator: ConditionVisitor<Boolean>,
             taintActionEvaluator: TaintSourceActionEvaluator
-        ) = applyAssignMark<TaintMethodSource>(
-            config, method, conditionEvaluator, taintActionEvaluator,
-            TaintMethodSource::condition, TaintMethodSource::actionsAfter
-        )
+        ) = TaintConfigUtils.applySourceConfig(config, method, conditionEvaluator, taintActionEvaluator)
 
         private fun applyEntryPointConfig(
             config: TaintRulesProvider,
             method: JIRMethod,
             conditionEvaluator: ConditionVisitor<Boolean>,
             taintActionEvaluator: TaintSourceActionEvaluator
-        ) = applyAssignMark<TaintEntryPointSource>(
-            config, method, conditionEvaluator, taintActionEvaluator,
-            TaintEntryPointSource::condition, TaintEntryPointSource::actionsAfter
-        )
-
-        private inline fun <reified T : TaintConfigurationItem> applyAssignMark(
-            config: TaintRulesProvider,
-            method: JIRMethod,
-            conditionEvaluator: ConditionVisitor<Boolean>,
-            taintActionEvaluator: TaintSourceActionEvaluator,
-            condition: (T) -> Condition,
-            actionsAfter: (T) -> List<Action>
-        ): Maybe<List<FinalFactAp>> =
-            config.rulesForMethod(method)
-                .filterIsInstance<T>()
-                .filter { condition(it).accept(conditionEvaluator) }
-                .flatMap { actionsAfter(it) }
-                .filterIsInstance<AssignMark>()
-                .maybeFlatMap { taintActionEvaluator.evaluate(it) }
+        ) = TaintConfigUtils.applyEntryPointConfig(config, method, conditionEvaluator, taintActionEvaluator)
 
         private fun applyPassThrough(
             config: TaintRulesProvider,
@@ -292,19 +267,7 @@ class MethodCallFlowFunction(
             conditionEvaluator: ConditionVisitor<Boolean>,
             taintActionEvaluator: TaintPassActionEvaluator
         ): Maybe<List<FinalFactAp>> =
-            config.rulesForMethod(method)
-                .filterIsInstance<TaintPassThrough>()
-                .filter { it.condition.accept(conditionEvaluator) }
-                .flatMap { it.actionsAfter }
-                .maybeFlatMap {
-                    when (it) {
-                        is CopyMark -> taintActionEvaluator.evaluate(it)
-                        is CopyAllMarks -> taintActionEvaluator.evaluate(it)
-                        is RemoveMark -> taintActionEvaluator.evaluate(it)
-                        is RemoveAllMarks -> taintActionEvaluator.evaluate(it)
-                        else -> Maybe.none()
-                    }
-                }
+            TaintConfigUtils.applyPassThrough(config, method, conditionEvaluator, taintActionEvaluator)
 
         private fun applyCleaner(
             config: TaintRulesProvider,
@@ -312,16 +275,6 @@ class MethodCallFlowFunction(
             conditionEvaluator: ConditionVisitor<Boolean>,
             taintActionEvaluator: TaintPassActionEvaluator
         ): Maybe<List<FinalFactAp>> =
-            config.rulesForMethod(method)
-                .filterIsInstance<TaintCleaner>()
-                .filter { it.condition.accept(conditionEvaluator) }
-                .flatMap { it.actionsAfter }
-                .maybeFlatMap {
-                    when (it) {
-                        is RemoveMark -> taintActionEvaluator.evaluate(it)
-                        is RemoveAllMarks -> taintActionEvaluator.evaluate(it)
-                        else -> Maybe.none()
-                    }
-                }
+            TaintConfigUtils.applyCleaner(config, method, conditionEvaluator, taintActionEvaluator)
     }
 }

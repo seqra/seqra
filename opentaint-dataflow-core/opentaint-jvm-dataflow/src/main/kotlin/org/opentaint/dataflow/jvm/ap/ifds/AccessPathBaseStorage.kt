@@ -64,4 +64,8 @@ abstract class AccessPathBaseStorage<V : Any>(initialStatement: JIRInst) {
     override fun toString(): String = mapValues { base, v ->
         "($base: $v)"
     }.joinToString("\n")
+
+    inline fun forEachValue(body: (AccessPathBase, V) -> Unit) {
+        mapValues { base, value -> base to value }.forEach { (base, value) -> body(base, value) }
+    }
 }

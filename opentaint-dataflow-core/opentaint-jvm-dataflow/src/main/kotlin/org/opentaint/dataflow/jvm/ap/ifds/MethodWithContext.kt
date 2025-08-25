@@ -18,4 +18,6 @@ data class MethodWithContext(val method: JIRMethod, val ctx: MethodContext)
 
 data class MethodEntryPoint(val context: MethodContext, val statement: JIRInst) {
     val method: JIRMethod get() = statement.method
+
+    override fun toString(): String = "$method [$context]"
 }

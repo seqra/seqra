@@ -2,9 +2,6 @@ package org.opentaint.jvm.sast.project
 
 import bench.EncryptionUtils
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.encodeToStream
 import mu.KLogging
 import org.opentaint.ir.api.jvm.ByteCodeIndexer
 import org.opentaint.ir.api.jvm.JIRDBContext
@@ -49,7 +46,6 @@ class ProjectAnalyzer(
     private val symbolicExecutionTimeout: Duration,
     private val ifdsAnalysisTimeout: Duration,
     private val ifdsApMode: ApMode,
-    private val debugIfdsSummaryDumpPath: Path?
 ) {
     fun analyze() {
         initializeCp()
@@ -178,22 +174,16 @@ class ProjectAnalyzer(
     private fun getPathFromEnv(envVar: String): Path =
         System.getenv(envVar)?.let { Path(it) } ?: error("$envVar not provided")
 
-    private val json = Json {
-        prettyPrint = true
-    }
-
-    @OptIn(ExperimentalSerializationApi::class)
     private fun runAnalyzer() {
         val analyzer = JIRTaintAnalyzer(
             cp,
+            projectLocations = projectLocations,
+            dependenciesLocations = dependenciesLocations,
             ifdsTimeout = ifdsAnalysisTimeout,
             ifdsApMode = ifdsApMode,
             opentaintTimeout = symbolicExecutionTimeout,
             symbolicExecutionEnabled = useSymbolicExecution,
-            projectLocations = projectLocations,
-            dependenciesLocations = dependenciesLocations,
             analysisCwe = cwe.takeIf { it.isNotEmpty() }?.toSet(),
-            debugSummaryDump = debugIfdsSummaryDumpPath,
         )
 
         val sourcesResolver = JIRSourceFileResolver(
@@ -208,8 +198,10 @@ class ProjectAnalyzer(
         analyzer.analyzeWithIfds(entryPoints)
         logger.info { "Finish IFDS analysis for project: ${project.sourceRoot}" }
 
-        val ifdsSarifReport = analyzer.generateSarifReportFromIfdsTraces(sourcesResolver)
-        (resultDir / "report-ifds.sarif").outputStream().use { json.encodeToStream(ifdsSarifReport, it) }
+        (resultDir / "report-ifds.sarif").outputStream().use {
+            analyzer.generateSarifReportFromIfdsTraces(it, sourcesResolver)
+        }
+
         logger.info { "Finish IFDS analysis report for project: ${project.sourceRoot}" }
 
         if (!useSymbolicExecution) return
@@ -218,8 +210,10 @@ class ProjectAnalyzer(
         analyzer.filterIfdsTracesWithOpentaint(entryPoints)
         logger.info { "Finish Opentaint for project: ${project.sourceRoot}" }
 
-        val opentaintSarifReport = analyzer.generateSarifReportFromVerifiedIfdsTraces(sourcesResolver)
-        (resultDir / "report-opentaint.sarif").outputStream().use { json.encodeToStream(opentaintSarifReport, it) }
+        (resultDir / "report-opentaint.sarif").outputStream().use {
+            analyzer.generateSarifReportFromVerifiedIfdsTraces(it, sourcesResolver)
+        }
+
         logger.info { "Finish Opentaint report for project: ${project.sourceRoot}" }
     }
 

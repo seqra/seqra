@@ -28,6 +28,13 @@ class MethodEdgesFinalCactusApSet(
 
         return AccessCactus(ap.base, addedAccess, ExclusionSet.Universe)
     }
+
+    override fun collectApAtStatement(collection: MutableCollection<FinalFactAp>, statement: JIRInst) {
+        storage.forEachValue { base, factEdges ->
+            val facts = factEdges.find(statement) ?: return@forEachValue
+            collection += AccessCactus(base, facts, ExclusionSet.Universe)
+        }
+    }
 }
 
 class MethodEdgesInitialToFinalCactusApSet(
@@ -35,6 +42,36 @@ class MethodEdgesInitialToFinalCactusApSet(
     private val maxInstIdx: Int
 ) : MethodEdgesInitialToFinalApSet {
     private val edgeStorage = TaintedInitialFactEdgeStorage(methodInitialStatement)
+
+    override fun collectApAtStatement(
+        collection: MutableCollection<Pair<InitialFactAp, FinalFactAp>>,
+        statement: JIRInst
+    ) {
+        edgeStorage.forEachValue { initialBase, edgeStorageForInitialFact ->
+            edgeStorageForInitialFact.forEachValue { finalBase, edgeStorageForExitFact ->
+                edgeStorageForExitFact.sameInitialAccessEdges.forEach { (initialAccess, edgeSet) ->
+                    val (finalAccess, exclusion) = edgeSet.find(statement) ?: return@forEach
+                    val initialAp = AccessPathWithCycles(initialBase, initialAccess, exclusion)
+                    val finalAp = AccessCactus(finalBase, finalAccess, exclusion)
+                    collection += initialAp to finalAp
+                }
+            }
+        }
+    }
+
+    override fun collectApAtStatement(
+        collection: MutableCollection<FinalFactAp>,
+        statement: JIRInst,
+        initialAp: InitialFactAp
+    ) {
+        val edgeStorageForInitialFact = edgeStorage.find(initialAp.base) ?: return
+        val initialAccess = (initialAp as AccessPathWithCycles).access
+        edgeStorageForInitialFact.forEachValue { finalBase, edgeStorageForExitFact ->
+            val edgeSet = edgeStorageForExitFact.sameInitialAccessEdges[initialAccess] ?: return@forEachValue
+            val (finalAccess, exclusion) = edgeSet.find(statement) ?: return@forEachValue
+            collection += AccessCactus(finalBase, finalAccess, exclusion)
+        }
+    }
 
     override fun add(
         statement: JIRInst,
@@ -83,7 +120,7 @@ private class TaintedExitFactEdgeStorage(initialStatement: JIRInst) :
 }
 
 private class TaintedFactAccessEdgeStorage {
-    private val sameInitialAccessEdges =
+    val sameInitialAccessEdges =
         Object2ObjectOpenHashMap<AccessPathWithCycles.AccessNode?, EdgeNonUniverseExclusionMergingStorage>()
 
     fun getOrCreateNonUniverse(
@@ -119,6 +156,12 @@ private class EdgeNonUniverseExclusionMergingStorage(maxInstIdx: Int) {
         return AccessWithExclusion(mergedAccess, mergedExclusion)
     }
 
+    fun find(statement: JIRInst): AccessWithExclusion? {
+        val edgeSetIdx = instructionStorageIdx(statement)
+        val exclusion = exclusions[edgeSetIdx] ?: return null
+        return AccessWithExclusion(edges[edgeSetIdx]!!, exclusion)
+    }
+
     data class AccessWithExclusion(val access: AccessCactusNode, val exclusion: ExclusionSet)
 }
 
@@ -147,4 +190,7 @@ private class ZeroInitialFactEdges(maxInstIdx: Int) {
         edges[factSetIdx] = mergedFacts
         return mergedFacts
     }
+
+    fun find(statement: JIRInst): AccessCactusNode? =
+        edges[instructionStorageIdx(statement)]
 }

@@ -22,18 +22,26 @@ class MethodInitialToFinalAutomataApSummariesStorage(
         storage.add(edges, added)
     }
 
-    override fun filterEdges(pattern: FinalFactAp): Sequence<FactToFactEdgeBuilder> =
-        storage.filterEdges(pattern as AccessGraphFinalFactAp)
+    override fun filterEdges(
+        pattern: FinalFactAp,
+        finalFactBase: AccessPathBase?
+    ): Sequence<FactToFactEdgeBuilder> =
+        storage.filterEdges(StorageFilterPattern(pattern, finalFactBase))
 
     override fun allEdges(): Sequence<FactToFactEdgeBuilder> = storage.allEdges()
 
+    private class StorageFilterPattern(
+        val initialFactPattern: FinalFactAp,
+        val finalFactBase: AccessPathBase?
+    )
+
     private class ExitPointStorage(methodEntryPoint: JIRInst) :
-        MethodSummaryFactEdgesForExitPoint<BasedInitialAp, AccessGraphFinalFactAp>(methodEntryPoint) {
+        MethodSummaryFactEdgesForExitPoint<BasedInitialAp, StorageFilterPattern>(methodEntryPoint) {
         override fun createStorage(): BasedInitialAp = BasedInitialAp(methodEntryPoint)
 
         override fun storageFilterEdges(
             storage: BasedInitialAp,
-            containsPattern: AccessGraphFinalFactAp
+            containsPattern: StorageFilterPattern
         ): Sequence<FactToFactEdgeBuilder> = storage.filter(containsPattern)
 
         override fun storageAllEdges(storage: BasedInitialAp): Sequence<FactToFactEdgeBuilder> = storage.allEdges()
@@ -62,11 +70,20 @@ class MethodInitialToFinalAutomataApSummariesStorage(
             }
         }
 
-        fun filter(containsPattern: AccessGraphFinalFactAp): Sequence<FactToFactEdgeBuilder> =
-            find(containsPattern.base)
-                ?.allEdges()
-                ?.map { it.setInitialBase(containsPattern.base).build() }
-                .orEmpty()
+        fun filter(containsPattern: StorageFilterPattern): Sequence<FactToFactEdgeBuilder> {
+            val initialFactBase = containsPattern.initialFactPattern.base
+            val storage = find(initialFactBase) ?: return emptySequence()
+
+            val edges = if (containsPattern.finalFactBase == null) {
+                storage.allEdges()
+            } else {
+                storage.filter(containsPattern.finalFactBase)
+            }
+
+            return edges.map {
+                it.setInitialBase(initialFactBase).build()
+            }
+        }
 
         fun allEdges(): Sequence<FactToFactEdgeBuilder> = mapValues { base, storage ->
             storage.allEdges().map { it.setInitialBase(base).build() }
@@ -90,6 +107,11 @@ class MethodInitialToFinalAutomataApSummariesStorage(
         fun allEdges(): Sequence<FactToFactEdgeBuilderBuilder> = mapValues { base, storage ->
             storage.allEdges().map { it.setFinalBase(base) }
         }.flatten()
+
+        fun filter(finalFactBase: AccessPathBase): Sequence<FactToFactEdgeBuilderBuilder> {
+            val storage = find(finalFactBase) ?: return emptySequence()
+            return storage.allEdges().map { it.setFinalBase(finalFactBase) }
+        }
     }
 
     private class InitialToFinalApStorage {

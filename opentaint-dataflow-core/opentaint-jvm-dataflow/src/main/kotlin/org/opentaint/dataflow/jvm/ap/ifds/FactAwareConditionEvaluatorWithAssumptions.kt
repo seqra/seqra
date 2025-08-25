@@ -26,7 +26,7 @@ import org.opentaint.dataflow.jvm.util.JIRTraits
 
 class FactAwareConditionEvaluatorWithAssumptions(
     traits: JIRTraits,
-    factReader: FactReader,
+    factReader: FinalFactReader,
     private val accessPathResolver: PositionResolver<Maybe<List<PositionAccess>>>,
     positionResolver: PositionResolver<Maybe<JIRValue>>,
 ) : ConditionVisitor<List<ResultWithFactAssumptions>> {

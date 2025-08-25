@@ -16,6 +16,14 @@ class MethodEdgesFinalAutomataApSet(
     override fun add(statement: JIRInst, ap: FinalFactAp): FinalFactAp? =
         add(statement, ap as AccessGraphFinalFactAp)
 
+    override fun collectApAtStatement(collection: MutableCollection<FinalFactAp>, statement: JIRInst) {
+        storage.forEachValue { base, storedFacts ->
+            storedFacts.allFactsAtStatement(statement)?.toList()?.forEach { ag ->
+                collection += AccessGraphFinalFactAp(base, ag, ExclusionSet.Universe)
+            }
+        }
+    }
+
     private fun add(statement: JIRInst, ap: AccessGraphFinalFactAp): AccessGraphFinalFactAp? {
         check(ap.exclusions is ExclusionSet.Universe)
 
@@ -52,6 +60,9 @@ class MethodEdgesFinalAutomataApSet(
             finalFacts[factSetIdx] = modifiedSet
             return accessGraph
         }
+
+        fun allFactsAtStatement(statement: JIRInst): AccessGraphSet? =
+            finalFacts[instructionStorageIdx(statement)]
 
         override fun toString(): String = "${finalFacts.sumOf { it?.graphSize ?: 0 }}"
     }

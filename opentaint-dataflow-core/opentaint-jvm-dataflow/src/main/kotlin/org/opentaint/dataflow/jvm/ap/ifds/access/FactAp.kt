@@ -10,6 +10,8 @@ interface FactAp {
     val exclusions: ExclusionSet
 
     val size: Int
+
+    fun startsWithAccessor(accessor: Accessor): Boolean
 }
 
 interface FactApDelta {
@@ -17,8 +19,16 @@ interface FactApDelta {
 }
 
 interface InitialFactAp : FactAp {
+    fun rebase(newBase: AccessPathBase): InitialFactAp
     fun exclude(accessor: Accessor): InitialFactAp
     fun replaceExclusions(exclusions: ExclusionSet): InitialFactAp
+
+    fun readAccessor(accessor: Accessor): InitialFactAp?
+    fun prependAccessor(accessor: Accessor): InitialFactAp
+    fun clearAccessor(accessor: Accessor): InitialFactAp?
+
+    fun splitDelta(other: FinalFactAp): List<Pair<InitialFactAp, FactApDelta>>
+    fun concat(delta: FactApDelta): InitialFactAp
 }
 
 interface FinalFactAp : FactAp {
@@ -26,7 +36,6 @@ interface FinalFactAp : FactAp {
     fun exclude(accessor: Accessor): FinalFactAp
     fun replaceExclusions(exclusions: ExclusionSet): FinalFactAp
 
-    fun startsWithAccessor(accessor: Accessor): Boolean
     fun isAbstract(): Boolean
 
     fun readAccessor(accessor: Accessor): FinalFactAp?
@@ -38,4 +47,6 @@ interface FinalFactAp : FactAp {
     fun concat(typeChecker: FactTypeChecker, delta: FactApDelta): FinalFactAp?
 
     fun filterFact(filter: FactTypeChecker.FactApFilter): FinalFactAp?
+
+    fun contains(factAp: InitialFactAp): Boolean
 }

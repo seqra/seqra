@@ -9,15 +9,18 @@ import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.findMethodOrNull
 import org.opentaint.dataflow.ifds.UnitType
+import org.opentaint.dataflow.jvm.ap.ifds.SummaryEdgeSubscriptionManager.MethodEntryPointCaller
 import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
 import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.trace.MethodTraceResolver
+import org.opentaint.dataflow.jvm.ap.ifds.trace.TraceResolverCancellation
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.jvm.util.concurrentReadSafeForEach
 import java.util.concurrent.atomic.LongAdder
 
 class TaintAnalysisUnitRunner(
-    private val manager: TaintAnalysisUnitRunnerManager,
+    override val manager: TaintAnalysisUnitRunnerManager,
     private val unit: UnitType,
     override val graph: JIRApplicationGraph,
     private val callResolver: JIRCallResolver,
@@ -201,7 +204,7 @@ class TaintAnalysisUnitRunner(
         methodEntryPoint = methodEntryPoint,
         subscribe = { subscribeOnMethodSummary(methodEntryPoint, edge) },
         submitThisUnitFact = { submitMethodInitialZeroFact(methodEntryPoint) },
-        submitCrossUnitFact = { handleCrossUnitZeroCall(methodEntryPoint) }
+        submitCrossUnitFact = { handleCrossUnitZeroCall(unit, methodEntryPoint) }
     )
 
     override fun subscribeOnMethodSummaries(
@@ -212,7 +215,7 @@ class TaintAnalysisUnitRunner(
         methodEntryPoint = methodEntryPoint,
         subscribe = { subscribeOnMethodSummary(methodEntryPoint, methodFactBase, edge) },
         submitThisUnitFact = { submitMethodInitialFact(methodEntryPoint, edge.factAp.rebase(methodFactBase)) },
-        submitCrossUnitFact = { handleCrossUnitFactCall(methodEntryPoint, edge.factAp.rebase(methodFactBase)) }
+        submitCrossUnitFact = { handleCrossUnitFactCall(unit, methodEntryPoint, edge.factAp.rebase(methodFactBase)) }
     )
 
     override fun subscribeOnMethodSummaries(
@@ -223,7 +226,7 @@ class TaintAnalysisUnitRunner(
         methodEntryPoint = methodEntryPoint,
         subscribe = { subscribeOnMethodSummary(methodEntryPoint, methodFactBase, edge) },
         submitThisUnitFact = { submitMethodInitialFact(methodEntryPoint, edge.factAp.rebase(methodFactBase)) },
-        submitCrossUnitFact = { handleCrossUnitFactCall(methodEntryPoint, edge.factAp.rebase(methodFactBase)) }
+        submitCrossUnitFact = { handleCrossUnitFactCall(unit, methodEntryPoint, edge.factAp.rebase(methodFactBase)) }
     )
 
     private inline fun subscribeOnMethodSummaries(
@@ -287,6 +290,44 @@ class TaintAnalysisUnitRunner(
         }
     }
 
+    override fun resolvedMethodCalls(
+        callerEntryPoint: MethodEntryPoint,
+        callExpr: JIRCallExpr,
+        location: JIRInst
+    ): List<MethodWithContext> {
+        val callees = callResolver.resolve(callExpr, location, callerEntryPoint.context)
+        return callees.flatMap { resolvedCallee ->
+            when (resolvedCallee) {
+                JIRCallResolver.MethodResolutionResult.MethodResolutionFailed -> {
+                    emptyList()
+                }
+
+                is JIRCallResolver.MethodResolutionResult.ConcreteMethod -> {
+                    listOf(resolvedCallee.method)
+                }
+
+                is JIRCallResolver.MethodResolutionResult.Lambda -> {
+                    val resolvedLambdas = mutableListOf<MethodWithContext>()
+                    lambdaTracker.forEachRegisteredLambda(
+                        resolvedCallee.method,
+                        object : JIRLambdaTracker.LambdaSubscriber {
+                            override fun newLambda(
+                                method: JIRMethod,
+                                lambdaClass: LambdaAnonymousClassFeature.JIRLambdaClass
+                            ) {
+                                val methodImpl = lambdaClass.findMethodOrNull(method.name, method.description)
+                                    ?: error("Lambda class $lambdaClass has no lambda method $method")
+
+                                resolvedLambdas += MethodWithContext(methodImpl, EmptyMethodContext)
+                            }
+                        }
+                    )
+                    resolvedLambdas
+                }
+            }
+        }
+    }
+
     private data class LambdaSubscription(
         private val runner: TaintAnalysisUnitRunner,
         private val callerEntryPoint: MethodEntryPoint,
@@ -310,5 +351,47 @@ class TaintAnalysisUnitRunner(
     private fun handleLambdaResolvedEvent(event: LambdaResolvedEvent) {
         val analyzer = getMethodAnalyzer(event.callerEntryPoint)
         analyzer.handleResolvedMethodCall(event.resolvedLambdaMethod, event.handler)
+    }
+
+    fun methodCallers(
+        methodEntryPoint: MethodEntryPoint,
+        collectZeroCallsOnly: Boolean,
+        callers: MutableSet<MethodEntryPointCaller>,
+    ) {
+        if (methodEntryPoint.method.isExtern) {
+            externalMethodSummarySubscriptions.methodEntryPointCallers(methodEntryPoint, collectZeroCallsOnly, callers)
+        } else {
+            internalMethodSummarySubscriptions.methodEntryPointCallers(methodEntryPoint, collectZeroCallsOnly, callers)
+        }
+    }
+
+    fun resolveIntraProceduralTraceSummary(
+        methodEntryPoint: MethodEntryPoint,
+        statement: JIRInst,
+        factAp: InitialFactAp
+    ): List<MethodTraceResolver.SummaryTrace> {
+        val methodRunners = methodAnalyzers(methodEntryPoint)
+        val runner = methodRunners.getAnalyzer(methodEntryPoint)
+        return runner.resolveIntraProceduralTraceSummary(statement, factAp)
+    }
+
+    fun resolveIntraProceduralTraceSummaryFromCall(
+        methodEntryPoint: MethodEntryPoint,
+        statement: JIRInst,
+        calleeEntry: MethodTraceResolver.TraceEntry.MethodEntry
+    ): List<MethodTraceResolver.SummaryTrace> {
+        val methodRunners = methodAnalyzers(methodEntryPoint)
+        val runner = methodRunners.getAnalyzer(methodEntryPoint)
+        return runner.resolveIntraProceduralTraceSummaryFromCall(statement, calleeEntry)
+    }
+
+    fun resolveIntraProceduralFullTrace(
+        methodEntryPoint: MethodEntryPoint,
+        summaryTrace: MethodTraceResolver.SummaryTrace,
+        cancellation: TraceResolverCancellation
+    ): MethodTraceResolver.FullTrace {
+        val methodRunners = methodAnalyzers(methodEntryPoint)
+        val runner = methodRunners.getAnalyzer(methodEntryPoint)
+        return runner.resolveIntraProceduralFullTrace(summaryTrace, cancellation)
     }
 }

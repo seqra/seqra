@@ -62,18 +62,12 @@ data class AccessGraphFinalFactAp(
         if (base != other.base) return emptyList()
 
         if (other.access.isEmpty()) {
-            return listOf(Delta(this.access))
+            val filteredDelta = this.access.filter(other.exclusions)
+            return listOfNotNull(filteredDelta?.let { Delta(it) })
         }
 
         return access.delta(other.access).mapNotNull { delta ->
-            val filteredDelta = when (val ex = other.exclusions) {
-                is ExclusionSet.Concrete -> ex.set.fold(delta as AccessGraph?) { filtered, accessor ->
-                    filtered?.clear(accessor)
-                }
-
-                ExclusionSet.Empty -> delta
-                ExclusionSet.Universe -> delta.takeIf { it.isEmpty() }
-            }
+            val filteredDelta = delta.filter(other.exclusions)
             filteredDelta?.let { Delta(it) }
         }
     }
@@ -95,6 +89,13 @@ data class AccessGraphFinalFactAp(
 
     override fun filterFact(filter: FactTypeChecker.FactApFilter): FinalFactAp? =
         access.filter(filter)?.let { AccessGraphFinalFactAp(base, it, exclusions) }
+
+    override fun contains(factAp: InitialFactAp): Boolean {
+        factAp as AccessGraphInitialFactAp
+
+        if (base != factAp.base) return false
+        return access.containsAll(factAp.access)
+    }
 
     private fun AccessGraph.createFilter(typeChecker: FactTypeChecker): FactTypeChecker.FactApFilter {
         val finalPredAccessors = nodePredecessors(final)

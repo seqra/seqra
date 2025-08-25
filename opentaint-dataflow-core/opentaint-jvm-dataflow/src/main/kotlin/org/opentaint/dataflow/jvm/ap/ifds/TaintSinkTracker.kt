@@ -6,46 +6,54 @@ import org.opentaint.ir.taint.configuration.PositionResolver
 import org.opentaint.ir.taint.configuration.TaintMethodSink
 import org.opentaint.dataflow.ifds.Maybe
 import org.opentaint.dataflow.jvm.ap.ifds.FactAwareConditionEvaluatorWithAssumptions.FactAssumption
-import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import java.util.concurrent.ConcurrentHashMap
 
 class TaintSinkTracker(
+    private val apManager: ApManager,
     private val storage: TaintAnalysisUnitRunnerManager.UnitStorage
 ) {
-
     sealed interface TaintVulnerability {
         val rule: TaintMethodSink
+        val methodEntryPoint: MethodEntryPoint
         val statement: JIRInst
     }
 
-    data class NormalVulnerability(
+    data class TaintVulnerabilityUnconditional(
         override val rule: TaintMethodSink,
+        override val methodEntryPoint: MethodEntryPoint,
+        override val statement: JIRInst
+    ) : TaintVulnerability
+
+    data class TaintVulnerabilityWithFact(
+        override val rule: TaintMethodSink,
+        override val methodEntryPoint: MethodEntryPoint,
         override val statement: JIRInst,
-        val fact: FinalFactAp
+        val factAp: InitialFactAp
     ): TaintVulnerability
 
-    data class UnconditionalVulnerability(
-        override val rule: TaintMethodSink,
-        override val statement: JIRInst
-    ): TaintVulnerability
+    private val unconditionalVulnerabilities = ConcurrentHashMap.newKeySet<TaintVulnerabilityUnconditional>()
+
+    fun addUnconditionalVulnerability(
+        methodEntryPoint: MethodEntryPoint,
+        statement: JIRInst,
+        rule: TaintMethodSink
+    ) {
+        val vulnerability = TaintVulnerabilityUnconditional(rule, methodEntryPoint, statement)
+        if (unconditionalVulnerabilities.add(vulnerability)) {
+            storage.addVulnerability(vulnerability)
+        }
+    }
 
     private val reportedVulnerabilities = ConcurrentHashMap<TaintMethodSink, MutableSet<JIRInst>>()
 
-    fun addNormalVulnerability(fact: FinalFactAp, statement: JIRInst, rule: TaintMethodSink) =
-        addVulnerability(statement, rule) {
-            NormalVulnerability(rule, statement, fact)
-        }
-
-    fun addUnconditionalVulnerability(statement: JIRInst, rule: TaintMethodSink) =
-        addVulnerability(statement, rule) {
-            UnconditionalVulnerability(rule, statement)
-        }
-
-    private inline fun addVulnerability(
+    fun addVulnerability(
+        methodEntryPoint: MethodEntryPoint,
+        factAp: InitialFactAp,
         statement: JIRInst,
-        rule: TaintMethodSink,
-        vulnerabilityBuilder: () -> TaintVulnerability
+        rule: TaintMethodSink
     ) {
         val reportedVulnerabilitiesFoRule = reportedVulnerabilities.computeIfAbsent(rule) {
             ConcurrentHashMap.newKeySet()
@@ -53,14 +61,15 @@ class TaintSinkTracker(
 
         // todo: current deduplication is incompatible with traces
         if (reportedVulnerabilitiesFoRule.add(statement)) {
-            storage.addVulnerability(vulnerabilityBuilder())
+            storage.addVulnerability(TaintVulnerabilityWithFact(rule, methodEntryPoint, statement, factAp))
         }
     }
 
     private val vulnerabilitiesWithAssumptions = ConcurrentHashMap<Pair<JIRInst, TaintMethodSink>, VulnWithAssumptions>()
 
     fun addVulnerabilityWithAssumption(
-        factAp: FinalFactAp,
+        methodEntryPoint: MethodEntryPoint,
+        factAp: InitialFactAp,
         statement: JIRInst,
         rule: TaintMethodSink,
         assumptions: Set<FactAssumption>
@@ -73,17 +82,17 @@ class TaintSinkTracker(
             BannedVulnerability -> return
             is VulnerabilityWithAssumptions -> {
                 vulnerabilities.add(EdgeWithAssumptions(factAp, statement, assumptions))
-                if (vulnerabilities.vulnerabilityAssumptionsSatisfied()) {
+                if (vulnerabilities.vulnerabilityAssumptionsSatisfied(apManager)) {
                     vulnerabilitiesWithAssumptions[statement to rule] = BannedVulnerability
 
                     // Report vulnerability with last edge
-                    addNormalVulnerability(factAp, statement, rule)
+                    addVulnerability(methodEntryPoint, factAp, statement, rule)
                 }
             }
         }
     }
 
-    data class EdgeWithAssumptions(val factAp: FinalFactAp, val statement: JIRInst, val assumptions: Set<FactAssumption>)
+    data class EdgeWithAssumptions(val factAp: InitialFactAp, val statement: JIRInst, val assumptions: Set<FactAssumption>)
 
     private sealed interface VulnWithAssumptions
     private object BannedVulnerability : VulnWithAssumptions
@@ -95,10 +104,12 @@ class TaintSinkTracker(
             edges.add(edge)
         }
 
-        fun vulnerabilityAssumptionsSatisfied(): Boolean {
+        fun vulnerabilityAssumptionsSatisfied(apManager: ApManager): Boolean {
             val cp = edges.firstOrNull()?.statement?.method?.enclosingClass?.classpath ?: return false
 
-            val factReaders = edges.mapTo(hashSetOf()) { it.factAp }.map(::FactReader)
+            val factReaders = edges.mapTo(hashSetOf()) { it.factAp }.map { fact ->
+                InitialFactReader(fact, apManager)
+            }
 
             val evaluator = FactAwareConditionEvaluator(
                 JIRTraits(cp), factReaders, NonePositionResolver, NonePositionResolver

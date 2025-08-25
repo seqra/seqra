@@ -51,4 +51,7 @@ object AutomataApManager : ApManager {
 
     override fun createAbstractAp(base: AccessPathBase, exclusions: ExclusionSet): FinalFactAp =
         AccessGraphFinalFactAp(base, AccessGraph.empty(), exclusions)
+
+    override fun createFinalInitialAp(base: AccessPathBase, exclusions: ExclusionSet): InitialFactAp =
+        AccessGraphInitialFactAp(base, finalAp, exclusions)
 }

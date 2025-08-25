@@ -18,10 +18,13 @@ class MethodFinalTreeApSummariesStorage(
     }
 
     override fun allEdges(): Sequence<ZeroToFactEdgeBuilder> = storage.allEdges()
+
+    override fun filterEdges(finalFactBase: AccessPathBase): Sequence<ZeroToFactEdgeBuilder> =
+        storage.filterEdges(finalFactBase)
 }
 
 private class MethodZeroToFactSummariesStorage(methodEntryPoint: JIRInst) :
-    MethodSummaryZeroEdgesForExitPoint<MethodZeroToFactSummaries, AccessTree.AccessNode>(methodEntryPoint) {
+    MethodSummaryZeroEdgesForExitPoint<MethodZeroToFactSummaries, AccessPathBase>(methodEntryPoint) {
 
     override fun createStorage(): MethodZeroToFactSummaries = MethodZeroToFactSummaries(methodEntryPoint)
 
@@ -36,10 +39,9 @@ private class MethodZeroToFactSummariesStorage(methodEntryPoint: JIRInst) :
 
     override fun storageFilterEdges(
         storage: MethodZeroToFactSummaries,
-        containsPattern: AccessTree.AccessNode
-    ): Sequence<ZeroToFactEdgeBuilder> {
-        error("Can't filter edges")
-    }
+        containsPattern: AccessPathBase
+    ): Sequence<ZeroToFactEdgeBuilder> =
+        storage.filter(containsPattern)
 }
 
 private class MethodZeroToFactSummaries(methodEntryPoint: JIRInst) :
@@ -62,8 +64,16 @@ private class MethodZeroToFactSummaries(methodEntryPoint: JIRInst) :
     }
 
     fun edgeSequence(): Sequence<ZeroToFactEdgeBuilder> = mapValues { base, storage ->
-        storage.summaryEdge()?.setBase(base)?.build()?.let { sequenceOf(it) }.orEmpty()
+        storage.summaryEdgeSequence(base)
     }.flatten()
+
+    fun filter(finalFactBase: AccessPathBase): Sequence<ZeroToFactEdgeBuilder> {
+        val storage = find(finalFactBase) ?: return emptySequence()
+        return storage.summaryEdgeSequence(finalFactBase)
+    }
+
+    private fun MethodZeroToFactSummaryEdgeStorage.summaryEdgeSequence(base: AccessPathBase) =
+        summaryEdge()?.setBase(base)?.build()?.let { sequenceOf(it) }.orEmpty()
 }
 
 private class MethodZeroToFactSummaryEdgeStorage {

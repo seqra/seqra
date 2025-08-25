@@ -4,6 +4,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.dataflow.jvm.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.jvm.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.jvm.ap.ifds.ExclusionSet.Empty
+import org.opentaint.dataflow.jvm.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.jvm.ap.ifds.access.ApManager
 import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAbstraction
@@ -51,4 +52,7 @@ object CactusApManager : ApManager {
 
     override fun createAbstractAp(base: AccessPathBase, exclusions: ExclusionSet): FinalFactAp =
         AccessCactus(base, AccessNode.create(isAbstract = true), exclusions)
+
+    override fun createFinalInitialAp(base: AccessPathBase, exclusions: ExclusionSet): InitialFactAp =
+        AccessPathWithCycles(base, access = null, exclusions).prependAccessor(FinalAccessor)
 }
