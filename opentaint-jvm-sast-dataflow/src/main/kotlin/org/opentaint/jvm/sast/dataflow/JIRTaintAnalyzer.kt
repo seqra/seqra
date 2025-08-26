@@ -17,6 +17,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.TaintAnalysisUnitRunnerManager.Vulnera
 import org.opentaint.dataflow.jvm.ap.ifds.TaintSinkTracker
 import org.opentaint.dataflow.jvm.ap.ifds.access.ApMode
 import org.opentaint.dataflow.jvm.ap.ifds.sarif.SarifGenerator
+import org.opentaint.dataflow.jvm.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.jvm.graph.JIRApplicationGraphImpl
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.jvm.ifds.PackageUnit
@@ -121,7 +122,11 @@ class JIRTaintAnalyzer(
         val entryPointsSet = entryPoints.toHashSet()
         return resolveVulnerabilityTraces(
             entryPointsSet, vulnerabilities,
-            resolveEntryPointToStartTrace = symbolicExecutionEnabled,
+            resolverParams = TraceResolver.Params(
+                resolveEntryPointToStartTrace = symbolicExecutionEnabled,
+                startToSourceTraceResolutionLimit = 100,
+                startToSinkTraceResolutionLimit = 100,
+            ),
             timeout = timeout,
             cancellationTimeout = 30.seconds
         )

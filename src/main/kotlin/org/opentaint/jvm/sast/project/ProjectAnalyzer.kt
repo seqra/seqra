@@ -26,6 +26,7 @@ import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
 import org.opentaint.dataflow.jvm.ap.ifds.access.ApMode
+import org.opentaint.dataflow.jvm.graph.MethodReturnInstNormalizerFeature
 import org.opentaint.machine.TypeScorer
 import org.opentaint.types.ClassScorer
 import org.opentaint.types.scoreClassNode
@@ -155,9 +156,12 @@ class ProjectAnalyzer(
 
         val lambdaAnonymousClass = LambdaAnonymousClassFeature()
         val lambdaTransformer = LambdaExpressionToAnonymousClassTransformerFeature(lambdaAnonymousClass)
+        val methodNormalizer = MethodReturnInstNormalizerFeature
 
         val configurationFeature = TaintConfigurationFeature.fromJson(configJson)
-        val features = listOf(configurationFeature, UnknownClasses, lambdaAnonymousClass, lambdaTransformer)
+        val features = listOf(
+            configurationFeature, UnknownClasses, lambdaAnonymousClass, lambdaTransformer, methodNormalizer
+        )
 
         // todo: fix approximations with multiple JIRDatabase instances
 //        cp = db.classpathWithApproximations(allCpFiles, features)

@@ -287,12 +287,12 @@ class TaintAnalysisUnitRunnerManager(
     fun resolveVulnerabilityTraces(
         entryPoints: Set<JIRMethod>,
         vulnerabilities: List<TaintVulnerability>,
-        resolveEntryPointToStartTrace: Boolean,
+        resolverParams: TraceResolver.Params,
         timeout: Duration,
         cancellationTimeout: Duration
     ): List<VulnerabilityWithTrace> {
         val traceResolverCancellation = TraceResolverCancellation()
-        val traceResolver = TraceResolver(entryPoints, this, resolveEntryPointToStartTrace, traceResolverCancellation)
+        val traceResolver = TraceResolver(entryPoints, this, resolverParams, traceResolverCancellation)
         val result = ConcurrentLinkedQueue<VulnerabilityWithTrace>()
 
         val processed = AtomicInteger()

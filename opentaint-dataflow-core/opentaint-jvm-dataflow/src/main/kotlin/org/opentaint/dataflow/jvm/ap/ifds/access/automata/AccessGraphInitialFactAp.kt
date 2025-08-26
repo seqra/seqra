@@ -65,4 +65,11 @@ data class AccessGraphInitialFactAp(
         val concatenatedGraph = access.concat(delta.graph)
         return AccessGraphInitialFactAp(base, concatenatedGraph, exclusions)
     }
+
+    override fun contains(factAp: InitialFactAp): Boolean {
+        factAp as AccessGraphInitialFactAp
+
+        if (base != factAp.base) return false
+        return access.containsAll(factAp.access)
+    }
 }

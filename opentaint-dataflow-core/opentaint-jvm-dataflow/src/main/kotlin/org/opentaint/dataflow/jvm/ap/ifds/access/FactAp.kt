@@ -29,6 +29,8 @@ interface InitialFactAp : FactAp {
 
     fun splitDelta(other: FinalFactAp): List<Pair<InitialFactAp, FactApDelta>>
     fun concat(delta: FactApDelta): InitialFactAp
+
+    fun contains(factAp: InitialFactAp): Boolean
 }
 
 interface FinalFactAp : FactAp {

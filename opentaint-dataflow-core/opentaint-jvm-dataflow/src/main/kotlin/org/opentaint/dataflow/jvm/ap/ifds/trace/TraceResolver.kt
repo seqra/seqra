@@ -15,9 +15,15 @@ import org.opentaint.dataflow.jvm.ap.ifds.TaintSinkTracker.TaintVulnerability
 class TraceResolver(
     private val entryPointMethods: Set<JIRMethod>,
     private val manager: TaintAnalysisUnitRunnerManager,
-    private val resolveEntryPointToStartTrace: Boolean,
+    private val params: Params,
     private val cancellation: TraceResolverCancellation
 ) {
+    data class Params(
+        val resolveEntryPointToStartTrace: Boolean = true,
+        val startToSourceTraceResolutionLimit: Int? = null,
+        val startToSinkTraceResolutionLimit: Int? = null,
+    )
+
     data class Trace(
         val entryPointToStart: EntryPointToStartTrace?,
         val sourceToSinkTrace: SourceToSinkTrace,
@@ -118,7 +124,7 @@ class TraceResolver(
     }
 
     private fun resolveEntryPointToStartTrace(startNodes: Set<SourceToSinkTraceNode>): EntryPointToStartTrace? {
-        if (!resolveEntryPointToStartTrace) return null
+        if (!params.resolveEntryPointToStartTrace) return null
         return EntryPointToStartTraceBuilder().build(startNodes)
     }
 
@@ -140,6 +146,9 @@ class TraceResolver(
         val successors = hashMapOf<InterProceduralTraceNode, MutableSet<InterProceduralCall>>()
 
         val unprocessed = mutableListOf<BuilderUnprocessedTrace>()
+
+        private var startToSourceTraceResolutionStat = 0
+        private var startToSinkTraceResolutionStat = 0
 
         fun createSinkNode(trace: MethodTraceResolver.SummaryTrace) {
             val node = resolveNode(trace, CallKind.CallToSink)
@@ -194,6 +203,10 @@ class TraceResolver(
 
                     val callerTraces = resolveMethodEntry(trace.initial)
                     for ((callerStatement, callerTrace) in callerTraces) {
+                        if (params.startToSinkTraceResolutionLimit != null) {
+                            if (startToSinkTraceResolutionStat++ > params.startToSinkTraceResolutionLimit) continue
+                        }
+
                         unprocessed += BuilderUnprocessedTrace(
                             trace = callerTrace,
                             kind = CallKind.CallToSink,
@@ -229,6 +242,10 @@ class TraceResolver(
                         when (entry) {
                             is CallSourceRule -> continue
                             is CallSourceSummary -> {
+                                if (params.startToSourceTraceResolutionLimit != null) {
+                                    if (startToSourceTraceResolutionStat++ > params.startToSourceTraceResolutionLimit) continue
+                                }
+
                                 unprocessed += BuilderUnprocessedTrace(
                                     trace = entry.summaryTrace,
                                     kind = CallKind.CallToSource,

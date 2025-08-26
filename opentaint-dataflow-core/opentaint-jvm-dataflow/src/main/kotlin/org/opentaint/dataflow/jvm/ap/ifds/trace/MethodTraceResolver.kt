@@ -46,6 +46,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.mapMethodExitToReturnFlowFact
 import org.opentaint.dataflow.jvm.ap.ifds.methodExitFactBases
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import java.util.BitSet
+import java.util.LinkedList
 import java.util.Objects
 
 class MethodTraceResolver(
@@ -543,6 +544,8 @@ class MethodTraceResolver(
         }
 
         if (initialFact == null) {
+            val resolvedSourceSummaries = hashSetOf<TraceEntry.CallSourceSummary>()
+
             for ((callee, calleeBases) in calleeEntryPoints) {
                 for (calleeBase in calleeBases) {
                     val relevantSummaryEdges = manager.findZeroToFactSummaryEdges(callee, calleeBase)
@@ -558,109 +561,140 @@ class MethodTraceResolver(
                             )
                         )
 
-                        addPredecessor(entry, TraceEntry.CallSourceSummary(entry.fact, statement, summaryTrace))
+                        resolvedSourceSummaries += TraceEntry.CallSourceSummary(entry.fact, statement, summaryTrace)
                     }
                 }
             }
+
+            resolvedSourceSummaries.forEach { addPredecessor(entry, it) }
         }
 
-        for (statementFact in factsAtStatement) {
-            val startFacts = methodStartFacts(statementFact, returnValue, callExpr)
-            for ((callerFact, calleeInitialBase) in startFacts) {
-                val calleeInitialFact = callerFact.rebase(calleeInitialBase)
+        val resolvedCallSummaries = mutableListOf<TraceEntry.CallSummary>()
 
-                for ((callee, calleeBases) in calleeEntryPoints) {
-                    for (calleeBase in calleeBases) {
-                        val methodSummaries = manager.findFactToFactSummaryEdges(
-                            callee, calleeInitialFact, calleeBase
-                        ).asSequence()
+        val startFacts = factsAtStatement.flatMap { statementFact ->
+            methodStartFacts(statementFact, returnValue, callExpr)
+        }
 
-                        val summaries = methodSummaries.groupBy { summary ->
-                            summary.initialFactAp.also { check(it.base == calleeInitialBase) }
-                        }
+        for ((callee, calleeBases) in calleeEntryPoints) {
+            for (calleeBase in calleeBases) {
+                for ((callerFact, calleeInitialBase) in startFacts) {
+                    val calleeInitialFact = callerFact.rebase(calleeInitialBase)
+                    val methodSummaries = manager.findFactToFactSummaryEdges(
+                        callee, calleeInitialFact, calleeBase
+                    )
 
-                        resolveCallSummaryEdges(
-                            summaries, calleeInitialFact, entry, callerFact, statement, callee
+                    for (summaryEdge in methodSummaries) {
+                        resolvedCallSummaries.resolveCallSummaryEdge(
+                            summaryEdge = summaryEdge,
+                            calleeInitialFact = calleeInitialFact,
+                            currentEntryFact = entry.fact,
+                            callerFact = callerFact,
+                            statement = statement,
+                            callee = callee
                         )
                     }
                 }
             }
         }
+
+        val weakestCallSummaries = selectWeakestEntries(resolvedCallSummaries)
+
+        weakestCallSummaries.forEach { addPredecessor(entry, it) }
     }
 
-    private fun TraceBuilder.resolveCallSummaryEdges(
-        summaries: Map<InitialFactAp, List<FactToFact>>,
+    private fun <E : TraceEntry> selectWeakestEntries(entries: List<E>): List<E> {
+        val selectedEntries = LinkedList<E>()
+        for (summary in entries) {
+            addWeakestEntry(summary, selectedEntries)
+        }
+        return selectedEntries
+    }
+
+    private fun <E : TraceEntry> addWeakestEntry(entry: E, selectedEntries: LinkedList<E>) {
+        val entryFact = entry.fact
+        val iter = selectedEntries.listIterator()
+
+        while (iter.hasNext()) {
+            val selectedEntry = iter.next()
+            val selectedFact = selectedEntry.fact
+
+            // Entry fact is stronger than already added selected fact
+            if (entryFact.contains(selectedFact)) {
+                return
+            }
+
+            // Selected fact is stronger
+            if (selectedFact.contains(entryFact)) {
+                iter.remove()
+            }
+        }
+
+        selectedEntries.add(entry)
+    }
+
+    private fun MutableList<TraceEntry.CallSummary>.resolveCallSummaryEdge(
+        summaryEdge: FactToFact,
         calleeInitialFact: FinalFactAp,
-        entry: TraceEntry,
+        currentEntryFact: InitialFactAp,
         callerFact: FinalFactAp,
         statement: JIRInst,
         callee: MethodEntryPoint
     ) {
-        for ((summaryInitialFact, summaryEdges) in summaries) {
-            val summaryEdgeEffects = MethodSummaryEdgeApplicationUtils.tryApplySummaryEdge(
-                calleeInitialFact, summaryInitialFact
-            )
-            for (effect in summaryEdgeEffects) {
-                when (effect) {
-                    is SummaryApRefinement -> {
-                        for (summaryEdge in summaryEdges) {
-                            val mappedSummaryFact = summaryEdge.factAp.rebase(entry.fact.base)
+        val summaryEdgeEffects = MethodSummaryEdgeApplicationUtils.tryApplySummaryEdge(
+            calleeInitialFact, summaryEdge.initialFactAp
+        )
 
-                            val summaryFact = mappedSummaryFact.concat(DummyFactChecker, effect.delta)
-                                ?.replaceExclusions(entry.fact.exclusions)
-                                ?: continue
+        for (effect in summaryEdgeEffects) {
+            when (effect) {
+                is SummaryApRefinement -> {
+                    val mappedSummaryFact = summaryEdge.factAp.rebase(currentEntryFact.base)
 
-                            if (!summaryFact.contains(entry.fact)) continue
+                    val summaryFact = mappedSummaryFact.concat(DummyFactChecker, effect.delta)
+                        ?.replaceExclusions(currentEntryFact.exclusions) ?: continue
 
-                            val deltas = entry.fact.splitDelta(mappedSummaryFact)
-                            for ((matchedEntryFact, delta) in deltas) {
-                                if (!mappedSummaryFact.contains(matchedEntryFact)) continue
+                    if (!summaryFact.contains(currentEntryFact)) continue
 
-                                val precondition = summaryInitialFact.concat(delta)
-                                    .rebase(callerFact.base)
-                                    .replaceExclusions(entry.fact.exclusions)
+                    val deltas = currentEntryFact.splitDelta(mappedSummaryFact)
+                    for ((matchedEntryFact, delta) in deltas) {
+                        if (!mappedSummaryFact.contains(matchedEntryFact)) continue
 
-                                addCallSummaryEntry(
-                                    entry = entry,
-                                    statement = statement,
-                                    precondition = precondition,
-                                    callee = callee,
-                                    summaryFinalFact = matchedEntryFact,
-                                    summaryEdge = summaryEdge,
-                                )
-                            }
-                        }
+                        val precondition = summaryEdge.initialFactAp.concat(delta).rebase(callerFact.base)
+                            .replaceExclusions(currentEntryFact.exclusions)
+
+                        addCallSummaryEntry(
+                            statement = statement,
+                            precondition = precondition,
+                            callee = callee,
+                            summaryFinalFact = matchedEntryFact,
+                            summaryEdge = summaryEdge,
+                        )
                     }
+                }
 
-                    is SummaryExclusionRefinement -> {
-                        for (summaryEdge in summaryEdges) {
-                            val summaryFact = summaryEdge.factAp
-                                .rebase(entry.fact.base)
-                                .replaceExclusions(entry.fact.exclusions)
+                is SummaryExclusionRefinement -> {
+                    val summaryFact = summaryEdge.factAp
+                        .rebase(currentEntryFact.base)
+                        .replaceExclusions(currentEntryFact.exclusions)
 
-                            if (!summaryFact.contains(entry.fact)) continue
+                    if (!summaryFact.contains(currentEntryFact)) continue
 
-                            val precondition = summaryInitialFact
-                                .rebase(callerFact.base)
-                                .replaceExclusions(entry.fact.exclusions)
+                    val precondition = summaryEdge.initialFactAp
+                        .rebase(callerFact.base)
+                        .replaceExclusions(currentEntryFact.exclusions)
 
-                            addCallSummaryEntry(
-                                entry = entry,
-                                statement = statement,
-                                precondition = precondition,
-                                callee = callee,
-                                summaryFinalFact = entry.fact,
-                                summaryEdge = summaryEdge
-                            )
-                        }
-                    }
+                    addCallSummaryEntry(
+                        statement = statement,
+                        precondition = precondition,
+                        callee = callee,
+                        summaryFinalFact = currentEntryFact,
+                        summaryEdge = summaryEdge
+                    )
                 }
             }
         }
     }
 
-    private fun TraceBuilder.addCallSummaryEntry(
-        entry: TraceEntry,
+    private fun MutableList<TraceEntry.CallSummary>.addCallSummaryEntry(
         statement: JIRInst,
         precondition: InitialFactAp,
         callee: MethodEntryPoint,
@@ -676,10 +710,7 @@ class MethodTraceResolver(
             final = TraceEntry.Final(mappedFinalFact, summaryEdge.statement)
         )
 
-        addPredecessor(
-            entry,
-            TraceEntry.CallSummary(precondition, statement, calleeTrace)
-        )
+        this += TraceEntry.CallSummary(precondition, statement, calleeTrace)
     }
 
     private fun methodRelevantBases(

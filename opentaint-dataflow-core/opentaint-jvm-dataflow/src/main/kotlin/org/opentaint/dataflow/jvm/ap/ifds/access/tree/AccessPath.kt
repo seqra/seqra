@@ -132,7 +132,12 @@ class AccessPath(
             }
         }
     }
-    
+
+    override fun contains(factAp: InitialFactAp): Boolean {
+        factAp as AccessPath
+        return this == factAp
+    }
+
     override val size: Int
         get() = access?.size ?: 0
 
