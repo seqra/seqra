@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Job
@@ -37,10 +38,17 @@ import org.opentaint.dataflow.jvm.ap.ifds.access.tree.TreeApManager
 import org.opentaint.dataflow.jvm.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.jvm.ap.ifds.trace.TraceResolverCancellation
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
+import java.lang.management.ManagementFactory
+import java.lang.management.MemoryNotificationInfo
+import java.lang.management.MemoryPoolMXBean
+import java.lang.management.MemoryType
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicInteger
+import javax.management.Notification
+import javax.management.NotificationEmitter
+import kotlin.math.roundToLong
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -203,6 +211,7 @@ class TaintAnalysisUnitRunnerManager(
     )
 
     private val analyzerScope = CoroutineScope(analyzerDispatcher)
+    private val traceResolverScope = CoroutineScope(analyzerDispatcher)
 
     @OptIn(DelicateCoroutinesApi::class)
     private val progressDispatcher = newSingleThreadContext(
@@ -221,6 +230,43 @@ class TaintAnalysisUnitRunnerManager(
         (progressDispatcher.executor as? ExecutorService)?.shutdownNow()
     }
 
+    private fun MemoryPoolMXBean.updateThresholds() {
+        val threshold = (OOM_DETECTION_THRESHOLD * usage.max).roundToLong()
+        collectionUsageThreshold = threshold
+        usageThreshold = threshold
+    }
+
+    private fun setupMemcheck() {
+        val memoryPool = ManagementFactory.getMemoryPoolMXBeans()
+            .singleOrNull {
+                it.type == MemoryType.HEAP
+                        && it.isUsageThresholdSupported
+                        && it.isCollectionUsageThresholdSupported
+            }
+            ?: error("Expected exactly one memory pool that support threshold")
+
+        memoryPool.updateThresholds()
+
+        val notificationListener: (Notification, Any?) -> Unit = { notification, _ ->
+            if (notification.type == MemoryNotificationInfo.MEMORY_THRESHOLD_EXCEEDED) {
+                // The pool could have been resized => updating absolute thresholds
+                memoryPool.updateThresholds()
+            } else {
+                check(notification.type == MemoryNotificationInfo.MEMORY_COLLECTION_THRESHOLD_EXCEEDED)
+                logger.error { "Running low on memory, stopping analysis" }
+                stopSignal.complete(Unit)
+            }
+        }
+
+        val notificationFilter: (Notification) -> Boolean = { notification ->
+            notification.type == MemoryNotificationInfo.MEMORY_COLLECTION_THRESHOLD_EXCEEDED
+                    || notification.type == MemoryNotificationInfo.MEMORY_THRESHOLD_EXCEEDED
+        }
+
+        val emitter = ManagementFactory.getMemoryMXBean() as NotificationEmitter
+        emitter.addNotificationListener(notificationListener, notificationFilter, null)
+    }
+
     fun runAnalysis(startMethods: List<JIRMethod>, timeout: Duration, cancellationTimeout: Duration) {
         val timeStart = TimeSource.Monotonic.markNow()
 
@@ -236,6 +282,8 @@ class TaintAnalysisUnitRunnerManager(
         }
 
         handleEventProcessed()
+
+        setupMemcheck()
 
         // Spawn progress job:
         val progress = progressScope.launch {
@@ -254,22 +302,27 @@ class TaintAnalysisUnitRunnerManager(
         }
 
         runBlocking {
-            val timeoutFailure = withTimeoutOrNull(timeout) { stopSignal.await() }
-            if (timeoutFailure == null) {
-                logger.warn { "Ifds analysis timeout" }
-            }
+            try {
+                val timeoutFailure = withTimeoutOrNull(timeout) {
+                    stopSignal.await()
+                }
 
-            runnerForUnit.elements().asSequence().forEach { it.cancel() }
+                if (timeoutFailure == null) {
+                    logger.warn { "Ifds analysis timeout" }
+                }
+            } finally {
+                runnerForUnit.elements().asSequence().forEach { it.cancel() }
 
-            withTimeoutOrNull(cancellationTimeout) {
-                progress.cancelAndJoin()
-                runnerJobs.forEach { it.cancel() }
-                runnerJobs.joinAll()
+                withTimeoutOrNull(cancellationTimeout) {
+                    progress.cancelAndJoin()
+                    runnerJobs.forEach { it.cancel() }
+                    runnerJobs.joinAll()
+                }
+
+                reportRunnerProgress()
+                logger.info { "Analysis done in ${timeStart.elapsedNow()}" }
             }
         }
-
-        reportRunnerProgress()
-        logger.info { "Analysis done in ${timeStart.elapsedNow()}" }
     }
 
     fun getVulnerabilities(): List<TaintVulnerability> {
@@ -299,7 +352,7 @@ class TaintAnalysisUnitRunnerManager(
         val traceResolutionComplete = CompletableDeferred<Unit>()
 
         val traceResolverJobs = vulnerabilities.map { vulnerability ->
-            analyzerScope.launch {
+            traceResolverScope.launch {
                 val trace = traceResolver.resolveTrace(vulnerability)
                 result.add(VulnerabilityWithTrace(vulnerability, trace))
 
@@ -357,7 +410,12 @@ class TaintAnalysisUnitRunnerManager(
             this, unit, graph, callResolver, unitResolver, taintConfig, factTypeChecker, sinkTracker
         )
 
-        val job = analyzerScope.launch { runner.runLoop() }
+        val exceptionHandler = CoroutineExceptionHandler { _, exception ->
+            logger.error { "Got exception from runner for unit $unit, stopping analysis" }
+            stopSignal.completeExceptionally(exception)
+        }
+
+        val job = analyzerScope.launch(exceptionHandler) { runner.runLoop() }
         runnerJobs.add(job)
 
         return runner
@@ -549,5 +607,7 @@ class TaintAnalysisUnitRunnerManager(
 
     companion object {
         private val logger = KotlinLogging.logger {}
+
+        private const val OOM_DETECTION_THRESHOLD = 0.97
     }
 }
