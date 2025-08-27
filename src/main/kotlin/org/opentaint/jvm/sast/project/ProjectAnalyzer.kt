@@ -149,6 +149,7 @@ class ProjectAnalyzer(
         }
 
         db.awaitBackgroundJobs()
+        db.setImmutable()
 
         val configJson = ConfigUtils.loadEncrypted(getPathFromEnv("opentaint_taint_config_path")) {
             bufferedReader().readText()
@@ -240,9 +241,8 @@ class ProjectAnalyzer(
     private fun JIRClassOrInterface.publicAndProtectedMethods(): Sequence<JIRMethod> =
         declaredMethods
             .asSequence()
-            .filter { it.instList.size > 0 }
+            .filterNot { it.isAbstract || it.isNative || it.isConstructor || it.isClassInitializer }
             .filter { it.isPublic || it.isProtected }
-            .filter { !it.isConstructor }
 
             // todo: hack to avoid problems with Juliet benchmark
             .filterNot { it.isJulietGeneratedRunner() }
