@@ -43,7 +43,7 @@ class SarifGenerator(
         output: OutputStream,
         traces: Sequence<Pair<TaintSinkTracker.TaintVulnerability, TraceResolver.Trace>>
     ) {
-        val sarifResults = traces.map { generateSarifResult(it.first, it.second) }
+        val sarifResults = traces.mapNotNull { generateSarifResult(it.first, it.second) }
         val run = LazyToolRunReport(
             tool = generateSarifAnalyzerToolDescription(),
             results = sarifResults,
@@ -56,8 +56,8 @@ class SarifGenerator(
     private fun generateSarifResult(
         vulnerability: TaintSinkTracker.TaintVulnerability,
         trace: TraceResolver.Trace
-    ): Result {
-        val ruleId = vulnerability.rule.cwe.firstOrNull()?.let { "CWE-$it" } ?: "undefined"
+    ): Result? {
+        val ruleId = vulnerability.rule.cwe.firstOrNull()?.let { "CWE-$it" } ?: return null
         val ruleMessage = Message(text = "${vulnerability.rule.ruleNote} ${vulnerability.rule.cwe}")
         val level = Level.Warning
 
