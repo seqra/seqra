@@ -134,9 +134,7 @@ class MethodAnalyzerEdges(
     }
 
     companion object {
-        fun instructionStorageSize(maxInstIdx: Int): Int = maxInstIdx + INST_IDX_SHIFT + 1
-        fun instructionStorageIdx(inst: JIRInst): Int = inst.location.index + INST_IDX_SHIFT
-
-        private const val INST_IDX_SHIFT = 2
+        fun instructionStorageSize(maxInstIdx: Int): Int = maxInstIdx + 1
+        fun instructionStorageIdx(inst: JIRInst): Int = inst.location.index
     }
 }

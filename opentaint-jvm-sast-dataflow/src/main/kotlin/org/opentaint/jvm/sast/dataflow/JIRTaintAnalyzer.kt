@@ -11,7 +11,7 @@ import org.opentaint.ir.taint.configuration.TaintMethodSink
 import org.opentaint.ir.taint.configuration.TaintPassThrough
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
-import org.opentaint.dataflow.jvm.ap.ifds.JIRSingleEntryPointApplicationGraph
+import org.opentaint.dataflow.jvm.ap.ifds.JIRSafeApplicationGraph
 import org.opentaint.dataflow.jvm.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.jvm.ap.ifds.TaintAnalysisUnitRunnerManager.VulnerabilityWithTrace
 import org.opentaint.dataflow.jvm.ap.ifds.TaintSinkTracker
@@ -40,7 +40,7 @@ class JIRTaintAnalyzer(
     private val ifdsAnalysisGraph by lazy {
         val usages = runBlocking { cp.usagesExt() }
         val mainGraph = JIRApplicationGraphImpl(cp, usages)
-        JIRSingleEntryPointApplicationGraph(mainGraph)
+        JIRSafeApplicationGraph(mainGraph)
     }
 
     private lateinit var ifdsTraces: List<VulnerabilityWithTrace>
