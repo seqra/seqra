@@ -1,0 +1,149 @@
+name: "Seqra security code analysis"
+description: "Security-focused static analyzer for Java and Kotlin"
+
+branding:
+  icon: "target"
+  color: "purple"
+
+inputs:
+  project-root:
+    description: 'Relative path under $GITHUB_WORKSPACE to the root of the analyzed project'
+    default: '.'
+  upload-sarif:
+    description: 'Should seqra-action upload sarif to GitHub Code Security'
+    default: 'false'
+  seqra-version:
+    description: 'Seqra version selector: latest, v<major>, v<major>.<minor>, or exact v<major>.<minor>.<patch>'
+    default: 'v2'
+  rules-path:
+    description: 'Paths to rules directories (comma-separated)'
+    default: 'builtin'
+  token:
+    description: 'Token for download rules from private repository'
+    required: false
+    default: ""
+  artifact-name:
+    description: 'Name of uploaded artifact'
+    default: 'seqra.sarif'
+  upload-artifact:
+    description: 'Should seqra-action upload sarif artifact'
+    default: 'true'
+  verbosity:
+    description: 'Log level'
+    default: 'info'
+  timeout:
+    description: 'Scan timeout'
+    default: '15m'
+  severity:
+    description: 'Severity levels to report (comma-separated). Valid values: note, warning, error'
+    default: 'warning,error'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set globals
+      id: globals
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        UUID=$(printf '%s' "${{ inputs.artifact-name }}" | sha1sum | awk '{print $1}')
+        SEQRA_ARTIFACTS=seqra-artifacts/$UUID
+        echo "SEQRA_ARTIFACTS=$SEQRA_ARTIFACTS" >> "${GITHUB_OUTPUT}"
+        echo "SEQRA_INSTALL_DIR=$GITHUB_WORKSPACE/$SEQRA_ARTIFACTS" >> "${GITHUB_OUTPUT}"
+        echo "SEQRA_BIN=$GITHUB_WORKSPACE/$SEQRA_ARTIFACTS/seqra" >> "${GITHUB_OUTPUT}"
+        echo "SEQRA_PROJECT=$RUNNER_TEMP/$SEQRA_ARTIFACTS/project" >> "${GITHUB_OUTPUT}"
+        echo "SEQRA_SARIF=$RUNNER_TEMP/$SEQRA_ARTIFACTS/seqra.sarif" >> "${GITHUB_OUTPUT}"
+
+    - name: Resolve seqra version
+      id: resolve-version
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        ACTION_PATH=${{ github.action_path }}
+        if [[ ! -d "$ACTION_PATH" ]]; then
+          ACTION_PATH="$GITHUB_WORKSPACE"
+        fi
+        SEQRA_VERSION=$(python3 "$ACTION_PATH/scripts/resolve_seqra_version.py" \
+          --selector "${{ inputs.seqra-version }}" \
+          --repository "seqra/seqra" \
+          --token "${{ inputs.token || github.token }}")
+
+        echo "SEQRA_VERSION=$SEQRA_VERSION" >> "${GITHUB_OUTPUT}"
+
+    - name: Install seqra
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        curl -fsSL https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.sh | \
+          SEQRA_INSTALL_DIR="${{ steps.globals.outputs.SEQRA_INSTALL_DIR }}" \
+          SEQRA_DOWNLOAD_BASE_URL="https://github.com/seqra/seqra/releases/download/${{ steps.resolve-version.outputs.SEQRA_VERSION }}" \
+          bash
+
+    - name: Compile project
+      shell: bash
+      run: |
+           set -euo pipefail
+
+           TOKEN_ARGS=(--github-token "${{ inputs.token || github.token }}")
+
+           "${{ steps.globals.outputs.SEQRA_BIN }}" --quiet "${TOKEN_ARGS[@]}" compile \
+             --verbosity "${{ inputs.verbosity }}" \
+             --output "${{ steps.globals.outputs.SEQRA_PROJECT }}" "${{ inputs.project-root }}"
+
+    - name: Run analysis
+      shell: bash
+      run: |
+           set -euo pipefail
+
+           trim() {
+             local value="$1"
+             value="${value#"${value%%[![:space:]]*}"}"
+             value="${value%"${value##*[![:space:]]}"}"
+             printf '%s' "$value"
+           }
+
+           append_csv_args() {
+             local flag="$1"
+             local csv_value="$2"
+
+             local values
+             IFS=',' read -r -a values <<< "$csv_value"
+             for value in "${values[@]}"; do
+               local value_trimmed
+               value_trimmed="$(trim "$value")"
+               if [ -n "$value_trimmed" ]; then
+                 CMD+=("--$flag" "$value_trimmed")
+               fi
+             done
+           }
+
+           TOKEN_ARGS=(--github-token "${{ inputs.token || github.token }}")
+
+           CMD=("${{ steps.globals.outputs.SEQRA_BIN }}" --quiet "${TOKEN_ARGS[@]}" scan)
+
+           append_csv_args "ruleset" "${{ inputs.rules-path }}"
+
+           CMD+=(--timeout "${{ inputs.timeout }}")
+           CMD+=(--verbosity "${{ inputs.verbosity }}")
+
+           append_csv_args "severity" "${{ inputs.severity }}"
+
+           CMD+=(--output "${{ steps.globals.outputs.SEQRA_SARIF }}" "${{ steps.globals.outputs.SEQRA_PROJECT }}")
+
+           "${CMD[@]}"
+
+    - name: Upload sarif artifact
+      if: ${{ inputs.upload-artifact == 'true' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ steps.globals.outputs.SEQRA_SARIF }}
+
+    - name: Upload sarif to github code security
+      if: ${{ inputs.upload-sarif == 'true' }}
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: ${{ steps.globals.outputs.SEQRA_SARIF }}
