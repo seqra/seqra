@@ -33,9 +33,10 @@ sealed interface ProjectResolver {
         private val JAVA_8_HOME: String? by lazy { System.getenv("JAVA_8_HOME") }
         private val JAVA_11_HOME: String? by lazy { System.getenv("JAVA_11_HOME") }
         private val JAVA_17_HOME: String? by lazy { System.getenv("JAVA_17_HOME") }
+        private val JAVA_LATEST_HOME: String? by lazy { System.getenv("JAVA_LATEST_HOME") }
 
         private val availableJavaToolchains: List<JavaToolchain> by lazy {
-            listOfNotNull(JAVA_8_HOME, JAVA_11_HOME, JAVA_17_HOME)
+            listOfNotNull(JAVA_8_HOME, JAVA_LATEST_HOME, JAVA_17_HOME, JAVA_11_HOME)
                 .map { JavaToolchain.ConcreteJavaToolchain(it) }
                 .ifEmpty { listOf(JavaToolchain.DefaultJavaToolchain) }
         }

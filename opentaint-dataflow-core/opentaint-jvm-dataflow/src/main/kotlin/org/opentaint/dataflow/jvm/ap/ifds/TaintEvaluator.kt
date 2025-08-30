@@ -215,7 +215,8 @@ class TaintPassActionEvaluator(
             ap = fact,
             position = fromPosAccess,
             onMismatch = { _, _ ->
-                error("Failed to read $fromPosAccess from $fact")
+                // Position can be filtered out by the type checker
+                return Maybe.none()
             },
             matchedNode = { it }
         )

@@ -344,6 +344,8 @@ class TaintAnalysisUnitRunnerManager(
         timeout: Duration,
         cancellationTimeout: Duration
     ): List<VulnerabilityWithTrace> {
+        if (vulnerabilities.isEmpty()) return emptyList()
+
         val traceResolverCancellation = TraceResolverCancellation()
         val traceResolver = TraceResolver(entryPoints, this, resolverParams, traceResolverCancellation)
         val result = ConcurrentLinkedQueue<VulnerabilityWithTrace>()
