@@ -1,0 +1,55 @@
+name: Semantic release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions: write-all
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    container: buildpack-deps:jammy-scm
+    steps:
+      -
+        name: 'Install and Configure applications'
+        run: |
+          apt-get update
+          apt-get install -yqq --no-install-recommends \
+            nodejs \
+            npm
+      -
+        name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      -
+        name: Fix repo for release
+        run: |
+          git status || git config --global --add safe.directory $GITHUB_WORKSPACE
+      -
+        name: 'Release'
+        uses: cycjimmy/semantic-release-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          semantic_version: 23.0.0
+          extra_plugins: |
+            @semantic-release/commit-analyzer@11.1.0
+            @semantic-release/exec@6.0.3
+            conventional-changelog-conventionalcommits@7.0.2
+      -
+        name: 'Get release_version and pass to next job'
+        id: release_version
+        # see .releaserc.json to obtain certain file name
+        run: |
+          if [ -f release_version.txt ]; then
+            echo "status=succeeded" >>"$GITHUB_OUTPUT"
+            echo "RELEASE_VERSION=$(cat release_version.txt)" >> $GITHUB_OUTPUT
+          else
+            echo "status=skipped" >>"$GITHUB_OUTPUT"
+          fi
+          rm -f release_version.txt
+    outputs:
+      release_version: ${{ steps.release_version.outputs.RELEASE_VERSION }}

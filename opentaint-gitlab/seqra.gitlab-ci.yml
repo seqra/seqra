@@ -1,0 +1,64 @@
+.seqra-template:
+  stage: analysis
+  image: docker:24.0.5
+  services:
+    - name: docker:24.0.5-dind
+      alias: dind
+  timeout: 20m
+  variables:
+    DOCKER_HOST: tcp://dind:2375
+    # Relative path to the root of the analyzed project
+    PROJECT_ROOT: "."
+    # Tag of seqra release
+    SEQRA_VERSION: "v2.4.0"
+    # Comma-separated paths to rule files or directories (e.g., "rules/custom.yml,rules/extra")
+    RULES_PATH: "builtin"
+    # Comma-separated severity levels to report: note, warning, error
+    SEVERITY: "warning,error"
+    # Scan timeout
+    TIMEOUT: "15m"
+  script:
+    - apk add --no-cache git curl bash tar jq github-cli
+
+    # Generate sanitized artifact name
+    - SANITIZED_NAME=$(echo "$ARTIFACT_NAME" | tr '/' '_')
+
+    # Run seqra steps
+    - UUID=$(echo "$SANITIZED_NAME" | sha1sum | awk '{print $1}')
+    - export SEQRA_ARTIFACTS="seqra-artifacts/$UUID"
+    - mkdir -p "$SEQRA_ARTIFACTS"
+
+    # Download seqra
+    -  wget -O "$SEQRA_ARTIFACTS/seqra.tar.gz" "https://github.com/seqra/seqra/releases/download/$SEQRA_VERSION/seqra_linux_amd64.tar.gz"
+
+    # Extract seqra
+    - ls -lah $SEQRA_ARTIFACTS
+    - 'tar -xzvf "$SEQRA_ARTIFACTS/seqra.tar.gz" -C "$SEQRA_ARTIFACTS"'
+    - 'chmod +x "$SEQRA_ARTIFACTS/seqra"'
+
+    # Compile project
+    - '$SEQRA_ARTIFACTS/seqra compile --quiet --output "$SEQRA_ARTIFACTS/project" $PROJECT_ROOT'
+
+    # Run analysis
+    - |
+      cmd="$SEQRA_ARTIFACTS/seqra scan --quiet"
+
+      IFS=',' read -ra rulesets <<< "$RULES_PATH"
+      for ruleset in "${rulesets[@]}"; do
+        cmd="$cmd --ruleset $ruleset"
+      done
+
+      IFS=',' read -ra severities <<< "$SEVERITY"
+      for severity in "${severities[@]}"; do
+        cmd="$cmd --severity $severity"
+      done
+
+      cmd="$cmd --timeout $TIMEOUT"
+      cmd="$cmd --output analysis_results/seqra.sarif $SEQRA_ARTIFACTS/project"
+
+      eval "$cmd"
+
+  artifacts:
+    name: "Seqra Sarif"
+    paths:
+      - "analysis_results/seqra.sarif"
