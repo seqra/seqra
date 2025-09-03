@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.jvm.ap.ifds.access.automata
 
-import org.opentaint.dataflow.jvm.ap.ifds.FieldAccessor
+import org.opentaint.dataflow.ap.ifds.FieldAccessor
+import org.opentaint.dataflow.ap.ifds.access.automata.AccessGraph
 import kotlin.test.Test
 
 class AccessGraphTest {

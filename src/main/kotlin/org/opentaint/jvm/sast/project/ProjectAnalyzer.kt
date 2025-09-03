@@ -25,7 +25,7 @@ import org.opentaint.jvm.sast.dataflow.JIRSourceFileResolver
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
-import org.opentaint.dataflow.jvm.ap.ifds.access.ApMode
+import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.jvm.graph.MethodReturnInstNormalizerFeature
 import org.opentaint.machine.TypeScorer
 import org.opentaint.types.ClassScorer

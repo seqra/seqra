@@ -1,5 +1,6 @@
 package org.opentaint.jvm.sast.dataflow
 
+import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.cfg.JIRInst
@@ -15,7 +16,7 @@ import kotlin.io.path.walk
 class JIRSourceFileResolver(
     private val projectSourceRoot: Path,
     private val projectLocationsSourceRoots: Map<RegisteredLocation, Path>
-) : SourceFileResolver<JIRInst> {
+) : SourceFileResolver<CommonInst> {
     private val locationSources: Map<RegisteredLocation, Map<String, List<Path>>> by lazy {
         projectLocationsSourceRoots.mapValues { (_, sourcesRoot) ->
             @OptIn(ExperimentalPathApi::class)
@@ -26,7 +27,8 @@ class JIRSourceFileResolver(
         }
     }
 
-    override fun resolve(inst: JIRInst): String? {
+    override fun resolve(inst: CommonInst): String? {
+        check(inst is JIRInst) { "Expected inst to be JIRInst" }
         val instLocationCls = inst.location.method.enclosingClass
 
         val location = instLocationCls.declaration.location

@@ -1,6 +1,6 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
-import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.taint.configuration.Action
 import org.opentaint.ir.taint.configuration.AssignMark
 import org.opentaint.ir.taint.configuration.Condition
@@ -15,16 +15,19 @@ import org.opentaint.ir.taint.configuration.TaintEntryPointSource
 import org.opentaint.ir.taint.configuration.TaintMethodSink
 import org.opentaint.ir.taint.configuration.TaintMethodSource
 import org.opentaint.ir.taint.configuration.TaintPassThrough
+import org.opentaint.dataflow.ap.ifds.PassActionEvaluator
+import org.opentaint.dataflow.ap.ifds.SourceActionEvaluator
+import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
 import org.opentaint.dataflow.ifds.Maybe
 import org.opentaint.dataflow.ifds.maybeFlatMap
 
 object TaintConfigUtils {
-    fun sinkRules(config: TaintRulesProvider, method: JIRMethod) =
+    fun sinkRules(config: TaintRulesProvider, method: CommonMethod) =
         config.rulesForMethod(method).filterIsInstance<TaintMethodSink>()
 
     fun <T> applySourceConfig(
         config: TaintRulesProvider,
-        method: JIRMethod,
+        method: CommonMethod,
         conditionEvaluator: ConditionVisitor<Boolean>,
         taintActionEvaluator: SourceActionEvaluator<T>
     ) = applyAssignMark<TaintMethodSource, T>(
@@ -34,7 +37,7 @@ object TaintConfigUtils {
 
     fun <T> applyEntryPointConfig(
         config: TaintRulesProvider,
-        method: JIRMethod,
+        method: CommonMethod,
         conditionEvaluator: ConditionVisitor<Boolean>,
         taintActionEvaluator: SourceActionEvaluator<T>
     ) = applyAssignMark<TaintEntryPointSource, T>(
@@ -44,7 +47,7 @@ object TaintConfigUtils {
 
     private inline fun <reified T : TaintConfigurationItem, R> applyAssignMark(
         config: TaintRulesProvider,
-        method: JIRMethod,
+        method: CommonMethod,
         conditionEvaluator: ConditionVisitor<Boolean>,
         taintActionEvaluator: SourceActionEvaluator<R>,
         condition: (T) -> Condition,
@@ -61,7 +64,7 @@ object TaintConfigUtils {
 
     fun <T> applyPassThrough(
         config: TaintRulesProvider,
-        method: JIRMethod,
+        method: CommonMethod,
         conditionEvaluator: ConditionVisitor<Boolean>,
         taintActionEvaluator: PassActionEvaluator<T>
     ): Maybe<List<T>> =
@@ -82,7 +85,7 @@ object TaintConfigUtils {
 
     fun <T> applyCleaner(
         config: TaintRulesProvider,
-        method: JIRMethod,
+        method: CommonMethod,
         conditionEvaluator: ConditionVisitor<Boolean>,
         taintActionEvaluator: PassActionEvaluator<T>
     ): Maybe<List<T>> =

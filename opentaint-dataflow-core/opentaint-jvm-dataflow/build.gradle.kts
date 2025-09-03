@@ -21,8 +21,6 @@ dependencies {
         exclude(Libs.opentaint-irPackage)
     }
 
-    implementation("it.unimi.dsi:fastutil-core:8.5.13")
-
     implementation(Libs.sarif4k)
 
     testImplementation(Libs.mockk)

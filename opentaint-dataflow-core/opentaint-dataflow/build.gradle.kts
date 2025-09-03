@@ -1,5 +1,6 @@
 plugins {
     id("opentaint.kotlin-conventions")
+    kotlin("plugin.serialization") version Versions.kotlin
 }
 
 dependencies {
@@ -9,6 +10,10 @@ dependencies {
         exclude(Libs.opentaint-irPackage)
     }
     api(Libs.sarif4k)
+
+    implementation(Libs.kotlinx_collections)
+
+    implementation("it.unimi.dsi:fastutil-core:8.5.13")
 }
 
 publishing {

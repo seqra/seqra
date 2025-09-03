@@ -9,8 +9,12 @@ import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRValue
-import org.opentaint.dataflow.jvm.ap.ifds.access.FinalFactAp
-import org.opentaint.dataflow.jvm.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.ElementAccessor
+import org.opentaint.dataflow.ap.ifds.FieldAccessor
+import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 
 object MethodFlowFunctionUtils {
     data class Access(val base: AccessPathBase, val accessor: Accessor?)
@@ -22,9 +26,9 @@ object MethodFlowFunctionUtils {
         else -> null
     }
 
-    fun mkAccess(value: JIRImmediate) = accessPathBase(value)?.let { Access(it, accessor = null) }
-    fun mkAccess(value: JIRArrayAccess) = mkArrayAccess(value.array)
-    fun mkAccess(value: JIRFieldRef) = mkFieldAccess(value.field.field, value.instance)
+    private fun mkAccess(value: JIRImmediate) = accessPathBase(value)?.let { Access(it, accessor = null) }
+    private fun mkAccess(value: JIRArrayAccess) = mkArrayAccess(value.array)
+    private fun mkAccess(value: JIRFieldRef) = mkFieldAccess(value.field.field, value.instance)
 
     fun mkArrayAccess(array: JIRValue): Access? =
         accessPathBase(array)?.let { Access(it, ElementAccessor) }
@@ -44,7 +48,7 @@ object MethodFlowFunctionUtils {
 
     fun accessPathBase(value: JIRValue): AccessPathBase? = (value as? JIRImmediate)?.let { accessPathBase(it) }
 
-    fun accessPathBase(value: JIRImmediate): AccessPathBase? = when (value) {
+    private fun accessPathBase(value: JIRImmediate): AccessPathBase? = when (value) {
         is JIRThis -> AccessPathBase.This
         is JIRArgument -> AccessPathBase.Argument(value.index)
         is JIRLocalVar -> AccessPathBase.LocalVar(value.index)

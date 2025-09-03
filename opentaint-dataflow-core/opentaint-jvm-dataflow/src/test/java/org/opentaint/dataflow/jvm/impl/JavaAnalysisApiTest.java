@@ -19,14 +19,14 @@ package org.opentaint.dataflow.jvm.impl;
 import kotlin.time.DurationUnit;
 import org.opentaint.ir.api.jvm.JIRClassOrInterface;
 import org.opentaint.ir.api.jvm.JIRMethod;
-import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph;
 import org.opentaint.ir.api.jvm.cfg.JIRInst;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.opentaint.dataflow.jvm.graph.ApplicationGraphFactory;
+import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph;
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver;
-import org.opentaint.dataflow.jvm.ifds.UnitResolverKt;
+import org.opentaint.dataflow.jvm.ifds.JIRUnitResolverKt;
 import org.opentaint.dataflow.jvm.taint.TaintManagerKt;
 import org.opentaint.dataflow.taint.TaintManager;
 
@@ -48,7 +48,7 @@ public class JavaAnalysisApiTest extends BaseAnalysisTest {
         JIRApplicationGraph applicationGraph = ApplicationGraphFactory
                 .newApplicationGraphForAnalysisAsync(getCp(), null)
                 .get();
-        JIRUnitResolver unitResolver = UnitResolverKt.getMethodUnitResolver();
+        JIRUnitResolver unitResolver = JIRUnitResolverKt.getMethodUnitResolver();
         TaintManager<JIRMethod, JIRInst> manager = TaintManagerKt.jirTaintManager(applicationGraph, unitResolver, false, null);
         manager.analyze(methodsToAnalyze, toDuration(30, DurationUnit.SECONDS));
     }

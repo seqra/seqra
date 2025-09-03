@@ -3,6 +3,7 @@ package org.opentaint.dataflow.jvm.ap.ifds
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
@@ -19,6 +20,9 @@ import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.cfg.JIRVirtualCallExpr
 import org.opentaint.ir.api.jvm.ext.isSubClassOf
 import org.opentaint.ir.impl.features.hierarchyExt
+import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
+import org.opentaint.dataflow.ap.ifds.MethodContext
+import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature.JIRLambdaClass
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
@@ -27,10 +31,11 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.jvm.optionals.getOrNull
 
 class JIRCallResolver(
+    private val cp: JIRClasspath,
     private val graph: JIRApplicationGraph,
     private val unitResolver: JIRUnitResolver
 ) {
-    private val hierarchy = runBlocking { graph.cp.hierarchyExt() }
+    private val hierarchy = runBlocking { cp.hierarchyExt() }
 
     private val methodOverridesCache = ConcurrentHashMap<JIRMethod, List<JIRMethod>>()
 
@@ -132,7 +137,7 @@ class JIRCallResolver(
         }
 
         return instanceTypes.map {
-            val ctx = InstanceTypeMethodContext(it)
+            val ctx = JIRInstanceTypeMethodContext(it)
             MethodWithContext(method, ctx)
         }
     }
@@ -179,10 +184,11 @@ class JIRCallResolver(
         if (value !is JIRLocalVar || value in visitedValues) {
             return when (context) {
                 EmptyMethodContext -> setOf(valueCls)
-                is InstanceTypeMethodContext -> {
+                is JIRInstanceTypeMethodContext -> {
                     val type = if (value is JIRThis) selectClass(valueCls, context.type) else valueCls
                     setOf(type)
                 }
+                else -> error("Unexpected value for $context")
             }
         }
 
