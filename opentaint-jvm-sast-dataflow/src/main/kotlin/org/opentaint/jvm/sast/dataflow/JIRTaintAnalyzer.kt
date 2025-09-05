@@ -11,6 +11,7 @@ import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.ir.taint.configuration.Argument
+import org.opentaint.ir.taint.configuration.AssignMark
 import org.opentaint.ir.taint.configuration.ConstantTrue
 import org.opentaint.ir.taint.configuration.CopyAllMarks
 import org.opentaint.ir.taint.configuration.Result
@@ -18,6 +19,7 @@ import org.opentaint.ir.taint.configuration.TaintConfigurationFeature
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.ir.taint.configuration.TaintMark
 import org.opentaint.ir.taint.configuration.TaintMethodSink
+import org.opentaint.ir.taint.configuration.TaintMethodSource
 import org.opentaint.ir.taint.configuration.TaintPassThrough
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
@@ -179,10 +181,10 @@ class JIRTaintAnalyzer(
             }
         }
 
-        StringConcatRuleProvider(provider)
+        StringConcatRuleProvider(NoNullnessAnalysisRuleProvider(provider))
     }
 
-    private class StringConcatRuleProvider(private val base: TaintRulesProvider) : TaintRulesProvider {
+    private class StringConcatRuleProvider(private val base: TaintRulesProvider) : TaintRulesProvider by base {
         private var stringConcatPassThrough: TaintPassThrough? = null
 
         private fun stringConcatPassThrough(method: JIRMethod): TaintPassThrough =
@@ -198,8 +200,6 @@ class JIRTaintAnalyzer(
                 actionsAfter = possibleArgs.map { CopyAllMarks(from = it, to = Result) })
         }
 
-        override fun taintMarks(): Set<TaintMark> = base.taintMarks()
-
         override fun rulesForMethod(method: CommonMethod): Iterable<TaintConfigurationItem> {
             check(method is JIRMethod) { "Expected method to be JIRMethod" }
             val baseRules = base.rulesForMethod(method)
@@ -209,6 +209,21 @@ class JIRTaintAnalyzer(
             }
 
             return baseRules
+        }
+    }
+
+    private class NoNullnessAnalysisRuleProvider(private val base: TaintRulesProvider) : TaintRulesProvider by base {
+        override fun rulesForMethod(method: CommonMethod): Iterable<TaintConfigurationItem> {
+            val baseRules = base.rulesForMethod(method)
+            return baseRules.mapNotNull { removeNullnessSources(it) }
+        }
+
+        private fun removeNullnessSources(rule: TaintConfigurationItem): TaintConfigurationItem? {
+            if (rule !is TaintMethodSource) return rule
+
+            val actions = rule.actionsAfter.filterNot { it is AssignMark && it.mark == TaintMark.NULLNESS }
+            if (actions.isEmpty()) return null
+            return rule.copy(actionsAfter = actions)
         }
     }
 

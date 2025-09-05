@@ -10,6 +10,7 @@ import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgesForExitPoint
 import org.opentaint.dataflow.ap.ifds.SummaryFactStorage
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.MethodInitialToFinalApSummariesStorage
+import org.opentaint.dataflow.util.collectToListWithPostProcess
 import org.opentaint.dataflow.ap.ifds.access.cactus.AccessCactus.AccessNode as AccessCactusNode
 
 class MethodInitialToFinalApSummaries(
@@ -21,14 +22,17 @@ class MethodInitialToFinalApSummaries(
         storage.add(edges, added)
     }
 
-    override fun filterEdges(
+    override fun filterEdgesTo(
+        dst: MutableList<FactToFactEdgeBuilder>,
         pattern: FinalFactAp,
         finalFactBase: AccessPathBase?
-    ): Sequence<FactToFactEdgeBuilder> =
-        storage.filterEdges(EdgeStoragePattern(pattern as AccessCactus, finalFactBase))
+    ) {
+        storage.filterEdgesTo(dst, EdgeStoragePattern(pattern as AccessCactus, finalFactBase))
+    }
 
-    override fun allEdges(): Sequence<FactToFactEdgeBuilder> =
-        storage.allEdges()
+    override fun collectAllEdgesTo(dst: MutableList<FactToFactEdgeBuilder>) {
+        storage.collectAllEdgesTo(dst)
+    }
 }
 
 private class EdgeStoragePattern(
@@ -50,13 +54,17 @@ private class MethodTaintedSummariesStorage(methodEntryPoint: CommonInst) :
         added: MutableList<FactToFactEdgeBuilder>
     ) = storage.add(edges, added)
 
-    override fun storageAllEdges(storage: MethodFactToFactSummaries): Sequence<FactToFactEdgeBuilder> =
-        storage.allEdges()
+    override fun storageCollectAllEdgesTo(dst: MutableList<FactToFactEdgeBuilder>, storage: MethodFactToFactSummaries) {
+        storage.collectAllEdgesTo(dst)
+    }
 
-    override fun storageFilterEdges(
+    override fun storageFilterEdgesTo(
+        dst: MutableList<FactToFactEdgeBuilder>,
         storage: MethodFactToFactSummaries,
         containsPattern: EdgeStoragePattern
-    ): Sequence<FactToFactEdgeBuilder> = storage.filterEdges(containsPattern)
+    ) {
+        storage.filterEdgesTo(dst, containsPattern)
+    }
 }
 
 private class MethodFactToFactSummaries(
@@ -73,22 +81,30 @@ private class MethodFactToFactSummaries(
         }
     }
 
-    fun filterEdges(pattern: EdgeStoragePattern): Sequence<FactToFactEdgeBuilder> {
+    fun filterEdgesTo(dst: MutableList<FactToFactEdgeBuilder>, pattern: EdgeStoragePattern) {
         val initialBase = pattern.initialFactPattern.base
-        val storage = find(initialBase) ?: return emptySequence()
+        val storage = find(initialBase) ?: return
 
-        val edges = if (pattern.finalFactBase == null) {
-            storage.allEdges()
-        } else {
-            storage.filter(pattern.finalFactBase)
-        }
-
-        return edges.map { it.setInitialFactBase(initialBase).build() }
+        collectToListWithPostProcess(dst, {
+            if (pattern.finalFactBase == null) {
+                storage.collectAllEdgesTo(it)
+            } else {
+                storage.filterTo(it, pattern.finalFactBase)
+            }
+        }, {
+            it.setInitialFactBase(initialBase).build()
+        })
     }
 
-    fun allEdges(): Sequence<FactToFactEdgeBuilder> = mapValues { base, storage ->
-        storage.allEdges().map { it.setInitialFactBase(base).build() }
-    }.flatten()
+    fun collectAllEdgesTo(dst: MutableList<FactToFactEdgeBuilder>) {
+        forEachValue { base, storage ->
+            collectToListWithPostProcess(dst, {
+                storage.collectAllEdgesTo(it)
+            }, {
+                it.setInitialFactBase(base).build()
+            })
+        }
+    }
 }
 
 
@@ -106,17 +122,25 @@ private class MethodTaintedSummariesGroupedByFact(methodEntryPoint: CommonInst) 
         }
     }
 
-    fun allEdges(): Sequence<FactToFactEdgeBuilderBuilder> =
-        mapValues { base, storage ->
-            storage.allSummaries().map { it.setExitFactBase(base) }
-        }.flatten()
+    fun collectAllEdgesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>) {
+        forEachValue { base, storage ->
+            collectToListWithPostProcess(dst, {
+                storage.collectAllSummariesTo(it)
+            }, {
+                it.setExitFactBase(base)
+            })
+        }
+    }
 
-    fun filter(finalFactBase: AccessPathBase): Sequence<FactToFactEdgeBuilderBuilder> {
-        val storage = find(finalFactBase) ?: return emptySequence()
-        return storage.allSummaries().map { it.setExitFactBase(finalFactBase) }
+    fun filterTo(dst: MutableList<FactToFactEdgeBuilderBuilder>, finalFactBase: AccessPathBase) {
+        val storage = find(finalFactBase) ?: return
+        collectToListWithPostProcess(dst, {
+            storage.collectAllSummariesTo(it)
+        }, {
+            it.setExitFactBase(finalFactBase)
+        })
     }
 }
-
 
 private class MethodTaintedSummariesInitialApStorage {
     private var initialAccessToStorage =
@@ -129,8 +153,11 @@ private class MethodTaintedSummariesInitialApStorage {
             }
         }
 
-    fun allSummaries(): Sequence<FactToFactEdgeBuilderBuilder> =
-        initialAccessToStorage.values.asSequence().flatMap { it.summaries() }
+    fun collectAllSummaries(dst: MutableList<FactToFactEdgeBuilderBuilder>) {
+        initialAccessToStorage.values.forEach { storage ->
+            storage.summaries()?.let { dst.add(it) }
+        }
+    }
 }
 
 private class MethodTaintedSummariesGroupedByFactStorage {
@@ -174,8 +201,9 @@ private class MethodTaintedSummariesGroupedByFactStorage {
         }
     }
 
-    fun allSummaries(): Sequence<FactToFactEdgeBuilderBuilder> =
-        nonUniverseAccessPath.allSummaries()
+    fun collectAllSummariesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>) {
+        nonUniverseAccessPath.collectAllSummaries(dst)
+    }
 }
 
 private class MethodTaintedSummariesMergingStorage(val initialAccess: AccessPathWithCycles.AccessNode?) {
@@ -222,14 +250,13 @@ private class MethodTaintedSummariesMergingStorage(val initialAccess: AccessPath
             .let { sequenceOf(it) }
     }
 
-    fun summaries(): Sequence<FactToFactEdgeBuilderBuilder> {
-        val exclusion = this.exclusion ?: return emptySequence()
+    fun summaries(): FactToFactEdgeBuilderBuilder? {
+        val exclusion = this.exclusion ?: return null
         val edges = this.edges!!
         return FactToFactEdgeBuilderBuilder()
             .setInitialAp(initialAccess)
             .setExitAp(edges)
             .setExclusion(exclusion)
-            .let { sequenceOf(it) }
     }
 }
 

@@ -105,8 +105,9 @@ class MethodAnalyzerEdges(
 
         override fun getOrCreateLocal(idx: Int): Storage = locals.getOrPut(idx) { createStorage() }
         override fun findLocal(idx: Int): Storage? = locals.get(idx)
-        override fun <R : Any> mapLocalValues(body: (AccessPathBase, Storage) -> R): Sequence<R> =
-            locals.asSequence().map { (idx, storage) -> body(AccessPathBase.LocalVar(idx), storage) }
+        override fun forEachLocalValue(body: (AccessPathBase, Storage) -> Unit) {
+            locals.forEach { (idx, storage) -> body(AccessPathBase.LocalVar(idx), storage) }
+        }
 
         private var constants: MutableMap<AccessPathBase.Constant, Storage>? = null
 
@@ -119,8 +120,9 @@ class MethodAnalyzerEdges(
 
         override fun findConstant(base: AccessPathBase.Constant) = constants?.get(base)
 
-        override fun <R : Any> mapConstantValues(body: (AccessPathBase, Storage) -> R): Sequence<R> =
-            constants?.asSequence()?.map { body(it.key, it.value) } ?: emptySequence()
+        override fun forEachConstantValue(body: (AccessPathBase, Storage) -> Unit) {
+            constants?.forEach { body(it.key, it.value) }
+        }
 
         private var statics: MutableMap<AccessPathBase.ClassStatic, Storage>? = null
 
@@ -133,8 +135,9 @@ class MethodAnalyzerEdges(
 
         override fun findClassStatic(base: AccessPathBase.ClassStatic) = statics?.get(base)
 
-        override fun <R : Any> mapClassStaticValues(body: (AccessPathBase, Storage) -> R): Sequence<R> =
-            statics?.asSequence()?.map { body(it.key, it.value) } ?: emptySequence()
+        override fun forEachClassStaticValue(body: (AccessPathBase, Storage) -> Unit) {
+            statics?.forEach { body(it.key, it.value) }
+        }
     }
 
     companion object {

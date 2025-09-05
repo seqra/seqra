@@ -15,9 +15,9 @@ interface AnalysisRunner {
     val manager: TaintAnalysisUnitRunnerManager
     val methodCallResolver: MethodCallResolver
 
-    fun submitNewUnprocessedEdge(edge: Edge)
+    fun enqueueMethodAnalyzer(analyzer: MethodAnalyzer)
     fun addNewSummaryEdges(methodEntryPoint: MethodEntryPoint, edges: List<Edge>)
-    fun addNewSideEffectRequirement(methodEntryPoint: MethodEntryPoint, requirement: InitialFactAp)
+    fun addNewSideEffectRequirement(methodEntryPoint: MethodEntryPoint, requirements: List<InitialFactAp>)
     fun subscribeOnMethodSummaries(edge: Edge.ZeroToZero, methodEntryPoint: MethodEntryPoint)
     fun subscribeOnMethodSummaries(edge: Edge.ZeroToFact, methodEntryPoint: MethodEntryPoint, methodFactBase: AccessPathBase)
     fun subscribeOnMethodSummaries(edge: Edge.FactToFact, methodEntryPoint: MethodEntryPoint, methodFactBase: AccessPathBase)

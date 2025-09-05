@@ -15,6 +15,8 @@ sealed interface AccessGraphSet {
 
     fun toList(): List<AccessGraph>
 
+    fun toList(dst: MutableList<AccessGraph>)
+
     companion object {
         fun create(): AccessGraphSet = SmallAgSet()
     }
@@ -52,6 +54,10 @@ class SmallAgSet : AccessGraphSet {
 
     override fun toList(): List<AccessGraph> = graphs.toList()
 
+    override fun toList(dst: MutableList<AccessGraph>) {
+        dst.addAll(graphs)
+    }
+
     companion object {
         private const val SMALL_SET_THRESHOLD = 16
     }
@@ -79,6 +85,12 @@ class CompressedAgSet : AccessGraphSet {
             groups.values.flatMapTo(result) { it.unpack().toList() }
         }
         return result
+    }
+
+    override fun toList(dst: MutableList<AccessGraph>) {
+        graphs.values.forEach { groups ->
+            groups.values.flatMapTo(dst) { it.unpack().toList() }
+        }
     }
 
     override fun add(graph: AccessGraph): AccessGraphSet? {

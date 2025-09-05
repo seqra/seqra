@@ -3,22 +3,25 @@ package org.opentaint.dataflow.ap.ifds
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 abstract class AccessPathBaseStorage<V : Any>(initialStatement: CommonInst) {
-    private var thisStorage: V? = null
-    private val argsStorage = arrayOfNulls<Any?>(initialStatement.location.method.parameters.size)
+    @JvmField
+    var thisStorage: V? = null
+
+    @JvmField
+    val argsStorage = arrayOfNulls<Any?>(initialStatement.location.method.parameters.size)
 
     abstract fun createStorage(): V
 
     abstract fun getOrCreateLocal(idx: Int): V
     abstract fun findLocal(idx: Int): V?
-    abstract fun <R : Any> mapLocalValues(body: (AccessPathBase, V) -> R): Sequence<R>
+    abstract fun forEachLocalValue(body: (AccessPathBase, V) -> Unit)
 
     abstract fun getOrCreateClassStatic(base: AccessPathBase.ClassStatic): V
     abstract fun findClassStatic(base: AccessPathBase.ClassStatic): V?
-    abstract fun <R : Any> mapClassStaticValues(body: (AccessPathBase, V) -> R): Sequence<R>
+    abstract fun forEachClassStaticValue(body: (AccessPathBase, V) -> Unit)
 
     abstract fun getOrCreateConstant(base: AccessPathBase.Constant): V
     abstract fun findConstant(base: AccessPathBase.Constant): V?
-    abstract fun <R : Any> mapConstantValues(body: (AccessPathBase, V) -> R): Sequence<R>
+    abstract fun forEachConstantValue(body: (AccessPathBase, V) -> Unit)
 
     fun getOrCreate(base: AccessPathBase): V = when (base) {
         AccessPathBase.This -> {
@@ -49,23 +52,24 @@ abstract class AccessPathBaseStorage<V : Any>(initialStatement: CommonInst) {
         is AccessPathBase.Constant -> findConstant(base)
     }
 
-    fun <R: Any> mapValues(body: (AccessPathBase, V) -> R): Sequence<R> {
-        val result = mutableListOf<R>()
-        thisStorage?.let { result.add(body(AccessPathBase.This, it)) }
-
-        @Suppress("UNCHECKED_CAST")
-        (argsStorage as Array<V?>).mapIndexedNotNullTo(result) { argIdx, storage ->
-            storage?.let { body(AccessPathBase.Argument(argIdx), it) }
+    override fun toString(): String = buildString {
+        forEachValue { base, value ->
+            appendLine("($base: $value)")
         }
-
-        return result.asSequence() + mapLocalValues(body) + mapConstantValues(body) + mapClassStaticValues(body)
     }
 
-    override fun toString(): String = mapValues { base, v ->
-        "($base: $v)"
-    }.joinToString("\n")
+    inline fun forEachValue(crossinline body: (AccessPathBase, V) -> Unit) {
+        thisStorage?.let { body(AccessPathBase.This, it) }
 
-    inline fun forEachValue(body: (AccessPathBase, V) -> Unit) {
-        mapValues { base, value -> base to value }.forEach { (base, value) -> body(base, value) }
+        for ((index, storage) in argsStorage.withIndex()) {
+            if (storage == null) continue
+
+            @Suppress("UNCHECKED_CAST")
+            body(AccessPathBase.Argument(index), storage as V)
+        }
+
+        forEachLocalValue { base, value -> body(base, value) }
+        forEachClassStaticValue { base, value -> body(base, value) }
+        forEachConstantValue { base, value -> body(base, value) }
     }
 }

@@ -4,25 +4,42 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.SideEffectRequirementApStorage
+import java.util.IdentityHashMap
 import java.util.concurrent.ConcurrentHashMap
 
 class SideEffectRequirementTreeApStorage : SideEffectRequirementApStorage {
     private val based = ConcurrentHashMap<AccessPathBase, SideEffectRequirementStorage>()
 
-    override fun add(ap: InitialFactAp): InitialFactAp? {
-        val baseRequirements = based.computeIfAbsent(ap.base) {
-            SideEffectRequirementStorage()
+    override fun add(requirements: List<InitialFactAp>): List<InitialFactAp> {
+        val addedNodes = IdentityHashMap<SideEffectRequirementStorage, Unit>()
+        val modifiedStorageNodes = mutableListOf<SideEffectRequirementStorage>()
+
+        for (requirement in requirements) {
+            requirement as AccessPath
+
+            val baseRequirements = based.computeIfAbsent(requirement.base) {
+                SideEffectRequirementStorage()
+            }
+
+            val node = baseRequirements.getOrCreateNode(requirement.access)
+            node.mergeAdd(requirement) ?: continue
+
+            if (addedNodes.put(node, Unit) == null) {
+                modifiedStorageNodes.add(node)
+            }
         }
 
-        return baseRequirements.mergeAdd(ap as AccessPath)
+        return modifiedStorageNodes.mapNotNull { it.requirement }
     }
 
-    override fun find(fact: FinalFactAp): Sequence<InitialFactAp>? =
-        based[fact.base]?.findRequirements((fact as AccessTree).access)
+    override fun filterTo(dst: MutableList<InitialFactAp>, fact: FinalFactAp) {
+        val storage = based[fact.base] ?: return
+        dst.addAll(storage.findRequirements((fact as AccessTree).access))
+    }
 }
 
 private class SideEffectRequirementStorage : AccessBasedStorage<SideEffectRequirementStorage>() {
-    private var requirement: AccessPath? = null
+    var requirement: AccessPath? = null
 
     override fun createStorage() = SideEffectRequirementStorage()
 

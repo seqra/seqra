@@ -19,13 +19,17 @@ import org.opentaint.dataflow.ap.ifds.trace.TraceResolverCancellation
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzer.MethodCallHandler
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzer.MethodCallResolutionFailureHandler
 import org.opentaint.dataflow.ap.ifds.MethodCallFlowFunction.ZeroCallFact
+import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryApRefinement
+import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryExclusionRefinement
 
 interface MethodAnalyzer {
     fun addInitialZeroFact()
 
     fun addInitialFact(factAp: FinalFactAp)
 
-    fun tabulationAlgorithmStep(edge: Edge)
+    val containsUnprocessedEdges: Boolean
+
+    fun tabulationAlgorithmStep()
 
     fun handleZeroToZeroMethodSummaryEdge(currentEdge: ZeroToZero, methodSummaries: List<ZeroInitialEdge>)
 
@@ -36,7 +40,7 @@ interface MethodAnalyzer {
     fun handleMethodSideEffectRequirement(
         currentEdge: FactToFact,
         methodInitialFactBase: AccessPathBase,
-        methodSideEffectRequirement: InitialFactAp
+        methodSideEffectRequirements: List<InitialFactAp>
     )
 
     fun collectStats(stats: MethodStats)
@@ -101,11 +105,17 @@ class NormalMethodAnalyzer(
     private var zeroInitialFactProcessed: Boolean = false
     private val initialFacts = apManager.initialFactAbstraction()
     private val edges = MethodAnalyzerEdges(apManager, methodEntryPoint, languageManager)
-    private val pendingSummaryEdges = arrayListOf<Edge>()
+    private var pendingSummaryEdges = arrayListOf<Edge>()
+    private var pendingSideEffectRequirements = arrayListOf<InitialFactAp>()
 
     private val reachability = languageManager.getLocalVariableReachability(methodEntryPoint.method, graph)
 
-    private var unprocessedEdgesCount: Int = 0
+    private var analyzerEnqueued = false
+    private var unprocessedEdges = arrayListOf<Edge>()
+
+    override val containsUnprocessedEdges: Boolean
+        get() = unprocessedEdges.isNotEmpty()
+
     private var analyzerSteps: Long = 0
     private var summaryEdgesHandled: Long = 0
 
@@ -115,7 +125,7 @@ class NormalMethodAnalyzer(
         stats.stats(methodEntryPoint.method).apply {
             steps += analyzerSteps
             handledSummaries += summaryEdgesHandled
-            unprocessedEdges += unprocessedEdgesCount
+            unprocessedEdges += this@NormalMethodAnalyzer.unprocessedEdges.size
         }
     }
 
@@ -142,9 +152,10 @@ class NormalMethodAnalyzer(
             }
     }
 
-    override fun tabulationAlgorithmStep(edge: Edge) {
+    override fun tabulationAlgorithmStep() {
         analyzerSteps++
-        unprocessedEdgesCount--
+
+        val edge = unprocessedEdges.removeLast()
 
         val edgeFactBase = when (edge) {
             is ZeroToZero -> null
@@ -163,9 +174,15 @@ class NormalMethodAnalyzer(
             }
         }
 
-        if (unprocessedEdgesCount == 0) {
-            flushPendingSummaryEdges()
-        }
+        if (unprocessedEdges.isNotEmpty()) return
+
+        analyzerEnqueued = false
+
+        // Create new empty list to shrink internal array
+        unprocessedEdges = arrayListOf()
+
+        flushPendingSummaryEdges()
+        flushPendingSideEffectRequirements()
     }
 
     private fun simpleStatementStep(edge: Edge) {
@@ -342,8 +359,12 @@ class NormalMethodAnalyzer(
     }
 
     private fun enqueueNewEdge(edge: Edge) {
-        unprocessedEdgesCount++
-        runner.submitNewUnprocessedEdge(edge)
+        unprocessedEdges.add(edge)
+
+        if (!analyzerEnqueued) {
+            runner.enqueueMethodAnalyzer(this)
+            analyzerEnqueued = true
+        }
     }
 
     private fun handleInputFactChange(originalInputFactAp: InitialFactAp, newInputFactAp: InitialFactAp) {
@@ -363,8 +384,15 @@ class NormalMethodAnalyzer(
 
     private fun flushPendingSummaryEdges() {
         if (pendingSummaryEdges.isNotEmpty()) {
-            runner.addNewSummaryEdges(methodEntryPoint, pendingSummaryEdges.toList())
-            pendingSummaryEdges.clear()
+            runner.addNewSummaryEdges(methodEntryPoint, pendingSummaryEdges)
+            pendingSummaryEdges = arrayListOf()
+        }
+    }
+
+    private fun flushPendingSideEffectRequirements() {
+        if (pendingSideEffectRequirements.isNotEmpty()) {
+            runner.addNewSideEffectRequirement(methodEntryPoint, pendingSideEffectRequirements)
+            pendingSideEffectRequirements = arrayListOf()
         }
     }
 
@@ -418,21 +446,23 @@ class NormalMethodAnalyzer(
     override fun handleMethodSideEffectRequirement(
         currentEdge: FactToFact,
         methodInitialFactBase: AccessPathBase,
-        methodSideEffectRequirement: InitialFactAp
+        methodSideEffectRequirements: List<InitialFactAp>
     ) {
-        val methodInitialFact = currentEdge.factAp.rebase(methodInitialFactBase)
-        val summaryEdgeEffects = MethodSummaryEdgeApplicationUtils.tryApplySummaryEdge(
-            methodInitialFact, methodSideEffectRequirement
-        )
+        var sinkRequirementExclusion: ExclusionSet = ExclusionSet.Empty
 
-        for (summaryEdgeEffect in summaryEdgeEffects) {
-            when (summaryEdgeEffect) {
-                is MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryApRefinement -> continue
-                is MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryExclusionRefinement -> {
-                    val refinedInitialFact = replaceFactExclusion(currentEdge.initialFactAp, summaryEdgeEffect.exclusion)
-                    addSideEffectRequirement(currentEdge, refinedInitialFact)
-                }
+        val methodInitialFact = currentEdge.factAp.rebase(methodInitialFactBase)
+        for (methodSinkRequirement in methodSideEffectRequirements) {
+            val summaryEdgeEffects = MethodSummaryEdgeApplicationUtils.tryApplySummaryEdge(
+                methodInitialFact, methodSinkRequirement
+            )
+
+            if (summaryEdgeEffects.any { it is SummaryExclusionRefinement }) {
+                sinkRequirementExclusion = sinkRequirementExclusion.union(methodSinkRequirement.exclusions)
             }
+        }
+
+        if (sinkRequirementExclusion !is ExclusionSet.Empty) {
+            addSideEffectRequirement(currentEdge, currentEdge.initialFactAp.replaceExclusions(sinkRequirementExclusion))
         }
     }
 
@@ -440,7 +470,12 @@ class NormalMethodAnalyzer(
         if (currentEdge is FactToFact) {
             handleInputFactChange(currentEdge.initialFactAp, sideEffectRequirement)
         }
-        runner.addNewSideEffectRequirement(methodEntryPoint, sideEffectRequirement)
+
+        pendingSideEffectRequirements.add(sideEffectRequirement)
+
+        if (!analyzerEnqueued) {
+            flushPendingSideEffectRequirements()
+        }
     }
 
     override fun handleZeroToZeroMethodSummaryEdge(
@@ -516,7 +551,7 @@ class NormalMethodAnalyzer(
                 methodInitialFactBase = sub.methodInitialFactBase,
                 methodSummaries = applicableSummaries,
                 refineInitialFact = { initialFactAp: InitialFactAp, refinement: ExclusionSet ->
-                    replaceFactExclusion(initialFactAp, refinement)
+                    initialFactAp.replaceExclusions(refinement)
                 },
                 handleSummaryEdge = { initialFactAp: InitialFactAp, summaryFactAp: FinalFactAp ->
                     handleFactToFactMethodSummaryEdge(initialFactAp, summaryFactAp, sub.currentEdge)
@@ -534,7 +569,7 @@ class NormalMethodAnalyzer(
         refineInitialFact: (fact: IF, refinement: ExclusionSet) -> IF,
         handleSummaryEdge: (initialFact: IF, summaryFactAp: FinalFactAp) -> Unit
     ) {
-        val summaries = methodSummaries.groupBy { it.initialFactAp }
+        val summaries = methodSummaries.groupByTo(hashMapOf()) { it.initialFactAp }
         for ((summaryInitialFact, summaryEdges) in summaries) {
             val methodInitialFact = currentEdgeFactAp.rebase(methodInitialFactBase)
             val summaryEdgeEffects = MethodSummaryEdgeApplicationUtils.tryApplySummaryEdge(
@@ -543,7 +578,7 @@ class NormalMethodAnalyzer(
 
             for (summaryEdgeEffect in summaryEdgeEffects) {
                 when (summaryEdgeEffect) {
-                    is MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryApRefinement -> {
+                    is SummaryApRefinement -> {
                         for (methodSummary in summaryEdges) {
                             val mappedSummaryFact = methodCallFactMapper.mapMethodExitToReturnFlowFact(
                                 currentEdgeStatement, methodSummary.statement, methodSummary.factAp, languageManager.factTypeChecker
@@ -558,7 +593,7 @@ class NormalMethodAnalyzer(
                         }
                     }
 
-                    is MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryExclusionRefinement -> {
+                    is SummaryExclusionRefinement -> {
                         val initialFact = refineInitialFact(currentEdgeInitialFact, summaryEdgeEffect.exclusion)
 
                         for (methodSummary in summaryEdges) {
@@ -594,11 +629,6 @@ class NormalMethodAnalyzer(
             addSequentialEdge(currentEdge, newEdge)
         }
     }
-
-    private fun replaceFactExclusion(
-        factAp: InitialFactAp,
-        exclusions: ExclusionSet
-    ): InitialFactAp = factAp.replaceExclusions(exclusions)
 
     override fun resolveIntraProceduralTraceSummary(
         statement: CommonInst,
@@ -663,7 +693,10 @@ class EmptyMethodAnalyzer(
         // No stats
     }
 
-    override fun tabulationAlgorithmStep(edge: Edge) {
+    override val containsUnprocessedEdges: Boolean
+        get() = false
+
+    override fun tabulationAlgorithmStep() {
         error("Empty method should not perform steps")
     }
 
@@ -691,7 +724,7 @@ class EmptyMethodAnalyzer(
     override fun handleMethodSideEffectRequirement(
         currentEdge: FactToFact,
         methodInitialFactBase: AccessPathBase,
-        methodSideEffectRequirement: InitialFactAp
+        methodSideEffectRequirements: List<InitialFactAp>
     ) {
         error("Empty method should not receive sink requirements")
     }

@@ -9,6 +9,7 @@ import org.opentaint.dataflow.ap.ifds.MethodSummaryFactEdgesForExitPoint
 import org.opentaint.dataflow.ap.ifds.SummaryFactStorage
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.MethodInitialToFinalApSummariesStorage
+import org.opentaint.dataflow.util.collectToListWithPostProcess
 import java.util.concurrent.ConcurrentHashMap
 
 class MethodInitialToFinalAutomataApSummariesStorage(
@@ -22,13 +23,17 @@ class MethodInitialToFinalAutomataApSummariesStorage(
         storage.add(edges, added)
     }
 
-    override fun filterEdges(
+    override fun filterEdgesTo(
+        dst: MutableList<FactToFactEdgeBuilder>,
         pattern: FinalFactAp,
         finalFactBase: AccessPathBase?
-    ): Sequence<FactToFactEdgeBuilder> =
-        storage.filterEdges(StorageFilterPattern(pattern, finalFactBase))
+    ) {
+        storage.filterEdgesTo(dst, StorageFilterPattern(pattern, finalFactBase))
+    }
 
-    override fun allEdges(): Sequence<FactToFactEdgeBuilder> = storage.allEdges()
+    override fun collectAllEdgesTo(dst: MutableList<FactToFactEdgeBuilder>) {
+        storage.collectAllEdgesTo(dst)
+    }
 
     private class StorageFilterPattern(
         val initialFactPattern: FinalFactAp,
@@ -39,12 +44,17 @@ class MethodInitialToFinalAutomataApSummariesStorage(
         MethodSummaryFactEdgesForExitPoint<BasedInitialAp, StorageFilterPattern>(methodEntryPoint) {
         override fun createStorage(): BasedInitialAp = BasedInitialAp(methodEntryPoint)
 
-        override fun storageFilterEdges(
+        override fun storageFilterEdgesTo(
+            dst: MutableList<FactToFactEdgeBuilder>,
             storage: BasedInitialAp,
             containsPattern: StorageFilterPattern
-        ): Sequence<FactToFactEdgeBuilder> = storage.filter(containsPattern)
+        ) {
+            storage.filterTo(dst, containsPattern)
+        }
 
-        override fun storageAllEdges(storage: BasedInitialAp): Sequence<FactToFactEdgeBuilder> = storage.allEdges()
+        override fun storageCollectAllEdgesTo(dst: MutableList<FactToFactEdgeBuilder>, storage: BasedInitialAp) {
+            storage.collectAllEdgesTo(dst)
+        }
 
         override fun storageAdd(
             storage: BasedInitialAp,
@@ -70,24 +80,31 @@ class MethodInitialToFinalAutomataApSummariesStorage(
             }
         }
 
-        fun filter(containsPattern: StorageFilterPattern): Sequence<FactToFactEdgeBuilder> {
-            val initialFactBase = containsPattern.initialFactPattern.base
-            val storage = find(initialFactBase) ?: return emptySequence()
+        fun filterTo(dst: MutableList<FactToFactEdgeBuilder>, containsPattern: StorageFilterPattern) {
+            val initialFactPattern = containsPattern.initialFactPattern as AccessGraphFinalFactAp
+            val initialFactBase = initialFactPattern.base
+            val storage = find(initialFactBase) ?: return
 
-            val edges = if (containsPattern.finalFactBase == null) {
-                storage.allEdges()
-            } else {
-                storage.filter(containsPattern.finalFactBase)
-            }
-
-            return edges.map {
+            collectToListWithPostProcess(dst, {
+                if (containsPattern.finalFactBase == null) {
+                    storage.filterEdgesTo(it, initialFactPattern.access)
+                } else {
+                    storage.filterEdgesTo(it, initialFactPattern.access, containsPattern.finalFactBase)
+                }
+            }, {
                 it.setInitialBase(initialFactBase).build()
-            }
+            })
         }
 
-        fun allEdges(): Sequence<FactToFactEdgeBuilder> = mapValues { base, storage ->
-            storage.allEdges().map { it.setInitialBase(base).build() }
-        }.flatten()
+        fun collectAllEdgesTo(dst: MutableList<FactToFactEdgeBuilder>) {
+            forEachValue { base, storage ->
+                collectToListWithPostProcess(dst, {
+                    storage.allEdgesTo(it)
+                }, {
+                    it.setInitialBase(base).build()
+                })
+            }
+        }
     }
 
     private class BasedFinalAp(methodEntryPoint: CommonInst) :
@@ -104,13 +121,37 @@ class MethodInitialToFinalAutomataApSummariesStorage(
             }
         }
 
-        fun allEdges(): Sequence<FactToFactEdgeBuilderBuilder> = mapValues { base, storage ->
-            storage.allEdges().map { it.setFinalBase(base) }
-        }.flatten()
+        fun allEdgesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>) {
+            forEachValue { base, storage ->
+                collectToListWithPostProcess(dst, {
+                    storage.allEdgesTo(it)
+                }, {
+                    it.setFinalBase(base)
+                })
+            }
+        }
 
-        fun filter(finalFactBase: AccessPathBase): Sequence<FactToFactEdgeBuilderBuilder> {
-            val storage = find(finalFactBase) ?: return emptySequence()
-            return storage.allEdges().map { it.setFinalBase(finalFactBase) }
+        fun filterEdgesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>, accessPattern: AccessGraph) {
+            forEachValue { base, storage ->
+                collectToListWithPostProcess(dst, {
+                    storage.filterEdgesTo(it, accessPattern)
+                }, {
+                    it.setFinalBase(base)
+                })
+            }
+        }
+
+        fun filterEdgesTo(
+            dst: MutableList<FactToFactEdgeBuilderBuilder>,
+            accessPattern: AccessGraph,
+            finalFactBase: AccessPathBase
+        ){
+            val storage = find(finalFactBase) ?: return
+            collectToListWithPostProcess(dst, {
+                storage.filterEdgesTo(it, accessPattern)
+            }, {
+                it.setFinalBase(finalFactBase)
+            })
         }
     }
 
@@ -142,10 +183,30 @@ class MethodInitialToFinalAutomataApSummariesStorage(
             }
         }
 
-        fun allEdges(): Sequence<FactToFactEdgeBuilderBuilder> =
-            finalFactsGroupedByInitial.asSequence().flatMap { (initialAg, finalStorage) ->
-                finalStorage.allEdges().map { it.setInitialAg(initialAg) }
+        fun allEdgesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>) {
+            finalFactsGroupedByInitial.forEach { (initialAg, finalStorage) ->
+                collectToListWithPostProcess(dst, {
+                    finalStorage.allEdgesTo(it)
+                }, {
+                    it.setInitialAg(initialAg)
+                })
             }
+        }
+
+        fun filterEdgesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>, accessPattern: AccessGraph) {
+            finalFactsGroupedByInitial.forEach { (initialAg, finalStorage) ->
+
+                if (accessPattern.delta(initialAg).isEmpty()) {
+                    return@forEach
+                }
+
+                collectToListWithPostProcess(dst, {
+                    finalStorage.allEdgesTo(it)
+                }, {
+                    it.setInitialAg(initialAg)
+                })
+            }
+        }
 
         override fun toString(): String =
             finalFactsGroupedByInitial
@@ -193,13 +254,15 @@ class MethodInitialToFinalAutomataApSummariesStorage(
             return true
         }
 
-        fun allEdges(): Sequence<FactToFactEdgeBuilderBuilder> {
-            val exclusion = exclusionStorage ?: return emptySequence()
-            return agStorage.allGraphs().map { ag ->
+        fun allEdgesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>) {
+            val exclusion = exclusionStorage ?: return
+            collectToListWithPostProcess(dst, {
+                agStorage.allGraphsTo(it)
+            }, { ag ->
                 FactToFactEdgeBuilderBuilder()
                     .setExclusion(exclusion)
                     .setFinalAg(ag)
-            }
+            })
         }
 
         override fun toString(): String = "($exclusionStorage -> $agStorage)"

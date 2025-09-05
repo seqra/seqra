@@ -65,18 +65,18 @@ interface MethodEdgesInitialToFinalApSet {
 }
 
 interface SideEffectRequirementApStorage {
-    fun add(ap: InitialFactAp): InitialFactAp?
-    fun find(fact: FinalFactAp): Sequence<InitialFactAp>?
+    fun add(requirements: List<InitialFactAp>): List<InitialFactAp>
+    fun filterTo(dst: MutableList<InitialFactAp>, fact: FinalFactAp)
 }
 
 interface MethodFinalApSummariesStorage {
     fun add(edges: List<Edge.ZeroToFact>, addedEdges: MutableList<ZeroToFactEdgeBuilder>)
-    fun allEdges(): Sequence<ZeroToFactEdgeBuilder>
-    fun filterEdges(finalFactBase: AccessPathBase): Sequence<ZeroToFactEdgeBuilder>
+    fun collectAllEdgesTo(dst: MutableList<ZeroToFactEdgeBuilder>)
+    fun filterEdgesTo(dst: MutableList<ZeroToFactEdgeBuilder>, finalFactBase: AccessPathBase)
 }
 
 interface MethodInitialToFinalApSummariesStorage {
     fun add(edges: List<Edge.FactToFact>, added: MutableList<FactToFactEdgeBuilder>)
-    fun filterEdges(pattern: FinalFactAp, finalFactBase: AccessPathBase?): Sequence<FactToFactEdgeBuilder>
-    fun allEdges(): Sequence<FactToFactEdgeBuilder>
+    fun filterEdgesTo(dst: MutableList<FactToFactEdgeBuilder>, pattern: FinalFactAp, finalFactBase: AccessPathBase?)
+    fun collectAllEdgesTo(dst: MutableList<FactToFactEdgeBuilder>)
 }

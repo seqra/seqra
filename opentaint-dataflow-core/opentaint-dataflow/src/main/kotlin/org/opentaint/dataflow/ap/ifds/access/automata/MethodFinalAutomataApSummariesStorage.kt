@@ -8,6 +8,7 @@ import org.opentaint.dataflow.ap.ifds.MethodSummaryZeroEdgesForExitPoint
 import org.opentaint.dataflow.ap.ifds.SummaryFactStorage
 import org.opentaint.dataflow.ap.ifds.ZeroToFactEdgeBuilder
 import org.opentaint.dataflow.ap.ifds.access.MethodFinalApSummariesStorage
+import org.opentaint.dataflow.util.collectToListWithPostProcess
 
 class MethodFinalAutomataApSummariesStorage(methodEntryPoint: CommonInst) : MethodFinalApSummariesStorage {
     private val storage = ExitPointStorage(methodEntryPoint)
@@ -18,22 +19,29 @@ class MethodFinalAutomataApSummariesStorage(methodEntryPoint: CommonInst) : Meth
         storage.add(edges, addedEdges)
     }
 
-    override fun allEdges(): Sequence<ZeroToFactEdgeBuilder> = storage.allEdges()
+    override fun collectAllEdgesTo(dst: MutableList<ZeroToFactEdgeBuilder>) {
+        storage.collectAllEdgesTo(dst)
+    }
 
-    override fun filterEdges(finalFactBase: AccessPathBase): Sequence<ZeroToFactEdgeBuilder> =
-        storage.filterEdges(finalFactBase)
+    override fun filterEdgesTo(dst: MutableList<ZeroToFactEdgeBuilder>, finalFactBase: AccessPathBase) {
+        storage.filterEdgesTo(dst, finalFactBase)
+    }
 
     private class ExitPointStorage(methodEntryPoint: CommonInst) :
         MethodSummaryZeroEdgesForExitPoint<ApStorage, AccessPathBase>(methodEntryPoint) {
         override fun createStorage(): ApStorage = ApStorage(methodEntryPoint)
 
-        override fun storageFilterEdges(
+        override fun storageFilterEdgesTo(
+            dst: MutableList<ZeroToFactEdgeBuilder>,
             storage: ApStorage,
             containsPattern: AccessPathBase
-        ): Sequence<ZeroToFactEdgeBuilder> =
-            storage.filter(containsPattern)
+        ) {
+            storage.filterTo(dst, containsPattern)
+        }
 
-        override fun storageAllEdges(storage: ApStorage): Sequence<ZeroToFactEdgeBuilder> = storage.allEdges()
+        override fun storageCollectAllEdgesTo(dst: MutableList<ZeroToFactEdgeBuilder>, storage: ApStorage) {
+            storage.collectAllEdgesTo(dst)
+        }
 
         override fun storageAdd(
             storage: ApStorage,
@@ -63,22 +71,28 @@ class MethodFinalAutomataApSummariesStorage(methodEntryPoint: CommonInst) : Meth
             }
         }
 
-        fun allEdges(): Sequence<ZeroToFactEdgeBuilder> = mapValues { base, storage ->
-            storage.allGraphs().map { ag ->
+        fun filterTo(dst: MutableList<ZeroToFactEdgeBuilder>, finalFactBase: AccessPathBase) {
+            val storage = find(finalFactBase) ?: return
+            collectToListWithPostProcess(dst, {
+                storage.allGraphsTo(it)
+            }, {
                 ZeroToFactEdgeBuilderBuilder()
-                    .setGraph(ag)
-                    .setBase(base)
-                    .build()
-            }
-        }.flatten()
-
-        fun filter(finalFactBase: AccessPathBase): Sequence<ZeroToFactEdgeBuilder> {
-            val storage = find(finalFactBase) ?: return emptySequence()
-            return storage.allGraphs().map { ag ->
-                ZeroToFactEdgeBuilderBuilder()
-                    .setGraph(ag)
+                    .setGraph(it)
                     .setBase(finalFactBase)
                     .build()
+            })
+        }
+
+        fun collectAllEdgesTo(dst: MutableList<ZeroToFactEdgeBuilder>) {
+            forEachValue { base, storage ->
+                collectToListWithPostProcess(dst, {
+                    storage.allGraphsTo(it)
+                }, {
+                    ZeroToFactEdgeBuilderBuilder()
+                        .setGraph(it)
+                        .setBase(base)
+                        .build()
+                })
             }
         }
     }

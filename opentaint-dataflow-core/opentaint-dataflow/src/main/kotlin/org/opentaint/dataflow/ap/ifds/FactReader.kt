@@ -33,7 +33,7 @@ class FinalFactReader(
             ap = factAp,
             position = position,
             onMismatch = { node, accessor ->
-                if (accessor != null && node.isAbstract() && !factAp.exclusions.contains(accessor)) {
+                if (accessor != null && node.isAbstract()) {
                     refinement = refinement.add(accessor)
                 }
                 false

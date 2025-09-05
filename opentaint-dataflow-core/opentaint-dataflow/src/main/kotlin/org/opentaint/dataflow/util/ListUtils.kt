@@ -10,7 +10,7 @@ inline fun <T> MutableList<T>.concurrentReadSafeSumOf(element: (T) -> Long): Lon
     return result
 }
 
-inline fun <T> MutableList<T>.concurrentReadSafeForEach(block: (Int, T) -> Unit) {
+inline fun <T> List<T>.concurrentReadSafeForEach(block: (Int, T) -> Unit) {
     val size = this.size
     for (i in 0 until size) {
         block(i, this[i])
@@ -32,4 +32,21 @@ inline fun <T, R> List<T>.concurrentReadSafeMapIndexed(body: (Int, T) -> R): Lis
         result.add(body(i, this[i]))
     }
     return result
+}
+
+inline fun <D, T> collectToListWithPostProcess(
+    dst: MutableList<D>,
+    collect: (MutableList<T>) -> Unit,
+    after: (T) -> D
+): MutableList<D> {
+    val initialSize = dst.size
+
+    @Suppress("UNCHECKED_CAST")
+    collect(dst as MutableList<T>)
+
+    for (i in initialSize until dst.size) {
+        dst[i] = after(dst[i])
+    }
+
+    return dst
 }

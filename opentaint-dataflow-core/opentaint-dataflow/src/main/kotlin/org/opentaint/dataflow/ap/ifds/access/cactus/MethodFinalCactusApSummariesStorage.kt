@@ -17,10 +17,13 @@ class MethodFinalTreeApSummariesStorage(
         storage.add(edges, addedEdges)
     }
 
-    override fun allEdges(): Sequence<ZeroToFactEdgeBuilder> = storage.allEdges()
+    override fun collectAllEdgesTo(dst: MutableList<ZeroToFactEdgeBuilder>) {
+        storage.collectAllEdgesTo(dst)
+    }
 
-    override fun filterEdges(finalFactBase: AccessPathBase): Sequence<ZeroToFactEdgeBuilder> =
-        storage.filterEdges(finalFactBase)
+    override fun filterEdgesTo(dst: MutableList<ZeroToFactEdgeBuilder>, finalFactBase: AccessPathBase) {
+        storage.filterEdgesTo(dst, finalFactBase)
+    }
 }
 
 private class MethodZeroToFactSummariesStorage(methodEntryPoint: CommonInst) :
@@ -36,14 +39,17 @@ private class MethodZeroToFactSummariesStorage(methodEntryPoint: CommonInst) :
         added: MutableList<ZeroToFactEdgeBuilder>
     ) = storage.add(edges, added)
 
-    override fun storageAllEdges(storage: MethodZeroToFactSummaries): Sequence<ZeroToFactEdgeBuilder> =
-        storage.edgeSequence()
+    override fun storageCollectAllEdgesTo(dst: MutableList<ZeroToFactEdgeBuilder>, storage: MethodZeroToFactSummaries) {
+        storage.collectAllEdgesTo(dst)
+    }
 
-    override fun storageFilterEdges(
+    override fun storageFilterEdgesTo(
+        dst: MutableList<ZeroToFactEdgeBuilder>,
         storage: MethodZeroToFactSummaries,
         containsPattern: AccessPathBase
-    ): Sequence<ZeroToFactEdgeBuilder> =
-        storage.filter(containsPattern)
+    ) {
+        storage.filterTo(dst, containsPattern)
+    }
 }
 
 private class MethodZeroToFactSummaries(methodEntryPoint: CommonInst) :
@@ -65,17 +71,24 @@ private class MethodZeroToFactSummaries(methodEntryPoint: CommonInst) :
         }
     }
 
-    fun edgeSequence(): Sequence<ZeroToFactEdgeBuilder> = mapValues { base, storage ->
-        storage.edgeSequence(base)
-    }.flatten()
-
-    fun filter(finalFactBase: AccessPathBase): Sequence<ZeroToFactEdgeBuilder> {
-        val storage = find(finalFactBase) ?: return emptySequence()
-        return storage.edgeSequence(finalFactBase)
+    fun collectAllEdgesTo(dst: MutableList<ZeroToFactEdgeBuilder>) {
+        forEachValue { base, storage ->
+            storage.collectTo(dst, base)
+        }
     }
 
-    private fun MethodZeroToFactSummaryEdgeStorage.edgeSequence(base: AccessPathBase) =
-        summaryEdge()?.setBase(base)?.build()?.let { sequenceOf(it) }.orEmpty()
+    fun filterTo(dst: MutableList<ZeroToFactEdgeBuilder>, finalFactBase: AccessPathBase) {
+        val storage = find(finalFactBase) ?: return
+        storage.collectTo(dst, finalFactBase)
+    }
+
+    private fun MethodZeroToFactSummaryEdgeStorage.collectTo(
+        dst: MutableList<ZeroToFactEdgeBuilder>,
+        base: AccessPathBase
+    ) {
+        val edge = summaryEdge() ?: return
+        dst.add(edge.setBase(base).build())
+    }
 }
 
 private class MethodZeroToFactSummaryEdgeStorage {

@@ -39,6 +39,14 @@ class AccessGraphStorageWithCompression {
         return allGroups.flatMap { it.allGraphs() }
     }
 
+    fun allGraphsTo(dst: MutableList<AccessGraph>) {
+        for (group in noPredecessorGroups) {
+            group.value.allGraphsTo(dst)
+        }
+
+        otherGraphs.allGraphsTo(dst)
+    }
+
     override fun toString(): String {
         val size = allGraphs().sumOf { it.size }
         return "(size: $size)"
@@ -104,6 +112,16 @@ private class AgGroup(private val mergeLimit: Int) {
         mergedGraph?.let { sequenceOf(it) }
             ?: agStorage?.toList()?.asSequence()
             ?: emptySequence()
+
+    fun allGraphsTo(dst: MutableList<AccessGraph>) {
+        val merged = mergedGraph
+        if (merged != null) {
+            dst.add(merged)
+            return
+        }
+
+        agStorage?.toList(dst)
+    }
 
     override fun toString(): String {
         val size = allGraphs().sumOf { it.size }

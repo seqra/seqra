@@ -97,8 +97,10 @@ class TaintAnalysisUnitRunner(
             val event = workList.receive()
 
             when (event) {
-                is Edge -> {
-                    tabulationAlgorithmStep(event)
+                is MethodAnalyzer -> {
+                    while (event.containsUnprocessedEdges && isActive) {
+                        event.tabulationAlgorithmStep()
+                    }
                 }
 
                 is ExternalInputFact -> {
@@ -127,7 +129,7 @@ class TaintAnalysisUnitRunner(
     private fun addStartMethodEvent(method: CommonMethod) = addUnprocessedAnyEvent(method)
 
     private fun addUnprocessedEvent(event: ExternalInputFact) = addUnprocessedAnyEvent(event)
-    private fun addUnprocessedEvent(edge: Edge) = addUnprocessedAnyEvent(edge)
+    private fun addUnprocessedEvent(edge: MethodAnalyzer) = addUnprocessedAnyEvent(edge)
 
     override fun addSummaryEdgeEvent(event: SummaryEdgeSubscriptionManager.SummaryEvent) {
         addUnprocessedAnyEvent(event)
@@ -159,17 +161,23 @@ class TaintAnalysisUnitRunner(
     }
 
     private fun submitMethodInitialZeroFact(methodEntryPoint: MethodEntryPoint) {
-        val methodRunner = methodAnalyzers(methodEntryPoint)
-        methodRunner.add(this, methodEntryPoint)
-
-        methodRunner.getAnalyzer(methodEntryPoint).addInitialZeroFact()
+        submitMethodInitialFact(methodEntryPoint) {
+            it.addInitialZeroFact()
+        }
     }
 
     private fun submitMethodInitialFact(methodEntryPoint: MethodEntryPoint, factAp: FinalFactAp) {
+        submitMethodInitialFact(methodEntryPoint) {
+            it.addInitialFact(factAp)
+        }
+    }
+
+    private inline fun submitMethodInitialFact(methodEntryPoint: MethodEntryPoint, body: (MethodAnalyzer) -> Unit) {
         val methodRunner = methodAnalyzers(methodEntryPoint)
         methodRunner.add(this, methodEntryPoint)
 
-        methodRunner.getAnalyzer(methodEntryPoint).addInitialFact(factAp)
+        val analyzer = methodRunner.getAnalyzer(methodEntryPoint)
+        body(analyzer)
     }
 
     private fun methodAnalyzers(methodEntryPoint: MethodEntryPoint): MethodAnalyzerStorage =
@@ -178,23 +186,8 @@ class TaintAnalysisUnitRunner(
     private fun methodAnalyzers(method: CommonMethod): MethodAnalyzerStorage =
         methodAnalyzers.computeIfAbsent(method) { MethodAnalyzerStorage(languageManager).also { analyzers.add(it) } }
 
-    private fun propagateNew(edge: Edge) {
-        require(unitResolver.resolve(edge.methodEntryPoint.method) == unit) {
-            "Propagated edge must be in the same unit"
-        }
-
-        // Add edge to worklist:
-        addUnprocessedEvent(edge)
-    }
-
-    private fun tabulationAlgorithmStep(currentEdge: Edge) {
-        val methodRunners = methodAnalyzers(currentEdge.methodEntryPoint)
-        val runner = methodRunners.getAnalyzer(currentEdge.methodEntryPoint)
-        runner.tabulationAlgorithmStep(currentEdge)
-    }
-
-    override fun submitNewUnprocessedEdge(edge: Edge) {
-        propagateNew(edge)
+    override fun enqueueMethodAnalyzer(analyzer: MethodAnalyzer) {
+        addUnprocessedEvent(analyzer)
     }
 
     private val CommonMethod.isExtern: Boolean
@@ -258,8 +251,8 @@ class TaintAnalysisUnitRunner(
         manager.newSummaryEdges(methodEntryPoint, edges)
     }
 
-    override fun addNewSideEffectRequirement(methodEntryPoint: MethodEntryPoint, requirement: InitialFactAp) {
-        manager.newSideEffectRequirement(methodEntryPoint, requirement)
+    override fun addNewSideEffectRequirement(methodEntryPoint: MethodEntryPoint, requirements: List<InitialFactAp>) {
+        manager.newSideEffectRequirement(methodEntryPoint, requirements)
     }
 
     override fun getMethodAnalyzer(methodEntryPoint: MethodEntryPoint): MethodAnalyzer =

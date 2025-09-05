@@ -7,7 +7,8 @@ import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.MethodAccessPathSubscription
-import org.opentaint.dataflow.util.concurrentReadSafeIterator
+import org.opentaint.dataflow.util.collectToListWithPostProcess
+import org.opentaint.dataflow.util.concurrentReadSafeForEach
 import org.opentaint.dataflow.util.concurrentReadSafeMapIndexed
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -45,7 +46,7 @@ class SummaryEdgeSubscriptionManager(
         if (!methodSubscriptions.addZeroToZero(callerPathEdge)) return false
 
         val callerAnalyzer = processingCtx.getMethodAnalyzer(callerPathEdge.methodEntryPoint)
-        val summaries = manager.findZeroSummaryEdges(methodEntryPoint).asSequence().toList()
+        val summaries = manager.findZeroSummaryEdges(methodEntryPoint)
         if (summaries.isNotEmpty()) {
             callerAnalyzer.handleZeroToZeroMethodSummaryEdge(callerPathEdge, summaries)
         }
@@ -64,7 +65,7 @@ class SummaryEdgeSubscriptionManager(
         val callerAnalyzer = processingCtx.getMethodAnalyzer(callerPathEdge.methodEntryPoint)
 
         val calleeInitialFactAp = addedSubscription.callerPathEdge.factAp.rebase(addedSubscription.calleeInitialFactBase)
-        val summaries = manager.findFactSummaryEdges(methodEntryPoint, calleeInitialFactAp).asSequence().toList()
+        val summaries = manager.findFactSummaryEdges(methodEntryPoint, calleeInitialFactAp)
 
         if (summaries.isNotEmpty()) {
             val sub = MethodAnalyzer.ZeroToFactSub(
@@ -89,7 +90,7 @@ class SummaryEdgeSubscriptionManager(
         val callerAnalyzer = processingCtx.getMethodAnalyzer(callerPathEdge.methodEntryPoint)
 
         val calleeInitialFactAp = addedSubscription.callerPathEdge.factAp.rebase(addedSubscription.calleeInitialFactBase)
-        val summaries = manager.findFactSummaryEdges(methodEntryPoint, calleeInitialFactAp).asSequence().toList()
+        val summaries = manager.findFactSummaryEdges(methodEntryPoint, calleeInitialFactAp)
 
         if (summaries.isNotEmpty()) {
             val sub = MethodAnalyzer.FactToFactSub(
@@ -99,11 +100,12 @@ class SummaryEdgeSubscriptionManager(
             callerAnalyzer.handleFactToFactMethodSummaryEdge(listOf(sub), summaries)
         }
 
-        for (sideEffectRequirement in manager.findSideEffectRequirements(methodEntryPoint, calleeInitialFactAp)) {
+        val sideEffectRequirements = manager.findSideEffectRequirements(methodEntryPoint, calleeInitialFactAp)
+        if (sideEffectRequirements.isNotEmpty()) {
             callerAnalyzer.handleMethodSideEffectRequirement(
                 addedSubscription.callerPathEdge,
                 addedSubscription.calleeInitialFactBase,
-                sideEffectRequirement
+                sideEffectRequirements
             )
         }
 
@@ -374,18 +376,20 @@ class SummaryEdgeSubscriptionManager(
 
     private inner class NewSideEffectRequirementEvent(
         private val methodEntryPoint: MethodEntryPoint,
-        private val sideEffectRequirement: InitialFactAp
+        private val sideEffectRequirements: List<InitialFactAp>
     ) : SummaryEvent {
         override fun processMethodSummary() {
             val subscriptions = methodSummarySubscriptions[methodEntryPoint] ?: return
 
-            subscriptions.findFactEdgeSub(sideEffectRequirement).forEach { (ep, subscriptions) ->
-                val analyzer = processingCtx.getMethodAnalyzer(ep)
-                for (subscription in subscriptions) {
-                    analyzer.handleMethodSideEffectRequirement(
-                        subscription.callerPathEdge, subscription.calleeInitialFactBase,
-                        sideEffectRequirement
-                    )
+            sideEffectRequirements.forEach { sideEffectRequirement ->
+                subscriptions.findFactEdgeSub(sideEffectRequirement).forEach { (ep, subscriptions) ->
+                    val analyzer = processingCtx.getMethodAnalyzer(ep)
+                    for (subscription in subscriptions) {
+                        analyzer.handleMethodSideEffectRequirement(
+                            subscription.callerPathEdge, subscription.calleeInitialFactBase,
+                            listOf(sideEffectRequirement)
+                        )
+                    }
                 }
             }
         }
@@ -403,8 +407,8 @@ class SummaryEdgeSubscriptionManager(
             processingCtx.addSummaryEdgeEvent(NewSummaryEdgeEvent(edges))
         }
 
-        override fun newSideEffectRequirement(methodEntryPoint: MethodEntryPoint, requirement: InitialFactAp) {
-            processingCtx.addSummaryEdgeEvent(NewSideEffectRequirementEvent(methodEntryPoint, requirement))
+        override fun newSideEffectRequirement(methodEntryPoint: MethodEntryPoint, requirements: List<InitialFactAp>) {
+            processingCtx.addSummaryEdgeEvent(NewSideEffectRequirementEvent(methodEntryPoint, requirements))
         }
     }
 }
@@ -415,7 +419,7 @@ class SummaryEdgeStorageWithSubscribers(
 ) {
     interface Subscriber {
         fun newSummaryEdges(edges: List<Edge>)
-        fun newSideEffectRequirement(methodEntryPoint: MethodEntryPoint, requirement: InitialFactAp)
+        fun newSideEffectRequirement(methodEntryPoint: MethodEntryPoint, requirements: List<InitialFactAp>)
     }
 
     private val subscribers = ConcurrentLinkedQueue<Subscriber>()
@@ -441,11 +445,11 @@ class SummaryEdgeStorageWithSubscribers(
 
     private val sideEffectRequirement = apManager.sideEffectRequirementApStorage()
 
-    fun sideEffectRequirement(requirement: InitialFactAp) {
-        val addedAp = sideEffectRequirement.add(requirement) ?: return
+    fun sideEffectRequirement(requirements: List<InitialFactAp>) {
+        val addedRequirements = sideEffectRequirement.add(requirements)
 
         for (subscriber in subscribers) {
-            subscriber.newSideEffectRequirement(methodEntryPoint, addedAp)
+            subscriber.newSideEffectRequirement(methodEntryPoint, addedRequirements)
         }
     }
 
@@ -483,58 +487,73 @@ class SummaryEdgeStorageWithSubscribers(
         subscribers.add(handler)
     }
 
-    fun zeroEdgesIterator(): Iterator<Edge.ZeroInitialEdge> {
-        val zeroToZero = allZeroToZeroSummaries()
-        val zeroToFact = allZeroToFactSummaries()
-        return (zeroToZero + zeroToFact).iterator()
+    fun zeroEdges(): List<Edge.ZeroInitialEdge> {
+        val result = mutableListOf<Edge.ZeroInitialEdge>()
+        collectAllZeroToZeroSummariesTo(result)
+        collectAllZeroToFactSummariesTo(result)
+        return result
     }
 
-    fun zeroToFactEdgesIterator(factBase: AccessPathBase): Iterator<Edge.ZeroToFact> =
-        zeroToFactSummaryEdges.filterEdges(factBase).map {
+    fun zeroToFactEdges(factBase: AccessPathBase): List<Edge.ZeroToFact> =
+        collectToListWithPostProcess(mutableListOf(), {
+            zeroToFactSummaryEdges.filterEdgesTo(it, factBase)
+        }, {
             it.setEntryPoint(methodEntryPoint).build()
-        }.iterator()
+        })
 
-    private fun allZeroToZeroSummaries() =
-        zeroToZeroSummaryEdges.concurrentReadSafeIterator().asSequence()
-            .map { Edge.ZeroToZero(methodEntryPoint, it) }
-
-    private fun allZeroToFactSummaries() = zeroToFactSummaryEdges.allEdges().map {
-        it.setEntryPoint(methodEntryPoint).build()
+    private fun collectAllZeroToZeroSummariesTo(dst: MutableList<Edge.ZeroInitialEdge>) {
+        zeroToZeroSummaryEdges.concurrentReadSafeForEach { _, inst ->
+            dst.add(Edge.ZeroToZero(methodEntryPoint, inst))
+        }
     }
 
-    fun factEdgesIterator(initialFactAp: FinalFactAp): Iterator<Edge.FactToFact> {
-        val factEdges = taintedFactSummaryEdges.filterEdges(initialFactAp, finalFactBase = null)
-
-        return factEdges
-            .map { it.setEntryPoint(methodEntryPoint).build() }
-            .iterator()
+    private fun collectAllZeroToFactSummariesTo(dst: MutableList<Edge.ZeroInitialEdge>) {
+        collectToListWithPostProcess(dst, {
+            zeroToFactSummaryEdges.collectAllEdgesTo(it)
+        }, {
+            it.setEntryPoint(methodEntryPoint).build()
+        })
     }
 
-    fun factToFactEdgesIterator(
+    fun factEdges(initialFactAp: FinalFactAp): List<Edge.FactToFact> =
+        collectToListWithPostProcess(mutableListOf(), {
+            taintedFactSummaryEdges.filterEdgesTo(it, initialFactAp, finalFactBase = null)
+        }, {
+            it.setEntryPoint(methodEntryPoint).build()
+        })
+
+    fun factToFactEdges(
         initialFactAp: FinalFactAp,
         finalFactBase: AccessPathBase
-    ): Iterator<Edge.FactToFact> {
-        val factEdges = taintedFactSummaryEdges.filterEdges(initialFactAp, finalFactBase)
+    ): List<Edge.FactToFact> =
+        collectToListWithPostProcess(mutableListOf(), {
+            taintedFactSummaryEdges.filterEdgesTo(it, initialFactAp, finalFactBase)
+        }, {
+            it.setEntryPoint(methodEntryPoint).build()
+        })
 
-        return factEdges
-            .map { it.setEntryPoint(methodEntryPoint).build() }
-            .iterator()
+    private fun collectAllFactToFactSummariesTo(dst: MutableList<Edge.FactToFact>) {
+        collectToListWithPostProcess(dst, {
+            taintedFactSummaryEdges.collectAllEdgesTo(it)
+        }, {
+            it.setEntryPoint(methodEntryPoint).build()
+        })
     }
 
-    private fun allFactToFactSummaries(): Sequence<Edge.FactToFact> {
-        return taintedFactSummaryEdges.allEdges()
-            .map { it.setEntryPoint(methodEntryPoint).build() }
+    fun sideEffectRequirement(initialFactAp: FinalFactAp): List<InitialFactAp> {
+        val result = mutableListOf<InitialFactAp>()
+        sideEffectRequirement.filterTo(result, initialFactAp)
+        return result
     }
-
-    fun sideEffectRequirementIterator(initialFactAp: FinalFactAp): Iterator<InitialFactAp> =
-        sideEffectRequirement
-            .find(initialFactAp)
-            .orEmpty()
-            .iterator()
 
     fun collectStats(stats: MethodStats) {
-        val sourceSummaries = allZeroToFactSummaries().sumOf { it.factAp.size }
-        val passSummaries = allFactToFactSummaries().sumOf { it.factAp.size }
+        val sourceEdges = mutableListOf<Edge.ZeroInitialEdge>()
+        collectAllZeroToFactSummariesTo(sourceEdges)
+        val sourceSummaries = sourceEdges.sumOf { (it as? Edge.ZeroToFact)?.factAp?.size ?: 0 }
+
+        val passEdges = mutableListOf<Edge.FactToFact>()
+        collectAllFactToFactSummariesTo(passEdges)
+        val passSummaries = passEdges.sumOf { it.factAp.size }
 
         stats.stats(methodEntryPoint.method).sourceSummaries += sourceSummaries
         stats.stats(methodEntryPoint.method).passSummaries += passSummaries
@@ -610,10 +629,9 @@ abstract class SummaryFactStorage<Storage : Any>(methodEntryPoint: CommonInst) :
 
     override fun findLocal(idx: Int): Storage? = locals[idx]
 
-    override fun <R : Any> mapLocalValues(body: (AccessPathBase, Storage) -> R): Sequence<R> =
-        locals.asSequence().map { (localVarIdx, storage) ->
-            body(AccessPathBase.LocalVar(localVarIdx), storage)
-        }
+    override fun forEachLocalValue(body: (AccessPathBase, Storage) -> Unit) {
+        locals.forEach { localVarIdx, storage -> body(AccessPathBase.LocalVar(localVarIdx), storage) }
+    }
 
     override fun getOrCreateConstant(base: AccessPathBase.Constant): Storage {
         val summaries = constants ?: ConcurrentHashMap<AccessPathBase.Constant, Storage>()
@@ -625,8 +643,9 @@ abstract class SummaryFactStorage<Storage : Any>(methodEntryPoint: CommonInst) :
     override fun findConstant(base: AccessPathBase.Constant): Storage? =
         constants?.get(base)
 
-    override fun <R : Any> mapConstantValues(body: (AccessPathBase, Storage) -> R): Sequence<R> =
-        constants?.asSequence()?.map { body(it.key, it.value) } ?: emptySequence()
+    override fun forEachConstantValue(body: (AccessPathBase, Storage) -> Unit) {
+        constants?.forEach { body(it.key, it.value) }
+    }
 
     override fun getOrCreateClassStatic(base: AccessPathBase.ClassStatic): Storage {
         val summaries = statics ?: ConcurrentHashMap<AccessPathBase.ClassStatic, Storage>()
@@ -638,8 +657,9 @@ abstract class SummaryFactStorage<Storage : Any>(methodEntryPoint: CommonInst) :
     override fun findClassStatic(base: AccessPathBase.ClassStatic): Storage? =
         statics?.get(base)
 
-    override fun <R : Any> mapClassStaticValues(body: (AccessPathBase, Storage) -> R): Sequence<R> =
-        statics?.asSequence()?.map { body(it.key, it.value) } ?: emptySequence()
+    override fun forEachClassStaticValue(body: (AccessPathBase, Storage) -> Unit) {
+        statics?.forEach { body(it.key, it.value) }
+    }
 }
 
 typealias MethodSummaryZeroEdgesForExitPoint<Storage, Pattern> =
@@ -654,9 +674,9 @@ abstract class MethodSummaryEdgesForExitPoint<E : Edge, B : EdgeBuilder<B>, Stor
     abstract fun createStorage(): Storage
     abstract fun storageAdd(storage: Storage, edges: List<E>, added: MutableList<B>)
 
-    abstract fun storageAllEdges(storage: Storage): Sequence<B>
+    abstract fun storageCollectAllEdgesTo(dst: MutableList<B>, storage: Storage)
 
-    abstract fun storageFilterEdges(storage: Storage, containsPattern: Pattern): Sequence<B>
+    abstract fun storageFilterEdgesTo(dst: MutableList<B>, storage: Storage, containsPattern: Pattern)
 
     private val exitPoints = arrayListOf<CommonInst>()
     private val exitPointsStorage = arrayListOf<Storage>()
@@ -681,17 +701,29 @@ abstract class MethodSummaryEdgesForExitPoint<E : Edge, B : EdgeBuilder<B>, Stor
         }
     }
 
-    fun allEdges(): Sequence<B> = processEdgeSequence { storageAllEdges(it) }
-
-    fun filterEdges(containsPattern: Pattern): Sequence<B> = processEdgeSequence {
-        storageFilterEdges(it, containsPattern)
+    fun collectAllEdgesTo(dst: MutableList<B>) {
+        processStorageEdges(dst) { storage, result ->
+            storageCollectAllEdgesTo(result, storage)
+        }
     }
 
-    private inline fun processEdgeSequence(storageEdges: (Storage) -> Sequence<B>): Sequence<B> =
+    fun filterEdgesTo(dst: MutableList<B>, containsPattern: Pattern) {
+        processStorageEdges(dst) { storage, result ->
+            storageFilterEdgesTo(result, storage, containsPattern)
+        }
+    }
+
+    private inline fun processStorageEdges(dst: MutableList<B>, storageEdges: (Storage, MutableList<B>) -> Unit) {
         exitPointsStorage.concurrentReadSafeMapIndexed { idx, storage ->
             val exitPoint = exitPoints[idx]
-            storageEdges(storage).map { it.setExitStatement(exitPoint) }
-        }.asSequence().flatten()
+
+            collectToListWithPostProcess(dst, {
+                storageEdges(storage, it)
+            }, {
+                it.setExitStatement(exitPoint)
+            })
+        }
+    }
 
     override fun toString(): String =
         exitPointsStorage.concurrentReadSafeMapIndexed { idx, storage ->

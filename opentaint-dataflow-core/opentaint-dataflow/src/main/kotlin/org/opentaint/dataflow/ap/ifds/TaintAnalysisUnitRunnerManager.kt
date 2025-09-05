@@ -71,34 +71,34 @@ class TaintAnalysisUnitRunnerManager(
             methodStorage.subscribeOnEdges(handler)
         }
 
-        fun methodZeroSummaries(methodEntryPoint: MethodEntryPoint): Iterator<Edge.ZeroInitialEdge> {
+        fun methodZeroSummaries(methodEntryPoint: MethodEntryPoint): List<Edge.ZeroInitialEdge> {
             val methodStorage = methodSummaryEdges(methodEntryPoint)
-            return methodStorage.zeroEdgesIterator()
+            return methodStorage.zeroEdges()
         }
 
         fun methodZeroToFactSummaries(
             methodEntryPoint: MethodEntryPoint,
             factBase: AccessPathBase
-        ): Iterator<Edge.ZeroToFact> {
+        ): List<Edge.ZeroToFact> {
             val methodStorage = methodSummaryEdges(methodEntryPoint)
-            return methodStorage.zeroToFactEdgesIterator(factBase)
+            return methodStorage.zeroToFactEdges(factBase)
         }
 
         fun methodFactSummaries(
             methodEntryPoint: MethodEntryPoint,
             initialFactAp: FinalFactAp
-        ): Iterator<Edge.FactToFact> {
+        ): List<Edge.FactToFact> {
             val methodStorage = methodSummaryEdges(methodEntryPoint)
-            return methodStorage.factEdgesIterator(initialFactAp)
+            return methodStorage.factEdges(initialFactAp)
         }
 
         fun methodFactToFactSummaryEdges(
             methodEntryPoint: MethodEntryPoint,
             initialFactAp: FinalFactAp,
             finalFactBase: AccessPathBase
-        ): Iterator<Edge.FactToFact> {
+        ): List<Edge.FactToFact> {
             val methodStorage = methodSummaryEdges(methodEntryPoint)
-            return methodStorage.factToFactEdgesIterator(initialFactAp, finalFactBase)
+            return methodStorage.factToFactEdges(initialFactAp, finalFactBase)
         }
 
         fun addSummaryEdges(initialStatement: MethodEntryPoint, edges: List<Edge>) {
@@ -106,14 +106,14 @@ class TaintAnalysisUnitRunnerManager(
             methodStorage.addEdges(edges)
         }
 
-        fun methodSideEffectRequirements(initialStatement: MethodEntryPoint, initialFactAp: FinalFactAp): Iterator<InitialFactAp> {
+        fun methodSideEffectRequirements(initialStatement: MethodEntryPoint, initialFactAp: FinalFactAp): List<InitialFactAp> {
             val methodStorage = methodSummaryEdges(initialStatement)
-            return methodStorage.sideEffectRequirementIterator(initialFactAp)
+            return methodStorage.sideEffectRequirement(initialFactAp)
         }
 
-        fun addSideEffectRequirement(initialStatement: MethodEntryPoint, requirement: InitialFactAp) {
+        fun addSideEffectRequirement(initialStatement: MethodEntryPoint, requirements: List<InitialFactAp>) {
             val methodStorage = methodSummaryEdges(initialStatement)
-            methodStorage.sideEffectRequirement(requirement)
+            methodStorage.sideEffectRequirement(requirements)
         }
 
         private fun methodSummaryEdges(methodEntryPoint: MethodEntryPoint) =
@@ -407,12 +407,12 @@ class TaintAnalysisUnitRunnerManager(
         storage.addSummaryEdges(methodEntryPoint, edges)
     }
 
-    fun newSideEffectRequirement(methodEntryPoint: MethodEntryPoint, requirement: InitialFactAp) {
+    fun newSideEffectRequirement(methodEntryPoint: MethodEntryPoint, requirements: List<InitialFactAp>) {
         val unit = unitResolver.resolve(methodEntryPoint.method)
         getOrSpawnUnitRunner(unit) ?: return
 
         val storage = unitStorage.getValue(unit)
-        storage.addSideEffectRequirement(methodEntryPoint, requirement)
+        storage.addSideEffectRequirement(methodEntryPoint, requirements)
     }
 
     fun subscribeOnMethodEntryPointSummaries(
@@ -426,9 +426,9 @@ class TaintAnalysisUnitRunnerManager(
         storage.subscribeOnMethodEntryPointSummaries(methodEntryPoint, handler)
     }
 
-    fun findZeroSummaryEdges(methodEntryPoint: MethodEntryPoint): Iterator<Edge.ZeroInitialEdge> {
+    fun findZeroSummaryEdges(methodEntryPoint: MethodEntryPoint): List<Edge.ZeroInitialEdge> {
         val unit = unitResolver.resolve(methodEntryPoint.method)
-        getOrSpawnUnitRunner(unit) ?: return emptyList<Edge.ZeroInitialEdge>().iterator()
+        getOrSpawnUnitRunner(unit) ?: return emptyList()
 
         val storage = unitStorage.getValue(unit)
         return storage.methodZeroSummaries(methodEntryPoint)
@@ -437,17 +437,17 @@ class TaintAnalysisUnitRunnerManager(
     fun findZeroToFactSummaryEdges(
         methodEntryPoint: MethodEntryPoint,
         factBase: AccessPathBase
-    ): Iterator<Edge.ZeroToFact> {
+    ): List<Edge.ZeroToFact> {
         val unit = unitResolver.resolve(methodEntryPoint.method)
-        findUnitRunner(unit) ?: return emptyList<Edge.ZeroToFact>().iterator()
+        findUnitRunner(unit) ?: return emptyList()
 
         val storage = unitStorage.getValue(unit)
         return storage.methodZeroToFactSummaries(methodEntryPoint, factBase)
     }
 
-    fun findFactSummaryEdges(methodEntryPoint: MethodEntryPoint, initialFactAp: FinalFactAp): Iterator<Edge.FactToFact> {
+    fun findFactSummaryEdges(methodEntryPoint: MethodEntryPoint, initialFactAp: FinalFactAp): List<Edge.FactToFact> {
         val unit = unitResolver.resolve(methodEntryPoint.method)
-        getOrSpawnUnitRunner(unit) ?: return emptyList<Edge.FactToFact>().iterator()
+        getOrSpawnUnitRunner(unit) ?: return emptyList()
 
         val storage = unitStorage.getValue(unit)
         return storage.methodFactSummaries(methodEntryPoint, initialFactAp)
@@ -457,17 +457,17 @@ class TaintAnalysisUnitRunnerManager(
         methodEntryPoint: MethodEntryPoint,
         initialFactAp: FinalFactAp,
         finalFactBase: AccessPathBase
-    ): Iterator<Edge.FactToFact> {
+    ): List<Edge.FactToFact> {
         val unit = unitResolver.resolve(methodEntryPoint.method)
-        findUnitRunner(unit) ?: return emptyList<Edge.FactToFact>().iterator()
+        findUnitRunner(unit) ?: return emptyList()
 
         val storage = unitStorage.getValue(unit)
         return storage.methodFactToFactSummaryEdges(methodEntryPoint, initialFactAp, finalFactBase)
     }
 
-    fun findSideEffectRequirements(methodEntryPoint: MethodEntryPoint, initialFactAp: FinalFactAp): Iterator<InitialFactAp> {
+    fun findSideEffectRequirements(methodEntryPoint: MethodEntryPoint, initialFactAp: FinalFactAp): List<InitialFactAp> {
         val unit = unitResolver.resolve(methodEntryPoint.method)
-        getOrSpawnUnitRunner(unit) ?: return emptyList<InitialFactAp>().iterator()
+        getOrSpawnUnitRunner(unit) ?: return emptyList()
 
         val storage = unitStorage.getValue(unit)
         return storage.methodSideEffectRequirements(methodEntryPoint, initialFactAp)

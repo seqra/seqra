@@ -8,6 +8,7 @@ import org.opentaint.ir.taint.configuration.ConditionVisitor
 import org.opentaint.ir.taint.configuration.TaintMethodSink
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.CalleePositionToAccessPath
+import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.FinalFactReader
 import org.opentaint.dataflow.ap.ifds.MethodCallFlowFunction
@@ -92,7 +93,7 @@ class JIRMethodCallFlowFunction(
         propagateFact(
             factAp = currentFactAp,
             addSideEffectRequirement = { factReader ->
-                this += SideEffectRequirement(factReader.refineFact(initialFactAp))
+                this += SideEffectRequirement(factReader.refineFact(initialFactAp.replaceExclusions(ExclusionSet.Empty)))
             },
             addCallToReturn = { factReader, factAp ->
                 this += CallToReturnFFact(factReader.refineFact(initialFactAp), factReader.refineFact(factAp))
