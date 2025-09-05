@@ -4,6 +4,7 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.access.ApManager
+import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 
 interface AnalysisRunner {
@@ -12,7 +13,7 @@ interface AnalysisRunner {
     val sinkTracker: TaintSinkTracker
     val apManager: ApManager
     val languageManager: LanguageManager
-    val manager: TaintAnalysisUnitRunnerManager
+    val manager: AnalysisUnitRunnerManager
     val methodCallResolver: MethodCallResolver
 
     fun enqueueMethodAnalyzer(analyzer: MethodAnalyzer)
@@ -21,4 +22,6 @@ interface AnalysisRunner {
     fun subscribeOnMethodSummaries(edge: Edge.ZeroToZero, methodEntryPoint: MethodEntryPoint)
     fun subscribeOnMethodSummaries(edge: Edge.ZeroToFact, methodEntryPoint: MethodEntryPoint, methodFactBase: AccessPathBase)
     fun subscribeOnMethodSummaries(edge: Edge.FactToFact, methodEntryPoint: MethodEntryPoint, methodFactBase: AccessPathBase)
+    fun submitExternalInitialZeroFact(methodEntryPoint: MethodEntryPoint)
+    fun submitExternalInitialFact(methodEntryPoint: MethodEntryPoint, factAp: FinalFactAp)
 }

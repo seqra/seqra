@@ -13,12 +13,12 @@ import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.taint.configuration.Action
 import org.opentaint.ir.taint.configuration.AssignMark
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
-import org.opentaint.dataflow.ifds.onSome
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnalysisRunner
-import org.opentaint.dataflow.ap.ifds.FactTypeChecker
+import org.opentaint.dataflow.ap.ifds.AnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.Edge.FactToFact
+import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.LanguageManager
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges
 import org.opentaint.dataflow.ap.ifds.MethodCallFactMapper
@@ -27,11 +27,11 @@ import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils
 import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryApRefinement
 import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryExclusionRefinement
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
-import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ifds.onSome
 import java.util.BitSet
 import java.util.LinkedList
 import java.util.Objects
@@ -43,7 +43,7 @@ class MethodTraceResolver(
 ) {
     private val graph: ApplicationGraph<CommonMethod, CommonInst> get() = runner.graph
     private val languageManager: LanguageManager get() = runner.languageManager
-    private val manager: TaintAnalysisUnitRunnerManager get() = runner.manager
+    private val manager: AnalysisUnitRunnerManager get() = runner.manager
     private val methodCallFactMapper: MethodCallFactMapper get() = languageManager.methodCallFactMapper
     private val apManager: ApManager get() = runner.apManager
     private val taintConfiguration: TaintRulesProvider get() = runner.taintConfiguration

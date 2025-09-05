@@ -75,11 +75,11 @@ class TaintAnalysisUnitRunner(
         addStartMethodEvent(method)
     }
 
-    fun submitExternalInitialZeroFact(methodEntryPoint: MethodEntryPoint) {
+    override fun submitExternalInitialZeroFact(methodEntryPoint: MethodEntryPoint) {
         addUnprocessedEvent(ExternalInputFact.InputZero(methodEntryPoint))
     }
 
-    fun submitExternalInitialFact(methodEntryPoint: MethodEntryPoint, factAp: FinalFactAp) {
+    override fun submitExternalInitialFact(methodEntryPoint: MethodEntryPoint, factAp: FinalFactAp) {
         addUnprocessedEvent(ExternalInputFact.InputFact(methodEntryPoint, factAp))
     }
 

@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 class TaintSinkTracker(
     private val apManager: ApManager,
-    private val storage: TaintAnalysisUnitRunnerManager.UnitStorage,
+    private val storage: TaintAnalysisUnitStorage,
 ) {
     sealed interface TaintVulnerability {
         val rule: TaintMethodSink
