@@ -163,6 +163,27 @@ class TaintAnalysisUnitRunnerManager(
         if (vulnerabilities.isEmpty()) return emptyList()
 
         val traceResolverCancellation = TraceResolverCancellation()
+        val traceResolverMemoryManager = MemoryManager(TRACE_GENERATION_MEMORY_THRESHOLD) {
+            traceResolverCancellation.cancel()
+            logger.error { "Running low on memory, stopping trace resolution" }
+        }
+
+        return traceResolverMemoryManager.runWithMemoryManager {
+            resolveVulnerabilityTracesWithCancellation(
+                entryPoints, vulnerabilities, resolverParams, timeout, cancellationTimeout,
+                traceResolverCancellation
+            )
+        }
+    }
+
+    private fun resolveVulnerabilityTracesWithCancellation(
+        entryPoints: Set<CommonMethod>,
+        vulnerabilities: List<TaintVulnerability>,
+        resolverParams: TraceResolver.Params,
+        timeout: Duration,
+        cancellationTimeout: Duration,
+        traceResolverCancellation: TraceResolverCancellation
+    ): List<VulnerabilityWithTrace> {
         val traceResolver = TraceResolver(entryPoints, this, resolverParams, traceResolverCancellation)
 
         val traceResolutionContext = TraceResolutionContext(analyzerDispatcher, vulnerabilities)
@@ -322,5 +343,6 @@ class TaintAnalysisUnitRunnerManager(
         private val logger = KotlinLogging.logger {}
 
         private const val OOM_DETECTION_THRESHOLD = 0.97
+        private const val TRACE_GENERATION_MEMORY_THRESHOLD = 0.99
     }
 }

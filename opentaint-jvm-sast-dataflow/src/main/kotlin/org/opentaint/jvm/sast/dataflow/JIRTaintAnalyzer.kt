@@ -21,19 +21,19 @@ import org.opentaint.ir.taint.configuration.TaintMark
 import org.opentaint.ir.taint.configuration.TaintMethodSink
 import org.opentaint.ir.taint.configuration.TaintMethodSource
 import org.opentaint.ir.taint.configuration.TaintPassThrough
-import org.opentaint.dataflow.ifds.UnitResolver
-import org.opentaint.dataflow.ifds.UnitType
-import org.opentaint.dataflow.ifds.UnknownUnit
-import org.opentaint.dataflow.jvm.ap.ifds.JIRSafeApplicationGraph
-import org.opentaint.dataflow.jvm.ap.ifds.JIRLanguageManager
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
-import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.ap.ifds.TaintRuleFilter
 import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
 import org.opentaint.dataflow.ap.ifds.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.ap.ifds.sarif.SarifGenerator
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
+import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
+import org.opentaint.dataflow.ifds.UnitResolver
+import org.opentaint.dataflow.ifds.UnitType
+import org.opentaint.dataflow.ifds.UnknownUnit
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLanguageManager
+import org.opentaint.dataflow.jvm.ap.ifds.JIRSafeApplicationGraph
 import org.opentaint.dataflow.jvm.graph.JIRApplicationGraphImpl
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.jvm.ifds.PackageUnit
@@ -87,7 +87,7 @@ class JIRTaintAnalyzer(
         traces: List<VulnerabilityWithTrace>
     ) {
         val generator = SarifGenerator(sourceFileResolver, JIRTraits(cp))
-        generator.generateSarif(output, traces.asSequence().map { it.vulnerability to it.trace })
+        generator.generateSarif(output, traces.asSequence())
         logger.info { "Sarif trace generation stats: ${generator.traceGenerationStats}" }
     }
 

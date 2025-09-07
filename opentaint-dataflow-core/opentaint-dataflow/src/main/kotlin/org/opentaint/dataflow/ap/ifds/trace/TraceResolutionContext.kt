@@ -8,16 +8,27 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import mu.KotlinLogging
-import org.opentaint.dataflow.ap.ifds.TaintSinkTracker
+import org.opentaint.dataflow.ap.ifds.TaintSinkTracker.TaintVulnerability
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
 
 class TraceResolutionContext(
     dispatcher: CoroutineDispatcher,
-    private val vulnerabilities: List<TaintSinkTracker.TaintVulnerability>
+    private val vulnerabilities: List<TaintVulnerability>
 ) {
-    fun resolvedTraces(): List<VulnerabilityWithTrace> =
-        result.toList()
+    fun resolvedTraces(): List<VulnerabilityWithTrace> {
+        val vulnerabilityWithTraces = mutableListOf<VulnerabilityWithTrace>()
+        vulnerabilityWithTraces.addAll(result)
+
+        vulnerabilities.mapNotNullTo(vulnerabilityWithTraces) { vulnerability ->
+            if (vulnerability in processedVulnerabilities) return@mapNotNullTo null
+
+            VulnerabilityWithTrace(vulnerability, trace = null)
+        }
+
+        return vulnerabilityWithTraces
+    }
 
     val processed: Int
         get() = processedCounter.get()
@@ -25,6 +36,7 @@ class TraceResolutionContext(
     private val completed = CompletableDeferred<Unit>()
     private val processedCounter = AtomicInteger()
     private val result = ConcurrentLinkedQueue<VulnerabilityWithTrace>()
+    private val processedVulnerabilities = ConcurrentHashMap.newKeySet<TaintVulnerability>()
     private val jobs = mutableListOf<Job>()
     private val scope = CoroutineScope(dispatcher)
 
@@ -34,11 +46,12 @@ class TraceResolutionContext(
     }
 
     fun resolveAll(
-        body: (TaintSinkTracker.TaintVulnerability) -> VulnerabilityWithTrace
+        body: (TaintVulnerability) -> VulnerabilityWithTrace
     ): CompletableDeferred<Unit> {
         vulnerabilities.mapTo(jobs) { vulnerability ->
             scope.launch(exceptionHandler) {
                 result.add(body(vulnerability))
+                processedVulnerabilities.add(vulnerability)
                 updatedProcessed()
             }
         }

@@ -14,6 +14,7 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
+import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.dataflow.sarif.instToSarifLocation
 import org.opentaint.dataflow.util.Traits
@@ -39,9 +40,9 @@ class SarifGenerator(
     @OptIn(ExperimentalSerializationApi::class)
     fun generateSarif(
         output: OutputStream,
-        traces: Sequence<Pair<TaintSinkTracker.TaintVulnerability, TraceResolver.Trace>>
+        traces: Sequence<VulnerabilityWithTrace>
     ) {
-        val sarifResults = traces.mapNotNull { generateSarifResult(it.first, it.second) }
+        val sarifResults = traces.mapNotNull { generateSarifResult(it.vulnerability, it.trace) }
         val run = LazyToolRunReport(
             tool = generateSarifAnalyzerToolDescription(),
             results = sarifResults,
@@ -53,7 +54,7 @@ class SarifGenerator(
 
     private fun generateSarifResult(
         vulnerability: TaintSinkTracker.TaintVulnerability,
-        trace: TraceResolver.Trace
+        trace: TraceResolver.Trace?
     ): Result? {
         val ruleId = vulnerability.rule.cwe.firstOrNull()?.let { "CWE-$it" } ?: return null
         val ruleMessage = Message(text = "${vulnerability.rule.ruleNote} ${vulnerability.rule.cwe}")
@@ -72,8 +73,13 @@ class SarifGenerator(
         )
     }
 
-    private fun generateCodeFlow(trace: TraceResolver.Trace): CodeFlow? {
+    private fun generateCodeFlow(trace: TraceResolver.Trace?): CodeFlow? {
         traceGenerationStats.total++
+
+        if (trace == null) {
+            traceGenerationStats.generationFailed++
+            return null
+        }
 
         val generatedTracePaths = generateTracePath(trace)
         val paths = when (generatedTracePaths) {
