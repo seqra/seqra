@@ -2,6 +2,7 @@ package org.opentaint.dataflow.ap.ifds.access.cactus
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
@@ -1082,6 +1083,7 @@ class AccessCactus(
                     is FieldAccessor -> (low is FieldAccessor) && (low.className == high.className)
                     is TaintMarkAccessor -> error("Unexpected TaintMarkAccessor")
                     FinalAccessor -> error("Unexpected FinalAccessor")
+                    AnyAccessor -> low === AnyAccessor
                 }
             }
 

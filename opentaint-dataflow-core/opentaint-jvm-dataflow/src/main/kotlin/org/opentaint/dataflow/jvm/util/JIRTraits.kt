@@ -183,11 +183,10 @@ class JIRTraits(
         }
     }
 
-    override fun matches(value: CommonValue, pattern: String): Boolean {
+    override fun matches(value: CommonValue, pattern: Regex): Boolean {
         check(value is JIRValue)
         val s = value.toString()
-        val re = pattern.toRegex()
-        return re.matches(s)
+        return pattern.matches(s)
     }
 
     override fun typeMatches(value: CommonValue, condition: TypeMatches): Boolean {

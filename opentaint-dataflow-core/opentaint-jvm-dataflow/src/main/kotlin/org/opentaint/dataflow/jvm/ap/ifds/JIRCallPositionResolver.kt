@@ -13,7 +13,6 @@ import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.objectType
 import org.opentaint.ir.api.jvm.ext.toType
-import org.opentaint.ir.taint.configuration.AnyArgument
 import org.opentaint.ir.taint.configuration.Argument
 import org.opentaint.ir.taint.configuration.Position
 import org.opentaint.ir.taint.configuration.PositionAccessor
@@ -22,6 +21,7 @@ import org.opentaint.ir.taint.configuration.PositionWithAccess
 import org.opentaint.ir.taint.configuration.Result
 import org.opentaint.ir.taint.configuration.ResultAnyElement
 import org.opentaint.ir.taint.configuration.This
+import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.PositionAccess
@@ -65,7 +65,6 @@ class JIRCallPositionToAccessPathResolver(
     }
 
     private fun resolvePosition(position: Position): Maybe<PositionAccess> = when (position) {
-        AnyArgument -> Maybe.none()
         is Argument -> callExpr.args.getOrNull(position.index)?.base().toMaybe()
         This -> (callExpr as? JIRInstanceCallExpr)?.instance?.base().toMaybe()
         Result -> returnValue?.base().toMaybe()
@@ -74,6 +73,13 @@ class JIRCallPositionToAccessPathResolver(
             val accessor = when (val a = position.access) {
                 PositionAccessor.ElementAccessor -> ElementAccessor
                 is PositionAccessor.FieldAccessor -> FieldAccessor(a.className, a.fieldName, a.fieldType)
+                PositionAccessor.AnyFieldAccessor -> {
+                    // force loop in access path
+                    return@fmap PositionAccess.Complex(
+                        PositionAccess.Complex(pos, AnyAccessor),
+                        AnyAccessor
+                    )
+                }
             }
             PositionAccess.Complex(pos, accessor)
         }
@@ -104,7 +110,6 @@ class CallPositionToJIRValueResolver(
     private val returnValue: JIRImmediate?
 ) : PositionResolver<Maybe<JIRValue>> {
     override fun resolve(position: Position): Maybe<JIRValue> = when (position) {
-        AnyArgument -> Maybe.none()
         is Argument -> callExpr.args.getOrNull(position.index).toMaybe()
         This -> (callExpr as? JIRInstanceCallExpr)?.instance.toMaybe()
         Result -> returnValue.toMaybe()
@@ -121,7 +126,6 @@ class CalleePositionToJIRValueResolver(
     private val cp = method.enclosingClass.classpath
 
     override fun resolve(position: Position): Maybe<JIRValue> = when (position) {
-        AnyArgument -> Maybe.none()
         is Argument -> cp.getArgument(method.parameters[position.index]).toMaybe()
         This -> method.thisInstance.toMaybe()
         is PositionWithAccess -> resolve(position.base).fmap { TODO() }
@@ -140,6 +144,5 @@ class JIRMethodPositionBaseTypeResolver(private val method: JIRMethod) : Positio
         Result -> cp.findTypeOrNull(method.returnType.typeName)
         ResultAnyElement -> cp.findTypeOrNull(method.returnType.typeName)
         is PositionWithAccess -> resolve(position.base)
-        AnyArgument -> error("Unexpected position: $position")
     }
 }

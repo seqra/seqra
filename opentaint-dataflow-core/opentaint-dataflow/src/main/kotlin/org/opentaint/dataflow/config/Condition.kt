@@ -20,7 +20,6 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.taint.configuration.And
-import org.opentaint.ir.taint.configuration.AnnotationType
 import org.opentaint.ir.taint.configuration.ConditionVisitor
 import org.opentaint.ir.taint.configuration.ConstantEq
 import org.opentaint.ir.taint.configuration.ConstantGt
@@ -29,21 +28,19 @@ import org.opentaint.ir.taint.configuration.ConstantMatches
 import org.opentaint.ir.taint.configuration.ConstantTrue
 import org.opentaint.ir.taint.configuration.ContainsMark
 import org.opentaint.ir.taint.configuration.IsConstant
-import org.opentaint.ir.taint.configuration.IsType
 import org.opentaint.ir.taint.configuration.Not
 import org.opentaint.ir.taint.configuration.Or
 import org.opentaint.ir.taint.configuration.PositionResolver
-import org.opentaint.ir.taint.configuration.SourceFunctionMatches
 import org.opentaint.ir.taint.configuration.TypeMatches
-import org.opentaint.dataflow.ifds.Maybe
-import org.opentaint.dataflow.ifds.onSome
 import org.opentaint.dataflow.taint.Tainted
 import org.opentaint.dataflow.util.Traits
 import org.opentaint.dataflow.util.removeTrailingElementAccessors
+import org.opentaint.util.Maybe
+import org.opentaint.util.onSome
 
-context(Traits<CommonMethod, CommonInst>)
 open class BasicConditionEvaluator(
-    internal val positionResolver: PositionResolver<Maybe<CommonValue>>,
+    val traits: Traits<CommonMethod, CommonInst>,
+    internal val positionResolver: PositionResolver<Maybe<CommonValue>>
 ) : ConditionVisitor<Boolean> {
 
     override fun visit(condition: ConstantTrue): Boolean {
@@ -62,62 +59,46 @@ open class BasicConditionEvaluator(
         return condition.args.any { it.accept(this) }
     }
 
-    override fun visit(condition: IsType): Boolean {
-        // Note: TaintConfigurationFeature.ConditionSpecializer is responsible for
-        // expanding IsType condition upon parsing the taint configuration.
-        error("Unexpected condition: $condition")
-    }
-
-    override fun visit(condition: AnnotationType): Boolean {
-        // Note: TaintConfigurationFeature.ConditionSpecializer is responsible for
-        // expanding AnnotationType condition upon parsing the taint configuration.
-        error("Unexpected condition: $condition")
-    }
-
-    override fun visit(condition: IsConstant): Boolean {
+    override fun visit(condition: IsConstant): Boolean = with(traits) {
         positionResolver.resolve(condition.position).onSome {
             return isConstant(it)
         }
         return false
     }
 
-    override fun visit(condition: ConstantEq): Boolean {
+    override fun visit(condition: ConstantEq): Boolean = with(traits) {
         positionResolver.resolve(condition.position).onSome { value ->
             return eqConstant(value, condition.value)
         }
         return false
     }
 
-    override fun visit(condition: ConstantLt): Boolean {
+    override fun visit(condition: ConstantLt): Boolean = with(traits) {
         positionResolver.resolve(condition.position).onSome { value ->
             return ltConstant(value, condition.value)
         }
         return false
     }
 
-    override fun visit(condition: ConstantGt): Boolean {
+    override fun visit(condition: ConstantGt): Boolean = with(traits) {
         positionResolver.resolve(condition.position).onSome { value ->
             return gtConstant(value, condition.value)
         }
         return false
     }
 
-    override fun visit(condition: ConstantMatches): Boolean {
+    override fun visit(condition: ConstantMatches): Boolean = with(traits) {
         positionResolver.resolve(condition.position).onSome { value ->
             return matches(value, condition.pattern)
         }
         return false
     }
 
-    override fun visit(condition: SourceFunctionMatches): Boolean {
-        TODO("Not implemented yet")
-    }
-
     override fun visit(condition: ContainsMark): Boolean {
         error("This visitor does not support condition $condition. Use FactAwareConditionEvaluator instead")
     }
 
-    override fun visit(condition: TypeMatches): Boolean {
+    override fun visit(condition: TypeMatches): Boolean = with(traits) {
         positionResolver.resolve(condition.position).onSome { value ->
             return typeMatches(value, condition)
         }
@@ -125,13 +106,13 @@ open class BasicConditionEvaluator(
     }
 }
 
-context(Traits<CommonMethod, CommonInst>)
 class FactAwareConditionEvaluator(
+    traits: Traits<CommonMethod, CommonInst>,
     private val fact: Tainted,
     positionResolver: PositionResolver<Maybe<CommonValue>>,
-) : BasicConditionEvaluator(positionResolver) {
+) : BasicConditionEvaluator(traits, positionResolver) {
 
-    override fun visit(condition: ContainsMark): Boolean {
+    override fun visit(condition: ContainsMark): Boolean = with(traits) {
         if (fact.mark != condition.mark) return false
         positionResolver.resolve(condition.position).onSome { value ->
             val variable = convertToPath(value)

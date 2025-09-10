@@ -52,7 +52,7 @@ sealed class Accessor : Comparable<Accessor> {
         }
 
         return when (this) {
-            ElementAccessor, FinalAccessor -> 0 // Definitely equal
+            ElementAccessor, FinalAccessor, AnyAccessor -> 0 // Definitely equal
             is FieldAccessor -> this.compareToFieldAccessor(other as FieldAccessor)
             is TaintMarkAccessor -> this.compareToTaintMarkAccessor(other as TaintMarkAccessor)
         }
@@ -111,4 +111,18 @@ object FinalAccessor : Accessor() {
     override fun toString(): String = "\$"
 
     override val accessorClassId: Int = 1
+}
+
+object AnyAccessor : Accessor() {
+    override fun toString(): String = "[any]"
+    override fun toSuffix(): String = ".[any]"
+
+    override val accessorClassId: Int  = 4
+
+    fun containsAccessor(accessor: Accessor): Boolean = accessor is FieldAccessor || accessor is ElementAccessor
+}
+
+inline fun <T : Any> tryAnyAccessorOrNull(accessor: Accessor, body: () -> T?): T? {
+    if (!AnyAccessor.containsAccessor(accessor)) return null
+    return body()
 }

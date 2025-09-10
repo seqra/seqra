@@ -2,6 +2,7 @@ package org.opentaint.dataflow.ap.ifds.access.automata
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
@@ -17,23 +18,33 @@ data class AccessGraphInitialFactAp(
     override fun rebase(newBase: AccessPathBase): InitialFactAp =
         AccessGraphInitialFactAp(newBase, access, exclusions)
 
-    override fun exclude(accessor: Accessor): InitialFactAp =
-        AccessGraphInitialFactAp(base, access, exclusions.add(accessor))
+    override fun exclude(accessor: Accessor): InitialFactAp {
+        check(accessor !is AnyAccessor)
+        return AccessGraphInitialFactAp(base, access, exclusions.add(accessor))
+    }
 
     override fun replaceExclusions(exclusions: ExclusionSet): InitialFactAp =
         AccessGraphInitialFactAp(base, access, exclusions)
 
-    override fun startsWithAccessor(accessor: Accessor): Boolean =
-        access.startsWith(accessor)
+    override fun startsWithAccessor(accessor: Accessor): Boolean {
+        check(accessor !is AnyAccessor)
+        return access.startsWith(accessor)
+    }
 
-    override fun readAccessor(accessor: Accessor): InitialFactAp? =
-        access.read(accessor)?.let { AccessGraphInitialFactAp(base, it, exclusions) }
+    override fun readAccessor(accessor: Accessor): InitialFactAp? {
+        check(accessor !is AnyAccessor)
+        return access.read(accessor)?.let { AccessGraphInitialFactAp(base, it, exclusions) }
+    }
 
-    override fun prependAccessor(accessor: Accessor): InitialFactAp =
-        AccessGraphInitialFactAp(base, access.prepend(accessor), exclusions)
+    override fun prependAccessor(accessor: Accessor): InitialFactAp {
+        check(accessor !is AnyAccessor)
+        return AccessGraphInitialFactAp(base, access.prepend(accessor), exclusions)
+    }
 
-    override fun clearAccessor(accessor: Accessor): InitialFactAp? =
-        access.clear(accessor)?.let { AccessGraphInitialFactAp(base, it, exclusions) }
+    override fun clearAccessor(accessor: Accessor): InitialFactAp? {
+        check(accessor !is AnyAccessor)
+        return access.clear(accessor)?.let { AccessGraphInitialFactAp(base, it, exclusions) }
+    }
 
     data class Delta(val graph: AccessGraph) : FactApDelta {
         override val isEmpty: Boolean get() = graph.isEmpty()

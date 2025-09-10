@@ -1,6 +1,5 @@
 package org.opentaint.dataflow.ap.ifds
 
-import org.opentaint.ir.taint.configuration.AnyArgument
 import org.opentaint.ir.taint.configuration.Argument
 import org.opentaint.ir.taint.configuration.Position
 import org.opentaint.ir.taint.configuration.PositionAccessor
@@ -20,7 +19,6 @@ sealed interface PositionAccess {
 
 class CalleePositionToAccessPath : PositionResolver<Maybe<List<PositionAccess>>> {
     override fun resolve(position: Position): Maybe<List<PositionAccess>> = when (position) {
-        AnyArgument -> Maybe.none()
         is Argument -> listOf(PositionAccess.Simple(AccessPathBase.Argument(position.index))).toMaybe()
         This -> listOf(PositionAccess.Simple(AccessPathBase.This)).toMaybe()
 
@@ -28,6 +26,14 @@ class CalleePositionToAccessPath : PositionResolver<Maybe<List<PositionAccess>>>
             val accessor = when (val a = position.access) {
                 PositionAccessor.ElementAccessor -> ElementAccessor
                 is PositionAccessor.FieldAccessor -> FieldAccessor(a.className, a.fieldName, a.fieldType)
+                PositionAccessor.AnyFieldAccessor -> {
+                    // force loop in access path
+                    val loopedPosition = PositionAccess.Complex(
+                        PositionAccess.Complex(pos, AnyAccessor),
+                        AnyAccessor
+                    )
+                    return@flatFmap listOf(loopedPosition)
+                }
             }
             listOf(PositionAccess.Complex(pos, accessor))
         }

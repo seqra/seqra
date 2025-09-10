@@ -2,7 +2,6 @@ package org.opentaint.dataflow.jvm.ap.ifds
 
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.taint.configuration.And
-import org.opentaint.ir.taint.configuration.AnnotationType
 import org.opentaint.ir.taint.configuration.Condition
 import org.opentaint.ir.taint.configuration.ConstantEq
 import org.opentaint.ir.taint.configuration.ConstantGt
@@ -11,11 +10,9 @@ import org.opentaint.ir.taint.configuration.ConstantMatches
 import org.opentaint.ir.taint.configuration.ConstantTrue
 import org.opentaint.ir.taint.configuration.ContainsMark
 import org.opentaint.ir.taint.configuration.IsConstant
-import org.opentaint.ir.taint.configuration.IsType
 import org.opentaint.ir.taint.configuration.Not
 import org.opentaint.ir.taint.configuration.Or
 import org.opentaint.ir.taint.configuration.PositionResolver
-import org.opentaint.ir.taint.configuration.SourceFunctionMatches
 import org.opentaint.ir.taint.configuration.TypeMatches
 import org.opentaint.dataflow.ap.ifds.FactAwareConditionEvaluatorWithAssumptions
 import org.opentaint.dataflow.ap.ifds.FinalFactReader
@@ -113,12 +110,6 @@ class JIRFactAwareConditionEvaluatorWithAssumptions(
     override fun visit(condition: IsConstant): List<ResultWithFactAssumptions> =
         condition.accept(factAwareConditionEvaluator).withoutAssumptions
 
-    override fun visit(condition: IsType): List<ResultWithFactAssumptions> =
-        condition.accept(factAwareConditionEvaluator).withoutAssumptions
-
-    override fun visit(condition: AnnotationType): List<ResultWithFactAssumptions> =
-        condition.accept(factAwareConditionEvaluator).withoutAssumptions
-
     override fun visit(condition: ConstantEq): List<ResultWithFactAssumptions> =
         condition.accept(factAwareConditionEvaluator).withoutAssumptions
 
@@ -129,9 +120,6 @@ class JIRFactAwareConditionEvaluatorWithAssumptions(
         condition.accept(factAwareConditionEvaluator).withoutAssumptions
 
     override fun visit(condition: ConstantMatches): List<ResultWithFactAssumptions> =
-        condition.accept(factAwareConditionEvaluator).withoutAssumptions
-
-    override fun visit(condition: SourceFunctionMatches): List<ResultWithFactAssumptions> =
         condition.accept(factAwareConditionEvaluator).withoutAssumptions
 
     override fun visit(condition: TypeMatches): List<ResultWithFactAssumptions> =

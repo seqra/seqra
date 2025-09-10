@@ -2,6 +2,7 @@ package org.opentaint.dataflow.ap.ifds.access.tree
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
@@ -274,6 +275,8 @@ class AccessTree(
                 check(this == finalNode || this == abstractNode || this == abstractFinalNode)
                 create(accessor, this)
             }
+
+            AnyAccessor -> this // todo: All accessors are not supported in tree base ap
         }
 
         fun removeAbstraction(): AccessNode =

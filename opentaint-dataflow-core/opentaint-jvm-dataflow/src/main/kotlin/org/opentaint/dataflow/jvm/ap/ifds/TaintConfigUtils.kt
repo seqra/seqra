@@ -9,12 +9,9 @@ import org.opentaint.ir.taint.configuration.CopyAllMarks
 import org.opentaint.ir.taint.configuration.CopyMark
 import org.opentaint.ir.taint.configuration.RemoveAllMarks
 import org.opentaint.ir.taint.configuration.RemoveMark
-import org.opentaint.ir.taint.configuration.TaintCleaner
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.ir.taint.configuration.TaintEntryPointSource
-import org.opentaint.ir.taint.configuration.TaintMethodSink
 import org.opentaint.ir.taint.configuration.TaintMethodSource
-import org.opentaint.ir.taint.configuration.TaintPassThrough
 import org.opentaint.dataflow.ap.ifds.PassActionEvaluator
 import org.opentaint.dataflow.ap.ifds.SourceActionEvaluator
 import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
@@ -23,7 +20,7 @@ import org.opentaint.dataflow.ifds.maybeFlatMap
 
 object TaintConfigUtils {
     fun sinkRules(config: TaintRulesProvider, method: CommonMethod) =
-        config.rulesForMethod(method).filterIsInstance<TaintMethodSink>()
+        config.sinkRulesForMethod(method)
 
     fun <T> applySourceConfig(
         config: TaintRulesProvider,
@@ -31,7 +28,7 @@ object TaintConfigUtils {
         conditionEvaluator: ConditionVisitor<Boolean>,
         taintActionEvaluator: SourceActionEvaluator<T>
     ) = applyAssignMark<TaintMethodSource, T>(
-        config, method, conditionEvaluator, taintActionEvaluator,
+        config.sourceRulesForMethod(method), conditionEvaluator, taintActionEvaluator,
         TaintMethodSource::condition, TaintMethodSource::actionsAfter
     )
 
@@ -41,26 +38,23 @@ object TaintConfigUtils {
         conditionEvaluator: ConditionVisitor<Boolean>,
         taintActionEvaluator: SourceActionEvaluator<T>
     ) = applyAssignMark<TaintEntryPointSource, T>(
-        config, method, conditionEvaluator, taintActionEvaluator,
+        config.entryPointRulesForMethod(method), conditionEvaluator, taintActionEvaluator,
         TaintEntryPointSource::condition, TaintEntryPointSource::actionsAfter
     )
 
     private inline fun <reified T : TaintConfigurationItem, R> applyAssignMark(
-        config: TaintRulesProvider,
-        method: CommonMethod,
+        rules: Iterable<T>,
         conditionEvaluator: ConditionVisitor<Boolean>,
         taintActionEvaluator: SourceActionEvaluator<R>,
         condition: (T) -> Condition,
         actionsAfter: (T) -> List<Action>
-    ): Maybe<List<R>> =
-        config.rulesForMethod(method)
-            .filterIsInstance<T>()
-            .filter { condition(it).accept(conditionEvaluator) }
-            .maybeFlatMap { item ->
-                actionsAfter(item)
-                    .filterIsInstance<AssignMark>()
-                    .maybeFlatMap { taintActionEvaluator.evaluate(item, it) }
-            }
+    ): Maybe<List<R>> = rules
+        .filter { condition(it).accept(conditionEvaluator) }
+        .maybeFlatMap { item ->
+            actionsAfter(item)
+                .filterIsInstance<AssignMark>()
+                .maybeFlatMap { taintActionEvaluator.evaluate(item, it) }
+        }
 
     fun <T> applyPassThrough(
         config: TaintRulesProvider,
@@ -68,8 +62,7 @@ object TaintConfigUtils {
         conditionEvaluator: ConditionVisitor<Boolean>,
         taintActionEvaluator: PassActionEvaluator<T>
     ): Maybe<List<T>> =
-        config.rulesForMethod(method)
-            .filterIsInstance<TaintPassThrough>()
+        config.passTroughRulesForMethod(method)
             .filter { it.condition.accept(conditionEvaluator) }
             .maybeFlatMap { item ->
                 item.actionsAfter.maybeFlatMap {
@@ -89,8 +82,7 @@ object TaintConfigUtils {
         conditionEvaluator: ConditionVisitor<Boolean>,
         taintActionEvaluator: PassActionEvaluator<T>
     ): Maybe<List<T>> =
-        config.rulesForMethod(method)
-            .filterIsInstance<TaintCleaner>()
+        config.cleanerRulesForMethod(method)
             .filter { it.condition.accept(conditionEvaluator) }
             .maybeFlatMap { item ->
                 item.actionsAfter.maybeFlatMap {

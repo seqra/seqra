@@ -2,6 +2,7 @@ package org.opentaint.dataflow.ap.ifds.access.automata
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
@@ -11,6 +12,7 @@ import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
 
 data class AccessGraphFinalFactAp(
     override val base: AccessPathBase,
@@ -22,26 +24,34 @@ data class AccessGraphFinalFactAp(
     override fun rebase(newBase: AccessPathBase): FinalFactAp =
         AccessGraphFinalFactAp(newBase, access, exclusions)
 
-    override fun exclude(accessor: Accessor): FinalFactAp =
-        AccessGraphFinalFactAp(base, access, exclusions.add(accessor))
+    override fun exclude(accessor: Accessor): FinalFactAp {
+        check(accessor !is AnyAccessor)
+        return AccessGraphFinalFactAp(base, access, exclusions.add(accessor))
+    }
 
     override fun replaceExclusions(exclusions: ExclusionSet): FinalFactAp =
         AccessGraphFinalFactAp(base, access, exclusions)
 
     override fun startsWithAccessor(accessor: Accessor): Boolean =
-        access.startsWith(accessor)
+        access.startsWith(accessor) || (access.startsWith(AnyAccessor) && AnyAccessor.containsAccessor(accessor))
 
     override fun isAbstract(): Boolean =
         exclusions !is ExclusionSet.Universe && access.initialNodeIsFinal()
 
-    override fun readAccessor(accessor: Accessor): FinalFactAp? =
-        access.read(accessor)?.let { AccessGraphFinalFactAp(base, it, exclusions) }
+    override fun readAccessor(accessor: Accessor): FinalFactAp? {
+        val graph = access.read(accessor)
+            ?: tryAnyAccessorOrNull(accessor) { access.read(AnyAccessor) }
+
+        return graph?.let { AccessGraphFinalFactAp(base, it, exclusions) }
+    }
 
     override fun prependAccessor(accessor: Accessor): FinalFactAp =
         AccessGraphFinalFactAp(base, access.prepend(accessor), exclusions)
 
-    override fun clearAccessor(accessor: Accessor): FinalFactAp? =
-        access.clear(accessor)?.let { AccessGraphFinalFactAp(base, it, exclusions) }
+    override fun clearAccessor(accessor: Accessor): FinalFactAp? {
+        check(accessor !is AnyAccessor)
+        return access.clear(accessor)?.let { AccessGraphFinalFactAp(base, it, exclusions) }
+    }
 
     override fun removeAbstraction(): FinalFactAp? {
         /**
@@ -103,6 +113,9 @@ data class AccessGraphFinalFactAp(
         for (accessor in finalPredAccessors) {
             when (accessor) {
                 FinalAccessor -> filters += FactTypeChecker.AlwaysRejectFilter
+                is AnyAccessor -> {
+                    return FactTypeChecker.AlwaysAcceptFilter
+                }
                 is TaintMarkAccessor -> filters += OnlyFinalAccessorAllowedFilter
                 is FieldAccessor -> filters += typeChecker.accessPathFilter(listOf(accessor))
                 ElementAccessor -> {

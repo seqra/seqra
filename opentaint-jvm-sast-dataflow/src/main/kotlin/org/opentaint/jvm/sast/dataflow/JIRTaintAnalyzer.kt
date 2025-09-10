@@ -11,16 +11,13 @@ import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.ir.taint.configuration.Argument
-import org.opentaint.ir.taint.configuration.AssignMark
 import org.opentaint.ir.taint.configuration.ConstantTrue
 import org.opentaint.ir.taint.configuration.CopyAllMarks
 import org.opentaint.ir.taint.configuration.Result
-import org.opentaint.ir.taint.configuration.TaintConfigurationFeature
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
-import org.opentaint.ir.taint.configuration.TaintMark
 import org.opentaint.ir.taint.configuration.TaintMethodSink
-import org.opentaint.ir.taint.configuration.TaintMethodSource
 import org.opentaint.ir.taint.configuration.TaintPassThrough
+import org.opentaint.ir.taint.configuration.v2.TaintConfiguration
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.TaintRuleFilter
 import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
@@ -46,6 +43,7 @@ import kotlin.time.TimeSource
 
 class JIRTaintAnalyzer(
     val cp: JIRClasspath,
+    val taintConfiguration: TaintConfiguration,
     val projectLocations: Set<RegisteredLocation>,
     val dependenciesLocations: Set<RegisteredLocation>,
     val ifdsTimeout: Duration,
@@ -160,28 +158,40 @@ class JIRTaintAnalyzer(
             }
     }
 
-    private val taintConfigurationFeature: TaintConfigurationFeature? by lazy {
-        cp.features
-            ?.singleOrNull { it is TaintConfigurationFeature }
-            ?.let { it as TaintConfigurationFeature }
-    }
-
     private val taintConfig: TaintRulesProvider by lazy {
         val provider = object : TaintRulesProvider {
-            override fun taintMarks(): Set<TaintMark> =
-                taintConfigurationFeature?.getAllTaintMarks() ?: emptySet()
+            override fun entryPointRulesForMethod(method: CommonMethod) = getRules(method) {
+                taintConfiguration.entryPointForMethod(it)
+            }
 
-            override fun rulesForMethod(method: CommonMethod): Iterable<TaintConfigurationItem> {
+            override fun sourceRulesForMethod(method: CommonMethod) = getRules(method) {
+                taintConfiguration.sourceForMethod(it)
+            }
+
+            override fun sinkRulesForMethod(method: CommonMethod) = getRules(method) {
+                taintConfiguration.sinkForMethod(it)
+            }
+
+            override fun passTroughRulesForMethod(method: CommonMethod) = getRules(method) {
+                taintConfiguration.passThroughForMethod(it)
+            }
+
+            override fun cleanerRulesForMethod(method: CommonMethod) = getRules(method) {
+                taintConfiguration.cleanerForMethod(it)
+            }
+
+            private inline fun <T : TaintConfigurationItem> getRules(
+                method: CommonMethod,
+                body: (JIRMethod) -> Iterable<T>
+            ): Iterable<T> {
                 check(method is JIRMethod) { "Expected method to be JIRMethod" }
-                val config = taintConfigurationFeature ?: return emptyList()
-                val rules = config.getConfigForMethod(method)
-
+                val rules = body(method)
                 if (taintRuleFilter == null) return rules
                 return rules.filter { taintRuleFilter.ruleEnabled(it) }
             }
         }
 
-        StringConcatRuleProvider(NoNullnessAnalysisRuleProvider(provider))
+        StringConcatRuleProvider(provider)
     }
 
     private class StringConcatRuleProvider(private val base: TaintRulesProvider) : TaintRulesProvider by base {
@@ -200,30 +210,15 @@ class JIRTaintAnalyzer(
                 actionsAfter = possibleArgs.map { CopyAllMarks(from = it, to = Result) })
         }
 
-        override fun rulesForMethod(method: CommonMethod): Iterable<TaintConfigurationItem> {
+        override fun passTroughRulesForMethod(method: CommonMethod): Iterable<TaintPassThrough> {
             check(method is JIRMethod) { "Expected method to be JIRMethod" }
-            val baseRules = base.rulesForMethod(method)
+            val baseRules = base.passTroughRulesForMethod(method)
 
             if (method.name == "makeConcatWithConstants" && method.enclosingClass.name == "java.lang.invoke.StringConcatFactory") {
                 return (sequenceOf(stringConcatPassThrough(method)) + baseRules).asIterable()
             }
 
             return baseRules
-        }
-    }
-
-    private class NoNullnessAnalysisRuleProvider(private val base: TaintRulesProvider) : TaintRulesProvider by base {
-        override fun rulesForMethod(method: CommonMethod): Iterable<TaintConfigurationItem> {
-            val baseRules = base.rulesForMethod(method)
-            return baseRules.mapNotNull { removeNullnessSources(it) }
-        }
-
-        private fun removeNullnessSources(rule: TaintConfigurationItem): TaintConfigurationItem? {
-            if (rule !is TaintMethodSource) return rule
-
-            val actions = rule.actionsAfter.filterNot { it is AssignMark && it.mark == TaintMark.NULLNESS }
-            if (actions.isEmpty()) return null
-            return rule.copy(actionsAfter = actions)
         }
     }
 

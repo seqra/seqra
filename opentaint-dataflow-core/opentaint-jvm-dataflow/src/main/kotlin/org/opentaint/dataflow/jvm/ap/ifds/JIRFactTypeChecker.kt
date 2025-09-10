@@ -18,6 +18,7 @@ import org.opentaint.ir.api.jvm.ext.objectType
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.InMemoryHierarchyCache
 import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker.AlwaysAcceptFilter
@@ -74,7 +75,7 @@ class JIRFactTypeChecker(private val cp: JIRClasspath): FactTypeChecker {
 
         private fun checkAccessor(accessor: Accessor): FilterResult {
             when (accessor) {
-                is TaintMarkAccessor, FinalAccessor -> return FilterResult.Accept
+                is TaintMarkAccessor, FinalAccessor, AnyAccessor -> return FilterResult.Accept
                 is FieldAccessor -> {
                     if (actualType !is JIRRefType) return FilterResult.Reject
                     val factType = fieldClassType(accessor) ?: return FilterResult.Accept
@@ -118,7 +119,7 @@ class JIRFactTypeChecker(private val cp: JIRClasspath): FactTypeChecker {
                 accessorActualType(prevAccessors)?.ifArrayGetElementType
             }
 
-            is TaintMarkAccessor, FinalAccessor -> null
+            is TaintMarkAccessor, FinalAccessor, AnyAccessor -> null
         }
     }
 

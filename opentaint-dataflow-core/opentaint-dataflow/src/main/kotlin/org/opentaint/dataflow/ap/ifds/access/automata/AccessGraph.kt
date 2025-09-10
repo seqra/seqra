@@ -11,8 +11,10 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentHashMap
 import kotlinx.collections.immutable.toPersistentList
 import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
+import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
 import java.util.BitSet
 
 private typealias NodeMarker = Int
@@ -272,6 +274,7 @@ class AccessGraph(
 
             for (accessor in other.stateSuccessors(otherNode)) {
                 val thisSuccessor = this.getStateSuccessor(thisNode, accessor)
+                    ?: tryAnyAccessorOrNull(accessor) { this.getStateSuccessor(thisNode, AnyAccessor) }
                     ?: return null
 
                 val otherSuccessor = other.getStateSuccessor(otherNode, accessor)
@@ -445,7 +448,7 @@ class AccessGraph(
         }
     }
 
-    private fun mutable() = MutableAccessGraph(
+    fun mutable() = MutableAccessGraph(
         initial, final, edges.builder(), nodeSucc.builder(), nodePred.builder()
     )
 
@@ -474,7 +477,7 @@ class AccessGraph(
     }
 }
 
-private class MutableAccessGraph(
+class MutableAccessGraph(
     val initial: NodeMarker,
     val final: NodeMarker,
     val edges: MutableMap<Accessor, AccessGraph.AgEdge>,
@@ -606,7 +609,12 @@ private class MutableAccessGraph(
         if (accessorsToClear.isEmpty()) return this
 
         // We have to remove all transitions from the start node -> no more transitions to final node -> graph is empty
-        if (initialSuccessors.size == accessorsToClear.size) return null
+        if (initialSuccessors.size == accessorsToClear.size) {
+            if (initial == final) {
+                return AccessGraph.empty().mutable()
+            }
+            return null
+        }
 
         val initialPredecessors = nodePredecessors(initial)
         if (!initialPredecessors.isEmpty()) {

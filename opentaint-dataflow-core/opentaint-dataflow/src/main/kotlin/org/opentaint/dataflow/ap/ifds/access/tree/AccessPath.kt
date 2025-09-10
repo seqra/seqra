@@ -2,6 +2,7 @@ package org.opentaint.dataflow.ap.ifds.access.tree
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
@@ -215,6 +216,7 @@ class AccessPath(
             ElementAccessor -> AccessNode(ElementAccessor, limitElementAccess(limit = SUBSEQUENT_ARRAY_ELEMENTS_LIMIT))
             is FieldAccessor -> AccessNode(accessor, limitFieldAccess(accessor))
             is TaintMarkAccessor -> AccessNode(accessor, this)
+            AnyAccessor -> this // todo: All accessors are not supported in tree base ap
         }
 
         private fun limitElementAccess(limit: Int): AccessNode? {

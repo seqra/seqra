@@ -55,7 +55,7 @@ interface Traits<out Method, out Statement>
     fun eqConstant(value: CommonValue, constant: ConstantValue): Boolean
     fun ltConstant(value: CommonValue, constant: ConstantValue): Boolean
     fun gtConstant(value: CommonValue, constant: ConstantValue): Boolean
-    fun matches(value: CommonValue, pattern: String): Boolean
+    fun matches(value: CommonValue, pattern: Regex): Boolean
     fun typeMatches(value: CommonValue, condition: TypeMatches): Boolean
 
     fun isConstructor(method: @UnsafeVariance Method): Boolean

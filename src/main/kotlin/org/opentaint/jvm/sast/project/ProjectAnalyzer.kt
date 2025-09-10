@@ -19,7 +19,7 @@ import org.opentaint.ir.impl.features.classpaths.JIRUnknownClass
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.opentaint-ir
-import org.opentaint.ir.taint.configuration.TaintConfigurationFeature
+import org.opentaint.ir.taint.configuration.v2.TaintConfiguration
 import org.objectweb.asm.tree.ClassNode
 import org.opentaint.jvm.sast.dataflow.JIRSourceFileResolver
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
@@ -58,6 +58,8 @@ class ProjectAnalyzer(
             db.close()
         }
     }
+
+    private val taintConfig = TaintConfiguration()
 
     private val dependencyFiles by lazy { project.dependencies.map { it.toFile() } }
     private val projectModulesFiles by lazy {
@@ -151,17 +153,16 @@ class ProjectAnalyzer(
         db.awaitBackgroundJobs()
         db.setImmutable()
 
-        val configJson = ConfigUtils.loadEncrypted(getPathFromEnv("opentaint_taint_config_path")) {
-            bufferedReader().readText()
+        ConfigUtils.loadEncrypted(getPathFromEnv("opentaint_taint_config_path")) {
+            taintConfig.loadConfig(this)
         }
 
         val lambdaAnonymousClass = LambdaAnonymousClassFeature()
         val lambdaTransformer = LambdaExpressionToAnonymousClassTransformerFeature(lambdaAnonymousClass)
         val methodNormalizer = MethodReturnInstNormalizerFeature
 
-        val configurationFeature = TaintConfigurationFeature.fromJson(configJson)
         val features = listOf(
-            configurationFeature, UnknownClasses, lambdaAnonymousClass, lambdaTransformer, methodNormalizer
+            UnknownClasses, lambdaAnonymousClass, lambdaTransformer, methodNormalizer
         )
 
         // todo: fix approximations with multiple JIRDatabase instances
@@ -181,7 +182,7 @@ class ProjectAnalyzer(
 
     private fun runAnalyzer() {
         val analyzer = JIRTaintAnalyzer(
-            cp,
+            cp, taintConfig,
             projectLocations = projectLocations,
             dependenciesLocations = dependenciesLocations,
             ifdsTimeout = ifdsAnalysisTimeout,
