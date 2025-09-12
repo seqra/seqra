@@ -98,7 +98,7 @@ class IfdsSqlTest : BaseAnalysisTest() {
         val trace = traceGraph.getAllTraces().first()
         assertTrue(trace.isNotEmpty())
         val sarif = with(JIRTraits(graph.cp)) {
-            sarifReportFromVulnerabilities(listOf(sink.toSarif(traceGraph)))
+            sarifReportFromVulnerabilities(traits = this, listOf(sink.toSarif(traceGraph)))
         }
 
         val json = Json { prettyPrint = true }

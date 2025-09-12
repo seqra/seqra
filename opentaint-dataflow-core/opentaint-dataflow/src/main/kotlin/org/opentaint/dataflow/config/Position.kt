@@ -21,23 +21,19 @@ import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonInstanceCallExpr
 import org.opentaint.ir.api.common.cfg.CommonValue
+import org.opentaint.ir.taint.configuration.AnyArgument
 import org.opentaint.ir.taint.configuration.Argument
 import org.opentaint.ir.taint.configuration.Position
-import org.opentaint.ir.taint.configuration.PositionAccessor
 import org.opentaint.ir.taint.configuration.PositionResolver
-import org.opentaint.ir.taint.configuration.PositionWithAccess
 import org.opentaint.ir.taint.configuration.Result
 import org.opentaint.ir.taint.configuration.ResultAnyElement
 import org.opentaint.ir.taint.configuration.This
 import org.opentaint.dataflow.ifds.AccessPath
 import org.opentaint.dataflow.ifds.ElementAccessor
-import org.opentaint.dataflow.ifds.FieldAccessor
+import org.opentaint.dataflow.ifds.Maybe
 import org.opentaint.dataflow.ifds.fmap
 import org.opentaint.dataflow.ifds.toMaybe
 import org.opentaint.dataflow.util.Traits
-import org.opentaint.util.Maybe
-import org.opentaint.util.fmap
-import org.opentaint.util.toMaybe
 
 class CallPositionToAccessPathResolver(
     private val traits: Traits<CommonMethod, CommonInst>,
@@ -48,19 +44,12 @@ class CallPositionToAccessPathResolver(
 
     override fun resolve(position: Position): Maybe<AccessPath> = with(traits) {
         when (position) {
+            AnyArgument -> Maybe.none()
             is Argument -> convertToPathOrNull(callExpr.args[position.index]).toMaybe()
             This -> (callExpr as? CommonInstanceCallExpr)?.instance?.let { convertToPathOrNull(it) }.toMaybe()
             Result -> (callStatement as? CommonAssignInst)?.lhv?.let { convertToPathOrNull(it) }.toMaybe()
             ResultAnyElement -> (callStatement as? CommonAssignInst)?.lhv?.let { convertToPathOrNull(it) }.toMaybe()
                 .fmap { it + ElementAccessor }
-
-            is PositionWithAccess -> resolve(position.base).fmap { pos ->
-                when (val access = position.access) {
-                    PositionAccessor.ElementAccessor -> pos + ElementAccessor
-                    is PositionAccessor.FieldAccessor -> pos + FieldAccessor(access.fieldName)
-                    PositionAccessor.AnyFieldAccessor -> TODO()
-                }
-            }
         }
     }
 }
@@ -73,11 +62,11 @@ class CallPositionToValueResolver(
         ?: error("Call statement should have non-null callExpr")
 
     override fun resolve(position: Position): Maybe<CommonValue> = when (position) {
+        AnyArgument -> Maybe.none()
         is Argument -> Maybe.some(callExpr.args[position.index])
         This -> (callExpr as? CommonInstanceCallExpr)?.instance.toMaybe()
         Result -> (callStatement as? CommonAssignInst)?.lhv.toMaybe()
         ResultAnyElement -> Maybe.none()
-        is PositionWithAccess -> TODO()
     }
 }
 
@@ -94,9 +83,7 @@ class EntryPointPositionToValueResolver(
                 getArgument(p).toMaybe()
             }
 
-            Result, ResultAnyElement -> error("Unexpected $position")
-
-            is PositionWithAccess -> TODO()
+            AnyArgument, Result, ResultAnyElement -> error("Unexpected $position")
         }
     }
 }
@@ -114,9 +101,7 @@ class EntryPointPositionToAccessPathResolver(
                 getArgument(p)?.let { convertToPathOrNull(it) }.toMaybe()
             }
 
-            Result, ResultAnyElement -> error("Unexpected $position")
-
-            is PositionWithAccess -> TODO()
+            AnyArgument, Result, ResultAnyElement -> error("Unexpected $position")
         }
     }
 }

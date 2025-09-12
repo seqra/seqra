@@ -23,5 +23,5 @@ fun jirTaintManager(
         return@run { method: JIRMethod -> taintConfigurationFeature?.getConfigForMethod(method) }
     }
 
-    TaintManager(graph, unitResolver, useBidiRunner, config)
+    TaintManager(traits = this, graph, unitResolver, useBidiRunner, config)
 }

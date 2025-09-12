@@ -27,8 +27,8 @@ import org.opentaint.dataflow.ifds.FlowFunctions
 import org.opentaint.dataflow.ifds.isOnHeap
 import org.opentaint.dataflow.util.Traits
 
-context(Traits<Method, Statement>)
 class UnusedVariableFlowFunctions<Method, Statement>(
+    private val traits: Traits<Method, Statement>,
     private val graph: ApplicationGraph<Method, Statement>,
 ) : FlowFunctions<UnusedVariableDomainFact, Method, Statement>
     where Method : CommonMethod,
@@ -43,35 +43,37 @@ class UnusedVariableFlowFunctions<Method, Statement>(
     override fun obtainSequentFlowFunction(
         current: Statement,
         next: Statement,
-    ) = FlowFunction<UnusedVariableDomainFact> { fact ->
-        if (current !is CommonAssignInst) {
-            return@FlowFunction setOf(fact)
-        }
-
-        if (fact == UnusedVariableZeroFact) {
-            val toPath = convertToPath(current.lhv)
-            if (!toPath.isOnHeap) {
-                return@FlowFunction setOf(UnusedVariableZeroFact, UnusedVariable(toPath, current))
-            } else {
-                return@FlowFunction setOf(UnusedVariableZeroFact)
+    ) = with(traits) {
+        FlowFunction<UnusedVariableDomainFact> { fact ->
+            if (current !is CommonAssignInst) {
+                return@FlowFunction setOf(fact)
             }
+
+            if (fact == UnusedVariableZeroFact) {
+                val toPath = convertToPath(current.lhv)
+                if (!toPath.isOnHeap) {
+                    return@FlowFunction setOf(UnusedVariableZeroFact, UnusedVariable(toPath, current))
+                } else {
+                    return@FlowFunction setOf(UnusedVariableZeroFact)
+                }
+            }
+            check(fact is UnusedVariable)
+
+            val toPath = convertToPath(current.lhv)
+            val default = if (toPath == fact.variable) emptySet() else setOf(fact)
+            val fromPath = convertToPathOrNull(current.rhv)
+                ?: return@FlowFunction default
+
+            if (fromPath.isOnHeap || toPath.isOnHeap) {
+                return@FlowFunction default
+            }
+
+            if (fromPath == fact.variable) {
+                return@FlowFunction default + fact.copy(variable = toPath)
+            }
+
+            default
         }
-        check(fact is UnusedVariable)
-
-        val toPath = convertToPath(current.lhv)
-        val default = if (toPath == fact.variable) emptySet() else setOf(fact)
-        val fromPath = convertToPathOrNull(current.rhv)
-            ?: return@FlowFunction default
-
-        if (fromPath.isOnHeap || toPath.isOnHeap) {
-            return@FlowFunction default
-        }
-
-        if (fromPath == fact.variable) {
-            return@FlowFunction default + fact.copy(variable = toPath)
-        }
-
-        default
     }
 
     override fun obtainCallToReturnSiteFlowFunction(
@@ -82,27 +84,29 @@ class UnusedVariableFlowFunctions<Method, Statement>(
     override fun obtainCallToStartFlowFunction(
         callStatement: Statement,
         calleeStart: Statement,
-    ) = FlowFunction<UnusedVariableDomainFact> { fact ->
-        val callExpr = getCallExpr(callStatement)
-            ?: error("Call statement should have non-null callExpr")
+    ) = with(traits) {
+        FlowFunction<UnusedVariableDomainFact> { fact ->
+            val callExpr = getCallExpr(callStatement)
+                ?: error("Call statement should have non-null callExpr")
 
-        if (fact == UnusedVariableZeroFact) {
-            // FIXME: use common?
-            if (callExpr !is JIRStaticCallExpr && callExpr !is JIRSpecialCallExpr) {
-                return@FlowFunction setOf(UnusedVariableZeroFact)
-            }
-            return@FlowFunction buildSet {
-                add(UnusedVariableZeroFact)
-                val callee = graph.methodOf(calleeStart)
-                val formalParams = getArgumentsOf(callee)
-                for (formal in formalParams) {
-                    add(UnusedVariable(convertToPath(formal), callStatement))
+            if (fact == UnusedVariableZeroFact) {
+                // FIXME: use common?
+                if (callExpr !is JIRStaticCallExpr && callExpr !is JIRSpecialCallExpr) {
+                    return@FlowFunction setOf(UnusedVariableZeroFact)
+                }
+                return@FlowFunction buildSet {
+                    add(UnusedVariableZeroFact)
+                    val callee = graph.methodOf(calleeStart)
+                    val formalParams = getArgumentsOf(callee)
+                    for (formal in formalParams) {
+                        add(UnusedVariable(convertToPath(formal), callStatement))
+                    }
                 }
             }
-        }
-        check(fact is UnusedVariable)
+            check(fact is UnusedVariable)
 
-        emptySet()
+            emptySet()
+        }
     }
 
     override fun obtainExitToReturnSiteFlowFunction(

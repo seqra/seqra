@@ -39,14 +39,14 @@ import org.opentaint.dataflow.taint.Tainted
 
 private val logger = mu.KotlinLogging.logger {}
 
-context(JIRTraits)
 class NpeAnalyzer(
+    private val traits: JIRTraits,
     private val graph: JIRApplicationGraph,
     private val getConfigForMethod: (JIRMethod) -> List<TaintConfigurationItem>?,
 ) : Analyzer<TaintDomainFact, TaintEvent<JIRInst>, JIRMethod, JIRInst> {
 
     override val flowFunctions: ForwardNpeFlowFunctions by lazy {
-        ForwardNpeFlowFunctions(graph, getConfigForMethod)
+        ForwardNpeFlowFunctions(traits, graph, getConfigForMethod)
     }
 
     private fun isExitPoint(statement: JIRInst): Boolean {
@@ -55,51 +55,54 @@ class NpeAnalyzer(
 
     override fun handleNewEdge(
         edge: TaintEdge<JIRInst>,
-    ): List<TaintEvent<JIRInst>> = buildList {
-        if (isExitPoint(edge.to.statement)) {
-            add(NewSummaryEdge(edge))
-        }
-
-        val edgeToFact = edge.to.fact
-
-        if (edgeToFact is Tainted && edgeToFact.mark == TaintMark.NULLNESS) {
-            if (edgeToFact.variable.isDereferencedAt(edge.to.statement)) {
-                val message = "NPE" // TODO
-                val vulnerability = TaintVulnerability(message, sink = edge.to)
-                logger.info {
-                    val m = graph.methodOf(vulnerability.sink.statement)
-                    "Found sink=${vulnerability.sink} in $m"
-                }
-                add(NewVulnerability(vulnerability))
-            }
-        }
-
-        run {
-            val callExpr = getCallExpr(edge.to.statement) ?: return@run
-            val callee = getCallee(callExpr)
-
-            val config = getConfigForMethod(callee) ?: return@run
-
-            // TODO: not always we want to skip sinks on Zero facts.
-            //  Some rules might have ConstantTrue or just true (when evaluated with Zero fact) condition.
-            if (edgeToFact !is Tainted) {
-                return@run
+    ): List<TaintEvent<JIRInst>> = with(traits) {
+        buildList {
+            if (isExitPoint(edge.to.statement)) {
+                add(NewSummaryEdge(edge))
             }
 
-            // Determine whether 'edge.to' is a sink via config:
-            val conditionEvaluator = FactAwareConditionEvaluator(
-                edgeToFact,
-                CallPositionToValueResolver(edge.to.statement),
-            )
-            for (item in config.filterIsInstance<TaintMethodSink>()) {
-                if (item.condition.accept(conditionEvaluator)) {
-                    val message = item.ruleNote
-                    val vulnerability = TaintVulnerability(message, sink = edge.to, rule = item)
-                    logger.trace {
+            val edgeToFact = edge.to.fact
+
+            if (edgeToFact is Tainted && edgeToFact.mark == TaintMark.NULLNESS) {
+                if (edgeToFact.variable.isDereferencedAt(traits, edge.to.statement)) {
+                    val message = "NPE" // TODO
+                    val vulnerability = TaintVulnerability(message, sink = edge.to)
+                    logger.info {
                         val m = graph.methodOf(vulnerability.sink.statement)
-                        "Found sink=${vulnerability.sink} in $m on $item"
+                        "Found sink=${vulnerability.sink} in $m"
                     }
                     add(NewVulnerability(vulnerability))
+                }
+            }
+
+            run {
+                val callExpr = getCallExpr(edge.to.statement) ?: return@run
+                val callee = getCallee(callExpr)
+
+                val config = getConfigForMethod(callee) ?: return@run
+
+                // TODO: not always we want to skip sinks on Zero facts.
+                //  Some rules might have ConstantTrue or just true (when evaluated with Zero fact) condition.
+                if (edgeToFact !is Tainted) {
+                    return@run
+                }
+
+                // Determine whether 'edge.to' is a sink via config:
+                val conditionEvaluator = FactAwareConditionEvaluator(
+                    traits,
+                    edgeToFact,
+                    CallPositionToValueResolver(traits, edge.to.statement),
+                )
+                for (item in config.filterIsInstance<TaintMethodSink>()) {
+                    if (item.condition.accept(conditionEvaluator)) {
+                        val message = item.ruleNote
+                        val vulnerability = TaintVulnerability(message, sink = edge.to, rule = item)
+                        logger.trace {
+                            val m = graph.methodOf(vulnerability.sink.statement)
+                            "Found sink=${vulnerability.sink} in $m on $item"
+                        }
+                        add(NewVulnerability(vulnerability))
+                    }
                 }
             }
         }

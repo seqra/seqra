@@ -41,8 +41,8 @@ interface Runner<Fact, Method, Statement>
     fun getIfdsResult(): IfdsResult<Fact, Statement>
 }
 
-context(Traits<Method, Statement>)
 class UniRunner<Fact, Event, Method, Statement>(
+    private val traits: Traits<Method, Statement>,
     private val manager: Manager<Fact, Event, Method, Statement>,
     override val graph: ApplicationGraph<Method, Statement>,
     private val analyzer: Analyzer<Fact, Event, Method, Statement>,
@@ -139,7 +139,7 @@ class UniRunner<Fact, Event, Method, Statement>(
     private fun tabulationAlgorithmStep(
         currentEdge: Edge<Fact, Statement>,
         scope: CoroutineScope,
-    ) {
+    ) = with(traits) {
         val (startVertex, currentVertex) = currentEdge
         val (current, currentFact) = currentVertex
 

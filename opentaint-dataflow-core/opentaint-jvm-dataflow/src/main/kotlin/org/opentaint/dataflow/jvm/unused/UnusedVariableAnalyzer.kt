@@ -16,23 +16,23 @@
 
 package org.opentaint.dataflow.jvm.unused
 
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.analysis.ApplicationGraph
+import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ifds.Analyzer
 import org.opentaint.dataflow.ifds.Edge
 import org.opentaint.dataflow.ifds.Vertex
 import org.opentaint.dataflow.util.Traits
-import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.analysis.ApplicationGraph
-import org.opentaint.ir.api.common.cfg.CommonInst
 
-context(Traits<Method, Statement>)
 class UnusedVariableAnalyzer<Method, Statement>(
+    private val traits: Traits<Method, Statement>,
     private val graph: ApplicationGraph<Method, Statement>,
 ) : Analyzer<UnusedVariableDomainFact, UnusedVariableEvent<Method, Statement>, Method, Statement>
     where Method : CommonMethod,
           Statement : CommonInst {
 
     override val flowFunctions: UnusedVariableFlowFunctions<Method, Statement> by lazy {
-        UnusedVariableFlowFunctions(graph)
+        UnusedVariableFlowFunctions(traits, graph)
     }
 
     private fun isExitPoint(statement: Statement): Boolean {

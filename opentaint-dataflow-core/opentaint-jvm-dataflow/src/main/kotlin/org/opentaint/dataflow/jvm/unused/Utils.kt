@@ -29,41 +29,41 @@ import org.opentaint.ir.api.jvm.cfg.JIRTerminatingInst
 import org.opentaint.dataflow.ifds.AccessPath
 import org.opentaint.dataflow.util.Traits
 
-context(Traits<CommonMethod, CommonInst>)
 internal fun AccessPath.isUsedAt(
+    traits: Traits<CommonMethod, CommonInst>,
     expr: CommonExpr,
-): Boolean {
+): Boolean = with(traits) {
     return getValues(expr).any {
-        convertToPathOrNull(it) == this
+        convertToPathOrNull(it) == this@isUsedAt
     }
 }
 
-context(Traits<CommonMethod, CommonInst>)
 internal fun AccessPath.isUsedAt(
+    traits: Traits<CommonMethod, CommonInst>,
     inst: CommonInst,
-): Boolean {
+): Boolean = with(traits) {
     val callExpr = getCallExpr(inst)
 
     if (callExpr != null) {
         // Don't count constructor calls as usages
         if (callExpr is JIRSpecialCallExpr
             && callExpr.method.method.isConstructor
-            && isUsedAt(callExpr.instance)
+            && isUsedAt(traits, callExpr.instance)
         ) {
             return false
         }
 
-        return isUsedAt(callExpr)
+        return isUsedAt(traits, callExpr)
     }
     if (inst is JIRAssignInst) {
-        if (inst.lhv is JIRArrayAccess && isUsedAt(inst.lhv)) {
+        if (inst.lhv is JIRArrayAccess && isUsedAt(traits, inst.lhv)) {
             return true
         }
-        return isUsedAt(inst.rhv) && (inst.lhv !is JIRLocal || inst.rhv !is JIRLocal)
+        return isUsedAt(traits, inst.rhv) && (inst.lhv !is JIRLocal || inst.rhv !is JIRLocal)
     }
     if (inst is JIRTerminatingInst || inst is JIRBranchingInst) {
         inst as JIRInst
-        return inst.operands.any { isUsedAt(it) }
+        return inst.operands.any { isUsedAt(traits, it) }
     }
     return false
 }

@@ -73,8 +73,8 @@ import org.opentaint.dataflow.util.startsWith
 
 private val logger = mu.KotlinLogging.logger {}
 
-context(JIRTraits)
 class ForwardNpeFlowFunctions(
+    private val traits: JIRTraits,
     private val graph: JIRApplicationGraph,
     private val getConfigForMethod: (JIRMethod) -> List<TaintConfigurationItem>?,
 ) : FlowFunctions<TaintDomainFact, JIRMethod, JIRInst> {
@@ -84,15 +84,17 @@ class ForwardNpeFlowFunctions(
 
     override fun obtainPossibleStartFacts(
         method: JIRMethod,
-    ): Collection<TaintDomainFact> = buildSet {
-        addAll(obtainPossibleStartFactsBasic(method))
+    ): Collection<TaintDomainFact> = with(traits) {
+        buildSet {
+            addAll(obtainPossibleStartFactsBasic(method))
 
-        // Possibly null arguments:
-        for (p in method.parameters.filter { it.isNullable != false }) {
-            val t = cp.findType(p.type.typeName)
-            val arg = JIRArgument.of(p.index, p.name, t)
-            val path = convertToPath(arg)
-            add(Tainted(path, TaintMark.NULLNESS))
+            // Possibly null arguments:
+            for (p in method.parameters.filter { it.isNullable != false }) {
+                val t = cp.findType(p.type.typeName)
+                val arg = JIRArgument.of(p.index, p.name, t)
+                val path = convertToPath(arg)
+                add(Tainted(path, TaintMark.NULLNESS))
+            }
         }
     }
 
@@ -107,10 +109,11 @@ class ForwardNpeFlowFunctions(
 
         if (config != null) {
             val conditionEvaluator = BasicConditionEvaluator(
-                EntryPointPositionToValueResolver(method)
+                traits,
+                EntryPointPositionToValueResolver(traits, method)
             )
             val actionEvaluator = TaintActionEvaluator(
-                EntryPointPositionToAccessPathResolver(method)
+                EntryPointPositionToAccessPathResolver(traits, method)
             )
 
             // Handle EntryPointSource config items:
@@ -132,7 +135,7 @@ class ForwardNpeFlowFunctions(
         fact: Tainted,
         from: CommonExpr,
         to: CommonValue,
-    ): Collection<Tainted> {
+    ): Collection<Tainted> = with(traits) {
         from as JIRExpr
         to as JIRValue
 
@@ -196,22 +199,24 @@ class ForwardNpeFlowFunctions(
 
     private fun generates(
         inst: JIRInst,
-    ): Collection<TaintDomainFact> = buildList {
-        if (inst is CommonAssignInst) {
-            val toPath = convertToPath(inst.lhv as JIRValue)
-            val from = inst.rhv
-            if (from is JIRNullConstant || (from is JIRCallExpr && from.method.method.isNullable == true)) {
-                add(Tainted(toPath, TaintMark.NULLNESS))
-            } else if (from is JIRNewArrayExpr && (from.type as JIRArrayType).elementType.nullable != false) {
-                val accessors = List((from.type as JIRArrayType).dimensions) { ElementAccessor }
-                val path = toPath + accessors
-                add(Tainted(path, TaintMark.NULLNESS))
+    ): Collection<TaintDomainFact> = with(traits) {
+        buildList {
+            if (inst is CommonAssignInst) {
+                val toPath = convertToPath(inst.lhv as JIRValue)
+                val from = inst.rhv
+                if (from is JIRNullConstant || (from is JIRCallExpr && from.method.method.isNullable == true)) {
+                    add(Tainted(toPath, TaintMark.NULLNESS))
+                } else if (from is JIRNewArrayExpr && (from.type as JIRArrayType).elementType.nullable != false) {
+                    val accessors = List((from.type as JIRArrayType).dimensions) { ElementAccessor }
+                    val path = toPath + accessors
+                    add(Tainted(path, TaintMark.NULLNESS))
+                }
             }
         }
     }
 
     private val JIRIfInst.pathComparedWithNull: AccessPath?
-        get() {
+        get() = with(traits) {
             val expr = condition
             return if (expr.rhv is JIRNullConstant) {
                 convertToPathOrNull(expr.lhv)
@@ -227,7 +232,7 @@ class ForwardNpeFlowFunctions(
         next: JIRInst,
     ) = FlowFunction<TaintDomainFact> { fact ->
         if (fact is Tainted && fact.mark == TaintMark.NULLNESS) {
-            if (fact.variable.isDereferencedAt(current)) {
+            if (fact.variable.isDereferencedAt(traits, current)) {
                 return@FlowFunction emptySet()
             }
         }
@@ -277,20 +282,22 @@ class ForwardNpeFlowFunctions(
         at: JIRInst,
         from: JIRValue,
         to: JIRValue,
-    ): Collection<Tainted> = buildSet {
-        if (fact.mark == TaintMark.NULLNESS) {
-            if (fact.variable.isDereferencedAt(at)) {
-                return@buildSet
+    ): Collection<Tainted> = with(traits) {
+        buildSet {
+            if (fact.mark == TaintMark.NULLNESS) {
+                if (fact.variable.isDereferencedAt(traits, at)) {
+                    return@buildSet
+                }
             }
+
+            val fromPath = convertToPath(from)
+            val toPath = convertToPath(to)
+
+            val tail = (fact.variable - fromPath) ?: return@buildSet
+            val newPath = toPath + tail
+            val newTaint = fact.copy(variable = newPath)
+            add(newTaint)
         }
-
-        val fromPath = convertToPath(from)
-        val toPath = convertToPath(to)
-
-        val tail = (fact.variable - fromPath) ?: return@buildSet
-        val newPath = toPath + tail
-        val newTaint = fact.copy(variable = newPath)
-        add(newTaint)
     }
 
     private fun transmitTaintArgumentActualToFormal(
@@ -331,233 +338,239 @@ class ForwardNpeFlowFunctions(
     override fun obtainCallToReturnSiteFlowFunction(
         callStatement: JIRInst,
         returnSite: JIRInst, // FIXME: unused?
-    ) = FlowFunction<TaintDomainFact> { fact ->
-        if (fact is Tainted && fact.mark == TaintMark.NULLNESS) {
-            if (fact.variable.isDereferencedAt(callStatement)) {
-                return@FlowFunction emptySet()
+    ) = with(traits) {
+        FlowFunction<TaintDomainFact> { fact ->
+            if (fact is Tainted && fact.mark == TaintMark.NULLNESS) {
+                if (fact.variable.isDereferencedAt(traits, callStatement)) {
+                    return@FlowFunction emptySet()
+                }
             }
-        }
 
-        val callExpr = getCallExpr(callStatement)
-            ?: error("Call statement should have non-null callExpr")
+            val callExpr = getCallExpr(callStatement)
+                ?: error("Call statement should have non-null callExpr")
 
-        val callee = getCallee(callExpr)
-        val config = getConfigForMethod(callee)
+            val callee = getCallee(callExpr)
+            val config = getConfigForMethod(callee)
 
-        if (fact == TaintZeroFact) {
-            return@FlowFunction buildSet {
-                add(TaintZeroFact)
+            if (fact == TaintZeroFact) {
+                return@FlowFunction buildSet {
+                    add(TaintZeroFact)
 
-                if (callStatement is JIRAssignInst) {
-                    val toPath = convertToPath(callStatement.lhv)
-                    val from = callStatement.rhv
-                    if (from is JIRNullConstant || (from is JIRCallExpr && from.method.method.isNullable == true)) {
-                        add(Tainted(toPath, TaintMark.NULLNESS))
-                    } else if (from is JIRNewArrayExpr && (from.type as JIRArrayType).elementType.nullable != false) {
-                        val size = (from.type as JIRArrayType).dimensions
-                        val accessors = List(size) { ElementAccessor }
-                        val path = toPath + accessors
-                        add(Tainted(path, TaintMark.NULLNESS))
+                    if (callStatement is JIRAssignInst) {
+                        val toPath = convertToPath(callStatement.lhv)
+                        val from = callStatement.rhv
+                        if (from is JIRNullConstant || (from is JIRCallExpr && from.method.method.isNullable == true)) {
+                            add(Tainted(toPath, TaintMark.NULLNESS))
+                        } else if (from is JIRNewArrayExpr && (from.type as JIRArrayType).elementType.nullable != false) {
+                            val size = (from.type as JIRArrayType).dimensions
+                            val accessors = List(size) { ElementAccessor }
+                            val path = toPath + accessors
+                            add(Tainted(path, TaintMark.NULLNESS))
+                        }
+                    }
+
+                    if (config != null) {
+                        val conditionEvaluator = BasicConditionEvaluator(
+                            traits,
+                            CallPositionToValueResolver(traits, callStatement)
+                        )
+                        val actionEvaluator = TaintActionEvaluator(
+                            CallPositionToAccessPathResolver(traits, callStatement)
+                        )
+
+                        // Handle MethodSource config items:
+                        for (item in config.filterIsInstance<TaintMethodSource>()) {
+                            if (item.condition.accept(conditionEvaluator)) {
+                                for (action in item.actionsAfter) {
+                                    val result = when (action) {
+                                        is AssignMark -> actionEvaluator.evaluate(action)
+                                        else -> error("$action is not supported for $item")
+                                    }
+                                    result.onSome {
+                                        addAll(it)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            check(fact is Tainted)
+
+            val statementPassThrough = taintPassThrough(callStatement)
+            if (statementPassThrough != null) {
+                for ((from, to) in statementPassThrough) {
+                    if (convertToPath(from) == fact.variable) {
+                        return@FlowFunction setOf(
+                            fact,
+                            fact.copy(variable = convertToPath(to))
+                        )
                     }
                 }
 
-                if (config != null) {
-                    val conditionEvaluator = BasicConditionEvaluator(
-                        CallPositionToValueResolver(callStatement)
+                return@FlowFunction setOf(fact)
+            }
+
+            if (config != null) {
+                // FIXME: adhoc
+                if (callee.enclosingClass.name == "java.lang.StringBuilder" && callee.name == "append") {
+                    // Skip rules for StringBuilder::append in NPE analysis.
+                } else {
+                    val facts = mutableSetOf<Tainted>()
+                    val conditionEvaluator = FactAwareConditionEvaluator(
+                        traits,
+                        fact,
+                        CallPositionToValueResolver(traits, callStatement)
                     )
                     val actionEvaluator = TaintActionEvaluator(
-                        CallPositionToAccessPathResolver(callStatement)
+                        CallPositionToAccessPathResolver(traits, callStatement)
                     )
+                    var defaultBehavior = true
 
-                    // Handle MethodSource config items:
-                    for (item in config.filterIsInstance<TaintMethodSource>()) {
+                    // Handle PassThrough config items:
+                    for (item in config.filterIsInstance<TaintPassThrough>()) {
                         if (item.condition.accept(conditionEvaluator)) {
                             for (action in item.actionsAfter) {
                                 val result = when (action) {
-                                    is AssignMark -> actionEvaluator.evaluate(action)
+                                    is CopyMark -> actionEvaluator.evaluate(action, fact)
+                                    is CopyAllMarks -> actionEvaluator.evaluate(action, fact)
+                                    is RemoveMark -> actionEvaluator.evaluate(action, fact)
+                                    is RemoveAllMarks -> actionEvaluator.evaluate(action, fact)
                                     else -> error("$action is not supported for $item")
                                 }
                                 result.onSome {
-                                    addAll(it)
+                                    facts += it
+                                    defaultBehavior = false
                                 }
                             }
                         }
                     }
-                }
-            }
-        }
-        check(fact is Tainted)
 
-        val statementPassThrough = taintPassThrough(callStatement)
-        if (statementPassThrough != null) {
-            for ((from, to) in statementPassThrough) {
-                if (convertToPath(from) == fact.variable) {
-                    return@FlowFunction setOf(
-                        fact,
-                        fact.copy(variable = convertToPath(to))
-                    )
-                }
-            }
-
-            return@FlowFunction setOf(fact)
-        }
-
-        if (config != null) {
-            // FIXME: adhoc
-            if (callee.enclosingClass.name == "java.lang.StringBuilder" && callee.name == "append") {
-                // Skip rules for StringBuilder::append in NPE analysis.
-            } else {
-                val facts = mutableSetOf<Tainted>()
-                val conditionEvaluator = FactAwareConditionEvaluator(
-                    fact,
-                    CallPositionToValueResolver(callStatement)
-                )
-                val actionEvaluator = TaintActionEvaluator(
-                    CallPositionToAccessPathResolver(callStatement)
-                )
-                var defaultBehavior = true
-
-                // Handle PassThrough config items:
-                for (item in config.filterIsInstance<TaintPassThrough>()) {
-                    if (item.condition.accept(conditionEvaluator)) {
-                        for (action in item.actionsAfter) {
-                            val result = when (action) {
-                                is CopyMark -> actionEvaluator.evaluate(action, fact)
-                                is CopyAllMarks -> actionEvaluator.evaluate(action, fact)
-                                is RemoveMark -> actionEvaluator.evaluate(action, fact)
-                                is RemoveAllMarks -> actionEvaluator.evaluate(action, fact)
-                                else -> error("$action is not supported for $item")
-                            }
-                            result.onSome {
-                                facts += it
-                                defaultBehavior = false
+                    // Handle Cleaner config items:
+                    for (item in config.filterIsInstance<TaintCleaner>()) {
+                        if (item.condition.accept(conditionEvaluator)) {
+                            for (action in item.actionsAfter) {
+                                val result = when (action) {
+                                    is RemoveMark -> actionEvaluator.evaluate(action, fact)
+                                    is RemoveAllMarks -> actionEvaluator.evaluate(action, fact)
+                                    else -> error("$action is not supported for $item")
+                                }
+                                result.onSome {
+                                    facts += it
+                                    defaultBehavior = false
+                                }
                             }
                         }
                     }
-                }
 
-                // Handle Cleaner config items:
-                for (item in config.filterIsInstance<TaintCleaner>()) {
-                    if (item.condition.accept(conditionEvaluator)) {
-                        for (action in item.actionsAfter) {
-                            val result = when (action) {
-                                is RemoveMark -> actionEvaluator.evaluate(action, fact)
-                                is RemoveAllMarks -> actionEvaluator.evaluate(action, fact)
-                                else -> error("$action is not supported for $item")
-                            }
-                            result.onSome {
-                                facts += it
-                                defaultBehavior = false
-                            }
+                    if (!defaultBehavior) {
+                        if (facts.size > 0) {
+                            logger.trace { "Got ${facts.size} facts from config for $callee: $facts" }
                         }
+                        return@FlowFunction facts
+                    } else {
+                        // Fall back to the default behavior, as if there were no config at all.
+                    }
+                }
+            }
+
+            // FIXME: adhoc for constructors:
+            if (callee.isConstructor) {
+                return@FlowFunction listOf(fact)
+            }
+
+            // TODO: CONSIDER REFACTORING THIS
+            //   Default behavior for "analyzable" method calls is to remove ("temporarily")
+            //    all the marks from the 'instance' and arguments, in order to allow them "pass through"
+            //    the callee (when it is going to be analyzed), i.e. through "call-to-start" and
+            //    "exit-to-return" flow functions.
+            //   When we know that we are NOT going to analyze the callee, we do NOT need
+            //    to remove any marks from 'instance' and arguments.
+            //   Currently, "analyzability" of the callee depends on the fact that the callee
+            //    is "accessible" through the JIRApplicationGraph::callees().
+            if (callee in graph.callees(callStatement)) {
+
+                if (fact.variable.isStatic) {
+                    return@FlowFunction emptyList()
+                }
+
+                for (actual in callExpr.args) {
+                    // Possibly tainted actual parameter:
+                    val p = convertToPathOrNull(actual)
+                    if (fact.variable.startsWith(p)) {
+                        return@FlowFunction emptyList() // Will be handled by summary edge
                     }
                 }
 
-                if (!defaultBehavior) {
-                    if (facts.size > 0) {
-                        logger.trace { "Got ${facts.size} facts from config for $callee: $facts" }
+                if (callExpr is JIRInstanceCallExpr) {
+                    // Possibly tainted instance:
+                    val p = convertToPathOrNull(callExpr.instance)
+                    if (fact.variable.startsWith(p)) {
+                        return@FlowFunction emptyList() // Will be handled by summary edge
                     }
-                    return@FlowFunction facts
-                } else {
-                    // Fall back to the default behavior, as if there were no config at all.
                 }
-            }
-        }
 
-        // FIXME: adhoc for constructors:
-        if (callee.isConstructor) {
-            return@FlowFunction listOf(fact)
-        }
-
-        // TODO: CONSIDER REFACTORING THIS
-        //   Default behavior for "analyzable" method calls is to remove ("temporarily")
-        //    all the marks from the 'instance' and arguments, in order to allow them "pass through"
-        //    the callee (when it is going to be analyzed), i.e. through "call-to-start" and
-        //    "exit-to-return" flow functions.
-        //   When we know that we are NOT going to analyze the callee, we do NOT need
-        //    to remove any marks from 'instance' and arguments.
-        //   Currently, "analyzability" of the callee depends on the fact that the callee
-        //    is "accessible" through the JIRApplicationGraph::callees().
-        if (callee in graph.callees(callStatement)) {
-
-            if (fact.variable.isStatic) {
-                return@FlowFunction emptyList()
             }
 
-            for (actual in callExpr.args) {
-                // Possibly tainted actual parameter:
-                val p = convertToPathOrNull(actual)
+            if (callStatement is JIRAssignInst) {
+                // Possibly tainted lhv:
+                val p = convertToPathOrNull(callStatement.lhv)
                 if (fact.variable.startsWith(p)) {
-                    return@FlowFunction emptyList() // Will be handled by summary edge
+                    return@FlowFunction emptyList() // Overridden by rhv
                 }
             }
 
-            if (callExpr is JIRInstanceCallExpr) {
-                // Possibly tainted instance:
-                val p = convertToPathOrNull(callExpr.instance)
-                if (fact.variable.startsWith(p)) {
-                    return@FlowFunction emptyList() // Will be handled by summary edge
-                }
-            }
-
+            // The "most default" behaviour is encapsulated here:
+            transmitTaintNormal(fact, callStatement)
         }
-
-        if (callStatement is JIRAssignInst) {
-            // Possibly tainted lhv:
-            val p = convertToPathOrNull(callStatement.lhv)
-            if (fact.variable.startsWith(p)) {
-                return@FlowFunction emptyList() // Overridden by rhv
-            }
-        }
-
-        // The "most default" behaviour is encapsulated here:
-        transmitTaintNormal(fact, callStatement)
     }
 
     override fun obtainCallToStartFlowFunction(
         callStatement: JIRInst,
         calleeStart: JIRInst,
-    ) = FlowFunction<TaintDomainFact> { fact ->
-        val callee = graph.methodOf(calleeStart)
+    ) = with(traits) {
+        FlowFunction<TaintDomainFact> { fact ->
+            val callee = graph.methodOf(calleeStart)
 
-        if (fact == TaintZeroFact) {
-            return@FlowFunction obtainPossibleStartFactsBasic(callee)
-        }
-        check(fact is Tainted)
-
-        val callExpr = getCallExpr(callStatement)
-            ?: error("Call statement should have non-null callExpr")
-
-        buildSet {
-            // Transmit facts on arguments (from 'actual' to 'formal'):
-            val actualParams = callExpr.args
-            val formalParams = getArgumentsOf(callee)
-            for ((formal, actual) in formalParams.zip(actualParams)) {
-                addAll(
-                    transmitTaintArgumentActualToFormal(
-                        fact = fact,
-                        at = callStatement,
-                        from = actual,
-                        to = formal
-                    )
-                )
+            if (fact == TaintZeroFact) {
+                return@FlowFunction obtainPossibleStartFactsBasic(callee)
             }
+            check(fact is Tainted)
 
-            // Transmit facts on instance (from 'instance' to 'this'):
-            if (callExpr is JIRInstanceCallExpr) {
-                addAll(
-                    transmitTaintInstanceToThis(
-                        fact = fact,
-                        at = callStatement,
-                        from = callExpr.instance,
-                        to = getThisInstance(callee)
+            val callExpr = getCallExpr(callStatement)
+                ?: error("Call statement should have non-null callExpr")
+
+            buildSet {
+                // Transmit facts on arguments (from 'actual' to 'formal'):
+                val actualParams = callExpr.args
+                val formalParams = getArgumentsOf(callee)
+                for ((formal, actual) in formalParams.zip(actualParams)) {
+                    addAll(
+                        transmitTaintArgumentActualToFormal(
+                            fact = fact,
+                            at = callStatement,
+                            from = actual,
+                            to = formal
+                        )
                     )
-                )
-            }
+                }
 
-            // Transmit facts on static values:
-            if (fact.variable.isStatic) {
-                add(fact)
+                // Transmit facts on instance (from 'instance' to 'this'):
+                if (callExpr is JIRInstanceCallExpr) {
+                    addAll(
+                        transmitTaintInstanceToThis(
+                            fact = fact,
+                            at = callStatement,
+                            from = callExpr.instance,
+                            to = getThisInstance(callee)
+                        )
+                    )
+                }
+
+                // Transmit facts on static values:
+                if (fact.variable.isStatic) {
+                    add(fact)
+                }
             }
         }
     }
@@ -566,75 +579,77 @@ class ForwardNpeFlowFunctions(
         callStatement: JIRInst,
         returnSite: JIRInst, // unused
         exitStatement: JIRInst,
-    ) = FlowFunction<TaintDomainFact> { fact ->
-        // TODO: do we even need to return non-empty list for zero fact here?
-        if (fact == TaintZeroFact) {
-            // return@FlowFunction listOf(Zero)
-            return@FlowFunction buildSet {
-                add(TaintZeroFact)
-                if (exitStatement is JIRReturnInst && callStatement is JIRAssignInst) {
-                    // Note: returnValue can be null here in some weird cases, e.g. in lambda.
-                    exitStatement.returnValue?.let { returnValue ->
-                        if (returnValue is JIRNullConstant) {
-                            val toPath = convertToPath(callStatement.lhv)
-                            add(Tainted(toPath, TaintMark.NULLNESS))
+    ) = with(traits) {
+        FlowFunction<TaintDomainFact> { fact ->
+            // TODO: do we even need to return non-empty list for zero fact here?
+            if (fact == TaintZeroFact) {
+                // return@FlowFunction listOf(Zero)
+                return@FlowFunction buildSet {
+                    add(TaintZeroFact)
+                    if (exitStatement is JIRReturnInst && callStatement is JIRAssignInst) {
+                        // Note: returnValue can be null here in some weird cases, e.g. in lambda.
+                        exitStatement.returnValue?.let { returnValue ->
+                            if (returnValue is JIRNullConstant) {
+                                val toPath = convertToPath(callStatement.lhv)
+                                add(Tainted(toPath, TaintMark.NULLNESS))
+                            }
                         }
                     }
                 }
             }
-        }
-        check(fact is Tainted)
+            check(fact is Tainted)
 
-        val callExpr = getCallExpr(callStatement)
-            ?: error("Call statement should have non-null callExpr")
-        val callee = graph.methodOf(exitStatement)
+            val callExpr = getCallExpr(callStatement)
+                ?: error("Call statement should have non-null callExpr")
+            val callee = graph.methodOf(exitStatement)
 
-        buildSet {
-            // Transmit facts on arguments (from 'formal' back to 'actual'), if they are passed by-ref:
-            if (fact.variable.isOnHeap) {
-                val actualParams = callExpr.args
-                val formalParams = getArgumentsOf(callee)
-                for ((formal, actual) in formalParams.zip(actualParams)) {
+            buildSet {
+                // Transmit facts on arguments (from 'formal' back to 'actual'), if they are passed by-ref:
+                if (fact.variable.isOnHeap) {
+                    val actualParams = callExpr.args
+                    val formalParams = getArgumentsOf(callee)
+                    for ((formal, actual) in formalParams.zip(actualParams)) {
+                        addAll(
+                            transmitTaintArgumentFormalToActual(
+                                fact = fact,
+                                at = callStatement,
+                                from = formal,
+                                to = actual
+                            )
+                        )
+                    }
+                }
+
+                // Transmit facts on instance (from 'this' to 'instance'):
+                if (callExpr is JIRInstanceCallExpr) {
                     addAll(
-                        transmitTaintArgumentFormalToActual(
+                        transmitTaintThisToInstance(
                             fact = fact,
                             at = callStatement,
-                            from = formal,
-                            to = actual
+                            from = getThisInstance(callee),
+                            to = callExpr.instance,
                         )
                     )
                 }
-            }
 
-            // Transmit facts on instance (from 'this' to 'instance'):
-            if (callExpr is JIRInstanceCallExpr) {
-                addAll(
-                    transmitTaintThisToInstance(
-                        fact = fact,
-                        at = callStatement,
-                        from = getThisInstance(callee),
-                        to = callExpr.instance,
-                    )
-                )
-            }
+                // Transmit facts on static values:
+                if (fact.variable.isStatic) {
+                    add(fact)
+                }
 
-            // Transmit facts on static values:
-            if (fact.variable.isStatic) {
-                add(fact)
-            }
-
-            // Transmit facts on return value (from 'returnValue' to 'lhv'):
-            if (exitStatement is JIRReturnInst && callStatement is JIRAssignInst) {
-                // Note: returnValue can be null here in some weird cases, e.g. in lambda.
-                exitStatement.returnValue?.let { returnValue ->
-                    addAll(
-                        transmitTaintReturn(
-                            fact = fact,
-                            at = callStatement,
-                            from = returnValue,
-                            to = callStatement.lhv,
+                // Transmit facts on return value (from 'returnValue' to 'lhv'):
+                if (exitStatement is JIRReturnInst && callStatement is JIRAssignInst) {
+                    // Note: returnValue can be null here in some weird cases, e.g. in lambda.
+                    exitStatement.returnValue?.let { returnValue ->
+                        addAll(
+                            transmitTaintReturn(
+                                fact = fact,
+                                at = callStatement,
+                                from = returnValue,
+                                to = callStatement.lhv,
+                            )
                         )
-                    )
+                    }
                 }
             }
         }

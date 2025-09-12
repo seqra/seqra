@@ -26,33 +26,31 @@ import org.opentaint.dataflow.ifds.minus
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import org.opentaint.dataflow.util.startsWith
 
-context(JIRTraits)
-internal fun AccessPath?.isDereferencedAt(expr: JIRExpr): Boolean {
-    if (this == null) {
+internal fun AccessPath?.isDereferencedAt(traits: JIRTraits, expr: JIRExpr): Boolean = with(traits) {
+    if (this@isDereferencedAt == null) {
         return false
     }
 
     if (expr is JIRInstanceCallExpr) {
         val instancePath = convertToPathOrNull(expr.instance)
-        if (instancePath.startsWith(this)) {
+        if (instancePath.startsWith(this@isDereferencedAt)) {
             return true
         }
     }
 
     if (expr is JIRLengthExpr) {
         val arrayPath = convertToPathOrNull(expr.array)
-        if (arrayPath.startsWith(this)) {
+        if (arrayPath.startsWith(this@isDereferencedAt)) {
             return true
         }
     }
 
     return expr.values
         .mapNotNull { convertToPathOrNull(it) }
-        .any { (it - this)?.isNotEmpty() == true }
+        .any { (it - this@isDereferencedAt)?.isNotEmpty() == true }
 }
 
-context(JIRTraits)
-internal fun AccessPath?.isDereferencedAt(inst: JIRInst): Boolean {
+internal fun AccessPath?.isDereferencedAt(traits: JIRTraits, inst: JIRInst): Boolean {
     if (this == null) return false
-    return inst.operands.any { isDereferencedAt(it) }
+    return inst.operands.any { isDereferencedAt(traits, it) }
 }

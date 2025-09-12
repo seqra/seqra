@@ -61,7 +61,7 @@ class IfdsUnusedTest : BaseAnalysisTest() {
         testSingleJulietClass(className) { method ->
             val unitResolver = SingletonUnitResolver
             val manager = with(JIRTraits(cp)) {
-                UnusedVariableManager(graph, unitResolver)
+                UnusedVariableManager(traits = this, graph, unitResolver)
             }
             manager.analyze(listOf(method), timeout = 30.seconds)
         }
@@ -75,7 +75,7 @@ class IfdsUnusedTest : BaseAnalysisTest() {
         val badMethod = clazz.methods.single { it.name == "bad" }
         val unitResolver = SingletonUnitResolver
         val manager = with(JIRTraits(cp)) {
-            UnusedVariableManager(graph, unitResolver)
+            UnusedVariableManager(traits = this, graph, unitResolver)
         }
         val sinks = manager.analyze(listOf(badMethod), timeout = 30.seconds)
         Assertions.assertTrue(sinks.isNotEmpty())

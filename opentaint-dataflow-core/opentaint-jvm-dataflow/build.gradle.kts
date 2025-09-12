@@ -1,6 +1,5 @@
 plugins {
     id("opentaint.kotlin-conventions")
-    kotlin("plugin.serialization") version Versions.kotlin
 }
 
 val samples by sourceSets.creating {
@@ -11,15 +10,13 @@ val samples by sourceSets.creating {
 
 dependencies {
     api(project(":opentaint-dataflow"))
-    implementation(project(":opentaint-util"))
 
+    implementation(Libs.opentaint-ir_api_common)
     implementation(Libs.opentaint-ir_api_jvm)
     implementation(Libs.opentaint-ir_core)
     implementation(Libs.opentaint-ir_api_storage)
     implementation(Libs.opentaint-ir_storage)
-    implementation(Libs.opentaint-ir_taint_configuration) {
-        exclude(Libs.opentaint-irPackage)
-    }
+    implementation(Libs.opentaint-ir_taint_configuration)
 
     implementation(Libs.sarif4k)
 

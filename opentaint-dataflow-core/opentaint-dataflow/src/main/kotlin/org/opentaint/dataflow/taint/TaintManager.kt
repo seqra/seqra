@@ -29,6 +29,10 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.analysis.ApplicationGraph
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.dataflow.graph.reversed
 import org.opentaint.dataflow.ifds.ControlEvent
 import org.opentaint.dataflow.ifds.IfdsResult
@@ -43,21 +47,16 @@ import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.ifds.Vertex
 import org.opentaint.dataflow.util.Traits
 import org.opentaint.dataflow.util.getPathEdges
-import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.analysis.ApplicationGraph
-import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.DurationUnit
-import kotlin.time.ExperimentalTime
 import kotlin.time.TimeSource
 
 private val logger = mu.KotlinLogging.logger {}
 
-context(Traits<Method, Statement>)
 open class TaintManager<Method, Statement>(
+    private val traits: Traits<Method, Statement>,
     protected val graph: ApplicationGraph<Method, Statement>,
     protected val unitResolver: UnitResolver<Method>,
     private val useBidiRunner: Boolean = false,
@@ -91,8 +90,9 @@ open class TaintManager<Method, Statement>(
                 unitResolver = unitResolver,
                 unit = unit,
                 { manager ->
-                    val analyzer = TaintAnalyzer(graph, getConfigForMethod)
+                    val analyzer = TaintAnalyzer(traits, graph, getConfigForMethod)
                     UniRunner(
+                        traits = traits,
                         manager = manager,
                         graph = graph,
                         analyzer = analyzer,
@@ -102,8 +102,9 @@ open class TaintManager<Method, Statement>(
                     )
                 },
                 { manager ->
-                    val analyzer = BackwardTaintAnalyzer(graph)
+                    val analyzer = BackwardTaintAnalyzer(traits, graph)
                     UniRunner(
+                        traits = traits,
                         manager = manager,
                         graph = graph.reversed,
                         analyzer = analyzer,
@@ -114,8 +115,9 @@ open class TaintManager<Method, Statement>(
                 }
             )
         } else {
-            val analyzer = TaintAnalyzer(graph, getConfigForMethod)
+            val analyzer = TaintAnalyzer(traits, graph, getConfigForMethod)
             UniRunner(
+                traits = traits,
                 manager = this@TaintManager,
                 graph = graph,
                 analyzer = analyzer,

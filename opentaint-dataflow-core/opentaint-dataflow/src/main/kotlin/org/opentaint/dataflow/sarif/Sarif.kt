@@ -105,8 +105,7 @@ private fun <Statement : CommonInst> instToSarifLocation(
         ),
         logicalLocations = listOf(
             LogicalLocation(
-                fullyQualifiedName = locationFQN(inst),
-                decoratedName = locationMachineName(inst)
+                fullyQualifiedName = locationFQN(inst)
             )
         )
     )

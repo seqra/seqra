@@ -33,20 +33,21 @@ import org.opentaint.dataflow.taint.TaintZeroFact
 
 private val logger = mu.KotlinLogging.logger {}
 
-context(JIRTraits)
 class NpeManager(
+    private val traits: JIRTraits,
     graph: JIRApplicationGraph,
     unitResolver: UnitResolver<JIRMethod>,
     private val getConfigForMethod: (JIRMethod) -> List<TaintConfigurationItem>?,
-) : TaintManager<JIRMethod, JIRInst>(graph, unitResolver, useBidiRunner = false, getConfigForMethod) {
+) : TaintManager<JIRMethod, JIRInst>(traits, graph, unitResolver, useBidiRunner = false, getConfigForMethod) {
 
     override fun newRunner(
         unit: UnitType,
     ): TaintRunner<JIRMethod, JIRInst> {
         check(unit !in runnerForUnit) { "Runner for $unit already exists" }
 
-        val analyzer = NpeAnalyzer(graph as JIRApplicationGraph, getConfigForMethod)
+        val analyzer = NpeAnalyzer(traits, graph as JIRApplicationGraph, getConfigForMethod)
         val runner = UniRunner(
+            traits = traits,
             graph = graph,
             analyzer = analyzer,
             manager = this@NpeManager,
@@ -81,5 +82,5 @@ fun jirNpeManager(
         return@run { method: JIRMethod -> taintConfigurationFeature?.getConfigForMethod(method) }
     }
 
-    NpeManager(graph, unitResolver, config)
+    NpeManager(traits = this, graph, unitResolver, config)
 }

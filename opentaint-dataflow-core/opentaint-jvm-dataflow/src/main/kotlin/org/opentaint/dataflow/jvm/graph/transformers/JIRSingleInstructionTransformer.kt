@@ -99,7 +99,12 @@ class JIRSingleInstructionTransformer(originalInstructions: JIRInstList<JIRInst>
         }
     }
 
+    @OptIn(ExperimentalContracts::class)
     inline fun MutableList<JIRInst>.addInstruction(origin: JIRInstLocation, body: (JIRInstLocation) -> JIRInst) {
+        contract {
+            callsInPlace(body, InvocationKind.EXACTLY_ONCE)
+        }
+
         val index = size
         val newLocation = JIRInstLocationImpl(origin.method, index, origin.lineNumber)
         val instruction = body(newLocation)

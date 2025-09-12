@@ -95,7 +95,7 @@ open class TaintFlowFunctionsTest : BaseAnalysisTest(configFileName = "config_te
     @Test
     fun `test obtain start facts`() {
         with(JIRTraits(cp)) {
-            val flowSpace = ForwardTaintFlowFunctions(graph, getConfigForMethod)
+            val flowSpace = ForwardTaintFlowFunctions(traits = this, graph, getConfigForMethod)
             val facts = flowSpace.obtainPossibleStartFacts(testMethod).toList()
             val arg0 = getArgument(testMethod.parameters[0])!!
             val arg0Taint = Tainted(arg0.toPath(), TaintMark("EXAMPLE"))
@@ -110,7 +110,7 @@ open class TaintFlowFunctionsTest : BaseAnalysisTest(configFileName = "config_te
             val x: JIRLocal = JIRLocalVar(1, "x", stringType)
             val y: JIRLocal = JIRLocalVar(2, "y", stringType)
             val inst = JIRAssignInst(location = mockk(), lhv = x, rhv = y)
-            val flowSpace = ForwardTaintFlowFunctions(graph, getConfigForMethod)
+            val flowSpace = ForwardTaintFlowFunctions(traits = this, graph, getConfigForMethod)
             val f = flowSpace.obtainSequentFlowFunction(inst, next = mockk())
             val yTaint = Tainted(y.toPath(), TaintMark("TAINT"))
             val xTaint = Tainted(x.toPath(), TaintMark("TAINT"))
@@ -127,7 +127,7 @@ open class TaintFlowFunctionsTest : BaseAnalysisTest(configFileName = "config_te
             val callStatement = JIRAssignInst(location = mockk(), lhv = x, rhv = mockk<JIRCallExpr> {
                 every { callee } returns testMethod
             })
-            val flowSpace = ForwardTaintFlowFunctions(graph, getConfigForMethod)
+            val flowSpace = ForwardTaintFlowFunctions(traits = this, graph, getConfigForMethod)
             val f = flowSpace.obtainCallToReturnSiteFlowFunction(callStatement, returnSite = mockk())
             val xTaint = Tainted(x.toPath(), TaintMark("EXAMPLE"))
             val facts = f.compute(TaintZeroFact).toList()
@@ -144,7 +144,7 @@ open class TaintFlowFunctionsTest : BaseAnalysisTest(configFileName = "config_te
                 every { callee } returns testMethod
                 every { args } returns listOf(x)
             })
-            val flowSpace = ForwardTaintFlowFunctions(graph, getConfigForMethod)
+            val flowSpace = ForwardTaintFlowFunctions(traits = this, graph, getConfigForMethod)
             val f = flowSpace.obtainCallToReturnSiteFlowFunction(callStatement, returnSite = mockk())
             val xTaint = Tainted(x.toPath(), TaintMark("REMOVE"))
             val facts = f.compute(xTaint).toList()
@@ -162,7 +162,7 @@ open class TaintFlowFunctionsTest : BaseAnalysisTest(configFileName = "config_te
                 every { callee } returns testMethod
                 every { args } returns listOf(x)
             })
-            val flowSpace = ForwardTaintFlowFunctions(graph, getConfigForMethod)
+            val flowSpace = ForwardTaintFlowFunctions(traits = this, graph, getConfigForMethod)
             val f = flowSpace.obtainCallToReturnSiteFlowFunction(callStatement, returnSite = mockk())
             val xTaint = Tainted(x.toPath(), TaintMark("COPY"))
             val yTaint = Tainted(y.toPath(), TaintMark("COPY"))
@@ -184,7 +184,7 @@ open class TaintFlowFunctionsTest : BaseAnalysisTest(configFileName = "config_te
                 every { callee } returns testMethod
                 every { args } returns listOf(x)
             })
-            val flowSpace = ForwardTaintFlowFunctions(graph, getConfigForMethod)
+            val flowSpace = ForwardTaintFlowFunctions(traits = this, graph, getConfigForMethod)
             val f = flowSpace.obtainCallToStartFlowFunction(callStatement, calleeStart = mockk {
                 every { location } returns mockk {
                     every { method } returns testMethod
@@ -214,7 +214,7 @@ open class TaintFlowFunctionsTest : BaseAnalysisTest(configFileName = "config_te
             val exitStatement = JIRReturnInst(location = mockk {
                 every { method } returns testMethod
             }, returnValue = y)
-            val flowSpace = ForwardTaintFlowFunctions(graph, getConfigForMethod)
+            val flowSpace = ForwardTaintFlowFunctions(traits = this, graph, getConfigForMethod)
             val f = flowSpace.obtainExitToReturnSiteFlowFunction(callStatement, returnSite = mockk(), exitStatement)
             val yTaint = Tainted(y.toPath(), TaintMark("TAINT"))
             val xTaint = Tainted(x.toPath(), TaintMark("TAINT"))

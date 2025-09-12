@@ -29,6 +29,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.taint.configuration.And
+import org.opentaint.ir.taint.configuration.AnnotationType
 import org.opentaint.ir.taint.configuration.Argument
 import org.opentaint.ir.taint.configuration.ConditionVisitor
 import org.opentaint.ir.taint.configuration.ConstantBooleanValue
@@ -41,19 +42,21 @@ import org.opentaint.ir.taint.configuration.ConstantStringValue
 import org.opentaint.ir.taint.configuration.ConstantTrue
 import org.opentaint.ir.taint.configuration.ContainsMark
 import org.opentaint.ir.taint.configuration.IsConstant
+import org.opentaint.ir.taint.configuration.IsType
 import org.opentaint.ir.taint.configuration.Not
 import org.opentaint.ir.taint.configuration.Or
 import org.opentaint.ir.taint.configuration.Position
+import org.opentaint.ir.taint.configuration.SourceFunctionMatches
 import org.opentaint.ir.taint.configuration.TaintMark
 import org.opentaint.ir.taint.configuration.This
 import org.opentaint.ir.taint.configuration.TypeMatches
 import org.junit.jupiter.api.Test
 import org.opentaint.dataflow.config.BasicConditionEvaluator
 import org.opentaint.dataflow.config.FactAwareConditionEvaluator
+import org.opentaint.dataflow.ifds.Maybe
+import org.opentaint.dataflow.ifds.toMaybe
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import org.opentaint.dataflow.taint.Tainted
-import org.opentaint.util.Maybe
-import org.opentaint.util.toMaybe
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -159,6 +162,22 @@ class ConditionEvaluatorTest {
     }
 
     @Test
+    fun `IsType in unexpected`() {
+        val condition = mockk<IsType>()
+        assertFailsWith<IllegalStateException> {
+            evaluator.visit(condition)
+        }
+    }
+
+    @Test
+    fun `AnnotationType in unexpected`() {
+        val condition = mockk<AnnotationType>()
+        assertFailsWith<IllegalStateException> {
+            evaluator.visit(condition)
+        }
+    }
+
+    @Test
     fun `ConstantEq(intArg(42), 42) is true`() {
         val condition = ConstantEq(intArg, ConstantIntValue(42))
         assertTrue(evaluator.visit(condition))
@@ -238,32 +257,40 @@ class ConditionEvaluatorTest {
 
     @Test
     fun `ConstantMatches(intArg(42), '42') is true`() {
-        val condition = ConstantMatches(intArg, "42".toRegex())
+        val condition = ConstantMatches(intArg, "42")
         assertTrue(evaluator.visit(condition))
     }
 
     @Test
     fun `ConstantMatches(intArg(42), 'd+') is true`() {
-        val condition = ConstantMatches(intArg, "\\d+".toRegex())
+        val condition = ConstantMatches(intArg, "\\d+")
         assertTrue(evaluator.visit(condition))
     }
 
     @Test
     fun `ConstantMatches(stringArg('test'), 'test') is true`() {
-        val condition = ConstantMatches(stringArg, "\"test\"".toRegex())
+        val condition = ConstantMatches(stringArg, "\"test\"")
         assertTrue(evaluator.visit(condition))
     }
 
     @Test
     fun `ConstantMatches(stringArg('test'), 'w+') is true`() {
-        val condition = ConstantMatches(stringArg, "\"\\w+\"".toRegex())
+        val condition = ConstantMatches(stringArg, "\"\\w+\"")
         assertTrue(evaluator.visit(condition))
     }
 
     @Test
     fun `ConstantMatches(unresolved, any) is false`() {
-        val condition = ConstantMatches(position = mockk(), pattern = ".*".toRegex())
+        val condition = ConstantMatches(position = mockk(), pattern = ".*")
         assertFalse(evaluator.visit(condition))
+    }
+
+    @Test
+    fun `SourceFunctionMatches is not implemented yet`() {
+        val condition = mockk<SourceFunctionMatches>()
+        assertFailsWith<NotImplementedError> {
+            evaluator.visit(condition)
+        }
     }
 
     @Test
