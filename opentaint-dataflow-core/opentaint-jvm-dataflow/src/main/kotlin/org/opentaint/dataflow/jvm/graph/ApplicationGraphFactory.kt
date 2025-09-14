@@ -22,7 +22,6 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
 import org.opentaint.ir.api.jvm.JIRClasspath
-import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.impl.features.usagesExt
 import java.util.concurrent.CompletableFuture
 

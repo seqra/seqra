@@ -17,8 +17,8 @@
 package org.opentaint.dataflow.jvm.unused
 
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.ifds.Analyzer
 import org.opentaint.dataflow.ifds.Edge
 import org.opentaint.dataflow.ifds.Vertex

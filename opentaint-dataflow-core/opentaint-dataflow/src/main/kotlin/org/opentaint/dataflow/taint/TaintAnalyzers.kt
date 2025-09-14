@@ -18,12 +18,12 @@ package org.opentaint.dataflow.taint
 
 import mu.KLogging
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.ir.taint.configuration.TaintMethodSink
 import org.opentaint.dataflow.config.CallPositionToValueResolver
 import org.opentaint.dataflow.config.FactAwareConditionEvaluator
+import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.ifds.Analyzer
 import org.opentaint.dataflow.ifds.Edge
 import org.opentaint.dataflow.ifds.Reason

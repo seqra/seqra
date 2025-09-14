@@ -22,7 +22,6 @@ import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRArrayType
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.jvm.cfg.JIRArgument
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
@@ -65,6 +64,7 @@ import org.opentaint.dataflow.ifds.isOnHeap
 import org.opentaint.dataflow.ifds.isStatic
 import org.opentaint.dataflow.ifds.minus
 import org.opentaint.dataflow.ifds.onSome
+import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import org.opentaint.dataflow.taint.TaintDomainFact
 import org.opentaint.dataflow.taint.TaintZeroFact

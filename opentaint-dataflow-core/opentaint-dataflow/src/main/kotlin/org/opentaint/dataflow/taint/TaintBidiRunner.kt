@@ -29,8 +29,8 @@ import org.opentaint.dataflow.ifds.Reason
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.dataflow.graph.ApplicationGraph
 
 class TaintBidiRunner<Method, Statement>(
     val manager: TaintManager<Method, Statement>,

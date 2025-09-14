@@ -17,7 +17,6 @@
 package org.opentaint.dataflow.taint
 
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -42,6 +41,7 @@ import org.opentaint.dataflow.config.EntryPointPositionToAccessPathResolver
 import org.opentaint.dataflow.config.EntryPointPositionToValueResolver
 import org.opentaint.dataflow.config.FactAwareConditionEvaluator
 import org.opentaint.dataflow.config.TaintActionEvaluator
+import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.ifds.ElementAccessor
 import org.opentaint.dataflow.ifds.FlowFunction
 import org.opentaint.dataflow.ifds.FlowFunctions

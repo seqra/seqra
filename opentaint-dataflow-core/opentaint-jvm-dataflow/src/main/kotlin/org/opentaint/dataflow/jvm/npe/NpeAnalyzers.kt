@@ -17,7 +17,6 @@
 package org.opentaint.dataflow.jvm.npe
 
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.ir.taint.configuration.TaintMark
@@ -26,6 +25,7 @@ import org.opentaint.dataflow.config.CallPositionToValueResolver
 import org.opentaint.dataflow.config.FactAwareConditionEvaluator
 import org.opentaint.dataflow.ifds.Analyzer
 import org.opentaint.dataflow.ifds.Reason
+import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import org.opentaint.dataflow.taint.EdgeForOtherRunner
 import org.opentaint.dataflow.taint.NewSummaryEdge

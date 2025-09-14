@@ -19,7 +19,6 @@
 package org.opentaint.dataflow.graph
 
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 private class BackwardApplicationGraphImpl<Method, Statement>(
