@@ -3,9 +3,10 @@ plugins {
 }
 
 dependencies {
-    implementation(Libs.opentaint-ir_api_common)
+    implementation(project(":opentaint-util"))
+    api(Libs.opentaint-ir_api_common)
     implementation(Libs.opentaint-ir_taint_configuration)
-    implementation(Libs.sarif4k)
+    api(Libs.sarif4k)
 }
 
 publishing {

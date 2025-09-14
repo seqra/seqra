@@ -35,11 +35,11 @@ import org.opentaint.ir.taint.configuration.Or
 import org.opentaint.ir.taint.configuration.PositionResolver
 import org.opentaint.ir.taint.configuration.SourceFunctionMatches
 import org.opentaint.ir.taint.configuration.TypeMatches
-import org.opentaint.dataflow.ifds.Maybe
-import org.opentaint.dataflow.ifds.onSome
 import org.opentaint.dataflow.taint.Tainted
 import org.opentaint.dataflow.util.Traits
 import org.opentaint.dataflow.util.removeTrailingElementAccessors
+import org.opentaint.util.Maybe
+import org.opentaint.util.onSome
 
 open class BasicConditionEvaluator(
     val traits: Traits<CommonMethod, CommonInst>,

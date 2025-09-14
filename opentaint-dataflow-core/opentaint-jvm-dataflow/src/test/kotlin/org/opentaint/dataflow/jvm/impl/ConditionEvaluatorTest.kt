@@ -53,10 +53,10 @@ import org.opentaint.ir.taint.configuration.TypeMatches
 import org.junit.jupiter.api.Test
 import org.opentaint.dataflow.config.BasicConditionEvaluator
 import org.opentaint.dataflow.config.FactAwareConditionEvaluator
-import org.opentaint.dataflow.ifds.Maybe
-import org.opentaint.dataflow.ifds.toMaybe
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import org.opentaint.dataflow.taint.Tainted
+import org.opentaint.util.Maybe
+import org.opentaint.util.toMaybe
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue

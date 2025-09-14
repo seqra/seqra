@@ -30,10 +30,10 @@ import org.opentaint.ir.taint.configuration.ResultAnyElement
 import org.opentaint.ir.taint.configuration.This
 import org.opentaint.dataflow.ifds.AccessPath
 import org.opentaint.dataflow.ifds.ElementAccessor
-import org.opentaint.dataflow.ifds.Maybe
-import org.opentaint.dataflow.ifds.fmap
-import org.opentaint.dataflow.ifds.toMaybe
 import org.opentaint.dataflow.util.Traits
+import org.opentaint.util.Maybe
+import org.opentaint.util.fmap
+import org.opentaint.util.toMaybe
 
 class CallPositionToAccessPathResolver(
     private val traits: Traits<CommonMethod, CommonInst>,

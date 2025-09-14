@@ -16,17 +16,17 @@
 
 package org.opentaint.dataflow.config
 
-import org.opentaint.dataflow.ifds.AccessPath
-import org.opentaint.dataflow.ifds.Maybe
-import org.opentaint.dataflow.ifds.fmap
-import org.opentaint.dataflow.ifds.map
-import org.opentaint.dataflow.taint.Tainted
 import org.opentaint.ir.taint.configuration.AssignMark
 import org.opentaint.ir.taint.configuration.CopyAllMarks
 import org.opentaint.ir.taint.configuration.CopyMark
 import org.opentaint.ir.taint.configuration.PositionResolver
 import org.opentaint.ir.taint.configuration.RemoveAllMarks
 import org.opentaint.ir.taint.configuration.RemoveMark
+import org.opentaint.dataflow.ifds.AccessPath
+import org.opentaint.dataflow.taint.Tainted
+import org.opentaint.util.Maybe
+import org.opentaint.util.fmap
+import org.opentaint.util.map
 
 class TaintActionEvaluator(
     private val positionResolver: PositionResolver<Maybe<AccessPath>>,

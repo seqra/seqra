@@ -48,9 +48,9 @@ import org.opentaint.dataflow.ifds.FlowFunctions
 import org.opentaint.dataflow.ifds.isOnHeap
 import org.opentaint.dataflow.ifds.isStatic
 import org.opentaint.dataflow.ifds.minus
-import org.opentaint.dataflow.ifds.onSome
 import org.opentaint.dataflow.util.Traits
 import org.opentaint.dataflow.util.startsWith
+import org.opentaint.util.onSome
 
 private val logger = mu.KotlinLogging.logger {}
 
@@ -462,7 +462,6 @@ class ForwardTaintFlowFunctions<Method, Statement>(
         }
     }
 }
-
 class BackwardTaintFlowFunctions<Method, Statement>(
     private val traits: Traits<Method, Statement>,
     private val graph: ApplicationGraph<Method, Statement>,

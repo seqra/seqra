@@ -63,13 +63,13 @@ import org.opentaint.dataflow.ifds.FlowFunctions
 import org.opentaint.dataflow.ifds.isOnHeap
 import org.opentaint.dataflow.ifds.isStatic
 import org.opentaint.dataflow.ifds.minus
-import org.opentaint.dataflow.ifds.onSome
 import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import org.opentaint.dataflow.taint.TaintDomainFact
 import org.opentaint.dataflow.taint.TaintZeroFact
 import org.opentaint.dataflow.taint.Tainted
 import org.opentaint.dataflow.util.startsWith
+import org.opentaint.util.onSome
 
 private val logger = mu.KotlinLogging.logger {}
 
