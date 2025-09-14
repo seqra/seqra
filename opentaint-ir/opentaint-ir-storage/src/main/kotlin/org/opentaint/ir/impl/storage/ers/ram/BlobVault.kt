@@ -12,7 +12,7 @@ internal object BlobVault {
     internal fun ByteArray.asUnique(): ByteArray {
         val hc = this.contentHashCode()
         lock.withLock {
-            val arrays = blobs[hc] ?: arrayListOf()
+            val arrays = blobs[hc] ?: ArrayList(1)
             arrays.forEach { array ->
                 if (this contentEquals array) {
                     return array
