@@ -21,6 +21,7 @@ import org.joda.time.DateTime
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 import org.opentaint.dataflow.jvm.ifds.SingletonUnitResolver
 import org.opentaint.dataflow.jvm.npe.jirNpeManager
 import org.opentaint.dataflow.jvm.taint.jirTaintManager
@@ -30,6 +31,7 @@ import kotlin.time.Duration.Companion.seconds
 
 private val logger = mu.KotlinLogging.logger {}
 
+@EnabledIfEnvironmentVariable(named = "ENABLE_JVM_DATAFLOW_LONG_TESTS", matches = "true")
 @TestInstance(PER_CLASS)
 class JodaDateTimeAnalysisTest : BaseAnalysisTest() {
 
