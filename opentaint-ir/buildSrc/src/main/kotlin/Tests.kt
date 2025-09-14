@@ -17,7 +17,7 @@ fun Test.setup(jacocoTestReport: TaskProvider<*>) {
     val majorJavaVersion =
         Integer.parseInt(StringTokenizer(System.getProperty("java.specification.version"), ".").nextToken())
 
-    maxHeapSize = "8G"
+    maxHeapSize = "12G"
 
     if (majorJavaVersion >= 16) {
         jvmArgs = listOf(
