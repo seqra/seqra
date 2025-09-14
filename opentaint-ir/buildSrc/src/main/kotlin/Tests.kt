@@ -19,12 +19,16 @@ fun Test.setup(jacocoTestReport: TaskProvider<*>) {
 
     maxHeapSize = "12G"
 
-    if (majorJavaVersion >= 16) {
-        jvmArgs = listOf(
-            "--add-opens", "java.base/java.nio=ALL-UNNAMED", // this is necessary for LMDB
-            "--add-opens", "java.base/sun.nio.ch=ALL-UNNAMED" // this is necessary for LMDB
-        )
-    }
+    jvmArgs =
+        if (majorJavaVersion < 16) {
+            listOf("-XX:+HeapDumpOnOutOfMemoryError")
+        } else {
+            listOf(
+                "-XX:+HeapDumpOnOutOfMemoryError",
+                "--add-opens", "java.base/java.nio=ALL-UNNAMED", // this is necessary for LMDB
+                "--add-opens", "java.base/sun.nio.ch=ALL-UNNAMED" // this is necessary for LMDB
+            )
+        }
 }
 
 fun Any.runtimeJavaVersion(): String = System.getProperty("java.specification.version")
