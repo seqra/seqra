@@ -49,14 +49,14 @@ class UniRunner<Fact, Event, Method, Statement>(
     private val unitResolver: UnitResolver<Method>,
     override val unit: UnitType,
     private val zeroFact: Fact,
+    private val storeReasons: Boolean = true,
 ) : Runner<Fact, Method, Statement>
     where Method : CommonMethod,
           Statement : CommonInst {
     private val flowSpace: FlowFunctions<Fact, Method, Statement> = analyzer.flowFunctions
     private val workList: Channel<Edge<Fact, Statement>> = Channel(Channel.UNLIMITED)
-    internal val pathEdges: MutableSet<Edge<Fact, Statement>> = ConcurrentHashMap.newKeySet()
-    private val reasons =
-        ConcurrentHashMap<Edge<Fact, Statement>, MutableSet<Reason<Fact, Statement>>>()
+    val pathEdges: MutableSet<Edge<Fact, Statement>> = ConcurrentHashMap.newKeySet()
+    private val reasons: MutableMap<Edge<Fact, Statement>, MutableSet<Reason<Fact, Statement>>> = ConcurrentHashMap()
 
     private val summaryEdges: MutableMap<Vertex<Fact, Statement>, MutableSet<Vertex<Fact, Statement>>> =
         hashMapOf()
@@ -99,7 +99,10 @@ class UniRunner<Fact, Event, Method, Statement>(
             "Propagated edge must be in the same unit"
         }
 
-        reasons.computeIfAbsent(edge) { ConcurrentHashMap.newKeySet() }.add(reason)
+        // Store reason:
+        if (storeReasons) {
+            reasons.computeIfAbsent(edge) { ConcurrentHashMap.newKeySet() }.add(reason)
+        }
 
         // Handle only NEW edges:
         if (pathEdges.add(edge)) {
@@ -143,8 +146,7 @@ class UniRunner<Fact, Event, Method, Statement>(
         val (startVertex, currentVertex) = currentEdge
         val (current, currentFact) = currentVertex
 
-        val currentCallees = graph.callees(current).toList()
-        val currentIsCall = getCallExpr( current) != null
+        val currentIsCall = getCallExpr(current) != null
         val currentIsExit = current in graph.exitPoints(graph.methodOf(current))
 
         if (currentIsCall) {
@@ -161,7 +163,7 @@ class UniRunner<Fact, Event, Method, Statement>(
             }
 
             // Propagate through the call:
-            for (callee in currentCallees) {
+            for (callee in graph.callees(current)) {
                 for (calleeStart in graph.entryPoints(callee)) {
                     val factsAtCalleeStart = flowSpace
                         .obtainCallToStartFlowFunction(current, calleeStart)
