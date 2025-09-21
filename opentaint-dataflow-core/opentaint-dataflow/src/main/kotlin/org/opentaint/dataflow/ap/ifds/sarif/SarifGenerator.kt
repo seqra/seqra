@@ -127,7 +127,7 @@ class SarifGenerator(
     private val locationsCache = hashMapOf<CommonInst, Location?>()
     private fun statementLocation(statement: CommonInst): Location? = with(traits) {
         locationsCache.computeIfAbsent(statement) {
-            instToSarifLocation(statement, sourceFileResolver)
+            instToSarifLocation(traits, statement, sourceFileResolver)
         }
     }
 }

@@ -15,8 +15,8 @@ import org.opentaint.ir.taint.configuration.TaintMethodSource
 import org.opentaint.dataflow.ap.ifds.PassActionEvaluator
 import org.opentaint.dataflow.ap.ifds.SourceActionEvaluator
 import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
-import org.opentaint.dataflow.ifds.Maybe
-import org.opentaint.dataflow.ifds.maybeFlatMap
+import org.opentaint.util.Maybe
+import org.opentaint.util.maybeFlatMap
 
 object TaintConfigUtils {
     fun sinkRules(config: TaintRulesProvider, method: CommonMethod) =

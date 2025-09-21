@@ -15,17 +15,17 @@ import org.opentaint.dataflow.ap.ifds.FactReader
 import org.opentaint.dataflow.ap.ifds.PositionAccess
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.config.JIRBasicConditionEvaluator
-import org.opentaint.dataflow.ifds.Maybe
-import org.opentaint.dataflow.ifds.onSome
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import org.opentaint.dataflow.util.Traits
+import org.opentaint.util.Maybe
+import org.opentaint.util.onSome
 
 class JIRFactAwareConditionEvaluator(
     traits: Traits<CommonMethod, CommonInst>,
     private val facts: Iterable<FactReader>,
     private val accessPathResolver: PositionResolver<Maybe<List<PositionAccess>>>,
     positionResolver: PositionResolver<Maybe<CommonValue>>,
-) : JIRBasicConditionEvaluator(positionResolver, traits), FactAwareConditionEvaluator {
+) : JIRBasicConditionEvaluator(traits, positionResolver), FactAwareConditionEvaluator {
     private var hasEvaluatedContainsMark: Boolean = false
     private val evaluatedFacts = mutableListOf<InitialFactAp>()
 
@@ -78,7 +78,7 @@ class JIRFactAwareConditionEvaluator(
 class JIRFactIgnoreConditionEvaluator(
     traits: JIRTraits,
     positionResolver: PositionResolver<Maybe<CommonValue>>
-) : JIRBasicConditionEvaluator(positionResolver, traits) {
+) : JIRBasicConditionEvaluator(traits, positionResolver) {
     override fun visit(condition: ContainsMark): Boolean {
         return false
     }

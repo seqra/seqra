@@ -13,13 +13,13 @@ import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
-import org.opentaint.dataflow.ifds.Maybe
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRCallPositionToAccessPathResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactAwareConditionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import org.opentaint.dataflow.jvm.util.callee
+import org.opentaint.util.Maybe
 
 class JIRMethodCallPrecondition(
     private val apManager: ApManager,

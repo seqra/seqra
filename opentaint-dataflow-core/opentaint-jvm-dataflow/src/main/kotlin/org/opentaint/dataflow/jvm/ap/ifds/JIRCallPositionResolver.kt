@@ -25,12 +25,12 @@ import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.PositionAccess
-import org.opentaint.dataflow.ifds.Maybe
-import org.opentaint.dataflow.ifds.fmap
-import org.opentaint.dataflow.ifds.toMaybe
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.accessPathBase
 import org.opentaint.dataflow.jvm.util.getArgument
 import org.opentaint.dataflow.jvm.util.thisInstance
+import org.opentaint.util.Maybe
+import org.opentaint.util.fmap
+import org.opentaint.util.toMaybe
 
 class JIRCallPositionToAccessPathResolver(
     private val callExpr: JIRCallExpr,

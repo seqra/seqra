@@ -6,7 +6,6 @@ import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRRefType
-import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
@@ -25,6 +24,7 @@ import org.opentaint.dataflow.ap.ifds.MethodContext
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature.JIRLambdaClass
+import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import java.util.Optional
 import java.util.concurrent.ConcurrentHashMap

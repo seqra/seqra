@@ -8,9 +8,9 @@ import org.opentaint.ir.taint.configuration.PositionWithAccess
 import org.opentaint.ir.taint.configuration.Result
 import org.opentaint.ir.taint.configuration.ResultAnyElement
 import org.opentaint.ir.taint.configuration.This
-import org.opentaint.dataflow.ifds.Maybe
-import org.opentaint.dataflow.ifds.flatFmap
-import org.opentaint.dataflow.ifds.toMaybe
+import org.opentaint.util.Maybe
+import org.opentaint.util.flatFmap
+import org.opentaint.util.toMaybe
 
 sealed interface PositionAccess {
     data class Simple(val base: AccessPathBase) : PositionAccess

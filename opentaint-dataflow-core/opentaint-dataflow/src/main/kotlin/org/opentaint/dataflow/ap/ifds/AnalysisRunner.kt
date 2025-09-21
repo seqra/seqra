@@ -1,11 +1,11 @@
 package org.opentaint.dataflow.ap.ifds
 
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.graph.ApplicationGraph
 
 interface AnalysisRunner {
     val graph: ApplicationGraph<CommonMethod, CommonInst>

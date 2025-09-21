@@ -4,6 +4,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
@@ -16,7 +17,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import mu.KotlinLogging
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.TaintSinkTracker.TaintVulnerability
 import org.opentaint.dataflow.ap.ifds.access.ApManager
@@ -28,6 +28,7 @@ import org.opentaint.dataflow.ap.ifds.trace.TraceResolutionContext
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolverCancellation
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
+import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
@@ -71,7 +72,7 @@ class TaintAnalysisUnitRunnerManager(
 
     private val analyzerScope = CoroutineScope(analyzerDispatcher)
 
-    @OptIn(DelicateCoroutinesApi::class)
+    @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
     private val progressDispatcher = newSingleThreadContext(
         name = "${this::class.java.name}-progress"
     )

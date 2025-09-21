@@ -5,7 +5,6 @@ import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.CommonType
-import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -31,7 +30,8 @@ import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.ifds.onSome
+import org.opentaint.dataflow.graph.ApplicationGraph
+import org.opentaint.util.onSome
 import java.util.BitSet
 import java.util.LinkedList
 import java.util.Objects

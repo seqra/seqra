@@ -1,8 +1,8 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph
 
 class JIRSafeApplicationGraph(
     private val graph: JIRApplicationGraph

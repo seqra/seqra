@@ -1,12 +1,10 @@
 package org.opentaint.dataflow.ap.ifds
 
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
-import org.opentaint.dataflow.ifds.onSome
 import org.opentaint.dataflow.ap.ifds.Edge.FactToFact
 import org.opentaint.dataflow.ap.ifds.Edge.ZeroInitialEdge
 import org.opentaint.dataflow.ap.ifds.Edge.ZeroToFact
@@ -21,6 +19,8 @@ import org.opentaint.dataflow.ap.ifds.MethodAnalyzer.MethodCallResolutionFailure
 import org.opentaint.dataflow.ap.ifds.MethodCallFlowFunction.ZeroCallFact
 import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryApRefinement
 import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryExclusionRefinement
+import org.opentaint.dataflow.graph.ApplicationGraph
+import org.opentaint.util.onSome
 
 interface MethodAnalyzer {
     fun addInitialZeroFact()

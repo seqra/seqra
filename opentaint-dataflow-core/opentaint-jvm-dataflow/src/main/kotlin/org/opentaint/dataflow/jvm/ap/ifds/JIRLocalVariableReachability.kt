@@ -2,7 +2,6 @@ package org.opentaint.dataflow.jvm.ap.ifds
 
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRCatchInst
 import org.opentaint.ir.api.jvm.cfg.JIRInst
@@ -12,6 +11,7 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.LocalVariableReachability
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionStorageIdx
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionStorageSize
+import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph
 import java.util.BitSet
 
 class JIRLocalVariableReachability(

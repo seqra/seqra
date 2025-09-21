@@ -8,7 +8,6 @@ import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.machine.logger
 import java.nio.file.Path
-import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.extension
 import kotlin.io.path.relativeTo
 import kotlin.io.path.walk
@@ -19,7 +18,6 @@ class JIRSourceFileResolver(
 ) : SourceFileResolver<CommonInst> {
     private val locationSources: Map<RegisteredLocation, Map<String, List<Path>>> by lazy {
         projectLocationsSourceRoots.mapValues { (_, sourcesRoot) ->
-            @OptIn(ExperimentalPathApi::class)
             val allJavaAndKotlinFiles = sourcesRoot.walk().filter { file ->
                 file.extension.let { it == JAVA_EXTENSION || it == KOTLIN_EXTENSION }
             }

@@ -34,7 +34,7 @@ import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.ir.taint.configuration.TaintEntryPointSource
 import org.opentaint.ir.taint.configuration.TaintMethodSource
 import org.opentaint.ir.taint.configuration.TaintPassThrough
-import org.opentaint.dataflow.config.BasicConditionEvaluator
+import org.opentaint.dataflow.config.JIRBasicConditionEvaluator
 import org.opentaint.dataflow.config.CallPositionToAccessPathResolver
 import org.opentaint.dataflow.config.CallPositionToValueResolver
 import org.opentaint.dataflow.config.EntryPointPositionToAccessPathResolver
@@ -71,7 +71,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
         // Extract initial facts from the config:
         val config = getConfigForMethod(method)
         if (config != null) {
-            val conditionEvaluator = BasicConditionEvaluator(
+            val conditionEvaluator = JIRBasicConditionEvaluator(
                 traits,
                 EntryPointPositionToValueResolver(traits, method)
             )
@@ -219,7 +219,7 @@ class ForwardTaintFlowFunctions<Method, Statement>(
                     add(TaintZeroFact)
 
                     if (config != null) {
-                        val conditionEvaluator = BasicConditionEvaluator(
+                        val conditionEvaluator = JIRBasicConditionEvaluator(
                             traits,
                             CallPositionToValueResolver(traits, callStatement)
                         )

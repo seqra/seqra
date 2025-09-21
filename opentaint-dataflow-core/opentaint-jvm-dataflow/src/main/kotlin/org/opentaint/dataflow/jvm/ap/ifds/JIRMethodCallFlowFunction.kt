@@ -24,15 +24,15 @@ import org.opentaint.dataflow.ap.ifds.TaintPassActionEvaluator
 import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
 import org.opentaint.dataflow.ap.ifds.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.TaintSourceActionEvaluator
-import org.opentaint.dataflow.ifds.Maybe
-import org.opentaint.dataflow.ifds.merge
-import org.opentaint.dataflow.ifds.onSome
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.config.JIRBasicConditionEvaluator
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import org.opentaint.dataflow.jvm.util.callee
+import org.opentaint.util.Maybe
+import org.opentaint.util.merge
+import org.opentaint.util.onSome
 
 class JIRMethodCallFlowFunction(
     private val apManager: ApManager,
@@ -57,7 +57,7 @@ class JIRMethodCallFlowFunction(
         applySourceConfig(
             config,
             method = callExpr.callee,
-            conditionEvaluator = JIRBasicConditionEvaluator(callPositionToJIRValueResolver, traits),
+            conditionEvaluator = JIRBasicConditionEvaluator(traits, callPositionToJIRValueResolver),
             taintActionEvaluator = TaintSourceActionEvaluator(apManager, callPositionToAccessPathResolver)
         ).onSome { facts ->
             facts.mapTo(this) { CallToReturnZFact(factAp = it) }
@@ -258,8 +258,8 @@ class JIRMethodCallFlowFunction(
             config,
             method = method,
             conditionEvaluator = JIRBasicConditionEvaluator(
-                CalleePositionToJIRValueResolver(method),
-                traits
+                traits,
+                CalleePositionToJIRValueResolver(method)
             ),
             taintActionEvaluator = TaintSourceActionEvaluator(apManager, CalleePositionToAccessPath())
         )

@@ -3,7 +3,6 @@ package org.opentaint.api.checkers
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -26,6 +25,7 @@ import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.ap.ifds.sarif.SarifGenerator
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
+import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit

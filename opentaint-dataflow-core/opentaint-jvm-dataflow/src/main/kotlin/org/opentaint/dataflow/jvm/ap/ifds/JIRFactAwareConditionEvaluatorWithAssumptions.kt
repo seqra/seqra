@@ -19,9 +19,9 @@ import org.opentaint.dataflow.ap.ifds.FinalFactReader
 import org.opentaint.dataflow.ap.ifds.PositionAccess
 import org.opentaint.dataflow.ap.ifds.ResultWithFactAssumptions
 import org.opentaint.dataflow.ap.ifds.TaintSinkTracker.FactAssumption
-import org.opentaint.dataflow.ifds.Maybe
-import org.opentaint.dataflow.ifds.onSome
 import org.opentaint.dataflow.jvm.util.JIRTraits
+import org.opentaint.util.Maybe
+import org.opentaint.util.onSome
 
 class JIRFactAwareConditionEvaluatorWithAssumptions(
     traits: JIRTraits,

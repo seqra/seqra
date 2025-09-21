@@ -2,7 +2,6 @@ package org.opentaint.dataflow.ap.ifds
 
 import mu.KLogger
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
@@ -10,8 +9,9 @@ import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
-import org.opentaint.dataflow.ifds.Maybe
+import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.ifds.UnitResolver
+import org.opentaint.util.Maybe
 
 interface LanguageManager {
     fun getInstIndex(inst: CommonInst): Int

@@ -49,7 +49,7 @@ import org.opentaint.ir.taint.configuration.TaintEntryPointSource
 import org.opentaint.ir.taint.configuration.TaintMark
 import org.opentaint.ir.taint.configuration.TaintMethodSource
 import org.opentaint.ir.taint.configuration.TaintPassThrough
-import org.opentaint.dataflow.config.BasicConditionEvaluator
+import org.opentaint.dataflow.config.JIRBasicConditionEvaluator
 import org.opentaint.dataflow.config.CallPositionToAccessPathResolver
 import org.opentaint.dataflow.config.CallPositionToValueResolver
 import org.opentaint.dataflow.config.EntryPointPositionToAccessPathResolver
@@ -108,7 +108,7 @@ class ForwardNpeFlowFunctions(
         val config = getConfigForMethod(method)
 
         if (config != null) {
-            val conditionEvaluator = BasicConditionEvaluator(
+            val conditionEvaluator = JIRBasicConditionEvaluator(
                 traits,
                 EntryPointPositionToValueResolver(traits, method)
             )
@@ -370,7 +370,7 @@ class ForwardNpeFlowFunctions(
                     }
 
                     if (config != null) {
-                        val conditionEvaluator = BasicConditionEvaluator(
+                        val conditionEvaluator = JIRBasicConditionEvaluator(
                             traits,
                             CallPositionToValueResolver(traits, callStatement)
                         )

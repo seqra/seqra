@@ -2,13 +2,11 @@ package org.opentaint.dataflow.jvm.ap.ifds
 
 import mu.KLogger
 import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.analysis.ApplicationGraph
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.analysis.JIRApplicationGraph
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
@@ -29,12 +27,14 @@ import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
-import org.opentaint.dataflow.ifds.Maybe
+import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodCallPrecondition
 import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodSequentPrecondition
+import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.jvm.util.JIRTraits
+import org.opentaint.util.Maybe
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 

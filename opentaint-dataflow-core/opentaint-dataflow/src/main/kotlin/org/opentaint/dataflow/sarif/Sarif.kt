@@ -88,7 +88,7 @@ fun <Statement : CommonInst> sarifReportFromVulnerabilities(
     )
 }
 
-private fun <Statement : CommonInst> instToSarifLocation(
+fun <Statement : CommonInst> instToSarifLocation(
     traits: Traits<*, Statement>,
     inst: Statement,
     sourceFileResolver: SourceFileResolver<Statement>,
@@ -105,7 +105,8 @@ private fun <Statement : CommonInst> instToSarifLocation(
         ),
         logicalLocations = listOf(
             LogicalLocation(
-                fullyQualifiedName = locationFQN(inst)
+                fullyQualifiedName = locationFQN(inst),
+                decoratedName = locationMachineName(inst)
             )
         )
     )

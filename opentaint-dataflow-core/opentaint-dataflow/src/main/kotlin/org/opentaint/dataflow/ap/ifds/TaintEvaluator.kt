@@ -14,13 +14,13 @@ import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.ir.taint.configuration.TaintMark
 import org.opentaint.dataflow.ap.ifds.TaintSinkTracker.FactAssumption
 import org.opentaint.dataflow.ap.ifds.access.ApManager
-import org.opentaint.dataflow.ifds.Maybe
-import org.opentaint.dataflow.ifds.flatFmap
-import org.opentaint.dataflow.ifds.flatMap
-import org.opentaint.dataflow.ifds.fmap
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition.Precondition
+import org.opentaint.util.Maybe
+import org.opentaint.util.flatFmap
+import org.opentaint.util.flatMap
+import org.opentaint.util.fmap
 
 interface FactAwareConditionEvaluator : ConditionVisitor<Boolean> {
     fun evalWithAssumptionsCheck(condition: Condition): Boolean
