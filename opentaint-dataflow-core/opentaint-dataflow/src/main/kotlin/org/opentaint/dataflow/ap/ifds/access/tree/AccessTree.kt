@@ -12,6 +12,9 @@ import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.serialization.AccessorSerializer
+import java.io.DataInputStream
+import java.io.DataOutputStream
 
 class AccessTree(
     override val base: AccessPathBase,
@@ -634,6 +637,54 @@ class AccessTree(
         private fun removeSingleAccessor(accessor: Accessor): AccessNode {
             val newAccessors = removeSingleAccessor(accessor, accessors, accessorNodes) ?: return this
             return create(isAbstract, isFinal, newAccessors.first, newAccessors.second)
+        }
+
+        internal class Serializer(private val accessorSerializer: AccessorSerializer) {
+            fun DataOutputStream.writeAccessNode(node: AccessNode) {
+                var mask = 0
+                if (node.isFinal) {
+                    mask += 1
+                }
+                if (node.isAbstract) {
+                    mask += 2
+                }
+                write(mask)
+
+                writeInt(node.accessors?.size ?: 0)
+                if (node.accessors != null) {
+                    node.accessors.forEach {
+                        with (accessorSerializer) {
+                            writeAccessor(it)
+                        }
+                    }
+                    node.accessorNodes!!.forEach { child ->
+                        writeAccessNode(child)
+                    }
+                }
+            }
+
+            fun DataInputStream.readAccessNode(): AccessNode {
+                val mask = read()
+                val isFinal = mask.and(1) > 0
+                val isAbstract = mask.and(2) > 0
+
+                val accessorsSize = readInt()
+                if (accessorsSize == 0) {
+                    return AccessNode(isAbstract, isFinal, null, null)
+                }
+
+                val accessors = Array(accessorsSize) {
+                    with(accessorSerializer) {
+                        readAccessor()
+                    }
+                }
+
+                val accessNodes = Array(accessorsSize) {
+                    readAccessNode()
+                }
+
+                return AccessNode(isAbstract, isFinal, accessors, accessNodes)
+            }
         }
 
         companion object {

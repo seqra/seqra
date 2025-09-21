@@ -12,8 +12,13 @@ import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.serialization.AccessorSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.readEnum
+import org.opentaint.dataflow.ap.ifds.serialization.writeEnum
 
 import org.opentaint.util.assert
+import java.io.DataInputStream
+import java.io.DataOutputStream
 
 typealias Cycle = List<Accessor>
 
@@ -159,7 +164,6 @@ class AccessCactus(
         val isFinal: Boolean,
         val allEdges: Array<Edge>
     ) {
-
         sealed interface Edge {
             val accessor: Accessor
 
@@ -1043,6 +1047,85 @@ class AccessCactus(
                 isAbstract, isFinal,
                 newAllEdges as Array<Edge>
             )
+        }
+
+        internal class Serializer(private val accessorSerializer: AccessorSerializer) {
+            fun DataOutputStream.writeAccessNode(accessNode: AccessNode) {
+                var mask = 0
+                if (accessNode.isFinal) {
+                    mask += 1
+                }
+                if (accessNode.isAbstract) {
+                    mask += 2
+                }
+                write(mask)
+
+                writeInt(accessNode.allEdges.size)
+                accessNode.allEdges.forEach { edge ->
+                    when (edge) {
+                        is BasicEdge -> {
+                            writeEnum(EdgeType.BASIC)
+                            with (accessorSerializer) {
+                                writeAccessor(edge.accessor)
+                            }
+                            writeAccessNode(edge.node)
+                        }
+                        is CycleStartEdge -> {
+                            writeEnum(EdgeType.CYCLE_START)
+                            writeInt(edge.cycleSize)
+                            edge.cycleEdges.forEach { cycleEdge ->
+                                with (accessorSerializer) {
+                                    writeAccessor(cycleEdge.accessor)
+                                }
+                            }
+                            edge.node?.let {
+                                writeAccessNode(it)
+                            }
+                        }
+                    }
+                }
+            }
+
+            fun DataInputStream.readAccessNode(): AccessNode {
+                val mask = read()
+                val isFinal = mask.and(1) > 0
+                val isAbstract = mask.and(2) > 0
+
+                val allEdgesSize = readInt()
+                val allEdges = Array(allEdgesSize) {
+                    val edgeType = readEnum<EdgeType>()
+                    when (edgeType) {
+                        EdgeType.BASIC -> {
+                            val accessor = with (accessorSerializer) {
+                                readAccessor()
+                            }
+                            val node = readAccessNode()
+                            BasicEdge.createWithoutFoldUnsafe(accessor, node)
+                        }
+                        EdgeType.CYCLE_START -> {
+                            val accessorsSize = readInt()
+                            val accessors = List(accessorsSize) {
+                                with (accessorSerializer) {
+                                    readAccessor()
+                                }
+                            }
+
+                            if (accessorsSize == 1) {
+                                createLoop(accessors.single())
+                            } else {
+                                val child = readAccessNode()
+                                child.tryGetCycle(accessors)!!
+                            }
+                        }
+                    }
+                }
+                return AccessNode(isAbstract, isFinal, allEdges)
+            }
+
+            private enum class EdgeType {
+                BASIC,
+                CYCLE_START
+            }
         }
 
         companion object {

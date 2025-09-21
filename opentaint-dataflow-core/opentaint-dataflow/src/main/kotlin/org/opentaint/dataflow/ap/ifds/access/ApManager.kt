@@ -9,6 +9,8 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Edge
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.LanguageManager
+import org.opentaint.dataflow.ap.ifds.serialization.AccessorSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
 
 interface ApManager {
     fun initialFactAbstraction(): InitialFactAbstraction
@@ -29,6 +31,8 @@ interface ApManager {
     fun createAbstractAp(base: AccessPathBase, exclusions: ExclusionSet): FinalFactAp
 
     fun createFinalInitialAp(base: AccessPathBase, exclusions: ExclusionSet): InitialFactAp
+
+    fun createSerializer(accessorSerializer: AccessorSerializer): ApSerializer
 }
 
 interface InitialFactAbstraction {

@@ -5,7 +5,10 @@ import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import java.util.concurrent.ConcurrentHashMap
 
-open class MethodSummariesUnitStorage(private val apManager: ApManager) {
+open class MethodSummariesUnitStorage(
+    private val apManager: ApManager,
+    private val languageManager: LanguageManager
+) {
     private val methodSummaries = ConcurrentHashMap<MethodEntryPoint, SummaryEdgeStorageWithSubscribers>()
 
     fun subscribeOnMethodEntryPointSummaries(
@@ -66,7 +69,7 @@ open class MethodSummariesUnitStorage(private val apManager: ApManager) {
 
     private fun methodSummaryEdges(methodEntryPoint: MethodEntryPoint) =
         methodSummaries.computeIfAbsent(methodEntryPoint) {
-            SummaryEdgeStorageWithSubscribers(apManager, methodEntryPoint)
+            SummaryEdgeStorageWithSubscribers(apManager, languageManager, methodEntryPoint)
         }
 
     fun collectMethodStats(stats: MethodStats) {

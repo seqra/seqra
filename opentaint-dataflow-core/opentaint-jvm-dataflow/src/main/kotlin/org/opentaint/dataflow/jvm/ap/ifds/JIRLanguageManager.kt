@@ -52,6 +52,11 @@ class JIRLanguageManager(private val cp: JIRClasspath) : LanguageManager {
         return method.instList.maxOf { it.location.index }
     }
 
+    override fun getInstByIndex(method: CommonMethod, index: Int): CommonInst {
+        jirDowncast<JIRMethod>(method)
+        return method.instList[index]
+    }
+
     override fun isEmpty(method: CommonMethod): Boolean {
         jirDowncast<JIRMethod>(method)
         return method.instList.size == 0
@@ -185,6 +190,7 @@ class JIRLanguageManager(private val cp: JIRClasspath) : LanguageManager {
 
     override val factTypeChecker = JIRFactTypeChecker(cp)
     override val methodCallFactMapper = JIRMethodCallFactMapper
+    override val methodSerializer = JIRMethodSerializer(cp)
 
     override fun onInstructionReached(inst: CommonInst) {
         jirDowncast<JIRInst>(inst)

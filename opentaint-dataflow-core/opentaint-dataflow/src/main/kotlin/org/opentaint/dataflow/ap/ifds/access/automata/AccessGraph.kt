@@ -10,11 +10,15 @@ import kotlinx.collections.immutable.persistentHashSetOf
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentHashMap
 import kotlinx.collections.immutable.toPersistentList
+import kotlinx.collections.immutable.toPersistentSet
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
+import org.opentaint.dataflow.ap.ifds.serialization.AccessorSerializer
 import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
+import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.util.BitSet
 
 private typealias NodeMarker = Int
@@ -451,6 +455,75 @@ class AccessGraph(
     fun mutable() = MutableAccessGraph(
         initial, final, edges.builder(), nodeSucc.builder(), nodePred.builder()
     )
+
+    internal class Serializer(private val accessorSerializer: AccessorSerializer) {
+        private fun DataOutputStream.writeAdjacentSets(sets: PersistentList<PersistentSet<Accessor>?>) {
+            sets.forEach { set ->
+                writeInt(set?.size ?: -1)
+                set?.forEach { accessor ->
+                    with (accessorSerializer) {
+                        writeAccessor(accessor)
+                    }
+                }
+            }
+        }
+
+        private fun DataInputStream.readAdjacentSets(numNodes: Int): PersistentList<PersistentSet<Accessor>?> {
+            return List(numNodes) {
+                val setSize = readInt()
+                if (setSize == -1) {
+                    null
+                } else {
+                    List(setSize) {
+                        with (accessorSerializer) {
+                            readAccessor()
+                        }
+                    }.toPersistentSet()
+                }
+            }.toPersistentList()
+        }
+
+        fun DataOutputStream.writeGraph(graph: AccessGraph) {
+            writeInt(graph.initial)
+            writeInt(graph.final)
+
+            writeInt(graph.edges.size)
+            graph.edges.forEach { (accessor, edge) ->
+                with (accessorSerializer) {
+                    writeAccessor(accessor)
+                }
+                writeInt(edge.from)
+                writeInt(edge.to)
+            }
+
+            writeInt(graph.numNodes)
+            writeAdjacentSets(graph.nodeSucc)
+            writeAdjacentSets(graph.nodePred)
+        }
+
+        fun DataInputStream.readGraph(): AccessGraph {
+            val initial = readInt()
+            val final = readInt()
+
+            val edgesSize = readInt()
+            val edgesBuilder = persistentHashMapOf<Accessor, AgEdge>().builder()
+            repeat(edgesSize) {
+                val accessor = with (accessorSerializer) {
+                    readAccessor()
+                }
+                val from = readInt()
+                val to = readInt()
+                edgesBuilder[accessor] = AgEdge(from, to)
+            }
+            val edges = edgesBuilder.build()
+
+            val numNodes = readInt()
+            val nodeSucc = readAdjacentSets(numNodes)
+            val nodePred = readAdjacentSets(numNodes)
+
+            return AccessGraph(initial, final, edges, nodeSucc, nodePred)
+        }
+    }
 
     companion object {
         private const val INITIAL_NODE = 0

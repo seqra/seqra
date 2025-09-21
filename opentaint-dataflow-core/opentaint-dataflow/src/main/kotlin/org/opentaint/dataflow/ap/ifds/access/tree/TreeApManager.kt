@@ -17,6 +17,8 @@ import org.opentaint.dataflow.ap.ifds.access.MethodFinalApSummariesStorage
 import org.opentaint.dataflow.ap.ifds.access.MethodInitialToFinalApSummariesStorage
 import org.opentaint.dataflow.ap.ifds.access.SideEffectRequirementApStorage
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode
+import org.opentaint.dataflow.ap.ifds.serialization.AccessorSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
 
 object TreeApManager : ApManager {
     override fun initialFactAbstraction(): InitialFactAbstraction =
@@ -61,4 +63,8 @@ object TreeApManager : ApManager {
 
     override fun createFinalInitialAp(base: AccessPathBase, exclusions: ExclusionSet): InitialFactAp =
         AccessPath(base, access = null, exclusions).prependAccessor(FinalAccessor)
+
+    override fun createSerializer(accessorSerializer: AccessorSerializer): ApSerializer {
+        return TreeSerializer(accessorSerializer)
+    }
 }

@@ -7,9 +7,15 @@ import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.MethodAccessPathSubscription
+import org.opentaint.dataflow.ap.ifds.serialization.EdgeSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.util.collectToListWithPostProcess
 import org.opentaint.dataflow.util.concurrentReadSafeForEach
 import org.opentaint.dataflow.util.concurrentReadSafeMapIndexed
+import org.opentaint.util.assert
+import java.io.ByteArrayOutputStream
+import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -415,7 +421,8 @@ class SummaryEdgeSubscriptionManager(
 
 class SummaryEdgeStorageWithSubscribers(
     apManager: ApManager,
-    private val methodEntryPoint: MethodEntryPoint
+    languageManager: LanguageManager,
+    private val methodEntryPoint: MethodEntryPoint,
 ) {
     interface Subscriber {
         fun newSummaryEdges(edges: List<Edge>)
@@ -427,6 +434,8 @@ class SummaryEdgeStorageWithSubscribers(
     private val zeroToZeroSummaryEdges = ArrayList<CommonInst>()
     private val zeroToFactSummaryEdges = apManager.methodFinalApSummariesStorage(methodEntryPoint.statement)
     private val taintedFactSummaryEdges = apManager.methodInitialToFinalApSummariesStorage(methodEntryPoint.statement)
+    private val serializationContext = SummarySerializationContext()
+    private val edgeSerializer = EdgeSerializer(languageManager, apManager, serializationContext)
 
     fun addEdges(edges: List<Edge>) {
         val addedEdges = mutableListOf<Edge>()
@@ -441,6 +450,32 @@ class SummaryEdgeStorageWithSubscribers(
         for (subscriber in subscribers) {
             subscriber.newSummaryEdges(addedEdges)
         }
+        assert(::serializationCheck) {
+            "Serialization check failed"
+        }
+    }
+
+    private fun serializationCheck(): Boolean = synchronized(this) {
+        serializationContext.reset()
+        val byteStream = ByteArrayOutputStream()
+        val oStream = DataOutputStream(byteStream)
+        val edges = mutableListOf<Edge>()
+        collectAllZeroToZeroSummariesTo(edges)
+        collectAllZeroToFactSummariesTo(edges)
+        collectAllFactToFactSummariesTo(edges)
+        edges.forEach { edge ->
+            with (edgeSerializer) {
+                oStream.writeEdge(edge)
+            }
+        }
+        oStream.flush()
+        val iStream = DataInputStream(byteStream.toByteArray().inputStream())
+        val deserializedEdges = List(edges.size) {
+            with (edgeSerializer) {
+                iStream.readEdge()
+            }
+        }
+        return edges == deserializedEdges
     }
 
     private val sideEffectRequirement = apManager.sideEffectRequirementApStorage()
@@ -501,13 +536,13 @@ class SummaryEdgeStorageWithSubscribers(
             it.setEntryPoint(methodEntryPoint).build()
         })
 
-    private fun collectAllZeroToZeroSummariesTo(dst: MutableList<Edge.ZeroInitialEdge>) {
+    private fun collectAllZeroToZeroSummariesTo(dst: MutableList<in Edge.ZeroInitialEdge>) {
         zeroToZeroSummaryEdges.concurrentReadSafeForEach { _, inst ->
             dst.add(Edge.ZeroToZero(methodEntryPoint, inst))
         }
     }
 
-    private fun collectAllZeroToFactSummariesTo(dst: MutableList<Edge.ZeroInitialEdge>) {
+    private fun collectAllZeroToFactSummariesTo(dst: MutableList<in Edge.ZeroInitialEdge>) {
         collectToListWithPostProcess(dst, {
             zeroToFactSummaryEdges.collectAllEdgesTo(it)
         }, {
@@ -532,7 +567,7 @@ class SummaryEdgeStorageWithSubscribers(
             it.setEntryPoint(methodEntryPoint).build()
         })
 
-    private fun collectAllFactToFactSummariesTo(dst: MutableList<Edge.FactToFact>) {
+    private fun collectAllFactToFactSummariesTo(dst: MutableList<in Edge.FactToFact>) {
         collectToListWithPostProcess(dst, {
             taintedFactSummaryEdges.collectAllEdgesTo(it)
         }, {

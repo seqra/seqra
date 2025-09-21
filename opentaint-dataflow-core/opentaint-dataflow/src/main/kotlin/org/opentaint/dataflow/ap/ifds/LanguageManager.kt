@@ -7,6 +7,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.ap.ifds.serialization.MethodSerializer
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
 import org.opentaint.dataflow.graph.ApplicationGraph
@@ -16,6 +17,7 @@ import org.opentaint.util.Maybe
 interface LanguageManager {
     fun getInstIndex(inst: CommonInst): Int
     fun getMaxInstIndex(method: CommonMethod): Int
+    fun getInstByIndex(method: CommonMethod, index: Int): CommonInst
     fun isEmpty(method: CommonMethod): Boolean
     fun getCallExpr(inst: CommonInst): CommonCallExpr?
     fun producesExceptionalControlFlow(inst: CommonInst): Boolean
@@ -64,6 +66,7 @@ interface LanguageManager {
 
     val factTypeChecker: FactTypeChecker
     val methodCallFactMapper: MethodCallFactMapper
+    val methodSerializer: MethodSerializer
 
     fun onInstructionReached(inst: CommonInst)
     fun reportLanguageSpecificRunnerProgress(logger: KLogger) = Unit

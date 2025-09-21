@@ -235,7 +235,7 @@ class TaintAnalysisUnitRunnerManager(
     }
 
     private fun spawnNewRunner(unit: UnitType): TaintAnalysisUnitRunner {
-        val storage = unitStorage.getOrPut(unit) { TaintAnalysisUnitStorage(apManager) }
+        val storage = unitStorage.getOrPut(unit) { TaintAnalysisUnitStorage(apManager, languageManager) }
         val sinkTracker = TaintSinkTracker(apManager, storage)
         val runner = TaintAnalysisUnitRunner(
             this, unit, graph, unitResolver, taintConfig, sinkTracker
