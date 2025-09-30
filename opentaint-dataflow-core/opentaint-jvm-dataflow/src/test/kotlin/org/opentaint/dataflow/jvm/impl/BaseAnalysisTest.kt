@@ -24,6 +24,7 @@ import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.api.jvm.ext.methods
+import org.opentaint.ir.impl.JIRRamErsSettings
 import org.opentaint.ir.impl.features.Builders
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
@@ -57,6 +58,7 @@ abstract class BaseAnalysisTest(
 
     val db: JIRDatabase = runBlocking {
         opentaint-ir {
+            persistenceImpl(JIRRamErsSettings)
             loadByteCode(allClasspath)
             useProcessJavaRuntime()
             keepLocalVariableNames()
