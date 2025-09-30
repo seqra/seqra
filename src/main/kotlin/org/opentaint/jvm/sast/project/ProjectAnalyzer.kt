@@ -1,10 +1,8 @@
 package org.opentaint.jvm.sast.project
 
-import org.opentaint.util.ConfigUtils
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
 import org.opentaint.ir.api.jvm.ByteCodeIndexer
-import org.opentaint.ir.api.jvm.JIRDBContext
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
@@ -12,6 +10,7 @@ import org.opentaint.ir.api.jvm.JIRFeature
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRSignal
 import org.opentaint.ir.api.jvm.RegisteredLocation
+import org.opentaint.ir.api.storage.StorageContext
 import org.opentaint.ir.impl.JIRRamErsSettings
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
@@ -23,13 +22,14 @@ import org.opentaint.ir.taint.configuration.v2.TaintConfiguration
 import org.objectweb.asm.tree.ClassNode
 import org.opentaint.jvm.sast.dataflow.JIRSourceFileResolver
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
+import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
-import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.jvm.graph.MethodReturnInstNormalizerFeature
 import org.opentaint.machine.TypeScorer
 import org.opentaint.types.ClassScorer
 import org.opentaint.types.scoreClassNode
+import org.opentaint.util.ConfigUtils
 import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
@@ -110,7 +110,7 @@ class ProjectAnalyzer(
                 ?.also { module -> locationProjectModules[location] = module }
         }
 
-        override fun flush(context: JIRDBContext) {
+        override fun flush(context: StorageContext) {
         }
 
         override fun index(classNode: ClassNode) {
