@@ -2,24 +2,15 @@ package org.opentaint.jvm.sast.project
 
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
-import org.opentaint.ir.api.jvm.ByteCodeIndexer
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
-import org.opentaint.ir.api.jvm.JIRFeature
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.JIRSignal
-import org.opentaint.ir.api.jvm.RegisteredLocation
-import org.opentaint.ir.api.storage.StorageContext
 import org.opentaint.ir.impl.JIRRamErsSettings
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
-import org.opentaint.ir.impl.features.classpaths.JIRUnknownClass
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
-import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.opentaint-ir
 import org.opentaint.ir.taint.configuration.v2.TaintConfiguration
-import org.objectweb.asm.tree.ClassNode
 import org.opentaint.jvm.sast.dataflow.JIRSourceFileResolver
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.dataflow.ap.ifds.access.ApMode
@@ -32,7 +23,6 @@ import org.opentaint.types.scoreClassNode
 import org.opentaint.util.ConfigUtils
 import java.io.File
 import java.nio.file.Path
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.Path
 import kotlin.io.path.div
 import kotlin.io.path.outputStream
@@ -74,55 +64,9 @@ class ProjectAnalyzer(
         moduleFiles
     }
 
-    private val locationProjectModules = ConcurrentHashMap<RegisteredLocation, ProjectResolver.ProjectModuleClasses>()
-
     private lateinit var db: JIRDatabase
     private lateinit var cp: JIRClasspath
-
-    private val projectClasses = ConcurrentHashMap<RegisteredLocation, MutableSet<String>>()
-
-    private val projectLocations: Set<RegisteredLocation>
-        get() = projectClasses.keys
-
-    private val dependenciesLocations: Set<RegisteredLocation> by lazy {
-        cp.registeredLocations.toHashSet() - projectLocations
-    }
-
-    private inner class ProjectClassIndexerFeature : JIRFeature<Nothing, Nothing> {
-        override fun newIndexer(opentaint-ir: JIRDatabase, location: RegisteredLocation): ByteCodeIndexer =
-            ProjectClassIndexer(location)
-
-        override fun onSignal(signal: JIRSignal) {
-            // todo: ignore?
-        }
-
-        override suspend fun query(classpath: JIRClasspath, req: Nothing): Sequence<Nothing> {
-            error("Unexpected operation")
-        }
-    }
-
-    private inner class ProjectClassIndexer(
-        private val location: RegisteredLocation
-    ) : ByteCodeIndexer {
-        private val projectModule: ProjectResolver.ProjectModuleClasses? by lazy {
-            location.jirLocation?.jarOrFolder
-                ?.let { projectModulesFiles[it] }
-                ?.also { module -> locationProjectModules[location] = module }
-        }
-
-        override fun flush(context: StorageContext) {
-        }
-
-        override fun index(classNode: ClassNode) {
-            if (projectModule == null) return
-
-            val className = classNode.name.className
-            if (projectPackage != null && !className.startsWith(projectPackage)) return
-
-            val classes = projectClasses.computeIfAbsent(location) { ConcurrentHashMap.newKeySet() }
-            classes.add(className)
-        }
-    }
+    private lateinit var projectClasses: ProjectClasses
 
     private fun initializeCp() = runBlocking {
         val allCpFiles = mutableListOf<File>()
@@ -141,7 +85,6 @@ class ProjectAnalyzer(
 
             persistenceImpl(JIRRamErsSettings)
 
-            installFeatures(ProjectClassIndexerFeature())
             installFeatures(InMemoryHierarchy)
             installFeatures(Usages)
             installFeatures(ClassScorer(TypeScorer, ::scoreClassNode))
@@ -169,7 +112,10 @@ class ProjectAnalyzer(
 //        cp = db.classpathWithApproximations(allCpFiles, features)
         cp = db.classpath(allCpFiles, features)
 
-        val missedModules = project.modules.toSet() - locationProjectModules.values.toSet()
+        projectClasses = ProjectClasses(cp, projectPackage, projectModulesFiles)
+        projectClasses.loadProjectClasses()
+
+        val missedModules = project.modules.toSet() - projectClasses.locationProjectModules.values.toSet()
         if (missedModules.isNotEmpty()) {
             logger.warn {
                 "Modules missed for project  ${project.sourceRoot}: ${missedModules.map { it.projectModuleSourceRoot }}"
@@ -183,8 +129,8 @@ class ProjectAnalyzer(
     private fun runAnalyzer() {
         val analyzer = JIRTaintAnalyzer(
             cp, taintConfig,
-            projectLocations = projectLocations,
-            dependenciesLocations = dependenciesLocations,
+            projectLocations = projectClasses.projectLocations,
+            dependenciesLocations = projectClasses.dependenciesLocations,
             ifdsTimeout = ifdsAnalysisTimeout,
             ifdsApMode = ifdsApMode,
             opentaintTimeout = symbolicExecutionTimeout,
@@ -194,7 +140,7 @@ class ProjectAnalyzer(
 
         val sourcesResolver = JIRSourceFileResolver(
             project.sourceRoot,
-            locationProjectModules.mapValues { (_, module) -> module.projectModuleSourceRoot }
+            projectClasses.locationProjectModules.mapValues { (_, module) -> module.projectModuleSourceRoot }
         )
 
         logger.info { "Search entry points for project: ${project.sourceRoot}" }
@@ -224,35 +170,11 @@ class ProjectAnalyzer(
     }
 
     private fun allProjectEntryPoints(): List<JIRMethod> =
-        projectPublicClasses()
+        projectClasses.projectPublicClasses()
             .flatMapTo(mutableListOf()) { it.publicAndProtectedMethods() }
             .also {
                 it.sortWith(compareBy<JIRMethod> { it.enclosingClass.name }.thenBy { it.name })
             }
-
-    private fun projectPublicClasses(): Sequence<JIRClassOrInterface> =
-        projectClasses.values
-            .asSequence()
-            .flatten()
-            .mapNotNull { cp.findClassOrNull(it) }
-            .filterNot { it is JIRUnknownClass }
-            .filterNot { it.isAbstract || it.isInterface || it.isAnonymous }
-            .filter { it.outerClass == null }
-
-    private fun JIRClassOrInterface.publicAndProtectedMethods(): Sequence<JIRMethod> =
-        declaredMethods
-            .asSequence()
-            .filterNot { it.isAbstract || it.isNative || it.isConstructor || it.isClassInitializer }
-            .filter { it.isPublic || it.isProtected }
-
-            // todo: hack to avoid problems with Juliet benchmark
-            .filterNot { it.isJulietGeneratedRunner() }
-
-    private fun JIRMethod.isJulietGeneratedRunner(): Boolean {
-        if (!isStatic || name != "main") return false
-
-        return enclosingClass.name.startsWith("testcases.CWE")
-    }
 
     companion object {
         private val logger = object : KLogging() {}.logger
