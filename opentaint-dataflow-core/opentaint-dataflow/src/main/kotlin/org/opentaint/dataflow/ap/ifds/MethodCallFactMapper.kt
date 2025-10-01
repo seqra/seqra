@@ -14,13 +14,13 @@ interface MethodCallFactMapper {
         methodExit: CommonInst,
         factAp: FinalFactAp,
         checker: FactTypeChecker
-    ): FinalFactAp?
+    ): List<FinalFactAp>
 
     fun mapMethodExitToReturnFlowFact(
         callStatement: CommonInst,
         methodExit: CommonInst,
         factAp: InitialFactAp
-    ): InitialFactAp?
+    ): List<InitialFactAp>
 
     fun mapMethodCallToStartFlowFact(
         callee: CommonMethod,

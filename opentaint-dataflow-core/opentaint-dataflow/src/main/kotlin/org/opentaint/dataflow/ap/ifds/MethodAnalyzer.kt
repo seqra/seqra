@@ -496,13 +496,15 @@ class NormalMethodAnalyzer(
                 }
 
                 is ZeroToFact -> {
-                    val summaryExitFact = methodCallFactMapper.mapMethodExitToReturnFlowFact(
+                    val summaryExitFacts = methodCallFactMapper.mapMethodExitToReturnFlowFact(
                         currentEdge.statement, methodSummary.statement, methodSummary.factAp, languageManager.factTypeChecker
-                    ) ?: continue
+                    )
 
-                    for (returnSite in graph.successors(currentEdge.statement)) {
-                        val newEdge = ZeroToFact(methodEntryPoint, returnSite, summaryExitFact)
-                        addSequentialEdge(currentEdge, newEdge)
+                    for (summaryExitFact in summaryExitFacts) {
+                        for (returnSite in graph.successors(currentEdge.statement)) {
+                            val newEdge = ZeroToFact(methodEntryPoint, returnSite, summaryExitFact)
+                            addSequentialEdge(currentEdge, newEdge)
+                        }
                     }
                 }
             }
@@ -580,16 +582,19 @@ class NormalMethodAnalyzer(
                 when (summaryEdgeEffect) {
                     is SummaryApRefinement -> {
                         for (methodSummary in summaryEdges) {
-                            val mappedSummaryFact = methodCallFactMapper.mapMethodExitToReturnFlowFact(
+                            val mappedSummaryFacts = methodCallFactMapper.mapMethodExitToReturnFlowFact(
                                 currentEdgeStatement, methodSummary.statement, methodSummary.factAp, languageManager.factTypeChecker
-                            ) ?: continue
+                            )
 
-                            // todo: filter exclusions
-                            val summaryFactAp = mappedSummaryFact.concat(languageManager.factTypeChecker, summaryEdgeEffect.delta)
-                                ?.replaceExclusions(currentEdgeFactAp.exclusions)
-                                ?: continue
+                            for (mappedSummaryFact in mappedSummaryFacts) {
+                                // todo: filter exclusions
+                                val summaryFactAp = mappedSummaryFact
+                                    .concat(languageManager.factTypeChecker, summaryEdgeEffect.delta)
+                                    ?.replaceExclusions(currentEdgeFactAp.exclusions)
+                                    ?: continue
 
-                            handleSummaryEdge(currentEdgeInitialFact, summaryFactAp)
+                                handleSummaryEdge(currentEdgeInitialFact, summaryFactAp)
+                            }
                         }
                     }
 
@@ -597,14 +602,16 @@ class NormalMethodAnalyzer(
                         val initialFact = refineInitialFact(currentEdgeInitialFact, summaryEdgeEffect.exclusion)
 
                         for (methodSummary in summaryEdges) {
-                            val mappedSummaryFact = methodCallFactMapper.mapMethodExitToReturnFlowFact(
+                            val mappedSummaryFacts = methodCallFactMapper.mapMethodExitToReturnFlowFact(
                                 currentEdgeStatement, methodSummary.statement, methodSummary.factAp, languageManager.factTypeChecker
-                            ) ?: continue
+                            )
 
-                            // todo: filter exclusions
-                            val summaryFactAp = mappedSummaryFact.replaceExclusions(summaryEdgeEffect.exclusion)
+                            for (mappedSummaryFact in mappedSummaryFacts) {
+                                // todo: filter exclusions
+                                val summaryFactAp = mappedSummaryFact.replaceExclusions(summaryEdgeEffect.exclusion)
 
-                            handleSummaryEdge(initialFact, summaryFactAp)
+                                handleSummaryEdge(initialFact, summaryFactAp)
+                            }
                         }
                     }
                 }

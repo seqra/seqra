@@ -230,13 +230,10 @@ class MethodTraceResolver(
     fun resolveIntraProceduralTraceFromCall(
         statement: CommonInst,
         calleeEntry: TraceEntry.MethodEntry
-    ): List<SummaryTrace> {
-        val fact = methodCallFactMapper.mapMethodExitToReturnFlowFact(
-            statement, calleeEntry.statement, calleeEntry.fact
-        ) ?: return emptyList()
-
-        return resolveIntraProceduralTrace(statement, fact)
-    }
+    ): List<SummaryTrace> =
+        methodCallFactMapper
+            .mapMethodExitToReturnFlowFact(statement, calleeEntry.statement, calleeEntry.fact)
+            .flatMap { resolveIntraProceduralTrace(statement, it) }
 
     fun resolveIntraProceduralFullTrace(
         summaryTrace: SummaryTrace,
