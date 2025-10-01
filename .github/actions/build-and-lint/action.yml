@@ -1,0 +1,36 @@
+name: 'Build and lint Go project'
+
+inputs:
+  GO_VERSION:
+    description: 'Go version'
+    required: false
+    default: '1.24.x'
+  GOLANGCI_LINT_VERSION:
+    description: '`golangci-lint` version'
+    required: false
+    default: 'v2.0'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.GO_VERSION }}
+
+    - name: Install dependencies
+      shell: bash
+      run: go get .
+
+    - name: Build
+      shell: bash
+      run: go build -v ./...
+
+    - name: Test with the Go CLI
+      shell: bash
+      run: go test
+
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v7
+      with:
+        version: ${{ inputs.GOLANGCI_LINT_VERSION }}

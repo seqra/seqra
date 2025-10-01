@@ -1,0 +1,130 @@
+{
+  "branches": [
+    "main",
+    {
+      "name": "release*",
+      "prerelease": true
+    }
+  ],
+  "ci": false,
+  "plugins": [
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits",
+        "releaseRules": [
+          {
+            "breaking": true,
+            "release": "major"
+          },
+          {
+            "type": "chore",
+            "release": false
+          },
+          {
+            "type": "ci",
+            "release": false
+          },
+          {
+            "type": "docs",
+            "release": false
+          },
+          {
+            "type": "feat",
+            "release": "minor"
+          },
+          {
+            "type": "fix",
+            "release": "patch"
+          },
+          {
+            "type": "refactor",
+            "release": "patch"
+          },
+          {
+            "type": "revert",
+            "release": "patch"
+          },
+          {
+            "type": "style",
+            "release": false
+          },
+          {
+            "type": "test",
+            "release": false
+          },
+          {
+            "scope": "no-release",
+            "release": false
+          }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        "preset": "conventionalcommits",
+        "presetConfig": {
+          "types": [
+            {
+              "type": "chore",
+              "hidden": true
+            },
+            {
+              "type": "ci",
+              "hidden": true
+            },
+            {
+              "type": "docs",
+              "hidden": true
+            },
+            {
+              "type": "feat",
+              "section": ":gift: Features",
+              "hidden": false
+            },
+            {
+              "type": "fix",
+              "section": ":lady_beetle: Bug Fixes",
+              "hidden": false
+            },
+            {
+              "type": "refactor",
+              "section": ":hammer_and_wrench: Refactored",
+              "hidden": false
+            },
+            {
+              "type": "revert",
+              "section": ":back: Reverted",
+              "hidden": false
+            },
+            {
+              "type": "style",
+              "hidden": true
+            },
+            {
+              "type": "test",
+              "hidden": true
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "successComment": false,
+        "failTitle": false,
+        "labels": false,
+        "releasedLabels": false,
+        "assets": []
+      }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "echo v${nextRelease.version} > release_version.txt"
+      }
+    ]
+  ]
+}

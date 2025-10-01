@@ -1,0 +1,19 @@
+version: 2
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+    ldflags:
+      - -s -w -X github.com/seqra/seqra/internal/version.Version={{.Version}}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .Binary }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256

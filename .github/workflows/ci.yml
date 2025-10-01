@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [ main]
+  pull_request:
+    branches: [ main]
+
+env:
+  GO_VERSION: '1.24.x'
+  GOLANGCI_LINT_VERSION: v2.0
+
+jobs:
+  build-and-lint:
+    runs-on: ubuntu-latest
+    container: golang:1.24
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Workaround for escape error `fatal: detected dubious ownership in repository at` 
+      # https://github.com/actions/checkout/issues/1048#issuecomment-2768908874
+      - name: Fix repo for release
+        run: |
+          git status || git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Build and lint
+        uses: ./.github/actions/build-and-lint
+        with:
+          GO_VERSION: ${{ env.GO_VERSION }}
+          GOLANGCI_LINT_VERSION: ${{ env.GOLANGCI_LINT_VERSION }}
+
+  run-on-petclinic:
+    runs-on: ubuntu-latest
+    container: golang:1.24
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Workaround for escape error `fatal: detected dubious ownership in repository at` 
+      # https://github.com/actions/checkout/issues/1048#issuecomment-2768908874
+      - name: Fix repo for release
+        run: |
+          git status || git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '^1.13.1' # The Go version to download (if necessary) and use.
+
+      - name: Build
+        run: |
+          go build
+
+      - uses: actions/checkout@v4
+        with:
+          repository: spring-projects/spring-petclinic
+          path: project-root
+          ref: 30aab0ae764ad845b5eedd76028756835fec771f
+          fetch-depth: 0
+
+      - name: Run seqra 
+        run: |
+          ./seqra scan --quiet --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output report.sarif project-root
+
+      - name: Run seqra separate compile and scan
+        run: |
+          ./seqra compile --quiet --compile-type docker --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output portable-project project-root
+          ./seqra scan --quiet --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output report.sarif portable-project
