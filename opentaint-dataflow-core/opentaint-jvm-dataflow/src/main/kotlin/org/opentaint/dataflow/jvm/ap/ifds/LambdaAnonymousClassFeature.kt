@@ -24,7 +24,6 @@ import org.opentaint.ir.api.jvm.cfg.JIRInstList
 import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
 import org.opentaint.ir.api.jvm.cfg.JIRLambdaExpr
 import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
-import org.opentaint.ir.api.jvm.cfg.JIRMutableInstList
 import org.opentaint.ir.api.jvm.cfg.JIRNewExpr
 import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
 import org.opentaint.ir.api.jvm.cfg.JIRSpecialCallExpr
@@ -37,8 +36,6 @@ import org.opentaint.ir.api.jvm.ext.findType
 import org.opentaint.ir.api.jvm.ext.jvmName
 import org.opentaint.ir.api.jvm.ext.void
 import org.opentaint.ir.impl.bytecode.JIRDeclarationImpl
-import org.opentaint.ir.impl.cfg.JIRInstLocationImpl
-import org.opentaint.ir.impl.cfg.JIRMutableInstListImpl
 import org.opentaint.ir.impl.cfg.TypedSpecialMethodRefImpl
 import org.opentaint.ir.impl.cfg.TypedStaticMethodRefImpl
 import org.opentaint.ir.impl.cfg.VirtualMethodRefImpl
@@ -53,8 +50,9 @@ import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualMethodImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualParameter
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import org.opentaint.ir.impl.types.JIRTypedFieldImpl
-import org.opentaint.ir.impl.types.TypeNameImpl
 import org.opentaint.ir.impl.types.substition.JIRSubstitutorImpl
+import org.opentaint.dataflow.jvm.util.JIRInstListBuilder
+import org.opentaint.dataflow.jvm.util.typeName
 import java.util.Objects
 import java.util.concurrent.ConcurrentHashMap
 
@@ -129,7 +127,7 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
         fields: List<JIRTypedField>,
         lambdaType: JIRClassType
     ) {
-        val implMethodInstructions = InstListBuilder()
+        val implMethodInstructions = JIRInstListBuilder()
         val implMethod = JIRLambdaMethod(
             name = method.name,
             returnType = method.returnType,
@@ -252,7 +250,7 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
         lambdaClass: JIRVirtualClass,
         lambdaType: JIRClassType
     ) {
-        val constructorInstructions = InstListBuilder()
+        val constructorInstructions = JIRInstListBuilder()
         val constructorArgs = fields.mapIndexed { idx, field -> JIRVirtualParameter(idx, field.field.type) }
         val constructorArgTypes = constructorArgs.map { it.type }
         val constructorReturnType = PredefinedPrimitives.Void.typeName()
@@ -364,37 +362,7 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
         override fun hashCode(): Int = name.hashCode()
     }
 
-    private class InstListBuilder : JIRInstList<JIRInst> {
-        private val mutableInstructions = mutableListOf<JIRInst>()
-
-        override val indices: IntRange get() = mutableInstructions.indices
-        override val instructions: List<JIRInst> get() = mutableInstructions
-        override val lastIndex: Int get() = mutableInstructions.lastIndex
-        override val size: Int get() = mutableInstructions.size
-
-        override fun get(index: Int): JIRInst = mutableInstructions[index]
-        override fun getOrNull(index: Int): JIRInst? = mutableInstructions.getOrNull(index)
-        override fun iterator(): Iterator<JIRInst> = mutableInstructions.iterator()
-        override fun toMutableList(): JIRMutableInstList<JIRInst> = JIRMutableInstListImpl(mutableInstructions)
-
-        fun addInst(buildInst: (Int) -> JIRInst) {
-            val idx = mutableInstructions.size
-            val inst = buildInst(idx)
-            check(mutableInstructions.size == idx)
-            mutableInstructions += inst
-        }
-
-        fun addInstWithLocation(method: JIRMethod, buildInst: (JIRInstLocation) -> JIRInst) = addInst { idx ->
-            val location = JIRInstLocationImpl(method, idx, lineNumber = -1)
-            buildInst(location)
-        }
-
-        override fun toString(): String = mutableInstructions.joinToString(separator = "\n") { "  $it" }
-    }
-
     companion object {
-        private fun String.typeName() = TypeNameImpl(this.jvmName())
-
         @OptIn(ExperimentalStdlibApi::class)
         private fun JIRMethod.descriptionHash() = description.hashCode().toHexString()
     }

@@ -39,6 +39,7 @@ class ProjectAnalyzer(
     private val symbolicExecutionTimeout: Duration,
     private val ifdsAnalysisTimeout: Duration,
     private val ifdsApMode: ApMode,
+    private val projectKind: ProjectKind,
     private val storeSummaries: Boolean
 ) {
     fun analyze() {
@@ -70,6 +71,7 @@ class ProjectAnalyzer(
     private lateinit var db: JIRDatabase
     private lateinit var cp: JIRClasspath
     private lateinit var projectClasses: ProjectClasses
+    private val classPathExtensionFeature = ProjectClassPathExtensionFeature()
 
     private fun initializeCp() = runBlocking {
         val allCpFiles = mutableListOf<File>()
@@ -108,7 +110,8 @@ class ProjectAnalyzer(
         val methodNormalizer = MethodReturnInstNormalizerFeature
 
         val features = listOf(
-            UnknownClasses, lambdaAnonymousClass, lambdaTransformer, methodNormalizer
+            UnknownClasses, lambdaAnonymousClass, lambdaTransformer, methodNormalizer,
+            classPathExtensionFeature
         )
 
         // todo: fix approximations with multiple JIRDatabase instances
@@ -151,7 +154,11 @@ class ProjectAnalyzer(
         )
 
         logger.info { "Search entry points for project: ${project.sourceRoot}" }
-        val entryPoints = allProjectEntryPoints()
+
+        val entryPoints = when (projectKind) {
+            ProjectKind.UNKNOWN -> allProjectEntryPoints()
+            ProjectKind.SPRING_WEB -> projectClasses.springWebProjectEntryPoints(cp, classPathExtensionFeature)
+        }
 
         logger.info { "Start IFDS analysis for project: ${project.sourceRoot}" }
         analyzer.analyzeWithIfds(entryPoints)
