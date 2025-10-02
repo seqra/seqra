@@ -23,6 +23,7 @@ import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
 import org.opentaint.dataflow.ap.ifds.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.ap.ifds.sarif.SarifGenerator
+import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.graph.ApplicationGraph
@@ -51,7 +52,9 @@ class JIRTaintAnalyzer(
     val opentaintTimeout: Duration,
     val symbolicExecutionEnabled: Boolean,
     val analysisCwe: Set<Int>?,
-    val analysisUnit: JIRUnitResolver = PackageUnitResolver(bannedLocations = dependenciesLocations)
+    val summarySerializationContext: SummarySerializationContext,
+    val storeSummaries: Boolean,
+    val analysisUnit: JIRUnitResolver = PackageUnitResolver(bannedLocations = dependenciesLocations),
 ) {
     private val ifdsAnalysisGraph by lazy {
         val usages = runBlocking { cp.usagesExt() }
@@ -94,8 +97,9 @@ class JIRTaintAnalyzer(
         JIRLanguageManager(cp),
         ifdsAnalysisGraph as ApplicationGraph<CommonMethod, CommonInst>,
         analysisUnit as UnitResolver<CommonMethod>,
-        ifdsApMode,
-        taintConfig
+        taintConfig,
+        summarySerializationContext,
+        ifdsApMode
     )
 
     private fun analyzeTaintWithIfdsEngine(
@@ -106,6 +110,11 @@ class JIRTaintAnalyzer(
         val analysisTimeout = ifdsTimeout * 0.95 // Reserve 5% of time for report creation
         runCatching { ifdsEngine.runAnalysis(entryPoints, timeout = analysisTimeout, cancellationTimeout = 30.seconds) }
             .onFailure { logger.error(it) { "Ifds engine failed" } }
+
+        if (storeSummaries) {
+            logger.info { "Saving summaries" }
+            ifdsEngine.storeSummaries()
+        }
 
         var vulnerabilities = ifdsEngine.getVulnerabilities()
         logger.info { "Total vulnerabilities: ${vulnerabilities.size}" }

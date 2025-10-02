@@ -16,6 +16,8 @@ import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
+import org.opentaint.dataflow.jvm.ap.ifds.JIRSummariesFeature
+import org.opentaint.dataflow.jvm.ap.ifds.JIRSummarySerializationContext
 import org.opentaint.dataflow.jvm.graph.MethodReturnInstNormalizerFeature
 import org.opentaint.machine.TypeScorer
 import org.opentaint.types.ClassScorer
@@ -37,6 +39,7 @@ class ProjectAnalyzer(
     private val symbolicExecutionTimeout: Duration,
     private val ifdsAnalysisTimeout: Duration,
     private val ifdsApMode: ApMode,
+    private val storeSummaries: Boolean
 ) {
     fun analyze() {
         initializeCp()
@@ -87,6 +90,7 @@ class ProjectAnalyzer(
 
             installFeatures(InMemoryHierarchy)
             installFeatures(Usages)
+            installFeatures(JIRSummariesFeature(ifdsApMode))
             installFeatures(ClassScorer(TypeScorer, ::scoreClassNode))
 //            installFeatures(Approximations)
 
@@ -94,7 +98,6 @@ class ProjectAnalyzer(
         }
 
         db.awaitBackgroundJobs()
-        db.setImmutable()
 
         ConfigUtils.loadEncrypted(getPathFromEnv("opentaint_taint_config_path")) {
             taintConfig.loadConfig(this)
@@ -127,6 +130,8 @@ class ProjectAnalyzer(
         System.getenv(envVar)?.let { Path(it) } ?: error("$envVar not provided")
 
     private fun runAnalyzer() {
+        val summarySerializationContext = JIRSummarySerializationContext(cp)
+
         val analyzer = JIRTaintAnalyzer(
             cp, taintConfig,
             projectLocations = projectClasses.projectLocations,
@@ -136,6 +141,8 @@ class ProjectAnalyzer(
             opentaintTimeout = symbolicExecutionTimeout,
             symbolicExecutionEnabled = useSymbolicExecution,
             analysisCwe = cwe.takeIf { it.isNotEmpty() }?.toSet(),
+            summarySerializationContext = summarySerializationContext,
+            storeSummaries = storeSummaries
         )
 
         val sourcesResolver = JIRSourceFileResolver(

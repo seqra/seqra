@@ -7,24 +7,15 @@ import java.io.DataOutputStream
 
 internal class InstSerializer(
     private val languageManager: LanguageManager,
-    context: SummarySerializationContext,
+    private val context: SummarySerializationContext,
 ) {
-    private val methodSerializer = ContextAwareMethodSerializer(
-        languageManager.methodSerializer,
-        context
-    )
-
     fun DataOutputStream.writeInst(inst: CommonInst) {
-        with (methodSerializer) {
-            writeMethod(inst.method)
-        }
+        writeLong(context.getIdByMethod(inst.method))
         writeInt(languageManager.getInstIndex(inst))
     }
 
     fun DataInputStream.readInst(): CommonInst {
-        val method = with (methodSerializer) {
-            readMethod()
-        }
+        val method = context.getMethodById(readLong())
         val instIndex = readInt()
         return languageManager.getInstByIndex(method, instIndex)
     }

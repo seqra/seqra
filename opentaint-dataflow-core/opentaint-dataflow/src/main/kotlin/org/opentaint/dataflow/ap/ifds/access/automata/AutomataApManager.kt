@@ -15,8 +15,8 @@ import org.opentaint.dataflow.ap.ifds.access.MethodEdgesInitialToFinalApSet
 import org.opentaint.dataflow.ap.ifds.access.MethodFinalApSummariesStorage
 import org.opentaint.dataflow.ap.ifds.access.MethodInitialToFinalApSummariesStorage
 import org.opentaint.dataflow.ap.ifds.access.SideEffectRequirementApStorage
-import org.opentaint.dataflow.ap.ifds.serialization.AccessorSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 
 object AutomataApManager : ApManager {
     override fun initialFactAbstraction(): InitialFactAbstraction =
@@ -64,7 +64,7 @@ object AutomataApManager : ApManager {
     override fun createFinalInitialAp(base: AccessPathBase, exclusions: ExclusionSet): InitialFactAp =
         AccessGraphInitialFactAp(base, finalAp, exclusions)
 
-    override fun createSerializer(accessorSerializer: AccessorSerializer): ApSerializer {
-        return AccessGraphApSerializer(accessorSerializer)
+    override fun createSerializer(context: SummarySerializationContext): ApSerializer {
+        return AccessGraphApSerializer(context)
     }
 }

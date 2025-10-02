@@ -7,7 +7,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
-import org.opentaint.dataflow.ap.ifds.serialization.MethodSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.MethodContextSerializer
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
 import org.opentaint.dataflow.graph.ApplicationGraph
@@ -66,7 +66,8 @@ interface LanguageManager {
 
     val factTypeChecker: FactTypeChecker
     val methodCallFactMapper: MethodCallFactMapper
-    val methodSerializer: MethodSerializer
+
+    val methodContextSerializer: MethodContextSerializer
 
     fun onInstructionReached(inst: CommonInst)
     fun reportLanguageSpecificRunnerProgress(logger: KLogger) = Unit

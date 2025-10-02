@@ -4,17 +4,22 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.ap.ifds.serialization.AccessorSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.AccessPathBaseSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.ExclusionSetSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import java.io.DataInputStream
 import java.io.DataOutputStream
 
-internal class AccessGraphApSerializer(private val accessorSerializer: AccessorSerializer) : ApSerializer {
-    private val accessGraphSerializer = AccessGraph.Serializer(accessorSerializer)
+internal class AccessGraphApSerializer(context: SummarySerializationContext) : ApSerializer {
+    private val accessGraphSerializer = AccessGraph.Serializer(context)
+    private val exclusionSetSerializer = ExclusionSetSerializer(context)
 
     private fun DataOutputStream.writeAp(base: AccessPathBase, access: AccessGraph, exclusions: ExclusionSet) {
-        with (accessorSerializer) {
+        with (AccessPathBaseSerializer) {
             writeAccessPathBase(base)
+        }
+        with (exclusionSetSerializer) {
             writeExclusionSet(exclusions)
         }
         with (accessGraphSerializer) {
@@ -23,10 +28,10 @@ internal class AccessGraphApSerializer(private val accessorSerializer: AccessorS
     }
 
     private fun <T> DataInputStream.readAp(builder: (AccessPathBase, AccessGraph, ExclusionSet) -> T): T {
-        val base = with (accessorSerializer) {
+        val base = with (AccessPathBaseSerializer) {
             readAccessPathBase()
         }
-        val exclusions = with (accessorSerializer) {
+        val exclusions = with (exclusionSetSerializer) {
             readExclusionSet()
         }
         val access = with (accessGraphSerializer) {

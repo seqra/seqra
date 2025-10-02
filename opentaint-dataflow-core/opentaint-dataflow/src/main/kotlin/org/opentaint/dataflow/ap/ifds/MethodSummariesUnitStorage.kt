@@ -3,13 +3,26 @@ package org.opentaint.dataflow.ap.ifds
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.serialization.MethodSummariesSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import java.util.concurrent.ConcurrentHashMap
 
 open class MethodSummariesUnitStorage(
     private val apManager: ApManager,
-    private val languageManager: LanguageManager
+    private val languageManager: LanguageManager,
 ) {
     private val methodSummaries = ConcurrentHashMap<MethodEntryPoint, SummaryEdgeStorageWithSubscribers>()
+
+    fun storeSummaries(serializationContext: SummarySerializationContext) {
+        val serializer = MethodSummariesSerializer(serializationContext, languageManager, apManager)
+
+        methodSummaries.entries.groupBy({ it.key.method }) { it.value }.forEach { (method, storages) ->
+            val methodSummaries = storages.map { it.getSummaries() }
+            val serializedSummaries = serializer.serializeMethodSummaries(methodSummaries)
+            serializationContext.storeSummaries(method, serializedSummaries)
+        }
+
+    }
 
     fun subscribeOnMethodEntryPointSummaries(
         methodEntryPoint: MethodEntryPoint,
@@ -69,7 +82,7 @@ open class MethodSummariesUnitStorage(
 
     private fun methodSummaryEdges(methodEntryPoint: MethodEntryPoint) =
         methodSummaries.computeIfAbsent(methodEntryPoint) {
-            SummaryEdgeStorageWithSubscribers(apManager, languageManager, methodEntryPoint)
+            SummaryEdgeStorageWithSubscribers(apManager, methodEntryPoint)
         }
 
     fun collectMethodStats(stats: MethodStats) {

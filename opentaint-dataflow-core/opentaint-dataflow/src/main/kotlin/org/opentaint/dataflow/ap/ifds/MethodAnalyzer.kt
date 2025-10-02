@@ -121,6 +121,24 @@ class NormalMethodAnalyzer(
 
     private val methodExitPoints by lazy { graph.exitPoints(methodEntryPoint.method).toHashSet() }
 
+    init {
+        loadSummariesFromRunner()
+    }
+
+    private fun loadSummariesFromRunner() {
+        runner.getPrecalculatedSummaries(methodEntryPoint)?.let { (summaryEdges, requirements) ->
+            runner.addNewSummaryEdges(methodEntryPoint, summaryEdges)
+            runner.addNewSideEffectRequirement(methodEntryPoint, requirements)
+            summaryEdges.forEach { edge ->
+                when (edge) {
+                    is FactToFact -> initialFacts.registerNewInitialFact(edge.initialFactAp)
+                    is ZeroToFact -> zeroInitialFactProcessed = true
+                    is ZeroToZero -> zeroInitialFactProcessed = true
+                }
+            }
+        }
+    }
+
     override fun collectStats(stats: MethodStats) {
         stats.stats(methodEntryPoint.method).apply {
             steps += analyzerSteps

@@ -190,7 +190,8 @@ class JIRLanguageManager(private val cp: JIRClasspath) : LanguageManager {
 
     override val factTypeChecker = JIRFactTypeChecker(cp)
     override val methodCallFactMapper = JIRMethodCallFactMapper
-    override val methodSerializer = JIRMethodSerializer(cp)
+
+    override val methodContextSerializer = JIRMethodContextSerializer(cp)
 
     override fun onInstructionReached(inst: CommonInst) {
         jirDowncast<JIRInst>(inst)

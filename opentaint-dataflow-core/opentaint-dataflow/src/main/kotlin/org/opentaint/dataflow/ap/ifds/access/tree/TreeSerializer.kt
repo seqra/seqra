@@ -2,20 +2,25 @@ package org.opentaint.dataflow.ap.ifds.access.tree
 
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.ap.ifds.serialization.AccessorSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.AccessPathBaseSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.ExclusionSetSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import java.io.DataInputStream
 import java.io.DataOutputStream
 
 internal class TreeSerializer(
-    private val accessorSerializer: AccessorSerializer
+    private val context: SummarySerializationContext
 ) : ApSerializer {
-    private val accessNodeSerializer = AccessTree.AccessNode.Serializer(accessorSerializer)
+    private val accessNodeSerializer = AccessTree.AccessNode.Serializer(context)
+    private val exclusionSetSerializer = ExclusionSetSerializer(context)
 
     override fun DataOutputStream.writeFinalAp(ap: FinalFactAp) {
         (ap as AccessTree)
-        with (accessorSerializer) {
+        with (AccessPathBaseSerializer) {
             writeAccessPathBase(ap.base)
+        }
+        with (exclusionSetSerializer) {
             writeExclusionSet(ap.exclusions)
         }
         with (accessNodeSerializer) {
@@ -25,25 +30,25 @@ internal class TreeSerializer(
 
     override fun DataOutputStream.writeInitialAp(ap: InitialFactAp) {
         (ap as AccessPath)
-        with (accessorSerializer) {
+        with (AccessPathBaseSerializer) {
             writeAccessPathBase(ap.base)
+        }
+        with (exclusionSetSerializer) {
             writeExclusionSet(ap.exclusions)
         }
 
         val accessors = ap.access?.toList() ?: emptyList()
         writeInt(accessors.size)
         accessors.forEach { accessor ->
-            with (accessorSerializer) {
-                writeAccessor(accessor)
-            }
+            writeLong(context.getIdByAccessor(accessor))
         }
     }
 
     override fun DataInputStream.readFinalAp(): FinalFactAp {
-        val base = with (accessorSerializer) {
+        val base = with (AccessPathBaseSerializer) {
             readAccessPathBase()
         }
-        val exclusions = with (accessorSerializer) {
+        val exclusions = with (exclusionSetSerializer) {
             readExclusionSet()
         }
         val access = with (accessNodeSerializer) {
@@ -53,18 +58,16 @@ internal class TreeSerializer(
     }
 
     override fun DataInputStream.readInitialAp(): InitialFactAp {
-        val base = with (accessorSerializer) {
+        val base = with (AccessPathBaseSerializer) {
             readAccessPathBase()
         }
-        val exclusions = with (accessorSerializer) {
+        val exclusions = with (exclusionSetSerializer) {
             readExclusionSet()
         }
 
         val accessorsSize = readInt()
         val accessors = List(accessorsSize) {
-            with (accessorSerializer) {
-                readAccessor()
-            }
+            context.getAccessorById(readLong())
         }
         val accessNode = AccessPath.AccessNode.createNodeFromAp(accessors.iterator())
         return AccessPath(base, accessNode, exclusions)

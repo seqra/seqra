@@ -35,6 +35,12 @@ class SideEffectRequirementCactusApStorage : SideEffectRequirementApStorage {
         val storage = based[fact.base] ?: return
         dst.addAll(storage.requirements.values)
     }
+
+    override fun collectAllRequirementsTo(dst: MutableList<InitialFactAp>) {
+        based.values.forEach { storage ->
+            dst.addAll(storage.requirements.values)
+        }
+    }
 }
 
 private class SideEffectRequirementStorage {

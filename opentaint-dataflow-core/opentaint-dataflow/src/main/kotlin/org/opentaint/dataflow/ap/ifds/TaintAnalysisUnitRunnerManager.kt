@@ -24,6 +24,7 @@ import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.ap.ifds.access.automata.AutomataApManager
 import org.opentaint.dataflow.ap.ifds.access.cactus.CactusApManager
 import org.opentaint.dataflow.ap.ifds.access.tree.TreeApManager
+import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolutionContext
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolverCancellation
@@ -45,8 +46,9 @@ class TaintAnalysisUnitRunnerManager(
     val languageManager: LanguageManager,
     val graph: ApplicationGraph<CommonMethod, CommonInst>,
     override val unitResolver: UnitResolver<CommonMethod>,
-    apMode: ApMode = ApMode.Cactus,
-    private val taintConfig: TaintRulesProvider
+    private val taintConfig: TaintRulesProvider,
+    private val summarySerializationContext: SummarySerializationContext,
+    apMode: ApMode = ApMode.Cactus
 ): AnalysisUnitRunnerManager, AutoCloseable {
     val apManager: ApManager = when (apMode) {
         ApMode.Tree -> TreeApManager
@@ -90,6 +92,13 @@ class TaintAnalysisUnitRunnerManager(
     private val analysisMemoryManager = MemoryManager(OOM_DETECTION_THRESHOLD) {
         logger.error { "Running low on memory, stopping analysis" }
         analysisCompletion.complete(Unit)
+    }
+
+    fun storeSummaries() {
+        unitStorage.values.forEach { storage ->
+            storage.storeSummaries(summarySerializationContext)
+        }
+        summarySerializationContext.flush()
     }
 
     fun runAnalysis(
@@ -238,7 +247,7 @@ class TaintAnalysisUnitRunnerManager(
         val storage = unitStorage.getOrPut(unit) { TaintAnalysisUnitStorage(apManager, languageManager) }
         val sinkTracker = TaintSinkTracker(apManager, storage)
         val runner = TaintAnalysisUnitRunner(
-            this, unit, graph, unitResolver, taintConfig, sinkTracker
+            this, unit, graph, unitResolver, taintConfig, sinkTracker, summarySerializationContext
         )
 
         val exceptionHandler = CoroutineExceptionHandler { _, exception ->

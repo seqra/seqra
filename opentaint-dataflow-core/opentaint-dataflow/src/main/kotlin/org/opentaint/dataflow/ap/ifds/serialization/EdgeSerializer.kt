@@ -12,16 +12,12 @@ internal class EdgeSerializer(
     apManager: ApManager,
     context: SummarySerializationContext,
 ) {
-    private val accessorSerializer = AccessorSerializer(context)
     private val instSerializer = InstSerializer(languageManager, context)
-    private val apSerializer = apManager.createSerializer(accessorSerializer)
-    private val methodSerializer = ContextAwareMethodSerializer(
-        languageManager.methodSerializer,
-        context
-    )
+    private val apSerializer = apManager.createSerializer(context)
+    private val methodContextSerializer = languageManager.methodContextSerializer
 
-    private fun DataOutputStream.writeMethodEntryPoint(entryPoint: MethodEntryPoint) {
-        with (methodSerializer) {
+    fun DataOutputStream.writeMethodEntryPoint(entryPoint: MethodEntryPoint) {
+        with (methodContextSerializer) {
             writeMethodContext(entryPoint.context)
         }
         with (instSerializer) {
@@ -55,8 +51,8 @@ internal class EdgeSerializer(
         }
     }
 
-    private fun DataInputStream.readMethodEntryPoint(): MethodEntryPoint {
-        val context = with (methodSerializer) {
+    fun DataInputStream.readMethodEntryPoint(): MethodEntryPoint {
+        val context = with (methodContextSerializer) {
             readMethodContext()
         }
         val statement = with (instSerializer) {

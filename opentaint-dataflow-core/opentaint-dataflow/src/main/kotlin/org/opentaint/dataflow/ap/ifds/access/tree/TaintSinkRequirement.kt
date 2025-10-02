@@ -36,6 +36,12 @@ class SideEffectRequirementTreeApStorage : SideEffectRequirementApStorage {
         val storage = based[fact.base] ?: return
         dst.addAll(storage.findRequirements((fact as AccessTree).access))
     }
+
+    override fun collectAllRequirementsTo(dst: MutableList<InitialFactAp>) {
+        based.values.forEach { storage ->
+            storage.allNodes().mapNotNullTo(dst) { it.requirement }
+        }
+    }
 }
 
 private class SideEffectRequirementStorage : AccessBasedStorage<SideEffectRequirementStorage>() {

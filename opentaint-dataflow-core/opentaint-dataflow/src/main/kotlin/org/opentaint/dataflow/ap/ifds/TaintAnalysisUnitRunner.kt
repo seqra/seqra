@@ -11,6 +11,8 @@ import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager.MethodEntry
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.serialization.MethodSummariesSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolverCancellation
 import org.opentaint.dataflow.graph.ApplicationGraph
@@ -23,7 +25,8 @@ class TaintAnalysisUnitRunner(
     override val graph: ApplicationGraph<CommonMethod, CommonInst>,
     private val unitResolver: UnitResolver<CommonMethod>,
     override val taintConfiguration: TaintRulesProvider,
-    override val sinkTracker: TaintSinkTracker
+    override val sinkTracker: TaintSinkTracker,
+    private val summarySerializationContext: SummarySerializationContext
 ) : AnalysisRunner, SummaryEdgeSubscriptionManager.SummaryEdgeProcessingCtx {
     override val apManager: ApManager
         get() = manager.apManager
@@ -41,12 +44,19 @@ class TaintAnalysisUnitRunner(
 
     private val analyzers = mutableListOf<MethodAnalyzerStorage>()
     private val methodAnalyzers = hashMapOf<CommonMethod, MethodAnalyzerStorage>()
+    private val loadedSummaries = hashMapOf<MethodEntryPoint, Pair<List<Edge>, List<InitialFactAp>>>()
 
     private val internalMethodSummarySubscriptions = SummaryEdgeSubscriptionManager(manager, this)
     private val externalMethodSummarySubscriptions = SummaryEdgeSubscriptionManager(manager, this)
 
     private val eventsProcessed = LongAdder()
     private val eventsEnqueued = LongAdder()
+
+    private val methodSummariesSerializer = MethodSummariesSerializer(
+        summarySerializationContext,
+        languageManager,
+        apManager
+    )
 
     fun stats() = UnitRunnerStats(eventsProcessed.sum(), eventsEnqueued.sum())
 
@@ -249,6 +259,21 @@ class TaintAnalysisUnitRunner(
 
     override fun addNewSummaryEdges(methodEntryPoint: MethodEntryPoint, edges: List<Edge>) {
         manager.newSummaryEdges(methodEntryPoint, edges)
+    }
+
+    override fun getPrecalculatedSummaries(methodEntryPoint: MethodEntryPoint): Pair<List<Edge>, List<InitialFactAp>>? {
+        loadedSummaries[methodEntryPoint]?.let {
+            return it
+        }
+
+        val serializedSummaries = summarySerializationContext.loadSummaries(methodEntryPoint.method) ?: return null
+        val methodSummaries = methodSummariesSerializer.deserializeMethodSummaries(serializedSummaries)
+
+        methodSummaries.forEach { (methodEntryPoint, edges, requirements) ->
+            loadedSummaries[methodEntryPoint] = edges to requirements
+        }
+
+        return loadedSummaries[methodEntryPoint]
     }
 
     override fun addNewSideEffectRequirement(methodEntryPoint: MethodEntryPoint, requirements: List<InitialFactAp>) {

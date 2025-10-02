@@ -2,18 +2,23 @@ package org.opentaint.dataflow.ap.ifds.access.cactus
 
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.ap.ifds.serialization.AccessorSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.AccessPathBaseSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.ExclusionSetSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import java.io.DataInputStream
 import java.io.DataOutputStream
 
-internal class CactusSerializer(private val accessorSerializer: AccessorSerializer) : ApSerializer {
-    private val accessNodeSerializer = AccessCactus.AccessNode.Serializer(accessorSerializer)
+internal class CactusSerializer(private val context : SummarySerializationContext) : ApSerializer {
+    private val accessNodeSerializer = AccessCactus.AccessNode.Serializer(context)
+    private val exclusionSetSerializer = ExclusionSetSerializer(context)
 
     override fun DataOutputStream.writeFinalAp(ap: FinalFactAp) {
         (ap as AccessCactus)
-        with (accessorSerializer) {
+        with (AccessPathBaseSerializer) {
             writeAccessPathBase(ap.base)
+        }
+        with (exclusionSetSerializer) {
             writeExclusionSet(ap.exclusions)
         }
         with (accessNodeSerializer) {
@@ -23,34 +28,32 @@ internal class CactusSerializer(private val accessorSerializer: AccessorSerializ
 
     override fun DataOutputStream.writeInitialAp(ap: InitialFactAp) {
         (ap as AccessPathWithCycles)
-        with (accessorSerializer) {
+        with (AccessPathBaseSerializer) {
             writeAccessPathBase(ap.base)
+        }
+        with (exclusionSetSerializer) {
             writeExclusionSet(ap.exclusions)
         }
         val nodes = ap.access?.toList() ?: emptyList()
 
         writeInt(nodes.size)
         nodes.forEach { (accessor, cycles) ->
-            with (accessorSerializer) {
-                writeAccessor(accessor)
-            }
+            writeLong(context.getIdByAccessor(accessor))
             writeInt(cycles.size)
             cycles.forEach { cycle ->
                 writeInt(cycle.size)
                 cycle.forEach { accessor ->
-                    with (accessorSerializer) {
-                        writeAccessor(accessor)
-                    }
+                    writeLong(context.getIdByAccessor(accessor))
                 }
             }
         }
     }
 
     override fun DataInputStream.readFinalAp(): FinalFactAp {
-        val base = with (accessorSerializer) {
+        val base = with (AccessPathBaseSerializer) {
             readAccessPathBase()
         }
-        val exclusions = with (accessorSerializer) {
+        val exclusions = with (exclusionSetSerializer) {
             readExclusionSet()
         }
         val access = with (accessNodeSerializer) {
@@ -60,25 +63,21 @@ internal class CactusSerializer(private val accessorSerializer: AccessorSerializ
     }
 
     override fun DataInputStream.readInitialAp(): InitialFactAp {
-        val base = with(accessorSerializer) {
+        val base = with(AccessPathBaseSerializer) {
             readAccessPathBase()
         }
-        val exclusions = with (accessorSerializer) {
+        val exclusions = with (exclusionSetSerializer) {
             readExclusionSet()
         }
         val nodesSize = readInt()
         val nodeBuilder = AccessPathWithCycles.AccessNode.Builder()
         repeat(nodesSize) {
-            val accessor = with (accessorSerializer) {
-                readAccessor()
-            }
+            val accessor = context.getAccessorById(readLong())
             val cyclesSize = readInt()
             val cycles = List(cyclesSize) {
                 val cycleSize = readInt()
                 List(cycleSize) {
-                    with (accessorSerializer) {
-                        readAccessor()
-                    }
+                    context.getAccessorById(readLong())
                 }
             }
             nodeBuilder.append(accessor, cycles)

@@ -15,7 +15,7 @@ import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
-import org.opentaint.dataflow.ap.ifds.serialization.AccessorSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
 import java.io.DataInputStream
 import java.io.DataOutputStream
@@ -456,14 +456,12 @@ class AccessGraph(
         initial, final, edges.builder(), nodeSucc.builder(), nodePred.builder()
     )
 
-    internal class Serializer(private val accessorSerializer: AccessorSerializer) {
+    internal class Serializer(private val context: SummarySerializationContext) {
         private fun DataOutputStream.writeAdjacentSets(sets: PersistentList<PersistentSet<Accessor>?>) {
             sets.forEach { set ->
                 writeInt(set?.size ?: -1)
                 set?.forEach { accessor ->
-                    with (accessorSerializer) {
-                        writeAccessor(accessor)
-                    }
+                    writeLong(context.getIdByAccessor(accessor))
                 }
             }
         }
@@ -475,9 +473,7 @@ class AccessGraph(
                     null
                 } else {
                     List(setSize) {
-                        with (accessorSerializer) {
-                            readAccessor()
-                        }
+                        context.getAccessorById(readLong())
                     }.toPersistentSet()
                 }
             }.toPersistentList()
@@ -489,9 +485,7 @@ class AccessGraph(
 
             writeInt(graph.edges.size)
             graph.edges.forEach { (accessor, edge) ->
-                with (accessorSerializer) {
-                    writeAccessor(accessor)
-                }
+                writeLong(context.getIdByAccessor(accessor))
                 writeInt(edge.from)
                 writeInt(edge.to)
             }
@@ -508,9 +502,7 @@ class AccessGraph(
             val edgesSize = readInt()
             val edgesBuilder = persistentHashMapOf<Accessor, AgEdge>().builder()
             repeat(edgesSize) {
-                val accessor = with (accessorSerializer) {
-                    readAccessor()
-                }
+                val accessor = context.getAccessorById(readLong())
                 val from = readInt()
                 val to = readInt()
                 edgesBuilder[accessor] = AgEdge(from, to)

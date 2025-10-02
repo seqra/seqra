@@ -32,6 +32,12 @@ class SideEffectRequirementAutomataApStorage : SideEffectRequirementApStorage {
         dst.addAll(storage.requirements.values)
     }
 
+    override fun collectAllRequirementsTo(dst: MutableList<InitialFactAp>) {
+        based.values.forEach { storage ->
+            dst.addAll(storage.requirements.values)
+        }
+    }
+
     private class Storage {
         var requirements = persistentHashMapOf<AccessGraph, AccessGraphInitialFactAp>()
         private var delta: PersistentMap<AccessGraph, AccessGraphInitialFactAp>? = null

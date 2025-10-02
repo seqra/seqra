@@ -12,7 +12,7 @@ import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.ap.ifds.serialization.AccessorSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import java.io.DataInputStream
 import java.io.DataOutputStream
 
@@ -639,7 +639,7 @@ class AccessTree(
             return create(isAbstract, isFinal, newAccessors.first, newAccessors.second)
         }
 
-        internal class Serializer(private val accessorSerializer: AccessorSerializer) {
+        internal class Serializer(private val context: SummarySerializationContext) {
             fun DataOutputStream.writeAccessNode(node: AccessNode) {
                 var mask = 0
                 if (node.isFinal) {
@@ -653,9 +653,7 @@ class AccessTree(
                 writeInt(node.accessors?.size ?: 0)
                 if (node.accessors != null) {
                     node.accessors.forEach {
-                        with (accessorSerializer) {
-                            writeAccessor(it)
-                        }
+                        writeLong(context.getIdByAccessor(it))
                     }
                     node.accessorNodes!!.forEach { child ->
                         writeAccessNode(child)
@@ -674,9 +672,7 @@ class AccessTree(
                 }
 
                 val accessors = Array(accessorsSize) {
-                    with(accessorSerializer) {
-                        readAccessor()
-                    }
+                    context.getAccessorById(readLong())
                 }
 
                 val accessNodes = Array(accessorsSize) {

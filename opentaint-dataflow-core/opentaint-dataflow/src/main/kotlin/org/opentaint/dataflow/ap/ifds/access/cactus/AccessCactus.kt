@@ -12,7 +12,7 @@ import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.ap.ifds.serialization.AccessorSerializer
+import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.serialization.readEnum
 import org.opentaint.dataflow.ap.ifds.serialization.writeEnum
 
@@ -1049,7 +1049,7 @@ class AccessCactus(
             )
         }
 
-        internal class Serializer(private val accessorSerializer: AccessorSerializer) {
+        internal class Serializer(private val context : SummarySerializationContext) {
             fun DataOutputStream.writeAccessNode(accessNode: AccessNode) {
                 var mask = 0
                 if (accessNode.isFinal) {
@@ -1065,18 +1065,14 @@ class AccessCactus(
                     when (edge) {
                         is BasicEdge -> {
                             writeEnum(EdgeType.BASIC)
-                            with (accessorSerializer) {
-                                writeAccessor(edge.accessor)
-                            }
+                            writeLong(context.getIdByAccessor(edge.accessor))
                             writeAccessNode(edge.node)
                         }
                         is CycleStartEdge -> {
                             writeEnum(EdgeType.CYCLE_START)
                             writeInt(edge.cycleSize)
                             edge.cycleEdges.forEach { cycleEdge ->
-                                with (accessorSerializer) {
-                                    writeAccessor(cycleEdge.accessor)
-                                }
+                                writeLong(context.getIdByAccessor(cycleEdge.accessor))
                             }
                             edge.node?.let {
                                 writeAccessNode(it)
@@ -1096,18 +1092,14 @@ class AccessCactus(
                     val edgeType = readEnum<EdgeType>()
                     when (edgeType) {
                         EdgeType.BASIC -> {
-                            val accessor = with (accessorSerializer) {
-                                readAccessor()
-                            }
+                            val accessor = context.getAccessorById(readLong())
                             val node = readAccessNode()
                             BasicEdge.createWithoutFoldUnsafe(accessor, node)
                         }
                         EdgeType.CYCLE_START -> {
                             val accessorsSize = readInt()
                             val accessors = List(accessorsSize) {
-                                with (accessorSerializer) {
-                                    readAccessor()
-                                }
+                                context.getAccessorById(readLong())
                             }
 
                             if (accessorsSize == 1) {

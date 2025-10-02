@@ -2,20 +2,16 @@ package org.opentaint.dataflow.ap.ifds.serialization
 
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.dataflow.ap.ifds.Accessor
-import java.util.*
 
-class SummarySerializationContext {
-    val serializedAccessors = HashMap<Accessor, Int>()
-    val deserializedAccessors: MutableMap<Int, Accessor> = hashMapOf()
+interface SummarySerializationContext {
+    fun getIdByMethod(method: CommonMethod): Long
+    fun getIdByAccessor(accessor: Accessor): Long
 
-    val serializedMethods = HashMap<CommonMethod, Int>()
-    val deserializedMethods: MutableMap<Int, CommonMethod> = hashMapOf()
+    fun getMethodById(id: Long): CommonMethod
+    fun getAccessorById(id: Long): Accessor
 
-    fun reset() {
-        serializedAccessors.clear()
-        deserializedAccessors.clear()
+    fun loadSummaries(method: CommonMethod): ByteArray?
+    fun storeSummaries(method: CommonMethod, summaries: ByteArray)
 
-        serializedMethods.clear()
-        deserializedMethods.clear()
-    }
+    fun flush()
 }
