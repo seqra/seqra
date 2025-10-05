@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
 import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.taint.configuration.Action
 import org.opentaint.ir.taint.configuration.AssignMark
 import org.opentaint.ir.taint.configuration.Condition
@@ -19,16 +20,17 @@ import org.opentaint.util.Maybe
 import org.opentaint.util.maybeFlatMap
 
 object TaintConfigUtils {
-    fun sinkRules(config: TaintRulesProvider, method: CommonMethod) =
-        config.sinkRulesForMethod(method)
+    fun sinkRules(config: TaintRulesProvider, method: CommonMethod, statement: CommonInst) =
+        config.sinkRulesForMethod(method, statement)
 
     fun <T> applySourceConfig(
         config: TaintRulesProvider,
         method: CommonMethod,
+        statement: CommonInst,
         conditionEvaluator: ConditionVisitor<Boolean>,
         taintActionEvaluator: SourceActionEvaluator<T>
     ) = applyAssignMark<TaintMethodSource, T>(
-        config.sourceRulesForMethod(method), conditionEvaluator, taintActionEvaluator,
+        config.sourceRulesForMethod(method, statement), conditionEvaluator, taintActionEvaluator,
         TaintMethodSource::condition, TaintMethodSource::actionsAfter
     )
 
@@ -59,10 +61,11 @@ object TaintConfigUtils {
     fun <T> applyPassThrough(
         config: TaintRulesProvider,
         method: CommonMethod,
+        statement: CommonInst,
         conditionEvaluator: ConditionVisitor<Boolean>,
         taintActionEvaluator: PassActionEvaluator<T>
     ): Maybe<List<T>> =
-        config.passTroughRulesForMethod(method)
+        config.passTroughRulesForMethod(method, statement)
             .filter { it.condition.accept(conditionEvaluator) }
             .maybeFlatMap { item ->
                 item.actionsAfter.maybeFlatMap {
@@ -79,10 +82,11 @@ object TaintConfigUtils {
     fun <T> applyCleaner(
         config: TaintRulesProvider,
         method: CommonMethod,
+        statement: CommonInst,
         conditionEvaluator: ConditionVisitor<Boolean>,
         taintActionEvaluator: PassActionEvaluator<T>
     ): Maybe<List<T>> =
-        config.cleanerRulesForMethod(method)
+        config.cleanerRulesForMethod(method, statement)
             .filter { it.condition.accept(conditionEvaluator) }
             .maybeFlatMap { item ->
                 item.actionsAfter.maybeFlatMap {

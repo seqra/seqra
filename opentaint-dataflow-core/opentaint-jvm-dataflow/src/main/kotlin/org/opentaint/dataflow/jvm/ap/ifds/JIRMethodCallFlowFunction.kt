@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
+import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
@@ -57,6 +58,7 @@ class JIRMethodCallFlowFunction(
         applySourceConfig(
             config,
             method = callExpr.callee,
+            statement = statement,
             conditionEvaluator = JIRBasicConditionEvaluator(traits, callPositionToJIRValueResolver),
             taintActionEvaluator = TaintSourceActionEvaluator(apManager, callPositionToAccessPathResolver)
         ).onSome { facts ->
@@ -137,6 +139,7 @@ class JIRMethodCallFlowFunction(
         val passThroughFacts = applyPassThrough(
             config,
             callExpr.callee,
+            statement,
             conditionEvaluator,
             taintActionEvaluator
         )
@@ -144,6 +147,7 @@ class JIRMethodCallFlowFunction(
         val cleanerFacts = applyCleaner(
             config,
             callExpr.callee,
+            statement,
             conditionEvaluator,
             taintActionEvaluator
         )
@@ -195,7 +199,7 @@ class JIRMethodCallFlowFunction(
         )
         val valueResolver = CallPositionToJIRValueResolver(callExpr, returnValue = null)
 
-        val sinkRules = sinkRules(config, callExpr.callee)
+        val sinkRules = sinkRules(config, callExpr.callee, statement)
         val remainingSinkRules = mutableListOf<TaintMethodSink>()
 
         val noFactConditionEvaluator = JIRFactIgnoreConditionEvaluator(traits, valueResolver)
@@ -264,15 +268,16 @@ class JIRMethodCallFlowFunction(
             taintActionEvaluator = TaintSourceActionEvaluator(apManager, CalleePositionToAccessPath())
         )
 
-        private fun sinkRules(config: TaintRulesProvider, method: JIRMethod) =
-            TaintConfigUtils.sinkRules(config, method)
+        private fun sinkRules(config: TaintRulesProvider, method: JIRMethod, statement: JIRInst) =
+            TaintConfigUtils.sinkRules(config, method, statement)
 
         private fun applySourceConfig(
             config: TaintRulesProvider,
             method: JIRMethod,
+            statement: JIRInst,
             conditionEvaluator: ConditionVisitor<Boolean>,
             taintActionEvaluator: TaintSourceActionEvaluator
-        ) = TaintConfigUtils.applySourceConfig(config, method, conditionEvaluator, taintActionEvaluator)
+        ) = TaintConfigUtils.applySourceConfig(config, method, statement, conditionEvaluator, taintActionEvaluator)
 
         private fun applyEntryPointConfig(
             config: TaintRulesProvider,
@@ -284,17 +289,19 @@ class JIRMethodCallFlowFunction(
         private fun applyPassThrough(
             config: TaintRulesProvider,
             method: JIRMethod,
+            inst: CommonInst,
             conditionEvaluator: ConditionVisitor<Boolean>,
             taintActionEvaluator: TaintPassActionEvaluator
         ): Maybe<List<FinalFactAp>> =
-            TaintConfigUtils.applyPassThrough(config, method, conditionEvaluator, taintActionEvaluator)
+            TaintConfigUtils.applyPassThrough(config, method, inst, conditionEvaluator, taintActionEvaluator)
 
         private fun applyCleaner(
             config: TaintRulesProvider,
             method: JIRMethod,
+            statement: JIRInst,
             conditionEvaluator: ConditionVisitor<Boolean>,
             taintActionEvaluator: TaintPassActionEvaluator
         ): Maybe<List<FinalFactAp>> =
-            TaintConfigUtils.applyCleaner(config, method, conditionEvaluator, taintActionEvaluator)
+            TaintConfigUtils.applyCleaner(config, method, statement, conditionEvaluator, taintActionEvaluator)
     }
 }

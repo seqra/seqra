@@ -2,6 +2,7 @@ package org.opentaint.dataflow.jvm.ap.ifds.trace
 
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.taint.configuration.AssignMark
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.dataflow.ap.ifds.FinalFactReader
@@ -26,6 +27,7 @@ class JIRMethodCallPrecondition(
     private val taintConfig: TaintRulesProvider,
     returnValue: JIRImmediate?,
     callExpr: JIRCallExpr,
+    private val statement: JIRInst,
     factsAtStatement: List<FinalFactAp>,
     traits: JIRTraits
 ): MethodCallPrecondition {
@@ -49,6 +51,7 @@ class JIRMethodCallPrecondition(
         return TaintConfigUtils.applySourceConfig(
                 taintConfig,
                 method,
+                statement,
                 ruleConditionEvaluator,
                 sourcePreconditionEvaluator
             )
@@ -61,6 +64,7 @@ class JIRMethodCallPrecondition(
         return TaintConfigUtils.applyPassThrough(
             taintConfig,
             method,
+            statement,
             ruleConditionEvaluator,
             rulePreconditionEvaluator
         )

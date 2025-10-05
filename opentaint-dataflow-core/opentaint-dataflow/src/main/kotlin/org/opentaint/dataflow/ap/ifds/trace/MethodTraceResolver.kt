@@ -470,6 +470,7 @@ class MethodTraceResolver(
             config = taintConfiguration,
             returnValue = returnValue,
             callExpr = callExpr,
+            statement = statement,
             factsAtStatement = factsAtStatement,
         )
 

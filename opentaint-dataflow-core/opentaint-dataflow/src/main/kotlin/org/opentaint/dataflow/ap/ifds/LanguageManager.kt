@@ -55,6 +55,7 @@ interface LanguageManager {
         config: TaintRulesProvider,
         returnValue: CommonValue?,
         callExpr: CommonCallExpr,
+        statement: CommonInst,
         factsAtStatement: List<FinalFactAp>,
     ): MethodCallPrecondition
 

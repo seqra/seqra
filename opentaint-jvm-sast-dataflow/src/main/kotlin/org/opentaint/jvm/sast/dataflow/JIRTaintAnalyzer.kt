@@ -42,7 +42,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
-class JIRTaintAnalyzer(
+open class JIRTaintAnalyzer(
     val cp: JIRClasspath,
     val taintConfiguration: TaintConfiguration,
     val projectLocations: Set<RegisteredLocation>,
@@ -62,7 +62,7 @@ class JIRTaintAnalyzer(
         JIRSafeApplicationGraph(mainGraph)
     }
 
-    private lateinit var ifdsTraces: List<VulnerabilityWithTrace>
+    protected lateinit var ifdsTraces: List<VulnerabilityWithTrace>
     private lateinit var verifiedIfdsTraces: List<VulnerabilityWithTrace>
 
     fun analyzeWithIfds(entryPoints: List<JIRMethod>) {
@@ -167,25 +167,25 @@ class JIRTaintAnalyzer(
             }
     }
 
-    private val taintConfig: TaintRulesProvider by lazy {
+    protected open val taintConfig: TaintRulesProvider by lazy {
         val provider = object : TaintRulesProvider {
             override fun entryPointRulesForMethod(method: CommonMethod) = getRules(method) {
                 taintConfiguration.entryPointForMethod(it)
             }
 
-            override fun sourceRulesForMethod(method: CommonMethod) = getRules(method) {
+            override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {
                 taintConfiguration.sourceForMethod(it)
             }
 
-            override fun sinkRulesForMethod(method: CommonMethod) = getRules(method) {
+            override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {
                 taintConfiguration.sinkForMethod(it)
             }
 
-            override fun passTroughRulesForMethod(method: CommonMethod) = getRules(method) {
+            override fun passTroughRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {
                 taintConfiguration.passThroughForMethod(it)
             }
 
-            override fun cleanerRulesForMethod(method: CommonMethod) = getRules(method) {
+            override fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {
                 taintConfiguration.cleanerForMethod(it)
             }
 
@@ -203,7 +203,7 @@ class JIRTaintAnalyzer(
         StringConcatRuleProvider(provider)
     }
 
-    private class StringConcatRuleProvider(private val base: TaintRulesProvider) : TaintRulesProvider by base {
+    protected class StringConcatRuleProvider(private val base: TaintRulesProvider) : TaintRulesProvider by base {
         private var stringConcatPassThrough: TaintPassThrough? = null
 
         private fun stringConcatPassThrough(method: JIRMethod): TaintPassThrough =
@@ -219,9 +219,9 @@ class JIRTaintAnalyzer(
                 actionsAfter = possibleArgs.map { CopyAllMarks(from = it, to = Result) })
         }
 
-        override fun passTroughRulesForMethod(method: CommonMethod): Iterable<TaintPassThrough> {
+        override fun passTroughRulesForMethod(method: CommonMethod, statement: CommonInst): Iterable<TaintPassThrough> {
             check(method is JIRMethod) { "Expected method to be JIRMethod" }
-            val baseRules = base.passTroughRulesForMethod(method)
+            val baseRules = base.passTroughRulesForMethod(method, statement)
 
             if (method.name == "makeConcatWithConstants" && method.enclosingClass.name == "java.lang.invoke.StringConcatFactory") {
                 return (sequenceOf(stringConcatPassThrough(method)) + baseRules).asIterable()
@@ -232,7 +232,7 @@ class JIRTaintAnalyzer(
     }
 
     companion object {
-        val logger = object : KLogging() {}.logger
+        private val logger = object : KLogging() {}.logger
 
         class PackageUnitResolver(private val bannedLocations: Set<RegisteredLocation>) : JIRUnitResolver {
             override fun resolve(method: JIRMethod): UnitType {

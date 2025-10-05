@@ -164,16 +164,19 @@ class JIRLanguageManager(private val cp: JIRClasspath) : LanguageManager {
         config: TaintRulesProvider,
         returnValue: CommonValue?,
         callExpr: CommonCallExpr,
+        statement: CommonInst,
         factsAtStatement: List<FinalFactAp>,
     ): MethodCallPrecondition {
         jirDowncast<JIRImmediate?>(returnValue)
         jirDowncast<JIRCallExpr>(callExpr)
+        jirDowncast<JIRInst>(statement)
 
         return JIRMethodCallPrecondition(
             apManager,
             config,
             returnValue,
             callExpr,
+            statement,
             factsAtStatement,
             traits
         )
