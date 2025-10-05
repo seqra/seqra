@@ -5,7 +5,6 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstList
 import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
 import org.opentaint.ir.api.jvm.cfg.JIRMutableInstList
-import org.opentaint.ir.api.jvm.ext.jvmName
 import org.opentaint.ir.impl.cfg.JIRInstLocationImpl
 import org.opentaint.ir.impl.cfg.JIRMutableInstListImpl
 import org.opentaint.ir.impl.types.TypeNameImpl
@@ -38,4 +37,4 @@ class JIRInstListBuilder : JIRInstList<JIRInst> {
     override fun toString(): String = mutableInstructions.joinToString(separator = "\n") { "  $it" }
 }
 
-fun String.typeName() = TypeNameImpl(this.jvmName())
+fun String.typeName() = TypeNameImpl.fromTypeName(this)
