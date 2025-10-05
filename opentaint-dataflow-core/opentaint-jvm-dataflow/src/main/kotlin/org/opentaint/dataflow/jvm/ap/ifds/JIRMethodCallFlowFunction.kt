@@ -63,9 +63,6 @@ class JIRMethodCallFlowFunction(
             taintActionEvaluator = TaintSourceActionEvaluator(apManager, callPositionToAccessPathResolver)
         ).onSome { facts ->
             facts.mapTo(this) { CallToReturnZFact(factAp = it) }
-
-            // Skip method invocation
-            return@buildSet
         }
 
         this += CallToStartZeroFact

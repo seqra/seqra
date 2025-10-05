@@ -4,13 +4,25 @@ import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstList
 import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
+import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.JIRMutableInstList
+import org.opentaint.ir.api.jvm.cfg.locals
 import org.opentaint.ir.impl.cfg.JIRInstLocationImpl
 import org.opentaint.ir.impl.cfg.JIRMutableInstListImpl
 import org.opentaint.ir.impl.types.TypeNameImpl
 
-class JIRInstListBuilder : JIRInstList<JIRInst> {
-    private val mutableInstructions = mutableListOf<JIRInst>()
+class JIRInstListBuilder(
+    private val mutableInstructions: MutableList<JIRInst> = mutableListOf()
+) : JIRInstList<JIRInst> {
+    private var localVarIdx: Int
+
+    init {
+        val maxLocalIdx = mutableInstructions.maxOfOrNull { inst ->
+            inst.locals.filterIsInstance<JIRLocalVar>().maxOfOrNull { it.index } ?: -1
+        } ?: -1
+
+        localVarIdx = maxLocalIdx + 1
+    }
 
     override val indices: IntRange get() = mutableInstructions.indices
     override val instructions: List<JIRInst> get() = mutableInstructions
@@ -21,6 +33,8 @@ class JIRInstListBuilder : JIRInstList<JIRInst> {
     override fun getOrNull(index: Int): JIRInst? = mutableInstructions.getOrNull(index)
     override fun iterator(): Iterator<JIRInst> = mutableInstructions.iterator()
     override fun toMutableList(): JIRMutableInstList<JIRInst> = JIRMutableInstListImpl(mutableInstructions)
+
+    fun nextLocalVarIdx(): Int = localVarIdx++
 
     fun addInst(buildInst: (Int) -> JIRInst) {
         val idx = mutableInstructions.size

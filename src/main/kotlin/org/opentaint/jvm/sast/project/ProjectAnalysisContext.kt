@@ -17,6 +17,8 @@ import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
 import org.opentaint.dataflow.jvm.graph.MethodReturnInstNormalizerFeature
 import org.opentaint.machine.TypeScorer
+import org.opentaint.dataflow.jvm.graph.transformers.JIRMultiDimArrayAllocationTransformer
+import org.opentaint.dataflow.jvm.graph.transformers.JIRStringConcatTransformer
 import org.opentaint.types.ClassScorer
 import org.opentaint.types.scoreClassNode
 import org.opentaint.util.ConfigUtils
@@ -100,10 +102,16 @@ abstract class AbstractProjectAnalyzer(
         val lambdaTransformer = LambdaExpressionToAnonymousClassTransformerFeature(lambdaAnonymousClass)
         val methodNormalizer = MethodReturnInstNormalizerFeature
 
-        val features = listOf(
+        val features = mutableListOf(
             UnknownClasses, lambdaAnonymousClass, lambdaTransformer, methodNormalizer,
+            JIRStringConcatTransformer, JIRMultiDimArrayAllocationTransformer,
             classPathExtensionFeature
         )
+
+        if (projectKind == ProjectKind.SPRING_WEB) {
+            features.add(SpringReactorOperatorsTransformer)
+            features.add(SpringAutowiredFieldInitializerTransformer())
+        }
 
         // todo: fix approximations with multiple JIRDatabase instances
 //        cp = db.classpathWithApproximations(allCpFiles, features)
@@ -111,6 +119,12 @@ abstract class AbstractProjectAnalyzer(
 
         projectClasses = ProjectClasses(cp, projectPackage, projectModulesFiles)
         projectClasses.loadProjectClasses()
+
+        if (projectKind == ProjectKind.SPRING_WEB) {
+            cp.features?.filterIsInstance<SpringAutowiredFieldInitializerTransformer>()?.forEach {
+                it.init(projectClasses)
+            }
+        }
 
         val missedModules = project.modules.toSet() - projectClasses.locationProjectModules.values.toSet()
         if (missedModules.isNotEmpty()) {
@@ -129,7 +143,7 @@ abstract class AbstractProjectAnalyzer(
         logger.info { "Search entry points for project: ${project.sourceRoot}" }
         return when (projectKind) {
             ProjectKind.UNKNOWN -> allProjectEntryPoints()
-            ProjectKind.SPRING_WEB -> projectClasses.springWebProjectEntryPoints(cp, classPathExtensionFeature)
+            ProjectKind.SPRING_WEB -> projectClasses.springWebProjectEntryPoints(cp)
         }
     }
 

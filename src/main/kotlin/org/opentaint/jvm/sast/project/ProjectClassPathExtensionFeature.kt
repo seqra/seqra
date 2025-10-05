@@ -20,4 +20,7 @@ class ProjectClassPathExtensionFeature : JIRClasspathExtFeature {
     fun extendClassPath(cls: JIRClassOrInterface) {
         classPathExtension[cls.name] = cls
     }
+
+    fun containsClass(className: String): Boolean =
+        classPathExtension.containsKey(className)
 }
