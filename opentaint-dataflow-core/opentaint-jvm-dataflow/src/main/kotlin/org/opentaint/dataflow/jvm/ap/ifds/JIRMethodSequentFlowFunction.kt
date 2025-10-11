@@ -8,6 +8,8 @@ import org.opentaint.ir.api.jvm.cfg.JIRExpr
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
+import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
@@ -66,13 +68,35 @@ class JIRMethodSequentFlowFunction(
         propagateFact: (FinalFactAp) -> Unit,
         propagateFactWithAccessorExclude: (FinalFactAp, Accessor) -> Unit
     ) {
-        if (currentInst !is JIRAssignInst) {
-            propagateFact(factAp)
-        } else {
-            sequentFlowAssign(
-                currentInst.rhv, currentInst.lhv, factAp,
-                propagateFact, propagateFactWithAccessorExclude
-            )
+        when (currentInst) {
+            is JIRAssignInst -> {
+                sequentFlowAssign(
+                    currentInst.rhv, currentInst.lhv, factAp,
+                    propagateFact, propagateFactWithAccessorExclude
+                )
+            }
+
+            is JIRReturnInst -> {
+                propagateFact(factAp)
+
+                val access = currentInst.returnValue?.let { MethodFlowFunctionUtils.accessPathBase(it) }
+                if (access == factAp.base) {
+                    propagateFact(factAp.rebase(AccessPathBase.Return))
+                }
+            }
+
+            is JIRThrowInst -> {
+                propagateFact(factAp)
+
+                val access = currentInst.throwable.let { MethodFlowFunctionUtils.accessPathBase(it) }
+                if (access == factAp.base) {
+                    propagateFact(factAp.rebase(AccessPathBase.Exception))
+                }
+            }
+
+            else -> {
+                propagateFact(factAp)
+            }
         }
     }
 

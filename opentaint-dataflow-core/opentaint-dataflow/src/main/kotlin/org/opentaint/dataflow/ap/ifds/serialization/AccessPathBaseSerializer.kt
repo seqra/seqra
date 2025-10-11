@@ -25,6 +25,8 @@ object AccessPathBaseSerializer {
                 writeInt(base.idx)
             }
             AccessPathBase.This -> writeEnum(AccessPathBaseType.THIS)
+            AccessPathBase.Return -> writeEnum(AccessPathBaseType.RETURN)
+            AccessPathBase.Exception -> writeEnum(AccessPathBaseType.EXCEPTION)
         }
     }
 
@@ -49,6 +51,8 @@ object AccessPathBaseSerializer {
                 val typeName = readUTF()
                 AccessPathBase.ClassStatic(typeName)
             }
+            AccessPathBaseType.RETURN -> AccessPathBase.Return
+            AccessPathBaseType.EXCEPTION -> AccessPathBase.Exception
         }
     }
 
@@ -58,6 +62,8 @@ object AccessPathBaseSerializer {
         LOCAL_VAR,
         ARGUMENT,
         CONSTANT,
-        CLASS_STATIC
+        CLASS_STATIC,
+        RETURN,
+        EXCEPTION
     }
 }

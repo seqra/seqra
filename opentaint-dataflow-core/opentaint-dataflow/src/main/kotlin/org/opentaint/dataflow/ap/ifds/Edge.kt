@@ -8,12 +8,17 @@ sealed interface Edge {
     val methodEntryPoint: MethodEntryPoint
     val statement: CommonInst
 
+    fun replaceStatement(newStatement: CommonInst): Edge
+
     sealed interface ZeroInitialEdge: Edge
 
     class ZeroToZero(
         override val methodEntryPoint: MethodEntryPoint,
         override val statement: CommonInst
     ) : ZeroInitialEdge {
+        override fun replaceStatement(newStatement: CommonInst): Edge =
+            ZeroToZero(methodEntryPoint, newStatement)
+
         override fun toString(): String = "(Z -> Z)[$methodEntryPoint -> $statement]]"
 
         override fun equals(other: Any?): Boolean {
@@ -46,6 +51,9 @@ sealed interface Edge {
                 "Incorrect ZeroToFact edge exclusion: $factAp"
             }
         }
+
+        override fun replaceStatement(newStatement: CommonInst): Edge =
+            ZeroToFact(methodEntryPoint, newStatement, factAp)
 
         override fun toString(): String = "(Z -> $factAp)[$methodEntryPoint -> $statement]"
 
@@ -82,6 +90,9 @@ sealed interface Edge {
                 "Incorrect FactToFact edge exclusion: $factAp"
             }
         }
+
+        override fun replaceStatement(newStatement: CommonInst): Edge =
+            FactToFact(methodEntryPoint, initialFactAp, newStatement, factAp)
 
         override fun toString(): String = "($initialFactAp -> $factAp)[$methodEntryPoint -> $statement]"
 

@@ -40,6 +40,14 @@ sealed interface AccessPathBase {
     data class ClassStatic(val typeName: String) : AccessPathBase {
         override fun toString(): String = "<static>($typeName)"
     }
+
+    object Return : AccessPathBase {
+        override fun toString(): String = "ret"
+    }
+
+    object Exception : AccessPathBase {
+        override fun toString(): String = "exception"
+    }
 }
 
 sealed class Accessor : Comparable<Accessor> {

@@ -6,6 +6,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import java.util.BitSet
 
 class MethodAnalyzerEdges(
     apManager: ApManager,
@@ -88,13 +89,13 @@ class MethodAnalyzerEdges(
         maxInstIdx: Int,
         private val languageManager: LanguageManager
     ) {
-        private val edges = BooleanArray(instructionStorageSize(maxInstIdx))
+        private val edges = BitSet(instructionStorageSize(maxInstIdx))
 
         fun addZeroEdge(statement: CommonInst): Boolean {
             val edgeIdx = instructionStorageIdx(statement, languageManager)
-            if (edges[edgeIdx]) return false
+            if (edges.get(edgeIdx)) return false
 
-            edges[edgeIdx] = true
+            edges.set(edgeIdx)
             return true
         }
     }

@@ -7,6 +7,12 @@ abstract class AccessPathBaseStorage<V : Any>(initialStatement: CommonInst) {
     var thisStorage: V? = null
 
     @JvmField
+    var returnStorage: V? = null
+
+    @JvmField
+    var exceptionStorage: V? = null
+
+    @JvmField
     val argsStorage = arrayOfNulls<Any?>(initialStatement.location.method.parameters.size)
 
     abstract fun createStorage(): V
@@ -41,6 +47,14 @@ abstract class AccessPathBaseStorage<V : Any>(initialStatement: CommonInst) {
         is AccessPathBase.ClassStatic -> getOrCreateClassStatic(base)
         is AccessPathBase.LocalVar -> getOrCreateLocal(base.idx)
         is AccessPathBase.Constant -> getOrCreateConstant(base)
+
+        AccessPathBase.Return -> {
+            returnStorage ?: createStorage().also { returnStorage = it }
+        }
+
+        AccessPathBase.Exception -> {
+            exceptionStorage ?: createStorage().also { exceptionStorage = it }
+        }
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -50,6 +64,8 @@ abstract class AccessPathBaseStorage<V : Any>(initialStatement: CommonInst) {
         is AccessPathBase.ClassStatic -> findClassStatic(base)
         is AccessPathBase.LocalVar -> findLocal(base.idx)
         is AccessPathBase.Constant -> findConstant(base)
+        AccessPathBase.Return -> returnStorage
+        AccessPathBase.Exception -> exceptionStorage
     }
 
     override fun toString(): String = buildString {
@@ -60,6 +76,10 @@ abstract class AccessPathBaseStorage<V : Any>(initialStatement: CommonInst) {
 
     inline fun forEachValue(crossinline body: (AccessPathBase, V) -> Unit) {
         thisStorage?.let { body(AccessPathBase.This, it) }
+
+        returnStorage?.let { body(AccessPathBase.Return, it) }
+
+        exceptionStorage?.let { body(AccessPathBase.Exception, it) }
 
         for ((index, storage) in argsStorage.withIndex()) {
             if (storage == null) continue

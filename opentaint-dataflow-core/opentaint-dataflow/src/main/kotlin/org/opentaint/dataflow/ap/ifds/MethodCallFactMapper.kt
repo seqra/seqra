@@ -11,14 +11,12 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 interface MethodCallFactMapper {
     fun mapMethodExitToReturnFlowFact(
         callStatement: CommonInst,
-        methodExit: CommonInst,
         factAp: FinalFactAp,
         checker: FactTypeChecker
     ): List<FinalFactAp>
 
     fun mapMethodExitToReturnFlowFact(
         callStatement: CommonInst,
-        methodExit: CommonInst,
         factAp: InitialFactAp
     ): List<InitialFactAp>
 
@@ -38,6 +36,5 @@ interface MethodCallFactMapper {
     )
 
     fun factCanBeModifiedByMethodCall(returnValue: CommonValue?, callExpr: CommonCallExpr, factAp: FactAp): Boolean
-    fun isValidMethodExitFact(methodExit: CommonInst, factAp: FactAp): Boolean
-    fun methodExitFactBases(methodExits: List<CommonInst>): List<AccessPathBase>
+    fun isValidMethodExitFact(factAp: FactAp): Boolean
 }

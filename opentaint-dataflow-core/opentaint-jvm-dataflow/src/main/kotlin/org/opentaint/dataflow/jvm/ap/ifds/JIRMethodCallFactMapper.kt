@@ -11,8 +11,6 @@ import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
-import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
@@ -26,23 +24,19 @@ object JIRMethodCallFactMapper : MethodCallFactMapper {
     // TODO: maybe receive FactTypeChecker at instantiation and remove it from method's parameters?
     override fun mapMethodExitToReturnFlowFact(
         callStatement: CommonInst,
-        methodExit: CommonInst,
         factAp: FinalFactAp,
         checker: FactTypeChecker
     ): List<FinalFactAp> {
         jirDowncast<JIRInst>(callStatement)
-        jirDowncast<JIRInst>(methodExit)
-        return mapMethodExitToReturnFlowFact(callStatement, methodExit, factAp, checker)
+        return mapMethodExitToReturnFlowFact(callStatement, factAp, checker)
     }
 
     override fun mapMethodExitToReturnFlowFact(
         callStatement: CommonInst,
-        methodExit: CommonInst,
         factAp: InitialFactAp
     ): List<InitialFactAp> {
         jirDowncast<JIRInst>(callStatement)
-        jirDowncast<JIRInst>(methodExit)
-        return mapMethodExitToReturnFlowFact(callStatement, methodExit, factAp)
+        return mapMethodExitToReturnFlowFact(callStatement, factAp)
     }
 
     override fun mapMethodCallToStartFlowFact(
@@ -78,19 +72,16 @@ object JIRMethodCallFactMapper : MethodCallFactMapper {
         return factCanBeModifiedByMethodCall(returnValue, callExpr, factAp)
     }
 
-    override fun isValidMethodExitFact(methodExit: CommonInst, factAp: FactAp): Boolean {
-        jirDowncast<JIRInst>(methodExit)
-        return isValidMethodExitFact(methodExit, factAp)
+    override fun isValidMethodExitFact(factAp: FactAp): Boolean {
+        return isValidMethodExitFact(factAp.base)
     }
 
     private fun mapMethodExitToReturnFlowFact(
         callStatement: JIRInst,
-        methodExit: JIRInst,
         factAp: FinalFactAp,
         checker: FactTypeChecker
     ): List<FinalFactAp> = mapMethodExitToReturnFlowFact(
         callStatement = callStatement,
-        methodExit = methodExit,
         factAp = factAp,
         checkFactType = { type, f -> checker.filterFactByLocalType(type, f) },
         rebaseFact = { f, base -> f.rebase(base) }
@@ -98,11 +89,9 @@ object JIRMethodCallFactMapper : MethodCallFactMapper {
 
     private fun mapMethodExitToReturnFlowFact(
         callStatement: JIRInst,
-        methodExit: JIRInst,
         factAp: InitialFactAp
     ): List<InitialFactAp> = mapMethodExitToReturnFlowFact(
         callStatement = callStatement,
-        methodExit = methodExit,
         factAp = factAp,
         checkFactType = { _, f -> f },
         rebaseFact = { f, base -> f.rebase(base) }
@@ -135,133 +124,82 @@ object JIRMethodCallFactMapper : MethodCallFactMapper {
         onMappedFact = onMappedFact
     )
 
-    private inline fun <F: FactAp> mapMethodExitToReturnFlowFact(
+    private inline fun <F : FactAp> mapMethodExitToReturnFlowFact(
         callStatement: JIRInst,
-        methodExit: JIRInst,
         factAp: F,
         checkFactType: (JIRType, F) -> F?,
         rebaseFact: (F, AccessPathBase) -> F,
-    ): List<F> = buildList {
+    ): List<F> = listOfNotNull(
+        mapMethodExitToReturnSingleFlowFact(callStatement, factAp, checkFactType, rebaseFact)
+    )
+
+    private inline fun <F: FactAp> mapMethodExitToReturnSingleFlowFact(
+        callStatement: JIRInst,
+        factAp: F,
+        checkFactType: (JIRType, F) -> F?,
+        rebaseFact: (F, AccessPathBase) -> F,
+    ): F? {
         val base = factAp.base
 
-        val callExpr = callStatement.callExpr ?: error("Non call statement")
+        val callExpr = callStatement.callExpr
+            ?: error("Non call statement")
         val returnValue: JIRImmediate? = (callStatement as? JIRAssignInst)?.lhv?.let {
             it as? JIRImmediate ?: error("Non simple return value: $callStatement")
         }
 
-        if (returnValue != null) {
-            mapExitToReturnValue(methodExit, base, returnValue, checkFactType, factAp, rebaseFact)
-        }
-
-        when (base) {
+        return when (base) {
             is AccessPathBase.ClassStatic,
             is AccessPathBase.Constant -> {
-                this += factAp
+               factAp
             }
 
             is AccessPathBase.Argument -> {
                 val argExpr = callExpr.args.getOrNull(base.idx) ?: error("Call $callExpr has no arg $factAp")
-                val newBase = MethodFlowFunctionUtils.accessPathBase(argExpr) ?: return@buildList
-                if (newBase is AccessPathBase.Constant) return@buildList
+                val newBase = MethodFlowFunctionUtils.accessPathBase(argExpr) ?: return null
+                if (newBase is AccessPathBase.Constant) return null
 
-                val checkedFact = checkFactType(argExpr.type, factAp) ?: return@buildList
+                val checkedFact = checkFactType(argExpr.type, factAp) ?: return null
 
-                this += rebaseFact(checkedFact, newBase)
+                rebaseFact(checkedFact, newBase)
             }
 
             AccessPathBase.This -> {
                 check(callExpr is JIRInstanceCallExpr) { "Non instance call with <this> argument" }
 
-                val newBase = MethodFlowFunctionUtils.accessPathBase(callExpr.instance) ?: return@buildList
-                if (newBase is AccessPathBase.Constant) return@buildList
+                val newBase = MethodFlowFunctionUtils.accessPathBase(callExpr.instance) ?: return null
+                if (newBase is AccessPathBase.Constant) return null
 
-                val checkedFact = checkFactType(callExpr.instance.type, factAp) ?: return@buildList
+                val checkedFact = checkFactType(callExpr.instance.type, factAp) ?: return null
 
-                this += rebaseFact(checkedFact, newBase)
+                rebaseFact(checkedFact, newBase)
+            }
+
+            AccessPathBase.Return -> {
+                if (returnValue == null) return null
+
+                val newBase = MethodFlowFunctionUtils.accessPathBase(returnValue) ?: return null
+                if (newBase is AccessPathBase.Constant) return null
+
+                val checkedFact = checkFactType(returnValue.type, factAp) ?: return null
+
+                rebaseFact(checkedFact, newBase)
+            }
+
+            AccessPathBase.Exception -> {
+                // Trow can't be propagated to method return site
+                // todo: exceptional flow ignored
+                null
             }
 
             is AccessPathBase.LocalVar -> {
-                // Already mapped by mapExitToReturnValue
+                // local variable can't be propagated to exit
+                null
             }
         }
     }
 
-    private inline fun <F : FactAp> MutableList<F>.mapExitToReturnValue(
-        methodExit: JIRInst,
-        base: AccessPathBase,
-        returnValue: JIRImmediate,
-        checkFactType: (JIRType, F) -> F?,
-        factAp: F,
-        rebaseFact: (F, AccessPathBase) -> F
-    ) {
-        when (methodExit) {
-            is JIRReturnInst -> {
-                val exitValue = methodExit.returnValue
-                    ?.let { MethodFlowFunctionUtils.accessPathBase(it) }
-                    ?: return
-
-                if (base != exitValue) return
-
-                val newBase = MethodFlowFunctionUtils.accessPathBase(returnValue) ?: return
-                if (newBase is AccessPathBase.Constant) return
-
-                val checkedFact = checkFactType(returnValue.type, factAp) ?: return
-
-                this += rebaseFact(checkedFact, newBase)
-            }
-
-            is JIRThrowInst -> {
-                // Trow can't be propagated to method return site
-                return
-            }
-
-            else -> return
-        }
-    }
-
-    override fun methodExitFactBases(methodExits: List<CommonInst>): List<AccessPathBase> {
-        return methodExits.mapNotNull { methodExit ->
-            when (methodExit) {
-                is JIRReturnInst -> {
-                    methodExit.returnValue?.let { MethodFlowFunctionUtils.accessPathBase(it) }
-                }
-
-                is JIRThrowInst -> {
-                    // Trow can't be propagated to method return site
-                    null
-                }
-
-                else -> null
-            }
-        }
-    }
-
-
-    private fun isValidMethodExitFact(methodExit: JIRInst, factAp: FactAp): Boolean =
-        isValidMethodExitFact(methodExit, factAp.base)
-
-    private fun isValidMethodExitFact(methodExit: JIRInst, factBase: AccessPathBase): Boolean {
-        if (factBase !is AccessPathBase.LocalVar) return true
-
-        when (methodExit) {
-            is JIRReturnInst -> {
-                val exitValue = methodExit.returnValue
-                    ?.let { MethodFlowFunctionUtils.accessPathBase(it) }
-                    ?: return false
-
-                return factBase == exitValue
-            }
-
-            is JIRThrowInst -> {
-                val throwValue = methodExit.throwable
-                    .let { MethodFlowFunctionUtils.accessPathBase(it) }
-
-                return factBase == throwValue
-            }
-
-            else -> return false
-        }
-    }
+    private fun isValidMethodExitFact(factBase: AccessPathBase): Boolean =
+        factBase !is AccessPathBase.LocalVar
 
     private inline fun <F : FactAp> mapMethodCallToStartFlowFact(
         callee: JIRMethod,

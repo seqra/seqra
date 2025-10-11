@@ -232,7 +232,7 @@ class MethodTraceResolver(
         calleeEntry: TraceEntry.MethodEntry
     ): List<SummaryTrace> =
         methodCallFactMapper
-            .mapMethodExitToReturnFlowFact(statement, calleeEntry.statement, calleeEntry.fact)
+            .mapMethodExitToReturnFlowFact(statement, calleeEntry.fact)
             .flatMap { resolveIntraProceduralTrace(statement, it) }
 
     fun resolveIntraProceduralFullTrace(
@@ -417,13 +417,12 @@ class MethodTraceResolver(
                     continue
                 }
 
-                val calleeWithExit = methodRelevantBases(
+                val calleeExitBases = methodRelevantBases(
                     predecessorCall,
                     returnValue,
-                    callees,
                     entry.fact
                 )
-                if (calleeWithExit.isEmpty()) {
+                if (calleeExitBases.isEmpty()) {
                     continue // todo: ???
                 }
 
@@ -433,7 +432,8 @@ class MethodTraceResolver(
                     predecessorCall,
                     returnValue,
                     initialFact,
-                    calleeWithExit,
+                    callees,
+                    calleeExitBases,
                     entry
                 )
 
@@ -502,11 +502,12 @@ class MethodTraceResolver(
         callExpr: CommonCallExpr,
         returnValue: CommonValue?,
         initialFact: InitialFactAp?,
-        callees: List<Pair<MethodWithContext, Set<AccessPathBase>>>,
+        callees: List<MethodWithContext>,
+        calleeExitBases: Set<AccessPathBase>,
         entry: TraceEntry
     ) {
-        val calleeEntryPoints = callees.flatMap { (method, bases) ->
-            methodEntryPoints(method).map { it to bases }
+        val calleeEntryPoints = callees.flatMap { method ->
+            methodEntryPoints(method).map { it to calleeExitBases }
         }
 
         if (initialFact == null) {
@@ -682,28 +683,23 @@ class MethodTraceResolver(
     private fun methodRelevantBases(
         callExpr: CommonCallExpr,
         returnValue: CommonValue?,
-        methods: List<MethodWithContext>,
         fact: InitialFactAp
-    ): List<Pair<MethodWithContext, Set<AccessPathBase>>> {
-        if (returnValue != null) {
-            val returnValueBase = languageManager.accessPathBase(returnValue) ?: return emptyList()
-            if (returnValueBase == fact.base) {
-                return methods.map { callee ->
-                    val calleeExits = graph.exitPoints(callee.method).toList()
-                    val exitBases = methodCallFactMapper.methodExitFactBases(calleeExits)
-                    callee to exitBases.toSet()
-                }
-            }
-        }
-
+    ): Set<AccessPathBase> {
         val calleeBases = hashSetOf<AccessPathBase>()
-        methodCallFactMapper.mapMethodCallToStartFlowFact(languageManager.getCalleeMethod(callExpr), callExpr, fact) { _, calleeExitBase ->
+        methodCallFactMapper.mapMethodCallToStartFlowFact(
+            languageManager.getCalleeMethod(callExpr), callExpr, fact
+        ) { _, calleeExitBase ->
             calleeBases += calleeExitBase
         }
 
-        return methods.map { callee ->
-            callee to calleeBases
+        if (returnValue != null) {
+            val returnValueBase = languageManager.accessPathBase(returnValue)
+            if (returnValueBase == fact.base) {
+                calleeBases += AccessPathBase.Return
+            }
         }
+
+        return calleeBases
     }
 
     private fun methodStartFacts(

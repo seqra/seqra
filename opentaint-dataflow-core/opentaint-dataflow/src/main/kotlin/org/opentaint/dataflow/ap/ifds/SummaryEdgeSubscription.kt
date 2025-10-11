@@ -633,17 +633,22 @@ data class FactToFactEdgeBuilder(
 
 abstract class SummaryFactStorage<Storage : Any>(methodEntryPoint: CommonInst) :
     AccessPathBaseStorage<Storage>(methodEntryPoint) {
-    private val locals = ConcurrentHashMap<Int, Storage>()
+    private var locals: ConcurrentHashMap<Int, Storage>? = null
     private var constants: ConcurrentHashMap<AccessPathBase.Constant, Storage>? = null
     private var statics: ConcurrentHashMap<AccessPathBase.ClassStatic, Storage>? = null
 
-    override fun getOrCreateLocal(idx: Int): Storage =
-        locals.computeIfAbsent(idx) { createStorage() }
+    override fun getOrCreateLocal(idx: Int): Storage {
+        val summaries = locals ?: ConcurrentHashMap<Int, Storage>()
+            .also { locals = it }
 
-    override fun findLocal(idx: Int): Storage? = locals[idx]
+        return summaries.computeIfAbsent(idx) { createStorage() }
+    }
+
+    override fun findLocal(idx: Int): Storage? =
+        locals?.get(idx)
 
     override fun forEachLocalValue(body: (AccessPathBase, Storage) -> Unit) {
-        locals.forEach { localVarIdx, storage -> body(AccessPathBase.LocalVar(localVarIdx), storage) }
+        locals?.forEach { (localVarIdx, storage) -> body(AccessPathBase.LocalVar(localVarIdx), storage) }
     }
 
     override fun getOrCreateConstant(base: AccessPathBase.Constant): Storage {

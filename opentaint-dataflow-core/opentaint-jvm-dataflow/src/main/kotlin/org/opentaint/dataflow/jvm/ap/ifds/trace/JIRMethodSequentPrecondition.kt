@@ -7,6 +7,8 @@ import org.opentaint.ir.api.jvm.cfg.JIRExpr
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
+import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
@@ -17,11 +19,37 @@ import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
 
 class JIRMethodSequentPrecondition(private val currentInst: JIRInst) : MethodSequentPrecondition {
     override fun factPrecondition(fact: InitialFactAp): List<InitialFactAp>? {
-        if (currentInst !is JIRAssignInst) {
-            return null
-        }
+        when (currentInst) {
+            is JIRAssignInst -> {
+                return sequentAssignPrecondition(currentInst.rhv, currentInst.lhv, fact)
+            }
 
-        return sequentAssignPrecondition(currentInst.rhv, currentInst.lhv, fact)
+            is JIRReturnInst -> {
+                if (fact.base !is AccessPathBase.Return) {
+                    return null
+                }
+
+                val base = currentInst.returnValue
+                    ?.let { MethodFlowFunctionUtils.accessPathBase(it) }
+                    ?: return null
+
+                return listOf(fact.rebase(base))
+            }
+
+            is JIRThrowInst -> {
+                if (fact.base !is AccessPathBase.Exception) {
+                    return null
+                }
+
+                val base = currentInst.throwable
+                    .let { MethodFlowFunctionUtils.accessPathBase(it) }
+                    ?: return null
+
+                return listOf(fact.rebase(base))
+            }
+
+            else -> return null
+        }
     }
 
     private fun sequentAssignPrecondition(
