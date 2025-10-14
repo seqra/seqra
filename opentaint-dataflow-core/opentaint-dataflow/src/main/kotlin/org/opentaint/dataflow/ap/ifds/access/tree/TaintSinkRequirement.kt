@@ -21,8 +21,7 @@ class SideEffectRequirementTreeApStorage : SideEffectRequirementApStorage {
                 SideEffectRequirementStorage()
             }
 
-            val node = baseRequirements.getOrCreateNode(requirement.access)
-            node.mergeAdd(requirement) ?: continue
+            val node = baseRequirements.mergeAdd(requirement) ?: continue
 
             if (addedNodes.put(node, Unit) == null) {
                 modifiedStorageNodes.add(node)
@@ -49,17 +48,17 @@ private class SideEffectRequirementStorage : AccessBasedStorage<SideEffectRequir
 
     override fun createStorage() = SideEffectRequirementStorage()
 
-    fun mergeAdd(requirement: AccessPath): AccessPath? =
+    fun mergeAdd(requirement: AccessPath): SideEffectRequirementStorage? =
         getOrCreateNode(requirement.access).mergeAddCurrent(requirement)
 
     fun findRequirements(access: AccessTree.AccessNode): Sequence<AccessPath> =
         filterContains(access).mapNotNull { it.requirement }
 
-    private fun mergeAddCurrent(requirement: AccessPath): AccessPath? {
+    private fun mergeAddCurrent(requirement: AccessPath): SideEffectRequirementStorage? {
         val current = this.requirement
         if (current == null) {
             this.requirement = requirement
-            return requirement
+            return this
         }
 
         val currentExclusion = current.exclusions
@@ -72,6 +71,6 @@ private class SideEffectRequirementStorage : AccessBasedStorage<SideEffectRequir
         }
 
         this.requirement = mergedAp
-        return mergedAp
+        return this
     }
 }
