@@ -11,6 +11,7 @@ import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.TaintSinkTracker.TaintVulnerability
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.EntryPointSourceRule
 
 class TraceResolver(
     private val entryPointMethods: Set<CommonMethod>,
@@ -40,12 +41,12 @@ class TraceResolver(
         val successors: Map<InterProceduralTraceNode, Set<InterProceduralCall>>
     ) {
         fun findSuccessors(
-            node: InterProceduralTraceNode, statement: CommonInst
-        ) = successors[node]?.filter { it.statement == statement }.orEmpty()
+            node: InterProceduralTraceNode, kind: CallKind, statement: CommonInst
+        ) = successors[node]?.filter { it.kind == kind && it.statement == statement }.orEmpty()
 
         fun findSuccessors(
-            node: InterProceduralTraceNode, statement: CommonInst, trace: MethodTraceResolver.SummaryTrace
-        ) = successors[node]?.filter { it.statement == statement && it.summary == trace }.orEmpty()
+            node: InterProceduralTraceNode, kind: CallKind, statement: CommonInst, trace: MethodTraceResolver.SummaryTrace
+        ) = successors[node]?.filter { it.kind == kind && it.statement == statement && it.summary == trace }.orEmpty()
     }
 
     sealed interface TraceNode
@@ -241,7 +242,7 @@ class TraceResolver(
 
                     for (entry in trace.initial) {
                         when (entry) {
-                            is CallSourceRule -> continue
+                            is CallSourceRule, is EntryPointSourceRule -> continue
                             is CallSourceSummary -> {
                                 if (params.startToSourceTraceResolutionLimit != null) {
                                     if (startToSourceTraceResolutionStat++ > params.startToSourceTraceResolutionLimit) continue

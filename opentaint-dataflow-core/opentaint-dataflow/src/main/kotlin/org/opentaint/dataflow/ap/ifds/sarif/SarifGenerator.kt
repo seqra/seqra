@@ -124,10 +124,9 @@ class SarifGenerator(
         return ThreadFlow(locations = flowLocations)
     }
 
-    private val locationsCache = hashMapOf<CommonInst, Location?>()
-    private fun statementLocation(statement: CommonInst): Location? = with(traits) {
+    private val locationsCache = hashMapOf<CommonInst, Location>()
+    private fun statementLocation(statement: CommonInst): Location =
         locationsCache.computeIfAbsent(statement) {
             instToSarifLocation(traits, statement, sourceFileResolver)
         }
-    }
 }

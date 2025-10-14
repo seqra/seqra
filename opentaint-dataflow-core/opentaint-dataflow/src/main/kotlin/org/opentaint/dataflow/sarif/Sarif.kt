@@ -92,17 +92,17 @@ fun <Statement : CommonInst> instToSarifLocation(
     traits: Traits<*, Statement>,
     inst: Statement,
     sourceFileResolver: SourceFileResolver<Statement>,
-): Location? = with(traits) {
-    val sourceLocation = sourceFileResolver.resolve(inst) ?: return null
+): Location = with(traits) {
+    val sourceLocation = sourceFileResolver.resolve(inst)
     return Location(
-        physicalLocation = PhysicalLocation(
-            artifactLocation = ArtifactLocation(
-                uri = sourceLocation
-            ),
-            region = Region(
-                startLine = lineNumber(inst).toLong()
+        physicalLocation = sourceLocation?.let {
+            PhysicalLocation(
+                artifactLocation = ArtifactLocation(uri = it),
+                region = Region(
+                    startLine = lineNumber(inst).toLong()
+                )
             )
-        ),
+        },
         logicalLocations = listOf(
             LogicalLocation(
                 fullyQualifiedName = locationFQN(inst),

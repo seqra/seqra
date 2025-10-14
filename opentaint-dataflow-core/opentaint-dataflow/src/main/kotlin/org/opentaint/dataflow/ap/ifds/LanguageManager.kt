@@ -5,8 +5,11 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
+import org.opentaint.ir.taint.configuration.AssignMark
+import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.serialization.MethodContextSerializer
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
@@ -64,6 +67,13 @@ interface LanguageManager {
         config: TaintRulesProvider,
         method: CommonMethod,
     ): Maybe<List<FinalFactAp>>
+
+    fun getEntryPointPrecondition(
+        apManager: ApManager,
+        config: TaintRulesProvider,
+        method: CommonMethod,
+        initialFact: InitialFactAp
+    ): Maybe<List<Pair<TaintConfigurationItem, AssignMark>>>
 
     val factTypeChecker: FactTypeChecker
     val methodCallFactMapper: MethodCallFactMapper

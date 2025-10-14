@@ -56,8 +56,12 @@ private fun generateSourceToSinkPath(
     startNode: InterProceduralTraceNode
 ): List<TracePathNode>? {
     val callToSourceTrace = resolveStartToSource(trace, startNode, startNode.methodEntryPoint.statement)
-    val startTraceNode = callToSourceTrace.firstOrNull() ?: return null
-    val callToSinkTrace = resolveStartToSink(trace, startNode, startTraceNode) ?: return null
+
+    val startTraceNode = callToSourceTrace.firstOrNull()
+        ?: return null
+
+    val callToSinkTrace = resolveStartToSink(trace, startNode, startTraceNode)
+        ?: return null
 
     val path = mutableListOf<TracePathNode>()
 
@@ -143,8 +147,8 @@ private fun resolveStartToSource(
                     return callTrace
                 }
 
-                val callNode = trace.findSuccessors(node, pathStart.statement, pathStart.summaryTrace)
-                    .firstOrNull { it.kind == CallToSource }
+                val callNode = trace.findSuccessors(node, kind = CallToSource, pathStart.statement, pathStart.summaryTrace)
+                    .firstOrNull()
                     ?: return callTrace
 
                 node = callNode.node
@@ -156,41 +160,51 @@ private fun resolveStartToSource(
     }
 }
 
+private data class StartToSinkResolverState(
+    val callTrace: PersistentList<CallTrace>,
+    val node: InterProceduralTraceNode,
+    val traceNode: CallTrace
+)
+
 private fun resolveStartToSink(
     trace: SourceToSinkTrace,
     startNode: InterProceduralTraceNode,
     startTraceNode: CallTrace
 ): List<CallTrace>? {
-    val callTrace = mutableListOf(startTraceNode)
     val visitedNodes = hashSetOf<InterProceduralTraceNode>()
 
-    var node = startNode
-    var traceNode = startTraceNode
+    val unprocessed = ArrayDeque<StartToSinkResolverState>()
+    unprocessed.add(StartToSinkResolverState(persistentListOf(startTraceNode), startNode, startTraceNode))
 
-    while (true) {
+    while (unprocessed.isNotEmpty()) {
+        val (callTrace, node, traceNode) = unprocessed.removeFirst()
+
         if (node in trace.sinkNodes) return callTrace
-        if (!visitedNodes.add(node)) return null
+        if (!visitedNodes.add(node)) continue
 
-        val lastStatement = traceNode.trace.lastOrNull()?.statement ?: return null
+        val lastStatement = traceNode.trace.lastOrNull()?.statement ?: continue
 
-        val callNode = trace.findSuccessors(node, lastStatement)
-            .firstOrNull { it.kind == CallToSink }
-            ?: return null
+        for (callNode in trace.findSuccessors(node, kind = CallToSink, lastStatement)) {
+            val path = when (val nextNode = callNode.node) {
+                is TraceResolver.InterProceduralFullTraceNode -> {
+                    generateIntraProceduralPath(nextNode.trace) ?: continue
+                }
 
-        when (val nextNode = callNode.node) {
-            is TraceResolver.InterProceduralFullTraceNode -> {
-                val path = generateIntraProceduralPath(nextNode.trace) ?: return null
-                traceNode = CallTrace(callNode.statement, path).also { callTrace.add(it) }
-                node = nextNode
+                is TraceResolver.InterProceduralSummaryTraceNode -> {
+                    listOf(nextNode.trace.final)
+                }
             }
 
-            is TraceResolver.InterProceduralSummaryTraceNode -> {
-                val path = listOf(nextNode.trace.final)
-                traceNode = CallTrace(callNode.statement, path).also { callTrace.add(it) }
-                node = nextNode
-            }
+            val nextTraceNode = CallTrace(callNode.statement, path)
+            unprocessed += StartToSinkResolverState(
+                callTrace.add(nextTraceNode),
+                callNode.node,
+                nextTraceNode
+            )
         }
     }
+
+    return null
 }
 
 private fun generateIntraProceduralPath(
@@ -224,6 +238,7 @@ private fun generateIntraProceduralPath(
 }
 
 private fun SourceStartEntry.priority(): Int = when (this) {
-    is CallSourceRule -> 0
-    is CallSourceSummary -> 1
+    is TraceEntry.EntryPointSourceRule -> 0
+    is CallSourceRule -> 1
+    is CallSourceSummary -> 2
 }

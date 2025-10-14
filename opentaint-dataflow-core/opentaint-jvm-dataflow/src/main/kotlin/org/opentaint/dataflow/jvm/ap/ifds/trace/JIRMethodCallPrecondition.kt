@@ -1,10 +1,12 @@
 package org.opentaint.dataflow.jvm.ap.ifds.trace
 
+import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.taint.configuration.AssignMark
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
+import org.opentaint.dataflow.ap.ifds.CalleePositionToAccessPath
 import org.opentaint.dataflow.ap.ifds.FinalFactReader
 import org.opentaint.dataflow.ap.ifds.InitialFactReader
 import org.opentaint.dataflow.ap.ifds.TaintPassActionPreconditionEvaluator
@@ -14,7 +16,9 @@ import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
+import org.opentaint.dataflow.config.JIRBasicConditionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
+import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRCallPositionToAccessPathResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactAwareConditionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils
@@ -68,5 +72,30 @@ class JIRMethodCallPrecondition(
             ruleConditionEvaluator,
             rulePreconditionEvaluator
         )
+    }
+
+    companion object {
+        fun getEntryPointPrecondition(
+            apManager: ApManager,
+            config: TaintRulesProvider,
+            method: JIRMethod,
+            traits: JIRTraits,
+            initialFact: InitialFactAp,
+        ): Maybe<List<Pair<TaintConfigurationItem, AssignMark>>> {
+            val entryFactReader = InitialFactReader(initialFact, apManager)
+            val sourcePreconditionEvaluator = TaintSourceActionPreconditionEvaluator(
+                CalleePositionToAccessPath(),
+                entryFactReader
+            )
+
+            val conditionEvaluator = JIRBasicConditionEvaluator(
+                traits,
+                CalleePositionToJIRValueResolver(method)
+            )
+
+            return TaintConfigUtils.applyEntryPointConfig(
+                config, method, conditionEvaluator, sourcePreconditionEvaluator
+            )
+        }
     }
 }

@@ -73,6 +73,11 @@ class MethodTraceResolver(
         override fun hashCode(): Int = Objects.hash(method, final)
     }
 
+    enum class TraceFinalNodeKind {
+        TraceToFactFinalNode, // Trace ends within the method
+        SummaryTraceFinalNode, // Trace summarizes method behaviour
+    }
+
     sealed interface SummaryTrace {
         val method: MethodEntryPoint
         val final: TraceEntry.Final
@@ -100,7 +105,11 @@ class MethodTraceResolver(
 
         sealed interface CallTraceEntry : TraceEntry
 
-        data class Final(override val fact: InitialFactAp, override val statement: CommonInst) : TraceEntry
+        data class Final(
+            override val fact: InitialFactAp,
+            override val statement: CommonInst,
+            val kind: TraceFinalNodeKind,
+        ) : TraceEntry
 
         data class Sequential(override val fact: InitialFactAp, override val statement: CommonInst) : TraceEntry
 
@@ -118,6 +127,16 @@ class MethodTraceResolver(
             val rule: TaintConfigurationItem,
             val action: AssignMark
         ) : SourceStartEntry, CallTraceEntry
+
+        data class EntryPointSourceRule(
+            override val fact: InitialFactAp,
+            val entryPoint: MethodEntryPoint,
+            val rule: TaintConfigurationItem,
+            val action: AssignMark
+        ) : SourceStartEntry {
+            override val statement: CommonInst
+                get() = entryPoint.statement
+        }
 
         data class CallRule(
             override val fact: InitialFactAp,
@@ -215,7 +234,7 @@ class MethodTraceResolver(
         }
 
         return matchingInitialFacts.map { initialFact ->
-            val startEntry = TraceEntry.Final(fact, statement)
+            val startEntry = TraceEntry.Final(fact, statement, kind = TraceFinalNodeKind.TraceToFactFinalNode)
             if (initialFact != null) {
                 MethodSummaryTrace(
                     TraceEntry.MethodEntry(initialFact, methodEntryPoint),
@@ -381,77 +400,115 @@ class MethodTraceResolver(
             return
         }
 
-        if (entry.statement == methodEntryPoint.statement) {
-            if (initialFact != null) {
-                addPredecessor(entry, TraceEntry.MethodEntry(initialFact, methodEntryPoint))
+        if (entry is TraceEntry.Final) {
+            when (entry.kind) {
+                TraceFinalNodeKind.TraceToFactFinalNode -> {
+                    // We have fact BEFORE entry.statement, no need to propagate
+                }
+
+                TraceFinalNodeKind.SummaryTraceFinalNode -> {
+                    // We have fact AFTER entry.statement
+                    propagateEntry(entry.statement, entry, initialFact)
+                    return
+                }
             }
+        }
+
+        if (entry.statement == methodEntryPoint.statement) {
+            propagateEntryToMethodEntryPoint(initialFact, entry)
             return
         }
 
         for (predecessor in graph.predecessors(entry.statement)) {
-            val predecessorCall = languageManager.getCallExpr(predecessor)
-            if (predecessorCall != null) {
-                val returnValue: CommonValue? = (predecessor as? CommonAssignInst)?.lhv
+            propagateEntry(predecessor, entry, initialFact)
+        }
+    }
 
-                if (!methodCallFactMapper.factCanBeModifiedByMethodCall(returnValue, predecessorCall, entry.fact)) {
-                    addPredecessor(entry, TraceEntry.Sequential(entry.fact, predecessor))
-                    continue
+    private fun TraceBuilder.propagateEntryToMethodEntryPoint(
+        initialFact: InitialFactAp?,
+        entry: TraceEntry
+    ) {
+        if (initialFact != null) {
+            addPredecessor(entry, TraceEntry.MethodEntry(initialFact, methodEntryPoint))
+        } else {
+            val entryPointPrecondition = languageManager.getEntryPointPrecondition(
+                apManager, taintConfiguration, methodEntryPoint.method, entry.fact
+            )
+            entryPointPrecondition.onSome { preconditions ->
+                for ((rule, action) in preconditions) {
+                    addPredecessor(entry, TraceEntry.EntryPointSourceRule(entry.fact, methodEntryPoint, rule, action))
                 }
+            }
+        }
+    }
 
-                val factsAtStatement = factsAtStatement(predecessor, initialFact)
+    private fun TraceBuilder.propagateEntry(
+        statement: CommonInst,
+        entry: TraceEntry,
+        initialFact: InitialFactAp?
+    ) {
+        val statementCall = languageManager.getCallExpr(statement)
+        if (statementCall != null) {
+            val returnValue: CommonValue? = (statement as? CommonAssignInst)?.lhv
 
-                applyCallRules(
-                    predecessor,
-                    factsAtStatement,
-                    predecessorCall,
-                    returnValue,
-                    initialFact,
-                    entry
-                )
+            if (!methodCallFactMapper.factCanBeModifiedByMethodCall(returnValue, statementCall, entry.fact)) {
+                addPredecessor(entry, TraceEntry.Sequential(entry.fact, statement))
+                return
+            }
 
-                val callees = runner.methodCallResolver.resolvedMethodCalls(methodEntryPoint, predecessorCall, predecessor)
-                if (callees.isEmpty()) {
-                    if (statementFactsContainsFact(factsAtStatement, entry.fact)) {
-                        addPredecessor(entry, TraceEntry.UnresolvedCallSkip(entry.fact, predecessor))
-                    }
-                    continue
+            val factsAtStatement = factsAtStatement(statement, initialFact)
+
+            applyCallRules(
+                statement,
+                factsAtStatement,
+                statementCall,
+                returnValue,
+                initialFact,
+                entry
+            )
+
+            val callees = runner.methodCallResolver.resolvedMethodCalls(methodEntryPoint, statementCall, statement)
+            if (callees.isEmpty()) {
+                if (statementFactsContainsFact(factsAtStatement, entry.fact)) {
+                    addPredecessor(entry, TraceEntry.UnresolvedCallSkip(entry.fact, statement))
                 }
+                return
+            }
 
-                val calleeExitBases = methodRelevantBases(
-                    predecessorCall,
-                    returnValue,
-                    entry.fact
-                )
-                if (calleeExitBases.isEmpty()) {
-                    continue // todo: ???
-                }
+            val calleeExitBases = methodRelevantBases(
+                statementCall,
+                returnValue,
+                entry.fact
+            )
+            if (calleeExitBases.isEmpty()) {
+                return // todo: ???
+            }
 
-                resolveCallSummary(
-                    predecessor,
-                    factsAtStatement,
-                    predecessorCall,
-                    returnValue,
-                    initialFact,
-                    callees,
-                    calleeExitBases,
-                    entry
-                )
+            resolveCallSummary(
+                statement,
+                factsAtStatement,
+                statementCall,
+                returnValue,
+                initialFact,
+                callees,
+                calleeExitBases,
+                entry
+            )
 
-            } else {
-                val preconditionFunction = languageManager.getMethodSequentPrecondition(predecessor)
-                val preconditions = preconditionFunction.factPrecondition(entry.fact)
+        } else {
+            val preconditionFunction = languageManager.getMethodSequentPrecondition(statement)
+            val preconditions = preconditionFunction.factPrecondition(entry.fact)
 
-                if (preconditions == null) {
-                    addPredecessor(entry, TraceEntry.Sequential(entry.fact, predecessor))
-                    continue
-                }
+            if (preconditions == null) {
+                addPredecessor(entry, TraceEntry.Sequential(entry.fact, statement))
+                return
+            }
 
-                val factsAtStatement = factsAtStatement(predecessor, initialFact)
+            val factsAtStatement = factsAtStatement(statement, initialFact)
 
-                for (precondition in preconditions) {
-                    if (statementFactsContainsFact(factsAtStatement, precondition)) {
-                        addPredecessor(entry, TraceEntry.Sequential(precondition, predecessor))
-                    }
+            for (precondition in preconditions) {
+                if (statementFactsContainsFact(factsAtStatement, precondition)) {
+                    addPredecessor(entry, TraceEntry.Sequential(precondition, statement))
                 }
             }
         }
@@ -523,6 +580,7 @@ class MethodTraceResolver(
                         val summaryTrace = SourceSummaryTrace(
                             method = callee,
                             final = TraceEntry.Final(
+                                kind = TraceFinalNodeKind.SummaryTraceFinalNode,
                                 fact = entry.fact.rebase(summaryEdge.factAp.base),
                                 statement = summaryEdge.statement
                             )
@@ -674,7 +732,11 @@ class MethodTraceResolver(
 
         val calleeTrace = MethodSummaryTrace(
             initial = TraceEntry.MethodEntry(summaryEdge.initialFactAp, callee),
-            final = TraceEntry.Final(mappedFinalFact, summaryEdge.statement)
+            final = TraceEntry.Final(
+                kind = TraceFinalNodeKind.SummaryTraceFinalNode,
+                fact = mappedFinalFact,
+                statement = summaryEdge.statement
+            )
         )
 
         this += TraceEntry.CallSummary(precondition, statement, calleeTrace)
