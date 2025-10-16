@@ -7,10 +7,11 @@ sealed interface Sequent {
     object ZeroToZero : Sequent
     data class ZeroToFact(val factAp: FinalFactAp) : Sequent
     data class FactToFact(val initialFactAp: InitialFactAp, val factAp: FinalFactAp) : Sequent
+    data class SideEffectRequirement(val initialFactAp: InitialFactAp) : Sequent
 }
 
 interface MethodSequentFlowFunction {
-    fun propagateZeroToZero(): Set<Sequent.ZeroToZero>
-    fun propagateZeroToFact(currentFactAp: FinalFactAp): Set<Sequent.ZeroToFact>
-    fun propagateFactToFact(initialFactAp: InitialFactAp, currentFactAp: FinalFactAp): Set<Sequent.FactToFact>
+    fun propagateZeroToZero(): Set<Sequent>
+    fun propagateZeroToFact(currentFactAp: FinalFactAp): Set<Sequent>
+    fun propagateFactToFact(initialFactAp: InitialFactAp, currentFactAp: FinalFactAp): Set<Sequent>
 }

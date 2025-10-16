@@ -218,6 +218,10 @@ class NormalMethodAnalyzer(
                 Sequent.ZeroToZero -> ZeroToZero(methodEntryPoint, edge.statement)
                 is Sequent.ZeroToFact -> ZeroToFact(methodEntryPoint, edge.statement, sf.factAp)
                 is Sequent.FactToFact -> FactToFact(methodEntryPoint, sf.initialFactAp, edge.statement, sf.factAp)
+                is Sequent.SideEffectRequirement -> {
+                    addSideEffectRequirement(edge, sf.initialFactAp)
+                    continue
+                }
             }
 
             handleStatementEdge(edge, edgeAfterStatement)
@@ -384,6 +388,10 @@ class NormalMethodAnalyzer(
             runner.addNewSummaryEdges(methodEntryPoint, listOf(edge))
         } else {
             pendingSummaryEdges.add(edge)
+
+            if (!analyzerEnqueued) {
+                flushPendingSummaryEdges()
+            }
         }
     }
 
