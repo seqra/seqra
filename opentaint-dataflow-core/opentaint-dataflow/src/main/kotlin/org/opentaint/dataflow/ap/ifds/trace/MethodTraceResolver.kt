@@ -31,6 +31,7 @@ import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.graph.ApplicationGraph
+import org.opentaint.dataflow.graph.statementFilteredTraverse
 import org.opentaint.util.onSome
 import java.util.BitSet
 import java.util.LinkedList
@@ -419,9 +420,11 @@ class MethodTraceResolver(
             return
         }
 
-        for (predecessor in graph.predecessors(entry.statement)) {
-            propagateEntry(predecessor, entry, initialFact)
-        }
+        statementFilteredTraverse(
+            languageManager, entry.statement, graph::predecessors,
+            predicate = { languageManager.isRelevantInstruction(it) || it == methodEntryPoint.statement },
+            body = { propagateEntry(it, entry, initialFact) }
+        )
     }
 
     private fun TraceBuilder.propagateEntryToMethodEntryPoint(

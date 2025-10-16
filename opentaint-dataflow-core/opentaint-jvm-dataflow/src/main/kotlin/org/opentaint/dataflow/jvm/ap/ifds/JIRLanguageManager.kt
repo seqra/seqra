@@ -7,9 +7,12 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRCallInst
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRTerminatingInst
 import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
@@ -83,6 +86,9 @@ class JIRLanguageManager(private val cp: JIRClasspath) : LanguageManager {
         jirDowncast<JIRValue>(value)
         return MethodFlowFunctionUtils.accessPathBase(value)
     }
+
+    override fun isRelevantInstruction(inst: CommonInst): Boolean =
+        inst is JIRAssignInst || inst is JIRCallInst || inst is JIRTerminatingInst
 
     override fun getMethodCallResolver(
         graph: ApplicationGraph<CommonMethod, CommonInst>,

@@ -20,6 +20,7 @@ import org.opentaint.dataflow.ap.ifds.MethodCallFlowFunction.ZeroCallFact
 import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryApRefinement
 import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryExclusionRefinement
 import org.opentaint.dataflow.graph.ApplicationGraph
+import org.opentaint.dataflow.graph.statementFilteredTraverse
 import org.opentaint.util.onSome
 
 interface MethodAnalyzer {
@@ -371,9 +372,11 @@ class NormalMethodAnalyzer(
             }
         }
 
-        for (successor in graph.successors(edge.statement)) {
-            addSequentialEdge(edge.replaceStatement(successor))
-        }
+        statementFilteredTraverse(
+            languageManager, edge.statement, graph::successors,
+            predicate = { languageManager.isRelevantInstruction(it) || it in methodExitPoints },
+            body = { addSequentialEdge(edge.replaceStatement(it)) }
+        )
     }
 
     private fun newSummaryEdge(edge: Edge) {

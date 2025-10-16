@@ -27,6 +27,8 @@ interface LanguageManager {
     fun getCalleeMethod(callExpr: CommonCallExpr): CommonMethod
     fun accessPathBase(value: CommonValue): AccessPathBase?
 
+    fun isRelevantInstruction(inst: CommonInst): Boolean
+
     fun getMethodCallResolver(
         graph: ApplicationGraph<CommonMethod, CommonInst>,
         unitResolver: UnitResolver<CommonMethod>,
