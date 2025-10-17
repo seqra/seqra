@@ -44,7 +44,6 @@ open class JIRTaintAnalyzer(
     val cp: JIRClasspath,
     val taintConfiguration: TaintRulesProvider,
     val projectLocations: Set<RegisteredLocation>,
-    val dependenciesLocations: Set<RegisteredLocation>,
     val ifdsTimeout: Duration,
     val ifdsApMode: ApMode,
     val opentaintTimeout: Duration,
@@ -52,7 +51,7 @@ open class JIRTaintAnalyzer(
     val analysisCwe: Set<Int>?,
     val summarySerializationContext: SummarySerializationContext,
     val storeSummaries: Boolean,
-    val analysisUnit: JIRUnitResolver = PackageUnitResolver(bannedLocations = dependenciesLocations),
+    val analysisUnit: JIRUnitResolver = PackageUnitResolver(projectLocations = projectLocations),
 ) {
     private val ifdsAnalysisGraph by lazy {
         val usages = runBlocking { cp.usagesExt() }
@@ -206,9 +205,9 @@ open class JIRTaintAnalyzer(
     companion object {
         private val logger = object : KLogging() {}.logger
 
-        class PackageUnitResolver(private val bannedLocations: Set<RegisteredLocation>) : JIRUnitResolver {
+        class PackageUnitResolver(private val projectLocations: Set<RegisteredLocation>) : JIRUnitResolver {
             override fun resolve(method: JIRMethod): UnitType {
-                if (method.enclosingClass.declaration.location in bannedLocations) {
+                if (method.enclosingClass.declaration.location !in projectLocations) {
                     return UnknownUnit
                 }
 

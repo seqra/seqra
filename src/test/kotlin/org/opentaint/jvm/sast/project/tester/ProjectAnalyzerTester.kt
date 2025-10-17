@@ -38,7 +38,6 @@ class ProjectAnalyzerTester(
         val analyzer = JIRTaintAnalyzerTester(
             cp, loadMainConfig(), testDataTaintConfig,
             projectLocations = projectClasses.projectLocations,
-            dependenciesLocations = projectClasses.dependenciesLocations,
             ifdsTimeout = ifdsAnalysisTimeout,
             ifdsApMode = ifdsApMode,
         )

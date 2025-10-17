@@ -51,7 +51,6 @@ class ProjectAnalyzer(
         val analyzer = JIRTaintAnalyzer(
             cp, loadTaintConfig(),
             projectLocations = projectClasses.projectLocations,
-            dependenciesLocations = projectClasses.dependenciesLocations,
             ifdsTimeout = ifdsAnalysisTimeout,
             ifdsApMode = ifdsApMode,
             opentaintTimeout = symbolicExecutionTimeout,
