@@ -1,0 +1,45 @@
+package org.opentaint.jvm.sast.runner
+
+import com.github.ajalt.clikt.core.main
+import com.github.ajalt.clikt.parameters.options.default
+import com.github.ajalt.clikt.parameters.options.multiple
+import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.types.boolean
+import com.github.ajalt.clikt.parameters.types.int
+import org.opentaint.jvm.sast.project.Project
+import org.opentaint.jvm.sast.project.ProjectAnalyzer
+import java.nio.file.Path
+import kotlin.time.Duration.Companion.seconds
+
+class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
+    private val cwe: List<Int> by option(help = "Analyzer CWE")
+        .int().multiple()
+
+    private val useSymbolicExecution: Boolean by option(help = "Use symbolic execution engine")
+        .boolean().default(false)
+
+    private val symbolicExecutionTimeout: Int by option(help = "Symbolic execution timeout in seconds")
+        .int().default(60)
+
+    override fun analyzeProject(project: Project, analyzerOutputDir: Path) {
+        val projectAnalyzer = ProjectAnalyzer(
+            project = project,
+            projectPackage = null,
+            resultDir = analyzerOutputDir,
+            cwe = cwe,
+            useSymbolicExecution = useSymbolicExecution,
+            symbolicExecutionTimeout = symbolicExecutionTimeout.seconds,
+            ifdsAnalysisTimeout = ifdsAnalysisTimeout.seconds,
+            ifdsApMode = ifdsApMode,
+            storeSummaries = true,
+            projectKind = projectKind
+        )
+
+        projectAnalyzer.analyze()
+    }
+
+    companion object {
+        @JvmStatic
+        fun main(args: Array<String>) = ProjectAnalyzerRunner().main(args)
+    }
+}

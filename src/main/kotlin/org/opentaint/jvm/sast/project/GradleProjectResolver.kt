@@ -31,18 +31,18 @@ class GradleProjectResolver(
     private val resolverDir: Path,
     override val projectSourceRoot: Path
 ) : ProjectResolver {
-    private val resolvedModules = mutableListOf<ProjectResolver.ProjectModuleClasses>()
+    private val resolvedModules = mutableListOf<ProjectModuleClasses>()
     private val resolvedProjectDependencies = mutableListOf<Path>()
 
     private fun registerModule(moduleRoot: Path, snapshotLibs: (Path) -> List<Path>) {
         val snapshotDir = resolverDir.resolve("modules_${resolvedModules.size}").createDirectories()
         val libs = snapshotLibs(snapshotDir)
-        resolvedModules += ProjectResolver.ProjectModuleClasses(moduleRoot, libs)
+        resolvedModules += ProjectModuleClasses(moduleRoot, libs)
     }
 
     private lateinit var javaToolchain: JavaToolchain
 
-    override fun resolveProject(): ProjectResolver.Project? {
+    override fun resolveProject(): Project? {
         logger.info { "Gradle build start for: $projectSourceRoot" }
         if (!buildProject()) {
             logger.error { "Gradle build failed for: $projectSourceRoot" }
@@ -54,7 +54,7 @@ class GradleProjectResolver(
             logger.error { "Gradle dependency resolution failed for: $projectSourceRoot" }
         }
 
-        return ProjectResolver.Project(projectSourceRoot, javaToolchain, resolvedModules, resolvedProjectDependencies)
+        return Project(projectSourceRoot, javaToolchain.path(), resolvedModules, resolvedProjectDependencies)
     }
 
     @OptIn(ExperimentalPathApi::class)

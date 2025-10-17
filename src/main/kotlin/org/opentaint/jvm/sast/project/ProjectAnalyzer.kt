@@ -12,7 +12,7 @@ import kotlin.io.path.outputStream
 import kotlin.time.Duration
 
 class ProjectAnalyzer(
-    project: ProjectResolver.Project,
+    project: Project,
     projectPackage: String?,
     private val resultDir: Path,
     private val cwe: List<Int>,
@@ -41,7 +41,7 @@ class ProjectAnalyzer(
 
         val sourcesResolver = JIRSourceFileResolver(
             project.sourceRoot,
-            projectClasses.locationProjectModules.mapValues { (_, module) -> module.projectModuleSourceRoot }
+            projectClasses.locationProjectModules.mapValues { (_, module) -> module.moduleSourceRoot }
         )
 
         logger.info { "Start IFDS analysis for project: ${project.sourceRoot}" }

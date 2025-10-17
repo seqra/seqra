@@ -28,7 +28,7 @@ import kotlin.io.path.Path
 import kotlin.time.Duration
 
 abstract class AbstractProjectAnalyzer(
-    protected val project: ProjectResolver.Project,
+    protected val project: Project,
     private val projectPackage: String?,
     protected val ifdsAnalysisTimeout: Duration,
     protected val ifdsApMode: ApMode,
@@ -50,9 +50,9 @@ abstract class AbstractProjectAnalyzer(
 
     private val dependencyFiles by lazy { project.dependencies.map { it.toFile() } }
     private val projectModulesFiles by lazy {
-        val moduleFiles = mutableMapOf<File, ProjectResolver.ProjectModuleClasses>()
+        val moduleFiles = mutableMapOf<File, ProjectModuleClasses>()
         for (module in project.modules) {
-            for (cls in module.projectModuleClasses) {
+            for (cls in module.moduleClasses) {
                 if (moduleFiles.putIfAbsent(cls.toFile(), module) != null) {
                     logger.warn("Project class $cls belongs to multiple modules")
                 }
@@ -72,13 +72,11 @@ abstract class AbstractProjectAnalyzer(
         allCpFiles.addAll(dependencyFiles)
 
         db = opentaint-ir {
-            when (val toolchain = project.javaToolchain) {
-                is JavaToolchain.ConcreteJavaToolchain -> {
-                    useJavaRuntime(File(toolchain.javaHome))
-                }
-                JavaToolchain.DefaultJavaToolchain -> {
-                    useProcessJavaRuntime()
-                }
+            val toolchain = project.javaToolchain
+            if (toolchain != null) {
+                useJavaRuntime(toolchain.toFile())
+            } else {
+                useProcessJavaRuntime()
             }
 
             persistenceImpl(JIRRamErsSettings)
@@ -129,7 +127,7 @@ abstract class AbstractProjectAnalyzer(
         val missedModules = project.modules.toSet() - projectClasses.locationProjectModules.values.toSet()
         if (missedModules.isNotEmpty()) {
             logger.warn {
-                "Modules missed for project  ${project.sourceRoot}: ${missedModules.map { it.projectModuleSourceRoot }}"
+                "Modules missed for project  ${project.sourceRoot}: ${missedModules.map { it.moduleSourceRoot }}"
             }
         }
     }

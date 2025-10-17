@@ -1,6 +1,16 @@
 package org.opentaint.jvm.sast.project
 
+import java.nio.file.Path
+import kotlin.io.path.Path
+
 sealed interface JavaToolchain {
-    object DefaultJavaToolchain : JavaToolchain
-    data class ConcreteJavaToolchain(val javaHome: String) : JavaToolchain
+    fun path(): Path
+
+    data object DefaultJavaToolchain : JavaToolchain {
+        override fun path(): Path = Path(System.getProperty("java.home"))
+    }
+
+    data class ConcreteJavaToolchain(val javaHome: String) : JavaToolchain {
+        override fun path(): Path = Path(javaHome)
+    }
 }

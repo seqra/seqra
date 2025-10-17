@@ -10,9 +10,9 @@ import java.io.File
 class ProjectClasses(
     val cp: JIRClasspath,
     private val projectPackage: String?,
-    private val projectModulesFiles: Map<File, ProjectResolver.ProjectModuleClasses>
+    private val projectModulesFiles: Map<File, ProjectModuleClasses>
 ) {
-    val locationProjectModules = hashMapOf<RegisteredLocation, ProjectResolver.ProjectModuleClasses>()
+    val locationProjectModules = hashMapOf<RegisteredLocation, ProjectModuleClasses>()
     val projectClasses = hashMapOf<RegisteredLocation, MutableSet<String>>()
 
     val projectLocations: Set<RegisteredLocation>

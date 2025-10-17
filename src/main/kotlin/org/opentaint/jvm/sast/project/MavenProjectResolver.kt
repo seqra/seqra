@@ -24,11 +24,11 @@ class MavenProjectResolver(
     override val projectSourceRoot: Path
 ) : ProjectResolver {
     private val resolvedProjectDependencies = mutableListOf<Path>()
-    private val resolvedModules = mutableListOf<ProjectResolver.ProjectModuleClasses>()
+    private val resolvedModules = mutableListOf<ProjectModuleClasses>()
 
     private lateinit var javaToolchain: JavaToolchain
 
-    override fun resolveProject(): ProjectResolver.Project? {
+    override fun resolveProject(): Project? {
         logger.info { "Maven build start for: $projectSourceRoot" }
         if (!buildProject()) {
             logger.error { "Maven build failed for: $projectSourceRoot" }
@@ -40,13 +40,13 @@ class MavenProjectResolver(
             logger.error { "Maven dependency resolution failed for: $projectSourceRoot" }
         }
 
-        return ProjectResolver.Project(projectSourceRoot, javaToolchain, resolvedModules, resolvedProjectDependencies)
+        return Project(projectSourceRoot, javaToolchain.path(), resolvedModules, resolvedProjectDependencies)
     }
 
     private fun registerModule(moduleRoot: Path, processModuleContent: (Path) -> Unit) {
         val classesDir = resolverDir.resolve("classes_${resolvedModules.size}")
         processModuleContent(classesDir.createParentDirectories())
-        resolvedModules += ProjectResolver.ProjectModuleClasses(moduleRoot, listOf(classesDir))
+        resolvedModules += ProjectModuleClasses(moduleRoot, listOf(classesDir))
     }
 
     @OptIn(ExperimentalPathApi::class)
@@ -205,7 +205,8 @@ class MavenProjectResolver(
             "-Dmaven.test.skip.exec",
             "-Dlicense.skip=true",
             "-Drat.skip=true",
-            "-Dspotless.check.skip=true"
+            "-Dspotless.check.skip=true",
+            "-Dspotless.apply.skip=true",
         )
 
         private fun resolveSnapshotVersion(artifact: MavenArtifact): String? {

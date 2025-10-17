@@ -11,7 +11,7 @@ import kotlin.io.path.readText
 import kotlin.time.Duration
 
 class ProjectAnalyzerTester(
-    project: ProjectResolver.Project,
+    project: Project,
     projectPackage: String?,
     ifdsAnalysisTimeout: Duration,
     ifdsApMode: ApMode,

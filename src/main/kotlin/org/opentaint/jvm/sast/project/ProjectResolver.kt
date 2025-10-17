@@ -5,7 +5,6 @@ import org.zeroturnaround.exec.ProcessExecutor
 import org.zeroturnaround.exec.stream.slf4j.Slf4jStream
 import java.nio.file.FileVisitResult
 import java.nio.file.Path
-import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.visitFileTree
@@ -14,18 +13,6 @@ sealed interface ProjectResolver {
     val projectSourceRoot: Path
 
     fun resolveProject(): Project?
-
-    data class ProjectModuleClasses(
-        val projectModuleSourceRoot: Path,
-        val projectModuleClasses: List<Path>
-    )
-
-    data class Project(
-        val sourceRoot: Path,
-        val javaToolchain: JavaToolchain,
-        val modules: List<ProjectModuleClasses>,
-        val dependencies: List<Path>
-    )
 
     companion object {
         val logger = object : KLogging() {}.logger
@@ -50,9 +37,8 @@ sealed interface ProjectResolver {
             return null
         }
 
-        @OptIn(ExperimentalPathApi::class)
-        fun resolveProjects(rootDir: Path, resolverWorkDir: Path): List<Project> {
-            resolverWorkDir.createParentDirectories()
+        fun resolveProject(rootDir: Path, resolverWorkDir: Path): Project? {
+            resolverWorkDir.createDirectories()
 
             val projectResolvers = mutableListOf<ProjectResolver>()
             rootDir.visitFileTree {
@@ -95,7 +81,24 @@ sealed interface ProjectResolver {
                 }
             }
 
-            return resolvedProjects
+            return when (resolvedProjects.size) {
+                0 -> {
+                    logger.error { "No projects resolved at $rootDir" }
+                    null
+                }
+
+                1 -> resolvedProjects.single()
+
+                else -> {
+                    // todo: better handling for multiple projects
+                    Project(
+                        sourceRoot = rootDir,
+                        javaToolchain = resolvedProjects.first().javaToolchain,
+                        modules = emptyList(),
+                        subProjects = resolvedProjects
+                    )
+                }
+            }
         }
 
         internal fun runCommand(workDir: Path, args: List<String>, javaToolchain: JavaToolchain): Int =
