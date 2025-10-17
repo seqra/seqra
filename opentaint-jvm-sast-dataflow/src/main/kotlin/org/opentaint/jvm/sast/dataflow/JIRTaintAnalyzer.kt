@@ -13,10 +13,8 @@ import org.opentaint.ir.taint.configuration.Argument
 import org.opentaint.ir.taint.configuration.ConstantTrue
 import org.opentaint.ir.taint.configuration.CopyAllMarks
 import org.opentaint.ir.taint.configuration.Result
-import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.ir.taint.configuration.TaintMethodSink
 import org.opentaint.ir.taint.configuration.TaintPassThrough
-import org.opentaint.ir.taint.configuration.v2.TaintConfiguration
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.TaintRuleFilter
 import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
@@ -44,7 +42,7 @@ import kotlin.time.TimeSource
 
 open class JIRTaintAnalyzer(
     val cp: JIRClasspath,
-    val taintConfiguration: TaintConfiguration,
+    val taintConfiguration: TaintRulesProvider,
     val projectLocations: Set<RegisteredLocation>,
     val dependenciesLocations: Set<RegisteredLocation>,
     val ifdsTimeout: Duration,
@@ -168,36 +166,10 @@ open class JIRTaintAnalyzer(
     }
 
     protected open val taintConfig: TaintRulesProvider by lazy {
-        val provider = object : TaintRulesProvider {
-            override fun entryPointRulesForMethod(method: CommonMethod) = getRules(method) {
-                taintConfiguration.entryPointForMethod(it)
-            }
-
-            override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {
-                taintConfiguration.sourceForMethod(it)
-            }
-
-            override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {
-                taintConfiguration.sinkForMethod(it)
-            }
-
-            override fun passTroughRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {
-                taintConfiguration.passThroughForMethod(it)
-            }
-
-            override fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {
-                taintConfiguration.cleanerForMethod(it)
-            }
-
-            private inline fun <T : TaintConfigurationItem> getRules(
-                method: CommonMethod,
-                body: (JIRMethod) -> Iterable<T>
-            ): Iterable<T> {
-                check(method is JIRMethod) { "Expected method to be JIRMethod" }
-                val rules = body(method)
-                if (taintRuleFilter == null) return rules
-                return rules.filter { taintRuleFilter.ruleEnabled(it) }
-            }
+        val provider = if (taintRuleFilter != null) {
+            JIRFilteredTaintRulesProvider(taintConfiguration, taintRuleFilter)
+        } else {
+            taintConfiguration
         }
 
         StringConcatRuleProvider(provider)

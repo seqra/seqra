@@ -2,12 +2,17 @@ package org.opentaint.jvm.sast.project
 
 import mu.KLogging
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.taint.configuration.v2.TaintConfiguration
+import org.opentaint.jvm.sast.dataflow.JIRCombinedTaintRulesProvider
 import org.opentaint.jvm.sast.dataflow.JIRSourceFileResolver
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
+import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
+import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSummarySerializationContext
 import java.nio.file.Path
 import kotlin.io.path.div
+import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 import kotlin.time.Duration
 
@@ -15,6 +20,7 @@ class ProjectAnalyzer(
     project: Project,
     projectPackage: String?,
     private val resultDir: Path,
+    private val customConfig: Path?,
     private val cwe: List<Int>,
     private val useSymbolicExecution: Boolean,
     private val symbolicExecutionTimeout: Duration,
@@ -23,11 +29,27 @@ class ProjectAnalyzer(
     projectKind: ProjectKind,
     private val storeSummaries: Boolean
 ) : AbstractProjectAnalyzer(project, projectPackage, ifdsAnalysisTimeout, ifdsApMode, projectKind) {
+    private fun loadTaintConfig(): TaintRulesProvider {
+        val defaultConfig = TaintConfiguration().also { loadDefaultConfig(it) }
+        val customConfig = customConfig?.let { cfg ->
+            cfg.inputStream().use { cfgStream ->
+                TaintConfiguration().apply { loadConfig(cfgStream) }
+            }
+        }
+
+        val defaultRules = JIRTaintRulesProvider(defaultConfig)
+        if (customConfig == null) return defaultRules
+
+        val customRules = JIRTaintRulesProvider(customConfig)
+
+        return JIRCombinedTaintRulesProvider(defaultRules, customRules)
+    }
+
     override fun runAnalyzer(entryPoints: List<JIRMethod>) {
         val summarySerializationContext = JIRSummarySerializationContext(cp)
 
         val analyzer = JIRTaintAnalyzer(
-            cp, taintConfig,
+            cp, loadTaintConfig(),
             projectLocations = projectClasses.projectLocations,
             dependenciesLocations = projectClasses.dependenciesLocations,
             ifdsTimeout = ifdsAnalysisTimeout,

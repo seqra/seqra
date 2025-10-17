@@ -46,8 +46,6 @@ abstract class AbstractProjectAnalyzer(
         }
     }
 
-    protected val taintConfig = TaintConfiguration()
-
     private val dependencyFiles by lazy { project.dependencies.map { it.toFile() } }
     private val projectModulesFiles by lazy {
         val moduleFiles = mutableMapOf<File, ProjectModuleClasses>()
@@ -92,10 +90,6 @@ abstract class AbstractProjectAnalyzer(
 
         db.awaitBackgroundJobs()
 
-        ConfigUtils.loadEncrypted(getPathFromEnv("opentaint_taint_config_path")) {
-            taintConfig.loadConfig(this)
-        }
-
         val lambdaAnonymousClass = LambdaAnonymousClassFeature()
         val lambdaTransformer = LambdaExpressionToAnonymousClassTransformerFeature(lambdaAnonymousClass)
         val methodNormalizer = MethodReturnInstNormalizerFeature
@@ -132,9 +126,6 @@ abstract class AbstractProjectAnalyzer(
         }
     }
 
-    private fun getPathFromEnv(envVar: String): Path =
-        System.getenv(envVar)?.let { Path(it) } ?: error("$envVar not provided")
-
     protected abstract fun runAnalyzer(entryPoints: List<JIRMethod>)
 
     private fun getEntryPoints(): List<JIRMethod> {
@@ -154,5 +145,14 @@ abstract class AbstractProjectAnalyzer(
 
     companion object {
         private val logger = object : KLogging() {}.logger
+
+        private fun getPathFromEnv(envVar: String): Path =
+            System.getenv(envVar)?.let { Path(it) } ?: error("$envVar not provided")
+
+        fun loadDefaultConfig(taintConfiguration: TaintConfiguration) {
+            ConfigUtils.loadEncrypted(getPathFromEnv("opentaint_taint_config_path")) {
+                taintConfiguration.loadConfig(this)
+            }
+        }
     }
 }

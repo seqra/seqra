@@ -3,8 +3,11 @@ package org.opentaint.jvm.sast.project
 import kotlinx.serialization.json.Json
 import mu.KLogging
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.taint.configuration.v2.TaintConfiguration
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzerTester
+import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
 import org.opentaint.jvm.sast.dataflow.TracePair
+import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import java.nio.file.Path
 import kotlin.io.path.readText
@@ -28,9 +31,12 @@ class ProjectAnalyzerTester(
         testDataJsonPath.readText()
     )
 
+    private fun loadMainConfig(): TaintRulesProvider =
+        JIRTaintRulesProvider(TaintConfiguration().also { loadDefaultConfig(it) })
+
     override fun runAnalyzer(entryPoints: List<JIRMethod>) {
         val analyzer = JIRTaintAnalyzerTester(
-            cp, taintConfig, testDataTaintConfig,
+            cp, loadMainConfig(), testDataTaintConfig,
             projectLocations = projectClasses.projectLocations,
             dependenciesLocations = projectClasses.dependenciesLocations,
             ifdsTimeout = ifdsAnalysisTimeout,
