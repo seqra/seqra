@@ -1,7 +1,8 @@
 package org.opentaint.dataflow.ap.ifds.access.automata
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
-import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager
+import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager.FactEdgeSummarySubscription
+import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager.ZeroEdgeSummarySubscription
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.MethodAccessPathSubscription
@@ -13,11 +14,11 @@ class MethodAutomataAccessPathSubscription : MethodAccessPathSubscription {
     override fun addZeroToFact(
         calleeInitialFactBase: AccessPathBase,
         callerFactAp: FinalFactAp
-    ): SummaryEdgeSubscriptionManager.ZeroEdgeSummarySubscription? {
+    ): ZeroEdgeSummarySubscription? {
         val basedFacts = zeroFacts.getOrPut(calleeInitialFactBase) { hashSetOf() }
         if (!basedFacts.add(callerFactAp)) return null
 
-        return SummaryEdgeSubscriptionManager.ZeroEdgeSummarySubscription()
+        return ZeroEdgeSummarySubscription()
             .setCalleeBase(calleeInitialFactBase)
             .setCallerPathEdgeAp(callerFactAp)
     }
@@ -26,36 +27,38 @@ class MethodAutomataAccessPathSubscription : MethodAccessPathSubscription {
         calleeInitialBase: AccessPathBase,
         callerInitialAp: InitialFactAp,
         callerExitAp: FinalFactAp
-    ): SummaryEdgeSubscriptionManager.FactEdgeSummarySubscription? {
+    ): FactEdgeSummarySubscription? {
         val basedFacts = factToFact.getOrPut(calleeInitialBase) { hashSetOf() }
         if (!basedFacts.add(callerInitialAp to callerExitAp)) return null
 
-        return SummaryEdgeSubscriptionManager.FactEdgeSummarySubscription()
+        return FactEdgeSummarySubscription()
             .setCalleeBase(calleeInitialBase)
             .setCallerInitialAp(callerInitialAp)
             .setCallerAp(callerExitAp)
     }
 
-    override fun findFactEdge(
+    override fun collectFactEdge(
+        collection: MutableList<FactEdgeSummarySubscription>,
         summaryInitialFactAp: InitialFactAp
-    ): Sequence<SummaryEdgeSubscriptionManager.FactEdgeSummarySubscription> =
-        factToFact[summaryInitialFactAp.base]?.asSequence()
-            ?.map { (callerInitialAp, callerExitAp) ->
-                SummaryEdgeSubscriptionManager.FactEdgeSummarySubscription()
-                    .setCalleeBase(summaryInitialFactAp.base)
-                    .setCallerInitialAp(callerInitialAp)
-                    .setCallerAp(callerExitAp)
-            }
-            .orEmpty()
+    ) {
+        val edges = factToFact[summaryInitialFactAp.base] ?: return
+        edges.mapTo(collection) { (callerInitialAp, callerExitAp) ->
+            FactEdgeSummarySubscription()
+                .setCalleeBase(summaryInitialFactAp.base)
+                .setCallerInitialAp(callerInitialAp)
+                .setCallerAp(callerExitAp)
+        }
+    }
 
-    override fun findZeroEdge(
+    override fun collectZeroEdge(
+        collection: MutableList<ZeroEdgeSummarySubscription>,
         summaryInitialFactAp: InitialFactAp
-    ): Sequence<SummaryEdgeSubscriptionManager.ZeroEdgeSummarySubscription> =
-        zeroFacts[summaryInitialFactAp.base]?.asSequence()
-            ?.map {
-                SummaryEdgeSubscriptionManager.ZeroEdgeSummarySubscription()
-                    .setCalleeBase(summaryInitialFactAp.base)
-                    .setCallerPathEdgeAp(it)
-            }
-            .orEmpty()
+    ) {
+        val edges = zeroFacts[summaryInitialFactAp.base] ?: return
+        edges.mapTo(collection) {
+            ZeroEdgeSummarySubscription()
+                .setCalleeBase(summaryInitialFactAp.base)
+                .setCallerPathEdgeAp(it)
+        }
+    }
 }

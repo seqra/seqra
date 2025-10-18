@@ -32,6 +32,7 @@ import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.graph.statementFilteredTraverse
+import org.opentaint.dataflow.util.forEach
 import org.opentaint.util.onSome
 import java.util.BitSet
 import java.util.LinkedList
@@ -278,14 +279,6 @@ class MethodTraceResolver(
         }
     }
 
-    private inline fun BitSet.forEachEntryId(action: (Int) -> Unit) {
-        var node = nextSetBit(0)
-        while (node >= 0) {
-            action(node)
-            node = nextSetBit(node + 1)
-        }
-    }
-
     private fun TraceBuilder.collapseSequentialPredecessors() {
         processedEntryIds.clear()
         unprocessedEntryIds.add(finalEntryId)
@@ -308,20 +301,20 @@ class MethodTraceResolver(
                 val entrySuccessors = successors.remove(entryId) ?: BitSet()
                 entrySuccessors.clear(entryId)
 
-                entryPredecessorIds.forEachEntryId { predecessorId ->
+                entryPredecessorIds.forEach { predecessorId: Int ->
                     val predSuccessors = successors.get(predecessorId)
                     predSuccessors?.clear(entryId)
                     predSuccessors?.or(entrySuccessors)
                 }
 
-                entrySuccessors.forEachEntryId { successorId ->
+                entrySuccessors.forEach { successorId: Int ->
                     val succPredecessors = predecessors.get(successorId)
                     succPredecessors?.clear(entryId)
                     succPredecessors?.or(entryPredecessorIds)
                 }
             }
 
-            entryPredecessorIds.forEachEntryId { predecessorId ->
+            entryPredecessorIds.forEach { predecessorId: Int ->
                 unprocessedEntryIds.add(predecessorId)
             }
         }
@@ -330,7 +323,7 @@ class MethodTraceResolver(
     private fun canRemoveEntry(entry: TraceEntry, predecessorIds: BitSet): Boolean {
         if (entry !is TraceEntry.Sequential) return false
 
-        predecessorIds.forEachEntryId { predecessorId ->
+        predecessorIds.forEach { predecessorId: Int ->
             val predecessor = entryManager.entryById(predecessorId)
 
             if (predecessor.fact != entry.fact) return false
@@ -341,7 +334,7 @@ class MethodTraceResolver(
 
     private fun TraceBuilder.sourceTrace(): FullTrace {
         val initial = hashSetOf<TraceEntry.SourceStartEntry>()
-        startEntryIds.forEachEntryId { entryId ->
+        startEntryIds.forEach { entryId: Int ->
             val entry = entryManager.entryById(entryId)
             if (entry is TraceEntry.SourceStartEntry) {
                 initial.add(entry)
@@ -358,7 +351,7 @@ class MethodTraceResolver(
 
     private fun TraceBuilder.methodTrace(): FullTrace {
         val initial = hashSetOf<TraceEntry.MethodEntry>()
-        startEntryIds.forEachEntryId { entryId ->
+        startEntryIds.forEach { entryId: Int ->
             val entry = entryManager.entryById(entryId)
             if (entry is TraceEntry.MethodEntry) {
                 initial.add(entry)
@@ -378,7 +371,7 @@ class MethodTraceResolver(
         for ((entryId, entryPredecessorIds) in predecessors) {
             val entry = entryManager.entryById(entryId)
 
-            entryPredecessorIds.forEachEntryId { predecessorId ->
+            entryPredecessorIds.forEach { predecessorId: Int ->
                 val predecessor = entryManager.entryById(predecessorId)
                 val successors = allSuccessors.getOrPut(predecessor, ::hashSetOf)
                 successors.add(entry)

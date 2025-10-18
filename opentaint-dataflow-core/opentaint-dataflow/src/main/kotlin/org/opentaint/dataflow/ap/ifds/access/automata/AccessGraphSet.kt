@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.access.automata.SmallAgGroup.Companion.SMALL_GROUP_SIZE
+import org.opentaint.dataflow.util.containsAll
 import java.util.BitSet
 
 sealed interface AccessGraphSet {
@@ -182,12 +183,6 @@ class CompressedAgSet : AccessGraphSet {
         val newIndex = accessorIndex.size
         accessorIndex.put(this, newIndex)
         return newIndex
-    }
-
-    private fun BitSet.containsAll(other: BitSet): Boolean {
-        val copy = other.clone() as BitSet
-        copy.andNot(this@containsAll)
-        return copy.isEmpty
     }
 
     companion object {

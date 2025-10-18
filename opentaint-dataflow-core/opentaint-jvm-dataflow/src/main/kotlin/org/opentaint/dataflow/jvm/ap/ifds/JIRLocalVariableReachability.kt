@@ -12,6 +12,8 @@ import org.opentaint.dataflow.ap.ifds.LocalVariableReachability
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionStorageIdx
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionStorageSize
 import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph
+import org.opentaint.dataflow.util.containsAll
+import org.opentaint.dataflow.util.copy
 import java.util.BitSet
 
 class JIRLocalVariableReachability(
@@ -40,7 +42,7 @@ class JIRLocalVariableReachability(
             val currentReachability = statementReachability[storageIdx]
 
             // no new reachability info
-            if (currentReachability != null && prevReachability.includedIn(currentReachability)) {
+            if (currentReachability != null && currentReachability.containsAll(prevReachability)) {
                 continue
             }
 
@@ -75,16 +77,5 @@ class JIRLocalVariableReachability(
         is JIRAssignInst -> lhv as? JIRLocalVar
         is JIRCatchInst -> throwable as? JIRLocalVar
         else -> null
-    }
-
-    companion object {
-        @JvmStatic
-        private fun BitSet.copy(): BitSet = clone() as BitSet
-
-        private fun BitSet.includedIn(other: BitSet): Boolean {
-            val copy = this.copy()
-            copy.andNot(other)
-            return copy.isEmpty
-        }
     }
 }

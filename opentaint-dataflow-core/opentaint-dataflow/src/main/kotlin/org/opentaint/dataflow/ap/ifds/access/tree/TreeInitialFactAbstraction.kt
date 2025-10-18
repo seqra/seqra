@@ -8,7 +8,7 @@ import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAbstraction
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.ap.ifds.access.tree.AccessPath.AccessNode.Companion.iterator
+import org.opentaint.dataflow.ap.ifds.access.tree.AccessPath.AccessNode.Companion.ReversedApNode
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode as AccessTreeNode
 
 class TreeInitialFactAbstraction: InitialFactAbstraction {
@@ -43,11 +43,11 @@ class TreeInitialFactAbstraction: InitialFactAbstraction {
         concreteFactAccess: AccessTreeNode,
         abstractFacts: MutableList<Pair<InitialFactAp, FinalFactAp>>
     ) {
-        abstractAccessPath(facts.analyzed, concreteFactAccess, mutableListOf()) { abstractAccess ->
-            val initialAbstractAccessNode = AccessPath.AccessNode.createNodeFromAp(abstractAccess.iterator())
+        abstractAccessPath(facts.analyzed, concreteFactAccess) { abstractAccess ->
+            val initialAbstractAccessNode = AccessPath.AccessNode.createNodeFromReversedAp(abstractAccess)
             val initialAbstractAp = AccessPath(concreteFactBase, initialAbstractAccessNode, Empty)
 
-            val apAccess = AccessTreeNode.createAbstractNodeFromAp(abstractAccess.iterator())
+            val apAccess = AccessTreeNode.createAbstractNodeFromReversedAp(abstractAccess)
             val ap = AccessTree(concreteFactBase, apAccess, Empty)
 
             facts.addAnalyzedInitialFact(initialAbstractAccessNode, Empty)
@@ -55,34 +55,47 @@ class TreeInitialFactAbstraction: InitialFactAbstraction {
         }
     }
 
-    private fun abstractAccessPath(
-        analyzedTrieRoot: AccessPathTrieNode,
-        added: AccessTreeNode,
-        currentAp: MutableList<Accessor>,
-        createAbstractAp: (List<Accessor>) -> Unit
+    data class AbstractionState(
+        val analyzedTrieRoot: AccessPathTrieNode,
+        val added: AccessTreeNode,
+        val currentAp: ReversedApNode?,
+    )
+
+    private inline fun abstractAccessPath(
+        initialAnalyzedTrieRoot: AccessPathTrieNode,
+        initialAdded: AccessTreeNode,
+        createAbstractAp: (ReversedApNode?) -> Unit
     ) {
-        val currentLevelExclusions = analyzedTrieRoot.exclusions()
-        if (currentLevelExclusions == null) {
-            createAbstractAp(currentAp)
-            return
-        }
+        val unprocessed = mutableListOf<AbstractionState>()
+        unprocessed.add(AbstractionState(initialAnalyzedTrieRoot, initialAdded, currentAp = null))
 
-        if (added.isFinal) {
-            val node = AccessTreeNode.create()
-            abstractAccessPath(analyzedTrieRoot, FinalAccessor, node, currentAp, createAbstractAp)
-        }
+        while (unprocessed.isNotEmpty()) {
+            val state = unprocessed.removeLast()
 
-        added.forEachAccessor { accessor, node ->
-            abstractAccessPath(analyzedTrieRoot, accessor, node, currentAp, createAbstractAp)
+            val currentLevelExclusions = state.analyzedTrieRoot.exclusions()
+            if (currentLevelExclusions == null) {
+                createAbstractAp(state.currentAp)
+                continue
+            }
+
+            if (state.added.isFinal) {
+                val node = AccessTreeNode.create()
+                abstractAccessPath(state.analyzedTrieRoot, FinalAccessor, node, state.currentAp, unprocessed, createAbstractAp)
+            }
+
+            state.added.forEachAccessor { accessor, node ->
+                abstractAccessPath(state.analyzedTrieRoot, accessor, node, state.currentAp, unprocessed, createAbstractAp)
+            }
         }
     }
 
-    private fun abstractAccessPath(
+    private inline fun abstractAccessPath(
         analyzedTrieRoot: AccessPathTrieNode,
         accessor: Accessor,
         addedNode: AccessTreeNode,
-        currentAp: MutableList<Accessor>,
-        createAbstractAp: (List<Accessor>) -> Unit
+        currentAp: ReversedApNode?,
+        unprocessed: MutableList<AbstractionState>,
+        createAbstractAp: (ReversedApNode?) -> Unit
     ) {
         val node = analyzedTrieRoot.children[accessor]
         if (node == null) {
@@ -100,9 +113,7 @@ class TreeInitialFactAbstraction: InitialFactAbstraction {
                 // We have initial fact that exclude {b} and we have no a.b fact yet
                 // Return a.b.* {}
 
-                currentAp.add(accessor)
-                createAbstractAp(currentAp)
-                currentAp.removeLast()
+                createAbstractAp(ReversedApNode(accessor, currentAp))
 
                 return
             }
@@ -111,11 +122,9 @@ class TreeInitialFactAbstraction: InitialFactAbstraction {
             return
         }
 
-        currentAp.add(accessor)
-        abstractAccessPath(node, addedNode, currentAp, createAbstractAp)
-        currentAp.removeLast()
+        val apWithAccessor = ReversedApNode(accessor, currentAp)
+        unprocessed += AbstractionState(node, addedNode, apWithAccessor)
     }
-
 
     private class MethodSameMarkInitialFact(val facts: MutableMap<AccessPathBase, MethodSameBaseInitialFact>) {
         fun getOrPut(base: AccessPathBase): MethodSameBaseInitialFact = facts.getOrPut(base) {
@@ -139,7 +148,7 @@ class TreeInitialFactAbstraction: InitialFactAbstraction {
         }
 
         fun addAnalyzedInitialFact(ap: AccessPath.AccessNode?, exclusions: ExclusionSet) {
-            AccessPathTrieNode.add(analyzed, ap.iterator(), exclusions)
+            AccessPathTrieNode.add(analyzed, ap, exclusions)
         }
     }
 
@@ -153,23 +162,28 @@ class TreeInitialFactAbstraction: InitialFactAbstraction {
             fun empty() = AccessPathTrieNode(hashMapOf(), terminals = null)
 
             fun add(
-                root: AccessPathTrieNode,
-                access: Iterator<Accessor>,
+                initialRoot: AccessPathTrieNode,
+                initialAccess: AccessPath.AccessNode?,
                 exclusions: ExclusionSet
             ) {
-                if (!access.hasNext()) {
-                    val terminals = root.terminals
-                    if (terminals == null) {
-                        root.terminals = exclusions
-                    } else {
-                        root.terminals = terminals.union(exclusions)
-                    }
-                    return
-                }
+                var trieNode = initialRoot
+                var access = initialAccess
 
-                val key = access.next()
-                val child = root.children.getOrPut(key) { empty() }
-                add(child, access, exclusions)
+                while (true) {
+                    if (access == null) {
+                        val terminals = trieNode.terminals
+                        if (terminals == null) {
+                            trieNode.terminals = exclusions
+                        } else {
+                            trieNode.terminals = terminals.union(exclusions)
+                        }
+                        return
+                    }
+
+                    val key = access.accessor
+                    trieNode = trieNode.children.getOrPut(key) { empty() }
+                    access = access.next
+                }
             }
         }
     }

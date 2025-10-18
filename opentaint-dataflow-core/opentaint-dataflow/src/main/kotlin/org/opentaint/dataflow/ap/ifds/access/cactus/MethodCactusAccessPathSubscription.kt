@@ -9,6 +9,7 @@ import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager.ZeroEdgeSum
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.MethodAccessPathSubscription
+import org.opentaint.dataflow.util.collectToListWithPostProcess
 
 class MethodCactusAccessPathSubscription: MethodAccessPathSubscription {
     private val initialBaseSubscription =
@@ -36,17 +37,29 @@ class MethodCactusAccessPathSubscription: MethodAccessPathSubscription {
         ?.build()
         ?.setCalleeBase(calleeInitialBase)
 
-    override fun findFactEdge(summaryInitialFactAp: InitialFactAp): Sequence<FactEdgeSummarySubscription> =
-        initialBaseSubscription[summaryInitialFactAp.base]
-            ?.findFactEdge()
-            ?.map { it.build().setCalleeBase(summaryInitialFactAp.base) }
-            .orEmpty()
+    override fun collectFactEdge(
+        collection: MutableList<FactEdgeSummarySubscription>,
+        summaryInitialFactAp: InitialFactAp
+    ) {
+        val storage = initialBaseSubscription[summaryInitialFactAp.base] ?: return
+        collectToListWithPostProcess(
+            collection,
+            { storage.findFactEdge(it) },
+            { it.build().setCalleeBase(summaryInitialFactAp.base) }
+        )
+    }
 
-    override fun findZeroEdge(summaryInitialFactAp: InitialFactAp): Sequence<ZeroEdgeSummarySubscription> =
-        initialBaseTreeSubscription[summaryInitialFactAp.base]
-            ?.findZeroEdge((summaryInitialFactAp as AccessPathWithCycles).access)
-            ?.map { it.build().setCalleeBase(summaryInitialFactAp.base) }
-            .orEmpty()
+    override fun collectZeroEdge(
+        collection: MutableList<ZeroEdgeSummarySubscription>,
+        summaryInitialFactAp: InitialFactAp
+    ) {
+        val storage = initialBaseTreeSubscription[summaryInitialFactAp.base] ?: return
+        collectToListWithPostProcess(
+            collection,
+            { storage.findZeroEdge(it, (summaryInitialFactAp as AccessPathWithCycles).access) },
+            { it.build().setCalleeBase(summaryInitialFactAp.base) }
+        )
+    }
 }
 
 
@@ -66,10 +79,15 @@ private class FactEdgeSubscriptionStorage {
             ?.setCallerBase(callerExitAp.base)
     }
 
-    fun findFactEdge(): Sequence<FactEdgeSubBuilder> =
-        subscriptions.asSequence().flatMap { (base, storage) ->
-            storage.find().map { it.setCallerBase(base) }
+    fun findFactEdge(collection: MutableList<FactEdgeSubBuilder>) {
+        for ((base, storage) in subscriptions) {
+            collectToListWithPostProcess(
+                collection,
+                { storage.find(it) },
+                { it.setCallerBase(base) }
+            )
         }
+    }
 }
 
 private class SummaryEdgeFactAbstractTreeSubscriptionStorage {
@@ -103,13 +121,14 @@ private class SummaryEdgeFactAbstractTreeSubscriptionStorage {
     }
 
     // todo: filter
-    fun find(): Sequence<FactEdgeSubBuilder> = storage.asSequence()
-        .map { (callerInitialAp, callerExitAp) ->
+    fun find(collection: MutableList<FactEdgeSubBuilder>) {
+        storage.mapTo(collection) { (callerInitialAp, callerExitAp) ->
             FactEdgeSubBuilder()
                 .setCallerNode(callerExitAp)
                 .setCallerInitialAp(callerInitialAp)
                 .setCallerExclusion(callerInitialAp.exclusions)
         }
+    }
 }
 
 private class ZeroEdgeSubscriptionStorage {
@@ -125,11 +144,13 @@ private class ZeroEdgeSubscriptionStorage {
     }
 
     fun findZeroEdge(
+        collection: MutableList<ZeroEdgeSubBuilder>,
         summaryInitialFact: AccessPathWithCycles.AccessNode?
-    ): Sequence<ZeroEdgeSubBuilder> =
-        subscriptions.asSequence().mapNotNull { (base, storage) ->
+    ) {
+        subscriptions.mapNotNullTo(collection) { (base, storage) ->
             storage.findForSummaryFact(summaryInitialFact)?.setBase(base)
         }
+    }
 }
 
 private class SummaryEdgeFactTreeSubscriptionStorage {

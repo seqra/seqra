@@ -52,9 +52,9 @@ interface MethodAccessPathSubscription {
         callerExitAp: FinalFactAp
     ): FactEdgeSummarySubscription?
 
-    fun findFactEdge(summaryInitialFactAp: InitialFactAp): Sequence<FactEdgeSummarySubscription>
+    fun collectFactEdge(collection: MutableList<FactEdgeSummarySubscription>, summaryInitialFactAp: InitialFactAp)
 
-    fun findZeroEdge(summaryInitialFactAp: InitialFactAp): Sequence<ZeroEdgeSummarySubscription>
+    fun collectZeroEdge(collection: MutableList<ZeroEdgeSummarySubscription>, summaryInitialFactAp: InitialFactAp)
 }
 
 interface MethodEdgesFinalApSet {

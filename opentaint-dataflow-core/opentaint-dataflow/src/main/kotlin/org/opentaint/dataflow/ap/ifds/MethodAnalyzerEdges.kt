@@ -25,6 +25,8 @@ class MethodAnalyzerEdges(
         return addEdge(edge)
     }
 
+    fun reachedStatements() = zeroToZeroEdges.reachedStatements()
+
     private fun addEdge(edge: Edge): List<Edge> {
         when (edge) {
             is Edge.ZeroToZero -> {
@@ -98,6 +100,8 @@ class MethodAnalyzerEdges(
             edges.set(edgeIdx)
             return true
         }
+
+        fun reachedStatements(): BitSet = edges
     }
 
     abstract class EdgeStorage<Storage : Any>(initialStatement: CommonInst) :

@@ -251,18 +251,29 @@ class AccessPath(
 
         companion object {
             @JvmStatic
-            fun createNodeFromAp(accessors: Iterator<Accessor>): AccessNode? {
-                if (!accessors.hasNext()) {
-                    return null
+            fun createNodeFromAccessors(accessors: List<Accessor>): AccessNode? =
+                accessors.foldRight(null as AccessNode?, ::AccessNode)
+
+            @JvmStatic
+            fun createNodeFromReversedAp(reversedAp: ReversedApNode?): AccessNode? =
+                reversedAp.foldRight(null as AccessNode?, ::AccessNode)
+
+            class ReversedApNode(val accessor: Accessor, val prev: ReversedApNode?)
+
+            inline fun <R> ReversedApNode?.foldRight(
+                initial: R, operation: (accessor: Accessor, acc: R) -> R
+            ): R {
+                if (this == null) return initial
+
+                var resultNode: R = initial
+                var reversedNode: ReversedApNode = this
+
+                while (true) {
+                    val accessor = reversedNode.accessor
+                    resultNode = operation(accessor, resultNode)
+                    reversedNode = reversedNode.prev ?: return resultNode
                 }
-
-                val accessor = accessors.next()
-                return AccessNode(accessor = accessor, next = createNodeFromAp(accessors))
             }
-
-            fun AccessNode?.iterator(): Iterator<Accessor> = this?.iterator() ?: emptyList<Accessor>().iterator()
-
-            fun AccessNode?.asIterable(): Iterable<Accessor> = this ?: emptyList()
         }
     }
 }

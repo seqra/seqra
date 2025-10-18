@@ -17,6 +17,9 @@ import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
+import org.opentaint.dataflow.util.add
+import org.opentaint.dataflow.util.forEach
+import org.opentaint.dataflow.util.removeFirst
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.util.BitSet
@@ -34,23 +37,6 @@ private typealias NodeSet = BitSet
 
 private fun nodeSet(expectedSize: Int): NodeSet = BitSet(expectedSize)
 private operator fun NodeSet.contains(node: NodeMarker) = get(node)
-private fun NodeSet.add(node: NodeMarker): Boolean =
-    if (get(node)) false else true.also { set(node) }
-
-private inline fun NodeSet.forEachNode(action: (NodeMarker) -> Unit) {
-    var node = nextSetBit(0)
-    while (node >= 0) {
-        action(node)
-        node = nextSetBit(node + 1)
-    }
-}
-
-private fun NodeSet.removeFirst(): NodeMarker {
-    val node = nextSetBit(0)
-    check(node >= 0) { "Set is empty" }
-    clear(node)
-    return node
-}
 
 class AccessGraph(
     val initial: NodeMarker,
@@ -303,16 +289,16 @@ class AccessGraph(
         val splitPoints = findGraphSplit(other)
 
         val result = mutableListOf<Pair<AccessGraph, AccessGraph>>()
-        splitPoints.forEachNode { splitNode ->
+        splitPoints.forEach { splitNode: NodeMarker ->
             val matchedPrefix = AccessGraph(initial, splitNode, edges, nodeSucc, nodePred)
                 .removeUnreachableNodes()
-                ?: return@forEachNode
+                ?: return@forEach
 
-            if (!other.containsAll(matchedPrefix)) return@forEachNode
+            if (!other.containsAll(matchedPrefix)) return@forEach
 
             val deltaSuffix = AccessGraph(splitNode, final, edges, nodeSucc, nodePred)
                 .removeUnreachableNodes()
-                ?: return@forEachNode
+                ?: return@forEach
 
             result += matchedPrefix to deltaSuffix
         }
@@ -843,16 +829,16 @@ class MutableAccessGraph(
         }
 
         var otherFinalNode: NodeMarker? = null
-        finalNodes.forEachNode { finalNode ->
+        finalNodes.forEach { finalNode: NodeMarker ->
             val normalizedFinalNode = normalize(finalNode, eliminatedNodes)
 
             val currentFinal = otherFinalNode
             if (currentFinal == null) {
                 otherFinalNode = normalizedFinalNode
-                return@forEachNode
+                return@forEach
             }
 
-            if (normalizedFinalNode == currentFinal) return@forEachNode
+            if (normalizedFinalNode == currentFinal) return@forEach
 
             val (eliminatedNode, newFinalNode) = mergeNodeEdgesEnsureNotInitial(currentFinal, normalizedFinalNode)
             eliminatedNodes.put(eliminatedNode, newFinalNode)
@@ -880,7 +866,7 @@ class MutableAccessGraph(
     }
 
     fun removeUnreachableIntermediateNodes(nodes: NodeSet): MutableAccessGraph {
-        nodes.forEachNode { node ->
+        nodes.forEach { node: NodeMarker ->
             val successors = getAndRemoveNodeSuccessors(node)
             for (accessor in successors) {
                 val (edgeFrom, edgeTo) = edges.remove(accessor) ?: continue

@@ -69,7 +69,7 @@ internal class TreeSerializer(
         val accessors = List(accessorsSize) {
             context.getAccessorById(readLong())
         }
-        val accessNode = AccessPath.AccessNode.createNodeFromAp(accessors.iterator())
+        val accessNode = AccessPath.AccessNode.createNodeFromAccessors(accessors)
         return AccessPath(base, accessNode, exclusions)
     }
 }

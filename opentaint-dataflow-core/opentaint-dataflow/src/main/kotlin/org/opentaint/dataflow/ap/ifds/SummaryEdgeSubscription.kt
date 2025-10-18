@@ -145,14 +145,18 @@ class SummaryEdgeSubscriptionManager(
 
         fun findFactEdgeSub(
             summaryInitialFactAp: InitialFactAp
-        ): Sequence<Pair<MethodEntryPoint, Sequence<FactEdgeSummarySubscription>>> {
-            return taintedFactSubscriptions.findFactEdge(summaryInitialFactAp)
+        ): List<Pair<MethodEntryPoint, List<FactEdgeSummarySubscription>>> {
+            val result = mutableListOf<Pair<MethodEntryPoint, List<FactEdgeSummarySubscription>>>()
+            taintedFactSubscriptions.collectFactEdge(result, summaryInitialFactAp)
+            return result
         }
 
         fun findZeroEdgeSub(
             summaryInitialFactAp: InitialFactAp
-        ): Sequence<Pair<MethodEntryPoint, Sequence<ZeroEdgeSummarySubscription>>> {
-            return taintedFactSubscriptions.findZeroEdge(summaryInitialFactAp)
+        ): List<Pair<MethodEntryPoint, List<ZeroEdgeSummarySubscription>>> {
+            val result = mutableListOf<Pair<MethodEntryPoint, List<ZeroEdgeSummarySubscription>>>()
+            taintedFactSubscriptions.collectZeroEdge(result, summaryInitialFactAp)
+            return result
         }
 
         fun collectCallers(collectZeroCallsOnly: Boolean, callers: MutableSet<MethodEntryPointCaller>) {
@@ -211,27 +215,39 @@ class SummaryEdgeSubscriptionManager(
             }.addFactToFact(calleeInitialFactBase, callerPathEdge.initialFactAp, callerPathEdge.factAp)
                 ?.setStatements(callerPathEdge.methodEntryPoint, callerPathEdge.statement)
 
-        fun findFactEdge(
+        fun collectFactEdge(
+            collection: MutableList<Pair<MethodEntryPoint, List<FactEdgeSummarySubscription>>>,
             summaryInitialFactAp: InitialFactAp
-        ): Sequence<Pair<MethodEntryPoint, Sequence<FactEdgeSummarySubscription>>> =
-            subscriptions.asSequence().map { (initialStmt, storage) ->
-                initialStmt to storage.asSequence().flatMap { (exitStmt, subs) ->
-                    subs.findFactEdge(summaryInitialFactAp).map {
-                        it.setStatements(initialStmt, exitStmt)
-                    }
+        ) {
+            for ((initialStmt, storage) in subscriptions) {
+                val collectedSubs = mutableListOf<FactEdgeSummarySubscription>()
+                for ((exitStmt, subs) in storage) {
+                    collectToListWithPostProcess(
+                        collectedSubs,
+                        { subs.collectFactEdge(it, summaryInitialFactAp) },
+                        { it.setStatements(initialStmt, exitStmt) }
+                    )
                 }
+                collection += initialStmt to collectedSubs
             }
+        }
 
-        fun findZeroEdge(
+        fun collectZeroEdge(
+            collection: MutableList<Pair<MethodEntryPoint, List<ZeroEdgeSummarySubscription>>>,
             summaryInitialFactAp: InitialFactAp
-        ): Sequence<Pair<MethodEntryPoint, Sequence<ZeroEdgeSummarySubscription>>> =
-            subscriptions.asSequence().map { (initialStmt, storage) ->
-                initialStmt to storage.asSequence().flatMap { (exitStmt, subs) ->
-                    subs.findZeroEdge(summaryInitialFactAp).map {
-                        it.setStatements(initialStmt, exitStmt)
-                    }
+        ) {
+            for ((initialStmt, storage) in subscriptions) {
+                val collectedSubs = mutableListOf<ZeroEdgeSummarySubscription>()
+                for ((exitStmt, subs) in storage) {
+                    collectToListWithPostProcess(
+                        collectedSubs,
+                        { subs.collectZeroEdge(it, summaryInitialFactAp) },
+                        { it.setStatements(initialStmt, exitStmt) }
+                    )
                 }
+                collection += initialStmt to collectedSubs
             }
+        }
 
         fun collectCallers(callers: MutableSet<MethodEntryPointCaller>) {
             subscriptions.forEach { (methodEp, sub) ->
@@ -380,10 +396,10 @@ class SummaryEdgeSubscriptionManager(
         private val sideEffectRequirements: List<InitialFactAp>
     ) : SummaryEvent {
         override fun processMethodSummary() {
-            val subscriptions = methodSummarySubscriptions[methodEntryPoint] ?: return
+            val methodSubscriptions = methodSummarySubscriptions[methodEntryPoint] ?: return
 
             sideEffectRequirements.forEach { sideEffectRequirement ->
-                subscriptions.findFactEdgeSub(sideEffectRequirement).forEach { (ep, subscriptions) ->
+                methodSubscriptions.findFactEdgeSub(sideEffectRequirement).forEach { (ep, subscriptions) ->
                     val analyzer = processingCtx.getMethodAnalyzer(ep)
                     for (subscription in subscriptions) {
                         analyzer.handleMethodSideEffectRequirement(

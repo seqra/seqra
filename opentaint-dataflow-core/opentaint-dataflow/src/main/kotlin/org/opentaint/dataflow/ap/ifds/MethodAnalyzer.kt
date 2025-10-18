@@ -145,6 +145,7 @@ class NormalMethodAnalyzer(
             steps += analyzerSteps
             handledSummaries += summaryEdgesHandled
             unprocessedEdges += this@NormalMethodAnalyzer.unprocessedEdges.size
+            coveredInstructions.or(edges.reachedStatements())
         }
     }
 

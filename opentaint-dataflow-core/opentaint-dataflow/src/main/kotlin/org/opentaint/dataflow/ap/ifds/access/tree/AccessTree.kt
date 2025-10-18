@@ -12,6 +12,8 @@ import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.access.tree.AccessPath.AccessNode.Companion.ReversedApNode
+import org.opentaint.dataflow.ap.ifds.access.tree.AccessPath.AccessNode.Companion.foldRight
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import java.io.DataInputStream
 import java.io.DataOutputStream
@@ -167,16 +169,28 @@ class AccessTree(
     ) {
         private val hash: Int
         val size: Int
+        val maxDepth: Int
 
         init {
             var hash = 0
+            var depth = 0
+
             if (isAbstract) hash += 1
-            if (isFinal) hash += 2
+
+            if (isFinal) {
+                depth = 1
+                hash += 2
+            }
+
             if (accessorNodes != null) {
                 val accessorsHash = accessorNodes.sumOf { it.hash }
                 hash += accessorsHash shl 5
+
+                depth = accessorNodes.maxOf { it.maxDepth } + 1
             }
+
             this.hash = hash
+            this.maxDepth = depth
         }
 
         init {
@@ -525,16 +539,41 @@ class AccessTree(
 
         fun filterStartsWith(accessPath: AccessPath.AccessNode?): AccessNode? {
             if (accessPath == null) return this
-            return filterStartsWith(accessPath.iterator())
-        }
 
-        private fun filterStartsWith(accessors: Iterator<Accessor>): AccessNode? {
-            if (!accessors.hasNext()) return this
-
-            return when (val accessor = accessors.next()) {
-                FinalAccessor -> if (isFinal) finalNode else null
-                else -> getNodeByAccessor(accessor)?.filterStartsWith(accessors)?.let { create(accessor, it) }
+            if (maxDepth < accessPath.size) {
+                return null
             }
+
+            val parentAccessors = mutableListOf<Accessor>()
+
+            var filteredTreeNode = this
+            var currentApNode: AccessPath.AccessNode = accessPath
+
+            while (true) {
+                val accessor = currentApNode.accessor
+
+                filteredTreeNode = when (accessor) {
+                    FinalAccessor -> {
+                        if (!filteredTreeNode.isFinal) return null
+
+                        finalNode
+                    }
+
+                    else -> {
+                        filteredTreeNode.getNodeByAccessor(accessor)
+                            ?.also { parentAccessors.add(accessor) }
+                            ?: return null
+                    }
+                }
+
+                currentApNode = currentApNode.next ?: break
+
+                if (filteredTreeNode.maxDepth < currentApNode.size) {
+                    return null
+                }
+            }
+
+            return parentAccessors.foldRight(filteredTreeNode, ::create)
         }
 
         private inline fun mergeAccessors(
@@ -881,17 +920,13 @@ class AccessTree(
             }
 
             @JvmStatic
-            fun createAbstractNodeFromAp(accessors: Iterator<Accessor>): AccessNode {
-                if (!accessors.hasNext()) {
-                    return abstractNode
+            fun createAbstractNodeFromReversedAp(reversedAp: ReversedApNode?): AccessNode =
+                reversedAp.foldRight(abstractNode) { accessor, node ->
+                    when (accessor) {
+                        FinalAccessor -> finalNode
+                        else -> create(accessor, node)
+                    }
                 }
-
-                return when (val accessor = accessors.next()) {
-                    FinalAccessor -> finalNode
-                    is TaintMarkAccessor -> create(accessor, createAbstractNodeFromAp(accessors))
-                    else -> create(accessor, createAbstractNodeFromAp(accessors))
-                }
-            }
         }
     }
 }

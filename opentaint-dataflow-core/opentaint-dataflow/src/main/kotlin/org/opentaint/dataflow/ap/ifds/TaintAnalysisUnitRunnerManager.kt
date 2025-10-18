@@ -34,6 +34,7 @@ import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.util.MemoryManager
+import org.opentaint.dataflow.util.percentToString
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ExecutorService
@@ -291,6 +292,13 @@ class TaintAnalysisUnitRunnerManager(
         return unitStorage.getValue(unit)
     }
 
+    fun collectMethodStats(): MethodStats {
+        val methodStats = MethodStats()
+        runnerForUnit.values.forEach { it.collectMethodStats(methodStats) }
+        unitStorage.values.forEach { it.collectMethodStats(methodStats) }
+        return methodStats
+    }
+
     private fun reportRunnerProgress() {
         val stats = runnerForUnit.mapValues { it.value.stats() }
 
@@ -315,9 +323,7 @@ class TaintAnalysisUnitRunnerManager(
         }
 
         logger.debug {
-            val methodStats = MethodStats()
-            runnerForUnit.values.forEach { it.collectMethodStats(methodStats) }
-            unitStorage.values.forEach { it.collectMethodStats(methodStats) }
+            val methodStats = collectMethodStats()
 
             val mostUnprocessedMethods = methodStats.stats.values.sortedByDescending { it.unprocessedEdges }
             val mostStepsMethods = methodStats.stats.values.sortedByDescending { it.steps }
@@ -342,11 +348,6 @@ class TaintAnalysisUnitRunnerManager(
                 mostPassMethods.take(5).forEach { appendLine(it) }
             }
         }
-    }
-
-    private fun percentToString(current: Long, total: Long): String {
-        val percentValue = current.toDouble() / total
-        return String.format("%.2f", percentValue * 100) + "%"
     }
 
     companion object {

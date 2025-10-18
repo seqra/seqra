@@ -30,11 +30,13 @@ import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLanguageManager
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSafeApplicationGraph
+import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.graph.JIRApplicationGraphImpl
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.jvm.ifds.PackageUnit
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import org.opentaint.dataflow.sarif.SourceFileResolver
+import org.opentaint.dataflow.util.percentToString
 import java.io.OutputStream
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -107,6 +109,10 @@ open class JIRTaintAnalyzer(
         val analysisTimeout = ifdsTimeout * 0.95 // Reserve 5% of time for report creation
         runCatching { ifdsEngine.runAnalysis(entryPoints, timeout = analysisTimeout, cancellationTimeout = 30.seconds) }
             .onFailure { logger.error(it) { "Ifds engine failed" } }
+
+        logger.debug {
+            ifdsEngine.reportCoverage()
+        }
 
         if (storeSummaries) {
             logger.info { "Saving summaries" }
@@ -200,6 +206,32 @@ open class JIRTaintAnalyzer(
 
             return baseRules
         }
+    }
+
+    private fun TaintAnalysisUnitRunnerManager.reportCoverage() = buildString {
+        val methodStats = collectMethodStats()
+        val projectClassCoverage = methodStats.stats.entries
+            .groupBy({ (it.key as JIRMethod).enclosingClass }, { it.key as JIRMethod to it.value })
+            .filterKeys { it !is LambdaAnonymousClassFeature.JIRLambdaClass }
+            .filterKeys { it.declaration.location in projectLocations }
+
+        appendLine("Project class coverage")
+        projectClassCoverage.entries
+            .sortedBy { it.key.name }
+            .forEach { (cls, methods) ->
+                appendLine(cls.name)
+                for ((method, cov) in methods.sortedBy { it.toString() }) {
+                    val covPc = percentToString(cov.coveredInstructions.cardinality(), method.instList.size)
+                    appendLine("$method | $covPc")
+                }
+
+                val missedMethods = cls.declaredMethods - methods.mapTo(hashSetOf()) { it.first }
+                for (method in missedMethods.sortedBy { it.toString() }) {
+                    appendLine("$method | MISSED")
+                }
+
+                appendLine("-".repeat(20))
+            }
     }
 
     companion object {
