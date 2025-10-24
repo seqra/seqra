@@ -18,7 +18,8 @@ import org.opentaint.ir.taint.configuration.This
 @Serializable
 data class TracePair(
     val source: TraceNode,
-    val sink: TraceNode
+    val sink: TraceNode,
+    val trace: List<TraceLocation>
 )
 
 @Serializable
@@ -30,12 +31,17 @@ data class TraceNode(
 
 @Serializable
 data class TraceLocation(
+    val isProjectLocation: Boolean,
     val cls: String,
     val methodName: String,
     val methodDesc: String,
     val instIndex: Int,
     val instStr: String
-)
+) {
+    override fun toString(): String {
+        return "$cls#$methodName - $instStr"
+    }
+}
 
 private fun inBounds(method: JIRMethod, position: Position): Boolean =
     when (position) {
