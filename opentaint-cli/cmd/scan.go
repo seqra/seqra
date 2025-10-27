@@ -61,6 +61,7 @@ func init() {
 	scanCmd.Flags().StringVar(&RuleSetLoadErrorsPath, "ruleset-load-errors", "", "Path to log ruleset load errors")
 	scanCmd.Flags().BoolVar(&SemgrepCompatibilitySarif, "semgrep-compatibility-sarif", true, "Use Semgrep compatible ruleId")
 	scanCmd.Flags().StringVarP(&SarifReportPath, "output", "o", "", "Path to the SARIF-report output file")
+	_ = scanCmd.MarkFlagRequired("output")
 	scanCmd.Flags().BoolVar(&OnlyScan, "only-scan", false, "Only scan the project, expecting a project model")
 }
 
@@ -218,6 +219,7 @@ func scan() {
 		return
 	}
 
+	logrus.Infof("Log file: %s", globals.LogPath)
 	if SarifReportPath == "" {
 		utils.RemoveIfExistsOrExit(absSarifReportPath)
 	} else {

@@ -36,7 +36,7 @@ var rootCmd = &cobra.Command{
 			if viper.ConfigFileUsed() != "" {
 				logrus.Infof("Using config file: %v", viper.ConfigFileUsed())
 			}
-			logrus.Infof("Logging to file: %s", globals.LogPath)
+			logrus.Infof("Log file: %s", globals.LogPath)
 		}
 
 		return nil

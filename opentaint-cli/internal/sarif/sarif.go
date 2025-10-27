@@ -180,6 +180,7 @@ func (report *Report) PrintSummary() {
 		LogFindings(summary, "warning")
 		LogFindings(summary, "note")
 	}
+	logrus.Info()
 }
 
 func LogFindings(summary Summary, level string) {
@@ -212,8 +213,20 @@ func CapitalizeFirst(s string) string {
 }
 
 func (printableResult *PrintableResult) toString() string {
+	emoji := ""
+	switch *printableResult.Level {
+	case "error":
+		emoji = "🚩"
+	case "warning":
+		emoji = "⚠️"
+	case "note":
+		emoji = "💡"
+	default:
+		emoji = "❓"
+	}
 	return fmt.Sprintf(
-		"🚩 %s in file: %s\nRule: %s\nMessage: %s",
+		"%s %s in file: %s\nRule: %s\nMessage: %s",
+		emoji,
 		CapitalizeFirst(*printableResult.Level),
 		*printableResult.Locations,
 		*printableResult.RuleId, strings.ReplaceAll(*printableResult.Message, "\n", "\n\t"),
