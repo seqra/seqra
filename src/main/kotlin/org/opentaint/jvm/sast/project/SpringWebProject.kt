@@ -10,6 +10,7 @@ import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRPrimitiveType
 import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.JIRType
+import org.opentaint.ir.api.jvm.JIRTypedMethod
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.TypeName
@@ -76,6 +77,9 @@ private val springControllerMethodAnnotations = setOf(
     "org.springframework.web.bind.annotation.PatchMapping",
 )
 
+private const val SpringModelAttribute = "org.springframework.web.bind.annotation.ModelAttribute"
+private const val SpringPathVariable = "org.springframework.web.bind.annotation.PathVariable"
+
 private const val SpringValidator = "org.springframework.validation.Validator"
 private const val SpringBindingResult = "org.springframework.validation.BindingResult"
 private const val SpringBeanBindingResult = "org.springframework.validation.BeanPropertyBindingResult"
@@ -124,6 +128,12 @@ private fun JIRMethod.isSpringControllerMethod(): Boolean {
 fun JIRAnnotation.isSpringValidated(): Boolean =
     jirClass?.name == "jakarta.validation.Valid"
 
+fun JIRAnnotation.isSpringPathVariable(): Boolean =
+    jirClass?.name == SpringPathVariable
+
+fun JIRAnnotation.isSpringModelAttribute(): Boolean =
+    jirClass?.name == SpringModelAttribute
+
 private class SpringControllerEntryPointGenerator(
     private val cp: JIRClasspath,
     private val projectClasses: ProjectClasses
@@ -132,6 +142,17 @@ private class SpringControllerEntryPointGenerator(
         val springValidatorCls = cp.findClass(SpringValidator)
         projectClasses.allProjectClasses().filterTo(mutableListOf()) { cls ->
             cls.isSubClassOf(springValidatorCls)
+        }
+    }
+
+    // According to https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/ModelAttribute.html
+    private fun defaultModelAttributeNameForType(type: JIRType): String? {
+        if (type !is JIRClassType || type.typeParameters.isNotEmpty()) {
+            // TODO
+            return null
+        }
+        return type.jirClass.simpleName.let { name ->
+            name.replaceFirst(name[0], name[0].lowercaseChar())
         }
     }
 
@@ -168,9 +189,43 @@ private class SpringControllerEntryPointGenerator(
             instructions.loadSpringComponent(entryPointMethod, bindingResultImplCls, "binding_result")
         }
 
-        val controllerArgs = mutableListOf<JIRValue>()
-        for ((index, param) in typedMethod.parameters.withIndex()) {
-            val paramValue = JIRLocalVar(instructions.nextLocalVarIdx(), name = "param_$index", param.type)
+        val pathVariables = hashMapOf<String, JIRValue>()
+        val modelAttributes = hashMapOf<String, JIRValue>()
+
+        fun getOrCreateNewArgument(typedMethod: JIRTypedMethod, index: Int): JIRValue {
+            val param = typedMethod.parameters[index]
+            val jirParam = typedMethod.method.parameters[index]
+
+            val pathVariable = jirParam.annotations
+                .singleOrNull { it.isSpringPathVariable() }
+                ?.let { pathVariableAnnotation ->
+                    pathVariableAnnotation.values["value"] as? String ?: jirParam.name
+                }
+
+            if (pathVariable != null) {
+                pathVariables[pathVariable]?.let { return it }
+            }
+
+            val modelAttribute = jirParam.annotations
+                .singleOrNull { it.isSpringModelAttribute() }
+                ?.let { modelAttributeAnnotation ->
+                    modelAttributeAnnotation.values["value"] as? String
+                        ?: defaultModelAttributeNameForType(param.type)
+                }.takeIf { pathVariable == null }
+
+            if (modelAttribute != null) {
+                modelAttributes[modelAttribute]?.let { return it }
+            }
+
+            val paramName = if (pathVariable != null) {
+                "pathVariable_$pathVariable"
+            } else if (modelAttribute != null) {
+                "modelAttribute_$modelAttribute"
+            } else {
+                "${typedMethod.name}_param_$index"
+            }
+
+            val paramValue = JIRLocalVar(instructions.nextLocalVarIdx(), name = paramName, param.type)
 
             val valueToAssign = when (val type = param.type) {
                 is JIRPrimitiveType -> generateStubValue(type)
@@ -223,7 +278,6 @@ private class SpringControllerEntryPointGenerator(
                 }
             }
 
-            val jirParam = param.enclosingMethod.method.parameters[index]
             if (jirParam.annotations.any { it.isSpringValidated() }) {
                 // todo: better validator resolution
                 for (validator in validators) {
@@ -248,34 +302,62 @@ private class SpringControllerEntryPointGenerator(
                 }
             }
 
-            controllerArgs.add(paramValue)
+            return paramValue.also {
+                if (pathVariable != null) {
+                    pathVariables[pathVariable] = it
+                }
+                if (modelAttribute != null) {
+                    modelAttributes[modelAttribute] = it
+                }
+            }
         }
 
-        val controllerMethodRef = VirtualMethodRefImpl.of(controllerType, typedMethod)
-        val controllerCall = JIRVirtualCallExpr(
-            controllerMethodRef,
-            controllerInstance,
-            controllerArgs
-        )
-
-        val controllerResult = if (typedMethod.returnType == cp.void) {
-            instructions.addInstWithLocation(entryPointMethod) { loc ->
-                JIRCallInst(loc, controllerCall)
-            }
-
-            null
-        } else {
-            val controllerResult = JIRLocalVar(
-                instructions.nextLocalVarIdx(),
-                name = "controller_result",
-                typedMethod.returnType
+        fun generateMethodCall(typedMethod: JIRTypedMethod, returnValueVarName: String? = null): JIRLocalVar? {
+            val methodRef = VirtualMethodRefImpl.of(controllerType, typedMethod)
+            val methodCall = JIRVirtualCallExpr(
+                methodRef,
+                controllerInstance,
+                typedMethod.parameters.indices.map { getOrCreateNewArgument(typedMethod, it) }
             )
-            instructions.addInstWithLocation(entryPointMethod) { loc ->
-                JIRAssignInst(loc, controllerResult, controllerCall)
-            }
 
-            controllerResult
+            return if (typedMethod.returnType == cp.void) {
+                instructions.addInstWithLocation(entryPointMethod) { loc ->
+                    JIRCallInst(loc, methodCall)
+                }
+                null
+            } else {
+                val controllerResult = JIRLocalVar(
+                    instructions.nextLocalVarIdx(),
+                    name = returnValueVarName ?: "${typedMethod.name}_result",
+                    typedMethod.returnType
+                )
+                instructions.addInstWithLocation(entryPointMethod) { loc ->
+                    JIRAssignInst(loc, controllerResult, methodCall)
+                }
+
+                controllerResult
+            }
         }
+
+        controllerType.methods.forEach { method ->
+            // Adding calls to methods annotated with @ModelAttribute
+            // TODO: call these methods in proper order
+            //  (https://github.com/spring-projects/spring-framework/commit/56a82c1cbe8276408f9fff06cfb1ac9da7961a80)
+            val modelAttributeAnnotation = method.method.annotations.singleOrNull { it.isSpringModelAttribute() }
+                ?: return@forEach
+
+            val modelAttributeName = modelAttributeAnnotation.values["value"] as? String
+                ?: defaultModelAttributeNameForType(method.returnType)
+
+            val returnValueVarName = modelAttributeName?.let { "modelAttribute_$it" }
+            val result = generateMethodCall(method, returnValueVarName) ?: return@forEach
+
+            if (modelAttributeName != null) {
+                modelAttributes[modelAttributeName] = result
+            }
+        }
+
+        val controllerResult = generateMethodCall(typedMethod)
 
         if (controllerResult != null) {
             val returnType = controller.returnType.typeName
