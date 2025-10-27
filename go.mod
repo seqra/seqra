@@ -4,13 +4,14 @@ go 1.24.0
 
 require (
 	github.com/docker/cli v28.1.1+incompatible
-	github.com/docker/docker v28.2.2+incompatible
+	github.com/docker/docker v28.3.3+incompatible
 	github.com/google/go-github/v72 v72.0.0
 	github.com/moby/go-archive v0.1.0
 	github.com/moby/sys/user v0.4.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.1.1
+	golang.org/x/term v0.34.0
 )
 
 require (
@@ -60,7 +61,6 @@ require (
 	go.opentelemetry.io/proto/otlp v1.7.0 // indirect
 	golang.org/x/net v0.41.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
-	golang.org/x/term v0.34.0 // indirect
 	golang.org/x/text v0.26.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	google.golang.org/grpc v1.73.0 // indirect

@@ -9,15 +9,15 @@ const GithubDockerHost = "ghcr.io"
 const RepoOwner = "seqra"
 
 const AnalyzerDocker = GithubDockerHost + "/" + RepoOwner + "/seqra-jvm-sast/sast-analyzer"
-const AnalyzerBindVersion = "2025.10.10.4a7562c"
+const AnalyzerBindVersion = "2025.10.28.ea278cf"
 
 const AutobuilderRepoName = "seqra-jvm-autobuilder"
 const AutobuilderDocker = GithubDockerHost + "/" + RepoOwner + "/" + AutobuilderRepoName + "/sast-autobuilder"
-const AutobuilderBindVersion = "2025.10.01.da82029"
+const AutobuilderBindVersion = "2025.10.28.ff88544"
 const AutobuilderAssetName = "seqra-project-auto-builder.jar"
 
 const RulesRepoName = "seqra-rules"
-const RulesBindVersion = "v1.0.1"
+const RulesBindVersion = "v1.1.0"
 
 type Compile struct {
 	Type string `mapstructure:"type"`
