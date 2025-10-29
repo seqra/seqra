@@ -144,10 +144,11 @@ class SummaryEdgeSubscriptionManager(
         fun zeroFactSubscriptions() = zeroFactSubscriptions.subscriptions()
 
         fun findFactEdgeSub(
-            summaryInitialFactAp: InitialFactAp
+            summaryInitialFactAp: InitialFactAp,
+            emptyDeltaRequired: Boolean = false,
         ): List<Pair<MethodEntryPoint, List<FactEdgeSummarySubscription>>> {
             val result = mutableListOf<Pair<MethodEntryPoint, List<FactEdgeSummarySubscription>>>()
-            taintedFactSubscriptions.collectFactEdge(result, summaryInitialFactAp)
+            taintedFactSubscriptions.collectFactEdge(result, summaryInitialFactAp, emptyDeltaRequired)
             return result
         }
 
@@ -217,18 +218,22 @@ class SummaryEdgeSubscriptionManager(
 
         fun collectFactEdge(
             collection: MutableList<Pair<MethodEntryPoint, List<FactEdgeSummarySubscription>>>,
-            summaryInitialFactAp: InitialFactAp
+            summaryInitialFactAp: InitialFactAp,
+            emptyDeltaRequired: Boolean,
         ) {
             for ((initialStmt, storage) in subscriptions) {
                 val collectedSubs = mutableListOf<FactEdgeSummarySubscription>()
                 for ((exitStmt, subs) in storage) {
                     collectToListWithPostProcess(
                         collectedSubs,
-                        { subs.collectFactEdge(it, summaryInitialFactAp) },
+                        { subs.collectFactEdge(it, summaryInitialFactAp, emptyDeltaRequired) },
                         { it.setStatements(initialStmt, exitStmt) }
                     )
                 }
-                collection += initialStmt to collectedSubs
+
+                if (collectedSubs.isNotEmpty()) {
+                    collection += initialStmt to collectedSubs
+                }
             }
         }
 
@@ -399,7 +404,7 @@ class SummaryEdgeSubscriptionManager(
             val methodSubscriptions = methodSummarySubscriptions[methodEntryPoint] ?: return
 
             sideEffectRequirements.forEach { sideEffectRequirement ->
-                methodSubscriptions.findFactEdgeSub(sideEffectRequirement).forEach { (ep, subscriptions) ->
+                methodSubscriptions.findFactEdgeSub(sideEffectRequirement, emptyDeltaRequired = true).forEach { (ep, subscriptions) ->
                     val analyzer = processingCtx.getMethodAnalyzer(ep)
                     for (subscription in subscriptions) {
                         analyzer.handleMethodSideEffectRequirement(

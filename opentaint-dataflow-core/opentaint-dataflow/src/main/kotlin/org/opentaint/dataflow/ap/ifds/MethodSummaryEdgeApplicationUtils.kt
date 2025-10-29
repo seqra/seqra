@@ -23,4 +23,14 @@ object MethodSummaryEdgeApplicationUtils {
                 SummaryEdgeApplication.SummaryApRefinement(delta)
             }
         }
+
+    fun emptyDeltaExclusionRefinementOrNull(
+        methodInitialFactAp: FinalFactAp,
+        methodSummaryInitialFactAp: InitialFactAp,
+    ): ExclusionSet? {
+        if (methodInitialFactAp.hasEmptyDelta(methodSummaryInitialFactAp)) {
+            return methodSummaryInitialFactAp.exclusions
+        }
+        return null
+    }
 }

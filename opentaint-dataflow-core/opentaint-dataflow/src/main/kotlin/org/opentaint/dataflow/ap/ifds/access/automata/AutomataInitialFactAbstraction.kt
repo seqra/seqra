@@ -1,11 +1,19 @@
 package org.opentaint.dataflow.ap.ifds.access.automata
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
-import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAbstraction
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.util.contains
+import org.opentaint.dataflow.util.filter
+import org.opentaint.dataflow.util.forEach
+import org.opentaint.dataflow.util.getOrCreateIndex
+import org.opentaint.dataflow.util.getValue
+import org.opentaint.dataflow.util.int2ObjectMap
+import org.opentaint.dataflow.util.object2IntMap
+import org.opentaint.dataflow.util.toBitSet
+import java.util.BitSet
 
 class AutomataInitialFactAbstraction : InitialFactAbstraction {
     private val addedFacts = hashMapOf<AccessPathBase, AccessGraphAbstraction>()
@@ -36,62 +44,134 @@ class AutomataInitialFactAbstraction : InitialFactAbstraction {
         }
     }
 
-    private class AccessGraphAbstraction(
-        val added: MutableSet<AccessGraph> = hashSetOf(),
-        val analyzed: MutableMap<AccessGraph, MutableSet<Accessor>> = hashMapOf()
-    ) {
-        fun addAndAbstract(graph: AccessGraph): List<AccessGraph> {
+    private class AccessGraphAbstraction {
+        private val added = object2IntMap<AccessGraph>()
+        private val addedGraphs = arrayListOf<AccessGraph>()
+        private val addedIndex = GraphIndex()
+
+        private val analyzed = object2IntMap<AccessGraph>()
+        private val analyzedGraphs = arrayListOf<AccessGraph>()
+        private val analyzedIndex = GraphIndex()
+
+        private val analyzedExclusion = arrayListOf<BitSet>()
+        private val analyzedExclusionIndex = int2ObjectMap<BitSet>()
+
+        fun addAndAbstract(graph: AccessGraph): List<AccessGraph> = with(graph.manager) {
             if (added.isEmpty()) {
-                added.add(graph)
-                analyzed[AccessGraph.empty()] = hashSetOf()
-                return listOf(AccessGraph.empty())
+                added.put(graph, 0)
+                addedGraphs.add(graph)
+                addedIndex.add(graph, 0)
+
+                analyzed.put(emptyGraph(), 0)
+                analyzedGraphs.add(emptyGraph())
+                analyzedIndex.add(emptyGraph(), 0)
+                analyzedExclusion.add(BitSet())
+
+                return listOf(emptyGraph())
             }
 
-            if (!added.add(graph)) return emptyList()
+            added.getOrCreateIndex(graph) { addedGraphIdx ->
+                check(addedGraphs.size == addedGraphIdx)
+                addedGraphs.add(graph)
+                addedIndex.add(graph, addedGraphIdx)
+                return abstractAdded(graph)
+            }
 
-            return abstract(listOf(graph), analyzed.map { it.key to it.value })
+            return emptyList()
         }
 
-        fun registerNew(graph: AccessGraph, exclusion: ExclusionSet): List<AccessGraph> {
+        fun registerNew(graph: AccessGraph, exclusion: ExclusionSet): List<AccessGraph> = with(graph.manager) {
             if (exclusion !is ExclusionSet.Concrete) return emptyList()
 
-            val analyzedGraphExclusion = analyzed[graph] ?: error("Unexpected graph: $graph")
-            val newAccessors = exclusion.set.filterTo(hashSetOf()) { it !in analyzedGraphExclusion }
-            analyzedGraphExclusion.addAll(exclusion.set)
+            val analyzedGraphIdx = analyzed.getValue(graph)
+            val analyzedGraphExclusion = analyzedExclusion[analyzedGraphIdx]
+            val newAccessors = exclusion.set.toBitSet { it.idx }.filter { it !in analyzedGraphExclusion }
 
-            if (newAccessors.isEmpty()) return emptyList()
+            if (newAccessors.isEmpty) return emptyList()
 
-            return abstract(added, listOf(graph to newAccessors))
+            analyzedGraphExclusion.or(newAccessors)
+            newAccessors.forEach { accessor ->
+                analyzedExclusionIndex.getOrPut(accessor, ::BitSet).set(analyzedGraphIdx)
+            }
+
+            return abstractAnalyzed(graph, newAccessors)
         }
 
-        private fun abstract(
-            addedGraphs: Iterable<AccessGraph>,
-            analyzedGraphs: Iterable<Pair<AccessGraph, Set<Accessor>>>
+        private fun AutomataApManager.abstractAdded(addedGraph: AccessGraph): List<AccessGraph> {
+            val relevantAnalyzedGraphIndices = BitSet()
+            addedGraph.accessors().forEach { accessor ->
+                val graphsWithAccessorExcluded = analyzedExclusionIndex.get(accessor) ?: return@forEach
+                relevantAnalyzedGraphIndices.or(graphsWithAccessorExcluded)
+            }
+
+            val analyzedGraphsWithDelta = analyzedIndex.localizeGraphHasDeltaWithIndexedGraph(addedGraph)
+            relevantAnalyzedGraphIndices.and(analyzedGraphsWithDelta)
+
+            val newAnalyzedGraphs = mutableListOf<AccessGraph>()
+            relevantAnalyzedGraphIndices.forEach { analyzedGraphIdx ->
+                val analyzedGraph = analyzedGraphs[analyzedGraphIdx]
+                val exclusion = analyzedExclusion[analyzedGraphIdx]
+
+                abstractGraph(
+                    newAnalyzedGraphs,
+                    analyzedGraph, addedGraph, exclusion
+                )
+            }
+
+            return newAnalyzedGraphs.mapNotNull { it.registerNewAnalyzed() }
+        }
+
+        private fun AutomataApManager.abstractAnalyzed(
+            analyzedGraph: AccessGraph,
+            exclusion: BitSet,
         ): List<AccessGraph> {
-            val result = mutableListOf<AccessGraph>()
+            val relevantAddedGraphsIndices = addedIndex.localizeGraphsWithAccessors(exclusion)
+            val addedGraphsWithDelta = addedIndex.localizeIndexedGraphHasDeltaWithGraph(analyzedGraph)
+            relevantAddedGraphsIndices.and(addedGraphsWithDelta)
 
-            for (addedGraph in addedGraphs) {
-                for ((analyzedGraph, exclusion) in analyzedGraphs) {
-                    if (exclusion.isEmpty()) continue
+            val newAnalyzedGraphs = mutableListOf<AccessGraph>()
+            relevantAddedGraphsIndices.forEach { addedGraphIdx ->
+                val addedGraph = addedGraphs[addedGraphIdx]
+                abstractGraph(
+                    newAnalyzedGraphs,
+                    analyzedGraph, addedGraph, exclusion
+                )
+            }
 
-                    for (delta in addedGraph.delta(analyzedGraph)) {
-                        if (delta.isEmpty()) continue
+            return newAnalyzedGraphs.mapNotNull { it.registerNewAnalyzed() }
+        }
 
-                        for (accessor in exclusion) {
-                            if (delta.startsWith(accessor)) {
-                                val singleAccessorGraph = AccessGraph.empty().prepend(accessor)
-                                val newGraph = analyzedGraph.concat(singleAccessorGraph)
+        private fun AutomataApManager.abstractGraph(
+            newAnalyzedGraphs: MutableList<AccessGraph>,
+            analyzedGraph: AccessGraph,
+            addedGraph: AccessGraph,
+            exclusion: BitSet
+        ) {
+            for (delta in addedGraph.delta(analyzedGraph)) {
+                if (delta.isEmpty()) continue
 
-                                if (analyzed.putIfAbsent(newGraph, hashSetOf()) == null) {
-                                    result.add(newGraph)
-                                }
-                            }
-                        }
+                exclusion.forEach { accessor ->
+                    if (delta.startsWith(accessor)) {
+                        val singleAccessorGraph = emptyGraph().prepend(accessor)
+                        val newGraph = analyzedGraph.concat(singleAccessorGraph)
+
+                        newAnalyzedGraphs.add(newGraph)
                     }
                 }
             }
+        }
 
-            return result
+        private fun AccessGraph.registerNewAnalyzed(): AccessGraph? {
+            analyzed.getOrCreateIndex(this) { idx ->
+                check(analyzedGraphs.size == idx)
+                analyzedGraphs.add(this)
+                analyzedIndex.add(this, idx)
+
+                check(analyzedExclusion.size == idx)
+                analyzedExclusion.add(BitSet())
+                return this
+            }
+            return null
         }
     }
 }

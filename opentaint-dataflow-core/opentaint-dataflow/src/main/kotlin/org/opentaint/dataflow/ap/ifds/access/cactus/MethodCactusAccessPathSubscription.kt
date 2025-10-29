@@ -39,7 +39,8 @@ class MethodCactusAccessPathSubscription: MethodAccessPathSubscription {
 
     override fun collectFactEdge(
         collection: MutableList<FactEdgeSummarySubscription>,
-        summaryInitialFactAp: InitialFactAp
+        summaryInitialFactAp: InitialFactAp,
+        emptyDeltaRequired: Boolean
     ) {
         val storage = initialBaseSubscription[summaryInitialFactAp.base] ?: return
         collectToListWithPostProcess(

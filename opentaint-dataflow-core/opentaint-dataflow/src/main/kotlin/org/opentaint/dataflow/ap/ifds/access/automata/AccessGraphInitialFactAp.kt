@@ -26,24 +26,24 @@ data class AccessGraphInitialFactAp(
     override fun replaceExclusions(exclusions: ExclusionSet): InitialFactAp =
         AccessGraphInitialFactAp(base, access, exclusions)
 
-    override fun startsWithAccessor(accessor: Accessor): Boolean {
+    override fun startsWithAccessor(accessor: Accessor): Boolean = with(access.manager) {
         check(accessor !is AnyAccessor)
-        return access.startsWith(accessor)
+        return access.startsWith(accessor.idx)
     }
 
-    override fun readAccessor(accessor: Accessor): InitialFactAp? {
+    override fun readAccessor(accessor: Accessor): InitialFactAp? = with(access.manager) {
         check(accessor !is AnyAccessor)
-        return access.read(accessor)?.let { AccessGraphInitialFactAp(base, it, exclusions) }
+        return access.read(accessor.idx)?.let { AccessGraphInitialFactAp(base, it, exclusions) }
     }
 
-    override fun prependAccessor(accessor: Accessor): InitialFactAp {
+    override fun prependAccessor(accessor: Accessor): InitialFactAp = with(access.manager) {
         check(accessor !is AnyAccessor)
-        return AccessGraphInitialFactAp(base, access.prepend(accessor), exclusions)
+        return AccessGraphInitialFactAp(base, access.prepend(accessor.idx), exclusions)
     }
 
-    override fun clearAccessor(accessor: Accessor): InitialFactAp? {
+    override fun clearAccessor(accessor: Accessor): InitialFactAp? = with(access.manager) {
         check(accessor !is AnyAccessor)
-        return access.clear(accessor)?.let { AccessGraphInitialFactAp(base, it, exclusions) }
+        return access.clear(accessor.idx)?.let { AccessGraphInitialFactAp(base, it, exclusions) }
     }
 
     data class Delta(val graph: AccessGraph) : FactApDelta {
@@ -57,7 +57,7 @@ data class AccessGraphInitialFactAp(
         if (other.access.isEmpty()) {
             val filteredDelta = this.access.filter(other.exclusions) ?: return emptyList()
 
-            val emptyFact = AccessGraphInitialFactAp(base, AccessGraph.empty(), exclusions)
+            val emptyFact = AccessGraphInitialFactAp(base, access.manager.emptyGraph(), exclusions)
             return listOf(emptyFact to Delta(filteredDelta))
         }
 

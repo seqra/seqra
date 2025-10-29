@@ -1,60 +1,111 @@
 package org.opentaint.dataflow.ap.ifds.access.automata
 
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap
+import it.unimi.dsi.fastutil.ints.Int2LongMap
+import it.unimi.dsi.fastutil.ints.IntArrayList
+import it.unimi.dsi.fastutil.longs.LongArrayList
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet
+import it.unimi.dsi.fastutil.objects.ObjectIterator
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
-import kotlinx.collections.immutable.PersistentList
-import kotlinx.collections.immutable.PersistentMap
-import kotlinx.collections.immutable.PersistentSet
-import kotlinx.collections.immutable.persistentHashMapOf
-import kotlinx.collections.immutable.persistentHashSetOf
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toPersistentHashMap
-import kotlinx.collections.immutable.toPersistentList
-import kotlinx.collections.immutable.toPersistentSet
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
-import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
+import org.opentaint.dataflow.util.PersistentArrayBuilder
+import org.opentaint.dataflow.util.PersistentBitSet
+import org.opentaint.dataflow.util.PersistentBitSet.Companion.emptyPersistentBitSet
+import org.opentaint.dataflow.util.PersistentInt2LongMap
+import org.opentaint.dataflow.util.PersistentInt2LongMap.emptyPersistentInt2LongMap
 import org.opentaint.dataflow.util.add
+import org.opentaint.dataflow.util.bitSetOf
+import org.opentaint.dataflow.util.contains
+import org.opentaint.dataflow.util.filter
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.removeFirst
+import org.opentaint.dataflow.util.toBitSet
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.util.BitSet
 
 private typealias NodeMarker = Int
 
-private data class NodePair(val first: NodeMarker, val second: NodeMarker)
+private typealias NodePair = Long
+private typealias AgEdge = NodePair
 
 private typealias NodeMap = Int2IntOpenHashMap
 
+private const val NO_EDGE = PersistentInt2LongMap.NO_VALUE
 private const val NO_NODE = -1
+
 private fun nodeMap(): NodeMap = Int2IntOpenHashMap().also { it.defaultReturnValue(NO_NODE) }
 
 private typealias NodeSet = BitSet
 
 private fun nodeSet(expectedSize: Int): NodeSet = BitSet(expectedSize)
-private operator fun NodeSet.contains(node: NodeMarker) = get(node)
+
+private const val MASK = 0xffffffff
+
+private inline val NodePair.first: NodeMarker get() = (this ushr Int.SIZE_BITS).toInt()
+private inline val NodePair.second: NodeMarker get() = (this and MASK).toInt()
+
+@Suppress("NOTHING_TO_INLINE")
+private inline operator fun NodePair.component1(): NodeMarker = first
+
+@Suppress("NOTHING_TO_INLINE")
+private inline operator fun NodePair.component2(): NodeMarker = second
+
+@Suppress("NOTHING_TO_INLINE")
+private inline fun NodePair(first: NodeMarker, second: NodeMarker): NodePair =
+    (first.toLong() shl Int.SIZE_BITS) or (second.toLong() and MASK)
+
+@Suppress("NOTHING_TO_INLINE")
+private inline fun AgEdge(from: NodeMarker, to: NodeMarker): AgEdge =
+    NodePair(from, to)
+
+private inline val AgEdge.from: NodeMarker get() = this.first
+private inline val AgEdge.to: NodeMarker get() = this.second
+
+private fun LongArrayList.removeLast(): Long = removeLong(lastIndex)
+private fun IntArrayList.removeLast(): Int = removeInt(lastIndex)
 
 class AccessGraph(
+    val manager: AutomataApManager,
     val initial: NodeMarker,
     val final: NodeMarker,
-    val edges: PersistentMap<Accessor, AgEdge>,
-    private val nodeSucc: PersistentList<PersistentSet<Accessor>?>,
-    private val nodePred: PersistentList<PersistentSet<Accessor>?>,
+    private val edges: PersistentInt2LongMap,
+    private val nodeSucc: Array<PersistentBitSet?>,
+    private val nodePred: Array<PersistentBitSet?>,
 ) {
-    data class AgEdge(val from: NodeMarker, val to: NodeMarker)
-
     private val numNodes: Int get() = nodeSucc.size
 
     val size: Int get() = edges.size
 
-    private val hash: Int by lazy {
-        val initialHash = nodeSuccessors(initial).hashCode()
-        val finalHash = nodePredecessors(final).hashCode()
-        (finalHash * 17 + initialHash) * 17 + edges.keys.hashCode()
+    private val hash: Int by lazy(LazyThreadSafetyMode.PUBLICATION) { dfsHash() }
+
+    private fun dfsHash(): Int {
+        var hash = 0
+        val visited = BitSet()
+
+        val unprocessed = IntArrayList()
+        unprocessed.add(initial)
+
+        while (!unprocessed.isEmpty) {
+            val node = unprocessed.removeLast()
+            val successors = nodeSucc[node] ?: continue
+
+            hash *= 17
+            hash += successors.hashCode()
+
+            if (!visited.add(node)) continue
+
+            successors.forEach { accessor ->
+                val edge = edges.get(accessor)
+                unprocessed.add(edge.to)
+            }
+        }
+
+        return hash
     }
 
     override fun hashCode(): Int = hash
@@ -63,6 +114,7 @@ class AccessGraph(
         if (this === other) return true
         if (other !is AccessGraph) return false
 
+        if (edges.size != other.edges.size) return false
         if (edges.keys != other.edges.keys) return false
 
         return graphEqualsDfs(other)
@@ -71,7 +123,9 @@ class AccessGraph(
     private fun graphEqualsDfs(other: AccessGraph): Boolean {
         val nodeMapping = nodeMap()
 
-        val unprocessed = mutableListOf(NodePair(initial, other.initial))
+        val unprocessed = LongArrayList()
+        unprocessed.add(NodePair(initial, other.initial))
+
         while (unprocessed.isNotEmpty()) {
             val (thisNode, otherNode) = unprocessed.removeLast()
 
@@ -83,11 +137,11 @@ class AccessGraph(
 
             val nextAccessors = this.nodeSuccessors(thisNode)
             val otherNextAccessors = other.nodeSuccessors(otherNode)
-            if (nextAccessors.size != otherNextAccessors.size) return false
+            if (nextAccessors != otherNextAccessors) return false
 
-            for (accessor in nextAccessors) {
-                val thisNext = this.getStateSuccessor(thisNode, accessor) ?: error("Missed state")
-                val otherNext = other.getStateSuccessor(otherNode, accessor) ?: return false
+            nextAccessors.forEach { accessor ->
+                val thisNext = this.getStateSuccessor(thisNode, accessor)
+                val otherNext = other.getStateSuccessor(otherNode, accessor)
                 unprocessed.add(NodePair(thisNext, otherNext))
             }
         }
@@ -134,11 +188,11 @@ class AccessGraph(
         paths: MutableList<List<Triple<NodeMarker, Accessor, NodeMarker>>>,
         currentPath: MutableList<Triple<NodeMarker, Accessor, NodeMarker>>,
         visitedNodes: NodeSet
-    ) {
+    ): Unit = with(manager) {
         var current = currentPath
-        for (accessor in stateSuccessors(node)) {
-            val successor = getStateSuccessor(node, accessor) ?: error("Missed state")
-            val edge = Triple(node, accessor, successor)
+        stateSuccessors(node).forEach { accessor ->
+            val successor = getStateSuccessor(node, accessor)
+            val edge = Triple(node, accessor.accessor, successor)
             if (!visitedNodes.add(successor)) {
                 // loop
                 paths += listOf(edge)
@@ -155,34 +209,53 @@ class AccessGraph(
 
     fun isEmpty(): Boolean = edges.isEmpty()
 
-    fun stateSuccessors(state: NodeMarker): Iterable<Accessor> =
+    fun stateSuccessors(state: NodeMarker): PersistentBitSet =
         nodeSucc[state] ?: error("No successors")
 
-    fun nodeSuccessors(node: NodeMarker): PersistentSet<Accessor> =
+    fun nodeSuccessors(node: NodeMarker): PersistentBitSet =
         nodeSucc[node] ?: error("Missed node")
 
-    fun nodePredecessors(node: NodeMarker): PersistentSet<Accessor> =
+    fun nodePredecessors(node: NodeMarker): PersistentBitSet =
         nodePred[node] ?: error("Missed node")
+
+    fun getEdge(accessor: AccessorIdx): AgEdge? =
+        edges.get(accessor).takeIf { it != NO_EDGE }
+
+    fun getEdgeFrom(edge: AgEdge): NodeMarker = edge.from
+
+    fun getEdgeTo(edge: AgEdge): NodeMarker = edge.to
+
+    fun iterateEdges(): ObjectIterator<Int2LongMap.Entry> =
+        edges.int2LongEntrySet().fastIterator()
 
     private fun allNodes(): NodeSet =
         nodeSucc.allNonNullIndicesSet()
 
-    fun getStateSuccessor(state: NodeMarker, accessor: Accessor): NodeMarker? =
-        edges[accessor]?.takeIf { it.from == state }?.to
+    fun accessors(): BitSet =
+        edges.keys.toBitSet { it }
+
+    fun getStateSuccessor(state: NodeMarker, accessor: AccessorIdx): NodeMarker =
+        getStateSuccessorUnsafe(state, accessor).also { check(it != NO_NODE) { "Missed state" } }
+
+    private fun getStateSuccessorUnsafe(state: NodeMarker, accessor: AccessorIdx): NodeMarker {
+        val edge = edges.get(accessor)
+        return if (edge != NO_EDGE && edge.from == state) edge.to else NO_NODE
+    }
 
     private fun create(initial: NodeMarker, final: NodeMarker): AccessGraph =
-        AccessGraph(initial, final, edges, nodeSucc, nodePred)
+        AccessGraph(manager, initial, final, edges, nodeSucc, nodePred)
 
-    fun startsWith(accessor: Accessor): Boolean =
-        getStateSuccessor(initial, accessor) != null
+    fun startsWith(accessor: AccessorIdx): Boolean =
+        getStateSuccessorUnsafe(initial, accessor) != NO_NODE
 
-    fun read(accessor: Accessor): AccessGraph? {
-        val newInitial = getStateSuccessor(initial, accessor) ?: return null
+    fun read(accessor: AccessorIdx): AccessGraph? {
+        val newInitial = getStateSuccessorUnsafe(initial, accessor)
+        if (newInitial == NO_NODE) return null
         if (newInitial == initial) return this
         return create(newInitial, final).removeUnreachableNodes()
     }
 
-    fun prepend(accessor: Accessor): AccessGraph {
+    fun prepend(accessor: AccessorIdx): AccessGraph {
         val mutableCopy = mutable()
         val mutableResult = mutableCopy.prepend(accessor)
 
@@ -191,9 +264,9 @@ class AccessGraph(
         return mutableResult.persist()
     }
 
-    fun clear(accessor: Accessor): AccessGraph? {
+    fun clear(accessor: AccessorIdx): AccessGraph? {
         val mutableCopy = mutable()
-        val mutableResult = mutableCopy.clear(listOf(accessor)) ?: return null
+        val mutableResult = mutableCopy.clear(bitSetOf(accessor)) ?: return null
 
         if (mutableResult === mutableCopy) return this
 
@@ -203,13 +276,15 @@ class AccessGraph(
 
     fun filter(exclusionSet: ExclusionSet): AccessGraph? = when (exclusionSet) {
         ExclusionSet.Empty -> this
-        ExclusionSet.Universe -> if (initialNodeIsFinal()) empty() else null
-        is ExclusionSet.Concrete -> filter(exclusionSet)
+        ExclusionSet.Universe -> if (initialNodeIsFinal()) manager.emptyGraph() else null
+        is ExclusionSet.Concrete -> with(manager) {
+            filter(exclusionSet.set.toBitSet { it.idx })
+        }
     }
 
-    private fun filter(exclusionSet: ExclusionSet.Concrete): AccessGraph? {
+    private fun filter(exclusionSet: BitSet): AccessGraph? {
         val mutableCopy = mutable()
-        val mutableResult = mutableCopy.clear(exclusionSet.set) ?: return null
+        val mutableResult = mutableCopy.clear(exclusionSet) ?: return null
 
         if (mutableResult === mutableCopy) return this
 
@@ -227,31 +302,45 @@ class AccessGraph(
     }
 
     fun delta(other: AccessGraph): List<AccessGraph> {
-        if (other.isEmpty()) return listOf(this)
+        if (other.isEmpty()) return splitOutEmptyDelta(this)
         if (this.isEmpty()) return emptyList()
 
-        val finalNodeMapping = matchGraphPrefix(other) ?: return emptyList()
+        val finalNodeMapping = matchGraphPrefix(other)
+        if (finalNodeMapping == NO_NODE) return emptyList()
 
         val deltaNode = create(finalNodeMapping, final)
         val resultDelta = deltaNode.removeUnreachableNodes()
             ?: return emptyList()
 
-        return listOf(resultDelta)
+        return splitOutEmptyDelta(resultDelta)
+    }
+
+    private fun splitOutEmptyDelta(delta: AccessGraph): List<AccessGraph> {
+        if (delta.initialNodeIsFinal() && !delta.isEmpty()) {
+            return listOf(delta, manager.emptyGraph())
+        }
+
+        return listOf(delta)
     }
 
     fun containsAll(other: AccessGraph): Boolean {
         if (other.isEmpty()) return this.initial == this.final
         if (this.isEmpty()) return false
 
-        val finalNodeMapping = matchGraphPrefix(other) ?: return false
+        val finalNodeMapping = matchGraphPrefix(other)
+        if (finalNodeMapping == NO_NODE) return false
         return finalNodeMapping == this.final
     }
 
-    private fun matchGraphPrefix(other: AccessGraph): NodeMarker? {
+    private fun matchGraphPrefix(other: AccessGraph): NodeMarker {
+        check(manager === other.manager)
+
         val nodeMapping = nodeMap()
 
-        val visitedNodes = hashSetOf<NodePair>()
-        val unprocessed = mutableListOf(NodePair(this.initial, other.initial))
+        val visitedNodes = LongOpenHashSet()
+        val unprocessed = LongArrayList()
+        unprocessed.add(NodePair(this.initial, other.initial))
+
         while (unprocessed.isNotEmpty()) {
             val nodePair = unprocessed.removeLast()
             if (!visitedNodes.add(nodePair)) continue
@@ -259,44 +348,50 @@ class AccessGraph(
 
             val currentMapping = nodeMapping.put(otherNode, thisNode)
             if (currentMapping != NO_NODE && currentMapping != thisNode) {
-                return null
+                return NO_NODE
             }
 
-            for (accessor in other.stateSuccessors(otherNode)) {
-                val thisSuccessor = this.getStateSuccessor(thisNode, accessor)
-                    ?: tryAnyAccessorOrNull(accessor) { this.getStateSuccessor(thisNode, AnyAccessor) }
-                    ?: return null
+            other.stateSuccessors(otherNode).forEach { accessor ->
+                var thisSuccessor = this.getStateSuccessorUnsafe(thisNode, accessor)
+
+                if (thisSuccessor == NO_NODE) {
+                    val anySuccessor = this.getStateSuccessorUnsafe(thisNode, manager.anyAccessorIdx)
+                    if (anySuccessor == NO_NODE) return NO_NODE
+
+                    val accessorObj = with(manager) { accessor.accessor }
+                    if (!AnyAccessor.containsAccessor(accessorObj)) return NO_NODE
+
+                    thisSuccessor = anySuccessor
+                }
 
                 val otherSuccessor = other.getStateSuccessor(otherNode, accessor)
-                    ?: error("No successor")
-
                 unprocessed.add(NodePair(thisSuccessor, otherSuccessor))
             }
         }
 
         val finalNodeMapping = nodeMapping.get(other.final)
         if (finalNodeMapping == NO_NODE) {
-            return null
+            return NO_NODE
         }
 
         return finalNodeMapping
     }
 
     fun splitDelta(other: AccessGraph): List<Pair<AccessGraph, AccessGraph>> {
-        if (other.isEmpty()) return listOf(empty() to this)
+        if (other.isEmpty()) return listOf(manager.emptyGraph() to this)
         if (this.isEmpty()) return emptyList()
 
         val splitPoints = findGraphSplit(other)
 
         val result = mutableListOf<Pair<AccessGraph, AccessGraph>>()
         splitPoints.forEach { splitNode: NodeMarker ->
-            val matchedPrefix = AccessGraph(initial, splitNode, edges, nodeSucc, nodePred)
+            val matchedPrefix = AccessGraph(manager, initial, splitNode, edges, nodeSucc, nodePred)
                 .removeUnreachableNodes()
                 ?: return@forEach
 
             if (!other.containsAll(matchedPrefix)) return@forEach
 
-            val deltaSuffix = AccessGraph(splitNode, final, edges, nodeSucc, nodePred)
+            val deltaSuffix = AccessGraph(manager, splitNode, final, edges, nodeSucc, nodePred)
                 .removeUnreachableNodes()
                 ?: return@forEach
 
@@ -307,10 +402,14 @@ class AccessGraph(
     }
 
     private fun findGraphSplit(other: AccessGraph): NodeSet {
+        check(manager === other.manager)
+
         val splitPoints = NodeSet()
 
-        val visitedNodes = hashSetOf<NodePair>()
-        val unprocessed = mutableListOf(NodePair(this.initial, other.initial))
+        val visitedNodes = LongOpenHashSet()
+        val unprocessed = LongArrayList()
+        unprocessed.add(NodePair(this.initial, other.initial))
+
         while (unprocessed.isNotEmpty()) {
             val nodePair = unprocessed.removeLast()
             if (!visitedNodes.add(nodePair)) continue
@@ -320,13 +419,11 @@ class AccessGraph(
                 splitPoints.add(thisNode)
             }
 
-            for (accessor in other.stateSuccessors(otherNode)) {
-                val thisSuccessor = this.getStateSuccessor(thisNode, accessor)
-                    ?: continue
+            other.stateSuccessors(otherNode).forEach { accessor ->
+                val thisSuccessor = this.getStateSuccessorUnsafe(thisNode, accessor)
+                if (thisSuccessor == NO_NODE) return@forEach
 
                 val otherSuccessor = other.getStateSuccessor(otherNode, accessor)
-                    ?: error("No successor")
-
                 unprocessed.add(NodePair(thisSuccessor, otherSuccessor))
             }
         }
@@ -335,6 +432,8 @@ class AccessGraph(
     }
 
     fun merge(other: AccessGraph): AccessGraph {
+        check(manager === other.manager)
+
         val mutableCopy = mutable()
         val mergedMutable = mutableCopy.merge(other)
         val mergeResult = mergedMutable.persist()
@@ -342,17 +441,18 @@ class AccessGraph(
     }
 
     fun filter(filter: FactTypeChecker.FactApFilter): AccessGraph? {
-        val rejectedAccessors = mutableListOf<Accessor>()
-        for (accessor in stateSuccessors(initial)) {
-            when (val status = filter.check(accessor)) {
-                FactTypeChecker.FilterResult.Accept -> continue
+        val rejectedAccessors = BitSet()
+        stateSuccessors(initial).forEach { accessor ->
+            val accessorObj = with(manager) { accessor.accessor }
+            when (val status = filter.check(accessorObj)) {
+                FactTypeChecker.FilterResult.Accept -> return@forEach
 
                 FactTypeChecker.FilterResult.Reject -> {
                     rejectedAccessors.add(accessor)
                 }
 
                 is FactTypeChecker.FilterResult.FilterNext -> {
-                    val successor = getStateSuccessor(initial, accessor) ?: error("Missed state")
+                    val successor = getStateSuccessor(initial, accessor)
                     val allNextRejected = filterNextNodes(successor, status.filter)
                     if (allNextRejected) {
                         rejectedAccessors.add(accessor)
@@ -361,7 +461,7 @@ class AccessGraph(
             }
         }
 
-        if (rejectedAccessors.isEmpty()) return this
+        if (rejectedAccessors.isEmpty) return this
 
         val mutableCopy = mutable()
         val filtered = mutableCopy.clear(rejectedAccessors)
@@ -380,16 +480,17 @@ class AccessGraph(
         if (node == final) return false
 
         var allSuccessorsRejected = true
-        for (accessor in stateSuccessors(node)) {
-            when (val status = filter.check(accessor)) {
+        stateSuccessors(node).forEach { accessor ->
+            val accessorObj = with(manager) { accessor.accessor }
+            when (val status = filter.check(accessorObj)) {
                 FactTypeChecker.FilterResult.Accept -> {
                     allSuccessorsRejected = false
                 }
 
-                FactTypeChecker.FilterResult.Reject -> continue
+                FactTypeChecker.FilterResult.Reject -> return@forEach
 
                 is FactTypeChecker.FilterResult.FilterNext -> {
-                    val successor = getStateSuccessor(node, accessor) ?: error("Missed state")
+                    val successor = getStateSuccessor(node, accessor)
                     val allNextRejected = filterNextNodes(successor, status.filter)
                     if (!allNextRejected) {
                         allSuccessorsRejected = false
@@ -422,7 +523,7 @@ class AccessGraph(
         workSet: NodeSet,
         visited: NodeSet,
         start: NodeMarker,
-        transition: (NodeMarker) -> Iterable<Accessor>,
+        transition: (NodeMarker) -> BitSet,
         nextNode: (AgEdge) -> NodeMarker
     ) {
         workSet.set(start)
@@ -430,8 +531,9 @@ class AccessGraph(
             val node = workSet.removeFirst()
             if (!visited.add(node)) continue
 
-            for (accessor in transition(node)) {
-                val edge = edges[accessor] ?: error("No edge for $accessor")
+            transition(node).forEach { accessor ->
+                val edge = edges.get(accessor)
+                check(edge != NO_EDGE) { "No edge for $accessor" }
                 val next = nextNode(edge)
                 workSet.set(next)
             }
@@ -439,39 +541,55 @@ class AccessGraph(
     }
 
     fun mutable() = MutableAccessGraph(
-        initial, final, edges.builder(), nodeSucc.builder(), nodePred.builder()
+        manager,
+        initial, final,
+        edges, edges.mutable(),
+        PersistentArrayBuilder(nodeSucc),
+        PersistentArrayBuilder(nodePred),
     )
 
-    internal class Serializer(private val context: SummarySerializationContext) {
-        private fun DataOutputStream.writeAdjacentSets(sets: PersistentList<PersistentSet<Accessor>?>) {
+    internal class Serializer(
+        private val manager: AutomataApManager,
+        private val context: SummarySerializationContext
+    ) {
+        private fun accessorId(accessor: AccessorIdx): Long = with(manager) {
+            context.getIdByAccessor(accessor.accessor)
+        }
+
+        private fun accessorById(id: Long): AccessorIdx = with(manager) {
+            context.getAccessorById(id).idx
+        }
+
+        private fun DataOutputStream.writeAdjacentSets(sets: Array<PersistentBitSet?>) {
             sets.forEach { set ->
                 writeInt(set?.size ?: -1)
                 set?.forEach { accessor ->
-                    writeLong(context.getIdByAccessor(accessor))
+                    writeLong(accessorId(accessor))
                 }
             }
         }
 
-        private fun DataInputStream.readAdjacentSets(numNodes: Int): PersistentList<PersistentSet<Accessor>?> {
-            return List(numNodes) {
+        private fun DataInputStream.readAdjacentSets(numNodes: Int): Array<PersistentBitSet?> {
+            return Array(numNodes) {
                 val setSize = readInt()
                 if (setSize == -1) {
                     null
                 } else {
-                    List(setSize) {
-                        context.getAccessorById(readLong())
-                    }.toPersistentSet()
+                    val set = List(setSize) { accessorById(readLong()) }.toBitSet { it }
+                    emptyPersistentBitSet().persistentAddAll(set)
                 }
-            }.toPersistentList()
+            }
         }
 
         fun DataOutputStream.writeGraph(graph: AccessGraph) {
+            check(graph.manager === manager)
+
             writeInt(graph.initial)
             writeInt(graph.final)
 
             writeInt(graph.edges.size)
             graph.edges.forEach { (accessor, edge) ->
-                writeLong(context.getIdByAccessor(accessor))
+                writeLong(accessorId(accessor))
                 writeInt(edge.from)
                 writeInt(edge.to)
             }
@@ -486,37 +604,36 @@ class AccessGraph(
             val final = readInt()
 
             val edgesSize = readInt()
-            val edgesBuilder = persistentHashMapOf<Accessor, AgEdge>().builder()
+            val edgesBuilder = PersistentInt2LongMap()
             repeat(edgesSize) {
-                val accessor = context.getAccessorById(readLong())
+                val accessor = accessorById(readLong())
                 val from = readInt()
                 val to = readInt()
                 edgesBuilder[accessor] = AgEdge(from, to)
             }
-            val edges = edgesBuilder.build()
+            val edges = edgesBuilder.persist(null)
 
             val numNodes = readInt()
             val nodeSucc = readAdjacentSets(numNodes)
             val nodePred = readAdjacentSets(numNodes)
 
-            return AccessGraph(initial, final, edges, nodeSucc, nodePred)
+            return AccessGraph(manager, initial, final, edges, nodeSucc, nodePred)
         }
     }
 
     companion object {
         private const val INITIAL_NODE = 0
 
-        private val emptyNodes = persistentListOf(persistentHashSetOf<Accessor>())
+        private val emptyNodes = arrayOf<PersistentBitSet?>(emptyPersistentBitSet())
 
-        private val EMPTY = AccessGraph(
+        fun newEmptyGraph(manager: AutomataApManager) = AccessGraph(
+            manager,
             INITIAL_NODE, INITIAL_NODE,
-            persistentHashMapOf(),
+            emptyPersistentInt2LongMap(),
             emptyNodes, emptyNodes
         )
 
-        fun empty() = EMPTY
-
-        private fun <E> List<E?>.allNonNullIndicesSet(): BitSet {
+        private fun <E> Array<E?>.allNonNullIndicesSet(): BitSet {
             val size = this.size
             val result = BitSet(size)
             for (i in 0 until size) {
@@ -529,29 +646,37 @@ class AccessGraph(
 }
 
 class MutableAccessGraph(
+    private val manager: AutomataApManager,
     val initial: NodeMarker,
     val final: NodeMarker,
-    val edges: MutableMap<Accessor, AccessGraph.AgEdge>,
-    private val nodeSucc: MutableList<PersistentSet<Accessor>?>,
-    private val nodePred: MutableList<PersistentSet<Accessor>?>,
+    private val originalPersistentEdges: PersistentInt2LongMap,
+    private val mutableEdges: PersistentInt2LongMap,
+    private val nodeSucc: PersistentArrayBuilder<PersistentBitSet?>,
+    private val nodePred: PersistentArrayBuilder<PersistentBitSet?>,
 ) {
     private val numNodes: Int get() = nodeSucc.size
 
     private val removedNodes = nodeSet(numNodes)
 
     private fun create(initial: NodeMarker, final: NodeMarker): MutableAccessGraph =
-        MutableAccessGraph(initial, final, edges, nodeSucc, nodePred)
+        MutableAccessGraph(
+            manager,
+            initial, final,
+            originalPersistentEdges, mutableEdges,
+            nodeSucc, nodePred
+        )
 
     fun persist(): AccessGraph = AccessGraph(
+        manager,
         initial, final,
-        edges.toPersistentHashMap(),
-        nodeSucc.toPersistentList(),
-        nodePred.toPersistentList()
+        mutableEdges.persist(originalPersistentEdges),
+        nodeSucc.persist(),
+        nodePred.persist()
     )
 
-    fun prepend(accessor: Accessor): MutableAccessGraph {
+    fun prepend(accessor: AccessorIdx): MutableAccessGraph {
         val edge = findEdge(accessor)
-        if (edge == null) {
+        if (edge == NO_EDGE) {
             val newInitial = createNode()
             addStateSuccessor(newInitial, accessor, initial)
             return create(newInitial, final)
@@ -565,7 +690,8 @@ class MutableAccessGraph(
          * unify (current initial) and (to)
          * */
         val currentInitial = initial
-        val (edgeFrom, edgeTo) = edge
+        val edgeFrom = edge.from
+        val edgeTo = edge.to
 
         // (new initial) has no predecessors
         // we add transition (from) -- accessor --> (to) which is already in the graph
@@ -585,119 +711,141 @@ class MutableAccessGraph(
         return create(newInitial, newFinal)
     }
 
-    private fun nodeSuccessors(node: NodeMarker): PersistentSet<Accessor> =
+    private fun nodeSuccessors(node: NodeMarker): PersistentBitSet =
         nodeSucc[node]
             ?: error("Missing succ node")
 
-    private fun nodePredecessors(node: NodeMarker): PersistentSet<Accessor> =
+    private fun nodePredecessors(node: NodeMarker): PersistentBitSet =
         nodePred[node]
             ?: error("Missing pred node")
 
-    private fun getAndRemoveNodeSuccessors(node: NodeMarker): PersistentSet<Accessor> =
-        nodeSucc.removeAtAndClean(node)
+    private fun getAndRemoveNodeSuccessors(node: NodeMarker): PersistentBitSet =
+        nodeSucc.set(node, null)
             .also { removedNodes.add(node) }
             ?: error("Missing succ node")
 
-    private fun getAndRemoveNodePredecessors(node: NodeMarker): PersistentSet<Accessor> =
-        nodePred.removeAtAndClean(node)
+    private fun getAndRemoveNodePredecessors(node: NodeMarker): PersistentBitSet =
+        nodePred.set(node, null)
             .also { removedNodes.add(node) }
             ?: error("Missing pred node")
 
-    private fun removeNodeSuccessor(node: NodeMarker, accessor: Accessor) {
+    private fun removeNodeSuccessor(node: NodeMarker, accessor: AccessorIdx) {
         val currentSuccessors = nodeSuccessors(node)
-        nodeSucc[node] = currentSuccessors.remove(accessor)
+        nodeSucc[node] = currentSuccessors.persistentRemove(accessor)
     }
 
-    private fun removeNodePredecessor(node: NodeMarker, accessor: Accessor) {
+    private fun removeNodePredecessor(node: NodeMarker, accessor: AccessorIdx) {
         val currentPredecessors = nodePredecessors(node)
-        nodePred[node] = currentPredecessors.remove(accessor)
+        nodePred[node] = currentPredecessors.persistentRemove(accessor)
     }
 
-    private fun addNodeSuccessor(node: NodeMarker, accessor: Accessor) {
+    private fun addNodeSuccessor(node: NodeMarker, accessor: AccessorIdx) {
         val currentSuccessors = nodeSuccessors(node)
-        nodeSucc[node] = currentSuccessors.add(accessor)
+        nodeSucc[node] = currentSuccessors.persistentAdd(accessor)
     }
 
-    private fun addNodeSuccessors(node: NodeMarker, accessors: PersistentSet<Accessor>) {
+    private fun addNodeSuccessors(node: NodeMarker, accessors: BitSet) {
         val currentSuccessors = nodeSuccessors(node)
-        nodeSucc[node] = currentSuccessors.addAll(accessors)
+        nodeSucc[node] = currentSuccessors.persistentAddAll(accessors)
     }
 
-    private fun addNodePredecessor(node: NodeMarker, accessor: Accessor) {
+    private fun addNodePredecessor(node: NodeMarker, accessor: AccessorIdx) {
         val currentPredecessors = nodePredecessors(node)
-        nodePred[node] = currentPredecessors.add(accessor)
+        nodePred[node] = currentPredecessors.persistentAdd(accessor)
     }
 
-    private fun addNodePredecessors(node: NodeMarker, accessors: PersistentSet<Accessor>) {
+    private fun addNodePredecessors(node: NodeMarker, accessors: BitSet) {
         val currentPredecessors = nodePredecessors(node)
-        nodePred[node] = currentPredecessors.addAll(accessors)
+        nodePred[node] = currentPredecessors.persistentAddAll(accessors)
     }
 
-    private fun addStateSuccessor(state: NodeMarker, accessor: Accessor, successor: NodeMarker) {
-        edges[accessor] = AccessGraph.AgEdge(state, successor)
+    private fun addStateSuccessor(state: NodeMarker, accessor: AccessorIdx, successor: NodeMarker) {
+        createEdge(state, successor, accessor)
         addNodeSuccessor(state, accessor)
         addNodePredecessor(successor, accessor)
+    }
+
+    private fun createEdge(from: NodeMarker, to: NodeMarker, accessor: AccessorIdx) {
+        val edge = AgEdge(from, to)
+        val storedEdge = mutableEdges.put(accessor, edge)
+        if (storedEdge == edge) return
+        check(storedEdge == NO_EDGE) { "Edge overwrite" }
     }
 
     private var lastCreatedNode = -1
 
     private fun createNode(): NodeMarker {
-        var nodeIdx = lastCreatedNode + 1
-        while (removedNodes.contains(nodeIdx) || nodeSucc.getOrNull(nodeIdx) != null) {
-            nodeIdx++
+        val freshNode = findHole(lastCreatedNode, { lastCreatedNode = it }, removedNodes) {
+            nodeSucc[it] != null
         }
 
-        val freshNode = nodeIdx.also { lastCreatedNode = it }
-        nodeSucc.ensureIndexSet(freshNode, persistentHashSetOf())
-        nodePred.ensureIndexSet(freshNode, persistentHashSetOf())
+        nodeSucc[freshNode] = emptyPersistentBitSet()
+        nodePred[freshNode] = emptyPersistentBitSet()
         return freshNode
     }
 
-    fun clear(accessors: Iterable<Accessor>): MutableAccessGraph? {
+    private inline fun findHole(
+        lastIdx: Int,
+        updateLastIdx: (Int) -> Unit,
+        removedSet: BitSet,
+        holeIsNotAvailable: (Int) -> Boolean
+    ): Int {
+        var holeIdx = lastIdx + 1
+        while (removedSet.contains(holeIdx) || holeIsNotAvailable(holeIdx)) {
+            holeIdx++
+        }
+
+        val freshNode = holeIdx
+        updateLastIdx(freshNode)
+        return freshNode
+    }
+
+    fun clear(accessors: BitSet): MutableAccessGraph? {
         val initialSuccessors = nodeSuccessors(initial)
 
-        val accessorsToClear = accessors.filterTo(hashSetOf()) { initialSuccessors.contains(it) }
-        if (accessorsToClear.isEmpty()) return this
+        val accessorsToClear = accessors.filter { initialSuccessors.contains(it) }
+        if (accessorsToClear.isEmpty) return this
 
         // We have to remove all transitions from the start node -> no more transitions to final node -> graph is empty
-        if (initialSuccessors.size == accessorsToClear.size) {
+        if (initialSuccessors.size == accessorsToClear.cardinality()) {
             if (initial == final) {
-                return AccessGraph.empty().mutable()
+                return manager.emptyGraph().mutable()
             }
             return null
         }
 
         val initialPredecessors = nodePredecessors(initial)
-        if (!initialPredecessors.isEmpty()) {
+        if (!initialPredecessors.isEmpty) {
             if (initialNodeIsReachableWithoutEdges(accessorsToClear)) {
                 // Initial node is accessible through other edges. Can't remove accessor because it is in the loop.
                 return this
             }
         }
 
-        for (accessor in accessorsToClear) {
-            val (edgeFrom, edgeTo) = edges.remove(accessor) ?: error("No edge")
-            check(edgeFrom == initial)
+        accessorsToClear.forEach { accessor ->
+            val edge = removeEdge(accessor)
+            check(edge != NO_EDGE && edge.from == initial) { "No edge" }
 
             removeNodeSuccessor(initial, accessor)
-            removeNodePredecessor(edgeTo, accessor)
+            removeNodePredecessor(edge.to, accessor)
         }
 
         return create(initial, final)
     }
 
-    private fun initialNodeIsReachableWithoutEdges(bannedAccessors: Set<Accessor>): Boolean {
+    private fun initialNodeIsReachableWithoutEdges(bannedAccessors: BitSet): Boolean {
         val visitedNodes = nodeSet(numNodes)
-        val unprocessed = mutableListOf(initial)
+        val unprocessed = bitSetOf(initial)
 
-        while (unprocessed.isNotEmpty()) {
-            val node = unprocessed.removeLast()
+        while (!unprocessed.isEmpty) {
+            val node = unprocessed.removeFirst()
             if (!visitedNodes.add(node)) continue
 
-            for (succAcc in nodeSuccessors(node)) {
-                if (succAcc in bannedAccessors) continue
+            nodeSuccessors(node).forEach { succAcc ->
+                if (succAcc in bannedAccessors) return@forEach
 
-                val (_, edgeTo) = edges.getValue(succAcc)
+                val edge = mutableEdges.get(succAcc)
+                val edgeTo = edge.to
                 if (edgeTo == initial) return true
 
                 unprocessed.add(edgeTo)
@@ -783,16 +931,16 @@ class MutableAccessGraph(
                 finalNodes.add(thisState)
             }
 
-            for (accessor in other.stateSuccessors(otherState)) {
+            other.stateSuccessors(otherState).forEach { accessor ->
                 val currentTo = this.getStateSuccessor(thisState, accessor)
-                val otherSuccessor = other.getStateSuccessor(otherState, accessor) ?: error("No state")
-                if (currentTo != null) {
+                val otherSuccessor = other.getStateSuccessor(otherState, accessor)
+                if (currentTo != NO_NODE) {
                     unprocessed += EdgeMergeEvent(thisNode = currentTo, otherNode = otherSuccessor)
-                    continue
+                    return@forEach
                 }
 
                 val edge = findEdge(accessor)
-                if (edge == null) {
+                if (edge == NO_EDGE) {
                     val mappedNode = nodeMapping.get(otherSuccessor)
                     val nextNode = if (mappedNode == NO_NODE) {
                         createNode().also { nodeMapping.put(otherSuccessor, it) }
@@ -803,7 +951,7 @@ class MutableAccessGraph(
                     addStateSuccessor(thisState, accessor, nextNode)
 
                     unprocessed += EdgeMergeEvent(thisNode = nextNode, otherNode = otherSuccessor)
-                    continue
+                    return@forEach
                 }
 
                 /**
@@ -811,7 +959,8 @@ class MutableAccessGraph(
                  * (otherState) --- accessor ---> (otherSuccessor)
                  * (this.edgeFrom) --- accessor ---> (this.edgeTo)
                  * */
-                val (edgeFrom, edgeTo) = edge
+                val edgeFrom = edge.from
+                val edgeTo = edge.to
 
                 val (eliminatedNode, mergedEdgeStart) = mergeNodeEdgesEnsureNotInitial(thisState, edgeFrom)
                 eliminatedNodes.put(eliminatedNode, mergedEdgeStart)
@@ -828,12 +977,12 @@ class MutableAccessGraph(
             }
         }
 
-        var otherFinalNode: NodeMarker? = null
+        var otherFinalNode: NodeMarker = NO_NODE
         finalNodes.forEach { finalNode: NodeMarker ->
             val normalizedFinalNode = normalize(finalNode, eliminatedNodes)
 
             val currentFinal = otherFinalNode
-            if (currentFinal == null) {
+            if (currentFinal == NO_NODE) {
                 otherFinalNode = normalizedFinalNode
                 return@forEach
             }
@@ -846,7 +995,7 @@ class MutableAccessGraph(
         }
 
         val otherFinal = otherFinalNode
-            ?: error("Final node is unreachable in $other")
+        check(otherFinal != NO_NODE) { "Final node is unreachable in $other" }
 
         return SyncMergeFinalState(
             thisFinalNode = normalize(final, eliminatedNodes),
@@ -866,28 +1015,51 @@ class MutableAccessGraph(
     }
 
     fun removeUnreachableIntermediateNodes(nodes: NodeSet): MutableAccessGraph {
-        nodes.forEach { node: NodeMarker ->
-            val successors = getAndRemoveNodeSuccessors(node)
-            for (accessor in successors) {
-                val (edgeFrom, edgeTo) = edges.remove(accessor) ?: continue
-                check(edgeFrom == node)
-                removeNodePredecessor(edgeTo, accessor)
+        val removedAccessors = BitSet()
+        nodes.forEach { node ->
+            nodeSucc[node]?.let { removedAccessors.or(it) }
+            nodeSucc[node] = null
+
+            nodePred[node]?.let { removedAccessors.or(it) }
+            nodePred[node] = null
+        }
+
+        removedAccessors.forEach { accessor ->
+            val edge = mutableEdges.remove(accessor)
+            if (edge == NO_EDGE) return@forEach
+
+            val edgeFrom = edge.from
+            val edgeTo = edge.to
+
+            val currentPredecessors = nodePred[edgeTo]
+            if (currentPredecessors != null) {
+                nodePred[edgeTo] = currentPredecessors.persistentRemoveAll(removedAccessors)
             }
 
-            val predecessors = getAndRemoveNodePredecessors(node)
-            for (accessor in predecessors) {
-                val (edgeFrom, edgeTo) = edges.remove(accessor) ?: continue
-                check(edgeTo == node)
-                removeNodeSuccessor(edgeFrom, accessor)
+            val currentSuccessors = nodeSucc[edgeFrom]
+            if (currentSuccessors != null) {
+                nodeSucc[edgeFrom] = currentSuccessors.persistentRemoveAll(removedAccessors)
             }
         }
+
+        removedNodes.or(nodes)
+
         return create(initial, final)
     }
 
-    private fun getStateSuccessor(state: NodeMarker, accessor: Accessor): NodeMarker? =
-        edges[accessor]?.takeIf { it.from == state }?.to
+    private fun getStateSuccessor(state: NodeMarker, accessor: AccessorIdx): NodeMarker {
+        val edge = findEdge(accessor)
+        if (edge == NO_EDGE) return NO_NODE
 
-    private fun findEdge(accessor: Accessor): AccessGraph.AgEdge? = edges[accessor]
+        if (edge.from != state) return NO_NODE
+        return edge.to
+    }
+
+    private fun findEdge(accessor: AccessorIdx): AgEdge =
+        mutableEdges.get(accessor)
+
+    private fun removeEdge(accessor: AccessorIdx): AgEdge =
+        mutableEdges.remove(accessor)
 
     private fun mergeNodeEdges(srcNode: NodeMarker, dstNode: NodeMarker) {
         check(srcNode != dstNode) {
@@ -897,32 +1069,19 @@ class MutableAccessGraph(
         val srcSuccessors = getAndRemoveNodeSuccessors(srcNode)
         val srcPredecessors = getAndRemoveNodePredecessors(srcNode)
 
-        for (accessor in srcSuccessors) {
-            val (edgeFrom, edgeTo) = edges[accessor] ?: error("No edge: $accessor")
-            check(edgeFrom == srcNode)
-            edges[accessor] = AccessGraph.AgEdge(dstNode, edgeTo)
+        srcSuccessors.forEach { accessor ->
+            val edge = mutableEdges.get(accessor)
+            check(edge.from == srcNode)
+            mutableEdges.put(accessor, AgEdge(dstNode, edge.to))
         }
 
-        for (accessor in srcPredecessors) {
-            val (edgeFrom, edgeTo) = edges[accessor] ?: error("No edge: $accessor")
-            check(edgeTo == srcNode)
-            edges[accessor] = AccessGraph.AgEdge(edgeFrom, dstNode)
+        srcPredecessors.forEach { accessor ->
+            val edge = mutableEdges.get(accessor)
+            check(edge.to == srcNode)
+            mutableEdges.put(accessor, AgEdge(edge.from, dstNode))
         }
 
         addNodeSuccessors(dstNode, srcSuccessors)
         addNodePredecessors(dstNode, srcPredecessors)
-    }
-
-    companion object {
-        private fun <E> MutableList<E?>.ensureIndexSet(idx: Int, element: E) {
-            while (idx >= size) add(null)
-            this[idx] = element
-        }
-
-        private fun <E> MutableList<E?>.removeAtAndClean(idx: Int): E? {
-            val value = set(idx, null)
-            while (this[lastIndex] == null) removeLast()
-            return value
-        }
     }
 }

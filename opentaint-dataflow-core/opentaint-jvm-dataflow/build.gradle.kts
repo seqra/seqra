@@ -1,5 +1,6 @@
 plugins {
     id("opentaint.kotlin-conventions")
+    kotlin("plugin.serialization") version Versions.kotlin
 }
 
 val samples by sourceSets.creating {
@@ -16,7 +17,13 @@ dependencies {
     implementation(Libs.opentaint-ir_core)
     implementation(Libs.opentaint-ir_api_storage)
     implementation(Libs.opentaint-ir_storage)
-    implementation(Libs.opentaint-ir_taint_configuration)
+    implementation(Libs.opentaint-ir_taint_configuration) {
+        exclude(Libs.opentaint-irPackage)
+    }
+
+    implementation(Libs.fastutil)
+
+    implementation(Libs.sarif4k)
 
     testImplementation(Libs.mockk)
     testImplementation(Libs.junit_jupiter_params)

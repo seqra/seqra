@@ -1,40 +1,35 @@
 package org.opentaint.dataflow.ap.ifds
 
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import org.opentaint.dataflow.util.concurrentReadSafeForEach
+import org.opentaint.dataflow.util.getOrCreateIndex
+import org.opentaint.dataflow.util.getValue
+import org.opentaint.dataflow.util.object2IntMap
 
 class MethodAnalyzerStorage(private val languageManager: LanguageManager) {
-    private val entryPoints = Object2IntOpenHashMap<MethodEntryPoint>()
-        .also { it.defaultReturnValue(NO_ANALYZER) }
-
+    private val entryPoints = object2IntMap<MethodEntryPoint>()
     private val analyzers = arrayListOf<MethodAnalyzer>()
 
     fun add(runner: TaintAnalysisUnitRunner, methodEntryPoint: MethodEntryPoint): Boolean {
-        val epIdx = entryPoints.getInt(methodEntryPoint)
-        if (epIdx != NO_ANALYZER) return false
+        entryPoints.getOrCreateIndex(methodEntryPoint) {
+            val analyzer = if (!languageManager.isEmpty(methodEntryPoint.method)) {
+                NormalMethodAnalyzer(runner, methodEntryPoint)
+            } else {
+                val methodExitPoints = runner.graph.exitPoints(methodEntryPoint.method).toList()
 
-        val analyzer = if (!languageManager.isEmpty(methodEntryPoint.method)) {
-            NormalMethodAnalyzer(runner, methodEntryPoint)
-        } else {
-            val methodExitPoints = runner.graph.exitPoints(methodEntryPoint.method).toList()
+                check(methodExitPoints.isEmpty() || methodEntryPoint.statement in methodExitPoints) {
+                    "Empty method entry point not in exit points"
+                }
 
-            check(methodExitPoints.isEmpty() || methodEntryPoint.statement in methodExitPoints) {
-                "Empty method entry point not in exit points"
+                EmptyMethodAnalyzer(runner, methodEntryPoint)
             }
-
-            EmptyMethodAnalyzer(runner, methodEntryPoint)
+            analyzers.add(analyzer)
+            return true
         }
-
-        entryPoints.put(methodEntryPoint, analyzers.size)
-        analyzers.add(analyzer)
-
-        return true
+        return false
     }
 
     fun getAnalyzer(methodEntryPoint: MethodEntryPoint): MethodAnalyzer {
-        val epIdx = entryPoints.getInt(methodEntryPoint)
-        check(epIdx != NO_ANALYZER) { "No analyzer for $methodEntryPoint" }
-
+        val epIdx = entryPoints.getValue(methodEntryPoint)
         return analyzers[epIdx]
     }
 
@@ -42,9 +37,5 @@ class MethodAnalyzerStorage(private val languageManager: LanguageManager) {
         analyzers.concurrentReadSafeForEach { _, methodAnalyzer ->
             methodAnalyzer.collectStats(stats)
         }
-    }
-
-    companion object {
-        private const val NO_ANALYZER = -1
     }
 }

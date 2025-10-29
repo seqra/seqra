@@ -461,21 +461,22 @@ class NormalMethodAnalyzer(
         methodInitialFactBase: AccessPathBase,
         methodSideEffectRequirements: List<InitialFactAp>
     ) {
-        var sinkRequirementExclusion: ExclusionSet = ExclusionSet.Empty
-
         val methodInitialFact = currentEdge.factAp.rebase(methodInitialFactBase)
-        for (methodSinkRequirement in methodSideEffectRequirements) {
-            val summaryEdgeEffects = MethodSummaryEdgeApplicationUtils.tryApplySummaryEdge(
+        val exclusionRefinements = methodSideEffectRequirements.mapNotNull { methodSinkRequirement ->
+            MethodSummaryEdgeApplicationUtils.emptyDeltaExclusionRefinementOrNull(
                 methodInitialFact, methodSinkRequirement
             )
-
-            if (summaryEdgeEffects.any { it is SummaryExclusionRefinement }) {
-                sinkRequirementExclusion = sinkRequirementExclusion.union(methodSinkRequirement.exclusions)
-            }
         }
 
+        if (exclusionRefinements.isEmpty()) {
+            return
+        }
+
+        val sinkRequirementExclusion = exclusionRefinements.fold(ExclusionSet.Empty, ExclusionSet::union)
+
         if (sinkRequirementExclusion !is ExclusionSet.Empty) {
-            addSideEffectRequirement(currentEdge, currentEdge.initialFactAp.replaceExclusions(sinkRequirementExclusion))
+            val requirement = currentEdge.initialFactAp.replaceExclusions(sinkRequirementExclusion)
+            addSideEffectRequirement(currentEdge, requirement)
         }
     }
 

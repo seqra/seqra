@@ -11,8 +11,11 @@ import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import java.io.DataInputStream
 import java.io.DataOutputStream
 
-internal class AccessGraphApSerializer(context: SummarySerializationContext) : ApSerializer {
-    private val accessGraphSerializer = AccessGraph.Serializer(context)
+internal class AccessGraphApSerializer(
+    manager: AutomataApManager,
+    context: SummarySerializationContext
+) : ApSerializer {
+    private val accessGraphSerializer = AccessGraph.Serializer(manager, context)
     private val exclusionSetSerializer = ExclusionSetSerializer(context)
 
     private fun DataOutputStream.writeAp(base: AccessPathBase, access: AccessGraph, exclusions: ExclusionSet) {

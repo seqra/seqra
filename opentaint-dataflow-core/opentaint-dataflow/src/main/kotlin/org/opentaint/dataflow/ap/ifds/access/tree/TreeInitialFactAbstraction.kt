@@ -30,7 +30,14 @@ class TreeInitialFactAbstraction: InitialFactAbstraction {
         factAp as AccessPath
 
         val facts = initialFacts.getOrPut(factAp.base)
-        facts.addAnalyzedInitialFact(factAp.access, factAp.exclusions)
+
+        val excludedAccessors = when (val ex = factAp.exclusions) {
+            Empty -> emptySet()
+            is ExclusionSet.Concrete -> ex.set
+            ExclusionSet.Universe -> error("Unexpected universe exclusion")
+        }
+
+        if (!facts.addAnalyzedInitialFact(factAp.access, excludedAccessors)) return emptyList()
 
         val abstractFacts = mutableListOf<Pair<InitialFactAp, FinalFactAp>>()
         addAbstractInitialFact(facts, factAp.base, facts.allAddedFacts(), abstractFacts)
@@ -50,7 +57,7 @@ class TreeInitialFactAbstraction: InitialFactAbstraction {
             val apAccess = AccessTreeNode.createAbstractNodeFromReversedAp(abstractAccess)
             val ap = AccessTree(concreteFactBase, apAccess, Empty)
 
-            facts.addAnalyzedInitialFact(initialAbstractAccessNode, Empty)
+            facts.addAnalyzedInitialFact(initialAbstractAccessNode, exclusions = emptySet())
             abstractFacts.add(initialAbstractAp to ap)
         }
     }
@@ -97,7 +104,7 @@ class TreeInitialFactAbstraction: InitialFactAbstraction {
         unprocessed: MutableList<AbstractionState>,
         createAbstractAp: (ReversedApNode?) -> Unit
     ) {
-        val node = analyzedTrieRoot.children[accessor]
+        val node = analyzedTrieRoot.child(accessor)
         if (node == null) {
             val exclusions = analyzedTrieRoot.exclusions()
 
@@ -140,48 +147,53 @@ class TreeInitialFactAbstraction: InitialFactAbstraction {
 
         fun addInitialFact(ap: AccessTreeNode): AccessTreeNode? {
             val currentNode = added ?: AccessTreeNode.create()
-            val addedNode = currentNode.mergeAdd(ap)
+            val (updatedAddedNode, addedInitial) = currentNode.mergeAddDelta(ap)
 
-            if (addedNode === this.added) return null
-            this.added = addedNode
-            return addedNode
+            if (addedInitial == null) return null
+
+            this.added = updatedAddedNode
+            return addedInitial
         }
 
-        fun addAnalyzedInitialFact(ap: AccessPath.AccessNode?, exclusions: ExclusionSet) {
+        fun addAnalyzedInitialFact(ap: AccessPath.AccessNode?, exclusions: Set<Accessor>): Boolean =
             AccessPathTrieNode.add(analyzed, ap, exclusions)
-        }
     }
 
-    class AccessPathTrieNode(
-        val children: MutableMap<Accessor, AccessPathTrieNode>,
-        private var terminals: ExclusionSet?
-    ) {
-        fun exclusions(): ExclusionSet? = terminals
+    class AccessPathTrieNode {
+        private var children: MutableMap<Accessor, AccessPathTrieNode>? = null
+        private var terminals: MutableSet<Accessor>? = null
+
+        fun exclusions(): MutableSet<Accessor>? = terminals
+
+        fun child(accessor: Accessor): AccessPathTrieNode? =
+            children?.get(accessor)
+
+        private fun getTerminals(): MutableSet<Accessor> =
+            terminals ?: hashSetOf<Accessor>().also { terminals = it }
+
+        private fun getChildren(): MutableMap<Accessor, AccessPathTrieNode> =
+            children ?: hashMapOf<Accessor, AccessPathTrieNode>().also { children = it }
 
         companion object {
-            fun empty() = AccessPathTrieNode(hashMapOf(), terminals = null)
+            fun empty() = AccessPathTrieNode()
 
             fun add(
                 initialRoot: AccessPathTrieNode,
                 initialAccess: AccessPath.AccessNode?,
-                exclusions: ExclusionSet
-            ) {
+                exclusions: Set<Accessor>
+            ): Boolean {
                 var trieNode = initialRoot
                 var access = initialAccess
 
                 while (true) {
                     if (access == null) {
-                        val terminals = trieNode.terminals
-                        if (terminals == null) {
-                            trieNode.terminals = exclusions
-                        } else {
-                            trieNode.terminals = terminals.union(exclusions)
-                        }
-                        return
+                        var modified = trieNode.terminals == null
+                        modified = modified or trieNode.getTerminals().addAll(exclusions)
+                        return modified
                     }
 
                     val key = access.accessor
-                    trieNode = trieNode.children.getOrPut(key) { empty() }
+                    trieNode = trieNode.getChildren().getOrPut(key) { empty() }
                     access = access.next
                 }
             }

@@ -1,6 +1,5 @@
 package org.opentaint.dataflow.ap.ifds.access.tree
 
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import kotlinx.collections.immutable.persistentHashMapOf
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
@@ -14,6 +13,8 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.MethodAccessPathSubscription
 import org.opentaint.dataflow.util.collectToListWithPostProcess
 import org.opentaint.dataflow.util.forEach
+import org.opentaint.dataflow.util.getOrCreateIndex
+import org.opentaint.dataflow.util.object2IntMap
 import java.util.BitSet
 
 class MethodTreeAccessPathSubscription: MethodAccessPathSubscription {
@@ -44,7 +45,8 @@ class MethodTreeAccessPathSubscription: MethodAccessPathSubscription {
 
     override fun collectFactEdge(
         collection: MutableList<FactEdgeSummarySubscription>,
-        summaryInitialFactAp: InitialFactAp
+        summaryInitialFactAp: InitialFactAp,
+        emptyDeltaRequired: Boolean
     ) {
         val subscription = initialBaseSubscription[summaryInitialFactAp.base] ?: return
         collectToListWithPostProcess(
@@ -99,11 +101,9 @@ private class FactEdgeSubscriptionStorage {
 }
 
 private class SummaryEdgeFactAbstractTreeSubscriptionStorage {
-    private val edgesStartingWithAccessor = Object2ObjectOpenHashMap<Accessor, BitSet>()
+    private val edgeIndex = AccessTreeIndex()
 
-    private val initialApIndex = Object2IntOpenHashMap<AccessPath>()
-        .also { it.defaultReturnValue(NO_VALUE) }
-
+    private val initialApIndex = object2IntMap<AccessPath>()
     private val storage = arrayListOf<Pair<AccessPath, AccessTree.AccessNode>>()
 
     fun add(
@@ -113,10 +113,7 @@ private class SummaryEdgeFactAbstractTreeSubscriptionStorage {
     ): FactEdgeSubBuilder? {
         check(exclusion == callerInitialAp.exclusions) { "Edge invariant" }
 
-        val currentIndex = initialApIndex.getInt(callerInitialAp)
-        if (currentIndex == NO_VALUE) {
-            val newIndex = storage.size
-            initialApIndex.put(callerInitialAp, newIndex)
+        val currentIndex = initialApIndex.getOrCreateIndex(callerInitialAp) { newIndex ->
             storage.add(callerInitialAp to callerExitAp)
 
             updateIndex(callerExitAp, newIndex)
@@ -133,7 +130,7 @@ private class SummaryEdgeFactAbstractTreeSubscriptionStorage {
 
         storage[currentIndex] = callerInitialAp to mergedExitAp
 
-        updateIndex(mergedExitAp, currentIndex)
+        updateIndex(delta, currentIndex)
 
         return FactEdgeSubBuilder()
             .setCallerNode(delta)
@@ -142,13 +139,7 @@ private class SummaryEdgeFactAbstractTreeSubscriptionStorage {
     }
 
     private fun updateIndex(final: AccessTree.AccessNode, idx: Int) {
-        if (final.isFinal) {
-            edgesStartingWithAccessor.getOrPut(FinalAccessor, ::BitSet).set(idx)
-        }
-
-        final.accessors?.forEach {
-            edgesStartingWithAccessor.getOrPut(it, ::BitSet).set(idx)
-        }
+        edgeIndex.add(final, idx)
     }
 
     fun find(
@@ -160,12 +151,12 @@ private class SummaryEdgeFactAbstractTreeSubscriptionStorage {
                 collection.add(callerExitAp, callerInitialAp)
             }
         } else {
-            val relevantIndices = edgesStartingWithAccessor[summaryInitialFact.accessor]
+            val relevantIndices = edgeIndex.findStartsWith(summaryInitialFact)
             relevantIndices?.forEach { storageIdx ->
                 val (callerInitialAp, callerExitAp) = storage[storageIdx]
 
                 val filteredExitAp = callerExitAp.filterStartsWith(summaryInitialFact)
-                    ?: return@forEach
+                    ?: error("Tree index mismatch")
 
                 collection.add(filteredExitAp, callerInitialAp)
             }
@@ -178,9 +169,51 @@ private class SummaryEdgeFactAbstractTreeSubscriptionStorage {
             .setCallerInitialAp(initial)
             .setCallerExclusion(initial.exclusions)
     }
+}
 
-    companion object {
-        private const val NO_VALUE = -1
+private class AccessTreeIndex {
+    private class Node {
+        private var children: MutableMap<Accessor, Node>? = null
+        val index = BitSet()
+
+        private fun getChildren(): MutableMap<Accessor, Node> =
+            children ?: hashMapOf<Accessor, Node>().also { children = it }
+
+        fun getOrCreateChild(accessor: Accessor): Node =
+            getChildren().getOrPut(accessor, ::Node)
+
+        fun findChild(accessor: Accessor): Node? = children?.get(accessor)
+    }
+
+    private val root = Node()
+
+    fun add(rootTreeNode: AccessTree.AccessNode, idx: Int) {
+        val unprocessed = mutableListOf(root to rootTreeNode)
+        while (unprocessed.isNotEmpty()) {
+            val (indexNode, treeNode) = unprocessed.removeLast()
+
+            indexNode.index.set(idx)
+
+            if (treeNode.isFinal) {
+                val indexChild = indexNode.getOrCreateChild(FinalAccessor)
+                indexChild.index.set(idx)
+            }
+
+            treeNode.forEachAccessor { accessor, treeChild ->
+                val indexChild = indexNode.getOrCreateChild(accessor)
+                unprocessed.add(indexChild to treeChild)
+            }
+        }
+    }
+
+    fun findStartsWith(path: AccessPath.AccessNode): BitSet? {
+        var currentNode = root
+        var currentPath = path
+
+        while (true) {
+            currentNode = currentNode.findChild(currentPath.accessor) ?: return null
+            currentPath = currentPath.next ?: return currentNode.index
+        }
     }
 }
 

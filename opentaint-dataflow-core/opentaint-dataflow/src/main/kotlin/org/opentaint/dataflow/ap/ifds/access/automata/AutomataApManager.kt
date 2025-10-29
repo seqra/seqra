@@ -2,6 +2,8 @@ package org.opentaint.dataflow.ap.ifds.access.automata
 
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.LanguageManager
@@ -18,7 +20,24 @@ import org.opentaint.dataflow.ap.ifds.access.SideEffectRequirementApStorage
 import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 
-object AutomataApManager : ApManager {
+class AutomataApManager : ApManager {
+    private val interner = AccessorInterner()
+
+    val Accessor.idx: AccessorIdx
+        get() = interner.index(this)
+
+    val AccessorIdx.accessor: Accessor
+        get() = interner.accessor(this)
+            ?: error("Accessor not found: $this")
+
+    val anyAccessorIdx: AccessorIdx by lazy(LazyThreadSafetyMode.NONE) {
+        AnyAccessor.idx
+    }
+
+    private val emptyGraph by lazy { AccessGraph.newEmptyGraph(this) }
+
+    fun emptyGraph(): AccessGraph = emptyGraph
+
     override fun initialFactAbstraction(): InitialFactAbstraction =
         AutomataInitialFactAbstraction()
 
@@ -48,23 +67,23 @@ object AutomataApManager : ApManager {
         MethodInitialToFinalAutomataApSummariesStorage(methodInitialStatement)
 
     override fun mostAbstractInitialAp(base: AccessPathBase): InitialFactAp =
-        AccessGraphInitialFactAp(base, AccessGraph.empty(), ExclusionSet.Empty)
+        AccessGraphInitialFactAp(base, emptyGraph, ExclusionSet.Empty)
 
     override fun mostAbstractFinalAp(base: AccessPathBase): FinalFactAp =
-        AccessGraphFinalFactAp(base, AccessGraph.empty(), ExclusionSet.Empty)
+        AccessGraphFinalFactAp(base, emptyGraph, ExclusionSet.Empty)
 
-    private val finalAp by lazy { AccessGraph.empty().prepend(FinalAccessor) }
+    private val finalAp by lazy { emptyGraph.prepend(FinalAccessor.idx) }
 
     override fun createFinalAp(base: AccessPathBase, exclusions: ExclusionSet): FinalFactAp =
         AccessGraphFinalFactAp(base, finalAp, exclusions)
 
     override fun createAbstractAp(base: AccessPathBase, exclusions: ExclusionSet): FinalFactAp =
-        AccessGraphFinalFactAp(base, AccessGraph.empty(), exclusions)
+        AccessGraphFinalFactAp(base, emptyGraph, exclusions)
 
     override fun createFinalInitialAp(base: AccessPathBase, exclusions: ExclusionSet): InitialFactAp =
         AccessGraphInitialFactAp(base, finalAp, exclusions)
 
     override fun createSerializer(context: SummarySerializationContext): ApSerializer {
-        return AccessGraphApSerializer(context)
+        return AccessGraphApSerializer(this, context)
     }
 }

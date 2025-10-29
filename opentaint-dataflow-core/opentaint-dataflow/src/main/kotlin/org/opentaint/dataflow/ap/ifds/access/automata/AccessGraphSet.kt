@@ -1,9 +1,7 @@
 package org.opentaint.dataflow.ap.ifds.access.automata
 
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
-import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.access.automata.SmallAgGroup.Companion.SMALL_GROUP_SIZE
 import org.opentaint.dataflow.util.containsAll
 import java.util.BitSet
@@ -65,9 +63,6 @@ class SmallAgSet : AccessGraphSet {
 }
 
 class CompressedAgSet : AccessGraphSet {
-    private val accessorIndex = Object2IntOpenHashMap<Accessor>()
-        .apply { defaultReturnValue(NO_INDEX) }
-
     private val graphs = Object2ObjectOpenHashMap<BitSet, Object2ObjectOpenHashMap<BitSet, PackedAccessGraphGroup>>()
 
     override val graphSize: Int
@@ -164,30 +159,11 @@ class CompressedAgSet : AccessGraphSet {
         return false
     }
 
-    private fun AccessGraph.accessorSet(): BitSet {
-        val result = BitSet()
-        edges.keys.forEach { result.set(it.index()) }
-        return result
-    }
+    private fun AccessGraph.accessorSet(): BitSet =
+        accessors()
 
-    private fun AccessGraph.initialAccessorSet(): BitSet {
-        val result = BitSet()
-        stateSuccessors(initial).forEach { result.set(it.index()) }
-        return result
-    }
-
-    private fun Accessor.index(): Int {
-        val index = accessorIndex.getInt(this)
-        if (index != NO_INDEX) return index
-
-        val newIndex = accessorIndex.size
-        accessorIndex.put(this, newIndex)
-        return newIndex
-    }
-
-    companion object {
-        private const val NO_INDEX = -1
-    }
+    private fun AccessGraph.initialAccessorSet(): BitSet =
+        stateSuccessors(initial)
 }
 
 typealias PackedAccessGraphGroup = Any

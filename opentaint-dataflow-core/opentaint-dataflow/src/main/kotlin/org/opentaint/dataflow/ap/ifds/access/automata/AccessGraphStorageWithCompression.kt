@@ -1,10 +1,10 @@
 package org.opentaint.dataflow.ap.ifds.access.automata
 
-import org.opentaint.dataflow.ap.ifds.Accessor
+import java.util.BitSet
 import java.util.concurrent.ConcurrentHashMap
 
 class AccessGraphStorageWithCompression {
-    private val noPredecessorGroups = ConcurrentHashMap<Set<Accessor>, AgGroup>()
+    private val noPredecessorGroups = ConcurrentHashMap<BitSet, AgGroup>()
     private val otherGraphs = AgGroup(mergeLimit = HUGE_GROUP_LIMIT)
 
     private val modifiedGroups = mutableListOf<AgGroup>()
@@ -16,7 +16,7 @@ class AccessGraphStorageWithCompression {
 
     fun add(graph: AccessGraph): Boolean {
         val graphInitialPredecessors = graph.nodePredecessors(graph.initial)
-        if (graphInitialPredecessors.isEmpty()) {
+        if (graphInitialPredecessors.isEmpty) {
             val initialSuccessors = graph.nodeSuccessors(graph.initial)
             val graphGroup = noPredecessorGroups.computeIfAbsent(initialSuccessors) {
                 AgGroup(mergeLimit = SMALL_GROUP_LIMIT)

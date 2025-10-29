@@ -1,8 +1,8 @@
-package org.opentaint.dataflow.jvm.ap.ifds.access.automata
+package org.opentaint.dataflow.ap.ifds.access.automata
 
-import org.opentaint.dataflow.ap.ifds.FieldAccessor
-import org.opentaint.dataflow.ap.ifds.access.automata.AccessGraph
 import kotlin.test.Test
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 class AccessGraphTest {
     private data class GraphValidation(
@@ -12,20 +12,22 @@ class AccessGraphTest {
         val invalidSequences: List<List<Int>>,
     )
 
+    private val randomGraphGen = RandomGraphGenerator()
+
+    private val empty = with(randomGraphGen.manager) { emptyGraph() }
+
     @Test
     fun test() {
-        val a = List(10) { FieldAccessor("", "$it", "") }
-
         val g3142 = GraphValidation(
             name = "3142",
-            graph = AccessGraph.empty()
-                .prepend(a[1])
-                .prepend(a[3])
-                .prepend(a[4])
-                .prepend(a[1])
-                .prepend(a[3])
-                .prepend(a[2])
-                .prepend(a[3]),
+            graph = empty
+                .prepend(1)
+                .prepend(3)
+                .prepend(4)
+                .prepend(1)
+                .prepend(3)
+                .prepend(2)
+                .prepend(3),
             validSequences = listOf(
                 listOf(3, 1),
                 listOf(3, 1, 4, 3, 1),
@@ -39,18 +41,18 @@ class AccessGraphTest {
 
         val g1 = GraphValidation(
             name = "1",
-            graph = AccessGraph.empty()
-                .prepend(a[1]),
+            graph = empty
+                .prepend(1),
             validSequences = listOf(listOf(1)),
             invalidSequences = listOf(listOf(1, 1))
         )
 
         val g32f = GraphValidation(
             name = "32f",
-            graph = AccessGraph.empty()
-                .prepend(a[3])
-                .prepend(a[2])
-                .prepend(a[3]),
+            graph = empty
+                .prepend(3)
+                .prepend(2)
+                .prepend(3),
             validSequences = listOf(
                 listOf(3),
                 listOf(3, 2, 3),
@@ -63,11 +65,11 @@ class AccessGraphTest {
 
         val g32if = GraphValidation(
             name = "32if",
-            graph = AccessGraph.empty()
-                .prepend(a[2])
-                .prepend(a[3])
-                .prepend(a[2])
-                .prepend(a[3]),
+            graph = empty
+                .prepend(2)
+                .prepend(3)
+                .prepend(2)
+                .prepend(3),
             validSequences = listOf(
                 listOf(),
                 listOf(3, 2),
@@ -82,10 +84,10 @@ class AccessGraphTest {
 
         val g23f = GraphValidation(
             name = "23f",
-            graph = AccessGraph.empty()
-                .prepend(a[2])
-                .prepend(a[3])
-                .prepend(a[2]),
+            graph = empty
+                .prepend(2)
+                .prepend(3)
+                .prepend(2),
             validSequences = listOf(
                 listOf(2),
                 listOf(2, 3, 2),
@@ -99,11 +101,11 @@ class AccessGraphTest {
 
         val g23if = GraphValidation(
             name = "23if",
-            graph = AccessGraph.empty()
-                .prepend(a[3])
-                .prepend(a[2])
-                .prepend(a[3])
-                .prepend(a[2]),
+            graph = empty
+                .prepend(3)
+                .prepend(2)
+                .prepend(3)
+                .prepend(2),
             validSequences = listOf(
                 listOf(),
                 listOf(2, 3),
@@ -116,7 +118,7 @@ class AccessGraphTest {
         )
 
         fun AccessGraph.runSequence(sequence: List<Int>) =
-            sequence.map { a[it] }.fold(this as AccessGraph?) { g, f -> g?.read(f) }
+            sequence.map { it }.fold(this as AccessGraph?) { g, f -> g?.read(f) }
 
         fun runValidation(validation: GraphValidation) {
             println("-".repeat(20))
@@ -181,5 +183,94 @@ class AccessGraphTest {
 
         println("Merge 1")
         println(g3142.graph.merge(g3142.graph))
+    }
+
+    @Test
+    fun testEmptyDeltaImpliesContainsAll() = repeat(RANDOM_TEST_REPEAT) {
+        val graph1 = randomGraphGen.nextRandomGraph()
+        val graph2 = randomGraphGen.nextRandomGraph()
+        val containsAll = graph1.containsAll(graph2)
+        val hasEmptyDelta = graph1.hasEmptyDelta(graph2)
+        if (hasEmptyDelta) {
+            assertTrue(containsAll)
+        }
+    }
+
+    @Test
+    fun testDelta1() {
+        val g1 = empty.prepend(1)
+        val g2 = empty.prepend(1).prepend(1)
+        val d1 = g1.delta(g2)
+        assertTrue(d1.isEmpty())
+
+        val d2 = g2.delta(g1)
+        assertTrue(d2.any { !it.isEmpty() })
+    }
+
+    @Test
+    fun randomDeltaTest() = repeat(RANDOM_TEST_REPEAT) {
+        val g1 = randomGraphGen.nextRandomGraph()
+        val g2 = randomGraphGen.nextRandomGraph()
+        g1.delta(g2)
+    }
+
+    @Test
+    fun testEmptyDeltaWithItself() = repeat(RANDOM_TEST_REPEAT) {
+        val graph = randomGraphGen.nextRandomGraph()
+        assertTrue(graph.hasEmptyDelta(graph))
+    }
+
+    @Test
+    fun testConcatWithDeltaHasEmptyDeltaWithOriginal() = repeat(RANDOM_TEST_REPEAT) {
+        val graph1 = randomGraphGen.nextRandomGraph()
+        val graph2 = randomGraphGen.nextRandomGraph()
+
+        val deltas = graph1.delta(graph2)
+        if (deltas.isEmpty()) return@repeat
+
+        assertTrue(deltas.any { delta ->
+            val concatGraph = graph2.concat(delta)
+            graph1.hasEmptyDelta(concatGraph)
+        })
+    }
+
+    @Test
+    fun testDeltaAfterConcat() = repeat(RANDOM_TEST_REPEAT) {
+        val graph1 = randomGraphGen.nextRandomGraph()
+        val graph2 = randomGraphGen.nextRandomGraph()
+
+        val concat = graph1.concat(graph2)
+        val deltas = concat.delta(graph1)
+        assertTrue(deltas.isNotEmpty())
+
+        assertTrue(deltas.any { delta ->
+            val concatWithDelta = graph1.concat(delta)
+            concatWithDelta.hasEmptyDelta(concat)
+        })
+    }
+
+    @Test
+    fun testWrite() = repeat(RANDOM_TEST_REPEAT) {
+        val graph = randomGraphGen.nextRandomGraph()
+        val accessors = List(randomGraphGen.random.nextInt(1, 10)) {
+            randomGraphGen.nextAccessor()
+        }
+
+        val afterWrite = accessors.fold(graph) { g, accessor ->
+            g.prepend(accessor)
+        }
+
+        val afterRead = accessors.foldRight(afterWrite) { accessor, g ->
+            assertNotNull(g.read(accessor))
+        }
+
+        assertTrue(graph.isEmpty() || afterRead.containsAll(graph))
+    }
+
+    private fun AccessGraph.hasEmptyDelta(other: AccessGraph): Boolean =
+        delta(other).any { it.isEmpty() }
+
+    companion object {
+        private const val RANDOM_TEST_REPEAT = 10_000
     }
 }

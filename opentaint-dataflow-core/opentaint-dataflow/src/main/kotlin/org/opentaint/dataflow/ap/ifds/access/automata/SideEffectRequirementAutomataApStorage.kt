@@ -1,11 +1,14 @@
 package org.opentaint.dataflow.ap.ifds.access.automata
 
-import kotlinx.collections.immutable.PersistentMap
-import kotlinx.collections.immutable.persistentHashMapOf
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.SideEffectRequirementApStorage
+import org.opentaint.dataflow.util.forEach
+import org.opentaint.dataflow.util.getOrCreateIndex
+import org.opentaint.dataflow.util.object2IntMap
+import java.util.BitSet
 import java.util.concurrent.ConcurrentHashMap
 
 class SideEffectRequirementAutomataApStorage : SideEffectRequirementApStorage {
@@ -17,61 +20,151 @@ class SideEffectRequirementAutomataApStorage : SideEffectRequirementApStorage {
         for (requirement in requirements) {
             requirement as AccessGraphInitialFactAp
 
-            val storage = based.computeIfAbsent(requirement.base) { Storage() }
-            storage.mergeAdd(requirement) ?: continue
+            val storage = based.computeIfAbsent(requirement.base) { Storage(requirement.base) }
+            storage.mergeAdd(requirement.access, requirement.exclusions) ?: continue
             modifiedStorages.add(storage)
         }
 
-        val result = mutableListOf<AccessGraphInitialFactAp>()
+        val result = mutableListOf<InitialFactAp>()
         modifiedStorages.forEach { it.getAndResetDelta(result) }
         return result
     }
 
     override fun filterTo(dst: MutableList<InitialFactAp>, fact: FinalFactAp) {
         val storage = based[fact.base] ?: return
-        dst.addAll(storage.requirements.values)
+        storage.find(dst, (fact as AccessGraphFinalFactAp).access)
     }
 
     override fun collectAllRequirementsTo(dst: MutableList<InitialFactAp>) {
         based.values.forEach { storage ->
-            dst.addAll(storage.requirements.values)
+            storage.find(dst, factAccess = null)
         }
     }
 
-    private class Storage {
-        var requirements = persistentHashMapOf<AccessGraph, AccessGraphInitialFactAp>()
-        private var delta: PersistentMap<AccessGraph, AccessGraphInitialFactAp>? = null
+    private class Storage(
+        private val base: AccessPathBase,
+    ) {
+        private val requirementGraphIndex = object2IntMap<AccessGraph>()
+        private val requirementGraphs = arrayListOf<AccessGraph>()
+        private val overrides = arrayListOf<BitSet>()
+        private val removedRequirementGraphs = BitSet()
+        private val requirementExclusions = arrayListOf<ExclusionSet>()
 
-        fun mergeAdd(requirement: AccessGraphInitialFactAp): AccessGraphInitialFactAp? {
-            val oldValue = requirements[requirement.access]
-            val newValue = oldValue.mergeAdd(requirement) ?: return null
+        private val graphIndex = GraphIndex()
+        private val delta = BitSet()
 
-            requirements = requirements.put(requirement.access, newValue)
-            delta = (delta ?: persistentHashMapOf()).put(requirement.access, newValue)
-
-            return newValue
-        }
-
-        fun getAndResetDelta(dst: MutableCollection<AccessGraphInitialFactAp>) {
-            delta?.values?.let { dst.addAll(it) }
-            delta = null
-        }
-
-        private fun AccessGraphInitialFactAp?.mergeAdd(requirement: AccessGraphInitialFactAp): AccessGraphInitialFactAp? {
-            if (this == null) {
-                return requirement
+        fun mergeAdd(requirementGraph: AccessGraph, requirementExclusion: ExclusionSet): Unit? {
+            val currentValueIndex = requirementGraphIndex.getOrCreateIndex(requirementGraph) { newIndex ->
+                return addCompressed(requirementGraph, requirementExclusion, newIndex)
             }
 
-            val currentExclusion = exclusions
-            val mergedExclusion = currentExclusion.union(requirement.exclusions)
+            return updateExclusionAtIdx(currentValueIndex, requirementExclusion)
+        }
 
-            if (mergedExclusion === currentExclusion) return null
+        private fun addCompressed(graph: AccessGraph, exclusion: ExclusionSet, idx: Int): Unit? {
+            requirementGraphs.add(graph)
+            requirementExclusions.add(exclusion)
+            overrides.add(BitSet())
 
-            val mergedAp = with(requirement) {
-                AccessGraphInitialFactAp(base, access, mergedExclusion)
+            val weakerGraphIdx = graphIndex.localizeGraphContainsAllIndexedGraph(graph)
+            weakerGraphIdx.andNot(removedRequirementGraphs)
+            if (!weakerGraphIdx.isEmpty) {
+                val weakerIdx = weakerGraphIdx.nextSetBit(0)
+
+                removedRequirementGraphs.set(idx)
+                requirementGraphIndex.put(graph, weakerIdx)
+                overrides[weakerIdx].set(idx)
+
+                return updateExclusionAtIdx(weakerIdx, exclusion)
             }
 
-            return mergedAp
+            val strongerGraphIdx = graphIndex.localizeIndexedGraphContainsAllGraph(graph)
+            strongerGraphIdx.andNot(removedRequirementGraphs)
+            strongerGraphIdx.forEach { graphIdx ->
+                removedRequirementGraphs.set(graphIdx)
+                delta.clear(graphIdx)
+
+                val removedGraph = requirementGraphs[graphIdx]
+                val removedExclusion = requirementExclusions[graphIdx]
+                val removedGraphOverrides = overrides[graphIdx]
+
+                requirementGraphIndex.put(removedGraph, idx)
+                updateExclusionAtIdx(idx, removedExclusion)
+
+                removedGraphOverrides.forEach { overrideIdx ->
+                    val overrideGraph = requirementGraphs[overrideIdx]
+                    requirementGraphIndex.put(overrideGraph, idx)
+                }
+
+                val overrides = overrides[idx]
+                overrides.set(graphIdx)
+                overrides.or(removedGraphOverrides)
+            }
+
+            delta.set(idx)
+            graphIndex.add(graph, idx)
+            return Unit
+        }
+
+        private fun updateExclusionAtIdx(idx: Int, exclusion: ExclusionSet): Unit? {
+            val oldExclusion = requirementExclusions[idx]
+
+            val newValue = oldExclusion.union(exclusion)
+
+            if (oldExclusion === newValue) {
+                return null
+            }
+
+            requirementExclusions[idx] = newValue
+            delta.set(idx)
+
+            return Unit
+        }
+
+        fun getAndResetDelta(dst: MutableCollection<InitialFactAp>) {
+            delta.forEach { idx ->
+                val graph = requirementGraphs[idx]
+                val exclusion = requirementExclusions[idx]
+                dst.add(AccessGraphInitialFactAp(base, graph, exclusion))
+            }
+            delta.clear()
+        }
+
+        fun find(
+            collection: MutableList<InitialFactAp>,
+            factAccess: AccessGraph?
+        ) {
+            if (factAccess == null) {
+                val allIndices = BitSet(requirementGraphs.size).apply { set(0, requirementGraphs.size) }
+                allIndices.andNot(removedRequirementGraphs)
+
+                allIndices.forEach { i ->
+                    val graph = requirementGraphs[i]
+                    val exclusion = requirementExclusions[i]
+                    collection += AccessGraphInitialFactAp(base, graph, exclusion)
+                }
+                return
+            }
+
+            filter(factAccess, collection)
+        }
+
+        private fun filter(
+            factAccess: AccessGraph,
+            collection: MutableList<InitialFactAp>
+        ) {
+            val relevantGraphs = graphIndex.localizeGraphContainsAllIndexedGraph(factAccess)
+            relevantGraphs.andNot(removedRequirementGraphs)
+            relevantGraphs.forEach { graphIdx ->
+                val graph = requirementGraphs[graphIdx]
+
+                if (!factAccess.containsAll(graph)) {
+                    return@forEach
+                }
+
+                val exclusion = requirementExclusions[graphIdx]
+                collection += AccessGraphInitialFactAp(base, graph, exclusion)
+            }
         }
     }
 }

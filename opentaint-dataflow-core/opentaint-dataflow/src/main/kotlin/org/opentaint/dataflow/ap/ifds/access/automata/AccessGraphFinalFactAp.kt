@@ -13,6 +13,7 @@ import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
+import org.opentaint.dataflow.util.forEach
 
 data class AccessGraphFinalFactAp(
     override val base: AccessPathBase,
@@ -32,25 +33,27 @@ data class AccessGraphFinalFactAp(
     override fun replaceExclusions(exclusions: ExclusionSet): FinalFactAp =
         AccessGraphFinalFactAp(base, access, exclusions)
 
-    override fun startsWithAccessor(accessor: Accessor): Boolean =
-        access.startsWith(accessor) || (access.startsWith(AnyAccessor) && AnyAccessor.containsAccessor(accessor))
+    override fun startsWithAccessor(accessor: Accessor): Boolean = with(access.manager) {
+        access.startsWith(accessor.idx) || (access.startsWith(anyAccessorIdx) && AnyAccessor.containsAccessor(accessor))
+    }
 
     override fun isAbstract(): Boolean =
         exclusions !is ExclusionSet.Universe && access.initialNodeIsFinal()
 
-    override fun readAccessor(accessor: Accessor): FinalFactAp? {
-        val graph = access.read(accessor)
-            ?: tryAnyAccessorOrNull(accessor) { access.read(AnyAccessor) }
+    override fun readAccessor(accessor: Accessor): FinalFactAp? = with(access.manager) {
+        val graph = access.read(accessor.idx)
+            ?: tryAnyAccessorOrNull(accessor) { access.read(anyAccessorIdx) }
 
         return graph?.let { AccessGraphFinalFactAp(base, it, exclusions) }
     }
 
-    override fun prependAccessor(accessor: Accessor): FinalFactAp =
-        AccessGraphFinalFactAp(base, access.prepend(accessor), exclusions)
+    override fun prependAccessor(accessor: Accessor): FinalFactAp = with(access.manager) {
+        AccessGraphFinalFactAp(base, access.prepend(accessor.idx), exclusions)
+    }
 
-    override fun clearAccessor(accessor: Accessor): FinalFactAp? {
+    override fun clearAccessor(accessor: Accessor): FinalFactAp? = with(access.manager) {
         check(accessor !is AnyAccessor)
-        return access.clear(accessor)?.let { AccessGraphFinalFactAp(base, it, exclusions) }
+        return access.clear(accessor.idx)?.let { AccessGraphFinalFactAp(base, it, exclusions) }
     }
 
     override fun removeAbstraction(): FinalFactAp? {
@@ -71,15 +74,17 @@ data class AccessGraphFinalFactAp(
         other as AccessGraphInitialFactAp
         if (base != other.base) return emptyList()
 
-        if (other.access.isEmpty()) {
-            val filteredDelta = this.access.filter(other.exclusions)
-            return listOfNotNull(filteredDelta?.let { Delta(it) })
-        }
-
         return access.delta(other.access).mapNotNull { delta ->
             val filteredDelta = delta.filter(other.exclusions)
             filteredDelta?.let { Delta(it) }
         }
+    }
+
+    override fun hasEmptyDelta(other: InitialFactAp): Boolean {
+        other as AccessGraphInitialFactAp
+        if (base != other.base) return false
+
+        return access.containsAll(other.access)
     }
 
     override fun concat(typeChecker: FactTypeChecker, delta: FactApDelta): FinalFactAp? {
@@ -110,7 +115,8 @@ data class AccessGraphFinalFactAp(
     private fun AccessGraph.createFilter(typeChecker: FactTypeChecker): FactTypeChecker.FactApFilter {
         val finalPredAccessors = nodePredecessors(final)
         val filters = mutableListOf<FactTypeChecker.FactApFilter>()
-        for (accessor in finalPredAccessors) {
+        finalPredAccessors.forEach { accessorIdx ->
+            val accessor = with(access.manager) { accessorIdx.accessor }
             when (accessor) {
                 FinalAccessor -> filters += FactTypeChecker.AlwaysRejectFilter
                 is AnyAccessor -> {
@@ -119,13 +125,15 @@ data class AccessGraphFinalFactAp(
                 is TaintMarkAccessor -> filters += OnlyFinalAccessorAllowedFilter
                 is FieldAccessor -> filters += typeChecker.accessPathFilter(listOf(accessor))
                 ElementAccessor -> {
-                    val (predecessorNode, _) = edges[accessor] ?: error("No edge for: $accessor")
+                    val edge = getEdge(accessorIdx) ?: error("No edge for: $accessor")
+                    val predecessorNode = getEdgeFrom(edge)
                     val predecessorPredAccessors = nodePredecessors(predecessorNode)
-                    if (predecessorPredAccessors.isEmpty()) {
+                    if (predecessorPredAccessors.isEmpty) {
                         filters += typeChecker.accessPathFilter(listOf(accessor))
                     } else {
-                        predecessorPredAccessors.mapTo(filters) { preAccessor ->
-                            typeChecker.accessPathFilter(listOf(preAccessor, accessor))
+                        predecessorPredAccessors.forEach { preAccessor ->
+                            val preAccessorObj = with(access.manager) { preAccessor.accessor }
+                            typeChecker.accessPathFilter(listOf(preAccessorObj, accessor))
                         }
                     }
                 }

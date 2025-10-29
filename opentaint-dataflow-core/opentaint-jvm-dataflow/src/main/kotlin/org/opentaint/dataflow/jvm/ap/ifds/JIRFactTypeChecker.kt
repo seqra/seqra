@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
+import it.unimi.dsi.fastutil.longs.LongLongImmutablePair
+import it.unimi.dsi.fastutil.longs.LongLongPair
 import org.opentaint.ir.api.common.CommonType
 import org.opentaint.ir.api.jvm.JIRArrayType
 import org.opentaint.ir.api.jvm.JIRBoundedWildcard
@@ -28,6 +30,7 @@ import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.LongAdder
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.isAccessible
@@ -158,18 +161,33 @@ class JIRFactTypeChecker(private val cp: JIRClasspath): FactTypeChecker {
         else -> error("Unexpected type: $type")
     }
 
+    // todo: cache limit?
+    private val interfaceMayHaveSubtypeOfCache = ConcurrentHashMap<LongLongPair, Boolean>()
+
     private fun interfaceMayHaveSubtypeOf(
         interfaceType: JIRClassOrInterface,
         requiredType: JIRClassOrInterface
     ): Boolean {
         if (requiredType == objectClass) return true
 
+        val requiredTypeId = persistence.findSymbolId(requiredType.name)
+        val interfaceTypeId = persistence.findSymbolId(interfaceType.name)
+
+        val cacheKey = LongLongImmutablePair(requiredTypeId, interfaceTypeId)
+        return interfaceMayHaveSubtypeOfCache.computeIfAbsent(cacheKey) {
+            computeInterfaceMayHaveSubtypeOf(requiredType, interfaceType, requiredTypeId)
+        }
+    }
+
+    private fun computeInterfaceMayHaveSubtypeOf(
+        requiredType: JIRClassOrInterface,
+        interfaceType: JIRClassOrInterface,
+        requiredTypeId: Long
+    ): Boolean {
         val subClassCheckCache = hashSetOf<JIRClassOrInterface>()
         if (isSubClassOfInterface(requiredType, interfaceType, subClassCheckCache)) return true
 
         if (requiredType.isFinal) return false
-
-        val requiredTypeId = persistence.findSymbolId(requiredType.name)
 
         val unprocessedSubclasses = mutableListOf<Long>()
         val processedSubClasses = hashSetOf<Long>()

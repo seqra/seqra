@@ -51,4 +51,7 @@ interface FinalFactAp : FactAp {
     fun filterFact(filter: FactTypeChecker.FactApFilter): FinalFactAp?
 
     fun contains(factAp: InitialFactAp): Boolean
+
+    fun hasEmptyDelta(other: InitialFactAp): Boolean =
+        delta(other).any { it.isEmpty }
 }

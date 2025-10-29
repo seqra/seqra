@@ -50,3 +50,57 @@ inline fun <D, T> collectToListWithPostProcess(
 
     return dst
 }
+
+class PersistentArrayBuilder<T>(val original: Array<T?>) {
+    private var modified: Array<T?>? = null
+    var size = original.size
+
+    operator fun get(index: Int): T? {
+        val mod = modified ?: return original.getOrNull(index)
+        return mod.getOrNull(index)
+    }
+
+    operator fun set(index: Int, value: T?): T? {
+        var mod = modified
+        if (mod == null) {
+            mod = if (index < original.size) {
+                original.clone()
+            } else {
+                original.copyOf(capacity(index))
+            }
+            modified = mod
+        }
+
+        if (index >= mod.size) {
+            mod = mod.copyOf(capacity(index))
+            modified = mod
+        }
+
+        val oldValue = mod[index]
+        mod[index] = value
+
+        if (value != null) {
+            size = maxOf(size, index + 1)
+        } else {
+            while (size > 0 && mod[size - 1] == null) {
+                size--
+            }
+        }
+
+        return oldValue
+    }
+
+    fun persist(): Array<T?> {
+        val mod = modified ?: return original
+
+        if (mod.size == size) return mod
+
+        return mod.copyOf(size)
+    }
+
+    companion object {
+        @JvmStatic
+        private fun capacity(index: Int): Int =
+            if (index <= 7) 8 else index + index / 2
+    }
+}

@@ -54,7 +54,7 @@ class TaintAnalysisUnitRunnerManager(
     val apManager: ApManager = when (apMode) {
         ApMode.Tree -> TreeApManager
         ApMode.Cactus -> CactusApManager
-        ApMode.Automata -> AutomataApManager
+        ApMode.Automata -> AutomataApManager()
     }
 
     private val runnerForUnit = ConcurrentHashMap<UnitType, TaintAnalysisUnitRunner>()
