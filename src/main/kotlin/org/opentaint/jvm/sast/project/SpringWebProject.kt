@@ -1,6 +1,7 @@
 package org.opentaint.jvm.sast.project
 
 import mu.KLogging
+import org.opentaint.ir.api.jvm.JIRAnnotated
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClassType
@@ -87,6 +88,8 @@ private const val SpringBeanBindingResult = "org.springframework.validation.Bean
 private const val ReactorMono = "reactor.core.publisher.Mono"
 private const val ReactorFlux = "reactor.core.publisher.Flux"
 
+private const val JakartaConstraint = "jakarta.validation.Constraint"
+
 fun ProjectClasses.springWebProjectEntryPoints(cp: JIRClasspath): List<JIRMethod> {
     val controllerEpGenerator = SpringControllerEntryPointGenerator(cp, this)
 
@@ -134,6 +137,9 @@ fun JIRAnnotation.isSpringPathVariable(): Boolean =
 fun JIRAnnotation.isSpringModelAttribute(): Boolean =
     jirClass?.name == SpringModelAttribute
 
+fun JIRAnnotation.isJakartaConstraint(): Boolean =
+    jirClass?.name == JakartaConstraint
+
 private class SpringControllerEntryPointGenerator(
     private val cp: JIRClasspath,
     private val projectClasses: ProjectClasses
@@ -144,6 +150,22 @@ private class SpringControllerEntryPointGenerator(
             cls.isSubClassOf(springValidatorCls)
         }
     }
+
+    private val JIRAnnotated.jakartaConstraints: List<Pair<JIRAnnotation, List<JIRClassOrInterface>>>
+        get() {
+            return annotations
+                .mapNotNull { annotation ->
+                    val constraintAnnotation = annotation.jirClass
+                        ?.annotations
+                        ?.singleOrNull { it.isJakartaConstraint() }
+                        ?: return@mapNotNull null
+
+                    val validatedBy = constraintAnnotation.values["validatedBy"] as? List<*>
+                        ?: return@mapNotNull null
+
+                    annotation to validatedBy.filterIsInstance<JIRClassOrInterface>()
+                }
+        }
 
     // According to https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/ModelAttribute.html
     private fun defaultModelAttributeNameForType(type: JIRType): String? {
@@ -279,6 +301,42 @@ private class SpringControllerEntryPointGenerator(
             }
 
             if (jirParam.annotations.any { it.isSpringValidated() }) {
+                val constraints = (param.type as? JIRClassType)?.jirClass?.jakartaConstraints.orEmpty()
+
+                for ((_, validators) in constraints) { // TODO: pass annotation to validator.initialize somehow?
+                    for (validator in validators) {
+                        val validatorType = validator.toType()
+                        val initializeMethod = validatorType.methods.firstOrNull {
+                            it.name == "initialize" && it.parameters.size == 1
+                        } ?: continue
+                        val isValidMethod = validatorType.methods.firstOrNull {
+                            it.name == "isValid" && it.parameters.size == 2
+                        } ?: continue
+
+                        val validatorInstance = instructions.loadSpringComponent(
+                            entryPointMethod, validator, "validator"
+                        )
+
+                        val initializeMethodRef = VirtualMethodRefImpl.of(validatorType, initializeMethod)
+                        val initializeMethodCall = JIRVirtualCallExpr(
+                            initializeMethodRef, validatorInstance,
+                            listOf(getOrCreateNewArgument(initializeMethod, 0))
+                        )
+                        instructions.addInstWithLocation(entryPointMethod) { loc ->
+                            JIRCallInst(loc, initializeMethodCall)
+                        }
+
+                        val isValidMethodRef = VirtualMethodRefImpl.of(validatorType, isValidMethod)
+                        val isValidMethodCall = JIRVirtualCallExpr(
+                            isValidMethodRef, validatorInstance,
+                            listOf(paramValue, getOrCreateNewArgument(isValidMethod, 1))
+                        )
+                        instructions.addInstWithLocation(entryPointMethod) { loc ->
+                            JIRCallInst(loc, isValidMethodCall)
+                        }
+                    }
+                }
+
                 // todo: better validator resolution
                 for (validator in validators) {
                     val validatorType = validator.toType()
