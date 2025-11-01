@@ -104,7 +104,7 @@ class NormalMethodAnalyzer(
     private val methodCallFactMapper get() = languageManager.methodCallFactMapper
 
     private var zeroInitialFactProcessed: Boolean = false
-    private val initialFacts = apManager.initialFactAbstraction()
+    private val initialFacts = apManager.initialFactAbstraction(methodEntryPoint.statement)
     private val edges = MethodAnalyzerEdges(apManager, methodEntryPoint, languageManager)
     private var pendingSummaryEdges = arrayListOf<Edge>()
     private var pendingSideEffectRequirements = arrayListOf<InitialFactAp>()

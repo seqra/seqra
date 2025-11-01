@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAbstraction
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import java.util.BitSet
 
@@ -106,12 +107,16 @@ class MethodAnalyzerEdges(
 
     abstract class EdgeStorage<Storage : Any>(initialStatement: CommonInst) :
         AccessPathBaseStorage<Storage>(initialStatement) {
-        private val locals = Int2ObjectOpenHashMap<Storage>()
+        private var locals: Int2ObjectOpenHashMap<Storage>? = null
 
-        override fun getOrCreateLocal(idx: Int): Storage = locals.getOrPut(idx) { createStorage() }
-        override fun findLocal(idx: Int): Storage? = locals.get(idx)
+        override fun getOrCreateLocal(idx: Int): Storage {
+            val edges = locals ?: Int2ObjectOpenHashMap<Storage>().also { locals = it }
+            return edges.getOrPut(idx) { createStorage() }
+        }
+
+        override fun findLocal(idx: Int): Storage? = locals?.get(idx)
         override fun forEachLocalValue(body: (AccessPathBase, Storage) -> Unit) {
-            locals.forEach { (idx, storage) -> body(AccessPathBase.LocalVar(idx), storage) }
+            locals?.forEach { (idx, storage) -> body(AccessPathBase.LocalVar(idx), storage) }
         }
 
         private var constants: MutableMap<AccessPathBase.Constant, Storage>? = null

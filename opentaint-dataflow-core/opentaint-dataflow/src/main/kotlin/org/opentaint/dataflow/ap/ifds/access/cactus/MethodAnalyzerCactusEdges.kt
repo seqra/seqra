@@ -32,7 +32,7 @@ class MethodEdgesFinalCactusApSet(
         return AccessCactus(ap.base, addedAccess, ExclusionSet.Universe)
     }
 
-    override fun collectApAtStatement(collection: MutableCollection<FinalFactAp>, statement: CommonInst) {
+    override fun collectApAtStatement(collection: MutableList<FinalFactAp>, statement: CommonInst) {
         storage.forEachValue { base, factEdges ->
             val facts = factEdges.find(statement) ?: return@forEachValue
             collection += AccessCactus(base, facts, ExclusionSet.Universe)
@@ -48,7 +48,7 @@ class MethodEdgesInitialToFinalCactusApSet(
     private val edgeStorage = TaintedInitialFactEdgeStorage(methodInitialStatement)
 
     override fun collectApAtStatement(
-        collection: MutableCollection<Pair<InitialFactAp, FinalFactAp>>,
+        collection: MutableList<Pair<InitialFactAp, FinalFactAp>>,
         statement: CommonInst
     ) {
         edgeStorage.forEachValue { initialBase, edgeStorageForInitialFact ->
@@ -64,7 +64,7 @@ class MethodEdgesInitialToFinalCactusApSet(
     }
 
     override fun collectApAtStatement(
-        collection: MutableCollection<FinalFactAp>,
+        collection: MutableList<FinalFactAp>,
         statement: CommonInst,
         initialAp: InitialFactAp
     ) {

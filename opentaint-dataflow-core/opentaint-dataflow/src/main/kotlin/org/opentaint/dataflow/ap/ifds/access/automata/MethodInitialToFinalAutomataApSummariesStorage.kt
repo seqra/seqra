@@ -10,7 +10,11 @@ import org.opentaint.dataflow.ap.ifds.SummaryFactStorage
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.MethodInitialToFinalApSummariesStorage
 import org.opentaint.dataflow.util.collectToListWithPostProcess
-import java.util.concurrent.ConcurrentHashMap
+import org.opentaint.dataflow.util.concurrentReadSafeForEach
+import org.opentaint.dataflow.util.forEach
+import org.opentaint.dataflow.util.getOrCreateIndex
+import org.opentaint.dataflow.util.object2IntMap
+import java.util.BitSet
 
 class MethodInitialToFinalAutomataApSummariesStorage(
     methodInitialStatement: CommonInst
@@ -156,10 +160,14 @@ class MethodInitialToFinalAutomataApSummariesStorage(
     }
 
     private class InitialToFinalApStorage {
-        private val finalFactsGroupedByInitial = ConcurrentHashMap<AccessGraph, FinalApStorage>()
+        private val initialFactGraphIndex = object2IntMap<AccessGraph>()
+        private val initialFactGraphs = arrayListOf<AccessGraph>()
+        private val finalFactGraphStorages = arrayListOf<FinalApStorage>()
+
+        private val initialGraphIndex = GraphIndex()
 
         fun add(edges: List<Edge.FactToFact>, added: MutableList<FactToFactEdgeBuilderBuilder>) {
-            val modifiedStorages = mutableListOf<Pair<AccessGraph, FinalApStorage>>()
+            val modifiedStorages = BitSet()
 
             for (edge in edges) {
                 val initial = edge.initialFactAp as AccessGraphInitialFactAp
@@ -167,24 +175,36 @@ class MethodInitialToFinalAutomataApSummariesStorage(
 
                 check(initial.exclusions == final.exclusions)
 
-                val storage = finalFactsGroupedByInitial.computeIfAbsent(initial.access) {
-                    FinalApStorage()
-                }
+                val storageIdx = getOrCreateStorageIdx(initial.access)
+                val storage = finalFactGraphStorages[storageIdx]
 
                 if (storage.add(initial.exclusions, final.access)) {
-                    modifiedStorages.add(initial.access to storage)
+                    modifiedStorages.set(storageIdx)
                 }
             }
 
-            modifiedStorages.forEach { (initialAg, storage) ->
+            modifiedStorages.forEach { storageIdx ->
+                val storage = finalFactGraphStorages[storageIdx]
                 val storageEdges = mutableListOf<FactToFactEdgeBuilderBuilder>()
                 storage.addAndResetDelta(storageEdges)
+
+                val initialAg = initialFactGraphs[storageIdx]
                 storageEdges.mapTo(added) { it.setInitialAg(initialAg) }
             }
         }
 
+        private fun getOrCreateStorageIdx(initial: AccessGraph): Int {
+            return initialFactGraphIndex.getOrCreateIndex(initial) { newIdx ->
+                initialFactGraphs.add(initial)
+                finalFactGraphStorages.add(FinalApStorage())
+                initialGraphIndex.add(initial, newIdx)
+                return newIdx
+            }
+        }
+
         fun allEdgesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>) {
-            finalFactsGroupedByInitial.forEach { (initialAg, finalStorage) ->
+            finalFactGraphStorages.concurrentReadSafeForEach { idx, finalStorage ->
+                val initialAg = initialFactGraphs[idx]
                 collectToListWithPostProcess(dst, {
                     finalStorage.allEdgesTo(it)
                 }, {
@@ -194,12 +214,14 @@ class MethodInitialToFinalAutomataApSummariesStorage(
         }
 
         fun filterEdgesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>, accessPattern: AccessGraph) {
-            finalFactsGroupedByInitial.forEach { (initialAg, finalStorage) ->
+            initialGraphIndex.localizeGraphHasDeltaWithIndexedGraph(accessPattern).forEach { storageIdx ->
+                val initialAg = initialFactGraphs[storageIdx]
 
                 if (accessPattern.delta(initialAg).isEmpty()) {
                     return@forEach
                 }
 
+                val finalStorage = finalFactGraphStorages[storageIdx]
                 collectToListWithPostProcess(dst, {
                     finalStorage.allEdgesTo(it)
                 }, {
@@ -208,13 +230,14 @@ class MethodInitialToFinalAutomataApSummariesStorage(
             }
         }
 
-        override fun toString(): String =
-            finalFactsGroupedByInitial
-                .asSequence()
-                .map { (initial, finalStorage) ->
-                    "($initial -> $finalStorage)"
-                }
-                .joinToString("\n")
+        override fun toString(): String {
+            val builder = StringBuilder()
+            finalFactGraphStorages.concurrentReadSafeForEach { idx, finalStorage ->
+                val initialAg = initialFactGraphs[idx]
+                builder.appendLine("($initialAg -> $finalStorage)")
+            }
+            return builder.toString()
+        }
     }
 
     private class FinalApStorage {

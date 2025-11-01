@@ -13,7 +13,7 @@ import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 
 interface ApManager {
-    fun initialFactAbstraction(): InitialFactAbstraction
+    fun initialFactAbstraction(methodInitialStatement: CommonInst): InitialFactAbstraction
 
     fun methodEdgesFinalApSet(methodInitialStatement: CommonInst, maxInstIdx: Int, languageManager: LanguageManager): MethodEdgesFinalApSet
     fun methodEdgesInitialToFinalApSet(methodInitialStatement: CommonInst, maxInstIdx: Int, languageManager: LanguageManager): MethodEdgesInitialToFinalApSet
@@ -63,13 +63,13 @@ interface MethodAccessPathSubscription {
 
 interface MethodEdgesFinalApSet {
     fun add(statement: CommonInst, ap: FinalFactAp): FinalFactAp?
-    fun collectApAtStatement(collection: MutableCollection<FinalFactAp>, statement: CommonInst)
+    fun collectApAtStatement(collection: MutableList<FinalFactAp>, statement: CommonInst)
 }
 
 interface MethodEdgesInitialToFinalApSet {
     fun add(statement: CommonInst, initialAp: InitialFactAp, finalAp: FinalFactAp): Pair<InitialFactAp, FinalFactAp>?
-    fun collectApAtStatement(collection: MutableCollection<Pair<InitialFactAp, FinalFactAp>>, statement: CommonInst)
-    fun collectApAtStatement(collection: MutableCollection<FinalFactAp>, statement: CommonInst, initialAp: InitialFactAp)
+    fun collectApAtStatement(collection: MutableList<Pair<InitialFactAp, FinalFactAp>>, statement: CommonInst)
+    fun collectApAtStatement(collection: MutableList<FinalFactAp>, statement: CommonInst, initialAp: InitialFactAp)
 }
 
 interface SideEffectRequirementApStorage {

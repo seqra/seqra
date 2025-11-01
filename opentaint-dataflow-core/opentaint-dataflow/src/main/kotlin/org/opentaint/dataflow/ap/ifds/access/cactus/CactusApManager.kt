@@ -21,7 +21,7 @@ import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 
 object CactusApManager : ApManager {
-    override fun initialFactAbstraction(): InitialFactAbstraction =
+    override fun initialFactAbstraction(methodInitialStatement: CommonInst): InitialFactAbstraction =
         CactusInitialFactAbstraction()
 
     override fun methodEdgesFinalApSet(

@@ -34,10 +34,8 @@ class AccessGraphStorageWithCompression {
         return true
     }
 
-    fun allGraphs(): Sequence<AccessGraph> {
-        val allGroups = noPredecessorGroups.elements().asSequence() + otherGraphs
-        return allGroups.flatMap { it.allGraphs() }
-    }
+    fun allGraphs(): List<AccessGraph> =
+        mutableListOf<AccessGraph>().also { allGraphsTo(it) }
 
     fun allGraphsTo(dst: MutableList<AccessGraph>) {
         for (group in noPredecessorGroups) {
@@ -98,7 +96,9 @@ private class AgGroup(private val mergeLimit: Int) {
 
     private fun compress(storage: AccessGraphSet) {
         agStorage = null
-        val graph = storage.toList().reduce { acc, graph -> acc.merge(graph) }
+        val graphList = mutableListOf<AccessGraph>()
+        storage.toList(graphList)
+        val graph = graphList.reduce { acc, graph -> acc.merge(graph) }
         updateMergedGraph(graph)
     }
 
@@ -108,10 +108,8 @@ private class AgGroup(private val mergeLimit: Int) {
         delta.add(graph)
     }
 
-    fun allGraphs(): Sequence<AccessGraph> =
-        mergedGraph?.let { sequenceOf(it) }
-            ?: agStorage?.toList()?.asSequence()
-            ?: emptySequence()
+    fun allGraphs(): List<AccessGraph> =
+        mutableListOf<AccessGraph>().also { allGraphsTo(it) }
 
     fun allGraphsTo(dst: MutableList<AccessGraph>) {
         val merged = mergedGraph

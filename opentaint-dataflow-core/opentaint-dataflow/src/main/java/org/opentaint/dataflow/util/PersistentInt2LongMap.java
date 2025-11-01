@@ -52,6 +52,7 @@ public final class PersistentInt2LongMap extends Int2LongOpenHashMap {
 
         if (size == 0) return emptyPersistentInt2LongMap();
         modification = PERSISTED;
+        trim();
         return this;
     }
 

@@ -32,7 +32,7 @@ class MethodEdgesFinalTreeApSet(
         return AccessTree(ap.base, addedAccess, ExclusionSet.Universe)
     }
 
-    override fun collectApAtStatement(collection: MutableCollection<FinalFactAp>, statement: CommonInst) {
+    override fun collectApAtStatement(collection: MutableList<FinalFactAp>, statement: CommonInst) {
         storage.forEachValue { base, edgeStore ->
             val ap = edgeStore.apAtStatement(statement)
             if (ap != null) {
@@ -85,7 +85,7 @@ class MethodEdgesInitialToFinalTreeApSet(
     }
 
     override fun collectApAtStatement(
-        collection: MutableCollection<Pair<InitialFactAp, FinalFactAp>>,
+        collection: MutableList<Pair<InitialFactAp, FinalFactAp>>,
         statement: CommonInst
     ) {
         edgeStorage.forEachValue { initialBase, storageForInitial ->
@@ -100,7 +100,7 @@ class MethodEdgesInitialToFinalTreeApSet(
     }
 
     override fun collectApAtStatement(
-        collection: MutableCollection<FinalFactAp>,
+        collection: MutableList<FinalFactAp>,
         statement: CommonInst,
         initialAp: InitialFactAp
     ) {

@@ -1,7 +1,8 @@
 package org.opentaint.dataflow.ap.ifds.access.automata
 
-import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
+import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAbstraction
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
@@ -15,8 +16,8 @@ import org.opentaint.dataflow.util.object2IntMap
 import org.opentaint.dataflow.util.toBitSet
 import java.util.BitSet
 
-class AutomataInitialFactAbstraction : InitialFactAbstraction {
-    private val addedFacts = hashMapOf<AccessPathBase, AccessGraphAbstraction>()
+class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFactAbstraction {
+    private val addedFacts = AccessGraphBasedStorage(initialStatement)
 
     override fun addAbstractedInitialFact(factAp: FinalFactAp): List<Pair<InitialFactAp, FinalFactAp>> =
         addAbstractedInitialFact(factAp as AccessGraphFinalFactAp)
@@ -25,7 +26,7 @@ class AutomataInitialFactAbstraction : InitialFactAbstraction {
         registerNewInitialFact(factAp as AccessGraphInitialFactAp)
 
     private fun addAbstractedInitialFact(fact: AccessGraphFinalFactAp): List<Pair<InitialFactAp, FinalFactAp>> {
-        val basedFacts = addedFacts.getOrPut(fact.base) { AccessGraphAbstraction() }
+        val basedFacts = addedFacts.getOrCreate(fact.base)
         return basedFacts.addAndAbstract(fact.access).map {
             Pair(
                 AccessGraphInitialFactAp(fact.base, it, ExclusionSet.Empty),
@@ -35,13 +36,18 @@ class AutomataInitialFactAbstraction : InitialFactAbstraction {
     }
 
     private fun registerNewInitialFact(fact: AccessGraphInitialFactAp): List<Pair<InitialFactAp, FinalFactAp>> {
-        val addedBasedFacts = addedFacts[fact.base] ?: return emptyList()
+        val addedBasedFacts = addedFacts.find(fact.base) ?: return emptyList()
         return addedBasedFacts.registerNew(fact.access, fact.exclusions).map {
             Pair(
                 AccessGraphInitialFactAp(fact.base, it, ExclusionSet.Empty),
                 AccessGraphFinalFactAp(fact.base, it, ExclusionSet.Empty)
             )
         }
+    }
+
+    private class AccessGraphBasedStorage(initialStatement: CommonInst) :
+        MethodAnalyzerEdges.EdgeStorage<AccessGraphAbstraction>(initialStatement) {
+        override fun createStorage(): AccessGraphAbstraction = AccessGraphAbstraction()
     }
 
     private class AccessGraphAbstraction {

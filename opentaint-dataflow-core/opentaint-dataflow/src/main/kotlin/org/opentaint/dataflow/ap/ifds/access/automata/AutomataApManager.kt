@@ -38,8 +38,8 @@ class AutomataApManager : ApManager {
 
     fun emptyGraph(): AccessGraph = emptyGraph
 
-    override fun initialFactAbstraction(): InitialFactAbstraction =
-        AutomataInitialFactAbstraction()
+    override fun initialFactAbstraction(methodInitialStatement: CommonInst): InitialFactAbstraction =
+        AutomataInitialFactAbstraction(methodInitialStatement)
 
     override fun methodEdgesFinalApSet(
         methodInitialStatement: CommonInst,

@@ -6,23 +6,150 @@ import org.opentaint.dataflow.ap.ifds.access.automata.SmallAgGroup.Companion.SMA
 import org.opentaint.dataflow.util.containsAll
 import java.util.BitSet
 
+@JvmInline
+value class AccessGraphSetArray(private val array: Array<Any?>) {
+    val indices get() = array.indices
+
+    @Suppress("UNCHECKED_CAST")
+    operator fun get(i: Int): AccessGraphSet? {
+        val element = array[i] ?: return null
+        return when (element) {
+            is EmptyAgSet -> element
+            is AccessGraph -> SingleAgSet(element)
+            is Array<*> -> SmallArrayAgSet(element as Array<AccessGraph?>)
+            is ObjectOpenHashSet<*> -> SmallAgSet(element as ObjectOpenHashSet<AccessGraph>)
+            is Object2ObjectOpenHashMap<*, *> -> CompressedAgSet(element as Object2ObjectOpenHashMap<BitSet, Object2ObjectOpenHashMap<BitSet, PackedAccessGraphGroup>>)
+            else -> error("Unknown Ag set representation")
+        }
+    }
+
+    operator fun set(i: Int, value: AccessGraphSet) {
+        array[i] = when (value) {
+            EmptyAgSet -> value
+            is SingleAgSet -> value.graph
+            is SmallArrayAgSet -> value.graphs
+            is SmallAgSet -> value.graphs
+            is CompressedAgSet -> value.graphs
+        }
+    }
+
+    companion object {
+        fun create(size: Int): AccessGraphSetArray = AccessGraphSetArray(arrayOfNulls(size))
+    }
+}
+
 sealed interface AccessGraphSet {
     val graphSize: Int
     val setSize: Int
 
     fun add(graph: AccessGraph): AccessGraphSet?
 
-    fun toList(): List<AccessGraph>
-
     fun toList(dst: MutableList<AccessGraph>)
 
     companion object {
-        fun create(): AccessGraphSet = SmallAgSet()
+        fun create(): AccessGraphSet = EmptyAgSet
+        fun single(graph: AccessGraph): AccessGraphSet = SingleAgSet(graph)
     }
 }
 
-class SmallAgSet : AccessGraphSet {
-    private val graphs = ObjectOpenHashSet<AccessGraph>()
+private data object EmptyAgSet : AccessGraphSet {
+    override val graphSize: Int get() = 0
+    override val setSize: Int get() = 0
+    override fun add(graph: AccessGraph): AccessGraphSet = SingleAgSet(graph)
+    override fun toList(dst: MutableList<AccessGraph>) {}
+}
+
+private class SingleAgSet(var graph: AccessGraph) : AccessGraphSet {
+    override val graphSize: Int get() = graph.size
+    override val setSize: Int get() = 1
+
+    override fun add(graph: AccessGraph): AccessGraphSet? {
+        val ag = this.graph
+
+        if (ag.containsAll(graph)) {
+            return null
+        }
+
+        if (graph.containsAll(ag)) {
+            return SingleAgSet(graph)
+        }
+
+        val graphs = arrayOfNulls<AccessGraph>(SmallArrayAgSet.SMALL_ARRAY_SIZE)
+        graphs[0] = graph
+        graphs[1] = ag
+        return SmallArrayAgSet(graphs)
+    }
+
+    override fun toList(dst: MutableList<AccessGraph>) {
+        dst.add(graph)
+    }
+}
+
+private class SmallArrayAgSet(val graphs: Array<AccessGraph?>) : AccessGraphSet {
+    override val graphSize: Int get() = graphs.sumOf { it?.size ?: 0 }
+    override val setSize: Int get() = graphs.count { it != null }
+
+    override fun add(graph: AccessGraph): AccessGraphSet? {
+        var size = 0
+        var graphAdded = false
+
+        for (i in graphs.indices) {
+            val ag = graphs[i] ?: continue
+            size++
+
+            if (ag.containsAll(graph)) {
+                return null
+            }
+
+            if (graph.containsAll(ag)) {
+                if (graphAdded) {
+                    graphs[i] = null
+                    size--
+                } else {
+                    graphAdded = true
+                    graphs[i] = graph
+                }
+            }
+        }
+
+        if (graphAdded && size == 1) {
+            return SingleAgSet(graph)
+        }
+
+        if (!graphAdded) {
+            if (size >= graphs.size) {
+                val graphs = ObjectOpenHashSet<AccessGraph>()
+                graphs.add(graph)
+                this.graphs.mapNotNullTo(graphs) { it }
+                return SmallAgSet(graphs)
+            }
+
+            if (size == 0) {
+                return SingleAgSet(graph)
+            }
+
+            for (i in graphs.indices) {
+                if (graphs[i] == null) {
+                    graphs[i] = graph
+                    break
+                }
+            }
+        }
+
+        return this
+    }
+
+    override fun toList(dst: MutableList<AccessGraph>) {
+        graphs.mapNotNullTo(dst) { it }
+    }
+
+    companion object {
+        const val SMALL_ARRAY_SIZE = 4
+    }
+}
+
+private class SmallAgSet(val graphs: ObjectOpenHashSet<AccessGraph> = ObjectOpenHashSet<AccessGraph>()) :
+    AccessGraphSet {
 
     override val graphSize: Int get() = graphs.sumOf { it.size }
     override val setSize: Int get() = graphs.size
@@ -44,14 +171,20 @@ class SmallAgSet : AccessGraphSet {
 
         graphs.add(graph)
 
+        if (graphs.size == 1) return SingleAgSet(graphs.first())
+
+        if (graphs.size <= SmallArrayAgSet.SMALL_ARRAY_SIZE) {
+            val graphArray = arrayOfNulls<AccessGraph>(SmallArrayAgSet.SMALL_ARRAY_SIZE)
+            graphs.forEachIndexed { idx, g -> graphArray[idx] = g }
+            return SmallArrayAgSet(graphArray)
+        }
+
         if (graphs.size < SMALL_SET_THRESHOLD) return this
 
         val compressed = CompressedAgSet()
         graphs.forEach { compressed.add(it) }
         return compressed
     }
-
-    override fun toList(): List<AccessGraph> = graphs.toList()
 
     override fun toList(dst: MutableList<AccessGraph>) {
         dst.addAll(graphs)
@@ -62,9 +195,9 @@ class SmallAgSet : AccessGraphSet {
     }
 }
 
-class CompressedAgSet : AccessGraphSet {
-    private val graphs = Object2ObjectOpenHashMap<BitSet, Object2ObjectOpenHashMap<BitSet, PackedAccessGraphGroup>>()
-
+private class CompressedAgSet(
+    val graphs: Object2ObjectOpenHashMap<BitSet, Object2ObjectOpenHashMap<BitSet, PackedAccessGraphGroup>> = Object2ObjectOpenHashMap<BitSet, Object2ObjectOpenHashMap<BitSet, PackedAccessGraphGroup>>()
+) : AccessGraphSet {
     override val graphSize: Int
         get() = graphs.values.sumOf { groups ->
             groups.values.sumOf { it.unpack().graphSize }
@@ -74,14 +207,6 @@ class CompressedAgSet : AccessGraphSet {
         get() = graphs.values.sumOf { groups ->
             groups.values.sumOf { it.unpack().groupSize }
         }
-
-    override fun toList(): List<AccessGraph> {
-        val result = mutableListOf<AccessGraph>()
-        graphs.values.forEach { groups ->
-            groups.values.flatMapTo(result) { it.unpack().toList() }
-        }
-        return result
-    }
 
     override fun toList(dst: MutableList<AccessGraph>) {
         graphs.values.forEach { groups ->

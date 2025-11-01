@@ -8,6 +8,7 @@ import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionS
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionStorageSize
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.MethodEdgesFinalApSet
+import org.opentaint.dataflow.util.collectToListWithPostProcess
 
 class MethodEdgesFinalAutomataApSet(
     methodInitialStatement: CommonInst,
@@ -19,11 +20,14 @@ class MethodEdgesFinalAutomataApSet(
     override fun add(statement: CommonInst, ap: FinalFactAp): FinalFactAp? =
         add(statement, ap as AccessGraphFinalFactAp)
 
-    override fun collectApAtStatement(collection: MutableCollection<FinalFactAp>, statement: CommonInst) {
+    override fun collectApAtStatement(collection: MutableList<FinalFactAp>, statement: CommonInst) {
         storage.forEachValue { base, storedFacts ->
-            storedFacts.allFactsAtStatement(statement)?.toList()?.forEach { ag ->
-                collection += AccessGraphFinalFactAp(base, ag, ExclusionSet.Universe)
-            }
+            val agSet = storedFacts.allFactsAtStatement(statement) ?: return@forEachValue
+            collectToListWithPostProcess(
+                collection,
+                { agSet.toList(it) },
+                { AccessGraphFinalFactAp(base, it, ExclusionSet.Universe) }
+            )
         }
     }
 
@@ -52,8 +56,8 @@ class MethodEdgesFinalAutomataApSet(
     private class InstructionFactSet(
         maxInstIdx: Int,
         private val languageManager: LanguageManager,
-        ) {
-        private val finalFacts = arrayOfNulls<AccessGraphSet>(instructionStorageSize(maxInstIdx))
+    ) {
+        private val finalFacts = AccessGraphSetArray.create(instructionStorageSize(maxInstIdx))
 
         fun addEdge(statement: CommonInst, accessGraph: AccessGraph): AccessGraph? {
             val factSetIdx = instructionStorageIdx(statement, languageManager)
@@ -69,8 +73,8 @@ class MethodEdgesFinalAutomataApSet(
         }
 
         fun allFactsAtStatement(statement: CommonInst): AccessGraphSet? =
-            finalFacts[instructionStorageIdx(statement, languageManager  )]
+            finalFacts[instructionStorageIdx(statement, languageManager)]
 
-        override fun toString(): String = "${finalFacts.sumOf { it?.graphSize ?: 0 }}"
+        override fun toString(): String = "${finalFacts.indices.sumOf { finalFacts[it]?.graphSize ?: 0 }}"
     }
 }
