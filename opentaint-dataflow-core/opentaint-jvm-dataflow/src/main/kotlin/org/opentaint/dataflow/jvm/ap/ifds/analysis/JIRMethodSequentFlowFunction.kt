@@ -1,4 +1,4 @@
-package org.opentaint.dataflow.jvm.ap.ifds
+package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
@@ -15,8 +15,8 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
-import org.opentaint.dataflow.ap.ifds.MethodSequentFlowFunction
-import org.opentaint.dataflow.ap.ifds.Sequent
+import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction
+import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.Sequent
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.clearField
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.excludeField
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.mayReadField
@@ -26,6 +26,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.writeToField
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
 
 class JIRMethodSequentFlowFunction(
     private val apManager: ApManager,

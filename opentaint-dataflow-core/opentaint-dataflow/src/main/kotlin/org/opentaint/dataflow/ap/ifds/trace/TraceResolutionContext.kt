@@ -8,7 +8,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import mu.KotlinLogging
-import org.opentaint.dataflow.ap.ifds.TaintSinkTracker.TaintVulnerability
+import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerability
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger

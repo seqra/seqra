@@ -10,7 +10,7 @@ import org.opentaint.ir.taint.configuration.Not
 import org.opentaint.ir.taint.configuration.Or
 import org.opentaint.ir.taint.configuration.PositionResolver
 import org.opentaint.ir.taint.configuration.TaintMark
-import org.opentaint.dataflow.ap.ifds.FactAwareConditionEvaluator
+import org.opentaint.dataflow.ap.ifds.taint.FactAwareConditionEvaluator
 import org.opentaint.dataflow.ap.ifds.FactReader
 import org.opentaint.dataflow.ap.ifds.PositionAccess
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp

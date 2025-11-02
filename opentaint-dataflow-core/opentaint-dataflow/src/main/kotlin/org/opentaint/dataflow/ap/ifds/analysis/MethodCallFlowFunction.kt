@@ -1,5 +1,6 @@
-package org.opentaint.dataflow.ap.ifds
+package org.opentaint.dataflow.ap.ifds.analysis
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 
@@ -8,9 +9,9 @@ interface MethodCallFlowFunction {
 
     sealed interface FactCallFact
 
-    object CallToReturnZeroFact: ZeroCallFact
+    data object CallToReturnZeroFact: ZeroCallFact
 
-    object CallToStartZeroFact : ZeroCallFact
+    data object CallToStartZeroFact : ZeroCallFact
 
     data class CallToReturnFFact(val initialFactAp: InitialFactAp, val factAp: FinalFactAp) : FactCallFact
 

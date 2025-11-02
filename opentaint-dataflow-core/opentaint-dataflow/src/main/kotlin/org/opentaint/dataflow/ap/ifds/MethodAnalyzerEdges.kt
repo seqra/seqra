@@ -5,7 +5,6 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
-import org.opentaint.dataflow.ap.ifds.access.InitialFactAbstraction
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import java.util.BitSet
 

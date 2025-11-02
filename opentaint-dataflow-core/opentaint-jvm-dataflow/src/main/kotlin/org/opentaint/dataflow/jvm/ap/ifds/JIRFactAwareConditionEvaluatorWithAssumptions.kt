@@ -14,11 +14,11 @@ import org.opentaint.ir.taint.configuration.Not
 import org.opentaint.ir.taint.configuration.Or
 import org.opentaint.ir.taint.configuration.PositionResolver
 import org.opentaint.ir.taint.configuration.TypeMatches
-import org.opentaint.dataflow.ap.ifds.FactAwareConditionEvaluatorWithAssumptions
+import org.opentaint.dataflow.ap.ifds.taint.FactAwareConditionEvaluatorWithAssumptions
 import org.opentaint.dataflow.ap.ifds.FinalFactReader
 import org.opentaint.dataflow.ap.ifds.PositionAccess
-import org.opentaint.dataflow.ap.ifds.ResultWithFactAssumptions
-import org.opentaint.dataflow.ap.ifds.TaintSinkTracker.FactAssumption
+import org.opentaint.dataflow.ap.ifds.taint.ResultWithFactAssumptions
+import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.FactAssumption
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import org.opentaint.util.Maybe
 import org.opentaint.util.onSome

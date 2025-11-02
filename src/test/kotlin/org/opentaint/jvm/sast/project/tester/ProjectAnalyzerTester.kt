@@ -7,7 +7,7 @@ import org.opentaint.ir.taint.configuration.v2.TaintConfiguration
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzerTester
 import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
 import org.opentaint.jvm.sast.dataflow.TracePair
-import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
+import org.opentaint.dataflow.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import java.nio.file.Path
 import kotlin.io.path.readText

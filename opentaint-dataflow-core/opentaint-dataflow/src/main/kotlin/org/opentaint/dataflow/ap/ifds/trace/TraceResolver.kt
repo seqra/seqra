@@ -9,8 +9,8 @@ import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.Metho
 import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager.MethodEntryPointCaller
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
-import org.opentaint.dataflow.ap.ifds.TaintSinkTracker
-import org.opentaint.dataflow.ap.ifds.TaintSinkTracker.TaintVulnerability
+import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
+import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerability
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.EntryPointSourceRule
 
 class TraceResolver(

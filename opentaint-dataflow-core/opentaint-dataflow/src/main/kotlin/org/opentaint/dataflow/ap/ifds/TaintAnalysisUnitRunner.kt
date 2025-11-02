@@ -5,36 +5,34 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.dataflow.ifds.UnitResolver
-import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager.MethodEntryPointCaller
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.analysis.AnalysisManager
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver
 import org.opentaint.dataflow.ap.ifds.serialization.MethodSummariesSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolverCancellation
 import org.opentaint.dataflow.graph.ApplicationGraph
+import org.opentaint.dataflow.ifds.UnitResolver
+import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.util.concurrentReadSafeForEach
 import java.util.concurrent.atomic.LongAdder
 
 class TaintAnalysisUnitRunner(
     override val manager: TaintAnalysisUnitRunnerManager,
     private val unit: UnitType,
+    override val analysisManager: AnalysisManager,
     override val graph: ApplicationGraph<CommonMethod, CommonInst>,
     private val unitResolver: UnitResolver<CommonMethod>,
-    override val taintConfiguration: TaintRulesProvider,
-    override val sinkTracker: TaintSinkTracker,
     private val summarySerializationContext: SummarySerializationContext
 ) : AnalysisRunner, SummaryEdgeSubscriptionManager.SummaryEdgeProcessingCtx {
     override val apManager: ApManager
         get() = manager.apManager
 
-    override val languageManager: LanguageManager
-        get() = manager.languageManager
-
-    override val methodCallResolver: MethodCallResolver = languageManager.getMethodCallResolver(
+    override val methodCallResolver: MethodCallResolver = analysisManager.getMethodCallResolver(
         graph = graph,
         unitResolver = unitResolver,
         runner = this
@@ -54,7 +52,7 @@ class TaintAnalysisUnitRunner(
 
     private val methodSummariesSerializer = MethodSummariesSerializer(
         summarySerializationContext,
-        languageManager,
+        analysisManager,
         apManager
     )
 
@@ -194,7 +192,7 @@ class TaintAnalysisUnitRunner(
         methodAnalyzers(methodEntryPoint.method)
 
     private fun methodAnalyzers(method: CommonMethod): MethodAnalyzerStorage =
-        methodAnalyzers.computeIfAbsent(method) { MethodAnalyzerStorage(languageManager).also { analyzers.add(it) } }
+        methodAnalyzers.computeIfAbsent(method) { MethodAnalyzerStorage(analysisManager).also { analyzers.add(it) } }
 
     override fun enqueueMethodAnalyzer(analyzer: MethodAnalyzer) {
         addUnprocessedEvent(analyzer)

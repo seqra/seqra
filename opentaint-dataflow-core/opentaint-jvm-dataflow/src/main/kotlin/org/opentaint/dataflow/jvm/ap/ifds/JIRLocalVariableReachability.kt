@@ -8,7 +8,6 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.locals
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
-import org.opentaint.dataflow.ap.ifds.LocalVariableReachability
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionStorageIdx
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionStorageSize
 import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph
@@ -20,12 +19,12 @@ class JIRLocalVariableReachability(
     private val method: JIRMethod,
     private val graph: JIRApplicationGraph,
     private val languageManager: JIRLanguageManager
-): LocalVariableReachability {
+) {
     private val maxInstIdx = method.instList.maxOf { it.location.index }
 
     private val reachabilityInfo by lazy { computeReachability() }
 
-    override fun isReachable(base: AccessPathBase, statement: CommonInst): Boolean {
+    fun isReachable(base: AccessPathBase, statement: CommonInst): Boolean {
         if (base !is AccessPathBase.LocalVar) return true
         val storageIdx = instructionStorageIdx(statement, languageManager)
         val storage = reachabilityInfo[storageIdx] ?: return false

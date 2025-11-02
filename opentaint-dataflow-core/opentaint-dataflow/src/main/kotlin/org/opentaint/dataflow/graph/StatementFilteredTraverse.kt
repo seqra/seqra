@@ -9,7 +9,8 @@ inline fun statementFilteredTraverse(
     initialStatement: CommonInst,
     next: (CommonInst) -> Sequence<CommonInst>,
     predicate: (CommonInst) -> Boolean,
-    body: (CommonInst) -> Unit
+    body: (CommonInst) -> Unit,
+    onSkippedStatement: (CommonInst) -> Unit = {}
 ) {
     val visitedStatements = BitSet()
 
@@ -27,6 +28,7 @@ inline fun statementFilteredTraverse(
             body(stmt)
             continue
         } else {
+            onSkippedStatement(stmt)
             unprocessed.addAll(next(stmt))
         }
     }

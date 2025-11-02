@@ -15,7 +15,7 @@ import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
-import org.opentaint.dataflow.ap.ifds.MethodCallFactMapper
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFactMapper
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp

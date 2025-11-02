@@ -1,4 +1,4 @@
-package org.opentaint.dataflow.ap.ifds
+package org.opentaint.dataflow.ap.ifds.taint
 
 import org.opentaint.ir.api.common.CommonType
 import org.opentaint.ir.taint.configuration.AssignMark
@@ -12,10 +12,19 @@ import org.opentaint.ir.taint.configuration.RemoveAllMarks
 import org.opentaint.ir.taint.configuration.RemoveMark
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.ir.taint.configuration.TaintMark
-import org.opentaint.dataflow.ap.ifds.TaintSinkTracker.FactAssumption
+import org.opentaint.dataflow.ap.ifds.ExclusionSet
+import org.opentaint.dataflow.ap.ifds.FactReader
+import org.opentaint.dataflow.ap.ifds.FactTypeChecker
+import org.opentaint.dataflow.ap.ifds.FinalFactReader
+import org.opentaint.dataflow.ap.ifds.InitialFactReader
+import org.opentaint.dataflow.ap.ifds.PositionAccess
+import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.FactAssumption
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.mkAccessPath
+import org.opentaint.dataflow.ap.ifds.readPosition
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition.Precondition
 import org.opentaint.util.Maybe
 import org.opentaint.util.flatFmap

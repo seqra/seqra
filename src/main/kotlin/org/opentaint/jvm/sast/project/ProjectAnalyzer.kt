@@ -7,7 +7,7 @@ import org.opentaint.jvm.sast.dataflow.JIRCombinedTaintRulesProvider
 import org.opentaint.jvm.sast.dataflow.JIRSourceFileResolver
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
-import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
+import org.opentaint.dataflow.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSummarySerializationContext
 import java.nio.file.Path

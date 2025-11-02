@@ -1,7 +1,10 @@
-package org.opentaint.dataflow.ap.ifds
+package org.opentaint.dataflow.ap.ifds.analysis
 
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.dataflow.ap.ifds.MethodAnalyzer
+import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
+import org.opentaint.dataflow.ap.ifds.MethodWithContext
 
 interface MethodCallResolver {
     fun resolveMethodCall(

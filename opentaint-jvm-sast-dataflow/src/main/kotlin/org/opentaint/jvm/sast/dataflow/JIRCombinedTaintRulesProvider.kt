@@ -2,7 +2,7 @@ package org.opentaint.api.checkers
 
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
+import org.opentaint.dataflow.ap.ifds.taint.TaintRulesProvider
 
 class JIRCombinedTaintRulesProvider(
     private val base: TaintRulesProvider,

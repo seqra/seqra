@@ -1,5 +1,7 @@
-package org.opentaint.dataflow.ap.ifds
+package org.opentaint.dataflow.ap.ifds.taint
 
+import org.opentaint.dataflow.ap.ifds.LanguageManager
+import org.opentaint.dataflow.ap.ifds.MethodSummariesUnitStorage
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import java.util.concurrent.ConcurrentLinkedQueue
 

@@ -14,19 +14,19 @@ import org.opentaint.ir.taint.configuration.AssignMark
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.analysis.AnalysisManager
 import org.opentaint.dataflow.ap.ifds.AnalysisRunner
 import org.opentaint.dataflow.ap.ifds.AnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.Edge.FactToFact
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
-import org.opentaint.dataflow.ap.ifds.LanguageManager
+import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges
-import org.opentaint.dataflow.ap.ifds.MethodCallFactMapper
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFactMapper
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils
 import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryApRefinement
 import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryExclusionRefinement
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
-import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
@@ -40,15 +40,15 @@ import java.util.Objects
 
 class MethodTraceResolver(
     private val runner: AnalysisRunner,
-    private val methodEntryPoint: MethodEntryPoint,
+    private val analysisContext: MethodAnalysisContext,
     private val edges: MethodAnalyzerEdges
 ) {
+    private val methodEntryPoint: MethodEntryPoint = analysisContext.methodEntryPoint
     private val graph: ApplicationGraph<CommonMethod, CommonInst> get() = runner.graph
-    private val languageManager: LanguageManager get() = runner.languageManager
+    private val analysisManager: AnalysisManager get() = runner.analysisManager
     private val manager: AnalysisUnitRunnerManager get() = runner.manager
-    private val methodCallFactMapper: MethodCallFactMapper get() = languageManager.methodCallFactMapper
+    private val methodCallFactMapper: MethodCallFactMapper get() = analysisContext.methodCallFactMapper
     private val apManager: ApManager get() = runner.apManager
-    private val taintConfiguration: TaintRulesProvider get() = runner.taintConfiguration
 
     sealed interface FullTrace {
         val method: MethodEntryPoint
@@ -414,8 +414,8 @@ class MethodTraceResolver(
         }
 
         statementFilteredTraverse(
-            languageManager, entry.statement, graph::predecessors,
-            predicate = { languageManager.isRelevantInstruction(it) || it == methodEntryPoint.statement },
+            analysisManager, entry.statement, graph::predecessors,
+            predicate = { analysisManager.isRelevantInstruction(it) || it == methodEntryPoint.statement },
             body = { propagateEntry(it, entry, initialFact) }
         )
     }
@@ -427,10 +427,8 @@ class MethodTraceResolver(
         if (initialFact != null) {
             addPredecessor(entry, TraceEntry.MethodEntry(initialFact, methodEntryPoint))
         } else {
-            val entryPointPrecondition = languageManager.getEntryPointPrecondition(
-                apManager, taintConfiguration, methodEntryPoint.method, entry.fact
-            )
-            entryPointPrecondition.onSome { preconditions ->
+            val entryPointPrecondition = analysisManager.getMethodStartPrecondition(apManager, analysisContext)
+            entryPointPrecondition.factPrecondition(entry.fact).onSome { preconditions ->
                 for ((rule, action) in preconditions) {
                     addPredecessor(entry, TraceEntry.EntryPointSourceRule(entry.fact, methodEntryPoint, rule, action))
                 }
@@ -443,7 +441,7 @@ class MethodTraceResolver(
         entry: TraceEntry,
         initialFact: InitialFactAp?
     ) {
-        val statementCall = languageManager.getCallExpr(statement)
+        val statementCall = analysisManager.getCallExpr(statement)
         if (statementCall != null) {
             val returnValue: CommonValue? = (statement as? CommonAssignInst)?.lhv
 
@@ -492,7 +490,7 @@ class MethodTraceResolver(
             )
 
         } else {
-            val preconditionFunction = languageManager.getMethodSequentPrecondition(statement)
+            val preconditionFunction = analysisManager.getMethodSequentPrecondition(apManager, analysisContext, statement)
             val preconditions = preconditionFunction.factPrecondition(entry.fact)
 
             if (preconditions == null) {
@@ -518,9 +516,8 @@ class MethodTraceResolver(
         initialFact: InitialFactAp?,
         entry: TraceEntry
     ) {
-        val preconditionFunction = languageManager.getMethodCallPrecondition(
-            apManager = apManager,
-            config = taintConfiguration,
+        val preconditionFunction = analysisManager.getMethodCallPrecondition(
+            apManager, analysisContext,
             returnValue = returnValue,
             callExpr = callExpr,
             statement = statement,
@@ -745,13 +742,13 @@ class MethodTraceResolver(
     ): Set<AccessPathBase> {
         val calleeBases = hashSetOf<AccessPathBase>()
         methodCallFactMapper.mapMethodCallToStartFlowFact(
-            languageManager.getCalleeMethod(callExpr), callExpr, fact
+            analysisManager.getCalleeMethod(callExpr), callExpr, fact
         ) { _, calleeExitBase ->
             calleeBases += calleeExitBase
         }
 
         if (returnValue != null) {
-            val returnValueBase = languageManager.accessPathBase(returnValue)
+            val returnValueBase = analysisManager.accessPathBase(returnValue)
             if (returnValueBase == fact.base) {
                 calleeBases += AccessPathBase.Return
             }
@@ -767,7 +764,7 @@ class MethodTraceResolver(
     ): List<Pair<FinalFactAp, AccessPathBase>> {
         if (!methodCallFactMapper.factCanBeModifiedByMethodCall(returnValue, callExpr, fact)) return emptyList()
 
-        val method = languageManager.getCalleeMethod(callExpr)
+        val method = analysisManager.getCalleeMethod(callExpr)
         return buildList {
             methodCallFactMapper.mapMethodCallToStartFlowFact(
                 method,

@@ -9,9 +9,9 @@ import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.dataflow.ap.ifds.CalleePositionToAccessPath
 import org.opentaint.dataflow.ap.ifds.FinalFactReader
 import org.opentaint.dataflow.ap.ifds.InitialFactReader
-import org.opentaint.dataflow.ap.ifds.TaintPassActionPreconditionEvaluator
-import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
-import org.opentaint.dataflow.ap.ifds.TaintSourceActionPreconditionEvaluator
+import org.opentaint.dataflow.ap.ifds.taint.TaintPassActionPreconditionEvaluator
+import org.opentaint.dataflow.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.ap.ifds.taint.TaintSourceActionPreconditionEvaluator
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
@@ -21,6 +21,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRCallPositionToAccessPathResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactAwareConditionEvaluator
+import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import org.opentaint.dataflow.jvm.util.callee
@@ -28,7 +29,7 @@ import org.opentaint.util.Maybe
 
 class JIRMethodCallPrecondition(
     private val apManager: ApManager,
-    private val taintConfig: TaintRulesProvider,
+    private val analysisContext: JIRMethodAnalysisContext,
     returnValue: JIRImmediate?,
     callExpr: JIRCallExpr,
     private val statement: JIRInst,
@@ -39,6 +40,8 @@ class JIRMethodCallPrecondition(
     private val apResolver = JIRCallPositionToAccessPathResolver(callExpr, returnValue)
     private val jirValueResolver = CallPositionToJIRValueResolver(callExpr, returnValue)
     private val method = callExpr.callee
+
+    private val taintConfig get() = analysisContext.taint.taintConfig
 
     private val ruleConditionEvaluator = JIRFactAwareConditionEvaluator(
         traits,

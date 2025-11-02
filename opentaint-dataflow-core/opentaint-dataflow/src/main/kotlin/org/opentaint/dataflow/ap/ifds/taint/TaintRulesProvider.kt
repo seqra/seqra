@@ -1,4 +1,4 @@
-package org.opentaint.dataflow.ap.ifds
+package org.opentaint.dataflow.ap.ifds.taint
 
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst

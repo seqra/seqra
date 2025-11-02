@@ -13,9 +13,9 @@ import org.opentaint.ir.taint.configuration.RemoveMark
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.ir.taint.configuration.TaintEntryPointSource
 import org.opentaint.ir.taint.configuration.TaintMethodSource
-import org.opentaint.dataflow.ap.ifds.PassActionEvaluator
-import org.opentaint.dataflow.ap.ifds.SourceActionEvaluator
-import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
+import org.opentaint.dataflow.ap.ifds.taint.PassActionEvaluator
+import org.opentaint.dataflow.ap.ifds.taint.SourceActionEvaluator
+import org.opentaint.dataflow.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.util.Maybe
 import org.opentaint.util.maybeFlatMap
 

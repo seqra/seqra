@@ -16,9 +16,9 @@ import org.opentaint.ir.taint.configuration.Result
 import org.opentaint.ir.taint.configuration.TaintMethodSink
 import org.opentaint.ir.taint.configuration.TaintPassThrough
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
-import org.opentaint.dataflow.ap.ifds.TaintRuleFilter
-import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
-import org.opentaint.dataflow.ap.ifds.TaintSinkTracker
+import org.opentaint.dataflow.ap.ifds.taint.TaintRuleFilter
+import org.opentaint.dataflow.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.ap.ifds.sarif.SarifGenerator
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
@@ -28,7 +28,7 @@ import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
-import org.opentaint.dataflow.jvm.ap.ifds.JIRLanguageManager
+import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRAnalysisManager
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSafeApplicationGraph
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.graph.JIRApplicationGraphImpl
@@ -93,7 +93,7 @@ open class JIRTaintAnalyzer(
 
     @Suppress("UNCHECKED_CAST")
     private fun createIfdsEngine() = TaintAnalysisUnitRunnerManager(
-        JIRLanguageManager(cp),
+        JIRAnalysisManager(cp),
         ifdsAnalysisGraph as ApplicationGraph<CommonMethod, CommonInst>,
         analysisUnit as UnitResolver<CommonMethod>,
         taintConfig,

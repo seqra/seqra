@@ -1,8 +1,11 @@
-package org.opentaint.dataflow.ap.ifds
+package org.opentaint.dataflow.ap.ifds.taint
 
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.taint.configuration.TaintMark
 import org.opentaint.ir.taint.configuration.TaintMethodSink
+import org.opentaint.dataflow.ap.ifds.InitialFactReader
+import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
+import org.opentaint.dataflow.ap.ifds.PositionAccess
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import java.util.concurrent.ConcurrentHashMap

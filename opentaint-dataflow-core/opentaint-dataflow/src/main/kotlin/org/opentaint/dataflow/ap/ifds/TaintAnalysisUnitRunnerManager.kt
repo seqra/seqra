@@ -18,13 +18,18 @@ import kotlinx.coroutines.withTimeoutOrNull
 import mu.KotlinLogging
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.dataflow.ap.ifds.TaintSinkTracker.TaintVulnerability
+import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerability
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.ap.ifds.access.automata.AutomataApManager
 import org.opentaint.dataflow.ap.ifds.access.cactus.CactusApManager
 import org.opentaint.dataflow.ap.ifds.access.tree.TreeApManager
+import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
+import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisContext
+import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisUnitStorage
+import org.opentaint.dataflow.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolutionContext
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolverCancellation
@@ -44,7 +49,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
 class TaintAnalysisUnitRunnerManager(
-    val languageManager: LanguageManager,
+    private val analysisManager: TaintAnalysisManager,
     val graph: ApplicationGraph<CommonMethod, CommonInst>,
     override val unitResolver: UnitResolver<CommonMethod>,
     private val taintConfig: TaintRulesProvider,
@@ -244,11 +249,29 @@ class TaintAnalysisUnitRunnerManager(
         }
     }
 
+    private class TaintAnalysisManagerWithContext(
+        private val analysisManager: TaintAnalysisManager,
+        private val sinkTracker: TaintSinkTracker,
+        private val taintConfig: TaintRulesProvider,
+    ) : TaintAnalysisManager by analysisManager {
+        override fun getMethodAnalysisContext(
+            methodEntryPoint: MethodEntryPoint,
+            graph: ApplicationGraph<CommonMethod, CommonInst>
+        ): MethodAnalysisContext = analysisManager.getMethodAnalysisContext(
+            methodEntryPoint, graph,
+            TaintAnalysisContext(taintConfig, sinkTracker)
+        )
+    }
+
     private fun spawnNewRunner(unit: UnitType): TaintAnalysisUnitRunner {
-        val storage = unitStorage.getOrPut(unit) { TaintAnalysisUnitStorage(apManager, languageManager) }
+        val storage = unitStorage.getOrPut(unit) {
+            TaintAnalysisUnitStorage(apManager, analysisManager)
+        }
         val sinkTracker = TaintSinkTracker(apManager, storage)
+        val taintAnalyzer = TaintAnalysisManagerWithContext(analysisManager, sinkTracker, taintConfig)
+
         val runner = TaintAnalysisUnitRunner(
-            this, unit, graph, unitResolver, taintConfig, sinkTracker, summarySerializationContext
+            this, unit, taintAnalyzer, graph, unitResolver, summarySerializationContext
         )
 
         val exceptionHandler = CoroutineExceptionHandler { _, exception ->
@@ -309,7 +332,7 @@ class TaintAnalysisUnitRunnerManager(
             "Memory usage: ${usedMemory}/${maxMemory} (${percentToString(usedMemory, maxMemory)})"
         }
 
-        languageManager.reportLanguageSpecificRunnerProgress(logger)
+        analysisManager.reportLanguageSpecificRunnerProgress(logger)
 
         logger.debug {
             val runnerStats = stats.entries

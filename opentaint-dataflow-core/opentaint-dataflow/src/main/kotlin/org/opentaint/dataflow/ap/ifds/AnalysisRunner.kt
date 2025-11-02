@@ -5,14 +5,14 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.analysis.AnalysisManager
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver
 import org.opentaint.dataflow.graph.ApplicationGraph
 
 interface AnalysisRunner {
     val graph: ApplicationGraph<CommonMethod, CommonInst>
-    val taintConfiguration: TaintRulesProvider
-    val sinkTracker: TaintSinkTracker
     val apManager: ApManager
-    val languageManager: LanguageManager
+    val analysisManager: AnalysisManager
     val manager: AnalysisUnitRunnerManager
     val methodCallResolver: MethodCallResolver
 

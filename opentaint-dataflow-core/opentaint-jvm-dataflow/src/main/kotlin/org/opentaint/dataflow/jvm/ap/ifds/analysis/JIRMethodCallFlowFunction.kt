@@ -1,4 +1,4 @@
-package org.opentaint.dataflow.jvm.ap.ifds
+package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -10,25 +10,31 @@ import org.opentaint.ir.taint.configuration.TaintMethodSink
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.CalleePositionToAccessPath
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
-import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.FinalFactReader
-import org.opentaint.dataflow.ap.ifds.MethodCallFlowFunction
-import org.opentaint.dataflow.ap.ifds.MethodCallFlowFunction.CallToStartZeroFact
-import org.opentaint.dataflow.ap.ifds.MethodCallFlowFunction.CallToReturnZeroFact
-import org.opentaint.dataflow.ap.ifds.MethodCallFlowFunction.CallToStartFFact
-import org.opentaint.dataflow.ap.ifds.MethodCallFlowFunction.CallToReturnFFact
-import org.opentaint.dataflow.ap.ifds.MethodCallFlowFunction.CallToReturnZFact
-import org.opentaint.dataflow.ap.ifds.MethodCallFlowFunction.CallToStartZFact
-import org.opentaint.dataflow.ap.ifds.MethodCallFlowFunction.SideEffectRequirement
-import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
-import org.opentaint.dataflow.ap.ifds.TaintPassActionEvaluator
-import org.opentaint.dataflow.ap.ifds.TaintRulesProvider
-import org.opentaint.dataflow.ap.ifds.TaintSinkTracker
-import org.opentaint.dataflow.ap.ifds.TaintSourceActionEvaluator
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToReturnFFact
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToReturnZFact
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToReturnZeroFact
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToStartFFact
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToStartZFact
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToStartZeroFact
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.SideEffectRequirement
+import org.opentaint.dataflow.ap.ifds.taint.TaintPassActionEvaluator
+import org.opentaint.dataflow.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.ap.ifds.taint.TaintSourceActionEvaluator
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.config.JIRBasicConditionEvaluator
+import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
+import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
+import org.opentaint.dataflow.jvm.ap.ifds.JIRCallPositionToAccessPathResolver
+import org.opentaint.dataflow.jvm.ap.ifds.JIRFactAwareConditionEvaluator
+import org.opentaint.dataflow.jvm.ap.ifds.JIRFactAwareConditionEvaluatorWithAssumptions
+import org.opentaint.dataflow.jvm.ap.ifds.JIRFactIgnoreConditionEvaluator
+import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodCallFactMapper
+import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodPositionBaseTypeResolver
+import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import org.opentaint.dataflow.jvm.util.callee
 import org.opentaint.util.Maybe
@@ -37,15 +43,14 @@ import org.opentaint.util.onSome
 
 class JIRMethodCallFlowFunction(
     private val apManager: ApManager,
-    private val config: TaintRulesProvider,
+    private val analysisContext: JIRMethodAnalysisContext,
     private val returnValue: JIRImmediate?,
     private val callExpr: JIRCallExpr,
-    private val factTypeChecker: FactTypeChecker,
     private val statement: JIRInst,
-    private val sinkTracker: TaintSinkTracker,
-    private val methodEntryPoint: MethodEntryPoint,
     private val traits: JIRTraits
 ): MethodCallFlowFunction {
+    private val config get() = analysisContext.taint.taintConfig
+    private val sinkTracker get() = analysisContext.taint.taintSinkTracker
 
     override fun propagateZeroToZero() = buildSet {
         applySinkRules(factReader = null)
@@ -128,7 +133,7 @@ class JIRMethodCallFlowFunction(
         val taintActionEvaluator = TaintPassActionEvaluator(
             apManager,
             apResolver,
-            factTypeChecker,
+            analysisContext.factTypeChecker,
             factReader,
             JIRMethodPositionBaseTypeResolver(callExpr.callee)
         )
@@ -183,7 +188,12 @@ class JIRMethodCallFlowFunction(
             addCallToReturn(factReader, factAp)
         }
 
-        JIRMethodCallFactMapper.mapMethodCallToStartFlowFact(method, callExpr, factAp, factTypeChecker) { callerFact, startFactBase ->
+        JIRMethodCallFactMapper.mapMethodCallToStartFlowFact(
+            method,
+            callExpr,
+            factAp,
+            analysisContext.factTypeChecker
+        ) { callerFact, startFactBase ->
             addCallToStart(factReader, callerFact, startFactBase)
         }
     }
@@ -202,7 +212,9 @@ class JIRMethodCallFlowFunction(
         val noFactConditionEvaluator = JIRFactIgnoreConditionEvaluator(traits, valueResolver)
         for (rule in sinkRules) {
             if (rule.condition.accept(noFactConditionEvaluator)) {
-                sinkTracker.addUnconditionalVulnerability(methodEntryPoint, statement, rule)
+                sinkTracker.addUnconditionalVulnerability(
+                    analysisContext.methodEntryPoint, statement, rule
+                )
                 continue
             }
 
@@ -221,7 +233,9 @@ class JIRMethodCallFlowFunction(
         for (rule in remainingSinkRules) {
             if (conditionEvaluator.evalWithAssumptionsCheck(rule.condition)) {
                 for (fact in conditionEvaluator.facts()) {
-                    sinkTracker.addVulnerability(methodEntryPoint, fact, statement, rule)
+                    sinkTracker.addVulnerability(
+                        analysisContext.methodEntryPoint, fact, statement, rule
+                    )
                 }
                 continue
             }
@@ -242,7 +256,7 @@ class JIRMethodCallFlowFunction(
 
                 for (fact in conditionEvaluator.facts()) {
                     sinkTracker.addVulnerabilityWithAssumption(
-                        methodEntryPoint, fact, statement, rule, resultWithAssumption.assumptions
+                        analysisContext.methodEntryPoint, fact, statement, rule, resultWithAssumption.assumptions
                     )
                 }
             }

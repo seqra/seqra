@@ -1,4 +1,4 @@
-package org.opentaint.dataflow.ap.ifds
+package org.opentaint.dataflow.ap.ifds.taint
 
 import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 

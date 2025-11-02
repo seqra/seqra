@@ -1,4 +1,4 @@
-package org.opentaint.dataflow.jvm.ap.ifds
+package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -8,11 +8,15 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.findMethodOrNull
 import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzer
-import org.opentaint.dataflow.ap.ifds.MethodCallResolver
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner.LambdaResolvedEvent
+import org.opentaint.dataflow.jvm.ap.ifds.JIRCallResolver
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLambdaTracker
+import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
+import org.opentaint.dataflow.jvm.ap.ifds.jirDowncast
 
 class JIRMethodCallResolver(
     private val lambdaTracker: JIRLambdaTracker,
