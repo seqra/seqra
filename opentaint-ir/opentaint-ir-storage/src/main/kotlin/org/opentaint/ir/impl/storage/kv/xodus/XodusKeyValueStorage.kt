@@ -1,22 +1,25 @@
 package org.opentaint.ir.impl.storage.kv.xodus
 
-import jetbrains.exodus.env.Environment
-import jetbrains.exodus.env.Environments
-import jetbrains.exodus.env.Store
+import jetbrains.exodus.env.*
 import jetbrains.exodus.env.StoreConfig.WITHOUT_DUPLICATES_WITH_PREFIXING
 import jetbrains.exodus.env.StoreConfig.WITH_DUPLICATES_WITH_PREFIXING
-import jetbrains.exodus.env.TransactionBase
 import org.opentaint.ir.api.storage.kv.PluggableKeyValueStorage
 import org.opentaint.ir.api.storage.kv.Transaction
 
-internal class XodusKeyValueStorage(location: String) : PluggableKeyValueStorage() {
+internal class XodusKeyValueStorage(location: String, configurer: (EnvironmentConfig.() -> Unit)?) :
+    PluggableKeyValueStorage() {
 
-    private val env: Environment = Environments.newInstance(location,
+    private val env: Environment = Environments.newInstance(
+        location,
         environmentConfig {
             logFileSize = 32768
             logCachePageSize = 65536 * 4
             gcStartIn = 600_000
             useVersion1Format = false // use v2 data format, as we use stores with prefixing, i.e., patricia trees
+
+            // If a configurer is set, apply it after default settings ^^^ are defined.
+            // This allows overriding them as well.
+            configurer?.let { it() }
         }
     )
 
