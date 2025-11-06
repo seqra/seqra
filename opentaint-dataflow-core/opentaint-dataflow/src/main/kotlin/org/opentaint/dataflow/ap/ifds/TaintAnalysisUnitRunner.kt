@@ -19,7 +19,9 @@ import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.util.concurrentReadSafeForEach
+import java.util.PriorityQueue
 import java.util.concurrent.atomic.LongAdder
+import kotlin.math.sign
 
 class TaintAnalysisUnitRunner(
     override val manager: TaintAnalysisUnitRunnerManager,
@@ -38,6 +40,29 @@ class TaintAnalysisUnitRunner(
         runner = this
     )
 
+    private object EventComparator : Comparator<Any> {
+        override fun compare(o1: Any, o2: Any): Int {
+            // Non-MethodAnalyzer events go first, MethodAnalyzers are sorted by analyzerSteps in ascending order
+
+            val methodAnalyzer1 = o1 as? MethodAnalyzer
+            val methodAnalyzer2 = o2 as? MethodAnalyzer
+
+            if (methodAnalyzer1 === methodAnalyzer2) {
+                return 0
+            }
+            if (methodAnalyzer1 == null) {
+                return -1
+            }
+            if (methodAnalyzer2 == null) {
+                return 1
+            }
+
+            return (methodAnalyzer1.analyzerSteps - methodAnalyzer2.analyzerSteps).sign
+        }
+
+    }
+
+    private val eventPriorityQueue = PriorityQueue(EventComparator)
     private val workList: Channel<Any> = Channel(Channel.UNLIMITED)
 
     private val analyzers = mutableListOf<MethodAnalyzerStorage>()
@@ -102,7 +127,16 @@ class TaintAnalysisUnitRunner(
 
     private suspend fun tabulationAlgorithm() = coroutineScope {
         while (isActive) {
-            val event = workList.receive()
+            if (eventPriorityQueue.isEmpty()) {
+                eventPriorityQueue.add(workList.receive())
+            }
+
+            while (true) {
+                val nextEvent = workList.tryReceive().getOrNull() ?: break
+                eventPriorityQueue.add(nextEvent)
+            }
+
+            val event = eventPriorityQueue.poll() ?: error("Unexpected empty event queue")
 
             when (event) {
                 is MethodAnalyzer -> {

@@ -45,6 +45,8 @@ interface MethodAnalyzer {
         methodSideEffectRequirements: List<InitialFactAp>
     )
 
+    val analyzerSteps: Long
+
     fun collectStats(stats: MethodStats)
 
     data class ZeroToFactSub(
@@ -115,7 +117,9 @@ class NormalMethodAnalyzer(
     override val containsUnprocessedEdges: Boolean
         get() = unprocessedEdges.isNotEmpty()
 
-    private var analyzerSteps: Long = 0
+    override var analyzerSteps: Long = 0
+        private set
+
     private var summaryEdgesHandled: Long = 0
 
     private val methodExitPoints by lazy { graph.exitPoints(methodEntryPoint.method).toHashSet() }
@@ -657,6 +661,8 @@ class EmptyMethodAnalyzer(
             listOf(FactToFact(methodEntryPoint, initialFactAp, methodEntryPoint.statement, factAp))
         )
     }
+
+    override val analyzerSteps: Long = 0
 
     override fun collectStats(stats: MethodStats) {
         // No stats
