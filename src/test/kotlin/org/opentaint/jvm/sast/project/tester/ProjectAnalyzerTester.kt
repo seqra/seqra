@@ -35,22 +35,22 @@ class ProjectAnalyzerTester(
         JIRTaintRulesProvider(TaintConfiguration().also { loadDefaultConfig(it) })
 
     override fun runAnalyzer(entryPoints: List<JIRMethod>) {
-        val analyzer = JIRTaintAnalyzerTester(
+        JIRTaintAnalyzerTester(
             cp, loadMainConfig(), testDataTaintConfig,
             projectLocations = projectClasses.projectLocations,
             ifdsTimeout = ifdsAnalysisTimeout,
             ifdsApMode = ifdsApMode,
-        )
+        ).use { analyzer ->
+            logger.info { "Start running tests" }
+            val stats = analyzer.runTests(entryPoints)
+            logger.info { "Total number of marks: ${stats.marksTotal}" }
 
-        logger.info { "Start running tests" }
-        val stats = analyzer.runTests(entryPoints)
-        logger.info { "Total number of marks: ${stats.marksTotal}" }
+            logger.info { "Sources not found: ${stats.sourcesNotFound.size} (recall=${String.format("%.2f", stats.sourcesRecall)})" }
+            logger.debug { "Marks for missed sources: ${stats.sourcesNotFound}" }
 
-        logger.info { "Sources not found: ${stats.sourcesNotFound.size} (recall=${String.format("%.2f", stats.sourcesRecall)})" }
-        logger.debug { "Marks for missed sources: ${stats.sourcesNotFound}" }
-
-        logger.info { "Sinks not found: ${stats.sinksNotFound.size} (recall=${String.format("%.2f", stats.sinksRecall)})" }
-        logger.debug { "Marks for missed sinks: ${stats.sinksNotFound}" }
+            logger.info { "Sinks not found: ${stats.sinksNotFound.size} (recall=${String.format("%.2f", stats.sinksRecall)})" }
+            logger.debug { "Marks for missed sinks: ${stats.sinksNotFound}" }
+        }
     }
 
     companion object {

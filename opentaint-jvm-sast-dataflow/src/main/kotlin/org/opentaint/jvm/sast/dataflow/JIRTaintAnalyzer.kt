@@ -1,5 +1,6 @@
 package org.opentaint.api.checkers
 
+import java.io.OutputStream
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
 import org.opentaint.ir.api.common.CommonMethod
@@ -15,6 +16,7 @@ import org.opentaint.ir.taint.configuration.CopyAllMarks
 import org.opentaint.ir.taint.configuration.Result
 import org.opentaint.ir.taint.configuration.TaintMethodSink
 import org.opentaint.ir.taint.configuration.TaintPassThrough
+import org.opentaint.api.targets.analyzeIfdsTracesWithOpentaint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.taint.TaintRuleFilter
 import org.opentaint.dataflow.ap.ifds.taint.TaintRulesProvider
@@ -37,7 +39,6 @@ import org.opentaint.dataflow.jvm.ifds.PackageUnit
 import org.opentaint.dataflow.jvm.util.JIRTraits
 import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.dataflow.util.percentToString
-import java.io.OutputStream
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -54,7 +55,7 @@ open class JIRTaintAnalyzer(
     val summarySerializationContext: SummarySerializationContext,
     val storeSummaries: Boolean,
     val analysisUnit: JIRUnitResolver = PackageUnitResolver(projectLocations = projectLocations),
-) {
+): AutoCloseable {
     private val ifdsAnalysisGraph by lazy {
         val usages = runBlocking { cp.usagesExt() }
         val mainGraph = JIRApplicationGraphImpl(cp, usages)
@@ -64,15 +65,22 @@ open class JIRTaintAnalyzer(
     protected lateinit var ifdsTraces: List<VulnerabilityWithTrace>
     private lateinit var verifiedIfdsTraces: List<VulnerabilityWithTrace>
 
+    private val ifdsEngine by lazy { createIfdsEngine() }
+
     fun analyzeWithIfds(entryPoints: List<JIRMethod>) {
         ifdsTraces = analyzeTaintWithIfdsEngine(entryPoints)
     }
 
-    fun filterIfdsTracesWithOpentaint(entryPoints: List<JIRMethod>) {
+    fun filterIfdsTracesWithOpentaint() {
         check(this::ifdsTraces.isInitialized) { "No ifds traces" }
-        entryPoints.let { }
 
-        TODO("Symbolic execution is not implemented yet")
+        verifiedIfdsTraces = analyzeIfdsTracesWithOpentaint(
+            ifdsTraces,
+            ifdsEngine,
+            cp,
+            ifdsAnalysisGraph,
+            projectLocations,
+        )
     }
 
     fun generateSarifReportFromIfdsTraces(output: OutputStream, sourceFileResolver: SourceFileResolver<CommonInst>) =
@@ -103,7 +111,7 @@ open class JIRTaintAnalyzer(
 
     private fun analyzeTaintWithIfdsEngine(
         entryPoints: List<JIRMethod>,
-    ): List<VulnerabilityWithTrace> = createIfdsEngine().use { ifdsEngine ->
+    ): List<VulnerabilityWithTrace> {
         val analysisStart = TimeSource.Monotonic.markNow()
 
         val analysisTimeout = ifdsTimeout * 0.95 // Reserve 5% of time for report creation
@@ -134,10 +142,10 @@ open class JIRTaintAnalyzer(
         val traceResolutionTimeout = ifdsTimeout - analysisStart.elapsedNow()
         if (!traceResolutionTimeout.isPositive()) {
             logger.warn { "No time remaining for trace resolution" }
-            return@use emptyList()
+            return emptyList()
         }
 
-        ifdsEngine.generateTraces(entryPoints, vulnerabilities, traceResolutionTimeout).also {
+        return ifdsEngine.generateTraces(entryPoints, vulnerabilities, traceResolutionTimeout).also {
             logger.info { "Finish trace generation" }
         }
     }
@@ -232,6 +240,10 @@ open class JIRTaintAnalyzer(
 
                 appendLine("-".repeat(20))
             }
+    }
+
+    override fun close() {
+        ifdsEngine.close()
     }
 
     companion object {

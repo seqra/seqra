@@ -48,7 +48,7 @@ class ProjectAnalyzer(
     override fun runAnalyzer(entryPoints: List<JIRMethod>) {
         val summarySerializationContext = JIRSummarySerializationContext(cp)
 
-        val analyzer = JIRTaintAnalyzer(
+        JIRTaintAnalyzer(
             cp, loadTaintConfig(),
             projectLocations = projectClasses.projectLocations,
             ifdsTimeout = ifdsAnalysisTimeout,
@@ -58,34 +58,34 @@ class ProjectAnalyzer(
             analysisCwe = cwe.takeIf { it.isNotEmpty() }?.toSet(),
             summarySerializationContext = summarySerializationContext,
             storeSummaries = storeSummaries
-        )
+        ).use { analyzer ->
+            val sourcesResolver = JIRSourceFileResolver(
+                project.sourceRoot,
+                projectClasses.locationProjectModules.mapValues { (_, module) -> module.moduleSourceRoot }
+            )
 
-        val sourcesResolver = JIRSourceFileResolver(
-            project.sourceRoot,
-            projectClasses.locationProjectModules.mapValues { (_, module) -> module.moduleSourceRoot }
-        )
+            logger.info { "Start IFDS analysis for project: ${project.sourceRoot}" }
+            analyzer.analyzeWithIfds(entryPoints)
+            logger.info { "Finish IFDS analysis for project: ${project.sourceRoot}" }
 
-        logger.info { "Start IFDS analysis for project: ${project.sourceRoot}" }
-        analyzer.analyzeWithIfds(entryPoints)
-        logger.info { "Finish IFDS analysis for project: ${project.sourceRoot}" }
+            (resultDir / "report-ifds.sarif").outputStream().use {
+                analyzer.generateSarifReportFromIfdsTraces(it, sourcesResolver)
+            }
 
-        (resultDir / "report-ifds.sarif").outputStream().use {
-            analyzer.generateSarifReportFromIfdsTraces(it, sourcesResolver)
+            logger.info { "Finish IFDS analysis report for project: ${project.sourceRoot}" }
+
+            if (!useSymbolicExecution) return
+
+            logger.info { "Start Opentaint for project: ${project.sourceRoot}" }
+            analyzer.filterIfdsTracesWithOpentaint()
+            logger.info { "Finish Opentaint for project: ${project.sourceRoot}" }
+
+            (resultDir / "report-opentaint.sarif").outputStream().use {
+                analyzer.generateSarifReportFromVerifiedIfdsTraces(it, sourcesResolver)
+            }
+
+            logger.info { "Finish Opentaint report for project: ${project.sourceRoot}" }
         }
-
-        logger.info { "Finish IFDS analysis report for project: ${project.sourceRoot}" }
-
-        if (!useSymbolicExecution) return
-
-        logger.info { "Start Opentaint for project: ${project.sourceRoot}" }
-        analyzer.filterIfdsTracesWithOpentaint(entryPoints)
-        logger.info { "Finish Opentaint for project: ${project.sourceRoot}" }
-
-        (resultDir / "report-opentaint.sarif").outputStream().use {
-            analyzer.generateSarifReportFromVerifiedIfdsTraces(it, sourcesResolver)
-        }
-
-        logger.info { "Finish Opentaint report for project: ${project.sourceRoot}" }
     }
 
     companion object {
