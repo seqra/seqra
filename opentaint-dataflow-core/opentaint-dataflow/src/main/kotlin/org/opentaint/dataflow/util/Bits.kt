@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.util
 
+import it.unimi.dsi.fastutil.ints.IntSet
 import java.util.BitSet
 
 fun BitSet.add(element: Int): Boolean {
@@ -58,5 +59,14 @@ inline fun BitSet.map(body: (Int) -> Int): BitSet {
 inline fun <T> Iterable<T>.toBitSet(convert: (T) -> Int): BitSet {
     val result = BitSet()
     forEach { element -> result.set(convert(element)) }
+    return result
+}
+
+fun IntSet.toBitSet(): BitSet {
+    val result = BitSet()
+    val iter = intIterator()
+    while (iter.hasNext()) {
+        result.set(iter.nextInt())
+    }
     return result
 }

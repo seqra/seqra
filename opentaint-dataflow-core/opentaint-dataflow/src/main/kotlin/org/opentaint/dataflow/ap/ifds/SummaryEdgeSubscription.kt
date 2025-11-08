@@ -557,11 +557,10 @@ class SummaryEdgeStorageWithSubscribers(
         })
 
     fun factToFactEdges(
-        initialFactAp: FinalFactAp,
         finalFactBase: AccessPathBase
     ): List<Edge.FactToFact> =
         collectToListWithPostProcess(mutableListOf(), {
-            taintedFactSummaryEdges.filterEdgesTo(it, initialFactAp, finalFactBase)
+            taintedFactSummaryEdges.filterEdgesTo(it, pattern = null, finalFactBase)
         }, {
             it.setEntryPoint(methodEntryPoint).build()
         })

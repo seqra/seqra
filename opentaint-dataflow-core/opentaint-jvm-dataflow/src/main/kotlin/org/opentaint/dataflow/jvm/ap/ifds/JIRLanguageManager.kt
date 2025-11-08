@@ -51,11 +51,6 @@ open class JIRLanguageManager(val cp: JIRClasspath) : LanguageManager {
         return callExpr.method.method
     }
 
-    override fun accessPathBase(value: CommonValue): AccessPathBase? {
-        jirDowncast<JIRValue>(value)
-        return MethodFlowFunctionUtils.accessPathBase(value)
-    }
-
     override val methodContextSerializer = JIRMethodContextSerializer(cp)
 }
 

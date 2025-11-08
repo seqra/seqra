@@ -63,13 +63,13 @@ interface MethodAccessPathSubscription {
 
 interface MethodEdgesFinalApSet {
     fun add(statement: CommonInst, ap: FinalFactAp): FinalFactAp?
-    fun collectApAtStatement(collection: MutableList<FinalFactAp>, statement: CommonInst)
+    fun collectApAtStatement(collection: MutableList<FinalFactAp>, statement: CommonInst, finalFactPattern: InitialFactAp)
 }
 
 interface MethodEdgesInitialToFinalApSet {
     fun add(statement: CommonInst, initialAp: InitialFactAp, finalAp: FinalFactAp): Pair<InitialFactAp, FinalFactAp>?
-    fun collectApAtStatement(collection: MutableList<Pair<InitialFactAp, FinalFactAp>>, statement: CommonInst)
-    fun collectApAtStatement(collection: MutableList<FinalFactAp>, statement: CommonInst, initialAp: InitialFactAp)
+    fun collectApAtStatement(collection: MutableList<Pair<InitialFactAp, FinalFactAp>>, statement: CommonInst, finalFactPattern: InitialFactAp)
+    fun collectApAtStatement(collection: MutableList<FinalFactAp>, statement: CommonInst, initialAp: InitialFactAp, finalFactPattern: InitialFactAp)
 }
 
 interface SideEffectRequirementApStorage {
@@ -86,6 +86,6 @@ interface MethodFinalApSummariesStorage {
 
 interface MethodInitialToFinalApSummariesStorage {
     fun add(edges: List<Edge.FactToFact>, added: MutableList<FactToFactEdgeBuilder>)
-    fun filterEdgesTo(dst: MutableList<FactToFactEdgeBuilder>, pattern: FinalFactAp, finalFactBase: AccessPathBase?)
+    fun filterEdgesTo(dst: MutableList<FactToFactEdgeBuilder>, pattern: FinalFactAp?, finalFactBase: AccessPathBase?)
     fun collectAllEdgesTo(dst: MutableList<FactToFactEdgeBuilder>)
 }

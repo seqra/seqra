@@ -35,9 +35,10 @@ class JIRMethodSequentFlowFunction(
 ): MethodSequentFlowFunction {
     override fun propagateZeroToZero() = setOf(Sequent.ZeroToZero)
 
-    override fun propagateZeroToFact(currentFactAp: FinalFactAp) = buildSet<Sequent.ZeroToFact> {
+    override fun propagateZeroToFact(currentFactAp: FinalFactAp) = buildSet {
         propagate(
             factAp = currentFactAp,
+            unchanged = { add(Sequent.Unchanged) },
             propagateFact = { fact ->
                 add(Sequent.ZeroToFact(fact))
             },
@@ -50,9 +51,10 @@ class JIRMethodSequentFlowFunction(
     override fun propagateFactToFact(
         initialFactAp: InitialFactAp,
         currentFactAp: FinalFactAp
-    ) = buildSet<Sequent.FactToFact> {
+    ) = buildSet {
         propagate(
             factAp = currentFactAp,
+            unchanged = { add(Sequent.Unchanged) },
             propagateFact = { fact ->
                 add(Sequent.FactToFact(initialFactAp, fact))
             },
@@ -66,6 +68,7 @@ class JIRMethodSequentFlowFunction(
 
     private fun propagate(
         factAp: FinalFactAp,
+        unchanged: () -> Unit,
         propagateFact: (FinalFactAp) -> Unit,
         propagateFactWithAccessorExclude: (FinalFactAp, Accessor) -> Unit
     ) {
@@ -73,12 +76,12 @@ class JIRMethodSequentFlowFunction(
             is JIRAssignInst -> {
                 sequentFlowAssign(
                     currentInst.rhv, currentInst.lhv, factAp,
-                    propagateFact, propagateFactWithAccessorExclude
+                    unchanged, propagateFact, propagateFactWithAccessorExclude
                 )
             }
 
             is JIRReturnInst -> {
-                propagateFact(factAp)
+                unchanged()
 
                 val access = currentInst.returnValue?.let { MethodFlowFunctionUtils.accessPathBase(it) }
                 if (access == factAp.base) {
@@ -87,7 +90,7 @@ class JIRMethodSequentFlowFunction(
             }
 
             is JIRThrowInst -> {
-                propagateFact(factAp)
+                unchanged()
 
                 val access = currentInst.throwable.let { MethodFlowFunctionUtils.accessPathBase(it) }
                 if (access == factAp.base) {
@@ -96,7 +99,7 @@ class JIRMethodSequentFlowFunction(
             }
 
             else -> {
-                propagateFact(factAp)
+                unchanged()
             }
         }
     }
@@ -105,6 +108,7 @@ class JIRMethodSequentFlowFunction(
         assignFrom: JIRExpr,
         assignTo: JIRValue,
         currentFactAp: FinalFactAp,
+        unchanged: () -> Unit,
         propagateFact: (FinalFactAp) -> Unit,
         propagateFactWithAccessorExclude: (FinalFactAp, Accessor) -> Unit
     ) {
@@ -148,23 +152,26 @@ class JIRMethodSequentFlowFunction(
             else -> error("Assign to complex value: $assignTo")
         }
 
+        val factModified = fact != currentFactAp
+        val onUnchanged: (FinalFactAp) -> Unit = if (factModified) propagateFact else { _ -> unchanged() }
+
         when {
             assignFromAccess?.accessor != null -> {
                 check(assignToAccess.accessor == null) { "Complex assignment: $assignTo = $assignFrom" }
                 fieldRead(
                     assignToAccess.base, assignFromAccess.base, assignFromAccess.accessor, fact,
-                    propagateFact, propagateFactWithAccessorExclude
+                    onUnchanged, propagateFact, propagateFactWithAccessorExclude
                 )
             }
 
             assignToAccess.accessor != null -> {
                 fieldWrite(
                     assignToAccess.base, assignToAccess.accessor, assignFromAccess?.base, fact,
-                    propagateFact, propagateFactWithAccessorExclude
+                    onUnchanged, propagateFact, propagateFactWithAccessorExclude
                 )
             }
 
-            else -> simpleAssign(assignToAccess.base, assignFromAccess?.base, fact, propagateFact)
+            else -> simpleAssign(assignToAccess.base, assignFromAccess?.base, fact, onUnchanged, propagateFact)
         }
     }
 
@@ -180,16 +187,17 @@ class JIRMethodSequentFlowFunction(
         assignTo: AccessPathBase,
         assignFrom: AccessPathBase?,
         factAp: FinalFactAp,
+        unchanged: (FinalFactAp) -> Unit,
         propagateFact: (FinalFactAp) -> Unit,
     ) {
         if (assignTo == assignFrom) {
-            propagateFact(factAp)
+            unchanged(factAp)
             return
         }
 
         // Assign can't overwrite fact
         if (assignTo != factAp.base) {
-            propagateFact(factAp)
+            unchanged(factAp)
         }
 
         if (assignFrom == factAp.base) {
@@ -202,12 +210,13 @@ class JIRMethodSequentFlowFunction(
         instance: AccessPathBase,
         accessor: Accessor,
         factAp: FinalFactAp,
+        unchanged: (FinalFactAp) -> Unit,
         propagateFact: (FinalFactAp) -> Unit,
         propagateFactWithAccessorExclude: (FinalFactAp, Accessor) -> Unit
     ) {
         if (!factAp.mayReadField(instance, accessor)) {
             // Fact is irrelevant to current reading
-            propagateFact(factAp)
+            unchanged(factAp)
             return
         }
 
@@ -216,7 +225,7 @@ class JIRMethodSequentFlowFunction(
             if (nonAbstractAp != null) {
                 fieldRead(
                     assignTo, instance, accessor, nonAbstractAp,
-                    propagateFact, propagateFactWithAccessorExclude
+                    unchanged, propagateFact, propagateFactWithAccessorExclude
                 )
             }
 
@@ -232,7 +241,7 @@ class JIRMethodSequentFlowFunction(
 
         // Assign can't overwrite fact
         if (assignTo != factAp.base) {
-            propagateFact(factAp)
+            unchanged(factAp)
         }
     }
 
@@ -241,13 +250,14 @@ class JIRMethodSequentFlowFunction(
         accessor: Accessor,
         assignFrom: AccessPathBase?,
         factAp: FinalFactAp,
+        unchanged: (FinalFactAp) -> Unit,
         propagateFact: (FinalFactAp) -> Unit,
         propagateFactWithAccessorExclude: (FinalFactAp, Accessor) -> Unit
     ) {
         if (assignFrom == instance) {
             if (factAp.base != instance) {
                 // Fact is irrelevant to current writing
-                propagateFact(factAp)
+                unchanged(factAp)
                 return
             } else {
                 /**
@@ -265,6 +275,11 @@ class JIRMethodSequentFlowFunction(
                     accessor = accessor,
                     assignFrom = auxiliaryBase,
                     factAp = factAp.rebase(auxiliaryBase), // f(b)
+                    unchanged = {
+                        if (it.base != auxiliaryBase) {
+                            unchanged(it)
+                        }
+                    },
                     propagateFact = {
                         if (it.base != auxiliaryBase) {
                             propagateFact(it)
@@ -282,6 +297,11 @@ class JIRMethodSequentFlowFunction(
                     accessor = accessor,
                     assignFrom = auxiliaryBase,
                     factAp = factAp, // f(a)
+                    unchanged = {
+                        if (it.base != auxiliaryBase) {
+                            unchanged(it)
+                        }
+                    },
                     propagateFact = {
                         if (it.base != auxiliaryBase) {
                             propagateFact(it)
@@ -300,7 +320,7 @@ class JIRMethodSequentFlowFunction(
 
         if (factAp.base == assignFrom) {
             // Original rhs fact
-            propagateFact(factAp)
+            unchanged(factAp)
 
             // New lhs fact
             val newAp = factAp.writeToField(newBase = instance, field = accessor)
@@ -319,7 +339,7 @@ class JIRMethodSequentFlowFunction(
 
         if (!factAp.mayRemoveAfterWrite(instance, accessor)) {
             // Fact is irrelevant to current writing
-            propagateFact(factAp)
+            unchanged(factAp)
             return
         }
 
@@ -328,7 +348,7 @@ class JIRMethodSequentFlowFunction(
             if (nonAbstractAp != null) {
                 fieldWrite(
                     instance, accessor, assignFrom, nonAbstractAp,
-                    propagateFact, propagateFactWithAccessorExclude
+                    unchanged, propagateFact, propagateFactWithAccessorExclude
                 )
             }
 

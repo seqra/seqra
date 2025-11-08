@@ -32,12 +32,16 @@ class MethodEdgesFinalTreeApSet(
         return AccessTree(ap.base, addedAccess, ExclusionSet.Universe)
     }
 
-    override fun collectApAtStatement(collection: MutableList<FinalFactAp>, statement: CommonInst) {
-        storage.forEachValue { base, edgeStore ->
-            val ap = edgeStore.apAtStatement(statement)
-            if (ap != null) {
-                collection += AccessTree(base, ap, ExclusionSet.Universe)
-            }
+    override fun collectApAtStatement(
+        collection: MutableList<FinalFactAp>,
+        statement: CommonInst,
+        finalFactPattern: InitialFactAp
+    ) {
+        val base = finalFactPattern.base
+        val edgeStorage = storage.find(base) ?: return
+        val ap = edgeStorage.apAtStatement(statement)
+        if (ap != null) {
+            collection += AccessTree(base, ap, ExclusionSet.Universe)
         }
     }
 }
@@ -86,15 +90,17 @@ class MethodEdgesInitialToFinalTreeApSet(
 
     override fun collectApAtStatement(
         collection: MutableList<Pair<InitialFactAp, FinalFactAp>>,
-        statement: CommonInst
+        statement: CommonInst,
+        finalFactPattern: InitialFactAp
     ) {
+        val finalFactBase = finalFactPattern.base
         edgeStorage.forEachValue { initialBase, storageForInitial ->
-            storageForInitial.forEachValue { finalFactBase, storage ->
-                storage.allApAtStatement(statement).forEach { edgeAp ->
-                    val initialAp = AccessPath(initialBase, edgeAp.initialAp, edgeAp.exclusion)
-                    val finalAp = AccessTree(finalFactBase, edgeAp.exitAp, edgeAp.exclusion)
-                    collection += initialAp to finalAp
-                }
+            val storage = storageForInitial.find(finalFactBase) ?: return@forEachValue
+
+            storage.allApAtStatement(statement).forEach { edgeAp ->
+                val initialAp = AccessPath(initialBase, edgeAp.initialAp, edgeAp.exclusion)
+                val finalAp = AccessTree(finalFactBase, edgeAp.exitAp, edgeAp.exclusion)
+                collection += initialAp to finalAp
             }
         }
     }
@@ -102,14 +108,16 @@ class MethodEdgesInitialToFinalTreeApSet(
     override fun collectApAtStatement(
         collection: MutableList<FinalFactAp>,
         statement: CommonInst,
-        initialAp: InitialFactAp
+        initialAp: InitialFactAp,
+        finalFactPattern: InitialFactAp
     ) {
+        val finalFactBase = finalFactPattern.base
         val initialStorage = edgeStorage.find(initialAp.base) ?: return
-        initialStorage.forEachValue { finalFactBase, storage ->
-            val finalAp = storage.finalApAtStatement(statement, (initialAp as AccessPath).access)
-            if (finalAp != null) {
-                collection += AccessTree(finalFactBase, finalAp.access, finalAp.exclusion)
-            }
+        val storage = initialStorage.find(finalFactBase) ?: return
+
+        val finalAp = storage.finalApAtStatement(statement, (initialAp as AccessPath).access)
+        if (finalAp != null) {
+            collection += AccessTree(finalFactBase, finalAp.access, finalAp.exclusion)
         }
     }
 }

@@ -37,6 +37,6 @@ interface MethodCallFactMapper {
         onMappedFact: (InitialFactAp, AccessPathBase) -> Unit
     )
 
-    fun factCanBeModifiedByMethodCall(returnValue: CommonValue?, callExpr: CommonCallExpr, factAp: FactAp): Boolean
+    fun factIsRelevantToMethodCall(returnValue: CommonValue?, callExpr: CommonCallExpr, factAp: FactAp): Boolean
     fun isValidMethodExitFact(factAp: FactAp): Boolean
 }

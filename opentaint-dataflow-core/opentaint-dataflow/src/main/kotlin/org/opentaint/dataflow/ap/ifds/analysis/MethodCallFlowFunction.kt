@@ -9,6 +9,8 @@ interface MethodCallFlowFunction {
 
     sealed interface FactCallFact
 
+    data object Unchanged : ZeroCallFact, FactCallFact
+
     data object CallToReturnZeroFact: ZeroCallFact
 
     data object CallToStartZeroFact : ZeroCallFact

@@ -5,6 +5,7 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 
 interface MethodSequentFlowFunction {
     sealed interface Sequent {
+        data object Unchanged : Sequent
         data object ZeroToZero : Sequent
         data class ZeroToFact(val factAp: FinalFactAp) : Sequent
         data class FactToFact(val initialFactAp: InitialFactAp, val factAp: FinalFactAp) : Sequent

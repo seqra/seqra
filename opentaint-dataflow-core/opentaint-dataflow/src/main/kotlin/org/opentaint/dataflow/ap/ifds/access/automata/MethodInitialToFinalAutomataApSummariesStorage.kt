@@ -29,7 +29,7 @@ class MethodInitialToFinalAutomataApSummariesStorage(
 
     override fun filterEdgesTo(
         dst: MutableList<FactToFactEdgeBuilder>,
-        pattern: FinalFactAp,
+        pattern: FinalFactAp?,
         finalFactBase: AccessPathBase?
     ) {
         storage.filterEdgesTo(dst, StorageFilterPattern(pattern, finalFactBase))
@@ -40,7 +40,7 @@ class MethodInitialToFinalAutomataApSummariesStorage(
     }
 
     private class StorageFilterPattern(
-        val initialFactPattern: FinalFactAp,
+        val initialFactPattern: FinalFactAp?,
         val finalFactBase: AccessPathBase?
     )
 
@@ -85,30 +85,35 @@ class MethodInitialToFinalAutomataApSummariesStorage(
         }
 
         fun filterTo(dst: MutableList<FactToFactEdgeBuilder>, containsPattern: StorageFilterPattern) {
-            val initialFactPattern = containsPattern.initialFactPattern as AccessGraphFinalFactAp
-            val initialFactBase = initialFactPattern.base
-            val storage = find(initialFactBase) ?: return
-
-            collectToListWithPostProcess(dst, {
-                if (containsPattern.finalFactBase == null) {
-                    storage.filterEdgesTo(it, initialFactPattern.access)
-                } else {
-                    storage.filterEdgesTo(it, initialFactPattern.access, containsPattern.finalFactBase)
+            val initialFactPattern = containsPattern.initialFactPattern as? AccessGraphFinalFactAp
+            val initialFactBase = initialFactPattern?.base
+            if (initialFactBase != null) {
+                val storage = find(initialFactBase) ?: return
+                collectTo(dst, storage, initialFactBase, initialFactPattern.access, containsPattern.finalFactBase)
+            } else {
+                forEachValue { base, storage ->
+                    collectTo(dst, storage, base, accessPattern = null, containsPattern.finalFactBase)
                 }
-            }, {
-                it.setInitialBase(initialFactBase).build()
-            })
+            }
         }
 
         fun collectAllEdgesTo(dst: MutableList<FactToFactEdgeBuilder>) {
             forEachValue { base, storage ->
-                collectToListWithPostProcess(dst, {
-                    storage.allEdgesTo(it)
-                }, {
-                    it.setInitialBase(base).build()
-                })
+                collectTo(dst, storage, base, accessPattern = null, finalFactBase = null)
             }
         }
+
+        private fun collectTo(
+            dst: MutableList<FactToFactEdgeBuilder>,
+            storage: BasedFinalAp,
+            initialFactBase: AccessPathBase,
+            accessPattern: AccessGraph?,
+            finalFactBase: AccessPathBase?
+        ) = collectToListWithPostProcess(dst, {
+            storage.collectEdgesTo(it, accessPattern, finalFactBase)
+        }, {
+            it.setInitialBase(initialFactBase).build()
+        })
     }
 
     private class BasedFinalAp(methodEntryPoint: CommonInst) :
@@ -125,38 +130,31 @@ class MethodInitialToFinalAutomataApSummariesStorage(
             }
         }
 
-        fun allEdgesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>) {
-            forEachValue { base, storage ->
-                collectToListWithPostProcess(dst, {
-                    storage.allEdgesTo(it)
-                }, {
-                    it.setFinalBase(base)
-                })
-            }
-        }
-
-        fun filterEdgesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>, accessPattern: AccessGraph) {
-            forEachValue { base, storage ->
-                collectToListWithPostProcess(dst, {
-                    storage.filterEdgesTo(it, accessPattern)
-                }, {
-                    it.setFinalBase(base)
-                })
-            }
-        }
-
-        fun filterEdgesTo(
+        fun collectEdgesTo(
             dst: MutableList<FactToFactEdgeBuilderBuilder>,
-            accessPattern: AccessGraph,
-            finalFactBase: AccessPathBase
-        ){
-            val storage = find(finalFactBase) ?: return
-            collectToListWithPostProcess(dst, {
-                storage.filterEdgesTo(it, accessPattern)
-            }, {
-                it.setFinalBase(finalFactBase)
-            })
+            accessPattern: AccessGraph?,
+            finalFactBase: AccessPathBase?
+        ) {
+            if (finalFactBase != null) {
+                val storage = find(finalFactBase) ?: return
+                collectEdgesTo(dst, storage, accessPattern, finalFactBase)
+            } else {
+                forEachValue { base, storage ->
+                    collectEdgesTo(dst, storage, accessPattern, base)
+                }
+            }
         }
+
+        private fun collectEdgesTo(
+            dst: MutableList<FactToFactEdgeBuilderBuilder>,
+            storage: InitialToFinalApStorage,
+            accessPattern: AccessGraph?,
+            finalFactBase: AccessPathBase
+        ) = collectToListWithPostProcess(dst, {
+            storage.collectEdgesTo(it, accessPattern)
+        }, {
+            it.setFinalBase(finalFactBase)
+        })
     }
 
     private class InitialToFinalApStorage {
@@ -202,7 +200,15 @@ class MethodInitialToFinalAutomataApSummariesStorage(
             }
         }
 
-        fun allEdgesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>) {
+        fun collectEdgesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>, accessPattern: AccessGraph?) {
+            if (accessPattern != null) {
+                filterEdgesTo(dst, accessPattern)
+            } else {
+                allEdgesTo(dst)
+            }
+        }
+
+        private fun allEdgesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>) {
             finalFactGraphStorages.concurrentReadSafeForEach { idx, finalStorage ->
                 val initialAg = initialFactGraphs[idx]
                 collectToListWithPostProcess(dst, {
@@ -213,7 +219,7 @@ class MethodInitialToFinalAutomataApSummariesStorage(
             }
         }
 
-        fun filterEdgesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>, accessPattern: AccessGraph) {
+        private fun filterEdgesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>, accessPattern: AccessGraph) {
             initialGraphIndex.localizeGraphHasDeltaWithIndexedGraph(accessPattern).forEach { storageIdx ->
                 val initialAg = initialFactGraphs[storageIdx]
 

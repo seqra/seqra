@@ -19,13 +19,13 @@ import org.opentaint.dataflow.ap.ifds.FinalFactReader
 import org.opentaint.dataflow.ap.ifds.InitialFactReader
 import org.opentaint.dataflow.ap.ifds.PositionAccess
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
-import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.FactAssumption
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.mkAccessPath
 import org.opentaint.dataflow.ap.ifds.readPosition
-import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition.Precondition
+import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.FactAssumption
+import org.opentaint.dataflow.ap.ifds.trace.TaintRulePrecondition
 import org.opentaint.util.Maybe
 import org.opentaint.util.flatFmap
 import org.opentaint.util.flatMap
@@ -165,21 +165,21 @@ class TaintPassActionEvaluator(
 class TaintPassActionPreconditionEvaluator(
     private val positionResolver: PositionResolver<Maybe<List<PositionAccess>>>,
     private val factReader: InitialFactReader
-) : PassActionEvaluator<Precondition> {
-    override fun evaluate(rule: TaintConfigurationItem, action: CopyAllMarks): Maybe<List<Precondition>> =
+) : PassActionEvaluator<TaintRulePrecondition> {
+    override fun evaluate(rule: TaintConfigurationItem, action: CopyAllMarks): Maybe<List<TaintRulePrecondition>> =
         positionResolver.resolve(action.from).flatMap { from ->
             positionResolver.resolve(action.to).flatMap { to ->
                 copyAllFactsPrecondition(from, to).fmap { facts ->
-                    facts.map { Precondition(rule, action, it) }
+                    facts.map { TaintRulePrecondition.Pass(rule, action, it) }
                 }
             }
         }
 
-    override fun evaluate(rule: TaintConfigurationItem, action: CopyMark): Maybe<List<Precondition>> =
+    override fun evaluate(rule: TaintConfigurationItem, action: CopyMark): Maybe<List<TaintRulePrecondition>> =
         positionResolver.resolve(action.from).flatMap { from ->
             positionResolver.resolve(action.to).flatMap { to ->
                 copyFinalFactPrecondition(from, to, action.mark).fmap { facts ->
-                    facts.map { Precondition(rule, action, it) }
+                    facts.map { TaintRulePrecondition.Pass(rule, action, it) }
                 }
             }
         }
@@ -218,10 +218,10 @@ class TaintPassActionPreconditionEvaluator(
         return Maybe.some(listOf(preconditionFact))
     }
 
-    override fun evaluate(rule: TaintConfigurationItem, action: RemoveAllMarks): Maybe<List<Precondition>> =
+    override fun evaluate(rule: TaintConfigurationItem, action: RemoveAllMarks): Maybe<List<TaintRulePrecondition>> =
         Maybe.none()
 
-    override fun evaluate(rule: TaintConfigurationItem, action: RemoveMark): Maybe<List<Precondition>> =
+    override fun evaluate(rule: TaintConfigurationItem, action: RemoveMark): Maybe<List<TaintRulePrecondition>> =
         Maybe.none()
 }
 

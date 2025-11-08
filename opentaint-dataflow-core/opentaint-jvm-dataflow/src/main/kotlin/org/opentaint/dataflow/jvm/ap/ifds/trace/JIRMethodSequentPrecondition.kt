@@ -15,10 +15,11 @@ import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
+import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition.SequentPrecondition
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
 
 class JIRMethodSequentPrecondition(private val currentInst: JIRInst) : MethodSequentPrecondition {
-    override fun factPrecondition(fact: InitialFactAp): List<InitialFactAp>? {
+    override fun factPrecondition(fact: InitialFactAp): SequentPrecondition {
         when (currentInst) {
             is JIRAssignInst -> {
                 return sequentAssignPrecondition(currentInst.rhv, currentInst.lhv, fact)
@@ -26,29 +27,29 @@ class JIRMethodSequentPrecondition(private val currentInst: JIRInst) : MethodSeq
 
             is JIRReturnInst -> {
                 if (fact.base !is AccessPathBase.Return) {
-                    return null
+                    return SequentPrecondition.Unchanged
                 }
 
                 val base = currentInst.returnValue
                     ?.let { MethodFlowFunctionUtils.accessPathBase(it) }
-                    ?: return null
+                    ?: return SequentPrecondition.Unchanged
 
-                return listOf(fact.rebase(base))
+                return SequentPrecondition.Facts(listOf(fact.rebase(base)))
             }
 
             is JIRThrowInst -> {
                 if (fact.base !is AccessPathBase.Exception) {
-                    return null
+                    return SequentPrecondition.Unchanged
                 }
 
                 val base = currentInst.throwable
                     .let { MethodFlowFunctionUtils.accessPathBase(it) }
-                    ?: return null
+                    ?: return SequentPrecondition.Unchanged
 
-                return listOf(fact.rebase(base))
+                return SequentPrecondition.Facts(listOf(fact.rebase(base)))
             }
 
-            else -> return null
+            else -> return SequentPrecondition.Unchanged
         }
     }
 
@@ -56,7 +57,7 @@ class JIRMethodSequentPrecondition(private val currentInst: JIRInst) : MethodSeq
         assignFrom: JIRExpr,
         assignTo: JIRValue,
         fact: InitialFactAp,
-    ): List<InitialFactAp>? {
+    ): SequentPrecondition {
         val assignFromAccess = when (assignFrom) {
             is JIRCastExpr -> MethodFlowFunctionUtils.mkAccess(assignFrom.operand)
             is JIRImmediate -> MethodFlowFunctionUtils.mkAccess(assignFrom)
@@ -94,16 +95,17 @@ class JIRMethodSequentPrecondition(private val currentInst: JIRInst) : MethodSeq
         assignTo: AccessPathBase?,
         assignFrom: AccessPathBase?,
         fact: InitialFactAp,
-    ): List<InitialFactAp>? {
+    ): SequentPrecondition {
         if (assignTo == assignFrom || assignTo != fact.base) {
-            return null
+            return SequentPrecondition.Unchanged
         }
 
         if (assignFrom != null) {
-            return listOf(fact.rebase(assignFrom))
+            return SequentPrecondition.Facts(listOf(fact.rebase(assignFrom)))
         }
 
-        return emptyList()
+        // kill fact
+        return SequentPrecondition.Facts(emptyList())
     }
 
     private fun fieldRead(
@@ -111,12 +113,12 @@ class JIRMethodSequentPrecondition(private val currentInst: JIRInst) : MethodSeq
         instance: AccessPathBase,
         accessor: Accessor,
         fact: InitialFactAp,
-    ): List<InitialFactAp>? {
+    ): SequentPrecondition {
         if (fact.base != assignTo) {
-            return null
+            return SequentPrecondition.Unchanged
         }
 
-        return listOf(fact.prependAccessor(accessor).rebase(instance))
+        return SequentPrecondition.Facts(listOf(fact.prependAccessor(accessor).rebase(instance)))
     }
 
     private fun fieldWrite(
@@ -124,12 +126,12 @@ class JIRMethodSequentPrecondition(private val currentInst: JIRInst) : MethodSeq
         accessor: Accessor,
         assignFrom: AccessPathBase?,
         fact: InitialFactAp,
-    ): List<InitialFactAp>? {
+    ): SequentPrecondition {
         if (fact.base != instance || !fact.startsWithAccessor(accessor)) {
-            return null
+            return SequentPrecondition.Unchanged
         }
 
-        return buildList {
+        val facts = buildList {
             val factAtAccessor = fact.readAccessor(accessor) ?: error("No fact")
             if (assignFrom != null) {
                 this += factAtAccessor.rebase(assignFrom)
@@ -144,5 +146,7 @@ class JIRMethodSequentPrecondition(private val currentInst: JIRInst) : MethodSeq
                 this += factAtAccessor.prependAccessor(ElementAccessor)
             }
         }
+
+        return SequentPrecondition.Facts(facts)
     }
 }

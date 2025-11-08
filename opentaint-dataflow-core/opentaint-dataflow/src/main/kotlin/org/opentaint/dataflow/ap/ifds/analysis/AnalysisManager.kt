@@ -23,8 +23,6 @@ interface AnalysisManager: LanguageManager {
         graph: ApplicationGraph<CommonMethod, CommonInst>
     ): MethodAnalysisContext
 
-    fun isRelevantInstruction(inst: CommonInst): Boolean
-
     fun getMethodCallResolver(
         graph: ApplicationGraph<CommonMethod, CommonInst>,
         unitResolver: UnitResolver<CommonMethod>,
@@ -61,20 +59,19 @@ interface AnalysisManager: LanguageManager {
         statement: CommonInst,
     ): MethodCallFlowFunction
 
-    fun getMethodCallSummaryHandler(
-        apManager: ApManager,
-        analysisContext: MethodAnalysisContext,
-        statement: CommonInst,
-    ): MethodCallSummaryHandler
-
     fun getMethodCallPrecondition(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext,
         returnValue: CommonValue?,
         callExpr: CommonCallExpr,
         statement: CommonInst,
-        factsAtStatement: List<FinalFactAp>,
     ): MethodCallPrecondition
+
+    fun getMethodCallSummaryHandler(
+        apManager: ApManager,
+        analysisContext: MethodAnalysisContext,
+        statement: CommonInst,
+    ): MethodCallSummaryHandler
 
     fun isReachable(
         apManager: ApManager,

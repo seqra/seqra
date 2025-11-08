@@ -25,6 +25,7 @@ import org.opentaint.dataflow.ap.ifds.taint.TaintSourceActionEvaluator
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.Unchanged
 import org.opentaint.dataflow.config.JIRBasicConditionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
@@ -76,6 +77,7 @@ class JIRMethodCallFlowFunction(
     override fun propagateZeroToFact(currentFactAp: FinalFactAp) = buildSet {
         propagateFact(
             factAp = currentFactAp,
+            skipCall = { this += Unchanged },
             addSideEffectRequirement = { factReader ->
                 check(!factReader.hasRefinement) { "Can't refine Zero fact" }
             },
@@ -96,6 +98,7 @@ class JIRMethodCallFlowFunction(
     ) = buildSet {
         propagateFact(
             factAp = currentFactAp,
+            skipCall = { this += Unchanged },
             addSideEffectRequirement = { factReader ->
                 this += SideEffectRequirement(factReader.refineFact(initialFactAp.replaceExclusions(ExclusionSet.Empty)))
             },
@@ -114,11 +117,18 @@ class JIRMethodCallFlowFunction(
 
     private fun propagateFact(
         factAp: FinalFactAp,
+        skipCall: () -> Unit,
         addSideEffectRequirement: (FinalFactReader) -> Unit,
         addCallToReturn: (FinalFactReader, FinalFactAp) -> Unit,
         addCallToStart: (factReader: FinalFactReader, callerFact: FinalFactAp, startFactBase: AccessPathBase) -> Unit,
     ) {
         val factReader = FinalFactReader(factAp, apManager)
+
+        if (!JIRMethodCallFactMapper.factIsRelevantToMethodCall(returnValue, callExpr, factAp)) {
+            skipCall()
+            return
+        }
+
         applySinkRules(factReader)
 
         val apResolver = JIRCallPositionToAccessPathResolver(callExpr, returnValue)
@@ -176,11 +186,6 @@ class JIRMethodCallFlowFunction(
         addCallToReturn: (FinalFactReader, FinalFactAp) -> Unit,
         addCallToStart: (factReader: FinalFactReader, callerFactAp: FinalFactAp, startFactBase: AccessPathBase) -> Unit,
     ) {
-        if (!JIRMethodCallFactMapper.factCanBeModifiedByMethodCall(returnValue, callExpr, factAp)) {
-            addCallToReturn(factReader, factAp)
-            return
-        }
-
         val method = callExpr.callee
 
         // FIXME: adhoc for constructors:

@@ -14,9 +14,9 @@ import org.opentaint.ir.taint.configuration.Not
 import org.opentaint.ir.taint.configuration.Or
 import org.opentaint.ir.taint.configuration.PositionResolver
 import org.opentaint.ir.taint.configuration.TypeMatches
-import org.opentaint.dataflow.ap.ifds.taint.FactAwareConditionEvaluatorWithAssumptions
-import org.opentaint.dataflow.ap.ifds.FinalFactReader
+import org.opentaint.dataflow.ap.ifds.FactReader
 import org.opentaint.dataflow.ap.ifds.PositionAccess
+import org.opentaint.dataflow.ap.ifds.taint.FactAwareConditionEvaluatorWithAssumptions
 import org.opentaint.dataflow.ap.ifds.taint.ResultWithFactAssumptions
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.FactAssumption
 import org.opentaint.dataflow.jvm.util.JIRTraits
@@ -25,7 +25,7 @@ import org.opentaint.util.onSome
 
 class JIRFactAwareConditionEvaluatorWithAssumptions(
     traits: JIRTraits,
-    factReader: FinalFactReader,
+    factReader: FactReader,
     private val accessPathResolver: PositionResolver<Maybe<List<PositionAccess>>>,
     positionResolver: PositionResolver<Maybe<CommonValue>>,
 ) : FactAwareConditionEvaluatorWithAssumptions {

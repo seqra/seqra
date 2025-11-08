@@ -24,10 +24,10 @@ class MethodInitialToFinalApSummaries(
 
     override fun filterEdgesTo(
         dst: MutableList<FactToFactEdgeBuilder>,
-        pattern: FinalFactAp,
+        pattern: FinalFactAp?,
         finalFactBase: AccessPathBase?
     ) {
-        storage.filterEdgesTo(dst, EdgeStoragePattern(pattern as AccessCactus, finalFactBase))
+        storage.filterEdgesTo(dst, EdgeStoragePattern(pattern as? AccessCactus, finalFactBase))
     }
 
     override fun collectAllEdgesTo(dst: MutableList<FactToFactEdgeBuilder>) {
@@ -36,7 +36,7 @@ class MethodInitialToFinalApSummaries(
 }
 
 private class EdgeStoragePattern(
-    val initialFactPattern: AccessCactus,
+    val initialFactPattern: AccessCactus?,
     val finalFactBase: AccessPathBase?
 )
 
@@ -82,28 +82,38 @@ private class MethodFactToFactSummaries(
     }
 
     fun filterEdgesTo(dst: MutableList<FactToFactEdgeBuilder>, pattern: EdgeStoragePattern) {
-        val initialBase = pattern.initialFactPattern.base
-        val storage = find(initialBase) ?: return
-
-        collectToListWithPostProcess(dst, {
-            if (pattern.finalFactBase == null) {
-                storage.collectAllEdgesTo(it)
-            } else {
-                storage.filterTo(it, pattern.finalFactBase)
+        val initialBase = pattern.initialFactPattern?.base
+        if (initialBase != null) {
+            val storage = find(initialBase) ?: return
+            filterEdgesTo(dst, storage, initialBase, pattern.finalFactBase)
+        } else {
+            forEachValue { base, storage ->
+                filterEdgesTo(dst, storage, base, pattern.finalFactBase)
             }
-        }, {
-            it.setInitialFactBase(initialBase).build()
-        })
+        }
     }
 
     fun collectAllEdgesTo(dst: MutableList<FactToFactEdgeBuilder>) {
         forEachValue { base, storage ->
-            collectToListWithPostProcess(dst, {
-                storage.collectAllEdgesTo(it)
-            }, {
-                it.setInitialFactBase(base).build()
-            })
+            filterEdgesTo(dst, storage, base, finalFactBase = null)
         }
+    }
+
+    private fun filterEdgesTo(
+        dst: MutableList<FactToFactEdgeBuilder>,
+        storage: MethodTaintedSummariesGroupedByFact,
+        initialBase: AccessPathBase,
+        finalFactBase: AccessPathBase?
+    ) {
+        collectToListWithPostProcess(dst, {
+            if (finalFactBase == null) {
+                storage.collectAllEdgesTo(it)
+            } else {
+                storage.filterTo(it, finalFactBase)
+            }
+        }, {
+            it.setInitialFactBase(initialBase).build()
+        })
     }
 }
 

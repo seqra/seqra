@@ -32,11 +32,15 @@ class MethodEdgesFinalCactusApSet(
         return AccessCactus(ap.base, addedAccess, ExclusionSet.Universe)
     }
 
-    override fun collectApAtStatement(collection: MutableList<FinalFactAp>, statement: CommonInst) {
-        storage.forEachValue { base, factEdges ->
-            val facts = factEdges.find(statement) ?: return@forEachValue
-            collection += AccessCactus(base, facts, ExclusionSet.Universe)
-        }
+    override fun collectApAtStatement(
+        collection: MutableList<FinalFactAp>,
+        statement: CommonInst,
+        finalFactPattern: InitialFactAp
+    ) {
+        val base = finalFactPattern.base
+        val factEdges = storage.find(base) ?: return
+        val facts = factEdges.find(statement) ?: return
+        collection += AccessCactus(base, facts, ExclusionSet.Universe)
     }
 }
 
@@ -49,16 +53,17 @@ class MethodEdgesInitialToFinalCactusApSet(
 
     override fun collectApAtStatement(
         collection: MutableList<Pair<InitialFactAp, FinalFactAp>>,
-        statement: CommonInst
+        statement: CommonInst,
+        finalFactPattern: InitialFactAp
     ) {
+        val finalBase = finalFactPattern.base
         edgeStorage.forEachValue { initialBase, edgeStorageForInitialFact ->
-            edgeStorageForInitialFact.forEachValue { finalBase, edgeStorageForExitFact ->
-                edgeStorageForExitFact.sameInitialAccessEdges.forEach { (initialAccess, edgeSet) ->
-                    val (finalAccess, exclusion) = edgeSet.find(statement) ?: return@forEach
-                    val initialAp = AccessPathWithCycles(initialBase, initialAccess, exclusion)
-                    val finalAp = AccessCactus(finalBase, finalAccess, exclusion)
-                    collection += initialAp to finalAp
-                }
+            val edgeStorageForExitFact = edgeStorageForInitialFact.find(finalBase) ?: return@forEachValue
+            edgeStorageForExitFact.sameInitialAccessEdges.forEach { (initialAccess, edgeSet) ->
+                val (finalAccess, exclusion) = edgeSet.find(statement) ?: return@forEach
+                val initialAp = AccessPathWithCycles(initialBase, initialAccess, exclusion)
+                val finalAp = AccessCactus(finalBase, finalAccess, exclusion)
+                collection += initialAp to finalAp
             }
         }
     }
@@ -66,15 +71,16 @@ class MethodEdgesInitialToFinalCactusApSet(
     override fun collectApAtStatement(
         collection: MutableList<FinalFactAp>,
         statement: CommonInst,
-        initialAp: InitialFactAp
+        initialAp: InitialFactAp,
+        finalFactPattern: InitialFactAp
     ) {
         val edgeStorageForInitialFact = edgeStorage.find(initialAp.base) ?: return
         val initialAccess = (initialAp as AccessPathWithCycles).access
-        edgeStorageForInitialFact.forEachValue { finalBase, edgeStorageForExitFact ->
-            val edgeSet = edgeStorageForExitFact.sameInitialAccessEdges[initialAccess] ?: return@forEachValue
-            val (finalAccess, exclusion) = edgeSet.find(statement) ?: return@forEachValue
-            collection += AccessCactus(finalBase, finalAccess, exclusion)
-        }
+        val finalBase = finalFactPattern.base
+        val edgeStorageForExitFact = edgeStorageForInitialFact.find(finalBase) ?: return
+        val edgeSet = edgeStorageForExitFact.sameInitialAccessEdges[initialAccess] ?: return
+        val (finalAccess, exclusion) = edgeSet.find(statement) ?: return
+        collection += AccessCactus(finalBase, finalAccess, exclusion)
     }
 
     override fun add(

@@ -7,6 +7,7 @@ import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionStorageIdx
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionStorageSize
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.MethodEdgesFinalApSet
 import org.opentaint.dataflow.util.collectToListWithPostProcess
 
@@ -20,15 +21,20 @@ class MethodEdgesFinalAutomataApSet(
     override fun add(statement: CommonInst, ap: FinalFactAp): FinalFactAp? =
         add(statement, ap as AccessGraphFinalFactAp)
 
-    override fun collectApAtStatement(collection: MutableList<FinalFactAp>, statement: CommonInst) {
-        storage.forEachValue { base, storedFacts ->
-            val agSet = storedFacts.allFactsAtStatement(statement) ?: return@forEachValue
-            collectToListWithPostProcess(
-                collection,
-                { agSet.toList(it) },
-                { AccessGraphFinalFactAp(base, it, ExclusionSet.Universe) }
-            )
-        }
+    override fun collectApAtStatement(
+        collection: MutableList<FinalFactAp>,
+        statement: CommonInst,
+        finalFactPattern: InitialFactAp
+    ) {
+        val finalFactBase = finalFactPattern.base
+        val storedFacts = storage.find(finalFactBase) ?: return
+        val agSet = storedFacts.allFactsAtStatement(statement) ?: return
+
+        collectToListWithPostProcess(
+            collection,
+            { agSet.toList(it) },
+            { AccessGraphFinalFactAp(finalFactBase, it, ExclusionSet.Universe) }
+        )
     }
 
     private fun add(statement: CommonInst, ap: AccessGraphFinalFactAp): AccessGraphFinalFactAp? {

@@ -62,14 +62,14 @@ object JIRMethodCallFactMapper : MethodCallFactMapper {
         return mapMethodCallToStartFlowFact(callee, callExpr, fact, onMappedFact)
     }
 
-    override fun factCanBeModifiedByMethodCall(
+    override fun factIsRelevantToMethodCall(
         returnValue: CommonValue?,
         callExpr: CommonCallExpr,
         factAp: FactAp
     ): Boolean {
         jirDowncast<JIRImmediate?>(returnValue)
         jirDowncast<JIRCallExpr>(callExpr)
-        return factCanBeModifiedByMethodCall(returnValue, callExpr, factAp)
+        return factIsRelevantToMethodCall(returnValue, callExpr, factAp)
     }
 
     override fun isValidMethodExitFact(factAp: FactAp): Boolean {
@@ -235,10 +235,10 @@ object JIRMethodCallFactMapper : MethodCallFactMapper {
         }
     }
 
-    private fun factCanBeModifiedByMethodCall(returnValue: JIRImmediate?, callExpr: JIRCallExpr, factAp: FactAp): Boolean =
-        factCanBeModifiedByMethodCall(returnValue, callExpr, factAp.base)
+    private fun factIsRelevantToMethodCall(returnValue: JIRImmediate?, callExpr: JIRCallExpr, factAp: FactAp): Boolean =
+        factIsRelevantToMethodCall(returnValue, callExpr, factAp.base)
 
-    private fun factCanBeModifiedByMethodCall(
+    private fun factIsRelevantToMethodCall(
         returnValue: JIRImmediate?,
         callExpr: JIRCallExpr,
         factBase: AccessPathBase
@@ -249,7 +249,6 @@ object JIRMethodCallFactMapper : MethodCallFactMapper {
 
         if (callExpr is JIRInstanceCallExpr) {
             val instanceBase = MethodFlowFunctionUtils.accessPathBase(callExpr.instance)
-            // todo: fields only?
             if (instanceBase == factBase) {
                 return true
             }
@@ -257,7 +256,6 @@ object JIRMethodCallFactMapper : MethodCallFactMapper {
 
         for (arg in callExpr.args) {
             val argBase = MethodFlowFunctionUtils.accessPathBase(arg)
-            // todo: fields only?
             if (argBase == factBase) {
                 return true
             }

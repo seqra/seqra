@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.ap.ifds
 
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
@@ -11,18 +12,17 @@ import org.opentaint.dataflow.ap.ifds.Edge.ZeroToFact
 import org.opentaint.dataflow.ap.ifds.Edge.ZeroToZero
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzer.MethodCallHandler
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzer.MethodCallResolutionFailureHandler
-import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.ZeroCallFact
-import org.opentaint.dataflow.ap.ifds.analysis.MethodStartFlowFunction.StartFact
 import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.ZeroCallFact
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.Sequent
+import org.opentaint.dataflow.ap.ifds.analysis.MethodStartFlowFunction.StartFact
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolverCancellation
 import org.opentaint.dataflow.graph.ApplicationGraph
-import org.opentaint.dataflow.graph.statementFilteredTraverse
 
 interface MethodAnalyzer {
     fun addInitialZeroFact()
@@ -113,6 +113,7 @@ class NormalMethodAnalyzer(
 
     private var analyzerEnqueued = false
     private var unprocessedEdges = arrayListOf<Edge>()
+    private var enqueuedUnchangedEdges = ObjectOpenHashSet<Edge>()
 
     override val containsUnprocessedEdges: Boolean
         get() = unprocessedEdges.isNotEmpty()
@@ -202,6 +203,7 @@ class NormalMethodAnalyzer(
 
         // Create new empty list to shrink internal array
         unprocessedEdges = arrayListOf()
+        enqueuedUnchangedEdges = ObjectOpenHashSet()
 
         flushPendingSummaryEdges()
         flushPendingSideEffectRequirements()
@@ -224,6 +226,10 @@ class NormalMethodAnalyzer(
 
     private fun handleSequentFact(edge: Edge, sf: Sequent) {
         val edgeAfterStatement = when (sf) {
+            Sequent.Unchanged -> {
+                handleUnchangedStatementEdge(edge)
+                return
+            }
             Sequent.ZeroToZero -> ZeroToZero(methodEntryPoint, edge.statement)
             is Sequent.ZeroToFact -> ZeroToFact(methodEntryPoint, edge.statement, sf.factAp)
             is Sequent.FactToFact -> FactToFact(methodEntryPoint, sf.initialFactAp, edge.statement, sf.factAp)
@@ -272,6 +278,10 @@ class NormalMethodAnalyzer(
         fact: ZeroCallFact
     ) {
         when (fact) {
+            MethodCallFlowFunction.Unchanged -> {
+                handleUnchangedStatementEdge(edge)
+            }
+
             MethodCallFlowFunction.CallToReturnZeroFact -> {
                 handleStatementEdge(edge, ZeroToZero(methodEntryPoint, edge.statement))
             }
@@ -303,6 +313,10 @@ class NormalMethodAnalyzer(
         fact: MethodCallFlowFunction.FactCallFact
     ) {
         when (fact) {
+            MethodCallFlowFunction.Unchanged -> {
+                handleUnchangedStatementEdge(edge)
+            }
+
             is MethodCallFlowFunction.CallToReturnFFact -> {
                 val edgeAfterStatement = FactToFact(methodEntryPoint, fact.initialFactAp, edge.statement, fact.factAp)
                 handleStatementEdge(edge, edgeAfterStatement)
@@ -366,37 +380,40 @@ class NormalMethodAnalyzer(
             handleInputFactChange(edgeBeforeStatement.initialFactAp, edgeAfterStatement.initialFactAp)
         }
 
-        propagateEdgeToSuccessors(edgeAfterStatement)
+        tryEmmitSummaryEdge(edgeAfterStatement)
+        propagateEdgeToSuccessors(edgeAfterStatement, edgeUnchanged = false)
     }
 
-    private fun propagateEdgeToSuccessors(edge: Edge) {
-        if (edge.statement in methodExitPoints) {
-            val isValidSummaryEdge = when (edge) {
-                is ZeroToZero -> true
-                is ZeroToFact -> analysisManager.isValidMethodExitFact(apManager, analysisContext, edge.factAp)
-                is FactToFact -> analysisManager.isValidMethodExitFact(apManager, analysisContext, edge.factAp)
-            }
+    private fun handleUnchangedStatementEdge(edge: Edge) {
+        tryEmmitSummaryEdge(edge)
+        propagateEdgeToSuccessors(edge, edgeUnchanged = true)
+    }
 
-            if (isValidSummaryEdge) {
-                newSummaryEdge(edge)
-            }
-        }
-
-        statementFilteredTraverse(
-            analysisManager, edge.statement, graph::successors,
-            predicate = { analysisManager.isRelevantInstruction(it) || it in methodExitPoints },
-            body = { propagateEdgeToStatement(edge, it) },
-            onSkippedStatement = {
-                if (edge is ZeroToZero) {
-                    // register zero2zero edge to track covered statements
-                    edges.add(edge.replaceStatement(it))
+    private fun propagateEdgeToSuccessors(edge: Edge, edgeUnchanged: Boolean) {
+        graph.successors(edge.statement).forEach {
+            val nextEdge = edge.replaceStatement(it)
+            if (!edgeUnchanged) {
+                addSequentialEdge(nextEdge)
+            } else {
+                if (enqueuedUnchangedEdges.add(nextEdge)) {
+                    enqueueNewEdge(nextEdge)
                 }
             }
-        )
+        }
     }
 
-    private fun propagateEdgeToStatement(edge: Edge, nextStatement: CommonInst) {
-        addSequentialEdge(edge.replaceStatement(nextStatement))
+    private fun tryEmmitSummaryEdge(edge: Edge) {
+        if (edge.statement !in methodExitPoints) return
+
+        val isValidSummaryEdge = when (edge) {
+            is ZeroToZero -> true
+            is ZeroToFact -> analysisManager.isValidMethodExitFact(apManager, analysisContext, edge.factAp)
+            is FactToFact -> analysisManager.isValidMethodExitFact(apManager, analysisContext, edge.factAp)
+        }
+
+        if (isValidSummaryEdge) {
+            newSummaryEdge(edge)
+        }
     }
 
     private fun newSummaryEdge(edge: Edge) {

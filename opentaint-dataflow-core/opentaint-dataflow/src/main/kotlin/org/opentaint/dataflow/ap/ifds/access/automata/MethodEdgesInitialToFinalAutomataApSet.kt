@@ -29,13 +29,14 @@ class MethodEdgesInitialToFinalAutomataApSet(
 
     override fun collectApAtStatement(
         collection: MutableList<Pair<InitialFactAp, FinalFactAp>>,
-        statement: CommonInst
+        statement: CommonInst,
+        finalFactPattern: InitialFactAp
     ) {
         storage.forEachValue { initialBase, initialFactStorage ->
             initialFactStorage.storage.forEach { (initialAg, storage) ->
                 collectToListWithPostProcess(
                     collection,
-                    { storage.collectTo(it, statement) },
+                    { storage.collectTo(it, statement, finalFactPattern) },
                     { AccessGraphInitialFactAp(initialBase, initialAg, it.exclusions) to it }
                 )
             }
@@ -45,11 +46,12 @@ class MethodEdgesInitialToFinalAutomataApSet(
     override fun collectApAtStatement(
         collection: MutableList<FinalFactAp>,
         statement: CommonInst,
-        initialAp: InitialFactAp
+        initialAp: InitialFactAp,
+        finalFactPattern: InitialFactAp
     ) {
         val initialBaseStorage = storage.find(initialAp.base) ?: return
         val storage = initialBaseStorage.find((initialAp as AccessGraphInitialFactAp).access) ?: return
-        storage.collectTo(collection, statement)
+        storage.collectTo(collection, statement, finalFactPattern)
     }
 
     private fun add(
@@ -116,15 +118,16 @@ class MethodEdgesInitialToFinalAutomataApSet(
             )
         }
 
-        fun collectTo(collection: MutableList<FinalFactAp>, statement: CommonInst) {
-            factStorage.forEachValue { base, storage ->
-                val exclusion = storage.exclusion(statement) ?: return@forEachValue
-                collectToListWithPostProcess(
-                    collection,
-                    { storage.collectTo(it, statement) },
-                    { AccessGraphFinalFactAp(base, it, exclusion) }
-                )
-            }
+        fun collectTo(collection: MutableList<FinalFactAp>, statement: CommonInst, finalFactPattern: InitialFactAp) {
+            val base = finalFactPattern.base
+            val storage = factStorage.find(base) ?: return
+            val exclusion = storage.exclusion(statement) ?: return
+
+            collectToListWithPostProcess(
+                collection,
+                { storage.collectTo(it, statement) },
+                { AccessGraphFinalFactAp(base, it, exclusion) }
+            )
         }
     }
 

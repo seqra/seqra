@@ -7,12 +7,9 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRCallInst
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.cfg.JIRTerminatingInst
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisManager
@@ -50,9 +47,6 @@ class JIRAnalysisManager(cp: JIRClasspath) : JIRLanguageManager(cp), TaintAnalys
     private val lambdaTracker = JIRLambdaTracker()
     private val traits = JIRTraits(cp)
     private val factTypeChecker = JIRFactTypeChecker(cp)
-
-    override fun isRelevantInstruction(inst: CommonInst): Boolean =
-        inst is JIRAssignInst || inst is JIRCallInst || inst is JIRTerminatingInst
 
     override fun getMethodCallResolver(
         graph: ApplicationGraph<CommonMethod, CommonInst>,
@@ -153,8 +147,7 @@ class JIRAnalysisManager(cp: JIRClasspath) : JIRLanguageManager(cp), TaintAnalys
         analysisContext: MethodAnalysisContext,
         returnValue: CommonValue?,
         callExpr: CommonCallExpr,
-        statement: CommonInst,
-        factsAtStatement: List<FinalFactAp>
+        statement: CommonInst
     ): MethodCallPrecondition {
         jirDowncast<JIRImmediate?>(returnValue)
         jirDowncast<JIRCallExpr>(callExpr)
@@ -167,7 +160,6 @@ class JIRAnalysisManager(cp: JIRClasspath) : JIRLanguageManager(cp), TaintAnalys
             returnValue,
             callExpr,
             statement,
-            factsAtStatement,
             traits
         )
     }
