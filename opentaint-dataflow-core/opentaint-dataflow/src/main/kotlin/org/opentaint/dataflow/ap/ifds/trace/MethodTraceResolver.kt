@@ -19,6 +19,7 @@ import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.access.ApManager
+import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.AnalysisManager
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
@@ -155,7 +156,8 @@ class MethodTraceResolver(
         data class CallSummary(
             override val fact: InitialFactAp,
             override val statement: CommonInst,
-            val summaryTrace: MethodSummaryTrace
+            val summaryTrace: MethodSummaryTrace,
+            val factDelta: FactApDelta,
         ) : TraceEntry, CallTraceEntry
 
         data class CallSourceSummary(
@@ -679,6 +681,7 @@ class MethodTraceResolver(
                             resolvedCallSummaries.addCallSummaryEntry(
                                 statement = statement,
                                 precondition = precondition,
+                                preconditionDelta = delta,
                                 callee = callee,
                                 summaryFinalFact = matchedEntryFact,
                                 summaryEdge = summaryEdge,
@@ -753,9 +756,10 @@ class MethodTraceResolver(
     private fun MutableList<TraceEntry.CallSummary>.addCallSummaryEntry(
         statement: CommonInst,
         precondition: InitialFactAp,
+        preconditionDelta: FactApDelta,
         callee: MethodEntryPoint,
         summaryFinalFact: InitialFactAp,
-        summaryEdge: FactToFact
+        summaryEdge: FactToFact,
     ) {
         val mappedFinalFact = summaryFinalFact
             .rebase(summaryEdge.factAp.base)
@@ -770,7 +774,7 @@ class MethodTraceResolver(
             )
         )
 
-        this += TraceEntry.CallSummary(precondition, statement, calleeTrace)
+        this += TraceEntry.CallSummary(precondition, statement, calleeTrace, preconditionDelta)
     }
 
     private fun methodEntryPoints(method: MethodWithContext): Sequence<MethodEntryPoint> =
