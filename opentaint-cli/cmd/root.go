@@ -107,3 +107,7 @@ func initConfig() {
 func bindCompileTypeFlag(cmd *cobra.Command) {
 	_ = viper.BindPFlag("compile.type", cmd.Flags().Lookup("compile-type"))
 }
+
+func bindScanTypeFlag(cmd *cobra.Command) {
+	_ = viper.BindPFlag("scan.type", cmd.Flags().Lookup("scan-type"))
+}

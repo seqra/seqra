@@ -30,6 +30,15 @@ func GetAutobuilderJarPath(version string) (string, error) {
 	return autobuilderJar, nil
 }
 
+func GetAnalyzerJarPath(version string) (string, error) {
+	opentaintHomePath, err := GetOpentaintHome()
+	if err != nil {
+		return "", err
+	}
+	analyzerJar := opentaintHomePath + "/analyzer_" + version + ".jar"
+	return analyzerJar, nil
+}
+
 func GetRulesPath(version string) (string, error) {
 	opentaintHomePath, err := GetOpentaintHome()
 	if err != nil {

@@ -225,7 +225,7 @@ func (printableResult *PrintableResult) toString() string {
 		emoji = "❓"
 	}
 	return fmt.Sprintf(
-		"%s %s in file: %s\nRule: %s\nMessage: %s",
+		"%s %s in file: %s\n   Rule: %s\n   Message: %s",
 		emoji,
 		CapitalizeFirst(*printableResult.Level),
 		*printableResult.Locations,
