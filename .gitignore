@@ -35,4 +35,3 @@ go.work.sum
 .env.local
 .env.*.local
 config.local.*
-
