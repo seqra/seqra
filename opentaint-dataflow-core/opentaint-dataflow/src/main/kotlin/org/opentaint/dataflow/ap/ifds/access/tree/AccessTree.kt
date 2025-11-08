@@ -9,7 +9,6 @@ import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
-import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessPath.AccessNode.Companion.ReversedApNode
@@ -75,17 +74,17 @@ class AccessTree(
         return node.isAbstract
     }
 
-    private sealed interface Delta : FactApDelta
+    private sealed interface AccessTreeDelta : FinalFactAp.Delta
 
-    data object EmptyDelta : Delta {
+    data object EmptyAccessTreeDelta : AccessTreeDelta {
         override val isEmpty: Boolean get() = true
     }
 
-    data class NodeDelta(val node: AccessNode) : Delta {
+    data class NodeAccessTreeDelta(val node: AccessNode) : AccessTreeDelta {
         override val isEmpty: Boolean get() = false
     }
 
-    override fun delta(other: InitialFactAp): List<FactApDelta> {
+    override fun delta(other: InitialFactAp): List<FinalFactAp.Delta> {
         other as AccessPath
 
         if (base != other.base) return emptyList()
@@ -96,7 +95,7 @@ class AccessTree(
             for (accessor in access) {
                 if (accessor is FinalAccessor) {
                     if (!node.isFinal) return emptyList()
-                    return listOf(EmptyDelta)
+                    return listOf(EmptyAccessTreeDelta)
                 }
 
                 node = node.getChild(accessor) ?: return emptyList()
@@ -111,20 +110,20 @@ class AccessTree(
 
         if (filteredNode.isEmpty) return emptyList()
 
-        if (!filteredNode.isAbstract) return listOf(NodeDelta(filteredNode))
+        if (!filteredNode.isAbstract) return listOf(NodeAccessTreeDelta(filteredNode))
 
         val nonAbstractDelta = filteredNode
             .removeAbstraction()
             .takeIf { !it.isEmpty }
-            ?.let { NodeDelta(it) }
+            ?.let { NodeAccessTreeDelta(it) }
 
-        return listOfNotNull(nonAbstractDelta, EmptyDelta)
+        return listOfNotNull(nonAbstractDelta, EmptyAccessTreeDelta)
     }
 
-    override fun concat(typeChecker: FactTypeChecker, delta: FactApDelta): FinalFactAp? {
-        when (val d = delta as Delta) {
-            EmptyDelta -> return this
-            is NodeDelta -> {
+    override fun concat(typeChecker: FactTypeChecker, delta: FinalFactAp.Delta): FinalFactAp? {
+        when (val d = delta as AccessTreeDelta) {
+            EmptyAccessTreeDelta -> return this
+            is NodeAccessTreeDelta -> {
                 val concatenatedAccess = access.concatToLeafAbstractNodes(typeChecker, d.node) ?: return null
                 return AccessTree(base, concatenatedAccess, exclusions)
             }
@@ -240,31 +239,8 @@ class AccessTree(
             }
         }
 
-        fun forEachPath(body: (List<Accessor>) -> Unit) {
-            forEachPath(mutableListOf(), body)
-        }
-
-        private fun forEachPath(currentPath: MutableList<Accessor>, body: (List<Accessor>) -> Unit) {
-            if (isFinal) {
-                currentPath.add(FinalAccessor)
-                body(currentPath)
-                currentPath.removeLast()
-            }
-
-            if (isAbstract) {
-                body(currentPath)
-            }
-
-            forEachAccessor { field, node ->
-                currentPath.add(field)
-                node.forEachPath(currentPath, body)
-                currentPath.removeLast()
-            }
-        }
-
         val isEmpty: Boolean
-            get() =
-                !isAbstract && !isFinal && accessors == null
+            get() = !isAbstract && !isFinal && accessors == null
 
         private fun accessorIndex(accessor: Accessor): Int {
             if (accessors == null) return -1

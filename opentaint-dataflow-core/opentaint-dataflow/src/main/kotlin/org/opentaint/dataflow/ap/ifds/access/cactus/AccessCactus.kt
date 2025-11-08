@@ -9,7 +9,6 @@ import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
-import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
@@ -69,7 +68,7 @@ class AccessCactus(
     override fun contains(factAp: InitialFactAp): Boolean =
         this.delta(factAp).any { it.isEmpty }
 
-    private sealed interface Delta : FactApDelta
+    private sealed interface Delta : FinalFactAp.Delta
 
     data object EmptyDelta : Delta {
         override val isEmpty: Boolean get() = true
@@ -79,7 +78,7 @@ class AccessCactus(
         override val isEmpty: Boolean get() = false
     }
 
-    override fun delta(other: InitialFactAp): List<FactApDelta> {
+    override fun delta(other: InitialFactAp): List<FinalFactAp.Delta> {
         other as AccessPathWithCycles
 
         val apRefinements = mutableListOf<AccessNode>()
@@ -119,7 +118,7 @@ class AccessCactus(
         }
     }
 
-    override fun concat(typeChecker: FactTypeChecker, delta: FactApDelta): FinalFactAp? {
+    override fun concat(typeChecker: FactTypeChecker, delta: FinalFactAp.Delta): FinalFactAp? {
         when (val d = delta as Delta) {
             EmptyDelta -> return this
             is NodeDelta -> {

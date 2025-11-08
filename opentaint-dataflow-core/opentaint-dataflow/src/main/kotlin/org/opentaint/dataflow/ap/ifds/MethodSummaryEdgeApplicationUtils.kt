@@ -1,12 +1,11 @@
 package org.opentaint.dataflow.ap.ifds
 
-import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 
 object MethodSummaryEdgeApplicationUtils {
     sealed interface SummaryEdgeApplication {
-        data class SummaryApRefinement(val delta: FactApDelta) : SummaryEdgeApplication
+        data class SummaryApRefinement(val delta: FinalFactAp.Delta) : SummaryEdgeApplication
         data class SummaryExclusionRefinement(val exclusion: ExclusionSet) : SummaryEdgeApplication
     }
 

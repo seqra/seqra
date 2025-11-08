@@ -19,7 +19,6 @@ import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.access.ApManager
-import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.AnalysisManager
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
@@ -157,7 +156,7 @@ class MethodTraceResolver(
             override val fact: InitialFactAp,
             override val statement: CommonInst,
             val summaryTrace: MethodSummaryTrace,
-            val factDelta: FactApDelta,
+            val factDelta: InitialFactAp.Delta,
         ) : TraceEntry, CallTraceEntry
 
         data class CallSourceSummary(
@@ -756,7 +755,7 @@ class MethodTraceResolver(
     private fun MutableList<TraceEntry.CallSummary>.addCallSummaryEntry(
         statement: CommonInst,
         precondition: InitialFactAp,
-        preconditionDelta: FactApDelta,
+        preconditionDelta: InitialFactAp.Delta,
         callee: MethodEntryPoint,
         summaryFinalFact: InitialFactAp,
         summaryEdge: FactToFact,

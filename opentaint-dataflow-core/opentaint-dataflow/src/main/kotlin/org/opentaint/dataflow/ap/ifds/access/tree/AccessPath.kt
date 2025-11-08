@@ -8,7 +8,6 @@ import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
-import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode.Companion.SUBSEQUENT_ARRAY_ELEMENTS_LIMIT
@@ -53,7 +52,7 @@ class AccessPath(
         return null
     }
 
-    sealed interface AccessPathDelta : FactApDelta {
+    sealed interface AccessPathDelta : InitialFactAp.Delta {
         data object Empty : AccessPathDelta {
             override val isEmpty: Boolean get() = true
         }
@@ -61,9 +60,21 @@ class AccessPath(
         data class Delta(val node: AccessNode) : AccessPathDelta {
             override val isEmpty: Boolean get() = false
         }
+
+        override fun concat(other: InitialFactAp.Delta): InitialFactAp.Delta {
+            other as AccessPathDelta
+
+            return when (this) {
+                is Empty -> other
+                is Delta -> when (other) {
+                    is Empty -> this
+                    is Delta -> Delta(node.concat(other.node))
+                }
+            }
+        }
     }
 
-    override fun splitDelta(other: FinalFactAp): List<Pair<InitialFactAp, FactApDelta>> {
+    override fun splitDelta(other: FinalFactAp): List<Pair<InitialFactAp, InitialFactAp.Delta>> {
         other as AccessTree
 
         if (base != other.base) return emptyList()
@@ -117,18 +128,13 @@ class AccessPath(
         ExclusionSet.Universe -> null
     }
 
-    override fun concat(delta: FactApDelta): InitialFactAp {
+    override fun concat(delta: InitialFactAp.Delta): InitialFactAp {
         delta as AccessPathDelta
 
         when (delta) {
             AccessPathDelta.Empty -> return this
             is AccessPathDelta.Delta -> {
-                var node: AccessNode = delta.node
-                if (access != null) {
-                    for (accessor in access.toList().asReversed()) {
-                        node = node.addParent(accessor)
-                    }
-                }
+                val node = access?.concat(delta.node) ?: delta.node
                 return AccessPath(base, node, exclusions)
             }
         }
@@ -206,6 +212,14 @@ class AccessPath(
                 this.node = node.next
                 return accessor
             }
+        }
+
+        fun concat(other: AccessNode): AccessNode {
+            var node = other
+            for (accessor in this.toList().asReversed()) {
+                node = node.addParent(accessor)
+            }
+            return node
         }
 
         override fun toString(): String = joinToString("") { it.toSuffix() }

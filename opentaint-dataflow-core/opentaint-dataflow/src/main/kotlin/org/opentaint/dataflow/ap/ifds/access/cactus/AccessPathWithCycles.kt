@@ -3,7 +3,6 @@ package org.opentaint.dataflow.ap.ifds.access.cactus
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
-import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 
@@ -48,12 +47,12 @@ class AccessPathWithCycles(
     }
 
     // todo: rewrite stub implementation
-    override fun concat(delta: FactApDelta): InitialFactAp {
+    override fun concat(delta: InitialFactAp.Delta): InitialFactAp {
         return this
     }
 
     // todo: rewrite stub implementation
-    override fun splitDelta(other: FinalFactAp): List<Pair<InitialFactAp, FactApDelta>> {
+    override fun splitDelta(other: FinalFactAp): List<Pair<InitialFactAp, InitialFactAp.Delta>> {
         return emptyList()
     }
 

@@ -4,7 +4,6 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
-import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 
@@ -46,11 +45,17 @@ data class AccessGraphInitialFactAp(
         return access.clear(accessor.idx)?.let { AccessGraphInitialFactAp(base, it, exclusions) }
     }
 
-    data class Delta(val graph: AccessGraph) : FactApDelta {
+    data class Delta(val graph: AccessGraph) : InitialFactAp.Delta {
         override val isEmpty: Boolean get() = graph.isEmpty()
+
+        override fun concat(other: InitialFactAp.Delta): InitialFactAp.Delta {
+            other as Delta
+
+            return Delta(graph.concat(other.graph))
+        }
     }
 
-    override fun splitDelta(other: FinalFactAp): List<Pair<InitialFactAp, FactApDelta>> {
+    override fun splitDelta(other: FinalFactAp): List<Pair<InitialFactAp, InitialFactAp.Delta>> {
         other as AccessGraphFinalFactAp
         if (base != other.base) return emptyList()
 
@@ -69,7 +74,7 @@ data class AccessGraphInitialFactAp(
         }
     }
 
-    override fun concat(delta: FactApDelta): InitialFactAp {
+    override fun concat(delta: InitialFactAp.Delta): InitialFactAp {
         if (delta.isEmpty) return this
         delta as Delta
 

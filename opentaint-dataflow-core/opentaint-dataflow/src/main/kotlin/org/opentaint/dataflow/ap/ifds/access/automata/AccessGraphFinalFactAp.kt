@@ -9,7 +9,6 @@ import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
-import org.opentaint.dataflow.ap.ifds.access.FactApDelta
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
@@ -66,11 +65,11 @@ data class AccessGraphFinalFactAp(
         return null
     }
 
-    data class Delta(val graph: AccessGraph) : FactApDelta {
+    data class Delta(val graph: AccessGraph) : FinalFactAp.Delta {
         override val isEmpty: Boolean get() = graph.isEmpty()
     }
 
-    override fun delta(other: InitialFactAp): List<FactApDelta> {
+    override fun delta(other: InitialFactAp): List<FinalFactAp.Delta> {
         other as AccessGraphInitialFactAp
         if (base != other.base) return emptyList()
 
@@ -87,7 +86,7 @@ data class AccessGraphFinalFactAp(
         return access.containsAll(other.access)
     }
 
-    override fun concat(typeChecker: FactTypeChecker, delta: FactApDelta): FinalFactAp? {
+    override fun concat(typeChecker: FactTypeChecker, delta: FinalFactAp.Delta): FinalFactAp? {
         if (delta.isEmpty) return this
         delta as Delta
 
