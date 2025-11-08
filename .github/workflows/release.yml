@@ -25,9 +25,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Workaround for escape error `fatal: detected dubious ownership in repository at` 
+      # Workaround for escape error `fatal: detected dubious ownership in repository at`
       # https://github.com/actions/checkout/issues/1048#issuecomment-2768908874
-      - 
+      -
         name: Fix repo for release
         run: |
           git status || git config --global --add safe.directory $GITHUB_WORKSPACE

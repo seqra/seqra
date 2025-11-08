@@ -30,6 +30,15 @@ func GetAutobuilderJarPath(version string) (string, error) {
 	return autobuilderJar, nil
 }
 
+func GetAnalyzerJarPath(version string) (string, error) {
+	seqraHomePath, err := GetSeqraHome()
+	if err != nil {
+		return "", err
+	}
+	analyzerJar := seqraHomePath + "/analyzer_" + version + ".jar"
+	return analyzerJar, nil
+}
+
 func GetRulesPath(version string) (string, error) {
 	seqraHomePath, err := GetSeqraHome()
 	if err != nil {
