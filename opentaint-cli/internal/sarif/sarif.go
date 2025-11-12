@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"unicode"
 
@@ -70,11 +71,12 @@ type Rule struct {
 
 // Result represents a single result produced by the tool
 type Result struct {
-	Level     string      `json:"level"`
-	Message   *Message    `json:"message,omitempty"`
-	RuleId    string      `json:"ruleId"`
-	Locations []*Location `json:"locations,omitempty"`
-	CodeFlows []*CodeFlow `json:"codeFlows,omitempty"`
+	Level            string      `json:"level"`
+	Message          *Message    `json:"message,omitempty"`
+	RuleId           string      `json:"ruleId"`
+	Locations        []*Location `json:"locations,omitempty"`
+	RelatedLocations []*Location `json:"relatedLocations,omitempty"`
+	CodeFlows        []*CodeFlow `json:"codeFlows,omitempty"`
 }
 
 // Message contains the text of a result message
@@ -84,6 +86,7 @@ type Message struct {
 
 // Location represents a location in source code
 type Location struct {
+	Id               int                `json:"id,omitempty"`
 	PhysicalLocation *PhysicalLocation  `json:"physicalLocation"`
 	LogicalLocations []*LogicalLocation `json:"logicalLocations,omitempty"`
 	Message          *Message           `json:"message,omitempty"`
@@ -91,8 +94,10 @@ type Location struct {
 
 // LogicalLocation represents a logical location in the code, such as a function or class
 type LogicalLocation struct {
+	Name               *string `json:"name,omitempty"`
 	FullyQualifiedName *string `json:"fullyQualifiedName,omitempty"`
 	DecoratedName      *string `json:"decoratedName,omitempty"`
+	Kind               *string `json:"kind,omitempty"`
 }
 
 // PhysicalLocation specifies the location of a result
@@ -147,7 +152,6 @@ func GenerateSummary(report *Report) Summary {
 		for _, rule := range run.Tool.Driver.Rules {
 			rulesRun[*rule.ID] = true
 		}
-		summary.TotalFindings += len(run.Results)
 
 		for _, result := range run.Results {
 			level := result.Level
@@ -270,12 +274,56 @@ type ThreadFlowLocation struct {
 	Kinds          []string `json:"kinds"`
 }
 
+// isJavaFile checks if the given URI represents a Java file
+func isJavaFile(uri string) bool {
+	return filepath.Ext(uri) == ".java"
+}
+
+// isKotlinkFile checks if the given URI represents a Kotlin file
+func isKotlinFile(uri string) bool {
+	return filepath.Ext(uri) == ".kt"
+}
+
 func updateLocation(location *Location) {
 	srcRoot := "%SRCROOT%"
 	if location.PhysicalLocation != nil {
 		location.PhysicalLocation.ArtifactLocation.URIBaseID = &srcRoot
 	} else {
 		logrus.Debug("Location doesn't contain PhysicalLocation")
+	}
+}
+
+func (report *Report) KeepOnlyFileLocations() {
+	for _, run := range report.Runs {
+		// Update artifact locations in results
+		for _, result := range run.Results {
+
+			// Update locations in the main result
+			var filteredLocations []*Location
+			for _, location := range result.Locations {
+				uri := location.PhysicalLocation.ArtifactLocation.URI
+				if location.PhysicalLocation != nil && (isJavaFile(uri) || isKotlinFile(uri)) {
+					filteredLocations = append(filteredLocations, location)
+				}
+			}
+			result.Locations = filteredLocations
+
+			// Update locations in code flows
+			for _, codeFlow := range result.CodeFlows {
+				for l := range codeFlow.ThreadFlows {
+					threadFlow := &codeFlow.ThreadFlows[l]
+					var filteredThreadFlowLocations []ThreadFlowLocation
+					for m := range threadFlow.Locations {
+						location := &threadFlow.Locations[m].Location
+						uri := location.PhysicalLocation.ArtifactLocation.URI
+						if location.PhysicalLocation != nil && (isJavaFile(uri) || isKotlinFile(uri)) {
+							filteredThreadFlowLocations = append(filteredThreadFlowLocations, threadFlow.Locations[m])
+						}
+					}
+					threadFlow.Locations = filteredThreadFlowLocations
+				}
+			}
+		}
 	}
 }
 
@@ -325,6 +373,19 @@ func (report *Report) UpdateRuleId(absRulesPath, userRulesPath string) {
 			for _, rules := range run.Tool.Driver.Rules {
 				*rules.ID = semgrep.GetSemgrepRuleId(*rules.ID, absRulesPath, ruleStart)
 				*rules.Name = semgrep.GetSemgrepRuleId(*rules.Name, absRulesPath, ruleStart)
+			}
+		}
+	}
+}
+
+// KeepOnlyOneCodeFlowElement keeps only the first therad flow in each code flows
+func (report *Report) KeepOnlyOneCodeFlowElement() {
+	for _, run := range report.Runs {
+		for _, result := range run.Results {
+			for _, codeFlow := range result.CodeFlows {
+				if len(codeFlow.ThreadFlows) > 0 {
+					codeFlow.ThreadFlows = codeFlow.ThreadFlows[:1]
+				}
 			}
 		}
 	}
