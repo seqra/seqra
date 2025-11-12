@@ -1,3 +1,16 @@
+## v1.3.0
+### feat: Add `relatedLocations` and update README with blog link and demo
+- feat: Add `relatedLocations`
+- chore: Update README with new blog link and demo section
+#### seqra-jvm-sast
+- Safe load for semgrep yaml rules
+- Fix exit sink bases
+- Fix controller name
+- Fix recursion in sarif traits
+- Add spring controller info
+- Don't reset heap alias on calls without heap access
+#### seqra-rules
+- chore: Fix `xss` rule description
 ## v1.2.0
 ### feat: Enable native scanning and update Discord link
 - feat: Allow to scan in native environment

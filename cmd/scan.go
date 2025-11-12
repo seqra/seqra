@@ -227,6 +227,8 @@ func scan() {
 	if report == nil {
 		return
 	}
+	report.KeepOnlyOneCodeFlowElement()
+	report.KeepOnlyFileLocations()
 
 	logrus.Infof("Log file: %s", globals.LogPath)
 	if SarifReportPath == "" {

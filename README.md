@@ -2,7 +2,8 @@
 
 # Seqra — security-focused static analyzer for Java
 
-[Issues](https://github.com/seqra/seqra/issues) | [FAQ](docs/faq.md) | [Discord](https://discord.gg/6BXDfbP4p9) | [seqradev@gmail.com](mailto:seqradev@gmail.com)
+[Issues](https://github.com/seqra/seqra/issues) | [Blog](https://seqra.dev/blog) | [FAQ](docs/faq.md) | [Discord](https://discord.gg/6BXDfbP4p9) | [seqradev@gmail.com](mailto:seqradev@gmail.com)
+
 
 ### Why Seqra?
 
@@ -13,6 +14,10 @@
 * **Workflow ready**:
   - CLI tool with SARIF output for seamless CI/CD integration
 
+
+### Demo
+
+https://github.com/user-attachments/assets/ddaa55de-8623-4f1a-be3e-f66d34b7336d
 
 
 ### Table of Contents
