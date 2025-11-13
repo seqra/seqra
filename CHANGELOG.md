@@ -1,3 +1,9 @@
+## v1.4.0
+### feat: Bump version
+- feat: Bump version
+#### seqra-jvm-sast
+- Fix spring paths
+- Support complex taint requires
 ## v1.3.0
 ### feat: Add `relatedLocations` and update README with blog link and demo
 - feat: Add `relatedLocations`
