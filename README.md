@@ -29,6 +29,8 @@ https://github.com/user-attachments/assets/ddaa55de-8623-4f1a-be3e-f66d34b7336d
   * [Scan](#scan)
   * [View and Analyze Results](#view-and-analyze-results)
   * [CI/CD Integration](#cicd-integration)
+- [Features](#features)
+  * [Spring Boot Endpoint Extraction](docs/spring-boot-endpoints.md)
 - [Troubleshooting](#troubleshooting)
   * [Docker not running](#docker-not-running)
   * [Build Issues](#build-issues)
@@ -39,7 +41,15 @@ https://github.com/user-attachments/assets/ddaa55de-8623-4f1a-be3e-f66d34b7336d
 
 This project is released under the MIT License.
 
-# Install Opentaint CLI
+# Features
+
+## Spring Boot Endpoint Extraction
+
+Opentaint automatically extracts URL path information from Spring Boot applications and includes controller-to-endpoint mappings in SARIF reports. This feature helps identify the web attack surface of your application by mapping security findings to specific HTTP endpoints.
+
+[Learn more about Spring Boot endpoint extraction](docs/spring-boot-endpoints.md)
+
+# Install Opentaint
 
 ### Prerequisites:
 
