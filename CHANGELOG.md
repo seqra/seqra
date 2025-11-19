@@ -1,3 +1,10 @@
+## v1.4.1
+### fix: Update autobuilder, add docs for endpoint mapping, fix typo
+- chore: Add spring boot endpoint extraction docs
+- fix: Upd autobuilder
+- chore: Fix typo
+#### seqra-jvm-autobuilder
+- fix: Add symlink resolving
 ## v1.4.0
 ### feat: Bump version
 - feat: Bump version
