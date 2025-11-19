@@ -378,7 +378,7 @@ func (report *Report) UpdateRuleId(absRulesPath, userRulesPath string) {
 	}
 }
 
-// KeepOnlyOneCodeFlowElement keeps only the first therad flow in each code flows
+// KeepOnlyOneCodeFlowElement keeps only the first thread flow in each code flows
 func (report *Report) KeepOnlyOneCodeFlowElement() {
 	for _, run := range report.Runs {
 		for _, result := range run.Results {
