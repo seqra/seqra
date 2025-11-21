@@ -1,0 +1,220 @@
+package org.opentaint
+
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
+import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPattern
+import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPatternParsingResult
+import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPatternParser
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.PatternToActionListConverter
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.TaintRuleMeta
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.convertAutomataToTaintRules
+import org.opentaint.org.opentaint.semgrep.pattern.yamlToSemgrepRule
+import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
+
+fun main() {
+//    val pattern = "return (int ${"\$"}A);"
+//    val pattern = "(org.springframework.web.client.RestTemplate \$RESTTEMP).\$FUNC"
+//    val pattern = "\$X.SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER"
+//    val pattern = "io.micronaut.http.cookie.Cookie.of(...). ... .sameSite(\$SAME)"
+//    val pattern = """
+//        @Path(value = ${"$"}PATH2, ${"$"}KEY = ...)
+//        ${"$"}RETURN ${"$"}FUNC(...) {
+//          ...
+//        }
+//    """.trimIndent()
+//    val pattern = """
+//          @Path(${"\$"}PATH1)
+//          class ${"\$"}CLASS
+//    """.trimIndent()
+//
+//    // ${"$"}
+//    val pattern = """
+//        setSslSocketFactory(new NonValidatingSSLSocketFactory());
+//    """.trimIndent()
+//
+//    val parser = SempregJavaPatternParser()
+//    val result = parser.parseSemgrepJavaPattern(pattern)
+//    println(result)
+
+//    val parsedPattern = (result as? SemgrepJavaPatternParsingResult.Ok)?.pattern
+//        ?: error("Couldn't parse pattern: $result")
+//    val rule = transformSemgrepPatternToTaintRule(parsedPattern)
+//    println(rule)
+
+    collectParsingStats()
+
+//    val s = "int1|12char|4567"
+//    println(checkIfRegexIsSimpleEnumeration(s))
+
+    /*
+    // ${"$"}
+    val pattern1 = """
+        f(${"$"}X);
+    """.trimIndent()
+
+    val pattern2 = """
+        ...
+        clean(${"$"}X);
+    """.trimIndent()
+
+    val rule = NormalizedSemgrepRule(
+        patterns = listOf(pattern1),
+        patternNots = listOf(),
+        patternInsides = listOf(),
+        patternNotInsides = listOf(pattern2),
+    )
+    val automata = transformSemgrepRuleToAutomata(rule)
+
+    automata!!.view()
+    */
+}
+
+fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
+    val path = "projects/explyt/sast-semgrep-rules/semgrep/signature-jvm-rules"
+
+    // TODO
+    val ignoreFiles = setOf(
+        "rule-XMLStreamRdr.yml",
+        "rule-X509TrustManager.yml",
+        "rule-HostnameVerifier.yml"
+    )
+
+    val allPatterns = mutableListOf<Pair<SemgrepJavaPattern, String>>()
+
+    var astFailures = 0
+    var successful = 0
+    var failures = 0
+
+    val parser = SemgrepJavaPatternParser()
+    val converter = PatternToActionListConverter()
+
+    val patternParser = object : SemgrepPatternParser {
+        override fun parseOrNull(pattern: String): SemgrepJavaPattern? {
+            val result = parser.parseSemgrepJavaPattern(pattern)
+
+            when (result) {
+                is SemgrepJavaPatternParsingResult.FailedASTParsing -> {
+                    astFailures += 1
+                    failures += 1
+                    println("Pattern parsing failed:\n${result.errorMessages.joinToString("\n")}")
+                    return null
+                }
+
+                is SemgrepJavaPatternParsingResult.Fail -> {
+                    failures += 1
+                    println("Pattern parsing failed: ${result.exception.message}")
+                    return null
+                }
+
+                is SemgrepJavaPatternParsingResult.Ok -> {
+                    successful += 1
+                    return result.pattern
+                }
+            }
+        }
+    }
+
+    var converted = 0
+    var all = 0
+    var exceptionWhileBuildingAutomata = 0
+    var taintRuleGenerationException = 0
+    var successTaintRules = 0
+    val taintRuleGenerationExceptions = hashMapOf<String, AtomicInteger>()
+
+    val ruleBuilderStats = SemgrepRuleAutomataBuilder.Stats()
+
+    File(path).walk().filter { it.isFile }.forEach { file ->
+        if (file.extension !in setOf("yml", "yaml")) {
+            return@forEach
+        }
+
+        if (file.name in ignoreFiles) {
+            return@forEach
+        }
+        println("Reading $file")
+        val content = file.readText()
+
+        val parsed = try {
+            yamlToSemgrepRule(content)
+        } catch (e: Throwable) {
+            System.err.println("Error parsing $file")
+            e.printStackTrace()
+            return@forEach
+        }
+
+        val rules = parsed.filter { it.mode != "taint" }
+        if (rules.isEmpty()) {  // not java rules
+            return@forEach
+        }
+        all++
+
+        val ruleBuilder = SemgrepRuleAutomataBuilder(patternParser.cached(), converter.cached())
+
+        runCatching {
+            val automatas = rules.map { ruleBuilder.build(it) }
+            val convertedAll = automatas.all { it != null }
+            if (convertedAll) {
+                converted++
+                println("converted")
+            }
+
+            for (ruleAutomata in automatas) {
+                ruleAutomata ?: continue
+                val meta = TaintRuleMeta("test", "test", SerializedRule.SinkMetaData())
+                runCatching { ruleAutomata.map { convertAutomataToTaintRules(it, meta) } }
+                    .onFailure { e ->
+//                        println("Exception $e")
+//                        e.printStackTrace()
+
+                        taintRuleGenerationExceptions.getOrPut(e.toString(), ::AtomicInteger).incrementAndGet()
+                        taintRuleGenerationException++
+                    }
+                    .onSuccess { successTaintRules++ }
+            }
+
+            automatas
+        }.getOrElse { e ->
+//            println("Exception: $e")
+//            e.printStackTrace(System.out)
+            exceptionWhileBuildingAutomata += 1
+        }
+
+        ruleBuilderStats.add(ruleBuilder.stats)
+    }
+
+    println("Converted into automata $converted/$all")
+    println("Exceptions while building automata: $exceptionWhileBuildingAutomata")
+    println()
+    println(ruleBuilderStats)
+    println()
+
+    println("Pattern statistics:")
+    println("Success: $successful")
+    println("Failures: $failures")
+    println("AST failures: $astFailures")
+    println()
+    println("PatternToActionListConverter errors:")
+    converter.failedTransformations.entries.sortedByDescending { it.value }.forEach { (key, value) ->
+        println("$key: $value")
+    }
+
+    println()
+    println("Taint rules")
+    println("Success: $successTaintRules")
+    println("Failures: $taintRuleGenerationException")
+    taintRuleGenerationExceptions.entries.sortedByDescending { it.value.get() }.forEach { (key, value) ->
+        println("$key: $value")
+    }
+
+    return allPatterns
+}
+
+private fun SemgrepRuleAutomataBuilder.Stats.add(other: SemgrepRuleAutomataBuilder.Stats) {
+    this.failure += other.failure
+    this.success += other.success
+    this.ruleParsingFailure += other.ruleParsingFailure
+    this.actionListConversionFailure += other.actionListConversionFailure
+    this.metaVarSpecializationFailure += other.metaVarSpecializationFailure
+}

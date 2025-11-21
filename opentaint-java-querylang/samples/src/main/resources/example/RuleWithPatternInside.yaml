@@ -1,0 +1,12 @@
+rules:
+  - id: example-RuleWithPatternInside
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithPatternInside
+    patterns:
+      - pattern-inside:
+          $A = src();
+          ...
+      - pattern: |-
+          sink($A);

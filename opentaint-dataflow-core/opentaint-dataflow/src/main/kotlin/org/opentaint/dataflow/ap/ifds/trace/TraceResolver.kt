@@ -3,15 +3,15 @@ package org.opentaint.dataflow.ap.ifds.trace
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
-import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.CallSourceRule
-import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.CallSourceSummary
-import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.MethodEntry
 import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager.MethodEntryPointCaller
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerability
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.CallSourceRule
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.CallSourceSummary
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.EntryPointSourceRule
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.MethodEntry
 
 class TraceResolver(
     private val entryPointMethods: Set<CommonMethod>,

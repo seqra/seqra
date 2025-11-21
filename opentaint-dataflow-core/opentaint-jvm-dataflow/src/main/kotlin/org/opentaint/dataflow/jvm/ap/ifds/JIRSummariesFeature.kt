@@ -13,7 +13,6 @@ import org.opentaint.ir.api.storage.StorageContext
 import org.opentaint.ir.api.storage.SymbolInterner
 import org.opentaint.ir.api.storage.asSymbolId
 import org.opentaint.ir.impl.storage.txn
-import org.opentaint.ir.taint.configuration.TaintMark
 import org.objectweb.asm.tree.ClassNode
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
@@ -182,7 +181,7 @@ class JIRSummariesFeature(
 
                         val taintMarkName = interner.findSymbolName(taintMarkId)
                             ?: error("Deserialization error. Unknown taintMark id: $id")
-                        TaintMarkAccessor(TaintMark(taintMarkName))
+                        TaintMarkAccessor(taintMarkName)
                     }
                 }
             }
@@ -213,7 +212,7 @@ class JIRSummariesFeature(
             }
 
             is TaintMarkAccessor -> accessorToIdCache.computeIfAbsent(accessor) {
-                val taintMarkId = accessor.mark.name.asSymbolId(interner)
+                val taintMarkId = accessor.mark.asSymbolId(interner)
                 val accessorId = opentaint-ir.persistence.read { context ->
                     context.txn.find(ACCESSOR_IDS_TYPE, "taintMarkId", taintMarkId)
                         .singleOrNull()
@@ -303,7 +302,7 @@ class JIRSummariesFeature(
             } else {
                 accessor as TaintMarkAccessor
 
-                val taintMarkId = accessor.mark.name.asSymbolId(interner)
+                val taintMarkId = accessor.mark.asSymbolId(interner)
                 opentaint-ir.persistence.write { context ->
                     context.txn.newEntity(ACCESSOR_IDS_TYPE).also { taintMarkAccessorId ->
                         taintMarkAccessorId["id"] = accessorToIdCache[accessor]!!

@@ -6,15 +6,14 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.trace.MethodStartPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.TaintRulePrecondition
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
-import org.opentaint.dataflow.jvm.util.JIRTraits
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 
 class JIRMethodStartPrecondition(
     private val apManager: ApManager,
     private val context: JIRMethodAnalysisContext,
-    private val traits: JIRTraits,
 ) : MethodStartPrecondition {
     override fun factPrecondition(fact: InitialFactAp): List<TaintRulePrecondition.Source> =
         JIRMethodCallPrecondition.getEntryPointPrecondition(
-            apManager, context.taint.taintConfig, context.methodEntryPoint.method as JIRMethod, traits, fact
+            apManager, context.taint.taintConfig as TaintRulesProvider, context.methodEntryPoint.method as JIRMethod, fact
         )
 }

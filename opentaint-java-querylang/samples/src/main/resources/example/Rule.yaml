@@ -1,0 +1,17 @@
+rules:
+  - id: example-Rule
+    languages:
+      - java
+    severity: ERROR
+    message: match example/Rule
+    patterns:
+      - pattern: |-
+          $A = src();
+          ...
+          sink($A);
+      - pattern-not: |-
+          $A = src();
+          ...
+          clean($A);
+          ...
+          sink($A);

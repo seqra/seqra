@@ -1,0 +1,17 @@
+rules:
+  - id: example-RuleWithArtificialInsideSequence
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithArtificialInsideSequence
+    patterns:
+      - pattern-inside: |
+          g($X);
+          ...
+      - pattern-inside: |
+          h($X);
+          ...
+      - pattern-not-inside: |
+          clean($X);
+          ...
+      - pattern: f($X)

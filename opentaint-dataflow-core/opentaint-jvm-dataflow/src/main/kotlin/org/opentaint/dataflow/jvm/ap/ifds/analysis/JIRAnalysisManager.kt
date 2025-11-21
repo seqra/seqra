@@ -41,11 +41,9 @@ import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodSequentPrecondition
 import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodStartPrecondition
 import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
-import org.opentaint.dataflow.jvm.util.JIRTraits
 
 class JIRAnalysisManager(cp: JIRClasspath) : JIRLanguageManager(cp), TaintAnalysisManager {
     private val lambdaTracker = JIRLambdaTracker()
-    private val traits = JIRTraits(cp)
     private val factTypeChecker = JIRFactTypeChecker(cp)
 
     override fun getMethodCallResolver(
@@ -82,7 +80,7 @@ class JIRAnalysisManager(cp: JIRClasspath) : JIRLanguageManager(cp), TaintAnalys
         analysisContext: MethodAnalysisContext
     ): MethodStartFlowFunction {
         jirDowncast<JIRMethodAnalysisContext>(analysisContext)
-        return JIRMethodStartFlowFunction(apManager, analysisContext, traits)
+        return JIRMethodStartFlowFunction(apManager, analysisContext)
     }
 
     override fun getMethodStartPrecondition(
@@ -90,7 +88,7 @@ class JIRAnalysisManager(cp: JIRClasspath) : JIRLanguageManager(cp), TaintAnalys
         analysisContext: MethodAnalysisContext
     ): MethodStartPrecondition {
         jirDowncast<JIRMethodAnalysisContext>(analysisContext)
-        return JIRMethodStartPrecondition(apManager, analysisContext, traits)
+        return JIRMethodStartPrecondition(apManager, analysisContext)
     }
 
     override fun getMethodSequentPrecondition(
@@ -108,7 +106,8 @@ class JIRAnalysisManager(cp: JIRClasspath) : JIRLanguageManager(cp), TaintAnalys
         currentInst: CommonInst
     ): MethodSequentFlowFunction {
         jirDowncast<JIRInst>(currentInst)
-        return JIRMethodSequentFlowFunction(apManager, currentInst, factTypeChecker)
+        jirDowncast<JIRMethodAnalysisContext>(analysisContext)
+        return JIRMethodSequentFlowFunction(apManager, analysisContext, currentInst, factTypeChecker)
     }
 
     override fun getMethodCallFlowFunction(
@@ -129,7 +128,6 @@ class JIRAnalysisManager(cp: JIRClasspath) : JIRLanguageManager(cp), TaintAnalys
             returnValue,
             callExpr,
             statement,
-            traits
         )
     }
 
@@ -159,8 +157,7 @@ class JIRAnalysisManager(cp: JIRClasspath) : JIRLanguageManager(cp), TaintAnalys
             analysisContext,
             returnValue,
             callExpr,
-            statement,
-            traits
+            statement
         )
     }
 

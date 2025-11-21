@@ -16,8 +16,6 @@
 
 package org.opentaint.dataflow.ap.ifds
 
-import org.opentaint.ir.taint.configuration.TaintMark
-
 sealed interface AccessPathBase {
     override fun toString(): String
 
@@ -67,14 +65,14 @@ sealed class Accessor : Comparable<Accessor> {
     }
 }
 
-data class TaintMarkAccessor(val mark: TaintMark): Accessor() {
+data class TaintMarkAccessor(val mark: String): Accessor() {
     override fun toSuffix(): String = "![$mark]"
     override fun toString(): String = "![$mark]"
 
     override val accessorClassId: Int = 3
 
     fun compareToTaintMarkAccessor(other: TaintMarkAccessor): Int {
-        return mark.name.compareTo(other.mark.name)
+        return mark.compareTo(other.mark)
     }
 }
 

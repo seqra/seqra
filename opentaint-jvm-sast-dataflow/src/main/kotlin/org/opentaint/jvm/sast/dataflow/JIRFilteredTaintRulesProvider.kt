@@ -2,8 +2,8 @@ package org.opentaint.api.checkers
 
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.dataflow.ap.ifds.taint.TaintRuleFilter
-import org.opentaint.dataflow.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRuleFilter
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 
 class JIRFilteredTaintRulesProvider(
     private val provider: TaintRulesProvider,
@@ -27,5 +27,13 @@ class JIRFilteredTaintRulesProvider(
 
     override fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst) =
         provider.cleanerRulesForMethod(method, statement)
+            .filter { filter.ruleEnabled(it) }
+
+    override fun sinkRulesForMethodExit(method: CommonMethod, statement: CommonInst) =
+        provider.sinkRulesForMethodExit(method, statement)
+            .filter { filter.ruleEnabled(it) }
+
+    override fun sinkRulesForMethodEntry(method: CommonMethod) =
+        provider.sinkRulesForMethodEntry(method)
             .filter { filter.ruleEnabled(it) }
 }

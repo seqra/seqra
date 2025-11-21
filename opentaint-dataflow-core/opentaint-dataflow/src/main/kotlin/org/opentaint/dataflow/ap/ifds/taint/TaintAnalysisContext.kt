@@ -1,6 +1,8 @@
 package org.opentaint.dataflow.ap.ifds.taint
 
+import org.opentaint.dataflow.configuration.CommonTaintRulesProvider
+
 data class TaintAnalysisContext(
-    val taintConfig: TaintRulesProvider,
+    val taintConfig: CommonTaintRulesProvider,
     val taintSinkTracker: TaintSinkTracker,
 )

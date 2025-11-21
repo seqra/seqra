@@ -1,0 +1,14 @@
+rules:
+  - id: example-Rule
+    languages:
+      - java
+    severity: ERROR
+    message: match example/Rule
+    patterns:
+      - pattern-inside: |
+          ObjectMapper $OM = new ObjectMapper(...);
+          ...
+      - pattern-inside: |
+          $OM.enableDefaultTyping();
+          ...
+      - pattern: $OM.readValue($JSON, ...);

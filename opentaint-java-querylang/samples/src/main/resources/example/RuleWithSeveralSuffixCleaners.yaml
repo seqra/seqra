@@ -1,0 +1,14 @@
+rules:
+  - id: example-RuleWithSeveralSuffixCleaners
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithSeveralSuffixCleaners
+    patterns:
+      - pattern: f($X)
+      - pattern-not-inside: |
+          ...
+          clean1($X);
+      - pattern-not-inside: |
+          ...
+          clean2($X);

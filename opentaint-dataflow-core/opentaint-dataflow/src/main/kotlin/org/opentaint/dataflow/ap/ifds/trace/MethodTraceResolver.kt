@@ -8,9 +8,6 @@ import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
-import org.opentaint.ir.taint.configuration.Action
-import org.opentaint.ir.taint.configuration.AssignMark
-import org.opentaint.ir.taint.configuration.TaintConfigurationItem
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.AnalysisRunner
 import org.opentaint.dataflow.ap.ifds.AnalysisUnitRunnerManager
@@ -26,6 +23,10 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFactMapper
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition.CallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition.CallPreconditionFact
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition.SequentPrecondition
+import org.opentaint.dataflow.configuration.CommonTaintAction
+import org.opentaint.dataflow.configuration.CommonTaintAssignAction
+import org.opentaint.dataflow.configuration.CommonTaintConfigurationItem
+import org.opentaint.dataflow.configuration.CommonTaintConfigurationSource
 import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.util.add
 import org.opentaint.dataflow.util.bitSetOf
@@ -131,15 +132,15 @@ class MethodTraceResolver(
         data class CallSourceRule(
             override val fact: InitialFactAp,
             override val statement: CommonInst,
-            val rule: TaintConfigurationItem,
-            val action: AssignMark
+            val rule: CommonTaintConfigurationSource,
+            val action: CommonTaintAssignAction
         ) : SourceStartEntry, CallTraceEntry
 
         data class EntryPointSourceRule(
             override val fact: InitialFactAp,
             val entryPoint: MethodEntryPoint,
-            val rule: TaintConfigurationItem,
-            val action: AssignMark
+            val rule: CommonTaintConfigurationSource,
+            val action: CommonTaintAssignAction
         ) : SourceStartEntry {
             override val statement: CommonInst
                 get() = entryPoint.statement
@@ -148,8 +149,8 @@ class MethodTraceResolver(
         data class CallRule(
             override val fact: InitialFactAp,
             override val statement: CommonInst,
-            val rule: TaintConfigurationItem,
-            val action: Action
+            val rule: CommonTaintConfigurationItem,
+            val action: CommonTaintAction
         ) : TraceEntry, CallTraceEntry
 
         data class CallSummary(

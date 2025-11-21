@@ -1,0 +1,11 @@
+rules:
+  - id: example-RuleWithAllowedConstant
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithAllowedConstant
+    patterns:
+      - pattern: |-
+          sink(...)
+      - pattern-not: |-
+          sink("...")

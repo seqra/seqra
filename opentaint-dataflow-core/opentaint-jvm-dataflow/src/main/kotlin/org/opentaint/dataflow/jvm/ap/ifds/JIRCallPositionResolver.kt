@@ -3,30 +3,33 @@ package org.opentaint.dataflow.jvm.ap.ifds
 import org.opentaint.ir.api.jvm.JIRArrayType
 import org.opentaint.ir.api.jvm.JIRBoundedWildcard
 import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRParameter
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.JIRTypeVariable
 import org.opentaint.ir.api.jvm.JIRUnboundWildcard
+import org.opentaint.ir.api.jvm.cfg.JIRArgument
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.objectType
 import org.opentaint.ir.api.jvm.ext.toType
-import org.opentaint.ir.taint.configuration.Argument
-import org.opentaint.ir.taint.configuration.Position
-import org.opentaint.ir.taint.configuration.PositionAccessor
-import org.opentaint.ir.taint.configuration.PositionResolver
-import org.opentaint.ir.taint.configuration.PositionWithAccess
-import org.opentaint.ir.taint.configuration.Result
-import org.opentaint.ir.taint.configuration.ResultAnyElement
-import org.opentaint.ir.taint.configuration.This
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
-import org.opentaint.dataflow.ap.ifds.PositionAccess
+import org.opentaint.dataflow.configuration.jvm.Argument
+import org.opentaint.dataflow.configuration.jvm.ClassStatic
+import org.opentaint.dataflow.configuration.jvm.Position
+import org.opentaint.dataflow.configuration.jvm.PositionAccessor
+import org.opentaint.dataflow.configuration.jvm.PositionResolver
+import org.opentaint.dataflow.configuration.jvm.PositionWithAccess
+import org.opentaint.dataflow.configuration.jvm.Result
+import org.opentaint.dataflow.configuration.jvm.This
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.accessPathBase
-import org.opentaint.dataflow.jvm.util.getArgument
+import org.opentaint.dataflow.jvm.ap.ifds.taint.PositionAccess
 import org.opentaint.dataflow.jvm.util.thisInstance
 import org.opentaint.util.Maybe
 import org.opentaint.util.fmap
@@ -68,7 +71,6 @@ class JIRCallPositionToAccessPathResolver(
         is Argument -> callExpr.args.getOrNull(position.index)?.base().toMaybe()
         This -> (callExpr as? JIRInstanceCallExpr)?.instance?.base().toMaybe()
         Result -> returnValue?.base().toMaybe()
-        ResultAnyElement -> returnValue?.arrayElem().toMaybe()
         is PositionWithAccess -> resolvePosition(position.base).fmap { pos ->
             val accessor = when (val a = position.access) {
                 PositionAccessor.ElementAccessor -> ElementAccessor
@@ -83,6 +85,8 @@ class JIRCallPositionToAccessPathResolver(
             }
             PositionAccess.Complex(pos, accessor)
         }
+
+        is ClassStatic -> PositionAccess.Simple(AccessPathBase.ClassStatic(position.className)).toMaybe()
     }
 
     private fun JIRValue.base() = (this as JIRImmediate).base()
@@ -113,25 +117,28 @@ class CallPositionToJIRValueResolver(
         is Argument -> callExpr.args.getOrNull(position.index).toMaybe()
         This -> (callExpr as? JIRInstanceCallExpr)?.instance.toMaybe()
         Result -> returnValue.toMaybe()
-        ResultAnyElement -> Maybe.none()
         is PositionWithAccess -> Maybe.none() // todo?
+        is ClassStatic -> Maybe.none()
     }
 }
-
-
 
 class CalleePositionToJIRValueResolver(
     private val method: JIRMethod
 ) : PositionResolver<Maybe<JIRValue>> {
     private val cp = method.enclosingClass.classpath
 
-    override fun resolve(position: Position): Maybe<JIRValue> = when (position) {
+  override fun resolve(position: Position): Maybe<JIRValue> = when (position) {
         is Argument -> cp.getArgument(method.parameters[position.index]).toMaybe()
         This -> method.thisInstance.toMaybe()
         is PositionWithAccess -> resolve(position.base).fmap { TODO() }
         // Inapplicable callee positions
         Result -> Maybe.none()
-        ResultAnyElement -> Maybe.none()
+        is ClassStatic -> Maybe.none()
+    }
+
+    private fun JIRClasspath.getArgument(param: JIRParameter): JIRArgument? {
+        val t = findTypeOrNull(param.type.typeName) ?: return null
+        return JIRArgument.of(param.index, param.name, t)
     }
 }
 
@@ -142,7 +149,7 @@ class JIRMethodPositionBaseTypeResolver(private val method: JIRMethod) : Positio
         This -> method.enclosingClass.toType()
         is Argument -> method.parameters.getOrNull(position.index)?.let { cp.findTypeOrNull(it.type.typeName) }
         Result -> cp.findTypeOrNull(method.returnType.typeName)
-        ResultAnyElement -> cp.findTypeOrNull(method.returnType.typeName)
         is PositionWithAccess -> resolve(position.base)
+        is ClassStatic -> null
     }
 }

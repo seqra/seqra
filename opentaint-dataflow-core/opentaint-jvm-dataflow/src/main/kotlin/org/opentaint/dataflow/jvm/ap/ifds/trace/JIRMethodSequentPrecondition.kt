@@ -19,6 +19,8 @@ import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition.SequentPre
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
 
 class JIRMethodSequentPrecondition(private val currentInst: JIRInst) : MethodSequentPrecondition {
+    // todo: method exit rule precondition
+
     override fun factPrecondition(fact: InitialFactAp): SequentPrecondition {
         when (currentInst) {
             is JIRAssignInst -> {

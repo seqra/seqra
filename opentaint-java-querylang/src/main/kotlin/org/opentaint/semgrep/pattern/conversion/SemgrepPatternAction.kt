@@ -1,0 +1,89 @@
+package org.opentaint.org.opentaint.semgrep.pattern.conversion
+
+sealed interface SemgrepPatternAction {
+    val metavars: List<String>
+    val result: ParamCondition?
+    fun setResultCondition(condition: ParamCondition): SemgrepPatternAction
+
+    data class MethodCall(
+        val methodName: String,
+        override val result: ParamCondition?,
+        val params: ParamConstraint,
+        val obj: ParamCondition?,
+        val enclosingClassName: TypeNamePattern?,
+    ) : SemgrepPatternAction {
+        override val metavars: List<String>
+            get() {
+                val metavars = mutableSetOf<String>()
+                params.conditions.forEach { it.collectMetavarTo(metavars) }
+                obj?.collectMetavarTo(metavars)
+                result?.collectMetavarTo(metavars)
+                return metavars.toList()
+            }
+
+        override fun setResultCondition(condition: ParamCondition): SemgrepPatternAction {
+            check(result == null) {
+                "Cannot change existing metavar"
+            }
+
+            return MethodCall(methodName, condition, params, obj, enclosingClassName)
+        }
+    }
+
+    data class ConstructorCall(
+        val className: TypeNamePattern,
+        override val result: ParamCondition?,
+        val params: ParamConstraint,
+    ) : SemgrepPatternAction {
+        override val metavars: List<String>
+            get() {
+                val metavars = mutableSetOf<String>()
+                params.conditions.forEach { it.collectMetavarTo(metavars) }
+                result?.collectMetavarTo(metavars)
+                return metavars.toList()
+            }
+
+        override fun setResultCondition(condition: ParamCondition): SemgrepPatternAction {
+            check(result == null) {
+                "Cannot change existing metavar"
+            }
+
+            return ConstructorCall(className, condition, params)
+        }
+    }
+
+    sealed interface SignatureModifierValue {
+        data object NoValue : SignatureModifierValue
+        data object AnyValue : SignatureModifierValue
+        data class StringValue(val paramName: String, val value: String) : SignatureModifierValue
+        data class StringPattern(val paramName: String, val pattern: String) : SignatureModifierValue
+        data class MetaVar(val paramName: String, val metaVar: String) : SignatureModifierValue
+    }
+
+    data class SignatureModifier(
+        val type: TypeNamePattern,
+        val value: SignatureModifierValue
+    )
+
+    data class MethodSignature(
+        val methodNameMetavar: String?,
+        val methodReturnTypeMetavar: String?,
+        val params: ParamConstraint.Partial,
+        val modifiers: List<SignatureModifier>,
+        val enclosingClassMetavar: String?,
+        val enclosingClassModifiers: List<SignatureModifier>,
+    ): SemgrepPatternAction {
+        override val metavars: List<String>
+            get() {
+                val metavars = mutableSetOf<String>()
+                params.conditions.forEach { it.collectMetavarTo(metavars) }
+                return metavars.toList()
+            }
+
+        override val result: ParamCondition? = null
+
+        override fun setResultCondition(condition: ParamCondition): SemgrepPatternAction {
+            error("Unsupported operation?")
+        }
+    }
+}

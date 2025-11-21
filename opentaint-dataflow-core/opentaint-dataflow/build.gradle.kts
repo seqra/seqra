@@ -5,10 +5,9 @@ plugins {
 
 dependencies {
     implementation(project(":opentaint-util"))
+    implementation(project(":opentaint-dataflow:opentaint-dataflow-configuration"))
+
     api(Libs.opentaint-ir_api_common)
-    implementation(Libs.opentaint-ir_taint_configuration) {
-        exclude(Libs.opentaint-irPackage)
-    }
     api(Libs.sarif4k)
 
     implementation(Libs.kotlinx_collections)

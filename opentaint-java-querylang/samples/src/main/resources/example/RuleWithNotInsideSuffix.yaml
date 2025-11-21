@@ -1,0 +1,12 @@
+rules:
+  - id: example-RuleWithNotInsidePrefix
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithNotInsidePrefix
+    patterns:
+      - pattern: |-
+          sink($X)
+      - pattern-not-inside: |-
+          ...
+          suffixClean($X);

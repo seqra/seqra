@@ -1,6 +1,5 @@
 package org.opentaint.api.checkers
 
-import java.io.OutputStream
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
 import org.opentaint.ir.api.common.CommonMethod
@@ -10,35 +9,37 @@ import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.impl.features.usagesExt
-import org.opentaint.ir.taint.configuration.Argument
-import org.opentaint.ir.taint.configuration.ConstantTrue
-import org.opentaint.ir.taint.configuration.CopyAllMarks
-import org.opentaint.ir.taint.configuration.Result
-import org.opentaint.ir.taint.configuration.TaintMethodSink
-import org.opentaint.ir.taint.configuration.TaintPassThrough
 import org.opentaint.api.targets.analyzeIfdsTracesWithOpentaint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
-import org.opentaint.dataflow.ap.ifds.taint.TaintRuleFilter
-import org.opentaint.dataflow.ap.ifds.taint.TaintRulesProvider
-import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.ap.ifds.sarif.SarifGenerator
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
+import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
+import org.opentaint.dataflow.configuration.jvm.Argument
+import org.opentaint.dataflow.configuration.jvm.ConstantTrue
+import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
+import org.opentaint.dataflow.configuration.jvm.Result
+import org.opentaint.dataflow.configuration.jvm.TaintMethodSink
+import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
+import org.opentaint.dataflow.configuration.jvm.TaintSinkMeta
 import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
-import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRAnalysisManager
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSafeApplicationGraph
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
+import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRAnalysisManager
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRuleFilter
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.graph.JIRApplicationGraphImpl
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.jvm.ifds.PackageUnit
-import org.opentaint.dataflow.jvm.util.JIRTraits
+import org.opentaint.dataflow.jvm.util.JIRSarifTraits
 import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.dataflow.util.percentToString
+import java.io.OutputStream
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -94,7 +95,7 @@ open class JIRTaintAnalyzer(
         sourceFileResolver: SourceFileResolver<CommonInst>,
         traces: List<VulnerabilityWithTrace>
     ) {
-        val generator = SarifGenerator(sourceFileResolver, JIRTraits(cp))
+        val generator = SarifGenerator(sourceFileResolver, JIRSarifTraits(cp))
         generator.generateSarif(output, traces.asSequence())
         logger.info { "Sarif trace generation stats: ${generator.traceGenerationStats}" }
     }
@@ -132,7 +133,8 @@ open class JIRTaintAnalyzer(
 
         if (analysisCwe != null) {
             vulnerabilities = vulnerabilities.filter {
-                it.rule.cwe.intersect(analysisCwe).isNotEmpty()
+                val cwe = (it.rule.meta as TaintSinkMeta).cwe
+                cwe?.intersect(analysisCwe)?.isNotEmpty() ?: true
             }
 
             logger.info { "Vulnerabilities with cwe $analysisCwe: ${vulnerabilities.size}" }
@@ -173,7 +175,10 @@ open class JIRTaintAnalyzer(
             when {
                 // todo: remove
                 rule is TaintPassThrough -> (rule.method as JIRMethod).enclosingClass.declaration.location !in projectLocations
-                rule is TaintMethodSink -> analysisCwe == null || rule.cwe.any { it in analysisCwe }
+                rule is TaintMethodSink -> {
+                    val ruleCwe = rule.meta.cwe
+                    ruleCwe == null || analysisCwe == null || ruleCwe.any { it in analysisCwe }
+                }
                 else -> true
             }
     }

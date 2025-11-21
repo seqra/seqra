@@ -70,3 +70,9 @@ fun IntSet.toBitSet(): BitSet {
     }
     return result
 }
+
+fun BitSet.toSet(): Set<Int> {
+    val result = mutableSetOf<Int>()
+    forEach { element -> result.add(element) }
+    return result
+}

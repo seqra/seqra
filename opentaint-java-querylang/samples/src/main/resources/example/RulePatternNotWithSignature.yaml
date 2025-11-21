@@ -1,0 +1,19 @@
+rules:
+  - id: example-RulePatternNotWithSignature
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RulePatternNotWithSignature
+    patterns:
+      - pattern: |-
+          $RET $METHOD(...) {
+              ...
+              f($ARG);
+              ...
+          }
+      - pattern-not: |-
+          $RET $METHOD(...) {
+              ...
+              clean($ARG);
+              ...
+          }

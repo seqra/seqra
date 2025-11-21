@@ -3,9 +3,9 @@ package org.opentaint.api.checkers
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.taint.configuration.TaintConfigurationItem
-import org.opentaint.ir.taint.configuration.v2.TaintConfiguration
-import org.opentaint.dataflow.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
+import org.opentaint.dataflow.configuration.jvm.serialized.TaintConfiguration
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 
 class JIRTaintRulesProvider(
     private val taintConfiguration: TaintConfiguration
@@ -28,6 +28,14 @@ class JIRTaintRulesProvider(
 
     override fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {
         taintConfiguration.cleanerForMethod(it)
+    }
+
+    override fun sinkRulesForMethodExit(method: CommonMethod, statement: CommonInst) = getRules(method) {
+        taintConfiguration.methodExitSinkForMethod(it)
+    }
+
+    override fun sinkRulesForMethodEntry(method: CommonMethod) = getRules(method) {
+        taintConfiguration.methodEntrySinkForMethod(it)
     }
 
     private inline fun <T : TaintConfigurationItem> getRules(

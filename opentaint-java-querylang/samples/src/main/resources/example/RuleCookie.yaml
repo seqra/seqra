@@ -1,0 +1,25 @@
+rules:
+  - id: example-RuleCookie
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleCookie
+    patterns:
+      - pattern: 'javax.servlet.http.Cookie $C = new Cookie(..., ...);
+
+            ...
+
+            (HttpServletResponse $RESP).addCookie($C);
+
+            '
+      - pattern-not-inside: 'javax.servlet.http.Cookie $C = new Cookie(..., ...);
+
+            ...
+
+            $C.setSecure(true);
+
+            ...
+
+            (HttpServletResponse $RESP).addCookie($C);
+
+            '

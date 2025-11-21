@@ -25,7 +25,7 @@ RUN wget --no-verbose https://services.gradle.org/distributions/${GRADLE_VERSION
 ENV PATH="/opt/gradle/${GRADLE_VERSION}/bin:${PATH}"
 
 # Maven
-ENV MAVEN_VERSION=3.9.9
+ENV MAVEN_VERSION=3.9.10
 RUN wget --no-verbose https://dlcdn.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz -O /tmp/${MAVEN_VERSION}-bin.tar.gz \
     && mkdir /opt/maven && tar xzvf /tmp/${MAVEN_VERSION}-bin.tar.gz -C /opt/maven \
     && rm /tmp/${MAVEN_VERSION}-bin.tar.gz

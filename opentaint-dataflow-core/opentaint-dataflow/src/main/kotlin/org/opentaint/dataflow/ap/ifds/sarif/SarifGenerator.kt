@@ -1,9 +1,13 @@
 package org.opentaint.dataflow.ap.ifds.sarif
 
+import io.github.detekt.sarif4k.ArtifactLocation
 import io.github.detekt.sarif4k.CodeFlow
 import io.github.detekt.sarif4k.Level
 import io.github.detekt.sarif4k.Location
+import io.github.detekt.sarif4k.LogicalLocation
 import io.github.detekt.sarif4k.Message
+import io.github.detekt.sarif4k.PhysicalLocation
+import io.github.detekt.sarif4k.Region
 import io.github.detekt.sarif4k.Result
 import io.github.detekt.sarif4k.ThreadFlow
 import io.github.detekt.sarif4k.ThreadFlowLocation
@@ -15,14 +19,14 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
+import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
 import org.opentaint.dataflow.sarif.SourceFileResolver
-import org.opentaint.dataflow.sarif.instToSarifLocation
-import org.opentaint.dataflow.util.Traits
+import org.opentaint.dataflow.util.SarifTraits
 import java.io.OutputStream
 
 class SarifGenerator(
     private val sourceFileResolver: SourceFileResolver<CommonInst>,
-    private val traits: Traits<CommonMethod, CommonInst>
+    private val traits: SarifTraits<CommonMethod, CommonInst>
 ) {
     private val json = Json {
         prettyPrint = true
@@ -42,7 +46,7 @@ class SarifGenerator(
         output: OutputStream,
         traces: Sequence<VulnerabilityWithTrace>
     ) {
-        val sarifResults = traces.mapNotNull { generateSarifResult(it.vulnerability, it.trace) }
+        val sarifResults = traces.map { generateSarifResult(it.vulnerability, it.trace) }
         val run = LazyToolRunReport(
             tool = generateSarifAnalyzerToolDescription(),
             results = sarifResults,
@@ -55,10 +59,15 @@ class SarifGenerator(
     private fun generateSarifResult(
         vulnerability: TaintSinkTracker.TaintVulnerability,
         trace: TraceResolver.Trace?
-    ): Result? {
-        val ruleId = vulnerability.rule.cwe.firstOrNull()?.let { "CWE-$it" } ?: return null
-        val ruleMessage = Message(text = "${vulnerability.rule.ruleNote} ${vulnerability.rule.cwe}")
-        val level = Level.Warning
+    ): Result {
+        val vulnerabilityRule = vulnerability.rule
+        val ruleId = vulnerabilityRule.id
+        val ruleMessage = Message(text = vulnerabilityRule.meta.message)
+        val level = when (vulnerabilityRule.meta.severity) {
+            Severity.Note -> Level.Note
+            Severity.Warning -> Level.Warning
+            Severity.Error -> Level.Error
+        }
 
         val sinkLocation = statementLocation(vulnerability.statement)
 
@@ -129,4 +138,28 @@ class SarifGenerator(
         locationsCache.computeIfAbsent(statement) {
             instToSarifLocation(traits, statement, sourceFileResolver)
         }
+
+    private fun <Statement : CommonInst> instToSarifLocation(
+        traits: SarifTraits<*, Statement>,
+        inst: Statement,
+        sourceFileResolver: SourceFileResolver<Statement>,
+    ): Location = with(traits) {
+        val sourceLocation = sourceFileResolver.resolve(inst)
+        return Location(
+            physicalLocation = sourceLocation?.let {
+                PhysicalLocation(
+                    artifactLocation = ArtifactLocation(uri = it),
+                    region = Region(
+                        startLine = lineNumber(inst).toLong()
+                    )
+                )
+            },
+            logicalLocations = listOf(
+                LogicalLocation(
+                    fullyQualifiedName = locationFQN(inst),
+                    decoratedName = locationMachineName(inst)
+                )
+            )
+        )
+    }
 }

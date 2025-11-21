@@ -15,21 +15,28 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
+import org.opentaint.dataflow.ap.ifds.access.ApManager
+import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.Sequent
+import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
+import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.clearField
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.excludeField
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.mayReadField
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.mayRemoveAfterWrite
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.readFieldTo
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.writeToField
-import org.opentaint.dataflow.ap.ifds.access.ApManager
-import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
-import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
+import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyRuleWithAssumptions
+import org.opentaint.dataflow.jvm.ap.ifds.taint.CalleePositionToAccessPath
+import org.opentaint.dataflow.jvm.ap.ifds.taint.FinalFactReader
+import org.opentaint.dataflow.jvm.ap.ifds.taint.PositionAccess
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 
 class JIRMethodSequentFlowFunction(
     private val apManager: ApManager,
+    private val analysisContext: JIRMethodAnalysisContext,
     private val currentInst: JIRInst,
     private val factTypeChecker: FactTypeChecker
 ): MethodSequentFlowFunction {
@@ -85,7 +92,12 @@ class JIRMethodSequentFlowFunction(
 
                 val access = currentInst.returnValue?.let { MethodFlowFunctionUtils.accessPathBase(it) }
                 if (access == factAp.base) {
-                    propagateFact(factAp.rebase(AccessPathBase.Return))
+                    val resultFact = factAp.rebase(AccessPathBase.Return)
+                    propagateFact(resultFact)
+
+                    applyMethodExitSinkRules(AccessPathBase.Return, resultFact)
+                } else {
+                    applyMethodExitSinkRules(AccessPathBase.Return, factAp)
                 }
             }
 
@@ -94,7 +106,12 @@ class JIRMethodSequentFlowFunction(
 
                 val access = currentInst.throwable.let { MethodFlowFunctionUtils.accessPathBase(it) }
                 if (access == factAp.base) {
-                    propagateFact(factAp.rebase(AccessPathBase.Exception))
+                    val resultFact = factAp.rebase(AccessPathBase.Exception)
+                    propagateFact(resultFact)
+
+                    applyMethodExitSinkRules(AccessPathBase.Exception, resultFact)
+                } else {
+                    applyMethodExitSinkRules(AccessPathBase.Exception, factAp)
                 }
             }
 
@@ -370,5 +387,34 @@ class JIRMethodSequentFlowFunction(
     ) {
         val abstractAp = apManager.createAbstractAp(factAp.base, factAp.exclusions)
         propagateFactWithAccessorExclude(abstractAp, accessor)
+    }
+
+    private fun applyMethodExitSinkRules(
+        methodResult: AccessPathBase, fact: FinalFactAp
+    ): Unit = with(analysisContext.taint) {
+        val config = taintConfig as TaintRulesProvider
+        val sinkRules = config.sinkRulesForMethodExit(currentInst.method, currentInst).toList()
+        if (sinkRules.isEmpty()) return
+
+        val valueResolver = CalleePositionToJIRValueResolver(currentInst.method)
+        val apResolver = CalleePositionToAccessPath(PositionAccess.Simple(methodResult))
+
+        sinkRules.applyRuleWithAssumptions(
+            apManager,
+            apResolver, valueResolver,
+            FinalFactReader(fact, apManager),
+            condition = { condition },
+            storeAssumptions = { rule, facts ->
+                taintSinkTracker.addSinkRuleAssumptions(rule, currentInst, facts)
+            },
+            currentAssumptions = { rule ->
+                taintSinkTracker.currentSinkRuleAssumptions(rule, currentInst)
+            }
+        ) { rule, evaluatedFacts ->
+            val sinkFact = evaluatedFacts.first() // todo: better fact selection?
+            taintSinkTracker.addVulnerability(
+                analysisContext.methodEntryPoint, sinkFact, currentInst, rule
+            )
+        }
     }
 }

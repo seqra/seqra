@@ -1,31 +1,27 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
-import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
-import org.opentaint.ir.taint.configuration.And
-import org.opentaint.ir.taint.configuration.Condition
-import org.opentaint.ir.taint.configuration.ContainsMark
-import org.opentaint.ir.taint.configuration.Not
-import org.opentaint.ir.taint.configuration.Or
-import org.opentaint.ir.taint.configuration.PositionResolver
-import org.opentaint.ir.taint.configuration.TaintMark
-import org.opentaint.dataflow.ap.ifds.taint.FactAwareConditionEvaluator
-import org.opentaint.dataflow.ap.ifds.FactReader
-import org.opentaint.dataflow.ap.ifds.PositionAccess
+import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.config.JIRBasicConditionEvaluator
-import org.opentaint.dataflow.jvm.util.JIRTraits
-import org.opentaint.dataflow.util.Traits
+import org.opentaint.dataflow.configuration.jvm.And
+import org.opentaint.dataflow.configuration.jvm.Condition
+import org.opentaint.dataflow.configuration.jvm.ContainsMark
+import org.opentaint.dataflow.configuration.jvm.Not
+import org.opentaint.dataflow.configuration.jvm.Or
+import org.opentaint.dataflow.configuration.jvm.PositionResolver
+import org.opentaint.dataflow.configuration.jvm.TaintMark
+import org.opentaint.dataflow.jvm.ap.ifds.taint.FactAwareConditionEvaluator
+import org.opentaint.dataflow.jvm.ap.ifds.taint.FactReader
+import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRBasicConditionEvaluator
+import org.opentaint.dataflow.jvm.ap.ifds.taint.PositionAccess
 import org.opentaint.util.Maybe
 import org.opentaint.util.onSome
 
 class JIRFactAwareConditionEvaluator(
-    traits: Traits<CommonMethod, CommonInst>,
     private val facts: Iterable<FactReader>,
     private val accessPathResolver: PositionResolver<Maybe<List<PositionAccess>>>,
-    positionResolver: PositionResolver<Maybe<CommonValue>>,
-) : JIRBasicConditionEvaluator(traits, positionResolver), FactAwareConditionEvaluator {
+    positionResolver: PositionResolver<Maybe<JIRValue>>,
+) : JIRBasicConditionEvaluator(positionResolver), FactAwareConditionEvaluator {
     private var hasEvaluatedContainsMark: Boolean = false
     private val evaluatedFacts = mutableListOf<InitialFactAp>()
 
@@ -71,15 +67,6 @@ class JIRFactAwareConditionEvaluator(
             return true
         }
 
-        return false
-    }
-}
-
-class JIRFactIgnoreConditionEvaluator(
-    traits: JIRTraits,
-    positionResolver: PositionResolver<Maybe<CommonValue>>
-) : JIRBasicConditionEvaluator(traits, positionResolver) {
-    override fun visit(condition: ContainsMark): Boolean {
         return false
     }
 }

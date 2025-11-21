@@ -4,20 +4,15 @@ import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.taint.configuration.AssignMark
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
-import org.opentaint.dataflow.ap.ifds.CalleePositionToAccessPath
-import org.opentaint.dataflow.ap.ifds.InitialFactReader
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.ap.ifds.taint.TaintPassActionPreconditionEvaluator
-import org.opentaint.dataflow.ap.ifds.taint.TaintRulesProvider
-import org.opentaint.dataflow.ap.ifds.taint.TaintSourceActionPreconditionEvaluator
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition.CallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition.CallPreconditionFact
 import org.opentaint.dataflow.ap.ifds.trace.TaintRulePrecondition
-import org.opentaint.dataflow.config.JIRBasicConditionEvaluator
+import org.opentaint.dataflow.configuration.CommonTaintConfigurationSource
+import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRCallPositionToAccessPathResolver
@@ -26,7 +21,12 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodCallFactMapper
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
-import org.opentaint.dataflow.jvm.util.JIRTraits
+import org.opentaint.dataflow.jvm.ap.ifds.taint.CalleePositionToAccessPath
+import org.opentaint.dataflow.jvm.ap.ifds.taint.InitialFactReader
+import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRBasicConditionEvaluator
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintPassActionPreconditionEvaluator
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintSourceActionPreconditionEvaluator
 import org.opentaint.dataflow.jvm.util.callee
 import org.opentaint.util.maybeFlatMap
 import org.opentaint.util.onSome
@@ -36,14 +36,13 @@ class JIRMethodCallPrecondition(
     private val analysisContext: JIRMethodAnalysisContext,
     private val returnValue: JIRImmediate?,
     private val callExpr: JIRCallExpr,
-    private val statement: JIRInst,
-    private val traits: JIRTraits
+    private val statement: JIRInst
 ) : MethodCallPrecondition {
     private val apResolver = JIRCallPositionToAccessPathResolver(callExpr, returnValue)
     private val jirValueResolver = CallPositionToJIRValueResolver(callExpr, returnValue)
     private val method = callExpr.callee
 
-    private val taintConfig get() = analysisContext.taint.taintConfig
+    private val taintConfig get() = analysisContext.taint.taintConfig as TaintRulesProvider
 
     override fun factPrecondition(fact: InitialFactAp): CallPrecondition {
         if (!JIRMethodCallFactMapper.factIsRelevantToMethodCall(returnValue, callExpr, fact)) {
@@ -80,7 +79,6 @@ class JIRMethodCallPrecondition(
         for (rule in taintConfig.sourceRulesForMethod(method, statement)) {
             val rulePrecondition = JIRPreconditionFactReader(apManager)
             val ruleConditionEvaluator = JIRFactAwareConditionEvaluator(
-                traits,
                 listOf(rulePrecondition),
                 apResolver,
                 jirValueResolver
@@ -96,7 +94,7 @@ class JIRMethodCallPrecondition(
                 val preconditions = rulePrecondition.preconditions
                 if (preconditions.isEmpty()) {
                     sourceActions.mapTo(this) {
-                        TaintRulePrecondition.Source(it.first, it.second)
+                        TaintRulePrecondition.Source(it.first as CommonTaintConfigurationSource, it.second)
                     }
                 } else {
                     preconditions.forEach { preconditionFact ->
@@ -114,7 +112,6 @@ class JIRMethodCallPrecondition(
         val rulePreconditionEvaluator = TaintPassActionPreconditionEvaluator(apResolver, entryFactReader)
 
         val ruleConditionEvaluator = JIRFactAwareConditionEvaluator(
-            traits,
             listOf(JIRPreconditionFactReader(apManager)),
             apResolver,
             jirValueResolver
@@ -136,17 +133,15 @@ class JIRMethodCallPrecondition(
             apManager: ApManager,
             config: TaintRulesProvider,
             method: JIRMethod,
-            traits: JIRTraits,
             initialFact: InitialFactAp,
         ): List<TaintRulePrecondition.Source> {
             val entryFactReader = InitialFactReader(initialFact, apManager)
             val sourcePreconditionEvaluator = TaintSourceActionPreconditionEvaluator(
-                CalleePositionToAccessPath(),
+                CalleePositionToAccessPath(resultAp = null),
                 entryFactReader
             )
 
             val conditionEvaluator = JIRBasicConditionEvaluator(
-                traits,
                 CalleePositionToJIRValueResolver(method)
             )
 
@@ -155,7 +150,7 @@ class JIRMethodCallPrecondition(
             )
 
             result.onSome { sourceActions ->
-                return sourceActions.map { TaintRulePrecondition.Source(it.first, it.second) }
+                return sourceActions.map { TaintRulePrecondition.Source(it.first as CommonTaintConfigurationSource, it.second) }
             }
 
             return emptyList()

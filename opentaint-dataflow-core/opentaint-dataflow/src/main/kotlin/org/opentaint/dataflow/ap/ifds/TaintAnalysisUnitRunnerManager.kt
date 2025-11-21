@@ -28,12 +28,12 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisContext
 import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisUnitStorage
-import org.opentaint.dataflow.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolutionContext
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolverCancellation
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
+import org.opentaint.dataflow.configuration.CommonTaintRulesProvider
 import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
@@ -52,7 +52,7 @@ class TaintAnalysisUnitRunnerManager(
     private val analysisManager: TaintAnalysisManager,
     val graph: ApplicationGraph<CommonMethod, CommonInst>,
     override val unitResolver: UnitResolver<CommonMethod>,
-    private val taintConfig: TaintRulesProvider,
+    private val taintConfig: CommonTaintRulesProvider,
     private val summarySerializationContext: SummarySerializationContext,
     apMode: ApMode = ApMode.Cactus
 ): AnalysisUnitRunnerManager, AutoCloseable {
@@ -252,7 +252,7 @@ class TaintAnalysisUnitRunnerManager(
     private class TaintAnalysisManagerWithContext(
         private val analysisManager: TaintAnalysisManager,
         private val sinkTracker: TaintSinkTracker,
-        private val taintConfig: TaintRulesProvider,
+        private val taintConfig: CommonTaintRulesProvider,
     ) : TaintAnalysisManager by analysisManager {
         override fun getMethodAnalysisContext(
             methodEntryPoint: MethodEntryPoint,
@@ -267,7 +267,7 @@ class TaintAnalysisUnitRunnerManager(
         val storage = unitStorage.getOrPut(unit) {
             TaintAnalysisUnitStorage(apManager, analysisManager)
         }
-        val sinkTracker = TaintSinkTracker(apManager, storage)
+        val sinkTracker = TaintSinkTracker(storage)
         val taintAnalyzer = TaintAnalysisManagerWithContext(analysisManager, sinkTracker, taintConfig)
 
         val runner = TaintAnalysisUnitRunner(

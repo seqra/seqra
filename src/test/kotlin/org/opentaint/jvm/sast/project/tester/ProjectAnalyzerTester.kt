@@ -3,12 +3,12 @@ package org.opentaint.jvm.sast.project
 import kotlinx.serialization.json.Json
 import mu.KLogging
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.taint.configuration.v2.TaintConfiguration
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzerTester
 import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
 import org.opentaint.jvm.sast.dataflow.TracePair
-import org.opentaint.dataflow.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.ap.ifds.access.ApMode
+import org.opentaint.dataflow.configuration.jvm.serialized.TaintConfiguration
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import java.nio.file.Path
 import kotlin.io.path.readText
 import kotlin.time.Duration
@@ -32,7 +32,7 @@ class ProjectAnalyzerTester(
     )
 
     private fun loadMainConfig(): TaintRulesProvider =
-        JIRTaintRulesProvider(TaintConfiguration().also { loadDefaultConfig(it) })
+        JIRTaintRulesProvider(TaintConfiguration().also { it.loadConfig(loadDefaultConfig()) })
 
     override fun runAnalyzer(entryPoints: List<JIRMethod>) {
         JIRTaintAnalyzerTester(

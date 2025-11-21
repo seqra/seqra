@@ -1,0 +1,20 @@
+rules:
+  - id: example-RuleWithSignature
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithSignature
+    patterns:
+      - pattern-either:
+        - pattern: |-
+            ...
+            sink1($A);
+            ...
+        - pattern: |-
+            ...
+            sink2($A);
+            ...
+      - pattern-inside: |-
+          $RET $METHOD(..., String $A, ...) {
+              ...
+          }

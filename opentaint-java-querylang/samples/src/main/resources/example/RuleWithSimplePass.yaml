@@ -1,0 +1,23 @@
+rules:
+  - id: example-Rule
+    languages:
+      - java
+    severity: ERROR
+    message: match example/Rule
+    patterns:
+      - pattern-either:
+          - pattern: |-
+              $A = src();
+              ...
+              pass($A, $B);
+              ...
+              sink($B);
+          - pattern: |-
+              $A = src();
+              $B = src();
+              sink($A, $B);
+          - pattern: |-
+              $A = src();
+              $B = src();
+              sink($A);
+              sink($B);

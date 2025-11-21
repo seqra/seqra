@@ -1,122 +1,110 @@
 package org.opentaint.dataflow.ap.ifds.taint
 
 import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.taint.configuration.TaintMark
-import org.opentaint.ir.taint.configuration.TaintMethodSink
-import org.opentaint.dataflow.ap.ifds.InitialFactReader
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
-import org.opentaint.dataflow.ap.ifds.PositionAccess
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.ap.ifds.access.ApManager
+import org.opentaint.dataflow.configuration.CommonTaintConfigurationItem
+import org.opentaint.dataflow.configuration.CommonTaintConfigurationSink
+import org.opentaint.dataflow.configuration.CommonTaintConfigurationSource
 import java.util.concurrent.ConcurrentHashMap
 
 class TaintSinkTracker(
-    private val apManager: ApManager,
     private val storage: TaintAnalysisUnitStorage,
 ) {
     sealed interface TaintVulnerability {
-        val rule: TaintMethodSink
+        val rule: CommonTaintConfigurationSink
         val methodEntryPoint: MethodEntryPoint
         val statement: CommonInst
     }
 
     data class TaintVulnerabilityUnconditional(
-        override val rule: TaintMethodSink,
+        override val rule: CommonTaintConfigurationSink,
         override val methodEntryPoint: MethodEntryPoint,
         override val statement: CommonInst
     ) : TaintVulnerability
 
     data class TaintVulnerabilityWithFact(
-        override val rule: TaintMethodSink,
+        override val rule: CommonTaintConfigurationSink,
         override val methodEntryPoint: MethodEntryPoint,
         override val statement: CommonInst,
         val factAp: InitialFactAp
     ): TaintVulnerability
 
-    private val unconditionalVulnerabilities = ConcurrentHashMap.newKeySet<TaintVulnerabilityUnconditional>()
+    private val uniqueUnconditionalVulnerabilities = ConcurrentHashMap<String, MutableSet<CommonInst>>()
 
     fun addUnconditionalVulnerability(
         methodEntryPoint: MethodEntryPoint,
         statement: CommonInst,
-        rule: TaintMethodSink
+        rule: CommonTaintConfigurationSink
     ) {
-        val vulnerability = TaintVulnerabilityUnconditional(rule, methodEntryPoint, statement)
-        if (unconditionalVulnerabilities.add(vulnerability)) {
-            storage.addVulnerability(vulnerability)
+        val vulnerabilities = uniqueUnconditionalVulnerabilities.computeIfAbsent(rule.id) {
+            ConcurrentHashMap.newKeySet()
         }
+
+        if (!vulnerabilities.add(statement)) return
+
+        storage.addVulnerability(TaintVulnerabilityUnconditional(rule, methodEntryPoint, statement))
     }
 
-    private val reportedVulnerabilities = ConcurrentHashMap<TaintMethodSink, MutableSet<CommonInst>>()
+    private val reportedVulnerabilities = ConcurrentHashMap<String, MutableSet<CommonInst>>()
 
     fun addVulnerability(
         methodEntryPoint: MethodEntryPoint,
         factAp: InitialFactAp,
         statement: CommonInst,
-        rule: TaintMethodSink
+        rule: CommonTaintConfigurationSink
     ) {
-        val reportedVulnerabilitiesFoRule = reportedVulnerabilities.computeIfAbsent(rule) {
+        val reportedVulnerabilitiesFoRule = reportedVulnerabilities.computeIfAbsent(rule.id) {
             ConcurrentHashMap.newKeySet()
         }
 
         // todo: current deduplication is incompatible with traces
-        if (reportedVulnerabilitiesFoRule.add(statement)) {
-            storage.addVulnerability(TaintVulnerabilityWithFact(rule, methodEntryPoint, statement, factAp))
-        }
+        if (!reportedVulnerabilitiesFoRule.add(statement)) return
+
+        storage.addVulnerability(TaintVulnerabilityWithFact(rule, methodEntryPoint, statement, factAp))
     }
 
-    private val vulnerabilitiesWithAssumptions = ConcurrentHashMap<Pair<CommonInst, TaintMethodSink>, VulnWithAssumptions>()
+    private data class TaintRuleAssumptions<T: CommonTaintConfigurationItem>(
+        val rule: T,
+        val statement: CommonInst,
+        val facts: MutableSet<InitialFactAp>
+    )
 
-    fun addVulnerabilityWithAssumption(
-        methodEntryPoint: MethodEntryPoint,
-        factAp: InitialFactAp,
-        statement: CommonInst,
-        rule: TaintMethodSink,
-        assumptions: Set<FactAssumption>
+    private val sourceRuleAssumptions = ConcurrentHashMap<CommonTaintConfigurationSource, ConcurrentHashMap<CommonInst, TaintRuleAssumptions<CommonTaintConfigurationSource>>>()
+    private val sinkRuleAssumptions = ConcurrentHashMap<CommonTaintConfigurationSink, ConcurrentHashMap<CommonInst, TaintRuleAssumptions<CommonTaintConfigurationSink>>>()
+
+    fun addSourceRuleAssumptions(rule: CommonTaintConfigurationSource, statement: CommonInst, assumptions: Set<InitialFactAp>) =
+        addRuleAssumptions(sourceRuleAssumptions, rule, statement, assumptions)
+
+    fun currentSourceRuleAssumptions(rule: CommonTaintConfigurationSource, statement: CommonInst) =
+        currentRuleAssumptions(sourceRuleAssumptions, rule, statement)
+
+    fun addSinkRuleAssumptions(rule: CommonTaintConfigurationSink, statement: CommonInst, assumptions: Set<InitialFactAp>) =
+        addRuleAssumptions(sinkRuleAssumptions, rule, statement, assumptions)
+
+    fun currentSinkRuleAssumptions(rule: CommonTaintConfigurationSink, statement: CommonInst) =
+        currentRuleAssumptions(sinkRuleAssumptions, rule, statement)
+
+    private fun <T : CommonTaintConfigurationItem> addRuleAssumptions(
+        storage: ConcurrentHashMap<T, ConcurrentHashMap<CommonInst, TaintRuleAssumptions<T>>>,
+        rule: T, statement: CommonInst, assumptions: Set<InitialFactAp>
     ) {
-        val vulnerabilities = vulnerabilitiesWithAssumptions.computeIfAbsent(statement to rule) {
-            VulnerabilityWithAssumptions()
-        }
+        val currentAssumptions = storage
+            .computeIfAbsent(rule) { ConcurrentHashMap() }
+            .computeIfAbsent(statement) { TaintRuleAssumptions(rule, statement, hashSetOf()) }
 
-        when (vulnerabilities) {
-            BannedVulnerability -> return
-            is VulnerabilityWithAssumptions -> {
-                vulnerabilities.add(EdgeWithAssumptions(factAp, statement, assumptions))
-                if (vulnerabilities.vulnerabilityAssumptionsSatisfied(apManager)) {
-                    vulnerabilitiesWithAssumptions[statement to rule] = BannedVulnerability
-
-                    // Report vulnerability with last edge
-                    addVulnerability(methodEntryPoint, factAp, statement, rule)
-                }
-            }
+        synchronized(currentAssumptions) {
+            currentAssumptions.facts.addAll(assumptions)
         }
     }
 
-    data class FactAssumption(val mark: TaintMark, val position: PositionAccess)
-    data class EdgeWithAssumptions(val factAp: InitialFactAp, val statement: CommonInst, val assumptions: Set<FactAssumption>)
-
-    private sealed interface VulnWithAssumptions
-    private object BannedVulnerability : VulnWithAssumptions
-
-    private class VulnerabilityWithAssumptions : VulnWithAssumptions {
-        private val edges = mutableListOf<EdgeWithAssumptions>()
-
-        fun add(edge: EdgeWithAssumptions) {
-            edges.add(edge)
-        }
-
-        fun vulnerabilityAssumptionsSatisfied(apManager: ApManager): Boolean {
-            val factReaders = edges.mapTo(hashSetOf()) { it.factAp }.map { fact ->
-                InitialFactReader(fact, apManager)
-            }
-
-            for (edge in edges) {
-                val satisfied = edge.assumptions.all { assumption ->
-                    factReaders.any { fact -> fact.containsPositionWithTaintMark(assumption.position, assumption.mark) }
-                }
-
-                if (satisfied) return true
-            }
-            return false
+    private fun <T : CommonTaintConfigurationItem> currentRuleAssumptions(
+        storage: ConcurrentHashMap<T, ConcurrentHashMap<CommonInst, TaintRuleAssumptions<T>>>,
+        rule: T, statement: CommonInst
+    ): Set<InitialFactAp> {
+        val currentAssumptions = storage[rule]?.get(statement) ?: return emptySet()
+        synchronized(currentAssumptions) {
+            return currentAssumptions.facts.toSet()
         }
     }
 }

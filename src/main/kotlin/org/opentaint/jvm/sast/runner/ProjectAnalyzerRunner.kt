@@ -8,6 +8,7 @@ import com.github.ajalt.clikt.parameters.types.boolean
 import com.github.ajalt.clikt.parameters.types.int
 import org.opentaint.jvm.sast.project.Project
 import org.opentaint.jvm.sast.project.ProjectAnalyzer
+import org.opentaint.util.directory
 import org.opentaint.util.file
 import java.nio.file.Path
 import kotlin.time.Duration.Companion.seconds
@@ -25,6 +26,9 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
     private val config: Path? by option(help = "User defined analysis configuration")
         .file()
 
+    private val semgrepRuleSet: Path? by option(help = "Semgrep rule set directory")
+        .directory()
+
     override fun analyzeProject(project: Project, analyzerOutputDir: Path) {
         val projectAnalyzer = ProjectAnalyzer(
             project = project,
@@ -38,6 +42,7 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
             storeSummaries = true,
             projectKind = projectKind,
             customConfig = config,
+            semgrepRuleSet = semgrepRuleSet,
         )
 
         projectAnalyzer.analyze()
