@@ -12,8 +12,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.ActionListBuilder
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.TaintRuleMeta
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.convertAutomataToTaintRules
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
 
 class SemgrepRuleLoader {
     private val parser = SemgrepPatternParser.create().cached()
@@ -41,17 +40,12 @@ class SemgrepRuleLoader {
             logger.warn { "Found ${otherRules.size} unsupported rules in $ruleSetName" }
         }
 
-        val (taintRules, signatureRules) = javaRules.partition { it.isTaintRule() }
-        if (taintRules.isNotEmpty()) {
-            logger.warn { "Found ${taintRules.size} taint rules in $ruleSetName" }
-        }
-
-        val rules = signatureRules.mapNotNull { loadSignatureRule(it, ruleSetName) }
+        val rules = javaRules.mapNotNull { loadRule(it, ruleSetName) }
         logger.info { "Load ${rules.size} rules from $ruleSetName" }
         return rules
     }
 
-    private fun loadSignatureRule(rule: SemgrepYamlRule, ruleSetName: String): TaintRuleFromSemgrep? {
+    private fun loadRule(rule: SemgrepYamlRule, ruleSetName: String): TaintRuleFromSemgrep? {
         val ruleId = "${ruleSetName}/${rule.id}"
 
         val ruleAutomataBuilder = SemgrepRuleAutomataBuilder(parser, converter)
@@ -63,46 +57,33 @@ class SemgrepRuleLoader {
         }.getOrThrow()
 
         val stats = ruleAutomataBuilder.stats
-        if (stats.failure > 0) {
+        if (stats.isFailure) {
             logger.warn { "Rule $ruleId automata build issues: $stats" }
         }
 
-        if (ruleAutomata == null) return null
-
         val ruleCwe = rule.cweInfo()
 
-        val ruleGroups = ruleAutomata.mapIndexedNotNull { idx, automata ->
-            val automataId = "$ruleId#$idx"
-            val sinkMeta = SerializedRule.SinkMetaData(
-                cwe = ruleCwe,
-                note = rule.message,
-                severity = when (rule.severity.lowercase()) {
-                    "high", "critical" -> CommonTaintConfigurationSinkMeta.Severity.Error
-                    "medium" -> CommonTaintConfigurationSinkMeta.Severity.Warning
-                    else -> CommonTaintConfigurationSinkMeta.Severity.Note
-                }
-            )
-            val meta = TaintRuleMeta(id = ruleId, automataId = automataId, sinkMeta = sinkMeta)
+        val sinkMeta = SerializedRule.SinkMetaData(
+            cwe = ruleCwe,
+            note = rule.message,
+            severity = when (rule.severity.lowercase()) {
+                "high", "critical" -> CommonTaintConfigurationSinkMeta.Severity.Error
+                "medium" -> CommonTaintConfigurationSinkMeta.Severity.Warning
+                else -> CommonTaintConfigurationSinkMeta.Severity.Note
+            }
+        )
 
-            val taintRules = runCatching {
-                convertAutomataToTaintRules(automata, meta)
-            }.onFailure { ex ->
-                logger.error(ex) { "Failed to create taint rules: $ruleId" }
-                return@mapIndexedNotNull null
-            }.getOrThrow()
-
-            TaintRuleFromSemgrep.TaintRuleGroup(taintRules)
-        }
-
-        return TaintRuleFromSemgrep(ruleId, ruleGroups)
+        return runCatching {
+            convertToTaintRules(ruleAutomata, ruleId, sinkMeta)
+        }.onFailure { ex ->
+            logger.error(ex) { "Failed to create taint rules: $ruleId" }
+            return null
+        }.getOrThrow()
     }
 
     private fun SemgrepYamlRule.isJavaRule(): Boolean = languages.any {
         it.equals("java", ignoreCase = true)
     }
-
-    private fun SemgrepYamlRule.isTaintRule(): Boolean =
-        mode?.equals("taint", ignoreCase = true) ?: false
 
     private fun SemgrepYamlRule.cweInfo(): List<Int>? {
         val metadata = metadata ?: return null

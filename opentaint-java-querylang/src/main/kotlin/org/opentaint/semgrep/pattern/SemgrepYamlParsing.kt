@@ -6,13 +6,8 @@ import com.charleskorn.kaml.YamlList
 import com.charleskorn.kaml.YamlMap
 import com.charleskorn.kaml.YamlNode
 import com.charleskorn.kaml.YamlScalar
-import jdk.internal.util.SystemProps.Raw
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.descriptors.SerialDescriptor
-import kotlinx.serialization.encoding.Decoder
-import kotlinx.serialization.encoding.Encoder
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.cartesianProductMapTo
 
 @Serializable
@@ -37,7 +32,7 @@ data class SemgrepYamlRule(
     @SerialName("pattern-sinks")
     val patternSinks: List<ComplexPattern> = emptyList(),
     @SerialName("pattern-propagators")
-    val patternPropagators: List<ComplexPattern> = emptyList(),
+    val patternPropagators: List<PatternPropagator> = emptyList(),
     @SerialName("pattern-sanitizers")
     val patternSanitizers: List<ComplexPattern> = emptyList(),
 )
@@ -77,6 +72,44 @@ data class MetavariableRegexInfo(
 @Serializable
 data class MetavariablePatternInfo(
     val metavariable: String,
+
+    // todo: complex pattern inlined here
+    @SerialName("pattern-either")
+    val patternEither: List<ComplexPattern> = emptyList(),
+    val pattern: String? = null,
+    val patterns: List<ComplexPattern> = emptyList(),
+    @SerialName("pattern-inside")
+    val patternInside: String? = null,
+    @SerialName("pattern-not")
+    val patternNot: String? = null,
+    @SerialName("pattern-not-inside")
+    val patternNotInside: String? = null,
+    @SerialName("metavariable-regex")
+    val metavariableRegex: MetavariableRegexInfo? = null,
+    @SerialName("metavariable-pattern")
+    val metavariablePattern: MetavariablePatternInfo? = null,
+    @SerialName("metavariable-comparison")
+    val metavariableComparison: MetavariablePatternInfo? = null,
+    @SerialName("pattern-regex")
+    val patternRegex: String? = null,
+    @SerialName("pattern-not-regex")
+    val patternNotRegex: String? = null,
+    @SerialName("focus-metavariable")
+    val focusMetavariable: YamlNode? = null,
+) {
+    fun pattern() = ComplexPattern(
+        patternEither, pattern, patterns, patternInside, patternNot,
+        patternNotInside, metavariableRegex, metavariablePattern,
+        metavariableComparison, patternRegex, patternNotRegex, focusMetavariable
+    )
+}
+
+@Serializable
+data class PatternPropagator(
+    val from: String,
+    val to: String,
+
+    // todo: complex pattern inlined here
     @SerialName("pattern-either")
     val patternEither: List<ComplexPattern> = emptyList(),
     val pattern: String? = null,
@@ -154,14 +187,16 @@ fun parseSemgrepRule(rule: SemgrepYamlRule): SemgrepRule<Formula> =
     if (rule.mode == "taint") {
         parseTaintRule(rule)
     } else {
-        SemgrepMatchingRule(parseMatchingRuleFormula(rule))
+        SemgrepMatchingRule(listOf(parseMatchingRuleFormula(rule)))
     }
 
 private fun parseTaintRule(rule: SemgrepYamlRule): SemgrepTaintRule<Formula> =
     SemgrepTaintRule(
         sources = rule.patternSources.map { complexPatternToFormula(it) },
         sinks = rule.patternSinks.map { complexPatternToFormula(it) },
-        propagators = rule.patternPropagators.map { complexPatternToFormula(it) },
+        propagators = rule.patternPropagators.map {
+            SemgrepTaintPropagator(it.from, it.to, complexPatternToFormula(it.pattern()))
+        },
         sanitizers = rule.patternSanitizers.map { complexPatternToFormula(it) }
     )
 
@@ -178,24 +213,23 @@ private fun parseMatchingRuleFormula(rule: SemgrepYamlRule): Formula =
         TODO()
     }
 
-fun convertToRawRule(rule: SemgrepRule<Formula>): SemgrepRule<List<RawSemgrepRule>> {
-    return rule.transform {
-        convertToRawRule(it)
-    }
+fun convertToRawRule(rule: SemgrepRule<Formula>): SemgrepRule<RuleWithFocusMetaVars<RawSemgrepRule>> {
+    return rule.flatMap { convertToRawRule(it) }
 }
 
-fun convertToRawRule(formula: Formula): List<RawSemgrepRule> {
+fun convertToRawRule(formula: Formula): List<RuleWithFocusMetaVars<RawSemgrepRule>> {
     val formulaDnf = formula.normalizeToNNF(negated = false).toDNF()
     return formulaDnf.mapNotNull { convertToNormalizedRule(it.literals) }
 }
 
-private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>): RawSemgrepRule? {
+private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>): RuleWithFocusMetaVars<RawSemgrepRule>? {
     val patterns = mutableListOf<String>()
     val patternNots = mutableListOf<String>()
     val patternInsides = mutableListOf<String>()
     val patternNotInsides = mutableListOf<String>()
     val metaVariablePatterns = hashMapOf<String, MutableSet<String>>()
     val metaVariableRegex = hashMapOf<String, MutableSet<String>>()
+    val focusMetaVars = hashSetOf<String>()
 
     for (literal in literals) {
         when (val f = literal.formula) {
@@ -217,7 +251,10 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>): 
             }
 
             is Formula.MetavarFocus -> {
-                // ignore this one
+                // todo
+                if (literal.negated) return null
+
+                focusMetaVars.add(f.name)
             }
 
             is Formula.MetavarCond -> {
@@ -258,9 +295,12 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>): 
         }
     }
 
-    return RawSemgrepRule(
-        patterns, patternNots, patternInsides, patternNotInsides,
-        metaVariablePatterns, metaVariableRegex
+    return RuleWithFocusMetaVars(
+        RawSemgrepRule(
+            patterns, patternNots, patternInsides, patternNotInsides,
+            metaVariablePatterns, metaVariableRegex
+        ),
+        focusMetaVars
     )
 }
 

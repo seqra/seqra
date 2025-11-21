@@ -4,7 +4,8 @@ import org.opentaint.org.opentaint.semgrep.pattern.ActionListSemgrepRule
 import org.opentaint.org.opentaint.semgrep.pattern.NormalizedSemgrepRule
 import org.opentaint.org.opentaint.semgrep.pattern.ParsedSemgprepRule
 import org.opentaint.org.opentaint.semgrep.pattern.RawSemgrepRule
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepMatchingRule
+import org.opentaint.org.opentaint.semgrep.pattern.RuleWithFocusMetaVars
+import org.opentaint.org.opentaint.semgrep.pattern.SemgrepRule
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepYamlRule
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.transformSemgrepRuleToAutomata
@@ -16,52 +17,43 @@ class SemgrepRuleAutomataBuilder(
     private val converter: ActionListBuilder = ActionListBuilder.create(),
 ) {
     data class Stats(
-        var success: Int = 0,
-        var failure: Int = 0,
         var ruleParsingFailure: Int = 0,
         var metaVarSpecializationFailure: Int = 0,
         var actionListConversionFailure: Int = 0,
-    )
+    ) {
+        val isFailure: Boolean get() = (ruleParsingFailure + metaVarSpecializationFailure + actionListConversionFailure) > 0
+    }
 
-    val  stats = Stats()
+    val stats = Stats()
 
-    fun build(rule: SemgrepYamlRule): List<SemgrepRuleAutomata>? {
+    fun build(rule: SemgrepYamlRule): SemgrepRule<RuleWithFocusMetaVars<SemgrepRuleAutomata>> {
         val semgrepRule = parseSemgrepRule(rule)
+        val rawRules = convertToRawRule(semgrepRule)
 
-        if (semgrepRule !is SemgrepMatchingRule) {
-            TODO()
+        val parsedRules = rawRules.fFlatMap { r ->
+            parseSemgrepRule(r)?.let { listOf(it) } ?: run {
+                stats.ruleParsingFailure++
+                emptyList()
+            }
         }
 
-        val rawRules = convertToRawRule(semgrepRule.rule)
-
-        val parsedRules = rawRules.mapNotNull { parseSemgrepRule(it) }
-        if (rawRules.size != parsedRules.size) {
-            stats.ruleParsingFailure++
+        val metaVarSpecialized = parsedRules.fFlatMap { r ->
+            specializeMetaVars(r) ?: run {
+                stats.metaVarSpecializationFailure++
+                emptyList()
+            }
         }
 
-        val metaVarSpecializedRulesList = parsedRules.mapNotNull { specializeMetaVars(it) }
-        if (parsedRules.size != metaVarSpecializedRulesList.size) {
-            stats.metaVarSpecializationFailure++
+        val ruleAfterRewrite = metaVarSpecialized.fmap { rewriteRule(it) }
+
+        val ruleActionList = ruleAfterRewrite.fFlatMap { r ->
+            convertToActionList(r)?.let { listOf(it) } ?: run {
+                stats.actionListConversionFailure++
+                emptyList()
+            }
         }
 
-        val metaVarSpecializedRules = metaVarSpecializedRulesList.flatten()
-
-        val rewriterRules = metaVarSpecializedRules.map { rewriteRule(it) }
-
-        val actionListRules = rewriterRules.mapNotNull { convertToActionList(it) }
-        if (actionListRules.size != rewriterRules.size) {
-            stats.actionListConversionFailure++
-        }
-
-        val ruleAutomata = actionListRules.map { transformSemgrepRuleToAutomata(it) }
-
-        if (ruleAutomata.isEmpty()) {
-            stats.failure++
-            return null
-        }
-
-        stats.success++
-        return ruleAutomata
+        return ruleActionList.fmap { transformSemgrepRuleToAutomata(it) }
     }
 
     fun convertToActionList(rule: NormalizedSemgrepRule): ActionListSemgrepRule? {
@@ -90,4 +82,10 @@ class SemgrepRuleAutomataBuilder(
         return rewriteAddExpr(rule)
             .let { rewriteAssignEllipsis(it) }
     }
+
+    private inline fun <T, R> SemgrepRule<RuleWithFocusMetaVars<T>>.fmap(crossinline body: (T) -> R): SemgrepRule<RuleWithFocusMetaVars<R>> =
+        transform { r -> r.map { body(it) } }
+
+    private inline fun <T, R> SemgrepRule<RuleWithFocusMetaVars<T>>.fFlatMap(crossinline body: (T) -> List<R>): SemgrepRule<RuleWithFocusMetaVars<R>> =
+        flatMap { r -> r.flatMap { body(it) } }
 }

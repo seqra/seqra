@@ -173,8 +173,6 @@ open class JIRTaintAnalyzer(
     private val taintRuleFilter: TaintRuleFilter? = TaintRuleFilter {
         rule ->
             when {
-                // todo: remove
-                rule is TaintPassThrough -> (rule.method as JIRMethod).enclosingClass.declaration.location !in projectLocations
                 rule is TaintMethodSink -> {
                     val ruleCwe = rule.meta.cwe
                     ruleCwe == null || analysisCwe == null || ruleCwe.any { it in analysisCwe }

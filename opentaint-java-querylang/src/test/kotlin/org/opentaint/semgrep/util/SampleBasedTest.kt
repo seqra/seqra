@@ -1,11 +1,9 @@
 package org.opentaint.semgrep.util
 
-import org.junit.jupiter.api.AfterAll
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.TaintRuleMeta
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.convertAutomataToTaintRules
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
+import org.opentaint.org.opentaint.semgrep.pattern.createTaintConfig
 import org.opentaint.org.opentaint.semgrep.pattern.parseSemgrepYaml
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -23,21 +21,8 @@ abstract class SampleBasedTest {
 
 //        ruleAutomata.forEach { it.view() }
 
-        val rules = ruleAutomata.flatMapIndexed { idx, automata ->
-            val automataId = "${rule.id}_$idx"
-            val meta = TaintRuleMeta(automataId, rule.id, SerializedRule.SinkMetaData())
-            convertAutomataToTaintRules(automata, meta)
-        }
-
-        val taintConfig = SerializedTaintConfig(
-            entryPoint = rules.filterIsInstance<SerializedRule.EntryPoint>(),
-            source = rules.filterIsInstance<SerializedRule.Source>(),
-            sink = rules.filterIsInstance<SerializedRule.Sink>(),
-            passThrough = rules.filterIsInstance<SerializedRule.PassThrough>(),
-            cleaner = rules.filterIsInstance<SerializedRule.Cleaner>(),
-            methodExitSink = rules.filterIsInstance<SerializedRule.MethodExitSink>(),
-            methodEntrySink = rules.filterIsInstance<SerializedRule.MethodEntrySink>(),
-        )
+        val rules = convertToTaintRules(ruleAutomata, rule.id, SerializedRule.SinkMetaData())
+        val taintConfig = rules.createTaintConfig()
 
         val allSamples = hashSetOf<String>()
         data.positiveClasses.mapTo(allSamples) { it.className }
@@ -73,18 +58,14 @@ abstract class SampleBasedTest {
         }
     }
 
-    companion object {
-        private val samplesDb by lazy { samplesDb() }
+    private val samplesDb by lazy { samplesDb() }
 
-        val sampleData by lazy { samplesDb.loadSampleData() }
+    private val sampleData by lazy { samplesDb.loadSampleData() }
 
-        private val runner by lazy { TestAnalysisRunner(samplesDb) }
+    private val runner by lazy { TestAnalysisRunner(samplesDb) }
 
-        @AfterAll
-        @JvmStatic
-        fun closeRunner() {
-            runner.close()
-            samplesDb.close()
-        }
+    fun closeRunner() {
+        runner.close()
+        samplesDb.close()
     }
 }

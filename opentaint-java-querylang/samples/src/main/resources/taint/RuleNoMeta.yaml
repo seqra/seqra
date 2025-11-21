@@ -1,0 +1,13 @@
+rules:
+  - id: taint-RuleNoMeta
+    languages:
+      - java
+    severity: ERROR
+    message: match taint/RuleNoMeta
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: src();
+    pattern-sinks:
+      - patterns:
+          - pattern: sink(...);

@@ -1,5 +1,6 @@
 package org.opentaint.semgrep
 
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
 import org.opentaint.semgrep.util.SampleBasedTest
@@ -45,4 +46,9 @@ class ExampleTest : SampleBasedTest() {
 
     @Test
     fun `test rule cookie`() = runTest("example/RuleCookie")
+
+    @AfterAll
+    fun close(){
+        closeRunner()
+    }
 }

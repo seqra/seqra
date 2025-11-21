@@ -2,13 +2,12 @@ package org.opentaint
 
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPattern
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPatternParsingResult
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPatternParser
+import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPatternParsingResult
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.PatternToActionListConverter
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.TaintRuleMeta
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.convertAutomataToTaintRules
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
 import org.opentaint.org.opentaint.semgrep.pattern.yamlToSemgrepRule
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
@@ -144,7 +143,7 @@ fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
             return@forEach
         }
 
-        val rules = parsed.filter { it.mode != "taint" }
+        val rules = parsed
         if (rules.isEmpty()) {  // not java rules
             return@forEach
         }
@@ -154,16 +153,11 @@ fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
 
         runCatching {
             val automatas = rules.map { ruleBuilder.build(it) }
-            val convertedAll = automatas.all { it != null }
-            if (convertedAll) {
-                converted++
-                println("converted")
-            }
+            converted++
+            println("converted")
 
             for (ruleAutomata in automatas) {
-                ruleAutomata ?: continue
-                val meta = TaintRuleMeta("test", "test", SerializedRule.SinkMetaData())
-                runCatching { ruleAutomata.map { convertAutomataToTaintRules(it, meta) } }
+                runCatching { convertToTaintRules(ruleAutomata, "test", SerializedRule.SinkMetaData()) }
                     .onFailure { e ->
 //                        println("Exception $e")
 //                        e.printStackTrace()
@@ -212,8 +206,6 @@ fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
 }
 
 private fun SemgrepRuleAutomataBuilder.Stats.add(other: SemgrepRuleAutomataBuilder.Stats) {
-    this.failure += other.failure
-    this.success += other.success
     this.ruleParsingFailure += other.ruleParsingFailure
     this.actionListConversionFailure += other.actionListConversionFailure
     this.metaVarSpecializationFailure += other.metaVarSpecializationFailure

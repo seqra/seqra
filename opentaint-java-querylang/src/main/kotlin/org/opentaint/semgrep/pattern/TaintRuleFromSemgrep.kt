@@ -11,9 +11,9 @@ data class TaintRuleFromSemgrep(
     data class TaintRuleGroup(val rules: List<SerializedRule>)
 }
 
-fun TaintConfiguration.loadSemgrepRule(rule: TaintRuleFromSemgrep) {
-    val rules = rule.taintRules.flatMap { it.rules }
-    val taintConfig = SerializedTaintConfig(
+fun TaintRuleFromSemgrep.createTaintConfig(): SerializedTaintConfig {
+    val rules = taintRules.flatMap { it.rules }
+    return SerializedTaintConfig(
         entryPoint = rules.filterIsInstance<SerializedRule.EntryPoint>(),
         source = rules.filterIsInstance<SerializedRule.Source>(),
         sink = rules.filterIsInstance<SerializedRule.Sink>(),
@@ -22,5 +22,8 @@ fun TaintConfiguration.loadSemgrepRule(rule: TaintRuleFromSemgrep) {
         methodExitSink = rules.filterIsInstance<SerializedRule.MethodExitSink>(),
         methodEntrySink = rules.filterIsInstance<SerializedRule.MethodEntrySink>(),
     )
-    loadConfig(taintConfig)
+}
+
+fun TaintConfiguration.loadSemgrepRule(rule: TaintRuleFromSemgrep) {
+    loadConfig(rule.createTaintConfig())
 }
