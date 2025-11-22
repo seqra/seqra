@@ -27,7 +27,8 @@ class PrintableSemgrepRuleAutomata(val automata: SemgrepRuleAutomata) : Printabl
 
     override fun allNodes(): List<AutomataNode> {
         val allNodes = hashSetOf<AutomataNode>()
-        val unprocessedNodes = mutableListOf(automata.initialNode)
+        val unprocessedNodes = mutableListOf<AutomataNode>()
+        unprocessedNodes.addAll(automata.initialNodes)
         while (unprocessedNodes.isNotEmpty()) {
             val node = unprocessedNodes.removeLast()
             if (!allNodes.add(node)) continue
@@ -39,7 +40,7 @@ class PrintableSemgrepRuleAutomata(val automata: SemgrepRuleAutomata) : Printabl
     override fun successors(node: AutomataNode): List<Pair<AutomataEdgeType, AutomataNode>> = node.outEdges
 
     override fun nodeLabel(node: AutomataNode): String =
-        "${nodeIndex++}${if (node.accept) " ACCEPT " else if (node == automata.initialNode) " ROOT " else ""}"
+        "${nodeIndex++}${if (node.accept) " ACCEPT " else if (node in automata.initialNodes) " ROOT " else ""}"
 
     override fun edgeLabel(edge: AutomataEdgeType): String = when (edge) {
         AutomataEdgeType.End -> "END"

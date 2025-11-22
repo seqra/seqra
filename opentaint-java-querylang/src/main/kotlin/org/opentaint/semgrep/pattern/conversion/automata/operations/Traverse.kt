@@ -4,7 +4,10 @@ import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataN
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 
 fun traverse(automata: SemgrepRuleAutomata, action: (AutomataNode) -> Unit) {
-    traverse(automata.initialNode, mutableSetOf(), action)
+    val visited = hashSetOf<AutomataNode>()
+    automata.initialNodes.forEach {
+        traverse(it, visited, action)
+    }
 }
 
 private fun traverse(node: AutomataNode, visited: MutableSet<AutomataNode>, action: (AutomataNode) -> Unit) {

@@ -18,7 +18,21 @@ import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operation
 
 fun transformSemgrepRuleToAutomata(rule: ActionListSemgrepRule): SemgrepRuleAutomata {
     val formulaManager = MethodFormulaManager()
+    return transformSemgrepRuleToAutomata(formulaManager, rule)
+}
 
+fun transformSemgrepRulesToAutomata(rules: List<ActionListSemgrepRule>): List<SemgrepRuleAutomata> {
+    check(rules.isNotEmpty()) { "At least one rule is required" }
+
+    val formulaManager = MethodFormulaManager()
+    val rulesAutomata = rules.map { transformSemgrepRuleToAutomata(formulaManager, it) }
+
+    // todo: try create single automata
+
+    return rulesAutomata
+}
+
+private fun transformSemgrepRuleToAutomata(formulaManager: MethodFormulaManager, rule: ActionListSemgrepRule): SemgrepRuleAutomata {
     val (newRule, startingAutomata) = buildStartingAutomata(formulaManager, rule)
 
     val resultNfa = transformSemgrepRuleToAutomata(formulaManager, newRule, startingAutomata)

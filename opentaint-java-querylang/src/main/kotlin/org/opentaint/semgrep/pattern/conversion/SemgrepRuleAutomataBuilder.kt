@@ -5,10 +5,13 @@ import org.opentaint.org.opentaint.semgrep.pattern.NormalizedSemgrepRule
 import org.opentaint.org.opentaint.semgrep.pattern.ParsedSemgprepRule
 import org.opentaint.org.opentaint.semgrep.pattern.RawSemgrepRule
 import org.opentaint.org.opentaint.semgrep.pattern.RuleWithFocusMetaVars
+import org.opentaint.org.opentaint.semgrep.pattern.SemgrepMatchingRule
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepRule
+import org.opentaint.org.opentaint.semgrep.pattern.SemgrepTaintRule
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepYamlRule
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.transformSemgrepRuleToAutomata
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.transformSemgrepRulesToAutomata
 import org.opentaint.org.opentaint.semgrep.pattern.convertToRawRule
 import org.opentaint.org.opentaint.semgrep.pattern.parseSemgrepRule
 
@@ -53,7 +56,9 @@ class SemgrepRuleAutomataBuilder(
             }
         }
 
-        return ruleActionList.fmap { transformSemgrepRuleToAutomata(it) }
+        val ruleActionListWithoutDuplicates = ruleActionList.removeDuplicateRules()
+
+        return ruleActionListWithoutDuplicates.transformToAutomata()
     }
 
     fun convertToActionList(rule: NormalizedSemgrepRule): ActionListSemgrepRule? {
@@ -88,4 +93,35 @@ class SemgrepRuleAutomataBuilder(
 
     private inline fun <T, R> SemgrepRule<RuleWithFocusMetaVars<T>>.fFlatMap(crossinline body: (T) -> List<R>): SemgrepRule<RuleWithFocusMetaVars<R>> =
         flatMap { r -> r.flatMap { body(it) } }
+
+    private fun <T> SemgrepRule<RuleWithFocusMetaVars<T>>.removeDuplicateRules() = when (this) {
+        is SemgrepMatchingRule -> removeDuplicateRules()
+        is SemgrepTaintRule -> removeDuplicateRules()
+    }
+
+    private fun <T> SemgrepMatchingRule<RuleWithFocusMetaVars<T>>.removeDuplicateRules() =
+        SemgrepMatchingRule(rules.distinct())
+
+    private fun <T> SemgrepTaintRule<RuleWithFocusMetaVars<T>>.removeDuplicateRules() =
+        SemgrepTaintRule(sources.distinct(), sinks.distinct(), propagators.distinct(), sanitizers.distinct())
+
+    private fun SemgrepRule<RuleWithFocusMetaVars<ActionListSemgrepRule>>.transformToAutomata() = when (this) {
+        is SemgrepMatchingRule -> transformToAutomata()
+        is SemgrepTaintRule -> transformToAutomata()
+    }
+
+    private fun SemgrepTaintRule<RuleWithFocusMetaVars<ActionListSemgrepRule>>.transformToAutomata() =
+        fmap { transformSemgrepRuleToAutomata(it) }
+
+    private fun SemgrepMatchingRule<RuleWithFocusMetaVars<ActionListSemgrepRule>>.transformToAutomata(): SemgrepRule<RuleWithFocusMetaVars<SemgrepRuleAutomata>> {
+        if (rules.isEmpty()) return SemgrepMatchingRule(emptyList())
+
+        val ruleActionLists = rules.map { it.rule }
+        val ruleAutomata = transformSemgrepRulesToAutomata(ruleActionLists)
+
+        val focusMetaVars = rules.flatMapTo(hashSetOf()) { it.focusMetaVars }
+
+        val result = ruleAutomata.map { RuleWithFocusMetaVars(it, focusMetaVars) }
+        return SemgrepMatchingRule(result)
+    }
 }

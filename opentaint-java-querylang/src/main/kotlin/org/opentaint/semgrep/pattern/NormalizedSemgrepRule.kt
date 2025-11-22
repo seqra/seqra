@@ -2,7 +2,7 @@ package org.opentaint.org.opentaint.semgrep.pattern
 
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternActionList
 
-data class RuleWithFocusMetaVars<R>(val rule: R, val focusMetaVars: Set<String>){
+data class RuleWithFocusMetaVars<R>(val rule: R, val focusMetaVars: Set<String>) {
     fun <T> map(body: (R) -> T) = RuleWithFocusMetaVars(body(rule), focusMetaVars)
     fun <T> flatMap(body: (R) -> List<T>) = body(rule).map { RuleWithFocusMetaVars(it, focusMetaVars) }
 }
