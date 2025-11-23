@@ -3,15 +3,20 @@ package org.opentaint.org.opentaint.semgrep.pattern.conversion
 import org.opentaint.org.opentaint.semgrep.pattern.AddExpr
 import org.opentaint.org.opentaint.semgrep.pattern.Annotation
 import org.opentaint.org.opentaint.semgrep.pattern.BoolConstant
+import org.opentaint.org.opentaint.semgrep.pattern.CatchStatement
 import org.opentaint.org.opentaint.semgrep.pattern.ClassDeclaration
 import org.opentaint.org.opentaint.semgrep.pattern.ConcreteName
+import org.opentaint.org.opentaint.semgrep.pattern.DeepExpr
 import org.opentaint.org.opentaint.semgrep.pattern.Ellipsis
 import org.opentaint.org.opentaint.semgrep.pattern.EllipsisArgumentPrefix
+import org.opentaint.org.opentaint.semgrep.pattern.EllipsisMetavar
 import org.opentaint.org.opentaint.semgrep.pattern.EllipsisMethodInvocations
 import org.opentaint.org.opentaint.semgrep.pattern.EmptyPatternSequence
 import org.opentaint.org.opentaint.semgrep.pattern.FieldAccess
 import org.opentaint.org.opentaint.semgrep.pattern.FormalArgument
 import org.opentaint.org.opentaint.semgrep.pattern.Identifier
+import org.opentaint.org.opentaint.semgrep.pattern.ImportStatement
+import org.opentaint.org.opentaint.semgrep.pattern.IntLiteral
 import org.opentaint.org.opentaint.semgrep.pattern.Metavar
 import org.opentaint.org.opentaint.semgrep.pattern.MetavarName
 import org.opentaint.org.opentaint.semgrep.pattern.MethodArguments
@@ -21,6 +26,7 @@ import org.opentaint.org.opentaint.semgrep.pattern.Modifier
 import org.opentaint.org.opentaint.semgrep.pattern.Name
 import org.opentaint.org.opentaint.semgrep.pattern.NamedValue
 import org.opentaint.org.opentaint.semgrep.pattern.NoArgs
+import org.opentaint.org.opentaint.semgrep.pattern.NullLiteral
 import org.opentaint.org.opentaint.semgrep.pattern.ObjectCreation
 import org.opentaint.org.opentaint.semgrep.pattern.PatternArgumentPrefix
 import org.opentaint.org.opentaint.semgrep.pattern.PatternSequence
@@ -78,7 +84,13 @@ class PatternToActionListConverter: ActionListBuilder {
             ThisExpr,
             is TypedMetavar,
             is Annotation,
-            is NamedValue -> {
+            is NamedValue,
+            is NullLiteral,
+            is ImportStatement,
+            is CatchStatement,
+            is DeepExpr,
+            is EllipsisMetavar,
+            is IntLiteral -> {
                 addFailedTransformation(pattern::class.java.simpleName)
                 null
             }
@@ -134,7 +146,16 @@ class PatternToActionListConverter: ActionListBuilder {
             is VariableAssignment,
             is Annotation,
             is ClassDeclaration,
-            is NamedValue -> null
+            is NamedValue,
+            is NullLiteral,
+            is ImportStatement,
+            is CatchStatement,
+            is DeepExpr,
+            is EllipsisMetavar,
+            is IntLiteral -> {
+                addFailedTransformation("Unsupported param condition")
+                null
+            }
         }
     }
 

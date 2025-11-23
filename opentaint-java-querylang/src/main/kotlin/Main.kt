@@ -82,9 +82,12 @@ fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
 
     val allPatterns = mutableListOf<Pair<SemgrepJavaPattern, String>>()
 
-    var astFailures = 0
     var successful = 0
     var failures = 0
+
+    val astParseFailures = mutableListOf<String>()
+    val parserOtherFailures = mutableListOf<Pair<Throwable, String>>()
+    val parserFailures = hashMapOf<Pair<String, String>, MutableList<String>>()
 
     val parser = SemgrepJavaPatternParser()
     val converter = PatternToActionListConverter()
@@ -95,15 +98,25 @@ fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
 
             when (result) {
                 is SemgrepJavaPatternParsingResult.FailedASTParsing -> {
-                    astFailures += 1
                     failures += 1
-                    println("Pattern parsing failed:\n${result.errorMessages.joinToString("\n")}")
+                    astParseFailures.add(pattern)
                     return null
                 }
 
-                is SemgrepJavaPatternParsingResult.Fail -> {
+                is SemgrepJavaPatternParsingResult.ParserFailure -> {
                     failures += 1
-                    println("Pattern parsing failed: ${result.exception.message}")
+
+                    val reason = result.exception
+                    val reasonKind = reason::class.java.simpleName
+                    val reasonElementKind = reason.element::class.java.simpleName
+                    parserFailures.getOrPut(reasonKind to reasonElementKind, ::mutableListOf).add(pattern)
+
+                    return null
+                }
+
+                is SemgrepJavaPatternParsingResult.OtherFailure -> {
+                    failures += 1
+                    parserOtherFailures += result.exception to pattern
                     return null
                 }
 
@@ -187,7 +200,12 @@ fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
     println("Pattern statistics:")
     println("Success: $successful")
     println("Failures: $failures")
-    println("AST failures: $astFailures")
+    println("AST failures: ${astParseFailures.size}")
+    println("Unknown failures: ${parserOtherFailures.size}")
+    parserFailures.entries.sortedByDescending { it.value.size }.forEach { (key, value) ->
+        println("$key: ${value.size}")
+    }
+
     println()
     println("PatternToActionListConverter errors:")
     converter.failedTransformations.entries.sortedByDescending { it.value }.forEach { (key, value) ->

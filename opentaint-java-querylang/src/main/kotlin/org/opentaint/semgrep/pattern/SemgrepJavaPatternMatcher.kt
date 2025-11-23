@@ -121,6 +121,7 @@ class SemgrepJavaPatternMatcher(
                 // we don't want to match concrete variable names
                 // identifiers should be treated as class references (for example, for static fields)
                 is Identifier -> noMatch
+                else -> TODO()
             }
         }
 
@@ -176,6 +177,7 @@ class SemgrepJavaPatternMatcher(
                 is Annotation,
                 is ClassDeclaration,
                 is NamedValue -> noMatch
+                else -> TODO()
             }
         }
 
@@ -219,6 +221,7 @@ class SemgrepJavaPatternMatcher(
                 is Annotation,
                 is ClassDeclaration,
                 is NamedValue -> noMatch
+                else -> TODO()
             }
 
             if (to - from == 1) {
@@ -258,6 +261,7 @@ class SemgrepJavaPatternMatcher(
                 is Annotation,
                 is ClassDeclaration,
                 is NamedValue -> noMatch
+                else -> TODO()
             }
         }
 

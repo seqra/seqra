@@ -3,14 +3,19 @@ package org.opentaint.org.opentaint.semgrep.pattern.conversion
 import org.opentaint.org.opentaint.semgrep.pattern.AddExpr
 import org.opentaint.org.opentaint.semgrep.pattern.Annotation
 import org.opentaint.org.opentaint.semgrep.pattern.BoolConstant
+import org.opentaint.org.opentaint.semgrep.pattern.CatchStatement
 import org.opentaint.org.opentaint.semgrep.pattern.ClassDeclaration
+import org.opentaint.org.opentaint.semgrep.pattern.DeepExpr
 import org.opentaint.org.opentaint.semgrep.pattern.Ellipsis
 import org.opentaint.org.opentaint.semgrep.pattern.EllipsisArgumentPrefix
+import org.opentaint.org.opentaint.semgrep.pattern.EllipsisMetavar
 import org.opentaint.org.opentaint.semgrep.pattern.EllipsisMethodInvocations
 import org.opentaint.org.opentaint.semgrep.pattern.EmptyPatternSequence
 import org.opentaint.org.opentaint.semgrep.pattern.FieldAccess
 import org.opentaint.org.opentaint.semgrep.pattern.FormalArgument
 import org.opentaint.org.opentaint.semgrep.pattern.Identifier
+import org.opentaint.org.opentaint.semgrep.pattern.ImportStatement
+import org.opentaint.org.opentaint.semgrep.pattern.IntLiteral
 import org.opentaint.org.opentaint.semgrep.pattern.Metavar
 import org.opentaint.org.opentaint.semgrep.pattern.MethodArguments
 import org.opentaint.org.opentaint.semgrep.pattern.MethodDeclaration
@@ -19,6 +24,7 @@ import org.opentaint.org.opentaint.semgrep.pattern.Modifier
 import org.opentaint.org.opentaint.semgrep.pattern.Name
 import org.opentaint.org.opentaint.semgrep.pattern.NamedValue
 import org.opentaint.org.opentaint.semgrep.pattern.NoArgs
+import org.opentaint.org.opentaint.semgrep.pattern.NullLiteral
 import org.opentaint.org.opentaint.semgrep.pattern.ObjectCreation
 import org.opentaint.org.opentaint.semgrep.pattern.PatternArgumentPrefix
 import org.opentaint.org.opentaint.semgrep.pattern.PatternSequence
@@ -58,6 +64,12 @@ interface PatternRewriter {
         is TypedMetavar -> rewriteTypedMetavar()
         is VariableAssignment -> rewriteVariableAssignment()
         is ClassDeclaration -> rewriteClassDeclaration()
+        is NullLiteral -> rewriteNullLiteral()
+        is IntLiteral -> rewriteIntLiteral()
+        is ImportStatement -> rewriteImportStatement()
+        is CatchStatement -> rewriteCatchStatement()
+        is DeepExpr -> rewriteDeepExpr()
+        is EllipsisMetavar -> rewriteEllipsisMetavar()
     }
 
     fun AddExpr.rewriteAddExpr(): SemgrepJavaPattern = createAddExpr(left.rewrite(), right.rewrite())
@@ -123,8 +135,11 @@ interface PatternRewriter {
         createVariableAssignment(type?.rewriteTypeName(), variable.rewrite(), value.rewrite())
 
     fun BoolConstant.rewriteBoolConstant(): SemgrepJavaPattern = this
+    fun IntLiteral.rewriteIntLiteral(): SemgrepJavaPattern = this
+    fun NullLiteral.rewriteNullLiteral(): SemgrepJavaPattern = this
     fun Identifier.rewriteIdentifier(): SemgrepJavaPattern = this
     fun Metavar.rewriteMetavar(): SemgrepJavaPattern = this
+    fun EllipsisMetavar.rewriteEllipsisMetavar(): SemgrepJavaPattern = this
     fun rewriteEllipsis(): SemgrepJavaPattern = Ellipsis
     fun rewriteStringEllipsis(): SemgrepJavaPattern = StringEllipsis
     fun rewriteThisExpr(): SemgrepJavaPattern = ThisExpr
@@ -199,6 +214,30 @@ interface PatternRewriter {
         name.rewriteTypeName(),
         args.rewriteMethodArguments()
     )
+
+    fun ImportStatement.rewriteImportStatement(): SemgrepJavaPattern = createImportStatement(
+        dotSeparatedParts.map { it.rewriteName() },
+        isConcrete
+    )
+
+    fun createImportStatement(dotSeparatedParts: List<Name>, isConcrete: Boolean): SemgrepJavaPattern =
+        ImportStatement(dotSeparatedParts, isConcrete)
+
+    fun CatchStatement.rewriteCatchStatement(): SemgrepJavaPattern = createCatchStatement(
+        exceptionTypes.map { it.rewriteTypeName() },
+        exceptionVariable.rewriteName(),
+        handlerBlock.rewrite(),
+    )
+
+    fun createCatchStatement(
+        exceptionTypes: List<TypeName>,
+        exceptionVariable: Name,
+        handlerBlock: SemgrepJavaPattern
+    ): SemgrepJavaPattern = CatchStatement(exceptionTypes, exceptionVariable, handlerBlock)
+
+    fun DeepExpr.rewriteDeepExpr(): SemgrepJavaPattern = createDeepExpr(nestedExpr.rewrite())
+
+    fun createDeepExpr(nestedExpr: SemgrepJavaPattern): SemgrepJavaPattern = DeepExpr(nestedExpr)
 }
 
 open class RewriteException(message: String) : Exception(message) {

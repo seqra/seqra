@@ -23,16 +23,23 @@ class DefaultSemgrepPatternParser(
 ) : SemgrepPatternParser {
     override fun parseOrNull(pattern: String): SemgrepJavaPattern? {
         return when (val result = parser.parseSemgrepJavaPattern(pattern)) {
-            is SemgrepJavaPatternParsingResult.Fail -> {
-                logger.error { "Pattern parsing failed: ${result.exception.message}" }
-                null
-            }
             is SemgrepJavaPatternParsingResult.FailedASTParsing -> {
                 logger.error { "Pattern parsing failed with errors:\n${result.errorMessages.joinToString("\n")}" }
                 null
             }
+
             is SemgrepJavaPatternParsingResult.Ok -> {
                 result.pattern
+            }
+
+            is SemgrepJavaPatternParsingResult.ParserFailure -> {
+                logger.error { "Pattern parsing failed: ${result.exception.message}, ${result.exception.element.text}" }
+                null
+            }
+
+            is SemgrepJavaPatternParsingResult.OtherFailure -> {
+                logger.error { "Pattern parsing failed: ${result.exception.message}" }
+                null
             }
         }
     }

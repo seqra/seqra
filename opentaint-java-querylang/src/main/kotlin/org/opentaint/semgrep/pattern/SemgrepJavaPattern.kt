@@ -10,6 +10,10 @@ data class Metavar(val name: String) : SemgrepJavaPattern {
     override val children: List<SemgrepJavaPattern> = emptyList()
 }
 
+data class EllipsisMetavar(val name: String) : SemgrepJavaPattern {
+    override val children: List<SemgrepJavaPattern> = emptyList()
+}
+
 data class TypedMetavar(val name: String, val type: TypeName) : SemgrepJavaPattern {
     override val children: List<SemgrepJavaPattern> = emptyList()
 }
@@ -96,6 +100,14 @@ data class StringLiteral(val content: Name) : SemgrepJavaPattern {
     override val children: List<SemgrepJavaPattern> = emptyList()
 }
 
+data class IntLiteral(val value: String) : SemgrepJavaPattern {
+    override val children: List<SemgrepJavaPattern> = emptyList()
+}
+
+data object NullLiteral : SemgrepJavaPattern {
+    override val children: List<SemgrepJavaPattern> = emptyList()
+}
+
 data object StringEllipsis : SemgrepJavaPattern {
     override val children: List<SemgrepJavaPattern> = emptyList()
 }
@@ -145,6 +157,22 @@ data class ClassDeclaration(
 ) : SemgrepJavaPattern {
     override val children: List<SemgrepJavaPattern>
         get() = listOf(body) + modifiers.mapNotNull { it as? SemgrepJavaPattern }
+}
+
+data class ImportStatement(val dotSeparatedParts: List<Name>, val isConcrete: Boolean) : SemgrepJavaPattern {
+    override val children: List<SemgrepJavaPattern> get() = emptyList()
+}
+
+data class CatchStatement(
+    val exceptionTypes: List<TypeName>,
+    val exceptionVariable: Name,
+    val handlerBlock: SemgrepJavaPattern
+) : SemgrepJavaPattern {
+    override val children: List<SemgrepJavaPattern> get() = listOf(handlerBlock)
+}
+
+data class DeepExpr(val nestedExpr: SemgrepJavaPattern) : SemgrepJavaPattern {
+    override val children: List<SemgrepJavaPattern> get() = listOf(nestedExpr)
 }
 
 sealed interface Name {

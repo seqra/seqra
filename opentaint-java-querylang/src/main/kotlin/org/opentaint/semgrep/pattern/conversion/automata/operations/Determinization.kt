@@ -87,6 +87,11 @@ private inline fun <reified Type : AutomataEdgeType.AutomataEdgeTypeWithFormula>
     if (edgesOfThisType.isNotEmpty()) {
         val n = edgesOfThisType.size
         val out = mutableMapOf<Set<AutomataNode>, MutableList<Int>>()
+
+        check(n < Int.SIZE_BITS) {
+            "Determinization failed: too many formulas $n"
+        }
+
         for (i in 1..<(1 shl n)) {
             val toSet = edgesOfThisType.entries.flatMapIndexed { index, (_, to) ->
                 val take = (i and (1 shl index)) != 0

@@ -132,6 +132,10 @@ BOOL_LITERAL: 'true' | 'false';
 
 CHAR_LITERAL: '\'' (~['\\\r\n] | EscapeSequence) '\'';
 
+METAVAR_LITERAL: '"' METAVAR '"';
+
+ELLIPSIS_LITERAL: '"' ELLIPSIS '"';
+
 STRING_LITERAL: '"' (~["\\\r\n] | EscapeSequence)* '"';
 
 TEXT_BLOCK: '"""' [ \t]* [\r\n] (. | EscapeSequence)*? '"""';
@@ -206,7 +210,14 @@ LINE_COMMENT : '//' ~[\r\n]*    -> channel(HIDDEN);
 
 // Identifiers
 
-IDENTIFIER: Letter LetterOrDigit*;
+IDENTIFIER: LetterNoDollar LetterOrDigit*;
+
+METAVAR: [$] MetavarLetter*;
+
+ELLIPSIS_METAVAR: [$] '...' MetavarLetter*;
+
+DEEP_ELLIPSIS_OPEN: '<...';
+DEEP_ELLIPSIS_CLOSE: '...>';
 
 // Fragment rules
 
@@ -232,3 +243,11 @@ fragment Letter:
     | ~[\u0000-\u007F\uD800-\uDBFF]   // covers all characters above 0x7F which are not a surrogate
     | [\uD800-\uDBFF] [\uDC00-\uDFFF] // covers UTF-16 surrogate pairs encodings for U+10000 to U+10FFFF
 ;
+
+fragment LetterNoDollar:
+    [a-zA-Z_]                        // these are the "java letters" below 0x7F
+    | ~[\u0000-\u007F\uD800-\uDBFF]   // covers all characters above 0x7F which are not a surrogate
+    | [\uD800-\uDBFF] [\uDC00-\uDFFF] // covers UTF-16 surrogate pairs encodings for U+10000 to U+10FFFF
+;
+
+fragment MetavarLetter: [A-Z_] | [0-9];

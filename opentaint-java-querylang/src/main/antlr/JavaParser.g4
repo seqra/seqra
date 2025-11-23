@@ -195,6 +195,7 @@ fieldDeclaration
 
 interfaceBodyDeclaration
     : modifier* interfaceMemberDeclaration
+    | ellipsisExpression
     | ';'
     ;
 
@@ -295,8 +296,13 @@ formalParameterList
     ;
 
 formalParameter
-    : variableModifier* typeType variableDeclaratorId
-    | ellipsisExpression
+    : ellipsisExpression
+    | metavar
+    | variableModifier* typeType variableDeclaratorId
+    ;
+
+metavar
+    : METAVAR
     ;
 
 lastFormalParameter
@@ -319,6 +325,8 @@ qualifiedName
 literal
     : integerLiteral
     | floatLiteral
+    | METAVAR_LITERAL
+    | ELLIPSIS_LITERAL
     | CHAR_LITERAL
     | STRING_LITERAL
     | BOOL_LITERAL
@@ -469,7 +477,8 @@ localVariableDeclaration
     ;
 
 identifier
-    : IDENTIFIER
+    : METAVAR
+    | IDENTIFIER
     | MODULE
     | OPEN
     | REQUIRES
@@ -488,7 +497,8 @@ identifier
     ;
 
 typeIdentifier // Identifiers that are not restricted for type declarations
-    : IDENTIFIER
+    : METAVAR
+    | IDENTIFIER
     | MODULE
     | OPEN
     | REQUIRES
@@ -510,25 +520,57 @@ localTypeDeclaration
 
 statement
     : blockLabel = block
-    | ASSERT expression (':' expression)? ';'
-    | IF parExpression statement (ELSE statement)?
-    | FOR '(' forControl ')' statement
-    | WHILE parExpression statement
-    | DO statement WHILE parExpression ';'
+    | ASSERT expression (':' expression)? (SEMI | EOF)
+    | controlFlowStatement
     | TRY block (catchClause+ finallyBlock? | finallyBlock)
     | TRY resourceSpecification block catchClause* finallyBlock?
-    | SWITCH parExpression '{' switchBlockStatementGroup* switchLabel* '}'
     | SYNCHRONIZED parExpression block
-    | returnExpression ';'
-    | THROW expression ';'
-    | BREAK identifier? ';'
-    | CONTINUE identifier? ';'
-    | YIELD expression ';' // Java17
+    | returnExpression (SEMI | EOF)
+    | THROW expression (SEMI | EOF)
+    | BREAK identifier? (SEMI | EOF)
+    | CONTINUE identifier? (SEMI | EOF)
+    | YIELD expression (SEMI | EOF) // Java17
     | SEMI
-    | ellipsisExpression ';'?
-    | statementExpression = expression ';'
-    | switchExpression ';'? // Java17
+    | ellipsisExpression (SEMI | EOF)?
+    | statementExpression = expression (SEMI | EOF)
+    | switchExpression (SEMI | EOF)? // Java17
     | identifierLabel = identifier ':' statement
+    ;
+
+controlFlowStatement
+    : branchSatement
+    | loopStatement
+    ;
+
+branchSatement
+    : ifElseStatement
+    | swithStatement
+    ;
+
+ifElseStatement
+    : IF parExpression statement (ELSE statement)?
+    ;
+
+swithStatement
+    : SWITCH parExpression '{' switchBlockStatementGroup* switchLabel* '}'
+    ;
+
+loopStatement
+    : forStatement
+    | whileStatament
+    | doWhileStatement
+    ;
+
+forStatement
+    : FOR '(' forControl ')' statement
+    ;
+
+whileStatament
+    : WHILE parExpression statement
+    ;
+
+doWhileStatement
+    : DO statement WHILE parExpression (SEMI | EOF)
     ;
 
 catchClause
@@ -681,6 +723,13 @@ expression
 
     // Level 0, Lambda Expression // Java8
     | lambdaExpression                                        #ExpressionLambda
+    | deepEllipsisExpression                                  #ExpressionDeepEllipsisExpr
+    | ellipsisMetavarExpression                               #ExpressionEllipsisMetavar
+    | ellipsisExpression                                      #ExpressionEllipsis
+    ;
+
+deepEllipsisExpression
+    : DEEP_ELLIPSIS_OPEN expression DEEP_ELLIPSIS_CLOSE
     ;
 
 typedVariableExpression
@@ -712,15 +761,15 @@ lambdaBody
     ;
 
 primary
-    : '(' typedVariableExpression ')'
-    | '(' expression ')'
-    | thisExpression
-    | SUPER
-    | literal
-    | identifier
-    | typeTypeOrVoid '.' CLASS
-    | ellipsisExpression
-    | nonWildcardTypeArguments (explicitGenericInvocationSuffix | thisExpression arguments)
+    : '(' typedVariableExpression ')'   #PrimarySimple
+    | '(' expression ')'                #PrimarySimple
+    | thisExpression                    #PrimarySimple
+    | SUPER                             #PrimarySimple
+    | literal                           #PrimarySimple
+    | identifier                        #PrimarySimple
+    | typeTypeOrVoid '.' CLASS          #PrimaryClassLiteral
+    | ellipsisExpression                #PrimarySimple
+    | nonWildcardTypeArguments (explicitGenericInvocationSuffix | thisExpression arguments) #PrimaryInvocation
     ;
 
 // Java17
@@ -830,34 +879,26 @@ arguments
     ;
 
 patternStatement
-    : localVariableDeclaration (';' | EOF)
+    : localVariableDeclaration (SEMI | EOF)
     | localTypeDeclaration
-    | blockLabel = block
-    | ASSERT expression (':' expression)? (';' | EOF)
-    | IF parExpression statement (ELSE statement)?
-    | FOR '(' forControl ')' statement
-    | WHILE parExpression statement
-    | DO statement WHILE parExpression (';' | EOF)
-    | TRY block (catchClause+ finallyBlock? | finallyBlock)
-    | TRY resourceSpecification block catchClause* finallyBlock?
-    | SWITCH parExpression '{' switchBlockStatementGroup* switchLabel* '}'
-    | SYNCHRONIZED parExpression block
-    | returnExpression (';' | EOF)
-    | THROW expression (';' | EOF)
-    | BREAK identifier? (';' | EOF)
-    | CONTINUE identifier? (';' | EOF)
-    | YIELD expression (';' | EOF) // Java17
-    | SEMI
-    | ellipsisExpression ';'?
-    | statementExpression = expression (';' | EOF)
-    | switchExpression ';'? // Java17
-    | identifierLabel = identifier ':' statement
+    | statement
+    ;
+
+patternCatchBlock
+    : catchClause
     ;
 
 semgrepPattern
-    : patternStatement+ #MethodBodySemgrepPattern
-    | classBodyDeclaration+ #ClassBodySemgrepPattern
-    | annotation+ #AnnotationSemgrepPattern
+    : semgrepPatternElement+ #Patterns
+    ;
+
+semgrepPatternElement
+    : typeDeclaration #TypeDeclSemgrepPattern
+    | importDeclaration #ImportSemgrepPattern
+    | patternStatement #MethodBodySemgrepPattern
+    | classBodyDeclaration #ClassBodySemgrepPattern
+    | patternCatchBlock #CatchBlockSemgrepPattern
+    | annotation #AnnotationSemgrepPattern
     ;
 
 thisExpression
@@ -870,4 +911,8 @@ returnExpression
 
 ellipsisExpression
     : ELLIPSIS
+    ;
+
+ellipsisMetavarExpression
+    : ELLIPSIS_METAVAR
     ;
