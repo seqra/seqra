@@ -16,8 +16,10 @@ import org.opentaint.dataflow.configuration.jvm.ClassMatcher
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
 import org.opentaint.dataflow.configuration.jvm.Condition
 import org.opentaint.dataflow.configuration.jvm.ConfigurationTrie
+import org.opentaint.dataflow.configuration.jvm.ConstantBooleanValue
 import org.opentaint.dataflow.configuration.jvm.ConstantEq
 import org.opentaint.dataflow.configuration.jvm.ConstantGt
+import org.opentaint.dataflow.configuration.jvm.ConstantIntValue
 import org.opentaint.dataflow.configuration.jvm.ConstantLt
 import org.opentaint.dataflow.configuration.jvm.ConstantMatches
 import org.opentaint.dataflow.configuration.jvm.ConstantStringValue
@@ -306,8 +308,27 @@ class TaintConfiguration {
         is SerializedCondition.Or -> mkOr(anyOf.map { it.resolve(method) })
         SerializedCondition.True -> ConstantTrue
         is SerializedCondition.AnnotationType -> {
-            val containsAnnotation = pos.resolve(method, annotatedWith).any()
+            val containsAnnotation = pos.resolveWithAnnotationConstraint(
+                method,
+                annotatedWith.asAnnotationConstraint()
+            ).any()
             if (containsAnnotation) mkTrue() else mkFalse()
+        }
+
+        is SerializedCondition.ConstantCmp -> {
+            val value = when (value.type) {
+                SerializedCondition.ConstantType.Str -> ConstantStringValue(value.value)
+                SerializedCondition.ConstantType.Bool -> ConstantBooleanValue(value.value.toBoolean())
+                SerializedCondition.ConstantType.Int -> ConstantIntValue(value.value.toInt())
+            }
+
+            pos.resolve(method).map {
+                when (cmp) {
+                    SerializedCondition.ConstantCmpType.Eq -> ConstantEq(it, value)
+                    SerializedCondition.ConstantCmpType.Lt -> ConstantLt(it, value)
+                    SerializedCondition.ConstantCmpType.Gt -> ConstantGt(it, value)
+                }
+            }.let { mkOr(it) }
         }
 
         is SerializedCondition.ConstantEq -> mkOr(
@@ -338,6 +359,11 @@ class TaintConfiguration {
 
         is SerializedCondition.MethodAnnotated -> {
             if (method.annotations.matched(annotation)) mkTrue() else mkFalse()
+        }
+
+        is SerializedCondition.ParamAnnotated -> {
+            val containsAnnotation = pos.resolveWithAnnotationConstraint(method, annotation).any()
+            if (containsAnnotation) mkTrue() else mkFalse()
         }
     }
 
@@ -370,7 +396,8 @@ class TaintConfiguration {
     }
 
     private fun SerializedTaintAssignAction.resolve(method: JIRMethod): List<AssignMark> =
-        pos.resolvePosition(method, annotatedWith).map { AssignMark(taintMark(kind), it) }
+        pos.resolvePositionWithAnnotationConstraint(method, annotatedWith?.asAnnotationConstraint())
+            .map { AssignMark(taintMark(kind), it) }
 
     private fun SerializedTaintPassAction.resolve(method: JIRMethod): List<Action> =
         from.resolvePosition(method).flatMap { fromPos ->
@@ -393,10 +420,23 @@ class TaintConfiguration {
         }
 
     private fun PositionBaseWithModifiers.resolvePosition(
+        method: JIRMethod
+    ): List<Position> = resolvePositionWithModifiers { it.resolve(method) }
+
+    private fun PositionBaseWithModifiers.resolvePositionWithAnnotationConstraint(
         method: JIRMethod,
-        annotation: SerializedNameMatcher? = null
+        annotation: AnnotationConstraint?
     ): List<Position> {
-        val resolvedBase = base.resolve(method, annotation)
+        if (annotation == null) return resolvePosition(method)
+        return resolvePositionWithModifiers {
+            it.resolveWithAnnotationConstraint(method, annotation)
+        }
+    }
+
+    private inline fun PositionBaseWithModifiers.resolvePositionWithModifiers(
+        resolveBase: (PositionBase) -> List<Position>
+    ): List<Position> {
+        val resolvedBase = resolveBase(base)
         return when (this) {
             is PositionBaseWithModifiers.BaseOnly -> resolvedBase
             is PositionBaseWithModifiers.WithModifiers -> {
@@ -420,34 +460,24 @@ class TaintConfiguration {
         }
     }
 
-    private fun PositionBase.resolve(method: JIRMethod, annotation: SerializedNameMatcher? = null): List<Position> {
+    private fun PositionBase.resolve(method: JIRMethod): List<Position> {
         when (this) {
             is PositionBase.Argument -> {
                 if (idx != null) {
-                    val param = method.parameters.getOrNull(idx) ?: return emptyList()
-                    if (annotation != null && !param.annotations.matched(annotation)) return emptyList()
-
+                    if (idx !in method.parameters.indices) return emptyList()
                     return listOf(Argument(idx))
                 } else {
-                    return method.parameters.filter { param ->
-                        annotation == null || param.annotations.matched(annotation)
-                    }.map { Argument(it.index) }
+                    return method.parameters.map { Argument(it.index) }
                 }
             }
 
             PositionBase.Result -> {
                 if (method.returnType.typeName == PredefinedPrimitives.Void) return emptyList()
-                if (annotation != null) {
-                    TODO()
-                }
-
                 return listOf(Result)
             }
 
             PositionBase.This -> {
                 if (method.isStatic) return emptyList()
-                if (annotation != null && !method.annotations.matched(annotation)) return emptyList()
-
                 return listOf(This)
             }
 
@@ -455,7 +485,32 @@ class TaintConfiguration {
         }
     }
 
-    private fun List<JIRAnnotation>.matched(matcher: SerializedNameMatcher): Boolean = any { matcher.match(it.name) }
+    private fun PositionBase.resolveWithAnnotationConstraint(
+        method: JIRMethod,
+        annotation: AnnotationConstraint
+    ): List<Position> {
+        when (this) {
+            is PositionBase.Argument -> {
+                if (idx != null) {
+                    val param = method.parameters.getOrNull(idx) ?: return emptyList()
+                    if (!param.annotations.matched(annotation)) return emptyList()
+
+                    return listOf(Argument(idx))
+                } else {
+                    return method.parameters.filter { param ->
+                        param.annotations.matched(annotation)
+                    }.map { Argument(it.index) }
+                }
+            }
+
+            PositionBase.Result,
+            PositionBase.This,
+            is PositionBase.ClassStatic -> TODO("Annotation constraint on non-argument position")
+        }
+    }
+
+    private fun SerializedNameMatcher.asAnnotationConstraint(): AnnotationConstraint =
+        AnnotationConstraint(this, params = null)
 
     private fun List<JIRAnnotation>.matched(constraint: AnnotationConstraint): Boolean = any { it.matched(constraint) }
 

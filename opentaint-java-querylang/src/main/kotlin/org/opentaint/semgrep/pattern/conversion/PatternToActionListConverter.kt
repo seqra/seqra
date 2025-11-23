@@ -152,10 +152,8 @@ class PatternToActionListConverter: ActionListBuilder {
             is CatchStatement,
             is DeepExpr,
             is EllipsisMetavar,
-            is IntLiteral -> {
-                addFailedTransformation("Unsupported param condition")
-                null
-            }
+            is IntLiteral -> null
+
         }
     }
 
@@ -175,6 +173,14 @@ class PatternToActionListConverter: ActionListBuilder {
             return TypeNamePattern.FullyQualified(fqn)
         }
 
+        return null
+    }
+
+    private fun tryTransformTypeMetaVar(typeName: TypeName): String? {
+        if (typeName.dotSeparatedParts.size == 1) {
+            val name = typeName.dotSeparatedParts.single()
+            if (name is MetavarName) return name.metavarName
+        }
         return null
     }
 
@@ -259,7 +265,10 @@ class PatternToActionListConverter: ActionListBuilder {
         val objCondition = if (className == null) {
             pattern.obj?.let { objPattern ->
                 val (actions, cond) = transformPatternIntoParamConditionWithActions(objPattern)
-                    ?: return null
+                    ?: run {
+                        addFailedTransformation("MethodInvocation_obj: ${objPattern::class.simpleName}")
+                        return null
+                    }
                 actionList += actions
                 cond
             }
@@ -298,7 +307,10 @@ class PatternToActionListConverter: ActionListBuilder {
             }
 
             val (actions, cond) = transformPatternIntoParamConditionWithActions(arg)
-                ?: return null
+                ?: run {
+                    addFailedTransformation("ParamCondition: ${arg::class.simpleName}")
+                    return null
+                }
 
             allActions += actions
 
@@ -451,18 +463,31 @@ class PatternToActionListConverter: ActionListBuilder {
             when (param) {
                 is FormalArgument -> {
                     val position = if (idxIsConcrete) ParamPosition.Concrete(i) else ParamPosition.Any
+
+                    val paramModifiers = param.modifiers.map { transformModifier(it) ?: return null }
+                    paramModifiers.mapTo(paramConditions) { modifier ->
+                        ParamPattern(position, ParamCondition.ParamModifier(modifier))
+                    }
+
                     val paramName = (param.name as? MetavarName)?.metavarName ?: run {
                         addFailedTransformation("MethodDeclaration_param_name_not_metavar")
                         return null
                     }
+
+                    paramConditions += ParamPattern(position, IsMetavar(paramName))
+
+                    val metaVarType = tryTransformTypeMetaVar(param.type)
+                    if (metaVarType != null) {
+                        paramConditions += ParamPattern(position, ParamCondition.TypeMetaVar(metaVarType))
+                        continue
+                    }
+
                     val paramType = tryTransformConcreteTypeName(param.type) ?: run {
                         addFailedTransformation("MethodDeclaration_param_type_not_extracted")
                         return null
                     }
-                    paramConditions += ParamPattern(
-                        position,
-                        ParamCondition.And(listOf(IsMetavar(paramName), ParamCondition.TypeIs(paramType)))
-                    )
+
+                    paramConditions += ParamPattern(position, ParamCondition.TypeIs(paramType))
                 }
 
                 is EllipsisArgumentPrefix -> {

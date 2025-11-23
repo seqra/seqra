@@ -4,6 +4,9 @@ import mu.KLogging
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.ConstantCmpType
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.ConstantType
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.ConstantValue
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFunctionNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
@@ -316,7 +319,8 @@ private fun generateAutomataWithTaintEdges(
     val simulated = simulateAutomata(automataWithoutValueGen)
     val cleaned = removeUnreachabeStates(simulated)
     val liveAutomata = eliminateDeadVariables(cleaned, acceptStateVars)
-    return generateTaintEdges(liveAutomata, automataId)
+    val automataWithoutEnd = tryRemoveEndEdge(liveAutomata)
+    return generateTaintEdges(automataWithoutEnd, automataId)
 }
 
 data class TaintRegisterStateAutomata(
@@ -635,6 +639,47 @@ private fun eliminateDeadVariables(
         final = automata.final.mapTo(hashSetOf()) { stateMapping[it] ?: it },
         successors = successors,
         nodeIndex = automata.nodeIndex
+    )
+}
+
+private fun tryRemoveEndEdge(automata: TaintRegisterStateAutomata): TaintRegisterStateAutomata {
+    val predecessors = automataPredecessors(automata)
+    val finalReplacement = mutableListOf<Pair<State, State>>()
+
+    for (finalState in automata.final) {
+        val preFinalEdges = predecessors[finalState] ?: continue
+        if (preFinalEdges.size != 1) continue
+
+        val (edge, predecessor) = preFinalEdges.single()
+        if (edge !is Edge.AnalysisEnd) continue
+
+        if (automata.successors[predecessor].orEmpty().size != 1) continue
+
+        finalReplacement.add(finalState to predecessor)
+    }
+
+    if (finalReplacement.isEmpty()) return automata
+
+    val successors = automata.successors.toMutableMap()
+    val final = automata.final.toHashSet()
+
+    for ((oldState, newState) in finalReplacement) {
+        successors.remove(oldState)
+        successors[newState] = emptySet()
+
+        final.remove(oldState)
+
+        if (oldState.node.accept) {
+            newState.node.accept = true
+        }
+        final.add(newState)
+    }
+
+    return TaintRegisterStateAutomata(
+        automata.formulaManager,
+        automata.initial,
+        final, successors,
+        automata.nodeIndex
     )
 }
 
@@ -1384,15 +1429,27 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
         }
 
         is SpecificBoolValue -> {
-            return SerializedCondition.ConstantEq(condition.value.toString(), position)
+            val value = ConstantValue(ConstantType.Bool, condition.value.toString())
+            return SerializedCondition.ConstantCmp(position, value, ConstantCmpType.Eq)
         }
 
         is SpecificStringValue -> {
-            return SerializedCondition.ConstantEq(condition.value, position)
+            val value = ConstantValue(ConstantType.Str, condition.value)
+            return SerializedCondition.ConstantCmp(position, value, ConstantCmpType.Eq)
         }
 
         is ParamCondition.StringMatches -> {
             return SerializedCondition.ConstantMatches(condition.pattern, position)
+        }
+
+        is ParamCondition.ParamModifier -> {
+            val annotation = signatureModifierConstraint(condition.modifier)
+            return SerializedCondition.ParamAnnotated(position, annotation)
+        }
+
+        is ParamCondition.TypeMetaVar -> {
+            // todo: for now we ignore type meta vars
+            return SerializedCondition.True
         }
     }
 }

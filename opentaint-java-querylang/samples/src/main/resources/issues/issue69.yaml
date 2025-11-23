@@ -1,0 +1,35 @@
+rules:
+  - id: spring-route-unauthenticated
+    languages:
+      - java
+    message: Found unauthenticated Spring route
+    metadata:
+      references:
+        - https://www.baeldung.com/spring-security-method-security
+        - https://www.baeldung.com/spring-security-prefilter-postfilter
+        - https://www.digitalocean.com/community/tutorials/spring-requestmapping-requestparam-pathvariable-example
+        - https://github.com/spring-projects/spring-security/issues/8804
+        - https://spring.io/blog/2022/02/21/spring-security-without-the-websecurityconfigureradapter
+        - https://www.marcobehler.com/guides/spring-security
+        - https://shiro.apache.org/spring-framework.html
+        - https://shiro.apache.org/java-annotations-list.html
+      route-detect:
+        fill: red
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern: '@$METHOD(...) $RETURNTYPE $FUNC(...) { ... }'
+              - pattern-not: '@$METHOD(...) @org.springframework.security.access.prepost.PreAuthorize(...) $RETURNTYPE $FUNC(...) { ... } '
+              - pattern-not: '@org.springframework.security.access.prepost.PreAuthorize(...) @$METHOD(...) $RETURNTYPE $FUNC(...) { ... } '
+              - pattern-not-inside: '@org.springframework.security.access.prepost.PreAuthorize(...) class $CLASS { ... } '
+              - pattern-not-inside: '@Secured(...) class $CLASS { ... } '
+      - metavariable-pattern:
+          metavariable: $METHOD
+          pattern-either:
+            - pattern: RequestMapping
+            - pattern: DeleteMapping
+            - pattern: GetMapping
+            - pattern: PatchMapping
+            - pattern: PostMapping
+            - pattern: PutMapping
+    severity: INFO

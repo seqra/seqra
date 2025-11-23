@@ -115,7 +115,8 @@ interface PatternRewriter {
 
     fun FormalArgument.rewriteFormalArgument(): SemgrepJavaPattern = createFormalArgument(
         name.rewriteName(),
-        type.rewriteTypeName()
+        type.rewriteTypeName(),
+        modifiers.map { it.rewriteModifier() }
     )
 
     fun MethodInvocation.rewriteMethodInvocation(): SemgrepJavaPattern = createMethodInvocation(
@@ -158,7 +159,7 @@ interface PatternRewriter {
 
     fun createEllipsisMethodInvocations(obj: SemgrepJavaPattern): SemgrepJavaPattern = EllipsisMethodInvocations(obj)
     fun createFieldAccess(fieldName: Name, obj: FieldAccess.Object): SemgrepJavaPattern = FieldAccess(fieldName, obj)
-    fun createFormalArgument(name: Name, type: TypeName): SemgrepJavaPattern = FormalArgument(name, type)
+    fun createFormalArgument(name: Name, type: TypeName, modifiers: List<Modifier>): SemgrepJavaPattern = FormalArgument(name, type, modifiers)
 
     fun createMethodDeclaration(
         name: Name,

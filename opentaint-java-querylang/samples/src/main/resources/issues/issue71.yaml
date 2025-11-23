@@ -1,0 +1,18 @@
+rules:
+  - id: find_sec_bugs.DMI_CONSTANT_DB_PASSWORD-1.HARD_CODE_PASSWORD-3
+    languages:
+      - java
+    message: 'This code creates a database connect using a hardcoded, constant password.
+    Anyone with access
+
+    to either the source code or the compiled code can easily learn the password.
+
+    '
+    metadata:
+      category: security
+      cwe: 'CWE-259: Use of Hard-coded Password'
+      technology:
+        - java
+    patterns:
+      - pattern: java.sql.DriverManager.getConnection($URI, $USR, "...");
+    severity: WARNING

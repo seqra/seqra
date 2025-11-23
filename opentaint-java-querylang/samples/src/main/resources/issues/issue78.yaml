@@ -1,0 +1,49 @@
+rules:
+  - id: java.servlets.security.audit.cookie-secure-flag-false.cookie-secure-flag-false
+    message: A cookie was detected without setting the 'secure' flag. The 'secure' flag
+      for cookies prevents the client from transmitting the cookie over insecure channels
+      such as HTTP. Set the 'secure' flag by calling '$COOKIE.setSecure(true);'
+    severity: WARNING
+    metadata:
+      likelihood: LOW
+      impact: LOW
+      confidence: HIGH
+      category: security
+      subcategory:
+        - audit
+      asvs:
+        section: 'V3: Session Management Verification Requirements'
+        control_id: 3.4.1 Missing Cookie Attribute
+        control_url: https://github.com/OWASP/ASVS/blob/master/4.0/en/0x12-V3-Session-management.md#v34-cookie-based-session-management
+        version: '4'
+      cwe:
+        - 'CWE-614: Sensitive Cookie in HTTPS Session Without ''Secure'' Attribute'
+      functional-categories:
+        - web::search::cookie-config::Servlet
+      owasp:
+        - A05:2021 - Security Misconfiguration
+      references:
+        - https://owasp.org/www-community/controls/SecureCookieAttribute
+      source-rule-url: https://find-sec-bugs.github.io/bugs.htm#INSECURE_COOKIE
+      technology:
+        - java
+        - servlets
+      license: Copyright 2023 Semgrep, Inc.
+      vulnerability_class:
+        - Cookie Security
+      source: https://semgrep.dev/r/java.servlets.security.audit.cookie-secure-flag-false.cookie-secure-flag-false
+      shortlink: https://sg.run/1D0v
+      semgrep.dev:
+        rule:
+          r_id: 27166
+          rv_id: 111581
+          rule_id: KxUKv3
+          version_id: ZRTQp9w
+          url: https://semgrep.dev/playground/r/ZRTQp9w/java.servlets.security.audit.cookie-secure-flag-false.cookie-secure-flag-false
+          origin: pro_rules
+    languages:
+      - java
+    fix: |
+      $COOKIE.setSecure(true);
+    pattern: |
+      $COOKIE.setSecure(false);

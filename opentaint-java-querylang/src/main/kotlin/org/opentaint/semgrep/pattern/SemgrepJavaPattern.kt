@@ -137,6 +137,7 @@ data class MethodDeclaration(
 data class FormalArgument(
     val name: Name,
     val type: TypeName,
+    val modifiers: List<Modifier>,
 ) : SemgrepJavaPattern {
     override val children: List<SemgrepJavaPattern> = emptyList()
 }

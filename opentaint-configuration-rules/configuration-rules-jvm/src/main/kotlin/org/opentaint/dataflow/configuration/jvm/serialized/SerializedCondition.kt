@@ -73,6 +73,29 @@ sealed interface SerializedCondition {
     data class ConstantMatches(val constantMatches: String, val pos: PositionBase) : SerializedCondition
 
     @Serializable
+    enum class ConstantType {
+        Str, Bool, Int
+    }
+
+    @Serializable
+    data class ConstantValue(
+        val type: ConstantType,
+        val value: String
+    )
+
+    @Serializable
+    enum class ConstantCmpType {
+        Eq, Lt, Gt
+    }
+
+    @Serializable
+    data class ConstantCmp(
+        val pos: PositionBase,
+        val value: ConstantValue,
+        val cmp: ConstantCmpType
+    ) : SerializedCondition
+
+    @Serializable
     data class ConstantEq(val constantEq: String, val pos: PositionBase) : SerializedCondition
 
     @Serializable
@@ -120,6 +143,12 @@ sealed interface SerializedCondition {
 
     @Serializable
     data class ClassAnnotated(val annotation: AnnotationConstraint): SerializedCondition
+
+    @Serializable
+    data class ParamAnnotated(
+        val pos: PositionBase,
+        val annotation: AnnotationConstraint
+    ) : SerializedCondition
 }
 
 class TrueConditionSerializer : KSerializer<SerializedCondition.True> {

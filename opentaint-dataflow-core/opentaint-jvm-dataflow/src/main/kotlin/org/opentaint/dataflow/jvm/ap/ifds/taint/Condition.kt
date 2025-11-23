@@ -116,7 +116,11 @@ open class JIRBasicConditionEvaluator(
     private fun eqConstant(value: JIRValue, constant: ConstantValue): Boolean {
         return when (constant) {
             is ConstantBooleanValue -> {
-                value is JIRBool && value.value == constant.value
+                when (value) {
+                    is JIRBool -> value.value == constant.value
+                    is JIRInt -> if (constant.value) value.value != 0 else value.value == 0
+                    else -> false
+                }
             }
 
             is ConstantIntValue -> {

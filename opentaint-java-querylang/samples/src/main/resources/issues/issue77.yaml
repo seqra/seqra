@@ -1,0 +1,31 @@
+rules:
+  - id: find_sec_bugs.PREDICTABLE_RANDOM-1
+    languages:
+      - java
+    message: >
+      The use of a predictable random value can lead to vulnerabilities when
+      used in certain security critical contexts. A quick fix could be to replace
+      the use of java.util.Random with something stronger, such as java.security.SecureRandom.
+
+    metadata:
+      category: security
+      cwe: 'CWE-330: Use of Insufficiently Random Values'
+      technology:
+        - java
+    patterns:
+      - pattern-either:
+          - pattern: >
+              java.util.Random $R = new java.util.Random();
+
+              ...
+
+              $R.$METHOD();
+
+          - pattern: (java.util.Random $R).$METHOD()
+          - pattern: new java.util.Random().$METHOD()
+          - pattern: org.apache.commons.lang.math.RandomUtils.$METHOD()
+          - pattern: org.apache.commons.lang.RandomStringUtils.$METHOD(...)
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: ^(next|random)
+    severity: WARNING

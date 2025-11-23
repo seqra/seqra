@@ -7,18 +7,52 @@ import org.antlr.v4.runtime.ConsoleErrorListener
 import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.RecognitionException
 import org.antlr.v4.runtime.Recognizer
+import org.antlr.v4.runtime.tree.ParseTree
+import org.antlr.v4.runtime.tree.RuleNode
 import org.opentaint.semgrep.pattern.antlr.JavaLexer
 import org.opentaint.semgrep.pattern.antlr.JavaParser
+import org.opentaint.semgrep.pattern.antlr.JavaParser.AltAnnotationQualifiedNameContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.AnnotationContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.ArgumentsContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.BinaryOperatorExpressionContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.BlockContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.CatchBlockSemgrepPatternContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.CatchClauseContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.ClassBodyDeclarationContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.ClassCreatorRestContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.ClassDeclarationContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.ClassOrInterfaceModifierContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.ClassOrInterfaceTypeContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.ConstructorDeclarationContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.CreatedNameContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.CreatorContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.ElementValuePairContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.FormalParameterContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.FormalParametersContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.IdentifierContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.ImportSemgrepPatternContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.LiteralContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.LocalTypeDeclarationContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.LocalVariableDeclarationContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.MemberReferenceExpressionContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.MethodCallContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.MethodDeclarationContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.ModifierContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.ObjectCreationExpressionContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.PatternsContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.PrimitiveTypeContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.QualifiedNameContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeDeclSemgrepPatternContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeDeclarationContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeIdentifierContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeTypeContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeTypeOrVoidContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.TypedVariableExpressionContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.VariableDeclaratorContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.VariableModifierContext
 import org.opentaint.semgrep.pattern.antlr.JavaParserBaseVisitor
+import java.util.Collections
+import java.util.IdentityHashMap
 
 sealed interface SemgrepJavaPatternParsingResult {
     data class Ok(val pattern: SemgrepJavaPattern) : SemgrepJavaPatternParsingResult
@@ -73,16 +107,16 @@ class SemgrepJavaPatternParser {
     }
 }
 
-private fun IdentifierContext.parseName(): Name {
-    tryRule({ METAVAR() }) { return MetavarName(it.text) }
-    tryRule({ IDENTIFIER() }) { return ConcreteName(it.text) }
-    parsingFailed("Unknown identifier")
+private fun IdentifierContext.parseName(): Name = withRule {
+    tryRule(IdentifierContext::METAVAR) { return MetavarName(it.text) }
+    tryRule(IdentifierContext::IDENTIFIER) { return ConcreteName(it.text) }
+    unreachable()
 }
 
-private fun JavaParser.TypeIdentifierContext.parseTypeIdentifierName(): Name {
-    tryRule({ METAVAR() }) { return MetavarName(it.text) }
-    tryRule({ IDENTIFIER() }) { return ConcreteName(it.text) }
-    parsingFailed("Unknown type identifier")
+private fun TypeIdentifierContext.parseTypeIdentifierName(): Name = withRule {
+    tryRule(TypeIdentifierContext::METAVAR) { return MetavarName(it.text) }
+    tryRule(TypeIdentifierContext::IDENTIFIER) { return ConcreteName(it.text) }
+    unreachable()
 }
 
 private class TypenameParserVisitor : JavaParserBaseVisitor<TypeName>() {
@@ -91,37 +125,55 @@ private class TypenameParserVisitor : JavaParserBaseVisitor<TypeName>() {
         TODO("Can't parse typename")
     }
 
-    override fun visitCreatedName(ctx: CreatedNameContext): TypeName {
-        val dotSeparatedParts = ctx.identifier().map { it.parseName() }.toMutableList()
+    override fun visitCreatedName(ctx: CreatedNameContext): TypeName = ctx.withRule {
+        tryRule(CreatedNameContext::primitiveType) {
+            return it.accept(this@TypenameParserVisitor)
+        }
+
+        val dotSeparatedParts = get(CreatedNameContext::identifier)?.map { it.parseName() }.orEmpty()
+
+        val typeArgs = value(CreatedNameContext::typeArgumentsOrDiamond)
+        if (typeArgs.isNotEmpty()) {
+            ctx.todo()
+        }
+
         return TypeName(dotSeparatedParts)
     }
 
-    override fun visitTypeTypeOrVoid(ctx: TypeTypeOrVoidContext): TypeName {
-        ctx.tryRule({ VOID() }) { return TypeName(listOf(ConcreteName(it.text))) }
-        return ctx.typeType().accept(this)
+    override fun visitTypeTypeOrVoid(ctx: TypeTypeOrVoidContext): TypeName = ctx.withRule {
+        tryRule(TypeTypeOrVoidContext::VOID) { return TypeName(listOf(ConcreteName(it.text))) }
+        tryRule(TypeTypeOrVoidContext::typeType) { return it.accept(this@TypenameParserVisitor) }
+        unreachable()
     }
 
-    override fun visitTypeType(ctx: TypeTypeContext): TypeName {
-        ctx.tryRule({ primitiveType() }) { return it.accept(this) }
-        return ctx.classOrInterfaceType().accept(this)
+    override fun visitTypeType(ctx: TypeTypeContext): TypeName = ctx.withRule {
+        tryRule(TypeTypeContext::primitiveType) { return it.accept(this@TypenameParserVisitor) }
+        tryRule(TypeTypeContext::classOrInterfaceType) { return it.accept(this@TypenameParserVisitor) }
+        unreachable()
     }
 
     override fun visitPrimitiveType(ctx: PrimitiveTypeContext): TypeName =
         TypeName(listOf(ConcreteName(ctx.text)))
 
-    override fun visitClassOrInterfaceType(ctx: ClassOrInterfaceTypeContext): TypeName {
-        val prefix = ctx.identifier().map { it.parseName() }
-        val final = ctx.typeIdentifier().parseTypeIdentifierName()
+    override fun visitClassOrInterfaceType(ctx: ClassOrInterfaceTypeContext): TypeName = ctx.withRule {
+        val prefix = value(ClassOrInterfaceTypeContext::identifier).map { it.parseName() }
+        val final = value(ClassOrInterfaceTypeContext::typeIdentifier).parseTypeIdentifierName()
+
+        val typeArgs = value(ClassOrInterfaceTypeContext::typeArguments)
+        if (typeArgs.isNotEmpty()) {
+            ctx.todo()
+        }
+
         return TypeName(dotSeparatedParts = prefix + final)
     }
 
-    override fun visitQualifiedName(ctx: JavaParser.QualifiedNameContext): TypeName {
-        val parts = ctx.identifier().map { it.parseName() }
+    override fun visitQualifiedName(ctx: QualifiedNameContext): TypeName = ctx.withRule {
+        val parts = value(QualifiedNameContext::identifier).map { it.parseName() }
         return TypeName(dotSeparatedParts = parts)
     }
 
-    override fun visitAltAnnotationQualifiedName(ctx: JavaParser.AltAnnotationQualifiedNameContext): TypeName {
-        val parts = ctx.identifier().map { it.parseName() }
+    override fun visitAltAnnotationQualifiedName(ctx: AltAnnotationQualifiedNameContext): TypeName = ctx.withRule {
+        val parts = value(AltAnnotationQualifiedNameContext::identifier).map { it.parseName() }
         return TypeName(dotSeparatedParts = parts)
     }
 }
@@ -129,8 +181,9 @@ private class TypenameParserVisitor : JavaParserBaseVisitor<TypeName>() {
 private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJavaPattern?>() {
     private val typenameParser = TypenameParserVisitor()
 
-    override fun visitPatterns(ctx: JavaParser.PatternsContext): SemgrepJavaPattern =
-        ctx.semgrepPatternElement().map { it.parse() }.asPatternSequence()
+    override fun visitPatterns(ctx: PatternsContext): SemgrepJavaPattern = ctx.withRule {
+        value(PatternsContext::semgrepPatternElement).map { it.parse() }.asPatternSequence()
+    }
 
     override fun aggregateResult(aggregate: SemgrepJavaPattern?, nextResult: SemgrepJavaPattern?): SemgrepJavaPattern? {
         if (aggregate == null) {
@@ -145,47 +198,54 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
 
     override fun visitThisExpression(ctx: JavaParser.ThisExpressionContext): SemgrepJavaPattern = ThisExpr
 
-    override fun visitBinaryOperatorExpression(ctx: JavaParser.BinaryOperatorExpressionContext): SemgrepJavaPattern {
+    override fun visitBinaryOperatorExpression(ctx: BinaryOperatorExpressionContext): SemgrepJavaPattern = ctx.withRule {
         val operator = ctx.bop
-        val lhs = ctx.expression(0).parse("Unable to parse lhs")
-        val rhs = ctx.expression(1).parse("Unable to parse rhs")
+        val expression = value(BinaryOperatorExpressionContext::expression)
+        val lhs = expression[0].parse("Unable to parse lhs")
+        val rhs = expression[1].parse("Unable to parse rhs")
 
         return when (operator.type) {
             JavaParser.ASSIGN -> VariableAssignment(null, lhs, rhs)
             JavaParser.ADD_ASSIGN -> VariableAssignment(null, lhs, AddExpr(lhs, rhs))
             JavaParser.ADD -> AddExpr(lhs, rhs)
-            else -> ctx.parsingFailed("Unknown binary operator")
+            else -> ctx.todo()
         }
     }
 
-    override fun visitTypedVariableExpression(ctx: JavaParser.TypedVariableExpressionContext): TypedMetavar {
-        val type = ctx.typeTypeOrVoid().accept(typenameParser)
-        val name = ctx.identifier().parseName() as? MetavarName
+    override fun visitTypedVariableExpression(ctx: TypedVariableExpressionContext): TypedMetavar = ctx.withRule {
+        val type = value(TypedVariableExpressionContext::typeTypeOrVoid).accept(typenameParser)
+        val name = value(TypedVariableExpressionContext::identifier).parseName() as? MetavarName
             ?: ctx.parsingFailed("Expected variable name to be a metavar name")
 
         return TypedMetavar(name.metavarName, type)
     }
 
-    override fun visitVariableDeclarator(ctx: JavaParser.VariableDeclaratorContext): VariableAssignment? {
-        val initializer = ctx.variableInitializer() ?: return null
+    override fun visitVariableDeclarator(ctx: VariableDeclaratorContext): VariableAssignment = ctx.withRule {
+        val initializer = get(VariableDeclaratorContext::variableInitializer) ?: ctx.todo()
 
-        val variable = ctx.variableDeclaratorId().parse("Can't parse variable name")
+        val variable = value(VariableDeclaratorContext::variableDeclaratorId).parse("Can't parse variable name")
         val value = initializer.parse("Can't parse initializer")
         return VariableAssignment(type = null, variable, value)
     }
 
-    override fun visitLocalVariableDeclaration(ctx: JavaParser.LocalVariableDeclarationContext): SemgrepJavaPattern {
-        ctx.tryRule({ VAR() }) {
-            val variable = ctx.identifier().parse("Can't parse variable")
-            val value = ctx.expression().parse("Can't parse variable initialization")
+    override fun visitLocalVariableDeclaration(ctx: LocalVariableDeclarationContext): SemgrepJavaPattern = ctx.withRule {
+        tryRule(LocalVariableDeclarationContext::VAR) {
+            val variable = value(LocalVariableDeclarationContext::identifier).parse("Can't parse variable")
+            val value = value(LocalVariableDeclarationContext::expression).parse("Can't parse variable initialization")
             return VariableAssignment(type = null, variable, value)
         }
 
-        val type = ctx.typeType().accept(typenameParser)
+        val type = value(LocalVariableDeclarationContext::typeType).accept(typenameParser)
+        val declarators = value(LocalVariableDeclarationContext::variableDeclarators)
 
-        val assignments = ctx.variableDeclarators().variableDeclarator().mapNotNull { declarator ->
+        val modifiers = value(LocalVariableDeclarationContext::variableModifier)
+        if (modifiers.isNotEmpty()) {
+            ctx.todo()
+        }
+
+        val assignments = declarators.variableDeclarator().map { declarator ->
             val declaration = visitVariableDeclarator(declarator)
-            declaration?.let {
+            declaration.let {
                 VariableAssignment(type, it.variable, it.value)
             }
         }
@@ -193,26 +253,26 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
         return assignments.asPatternSequence()
     }
 
-    override fun visitArguments(ctx: JavaParser.ArgumentsContext): MethodArguments {
-        val argumentList = ctx.expressionList()?.expression().orEmpty()
+    override fun visitArguments(ctx: ArgumentsContext): MethodArguments = ctx.withRule {
+        val argumentList = get(ArgumentsContext::expressionList)?.expression().orEmpty()
         val parsedArguments = argumentList.map { it.parse("Can't parse as an argument") }
         return parsedArguments.asMethodArguments()
     }
 
-    override fun visitFormalParameter(ctx: JavaParser.FormalParameterContext): SemgrepJavaPattern {
-        ctx.tryRule({ ellipsisExpression() }) { return Ellipsis }
-        ctx.tryRule({ metavar() }) { return Metavar(it.text) }
-        ctx.tryRule({ variableDeclaratorId() }) {
+    override fun visitFormalParameter(ctx: FormalParameterContext): SemgrepJavaPattern = ctx.withRule {
+        tryRule(FormalParameterContext::ellipsisExpression) { return Ellipsis }
+        tryRule(FormalParameterContext::metavar) { return Metavar(it.text) }
+        tryRule(FormalParameterContext::variableDeclaratorId) {
             val name = it.identifier().parseName()
-            val type = ctx.typeType()?.accept(typenameParser) ?: ctx.parsingFailed()
-            return FormalArgument(name, type)
+            val type = value(FormalParameterContext::typeType).accept(typenameParser) ?: ctx.parsingFailed()
+            val modifiers = value(FormalParameterContext::variableModifier).mapNotNull { parseModifier(it) }
+            return FormalArgument(name, type, modifiers)
         }
-
-        ctx.parsingFailed("Unexpected formal parameter")
+        unreachable()
     }
 
-    override fun visitFormalParameters(ctx: JavaParser.FormalParametersContext): MethodArguments {
-        val argumentList = ctx.formalParameterList()?.formalParameter().orEmpty()
+    override fun visitFormalParameters(ctx: FormalParametersContext): MethodArguments = ctx.withRule {
+        val argumentList = get(FormalParametersContext::formalParameterList)?.formalParameter().orEmpty()
         val parsedArguments = argumentList.map { it.parse("Can't parse as an argument") }
         return parsedArguments.asMethodArguments()
     }
@@ -220,18 +280,19 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
     override fun visitMethodCallExpression(ctx: JavaParser.MethodCallExpressionContext): SemgrepJavaPattern =
         ctx.methodCall().parse()
 
-    override fun visitMethodCall(ctx: JavaParser.MethodCallContext): SemgrepJavaPattern {
-        ctx.tryRule({ ellipsisExpression() }) { return Ellipsis }
+    override fun visitMethodCall(ctx: MethodCallContext): SemgrepJavaPattern = ctx.withRule {
+        tryRule(MethodCallContext::ellipsisExpression) { return Ellipsis }
 
-        val methodName = ctx.methodIdentifier().identifier().parseName()
-        val arguments = visitArguments(ctx.arguments())
+        val methodName = value(MethodCallContext::methodIdentifier).identifier().parseName()
+        val arguments = visitArguments(value(MethodCallContext::arguments))
 
         return MethodInvocation(methodName, obj = null, arguments)
     }
 
-    override fun visitMemberReferenceExpression(ctx: JavaParser.MemberReferenceExpressionContext): SemgrepJavaPattern {
-        ctx.tryRule({ methodCall() }) {
-            val lhs = ctx.expression().parse("Unable to parse lhs of memberReferenceExpression")
+    override fun visitMemberReferenceExpression(ctx: MemberReferenceExpressionContext): SemgrepJavaPattern = ctx.withRule {
+        tryRule(MemberReferenceExpressionContext::methodCall) {
+            val lhs = value(MemberReferenceExpressionContext::expression)
+                .parse("Unable to parse lhs of memberReferenceExpression")
 
             return when (val methodInvocation = visitMethodCall(it)) {
                 is MethodInvocation -> MethodInvocation(
@@ -248,61 +309,64 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
             }
         }
 
-        ctx.tryRule({ identifier() }) {
+        tryRule(MemberReferenceExpressionContext::identifier) {
             val fieldName = it.parseName()
-            val lhs = ctx.expression().asObject()
+            val lhs = value(MemberReferenceExpressionContext::expression).asObject()
             return FieldAccess(fieldName, lhs)
         }
 
-        ctx.parsingFailed("Unsupported member reference expression")
+        unreachable()
     }
 
     override fun visitSquareBracketExpression(ctx: JavaParser.SquareBracketExpressionContext): SemgrepJavaPattern =
         ctx.todo()
 
-    override fun visitObjectCreationExpression(ctx: JavaParser.ObjectCreationExpressionContext): ObjectCreation {
+    override fun visitObjectCreationExpression(ctx: ObjectCreationExpressionContext): ObjectCreation {
         val creator = ctx.creator()
-        val parsedType = creator.createdName().accept(typenameParser)
+        creator.withRule {
+            val parsedType = value(CreatorContext::createdName).accept(typenameParser)
 
-        creator.tryRule({ classCreatorRest() }) {
-            val args = visitArguments(it.arguments())
-            return ObjectCreation(parsedType, args)
-        }
+            tryRule(CreatorContext::classCreatorRest) { classCtor ->
+                classCtor.withRule {
+                    val args = visitArguments(value(ClassCreatorRestContext::arguments))
+                    val body = get(ClassCreatorRestContext::classBody)
 
-        creator.tryRule({ arrayCreatorRest() }) { arrayCtor ->
-            arrayCtor.tryRule({ arrayInitializer() }) {
-                it.todo()
+                    if (body != null) classCtor.todo()
+
+                    return ObjectCreation(parsedType, args)
+                }
             }
 
-            arrayCtor.tryRule({ expression() }) {
+            tryRule(CreatorContext::arrayCreatorRest) { arrayCtor ->
                 arrayCtor.todo()
             }
-        }
 
-        ctx.parsingFailed("Unexpected object creation")
+            unreachable()
+        }
     }
 
-    override fun visitMethodDeclaration(ctx: JavaParser.MethodDeclarationContext): MethodDeclaration {
-        val returnType = ctx.typeTypeOrVoid().accept(typenameParser)
-        val name = ctx.identifier().parseName()
-        val args = visitFormalParameters(ctx.formalParameters())
-        val body = ctx.methodBody()?.parse() ?: Ellipsis
+    override fun visitMethodDeclaration(ctx: MethodDeclarationContext): MethodDeclaration = ctx.withRule {
+        val returnType = value(MethodDeclarationContext::typeTypeOrVoid).accept(typenameParser)
+        val name = value(MethodDeclarationContext::identifier).parseName()
+        val args = visitFormalParameters(value(MethodDeclarationContext::formalParameters))
+        val body = get(MethodDeclarationContext::methodBody)?.parse() ?: Ellipsis
 
         return MethodDeclaration(name, returnType, args, body, modifiers = emptyList())
     }
 
-    override fun visitConstructorDeclaration(ctx: JavaParser.ConstructorDeclarationContext): MethodDeclaration {
-        val name = ctx.identifier().parseName()
-        val args = visitFormalParameters(ctx.formalParameters())
-        val body = ctx.constructorBody.parse("Can't parse body")
+    override fun visitConstructorDeclaration(ctx: ConstructorDeclarationContext): MethodDeclaration = ctx.withRule {
+        val name = value(ConstructorDeclarationContext::identifier).parseName()
+        val args = visitFormalParameters(value(ConstructorDeclarationContext::formalParameters))
+        val body = value(ConstructorDeclarationContext::constructorBody).parse("Can't parse body")
         return MethodDeclaration(name, returnType = null, args, body, modifiers = emptyList())
     }
 
-    override fun visitClassDeclaration(ctx: JavaParser.ClassDeclarationContext): ClassDeclaration {
-        val name = ctx.identifier().parseName()
-        val body = ctx.classBody()?.parse() ?: Ellipsis
-        val extends = ctx.classExtends?.accept(typenameParser)
-        val implements = ctx.classImplements?.typeType().orEmpty().map { it.accept(typenameParser) }
+    override fun visitClassDeclaration(ctx: ClassDeclarationContext): ClassDeclaration = ctx.withRule {
+        val name = value(ClassDeclarationContext::identifier).parseName()
+        val body = get(ClassDeclarationContext::classBody)?.parse() ?: Ellipsis
+        val extends = get(ClassDeclarationContext::classExtends)?.accept(typenameParser)
+        val implements = get(ClassDeclarationContext::classImplements)
+            ?.typeType().orEmpty().map { it.accept(typenameParser) }
 
         return ClassDeclaration(
             name = name,
@@ -313,20 +377,22 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
         )
     }
 
-    override fun visitElementValuePair(ctx: JavaParser.ElementValuePairContext): SemgrepJavaPattern {
-        ctx.tryRule({ ellipsisExpression() }) { return Ellipsis }
+    override fun visitElementValuePair(ctx: ElementValuePairContext): SemgrepJavaPattern = ctx.withRule {
+        tryRule(ElementValuePairContext::ellipsisExpression) { return Ellipsis }
 
-        val name = ctx.identifier().parseName()
-        val value = ctx.elementValue().parse()
+        val name = value(ElementValuePairContext::identifier).parseName()
+        val value = value(ElementValuePairContext::elementValue).parse()
         return NamedValue(name, value)
     }
 
-    override fun visitAnnotation(ctx: JavaParser.AnnotationContext): Annotation {
-        val nameContext = ctx.qualifiedName() ?: ctx.altAnnotationQualifiedName()
+    override fun visitAnnotation(ctx: AnnotationContext): Annotation = ctx.withRule {
+        val nameContext = get(AnnotationContext::qualifiedName)
+            ?: value(AnnotationContext::altAnnotationQualifiedName)
+
         val name = nameContext.accept(typenameParser)
 
-        val elementValue = ctx.elementValue()
-        val elementValuePairs = ctx.elementValuePairs()
+        val elementValue = get(AnnotationContext::elementValue)
+        val elementValuePairs = get(AnnotationContext::elementValuePairs)
         val arguments = when {
             elementValue != null -> listOf(elementValue.parse())
             elementValuePairs != null -> elementValuePairs.elementValuePair().map { it.parse() }
@@ -336,28 +402,30 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
         return Annotation(name, arguments.asMethodArguments())
     }
 
-    override fun visitBlock(ctx: JavaParser.BlockContext): SemgrepJavaPattern {
-        val statements = ctx.blockStatement().map { it.parse() }
+    override fun visitBlock(ctx: BlockContext): SemgrepJavaPattern = ctx.withRule {
+        val statements = value(BlockContext::blockStatement).mapNotNull { it.parse() }
         return statements.asPatternSequence()
     }
 
-    override fun visitTypeDeclSemgrepPattern(ctx: JavaParser.TypeDeclSemgrepPatternContext): SemgrepJavaPattern {
-        val decl = ctx.typeDeclaration()
-        val declaration = parseTypeDeclaration(decl)
-
-        val modifiers = decl.classOrInterfaceModifier().map { parseModifier(it) }
-        return declaration.withModifiers(ctx, modifiers)
+    override fun visitTypeDeclSemgrepPattern(ctx: TypeDeclSemgrepPatternContext): SemgrepJavaPattern = ctx.withRule {
+        val decl = value(TypeDeclSemgrepPatternContext::typeDeclaration)
+        decl.withRule {
+            val declaration = parseTypeDeclaration()
+            val modifiers = value(TypeDeclarationContext::classOrInterfaceModifier).mapNotNull { parseModifier(it) }
+            declaration.withModifiers(ctx, modifiers)
+        }
     }
 
-    private fun parseTypeDeclaration(decl: TypeDeclarationContext): SemgrepJavaPattern {
-        decl.tryRule({ classDeclaration() }) { return it.parse() }
-        decl.tryRule({ interfaceDeclaration() }) { it.todo() }
-        decl.parsingFailed("Unexpected local type declaration")
+    private fun RuleCtx<TypeDeclarationContext>.parseTypeDeclaration(): SemgrepJavaPattern {
+        tryRule(TypeDeclarationContext::classDeclaration) { return it.parse() }
+        tryRule(TypeDeclarationContext::interfaceDeclaration) { it.todo() }
+        unreachable()
     }
 
-    override fun visitImportSemgrepPattern(ctx: JavaParser.ImportSemgrepPatternContext): SemgrepJavaPattern {
-        val importNames = ctx.importDeclaration().qualifiedName().identifier().map { it.parseName() }
-        val isConcrete = ctx.importDeclaration().MUL() == null
+    override fun visitImportSemgrepPattern(ctx: ImportSemgrepPatternContext): SemgrepJavaPattern = ctx.withRule {
+        val importDecl = value(ImportSemgrepPatternContext::importDeclaration)
+        val importNames = importDecl.qualifiedName().identifier().map { it.parseName() }
+        val isConcrete = importDecl.MUL() == null
         return ImportStatement(importNames, isConcrete)
     }
 
@@ -370,42 +438,46 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
     override fun visitAnnotationSemgrepPattern(ctx: JavaParser.AnnotationSemgrepPatternContext): SemgrepJavaPattern =
         ctx.annotation().parse()
 
-    override fun visitLocalTypeDeclaration(ctx: JavaParser.LocalTypeDeclarationContext): SemgrepJavaPattern {
-        val classDecl = ctx.classDeclaration()
+    override fun visitLocalTypeDeclaration(ctx: LocalTypeDeclarationContext): SemgrepJavaPattern = ctx.withRule {
+        val classDecl = get(LocalTypeDeclarationContext::classDeclaration)
         val declaration = when {
             classDecl != null -> classDecl.parse()
             else -> ctx.parsingFailed("Unexpected local type declaration")
         }
 
-        val modifiers = ctx.classOrInterfaceModifier().map { parseModifier(it) }
+        val modifiers = value(LocalTypeDeclarationContext::classOrInterfaceModifier)
+            .mapNotNull { parseModifier(it) }
 
         return declaration.withModifiers(ctx, modifiers)
     }
 
-    override fun visitClassBodyDeclaration(ctx: JavaParser.ClassBodyDeclarationContext): SemgrepJavaPattern {
-        ctx.tryRule({ block() }) { return it.parse() }
+    override fun visitClassBodyDeclaration(ctx: ClassBodyDeclarationContext): SemgrepJavaPattern = ctx.withRule {
+        tryRule(ClassBodyDeclarationContext::block) { return it.parse() }
+        tryRule(ClassBodyDeclarationContext::ellipsisExpression) { return Ellipsis }
 
-        ctx.tryRule({ ellipsisExpression() }) { return Ellipsis }
-
-        val declaration = ctx.memberDeclaration().parse("Can't parse declaration")
-
-        val modifiers = ctx.modifier().map { parseModifier(it) }
-
+        val declaration = value(ClassBodyDeclarationContext::memberDeclaration).parse("Can't parse declaration")
+        val modifiers = value(ClassBodyDeclarationContext::modifier).mapNotNull { parseModifier(it) }
         return declaration.withModifiers(ctx, modifiers)
     }
 
-    private fun parseModifier(ctx: ClassOrInterfaceModifierContext): Modifier {
-        val parsed = ctx.parse()
-        if (parsed is Modifier) return parsed
-
-        ctx.parsingFailed("Expected modifier, got $parsed")
+    private fun parseModifier(ctx: ClassOrInterfaceModifierContext): Modifier? {
+        val annotation = ctx.annotation() ?: return null
+        return parseAnnotation(annotation)
     }
 
-    private fun parseModifier(ctx: ModifierContext): Modifier {
-        val parsed = ctx.parse()
+    private fun parseModifier(ctx: ModifierContext): Modifier? =
+        parseModifier(ctx.classOrInterfaceModifier())
+
+    private fun parseModifier(ctx: VariableModifierContext): Modifier? {
+        val annotation = ctx.annotation() ?: return null
+        return parseAnnotation(annotation)
+    }
+
+    private fun parseAnnotation(annotation: AnnotationContext): Modifier {
+        val parsed = annotation.parse()
         if (parsed is Modifier) return parsed
 
-        ctx.parsingFailed("Expected modifier, got $parsed")
+        annotation.parsingFailed("Expected modifier, got $parsed")
     }
 
     override fun visitClassBody(ctx: JavaParser.ClassBodyContext): SemgrepJavaPattern {
@@ -428,13 +500,15 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
         return EllipsisMetavar(metaVarName)
     }
 
-    override fun visitCatchBlockSemgrepPattern(ctx: JavaParser.CatchBlockSemgrepPatternContext): SemgrepJavaPattern {
+    override fun visitCatchBlockSemgrepPattern(ctx: CatchBlockSemgrepPatternContext): SemgrepJavaPattern {
         val catchClause = ctx.patternCatchBlock().catchClause()
-        val block = catchClause.block().parse()
-        val exceptionTypes = catchClause.catchType().qualifiedName().map { it.accept(typenameParser) }
-        val exceptionVar = catchClause.identifier().parseName()
+        catchClause.withRule {
+            val block = value(CatchClauseContext::block).parse()
+            val exceptionTypes = value(CatchClauseContext::catchType).qualifiedName().map { it.accept(typenameParser) }
+            val exceptionVar = value(CatchClauseContext::identifier).parseName()
 
-        return CatchStatement(exceptionTypes, exceptionVar, block)
+            return CatchStatement(exceptionTypes, exceptionVar, block)
+        }
     }
 
     override fun visitIdentifier(ctx: IdentifierContext): SemgrepJavaPattern {
@@ -446,11 +520,13 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
         }
     }
 
-    override fun visitLiteral(ctx: JavaParser.LiteralContext): SemgrepJavaPattern {
-        ctx.tryRule({ METAVAR_LITERAL() }) { return StringLiteral(MetavarName(it.text)) }
-        ctx.tryRule({ ELLIPSIS_LITERAL() }) { return StringEllipsis }
-
-        ctx.tryRule({ BOOL_LITERAL() }) {
+    override fun visitLiteral(ctx: LiteralContext): SemgrepJavaPattern = ctx.withRule {
+        tryRule(LiteralContext::METAVAR_LITERAL) { return StringLiteral(MetavarName(it.text.stringLiteralValue())) }
+        tryRule(LiteralContext::ELLIPSIS_LITERAL) { return StringEllipsis }
+        tryRule(LiteralContext::STRING_LITERAL) { return StringLiteral(ConcreteName(it.text.stringLiteralValue())) }
+        tryRule(LiteralContext::NULL_LITERAL) { return NullLiteral }
+        tryRule(LiteralContext::integerLiteral) { return IntLiteral(it.text) }
+        tryRule(LiteralContext::BOOL_LITERAL) {
             return when (it.text) {
                 "true" -> BoolConstant(true)
                 "false" -> BoolConstant(false)
@@ -458,13 +534,12 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
             }
         }
 
-        ctx.tryRule({ STRING_LITERAL() }) { return StringLiteral(ConcreteName(it.text)) }
+        unreachable()
+    }
 
-        ctx.tryRule({ NULL_LITERAL() }) { return NullLiteral }
-
-        ctx.tryRule({ integerLiteral() }) { return IntLiteral(it.text) }
-
-        ctx.parsingFailed("Unexpected literal")
+    private fun String.stringLiteralValue(): String {
+        check(length >= 2 && first() == '"' && last() == '"') { "Quote expected" }
+        return substring(1, length - 1)
     }
 
     override fun visitExpressionEllipsis(ctx: JavaParser.ExpressionEllipsisContext): SemgrepJavaPattern = Ellipsis
@@ -587,7 +662,64 @@ private fun ParserRuleContext.parsingFailed(message: String = "Can't parse such 
 
 private fun ParserRuleContext.todo(): Nothing = throw UnsupportedElement(this)
 
-private inline fun <reified T : ParserRuleContext, R> T.tryRule(rule: T.() -> R?, block: (R) -> Unit) {
-    val element = this.rule() ?: return
-    block(element)
+private class RuleCtx<T: ParserRuleContext>(val rule: T) {
+    val accessedRules = Collections.newSetFromMap<ParseTree>(IdentityHashMap())
+
+    inline fun <reified T : ParserRuleContext, R : ParseTree> RuleCtx<T>.get(body: T.() -> R?): R? {
+        val r = rule.body() ?: return null
+        accessedRules.add(r)
+        return r
+    }
+
+    @JvmName("getList")
+    inline fun <reified T : ParserRuleContext, R : ParseTree> RuleCtx<T>.get(body: T.() -> List<R>?): List<R>? {
+        val r = rule.body() ?: return null
+        accessedRules.addAll(r)
+        return r
+    }
+
+    inline fun <reified T : ParserRuleContext, R : ParseTree> RuleCtx<T>.value(body: T.() -> R?): R {
+        val r = rule.body() ?: error("Required property is null")
+        accessedRules.add(r)
+        return r
+    }
+
+    @JvmName("valueList")
+    inline fun <reified T : ParserRuleContext, R : ParseTree> RuleCtx<T>.value(body: T.() -> List<R>?): List<R> {
+        val r = rule.body() ?: error("Required property is null")
+        accessedRules.addAll(r)
+        return r
+    }
+
+    inline fun <reified T : ParserRuleContext, R : ParseTree> RuleCtx<T>.tryRule(getter: T.() -> R?, body: (R) -> Unit) {
+        val r = get(getter) ?: return
+        body(r)
+    }
+
+    @JvmName("tryRuleList")
+    inline fun <reified T : ParserRuleContext, R : ParseTree> RuleCtx<T>.tryRule(getter: T.() -> List<R>?, body: (List<R>) -> Unit) {
+        val r = get(getter) ?: return
+        body(r)
+    }
+
+    fun unreachable(): Nothing = TODO("Unreachable")
+}
+
+private inline fun <reified T : ParserRuleContext, R> T.withRule(body: RuleCtx<T>.() -> R): R {
+    val ctx = RuleCtx(this)
+    var exceptional = false
+    try {
+        return ctx.body()
+    } catch (ex: Throwable) {
+        exceptional = true
+        throw ex
+    } finally {
+        if (!exceptional) {
+            children.filterIsInstance<RuleNode>().forEach {
+                if (it !in ctx.accessedRules) {
+                    TODO("Missed rule: ${it.text}")
+                }
+            }
+        }
+    }
 }
