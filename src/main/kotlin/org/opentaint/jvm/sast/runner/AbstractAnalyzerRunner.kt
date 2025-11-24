@@ -27,7 +27,7 @@ abstract class AbstractAnalyzerRunner : CliWithLogger() {
 
     private val debugTaintRulesStats: Boolean by
         option(help = "Enable reporting stats about analyzer steps per taint rule")
-        .flag()
+        .flag(default = false)
 
     private val debugTaintRulesStatsSamplingPeriod: Int by
         option(help = "Number of analyzer steps per one taint rule stats sample")
@@ -35,7 +35,7 @@ abstract class AbstractAnalyzerRunner : CliWithLogger() {
         .default(100)
 
     private val debugIfdsCoverage: Boolean by option(help = "Enable coverage report by ifds engine")
-        .flag()
+        .flag(default = false)
 
     private val project: Path by option(help = "Project configuration (yaml)")
         .file()

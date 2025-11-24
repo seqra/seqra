@@ -196,17 +196,8 @@ class NormalMethodAnalyzer(
 
         val edgeFactBase = finalEdgeFact?.base
 
-        if (taintRulesStatsSamplingPeriod != null
-            && finalEdgeFact != null
-            && analyzerSteps % taintRulesStatsSamplingPeriod.toLong() == 0L) {
-
-            val taintMarks = finalEdgeFact.collectTaintMarks()
-
-            taintMarks.forEach { taintMark ->
-                stepsForTaintMark.compute(taintMark) { _, prev ->
-                    prev?.let { it + 1 } ?: 1
-                }
-            }
+        if (taintRulesStatsSamplingPeriod != null) {
+            updateTaintRulesStats(finalEdgeFact, taintRulesStatsSamplingPeriod)
         }
 
         if (edgeFactBase == null || analysisManager.isReachable(apManager, analysisContext, edgeFactBase, edge.statement)) {
@@ -665,6 +656,21 @@ class NormalMethodAnalyzer(
     ): MethodTraceResolver.FullTrace {
         val resolver = MethodTraceResolver(runner, analysisContext, edges)
         return resolver.resolveIntraProceduralFullTrace(summaryTrace, cancellation)
+    }
+
+    private fun updateTaintRulesStats(
+        finalEdgeFact: FinalFactAp?,
+        taintRulesStatsSamplingPeriod: Int
+    ) {
+        if (finalEdgeFact == null) return
+        if (analyzerSteps % taintRulesStatsSamplingPeriod.toLong() != 0L) return
+
+        val taintMarks = finalEdgeFact.collectTaintMarks()
+        taintMarks.forEach { taintMark ->
+            stepsForTaintMark.compute(taintMark) { _, prev ->
+                prev?.let { it + 1 } ?: 1
+            }
+        }
     }
 }
 

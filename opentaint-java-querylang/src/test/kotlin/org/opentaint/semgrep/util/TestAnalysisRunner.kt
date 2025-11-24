@@ -74,7 +74,8 @@ class TestAnalysisRunner(
             } as UnitResolver<CommonMethod>,
             apMode = ApMode.Tree,
             summarySerializationContext = DummySerializationContext,
-            taintConfig = configProvider
+            taintConfig = configProvider,
+            taintRulesStatsSamplingPeriod = null,
         )
     }
 

@@ -378,21 +378,25 @@ class TaintAnalysisUnitRunnerManager(
                 mostPassMethods.take(5).forEach { appendLine(it) }
 
                 if (taintRulesStatsSamplingPeriod != null) {
-                    val stepsForTaintRule = mutableMapOf<String, Long>()
-                    methodStats.stats.values.forEach { stats ->
-                        stats.stepsForTaintMark.forEach { (mark, count) ->
-                            val rule = mark.split("#").first()
-                            stepsForTaintRule.compute(rule) { _, prev -> prev?.let { it + count } ?: count }
-                        }
-                    }
-
-                    val mostStepsForTaintRule = stepsForTaintRule.entries.sortedByDescending { it.value }
-
-                    appendLine("Steps for taint rules (sampled)")
-                    mostStepsForTaintRule.take(5).forEach { appendLine("${it.key} -> ${it.value}") }
+                    printTaintRuleStats(methodStats)
                 }
             }
         }
+    }
+
+    private fun StringBuilder.printTaintRuleStats(methodStats: MethodStats) {
+        val stepsForTaintRule = mutableMapOf<String, Long>()
+        methodStats.stats.values.forEach { stats ->
+            stats.stepsForTaintMark.forEach { (mark, count) ->
+                val rule = mark.split("#").first()
+                stepsForTaintRule.compute(rule) { _, prev -> prev?.let { it + count } ?: count }
+            }
+        }
+
+        val mostStepsForTaintRule = stepsForTaintRule.entries.sortedByDescending { it.value }
+
+        appendLine("Steps for taint rules (sampled)")
+        mostStepsForTaintRule.take(5).forEach { appendLine("${it.key} -> ${it.value}") }
     }
 
     companion object {
