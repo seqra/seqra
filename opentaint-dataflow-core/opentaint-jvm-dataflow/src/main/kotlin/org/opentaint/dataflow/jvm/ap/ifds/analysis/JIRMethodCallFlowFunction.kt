@@ -18,7 +18,6 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToStar
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToStartZeroFact
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.SideEffectRequirement
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.Unchanged
-import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRCallPositionToAccessPathResolver
@@ -55,6 +54,10 @@ class JIRMethodCallFlowFunction(
 
         applySourceRules(factReader = null, exclusion = ExclusionSet.Universe).forEach {
             this += CallToReturnZFact(factAp = it)
+
+            analysisContext.aliasAnalysis?.forEachAliasAtStatement(statement, it) { aliased ->
+                this += CallToReturnZFact(aliased)
+            }
         }
 
         this += CallToReturnZeroFact
@@ -123,6 +126,10 @@ class JIRMethodCallFlowFunction(
 
         applySourceRules(factReaderBeforeCleaner, exclusion).forEach {
             addCallToReturn(factReaderBeforeCleaner, it)
+
+            analysisContext.aliasAnalysis?.forEachAliasAtStatement(statement, it) { aliased ->
+                addCallToReturn(factReaderBeforeCleaner, aliased)
+            }
         }
 
         if (factReaderBeforeCleaner.hasRefinement) {
@@ -169,6 +176,10 @@ class JIRMethodCallFlowFunction(
         passThroughFacts.onSome { facts ->
             facts.forEach {
                 addCallToReturn(factReaderAfterCleaner, it)
+
+                analysisContext.aliasAnalysis?.forEachAliasAtStatement(statement, it) { aliased ->
+                    addCallToReturn(factReaderAfterCleaner, aliased)
+                }
             }
 
             // Skip method invocation
@@ -258,7 +269,7 @@ class JIRMethodCallFlowFunction(
             // unconditional sources handled with zero fact
             if (evaluatedFacts.isEmpty() && factReader != null) return@applyRuleWithAssumptions
 
-            val actions = rule.actionsAfter.filterIsInstance<AssignMark>()
+            val actions = rule.actionsAfter
             check(actions.size == rule.actionsAfter.size) { "Unexpected source action: ${rule.actionsAfter}" }
 
             for (action in actions) {

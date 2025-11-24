@@ -10,9 +10,9 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition.CallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition.CallPreconditionFact
+import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition.PreconditionFactsForInitialFact
 import org.opentaint.dataflow.ap.ifds.trace.TaintRulePrecondition
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSource
-import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRCallPositionToAccessPathResolver
@@ -21,6 +21,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodCallFactMapper
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
+import org.opentaint.dataflow.jvm.ap.ifds.analysis.forEachPossibleAliasAtStatement
 import org.opentaint.dataflow.jvm.ap.ifds.taint.CalleePositionToAccessPath
 import org.opentaint.dataflow.jvm.ap.ifds.taint.InitialFactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRBasicConditionEvaluator
@@ -45,8 +46,28 @@ class JIRMethodCallPrecondition(
     private val taintConfig get() = analysisContext.taint.taintConfig as TaintRulesProvider
 
     override fun factPrecondition(fact: InitialFactAp): CallPrecondition {
+        val results = mutableListOf<PreconditionFactsForInitialFact>()
+
+        preconditionForFact(fact)?.let {
+            results.add(PreconditionFactsForInitialFact(fact, it))
+        }
+
+        analysisContext.aliasAnalysis?.forEachPossibleAliasAtStatement(statement, fact) { aliasedFact ->
+            preconditionForFact(aliasedFact)?.let {
+                results.add(PreconditionFactsForInitialFact(aliasedFact, it))
+            }
+        }
+
+        return if (results.isEmpty()) {
+            CallPrecondition.Unchanged
+        } else {
+            CallPrecondition.Facts(results)
+        }
+    }
+
+    private fun preconditionForFact(fact: InitialFactAp): List<CallPreconditionFact>? {
         if (!JIRMethodCallFactMapper.factIsRelevantToMethodCall(returnValue, callExpr, fact)) {
-            return CallPrecondition.Unchanged
+            return null
         }
 
         val rulePreconditions = mutableListOf<TaintRulePrecondition>()
@@ -69,7 +90,7 @@ class JIRMethodCallPrecondition(
             callToStart += CallPreconditionFact.CallToStart(callerFact, startFactBase)
         }
 
-        return CallPrecondition.Facts(ruleFacts + callToStart)
+        return ruleFacts + callToStart
     }
 
     private fun MutableList<TaintRulePrecondition>.factSourceRulePrecondition(fact: InitialFactAp) {
@@ -87,7 +108,6 @@ class JIRMethodCallPrecondition(
             if (!rule.condition.accept(ruleConditionEvaluator)) continue
 
             val assignedMarks = rule.actionsAfter
-                .filterIsInstance<AssignMark>()
                 .maybeFlatMap { sourcePreconditionEvaluator.evaluate(rule, it) }
 
             assignedMarks.onSome { sourceActions ->

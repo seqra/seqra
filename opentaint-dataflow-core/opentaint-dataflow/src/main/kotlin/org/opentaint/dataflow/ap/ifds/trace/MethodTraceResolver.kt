@@ -239,15 +239,15 @@ class MethodTraceResolver(
             val stmt = unprocessedStatements.removeLast()
             if (!visitedStatements.add(stmt)) continue
 
-            if (!checkFactStoredAtStatement(unprocessedStatements, stmt, fact)) continue
+            factsStoredAtStatement(unprocessedStatements, stmt, fact).forEach { storedFact ->
+                if (edges.allZeroToFactFactsAtStatement(stmt, storedFact).any { it.contains(storedFact) }) {
+                    matchingInitialFacts.add(null)
+                }
 
-            if (edges.allZeroToFactFactsAtStatement(stmt, fact).any { it.contains(fact) }) {
-                matchingInitialFacts.add(null)
-            }
-
-            edges.allFactToFactFactsAtStatement(stmt, fact).forEach { (initialFact, finalFact) ->
-                if (finalFact.contains(fact)) {
-                    matchingInitialFacts.add(initialFact)
+                edges.allFactToFactFactsAtStatement(stmt, storedFact).forEach { (initialFact, finalFact) ->
+                    if (finalFact.contains(storedFact)) {
+                        matchingInitialFacts.add(initialFact)
+                    }
                 }
             }
         }
@@ -265,25 +265,31 @@ class MethodTraceResolver(
         }
     }
 
-    private fun checkFactStoredAtStatement(
+    private fun factsStoredAtStatement(
         unprocessed: MutableList<CommonInst>,
         statement: CommonInst,
-        fact: InitialFactAp
-    ): Boolean {
+        fact: InitialFactAp,
+    ): List<InitialFactAp> {
         var predecessorsIsEmpty = true
-        var predecessorProduceFact = false
+        val result = mutableListOf<InitialFactAp>()
 
         for (predecessor in graph.predecessors(statement)) {
             predecessorsIsEmpty = false
 
-            if (preconditionIsUnchanged(predecessor, fact)) {
-                unprocessed.add(predecessor)
-            } else {
-                predecessorProduceFact = true
-            }
+            result.addAll(
+                factsForPrecondition(predecessor, fact).also {
+                    if (it.isEmpty()) {
+                        unprocessed.add(predecessor)
+                    }
+                }
+            )
         }
 
-        return predecessorProduceFact || predecessorsIsEmpty
+        if (predecessorsIsEmpty) {
+            result.add(fact)
+        }
+
+        return result
     }
 
     fun resolveIntraProceduralTraceFromCall(
@@ -495,7 +501,7 @@ class MethodTraceResolver(
         entry: TraceEntry
     ) {
         // We always have fact before entry point
-        if (!containsEntryFact(entry, initialFact)) return
+        if (!containsEntryFact(entry.statement, entry.fact, initialFact)) return
 
         if (initialFact != null) {
             addPredecessor(entry, TraceEntry.MethodEntry(initialFact, methodEntryPoint))
@@ -525,22 +531,25 @@ class MethodTraceResolver(
 
             when (precondition) {
                 CallPrecondition.Unchanged -> {
-                    addPredecessor(entry, TraceEntry.Unchanged(entry.fact, statement))
+                     addPredecessor(entry, TraceEntry.Unchanged(entry.fact, statement))
                     return
                 }
 
                 is CallPrecondition.Facts -> {
-                    if (!skipFactCheck && !containsEntryFact(entry, initialFact)) {
-                        return
-                    }
+                    precondition.facts.forEach {
+                        if (!skipFactCheck && !containsEntryFact(entry.statement, it.initialFact, initialFact)) {
+                            return
+                        }
 
-                    propagateCall(entry, initialFact, precondition.facts, statement, statementCall)
+                        propagateCall(entry, initialFact, it.preconditionFacts, statement, statementCall)
+                    }
                 }
             }
         } else {
             val preconditionFunction = analysisManager.getMethodSequentPrecondition(
                 apManager, analysisContext, statement
             )
+
             val precondition = preconditionFunction.factPrecondition(entry.fact)
 
             when (precondition) {
@@ -549,19 +558,21 @@ class MethodTraceResolver(
                 }
 
                 is SequentPrecondition.Facts -> {
-                    if (!skipFactCheck && !containsEntryFact(entry, initialFact)) {
-                        return
-                    }
-
                     precondition.facts.forEach {
-                        addPredecessor(entry, TraceEntry.Sequential(it, statement))
+                        if (!skipFactCheck && !containsEntryFact(entry.statement, it.initialFact, initialFact)) {
+                            return
+                        }
+
+                        it.preconditionFacts.forEach { fact ->
+                            addPredecessor(entry, TraceEntry.Sequential(fact, statement))
+                        }
                     }
                 }
             }
         }
     }
 
-    private fun preconditionIsUnchanged(statement: CommonInst, fact: InitialFactAp): Boolean {
+    private fun factsForPrecondition(statement: CommonInst, fact: InitialFactAp): List<InitialFactAp> {
         val statementCall = analysisManager.getCallExpr(statement)
         if (statementCall != null) {
             val returnValue: CommonValue? = (statement as? CommonAssignInst)?.lhv
@@ -570,13 +581,19 @@ class MethodTraceResolver(
                 apManager, analysisContext, returnValue, statementCall, statement
             )
             val precondition = preconditionFunction.factPrecondition(fact)
-            return precondition is CallPrecondition.Unchanged
+            return when (precondition) {
+                is CallPrecondition.Facts -> precondition.facts.map { it.initialFact }
+                CallPrecondition.Unchanged -> emptyList()
+            }
         } else {
             val preconditionFunction = analysisManager.getMethodSequentPrecondition(
                 apManager, analysisContext, statement
             )
             val precondition = preconditionFunction.factPrecondition(fact)
-            return precondition is SequentPrecondition.Unchanged
+            return when (precondition) {
+                is SequentPrecondition.Facts -> precondition.facts.map { it.initialFact }
+                SequentPrecondition.Unchanged -> emptyList()
+            }
         }
     }
 
@@ -780,12 +797,12 @@ class MethodTraceResolver(
     private fun methodEntryPoints(method: MethodWithContext): Sequence<MethodEntryPoint> =
         graph.entryPoints(method.method).map { MethodEntryPoint(method.ctx, it) }
 
-    private fun containsEntryFact(entry: TraceEntry, initialFact: InitialFactAp?): Boolean {
+    private fun containsEntryFact(entryStatement: CommonInst, entryFact: InitialFactAp, initialFact: InitialFactAp?): Boolean {
         val entryFacts = if (initialFact == null) {
-            edges.allZeroToFactFactsAtStatement(entry.statement, entry.fact)
+            edges.allZeroToFactFactsAtStatement(entryStatement, entryFact)
         } else {
-            edges.allFactToFactFactsAtStatement(entry.statement, initialFact, entry.fact)
+            edges.allFactToFactFactsAtStatement(entryStatement, initialFact, entryFact)
         }
-        return entryFacts.any { statementFact -> statementFact.contains(entry.fact) }
+        return entryFacts.any { statementFact -> statementFact.contains(entryFact) }
     }
 }

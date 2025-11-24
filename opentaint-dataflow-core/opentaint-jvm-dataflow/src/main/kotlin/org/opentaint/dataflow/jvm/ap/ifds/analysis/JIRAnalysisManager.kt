@@ -6,7 +6,6 @@ import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRClasspath
-import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
@@ -31,6 +30,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRCallResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLambdaTracker
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLanguageManager
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalVariableReachability
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodCallFactMapper
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodContextSerializer
@@ -42,7 +42,10 @@ import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodStartPrecondition
 import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 
-class JIRAnalysisManager(cp: JIRClasspath) : JIRLanguageManager(cp), TaintAnalysisManager {
+class JIRAnalysisManager(
+    cp: JIRClasspath,
+    private val applyAliasInfo: Boolean = false,
+) : JIRLanguageManager(cp), TaintAnalysisManager {
     private val lambdaTracker = JIRLambdaTracker()
     private val factTypeChecker = JIRFactTypeChecker(cp)
 
@@ -63,14 +66,22 @@ class JIRAnalysisManager(cp: JIRClasspath) : JIRLanguageManager(cp), TaintAnalys
         graph: ApplicationGraph<CommonMethod, CommonInst>,
         taintAnalysisContext: TaintAnalysisContext
     ): MethodAnalysisContext {
-        val method = methodEntryPoint.method
-        jirDowncast<JIRMethod>(method)
+        val entryPointStatement = methodEntryPoint.statement
+        jirDowncast<JIRInst>(entryPointStatement)
         jirDowncast<JIRApplicationGraph>(graph)
-        val localVariableReachability = JIRLocalVariableReachability(method, graph, this)
+
+        val aliasAnalysis = if (applyAliasInfo) {
+            JIRLocalAliasAnalysis(entryPointStatement, graph, this)
+        } else {
+            null
+        }
+
+        val localVariableReachability = JIRLocalVariableReachability(entryPointStatement.method, graph, this)
         return JIRMethodAnalysisContext(
             methodEntryPoint,
             factTypeChecker,
             localVariableReachability,
+            aliasAnalysis,
             taintAnalysisContext
         )
     }
@@ -97,7 +108,9 @@ class JIRAnalysisManager(cp: JIRClasspath) : JIRLanguageManager(cp), TaintAnalys
         currentInst: CommonInst
     ): MethodSequentPrecondition {
         jirDowncast<JIRInst>(currentInst)
-        return JIRMethodSequentPrecondition(currentInst)
+        jirDowncast<JIRMethodAnalysisContext>(analysisContext)
+
+        return JIRMethodSequentPrecondition(currentInst, analysisContext)
     }
 
     override fun getMethodSequentFlowFunction(
@@ -107,7 +120,8 @@ class JIRAnalysisManager(cp: JIRClasspath) : JIRLanguageManager(cp), TaintAnalys
     ): MethodSequentFlowFunction {
         jirDowncast<JIRInst>(currentInst)
         jirDowncast<JIRMethodAnalysisContext>(analysisContext)
-        return JIRMethodSequentFlowFunction(apManager, analysisContext, currentInst, factTypeChecker)
+
+        return JIRMethodSequentFlowFunction(apManager, analysisContext, currentInst)
     }
 
     override fun getMethodCallFlowFunction(
@@ -137,7 +151,9 @@ class JIRAnalysisManager(cp: JIRClasspath) : JIRLanguageManager(cp), TaintAnalys
         statement: CommonInst
     ): MethodCallSummaryHandler {
         jirDowncast<JIRInst>(statement)
-        return JIRMethodCallSummaryHandler(statement, factTypeChecker)
+        jirDowncast<JIRMethodAnalysisContext>(analysisContext)
+
+        return JIRMethodCallSummaryHandler(statement, analysisContext)
     }
 
     override fun getMethodCallPrecondition(

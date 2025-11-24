@@ -14,7 +14,6 @@ import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
-import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
@@ -38,8 +37,9 @@ class JIRMethodSequentFlowFunction(
     private val apManager: ApManager,
     private val analysisContext: JIRMethodAnalysisContext,
     private val currentInst: JIRInst,
-    private val factTypeChecker: FactTypeChecker
 ): MethodSequentFlowFunction {
+    private val factTypeChecker get() = analysisContext.factTypeChecker
+
     override fun propagateZeroToZero() = setOf(Sequent.ZeroToZero)
 
     override fun propagateZeroToFact(currentFactAp: FinalFactAp) = buildSet {
@@ -343,6 +343,10 @@ class JIRMethodSequentFlowFunction(
             val newAp = factAp.writeToField(newBase = instance, field = accessor)
             propagateFact(newAp)
 
+            analysisContext.aliasAnalysis?.forEachAliasAtStatement(currentInst, newAp) { aliased ->
+                propagateFact(aliased)
+            }
+
             return
         }
 
@@ -387,6 +391,10 @@ class JIRMethodSequentFlowFunction(
     ) {
         val abstractAp = apManager.createAbstractAp(factAp.base, factAp.exclusions)
         propagateFactWithAccessorExclude(abstractAp, accessor)
+
+        analysisContext.aliasAnalysis?.forEachAliasAtStatement(currentInst, abstractAp) { aliased ->
+            propagateFactWithAccessorExclude(aliased, accessor)
+        }
     }
 
     private fun applyMethodExitSinkRules(
