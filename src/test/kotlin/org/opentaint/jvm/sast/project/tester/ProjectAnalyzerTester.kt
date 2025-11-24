@@ -19,13 +19,15 @@ class ProjectAnalyzerTester(
     ifdsAnalysisTimeout: Duration,
     ifdsApMode: ApMode,
     projectKind: ProjectKind,
-    testDataJsonPath: Path
+    testDataJsonPath: Path,
+    debugOptions: DebugOptions
 ) : AbstractProjectAnalyzer(
     project,
     projectPackage,
     ifdsAnalysisTimeout,
     ifdsApMode,
-    projectKind
+    projectKind,
+    debugOptions
 ) {
     private val testDataTaintConfig: List<TracePair> = Json.decodeFromString(
         testDataJsonPath.readText()
@@ -40,6 +42,7 @@ class ProjectAnalyzerTester(
             projectLocations = projectClasses.projectLocations,
             ifdsTimeout = ifdsAnalysisTimeout,
             ifdsApMode = ifdsApMode,
+            debugOptions = debugOptions
         ).use { analyzer ->
             logger.info { "Start running tests" }
             val stats = analyzer.runTests(entryPoints)

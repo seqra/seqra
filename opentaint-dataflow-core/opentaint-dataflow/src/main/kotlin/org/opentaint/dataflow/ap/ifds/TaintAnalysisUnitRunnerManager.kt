@@ -54,7 +54,8 @@ class TaintAnalysisUnitRunnerManager(
     override val unitResolver: UnitResolver<CommonMethod>,
     private val taintConfig: CommonTaintRulesProvider,
     private val summarySerializationContext: SummarySerializationContext,
-    apMode: ApMode = ApMode.Cactus
+    apMode: ApMode = ApMode.Cactus,
+    private val taintRulesStatsSamplingPeriod: Int?
 ): AnalysisUnitRunnerManager, AutoCloseable {
     val apManager: ApManager = when (apMode) {
         ApMode.Tree -> TreeApManager
@@ -271,7 +272,13 @@ class TaintAnalysisUnitRunnerManager(
         val taintAnalyzer = TaintAnalysisManagerWithContext(analysisManager, sinkTracker, taintConfig)
 
         val runner = TaintAnalysisUnitRunner(
-            this, unit, taintAnalyzer, graph, unitResolver, summarySerializationContext
+            manager = this,
+            unit = unit,
+            analysisManager = taintAnalyzer,
+            graph = graph,
+            unitResolver = unitResolver,
+            summarySerializationContext = summarySerializationContext,
+            taintRulesStatsSamplingPeriod = taintRulesStatsSamplingPeriod
         )
 
         val exceptionHandler = CoroutineExceptionHandler { _, exception ->
@@ -369,6 +376,21 @@ class TaintAnalysisUnitRunnerManager(
 
                 appendLine("Pass summary")
                 mostPassMethods.take(5).forEach { appendLine(it) }
+
+                if (taintRulesStatsSamplingPeriod != null) {
+                    val stepsForTaintRule = mutableMapOf<String, Long>()
+                    methodStats.stats.values.forEach { stats ->
+                        stats.stepsForTaintMark.forEach { (mark, count) ->
+                            val rule = mark.split("#").first()
+                            stepsForTaintRule.compute(rule) { _, prev -> prev?.let { it + count } ?: count }
+                        }
+                    }
+
+                    val mostStepsForTaintRule = stepsForTaintRule.entries.sortedByDescending { it.value }
+
+                    appendLine("Steps for taint rules (sampled)")
+                    mostStepsForTaintRule.take(5).forEach { appendLine("${it.key} -> ${it.value}") }
+                }
             }
         }
     }

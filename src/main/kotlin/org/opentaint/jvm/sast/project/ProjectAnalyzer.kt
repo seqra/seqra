@@ -38,8 +38,9 @@ class ProjectAnalyzer(
     ifdsAnalysisTimeout: Duration,
     ifdsApMode: ApMode,
     projectKind: ProjectKind,
-    private val storeSummaries: Boolean
-) : AbstractProjectAnalyzer(project, projectPackage, ifdsAnalysisTimeout, ifdsApMode, projectKind) {
+    private val storeSummaries: Boolean,
+    debugOptions: DebugOptions
+) : AbstractProjectAnalyzer(project, projectPackage, ifdsAnalysisTimeout, ifdsApMode, projectKind, debugOptions) {
     private fun loadTaintConfig(): TaintRulesProvider {
         if (semgrepRuleSet != null) {
             check(customConfig == null) { "Unsupported custom config" }
@@ -99,7 +100,8 @@ class ProjectAnalyzer(
             symbolicExecutionEnabled = useSymbolicExecution,
             analysisCwe = cwe.takeIf { it.isNotEmpty() }?.toSet(),
             summarySerializationContext = summarySerializationContext,
-            storeSummaries = storeSummaries
+            storeSummaries = storeSummaries,
+            debugOptions = debugOptions
         ).use { analyzer ->
             val sourcesResolver = JIRSourceFileResolver(
                 project.sourceRoot,

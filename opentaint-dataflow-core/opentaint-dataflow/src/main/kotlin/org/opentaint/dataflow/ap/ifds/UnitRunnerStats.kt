@@ -18,8 +18,9 @@ class MethodStats {
         var unprocessedEdges: Long,
         var handledSummaries: Long,
         var sourceSummaries: Long,
-        var passSummaries: Long
+        var passSummaries: Long,
     ) {
+        val stepsForTaintMark: MutableMap<String, Long> = hashMapOf()
         val coveredInstructions = BitSet()
     }
 }

@@ -96,7 +96,8 @@ interface MethodAnalyzer {
 
 class NormalMethodAnalyzer(
     private val runner: AnalysisRunner,
-    private val methodEntryPoint: MethodEntryPoint
+    private val methodEntryPoint: MethodEntryPoint,
+    private val taintRulesStatsSamplingPeriod: Int?
 ) : MethodAnalyzer {
     private val graph: ApplicationGraph<CommonMethod, CommonInst> get() = runner.graph
     private val apManager: ApManager get() = runner.apManager
@@ -120,6 +121,8 @@ class NormalMethodAnalyzer(
 
     override var analyzerSteps: Long = 0
         private set
+
+    private val stepsForTaintMark: MutableMap<String, Long> = hashMapOf()
 
     private var summaryEdgesHandled: Long = 0
 
@@ -149,6 +152,11 @@ class NormalMethodAnalyzer(
             handledSummaries += summaryEdgesHandled
             unprocessedEdges += this@NormalMethodAnalyzer.unprocessedEdges.size
             coveredInstructions.or(edges.reachedStatements())
+            this@NormalMethodAnalyzer.stepsForTaintMark.forEach { (mark, count) ->
+                stepsForTaintMark.compute(mark) { _, prev ->
+                    prev?.let { it + count } ?: count
+                }
+            }
         }
     }
 
@@ -180,10 +188,25 @@ class NormalMethodAnalyzer(
 
         val edge = unprocessedEdges.removeLast()
 
-        val edgeFactBase = when (edge) {
+        val finalEdgeFact = when (edge) {
             is ZeroToZero -> null
-            is ZeroToFact -> edge.factAp.base
-            is FactToFact -> edge.factAp.base
+            is ZeroToFact -> edge.factAp
+            is FactToFact -> edge.factAp
+        }
+
+        val edgeFactBase = finalEdgeFact?.base
+
+        if (taintRulesStatsSamplingPeriod != null
+            && finalEdgeFact != null
+            && analyzerSteps % taintRulesStatsSamplingPeriod.toLong() == 0L) {
+
+            val taintMarks = finalEdgeFact.collectTaintMarks()
+
+            taintMarks.forEach { taintMark ->
+                stepsForTaintMark.compute(taintMark) { _, prev ->
+                    prev?.let { it + 1 } ?: 1
+                }
+            }
         }
 
         if (edgeFactBase == null || analysisManager.isReachable(apManager, analysisContext, edgeFactBase, edge.statement)) {
@@ -745,5 +768,28 @@ class EmptyMethodAnalyzer(
         calleeEntry: MethodTraceResolver.TraceEntry.MethodEntry
     ): List<MethodTraceResolver.SummaryTrace> {
         error("Empty method have no calls")
+    }
+}
+
+private fun FinalFactAp.collectTaintMarks(): Set<String> {
+    val taintMarkGatherer = TaintMarkGatherer()
+    filterFact(taintMarkGatherer)
+    return taintMarkGatherer.marks
+}
+
+private class TaintMarkGatherer: FactTypeChecker.FactApFilter {
+    private val visitedMarks = hashSetOf<String>()
+
+    val marks: Set<String>
+        get() = visitedMarks
+
+    override fun check(accessor: Accessor): FactTypeChecker.FilterResult {
+        return when (accessor) {
+            is TaintMarkAccessor -> FactTypeChecker.FilterResult.Reject.also {
+                visitedMarks.add(accessor.mark)
+            }
+            is FinalAccessor -> FactTypeChecker.FilterResult.Reject
+            else -> FactTypeChecker.FilterResult.FilterNext(this)
+        }
     }
 }

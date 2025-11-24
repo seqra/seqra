@@ -39,6 +39,7 @@ import org.opentaint.dataflow.jvm.ifds.PackageUnit
 import org.opentaint.dataflow.jvm.util.JIRSarifTraits
 import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.dataflow.util.percentToString
+import org.opentaint.project.DebugOptions
 import java.io.OutputStream
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -56,6 +57,7 @@ open class JIRTaintAnalyzer(
     val summarySerializationContext: SummarySerializationContext,
     val storeSummaries: Boolean,
     val analysisUnit: JIRUnitResolver = PackageUnitResolver(projectLocations = projectLocations),
+    val debugOptions: DebugOptions
 ): AutoCloseable {
     private val ifdsAnalysisGraph by lazy {
         val usages = runBlocking { cp.usagesExt() }
@@ -107,7 +109,8 @@ open class JIRTaintAnalyzer(
         analysisUnit as UnitResolver<CommonMethod>,
         taintConfig,
         summarySerializationContext,
-        ifdsApMode
+        ifdsApMode,
+        debugOptions.taintRulesStatsSamplingPeriod
     )
 
     private fun analyzeTaintWithIfdsEngine(
@@ -119,8 +122,10 @@ open class JIRTaintAnalyzer(
         runCatching { ifdsEngine.runAnalysis(entryPoints, timeout = analysisTimeout, cancellationTimeout = 30.seconds) }
             .onFailure { logger.error(it) { "Ifds engine failed" } }
 
-        logger.debug {
-            ifdsEngine.reportCoverage()
+        if (debugOptions.enableIfdsCoverage) {
+            logger.debug {
+                ifdsEngine.reportCoverage()
+            }
         }
 
         if (storeSummaries) {

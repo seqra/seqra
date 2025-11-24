@@ -5,14 +5,17 @@ import org.opentaint.dataflow.util.getOrCreateIndex
 import org.opentaint.dataflow.util.getValue
 import org.opentaint.dataflow.util.object2IntMap
 
-class MethodAnalyzerStorage(private val languageManager: LanguageManager) {
+class MethodAnalyzerStorage(
+    private val languageManager: LanguageManager,
+    private val taintRulesStatsSamplingPeriod: Int?
+) {
     private val entryPoints = object2IntMap<MethodEntryPoint>()
     private val analyzers = arrayListOf<MethodAnalyzer>()
 
     fun add(runner: TaintAnalysisUnitRunner, methodEntryPoint: MethodEntryPoint): Boolean {
         entryPoints.getOrCreateIndex(methodEntryPoint) {
             val analyzer = if (!languageManager.isEmpty(methodEntryPoint.method)) {
-                NormalMethodAnalyzer(runner, methodEntryPoint)
+                NormalMethodAnalyzer(runner, methodEntryPoint, taintRulesStatsSamplingPeriod)
             } else {
                 val methodExitPoints = runner.graph.exitPoints(methodEntryPoint.method).toList()
 

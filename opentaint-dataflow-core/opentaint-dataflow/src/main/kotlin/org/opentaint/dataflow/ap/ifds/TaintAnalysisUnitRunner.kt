@@ -29,7 +29,8 @@ class TaintAnalysisUnitRunner(
     override val analysisManager: AnalysisManager,
     override val graph: ApplicationGraph<CommonMethod, CommonInst>,
     private val unitResolver: UnitResolver<CommonMethod>,
-    private val summarySerializationContext: SummarySerializationContext
+    private val summarySerializationContext: SummarySerializationContext,
+    private val taintRulesStatsSamplingPeriod: Int?
 ) : AnalysisRunner, SummaryEdgeSubscriptionManager.SummaryEdgeProcessingCtx {
     override val apManager: ApManager
         get() = manager.apManager
@@ -226,7 +227,11 @@ class TaintAnalysisUnitRunner(
         methodAnalyzers(methodEntryPoint.method)
 
     private fun methodAnalyzers(method: CommonMethod): MethodAnalyzerStorage =
-        methodAnalyzers.computeIfAbsent(method) { MethodAnalyzerStorage(analysisManager).also { analyzers.add(it) } }
+        methodAnalyzers.computeIfAbsent(method) {
+            MethodAnalyzerStorage(analysisManager, taintRulesStatsSamplingPeriod).also {
+                analyzers.add(it)
+            }
+        }
 
     override fun enqueueMethodAnalyzer(analyzer: MethodAnalyzer) {
         addUnprocessedEvent(analyzer)

@@ -34,7 +34,8 @@ abstract class AbstractProjectAnalyzer(
     private val projectPackage: String?,
     protected val ifdsAnalysisTimeout: Duration,
     protected val ifdsApMode: ApMode,
-    private val projectKind: ProjectKind
+    private val projectKind: ProjectKind,
+    protected val debugOptions: DebugOptions
 ) {
     fun analyze() {
         initializeCp()
