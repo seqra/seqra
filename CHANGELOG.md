@@ -1,3 +1,12 @@
+## v1.5.0
+### feat: Bump version
+- chore: Remove binary
+#### seqra-jvm-sast
+- Fix spring controller rules
+- Add inner paths of calls to path reporting
+- Fix trace generation
+- Taint spring controller args
+- Support Spring cross-controller analysis
 ## v1.4.1
 ### fix: Update autobuilder, add docs for endpoint mapping, fix typo
 - chore: Add spring boot endpoint extraction docs
