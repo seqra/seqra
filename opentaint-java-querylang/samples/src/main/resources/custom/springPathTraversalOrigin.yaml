@@ -8,7 +8,7 @@ rules:
       - pattern-inside: |
           @PostMapping(...)
           @ResponseBody
-          $RETURNTYPE $METHOD(..., @RequestParam(...) MultipartFile $MULTIFILE, ...) {
+          $RETURNTYPE $METHOD(..., @RequestParam("...") MultipartFile $MULTIFILE, ...) {
             ...
           }
       - pattern: |

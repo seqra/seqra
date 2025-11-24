@@ -692,6 +692,16 @@ class TaintConfiguration {
 
     private fun JIRAnnotation.matched(param: AnnotationParamMatcher): Boolean {
         val paramValue = this.values[param.name] ?: return false
-        TODO("Match param value: $paramValue with $param")
+        val paramValueStr = paramValue.toString()
+
+        return when (param) {
+            is SerializedCondition.AnnotationParamPatternMatcher -> {
+                matchPattern(param.pattern, paramValueStr)
+            }
+
+            is SerializedCondition.AnnotationParamStringMatcher -> {
+                paramValueStr == param.value
+            }
+        }
     }
 }

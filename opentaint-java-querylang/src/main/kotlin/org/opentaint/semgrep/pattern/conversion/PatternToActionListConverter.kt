@@ -573,6 +573,10 @@ class PatternToActionListConverter: ActionListBuilder {
             }
         }
 
+        is StringEllipsis -> {
+            SignatureModifierValue.StringPattern(paramName, pattern = ".*")
+        }
+
         is Metavar -> SignatureModifierValue.MetaVar(paramName, pattern.name)
         else -> {
             addFailedTransformation("Annotation_argument_is_not_string_or_metavar")
