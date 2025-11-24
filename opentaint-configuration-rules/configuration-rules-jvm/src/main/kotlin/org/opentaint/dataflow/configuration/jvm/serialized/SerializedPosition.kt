@@ -23,11 +23,13 @@ import kotlinx.serialization.encoding.Encoder
 sealed interface PositionBase {
     data class ClassStatic(val className: String) : PositionBase
     data class Argument(val idx: Int?) : PositionBase
+    data class AnyArgument(val classifier: String) : PositionBase
     data object This : PositionBase
     data object Result : PositionBase
 
     fun serializedStr(): String = when (this) {
         is Argument -> "arg(${idx ?: "*"})"
+        is AnyArgument -> "any(${classifier})"
         Result -> "result"
         This -> "this"
         is ClassStatic -> "class($className)"
@@ -35,17 +37,28 @@ sealed interface PositionBase {
 
     companion object {
         private val argPositionPattern = Regex("""arg\((\d+|\*)\)""")
+        private val anyArgPositionPattern = Regex("""any\((.*)\)""")
 
-        fun deserialize(str: String): PositionBase = when (str) {
-            "this" -> This
-            "result" -> Result
-            else -> {
-                val argMatch = argPositionPattern.matchEntire(str)
-                    ?: error("Unexpected position: $str")
+        fun deserialize(str: String): PositionBase {
+            return when (str) {
+                "this" -> This
+                "result" -> Result
+                else -> {
+                    val argMatch = argPositionPattern.matchEntire(str)
+                    if (argMatch != null) {
+                        val argKind = argMatch.groupValues[1]
+                        val idx = if (argKind == "*") null else argKind.toInt()
+                        return Argument(idx)
+                    }
 
-                val argKind = argMatch.groupValues[1]
-                val idx = if (argKind == "*") null else argKind.toInt()
-                Argument(idx)
+                    val anyArgMatch = anyArgPositionPattern.matchEntire(str)
+                    if (anyArgMatch != null) {
+                        val classifier = anyArgMatch.groupValues[1]
+                        return AnyArgument(classifier)
+                    }
+
+                    error("Unexpected position: $str")
+                }
             }
         }
     }

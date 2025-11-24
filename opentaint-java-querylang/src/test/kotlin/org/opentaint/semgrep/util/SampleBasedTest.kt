@@ -5,10 +5,13 @@ import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomat
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
 import org.opentaint.org.opentaint.semgrep.pattern.createTaintConfig
 import org.opentaint.org.opentaint.semgrep.pattern.parseSemgrepYaml
+import kotlin.io.path.Path
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-abstract class SampleBasedTest {
+abstract class SampleBasedTest(
+    private val configurationRequired: Boolean = false
+) {
     fun runTest(ruleName: String) {
         val data = sampleData[ruleName] ?: error("No sample data for $ruleName")
 
@@ -28,7 +31,15 @@ abstract class SampleBasedTest {
         data.positiveClasses.mapTo(allSamples) { it.className }
         data.negativeClasses.mapTo(allSamples) { it.className }
 
-        val results = runner.run(taintConfig, allSamples)
+        val configPath = if (configurationRequired) {
+            System.getenv("TAINT_CONFIGURATION")
+                ?.let { Path(it) }
+                ?: error("Configuration file required")
+        } else {
+            null
+        }
+
+        val results = runner.run(taintConfig, configPath, allSamples)
 
         for (sample in data.positiveClasses) {
             val vulnerabilities = results[sample.className]

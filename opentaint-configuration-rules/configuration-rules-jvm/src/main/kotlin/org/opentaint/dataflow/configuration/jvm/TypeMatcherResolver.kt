@@ -49,6 +49,7 @@ fun TypeMatcher.resolveTypeMatcherCondition(
         }
 
         is TypePatternMatcher -> {
+            // todo: really no primitive types?
             val refTypes = baseTypes.filterIsInstanceTo<JIRRefType, _>(hashSetOf())
             return resolveTypePatternMatcherCondition(cp, refTypes, nameMatches)
         }

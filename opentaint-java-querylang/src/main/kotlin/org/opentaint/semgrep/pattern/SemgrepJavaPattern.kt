@@ -1,7 +1,5 @@
 package org.opentaint.org.opentaint.semgrep.pattern
 
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.nullableToList
-
 sealed interface SemgrepJavaPattern {
     val children: List<SemgrepJavaPattern>
 }
@@ -189,6 +187,5 @@ data class Annotation(
     val name: TypeName,
     val args: MethodArguments,
 ) : Modifier, SemgrepJavaPattern {
-    override val children: List<SemgrepJavaPattern>
-        get() = args.nullableToList()
+    override val children: List<SemgrepJavaPattern> get() = listOf(args)
 }

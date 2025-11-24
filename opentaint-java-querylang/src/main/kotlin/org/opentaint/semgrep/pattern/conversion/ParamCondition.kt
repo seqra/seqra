@@ -11,7 +11,7 @@ sealed interface TypeNamePattern {
 
 sealed interface ParamPosition {
     data class Concrete(val idx: Int) : ParamPosition
-    data object Any : ParamPosition
+    data class Any(val paramClassifier: String) : ParamPosition
 }
 
 sealed interface ParamCondition {

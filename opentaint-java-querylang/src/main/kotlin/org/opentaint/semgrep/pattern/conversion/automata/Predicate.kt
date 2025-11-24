@@ -39,7 +39,12 @@ data class MethodEnclosingClassName(val name: TypeNamePattern) {
 }
 
 sealed interface Position {
-    data class Argument(val index: Int?) : Position
+    sealed interface ArgumentIndex {
+        data class Concrete(val idx: Int) : ArgumentIndex
+        data class Any(val paramClassifier: String) : ArgumentIndex
+    }
+
+    data class Argument(val index: ArgumentIndex) : Position
     data object Object : Position
     data object Result : Position
 }

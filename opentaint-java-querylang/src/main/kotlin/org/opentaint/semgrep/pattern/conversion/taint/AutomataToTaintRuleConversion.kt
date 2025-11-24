@@ -202,7 +202,8 @@ private fun ensureSinkStateVars(
                 val positivePredicate = edge.condition.findPositivePredicate() ?: continue
 
                 val conditionVars = edge.condition.readMetaVar.toMutableMap()
-                val condition = ParamConstraint(Position.Argument(index = null), IsMetavar(freshVar))
+                val argumentIndex = Position.ArgumentIndex.Any(paramClassifier = "tainted")
+                val condition = ParamConstraint(Position.Argument(argumentIndex), IsMetavar(freshVar))
                 val predicate = Predicate(positivePredicate.signature, condition)
 
                 conditionVars[freshVar] = listOf(MethodPredicate(predicate, negated = false))
@@ -1633,17 +1634,22 @@ private fun TaintRuleGenerationCtx.signatureModifierConstraint(
     return SerializedCondition.AnnotationConstraint(type, params)
 }
 
+private fun Position.toSerializedPosition(): PositionBase = when (this) {
+    is Position.Argument -> when (index) {
+        is Position.ArgumentIndex.Any -> PositionBase.AnyArgument(index.paramClassifier)
+        is Position.ArgumentIndex.Concrete -> PositionBase.Argument(index.idx)
+    }
+
+    is Position.Object -> PositionBase.This
+    is Position.Result -> PositionBase.Result
+}
+
 private fun TaintRuleGenerationCtx.evaluateParamConstraints(
     param: ParamConstraint,
     state: State,
     conditions: MutableSet<SerializedCondition>
 ) {
-    val position = when (val pos = param.position) {
-        is Position.Argument -> PositionBase.Argument(pos.index)
-        is Position.Object -> PositionBase.This
-        is Position.Result -> PositionBase.Result
-    }
-
+    val position = param.position.toSerializedPosition()
     conditions += evaluateParamCondition(position, param.condition, state)
 }
 
@@ -1651,12 +1657,7 @@ private fun findMetaVarPosition(
     param: ParamConstraint,
     varPositions: MutableMap<String, RegisterVarPosition>
 ) {
-    val position = when (val pos = param.position) {
-        is Position.Argument -> PositionBase.Argument(pos.index)
-        is Position.Object -> PositionBase.This
-        is Position.Result -> PositionBase.Result
-    }
-
+    val position = param.position.toSerializedPosition()
     findMetaVarPosition(position, param.condition, varPositions)
 }
 

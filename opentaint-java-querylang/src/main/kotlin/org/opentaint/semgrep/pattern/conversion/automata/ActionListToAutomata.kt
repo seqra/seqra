@@ -217,15 +217,16 @@ private fun collectParameterConstraints(
             builder.addNumberOfArgs(params.params.size)
 
             params.params.forEachIndexed { index, cond ->
-                builder.addParamConstraint(Position.Argument(index), cond)
+                val idx = Position.ArgumentIndex.Concrete(index)
+                builder.addParamConstraint(Position.Argument(idx), cond)
             }
         }
 
         is ParamConstraint.Partial -> {
             params.params.forEach { pattern ->
-                val argIdx = when (pattern.position) {
-                    ParamPosition.Any -> null
-                    is ParamPosition.Concrete -> pattern.position.idx
+                val argIdx = when (val pos = pattern.position) {
+                    is ParamPosition.Any -> Position.ArgumentIndex.Any(pos.paramClassifier)
+                    is ParamPosition.Concrete -> Position.ArgumentIndex.Concrete(pos.idx)
                 }
                 builder.addParamConstraint(Position.Argument(argIdx), pattern.condition)
             }

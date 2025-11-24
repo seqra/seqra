@@ -308,7 +308,12 @@ class PatternToActionListConverter: ActionListBuilder {
 
             allActions += actions
 
-            val position = if (paramIdxConcrete) ParamPosition.Concrete(i) else ParamPosition.Any
+            val position = if (paramIdxConcrete) {
+                ParamPosition.Concrete(i)
+            } else {
+                ParamPosition.Any(paramClassifier = "*-$i")
+            }
+
             val condition = cond ?: ParamCondition.True
 
             if (condition is ParamCondition.True && position is ParamPosition.Any) {
@@ -325,6 +330,7 @@ class PatternToActionListConverter: ActionListBuilder {
 
         val anyPatterns = patterns.count { it.position is ParamPosition.Any }
         if (anyPatterns > 1) {
+            addFailedTransformation("Multiple any params")
             return null
         }
 
@@ -456,7 +462,11 @@ class PatternToActionListConverter: ActionListBuilder {
         for ((i, param) in params.withIndex()) {
             when (param) {
                 is FormalArgument -> {
-                    val position = if (idxIsConcrete) ParamPosition.Concrete(i) else ParamPosition.Any
+                    val position = if (idxIsConcrete) {
+                        ParamPosition.Concrete(i)
+                    } else {
+                        ParamPosition.Any(paramClassifier = "*-$i")
+                    }
 
                     val paramModifiers = param.modifiers.map { transformModifier(it) ?: return null }
                     paramModifiers.mapTo(paramConditions) { modifier ->

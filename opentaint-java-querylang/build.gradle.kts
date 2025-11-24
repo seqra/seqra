@@ -42,6 +42,11 @@ tasks.withType<Test> {
     val testSamplesJar = testSamples.resolve().single()
     environment("TEST_SAMPLES_JAR", testSamplesJar.absolutePath)
 
+    val configFile = project(":opentaint-jvm").layout.projectDirectory.file("config/config.yaml")
+    if (configFile.asFile.exists()) {
+        environment("TAINT_CONFIGURATION", configFile.asFile.absolutePath)
+    }
+
     jvmArgs = listOf("-Xmx8g")
 }
 

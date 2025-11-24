@@ -6,6 +6,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.features.usagesExt
+import org.opentaint.ir.util.io.inputStream
 import org.opentaint.api.checkers.DummySerializationContext
 import org.opentaint.api.checkers.JIRTaintRulesProvider
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
@@ -14,6 +15,7 @@ import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSink
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.TaintConfiguration
+import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
 import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.ifds.SingletonUnit
 import org.opentaint.dataflow.ifds.UnitResolver
@@ -28,6 +30,7 @@ import org.opentaint.dataflow.jvm.graph.MethodReturnInstNormalizerFeature
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.machine.interpreter.transformers.JIRMultiDimArrayAllocationTransformer
 import org.opentaint.machine.interpreter.transformers.JIRStringConcatTransformer
+import java.nio.file.Path
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -81,6 +84,7 @@ class TestAnalysisRunner(
 
     fun run(
         config: SerializedTaintConfig,
+        configurationPath: Path?,
         samples: Set<String>
     ): Map<String, List<TaintSinkTracker.TaintVulnerability>> =
         samples.associate { sample ->
@@ -88,16 +92,30 @@ class TestAnalysisRunner(
             val ep = cls.declaredMethods.singleOrNull { it.name == "entrypoint" }
                 ?: error("No entrypoint in $sample")
 
-            val rulesProvider = rulesProvider(config, hashSetOf(ep))
+            val rulesProvider = rulesProvider(config, configurationPath, hashSetOf(ep))
             setupEngine(rulesProvider).use { engine ->
                 engine.runAnalysis(listOf(ep), timeout = 1.minutes, cancellationTimeout = 10.seconds)
                 sample to engine.getVulnerabilities()
             }
         }
 
-    private fun rulesProvider(config: SerializedTaintConfig, ep: Set<CommonMethod>): TaintRulesProvider {
+    private fun rulesProvider(
+        config: SerializedTaintConfig,
+        configurationPath: Path?,
+        ep: Set<CommonMethod>
+    ): TaintRulesProvider {
         val taintConfig = TaintConfiguration()
         taintConfig.loadConfig(config)
+
+        if (configurationPath != null) {
+            val defaultConfig = configurationPath.inputStream().use {
+                loadSerializedTaintConfig(it)
+            }
+
+            val defaultPassRules = SerializedTaintConfig(passThrough = defaultConfig.passThrough)
+            taintConfig.loadConfig(defaultPassRules)
+        }
+
         val configProvider = JIRTaintRulesProvider(taintConfig)
         return ConfigWithEpMethodExits(ep, configProvider)
     }

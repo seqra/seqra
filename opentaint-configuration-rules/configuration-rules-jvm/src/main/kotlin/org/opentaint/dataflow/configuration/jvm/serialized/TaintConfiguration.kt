@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.configuration.jvm.serialized
 
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentHashMapOf
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -133,12 +135,12 @@ class TaintConfiguration {
             rules.removeAll { !it.function.name.matchFunctionName(method) }
             rules.removeAll { it.signature?.matchFunctionSignature(method) == false }
 
-            return rules.mapNotNull { resolveMethodRule(it, method) }
+            return rules.flatMap { resolveMethodRule(it, method) }
         }
 
         @Suppress("UNCHECKED_CAST")
-        private fun resolveMethodRule(rule: S, method: JIRMethod): T? =
-            rule.resolveMethodRule(method) as T?
+        private fun resolveMethodRule(rule: S, method: JIRMethod): List<T> =
+            rule.resolveMethodRule(method) as List<T>
     }
 
     private inner class TaintConfigurationTrie<T : SerializedRule> : ConfigurationTrie<T>() {
@@ -251,7 +253,7 @@ class TaintConfiguration {
         }
     }
 
-    private fun SerializedRule.resolveMethodRule(method: JIRMethod): TaintConfigurationItem? {
+    private fun SerializedRule.resolveMethodRule(method: JIRMethod): List<TaintConfigurationItem> {
         val serializedCondition = when (this) {
             is SerializedRule.SinkRule -> condition
             is SerializedRule.SourceRule -> condition
@@ -259,7 +261,16 @@ class TaintConfiguration {
             is SerializedRule.PassThrough -> condition
         }
 
-        val partiallyResolvedCondition = serializedCondition.resolve(method)
+        val contexts = serializedCondition.anyArgSpecializationContexts(method)
+        return contexts.mapNotNull { resolveMethodRule(method, serializedCondition, it) }
+    }
+
+    private fun SerializedRule.resolveMethodRule(
+        method: JIRMethod,
+        serializedCondition: SerializedCondition?,
+        ctx: AnyArgSpecializationCtx,
+    ): TaintConfigurationItem? {
+        val partiallyResolvedCondition = serializedCondition.resolve(method, ctx)
         if (partiallyResolvedCondition.isFalse()) return null
 
         val condition = partiallyResolvedCondition.resolveIsType(method).simplify()
@@ -267,11 +278,11 @@ class TaintConfiguration {
 
         return when (this) {
             is SerializedRule.EntryPoint -> {
-                TaintEntryPointSource(method, condition, taint.flatMap { it.resolve(method) })
+                TaintEntryPointSource(method, condition, taint.flatMap { it.resolve(method, ctx) })
             }
 
             is SerializedRule.Source -> {
-                TaintMethodSource(method, condition, taint.flatMap { it.resolve(method) })
+                TaintMethodSource(method, condition, taint.flatMap { it.resolve(method, ctx) })
             }
 
             is SerializedRule.Sink -> {
@@ -287,11 +298,11 @@ class TaintConfiguration {
             }
 
             is SerializedRule.PassThrough -> {
-                TaintPassThrough(method, condition, copy.flatMap { it.resolve(method) })
+                TaintPassThrough(method, condition, copy.flatMap { it.resolve(method, ctx) })
             }
 
             is SerializedRule.Cleaner -> {
-                TaintCleaner(method, condition, cleans.flatMap { it.resolve(method) })
+                TaintCleaner(method, condition, cleans.flatMap { it.resolve(method, ctx) })
             }
         }
     }
@@ -320,15 +331,92 @@ class TaintConfiguration {
 
     private fun taintMark(name: String): TaintMark = taintMarks.getOrPut(name) { TaintMark(name) }
 
-    private fun SerializedCondition?.resolve(method: JIRMethod): Condition = when (this) {
+    data class AnyArgSpecializationCtx(val positions: Map<String, Argument>) {
+        fun resolve(anyArg: PositionBase.AnyArgument): Argument =
+            positions[anyArg.classifier]
+                ?: error("Unresolved anyarg classifier")
+    }
+
+    private fun SerializedCondition?.anyArgSpecializationContexts(method: JIRMethod): List<AnyArgSpecializationCtx> {
+        val classifiers = hashSetOf<String>()
+        collectAnyArgumentClassifiers(classifiers)
+
+        if (classifiers.isEmpty()) {
+            return listOf(AnyArgSpecializationCtx(emptyMap()))
+        }
+
+        val contexts = mutableListOf<AnyArgSpecializationCtx>()
+        val allArgs = method.parameters.indices.map { Argument(it) }
+        buildAnyArgSpecializationCtx(classifiers.toList(), idx = 0, persistentHashMapOf(), allArgs, contexts)
+        return contexts
+    }
+
+    private fun buildAnyArgSpecializationCtx(
+        classifiers: List<String>,
+        idx: Int,
+        current: PersistentMap<String, Argument>,
+        allArgs: List<Argument>,
+        result: MutableList<AnyArgSpecializationCtx>
+    ) {
+        if (idx == classifiers.size) {
+            result.add(AnyArgSpecializationCtx(current))
+            return
+        }
+
+        val classifier = classifiers[idx]
+        for (arg in allArgs) {
+            val next = current.put(classifier, arg)
+            buildAnyArgSpecializationCtx(classifiers, idx + 1, next, allArgs, result)
+        }
+    }
+
+    private fun SerializedCondition?.collectAnyArgumentClassifiers(
+        classifiers: MutableSet<String>
+    ): Unit = when (this) {
+        is SerializedCondition.And -> allOf.forEach { it.collectAnyArgumentClassifiers(classifiers) }
+        is SerializedCondition.Or -> anyOf.forEach { it.collectAnyArgumentClassifiers(classifiers) }
+        is SerializedCondition.Not -> not.collectAnyArgumentClassifiers(classifiers)
+        is SerializedCondition.AnnotationType -> pos.collectAnyArgumentClassifiers(classifiers)
+        is SerializedCondition.ConstantCmp -> pos.collectAnyArgumentClassifiers(classifiers)
+        is SerializedCondition.ConstantEq -> pos.collectAnyArgumentClassifiers(classifiers)
+        is SerializedCondition.ConstantGt -> pos.collectAnyArgumentClassifiers(classifiers)
+        is SerializedCondition.ConstantLt -> pos.collectAnyArgumentClassifiers(classifiers)
+        is SerializedCondition.ConstantMatches -> pos.collectAnyArgumentClassifiers(classifiers)
+        is SerializedCondition.ContainsMark -> pos.collectAnyArgumentClassifiers(classifiers)
+        is SerializedCondition.IsConstant -> isConstant.collectAnyArgumentClassifiers(classifiers)
+        is SerializedCondition.IsType -> pos.collectAnyArgumentClassifiers(classifiers)
+        is SerializedCondition.ParamAnnotated -> pos.collectAnyArgumentClassifiers(classifiers)
+        is SerializedCondition.ClassAnnotated,
+        is SerializedCondition.MethodAnnotated,
+        is SerializedCondition.MethodNameMatches,
+        is SerializedCondition.NumberOfArgs,
+        SerializedCondition.True,
+        null -> {
+            // no positions
+        }
+    }
+
+    private fun PositionBaseWithModifiers.collectAnyArgumentClassifiers(classifiers: MutableSet<String>) {
+        base.collectAnyArgumentClassifiers(classifiers)
+    }
+
+    private fun PositionBase.collectAnyArgumentClassifiers(classifiers: MutableSet<String>) {
+        if (this !is PositionBase.AnyArgument) return
+        classifiers.add(classifier)
+    }
+
+    private fun SerializedCondition?.resolve(
+        method: JIRMethod,
+        ctx: AnyArgSpecializationCtx,
+    ): Condition = when (this) {
         null -> ConstantTrue
-        is SerializedCondition.Not -> Not(not.resolve(method))
-        is SerializedCondition.And -> mkAnd(allOf.map { it.resolve(method) })
-        is SerializedCondition.Or -> mkOr(anyOf.map { it.resolve(method) })
+        is SerializedCondition.Not -> Not(not.resolve(method, ctx))
+        is SerializedCondition.And -> mkAnd(allOf.map { it.resolve(method, ctx) })
+        is SerializedCondition.Or -> mkOr(anyOf.map { it.resolve(method, ctx) })
         SerializedCondition.True -> ConstantTrue
         is SerializedCondition.AnnotationType -> {
             val containsAnnotation = pos.resolveWithAnnotationConstraint(
-                method,
+                method, ctx,
                 annotatedWith.asAnnotationConstraint()
             ).any()
             containsAnnotation.asCondition()
@@ -341,7 +429,7 @@ class TaintConfiguration {
                 SerializedCondition.ConstantType.Int -> ConstantIntValue(value.value.toInt())
             }
 
-            pos.resolve(method).map {
+            pos.resolve(method, ctx).map {
                 when (cmp) {
                     SerializedCondition.ConstantCmpType.Eq -> ConstantEq(it, value)
                     SerializedCondition.ConstantCmpType.Lt -> ConstantLt(it, value)
@@ -351,22 +439,22 @@ class TaintConfiguration {
         }
 
         is SerializedCondition.ConstantEq -> mkOr(
-            pos.resolve(method).map { ConstantEq(it, ConstantStringValue(constantEq)) })
+            pos.resolve(method, ctx).map { ConstantEq(it, ConstantStringValue(constantEq)) })
 
         is SerializedCondition.ConstantGt -> mkOr(
-            pos.resolve(method).map { ConstantGt(it, ConstantStringValue(constantGt)) })
+            pos.resolve(method, ctx).map { ConstantGt(it, ConstantStringValue(constantGt)) })
 
         is SerializedCondition.ConstantLt -> mkOr(
-            pos.resolve(method).map { ConstantLt(it, ConstantStringValue(constantLt)) })
+            pos.resolve(method, ctx).map { ConstantLt(it, ConstantStringValue(constantLt)) })
 
         is SerializedCondition.ConstantMatches -> mkOr(
-            pos.resolve(method).map { ConstantMatches(it, compilePattern(constantMatches)) })
+            pos.resolve(method, ctx).map { ConstantMatches(it, compilePattern(constantMatches)) })
 
-        is SerializedCondition.IsConstant -> mkOr(isConstant.resolve(method).map { IsConstant(it) })
+        is SerializedCondition.IsConstant -> mkOr(isConstant.resolve(method, ctx).map { IsConstant(it) })
         is SerializedCondition.ContainsMark -> mkOr(
-            pos.resolvePosition(method).map { ContainsMark(it, taintMark(tainted)) })
+            pos.resolvePosition(method, ctx).map { ContainsMark(it, taintMark(tainted)) })
 
-        is SerializedCondition.IsType -> resolveIsType(method)
+        is SerializedCondition.IsType -> resolveIsType(method, ctx)
 
         is SerializedCondition.NumberOfArgs -> {
             (method.parameters.size == numberOfArgs).asCondition()
@@ -381,7 +469,7 @@ class TaintConfiguration {
         }
 
         is SerializedCondition.ParamAnnotated -> {
-            val containsAnnotation = pos.resolveWithAnnotationConstraint(method, annotation).any()
+            val containsAnnotation = pos.resolveWithAnnotationConstraint(method, ctx, annotation).any()
             containsAnnotation.asCondition()
         }
 
@@ -406,8 +494,8 @@ class TaintConfiguration {
         }
     }
 
-    private fun SerializedCondition.IsType.resolveIsType(method: JIRMethod): Condition {
-        val position = pos.resolve(method)
+    private fun SerializedCondition.IsType.resolveIsType(method: JIRMethod, ctx: AnyArgSpecializationCtx): Condition {
+        val position = pos.resolve(method, ctx)
         if (position.isEmpty()) return mkFalse()
 
         val typeMatcher = typeIs.typeNameMatcher()
@@ -467,13 +555,13 @@ class TaintConfiguration {
         return matcher.serializedNameMatcher().match(name)
     }
 
-    private fun SerializedTaintAssignAction.resolve(method: JIRMethod): List<AssignMark> =
-        pos.resolvePositionWithAnnotationConstraint(method, annotatedWith?.asAnnotationConstraint())
+    private fun SerializedTaintAssignAction.resolve(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignMark> =
+        pos.resolvePositionWithAnnotationConstraint(method, ctx, annotatedWith?.asAnnotationConstraint())
             .map { AssignMark(taintMark(kind), it) }
 
-    private fun SerializedTaintPassAction.resolve(method: JIRMethod): List<Action> =
-        from.resolvePosition(method).flatMap { fromPos ->
-            to.resolvePosition(method).map { toPos ->
+    private fun SerializedTaintPassAction.resolve(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<Action> =
+        from.resolvePosition(method, ctx).flatMap { fromPos ->
+            to.resolvePosition(method, ctx).map { toPos ->
                 if (taintKind == null) {
                     CopyAllMarks(fromPos, toPos)
                 } else {
@@ -482,8 +570,8 @@ class TaintConfiguration {
             }
         }
 
-    private fun SerializedTaintCleanAction.resolve(method: JIRMethod): List<Action> =
-        pos.resolvePosition(method).map { pos ->
+    private fun SerializedTaintCleanAction.resolve(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<Action> =
+        pos.resolvePosition(method, ctx).map { pos ->
             if (taintKind == null) {
                 RemoveAllMarks(pos)
             } else {
@@ -492,16 +580,18 @@ class TaintConfiguration {
         }
 
     private fun PositionBaseWithModifiers.resolvePosition(
-        method: JIRMethod
-    ): List<Position> = resolvePositionWithModifiers { it.resolve(method) }
+        method: JIRMethod,
+        ctx: AnyArgSpecializationCtx,
+    ): List<Position> = resolvePositionWithModifiers { it.resolve(method, ctx) }
 
     private fun PositionBaseWithModifiers.resolvePositionWithAnnotationConstraint(
         method: JIRMethod,
+        ctx: AnyArgSpecializationCtx,
         annotation: AnnotationConstraint?
     ): List<Position> {
-        if (annotation == null) return resolvePosition(method)
+        if (annotation == null) return resolvePosition(method, ctx)
         return resolvePositionWithModifiers {
-            it.resolveWithAnnotationConstraint(method, annotation)
+            it.resolveWithAnnotationConstraint(method, ctx, annotation)
         }
     }
 
@@ -532,8 +622,10 @@ class TaintConfiguration {
         }
     }
 
-    private fun PositionBase.resolve(method: JIRMethod): List<Position> {
+    private fun PositionBase.resolve(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<Position> {
         when (this) {
+            is PositionBase.AnyArgument -> return listOf(ctx.resolve(this))
+
             is PositionBase.Argument -> {
                 if (idx != null) {
                     if (idx !in method.parameters.indices) return emptyList()
@@ -559,25 +651,30 @@ class TaintConfiguration {
 
     private fun PositionBase.resolveWithAnnotationConstraint(
         method: JIRMethod,
+        ctx: AnyArgSpecializationCtx,
         annotation: AnnotationConstraint
     ): List<Position> {
-        when (this) {
+        val arguments = when (this) {
+            is PositionBase.AnyArgument -> listOf(ctx.resolve(this))
+
             is PositionBase.Argument -> {
                 if (idx != null) {
-                    val param = method.parameters.getOrNull(idx) ?: return emptyList()
-                    if (!param.annotations.matched(annotation)) return emptyList()
-
-                    return listOf(Argument(idx))
+                    listOf(Argument(idx))
                 } else {
-                    return method.parameters.filter { param ->
-                        param.annotations.matched(annotation)
-                    }.map { Argument(it.index) }
+                    method.parameters.map { Argument(it.index) }
                 }
             }
 
             PositionBase.Result,
             PositionBase.This,
             is PositionBase.ClassStatic -> TODO("Annotation constraint on non-argument position")
+        }
+
+        return arguments.mapNotNull { arg ->
+            val param = method.parameters.getOrNull(arg.index) ?: return@mapNotNull null
+            if (!param.annotations.matched(annotation)) return@mapNotNull null
+
+            arg
         }
     }
 
