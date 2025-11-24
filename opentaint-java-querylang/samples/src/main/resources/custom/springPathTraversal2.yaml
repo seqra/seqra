@@ -1,0 +1,15 @@
+rules:
+  - id: java.spring.path-injection
+    languages:
+      - java
+    severity: ERROR
+    message: Delete a file with the untrusted file path
+    patterns:
+      - pattern-inside: |
+          $METHOD(..., @RequestParam(...) MultipartFile $MULTIFILE, ...) {
+            ...
+          }
+      - pattern: |
+          String $FILENAME = $MULTIFILE.getOriginalFilename();
+          ...
+          File $FILE = new File($FILENAME);
