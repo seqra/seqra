@@ -19,3 +19,9 @@ private fun traverse(node: AutomataNode, visited: MutableSet<AutomataNode>, acti
         }
     }
 }
+
+fun SemgrepRuleAutomata.containsAcceptState(): Boolean {
+    var result = false
+    traverse(this) { if (it.accept) result = true }
+    return result
+}

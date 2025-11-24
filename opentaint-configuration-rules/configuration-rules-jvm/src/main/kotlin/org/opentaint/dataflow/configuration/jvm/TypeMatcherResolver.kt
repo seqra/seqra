@@ -2,6 +2,7 @@ package org.opentaint.dataflow.configuration.jvm
 
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRPrimitiveType
+import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.TypeName
 import org.opentaint.ir.api.jvm.ext.boolean
@@ -24,81 +25,121 @@ fun TypeMatcher.match(type: TypeName, nameMatches: (NameMatcher, String) -> Bool
             val packageName = type.typeName.substringBeforeLast(DOT_DELIMITER, missingDelimiterValue = "")
             nameMatches(classNameMatcher, classSimpleName) && nameMatches(pkg, packageName)
         }
+
+        is JIRTypeNamePatternMatcher -> nameMatches(pattern, type.typeName)
     }
 }
 
 fun TypeMatcher.resolveTypeMatcherCondition(
     cp: JIRClasspath,
+    baseTypes: Set<JIRType?>,
     nameMatches: (NameMatcher, String) -> Boolean
-): (Position) -> Condition {
-    if (this is AnyTypeMatcher) {
-        return { ConstantTrue }
-    }
+): Pair<List<JIRType>, Set<String>>? {
+    when (this) {
+        is AnyTypeMatcher -> return null
 
-    if (this is JIRTypeNameMatcher) {
-        val type = cp.findTypeOrNull(typeName) ?: return { ConstantTrue }
-        return { pos: Position -> TypeMatches(pos, type) }
-    }
-
-    if (this is PrimitiveNameMatcher) {
-        val types = primitiveTypes(cp).filter { name == it.typeName }
-        return { pos: Position -> mkOr(types.map { TypeMatches(pos, it) }) }
-    }
-
-    val typeMatchers = (this as ClassMatcher).extractAlternatives()
-    val unresolvedMatchers = mutableListOf<ClassMatcher>()
-    val types = mutableListOf<JIRType>()
-
-    for (matcher in typeMatchers) {
-        val pkgMatcher = matcher.pkg
-        val clsMatcher = matcher.classNameMatcher
-
-        if (pkgMatcher !is NameExactMatcher || clsMatcher !is NameExactMatcher) {
-            unresolvedMatchers += matcher
-            continue
+        is JIRTypeNameMatcher -> {
+            val type = cp.findTypeOrNull(typeName) ?: return null
+            return listOf(type) to emptySet()
         }
 
-        val type = cp.findTypeOrNull("${pkgMatcher.name}$DOT_DELIMITER${clsMatcher.name}")
-            ?: continue
+        is PrimitiveNameMatcher -> {
+            val type = primitiveTypes(cp).first { name == it.typeName }
+            return listOf(type) to emptySet()
+        }
 
-        types.add(type)
+        is TypePatternMatcher -> {
+            val refTypes = baseTypes.filterIsInstanceTo<JIRRefType, _>(hashSetOf())
+            return resolveTypePatternMatcherCondition(cp, refTypes, nameMatches)
+        }
+    }
+}
+
+fun TypePatternMatcher.resolveTypePatternMatcherCondition(
+    cp: JIRClasspath,
+    baseTypes: Set<JIRType?>,
+    nameMatches: (NameMatcher, String) -> Boolean
+): Pair<List<JIRType>, Set<String>> {
+    if (baseTypes.isEmpty()) return (emptyList<JIRType>() to emptySet())
+
+    val types = mutableListOf<JIRType>()
+
+    val unresolvedExactClassNameToPkg = hashMapOf<String, MutableSet<NameMatcher>>()
+    val unresolvedOther = hashSetOf<TypePatternMatcher>()
+
+    when (this) {
+        is ClassMatcher -> {
+            val typeMatchers = extractAlternatives()
+
+            for (matcher in typeMatchers) {
+                val pkgMatcher = matcher.pkg
+                val clsMatcher = matcher.classNameMatcher
+
+                if (pkgMatcher is NameExactMatcher) {
+                    if (clsMatcher is NameExactMatcher) {
+                        val type = cp.findTypeOrNull("${pkgMatcher.name}$DOT_DELIMITER${clsMatcher.name}")
+                            ?: continue
+
+                        types.add(type)
+                    } else {
+                        unresolvedOther.add(matcher)
+                    }
+                } else {
+                    if (clsMatcher is NameExactMatcher) {
+                        unresolvedExactClassNameToPkg.getOrPut(clsMatcher.name, ::hashSetOf).add(pkgMatcher)
+                    } else {
+                        unresolvedOther.add(matcher)
+                    }
+                }
+            }
+        }
+
+        is JIRTypeNamePatternMatcher -> {
+            unresolvedOther.add(this)
+        }
     }
 
-    if (unresolvedMatchers.isNotEmpty()) {
+    for ((cls, packages) in unresolvedExactClassNameToPkg) {
         val classNameIdx = cp.db.features.filterIsInstance<JIRClassNameFeature>().first()
-        unresolvedMatchers.forEach { classMatcher ->
-            val matchedClassNames = mutableListOf<String>()
+        val matchedClassNames = mutableListOf<String>()
+        classNameIdx.filterClassesTo(cp, matchedClassNames, className = cls)
 
-            when (val name = classMatcher.classNameMatcher) {
-                is NameExactMatcher -> {
-                    classNameIdx.filterClassesTo(cp, matchedClassNames, name.name)
-                }
-
-                AnyNameMatcher -> {
-                    classNameIdx.filterClassesTo(cp, matchedClassNames)
-                }
-
-                is NamePatternMatcher -> {
-                    classNameIdx.filterClassesTo(cp, matchedClassNames)
-                    matchedClassNames.removeAll { !nameMatches(name, it.substringAfterLast('.')) }
-                }
+        for (pkgMatcher in packages) {
+            val matched = matchedClassNames.filter {
+                nameMatches(pkgMatcher, it.substringBeforeLast(DOT_DELIMITER, missingDelimiterValue = ""))
             }
-
-            when (val pkg = classMatcher.pkg) {
-                AnyNameMatcher -> {}
-                is NameExactMatcher,
-                is NamePatternMatcher -> {
-                    matchedClassNames.removeAll { !nameMatches(pkg, it.substringBeforeLast('.', "")) }
-                }
-            }
-
-            matchedClassNames.mapNotNullTo(types) { className ->
+            matched.mapNotNullTo(types) { className ->
                 cp.findTypeOrNull(className)
             }
         }
     }
 
-    return { pos: Position -> mkOr(types.map { TypeMatches(pos, it) }) }
+    if (unresolvedOther.isEmpty()) return types to emptySet()
+
+    val patterns = hashSetOf<String>()
+    for (unresolved in unresolvedOther) {
+        when (unresolved) {
+            is ClassMatcher -> {
+                val packageName = when (val pn = unresolved.pkg) {
+                    AnyNameMatcher -> ".*"
+                    is NameExactMatcher -> pn.name.replace(".", "\\.")
+                    is NamePatternMatcher -> pn.pattern
+                }
+
+                val className = when (val cn = unresolved.classNameMatcher) {
+                    AnyNameMatcher -> ".*"
+                    is NameExactMatcher -> cn.name
+                    is NamePatternMatcher -> cn.pattern
+                }
+
+                patterns += "$packageName\\.$className"
+            }
+
+            is JIRTypeNamePatternMatcher -> patterns.add(unresolved.pattern.pattern)
+        }
+    }
+
+    return types to patterns
 }
 
 private fun primitiveTypes(cp: JIRClasspath): Set<JIRPrimitiveType> = setOf(

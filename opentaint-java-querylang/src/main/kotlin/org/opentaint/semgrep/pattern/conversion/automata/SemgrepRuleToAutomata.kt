@@ -1,6 +1,7 @@
 package org.opentaint.org.opentaint.semgrep.pattern.conversion.automata
 
 import org.opentaint.org.opentaint.semgrep.pattern.ActionListSemgrepRule
+import org.opentaint.org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternActionList
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations.acceptIfCurrentAutomataAcceptsPrefix
@@ -16,33 +17,26 @@ import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operation
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations.totalizeMethodCalls
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations.totalizeMethodEnters
 
-fun transformSemgrepRuleToAutomata(rule: ActionListSemgrepRule): SemgrepRuleAutomata {
+fun transformSemgrepRuleToAutomata(rule: ActionListSemgrepRule, metaVarInfo: ResolvedMetaVarInfo): SemgrepRuleAutomata {
     val formulaManager = MethodFormulaManager()
-    return transformSemgrepRuleToAutomata(formulaManager, rule)
+    return transformSemgrepRuleToAutomata(formulaManager, metaVarInfo, rule)
 }
 
-fun transformSemgrepRulesToAutomata(rules: List<ActionListSemgrepRule>): List<SemgrepRuleAutomata> {
-    check(rules.isNotEmpty()) { "At least one rule is required" }
-
-    val formulaManager = MethodFormulaManager()
-    val rulesAutomata = rules.map { transformSemgrepRuleToAutomata(formulaManager, it) }
-
-    // todo: try create single automata
-
-    return rulesAutomata
-}
-
-private fun transformSemgrepRuleToAutomata(formulaManager: MethodFormulaManager, rule: ActionListSemgrepRule): SemgrepRuleAutomata {
+private fun transformSemgrepRuleToAutomata(
+    formulaManager: MethodFormulaManager,
+    metaVarInfo: ResolvedMetaVarInfo,
+    rule: ActionListSemgrepRule
+): SemgrepRuleAutomata {
     val (newRule, startingAutomata) = buildStartingAutomata(formulaManager, rule)
 
-    val resultNfa = transformSemgrepRuleToAutomata(formulaManager, newRule, startingAutomata)
+    val resultNfa = transformSemgrepRuleToAutomata(formulaManager, metaVarInfo, newRule, startingAutomata)
 
-    val resultDfa = brzozowskiAlgorithm(resultNfa)
+    val resultDfa = brzozowskiAlgorithm(metaVarInfo, resultNfa)
     acceptIfCurrentAutomataAcceptsPrefix(resultDfa)
 
-    val deadNode = totalizeMethodCalls(resultDfa)
+    val deadNode = totalizeMethodCalls(metaVarInfo, resultDfa)
     if (resultDfa.hasMethodEnter) {
-        totalizeMethodEnters(resultDfa, deadNode)
+        totalizeMethodEnters(metaVarInfo, resultDfa, deadNode)
     }
 
     return resultDfa
@@ -62,18 +56,19 @@ private fun buildStartingAutomata(
 
 private fun transformSemgrepRuleToAutomata(
     formulaManager: MethodFormulaManager,
+    metaVarInfo: ResolvedMetaVarInfo,
     rule: ActionListSemgrepRule,
     curAutomata: SemgrepRuleAutomata
 ): SemgrepRuleAutomata {
     if (rule.patterns.isNotEmpty()) {
         val newRule = rule.modify(patterns = rule.patterns.dropLast(1))
-        val newAutomata = addPositivePattern(formulaManager, curAutomata, rule.patterns.last())
-        return transformSemgrepRuleToAutomata(formulaManager, newRule, newAutomata)
+        val newAutomata = addPositivePattern(formulaManager, metaVarInfo, curAutomata, rule.patterns.last())
+        return transformSemgrepRuleToAutomata(formulaManager, metaVarInfo, newRule, newAutomata)
 
     } else if (rule.patternNots.isNotEmpty()) {
         val newRule = rule.modify(patternNots = rule.patternNots.dropLast(1))
-        val newAutomata = addNegativePattern(formulaManager, curAutomata, rule.patternNots.last())
-        return transformSemgrepRuleToAutomata(formulaManager, newRule, newAutomata)
+        val newAutomata = addNegativePattern(formulaManager, metaVarInfo, curAutomata, rule.patternNots.last())
+        return transformSemgrepRuleToAutomata(formulaManager, metaVarInfo, newRule, newAutomata)
 
     } else if (rule.patternNotInsides.isNotEmpty() || rule.patternInsides.isNotEmpty()) {
         if (curAutomata.hasMethodEnter) {
@@ -83,14 +78,14 @@ private fun transformSemgrepRuleToAutomata(
                 patternInsides = emptyList(),
                 patternNotInsides = emptyList()
             )
-            return transformSemgrepRuleToAutomata(formulaManager, newRule, curAutomata)
+            return transformSemgrepRuleToAutomata(formulaManager, metaVarInfo, newRule, curAutomata)
         }
 
         check(!curAutomata.hasEndEdges)
 
-        val curAutomataWithBorders = addPatternStartAndEnd(curAutomata)
-        val automatasWithPatternInsides = addPatternInsides(formulaManager, rule, curAutomataWithBorders)
-        val automatasWithPatternNotInsides = addPatternNotInsides(formulaManager, rule, curAutomataWithBorders)
+        val curAutomataWithBorders = addPatternStartAndEnd(curAutomata, metaVarInfo)
+        val automatasWithPatternInsides = addPatternInsides(formulaManager, metaVarInfo, rule, curAutomataWithBorders)
+        val automatasWithPatternNotInsides = addPatternNotInsides(formulaManager, metaVarInfo, rule, curAutomataWithBorders)
         val automatas = automatasWithPatternInsides + automatasWithPatternNotInsides
         automatas.forEach  {
             if (!it.hasMethodEnter) {
@@ -110,7 +105,7 @@ private fun transformSemgrepRuleToAutomata(
             if (!a1.hasMethodEnter && a2.hasMethodEnter) {
                 a1 = addDummyMethodEnter(a1)
             }
-            brzozowskiAlgorithm(intersection(a1, a2))
+            brzozowskiAlgorithm(metaVarInfo, intersection(a1, a2, metaVarInfo))
         }
 
         removePatternStartAndEnd(result)
@@ -124,6 +119,7 @@ private fun transformSemgrepRuleToAutomata(
 
 private fun addPatternNotInsides(
     formulaManager: MethodFormulaManager,
+    metaVarInfo: ResolvedMetaVarInfo,
     rule: ActionListSemgrepRule,
     curAutomata: SemgrepRuleAutomata,
 ): List<SemgrepRuleAutomata> {
@@ -132,13 +128,17 @@ private fun addPatternNotInsides(
     }
 
     val newRule = rule.modify(patternNotInsides = rule.patternNotInsides.dropLast(1))
-    val newAutomata = addPatternNotInside(formulaManager, curAutomata.deepCopy(), rule.patternNotInsides.last())
+    val newAutomata = addPatternNotInside(
+        formulaManager, metaVarInfo, curAutomata.deepCopy(),
+        rule.patternNotInsides.last()
+    )
 
-    return addPatternNotInsides(formulaManager, newRule, curAutomata) + newAutomata
+    return addPatternNotInsides(formulaManager, metaVarInfo, newRule, curAutomata) + newAutomata
 }
 
 private fun addPatternInsides(
     formulaManager: MethodFormulaManager,
+    metaVarInfo: ResolvedMetaVarInfo,
     rule: ActionListSemgrepRule,
     curAutomata: SemgrepRuleAutomata,
 ): List<SemgrepRuleAutomata> {
@@ -147,22 +147,27 @@ private fun addPatternInsides(
     }
 
     val newRule = rule.modify(patternInsides = rule.patternInsides.dropLast(1))
-    val newAutomata = addPatternInside(formulaManager, curAutomata.deepCopy(), rule.patternInsides.last())
+    val newAutomata = addPatternInside(
+        formulaManager, metaVarInfo, curAutomata.deepCopy(),
+        rule.patternInsides.last()
+    )
 
-    return addPatternInsides(formulaManager, newRule, curAutomata) + newAutomata
+    return addPatternInsides(formulaManager, metaVarInfo, newRule, curAutomata) + newAutomata
 }
 
 private fun addPositivePattern(
     formulaManager: MethodFormulaManager,
+    metaVarInfo: ResolvedMetaVarInfo,
     curAutomata: SemgrepRuleAutomata,
     actionList: SemgrepPatternActionList,
 ): SemgrepRuleAutomata {
     val actionListAutomata = convertActionListToAutomata(formulaManager, actionList)
-    return brzozowskiAlgorithm(intersection(curAutomata, actionListAutomata))
+    return brzozowskiAlgorithm(metaVarInfo, intersection(curAutomata, actionListAutomata, metaVarInfo))
 }
 
 private fun addNegativePattern(
     formulaManager: MethodFormulaManager,
+    metaVarInfo: ResolvedMetaVarInfo,
     curAutomata: SemgrepRuleAutomata,
     actionList: SemgrepPatternActionList,
 ): SemgrepRuleAutomata {
@@ -172,23 +177,24 @@ private fun addNegativePattern(
         return curAutomata
     }
 
-    val deadNode = totalizeMethodCalls(actionListAutomata)
+    val deadNode = totalizeMethodCalls(metaVarInfo, actionListAutomata)
     if (actionListAutomata.hasMethodEnter) {
-        totalizeMethodEnters(actionListAutomata, deadNode)
+        totalizeMethodEnters(metaVarInfo, actionListAutomata, deadNode)
         addEndEdges(actionListAutomata)
         addEndEdges(curAutomata)
     }
     complement(actionListAutomata)
-    return brzozowskiAlgorithm(intersection(curAutomata, actionListAutomata))
+    return brzozowskiAlgorithm(metaVarInfo, intersection(curAutomata, actionListAutomata, metaVarInfo))
 }
 
 private fun addPatternInside(
     formulaManager: MethodFormulaManager,
+    metaVarInfo: ResolvedMetaVarInfo,
     curAutomata: SemgrepRuleAutomata,
     actionList: SemgrepPatternActionList,
 ): SemgrepRuleAutomata {
     if (curAutomata.hasMethodEnter) {
-        return addPositivePattern(formulaManager, curAutomata, actionList)
+        return addPositivePattern(formulaManager, metaVarInfo, curAutomata, actionList)
     }
 
     val addPrefixEllipsis = actionList.actions.first() is SemgrepPatternAction.MethodSignature ||
@@ -206,7 +212,7 @@ private fun addPatternInside(
 
     val actionListAutomata = convertActionListToAutomata(formulaManager, actionList)
     addPatternStartAndEndOnEveryNode(actionListAutomata)
-    return brzozowskiAlgorithm(intersection(actionListAutomata, curAutomata))
+    return brzozowskiAlgorithm(metaVarInfo, intersection(actionListAutomata, curAutomata, metaVarInfo))
 }
 
 private fun addEllipsisInTheBeginning(actionList: SemgrepPatternActionList): SemgrepPatternActionList {
@@ -223,11 +229,12 @@ private fun addEllipsisInTheBeginning(actionList: SemgrepPatternActionList): Sem
 
 private fun addPatternNotInside(
     formulaManager: MethodFormulaManager,
+    metaVarInfo: ResolvedMetaVarInfo,
     curAutomata: SemgrepRuleAutomata,
     actionList: SemgrepPatternActionList,
 ): SemgrepRuleAutomata {
     if (curAutomata.hasMethodEnter) {
-        return addNegativePattern(formulaManager, curAutomata, actionList)
+        return addNegativePattern(formulaManager, metaVarInfo, curAutomata, actionList)
     }
 
     val addPrefixEllipsis = actionList.actions.first() is SemgrepPatternAction.MethodSignature ||
@@ -263,11 +270,11 @@ private fun addPatternNotInside(
         addEndEdges(automataNotInside)
     }
 
-    val deadNode = totalizeMethodCalls(automataNotInside)
+    val deadNode = totalizeMethodCalls(metaVarInfo, automataNotInside)
     if (automataNotInside.hasMethodEnter) {
-        totalizeMethodEnters(automataNotInside, deadNode)
+        totalizeMethodEnters(metaVarInfo, automataNotInside, deadNode)
     }
     complement(automataNotInside)
 
-    return brzozowskiAlgorithm(intersection(mainAutomata, automataNotInside))
+    return brzozowskiAlgorithm(metaVarInfo, intersection(mainAutomata, automataNotInside, metaVarInfo))
 }

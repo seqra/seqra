@@ -23,7 +23,6 @@ import org.opentaint.org.opentaint.semgrep.pattern.MethodArguments
 import org.opentaint.org.opentaint.semgrep.pattern.MethodDeclaration
 import org.opentaint.org.opentaint.semgrep.pattern.MethodInvocation
 import org.opentaint.org.opentaint.semgrep.pattern.Modifier
-import org.opentaint.org.opentaint.semgrep.pattern.Name
 import org.opentaint.org.opentaint.semgrep.pattern.NamedValue
 import org.opentaint.org.opentaint.semgrep.pattern.NoArgs
 import org.opentaint.org.opentaint.semgrep.pattern.NullLiteral
@@ -38,9 +37,10 @@ import org.opentaint.org.opentaint.semgrep.pattern.ThisExpr
 import org.opentaint.org.opentaint.semgrep.pattern.TypeName
 import org.opentaint.org.opentaint.semgrep.pattern.TypedMetavar
 import org.opentaint.org.opentaint.semgrep.pattern.VariableAssignment
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.ParamCondition.StringMatches
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.ParamCondition.StringValueMetaVar
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifierValue
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureName
 
 class PatternToActionListConverter: ActionListBuilder {
     private var nextArtificialMetavarId = 0
@@ -104,11 +104,7 @@ class PatternToActionListConverter: ActionListBuilder {
 
             is StringLiteral -> when (val value = pattern.content) {
                 is ConcreteName -> SpecificStringValue(value.name)
-                is Name.Pattern -> StringMatches(value.namePattern)
-                is MetavarName -> {
-                    addFailedTransformation("String literal metavar")
-                    null
-                }
+                is MetavarName -> StringValueMetaVar(value.metavarName)
             }
 
             is StringEllipsis -> {
@@ -120,7 +116,7 @@ class PatternToActionListConverter: ActionListBuilder {
             }
 
             is TypedMetavar -> {
-                val typeName = tryTransformConcreteTypeName(pattern.type) ?: return null
+                val typeName = tryTransformTypeName(pattern.type) ?: return null
                 ParamCondition.And(
                     listOf(
                         IsMetavar(pattern.name), ParamCondition.TypeIs(typeName)
@@ -157,7 +153,12 @@ class PatternToActionListConverter: ActionListBuilder {
         }
     }
 
-    private fun tryTransformConcreteTypeName(typeName: TypeName): TypeNamePattern? {
+    private fun tryTransformTypeName(typeName: TypeName): TypeNamePattern? {
+        if (typeName.dotSeparatedParts.size == 1) {
+            val name = typeName.dotSeparatedParts.single()
+            if (name is MetavarName) return TypeNamePattern.MetaVar(name.metavarName)
+        }
+
         val concreteNames = typeName.dotSeparatedParts.filterIsInstance<ConcreteName>()
         if (concreteNames.size == typeName.dotSeparatedParts.size) {
             if (concreteNames.size == 1) {
@@ -173,14 +174,6 @@ class PatternToActionListConverter: ActionListBuilder {
             return TypeNamePattern.FullyQualified(fqn)
         }
 
-        return null
-    }
-
-    private fun tryTransformTypeMetaVar(typeName: TypeName): String? {
-        if (typeName.dotSeparatedParts.size == 1) {
-            val name = typeName.dotSeparatedParts.single()
-            if (name is MetavarName) return name.metavarName
-        }
         return null
     }
 
@@ -238,7 +231,7 @@ class PatternToActionListConverter: ActionListBuilder {
     }
 
     private fun tryConvertPatternIntoTypeName(pattern: SemgrepJavaPattern): TypeNamePattern? {
-        val parts = tryExtractPatterDotSeparatedParts(pattern)?.ifEmpty { null }
+        val parts = tryExtractPatternDotSeparatedParts(pattern)?.ifEmpty { null }
             ?: return null
 
         // consider this a field access, not type
@@ -254,10 +247,11 @@ class PatternToActionListConverter: ActionListBuilder {
     }
 
     private fun transformMethodInvocation(pattern: MethodInvocation): SemgrepPatternActionList? {
-        val methodName = (pattern.methodName as? ConcreteName)?.name ?: run {
-            addFailedTransformation("MethodInvocation_methodName")
-            return null
+        val methodName = when (val name = pattern.methodName) {
+            is ConcreteName -> SignatureName.Concrete(name.name)
+            is MetavarName -> SignatureName.MetaVar(name.metavarName)
         }
+
         val actionList = mutableListOf<SemgrepPatternAction>()
 
         val className = pattern.obj?.let { tryConvertPatternIntoTypeName(it) }
@@ -351,7 +345,7 @@ class PatternToActionListConverter: ActionListBuilder {
         val condition = if (pattern.type == null) {
             IsMetavar(resultMetavar)
         } else {
-            val typeName = tryTransformConcreteTypeName(pattern.type) ?: return null
+            val typeName = tryTransformTypeName(pattern.type) ?: return null
             ParamCondition.And(
                 listOf(
                     IsMetavar(resultMetavar), ParamCondition.TypeIs(typeName)
@@ -378,7 +372,7 @@ class PatternToActionListConverter: ActionListBuilder {
     }
 
     private fun transformObjectCreation(pattern: ObjectCreation): SemgrepPatternActionList? {
-        val className = tryTransformConcreteTypeName(pattern.type) ?: run {
+        val className = tryTransformTypeName(pattern.type) ?: run {
             addFailedTransformation("ObjectCreation_class_name_not_extracted")
             return null
         }
@@ -425,7 +419,7 @@ class PatternToActionListConverter: ActionListBuilder {
         val classModifiers = pattern.modifiers.map { transformModifier(it) ?: return null }
 
         val methodSignature = SemgrepPatternAction.MethodSignature(
-            methodNameMetavar = null,
+            methodName = SignatureName.AnyName,
             methodReturnTypeMetavar = null,
             ParamConstraint.Partial(emptyList()),
             modifiers = emptyList(),
@@ -476,13 +470,7 @@ class PatternToActionListConverter: ActionListBuilder {
 
                     paramConditions += ParamPattern(position, IsMetavar(paramName))
 
-                    val metaVarType = tryTransformTypeMetaVar(param.type)
-                    if (metaVarType != null) {
-                        paramConditions += ParamPattern(position, ParamCondition.TypeMetaVar(metaVarType))
-                        continue
-                    }
-
-                    val paramType = tryTransformConcreteTypeName(param.type) ?: run {
+                    val paramType = tryTransformTypeName(param.type) ?: run {
                         addFailedTransformation("MethodDeclaration_param_type_not_extracted")
                         return null
                     }
@@ -505,7 +493,7 @@ class PatternToActionListConverter: ActionListBuilder {
         val modifiers = pattern.modifiers.map { transformModifier(it) ?: return null }
 
         val signature = SemgrepPatternAction.MethodSignature(
-            methodName,
+            SignatureName.MetaVar(methodName),
             returnTypeName,
             ParamConstraint.Partial(paramConditions),
             modifiers = modifiers,
@@ -525,7 +513,7 @@ class PatternToActionListConverter: ActionListBuilder {
     }
 
     private fun transformAnnotation(annotation: Annotation): SignatureModifier? {
-        val annotationType = tryTransformConcreteTypeName(annotation.name)
+        val annotationType = tryTransformTypeName(annotation.name)
 
         if (annotationType == null) {
             addFailedTransformation("Annotation_type_not_concrete")
@@ -572,8 +560,6 @@ class PatternToActionListConverter: ActionListBuilder {
                 }
 
                 is ConcreteName -> SignatureModifierValue.StringValue(paramName, value.name)
-
-                is Name.Pattern -> SignatureModifierValue.StringPattern(paramName, value.namePattern)
             }
         }
 

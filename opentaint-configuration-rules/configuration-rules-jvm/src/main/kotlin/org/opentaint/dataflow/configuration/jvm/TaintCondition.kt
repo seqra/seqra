@@ -14,6 +14,7 @@ interface ConditionVisitor<out R> {
     fun visit(condition: ConstantMatches): R
     fun visit(condition: ContainsMark): R
     fun visit(condition: TypeMatches): R
+    fun visit(condition: TypeMatchesPattern): R
 }
 
 interface Condition {
@@ -87,6 +88,13 @@ data class ContainsMark(
 data class TypeMatches(
     val position: Position,
     val type: JIRType,
+) : Condition {
+    override fun <R> accept(conditionVisitor: ConditionVisitor<R>): R = conditionVisitor.visit(this)
+}
+
+data class TypeMatchesPattern(
+    val position: Position,
+    val pattern: Regex,
 ) : Condition {
     override fun <R> accept(conditionVisitor: ConditionVisitor<R>): R = conditionVisitor.visit(this)
 }

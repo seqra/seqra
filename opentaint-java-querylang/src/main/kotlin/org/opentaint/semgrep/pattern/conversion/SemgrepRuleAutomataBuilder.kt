@@ -1,17 +1,20 @@
 package org.opentaint.org.opentaint.semgrep.pattern.conversion
 
 import org.opentaint.org.opentaint.semgrep.pattern.ActionListSemgrepRule
+import org.opentaint.org.opentaint.semgrep.pattern.MetaVarConstraint
+import org.opentaint.org.opentaint.semgrep.pattern.MetaVarConstraints
 import org.opentaint.org.opentaint.semgrep.pattern.NormalizedSemgrepRule
-import org.opentaint.org.opentaint.semgrep.pattern.ParsedSemgprepRule
+import org.opentaint.org.opentaint.semgrep.pattern.RawMetaVarInfo
 import org.opentaint.org.opentaint.semgrep.pattern.RawSemgrepRule
-import org.opentaint.org.opentaint.semgrep.pattern.RuleWithFocusMetaVars
+import org.opentaint.org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
+import org.opentaint.org.opentaint.semgrep.pattern.RuleWithMetaVars
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepMatchingRule
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepRule
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepTaintRule
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepYamlRule
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations.containsAcceptState
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.transformSemgrepRuleToAutomata
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.transformSemgrepRulesToAutomata
 import org.opentaint.org.opentaint.semgrep.pattern.convertToRawRule
 import org.opentaint.org.opentaint.semgrep.pattern.parseSemgrepRule
 
@@ -21,15 +24,17 @@ class SemgrepRuleAutomataBuilder(
 ) {
     data class Stats(
         var ruleParsingFailure: Int = 0,
-        var metaVarSpecializationFailure: Int = 0,
+        var metaVarResolvingFailure: Int = 0,
         var actionListConversionFailure: Int = 0,
+        var emptyAutomata: Int = 0,
     ) {
-        val isFailure: Boolean get() = (ruleParsingFailure + metaVarSpecializationFailure + actionListConversionFailure) > 0
+        val isFailure: Boolean
+            get() = (ruleParsingFailure + metaVarResolvingFailure + actionListConversionFailure + emptyAutomata) > 0
     }
 
     val stats = Stats()
 
-    fun build(rule: SemgrepYamlRule): SemgrepRule<RuleWithFocusMetaVars<SemgrepRuleAutomata>> {
+    fun build(rule: SemgrepYamlRule): SemgrepRule<RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>> {
         val semgrepRule = parseSemgrepRule(rule)
         val rawRules = convertToRawRule(semgrepRule)
 
@@ -40,14 +45,14 @@ class SemgrepRuleAutomataBuilder(
             }
         }
 
-        val metaVarSpecialized = parsedRules.fFlatMap { r ->
-            specializeMetaVars(r) ?: run {
-                stats.metaVarSpecializationFailure++
+        val rulesWithResolvedMetaVar = parsedRules.flatMap { r ->
+            r.resolveMetaVarInfo()?.let { listOf(it) } ?: run {
+                stats.metaVarResolvingFailure++
                 emptyList()
             }
         }
 
-        val ruleAfterRewrite = metaVarSpecialized.fmap { rewriteRule(it) }
+        val ruleAfterRewrite = rulesWithResolvedMetaVar.fmap { rewriteRule(it) }
 
         val ruleActionList = ruleAfterRewrite.fFlatMap { r ->
             convertToActionList(r)?.let { listOf(it) } ?: run {
@@ -58,7 +63,17 @@ class SemgrepRuleAutomataBuilder(
 
         val ruleActionListWithoutDuplicates = ruleActionList.removeDuplicateRules()
 
-        return ruleActionListWithoutDuplicates.transformToAutomata()
+        val ruleAutomata = ruleActionListWithoutDuplicates.flatMap { r ->
+            val automata = transformSemgrepRuleToAutomata(r.rule, r.metaVarInfo)
+            if (automata.containsAcceptState()) {
+                listOf(RuleWithMetaVars(automata, r.metaVarInfo))
+            } else {
+                stats.emptyAutomata++
+                emptyList()
+            }
+        }
+
+        return ruleAutomata
     }
 
     fun convertToActionList(rule: NormalizedSemgrepRule): ActionListSemgrepRule? {
@@ -70,16 +85,12 @@ class SemgrepRuleAutomataBuilder(
         )
     }
 
-    fun parseSemgrepRule(rule: RawSemgrepRule): ParsedSemgprepRule? {
-        return ParsedSemgprepRule(
+    fun parseSemgrepRule(rule: RawSemgrepRule): NormalizedSemgrepRule? {
+        return NormalizedSemgrepRule(
             patterns = rule.patterns.map { parser.parseOrNull(it) ?: return null },
             patternNots = rule.patternNots.map { parser.parseOrNull(it) ?: return null },
             patternInsides = rule.patternInsides.map { parser.parseOrNull(it) ?: return null },
             patternNotInsides = rule.patternNotInsides.map { parser.parseOrNull(it) ?: return null },
-            metaVariablePatterns = rule.metaVariablePatterns.mapValues { (_, patterns) ->
-                patterns.map { parser.parseOrNull(it) ?: return null }
-            },
-            metaVariableRegex = rule.metaVariableRegex
         )
     }
 
@@ -88,40 +99,51 @@ class SemgrepRuleAutomataBuilder(
             .let { rewriteAssignEllipsis(it) }
     }
 
-    private inline fun <T, R> SemgrepRule<RuleWithFocusMetaVars<T>>.fmap(crossinline body: (T) -> R): SemgrepRule<RuleWithFocusMetaVars<R>> =
+    private inline fun <T, R, C> SemgrepRule<RuleWithMetaVars<T, C>>.fmap(crossinline body: (T) -> R): SemgrepRule<RuleWithMetaVars<R, C>> =
         transform { r -> r.map { body(it) } }
 
-    private inline fun <T, R> SemgrepRule<RuleWithFocusMetaVars<T>>.fFlatMap(crossinline body: (T) -> List<R>): SemgrepRule<RuleWithFocusMetaVars<R>> =
+    private inline fun <T, R, C> SemgrepRule<RuleWithMetaVars<T, C>>.fFlatMap(crossinline body: (T) -> List<R>): SemgrepRule<RuleWithMetaVars<R, C>> =
         flatMap { r -> r.flatMap { body(it) } }
 
-    private fun <T> SemgrepRule<RuleWithFocusMetaVars<T>>.removeDuplicateRules() = when (this) {
+    private fun <T, C> SemgrepRule<RuleWithMetaVars<T, C>>.removeDuplicateRules() = when (this) {
         is SemgrepMatchingRule -> removeDuplicateRules()
         is SemgrepTaintRule -> removeDuplicateRules()
     }
 
-    private fun <T> SemgrepMatchingRule<RuleWithFocusMetaVars<T>>.removeDuplicateRules() =
+    private fun <T, C> SemgrepMatchingRule<RuleWithMetaVars<T, C>>.removeDuplicateRules() =
         SemgrepMatchingRule(rules.distinct())
 
-    private fun <T> SemgrepTaintRule<RuleWithFocusMetaVars<T>>.removeDuplicateRules() =
+    private fun <T, C> SemgrepTaintRule<RuleWithMetaVars<T, C>>.removeDuplicateRules() =
         SemgrepTaintRule(sources.distinct(), sinks.distinct(), propagators.distinct(), sanitizers.distinct())
 
-    private fun SemgrepRule<RuleWithFocusMetaVars<ActionListSemgrepRule>>.transformToAutomata() = when (this) {
-        is SemgrepMatchingRule -> transformToAutomata()
-        is SemgrepTaintRule -> transformToAutomata()
+    private fun <R> RuleWithMetaVars<R, RawMetaVarInfo>.resolveMetaVarInfo(): RuleWithMetaVars<R, ResolvedMetaVarInfo>? {
+        val resolvedInfo = resolveMetaVarInfo(metaVarInfo) ?: return null
+        return RuleWithMetaVars(rule, resolvedInfo)
     }
 
-    private fun SemgrepTaintRule<RuleWithFocusMetaVars<ActionListSemgrepRule>>.transformToAutomata() =
-        fmap { transformSemgrepRuleToAutomata(it) }
+    private fun resolveMetaVarInfo(info: RawMetaVarInfo): ResolvedMetaVarInfo? {
+        if (info.metaVariableRegex.isEmpty() && info.metaVariablePatterns.isEmpty()) {
+            return ResolvedMetaVarInfo(info.focusMetaVars, emptyMap())
+        }
 
-    private fun SemgrepMatchingRule<RuleWithFocusMetaVars<ActionListSemgrepRule>>.transformToAutomata(): SemgrepRule<RuleWithFocusMetaVars<SemgrepRuleAutomata>> {
-        if (rules.isEmpty()) return SemgrepMatchingRule(emptyList())
+        val metaVarConstraints = hashMapOf<String, MutableSet<MetaVarConstraint>>()
+        for ((metaVar, regex) in info.metaVariableRegex) {
+            val constraints = metaVarConstraints.getOrPut(metaVar, ::hashSetOf)
+            regex.mapTo(constraints) { MetaVarConstraint.RegExp(it) }
+        }
 
-        val ruleActionLists = rules.map { it.rule }
-        val ruleAutomata = transformSemgrepRulesToAutomata(ruleActionLists)
+        for ((metaVar, patterns) in info.metaVariablePatterns) {
+            val constraints = metaVarConstraints.getOrPut(metaVar, ::hashSetOf)
+            patterns.mapTo(constraints) { patternConstraintValue(it) ?: return null }
+        }
 
-        val focusMetaVars = rules.flatMapTo(hashSetOf()) { it.focusMetaVars }
+        val constraints = metaVarConstraints.mapValues { (_, v) -> MetaVarConstraints(v) }
+        return ResolvedMetaVarInfo(info.focusMetaVars, constraints)
+    }
 
-        val result = ruleAutomata.map { RuleWithFocusMetaVars(it, focusMetaVars) }
-        return SemgrepMatchingRule(result)
+    private fun patternConstraintValue(pattern: String): MetaVarConstraint? {
+        val parsed = parser.parseOrNull(pattern) ?: return null
+        val patternConcreteValue = tryExtractPatternDotSeparatedParts(parsed) ?: return null
+        return MetaVarConstraint.Concrete(patternConcreteValue.joinToString(separator = "."))
     }
 }

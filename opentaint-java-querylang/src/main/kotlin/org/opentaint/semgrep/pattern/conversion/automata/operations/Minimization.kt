@@ -1,5 +1,6 @@
 package org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations
 
+import org.opentaint.org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
@@ -88,10 +89,10 @@ private fun reverse(automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
     )
 }
 
-fun brzozowskiAlgorithm(automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
+fun brzozowskiAlgorithm(metaVarInfo: ResolvedMetaVarInfo, automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
     val reversedNfa = reverse(automata)
-    val reversedDfa = determinize(reversedNfa)
+    val reversedDfa = determinize(reversedNfa, metaVarInfo)
     val newNfa = reverse(reversedDfa)
-    val result = determinize(newNfa)
+    val result = determinize(newNfa, metaVarInfo)
     return result
 }

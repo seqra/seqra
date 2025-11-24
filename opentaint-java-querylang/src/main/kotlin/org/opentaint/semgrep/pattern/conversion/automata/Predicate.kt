@@ -2,6 +2,7 @@ package org.opentaint.org.opentaint.semgrep.pattern.conversion.automata
 
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.ParamCondition
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureName
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.TypeNamePattern
 
 typealias PredicateId = Int
@@ -29,15 +30,11 @@ data class ClassModifierConstraint(val modifier: SignatureModifier) : MethodCons
 
 data class MethodModifierConstraint(val modifier: SignatureModifier) : MethodConstraint
 
-data class MethodName(val name: String?) {
-    companion object {
-        val anyMethodName = MethodName(name = null)
-    }
-}
+data class MethodName(val name: SignatureName)
 
-data class MethodEnclosingClassName(val name: TypeNamePattern?) {
+data class MethodEnclosingClassName(val name: TypeNamePattern) {
     companion object {
-        val anyClassName = MethodEnclosingClassName(name = null)
+        val anyClassName = MethodEnclosingClassName(name = TypeNamePattern.AnyType)
     }
 }
 

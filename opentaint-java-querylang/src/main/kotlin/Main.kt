@@ -134,6 +134,7 @@ fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
     var taintRuleGenerationException = 0
     var successTaintRules = 0
     val taintRuleGenerationExceptions = hashMapOf<String, AtomicInteger>()
+    val automataBuildExceptions = hashMapOf<String, AtomicInteger>()
 
     val ruleBuilderStats = SemgrepRuleAutomataBuilder.Stats()
 
@@ -185,6 +186,7 @@ fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
         }.getOrElse { e ->
 //            println("Exception: $e")
 //            e.printStackTrace(System.out)
+            automataBuildExceptions.getOrPut(e.toString(), ::AtomicInteger).incrementAndGet()
             exceptionWhileBuildingAutomata += 1
         }
 
@@ -193,6 +195,9 @@ fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
 
     println("Converted into automata $converted/$all")
     println("Exceptions while building automata: $exceptionWhileBuildingAutomata")
+    automataBuildExceptions.entries.sortedByDescending { it.value.get() }.forEach { (key, value) ->
+        println("$key: $value")
+    }
     println()
     println(ruleBuilderStats)
     println()
@@ -226,5 +231,6 @@ fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
 private fun SemgrepRuleAutomataBuilder.Stats.add(other: SemgrepRuleAutomataBuilder.Stats) {
     this.ruleParsingFailure += other.ruleParsingFailure
     this.actionListConversionFailure += other.actionListConversionFailure
-    this.metaVarSpecializationFailure += other.metaVarSpecializationFailure
+    this.metaVarResolvingFailure += other.metaVarResolvingFailure
+    this.emptyAutomata += other.emptyAutomata
 }

@@ -2,9 +2,9 @@ package org.opentaint.org.opentaint.semgrep.pattern
 
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternActionList
 
-data class RuleWithFocusMetaVars<R>(val rule: R, val focusMetaVars: Set<String>) {
-    fun <T> map(body: (R) -> T) = RuleWithFocusMetaVars(body(rule), focusMetaVars)
-    fun <T> flatMap(body: (R) -> List<T>) = body(rule).map { RuleWithFocusMetaVars(it, focusMetaVars) }
+data class RuleWithMetaVars<R, C>(val rule: R, val metaVarInfo: C) {
+    fun <T> map(body: (R) -> T) = RuleWithMetaVars(body(rule), metaVarInfo)
+    fun <T> flatMap(body: (R) -> List<T>) = body(rule).map { RuleWithMetaVars(it, metaVarInfo) }
 }
 
 data class RawSemgrepRule(
@@ -12,17 +12,24 @@ data class RawSemgrepRule(
     val patternNots: List<String>,
     val patternInsides: List<String>,
     val patternNotInsides: List<String>,
-    val metaVariablePatterns: Map<String, Set<String>>,
-    val metaVariableRegex: Map<String, Set<String>>,
 )
 
-data class ParsedSemgprepRule(
-    val patterns: List<SemgrepJavaPattern>,
-    val patternNots: List<SemgrepJavaPattern>,
-    val patternInsides: List<SemgrepJavaPattern>,
-    val patternNotInsides: List<SemgrepJavaPattern>,
-    val metaVariablePatterns: Map<String, List<SemgrepJavaPattern>>,
+data class RawMetaVarInfo(
+    val focusMetaVars: Set<String>,
     val metaVariableRegex: Map<String, Set<String>>,
+    val metaVariablePatterns: Map<String, Set<String>>,
+)
+
+sealed interface MetaVarConstraint {
+    data class RegExp(val regex: String) : MetaVarConstraint
+    data class Concrete(val value: String) : MetaVarConstraint
+}
+
+data class MetaVarConstraints(val constraints: Set<MetaVarConstraint>)
+
+data class ResolvedMetaVarInfo(
+    val focusMetaVars: Set<String>,
+    val metaVarConstraints: Map<String, MetaVarConstraints>
 )
 
 data class NormalizedSemgrepRule(

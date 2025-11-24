@@ -55,6 +55,7 @@ object ConditionSimplifier : ConditionVisitor<Condition> {
     override fun visit(condition: ContainsMark): Condition = condition
     override fun visit(condition: ConstantTrue): Condition = condition
     override fun visit(condition: TypeMatches): Condition = condition
+    override fun visit(condition: TypeMatchesPattern): Condition = condition
 }
 
 fun mkTrue(): Condition = ConstantTrue

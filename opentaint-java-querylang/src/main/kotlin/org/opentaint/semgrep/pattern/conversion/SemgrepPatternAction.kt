@@ -5,8 +5,14 @@ sealed interface SemgrepPatternAction {
     val result: ParamCondition?
     fun setResultCondition(condition: ParamCondition): SemgrepPatternAction
 
+    sealed interface SignatureName {
+        data class Concrete(val name: String) : SignatureName
+        data class MetaVar(val metaVar: String) : SignatureName
+        data object AnyName : SignatureName
+    }
+
     data class MethodCall(
-        val methodName: String,
+        val methodName: SignatureName,
         override val result: ParamCondition?,
         val params: ParamConstraint,
         val obj: ParamCondition?,
@@ -66,7 +72,7 @@ sealed interface SemgrepPatternAction {
     )
 
     data class MethodSignature(
-        val methodNameMetavar: String?,
+        val methodName: SignatureName,
         val methodReturnTypeMetavar: String?,
         val params: ParamConstraint.Partial,
         val modifiers: List<SignatureModifier>,

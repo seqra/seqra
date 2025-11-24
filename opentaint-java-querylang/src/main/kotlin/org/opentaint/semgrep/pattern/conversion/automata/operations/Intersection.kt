@@ -1,5 +1,6 @@
 package org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations
 
+import org.opentaint.org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
@@ -7,7 +8,11 @@ import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFor
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.simplifyMethodFormulaAnd
 
-fun intersection(a1: SemgrepRuleAutomata, a2: SemgrepRuleAutomata): SemgrepRuleAutomata {
+fun intersection(
+    a1: SemgrepRuleAutomata,
+    a2: SemgrepRuleAutomata,
+    metaVarInfo: ResolvedMetaVarInfo
+): SemgrepRuleAutomata {
     val manager = a1.formulaManager
     check(a1.formulaManager === a2.formulaManager)
 
@@ -35,13 +40,13 @@ fun intersection(a1: SemgrepRuleAutomata, a2: SemgrepRuleAutomata): SemgrepRuleA
                     outType1
 
                 } else if (outType1 is AutomataEdgeType.MethodCall && outType2 is AutomataEdgeType.MethodCall) {
-                    val formula = intersectMethodFormula(manager, outType1.formula, outType2.formula)
+                    val formula = intersectMethodFormula(manager, metaVarInfo, outType1.formula, outType2.formula)
                         ?: return@inner
 
                     AutomataEdgeType.MethodCall(formula)
 
                 } else if (outType1 is AutomataEdgeType.MethodEnter && outType2 is AutomataEdgeType.MethodEnter) {
-                    val formula = intersectMethodFormula(manager, outType1.formula, outType2.formula)
+                    val formula = intersectMethodFormula(manager, metaVarInfo, outType1.formula, outType2.formula)
                         ?: return@inner
 
                     AutomataEdgeType.MethodEnter(formula)
@@ -73,9 +78,10 @@ private fun createNewNode(n1: AutomataNode, n2: AutomataNode): AutomataNode =
 
 private fun intersectMethodFormula(
     formulaManager: MethodFormulaManager,
+    metaVarInfo: ResolvedMetaVarInfo,
     f1: MethodFormula, f2: MethodFormula
 ): MethodFormula? {
-    val result = simplifyMethodFormulaAnd(formulaManager, listOf(f1, f2))
+    val result = simplifyMethodFormulaAnd(formulaManager, listOf(f1, f2), metaVarInfo)
 
     if (result == MethodFormula.False) {
         return null

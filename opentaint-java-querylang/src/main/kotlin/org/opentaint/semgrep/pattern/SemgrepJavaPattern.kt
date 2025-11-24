@@ -176,9 +176,7 @@ data class DeepExpr(val nestedExpr: SemgrepJavaPattern) : SemgrepJavaPattern {
     override val children: List<SemgrepJavaPattern> get() = listOf(nestedExpr)
 }
 
-sealed interface Name {
-    data class Pattern(val namePattern: String) : Name
-}
+sealed interface Name
 
 data class ConcreteName(val name: String) : Name
 data class MetavarName(val metavarName: String) : Name

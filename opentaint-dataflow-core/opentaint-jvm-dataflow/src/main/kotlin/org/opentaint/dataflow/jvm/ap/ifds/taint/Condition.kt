@@ -17,6 +17,7 @@
 package org.opentaint.dataflow.jvm.ap.ifds.taint
 
 import org.opentaint.ir.api.common.cfg.CommonValue
+import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.cfg.JIRBool
 import org.opentaint.ir.api.jvm.cfg.JIRConstant
 import org.opentaint.ir.api.jvm.cfg.JIRInt
@@ -40,6 +41,7 @@ import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.PositionResolver
 import org.opentaint.dataflow.configuration.jvm.TypeMatches
+import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
 import org.opentaint.util.Maybe
 import org.opentaint.util.onSome
 
@@ -109,6 +111,13 @@ open class JIRBasicConditionEvaluator(
         return false
     }
 
+    override fun visit(condition: TypeMatchesPattern): Boolean   {
+        positionResolver.resolve(condition.position).onSome { value ->
+            return typeMatchesPattern(value, condition)
+        }
+        return false
+    }
+
     private fun isConstant(value: JIRValue): Boolean {
         return value is JIRConstant
     }
@@ -162,5 +171,11 @@ open class JIRBasicConditionEvaluator(
     private fun typeMatches(value: CommonValue, condition: TypeMatches): Boolean {
         check(value is JIRValue)
         return value.type.isAssignable(condition.type)
+    }
+
+    private fun typeMatchesPattern(value: CommonValue, condition: TypeMatchesPattern): Boolean {
+        check(value is JIRValue)
+        if (value.type !is JIRRefType) return false
+        return condition.pattern.containsMatchIn(value.type.typeName)
     }
 }

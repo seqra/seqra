@@ -30,8 +30,7 @@ class IssuesTest : SampleBasedTest() {
     @Disabled
     fun `issue 76`() = runTest("issues/issue76")
 
-    @Test // todo: regex partial method name match
-    @Disabled
+    @Test
     fun `issue 77`() = runTest("issues/issue77")
 
     @Test

@@ -149,6 +149,9 @@ sealed interface SerializedCondition {
         val pos: PositionBase,
         val annotation: AnnotationConstraint
     ) : SerializedCondition
+
+    @Serializable
+    data class MethodNameMatches(val nameMatches: String) : SerializedCondition
 }
 
 class TrueConditionSerializer : KSerializer<SerializedCondition.True> {

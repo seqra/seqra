@@ -5,7 +5,7 @@ import org.opentaint.org.opentaint.semgrep.pattern.FieldAccess
 import org.opentaint.org.opentaint.semgrep.pattern.Identifier
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPattern
 
-fun tryExtractPatterDotSeparatedParts(pattern: SemgrepJavaPattern): List<String>? {
+fun tryExtractPatternDotSeparatedParts(pattern: SemgrepJavaPattern): List<String>? {
     return when (pattern) {
         is Identifier -> {
             listOf(pattern.name)
@@ -17,7 +17,7 @@ fun tryExtractPatterDotSeparatedParts(pattern: SemgrepJavaPattern): List<String>
             val objPattern = (pattern.obj as? FieldAccess.ObjectPattern)?.pattern
                 ?: return null
 
-            tryExtractPatterDotSeparatedParts(objPattern)?.let { it + field }
+            tryExtractPatternDotSeparatedParts(objPattern)?.let { it + field }
         }
 
         else -> {

@@ -516,7 +516,6 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
         return when (name) {
             is ConcreteName -> Identifier(name.name)
             is MetavarName -> Metavar(name.metavarName)
-            is Name.Pattern -> ctx.parsingFailed("Unknown identifier")
         }
     }
 

@@ -213,16 +213,16 @@ private fun parseMatchingRuleFormula(rule: SemgrepYamlRule): Formula =
         TODO()
     }
 
-fun convertToRawRule(rule: SemgrepRule<Formula>): SemgrepRule<RuleWithFocusMetaVars<RawSemgrepRule>> {
+fun convertToRawRule(rule: SemgrepRule<Formula>): SemgrepRule<RuleWithMetaVars<RawSemgrepRule, RawMetaVarInfo>> {
     return rule.flatMap { convertToRawRule(it) }
 }
 
-fun convertToRawRule(formula: Formula): List<RuleWithFocusMetaVars<RawSemgrepRule>> {
+fun convertToRawRule(formula: Formula): List<RuleWithMetaVars<RawSemgrepRule, RawMetaVarInfo>> {
     val formulaDnf = formula.normalizeToNNF(negated = false).toDNF()
     return formulaDnf.mapNotNull { convertToNormalizedRule(it.literals) }
 }
 
-private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>): RuleWithFocusMetaVars<RawSemgrepRule>? {
+private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>): RuleWithMetaVars<RawSemgrepRule, RawMetaVarInfo>? {
     val patterns = mutableListOf<String>()
     val patternNots = mutableListOf<String>()
     val patternInsides = mutableListOf<String>()
@@ -295,12 +295,13 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>): 
         }
     }
 
-    return RuleWithFocusMetaVars(
+    return RuleWithMetaVars(
         RawSemgrepRule(
-            patterns, patternNots, patternInsides, patternNotInsides,
-            metaVariablePatterns, metaVariableRegex
+            patterns, patternNots, patternInsides, patternNotInsides
         ),
-        focusMetaVars
+        RawMetaVarInfo(
+            focusMetaVars, metaVariableRegex, metaVariablePatterns
+        )
     )
 }
 

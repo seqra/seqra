@@ -419,8 +419,6 @@ class SemgrepJavaPatternMatcher(
                     }
                     pattern
                 }
-
-                is Name.Pattern -> TODO()
             }
             if (acc.isEmpty()) cur else "$acc\\.$cur"
         }
@@ -801,7 +799,5 @@ class SemgrepJavaPatternMatcher(
                     )
                 )
             }
-
-            is Name.Pattern -> TODO()
         }
 }

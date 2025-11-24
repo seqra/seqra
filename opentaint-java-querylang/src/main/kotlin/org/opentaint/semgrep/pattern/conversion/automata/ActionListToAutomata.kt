@@ -179,7 +179,7 @@ private fun constructFormula(
     }
 
     val signature = MethodSignature(
-        methodName = MethodName("<init>"),
+        methodName = MethodName(SemgrepPatternAction.SignatureName.Concrete("<init>")),
         enclosingClassName = MethodEnclosingClassName(action.className),
     )
     builder.addSignature(signature)
@@ -197,8 +197,7 @@ private fun constructSignatureFormula(
     builder.addMethodModifier(action.modifiers)
     builder.addClassModifier(action.enclosingClassModifiers)
 
-    // todo: expand metavar before automata creation?
-    val methodName = MethodName(action.methodNameMetavar)
+    val methodName = MethodName(action.methodName)
 
     val signature = MethodSignature(
         methodName = methodName,

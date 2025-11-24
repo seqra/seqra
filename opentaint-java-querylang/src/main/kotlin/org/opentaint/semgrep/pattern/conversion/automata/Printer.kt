@@ -11,6 +11,7 @@ import org.opentaint.dataflow.util.forEach
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.And
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.Cube
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.True
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations.traverse
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.TaintRuleEdge
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.TaintRuleGenerationCtx
@@ -27,13 +28,7 @@ class PrintableSemgrepRuleAutomata(val automata: SemgrepRuleAutomata) : Printabl
 
     override fun allNodes(): List<AutomataNode> {
         val allNodes = hashSetOf<AutomataNode>()
-        val unprocessedNodes = mutableListOf<AutomataNode>()
-        unprocessedNodes.addAll(automata.initialNodes)
-        while (unprocessedNodes.isNotEmpty()) {
-            val node = unprocessedNodes.removeLast()
-            if (!allNodes.add(node)) continue
-            node.outEdges.forEach { unprocessedNodes.add(it.second) }
-        }
+        traverse(automata) { allNodes.add(it) }
         return allNodes.toList()
     }
 

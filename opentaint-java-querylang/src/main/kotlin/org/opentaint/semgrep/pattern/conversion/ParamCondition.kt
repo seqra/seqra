@@ -5,6 +5,8 @@ import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternActi
 sealed interface TypeNamePattern {
     data class FullyQualified(val name: String) : TypeNamePattern
     data class ClassName(val name: String) : TypeNamePattern
+    data class MetaVar(val metaVar: String) : TypeNamePattern
+    data object AnyType : TypeNamePattern
 }
 
 sealed interface ParamPosition {
@@ -21,11 +23,9 @@ sealed interface ParamCondition {
 
     data class TypeIs(val typeName: TypeNamePattern) : Atom
 
-    data class TypeMetaVar(val metaVar: String) : Atom
-
     data object AnyStringLiteral : Atom
 
-    data class StringMatches(val pattern: String) : Atom
+    data class StringValueMetaVar(val metaVar: String) : Atom
 
     data class ParamModifier(val modifier: SignatureModifier): Atom
 }

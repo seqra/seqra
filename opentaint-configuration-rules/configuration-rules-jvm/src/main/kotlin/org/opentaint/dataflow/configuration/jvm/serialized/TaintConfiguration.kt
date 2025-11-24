@@ -4,10 +4,14 @@ import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
+import org.opentaint.ir.api.jvm.TypeName
 import org.opentaint.ir.api.jvm.ext.allSuperHierarchySequence
+import org.opentaint.ir.api.jvm.ext.findTypeOrNull
+import org.opentaint.ir.api.jvm.ext.isAssignable
 import org.opentaint.ir.impl.types.TypeNameImpl
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.jvm.Action
+import org.opentaint.dataflow.configuration.jvm.And
 import org.opentaint.dataflow.configuration.jvm.AnyNameMatcher
 import org.opentaint.dataflow.configuration.jvm.AnyTypeMatcher
 import org.opentaint.dataflow.configuration.jvm.Argument
@@ -15,6 +19,8 @@ import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.ClassMatcher
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
 import org.opentaint.dataflow.configuration.jvm.Condition
+import org.opentaint.dataflow.configuration.jvm.ConditionSimplifier
+import org.opentaint.dataflow.configuration.jvm.ConditionVisitor
 import org.opentaint.dataflow.configuration.jvm.ConfigurationTrie
 import org.opentaint.dataflow.configuration.jvm.ConstantBooleanValue
 import org.opentaint.dataflow.configuration.jvm.ConstantEq
@@ -29,10 +35,12 @@ import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
 import org.opentaint.dataflow.configuration.jvm.CopyMark
 import org.opentaint.dataflow.configuration.jvm.IsConstant
 import org.opentaint.dataflow.configuration.jvm.JIRTypeNameMatcher
+import org.opentaint.dataflow.configuration.jvm.JIRTypeNamePatternMatcher
 import org.opentaint.dataflow.configuration.jvm.NameExactMatcher
 import org.opentaint.dataflow.configuration.jvm.NameMatcher
 import org.opentaint.dataflow.configuration.jvm.NamePatternMatcher
 import org.opentaint.dataflow.configuration.jvm.Not
+import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.Position
 import org.opentaint.dataflow.configuration.jvm.PositionAccessor
 import org.opentaint.dataflow.configuration.jvm.PositionWithAccess
@@ -51,6 +59,8 @@ import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
 import org.opentaint.dataflow.configuration.jvm.TaintSinkMeta
 import org.opentaint.dataflow.configuration.jvm.This
 import org.opentaint.dataflow.configuration.jvm.TypeMatcher
+import org.opentaint.dataflow.configuration.jvm.TypeMatches
+import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
 import org.opentaint.dataflow.configuration.jvm.isFalse
 import org.opentaint.dataflow.configuration.jvm.match
 import org.opentaint.dataflow.configuration.jvm.mkAnd
@@ -172,7 +182,7 @@ class TaintConfiguration {
         is SerializedNameMatcher.Pattern -> if (pattern == ".*") {
             AnyTypeMatcher
         } else {
-            TODO()
+            JIRTypeNamePatternMatcher(NamePatternMatcher(pattern))
         }
 
         is SerializedNameMatcher.ClassPattern -> {
@@ -186,11 +196,17 @@ class TaintConfiguration {
         AnyNameMatcher -> SerializedNameMatcher.Pattern(".*")
     }
 
-    private val compiledMatchers = hashMapOf<SerializedNameMatcher.Pattern, Regex>()
+    private val compiledMatchers = hashMapOf<String, Regex>()
+
+    private fun compilePattern(pattern: String): Regex =
+        compiledMatchers.getOrPut(pattern) { pattern.toRegex() }
+
+    private fun matchPattern(pattern: String, str: String): Boolean =
+        compilePattern(pattern).containsMatchIn(str)
 
     private fun SerializedNameMatcher.match(name: String): Boolean = when (this) {
         is SerializedNameMatcher.Simple -> if (value == "*") true else value == name
-        is SerializedNameMatcher.Pattern -> compiledMatchers.getOrPut(this) { pattern.toRegex() }.matches(name)
+        is SerializedNameMatcher.Pattern -> matchPattern(pattern, name)
         is SerializedNameMatcher.ClassPattern -> {
             `package`.match(name.substringBeforeLast('.', missingDelimiterValue = ""))
                     && `class`.match(name.substringAfterLast('.', missingDelimiterValue = name))
@@ -243,7 +259,10 @@ class TaintConfiguration {
             is SerializedRule.PassThrough -> condition
         }
 
-        val condition = serializedCondition.resolve(method).simplify()
+        val partiallyResolvedCondition = serializedCondition.resolve(method)
+        if (partiallyResolvedCondition.isFalse()) return null
+
+        val condition = partiallyResolvedCondition.resolveIsType(method).simplify()
         if (condition.isFalse()) return null
 
         return when (this) {
@@ -312,7 +331,7 @@ class TaintConfiguration {
                 method,
                 annotatedWith.asAnnotationConstraint()
             ).any()
-            if (containsAnnotation) mkTrue() else mkFalse()
+            containsAnnotation.asCondition()
         }
 
         is SerializedCondition.ConstantCmp -> {
@@ -341,7 +360,7 @@ class TaintConfiguration {
             pos.resolve(method).map { ConstantLt(it, ConstantStringValue(constantLt)) })
 
         is SerializedCondition.ConstantMatches -> mkOr(
-            pos.resolve(method).map { ConstantMatches(it, constantMatches.toRegex()) })
+            pos.resolve(method).map { ConstantMatches(it, compilePattern(constantMatches)) })
 
         is SerializedCondition.IsConstant -> mkOr(isConstant.resolve(method).map { IsConstant(it) })
         is SerializedCondition.ContainsMark -> mkOr(
@@ -350,20 +369,40 @@ class TaintConfiguration {
         is SerializedCondition.IsType -> resolveIsType(method)
 
         is SerializedCondition.NumberOfArgs -> {
-            if (method.parameters.size == numberOfArgs) mkTrue() else mkFalse()
+            (method.parameters.size == numberOfArgs).asCondition()
         }
 
         is SerializedCondition.ClassAnnotated -> {
-            if (method.enclosingClass.annotations.matched(annotation)) mkTrue() else mkFalse()
+            method.enclosingClass.annotations.matched(annotation).asCondition()
         }
 
         is SerializedCondition.MethodAnnotated -> {
-            if (method.annotations.matched(annotation)) mkTrue() else mkFalse()
+            method.annotations.matched(annotation).asCondition()
         }
 
         is SerializedCondition.ParamAnnotated -> {
             val containsAnnotation = pos.resolveWithAnnotationConstraint(method, annotation).any()
-            if (containsAnnotation) mkTrue() else mkFalse()
+            containsAnnotation.asCondition()
+        }
+
+        is SerializedCondition.MethodNameMatches -> {
+            matchPattern(nameMatches, method.name).asCondition()
+        }
+    }
+
+    private fun Boolean.asCondition(): Condition = if (this) mkTrue() else mkFalse()
+
+    private data class UnresolvedIsType(
+        val typedPositions: List<Pair<Position, TypeName>>,
+        val typeMatcher: TypeMatcher,
+    ) : Condition {
+        override fun <R> accept(conditionVisitor: ConditionVisitor<R>): R {
+            if (conditionVisitor is ConditionSimplifier) {
+                @Suppress("UNCHECKED_CAST")
+                return this as R
+            }
+
+            error("Unresolved Is Type is auxiliary expression")
         }
     }
 
@@ -372,6 +411,8 @@ class TaintConfiguration {
         if (position.isEmpty()) return mkFalse()
 
         val typeMatcher = typeIs.typeNameMatcher()
+        if (typeMatcher is AnyTypeMatcher) return mkTrue()
+
         val positionTypes = position.mapNotNull {
             it to when (it) {
                 is Argument -> method.parameters[it.index].type
@@ -386,9 +427,40 @@ class TaintConfiguration {
             return mkTrue()
         }
 
-        // todo: use position type as a reference
-        val types = typeMatcher.resolveTypeMatcherCondition(method.enclosingClass.classpath, ::matchName)
-        return mkOr(position.map(types))
+        return UnresolvedIsType(positionTypes, typeMatcher)
+    }
+
+    private fun Condition.resolveIsType(method: JIRMethod): Condition = when (this) {
+        is Not -> Not(arg.resolveIsType(method))
+        is And -> And(args.map { it.resolveIsType(method) })
+        is Or -> Or(args.map { it.resolveIsType(method) })
+        is UnresolvedIsType -> resolveIsType(method)
+        else -> this
+    }
+
+    private fun UnresolvedIsType.resolveIsType(method: JIRMethod): Condition {
+        val cp = method.enclosingClass.classpath
+        val typePositions = typedPositions.groupBy({ cp.findTypeOrNull(it.second) }, { it.first })
+
+        val (types, matchPatterns) = typeMatcher.resolveTypeMatcherCondition(cp, typePositions.keys, ::matchName)
+            ?: return mkTrue()
+
+        val condition = mutableListOf<Condition>()
+        for ((baseType, positions) in typePositions) {
+            val suitableTypes = if (baseType == null) types else types.filter { it.isAssignable(baseType) }
+            positions.forEach { pos ->
+                suitableTypes.mapTo(condition) { TypeMatches(pos, it) }
+            }
+        }
+
+        for (pattern in matchPatterns) {
+            val compiledPattern = compilePattern(pattern)
+            for ((_, positions) in typePositions) {
+                positions.mapTo(condition) { TypeMatchesPattern(it, compiledPattern) }
+            }
+        }
+
+        return mkOr(condition)
     }
 
     private fun matchName(matcher: NameMatcher, name: String): Boolean {

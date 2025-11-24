@@ -1,5 +1,6 @@
 package org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations
 
+import org.opentaint.org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
@@ -10,9 +11,13 @@ import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.simplifyMeth
 /**
  * Return dead node
  * */
-fun totalizeMethodCalls(automata: SemgrepRuleAutomata, oldDeadNode: AutomataNode? = null): AutomataNode {
+fun totalizeMethodCalls(
+    metaVarInfo: ResolvedMetaVarInfo,
+    automata: SemgrepRuleAutomata,
+    oldDeadNode: AutomataNode? = null
+): AutomataNode {
     return totalize(automata, oldDeadNode) { node ->
-        val negationFormula = getNodeNegation<AutomataEdgeType.MethodCall>(automata.formulaManager, node)
+        val negationFormula = getNodeNegation<AutomataEdgeType.MethodCall>(automata.formulaManager, metaVarInfo, node)
             ?: return@totalize null
 
         AutomataEdgeType.MethodCall(negationFormula)
@@ -22,7 +27,11 @@ fun totalizeMethodCalls(automata: SemgrepRuleAutomata, oldDeadNode: AutomataNode
 /**
  * Return dead node
  * */
-fun totalizeMethodEnters(automata: SemgrepRuleAutomata, oldDeadNode: AutomataNode? = null): AutomataNode {
+fun totalizeMethodEnters(
+    metaVarInfo: ResolvedMetaVarInfo,
+    automata: SemgrepRuleAutomata,
+    oldDeadNode: AutomataNode? = null
+): AutomataNode {
     automata.hasMethodEnter = true
     return totalize(automata, oldDeadNode) { node ->
         if (node != automata.initialNode) {
@@ -32,7 +41,7 @@ fun totalizeMethodEnters(automata: SemgrepRuleAutomata, oldDeadNode: AutomataNod
             return@totalize null
         }
 
-        val negationFormula = getNodeNegation<AutomataEdgeType.MethodEnter>(automata.formulaManager, node)
+        val negationFormula = getNodeNegation<AutomataEdgeType.MethodEnter>(automata.formulaManager, metaVarInfo, node)
             ?: return@totalize null
 
         AutomataEdgeType.MethodEnter(negationFormula)
@@ -72,10 +81,11 @@ private fun totalize(
 
 private inline fun <reified EdgeType : AutomataEdgeType.AutomataEdgeTypeWithFormula> getNodeNegation(
     formulaManager: MethodFormulaManager,
+    metaVarInfo: ResolvedMetaVarInfo,
     node: AutomataNode,
 ): MethodFormula? {
     val formulas = node.outEdges.mapNotNull { (it.first as? EdgeType)?.formula?.complement() }
 
-    val result = simplifyMethodFormulaAnd(formulaManager, formulas)
+    val result = simplifyMethodFormulaAnd(formulaManager, formulas, metaVarInfo)
     return result.takeIf { it != MethodFormula.False }
 }
