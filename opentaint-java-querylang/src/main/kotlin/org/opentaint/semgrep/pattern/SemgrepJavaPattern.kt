@@ -179,7 +179,10 @@ sealed interface Name
 data class ConcreteName(val name: String) : Name
 data class MetavarName(val metavarName: String) : Name
 
-data class TypeName(val dotSeparatedParts: List<Name>)
+data class TypeName(
+    val dotSeparatedParts: List<Name>,
+    val typeArgs: List<TypeName> = emptyList()
+)
 
 sealed interface Modifier
 

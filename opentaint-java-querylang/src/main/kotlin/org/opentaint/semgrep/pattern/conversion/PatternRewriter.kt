@@ -146,7 +146,10 @@ interface PatternRewriter {
     fun rewriteThisExpr(): SemgrepJavaPattern = ThisExpr
     fun rewriteEmptyPatternSequence(): SemgrepJavaPattern = EmptyPatternSequence
 
-    fun TypeName.rewriteTypeName(): TypeName = TypeName(dotSeparatedParts.map { it.rewriteName() })
+    fun TypeName.rewriteTypeName(): TypeName = TypeName(
+        dotSeparatedParts.map { it.rewriteName() },
+        typeArgs.map { it.rewriteTypeName() }
+    )
 
     fun Name.rewriteName(): Name = this
 

@@ -159,22 +159,31 @@ private class TypenameParserVisitor : JavaParserBaseVisitor<TypeName>() {
         val prefix = value(ClassOrInterfaceTypeContext::identifier).map { it.parseName() }
         val final = value(ClassOrInterfaceTypeContext::typeIdentifier).parseTypeIdentifierName()
 
-        val typeArgs = value(ClassOrInterfaceTypeContext::typeArguments)
-        if (typeArgs.isNotEmpty()) {
+        val identifierTypeArgs = value(ClassOrInterfaceTypeContext::identifierTypeArguments)
+        if (identifierTypeArgs.isNotEmpty()) {
             ctx.todo()
         }
 
-        return TypeName(dotSeparatedParts = prefix + final)
+        val typeTypeArguments = get(ClassOrInterfaceTypeContext::typeIdentifierTypeArguments)
+
+        if (typeTypeArguments == null) {
+            return TypeName(prefix + final)
+        }
+
+        val typeArgs = typeTypeArguments.typeArguments().typeArgument()
+            .map { it.typeType().accept(this@TypenameParserVisitor) }
+
+        return TypeName(prefix + final, typeArgs)
     }
 
     override fun visitQualifiedName(ctx: QualifiedNameContext): TypeName = ctx.withRule {
         val parts = value(QualifiedNameContext::identifier).map { it.parseName() }
-        return TypeName(dotSeparatedParts = parts)
+        return TypeName(parts)
     }
 
     override fun visitAltAnnotationQualifiedName(ctx: AltAnnotationQualifiedNameContext): TypeName = ctx.withRule {
         val parts = value(AltAnnotationQualifiedNameContext::identifier).map { it.parseName() }
-        return TypeName(dotSeparatedParts = parts)
+        return TypeName(parts)
     }
 }
 

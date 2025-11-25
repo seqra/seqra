@@ -230,6 +230,7 @@ fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
 
 private fun SemgrepRuleAutomataBuilder.Stats.add(other: SemgrepRuleAutomataBuilder.Stats) {
     this.ruleParsingFailure += other.ruleParsingFailure
+    this.ruleWithoutPattern += other.ruleWithoutPattern
     this.actionListConversionFailure += other.actionListConversionFailure
     this.metaVarResolvingFailure += other.metaVarResolvingFailure
     this.emptyAutomata += other.emptyAutomata

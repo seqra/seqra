@@ -19,11 +19,11 @@ class CustomTest : SampleBasedTest(configurationRequired = true) {
     fun `test origin path injection rule`() = runTest("custom/springPathInjectionOrigin")
 
     @Test
-    @Disabled
+    @Disabled // todo: array initializer
     fun `test simplified command injection rule`() = runTest("custom/springCommandInjection1")
 
     @Test
-    @Disabled
+    @Disabled // todo: validate pattern
     fun `test origin command injection rule`() = runTest("custom/springCommandInjectionOrigin")
 
     @AfterAll

@@ -14,7 +14,7 @@ public abstract class springCommandInjectionOrigin implements RuleSample {
     static class PositiveCommandInject extends springCommandInjectionOrigin {
         @Override
         public void entrypoint() {
-            new CommandInject_min().codeInjectSec("");
+            new CommandInject_min().codeInject("");
         }
     }
 }

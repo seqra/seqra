@@ -24,12 +24,13 @@ class SemgrepRuleAutomataBuilder(
 ) {
     data class Stats(
         var ruleParsingFailure: Int = 0,
+        var ruleWithoutPattern: Int = 0,
         var metaVarResolvingFailure: Int = 0,
         var actionListConversionFailure: Int = 0,
         var emptyAutomata: Int = 0,
     ) {
         val isFailure: Boolean
-            get() = (ruleParsingFailure + metaVarResolvingFailure + actionListConversionFailure + emptyAutomata) > 0
+            get() = (ruleParsingFailure + ruleWithoutPattern + metaVarResolvingFailure + actionListConversionFailure + emptyAutomata) > 0
     }
 
     val stats = Stats()
@@ -38,7 +39,16 @@ class SemgrepRuleAutomataBuilder(
         val semgrepRule = parseSemgrepRule(rule)
         val rawRules = convertToRawRule(semgrepRule)
 
-        val parsedRules = rawRules.fFlatMap { r ->
+        val normalRules = rawRules.fFlatMap { r ->
+            if (r.patterns.isNotEmpty()) {
+                listOf(r)
+            } else {
+                stats.ruleWithoutPattern++
+                emptyList()
+            }
+        }
+
+        val parsedRules = normalRules.fFlatMap { r ->
             parseSemgrepRule(r)?.let { listOf(it) } ?: run {
                 stats.ruleParsingFailure++
                 emptyList()

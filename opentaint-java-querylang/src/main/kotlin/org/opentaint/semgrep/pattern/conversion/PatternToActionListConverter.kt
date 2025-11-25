@@ -154,6 +154,11 @@ class PatternToActionListConverter: ActionListBuilder {
     }
 
     private fun tryTransformTypeName(typeName: TypeName): TypeNamePattern? {
+        if (typeName.typeArgs.isNotEmpty()) {
+            addFailedTransformation("TypeName_with_type_args")
+            return null
+        }
+
         if (typeName.dotSeparatedParts.size == 1) {
             val name = typeName.dotSeparatedParts.single()
             if (name is MetavarName) return TypeNamePattern.MetaVar(name.metavarName)
@@ -447,11 +452,21 @@ class PatternToActionListConverter: ActionListBuilder {
             addFailedTransformation("MethodDeclaration_name_not_metavar")
             return null
         }
-        val returnTypeName = if (pattern.returnType != null) {
-            (pattern.returnType.dotSeparatedParts.singleOrNull() as? MetavarName)?.metavarName ?: run {
+
+        val retType = pattern.returnType
+        val returnTypeName = if (retType != null) {
+            if (retType.typeArgs.isNotEmpty()) {
+                addFailedTransformation("MethodDeclaration_return_type_with_type_args")
+                return null
+            }
+
+            val retTypeMetaVar = (retType.dotSeparatedParts.singleOrNull() as? MetavarName)?.metavarName
+            if (retTypeMetaVar == null) {
                 addFailedTransformation("MethodDeclaration_return_type_not_metavar")
                 return null
             }
+
+            retTypeMetaVar
         } else {
             null
         }
