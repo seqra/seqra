@@ -344,39 +344,53 @@ class PatternToActionListConverter: ActionListBuilder {
 
     private fun transformVariableAssignment(pattern: VariableAssignment): SemgrepPatternActionList? {
         if (pattern.variable is Ellipsis) {
-            return transformPatternToActionList(pattern.value)
-        }
-        if (pattern.variable !is Metavar) {
-            addFailedTransformation("VariableAssignment_variable_not_metavar")
+            addFailedTransformation("VariableAssignment_ellipsis_variable")
             return null
         }
 
-        val resultMetavar = pattern.variable.name
-
-        val condition = if (pattern.type == null) {
-            IsMetavar(resultMetavar)
-        } else {
-            val typeName = tryTransformTypeName(pattern.type) ?: return null
-            ParamCondition.And(
-                listOf(
-                    IsMetavar(resultMetavar), ParamCondition.TypeIs(typeName)
-                )
-            )
+        val conditions = mutableListOf<ParamCondition.Atom>()
+        if (pattern.type != null) {
+            val typeName = tryTransformTypeName(pattern.type)
+            if (typeName == null) {
+                addFailedTransformation("VariableAssignment_type")
+                return null
+            }
+            conditions += ParamCondition.TypeIs(typeName)
         }
 
-        val actions = transformPatternToActionList(pattern.value)
-            ?: return null
+        when (val v = pattern.variable) {
+            is Metavar -> {
+                conditions += IsMetavar(v.name)
+            }
 
-        if (actions.actions.isEmpty()) {
+            is TypedMetavar -> {
+                conditions += IsMetavar(v.name)
+
+                val typeName = tryTransformTypeName(v.type)
+                if (typeName == null) {
+                    addFailedTransformation("VariableAssignment_typed_metavar_type")
+                    return null
+                }
+                conditions += ParamCondition.TypeIs(typeName)
+            }
+
+            else -> {
+                addFailedTransformation("VariableAssignment_variable_not_metavar")
+                return null
+            }
+        }
+
+        val actions = pattern.value?.let { transformPatternToActionList(it) }?.actions.orEmpty()
+        if (actions.isEmpty()) {
             addFailedTransformation("VariableAssignment_nothing_to_assign")
             return null
         }
 
-        val lastAction = actions.actions.last()
-        val newLastAction = lastAction.setResultCondition(condition)
+        val lastAction = actions.last()
+        val newLastAction = lastAction.setResultCondition(ParamCondition.And(conditions))
 
         return SemgrepPatternActionList(
-            actions.actions.dropLast(1) + newLastAction,
+            actions.dropLast(1) + newLastAction,
             hasEllipsisInTheEnd = false,
             hasEllipsisInTheBeginning = false,
         )

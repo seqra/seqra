@@ -133,7 +133,7 @@ interface PatternRewriter {
     fun StringLiteral.rewriteStringLiteral(): SemgrepJavaPattern = createStringLiteral(content.rewriteName())
     fun TypedMetavar.rewriteTypedMetavar(): SemgrepJavaPattern = createTypedMetavar(name, type.rewriteTypeName())
     fun VariableAssignment.rewriteVariableAssignment(): SemgrepJavaPattern =
-        createVariableAssignment(type?.rewriteTypeName(), variable.rewrite(), value.rewrite())
+        createVariableAssignment(type?.rewriteTypeName(), variable.rewrite(), value?.rewrite())
 
     fun BoolConstant.rewriteBoolConstant(): SemgrepJavaPattern = this
     fun IntLiteral.rewriteIntLiteral(): SemgrepJavaPattern = this
@@ -195,7 +195,7 @@ interface PatternRewriter {
     fun createVariableAssignment(
         type: TypeName?,
         variable: SemgrepJavaPattern,
-        value: SemgrepJavaPattern
+        value: SemgrepJavaPattern?
     ): SemgrepJavaPattern = VariableAssignment(type, variable, value)
 
     fun FieldAccess.Object.rewriteObject(): FieldAccess.Object = when (this) {

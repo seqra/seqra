@@ -42,6 +42,7 @@ import org.opentaint.semgrep.pattern.antlr.JavaParser.ObjectCreationExpressionCo
 import org.opentaint.semgrep.pattern.antlr.JavaParser.PatternsContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.PrimitiveTypeContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.QualifiedNameContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeArgumentContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeDeclSemgrepPatternContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeDeclarationContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeIdentifierContext
@@ -130,11 +131,20 @@ private class TypenameParserVisitor : JavaParserBaseVisitor<TypeName>() {
             return it.accept(this@TypenameParserVisitor)
         }
 
-        val dotSeparatedParts = get(CreatedNameContext::identifier)?.map { it.parseName() }.orEmpty()
+        val identifiers = value(CreatedNameContext::identifierWithTypeArgs)
 
-        val typeArgs = value(CreatedNameContext::typeArgumentsOrDiamond)
-        if (typeArgs.isNotEmpty()) {
-            ctx.todo()
+        val dotSeparatedParts = mutableListOf<Name>()
+        for ((i, identifier) in identifiers.withIndex()) {
+            dotSeparatedParts += identifier.identifier().parseName()
+            val typeArgs = identifier.typeArgumentsOrDiamond()?.typeArguments()
+                ?: continue
+
+            if (i != identifiers.lastIndex) {
+                ctx.todo()
+            }
+
+            val parsedTypeArgs = parseTypeArgs(ctx, typeArgs.typeArgument())
+            return TypeName(dotSeparatedParts, parsedTypeArgs)
         }
 
         return TypeName(dotSeparatedParts)
@@ -165,15 +175,35 @@ private class TypenameParserVisitor : JavaParserBaseVisitor<TypeName>() {
         }
 
         val typeTypeArguments = get(ClassOrInterfaceTypeContext::typeIdentifierTypeArguments)
+            ?: return TypeName(prefix + final)
 
-        if (typeTypeArguments == null) {
-            return TypeName(prefix + final)
+        val typeArgs = parseTypeArgs(ctx, typeTypeArguments.typeArguments().typeArgument())
+        return TypeName(prefix + final, typeArgs)
+    }
+
+    private fun parseTypeArgs(ctx: ParserRuleContext, args: List<TypeArgumentContext>): List<TypeName> {
+        val parsed = args.map { parseTypeArgument(it) }
+        val parsedTypes = parsed.filterNotNull()
+        if (parsedTypes.size == parsed.size) return parsedTypes
+
+        // T<?>
+        if (parsed.size == 1 && parsedTypes.isEmpty()) return emptyList()
+
+        ctx.todo()
+    }
+
+    private fun parseTypeArgument(ctx: TypeArgumentContext): TypeName? = ctx.withRule {
+        tryRule(TypeArgumentContext::typeType) { return it.accept(this@TypenameParserVisitor) }
+
+        tryRule(TypeArgumentContext::typeArgumentWildcard) {
+            if (it.typeType() != null || it.annotation().isNotEmpty()) {
+                it.todo()
+            }
+
+            return null
         }
 
-        val typeArgs = typeTypeArguments.typeArguments().typeArgument()
-            .map { it.typeType().accept(this@TypenameParserVisitor) }
-
-        return TypeName(prefix + final, typeArgs)
+        unreachable()
     }
 
     override fun visitQualifiedName(ctx: QualifiedNameContext): TypeName = ctx.withRule {
@@ -230,10 +260,9 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
     }
 
     override fun visitVariableDeclarator(ctx: VariableDeclaratorContext): VariableAssignment = ctx.withRule {
-        val initializer = get(VariableDeclaratorContext::variableInitializer) ?: ctx.todo()
-
         val variable = value(VariableDeclaratorContext::variableDeclaratorId).parse("Can't parse variable name")
-        val value = initializer.parse("Can't parse initializer")
+        val initializer = get(VariableDeclaratorContext::variableInitializer)
+        val value = initializer?.parse("Can't parse initializer")
         return VariableAssignment(type = null, variable, value)
     }
 
@@ -248,7 +277,15 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
         val declarators = value(LocalVariableDeclarationContext::variableDeclarators)
 
         val modifiers = value(LocalVariableDeclarationContext::variableModifier)
-        if (modifiers.isNotEmpty()) {
+
+        val annotationModifier = mutableListOf<AnnotationContext>()
+        for (modifier in modifiers) {
+            if (modifier.annotation() != null) {
+                annotationModifier.add(modifier.annotation())
+            }
+        }
+
+        if (annotationModifier.isNotEmpty()) {
             ctx.todo()
         }
 
@@ -700,12 +737,6 @@ private class RuleCtx<T: ParserRuleContext>(val rule: T) {
     }
 
     inline fun <reified T : ParserRuleContext, R : ParseTree> RuleCtx<T>.tryRule(getter: T.() -> R?, body: (R) -> Unit) {
-        val r = get(getter) ?: return
-        body(r)
-    }
-
-    @JvmName("tryRuleList")
-    inline fun <reified T : ParserRuleContext, R : ParseTree> RuleCtx<T>.tryRule(getter: T.() -> List<R>?, body: (List<R>) -> Unit) {
         val r = get(getter) ?: return
         body(r)
     }

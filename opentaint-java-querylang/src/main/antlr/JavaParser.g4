@@ -279,7 +279,11 @@ typeIdentifierTypeArguments
 
 typeArgument
     : typeType
-    | annotation* '?' ((EXTENDS | SUPER) typeType)?
+    | typeArgumentWildcard
+    ;
+
+typeArgumentWildcard
+    : annotation* '?' ((EXTENDS | SUPER) typeType)?
     ;
 
 qualifiedNameList
@@ -814,8 +818,12 @@ creator
     ;
 
 createdName
-    : identifier typeArgumentsOrDiamond? ('.' identifier typeArgumentsOrDiamond?)*
+    : identifierWithTypeArgs ('.' identifierWithTypeArgs)*
     | primitiveType
+    ;
+
+identifierWithTypeArgs
+    : identifier typeArgumentsOrDiamond?
     ;
 
 innerCreator

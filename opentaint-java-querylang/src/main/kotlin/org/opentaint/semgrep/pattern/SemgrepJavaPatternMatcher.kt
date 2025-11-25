@@ -476,7 +476,7 @@ class SemgrepJavaPatternMatcher(
             variableMatches
         }
 
-        val valueMatches = match(ExprPosition(inst, isLValue = false), pattern.value, inst.rhv)
+        val valueMatches = match(ExprPosition(inst, isLValue = false), pattern.value ?: TODO(), inst.rhv)
         curMatches = mergeMatchesForPartsOfPattern(graph, strategy, curMatches, valueMatches)
 
         return curMatches

@@ -23,7 +23,7 @@ private fun rewritePatternAssignEllipsis(pattern: SemgrepJavaPattern): SemgrepJa
         override fun createVariableAssignment(
             type: TypeName?,
             variable: SemgrepJavaPattern,
-            value: SemgrepJavaPattern
+            value: SemgrepJavaPattern?
         ): SemgrepJavaPattern {
             if (value !is Ellipsis) {
                 return super.createVariableAssignment(type, variable, value)

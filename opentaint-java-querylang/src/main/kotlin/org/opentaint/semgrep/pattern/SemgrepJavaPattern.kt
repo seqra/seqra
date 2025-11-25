@@ -89,9 +89,9 @@ data class ReturnStmt(val value: SemgrepJavaPattern?) : SemgrepJavaPattern {
 data class VariableAssignment(
     val type: TypeName?,
     val variable: SemgrepJavaPattern,
-    val value: SemgrepJavaPattern,
+    val value: SemgrepJavaPattern?,
 ) : SemgrepJavaPattern {
-    override val children: List<SemgrepJavaPattern> = listOf(variable, value)
+    override val children: List<SemgrepJavaPattern> = listOfNotNull(variable, value)
 }
 
 data class StringLiteral(val content: Name) : SemgrepJavaPattern {
