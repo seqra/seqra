@@ -1,4 +1,4 @@
-package custom.pathTraversal;
+package custom.pathInjection;
 
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.Controller;

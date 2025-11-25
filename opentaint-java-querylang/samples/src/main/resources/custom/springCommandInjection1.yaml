@@ -1,0 +1,14 @@
+rules:
+  - id: java.spring.command-injection
+    languages:
+      - java
+    severity: ERROR
+    message: Command line depends on a user provided value
+    patterns:
+      - pattern-inside: |
+          @GetMapping("...")
+          $RETURNTYPE $METHOD(..., String $FILEPATH, ...) {
+            ...
+          }
+      - pattern: |
+          String[] $CMDLIST = new String[]{..., $FILEPATH, ...};
