@@ -1,7 +1,7 @@
 package org.opentaint.org.opentaint.semgrep.pattern.conversion
 
 import org.opentaint.org.opentaint.semgrep.pattern.ConcreteName
-import org.opentaint.org.opentaint.semgrep.pattern.MethodInvocation
+import org.opentaint.org.opentaint.semgrep.pattern.MethodArguments
 import org.opentaint.org.opentaint.semgrep.pattern.Name
 import org.opentaint.org.opentaint.semgrep.pattern.NormalizedSemgrepRule
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPattern
@@ -19,16 +19,20 @@ fun rewriteMethodInvocationObj(rule: NormalizedSemgrepRule): NormalizedSemgrepRu
     val nameMetaVars = hashMapOf<List<Name>, String>()
 
     val rewriter = object : PatternRewriter {
-        override fun rewriteMethodInvocation(mi: MethodInvocation): SemgrepJavaPattern {
-            val objPattern = mi.obj ?: return super.rewriteMethodInvocation(mi)
+        override fun createMethodInvocation(
+            methodName: Name,
+            obj: SemgrepJavaPattern?,
+            args: MethodArguments
+        ): SemgrepJavaPattern {
+            val objPattern = obj ?: return super.createMethodInvocation(methodName, obj, args)
 
             val parts = tryExtractPatternDotSeparatedParts(objPattern)?.ifEmpty { null }
-                ?: return super.rewriteMethodInvocation(mi)
+                ?: return super.createMethodInvocation(methodName, obj, args)
 
             val lastPart = parts.last()
             // todo: consider a field access, not type
             if (lastPart is ConcreteName && lastPart.name.firstOrNull()?.isLowerCase() != false) {
-                return super.rewriteMethodInvocation(mi)
+                return super.createMethodInvocation(methodName, obj, args)
             }
 
             val freshMetaVar = nameMetaVars.getOrPut(parts) {
@@ -37,7 +41,7 @@ fun rewriteMethodInvocationObj(rule: NormalizedSemgrepRule): NormalizedSemgrepRu
 
             val type = TypeName(parts)
             val newObj = TypedMetavar(freshMetaVar, type)
-            return super.rewriteMethodInvocation(mi.copy(obj = newObj))
+            return super.createMethodInvocation(methodName, newObj, args)
         }
     }
 

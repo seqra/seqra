@@ -56,6 +56,7 @@ object ConditionSimplifier : ConditionVisitor<Condition> {
     override fun visit(condition: ConstantTrue): Condition = condition
     override fun visit(condition: TypeMatches): Condition = condition
     override fun visit(condition: TypeMatchesPattern): Condition = condition
+    override fun visit(condition: IsStaticFieldValue): Condition = condition
 }
 
 fun mkTrue(): Condition = ConstantTrue

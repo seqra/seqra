@@ -47,6 +47,9 @@ class ExampleTest : SampleBasedTest() {
     @Test
     fun `test rule cookie`() = runTest("example/RuleCookie")
 
+    @Test
+    fun `test rule with static field`() = runTest("example/RuleWithStaticField")
+
     @AfterAll
     fun close(){
         closeRunner()

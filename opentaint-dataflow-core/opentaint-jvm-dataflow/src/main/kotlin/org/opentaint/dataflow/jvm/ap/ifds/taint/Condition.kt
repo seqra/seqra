@@ -25,6 +25,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.isAssignable
 import org.opentaint.dataflow.configuration.jvm.And
+import org.opentaint.dataflow.configuration.jvm.ConditionNameMatcher
 import org.opentaint.dataflow.configuration.jvm.ConditionVisitor
 import org.opentaint.dataflow.configuration.jvm.ConstantBooleanValue
 import org.opentaint.dataflow.configuration.jvm.ConstantEq
@@ -37,6 +38,7 @@ import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.configuration.jvm.ConstantValue
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.configuration.jvm.IsConstant
+import org.opentaint.dataflow.configuration.jvm.IsStaticFieldValue
 import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.PositionResolver
@@ -118,6 +120,13 @@ open class JIRBasicConditionEvaluator(
         return false
     }
 
+    override fun visit(condition: IsStaticFieldValue): Boolean {
+        positionResolver.resolve(condition.position).onSome { value ->
+            return valueIsStaticField(value, condition)
+        }
+        return false
+    }
+
     private fun isConstant(value: JIRValue): Boolean {
         return value is JIRConstant
     }
@@ -173,9 +182,19 @@ open class JIRBasicConditionEvaluator(
         return value.type.isAssignable(condition.type)
     }
 
-    private fun typeMatchesPattern(value: CommonValue, condition: TypeMatchesPattern): Boolean {
-        check(value is JIRValue)
+    private fun typeMatchesPattern(value: JIRValue, condition: TypeMatchesPattern): Boolean {
         if (value.type !is JIRRefType) return false
-        return condition.pattern.containsMatchIn(value.type.typeName)
+        // todo: check super classes?
+        return condition.pattern.matchName(value.type.typeName)
+    }
+
+    private fun valueIsStaticField(value: JIRValue, condition: IsStaticFieldValue): Boolean {
+        // todo: check static field value using alias analysis
+        return true
+    }
+
+    private fun ConditionNameMatcher.matchName(name: String): Boolean = when (this) {
+        is ConditionNameMatcher.Concrete -> this.name == name
+        is ConditionNameMatcher.Pattern -> this.pattern.containsMatchIn(name)
     }
 }

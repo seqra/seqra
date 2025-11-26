@@ -1,5 +1,8 @@
 package org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations
 
+import org.opentaint.dataflow.util.any
+import org.opentaint.dataflow.util.forEach
+import org.opentaint.dataflow.util.toBitSet
 import org.opentaint.org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
@@ -8,6 +11,7 @@ import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFor
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.methodFormulaSat
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.trySimplifyMethodFormula
+import java.util.BitSet
 import java.util.Collections
 import java.util.IdentityHashMap
 
@@ -23,41 +27,56 @@ fun determinize(
 
     val formulaManager = automata.formulaManager
 
-    val root = createNewNode(automata.initialNodes)
+    val nodeIndex = IdentityHashMap<AutomataNode, Int>()
+    val nodeByIdx = arrayListOf<AutomataNode>()
+
+    fun Int.node(): AutomataNode = nodeByIdx[this]
+    fun AutomataNode.nodeId(): Int = nodeIndex.getOrPut(this) {
+        nodeByIdx.add(this)
+        nodeIndex.size
+    }
+
     var hasMethodEnter = false
     var hasEndEdges = false
 
-    val newNodes = mutableMapOf<Set<AutomataNode>, AutomataNode>()
-    newNodes[automata.initialNodes] = root
+    val queue = mutableListOf<BitSet>()
 
-    val queue = mutableListOf(automata.initialNodes)
+    val newNodes = hashMapOf<BitSet, AutomataNode>()
+    fun getOrCreateNewNode(nodeIds: BitSet): AutomataNode =
+        newNodes.getOrPut(nodeIds) {
+            queue.add(nodeIds)
+            val accept = nodeIds.any { it.node().accept }
+            AutomataNode().also { it.accept = accept }
+        }
+
+    val initialNodeSet = automata.initialNodes.toBitSet { it.nodeId() }
+    val root = getOrCreateNewNode(initialNodeSet)
+
     while (queue.isNotEmpty()) {
         val s = queue.removeFirst()
-        val newNode = newNodes.getOrPut(s) { createNewNode(s) }
+        val newNode = getOrCreateNewNode(s)
 
-        val initialEdges = s.flatMap { it.outEdges }
+        val initialEdges = mutableListOf<Pair<AutomataEdgeType, AutomataNode>>()
+        s.forEach { initialEdges.addAll(it.node().outEdges) }
 
         for (type in listOf(AutomataEdgeType.End, AutomataEdgeType.PatternStart, AutomataEdgeType.PatternEnd)) {
             val edgesWithoutFormula = initialEdges.filter { it.first == type }
             if (edgesWithoutFormula.isNotEmpty()) {
                 hasEndEdges = type == AutomataEdgeType.End
-                val nodes = edgesWithoutFormula.map { it.second }.toSet()
-                val toNode = newNodes.getOrPut(nodes) {
-                    queue.add(nodes)
-                    createNewNode(nodes)
-                }
+                val nodes = edgesWithoutFormula.toBitSet { it.second.nodeId() }
+                val toNode = getOrCreateNewNode(nodes)
                 newNode.outEdges.add(type to toNode)
             }
         }
 
         determinizeSpecificEdgeType<AutomataEdgeType.MethodCall>(
-            formulaManager, metaVarInfo, initialEdges, newNodes, queue, newNode
+            formulaManager, metaVarInfo, initialEdges, newNode, AutomataNode::nodeId, ::getOrCreateNewNode
         ) {
             AutomataEdgeType.MethodCall(it)
         }
 
         determinizeSpecificEdgeType<AutomataEdgeType.MethodEnter>(
-            formulaManager, metaVarInfo, initialEdges, newNodes, queue, newNode
+            formulaManager, metaVarInfo, initialEdges, newNode, AutomataNode::nodeId, ::getOrCreateNewNode
         ) {
             hasMethodEnter = true
             AutomataEdgeType.MethodEnter(it)
@@ -75,74 +94,75 @@ fun determinize(
     }
 }
 
-private fun createNewNode(nodes: Set<AutomataNode>): AutomataNode {
-    return AutomataNode().also {
-        it.accept = nodes.any { node -> node.accept }
-    }
-}
-
 private inline fun <reified Type : AutomataEdgeType.AutomataEdgeTypeWithFormula> determinizeSpecificEdgeType(
     formulaManager: MethodFormulaManager,
     metaVarInfo: ResolvedMetaVarInfo,
     initialEdges: List<Pair<AutomataEdgeType, AutomataNode>>,
-    newNodes: MutableMap<Set<AutomataNode>, AutomataNode>,
-    queue: MutableList<Set<AutomataNode>>,
     newNode: AutomataNode,
+    nodeId: AutomataNode.() -> Int,
+    createNewNode: (BitSet) -> AutomataNode,
     createEdge: (MethodFormula) -> Type,
 ) {
     val edgesOfThisType = initialEdges.mapNotNull { (type, to) ->
         (type as? Type)?.formula?.let { it to to }
-    }.groupBy { it.first }
-    if (edgesOfThisType.isNotEmpty()) {
-        val n = edgesOfThisType.size
-        val out = mutableMapOf<Set<AutomataNode>, MutableList<Int>>()
+    }.groupBy { it.first }.entries.toList()
 
-        check(n < Int.SIZE_BITS) {
-            "Determinization failed: too many formulas $n"
+    if (edgesOfThisType.isEmpty()) return
+
+    val n = edgesOfThisType.size
+    val out = hashMapOf<BitSet, MutableList<Int>>()
+
+    check(n < Int.SIZE_BITS) {
+        "Determinization failed: too many formulas $n"
+    }
+
+    if (n > 16) {
+        TODO("Determinization failure: state explosion")
+    }
+
+    val edgeNodeSets = edgesOfThisType.map { (_, edges) ->
+        edges.toBitSet { it.second.nodeId() }
+    }
+
+    for (i in 1..<(1 shl n)) {
+        val toSet = BitSet()
+        edgeNodeSets.forEachIndexed { index, nodeSet ->
+            val take = (i and (1 shl index)) != 0
+            if (!take) return@forEachIndexed
+            toSet.or(nodeSet)
         }
+        out.getOrPut(toSet, ::mutableListOf).add(i)
+    }
 
-        for (i in 1..<(1 shl n)) {
-            val toSet = edgesOfThisType.entries.flatMapIndexed { index, (_, to) ->
-                val take = (i and (1 shl index)) != 0
-                if (!take) emptyList() else to.map { it.second }
-            }.toSet()
-            val maskList = out.getOrPut(toSet) { mutableListOf() }
-            maskList.add(i)
-        }
-
-        out.entries.forEach { (toSet, masks) ->
-            val formulas = mutableListOf<MethodFormula>()
-            masks.forEach inner@{ mask ->
-                val formulaLits = edgesOfThisType.keys.mapIndexed { index, formula ->
-                    val takeNegation = (mask and (1 shl index)) == 0
-                    if (takeNegation) {
-                        formula.complement()
-                    } else {
-                        formula
-                    }
+    out.entries.forEach { (toSet, masks) ->
+        val formulas = mutableListOf<MethodFormula>()
+        masks.forEach inner@{ mask ->
+            val formulaLits = edgesOfThisType.mapIndexed { index, (formula, _) ->
+                val takeNegation = (mask and (1 shl index)) == 0
+                if (takeNegation) {
+                    formula.complement()
+                } else {
+                    formula
                 }
-
-                val formula = formulaManager.mkAnd(formulaLits)
-
-                if (!methodFormulaSat(formulaManager, formula, metaVarInfo)) {
-                    return@inner
-                }
-
-                formulas.add(formula)
             }
 
-            if (formulas.isEmpty()) {
-                return@forEach
+            val formula = formulaManager.mkAnd(formulaLits)
+
+            if (!methodFormulaSat(formulaManager, formula, metaVarInfo)) {
+                return@inner
             }
 
-            val singleFormula = formulaManager.mkOr(formulas)
-
-            val toNode = newNodes.getOrPut(toSet) {
-                queue.add(toSet)
-                createNewNode(toSet)
-            }
-            newNode.outEdges.add(createEdge(singleFormula) to toNode)
+            formulas.add(formula)
         }
+
+        if (formulas.isEmpty()) {
+            return@forEach
+        }
+
+        val singleFormula = formulaManager.mkOr(formulas)
+
+        val toNode = createNewNode(toSet)
+        newNode.outEdges.add(createEdge(singleFormula) to toNode)
     }
 }
 

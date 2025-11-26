@@ -11,7 +11,7 @@ import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.opentaint-ir
 import org.opentaint.dataflow.ap.ifds.access.ApMode
-import org.opentaint.dataflow.configuration.jvm.JIRClassNameFeature
+//import org.opentaint.dataflow.configuration.jvm.JIRClassNameFeature
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSummariesFeature
@@ -86,7 +86,7 @@ abstract class AbstractProjectAnalyzer(
             installFeatures(Usages)
             installFeatures(JIRSummariesFeature(ifdsApMode))
             installFeatures(ClassScorer(TypeScorer, ::scoreClassNode))
-            installFeatures(JIRClassNameFeature())
+//            installFeatures(JIRClassNameFeature())
 //            installFeatures(Approximations)
 
             loadByteCode(allCpFiles)

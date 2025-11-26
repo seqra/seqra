@@ -1,6 +1,5 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
-import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.jvm.And

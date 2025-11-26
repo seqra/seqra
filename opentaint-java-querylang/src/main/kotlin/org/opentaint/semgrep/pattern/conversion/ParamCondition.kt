@@ -29,6 +29,8 @@ sealed interface ParamCondition {
     data class StringValueMetaVar(val metaVar: String) : Atom
 
     data class ParamModifier(val modifier: SignatureModifier): Atom
+
+    data class SpecificStaticFieldValue(val fieldName: String, val fieldClass: TypeNamePattern) : Atom
 }
 
 data class SpecificBoolValue(val value: Boolean) : ParamCondition.Atom

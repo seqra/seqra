@@ -197,9 +197,9 @@ private fun addPatternInside(
         return addPositivePattern(formulaManager, metaVarInfo, curAutomata, actionList)
     }
 
-    val addPrefixEllipsis = actionList.actions.first() is SemgrepPatternAction.MethodSignature ||
+    val addPrefixEllipsis = actionList.actions.firstOrNull() is SemgrepPatternAction.MethodSignature ||
             actionList.hasEllipsisInTheEnd || !actionList.hasEllipsisInTheBeginning
-    val addSuffixEllipsis = actionList.actions.first() is SemgrepPatternAction.MethodSignature ||
+    val addSuffixEllipsis = actionList.actions.firstOrNull() is SemgrepPatternAction.MethodSignature ||
             actionList.hasEllipsisInTheBeginning || !actionList.hasEllipsisInTheEnd
 
     if (addSuffixEllipsis) {
@@ -216,7 +216,7 @@ private fun addPatternInside(
 }
 
 private fun addEllipsisInTheBeginning(actionList: SemgrepPatternActionList): SemgrepPatternActionList {
-    check(actionList.actions.first() !is SemgrepPatternAction.MethodSignature) {
+    check(actionList.actions.firstOrNull() !is SemgrepPatternAction.MethodSignature) {
         "Cannot add ellipsis in the beginning of action list with signature"
     }
 
@@ -237,12 +237,12 @@ private fun addPatternNotInside(
         return addNegativePattern(formulaManager, metaVarInfo, curAutomata, actionList)
     }
 
-    val addPrefixEllipsis = actionList.actions.first() is SemgrepPatternAction.MethodSignature ||
+    val addPrefixEllipsis = actionList.actions.firstOrNull() is SemgrepPatternAction.MethodSignature ||
         actionList.hasEllipsisInTheEnd || !actionList.hasEllipsisInTheBeginning
-    val addSuffixEllipsis = actionList.actions.first() is SemgrepPatternAction.MethodSignature ||
+    val addSuffixEllipsis = actionList.actions.firstOrNull() is SemgrepPatternAction.MethodSignature ||
         actionList.hasEllipsisInTheBeginning || !actionList.hasEllipsisInTheEnd
 
-    val actionListForAutomata = if (actionList.actions.first() is SemgrepPatternAction.MethodSignature || !addPrefixEllipsis) {
+    val actionListForAutomata = if (actionList.actions.firstOrNull() is SemgrepPatternAction.MethodSignature || !addPrefixEllipsis) {
         actionList
     } else {
         // because we will add MethodEnter. Do this here to avoid extra determinization

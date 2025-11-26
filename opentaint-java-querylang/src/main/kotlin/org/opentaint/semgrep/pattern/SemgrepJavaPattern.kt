@@ -47,6 +47,10 @@ data class FieldAccess(val fieldName: Name, val obj: Object) : SemgrepJavaPatter
     data object SuperObject : Object
 }
 
+data class StaticFieldAccess(val fieldName: Name, val classTypeName: TypeName) : SemgrepJavaPattern {
+    override val children: List<SemgrepJavaPattern> = emptyList()
+}
+
 data class MethodInvocation(
     val methodName: Name,
     val obj: SemgrepJavaPattern?,

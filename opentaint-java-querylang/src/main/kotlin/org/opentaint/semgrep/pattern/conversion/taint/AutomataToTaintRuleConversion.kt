@@ -1135,6 +1135,10 @@ private fun MetaVarCtx.paramConditionMetaVars(pc: ParamCondition.Atom, metaVars:
             typeNameMetaVars(pc.typeName, metaVars)
         }
 
+        is ParamCondition.SpecificStaticFieldValue -> {
+            typeNameMetaVars(pc.fieldClass, metaVars)
+        }
+
         ParamCondition.AnyStringLiteral,
         is SpecificBoolValue,
         is SpecificStringValue -> {
@@ -1763,6 +1767,11 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
                 ?: return SerializedCondition.True
 
             return SerializedCondition.IsType(typeNameMatcher, position)
+        }
+
+        is ParamCondition.SpecificStaticFieldValue -> {
+            val enclosingClassMatcher = typeMatcher(condition.fieldClass) ?: anyName()
+            return SerializedCondition.IsStaticFieldValue(enclosingClassMatcher, condition.fieldName, position)
         }
 
         ParamCondition.AnyStringLiteral -> {

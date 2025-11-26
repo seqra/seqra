@@ -1,0 +1,11 @@
+rules:
+  - id: example-RuleWithStaticField
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithStaticField
+    patterns:
+      - pattern: |-
+          sink(StaticConstantStorage.FIRST);
+      - pattern-not: |-
+          sink(StaticConstantStorage.SECOND);

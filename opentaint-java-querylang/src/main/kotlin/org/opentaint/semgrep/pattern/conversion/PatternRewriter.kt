@@ -30,6 +30,7 @@ import org.opentaint.org.opentaint.semgrep.pattern.PatternArgumentPrefix
 import org.opentaint.org.opentaint.semgrep.pattern.PatternSequence
 import org.opentaint.org.opentaint.semgrep.pattern.ReturnStmt
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPattern
+import org.opentaint.org.opentaint.semgrep.pattern.StaticFieldAccess
 import org.opentaint.org.opentaint.semgrep.pattern.StringEllipsis
 import org.opentaint.org.opentaint.semgrep.pattern.StringLiteral
 import org.opentaint.org.opentaint.semgrep.pattern.ThisExpr
@@ -51,10 +52,11 @@ interface PatternRewriter {
 
         is EllipsisMethodInvocations -> rewriteEllipsisMethodInvocations()
         is FieldAccess -> rewriteFieldAccess()
+        is StaticFieldAccess -> rewriteStaticFieldAccess()
         is FormalArgument -> rewriteFormalArgument()
         is NamedValue -> rewriteNamedValue()
 
-        is MethodInvocation -> rewriteMethodInvocation(this)
+        is MethodInvocation -> rewriteMethodInvocation()
         is ObjectCreation -> rewriteObjectCreation()
         is PatternSequence -> rewritePatternSequence()
         is ReturnStmt -> rewriteReturnStmt()
@@ -113,14 +115,20 @@ interface PatternRewriter {
     fun FieldAccess.rewriteFieldAccess(): SemgrepJavaPattern =
         createFieldAccess(fieldName.rewriteName(), obj.rewriteObject())
 
+    fun StaticFieldAccess.rewriteStaticFieldAccess(): SemgrepJavaPattern =
+        createStaticFieldAccess(fieldName.rewriteName(), classTypeName.rewriteTypeName())
+
+    fun createStaticFieldAccess(fieldName: Name, classTypeName: TypeName): SemgrepJavaPattern =
+        StaticFieldAccess(fieldName, classTypeName)
+
     fun FormalArgument.rewriteFormalArgument(): SemgrepJavaPattern = createFormalArgument(
         name.rewriteName(),
         type.rewriteTypeName(),
         modifiers.map { it.rewriteModifier() }
     )
 
-    fun rewriteMethodInvocation(mi: MethodInvocation): SemgrepJavaPattern = createMethodInvocation(
-        mi.methodName.rewriteName(), mi.obj?.rewrite(), mi.args.rewriteMethodArguments()
+    fun MethodInvocation.rewriteMethodInvocation(): SemgrepJavaPattern = createMethodInvocation(
+        methodName.rewriteName(), obj?.rewrite(), args.rewriteMethodArguments()
     )
 
     fun ObjectCreation.rewriteObjectCreation(): SemgrepJavaPattern =

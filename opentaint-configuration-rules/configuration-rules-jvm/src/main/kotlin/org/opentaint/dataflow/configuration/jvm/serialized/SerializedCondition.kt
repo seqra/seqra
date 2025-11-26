@@ -61,6 +61,13 @@ sealed interface SerializedCondition {
     ) : SerializedCondition
 
     @Serializable
+    data class IsStaticFieldValue(
+        val enclosingClass: SerializedNameMatcher,
+        val fieldName: String,
+        val pos: PositionBase
+    ) : SerializedCondition
+
+    @Serializable
     data class AnnotationType(
         val annotatedWith: SerializedNameMatcher,
         val pos: PositionBase

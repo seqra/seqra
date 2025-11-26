@@ -56,6 +56,13 @@ inline fun BitSet.map(body: (Int) -> Int): BitSet {
     return result
 }
 
+inline fun BitSet.any(predicate: (Int) -> Boolean): Boolean {
+    forEach { element ->
+        if (predicate(element)) return true
+    }
+    return false
+}
+
 inline fun <T> Iterable<T>.toBitSet(convert: (T) -> Int): BitSet {
     val result = BitSet()
     forEach { element -> result.set(convert(element)) }

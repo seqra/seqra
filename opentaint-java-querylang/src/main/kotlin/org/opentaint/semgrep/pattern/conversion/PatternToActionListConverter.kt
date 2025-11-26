@@ -31,6 +31,7 @@ import org.opentaint.org.opentaint.semgrep.pattern.PatternArgumentPrefix
 import org.opentaint.org.opentaint.semgrep.pattern.PatternSequence
 import org.opentaint.org.opentaint.semgrep.pattern.ReturnStmt
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPattern
+import org.opentaint.org.opentaint.semgrep.pattern.StaticFieldAccess
 import org.opentaint.org.opentaint.semgrep.pattern.StringEllipsis
 import org.opentaint.org.opentaint.semgrep.pattern.StringLiteral
 import org.opentaint.org.opentaint.semgrep.pattern.ThisExpr
@@ -80,6 +81,7 @@ class PatternToActionListConverter: ActionListBuilder {
             is BoolConstant,
             EmptyPatternSequence,
             is FieldAccess,
+            is StaticFieldAccess,
             is FormalArgument,
             is Identifier,
             is Metavar,
@@ -134,6 +136,20 @@ class PatternToActionListConverter: ActionListBuilder {
                 )
             }
 
+            is StaticFieldAccess -> {
+                val type = transformTypeName(pattern.classTypeName)
+
+                when (val fn = pattern.fieldName) {
+                    is ConcreteName -> {
+                        ParamCondition.SpecificStaticFieldValue(fn.name, type)
+                    }
+
+                    is MetavarName -> {
+                        transformationFailed("Static field name is metavar")
+                    }
+                }
+            }
+
             Ellipsis,
             is AddExpr,
             is EllipsisMethodInvocations,
@@ -159,7 +175,6 @@ class PatternToActionListConverter: ActionListBuilder {
             is DeepExpr,
             is EllipsisMetavar,
             is IntLiteral -> null
-
         }
     }
 

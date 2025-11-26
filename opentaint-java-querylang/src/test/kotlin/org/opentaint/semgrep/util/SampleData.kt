@@ -9,7 +9,6 @@ import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.ir.impl.opentaint-ir
-import org.opentaint.dataflow.configuration.jvm.JIRClassNameFeature
 import java.nio.file.Path
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
@@ -52,7 +51,6 @@ fun samplesDb(): SamplesDb = runBlocking {
 
         installFeatures(InMemoryHierarchy)
         installFeatures(Usages)
-        installFeatures(JIRClassNameFeature())
     }
 
     db.awaitBackgroundJobs()

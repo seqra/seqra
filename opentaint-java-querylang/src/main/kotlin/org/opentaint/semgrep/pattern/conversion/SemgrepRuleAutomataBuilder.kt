@@ -113,6 +113,7 @@ class SemgrepRuleAutomataBuilder(
         resultRule = rewriteAddExpr(resultRule)
         resultRule = rewriteAssignEllipsis(resultRule)
         resultRule = rewriteMethodInvocationObj(resultRule)
+        resultRule = rewriteStaticFieldAccess(resultRule)
 
         run {
             val result = rewriteTypeNameWithMetaVar(resultRule, resultMetaVarInfo)
