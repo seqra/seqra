@@ -6,6 +6,7 @@ import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.convertToTai
 import org.opentaint.org.opentaint.semgrep.pattern.createTaintConfig
 import org.opentaint.org.opentaint.semgrep.pattern.parseSemgrepYaml
 import kotlin.io.path.Path
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -19,9 +20,9 @@ abstract class SampleBasedTest(
         val rule = ruleYaml.rules.singleOrNull() ?: error("Not a single rule for $ruleName")
         check(rule.languages.contains("java"))
 
-        val ruleAutomata = SemgrepRuleAutomataBuilder().build(rule)
-        assertNotNull(ruleAutomata, "Could not convert rule to Automata")
-
+        val builder = SemgrepRuleAutomataBuilder()
+        val ruleAutomata = builder.build(rule)
+        assertFalse(builder.stats.isFailure, "Could not convert rule to Automata: ${builder.stats}")
 //        ruleAutomata.forEach { it.view() }
 
         val rules = convertToTaintRules(ruleAutomata, rule.id, SerializedRule.SinkMetaData())
