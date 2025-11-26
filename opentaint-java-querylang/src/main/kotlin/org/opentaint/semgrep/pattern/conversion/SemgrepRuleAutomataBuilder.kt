@@ -62,7 +62,7 @@ class SemgrepRuleAutomataBuilder(
             }
         }
 
-        val ruleAfterRewrite = rulesWithResolvedMetaVar.fmap { rewriteRule(it) }
+        val ruleAfterRewrite = rulesWithResolvedMetaVar.transform { rewriteRule(it) }
 
         val ruleActionList = ruleAfterRewrite.fFlatMap { r ->
             convertToActionList(r)?.let { listOf(it) } ?: run {
@@ -86,7 +86,7 @@ class SemgrepRuleAutomataBuilder(
         return ruleAutomata
     }
 
-    fun convertToActionList(rule: NormalizedSemgrepRule): ActionListSemgrepRule? {
+    private fun convertToActionList(rule: NormalizedSemgrepRule): ActionListSemgrepRule? {
         return ActionListSemgrepRule(
             patterns = rule.patterns.map { converter.createActionList(it) ?: return null },
             patternNots = rule.patternNots.map { converter.createActionList(it) ?: return null },
@@ -95,7 +95,7 @@ class SemgrepRuleAutomataBuilder(
         )
     }
 
-    fun parseSemgrepRule(rule: RawSemgrepRule): NormalizedSemgrepRule? {
+    private fun parseSemgrepRule(rule: RawSemgrepRule): NormalizedSemgrepRule? {
         return NormalizedSemgrepRule(
             patterns = rule.patterns.map { parser.parseOrNull(it) ?: return null },
             patternNots = rule.patternNots.map { parser.parseOrNull(it) ?: return null },
@@ -104,13 +104,23 @@ class SemgrepRuleAutomataBuilder(
         )
     }
 
-    fun rewriteRule(rule: NormalizedSemgrepRule): NormalizedSemgrepRule {
-        return rewriteAddExpr(rule)
-            .let { rewriteAssignEllipsis(it) }
-    }
+    private fun rewriteRule(
+        rule: RuleWithMetaVars<NormalizedSemgrepRule, ResolvedMetaVarInfo>
+    ): RuleWithMetaVars<NormalizedSemgrepRule, ResolvedMetaVarInfo> {
+        var resultRule = rule.rule
+        var resultMetaVarInfo = rule.metaVarInfo
 
-    private inline fun <T, R, C> SemgrepRule<RuleWithMetaVars<T, C>>.fmap(crossinline body: (T) -> R): SemgrepRule<RuleWithMetaVars<R, C>> =
-        transform { r -> r.map { body(it) } }
+        resultRule = rewriteAddExpr(resultRule)
+        resultRule = rewriteAssignEllipsis(resultRule)
+
+        run {
+            val result = rewriteTypeNameWithMetaVar(resultRule, resultMetaVarInfo)
+            resultRule = result.first
+            resultMetaVarInfo = result.second
+        }
+
+        return RuleWithMetaVars(resultRule, resultMetaVarInfo)
+    }
 
     private inline fun <T, R, C> SemgrepRule<RuleWithMetaVars<T, C>>.fFlatMap(crossinline body: (T) -> List<R>): SemgrepRule<RuleWithMetaVars<R, C>> =
         flatMap { r -> r.flatMap { body(it) } }

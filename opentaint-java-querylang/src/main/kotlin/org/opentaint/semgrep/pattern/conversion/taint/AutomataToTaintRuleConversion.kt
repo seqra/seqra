@@ -1130,6 +1130,7 @@ private fun MetaVarCtx.typeNameMetaVars(typeName: TypeNamePattern, metaVars: Bit
 
         TypeNamePattern.AnyType,
         is TypeNamePattern.ClassName,
+        is TypeNamePattern.PrimitiveName,
         is TypeNamePattern.FullyQualified -> {
             // no metavars
         }
@@ -1593,6 +1594,10 @@ private fun TaintRuleGenerationCtx.typeMatcher(typeName: TypeNamePattern): Seria
             SerializedNameMatcher.Simple(typeName.name)
         }
 
+        is TypeNamePattern.PrimitiveName -> {
+            SerializedNameMatcher.Simple(typeName.name)
+        }
+
         TypeNamePattern.AnyType -> return null
 
         is TypeNamePattern.MetaVar -> {
@@ -1614,8 +1619,17 @@ private fun TaintRuleGenerationCtx.typeMatcher(typeName: TypeNamePattern): Seria
                 }
 
                 is MetaVarConstraint.RegExp -> {
-                    if (value.regex.contains('.')) {
-                        SerializedNameMatcher.Pattern(value.regex)
+                    val pkgPattern = value.regex.substringBeforeLast("\\.", missingDelimiterValue = "")
+                    if (pkgPattern.isNotEmpty()) {
+                        val clsPattern = value.regex.substringAfterLast("\\.")
+                        if (clsPattern.patternCanMatchDot()){
+                            SerializedNameMatcher.Pattern(value.regex)
+                        } else {
+                            SerializedNameMatcher.ClassPattern(
+                                `package` = SerializedNameMatcher.Pattern(pkgPattern),
+                                `class` = SerializedNameMatcher.Pattern(clsPattern)
+                            )
+                        }
                     } else {
                         SerializedNameMatcher.ClassPattern(
                             `package` = anyName(),
@@ -1627,6 +1641,9 @@ private fun TaintRuleGenerationCtx.typeMatcher(typeName: TypeNamePattern): Seria
         }
     }
 }
+
+private fun String.patternCanMatchDot(): Boolean =
+    '.' in this || '-' in this // [A-Z]
 
 private fun TaintRuleGenerationCtx.signatureModifierConstraint(
     modifier: SignatureModifier

@@ -5,6 +5,7 @@ import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternActi
 sealed interface TypeNamePattern {
     data class FullyQualified(val name: String) : TypeNamePattern
     data class ClassName(val name: String) : TypeNamePattern
+    data class PrimitiveName(val name: String) : TypeNamePattern
     data class MetaVar(val metaVar: String) : TypeNamePattern
     data object AnyType : TypeNamePattern
 }

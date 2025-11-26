@@ -559,10 +559,14 @@ private fun MethodEnclosingClassName.unify(
 
     when (this.name) {
         TypeNamePattern.AnyType -> return other
+
+        is TypeNamePattern.PrimitiveName -> return null
+
         is TypeNamePattern.ClassName -> when (other.name) {
             TypeNamePattern.AnyType -> return this
 
-            is TypeNamePattern.ClassName -> return null
+            is TypeNamePattern.ClassName,
+            is TypeNamePattern.PrimitiveName -> return null
 
             is TypeNamePattern.FullyQualified -> {
                 if (other.name.name.endsWith(this.name.name)) return other
@@ -577,6 +581,8 @@ private fun MethodEnclosingClassName.unify(
 
         is TypeNamePattern.FullyQualified -> when (other.name) {
             TypeNamePattern.AnyType -> return this
+
+            is TypeNamePattern.PrimitiveName -> return null
 
             is TypeNamePattern.ClassName -> {
                 if (this.name.name.endsWith(other.name.name)) return this
@@ -593,6 +599,8 @@ private fun MethodEnclosingClassName.unify(
 
         is TypeNamePattern.MetaVar -> when (other.name) {
             TypeNamePattern.AnyType -> return this
+
+            is TypeNamePattern.PrimitiveName -> return null
 
             is TypeNamePattern.ClassName -> {
                 if (!stringMatches(other.name.name, metaVarInfo.metaVarConstraints[this.name.metaVar])) return null
