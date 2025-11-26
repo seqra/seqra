@@ -112,6 +112,7 @@ class SemgrepRuleAutomataBuilder(
 
         resultRule = rewriteAddExpr(resultRule)
         resultRule = rewriteAssignEllipsis(resultRule)
+        resultRule = rewriteMethodInvocationObj(resultRule)
 
         run {
             val result = rewriteTypeNameWithMetaVar(resultRule, resultMetaVarInfo)
@@ -164,6 +165,7 @@ class SemgrepRuleAutomataBuilder(
     private fun patternConstraintValue(pattern: String): MetaVarConstraint? {
         val parsed = parser.parseOrNull(pattern) ?: return null
         val patternConcreteValue = tryExtractPatternDotSeparatedParts(parsed) ?: return null
-        return MetaVarConstraint.Concrete(patternConcreteValue.joinToString(separator = "."))
+        val patternConcreteNames = tryExtractConcreteNames(patternConcreteValue) ?: return null
+        return MetaVarConstraint.Concrete(patternConcreteNames.joinToString(separator = "."))
     }
 }

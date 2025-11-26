@@ -29,7 +29,7 @@ public abstract class RuleWithSeveralSuffixCleaners implements RuleSample {
         public void entrypoint() {
             String data = "";
             f(data);
-            clean1(data);
+            clean2(data);
         }
     }
 }

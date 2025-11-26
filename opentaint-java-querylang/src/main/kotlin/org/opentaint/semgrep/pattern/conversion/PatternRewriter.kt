@@ -54,7 +54,7 @@ interface PatternRewriter {
         is FormalArgument -> rewriteFormalArgument()
         is NamedValue -> rewriteNamedValue()
 
-        is MethodInvocation -> rewriteMethodInvocation()
+        is MethodInvocation -> rewriteMethodInvocation(this)
         is ObjectCreation -> rewriteObjectCreation()
         is PatternSequence -> rewritePatternSequence()
         is ReturnStmt -> rewriteReturnStmt()
@@ -119,8 +119,8 @@ interface PatternRewriter {
         modifiers.map { it.rewriteModifier() }
     )
 
-    fun MethodInvocation.rewriteMethodInvocation(): SemgrepJavaPattern = createMethodInvocation(
-        methodName.rewriteName(), obj?.rewrite(), args.rewriteMethodArguments()
+    fun rewriteMethodInvocation(mi: MethodInvocation): SemgrepJavaPattern = createMethodInvocation(
+        mi.methodName.rewriteName(), mi.obj?.rewrite(), mi.args.rewriteMethodArguments()
     )
 
     fun ObjectCreation.rewriteObjectCreation(): SemgrepJavaPattern =

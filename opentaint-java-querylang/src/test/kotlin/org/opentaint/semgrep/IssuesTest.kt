@@ -26,8 +26,7 @@ class IssuesTest : SampleBasedTest() {
     @Disabled
     fun `issue 75`() = runTest("issues/issue75")
 
-    @Test // todo: static method call on nested class
-    @Disabled
+    @Test
     fun `issue 76`() = runTest("issues/issue76")
 
     @Test

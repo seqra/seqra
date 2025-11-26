@@ -1,5 +1,7 @@
 package org.opentaint.org.opentaint.semgrep.pattern.conversion.taint
 
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentHashMapOf
 import mu.KLogging
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
@@ -507,32 +509,51 @@ private fun createAutomata(
     return TaintRegisterStateAutomata(formulaManager, initialState, finalStates, successors, nodeIds)
 }
 
+data class SimulationState(
+    val original: State,
+    val state: State,
+    val originalPath: PersistentMap<State, State>
+)
+
 private fun simulateAutomata(automata: TaintRegisterStateAutomata): TaintRegisterStateAutomata {
-    val processedStates = hashSetOf<State>()
-    val unprocessed = mutableListOf(automata.initial to automata.initial)
+    val initialSimulationState = SimulationState(
+        automata.initial, automata.initial,
+        persistentHashMapOf(automata.initial to automata.initial)
+    )
+    val unprocessed = mutableListOf(initialSimulationState)
 
     val finalStates = hashSetOf<State>()
     val successors = hashMapOf<State, MutableSet<Pair<Edge, State>>>()
 
     while (unprocessed.isNotEmpty()) {
-        val (state, originalState) = unprocessed.removeLast()
-        if (!processedStates.add(state)) continue
+        val simulationState = unprocessed.removeLast()
+        val state = simulationState.state
 
-        if (originalState in automata.final) {
+        if (simulationState.original in automata.final) {
             finalStates.add(state)
             continue
         }
 
-        for ((simplifiedEdge, dstState) in automata.successors[originalState].orEmpty()) {
-            // todo: hack to avoid positive back edges
-            if (dstState == originalState) continue
+        for ((simplifiedEdge, dstState) in automata.successors[simulationState.original].orEmpty()) {
+            val loopStartState = simulationState.originalPath[dstState]
+            if (loopStartState != null) {
+                if (loopStartState.register == state.register) {
+                    // loop has no assignments
+                    continue
+                }
+
+                TODO("Loop assign vars")
+            }
 
             val dstStateId = automata.stateId(dstState)
             val dstStateRegister = simulateCondition(simplifiedEdge, dstStateId, state.register)
 
             val nextState = dstState.copy(register = dstStateRegister)
             successors.getOrPut(state, ::hashSetOf).add(simplifiedEdge to nextState)
-            unprocessed.add(nextState to dstState)
+
+            val nextPath = simulationState.originalPath.put(dstState, nextState)
+            val nextSimulationState = SimulationState(dstState, nextState, nextPath)
+            unprocessed.add(nextSimulationState)
         }
     }
 
