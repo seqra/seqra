@@ -1,0 +1,26 @@
+rules:
+  - id: java.spring.xss
+    languages:
+      - java
+    severity: ERROR
+    message: Return untrusted file path
+    patterns:
+      - pattern-inside: |
+          @$ANNOTATION(...)
+          $RETURNTYPE $METHOD(..., @RequestParam(...) MultipartFile $MULTIFILE, ...) {
+            ...
+          }
+      - pattern: |
+          String $FILENAME = $MULTIFILE.getOriginalFilename();
+          ...
+          return $FILENAME;
+
+      - metavariable-pattern:
+          metavariable: $ANNOTATION
+          pattern-either:
+            - pattern: RequestMapping
+            - pattern: DeleteMapping
+            - pattern: GetMapping
+            - pattern: PatchMapping
+            - pattern: PostMapping
+            - pattern: PutMapping

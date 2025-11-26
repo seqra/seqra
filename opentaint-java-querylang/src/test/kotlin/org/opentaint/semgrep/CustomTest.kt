@@ -26,6 +26,10 @@ class CustomTest : SampleBasedTest(configurationRequired = true) {
     @Disabled // todo: validate pattern
     fun `test origin command injection rule`() = runTest("custom/springCommandInjectionOrigin")
 
+    @Test
+    @Disabled
+    fun `test simple xss rule`() = runTest("custom/springXss")
+
     @AfterAll
     fun close(){
         closeRunner()

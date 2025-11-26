@@ -20,7 +20,7 @@ public class FileUpload_min {
         String fileName = multifile.getOriginalFilename();
         String filePath = UPLOADED_FOLDER + fileName;
         deleteFile(filePath);
-        return "";
+        return String.format("You successfully uploaded '%s'", filePath);
     }
 
     private void deleteFile(String filePath) {
