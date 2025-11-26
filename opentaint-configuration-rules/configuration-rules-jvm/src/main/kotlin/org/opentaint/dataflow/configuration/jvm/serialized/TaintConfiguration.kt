@@ -261,7 +261,17 @@ class TaintConfiguration {
             is SerializedRule.PassThrough -> condition
         }
 
-        val contexts = serializedCondition.anyArgSpecializationContexts(method)
+        val actions = when (this) {
+            is SerializedRule.Source -> taint
+            is SerializedRule.EntryPoint -> taint
+            is SerializedRule.Cleaner -> cleans
+            is SerializedRule.PassThrough -> copy
+            is SerializedRule.MethodEntrySink,
+            is SerializedRule.MethodExitSink,
+            is SerializedRule.Sink -> emptyList()
+        }
+
+        val contexts = anyArgSpecializationContexts(method, serializedCondition, actions)
         return contexts.mapNotNull { resolveMethodRule(method, serializedCondition, it) }
     }
 
@@ -337,9 +347,21 @@ class TaintConfiguration {
                 ?: error("Unresolved anyarg classifier")
     }
 
-    private fun SerializedCondition?.anyArgSpecializationContexts(method: JIRMethod): List<AnyArgSpecializationCtx> {
+    private fun anyArgSpecializationContexts(
+        method: JIRMethod, condition: SerializedCondition?, actions: List<SerializedAction>
+    ): List<AnyArgSpecializationCtx> {
         val classifiers = hashSetOf<String>()
-        collectAnyArgumentClassifiers(classifiers)
+        condition.collectAnyArgumentClassifiers(classifiers)
+        actions.forEach {
+            when (it) {
+                is SerializedTaintAssignAction -> it.pos.collectAnyArgumentClassifiers(classifiers)
+                is SerializedTaintCleanAction -> it.pos.collectAnyArgumentClassifiers(classifiers)
+                is SerializedTaintPassAction -> {
+                    it.from.collectAnyArgumentClassifiers(classifiers)
+                    it.to.collectAnyArgumentClassifiers(classifiers)
+                }
+            }
+        }
 
         if (classifiers.isEmpty()) {
             return listOf(AnyArgSpecializationCtx(emptyMap()))
