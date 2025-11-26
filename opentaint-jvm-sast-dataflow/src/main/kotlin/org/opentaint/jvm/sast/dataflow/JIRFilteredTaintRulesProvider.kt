@@ -2,6 +2,7 @@ package org.opentaint.api.checkers
 
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRuleFilter
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 
@@ -35,5 +36,9 @@ class JIRFilteredTaintRulesProvider(
 
     override fun sinkRulesForMethodEntry(method: CommonMethod) =
         provider.sinkRulesForMethodEntry(method)
+            .filter { filter.ruleEnabled(it) }
+
+    override fun sourceRulesForStaticField(field: JIRField, statement: CommonInst) =
+        provider.sourceRulesForStaticField(field, statement)
             .filter { filter.ruleEnabled(it) }
 }

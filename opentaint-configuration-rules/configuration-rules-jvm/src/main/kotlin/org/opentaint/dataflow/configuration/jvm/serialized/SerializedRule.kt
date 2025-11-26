@@ -98,3 +98,16 @@ sealed interface SerializedRule {
         override val meta: SinkMetaData? = SinkMetaData(cwe, note),
     ) : SinkRule
 }
+
+sealed interface SerializedFieldRule {
+    val className: SerializedNameMatcher
+    val fieldName: String
+
+    @Serializable
+    data class SerializedStaticFieldSource(
+        override val className: SerializedNameMatcher,
+        override val fieldName: String,
+        val condition: SerializedCondition?,
+        val taint: List<SerializedTaintAssignAction>
+    ): SerializedFieldRule
+}

@@ -14,13 +14,16 @@ import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
+import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.Sequent
+import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
+import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.accessPathBase
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.clearField
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.excludeField
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.mayReadField
@@ -32,6 +35,8 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.CalleePositionToAccessPath
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FinalFactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.PositionAccess
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintSourceActionEvaluator
+import org.opentaint.util.onSome
 
 class JIRMethodSequentFlowFunction(
     private val apManager: ApManager,
@@ -40,7 +45,11 @@ class JIRMethodSequentFlowFunction(
 ): MethodSequentFlowFunction {
     private val factTypeChecker get() = analysisContext.factTypeChecker
 
-    override fun propagateZeroToZero() = setOf(Sequent.ZeroToZero)
+    override fun propagateZeroToZero(): Set<Sequent> = buildSet {
+        add(Sequent.ZeroToZero)
+
+        applyUnconditionalSources()
+    }
 
     override fun propagateZeroToFact(currentFactAp: FinalFactAp) = buildSet {
         propagate(
@@ -90,7 +99,7 @@ class JIRMethodSequentFlowFunction(
             is JIRReturnInst -> {
                 unchanged()
 
-                val access = currentInst.returnValue?.let { MethodFlowFunctionUtils.accessPathBase(it) }
+                val access = currentInst.returnValue?.let { accessPathBase(it) }
                 if (access == factAp.base) {
                     val resultFact = factAp.rebase(AccessPathBase.Return)
                     propagateFact(resultFact)
@@ -104,7 +113,7 @@ class JIRMethodSequentFlowFunction(
             is JIRThrowInst -> {
                 unchanged()
 
-                val access = currentInst.throwable.let { MethodFlowFunctionUtils.accessPathBase(it) }
+                val access = accessPathBase(currentInst.throwable)
                 if (access == factAp.base) {
                     val resultFact = factAp.rebase(AccessPathBase.Exception)
                     propagateFact(resultFact)
@@ -423,6 +432,36 @@ class JIRMethodSequentFlowFunction(
             taintSinkTracker.addVulnerability(
                 analysisContext.methodEntryPoint, sinkFact, currentInst, rule
             )
+        }
+    }
+
+    private fun MutableSet<Sequent>.applyUnconditionalSources() {
+        if (currentInst !is JIRAssignInst) return
+
+        val rhvFieldRef = currentInst.rhv as? JIRFieldRef ?: return
+        val field = rhvFieldRef.field.field
+        if (!field.isStatic) return
+
+        val config = analysisContext.taint.taintConfig as TaintRulesProvider
+        val sourceRules = config.sourceRulesForStaticField(field, currentInst).toList()
+        if (sourceRules.isEmpty()) return
+
+        val lhv = accessPathBase(currentInst.lhv) ?: return
+        val apResolver = CalleePositionToAccessPath(PositionAccess.Simple(lhv))
+        val sourceEvaluator = TaintSourceActionEvaluator(apManager, ExclusionSet.Universe, apResolver)
+
+        for (sourceRule in sourceRules) {
+            if (sourceRule.condition !is ConstantTrue) {
+                TODO("Field source with complex condition")
+            }
+
+            for (action in sourceRule.actionsAfter) {
+                sourceEvaluator.evaluate(sourceRule, action).onSome { evaluatedFacts ->
+                    evaluatedFacts.mapTo(this) {
+                        Sequent.ZeroToFact(it)
+                    }
+                }
+            }
         }
     }
 }

@@ -4,6 +4,7 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentHashMapOf
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
 import org.opentaint.ir.api.jvm.TypeName
@@ -33,7 +34,6 @@ import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
 import org.opentaint.dataflow.configuration.jvm.CopyMark
 import org.opentaint.dataflow.configuration.jvm.IsConstant
-import org.opentaint.dataflow.configuration.jvm.IsStaticFieldValue
 import org.opentaint.dataflow.configuration.jvm.JIRTypeNameMatcher
 import org.opentaint.dataflow.configuration.jvm.JIRTypeNamePatternMatcher
 import org.opentaint.dataflow.configuration.jvm.NameExactMatcher
@@ -56,6 +56,7 @@ import org.opentaint.dataflow.configuration.jvm.TaintMethodSink
 import org.opentaint.dataflow.configuration.jvm.TaintMethodSource
 import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
 import org.opentaint.dataflow.configuration.jvm.TaintSinkMeta
+import org.opentaint.dataflow.configuration.jvm.TaintStaticFieldSource
 import org.opentaint.dataflow.configuration.jvm.This
 import org.opentaint.dataflow.configuration.jvm.TypeMatcher
 import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
@@ -79,6 +80,8 @@ class TaintConfiguration {
     private val methodExitSinkConfig = TaintRulesStorage<SerializedRule.MethodExitSink, TaintMethodExitSink>()
     private val methodEntrySinkConfig = TaintRulesStorage<SerializedRule.MethodEntrySink, TaintMethodEntrySink>()
 
+    private val staticFieldSourceConfig = TaintFieldRulesStorage<SerializedFieldRule.SerializedStaticFieldSource, TaintStaticFieldSource>()
+
     private val taintMarks = hashMapOf<String, TaintMark>()
 
     fun loadConfig(config: SerializedTaintConfig) {
@@ -89,6 +92,7 @@ class TaintConfiguration {
         config.cleaner?.let { cleanerConfig.addRules(it) }
         config.methodExitSink?.let { methodExitSinkConfig.addRules(it) }
         config.methodEntrySink?.let { methodEntrySinkConfig.addRules(it) }
+        config.staticFieldSource?.let { staticFieldSourceConfig.addRules(it) }
     }
 
     fun entryPointForMethod(method: JIRMethod): List<TaintEntryPointSource> = entryPointConfig.getConfigForMethod(method)
@@ -98,6 +102,40 @@ class TaintConfiguration {
     fun cleanerForMethod(method: JIRMethod): List<TaintCleaner> = cleanerConfig.getConfigForMethod(method)
     fun methodExitSinkForMethod(method: JIRMethod): List<TaintMethodExitSink> = methodExitSinkConfig.getConfigForMethod(method)
     fun methodEntrySinkForMethod(method: JIRMethod): List<TaintMethodEntrySink> = methodEntrySinkConfig.getConfigForMethod(method)
+
+    fun sourceForStaticField(field: JIRField): List<TaintStaticFieldSource> {
+        check(field.isStatic)
+        return staticFieldSourceConfig.getConfigForField(field)
+    }
+
+    private inner class TaintFieldRulesStorage<S : SerializedFieldRule, T : TaintConfigurationItem> {
+        private val fieldRules = hashMapOf<String, MutableList<S>>()
+        private val fieldItems = hashMapOf<JIRField, List<T>>()
+
+        fun addRules(rules: List<S>) {
+            for (rule in rules) {
+                fieldRules.getOrPut(rule.fieldName, ::mutableListOf).add(rule)
+            }
+
+            // invalidate rules cache
+            fieldItems.clear()
+        }
+
+        @Synchronized
+        fun getConfigForField(field: JIRField): List<T> = fieldItems.getOrPut(field) {
+            resolveFieldItems(field)
+        }
+
+        private fun resolveFieldItems(field: JIRField): List<T> {
+            val rules = fieldRules[field.name]?.toMutableList() ?: return emptyList()
+            rules.removeAll { !it.className.match(field.enclosingClass.name) }
+            return rules.flatMap { resolveFieldRule(it, field) }
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        private fun resolveFieldRule(rule: S, field: JIRField): List<T> =
+            rule.resolveFieldRule(field) as List<T>
+    }
 
     private inner class TaintRulesStorage<S : SerializedRule, T : TaintConfigurationItem> {
         private val rulesTrie = TaintConfigurationTrie<S>()
@@ -244,6 +282,25 @@ class TaintConfiguration {
                 }
 
                 return true
+            }
+        }
+    }
+
+    private fun SerializedFieldRule.resolveFieldRule(field: JIRField): List<TaintConfigurationItem> {
+        when (this) {
+            is SerializedFieldRule.SerializedStaticFieldSource -> {
+                if (condition != null && condition !is SerializedCondition.True) {
+                    TODO("Complex field rule condition")
+                }
+
+                val actions = mutableListOf<AssignMark>()
+                for (action in taint) {
+                    if (action.pos !is PositionBaseWithModifiers.BaseOnly || action.pos.base !is PositionBase.Result) {
+                        TODO("Complex field action position")
+                    }
+                    actions += AssignMark(taintMark(action.kind), Result)
+                }
+                return listOf(TaintStaticFieldSource(field, ConstantTrue, actions))
             }
         }
     }
@@ -400,7 +457,6 @@ class TaintConfiguration {
         is SerializedCondition.IsConstant -> isConstant.collectAnyArgumentClassifiers(classifiers)
         is SerializedCondition.IsType -> pos.collectAnyArgumentClassifiers(classifiers)
         is SerializedCondition.ParamAnnotated -> pos.collectAnyArgumentClassifiers(classifiers)
-        is SerializedCondition.IsStaticFieldValue -> pos.collectAnyArgumentClassifiers(classifiers)
         is SerializedCondition.ClassAnnotated,
         is SerializedCondition.MethodAnnotated,
         is SerializedCondition.MethodNameMatches,
@@ -491,11 +547,6 @@ class TaintConfiguration {
 
         is SerializedCondition.MethodNameMatches -> {
             matchPattern(nameMatches, method.name).asCondition()
-        }
-
-        is SerializedCondition.IsStaticFieldValue -> {
-            val classMatcher = enclosingClass.toConditionNameMatcher()
-            pos.resolve(method, ctx).map { IsStaticFieldValue(it, fieldName, classMatcher) }.let { mkOr(it) }
         }
     }
 

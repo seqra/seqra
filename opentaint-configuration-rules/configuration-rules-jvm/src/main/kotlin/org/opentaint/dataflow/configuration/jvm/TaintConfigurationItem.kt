@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.configuration.jvm
 
 import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationItem
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSink
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
@@ -21,6 +22,12 @@ data class TaintEntryPointSource(
 
 data class TaintMethodSource(
     val method: CommonMethod,
+    override val condition: Condition,
+    override val actionsAfter: List<AssignMark>,
+) : TaintConfigurationSource
+
+data class TaintStaticFieldSource(
+    val field: JIRField,
     override val condition: Condition,
     override val actionsAfter: List<AssignMark>,
 ) : TaintConfigurationSource

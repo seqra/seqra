@@ -38,7 +38,6 @@ import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.configuration.jvm.ConstantValue
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.configuration.jvm.IsConstant
-import org.opentaint.dataflow.configuration.jvm.IsStaticFieldValue
 import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.PositionResolver
@@ -120,13 +119,6 @@ open class JIRBasicConditionEvaluator(
         return false
     }
 
-    override fun visit(condition: IsStaticFieldValue): Boolean {
-        positionResolver.resolve(condition.position).onSome { value ->
-            return valueIsStaticField(value, condition)
-        }
-        return false
-    }
-
     private fun isConstant(value: JIRValue): Boolean {
         return value is JIRConstant
     }
@@ -186,11 +178,6 @@ open class JIRBasicConditionEvaluator(
         if (value.type !is JIRRefType) return false
         // todo: check super classes?
         return condition.pattern.matchName(value.type.typeName)
-    }
-
-    private fun valueIsStaticField(value: JIRValue, condition: IsStaticFieldValue): Boolean {
-        // todo: check static field value using alias analysis
-        return true
     }
 
     private fun ConditionNameMatcher.matchName(name: String): Boolean = when (this) {

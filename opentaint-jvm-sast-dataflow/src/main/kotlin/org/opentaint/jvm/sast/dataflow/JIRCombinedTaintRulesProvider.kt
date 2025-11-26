@@ -2,6 +2,7 @@ package org.opentaint.api.checkers
 
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 
 class JIRCombinedTaintRulesProvider(
@@ -41,6 +42,9 @@ class JIRCombinedTaintRulesProvider(
 
     override fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst) =
         combine(combinationOptions.cleaner) { cleanerRulesForMethod(method, statement) }
+
+    override fun sourceRulesForStaticField(field: JIRField, statement: CommonInst) =
+        combine(combinationOptions.source) { sourceRulesForStaticField(field, statement) }
 
     private inline fun <T> combine(
         mode: CombinationMode,
