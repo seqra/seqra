@@ -1,3 +1,7 @@
+## v1.5.1
+### fix: Correct name/version and update SARIF parser
+- fix: Fix name and semantic version
+- chore: Update SARIF parser
 ## v1.5.0
 ### feat: Bump version
 - chore: Remove binary
