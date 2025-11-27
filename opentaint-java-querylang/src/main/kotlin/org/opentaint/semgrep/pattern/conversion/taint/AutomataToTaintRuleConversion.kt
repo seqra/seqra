@@ -45,9 +45,11 @@ import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataE
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.ClassModifierConstraint
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodConstraint
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodEnclosingClassName
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.Cube
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaManager
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodModifierConstraint
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodName
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodSignature
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.NumberOfArgsConstraint
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.ParamConstraint
@@ -1529,14 +1531,20 @@ private fun TaintRuleGenerationCtx.evaluateMethodConditionAndEffect(
     val ruleBuilder = RuleConditionBuilder()
     val additionalFieldRules = mutableListOf<SerializedFieldRule>()
 
-    evaluateConditionAndEffectSignatures(effect, condition, ruleBuilder)
+    val evaluatedSignature = evaluateConditionAndEffectSignatures(effect, condition, ruleBuilder)
 
     condition.readMetaVar.values.flatten().forEach {
-        evaluateEdgePredicateConstraint(it.predicate.constraint, it.negated, state, ruleBuilder, additionalFieldRules)
+        val signature = it.predicate.signature.notEvaluatedSignature(evaluatedSignature)
+        evaluateEdgePredicateConstraint(
+            signature, it.predicate.constraint, it.negated, state, ruleBuilder, additionalFieldRules
+        )
     }
 
     condition.other.forEach {
-        evaluateEdgePredicateConstraint(it.predicate.constraint, it.negated, state, ruleBuilder, additionalFieldRules)
+        val signature = it.predicate.signature.notEvaluatedSignature(evaluatedSignature)
+        evaluateEdgePredicateConstraint(
+            signature, it.predicate.constraint, it.negated, state, ruleBuilder, additionalFieldRules
+        )
     }
 
     val varPositions = hashMapOf<String, RegisterVarPosition>()
@@ -1547,13 +1555,28 @@ private fun TaintRuleGenerationCtx.evaluateMethodConditionAndEffect(
     return EvaluatedEdgeCondition(ruleBuilder.build(), additionalFieldRules, varPositions)
 }
 
+private fun MethodSignature.notEvaluatedSignature(evaluated: MethodSignature): MethodSignature? {
+    if (this == evaluated) return null
+    return MethodSignature(
+        methodName = if (methodName == evaluated.methodName) {
+            MethodName(SignatureName.AnyName)
+        } else {
+            methodName
+        },
+        enclosingClassName = if (enclosingClassName == evaluated.enclosingClassName) {
+            MethodEnclosingClassName.anyClassName
+        } else {
+            enclosingClassName
+        }
+    )
+}
+
 private fun TaintRuleGenerationCtx.evaluateConditionAndEffectSignatures(
     effect: EdgeEffect,
     condition: EdgeCondition,
     ruleBuilder: RuleConditionBuilder
-) {
+): MethodSignature {
     val signatures = mutableListOf<MethodSignature>()
-    val negatedSignatures = mutableListOf<MethodSignature>()
 
     effect.assignMetaVar.values.flatten().forEach {
         check(!it.negated) { "Negated effect" }
@@ -1561,37 +1584,28 @@ private fun TaintRuleGenerationCtx.evaluateConditionAndEffectSignatures(
     }
 
     condition.readMetaVar.values.flatten().forEach {
-        if (it.negated) {
-            negatedSignatures.add(it.predicate.signature)
-        } else {
+        if (!it.negated) {
             signatures.add(it.predicate.signature)
         }
     }
 
     condition.other.forEach {
-        if (it.negated) {
-            negatedSignatures.add(it.predicate.signature)
-        } else {
+        if (!it.negated) {
             signatures.add(it.predicate.signature)
         }
     }
 
-    evaluateFormulaSignature(signatures, negatedSignatures, ruleBuilder)
+    return evaluateFormulaSignature(signatures, ruleBuilder)
 }
 
 private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
     signatures: List<MethodSignature>,
-    negatedSignatures: List<MethodSignature>,
     builder: RuleConditionBuilder,
-) {
+): MethodSignature {
     val signature = signatures.first()
 
     if (signatures.any { it != signature }) {
         TODO("Signature mismatch")
-    }
-
-    if (negatedSignatures.any { !signature.isCompatibleWith(it, metaVarInfo) }) {
-        TODO("Negative signature mismatch")
     }
 
     if (signature.isOpentaintAnyValueGenerator()) {
@@ -1599,7 +1613,7 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
     }
 
     val methodName = signature.methodName.name
-    builder.methodName = evaluateFormulaSignatureMethodName(methodName, builder)
+    builder.methodName = evaluateFormulaSignatureMethodName(methodName, builder.conditions)
 
     val classSignatureMatcher = typeMatcher(signature.enclosingClassName.name)
     when (classSignatureMatcher) {
@@ -1620,22 +1634,18 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
             TODO("Signature class name pattern")
         }
     }
+    return signature
 }
-
-private fun MethodSignature.isCompatibleWith(
-    other: MethodSignature,
-    metaVarInfo: ResolvedMetaVarInfo
-): Boolean = this.unify(other, metaVarInfo) == this
 
 private fun TaintRuleGenerationCtx.evaluateFormulaSignatureMethodName(
     methodName: SignatureName,
-    builder: RuleConditionBuilder,
-): SerializedNameMatcher {
+    conditions: MutableSet<SerializedCondition>,
+): SerializedNameMatcher.Simple? {
     return when (methodName) {
-        SignatureName.AnyName -> anyName()
+        SignatureName.AnyName -> null
         is SignatureName.Concrete -> SerializedNameMatcher.Simple(methodName.name)
         is SignatureName.MetaVar -> {
-            val constraint = metaVarInfo.metaVarConstraints[methodName.metaVar] ?: return anyName()
+            val constraint = metaVarInfo.metaVarConstraints[methodName.metaVar] ?: return null
             val concrete = mutableListOf<String>()
             val matches = mutableListOf<String>()
             for (c in constraint.constraints) {
@@ -1651,16 +1661,17 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignatureMethodName(
 
             check(concrete.size <= 1) { "Multiple concrete names" }
 
-            matches.mapTo(builder.conditions) {
+            matches.mapTo(conditions) {
                 SerializedCondition.MethodNameMatches(it)
             }
 
-            concrete.firstOrNull()?.let { SerializedNameMatcher.Simple(it) } ?: anyName()
+            concrete.firstOrNull()?.let { SerializedNameMatcher.Simple(it) }
         }
     }
 }
 
 private fun TaintRuleGenerationCtx.evaluateEdgePredicateConstraint(
+    signature: MethodSignature?,
     constraint: MethodConstraint?,
     negated: Boolean,
     state: State,
@@ -1668,20 +1679,25 @@ private fun TaintRuleGenerationCtx.evaluateEdgePredicateConstraint(
     additionalFieldRules: MutableList<SerializedFieldRule>,
 ) {
     if (!negated) {
-        evaluateMethodConstraints(constraint, state, builder.conditions, additionalFieldRules)
+        evaluateMethodConstraints(signature, constraint, state, builder.conditions, additionalFieldRules)
     } else {
         val negatedConditions = hashSetOf<SerializedCondition>()
-        evaluateMethodConstraints(constraint, state, negatedConditions, additionalFieldRules)
+        evaluateMethodConstraints(signature, constraint, state, negatedConditions, additionalFieldRules)
         builder.conditions += SerializedCondition.not(SerializedCondition.and(negatedConditions.toList()))
     }
 }
 
 private fun TaintRuleGenerationCtx.evaluateMethodConstraints(
+    signature: MethodSignature?,
     constraint: MethodConstraint?,
     state: State,
     conditions: MutableSet<SerializedCondition>,
     additionalFieldRules: MutableList<SerializedFieldRule>,
 ) {
+    if (signature != null) {
+        evaluateMethodSignatureCondition(signature, conditions)
+    }
+
     when (constraint) {
         null -> {}
 
@@ -1697,6 +1713,22 @@ private fun TaintRuleGenerationCtx.evaluateMethodConstraints(
 
         is NumberOfArgsConstraint -> conditions += SerializedCondition.NumberOfArgs(constraint.num)
         is ParamConstraint -> evaluateParamConstraints(constraint, state, conditions, additionalFieldRules)
+    }
+}
+
+private fun TaintRuleGenerationCtx.evaluateMethodSignatureCondition(
+    signature: MethodSignature,
+    conditions: MutableSet<SerializedCondition>,
+) {
+    val classType = typeMatcher(signature.enclosingClassName.name)
+    if (classType != null) {
+        TODO("Evaluate method signature: class condition")
+    }
+
+    val methodName = evaluateFormulaSignatureMethodName(signature.methodName.name, conditions)
+    if (methodName != null) {
+        val methodNameRegex = "^${methodName.value}\$"
+        conditions += SerializedCondition.MethodNameMatches(methodNameRegex)
     }
 }
 

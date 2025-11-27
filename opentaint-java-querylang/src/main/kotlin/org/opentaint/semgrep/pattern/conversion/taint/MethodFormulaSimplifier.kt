@@ -503,7 +503,7 @@ private fun implyLiteral(
     return false
 }
 
-fun MethodSignature?.unify(
+private fun MethodSignature?.unify(
     other: MethodSignature,
     metaVarInfo: ResolvedMetaVarInfo,
 ): MethodSignature? {
