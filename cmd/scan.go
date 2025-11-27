@@ -227,6 +227,7 @@ func scan() {
 	if report == nil {
 		return
 	}
+	report.SetToolDriver()
 	report.KeepOnlyOneCodeFlowElement()
 	report.KeepOnlyFileLocations()
 
