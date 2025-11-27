@@ -1,0 +1,26 @@
+rules:
+  - id: java.spring.log-injection
+    languages:
+      - java
+    severity: ERROR
+    message: Log an untrusted $INPUT path
+    patterns:
+      - pattern: |
+          ServletInputStream $INPUT = $REQUEST.getInputStream();
+          ...
+          $LOGGER.info(..., $INPUT, ...);
+      - pattern-inside: |
+          @$ANNOTATION(...)
+          $RETURNTYPE $METHOD(..., HttpServletRequest $REQUEST, ...) {
+            ...
+          }
+
+      - metavariable-pattern:
+          metavariable: $ANNOTATION
+          pattern-either:
+            - pattern: RequestMapping
+            - pattern: DeleteMapping
+            - pattern: GetMapping
+            - pattern: PatchMapping
+            - pattern: PostMapping
+            - pattern: PutMapping

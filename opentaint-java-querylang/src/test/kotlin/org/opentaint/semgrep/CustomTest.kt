@@ -30,6 +30,10 @@ class CustomTest : SampleBasedTest(configurationRequired = true) {
     @Disabled // todo: return statements not supported
     fun `test simple xss rule`() = runTest("custom/springXss")
 
+    @Test
+    @Disabled
+    fun `test log injection rule`() = runTest("custom/springLogInjection")
+
     @AfterAll
     fun close(){
         closeRunner()
