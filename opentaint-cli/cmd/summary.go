@@ -42,7 +42,7 @@ func PrintSarifSummary(absSarifpath string, printEmptyLine bool) *sarif.Report {
 		return nil
 	}
 	// Parse the SARIF report
-	report, err := sarif.Parse(data)
+	report, err := sarif.UnmarshalReport(data)
 	if err != nil {
 		logrus.Warnf("Failed to parse SARIF report: %v", err)
 		return nil
@@ -61,5 +61,5 @@ func PrintSarifSummary(absSarifpath string, printEmptyLine bool) *sarif.Report {
 	// Print the summary
 	report.PrintSummary()
 
-	return report
+	return &report
 }
