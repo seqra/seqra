@@ -1,7 +1,7 @@
 package org.opentaint.semgrep.util
 
 import base.RuleSample
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
+import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
 import org.opentaint.org.opentaint.semgrep.pattern.createTaintConfig
@@ -29,7 +29,7 @@ abstract class SampleBasedTest(
         assertFalse(builder.stats.isFailure, "Could not convert rule to Automata: ${builder.stats}")
 //        ruleAutomata.forEach { it.view() }
 
-        val rules = convertToTaintRules(ruleAutomata, rule.id, SerializedRule.SinkMetaData())
+        val rules = convertToTaintRules(ruleAutomata, rule.id, SinkMetaData())
         val taintConfig = rules.createTaintConfig()
 
         val allSamples = hashSetOf<String>()

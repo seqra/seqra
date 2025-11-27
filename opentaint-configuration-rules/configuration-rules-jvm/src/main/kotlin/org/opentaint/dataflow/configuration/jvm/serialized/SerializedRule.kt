@@ -3,15 +3,30 @@ package org.opentaint.dataflow.configuration.jvm.serialized
 import kotlinx.serialization.Serializable
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 
-sealed interface SerializedRule {
+sealed interface SerializedItem
+
+sealed interface SourceRule: SerializedItem {
+    val condition: SerializedCondition?
+    val taint: List<SerializedTaintAssignAction>
+}
+
+sealed interface SinkRule: SerializedItem {
+    val condition: SerializedCondition?
+    val id: String?
+    val meta: SinkMetaData?
+}
+
+@Serializable
+data class SinkMetaData(
+    val cwe: List<Int>? = null,
+    val note: String? = null,
+    val severity: CommonTaintConfigurationSinkMeta.Severity? = null,
+)
+
+sealed interface SerializedRule: SerializedItem {
     val function: SerializedFunctionNameMatcher
     val signature: SerializedSignatureMatcher?
     val overrides: Boolean
-
-    sealed interface SourceRule : SerializedRule {
-        val condition: SerializedCondition?
-        val taint: List<SerializedTaintAssignAction>
-    }
 
     @Serializable
     data class EntryPoint(
@@ -20,7 +35,7 @@ sealed interface SerializedRule {
         override val overrides: Boolean = true,
         override val condition: SerializedCondition? = null,
         override val taint: List<SerializedTaintAssignAction>
-    ) : SourceRule
+    ) : SourceRule, SerializedRule
 
     @Serializable
     data class Source(
@@ -29,7 +44,7 @@ sealed interface SerializedRule {
         override val overrides: Boolean = true,
         override val condition: SerializedCondition? = null,
         override val taint: List<SerializedTaintAssignAction>
-    ) : SourceRule
+    ) : SourceRule, SerializedRule
 
     @Serializable
     data class Cleaner(
@@ -50,19 +65,6 @@ sealed interface SerializedRule {
     ) : SerializedRule
 
     @Serializable
-    data class SinkMetaData(
-        val cwe: List<Int>? = null,
-        val note: String? = null,
-        val severity: CommonTaintConfigurationSinkMeta.Severity? = null,
-    )
-
-    sealed interface SinkRule : SerializedRule {
-        val condition: SerializedCondition?
-        val id: String?
-        val meta: SinkMetaData?
-    }
-
-    @Serializable
     data class Sink(
         override val function: SerializedFunctionNameMatcher,
         override val signature: SerializedSignatureMatcher? = null,
@@ -72,7 +74,7 @@ sealed interface SerializedRule {
         private val cwe: List<Int>? = null, // todo: remove
         private val note: String? = null,
         override val meta: SinkMetaData? = SinkMetaData(cwe, note),
-    ) : SinkRule
+    ) : SinkRule, SerializedRule
 
     @Serializable
     data class MethodExitSink(
@@ -84,7 +86,7 @@ sealed interface SerializedRule {
         private val cwe: List<Int>? = null, // todo: remove
         private val note: String? = null,
         override val meta: SinkMetaData? = SinkMetaData(cwe, note),
-    ) : SinkRule
+    ) : SinkRule, SerializedRule
 
     @Serializable
     data class MethodEntrySink(
@@ -96,10 +98,10 @@ sealed interface SerializedRule {
         private val cwe: List<Int>? = null, // todo: remove
         private val note: String? = null,
         override val meta: SinkMetaData? = SinkMetaData(cwe, note),
-    ) : SinkRule
+    ) : SinkRule, SerializedRule
 }
 
-sealed interface SerializedFieldRule {
+sealed interface SerializedFieldRule: SerializedItem {
     val className: SerializedNameMatcher
     val fieldName: String
 
@@ -107,7 +109,16 @@ sealed interface SerializedFieldRule {
     data class SerializedStaticFieldSource(
         override val className: SerializedNameMatcher,
         override val fieldName: String,
-        val condition: SerializedCondition?,
-        val taint: List<SerializedTaintAssignAction>
-    ): SerializedFieldRule
+        override val condition: SerializedCondition?,
+        override val taint: List<SerializedTaintAssignAction>
+    ): SerializedFieldRule, SourceRule
 }
+
+@Serializable
+data class AnalysisEndSink(
+    override val condition: SerializedCondition? = null,
+    override val id: String? = null,
+    private val cwe: List<Int>? = null, // todo: remove
+    private val note: String? = null,
+    override val meta: SinkMetaData? = SinkMetaData(cwe, note),
+): SinkRule, SerializedItem

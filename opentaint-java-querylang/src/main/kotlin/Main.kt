@@ -1,6 +1,6 @@
 package org.opentaint
 
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
+import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPattern
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPatternParser
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPatternParsingResult
@@ -171,7 +171,7 @@ fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
             println("converted")
 
             for (ruleAutomata in automatas) {
-                runCatching { convertToTaintRules(ruleAutomata, "test", SerializedRule.SinkMetaData()) }
+                runCatching { convertToTaintRules(ruleAutomata, "test", SinkMetaData()) }
                     .onFailure { e ->
 //                        println("Exception $e")
 //                        e.printStackTrace()

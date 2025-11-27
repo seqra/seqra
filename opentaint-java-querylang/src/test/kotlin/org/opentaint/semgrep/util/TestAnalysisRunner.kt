@@ -4,6 +4,7 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.ir.util.io.inputStream
@@ -12,7 +13,6 @@ import org.opentaint.api.checkers.JIRTaintRulesProvider
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
-import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSink
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.TaintConfiguration
 import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
@@ -25,6 +25,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRAnalysisManager
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.jvm.ap.ifds.taint.applyAnalysisEndSinksForEntryPoints
 import org.opentaint.dataflow.jvm.graph.JIRApplicationGraphImpl
 import org.opentaint.dataflow.jvm.graph.MethodReturnInstNormalizerFeature
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
@@ -102,7 +103,7 @@ class TestAnalysisRunner(
     private fun rulesProvider(
         config: SerializedTaintConfig,
         configurationPath: Path?,
-        ep: Set<CommonMethod>
+        ep: Set<JIRMethod>
     ): TaintRulesProvider {
         val taintConfig = TaintConfiguration()
         taintConfig.loadConfig(config)
@@ -116,21 +117,6 @@ class TestAnalysisRunner(
             taintConfig.loadConfig(defaultPassRules)
         }
 
-        val configProvider = JIRTaintRulesProvider(taintConfig)
-        return ConfigWithEpMethodExits(ep, configProvider)
-    }
-
-    private class ConfigWithEpMethodExits(
-        private val ep: Set<CommonMethod>,
-        private val base: TaintRulesProvider
-    ) : TaintRulesProvider by base {
-        override fun sinkRulesForMethodExit(
-            method: CommonMethod,
-            statement: CommonInst
-        ): Iterable<TaintMethodExitSink> {
-            if (method !in ep) return emptyList()
-
-            return base.sinkRulesForMethodExit(method, statement)
-        }
+        return JIRTaintRulesProvider(taintConfig).applyAnalysisEndSinksForEntryPoints(ep)
     }
 }

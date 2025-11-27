@@ -27,7 +27,6 @@ class CustomTest : SampleBasedTest(configurationRequired = true) {
     fun `test origin command injection rule`() = runTest<custom.springCommandInjectionOrigin>()
 
     @Test
-    @Disabled // todo: return statements not supported
     fun `test simple xss rule`() = runTest<custom.springXss>()
 
     @Test

@@ -7,7 +7,6 @@ import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
-import org.opentaint.ir.api.jvm.TypeName
 import org.opentaint.ir.api.jvm.ext.allSuperHierarchySequence
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.jvm.Action
@@ -19,8 +18,6 @@ import org.opentaint.dataflow.configuration.jvm.ClassMatcher
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
 import org.opentaint.dataflow.configuration.jvm.Condition
 import org.opentaint.dataflow.configuration.jvm.ConditionNameMatcher
-import org.opentaint.dataflow.configuration.jvm.ConditionSimplifier
-import org.opentaint.dataflow.configuration.jvm.ConditionVisitor
 import org.opentaint.dataflow.configuration.jvm.ConfigurationTrie
 import org.opentaint.dataflow.configuration.jvm.ConstantBooleanValue
 import org.opentaint.dataflow.configuration.jvm.ConstantEq
@@ -78,6 +75,7 @@ class TaintConfiguration {
     private val passThroughConfig = TaintRulesStorage<SerializedRule.PassThrough, TaintPassThrough>()
     private val cleanerConfig = TaintRulesStorage<SerializedRule.Cleaner, TaintCleaner>()
     private val methodExitSinkConfig = TaintRulesStorage<SerializedRule.MethodExitSink, TaintMethodExitSink>()
+    private val analysisEndSinkConfig = TaintRulesStorage<SerializedRule.MethodExitSink, TaintMethodExitSink>()
     private val methodEntrySinkConfig = TaintRulesStorage<SerializedRule.MethodEntrySink, TaintMethodEntrySink>()
 
     private val staticFieldSourceConfig = TaintFieldRulesStorage<SerializedFieldRule.SerializedStaticFieldSource, TaintStaticFieldSource>()
@@ -93,6 +91,17 @@ class TaintConfiguration {
         config.methodExitSink?.let { methodExitSinkConfig.addRules(it) }
         config.methodEntrySink?.let { methodEntrySinkConfig.addRules(it) }
         config.staticFieldSource?.let { staticFieldSourceConfig.addRules(it) }
+        config.analysisEndSink?.let { r -> analysisEndSinkConfig.addRules(r.map { it.asMethodExitSink() }) }
+    }
+
+    private val anyFunction by lazy {
+        SerializedFunctionNameMatcher.Complex(
+            anyNameMatcher(), anyNameMatcher(), anyNameMatcher()
+        )
+    }
+
+    private fun AnalysisEndSink.asMethodExitSink(): SerializedRule.MethodExitSink {
+        return SerializedRule.MethodExitSink(anyFunction, overrides = false, condition = condition, id = id, meta = meta)
     }
 
     fun entryPointForMethod(method: JIRMethod): List<TaintEntryPointSource> = entryPointConfig.getConfigForMethod(method)
@@ -101,6 +110,7 @@ class TaintConfiguration {
     fun passThroughForMethod(method: JIRMethod): List<TaintPassThrough> = passThroughConfig.getConfigForMethod(method)
     fun cleanerForMethod(method: JIRMethod): List<TaintCleaner> = cleanerConfig.getConfigForMethod(method)
     fun methodExitSinkForMethod(method: JIRMethod): List<TaintMethodExitSink> = methodExitSinkConfig.getConfigForMethod(method)
+    fun analysisEndSinkForMethod(method: JIRMethod): List<TaintMethodExitSink> = analysisEndSinkConfig.getConfigForMethod(method)
     fun methodEntrySinkForMethod(method: JIRMethod): List<TaintMethodEntrySink> = methodEntrySinkConfig.getConfigForMethod(method)
 
     fun sourceForStaticField(field: JIRField): List<TaintStaticFieldSource> {
@@ -307,8 +317,8 @@ class TaintConfiguration {
 
     private fun SerializedRule.resolveMethodRule(method: JIRMethod): List<TaintConfigurationItem> {
         val serializedCondition = when (this) {
-            is SerializedRule.SinkRule -> condition
-            is SerializedRule.SourceRule -> condition
+            is SinkRule -> condition
+            is SourceRule -> condition
             is SerializedRule.Cleaner -> condition
             is SerializedRule.PassThrough -> condition
         }
@@ -368,19 +378,19 @@ class TaintConfiguration {
 
     private val ruleIdGen = AtomicInteger()
 
-    private fun SerializedRule.SinkRule.ruleId(): String {
+    private fun SinkRule.ruleId(): String {
         id?.let { return it }
         meta?.cwe?.firstOrNull()?.let { return "CWE-$it" }
         return "generated-id-${ruleIdGen.incrementAndGet()}"
     }
 
-    private fun SerializedRule.SinkRule.meta(): TaintSinkMeta = TaintSinkMeta(
+    private fun SinkRule.meta(): TaintSinkMeta = TaintSinkMeta(
         message = meta?.message() ?: "",
         severity = meta?.severity ?: CommonTaintConfigurationSinkMeta.Severity.Warning,
         cwe = meta?.cwe
     )
 
-    private fun SerializedRule.SinkMetaData.message(): String? {
+    private fun SinkMetaData.message(): String? {
         if (cwe == null && note == null) return null
 
         val cweStr = cwe?.let { "CWE $it " }.orEmpty()
@@ -552,20 +562,6 @@ class TaintConfiguration {
 
     private fun Boolean.asCondition(): Condition = if (this) mkTrue() else mkFalse()
 
-    private data class UnresolvedIsType(
-        val typedPositions: List<Pair<Position, TypeName>>,
-        val typeMatcher: TypeMatcher,
-    ) : Condition {
-        override fun <R> accept(conditionVisitor: ConditionVisitor<R>): R {
-            if (conditionVisitor is ConditionSimplifier) {
-                @Suppress("UNCHECKED_CAST")
-                return this as R
-            }
-
-            error("Unresolved Is Type is auxiliary expression")
-        }
-    }
-
     private fun SerializedCondition.IsType.resolveIsType(method: JIRMethod, ctx: AnyArgSpecializationCtx): Condition {
         val position = pos.resolve(method, ctx)
         if (position.isEmpty()) return mkFalse()
@@ -588,7 +584,7 @@ class TaintConfiguration {
     }
 
     private fun SerializedNameMatcher.toConditionNameMatcher(): ConditionNameMatcher = when (this) {
-        is SerializedNameMatcher.Simple -> if (value == anyName) {
+        is SerializedNameMatcher.Simple -> if (value == "*") {
             ConditionNameMatcher.Pattern(anyNamePattern)
         } else {
             ConditionNameMatcher.Concrete(value)
@@ -783,13 +779,15 @@ class TaintConfiguration {
     }
 
     companion object {
-        private const val anyName = ".*"
-        private val anyNamePattern = Regex(anyName)
+        private val anyNamePattern = Regex(".*")
 
         private fun nameToPattern(name: String): String = name.replace(".", "\\.")
 
         // todo: check pattern for line start/end markers
         private fun classNamePattern(pkgPattern: String, clsPattern: String): String =
             "$pkgPattern\\.$clsPattern"
+
+        private fun anyNameMatcher(): SerializedNameMatcher =
+            SerializedNameMatcher.Pattern(".*")
     }
 }

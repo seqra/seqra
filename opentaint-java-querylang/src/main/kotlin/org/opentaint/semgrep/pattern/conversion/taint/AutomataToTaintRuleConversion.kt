@@ -3,6 +3,7 @@ package org.opentaint.org.opentaint.semgrep.pattern.conversion.taint
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentHashMapOf
 import mu.KLogging
+import org.opentaint.dataflow.configuration.jvm.serialized.AnalysisEndSink
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
@@ -13,12 +14,13 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.C
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.ConstantValue
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFieldRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFunctionNameMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule.SinkMetaData
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSignatureMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
+import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
+import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
 import org.opentaint.dataflow.util.PersistentBitSet
 import org.opentaint.dataflow.util.PersistentBitSet.Companion.emptyPersistentBitSet
 import org.opentaint.dataflow.util.contains
@@ -59,6 +61,7 @@ import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.TaintRegiste
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.State
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.StateRegister
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.opentaintAnyValueGeneratorMethodName
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.opentaintReturnValueMethod
 import java.util.BitSet
 import java.util.IdentityHashMap
 import kotlin.math.absoluteValue
@@ -79,8 +82,8 @@ private fun convertMatchingRuleToTaintRules(
 ): TaintRuleFromSemgrep {
     val ruleGroups = rule.rules.mapIndexed { idx, r ->
         val automataId = "$ruleId#$idx"
-        val (methodRules, fieldRules) = convertAutomataToTaintRules(r.metaVarInfo, r.rule, automataId, ruleId, meta)
-        TaintRuleFromSemgrep.TaintRuleGroup(methodRules, fieldRules)
+        val rules = convertAutomataToTaintRules(r.metaVarInfo, r.rule, automataId, ruleId, meta)
+        TaintRuleFromSemgrep.TaintRuleGroup(rules)
     }
     return TaintRuleFromSemgrep(ruleId, ruleGroups)
 }
@@ -91,30 +94,23 @@ private fun convertTaintRuleToTaintRules(
     meta: SinkMetaData,
 ): TaintRuleFromSemgrep {
     val taintMarkName = "$ruleId#taint"
-    val generatedRules = mutableListOf<SerializedRule>()
-    val generatedFieldRules = mutableListOf<SerializedFieldRule>()
+    val generatedRules = mutableListOf<SerializedItem>()
 
     for ((i, source) in rule.sources.withIndex()) {
         val (ctx, stateVars) = convertTaintSourceRule(ruleId, i, source)
-        val (mRules, fRules) = ctx.generateTaintSourceRules(stateVars, taintMarkName)
-        generatedRules += mRules
-        generatedFieldRules += fRules
+        generatedRules += ctx.generateTaintSourceRules(stateVars, taintMarkName)
     }
 
     for ((i, sink) in rule.sinks.withIndex()) {
         val (ctx, stateVars, stateId) = convertTaintSinkRule(ruleId, i, sink)
         val sinkCtx = SinkRuleGenerationCtx(stateVars, stateId, taintMarkName, ctx)
-        val (mRules, fRules) = sinkCtx.generateTaintSinkRules(ruleId, meta)
-        generatedRules += mRules
-        generatedFieldRules += fRules
+        generatedRules += sinkCtx.generateTaintSinkRules(ruleId, meta)
     }
 
     for ((i, pass) in rule.propagators.withIndex()) {
         val (ctx, stateId) = generatePassRule(ruleId, i, pass.pattern, pass.from, pass.to)
         val sinkCtx = SinkRuleGenerationCtx(setOf(pass.from), stateId, taintMarkName, ctx)
-        val (mRules, fRules) = sinkCtx.generateTaintPassRules(pass.from, pass.to, taintMarkName)
-        generatedRules += mRules
-        generatedFieldRules += fRules
+        generatedRules += sinkCtx.generateTaintPassRules(pass.from, pass.to, taintMarkName)
     }
 
     if (rule.sanitizers.isNotEmpty()) {
@@ -122,7 +118,7 @@ private fun convertTaintRuleToTaintRules(
         logger.warn { "Rule $ruleId: sanitizers are not supported yet" }
     }
 
-    val ruleGroup = TaintRuleFromSemgrep.TaintRuleGroup(generatedRules, generatedFieldRules)
+    val ruleGroup = TaintRuleFromSemgrep.TaintRuleGroup(generatedRules)
     return TaintRuleFromSemgrep(ruleId, listOf(ruleGroup))
 }
 
@@ -327,7 +323,7 @@ private fun convertAutomataToTaintRules(
     automata: SemgrepRuleAutomata,
     automataId: String,
     id: String, meta: SinkMetaData,
-): Pair<List<SerializedRule>, List<SerializedFieldRule>> {
+): List<SerializedItem> {
     check(automata.isDeterministic) { "NFA not supported" }
 
     val taintAutomata = createAutomataWithoutGeneratedEdges(
@@ -768,6 +764,8 @@ private data class StateWithValueGeneratorContext(
 
 private fun eliminateAnyValueGenerator(automata: TaintRegisterStateAutomata): TaintRegisterStateAutomata {
     val successors = hashMapOf<State, MutableSet<Pair<Edge, State>>>()
+    val finalStates = automata.final.toHashSet()
+    val removedStates = hashSetOf<State>()
 
     val unprocessed = mutableListOf(StateWithValueGeneratorContext(automata.initial, ValueGeneratorCtx(emptyMap())))
     val visited = hashSetOf<StateWithValueGeneratorContext>()
@@ -776,18 +774,23 @@ private fun eliminateAnyValueGenerator(automata: TaintRegisterStateAutomata): Ta
         if (!visited.add(state)) continue
 
         val stateSuccessors = successors.getOrPut(state.state, ::hashSetOf)
-        eliminateAnyValueGeneratorEdges(state, automata.successors, automata.final, stateSuccessors, unprocessed)
+        eliminateAnyValueGeneratorEdges(state, automata.successors, finalStates, removedStates, stateSuccessors, unprocessed)
     }
 
+    finalStates.removeAll(removedStates)
+    removedStates.forEach { successors.remove(it) }
+    finalStates.forEach { successors.remove(it) }
+
     return TaintRegisterStateAutomata(
-        automata.formulaManager, automata.initial, automata.final, successors, automata.nodeIndex
+        automata.formulaManager, automata.initial, finalStates, successors, automata.nodeIndex
     )
 }
 
 private fun eliminateAnyValueGeneratorEdges(
     state: StateWithValueGeneratorContext,
     successors: Map<State, Set<Pair<Edge, State>>>,
-    finalStates: Set<State>,
+    finalStates: MutableSet<State>,
+    removedStates: MutableSet<State>,
     resultStateSuccessors: MutableSet<Pair<Edge, State>>,
     unprocessed: MutableList<StateWithValueGeneratorContext>
 ) {
@@ -808,14 +811,22 @@ private fun eliminateAnyValueGeneratorEdges(
 
             is EdgeEliminationResult.Eliminate -> {
                 if (nextState in finalStates) {
-                    TODO("Eliminate edge to final state")
+                    val nextSuccessors = successors[nextState].orEmpty()
+                    check(nextSuccessors.isEmpty())
+
+                    removedStates.add(nextState)
+                    finalStates.add(state.state)
+
+                    if (nextState.node.accept) {
+                        state.state.node.accept = true
+                    }
                 }
 
                 if (nextState == state.state) continue
 
                 eliminateAnyValueGeneratorEdges(
                     StateWithValueGeneratorContext(nextState, elimResult.ctx),
-                    successors, finalStates, resultStateSuccessors, unprocessed
+                    successors, finalStates, removedStates, resultStateSuccessors, unprocessed
                 )
             }
         }
@@ -935,6 +946,12 @@ private fun MethodSignature.isOpentaintAnyValueGenerator(): Boolean {
     val name = methodName.name
     if (name !is SignatureName.Concrete) return false
     return name.name == opentaintAnyValueGeneratorMethodName
+}
+
+private fun MethodSignature.isOpentaintReturnValue(): Boolean {
+    val name = methodName.name
+    if (name !is SignatureName.Concrete) return false
+    return name.name == opentaintReturnValueMethod
 }
 
 private fun generateTaintEdges(
@@ -1214,7 +1231,6 @@ private data class RuleCondition(
     val enclosingClassPackage: SerializedNameMatcher,
     val enclosingClassName: SerializedNameMatcher,
     val name: SerializedNameMatcher,
-    val signature: SerializedSignatureMatcher?,
     val condition: SerializedCondition,
 )
 
@@ -1225,31 +1241,91 @@ private data class EvaluatedEdgeCondition(
 )
 
 private fun TaintRuleGenerationCtx.generateTaintSinkRules(id: String, meta: SinkMetaData) =
-    generateTaintRules { ruleEdge, _, function, sig, cond ->
+    generateTaintRules { currentRules, ruleEdge, _, function, cond ->
         if (function.matchAnything() && cond is SerializedCondition.True) {
             logger.warn { "Rule $id match anything" }
             return@generateTaintRules emptyList()
         }
 
+        if (function.isOpentaintReturnValue()) {
+            return@generateTaintRules generateEndSink(currentRules, cond, id, meta)
+        }
+
         val rule = when (ruleEdge.edge) {
             is Edge.MethodEnter -> SerializedRule.MethodEntrySink(
-                function, sig, overrides = false, cond, id, meta = meta
+                function, signature = null, overrides = false, cond, id, meta = meta
             )
 
             is Edge.MethodCall -> SerializedRule.Sink(
-                function, sig, overrides = false, cond, id, meta = meta
+                function, signature = null, overrides = false, cond, id, meta = meta
             )
 
-            Edge.AnalysisEnd -> SerializedRule.MethodExitSink(
-                function, sig, overrides = false, cond, id, meta = meta
-            )
+            Edge.AnalysisEnd -> return@generateTaintRules generateEndSink(currentRules, cond, id, meta)
         }
         listOf(rule)
     }
 
+private fun generateEndSink(
+    currentRules: List<SerializedItem>,
+    cond: SerializedCondition,
+    id: String,
+    meta: SinkMetaData
+): List<SinkRule> {
+    val endCondition = cond.rewriteAsEndCondition()
+    val entryPointRules = currentRules.filterIsInstance<SerializedRule.EntryPoint>()
+
+    if (entryPointRules.isEmpty()) {
+        return listOf(AnalysisEndSink(endCondition, id, meta = meta))
+    }
+
+    return entryPointRules.map { rule ->
+        val sinkCond = SerializedCondition.and(listOf(rule.condition ?: SerializedCondition.True, endCondition))
+        SerializedRule.MethodExitSink(rule.function, rule.signature, rule.overrides, sinkCond, id, meta = meta)
+    }
+}
+
+private fun SerializedCondition.rewriteAsEndCondition(): SerializedCondition = when (this) {
+    is SerializedCondition.And -> SerializedCondition.and(allOf.map { it.rewriteAsEndCondition() })
+    is SerializedCondition.Or -> SerializedCondition.Or(anyOf.map { it.rewriteAsEndCondition() })
+    is SerializedCondition.Not -> SerializedCondition.not(not.rewriteAsEndCondition())
+    SerializedCondition.True -> this
+    is SerializedCondition.ClassAnnotated -> this
+    is SerializedCondition.MethodAnnotated -> this
+    is SerializedCondition.MethodNameMatches -> this
+    is SerializedCondition.AnnotationType -> copy(pos = pos.rewriteAsEndPosition())
+    is SerializedCondition.ConstantCmp -> copy(pos = pos.rewriteAsEndPosition())
+    is SerializedCondition.ConstantEq -> copy(pos = pos.rewriteAsEndPosition())
+    is SerializedCondition.ConstantGt -> copy(pos = pos.rewriteAsEndPosition())
+    is SerializedCondition.ConstantLt -> copy(pos = pos.rewriteAsEndPosition())
+    is SerializedCondition.ConstantMatches -> copy(pos = pos.rewriteAsEndPosition())
+    is SerializedCondition.ContainsMark -> copy(pos = pos.rewriteAsEndPosition())
+    is SerializedCondition.IsConstant -> copy(isConstant = isConstant.rewriteAsEndPosition())
+    is SerializedCondition.IsType -> copy(pos = pos.rewriteAsEndPosition())
+    is SerializedCondition.ParamAnnotated -> copy(pos = pos.rewriteAsEndPosition())
+    is SerializedCondition.NumberOfArgs -> SerializedCondition.True
+}
+
+private fun PositionBaseWithModifiers.rewriteAsEndPosition() = when (this) {
+    is PositionBaseWithModifiers.BaseOnly -> PositionBaseWithModifiers.BaseOnly(
+        base.rewriteAsEndPosition()
+    )
+
+    is PositionBaseWithModifiers.WithModifiers -> PositionBaseWithModifiers.WithModifiers(
+        base.rewriteAsEndPosition(), modifiers
+    )
+}
+
+private fun PositionBase.rewriteAsEndPosition(): PositionBase = when (this) {
+    is PositionBase.AnyArgument -> PositionBase.Result
+    is PositionBase.Argument -> PositionBase.Result
+    is PositionBase.ClassStatic -> this
+    PositionBase.Result -> this
+    PositionBase.This -> this
+}
+
 private fun TaintRuleGenerationCtx.generateTaintSourceRules(
     stateVars: Set<String>, taintMarkName: String
-) = generateTaintRules { ruleEdge, condition, function, sig, cond ->
+) = generateTaintRules { _, ruleEdge, condition, function, cond ->
     val actions = stateVars.flatMapTo(mutableListOf()) { varName ->
         val varPosition = condition.accessedVarPosition[varName] ?: return@flatMapTo emptyList()
         varPosition.positions.map {
@@ -1259,13 +1335,17 @@ private fun TaintRuleGenerationCtx.generateTaintSourceRules(
 
     if (actions.isEmpty()) return@generateTaintRules emptyList()
 
+    if (function.isOpentaintReturnValue()) {
+        TODO("Eliminate opentaint return value")
+    }
+
     val rule = when (ruleEdge.edge) {
         is Edge.MethodCall -> SerializedRule.Source(
-            function, sig, overrides = false, cond, actions
+            function, signature = null, overrides = false, cond, actions
         )
 
         is Edge.MethodEnter -> SerializedRule.EntryPoint(
-            function, sig, overrides = false, cond, actions
+            function, signature = null, overrides = false, cond, actions
         )
 
         Edge.AnalysisEnd -> TODO()
@@ -1277,22 +1357,21 @@ private fun TaintRuleGenerationCtx.generateTaintSourceRules(
 private fun SinkRuleGenerationCtx.generateTaintPassRules(
     fromVar: String, toVar: String,
     taintMarkName: String
-): Pair<List<SerializedRule>, List<SerializedFieldRule>> {
+): List<SerializedItem> {
     // todo: generate taint pass when possible
     return generateTaintSourceRules(setOf(toVar), taintMarkName)
 }
 
 private fun TaintRuleGenerationCtx.generateTaintRules(
     generateAcceptStateRules: (
+        currentGeneratedRules: List<SerializedItem>,
         TaintRuleEdge,
         EvaluatedEdgeCondition,
         SerializedFunctionNameMatcher,
-        SerializedSignatureMatcher?,
         SerializedCondition
-    ) -> List<SerializedRule>
-): Pair<List<SerializedRule>, List<SerializedFieldRule>> {
-    val rules = mutableListOf<SerializedRule>()
-    val fieldRules = mutableListOf<SerializedFieldRule>()
+    ) -> List<SerializedItem>
+): List<SerializedItem> {
+    val rules = mutableListOf<SerializedItem>()
 
     val evaluatedConditions = hashMapOf<State, MutableMap<Edge, EvaluatedEdgeCondition>>()
 
@@ -1301,16 +1380,59 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
             .getOrPut(state, ::hashMapOf)
             .getOrPut(edge) { evaluateEdgeCondition(edge, state) }
 
+    for (ruleEdge in edges) {
+        val edge = ruleEdge.edge
+        val state = ruleEdge.stateFrom
+
+        val condition = evaluate(edge, state).addGlobalStateCheck(this, ruleEdge.checkGlobalState, state)
+        rules += condition.additionalFieldRules
+
+        val nodeId = automata.stateId(ruleEdge.stateTo)
+
+        val requiredVariables = ruleEdge.stateTo.register.assignedVars.keys
+        val actions = requiredVariables.flatMapTo(mutableListOf()) { varName ->
+            val varPosition = condition.accessedVarPosition[varName] ?: return@flatMapTo emptyList()
+            val mark = markName(varPosition.varName, nodeId)
+            varPosition.positions.map {
+                SerializedTaintAssignAction(mark, pos = PositionBaseWithModifiers.BaseOnly(it))
+            }
+        }
+
+        if (ruleEdge.stateTo in globalStateAssignStates) {
+            actions += SerializedTaintAssignAction(stateMarkName(ruleEdge.stateTo), pos = stateVarPosition)
+        }
+
+        if (actions.isNotEmpty()) {
+            rules += generateRules(condition.ruleCondition) { function, cond ->
+                if (function.isOpentaintReturnValue()) {
+                    TODO("Eliminate opentaint return value")
+                }
+
+                when (edge) {
+                    is Edge.MethodCall -> SerializedRule.Source(
+                        function, signature = null, overrides = false, cond, actions
+                    )
+
+                    is Edge.MethodEnter -> SerializedRule.EntryPoint(
+                        function, signature = null, overrides = false, cond, actions
+                    )
+
+                    Edge.AnalysisEnd -> TODO()
+                }
+            }
+        }
+    }
+
     for (ruleEdge in finalEdges) {
         val edge = ruleEdge.edge
         val state = ruleEdge.stateFrom
 
         val condition = evaluate(edge, state).addGlobalStateCheck(this, ruleEdge.checkGlobalState, state)
-        fieldRules += condition.additionalFieldRules
+        rules += condition.additionalFieldRules
 
         if (ruleEdge.stateTo.node.accept) {
-            rules += generateRules(condition.ruleCondition) { function, sig, cond ->
-                generateAcceptStateRules(ruleEdge, condition, function, sig, cond)
+            rules += generateRules(condition.ruleCondition) { function, cond ->
+                generateAcceptStateRules(rules, ruleEdge, condition, function, cond)
             }
 
             continue
@@ -1333,52 +1455,17 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
                 TODO()
             }
 
-            rules += generateRules(condition.ruleCondition) { function, sig, cond ->
-                SerializedRule.Cleaner(function, sig, overrides = false, cond, actions)
-            }
-        }
-    }
-
-    for (ruleEdge in edges) {
-        val edge = ruleEdge.edge
-        val state = ruleEdge.stateFrom
-
-        val condition = evaluate(edge, state).addGlobalStateCheck(this, ruleEdge.checkGlobalState, state)
-        fieldRules += condition.additionalFieldRules
-
-        val nodeId = automata.stateId(ruleEdge.stateTo)
-
-        val requiredVariables = ruleEdge.stateTo.register.assignedVars.keys
-        val actions = requiredVariables.flatMapTo(mutableListOf()) { varName ->
-            val varPosition = condition.accessedVarPosition[varName] ?: return@flatMapTo emptyList()
-            val mark = markName(varPosition.varName, nodeId)
-            varPosition.positions.map {
-                SerializedTaintAssignAction(mark, pos = PositionBaseWithModifiers.BaseOnly(it))
-            }
-        }
-
-        if (ruleEdge.stateTo in globalStateAssignStates) {
-            actions += SerializedTaintAssignAction(stateMarkName(ruleEdge.stateTo), pos = stateVarPosition)
-        }
-
-        if (actions.isNotEmpty()) {
-            rules += generateRules(condition.ruleCondition) { function, sig, cond ->
-                when (edge) {
-                    is Edge.MethodCall -> SerializedRule.Source(
-                        function, sig, overrides = false, cond, actions
-                    )
-
-                    is Edge.MethodEnter -> SerializedRule.EntryPoint(
-                        function, sig, overrides = false, cond, actions
-                    )
-
-                    Edge.AnalysisEnd -> TODO()
+            rules += generateRules(condition.ruleCondition) { function, cond ->
+                if (function.isOpentaintReturnValue()) {
+                    TODO("Eliminate opentaint return value")
                 }
+
+                SerializedRule.Cleaner(function, signature = null, overrides = false, cond, actions)
             }
         }
     }
 
-    return rules to fieldRules
+    return rules
 }
 
 private fun EvaluatedEdgeCondition.addGlobalStateCheck(
@@ -1395,7 +1482,7 @@ private fun EvaluatedEdgeCondition.addGlobalStateCheck(
 
 private inline fun <T> generateRules(
     condition: RuleCondition,
-    body: (SerializedFunctionNameMatcher, SerializedSignatureMatcher?, SerializedCondition) -> T
+    body: (SerializedFunctionNameMatcher, SerializedCondition) -> T
 ): T {
     val functionMatcher = SerializedFunctionNameMatcher.Complex(
         condition.enclosingClassPackage,
@@ -1403,7 +1490,7 @@ private inline fun <T> generateRules(
         condition.name
     )
 
-    return body(functionMatcher, condition.signature, condition.condition)
+    return body(functionMatcher, condition.condition)
 }
 
 private fun TaintRuleGenerationCtx.evaluateEdgeCondition(
@@ -1420,14 +1507,12 @@ private class RuleConditionBuilder {
     var enclosingClassName: SerializedNameMatcher? = null
     var methodName: SerializedNameMatcher? = null
 
-    var signature: SerializedSignatureMatcher? = null
     val conditions = hashSetOf<SerializedCondition>()
 
     fun build(): RuleCondition = RuleCondition(
         enclosingClassPackage ?: anyName(),
         enclosingClassName ?: anyName(),
         methodName ?: anyName(),
-        signature,
         SerializedCondition.and(conditions.toList())
     )
 }
@@ -1510,8 +1595,7 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
     }
 
     if (signature.isOpentaintAnyValueGenerator()) {
-        // note: propagate all constraints to the next variable usage
-        TODO("Eliminate opentaint any value generator")
+        TODO("Eliminate opentaint generated method")
     }
 
     val methodName = signature.methodName.name
@@ -1930,4 +2014,9 @@ private fun anyName() = SerializedNameMatcher.Pattern(".*")
 private fun SerializedFunctionNameMatcher.matchAnything(): Boolean =
     `class` == anyName() && `package` == anyName() && name == anyName()
 
-private val logger = object : KLogging() {}.logger
+private fun SerializedFunctionNameMatcher.isOpentaintReturnValue(): Boolean {
+    val name = this.name as? SerializedNameMatcher.Simple ?: return false
+    return name.value == opentaintReturnValueMethod
+}
+
+val logger = object : KLogging() {}.logger

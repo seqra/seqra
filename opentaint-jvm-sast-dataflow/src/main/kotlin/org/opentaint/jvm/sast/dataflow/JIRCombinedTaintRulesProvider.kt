@@ -34,6 +34,9 @@ class JIRCombinedTaintRulesProvider(
     override fun sinkRulesForMethodExit(method: CommonMethod, statement: CommonInst) =
         combine(combinationOptions.sink) { sinkRulesForMethodExit(method, statement) }
 
+    override fun sinkRulesForAnalysisEnd(method: CommonMethod, statement: CommonInst) =
+        combine(combinationOptions.sink) { sinkRulesForAnalysisEnd(method, statement) }
+
     override fun sinkRulesForMethodEntry(method: CommonMethod) =
         combine(combinationOptions.sink) { sinkRulesForMethodEntry(method) }
 

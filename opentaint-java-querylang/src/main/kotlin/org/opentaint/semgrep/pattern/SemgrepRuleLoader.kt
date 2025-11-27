@@ -8,7 +8,7 @@ import com.charleskorn.kaml.YamlScalar
 import kotlinx.serialization.decodeFromString
 import mu.KLogging
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
+import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.ActionListBuilder
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
@@ -63,7 +63,7 @@ class SemgrepRuleLoader {
 
         val ruleCwe = rule.cweInfo()
 
-        val sinkMeta = SerializedRule.SinkMetaData(
+        val sinkMeta = SinkMetaData(
             cwe = ruleCwe,
             note = rule.message,
             severity = when (rule.severity.lowercase()) {

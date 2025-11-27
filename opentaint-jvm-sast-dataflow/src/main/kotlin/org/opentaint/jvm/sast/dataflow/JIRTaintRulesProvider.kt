@@ -5,6 +5,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
+import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSink
 import org.opentaint.dataflow.configuration.jvm.serialized.TaintConfiguration
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 
@@ -33,6 +34,10 @@ class JIRTaintRulesProvider(
 
     override fun sinkRulesForMethodExit(method: CommonMethod, statement: CommonInst) = getRules(method) {
         taintConfiguration.methodExitSinkForMethod(it)
+    }
+
+    override fun sinkRulesForAnalysisEnd(method: CommonMethod, statement: CommonInst) = getRules(method) {
+        taintConfiguration.analysisEndSinkForMethod(it)
     }
 
     override fun sinkRulesForMethodEntry(method: CommonMethod) = getRules(method) {

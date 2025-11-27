@@ -10,11 +10,13 @@ class TaintRulesProviderWithMethodExit(
     private val base: TaintRulesProvider
 ) : TaintRulesProvider by base {
     override fun sinkRulesForMethodExit(method: CommonMethod, statement: CommonInst): Iterable<TaintMethodExitSink> {
-        if (method !in entryPoints) return emptyList()
+        val rules = base.sinkRulesForMethodExit(method, statement)
+        if (method !in entryPoints) return rules
 
-        return base.sinkRulesForMethodExit(method, statement)
+        val analysisEnd = base.sinkRulesForAnalysisEnd(method, statement)
+        return rules + analysisEnd
     }
 }
 
-fun TaintRulesProvider.applyExitSinksOnlyForEntryPoints(entryPoints: Set<JIRMethod>): TaintRulesProvider =
+fun TaintRulesProvider.applyAnalysisEndSinksForEntryPoints(entryPoints: Set<JIRMethod>): TaintRulesProvider =
     TaintRulesProviderWithMethodExit(entryPoints, this)

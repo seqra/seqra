@@ -19,6 +19,7 @@ interface TaintRulesProvider : CommonTaintRulesProvider {
     fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst): Iterable<TaintMethodSink>
     fun sinkRulesForMethodEntry(method: CommonMethod): Iterable<TaintMethodEntrySink>
     fun sinkRulesForMethodExit(method: CommonMethod, statement: CommonInst): Iterable<TaintMethodExitSink>
+    fun sinkRulesForAnalysisEnd(method: CommonMethod, statement: CommonInst): Iterable<TaintMethodExitSink>
     fun passTroughRulesForMethod(method: CommonMethod, statement: CommonInst): Iterable<TaintPassThrough>
     fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst): Iterable<TaintCleaner>
     fun sourceRulesForStaticField(field: JIRField, statement: CommonInst): Iterable<TaintStaticFieldSource>

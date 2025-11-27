@@ -34,6 +34,10 @@ class JIRFilteredTaintRulesProvider(
         provider.sinkRulesForMethodExit(method, statement)
             .filter { filter.ruleEnabled(it) }
 
+    override fun sinkRulesForAnalysisEnd(method: CommonMethod, statement: CommonInst) =
+        provider.sinkRulesForAnalysisEnd(method, statement)
+            .filter { filter.ruleEnabled(it) }
+
     override fun sinkRulesForMethodEntry(method: CommonMethod) =
         provider.sinkRulesForMethodEntry(method)
             .filter { filter.ruleEnabled(it) }

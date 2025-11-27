@@ -12,7 +12,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.TaintConfiguration
 import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSummarySerializationContext
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
-import org.opentaint.dataflow.jvm.ap.ifds.taint.applyExitSinksOnlyForEntryPoints
+import org.opentaint.dataflow.jvm.ap.ifds.taint.applyAnalysisEndSinksForEntryPoints
 import org.opentaint.org.opentaint.semgrep.pattern.SemgrepRuleLoader
 import org.opentaint.org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import org.opentaint.org.opentaint.semgrep.pattern.loadSemgrepRule
@@ -92,7 +92,7 @@ class ProjectAnalyzer(
         val summarySerializationContext = JIRSummarySerializationContext(cp)
 
         JIRTaintAnalyzer(
-            cp, loadTaintConfig().applyExitSinksOnlyForEntryPoints(entryPoints.toHashSet()),
+            cp, loadTaintConfig().applyAnalysisEndSinksForEntryPoints(entryPoints.toHashSet()),
             projectLocations = projectClasses.projectLocations,
             ifdsTimeout = ifdsAnalysisTimeout,
             ifdsApMode = ifdsApMode,
