@@ -81,7 +81,6 @@ open class JIRTaintAnalyzer(
             ifdsTraces,
             ifdsEngine,
             cp,
-            ifdsAnalysisGraph,
             projectLocations,
         )
     }

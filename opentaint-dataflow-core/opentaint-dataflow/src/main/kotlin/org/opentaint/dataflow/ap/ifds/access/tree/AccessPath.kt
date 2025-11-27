@@ -31,7 +31,7 @@ class AccessPath(
         return access.accessor == accessor
     }
 
-    override fun readAccessor(accessor: Accessor): InitialFactAp? {
+    override fun readAccessor(accessor: Accessor): AccessPath? {
         if (access == null) return null
         if (access.accessor != accessor) return null
         return AccessPath(base, access.next, exclusions)

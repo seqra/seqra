@@ -11,7 +11,6 @@ import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.opentaint-ir
 import org.opentaint.dataflow.ap.ifds.access.ApMode
-//import org.opentaint.dataflow.configuration.jvm.JIRClassNameFeature
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSummariesFeature
@@ -26,6 +25,8 @@ import org.opentaint.types.scoreClassNode
 import org.opentaint.util.ConfigUtils
 import java.io.File
 import java.nio.file.Path
+import org.opentaint.ir.approximation.Approximations
+import org.opentaint.util.classpathWithApproximations
 import kotlin.io.path.Path
 import kotlin.time.Duration
 
@@ -86,8 +87,7 @@ abstract class AbstractProjectAnalyzer(
             installFeatures(Usages)
             installFeatures(JIRSummariesFeature(ifdsApMode))
             installFeatures(ClassScorer(TypeScorer, ::scoreClassNode))
-//            installFeatures(JIRClassNameFeature())
-//            installFeatures(Approximations)
+            installFeatures(Approximations)
 
             loadByteCode(allCpFiles)
         }
@@ -110,8 +110,8 @@ abstract class AbstractProjectAnalyzer(
         }
 
         // todo: fix approximations with multiple JIRDatabase instances
-//        cp = db.classpathWithApproximations(allCpFiles, features)
-        cp = db.classpath(allCpFiles, features)
+        cp = db.classpathWithApproximations(allCpFiles, features)
+//        cp = db.classpath(allCpFiles, features)
 
         projectClasses = ProjectClasses(cp, projectPackage, projectModulesFiles)
         projectClasses.loadProjectClasses()
