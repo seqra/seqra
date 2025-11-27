@@ -1,5 +1,6 @@
 package org.opentaint.semgrep.util
 
+import base.RuleSample
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
@@ -13,11 +14,14 @@ import kotlin.test.assertTrue
 abstract class SampleBasedTest(
     private val configurationRequired: Boolean = false
 ) {
-    fun runTest(ruleName: String) {
-        val data = sampleData[ruleName] ?: error("No sample data for $ruleName")
+    inline fun <reified T : RuleSample> runTest() =
+        runClassTest(getFullyQualifiedClassName<T>())
+
+    fun runClassTest(sampleClassName: String) {
+        val data = sampleData[sampleClassName] ?: error("No sample data for $sampleClassName")
 
         val ruleYaml = parseSemgrepYaml(data.rule)
-        val rule = ruleYaml.rules.singleOrNull() ?: error("Not a single rule for $ruleName")
+        val rule = ruleYaml.rules.singleOrNull() ?: error("Not a single rule for ${data.rulePath}")
         check(rule.languages.contains("java"))
 
         val builder = SemgrepRuleAutomataBuilder()
@@ -80,4 +84,10 @@ abstract class SampleBasedTest(
         runner.close()
         samplesDb.close()
     }
+
+    inline fun <reified T> getFullyQualifiedClassName(): String = try {
+        T::class.qualifiedName
+    } catch (e: NoClassDefFoundError) {
+        e.message?.replace('/', '.')
+    } ?: error("No class name")
 }

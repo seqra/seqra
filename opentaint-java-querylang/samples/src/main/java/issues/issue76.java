@@ -3,7 +3,10 @@ package issues;
 import base.RuleSample;
 import issues.i76.BenchmarkTest00005_min;
 
-abstract class issue76 implements RuleSample {
+import base.RuleSet;
+
+@RuleSet("issues/issue76.yaml")
+public abstract class issue76 implements RuleSample {
     static class PositiveMin extends issue76 {
 
         @Override

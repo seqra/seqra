@@ -1,7 +1,9 @@
 package example;
 
 import base.RuleSample;
+import base.RuleSet;
 
+@RuleSet("example/RuleWithRealInsideSequence.yaml")
 public abstract class RuleWithRealInsideSequence implements RuleSample {
     final static class PositiveSimple extends RuleWithRealInsideSequence {
         @Override

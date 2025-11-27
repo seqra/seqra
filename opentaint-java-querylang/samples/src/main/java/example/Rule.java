@@ -1,7 +1,9 @@
 package example;
 
 import base.RuleSample;
+import base.RuleSet;
 
+@RuleSet("example/Rule.yaml")
 public abstract class Rule implements RuleSample {
     String src() {
         return "tainted string";

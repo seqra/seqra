@@ -10,29 +10,29 @@ import kotlin.test.Test
 @TestInstance(PER_CLASS)
 class CustomTest : SampleBasedTest(configurationRequired = true) {
     @Test
-    fun `test simplified rule`() = runTest("custom/springPathInjection1")
+    fun `test simplified rule`() = runTest<custom.springPathInjection1>()
 
     @Test
-    fun `test simplified rule with File creation`() = runTest("custom/springPathInjection2")
+    fun `test simplified rule with File creation`() = runTest<custom.springPathInjection2>()
 
     @Test
-    fun `test origin path injection rule`() = runTest("custom/springPathInjectionOrigin")
+    fun `test origin path injection rule`() = runTest<custom.springPathInjectionOrigin>()
 
     @Test
     @Disabled // todo: array initializer
-    fun `test simplified command injection rule`() = runTest("custom/springCommandInjection1")
+    fun `test simplified command injection rule`() = runTest<custom.springCommandInjection1>()
 
     @Test
     @Disabled // todo: validate pattern
-    fun `test origin command injection rule`() = runTest("custom/springCommandInjectionOrigin")
+    fun `test origin command injection rule`() = runTest<custom.springCommandInjectionOrigin>()
 
     @Test
     @Disabled // todo: return statements not supported
-    fun `test simple xss rule`() = runTest("custom/springXss")
+    fun `test simple xss rule`() = runTest<custom.springXss>()
 
     @Test
     @Disabled
-    fun `test log injection rule`() = runTest("custom/springLogInjection")
+    fun `test log injection rule`() = runTest<custom.springLogInjection>()
 
     @AfterAll
     fun close(){

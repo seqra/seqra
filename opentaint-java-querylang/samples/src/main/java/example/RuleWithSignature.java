@@ -1,7 +1,9 @@
 package example;
 
 import base.RuleSample;
+import base.RuleSet;
 
+@RuleSet("example/RuleWithSignature.yaml")
 public abstract class RuleWithSignature implements RuleSample {
 
     void sink1(String data) {}

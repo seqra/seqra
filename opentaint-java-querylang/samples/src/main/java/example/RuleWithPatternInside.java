@@ -1,7 +1,9 @@
 package example;
 
 import base.RuleSample;
+import base.RuleSet;
 
+@RuleSet("example/RuleWithPatternInside.yaml")
 public abstract class RuleWithPatternInside implements RuleSample {
     String src() {
         return "tainted string";

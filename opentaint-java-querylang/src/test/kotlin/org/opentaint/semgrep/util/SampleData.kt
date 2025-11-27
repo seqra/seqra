@@ -2,6 +2,7 @@ package org.opentaint.semgrep.util
 
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.jvm.JIRAnnotation
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.impl.JIRRamErsSettings
@@ -22,6 +23,7 @@ data class NegativeCase(val className: String, val ignoreWithMessage: String?)
 data class SampleData(
     val rulePath: String,
     val rule: String,
+    val sampleName: String,
     val positiveClasses: List<PositiveCase>,
     val negativeClasses: List<NegativeCase>,
 )
@@ -60,28 +62,50 @@ fun samplesDb(): SamplesDb = runBlocking {
 
 fun SamplesDb.loadSampleData(): Map<String, SampleData> =
     JarFile(samplesJar.absolutePathString()).use { jar ->
-        val rules = jar.entries().asSequence().filterTo(mutableListOf()) { it.name.endsWith(".yaml") }
+        val rules = jar.entries().asSequence()
+            .filterTo(mutableListOf()) { it.name.endsWith(".yaml") }
+            .associateBy { it.name }
 
         runBlocking {
             db.classpath(listOf(samplesJar.toFile())).use { cp ->
-                rules.map { loadSample(jar, cp, it) }.associateBy { it.rulePath }
+                loadSamples(cp, rules, jar).associateBy { it.sampleName }
             }
         }
     }
 
-private fun loadSample(samplesJar: JarFile, cp: JIRClasspath, sample: JarEntry): SampleData {
-    val rulePath = sample.name.removeSuffix(".yaml")
-    val ruleText = samplesJar.getInputStream(sample).use {
+private fun loadSamples(cp: JIRClasspath, rules: Map<String, JarEntry>, samplesJar: JarFile): List<SampleData> {
+    val sampleClass = cp.findClassOrNull("base.RuleSample")
+        ?: error("No base class for samples")
+
+    val hierarchy = runBlocking { cp.hierarchyExt() }
+    val allSampleClasses = hierarchy
+        .findSubClasses(sampleClass, entireHierarchy = true, includeOwn = false)
+        .toList()
+
+    val data = mutableListOf<SampleData>()
+    for (sample in allSampleClasses) {
+        val annotation = sample.annotations.singleOrNull { it.name == "base.RuleSet" } ?: continue
+        val rulePath = annotation.values["value"]?.toString() ?: continue
+        data += loadSample(cp, sample, rulePath, rules, samplesJar)
+    }
+    return data
+}
+
+private fun loadSample(
+    cp: JIRClasspath,
+    sample: JIRClassOrInterface,
+    rulePath: String,
+    rules: Map<String, JarEntry>,
+    samplesJar: JarFile
+): SampleData {
+    val ruleEntry = rules[rulePath] ?: error("Rule $rulePath not found")
+    val ruleText = samplesJar.getInputStream(ruleEntry).use {
         it.bufferedReader().readText()
     }
 
-    val sampleClassName = rulePath.replace('/', '.')
-    val sampleClass = cp.findClassOrNull(sampleClassName)
-        ?: error("No sample class for rule $rulePath")
-
     val hierarchy = runBlocking { cp.hierarchyExt() }
     val allSamples = hierarchy
-        .findSubClasses(sampleClass, entireHierarchy = true, includeOwn = false)
+        .findSubClasses(sample, entireHierarchy = true, includeOwn = false)
         .filterNotTo(mutableListOf()) { it.isAbstract }
 
     val positiveSamples = allSamples.filter { it.simpleName.contains("Positive") }.map { PositiveCase(it.name) }
@@ -99,7 +123,7 @@ private fun loadSample(samplesJar: JarFile, cp: JIRClasspath, sample: JarEntry):
         NegativeCase(cls.name, ignoreMessage)
     }
 
-    return SampleData(rulePath, ruleText, positiveSamples, negativeSamples)
+    return SampleData(rulePath, ruleText, sample.name, positiveSamples, negativeSamples)
 }
 
 private fun String?.plusAnnotationValue(annotation: JIRAnnotation): String {

@@ -1,8 +1,10 @@
 package example;
 
 import base.RuleSample;
+import base.RuleSet;
 import base.TaintRuleFalsePositive;
 
+@RuleSet("example/RuleWithNotInsidePrefix.yaml")
 public abstract class RuleWithNotInsidePrefix implements RuleSample {
     void sink(String data) {
 

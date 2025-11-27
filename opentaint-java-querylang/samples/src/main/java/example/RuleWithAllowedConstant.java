@@ -1,9 +1,11 @@
 package example;
 
 import base.RuleSample;
+import base.RuleSet;
 
 import java.util.Random;
 
+@RuleSet("example/RuleWithAllowedConstant.yaml")
 public abstract class RuleWithAllowedConstant implements RuleSample {
     String src() {
         return "tainted string " + generateString(new Random(), "abc", 3);

@@ -2,7 +2,9 @@ package example;
 
 import base.IFDSFalsePositive;
 import base.RuleSample;
+import base.RuleSet;
 
+@RuleSet("example/RuleWithNotInsideSuffix.yaml")
 public abstract class RuleWithNotInsideSuffix implements RuleSample {
     void sink(String data) {
 

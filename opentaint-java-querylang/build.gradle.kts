@@ -9,6 +9,7 @@ dependencies {
     implementation(project(":opentaint-jvm-dataflow"))
     implementation(project(":opentaint-jvm-dataflow:opentaint-jvm-dataflow-configuration"))
 
+    testCompileOnly(project("samples"))
     testImplementation(project(":opentaint-jvm"))
 
     implementation("com.charleskorn.kaml:kaml:0.73.0")

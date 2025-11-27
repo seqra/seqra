@@ -1,7 +1,9 @@
 package example;
 
 import base.RuleSample;
+import base.RuleSet;
 
+@RuleSet("example/RuleWithSimplePass.yaml")
 public abstract class RuleWithSimplePass implements RuleSample {
     String src() {
         return "tainted string";

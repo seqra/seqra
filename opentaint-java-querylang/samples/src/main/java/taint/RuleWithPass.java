@@ -2,6 +2,9 @@ package taint;
 
 import base.RuleSample;
 
+import base.RuleSet;
+
+@RuleSet("taint/RuleWithPass.yaml")
 public abstract class RuleWithPass implements RuleSample {
     String src() {
         return "tainted string";

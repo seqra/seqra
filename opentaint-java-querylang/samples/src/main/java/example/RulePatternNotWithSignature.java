@@ -2,8 +2,10 @@ package example;
 
 import base.IFDSFalsePositive;
 import base.RuleSample;
+import base.RuleSet;
 import base.TaintRuleFalsePositive;
 
+@RuleSet("example/RulePatternNotWithSignature.yaml")
 public abstract class RulePatternNotWithSignature implements RuleSample {
     void f(String data) {
 

@@ -1,7 +1,9 @@
 package example;
 
 import base.RuleSample;
+import base.RuleSet;
 
+@RuleSet("example/RuleWithSeveralSuffixCleaners.yaml")
 public abstract class RuleWithSeveralSuffixCleaners implements RuleSample {
     void f(String x) {}
     void clean1(String x) {}

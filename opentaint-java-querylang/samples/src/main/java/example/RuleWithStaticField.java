@@ -1,7 +1,9 @@
 package example;
 
 import base.RuleSample;
+import base.RuleSet;
 
+@RuleSet("example/RuleWithStaticField.yaml")
 public abstract class RuleWithStaticField implements RuleSample {
 
     void sink(StaticConstantStorage condition) {

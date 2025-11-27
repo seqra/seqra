@@ -1,7 +1,9 @@
 package example;
 
 import base.RuleSample;
+import base.RuleSet;
 
+@RuleSet("example/RuleWithArtificialInsideSequenceReverse.yaml")
 public abstract class RuleWithArtificialInsideSequenceReverse implements RuleSample {
     void f(String x) {}
     void g(String x) {}
