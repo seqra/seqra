@@ -23,7 +23,7 @@ class CustomTest : SampleBasedTest(configurationRequired = true) {
     fun `test simplified command injection rule`() = runTest<custom.springCommandInjection1>()
 
     @Test
-    @Disabled // todo: validate pattern
+    @Disabled // todo: taint array element
     fun `test origin command injection rule`() = runTest<custom.springCommandInjectionOrigin>()
 
     @Test

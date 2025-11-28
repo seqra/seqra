@@ -12,5 +12,6 @@ rules:
           }
       - pattern: |
           ProcessBuilder $BUILDER = new ProcessBuilder($FILEPATH);
-      - pattern-not: |
+      - pattern-not-inside: |
           $PATTERN.matcher($FILEPATH).matches();
+          ...
