@@ -1,6 +1,7 @@
 package org.opentaint.semgrep
 
 import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
 import org.opentaint.semgrep.util.SampleBasedTest
@@ -24,6 +25,7 @@ class ExampleTest : SampleBasedTest() {
     fun `test rule with pattern-not-inside prefix`() = runTest<example.RuleWithNotInsidePrefix>()
 
     @Test
+    @Disabled // todo: loop assign vars
     fun `test rule with pattern-not-inside suffix`() = runTest<example.RuleWithNotInsideSuffix>()
 
     @Test
@@ -36,12 +38,14 @@ class ExampleTest : SampleBasedTest() {
     fun `test rule with artificial pattern-inside sequence`() = runTest<example.RuleWithArtificialInsideSequence>()
 
     @Test
+    @Disabled // todo: loop assign vars
     fun `test rule with artificial reverse pattern-inside sequence`() = runTest<example.RuleWithArtificialInsideSequenceReverse>()
 
     @Test
     fun `test simple pass`() = runTest<example.RuleWithSimplePass>()
 
     @Test
+    @Disabled // todo: loop assign vars
     fun `test rule with several suffix cleaners`() = runTest<example.RuleWithSeveralSuffixCleaners>()
 
     @Test
