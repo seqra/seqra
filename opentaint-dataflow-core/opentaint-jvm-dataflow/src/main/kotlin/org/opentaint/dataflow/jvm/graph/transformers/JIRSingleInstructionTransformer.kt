@@ -25,7 +25,7 @@ class JIRSingleInstructionTransformer(originalInstructions: JIRInstList<JIRInst>
 
     inline fun generateReplacementBlock(original: JIRInst, blockGen: BlockGenerationContext.() -> Unit) {
         val originalLocation = original.location
-        val ctx = BlockGenerationContext(originalLocation, generatedLocalVarIndex)
+        val ctx = BlockGenerationContext(mutableInstructions, originalLocation, generatedLocalVarIndex)
 
         ctx.blockGen()
 
@@ -72,7 +72,8 @@ class JIRSingleInstructionTransformer(originalInstructions: JIRInstList<JIRInst>
         }
     }
 
-    inner class BlockGenerationContext(
+    class BlockGenerationContext(
+        val mutableInstructions: MutableList<JIRInst>,
         val originalLocation: JIRInstLocation,
         initialLocalVarIndex: Int,
     ) {
@@ -97,19 +98,19 @@ class JIRSingleInstructionTransformer(originalInstructions: JIRInstList<JIRInst>
             val currentInst = mutableInstructions[loc.index]
             mutableInstructions[loc.index] = replacement(currentInst)
         }
-    }
 
-    @OptIn(ExperimentalContracts::class)
-    inline fun MutableList<JIRInst>.addInstruction(origin: JIRInstLocation, body: (JIRInstLocation) -> JIRInst) {
-        contract {
-            callsInPlace(body, InvocationKind.EXACTLY_ONCE)
+        @OptIn(ExperimentalContracts::class)
+        inline fun MutableList<JIRInst>.addInstruction(origin: JIRInstLocation, body: (JIRInstLocation) -> JIRInst) {
+            contract {
+                callsInPlace(body, InvocationKind.EXACTLY_ONCE)
+            }
+
+            val index = size
+            val newLocation = JIRInstLocationImpl(origin.method, index, origin.lineNumber)
+            val instruction = body(newLocation)
+            check(size == index)
+            add(instruction)
         }
-
-        val index = size
-        val newLocation = JIRInstLocationImpl(origin.method, index, origin.lineNumber)
-        val instruction = body(newLocation)
-        check(size == index)
-        add(instruction)
     }
 
     private object LocalVarMaxIndexFinder : JIRExprVisitor.Default<Int> {
