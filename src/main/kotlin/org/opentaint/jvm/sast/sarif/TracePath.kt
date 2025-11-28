@@ -1,4 +1,4 @@
-package org.opentaint.dataflow.ap.ifds.sarif
+package org.opentaint.jvm.sast.sarif
 
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf

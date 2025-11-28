@@ -1,4 +1,4 @@
-package org.opentaint.dataflow.ap.ifds.sarif
+package org.opentaint.jvm.sast.sarif
 
 import io.github.detekt.sarif4k.Tool
 import io.github.detekt.sarif4k.ToolComponent

@@ -88,6 +88,7 @@ abstract class AbstractProjectAnalyzer(
             installFeatures(JIRSummariesFeature(ifdsApMode))
             installFeatures(ClassScorer(TypeScorer, ::scoreClassNode))
             installFeatures(Approximations)
+            keepLocalVariableNames()
 
             loadByteCode(allCpFiles)
         }

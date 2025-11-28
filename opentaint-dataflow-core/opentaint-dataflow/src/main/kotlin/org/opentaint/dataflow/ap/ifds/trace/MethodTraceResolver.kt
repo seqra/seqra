@@ -436,9 +436,10 @@ class MethodTraceResolver(
             }
         }
 
-        check(initial.size == startEntryIds.cardinality()) {
-            "Incorrect trace for $methodEntryPoint"
-        }
+        // TODO: Support inter-procedural full trace resolving #https://github.com/explyt/opentaint/issues/103
+//        check(initial.size == startEntryIds.cardinality()) {
+//            "Incorrect trace for $methodEntryPoint"
+//        }
 
         val finalEntry = entryManager.entryById(finalEntryId) as TraceEntry.Final
         return MethodFullTrace(methodEntryPoint, initial, finalEntry, successors())

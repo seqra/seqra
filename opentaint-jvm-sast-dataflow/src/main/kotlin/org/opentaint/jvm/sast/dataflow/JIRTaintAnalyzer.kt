@@ -12,7 +12,7 @@ import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.api.targets.analyzeIfdsTracesWithOpentaint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.access.ApMode
-import org.opentaint.dataflow.ap.ifds.sarif.SarifGenerator
+import org.opentaint.api.util.sarif.SarifGenerator
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver

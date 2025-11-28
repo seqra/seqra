@@ -199,8 +199,11 @@ class TraceResolver(
 
                 is MethodTraceResolver.MethodSummaryTrace -> {
                     check(kind == CallKind.CallToSink) { "Unexpected trace: $trace" }
+                    val fullTrace = withMethodRunner(trace.method) {
+                        resolveIntraProceduralFullTrace(trace.method, trace, cancellation)
+                    }
 
-                    val node = InterProceduralSummaryTraceNode(trace)
+                    val node = InterProceduralFullTraceNode(fullTrace)
                     traceNodes[cacheKey] = node
 
                     val callerTraces = resolveMethodEntry(trace.initial)
