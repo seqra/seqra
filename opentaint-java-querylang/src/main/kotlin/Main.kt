@@ -11,6 +11,8 @@ import org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
 import org.opentaint.semgrep.pattern.yamlToSemgrepRule
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.time.Duration
+import kotlin.time.measureTimedValue
 
 fun main() {
 //    val pattern = "return (int ${"\$"}A);"
@@ -135,10 +137,13 @@ fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
     var successTaintRules = 0
     val taintRuleGenerationExceptions = hashMapOf<String, AtomicInteger>()
     val automataBuildExceptions = hashMapOf<String, AtomicInteger>()
+    val ruleBuildTime = hashMapOf<String, Duration>()
 
     val ruleBuilderStats = SemgrepRuleAutomataBuilder.Stats()
 
-    File(path).walk().filter { it.isFile }.forEach { file ->
+    val rootDir = File(path)
+    rootDir.walk()
+        .filter { it.isFile }.forEach { file ->
         if (file.extension !in setOf("yml", "yaml")) {
             return@forEach
         }
@@ -149,7 +154,7 @@ fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
         println("Reading $file")
         val content = file.readText()
 
-        val parsed = try {
+        val rules = try {
             yamlToSemgrepRule(content)
         } catch (e: Throwable) {
             System.err.println("Error parsing $file")
@@ -157,40 +162,41 @@ fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
             return@forEach
         }
 
-        val rules = parsed
         if (rules.isEmpty()) {  // not java rules
             return@forEach
         }
         all++
 
-        val ruleBuilder = SemgrepRuleAutomataBuilder(patternParser.cached(), converter.cached())
+        for ((i, rule) in rules.withIndex()) {
+            val ruleBuilder = SemgrepRuleAutomataBuilder(patternParser.cached(), converter.cached())
+            val automata = measureTimedValue {
+                runCatching {
+                    ruleBuilder.build(rule)
+                }.getOrElse { e ->
+                    automataBuildExceptions.getOrPut(e.toString(), ::AtomicInteger).incrementAndGet()
+                    exceptionWhileBuildingAutomata += 1
+                    null
+                }
+            }.also {
+                val rulePath = file.relativeTo(rootDir).toString()
+                val ruleFqn = "$rulePath#$i"
+                ruleBuildTime[ruleFqn] = it.duration
+            }.value
 
-        runCatching {
-            val automatas = rules.map { ruleBuilder.build(it) }
+            ruleBuilderStats.add(ruleBuilder.stats)
+
+            if (automata == null) continue
+
             converted++
             println("converted")
 
-            for (ruleAutomata in automatas) {
-                runCatching { convertToTaintRules(ruleAutomata, "test", SinkMetaData()) }
-                    .onFailure { e ->
-//                        println("Exception $e")
-//                        e.printStackTrace()
-
-                        taintRuleGenerationExceptions.getOrPut(e.toString(), ::AtomicInteger).incrementAndGet()
-                        taintRuleGenerationException++
-                    }
-                    .onSuccess { successTaintRules++ }
-            }
-
-            automatas
-        }.getOrElse { e ->
-//            println("Exception: $e")
-//            e.printStackTrace(System.out)
-            automataBuildExceptions.getOrPut(e.toString(), ::AtomicInteger).incrementAndGet()
-            exceptionWhileBuildingAutomata += 1
+            runCatching {
+                convertToTaintRules(automata, "test", SinkMetaData())
+            }.onFailure { e ->
+                taintRuleGenerationExceptions.getOrPut(e.toString(), ::AtomicInteger).incrementAndGet()
+                taintRuleGenerationException++
+            }.onSuccess { successTaintRules++ }
         }
-
-        ruleBuilderStats.add(ruleBuilder.stats)
     }
 
     println("Converted into automata $converted/$all")
@@ -222,6 +228,12 @@ fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
     println("Success: $successTaintRules")
     println("Failures: $taintRuleGenerationException")
     taintRuleGenerationExceptions.entries.sortedByDescending { it.value.get() }.forEach { (key, value) ->
+        println("$key: $value")
+    }
+
+    println()
+    println("Build time")
+    ruleBuildTime.entries.sortedByDescending { it.value }.take(10).forEach { (key, value) ->
         println("$key: $value")
     }
 

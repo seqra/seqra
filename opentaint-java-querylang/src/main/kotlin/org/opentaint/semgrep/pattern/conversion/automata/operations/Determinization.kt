@@ -18,12 +18,15 @@ import java.util.IdentityHashMap
 fun determinize(
     automata: SemgrepRuleAutomata,
     metaVarInfo: ResolvedMetaVarInfo,
+    simplifyAutomata: Boolean = false
 ): SemgrepRuleAutomata {
     if (automata.isDeterministic) {
         return automata
     }
 
-    simplifyAutomata(automata, metaVarInfo)
+    if (simplifyAutomata) {
+        simplifyAutomata(automata, metaVarInfo)
+    }
 
     val formulaManager = automata.formulaManager
 
@@ -112,12 +115,12 @@ private inline fun <reified Type : AutomataEdgeType.AutomataEdgeTypeWithFormula>
     val n = edgesOfThisType.size
     val out = hashMapOf<BitSet, MutableList<Int>>()
 
-    check(n < Int.SIZE_BITS) {
-        "Determinization failed: too many formulas $n"
-    }
-
     if (n > 16) {
         TODO("Determinization failure: state explosion")
+    }
+
+    check(n < Int.SIZE_BITS) {
+        "Determinization failed: too many formulas $n"
     }
 
     val edgeNodeSets = edgesOfThisType.map { (_, edges) ->

@@ -1,5 +1,6 @@
 package org.opentaint.semgrep.pattern.conversion.taint
 
+import org.opentaint.dataflow.util.collectToListWithPostProcess
 import org.opentaint.dataflow.util.containsAll
 import org.opentaint.dataflow.util.copy
 import org.opentaint.dataflow.util.forEach
@@ -12,7 +13,6 @@ import org.opentaint.semgrep.pattern.conversion.automata.UnknownValue
 import org.opentaint.semgrep.pattern.conversion.automata.VariableValue
 import org.opentaint.semgrep.pattern.conversion.automata.isFalse
 import org.opentaint.semgrep.pattern.conversion.automata.isTrue
-import org.opentaint.semgrep.pattern.conversion.automata.isUnknown
 import org.opentaint.semgrep.pattern.conversion.automata.negated
 import java.util.BitSet
 
@@ -24,10 +24,35 @@ fun methodFormulaCheckSat(
     formula: MethodFormula,
     verifyModel: (MethodFormulaCubeCompact) -> Boolean
 ): Boolean {
-    methodFormulaModels(formula) { model ->
-        if (verifyModel(model)) return true
+    val checkSatStorage = object : FormulaModelsStorage {
+        private val models = mutableListOf<MethodFormulaCubeCompact>()
+
+        override val isEmpty: Boolean get() = models.isEmpty()
+
+        override fun collectToList(dst: MutableList<MethodFormulaCubeCompact>) {
+            dst.addAll(models)
+        }
+
+        override fun addModel(model: MethodFormulaCubeCompact, startModel: MethodFormulaCubeCompact) {
+            if (verifyModel(model)) {
+                throw FormulaSatResult()
+            }
+
+            models.add(model)
+        }
     }
+
+    try {
+        methodFormulaModels(formula, checkSatStorage)
+    } catch (isSat: FormulaSatResult) {
+        return true
+    }
+
     return false
+}
+
+private class FormulaSatResult : Exception() {
+    override fun fillInStackTrace(): Throwable = this
 }
 
 private class ModelStorage {
@@ -65,14 +90,23 @@ private class ModelStorage {
     }
 }
 
-private class FormulaModels(val formula: MethodFormula) {
-    val storage = ModelStorage()
+private interface FormulaModelsStorage {
+    val isEmpty: Boolean
+    fun addModel(model: MethodFormulaCubeCompact, startModel: MethodFormulaCubeCompact)
 
-    fun addModels(models: List<MethodFormulaCubeCompact>, startModel: MethodFormulaCubeCompact) {
-        models.forEach { addModel(it, startModel) }
+    fun collectToList(dst: MutableList<MethodFormulaCubeCompact>)
+}
+
+private class FormulaModels(val formula: MethodFormula): FormulaModelsStorage {
+    private val storage = ModelStorage()
+
+    override val isEmpty: Boolean get() = storage.isEmpty
+
+    override fun collectToList(dst: MutableList<MethodFormulaCubeCompact>) {
+        storage.forEachModel { dst.add(it) }
     }
 
-    private fun addModel(model: MethodFormulaCubeCompact, startModel: MethodFormulaCubeCompact) {
+    override fun addModel(model: MethodFormulaCubeCompact, startModel: MethodFormulaCubeCompact) {
         val usedVars = model.usedLitVars()
         mergeAddModelToGroupWithWeaknessCheck(model, usedVars, startModel)
     }
@@ -192,42 +226,47 @@ private class FormulaModels(val formula: MethodFormula) {
     }
 }
 
-fun methodFormulaModels(formula: MethodFormula) = methodFormulaModels(formula) {}
+private class IterationModelsCollector(
+    private val formulaModels: FormulaModelsStorage,
+    private val startModel: MethodFormulaCubeCompact,
+) {
+    fun addModel(model: MethodFormulaCubeCompact) {
+        formulaModels.addModel(model, startModel)
+    }
+}
 
-private inline fun methodFormulaModels(
+fun methodFormulaModels(formula: MethodFormula) = methodFormulaModels(formula, FormulaModels(formula))
+
+private fun methodFormulaModels(
     formula: MethodFormula,
-    onEachModel: (MethodFormulaCubeCompact) -> Unit,
+    models: FormulaModelsStorage,
 ): List<MethodFormulaCubeCompact> {
-    val models = FormulaModels(formula)
-
     val startModels = startModels(formula)
     for (startModel in startModels) {
         while (true) {
             var iterationFormula = formula
 
-            if (!models.storage.isEmpty) {
+            if (!models.isEmpty) {
                 val conjuncts = mutableListOf(iterationFormula)
-                models.storage.forEachModel { model ->
-                    conjuncts += MethodFormula.Cube(model, negated = true)
-                }
+                collectToListWithPostProcess(
+                    conjuncts,
+                    { models.collectToList(it) },
+                    { MethodFormula.Cube(it, negated = true) }
+                )
                 iterationFormula = MethodFormula.And(conjuncts.toTypedArray())
             }
 
-            val iterationModels = mutableListOf<MethodFormulaCubeCompact>()
+            val iterationModels = IterationModelsCollector(models, startModel)
             val status = deepSearchModel(decisionVar = 0, iterationFormula, startModel, iterationModels)
 
             if (!status) {
                 break
             }
-
-            iterationModels.forEach { onEachModel(it) }
-
-            models.addModels(iterationModels, startModel)
         }
     }
 
     val result = mutableListOf<MethodFormulaCubeCompact>()
-    models.storage.forEachModel { result.add(it) }
+    models.collectToList(result)
     return result
 }
 
@@ -285,7 +324,7 @@ private fun searchModel(
     decisionVar: Int,
     formula: MethodFormula,
     currentModel: MethodFormulaCubeCompact,
-    resultModels: MutableList<MethodFormulaCubeCompact>
+    resultModels: IterationModelsCollector
 ): Boolean {
     currentModel.positiveLiterals.set(decisionVar)
     val positiveSat = deepSearchModel(decisionVar, formula, currentModel, resultModels)
@@ -302,7 +341,7 @@ private fun deepSearchModel(
     decisionVar: Int,
     formula: MethodFormula,
     currentModel: MethodFormulaCubeCompact,
-    resultModels: MutableList<MethodFormulaCubeCompact>
+    resultModels: IterationModelsCollector
 ): Boolean {
     val simplificationResult = simplifyWrtModel(formula, currentModel)
     return simplificationResult.handle(
@@ -311,7 +350,7 @@ private fun deepSearchModel(
             val resultModel = currentModel.add(requiredModel)
             check(!resultModel.hasConflict()) { "Simplification failed" }
 
-            resultModels.add(resultModel)
+            resultModels.addModel(resultModel)
             true
         },
         partial = {
@@ -330,8 +369,8 @@ private fun simplifyWrtModel(
     formula: MethodFormula,
     model: MethodFormulaCubeCompact
 ): SimplificationResult = when (formula) {
-    MethodFormula.False -> simplificationFailed()
-    MethodFormula.True -> simplifiedTrue(emptyModel)
+    is MethodFormula.False -> simplificationFailed()
+    is MethodFormula.True -> simplifiedTrue(emptyModel)
     is MethodFormula.Cube -> simplifyCubeWrtModel(formula, model)
     is MethodFormula.Literal -> simplifyLiteralWrtModel(formula, model)
     is MethodFormula.And -> simplifyAndWrtModel(model, formula)
@@ -579,8 +618,8 @@ private fun simplifyPositiveCubeWrtModel(
 }
 
 fun MethodFormula.eval(model: MethodFormulaCubeCompact): VariableValue = when (this) {
-    MethodFormula.False -> FalseValue
-    MethodFormula.True -> TrueValue
+    is MethodFormula.False -> FalseValue
+    is MethodFormula.True -> TrueValue
     is MethodFormula.And -> evalAnd(model)
     is MethodFormula.Or -> evalOr(model)
     is MethodFormula.Literal -> evalLiteral(predicate, negated, model)
@@ -591,24 +630,23 @@ fun MethodFormula.eval(model: MethodFormulaCubeCompact): VariableValue = when (t
 }
 
 private fun evalCube(cube: MethodFormulaCubeCompact, model: MethodFormulaCubeCompact): VariableValue {
-    var result: VariableValue = TrueValue
-    cube.positiveLiterals.forEach {
-        val value = evalLiteral(it, negated = false, model)
-        if (value.isFalse) return FalseValue
-        if (value.isUnknown) {
-            result = UnknownValue
-        }
+    if (cube.positiveLiterals.intersects(model.negativeLiterals)) {
+        return FalseValue
     }
 
-    cube.negativeLiterals.forEach {
-        val value = evalLiteral(it, negated = true, model)
-        if (value.isFalse) return FalseValue
-        if (value.isUnknown) {
-            result = UnknownValue
-        }
+    if (cube.negativeLiterals.intersects(model.positiveLiterals)) {
+        return FalseValue
     }
 
-    return result
+    if (!model.positiveLiterals.containsAll(cube.positiveLiterals)) {
+        return UnknownValue
+    }
+
+    if (!model.negativeLiterals.containsAll(cube.negativeLiterals)) {
+        return UnknownValue
+    }
+
+    return TrueValue
 }
 
 private fun MethodFormula.Or.evalOr(model: MethodFormulaCubeCompact): VariableValue {

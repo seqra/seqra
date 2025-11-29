@@ -6,7 +6,7 @@ import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaManager
 import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
-import org.opentaint.semgrep.pattern.conversion.taint.simplifyMethodFormulaAnd
+import org.opentaint.semgrep.pattern.conversion.taint.methodFormulaSat
 
 /**
  * Return dead node
@@ -86,6 +86,10 @@ private inline fun <reified EdgeType : AutomataEdgeType.AutomataEdgeTypeWithForm
 ): MethodFormula? {
     val formulas = node.outEdges.mapNotNull { (it.first as? EdgeType)?.formula?.complement() }
 
-    val result = simplifyMethodFormulaAnd(formulaManager, formulas, metaVarInfo)
-    return result.takeIf { it != MethodFormula.False }
+    val result = formulaManager.mkAnd(formulas)
+    if (!methodFormulaSat(formulaManager, result, metaVarInfo)) {
+        return null
+    }
+
+    return result
 }

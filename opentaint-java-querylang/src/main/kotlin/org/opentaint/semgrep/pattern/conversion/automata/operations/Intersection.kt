@@ -6,7 +6,7 @@ import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaManager
 import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
-import org.opentaint.semgrep.pattern.conversion.taint.simplifyMethodFormulaAnd
+import org.opentaint.semgrep.pattern.conversion.taint.methodFormulaSat
 
 fun intersection(
     a1: SemgrepRuleAutomata,
@@ -81,9 +81,8 @@ private fun intersectMethodFormula(
     metaVarInfo: ResolvedMetaVarInfo,
     f1: MethodFormula, f2: MethodFormula
 ): MethodFormula? {
-    val result = simplifyMethodFormulaAnd(formulaManager, listOf(f1, f2), metaVarInfo)
-
-    if (result == MethodFormula.False) {
+    val result = formulaManager.mkAnd(listOf(f1, f2))
+    if (!methodFormulaSat(formulaManager, result, metaVarInfo)) {
         return null
     }
 

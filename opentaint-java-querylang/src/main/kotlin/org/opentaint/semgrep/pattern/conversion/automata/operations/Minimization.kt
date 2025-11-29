@@ -93,6 +93,6 @@ fun brzozowskiAlgorithm(metaVarInfo: ResolvedMetaVarInfo, automata: SemgrepRuleA
     val reversedNfa = reverse(automata)
     val reversedDfa = determinize(reversedNfa, metaVarInfo)
     val newNfa = reverse(reversedDfa)
-    val result = determinize(newNfa, metaVarInfo)
+    val result = determinize(newNfa, metaVarInfo, simplifyAutomata = true)
     return result
 }
