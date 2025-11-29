@@ -1,4 +1,4 @@
-package org.opentaint.org.opentaint.semgrep.pattern
+package org.opentaint.semgrep.pattern
 
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRCatchInst

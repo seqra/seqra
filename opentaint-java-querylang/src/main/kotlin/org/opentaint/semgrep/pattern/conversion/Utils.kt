@@ -1,4 +1,4 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.pattern.conversion
 
 inline fun <reified T, R> List<List<T>>.cartesianProductMapTo(body: (Array<T>) -> R): List<R> {
     val resultSize = fold(1) { acc, lst -> acc * lst.size }

@@ -1,12 +1,12 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.org.opentaint.semgrep.pattern.ConcreteName
-import org.opentaint.org.opentaint.semgrep.pattern.FieldAccess
-import org.opentaint.org.opentaint.semgrep.pattern.Identifier
-import org.opentaint.org.opentaint.semgrep.pattern.Metavar
-import org.opentaint.org.opentaint.semgrep.pattern.MetavarName
-import org.opentaint.org.opentaint.semgrep.pattern.Name
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPattern
+import org.opentaint.semgrep.pattern.ConcreteName
+import org.opentaint.semgrep.pattern.FieldAccess
+import org.opentaint.semgrep.pattern.Identifier
+import org.opentaint.semgrep.pattern.Metavar
+import org.opentaint.semgrep.pattern.MetavarName
+import org.opentaint.semgrep.pattern.Name
+import org.opentaint.semgrep.pattern.SemgrepJavaPattern
 
 fun tryExtractPatternDotSeparatedParts(pattern: SemgrepJavaPattern): List<Name>? {
     // note: don't match single metavar as dot separated

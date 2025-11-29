@@ -1,9 +1,9 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion.automata
+package org.opentaint.semgrep.pattern.conversion.automata
 
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.And
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.False
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.Or
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.True
+import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.And
+import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.False
+import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.Or
+import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.True
 
 class MethodFormulaManager {
     private val predicateIds = hashMapOf<Predicate, Int>()

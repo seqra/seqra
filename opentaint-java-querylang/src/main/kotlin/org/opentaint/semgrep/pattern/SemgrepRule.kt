@@ -1,4 +1,4 @@
-package org.opentaint.org.opentaint.semgrep.pattern
+package org.opentaint.semgrep.pattern
 
 sealed interface SemgrepRule<PatternsRepr> {
     fun <NewRepr> transform(block: (PatternsRepr) -> NewRepr): SemgrepRule<NewRepr>

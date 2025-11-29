@@ -1,9 +1,9 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.pattern.conversion
 
 import mu.KotlinLogging
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPattern
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPatternParsingResult
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPatternParser
+import org.opentaint.semgrep.pattern.SemgrepJavaPattern
+import org.opentaint.semgrep.pattern.SemgrepJavaPatternParsingResult
+import org.opentaint.semgrep.pattern.SemgrepJavaPatternParser
 import java.util.Optional
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.jvm.optionals.getOrNull

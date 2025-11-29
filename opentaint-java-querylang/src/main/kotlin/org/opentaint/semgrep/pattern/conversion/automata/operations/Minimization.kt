@@ -1,9 +1,9 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations
+package org.opentaint.semgrep.pattern.conversion.automata.operations
 
-import org.opentaint.org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
+import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
+import org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
+import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
+import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 
 fun removeDeadNodes(automata: SemgrepRuleAutomata) {
     removeDeadNodes(automata.initialNode, mutableSetOf())

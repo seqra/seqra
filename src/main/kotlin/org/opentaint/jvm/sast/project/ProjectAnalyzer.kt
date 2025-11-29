@@ -1,21 +1,31 @@
 package org.opentaint.jvm.sast.project
 
 import mu.KLogging
+import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.jvm.sast.dataflow.JIRCombinedTaintRulesProvider
-import org.opentaint.jvm.sast.dataflow.JIRSourceFileResolver
-import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
-import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
 import org.opentaint.dataflow.ap.ifds.access.ApMode
+import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.TaintConfiguration
 import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSummarySerializationContext
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.applyAnalysisEndSinksForEntryPoints
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepRuleLoader
-import org.opentaint.org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
-import org.opentaint.org.opentaint.semgrep.pattern.loadSemgrepRule
+import org.opentaint.dataflow.jvm.util.JIRSarifTraits
+import org.opentaint.dataflow.sarif.SourceFileResolver
+import org.opentaint.jvm.sast.JIRSourceFileResolver
+import org.opentaint.jvm.sast.dataflow.JIRCombinedTaintRulesProvider
+import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
+import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer.DebugOptions
+import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
+import org.opentaint.jvm.sast.sarif.SarifGenerator
+import org.opentaint.jvm.sast.se.api.SastSeAnalyzer
+import org.opentaint.jvm.sast.util.loadDefaultConfig
+import org.opentaint.semgrep.pattern.SemgrepRuleLoader
+import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
+import org.opentaint.semgrep.pattern.loadSemgrepRule
+import org.opentaint.project.Project
+import java.io.OutputStream
 import java.nio.file.Path
 import kotlin.io.path.div
 import kotlin.io.path.extension
@@ -27,20 +37,32 @@ import kotlin.io.path.walk
 import kotlin.time.Duration
 
 class ProjectAnalyzer(
-    project: Project,
-    projectPackage: String?,
+    private val project: Project,
+    private val projectPackage: String?,
     private val resultDir: Path,
     private val customConfig: Path?,
     private val semgrepRuleSet: Path?,
     private val cwe: List<Int>,
     private val useSymbolicExecution: Boolean,
     private val symbolicExecutionTimeout: Duration,
-    ifdsAnalysisTimeout: Duration,
-    ifdsApMode: ApMode,
-    projectKind: ProjectKind,
+    private val ifdsAnalysisTimeout: Duration,
+    private val ifdsApMode: ApMode,
+    private val projectKind: ProjectKind,
     private val storeSummaries: Boolean,
-    debugOptions: DebugOptions
-) : AbstractProjectAnalyzer(project, projectPackage, ifdsAnalysisTimeout, ifdsApMode, projectKind, debugOptions) {
+    private val debugOptions: DebugOptions
+) {
+    fun analyze() {
+        val projectAnalysisContext = initializeProjectAnalysisContext(
+            project, projectPackage, projectKind,
+            summariesApMode = ifdsApMode.takeIf { storeSummaries }
+        )
+
+        projectAnalysisContext.use {
+            val entryPoints = it.selectProjectEntryPoints()
+            it.runAnalyzer(entryPoints)
+        }
+    }
+
     private fun loadTaintConfig(): TaintRulesProvider {
         if (semgrepRuleSet != null) {
             check(customConfig == null) { "Unsupported custom config" }
@@ -88,7 +110,7 @@ class ProjectAnalyzer(
         return rules
     }
 
-    override fun runAnalyzer(entryPoints: List<JIRMethod>) {
+    private fun ProjectAnalysisContext.runAnalyzer(entryPoints: List<JIRMethod>) {
         val summarySerializationContext = JIRSummarySerializationContext(cp)
 
         JIRTaintAnalyzer(
@@ -96,7 +118,6 @@ class ProjectAnalyzer(
             projectLocations = projectClasses.projectLocations,
             ifdsTimeout = ifdsAnalysisTimeout,
             ifdsApMode = ifdsApMode,
-            opentaintTimeout = symbolicExecutionTimeout,
             symbolicExecutionEnabled = useSymbolicExecution,
             analysisCwe = cwe.takeIf { it.isNotEmpty() }?.toSet(),
             summarySerializationContext = summarySerializationContext,
@@ -109,27 +130,42 @@ class ProjectAnalyzer(
             )
 
             logger.info { "Start IFDS analysis for project: ${project.sourceRoot}" }
-            analyzer.analyzeWithIfds(entryPoints)
+            val traces = analyzer.analyzeWithIfds(entryPoints)
             logger.info { "Finish IFDS analysis for project: ${project.sourceRoot}" }
 
             (resultDir / "report-ifds.sarif").outputStream().use {
-                analyzer.generateSarifReportFromIfdsTraces(it, sourcesResolver)
+                generateSarifReportFromTraces(it, sourcesResolver, traces)
             }
 
             logger.info { "Finish IFDS analysis report for project: ${project.sourceRoot}" }
 
             if (!useSymbolicExecution) return
 
+            val seAnalyzer = SastSeAnalyzer.createSeEngine() ?: return
+
             logger.info { "Start Opentaint for project: ${project.sourceRoot}" }
-            analyzer.filterIfdsTracesWithOpentaint()
+            val verifiedTraces = seAnalyzer.analyzeTraces(
+                cp, projectClasses.projectLocations, analyzer.ifdsEngine,
+                traces, symbolicExecutionTimeout
+            )
             logger.info { "Finish Opentaint for project: ${project.sourceRoot}" }
 
             (resultDir / "report-opentaint.sarif").outputStream().use {
-                analyzer.generateSarifReportFromVerifiedIfdsTraces(it, sourcesResolver)
+                generateSarifReportFromTraces(it, sourcesResolver, verifiedTraces)
             }
 
             logger.info { "Finish Opentaint report for project: ${project.sourceRoot}" }
         }
+    }
+
+    private fun ProjectAnalysisContext.generateSarifReportFromTraces(
+        output: OutputStream,
+        sourceFileResolver: SourceFileResolver<CommonInst>,
+        traces: List<VulnerabilityWithTrace>
+    ) {
+        val generator = SarifGenerator(sourceFileResolver, JIRSarifTraits(cp))
+        generator.generateSarif(output, traces.asSequence())
+        logger.info { "Sarif trace generation stats: ${generator.traceGenerationStats}" }
     }
 
     companion object {

@@ -1,4 +1,4 @@
-package org.opentaint.org.opentaint.semgrep.pattern
+package org.opentaint.semgrep.pattern
 
 import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.api.jvm.JIRClasspath
@@ -22,9 +22,9 @@ import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.impl.features.SyncUsagesExtension
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.dataflow.jvm.graph.JIRApplicationGraphImpl
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepMatchingResult.Companion.noMatch
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepMatchingResult.Companion.single
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepMatchingResult.Companion.singleEmptyMatch
+import org.opentaint.semgrep.pattern.SemgrepMatchingResult.Companion.noMatch
+import org.opentaint.semgrep.pattern.SemgrepMatchingResult.Companion.single
+import org.opentaint.semgrep.pattern.SemgrepMatchingResult.Companion.singleEmptyMatch
 
 class SemgrepJavaPatternMatcher(
     private val cp: JIRClasspath,

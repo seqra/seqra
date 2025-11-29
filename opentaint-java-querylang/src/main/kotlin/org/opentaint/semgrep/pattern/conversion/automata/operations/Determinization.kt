@@ -1,16 +1,16 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations
+package org.opentaint.semgrep.pattern.conversion.automata.operations
 
 import org.opentaint.dataflow.util.any
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.toBitSet
-import org.opentaint.org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaManager
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.methodFormulaSat
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.trySimplifyMethodFormula
+import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
+import org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
+import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
+import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
+import org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaManager
+import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
+import org.opentaint.semgrep.pattern.conversion.taint.methodFormulaSat
+import org.opentaint.semgrep.pattern.conversion.taint.trySimplifyMethodFormula
 import java.util.BitSet
 import java.util.Collections
 import java.util.IdentityHashMap

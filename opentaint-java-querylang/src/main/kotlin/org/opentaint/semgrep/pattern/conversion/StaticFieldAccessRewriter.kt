@@ -1,13 +1,13 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.org.opentaint.semgrep.pattern.ConcreteName
-import org.opentaint.org.opentaint.semgrep.pattern.FieldAccess
-import org.opentaint.org.opentaint.semgrep.pattern.Name
-import org.opentaint.org.opentaint.semgrep.pattern.NormalizedSemgrepRule
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPattern
-import org.opentaint.org.opentaint.semgrep.pattern.StaticFieldAccess
-import org.opentaint.org.opentaint.semgrep.pattern.TypeName
-import org.opentaint.org.opentaint.semgrep.pattern.map
+import org.opentaint.semgrep.pattern.ConcreteName
+import org.opentaint.semgrep.pattern.FieldAccess
+import org.opentaint.semgrep.pattern.Name
+import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
+import org.opentaint.semgrep.pattern.SemgrepJavaPattern
+import org.opentaint.semgrep.pattern.StaticFieldAccess
+import org.opentaint.semgrep.pattern.TypeName
+import org.opentaint.semgrep.pattern.map
 
 fun rewriteStaticFieldAccess(rule: NormalizedSemgrepRule): NormalizedSemgrepRule {
     val rewriter = object : PatternRewriter {

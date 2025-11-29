@@ -1,13 +1,13 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.org.opentaint.semgrep.pattern.ConcreteName
-import org.opentaint.org.opentaint.semgrep.pattern.MethodArguments
-import org.opentaint.org.opentaint.semgrep.pattern.Name
-import org.opentaint.org.opentaint.semgrep.pattern.NormalizedSemgrepRule
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPattern
-import org.opentaint.org.opentaint.semgrep.pattern.TypeName
-import org.opentaint.org.opentaint.semgrep.pattern.TypedMetavar
-import org.opentaint.org.opentaint.semgrep.pattern.map
+import org.opentaint.semgrep.pattern.ConcreteName
+import org.opentaint.semgrep.pattern.MethodArguments
+import org.opentaint.semgrep.pattern.Name
+import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
+import org.opentaint.semgrep.pattern.SemgrepJavaPattern
+import org.opentaint.semgrep.pattern.TypeName
+import org.opentaint.semgrep.pattern.TypedMetavar
+import org.opentaint.semgrep.pattern.map
 
 private const val GeneratedObjMetaVarPrefix = "__OBJ#"
 private const val GeneratedObjMetaVarSuffix = "__"

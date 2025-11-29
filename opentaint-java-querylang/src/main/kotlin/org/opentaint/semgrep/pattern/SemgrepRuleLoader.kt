@@ -1,4 +1,4 @@
-package org.opentaint.org.opentaint.semgrep.pattern
+package org.opentaint.semgrep.pattern
 
 import com.charleskorn.kaml.AnchorsAndAliases
 import com.charleskorn.kaml.Yaml
@@ -9,10 +9,10 @@ import kotlinx.serialization.decodeFromString
 import mu.KLogging
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.ActionListBuilder
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
+import org.opentaint.semgrep.pattern.conversion.ActionListBuilder
+import org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
+import org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
+import org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
 
 class SemgrepRuleLoader {
     private val parser = SemgrepPatternParser.create().cached()

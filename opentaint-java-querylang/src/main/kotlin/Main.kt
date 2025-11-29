@@ -1,14 +1,14 @@
 package org.opentaint
 
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPattern
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPatternParser
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPatternParsingResult
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.PatternToActionListConverter
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
-import org.opentaint.org.opentaint.semgrep.pattern.yamlToSemgrepRule
+import org.opentaint.semgrep.pattern.SemgrepJavaPattern
+import org.opentaint.semgrep.pattern.SemgrepJavaPatternParser
+import org.opentaint.semgrep.pattern.SemgrepJavaPatternParsingResult
+import org.opentaint.semgrep.pattern.conversion.PatternToActionListConverter
+import org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
+import org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
+import org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
+import org.opentaint.semgrep.pattern.yamlToSemgrepRule
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -71,7 +71,7 @@ fun main() {
 }
 
 fun collectParsingStats(): List<Pair<SemgrepJavaPattern, String>> {
-    val path = "projects/explyt/sast-semgrep-rules/semgrep/signature-jvm-rules"
+    val path = "data/sast-semgrep-rules/semgrep/"
 
     // TODO
     val ignoreFiles = setOf(

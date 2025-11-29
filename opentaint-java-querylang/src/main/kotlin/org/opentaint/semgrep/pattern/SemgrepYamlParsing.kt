@@ -1,4 +1,4 @@
-package org.opentaint.org.opentaint.semgrep.pattern
+package org.opentaint.semgrep.pattern
 
 import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlConfiguration
@@ -8,7 +8,7 @@ import com.charleskorn.kaml.YamlNode
 import com.charleskorn.kaml.YamlScalar
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.cartesianProductMapTo
+import org.opentaint.semgrep.pattern.conversion.cartesianProductMapTo
 
 @Serializable
 data class SemgrepYamlRuleSet(

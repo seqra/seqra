@@ -1,22 +1,22 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.org.opentaint.semgrep.pattern.ActionListSemgrepRule
-import org.opentaint.org.opentaint.semgrep.pattern.MetaVarConstraint
-import org.opentaint.org.opentaint.semgrep.pattern.MetaVarConstraints
-import org.opentaint.org.opentaint.semgrep.pattern.NormalizedSemgrepRule
-import org.opentaint.org.opentaint.semgrep.pattern.RawMetaVarInfo
-import org.opentaint.org.opentaint.semgrep.pattern.RawSemgrepRule
-import org.opentaint.org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
-import org.opentaint.org.opentaint.semgrep.pattern.RuleWithMetaVars
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepMatchingRule
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepRule
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepTaintRule
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepYamlRule
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations.containsAcceptState
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.transformSemgrepRuleToAutomata
-import org.opentaint.org.opentaint.semgrep.pattern.convertToRawRule
-import org.opentaint.org.opentaint.semgrep.pattern.parseSemgrepRule
+import org.opentaint.semgrep.pattern.ActionListSemgrepRule
+import org.opentaint.semgrep.pattern.MetaVarConstraint
+import org.opentaint.semgrep.pattern.MetaVarConstraints
+import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
+import org.opentaint.semgrep.pattern.RawMetaVarInfo
+import org.opentaint.semgrep.pattern.RawSemgrepRule
+import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
+import org.opentaint.semgrep.pattern.RuleWithMetaVars
+import org.opentaint.semgrep.pattern.SemgrepMatchingRule
+import org.opentaint.semgrep.pattern.SemgrepRule
+import org.opentaint.semgrep.pattern.SemgrepTaintRule
+import org.opentaint.semgrep.pattern.SemgrepYamlRule
+import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
+import org.opentaint.semgrep.pattern.conversion.automata.operations.containsAcceptState
+import org.opentaint.semgrep.pattern.conversion.automata.transformSemgrepRuleToAutomata
+import org.opentaint.semgrep.pattern.convertToRawRule
+import org.opentaint.semgrep.pattern.parseSemgrepRule
 
 class SemgrepRuleAutomataBuilder(
     private val parser: SemgrepPatternParser = SemgrepPatternParser.create(),

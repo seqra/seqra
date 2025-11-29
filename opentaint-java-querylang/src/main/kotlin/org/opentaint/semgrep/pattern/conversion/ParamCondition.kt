@@ -1,6 +1,6 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
+import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
 
 sealed interface TypeNamePattern {
     data class FullyQualified(val name: String) : TypeNamePattern

@@ -1,10 +1,10 @@
-package org.opentaint.org.opentaint.semgrep.pattern
+package org.opentaint.semgrep.pattern
 
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRExpr
 import org.opentaint.ir.api.jvm.cfg.JIRExprVisitor
 import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepMatchingResult.Companion.noMatch
+import org.opentaint.semgrep.pattern.SemgrepMatchingResult.Companion.noMatch
 
 private class ExprPatternSearcher(
     val pattern: SemgrepJavaPattern,

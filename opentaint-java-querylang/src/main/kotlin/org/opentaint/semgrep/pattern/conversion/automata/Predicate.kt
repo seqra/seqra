@@ -1,9 +1,9 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion.automata
+package org.opentaint.semgrep.pattern.conversion.automata
 
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.ParamCondition
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureName
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.TypeNamePattern
+import org.opentaint.semgrep.pattern.conversion.ParamCondition
+import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
+import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureName
+import org.opentaint.semgrep.pattern.conversion.TypeNamePattern
 
 typealias PredicateId = Int
 

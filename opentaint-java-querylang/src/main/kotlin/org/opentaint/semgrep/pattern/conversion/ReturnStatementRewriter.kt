@@ -1,12 +1,12 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.org.opentaint.semgrep.pattern.ConcreteName
-import org.opentaint.org.opentaint.semgrep.pattern.MethodInvocation
-import org.opentaint.org.opentaint.semgrep.pattern.NoArgs
-import org.opentaint.org.opentaint.semgrep.pattern.NormalizedSemgrepRule
-import org.opentaint.org.opentaint.semgrep.pattern.PatternArgumentPrefix
-import org.opentaint.org.opentaint.semgrep.pattern.SemgrepJavaPattern
-import org.opentaint.org.opentaint.semgrep.pattern.map
+import org.opentaint.semgrep.pattern.ConcreteName
+import org.opentaint.semgrep.pattern.MethodInvocation
+import org.opentaint.semgrep.pattern.NoArgs
+import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
+import org.opentaint.semgrep.pattern.PatternArgumentPrefix
+import org.opentaint.semgrep.pattern.SemgrepJavaPattern
+import org.opentaint.semgrep.pattern.map
 
 const val opentaintReturnValueMethod = "__opentaintReturnValue__"
 

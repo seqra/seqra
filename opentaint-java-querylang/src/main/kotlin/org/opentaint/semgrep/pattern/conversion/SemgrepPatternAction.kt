@@ -1,4 +1,4 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.pattern.conversion
 
 sealed interface SemgrepPatternAction {
     val metavars: List<String>

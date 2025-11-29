@@ -1,19 +1,19 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion.taint
+package org.opentaint.semgrep.pattern.conversion.taint
 
 import org.opentaint.dataflow.util.containsAll
 import org.opentaint.dataflow.util.copy
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.removeFirst
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.FalseValue
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaCubeCompact
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.TrueValue
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.UnknownValue
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.VariableValue
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.isFalse
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.isTrue
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.isUnknown
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.negated
+import org.opentaint.semgrep.pattern.conversion.automata.FalseValue
+import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
+import org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaCubeCompact
+import org.opentaint.semgrep.pattern.conversion.automata.TrueValue
+import org.opentaint.semgrep.pattern.conversion.automata.UnknownValue
+import org.opentaint.semgrep.pattern.conversion.automata.VariableValue
+import org.opentaint.semgrep.pattern.conversion.automata.isFalse
+import org.opentaint.semgrep.pattern.conversion.automata.isTrue
+import org.opentaint.semgrep.pattern.conversion.automata.isUnknown
+import org.opentaint.semgrep.pattern.conversion.automata.negated
 import java.util.BitSet
 
 fun methodFormulaDNF(formula: MethodFormula): List<MethodFormulaCubeCompact> {

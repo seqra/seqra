@@ -1,4 +1,4 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion.automata
+package org.opentaint.semgrep.pattern.conversion.automata
 
 import info.leadinglight.jdot.Edge
 import info.leadinglight.jdot.Graph
@@ -8,13 +8,13 @@ import info.leadinglight.jdot.enums.Shape
 import info.leadinglight.jdot.enums.Style
 import info.leadinglight.jdot.impl.Util
 import org.opentaint.dataflow.util.forEach
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.And
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.Cube
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.True
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations.traverse
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.TaintRuleEdge
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.TaintRuleGenerationCtx
+import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.And
+import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.Cube
+import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.True
+import org.opentaint.semgrep.pattern.conversion.automata.operations.traverse
+import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata
+import org.opentaint.semgrep.pattern.conversion.taint.TaintRuleEdge
+import org.opentaint.semgrep.pattern.conversion.taint.TaintRuleGenerationCtx
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path

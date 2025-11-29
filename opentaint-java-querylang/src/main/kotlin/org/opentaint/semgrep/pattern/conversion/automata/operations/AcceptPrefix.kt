@@ -1,9 +1,9 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations
+package org.opentaint.semgrep.pattern.conversion.automata.operations
 
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
+import org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
+import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
+import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
+import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 
 fun acceptIfCurrentAutomataAcceptsPrefix(automata: SemgrepRuleAutomata) {
     val newAcceptNode = AutomataNode().also {

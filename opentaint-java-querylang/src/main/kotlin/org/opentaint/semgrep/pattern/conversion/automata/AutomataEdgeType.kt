@@ -1,4 +1,4 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion.automata
+package org.opentaint.semgrep.pattern.conversion.automata
 
 sealed interface AutomataEdgeType {
     sealed interface AutomataEdgeTypeWithFormula : AutomataEdgeType {

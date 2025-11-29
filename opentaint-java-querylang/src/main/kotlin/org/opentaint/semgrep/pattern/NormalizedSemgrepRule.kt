@@ -1,6 +1,6 @@
-package org.opentaint.org.opentaint.semgrep.pattern
+package org.opentaint.semgrep.pattern
 
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternActionList
+import org.opentaint.semgrep.pattern.conversion.SemgrepPatternActionList
 
 data class RuleWithMetaVars<R, C>(val rule: R, val metaVarInfo: C) {
     fun <T> map(body: (R) -> T) = RuleWithMetaVars(body(rule), metaVarInfo)

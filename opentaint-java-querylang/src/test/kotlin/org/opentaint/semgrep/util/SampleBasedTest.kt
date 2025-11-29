@@ -2,10 +2,10 @@ package org.opentaint.semgrep.util
 
 import base.RuleSample
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
-import org.opentaint.org.opentaint.semgrep.pattern.createTaintConfig
-import org.opentaint.org.opentaint.semgrep.pattern.parseSemgrepYaml
+import org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
+import org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
+import org.opentaint.semgrep.pattern.createTaintConfig
+import org.opentaint.semgrep.pattern.parseSemgrepYaml
 import kotlin.io.path.Path
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull

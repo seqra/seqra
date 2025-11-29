@@ -1,4 +1,4 @@
-package org.opentaint.org.opentaint.semgrep.pattern
+package org.opentaint.semgrep.pattern
 
 sealed interface SemgrepJavaPattern {
     val children: List<SemgrepJavaPattern>

@@ -1,7 +1,7 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations
+package org.opentaint.semgrep.pattern.conversion.automata.operations
 
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
+import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
+import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 
 fun traverse(automata: SemgrepRuleAutomata, action: (AutomataNode) -> Unit) {
     val visited = hashSetOf<AutomataNode>()

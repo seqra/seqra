@@ -1,11 +1,11 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion.automata
+package org.opentaint.semgrep.pattern.conversion.automata
 
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.ParamCondition
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.ParamConstraint
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.ParamPosition
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.SemgrepPatternActionList
+import org.opentaint.semgrep.pattern.conversion.ParamCondition
+import org.opentaint.semgrep.pattern.conversion.ParamConstraint
+import org.opentaint.semgrep.pattern.conversion.ParamPosition
+import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction
+import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
+import org.opentaint.semgrep.pattern.conversion.SemgrepPatternActionList
 
 fun convertActionListToAutomata(
     formulaManager: MethodFormulaManager,

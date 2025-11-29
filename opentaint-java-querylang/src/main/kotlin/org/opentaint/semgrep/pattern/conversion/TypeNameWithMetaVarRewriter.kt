@@ -1,13 +1,13 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.org.opentaint.semgrep.pattern.ConcreteName
-import org.opentaint.org.opentaint.semgrep.pattern.MetaVarConstraint
-import org.opentaint.org.opentaint.semgrep.pattern.MetaVarConstraints
-import org.opentaint.org.opentaint.semgrep.pattern.MetavarName
-import org.opentaint.org.opentaint.semgrep.pattern.NormalizedSemgrepRule
-import org.opentaint.org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
-import org.opentaint.org.opentaint.semgrep.pattern.TypeName
-import org.opentaint.org.opentaint.semgrep.pattern.map
+import org.opentaint.semgrep.pattern.ConcreteName
+import org.opentaint.semgrep.pattern.MetaVarConstraint
+import org.opentaint.semgrep.pattern.MetaVarConstraints
+import org.opentaint.semgrep.pattern.MetavarName
+import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
+import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
+import org.opentaint.semgrep.pattern.TypeName
+import org.opentaint.semgrep.pattern.map
 
 fun rewriteTypeNameWithMetaVar(
     rule: NormalizedSemgrepRule,

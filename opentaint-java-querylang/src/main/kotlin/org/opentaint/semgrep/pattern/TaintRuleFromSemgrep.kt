@@ -1,4 +1,4 @@
-package org.opentaint.org.opentaint.semgrep.pattern
+package org.opentaint.semgrep.pattern
 
 import org.opentaint.dataflow.configuration.jvm.serialized.AnalysisEndSink
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFieldRule

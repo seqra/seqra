@@ -2,12 +2,12 @@ package org.opentaint.semgrep.simplifier
 
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.toSet
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaCubeCompact
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.isTrue
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.isUnknown
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.eval
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.methodFormulaModels
+import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
+import org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaCubeCompact
+import org.opentaint.semgrep.pattern.conversion.automata.isTrue
+import org.opentaint.semgrep.pattern.conversion.automata.isUnknown
+import org.opentaint.semgrep.pattern.conversion.taint.eval
+import org.opentaint.semgrep.pattern.conversion.taint.methodFormulaModels
 import java.util.BitSet
 import kotlin.random.Random
 import kotlin.test.Test
