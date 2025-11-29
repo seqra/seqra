@@ -117,7 +117,7 @@ private fun convertTaintRuleToTaintRules(
     }
 
     if (rule.sanitizers.isNotEmpty()) {
-        // todo: sanitizers
+        // todo: sanitizers (cleans any argument as for sinks)
         logger.warn { "Rule $ruleId: sanitizers are not supported yet" }
     }
 
@@ -152,6 +152,7 @@ private fun generatePassRule(
     return taintEdges to initialStateId
 }
 
+// todo: check sink behaviour with multiple focus meta vars
 private fun convertTaintSinkRule(
     ruleId: String,
     sinkIdx: Int,
@@ -973,12 +974,6 @@ private fun MethodSignature.isOpentaintAnyValueGenerator(): Boolean {
     val name = methodName.name
     if (name !is SignatureName.Concrete) return false
     return name.name == opentaintAnyValueGeneratorMethodName
-}
-
-private fun MethodSignature.isOpentaintReturnValue(): Boolean {
-    val name = methodName.name
-    if (name !is SignatureName.Concrete) return false
-    return name.name == opentaintReturnValueMethod
 }
 
 private data class StringConcatCtx(
