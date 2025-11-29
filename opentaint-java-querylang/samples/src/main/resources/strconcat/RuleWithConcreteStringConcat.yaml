@@ -1,0 +1,14 @@
+rules:
+  - id: strconcat-RuleWithConcreteStringConcat
+    languages:
+      - java
+    severity: ERROR
+    message: match strconcat/RuleWithConcreteStringConcat
+    patterns:
+      - pattern-either:
+          - pattern: |-
+              $A = src();
+              ...
+              $B = $A + "taint2";
+              ...
+              sink($B);

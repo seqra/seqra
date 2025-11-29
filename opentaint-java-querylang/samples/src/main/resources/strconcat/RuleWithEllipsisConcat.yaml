@@ -1,0 +1,20 @@
+rules:
+  - id: strconcat-RuleWithEllipsisConcat
+    languages:
+      - java
+    severity: ERROR
+    message: match strconcat/RuleWithEllipsisConcat
+    patterns:
+      - pattern-either:
+          - pattern: |-
+              $A = src();
+              ...
+              $B = ... + $A;
+              ...
+              sink($B);
+          - pattern: |-
+              $A = src();
+              ...
+              $B = $A + ...;
+              ...
+              sink($B);

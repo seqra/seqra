@@ -64,6 +64,7 @@ import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.TaintRegiste
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.StateRegister
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.opentaintAnyValueGeneratorMethodName
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.opentaintReturnValueMethod
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.opentaintStringConcatMethodName
 import java.util.BitSet
 import java.util.IdentityHashMap
 import kotlin.math.absoluteValue
@@ -134,7 +135,7 @@ private fun generatePassRule(
     val automata = rule.rule
     check(automata.isDeterministic) { "NFA not supported" }
 
-    val taintAutomata = createAutomataWithoutGeneratedEdges(
+    val taintAutomata = createAutomataWithEdgeElimination(
         automata.formulaManager, rule.metaVarInfo, automata.initialNode
     )
 
@@ -159,7 +160,7 @@ private fun convertTaintSinkRule(
     val automata = rule.rule
     check(automata.isDeterministic) { "NFA not supported" }
 
-    val taintAutomata = createAutomataWithoutGeneratedEdges(
+    val taintAutomata = createAutomataWithEdgeElimination(
         automata.formulaManager, rule.metaVarInfo, automata.initialNode
     )
     val (sinkAutomata, stateMetaVars) = ensureSinkStateVars(taintAutomata, rule.metaVarInfo.focusMetaVars)
@@ -185,7 +186,7 @@ private fun convertTaintSourceRule(
     val automata = rule.rule
     check(automata.isDeterministic) { "NFA not supported" }
 
-    val taintAutomata = createAutomataWithoutGeneratedEdges(
+    val taintAutomata = createAutomataWithEdgeElimination(
         automata.formulaManager, rule.metaVarInfo, automata.initialNode
     )
     val (sourceAutomata, stateMetaVars) = ensureSourceStateVars(taintAutomata, rule.metaVarInfo.focusMetaVars)
@@ -328,21 +329,33 @@ private fun convertAutomataToTaintRules(
 ): List<SerializedItem> {
     check(automata.isDeterministic) { "NFA not supported" }
 
-    val taintAutomata = createAutomataWithoutGeneratedEdges(
+    val taintAutomata = createAutomataWithEdgeElimination(
         automata.formulaManager, metaVarInfo, automata.initialNode
     )
     val ctx = generateAutomataWithTaintEdges(taintAutomata, metaVarInfo, automataId, acceptStateVars = emptySet())
     return ctx.generateTaintSinkRules(id, meta)
 }
 
-private fun createAutomataWithoutGeneratedEdges(
+private fun createAutomataWithEdgeElimination(
     formulaManager: MethodFormulaManager,
     metaVarInfo: ResolvedMetaVarInfo,
     initialNode: AutomataNode
 ): TaintRegisterStateAutomata {
     val automata = createAutomata(formulaManager, metaVarInfo, initialNode)
-    val automataWithoutGeneratedEdges = eliminateAnyValueGenerator(automata)
-    return automataWithoutGeneratedEdges
+
+    val anyValueGeneratorEdgeEliminator = edgeTypePreservingEdgeEliminator(::eliminateAnyValueGenerator)
+    val automataWithoutGeneratedEdges = eliminateEdges(
+        automata,
+        anyValueGeneratorEdgeEliminator,
+        ValueGeneratorCtx.EMPTY
+    )
+
+    val stringConcatEdgeEliminator = edgeTypePreservingEdgeEliminator(::eliminateStringConcat)
+    return eliminateEdges(
+        automataWithoutGeneratedEdges,
+        stringConcatEdgeEliminator,
+        StringConcatCtx.EMPTY
+    )
 }
 
 private fun generateAutomataWithTaintEdges(
@@ -757,26 +770,28 @@ private fun tryRemoveEndEdge(automata: TaintRegisterStateAutomata): TaintRegiste
 
 private data class ValueGeneratorCtx(
     val valueConstraint: Map<String, List<ParamCondition.Atom>>
-)
+) {
+    companion object {
+        val EMPTY: ValueGeneratorCtx = ValueGeneratorCtx(emptyMap())
+    }
+}
 
-private data class StateWithValueGeneratorContext(
-    val state: State,
-    val valueGeneratorContext: ValueGeneratorCtx
-)
-
-private fun eliminateAnyValueGenerator(automata: TaintRegisterStateAutomata): TaintRegisterStateAutomata {
+private fun <CtxT> eliminateEdges(automata: TaintRegisterStateAutomata, edgeEliminator: EdgeEliminator<CtxT>, initialCtx: CtxT): TaintRegisterStateAutomata {
     val successors = hashMapOf<State, MutableSet<Pair<Edge, State>>>()
     val finalStates = automata.final.toHashSet()
     val removedStates = hashSetOf<State>()
 
-    val unprocessed = mutableListOf(StateWithValueGeneratorContext(automata.initial, ValueGeneratorCtx(emptyMap())))
-    val visited = hashSetOf<StateWithValueGeneratorContext>()
+    val unprocessed = mutableListOf(automata.initial to initialCtx)
+    val visited = hashSetOf<Pair<State, CtxT>>()
     while (unprocessed.isNotEmpty()) {
         val state = unprocessed.removeLast()
         if (!visited.add(state)) continue
 
-        val stateSuccessors = successors.getOrPut(state.state, ::hashSetOf)
-        eliminateAnyValueGeneratorEdges(state, automata.successors, finalStates, removedStates, stateSuccessors, unprocessed)
+        val stateSuccessors = successors.getOrPut(state.first, ::hashSetOf)
+        eliminateEdgesForOneState(
+            state.first, state.second, automata.successors, finalStates, removedStates,
+            stateSuccessors, unprocessed, edgeEliminator
+        )
     }
 
     finalStates.removeAll(removedStates)
@@ -788,26 +803,28 @@ private fun eliminateAnyValueGenerator(automata: TaintRegisterStateAutomata): Ta
     )
 }
 
-private fun eliminateAnyValueGeneratorEdges(
-    state: StateWithValueGeneratorContext,
+private fun <CtxT> eliminateEdgesForOneState(
+    state: State,
+    ctx: CtxT,
     successors: Map<State, Set<Pair<Edge, State>>>,
     finalStates: MutableSet<State>,
     removedStates: MutableSet<State>,
     resultStateSuccessors: MutableSet<Pair<Edge, State>>,
-    unprocessed: MutableList<StateWithValueGeneratorContext>
+    unprocessed: MutableList<Pair<State, CtxT>>,
+    edgeEliminator: EdgeEliminator<CtxT>
 ) {
-    for ((edge, nextState) in successors[state.state].orEmpty()) {
-        val elimResult = eliminateAnyValueGenerator(edge, state.valueGeneratorContext)
+    for ((edge, nextState) in successors[state].orEmpty()) {
+        val elimResult = edgeEliminator.eliminateEdge(edge, ctx)
         when (elimResult) {
             EdgeEliminationResult.Unchanged -> {
                 resultStateSuccessors.add(edge to nextState)
-                unprocessed.add(StateWithValueGeneratorContext(nextState, state.valueGeneratorContext))
+                unprocessed.add(nextState to ctx)
                 continue
             }
 
             is EdgeEliminationResult.Replace -> {
                 resultStateSuccessors.add(elimResult.newEdge to nextState)
-                unprocessed.add(StateWithValueGeneratorContext(nextState, elimResult.ctx))
+                unprocessed.add(nextState to elimResult.ctx)
                 continue
             }
 
@@ -817,38 +834,46 @@ private fun eliminateAnyValueGeneratorEdges(
                     check(nextSuccessors.isEmpty())
 
                     removedStates.add(nextState)
-                    finalStates.add(state.state)
+                    finalStates.add(state)
 
                     if (nextState.node.accept) {
-                        state.state.node.accept = true
+                        state.node.accept = true
                     }
                 }
 
-                if (nextState == state.state) continue
+                if (nextState == state) continue
 
-                eliminateAnyValueGeneratorEdges(
-                    StateWithValueGeneratorContext(nextState, elimResult.ctx),
-                    successors, finalStates, removedStates, resultStateSuccessors, unprocessed
+                eliminateEdgesForOneState(
+                    nextState, elimResult.ctx, successors, finalStates, removedStates,
+                    resultStateSuccessors, unprocessed, edgeEliminator
                 )
             }
         }
     }
 }
 
-private sealed interface EdgeEliminationResult {
-    data object Unchanged : EdgeEliminationResult
-    data class Replace(val newEdge: Edge, val ctx: ValueGeneratorCtx) : EdgeEliminationResult
-    data class Eliminate(val ctx: ValueGeneratorCtx) : EdgeEliminationResult
+private fun interface EdgeEliminator<CtxT> {
+    fun eliminateEdge(edge: Edge, ctx: CtxT): EdgeEliminationResult<CtxT>
 }
 
-private fun eliminateAnyValueGenerator(edge: Edge, ctx: ValueGeneratorCtx): EdgeEliminationResult = when (edge) {
-    Edge.AnalysisEnd -> EdgeEliminationResult.Unchanged
-    is Edge.MethodCall -> eliminateAnyValueGenerator(edge.effect, edge.condition, ctx) { effect, cond ->
-        Edge.MethodCall(cond, effect)
-    }
+private sealed interface EdgeEliminationResult<out CtxT> {
+    data object Unchanged : EdgeEliminationResult<Nothing>
+    data class Replace<CtxT>(val newEdge: Edge, val ctx: CtxT) : EdgeEliminationResult<CtxT>
+    data class Eliminate<CtxT>(val ctx: CtxT) : EdgeEliminationResult<CtxT>
+}
 
-    is Edge.MethodEnter -> eliminateAnyValueGenerator(edge.effect, edge.condition, ctx) { effect, cond ->
-        Edge.MethodEnter(cond, effect)
+private fun <CtxT> edgeTypePreservingEdgeEliminator(
+    eliminateEdge: (EdgeEffect, EdgeCondition, CtxT, (EdgeEffect, EdgeCondition) -> Edge) -> EdgeEliminationResult<CtxT>
+): EdgeEliminator<CtxT> = EdgeEliminator { edge, ctx ->
+    when (edge) {
+        Edge.AnalysisEnd -> EdgeEliminationResult.Unchanged
+        is Edge.MethodCall -> eliminateEdge(edge.effect, edge.condition, ctx) { effect, cond ->
+            Edge.MethodCall(cond, effect)
+        }
+
+        is Edge.MethodEnter -> eliminateEdge(edge.effect, edge.condition, ctx) { effect, cond ->
+            Edge.MethodEnter(cond, effect)
+        }
     }
 }
 
@@ -857,7 +882,7 @@ private fun eliminateAnyValueGenerator(
     condition: EdgeCondition,
     ctx: ValueGeneratorCtx,
     rebuildEdge: (EdgeEffect, EdgeCondition) -> Edge,
-): EdgeEliminationResult {
+): EdgeEliminationResult<ValueGeneratorCtx> {
     if (effect.anyValueGeneratorUsed()) {
         val metaVar = effect.assignMetaVar.keys.singleOrNull()
             ?: error("Value gen with multiple mata vars")
@@ -954,6 +979,212 @@ private fun MethodSignature.isOpentaintReturnValue(): Boolean {
     val name = methodName.name
     if (name !is SignatureName.Concrete) return false
     return name.name == opentaintReturnValueMethod
+}
+
+private data class StringConcatCtx(
+    val metavarMapping: Map<String, Set<String>>
+) {
+    fun transform(condition: EdgeCondition): EdgeCondition {
+        return EdgeCondition(
+            transform(condition.readMetaVar),
+            condition.other.flatMap(::transform)
+        )
+    }
+
+    fun transform(effect: EdgeEffect): EdgeEffect {
+        return EdgeEffect(transform(effect.assignMetaVar))
+    }
+
+    private fun transform(preds: Map<String, List<MethodPredicate>>): Map<String, List<MethodPredicate>> {
+        val result = hashMapOf<String, MutableList<MethodPredicate>>()
+        preds.forEach { (prevMetavar, prevPreds) ->
+            val newMetavars = metavarMapping.getOrElse(prevMetavar) { setOf(prevMetavar) }
+
+            newMetavars.forEach { newMetavar ->
+                // Need to concretize context for `prevMetavar`
+                val newCtx = StringConcatCtx(metavarMapping + (prevMetavar to setOf(newMetavar)))
+                val newPreds = prevPreds.flatMap(newCtx::transform)
+
+                result.getOrPut(newMetavar) {
+                    mutableListOf()
+                }.addAll(newPreds)
+            }
+        }
+        return result
+    }
+
+    private fun transform(predicate: MethodPredicate): List<MethodPredicate> {
+        return transform(predicate.predicate).map { newPredicate ->
+            MethodPredicate(newPredicate, predicate.negated)
+        }
+    }
+
+    private fun transform(predicate: Predicate): List<Predicate> {
+        if (predicate.signature.isOpentaintStringConcat()) {
+            // Replacing with String.concat()
+            val newConstraints = predicate.constraint?.let { constraint ->
+                transform(constraint) {
+                    if (it is Position.Argument) {
+                        val index = it.index
+                        check(index is Position.ArgumentIndex.Concrete) { "Expected concrete argument index" }
+                        check(index.idx in 0 until 2) { "Invalid index for opentaint string concat" }
+                        if (index.idx == 0) {
+                            Position.Object
+                        } else {
+                            Position.Argument(
+                                Position.ArgumentIndex.Concrete(0)
+                            )
+                        }
+                    } else {
+                        it
+                    }
+                }
+            }
+
+            return (newConstraints ?: listOf(null)).map { newConstraint ->
+                Predicate(stringConcatMethodSignature, newConstraint)
+            }
+        }
+
+        val newConstraints = predicate.constraint?.let { constraint ->
+            transform(constraint) { it }
+        }
+        return (newConstraints ?: listOf(null)).map { newConstraint ->
+            Predicate(predicate.signature, newConstraint)
+        }
+    }
+
+    private fun transform(
+        constraint: MethodConstraint,
+        positionTransform: (Position) -> Position
+    ): List<MethodConstraint> {
+        if (constraint !is ParamConstraint) {
+            return listOf(constraint)
+        }
+
+        val newPosition = positionTransform(constraint.position)
+        val newConditions = transform(constraint.condition)
+
+        return newConditions.map { newCondition ->
+            ParamConstraint(newPosition, newCondition)
+        }
+    }
+
+    private fun transform(condition: ParamCondition.Atom): List<ParamCondition.Atom> {
+        if (condition is IsMetavar) {
+            val newMetavars = metavarMapping.getOrElse(condition.metavar) { setOf(condition.metavar) }
+            return newMetavars.map(::IsMetavar)
+        }
+
+        if (condition is ParamCondition.StringValueMetaVar) {
+            val newMetavars = metavarMapping.getOrElse(condition.metaVar) { setOf(condition.metaVar) }
+            return newMetavars.map(ParamCondition::StringValueMetaVar)
+        }
+        return listOf(condition)
+    }
+
+    companion object {
+        val EMPTY: StringConcatCtx = StringConcatCtx(emptyMap())
+
+        val stringConcatMethodSignature by lazy {
+            MethodSignature(
+                MethodName(SignatureName.Concrete("concat")),
+                MethodEnclosingClassName(TypeNamePattern.FullyQualified("java.lang.String"))
+            )
+        }
+    }
+}
+
+private fun eliminateStringConcat(
+    effect: EdgeEffect,
+    condition: EdgeCondition,
+    ctx: StringConcatCtx,
+    rebuildEdge: (EdgeEffect, EdgeCondition) -> Edge,
+): EdgeEliminationResult<StringConcatCtx> {
+    // TODO: rollback renaming of metavar when necessary (?)
+    val generatedByConcatHelperMetavars = effect.assignMetaVar.mapNotNull { (metavar, preds) ->
+        val isResultOfConcatHelper = preds.any {
+            val predCondition = it.asConditionOnStringConcat<Position.Result>()
+                ?: return@any false
+
+            check(predCondition == IsMetavar(metavar)) { "Unexpected condition" }
+            true
+        }
+
+        metavar.takeIf { isResultOfConcatHelper }
+    }.toSet()
+
+    if (generatedByConcatHelperMetavars.isEmpty()) {
+        return ctx.transformEdge(effect, condition, rebuildEdge)
+    }
+
+    val metavarArguments = condition.readMetaVar.flatMap { (metavar, preds) ->
+        val isArgumentOfConcatHelper = preds.any {
+            val predCondition = it.asConditionOnStringConcat<Position.Argument>()
+                ?: return@any false
+
+            check(predCondition == IsMetavar(metavar)) { "Unexpected condition" }
+            true
+        }
+
+        if (isArgumentOfConcatHelper) {
+            ctx.metavarMapping.getOrElse(metavar) { setOf(metavar) }
+        } else {
+            emptyList()
+        }
+    }.toSet()
+
+    val otherArguments = condition.other.mapNotNull {
+        it.asConditionOnStringConcat<Position.Argument>()
+    }
+
+    if (otherArguments.isEmpty() || otherArguments.singleOrNull() == ParamCondition.AnyStringLiteral) {
+        val newCtx = if (metavarArguments.size == 1 && metavarArguments == generatedByConcatHelperMetavars) {
+            ctx
+        } else {
+            StringConcatCtx(
+                metavarMapping = ctx.metavarMapping + generatedByConcatHelperMetavars.associateWith { metavarArguments }
+            )
+        }
+        return EdgeEliminationResult.Eliminate(newCtx)
+    }
+    return ctx.transformEdge(effect, condition, rebuildEdge)
+}
+
+private fun StringConcatCtx.transformEdge(
+    effect: EdgeEffect,
+    condition: EdgeCondition,
+    rebuildEdge: (EdgeEffect, EdgeCondition) -> Edge
+): EdgeEliminationResult<StringConcatCtx> {
+    val newEffect = transform(effect)
+    val newCondition = transform(condition)
+
+    return if (effect == newEffect && condition == newCondition) {
+        EdgeEliminationResult.Unchanged
+    } else {
+        val newEdge = rebuildEdge(newEffect, newCondition)
+        EdgeEliminationResult.Replace(newEdge, this)
+    }
+}
+
+private inline fun <reified T : Position> MethodPredicate.asConditionOnStringConcat(): ParamCondition.Atom? {
+    if (!predicate.signature.isOpentaintStringConcat()) {
+        return null
+    }
+
+    val constraint = predicate.constraint as? ParamConstraint ?: return null
+
+    if (constraint.position !is T) {
+        return null
+    }
+
+    return constraint.condition
+}
+
+private fun MethodSignature.isOpentaintStringConcat(): Boolean {
+    val name = methodName.name
+    if (name !is SignatureName.Concrete) return false
+    return name.name == opentaintStringConcatMethodName
 }
 
 private fun generateTaintEdges(

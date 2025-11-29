@@ -2,7 +2,6 @@ package org.opentaint.org.opentaint.semgrep.pattern.conversion
 
 import org.opentaint.org.opentaint.semgrep.pattern.ConcreteName
 import org.opentaint.org.opentaint.semgrep.pattern.MethodInvocation
-import org.opentaint.org.opentaint.semgrep.pattern.Name
 import org.opentaint.org.opentaint.semgrep.pattern.NoArgs
 import org.opentaint.org.opentaint.semgrep.pattern.NormalizedSemgrepRule
 import org.opentaint.org.opentaint.semgrep.pattern.PatternArgumentPrefix
@@ -15,13 +14,7 @@ import org.opentaint.org.opentaint.semgrep.pattern.map
 fun rewriteAddExpr(rule: NormalizedSemgrepRule): NormalizedSemgrepRule =
     rule.map { rewritePatternAddExpr(it) }
 
-private val stringConcatHelperClassPattern: SemgrepJavaPattern by lazy {
-    patternFromDotSeparatedParts("java.lang.StringConcatHelper".split("."))
-}
-
-private val stringConcatMethodName: Name by lazy {
-    ConcreteName("simpleConcat")
-}
+const val opentaintStringConcatMethodName = "__opentaintStringConcat__"
 
 private fun rewritePatternAddExpr(pattern: SemgrepJavaPattern): SemgrepJavaPattern {
     val rewriter = object : PatternRewriter {
@@ -36,5 +29,5 @@ private fun rewritePatternAddExpr(pattern: SemgrepJavaPattern): SemgrepJavaPatte
 
 private fun generateStringConcat(first: SemgrepJavaPattern, second: SemgrepJavaPattern): SemgrepJavaPattern {
     val args = PatternArgumentPrefix(first, PatternArgumentPrefix(second, NoArgs))
-    return MethodInvocation(stringConcatMethodName, stringConcatHelperClassPattern, args)
+    return MethodInvocation(ConcreteName(opentaintStringConcatMethodName), obj = null, args)
 }

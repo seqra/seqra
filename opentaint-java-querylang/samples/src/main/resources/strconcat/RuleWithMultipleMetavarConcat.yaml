@@ -1,0 +1,22 @@
+rules:
+  - id: strconcat-RuleWithMultipleMetavarConcat
+    languages:
+      - java
+    severity: ERROR
+    message: match strconcat/RuleWithMultipleMetavarConcat
+    patterns:
+      - pattern-either:
+          - pattern: |-
+              $A = src1();
+              ...
+              $B = src2();
+              ...
+              $C = src3();
+              ...
+              $D = src4();
+              ...
+              $E = $A + $B + $C;
+              ...
+              $F = $D + $E;
+              ...
+              sink($F);
