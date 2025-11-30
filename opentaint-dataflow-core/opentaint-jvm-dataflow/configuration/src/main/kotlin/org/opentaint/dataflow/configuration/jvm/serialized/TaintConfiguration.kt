@@ -3,12 +3,9 @@ package org.opentaint.dataflow.configuration.jvm.serialized
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentHashMapOf
 import org.opentaint.ir.api.jvm.JIRAnnotation
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
-import org.opentaint.ir.api.jvm.ext.allSuperHierarchy
 import org.opentaint.ir.impl.util.adjustEmptyList
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.jvm.Action
@@ -63,6 +60,8 @@ import org.opentaint.dataflow.configuration.jvm.simplify
 import java.util.concurrent.atomic.AtomicInteger
 
 class TaintConfiguration {
+    private val patternManager = PatternManager()
+
     private val entryPointConfig = TaintRulesStorage<SerializedRule.EntryPoint, TaintEntryPointSource>()
     private val sourceConfig = TaintRulesStorage<SerializedRule.Source, TaintMethodSource>()
     private val sinkConfig = TaintRulesStorage<SerializedRule.Sink, TaintMethodSink>()
@@ -141,303 +140,25 @@ class TaintConfiguration {
             rule.resolveFieldRule(field) as List<T>
     }
 
-    private inner class MethodTaintRulesStorage<S : SerializedRule>(
-        val concreteMethodName: String? = null,
-    ) {
-        private var isEmpty = true
-
-        fun addRule(rule: S) {
-            isEmpty = false
-
-            val pkg = rule.function.`package`.normalizeAnyName()
-            val cls = rule.function.`class`.normalizeAnyName()
-
-            when (pkg) {
-                is ClassPattern -> error("impossible")
-                is Simple -> when (cls) {
-                    is ClassPattern -> error("impossible")
-                    is Simple -> {
-                        addConcreteClassRule(joinClassName(pkg.value, cls.value), cls = null, rule)
-                    }
-
-                    is Pattern -> {
-                        addConcretePackagePatternClassRule(pkg.value, cls, rule)
-                    }
-                }
-
-                is Pattern -> when (cls) {
-                    is ClassPattern -> error("impossible")
-                    is Simple -> addPatternPackageConcreteClassRule(pkg, cls.value, rule)
-                    is Pattern -> addPatternPackagePatternClassRule(pkg, cls, rule)
-                }
-            }
-        }
-
-        private val anyRules = mutableListOf<S>()
-
-        private val concreteClassPackages = hashMapOf<String, MutableSet<String>>()
-        private val concreteClassRules = hashMapOf<String, MutableList<S>>()
-
-        private val concreteClassNameAnyPackageRules = hashMapOf<String, MutableList<S>>()
-        private val concreteClassPackagePatternRules = hashMapOf<String, MutableMap<Regex, MutableList<S>>>()
-        private val concretePackageClassPatternRules = hashMapOf<String, MutableMap<Regex, MutableList<S>>>()
-        private val classPatternPackagePatternRules = hashMapOf<Regex, MutableMap<Regex, MutableList<S>>>()
-
-        private fun addConcreteClassRule(className: String, cls: JIRClassOrInterface?, rule: S) {
-            var currentRules = concreteClassRules[className]
-            if (currentRules == null) {
-                currentRules = mutableListOf<S>().also { concreteClassRules[className] = it }
-                val (pkgName, simpleName) = splitClassName(className)
-                concreteClassPackages.getOrPut(simpleName, ::hashSetOf).add(pkgName)
-
-                resolveClassName(className, cls)
-            }
-
-            currentRules.add(rule)
-
-            pushRuleForSuperTypes(cls, className, rule)
-        }
-
-        private val pushDelayRulesQueue = hashMapOf<String, MutableList<S>>()
-
-        private fun pushRuleForSuperTypes(cls: JIRClassOrInterface?, className: String, rule: S) {
-            if (cls == null) {
-                pushDelayRulesQueue.getOrPut(className, ::mutableListOf).add(rule)
-                return
-            }
-
-            pushDelayedRules(cls.classpath)
-            pushRulesForSuperTypes(cls, listOf(rule))
-        }
-
-        private fun pushDelayedRules(cp: JIRClasspath) {
-            val iter = pushDelayRulesQueue.iterator()
-            while (iter.hasNext()) {
-                val (className, rules) = iter.next()
-                iter.remove()
-
-                val cls = cp.findClassOrNull(className) ?: continue
-                pushRulesForSuperTypes(cls, rules)
-            }
-        }
-
-        private fun pushRulesForSuperTypes(cls: JIRClassOrInterface, rules: List<S>) {
-            if (concreteMethodName == null) return // todo: push any method name matchers???
-
-            val typeCondition = SerializedCondition.IsType(
-                typeIs = Simple(cls.name),
-                pos = PositionBase.This
-            )
-
-            val conditionedRules = rules.map { rule ->
-                rule.modifyCondition { cond ->
-                    SerializedCondition.and(listOfNotNull(cond, typeCondition))
-                }
-            }
-
-            cls.allSuperHierarchy.filter { c ->
-                c.declaredMethods.any { it.name == concreteMethodName }
-            }.forEach { c ->
-                concreteClassRules.getOrPut(c.name, ::mutableListOf).addAll(conditionedRules)
-            }
-        }
-
-        private fun resolveClassName(fullClassName: String, cls: JIRClassOrInterface?) {
-            val (pkgName, simpleName) = splitClassName(fullClassName)
-            concreteClassNameAnyPackageRules[simpleName]?.forEach {
-                addConcreteClassRule(fullClassName, cls, it)
-            }
-
-            concreteClassPackagePatternRules[simpleName]?.forEach { (pkgPattern, rules) ->
-                if (pkgPattern.matches(pkgName)) {
-                    rules.forEach { addConcreteClassRule(fullClassName, cls, it) }
-                }
-            }
-
-            concretePackageClassPatternRules[pkgName]?.forEach { (clsPattern, rules) ->
-                if (clsPattern.matches(simpleName)) {
-                    rules.forEach { addConcreteClassRule(fullClassName, cls, it) }
-                }
-            }
-
-            for ((clsPattern, pkgRules) in classPatternPackagePatternRules) {
-                if (!clsPattern.matches(simpleName)) continue
-                for ((pkg, rules) in pkgRules) {
-                    if (!pkg.matches(pkgName)) continue
-                    rules.forEach { addConcreteClassRule(fullClassName, cls, it) }
-                }
-            }
-        }
-
-        private fun addPatternPackagePatternClassRule(pkg: Pattern, cls: Pattern, rule: S) {
-            if (pkg.isAny() && cls.isAny()) {
-                anyRules.add(rule)
-                return
-            }
-
-            val clsPattern = compilePattern(cls.pattern)
-            val pkgPattern = compilePattern(pkg.pattern)
-
-            for ((clsName, packages) in concreteClassPackages) {
-                if (!clsPattern.matches(clsName)) continue
-
-                for (pkgName in packages) {
-                    if (!pkgPattern.matches(pkgName)) continue
-
-                    val className = joinClassName(pkgName, clsName)
-                    addConcreteClassRule(className, cls = null, rule)
-                }
-            }
-
-            classPatternPackagePatternRules
-                .getOrPut(clsPattern, ::hashMapOf)
-                .getOrPut(pkgPattern, ::mutableListOf)
-                .add(rule)
-        }
-
-        private fun addPatternPackageConcreteClassRule(pkg: Pattern, cls: String, rule: S) {
-            if (pkg.isAny()) {
-                val packages = concreteClassPackages[cls].orEmpty()
-
-                for (pkgName in packages) {
-                    val className = joinClassName(pkgName, cls)
-                    addConcreteClassRule(className, cls = null, rule)
-                }
-
-                concreteClassNameAnyPackageRules.getOrPut(cls, ::mutableListOf).add(rule)
-                return
-            }
-
-            val pkgPattern = compilePattern(pkg.pattern)
-            val packages = concreteClassPackages[cls].orEmpty()
-
-            for (pkgName in packages) {
-                if (!pkgPattern.matches(pkgName)) continue
-
-                val className = joinClassName(pkgName, cls)
-                addConcreteClassRule(className, cls = null, rule)
-            }
-
-            concreteClassPackagePatternRules
-                .getOrPut(cls, ::hashMapOf)
-                .getOrPut(pkgPattern, ::mutableListOf)
-                .add(rule)
-        }
-
-        private fun addConcretePackagePatternClassRule(pkg: String, cls: Pattern, rule: S) {
-            val clsPattern = compilePattern(cls.pattern)
-
-            for ((clsName, packages) in concreteClassPackages) {
-                if (pkg !in packages) continue
-                if (!clsPattern.matches(clsName)) continue
-
-                val className = joinClassName(pkg, clsName)
-                addConcreteClassRule(className, cls = null, rule)
-            }
-
-            concretePackageClassPatternRules
-                .getOrPut(pkg, ::hashMapOf)
-                .getOrPut(clsPattern, ::mutableListOf)
-                .add(rule)
-        }
-
-        fun findRules(dst: MutableList<S>, method: JIRMethod) {
-            if (isEmpty) return
-
-            pushDelayedRules(method.enclosingClass.classpath)
-
-            findRules(dst, method.enclosingClass)
-            method.enclosingClass.allSuperHierarchy.forEach { cls ->
-                val overrideRules = mutableListOf<S>()
-                findRules(overrideRules, cls)
-                overrideRules.removeAll { !it.overrides }
-                dst.addAll(overrideRules)
-            }
-        }
-
-        private fun findRules(dst: MutableList<S>, cls: JIRClassOrInterface) {
-            dst.addAll(anyRules)
-
-            val className = cls.name
-            var concreteRules = concreteClassRules[className]
-            if (concreteRules == null) {
-                resolveClassName(className, cls)
-                concreteRules = concreteClassRules[className]
-            }
-
-            concreteRules?.let { dst.addAll(it) }
-        }
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private inline fun <S : SerializedRule> S.modifyCondition(mapper: (SerializedCondition?) -> SerializedCondition?): S {
-        return when (this) {
-            is SerializedRule.Cleaner -> copy(condition = mapper(condition))
-            is SerializedRule.EntryPoint -> copy(condition = mapper(condition))
-            is SerializedRule.MethodEntrySink -> copy(condition = mapper(condition))
-            is SerializedRule.MethodExitSink -> copy(condition = mapper(condition))
-            is SerializedRule.PassThrough -> copy(condition = mapper(condition))
-            is SerializedRule.Sink -> copy(condition = mapper(condition))
-            is SerializedRule.Source -> copy(condition = mapper(condition))
-            else -> error("impossible")
-        } as S
-    }
-
     private inner class TaintRulesStorage<S : SerializedRule, T : TaintConfigurationItem> {
-        private val concreteMethodNameRules = hashMapOf<String, MethodTaintRulesStorage<S>>()
-        private val patternMethodRules = hashMapOf<Regex, MutableList<S>>()
-        private val anyMethodRules = MethodTaintRulesStorage<S>()
+        private var builder: MethodTaintRulesStorage.Builder<S>? = MethodTaintRulesStorage.Builder(patternManager)
+        private var storage: MethodTaintRulesStorage<S>? = null
 
-        private val methodItems = hashMapOf<JIRMethod, List<T>>()
+        private fun storage(): MethodTaintRulesStorage<S> {
+            storage?.let { return it }
+
+            storage = builder?.build()
+            builder = null
+
+            return storage ?: error("Storage initialization failed")
+        }
 
         fun addRules(rules: List<S>) {
-            val newConcreteNames = hashSetOf<String>()
-            val newPatternRules = hashMapOf<Regex, MutableList<S>>()
-
-            for (rule in rules) {
-                when (val fName = rule.function.name.normalizeAnyName()) {
-                    is ClassPattern -> error("impossible")
-                    is Simple -> {
-                        concreteMethodNameRules.getOrPut(fName.value) {
-                            newConcreteNames.add(fName.value)
-                            MethodTaintRulesStorage(concreteMethodName = fName.value)
-                        }.addRule(rule)
-                    }
-
-                    is Pattern -> {
-                        if (fName.isAny()) {
-                            anyMethodRules.addRule(rule)
-                        } else {
-                            newPatternRules.getOrPut(compilePattern(fName.pattern), ::mutableListOf).add(rule)
-                        }
-                    }
-                }
-            }
-
-            resolvePatterns(patternMethodRules, newConcreteNames)
-            resolvePatterns(newPatternRules, newConcreteNames)
-            resolvePatterns(newPatternRules, concreteMethodNameRules.keys)
-
-            for ((pattern, rs) in newPatternRules) {
-                patternMethodRules.getOrPut(pattern, ::mutableListOf).addAll(rs)
-            }
-
-            // invalidate rules cache
-            methodItems.clear()
+            val builder = this.builder ?: error("Storage rule set closed")
+            builder.addRules(rules)
         }
 
-        private fun resolvePatterns(patterns: Map<Regex, List<S>>, names: Set<String>) {
-            for (name in names) {
-                val storage = concreteMethodNameRules.getOrPut(name, ::MethodTaintRulesStorage)
-                for ((pattern, rules) in patterns) {
-                    if (pattern.containsMatchIn(name)) {
-                        for (rule in rules) {
-                            storage.addRule(rule)
-                        }
-                    }
-                }
-            }
-        }
+        private val methodItems = hashMapOf<JIRMethod, List<T>>()
 
         @Synchronized
         fun getConfigForMethod(method: JIRMethod): List<T> = methodItems.getOrPut(method) {
@@ -446,15 +167,7 @@ class TaintConfiguration {
 
         private fun resolveMethodItems(method: JIRMethod): List<T> {
             val rules = mutableListOf<S>()
-            anyMethodRules.findRules(rules, method)
-
-            var concreteRules = concreteMethodNameRules[method.name]
-            if (concreteRules == null) {
-                resolvePatterns(patternMethodRules, setOf(method.name))
-                concreteRules = concreteMethodNameRules[method.name]
-            }
-
-            concreteRules?.findRules(rules, method)
+            storage().findRules(rules, method)
 
             rules.removeAll { it.signature?.matchFunctionSignature(method) == false }
 
@@ -466,18 +179,10 @@ class TaintConfiguration {
             rule.resolveMethodRule(method) as List<T>
     }
 
-    private val compiledMatchers = hashMapOf<String, Regex>()
-
-    private fun compilePattern(pattern: String): Regex =
-        compiledMatchers.getOrPut(pattern) { pattern.toRegex() }
-
-    private fun matchPattern(pattern: String, str: String): Boolean =
-        compilePattern(pattern).containsMatchIn(str)
-
     private fun SerializedNameMatcher.match(name: String): Boolean = when (this) {
         is Simple -> if (value == "*") true else value == name
         is Pattern -> {
-            isAny() || matchPattern(pattern, name)
+            isAny() || patternManager.matchPattern(pattern, name)
         }
         is ClassPattern -> {
             val (pkgName, clsName) = splitClassName(name)
@@ -745,7 +450,7 @@ class TaintConfiguration {
             pos.resolve(method, ctx).map { ConstantLt(it, ConstantStringValue(constantLt)) })
 
         is SerializedCondition.ConstantMatches -> mkOr(
-            pos.resolve(method, ctx).map { ConstantMatches(it, compilePattern(constantMatches)) })
+            pos.resolve(method, ctx).map { ConstantMatches(it, patternManager.compilePattern(constantMatches)) })
 
         is SerializedCondition.IsConstant -> mkOr(isConstant.resolve(method, ctx).map { IsConstant(it) })
 
@@ -772,7 +477,7 @@ class TaintConfiguration {
         }
 
         is SerializedCondition.MethodNameMatches -> {
-            matchPattern(nameMatches, method.name).asCondition()
+            patternManager.matchPattern(nameMatches, method.name).asCondition()
         }
     }
 
@@ -795,44 +500,10 @@ class TaintConfiguration {
             if (normalizedTypeIs.match(posTypeName)) return mkTrue()
         }
 
-        val matcher = normalizedTypeIs.toConditionNameMatcher()
+        val matcher = normalizedTypeIs.toConditionNameMatcher(patternManager)
+            ?: return mkTrue()
+
         return mkOr(position.map { TypeMatchesPattern(it, matcher) })
-    }
-
-    private fun SerializedNameMatcher.toConditionNameMatcher(): ConditionNameMatcher = when (this) {
-        is Simple -> ConditionNameMatcher.Concrete(value)
-        is Pattern -> ConditionNameMatcher.Pattern(compilePattern(pattern))
-        is ClassPattern -> {
-            val pkgMatcher = `package`.toConditionNameMatcher()
-            val clsMatcher = `class`.toConditionNameMatcher()
-            when (pkgMatcher) {
-                is ConditionNameMatcher.Concrete -> when (clsMatcher) {
-                    is ConditionNameMatcher.Concrete -> {
-                        val name = "${pkgMatcher.name}.${clsMatcher.name}"
-                        ConditionNameMatcher.Concrete(name)
-                    }
-
-                    is ConditionNameMatcher.Pattern -> {
-                        val pkgPattern = nameToPattern(pkgMatcher.name)
-                        val pattern = classNamePattern(pkgPattern, clsMatcher.pattern.pattern)
-                        ConditionNameMatcher.Pattern(compilePattern(pattern))
-                    }
-                }
-
-                is ConditionNameMatcher.Pattern -> when (clsMatcher) {
-                    is ConditionNameMatcher.Concrete -> {
-                        val clsPattern = nameToPattern(clsMatcher.name)
-                        val pattern = classNamePattern(pkgMatcher.pattern.pattern, clsPattern)
-                        ConditionNameMatcher.Pattern(compilePattern(pattern))
-                    }
-
-                    is ConditionNameMatcher.Pattern -> {
-                        val pattern = classNamePattern(pkgMatcher.pattern.pattern, clsMatcher.pattern.pattern)
-                        ConditionNameMatcher.Pattern(compilePattern(pattern))
-                    }
-                }
-            }
-        }
     }
 
     private fun SerializedTaintAssignAction.resolve(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignMark> =
@@ -976,44 +647,12 @@ class TaintConfiguration {
 
         return when (param) {
             is SerializedCondition.AnnotationParamPatternMatcher -> {
-                matchPattern(param.pattern, paramValueStr)
+                patternManager.matchPattern(param.pattern, paramValueStr)
             }
 
             is SerializedCondition.AnnotationParamStringMatcher -> {
                 paramValueStr == param.value
             }
         }
-    }
-
-    companion object {
-        private const val DOT_DELIMITER = "."
-
-        private fun Pattern.isAny(): Boolean = pattern == ".*"
-
-        private fun SerializedNameMatcher.normalizeAnyName(): SerializedNameMatcher = when (this) {
-            is ClassPattern -> {
-                ClassPattern(`package`.normalizeAnyName(), `class`.normalizeAnyName())
-            }
-
-            is Pattern -> this
-            is Simple -> if (value == "*") anyNameMatcher() else this
-        }
-
-        private fun nameToPattern(name: String): String = name.replace(".", "\\.")
-
-        // todo: check pattern for line start/end markers
-        private fun classNamePattern(pkgPattern: String, clsPattern: String): String =
-            "$pkgPattern\\.$clsPattern"
-
-        private fun anyNameMatcher(): SerializedNameMatcher = Pattern(".*")
-
-        private fun splitClassName(className: String): Pair<String, String> {
-            val simpleName = className.substringAfterLast(DOT_DELIMITER)
-            val pkgName = className.substringBeforeLast(DOT_DELIMITER, missingDelimiterValue = "")
-            return pkgName to simpleName
-        }
-
-        private fun joinClassName(pkgName: String, className: String): String =
-            "${pkgName}$DOT_DELIMITER${className}"
     }
 }

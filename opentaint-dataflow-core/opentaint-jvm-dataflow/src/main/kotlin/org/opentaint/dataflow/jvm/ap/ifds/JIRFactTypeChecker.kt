@@ -16,6 +16,7 @@ import org.opentaint.ir.api.jvm.JIRTypeVariable
 import org.opentaint.ir.api.jvm.JIRUnboundWildcard
 import org.opentaint.ir.api.jvm.ext.ifArrayGetElementType
 import org.opentaint.ir.api.jvm.ext.isAssignable
+import org.opentaint.ir.api.jvm.ext.isSubClassOf
 import org.opentaint.ir.api.jvm.ext.objectType
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.InMemoryHierarchyCache
@@ -35,7 +36,7 @@ import java.util.concurrent.atomic.LongAdder
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.isAccessible
 
-class JIRFactTypeChecker(private val cp: JIRClasspath): FactTypeChecker {
+class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
     private val persistence: JIRDatabasePersistence
     private val hierarchy: InMemoryHierarchyCache
     private val registeredLocationIds: Set<Long>
@@ -162,9 +163,46 @@ class JIRFactTypeChecker(private val cp: JIRClasspath): FactTypeChecker {
     }
 
     // todo: cache limit?
+    private val typeMayHaveSubtypeOfCache = ConcurrentHashMap<LongLongPair, Boolean>()
+
+    fun typeMayHaveSubtypeOf(typeName: String, requiredTypeName: String): Boolean {
+        if (requiredTypeName == "java.lang.Object") return true
+        if (typeName == "java.lang.Object") return true
+
+        if (typeName.endsWith("[]")) {
+            return requiredTypeName.endsWith("[]")
+        }
+
+        if (requiredTypeName.endsWith("[]")) {
+            return false
+        }
+
+        val typeNameId = persistence.findSymbolId(typeName)
+        val requiredTypeNameId = persistence.findSymbolId(requiredTypeName)
+
+        val cacheKey = LongLongImmutablePair(typeNameId, requiredTypeNameId)
+        return typeMayHaveSubtypeOfCache.computeIfAbsent(cacheKey) {
+            computeTypeMayHaveSubtypeOf(typeName, requiredTypeName)
+        }
+    }
+
+    private fun computeTypeMayHaveSubtypeOf(
+        typeName: String, requiredTypeName: String
+    ): Boolean {
+        val typeCls = cp.findClassOrNull(typeName) ?: return true
+        val requiredTypeCls = cp.findClassOrNull(requiredTypeName) ?: return true
+
+        return if (typeCls.isInterface) {
+            interfaceMayHaveSubtypeOf(typeCls, requiredTypeCls)
+        } else {
+            typeCls.isSubClassOf(requiredTypeCls) || requiredTypeCls.isSubClassOf(typeCls)
+        }
+    }
+
+    // todo: cache limit?
     private val interfaceMayHaveSubtypeOfCache = ConcurrentHashMap<LongLongPair, Boolean>()
 
-    fun interfaceMayHaveSubtypeOf(
+    private fun interfaceMayHaveSubtypeOf(
         interfaceType: JIRClassOrInterface,
         requiredType: JIRClassOrInterface
     ): Boolean {
