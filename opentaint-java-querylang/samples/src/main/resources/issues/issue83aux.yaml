@@ -1,0 +1,8 @@
+rules:
+  - id: i83
+    languages:
+      - java
+    message: 'message'
+    patterns:
+      - pattern: useParam((javax.servlet.http.HttpServletRequest $REQ).getParameter($PARAM));
+    severity: WARNING

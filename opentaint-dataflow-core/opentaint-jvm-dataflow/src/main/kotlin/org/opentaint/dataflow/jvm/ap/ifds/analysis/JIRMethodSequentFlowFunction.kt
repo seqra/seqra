@@ -420,6 +420,7 @@ class JIRMethodSequentFlowFunction(
             apManager,
             apResolver, valueResolver,
             FinalFactReader(fact, apManager),
+            analysisContext.factTypeChecker,
             condition = { condition },
             storeAssumptions = { rule, facts ->
                 taintSinkTracker.addSinkRuleAssumptions(rule, currentInst, facts)

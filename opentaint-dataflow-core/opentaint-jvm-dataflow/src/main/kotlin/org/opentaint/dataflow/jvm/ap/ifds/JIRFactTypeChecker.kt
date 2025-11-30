@@ -164,7 +164,7 @@ class JIRFactTypeChecker(private val cp: JIRClasspath): FactTypeChecker {
     // todo: cache limit?
     private val interfaceMayHaveSubtypeOfCache = ConcurrentHashMap<LongLongPair, Boolean>()
 
-    private fun interfaceMayHaveSubtypeOf(
+    fun interfaceMayHaveSubtypeOf(
         interfaceType: JIRClassOrInterface,
         requiredType: JIRClassOrInterface
     ): Boolean {

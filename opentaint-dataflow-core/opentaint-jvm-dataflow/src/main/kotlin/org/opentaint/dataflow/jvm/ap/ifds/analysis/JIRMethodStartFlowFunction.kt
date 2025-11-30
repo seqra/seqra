@@ -30,7 +30,8 @@ class JIRMethodStartFlowFunction(
         JIRMethodCallFlowFunction.applyEntryPointConfigDefault(
             apManager,
             context.taint.taintConfig as TaintRulesProvider,
-            context.methodEntryPoint.method as JIRMethod
+            context.methodEntryPoint.method as JIRMethod,
+            context.factTypeChecker
         ).onSome { facts ->
             facts.mapTo(result) { StartFact.Fact(it) }
         }
@@ -71,7 +72,7 @@ class JIRMethodStartFlowFunction(
         val apResolver = CalleePositionToAccessPath(resultAp = null)
         val valueResolver = CalleePositionToJIRValueResolver(method as JIRMethod)
         val conditionEvaluator = JIRFactAwareConditionEvaluator(
-            emptyList(), apResolver, valueResolver
+            emptyList(), apResolver, valueResolver, context.factTypeChecker,
         )
 
         for (rule in sinkRules) {

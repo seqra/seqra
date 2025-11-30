@@ -20,7 +20,8 @@ class JIRFactAwareConditionEvaluator(
     private val facts: Iterable<FactReader>,
     private val accessPathResolver: PositionResolver<Maybe<List<PositionAccess>>>,
     positionResolver: PositionResolver<Maybe<JIRValue>>,
-) : JIRBasicConditionEvaluator(positionResolver), FactAwareConditionEvaluator {
+    typeChecker: JIRFactTypeChecker,
+) : JIRBasicConditionEvaluator(positionResolver, typeChecker), FactAwareConditionEvaluator {
     private var hasEvaluatedContainsMark: Boolean = false
     private val evaluatedFacts = mutableListOf<InitialFactAp>()
 

@@ -14,6 +14,10 @@ class JIRMethodStartPrecondition(
 ) : MethodStartPrecondition {
     override fun factPrecondition(fact: InitialFactAp): List<TaintRulePrecondition.Source> =
         JIRMethodCallPrecondition.getEntryPointPrecondition(
-            apManager, context.taint.taintConfig as TaintRulesProvider, context.methodEntryPoint.method as JIRMethod, fact
+            apManager,
+            context.taint.taintConfig as TaintRulesProvider,
+            context.factTypeChecker,
+            context.methodEntryPoint.method as JIRMethod,
+            fact
         )
 }

@@ -17,6 +17,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRCallPositionToAccessPathResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactAwareConditionEvaluator
+import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodCallFactMapper
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils
@@ -102,7 +103,8 @@ class JIRMethodCallPrecondition(
             val ruleConditionEvaluator = JIRFactAwareConditionEvaluator(
                 listOf(rulePrecondition),
                 apResolver,
-                jirValueResolver
+                jirValueResolver,
+                analysisContext.factTypeChecker,
             )
 
             if (!rule.condition.accept(ruleConditionEvaluator)) continue
@@ -134,7 +136,8 @@ class JIRMethodCallPrecondition(
         val ruleConditionEvaluator = JIRFactAwareConditionEvaluator(
             listOf(JIRPreconditionFactReader(apManager)),
             apResolver,
-            jirValueResolver
+            jirValueResolver,
+            analysisContext.factTypeChecker
         )
 
         val result = TaintConfigUtils.applyPassThrough(
@@ -152,6 +155,7 @@ class JIRMethodCallPrecondition(
         fun getEntryPointPrecondition(
             apManager: ApManager,
             config: TaintRulesProvider,
+            typeChecker: JIRFactTypeChecker,
             method: JIRMethod,
             initialFact: InitialFactAp,
         ): List<TaintRulePrecondition.Source> {
@@ -162,7 +166,8 @@ class JIRMethodCallPrecondition(
             )
 
             val conditionEvaluator = JIRBasicConditionEvaluator(
-                CalleePositionToJIRValueResolver(method)
+                CalleePositionToJIRValueResolver(method),
+                typeChecker
             )
 
             val result = TaintConfigUtils.applyEntryPointConfig(

@@ -109,13 +109,14 @@ object TaintConfigUtils {
         apManager: ApManager, apResolver: PositionResolver<Maybe<List<PositionAccess>>>,
         valueResolver: PositionResolver<Maybe<JIRValue>>,
         factReader: FinalFactReader?,
+        typeChecker: JIRFactTypeChecker,
         condition: T.() -> Condition,
         storeAssumptions: (T, Set<InitialFactAp>) -> Unit,
         currentAssumptions: (T) -> Set<InitialFactAp>,
         applyRule: (T, List<InitialFactAp>) -> Unit,
     ) {
         val conditionEvaluator = JIRFactAwareConditionEvaluator(
-            listOfNotNull(factReader), apResolver, valueResolver
+            listOfNotNull(factReader), apResolver, valueResolver, typeChecker
         )
 
         for (rule in this) {
@@ -137,7 +138,7 @@ object TaintConfigUtils {
             val assumptionReaders = assumptions.map { InitialFactReader(it, apManager) }
 
             val conditionEvaluatorWithAssumptions = JIRFactAwareConditionEvaluator(
-                assumptionReaders, apResolver, valueResolver
+                assumptionReaders, apResolver, valueResolver, typeChecker
             )
 
             if (!conditionEvaluatorWithAssumptions.evalWithAssumptionsCheck(ruleCondition)) {

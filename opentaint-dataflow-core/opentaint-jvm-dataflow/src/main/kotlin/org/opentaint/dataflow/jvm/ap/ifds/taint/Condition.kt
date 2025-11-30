@@ -24,6 +24,8 @@ import org.opentaint.ir.api.jvm.cfg.JIRInt
 import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.isAssignable
+import org.opentaint.ir.api.jvm.ext.isSubClassOf
+import org.opentaint.ir.api.jvm.ext.objectClass
 import org.opentaint.dataflow.configuration.jvm.And
 import org.opentaint.dataflow.configuration.jvm.ConditionNameMatcher
 import org.opentaint.dataflow.configuration.jvm.ConditionVisitor
@@ -40,14 +42,18 @@ import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.configuration.jvm.IsConstant
 import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Or
+import org.opentaint.dataflow.configuration.jvm.Position
 import org.opentaint.dataflow.configuration.jvm.PositionResolver
+import org.opentaint.dataflow.configuration.jvm.This
 import org.opentaint.dataflow.configuration.jvm.TypeMatches
 import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
+import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
 import org.opentaint.util.Maybe
 import org.opentaint.util.onSome
 
 open class JIRBasicConditionEvaluator(
-    internal val positionResolver: PositionResolver<Maybe<JIRValue>>
+    private val positionResolver: PositionResolver<Maybe<JIRValue>>,
+    private val typeChecker: JIRFactTypeChecker
 ) : ConditionVisitor<Boolean> {
 
     override fun visit(condition: ConstantTrue): Boolean {
@@ -114,7 +120,7 @@ open class JIRBasicConditionEvaluator(
 
     override fun visit(condition: TypeMatchesPattern): Boolean   {
         positionResolver.resolve(condition.position).onSome { value ->
-            return typeMatchesPattern(value, condition)
+            return typeMatchesPattern(value, condition.position, condition)
         }
         return false
     }
@@ -174,10 +180,37 @@ open class JIRBasicConditionEvaluator(
         return value.type.isAssignable(condition.type)
     }
 
-    private fun typeMatchesPattern(value: JIRValue, condition: TypeMatchesPattern): Boolean {
-        if (value.type !is JIRRefType) return false
-        // todo: check super classes?
-        return condition.pattern.matchName(value.type.typeName)
+    private fun typeMatchesPattern(value: JIRValue, pos: Position, condition: TypeMatchesPattern): Boolean {
+        val type = value.type as? JIRRefType ?: return false
+        val cls = type.jirClass
+
+        when (val pattern = condition.pattern) {
+            is ConditionNameMatcher.Pattern -> {
+                if (pattern.matchName(cls.name)) return true
+
+                // todo: check super classes?
+                return false
+            }
+
+            is ConditionNameMatcher.Concrete -> {
+                if (pattern.matchName(cls.name)) return true
+
+                val patternCls = cls.classpath.findClassOrNull(pattern.name)
+                    ?: return false // todo: maybe true, leads to more fp
+
+                if (cls.isSubClassOf(patternCls)) return true
+
+                // todo: try to avoid this hack
+                if (pos !is This) return false
+                if (cls == cls.classpath.objectClass) return false
+
+                if (cls.isInterface) {
+                    return typeChecker.interfaceMayHaveSubtypeOf(cls, patternCls)
+                } else {
+                    return patternCls.isSubClassOf(cls)
+                }
+            }
+        }
     }
 
     private fun ConditionNameMatcher.matchName(name: String): Boolean = when (this) {

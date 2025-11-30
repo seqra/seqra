@@ -1,0 +1,27 @@
+rules:
+  - id: find_sec_bugs.SERVLET_PARAMETER-1.SERVLET_CONTENT_TYPE-1.SERVLET_SERVER_NAME-1.SERVLET_SESSION_ID-1.SERVLET_QUERY_STRING-1.SERVLET_HEADER-1.SERVLET_HEADER_REFERER-1.SERVLET_HEADER_USER_AGENT-1
+    languages:
+      - java
+    message: 'The Servlet can read GET and POST parameters from various methods. The
+
+    value obtained should be considered unsafe."
+
+    '
+    metadata:
+      category: security
+      cwe: 'CWE-20: Improper Input Validation'
+    mode: taint
+    pattern-sinks:
+      - pattern-either:
+          - pattern: '"..." + $PAR'
+          - pattern: $PAR + "..."
+    pattern-sources:
+      - pattern-either:
+          - pattern: (javax.servlet.http.HttpServletRequest $REQ).getContentType(...)
+          - pattern: (javax.servlet.http.HttpServletRequest $REQ).getServerName(...)
+          - pattern: (javax.servlet.http.HttpServletRequest $REQ).getRequestedSessionId(...)
+          - pattern: (javax.servlet.http.HttpServletRequest $REQ).getParameterValues(...)
+          - pattern: (javax.servlet.http.HttpServletRequest $REQ).getParameterMap(...)
+          - pattern: (javax.servlet.http.HttpServletRequest $REQ).getParameterNames(...)
+          - pattern: (javax.servlet.http.HttpServletRequest $REQ).getParameter(...)
+    severity: WARNING

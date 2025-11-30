@@ -22,6 +22,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRCallPositionToAccessPathResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactAwareConditionEvaluator
+import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodCallFactMapper
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodPositionBaseTypeResolver
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyCleaner
@@ -141,7 +142,8 @@ class JIRMethodCallFlowFunction(
         val conditionEvaluator = JIRFactAwareConditionEvaluator(
             listOf(factReaderBeforeCleaner),
             apResolver,
-            CallPositionToJIRValueResolver(callExpr, returnValue)
+            CallPositionToJIRValueResolver(callExpr, returnValue),
+            analysisContext.factTypeChecker,
         )
 
         val cleaner = TaintCleanActionEvaluator(apResolver)
@@ -225,7 +227,7 @@ class JIRMethodCallFlowFunction(
 
         sinkRules.applyRuleWithAssumptions(
             apManager, apResolver,
-            valueResolver, factReader, condition = { condition },
+            valueResolver, factReader, analysisContext.factTypeChecker, condition = { condition },
             storeAssumptions = { rule, facts -> sinkTracker.addSinkRuleAssumptions(rule, statement, facts) },
             currentAssumptions = { rule -> sinkTracker.currentSinkRuleAssumptions(rule, statement) }
         ) { rule, evaluatedFacts ->
@@ -261,7 +263,7 @@ class JIRMethodCallFlowFunction(
 
         sourceRules.applyRuleWithAssumptions(
             apManager,
-            apResolver, valueResolver, factReader,
+            apResolver, valueResolver, factReader, analysisContext.factTypeChecker,
             condition = { condition },
             storeAssumptions = { rule, facts -> sinkTracker.addSourceRuleAssumptions(rule, statement, facts) },
             currentAssumptions = { rule -> sinkTracker.currentSourceRuleAssumptions(rule, statement) }
@@ -286,12 +288,14 @@ class JIRMethodCallFlowFunction(
         fun applyEntryPointConfigDefault(
             apManager: ApManager,
             config: TaintRulesProvider,
-            method: JIRMethod
+            method: JIRMethod,
+            typeChecker: JIRFactTypeChecker,
         ) = applyEntryPointConfig(
             config,
             method = method,
             conditionEvaluator = JIRBasicConditionEvaluator(
-                CalleePositionToJIRValueResolver(method)
+                CalleePositionToJIRValueResolver(method),
+                typeChecker
             ),
             taintActionEvaluator = TaintSourceActionEvaluator(
                 apManager,

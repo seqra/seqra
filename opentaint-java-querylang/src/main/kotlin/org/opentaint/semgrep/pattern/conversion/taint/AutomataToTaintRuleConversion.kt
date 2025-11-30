@@ -1485,7 +1485,7 @@ private fun TaintRuleGenerationCtx.generateTaintSinkRules(id: String, meta: Sink
             )
 
             is Edge.MethodCall -> SerializedRule.Sink(
-                function, signature = null, overrides = false, cond, id, meta = meta
+                function, signature = null, overrides = true, cond, id, meta = meta
             )
 
             Edge.AnalysisEnd -> return@generateTaintRules generateEndSink(currentRules, cond, id, meta)
@@ -1569,7 +1569,7 @@ private fun TaintRuleGenerationCtx.generateTaintSourceRules(
 
     val rule = when (ruleEdge.edge) {
         is Edge.MethodCall -> SerializedRule.Source(
-            function, signature = null, overrides = false, cond, actions
+            function, signature = null, overrides = true, cond, actions
         )
 
         is Edge.MethodEnter -> SerializedRule.EntryPoint(
@@ -1638,7 +1638,7 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
 
                 when (edge) {
                     is Edge.MethodCall -> SerializedRule.Source(
-                        function, signature = null, overrides = false, cond, actions
+                        function, signature = null, overrides = true, cond, actions
                     )
 
                     is Edge.MethodEnter -> SerializedRule.EntryPoint(
@@ -1688,7 +1688,7 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
                     TODO("Eliminate opentaint return value")
                 }
 
-                SerializedRule.Cleaner(function, signature = null, overrides = false, cond, actions)
+                SerializedRule.Cleaner(function, signature = null, overrides = true, cond, actions)
             }
         }
     }

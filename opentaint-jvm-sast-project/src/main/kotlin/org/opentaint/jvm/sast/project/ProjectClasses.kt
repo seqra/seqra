@@ -5,6 +5,7 @@ import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.impl.features.classpaths.JIRUnknownClass
+import org.opentaint.project.ProjectModuleClasses
 import java.io.File
 
 class ProjectClasses(
@@ -60,7 +61,7 @@ fun ProjectClasses.projectPublicClasses(): Sequence<JIRClassOrInterface> =
 fun JIRClassOrInterface.publicAndProtectedMethods(): Sequence<JIRMethod> =
     declaredMethods
         .asSequence()
-        .filterNot { it.isAbstract || it.isNative || it.isConstructor || it.isClassInitializer }
+        .filterNot { it.isAbstract || it.isNative || it.isClassInitializer }
         .filter { it.isPublic || it.isProtected }
 
         // todo: hack to avoid problems with Juliet benchmark
