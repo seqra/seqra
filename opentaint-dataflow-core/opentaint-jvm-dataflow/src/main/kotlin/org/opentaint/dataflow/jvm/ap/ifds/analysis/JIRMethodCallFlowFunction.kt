@@ -153,7 +153,7 @@ class JIRMethodCallFlowFunction(
             callExpr.callee,
             statement,
             factReaderBeforeCleaner,
-            conditionEvaluator,
+            conditionEvaluator.withoutAssumptions(),
             cleaner
         ) ?: return
 
@@ -167,7 +167,7 @@ class JIRMethodCallFlowFunction(
             config,
             callExpr.callee,
             statement,
-            conditionEvaluator,
+            conditionEvaluator.withoutAssumptions(),
             passEvaluator
         )
 

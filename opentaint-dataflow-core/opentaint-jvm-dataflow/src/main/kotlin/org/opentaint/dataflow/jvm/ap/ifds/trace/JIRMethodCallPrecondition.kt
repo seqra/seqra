@@ -107,7 +107,7 @@ class JIRMethodCallPrecondition(
                 analysisContext.factTypeChecker,
             )
 
-            if (!rule.condition.accept(ruleConditionEvaluator)) continue
+            if (!ruleConditionEvaluator.evalWithAssumptionsCheck(rule.condition)) continue
 
             val assignedMarks = rule.actionsAfter
                 .maybeFlatMap { sourcePreconditionEvaluator.evaluate(rule, it) }
@@ -144,7 +144,7 @@ class JIRMethodCallPrecondition(
             taintConfig,
             method,
             statement,
-            ruleConditionEvaluator,
+            ruleConditionEvaluator.withoutAssumptions(),
             rulePreconditionEvaluator
         )
 

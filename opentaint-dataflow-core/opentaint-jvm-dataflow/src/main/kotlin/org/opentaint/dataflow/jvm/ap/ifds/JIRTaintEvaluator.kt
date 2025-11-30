@@ -4,12 +4,21 @@ import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.jvm.And
 import org.opentaint.dataflow.configuration.jvm.Condition
+import org.opentaint.dataflow.configuration.jvm.ConstantEq
+import org.opentaint.dataflow.configuration.jvm.ConstantGt
+import org.opentaint.dataflow.configuration.jvm.ConstantLt
+import org.opentaint.dataflow.configuration.jvm.ConstantMatches
+import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
+import org.opentaint.dataflow.configuration.jvm.IsConstant
 import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.PositionResolver
 import org.opentaint.dataflow.configuration.jvm.TaintMark
+import org.opentaint.dataflow.configuration.jvm.TypeMatches
+import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FactAwareConditionEvaluator
+import org.opentaint.dataflow.jvm.ap.ifds.taint.FactAwareConditionEvaluator.EvaluationResult
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRBasicConditionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.PositionAccess
@@ -21,52 +30,108 @@ class JIRFactAwareConditionEvaluator(
     private val accessPathResolver: PositionResolver<Maybe<List<PositionAccess>>>,
     positionResolver: PositionResolver<Maybe<JIRValue>>,
     typeChecker: JIRFactTypeChecker,
-) : JIRBasicConditionEvaluator(positionResolver, typeChecker), FactAwareConditionEvaluator {
+): FactAwareConditionEvaluator {
+    private val basicEvaluator = JIRBasicConditionEvaluator(positionResolver, typeChecker)
+
     private var hasEvaluatedContainsMark: Boolean = false
-    private val evaluatedFacts = mutableListOf<InitialFactAp>()
+    private var assumptionPossible: Boolean = false
+    private val evaluatedFacts = mutableListOf<EvaluatedFact>()
 
     override fun evalWithAssumptionsCheck(condition: Condition): Boolean {
         evaluatedFacts.clear()
         hasEvaluatedContainsMark = false
-        return condition.accept(this)
+        val result = condition.accept(this)
+
+        assumptionPossible = result != EvaluationResult.False && hasEvaluatedContainsMark
+        return result == EvaluationResult.True
     }
 
-    override fun assumptionsPossible(): Boolean = hasEvaluatedContainsMark
+    override fun assumptionsPossible(): Boolean = assumptionPossible
 
-    override fun facts(): List<InitialFactAp> = evaluatedFacts.toList()
+    override fun facts(): List<InitialFactAp> = evaluatedFacts.map { it.eval() }
 
-    // Force evaluation of all branches
-    override fun visit(condition: And): Boolean =
-        condition.args.map { it.accept(this) }.all { it }
-
-    override fun visit(condition: Or): Boolean =
-        condition.args.map { it.accept(this) }.any { it }
-
-    override fun visit(condition: Not): Boolean {
-        if (condition.arg is ContainsMark) {
-            return true
+    override fun visit(condition: And): EvaluationResult {
+        var hasUnknown = false
+        for (arg in condition.args) {
+            val argResult = arg.accept(this)
+            when (argResult) {
+                EvaluationResult.False -> return EvaluationResult.False
+                EvaluationResult.True -> continue
+                EvaluationResult.Unknown -> hasUnknown = true
+            }
         }
-        return super.visit(condition)
+
+        if (hasUnknown) return EvaluationResult.Unknown
+        return EvaluationResult.True
     }
 
-    override fun visit(condition: ContainsMark): Boolean {
+    override fun visit(condition: Or): EvaluationResult {
+        var hasUnknown = false
+        for (arg in condition.args) {
+            val argResult = arg.accept(this)
+            when (argResult) {
+                EvaluationResult.False -> continue
+                EvaluationResult.True -> return EvaluationResult.True
+                EvaluationResult.Unknown -> hasUnknown = true
+            }
+        }
+
+        if (hasUnknown) return EvaluationResult.Unknown
+        return EvaluationResult.False
+    }
+
+    override fun visit(condition: Not): EvaluationResult {
+        if (condition.arg is ContainsMark) {
+            return EvaluationResult.True
+        }
+
+        val result = condition.arg.accept(this)
+        return when (result) {
+            EvaluationResult.True -> EvaluationResult.False
+            EvaluationResult.False -> EvaluationResult.True
+            EvaluationResult.Unknown -> EvaluationResult.Unknown
+        }
+    }
+
+    override fun visit(condition: ContainsMark): EvaluationResult {
+        var hasUnknown = false
         accessPathResolver.resolve(condition.position).onSome { variables ->
             for (variable in variables) {
                 for (fact in facts) {
-                    if (evalContainsMark(fact, condition.mark, variable)) return true
+                    val evalResult = evalContainsMark(fact, condition.mark, variable)
+                    if (evalResult) return EvaluationResult.True
+                    hasUnknown = true
                 }
             }
         }
-        return false
+        return if (hasUnknown) EvaluationResult.Unknown else EvaluationResult.False
     }
 
-    override fun evalContainsMark(factReader: FactReader, mark: TaintMark, variable: PositionAccess): Boolean {
+    private fun evalContainsMark(factReader: FactReader, mark: TaintMark, variable: PositionAccess): Boolean {
         if (factReader.containsPositionWithTaintMark(variable, mark)) {
-            evaluatedFacts += factReader.createInitialFactWithTaintMark(variable, mark)
+            evaluatedFacts += EvaluatedFact(factReader, variable, mark)
             hasEvaluatedContainsMark = true
             return true
         }
 
         return false
+    }
+
+    private fun basic(condition: Condition): EvaluationResult {
+        val result = condition.accept(basicEvaluator)
+        return if (result) EvaluationResult.True else EvaluationResult.False
+    }
+
+    override fun visit(condition: TypeMatches): EvaluationResult = basic(condition)
+    override fun visit(condition: TypeMatchesPattern): EvaluationResult = basic(condition)
+    override fun visit(condition: IsConstant): EvaluationResult = basic(condition)
+    override fun visit(condition: ConstantEq): EvaluationResult = basic(condition)
+    override fun visit(condition: ConstantLt): EvaluationResult = basic(condition)
+    override fun visit(condition: ConstantGt): EvaluationResult = basic(condition)
+    override fun visit(condition: ConstantMatches): EvaluationResult = basic(condition)
+    override fun visit(condition: ConstantTrue): EvaluationResult = EvaluationResult.True
+
+    private data class EvaluatedFact(val reader: FactReader, val variable: PositionAccess, val mark: TaintMark) {
+        fun eval(): InitialFactAp = reader.createInitialFactWithTaintMark(variable, mark)
     }
 }

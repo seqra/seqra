@@ -8,28 +8,61 @@ import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.trace.TaintRulePrecondition
+import org.opentaint.dataflow.configuration.jvm.And
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.Condition
 import org.opentaint.dataflow.configuration.jvm.ConditionVisitor
+import org.opentaint.dataflow.configuration.jvm.ConstantEq
+import org.opentaint.dataflow.configuration.jvm.ConstantGt
+import org.opentaint.dataflow.configuration.jvm.ConstantLt
+import org.opentaint.dataflow.configuration.jvm.ConstantMatches
+import org.opentaint.dataflow.configuration.jvm.ConstantTrue
+import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
 import org.opentaint.dataflow.configuration.jvm.CopyMark
+import org.opentaint.dataflow.configuration.jvm.IsConstant
+import org.opentaint.dataflow.configuration.jvm.Not
+import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.Position
 import org.opentaint.dataflow.configuration.jvm.PositionResolver
 import org.opentaint.dataflow.configuration.jvm.RemoveAllMarks
 import org.opentaint.dataflow.configuration.jvm.RemoveMark
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
 import org.opentaint.dataflow.configuration.jvm.TaintMark
+import org.opentaint.dataflow.configuration.jvm.TypeMatches
+import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
 import org.opentaint.util.Maybe
 import org.opentaint.util.flatFmap
 import org.opentaint.util.flatMap
 import org.opentaint.util.fmap
 import org.opentaint.util.onNone
 
-interface FactAwareConditionEvaluator : ConditionVisitor<Boolean> {
+interface FactAwareConditionEvaluator : ConditionVisitor<FactAwareConditionEvaluator.EvaluationResult> {
     fun evalWithAssumptionsCheck(condition: Condition): Boolean
     fun assumptionsPossible(): Boolean
     fun facts(): List<InitialFactAp>
-    fun evalContainsMark(factReader: FactReader, mark: TaintMark, variable: PositionAccess): Boolean
+
+    enum class EvaluationResult {
+        True, False, Unknown
+    }
+
+    fun withoutAssumptions(): ConditionVisitor<Boolean> = object : ConditionVisitor<Boolean> {
+        private fun eval(condition: Condition): Boolean =
+            this@FactAwareConditionEvaluator.evalWithAssumptionsCheck(condition)
+
+        override fun visit(condition: ConstantTrue): Boolean = eval(condition)
+        override fun visit(condition: Not): Boolean = eval(condition)
+        override fun visit(condition: And): Boolean = eval(condition)
+        override fun visit(condition: Or): Boolean = eval(condition)
+        override fun visit(condition: IsConstant): Boolean = eval(condition)
+        override fun visit(condition: ConstantEq): Boolean = eval(condition)
+        override fun visit(condition: ConstantLt): Boolean = eval(condition)
+        override fun visit(condition: ConstantGt): Boolean = eval(condition)
+        override fun visit(condition: ConstantMatches): Boolean = eval(condition)
+        override fun visit(condition: ContainsMark): Boolean = eval(condition)
+        override fun visit(condition: TypeMatches): Boolean = eval(condition)
+        override fun visit(condition: TypeMatchesPattern): Boolean = eval(condition)
+    }
 }
 
 interface PassActionEvaluator<T> {
