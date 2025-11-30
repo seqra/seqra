@@ -100,12 +100,24 @@ private fun convertTaintRuleToTaintRules(
     val generatedRules = mutableListOf<SerializedItem>()
 
     for ((i, source) in rule.sources.withIndex()) {
-        val (ctx, stateVars) = convertTaintSourceRule(ruleId, i, source)
+        if (source.label != null) {
+            logger.warn { "Rule $ruleId: source label ignored" }
+        }
+
+        if (source.requires != null) {
+            logger.warn { "Rule $ruleId: source requires ignored" }
+        }
+
+        val (ctx, stateVars) = convertTaintSourceRule(ruleId, i, source.pattern)
         generatedRules += ctx.generateTaintSourceRules(stateVars, taintMarkName)
     }
 
     for ((i, sink) in rule.sinks.withIndex()) {
-        val (ctx, stateVars, stateId) = convertTaintSinkRule(ruleId, i, sink)
+        if (sink.requires != null) {
+            logger.warn { "Rule $ruleId: sink requires ignored" }
+        }
+
+        val (ctx, stateVars, stateId) = convertTaintSinkRule(ruleId, i, sink.pattern)
         val sinkCtx = SinkRuleGenerationCtx(stateVars, stateId, taintMarkName, ctx)
         generatedRules += sinkCtx.generateTaintSinkRules(ruleId, meta)
     }

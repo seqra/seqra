@@ -212,7 +212,9 @@ LINE_COMMENT : '//' ~[\r\n]*    -> channel(HIDDEN);
 
 IDENTIFIER: LetterNoDollar LetterOrDigit*;
 
-METAVAR: [$] MetavarLetter*;
+METAVAR: [$] MetavarLetter+;
+
+ANONYMOUS_METAVAR: [$] '_';
 
 ELLIPSIS_METAVAR: [$] '...' MetavarLetter*;
 

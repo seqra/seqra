@@ -309,12 +309,13 @@ formalParameterList
 
 formalParameter
     : ellipsisExpression
-    | metavar
+    | formalParameterMetavar
     | variableModifier* typeType variableDeclaratorId
     ;
 
-metavar
+formalParameterMetavar
     : METAVAR
+    | ANONYMOUS_METAVAR
     ;
 
 lastFormalParameter
@@ -490,6 +491,7 @@ localVariableDeclaration
 
 identifier
     : METAVAR
+    | ANONYMOUS_METAVAR
     | IDENTIFIER
     | MODULE
     | OPEN
@@ -510,6 +512,7 @@ identifier
 
 typeIdentifier // Identifiers that are not restricted for type declarations
     : METAVAR
+    | ANONYMOUS_METAVAR
     | IDENTIFIER
     | MODULE
     | OPEN

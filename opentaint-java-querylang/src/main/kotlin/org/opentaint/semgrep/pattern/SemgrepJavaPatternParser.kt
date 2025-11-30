@@ -28,6 +28,7 @@ import org.opentaint.semgrep.pattern.antlr.JavaParser.CreatedNameContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.CreatorContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.ElementValuePairContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.FormalParameterContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.FormalParameterMetavarContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.FormalParametersContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.IdentifierContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.ImportSemgrepPatternContext
@@ -110,12 +111,14 @@ class SemgrepJavaPatternParser {
 
 private fun IdentifierContext.parseName(): Name = withRule {
     tryRule(IdentifierContext::METAVAR) { return MetavarName(it.text) }
+    tryRule(IdentifierContext::ANONYMOUS_METAVAR) { this@parseName.todo() }
     tryRule(IdentifierContext::IDENTIFIER) { return ConcreteName(it.text) }
     unreachable()
 }
 
 private fun TypeIdentifierContext.parseTypeIdentifierName(): Name = withRule {
     tryRule(TypeIdentifierContext::METAVAR) { return MetavarName(it.text) }
+    tryRule(TypeIdentifierContext::ANONYMOUS_METAVAR) { this@parseTypeIdentifierName.todo() }
     tryRule(TypeIdentifierContext::IDENTIFIER) { return ConcreteName(it.text) }
     unreachable()
 }
@@ -307,13 +310,19 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
 
     override fun visitFormalParameter(ctx: FormalParameterContext): SemgrepJavaPattern = ctx.withRule {
         tryRule(FormalParameterContext::ellipsisExpression) { return Ellipsis }
-        tryRule(FormalParameterContext::metavar) { return Metavar(it.text) }
+        tryRule(FormalParameterContext::formalParameterMetavar) { return parseFormalParameterMetavar(it) }
         tryRule(FormalParameterContext::variableDeclaratorId) {
             val name = it.identifier().parseName()
             val type = value(FormalParameterContext::typeType).accept(typenameParser) ?: ctx.parsingFailed()
             val modifiers = value(FormalParameterContext::variableModifier).mapNotNull { parseModifier(it) }
             return FormalArgument(name, type, modifiers)
         }
+        unreachable()
+    }
+
+    private fun parseFormalParameterMetavar(ctx: FormalParameterMetavarContext): SemgrepJavaPattern = ctx.withRule {
+        tryRule(FormalParameterMetavarContext::METAVAR) { return Metavar(it.text) }
+        tryRule(FormalParameterMetavarContext::ANONYMOUS_METAVAR) { ctx.todo() }
         unreachable()
     }
 

@@ -28,9 +28,9 @@ data class SemgrepYamlRule(
     val severity: String,
     val metadata: YamlMap? = null,
     @SerialName("pattern-sources")
-    val patternSources: List<ComplexPattern> = emptyList(),
+    val patternSources: List<PatternSource> = emptyList(),
     @SerialName("pattern-sinks")
-    val patternSinks: List<ComplexPattern> = emptyList(),
+    val patternSinks: List<PatternSink> = emptyList(),
     @SerialName("pattern-propagators")
     val patternPropagators: List<PatternPropagator> = emptyList(),
     @SerialName("pattern-sanitizers")
@@ -140,6 +140,77 @@ data class PatternPropagator(
     )
 }
 
+@Serializable
+data class PatternSource(
+    val label: String? = null,
+    val requires: String? = null,
+
+    // todo: complex pattern inlined here
+    @SerialName("pattern-either")
+    val patternEither: List<ComplexPattern> = emptyList(),
+    val pattern: String? = null,
+    val patterns: List<ComplexPattern> = emptyList(),
+    @SerialName("pattern-inside")
+    val patternInside: String? = null,
+    @SerialName("pattern-not")
+    val patternNot: String? = null,
+    @SerialName("pattern-not-inside")
+    val patternNotInside: String? = null,
+    @SerialName("metavariable-regex")
+    val metavariableRegex: MetavariableRegexInfo? = null,
+    @SerialName("metavariable-pattern")
+    val metavariablePattern: MetavariablePatternInfo? = null,
+    @SerialName("metavariable-comparison")
+    val metavariableComparison: MetavariablePatternInfo? = null,
+    @SerialName("pattern-regex")
+    val patternRegex: String? = null,
+    @SerialName("pattern-not-regex")
+    val patternNotRegex: String? = null,
+    @SerialName("focus-metavariable")
+    val focusMetavariable: YamlNode? = null,
+) {
+    fun pattern() = ComplexPattern(
+        patternEither, pattern, patterns, patternInside, patternNot,
+        patternNotInside, metavariableRegex, metavariablePattern,
+        metavariableComparison, patternRegex, patternNotRegex, focusMetavariable
+    )
+}
+
+@Serializable
+data class PatternSink(
+    val requires: String? = null,
+
+    // todo: complex pattern inlined here
+    @SerialName("pattern-either")
+    val patternEither: List<ComplexPattern> = emptyList(),
+    val pattern: String? = null,
+    val patterns: List<ComplexPattern> = emptyList(),
+    @SerialName("pattern-inside")
+    val patternInside: String? = null,
+    @SerialName("pattern-not")
+    val patternNot: String? = null,
+    @SerialName("pattern-not-inside")
+    val patternNotInside: String? = null,
+    @SerialName("metavariable-regex")
+    val metavariableRegex: MetavariableRegexInfo? = null,
+    @SerialName("metavariable-pattern")
+    val metavariablePattern: MetavariablePatternInfo? = null,
+    @SerialName("metavariable-comparison")
+    val metavariableComparison: MetavariablePatternInfo? = null,
+    @SerialName("pattern-regex")
+    val patternRegex: String? = null,
+    @SerialName("pattern-not-regex")
+    val patternNotRegex: String? = null,
+    @SerialName("focus-metavariable")
+    val focusMetavariable: YamlNode? = null,
+) {
+    fun pattern() = ComplexPattern(
+        patternEither, pattern, patterns, patternInside, patternNot,
+        patternNotInside, metavariableRegex, metavariablePattern,
+        metavariableComparison, patternRegex, patternNotRegex, focusMetavariable
+    )
+}
+
 sealed interface Formula {
     data class LeafPattern(val pattern: String) : Formula
     class And(val children: List<Formula>) : Formula
@@ -192,8 +263,12 @@ fun parseSemgrepRule(rule: SemgrepYamlRule): SemgrepRule<Formula> =
 
 private fun parseTaintRule(rule: SemgrepYamlRule): SemgrepTaintRule<Formula> =
     SemgrepTaintRule(
-        sources = rule.patternSources.map { complexPatternToFormula(it) },
-        sinks = rule.patternSinks.map { complexPatternToFormula(it) },
+        sources = rule.patternSources.map {
+            SemgrepTaintSource(it.label, it.requires, complexPatternToFormula(it.pattern()))
+        },
+        sinks = rule.patternSinks.map {
+            SemgrepTaintSink(it.requires, complexPatternToFormula(it.pattern()))
+        },
         propagators = rule.patternPropagators.map {
             SemgrepTaintPropagator(it.from, it.to, complexPatternToFormula(it.pattern()))
         },
