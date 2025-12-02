@@ -51,7 +51,6 @@ class IssuesTest : SampleBasedTest() {
     fun `issue 84`() = runTest<issue84>()
 
     @Test
-    @Disabled // todo: propagator hidden in class field
     fun `issue 85`() = runTest<issue85>()
 
     @AfterAll

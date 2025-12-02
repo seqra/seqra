@@ -9,6 +9,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModif
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationParamPatternMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationParamStringMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.Companion.mkFalse
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.ConstantCmpType
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.ConstantType
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.ConstantValue
@@ -67,7 +68,6 @@ import org.opentaint.semgrep.pattern.conversion.opentaintReturnValueMethod
 import org.opentaint.semgrep.pattern.conversion.opentaintStringConcatMethodName
 import java.util.BitSet
 import java.util.IdentityHashMap
-import kotlin.math.absoluteValue
 
 fun convertToTaintRules(
     rule: SemgrepRule<RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>>,
@@ -443,10 +443,13 @@ open class TaintRuleGenerationCtx(
     val edges: List<TaintRuleEdge>,
     val finalEdges: List<TaintRuleEdge>,
 ) {
-    open fun markName(varName: String, varValue: Int): String =
+    open fun valueMarkName(varName: String): String =
+        "${uniqueRuleId}_${varName}"
+
+    open fun stateMarkName(varName: String, varValue: Int): String =
         "${uniqueRuleId}_${varName}_$varValue"
 
-    fun stateMarkName(state: State): String {
+    fun globalStateMarkName(state: State): String {
         val stateId = automata.stateId(state)
         return "${uniqueRuleId}__STATE__$stateId"
     }
@@ -482,11 +485,18 @@ private class SinkRuleGenerationCtx(
         ctx.globalStateAssignStates, ctx.edges, ctx.finalEdges
     )
 
-    override fun markName(varName: String, varValue: Int): String {
+    override fun valueMarkName(varName: String): String {
+        if (varName in initialStateVars) {
+            return taintMarkName
+        }
+        return super.valueMarkName(varName)
+    }
+
+    override fun stateMarkName(varName: String, varValue: Int): String {
         if (varName in initialStateVars && varValue == initialVarValue) {
             return taintMarkName
         }
-        return super.markName(varName, varValue)
+        return super.stateMarkName(varName, varValue)
     }
 }
 
@@ -1624,7 +1634,7 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
         val edge = ruleEdge.edge
         val state = ruleEdge.stateFrom
 
-        val condition = evaluate(edge, state).addGlobalStateCheck(this, ruleEdge.checkGlobalState, state)
+        val condition = evaluate(edge, state).addStateCheck(this, ruleEdge.checkGlobalState, state)
         rules += condition.additionalFieldRules
 
         val nodeId = automata.stateId(ruleEdge.stateTo)
@@ -1632,14 +1642,20 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
         val requiredVariables = ruleEdge.stateTo.register.assignedVars.keys
         val actions = requiredVariables.flatMapTo(mutableListOf()) { varName ->
             val varPosition = condition.accessedVarPosition[varName] ?: return@flatMapTo emptyList()
-            val mark = markName(varPosition.varName, nodeId)
-            varPosition.positions.map {
-                SerializedTaintAssignAction(mark, pos = PositionBaseWithModifiers.BaseOnly(it))
+            val stateMark = stateMarkName(varPosition.varName, nodeId)
+            val valueMark = valueMarkName(varPosition.varName)
+
+            varPosition.positions.flatMap {
+                val pos = PositionBaseWithModifiers.BaseOnly(it)
+                listOf(
+                    SerializedTaintAssignAction(stateMark, pos = pos),
+                    SerializedTaintAssignAction(valueMark, pos = pos),
+                )
             }
         }
 
         if (ruleEdge.stateTo in globalStateAssignStates) {
-            actions += SerializedTaintAssignAction(stateMarkName(ruleEdge.stateTo), pos = stateVarPosition)
+            actions += SerializedTaintAssignAction(globalStateMarkName(ruleEdge.stateTo), pos = stateVarPosition)
         }
 
         if (actions.isNotEmpty()) {
@@ -1667,7 +1683,7 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
         val edge = ruleEdge.edge
         val state = ruleEdge.stateFrom
 
-        val condition = evaluate(edge, state).addGlobalStateCheck(this, ruleEdge.checkGlobalState, state)
+        val condition = evaluate(edge, state).addStateCheck(this, ruleEdge.checkGlobalState, state)
         rules += condition.additionalFieldRules
 
         if (ruleEdge.stateTo.node.accept) {
@@ -1680,14 +1696,20 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
 
         val actions = condition.accessedVarPosition.values.flatMapTo(mutableListOf()) { varPosition ->
             val value = state.register.assignedVars[varPosition.varName] ?: return@flatMapTo emptyList()
-            val mark = markName(varPosition.varName, value)
-            varPosition.positions.map {
-                SerializedTaintCleanAction(mark, PositionBaseWithModifiers.BaseOnly(it))
+            val stateMark = stateMarkName(varPosition.varName, value)
+            val valueMark = valueMarkName(varPosition.varName)
+
+            varPosition.positions.flatMap {
+                val pos = PositionBaseWithModifiers.BaseOnly(it)
+                listOf(
+                    SerializedTaintCleanAction(stateMark, pos = pos),
+                    SerializedTaintCleanAction(valueMark, pos = pos),
+                )
             }
         }
 
         if (state in globalStateAssignStates) {
-            actions += SerializedTaintCleanAction(stateMarkName(state), stateVarPosition)
+            actions += SerializedTaintCleanAction(globalStateMarkName(state), stateVarPosition)
         }
 
         if (actions.isNotEmpty()) {
@@ -1708,16 +1730,30 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
     return rules
 }
 
-private fun EvaluatedEdgeCondition.addGlobalStateCheck(
+private fun EvaluatedEdgeCondition.addStateCheck(
     ctx: TaintRuleGenerationCtx,
     checkGlobalState: Boolean,
     state: State
 ): EvaluatedEdgeCondition {
-    if (!checkGlobalState) return this
+    val stateChecks = mutableListOf<SerializedCondition.ContainsMark>()
+    if (checkGlobalState) {
+        stateChecks += SerializedCondition.ContainsMark(ctx.globalStateMarkName(state), ctx.stateVarPosition)
+    } else {
+        for ((metaVar, value) in state.register.assignedVars) {
+            val markName = ctx.stateMarkName(metaVar, value)
 
-    val condition = SerializedCondition.ContainsMark(ctx.stateMarkName(state), ctx.stateVarPosition)
+            for (pos in accessedVarPosition[metaVar]?.positions.orEmpty()) {
+                val position = PositionBaseWithModifiers.BaseOnly(pos)
+                stateChecks += SerializedCondition.ContainsMark(markName, position)
+            }
+        }
+    }
+
+    if (stateChecks.isEmpty()) return this
+
+    val stateCondition = serializedConditionOr(stateChecks)
     val rc = ruleCondition.condition
-    return copy(ruleCondition = ruleCondition.copy(condition = SerializedCondition.and(listOf(condition, rc))))
+    return copy(ruleCondition = ruleCondition.copy(condition = SerializedCondition.and(listOf(stateCondition, rc))))
 }
 
 private inline fun <T> generateRules(
@@ -2118,20 +2154,25 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
 ): SerializedCondition {
     when (condition) {
         is IsMetavar -> {
-            val varValue = state.register.assignedVars[condition.metavar]
-            if (varValue == null) {
-                val constraints = metaVarInfo.metaVarConstraints[condition.metavar]
-                if (constraints != null) {
-                    // todo: semantic metavar constraint
-                    logger.warn { "Rule $uniqueRuleId: metavar ${condition.metavar} constraint ignored" }
-                }
-                return SerializedCondition.True
+            val constraints = metaVarInfo.metaVarConstraints[condition.metavar]
+            if (constraints != null) {
+                // todo: semantic metavar constraint
+                logger.warn { "Rule $uniqueRuleId: metavar ${condition.metavar} constraint ignored" }
             }
 
-            val mark = markName(condition.metavar, varValue)
-            return SerializedCondition.ContainsMark(
-                mark, PositionBaseWithModifiers.BaseOnly(position)
-            )
+            val varValue = state.register.assignedVars[condition.metavar]
+                // first occurrence
+                ?: return SerializedCondition.True
+
+            val pos = PositionBaseWithModifiers.BaseOnly(position)
+
+            val valueMark = valueMarkName(condition.metavar)
+            val stateMark = stateMarkName(condition.metavar, varValue)
+
+            return serializedConditionOr(listOf(
+                SerializedCondition.ContainsMark(valueMark, pos),
+                SerializedCondition.ContainsMark(stateMark, pos),
+            ))
         }
 
         is ParamCondition.TypeIs -> {
@@ -2143,7 +2184,7 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
 
         is ParamCondition.SpecificStaticFieldValue -> {
             val enclosingClassMatcher = typeMatcher(condition.fieldClass) ?: anyName()
-            val mark = markName("__STATIC_FIELD_VALUE__${condition.fieldName}", condition.hashCode().absoluteValue)
+            val mark = valueMarkName("__STATIC_FIELD_VALUE__${condition.fieldName}")
 
             val action = SerializedTaintAssignAction(
                 mark, pos = PositionBaseWithModifiers.BaseOnly(PositionBase.Result)
@@ -2289,4 +2330,26 @@ private fun SerializedFunctionNameMatcher.isOpentaintReturnValue(): Boolean {
     return name.value == opentaintReturnValueMethod
 }
 
-val logger = object : KLogging() {}.logger
+private fun serializedConditionOr(args: List<SerializedCondition>): SerializedCondition {
+    val result = mutableListOf<SerializedCondition>()
+    for (arg in args) {
+        if (arg is SerializedCondition.Or) {
+            result.addAll(arg.anyOf)
+            continue
+        }
+
+        if (arg is SerializedCondition.True) return SerializedCondition.True
+
+        if (arg.isFalse()) continue
+
+        result.add(arg)
+    }
+
+    return when (result.size) {
+        0 -> mkFalse()
+        1 -> result.single()
+        else -> SerializedCondition.Or(result)
+    }
+}
+
+private val logger = object : KLogging() {}.logger
