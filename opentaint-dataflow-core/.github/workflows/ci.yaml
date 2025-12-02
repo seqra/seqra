@@ -1,4 +1,4 @@
-name: Gradle Package
+name: CI
 
 on:
   push:
