@@ -8,8 +8,8 @@ fun Project.opentaintRepository(name: String) {
     repositories {
         maven("https://maven.pkg.github.com/explyt/$name") {
             credentials {
-                username = System.getenv("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN")
+                username = System.getenv("OPENTAINT_GITHUB_ACTOR")
+                password = System.getenv("OPENTAINT_GITHUB_TOKEN")
             }
         }
     }
