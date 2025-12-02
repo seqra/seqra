@@ -31,9 +31,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.mayRemoveAfter
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.readFieldTo
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.writeToField
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyRuleWithAssumptions
-import org.opentaint.dataflow.jvm.ap.ifds.taint.CalleePositionToAccessPath
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FinalFactReader
-import org.opentaint.dataflow.jvm.ap.ifds.taint.PositionAccess
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintSourceActionEvaluator
 import org.opentaint.util.onSome
@@ -413,13 +411,15 @@ class JIRMethodSequentFlowFunction(
         val sinkRules = config.sinkRulesForMethodExit(currentInst.method, currentInst).toList()
         if (sinkRules.isEmpty()) return
 
+        val resultFact = if (fact.base == methodResult) fact.rebase(AccessPathBase.Return) else fact
+        val conditionFactReader = FinalFactReader(resultFact, apManager)
+
         val valueResolver = CalleePositionToJIRValueResolver(currentInst.method)
-        val apResolver = CalleePositionToAccessPath(PositionAccess.Simple(methodResult))
 
         sinkRules.applyRuleWithAssumptions(
             apManager,
-            apResolver, valueResolver,
-            FinalFactReader(fact, apManager),
+            valueResolver,
+            listOf(conditionFactReader),
             analysisContext.factTypeChecker,
             condition = { condition },
             storeAssumptions = { rule, facts ->
@@ -448,8 +448,10 @@ class JIRMethodSequentFlowFunction(
         if (sourceRules.isEmpty()) return
 
         val lhv = accessPathBase(currentInst.lhv) ?: return
-        val apResolver = CalleePositionToAccessPath(PositionAccess.Simple(lhv))
-        val sourceEvaluator = TaintSourceActionEvaluator(apManager, ExclusionSet.Universe, apResolver)
+
+        val sourceEvaluator = TaintSourceActionEvaluator(
+            apManager, ExclusionSet.Universe, factTypeChecker, returnValueType = null
+        )
 
         for (sourceRule in sourceRules) {
             if (sourceRule.condition !is ConstantTrue) {
@@ -459,7 +461,11 @@ class JIRMethodSequentFlowFunction(
             for (action in sourceRule.actionsAfter) {
                 sourceEvaluator.evaluate(sourceRule, action).onSome { evaluatedFacts ->
                     evaluatedFacts.mapTo(this) {
-                        Sequent.ZeroToFact(it)
+                        if (it.base !is AccessPathBase.Return) {
+                            TODO("Field source with non-result assign")
+                        }
+
+                        Sequent.ZeroToFact(it.rebase(lhv))
                     }
                 }
             }

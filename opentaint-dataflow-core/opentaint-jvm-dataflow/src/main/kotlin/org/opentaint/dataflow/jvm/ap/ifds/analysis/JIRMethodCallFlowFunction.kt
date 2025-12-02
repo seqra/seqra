@@ -1,10 +1,10 @@
 package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
-import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
@@ -19,20 +19,17 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToStar
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.SideEffectRequirement
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.Unchanged
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
-import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
-import org.opentaint.dataflow.jvm.ap.ifds.JIRCallPositionToAccessPathResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactAwareConditionEvaluator
-import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodCallFactMapper
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodPositionBaseTypeResolver
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyCleaner
-import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyEntryPointConfig
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyPassThrough
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyRuleWithAssumptions
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.sinkRules
-import org.opentaint.dataflow.jvm.ap.ifds.taint.CalleePositionToAccessPath
+import org.opentaint.dataflow.jvm.ap.ifds.taint.FactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FinalFactReader
-import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRBasicConditionEvaluator
+import org.opentaint.dataflow.jvm.ap.ifds.taint.FinalFactReaderWithPrefix
+import org.opentaint.dataflow.jvm.ap.ifds.taint.PositionAccess
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintCleanActionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintPassActionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
@@ -116,70 +113,92 @@ class JIRMethodCallFlowFunction(
         addCallToReturn: (FinalFactReader, FinalFactAp) -> Unit,
         addCallToStart: (factReader: FinalFactReader, callerFact: FinalFactAp, startFactBase: AccessPathBase) -> Unit,
     ) {
-        val factReaderBeforeCleaner = FinalFactReader(factAp, apManager)
-
         if (!JIRMethodCallFactMapper.factIsRelevantToMethodCall(returnValue, callExpr, factAp)) {
             skipCall()
             return
         }
 
-        applySinkRules(factReaderBeforeCleaner)
+        val factReader = FinalFactReader(factAp, apManager)
 
-        applySourceRules(factReaderBeforeCleaner, exclusion).forEach {
-            addCallToReturn(factReaderBeforeCleaner, it)
+        applySinkRules(factReader)
+
+        applySourceRules(factReader, exclusion).forEach {
+            addCallToReturn(factReader, it)
 
             analysisContext.aliasAnalysis?.forEachAliasAtStatement(statement, it) { aliased ->
-                addCallToReturn(factReaderBeforeCleaner, aliased)
+                addCallToReturn(factReader, aliased)
             }
         }
 
-        if (factReaderBeforeCleaner.hasRefinement) {
-            addSideEffectRequirement(factReaderBeforeCleaner)
+        JIRMethodCallFactMapper.mapMethodCallToStartFlowFact(
+            callExpr.callee,
+            callExpr,
+            factAp,
+            analysisContext.factTypeChecker
+        ) { callerFact, startFactBase ->
+            applyPassRulesOrCallToStart(
+                factReader, callerFact, startFactBase, addCallToReturn, addCallToStart
+            )
         }
 
-        val apResolver = JIRCallPositionToAccessPathResolver(callExpr, returnValue)
+        if (factReader.hasRefinement) {
+            addSideEffectRequirement(factReader)
+        }
+    }
+
+    private fun applyPassRulesOrCallToStart(
+        originalFactReader: FinalFactReader,
+        unmappedCallerFactAp: FinalFactAp,
+        startFactBase: AccessPathBase,
+        addCallToReturn: (FinalFactReader, FinalFactAp) -> Unit,
+        addCallToStart: (factReader: FinalFactReader, callerFactAp: FinalFactAp, startFactBase: AccessPathBase) -> Unit,
+    ) {
+        val method = callExpr.callee
+
+        val callerFact = unmappedCallerFactAp.rebase(startFactBase)
+        val conditionFactReader = FinalFactReader(callerFact, apManager)
 
         val conditionEvaluator = JIRFactAwareConditionEvaluator(
-            listOf(factReaderBeforeCleaner),
-            apResolver,
+            listOf(conditionFactReader),
             CallPositionToJIRValueResolver(callExpr, returnValue),
             analysisContext.factTypeChecker,
         )
 
-        val cleaner = TaintCleanActionEvaluator(apResolver)
+        val cleaner = TaintCleanActionEvaluator()
 
+        val factReaderBeforeCleaner = FinalFactReader(callerFact, apManager)
         val factReaderAfterCleaner = applyCleaner(
             config,
-            callExpr.callee,
+            method,
             statement,
             factReaderBeforeCleaner,
             conditionEvaluator.withoutAssumptions(),
             cleaner
         ) ?: return
 
-        val typeResolver = JIRMethodPositionBaseTypeResolver(callExpr.callee)
-
+        val typeResolver = JIRMethodPositionBaseTypeResolver(method)
         val passEvaluator = TaintPassActionEvaluator(
-            apManager, apResolver, analysisContext.factTypeChecker, factReaderAfterCleaner, typeResolver
+            apManager, analysisContext.factTypeChecker, factReaderAfterCleaner, typeResolver
         )
 
         val passThroughFacts = applyPassThrough(
             config,
-            callExpr.callee,
+            method,
             statement,
             conditionEvaluator.withoutAssumptions(),
             passEvaluator
         )
 
-        if (factReaderAfterCleaner.hasRefinement) {
-            addSideEffectRequirement(factReaderAfterCleaner)
-        }
+        originalFactReader.updateRefinement(listOf(conditionFactReader))
+        originalFactReader.updateRefinement(listOf(factReaderAfterCleaner))
 
         passThroughFacts.onSome { facts ->
-            facts.forEach {
-                addCallToReturn(factReaderAfterCleaner, it)
+            facts.forEach { fact ->
+                val mappedFact = fact.mapExitToReturnFact() ?: return@forEach
 
-                analysisContext.aliasAnalysis?.forEachAliasAtStatement(statement, it) { aliased ->
+                addCallToReturn(factReaderAfterCleaner, mappedFact)
+
+                analysisContext.aliasAnalysis?.forEachAliasAtStatement(statement, mappedFact) { aliased ->
                     addCallToReturn(factReaderAfterCleaner, aliased)
                 }
             }
@@ -188,46 +207,34 @@ class JIRMethodCallFlowFunction(
             return
         }
 
-        propagateFact(factReaderAfterCleaner, factAp, addCallToReturn, addCallToStart)
-    }
+        val cleanedFact = factReaderAfterCleaner.factAp
+        check(cleanedFact.base == startFactBase)
 
-    private fun propagateFact(
-        factReader: FinalFactReader,
-        factAp: FinalFactAp,
-        addCallToReturn: (FinalFactReader, FinalFactAp) -> Unit,
-        addCallToStart: (factReader: FinalFactReader, callerFactAp: FinalFactAp, startFactBase: AccessPathBase) -> Unit,
-    ) {
-        val method = callExpr.callee
+        val unmappedFact = cleanedFact.rebase(originalFactReader.factAp.base)
 
         // FIXME: adhoc for constructors:
         if (method.isConstructor) {
-            addCallToReturn(factReader, factAp)
+            addCallToReturn(originalFactReader, unmappedFact)
         }
 
-        JIRMethodCallFactMapper.mapMethodCallToStartFlowFact(
-            method,
-            callExpr,
-            factAp,
-            analysisContext.factTypeChecker
-        ) { callerFact, startFactBase ->
-            addCallToStart(factReader, callerFact, startFactBase)
-        }
+        addCallToStart(originalFactReader, unmappedFact, startFactBase)
     }
 
     private fun applySinkRules(factReader: FinalFactReader?) {
         val sinkRules = sinkRules(config, callExpr.callee, statement).toList()
         if (sinkRules.isEmpty()) return
 
-        val apResolver = JIRCallPositionToAccessPathResolver(
-            callExpr,
-            returnValue = null,
-            readArgElementsIfArray = true
-        )
+        val normalConditionFactReaders = factReader?.toConditionFactReaders().orEmpty()
+
+        val arrayElementFactReaders = normalConditionFactReaders.arrayElementConditionReaders(callExpr)
+
+        val conditionFactReaders = normalConditionFactReaders + arrayElementFactReaders
+
         val valueResolver = CallPositionToJIRValueResolver(callExpr, returnValue = null)
 
         sinkRules.applyRuleWithAssumptions(
-            apManager, apResolver,
-            valueResolver, factReader, analysisContext.factTypeChecker, condition = { condition },
+            apManager,
+            valueResolver, conditionFactReaders, analysisContext.factTypeChecker, condition = { condition },
             storeAssumptions = { rule, facts -> sinkTracker.addSinkRuleAssumptions(rule, statement, facts) },
             currentAssumptions = { rule -> sinkTracker.currentSinkRuleAssumptions(rule, statement) }
         ) { rule, evaluatedFacts ->
@@ -243,10 +250,16 @@ class JIRMethodCallFlowFunction(
             }
 
             val fact = evaluatedFacts.first() // todo: better fact selection?
+
+            val mappedFact = fact.mapExitToReturnFact()
+                ?: error("Fact mapping failure")
+
             sinkTracker.addVulnerability(
-                analysisContext.methodEntryPoint, fact, statement, rule
+                analysisContext.methodEntryPoint, mappedFact, statement, rule
             )
         }
+
+        factReader?.updateRefinement(normalConditionFactReaders)
     }
 
     private fun applySourceRules(factReader: FinalFactReader?, exclusion: ExclusionSet): List<FinalFactAp> {
@@ -255,15 +268,19 @@ class JIRMethodCallFlowFunction(
 
         if (sourceRules.isEmpty()) return emptyList()
 
-        val apResolver = JIRCallPositionToAccessPathResolver(callExpr, returnValue)
         val valueResolver = CallPositionToJIRValueResolver(callExpr, returnValue)
 
+        val conditionFactReaders = factReader?.toConditionFactReaders().orEmpty()
+
         val result = mutableListOf<FinalFactAp>()
-        val sourceEvaluator = TaintSourceActionEvaluator(apManager, exclusion, apResolver)
+
+        val sourceEvaluator = TaintSourceActionEvaluator(
+            apManager, exclusion, analysisContext.factTypeChecker, returnValueType = callExpr.method.returnType,
+        )
 
         sourceRules.applyRuleWithAssumptions(
             apManager,
-            apResolver, valueResolver, factReader, analysisContext.factTypeChecker,
+            valueResolver, conditionFactReaders, analysisContext.factTypeChecker,
             condition = { condition },
             storeAssumptions = { rule, facts -> sinkTracker.addSourceRuleAssumptions(rule, statement, facts) },
             currentAssumptions = { rule -> sinkTracker.currentSourceRuleAssumptions(rule, statement) }
@@ -276,32 +293,52 @@ class JIRMethodCallFlowFunction(
 
             for (action in actions) {
                 sourceEvaluator.evaluate(rule, action).onSome { facts ->
-                    result += facts
+                    facts.mapNotNullTo(result) { it.mapExitToReturnFact() }
                 }
             }
         }
 
+        factReader?.updateRefinement(conditionFactReaders)
+
         return result
     }
 
-    companion object {
-        fun applyEntryPointConfigDefault(
-            apManager: ApManager,
-            config: TaintRulesProvider,
-            method: JIRMethod,
-            typeChecker: JIRFactTypeChecker,
-        ) = applyEntryPointConfig(
-            config,
-            method = method,
-            conditionEvaluator = JIRBasicConditionEvaluator(
-                CalleePositionToJIRValueResolver(method),
-                typeChecker
-            ),
-            taintActionEvaluator = TaintSourceActionEvaluator(
-                apManager,
-                exclusion = ExclusionSet.Universe,
-                CalleePositionToAccessPath(resultAp = null)
-            )
-        )
+    private fun FinalFactAp.mapExitToReturnFact(): FinalFactAp? =
+        JIRMethodCallFactMapper.mapMethodExitToReturnFlowFact(statement, this, analysisContext.factTypeChecker)
+            .singleOrNull()
+
+    private fun InitialFactAp.mapExitToReturnFact(): InitialFactAp? =
+        JIRMethodCallFactMapper.mapMethodExitToReturnFlowFact(statement, this)
+            .singleOrNull()
+
+    private fun FinalFactReader.toConditionFactReaders(): List<FinalFactReader> {
+        val conditionFactReaders = mutableListOf<FinalFactReader>()
+        JIRMethodCallFactMapper.mapMethodCallToStartFlowFact(
+            callExpr.callee,
+            callExpr,
+            factAp,
+            analysisContext.factTypeChecker
+        ) { callerFact, startFactBase ->
+            conditionFactReaders += FinalFactReader(callerFact.rebase(startFactBase), apManager)
+        }
+        return conditionFactReaders
     }
+
+    private fun FinalFactReader.updateRefinement(conditionFactReaders: List<FinalFactReader>) {
+        conditionFactReaders.forEach { updateRefinement(it) }
+    }
+
+    private fun List<FinalFactReader>.arrayElementConditionReaders(callExpr: JIRCallExpr): List<FactReader> =
+        mapNotNull {
+            val base = it.factAp.base as? AccessPathBase.Argument ?: return@mapNotNull null
+
+            if (!analysisContext.factTypeChecker.callArgumentMayBeArray(callExpr, base)) {
+                return@mapNotNull null
+            }
+
+            val arrayElementPosition = PositionAccess.Complex(PositionAccess.Simple(base), ElementAccessor)
+            if (!it.containsPosition(arrayElementPosition)) return@mapNotNull null
+
+            FinalFactReaderWithPrefix(it, ElementAccessor)
+        }
 }

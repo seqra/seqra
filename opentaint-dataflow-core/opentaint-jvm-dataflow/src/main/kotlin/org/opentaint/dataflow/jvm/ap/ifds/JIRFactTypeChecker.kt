@@ -14,12 +14,14 @@ import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.JIRTypeVariable
 import org.opentaint.ir.api.jvm.JIRUnboundWildcard
+import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.ext.ifArrayGetElementType
 import org.opentaint.ir.api.jvm.ext.isAssignable
 import org.opentaint.ir.api.jvm.ext.isSubClassOf
 import org.opentaint.ir.api.jvm.ext.objectType
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.InMemoryHierarchyCache
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
@@ -112,6 +114,17 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
     override fun accessPathFilter(accessPath: List<Accessor>): FactApFilter {
         val actualType = accessorActualType(accessPath) ?: return AlwaysAcceptFilter
         return AccessorFilter(actualType, isLocalCheck = false)
+    }
+
+    fun callArgumentMayBeArray(call: JIRCallExpr, arg: AccessPathBase.Argument): Boolean {
+        val argument = call.args.getOrNull(arg.idx) ?: return false
+        val argType = argument.type
+        return argType.mayBeArray()
+    }
+
+    fun JIRType.mayBeArray(): Boolean {
+        if (this !is JIRRefType) return false
+        return typeMayBeArrayType(this)
     }
 
     private fun accessorActualType(accessPath: List<Accessor>): JIRType? {

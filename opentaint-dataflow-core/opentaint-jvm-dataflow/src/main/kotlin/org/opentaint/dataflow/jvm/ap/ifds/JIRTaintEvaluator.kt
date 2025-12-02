@@ -1,8 +1,14 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
 import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.AnyAccessor
+import org.opentaint.dataflow.ap.ifds.ElementAccessor
+import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.jvm.And
+import org.opentaint.dataflow.configuration.jvm.Argument
+import org.opentaint.dataflow.configuration.jvm.ClassStatic
 import org.opentaint.dataflow.configuration.jvm.Condition
 import org.opentaint.dataflow.configuration.jvm.ConstantEq
 import org.opentaint.dataflow.configuration.jvm.ConstantGt
@@ -13,8 +19,13 @@ import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.configuration.jvm.IsConstant
 import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Or
+import org.opentaint.dataflow.configuration.jvm.Position
+import org.opentaint.dataflow.configuration.jvm.PositionAccessor
 import org.opentaint.dataflow.configuration.jvm.PositionResolver
+import org.opentaint.dataflow.configuration.jvm.PositionWithAccess
+import org.opentaint.dataflow.configuration.jvm.Result
 import org.opentaint.dataflow.configuration.jvm.TaintMark
+import org.opentaint.dataflow.configuration.jvm.This
 import org.opentaint.dataflow.configuration.jvm.TypeMatches
 import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FactAwareConditionEvaluator
@@ -22,12 +33,11 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.FactAwareConditionEvaluator.Eval
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRBasicConditionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.PositionAccess
+import org.opentaint.dataflow.jvm.ap.ifds.taint.resolveAp
 import org.opentaint.util.Maybe
-import org.opentaint.util.onSome
 
 class JIRFactAwareConditionEvaluator(
     private val facts: Iterable<FactReader>,
-    private val accessPathResolver: PositionResolver<Maybe<List<PositionAccess>>>,
     positionResolver: PositionResolver<Maybe<JIRValue>>,
     typeChecker: JIRFactTypeChecker,
 ): FactAwareConditionEvaluator {
@@ -94,16 +104,15 @@ class JIRFactAwareConditionEvaluator(
     }
 
     override fun visit(condition: ContainsMark): EvaluationResult {
+        val conditionPosAp = condition.position.resolveAp()
+
         var hasUnknown = false
-        accessPathResolver.resolve(condition.position).onSome { variables ->
-            for (variable in variables) {
-                for (fact in facts) {
-                    val evalResult = evalContainsMark(fact, condition.mark, variable)
-                    if (evalResult) return EvaluationResult.True
-                    hasUnknown = true
-                }
-            }
+        for (fact in facts) {
+            val evalResult = evalContainsMark(fact, condition.mark, conditionPosAp)
+            if (evalResult) return EvaluationResult.True
+            hasUnknown = true
         }
+
         return if (hasUnknown) EvaluationResult.Unknown else EvaluationResult.False
     }
 

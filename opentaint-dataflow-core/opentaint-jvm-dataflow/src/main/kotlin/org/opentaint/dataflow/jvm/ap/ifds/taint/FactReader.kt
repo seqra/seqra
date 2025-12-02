@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.jvm.ap.ifds.taint
 
+import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
@@ -57,6 +58,21 @@ class FinalFactReader(
         val refinedAp = factAp.replaceExclusions(factAp.exclusions.union(refinement))
         return refinedAp
     }
+
+    fun updateRefinement(other: FinalFactReader) {
+        refinement = refinement.union(other.refinement)
+    }
+}
+
+class FinalFactReaderWithPrefix(
+    private val reader: FinalFactReader,
+    private val prefix: Accessor,
+) : FactReader {
+    override fun containsPosition(position: PositionAccess): Boolean =
+        reader.containsPosition(position.withPrefix(prefix))
+
+    override fun createInitialFactWithTaintMark(position: PositionAccess, mark: TaintMark): InitialFactAp =
+        reader.createInitialFactWithTaintMark(position.withPrefix(prefix), mark)
 }
 
 class InitialFactReader(val fact: InitialFactAp, val apManager: ApManager): FactReader {

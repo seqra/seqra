@@ -4,6 +4,7 @@ import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
+import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
@@ -12,9 +13,11 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodStartFlowFunction.StartFact
 import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactAwareConditionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.JIRInstanceTypeMethodContext
+import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyEntryPointConfig
 import org.opentaint.dataflow.jvm.ap.ifds.jirDowncast
-import org.opentaint.dataflow.jvm.ap.ifds.taint.CalleePositionToAccessPath
+import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRBasicConditionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintSourceActionEvaluator
 import org.opentaint.util.onSome
 
 class JIRMethodStartFlowFunction(
@@ -27,11 +30,20 @@ class JIRMethodStartFlowFunction(
 
         applySinkRules()
 
-        JIRMethodCallFlowFunction.applyEntryPointConfigDefault(
+        val method = context.methodEntryPoint.method as JIRMethod
+        val valueResolver = CalleePositionToJIRValueResolver(method)
+        val conditionEvaluator = JIRBasicConditionEvaluator(valueResolver, context.factTypeChecker)
+
+        val sourceEvaluator = TaintSourceActionEvaluator(
             apManager,
+            exclusion = ExclusionSet.Universe,
+            context.factTypeChecker,
+            returnValueType = null
+        )
+
+        applyEntryPointConfig(
             context.taint.taintConfig as TaintRulesProvider,
-            context.methodEntryPoint.method as JIRMethod,
-            context.factTypeChecker
+            method, conditionEvaluator, sourceEvaluator
         ).onSome { facts ->
             facts.mapTo(result) { StartFact.Fact(it) }
         }
@@ -69,10 +81,9 @@ class JIRMethodStartFlowFunction(
         val sinkRules = config.sinkRulesForMethodEntry(method).toList()
         if (sinkRules.isEmpty()) return
 
-        val apResolver = CalleePositionToAccessPath(resultAp = null)
         val valueResolver = CalleePositionToJIRValueResolver(method as JIRMethod)
         val conditionEvaluator = JIRFactAwareConditionEvaluator(
-            emptyList(), apResolver, valueResolver, context.factTypeChecker,
+            emptyList(), valueResolver, context.factTypeChecker,
         )
 
         for (rule in sinkRules) {
