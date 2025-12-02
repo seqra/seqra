@@ -2,6 +2,7 @@ package org.opentaint.semgrep
 
 import issues.issue83
 import issues.issue83aux
+import issues.issue84
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
@@ -43,6 +44,10 @@ class IssuesTest : SampleBasedTest() {
     @Test
     @Disabled // todo: sink on string concatenation
     fun `issue 83`() = runTest<issue83>()
+
+    @Test
+    @Disabled // todo: array element accessor
+    fun `issue 84`() = runTest<issue84>()
 
     @AfterAll
     fun close() {

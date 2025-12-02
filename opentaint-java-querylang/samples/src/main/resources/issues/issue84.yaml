@@ -1,0 +1,13 @@
+rules:
+  - id: i84
+    languages:
+      - java
+    message: 'message'
+    patterns:
+      - pattern: |
+          $ARR_EXAMPLE = new ArrayExample();
+          ...
+          $VALUES = $ARR_EXAMPLE.getArray();
+          ...
+          $ARR_EXAMPLE.useString($VALUES[...]);
+    severity: WARNING
