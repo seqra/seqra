@@ -7,6 +7,7 @@ import com.charleskorn.kaml.YamlList
 import com.charleskorn.kaml.YamlScalar
 import kotlinx.serialization.decodeFromString
 import mu.KLogging
+import org.slf4j.event.Level
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.semgrep.pattern.conversion.ActionListBuilder
@@ -25,11 +26,20 @@ class SemgrepRuleLoader {
         )
     )
 
-    fun loadRuleSet(ruleSetText: String, ruleSetName: String): List<TaintRuleFromSemgrep> {
+    fun loadRuleSet(
+        ruleSetText: String,
+        ruleSetName: String,
+        semgrepFileErrors: SemgrepFileErrors
+    ): List<TaintRuleFromSemgrep> {
         val ruleSet = runCatching {
             yaml.decodeFromString<SemgrepYamlRuleSet>(ruleSetText)
         }.onFailure { ex ->
-            logger.error(ex) { "Failed to load rule set: $ruleSetName" }
+            semgrepFileErrors += SemgrepError(
+                SemgrepError.Step.LOAD_RULESET,
+                "Failed to load rule set from yaml \"$ruleSetName\": ${ex.message}",
+                Level.ERROR,
+                SemgrepError.Reason.ERROR,
+            )
             return emptyList()
         }.getOrThrow()
 
@@ -38,27 +48,59 @@ class SemgrepRuleLoader {
 
         if (otherRules.isNotEmpty()) {
             logger.warn { "Found ${otherRules.size} unsupported rules in $ruleSetName" }
+            otherRules.forEach { it ->
+                semgrepFileErrors += SemgrepRuleErrors(
+                    it.id,
+                    arrayListOf(SemgrepError(
+                        SemgrepError.Step.LOAD_RULESET,
+                        "Unsupported rule",
+                        Level.TRACE,
+                        SemgrepError.Reason.ERROR
+                    )),
+                    ruleSetName
+                )
+            }
         }
 
-        val rules = javaRules.mapNotNull { loadRule(it, ruleSetName) }
+        val rules = javaRules.mapNotNull {
+            val semgrepRuleErrors = SemgrepRuleErrors(
+                it.id,
+                ruleSetName = ruleSetName
+            )
+            semgrepFileErrors += semgrepRuleErrors
+            loadRule(it, ruleSetName, semgrepRuleErrors)
+        }
         logger.info { "Load ${rules.size} rules from $ruleSetName" }
         return rules
     }
 
-    private fun loadRule(rule: SemgrepYamlRule, ruleSetName: String): TaintRuleFromSemgrep? {
+    private fun loadRule(
+        rule: SemgrepYamlRule, ruleSetName: String,
+        semgrepRuleErrors: SemgrepRuleErrors
+    ): TaintRuleFromSemgrep? {
         val ruleId = "${ruleSetName}/${rule.id}"
 
         val ruleAutomataBuilder = SemgrepRuleAutomataBuilder(parser, converter)
         val ruleAutomata = runCatching {
-            ruleAutomataBuilder.build(rule)
+            ruleAutomataBuilder.build(rule, semgrepRuleErrors)
         }.onFailure { ex ->
-            logger.error(ex) { "Failed to build rule automata: $ruleId" }
+            semgrepRuleErrors += SemgrepError(
+                SemgrepError.Step.LOAD_RULESET,
+                "Failed to build rule automata: $ruleId",
+                Level.ERROR,
+                SemgrepError.Reason.ERROR
+            )
             return null
         }.getOrThrow()
 
         val stats = ruleAutomataBuilder.stats
         if (stats.isFailure) {
-            logger.warn { "Rule $ruleId automata build issues: $stats" }
+            semgrepRuleErrors += SemgrepError(
+                SemgrepError.Step.LOAD_RULESET,
+                "Rule $ruleId automata build issues: $stats",
+                Level.TRACE,
+                SemgrepError.Reason.ERROR
+            )
         }
 
         val ruleCwe = rule.cweInfo()
@@ -74,9 +116,14 @@ class SemgrepRuleLoader {
         )
 
         return runCatching {
-            convertToTaintRules(ruleAutomata, ruleId, sinkMeta)
+            convertToTaintRules(ruleAutomata, ruleId, sinkMeta, semgrepRuleErrors)
         }.onFailure { ex ->
-            logger.error(ex) { "Failed to create taint rules: $ruleId" }
+            semgrepRuleErrors += SemgrepError(
+                SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
+                "Failed to create taint rules: $ruleId",
+                Level.ERROR,
+                SemgrepError.Reason.ERROR
+            )
             return null
         }.getOrThrow()
     }

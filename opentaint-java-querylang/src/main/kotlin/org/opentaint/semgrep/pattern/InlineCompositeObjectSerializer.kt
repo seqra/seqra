@@ -1,4 +1,4 @@
-package org.opentaint.org.opentaint.semgrep.pattern
+package org.opentaint.semgrep.pattern
 
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer

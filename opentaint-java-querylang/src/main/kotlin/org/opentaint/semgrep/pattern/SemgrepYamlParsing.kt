@@ -9,7 +9,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.builtins.serializer
-import org.opentaint.org.opentaint.semgrep.pattern.InlineCompositeObjectSerializer
+import org.slf4j.event.Level
 import org.opentaint.semgrep.pattern.conversion.cartesianProductMapTo
 import java.util.Optional
 import kotlin.jvm.optionals.getOrNull
@@ -247,6 +247,7 @@ private fun parseTaintRule(rule: SemgrepYamlRule): SemgrepTaintRule<Formula> =
         sanitizers = rule.patternSanitizers.map { complexPatternToFormula(it) }
     )
 
+// TODO The case in which two or more of them are simultaneously contained has not been considered.
 private fun parseMatchingRuleFormula(rule: SemgrepYamlRule): Formula =
     if (rule.pattern != null) {
         Formula.LeafPattern(rule.pattern)
@@ -260,16 +261,20 @@ private fun parseMatchingRuleFormula(rule: SemgrepYamlRule): Formula =
         TODO()
     }
 
-fun convertToRawRule(rule: SemgrepRule<Formula>): SemgrepRule<RuleWithMetaVars<RawSemgrepRule, RawMetaVarInfo>> {
-    return rule.flatMap { convertToRawRule(it) }
+fun convertToRawRule(rule: SemgrepRule<Formula>,
+                     semgrepError : AbstractSemgrepError): SemgrepRule<RuleWithMetaVars<RawSemgrepRule, RawMetaVarInfo>> {
+    return rule.flatMap { convertToRawRule(it, semgrepError) }
 }
 
-fun convertToRawRule(formula: Formula): List<RuleWithMetaVars<RawSemgrepRule, RawMetaVarInfo>> {
+fun convertToRawRule(formula: Formula,
+                     semgrepError : AbstractSemgrepError
+): List<RuleWithMetaVars<RawSemgrepRule, RawMetaVarInfo>> {
     val formulaDnf = formula.normalizeToNNF(negated = false).toDNF()
-    return formulaDnf.mapNotNull { convertToNormalizedRule(it.literals) }
+    return formulaDnf.mapNotNull { convertToNormalizedRule(it.literals, semgrepError) }
 }
 
-private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>): RuleWithMetaVars<RawSemgrepRule, RawMetaVarInfo>? {
+private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
+                                    semgrepError : AbstractSemgrepError): RuleWithMetaVars<RawSemgrepRule, RawMetaVarInfo>? {
     val patterns = mutableListOf<String>()
     val patternNots = mutableListOf<String>()
     val patternInsides = mutableListOf<String>()
@@ -299,24 +304,50 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>): 
 
             is Formula.MetavarFocus -> {
                 // todo
-                if (literal.negated) return null
+                if (literal.negated)  {
+                    semgrepError += SemgrepError(
+                        SemgrepError.Step.BUILD_CONVERT_TO_RAW_RULE,
+                        "Not implemented negated MetavarFocus",
+                        Level.TRACE,
+                        SemgrepError.Reason.NOT_IMPLEMENTED,
+                    )
+                    return null
+                }
 
                 focusMetaVars.add(f.name)
             }
 
             is Formula.MetavarCond -> {
+                semgrepError += SemgrepError(
+                    SemgrepError.Step.BUILD_CONVERT_TO_RAW_RULE,
+                    "Not implemented MetavarCond",
+                    Level.TRACE,
+                    SemgrepError.Reason.NOT_IMPLEMENTED
+                )
                 // todo
                 return null
             }
 
             is Formula.MetavarPattern -> {
                 if (literal.negated) {
+                    semgrepError += SemgrepError(
+                        SemgrepError.Step.BUILD_CONVERT_TO_RAW_RULE,
+                        "Not implemented negated MetavarPattern",
+                        Level.TRACE,
+                        SemgrepError.Reason.NOT_IMPLEMENTED
+                    )
                     // todo
                     return null
                 } else {
                     if (f.formula is Formula.LeafPattern) {
                         metaVariablePatterns.getOrPut(f.name, ::hashSetOf).add(f.formula.pattern)
                     } else {
+                        semgrepError += SemgrepError(
+                            SemgrepError.Step.BUILD_CONVERT_TO_RAW_RULE,
+                            "Not implemented non LeafPattern in MetavarPattern",
+                            Level.TRACE,
+                            SemgrepError.Reason.NOT_IMPLEMENTED
+                        )
                         // todo
                         return null
                     }
@@ -325,6 +356,12 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>): 
 
             is Formula.MetavarRegex -> {
                 if (literal.negated) {
+                    semgrepError += SemgrepError(
+                        SemgrepError.Step.BUILD_CONVERT_TO_RAW_RULE,
+                        "Not implemented negated MetavarRegex",
+                        Level.TRACE,
+                        SemgrepError.Reason.NOT_IMPLEMENTED
+                    )
                     // todo
                     return null
                 } else {
@@ -332,6 +369,12 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>): 
                 }
             }
             is Formula.Regex -> {
+                semgrepError += SemgrepError(
+                    SemgrepError.Step.BUILD_CONVERT_TO_RAW_RULE,
+                    "Not implemented Regex",
+                    Level.TRACE,
+                    SemgrepError.Reason.NOT_IMPLEMENTED
+                )
                 // todo
                 return null
             }

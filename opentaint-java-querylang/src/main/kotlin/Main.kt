@@ -16,10 +16,16 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import org.slf4j.event.Level
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
+import org.opentaint.semgrep.pattern.AbstractSemgrepError
+import org.opentaint.semgrep.pattern.SemgrepError
+import org.opentaint.semgrep.pattern.SemgrepFileErrors
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
 import org.opentaint.semgrep.pattern.SemgrepJavaPatternParser
 import org.opentaint.semgrep.pattern.SemgrepJavaPatternParsingResult
+import org.opentaint.semgrep.pattern.SemgrepRuleErrors
 import org.opentaint.semgrep.pattern.conversion.PatternToActionListConverter
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
 import org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
@@ -310,11 +316,17 @@ private fun collectParsingStats(path: String): List<Pair<SemgrepJavaPattern, Str
     val parserOtherFailures = mutableListOf<Pair<Throwable, String>>()
     val parserFailures = hashMapOf<Pair<String, String>, MutableList<String>>()
 
+    val semgrepFilesErrors: MutableList<AbstractSemgrepError> = arrayListOf()
+
     val parser = SemgrepJavaPatternParser()
     val converter = PatternToActionListConverter()
 
     val patternParser = object : SemgrepPatternParser {
-        override fun parseOrNull(pattern: String): SemgrepJavaPattern? {
+        override fun parseOrNull(
+            pattern: String,
+            semgrepError: AbstractSemgrepError,
+            semgrepStep: SemgrepError.Step,
+        ): SemgrepJavaPattern? {
             val result = parser.parseSemgrepJavaPattern(pattern)
 
             when (result) {
@@ -332,12 +344,24 @@ private fun collectParsingStats(path: String): List<Pair<SemgrepJavaPattern, Str
                     val reasonElementKind = reason.element::class.java.simpleName
                     parserFailures.getOrPut(reasonKind to reasonElementKind, ::mutableListOf).add(pattern)
 
+                    semgrepError += SemgrepError(
+                        semgrepStep,
+                        "Pattern parse failure: ${reason.message ?: ""}",
+                        Level.TRACE,
+                        SemgrepError.Reason.ERROR
+                    )
                     return null
                 }
 
                 is SemgrepJavaPatternParsingResult.OtherFailure -> {
                     failures += 1
                     parserOtherFailures += result.exception to pattern
+                    semgrepError += SemgrepError(
+                        semgrepStep,
+                        "Other parse failure: ${result.exception.message ?: ""}",
+                        Level.TRACE,
+                        SemgrepError.Reason.ERROR
+                    )
                     return null
                 }
 
@@ -363,35 +387,56 @@ private fun collectParsingStats(path: String): List<Pair<SemgrepJavaPattern, Str
     val rootDir = File(path)
     rootDir.walk()
         .filter { it.isFile }.forEach { file ->
-        if (file.extension !in setOf("yml", "yaml")) {
-            return@forEach
-        }
+            if (file.extension !in setOf("yml", "yaml")) {
+                return@forEach
+            }
 
-        if (file.name in ignoreFiles) {
-            return@forEach
-        }
-        println("Reading $file")
-        val content = file.readText()
+            if (file.name in ignoreFiles) {
+                return@forEach
+            }
+            println("Reading $file")
+            val content = file.readText()
 
-        val rules = try {
-            yamlToSemgrepRule(content)
-        } catch (e: Throwable) {
-            System.err.println("Error parsing $file")
-            e.printStackTrace()
-            return@forEach
-        }
+            val semgrepFileErrors = SemgrepFileErrors(
+                file.path.toString()
+            )
+            semgrepFilesErrors.add(semgrepFileErrors)
+            val rules = try {
+                yamlToSemgrepRule(content)
+            } catch (e: Throwable) {
+                semgrepFileErrors += SemgrepError(
+                    SemgrepError.Step.LOAD_RULESET,
+                    "Failed parsing yaml: ${file.path}",
+                            Level.ERROR,
+                    SemgrepError.Reason.ERROR
+                )
 
-        if (rules.isEmpty()) {  // not java rules
-            return@forEach
-        }
-        all++
+                e.printStackTrace()
+                return@forEach
+            }
 
-        for ((i, rule) in rules.withIndex()) {
+            if (rules.isEmpty()) {  // not java rules
+                return@forEach
+            }
+            all++
+
+            for ((i, rule) in rules.withIndex()) {
+            val semgrepRuleErrors = SemgrepRuleErrors(
+                rule.id,
+                ruleSetName = file.toString()
+            )
+            semgrepFileErrors += semgrepRuleErrors
             val ruleBuilder = SemgrepRuleAutomataBuilder(patternParser.cached(), converter.cached())
             val automata = measureTimedValue {
                 runCatching {
-                    ruleBuilder.build(rule)
+                    ruleBuilder.build(rule, semgrepRuleErrors)
                 }.getOrElse { e ->
+                    semgrepFileErrors += SemgrepError(
+                        SemgrepError.Step.LOAD_RULESET,
+                        "Exception build rule: $e",
+                        Level.TRACE,
+                        SemgrepError.Reason.ERROR,
+                    )
                     automataBuildExceptions.getOrPut(e.toString(), ::AtomicInteger).incrementAndGet()
                     exceptionWhileBuildingAutomata += 1
                     null
@@ -410,13 +455,21 @@ private fun collectParsingStats(path: String): List<Pair<SemgrepJavaPattern, Str
             println("converted")
 
             runCatching {
-                convertToTaintRules(automata, "test", SinkMetaData())
+                convertToTaintRules(automata, "test", SinkMetaData(), semgrepRuleErrors)
             }.onFailure { e ->
+                semgrepRuleErrors += SemgrepError(
+                    SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
+                    "Exception convert ruleAutomata to TaintRules: $e",
+                    Level.TRACE,
+                    SemgrepError.Reason.ERROR,
+                )
+
+
                 taintRuleGenerationExceptions.getOrPut(e.toString(), ::AtomicInteger).incrementAndGet()
                 taintRuleGenerationException++
             }.onSuccess { successTaintRules++ }
         }
-    }
+        }
 
     println("Converted into automata $converted/$all")
     println("Exceptions while building automata: $exceptionWhileBuildingAutomata")
@@ -455,6 +508,11 @@ private fun collectParsingStats(path: String): List<Pair<SemgrepJavaPattern, Str
     ruleBuildTime.entries.sortedByDescending { it.value }.take(10).forEach { (key, value) ->
         println("$key: $value")
     }
+
+    val prettyJson = Json {
+        prettyPrint = true
+    }
+    println(prettyJson.encodeToString(semgrepFilesErrors))
 
     return allPatterns
 }

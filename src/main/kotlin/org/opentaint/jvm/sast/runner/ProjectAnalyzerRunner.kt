@@ -11,6 +11,7 @@ import org.opentaint.jvm.sast.project.ProjectAnalyzer
 import org.opentaint.jvm.sast.util.directory
 import org.opentaint.jvm.sast.util.file
 import org.opentaint.project.Project
+import org.opentaint.util.newFile
 import java.nio.file.Path
 import kotlin.time.Duration.Companion.seconds
 
@@ -30,6 +31,9 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
     private val semgrepRuleSet: Path? by option(help = "Semgrep rule set directory")
         .directory()
 
+    private val semgrepRuleLoadErrors: Path? by option(help = "Semgrep rule load errors file")
+        .newFile()
+
     override fun analyzeProject(project: Project, analyzerOutputDir: Path, debugOptions: DebugOptions) {
         val projectAnalyzer = ProjectAnalyzer(
             project = project,
@@ -44,6 +48,7 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
             projectKind = projectKind,
             customConfig = config,
             semgrepRuleSet = semgrepRuleSet,
+            semgrepRuleLoadErrors = semgrepRuleLoadErrors,
             debugOptions = debugOptions
         )
 

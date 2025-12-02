@@ -1,5 +1,7 @@
 package org.opentaint.jvm.sast.project
 
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import mu.KLogging
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -23,6 +25,8 @@ import org.opentaint.jvm.sast.sarif.SarifGenerator
 import org.opentaint.jvm.sast.se.api.SastSeAnalyzer
 import org.opentaint.jvm.sast.util.loadDefaultConfig
 import org.opentaint.project.Project
+import org.opentaint.semgrep.pattern.AbstractSemgrepError
+import org.opentaint.semgrep.pattern.SemgrepFileErrors
 import org.opentaint.semgrep.pattern.SemgrepRuleLoader
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import org.opentaint.semgrep.pattern.loadSemgrepRule
@@ -43,6 +47,7 @@ class ProjectAnalyzer(
     private val resultDir: Path,
     private val customConfig: Path?,
     private val semgrepRuleSet: Path?,
+    private val semgrepRuleLoadErrors: Path?,
     private val cwe: List<Int>,
     private val useSymbolicExecution: Boolean,
     private val symbolicExecutionTimeout: Duration,
@@ -67,7 +72,7 @@ class ProjectAnalyzer(
     private fun loadTaintConfig(): TaintRulesProvider {
         if (semgrepRuleSet != null) {
             check(customConfig == null) { "Unsupported custom config" }
-            return loadSemgrepRules(semgrepRuleSet)
+            return loadSemgrepRules(semgrepRuleSet, semgrepRuleLoadErrors)
         }
 
         val defaultConfig = TaintConfiguration()
@@ -86,8 +91,23 @@ class ProjectAnalyzer(
         return JIRCombinedTaintRulesProvider(defaultRules, customRules)
     }
 
-    private fun loadSemgrepRules(semgrepRulesPath: Path): TaintRulesProvider {
-        val semgrepRules = parseSemgrepRules(semgrepRulesPath)
+    private fun loadSemgrepRules(semgrepRulesPath: Path, semgrepRuleLoadErrors: Path?): TaintRulesProvider {
+        val semgrepFilesErrors: ArrayList<AbstractSemgrepError> = arrayListOf()
+        val semgrepRules = parseSemgrepRules(semgrepRulesPath, semgrepFilesErrors)
+        if (semgrepRuleLoadErrors != null) {
+            runCatching {
+                val prettyJson = Json {
+                    prettyPrint = true
+                }
+                semgrepRuleLoadErrors.outputStream().bufferedWriter().use { writer ->
+                    writer.write(prettyJson.encodeToString(semgrepFilesErrors))
+                }
+                logger.info { "Wrote semgrep load errors to $semgrepRuleLoadErrors" }
+            }.onFailure { ex ->
+                logger.error(ex) { "Failed to write semgrep load errors to $semgrepRuleLoadErrors: ${ex.message}" }
+            }
+
+        }
 
         val defaultRules = loadDefaultConfig()
         val defaultPassRules = SerializedTaintConfig(passThrough = defaultRules.passThrough)
@@ -99,14 +119,29 @@ class ProjectAnalyzer(
         return JIRTaintRulesProvider(config)
     }
 
-    private fun parseSemgrepRules(semgrepRulesPath: Path): List<TaintRuleFromSemgrep> {
+    private fun parseSemgrepRules(
+        semgrepRulesPath: Path,
+        semgrepFilesError: ArrayList<AbstractSemgrepError>
+    ): List<TaintRuleFromSemgrep> {
         val rules = mutableListOf<TaintRuleFromSemgrep>()
         val loader = SemgrepRuleLoader()
         val ruleExtensions = arrayOf("yaml", "yml")
         semgrepRulesPath.walk().filter { it.extension in ruleExtensions }.forEach { rulePath ->
-            val ruleName = rulePath.relativeTo(semgrepRulesPath)
+            val ruleName =
+                if (semgrepRulesPath.isAbsolute)
+                    semgrepRulesPath.resolve(rulePath).relativeTo(semgrepRulesPath.root)
+                else
+                    rulePath.relativeTo(semgrepRulesPath)
+
             val ruleText = rulePath.readText()
-            rules += loader.loadRuleSet(ruleText, ruleName.toString())
+
+            val semgrepFileErrors = SemgrepFileErrors(ruleName.toString())
+            semgrepFilesError += semgrepFileErrors
+            rules += loader.loadRuleSet(
+                ruleText,
+                ruleName.toString(),
+                semgrepFileErrors
+            )
         }
         return rules
     }

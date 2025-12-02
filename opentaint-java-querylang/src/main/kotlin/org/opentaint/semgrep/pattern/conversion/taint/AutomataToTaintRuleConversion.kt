@@ -3,6 +3,7 @@ package org.opentaint.semgrep.pattern.conversion.taint
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentHashMapOf
 import mu.KLogging
+import org.slf4j.event.Level
 import org.opentaint.dataflow.configuration.jvm.serialized.AnalysisEndSink
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
@@ -30,6 +31,8 @@ import org.opentaint.dataflow.util.toBitSet
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.RuleWithMetaVars
+import org.opentaint.semgrep.pattern.SemgrepError
+import org.opentaint.semgrep.pattern.SemgrepRuleErrors
 import org.opentaint.semgrep.pattern.SemgrepMatchingRule
 import org.opentaint.semgrep.pattern.SemgrepRule
 import org.opentaint.semgrep.pattern.SemgrepTaintRule
@@ -73,19 +76,23 @@ fun convertToTaintRules(
     rule: SemgrepRule<RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>>,
     ruleId: String,
     meta: SinkMetaData,
+    semgrepRuleErrors: SemgrepRuleErrors
 ): TaintRuleFromSemgrep = when (rule) {
-    is SemgrepMatchingRule -> convertMatchingRuleToTaintRules(rule, ruleId, meta)
-    is SemgrepTaintRule -> convertTaintRuleToTaintRules(rule, ruleId, meta)
+    is SemgrepMatchingRule -> convertMatchingRuleToTaintRules(rule, ruleId, meta, semgrepRuleErrors)
+    is SemgrepTaintRule -> convertTaintRuleToTaintRules(rule, ruleId, meta, semgrepRuleErrors)
 }
 
 private fun convertMatchingRuleToTaintRules(
     rule: SemgrepMatchingRule<RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>>,
     ruleId: String,
     meta: SinkMetaData,
+    semgrepRuleErrors: SemgrepRuleErrors,
 ): TaintRuleFromSemgrep {
     val ruleGroups = rule.rules.mapIndexed { idx, r ->
         val automataId = "$ruleId#$idx"
-        val rules = convertAutomataToTaintRules(r.metaVarInfo, r.rule, automataId, ruleId, meta)
+        val rules = convertAutomataToTaintRules(
+            r.metaVarInfo, r.rule, automataId, ruleId, meta, semgrepRuleErrors
+        )
         TaintRuleFromSemgrep.TaintRuleGroup(rules)
     }
     return TaintRuleFromSemgrep(ruleId, ruleGroups)
@@ -95,6 +102,7 @@ private fun convertTaintRuleToTaintRules(
     rule: SemgrepTaintRule<RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>>,
     ruleId: String,
     meta: SinkMetaData,
+    semgrepRuleErrors: SemgrepRuleErrors,
 ): TaintRuleFromSemgrep {
     val taintMarkName = "$ruleId#taint"
     val generatedRules = mutableListOf<SerializedItem>()
@@ -109,7 +117,7 @@ private fun convertTaintRuleToTaintRules(
         }
 
         val (ctx, stateVars) = convertTaintSourceRule(ruleId, i, source.pattern)
-        generatedRules += ctx.generateTaintSourceRules(stateVars, taintMarkName)
+        generatedRules += ctx.generateTaintSourceRules(stateVars, taintMarkName, semgrepRuleErrors)
     }
 
     for ((i, sink) in rule.sinks.withIndex()) {
@@ -119,18 +127,23 @@ private fun convertTaintRuleToTaintRules(
 
         val (ctx, stateVars, stateId) = convertTaintSinkRule(ruleId, i, sink.pattern)
         val sinkCtx = SinkRuleGenerationCtx(stateVars, stateId, taintMarkName, ctx)
-        generatedRules += sinkCtx.generateTaintSinkRules(ruleId, meta)
+        generatedRules += sinkCtx.generateTaintSinkRules(ruleId, meta, semgrepRuleErrors)
     }
 
     for ((i, pass) in rule.propagators.withIndex()) {
         val (ctx, stateId) = generatePassRule(ruleId, i, pass.pattern, pass.from, pass.to)
         val sinkCtx = SinkRuleGenerationCtx(setOf(pass.from), stateId, taintMarkName, ctx)
-        generatedRules += sinkCtx.generateTaintPassRules(pass.from, pass.to, taintMarkName)
+        generatedRules += sinkCtx.generateTaintPassRules(pass.from, pass.to, taintMarkName, semgrepRuleErrors)
     }
 
     if (rule.sanitizers.isNotEmpty()) {
         // todo: sanitizers (cleans any argument as for sinks)
-        logger.warn { "Rule $ruleId: sanitizers are not supported yet" }
+        semgrepRuleErrors += SemgrepError(
+            SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
+            "Rule $ruleId: sanitizers are not supported yet",
+            Level.WARN,
+            SemgrepError.Reason.NOT_IMPLEMENTED,
+        )
     }
 
     val ruleGroup = TaintRuleFromSemgrep.TaintRuleGroup(generatedRules)
@@ -339,6 +352,7 @@ private fun convertAutomataToTaintRules(
     automata: SemgrepRuleAutomata,
     automataId: String,
     id: String, meta: SinkMetaData,
+    semgrepRuleErrors: SemgrepRuleErrors,
 ): List<SerializedItem> {
     check(automata.isDeterministic) { "NFA not supported" }
 
@@ -346,7 +360,7 @@ private fun convertAutomataToTaintRules(
         automata.formulaManager, metaVarInfo, automata.initialNode
     )
     val ctx = generateAutomataWithTaintEdges(taintAutomata, metaVarInfo, automataId, acceptStateVars = emptySet())
-    return ctx.generateTaintSinkRules(id, meta)
+    return ctx.generateTaintSinkRules(id, meta, semgrepRuleErrors)
 }
 
 private fun createAutomataWithEdgeElimination(
@@ -1490,10 +1504,18 @@ private data class EvaluatedEdgeCondition(
     val accessedVarPosition: Map<String, RegisterVarPosition>
 )
 
-private fun TaintRuleGenerationCtx.generateTaintSinkRules(id: String, meta: SinkMetaData) =
-    generateTaintRules { currentRules, ruleEdge, _, function, cond ->
+private fun TaintRuleGenerationCtx.generateTaintSinkRules(
+    id: String, meta: SinkMetaData,
+    semgrepRuleErrors: SemgrepRuleErrors,
+) =
+    generateTaintRules({ currentRules, ruleEdge, _, function, cond ->
         if (function.matchAnything() && cond is SerializedCondition.True) {
-            logger.warn { "Rule $id match anything" }
+            semgrepRuleErrors += SemgrepError(
+                SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
+                "Rule $id match anything",
+                Level.WARN,
+                SemgrepError.Reason.WARNING,
+            )
             return@generateTaintRules emptyList()
         }
 
@@ -1513,7 +1535,7 @@ private fun TaintRuleGenerationCtx.generateTaintSinkRules(id: String, meta: Sink
             Edge.AnalysisEnd -> return@generateTaintRules generateEndSink(currentRules, cond, id, meta)
         }
         listOf(rule)
-    }
+    }, semgrepRuleErrors)
 
 private fun generateEndSink(
     currentRules: List<SerializedItem>,
@@ -1574,8 +1596,9 @@ private fun PositionBase.rewriteAsEndPosition(): PositionBase = when (this) {
 }
 
 private fun TaintRuleGenerationCtx.generateTaintSourceRules(
-    stateVars: Set<String>, taintMarkName: String
-) = generateTaintRules { _, ruleEdge, condition, function, cond ->
+    stateVars: Set<String>, taintMarkName: String,
+    semgrepRuleErrors: SemgrepRuleErrors,
+) = generateTaintRules({ _, ruleEdge, condition, function, cond ->
     val actions = stateVars.flatMapTo(mutableListOf()) { varName ->
         val varPosition = condition.accessedVarPosition[varName] ?: return@flatMapTo emptyList()
         varPosition.positions.map {
@@ -1602,14 +1625,15 @@ private fun TaintRuleGenerationCtx.generateTaintSourceRules(
     }
 
     listOf(rule)
-}
+}, semgrepRuleErrors)
 
 private fun SinkRuleGenerationCtx.generateTaintPassRules(
     fromVar: String, toVar: String,
-    taintMarkName: String
+    taintMarkName: String,
+    semgrepRuleErrors: SemgrepRuleErrors,
 ): List<SerializedItem> {
     // todo: generate taint pass when possible
-    return generateTaintSourceRules(setOf(toVar), taintMarkName)
+    return generateTaintSourceRules(setOf(toVar), taintMarkName, semgrepRuleErrors)
 }
 
 private fun TaintRuleGenerationCtx.generateTaintRules(
@@ -1619,7 +1643,8 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
         EvaluatedEdgeCondition,
         SerializedFunctionNameMatcher,
         SerializedCondition
-    ) -> List<SerializedItem>
+    ) -> List<SerializedItem>,
+    semgrepRuleErrors: SemgrepRuleErrors,
 ): List<SerializedItem> {
     val rules = mutableListOf<SerializedItem>()
 
@@ -1628,7 +1653,7 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
     fun evaluate(edge: Edge, state: State): EvaluatedEdgeCondition =
         evaluatedConditions
             .getOrPut(state, ::hashMapOf)
-            .getOrPut(edge) { evaluateEdgeCondition(edge, state) }
+            .getOrPut(edge) { evaluateEdgeCondition(edge, state, semgrepRuleErrors) }
 
     for (ruleEdge in edges) {
         val edge = ruleEdge.edge
@@ -1771,10 +1796,11 @@ private inline fun <T> generateRules(
 
 private fun TaintRuleGenerationCtx.evaluateEdgeCondition(
     edge: Edge,
-    state: State
+    state: State,
+    semgrepRuleErrors: SemgrepRuleErrors,
 ): EvaluatedEdgeCondition = when (edge) {
-    is Edge.MethodCall -> evaluateMethodConditionAndEffect(edge.condition, edge.effect, state)
-    is Edge.MethodEnter -> evaluateMethodConditionAndEffect(edge.condition, edge.effect, state)
+    is Edge.MethodCall -> evaluateMethodConditionAndEffect(edge.condition, edge.effect, state, semgrepRuleErrors)
+    is Edge.MethodEnter -> evaluateMethodConditionAndEffect(edge.condition, edge.effect, state, semgrepRuleErrors)
     Edge.AnalysisEnd -> EvaluatedEdgeCondition(RuleConditionBuilder().build(), emptyList(), emptyMap())
 }
 
@@ -1796,7 +1822,8 @@ private class RuleConditionBuilder {
 private fun TaintRuleGenerationCtx.evaluateMethodConditionAndEffect(
     condition: EdgeCondition,
     effect: EdgeEffect,
-    state: State
+    state: State,
+    semgrepRuleErrors: SemgrepRuleErrors,
 ): EvaluatedEdgeCondition {
     if (placeHolders.placeHolderRequiredMetaVars.isNotEmpty()) {
         TODO("Placeholders")
@@ -1810,14 +1837,14 @@ private fun TaintRuleGenerationCtx.evaluateMethodConditionAndEffect(
     condition.readMetaVar.values.flatten().forEach {
         val signature = it.predicate.signature.notEvaluatedSignature(evaluatedSignature)
         evaluateEdgePredicateConstraint(
-            signature, it.predicate.constraint, it.negated, state, ruleBuilder, additionalFieldRules
+            signature, it.predicate.constraint, it.negated, state, ruleBuilder, additionalFieldRules, semgrepRuleErrors
         )
     }
 
     condition.other.forEach {
         val signature = it.predicate.signature.notEvaluatedSignature(evaluatedSignature)
         evaluateEdgePredicateConstraint(
-            signature, it.predicate.constraint, it.negated, state, ruleBuilder, additionalFieldRules
+            signature, it.predicate.constraint, it.negated, state, ruleBuilder, additionalFieldRules, semgrepRuleErrors
         )
     }
 
@@ -1951,12 +1978,27 @@ private fun TaintRuleGenerationCtx.evaluateEdgePredicateConstraint(
     state: State,
     builder: RuleConditionBuilder,
     additionalFieldRules: MutableList<SerializedFieldRule>,
+    semgrepRuleErrors: SemgrepRuleErrors,
 ) {
     if (!negated) {
-        evaluateMethodConstraints(signature, constraint, state, builder.conditions, additionalFieldRules)
+        evaluateMethodConstraints(
+            signature,
+            constraint,
+            state,
+            builder.conditions,
+            additionalFieldRules,
+            semgrepRuleErrors
+        )
     } else {
         val negatedConditions = hashSetOf<SerializedCondition>()
-        evaluateMethodConstraints(signature, constraint, state, negatedConditions, additionalFieldRules)
+        evaluateMethodConstraints(
+            signature,
+            constraint,
+            state,
+            negatedConditions,
+            additionalFieldRules,
+            semgrepRuleErrors
+        )
         builder.conditions += SerializedCondition.not(SerializedCondition.and(negatedConditions.toList()))
     }
 }
@@ -1967,6 +2009,7 @@ private fun TaintRuleGenerationCtx.evaluateMethodConstraints(
     state: State,
     conditions: MutableSet<SerializedCondition>,
     additionalFieldRules: MutableList<SerializedFieldRule>,
+    semgrepRuleErrors: SemgrepRuleErrors,
 ) {
     if (signature != null) {
         evaluateMethodSignatureCondition(signature, conditions)
@@ -1986,7 +2029,13 @@ private fun TaintRuleGenerationCtx.evaluateMethodConstraints(
         }
 
         is NumberOfArgsConstraint -> conditions += SerializedCondition.NumberOfArgs(constraint.num)
-        is ParamConstraint -> evaluateParamConstraints(constraint, state, conditions, additionalFieldRules)
+        is ParamConstraint -> evaluateParamConstraints(
+            constraint,
+            state,
+            conditions,
+            additionalFieldRules,
+            semgrepRuleErrors
+        )
     }
 }
 
@@ -2121,9 +2170,10 @@ private fun TaintRuleGenerationCtx.evaluateParamConstraints(
     state: State,
     conditions: MutableSet<SerializedCondition>,
     additionalFieldRules: MutableList<SerializedFieldRule>,
+    semgrepRuleErrors: SemgrepRuleErrors,
 ) {
     val position = param.position.toSerializedPosition()
-    conditions += evaluateParamCondition(position, param.condition, state, additionalFieldRules)
+    conditions += evaluateParamCondition(position, param.condition, state, additionalFieldRules, semgrepRuleErrors)
 }
 
 private fun findMetaVarPosition(
@@ -2151,13 +2201,19 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
     condition: ParamCondition.Atom,
     state: State,
     additionalFieldRules: MutableList<SerializedFieldRule>,
+    semgrepRuleErrors: SemgrepRuleErrors,
 ): SerializedCondition {
     when (condition) {
         is IsMetavar -> {
             val constraints = metaVarInfo.metaVarConstraints[condition.metavar]
             if (constraints != null) {
                 // todo: semantic metavar constraint
-                logger.warn { "Rule $uniqueRuleId: metavar ${condition.metavar} constraint ignored" }
+                semgrepRuleErrors += SemgrepError(
+                    SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
+                    "Rule $uniqueRuleId: metavar ${condition.metavar} constraint ignored",
+                    Level.WARN,
+                    SemgrepError.Reason.WARNING,
+                )
             }
 
             val varValue = state.register.assignedVars[condition.metavar]

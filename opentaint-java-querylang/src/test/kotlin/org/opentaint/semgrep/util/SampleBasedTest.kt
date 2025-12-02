@@ -2,6 +2,7 @@ package org.opentaint.semgrep.util
 
 import base.RuleSample
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
+import org.opentaint.semgrep.pattern.SemgrepRuleErrors
 import org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
 import org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
 import org.opentaint.semgrep.pattern.createTaintConfig
@@ -24,12 +25,13 @@ abstract class SampleBasedTest(
         val rule = ruleYaml.rules.singleOrNull() ?: error("Not a single rule for ${data.rulePath}")
         check(rule.languages.contains("java"))
 
+        val semgrepRuleErrors = SemgrepRuleErrors(rule.id, rule.id,)
         val builder = SemgrepRuleAutomataBuilder()
-        val ruleAutomata = builder.build(rule)
+        val ruleAutomata = builder.build(rule, semgrepRuleErrors)
         assertFalse(builder.stats.isFailure, "Could not convert rule to Automata: ${builder.stats}")
 //        ruleAutomata.forEach { it.view() }
 
-        val rules = convertToTaintRules(ruleAutomata, rule.id, SinkMetaData())
+        val rules = convertToTaintRules(ruleAutomata, rule.id, SinkMetaData(), semgrepRuleErrors)
         val taintConfig = rules.createTaintConfig()
 
         val allSamples = hashSetOf<String>()
