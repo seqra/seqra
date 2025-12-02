@@ -5,9 +5,8 @@ import kotlinx.collections.immutable.persistentListOf
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry
-import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.CallSourceRule
-import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.CallSourceSummary
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.SourceStartEntry
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver.CallKind.CallToSink
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver.CallKind.CallToSource
@@ -143,12 +142,12 @@ private fun resolveStartToSource(
                 callTrace += CallTrace(statement, path)
 
                 val pathStart = path.firstOrNull() ?: return callTrace
-                if (pathStart !is CallSourceSummary) {
-                    return callTrace
-                }
 
-                val callNode = trace.findSuccessors(node, kind = CallToSource, pathStart.statement, pathStart.summaryTrace)
-                    .firstOrNull()
+                val pathStartSummary = (pathStart as? SourceStartEntry)?.sourcePrimaryAction as? TraceEntryAction.CallSourceSummary
+                    ?: return callTrace
+
+                val callNode = trace.findSuccessors(node, kind = CallToSource, pathStart.statement, pathStartSummary.summaryTrace)
+                    .minByOrNull { it.priority() }
                     ?: return callTrace
 
                 node = callNode.node
@@ -210,35 +209,42 @@ private fun resolveStartToSink(
 private fun generateIntraProceduralPath(
     trace: MethodTraceResolver.FullTrace
 ): PersistentList<TraceEntry>? {
-    val initialNodes: Iterable<TraceEntry> = when (trace) {
-        is MethodTraceResolver.MethodFullTrace -> trace.initial
-        is MethodTraceResolver.SourceFullTrace -> trace.initial.sortedBy { it.priority() }
-    }
 
-    for (start in initialNodes) {
-        val unprocessed = mutableListOf(start to persistentListOf(start))
-        val visited = hashSetOf<TraceEntry>()
+    val unprocessed = mutableListOf<Pair<TraceEntry, PersistentList<TraceEntry>>>(trace.startEntry to persistentListOf<TraceEntry>(trace.startEntry))
+    val visited = hashSetOf<TraceEntry>()
 
-        while (unprocessed.isNotEmpty()) {
-            val (entry, path) = unprocessed.removeLast()
+    while (unprocessed.isNotEmpty()) {
+        val (entry, path) = unprocessed.removeLast()
 
-            if (entry == trace.final) {
-                return path
-            }
+        if (entry == trace.final) {
+            return path
+        }
 
-            if (!visited.add(entry)) continue
+        if (!visited.add(entry)) continue
 
-            trace.successors[entry]?.forEach {
-                unprocessed.add(it to path.add(it))
-            }
+        trace.successors[entry]?.forEach {
+            unprocessed.add(it to path.add(it))
         }
     }
 
     return null
 }
 
-private fun SourceStartEntry.priority(): Int = when (this) {
-    is TraceEntry.EntryPointSourceRule -> 0
-    is CallSourceRule -> 1
-    is CallSourceSummary -> 2
+private fun TraceResolver.InterProceduralCall.priority(): Int {
+    return when (val n = node) {
+        is TraceResolver.InterProceduralSummaryTraceNode -> -1
+        is TraceResolver.InterProceduralFullTraceNode -> {
+            when (val start = n.trace.startEntry) {
+                is TraceEntry.MethodEntry -> 10
+                is SourceStartEntry -> start.priority()
+            }
+        }
+    }
+}
+
+private fun SourceStartEntry.priority(): Int {
+    if (sourcePrimaryAction != null) return 2
+    if (sourceOtherActions.any { it is TraceEntryAction.EntryPointSourceRule }) return 0
+    if (sourceOtherActions.any { it is TraceEntryAction.CallSourceRule }) return 1
+    return 3
 }

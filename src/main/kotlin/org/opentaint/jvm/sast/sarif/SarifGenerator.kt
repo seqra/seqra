@@ -150,8 +150,8 @@ class SarifGenerator(
         if (a.size != 1 || b.size != 1) return false
         val aNode = a[0]
         val bNode = a[0]
-        if (aNode.entry !is MethodTraceResolver.TraceEntry.Sequential
-            || bNode.entry !is MethodTraceResolver.TraceEntry.Sequential)
+        if (aNode.entry !is MethodTraceResolver.TraceEntry.Action
+            || bNode.entry !is MethodTraceResolver.TraceEntry.Action)
             return false
         val aAssignee = traits.getReadableAssignee(aNode.statement)
         val bAssignee = traits.getReadableAssignee(bNode.statement)
@@ -190,8 +190,14 @@ class SarifGenerator(
         val firstNode = path.firstOrNull { it.kind == TracePathNodeKind.SOURCE }
         val taintType = firstNode?. let {
             when (val entry = firstNode.entry) {
-                is MethodTraceResolver.TraceEntry.CallSourceRule -> getMarkVarName(entry.action)
-                is MethodTraceResolver.TraceEntry.EntryPointSourceRule -> getMarkVarName(entry.action)
+                is MethodTraceResolver.TraceEntry.SourceStartEntry -> {
+                    val action = entry.sourceOtherActions.firstOrNull()
+                    when (action) {
+                        is MethodTraceResolver.TraceEntryAction.CallSourceRule -> getMarkVarName(action.action)
+                        is MethodTraceResolver.TraceEntryAction.EntryPointSourceRule -> getMarkVarName(action.action)
+                        null -> null
+                    }
+                }
                 else -> null
             }
         } ?: "untrusted"
@@ -208,7 +214,11 @@ class SarifGenerator(
         val flowLocations = groupsWithMsges.mapIndexed { idx, groupNode ->
             val insnLoc =
                 if (groupNode.node.entry is MethodTraceResolver.TraceEntry.MethodEntry
-                    || groupNode.node.entry is MethodTraceResolver.TraceEntry.EntryPointSourceRule) {
+
+                    // todo
+                    /*|| groupNode.node.entry is MethodTraceResolver.TraceEntry.EntryPointSourceRule*/
+
+                    ) {
                     // this is an attempt to highlight the method signature instead of its first bytecode instruction
                     // for the MethodEntry traces
                     // will fail if the source has extra lines between method declaration and its body

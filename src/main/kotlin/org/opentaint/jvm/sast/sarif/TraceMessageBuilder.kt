@@ -5,22 +5,24 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonReturnInst
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
-import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEdge
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction
 import org.opentaint.dataflow.configuration.CommonTaintAction
 import org.opentaint.dataflow.configuration.CommonTaintAssignAction
-import org.opentaint.dataflow.util.SarifTraits
-import org.opentaint.dataflow.configuration.jvm.CopyMark
-import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
-import org.opentaint.dataflow.configuration.jvm.AssignMark
-import org.opentaint.dataflow.configuration.jvm.RemoveMark
-import org.opentaint.dataflow.configuration.jvm.RemoveAllMarks
-import org.opentaint.dataflow.configuration.jvm.Position
-import org.opentaint.dataflow.configuration.jvm.ClassStatic
-import org.opentaint.dataflow.configuration.jvm.This
-import org.opentaint.dataflow.configuration.jvm.Result
 import org.opentaint.dataflow.configuration.jvm.Argument
-import org.opentaint.dataflow.configuration.jvm.PositionWithAccess
+import org.opentaint.dataflow.configuration.jvm.AssignMark
+import org.opentaint.dataflow.configuration.jvm.ClassStatic
+import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
+import org.opentaint.dataflow.configuration.jvm.CopyMark
+import org.opentaint.dataflow.configuration.jvm.Position
 import org.opentaint.dataflow.configuration.jvm.PositionAccessor
+import org.opentaint.dataflow.configuration.jvm.PositionWithAccess
+import org.opentaint.dataflow.configuration.jvm.RemoveAllMarks
+import org.opentaint.dataflow.configuration.jvm.RemoveMark
+import org.opentaint.dataflow.configuration.jvm.Result
+import org.opentaint.dataflow.configuration.jvm.This
+import org.opentaint.dataflow.util.SarifTraits
 
 data class TracePathNodeWithMsg(
     val node: TracePathNode,
@@ -134,41 +136,47 @@ class TraceMessageBuilder(
     }
 
     fun isGoodTrace(node: TracePathNode): Boolean {
-        // filtering CallSummary traces where tainted data ends up where it started
-        if (node.entry is MethodTraceResolver.TraceEntry.CallSummary
-            && node.entry.summaryTrace.initial.fact.base == node.entry.summaryTrace.final.fact.base) {
-            logger.debug {
-                "Skipping trace entry on line ${traits.lineNumber(node.statement)}" +
-                        "because initial and final places are the same"
-            }
-            return false
-        }
-
-        // filtering Call trace entries that contain unexpected Remove actions
-        if (node.entry is MethodTraceResolver.TraceEntry.CallRule
-            && (node.entry.action is RemoveMark || node.entry.action is RemoveAllMarks)) {
-            logger.warn {
-                "Trace entry on line ${traits.lineNumber(node.statement)} because of unexpected Remove action!"
-            }
-            return false
-        }
-
         // filtering return nodes that do not contain any new information
         if (node.entry == null && node.kind == TracePathNodeKind.RETURN) {
             return false
         }
 
-        // filtering calls to toString methods
-        if (node.kind != TracePathNodeKind.SOURCE && node.kind != TracePathNodeKind.SINK
-            && node.entry is MethodTraceResolver.TraceEntry.CallTraceEntry) {
-            val name = getMethodCalleeName(node)
-            if (name == "toString")
+        val entry = node.entry as? TraceEntry.Action ?: return true
+
+        val primaryAction = entry.primaryAction
+
+        // filtering CallSummary traces where tainted data ends up where it started
+        if (primaryAction is TraceEntryAction.CallSummary) {
+            val summaryTraceFacts = primaryAction.summaryTrace.final.edges
+            if (summaryTraceFacts.all { it is TraceEdge.MethodTraceEdge && it.initialFact.base == it.fact.base }) {
+                logger.debug {
+                    "Skipping trace entry on line ${traits.lineNumber(node.statement)}" +
+                            "because initial and final places are the same"
+                }
                 return false
+            }
         }
 
         // filtering nodes that became unimportant
-        if (node.entry is MethodTraceResolver.TraceEntry.UnresolvedCallSkip) {
+        if (primaryAction is TraceEntryAction.UnresolvedCallSkip) {
             return false
+        }
+
+        // filtering Call trace entries that contain unexpected Remove actions
+        // todo: clarify
+//        if (node.entry is TraceEntry.CallRule
+//            && (node.entry.action is RemoveMark || node.entry.action is RemoveAllMarks)) {
+//            logger.warn {
+//                "Trace entry on line ${traits.lineNumber(node.statement)} because of unexpected Remove action!"
+//            }
+//            return false
+//        }
+
+        // filtering calls to toString methods
+        if (node.kind != TracePathNodeKind.SOURCE && node.kind != TracePathNodeKind.SINK) {
+            val name = getMethodCalleeName(node)
+            if (name == "toString")
+                return false
         }
 
         return true
@@ -180,17 +188,34 @@ class TraceMessageBuilder(
     private fun createExitMessage(node: TracePathNode) =
         "Exiting \"${node.statement.method.name}\""
 
-    private fun createTraceEntryMessage(node: TracePathNode) =
-        when (val entry = node.entry) {
-            is MethodTraceResolver.TraceEntry.CallRule -> entry.createMessage(node)
-            is MethodTraceResolver.TraceEntry.CallSummary -> entry.createMessage(node)
-            is MethodTraceResolver.TraceEntry.CallSourceRule -> entry.createMessage(node)
-            is MethodTraceResolver.TraceEntry.CallSourceSummary -> entry.createMessage(node)
-            is MethodTraceResolver.TraceEntry.Sequential -> entry.createMessage(node)
-            is MethodTraceResolver.TraceEntry.Final -> entry.createMessage(node)
-            is MethodTraceResolver.TraceEntry.EntryPointSourceRule -> entry.createMessage(node)
-            is MethodTraceResolver.TraceEntry.MethodEntry ->
-                "Entering \"${entry.entryPoint.method.name}\" with $taintType data at ${entry.fact.base.inMessage(node)}"
+    private fun createTraceEntryMessage(node: TracePathNode): String {
+        return when (val entry = node.entry) {
+            is TraceEntry.Final -> entry.createMessage(node)
+            is TraceEntry.MethodEntry -> {
+                val methodName = entry.entryPoint.method.name
+                val message = entry.edges.first().fact.base.inMessage(node)
+                "Entering \"$methodName\" with $taintType data at $message" // todo: multiple facts
+            }
+
+            is TraceEntry.Action -> {
+                // todo: multiple actions
+                val primaryAction = entry.primaryAction
+                if (primaryAction != null){
+                    return when (primaryAction) {
+                        is TraceEntryAction.CallSummary -> primaryAction.createMessage(node)
+                        is TraceEntryAction.Sequential -> primaryAction.createMessage(node)
+                        is TraceEntryAction.CallSourceSummary -> primaryAction.createMessage(node)
+                        is TraceEntryAction.UnresolvedCallSkip -> createDefaultMessage(node)
+                    }
+                }
+
+                val otherAction = entry.otherActions.first()
+                when (otherAction) {
+                    is TraceEntryAction.CallRule -> otherAction.createMessage(node)
+                    is TraceEntryAction.CallSourceRule -> otherAction.createMessage(node)
+                    is TraceEntryAction.EntryPointSourceRule -> otherAction.createMessage(node)
+                }
+            }
 
             null -> when (node.kind) {
                 TracePathNodeKind.RETURN -> createExitMessage(node)
@@ -200,8 +225,10 @@ class TraceMessageBuilder(
 
                 else -> createDefaultMessage(node)
             }
+
             else -> createDefaultMessage(node)
         }
+    }
 
     private fun getGroupKind(group: List<TracePathNode>): String {
         var kind = "unknown"
@@ -243,18 +270,26 @@ class TraceMessageBuilder(
 
         for (trace in traces) {
             when (val entry = trace.entry) {
-                is MethodTraceResolver.TraceEntry.CallTraceEntry -> {
-                    curList.add(trace)
-                    if (entry is MethodTraceResolver.TraceEntry.SourceStartEntry)
+                is TraceEntry.SourceStartEntry -> {
+                    if (entry.sourcePrimaryAction is TraceEntryAction.CallAction || entry.sourceOtherActions.any { it is TraceEntryAction.CallAction }) {
+                        curList.add(trace)
                         kindTracker.setSourceCall()
-                    else
+                    } else {
+                        addAsSingle(trace)
+                    }
+                }
+
+                is TraceEntry.Action -> {
+                    if (entry.primaryAction is TraceEntryAction.Sequential) {
+                        curList.add(trace)
+                        kindTracker.setAssign()
+                        addCurListAndClean()
+                    } else if (entry.primaryAction is TraceEntryAction.CallAction || entry.otherActions.any { it is TraceEntryAction.CallAction }) {
+                        curList.add(trace)
                         kindTracker.setCall()
+                    }
                 }
-                is MethodTraceResolver.TraceEntry.Sequential -> {
-                    curList.add(trace)
-                    kindTracker.setAssign()
-                    addCurListAndClean()
-                }
+
                 else -> addAsSingle(trace)
             }
         }
@@ -282,13 +317,14 @@ class TraceMessageBuilder(
     }
 
     private fun getTaintType(node: TracePathNode): String? {
-        val action = when (val entry = node.entry) {
-            is MethodTraceResolver.TraceEntry.CallSourceRule -> entry.action
-            is MethodTraceResolver.TraceEntry.EntryPointSourceRule -> entry.action
-            is MethodTraceResolver.TraceEntry.CallRule -> entry.action
+        val ruleActions = when (val entry = node.entry) {
+            is TraceEntry.Action -> entry.otherActions.filterIsInstance<TraceEntryAction.CallRuleAction>()
+            is TraceEntry.SourceStartEntry -> entry.sourceOtherActions.filterIsInstance<TraceEntryAction.CallRuleAction>()
             else -> null
         }
-        return action?.let { getMarkVarName(it) }
+
+        val action = ruleActions?.firstOrNull() // todo: multiple actions
+        return action?.let { getMarkVarName(it.action) }
     }
 
     private fun updateTaintType(node: TracePathNode) {
@@ -297,28 +333,54 @@ class TraceMessageBuilder(
     }
 
     private fun getCallTaintIn(node: TracePathNode): String {
-        val taintName = when(val entry = node.entry) {
-            is MethodTraceResolver.TraceEntry.CallRule ->
-                entry.action.getTainted(node)
-            is MethodTraceResolver.TraceEntry.CallSummary ->
-                entry.summaryTrace.initial.fact.base.inMessage(node)
-            else -> "<unresolved call bad source>"
-        }
+        val taintName = callTaintInName(node) ?: "<unresolved call bad source>"
         return getTaintOf(taintName, node)
+    }
+
+    private fun callTaintInName(node: TracePathNode): String? {
+        when (val entry = node.entry) {
+            is TraceEntry.Action -> {
+                val primaryAction = entry.primaryAction
+                if (primaryAction is TraceEntryAction.CallSummary) {
+                    val edge = primaryAction.summaryTrace.final.edges.first()
+                    if (edge is TraceEdge.MethodTraceEdge) {
+                        return edge.initialFact.base.inMessage(node)
+                    }
+                }
+
+                val action = entry.otherActions.filterIsInstance<TraceEntryAction.CallRuleAction>().firstOrNull()
+                action?.let { return action.action.getTainted(node) }
+            }
+
+            else -> return null
+        }
+        return null
     }
 
     private fun getCallTaintOut(node: TracePathNode): String {
-        val taintName = when(val entry = node.entry) {
-            is MethodTraceResolver.TraceEntry.CallRule ->
-                entry.action.getPropagated(node)
-            is MethodTraceResolver.TraceEntry.CallSummary ->
-                entry.summaryTrace.final.fact.base.inMessage(node)
-            else -> "<unresolved call bad sink>"
-        }
+        val taintName = callTaintOutName(node) ?: "<unresolved call bad sink>"
         return getTaintOf(taintName, node)
     }
 
-    private fun getAssignTaintOut(entry: MethodTraceResolver.TraceEntry?) = when (entry?.statement) {
+    private fun callTaintOutName(node: TracePathNode): String? {
+        when (val entry = node.entry) {
+            is TraceEntry.Action -> {
+                val primaryAction = entry.primaryAction
+                if (primaryAction is TraceEntryAction.CallSummary) {
+                    val edge = primaryAction.summaryTrace.final.edges.first()
+                    return edge.fact.base.inMessage(node)
+                }
+
+                val action = entry.otherActions.filterIsInstance<TraceEntryAction.CallRuleAction>().firstOrNull()
+                action?.let { return action.action.getPropagated(node) }
+            }
+
+            else -> return null
+        }
+        return null
+    }
+
+    private fun getAssignTaintOut(entry: TraceEntry?) = when (entry?.statement) {
         is CommonReturnInst -> "the returning value"
         null -> "<unresolved null assignee>"
         else -> entry.let {
@@ -327,16 +389,26 @@ class TraceMessageBuilder(
     }
 
     private fun getSourceCallTaint(node: TracePathNode): String {
-        val taintName = when (val entry = node.entry) {
-            is MethodTraceResolver.TraceEntry.CallSourceRule ->
-                entry.action.getPositionMessage(node)
-
-            is MethodTraceResolver.TraceEntry.CallSourceSummary ->
-                entry.summaryTrace.final.fact.base.inMessage(node)
-
-            else -> "<unresolved call bad source>"
-        }
+        val taintName = callSourceCallTaintName(node) ?: "<unresolved call bad source>"
         return getTaintOf(taintName, node)
+    }
+
+    private fun callSourceCallTaintName(node: TracePathNode): String? {
+        when (val entry = node.entry) {
+            is TraceEntry.Action -> {
+                val primaryAction = entry.primaryAction
+                if (primaryAction is TraceEntryAction.CallSummary) {
+                    val edge = primaryAction.summaryTrace.final.edges.first()
+                    return edge.fact.base.inMessage(node)
+                }
+
+                val action = entry.otherActions.filterIsInstance<TraceEntryAction.CallSourceRule>().firstOrNull()
+                action?.let { return action.action.getPositionMessage(node) }
+            }
+
+            else -> return null
+        }
+        return null
     }
 
     fun createGroupTraceMessage(group: List<TracePathNode>): List<TracePathNodeWithMsg> =
@@ -514,12 +586,12 @@ class TraceMessageBuilder(
         return addTaintTypeChangeAs("Call to $calleeName puts $taintType data to $pos")
     }
 
-    private fun MethodTraceResolver.TraceEntry.Final.createMessage(node: TracePathNode): String {
+    private fun TraceEntry.Final.createMessage(node: TracePathNode): String {
         if (node.kind != TracePathNodeKind.SINK) {
             if (node.statement is CommonReturnInst)
                 return createExitMessage(node)
             val callExpr = traits.getCallExpr(node.statement)
-            val tainted = fact.base.inMessage(node)
+            val tainted = edges.first().fact.base.inMessage(node)  // todo: multiple facts
 
             if (callExpr != null)
                 return "Calling ${getMethodCalleeNameInPrint(node)} with $taintType data coming from $tainted"
@@ -528,12 +600,12 @@ class TraceMessageBuilder(
         return createDefaultMessage(node)
     }
 
-    private fun MethodTraceResolver.TraceEntry.EntryPointSourceRule.createMessage(node: TracePathNode): String {
-        val tainted = fact.base.inMessage(node)
+    private fun TraceEntryAction.EntryPointSourceRule.createMessage(node: TracePathNode): String {
+        val tainted = edges.first().fact.base.inMessage(node) // todo: multiple facts
         return "Potential $taintType data at $tainted of the method"
     }
 
-    private fun MethodTraceResolver.TraceEntry.CallRule.createMessage(node: TracePathNode): String {
+    private fun TraceEntryAction.CallRule.createMessage(node: TracePathNode): String {
         if (action is CopyMark || action is CopyAllMarks) {
             val taintSource = action.getTainted(node)
             val taintFollow = action.getPropagated(node)
@@ -546,23 +618,33 @@ class TraceMessageBuilder(
         return "<!CallRule>"
     }
 
-    private fun MethodTraceResolver.TraceEntry.CallSummary.createMessage(node: TracePathNode): String {
-        val taintSource = summaryTrace.initial.fact.base.inMessage(node)
-        val taintFollow = summaryTrace.final.fact.base.inMessage(node)
-        return createMethodCallTaintPropagationMessage(node, taintSource, taintFollow)
+    private fun TraceEntryAction.CallSummary.createMessage(node: TracePathNode): String {
+        return edges.first().createCallSummaryMessage(node) // todo: multiple facts
     }
 
-    private fun MethodTraceResolver.TraceEntry.CallSourceRule.createMessage(node: TracePathNode): String {
+    private fun TraceEntryAction.CallSourceRule.createMessage(node: TracePathNode): String {
         val taintedPos = action.getPositionMessage(node)
         return createMethodCallTaintCreationMessage(node, taintedPos)
     }
 
-    private fun MethodTraceResolver.TraceEntry.CallSourceSummary.createMessage(node: TracePathNode): String {
-        val taintedPos = fact.base.inMessage(node)
-        return createMethodCallTaintCreationMessage(node, taintedPos)
+    private fun TraceEntryAction.CallSourceSummary.createMessage(node: TracePathNode): String {
+        return edges.first().createCallSummaryMessage(node) // todo: multiple facts
     }
 
-    private fun MethodTraceResolver.TraceEntry.Sequential.createMessage(node: TracePathNode): String {
+    private fun TraceEdge.createCallSummaryMessage(node: TracePathNode): String = when (this) {
+        is TraceEdge.SourceTraceEdge -> {
+            val taintedPos = fact.base.inMessage(node) // todo: multiple facts
+            createMethodCallTaintCreationMessage(node, taintedPos)
+        }
+
+        is TraceEdge.MethodTraceEdge -> {
+            val taintSource = initialFact.base.inMessage(node)
+            val taintFollow = fact.base.inMessage(node)
+            createMethodCallTaintPropagationMessage(node, taintSource, taintFollow)
+        }
+    }
+
+    private fun TraceEntryAction.Sequential.createMessage(node: TracePathNode): String {
         val assignee = getAssignTaintOut(node.entry)
         return addTaintTypeChangeAs("$assignee is assigned a value with $taintType data")
     }
