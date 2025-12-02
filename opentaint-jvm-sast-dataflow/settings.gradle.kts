@@ -1,0 +1,1 @@
+rootProject.name = "opentaint-jvm-sast-dataflow"

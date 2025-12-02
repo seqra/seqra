@@ -15,10 +15,10 @@ import org.opentaint.dataflow.ap.ifds.serialization.MethodSummariesSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolverCancellation
-import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.util.concurrentReadSafeForEach
+import org.opentaint.util.analysis.ApplicationGraph
 import java.util.PriorityQueue
 import java.util.concurrent.atomic.LongAdder
 import kotlin.math.sign

@@ -1,11 +1,11 @@
 package org.opentaint.jvm.sast.sarif
 
+import mu.KLogging
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonReturnInst
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
-import org.opentaint.test.util.logger
 import org.opentaint.dataflow.configuration.CommonTaintAction
 import org.opentaint.dataflow.configuration.CommonTaintAssignAction
 import org.opentaint.dataflow.util.SarifTraits
@@ -570,5 +570,9 @@ class TraceMessageBuilder(
     private fun generateMessageForReturn(node: TracePathNode): String {
         if (node.kind != TracePathNodeKind.RETURN) return "<!Return>"
         return "Returning from ${getMethodCalleeNameInPrint(node)}"
+    }
+
+    companion object {
+        val logger = object : KLogging() {}.logger
     }
 }

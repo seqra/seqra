@@ -21,11 +21,11 @@ import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.JIRRef
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
-import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph
 import org.opentaint.dataflow.util.PersistentBitSet
 import org.opentaint.dataflow.util.PersistentBitSet.Companion.emptyPersistentBitSet
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.toBitSet
+import org.opentaint.jvm.graph.JIRApplicationGraph
 import java.util.BitSet
 
 class JIRLocalAliasAnalysis(

@@ -22,7 +22,7 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.Sequent
 import org.opentaint.dataflow.ap.ifds.analysis.MethodStartFlowFunction.StartFact
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolverCancellation
-import org.opentaint.dataflow.graph.ApplicationGraph
+import org.opentaint.util.analysis.ApplicationGraph
 
 interface MethodAnalyzer {
     fun addInitialZeroFact()

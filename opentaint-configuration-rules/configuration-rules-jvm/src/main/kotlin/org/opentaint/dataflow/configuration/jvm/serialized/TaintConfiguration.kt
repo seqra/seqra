@@ -3,22 +3,16 @@ package org.opentaint.dataflow.configuration.jvm.serialized
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentHashMapOf
 import org.opentaint.ir.api.jvm.JIRAnnotation
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
-import org.opentaint.ir.api.jvm.ext.allSuperHierarchySequence
+import org.opentaint.ir.impl.util.adjustEmptyList
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.jvm.Action
-import org.opentaint.dataflow.configuration.jvm.AnyNameMatcher
-import org.opentaint.dataflow.configuration.jvm.AnyTypeMatcher
 import org.opentaint.dataflow.configuration.jvm.Argument
 import org.opentaint.dataflow.configuration.jvm.AssignMark
-import org.opentaint.dataflow.configuration.jvm.ClassMatcher
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
 import org.opentaint.dataflow.configuration.jvm.Condition
-import org.opentaint.dataflow.configuration.jvm.ConditionNameMatcher
-import org.opentaint.dataflow.configuration.jvm.ConfigurationTrie
 import org.opentaint.dataflow.configuration.jvm.ConstantBooleanValue
 import org.opentaint.dataflow.configuration.jvm.ConstantEq
 import org.opentaint.dataflow.configuration.jvm.ConstantGt
@@ -31,11 +25,6 @@ import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
 import org.opentaint.dataflow.configuration.jvm.CopyMark
 import org.opentaint.dataflow.configuration.jvm.IsConstant
-import org.opentaint.dataflow.configuration.jvm.JIRTypeNameMatcher
-import org.opentaint.dataflow.configuration.jvm.JIRTypeNamePatternMatcher
-import org.opentaint.dataflow.configuration.jvm.NameExactMatcher
-import org.opentaint.dataflow.configuration.jvm.NameMatcher
-import org.opentaint.dataflow.configuration.jvm.NamePatternMatcher
 import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Position
 import org.opentaint.dataflow.configuration.jvm.PositionAccessor
@@ -55,20 +44,23 @@ import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
 import org.opentaint.dataflow.configuration.jvm.TaintSinkMeta
 import org.opentaint.dataflow.configuration.jvm.TaintStaticFieldSource
 import org.opentaint.dataflow.configuration.jvm.This
-import org.opentaint.dataflow.configuration.jvm.TypeMatcher
 import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
 import org.opentaint.dataflow.configuration.jvm.isFalse
-import org.opentaint.dataflow.configuration.jvm.match
 import org.opentaint.dataflow.configuration.jvm.mkAnd
 import org.opentaint.dataflow.configuration.jvm.mkFalse
 import org.opentaint.dataflow.configuration.jvm.mkOr
 import org.opentaint.dataflow.configuration.jvm.mkTrue
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationConstraint
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationParamMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.ClassPattern
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Pattern
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Simple
 import org.opentaint.dataflow.configuration.jvm.simplify
 import java.util.concurrent.atomic.AtomicInteger
 
 class TaintConfiguration {
+    private val patternManager = PatternManager()
+
     private val entryPointConfig = TaintRulesStorage<SerializedRule.EntryPoint, TaintEntryPointSource>()
     private val sourceConfig = TaintRulesStorage<SerializedRule.Source, TaintMethodSource>()
     private val sinkConfig = TaintRulesStorage<SerializedRule.Sink, TaintMethodSink>()
@@ -133,7 +125,7 @@ class TaintConfiguration {
 
         @Synchronized
         fun getConfigForField(field: JIRField): List<T> = fieldItems.getOrPut(field) {
-            resolveFieldItems(field)
+            resolveFieldItems(field).adjustEmptyList()
         }
 
         private fun resolveFieldItems(field: JIRField): List<T> {
@@ -148,34 +140,34 @@ class TaintConfiguration {
     }
 
     private inner class TaintRulesStorage<S : SerializedRule, T : TaintConfigurationItem> {
-        private val rulesTrie = TaintConfigurationTrie<S>()
-        private val classRules = hashMapOf<JIRClassOrInterface, List<S>>()
-        private val methodItems = hashMapOf<JIRMethod, List<T>>()
+        private var builder: MethodTaintRulesStorage.Builder<S>? = MethodTaintRulesStorage.Builder(patternManager)
+        private var storage: MethodTaintRulesStorage<S>? = null
+
+        private fun storage(): MethodTaintRulesStorage<S> {
+            storage?.let { return it }
+
+            storage = builder?.build()
+            builder = null
+
+            return storage ?: error("Storage initialization failed")
+        }
 
         fun addRules(rules: List<S>) {
-            rulesTrie.addRules(rules)
-
-            // invalidate rules cache
-            classRules.clear()
-            methodItems.clear()
+            val builder = this.builder ?: error("Storage rule set closed")
+            builder.addRules(rules)
         }
+
+        private val methodItems = hashMapOf<JIRMethod, List<T>>()
 
         @Synchronized
         fun getConfigForMethod(method: JIRMethod): List<T> = methodItems.getOrPut(method) {
-            resolveMethodItems(method)
-        }
-
-        private fun getClassRules(clazz: JIRClassOrInterface) = classRules.getOrPut(clazz) {
-            rulesTrie.getRulesForClass(clazz)
+            resolveMethodItems(method).adjustEmptyList()
         }
 
         private fun resolveMethodItems(method: JIRMethod): List<T> {
-            val rules = getClassRules(method.enclosingClass).toMutableList()
-            method.enclosingClass.allSuperHierarchySequence.distinct().forEach { cls ->
-                getClassRules(cls).filterTo(rules) { it.overrides }
-            }
+            val rules = mutableListOf<S>()
+            storage().findRules(rules, method)
 
-            rules.removeAll { !it.function.name.matchFunctionName(method) }
             rules.removeAll { it.signature?.matchFunctionSignature(method) == false }
 
             return rules.flatMap { resolveMethodRule(it, method) }
@@ -186,87 +178,15 @@ class TaintConfiguration {
             rule.resolveMethodRule(method) as List<T>
     }
 
-    private inner class TaintConfigurationTrie<T : SerializedRule> : ConfigurationTrie<T>() {
-        override fun nameMatches(matcher: NameMatcher, name: String): Boolean =
-            matcher.serializedNameMatcher().match(name)
-
-        override fun ruleClassNameMatcher(rule: T): ClassMatcher {
-            val function = rule.function
-            return ClassMatcher(function.`package`.nameMatcher(), function.`class`.nameMatcher())
-        }
-
-        override fun updateRuleClassNameMatcher(rule: T, matcher: ClassMatcher): T {
-            val updatedFunction = SerializedFunctionNameMatcher.Complex(
-                `package` = matcher.pkg.serializedNameMatcher(),
-                `class` = matcher.classNameMatcher.serializedNameMatcher(),
-                name = rule.function.name,
-            ).simplify()
-
-            @Suppress("UNCHECKED_CAST")
-            return when (val r = rule as SerializedRule) {
-                is SerializedRule.Cleaner -> r.copy(function = updatedFunction)
-                is SerializedRule.EntryPoint -> r.copy(function = updatedFunction)
-                is SerializedRule.PassThrough -> r.copy(function = updatedFunction)
-                is SerializedRule.Sink -> r.copy(function = updatedFunction)
-                is SerializedRule.Source -> r.copy(function = updatedFunction)
-                is SerializedRule.MethodExitSink -> r.copy(function = updatedFunction)
-                is SerializedRule.MethodEntrySink -> r.copy(function = updatedFunction)
-            } as T
-        }
-    }
-
-    private fun SerializedNameMatcher.nameMatcher(): NameMatcher = when (this) {
-        is SerializedNameMatcher.Simple -> if (value == "*") AnyNameMatcher else NameExactMatcher(value)
-        is SerializedNameMatcher.Pattern -> NamePatternMatcher(pattern)
-        is SerializedNameMatcher.ClassPattern -> error("Unexpected serialized name: $this")
-    }
-
-    private fun SerializedNameMatcher.typeNameMatcher(): TypeMatcher = when (this) {
-        is SerializedNameMatcher.Simple -> if (value == "*") AnyTypeMatcher else JIRTypeNameMatcher(value)
-
-        is SerializedNameMatcher.Pattern -> if (pattern == ".*") {
-            AnyTypeMatcher
-        } else {
-            JIRTypeNamePatternMatcher(NamePatternMatcher(pattern))
-        }
-
-        is SerializedNameMatcher.ClassPattern -> {
-            ClassMatcher(`package`.nameMatcher(), `class`.nameMatcher())
-        }
-    }
-
-    private fun NameMatcher.serializedNameMatcher(): SerializedNameMatcher = when (this) {
-        is NameExactMatcher -> SerializedNameMatcher.Simple(name)
-        is NamePatternMatcher -> SerializedNameMatcher.Pattern(pattern)
-        AnyNameMatcher -> SerializedNameMatcher.Pattern(".*")
-    }
-
-    private val compiledMatchers = hashMapOf<String, Regex>()
-
-    private fun compilePattern(pattern: String): Regex =
-        compiledMatchers.getOrPut(pattern) { pattern.toRegex() }
-
-    private fun matchPattern(pattern: String, str: String): Boolean =
-        compilePattern(pattern).containsMatchIn(str)
-
     private fun SerializedNameMatcher.match(name: String): Boolean = when (this) {
-        is SerializedNameMatcher.Simple -> if (value == "*") true else value == name
-        is SerializedNameMatcher.Pattern -> matchPattern(pattern, name)
-        is SerializedNameMatcher.ClassPattern -> {
-            `package`.match(name.substringBeforeLast('.', missingDelimiterValue = ""))
-                    && `class`.match(name.substringAfterLast('.', missingDelimiterValue = name))
+        is Simple -> if (value == "*") true else value == name
+        is Pattern -> {
+            isAny() || patternManager.matchPattern(pattern, name)
         }
-    }
-
-    private fun SerializedNameMatcher.matchFunctionName(method: JIRMethod): Boolean {
-        if (match(method.name)) return true
-
-        if (method.isConstructor) {
-            val constructorNames = arrayOf("init^", "<init>")
-            if (constructorNames.any { match(it) }) return true
+        is ClassPattern -> {
+            val (pkgName, clsName) = splitClassName(name)
+            `package`.match(pkgName) && `class`.match(clsName)
         }
-
-        return false
     }
 
     private fun SerializedSignatureMatcher.matchFunctionSignature(method: JIRMethod): Boolean {
@@ -529,7 +449,7 @@ class TaintConfiguration {
             pos.resolve(method, ctx).map { ConstantLt(it, ConstantStringValue(constantLt)) })
 
         is SerializedCondition.ConstantMatches -> mkOr(
-            pos.resolve(method, ctx).map { ConstantMatches(it, compilePattern(constantMatches)) })
+            pos.resolve(method, ctx).map { ConstantMatches(it, patternManager.compilePattern(constantMatches)) })
 
         is SerializedCondition.IsConstant -> mkOr(isConstant.resolve(method, ctx).map { IsConstant(it) })
 
@@ -556,7 +476,7 @@ class TaintConfiguration {
         }
 
         is SerializedCondition.MethodNameMatches -> {
-            matchPattern(nameMatches, method.name).asCondition()
+            patternManager.matchPattern(nameMatches, method.name).asCondition()
         }
     }
 
@@ -566,7 +486,7 @@ class TaintConfiguration {
         val position = pos.resolve(method, ctx)
         if (position.isEmpty()) return mkFalse()
 
-        val typeMatcher = typeIs.typeNameMatcher()
+        val normalizedTypeIs = typeIs.normalizeAnyName()
         for (pos in position) {
             val posTypeName = when (pos) {
                 is Argument -> method.parameters[pos.index].type.typeName
@@ -576,56 +496,13 @@ class TaintConfiguration {
                 is ClassStatic -> continue
             }
 
-            if (typeMatcher.match(posTypeName, ::matchName)) return mkTrue()
+            if (normalizedTypeIs.match(posTypeName)) return mkTrue()
         }
 
-        val matcher = typeIs.toConditionNameMatcher()
+        val matcher = normalizedTypeIs.toConditionNameMatcher(patternManager)
+            ?: return mkTrue()
+
         return mkOr(position.map { TypeMatchesPattern(it, matcher) })
-    }
-
-    private fun SerializedNameMatcher.toConditionNameMatcher(): ConditionNameMatcher = when (this) {
-        is SerializedNameMatcher.Simple -> if (value == "*") {
-            ConditionNameMatcher.Pattern(anyNamePattern)
-        } else {
-            ConditionNameMatcher.Concrete(value)
-        }
-
-        is SerializedNameMatcher.Pattern -> ConditionNameMatcher.Pattern(compilePattern(pattern))
-        is SerializedNameMatcher.ClassPattern -> {
-            val pkgMatcher = `package`.toConditionNameMatcher()
-            val clsMatcher = `class`.toConditionNameMatcher()
-            when (pkgMatcher) {
-                is ConditionNameMatcher.Concrete -> when (clsMatcher) {
-                    is ConditionNameMatcher.Concrete -> {
-                        val name = "${pkgMatcher.name}.${clsMatcher.name}"
-                        ConditionNameMatcher.Concrete(name)
-                    }
-
-                    is ConditionNameMatcher.Pattern -> {
-                        val pkgPattern = nameToPattern(pkgMatcher.name)
-                        val pattern = classNamePattern(pkgPattern, clsMatcher.pattern.pattern)
-                        ConditionNameMatcher.Pattern(compilePattern(pattern))
-                    }
-                }
-
-                is ConditionNameMatcher.Pattern -> when (clsMatcher) {
-                    is ConditionNameMatcher.Concrete -> {
-                        val clsPattern = nameToPattern(clsMatcher.name)
-                        val pattern = classNamePattern(pkgMatcher.pattern.pattern, clsPattern)
-                        ConditionNameMatcher.Pattern(compilePattern(pattern))
-                    }
-
-                    is ConditionNameMatcher.Pattern -> {
-                        val pattern = classNamePattern(pkgMatcher.pattern.pattern, clsMatcher.pattern.pattern)
-                        ConditionNameMatcher.Pattern(compilePattern(pattern))
-                    }
-                }
-            }
-        }
-    }
-
-    private fun matchName(matcher: NameMatcher, name: String): Boolean {
-        return matcher.serializedNameMatcher().match(name)
     }
 
     private fun SerializedTaintAssignAction.resolve(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignMark> =
@@ -769,25 +646,12 @@ class TaintConfiguration {
 
         return when (param) {
             is SerializedCondition.AnnotationParamPatternMatcher -> {
-                matchPattern(param.pattern, paramValueStr)
+                patternManager.matchPattern(param.pattern, paramValueStr)
             }
 
             is SerializedCondition.AnnotationParamStringMatcher -> {
                 paramValueStr == param.value
             }
         }
-    }
-
-    companion object {
-        private val anyNamePattern = Regex(".*")
-
-        private fun nameToPattern(name: String): String = name.replace(".", "\\.")
-
-        // todo: check pattern for line start/end markers
-        private fun classNamePattern(pkgPattern: String, clsPattern: String): String =
-            "$pkgPattern\\.$clsPattern"
-
-        private fun anyNameMatcher(): SerializedNameMatcher =
-            SerializedNameMatcher.Pattern(".*")
     }
 }

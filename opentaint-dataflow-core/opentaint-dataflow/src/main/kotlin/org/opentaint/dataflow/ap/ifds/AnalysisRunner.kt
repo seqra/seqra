@@ -7,7 +7,7 @@ import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.AnalysisManager
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver
-import org.opentaint.dataflow.graph.ApplicationGraph
+import org.opentaint.util.analysis.ApplicationGraph
 
 interface AnalysisRunner {
     val graph: ApplicationGraph<CommonMethod, CommonInst>

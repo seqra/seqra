@@ -1,12 +1,12 @@
-package org.opentaint.jvm.sast.dataflow
+package org.opentaint.jvm.sast
 
+import mu.KLogging
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.dataflow.sarif.SourceFileResolver
-import org.opentaint.machine.logger
 import java.nio.file.Path
 import kotlin.io.path.extension
 import kotlin.io.path.relativeTo
@@ -84,5 +84,7 @@ class JIRSourceFileResolver(
     companion object {
         private const val JAVA_EXTENSION = "java"
         private const val KOTLIN_EXTENSION = "kt"
+
+        private val logger = object : KLogging() {}.logger
     }
 }

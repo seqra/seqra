@@ -2,7 +2,7 @@ package org.opentaint.semgrep.pattern
 
 import org.opentaint.ir.api.jvm.cfg.JIRExpr
 import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph
+import org.opentaint.jvm.graph.JIRApplicationGraph
 
 data class SemgrepMatch(
     val exprMetavars: Map<String, Pair<JIRExpr, ExprPosition?>>,

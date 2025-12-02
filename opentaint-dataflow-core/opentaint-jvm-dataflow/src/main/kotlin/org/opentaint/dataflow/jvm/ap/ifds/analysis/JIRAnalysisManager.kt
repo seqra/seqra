@@ -24,7 +24,6 @@ import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisContext
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodStartPrecondition
-import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRCallResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
@@ -39,8 +38,9 @@ import org.opentaint.dataflow.jvm.ap.ifds.jirDowncast
 import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodCallPrecondition
 import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodSequentPrecondition
 import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodStartPrecondition
-import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
+import org.opentaint.jvm.graph.JIRApplicationGraph
+import org.opentaint.util.analysis.ApplicationGraph
 
 class JIRAnalysisManager(
     cp: JIRClasspath,

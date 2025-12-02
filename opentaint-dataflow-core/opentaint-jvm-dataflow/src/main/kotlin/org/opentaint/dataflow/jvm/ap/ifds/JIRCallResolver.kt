@@ -24,8 +24,8 @@ import org.opentaint.dataflow.ap.ifds.MethodContext
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature.JIRLambdaClass
-import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
+import org.opentaint.jvm.graph.JIRApplicationGraph
 import java.util.Optional
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.jvm.optionals.getOrNull

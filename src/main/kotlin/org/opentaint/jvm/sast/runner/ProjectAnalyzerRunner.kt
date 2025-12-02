@@ -6,11 +6,11 @@ import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.boolean
 import com.github.ajalt.clikt.parameters.types.int
-import org.opentaint.jvm.sast.project.DebugOptions
-import org.opentaint.jvm.sast.project.Project
+import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer.DebugOptions
 import org.opentaint.jvm.sast.project.ProjectAnalyzer
-import org.opentaint.util.directory
-import org.opentaint.util.file
+import org.opentaint.jvm.sast.util.directory
+import org.opentaint.jvm.sast.util.file
+import org.opentaint.project.Project
 import java.nio.file.Path
 import kotlin.time.Duration.Companion.seconds
 

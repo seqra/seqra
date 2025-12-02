@@ -1,4 +1,4 @@
-package org.opentaint.api.checkers
+package org.opentaint.jvm.sast.dataflow
 
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
@@ -9,10 +9,8 @@ import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.impl.features.usagesExt
-import org.opentaint.api.targets.analyzeIfdsTracesWithOpentaint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.access.ApMode
-import org.opentaint.api.util.sarif.SarifGenerator
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
@@ -21,37 +19,30 @@ import org.opentaint.dataflow.configuration.jvm.Argument
 import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
 import org.opentaint.dataflow.configuration.jvm.Result
-import org.opentaint.dataflow.configuration.jvm.TaintMethodSink
 import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
 import org.opentaint.dataflow.configuration.jvm.TaintSinkMeta
-import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSafeApplicationGraph
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRAnalysisManager
-import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRuleFilter
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
-import org.opentaint.dataflow.jvm.graph.JIRApplicationGraphImpl
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.jvm.ifds.PackageUnit
-import org.opentaint.dataflow.jvm.util.JIRSarifTraits
-import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.dataflow.util.percentToString
-import org.opentaint.project.DebugOptions
-import java.io.OutputStream
+import org.opentaint.jvm.graph.JIRApplicationGraphImpl
+import org.opentaint.util.analysis.ApplicationGraph
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
-open class JIRTaintAnalyzer(
+class JIRTaintAnalyzer(
     val cp: JIRClasspath,
     val taintConfiguration: TaintRulesProvider,
     val projectLocations: Set<RegisteredLocation>,
     val ifdsTimeout: Duration,
     val ifdsApMode: ApMode,
-    val opentaintTimeout: Duration,
     val symbolicExecutionEnabled: Boolean,
     val analysisCwe: Set<Int>?,
     val summarySerializationContext: SummarySerializationContext,
@@ -59,46 +50,21 @@ open class JIRTaintAnalyzer(
     val analysisUnit: JIRUnitResolver = PackageUnitResolver(projectLocations = projectLocations),
     val debugOptions: DebugOptions
 ): AutoCloseable {
+    data class DebugOptions(
+        val taintRulesStatsSamplingPeriod: Int?,
+        val enableIfdsCoverage: Boolean
+    )
+
     private val ifdsAnalysisGraph by lazy {
         val usages = runBlocking { cp.usagesExt() }
         val mainGraph = JIRApplicationGraphImpl(cp, usages)
         JIRSafeApplicationGraph(mainGraph)
     }
 
-    protected lateinit var ifdsTraces: List<VulnerabilityWithTrace>
-    private lateinit var verifiedIfdsTraces: List<VulnerabilityWithTrace>
+    val ifdsEngine by lazy { createIfdsEngine() }
 
-    private val ifdsEngine by lazy { createIfdsEngine() }
-
-    fun analyzeWithIfds(entryPoints: List<JIRMethod>) {
-        ifdsTraces = analyzeTaintWithIfdsEngine(entryPoints)
-    }
-
-    fun filterIfdsTracesWithOpentaint() {
-        check(this::ifdsTraces.isInitialized) { "No ifds traces" }
-
-        verifiedIfdsTraces = analyzeIfdsTracesWithOpentaint(
-            ifdsTraces,
-            ifdsEngine,
-            cp,
-            projectLocations,
-        )
-    }
-
-    fun generateSarifReportFromIfdsTraces(output: OutputStream, sourceFileResolver: SourceFileResolver<CommonInst>) =
-        generateSarifReportFromTraces(output, sourceFileResolver, ifdsTraces)
-
-    fun generateSarifReportFromVerifiedIfdsTraces(output: OutputStream, sourceFileResolver: SourceFileResolver<CommonInst>) =
-        generateSarifReportFromTraces(output, sourceFileResolver, verifiedIfdsTraces)
-
-    private fun generateSarifReportFromTraces(
-        output: OutputStream,
-        sourceFileResolver: SourceFileResolver<CommonInst>,
-        traces: List<VulnerabilityWithTrace>
-    ) {
-        val generator = SarifGenerator(sourceFileResolver, JIRSarifTraits(cp))
-        generator.generateSarif(output, traces.asSequence())
-        logger.info { "Sarif trace generation stats: ${generator.traceGenerationStats}" }
+    fun analyzeWithIfds(entryPoints: List<JIRMethod>): List<VulnerabilityWithTrace> {
+        return analyzeTaintWithIfdsEngine(entryPoints)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -174,28 +140,11 @@ open class JIRTaintAnalyzer(
         )
     }
 
-    private val taintRuleFilter: TaintRuleFilter? = TaintRuleFilter {
-        rule ->
-            when {
-                rule is TaintMethodSink -> {
-                    val ruleCwe = rule.meta.cwe
-                    ruleCwe == null || analysisCwe == null || ruleCwe.any { it in analysisCwe }
-                }
-                else -> true
-            }
+    private val taintConfig: TaintRulesProvider by lazy {
+        StringConcatRuleProvider(taintConfiguration)
     }
 
-    protected open val taintConfig: TaintRulesProvider by lazy {
-        val provider = if (taintRuleFilter != null) {
-            JIRFilteredTaintRulesProvider(taintConfiguration, taintRuleFilter)
-        } else {
-            taintConfiguration
-        }
-
-        StringConcatRuleProvider(provider)
-    }
-
-    protected class StringConcatRuleProvider(private val base: TaintRulesProvider) : TaintRulesProvider by base {
+    private class StringConcatRuleProvider(private val base: TaintRulesProvider) : TaintRulesProvider by base {
         private var stringConcatPassThrough: TaintPassThrough? = null
 
         private fun stringConcatPassThrough(method: JIRMethod): TaintPassThrough =

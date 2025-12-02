@@ -1,4 +1,4 @@
-package org.opentaint.util
+package org.opentaint.jvm.sast.util
 
 import com.github.ajalt.clikt.parameters.options.RawOption
 import com.github.ajalt.clikt.parameters.types.path

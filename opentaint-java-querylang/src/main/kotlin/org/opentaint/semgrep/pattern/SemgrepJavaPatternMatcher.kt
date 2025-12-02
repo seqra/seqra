@@ -21,7 +21,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.impl.features.SyncUsagesExtension
 import org.opentaint.ir.impl.features.hierarchyExt
-import org.opentaint.dataflow.jvm.graph.JIRApplicationGraphImpl
+import org.opentaint.jvm.graph.JIRApplicationGraphImpl
 import org.opentaint.semgrep.pattern.SemgrepMatchingResult.Companion.noMatch
 import org.opentaint.semgrep.pattern.SemgrepMatchingResult.Companion.single
 import org.opentaint.semgrep.pattern.SemgrepMatchingResult.Companion.singleEmptyMatch

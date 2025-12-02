@@ -20,8 +20,8 @@ import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.ir.api.jvm.ext.findType
 import org.opentaint.ir.impl.cfg.JIRGraphImpl
-import org.opentaint.dataflow.jvm.graph.transformers.JIRSingleInstructionTransformer
-import org.opentaint.dataflow.jvm.graph.transformers.JIRSingleInstructionTransformer.BlockGenerationContext
+import org.opentaint.jvm.transformer.JIRSingleInstructionTransformer
+import org.opentaint.jvm.transformer.JIRSingleInstructionTransformer.BlockGenerationContext
 
 object SpringReactorOperatorsTransformer : JIRInstExtFeature {
     override fun transformInstList(method: JIRMethod, list: JIRInstList<JIRInst>): JIRInstList<JIRInst> {

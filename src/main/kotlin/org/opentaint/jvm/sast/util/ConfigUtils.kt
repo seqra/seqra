@@ -1,4 +1,4 @@
-package org.opentaint.util
+package org.opentaint.jvm.sast.util
 
 import java.io.InputStream
 import java.nio.file.Files

@@ -95,6 +95,8 @@ data class TypeMatches(
 sealed interface ConditionNameMatcher {
     data class Concrete(val name: String) : ConditionNameMatcher
     data class Pattern(val pattern: Regex) : ConditionNameMatcher
+    data class PatternEndsWith(val suffix: String) : ConditionNameMatcher
+    data class PatternStartsWith(val prefix: String) : ConditionNameMatcher
 }
 
 data class TypeMatchesPattern(

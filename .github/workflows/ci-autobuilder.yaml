@@ -1,0 +1,65 @@
+name: CI-AUTOBUILDER
+
+on:
+  workflow_dispatch:
+
+  push:
+    paths:
+      - 'opentaint-jvm-autobuilder/**'
+    branches: [ "main" ]
+  pull_request:
+    paths:
+      - 'opentaint-jvm-autobuilder/**'
+    branches: [ "main" ]
+
+jobs:
+  ci-basic:
+    runs-on: [ self-hosted, ex44 ]
+    container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
+          settings-path: ${{ github.workspace }} # location for the settings.xml file
+
+      - name: Build autobuilder jar
+        run: ./gradlew opentaint-jvm-autobuilder:projectAutoBuilderJar
+
+      # Run autobuilder on OWASP
+      - name: Checkout owasp
+        uses: actions/checkout@v4
+        with:
+          repository: 'OWASP-Benchmark/BenchmarkJava'
+          path: ./test-dir/OWASP
+
+      - name: Set up Maven
+        uses: stCarolas/setup-maven@v5
+        with:
+          maven-version: '3.9.11'
+
+      - name: Build owasp
+        run: |
+          java -jar opentaint-jvm-autobuilder/build/libs/opentaint-project-auto-builder.jar \
+                    --project-root-dir test-dir/OWASP \
+                    --build portable \
+                    --result-dir test-dir/BenchmarkJava-portable-build \
+                    --logs-file test-dir/autobuild.log \
+                    --verbosity debug
+
+      - name: Check build succeed
+        run: |
+          if [ -f "test-dir/BenchmarkJava-portable-build/project.yaml" ]; then
+            exit 0
+          else
+            echo "Build failure"
+            exit 1
+          fi

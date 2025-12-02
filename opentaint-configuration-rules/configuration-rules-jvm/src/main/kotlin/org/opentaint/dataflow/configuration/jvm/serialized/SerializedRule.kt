@@ -122,3 +122,17 @@ data class AnalysisEndSink(
     private val note: String? = null,
     override val meta: SinkMetaData? = SinkMetaData(cwe, note),
 ): SinkRule, SerializedItem
+
+@Suppress("UNCHECKED_CAST")
+inline fun <S : SerializedRule> S.modifyCondition(mapper: (SerializedCondition?) -> SerializedCondition?): S {
+    return when (this) {
+        is SerializedRule.Cleaner -> copy(condition = mapper(condition))
+        is SerializedRule.EntryPoint -> copy(condition = mapper(condition))
+        is SerializedRule.MethodEntrySink -> copy(condition = mapper(condition))
+        is SerializedRule.MethodExitSink -> copy(condition = mapper(condition))
+        is SerializedRule.PassThrough -> copy(condition = mapper(condition))
+        is SerializedRule.Sink -> copy(condition = mapper(condition))
+        is SerializedRule.Source -> copy(condition = mapper(condition))
+        else -> error("impossible")
+    } as S
+}

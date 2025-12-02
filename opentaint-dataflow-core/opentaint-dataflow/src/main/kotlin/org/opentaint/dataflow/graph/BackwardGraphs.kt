@@ -20,6 +20,7 @@ package org.opentaint.dataflow.graph
 
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.util.analysis.ApplicationGraph
 
 private class BackwardApplicationGraphImpl<Method, Statement>(
     val forward: ApplicationGraph<Method, Statement>,
@@ -37,6 +38,7 @@ private class BackwardApplicationGraphImpl<Method, Statement>(
     override fun exitPoints(method: Method) = forward.entryPoints(method)
 
     override fun methodOf(node: Statement) = forward.methodOf(node)
+    override fun statementsOf(method: Method) = forward.statementsOf(method)
 }
 
 val <Method, Statement> ApplicationGraph<Method, Statement>.reversed: ApplicationGraph<Method, Statement>

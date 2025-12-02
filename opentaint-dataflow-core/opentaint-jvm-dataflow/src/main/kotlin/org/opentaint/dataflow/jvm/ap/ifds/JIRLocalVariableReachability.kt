@@ -10,9 +10,9 @@ import org.opentaint.ir.api.jvm.cfg.locals
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionStorageIdx
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionStorageSize
-import org.opentaint.dataflow.jvm.graph.JIRApplicationGraph
 import org.opentaint.dataflow.util.containsAll
 import org.opentaint.dataflow.util.copy
+import org.opentaint.jvm.graph.JIRApplicationGraph
 import java.util.BitSet
 
 class JIRLocalVariableReachability(

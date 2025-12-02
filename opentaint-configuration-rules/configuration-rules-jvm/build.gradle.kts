@@ -1,22 +1,17 @@
+import org.opentaint.common.OpentaintIrDependency
+import org.opentaint.common.KotlinDependency
+
 plugins {
-    id("opentaint.kotlin-conventions")
-    kotlin("plugin.serialization") version Versions.kotlin
+    id("kotlin-conventions")
+    kotlinSerialization()
 }
 
 dependencies {
-    api(project(":opentaint-dataflow:opentaint-dataflow-configuration"))
+    api(project(":configuration-rules-common"))
 
-    implementation(Libs.opentaint-ir_api_jvm)
-    implementation(Libs.opentaint-ir_core)
+    implementation(OpentaintIrDependency.Libs.opentaint-ir_api_jvm)
+    implementation(OpentaintIrDependency.Libs.opentaint-ir_core)
 
-    implementation(Libs.kotlinx_serialization_core)
-    implementation(Libs.kaml)
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            from(components["java"])
-        }
-    }
+    implementation(KotlinDependency.Libs.kotlinx_serialization_core)
+    implementation(KotlinDependency.Libs.kaml)
 }

@@ -1,11 +1,10 @@
-package org.opentaint.api.checkers
+package org.opentaint.jvm.sast.dataflow
 
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
-import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSink
 import org.opentaint.dataflow.configuration.jvm.serialized.TaintConfiguration
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 

@@ -1,10 +1,10 @@
 package org.opentaint.jvm.sast.project
 
-import com.jetbrains.rd.util.ConcurrentHashMap
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRClasspathExtFeature
 import org.opentaint.ir.impl.features.classpaths.AbstractJIRResolvedResult.JIRResolvedClassResultImpl
+import java.util.concurrent.ConcurrentHashMap
 
 class ProjectClassPathExtensionFeature : JIRClasspathExtFeature {
     private val classPathExtension = ConcurrentHashMap<String, JIRClassOrInterface>()

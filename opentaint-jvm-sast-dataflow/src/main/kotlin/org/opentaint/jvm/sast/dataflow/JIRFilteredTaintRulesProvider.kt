@@ -1,4 +1,4 @@
-package org.opentaint.api.checkers
+package org.opentaint.jvm.sast.dataflow
 
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst

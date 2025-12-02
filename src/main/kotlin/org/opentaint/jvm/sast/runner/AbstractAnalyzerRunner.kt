@@ -8,12 +8,12 @@ import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.clikt.parameters.types.int
 import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.access.ApMode
-import org.opentaint.jvm.sast.project.DebugOptions
-import org.opentaint.jvm.sast.project.Project
+import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer.DebugOptions
 import org.opentaint.jvm.sast.project.ProjectKind
+import org.opentaint.jvm.sast.util.file
+import org.opentaint.jvm.sast.util.newDirectory
+import org.opentaint.project.Project
 import org.opentaint.util.CliWithLogger
-import org.opentaint.util.file
-import org.opentaint.util.newDirectory
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 

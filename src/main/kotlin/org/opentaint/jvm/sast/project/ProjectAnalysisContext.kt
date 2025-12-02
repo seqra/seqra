@@ -4,54 +4,35 @@ import kotlinx.coroutines.runBlocking
 import mu.KLogging
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
-import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.approximation.Approximations
 import org.opentaint.ir.impl.JIRRamErsSettings
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.opentaint-ir
 import org.opentaint.dataflow.ap.ifds.access.ApMode
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
-import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSummariesFeature
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
 import org.opentaint.dataflow.jvm.graph.MethodReturnInstNormalizerFeature
-import org.opentaint.machine.TypeScorer
-import org.opentaint.dataflow.jvm.graph.transformers.JIRMultiDimArrayAllocationTransformer
-import org.opentaint.dataflow.jvm.graph.transformers.JIRStringConcatTransformer
-import org.opentaint.types.ClassScorer
-import org.opentaint.types.scoreClassNode
-import org.opentaint.util.ConfigUtils
+import org.opentaint.jvm.transformer.JIRMultiDimArrayAllocationTransformer
+import org.opentaint.jvm.transformer.JIRStringConcatTransformer
+import org.opentaint.jvm.util.classpathWithApproximations
+import org.opentaint.jvm.util.types.installClassScorer
+import org.opentaint.project.Project
+import org.opentaint.project.ProjectModuleClasses
 import java.io.File
-import java.nio.file.Path
-import org.opentaint.ir.approximation.Approximations
-import org.opentaint.util.classpathWithApproximations
-import kotlin.io.path.Path
-import kotlin.time.Duration
 
-abstract class AbstractProjectAnalyzer(
-    protected val project: Project,
-    private val projectPackage: String?,
-    protected val ifdsAnalysisTimeout: Duration,
-    protected val ifdsApMode: ApMode,
-    private val projectKind: ProjectKind,
-    protected val debugOptions: DebugOptions
-) {
-    fun analyze() {
-        initializeCp()
-        val entryPoints = getEntryPoints()
+private val logger = object : KLogging() {}.logger
 
-        try {
-            runAnalyzer(entryPoints)
-        } finally {
-            cp.close()
-            db.close()
-        }
-    }
-
-    private val dependencyFiles by lazy { project.dependencies.map { it.toFile() } }
-    private val projectModulesFiles by lazy {
+fun initializeProjectAnalysisContext(
+    project: Project,
+    projectPackage: String?,
+    projectKind: ProjectKind,
+    summariesApMode: ApMode? = null,
+): ProjectAnalysisContext {
+    val dependencyFiles by lazy { project.dependencies.map { it.toFile() } }
+    val projectModulesFiles by lazy {
         val moduleFiles = mutableMapOf<File, ProjectModuleClasses>()
         for (module in project.modules) {
             for (cls in module.moduleClasses) {
@@ -63,12 +44,12 @@ abstract class AbstractProjectAnalyzer(
         moduleFiles
     }
 
-    private lateinit var db: JIRDatabase
-    protected lateinit var cp: JIRClasspath
-    protected lateinit var projectClasses: ProjectClasses
-    private val classPathExtensionFeature = ProjectClassPathExtensionFeature()
+    var db: JIRDatabase
+    var cp: JIRClasspath
+    var projectClasses: ProjectClasses
+    val classPathExtensionFeature = ProjectClassPathExtensionFeature()
 
-    private fun initializeCp() = runBlocking {
+    runBlocking {
         val allCpFiles = mutableListOf<File>()
         allCpFiles.addAll(projectModulesFiles.keys)
         allCpFiles.addAll(dependencyFiles)
@@ -85,10 +66,14 @@ abstract class AbstractProjectAnalyzer(
 
             installFeatures(InMemoryHierarchy)
             installFeatures(Usages)
-            installFeatures(JIRSummariesFeature(ifdsApMode))
-            installFeatures(ClassScorer(TypeScorer, ::scoreClassNode))
-            installFeatures(Approximations)
             keepLocalVariableNames()
+
+            installFeatures(Approximations)
+
+            installClassScorer()
+            if (summariesApMode != null) {
+                installFeatures(JIRSummariesFeature(summariesApMode))
+            }
 
             loadByteCode(allCpFiles)
         }
@@ -112,6 +97,12 @@ abstract class AbstractProjectAnalyzer(
 
         // todo: fix approximations with multiple JIRDatabase instances
         cp = db.classpathWithApproximations(allCpFiles, features)
+            ?: run {
+                logger.warn {
+                    "Classpath with approximations is requested, but some jar paths are missing"
+                }
+                db.classpath(allCpFiles, features)
+            }
 //        cp = db.classpath(allCpFiles, features)
 
         projectClasses = ProjectClasses(cp, projectPackage, projectModulesFiles)
@@ -131,32 +122,22 @@ abstract class AbstractProjectAnalyzer(
         }
     }
 
-    protected abstract fun runAnalyzer(entryPoints: List<JIRMethod>)
+    return ProjectAnalysisContext(
+        project, projectPackage, projectKind,
+        db, cp, projectClasses
+    )
+}
 
-    private fun getEntryPoints(): List<JIRMethod> {
-        logger.info { "Search entry points for project: ${project.sourceRoot}" }
-        return when (projectKind) {
-            ProjectKind.UNKNOWN -> allProjectEntryPoints()
-            ProjectKind.SPRING_WEB -> projectClasses.springWebProjectEntryPoints(cp)
-        }
-    }
-
-    private fun allProjectEntryPoints(): List<JIRMethod> =
-        projectClasses.projectPublicClasses()
-            .flatMapTo(mutableListOf()) { it.publicAndProtectedMethods() }
-            .also {
-                it.sortWith(compareBy<JIRMethod> { it.enclosingClass.name }.thenBy { it.name })
-            }
-
-    companion object {
-        private val logger = object : KLogging() {}.logger
-
-        private fun getPathFromEnv(envVar: String): Path =
-            System.getenv(envVar)?.let { Path(it) } ?: error("$envVar not provided")
-
-        fun loadDefaultConfig(): SerializedTaintConfig =
-            ConfigUtils.loadEncrypted(getPathFromEnv("opentaint_taint_config_path")) {
-                loadSerializedTaintConfig(this)
-            }
+class ProjectAnalysisContext(
+    val project: Project,
+    val projectPackage: String?,
+    val projectKind: ProjectKind,
+    val db: JIRDatabase,
+    val cp: JIRClasspath,
+    val projectClasses: ProjectClasses,
+): AutoCloseable {
+    override fun close() {
+        cp.close()
+        db.close()
     }
 }

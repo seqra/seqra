@@ -27,11 +27,11 @@ import org.opentaint.dataflow.configuration.CommonTaintAction
 import org.opentaint.dataflow.configuration.CommonTaintAssignAction
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationItem
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSource
-import org.opentaint.dataflow.graph.ApplicationGraph
 import org.opentaint.dataflow.util.add
 import org.opentaint.dataflow.util.bitSetOf
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.toBitSet
+import org.opentaint.util.analysis.ApplicationGraph
 import java.util.BitSet
 import java.util.LinkedList
 import java.util.Objects

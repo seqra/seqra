@@ -3,6 +3,7 @@ package org.opentaint.jvm.sast.project
 import mu.KLogging
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
@@ -21,10 +22,10 @@ import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
 import org.opentaint.jvm.sast.sarif.SarifGenerator
 import org.opentaint.jvm.sast.se.api.SastSeAnalyzer
 import org.opentaint.jvm.sast.util.loadDefaultConfig
+import org.opentaint.project.Project
 import org.opentaint.semgrep.pattern.SemgrepRuleLoader
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import org.opentaint.semgrep.pattern.loadSemgrepRule
-import org.opentaint.project.Project
 import java.io.OutputStream
 import java.nio.file.Path
 import kotlin.io.path.div
@@ -141,7 +142,8 @@ class ProjectAnalyzer(
 
             if (!useSymbolicExecution) return
 
-            val seAnalyzer = SastSeAnalyzer.createSeEngine() ?: return
+            val seAnalyzer = SastSeAnalyzer.createSeEngine<TaintAnalysisUnitRunnerManager, VulnerabilityWithTrace>()
+                ?: return
 
             logger.info { "Start Opentaint for project: ${project.sourceRoot}" }
             val verifiedTraces = seAnalyzer.analyzeTraces(

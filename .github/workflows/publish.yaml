@@ -1,0 +1,136 @@
+name: Analyzer release
+
+on:
+  workflow_run:
+    workflows: [ "CI" ]
+    branches: [ main ]
+    types:
+      - completed
+
+env:
+  AUTOBUILDER_VERSION: 2025.07.15.eb49f5e
+
+jobs:
+  publish:
+    runs-on: [ self-hosted, ex44 ]
+
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    container: cruizba/ubuntu-dind:focal-25.0.3
+    permissions:
+      contents: write
+      packages: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Setup GPG and Git
+        run: apt update && apt install -y gnupg git
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Decrypt config
+        env:
+          CONFIG_PASSWORD: ${{ secrets.SAST_CONFIG_PASSWORD }}
+        run: cd config && ./decrypt_config.sh
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
+          settings-path: ${{ github.workspace }} # location for the settings.xml file
+
+      - name: Generate version
+        id: version
+        run: echo "version=$(date +'%Y.%m.%d').$(echo "${{ github.sha }}" | cut -c 1-7)" >> $GITHUB_OUTPUT
+
+      - name: Build analyzer docker image
+        run: ./gradlew :buildProjectAnalyzerDocker -PanalyzerVersion=${{ steps.version.outputs.version }}
+
+      - name: Create image names
+        run: |
+          echo "AUTOBUILDER_IMAGE=ghcr.io/explyt/opentaint-jvm-autobuilder/sast-autobuilder:${{ env.AUTOBUILDER_VERSION }}" >> $GITHUB_ENV
+          echo "ANALYZER_IMAGE=ghcr.io/explyt/opentaint-jvm-sast/sast-analyzer:${{ steps.version.outputs.version }}" >> $GITHUB_ENV
+
+      - name: Tag images
+        run: docker tag analyzer-private:${{ steps.version.outputs.version }} ${{ env.ANALYZER_IMAGE }}
+
+      # Run autobuilder on OWASP
+      - name: Checkout owasp
+        uses: actions/checkout@v4
+        with:
+          repository: 'OWASP-Benchmark/BenchmarkJava'
+          path: ./test-dir/OWASP
+
+      - name: Build owasp
+        run: |
+          docker run -i -a stdout -a stderr --rm \
+          -v ${{ github.workspace }}:/data \
+          ${{ env.AUTOBUILDER_IMAGE }} \
+          --project-root-dir /data/test-dir/OWASP \
+          --build portable \
+          --result-dir /data/test-dir/BenchmarkJava-portable-build \
+          --logs-file /data/test-dir/autobuild.log \
+          --verbosity debug
+
+      - name: Analyze owasp
+        run: |
+          docker run -i -a stdout -a stderr --rm \
+          -v ${{ github.workspace }}:/data \
+          ${{ env.ANALYZER_IMAGE }} \
+          --project /data/test-dir/BenchmarkJava-portable-build/project.yaml \
+          --output-dir /data/test-dir/reports \
+          --ifds-analysis-timeout=1000 \
+          --logs-file /data/test-dir/analyzer.log \
+          --verbosity debug
+
+      - name: Check report exists
+        run: |
+          if [ -e "./test-dir/reports/report-ifds.sarif" ]; then
+            echo "Report exists"
+          else
+            echo "Report does not exist"
+            exit 1
+          fi
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push images
+        run: docker push ${{ env.ANALYZER_IMAGE }}
+
+  publish-autobuilder:
+    needs: publish
+    runs-on: [ self-hosted, ex44 ]
+    container: cruizba/ubuntu-dind:focal-25.0.3
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v3
+        with:
+          java-version: '8'
+          distribution: 'corretto'
+          server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
+          settings-path: ${{ github.workspace }} # location for the settings.xml file
+
+      - name: Build autobuilder jar
+        run: ./gradlew opentaint-jvm-autobuilder:projectAutoBuilderJar -PanalyzerVersion=${{ needs.publish.outputs.version }}
+
+      - name: Attach autobuilder jar to existing release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.publish.outputs.version }}
+          files: opentaint-jvm-autobuilder/build/libs/opentaint-project-auto-builder.jar
