@@ -1,0 +1,13 @@
+rules:
+  - id: i85
+    languages:
+      - java
+    message: 'message'
+    patterns:
+      - pattern: |
+          $ACF = new AsClassField();
+          ...
+          $STRING = $ACF.getBadString(...);
+          ...
+          $ACF.useString($STRING);
+    severity: WARNING
