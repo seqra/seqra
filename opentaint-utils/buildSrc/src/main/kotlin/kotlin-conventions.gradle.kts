@@ -6,7 +6,7 @@ plugins {
     `maven-publish`
 }
 
-group = "org.opentaint"
+group = "org.opentaint.utils"
 
 repositories {
     mavenCentral()
