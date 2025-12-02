@@ -31,6 +31,7 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             from(components["java"])
+            tasks.findByName("kotlinSourcesJar")?.let { artifact(it) }
         }
     }
 }

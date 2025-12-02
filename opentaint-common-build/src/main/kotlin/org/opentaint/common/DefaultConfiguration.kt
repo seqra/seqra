@@ -68,6 +68,7 @@ fun Project.configureDefault(projectName: String) {
         publications {
             create<MavenPublication>("maven") {
                 from(components["java"])
+                tasks.findByName("kotlinSourcesJar")?.let { artifact(it) }
             }
         }
     }
