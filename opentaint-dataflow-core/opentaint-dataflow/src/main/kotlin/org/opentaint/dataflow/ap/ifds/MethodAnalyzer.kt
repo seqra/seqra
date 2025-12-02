@@ -22,7 +22,7 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.Sequent
 import org.opentaint.dataflow.ap.ifds.analysis.MethodStartFlowFunction.StartFact
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolverCancellation
-import org.opentaint.util.analysis.ApplicationGraph
+import org.opentaint.dataflow.graph.MethodInstGraph
 
 interface MethodAnalyzer {
     fun addInitialZeroFact()
@@ -99,10 +99,10 @@ class NormalMethodAnalyzer(
     private val methodEntryPoint: MethodEntryPoint,
     private val taintRulesStatsSamplingPeriod: Int?
 ) : MethodAnalyzer {
-    private val graph: ApplicationGraph<CommonMethod, CommonInst> get() = runner.graph
     private val apManager: ApManager get() = runner.apManager
     private val analysisManager get() = runner.analysisManager
     private val methodCallResolver get() = runner.methodCallResolver
+    private val methodInstGraph = MethodInstGraph.build(analysisManager, runner.graph, methodEntryPoint.method)
 
     private var zeroInitialFactProcessed: Boolean = false
     private val initialFacts = apManager.initialFactAbstraction(methodEntryPoint.statement)
@@ -110,7 +110,7 @@ class NormalMethodAnalyzer(
     private var pendingSummaryEdges = arrayListOf<Edge>()
     private var pendingSideEffectRequirements = arrayListOf<InitialFactAp>()
 
-    private val analysisContext = analysisManager.getMethodAnalysisContext(methodEntryPoint, graph)
+    private val analysisContext = analysisManager.getMethodAnalysisContext(methodEntryPoint, runner.graph)
 
     private var analyzerEnqueued = false
     private var unprocessedEdges = arrayListOf<Edge>()
@@ -125,8 +125,6 @@ class NormalMethodAnalyzer(
     private val stepsForTaintMark: MutableMap<String, Long> = hashMapOf()
 
     private var summaryEdgesHandled: Long = 0
-
-    private val methodExitPoints by lazy { graph.exitPoints(methodEntryPoint.method).toHashSet() }
 
     init {
         loadSummariesFromRunner()
@@ -404,7 +402,7 @@ class NormalMethodAnalyzer(
     }
 
     private fun propagateEdgeToSuccessors(edge: Edge, edgeUnchanged: Boolean) {
-        graph.successors(edge.statement).forEach {
+        methodInstGraph.forEachSuccessor(edge.statement) {
             val nextEdge = edge.replaceStatement(it)
             if (!edgeUnchanged) {
                 addSequentialEdge(nextEdge)
@@ -417,7 +415,7 @@ class NormalMethodAnalyzer(
     }
 
     private fun tryEmmitSummaryEdge(edge: Edge) {
-        if (edge.statement !in methodExitPoints) return
+        if (!methodInstGraph.isExitPoint(edge.statement)) return
 
         val isValidSummaryEdge = when (edge) {
             is ZeroToZero -> true
@@ -502,8 +500,14 @@ class NormalMethodAnalyzer(
         }
     }
 
-    private fun methodEntryPoints(method: MethodWithContext): Sequence<MethodEntryPoint> =
-        graph.entryPoints(method.method).map { MethodEntryPoint(method.ctx, it) }
+    private val methodEntryPointsCache = hashMapOf<CommonMethod, Array<CommonInst>>()
+
+    private fun methodEntryPoints(method: MethodWithContext): List<MethodEntryPoint> {
+        val methodEntryPoints = methodEntryPointsCache.getOrPut(method.method) {
+            runner.graph.entryPoints(method.method).toList().toTypedArray()
+        }
+        return methodEntryPoints.map { MethodEntryPoint(method.ctx, it) }
+    }
 
     private fun isApplicableExitToReturnEdge(edge: Edge): Boolean {
         return !analysisManager.producesExceptionalControlFlow(edge.statement)
