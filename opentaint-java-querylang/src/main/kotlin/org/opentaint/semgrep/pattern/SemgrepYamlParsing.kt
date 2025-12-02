@@ -2,13 +2,17 @@ package org.opentaint.semgrep.pattern
 
 import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlConfiguration
-import com.charleskorn.kaml.YamlList
 import com.charleskorn.kaml.YamlMap
 import com.charleskorn.kaml.YamlNode
 import com.charleskorn.kaml.YamlScalar
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
+import kotlinx.serialization.builtins.serializer
+import org.opentaint.org.opentaint.semgrep.pattern.InlineCompositeObjectSerializer
 import org.opentaint.semgrep.pattern.conversion.cartesianProductMapTo
+import java.util.Optional
+import kotlin.jvm.optionals.getOrNull
 
 @Serializable
 data class SemgrepYamlRuleSet(
@@ -44,24 +48,60 @@ data class ComplexPattern(
     val pattern: String? = null,
     val patterns: List<ComplexPattern> = emptyList(),
     @SerialName("pattern-inside")
-    val patternInside: String? = null,
+    private val rawPatternInside: YamlNode? = null,
     @SerialName("pattern-not")
-    val patternNot: String? = null,
+    private val rawPatternNot: YamlNode? = null,
     @SerialName("pattern-not-inside")
-    val patternNotInside: String? = null,
+    private val rawPatternNotInside: YamlNode? = null,
     @SerialName("metavariable-regex")
     val metavariableRegex: MetavariableRegexInfo? = null,
     @SerialName("metavariable-pattern")
-    val metavariablePattern: MetavariablePatternInfo? = null,
+    private val rawMetaVariablePattern: YamlNode? = null,
     @SerialName("metavariable-comparison")
-    val metavariableComparison: MetavariablePatternInfo? = null,
+    val metavariableComparison: MetavariableComparisonInfo? = null,
     @SerialName("pattern-regex")
     val patternRegex: String? = null,
     @SerialName("pattern-not-regex")
     val patternNotRegex: String? = null,
     @SerialName("focus-metavariable")
-    val focusMetavariable: YamlNode? = null,
-)
+    private val rawFocusMetavariable: YamlNode? = null,
+) {
+    @Transient
+    val metaVariablePattern: MetavariablePatternInfo? = rawMetaVariablePattern?.decodeMetavariablePatternInfo()
+    @Transient
+    val focusMetaVariables: List<String>? = rawFocusMetavariable?.decodeFocusMetaVariables()
+    @Transient
+    val patternInside: SimpleOrComplexPattern? = rawPatternInside?.decodeSimpleOrComplexPattern()
+    @Transient
+    val patternNot: SimpleOrComplexPattern? = rawPatternNot?.decodeSimpleOrComplexPattern()
+    @Transient
+    val patternNotInside: SimpleOrComplexPattern? = rawPatternNotInside?.decodeSimpleOrComplexPattern()
+}
+
+sealed interface SimpleOrComplexPattern {
+    data class Simple(val pattern: String) : SimpleOrComplexPattern
+    data class Complex(val pattern: ComplexPattern) : SimpleOrComplexPattern
+}
+
+private fun YamlNode.decodeSimpleOrComplexPattern(): SimpleOrComplexPattern {
+    if (this is YamlScalar) {
+        return SimpleOrComplexPattern.Simple(content)
+    }
+
+    val pattern = yaml.decodeFromYamlNode<ComplexPattern>(this)
+    return SimpleOrComplexPattern.Complex(pattern)
+}
+
+private fun YamlNode.decodeMetavariablePatternInfo(): MetavariablePatternInfo =
+    yaml.decodeFromYamlNode<MetavariablePatternInfo>(this)
+
+private fun YamlNode.decodeFocusMetaVariables(): List<String> {
+    if (this is YamlScalar) {
+        return listOf(content)
+    }
+
+    return yaml.decodeFromYamlNode<List<String>>(this)
+}
 
 @Serializable
 data class MetavariableRegexInfo(
@@ -70,145 +110,91 @@ data class MetavariableRegexInfo(
 )
 
 @Serializable
+data class MetavariableComparisonInfo(
+    val metavariable: String,
+    val comparison: String,
+)
+
+@Serializable(MetaVariablePatternInfoSerializer::class)
 data class MetavariablePatternInfo(
     val metavariable: String,
+    val metaVariablePattern: ComplexPattern,
+)
 
-    // todo: complex pattern inlined here
-    @SerialName("pattern-either")
-    val patternEither: List<ComplexPattern> = emptyList(),
-    val pattern: String? = null,
-    val patterns: List<ComplexPattern> = emptyList(),
-    @SerialName("pattern-inside")
-    val patternInside: String? = null,
-    @SerialName("pattern-not")
-    val patternNot: String? = null,
-    @SerialName("pattern-not-inside")
-    val patternNotInside: String? = null,
-    @SerialName("metavariable-regex")
-    val metavariableRegex: MetavariableRegexInfo? = null,
-    @SerialName("metavariable-pattern")
-    val metavariablePattern: MetavariablePatternInfo? = null,
-    @SerialName("metavariable-comparison")
-    val metavariableComparison: MetavariablePatternInfo? = null,
-    @SerialName("pattern-regex")
-    val patternRegex: String? = null,
-    @SerialName("pattern-not-regex")
-    val patternNotRegex: String? = null,
-    @SerialName("focus-metavariable")
-    val focusMetavariable: YamlNode? = null,
-) {
-    fun pattern() = ComplexPattern(
-        patternEither, pattern, patterns, patternInside, patternNot,
-        patternNotInside, metavariableRegex, metavariablePattern,
-        metavariableComparison, patternRegex, patternNotRegex, focusMetavariable
-    )
-}
-
-@Serializable
+@Serializable(PatternPropagatorSerializer::class)
 data class PatternPropagator(
     val from: String,
     val to: String,
+    val propagatorPattern: ComplexPattern,
+)
 
-    // todo: complex pattern inlined here
-    @SerialName("pattern-either")
-    val patternEither: List<ComplexPattern> = emptyList(),
-    val pattern: String? = null,
-    val patterns: List<ComplexPattern> = emptyList(),
-    @SerialName("pattern-inside")
-    val patternInside: String? = null,
-    @SerialName("pattern-not")
-    val patternNot: String? = null,
-    @SerialName("pattern-not-inside")
-    val patternNotInside: String? = null,
-    @SerialName("metavariable-regex")
-    val metavariableRegex: MetavariableRegexInfo? = null,
-    @SerialName("metavariable-pattern")
-    val metavariablePattern: MetavariablePatternInfo? = null,
-    @SerialName("metavariable-comparison")
-    val metavariableComparison: MetavariablePatternInfo? = null,
-    @SerialName("pattern-regex")
-    val patternRegex: String? = null,
-    @SerialName("pattern-not-regex")
-    val patternNotRegex: String? = null,
-    @SerialName("focus-metavariable")
-    val focusMetavariable: YamlNode? = null,
-) {
-    fun pattern() = ComplexPattern(
-        patternEither, pattern, patterns, patternInside, patternNot,
-        patternNotInside, metavariableRegex, metavariablePattern,
-        metavariableComparison, patternRegex, patternNotRegex, focusMetavariable
-    )
-}
-
-@Serializable
+@Serializable(PatternSourceSerializer::class)
 data class PatternSource(
     val label: String? = null,
     val requires: String? = null,
+    val sourcePattern: ComplexPattern,
+)
 
-    // todo: complex pattern inlined here
-    @SerialName("pattern-either")
-    val patternEither: List<ComplexPattern> = emptyList(),
-    val pattern: String? = null,
-    val patterns: List<ComplexPattern> = emptyList(),
-    @SerialName("pattern-inside")
-    val patternInside: String? = null,
-    @SerialName("pattern-not")
-    val patternNot: String? = null,
-    @SerialName("pattern-not-inside")
-    val patternNotInside: String? = null,
-    @SerialName("metavariable-regex")
-    val metavariableRegex: MetavariableRegexInfo? = null,
-    @SerialName("metavariable-pattern")
-    val metavariablePattern: MetavariablePatternInfo? = null,
-    @SerialName("metavariable-comparison")
-    val metavariableComparison: MetavariablePatternInfo? = null,
-    @SerialName("pattern-regex")
-    val patternRegex: String? = null,
-    @SerialName("pattern-not-regex")
-    val patternNotRegex: String? = null,
-    @SerialName("focus-metavariable")
-    val focusMetavariable: YamlNode? = null,
-) {
-    fun pattern() = ComplexPattern(
-        patternEither, pattern, patterns, patternInside, patternNot,
-        patternNotInside, metavariableRegex, metavariablePattern,
-        metavariableComparison, patternRegex, patternNotRegex, focusMetavariable
-    )
-}
-
-@Serializable
+@Serializable(PatternSinkSerializer::class)
 data class PatternSink(
     val requires: String? = null,
+    val sinkPattern: ComplexPattern,
+)
 
-    // todo: complex pattern inlined here
-    @SerialName("pattern-either")
-    val patternEither: List<ComplexPattern> = emptyList(),
-    val pattern: String? = null,
-    val patterns: List<ComplexPattern> = emptyList(),
-    @SerialName("pattern-inside")
-    val patternInside: String? = null,
-    @SerialName("pattern-not")
-    val patternNot: String? = null,
-    @SerialName("pattern-not-inside")
-    val patternNotInside: String? = null,
-    @SerialName("metavariable-regex")
-    val metavariableRegex: MetavariableRegexInfo? = null,
-    @SerialName("metavariable-pattern")
-    val metavariablePattern: MetavariablePatternInfo? = null,
-    @SerialName("metavariable-comparison")
-    val metavariableComparison: MetavariablePatternInfo? = null,
-    @SerialName("pattern-regex")
-    val patternRegex: String? = null,
-    @SerialName("pattern-not-regex")
-    val patternNotRegex: String? = null,
-    @SerialName("focus-metavariable")
-    val focusMetavariable: YamlNode? = null,
+private const val metaVariableField = "metavariable"
+
+private object MetaVariablePatternInfoSerializer
+    : InlineCompositeObjectSerializer<MetavariablePatternInfo, ComplexPattern>(
+    name = "metavariable-pattern-info",
+    objSerializer = ComplexPattern.serializer(),
+    inlinedFields = listOf(metaVariableField to String.serializer())
 ) {
-    fun pattern() = ComplexPattern(
-        patternEither, pattern, patterns, patternInside, patternNot,
-        patternNotInside, metavariableRegex, metavariablePattern,
-        metavariableComparison, patternRegex, patternNotRegex, focusMetavariable
-    )
+    override fun deserialize(obj: ComplexPattern, fields: Map<String, Optional<Any>>): MetavariablePatternInfo {
+        val metaVar = fields[metaVariableField]?.map { it as String }?.getOrNull() ?: error("deserialization failed")
+        return MetavariablePatternInfo(metaVar, obj)
+    }
+}
+
+private const val fromField = "from"
+private const val toField = "to"
+
+private object PatternPropagatorSerializer
+    : InlineCompositeObjectSerializer<PatternPropagator, ComplexPattern>(
+    name = "pattern-propagator",
+    objSerializer = ComplexPattern.serializer(),
+    inlinedFields = listOf(fromField to String.serializer(), toField to String.serializer()),
+) {
+    override fun deserialize(obj: ComplexPattern, fields: Map<String, Optional<Any>>): PatternPropagator {
+        val fromValue = fields[fromField]?.map { it as String }?.getOrNull() ?: error("deserialization failed")
+        val toValue = fields[toField]?.map { it as String }?.getOrNull() ?: error("deserialization failed")
+        return PatternPropagator(fromValue, toValue, obj)
+    }
+}
+
+private const val labelField = "label"
+private const val requiresField = "requires"
+
+private object PatternSourceSerializer : InlineCompositeObjectSerializer<PatternSource, ComplexPattern>(
+    name = "pattern-source",
+    objSerializer = ComplexPattern.serializer(),
+    inlinedFields = listOf(labelField to String.serializer(), requiresField to String.serializer()),
+) {
+    override fun deserialize(obj: ComplexPattern, fields: Map<String, Optional<Any>>): PatternSource {
+        val label = fields[labelField]?.map { it as String }?.getOrNull()
+        val requires = fields[requiresField]?.map { it as String }?.getOrNull()
+        return PatternSource(label, requires, obj)
+    }
+}
+
+private object PatternSinkSerializer : InlineCompositeObjectSerializer<PatternSink, ComplexPattern>(
+    name = "pattern-sink",
+    objSerializer = ComplexPattern.serializer(),
+    inlinedFields = listOf(requiresField to String.serializer()),
+) {
+    override fun deserialize(obj: ComplexPattern, fields: Map<String, Optional<Any>>): PatternSink {
+        val requires = fields[requiresField]?.map { it as String }?.getOrNull()
+        return PatternSink(requires, obj)
+    }
 }
 
 sealed interface Formula {
@@ -223,20 +209,6 @@ sealed interface Formula {
     data class MetavarCond(val name: String) : Formula // TODO
     data class Regex(val pattern: String) : Formula
 }
-
-fun collectPatterns(formula: Formula): List<String> =
-    when (formula) {
-        is Formula.LeafPattern -> listOf(formula.pattern)
-        is Formula.And -> formula.children.flatMap { collectPatterns(it) }
-        is Formula.Or -> formula.children.flatMap { collectPatterns(it) }
-        is Formula.Not -> collectPatterns(formula.child)
-        is Formula.Inside -> collectPatterns(formula.child)
-        is Formula.MetavarCond,
-        is Formula.MetavarRegex,
-        is Formula.MetavarPattern,
-        is Formula.Regex,
-        is Formula.MetavarFocus -> emptyList()
-    }
 
 private val yaml = Yaml(
     configuration = YamlConfiguration(
@@ -264,13 +236,13 @@ fun parseSemgrepRule(rule: SemgrepYamlRule): SemgrepRule<Formula> =
 private fun parseTaintRule(rule: SemgrepYamlRule): SemgrepTaintRule<Formula> =
     SemgrepTaintRule(
         sources = rule.patternSources.map {
-            SemgrepTaintSource(it.label, it.requires, complexPatternToFormula(it.pattern()))
+            SemgrepTaintSource(it.label, it.requires, complexPatternToFormula(it.sourcePattern))
         },
         sinks = rule.patternSinks.map {
-            SemgrepTaintSink(it.requires, complexPatternToFormula(it.pattern()))
+            SemgrepTaintSink(it.requires, complexPatternToFormula(it.sinkPattern))
         },
         propagators = rule.patternPropagators.map {
-            SemgrepTaintPropagator(it.from, it.to, complexPatternToFormula(it.pattern()))
+            SemgrepTaintPropagator(it.from, it.to, complexPatternToFormula(it.propagatorPattern))
         },
         sanitizers = rule.patternSanitizers.map { complexPatternToFormula(it) }
     )
@@ -458,22 +430,22 @@ private fun complexPatternToFormula(pattern: ComplexPattern): Formula {
         Formula.And(children)
     } else if (pattern.patternInside != null) {
         Formula.Inside(
-            Formula.LeafPattern(pattern.patternInside)
+            complexPatternToFormula(pattern.patternInside)
         )
     } else if (pattern.patternNot != null) {
         Formula.Not(
-            Formula.LeafPattern(pattern.patternNot)
+            complexPatternToFormula(pattern.patternNot)
         )
     } else if (pattern.patternNotInside != null) {
         Formula.Not(
             Formula.Inside(
-                Formula.LeafPattern(pattern.patternNotInside)
+                complexPatternToFormula(pattern.patternNotInside)
             )
         )
-    } else if (pattern.metavariablePattern != null) {
-        val nested = pattern.metavariablePattern.pattern()
+    } else if (pattern.metaVariablePattern != null) {
+        val nested = pattern.metaVariablePattern.metaVariablePattern
         val nestedFormula = complexPatternToFormula(nested)
-        Formula.MetavarPattern(pattern.metavariablePattern.metavariable, nestedFormula)
+        Formula.MetavarPattern(pattern.metaVariablePattern.metavariable, nestedFormula)
     } else if (pattern.metavariableRegex != null) {
         Formula.MetavarRegex(pattern.metavariableRegex.metavariable, pattern.metavariableRegex.regex)
     } else if (pattern.metavariableComparison != null) {
@@ -482,18 +454,15 @@ private fun complexPatternToFormula(pattern: ComplexPattern): Formula {
         Formula.Regex(pattern.patternRegex)
     } else if (pattern.patternNotRegex != null) {
         Formula.Not(Formula.Regex(pattern.patternNotRegex))
-    } else if (pattern.focusMetavariable != null) {
-        when (pattern.focusMetavariable) {
-            is YamlScalar -> Formula.MetavarFocus(pattern.focusMetavariable.content)
-            is YamlList -> {
-                val elements = pattern.focusMetavariable.items.map {
-                    (it as? YamlScalar)?.content ?: error("Unexpected value in focus-metavariable list: $it")
-                }
-                Formula.And(elements.map { Formula.MetavarFocus(it) })
-            }
-            else -> error("Unexpected value for focus-metavariable: ${pattern.focusMetavariable}")
-        }
+    } else if (pattern.focusMetaVariables != null) {
+        val focusVars = pattern.focusMetaVariables.map { Formula.MetavarFocus(it) }
+        return Formula.And(focusVars)
     } else {
         TODO()
     }
+}
+
+private fun complexPatternToFormula(pattern: SimpleOrComplexPattern): Formula = when (pattern) {
+    is SimpleOrComplexPattern.Simple -> Formula.LeafPattern(pattern.pattern)
+    is SimpleOrComplexPattern.Complex -> complexPatternToFormula(pattern.pattern)
 }
