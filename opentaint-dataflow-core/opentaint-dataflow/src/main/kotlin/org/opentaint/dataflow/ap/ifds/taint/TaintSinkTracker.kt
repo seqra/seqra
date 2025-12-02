@@ -27,7 +27,7 @@ class TaintSinkTracker(
         override val rule: CommonTaintConfigurationSink,
         override val methodEntryPoint: MethodEntryPoint,
         override val statement: CommonInst,
-        val factAp: InitialFactAp
+        val factAp: Set<InitialFactAp>
     ): TaintVulnerability
 
     private val uniqueUnconditionalVulnerabilities = ConcurrentHashMap<String, MutableSet<CommonInst>>()
@@ -50,7 +50,7 @@ class TaintSinkTracker(
 
     fun addVulnerability(
         methodEntryPoint: MethodEntryPoint,
-        factAp: InitialFactAp,
+        facts: Set<InitialFactAp>,
         statement: CommonInst,
         rule: CommonTaintConfigurationSink
     ) {
@@ -61,7 +61,7 @@ class TaintSinkTracker(
         // todo: current deduplication is incompatible with traces
         if (!reportedVulnerabilitiesFoRule.add(statement)) return
 
-        storage.addVulnerability(TaintVulnerabilityWithFact(rule, methodEntryPoint, statement, factAp))
+        storage.addVulnerability(TaintVulnerabilityWithFact(rule, methodEntryPoint, statement, facts))
     }
 
     private data class TaintRuleAssumptions<T: CommonTaintConfigurationItem>(

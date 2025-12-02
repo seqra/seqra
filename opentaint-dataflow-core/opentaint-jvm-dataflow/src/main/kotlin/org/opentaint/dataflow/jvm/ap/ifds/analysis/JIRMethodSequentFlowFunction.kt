@@ -429,9 +429,8 @@ class JIRMethodSequentFlowFunction(
                 taintSinkTracker.currentSinkRuleAssumptions(rule, currentInst)
             }
         ) { rule, evaluatedFacts ->
-            val sinkFact = evaluatedFacts.first() // todo: better fact selection?
             taintSinkTracker.addVulnerability(
-                analysisContext.methodEntryPoint, sinkFact, currentInst, rule
+                analysisContext.methodEntryPoint, evaluatedFacts.toHashSet(), currentInst, rule
             )
         }
     }

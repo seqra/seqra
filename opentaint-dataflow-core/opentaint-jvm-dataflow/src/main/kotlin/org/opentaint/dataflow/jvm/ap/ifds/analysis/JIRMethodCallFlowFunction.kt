@@ -249,13 +249,12 @@ class JIRMethodCallFlowFunction(
                 return@applyRuleWithAssumptions
             }
 
-            val fact = evaluatedFacts.first() // todo: better fact selection?
-
-            val mappedFact = fact.mapExitToReturnFact()
-                ?: error("Fact mapping failure")
+            val mappedFacts = evaluatedFacts.mapTo(hashSetOf()) {
+                it.mapExitToReturnFact() ?: error("Fact mapping failure")
+            }
 
             sinkTracker.addVulnerability(
-                analysisContext.methodEntryPoint, mappedFact, statement, rule
+                analysisContext.methodEntryPoint, mappedFacts, statement, rule
             )
         }
 

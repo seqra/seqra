@@ -68,7 +68,7 @@ interface MethodAnalyzer {
 
     fun resolveIntraProceduralTraceSummary(
         statement: CommonInst,
-        factAp: InitialFactAp
+        facts: Set<InitialFactAp>
     ): List<MethodTraceResolver.SummaryTrace>
 
     fun resolveIntraProceduralTraceSummaryFromCall(
@@ -79,7 +79,7 @@ interface MethodAnalyzer {
     fun resolveIntraProceduralFullTrace(
         summaryTrace: MethodTraceResolver.SummaryTrace,
         cancellation: TraceResolverCancellation
-    ): MethodTraceResolver.FullTrace
+    ): List<MethodTraceResolver.FullTrace>
 
     sealed interface MethodCallHandler {
         data class ZeroToZeroHandler(val currentEdge: ZeroToZero) : MethodCallHandler
@@ -640,10 +640,10 @@ class NormalMethodAnalyzer(
 
     override fun resolveIntraProceduralTraceSummary(
         statement: CommonInst,
-        factAp: InitialFactAp
+        facts: Set<InitialFactAp>
     ): List<MethodTraceResolver.SummaryTrace> {
         val resolver = MethodTraceResolver(runner, analysisContext, edges)
-        return resolver.resolveIntraProceduralTrace(statement, factAp)
+        return resolver.resolveIntraProceduralTrace(statement, facts)
     }
 
     override fun resolveIntraProceduralTraceSummaryFromCall(
@@ -657,7 +657,7 @@ class NormalMethodAnalyzer(
     override fun resolveIntraProceduralFullTrace(
         summaryTrace: MethodTraceResolver.SummaryTrace,
         cancellation: TraceResolverCancellation
-    ): MethodTraceResolver.FullTrace {
+    ): List<MethodTraceResolver.FullTrace> {
         val resolver = MethodTraceResolver(runner, analysisContext, edges)
         return resolver.resolveIntraProceduralFullTrace(summaryTrace, cancellation)
     }
@@ -762,14 +762,14 @@ class EmptyMethodAnalyzer(
         error("Empty method should not method resolution results")
     }
 
-    override fun resolveIntraProceduralTraceSummary(statement: CommonInst, factAp: InitialFactAp): List<MethodTraceResolver.SummaryTrace> {
+    override fun resolveIntraProceduralTraceSummary(statement: CommonInst, facts: Set<InitialFactAp>): List<MethodTraceResolver.SummaryTrace> {
         TODO("Not yet implemented")
     }
 
     override fun resolveIntraProceduralFullTrace(
         summaryTrace: MethodTraceResolver.SummaryTrace,
         cancellation: TraceResolverCancellation
-    ): MethodTraceResolver.FullTrace {
+    ): List<MethodTraceResolver.FullTrace> {
         TODO("Not yet implemented")
     }
 

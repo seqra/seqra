@@ -346,11 +346,11 @@ class TaintAnalysisUnitRunner(
     fun resolveIntraProceduralTraceSummary(
         methodEntryPoint: MethodEntryPoint,
         statement: CommonInst,
-        factAp: InitialFactAp
+        facts: Set<InitialFactAp>
     ): List<MethodTraceResolver.SummaryTrace> {
         val methodRunners = methodAnalyzers(methodEntryPoint)
         val runner = methodRunners.getAnalyzer(methodEntryPoint)
-        return runner.resolveIntraProceduralTraceSummary(statement, factAp)
+        return runner.resolveIntraProceduralTraceSummary(statement, facts)
     }
 
     fun resolveIntraProceduralTraceSummaryFromCall(
@@ -367,7 +367,7 @@ class TaintAnalysisUnitRunner(
         methodEntryPoint: MethodEntryPoint,
         summaryTrace: MethodTraceResolver.SummaryTrace,
         cancellation: TraceResolverCancellation
-    ): MethodTraceResolver.FullTrace {
+    ): List<MethodTraceResolver.FullTrace> {
         val methodRunners = methodAnalyzers(methodEntryPoint)
         val runner = methodRunners.getAnalyzer(methodEntryPoint)
         return runner.resolveIntraProceduralFullTrace(summaryTrace, cancellation)
