@@ -5,6 +5,8 @@ plugins {
 
 val kotlinVersion = "2.1.0"
 
+group = "org.opentaint"
+
 repositories {
     mavenCentral()
     gradlePluginPortal()
