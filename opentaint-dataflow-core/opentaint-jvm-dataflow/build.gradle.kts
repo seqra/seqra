@@ -8,9 +8,9 @@ plugins {
 
 dependencies {
     api(project(":opentaint-dataflow"))
-    implementation("org.opentaint.utils:common-util:2025.07.15.693dc19")
-    implementation("org.opentaint.utils:opentaint-jvm-util:2025.07.15.693dc19")
-    implementation("org.opentaint.configuration:configuration-rules-jvm:2025.07.15.703f6e5")
+    implementation(Libs.opentaintUtilCommon)
+    implementation(Libs.opentaintUtilJvm)
+    implementation(Libs.opentaintRulesJvm)
 
     implementation(OpentaintIrDependency.Libs.opentaint-ir_api_jvm)
     implementation(OpentaintIrDependency.Libs.opentaint-ir_core)

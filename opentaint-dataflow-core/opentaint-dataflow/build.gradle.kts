@@ -7,8 +7,8 @@ plugins {
 }
 
 dependencies {
-    implementation("org.opentaint.utils:common-util:2025.07.15.693dc19")
-    implementation("org.opentaint.configuration:configuration-rules-common:2025.07.15.703f6e5")
+    implementation(Libs.opentaintUtilCommon)
+    implementation(Libs.opentaintRulesCommon)
 
     implementation(KotlinDependency.Libs.kotlinx_coroutines_core)
     implementation(KotlinDependency.Libs.kotlin_logging)

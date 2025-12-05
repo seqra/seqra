@@ -5,6 +5,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.util.analysis.ApplicationGraph
 import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager.MethodEntryPointCaller
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
@@ -18,7 +19,6 @@ import org.opentaint.dataflow.ap.ifds.trace.TraceResolverCancellation
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.util.concurrentReadSafeForEach
-import org.opentaint.util.analysis.ApplicationGraph
 import java.util.PriorityQueue
 import java.util.concurrent.atomic.LongAdder
 import kotlin.math.sign

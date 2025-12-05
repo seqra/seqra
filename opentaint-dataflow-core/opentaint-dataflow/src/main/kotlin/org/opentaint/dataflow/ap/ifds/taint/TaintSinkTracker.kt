@@ -1,11 +1,11 @@
 package org.opentaint.dataflow.ap.ifds.taint
 
 import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
-import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationItem
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSink
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSource
+import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import java.util.concurrent.ConcurrentHashMap
 
 class TaintSinkTracker(

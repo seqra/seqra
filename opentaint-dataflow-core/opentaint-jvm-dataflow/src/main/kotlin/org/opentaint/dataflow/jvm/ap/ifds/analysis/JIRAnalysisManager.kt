@@ -39,7 +39,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodCallPrecondition
 import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodSequentPrecondition
 import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodStartPrecondition
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
-import org.opentaint.jvm.graph.JIRApplicationGraph
+import org.opentaint.jvm.graph.JApplicationGraph
 import org.opentaint.util.analysis.ApplicationGraph
 
 class JIRAnalysisManager(
@@ -54,7 +54,7 @@ class JIRAnalysisManager(
         unitResolver: UnitResolver<CommonMethod>,
         runner: TaintAnalysisUnitRunner
     ): JIRMethodCallResolver {
-        jirDowncast<JIRApplicationGraph>(graph)
+        jirDowncast<JApplicationGraph>(graph)
         jirDowncast<JIRUnitResolver>(unitResolver)
 
         val jirCallResolver = JIRCallResolver(cp, graph, unitResolver)
@@ -68,7 +68,7 @@ class JIRAnalysisManager(
     ): MethodAnalysisContext {
         val entryPointStatement = methodEntryPoint.statement
         jirDowncast<JIRInst>(entryPointStatement)
-        jirDowncast<JIRApplicationGraph>(graph)
+        jirDowncast<JApplicationGraph>(graph)
 
         val aliasAnalysis = if (applyAliasInfo) {
             JIRLocalAliasAnalysis(entryPointStatement, graph, this)

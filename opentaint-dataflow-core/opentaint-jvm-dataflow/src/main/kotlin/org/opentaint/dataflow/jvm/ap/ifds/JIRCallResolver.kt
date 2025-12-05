@@ -19,20 +19,20 @@ import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.cfg.JIRVirtualCallExpr
 import org.opentaint.ir.api.jvm.ext.isSubClassOf
 import org.opentaint.ir.impl.features.hierarchyExt
+import org.opentaint.jvm.graph.JApplicationGraph
 import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
 import org.opentaint.dataflow.ap.ifds.MethodContext
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature.JIRLambdaClass
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
-import org.opentaint.jvm.graph.JIRApplicationGraph
 import java.util.Optional
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.jvm.optionals.getOrNull
 
 class JIRCallResolver(
     private val cp: JIRClasspath,
-    private val graph: JIRApplicationGraph,
+    private val graph: JApplicationGraph,
     private val unitResolver: JIRUnitResolver
 ) {
     private val hierarchy = runBlocking { cp.hierarchyExt() }

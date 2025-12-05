@@ -7,17 +7,17 @@ import org.opentaint.ir.api.jvm.cfg.JIRCatchInst
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.locals
+import org.opentaint.jvm.graph.JApplicationGraph
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionStorageIdx
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionStorageSize
 import org.opentaint.dataflow.util.containsAll
 import org.opentaint.dataflow.util.copy
-import org.opentaint.jvm.graph.JIRApplicationGraph
 import java.util.BitSet
 
 class JIRLocalVariableReachability(
     private val method: JIRMethod,
-    private val graph: JIRApplicationGraph,
+    private val graph: JApplicationGraph,
     private val languageManager: JIRLanguageManager
 ) {
     private val maxInstIdx = method.instList.maxOf { it.location.index }

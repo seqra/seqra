@@ -2,11 +2,11 @@ package org.opentaint.dataflow.jvm.ap.ifds
 
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.jvm.graph.JIRApplicationGraph
+import org.opentaint.jvm.graph.JApplicationGraph
 
 class JIRSafeApplicationGraph(
-    private val graph: JIRApplicationGraph
-) : JIRApplicationGraph by graph {
+    private val graph: JApplicationGraph
+) : JApplicationGraph by graph {
     override fun entryPoints(method: JIRMethod): Sequence<JIRInst> = try {
         graph.entryPoints(method)
     } catch (e: Throwable) {

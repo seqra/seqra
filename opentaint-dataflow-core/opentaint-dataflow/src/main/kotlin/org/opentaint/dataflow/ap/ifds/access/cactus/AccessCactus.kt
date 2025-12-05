@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.ap.ifds.access.cactus
 
+import org.opentaint.util.assert
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
@@ -14,8 +15,6 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.serialization.readEnum
 import org.opentaint.dataflow.ap.ifds.serialization.writeEnum
-
-import org.opentaint.util.assert
 import java.io.DataInputStream
 import java.io.DataOutputStream
 

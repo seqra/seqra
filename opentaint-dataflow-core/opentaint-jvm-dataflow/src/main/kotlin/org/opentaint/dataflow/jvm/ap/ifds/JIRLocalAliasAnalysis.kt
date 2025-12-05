@@ -20,17 +20,17 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.JIRRef
 import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.jvm.graph.JApplicationGraph
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.util.PersistentBitSet
 import org.opentaint.dataflow.util.PersistentBitSet.Companion.emptyPersistentBitSet
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.toBitSet
-import org.opentaint.jvm.graph.JIRApplicationGraph
 import java.util.BitSet
 
 class JIRLocalAliasAnalysis(
     private val entryPoint: JIRInst,
-    private val graph: JIRApplicationGraph,
+    private val graph: JApplicationGraph,
     private val languageManager: JIRLanguageManager
 ) {
     private val aliasInfo by lazy { compute() }
