@@ -130,7 +130,6 @@ class GradleProjectResolver(
         return true
     }
 
-    @OptIn(ExperimentalPathApi::class)
     private fun resolveDependenciesFromGraph(graphLocation: Path) {
         val json = Json {
             ignoreUnknownKeys = true
@@ -178,7 +177,6 @@ class GradleProjectResolver(
             return resolvedDirectDependencies + resolvedIndirectDependencies
         }
 
-        @OptIn(ExperimentalPathApi::class)
         private fun resolveJarPath(dependency: GradleDependencyInfo): Path? {
             val gradlePath = gradleLocalRepoPath.resolve(dependency.gradleArtifactDir)
             if (gradlePath.isDirectory()) {

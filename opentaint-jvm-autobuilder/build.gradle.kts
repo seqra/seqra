@@ -21,8 +21,8 @@ tasks {
 }
 
 dependencies {
-    implementation("org.opentaint.project:opentaint-project-model:2025.07.15.27da752")
-    implementation("org.opentaint.utils:cli-util:2025.07.15.693dc19")
+    implementation("org.opentaint.project:opentaint-project-model:2025.07.24.f65b6cc")
+    implementation("org.opentaint.utils:cli-util:2025.07.24.e2de8fa")
 
     implementation(KotlinDependency.Libs.kotlinx_serialization_json)
     implementation(KotlinDependency.Libs.kotlin_logging)
