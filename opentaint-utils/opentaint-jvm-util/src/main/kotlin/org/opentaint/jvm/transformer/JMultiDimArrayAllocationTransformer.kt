@@ -19,9 +19,9 @@ import org.opentaint.ir.api.jvm.cfg.JIRNewArrayExpr
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.boolean
 import org.opentaint.ir.api.jvm.ext.int
-import org.opentaint.jvm.transformer.JIRSingleInstructionTransformer.BlockGenerationContext
+import org.opentaint.jvm.transformer.JSingleInstructionTransformer.BlockGenerationContext
 
-object JIRMultiDimArrayAllocationTransformer : JIRInstExtFeature {
+object JMultiDimArrayAllocationTransformer : JIRInstExtFeature {
     override fun transformInstList(method: JIRMethod, list: JIRInstList<JIRInst>): JIRInstList<JIRInst> {
         val multiDimArrayAllocations = list.mapNotNull { inst ->
             val assignInst = inst as? JIRAssignInst ?: return@mapNotNull null
@@ -32,7 +32,7 @@ object JIRMultiDimArrayAllocationTransformer : JIRInstExtFeature {
 
         if (multiDimArrayAllocations.isEmpty()) return list
 
-        val transformer = JIRSingleInstructionTransformer(list)
+        val transformer = JSingleInstructionTransformer(list)
         for ((assignInst, arrayAllocation) in multiDimArrayAllocations) {
             transformer.generateReplacementBlock(assignInst) {
                 generateBlock(

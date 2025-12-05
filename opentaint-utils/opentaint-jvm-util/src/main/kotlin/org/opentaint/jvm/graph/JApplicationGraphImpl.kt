@@ -6,10 +6,10 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.ir.impl.features.SyncUsagesExtension
 
-open class JIRApplicationGraphImpl(
+open class JApplicationGraphImpl(
     override val cp: JIRClasspath,
     private val usages: SyncUsagesExtension,
-) : JIRApplicationGraph {
+) : JApplicationGraph {
     override fun predecessors(node: JIRInst): Sequence<JIRInst> {
         val graph = node.location.method.flowGraph()
         val predecessors = graph.predecessors(node)

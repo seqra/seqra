@@ -98,7 +98,7 @@ data class Flags(val value: Int) : Comparable<Flags> {
     override fun compareTo(other: Flags) = value.compareTo(other.value)
 }
 
-class OpentaintClassWriter(private val jirClassPath: JIRClasspath, flags: Flags) : ClassWriter(flags.value) {
+class JClassWriter(private val jirClassPath: JIRClasspath, flags: Flags) : ClassWriter(flags.value) {
 
     override fun getCommonSuperClass(type1: String, type2: String): String = try {
         val type1WithDots = type1.replace(Package.SEPARATOR, Package.CANONICAL_SEPARATOR)
@@ -192,7 +192,7 @@ fun ClassNode.toByteArray(
     inlineJsrs()
     //Workaround for bug with locals translation
     methods?.map { it?.localVariables?.size }
-    val cw = OpentaintClassWriter(jirClassPath, flags)
+    val cw = JClassWriter(jirClassPath, flags)
     val adapter = when {
         checkClass -> CheckClassAdapter(cw)
         else -> cw

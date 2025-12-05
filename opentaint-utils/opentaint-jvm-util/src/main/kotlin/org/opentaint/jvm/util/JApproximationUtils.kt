@@ -11,12 +11,12 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 data class ApproximationPaths(
-    val opentaintApiJarPath: String? = System.getenv("opentaint.jvm.api.jar.path"),
-    val opentaintApproximationsJarPath: String? = System.getenv("opentaint.jvm.approximations.jar.path")
+    val engineApiJarPath: String? = System.getenv("opentaint.jvm.api.jar.path"),
+    val engineApproximationsJarPath: String? = System.getenv("opentaint.jvm.approximations.jar.path")
 ) {
     val namedPaths = mapOf(
-        "Analyzer API" to opentaintApiJarPath,
-        "Analyzer Approximations" to opentaintApproximationsJarPath
+        "Opentaint engine API" to engineApiJarPath,
+        "Opentaint Approximations" to engineApproximationsJarPath
     )
     val presentPaths: Set<String> = namedPaths.values.filterNotNull().toSet()
     val allPathsArePresent = namedPaths.values.all { it != null }
@@ -25,14 +25,14 @@ data class ApproximationPaths(
 private val classpathApproximations: MutableMap<JIRClasspath, Set<String>> = ConcurrentHashMap()
 
 // TODO: use another way to detect internal classes (e.g. special bytecode location type)
-val JIRClassOrInterface.isOpentaintInternalClass: Boolean
+val JIRClassOrInterface.isInternalClass: Boolean
     get() = classpathApproximations[classpath]?.contains(name) ?: false
 
-val JIRClassType.isOpentaintInternalClass: Boolean
+val JIRClassType.isInternalClass: Boolean
     get() = if (this is JIRClassTypeImpl) {
         classpathApproximations[classpath]?.contains(name) ?: false
     } else {
-        jirClass.isOpentaintInternalClass
+        jirClass.isInternalClass
     }
 
 suspend fun JIRDatabase.classpathWithApproximations(

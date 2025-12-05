@@ -218,7 +218,7 @@ fun JIRClassOrInterface.toJavaClass(classLoader: ClassLoader, initialize: Boolea
     classLoader.loadClass(this, initialize)
 
 private fun ClassLoader.loadClass(jirClass: JIRClassOrInterface, initialize: Boolean): Class<*> {
-    if (this is JIRClassLoaderExt)
+    if (this is JClassLoaderExt)
         return loadClass(jirClass, initialize)
 
     return Class.forName(jirClass.name, initialize, this)

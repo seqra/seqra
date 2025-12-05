@@ -27,9 +27,9 @@ import org.opentaint.ir.api.jvm.cfg.JIRVirtualCallExpr
 import org.opentaint.ir.api.jvm.ext.objectType
 import org.opentaint.ir.impl.cfg.TypedStaticMethodRefImpl
 import org.opentaint.ir.impl.cfg.VirtualMethodRefImpl
-import org.opentaint.jvm.transformer.JIRSingleInstructionTransformer.BlockGenerationContext
+import org.opentaint.jvm.transformer.JSingleInstructionTransformer.BlockGenerationContext
 
-object JIRStringConcatTransformer : JIRInstExtFeature {
+object JStringConcatTransformer : JIRInstExtFeature {
     private const val JAVA_STRING = "java.lang.String"
     private const val STRING_CONCAT_FACTORY = "java.lang.invoke.StringConcatFactory"
     private const val STRING_CONCAT_WITH_CONSTANTS = "makeConcatWithConstants"
@@ -67,7 +67,7 @@ object JIRStringConcatTransformer : JIRInstExtFeature {
 
         if (stringConcatElements.isEmpty()) return list
 
-        val transformer = JIRSingleInstructionTransformer(list)
+        val transformer = JSingleInstructionTransformer(list)
         for ((assignment, concatElements) in stringConcatElements) {
             transformer.generateReplacementBlock(assignment) {
                 generateConcatBlock(stringType, stringConcatMethod, assignment.lhv, concatElements)

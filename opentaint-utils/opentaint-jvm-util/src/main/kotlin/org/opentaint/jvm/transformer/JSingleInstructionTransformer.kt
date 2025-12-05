@@ -16,7 +16,7 @@ import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 
-class JIRSingleInstructionTransformer(originalInstructions: JIRInstList<JIRInst>) {
+class JSingleInstructionTransformer(originalInstructions: JIRInstList<JIRInst>) {
     val mutableInstructions = originalInstructions.instructions.toMutableList()
     private val maxLocalVarIndex = mutableInstructions.maxOfOrNull { LocalVarMaxIndexFinder.find(it.operands) } ?: -1
 
