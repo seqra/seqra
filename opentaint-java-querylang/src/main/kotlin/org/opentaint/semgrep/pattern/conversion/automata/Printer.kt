@@ -35,7 +35,7 @@ class PrintableSemgrepRuleAutomata(val automata: SemgrepRuleAutomata) : Printabl
     override fun successors(node: AutomataNode): List<Pair<AutomataEdgeType, AutomataNode>> = node.outEdges
 
     override fun nodeLabel(node: AutomataNode): String =
-        "${nodeIndex++}${if (node.accept) " ACCEPT " else if (node in automata.initialNodes) " ROOT " else ""}"
+        "${nodeIndex++}${if (node.accept) " ACCEPT" else ""}${if (node in automata.initialNodes) " ROOT" else ""}"
 
     override fun edgeLabel(edge: AutomataEdgeType): String = when (edge) {
         AutomataEdgeType.End -> "END"

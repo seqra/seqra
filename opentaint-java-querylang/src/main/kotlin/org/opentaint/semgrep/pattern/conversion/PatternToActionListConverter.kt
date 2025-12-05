@@ -89,7 +89,7 @@ class PatternToActionListConverter: ActionListBuilder {
             is VariableAssignment -> transformVariableAssignment(pattern)
             is MethodDeclaration -> transformMethodDeclaration(pattern)
             is ClassDeclaration -> transformClassDeclaration(pattern)
-            is EllipsisMethodInvocations,
+            is EllipsisMethodInvocations -> transformEllipsisMethodInvocations(pattern)
             is AddExpr,
             is BoolConstant,
             EmptyPatternSequence,
@@ -125,7 +125,7 @@ class PatternToActionListConverter: ActionListBuilder {
 
             is StringLiteral -> when (val value = pattern.content) {
                 is ConcreteName -> SpecificStringValue(value.name)
-                is MetavarName -> StringValueMetaVar(value.metavarName)
+                is MetavarName -> StringValueMetaVar(MetavarAtom.create(value.metavarName))
             }
 
             is StringEllipsis -> {
@@ -133,7 +133,7 @@ class PatternToActionListConverter: ActionListBuilder {
             }
 
             is Metavar -> {
-                IsMetavar(pattern.name)
+                IsMetavar(MetavarAtom.create(pattern.name))
             }
 
             is TypedMetavar -> {
@@ -144,7 +144,8 @@ class PatternToActionListConverter: ActionListBuilder {
                 val typeName = transformTypeName(pattern.type)
                 ParamCondition.And(
                     listOf(
-                        IsMetavar(pattern.name), ParamCondition.TypeIs(typeName)
+                        IsMetavar(MetavarAtom.create(pattern.name)),
+                        ParamCondition.TypeIs(typeName)
                     )
                 )
             }
@@ -256,9 +257,9 @@ class PatternToActionListConverter: ActionListBuilder {
         result.removeLast()
         val lastAction = objActionList.actions.last()
         val metavar = provideArtificialMetavar()
-        val newLastAction = lastAction.setResultCondition(IsMetavar(metavar))
+        val newLastAction = lastAction.setResultCondition(IsMetavar(MetavarAtom.create(metavar)))
         result += newLastAction
-        return result to IsMetavar(metavar)
+        return result to IsMetavar(MetavarAtom.create(metavar))
     }
 
     private fun methodArgumentsToPatternList(pattern: MethodArguments): List<SemgrepJavaPattern> {
@@ -310,6 +311,26 @@ class PatternToActionListConverter: ActionListBuilder {
             params = argsConditions,
             obj = objCondition,
             enclosingClassName = className,
+        )
+        actionList += methodInvocationAction
+        return SemgrepPatternActionList(actionList, hasEllipsisInTheEnd = false, hasEllipsisInTheBeginning = false)
+    }
+
+    private fun transformEllipsisMethodInvocations(pattern: EllipsisMethodInvocations): SemgrepPatternActionList {
+        val actionList = mutableListOf<SemgrepPatternAction>()
+
+        val className = tryConvertPatternIntoTypeName(pattern.obj)
+
+        val (actions, objCondition) = transformPatternIntoParamConditionWithActions(pattern.obj)
+                ?: transformationFailed("MethodInvocation_obj: ${pattern.obj::class.simpleName}")
+        actionList += actions
+
+        val methodInvocationAction = SemgrepPatternAction.MethodCall(
+            methodName = SignatureName.AnyName,
+            result = null,
+            params = ParamConstraint.Partial(emptyList()),
+            obj = objCondition,
+            enclosingClassName = className ?: TypeNamePattern.AnyType,
         )
         actionList += methodInvocationAction
         return SemgrepPatternActionList(actionList, hasEllipsisInTheEnd = false, hasEllipsisInTheBeginning = false)
@@ -375,11 +396,11 @@ class PatternToActionListConverter: ActionListBuilder {
 
         when (val v = pattern.variable) {
             is Metavar -> {
-                conditions += IsMetavar(v.name)
+                conditions += IsMetavar(MetavarAtom.create(v.name))
             }
 
             is TypedMetavar -> {
-                conditions += IsMetavar(v.name)
+                conditions += IsMetavar(MetavarAtom.create(v.name))
 
                 val typeName = transformTypeName(v.type)
                 conditions += ParamCondition.TypeIs(typeName)
@@ -498,7 +519,7 @@ class PatternToActionListConverter: ActionListBuilder {
                     val paramName = (param.name as? MetavarName)?.metavarName
                         ?: transformationFailed("MethodDeclaration_param_name_not_metavar")
 
-                    paramConditions += ParamPattern(position, IsMetavar(paramName))
+                    paramConditions += ParamPattern(position, IsMetavar(MetavarAtom.create(paramName)))
 
                     val paramType = transformTypeName(param.type)
                     paramConditions += ParamPattern(position, ParamCondition.TypeIs(paramType))

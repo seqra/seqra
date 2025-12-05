@@ -34,9 +34,9 @@ private fun transformSemgrepRuleToAutomata(
     val resultDfa = brzozowskiAlgorithm(metaVarInfo, resultNfa)
     acceptIfCurrentAutomataAcceptsPrefix(resultDfa)
 
-    val deadNode = totalizeMethodCalls(metaVarInfo, resultDfa)
+    totalizeMethodCalls(metaVarInfo, resultDfa)
     if (resultDfa.hasMethodEnter) {
-        totalizeMethodEnters(metaVarInfo, resultDfa, deadNode)
+        totalizeMethodEnters(metaVarInfo, resultDfa)
     }
 
     return resultDfa
@@ -177,14 +177,17 @@ private fun addNegativePattern(
         return curAutomata
     }
 
-    val deadNode = totalizeMethodCalls(metaVarInfo, actionListAutomata)
+    totalizeMethodCalls(metaVarInfo, actionListAutomata)
     if (actionListAutomata.hasMethodEnter) {
-        totalizeMethodEnters(metaVarInfo, actionListAutomata, deadNode)
+        totalizeMethodEnters(metaVarInfo, actionListAutomata,)
         addEndEdges(actionListAutomata)
         addEndEdges(curAutomata)
     }
     complement(actionListAutomata)
-    return brzozowskiAlgorithm(metaVarInfo, intersection(curAutomata, actionListAutomata, metaVarInfo))
+
+    val intersect = intersection(curAutomata, actionListAutomata, metaVarInfo)
+
+    return brzozowskiAlgorithm(metaVarInfo, intersect)
 }
 
 private fun addPatternInside(
@@ -270,9 +273,9 @@ private fun addPatternNotInside(
         addEndEdges(automataNotInside)
     }
 
-    val deadNode = totalizeMethodCalls(metaVarInfo, automataNotInside)
+    totalizeMethodCalls(metaVarInfo, automataNotInside)
     if (automataNotInside.hasMethodEnter) {
-        totalizeMethodEnters(metaVarInfo, automataNotInside, deadNode)
+        totalizeMethodEnters(metaVarInfo, automataNotInside)
     }
     complement(automataNotInside)
 

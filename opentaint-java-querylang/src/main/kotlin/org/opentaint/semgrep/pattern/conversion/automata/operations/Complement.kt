@@ -9,4 +9,5 @@ fun complement(automata: SemgrepRuleAutomata) {
     traverse(automata) {
         it.accept = !it.accept
     }
+    automata.deadNode = SemgrepRuleAutomata.createDeadNode()
 }

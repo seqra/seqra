@@ -1,5 +1,7 @@
 package org.opentaint.semgrep.pattern.conversion
 
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.PatternRewriter
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.safeRewrite
 import org.opentaint.semgrep.pattern.ConcreteName
 import org.opentaint.semgrep.pattern.FieldAccess
 import org.opentaint.semgrep.pattern.Name
@@ -7,24 +9,23 @@ import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
 import org.opentaint.semgrep.pattern.StaticFieldAccess
 import org.opentaint.semgrep.pattern.TypeName
-import org.opentaint.semgrep.pattern.map
 
-fun rewriteStaticFieldAccess(rule: NormalizedSemgrepRule): NormalizedSemgrepRule {
+fun rewriteStaticFieldAccess(rule: NormalizedSemgrepRule): List<NormalizedSemgrepRule> {
     val rewriter = object : PatternRewriter {
-        override fun FieldAccess.rewriteFieldAccess(): SemgrepJavaPattern {
+        override fun FieldAccess.rewriteFieldAccess(): List<SemgrepJavaPattern> {
             val objPattern = when (obj) {
                 is FieldAccess.ObjectPattern -> obj.pattern
-                FieldAccess.SuperObject -> return this
+                FieldAccess.SuperObject -> return listOf(this)
             }
 
             val objPatternParts = tryExtractPatternDotSeparatedParts(objPattern)
-                ?: return this
+                ?: return listOf(this)
 
             if (!probablyStaticField(fieldName, objPatternParts)) {
-                return this
+                return listOf(this)
             }
 
-            return StaticFieldAccess(fieldName, TypeName(objPatternParts))
+            return listOf(StaticFieldAccess(fieldName, TypeName(objPatternParts)))
         }
 
         private fun probablyStaticField(fieldName: Name, obj: List<Name>): Boolean {
@@ -43,7 +44,5 @@ fun rewriteStaticFieldAccess(rule: NormalizedSemgrepRule): NormalizedSemgrepRule
         }
     }
 
-    return rule.map {
-        rewriter.safeRewrite(it) { error("No failures expected") }
-    }
+    return rewriter.safeRewrite(rule) { error("No failures expected") }
 }

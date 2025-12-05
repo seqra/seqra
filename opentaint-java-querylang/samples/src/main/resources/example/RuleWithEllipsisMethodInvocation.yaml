@@ -1,0 +1,11 @@
+rules:
+  - id: example-RuleWithEllipsisMethodInvocation
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithEllipsisMethodInvocation
+    patterns:
+      - pattern: |-
+          $A = src();
+          $B = $A. ... .toString();
+          sink($B)

@@ -1,17 +1,19 @@
 package org.opentaint.semgrep.pattern.conversion.automata.operations
 
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations.unifyMetavars
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 
 fun removeDeadNodes(automata: SemgrepRuleAutomata) {
-    removeDeadNodes(automata.initialNode, mutableSetOf())
+    removeDeadNodes(automata.initialNode, automata.deadNode, mutableSetOf())
 }
 
 // TODO: linear time?
 private fun removeDeadNodes(
     node: AutomataNode,
+    mainDeadNode: AutomataNode,
     visited: MutableSet<AutomataNode>,
 ) {
     visited.add(node)
@@ -20,14 +22,14 @@ private fun removeDeadNodes(
     initialOutEdges.forEach { elem ->
         val to = elem.second
 
-        if (to in visited) {
+        if (to in visited || to == mainDeadNode) {
             return@forEach
         }
 
         if (!acceptIsReachable(to, mutableSetOf())) {
             node.outEdges.remove(elem)
         } else {
-            removeDeadNodes(to, visited)
+            removeDeadNodes(to, mainDeadNode, visited)
         }
     }
 }
@@ -90,9 +92,13 @@ private fun reverse(automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
 }
 
 fun brzozowskiAlgorithm(metaVarInfo: ResolvedMetaVarInfo, automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
+    if (automata.isDeterministic) {
+        return automata
+    }
+
     val reversedNfa = reverse(automata)
     val reversedDfa = determinize(reversedNfa, metaVarInfo)
     val newNfa = reverse(reversedDfa)
     val result = determinize(newNfa, metaVarInfo, simplifyAutomata = true)
-    return result
+    return unifyMetavars(result, metaVarInfo)
 }

@@ -1,5 +1,7 @@
 package org.opentaint.semgrep.pattern.conversion
 
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.PatternRewriter
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.safeRewrite
 import org.opentaint.semgrep.pattern.ConcreteName
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraints
@@ -7,12 +9,11 @@ import org.opentaint.semgrep.pattern.MetavarName
 import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.TypeName
-import org.opentaint.semgrep.pattern.map
 
 fun rewriteTypeNameWithMetaVar(
     rule: NormalizedSemgrepRule,
     metaVarInfo: ResolvedMetaVarInfo
-): Pair<NormalizedSemgrepRule, ResolvedMetaVarInfo> {
+): Pair<List<NormalizedSemgrepRule>, ResolvedMetaVarInfo> {
     val generatedMetaVars = hashMapOf<TypeName, String>()
 
     val rewriter = object : PatternRewriter {
@@ -28,12 +29,10 @@ fun rewriteTypeNameWithMetaVar(
         }
     }
 
-    val modifierRule = rule.map {
-        rewriter.safeRewrite(it) { error("No failures expected") }
-    }
+    val modifierRule = rewriter.safeRewrite(rule) { error("No failures expected") }
 
     if (generatedMetaVars.isEmpty()) {
-        return rule to metaVarInfo
+        return listOf(rule) to metaVarInfo
     }
 
     val constraints = metaVarInfo.metaVarConstraints.toMutableMap()

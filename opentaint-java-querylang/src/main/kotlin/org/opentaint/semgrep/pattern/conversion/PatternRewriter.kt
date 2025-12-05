@@ -1,4 +1,4 @@
-package org.opentaint.semgrep.pattern.conversion
+package org.opentaint.org.opentaint.semgrep.pattern.conversion
 
 import org.opentaint.semgrep.pattern.AddExpr
 import org.opentaint.semgrep.pattern.Annotation
@@ -24,6 +24,7 @@ import org.opentaint.semgrep.pattern.Modifier
 import org.opentaint.semgrep.pattern.Name
 import org.opentaint.semgrep.pattern.NamedValue
 import org.opentaint.semgrep.pattern.NoArgs
+import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
 import org.opentaint.semgrep.pattern.NullLiteral
 import org.opentaint.semgrep.pattern.ObjectCreation
 import org.opentaint.semgrep.pattern.PatternArgumentPrefix
@@ -37,9 +38,10 @@ import org.opentaint.semgrep.pattern.ThisExpr
 import org.opentaint.semgrep.pattern.TypeName
 import org.opentaint.semgrep.pattern.TypedMetavar
 import org.opentaint.semgrep.pattern.VariableAssignment
+import org.opentaint.semgrep.pattern.conversion.cartesianProductMapTo
 
 interface PatternRewriter {
-    fun SemgrepJavaPattern.rewrite(): SemgrepJavaPattern = when (this) {
+    fun SemgrepJavaPattern.rewrite(): List<SemgrepJavaPattern> = when (this) {
         is MethodArguments -> rewriteMethodArguments()
         is AddExpr -> rewriteAddExpr()
         is Annotation -> rewriteAnnotation()
@@ -74,103 +76,203 @@ interface PatternRewriter {
         is EllipsisMetavar -> rewriteEllipsisMetavar()
     }
 
-    fun AddExpr.rewriteAddExpr(): SemgrepJavaPattern = createAddExpr(left.rewrite(), right.rewrite())
+    fun AddExpr.rewriteAddExpr(): List<SemgrepJavaPattern> {
+        val newLeftOptions = left.rewrite()
+        val newRightOptions = right.rewrite()
 
-    fun MethodDeclaration.rewriteMethodDeclaration(): SemgrepJavaPattern = createMethodDeclaration(
-        name.rewriteName(),
-        returnType?.rewriteTypeName(),
-        args.rewriteMethodArguments(),
-        body.rewrite(),
-        modifiers.map { it.rewriteModifier() }
-    )
-
-    fun ClassDeclaration.rewriteClassDeclaration(): SemgrepJavaPattern = createClassDeclaration(
-        name.rewriteName(),
-        extends?.rewriteTypeName(),
-        implements.map { it.rewriteTypeName() },
-        modifiers.map { it.rewriteModifier() },
-        body.rewrite(),
-    )
-
-    fun NamedValue.rewriteNamedValue(): SemgrepJavaPattern = createNamedValue(name.rewriteName(), value.rewrite())
-
-    fun createNamedValue(name: Name, value: SemgrepJavaPattern) = NamedValue(name, value)
-
-    fun createAddExpr(left: SemgrepJavaPattern, right: SemgrepJavaPattern): SemgrepJavaPattern = AddExpr(left, right)
-
-    fun createAnnotation(name: TypeName, args: MethodArguments) = Annotation(name, args)
-
-    fun MethodArguments.rewriteMethodArguments(): MethodArguments = when (this) {
-        is EllipsisArgumentPrefix -> createEllipsisArgumentPrefix(rest.rewriteMethodArguments())
-        NoArgs -> createNoArgs()
-        is PatternArgumentPrefix -> createPatternArgumentPrefix(
-            argument.rewrite(),
-            rest.rewriteMethodArguments()
-        )
+        return newLeftOptions.flatMap { newLeft ->
+            newRightOptions.flatMap { newRight ->
+                createAddExpr(newLeft, newRight)
+            }
+        }
     }
 
-    fun EllipsisMethodInvocations.rewriteEllipsisMethodInvocations(): SemgrepJavaPattern =
-        createEllipsisMethodInvocations(obj.rewrite())
+    fun MethodDeclaration.rewriteMethodDeclaration(): List<SemgrepJavaPattern> {
+        val newName = name.rewriteName()
+        val newReturnType = returnType?.rewriteTypeName()
+        val newArgsOptions = args.rewriteMethodArguments()
+        val newBodyOptions = body.rewrite()
+        val newModifiersOptions = modifiers.map { it.rewriteModifier() }.cartesianProductMapTo { it.toList() }
 
-    fun FieldAccess.rewriteFieldAccess(): SemgrepJavaPattern =
-        createFieldAccess(fieldName.rewriteName(), obj.rewriteObject())
+        return newArgsOptions.flatMap { newArgs ->
+            newBodyOptions.flatMap { newBody ->
+                newModifiersOptions.flatMap { newModifiers ->
+                    createMethodDeclaration(newName, newReturnType, newArgs, newBody, newModifiers)
+                }
+            }
+        }
+    }
 
-    fun StaticFieldAccess.rewriteStaticFieldAccess(): SemgrepJavaPattern =
+    fun ClassDeclaration.rewriteClassDeclaration(): List<SemgrepJavaPattern> {
+        val newName = name.rewriteName()
+        val newExtends = extends?.rewriteTypeName()
+        val newImplements = implements.map { it.rewriteTypeName() }
+        val newModifiersOptions = modifiers.map { it.rewriteModifier() }.cartesianProductMapTo { it.toList() }
+        val newBodyOptions = body.rewrite()
+
+        return newModifiersOptions.flatMap { newModifiers ->
+            newBodyOptions.flatMap { newBody ->
+                createClassDeclaration(newName, newExtends, newImplements, newModifiers, newBody)
+            }
+        }
+    }
+
+    fun NamedValue.rewriteNamedValue(): List<SemgrepJavaPattern> {
+        val newName = name.rewriteName()
+        val newValues = value.rewrite()
+
+        return newValues.flatMap { newValue ->
+            createNamedValue(newName, newValue)
+        }
+    }
+
+    fun createNamedValue(name: Name, value: SemgrepJavaPattern): List<NamedValue> = listOf(NamedValue(name, value))
+
+    fun createAddExpr(left: SemgrepJavaPattern, right: SemgrepJavaPattern): List<SemgrepJavaPattern> =
+        listOf(AddExpr(left, right))
+
+    fun createAnnotation(name: TypeName, args: MethodArguments): List<Annotation> = listOf(Annotation(name, args))
+
+    fun MethodArguments.rewriteMethodArguments(): List<MethodArguments> = when (this) {
+        is EllipsisArgumentPrefix -> rest.rewriteMethodArguments().flatMap(::createEllipsisArgumentPrefix)
+        NoArgs -> createNoArgs()
+        is PatternArgumentPrefix -> {
+            val newArgumentOptions = argument.rewrite()
+            val newRestOptions = rest.rewriteMethodArguments()
+
+            newArgumentOptions.flatMap { newArgument ->
+                newRestOptions.flatMap { newRest ->
+                    createPatternArgumentPrefix(newArgument, newRest)
+                }
+            }
+        }
+    }
+
+    fun EllipsisMethodInvocations.rewriteEllipsisMethodInvocations(): List<SemgrepJavaPattern> =
+        obj.rewrite().flatMap { newObj ->
+            createEllipsisMethodInvocations(newObj)
+        }
+
+    fun FieldAccess.rewriteFieldAccess(): List<SemgrepJavaPattern> {
+        val newFieldName = fieldName.rewriteName()
+        val newObjOptions = obj.rewriteObject()
+
+        return newObjOptions.flatMap { newObj ->
+            createFieldAccess(newFieldName, newObj)
+        }
+    }
+
+
+    fun StaticFieldAccess.rewriteStaticFieldAccess(): List<SemgrepJavaPattern> =
         createStaticFieldAccess(fieldName.rewriteName(), classTypeName.rewriteTypeName())
 
-    fun createStaticFieldAccess(fieldName: Name, classTypeName: TypeName): SemgrepJavaPattern =
-        StaticFieldAccess(fieldName, classTypeName)
+    fun createStaticFieldAccess(fieldName: Name, classTypeName: TypeName): List<SemgrepJavaPattern> =
+        listOf(StaticFieldAccess(fieldName, classTypeName))
 
-    fun FormalArgument.rewriteFormalArgument(): SemgrepJavaPattern = createFormalArgument(
-        name.rewriteName(),
-        type.rewriteTypeName(),
-        modifiers.map { it.rewriteModifier() }
-    )
+    fun FormalArgument.rewriteFormalArgument(): List<SemgrepJavaPattern> {
+        val newName = name.rewriteName()
+        val newType = type.rewriteTypeName()
+        val newModifiersOptions = modifiers.map { it.rewriteModifier() }.cartesianProductMapTo { it.toList() }
 
-    fun MethodInvocation.rewriteMethodInvocation(): SemgrepJavaPattern = createMethodInvocation(
-        methodName.rewriteName(), obj?.rewrite(), args.rewriteMethodArguments()
-    )
+        return newModifiersOptions.flatMap { newModifiers ->
+            createFormalArgument(newName, newType, newModifiers)
+        }
+    }
 
-    fun ObjectCreation.rewriteObjectCreation(): SemgrepJavaPattern =
-        createObjectCreation(type.rewriteTypeName(), args.rewriteMethodArguments())
+    fun MethodInvocation.rewriteMethodInvocation(): List<SemgrepJavaPattern> {
+        val newMethodName = methodName.rewriteName()
+        val newObjOptions = obj?.rewrite() ?: listOf(null)
+        val newArgsOptions = args.rewriteMethodArguments()
 
-    fun PatternSequence.rewritePatternSequence(): SemgrepJavaPattern =
-        createPatternSequence(first.rewrite(), second.rewrite())
+        return newObjOptions.flatMap { newObj ->
+            newArgsOptions.flatMap { newArgs ->
+                createMethodInvocation(newMethodName, newObj, newArgs)
+            }
+        }
+    }
 
-    fun ReturnStmt.rewriteReturnStmt(): SemgrepJavaPattern = createReturnStmt(value?.rewrite())
-    fun StringLiteral.rewriteStringLiteral(): SemgrepJavaPattern = createStringLiteral(content.rewriteName())
-    fun TypedMetavar.rewriteTypedMetavar(): SemgrepJavaPattern = createTypedMetavar(name, type.rewriteTypeName())
-    fun VariableAssignment.rewriteVariableAssignment(): SemgrepJavaPattern =
-        createVariableAssignment(type?.rewriteTypeName(), variable.rewrite(), value?.rewrite())
+    fun ObjectCreation.rewriteObjectCreation(): List<SemgrepJavaPattern> {
+        val newType = type.rewriteTypeName()
+        val newArgsOptions = args.rewriteMethodArguments()
 
-    fun BoolConstant.rewriteBoolConstant(): SemgrepJavaPattern = this
-    fun IntLiteral.rewriteIntLiteral(): SemgrepJavaPattern = this
-    fun NullLiteral.rewriteNullLiteral(): SemgrepJavaPattern = this
-    fun Identifier.rewriteIdentifier(): SemgrepJavaPattern = this
-    fun Metavar.rewriteMetavar(): SemgrepJavaPattern = this
-    fun EllipsisMetavar.rewriteEllipsisMetavar(): SemgrepJavaPattern = this
-    fun rewriteEllipsis(): SemgrepJavaPattern = Ellipsis
-    fun rewriteStringEllipsis(): SemgrepJavaPattern = StringEllipsis
-    fun rewriteThisExpr(): SemgrepJavaPattern = ThisExpr
-    fun rewriteEmptyPatternSequence(): SemgrepJavaPattern = EmptyPatternSequence
+        return newArgsOptions.flatMap { newArgs ->
+            createObjectCreation(newType, newArgs)
+        }
+    }
 
-    fun TypeName.rewriteTypeName(): TypeName = TypeName(
-        dotSeparatedParts.map { it.rewriteName() },
-        typeArgs.map { it.rewriteTypeName() }
-    )
+    fun PatternSequence.rewritePatternSequence(): List<SemgrepJavaPattern> {
+        val newFirstOptions = first.rewrite()
+        val newSecondOptions = second.rewrite()
+
+        return newFirstOptions.flatMap { newFirst ->
+            newSecondOptions.flatMap { newSecond ->
+                createPatternSequence(newFirst, newSecond)
+            }
+        }
+    }
+
+    fun ReturnStmt.rewriteReturnStmt(): List<SemgrepJavaPattern> {
+        val newValues = value?.rewrite() ?: listOf(null)
+
+        return newValues.flatMap { newValue ->
+            createReturnStmt(newValue)
+        }
+    }
+
+    fun StringLiteral.rewriteStringLiteral(): List<SemgrepJavaPattern> =
+        createStringLiteral(content.rewriteName())
+
+    fun TypedMetavar.rewriteTypedMetavar(): List<SemgrepJavaPattern> =
+        createTypedMetavar(name, type.rewriteTypeName())
+
+    fun VariableAssignment.rewriteVariableAssignment(): List<SemgrepJavaPattern> {
+        val newType = type?.rewriteTypeName()
+        val newVariableOptions = variable.rewrite()
+        val newValueOptions = value?.rewrite() ?: listOf(null)
+
+        return newVariableOptions.flatMap { newVariable ->
+            newValueOptions.flatMap { newValue ->
+                createVariableAssignment(newType, newVariable, newValue)
+            }
+        }
+    }
+
+    fun BoolConstant.rewriteBoolConstant(): List<SemgrepJavaPattern> = listOf(this)
+    fun IntLiteral.rewriteIntLiteral(): List<SemgrepJavaPattern> = listOf(this)
+    fun NullLiteral.rewriteNullLiteral(): List<SemgrepJavaPattern> = listOf(this)
+    fun Identifier.rewriteIdentifier(): List<SemgrepJavaPattern> = listOf(this)
+    fun Metavar.rewriteMetavar(): List<SemgrepJavaPattern> = listOf(this)
+    fun EllipsisMetavar.rewriteEllipsisMetavar(): List<SemgrepJavaPattern> = listOf(this)
+    fun rewriteEllipsis(): List<SemgrepJavaPattern> = listOf(Ellipsis)
+    fun rewriteStringEllipsis(): List<SemgrepJavaPattern> = listOf(StringEllipsis)
+    fun rewriteThisExpr(): List<SemgrepJavaPattern> = listOf(ThisExpr)
+    fun rewriteEmptyPatternSequence(): List<SemgrepJavaPattern> = listOf(EmptyPatternSequence)
+
+    fun TypeName.rewriteTypeName(): TypeName =
+        TypeName(
+            dotSeparatedParts = dotSeparatedParts.map { it.rewriteName() },
+            typeArgs = typeArgs.map { it.rewriteTypeName() }
+        )
+
 
     fun Name.rewriteName(): Name = this
 
-    fun createEllipsisArgumentPrefix(rest: MethodArguments): MethodArguments = EllipsisArgumentPrefix(rest)
+    fun createEllipsisArgumentPrefix(rest: MethodArguments): List<MethodArguments> =
+        listOf(EllipsisArgumentPrefix(rest))
 
-    fun createNoArgs(): MethodArguments = NoArgs
+    fun createNoArgs(): List<MethodArguments> = listOf(NoArgs)
 
-    fun createPatternArgumentPrefix(argument: SemgrepJavaPattern, rest: MethodArguments): MethodArguments =
-        PatternArgumentPrefix(argument, rest)
+    fun createPatternArgumentPrefix(argument: SemgrepJavaPattern, rest: MethodArguments): List<MethodArguments> =
+        listOf(PatternArgumentPrefix(argument, rest))
 
-    fun createEllipsisMethodInvocations(obj: SemgrepJavaPattern): SemgrepJavaPattern = EllipsisMethodInvocations(obj)
-    fun createFieldAccess(fieldName: Name, obj: FieldAccess.Object): SemgrepJavaPattern = FieldAccess(fieldName, obj)
-    fun createFormalArgument(name: Name, type: TypeName, modifiers: List<Modifier>): SemgrepJavaPattern = FormalArgument(name, type, modifiers)
+    fun createEllipsisMethodInvocations(obj: SemgrepJavaPattern): List<SemgrepJavaPattern> =
+        listOf(EllipsisMethodInvocations(obj))
+
+    fun createFieldAccess(fieldName: Name, obj: FieldAccess.Object): List<SemgrepJavaPattern> =
+        listOf(FieldAccess(fieldName, obj))
+
+    fun createFormalArgument(name: Name, type: TypeName, modifiers: List<Modifier>): List<SemgrepJavaPattern> =
+        listOf(FormalArgument(name, type, modifiers))
 
     fun createMethodDeclaration(
         name: Name,
@@ -178,7 +280,7 @@ interface PatternRewriter {
         args: MethodArguments,
         body: SemgrepJavaPattern,
         modifiers: List<Modifier>
-    ): SemgrepJavaPattern = MethodDeclaration(name, returnType, args, body, modifiers)
+    ): List<SemgrepJavaPattern> = listOf(MethodDeclaration(name, returnType, args, body, modifiers))
 
     fun createClassDeclaration(
         name: Name,
@@ -186,83 +288,129 @@ interface PatternRewriter {
         implements: List<TypeName>,
         modifiers: List<Modifier>,
         body: SemgrepJavaPattern
-    ): SemgrepJavaPattern = ClassDeclaration(name, extends, implements, modifiers, body)
+    ): List<SemgrepJavaPattern> = listOf(ClassDeclaration(name, extends, implements, modifiers, body))
 
-    fun createMethodInvocation(methodName: Name, obj: SemgrepJavaPattern?, args: MethodArguments): SemgrepJavaPattern =
-        MethodInvocation(methodName, obj, args)
+    fun createMethodInvocation(
+        methodName: Name,
+        obj: SemgrepJavaPattern?,
+        args: MethodArguments
+    ): List<SemgrepJavaPattern> = listOf(MethodInvocation(methodName, obj, args))
 
-    fun createObjectCreation(type: TypeName, args: MethodArguments): SemgrepJavaPattern = ObjectCreation(type, args)
+    fun createObjectCreation(type: TypeName, args: MethodArguments): List<SemgrepJavaPattern> =
+        listOf(ObjectCreation(type, args))
 
-    fun createPatternSequence(first: SemgrepJavaPattern, second: SemgrepJavaPattern): SemgrepJavaPattern =
-        PatternSequence(first, second)
+    fun createPatternSequence(first: SemgrepJavaPattern, second: SemgrepJavaPattern): List<SemgrepJavaPattern> =
+        listOf(PatternSequence(first, second))
 
-    fun createReturnStmt(value: SemgrepJavaPattern?): SemgrepJavaPattern = ReturnStmt(value)
-    fun createStringLiteral(content: Name): SemgrepJavaPattern = StringLiteral(content)
-    fun createTypedMetavar(name: String, type: TypeName): SemgrepJavaPattern = TypedMetavar(name, type)
+    fun createReturnStmt(value: SemgrepJavaPattern?): List<SemgrepJavaPattern> = listOf(ReturnStmt(value))
+    fun createStringLiteral(content: Name): List<SemgrepJavaPattern> = listOf(StringLiteral(content))
+    fun createTypedMetavar(name: String, type: TypeName): List<SemgrepJavaPattern> = listOf(TypedMetavar(name, type))
 
     fun createVariableAssignment(
         type: TypeName?,
         variable: SemgrepJavaPattern,
         value: SemgrepJavaPattern?
-    ): SemgrepJavaPattern = VariableAssignment(type, variable, value)
+    ): List<SemgrepJavaPattern> = listOf(VariableAssignment(type, variable, value))
 
-    fun FieldAccess.Object.rewriteObject(): FieldAccess.Object = when (this) {
+    fun FieldAccess.Object.rewriteObject(): List<FieldAccess.Object> = when (this) {
         is FieldAccess.ObjectPattern -> rewriteObjectPattern()
         FieldAccess.SuperObject -> rewriteSuperObject()
     }
 
-    fun rewriteSuperObject(): FieldAccess.Object = FieldAccess.SuperObject
+    fun rewriteSuperObject(): List<FieldAccess.Object> = listOf(FieldAccess.SuperObject)
 
-    fun FieldAccess.ObjectPattern.rewriteObjectPattern(): FieldAccess.Object =
-        createObjectPattern(pattern.rewrite())
+    fun FieldAccess.ObjectPattern.rewriteObjectPattern(): List<FieldAccess.Object> =
+        pattern.rewrite().flatMap { newPattern ->
+            createObjectPattern(newPattern)
+        }
 
-    fun createObjectPattern(pattern: SemgrepJavaPattern): FieldAccess.Object = FieldAccess.ObjectPattern(pattern)
+    fun createObjectPattern(pattern: SemgrepJavaPattern): List<FieldAccess.Object> =
+        listOf(FieldAccess.ObjectPattern(pattern))
 
-    fun Modifier.rewriteModifier(): Modifier = when (this) {
+    fun Modifier.rewriteModifier(): List<Modifier> = when (this) {
         is Annotation -> rewriteAnnotation()
     }
 
-    fun Annotation.rewriteAnnotation(): Annotation = createAnnotation(
-        name.rewriteTypeName(),
-        args.rewriteMethodArguments()
-    )
+    fun Annotation.rewriteAnnotation(): List<Annotation> {
+        val newName = name.rewriteTypeName()
+        val newArgsOptions = args.rewriteMethodArguments()
 
-    fun ImportStatement.rewriteImportStatement(): SemgrepJavaPattern = createImportStatement(
-        dotSeparatedParts.map { it.rewriteName() },
-        isConcrete
-    )
+        return newArgsOptions.flatMap { newArgs ->
+            createAnnotation(newName, newArgs)
+        }
+    }
 
-    fun createImportStatement(dotSeparatedParts: List<Name>, isConcrete: Boolean): SemgrepJavaPattern =
-        ImportStatement(dotSeparatedParts, isConcrete)
+    fun ImportStatement.rewriteImportStatement(): List<SemgrepJavaPattern> =
+        createImportStatement(
+            dotSeparatedParts = dotSeparatedParts.map { it.rewriteName() },
+            isConcrete = isConcrete
+        )
 
-    fun CatchStatement.rewriteCatchStatement(): SemgrepJavaPattern = createCatchStatement(
-        exceptionTypes.map { it.rewriteTypeName() },
-        exceptionVariable.rewriteName(),
-        handlerBlock.rewrite(),
-    )
+    fun createImportStatement(dotSeparatedParts: List<Name>, isConcrete: Boolean): List<SemgrepJavaPattern> =
+        listOf(ImportStatement(dotSeparatedParts, isConcrete))
+
+    fun CatchStatement.rewriteCatchStatement(): List<SemgrepJavaPattern> {
+        val newExceptionTypes = exceptionTypes.map { it.rewriteTypeName() }
+        val newExceptionVariable = exceptionVariable.rewriteName()
+        val newHandlerBlockOptions = handlerBlock.rewrite()
+
+        return newHandlerBlockOptions.flatMap { newHandlerBlock ->
+            createCatchStatement(newExceptionTypes, newExceptionVariable, newHandlerBlock)
+        }
+    }
 
     fun createCatchStatement(
         exceptionTypes: List<TypeName>,
         exceptionVariable: Name,
         handlerBlock: SemgrepJavaPattern
-    ): SemgrepJavaPattern = CatchStatement(exceptionTypes, exceptionVariable, handlerBlock)
+    ): List<SemgrepJavaPattern> = listOf(CatchStatement(exceptionTypes, exceptionVariable, handlerBlock))
 
-    fun DeepExpr.rewriteDeepExpr(): SemgrepJavaPattern = createDeepExpr(nestedExpr.rewrite())
+    fun DeepExpr.rewriteDeepExpr(): List<SemgrepJavaPattern> = nestedExpr.rewrite().flatMap { newNestedExpr ->
+        createDeepExpr(newNestedExpr)
+    }
 
-    fun createDeepExpr(nestedExpr: SemgrepJavaPattern): SemgrepJavaPattern = DeepExpr(nestedExpr)
+    fun createDeepExpr(nestedExpr: SemgrepJavaPattern): List<SemgrepJavaPattern> = listOf(DeepExpr(nestedExpr))
 }
 
 open class RewriteException(message: String) : Exception(message) {
     override fun fillInStackTrace(): Throwable = this
 }
 
-fun rewriteFailure(message: String): Nothing = throw RewriteException(message)
-
 inline fun PatternRewriter.safeRewrite(
     pattern: SemgrepJavaPattern,
     onException: (RewriteException) -> Nothing,
-): SemgrepJavaPattern = try {
+): List<SemgrepJavaPattern> = try {
     pattern.rewrite()
 } catch (ex: RewriteException) {
     onException(ex)
+}
+
+inline fun PatternRewriter.safeRewrite(
+    rule: NormalizedSemgrepRule,
+    onException: (RewriteException) -> Nothing,
+): List<NormalizedSemgrepRule> {
+    val newPatternsOptions = rule.patterns
+        .map { safeRewrite(it, onException) }
+        .cartesianProductMapTo { it.toList() }
+
+    val newPatternInsidesOptions = rule.patternInsides
+        .map { safeRewrite(it, onException) }
+        .cartesianProductMapTo { it.toList() }
+
+    val newPatternNots = rule.patternNots
+        .flatMap { safeRewrite(it, onException) }
+
+    val newPatternNotInsides = rule.patternNotInsides
+        .flatMap { safeRewrite(it, onException) }
+
+    return newPatternsOptions.flatMap { newPatterns ->
+        newPatternInsidesOptions.map { newPatternInsides ->
+            NormalizedSemgrepRule(
+                patterns = newPatterns,
+                patternNots = newPatternNots,
+                patternInsides = newPatternInsides,
+                patternNotInsides = newPatternNotInsides
+            )
+        }
+    }
 }

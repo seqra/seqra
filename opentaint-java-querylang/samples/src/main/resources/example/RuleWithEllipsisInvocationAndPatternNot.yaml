@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithEllipsisInvocationAndPatternNot
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithEllipsisInvocationAndPatternNot
+    patterns:
+      - pattern: |-
+          $A = src();
+          $B = $A. ... .toString();
+          sink($B)
+      - pattern-not: |-
+          $A = src();
+          $B = $A.getObjBad().toString();
+          sink($B)

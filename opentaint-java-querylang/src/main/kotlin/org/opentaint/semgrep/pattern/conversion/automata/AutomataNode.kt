@@ -17,7 +17,8 @@ class AutomataNode {
         return newNode
     }
 
-    fun deepCopy(): AutomataNode {
-        return deepCopy(mutableMapOf())
+    fun deepCopy(): Pair<AutomataNode, Map<AutomataNode, AutomataNode>> {
+        val newNodes = mutableMapOf<AutomataNode, AutomataNode>()
+        return deepCopy(newNodes) to newNodes
     }
 }

@@ -25,6 +25,9 @@ class ExampleTest : SampleBasedTest() {
     fun `test rule with pattern-not-inside prefix`() = runTest<example.RuleWithNotInsidePrefix>()
 
     @Test
+    fun `test rule with intersection`() = runTest<example.RuleWithIntersection>()
+
+    @Test
     @Disabled // todo: loop assign vars
     fun `test rule with pattern-not-inside suffix`() = runTest<example.RuleWithNotInsideSuffix>()
 
@@ -36,6 +39,12 @@ class ExampleTest : SampleBasedTest() {
 
     @Test
     fun `test rule with artificial pattern-inside sequence`() = runTest<example.RuleWithArtificialInsideSequence>()
+
+    @Test
+    fun `test rule with ellipsis method invocation`() = runTest<example.RuleWithEllipsisMethodInvocation>()
+
+    @Test
+    fun `test rule with ellipsis method invocation and pattern not`() = runTest<example.RuleWithEllipsisInvocationAndPatternNot>()
 
     @Test
     @Disabled // todo: loop assign vars

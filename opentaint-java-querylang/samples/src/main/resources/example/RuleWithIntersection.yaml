@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithIntersection
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithIntersection
+    patterns:
+      - pattern: |-
+          $A = src();
+          ...
+          sink($A);
+      - pattern: |-
+          $B = src();
+          ...
+          sink($B);

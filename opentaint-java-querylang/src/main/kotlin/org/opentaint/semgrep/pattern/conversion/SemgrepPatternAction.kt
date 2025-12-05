@@ -1,7 +1,7 @@
 package org.opentaint.semgrep.pattern.conversion
 
 sealed interface SemgrepPatternAction {
-    val metavars: List<String>
+    val metavars: List<MetavarAtom>
     val result: ParamCondition?
     fun setResultCondition(condition: ParamCondition): SemgrepPatternAction
 
@@ -18,9 +18,9 @@ sealed interface SemgrepPatternAction {
         val obj: ParamCondition?,
         val enclosingClassName: TypeNamePattern?,
     ) : SemgrepPatternAction {
-        override val metavars: List<String>
+        override val metavars: List<MetavarAtom>
             get() {
-                val metavars = mutableSetOf<String>()
+                val metavars = mutableSetOf<MetavarAtom>()
                 params.conditions.forEach { it.collectMetavarTo(metavars) }
                 obj?.collectMetavarTo(metavars)
                 result?.collectMetavarTo(metavars)
@@ -41,9 +41,9 @@ sealed interface SemgrepPatternAction {
         override val result: ParamCondition?,
         val params: ParamConstraint,
     ) : SemgrepPatternAction {
-        override val metavars: List<String>
+        override val metavars: List<MetavarAtom>
             get() {
-                val metavars = mutableSetOf<String>()
+                val metavars = mutableSetOf<MetavarAtom>()
                 params.conditions.forEach { it.collectMetavarTo(metavars) }
                 result?.collectMetavarTo(metavars)
                 return metavars.toList()
@@ -79,9 +79,9 @@ sealed interface SemgrepPatternAction {
         val enclosingClassMetavar: String?,
         val enclosingClassModifiers: List<SignatureModifier>,
     ): SemgrepPatternAction {
-        override val metavars: List<String>
+        override val metavars: List<MetavarAtom>
             get() {
-                val metavars = mutableSetOf<String>()
+                val metavars = mutableSetOf<MetavarAtom>()
                 params.conditions.forEach { it.collectMetavarTo(metavars) }
                 return metavars.toList()
             }

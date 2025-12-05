@@ -1,5 +1,6 @@
 package org.opentaint.semgrep.pattern.conversion.automata.operations
 
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations.unifyMetavars
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
@@ -60,13 +61,16 @@ fun intersection(
         }
     }
 
-    return SemgrepRuleAutomata(
+    val intersection = SemgrepRuleAutomata(
         a1.formulaManager,
         setOf(root),
         isDeterministic = a1.isDeterministic && a2.isDeterministic,
         hasMethodEnter = a1.hasMethodEnter && a2.hasMethodEnter,
         hasEndEdges = a1.hasEndEdges && a2.hasEndEdges,
-    ).also {
+    )
+
+    val unified = unifyMetavars(intersection, metaVarInfo)
+    return unified.also {
         removeDeadNodes(it)
     }
 }

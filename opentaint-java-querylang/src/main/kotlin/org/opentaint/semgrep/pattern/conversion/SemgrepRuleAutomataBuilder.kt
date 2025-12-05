@@ -2,6 +2,7 @@ package org.opentaint.semgrep.pattern.conversion
 
 import org.slf4j.event.Level
 import org.opentaint.semgrep.pattern.AbstractSemgrepError
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.rewriteEllipsisMethodInvocations
 import org.opentaint.semgrep.pattern.ActionListSemgrepRule
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraints
@@ -114,7 +115,7 @@ class SemgrepRuleAutomataBuilder(
             metaVarResolvingError,
         )
 
-        val ruleAfterRewrite = rulesWithResolvedMetaVar.transform { rewriteRule(it) }
+        val ruleAfterRewrite = rulesWithResolvedMetaVar.flatMap { rewriteRule(it) }
 
         var actionListConversionFailure = 0
         val actionListConversionError = SemgrepError(
@@ -139,7 +140,12 @@ class SemgrepRuleAutomataBuilder(
 
         var emptyAutomataFailure = 0
         val ruleAutomata = ruleActionListWithoutDuplicates.flatMap { r ->
-            val automata = transformSemgrepRuleToAutomata(r.rule, r.metaVarInfo)
+            val automata = runCatching {
+                transformSemgrepRuleToAutomata(r.rule, r.metaVarInfo)
+            }.onFailure {
+                return@flatMap emptyList()
+            }.getOrThrow()
+
             if (automata.containsAcceptState()) {
                 listOf(RuleWithMetaVars(automata, r.metaVarInfo))
             } else {
@@ -203,23 +209,20 @@ class SemgrepRuleAutomataBuilder(
 
     private fun rewriteRule(
         rule: RuleWithMetaVars<NormalizedSemgrepRule, ResolvedMetaVarInfo>
-    ): RuleWithMetaVars<NormalizedSemgrepRule, ResolvedMetaVarInfo> {
-        var resultRule = rule.rule
-        var resultMetaVarInfo = rule.metaVarInfo
+    ): List<RuleWithMetaVars<NormalizedSemgrepRule, ResolvedMetaVarInfo>> {
+        var resultRules = listOf(rule.rule)
 
-        resultRule = rewriteAddExpr(resultRule)
-        resultRule = rewriteAssignEllipsis(resultRule)
-        resultRule = rewriteMethodInvocationObj(resultRule)
-        resultRule = rewriteStaticFieldAccess(resultRule)
-        resultRule = rewriteReturnStatement(resultRule)
+        resultRules = resultRules.flatMap(::rewriteAddExpr)
+        resultRules = resultRules.flatMap(::rewriteAssignEllipsis)
+        resultRules = resultRules.flatMap(::rewriteMethodInvocationObj)
+        resultRules = resultRules.flatMap(::rewriteStaticFieldAccess)
+        resultRules = resultRules.flatMap(::rewriteReturnStatement)
+        resultRules = resultRules.flatMap(::rewriteEllipsisMethodInvocations)
 
-        run {
-            val result = rewriteTypeNameWithMetaVar(resultRule, resultMetaVarInfo)
-            resultRule = result.first
-            resultMetaVarInfo = result.second
+        return resultRules.flatMap { resultRule ->
+            val result = rewriteTypeNameWithMetaVar(resultRule, rule.metaVarInfo)
+            result.first.map { RuleWithMetaVars(it, result.second) }
         }
-
-        return RuleWithMetaVars(resultRule, resultMetaVarInfo)
     }
 
     private inline fun <T, R, C> SemgrepRule<RuleWithMetaVars<T, C>>.fFlatMap(crossinline body: (T) -> List<R>): SemgrepRule<RuleWithMetaVars<R, C>> =

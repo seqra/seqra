@@ -26,7 +26,7 @@ sealed interface ParamCondition {
 
     data object AnyStringLiteral : Atom
 
-    data class StringValueMetaVar(val metaVar: String) : Atom
+    data class StringValueMetaVar(val metaVar: MetavarAtom) : Atom
 
     data class ParamModifier(val modifier: SignatureModifier): Atom
 
@@ -37,9 +37,46 @@ data class SpecificBoolValue(val value: Boolean) : ParamCondition.Atom
 
 data class SpecificStringValue(val value: String) : ParamCondition.Atom
 
-data class IsMetavar(val metavar: String) : ParamCondition.Atom
+data class IsMetavar(val metavar: MetavarAtom) : ParamCondition.Atom
 
-fun ParamCondition.collectMetavarTo(dst: MutableSet<String>) {
+sealed interface MetavarAtom {
+    val basics: Set<Basic>
+
+    data class Basic(val name: String): MetavarAtom {
+        override fun toString(): String = name
+
+        override val basics: Set<Basic>
+            get() = setOf(this)
+    }
+
+    data class Complex(override val basics: Set<Basic>): MetavarAtom {
+        override fun toString(): String {
+            return basics
+                .sortedBy { it.name }
+                .joinToString("&")
+        }
+    }
+
+    companion object {
+        fun create(metavar: String): Basic {
+            return Basic(metavar)
+        }
+
+        fun create(metavars: Collection<Basic>): MetavarAtom {
+            if (metavars.isEmpty()) {
+                error("Unexpected empty collection of metavars")
+            }
+
+            val distinct = metavars.toSet()
+            if (distinct.size == 1) {
+                return distinct.single()
+            }
+            return Complex(distinct)
+        }
+    }
+}
+
+fun ParamCondition.collectMetavarTo(dst: MutableSet<MetavarAtom>) {
     when (this) {
         is ParamCondition.And -> conditions.forEach { it.collectMetavarTo(dst) }
         is IsMetavar -> dst.add(metavar)

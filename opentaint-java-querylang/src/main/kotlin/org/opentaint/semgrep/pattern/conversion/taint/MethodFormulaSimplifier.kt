@@ -5,6 +5,8 @@ import org.opentaint.dataflow.util.forEach
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraints
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
+import org.opentaint.semgrep.pattern.conversion.IsMetavar
+import org.opentaint.semgrep.pattern.conversion.MetavarAtom
 import org.opentaint.semgrep.pattern.conversion.ParamCondition.Atom
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureName
 import org.opentaint.semgrep.pattern.conversion.TypeNamePattern
@@ -162,6 +164,15 @@ private class MethodConstraintsSolver {
 
     private val negative = hashSetOf<MethodConstraint>()
 
+    fun hasPositiveConstraint(constraint: MethodConstraint): Boolean {
+        return when (constraint) {
+            is ClassModifierConstraint -> positiveClassModifiers.contains(constraint)
+            is MethodModifierConstraint -> positiveMethodModifiers.contains(constraint)
+            is NumberOfArgsConstraint -> positiveNumberOfArgs?.equals(constraint) ?: false
+            is ParamConstraint -> positiveParams[constraint.position].orEmpty().contains(constraint.condition)
+        }
+    }
+
     fun addPositive(constraint: MethodConstraint): Unit? {
         when (constraint) {
             is ParamConstraint -> {
@@ -190,7 +201,7 @@ private class MethodConstraintsSolver {
     fun addNegative(constraint: MethodConstraint): Unit? {
         when (constraint) {
             is ParamConstraint -> {
-                val currentPositive = positiveParams[constraint.position].orEmpty()
+                val currentPositive = positiveParams[constraint.position].orEmpty() // TODO: support unified metavars
                 if (constraint.condition in currentPositive) return null
             }
 
@@ -233,13 +244,39 @@ private class MethodFormulaSolver(
     private val positive: SolverConstraints = SolverConstraints(signature = null),
     private val negated: MutableMap<MethodSignature, MutableList<SolverConstraints>> = hashMapOf()
 ) {
+    private val metavarsSeen: MutableSet<MetavarAtom> = hashSetOf()
+
+    private fun checkMetavars(predicate: Predicate): Boolean {
+        val constraint = predicate.constraint as? ParamConstraint ?: return true
+        val metavar = (constraint.condition as? IsMetavar)?.metavar ?: return true
+
+        if (metavarsSeen.add(metavar)) {
+            val newBasic = metavar.basics
+            return metavarsSeen.all {
+                val prevBasic = it.basics
+                (prevBasic == newBasic) || (prevBasic.intersect(newBasic).isEmpty())
+            }
+        }
+
+        return true
+    }
+
+
     fun addPositivePredicate(predicate: Predicate): MethodFormulaSolver? {
+        if (!checkMetavars(predicate)) {
+            return null
+        }
+
         positive.signature = positive.signature.unify(predicate.signature, metaVarInfo) ?: return null
         predicate.constraint?.let { positive.constraints.addPositive(it) ?: return null }
         return this
     }
 
     fun addNegativePredicate(predicate: Predicate): MethodFormulaSolver? {
+        if (!checkMetavars(predicate)) {
+            return null
+        }
+
         val signature = positive.signature.unify(predicate.signature, metaVarInfo)
         // incompatible signature -> predicate always false -> skip negated predicate
             ?: return this
@@ -248,15 +285,24 @@ private class MethodFormulaSolver(
             // todo: better handling of such signatures
         }
 
-        if (predicate.signature == positive.signature) {
+        if (signature == positive.signature) {
             val param = predicate.constraint ?: return null
+            if (param is ParamConstraint && param.position is Position.Result) {
+                // Position.Result holds effect but implies no constraint on condition
+                //  => same case as when predicate.constraint == null
+                return null
+            }
             positive.constraints.addNegative(param) ?: return null
-
             return this
         }
 
         val constraints = SolverConstraints(predicate.signature)
-        predicate.constraint?.let { constraints.constraints.addPositive(it) ?: error("impossible") }
+        predicate.constraint?.let { constraint ->
+            // Can skip constraint if it is ensured by positive
+            if (!positive.constraints.hasPositiveConstraint(constraint)) {
+                constraints.constraints.addPositive(constraint) ?: error("impossible")
+            }
+        }
         negated.getOrPut(predicate.signature, ::mutableListOf).add(constraints)
 
         return this

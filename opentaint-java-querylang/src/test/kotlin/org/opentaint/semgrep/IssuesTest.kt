@@ -27,7 +27,6 @@ class IssuesTest : SampleBasedTest() {
     fun `issue 74`() = runTest<issues.issue74>()
 
     @Test // todo: ellipsis method invocation
-    @Disabled
     fun `issue 75`() = runTest<issues.issue75>()
 
     @Test
