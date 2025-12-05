@@ -10,10 +10,8 @@ object Versions {
     const val commonsCli = "1.5.0"
     const val detekt = "1.23.7"
     const val ini4j = "0.5.4"
-    const val opentaint-solver = "0.5.26"
     const val logback = "1.4.8"
     const val mockk = "1.13.4"
-    const val rd = "2023.2.0"
     const val sarif4k = "0.5.0"
     const val shadow = "8.3.3"
     const val slf4j = "1.6.1"
@@ -24,6 +22,10 @@ object Versions {
     const val brics_automaton = "1.11-8"
     const val antlr = "4.9.3"
 
+    const val opentaintUtil = "2025.07.24.e2de8fa"
+    const val opentaintConfig = "2025.07.24.d34a262"
+    const val opentaintProject = "2025.07.24.f65b6cc"
+
     // versions for jvm samples
     object Samples {
         const val lombok = "1.18.20"
@@ -32,9 +34,6 @@ object Versions {
         const val findBugs = "1.3.9-1"
         const val jetbrainsAnnotations = "16.0.2"
     }
-
-    const val pythonTypesAPI = "139b81d"
-    const val opentaintMypyRunner = "0.2.17"
 }
 
 object Libs {
@@ -81,43 +80,6 @@ object Libs {
         version = Versions.logback
     )
 
-    // https://github.com/Opentaint/opentaint-solver
-    val opentaint-solver_core = dep(
-        group = "io.opentaint-solver",
-        name = "opentaint-solver-core",
-        version = Versions.opentaint-solver
-    )
-    val opentaint-solver_runner = dep(
-        group = "io.opentaint-solver",
-        name = "opentaint-solver-runner",
-        version = Versions.opentaint-solver
-    )
-    val opentaint-solver_z3 = dep(
-        group = "io.opentaint-solver",
-        name = "opentaint-solver-z3",
-        version = Versions.opentaint-solver
-    )
-    val opentaint-solver_yices = dep(
-        group = "io.opentaint-solver",
-        name = "opentaint-solver-yices",
-        version = Versions.opentaint-solver
-    )
-    val opentaint-solver_cvc5 = dep(
-        group = "io.opentaint-solver",
-        name = "opentaint-solver-cvc5",
-        version = Versions.opentaint-solver
-    )
-    val opentaint-solver_bitwuzla = dep(
-        group = "io.opentaint-solver",
-        name = "opentaint-solver-bitwuzla",
-        version = Versions.opentaint-solver
-    )
-    val opentaint-solver_symfpu = dep(
-        group = "io.opentaint-solver",
-        name = "opentaint-solver-symfpu",
-        version = Versions.opentaint-solver
-    )
-
     // https://github.com/mockk/mockk
     val mockk = dep(
         group = "io.mockk",
@@ -132,35 +94,11 @@ object Libs {
         version = Versions.sarif4k
     )
 
-    // https://github.com/JetBrains/rd
-    val rd_core = dep(
-        group = "com.jetbrains.rd",
-        name = "rd-core",
-        version = Versions.rd
-    )
-    val rd_framework = dep(
-        group = "com.jetbrains.rd",
-        name = "rd-framework",
-        version = Versions.rd
-    )
-    val rd_gen = dep(
-        group = "com.jetbrains.rd",
-        name = "rd-gen",
-        version = Versions.rd
-    )
-
     // https://github.com/facebookarchive/ini4j
     val ini4j = dep(
         group = "org.ini4j",
         name = "ini4j",
         version = Versions.ini4j
-    )
-
-    // https://github.com/Opentaint/PythonTypesAPI
-    val python_types_api = dep(
-        group = "com.github.Opentaint",
-        name = "PythonTypesAPI",
-        version = Versions.pythonTypesAPI
     )
 
     // https://github.com/ajalt/clikt
@@ -186,6 +124,30 @@ object Libs {
         group = "it.unimi.dsi",
         name = "fastutil-core",
         version = Versions.fastutil,
+    )
+
+    val opentaintUtilJvm = dep(
+        group = "org.opentaint.utils",
+        name = "opentaint-jvm-util",
+        version = Versions.opentaintUtil,
+    )
+
+    val opentaintUtilCli = dep(
+        group = "org.opentaint.utils",
+        name = "cli-util",
+        version = Versions.opentaintUtil,
+    )
+
+    val opentaintRulesJvm = dep(
+        group = "org.opentaint.configuration",
+        name = "configuration-rules-jvm",
+        version = Versions.opentaintConfig,
+    )
+
+    val opentaintProject = dep(
+        group = "org.opentaint.project",
+        name = "opentaint-project-model",
+        version = Versions.opentaintProject
     )
 }
 

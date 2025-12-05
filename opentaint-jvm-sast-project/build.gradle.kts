@@ -6,7 +6,7 @@ plugins {
 }
 
 dependencies {
-    implementation("org.opentaint.project:opentaint-project-model:2025.07.15.27da752")
+    implementation(Libs.opentaintProject)
 
     implementation(OpentaintIrDependency.Libs.opentaint-ir_api_jvm)
     implementation(OpentaintIrDependency.Libs.opentaint-ir_core)

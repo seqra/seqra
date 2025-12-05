@@ -10,12 +10,11 @@ plugins {
 }
 
 dependencies {
-    implementation("org.opentaint.utils:opentaint-jvm-util:2025.07.15.693dc19")
-    implementation("org.opentaint.utils:cli-util:2025.07.15.693dc19")
+    implementation(Libs.opentaintUtilJvm)
+    implementation(Libs.opentaintUtilCli)
+    implementation(Libs.opentaintProject)
+    implementation(Libs.opentaintRulesJvm)
 
-    implementation("org.opentaint.project:opentaint-project-model:2025.07.15.27da752")
-
-    implementation("org.opentaint.configuration:configuration-rules-jvm:2025.07.15.703f6e5")
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-jvm-dataflow")
     implementation("org.opentaint.sast.se:api")
 
@@ -88,7 +87,7 @@ fun JavaExec.configureAnalyzer(analyzerRunnerClassName: String) {
     val envVars = mutableMapOf("opentaint_taint_config_path" to configFile)
 
     doFirst {
-        val opentaintApiJarPath = tryResolveDependency("org.opentaint.jvm:api")
+        val opentaintApiJarPath = tryResolveDependency("org.opentaint.engine.jvm:api")
         if (opentaintApiJarPath != null) {
             val opentaintApproximationJarPath = approximations.resolvedConfiguration.files.single()
 

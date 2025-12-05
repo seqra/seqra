@@ -10,8 +10,8 @@ plugins {
 dependencies {
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-dataflow")
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-jvm-dataflow")
-    implementation("org.opentaint.configuration:configuration-rules-jvm:2025.07.15.703f6e5")
-    implementation("org.opentaint.utils:opentaint-jvm-util:2025.07.15.693dc19")
+    implementation(Libs.opentaintRulesJvm)
+    implementation(Libs.opentaintUtilJvm)
 
     implementation(KotlinDependency.Libs.kaml)
 

@@ -21,7 +21,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.impl.features.SyncUsagesExtension
 import org.opentaint.ir.impl.features.hierarchyExt
-import org.opentaint.jvm.graph.JIRApplicationGraphImpl
+import org.opentaint.jvm.graph.JApplicationGraphImpl
 import org.opentaint.semgrep.pattern.SemgrepMatchingResult.Companion.noMatch
 import org.opentaint.semgrep.pattern.SemgrepMatchingResult.Companion.single
 import org.opentaint.semgrep.pattern.SemgrepMatchingResult.Companion.singleEmptyMatch
@@ -66,7 +66,7 @@ class SemgrepJavaPatternMatcher(
 
     private val matchingCache = hashMapOf<MatchingKey, MutableMap<SemgrepJavaPattern, SemgrepMatchingResult>>()
 
-    private val graph = JIRApplicationGraphImpl(cp, SyncUsagesExtension(runBlocking { cp.hierarchyExt() }, cp))
+    private val graph = JApplicationGraphImpl(cp, SyncUsagesExtension(runBlocking { cp.hierarchyExt() }, cp))
 
     private fun matchWithCache(
         key: MatchingKey,

@@ -7,9 +7,9 @@ import com.charleskorn.kaml.YamlList
 import com.charleskorn.kaml.YamlScalar
 import kotlinx.serialization.decodeFromString
 import mu.KLogging
-import org.slf4j.event.Level
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
+import org.slf4j.event.Level
 import org.opentaint.semgrep.pattern.conversion.ActionListBuilder
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
 import org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder

@@ -9,18 +9,20 @@ import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.impl.features.usagesExt
-import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
-import org.opentaint.dataflow.ap.ifds.access.ApMode
-import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
-import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
-import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
-import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.jvm.Argument
 import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
 import org.opentaint.dataflow.configuration.jvm.Result
 import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
 import org.opentaint.dataflow.configuration.jvm.TaintSinkMeta
+import org.opentaint.jvm.graph.JApplicationGraphImpl
+import org.opentaint.util.analysis.ApplicationGraph
+import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
+import org.opentaint.dataflow.ap.ifds.access.ApMode
+import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
+import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
+import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
+import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
@@ -31,8 +33,6 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.jvm.ifds.PackageUnit
 import org.opentaint.dataflow.util.percentToString
-import org.opentaint.jvm.graph.JIRApplicationGraphImpl
-import org.opentaint.util.analysis.ApplicationGraph
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -57,7 +57,7 @@ class JIRTaintAnalyzer(
 
     private val ifdsAnalysisGraph by lazy {
         val usages = runBlocking { cp.usagesExt() }
-        val mainGraph = JIRApplicationGraphImpl(cp, usages)
+        val mainGraph = JApplicationGraphImpl(cp, usages)
         JIRSafeApplicationGraph(mainGraph)
     }
 

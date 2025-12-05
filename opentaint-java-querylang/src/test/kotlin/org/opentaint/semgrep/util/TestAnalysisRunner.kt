@@ -25,11 +25,11 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.applyAnalysisEndSinksForEntryPoints
 import org.opentaint.dataflow.jvm.graph.MethodReturnInstNormalizerFeature
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
-import org.opentaint.jvm.graph.JIRApplicationGraphImpl
+import org.opentaint.jvm.graph.JApplicationGraphImpl
 import org.opentaint.jvm.sast.dataflow.DummySerializationContext
 import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
-import org.opentaint.jvm.transformer.JIRMultiDimArrayAllocationTransformer
-import org.opentaint.jvm.transformer.JIRStringConcatTransformer
+import org.opentaint.jvm.transformer.JMultiDimArrayAllocationTransformer
+import org.opentaint.jvm.transformer.JStringConcatTransformer
 import org.opentaint.util.analysis.ApplicationGraph
 import java.nio.file.Path
 import kotlin.time.Duration.Companion.minutes
@@ -51,7 +51,7 @@ class TestAnalysisRunner(
 
         val features = mutableListOf(
             UnknownClasses, lambdaAnonymousClass, lambdaTransformer, methodNormalizer,
-            JIRStringConcatTransformer, JIRMultiDimArrayAllocationTransformer
+            JStringConcatTransformer, JMultiDimArrayAllocationTransformer
         )
 
         val allCpFiles = listOf(samples.samplesJar.toFile())
@@ -64,7 +64,7 @@ class TestAnalysisRunner(
 
     private val ifdsAnalysisGraph by lazy {
         val usages = runBlocking { cp.usagesExt() }
-        val mainGraph = JIRApplicationGraphImpl(cp, usages)
+        val mainGraph = JApplicationGraphImpl(cp, usages)
         JIRSafeApplicationGraph(mainGraph)
     }
 

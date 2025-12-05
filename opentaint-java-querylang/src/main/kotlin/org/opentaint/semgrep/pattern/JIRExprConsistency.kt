@@ -1,11 +1,11 @@
 package org.opentaint.semgrep.pattern
 
 import org.opentaint.ir.api.jvm.cfg.JIRExpr
-import org.opentaint.jvm.graph.JIRApplicationGraph
+import org.opentaint.jvm.graph.JApplicationGraph
 
 // TODO: points-to analysis
 fun checkJIRExprConsistency(
-    graph: JIRApplicationGraph,
+    graph: JApplicationGraph,
     strategy: LocalVarStrategy,
     a: Pair<JIRExpr, ExprPosition?>,
     b: Pair<JIRExpr, ExprPosition?>,

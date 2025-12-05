@@ -20,8 +20,8 @@ import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.ir.api.jvm.ext.findType
 import org.opentaint.ir.impl.cfg.JIRGraphImpl
-import org.opentaint.jvm.transformer.JIRSingleInstructionTransformer
-import org.opentaint.jvm.transformer.JIRSingleInstructionTransformer.BlockGenerationContext
+import org.opentaint.jvm.transformer.JSingleInstructionTransformer
+import org.opentaint.jvm.transformer.JSingleInstructionTransformer.BlockGenerationContext
 
 object SpringReactorOperatorsTransformer : JIRInstExtFeature {
     override fun transformInstList(method: JIRMethod, list: JIRInstList<JIRInst>): JIRInstList<JIRInst> {
@@ -43,7 +43,7 @@ object SpringReactorOperatorsTransformer : JIRInstExtFeature {
 
         if (fieldSetters.isEmpty()) return list
 
-        val transformer = JIRSingleInstructionTransformer(list)
+        val transformer = JSingleInstructionTransformer(list)
         val boolType = method.enclosingClass.classpath.findType(PredefinedPrimitives.Boolean)
         for ((setterCall, setter) in fieldSetters) {
             transformer.generateReplacementBlock(setterCall) {

@@ -15,8 +15,8 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRSummariesFeature
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
 import org.opentaint.dataflow.jvm.graph.MethodReturnInstNormalizerFeature
-import org.opentaint.jvm.transformer.JIRMultiDimArrayAllocationTransformer
-import org.opentaint.jvm.transformer.JIRStringConcatTransformer
+import org.opentaint.jvm.transformer.JMultiDimArrayAllocationTransformer
+import org.opentaint.jvm.transformer.JStringConcatTransformer
 import org.opentaint.jvm.util.classpathWithApproximations
 import org.opentaint.jvm.util.types.installClassScorer
 import org.opentaint.project.Project
@@ -86,7 +86,7 @@ fun initializeProjectAnalysisContext(
 
         val features = mutableListOf(
             UnknownClasses, lambdaAnonymousClass, lambdaTransformer, methodNormalizer,
-            JIRStringConcatTransformer, JIRMultiDimArrayAllocationTransformer,
+            JStringConcatTransformer, JMultiDimArrayAllocationTransformer,
             classPathExtensionFeature
         )
 
