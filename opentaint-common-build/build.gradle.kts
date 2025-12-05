@@ -16,11 +16,13 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
 }
 
+val opentaintOrg = properties.getOrDefault("opentaintOrg", "opentaint")
+
 publishing {
     repositories {
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/explyt/opentaint-common-build")
+            url = uri("https://maven.pkg.github.com/$opentaintOrg/opentaint-common-build")
             credentials {
                 username = System.getenv("GITHUB_ACTOR")
                 password = System.getenv("GITHUB_TOKEN")

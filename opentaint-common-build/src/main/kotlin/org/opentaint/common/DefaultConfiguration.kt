@@ -51,7 +51,7 @@ fun Project.configureDefault(projectName: String) {
         }
     }
 
-    val organizationRepo = "explyt"
+    val organizationRepo = properties.getOrDefault("opentaintOrg", "opentaint")
 
     extensions.configure<PublishingExtension> {
         repositories {
