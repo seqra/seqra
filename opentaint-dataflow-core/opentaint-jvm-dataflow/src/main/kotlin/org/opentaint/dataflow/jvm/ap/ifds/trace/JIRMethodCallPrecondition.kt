@@ -155,7 +155,7 @@ class JIRMethodCallPrecondition(
             taintConfig,
             method,
             statement,
-            ruleConditionEvaluator.withoutAssumptions(),
+            ruleConditionEvaluator,
             rulePreconditionEvaluator
         )
 

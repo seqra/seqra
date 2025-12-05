@@ -172,7 +172,7 @@ class JIRMethodCallFlowFunction(
             method,
             statement,
             factReaderBeforeCleaner,
-            conditionEvaluator.withoutAssumptions(),
+            conditionEvaluator,
             cleaner
         ) ?: return
 
@@ -185,7 +185,7 @@ class JIRMethodCallFlowFunction(
             config,
             method,
             statement,
-            conditionEvaluator.withoutAssumptions(),
+            conditionEvaluator,
             passEvaluator
         )
 

@@ -2,6 +2,7 @@ package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.ext.toType
+import org.opentaint.util.onSome
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
@@ -15,10 +16,8 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRFactAwareConditionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.JIRInstanceTypeMethodContext
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyEntryPointConfig
 import org.opentaint.dataflow.jvm.ap.ifds.jirDowncast
-import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRBasicConditionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintSourceActionEvaluator
-import org.opentaint.util.onSome
 
 class JIRMethodStartFlowFunction(
     private val apManager: ApManager,
@@ -32,7 +31,7 @@ class JIRMethodStartFlowFunction(
 
         val method = context.methodEntryPoint.method as JIRMethod
         val valueResolver = CalleePositionToJIRValueResolver(method)
-        val conditionEvaluator = JIRBasicConditionEvaluator(valueResolver, context.factTypeChecker)
+        val conditionEvaluator = JIRFactAwareConditionEvaluator(facts = emptyList(), valueResolver, context.factTypeChecker)
 
         val sourceEvaluator = TaintSourceActionEvaluator(
             apManager,

@@ -27,29 +27,25 @@ import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.PositionResolver
 import org.opentaint.dataflow.configuration.jvm.TypeMatches
 import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
-import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
 import org.opentaint.util.Maybe
 import org.opentaint.util.onSome
+import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
 
-open class JIRBasicConditionEvaluator(
+class JIRBasicAtomEvaluator(
+    private val negated: Boolean,
     private val positionResolver: PositionResolver<Maybe<JIRValue>>,
     private val typeChecker: JIRFactTypeChecker
 ) : ConditionVisitor<Boolean> {
+    override fun visit(condition: Not): Boolean = error("Non-atomic condition")
+    override fun visit(condition: And): Boolean = error("Non-atomic condition")
+    override fun visit(condition: Or): Boolean = error("Non-atomic condition")
+
+    override fun visit(condition: ContainsMark): Boolean {
+        error("This visitor does not support condition $condition. Use FactAwareConditionEvaluator instead")
+    }
 
     override fun visit(condition: ConstantTrue): Boolean {
         return true
-    }
-
-    override fun visit(condition: Not): Boolean {
-        return !condition.arg.accept(this)
-    }
-
-    override fun visit(condition: And): Boolean {
-        return condition.args.all { it.accept(this) }
-    }
-
-    override fun visit(condition: Or): Boolean {
-        return condition.args.any { it.accept(this) }
     }
 
     override fun visit(condition: IsConstant): Boolean{
@@ -85,10 +81,6 @@ open class JIRBasicConditionEvaluator(
             return matches(value, condition.pattern)
         }
         return false
-    }
-
-    override fun visit(condition: ContainsMark): Boolean {
-        error("This visitor does not support condition $condition. Use FactAwareConditionEvaluator instead")
     }
 
     override fun visit(condition: TypeMatches): Boolean   {
@@ -187,6 +179,8 @@ open class JIRBasicConditionEvaluator(
 
             is ConditionNameMatcher.Concrete -> {
                 if (pattern.name == type.typeName) return true
+
+                if (negated) return false
 
                 if (type.typeName == "java.lang.Object") {
                     // todo: hack to avoid explosion
