@@ -79,13 +79,14 @@ import org.opentaint.ir.api.jvm.cfg.JIRRawUshrExpr
 import org.opentaint.ir.api.jvm.cfg.JIRRawValue
 import org.opentaint.ir.api.jvm.cfg.JIRRawVirtualCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRRawXorExpr
-import org.opentaint.ir.approximation.Approximations.findOriginalByApproximationOrNull
 import org.opentaint.ir.impl.types.TypeNameImpl
 
 /**
  * Removes all occurrences of approximations with their targets in [JIRRawInst]s and [JIRRawExpr]s.
  */
-object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawExprVisitor<JIRRawExpr> {
+class InstSubstitutorForApproximations(
+    private val approximations: Approximations
+) : JIRRawInstVisitor<JIRRawInst>, JIRRawExprVisitor<JIRRawExpr> {
     override fun visitJIRRawAssignInst(inst: JIRRawAssignInst): JIRRawInst {
         val newLhv = inst.lhv.accept(this) as JIRRawValue
         val newRhv = inst.rhv.accept(this)
@@ -128,7 +129,7 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
     override fun visitJIRRawCatchInst(inst: JIRRawCatchInst): JIRRawInst {
         val newThrowable = inst.throwable.accept(this) as JIRRawValue
         val entries = inst.entries.map {
-            it.copy(acceptedThrowable = it.acceptedThrowable.eliminateApproximation())
+            it.copy(acceptedThrowable = it.acceptedThrowable.eliminateApproximation(approximations))
         }
 
         return JIRRawCatchInst(inst.owner, newThrowable, inst.handler, entries)
@@ -156,7 +157,7 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
         val newLhv = expr.lhv.accept(this) as JIRRawValue
         val newRhv = expr.rhv.accept(this) as JIRRawValue
 
-        return constructor(newLhv.typeName.eliminateApproximation(), newLhv, newRhv)
+        return constructor(newLhv.typeName.eliminateApproximation(approximations), newLhv, newRhv)
     }
 
     override fun visitJIRRawAddExpr(expr: JIRRawAddExpr): JIRRawExpr = binaryHandler(expr) { type, lhv, rhv ->
@@ -188,27 +189,27 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
     }
 
     override fun visitJIRRawEqExpr(expr: JIRRawEqExpr) = binaryHandler(expr) { _, lhv, rhv ->
-        JIRRawEqExpr(expr.typeName.eliminateApproximation(), lhv, rhv)
+        JIRRawEqExpr(expr.typeName.eliminateApproximation(approximations), lhv, rhv)
     }
 
     override fun visitJIRRawNeqExpr(expr: JIRRawNeqExpr) = binaryHandler(expr) { _, lhv, rhv ->
-        JIRRawNeqExpr(expr.typeName.eliminateApproximation(), lhv, rhv)
+        JIRRawNeqExpr(expr.typeName.eliminateApproximation(approximations), lhv, rhv)
     }
 
     override fun visitJIRRawGeExpr(expr: JIRRawGeExpr) = binaryHandler(expr) { _, lhv, rhv ->
-        JIRRawGeExpr(expr.typeName.eliminateApproximation(), lhv, rhv)
+        JIRRawGeExpr(expr.typeName.eliminateApproximation(approximations), lhv, rhv)
     }
 
     override fun visitJIRRawGtExpr(expr: JIRRawGtExpr) = binaryHandler(expr) { _, lhv, rhv ->
-        JIRRawGtExpr(expr.typeName.eliminateApproximation(), lhv, rhv)
+        JIRRawGtExpr(expr.typeName.eliminateApproximation(approximations), lhv, rhv)
     }
 
     override fun visitJIRRawLeExpr(expr: JIRRawLeExpr) = binaryHandler(expr) { _, lhv, rhv ->
-        JIRRawLeExpr(expr.typeName.eliminateApproximation(), lhv, rhv)
+        JIRRawLeExpr(expr.typeName.eliminateApproximation(approximations), lhv, rhv)
     }
 
     override fun visitJIRRawLtExpr(expr: JIRRawLtExpr) = binaryHandler(expr) { _, lhv, rhv ->
-        JIRRawLtExpr(expr.typeName.eliminateApproximation(), lhv, rhv)
+        JIRRawLtExpr(expr.typeName.eliminateApproximation(approximations), lhv, rhv)
     }
 
     override fun visitJIRRawOrExpr(expr: JIRRawOrExpr) = binaryHandler(expr) { type, lhv, rhv ->
@@ -241,17 +242,17 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
 
     override fun visitJIRRawLengthExpr(expr: JIRRawLengthExpr): JIRRawExpr {
         val newArray = expr.array.accept(this) as JIRRawValue
-        return JIRRawLengthExpr(expr.typeName.eliminateApproximation(), newArray)
+        return JIRRawLengthExpr(expr.typeName.eliminateApproximation(approximations), newArray)
     }
 
     override fun visitJIRRawNegExpr(expr: JIRRawNegExpr): JIRRawExpr {
         val newOperand = expr.operand.accept(this) as JIRRawValue
-        return JIRRawNegExpr(newOperand.typeName.eliminateApproximation(), newOperand)
+        return JIRRawNegExpr(newOperand.typeName.eliminateApproximation(approximations), newOperand)
     }
 
     override fun visitJIRRawCastExpr(expr: JIRRawCastExpr): JIRRawExpr {
         val newOperand = expr.operand.accept(this) as JIRRawValue
-        return JIRRawCastExpr(expr.typeName.eliminateApproximation(), newOperand)
+        return JIRRawCastExpr(expr.typeName.eliminateApproximation(approximations), newOperand)
     }
 
     override fun visitJIRRawNewExpr(expr: JIRRawNewExpr): JIRRawExpr {
@@ -260,22 +261,22 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
 
     override fun visitJIRRawNewArrayExpr(expr: JIRRawNewArrayExpr): JIRRawExpr {
         val newDimensions = expr.dimensions.map { it.accept(this) as JIRRawValue }
-        return JIRRawNewArrayExpr(expr.typeName.eliminateApproximation(), newDimensions)
+        return JIRRawNewArrayExpr(expr.typeName.eliminateApproximation(approximations), newDimensions)
     }
 
     override fun visitJIRRawInstanceOfExpr(expr: JIRRawInstanceOfExpr): JIRRawExpr {
         val newOperand = expr.operand.accept(this) as JIRRawValue
         return JIRRawInstanceOfExpr(
-            expr.typeName.eliminateApproximation(),
+            expr.typeName.eliminateApproximation(approximations),
             newOperand,
-            expr.targetType.eliminateApproximation()
+            expr.targetType.eliminateApproximation(approximations)
         )
     }
 
     private fun BsmHandle.eliminateApproximations(): BsmHandle = copy(
-        declaringClass = declaringClass.eliminateApproximation(),
-        argTypes = argTypes.map { it.eliminateApproximation() },
-        returnType = returnType.eliminateApproximation()
+        declaringClass = declaringClass.eliminateApproximation(approximations),
+        argTypes = argTypes.map { it.eliminateApproximation(approximations) },
+        returnType = returnType.eliminateApproximation(approximations)
     )
 
     override fun visitJIRRawDynamicCallExpr(expr: JIRRawDynamicCallExpr): JIRRawExpr {
@@ -292,17 +293,17 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
                         is BsmIntArg -> arg
                         is BsmLongArg -> arg
                         is BsmMethodTypeArg -> arg.copy(
-                            arg.argumentTypes.map { it.eliminateApproximation() },
-                            arg.returnType.eliminateApproximation()
+                            arg.argumentTypes.map { it.eliminateApproximation(approximations) },
+                            arg.returnType.eliminateApproximation(approximations)
                         )
 
                         is BsmStringArg -> arg
-                        is BsmTypeArg -> arg.copy(arg.typeName.eliminateApproximation())
+                        is BsmTypeArg -> arg.copy(arg.typeName.eliminateApproximation(approximations))
                     }
                 },
                 callSiteMethodName,
-                callSiteArgTypes.map { it.eliminateApproximation() },
-                callSiteReturnType.eliminateApproximation(),
+                callSiteArgTypes.map { it.eliminateApproximation(approximations) },
+                callSiteReturnType.eliminateApproximation(approximations),
                 newArgs
             )
         }
@@ -314,10 +315,10 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
 
         return with(expr) {
             JIRRawVirtualCallExpr(
-                declaringClass.eliminateApproximation(),
+                declaringClass.eliminateApproximation(approximations),
                 methodName,
-                argumentTypes.map { it.eliminateApproximation() },
-                returnType.eliminateApproximation(),
+                argumentTypes.map { it.eliminateApproximation(approximations) },
+                returnType.eliminateApproximation(approximations),
                 newInstance,
                 newArgs
             )
@@ -330,10 +331,10 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
 
         return with(expr) {
             JIRRawInterfaceCallExpr(
-                declaringClass.eliminateApproximation(),
+                declaringClass.eliminateApproximation(approximations),
                 methodName,
-                argumentTypes.map { it.eliminateApproximation() },
-                returnType.eliminateApproximation(),
+                argumentTypes.map { it.eliminateApproximation(approximations) },
+                returnType.eliminateApproximation(approximations),
                 newInstance,
                 newArgs
             )
@@ -345,10 +346,10 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
 
         return with(expr) {
             JIRRawStaticCallExpr(
-                declaringClass.eliminateApproximation(),
+                declaringClass.eliminateApproximation(approximations),
                 methodName,
-                argumentTypes.map { it.eliminateApproximation() },
-                returnType.eliminateApproximation(),
+                argumentTypes.map { it.eliminateApproximation(approximations) },
+                returnType.eliminateApproximation(approximations),
                 newArgs,
                 isInterfaceMethodCall
             )
@@ -361,10 +362,10 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
 
         return with(expr) {
             JIRRawSpecialCallExpr(
-                declaringClass.eliminateApproximation(),
+                declaringClass.eliminateApproximation(approximations),
                 methodName,
-                argumentTypes.map { it.eliminateApproximation() },
-                returnType.eliminateApproximation(),
+                argumentTypes.map { it.eliminateApproximation(approximations) },
+                returnType.eliminateApproximation(approximations),
                 newInstance,
                 newArgs
             )
@@ -372,7 +373,7 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
     }
 
     override fun visitJIRRawThis(value: JIRRawThis): JIRRawExpr {
-        return value.copy(value.typeName.eliminateApproximation())
+        return value.copy(value.typeName.eliminateApproximation(approximations))
     }
 
     override fun visitJIRRawArgument(value: JIRRawArgument): JIRRawExpr {
@@ -381,21 +382,21 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
 
     private fun <T : JIRRawExpr> T.eliminateApproximations(typeName: TypeName, constructor: (TypeName) -> T): T {
         val className = typeName.typeName.toApproximationName()
-        val originalClassName = findOriginalByApproximationOrNull(className) ?: return this
+        val originalClassName = approximations.findOriginalByApproximationOrNull(className) ?: return this
         return constructor(TypeNameImpl.fromTypeName(originalClassName))
     }
 
     override fun visitJIRRawLocalVar(value: JIRRawLocalVar): JIRRawExpr {
-        return value.copy(typeName = value.typeName.eliminateApproximation())
+        return value.copy(typeName = value.typeName.eliminateApproximation(approximations))
     }
 
     override fun visitJIRRawFieldRef(value: JIRRawFieldRef): JIRRawExpr {
         val newInstance = value.instance?.accept(this) as? JIRRawValue
         return JIRRawFieldRef(
             newInstance,
-            value.declaringClass.eliminateApproximation(),
+            value.declaringClass.eliminateApproximation(approximations),
             value.fieldName,
-            value.typeName.eliminateApproximation()
+            value.typeName.eliminateApproximation(approximations)
         )
     }
 
@@ -403,43 +404,43 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
         val newArray = value.array.accept(this) as JIRRawValue
         val newIndex = value.index.accept(this) as JIRRawValue
 
-        return JIRRawArrayAccess(newArray, newIndex, value.typeName.eliminateApproximation())
+        return JIRRawArrayAccess(newArray, newIndex, value.typeName.eliminateApproximation(approximations))
     }
 
     override fun visitJIRRawBool(value: JIRRawBool): JIRRawExpr {
-        return value.copy(typeName = value.typeName.eliminateApproximation())
+        return value.copy(typeName = value.typeName.eliminateApproximation(approximations))
     }
 
     override fun visitJIRRawByte(value: JIRRawByte): JIRRawExpr {
-        return value.copy(typeName = value.typeName.eliminateApproximation())
+        return value.copy(typeName = value.typeName.eliminateApproximation(approximations))
     }
 
     override fun visitJIRRawChar(value: JIRRawChar): JIRRawExpr {
-        return value.copy(typeName = value.typeName.eliminateApproximation())
+        return value.copy(typeName = value.typeName.eliminateApproximation(approximations))
     }
 
     override fun visitJIRRawShort(value: JIRRawShort): JIRRawExpr {
-        return value.copy(typeName = value.typeName.eliminateApproximation())
+        return value.copy(typeName = value.typeName.eliminateApproximation(approximations))
     }
 
     override fun visitJIRRawInt(value: JIRRawInt): JIRRawExpr {
-        return value.copy(typeName = value.typeName.eliminateApproximation())
+        return value.copy(typeName = value.typeName.eliminateApproximation(approximations))
     }
 
     override fun visitJIRRawLong(value: JIRRawLong): JIRRawExpr {
-        return value.copy(typeName = value.typeName.eliminateApproximation())
+        return value.copy(typeName = value.typeName.eliminateApproximation(approximations))
     }
 
     override fun visitJIRRawFloat(value: JIRRawFloat): JIRRawExpr {
-        return value.copy(typeName = value.typeName.eliminateApproximation())
+        return value.copy(typeName = value.typeName.eliminateApproximation(approximations))
     }
 
     override fun visitJIRRawDouble(value: JIRRawDouble): JIRRawExpr {
-        return value.copy(typeName = value.typeName.eliminateApproximation())
+        return value.copy(typeName = value.typeName.eliminateApproximation(approximations))
     }
 
     override fun visitJIRRawNullConstant(value: JIRRawNullConstant): JIRRawExpr {
-        return value.copy(typeName = value.typeName.eliminateApproximation())
+        return value.copy(typeName = value.typeName.eliminateApproximation(approximations))
     }
 
     override fun visitJIRRawStringConstant(value: JIRRawStringConstant): JIRRawExpr {
@@ -448,19 +449,19 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
 
     override fun visitJIRRawClassConstant(value: JIRRawClassConstant): JIRRawExpr {
         return JIRRawClassConstant(
-            value.className.eliminateApproximation(),
-            value.typeName.eliminateApproximation()
+            value.className.eliminateApproximation(approximations),
+            value.typeName.eliminateApproximation(approximations)
         )
     }
 
     override fun visitJIRRawMethodConstant(value: JIRRawMethodConstant): JIRRawExpr {
         return with(value) {
             JIRRawMethodConstant(
-                declaringClass.eliminateApproximation(),
+                declaringClass.eliminateApproximation(approximations),
                 name,
-                argumentTypes.map { it.eliminateApproximation() },
-                returnType.eliminateApproximation(),
-                typeName.eliminateApproximation()
+                argumentTypes.map { it.eliminateApproximation(approximations) },
+                returnType.eliminateApproximation(approximations),
+                typeName.eliminateApproximation(approximations)
             )
         }
     }
@@ -468,9 +469,9 @@ object InstSubstitutorForApproximations : JIRRawInstVisitor<JIRRawInst>, JIRRawE
     override fun visitJIRRawMethodType(value: JIRRawMethodType): JIRRawExpr {
         return with(value) {
             JIRRawMethodType(
-                argumentTypes.map { it.eliminateApproximation() },
-                returnType.eliminateApproximation(),
-                typeName.eliminateApproximation()
+                argumentTypes.map { it.eliminateApproximation(approximations) },
+                returnType.eliminateApproximation(approximations),
+                typeName.eliminateApproximation(approximations)
             )
         }
     }

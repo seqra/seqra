@@ -85,5 +85,5 @@ open class BuildersTest : BaseTest() {
 }
 
 class BuildersSQLiteTest : BuildersTest() {
-    companion object : WithSQLiteDb(Builders, InMemoryHierarchy)
+    companion object : WithSQLiteDb(Builders, InMemoryHierarchy())
 }

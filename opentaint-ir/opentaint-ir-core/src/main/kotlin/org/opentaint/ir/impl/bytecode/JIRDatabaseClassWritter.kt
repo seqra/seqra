@@ -6,7 +6,7 @@ import org.opentaint.ir.api.jvm.ext.findClass
 import org.objectweb.asm.ClassWriter
 
 /**
- * ASM class writer with opentaint-ir specific resolution of common superclasses
+ * ASM class writer with opentaint ir specific resolution of common superclasses
  */
 class JIRDatabaseClassWriter(val classpath: JIRClasspath, flags: Int) : ClassWriter(flags) {
 

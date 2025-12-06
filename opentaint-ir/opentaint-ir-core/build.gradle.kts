@@ -5,7 +5,13 @@ import org.jooq.meta.jaxb.Generate
 import org.jooq.meta.jaxb.Generator
 import org.jooq.meta.jaxb.Jdbc
 import org.jooq.meta.jaxb.Target
-import java.nio.file.Paths
+import org.opentaint.common.JunitDependencies
+import org.opentaint.common.KotlinDependency
+
+plugins {
+    id("kotlin-conventions")
+    kotlinSerialization()
+}
 
 buildscript {
     repositories {
@@ -16,8 +22,6 @@ buildscript {
         classpath(Libs.jooq_meta_extensions)
         classpath(Libs.jooq_codegen)
         classpath(Libs.jooq_kotlin)
-        // classpath(Libs.postgresql)
-        // classpath(Libs.hikaricp)
         classpath(Libs.sqlite)
     }
 }
@@ -34,18 +38,18 @@ dependencies {
     compileOnly(Libs.sqlite)
     compileOnly(Libs.hikaricp)
 
-    implementation(Libs.kotlin_logging)
-    implementation(Libs.kotlin_metadata_jvm)
-    implementation(Libs.kotlinx_serialization_cbor)
+    implementation(KotlinDependency.Libs.kotlin_logging)
+    implementation(KotlinDependencyExt.Libs.kotlin_metadata_jvm)
+    implementation(KotlinDependency.Libs.kotlinx_serialization_core)
     implementation(Libs.jdot)
     implementation(Libs.guava)
     implementation(Libs.xodusUtils)
 
     testImplementation(testFixtures(project(":opentaint-ir-storage")))
-    testImplementation(Libs.javax_activation)
-    testImplementation(Libs.javax_mail)
-    testImplementation(Libs.joda_time)
-    testImplementation(Libs.slf4j_simple)
+    testImplementation(TestDependencies.Libs.javax_activation)
+    testImplementation(TestDependencies.Libs.javax_mail)
+    testImplementation(TestDependencies.Libs.joda_time)
+    testImplementation(TestDependencies.Libs.slf4j_simple)
     testImplementation(Libs.hikaricp)
     testImplementation(Libs.xodusEnvironment)
     testImplementation(Libs.lmdb_java)
@@ -56,14 +60,14 @@ dependencies {
     testFixturesApi(Libs.hikaricp)
     testFixturesApi(project(":opentaint-ir-storage"))
     testFixturesImplementation(kotlin("reflect"))
-    testFixturesImplementation(platform(Libs.junit_bom))
-    testFixturesImplementation(Libs.junit_jupiter)
+    testFixturesImplementation(platform(JunitDependencies.Libs.junit_bom))
+    testFixturesImplementation(JunitDependencies.Libs.junit_jupiter)
     testFixturesImplementation(Libs.guava)
-    testFixturesImplementation(Libs.jetbrains_annotations)
-    testFixturesImplementation(Libs.kotlin_logging)
-    testFixturesImplementation(Libs.kotlinx_coroutines_core)
-    testFixturesImplementation(Libs.jgit_test_only_lib)
-    testFixturesImplementation(Libs.commons_compress_test_only_lib)
+    testFixturesImplementation(TestDependencies.Libs.jetbrains_annotations)
+    testFixturesImplementation(KotlinDependency.Libs.kotlin_logging)
+    testFixturesImplementation(KotlinDependency.Libs.kotlinx_coroutines_core)
+    testFixturesImplementation(TestDependencies.Libs.jgit_test_only_lib)
+    testFixturesImplementation(TestDependencies.Libs.commons_compress_test_only_lib)
 }
 
 tasks {
@@ -85,14 +89,6 @@ tasks {
                 packageName = "org.opentaint.ir.impl.storage.ers.jooq"
             )
         }
-    }
-
-    register<JavaExec>("generateDocSvgs") {
-        dependsOn("testClasses")
-        mainClass.set("org.opentaint.jIRdb.impl.cfg.IRSvgGeneratorKt")
-        classpath = sourceSets.test.get().runtimeClasspath
-        val svgDocs = Paths.get(rootDir.absolutePath, "docs", "svg").toFile()
-        args = listOf(svgDocs.absolutePath)
     }
 
     processResources {

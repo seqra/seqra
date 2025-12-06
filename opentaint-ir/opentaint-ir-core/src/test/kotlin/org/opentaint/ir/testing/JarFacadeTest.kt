@@ -4,7 +4,7 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.ir.impl.JIRRamErsSettings
 import org.opentaint.ir.impl.fs.JarFacade
 import org.opentaint.ir.impl.fs.parseRuntimeVersion
-import org.opentaint.ir.impl.opentaint-ir
+import org.opentaint.ir.impl.opentaintIrDb
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -86,7 +86,7 @@ class JarFacadeTest {
     @Test
     fun `load bouncycastle`(): Unit = runBlocking {
         val jar = cookJar("https://repo1.maven.org/maven2/org/bouncycastle/bcpg-jdk18on/1.78.1/bcpg-jdk18on-1.78.1.jar")
-        val db = opentaint-ir {
+        val db = opentaintIrDb {
             persistenceImpl(JIRRamErsSettings)
             loadByteCode(listOf(jar.toFile()))
         }.apply { awaitBackgroundJobs() }

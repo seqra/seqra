@@ -145,7 +145,7 @@ class RegularHierarchySQLiteTest : BaseInMemoryHierarchyTest() {
 @LifecycleTest
 class RestoredInMemoryHierarchyTest : BaseInMemoryHierarchyTest() {
 
-    companion object : WithRestoredDb(InMemoryHierarchy)
+    companion object : WithRestoredDb(InMemoryHierarchy())
 
     override fun getNumberOfClasses() = cp.db.persistence.read { it.dslContext.fetchCount(CLASSES) }
 }

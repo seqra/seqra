@@ -57,7 +57,7 @@ fun OutputStream.writeUnsignedOrderedLongs(longs: Iterable<Long>) {
 }
 
 /**
- * Writes `ByteBuffer` saving its length.
+ * Writes `ByteBuffer` storing its length.
  * Additionally, it checks that all bytes written, so it won't work with somewhat
  * non-blocking or asynchronous streams.
  */

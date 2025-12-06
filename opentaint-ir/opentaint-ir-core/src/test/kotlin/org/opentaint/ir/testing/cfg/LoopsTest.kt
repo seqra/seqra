@@ -23,15 +23,15 @@ class LoopsTest : BaseTest() {
         with(clazz.findMethod("insertionSort").loops) {
             assertEquals(2, size)
             with(get(1)) {
-                assertEquals(36, head.lineNumber)
+                assertEquals(20, head.lineNumber)
                 assertEquals(2, exits.size)
-                assertSources(36, 37)
+                assertSources(20, 21)
             }
 
             with(first()) {
-                assertEquals(31, head.lineNumber)
+                assertEquals(15, head.lineNumber)
                 assertEquals(1, exits.size)
-                assertSources(31, 41)
+                assertSources(15, 25)
             }
         }
     }
@@ -42,15 +42,15 @@ class LoopsTest : BaseTest() {
         with(clazz.findMethod("heapSort").loops) {
             assertEquals(2, size)
             with(first()) {
-                assertEquals(98, head.lineNumber)
+                assertEquals(82, head.lineNumber)
                 assertEquals(1, exits.size)
-                assertSources(98, 99)
+                assertSources(82, 83)
             }
 
             with(get(1)) {
-                assertEquals(102, head.lineNumber)
+                assertEquals(86, head.lineNumber)
                 assertEquals(1, exits.size)
-                assertSources(102, 107)
+                assertSources(86, 91)
             }
         }
     }
@@ -61,13 +61,13 @@ class LoopsTest : BaseTest() {
         with(clazz.findMethod("sortTemperatures").loops) {
             assertEquals(2, size)
             with(first()) {
-                Assertions.assertTrue(head.lineNumber == 135 || head.lineNumber == 132)
+                Assertions.assertTrue(head.lineNumber == 119 || head.lineNumber == 116)
                 assertEquals(1, exits.size)
             }
             with(get(1)) {
-                assertEquals(148, head.lineNumber)
+                assertEquals(132, head.lineNumber)
                 assertEquals(1, exits.size)
-                assertSources(148, 150)
+                assertSources(132, 134)
             }
         }
     }
@@ -80,20 +80,20 @@ class LoopsTest : BaseTest() {
         with(clazz.findMethod("sortTimes").loops) {
             assertEquals(3, size)
             with(first()) {
-                assertEquals(53, head.lineNumber)
-                assertEquals(listOf(53, 61, 73), exits.map { it.lineNumber }.toSet().sorted())
-                assertSources(53, 75)
+                assertEquals(37, head.lineNumber)
+                assertEquals(listOf(37, 45, 57), exits.map { it.lineNumber }.toSet().sorted())
+                assertSources(37, 59)
             }
 
             with(get(1)) {
-                assertEquals(82, head.lineNumber)
+                assertEquals(66, head.lineNumber)
                 assertEquals(1, exits.size)
-                assertSources(82, 84)
+                assertSources(66, 68)
             }
             with(get(2)) {
-                assertEquals(85, head.lineNumber)
+                assertEquals(69, head.lineNumber)
                 assertEquals(1, exits.size)
-                assertSources(85, 87)
+                assertSources(69, 71)
             }
         }
     }

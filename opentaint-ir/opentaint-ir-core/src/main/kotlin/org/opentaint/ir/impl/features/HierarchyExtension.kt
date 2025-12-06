@@ -1,6 +1,5 @@
 @file:JvmName("JIRHierarchies")
 @file:Suppress("SqlResolve", "SqlSourceToSinkFlow")
-
 package org.opentaint.ir.impl.features
 
 import kotlinx.coroutines.GlobalScope
@@ -141,7 +140,7 @@ private class HierarchyExtensionERS(cp: JIRClasspath) : HierarchyExtensionBase(c
     ): Sequence<JIRClassOrInterface> {
         val name = jIRClass.name
         val db = cp.db
-        if (db.isInstalled(InMemoryHierarchy)) {
+        if (db.findInMemoryHierarchy() != null) {
             return cp.findSubclassesInMemory(name, entireHierarchy, full)
         }
         return Sequence {
@@ -222,7 +221,7 @@ private class HierarchyExtensionSQL(cp: JIRClasspath) : HierarchyExtensionBase(c
         full: Boolean
     ): Sequence<JIRClassOrInterface> {
         val name = jIRClass.name
-        if (cp.db.isInstalled(InMemoryHierarchy)) {
+        if (cp.db.findInMemoryHierarchy() != null) {
             return cp.findSubclassesInMemory(name, entireHierarchy, full)
         }
         return cp.subClasses(name, entireHierarchy).map { cp.toJIRClass(it) }

@@ -3,7 +3,7 @@ package org.opentaint.ir.testing;
 import org.opentaint.ir.api.jvm.JIRCacheSettings;
 import org.opentaint.ir.api.jvm.JIRDatabase;
 import org.opentaint.ir.api.jvm.JIRSettings;
-import org.opentaint.ir.impl.Opentaint-IR;
+import org.opentaint.ir.impl.OpentaintIrDbKt;
 import org.opentaint.ir.impl.features.Usages;
 
 import java.time.Duration;
@@ -27,7 +27,7 @@ public class JavaApi {
 
     public static void getDatabase() {
         try {
-            JIRDatabase instance = Opentaint-IR.async(new JIRSettings().installFeatures(Usages.INSTANCE)).get();
+            JIRDatabase instance = OpentaintIrDbKt.async(new JIRSettings().installFeatures(Usages.INSTANCE)).get();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

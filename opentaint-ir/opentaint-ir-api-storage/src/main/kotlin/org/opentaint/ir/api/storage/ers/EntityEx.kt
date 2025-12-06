@@ -55,7 +55,7 @@ interface NonSearchable<T : Any> {
 }
 
 /**
- * Marks a property value as non-searchable. This would result in saving the value to blob rather than to property.
+ * Marks a property value as non-searchable. This would result in storing the value to blob rather than to property.
  * This extension property should be always used after the [compressed] property if it is used.
  */
 val <T : Any> T.nonSearchable: NonSearchable<T>

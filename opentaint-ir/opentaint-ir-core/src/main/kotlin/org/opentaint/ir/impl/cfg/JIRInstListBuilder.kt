@@ -59,7 +59,7 @@ class JIRInstListBuilder(val method: JIRMethod,val instList: JIRInstList<JIRRawI
             inst.lhv.let { unprocessedLhv ->
                 if (unprocessedLhv is JIRRawLocalVar && unprocessedLhv.typeName == UNINIT_THIS) {
                     convertedLocalVars.getOrPut(unprocessedLhv) {
-                        JIRRawLocalVar(unprocessedLhv.index, unprocessedLhv.name, inst.rhv.typeName)
+                        JIRRawLocalVar(unprocessedLhv.index, unprocessedLhv.name, inst.rhv.typeName, unprocessedLhv.kind)
                     }
                 } else {
                     unprocessedLhv

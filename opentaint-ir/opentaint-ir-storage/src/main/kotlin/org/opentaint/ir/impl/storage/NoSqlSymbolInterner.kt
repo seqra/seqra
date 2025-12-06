@@ -79,8 +79,5 @@ class NoSqlSymbolInterner(var ers: EntityRelationshipStorage) : ConcurrentSymbol
                 newElements.remove(it.key)
             }
         }
-        entries.forEach {
-            newElements.remove(it.key)
-        }
     }
 }

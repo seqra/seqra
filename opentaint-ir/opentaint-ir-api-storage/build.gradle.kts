@@ -1,3 +1,9 @@
+import org.opentaint.common.KotlinDependency
+
+plugins {
+    id("kotlin-conventions")
+}
+
 dependencies {
-    api(Libs.kotlinx_collections_immutable)
+    api(KotlinDependency.Libs.kotlinx_collections)
 }

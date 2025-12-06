@@ -1,5 +1,4 @@
 @file:JvmName("JIRClasses")
-
 package org.opentaint.ir.api.jvm.ext
 
 import org.opentaint.ir.api.jvm.JIRClassOrInterface

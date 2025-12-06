@@ -1,3 +1,9 @@
+import org.opentaint.common.KotlinDependency
+
+plugins {
+    id("kotlin-conventions")
+}
+
 dependencies {
     api(project(":opentaint-ir-api-common"))
     api(project(":opentaint-ir-api-storage"))
@@ -7,6 +13,5 @@ dependencies {
     api(Libs.asm_commons)
     api(Libs.asm_util)
 
-    api(Libs.kotlinx_coroutines_core)
-    api(Libs.kotlinx_coroutines_jdk8)
+    api(KotlinDependency.Libs.kotlinx_coroutines_core)
 }

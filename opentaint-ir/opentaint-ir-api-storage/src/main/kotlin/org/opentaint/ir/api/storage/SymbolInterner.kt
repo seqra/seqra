@@ -8,10 +8,10 @@ import java.util.concurrent.atomic.AtomicLong
 interface SymbolInterner : Closeable {
     fun findOrNew(symbol: String): Long
     fun findSymbolName(symbolId: Long): String?
-    fun flush(context: StorageContext, force: Boolean = false)
+    fun flush(context: org.opentaint.ir.api.storage.StorageContext, force: Boolean = false)
 }
 
-abstract class ConcurrentSymbolInterner : SymbolInterner {
+abstract class ConcurrentSymbolInterner : org.opentaint.ir.api.storage.SymbolInterner {
 
     protected val symbolsIdGen = AtomicLong()
     protected val symbolsCache = ConcurrentHashMap<String, Long>()
@@ -35,6 +35,6 @@ abstract class ConcurrentSymbolInterner : SymbolInterner {
     }
 }
 
-fun String.asSymbolId(symbolInterner: SymbolInterner): Long {
+fun String.asSymbolId(symbolInterner: org.opentaint.ir.api.storage.SymbolInterner): Long {
     return symbolInterner.findOrNew(this)
 }

@@ -6,7 +6,7 @@ import org.opentaint.ir.impl.JIRSQLitePersistenceSettings
 import org.opentaint.ir.impl.features.Builders
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.fs.JavaRuntime
-import org.opentaint.ir.impl.opentaint-ir
+import org.opentaint.ir.impl.opentaintIrDb
 import org.opentaint.ir.impl.storage.LocationState
 import org.opentaint.ir.impl.storage.SQLitePersistenceImpl
 import org.opentaint.ir.impl.storage.dslContext
@@ -31,7 +31,7 @@ class IncompleteDataTest {
         }
 
         private fun newDB(awaitBackground: Boolean) = runBlocking {
-            opentaint-ir {
+            opentaintIrDb {
                 useProcessJavaRuntime()
                 persistent(jdbcLocation)
                 installFeatures(Usages, Builders)

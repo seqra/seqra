@@ -1,5 +1,4 @@
 @file:JvmName("JIRGraphs")
-
 package org.opentaint.ir.api.jvm.cfg
 
 abstract class TypedExprResolver<T : JIRExpr> : AbstractFullExprSetCollector() {

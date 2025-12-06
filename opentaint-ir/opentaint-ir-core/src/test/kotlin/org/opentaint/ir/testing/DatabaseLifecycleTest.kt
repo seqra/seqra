@@ -13,7 +13,7 @@ import org.opentaint.ir.api.jvm.ext.findClassOrNull
 import org.opentaint.ir.impl.JIRDatabaseImpl
 import org.opentaint.ir.impl.JIRSQLitePersistenceSettings
 import org.opentaint.ir.impl.fs.BuildFolderLocation
-import org.opentaint.ir.impl.opentaint-ir
+import org.opentaint.ir.impl.opentaintIrDb
 import org.opentaint.ir.impl.storage.PersistentLocationsRegistry
 import org.opentaint.ir.impl.storage.dslContext
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
@@ -33,7 +33,7 @@ import java.util.*
 class DatabaseLifecycleTest {
 
     private var db = runBlocking {
-        opentaint-ir {
+        opentaintIrDb {
             useProcessJavaRuntime()
         } as JIRDatabaseImpl
     }
@@ -197,7 +197,7 @@ class DatabaseLifecycleTest {
         runBlocking {
             val location = "$tempFolder/${UUID.randomUUID()}.db"
             var db = runBlocking {
-                opentaint-ir {
+                opentaintIrDb {
                     useProcessJavaRuntime()
                     persistent(location)
                     persistenceImpl(JIRSQLitePersistenceSettings)
@@ -209,7 +209,7 @@ class DatabaseLifecycleTest {
             db.close()
             assertTrue(guavaLibClone.deleteWithRetries(3))
             db = runBlocking {
-                opentaint-ir {
+                opentaintIrDb {
                     useProcessJavaRuntime()
                     persistent(location)
                     persistenceImpl(JIRSQLitePersistenceSettings)

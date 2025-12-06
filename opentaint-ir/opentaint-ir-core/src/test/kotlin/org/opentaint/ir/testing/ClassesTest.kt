@@ -13,13 +13,20 @@ import org.opentaint.ir.testing.structure.EnumExamples.EnumWithField
 import org.opentaint.ir.testing.structure.EnumExamples.EnumWithStaticInstance
 import org.opentaint.ir.testing.structure.EnumExamples.SimpleEnum
 import org.opentaint.ir.testing.tests.DatabaseEnvTest
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 open class ClassesTest : DatabaseEnvTest() {
 
-    companion object : WithGlobalDbImmutable()
+    companion object : WithGlobalDbImmutable() {
+        @AfterAll
+        @JvmStatic
+        fun cleanUpDb() {
+            cleanup()
+        }
+    }
 
     override val cp: JIRClasspath = runBlocking { db.classpath(allClasspath) }
 
@@ -65,5 +72,11 @@ open class ClassesTest : DatabaseEnvTest() {
 
 class ClassesWithoutJRETest : ClassesTest() {
 
-    companion object : WithGlobalDbWithoutJRE()
+    companion object : WithGlobalDbWithoutJRE() {
+        @AfterAll
+        @JvmStatic
+        fun cleanUpDb() {
+            ClassesTest.cleanup()
+        }
+    }
 }

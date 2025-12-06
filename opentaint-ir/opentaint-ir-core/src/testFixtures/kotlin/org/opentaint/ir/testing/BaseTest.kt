@@ -15,10 +15,12 @@ import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.classpaths.UnknownClassMethodsAndFields
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
-import org.opentaint.ir.impl.opentaint-ir
+import org.opentaint.ir.impl.opentaintIrDb
 import org.opentaint.ir.impl.storage.ers.ram.RAM_ERS_SPI
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.TestInstance
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.io.path.absolutePathString
@@ -27,6 +29,7 @@ import kotlin.reflect.full.companionObjectInstance
 @Tag("lifecycle")
 annotation class LifecycleTest
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 abstract class BaseTest(getAdditionalFeatures: (() -> List<JIRClasspathFeature>)? = null) {
 
     protected open val cp: JIRClasspath by lazy {
@@ -40,6 +43,11 @@ abstract class BaseTest(getAdditionalFeatures: (() -> List<JIRClasspathFeature>)
     @AfterEach
     open fun close() {
         cp.close()
+    }
+
+    @AfterAll
+    open fun closeDb() {
+        this@BaseTest.javaClass.withDb.cleanup()
     }
 }
 
@@ -72,9 +80,11 @@ open class WithDb(vararg features: Any) : JIRDatabaseHolder {
     val dbFeatures = allFeatures.mapNotNull { it as? JIRFeature<*, *> }
     override val classpathFeatures = allFeatures.mapNotNull { it as? JIRClasspathFeature }
 
-    override var db = runBlocking {
-        opentaint-ir {
-            // persistent("D:\\work\\opentaint-ir\\jIRdb-index.db")
+    override val db: JIRDatabase
+        get() = _db ?: error("Database not initialized")
+
+    private var _db: JIRDatabase? = runBlocking {
+        opentaintIrDb {
             persistenceImpl(persistenceImpl())
             loadByteCode(allClasspath)
             useProcessJavaRuntime()
@@ -86,7 +96,8 @@ open class WithDb(vararg features: Any) : JIRDatabaseHolder {
     }
 
     override fun cleanup() {
-        db.close()
+        _db?.close()
+        _db = null
     }
 
     internal open fun persistenceImpl(): JIRPersistenceImplSettings = JIRRamErsSettings
@@ -99,8 +110,11 @@ open class WithDbImmutable(vararg features: Any) : JIRDatabaseHolder {
     val dbFeatures = allFeatures.mapNotNull { it as? JIRFeature<*, *> }
     override val classpathFeatures = allFeatures.mapNotNull { it as? JIRClasspathFeature }
 
-    override var db = runBlocking {
-        opentaint-ir {
+    override val db: JIRDatabase
+        get() = _db ?: error("Database not initialized")
+
+    private var _db: JIRDatabase? = runBlocking {
+        opentaintIrDb {
             persistenceImpl(JIRErsSettings(RAM_ERS_SPI, RamErsSettings(immutableDumpsPath = tempDir)))
             loadByteCode(allClasspath)
             useProcessJavaRuntime()
@@ -112,7 +126,8 @@ open class WithDbImmutable(vararg features: Any) : JIRDatabaseHolder {
     }
 
     override fun cleanup() {
-        db.close()
+        _db?.close()
+        _db = null
     }
 
     companion object {
@@ -133,18 +148,6 @@ open class WithSQLiteDb(vararg features: Any) : WithDb(*features) {
     override fun persistenceImpl() = JIRSQLitePersistenceSettings
 }
 
-val globalDb by lazy {
-    WithDb(Usages, Builders, InMemoryHierarchy).db
-}
-
-val globalDbImmutable by lazy {
-    WithDbImmutable(Usages, Builders, InMemoryHierarchy).db
-}
-
-val globalSQLiteDb by lazy {
-    WithSQLiteDb(Usages, Builders, InMemoryHierarchy).db
-}
-
 open class WithGlobalDb(vararg _classpathFeatures: JIRClasspathFeature) : JIRDatabaseHolder {
 
     init {
@@ -153,11 +156,18 @@ open class WithGlobalDb(vararg _classpathFeatures: JIRClasspathFeature) : JIRDat
 
     override val classpathFeatures: List<JIRClasspathFeature> = _classpathFeatures.toList()
 
-    override val db: JIRDatabase get() = globalDb
+    override val db: JIRDatabase
+        get() = _db ?: error("Database not initialized")
+
+    protected open var _db: JIRDatabase? = WithDb(Usages, Builders, InMemoryHierarchy()).db
 
     override fun cleanup() {
+        _db?.close()
+        _db = null
     }
 }
+
+private val globalImmutableDb by lazy { WithDbImmutable(Usages, Builders, InMemoryHierarchy()).db }
 
 open class WithGlobalDbImmutable(vararg _classpathFeatures: JIRClasspathFeature) : JIRDatabaseHolder {
 
@@ -167,10 +177,9 @@ open class WithGlobalDbImmutable(vararg _classpathFeatures: JIRClasspathFeature)
 
     override val classpathFeatures: List<JIRClasspathFeature> = _classpathFeatures.toList()
 
-    override val db: JIRDatabase get() = globalDbImmutable
+    override val db: JIRDatabase get() = globalImmutableDb
 
-    override fun cleanup() {
-    }
+    override fun cleanup() {}
 }
 
 open class WithGlobalSQLiteDb(vararg _classpathFeatures: JIRClasspathFeature) : JIRDatabaseHolder {
@@ -181,9 +190,14 @@ open class WithGlobalSQLiteDb(vararg _classpathFeatures: JIRClasspathFeature) : 
 
     override val classpathFeatures: List<JIRClasspathFeature> = _classpathFeatures.toList()
 
-    override val db: JIRDatabase get() = globalSQLiteDb
+    override val db: JIRDatabase
+        get() = _db ?: error("Database not initialized")
+
+    private var _db: JIRDatabase? = WithSQLiteDb(Usages, Builders, InMemoryHierarchy()).db
 
     override fun cleanup() {
+        _db?.close()
+        _db = null
     }
 }
 
@@ -193,13 +207,13 @@ open class WithGlobalDbWithoutJRE(vararg _classpathFeatures: JIRClasspathFeature
     override val classpathFeatures: List<JIRClasspathFeature> =
         super.classpathFeatures + UnknownClasses + UnknownClassMethodsAndFields
 
-    override val db: JIRDatabase = runBlocking {
-        opentaint-ir {
+    override var _db: JIRDatabase? = runBlocking {
+        opentaintIrDb {
             persistenceImpl(JIRRamErsSettings)
             loadByteCode(allClasspath)
             keepLocalVariableNames()
             buildModelForJRE(build = false)
-            installFeatures(Usages, Builders, InMemoryHierarchy)
+            installFeatures(Usages, Builders, InMemoryHierarchy())
         }.also {
             it.awaitBackgroundJobs()
         }
@@ -228,7 +242,7 @@ open class WithRestoredDb(vararg features: JIRFeature<*, *>) : WithDb(*features)
     private fun newDb(before: () -> Unit = {}): JIRDatabase {
         before()
         return runBlocking {
-            opentaint-ir {
+            opentaintIrDb {
                 require(implSettings !is JIRRamErsSettings) { "cannot restore in-RAM database" }
                 persistent(
                     location = location,

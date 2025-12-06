@@ -58,15 +58,15 @@ abstract class EntityRelationshipStorageTest {
     @Test
     fun stringProperties() {
         val user = txn.newEntity("User")
-        user["login"] = "testuser"
+        user["login"] = "username"
         user["password"] = "!@#$%^&*()"
-        val found = txn.find("User", "login", "testuser")
+        val found = txn.find("User", "login", "username")
         assertFalse(found.isEmpty)
         assertEquals(1L, found.size)
         assertTrue(user in found)
 
         val login: String? by propertyOf(user)
-        assertEquals("testuser", login)
+        assertEquals("username", login)
 
         val noSuchProperty: String? by propertyOf(user)
         assertNull(noSuchProperty)
@@ -237,7 +237,7 @@ abstract class EntityRelationshipStorageTest {
     @Test
     fun txnIsolation() {
         val user = txn.newEntity("User")
-        user["login"] = "testuser"
+        user["login"] = "username"
         try {
             txn.ers.beginTransaction().use { anotherTxn ->
                 assertNull(anotherTxn.getEntityOrNull(user.id))
@@ -251,7 +251,7 @@ abstract class EntityRelationshipStorageTest {
     @Test
     fun parallelTxns() {
         val user = txn.newEntity("User")
-        user["login"] = "testuser"
+        user["login"] = "username"
 
         assertThrows<ERSConflictingTransactionException> {
             txn.ers.beginTransaction().use { anotherTxn ->
@@ -267,12 +267,12 @@ abstract class EntityRelationshipStorageTest {
     fun sequentialTxns() {
         var user = txn.newEntity("User")
         val id = user.id
-        user["login"] = "testuser"
+        user["login"] = "username"
         txn.commit()
 
         txn.ers.beginTransaction().use { anotherTxn ->
             user = anotherTxn.getEntityOrNull(user.id)!!
-            assertEquals("testuser", user.get<String>("login"))
+            assertEquals("username", user.get<String>("login"))
             assertEquals(id, user.id)
         }
     }
@@ -284,13 +284,13 @@ abstract class EntityRelationshipStorageTest {
         repeat(1000) { i ->
             ers.beginTransaction().use { txn ->
                 val user = txn.newEntity("User")
-                user["login"] = ("testuser" + (i % 10))
+                user["login"] = ("username" + (i % 10))
             }
         }
 
         ers.beginTransaction(readonly = true).use { txn ->
             assertEquals(1000L, txn.all("User").size)
-            val iterable = txn.find("User", "login", "testuser1")
+            val iterable = txn.find("User", "login", "username1")
             assertTrue(iterable.isNotEmpty)
             assertFalse(iterable.isEmpty)
             assertEquals(100, iterable.size)
@@ -495,14 +495,14 @@ abstract class EntityRelationshipStorageTest {
         @Test
         fun stringProperties() {
             val user = txn.newEntity(UserType)
-            user[UserType.login] = "testuser"
+            user[UserType.login] = "username"
             user[UserType.password] = "!@#$%^&*()"
-            val found = txn.find(UserType.login, "testuser")
+            val found = txn.find(UserType.login, "username")
             assertFalse(found.isEmpty)
             assertEquals(1L, found.size)
             assertTrue(user in found)
 
-            assertEquals("testuser", user[UserType.login])
+            assertEquals("username", user[UserType.login])
 
             val nonExistingProp by UserType.property(String::class)
             assertNull(user[nonExistingProp])

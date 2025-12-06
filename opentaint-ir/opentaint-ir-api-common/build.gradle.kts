@@ -1,3 +1,3 @@
-dependencies {
-    //
+plugins {
+    id("kotlin-conventions")
 }

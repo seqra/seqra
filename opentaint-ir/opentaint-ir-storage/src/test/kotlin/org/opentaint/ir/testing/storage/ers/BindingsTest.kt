@@ -1,24 +1,18 @@
 package org.opentaint.ir.testing.storage.ers
 
-import org.opentaint.ir.impl.storage.ers.getBinding
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.opentaint.ir.impl.storage.ers.getBinding
 import java.nio.charset.StandardCharsets
 
 class BindingsTest {
 
     @Test
     fun ordinaryStrings() {
-        assertEquals("testuser", serializeDeserialize("testuser"))
-        assertEquals("opentaint-test", serializeDeserialize("opentaint-test"))
-    }
-
-    @Test
-    fun chineseString() {
-        assertEquals("translate", serializeDeserialize("translate"))
+        assertEquals("username", serializeDeserialize("username"))
     }
 
     @Test()

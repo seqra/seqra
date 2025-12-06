@@ -1,5 +1,4 @@
 @file:JvmName("JIRInstructions")
-
 package org.opentaint.ir.api.jvm.ext.cfg
 
 import org.opentaint.ir.api.common.cfg.CommonExpr

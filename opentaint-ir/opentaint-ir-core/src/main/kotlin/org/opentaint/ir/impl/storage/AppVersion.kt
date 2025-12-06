@@ -5,12 +5,12 @@ import org.opentaint.ir.api.storage.StorageContext
 import org.opentaint.ir.impl.storage.jooq.tables.references.APPLICATIONMETADATA
 import java.util.*
 
-data class AppVersion(val major: Int, val minor: Int) : Comparable<AppVersion> {
+data class AppVersion(val version: String) : Comparable<AppVersion> {
 
     companion object : KLogging() {
 
         val currentAppVersion = current()
-        private val defaultVersion = AppVersion(1, 3)
+        private val defaultVersion = AppVersion("0.0.0")
 
         fun read(context: StorageContext): AppVersion {
             return try {
@@ -37,15 +37,12 @@ data class AppVersion(val major: Int, val minor: Int) : Comparable<AppVersion> {
             val pack = clazz.`package`
             val version = pack.implementationVersion ?: Properties().also {
                 it.load(clazz.getResourceAsStream("/opentaint-ir.properties"))
-            }.getProperty("opentaint-ir.version")
-            val last = version.indexOfLast { it == '.' || it.isDigit() }
-            val clearVersion = version.substring(0, last + 1)
-            return parse(clearVersion)
+            }.getProperty("opentaint.ir.version")
+            return parse(version)
         }
 
         private fun parse(version: String): AppVersion {
-            val ints = version.split(".")
-            return AppVersion(ints[0].toInt(), ints[1].toInt())
+            return AppVersion(version)
         }
     }
 
@@ -55,27 +52,23 @@ data class AppVersion(val major: Int, val minor: Int) : Comparable<AppVersion> {
                 val jooq = context.dslContext
                 jooq.deleteFrom(APPLICATIONMETADATA).execute()
                 jooq.insertInto(APPLICATIONMETADATA)
-                    .set(APPLICATIONMETADATA.VERSION, "$major.$minor")
+                    .set(APPLICATIONMETADATA.VERSION, version)
                     .execute()
             },
             noSqlAction = {
                 val txn = context.txn
                 val metadata = txn.all("ApplicationMetadata").firstOrNull()
                     ?: context.txn.newEntity("ApplicationMetadata")
-                metadata["version"] = "$major.$minor"
+                metadata["version"] = version
             }
         )
     }
 
     override fun compareTo(other: AppVersion): Int {
-        return when {
-            major > other.major -> 1
-            major == other.major -> minor - other.minor
-            else -> -1
-        }
+        return version.compareTo(other.version)
     }
 
     override fun toString(): String {
-        return "[$major.$minor]"
+        return "[$version]"
     }
 }

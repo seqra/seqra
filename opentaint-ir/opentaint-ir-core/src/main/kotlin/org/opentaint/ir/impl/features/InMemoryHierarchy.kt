@@ -80,17 +80,17 @@ class InMemoryHierarchyIndexer(
 
 data class InMemoryHierarchyReq(val name: String, val allHierarchy: Boolean = true, val full: Boolean = false)
 
-object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
-
-    private val hierarchies = ConcurrentHashMap<JIRDatabase, InMemoryHierarchyCache>()
+class InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
+    private val cache = InMemoryHierarchyCache()
 
     override fun onSignal(signal: JIRSignal) {
+        val hierarchy = signal.jIRdb.findInMemoryHierarchy()
+            ?: error("InMemoryHierarchy not installed")
+
         when (signal) {
             is JIRSignal.BeforeIndexing -> {
                 signal.jIRdb.persistence.read { context ->
-                    val cache = InMemoryHierarchyCache().also {
-                        hierarchies[signal.jIRdb] = it
-                    }
+                    val cache = hierarchy.cache
                     val result = mutableListOf<Triple<Long?, Long?, Long?>>()
                     context.execute(
                         sqlAction = {
@@ -127,18 +127,15 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
             is JIRSignal.LocationRemoved -> {
                 signal.jIRdb.persistence.write {
                     val id = signal.location.id
-                    hierarchies[signal.jIRdb]?.values?.forEach {
+                    hierarchy.cache.values.forEach {
                         it.remove(id)
                     }
                 }
             }
 
-            is JIRSignal.Drop -> {
-                hierarchies[signal.jIRdb]?.clear()
-            }
-
+            is JIRSignal.Drop,
             is JIRSignal.Closed -> {
-                hierarchies.remove(signal.jIRdb)
+                hierarchy.cache.clear()
             }
 
             else -> Unit
@@ -154,7 +151,7 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
         if (req.name == JAVA_OBJECT) {
             return persistence.read { classpath.allClassesExceptObject(it, !req.allHierarchy) }
         }
-        val hierarchy = hierarchies[classpath.db] ?: return emptySequence()
+        val hierarchy = classpath.db.findInMemoryHierarchy()?.cache ?: return emptySequence()
 
         fun getSubclasses(
             symbolId: Long,
@@ -247,7 +244,10 @@ object InMemoryHierarchy : JIRFeature<InMemoryHierarchyReq, ClassSource> {
     }
 
     override fun newIndexer(jIRdb: JIRDatabase, location: RegisteredLocation): ByteCodeIndexer {
-        return InMemoryHierarchyIndexer(jIRdb.persistence, location, hierarchies.getOrPut(jIRdb) { ConcurrentHashMap() })
+        val hierarchy = jIRdb.findInMemoryHierarchy()
+            ?: error("InMemoryHierarchy not installed")
+
+        return InMemoryHierarchyIndexer(jIRdb.persistence, location, hierarchy.cache)
     }
 
 }
@@ -257,7 +257,13 @@ internal fun JIRClasspath.findSubclassesInMemory(
     allHierarchy: Boolean,
     full: Boolean
 ): Sequence<JIRClassOrInterface> {
-    return InMemoryHierarchy.syncQuery(this, InMemoryHierarchyReq(name, allHierarchy, full)).map {
+    val hierarchy = db.findInMemoryHierarchy()
+        ?: error("InMemoryHierarchy not installed")
+
+    return hierarchy.syncQuery(this, InMemoryHierarchyReq(name, allHierarchy, full)).map {
         toJIRClass(it)
     }
 }
+
+fun JIRDatabase.findInMemoryHierarchy(): InMemoryHierarchy? =
+    features.filterIsInstance<InMemoryHierarchy>().firstOrNull()

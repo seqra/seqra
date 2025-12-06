@@ -1,5 +1,4 @@
 @file:JvmName("Nullables")
-
 package org.opentaint.ir.impl.bytecode
 
 import org.opentaint.ir.api.jvm.JIRAnnotated

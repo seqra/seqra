@@ -6,7 +6,7 @@ import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.impl.cfg.toFile
-import org.opentaint.ir.impl.opentaint-ir
+import org.opentaint.ir.impl.opentaintIrDb
 import org.opentaint.ir.testing.allClasspath
 import java.io.Closeable
 import java.io.File
@@ -23,7 +23,7 @@ class IRSvgGenerator(private val folder: File) : Closeable {
             folder.list()?.forEach { File(folder, it).delete() }
         }
         db = runBlocking {
-            opentaint-ir {
+            opentaintIrDb {
                 loadByteCode(allClasspath)
             }
         }

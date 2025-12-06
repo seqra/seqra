@@ -278,7 +278,7 @@ internal class Simplifier {
         }
         val replacement = types.filterValues { it.size > 1 }
             .mapValues {
-                JIRRawLocalVar(it.key.index, it.key.name, it.key.typeName)
+                JIRRawLocalVar(it.key.index, it.key.name, it.key.typeName, it.key.kind)
             }
         return instList.map(ExprMapper(replacement.toMap()))
     }

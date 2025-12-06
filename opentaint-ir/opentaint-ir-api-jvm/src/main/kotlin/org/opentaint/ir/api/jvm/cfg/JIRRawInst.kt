@@ -601,9 +601,9 @@ data class JIRRawNewArrayExpr(
     companion object {
         private val regexToProcessDimensions = Regex("\\[(.*?)]")
 
-        private fun arrayTypeToStringWithDimensions(typeName: TypeName, dimensions: List<JIRRawValue>) {
+        private fun arrayTypeToStringWithDimensions(typeName: TypeName, dimensions: List<JIRRawValue>): String {
             var curDim = 0
-            regexToProcessDimensions.replace("$typeName") {
+            return regexToProcessDimensions.replace("$typeName") {
                 "[${dimensions.getOrNull(curDim++) ?: ""}]"
             }
         }
@@ -844,6 +844,12 @@ data class JIRRawArgument(
     }
 }
 
+enum class LocalVarKind {
+    UNKNOWN,
+    ORIGINAL,
+    NAMED_LOCAL,
+}
+
 /**
  * @param name isn't considered in `equals` and `hashcode`
  */
@@ -851,6 +857,7 @@ data class JIRRawLocalVar(
     val index: Int,
     override val name: String,
     override val typeName: TypeName,
+    val kind: LocalVarKind = LocalVarKind.UNKNOWN,
 ) : JIRRawLocal {
     override fun toString(): String = name
 

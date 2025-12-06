@@ -39,8 +39,6 @@ interface JIRInst : CommonInst {
     override val location: JIRInstLocation
     val operands: List<JIRExpr>
 
-    override val method: JIRMethod
-        get() = location.method
     val lineNumber: Int
         get() = location.lineNumber
 

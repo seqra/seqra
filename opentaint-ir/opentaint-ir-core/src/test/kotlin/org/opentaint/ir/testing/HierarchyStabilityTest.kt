@@ -1,8 +1,11 @@
 package org.opentaint.ir.testing
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.ir.impl.features.Builders
+import org.opentaint.ir.impl.features.InMemoryHierarchy
+import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.hierarchyExt
-import org.opentaint.ir.impl.opentaint-ir
+import org.opentaint.ir.impl.opentaintIrDb
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -24,8 +27,8 @@ class HierarchyStabilityTest {
         private suspend fun run(global: Boolean): Pair<Int, Int> {
 
             val db = when {
-                global -> globalDb
-                else -> opentaint-ir {
+                global -> WithDb(Usages, Builders, InMemoryHierarchy()).db
+                else -> opentaintIrDb {
                     useProcessJavaRuntime()
                     loadByteCode(allJars)
                     installFeatures()

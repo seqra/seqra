@@ -12,34 +12,19 @@ package org.opentaint.ir.api.jvm.cfg
  * However, any terminating instruction is guaranteed to be the last instruction of a basic block.
  */
 data class JIRBasicBlock(val start: JIRInstRef, val end: JIRInstRef) {
-
-    fun contains(inst: JIRInst): Boolean {
+    operator fun contains(inst: JIRInst): Boolean {
         return inst.location.index <= end.index && inst.location.index >= start.index
     }
 
-    fun contains(inst: JIRInstRef): Boolean {
+    operator fun contains(inst: JIRInstRef): Boolean {
         return inst.index <= end.index && inst.index >= start.index
     }
-
 }
 
 interface JIRBlockGraph : JIRBytecodeGraph<JIRBasicBlock> {
     val jIRGraph: JIRGraph
     val entry: JIRBasicBlock
-    override val exits: List<JIRBasicBlock>
+
     fun instructions(block: JIRBasicBlock): List<JIRInst>
-
     fun block(inst: JIRInst): JIRBasicBlock
-
-    /**
-     * `successors` and `predecessors` represent normal control flow
-     */
-    override fun predecessors(node: JIRBasicBlock): Set<JIRBasicBlock>
-    override fun successors(node: JIRBasicBlock): Set<JIRBasicBlock>
-
-    /**
-     * `throwers` and `catchers` represent control flow when an exception occurs
-     */
-    override fun catchers(node: JIRBasicBlock): Set<JIRBasicBlock>
-    override fun throwers(node: JIRBasicBlock): Set<JIRBasicBlock>
 }

@@ -1,8 +1,12 @@
 package org.opentaint.ir.impl.storage.kv.xodus
 
-import jetbrains.exodus.env.*
+import jetbrains.exodus.env.Environment
+import jetbrains.exodus.env.EnvironmentConfig
+import jetbrains.exodus.env.Environments
+import jetbrains.exodus.env.Store
 import jetbrains.exodus.env.StoreConfig.WITHOUT_DUPLICATES_WITH_PREFIXING
 import jetbrains.exodus.env.StoreConfig.WITH_DUPLICATES_WITH_PREFIXING
+import jetbrains.exodus.env.TransactionBase
 import org.opentaint.ir.api.storage.kv.PluggableKeyValueStorage
 import org.opentaint.ir.api.storage.kv.Transaction
 

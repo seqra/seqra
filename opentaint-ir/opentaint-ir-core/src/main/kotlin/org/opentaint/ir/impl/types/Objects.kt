@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl.types
 
+import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import org.opentaint.ir.api.jvm.ext.jIRdbName
 import org.opentaint.ir.api.jvm.TypeName
@@ -85,7 +86,7 @@ sealed class AnnotationValue
 open class AnnotationValueList(val annotations: List<AnnotationValue>) : AnnotationValue()
 
 @Serializable
-class PrimitiveValue(val dataType: AnnotationValueKind, val value: Any) : AnnotationValue()
+class PrimitiveValue(val dataType: AnnotationValueKind, val value: @Contextual Any) : AnnotationValue()
 
 @Serializable
 class ClassRef(val className: String) : AnnotationValue()

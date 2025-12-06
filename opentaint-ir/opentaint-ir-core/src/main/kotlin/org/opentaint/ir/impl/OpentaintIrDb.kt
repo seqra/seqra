@@ -1,5 +1,3 @@
-@file:JvmName("Opentaint-IR")
-
 package org.opentaint.ir.impl
 
 import kotlinx.coroutines.GlobalScope
@@ -8,11 +6,11 @@ import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.JIRSettings
 import org.opentaint.ir.impl.fs.JavaRuntime
 
-suspend fun opentaint-ir(builder: JIRSettings.() -> Unit): JIRDatabase {
-    return opentaint-ir(JIRSettings().also(builder))
+suspend fun opentaintIrDb(builder: JIRSettings.() -> Unit): JIRDatabase {
+    return opentaintIrDb(JIRSettings().also(builder))
 }
 
-suspend fun opentaint-ir(settings: JIRSettings): JIRDatabase {
+suspend fun opentaintIrDb(settings: JIRSettings): JIRDatabase {
     val javaRuntime = JavaRuntime(settings.jre)
     return JIRDatabaseImpl(javaRuntime = javaRuntime, settings = settings).also {
         it.restore()
@@ -21,4 +19,4 @@ suspend fun opentaint-ir(settings: JIRSettings): JIRDatabase {
 }
 
 /** bridge for Java */
-fun async(settings: JIRSettings) = GlobalScope.future { opentaint-ir(settings) }
+fun async(settings: JIRSettings) = GlobalScope.future { opentaintIrDb(settings) }

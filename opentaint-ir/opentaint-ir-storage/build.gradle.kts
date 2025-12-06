@@ -1,3 +1,10 @@
+import org.opentaint.common.JunitDependencies
+
+plugins {
+    id("kotlin-conventions")
+    `java-test-fixtures`
+}
+
 dependencies {
     api(project(":opentaint-ir-api-storage"))
 
@@ -11,8 +18,8 @@ dependencies {
     testImplementation(Libs.lmdb_java)
     testImplementation(Libs.rocks_db)
 
-    testFixturesImplementation(platform(Libs.junit_bom))
-    testFixturesImplementation(Libs.junit_jupiter)
+    testFixturesImplementation(platform(JunitDependencies.Libs.junit_bom))
+    testFixturesImplementation(JunitDependencies.Libs.junit_jupiter)
     testFixturesApi(Libs.xodusEnvironment)
     testFixturesApi(Libs.lmdb_java)
     testFixturesApi(Libs.rocks_db)
