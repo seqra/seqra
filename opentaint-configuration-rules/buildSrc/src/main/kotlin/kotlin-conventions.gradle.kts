@@ -1,4 +1,5 @@
 import org.opentaint.common.configureDefault
+import org.opentaint.common.opentaintRepository
 
 plugins {
     kotlin("jvm")
@@ -15,3 +16,5 @@ repositories {
 }
 
 configureDefault("opentaint-configuration-rules")
+
+opentaintRepository("opentaint-ir")
