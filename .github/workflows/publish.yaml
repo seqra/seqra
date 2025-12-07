@@ -21,16 +21,11 @@ jobs:
       version: ${{ steps.version.outputs.version }}
 
     steps:
-      - name: Setup GPG and Git
-        run: apt update && apt install -y gnupg git
+      - name: Setup Git
+        run: apt update && apt install -y git
 
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Decrypt config
-        env:
-          CONFIG_PASSWORD: ${{ secrets.SAST_CONFIG_PASSWORD }}
-        run: cd config && ./decrypt_config.sh
 
       - name: Set up JDK 11
         uses: actions/setup-java@v3
