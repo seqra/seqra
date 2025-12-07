@@ -9,7 +9,7 @@ import org.opentaint.ir.impl.JIRRamErsSettings
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.hierarchyExt
-import org.opentaint.ir.impl.opentaint-ir
+import org.opentaint.ir.impl.opentaintIrDb
 import java.nio.file.Path
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
@@ -45,13 +45,13 @@ private fun samplesJarPath(): Path {
 fun samplesDb(): SamplesDb = runBlocking {
     val path = samplesJarPath()
 
-    val db = opentaint-ir {
+    val db = opentaintIrDb {
         loadByteCode(listOf(path.toFile()))
         useProcessJavaRuntime()
 
         persistenceImpl(JIRRamErsSettings)
 
-        installFeatures(InMemoryHierarchy)
+        installFeatures(InMemoryHierarchy())
         installFeatures(Usages)
     }
 

@@ -20,4 +20,4 @@ configureDefault("opentaint-jvm-sast-project")
 opentaintRepository("opentaint-project-model")
 opentaintRepository("opentaint-configuration-rules")
 opentaintRepository("opentaint-utils")
-
+opentaintRepository("opentaint-ir")

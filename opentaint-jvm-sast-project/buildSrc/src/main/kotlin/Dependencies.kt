@@ -3,7 +3,7 @@
 import org.opentaint.common.dep
 
 object Versions {
-    const val opentaintProject = "2025.07.24.f65b6cc"
+    const val opentaintProject = "2025.07.29.e0e1756"
 }
 
 object Libs {

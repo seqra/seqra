@@ -22,9 +22,11 @@ object Versions {
     const val brics_automaton = "1.11-8"
     const val antlr = "4.9.3"
 
-    const val opentaintUtil = "2025.07.24.e2de8fa"
-    const val opentaintConfig = "2025.07.24.d34a262"
-    const val opentaintProject = "2025.07.24.f65b6cc"
+    const val opentaintUtil = "2025.07.29.6c2bc6d"
+    const val opentaintConfig = "2025.07.29.6659284"
+    const val opentaintProject = "2025.07.29.e0e1756"
+    const val opentaintEngineApi = "2025.07.29.368835a"
+    const val opentaintEngineApproximations = "2025.07.29.c05a72c"
 
     // versions for jvm samples
     object Samples {
@@ -148,6 +150,18 @@ object Libs {
         group = "org.opentaint.project",
         name = "opentaint-project-model",
         version = Versions.opentaintProject
+    )
+
+    val opentaint_engine_api = dep(
+        group = "org.opentaint.jvm.engine.api",
+        name = "opentaint-jvm-engine-api",
+        version = Versions.opentaintEngineApi
+    )
+
+    val opentaint_engine_approximations = dep(
+        group = "org.opentaint.engine.jvm.approximations",
+        name = "approximations",
+        version = Versions.opentaintEngineApproximations,
     )
 }
 

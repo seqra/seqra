@@ -223,7 +223,7 @@ class SarifGenerator(
                     // for the MethodEntry traces
                     // will fail if the source has extra lines between method declaration and its body
                     // (i.e. blank lines, extra parameter indentation, or comments)
-                    val firstInsn = groupNode.node.statement.method.flowGraph().entries.firstOrNull()
+                    val firstInsn = groupNode.node.statement.location.method.flowGraph().entries.firstOrNull()
                     checkNotNull(firstInsn)
                     instToSarifLocation(firstInsn, -1)
                 }

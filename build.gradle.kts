@@ -1,5 +1,4 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-import org.opentaint.common.OpentaintIrDependency
 import org.opentaint.common.JunitDependencies
 import org.opentaint.common.KotlinDependency
 
@@ -22,11 +21,11 @@ dependencies {
     implementation("org.opentaint.sast:dataflow")
     implementation(project(":opentaint-java-querylang"))
 
-    implementation(OpentaintIrDependency.Libs.opentaint-ir_api_jvm)
-    implementation(OpentaintIrDependency.Libs.opentaint-ir_core)
-    implementation(OpentaintIrDependency.Libs.opentaint-ir_approximations)
-    implementation(OpentaintIrDependency.Libs.opentaint-ir_api_storage)
-    implementation(OpentaintIrDependency.Libs.opentaint-ir_storage)
+    implementation(OpentaintIrDependency.Libs.opentaint_ir_api_jvm)
+    implementation(OpentaintIrDependency.Libs.opentaint_ir_core)
+    implementation(OpentaintIrDependency.Libs.opentaint_ir_approximations)
+    implementation(OpentaintIrDependency.Libs.opentaint_ir_api_storage)
+    implementation(OpentaintIrDependency.Libs.opentaint_ir_storage)
 
     implementation(KotlinDependency.Libs.kotlinx_serialization_json)
     implementation(KotlinDependency.Libs.kotlin_logging)
@@ -70,11 +69,8 @@ tasks.register<JavaExec>("runProjectAnalyzer") {
 }
 
 val approximations by configurations.creating
-val approximationsRepo = "com.github.Opentaint.java-stdlib-approximations"
-val approximationsVersion = "7deb55c959"
-
 dependencies {
-    approximations(approximationsRepo, "approximations", approximationsVersion)
+    approximations(Libs.opentaint_engine_approximations)
 }
 
 fun JavaExec.configureAnalyzer(analyzerRunnerClassName: String) {
@@ -87,7 +83,7 @@ fun JavaExec.configureAnalyzer(analyzerRunnerClassName: String) {
     val envVars = mutableMapOf("opentaint_taint_config_path" to configFile)
 
     doFirst {
-        val opentaintApiJarPath = tryResolveDependency("org.opentaint.engine.jvm:api")
+        val opentaintApiJarPath = tryResolveDependency(Libs.opentaint_engine_api)
         if (opentaintApiJarPath != null) {
             val opentaintApproximationJarPath = approximations.resolvedConfiguration.files.single()
 
@@ -131,7 +127,7 @@ fun Task.analyzerDockerImage(
             "SARIF_VERSION" to "$analyzerVersion",
         )
 
-        val opentaintApiJarPath = tryResolveDependency("org.opentaint.engine.jvm:api")
+        val opentaintApiJarPath = tryResolveDependency(Libs.opentaint_engine_api)
         if (opentaintApiJarPath != null) {
             val opentaintApproximationJarPath = approximations.resolvedConfiguration.files.single()
 

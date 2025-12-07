@@ -186,7 +186,7 @@ class TraceMessageBuilder(
         "Calling ${getMethodCalleeNameInPrint(node)}"
 
     private fun createExitMessage(node: TracePathNode) =
-        "Exiting \"${node.statement.method.name}\""
+        "Exiting \"${node.statement.location.method.name}\""
 
     private fun createTraceEntryMessage(node: TracePathNode): String {
         return when (val entry = node.entry) {
@@ -473,7 +473,7 @@ class TraceMessageBuilder(
         is AccessPathBase.Argument -> printArgument(idx)
         is AccessPathBase.ClassStatic -> "a static variable"
         is AccessPathBase.LocalVar -> {
-            localNameResolver.getLocalName(node.statement.method, idx)?.let { "\"$it\"" } ?: "a local variable"
+            localNameResolver.getLocalName(node.statement.location.method, idx)?.let { "\"$it\"" } ?: "a local variable"
         }
         is AccessPathBase.Return -> printReturnedValue(node)
         is AccessPathBase.Constant -> "a const value"

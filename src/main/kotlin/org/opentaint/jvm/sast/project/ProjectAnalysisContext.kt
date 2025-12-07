@@ -9,7 +9,7 @@ import org.opentaint.ir.impl.JIRRamErsSettings
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
-import org.opentaint.ir.impl.opentaint-ir
+import org.opentaint.ir.impl.opentaintIrDb
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSummariesFeature
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
@@ -54,7 +54,7 @@ fun initializeProjectAnalysisContext(
         allCpFiles.addAll(projectModulesFiles.keys)
         allCpFiles.addAll(dependencyFiles)
 
-        db = opentaint-ir {
+        db = opentaintIrDb {
             val toolchain = project.javaToolchain
             if (toolchain != null) {
                 useJavaRuntime(toolchain.toFile())
@@ -64,11 +64,11 @@ fun initializeProjectAnalysisContext(
 
             persistenceImpl(JIRRamErsSettings)
 
-            installFeatures(InMemoryHierarchy)
+            installFeatures(InMemoryHierarchy())
             installFeatures(Usages)
             keepLocalVariableNames()
 
-            installFeatures(Approximations)
+            installFeatures(Approximations(emptyList()))
 
             installClassScorer()
             if (summariesApMode != null) {
@@ -95,7 +95,6 @@ fun initializeProjectAnalysisContext(
             features.add(SpringAutowiredFieldInitializerTransformer())
         }
 
-        // todo: fix approximations with multiple JIRDatabase instances
         cp = db.classpathWithApproximations(allCpFiles, features)
             ?: run {
                 logger.warn {
