@@ -19,3 +19,4 @@ configureDefault("opentaint-dataflow-core")
 
 opentaintRepository("opentaint-configuration-rules")
 opentaintRepository("opentaint-utils")
+opentaintRepository("opentaint-ir")

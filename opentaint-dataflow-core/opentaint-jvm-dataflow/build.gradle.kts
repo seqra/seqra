@@ -1,4 +1,3 @@
-import org.opentaint.common.OpentaintIrDependency
 import org.opentaint.common.KotlinDependency
 
 plugins {
@@ -12,10 +11,10 @@ dependencies {
     implementation(Libs.opentaintUtilJvm)
     implementation(Libs.opentaintRulesJvm)
 
-    implementation(OpentaintIrDependency.Libs.opentaint-ir_api_jvm)
-    implementation(OpentaintIrDependency.Libs.opentaint-ir_core)
-    implementation(OpentaintIrDependency.Libs.opentaint-ir_api_storage)
-    implementation(OpentaintIrDependency.Libs.opentaint-ir_storage)
+    implementation(OpentaintIrDependency.Libs.opentaint_ir_api_jvm)
+    implementation(OpentaintIrDependency.Libs.opentaint_ir_core)
+    implementation(OpentaintIrDependency.Libs.opentaint_ir_api_storage)
+    implementation(OpentaintIrDependency.Libs.opentaint_ir_storage)
 
     implementation(KotlinDependency.Libs.kotlin_logging)
     implementation(KotlinDependency.Libs.reflect)

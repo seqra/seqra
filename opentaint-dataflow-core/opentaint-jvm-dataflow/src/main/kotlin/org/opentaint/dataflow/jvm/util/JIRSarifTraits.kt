@@ -1,22 +1,22 @@
 package org.opentaint.dataflow.jvm.util
 
+import org.opentaint.dataflow.util.SarifTraits
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRValue
-import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
-import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
-import org.opentaint.ir.api.jvm.cfg.JIRExpr
-import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.values
-import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
-import org.opentaint.dataflow.util.SarifTraits
+import org.opentaint.ir.api.jvm.ext.toType
 
 class JIRSarifTraits(
     val cp: JIRClasspath,
@@ -73,7 +73,7 @@ class JIRSarifTraits(
     }
 
     override fun locationMachineName(statement: JIRInst): String =
-        "${statement.method}:${statement.location.index}:($statement)"
+        "${statement.location.method}:${statement.location.index}:($statement)"
 }
 
 val JIRMethod.thisInstance: JIRThis

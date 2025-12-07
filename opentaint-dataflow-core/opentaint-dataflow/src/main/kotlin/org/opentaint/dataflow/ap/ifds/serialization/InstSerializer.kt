@@ -10,7 +10,7 @@ internal class InstSerializer(
     private val context: SummarySerializationContext,
 ) {
     fun DataOutputStream.writeInst(inst: CommonInst) {
-        writeLong(context.getIdByMethod(inst.method))
+        writeLong(context.getIdByMethod(inst.location.method))
         writeInt(languageManager.getInstIndex(inst))
     }
 

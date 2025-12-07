@@ -408,13 +408,13 @@ class JIRMethodSequentFlowFunction(
         methodResult: AccessPathBase, fact: FinalFactAp
     ): Unit = with(analysisContext.taint) {
         val config = taintConfig as TaintRulesProvider
-        val sinkRules = config.sinkRulesForMethodExit(currentInst.method, currentInst).toList()
+        val sinkRules = config.sinkRulesForMethodExit(currentInst.location.method, currentInst).toList()
         if (sinkRules.isEmpty()) return
 
         val resultFact = if (fact.base == methodResult) fact.rebase(AccessPathBase.Return) else fact
         val conditionFactReader = FinalFactReader(resultFact, apManager)
 
-        val valueResolver = CalleePositionToJIRValueResolver(currentInst.method)
+        val valueResolver = CalleePositionToJIRValueResolver(currentInst.location.method)
 
         sinkRules.applyRuleWithAssumptions(
             apManager,

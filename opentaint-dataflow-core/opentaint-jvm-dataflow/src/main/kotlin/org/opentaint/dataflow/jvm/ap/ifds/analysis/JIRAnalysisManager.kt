@@ -1,14 +1,6 @@
 package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
 import mu.KLogger
-import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.cfg.CommonCallExpr
-import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.common.cfg.CommonValue
-import org.opentaint.ir.api.jvm.JIRClasspath
-import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRImmediate
-import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisManager
@@ -39,6 +31,14 @@ import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodCallPrecondition
 import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodSequentPrecondition
 import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodStartPrecondition
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonCallExpr
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.common.cfg.CommonValue
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRImmediate
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.jvm.graph.JApplicationGraph
 import org.opentaint.util.analysis.ApplicationGraph
 
@@ -65,7 +65,7 @@ class JIRAnalysisManager(
         methodEntryPoint: MethodEntryPoint,
         graph: ApplicationGraph<CommonMethod, CommonInst>,
         taintAnalysisContext: TaintAnalysisContext
-    ): org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext {
+    ): MethodAnalysisContext {
         val entryPointStatement = methodEntryPoint.statement
         jirDowncast<JIRInst>(entryPointStatement)
         jirDowncast<JApplicationGraph>(graph)
@@ -76,7 +76,7 @@ class JIRAnalysisManager(
             null
         }
 
-        val localVariableReachability = JIRLocalVariableReachability(entryPointStatement.method, graph, this)
+        val localVariableReachability = JIRLocalVariableReachability(entryPointStatement.location.method, graph, this)
         return JIRMethodAnalysisContext(
             methodEntryPoint,
             factTypeChecker,
@@ -88,7 +88,7 @@ class JIRAnalysisManager(
 
     override fun getMethodStartFlowFunction(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
+        analysisContext: MethodAnalysisContext
     ): MethodStartFlowFunction {
         jirDowncast<JIRMethodAnalysisContext>(analysisContext)
         return JIRMethodStartFlowFunction(apManager, analysisContext)
@@ -96,7 +96,7 @@ class JIRAnalysisManager(
 
     override fun getMethodStartPrecondition(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
+        analysisContext: MethodAnalysisContext
     ): MethodStartPrecondition {
         jirDowncast<JIRMethodAnalysisContext>(analysisContext)
         return JIRMethodStartPrecondition(apManager, analysisContext)
@@ -104,7 +104,7 @@ class JIRAnalysisManager(
 
     override fun getMethodSequentPrecondition(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
+        analysisContext: MethodAnalysisContext,
         currentInst: CommonInst
     ): MethodSequentPrecondition {
         jirDowncast<JIRInst>(currentInst)
@@ -115,7 +115,7 @@ class JIRAnalysisManager(
 
     override fun getMethodSequentFlowFunction(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
+        analysisContext: MethodAnalysisContext,
         currentInst: CommonInst
     ): MethodSequentFlowFunction {
         jirDowncast<JIRInst>(currentInst)
@@ -126,7 +126,7 @@ class JIRAnalysisManager(
 
     override fun getMethodCallFlowFunction(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
+        analysisContext: MethodAnalysisContext,
         returnValue: CommonValue?,
         callExpr: CommonCallExpr,
         statement: CommonInst
@@ -147,7 +147,7 @@ class JIRAnalysisManager(
 
     override fun getMethodCallSummaryHandler(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
+        analysisContext: MethodAnalysisContext,
         statement: CommonInst
     ): MethodCallSummaryHandler {
         jirDowncast<JIRInst>(statement)
@@ -158,7 +158,7 @@ class JIRAnalysisManager(
 
     override fun getMethodCallPrecondition(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
+        analysisContext: MethodAnalysisContext,
         returnValue: CommonValue?,
         callExpr: CommonCallExpr,
         statement: CommonInst
@@ -179,7 +179,7 @@ class JIRAnalysisManager(
 
     override fun isReachable(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
+        analysisContext: MethodAnalysisContext,
         base: AccessPathBase,
         statement: CommonInst
     ): Boolean {
@@ -189,7 +189,7 @@ class JIRAnalysisManager(
 
     override fun isValidMethodExitFact(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
+        analysisContext: MethodAnalysisContext,
         fact: FinalFactAp
     ): Boolean {
         return JIRMethodCallFactMapper.isValidMethodExitFact(fact)

@@ -127,7 +127,7 @@ class JIRCallResolver(
         instanceTypes: Set<JIRClassOrInterface>?
     ): List<MethodWithContext> {
         if (instanceTypes.isNullOrEmpty()) {
-            logger.warn { "No instance type for $call at ${location.method}" }
+            logger.warn { "No instance type for $call at ${location.location.method}" }
             return listOf(MethodWithContext(method, EmptyMethodContext))
         }
 
@@ -194,7 +194,7 @@ class JIRCallResolver(
 
         val (assignments, catchers) = findAllAssignmentsToValue(value, location)
         if (assignments.isEmpty() && catchers.isEmpty()) {
-            logger.warn { "No assignments to $value in ${location.method}" }
+            logger.warn { "No assignments to $value in ${location.location.method}" }
             return setOf(valueCls)
         }
 

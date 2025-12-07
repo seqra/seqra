@@ -12,7 +12,7 @@ object EmptyMethodContext : MethodContext {
 data class MethodWithContext(val method: CommonMethod, val ctx: MethodContext)
 
 data class MethodEntryPoint(val context: MethodContext, val statement: CommonInst) {
-    val method: CommonMethod get() = statement.method
+    val method: CommonMethod get() = statement.location.method
 
     override fun toString(): String = "$method [$context]"
 }

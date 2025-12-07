@@ -2,25 +2,6 @@ package org.opentaint.dataflow.jvm.ap.ifds
 
 import it.unimi.dsi.fastutil.longs.LongLongImmutablePair
 import it.unimi.dsi.fastutil.longs.LongLongPair
-import org.opentaint.ir.api.common.CommonType
-import org.opentaint.ir.api.jvm.JIRArrayType
-import org.opentaint.ir.api.jvm.JIRBoundedWildcard
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRClasspath
-import org.opentaint.ir.api.jvm.JIRDatabase
-import org.opentaint.ir.api.jvm.JIRDatabasePersistence
-import org.opentaint.ir.api.jvm.JIRRefType
-import org.opentaint.ir.api.jvm.JIRType
-import org.opentaint.ir.api.jvm.JIRTypeVariable
-import org.opentaint.ir.api.jvm.JIRUnboundWildcard
-import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
-import org.opentaint.ir.api.jvm.ext.ifArrayGetElementType
-import org.opentaint.ir.api.jvm.ext.isAssignable
-import org.opentaint.ir.api.jvm.ext.isSubClassOf
-import org.opentaint.ir.api.jvm.ext.objectType
-import org.opentaint.ir.impl.features.InMemoryHierarchy
-import org.opentaint.ir.impl.features.InMemoryHierarchyCache
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
@@ -33,8 +14,28 @@ import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
+import org.opentaint.ir.api.common.CommonType
+import org.opentaint.ir.api.jvm.JIRArrayType
+import org.opentaint.ir.api.jvm.JIRBoundedWildcard
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRDatabasePersistence
+import org.opentaint.ir.api.jvm.JIRRefType
+import org.opentaint.ir.api.jvm.JIRType
+import org.opentaint.ir.api.jvm.JIRTypeVariable
+import org.opentaint.ir.api.jvm.JIRUnboundWildcard
+import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
+import org.opentaint.ir.api.jvm.ext.ifArrayGetElementType
+import org.opentaint.ir.api.jvm.ext.isAssignable
+import org.opentaint.ir.api.jvm.ext.isSubClassOf
+import org.opentaint.ir.api.jvm.ext.objectType
+import org.opentaint.ir.impl.features.InMemoryHierarchy
+import org.opentaint.ir.impl.features.InMemoryHierarchyCache
+import org.opentaint.ir.impl.features.findInMemoryHierarchy
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.LongAdder
+import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.isAccessible
 
@@ -44,10 +45,11 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
     private val registeredLocationIds: Set<Long>
 
     init {
-        check(cp.db.isInstalled(InMemoryHierarchy)) { "In memory hierarchy required" }
+        val hierarchyFeature = cp.db.findInMemoryHierarchy()
+            ?: error("In memory hierarchy required")
+
         persistence = cp.db.persistence
-        val allHierarchies = InMemoryHierarchyAccess.accessHierarchiesField(InMemoryHierarchy)
-        hierarchy = checkNotNull(allHierarchies[cp.db])
+        hierarchy = InMemoryHierarchyAccess.accessCacheField(hierarchyFeature)
         registeredLocationIds = cp.registeredLocations.mapTo(hashSetOf()) { it.id }
     }
 
@@ -288,12 +290,12 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
     }
 
     private object InMemoryHierarchyAccess {
-        fun accessHierarchiesField(hierarchy: InMemoryHierarchy): Map<JIRDatabase, InMemoryHierarchyCache> {
+        @Suppress("UNCHECKED_CAST")
+        fun accessCacheField(hierarchy: InMemoryHierarchy): InMemoryHierarchyCache {
             val allProperties = hierarchy::class.declaredMemberProperties
-            val hierarchiesProperty = allProperties.single { it.name == "hierarchies" }
-            hierarchiesProperty.isAccessible = true
-            @Suppress("UNCHECKED_CAST")
-            return hierarchiesProperty.call() as Map<JIRDatabase, InMemoryHierarchyCache>
+            val cacheProperty = allProperties.single { it.name == "cache" } as KProperty1<InMemoryHierarchy, InMemoryHierarchyCache>
+            cacheProperty.isAccessible = true
+            return cacheProperty.get(hierarchy)
         }
     }
 }

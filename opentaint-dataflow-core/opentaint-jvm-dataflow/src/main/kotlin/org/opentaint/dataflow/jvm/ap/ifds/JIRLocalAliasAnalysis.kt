@@ -6,6 +6,11 @@ import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.mutate
 import kotlinx.collections.immutable.persistentHashMapOf
 import kotlinx.collections.immutable.persistentHashSetOf
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.util.PersistentBitSet
+import org.opentaint.dataflow.util.PersistentBitSet.Companion.emptyPersistentBitSet
+import org.opentaint.dataflow.util.forEach
+import org.opentaint.dataflow.util.toBitSet
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRTypedField
 import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
@@ -21,11 +26,6 @@ import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.JIRRef
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.jvm.graph.JApplicationGraph
-import org.opentaint.dataflow.ap.ifds.AccessPathBase
-import org.opentaint.dataflow.util.PersistentBitSet
-import org.opentaint.dataflow.util.PersistentBitSet.Companion.emptyPersistentBitSet
-import org.opentaint.dataflow.util.forEach
-import org.opentaint.dataflow.util.toBitSet
 import java.util.BitSet
 
 class JIRLocalAliasAnalysis(
@@ -51,8 +51,8 @@ class JIRLocalAliasAnalysis(
     }
 
     private fun compute(): MethodAliasInfo {
-        val beforeInst = arrayOfNulls<State>(languageManager.getMaxInstIndex(entryPoint.method) + 1)
-        val afterInst = arrayOfNulls<State>(languageManager.getMaxInstIndex(entryPoint.method) + 1)
+        val beforeInst = arrayOfNulls<State>(languageManager.getMaxInstIndex(entryPoint.location.method) + 1)
+        val afterInst = arrayOfNulls<State>(languageManager.getMaxInstIndex(entryPoint.location.method) + 1)
         val unprocessed = mutableListOf<Pair<JIRInst, State>>()
 
         unprocessed.add(entryPoint to State.empty())
