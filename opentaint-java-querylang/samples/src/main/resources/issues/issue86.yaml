@@ -1,0 +1,22 @@
+rules:
+  - id: i86
+    languages:
+      - java
+    message: 'message'
+    patterns:
+      - pattern: |
+          $PE = new PatternEither();
+          ...
+      - pattern-either:
+          - pattern: |
+              ...
+              $STRING = $PE.getString1();
+              ...
+          - pattern: |
+              ...
+              $STRING = $PE.getString2();
+              ...
+      - pattern: |
+          ...
+          $PE.useString($STRING);
+    severity: WARNING

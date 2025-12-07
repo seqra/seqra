@@ -3,7 +3,6 @@ package org.opentaint.semgrep.pattern.conversion.taint
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentHashMapOf
 import mu.KLogging
-import org.slf4j.event.Level
 import org.opentaint.dataflow.configuration.jvm.serialized.AnalysisEndSink
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
@@ -23,6 +22,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssign
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
+import org.slf4j.event.Level
 import org.opentaint.dataflow.util.PersistentBitSet
 import org.opentaint.dataflow.util.PersistentBitSet.Companion.emptyPersistentBitSet
 import org.opentaint.dataflow.util.contains
@@ -32,9 +32,9 @@ import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.RuleWithMetaVars
 import org.opentaint.semgrep.pattern.SemgrepError
-import org.opentaint.semgrep.pattern.SemgrepRuleErrors
 import org.opentaint.semgrep.pattern.SemgrepMatchingRule
 import org.opentaint.semgrep.pattern.SemgrepRule
+import org.opentaint.semgrep.pattern.SemgrepRuleErrors
 import org.opentaint.semgrep.pattern.SemgrepTaintRule
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import org.opentaint.semgrep.pattern.conversion.IsMetavar
@@ -84,11 +84,20 @@ fun convertToTaintRules(
     is SemgrepTaintRule -> convertTaintRuleToTaintRules(rule, ruleId, meta, semgrepRuleErrors)
 }
 
-private fun safeConvertToTaintRules(name: String, convertToTaintRules: () -> List<SerializedItem>): List<SerializedItem>? =
+private fun safeConvertToTaintRules(
+    name: String,
+    errors: SemgrepRuleErrors,
+    convertToTaintRules: () -> List<SerializedItem>,
+): List<SerializedItem>? =
     runCatching {
         convertToTaintRules()
     }.onFailure { ex ->
-        logger.error(ex) { "Failed to convert to taint rules for $name" }
+        errors += SemgrepError(
+            SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
+            "Failed to convert to taint rule for $name: ${ex.message}",
+            Level.ERROR,
+            SemgrepError.Reason.ERROR,
+        )
     }.getOrNull()
 
 private fun convertMatchingRuleToTaintRules(
@@ -104,7 +113,7 @@ private fun convertMatchingRuleToTaintRules(
     val ruleGroups = rule.rules.mapIndexedNotNull { idx, r ->
         val automataId = "$ruleId#$idx"
 
-        val rules = safeConvertToTaintRules(automataId) {
+        val rules = safeConvertToTaintRules(automataId, semgrepRuleErrors) {
             convertAutomataToTaintRules(r.metaVarInfo, r.rule, automataId, ruleId, meta, semgrepRuleErrors)
         }
 
@@ -135,7 +144,7 @@ private fun convertTaintRuleToTaintRules(
             logger.warn { "Rule $ruleId: source requires ignored" }
         }
 
-        generatedRules += safeConvertToTaintRules("$ruleId: source #$i") {
+        generatedRules += safeConvertToTaintRules("$ruleId: source #$i", semgrepRuleErrors) {
             val (ctx, stateVars) = convertTaintSourceRule(ruleId, i, source.pattern)
             ctx.generateTaintSourceRules(stateVars, taintMarkName, semgrepRuleErrors)
         }.orEmpty()
@@ -146,7 +155,7 @@ private fun convertTaintRuleToTaintRules(
             logger.warn { "Rule $ruleId: sink requires ignored" }
         }
 
-        generatedRules += safeConvertToTaintRules("$ruleId: sink #$i") {
+        generatedRules += safeConvertToTaintRules("$ruleId: sink #$i", semgrepRuleErrors) {
             val (ctx, stateVars, stateId) = convertTaintSinkRule(ruleId, i, sink.pattern)
             val sinkCtx = SinkRuleGenerationCtx(stateVars, stateId, taintMarkName, ctx)
             sinkCtx.generateTaintSinkRules(ruleId, meta, semgrepRuleErrors)
@@ -154,7 +163,7 @@ private fun convertTaintRuleToTaintRules(
     }
 
     for ((i, pass) in rule.propagators.withIndex()) {
-        generatedRules += safeConvertToTaintRules("$ruleId: pass #$i") {
+        generatedRules += safeConvertToTaintRules("$ruleId: pass #$i", semgrepRuleErrors) {
             val fromVar = MetavarAtom.create(pass.from)
             val toVar = MetavarAtom.create(pass.to)
             val (ctx, stateId) = generatePassRule(ruleId, i, pass.pattern, fromVar, toVar)
