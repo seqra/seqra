@@ -1,4 +1,4 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.pattern.conversion
 
 import org.opentaint.semgrep.pattern.EllipsisMethodInvocations
 import org.opentaint.semgrep.pattern.NormalizedSemgrepRule

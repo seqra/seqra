@@ -2,7 +2,7 @@ package org.opentaint.semgrep.pattern.conversion
 
 import org.slf4j.event.Level
 import org.opentaint.semgrep.pattern.AbstractSemgrepError
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.rewriteEllipsisMethodInvocations
+import org.opentaint.semgrep.pattern.conversion.rewriteEllipsisMethodInvocations
 import org.opentaint.semgrep.pattern.ActionListSemgrepRule
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraints

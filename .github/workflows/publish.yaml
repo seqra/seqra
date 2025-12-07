@@ -52,8 +52,8 @@ jobs:
 
       - name: Create image names
         run: |
-          echo "AUTOBUILDER_IMAGE=ghcr.io/explyt/opentaint-jvm-autobuilder/sast-autobuilder:${{ env.AUTOBUILDER_VERSION }}" >> $GITHUB_ENV
-          echo "ANALYZER_IMAGE=ghcr.io/explyt/opentaint-jvm-sast/sast-analyzer:${{ steps.version.outputs.version }}" >> $GITHUB_ENV
+          echo "AUTOBUILDER_IMAGE=ghcr.io/${{ github.repository_owner }}/opentaint-jvm-autobuilder/sast-autobuilder:${{ env.AUTOBUILDER_VERSION }}" >> $GITHUB_ENV
+          echo "ANALYZER_IMAGE=ghcr.io/${{ github.repository_owner }}/opentaint-jvm-sast/sast-analyzer:${{ steps.version.outputs.version }}" >> $GITHUB_ENV
 
       - name: Tag images
         run: docker tag analyzer-private:${{ steps.version.outputs.version }} ${{ env.ANALYZER_IMAGE }}

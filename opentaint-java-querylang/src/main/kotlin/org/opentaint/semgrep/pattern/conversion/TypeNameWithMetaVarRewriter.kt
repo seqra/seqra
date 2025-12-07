@@ -1,7 +1,7 @@
 package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.PatternRewriter
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.safeRewrite
+import org.opentaint.semgrep.pattern.conversion.PatternRewriter
+import org.opentaint.semgrep.pattern.conversion.safeRewrite
 import org.opentaint.semgrep.pattern.ConcreteName
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraints

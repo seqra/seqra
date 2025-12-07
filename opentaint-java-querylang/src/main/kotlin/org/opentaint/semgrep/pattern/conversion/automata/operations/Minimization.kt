@@ -1,6 +1,6 @@
 package org.opentaint.semgrep.pattern.conversion.automata.operations
 
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations.unifyMetavars
+import org.opentaint.semgrep.pattern.conversion.automata.operations.unifyMetavars
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode

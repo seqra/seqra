@@ -180,24 +180,24 @@ class ProjectAnalyzer(
             val seAnalyzer = SastSeAnalyzer.createSeEngine<TaintAnalysisUnitRunnerManager, VulnerabilityWithTrace>()
                 ?: return
 
-            logger.info { "Start Opentaint for project: ${project.sourceRoot}" }
+            logger.info { "Start SE for project: ${project.sourceRoot}" }
             val verifiedTraces = seAnalyzer.analyzeTraces(
                 cp, projectClasses.projectLocations, analyzer.ifdsEngine,
                 traces, symbolicExecutionTimeout
             )
-            logger.info { "Finish Opentaint for project: ${project.sourceRoot}" }
+            logger.info { "Finish SE for project: ${project.sourceRoot}" }
 
-            (resultDir / "report-opentaint.sarif").outputStream().use {
+            (resultDir / "report-se.sarif").outputStream().use {
                 generateSarifReportFromTraces(it, sourcesResolver, verifiedTraces)
             }
 
-            logger.info { "Finish Opentaint report for project: ${project.sourceRoot}" }
+            logger.info { "Finish SE report for project: ${project.sourceRoot}" }
         }
     }
 
     private fun ProjectAnalysisContext.generateSarifReportFromTraces(
         output: OutputStream,
-        sourceFileResolver: SourceFileResolver<CommonInst>,
+        sourceFileResolver: org.opentaint.dataflow.sarif.SourceFileResolver<CommonInst>,
         traces: List<VulnerabilityWithTrace>
     ) {
         val generator = SarifGenerator(sourceFileResolver, JIRSarifTraits(cp))

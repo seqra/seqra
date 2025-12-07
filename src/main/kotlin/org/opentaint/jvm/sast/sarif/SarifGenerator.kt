@@ -28,7 +28,7 @@ import org.opentaint.dataflow.util.SarifTraits
 import java.io.OutputStream
 
 class SarifGenerator(
-    private val sourceFileResolver: SourceFileResolver<CommonInst>,
+    private val sourceFileResolver: org.opentaint.dataflow.sarif.SourceFileResolver<CommonInst>,
     private val traits: SarifTraits<CommonMethod, CommonInst>
 ) {
     private val json = Json {
@@ -247,7 +247,7 @@ class SarifGenerator(
     private val locationsCache = hashMapOf<CommonInst, String?>()
     private fun <Statement : CommonInst> getCachedSourceLocation(
         inst: Statement,
-        sourceFileResolver: SourceFileResolver<Statement>,
+        sourceFileResolver: org.opentaint.dataflow.sarif.SourceFileResolver<Statement>,
     ): String? =
         locationsCache.computeIfAbsent(inst) {
             sourceFileResolver.resolve(inst)

@@ -15,7 +15,7 @@ import org.opentaint.util.newFile
 import java.nio.file.Path
 import kotlin.time.Duration.Companion.seconds
 
-class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
+class ProjectAnalyzerRunner : org.opentaint.jvm.sast.runner.AbstractAnalyzerRunner() {
     private val cwe: List<Int> by option(help = "Analyzer CWE")
         .int().multiple()
 
@@ -57,6 +57,6 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
 
     companion object {
         @JvmStatic
-        fun main(args: Array<String>) = ProjectAnalyzerRunner().main(args)
+        fun main(args: Array<String>) = org.opentaint.jvm.sast.runner.ProjectAnalyzerRunner().main(args)
     }
 }

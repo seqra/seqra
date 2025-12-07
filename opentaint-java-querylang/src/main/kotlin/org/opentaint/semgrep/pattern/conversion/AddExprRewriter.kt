@@ -1,7 +1,5 @@
 package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.PatternRewriter
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.safeRewrite
 import org.opentaint.semgrep.pattern.ConcreteName
 import org.opentaint.semgrep.pattern.MethodInvocation
 import org.opentaint.semgrep.pattern.NoArgs
@@ -23,9 +21,9 @@ fun rewriteAddExpr(rule: NormalizedSemgrepRule): List<NormalizedSemgrepRule> {
     }
 }
 
-const val opentaintStringConcatMethodName = "__opentaintStringConcat__"
+const val generatedStringConcatMethodName = "__genStringConcat__"
 
 private fun generateStringConcat(first: SemgrepJavaPattern, second: SemgrepJavaPattern): SemgrepJavaPattern {
     val args = PatternArgumentPrefix(first, PatternArgumentPrefix(second, NoArgs))
-    return MethodInvocation(ConcreteName(opentaintStringConcatMethodName), obj = null, args)
+    return MethodInvocation(ConcreteName(generatedStringConcatMethodName), obj = null, args)
 }

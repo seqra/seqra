@@ -105,7 +105,9 @@ private fun transformSemgrepRuleToAutomata(
             if (!a1.hasMethodEnter && a2.hasMethodEnter) {
                 a1 = addDummyMethodEnter(a1)
             }
-            brzozowskiAlgorithm(metaVarInfo, intersection(a1, a2, metaVarInfo))
+            brzozowskiAlgorithm(metaVarInfo,
+                org.opentaint.semgrep.pattern.conversion.automata.operations.intersection(a1, a2, metaVarInfo)
+            )
         }
 
         removePatternStartAndEnd(result)
@@ -162,7 +164,13 @@ private fun addPositivePattern(
     actionList: SemgrepPatternActionList,
 ): SemgrepRuleAutomata {
     val actionListAutomata = convertActionListToAutomata(formulaManager, actionList)
-    return brzozowskiAlgorithm(metaVarInfo, intersection(curAutomata, actionListAutomata, metaVarInfo))
+    return brzozowskiAlgorithm(metaVarInfo,
+        org.opentaint.semgrep.pattern.conversion.automata.operations.intersection(
+            curAutomata,
+            actionListAutomata,
+            metaVarInfo
+        )
+    )
 }
 
 private fun addNegativePattern(
@@ -185,7 +193,11 @@ private fun addNegativePattern(
     }
     complement(actionListAutomata)
 
-    val intersect = intersection(curAutomata, actionListAutomata, metaVarInfo)
+    val intersect = org.opentaint.semgrep.pattern.conversion.automata.operations.intersection(
+        curAutomata,
+        actionListAutomata,
+        metaVarInfo
+    )
 
     return brzozowskiAlgorithm(metaVarInfo, intersect)
 }
@@ -215,7 +227,13 @@ private fun addPatternInside(
 
     val actionListAutomata = convertActionListToAutomata(formulaManager, actionList)
     addPatternStartAndEndOnEveryNode(actionListAutomata)
-    return brzozowskiAlgorithm(metaVarInfo, intersection(actionListAutomata, curAutomata, metaVarInfo))
+    return brzozowskiAlgorithm(metaVarInfo,
+        org.opentaint.semgrep.pattern.conversion.automata.operations.intersection(
+            actionListAutomata,
+            curAutomata,
+            metaVarInfo
+        )
+    )
 }
 
 private fun addEllipsisInTheBeginning(actionList: SemgrepPatternActionList): SemgrepPatternActionList {
@@ -279,5 +297,11 @@ private fun addPatternNotInside(
     }
     complement(automataNotInside)
 
-    return brzozowskiAlgorithm(metaVarInfo, intersection(mainAutomata, automataNotInside, metaVarInfo))
+    return brzozowskiAlgorithm(metaVarInfo,
+        org.opentaint.semgrep.pattern.conversion.automata.operations.intersection(
+            mainAutomata,
+            automataNotInside,
+            metaVarInfo
+        )
+    )
 }

@@ -127,11 +127,11 @@ fun Task.analyzerDockerImage(
         val envVars = mutableMapOf(
             "ANALYZER_JAR_NAME" to analyzerJar.name,
             "TAINT_CONFIG" to configFile.name,
-            "SARIF_Opentaint_ORGANIZATION" to "Explyt",
-            "SARIF_Opentaint_VERSION" to "$analyzerVersion",
+            "SARIF_ORGANIZATION" to "Opentaint",
+            "SARIF_VERSION" to "$analyzerVersion",
         )
 
-        val opentaintApiJarPath = tryResolveDependency("org.opentaint.jvm:api")
+        val opentaintApiJarPath = tryResolveDependency("org.opentaint.engine.jvm:api")
         if (opentaintApiJarPath != null) {
             val opentaintApproximationJarPath = approximations.resolvedConfiguration.files.single()
 

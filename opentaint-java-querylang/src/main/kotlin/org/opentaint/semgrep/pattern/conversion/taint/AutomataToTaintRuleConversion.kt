@@ -68,9 +68,9 @@ import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.MethodPredicate
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.State
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.StateRegister
-import org.opentaint.semgrep.pattern.conversion.opentaintAnyValueGeneratorMethodName
-import org.opentaint.semgrep.pattern.conversion.opentaintReturnValueMethod
-import org.opentaint.semgrep.pattern.conversion.opentaintStringConcatMethodName
+import org.opentaint.semgrep.pattern.conversion.generatedAnyValueGeneratorMethodName
+import org.opentaint.semgrep.pattern.conversion.generatedReturnValueMethod
+import org.opentaint.semgrep.pattern.conversion.generatedStringConcatMethodName
 import java.util.BitSet
 import java.util.IdentityHashMap
 
@@ -1150,12 +1150,12 @@ private fun EdgeEffect.anyValueGeneratorUsed(): Boolean =
     assignMetaVar.values.any { preds -> preds.any { it.anyValueGeneratorUsed() } }
 
 private fun MethodPredicate.anyValueGeneratorUsed(): Boolean =
-    predicate.signature.isOpentaintAnyValueGenerator()
+    predicate.signature.isGeneratedAnyValueGenerator()
 
-private fun MethodSignature.isOpentaintAnyValueGenerator(): Boolean {
+private fun MethodSignature.isGeneratedAnyValueGenerator(): Boolean {
     val name = methodName.name
     if (name !is SignatureName.Concrete) return false
-    return name.name == opentaintAnyValueGeneratorMethodName
+    return name.name == generatedAnyValueGeneratorMethodName
 }
 
 private data class StringConcatCtx(
@@ -1197,14 +1197,14 @@ private data class StringConcatCtx(
     }
 
     private fun transform(predicate: Predicate): List<Predicate> {
-        if (predicate.signature.isOpentaintStringConcat()) {
+        if (predicate.signature.isGeneratedStringConcat()) {
             // Replacing with String.concat()
             val newConstraints = predicate.constraint?.let { constraint ->
                 transform(constraint) {
                     if (it is Position.Argument) {
                         val index = it.index
                         check(index is Position.ArgumentIndex.Concrete) { "Expected concrete argument index" }
-                        check(index.idx in 0 until 2) { "Invalid index for opentaint string concat" }
+                        check(index.idx in 0 until 2) { "Invalid index for string concat" }
                         if (index.idx == 0) {
                             Position.Object
                         } else {
@@ -1345,7 +1345,7 @@ private fun StringConcatCtx.transformEdge(
 }
 
 private inline fun <reified T : Position> MethodPredicate.asConditionOnStringConcat(): ParamCondition.Atom? {
-    if (!predicate.signature.isOpentaintStringConcat()) {
+    if (!predicate.signature.isGeneratedStringConcat()) {
         return null
     }
 
@@ -1358,10 +1358,10 @@ private inline fun <reified T : Position> MethodPredicate.asConditionOnStringCon
     return constraint.condition
 }
 
-private fun MethodSignature.isOpentaintStringConcat(): Boolean {
+private fun MethodSignature.isGeneratedStringConcat(): Boolean {
     val name = methodName.name
     if (name !is SignatureName.Concrete) return false
-    return name.name == opentaintStringConcatMethodName
+    return name.name == generatedStringConcatMethodName
 }
 
 private fun generateTaintEdges(
@@ -1665,7 +1665,7 @@ private fun TaintRuleGenerationCtx.generateTaintSinkRules(
             return@generateTaintRules emptyList()
         }
 
-        if (function.isOpentaintReturnValue()) {
+        if (function.isGeneratedReturnValue()) {
             return@generateTaintRules generateEndSink(currentRules, cond, id, meta)
         }
 
@@ -1754,8 +1754,8 @@ private fun TaintRuleGenerationCtx.generateTaintSourceRules(
 
     if (actions.isEmpty()) return@generateTaintRules emptyList()
 
-    if (function.isOpentaintReturnValue()) {
-        TODO("Eliminate opentaint return value")
+    if (function.isGeneratedReturnValue()) {
+        TODO("Eliminate generated return value")
     }
 
     val rule = when (ruleEdge.edge) {
@@ -1831,8 +1831,8 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
 
         if (actions.isNotEmpty()) {
             rules += generateRules(condition.ruleCondition) { function, cond ->
-                if (function.isOpentaintReturnValue()) {
-                    TODO("Eliminate opentaint return value")
+                if (function.isGeneratedReturnValue()) {
+                    TODO("Eliminate generated return value")
                 }
 
                 when (edge) {
@@ -1889,8 +1889,8 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
             }
 
             rules += generateRules(condition.ruleCondition) { function, cond ->
-                if (function.isOpentaintReturnValue()) {
-                    TODO("Eliminate opentaint return value")
+                if (function.isGeneratedReturnValue()) {
+                    TODO("Eliminate generated return value")
                 }
 
                 SerializedRule.Cleaner(function, signature = null, overrides = true, cond, actions)
@@ -2055,8 +2055,8 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
         TODO("Signature mismatch")
     }
 
-    if (signature.isOpentaintAnyValueGenerator()) {
-        TODO("Eliminate opentaint generated method")
+    if (signature.isGeneratedAnyValueGenerator()) {
+        TODO("Eliminate generated method")
     }
 
     val methodName = signature.methodName.name
@@ -2537,9 +2537,9 @@ private fun anyName() = SerializedNameMatcher.Pattern(".*")
 private fun SerializedFunctionNameMatcher.matchAnything(): Boolean =
     `class` == anyName() && `package` == anyName() && name == anyName()
 
-private fun SerializedFunctionNameMatcher.isOpentaintReturnValue(): Boolean {
+private fun SerializedFunctionNameMatcher.isGeneratedReturnValue(): Boolean {
     val name = this.name as? SerializedNameMatcher.Simple ?: return false
-    return name.value == opentaintReturnValueMethod
+    return name.value == generatedReturnValueMethod
 }
 
 private fun serializedConditionOr(args: List<SerializedCondition>): SerializedCondition {

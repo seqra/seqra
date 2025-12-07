@@ -1,4 +1,4 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations
+package org.opentaint.semgrep.pattern.conversion.automata.operations
 
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.map

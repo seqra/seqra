@@ -64,7 +64,11 @@ fun addPatternStartAndEnd(automata: SemgrepRuleAutomata, metaVarInfo: ResolvedMe
         }
     }
 
-    return intersection(automata, patternBordersAutomata(automata.formulaManager), metaVarInfo)
+    return org.opentaint.semgrep.pattern.conversion.automata.operations.intersection(
+        automata,
+        patternBordersAutomata(automata.formulaManager),
+        metaVarInfo
+    )
 }
 
 fun addPatternStartAndEndOnEveryNode(automata: SemgrepRuleAutomata) {

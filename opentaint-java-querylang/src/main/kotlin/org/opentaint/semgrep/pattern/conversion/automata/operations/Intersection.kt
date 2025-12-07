@@ -1,6 +1,6 @@
 package org.opentaint.semgrep.pattern.conversion.automata.operations
 
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.operations.unifyMetavars
+import org.opentaint.semgrep.pattern.conversion.automata.operations.unifyMetavars
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
@@ -17,7 +17,8 @@ fun intersection(
     val manager = a1.formulaManager
     check(a1.formulaManager === a2.formulaManager)
 
-    val root = createNewNode(a1.initialNode, a2.initialNode)
+    val root =
+        org.opentaint.semgrep.pattern.conversion.automata.operations.createNewNode(a1.initialNode, a2.initialNode)
 
     val newNodes = mutableMapOf<Pair<AutomataNode, AutomataNode>, AutomataNode>()
     newNodes[a1.initialNode to a2.initialNode] = root
@@ -27,27 +28,37 @@ fun intersection(
     while (queue.isNotEmpty()) {
         val (n1, n2) = queue.removeFirst()
         val node = newNodes.getOrPut(n1 to n2) {
-            createNewNode(n1, n2)
+            org.opentaint.semgrep.pattern.conversion.automata.operations.createNewNode(n1, n2)
         }
 
         n1.outEdges.forEach { (outType1, to1) ->
             n2.outEdges.forEach inner@{ (outType2, to2) ->
                 val to = newNodes.getOrPut(to1 to to2) {
                     queue.add(to1 to to2)
-                    createNewNode(to1, to2)
+                    org.opentaint.semgrep.pattern.conversion.automata.operations.createNewNode(to1, to2)
                 }
 
                 val edgeType = if (outType1 == outType2 && outType1 !is AutomataEdgeType.AutomataEdgeTypeWithFormula) {
                     outType1
 
                 } else if (outType1 is AutomataEdgeType.MethodCall && outType2 is AutomataEdgeType.MethodCall) {
-                    val formula = intersectMethodFormula(manager, metaVarInfo, outType1.formula, outType2.formula)
+                    val formula = org.opentaint.semgrep.pattern.conversion.automata.operations.intersectMethodFormula(
+                        manager,
+                        metaVarInfo,
+                        outType1.formula,
+                        outType2.formula
+                    )
                         ?: return@inner
 
                     AutomataEdgeType.MethodCall(formula)
 
                 } else if (outType1 is AutomataEdgeType.MethodEnter && outType2 is AutomataEdgeType.MethodEnter) {
-                    val formula = intersectMethodFormula(manager, metaVarInfo, outType1.formula, outType2.formula)
+                    val formula = org.opentaint.semgrep.pattern.conversion.automata.operations.intersectMethodFormula(
+                        manager,
+                        metaVarInfo,
+                        outType1.formula,
+                        outType2.formula
+                    )
                         ?: return@inner
 
                     AutomataEdgeType.MethodEnter(formula)
@@ -71,7 +82,7 @@ fun intersection(
 
     val unified = unifyMetavars(intersection, metaVarInfo)
     return unified.also {
-        removeDeadNodes(it)
+        org.opentaint.semgrep.pattern.conversion.automata.operations.removeDeadNodes(it)
     }
 }
 
