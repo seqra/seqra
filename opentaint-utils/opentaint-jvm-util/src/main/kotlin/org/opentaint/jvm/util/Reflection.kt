@@ -2,13 +2,13 @@
 
 package org.opentaint.jvm.util
 
-import org.opentaint.ir.api.jvm.JIRArrayType
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRField
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.JIRRefType
-import org.opentaint.ir.api.jvm.JIRType
+import org.opentaint.ir.api.jvm.JcArrayType
+import org.opentaint.ir.api.jvm.JcClassOrInterface
+import org.opentaint.ir.api.jvm.JcClassType
+import org.opentaint.ir.api.jvm.JcField
+import org.opentaint.ir.api.jvm.JcMethod
+import org.opentaint.ir.api.jvm.JcRefType
+import org.opentaint.ir.api.jvm.JcType
 import org.opentaint.ir.api.jvm.ext.boolean
 import org.opentaint.ir.api.jvm.ext.byte
 import org.opentaint.ir.api.jvm.ext.char
@@ -157,10 +157,10 @@ val Field.isStatic: Boolean
 val Field.isFinal: Boolean
     get() = (this.modifiers and Modifier.FINAL) == Modifier.FINAL
 
-fun JIRClassType.allocateInstance(classLoader: ClassLoader): Any =
+fun JcClassType.allocateInstance(classLoader: ClassLoader): Any =
     ReflectionUtils.UNSAFE.allocateInstance(toJavaClass(classLoader))
 
-fun JIRArrayType.allocateInstance(classLoader: ClassLoader, length: Int): Any =
+fun JcArrayType.allocateInstance(classLoader: ClassLoader, length: Int): Any =
     when (elementType) {
         classpath.boolean -> BooleanArray(length)
         classpath.short -> ShortArray(length)
@@ -170,7 +170,7 @@ fun JIRArrayType.allocateInstance(classLoader: ClassLoader, length: Int): Any =
         classpath.double -> DoubleArray(length)
         classpath.byte -> ByteArray(length)
         classpath.char -> CharArray(length)
-        is JIRRefType -> {
+        is JcRefType -> {
             // TODO: works incorrectly for inner array
             val clazz = elementType.toJavaClass(classLoader)
             java.lang.reflect.Array.newInstance(clazz, length)
@@ -179,7 +179,7 @@ fun JIRArrayType.allocateInstance(classLoader: ClassLoader, length: Int): Any =
         else -> error("Unexpected type: $this")
     }
 
-fun JIRType.toJavaClass(classLoader: ClassLoader, initialize: Boolean = true): Class<*> =
+fun JcType.toJavaClass(classLoader: ClassLoader, initialize: Boolean = true): Class<*> =
     when (this) {
         classpath.boolean -> Boolean::class.javaPrimitiveType!!
         classpath.short -> Short::class.javaPrimitiveType!!
@@ -190,11 +190,11 @@ fun JIRType.toJavaClass(classLoader: ClassLoader, initialize: Boolean = true): C
         classpath.byte -> Byte::class.javaPrimitiveType!!
         classpath.char -> Char::class.javaPrimitiveType!!
         classpath.void -> Void::class.javaPrimitiveType!!
-        is JIRRefType -> toJavaClass(classLoader, initialize)
+        is JcRefType -> toJavaClass(classLoader, initialize)
         else -> error("Unexpected type: $this")
     }
 
-fun JIRRefType.toJavaClass(classLoader: ClassLoader, initialize: Boolean = true): Class<*> =
+fun JcRefType.toJavaClass(classLoader: ClassLoader, initialize: Boolean = true): Class<*> =
     ifArrayGetElementType?.let { elementType ->
         when (elementType) {
             classpath.boolean -> BooleanArray::class.java
@@ -205,23 +205,23 @@ fun JIRRefType.toJavaClass(classLoader: ClassLoader, initialize: Boolean = true)
             classpath.double -> DoubleArray::class.java
             classpath.byte -> ByteArray::class.java
             classpath.char -> CharArray::class.java
-            is JIRRefType -> {
+            is JcRefType -> {
                 val clazz = elementType.toJavaClass(classLoader)
                 java.lang.reflect.Array.newInstance(clazz, 0).javaClass
             }
 
             else -> error("Unexpected type: $elementType")
         }
-    } ?: jirClass.toJavaClass(classLoader, initialize)
+    } ?: jcClass.toJavaClass(classLoader, initialize)
 
-fun JIRClassOrInterface.toJavaClass(classLoader: ClassLoader, initialize: Boolean = true): Class<*> =
+fun JcClassOrInterface.toJavaClass(classLoader: ClassLoader, initialize: Boolean = true): Class<*> =
     classLoader.loadClass(this, initialize)
 
-private fun ClassLoader.loadClass(jirClass: JIRClassOrInterface, initialize: Boolean): Class<*> {
+private fun ClassLoader.loadClass(jcClass: JcClassOrInterface, initialize: Boolean): Class<*> {
     if (this is JClassLoaderExt)
-        return loadClass(jirClass, initialize)
+        return loadClass(jcClass, initialize)
 
-    return Class.forName(jirClass.name, initialize, this)
+    return Class.forName(jcClass.name, initialize, this)
 }
 
 fun getArrayLength(instance: Any?): Int =
@@ -253,21 +253,21 @@ fun setArrayIndex(instance: Any, index: Int, value: Any?) =
         else -> java.lang.reflect.Array.set(instance, index, value)
     }
 
-fun JIRField.getFieldValue(classLoader: ClassLoader, instance: Any?): Any? {
+fun JcField.getFieldValue(classLoader: ClassLoader, instance: Any?): Any? {
     val javaField = toJavaField(classLoader) ?: error("Class ${enclosingClass.name} has no `$name` field")
     return javaField.withAccessibility {
         javaField.get(instance)
     }
 }
 
-fun JIRField.setFieldValue(classLoader: ClassLoader, instance: Any?, value: Any?) {
+fun JcField.setFieldValue(classLoader: ClassLoader, instance: Any?, value: Any?) {
     val javaField = toJavaField(classLoader) ?: error("Class ${enclosingClass.name} has no `$name` field")
     return javaField.withAccessibility {
         javaField.set(instance, value)
     }
 }
 
-fun JIRMethod.invoke(classLoader: ClassLoader, instance: Any?, args: List<Any?>): Any? =
+fun JcMethod.invoke(classLoader: ClassLoader, instance: Any?, args: List<Any?>): Any? =
     if (isConstructor) {
         val javaCtor = toJavaConstructor(classLoader)
         javaCtor.withAccessibility {

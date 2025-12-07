@@ -1,12 +1,12 @@
 package org.opentaint.jvm.util
 
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRClasspath
-import org.opentaint.ir.api.jvm.JIRClasspathFeature
-import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.JcClassOrInterface
+import org.opentaint.ir.api.jvm.JcClassType
+import org.opentaint.ir.api.jvm.JcClasspath
+import org.opentaint.ir.api.jvm.JcClasspathFeature
+import org.opentaint.ir.api.jvm.JcDatabase
 import org.opentaint.ir.approximation.Approximations
-import org.opentaint.ir.impl.types.JIRClassTypeImpl
+import org.opentaint.ir.impl.types.JcClassTypeImpl
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
@@ -22,24 +22,24 @@ data class ApproximationPaths(
     val allPathsArePresent = namedPaths.values.all { it != null }
 }
 
-private val classpathApproximations: MutableMap<JIRClasspath, Set<String>> = ConcurrentHashMap()
+private val classpathApproximations: MutableMap<JcClasspath, Set<String>> = ConcurrentHashMap()
 
 // TODO: use another way to detect internal classes (e.g. special bytecode location type)
-val JIRClassOrInterface.isInternalClass: Boolean
+val JcClassOrInterface.isInternalClass: Boolean
     get() = classpathApproximations[classpath]?.contains(name) ?: false
 
-val JIRClassType.isInternalClass: Boolean
-    get() = if (this is JIRClassTypeImpl) {
+val JcClassType.isInternalClass: Boolean
+    get() = if (this is JcClassTypeImpl) {
         classpathApproximations[classpath]?.contains(name) ?: false
     } else {
-        jirClass.isInternalClass
+        jcClass.isInternalClass
     }
 
-suspend fun JIRDatabase.classpathWithApproximations(
+suspend fun JcDatabase.classpathWithApproximations(
     dirOrJars: List<File>,
-    features: List<JIRClasspathFeature> = emptyList(),
+    features: List<JcClasspathFeature> = emptyList(),
     approximationPaths: ApproximationPaths = ApproximationPaths(),
-): JIRClasspath? {
+): JcClasspath? {
     if (!approximationPaths.allPathsArePresent) {
         return null
     }
@@ -47,7 +47,12 @@ suspend fun JIRDatabase.classpathWithApproximations(
     val approximationsPath = approximationPaths.presentPaths.map { File(it) }
 
     val cpWithApproximations = dirOrJars + approximationsPath
-    val featuresWithApproximations = features + listOf(Approximations)
+
+    val approximations = this.features.filterIsInstance<Approximations>().singleOrNull()
+        ?: error("Approximations feature not found in database features")
+
+    val featuresWithApproximations = features + listOf(approximations)
+
     val cp = classpath(cpWithApproximations, featuresWithApproximations.distinct())
 
     val approximationsLocations = cp.locations.filter { it.jarOrFolder in approximationsPath }

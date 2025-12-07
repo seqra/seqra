@@ -1,5 +1,5 @@
-import org.opentaint.common.Opentaint-IRDependency
 import org.opentaint.common.KotlinDependency
+import org.opentaint.common.OpentaintIrDependency
 
 plugins {
     id("kotlin-conventions")
@@ -8,9 +8,9 @@ plugins {
 dependencies {
     api(project(":common-util"))
 
-    implementation(Opentaint-IRDependency.Libs.opentaint-ir_api_jvm)
-    implementation(Opentaint-IRDependency.Libs.opentaint-ir_core)
-    implementation(Opentaint-IRDependency.Libs.opentaint-ir_approximations)
+    implementation(OpentaintIrDependency.Libs.opentaint_ir_api_jvm)
+    implementation(OpentaintIrDependency.Libs.opentaint_ir_core)
+    implementation(OpentaintIrDependency.Libs.opentaint_ir_approximations)
 
     implementation(KotlinDependency.Libs.reflect)
 }

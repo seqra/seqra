@@ -1,34 +1,34 @@
 package org.opentaint.jvm.util
 
-import org.opentaint.ir.api.jvm.JIRArrayType
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRClasspath
-import org.opentaint.ir.api.jvm.JIRClasspathFeature
-import org.opentaint.ir.api.jvm.JIRField
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.JIRPrimitiveType
-import org.opentaint.ir.api.jvm.JIRRefType
-import org.opentaint.ir.api.jvm.JIRType
-import org.opentaint.ir.api.jvm.JIRTypeVariable
-import org.opentaint.ir.api.jvm.JIRTypedField
-import org.opentaint.ir.api.jvm.JIRTypedMethod
+import org.opentaint.ir.api.jvm.JcArrayType
+import org.opentaint.ir.api.jvm.JcClassOrInterface
+import org.opentaint.ir.api.jvm.JcClassType
+import org.opentaint.ir.api.jvm.JcClasspath
+import org.opentaint.ir.api.jvm.JcClasspathFeature
+import org.opentaint.ir.api.jvm.JcField
+import org.opentaint.ir.api.jvm.JcMethod
+import org.opentaint.ir.api.jvm.JcPrimitiveType
+import org.opentaint.ir.api.jvm.JcRefType
+import org.opentaint.ir.api.jvm.JcType
+import org.opentaint.ir.api.jvm.JcTypeVariable
+import org.opentaint.ir.api.jvm.JcTypedField
+import org.opentaint.ir.api.jvm.JcTypedMethod
 import org.opentaint.ir.api.jvm.MethodNotFoundException
 import org.opentaint.ir.api.jvm.TypeName
-import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JcInst
 import org.opentaint.ir.api.jvm.ext.findFieldOrNull
-import org.opentaint.ir.api.jvm.ext.jirdbSignature
+import org.opentaint.ir.api.jvm.ext.jcdbSignature
 import org.opentaint.ir.api.jvm.ext.toType
 import org.opentaint.ir.approximation.Approximations
-import org.opentaint.ir.impl.JIRClasspathImpl
-import org.opentaint.ir.impl.bytecode.JIRClassOrInterfaceImpl
-import org.opentaint.ir.impl.bytecode.JIRFieldImpl
+import org.opentaint.ir.impl.JcClasspathImpl
+import org.opentaint.ir.impl.bytecode.JcClassOrInterfaceImpl
+import org.opentaint.ir.impl.bytecode.JcFieldImpl
 import org.opentaint.ir.impl.bytecode.joinFeatureFields
 import org.opentaint.ir.impl.bytecode.joinFeatureMethods
 import org.opentaint.ir.impl.bytecode.toJcMethod
-import org.opentaint.ir.impl.features.JIRFeaturesChain
+import org.opentaint.ir.impl.features.JcFeaturesChain
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
-import org.opentaint.ir.impl.types.JIRClassTypeImpl
+import org.opentaint.ir.impl.types.JcClassTypeImpl
 import org.opentaint.ir.impl.types.TypeNameImpl
 import org.objectweb.asm.tree.MethodNode
 import java.lang.reflect.Constructor
@@ -38,49 +38,49 @@ import java.lang.reflect.Method
 import kotlin.reflect.jvm.javaField
 import kotlin.reflect.jvm.javaMethod
 
-val JIRClasspath.stringType: JIRType
+val JcClasspath.stringType: JcType
     get() = findClassOrNull("java.lang.String")!!.toType()
 
-fun JIRClasspath.findFieldByFullNameOrNull(fieldFullName: String): JIRField? {
+fun JcClasspath.findFieldByFullNameOrNull(fieldFullName: String): JcField? {
     val className = fieldFullName.substringBeforeLast('.')
     val fieldName = fieldFullName.substringAfterLast('.')
-    val jirClass = findClassOrNull(className) ?: return null
-    return jirClass.declaredFields.find { it.name == fieldName }
+    val jcClass = findClassOrNull(className) ?: return null
+    return jcClass.declaredFields.find { it.name == fieldName }
 }
 
-operator fun JIRClasspath.get(klass: Class<*>) = this.findClassOrNull(klass.typeName)
+operator fun JcClasspath.get(klass: Class<*>) = this.findClassOrNull(klass.typeName)
 
-val JIRClassOrInterface.typename
+val JcClassOrInterface.typename
     get() = TypeNameImpl.fromTypeName(this.name)
 
-fun JIRType.toStringType(): String =
+fun JcType.toStringType(): String =
     when (this) {
-        is JIRClassType -> jirClass.name
-        is JIRTypeVariable -> jirClass.name
-        is JIRArrayType -> "${elementType.toStringType()}[]"
+        is JcClassType -> jcClass.name
+        is JcTypeVariable -> jcClass.name
+        is JcArrayType -> "${elementType.toStringType()}[]"
         else -> typeName
     }
 
-fun JIRType.getTypename() = TypeNameImpl.fromTypeName(this.typeName)
+fun JcType.getTypename() = TypeNameImpl.fromTypeName(this.typeName)
 
-val JIRInst.enclosingClass
+val JcInst.enclosingClass
     get() = this.location.method.enclosingClass
 
-val JIRInst.enclosingMethod
+val JcInst.enclosingMethod
     get() = this.location.method
 
-fun Class<*>.toJcType(jirClasspath: JIRClasspath): JIRType? {
-    return jirClasspath.findTypeOrNull(this.typeName)
+fun Class<*>.toJcType(jcClasspath: JcClasspath): JcType? {
+    return jcClasspath.findTypeOrNull(this.typeName)
 }
 
-fun JIRType.toJcClass(): JIRClassOrInterface? =
+fun JcType.toJcClass(): JcClassOrInterface? =
     when (this) {
-        is JIRRefType -> jirClass
-        is JIRPrimitiveType -> null
+        is JcRefType -> jcClass
+        is JcPrimitiveType -> null
         else -> error("Unexpected type")
     }
 
-fun JIRField.findJavaField(javaFields: List<Field>): Field? {
+fun JcField.findJavaField(javaFields: List<Field>): Field? {
     val field = javaFields.find { it.name == name }
     check(field == null || field.type.typeName == this.type.typeName) {
         "invalid field: types of field $field and $this differ ${field?.type?.typeName} and ${this.type.typeName}"
@@ -88,7 +88,7 @@ fun JIRField.findJavaField(javaFields: List<Field>): Field? {
     return field
 }
 
-fun JIRField.toJavaField(classLoader: ClassLoader): Field? {
+fun JcField.toJavaField(classLoader: ClassLoader): Field? {
     try {
         val type = enclosingClass.toJavaClass(classLoader)
         val fields = if (isStatic) type.staticFields else type.allInstanceFields
@@ -98,10 +98,10 @@ fun JIRField.toJavaField(classLoader: ClassLoader): Field? {
     }
 }
 
-val JIRClassOrInterface.allDeclaredFields
-    get(): List<JIRField> {
-        val result = HashMap<String, JIRField>()
-        var current: JIRClassOrInterface? = this
+val JcClassOrInterface.allDeclaredFields
+    get(): List<JcField> {
+        val result = HashMap<String, JcField>()
+        var current: JcClassOrInterface? = this
         do {
             current!!.declaredFields.forEach {
                 result.putIfAbsent("${it.name}${it.type}", it)
@@ -111,76 +111,76 @@ val JIRClassOrInterface.allDeclaredFields
         return result.values.toList()
     }
 
-fun TypeName.toJcType(jirClasspath: JIRClasspath): JIRType? = jirClasspath.findTypeOrNull(typeName)
-fun TypeName.toJcClassOrInterface(jirClasspath: JIRClasspath): JIRClassOrInterface? = jirClasspath.findClassOrNull(typeName)
+fun TypeName.toJcType(jcClasspath: JcClasspath): JcType? = jcClasspath.findTypeOrNull(typeName)
+fun TypeName.toJcClassOrInterface(jcClasspath: JcClasspath): JcClassOrInterface? = jcClasspath.findClassOrNull(typeName)
 
-fun JIRMethod.toJavaExecutable(classLoader: ClassLoader): Executable? {
+fun JcMethod.toJavaExecutable(classLoader: ClassLoader): Executable? {
     val type = enclosingClass.toType().toJavaClass(classLoader)
-    return (type.methods + type.declaredMethods).find { it.jirdbSignature == this.jirdbSignature }
-        ?: (type.constructors + type.declaredConstructors).find { it.jirdbSignature == this.jirdbSignature }
+    return (type.methods + type.declaredMethods).find { it.jcdbSignature == this.jcdbSignature }
+        ?: (type.constructors + type.declaredConstructors).find { it.jcdbSignature == this.jcdbSignature }
 }
 
-fun JIRMethod.toJavaMethod(classLoader: ClassLoader): Method {
+fun JcMethod.toJavaMethod(classLoader: ClassLoader): Method {
     val klass = Class.forName(enclosingClass.name, false, classLoader)
     return (klass.methods + klass.declaredMethods).find { it.isSameSignatures(this) }
         ?: throw MethodNotFoundException("Can't find method $name in classpath")
 }
 
-fun JIRMethod.toJavaConstructor(classLoader: ClassLoader): Constructor<*> {
+fun JcMethod.toJavaConstructor(classLoader: ClassLoader): Constructor<*> {
     require(isConstructor) { "Can't convert not constructor to constructor" }
     val klass = Class.forName(enclosingClass.name, true, classLoader)
-    return (klass.constructors + klass.declaredConstructors).find { it.jirdbSignature == this.jirdbSignature }
+    return (klass.constructors + klass.declaredConstructors).find { it.jcdbSignature == this.jcdbSignature }
         ?: throw MethodNotFoundException("Can't find constructor of class ${enclosingClass.name}")
 }
 
-val Method.jirdbSignature: String
+val Method.jcdbSignature: String
     get() {
-        val parameterTypesAsString = parameterTypes.toJirdbFormat()
+        val parameterTypesAsString = parameterTypes.toJcdbFormat()
         return name + "(" + parameterTypesAsString + ")" + returnType.typeName + ";"
     }
 
-val Constructor<*>.jirdbSignature: String
+val Constructor<*>.jcdbSignature: String
     get() {
         val methodName = "<init>"
-        //Because of jirdb
+        //Because of jcdb
         val returnType = "void;"
-        val parameterTypesAsString = parameterTypes.toJirdbFormat()
+        val parameterTypesAsString = parameterTypes.toJcdbFormat()
         return "$methodName($parameterTypesAsString)$returnType"
     }
 
-private fun Array<Class<*>>.toJirdbFormat(): String =
+private fun Array<Class<*>>.toJcdbFormat(): String =
     if (isEmpty()) "" else joinToString(";", postfix = ";") { it.typeName }
 
-fun Method.isSameSignatures(jirMethod: JIRMethod) =
-    jirdbSignature == jirMethod.jirdbSignature
+fun Method.isSameSignatures(jcMethod: JcMethod) =
+    jcdbSignature == jcMethod.jcdbSignature
 
-fun Constructor<*>.isSameSignatures(jirMethod: JIRMethod) =
-    jirdbSignature == jirMethod.jirdbSignature
+fun Constructor<*>.isSameSignatures(jcMethod: JcMethod) =
+    jcdbSignature == jcMethod.jcdbSignature
 
-fun JIRMethod.isSameSignature(mn: MethodNode): Boolean =
+fun JcMethod.isSameSignature(mn: MethodNode): Boolean =
     withAsmNode { it.isSameSignature(mn) }
 
-val JIRMethod.toTypedMethod: JIRTypedMethod
+val JcMethod.toTypedMethod: JcTypedMethod
     get() = this.enclosingClass.toType().declaredMethods.first { typed -> typed.method == this }
 
-val JIRClassOrInterface.enumValuesField: JIRTypedField
+val JcClassOrInterface.enumValuesField: JcTypedField
     get() = toType().findFieldOrNull("\$VALUES") ?: error("No \$VALUES field found for the enum type $this")
 
-val JIRClassType.name: String
-    get() = if (this is JIRClassTypeImpl) name else jirClass.name
+val JcClassType.name: String
+    get() = if (this is JcClassTypeImpl) name else jcClass.name
 
-val JIRClassType.outerClassInstanceField: JIRTypedField?
+val JcClassType.outerClassInstanceField: JcTypedField?
     get() = fields.singleOrNull { it.name == "this\$0" }
 
 @Suppress("RecursivePropertyAccessor")
-val JIRClassType.allFields: List<JIRTypedField>
+val JcClassType.allFields: List<JcTypedField>
     get() = declaredFields + (superType?.allFields ?: emptyList())
 
 @Suppress("RecursivePropertyAccessor")
-val JIRClassOrInterface.allFields: List<JIRField>
+val JcClassOrInterface.allFields: List<JcField>
     get() = declaredFields + (superClass?.allFields ?: emptyList())
 
-val JIRClassType.allInstanceFields: List<JIRTypedField>
+val JcClassType.allInstanceFields: List<JcTypedField>
     get() = allFields.filter { !it.isStatic }
 
 val kotlin.reflect.KProperty<*>.javaName: String
@@ -189,43 +189,43 @@ val kotlin.reflect.KProperty<*>.javaName: String
 val kotlin.reflect.KFunction<*>.javaName: String
     get() = this.javaMethod?.name ?: error("No java name for method $this")
 
-class JIRCpWithoutApproximations(val cp: JIRClasspath) : JIRClasspath by cp {
+class JcCpWithoutApproximations(val cp: JcClasspath) : JcClasspath by cp {
     init {
-        check(cp !is JIRCpWithoutApproximations)
+        check(cp !is JcCpWithoutApproximations)
     }
 
-    override val features: List<JIRClasspathFeature> by lazy {
+    override val features: List<JcClasspathFeature> by lazy {
         cp.featuresWithoutApproximations()
     }
 
-    private fun JIRClasspath.featuresWithoutApproximations(): List<JIRClasspathFeature> {
-        if (this !is JIRClasspathImpl)
-            error("unexpected JIRClasspath: $this")
+    private fun JcClasspath.featuresWithoutApproximations(): List<JcClasspathFeature> {
+        if (this !is JcClasspathImpl)
+            error("unexpected JcClasspath: $this")
 
         val featuresChainField = this.javaClass.getDeclaredField("featuresChain")
         featuresChainField.isAccessible = true
-        val featuresChain = featuresChainField.get(this) as JIRFeaturesChain
+        val featuresChain = featuresChainField.get(this) as JcFeaturesChain
         return featuresChain.features.filterNot { it is Approximations || it is ClasspathCache }
     }
 
-    private class JIRClassWithoutApproximations(
-        private val cls: JIRClassOrInterface, private val cp: JIRCpWithoutApproximations
-    ) : JIRClassOrInterface by cls {
-        override val classpath: JIRClasspath get() = cp
+    private class JcClassWithoutApproximations(
+        private val cls: JcClassOrInterface, private val cp: JcCpWithoutApproximations
+    ) : JcClassOrInterface by cls {
+        override val classpath: JcClasspath get() = cp
         private val featuresChain by lazy {
-            JIRFeaturesChain(cp.features)
+            JcFeaturesChain(cp.features)
         }
 
-        override val declaredFields: List<JIRField> by lazy {
-            if (cls !is JIRClassOrInterfaceImpl)
+        override val declaredFields: List<JcField> by lazy {
+            if (cls !is JcClassOrInterfaceImpl)
                 return@lazy cls.declaredFields
 
-            val default = cls.info.fields.map { JIRFieldImpl(this, it) }
+            val default = cls.info.fields.map { JcFieldImpl(this, it) }
             default.joinFeatureFields(this, featuresChain)
         }
 
-        override val declaredMethods: List<JIRMethod> by lazy {
-            if (cls !is JIRClassOrInterfaceImpl)
+        override val declaredMethods: List<JcMethod> by lazy {
+            if (cls !is JcClassOrInterfaceImpl)
                 return@lazy cls.declaredMethods
 
             val default = cls.info.methods.map { toJcMethod(it, featuresChain) }
@@ -233,28 +233,28 @@ class JIRCpWithoutApproximations(val cp: JIRClasspath) : JIRClasspath by cp {
         }
     }
 
-    private val classWithoutApproximationsCache = hashMapOf<JIRClassOrInterface, JIRClassWithoutApproximations>()
+    private val classWithoutApproximationsCache = hashMapOf<JcClassOrInterface, JcClassWithoutApproximations>()
 
-    private val JIRClassOrInterface.withoutApproximations: JIRClassOrInterface get() {
-        if (this is JIRClassWithoutApproximations) return this
+    private val JcClassOrInterface.withoutApproximations: JcClassOrInterface get() {
+        if (this is JcClassWithoutApproximations) return this
 
         check(classpath === cp)
 
         return classWithoutApproximationsCache.getOrPut(this) {
-            JIRClassWithoutApproximations(this, this@JIRCpWithoutApproximations)
+            JcClassWithoutApproximations(this, this@JcCpWithoutApproximations)
         }
     }
 
-    private val JIRField.withoutApproximations: JIRField? get() {
+    private val JcField.withoutApproximations: JcField? get() {
         return this.enclosingClass.withoutApproximations.declaredFields.find {
             it.name == this.name && it.isStatic == this.isStatic
         }
     }
 
-    val JIRField.isOriginalField: Boolean get() = withoutApproximations != null
+    val JcField.isOriginalField: Boolean get() = withoutApproximations != null
 }
 
-fun JIRClasspath.cpWithoutApproximations(): JIRCpWithoutApproximations {
-    if (this is JIRCpWithoutApproximations) return this
-    return JIRCpWithoutApproximations(this)
+fun JcClasspath.cpWithoutApproximations(): JcCpWithoutApproximations {
+    if (this is JcCpWithoutApproximations) return this
+    return JcCpWithoutApproximations(this)
 }

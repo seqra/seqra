@@ -1,12 +1,12 @@
 package org.opentaint.jvm.util.types
 
 import org.opentaint.ir.api.jvm.ByteCodeIndexer
-import org.opentaint.ir.api.jvm.JIRClasspath
-import org.opentaint.ir.api.jvm.JIRDatabase
-import org.opentaint.ir.api.jvm.JIRDatabasePersistence
-import org.opentaint.ir.api.jvm.JIRFeature
-import org.opentaint.ir.api.jvm.JIRSettings
-import org.opentaint.ir.api.jvm.JIRSignal
+import org.opentaint.ir.api.jvm.JcClasspath
+import org.opentaint.ir.api.jvm.JcDatabase
+import org.opentaint.ir.api.jvm.JcDatabasePersistence
+import org.opentaint.ir.api.jvm.JcFeature
+import org.opentaint.ir.api.jvm.JcSettings
+import org.opentaint.ir.api.jvm.JcSignal
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.storage.StorageContext
 import org.opentaint.ir.impl.fs.className
@@ -17,14 +17,14 @@ import java.util.concurrent.ConcurrentHashMap
 
 object TypeScorer
 
-fun JIRSettings.installClassScorer() {
+fun JcSettings.installClassScorer() {
     installFeatures(ClassScorer(TypeScorer, ::scoreClassNode))
 }
 
 typealias ScoreCache<Result> = ConcurrentHashMap<Long, Result>
 
 class ScorerIndexer<Result : Comparable<Result>>(
-    private val persistence: JIRDatabasePersistence,
+    private val persistence: JcDatabasePersistence,
     private val location: RegisteredLocation,
     private val cache: ScoreCache<Result>,
     private val scorer: (RegisteredLocation, ClassNode) -> Result,
@@ -70,18 +70,18 @@ class ClassScorer<Result : Comparable<Result>>(
     val key: Any,
     private val scorer: (RegisteredLocation, ClassNode) -> Result,
     private val approximationPaths: ApproximationPaths = ApproximationPaths()
-) : JIRFeature<Any?, Any?> {
+) : JcFeature<Any?, Any?> {
     private val indexers = ConcurrentHashMap<Long, ScorerIndexer<Result>>()
 
-    override fun newIndexer(jirdb: JIRDatabase, location: RegisteredLocation): ByteCodeIndexer =
+    override fun newIndexer(jcdb: JcDatabase, location: RegisteredLocation): ByteCodeIndexer =
         indexers.getOrPut(location.id) {
-            ScorerIndexer(jirdb.persistence, location, ConcurrentHashMap(), scorer, approximationPaths)
+            ScorerIndexer(jcdb.persistence, location, ConcurrentHashMap(), scorer, approximationPaths)
         }
 
-    override fun onSignal(signal: JIRSignal) {
+    override fun onSignal(signal: JcSignal) {
     }
 
-    override suspend fun query(classpath: JIRClasspath, req: Any?): Sequence<Any?> {
+    override suspend fun query(classpath: JcClasspath, req: Any?): Sequence<Any?> {
         return emptySequence()
     }
 

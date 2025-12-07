@@ -1,29 +1,29 @@
 package org.opentaint.jvm.transformer
 
-import org.opentaint.ir.api.jvm.JIRType
-import org.opentaint.ir.api.jvm.cfg.JIRCatchInst
-import org.opentaint.ir.api.jvm.cfg.JIRExpr
-import org.opentaint.ir.api.jvm.cfg.JIRExprVisitor
-import org.opentaint.ir.api.jvm.cfg.JIRGotoInst
-import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.cfg.JIRInstList
-import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
-import org.opentaint.ir.api.jvm.cfg.JIRInstRef
-import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
-import org.opentaint.ir.impl.cfg.JIRInstListImpl
-import org.opentaint.ir.impl.cfg.JIRInstLocationImpl
+import org.opentaint.ir.api.jvm.JcType
+import org.opentaint.ir.api.jvm.cfg.JcCatchInst
+import org.opentaint.ir.api.jvm.cfg.JcExpr
+import org.opentaint.ir.api.jvm.cfg.JcExprVisitor
+import org.opentaint.ir.api.jvm.cfg.JcGotoInst
+import org.opentaint.ir.api.jvm.cfg.JcInst
+import org.opentaint.ir.api.jvm.cfg.JcInstList
+import org.opentaint.ir.api.jvm.cfg.JcInstLocation
+import org.opentaint.ir.api.jvm.cfg.JcInstRef
+import org.opentaint.ir.api.jvm.cfg.JcLocalVar
+import org.opentaint.ir.impl.cfg.JcInstListImpl
+import org.opentaint.ir.impl.cfg.JcInstLocationImpl
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 
-class JSingleInstructionTransformer(originalInstructions: JIRInstList<JIRInst>) {
+class JSingleInstructionTransformer(originalInstructions: JcInstList<JcInst>) {
     val mutableInstructions = originalInstructions.instructions.toMutableList()
     private val maxLocalVarIndex = mutableInstructions.maxOfOrNull { LocalVarMaxIndexFinder.find(it.operands) } ?: -1
 
     var generatedLocalVarIndex = maxLocalVarIndex + 1
     val modifiedLocationIndices = hashMapOf<Int, List<Int>>()
 
-    inline fun generateReplacementBlock(original: JIRInst, blockGen: BlockGenerationContext.() -> Unit) {
+    inline fun generateReplacementBlock(original: JcInst, blockGen: BlockGenerationContext.() -> Unit) {
         val originalLocation = original.location
         val ctx = BlockGenerationContext(mutableInstructions, originalLocation, generatedLocalVarIndex)
 
@@ -31,12 +31,12 @@ class JSingleInstructionTransformer(originalInstructions: JIRInstList<JIRInst>) 
 
         // add back jump from generated block
         ctx.addInstruction { loc ->
-            JIRGotoInst(loc, JIRInstRef(originalLocation.index + 1))
+            JcGotoInst(loc, JcInstRef(originalLocation.index + 1))
         }
 
         // replace original instruction with jump to the generated block
-        val replacementBlockStart = JIRInstRef(ctx.generatedLocations.first().index)
-        mutableInstructions[originalLocation.index] = JIRGotoInst(originalLocation, replacementBlockStart)
+        val replacementBlockStart = JcInstRef(ctx.generatedLocations.first().index)
+        mutableInstructions[originalLocation.index] = JcGotoInst(originalLocation, replacementBlockStart)
 
         generatedLocalVarIndex = ctx.localVarIndex
 
@@ -44,9 +44,9 @@ class JSingleInstructionTransformer(originalInstructions: JIRInstList<JIRInst>) 
         modifiedLocationIndices[originalLocation.index] = generatedLocations.map { it.index }
     }
 
-    fun buildInstList(): JIRInstList<JIRInst> {
+    fun buildInstList(): JcInstList<JcInst> {
         fixCatchBlockThrowers()
-        return JIRInstListImpl(mutableInstructions)
+        return JcInstListImpl(mutableInstructions)
     }
 
     /**
@@ -57,33 +57,33 @@ class JSingleInstructionTransformer(originalInstructions: JIRInstList<JIRInst>) 
     private fun fixCatchBlockThrowers() {
         for (i in mutableInstructions.indices) {
             val instruction = mutableInstructions[i]
-            if (instruction !is JIRCatchInst) continue
+            if (instruction !is JcCatchInst) continue
 
             val throwers = instruction.throwers.toMutableList()
             for (throwerIdx in throwers.indices) {
                 val thrower = throwers[throwerIdx]
                 val generatedLocations = modifiedLocationIndices[thrower.index] ?: continue
-                generatedLocations.mapTo(throwers) { JIRInstRef(it) }
+                generatedLocations.mapTo(throwers) { JcInstRef(it) }
             }
 
             mutableInstructions[i] = with(instruction) {
-                JIRCatchInst(location, throwable, throwableTypes, throwers)
+                JcCatchInst(location, throwable, throwableTypes, throwers)
             }
         }
     }
 
     class BlockGenerationContext(
-        val mutableInstructions: MutableList<JIRInst>,
-        val originalLocation: JIRInstLocation,
+        val mutableInstructions: MutableList<JcInst>,
+        val originalLocation: JcInstLocation,
         initialLocalVarIndex: Int,
     ) {
         var localVarIndex: Int = initialLocalVarIndex
-        val generatedLocations = mutableListOf<JIRInstLocation>()
+        val generatedLocations = mutableListOf<JcInstLocation>()
 
-        fun nextLocalVar(name: String, type: JIRType) = JIRLocalVar(localVarIndex++, name, type)
+        fun nextLocalVar(name: String, type: JcType) = JcLocalVar(localVarIndex++, name, type)
 
         @OptIn(ExperimentalContracts::class)
-        inline fun addInstruction(body: (JIRInstLocation) -> JIRInst) {
+        inline fun addInstruction(body: (JcInstLocation) -> JcInst) {
             contract {
                 callsInPlace(body, InvocationKind.EXACTLY_ONCE)
             }
@@ -94,28 +94,28 @@ class JSingleInstructionTransformer(originalInstructions: JIRInstList<JIRInst>) 
             }
         }
 
-        fun replaceInstructionAtLocation(loc: JIRInstLocation, replacement: (JIRInst) -> JIRInst) {
+        fun replaceInstructionAtLocation(loc: JcInstLocation, replacement: (JcInst) -> JcInst) {
             val currentInst = mutableInstructions[loc.index]
             mutableInstructions[loc.index] = replacement(currentInst)
         }
 
         @OptIn(ExperimentalContracts::class)
-        inline fun MutableList<JIRInst>.addInstruction(origin: JIRInstLocation, body: (JIRInstLocation) -> JIRInst) {
+        inline fun MutableList<JcInst>.addInstruction(origin: JcInstLocation, body: (JcInstLocation) -> JcInst) {
             contract {
                 callsInPlace(body, InvocationKind.EXACTLY_ONCE)
             }
 
             val index = size
-            val newLocation = JIRInstLocationImpl(origin.method, index, origin.lineNumber)
+            val newLocation = JcInstLocationImpl(origin.method, index, origin.lineNumber)
             val instruction = body(newLocation)
             check(size == index)
             add(instruction)
         }
     }
 
-    private object LocalVarMaxIndexFinder : JIRExprVisitor.Default<Int> {
-        override fun defaultVisitJcExpr(expr: JIRExpr) = find(expr.operands)
-        override fun visitJcLocalVar(value: JIRLocalVar) = value.index
-        fun find(expressions: Iterable<JIRExpr>): Int = expressions.maxOfOrNull { it.accept(this) } ?: -1
+    private object LocalVarMaxIndexFinder : JcExprVisitor.Default<Int> {
+        override fun defaultVisitJcExpr(expr: JcExpr) = find(expr.operands)
+        override fun visitJcLocalVar(value: JcLocalVar) = value.index
+        fun find(expressions: Iterable<JcExpr>): Int = expressions.maxOfOrNull { it.accept(this) } ?: -1
     }
 }
