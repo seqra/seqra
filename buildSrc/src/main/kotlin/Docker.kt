@@ -7,6 +7,7 @@ fun Task.buildDockerImage(
     imageName: String,
     nameSuffix: String,
     imageContentFiles: List<File>,
+    entryPointEnv: Map<String, String>,
     entryPointVars: Map<String, String>,
 ) {
     val analyzerVersion = project.findProperty("analyzerVersion") ?: "latest"
@@ -19,7 +20,12 @@ fun Task.buildDockerImage(
     dockerImageContent.asFile.mkdirs()
 
     val resolvedEntryPoint = dockerImageContent.file("$imageName.entrypoint.sh")
-    resolveTemplate(entryPointTemplate, resolvedEntryPoint, entryPointVars)
+
+    val entryPointTemplateVars = entryPointVars.toMutableMap()
+    entryPointTemplateVars["ENTRY_POINT_ENV"] = entryPointEnv.entries.joinToString(" ") { (key, value) ->
+        "\"$key=$value\""
+    }
+    resolveTemplate(entryPointTemplate, resolvedEntryPoint, entryPointTemplateVars)
 
     project.copy {
         imageContentFiles.forEach { file ->

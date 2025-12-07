@@ -1,13 +1,11 @@
-import OpentaintEngineApiDependency.opentaint_engine_api
-import OpentaintEngineApproximationDependency.opentaint_engine_approximations
+import OpentaintIrDependency.opentaint_ir_api_jvm
+import OpentaintIrDependency.opentaint_ir_api_storage
+import OpentaintIrDependency.opentaint_ir_approximations
+import OpentaintIrDependency.opentaint_ir_core
+import OpentaintIrDependency.opentaint_ir_storage
 import OpentaintProjectDependency.opentaintProject
 import OpentaintUtilDependency.opentaintUtilCli
 import OpentaintUtilDependency.opentaintUtilJvm
-import OpentaintIrDependency.opentaint_ir_core
-import OpentaintIrDependency.opentaint_ir_api_jvm
-import OpentaintIrDependency.opentaint_ir_approximations
-import OpentaintIrDependency.opentaint_ir_api_storage
-import OpentaintIrDependency.opentaint_ir_storage
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.opentaint.common.JunitDependencies
 import org.opentaint.common.KotlinDependency
@@ -23,6 +21,7 @@ dependencies {
     implementation(opentaintUtilCli)
     implementation(opentaintProject)
     implementation("org.opentaint.opentaint-configuration-rules:configuration-rules-jvm")
+
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-jvm-dataflow")
     implementation("org.opentaint.sast.se:api")
 
@@ -77,29 +76,16 @@ tasks.register<JavaExec>("runProjectAnalyzer") {
     )
 }
 
-val approximations by configurations.creating
-dependencies {
-    approximations(opentaint_engine_approximations)
-}
-
 fun JavaExec.configureAnalyzer(analyzerRunnerClassName: String) {
     dependsOn(encryptedConfig)
 
     mainClass.set(analyzerRunnerClassName)
     classpath = sourceSets.main.get().runtimeClasspath
 
-    val configFile = encryptedConfig.get().outputs.files.singleFile
-    val envVars = mutableMapOf("opentaint_taint_config_path" to configFile)
+    ensureSeEnvInitialized()
 
     doFirst {
-        val opentaintApiJarPath = tryResolveDependency(opentaint_engine_api)
-        if (opentaintApiJarPath != null) {
-            val opentaintApproximationJarPath = approximations.resolvedConfiguration.files.single()
-
-            envVars["opentaint.jvm.api.jar.path"] = opentaintApiJarPath.single()
-            envVars["opentaint.jvm.approximations.jar.path"] = opentaintApproximationJarPath
-        }
-
+        val envVars = analyzerEnvironment()
         envVars.forEach { (key, value) ->
             environment(key, value)
         }
@@ -121,37 +107,33 @@ fun Task.analyzerDockerImage(
     nameSuffix: String,
     analyzerJarProvider: () -> File,
 ) = dependsOn(encryptedConfig)
+    .apply { ensureSeEnvInitialized() }
     .doLast {
-        val analyzerVersion = project.findProperty("analyzerVersion") ?: "latest"
         val analyzerJar = analyzerJarProvider()
 
-        val configFile = encryptedConfig.get().outputs.files.singleFile
+        val contentFiles = mutableListOf(analyzerJar)
+        val epVars = mapOf("ANALYZER_JAR_NAME" to analyzerJar.name)
 
-        val contentFiles = mutableListOf(analyzerJar, configFile)
+        val rawEnvVars = analyzerEnvironment()
+        val envVars = rawEnvVars.mapValues { (_, value) ->
+            when (value) {
+                is String -> value
 
-        val envVars = mutableMapOf(
-            "ANALYZER_JAR_NAME" to analyzerJar.name,
-            "TAINT_CONFIG" to configFile.name,
-            "SARIF_ORGANIZATION" to "Opentaint",
-            "SARIF_VERSION" to "$analyzerVersion",
-        )
+                is File -> {
+                    contentFiles.add(value)
+                    value.name
+                }
 
-        val opentaintApiJarPath = tryResolveDependency(opentaint_engine_api)
-        if (opentaintApiJarPath != null) {
-            val opentaintApproximationJarPath = approximations.resolvedConfiguration.files.single()
-
-            envVars["JVM_API_JAR"] = opentaintApiJarPath.single().name
-            envVars["JVM_APPROXIMATIONS_JAR"] = opentaintApproximationJarPath.name
-
-            contentFiles.addAll(opentaintApiJarPath)
-            contentFiles.add(opentaintApproximationJarPath)
+                else -> error("Unexpected env value: $value")
+            }
         }
 
         buildDockerImage(
             imageName = "analyzer",
             nameSuffix = nameSuffix,
             imageContentFiles = contentFiles,
-            entryPointVars = envVars
+            entryPointVars = epVars,
+            entryPointEnv = envVars,
         )
     }
 
@@ -179,15 +161,34 @@ fun ShadowJar.jarWithDependencies(name: String, mainClass: String) {
     with(tasks.jar.get() as CopySpec)
 }
 
-fun tryResolveDependency(dependency: String): Set<File>? {
-    val auxConfig = configurations.create("try-resolve-config-aux")
-    auxConfig.dependencies.add(dependencies.create(dependency))
+fun analyzerEnvironment(): Map<String, Any> {
+    val analyzerEnv = mutableMapOf<String, Any>()
 
-    return try {
-        auxConfig.resolve()
-    } catch (ex: ResolveException) {
-        null
-    }  finally {
-        configurations.remove(auxConfig)
-    }
+    val configFile = encryptedConfig.get().outputs.files.singleFile
+    analyzerEnv["opentaint_taint_config_path"] = configFile
+
+    val analyzerVersion = project.findProperty("analyzerVersion") ?: "latest"
+    analyzerEnv["SARIF_ORGANIZATION"] = "Opentaint"
+    analyzerEnv["SARIF_VERSION"] = "$analyzerVersion"
+
+    setupOpentaintSeEnvironment(analyzerEnv)
+
+    return analyzerEnv
+}
+
+@Suppress("UNCHECKED_CAST")
+fun setupOpentaintSeEnvironment(analyzerEnv: MutableMap<String, Any>) {
+    val initializer = findOpentaintSeEnvInitializer() ?: return
+    val seEnv = initializer.extra.get("opentaint.se.analyzer.env") as Map<String, Any>
+    analyzerEnv += seEnv
+}
+
+fun Task.ensureSeEnvInitialized() {
+    val initializer = findOpentaintSeEnvInitializer() ?: return
+    dependsOn(initializer)
+}
+
+fun findOpentaintSeEnvInitializer(): Task? {
+    val seProject = gradle.includedBuilds.find { it.name == "opentaint-jvm-sast-se" } ?: return null
+    return seProject.resolveIncludedProjectTask(":setupAnalyzerEnvironment")
 }

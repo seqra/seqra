@@ -6,13 +6,20 @@ on:
   pull_request:
     branches: [ "main" ]
 
+env:
+  AUTOBUILDER_VERSION: 2025.07.30.11a2fb2
+
 jobs:
   ci-basic:
-    runs-on: ubuntu-22.04
+    runs-on: [ self-hosted, ex44 ]
+    container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup GPG
+        run: apt update && apt install -y gnupg
 
       - name: Decrypt config
         env:

@@ -9,14 +9,13 @@ import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer.DebugOptions
 import org.opentaint.jvm.sast.project.ProjectAnalyzer
-import org.opentaint.jvm.sast.util.directory
 import org.opentaint.jvm.sast.util.file
 import org.opentaint.project.Project
 import org.opentaint.util.newFile
 import java.nio.file.Path
 import kotlin.time.Duration.Companion.seconds
 
-class ProjectAnalyzerRunner : org.opentaint.jvm.sast.runner.AbstractAnalyzerRunner() {
+class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
     private val cwe: List<Int> by option(help = "Analyzer CWE")
         .int().multiple()
 

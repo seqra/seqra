@@ -7,9 +7,6 @@ on:
     types:
       - completed
 
-env:
-  AUTOBUILDER_VERSION: 2025.07.30.11a2fb2
-
 jobs:
   publish:
     runs-on: [ self-hosted, ex44 ]
@@ -52,49 +49,10 @@ jobs:
 
       - name: Create image names
         run: |
-          echo "AUTOBUILDER_IMAGE=ghcr.io/${{ github.repository_owner }}/opentaint-jvm-autobuilder/sast-autobuilder:${{ env.AUTOBUILDER_VERSION }}" >> $GITHUB_ENV
           echo "ANALYZER_IMAGE=ghcr.io/${{ github.repository_owner }}/opentaint-jvm-sast/sast-analyzer:${{ steps.version.outputs.version }}" >> $GITHUB_ENV
 
       - name: Tag images
         run: docker tag analyzer-private:${{ steps.version.outputs.version }} ${{ env.ANALYZER_IMAGE }}
-
-      # Run autobuilder on OWASP
-      - name: Checkout owasp
-        uses: actions/checkout@v4
-        with:
-          repository: 'OWASP-Benchmark/BenchmarkJava'
-          path: ./test-dir/OWASP
-
-      - name: Build owasp
-        run: |
-          docker run -i -a stdout -a stderr --rm \
-          -v ${{ github.workspace }}:/data \
-          ${{ env.AUTOBUILDER_IMAGE }} \
-          --project-root-dir /data/test-dir/OWASP \
-          --build portable \
-          --result-dir /data/test-dir/BenchmarkJava-portable-build \
-          --logs-file /data/test-dir/autobuild.log \
-          --verbosity debug
-
-      - name: Analyze owasp
-        run: |
-          docker run -i -a stdout -a stderr --rm \
-          -v ${{ github.workspace }}:/data \
-          ${{ env.ANALYZER_IMAGE }} \
-          --project /data/test-dir/BenchmarkJava-portable-build/project.yaml \
-          --output-dir /data/test-dir/reports \
-          --ifds-analysis-timeout=1000 \
-          --logs-file /data/test-dir/analyzer.log \
-          --verbosity debug
-
-      - name: Check report exists
-        run: |
-          if [ -e "./test-dir/reports/report-ifds.sarif" ]; then
-            echo "Report exists"
-          else
-            echo "Report does not exist"
-            exit 1
-          fi
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
