@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.boolean
 import com.github.ajalt.clikt.parameters.types.int
+import com.github.ajalt.clikt.parameters.types.path
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer.DebugOptions
 import org.opentaint.jvm.sast.project.ProjectAnalyzer
 import org.opentaint.jvm.sast.util.directory
@@ -28,10 +29,10 @@ class ProjectAnalyzerRunner : org.opentaint.jvm.sast.runner.AbstractAnalyzerRunn
     private val config: Path? by option(help = "User defined analysis configuration")
         .file()
 
-    private val semgrepRuleSet: Path? by option(help = "Semgrep rule set directory")
-        .directory()
+    private val semgrepRuleSet: Path? by option(help = "Semgrep YAML rule file or directory containing YAML rules")
+        .path()
 
-    private val semgrepRuleLoadErrors: Path? by option(help = "Semgrep rule load errors file")
+    private val semgrepRuleLoadErrors: Path? by option(help = "Output file for errors encountered while loading Semgrep rules")
         .newFile()
 
     override fun analyzeProject(project: Project, analyzerOutputDir: Path, debugOptions: DebugOptions) {
