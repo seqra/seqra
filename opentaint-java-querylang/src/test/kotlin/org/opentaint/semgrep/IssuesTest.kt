@@ -4,6 +4,7 @@ import issues.issue83
 import issues.issue83aux
 import issues.issue84
 import issues.issue85
+import issues.issue87
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
@@ -51,6 +52,10 @@ class IssuesTest : SampleBasedTest() {
 
     @Test
     fun `issue 85`() = runTest<issue85>()
+
+    @Test
+    @Disabled // todo: rule isn't finding anything
+    fun `issue 87`() = runTest<issue87>()
 
     @AfterAll
     fun close() {

@@ -1,0 +1,13 @@
+rules:
+  - id: tainted-ldapi-from-http-request-deepsemgrep
+    message: Untrusted input
+    severity: ERROR
+    languages:
+      - java
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: (HttpServletRequest $REQ).getParameter(...)
+    pattern-sinks:
+      - patterns:
+          - pattern: (InitialDirContext $IDC).search(...)
