@@ -94,7 +94,7 @@ class JIRTaintAnalyzer(
         }
 
         if (storeSummaries) {
-            logger.info { "Saving summaries" }
+            logger.info { "Storing summaries" }
             ifdsEngine.storeSummaries()
         }
 

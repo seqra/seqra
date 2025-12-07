@@ -17,7 +17,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import org.slf4j.event.Level
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.semgrep.pattern.AbstractSemgrepError
 import org.opentaint.semgrep.pattern.SemgrepError
@@ -31,7 +30,8 @@ import org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
 import org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
 import org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
 import org.opentaint.semgrep.pattern.yamlToSemgrepRule
-import java.io.File
+import org.slf4j.event.Level
+import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.Path
 import kotlin.io.path.deleteExisting
@@ -40,7 +40,7 @@ import kotlin.time.Duration
 import kotlin.time.measureTimedValue
 
 fun main() {
-    val path = "data/opentaint-rules"
+    val path = Path(System.getProperty("user.home")).resolve("data/opentaint-rules")
 
 //    val pattern = "return (int ${"\$"}A);"
 //    val pattern = "(org.springframework.web.client.RestTemplate \$RESTTEMP).\$FUNC"
@@ -112,7 +112,7 @@ private val yaml = Yaml(
     )
 )
 
-private fun normalizeRules(path: String) {
+private fun normalizeRules(path: Path) {
     val allRules = collectAllRules(path)
 
     val rulePath = allRules.map { it.path }
@@ -127,7 +127,7 @@ private fun normalizeRules(path: String) {
 
     for ((i, rule) in parsedRules.withIndex()) {
         if (rule == null) continue
-        Path(path).resolve(rulePath[i]).writeText(rule)
+        path.resolve(rulePath[i]).writeText(rule)
     }
 }
 
@@ -178,7 +178,7 @@ private fun YamlNode.containsBadMultiLine(siblings: List<YamlNode?>): Boolean {
     }
 }
 
-private fun minimizeConfig(path: String) {
+private fun minimizeConfig(path: Path) {
     val allRules = collectAllRules(path)
 
     val rulePath = allRules.map { it.path }
@@ -234,7 +234,7 @@ private fun minimizeConfig(path: String) {
 
         val resultRules = ruleSet.rules.filterIndexed { index, _ -> index !in removedRuleIndices }
 
-        val ruleSetPath = Path(path).resolve(rulePath[i])
+        val ruleSetPath = path.resolve(rulePath[i])
         if (resultRules.isEmpty()) {
             ruleSetPath.deleteExisting()
             continue
@@ -283,9 +283,9 @@ private class NormalizedRuleWrapper(val rule: YamlMap) {
 
 private data class SemgrepRuleFile(val path: String, val rule: String)
 
-private fun collectAllRules(path: String): List<SemgrepRuleFile> {
+private fun collectAllRules(path: Path): List<SemgrepRuleFile> {
     val result = mutableListOf<SemgrepRuleFile>()
-    val rootDir = File(path)
+    val rootDir = path.toFile()
     rootDir.walk()
         .filter { it.isFile }.forEach { file ->
             if (file.extension !in setOf("yml", "yaml")) {
@@ -299,7 +299,7 @@ private fun collectAllRules(path: String): List<SemgrepRuleFile> {
     return result
 }
 
-private fun collectParsingStats(path: String): List<Pair<SemgrepJavaPattern, String>> {
+private fun collectParsingStats(path: Path): List<Pair<SemgrepJavaPattern, String>> {
     // TODO
     val ignoreFiles = setOf(
         "rule-XMLStreamRdr.yml",
@@ -384,7 +384,7 @@ private fun collectParsingStats(path: String): List<Pair<SemgrepJavaPattern, Str
 
     val ruleBuilderStats = SemgrepRuleAutomataBuilder.Stats()
 
-    val rootDir = File(path)
+    val rootDir = path.toFile()
     rootDir.walk()
         .filter { it.isFile }.forEach { file ->
             if (file.extension !in setOf("yml", "yaml")) {
