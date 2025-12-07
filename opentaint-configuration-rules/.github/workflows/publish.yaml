@@ -6,7 +6,9 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: [ self-hosted, ex44 ]
+    container: ubuntu:latest
+    
     permissions:
       contents: read
       packages: write
@@ -22,7 +24,7 @@ jobs:
 
       - name: Generate version
         id: version
-        run: echo "version=$(date +'%Y.%m.%d').${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
+        run: echo "version=$(date +'%Y.%m.%d').$(echo "${{ github.sha }}" | cut -c 1-7)" >> $GITHUB_OUTPUT
 
       - name: Publish to GitHub Packages
         uses: gradle/gradle-build-action@v2
