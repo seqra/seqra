@@ -20,7 +20,7 @@ import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 
-object JIRMethodCallFactMapper : MethodCallFactMapper {
+object JIRMethodCallFactMapper : org.opentaint.dataflow.ap.ifds.analysis.MethodCallFactMapper {
     // TODO: maybe receive FactTypeChecker at instantiation and remove it from method's parameters?
     override fun mapMethodExitToReturnFlowFact(
         callStatement: CommonInst,

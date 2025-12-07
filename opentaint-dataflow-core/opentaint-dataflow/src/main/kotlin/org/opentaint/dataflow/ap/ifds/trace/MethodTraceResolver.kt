@@ -41,14 +41,14 @@ import java.util.Objects
 
 class MethodTraceResolver(
     private val runner: AnalysisRunner,
-    private val analysisContext: MethodAnalysisContext,
+    private val analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
     private val edges: MethodAnalyzerEdges
 ) {
     private val methodEntryPoint: MethodEntryPoint = analysisContext.methodEntryPoint
     private val graph: ApplicationGraph<CommonMethod, CommonInst> get() = runner.graph
     private val analysisManager: AnalysisManager get() = runner.analysisManager
     private val manager: AnalysisUnitRunnerManager get() = runner.manager
-    private val methodCallFactMapper: MethodCallFactMapper get() = analysisContext.methodCallFactMapper
+    private val methodCallFactMapper: org.opentaint.dataflow.ap.ifds.analysis.MethodCallFactMapper get() = analysisContext.methodCallFactMapper
     private val apManager: ApManager get() = runner.apManager
 
     enum class TraceKind {

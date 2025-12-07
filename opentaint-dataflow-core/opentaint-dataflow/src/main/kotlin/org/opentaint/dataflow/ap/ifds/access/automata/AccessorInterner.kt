@@ -13,7 +13,7 @@ class AccessorInterner {
 
     fun index(accessor: Accessor): AccessorIdx {
         val currentIndex = indices.getInt(accessor)
-        if (currentIndex != ConcurrentReadSafeObject2IntMap.NO_VALUE) return currentIndex
+        if (currentIndex != org.opentaint.dataflow.util.ConcurrentReadSafeObject2IntMap.NO_VALUE) return currentIndex
 
         synchronized(this) {
             return indices.getOrCreateIndex(accessor) { newIdx ->

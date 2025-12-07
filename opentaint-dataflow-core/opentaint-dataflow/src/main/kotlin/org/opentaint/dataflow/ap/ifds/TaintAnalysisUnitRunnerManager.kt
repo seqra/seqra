@@ -258,7 +258,7 @@ class TaintAnalysisUnitRunnerManager(
         override fun getMethodAnalysisContext(
             methodEntryPoint: MethodEntryPoint,
             graph: ApplicationGraph<CommonMethod, CommonInst>
-        ): MethodAnalysisContext = analysisManager.getMethodAnalysisContext(
+        ): org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext = analysisManager.getMethodAnalysisContext(
             methodEntryPoint, graph,
             TaintAnalysisContext(taintConfig, sinkTracker)
         )

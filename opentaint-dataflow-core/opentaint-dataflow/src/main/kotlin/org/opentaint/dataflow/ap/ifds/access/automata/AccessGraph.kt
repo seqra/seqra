@@ -35,7 +35,7 @@ private typealias AgEdge = NodePair
 
 private typealias NodeMap = Int2IntOpenHashMap
 
-private const val NO_EDGE = PersistentInt2LongMap.NO_VALUE
+private const val NO_EDGE = org.opentaint.dataflow.util.PersistentInt2LongMap.NO_VALUE
 private const val NO_NODE = -1
 
 private fun nodeMap(): NodeMap = Int2IntOpenHashMap().also { it.defaultReturnValue(NO_NODE) }
@@ -73,7 +73,7 @@ class AccessGraph(
     val manager: AutomataApManager,
     val initial: NodeMarker,
     val final: NodeMarker,
-    private val edges: PersistentInt2LongMap,
+    private val edges: org.opentaint.dataflow.util.PersistentInt2LongMap,
     private val nodeSucc: Array<PersistentBitSet?>,
     private val nodePred: Array<PersistentBitSet?>,
 ) {
@@ -604,7 +604,7 @@ class AccessGraph(
             val final = readInt()
 
             val edgesSize = readInt()
-            val edgesBuilder = PersistentInt2LongMap()
+            val edgesBuilder = org.opentaint.dataflow.util.PersistentInt2LongMap()
             repeat(edgesSize) {
                 val accessor = accessorById(readLong())
                 val from = readInt()
@@ -649,8 +649,8 @@ class MutableAccessGraph(
     private val manager: AutomataApManager,
     val initial: NodeMarker,
     val final: NodeMarker,
-    private val originalPersistentEdges: PersistentInt2LongMap,
-    private val mutableEdges: PersistentInt2LongMap,
+    private val originalPersistentEdges: org.opentaint.dataflow.util.PersistentInt2LongMap,
+    private val mutableEdges: org.opentaint.dataflow.util.PersistentInt2LongMap,
     private val nodeSucc: PersistentArrayBuilder<PersistentBitSet?>,
     private val nodePred: PersistentArrayBuilder<PersistentBitSet?>,
 ) {

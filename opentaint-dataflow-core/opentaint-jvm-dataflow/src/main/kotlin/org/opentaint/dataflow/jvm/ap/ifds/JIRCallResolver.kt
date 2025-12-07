@@ -137,7 +137,7 @@ class JIRCallResolver(
         }
 
         return instanceTypes.map {
-            val ctx = JIRInstanceTypeMethodContext(it)
+            val ctx = org.opentaint.dataflow.jvm.ap.ifds.JIRInstanceTypeMethodContext(it)
             MethodWithContext(method, ctx)
         }
     }
@@ -184,7 +184,7 @@ class JIRCallResolver(
         if (value !is JIRLocalVar || value in visitedValues) {
             return when (context) {
                 EmptyMethodContext -> setOf(valueCls)
-                is JIRInstanceTypeMethodContext -> {
+                is org.opentaint.dataflow.jvm.ap.ifds.JIRInstanceTypeMethodContext -> {
                     val type = if (value is JIRThis) selectClass(valueCls, context.type) else valueCls
                     setOf(type)
                 }

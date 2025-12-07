@@ -35,7 +35,7 @@ class JIRMethodCallPrecondition(
     private val callExpr: JIRCallExpr,
     private val statement: JIRInst
 ) : MethodCallPrecondition {
-    private val methodCallFactMapper: MethodCallFactMapper get() = analysisContext.methodCallFactMapper
+    private val methodCallFactMapper: org.opentaint.dataflow.ap.ifds.analysis.MethodCallFactMapper get() = analysisContext.methodCallFactMapper
 
     private val jirValueResolver = CallPositionToJIRValueResolver(callExpr, returnValue)
     private val method = callExpr.callee

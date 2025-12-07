@@ -64,7 +64,7 @@ class JIRMethodStartFlowFunction(
                 jirDowncast<JIRMethod>(method)
                 method.enclosingClass
             }
-            is JIRInstanceTypeMethodContext -> context.type
+            is org.opentaint.dataflow.jvm.ap.ifds.JIRInstanceTypeMethodContext -> context.type
             else -> error("Unexpected value for context: $context")
         }
 

@@ -6,5 +6,5 @@ interface MethodAnalysisContext {
     val methodEntryPoint: MethodEntryPoint
 
     // todo: remove, required for trace generation
-    val methodCallFactMapper: MethodCallFactMapper
+    val methodCallFactMapper: org.opentaint.dataflow.ap.ifds.analysis.MethodCallFactMapper
 }
