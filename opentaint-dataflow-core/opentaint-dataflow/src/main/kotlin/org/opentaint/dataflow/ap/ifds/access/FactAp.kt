@@ -19,6 +19,8 @@ interface InitialFactAp : FactAp {
     fun exclude(accessor: Accessor): InitialFactAp
     fun replaceExclusions(exclusions: ExclusionSet): InitialFactAp
 
+    fun getAllAccessors(): List<Accessor>
+
     fun readAccessor(accessor: Accessor): InitialFactAp?
     fun prependAccessor(accessor: Accessor): InitialFactAp
     fun clearAccessor(accessor: Accessor): InitialFactAp?

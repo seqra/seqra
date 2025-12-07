@@ -83,6 +83,13 @@ class AccessGraph(
 
     private val hash: Int by lazy(LazyThreadSafetyMode.PUBLICATION) { dfsHash() }
 
+    fun getAllOwnAccessors() =
+        edges.keys.map {
+            with (manager) {
+                it.accessor
+            }
+        }
+
     private fun dfsHash(): Int {
         var hash = 0
         val visited = BitSet()
