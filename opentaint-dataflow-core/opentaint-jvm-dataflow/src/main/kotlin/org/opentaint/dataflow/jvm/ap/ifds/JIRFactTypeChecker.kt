@@ -14,13 +14,13 @@ import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.jvm.util.JIRHierarchyInfo
 import org.opentaint.ir.api.common.CommonType
 import org.opentaint.ir.api.jvm.JIRArrayType
 import org.opentaint.ir.api.jvm.JIRBoundedWildcard
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClasspath
-import org.opentaint.ir.api.jvm.JIRDatabasePersistence
 import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.JIRTypeVariable
@@ -30,28 +30,11 @@ import org.opentaint.ir.api.jvm.ext.ifArrayGetElementType
 import org.opentaint.ir.api.jvm.ext.isAssignable
 import org.opentaint.ir.api.jvm.ext.isSubClassOf
 import org.opentaint.ir.api.jvm.ext.objectType
-import org.opentaint.ir.impl.features.InMemoryHierarchy
-import org.opentaint.ir.impl.features.InMemoryHierarchyCache
-import org.opentaint.ir.impl.features.findInMemoryHierarchy
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.LongAdder
-import kotlin.reflect.KProperty1
-import kotlin.reflect.full.declaredMemberProperties
-import kotlin.reflect.jvm.isAccessible
 
 class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
-    private val persistence: JIRDatabasePersistence
-    private val hierarchy: InMemoryHierarchyCache
-    private val registeredLocationIds: Set<Long>
-
-    init {
-        val hierarchyFeature = cp.db.findInMemoryHierarchy()
-            ?: error("In memory hierarchy required")
-
-        persistence = cp.db.persistence
-        hierarchy = InMemoryHierarchyAccess.accessCacheField(hierarchyFeature)
-        registeredLocationIds = cp.registeredLocations.mapTo(hashSetOf()) { it.id }
-    }
+    private val hierarchyInfo = JIRHierarchyInfo(cp)
 
     private val objectType by lazy { cp.objectType }
     private val objectClass by lazy { objectType.jirClass }
@@ -192,8 +175,8 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
             return false
         }
 
-        val typeNameId = persistence.findSymbolId(typeName)
-        val requiredTypeNameId = persistence.findSymbolId(requiredTypeName)
+        val typeNameId = hierarchyInfo.persistence.findSymbolId(typeName)
+        val requiredTypeNameId = hierarchyInfo.persistence.findSymbolId(requiredTypeName)
 
         val cacheKey = LongLongImmutablePair(typeNameId, requiredTypeNameId)
         return typeMayHaveSubtypeOfCache.computeIfAbsent(cacheKey) {
@@ -223,8 +206,8 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
     ): Boolean {
         if (requiredType == objectClass) return true
 
-        val requiredTypeId = persistence.findSymbolId(requiredType.name)
-        val interfaceTypeId = persistence.findSymbolId(interfaceType.name)
+        val requiredTypeId = hierarchyInfo.persistence.findSymbolId(requiredType.name)
+        val interfaceTypeId = hierarchyInfo.persistence.findSymbolId(interfaceType.name)
 
         val cacheKey = LongLongImmutablePair(requiredTypeId, interfaceTypeId)
         return interfaceMayHaveSubtypeOfCache.computeIfAbsent(cacheKey) {
@@ -242,20 +225,9 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
 
         if (requiredType.isFinal) return false
 
-        val unprocessedSubclasses = mutableListOf<Long>()
-        val processedSubClasses = hashSetOf<Long>()
-        addSubclassesIds(requiredTypeId, unprocessedSubclasses)
-
-        while (unprocessedSubclasses.isNotEmpty()) {
-            val clsId = unprocessedSubclasses.removeLast()
-            if (!processedSubClasses.add(clsId)) continue
-
-            val className = persistence.findSymbolName(clsId)
+        hierarchyInfo.forEachSubClassName(requiredTypeId) { className ->
             val cls = cp.findClassOrNull(className) ?: return true
-
             if (isSubClassOfInterface(cls, interfaceType, subClassCheckCache)) return true
-
-            addSubclassesIds(clsId, unprocessedSubclasses)
         }
 
         return false
@@ -278,24 +250,5 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
             uncheckedClasses.addAll(cls.interfaces)
         }
         return false
-    }
-
-    private fun addSubclassesIds(clsId: Long, result: MutableList<Long>) {
-        val subclasses = hierarchy[clsId] ?: return
-        for ((location, ids) in subclasses) {
-            if (location in registeredLocationIds) {
-                result.addAll(ids)
-            }
-        }
-    }
-
-    private object InMemoryHierarchyAccess {
-        @Suppress("UNCHECKED_CAST")
-        fun accessCacheField(hierarchy: InMemoryHierarchy): InMemoryHierarchyCache {
-            val allProperties = hierarchy::class.declaredMemberProperties
-            val cacheProperty = allProperties.single { it.name == "cache" } as KProperty1<InMemoryHierarchy, InMemoryHierarchyCache>
-            cacheProperty.isAccessible = true
-            return cacheProperty.get(hierarchy)
-        }
     }
 }
