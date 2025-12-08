@@ -1,6 +1,6 @@
 package org.opentaint.jvm.util
 
-import org.opentaint.ir.api.jvm.JcClasspath
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.ext.isSubClassOf
 import org.opentaint.ir.api.jvm.ext.objectClass
 import org.objectweb.asm.ClassReader
@@ -98,13 +98,13 @@ data class Flags(val value: Int) : Comparable<Flags> {
     override fun compareTo(other: Flags) = value.compareTo(other.value)
 }
 
-class JClassWriter(private val jcClassPath: JcClasspath, flags: Flags) : ClassWriter(flags.value) {
+class JIRlassWriter(private val jIRClassPath: JIRClasspath, flags: Flags) : ClassWriter(flags.value) {
 
     override fun getCommonSuperClass(type1: String, type2: String): String = try {
         val type1WithDots = type1.replace(Package.SEPARATOR, Package.CANONICAL_SEPARATOR)
         val type2WithDots = type2.replace(Package.SEPARATOR, Package.CANONICAL_SEPARATOR)
-        var class1 = jcClassPath.findClassOrNull(type1WithDots) ?: error("$type1 is not in cp")
-        val class2 = jcClassPath.findClassOrNull(type2WithDots) ?: error("$type2 is not in cp")
+        var class1 = jIRClassPath.findClassOrNull(type1WithDots) ?: error("$type1 is not in cp")
+        val class2 = jIRClassPath.findClassOrNull(type2WithDots) ?: error("$type2 is not in cp")
 
         when {
             class2.isSubClassOf(class1) -> type1
@@ -112,7 +112,7 @@ class JClassWriter(private val jcClassPath: JcClasspath, flags: Flags) : ClassWr
             class1.isInterface || class2.isInterface -> OBJECT_TYPE
             else -> {
                 do {
-                    class1 = class1.superClass ?: jcClassPath.objectClass
+                    class1 = class1.superClass ?: jIRClassPath.objectClass
                 } while (!class2.isSubClassOf(class1))
                 class1.name.replace(Package.CANONICAL_SEPARATOR, Package.SEPARATOR)
             }
@@ -185,14 +185,14 @@ fun ByteArray.toClassNode(): ClassNode {
 }
 
 fun ClassNode.toByteArray(
-    jcClassPath: JcClasspath,
+    jIRClassPath: JIRClasspath,
     flags: Flags = Flags.writeComputeAll,
     checkClass: Boolean = false
 ): ByteArray {
     inlineJsrs()
     //Workaround for bug with locals translation
     methods?.map { it?.localVariables?.size }
-    val cw = JClassWriter(jcClassPath, flags)
+    val cw = JIRlassWriter(jIRClassPath, flags)
     val adapter = when {
         checkClass -> CheckClassAdapter(cw)
         else -> cw
@@ -202,14 +202,14 @@ fun ClassNode.toByteArray(
 }
 
 fun ClassNode.write(
-    jcClassPath: JcClasspath,
+    jIRClassPath: JIRClasspath,
     path: Path,
     flags: Flags = Flags.writeComputeAll,
     checkClass: Boolean = false
 ): File =
     path.toFile().apply {
         parentFile?.mkdirs()
-        this.writeBytes(this@write.toByteArray(jcClassPath, flags, checkClass))
+        this.writeBytes(this@write.toByteArray(jIRClassPath, flags, checkClass))
     }
 
 internal class LabelFilterer(private val mn: MethodNode) {

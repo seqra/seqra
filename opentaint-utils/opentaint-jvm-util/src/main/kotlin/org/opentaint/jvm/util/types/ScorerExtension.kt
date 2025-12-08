@@ -1,12 +1,12 @@
 package org.opentaint.jvm.util.types
 
-import org.opentaint.ir.api.jvm.JcClassOrInterface
-import org.opentaint.ir.api.jvm.JcClasspath
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.ext.findClass
 import java.util.PriorityQueue
 
 class ScorerExtension<Result : Comparable<Result>>(
-    val cp: JcClasspath,
+    val cp: JIRClasspath,
     val key: Any,
 ) {
     private val scorer by lazy {
@@ -22,10 +22,10 @@ class ScorerExtension<Result : Comparable<Result>>(
         matchingFeatures.first()
     }
 
-    fun getScore(jcClass: JcClassOrInterface): Result? =
-        scorer.getScore(jcClass.declaration.location, jcClass.name)
+    fun getScore(jIRClass: JIRClassOrInterface): Result? =
+        scorer.getScore(jIRClass.declaration.location, jIRClass.name)
 
-    fun allClassesSorted(): Sequence<JcClassOrInterface> {
+    fun allClassesSorted(): Sequence<JIRClassOrInterface> {
         data class Node<Result : Comparable<Result>>(
             val result: Result,
             val className: String,

@@ -8,7 +8,7 @@ import java.util.concurrent.ThreadFactory
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
 
-private class JcThreadFactory(private val customClassLoader: ClassLoader?) : ThreadFactory {
+private class JIRThreadFactory(private val customClassLoader: ClassLoader?) : ThreadFactory {
 
     companion object {
         private var threadIdx = 0
@@ -39,8 +39,8 @@ private const val threadPrefix = "ExecutorThread-"
 
 val Thread.isExecutorThread: Boolean get() = name.startsWith(threadPrefix)
 
-open class JcExecutor(customClassLoader: ClassLoader? = null) {
-    private val threadFactory = JcThreadFactory(customClassLoader)
+open class JIRExecutor(customClassLoader: ClassLoader? = null) {
+    private val threadFactory = JIRThreadFactory(customClassLoader)
 
     private val executor = Executors.newSingleThreadExecutor(threadFactory)
 

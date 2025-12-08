@@ -1,12 +1,12 @@
 package org.opentaint.jvm.util
 
-import org.opentaint.ir.api.jvm.JcClassOrInterface
-import org.opentaint.ir.api.jvm.JcClassType
-import org.opentaint.ir.api.jvm.JcClasspath
-import org.opentaint.ir.api.jvm.JcClasspathFeature
-import org.opentaint.ir.api.jvm.JcDatabase
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRClasspathFeature
+import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.approximation.Approximations
-import org.opentaint.ir.impl.types.JcClassTypeImpl
+import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
@@ -22,24 +22,24 @@ data class ApproximationPaths(
     val allPathsArePresent = namedPaths.values.all { it != null }
 }
 
-private val classpathApproximations: MutableMap<JcClasspath, Set<String>> = ConcurrentHashMap()
+private val classpathApproximations: MutableMap<JIRClasspath, Set<String>> = ConcurrentHashMap()
 
 // TODO: use another way to detect internal classes (e.g. special bytecode location type)
-val JcClassOrInterface.isInternalClass: Boolean
+val JIRClassOrInterface.isInternalClass: Boolean
     get() = classpathApproximations[classpath]?.contains(name) ?: false
 
-val JcClassType.isInternalClass: Boolean
-    get() = if (this is JcClassTypeImpl) {
+val JIRClassType.isInternalClass: Boolean
+    get() = if (this is JIRClassTypeImpl) {
         classpathApproximations[classpath]?.contains(name) ?: false
     } else {
-        jcClass.isInternalClass
+        jIRClass.isInternalClass
     }
 
-suspend fun JcDatabase.classpathWithApproximations(
+suspend fun JIRDatabase.classpathWithApproximations(
     dirOrJars: List<File>,
-    features: List<JcClasspathFeature> = emptyList(),
+    features: List<JIRClasspathFeature> = emptyList(),
     approximationPaths: ApproximationPaths = ApproximationPaths(),
-): JcClasspath? {
+): JIRClasspath? {
     if (!approximationPaths.allPathsArePresent) {
         return null
     }
