@@ -14,11 +14,15 @@ interface SarifTraits<out Method, out Statement>
     fun getCalleeClassName(callExpr: CommonCallExpr): String
     fun getCallExpr(statement: @UnsafeVariance Statement): CommonCallExpr?
     fun getAssign(statement: @UnsafeVariance Statement): CommonAssignInst?
-    fun getReadableValue(expr: CommonExpr): String?
+    fun getReadableValue(statement: @UnsafeVariance Statement, expr: CommonExpr): String?
     fun getReadableAssignee(statement: @UnsafeVariance Statement): String?
 
     data class LocalInfo(val idx: Int, val name: String)
     fun getLocals(expr: CommonExpr): List<LocalInfo>
+    fun isRegister(name: String): Boolean
+    fun getLocalName(md: @UnsafeVariance Method, index: Int): String?
+    fun printArgument(index: Int): String
+    fun printThis(statement: @UnsafeVariance Statement): String
 
     fun lineNumber(statement: @UnsafeVariance Statement): Int
     fun locationFQN(statement: @UnsafeVariance Statement): String
