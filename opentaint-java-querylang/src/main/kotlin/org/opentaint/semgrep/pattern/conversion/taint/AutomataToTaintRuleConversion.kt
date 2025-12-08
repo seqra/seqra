@@ -504,19 +504,19 @@ open class TaintRuleGenerationCtx(
     val finalEdges: List<TaintRuleEdge>,
 ) {
     open fun valueMarkName(varName: MetavarAtom): String =
-        "${uniqueRuleId}_${varName}"
+        "${uniqueRuleId}|${varName}"
 
     open fun stateMarkName(varName: MetavarAtom, varValue: Int): String =
-        "${uniqueRuleId}_${varName}_$varValue"
+        "${uniqueRuleId}|${varName}|$varValue"
 
     fun globalStateMarkName(state: State): String {
         val stateId = automata.stateId(state)
-        return "${uniqueRuleId}__STATE__$stateId"
+        return "${uniqueRuleId}__<STATE>__$stateId"
     }
 
     val stateVarPosition by lazy {
         PositionBaseWithModifiers.BaseOnly(
-            PositionBase.ClassStatic("${uniqueRuleId}__STATE__")
+            PositionBase.ClassStatic("${uniqueRuleId}__<STATE>__")
         )
     }
 }

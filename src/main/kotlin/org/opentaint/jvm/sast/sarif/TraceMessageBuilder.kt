@@ -9,7 +9,6 @@ import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEdge
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction
 import org.opentaint.dataflow.configuration.CommonTaintAction
-import org.opentaint.dataflow.configuration.CommonTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.Argument
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
@@ -22,7 +21,13 @@ import org.opentaint.dataflow.configuration.jvm.RemoveAllMarks
 import org.opentaint.dataflow.configuration.jvm.RemoveMark
 import org.opentaint.dataflow.configuration.jvm.Result
 import org.opentaint.dataflow.configuration.jvm.This
+import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.util.SarifTraits
+
+const val ArtificialMetavarName = "<ARTIFICIAL>"
+const val ArtificialStateName = "__<STATE>__"
+const val GeneralTaintName = "taint"
 
 data class TracePathNodeWithMsg(
     val node: TracePathNode,
@@ -32,6 +37,16 @@ data class TracePathNodeWithMsg(
 
 enum class GroupTraceKind {
     SOURCE_CALL, SOURCE_ASSIGN, CALL, CALL_ASSIGN, SINGLE,
+}
+
+sealed interface Mark {
+    data class StringMark(val mark: String) : Mark
+
+    data object ArtificialMark : Mark
+
+    data object StateMark : Mark
+
+    data object TaintMark : Mark
 }
 
 class GroupTraceKindTracker {
@@ -81,49 +96,39 @@ data class GroupTraceWithKind(
 
 class TraceMessageBuilder(
     private val traits: SarifTraits<CommonMethod, CommonInst>,
-    private val localNameResolver: LocalNameResolver,
-    private var taintType: String,
     private val sinkMessage: String,
+    private val ruleId: String,
 ) {
     private val stringBuilderAppendName = "String concatenation"
-    private val initializerSuffix = " initializer"
-    private val classInitializerSuffix = " class initializer"
-
-    private var taintTypeNew: String? = null
-
-    private fun getOrdinal(i: Int): String {
-        val suffix = if (i % 100 in 11..13) "th" else when (i % 10) {
-            1 -> "st"
-            2 -> "nd"
-            3 -> "rd"
-            else -> "th"
-        }
-        return "$i$suffix"
-    }
+    private val initializerSuffix = "initializer"
+    private val classInitializerSuffix = "class initializer"
 
     private fun getMethodCalleeName(node: TracePathNode): String? {
         val callExpr = traits.getCallExpr(node.statement)
         return callExpr?.let { traits.getCallee(it).name }
     }
 
+    private fun badOutput(reason: String) =
+        "<#[$reason]#>"
+
     private fun getMethodCalleeNameInPrint(node: TracePathNode): String {
-        val callExpr = traits.getCallExpr(node.statement) ?: return "<callee>"
+        val callExpr = traits.getCallExpr(node.statement) ?: return badOutput("bad callee")
         val className = traits.getCalleeClassName(callExpr)
         val name = getMethodCalleeName(node)
         if (name == "<init>")
-            return "\"$className\"$initializerSuffix"
+            return "\"$className\" $initializerSuffix"
         if (name == "<clinit>")
-            return "\"$className\"$classInitializerSuffix"
+            return "\"$className\" $classInitializerSuffix"
         if (className == "StringBuilder" && name == "append")
             return stringBuilderAppendName
         return "\"$name\""
     }
 
     private fun createDefaultMessage(node: TracePathNode) = when(node.kind) {
-        TracePathNodeKind.SOURCE -> "<unresolved taint_source>"
+        TracePathNodeKind.SOURCE -> badOutput("unresolved taint_source")
         TracePathNodeKind.SINK -> sinkMessage
-        TracePathNodeKind.CALL -> "<unresolved call>"
-        TracePathNodeKind.OTHER -> "<unknown>"
+        TracePathNodeKind.CALL -> badOutput("unresolved call")
+        TracePathNodeKind.OTHER -> badOutput("unknown")
         TracePathNodeKind.RETURN -> generateMessageForReturn(node)
     }
 
@@ -150,7 +155,7 @@ class TraceMessageBuilder(
             val summaryTraceFacts = primaryAction.summaryTrace.final.edges
             if (summaryTraceFacts.all { it is TraceEdge.MethodTraceEdge && it.initialFact.base == it.fact.base }) {
                 logger.debug {
-                    "Skipping trace entry on line ${traits.lineNumber(node.statement)}" +
+                    "Skipping trace entry on line ${traits.lineNumber(node.statement)} " +
                             "because initial and final places are the same"
                 }
                 return false
@@ -163,14 +168,16 @@ class TraceMessageBuilder(
         }
 
         // filtering Call trace entries that contain unexpected Remove actions
-        // todo: clarify
-//        if (node.entry is TraceEntry.CallRule
-//            && (node.entry.action is RemoveMark || node.entry.action is RemoveAllMarks)) {
-//            logger.warn {
-//                "Trace entry on line ${traits.lineNumber(node.statement)} because of unexpected Remove action!"
-//            }
-//            return false
-//        }
+        if (primaryAction == null) {
+            if (node.entry.otherActions.all {
+                    it is TraceEntryAction.CallRuleAction && (it.action is RemoveMark || it.action is RemoveAllMarks)
+                }) {
+                logger.warn {
+                    "Trace entry on line ${traits.lineNumber(node.statement)} because of unexpected Remove action!"
+                }
+                return false
+            }
+        }
 
         // filtering calls to toString methods
         if (node.kind != TracePathNodeKind.SOURCE && node.kind != TracePathNodeKind.SINK) {
@@ -188,33 +195,119 @@ class TraceMessageBuilder(
     private fun createExitMessage(node: TracePathNode) =
         "Exiting \"${node.statement.location.method.name}\""
 
+    private fun InitialFactAp.getMark(): Mark {
+        val taintMarks = getAllAccessors().filterIsInstance<TaintMarkAccessor>()
+        check(taintMarks.size == 1) { "expected exactly one taint mark!" }
+        return getMarkFromString(taintMarks.first().mark)
+    }
+
+    data class TaintInfo(val mark: Mark, val pos: AccessPathBase)
+
+    private fun Mark?.inMessage(): String {
+        return when (this) {
+            is Mark.ArtificialMark -> "tainted"
+            is Mark.StateMark -> badOutput("unexpected mark")
+            is Mark.TaintMark -> "tainted"
+            is Mark.StringMark -> mark
+            null -> badOutput("unresolved mark name")
+        }
+    }
+
+    private fun TaintInfo.print(node: TracePathNode, relation: String = "at"): String {
+        return "${mark.inMessage()} data $relation ${pos.inMessage(node)}"
+    }
+
+    private fun printTaints(node: TracePathNode, taints: List<TaintInfo>, relation: String = "at"): String {
+        return taints.joinToString(", ") { it.print(node, relation) }
+    }
+
+    private fun printPositions(node: TracePathNode, taints: List<TaintInfo>): String {
+        return taints.joinToString(", ") { it.pos.inMessage(node) }
+    }
+
+    private fun printMarks(taints: List<TaintInfo>): String {
+        return taints.joinToString(", ") { it.mark.inMessage() }
+    }
+
+    data class EdgesInfo(val starts: List<TaintInfo>, val follows: List<TaintInfo>)
+    private fun collectDataflow(edges: List<TraceEdge>): EdgesInfo {
+        val starts = mutableListOf<TaintInfo>()
+        val follows = mutableListOf<TaintInfo>()
+
+        fun addTaintInfo(where: MutableList<TaintInfo>, what: InitialFactAp) {
+            val mark = what.getMark()
+            if (mark !is Mark.StateMark)
+                where.add(TaintInfo(mark, what.base))
+        }
+
+        for (edge in edges) {
+            addTaintInfo(follows, edge.fact)
+            if (edge is TraceEdge.MethodTraceEdge) {
+                addTaintInfo(starts, edge.initialFact)
+            }
+        }
+
+        return EdgesInfo(starts.distinct(), follows.distinct())
+    }
+
     private fun createTraceEntryMessage(node: TracePathNode): String {
         return when (val entry = node.entry) {
             is TraceEntry.Final -> entry.createMessage(node)
+
             is TraceEntry.MethodEntry -> {
                 val methodName = entry.entryPoint.method.name
-                val message = entry.edges.first().fact.base.inMessage(node)
-                "Entering \"$methodName\" with $taintType data at $message" // todo: multiple facts
+                val taints = printTaints(node, collectDataflow(entry.edges.toList()).starts)
+                "Entering \"$methodName\" with $taints"
             }
 
             is TraceEntry.Action -> {
-                // todo: multiple actions
                 val primaryAction = entry.primaryAction
-                if (primaryAction != null){
-                    return when (primaryAction) {
-                        is TraceEntryAction.CallSummary -> primaryAction.createMessage(node)
-                        is TraceEntryAction.Sequential -> primaryAction.createMessage(node)
-                        is TraceEntryAction.CallSourceSummary -> primaryAction.createMessage(node)
-                        is TraceEntryAction.UnresolvedCallSkip -> createDefaultMessage(node)
+                val total = entry.otherActions.size + if (primaryAction != null) 1 else 0
+                if (total == 1) {
+                    if (primaryAction != null) {
+                        return when (primaryAction) {
+                            is TraceEntryAction.CallSummary -> primaryAction.createMessage(node)
+                            is TraceEntryAction.Sequential -> primaryAction.createMessage(node)
+                            is TraceEntryAction.CallSourceSummary -> primaryAction.createMessage(node)
+                            is TraceEntryAction.UnresolvedCallSkip -> createDefaultMessage(node)
+                        }
+                    }
+                    else {
+                        when (val otherAction = entry.otherActions.first()) {
+                            is TraceEntryAction.CallRule -> otherAction.createMessage(node)
+                            is TraceEntryAction.CallSourceRule -> otherAction.createMessage(node)
+                            is TraceEntryAction.EntryPointSourceRule -> otherAction.createMessage(node)
+                        }
                     }
                 }
-
-                val otherAction = entry.otherActions.first()
-                when (otherAction) {
-                    is TraceEntryAction.CallRule -> otherAction.createMessage(node)
-                    is TraceEntryAction.CallSourceRule -> otherAction.createMessage(node)
-                    is TraceEntryAction.EntryPointSourceRule -> otherAction.createMessage(node)
+                else {
+                    createMethodCallTaintPropagationMessageWithTaints(node, entry.edges.toList())
                 }
+            }
+
+            is TraceEntry.SourceStartEntry -> {
+                val primaryAction = entry.sourcePrimaryAction
+                val total = entry.sourceOtherActions.size + if (primaryAction != null) 1 else 0
+                if (total == 1) {
+                    if (primaryAction != null) {
+                        return when (primaryAction) {
+                            is TraceEntryAction.CallSourceSummary -> primaryAction.createMessage(node)
+                        }
+                    }
+                    else {
+                        when (val otherAction = entry.sourceOtherActions.first()) {
+                            is TraceEntryAction.CallSourceRule -> otherAction.createMessage(node)
+                            is TraceEntryAction.EntryPointSourceRule -> otherAction.createMessage(node)
+                        }
+                    }
+                }
+                else {
+                    createMethodCallTaintPropagationMessageWithTaints(node, entry.edges.toList())
+                }
+            }
+
+            is TraceEntry.Unchanged -> {
+                badOutput("unchanged entry")
             }
 
             null -> when (node.kind) {
@@ -225,8 +318,6 @@ class TraceMessageBuilder(
 
                 else -> createDefaultMessage(node)
             }
-
-            else -> createDefaultMessage(node)
         }
     }
 
@@ -297,118 +388,63 @@ class TraceMessageBuilder(
         return result
     }
 
-    private fun getTaintOf(taint: String, of: TracePathNode): String {
-        val ofName = getMethodCalleeNameInPrint(of)
-        // StringBuilder.append is a string concatenation method often hidden by the "+"
-        // its taint is always the first argument, not providing any meaningful information
-        if (ofName == stringBuilderAppendName) return ofName
-        return "$taint of $ofName"
+    private fun getMarkFromString(rawMark: String): Mark {
+        if (!rawMark.contains('#'))
+            // running with config
+            return Mark.StringMark(rawMark)
+        val ruleLength = ruleId.length
+        check(rawMark.length > ruleLength && rawMark[ruleLength] == '#') {
+            "expected ruleId at the start of mark!"
+        }
+        val noRuleId = rawMark.substring(ruleLength + 1)
+        if (noRuleId == GeneralTaintName)
+            return Mark.TaintMark
+        if (noRuleId.contains(ArtificialStateName))
+            return Mark.StateMark
+        if (noRuleId.contains(ArtificialMetavarName))
+            return Mark.ArtificialMark
+        val split = noRuleId.split("|")
+        check(split.size >= 2) { "mark must contain at least two parts!" }
+        return Mark.StringMark(split[1])
     }
 
-    private val markNameRegex = Regex("""(\$.*)_\d+""")
-
-    private fun getMarkVarName(action: CommonTaintAction): String? {
+    private fun getMarkVarName(action: CommonTaintAction, neutralMark: String): Mark? {
         val name = when (action) {
             is AssignMark -> action.mark.name
             is CopyMark -> action.mark.name
+            is CopyAllMarks -> return Mark.StringMark(neutralMark)
             else -> return null
         }
-        return markNameRegex.find(name)?.let { it.groups[1]?.value }
-    }
-
-    private fun getTaintType(node: TracePathNode): String? {
-        val ruleActions = when (val entry = node.entry) {
-            is TraceEntry.Action -> entry.otherActions.filterIsInstance<TraceEntryAction.CallRuleAction>()
-            is TraceEntry.SourceStartEntry -> entry.sourceOtherActions.filterIsInstance<TraceEntryAction.CallRuleAction>()
-            else -> null
-        }
-
-        val action = ruleActions?.firstOrNull() // todo: multiple actions
-        return action?.let { getMarkVarName(it.action) }
-    }
-
-    private fun updateTaintType(node: TracePathNode) {
-        taintTypeNew?.let { taintType = it }
-        taintTypeNew = getTaintType(node)
-    }
-
-    private fun getCallTaintIn(node: TracePathNode): String {
-        val taintName = callTaintInName(node) ?: "<unresolved call bad source>"
-        return getTaintOf(taintName, node)
-    }
-
-    private fun callTaintInName(node: TracePathNode): String? {
-        when (val entry = node.entry) {
-            is TraceEntry.Action -> {
-                val primaryAction = entry.primaryAction
-                if (primaryAction is TraceEntryAction.CallSummary) {
-                    val edge = primaryAction.summaryTrace.final.edges.first()
-                    if (edge is TraceEdge.MethodTraceEdge) {
-                        return edge.initialFact.base.inMessage(node)
-                    }
-                }
-
-                val action = entry.otherActions.filterIsInstance<TraceEntryAction.CallRuleAction>().firstOrNull()
-                action?.let { return action.action.getTainted(node) }
-            }
-
-            else -> return null
-        }
-        return null
-    }
-
-    private fun getCallTaintOut(node: TracePathNode): String {
-        val taintName = callTaintOutName(node) ?: "<unresolved call bad sink>"
-        return getTaintOf(taintName, node)
-    }
-
-    private fun callTaintOutName(node: TracePathNode): String? {
-        when (val entry = node.entry) {
-            is TraceEntry.Action -> {
-                val primaryAction = entry.primaryAction
-                if (primaryAction is TraceEntryAction.CallSummary) {
-                    val edge = primaryAction.summaryTrace.final.edges.first()
-                    return edge.fact.base.inMessage(node)
-                }
-
-                val action = entry.otherActions.filterIsInstance<TraceEntryAction.CallRuleAction>().firstOrNull()
-                action?.let { return action.action.getPropagated(node) }
-            }
-
-            else -> return null
-        }
-        return null
+        return getMarkFromString(name)
     }
 
     private fun getAssignTaintOut(entry: TraceEntry?) = when (entry?.statement) {
         is CommonReturnInst -> "the returning value"
-        null -> "<unresolved null assignee>"
+        null -> badOutput("unresolved null assignee")
         else -> entry.let {
-            traits.getReadableAssignee(entry.statement)?.let { "\"$it\"" }
-        } ?: "<unresolved assignee>"
+            traits.getReadableAssignee(entry.statement)
+        } ?: badOutput("unresolved assignee")
     }
 
-    private fun getSourceCallTaint(node: TracePathNode): String {
-        val taintName = callSourceCallTaintName(node) ?: "<unresolved call bad source>"
-        return getTaintOf(taintName, node)
+    private fun takeCalleeOf(node: TracePathNode): String {
+        if (getMethodCalleeName(node) == null)
+            return ""
+        return " of ${getMethodCalleeNameInPrint(node)}"
     }
 
-    private fun callSourceCallTaintName(node: TracePathNode): String? {
-        when (val entry = node.entry) {
-            is TraceEntry.Action -> {
-                val primaryAction = entry.primaryAction
-                if (primaryAction is TraceEntryAction.CallSummary) {
-                    val edge = primaryAction.summaryTrace.final.edges.first()
-                    return edge.fact.base.inMessage(node)
-                }
-
-                val action = entry.otherActions.filterIsInstance<TraceEntryAction.CallSourceRule>().firstOrNull()
-                action?.let { return action.action.getPositionMessage(node) }
-            }
-
-            else -> return null
+    data class TaintsWithOwner(val node: TracePathNode, val taints: List<TaintInfo>)
+    private fun getGroupTraceMessage(start: TaintsWithOwner, follow: TaintsWithOwner): String {
+        if (follow.taints.isEmpty())
+            return "Intermediate line of the rule"
+        val beginOf = takeCalleeOf(start.node)
+        val endOf = takeCalleeOf(follow.node)
+        if (start.taints.isEmpty()) {
+            val results = printTaints(follow.node, follow.taints, "to")
+            return "Puts $results$endOf"
         }
-        return null
+        val results = printTaints(follow.node, follow.taints)
+        val condition = printTaints(start.node, start.taints)
+        return "Takes $condition$beginOf and ends up with $results$endOf"
     }
 
     fun createGroupTraceMessage(group: List<TracePathNode>): List<TracePathNodeWithMsg> =
@@ -416,78 +452,40 @@ class TraceMessageBuilder(
             if (printableGroup.kind == GroupTraceKind.SINGLE
                 || printableGroup.nodes.size == 1) {
                 val node = printableGroup.nodes.first()
-                updateTaintType(node)
                 TracePathNodeWithMsg(node, getSarifKind(node), createTraceEntryMessage(node))
             }
             else {
                 val groupKind = getGroupKind(printableGroup.nodes)
                 val lastNode = printableGroup.nodes.last()
                 val firstNode = printableGroup.nodes.first()
-                updateTaintType(lastNode)
-                val message = when (printableGroup.kind) {
-                    GroupTraceKind.CALL -> {
-                        val taintIn = getCallTaintIn(firstNode)
-                        val taintOut = getCallTaintOut(lastNode)
-                        createCallChainTaintPropagationMessage(taintIn, taintOut)
-                    }
-
-                    GroupTraceKind.SOURCE_CALL -> {
-                        val taintIn = getSourceCallTaint(firstNode)
-                        val taintOut = getCallTaintOut(lastNode)
-                        createSourceCallChainTaintMessage(taintIn, taintOut)
-                    }
-
-                    GroupTraceKind.CALL_ASSIGN -> {
-                        val taintIn = getCallTaintIn(firstNode)
-                        val taintOut = getAssignTaintOut(lastNode.entry)
-                        createCallChainTaintAssignMessage(taintIn, taintOut)
-                    }
-
-                    GroupTraceKind.SOURCE_ASSIGN -> {
-                        val taintIn = getSourceCallTaint(firstNode)
-                        val taintOut = getAssignTaintOut(lastNode.entry)
-                        createSourceCallChainTaintAssignMessage(taintIn, taintOut)
-                    }
-
-                    // GroupTraceKind.SINGLE is taken care of at the top of this function
-                    else -> "<unresolved group trace kind>"
-                }
+                val starts = firstNode.entry?.edges?.let { collectDataflow(it.toList()).starts } ?: emptyList()
+                val follows = lastNode.entry?.edges?.let { collectDataflow(it.toList()).follows } ?: emptyList()
+                val message = getGroupTraceMessage(TaintsWithOwner(firstNode, starts), TaintsWithOwner(lastNode, follows))
                 TracePathNodeWithMsg(lastNode, groupKind, message)
             }
         }
 
-    private fun printThis(node: TracePathNode) =
-        if (getMethodCalleeName(node) == "<init>") "the created object" else "the calling object"
-
-    private fun printArgument(index: Int) =
-        "the ${getOrdinal(index + 1)} argument"
-
     private fun printReturnedValue(node: TracePathNode): String {
         val assignee = traits.getReadableAssignee(node.statement)
-        if (assignee == null || localNameResolver.isRegister(assignee)) return "the returned value"
-        return "\"$assignee\""
+        if (assignee == null || traits.isRegister(assignee)) return "the returned value"
+        return "$assignee"
     }
 
     private fun AccessPathBase.inMessage(node: TracePathNode) = when (this) {
-        is AccessPathBase.This -> printThis(node)
-        is AccessPathBase.Argument -> printArgument(idx)
+        is AccessPathBase.This -> traits.printThis(node.statement)
+        is AccessPathBase.Argument -> traits.printArgument(idx)
         is AccessPathBase.ClassStatic -> "a static variable"
         is AccessPathBase.LocalVar -> {
-            localNameResolver.getLocalName(node.statement.location.method, idx)?.let { "\"$it\"" } ?: "a local variable"
+            traits.getLocalName(node.statement.location.method, idx)?.let { "\"$it\"" } ?: "a local variable"
         }
         is AccessPathBase.Return -> printReturnedValue(node)
         is AccessPathBase.Constant -> "a const value"
-        else -> "<unresolved value>"
-    }
-
-    private fun CommonTaintAssignAction.getPositionMessage(node: TracePathNode): String = when (this) {
-        is AssignMark -> position.inMessage(node)
-        else -> "<unresolved assign position>"
+        else -> badOutput("unresolved value")
     }
 
     private fun Position.inMessage(node: TracePathNode): String = when (this) {
-        is This -> printThis(node)
-        is Argument -> printArgument(index)
+        is This -> traits.printThis(node.statement)
+        is Argument -> traits.printArgument(index)
         is Result -> printReturnedValue(node)
         is PositionWithAccess -> when (this.access) {
             is PositionAccessor.ElementAccessor -> "an element of ${base.inMessage(node)}"
@@ -530,60 +528,116 @@ class TraceMessageBuilder(
         else -> "<!Tainted>"
     }
 
-    private fun addTaintTypeChangeAs(msg: String): String {
-        return taintTypeNew?.let { "$msg as $taintTypeNew" } ?: msg
-    }
-
     private fun createMethodCallTaintPropagationMessage(
         node: TracePathNode,
+        taint: String,
         from: String,
         to: String,
     ): String {
         val calleeName = getMethodCalleeNameInPrint(node)
         if (calleeName == stringBuilderAppendName)
-            return addTaintTypeChangeAs("Concatenated String contains $taintType data")
-        return addTaintTypeChangeAs("Call to $calleeName propagates $taintType data from $from to $to")
+            return "Concatenated String contains $taint data"
+        return "Call to $calleeName propagates $taint data from $from to $to"
     }
 
-    private fun createCallChainTaintPropagationMessage(
-        from: String,
-        to: String,
-    ): String {
-        return addTaintTypeChangeAs("Call chain propagates $taintType data from $from to $to")
+    private fun isOneMark(infos: EdgesInfo): Boolean {
+        val all = infos.starts + infos.follows
+        if (all.isEmpty())
+            return true
+        val mark = all[0].mark
+        for (info in all) {
+            if (mark != info.mark)
+                return false
+        }
+        return true
     }
 
-    private fun createCallChainTaintAssignMessage(
-        from: String,
-        to: String,
+    private fun createMethodCallTaintPropagationMessageWithTaints(
+        node: TracePathNode,
+        edges: List<TraceEdge>,
     ): String {
-        return addTaintTypeChangeAs("Call chain propagates $taintType data from $from and assigns it to $to")
+        val calleeName = getMethodCalleeNameInPrint(node)
+        val infos = collectDataflow(edges)
+        if (calleeName == stringBuilderAppendName) {
+            val taint = printMarks(infos.follows)
+            return "Concatenated String contains data with $taint"
+        }
+        return createPropagationMessageFromTaints("Call to $calleeName", node, infos)
     }
 
-    private fun createSourceCallChainTaintMessage(
-        from: String,
-        to: String,
+    private fun createPropagationMessageFromTaints(
+        subject: String,
+        node: TracePathNode,
+        infos: EdgesInfo,
     ): String {
-        return addTaintTypeChangeAs("Call chain gets $taintType data from $from and propagates it to $to")
-    }
-
-    private fun createSourceCallChainTaintAssignMessage(
-        from: String,
-        to: String,
-    ): String {
-        return addTaintTypeChangeAs("Call chain gets $taintType data from $from and assigns it to $to")
+        if (infos.follows.isEmpty()) {
+            if (infos.starts.isEmpty()) {
+                return subject
+            }
+            val condition = printTaints(node, infos.starts)
+            return "$subject with $condition"
+        }
+        if (isOneMark(infos)) {
+            val taint = infos.follows[0].mark.inMessage()
+            val to = printPositions(node, infos.follows)
+            if (infos.starts.isEmpty()) {
+                return createMethodCallTaintCreationMessage(node, taint, to)
+            }
+            val from = printPositions(node, infos.starts)
+            return createMethodCallTaintPropagationMessage(node, taint, from, to)
+        }
+        val results = printTaints(node, infos.follows)
+        if (infos.starts.isEmpty()) {
+            return "$subject produces $results"
+        }
+        val condition = printTaints(node, infos.starts)
+        return "$subject takes $condition, which results in $results"
     }
 
     private fun createMethodCallTaintCreationMessage(
         node: TracePathNode,
-        pos: String,
+        taint: String,
+        pos: String
     ): String {
         var calleeName = getMethodCalleeNameInPrint(node)
         if (calleeName == stringBuilderAppendName)
+        // it's unlikely this method will once become a source of bad/leaked data...but who knows?
+            calleeName = "\"StringBuilder.append\""
+        if (calleeName.endsWith(initializerSuffix)) {
+            return "$calleeName creates an object with $taint data"
+        }
+        return "Call to $calleeName puts $taint data to $pos"
+    }
+
+    private fun createMethodCallTaintCreationMessageWithTaints(
+        node: TracePathNode,
+        taints: List<TraceEdge>,
+    ): String {
+        var calleeName = getMethodCalleeNameInPrint(node)
+        val taintInfos = collectDataflow(taints).follows
+        if (calleeName == stringBuilderAppendName)
             // it's unlikely this method will once become a source of bad/leaked data...but who knows?
-            calleeName = "StringBuilder.append"
-        if (calleeName.endsWith(initializerSuffix))
-            return addTaintTypeChangeAs("$calleeName creates an object with $taintType data")
-        return addTaintTypeChangeAs("Call to $calleeName puts $taintType data to $pos")
+            calleeName = "\"StringBuilder.append\""
+        if (calleeName.endsWith(initializerSuffix)) {
+            val taint = printMarks(taintInfos)
+            return "$calleeName creates an object with $taint data"
+        }
+        val taint = printTaints(node, taintInfos, "to")
+        return "Call to $calleeName puts $taint"
+    }
+
+    private fun createMethodCallTaintCreationMessage(
+        node: TracePathNode,
+        action: CommonTaintAction,
+        neutralMark: String,
+    ): String {
+        val pos = (action as AssignMark).position.inMessage(node)
+        val mark = getMarkVarName(action, neutralMark)
+        if (mark is Mark.StateMark) {
+            val calleeName = getMethodCalleeNameInPrint(node)
+            return "Call to $calleeName"
+        }
+        return createMethodCallTaintCreationMessage(node, mark.inMessage(), pos)
     }
 
     private fun TraceEntry.Final.createMessage(node: TracePathNode): String {
@@ -591,66 +645,57 @@ class TraceMessageBuilder(
             if (node.statement is CommonReturnInst)
                 return createExitMessage(node)
             val callExpr = traits.getCallExpr(node.statement)
-            val tainted = edges.first().fact.base.inMessage(node)  // todo: multiple facts
-
+            val starts = collectDataflow(edges.toList()).starts
+            val suffix = if (starts.isEmpty()) "" else " with ${printTaints(node, starts)}"
             if (callExpr != null)
-                return "Calling ${getMethodCalleeNameInPrint(node)} with $taintType data coming from $tainted"
-            return "<unknown final>"
+                return "Calling ${getMethodCalleeNameInPrint(node)}$suffix"
+            return badOutput("unknown final")
         }
         return createDefaultMessage(node)
     }
 
     private fun TraceEntryAction.EntryPointSourceRule.createMessage(node: TracePathNode): String {
-        val tainted = edges.first().fact.base.inMessage(node) // todo: multiple facts
-        return "Potential $taintType data at $tainted of the method"
+        val pos = action.getTainted(node)
+        val mark = getMarkVarName(action, "tainted") ?: "tainted"
+        return "Potential $mark data at $pos of the method"
     }
 
     private fun TraceEntryAction.CallRule.createMessage(node: TracePathNode): String {
         if (action is CopyMark || action is CopyAllMarks) {
             val taintSource = action.getTainted(node)
             val taintFollow = action.getPropagated(node)
-            return createMethodCallTaintPropagationMessage(node, taintSource, taintFollow)
+            val neutralMark = printMarks(collectDataflow(edges.toList()).follows)
+            val mark = getMarkVarName(action, neutralMark).inMessage()
+            return createMethodCallTaintPropagationMessage(node, mark, taintSource, taintFollow)
         }
         if (action is AssignMark) {
-            val taintedPos = (action as AssignMark).position.inMessage(node)
-            return createMethodCallTaintCreationMessage(node, taintedPos)
+            val neutralMark = printMarks(collectDataflow(edges.toList()).follows)
+            return createMethodCallTaintCreationMessage(node, action, neutralMark)
         }
-        return "<!CallRule>"
+        return badOutput("unknown CallRule")
     }
 
     private fun TraceEntryAction.CallSummary.createMessage(node: TracePathNode): String {
-        return edges.first().createCallSummaryMessage(node) // todo: multiple facts
+        return createMethodCallTaintPropagationMessageWithTaints(node, edges.toList())
     }
 
     private fun TraceEntryAction.CallSourceRule.createMessage(node: TracePathNode): String {
-        val taintedPos = action.getPositionMessage(node)
-        return createMethodCallTaintCreationMessage(node, taintedPos)
+        val neutralMark = printMarks(collectDataflow(edges.toList()).follows)
+        return createMethodCallTaintCreationMessage(node, action, neutralMark)
     }
 
     private fun TraceEntryAction.CallSourceSummary.createMessage(node: TracePathNode): String {
-        return edges.first().createCallSummaryMessage(node) // todo: multiple facts
-    }
-
-    private fun TraceEdge.createCallSummaryMessage(node: TracePathNode): String = when (this) {
-        is TraceEdge.SourceTraceEdge -> {
-            val taintedPos = fact.base.inMessage(node) // todo: multiple facts
-            createMethodCallTaintCreationMessage(node, taintedPos)
-        }
-
-        is TraceEdge.MethodTraceEdge -> {
-            val taintSource = initialFact.base.inMessage(node)
-            val taintFollow = fact.base.inMessage(node)
-            createMethodCallTaintPropagationMessage(node, taintSource, taintFollow)
-        }
+        return createMethodCallTaintCreationMessageWithTaints(node, edges.toList())
     }
 
     private fun TraceEntryAction.Sequential.createMessage(node: TracePathNode): String {
         val assignee = getAssignTaintOut(node.entry)
-        return addTaintTypeChangeAs("$assignee is assigned a value with $taintType data")
+        val taint = printMarks(collectDataflow(edges.toList()).follows)
+        return "$assignee is assigned a value with $taint data"
     }
 
     private fun generateMessageForReturn(node: TracePathNode): String {
-        if (node.kind != TracePathNodeKind.RETURN) return "<!Return>"
+        if (node.kind != TracePathNodeKind.RETURN) return badOutput("unknown Return")
         return "Returning from ${getMethodCalleeNameInPrint(node)}"
     }
 

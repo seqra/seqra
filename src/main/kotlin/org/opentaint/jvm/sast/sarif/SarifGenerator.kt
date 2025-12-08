@@ -20,10 +20,7 @@ import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
-import org.opentaint.dataflow.configuration.CommonTaintAssignAction
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
-import org.opentaint.dataflow.configuration.jvm.AssignMark
-import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.dataflow.util.SarifTraits
 import java.io.OutputStream
 
@@ -43,8 +40,6 @@ class SarifGenerator(
     )
 
     val traceGenerationStats = TraceGenerationStats()
-
-    private val localNameResolver = LocalNameResolver(traits)
 
     @OptIn(ExperimentalSerializationApi::class)
     fun generateSarif(
@@ -76,7 +71,7 @@ class SarifGenerator(
 
         val sinkLocation = statementLocation(vulnerability.statement)
 
-        val codeFlow = generateCodeFlow(trace, vulnerabilityRule.meta.message)
+        val codeFlow = generateCodeFlow(trace, vulnerabilityRule.meta.message, ruleId)
 
         return Result(
             ruleID = ruleId,
@@ -87,7 +82,7 @@ class SarifGenerator(
         )
     }
 
-    private fun generateCodeFlow(trace: TraceResolver.Trace?, sinkMessage: String): CodeFlow? {
+    private fun generateCodeFlow(trace: TraceResolver.Trace?, sinkMessage: String, ruleId: String): CodeFlow? {
         traceGenerationStats.total++
 
         if (trace == null) {
@@ -114,7 +109,7 @@ class SarifGenerator(
         }
 
         // create a better choosing algorithm
-        return paths.firstOrNull()?.let { CodeFlow(threadFlows = listOf(generateThreadFlow(it, sinkMessage))) }
+        return paths.firstOrNull()?.let { CodeFlow(threadFlows = listOf(generateThreadFlow(it, sinkMessage, ruleId))) }
     }
 
     private fun areTracesRelative(a: TracePathNode, b: TracePathNode): Boolean {
@@ -179,29 +174,8 @@ class SarifGenerator(
         return result.reversed()
     }
 
-    private val markNameRegex = Regex("""(\$.*)_\d+""")
-
-    private fun getMarkVarName(action: CommonTaintAssignAction): String? {
-        if (action !is AssignMark) return null
-        return markNameRegex.find(action.mark.name)?.let { it.groups[1]?.value }
-    }
-
-    private fun generateThreadFlow(path: List<TracePathNode>, sinkMessage: String): ThreadFlow {
-        val firstNode = path.firstOrNull { it.kind == TracePathNodeKind.SOURCE }
-        val taintType = firstNode?. let {
-            when (val entry = firstNode.entry) {
-                is MethodTraceResolver.TraceEntry.SourceStartEntry -> {
-                    val action = entry.sourceOtherActions.firstOrNull()
-                    when (action) {
-                        is MethodTraceResolver.TraceEntryAction.CallSourceRule -> getMarkVarName(action.action)
-                        is MethodTraceResolver.TraceEntryAction.EntryPointSourceRule -> getMarkVarName(action.action)
-                        null -> null
-                    }
-                }
-                else -> null
-            }
-        } ?: "untrusted"
-        val messageBuilder = TraceMessageBuilder(traits, localNameResolver, taintType, sinkMessage)
+    private fun generateThreadFlow(path: List<TracePathNode>, sinkMessage: String, ruleId: String): ThreadFlow {
+        val messageBuilder = TraceMessageBuilder(traits, sinkMessage, ruleId)
         val filteredLocations = path.filter { messageBuilder.isGoodTrace(it) }
         val groupedLocations = groupRelativeTraces(filteredLocations)
         val filteredGroups = removeRepetitiveAssigns(groupedLocations)

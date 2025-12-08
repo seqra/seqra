@@ -50,7 +50,7 @@ class PatternToActionListConverter: ActionListBuilder {
     private var nextArtificialMetavarId = 0
 
     private fun provideArtificialMetavar(): String {
-        return "\$ARTIFICIAL_${nextArtificialMetavarId++}"
+        return "\$<ARTIFICIAL>_${nextArtificialMetavarId++}"
     }
 
     val failedTransformations = mutableMapOf<String, Int>()
