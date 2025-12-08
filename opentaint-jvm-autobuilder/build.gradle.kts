@@ -1,4 +1,7 @@
+import OpentaintProjectDependency.opentaintProject
+import OpentaintUtilDependency.opentaintUtilCli
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.opentaint.common.KotlinDependency
 
@@ -14,15 +17,15 @@ tasks {
         targetCompatibility = JavaVersion.VERSION_1_8.toString()
     }
     withType<KotlinCompile> {
-        kotlinOptions {
-            jvmTarget = JavaVersion.VERSION_1_8.toString()
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_1_8
         }
     }
 }
 
 dependencies {
-    implementation("org.opentaint.project:opentaint-project-model:2025.07.24.f65b6cc")
-    implementation("org.opentaint.utils:cli-util:2025.07.24.e2de8fa")
+    implementation(opentaintProject)
+    implementation(opentaintUtilCli)
 
     implementation(KotlinDependency.Libs.kotlinx_serialization_json)
     implementation(KotlinDependency.Libs.kotlin_logging)
