@@ -1,4 +1,3 @@
-import OpentaintConfigurationDependency.opentaintRulesCommon
 import OpentaintIrDependency.opentaint_ir_api_common
 import OpentaintUtilDependency.opentaintUtilCommon
 import org.opentaint.common.KotlinDependency
@@ -10,7 +9,7 @@ plugins {
 
 dependencies {
     implementation(opentaintUtilCommon)
-    implementation(opentaintRulesCommon)
+    implementation("org.opentaint.opentaint-configuration-rules:configuration-rules-common")
 
     implementation(KotlinDependency.Libs.kotlinx_coroutines_core)
     implementation(KotlinDependency.Libs.kotlin_logging)

@@ -1,4 +1,3 @@
-import OpentaintConfigurationDependency.opentaintRulesJvm
 import OpentaintUtilDependency.opentaintUtilJvm
 import org.opentaint.common.KotlinDependency
 import OpentaintIrDependency.opentaint_ir_core
@@ -15,7 +14,7 @@ plugins {
 dependencies {
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-dataflow")
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-jvm-dataflow")
-    implementation(opentaintRulesJvm)
+    implementation("org.opentaint.opentaint-configuration-rules:configuration-rules-jvm")
     implementation(opentaintUtilJvm)
 
     implementation(KotlinDependency.Libs.kaml)

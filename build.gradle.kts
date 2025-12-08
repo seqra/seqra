@@ -1,4 +1,3 @@
-import OpentaintConfigurationDependency.opentaintRulesJvm
 import OpentaintEngineApiDependency.opentaint_engine_api
 import OpentaintEngineApproximationDependency.opentaint_engine_approximations
 import OpentaintProjectDependency.opentaintProject
@@ -23,8 +22,7 @@ dependencies {
     implementation(opentaintUtilJvm)
     implementation(opentaintUtilCli)
     implementation(opentaintProject)
-    implementation(opentaintRulesJvm)
-
+    implementation("org.opentaint.opentaint-configuration-rules:configuration-rules-jvm")
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-jvm-dataflow")
     implementation("org.opentaint.sast.se:api")
 

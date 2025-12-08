@@ -13,6 +13,12 @@ fun DependencySubstitutions.substituteProjects(group: String, projects: List<Str
     }
 }
 
+includeBuild("opentaint-configuration-rules") {
+    dependencySubstitution {
+        substituteProjects("org.opentaint.opentaint-configuration-rules", listOf("configuration-rules-common", "configuration-rules-jvm"))
+    }
+}
+
 includeBuild("opentaint-dataflow-core") {
     dependencySubstitution {
         substituteProjects("org.opentaint.opentaint-dataflow-core", listOf("opentaint-dataflow", "opentaint-jvm-dataflow"))
