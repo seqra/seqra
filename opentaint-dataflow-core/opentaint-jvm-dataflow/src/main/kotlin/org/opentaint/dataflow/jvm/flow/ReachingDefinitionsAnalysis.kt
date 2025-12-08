@@ -11,10 +11,10 @@ import java.util.BitSet
 
 class ReachingDefinitionsAnalysis(private val blockGraph: JIRBlockGraphImpl) {
 
-    private val jirGraph: JIRGraph
-        get() = blockGraph.jirGraph
+    private val jIRGraph: JIRGraph
+        get() = blockGraph.jIRGraph
 
-    private val nDefinitions = jirGraph.instructions.size
+    private val nDefinitions = jIRGraph.instructions.size
     private val ins = mutableMapOf<JIRBasicBlock, BitSet>()
     private val outs = mutableMapOf<JIRBasicBlock, BitSet>()
     private val assignmentsMap = mutableMapOf<JIRValue, MutableSet<JIRInstRef>>()
@@ -53,9 +53,9 @@ class ReachingDefinitionsAnalysis(private val blockGraph: JIRBlockGraphImpl) {
     }
 
     private fun initAssignmentsMap() {
-        for (inst in jirGraph) {
+        for (inst in jIRGraph) {
             if (inst is JIRAssignInst) {
-                assignmentsMap.getOrPut(inst.lhv, ::mutableSetOf) += jirGraph.ref(inst)
+                assignmentsMap.getOrPut(inst.lhv, ::mutableSetOf) += jIRGraph.ref(inst)
             }
         }
     }
@@ -69,7 +69,7 @@ class ReachingDefinitionsAnalysis(private val blockGraph: JIRBlockGraphImpl) {
                 for (kill in assignmentsMap.getOrDefault(inst.lhv, mutableSetOf())) {
                     inSet[kill] = false
                 }
-                inSet[jirGraph.ref(inst)] = true
+                inSet[jIRGraph.ref(inst)] = true
             }
         }
         return inSet
@@ -84,6 +84,6 @@ class ReachingDefinitionsAnalysis(private val blockGraph: JIRBlockGraphImpl) {
 
     fun outs(block: JIRBasicBlock): List<JIRInst> {
         val defs = outs.getOrDefault(block, emptySet())
-        return (0 until nDefinitions).filter { defs[it] }.map { jirGraph.instructions[it] }
+        return (0 until nDefinitions).filter { defs[it] }.map { jIRGraph.instructions[it] }
     }
 }

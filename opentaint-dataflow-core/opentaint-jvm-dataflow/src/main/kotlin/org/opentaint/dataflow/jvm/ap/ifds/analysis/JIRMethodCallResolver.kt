@@ -16,7 +16,7 @@ import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner.LambdaResolvedEven
 import org.opentaint.dataflow.jvm.ap.ifds.JIRCallResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLambdaTracker
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
-import org.opentaint.dataflow.jvm.ap.ifds.jirDowncast
+import org.opentaint.dataflow.jvm.ap.ifds.jIRDowncast
 
 class JIRMethodCallResolver(
     private val lambdaTracker: JIRLambdaTracker,
@@ -30,8 +30,8 @@ class JIRMethodCallResolver(
         handler: MethodAnalyzer.MethodCallHandler,
         failureHandler: MethodAnalyzer.MethodCallResolutionFailureHandler
     ) {
-        jirDowncast<JIRCallExpr>(callExpr)
-        jirDowncast<JIRInst>(location)
+        jIRDowncast<JIRCallExpr>(callExpr)
+        jIRDowncast<JIRInst>(location)
         resolveMethodCall(callerEntryPoint, callExpr, location, handler, failureHandler)
     }
 
@@ -40,8 +40,8 @@ class JIRMethodCallResolver(
         callExpr: CommonCallExpr,
         location: CommonInst
     ): List<MethodWithContext> {
-        jirDowncast<JIRCallExpr>(callExpr)
-        jirDowncast<JIRInst>(location)
+        jIRDowncast<JIRCallExpr>(callExpr)
+        jIRDowncast<JIRInst>(location)
         return resolvedMethodCalls(callerEntryPoint, callExpr, location)
     }
 

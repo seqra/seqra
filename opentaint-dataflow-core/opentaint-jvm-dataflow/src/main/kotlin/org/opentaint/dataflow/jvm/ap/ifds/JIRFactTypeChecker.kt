@@ -37,7 +37,7 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
     private val hierarchyInfo = JIRHierarchyInfo(cp)
 
     private val objectType by lazy { cp.objectType }
-    private val objectClass by lazy { objectType.jirClass }
+    private val objectClass by lazy { objectType.jIRClass }
 
     val localFactsTotal = LongAdder()
     val localFactsRejected = LongAdder()
@@ -90,7 +90,7 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
 
     override fun filterFactByLocalType(actualType: CommonType?, factAp: FinalFactAp): FinalFactAp? {
         if (actualType == null) return factAp
-        jirDowncast<JIRType>(actualType)
+        jIRDowncast<JIRType>(actualType)
 
         val filter = AccessorFilter(actualType, isLocalCheck = true)
         return factAp.filterFact(filter)
@@ -145,8 +145,8 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
     }
 
     private fun typeMayHaveSubtypeOf(type: JIRRefType, requiredType: JIRClassType): Boolean = when (type) {
-        is JIRClassType -> if (type.jirClass.isInterface) {
-            interfaceMayHaveSubtypeOf(type.jirClass, requiredType.jirClass)
+        is JIRClassType -> if (type.jIRClass.isInterface) {
+            interfaceMayHaveSubtypeOf(type.jIRClass, requiredType.jIRClass)
         } else {
             requiredType.isAssignable(type) || type.isAssignable(requiredType)
         }

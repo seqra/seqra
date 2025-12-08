@@ -26,7 +26,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalVariableReachability
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodCallFactMapper
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodContextSerializer
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
-import org.opentaint.dataflow.jvm.ap.ifds.jirDowncast
+import org.opentaint.dataflow.jvm.ap.ifds.jIRDowncast
 import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodCallPrecondition
 import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodSequentPrecondition
 import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodStartPrecondition
@@ -54,11 +54,11 @@ class JIRAnalysisManager(
         unitResolver: UnitResolver<CommonMethod>,
         runner: TaintAnalysisUnitRunner
     ): JIRMethodCallResolver {
-        jirDowncast<JApplicationGraph>(graph)
-        jirDowncast<JIRUnitResolver>(unitResolver)
+        jIRDowncast<JApplicationGraph>(graph)
+        jIRDowncast<JIRUnitResolver>(unitResolver)
 
-        val jirCallResolver = JIRCallResolver(cp, graph, unitResolver)
-        return JIRMethodCallResolver(lambdaTracker, jirCallResolver, runner)
+        val jIRCallResolver = JIRCallResolver(cp, graph, unitResolver)
+        return JIRMethodCallResolver(lambdaTracker, jIRCallResolver, runner)
     }
 
     override fun getMethodAnalysisContext(
@@ -67,8 +67,8 @@ class JIRAnalysisManager(
         taintAnalysisContext: TaintAnalysisContext
     ): MethodAnalysisContext {
         val entryPointStatement = methodEntryPoint.statement
-        jirDowncast<JIRInst>(entryPointStatement)
-        jirDowncast<JApplicationGraph>(graph)
+        jIRDowncast<JIRInst>(entryPointStatement)
+        jIRDowncast<JApplicationGraph>(graph)
 
         val aliasAnalysis = if (applyAliasInfo) {
             JIRLocalAliasAnalysis(entryPointStatement, graph, this)
@@ -90,7 +90,7 @@ class JIRAnalysisManager(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext
     ): MethodStartFlowFunction {
-        jirDowncast<JIRMethodAnalysisContext>(analysisContext)
+        jIRDowncast<JIRMethodAnalysisContext>(analysisContext)
         return JIRMethodStartFlowFunction(apManager, analysisContext)
     }
 
@@ -98,7 +98,7 @@ class JIRAnalysisManager(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext
     ): MethodStartPrecondition {
-        jirDowncast<JIRMethodAnalysisContext>(analysisContext)
+        jIRDowncast<JIRMethodAnalysisContext>(analysisContext)
         return JIRMethodStartPrecondition(apManager, analysisContext)
     }
 
@@ -107,8 +107,8 @@ class JIRAnalysisManager(
         analysisContext: MethodAnalysisContext,
         currentInst: CommonInst
     ): MethodSequentPrecondition {
-        jirDowncast<JIRInst>(currentInst)
-        jirDowncast<JIRMethodAnalysisContext>(analysisContext)
+        jIRDowncast<JIRInst>(currentInst)
+        jIRDowncast<JIRMethodAnalysisContext>(analysisContext)
 
         return JIRMethodSequentPrecondition(currentInst, analysisContext)
     }
@@ -118,8 +118,8 @@ class JIRAnalysisManager(
         analysisContext: MethodAnalysisContext,
         currentInst: CommonInst
     ): MethodSequentFlowFunction {
-        jirDowncast<JIRInst>(currentInst)
-        jirDowncast<JIRMethodAnalysisContext>(analysisContext)
+        jIRDowncast<JIRInst>(currentInst)
+        jIRDowncast<JIRMethodAnalysisContext>(analysisContext)
 
         return JIRMethodSequentFlowFunction(apManager, analysisContext, currentInst)
     }
@@ -131,10 +131,10 @@ class JIRAnalysisManager(
         callExpr: CommonCallExpr,
         statement: CommonInst
     ): MethodCallFlowFunction {
-        jirDowncast<JIRImmediate?>(returnValue)
-        jirDowncast<JIRCallExpr>(callExpr)
-        jirDowncast<JIRInst>(statement)
-        jirDowncast<JIRMethodAnalysisContext>(analysisContext)
+        jIRDowncast<JIRImmediate?>(returnValue)
+        jIRDowncast<JIRCallExpr>(callExpr)
+        jIRDowncast<JIRInst>(statement)
+        jIRDowncast<JIRMethodAnalysisContext>(analysisContext)
 
         return JIRMethodCallFlowFunction(
             apManager,
@@ -150,8 +150,8 @@ class JIRAnalysisManager(
         analysisContext: MethodAnalysisContext,
         statement: CommonInst
     ): MethodCallSummaryHandler {
-        jirDowncast<JIRInst>(statement)
-        jirDowncast<JIRMethodAnalysisContext>(analysisContext)
+        jIRDowncast<JIRInst>(statement)
+        jIRDowncast<JIRMethodAnalysisContext>(analysisContext)
 
         return JIRMethodCallSummaryHandler(statement, analysisContext)
     }
@@ -163,10 +163,10 @@ class JIRAnalysisManager(
         callExpr: CommonCallExpr,
         statement: CommonInst
     ): MethodCallPrecondition {
-        jirDowncast<JIRImmediate?>(returnValue)
-        jirDowncast<JIRCallExpr>(callExpr)
-        jirDowncast<JIRInst>(statement)
-        jirDowncast<JIRMethodAnalysisContext>(analysisContext)
+        jIRDowncast<JIRImmediate?>(returnValue)
+        jIRDowncast<JIRCallExpr>(callExpr)
+        jIRDowncast<JIRInst>(statement)
+        jIRDowncast<JIRMethodAnalysisContext>(analysisContext)
 
         return JIRMethodCallPrecondition(
             apManager,
@@ -183,7 +183,7 @@ class JIRAnalysisManager(
         base: AccessPathBase,
         statement: CommonInst
     ): Boolean {
-        jirDowncast<JIRMethodAnalysisContext>(analysisContext)
+        jIRDowncast<JIRMethodAnalysisContext>(analysisContext)
         return analysisContext.localVariableReachability.isReachable(base, statement)
     }
 
@@ -198,7 +198,7 @@ class JIRAnalysisManager(
     override val methodContextSerializer = JIRMethodContextSerializer(cp)
 
     override fun onInstructionReached(inst: CommonInst) {
-        jirDowncast<JIRInst>(inst)
+        jIRDowncast<JIRInst>(inst)
         val allocatedLambda = LambdaExpressionToAnonymousClassTransformerFeature.findLambdaAllocation(inst)
         if (allocatedLambda != null) {
             lambdaTracker.registerLambda(allocatedLambda)

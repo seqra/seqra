@@ -69,7 +69,7 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
 
     fun generateLambda(location: JIRInstLocation, lambda: JIRLambdaExpr): JIRLambdaClass {
         val lambdaClassName = with(location) {
-            "${method.enclosingClass.name}$${method.name}_${method.descriptionHash()}\$jir_lambda$${index}"
+            "${method.enclosingClass.name}$${method.name}_${method.descriptionHash()}\$jIR_lambda$${index}"
         }
 
         return lambdaClasses.computeIfAbsent(lambdaClassName) {

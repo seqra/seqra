@@ -37,7 +37,7 @@ class JIRMethodCallPrecondition(
 ) : MethodCallPrecondition {
     private val methodCallFactMapper: org.opentaint.dataflow.ap.ifds.analysis.MethodCallFactMapper get() = analysisContext.methodCallFactMapper
 
-    private val jirValueResolver = CallPositionToJIRValueResolver(callExpr, returnValue)
+    private val jIRValueResolver = CallPositionToJIRValueResolver(callExpr, returnValue)
     private val method = callExpr.callee
 
     private val taintConfig get() = analysisContext.taint.taintConfig as TaintRulesProvider
@@ -107,7 +107,7 @@ class JIRMethodCallPrecondition(
             val rulePrecondition = JIRPreconditionFactReader(apManager)
             val ruleConditionEvaluator = JIRFactAwareConditionEvaluator(
                 listOf(rulePrecondition),
-                jirValueResolver,
+                jIRValueResolver,
                 analysisContext.factTypeChecker,
             )
 
@@ -147,7 +147,7 @@ class JIRMethodCallPrecondition(
 
         val ruleConditionEvaluator = JIRFactAwareConditionEvaluator(
             listOf(JIRPreconditionFactReader(apManager)),
-            jirValueResolver,
+            jIRValueResolver,
             analysisContext.factTypeChecker
         )
 

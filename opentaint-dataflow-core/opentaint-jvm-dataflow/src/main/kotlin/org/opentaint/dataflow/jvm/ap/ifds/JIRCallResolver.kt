@@ -179,7 +179,7 @@ class JIRCallResolver(
         context: MethodContext,
         visitedValues: MutableSet<JIRValue>
     ): Set<JIRClassOrInterface>? {
-        val valueCls = (value.type as? JIRRefType)?.jirClass ?: return null
+        val valueCls = (value.type as? JIRRefType)?.jIRClass ?: return null
 
         if (value !is JIRLocalVar || value in visitedValues) {
             return when (context) {
@@ -203,7 +203,7 @@ class JIRCallResolver(
         visitedValues.add(value)
         for (assignment in assignments) {
             val expr = assignment.rhv
-            val exprCls = (expr.type as? JIRRefType)?.jirClass ?: return null
+            val exprCls = (expr.type as? JIRRefType)?.jIRClass ?: return null
 
             when (expr) {
                 is JIRLocalVar -> {
@@ -227,7 +227,7 @@ class JIRCallResolver(
 
         for (catcher in catchers) {
             catcher.throwableTypes.mapNotNullTo(resolvedTypes) {
-                (it as? JIRRefType)?.jirClass
+                (it as? JIRRefType)?.jIRClass
             }
         }
 

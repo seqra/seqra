@@ -139,7 +139,7 @@ class LambdaExpressionToAnonymousClassTransformerFeature(
             val assign = inst as? JIRAssignInst ?: return null
             val allocation = assign.rhv as? JIRNewExpr ?: return null
             val allocatedClassType = allocation.type as? JIRClassType ?: return null
-            return allocatedClassType.jirClass as? JIRLambdaClass
+            return allocatedClassType.jIRClass as? JIRLambdaClass
         }
     }
 }

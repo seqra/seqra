@@ -27,7 +27,7 @@ object JIRMethodCallFactMapper : org.opentaint.dataflow.ap.ifds.analysis.MethodC
         factAp: FinalFactAp,
         checker: FactTypeChecker
     ): List<FinalFactAp> {
-        jirDowncast<JIRInst>(callStatement)
+        jIRDowncast<JIRInst>(callStatement)
         return mapMethodExitToReturnFlowFact(callStatement, factAp, checker)
     }
 
@@ -35,7 +35,7 @@ object JIRMethodCallFactMapper : org.opentaint.dataflow.ap.ifds.analysis.MethodC
         callStatement: CommonInst,
         factAp: InitialFactAp
     ): List<InitialFactAp> {
-        jirDowncast<JIRInst>(callStatement)
+        jIRDowncast<JIRInst>(callStatement)
         return mapMethodExitToReturnFlowFact(callStatement, factAp)
     }
 
@@ -46,8 +46,8 @@ object JIRMethodCallFactMapper : org.opentaint.dataflow.ap.ifds.analysis.MethodC
         checker: FactTypeChecker,
         onMappedFact: (FinalFactAp, AccessPathBase) -> Unit
     ) {
-        jirDowncast<JIRMethod>(callee)
-        jirDowncast<JIRCallExpr>(callExpr)
+        jIRDowncast<JIRMethod>(callee)
+        jIRDowncast<JIRCallExpr>(callExpr)
         return mapMethodCallToStartFlowFact(callee, callExpr, factAp, checker, onMappedFact)
     }
 
@@ -57,8 +57,8 @@ object JIRMethodCallFactMapper : org.opentaint.dataflow.ap.ifds.analysis.MethodC
         fact: InitialFactAp,
         onMappedFact: (InitialFactAp, AccessPathBase) -> Unit
     ) {
-        jirDowncast<JIRMethod>(callee)
-        jirDowncast<JIRCallExpr>(callExpr)
+        jIRDowncast<JIRMethod>(callee)
+        jIRDowncast<JIRCallExpr>(callExpr)
         return mapMethodCallToStartFlowFact(callee, callExpr, fact, onMappedFact)
     }
 
@@ -67,8 +67,8 @@ object JIRMethodCallFactMapper : org.opentaint.dataflow.ap.ifds.analysis.MethodC
         callExpr: CommonCallExpr,
         factAp: FactAp
     ): Boolean {
-        jirDowncast<JIRImmediate?>(returnValue)
-        jirDowncast<JIRCallExpr>(callExpr)
+        jIRDowncast<JIRImmediate?>(returnValue)
+        jIRDowncast<JIRCallExpr>(callExpr)
         return factIsRelevantToMethodCall(returnValue, callExpr, factAp)
     }
 

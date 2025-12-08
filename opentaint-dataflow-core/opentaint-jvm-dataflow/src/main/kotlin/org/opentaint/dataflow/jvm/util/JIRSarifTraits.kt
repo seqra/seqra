@@ -84,7 +84,7 @@ class JIRSarifTraits(
     override fun getReadableValue(statement: JIRInst, expr: CommonExpr): String? {
         if (expr !is JIRValue) return null
         return when (expr) {
-            is JIRFieldRef -> "\"${expr.instance ?: expr.field.enclosingType.jirClass.simpleName}.${expr.field.name}\""
+            is JIRFieldRef -> "\"${expr.instance ?: expr.field.enclosingType.jIRClass.simpleName}.${expr.field.name}\""
             is JIRArgument -> printArgument(expr.index)
             is JIRArrayAccess -> {
                 val arrName = getReadableValue(statement, expr.array)

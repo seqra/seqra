@@ -15,7 +15,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactAwareConditionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.JIRInstanceTypeMethodContext
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyEntryPointConfig
-import org.opentaint.dataflow.jvm.ap.ifds.jirDowncast
+import org.opentaint.dataflow.jvm.ap.ifds.jIRDowncast
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintSourceActionEvaluator
 
@@ -61,7 +61,7 @@ class JIRMethodStartFlowFunction(
         val thisClass = when (val context = methodEntryPoint.context) {
             EmptyMethodContext -> {
                 val method = methodEntryPoint.method
-                jirDowncast<JIRMethod>(method)
+                jIRDowncast<JIRMethod>(method)
                 method.enclosingClass
             }
             is org.opentaint.dataflow.jvm.ap.ifds.JIRInstanceTypeMethodContext -> context.type

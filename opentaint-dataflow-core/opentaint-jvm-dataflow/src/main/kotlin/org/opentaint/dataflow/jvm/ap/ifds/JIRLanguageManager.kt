@@ -18,27 +18,27 @@ import kotlin.contracts.contract
 
 open class JIRLanguageManager(val cp: JIRClasspath) : LanguageManager {
     override fun getInstIndex(inst: CommonInst): Int {
-        jirDowncast<JIRInst>(inst)
+        jIRDowncast<JIRInst>(inst)
         return inst.location.index
     }
 
     override fun getMaxInstIndex(method: CommonMethod): Int {
-        jirDowncast<JIRMethod>(method)
+        jIRDowncast<JIRMethod>(method)
         return method.instList.maxOf { it.location.index }
     }
 
     override fun getInstByIndex(method: CommonMethod, index: Int): CommonInst {
-        jirDowncast<JIRMethod>(method)
+        jIRDowncast<JIRMethod>(method)
         return method.instList[index]
     }
 
     override fun isEmpty(method: CommonMethod): Boolean {
-        jirDowncast<JIRMethod>(method)
+        jIRDowncast<JIRMethod>(method)
         return method.instList.size == 0
     }
 
     override fun getCallExpr(inst: CommonInst): JIRCallExpr? {
-        jirDowncast<JIRInst>(inst)
+        jIRDowncast<JIRInst>(inst)
         return inst.callExpr
     }
 
@@ -47,7 +47,7 @@ open class JIRLanguageManager(val cp: JIRClasspath) : LanguageManager {
     }
 
     override fun getCalleeMethod(callExpr: CommonCallExpr): JIRMethod {
-        jirDowncast<JIRCallExpr>(callExpr)
+        jIRDowncast<JIRCallExpr>(callExpr)
         return callExpr.method.method
     }
 
@@ -55,7 +55,7 @@ open class JIRLanguageManager(val cp: JIRClasspath) : LanguageManager {
 }
 
 @OptIn(ExperimentalContracts::class)
-internal inline fun <reified T> jirDowncast(value: Any?) {
+internal inline fun <reified T> jIRDowncast(value: Any?) {
     contract {
         returns() implies(value is T)
     }
