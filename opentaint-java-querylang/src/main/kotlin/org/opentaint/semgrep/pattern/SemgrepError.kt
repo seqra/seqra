@@ -5,8 +5,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mu.KLogging
 import org.slf4j.event.Level
-import java.io.File
-import kotlin.io.path.Path
 
 @Serializable
 @Polymorphic
@@ -64,7 +62,7 @@ data class SemgrepRuleErrors(
         ruleIdInFile: String,
         errors: MutableList<AbstractSemgrepError> = arrayListOf(),
         ruleSetName: String
-    ) : this(getRuleId(ruleSetName, ruleIdInFile), ruleSetName, errors)
+    ) : this(SemgrepRuleUtils.getRuleId(ruleSetName, ruleIdInFile), ruleSetName, errors)
 
     fun handlePhase(
         failureCount: Int,
@@ -82,16 +80,6 @@ data class SemgrepRuleErrors(
                 uniqueErrors
             )
             this += semgrepError
-        }
-    }
-
-
-    companion object {
-        fun getRuleId(ruleSetName: String, id: String): String {
-            return Path(ruleSetName)
-                .parent.toString().replace(
-                    File.separatorChar, '.'
-                ) + "." + id
         }
     }
 }

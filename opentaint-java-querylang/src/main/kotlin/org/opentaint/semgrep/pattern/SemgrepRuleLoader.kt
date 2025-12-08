@@ -78,7 +78,7 @@ class SemgrepRuleLoader {
         rule: SemgrepYamlRule, ruleSetName: String,
         semgrepRuleErrors: SemgrepRuleErrors
     ): TaintRuleFromSemgrep? {
-        val ruleId = "${ruleSetName}/${rule.id}"
+        val ruleId = SemgrepRuleUtils.getRuleId(ruleSetName, rule.id)
 
         val ruleAutomataBuilder = SemgrepRuleAutomataBuilder(parser, converter)
         val ruleAutomata = runCatching {
