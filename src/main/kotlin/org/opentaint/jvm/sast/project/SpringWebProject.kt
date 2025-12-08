@@ -96,7 +96,7 @@ fun ProjectClasses.springWebProjectEntryPoints(cp: JIRClasspath): List<JIRMethod
     val springEntryPoints = mutableListOf<JIRMethod>()
 
     val springControllerMethods = allProjectClasses()
-        .filter { cls -> cls.annotations.any { it.jirClass?.name in springControllerClassAnnotations } }
+        .filter { cls -> cls.annotations.any { it.jIRClass?.name in springControllerClassAnnotations } }
         .flatMap { it.publicAndProtectedMethods() }
         .filterTo(mutableListOf()) { it.isSpringControllerMethod() }
 
@@ -118,27 +118,27 @@ fun ProjectClasses.springWebProjectEntryPoints(cp: JIRClasspath): List<JIRMethod
 }
 
 fun JIRAnnotation.isSpringAutowiredAnnotation(): Boolean =
-    jirClass?.name == "org.springframework.beans.factory.annotation.Autowired"
+    jIRClass?.name == "org.springframework.beans.factory.annotation.Autowired"
 
 private fun JIRMethod.isSpringControllerMethod(): Boolean {
-    if (annotations.any { it.jirClass?.name in springControllerMethodAnnotations }) return true
+    if (annotations.any { it.jIRClass?.name in springControllerMethodAnnotations }) return true
 
     return enclosingClass.allSuperHierarchySequence
         .mapNotNull { it.findMethodOrNull(name, description) }
-        .any { m -> m.annotations.any { it.jirClass?.name in springControllerMethodAnnotations } }
+        .any { m -> m.annotations.any { it.jIRClass?.name in springControllerMethodAnnotations } }
 }
 
 fun JIRAnnotation.isSpringValidated(): Boolean =
-    jirClass?.name == "jakarta.validation.Valid"
+    jIRClass?.name == "jakarta.validation.Valid"
 
 fun JIRAnnotation.isSpringPathVariable(): Boolean =
-    jirClass?.name == SpringPathVariable
+    jIRClass?.name == SpringPathVariable
 
 fun JIRAnnotation.isSpringModelAttribute(): Boolean =
-    jirClass?.name == SpringModelAttribute
+    jIRClass?.name == SpringModelAttribute
 
 fun JIRAnnotation.isJakartaConstraint(): Boolean =
-    jirClass?.name == JakartaConstraint
+    jIRClass?.name == JakartaConstraint
 
 private class SpringControllerEntryPointGenerator(
     private val cp: JIRClasspath,
@@ -155,7 +155,7 @@ private class SpringControllerEntryPointGenerator(
         get() {
             return annotations
                 .mapNotNull { annotation ->
-                    val constraintAnnotation = annotation.jirClass
+                    val constraintAnnotation = annotation.jIRClass
                         ?.annotations
                         ?.singleOrNull { it.isJakartaConstraint() }
                         ?: return@mapNotNull null
@@ -173,7 +173,7 @@ private class SpringControllerEntryPointGenerator(
             // TODO
             return null
         }
-        return type.jirClass.simpleName.let { name ->
+        return type.jIRClass.simpleName.let { name ->
             name.replaceFirst(name[0], name[0].lowercaseChar())
         }
     }
@@ -202,7 +202,7 @@ private class SpringControllerEntryPointGenerator(
         }
 
         val controllerInstance = instructions.loadSpringComponent(
-            entryPointMethod, controllerType.jirClass, "controller"
+            entryPointMethod, controllerType.jIRClass, "controller"
         )
 
         val bindingResultCls = cp.findClass(SpringBindingResult)
@@ -216,19 +216,19 @@ private class SpringControllerEntryPointGenerator(
 
         fun getOrCreateNewArgument(typedMethod: JIRTypedMethod, index: Int): JIRValue {
             val param = typedMethod.parameters[index]
-            val jirParam = typedMethod.method.parameters[index]
+            val jIRParam = typedMethod.method.parameters[index]
 
-            val pathVariable = jirParam.annotations
+            val pathVariable = jIRParam.annotations
                 .singleOrNull { it.isSpringPathVariable() }
                 ?.let { pathVariableAnnotation ->
-                    pathVariableAnnotation.values["value"] as? String ?: jirParam.name
+                    pathVariableAnnotation.values["value"] as? String ?: jIRParam.name
                 }
 
             if (pathVariable != null) {
                 pathVariables[pathVariable]?.let { return it }
             }
 
-            val modelAttribute = jirParam.annotations
+            val modelAttribute = jIRParam.annotations
                 .singleOrNull { it.isSpringModelAttribute() }
                 ?.let { modelAttributeAnnotation ->
                     modelAttributeAnnotation.values["value"] as? String
@@ -253,7 +253,7 @@ private class SpringControllerEntryPointGenerator(
                 is JIRPrimitiveType -> generateStubValue(type)
 
                 is JIRClassType -> {
-                    val paramCls = type.jirClass
+                    val paramCls = type.jIRClass
                     when {
                         paramCls.name.startsWith("java.lang") -> generateStubValue(type)
                         paramCls.isSubClassOf(bindingResultCls) -> bindingResultInstance
@@ -300,8 +300,8 @@ private class SpringControllerEntryPointGenerator(
                 }
             }
 
-            if (jirParam.annotations.any { it.isSpringValidated() }) {
-                val constraints = (param.type as? JIRClassType)?.jirClass?.jakartaConstraints.orEmpty()
+            if (jIRParam.annotations.any { it.isSpringValidated() }) {
+                val constraints = (param.type as? JIRClassType)?.jIRClass?.jakartaConstraints.orEmpty()
 
                 for ((_, validators) in constraints) { // TODO: pass annotation to validator.initialize somehow?
                     for (validator in validators) {
@@ -565,7 +565,7 @@ private fun SpringGeneratedClass.initializeSpringComponent(component: JIRClassOr
     if (componentConstructor != null) {
         val args = mutableListOf<JIRValue>()
         for (param in componentConstructor.parameters) {
-            val paramClass = (param.type as JIRClassType).jirClass
+            val paramClass = (param.type as JIRClassType).jIRClass
             val paramInstance = instructions.loadSpringComponent(componentInstanceMethod, paramClass, "param")
             args += paramInstance
         }

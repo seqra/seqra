@@ -245,9 +245,9 @@ class PatternToActionListConverter: ActionListBuilder {
             return null
         }
 
-        val objCondition = transformPatternIntoParamCondition(pattern)
-        if (objCondition != null) {
-            return emptyList<SemgrepPatternAction>() to objCondition
+        val objIRondition = transformPatternIntoParamCondition(pattern)
+        if (objIRondition != null) {
+            return emptyList<SemgrepPatternAction>() to objIRondition
         }
         val objActionList = transformPatternToActionList(pattern)
         if (objActionList.actions.isEmpty()) {
@@ -293,7 +293,7 @@ class PatternToActionListConverter: ActionListBuilder {
 
         val className = pattern.obj?.let { tryConvertPatternIntoTypeName(it) }
 
-        val objCondition = pattern.obj?.let { objPattern ->
+        val objIRondition = pattern.obj?.let { objPattern ->
             val (actions, cond) = transformPatternIntoParamConditionWithActions(objPattern)
                 ?: transformationFailed("MethodInvocation_obj: ${objPattern::class.simpleName}")
 
@@ -309,7 +309,7 @@ class PatternToActionListConverter: ActionListBuilder {
             methodName = methodName,
             result = null,
             params = argsConditions,
-            obj = objCondition,
+            obj = objIRondition,
             enclosingClassName = className,
         )
         actionList += methodInvocationAction
@@ -321,7 +321,7 @@ class PatternToActionListConverter: ActionListBuilder {
 
         val className = tryConvertPatternIntoTypeName(pattern.obj)
 
-        val (actions, objCondition) = transformPatternIntoParamConditionWithActions(pattern.obj)
+        val (actions, objIRondition) = transformPatternIntoParamConditionWithActions(pattern.obj)
                 ?: transformationFailed("MethodInvocation_obj: ${pattern.obj::class.simpleName}")
         actionList += actions
 
@@ -329,7 +329,7 @@ class PatternToActionListConverter: ActionListBuilder {
             methodName = SignatureName.AnyName,
             result = null,
             params = ParamConstraint.Partial(emptyList()),
-            obj = objCondition,
+            obj = objIRondition,
             enclosingClassName = className ?: TypeNamePattern.AnyType,
         )
         actionList += methodInvocationAction

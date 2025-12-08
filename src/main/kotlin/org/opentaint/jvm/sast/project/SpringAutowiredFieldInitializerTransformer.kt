@@ -65,7 +65,7 @@ class SpringAutowiredFieldInitializerTransformer : JIRInstExtFeature {
         val typedField = JIRTypedFieldImpl(clsType, field, JIRSubstitutorImpl.empty)
 
         val fieldType = typedField.type as? JIRClassType ?: return
-        val componentInstance = loadSpringComponent(method, fieldType.jirClass, field.name)
+        val componentInstance = loadSpringComponent(method, fieldType.jIRClass, field.name)
 
         addInstWithLocation(method) { loc ->
             val fieldRef = JIRFieldRef(JIRThis(clsType), typedField)

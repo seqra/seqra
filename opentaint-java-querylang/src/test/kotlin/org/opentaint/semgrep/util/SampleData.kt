@@ -114,7 +114,7 @@ private fun loadSample(
         var ignoreMessage: String? = null
 
         for (annotation in cls.annotations) {
-            when (annotation.jirClass?.simpleName) {
+            when (annotation.jIRClass?.simpleName) {
                 "IFDSFalsePositive" -> ignoreMessage = ignoreMessage.plusAnnotationValue(annotation)
                 "TaintRuleFalsePositive" -> ignoreMessage = ignoreMessage.plusAnnotationValue(annotation)
             }
@@ -127,7 +127,7 @@ private fun loadSample(
 }
 
 private fun String?.plusAnnotationValue(annotation: JIRAnnotation): String {
-    val name = annotation.jirClass?.simpleName ?: error("No annotation class")
+    val name = annotation.jIRClass?.simpleName ?: error("No annotation class")
     return this + "$name(${annotation.values["value"]})"
 }
 

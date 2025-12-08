@@ -27,8 +27,8 @@ class ProjectClasses(
     }
 
     private fun loadProjectClassesFromLocation(location: RegisteredLocation) {
-        val jirLocation = location.jirLocation ?: return
-        val projectModule = projectModulesFiles[jirLocation.jarOrFolder] ?: return
+        val jIRLocation = location.jIRLocation ?: return
+        val projectModule = projectModulesFiles[jIRLocation.jarOrFolder] ?: return
         locationProjectModules[location] = projectModule
 
         val classes = projectClasses.computeIfAbsent(location) { hashSetOf() }
