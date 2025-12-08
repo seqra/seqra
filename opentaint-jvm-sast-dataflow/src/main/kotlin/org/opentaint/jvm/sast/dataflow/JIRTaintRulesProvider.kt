@@ -5,8 +5,8 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
-import org.opentaint.dataflow.configuration.jvm.serialized.TaintConfiguration
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.jvm.sast.dataflow.rules.TaintConfiguration
 
 class JIRTaintRulesProvider(
     private val taintConfiguration: TaintConfiguration

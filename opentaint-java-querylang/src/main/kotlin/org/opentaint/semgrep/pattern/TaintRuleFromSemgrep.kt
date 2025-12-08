@@ -5,7 +5,6 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFieldRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
-import org.opentaint.dataflow.configuration.jvm.serialized.TaintConfiguration
 
 data class TaintRuleFromSemgrep(
     val ruleId: String,
@@ -27,8 +26,4 @@ fun TaintRuleFromSemgrep.createTaintConfig(): SerializedTaintConfig {
         methodEntrySink = rules.filterIsInstance<SerializedRule.MethodEntrySink>(),
         staticFieldSource = rules.filterIsInstance<SerializedFieldRule.SerializedStaticFieldSource>(),
     )
-}
-
-fun TaintConfiguration.loadSemgrepRule(rule: TaintRuleFromSemgrep) {
-    loadConfig(rule.createTaintConfig())
 }

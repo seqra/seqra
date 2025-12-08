@@ -1,17 +1,23 @@
+import OpentaintProjectDependency.opentaintProject
 import org.opentaint.common.KotlinDependency
+import OpentaintIrDependency.opentaint_ir_api_jvm
+import OpentaintIrDependency.opentaint_ir_api_storage
+import OpentaintIrDependency.opentaint_ir_core
+import OpentaintIrDependency.opentaint_ir_storage
+import OpentaintIrDependency.opentaint_ir_approximations
 
 plugins {
     id("kotlin-conventions")
 }
 
 dependencies {
-    implementation(Libs.opentaintProject)
+    implementation(opentaintProject)
 
-    implementation(OpentaintIrDependency.Libs.opentaint_ir_api_jvm)
-    implementation(OpentaintIrDependency.Libs.opentaint_ir_core)
-    implementation(OpentaintIrDependency.Libs.opentaint_ir_approximations)
-    implementation(OpentaintIrDependency.Libs.opentaint_ir_api_storage)
-    implementation(OpentaintIrDependency.Libs.opentaint_ir_storage)
+    implementation(opentaint_ir_api_jvm)
+    implementation(opentaint_ir_core)
+    implementation(opentaint_ir_approximations)
+    implementation(opentaint_ir_api_storage)
+    implementation(opentaint_ir_storage)
 
     implementation(KotlinDependency.Libs.kotlin_logging)
 }

@@ -8,7 +8,7 @@ on:
       - completed
 
 env:
-  AUTOBUILDER_VERSION: 2025.07.15.eb49f5e
+  AUTOBUILDER_VERSION: 2025.07.30.11a2fb2
 
 jobs:
   publish:

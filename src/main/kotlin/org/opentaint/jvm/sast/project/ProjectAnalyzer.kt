@@ -3,24 +3,23 @@ package org.opentaint.jvm.sast.project
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import mu.KLogging
-import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
-import org.opentaint.dataflow.configuration.jvm.serialized.TaintConfiguration
 import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSummarySerializationContext
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.applyAnalysisEndSinksForEntryPoints
 import org.opentaint.dataflow.jvm.util.JIRSarifTraits
-import org.opentaint.dataflow.sarif.SourceFileResolver
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.jvm.sast.JIRSourceFileResolver
 import org.opentaint.jvm.sast.dataflow.JIRCombinedTaintRulesProvider
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer.DebugOptions
 import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
+import org.opentaint.jvm.sast.dataflow.rules.TaintConfiguration
 import org.opentaint.jvm.sast.sarif.SarifGenerator
 import org.opentaint.jvm.sast.se.api.SastSeAnalyzer
 import org.opentaint.jvm.sast.util.loadDefaultConfig
@@ -29,7 +28,7 @@ import org.opentaint.semgrep.pattern.AbstractSemgrepError
 import org.opentaint.semgrep.pattern.SemgrepFileErrors
 import org.opentaint.semgrep.pattern.SemgrepRuleLoader
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
-import org.opentaint.semgrep.pattern.loadSemgrepRule
+import org.opentaint.semgrep.pattern.createTaintConfig
 import java.io.OutputStream
 import java.nio.file.Path
 import kotlin.io.path.div
@@ -114,7 +113,7 @@ class ProjectAnalyzer(
 
         val config = TaintConfiguration()
         config.loadConfig(defaultPassRules)
-        semgrepRules.forEach { config.loadSemgrepRule(it) }
+        semgrepRules.forEach { config.loadConfig(it.createTaintConfig()) }
 
         return JIRTaintRulesProvider(config)
     }

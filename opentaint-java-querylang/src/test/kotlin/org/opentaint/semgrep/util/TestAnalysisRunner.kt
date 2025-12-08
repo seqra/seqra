@@ -12,7 +12,6 @@ import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
-import org.opentaint.dataflow.configuration.jvm.serialized.TaintConfiguration
 import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
 import org.opentaint.dataflow.ifds.SingletonUnit
 import org.opentaint.dataflow.ifds.UnitResolver
@@ -28,6 +27,7 @@ import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.jvm.graph.JApplicationGraphImpl
 import org.opentaint.jvm.sast.dataflow.DummySerializationContext
 import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
+import org.opentaint.jvm.sast.dataflow.rules.TaintConfiguration
 import org.opentaint.jvm.transformer.JMultiDimArrayAllocationTransformer
 import org.opentaint.jvm.transformer.JStringConcatTransformer
 import org.opentaint.util.analysis.ApplicationGraph

@@ -1,3 +1,14 @@
+import OpentaintConfigurationDependency.opentaintRulesJvm
+import OpentaintEngineApiDependency.opentaint_engine_api
+import OpentaintEngineApproximationDependency.opentaint_engine_approximations
+import OpentaintProjectDependency.opentaintProject
+import OpentaintUtilDependency.opentaintUtilCli
+import OpentaintUtilDependency.opentaintUtilJvm
+import OpentaintIrDependency.opentaint_ir_core
+import OpentaintIrDependency.opentaint_ir_api_jvm
+import OpentaintIrDependency.opentaint_ir_approximations
+import OpentaintIrDependency.opentaint_ir_api_storage
+import OpentaintIrDependency.opentaint_ir_storage
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.opentaint.common.JunitDependencies
 import org.opentaint.common.KotlinDependency
@@ -9,10 +20,10 @@ plugins {
 }
 
 dependencies {
-    implementation(Libs.opentaintUtilJvm)
-    implementation(Libs.opentaintUtilCli)
-    implementation(Libs.opentaintProject)
-    implementation(Libs.opentaintRulesJvm)
+    implementation(opentaintUtilJvm)
+    implementation(opentaintUtilCli)
+    implementation(opentaintProject)
+    implementation(opentaintRulesJvm)
 
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-jvm-dataflow")
     implementation("org.opentaint.sast.se:api")
@@ -21,11 +32,11 @@ dependencies {
     implementation("org.opentaint.sast:dataflow")
     implementation(project(":opentaint-java-querylang"))
 
-    implementation(OpentaintIrDependency.Libs.opentaint_ir_api_jvm)
-    implementation(OpentaintIrDependency.Libs.opentaint_ir_core)
-    implementation(OpentaintIrDependency.Libs.opentaint_ir_approximations)
-    implementation(OpentaintIrDependency.Libs.opentaint_ir_api_storage)
-    implementation(OpentaintIrDependency.Libs.opentaint_ir_storage)
+    implementation(opentaint_ir_api_jvm)
+    implementation(opentaint_ir_core)
+    implementation(opentaint_ir_approximations)
+    implementation(opentaint_ir_api_storage)
+    implementation(opentaint_ir_storage)
 
     implementation(KotlinDependency.Libs.kotlinx_serialization_json)
     implementation(KotlinDependency.Libs.kotlin_logging)
@@ -70,7 +81,7 @@ tasks.register<JavaExec>("runProjectAnalyzer") {
 
 val approximations by configurations.creating
 dependencies {
-    approximations(Libs.opentaint_engine_approximations)
+    approximations(opentaint_engine_approximations)
 }
 
 fun JavaExec.configureAnalyzer(analyzerRunnerClassName: String) {
@@ -83,7 +94,7 @@ fun JavaExec.configureAnalyzer(analyzerRunnerClassName: String) {
     val envVars = mutableMapOf("opentaint_taint_config_path" to configFile)
 
     doFirst {
-        val opentaintApiJarPath = tryResolveDependency(Libs.opentaint_engine_api)
+        val opentaintApiJarPath = tryResolveDependency(opentaint_engine_api)
         if (opentaintApiJarPath != null) {
             val opentaintApproximationJarPath = approximations.resolvedConfiguration.files.single()
 
@@ -127,7 +138,7 @@ fun Task.analyzerDockerImage(
             "SARIF_VERSION" to "$analyzerVersion",
         )
 
-        val opentaintApiJarPath = tryResolveDependency(Libs.opentaint_engine_api)
+        val opentaintApiJarPath = tryResolveDependency(opentaint_engine_api)
         if (opentaintApiJarPath != null) {
             val opentaintApproximationJarPath = approximations.resolvedConfiguration.files.single()
 

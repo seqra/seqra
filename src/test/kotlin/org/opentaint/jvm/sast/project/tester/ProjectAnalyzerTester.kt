@@ -2,12 +2,6 @@ package org.opentaint.jvm.sast.project.tester
 
 import kotlinx.serialization.json.Json
 import mu.KLogging
-import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.jvm.JIRField
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.ext.findMethodOrNull
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
@@ -24,11 +18,17 @@ import org.opentaint.dataflow.configuration.jvm.TaintMethodSource
 import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
 import org.opentaint.dataflow.configuration.jvm.TaintSinkMeta
 import org.opentaint.dataflow.configuration.jvm.TaintStaticFieldSource
-import org.opentaint.dataflow.configuration.jvm.serialized.TaintConfiguration
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.jvm.JIRField
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.ext.findMethodOrNull
 import org.opentaint.jvm.sast.dataflow.DummySerializationContext
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
+import org.opentaint.jvm.sast.dataflow.rules.TaintConfiguration
 import org.opentaint.jvm.sast.project.ProjectAnalysisContext
 import org.opentaint.jvm.sast.project.ProjectKind
 import org.opentaint.jvm.sast.project.initializeProjectAnalysisContext

@@ -1,4 +1,10 @@
+import OpentaintConfigurationDependency.opentaintRulesJvm
+import OpentaintUtilDependency.opentaintUtilJvm
 import org.opentaint.common.KotlinDependency
+import OpentaintIrDependency.opentaint_ir_core
+import OpentaintIrDependency.opentaint_ir_approximations
+import OpentaintIrDependency.opentaint_ir_api_storage
+import OpentaintIrDependency.opentaint_ir_storage
 
 plugins {
     id("kotlin-conventions")
@@ -9,15 +15,15 @@ plugins {
 dependencies {
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-dataflow")
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-jvm-dataflow")
-    implementation(Libs.opentaintRulesJvm)
-    implementation(Libs.opentaintUtilJvm)
+    implementation(opentaintRulesJvm)
+    implementation(opentaintUtilJvm)
 
     implementation(KotlinDependency.Libs.kaml)
 
-    implementation(OpentaintIrDependency.Libs.opentaint_ir_core)
-    implementation(OpentaintIrDependency.Libs.opentaint_ir_approximations)
-    implementation(OpentaintIrDependency.Libs.opentaint_ir_api_storage)
-    implementation(OpentaintIrDependency.Libs.opentaint_ir_storage)
+    implementation(opentaint_ir_core)
+    implementation(opentaint_ir_approximations)
+    implementation(opentaint_ir_api_storage)
+    implementation(opentaint_ir_storage)
 
     implementation(KotlinDependency.Libs.kotlin_logging)
 
