@@ -1,3 +1,6 @@
+import OpentaintConfigurationDependency.opentaintRulesCommon
+import OpentaintIrDependency.opentaint_ir_api_common
+import OpentaintUtilDependency.opentaintUtilCommon
 import org.opentaint.common.KotlinDependency
 
 plugins {
@@ -6,13 +9,13 @@ plugins {
 }
 
 dependencies {
-    implementation(Libs.opentaintUtilCommon)
-    implementation(Libs.opentaintRulesCommon)
+    implementation(opentaintUtilCommon)
+    implementation(opentaintRulesCommon)
 
     implementation(KotlinDependency.Libs.kotlinx_coroutines_core)
     implementation(KotlinDependency.Libs.kotlin_logging)
 
-    api(OpentaintIrDependency.Libs.opentaint_ir_api_common)
+    api(opentaint_ir_api_common)
     api(Libs.sarif4k)
 
     implementation(KotlinDependency.Libs.kotlinx_collections)
