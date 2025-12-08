@@ -8,6 +8,7 @@ on:
 
 env:
   AUTOBUILDER_VERSION: 2025.07.30.11a2fb2
+  EXPECTED_TRACES: 17227
 
 jobs:
   ci-basic:

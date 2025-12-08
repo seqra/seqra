@@ -68,18 +68,17 @@ data class SemgrepRuleErrors(
         failureCount: Int,
         semgrepError: SemgrepError,
     ) {
-        if (failureCount > 0 || semgrepError.errors.isNotEmpty() == true) {
+        if (failureCount > 0 || semgrepError.errors.isNotEmpty()) {
             val newMessage = semgrepError.message + if (failureCount > 0) ": $failureCount times" else ""
-            val uniqueErrors = semgrepError.errors.distinct() as MutableList<AbstractSemgrepError>
+            val uniqueErrors = semgrepError.errors.distinct().toMutableList()
 
-            val semgrepError = SemgrepError(
+            this += SemgrepError(
                 semgrepError.step,
                 newMessage,
                 Level.WARN,
                 SemgrepError.Reason.WARNING,
                 uniqueErrors
             )
-            this += semgrepError
         }
     }
 }
