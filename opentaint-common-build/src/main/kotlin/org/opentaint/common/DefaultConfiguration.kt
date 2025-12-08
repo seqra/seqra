@@ -6,6 +6,7 @@ import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.testing.Test
+import org.gradle.kotlin.dsl.assign
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.dependencies
@@ -13,9 +14,17 @@ import org.gradle.kotlin.dsl.get
 import org.gradle.kotlin.dsl.kotlin
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.withType
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 fun Project.configureDefault(projectName: String) {
+    configureDefaultKotlin()
+    configureDefaultJvm()
+    configureDefaultTest()
+    configureDefaultPublishing(projectName)
+}
+
+fun Project.configureDefaultKotlin() {
     dependencies {
         // Align versions of all Kotlin components
         add("implementation", platform(kotlin("bom", KotlinDependency.Versions.kotlin)))
@@ -23,6 +32,16 @@ fun Project.configureDefault(projectName: String) {
         add("testImplementation", kotlin("test"))
     }
 
+    tasks.withType<KotlinCompile> {
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_1_8
+            allWarningsAsErrors = false
+            freeCompilerArgs.add("-Xsam-conversions=class")
+        }
+    }
+}
+
+fun Project.configureDefaultJvm() {
     tasks.withType<JavaCompile> {
         sourceCompatibility = JavaVersion.VERSION_1_8.toString()
         targetCompatibility = JavaVersion.VERSION_1_8.toString()
@@ -31,15 +50,9 @@ fun Project.configureDefault(projectName: String) {
         options.compilerArgs.add("-Xlint:-options")
         options.compilerArgs.add("-Werror")
     }
+}
 
-    tasks.withType<KotlinCompile> {
-        kotlinOptions {
-            jvmTarget = JavaVersion.VERSION_1_8.toString()
-            freeCompilerArgs += "-Xsam-conversions=class"
-            allWarningsAsErrors = false
-        }
-    }
-
+fun Project.configureDefaultTest() {
     tasks.named<Test>("test") {
         // Use JUnit Platform for unit tests.
         useJUnitPlatform()
@@ -50,7 +63,9 @@ fun Project.configureDefault(projectName: String) {
             events("passed")
         }
     }
+}
 
+fun Project.configureDefaultPublishing(projectName: String) {
     val organizationRepo = properties.getOrDefault("opentaintOrg", "opentaint")
 
     extensions.configure<PublishingExtension> {
