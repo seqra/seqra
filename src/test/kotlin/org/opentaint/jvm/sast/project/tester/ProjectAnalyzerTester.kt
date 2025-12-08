@@ -55,11 +55,11 @@ fun testProjectAnalyzerOnTraces(
         testDataJsonPath.readText()
     )
 
-    val mainConfig = JIRTaintRulesProvider(
-        TaintConfiguration().also { it.loadConfig(loadDefaultConfig()) }
-    )
-
     val analysisContext = initializeProjectAnalysisContext(project, projectPackage, projectKind)
+
+    val mainConfig = JIRTaintRulesProvider(
+        TaintConfiguration(analysisContext.cp).also { it.loadConfig(loadDefaultConfig()) }
+    )
 
     val visitedAtSourceMarks = hashSetOf<TaintMark>()
     val stats = analysisContext.use {

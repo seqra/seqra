@@ -52,15 +52,18 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Pattern
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Simple
 import org.opentaint.dataflow.configuration.jvm.simplify
+import org.opentaint.dataflow.jvm.util.JIRHierarchyInfo
 import org.opentaint.ir.api.jvm.JIRAnnotation
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
 import org.opentaint.ir.impl.util.adjustEmptyList
 import java.util.concurrent.atomic.AtomicInteger
 
-class TaintConfiguration {
+class TaintConfiguration(cp: JIRClasspath) {
     private val patternManager = PatternManager()
+    private val hierarchyInfo = JIRHierarchyInfo(cp)
 
     private val entryPointConfig = TaintRulesStorage<SerializedRule.EntryPoint, TaintEntryPointSource>()
     private val sourceConfig = TaintRulesStorage<SerializedRule.Source, TaintMethodSource>()
@@ -141,7 +144,7 @@ class TaintConfiguration {
     }
 
     private inner class TaintRulesStorage<S : SerializedRule, T : TaintConfigurationItem> {
-        private var builder: MethodTaintRulesStorage.Builder<S>? = MethodTaintRulesStorage.Builder(patternManager)
+        private var builder: MethodTaintRulesStorage.Builder<S>? = MethodTaintRulesStorage.Builder(patternManager, hierarchyInfo)
         private var storage: MethodTaintRulesStorage<S>? = null
 
         private fun storage(): MethodTaintRulesStorage<S> {

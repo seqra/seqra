@@ -13,6 +13,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.applyAnalysisEndSinksForEntryPoints
 import org.opentaint.dataflow.jvm.util.JIRSarifTraits
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.jvm.sast.JIRSourceFileResolver
 import org.opentaint.jvm.sast.dataflow.JIRCombinedTaintRulesProvider
@@ -68,17 +69,17 @@ class ProjectAnalyzer(
         }
     }
 
-    private fun loadTaintConfig(): TaintRulesProvider {
+    private fun loadTaintConfig(cp: JIRClasspath): TaintRulesProvider {
         if (semgrepRuleSet != null) {
             check(customConfig == null) { "Unsupported custom config" }
-            return loadSemgrepRules(semgrepRuleSet, semgrepRuleLoadErrors)
+            return loadSemgrepRules(cp, semgrepRuleSet, semgrepRuleLoadErrors)
         }
 
-        val defaultConfig = TaintConfiguration()
+        val defaultConfig = TaintConfiguration(cp)
         defaultConfig.loadConfig(loadDefaultConfig())
         val customConfig = customConfig?.let { cfg ->
             cfg.inputStream().use { cfgStream ->
-                TaintConfiguration().apply { loadConfig(loadSerializedTaintConfig(cfgStream)) }
+                TaintConfiguration(cp).apply { loadConfig(loadSerializedTaintConfig(cfgStream)) }
             }
         }
 
@@ -90,7 +91,11 @@ class ProjectAnalyzer(
         return JIRCombinedTaintRulesProvider(defaultRules, customRules)
     }
 
-    private fun loadSemgrepRules(semgrepRulesPath: Path, semgrepRuleLoadErrors: Path?): TaintRulesProvider {
+    private fun loadSemgrepRules(
+        cp: JIRClasspath,
+        semgrepRulesPath: Path,
+        semgrepRuleLoadErrors: Path?
+    ): TaintRulesProvider {
         val semgrepFilesErrors: ArrayList<AbstractSemgrepError> = arrayListOf()
         val semgrepRules = parseSemgrepRules(semgrepRulesPath, semgrepFilesErrors)
         if (semgrepRuleLoadErrors != null) {
@@ -111,7 +116,7 @@ class ProjectAnalyzer(
         val defaultRules = loadDefaultConfig()
         val defaultPassRules = SerializedTaintConfig(passThrough = defaultRules.passThrough)
 
-        val config = TaintConfiguration()
+        val config = TaintConfiguration(cp)
         config.loadConfig(defaultPassRules)
         semgrepRules.forEach { config.loadConfig(it.createTaintConfig()) }
 
@@ -149,7 +154,7 @@ class ProjectAnalyzer(
         val summarySerializationContext = JIRSummarySerializationContext(cp)
 
         JIRTaintAnalyzer(
-            cp, loadTaintConfig().applyAnalysisEndSinksForEntryPoints(entryPoints.toHashSet()),
+            cp, loadTaintConfig(cp).applyAnalysisEndSinksForEntryPoints(entryPoints.toHashSet()),
             projectLocations = projectClasses.projectLocations,
             ifdsTimeout = ifdsAnalysisTimeout,
             ifdsApMode = ifdsApMode,

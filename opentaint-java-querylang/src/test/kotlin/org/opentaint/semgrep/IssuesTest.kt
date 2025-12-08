@@ -59,7 +59,6 @@ class IssuesTest : SampleBasedTest() {
     fun `issue 86`() = runTest<issue86>()
 
     @Test
-    @Disabled // todo: rule isn't finding anything
     fun `issue 87`() = runTest<issue87>()
 
     @AfterAll

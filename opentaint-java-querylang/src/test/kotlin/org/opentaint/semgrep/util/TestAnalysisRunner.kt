@@ -105,7 +105,7 @@ class TestAnalysisRunner(
         configurationPath: Path?,
         ep: Set<JIRMethod>
     ): TaintRulesProvider {
-        val taintConfig = TaintConfiguration()
+        val taintConfig = TaintConfiguration(cp)
         taintConfig.loadConfig(config)
 
         if (configurationPath != null) {

@@ -2,20 +2,21 @@ package org.opentaint.jvm.sast.dataflow.rules
 
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRClasspath
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.ext.allSuperHierarchy
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.ClassPattern
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Pattern
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Simple
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
 import org.opentaint.dataflow.configuration.jvm.serialized.modifyCondition
+import org.opentaint.dataflow.jvm.util.JIRHierarchyInfo
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.ext.allSuperHierarchy
 import java.util.LinkedList
 import java.util.Queue
 
 class MethodTaintRulesStorage<S : SerializedRule> private constructor(
     private val patternManager: PatternManager,
+    private val hierarchyInfo: JIRHierarchyInfo,
     private val concreteMethodNameRules: MutableMap<String, MethodClassTaintRulesStorage<S>>,
     private val patternMethodRules: Map<Regex, Array<SerializedRule>>,
     private val anyMethodRules: MethodClassTaintRulesStorage<S>?,
@@ -35,7 +36,7 @@ class MethodTaintRulesStorage<S : SerializedRule> private constructor(
             return
         }
 
-        val builder = MethodClassTaintRulesStorage.Builder<S>(patternManager, method.name)
+        val builder = MethodClassTaintRulesStorage.Builder<S>(patternManager, hierarchyInfo, method.name)
         resolvePatterns(patternMethodRules, method.name, builder)
         val storage = builder.build()
 
@@ -48,7 +49,10 @@ class MethodTaintRulesStorage<S : SerializedRule> private constructor(
         storage.findRules(rules, method)
     }
 
-    class Builder<S : SerializedRule>(private val patternManager: PatternManager) {
+    class Builder<S : SerializedRule>(
+        private val patternManager: PatternManager,
+        private val hierarchyInfo: JIRHierarchyInfo,
+    ) {
         private val rules = mutableListOf<S>()
 
         fun addRules(rules: List<S>) {
@@ -57,7 +61,7 @@ class MethodTaintRulesStorage<S : SerializedRule> private constructor(
 
         fun build(): MethodTaintRulesStorage<S> {
             val concreteMethodNameRules = hashMapOf<String, MethodClassTaintRulesStorage.Builder<S>>()
-            val anyMethodRules = MethodClassTaintRulesStorage.Builder<S>(patternManager)
+            val anyMethodRules = MethodClassTaintRulesStorage.Builder<S>(patternManager, hierarchyInfo)
             val patternMethodRules = hashMapOf<String, MutableSet<S>>()
 
             for (rule in rules) {
@@ -65,7 +69,7 @@ class MethodTaintRulesStorage<S : SerializedRule> private constructor(
                     is ClassPattern -> error("impossible")
                     is Simple -> {
                         concreteMethodNameRules.getOrPut(fName.value) {
-                            MethodClassTaintRulesStorage.Builder(patternManager, concreteMethodName = fName.value)
+                            MethodClassTaintRulesStorage.Builder(patternManager, hierarchyInfo, concreteMethodName = fName.value)
                         }.addRule(rule)
                     }
 
@@ -92,6 +96,7 @@ class MethodTaintRulesStorage<S : SerializedRule> private constructor(
 
             return MethodTaintRulesStorage(
                 patternManager,
+                hierarchyInfo,
                 concreteRules,
                 compiledPatternMethodRules,
                 anyMethodRules.build()
@@ -103,7 +108,7 @@ class MethodTaintRulesStorage<S : SerializedRule> private constructor(
         private fun <S : SerializedRule> resolvePatterns(
             patterns: Map<Regex, Array<SerializedRule>>,
             methodName: String,
-            builder: MethodClassTaintRulesStorage.Builder<S>
+            builder: MethodClassTaintRulesStorage.Builder<S>,
         ) {
             for ((pattern, rules) in patterns) {
                 if (pattern.containsMatchIn(methodName)) {
@@ -118,6 +123,7 @@ class MethodTaintRulesStorage<S : SerializedRule> private constructor(
 }
 
 private class MethodClassTaintRulesStorage<S : SerializedRule> private constructor(
+    private val hierarchyInfo: JIRHierarchyInfo,
     private val concreteMethodName: String?,
     private val patterns: ClassNamePattern<S>,
     private val anyRules: Array<S>,
@@ -137,7 +143,7 @@ private class MethodClassTaintRulesStorage<S : SerializedRule> private construct
         pushDelayRulesQueue.add(className to rules)
     }
 
-    private fun pushDelayedRules(cp: JIRClasspath) {
+    private fun pushDelayedRules() {
         if (pushDelayRulesQueue.isEmpty()) return
 
         val iter = pushDelayRulesQueue.iterator()
@@ -145,7 +151,7 @@ private class MethodClassTaintRulesStorage<S : SerializedRule> private construct
             val (className, rules) = iter.next()
             iter.remove()
 
-            val cls = cp.findClassOrNull(className) ?: continue
+            val cls = hierarchyInfo.cp.findClassOrNull(className) ?: continue
             pushRuleForSuperTypes(cls, rules)
         }
     }
@@ -170,21 +176,24 @@ private class MethodClassTaintRulesStorage<S : SerializedRule> private construct
     }
 
     fun findRules(dst: MutableList<S>, method: JIRMethod) {
-        pushDelayedRules(method.enclosingClass.classpath)
+        pushDelayedRules()
 
         dst.addAll(anyRules)
 
-        findRules(dst, method.enclosingClass)
+        findRules(dst, method.enclosingClass.name)
         method.enclosingClass.allSuperHierarchy.forEach { cls ->
             val overrideRules = mutableListOf<S>()
-            findRules(overrideRules, cls)
+            findRules(overrideRules, cls.name)
             overrideRules.removeAll { !it.overrides }
             dst.addAll(overrideRules)
         }
+
+        hierarchyInfo.forEachSubClassName(method.enclosingClass.name) { className ->
+            findRules(dst, className)
+        }
     }
 
-    private fun findRules(dst: MutableList<S>, cls: JIRClassOrInterface) {
-        val className = cls.name
+    private fun findRules(dst: MutableList<S>, className: String) {
         val concreteRules = concreteClassRules[className]
         if (concreteRules != null) {
             dst.addAll(concreteRules)
@@ -201,7 +210,7 @@ private class MethodClassTaintRulesStorage<S : SerializedRule> private construct
         if (newRules.isEmpty()) return
 
         registerRules(className, newRules)
-        pushDelayedRules(cls.classpath)
+        pushDelayedRules()
 
         concreteClassRules.getOrPut(className, ::hashSetOf).addAll(newRules)
         dst.addAll(newRules)
@@ -209,7 +218,7 @@ private class MethodClassTaintRulesStorage<S : SerializedRule> private construct
         return
     }
 
-    private class ClassNamePattern<S: SerializedRule>(
+    private class ClassNamePattern<S : SerializedRule>(
         val concreteClassNameAnyPackageRules: Map<String, Array<S>>,
         val concreteClassPackagePatternRules: Map<String, Array<Pair<Regex, Array<S>>>>,
         val concretePackageClassPatternRules: Map<String, Array<Pair<Regex, Array<S>>>>,
@@ -218,6 +227,7 @@ private class MethodClassTaintRulesStorage<S : SerializedRule> private construct
 
     class Builder<S : SerializedRule>(
         private val patternManager: PatternManager,
+        private val hierarchyInfo: JIRHierarchyInfo,
         private val concreteMethodName: String? = null,
     ) {
         private val rules = mutableListOf<S>()
@@ -282,6 +292,7 @@ private class MethodClassTaintRulesStorage<S : SerializedRule> private construct
             }
 
             return MethodClassTaintRulesStorage(
+                hierarchyInfo,
                 concreteMethodName, patterns,
                 anyRules.toRuleArray(), resultConcreteRules
             )
@@ -337,7 +348,7 @@ private class MethodClassTaintRulesStorage<S : SerializedRule> private construct
         private fun <S : SerializedRule> resolveClassNamePattern(
             patterns: ClassNamePattern<S>,
             fullClassName: String,
-            classRules: MutableSet<S>
+            classRules: MutableSet<S>,
         ) {
             val (pkgName, simpleName) = splitClassName(fullClassName)
             patterns.concreteClassNameAnyPackageRules[simpleName]?.forEach { classRules.add(it) }
