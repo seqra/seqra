@@ -28,9 +28,9 @@ class JIRSummariesFeature(
     apMode: ApMode,
     private val updateExistingSummaries: Boolean = true
 ) : JIRFeature<Any?, Any?> {
-    private lateinit var opentaint-ir: JIRDatabase
+    private lateinit var jIRdb: JIRDatabase
     private val interner: SymbolInterner by lazy {
-        opentaint-ir.persistence.symbolInterner
+        jIRdb.persistence.symbolInterner
     }
 
     private val methodToIdCache = ConcurrentHashMap<JIRMethod, Long>()
@@ -53,7 +53,7 @@ class JIRSummariesFeature(
         return emptySequence()
     }
 
-    override fun newIndexer(opentaint-ir: JIRDatabase, location: RegisteredLocation): ByteCodeIndexer {
+    override fun newIndexer(jIRdb: JIRDatabase, location: RegisteredLocation): ByteCodeIndexer {
         // Don't need to index anything => returning dummy indexer here
         return object : ByteCodeIndexer {
             override fun flush(context: StorageContext) = Unit
@@ -66,7 +66,7 @@ class JIRSummariesFeature(
     }
 
     private fun getMaxId(type: String): Long? {
-        return opentaint-ir.persistence.read { context ->
+        return jIRdb.persistence.read { context ->
             context.txn.all(type.toMaxIdEntityType())
                 .singleOrNull()
                 ?.get<Long>("value")
@@ -74,7 +74,7 @@ class JIRSummariesFeature(
     }
 
     private fun flushMaxId(type: String, value: Long) {
-        opentaint-ir.persistence.write { context ->
+        jIRdb.persistence.write { context ->
             val entity = context.txn.all(type.toMaxIdEntityType()).singleOrNull()
                 ?: context.txn.newEntity(type.toMaxIdEntityType())
 
@@ -82,22 +82,22 @@ class JIRSummariesFeature(
         }
     }
 
-    private fun checkJirdb(db: JIRDatabase) {
-        check(db == opentaint-ir) {
-            "Unexpected query with opentaint-ir not equal to cached one"
+    private fun checkJIRdb(db: JIRDatabase) {
+        check(db == jIRdb) {
+            "Unexpected query with jIRdb not equal to cached one"
         }
     }
 
     override fun onSignal(signal: JIRSignal) {
         when (signal) {
             is JIRSignal.BeforeIndexing -> {
-                opentaint-ir = signal.opentaint-ir
+                jIRdb = signal.jIRdb
 
                 methodIdGen.set(getMaxId(METHOD_IDS_TYPE) ?: -1L)
                 accessorIdGen.set(getMaxId(ACCESSOR_IDS_TYPE) ?: MAX_RESERVED_ACCESSOR_ID)
             }
             is JIRSignal.Closed -> {
-                checkJirdb(signal.opentaint-ir)
+                checkJIRdb(signal.jIRdb)
                 flush()
             }
             else -> Unit
@@ -105,10 +105,10 @@ class JIRSummariesFeature(
     }
 
     fun getMethodById(id: Long, cp: JIRClasspath): JIRMethod {
-        checkJirdb(cp.db)
+        checkJIRdb(cp.db)
 
         return idToMethodCache.computeIfAbsent(id) {
-            val (classNameId, methodNameId, methodDescId) = opentaint-ir.persistence.read { context ->
+            val (classNameId, methodNameId, methodDescId) = jIRdb.persistence.read { context ->
                 val methodEntry = context.txn.find(METHOD_IDS_TYPE, "id", id)
                     .singleOrNull() ?: error("Deserialization error. Unknown method id: $id")
 
@@ -137,7 +137,7 @@ class JIRSummariesFeature(
             val methodNameId = method.name.asSymbolId(interner)
             val methodDescId = method.description.asSymbolId(interner)
 
-            val methodId = opentaint-ir.persistence.read { context ->
+            val methodId = jIRdb.persistence.read { context ->
                 context.txn.find(METHOD_IDS_TYPE, "classNameId", classNameId)
                     .filter { it.get<Long>("methodNameId") == methodNameId }
                     .filter { it.get<Long>("methodDescId") == methodDescId }
@@ -158,7 +158,7 @@ class JIRSummariesFeature(
             ELEMENT_ACCESSOR_ID -> ElementAccessor
             else -> {
                 idToAccessorCache.computeIfAbsent(id) {
-                    val (classNameId, fieldNameId, fieldTypeId, taintMarkId) = opentaint-ir.persistence.read { context ->
+                    val (classNameId, fieldNameId, fieldTypeId, taintMarkId) = jIRdb.persistence.read { context ->
                         val accessorEntity = context.txn.find(ACCESSOR_IDS_TYPE, "id", id)
                             .singleOrNull() ?: error("Deserialization error. Unknown accessor with id: $id")
                         val classNameId = accessorEntity.get<Long>("classNameId")
@@ -198,7 +198,7 @@ class JIRSummariesFeature(
                 val classNameId = accessor.className.asSymbolId(interner)
                 val fieldNameId = accessor.fieldName.asSymbolId(interner)
                 val fieldTypeId = accessor.fieldType.asSymbolId(interner)
-                val accessorId = opentaint-ir.persistence.read { context ->
+                val accessorId = jIRdb.persistence.read { context ->
                     context.txn.find(ACCESSOR_IDS_TYPE, "classNameId", classNameId)
                         .filter { it.get<Long>("fieldNameId") == fieldNameId }
                         .filter { it.get<Long>("fieldTypeId") == fieldTypeId }
@@ -213,7 +213,7 @@ class JIRSummariesFeature(
 
             is TaintMarkAccessor -> accessorToIdCache.computeIfAbsent(accessor) {
                 val taintMarkId = accessor.mark.asSymbolId(interner)
-                val accessorId = opentaint-ir.persistence.read { context ->
+                val accessorId = jIRdb.persistence.read { context ->
                     context.txn.find(ACCESSOR_IDS_TYPE, "taintMarkId", taintMarkId)
                         .singleOrNull()
                         ?.get<Long>("id")
@@ -229,7 +229,7 @@ class JIRSummariesFeature(
     fun loadSummaries(method: JIRMethod): ByteArray? {
         return summariesCache.computeIfAbsent(method) {
             val methodId = getIdByMethod(method)
-            opentaint-ir.persistence.read { context ->
+            jIRdb.persistence.read { context ->
                 val summaryEntry = context.txn
                     .find(METHOD_SUMMARIES_TYPE, "methodId", methodId)
                     .filter { it.get<Int>("apModeId") == apModeId }
@@ -251,7 +251,7 @@ class JIRSummariesFeature(
 
             val methodId = getIdByMethod(method)
 
-            opentaint-ir.persistence.write { context ->
+            jIRdb.persistence.write { context ->
                 val oldEntity = context.txn
                     .find(METHOD_SUMMARIES_TYPE, "methodId", methodId)
                     .filter { it.get<Int>("apModeId") == apModeId }
@@ -276,7 +276,7 @@ class JIRSummariesFeature(
             val methodNameId = method.name.asSymbolId(interner)
             val methodDescId = method.description.asSymbolId(interner)
 
-            opentaint-ir.persistence.write { context ->
+            jIRdb.persistence.write { context ->
                 context.txn.newEntity(METHOD_IDS_TYPE).also { methodId ->
                     methodId["id"] = methodToIdCache[method]
                     methodId["classNameId"] = classNameId
@@ -291,7 +291,7 @@ class JIRSummariesFeature(
                 val classNameId = accessor.className.asSymbolId(interner)
                 val fieldNameId = accessor.fieldName.asSymbolId(interner)
                 val fieldTypeId = accessor.fieldType.asSymbolId(interner)
-                opentaint-ir.persistence.write { context ->
+                jIRdb.persistence.write { context ->
                     context.txn.newEntity(ACCESSOR_IDS_TYPE).also { fieldAccessorId ->
                         fieldAccessorId["id"] = accessorToIdCache[accessor]!!
                         fieldAccessorId["classNameId"] = classNameId
@@ -303,7 +303,7 @@ class JIRSummariesFeature(
                 accessor as TaintMarkAccessor
 
                 val taintMarkId = accessor.mark.asSymbolId(interner)
-                opentaint-ir.persistence.write { context ->
+                jIRdb.persistence.write { context ->
                     context.txn.newEntity(ACCESSOR_IDS_TYPE).also { taintMarkAccessorId ->
                         taintMarkAccessorId["id"] = accessorToIdCache[accessor]!!
                         taintMarkAccessorId["taintMarkId"] = taintMarkId
@@ -315,7 +315,7 @@ class JIRSummariesFeature(
         flushMaxId(METHOD_IDS_TYPE, methodIdGen.get())
         flushMaxId(ACCESSOR_IDS_TYPE, accessorIdGen.get())
 
-        opentaint-ir.persistence.write {
+        jIRdb.persistence.write {
             interner.flush(it)
         }
     }
