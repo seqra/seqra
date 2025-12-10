@@ -1,6 +1,16 @@
 package org.opentaint.dataflow.jvm.ap.ifds.taint
 
-import org.opentaint.ir.api.jvm.JIRType
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.AnyAccessor
+import org.opentaint.dataflow.ap.ifds.ElementAccessor
+import org.opentaint.dataflow.ap.ifds.ExclusionSet
+import org.opentaint.dataflow.ap.ifds.FieldAccessor
+import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.access.ApManager
+import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.configuration.jvm.Action
 import org.opentaint.dataflow.configuration.jvm.Argument
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
@@ -17,30 +27,19 @@ import org.opentaint.dataflow.configuration.jvm.Result
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
 import org.opentaint.dataflow.configuration.jvm.TaintMark
 import org.opentaint.dataflow.configuration.jvm.This
+import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
+import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionExpr
+import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.util.Maybe
 import org.opentaint.util.flatMap
 import org.opentaint.util.fmap
-import org.opentaint.dataflow.ap.ifds.AccessPathBase
-import org.opentaint.dataflow.ap.ifds.Accessor
-import org.opentaint.dataflow.ap.ifds.AnyAccessor
-import org.opentaint.dataflow.ap.ifds.ElementAccessor
-import org.opentaint.dataflow.ap.ifds.ExclusionSet
-import org.opentaint.dataflow.ap.ifds.FieldAccessor
-import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
-import org.opentaint.dataflow.ap.ifds.access.ApManager
-import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
-import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.ap.ifds.trace.TaintRulePrecondition
-import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
 
 interface ConditionEvaluator<T> {
     fun eval(condition: Condition): T
 }
 
-interface FactAwareConditionEvaluator : ConditionEvaluator<Boolean> {
-    override fun eval(condition: Condition): Boolean = evalWithAssumptionsCheck(condition)
-
-    fun evalWithAssumptionsCheck(condition: Condition): Boolean
+interface FactAwareConditionEvaluator {
+    fun evalWithAssumptionsCheck(condition: JIRMarkAwareConditionExpr): Boolean
     fun assumptionsPossible(): Boolean
     fun facts(): List<InitialFactAp>
 
@@ -168,8 +167,8 @@ class TaintPassActionPreconditionEvaluator(
     private val factReader: InitialFactReader,
     private val typeChecker: JIRFactTypeChecker,
     private val returnValueType: JIRType?,
-) : PassActionEvaluator<TaintRulePrecondition.Pass> {
-    override fun evaluate(rule: TaintConfigurationItem, action: CopyAllMarks): Maybe<List<TaintRulePrecondition.Pass>> {
+) : PassActionEvaluator<Pair<Action, InitialFactAp>> {
+    override fun evaluate(rule: TaintConfigurationItem, action: CopyAllMarks): Maybe<List<Pair<Action, InitialFactAp>>> {
         val fromVar = action.from.resolveAp()
 
         val toVariables = mutableListOf(action.to.resolveAp())
@@ -177,12 +176,12 @@ class TaintPassActionPreconditionEvaluator(
 
         return Maybe.from(toVariables).flatMap { toVar ->
             copyAllFactsPrecondition(fromVar, toVar).fmap { facts ->
-                facts.map { TaintRulePrecondition.Pass(rule, action, it) }
+                facts.map { action to it }
             }
         }
     }
 
-    override fun evaluate(rule: TaintConfigurationItem, action: CopyMark): Maybe<List<TaintRulePrecondition.Pass>> {
+    override fun evaluate(rule: TaintConfigurationItem, action: CopyMark): Maybe<List<Pair<Action, InitialFactAp>>> {
         val fromVar = action.from.resolveAp()
 
         val toVariables = mutableListOf(action.to.resolveAp())
@@ -190,7 +189,7 @@ class TaintPassActionPreconditionEvaluator(
 
         return Maybe.from(toVariables).flatMap { toVar ->
             copyFinalFactPrecondition(fromVar, toVar, action.mark).fmap { facts ->
-                facts.map { TaintRulePrecondition.Pass(rule, action, it) }
+                facts.map { action to it }
             }
         }
     }
@@ -269,29 +268,39 @@ class TaintSourceActionPreconditionEvaluator(
     }
 }
 
-fun Position.resolveAp(): PositionAccess {
+fun Position.resolveBaseAp(): AccessPathBase = when (this) {
+    is Argument -> AccessPathBase.Argument(index)
+    is This -> AccessPathBase.This
+    is Result -> AccessPathBase.Return
+    is ClassStatic -> AccessPathBase.ClassStatic(className)
+    is PositionWithAccess -> base.resolveBaseAp()
+}
+
+fun Position.resolveAp(): PositionAccess = resolveAp(resolveBaseAp())
+
+fun Position.resolveAp(baseAp: AccessPathBase): PositionAccess {
     return when (this) {
-        is Argument -> PositionAccess.Simple(AccessPathBase.Argument(index))
-        This -> PositionAccess.Simple(AccessPathBase.This)
-        Result -> PositionAccess.Simple(AccessPathBase.Return)
-        is ClassStatic -> PositionAccess.Simple(AccessPathBase.ClassStatic(className))
+        is Argument,
+        is This,
+        is Result,
+        is ClassStatic -> PositionAccess.Simple(baseAp)
 
         is PositionWithAccess -> {
-            val baseAp = base.resolveAp()
+            val resolvedBaseAp = base.resolveAp(baseAp)
             val accessor = when (val a = access) {
                 PositionAccessor.ElementAccessor -> ElementAccessor
                 is PositionAccessor.FieldAccessor -> FieldAccessor(a.className, a.fieldName, a.fieldType)
                 PositionAccessor.AnyFieldAccessor -> {
                     // force loop in access path
                     val loopedPosition = PositionAccess.Complex(
-                        PositionAccess.Complex(baseAp, AnyAccessor),
+                        PositionAccess.Complex(resolvedBaseAp, AnyAccessor),
                         AnyAccessor
                     )
                     return loopedPosition
                 }
             }
 
-            PositionAccess.Complex(baseAp, accessor)
+            PositionAccess.Complex(resolvedBaseAp, accessor)
         }
     }
 }

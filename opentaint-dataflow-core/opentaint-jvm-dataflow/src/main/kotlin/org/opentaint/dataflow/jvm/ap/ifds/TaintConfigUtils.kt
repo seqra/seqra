@@ -1,22 +1,16 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
-import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.dataflow.ap.ifds.access.ApManager
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.jvm.Action
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.Condition
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
 import org.opentaint.dataflow.configuration.jvm.CopyMark
-import org.opentaint.dataflow.configuration.jvm.PositionResolver
 import org.opentaint.dataflow.configuration.jvm.RemoveAllMarks
 import org.opentaint.dataflow.configuration.jvm.RemoveMark
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
 import org.opentaint.dataflow.configuration.jvm.TaintEntryPointSource
-import org.opentaint.util.Maybe
-import org.opentaint.util.maybeFlatMap
-import org.opentaint.dataflow.ap.ifds.access.ApManager
-import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.jvm.ap.ifds.taint.ConditionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FinalFactReader
@@ -25,6 +19,10 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.PassActionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.SourceActionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintCleanActionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.util.Maybe
+import org.opentaint.util.maybeFlatMap
 
 object TaintConfigUtils {
     fun sinkRules(config: TaintRulesProvider, method: CommonMethod, statement: CommonInst) =
@@ -95,21 +93,29 @@ object TaintConfigUtils {
 
     inline fun <T : TaintConfigurationItem> List<T>.applyRuleWithAssumptions(
         apManager: ApManager,
-        valueResolver: PositionResolver<Maybe<JIRValue>>,
+        conditionRewriter: JIRMarkAwareConditionRewriter,
         conditionFactReaders: List<FactReader>,
-        typeChecker: JIRFactTypeChecker,
         condition: T.() -> Condition,
         storeAssumptions: (T, Set<InitialFactAp>) -> Unit,
         currentAssumptions: (T) -> Set<InitialFactAp>,
         applyRule: (T, List<InitialFactAp>) -> Unit,
     ) {
-        val conditionEvaluator = JIRFactAwareConditionEvaluator(
-            conditionFactReaders, valueResolver, typeChecker
-        )
+        val conditionEvaluator = JIRFactAwareConditionEvaluator(conditionFactReaders)
 
         for (rule in this) {
             val ruleCondition = rule.condition()
-            val ruleApplicable = conditionEvaluator.evalWithAssumptionsCheck(ruleCondition)
+
+            val simplifiedCondition = conditionRewriter.rewrite(ruleCondition)
+            val conditionExpr = when {
+                simplifiedCondition.isFalse -> continue
+                simplifiedCondition.isTrue -> {
+                    applyRule(rule, emptyList())
+                    continue
+                }
+                else -> simplifiedCondition.expr
+            }
+
+            val ruleApplicable = conditionEvaluator.evalWithAssumptionsCheck(conditionExpr)
 
             if (ruleApplicable) {
                 applyRule(rule, conditionEvaluator.facts())
@@ -126,10 +132,10 @@ object TaintConfigUtils {
             val assumptionReaders = assumptions.map { InitialFactReader(it, apManager) }
 
             val conditionEvaluatorWithAssumptions = JIRFactAwareConditionEvaluator(
-                assumptionReaders, valueResolver, typeChecker
+                assumptionReaders
             )
 
-            if (!conditionEvaluatorWithAssumptions.evalWithAssumptionsCheck(ruleCondition)) {
+            if (!conditionEvaluatorWithAssumptions.evalWithAssumptionsCheck(conditionExpr)) {
                 continue
             }
 

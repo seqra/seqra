@@ -15,7 +15,7 @@ class JIRMethodAnalysisContext(
     val localVariableReachability: JIRLocalVariableReachability,
     val aliasAnalysis: JIRLocalAliasAnalysis?,
     val taint: TaintAnalysisContext,
-) : org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext {
-    override val methodCallFactMapper: org.opentaint.dataflow.ap.ifds.analysis.MethodCallFactMapper
+) : MethodAnalysisContext {
+    override val methodCallFactMapper: MethodCallFactMapper
         get() = JIRMethodCallFactMapper
 }

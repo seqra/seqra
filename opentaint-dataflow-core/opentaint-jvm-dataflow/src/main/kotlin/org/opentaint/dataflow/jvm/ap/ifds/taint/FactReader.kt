@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.jvm.ap.ifds.taint
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
@@ -10,6 +11,8 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.jvm.TaintMark
 
 interface FactReader {
+    val base: AccessPathBase
+
     fun containsPosition(position: PositionAccess): Boolean
     fun createInitialFactWithTaintMark(position: PositionAccess, mark: TaintMark): InitialFactAp
 
@@ -24,6 +27,8 @@ class FinalFactReader(
     val factAp: FinalFactAp,
     val apManager: ApManager
 ): FactReader {
+    override val base: AccessPathBase get() = factAp.base
+
     private var refinement: ExclusionSet = ExclusionSet.Empty
     val hasRefinement: Boolean get() = refinement !is ExclusionSet.Empty
 
@@ -68,6 +73,8 @@ class FinalFactReaderWithPrefix(
     private val reader: FinalFactReader,
     private val prefix: Accessor,
 ) : FactReader {
+    override val base: AccessPathBase get() = reader.base
+
     override fun containsPosition(position: PositionAccess): Boolean =
         reader.containsPosition(position.withPrefix(prefix))
 
@@ -76,6 +83,8 @@ class FinalFactReaderWithPrefix(
 }
 
 class InitialFactReader(val fact: InitialFactAp, val apManager: ApManager): FactReader {
+    override val base: AccessPathBase get() = fact.base
+
     override fun containsPosition(position: PositionAccess): Boolean =
         readPosition(
             ap = fact,

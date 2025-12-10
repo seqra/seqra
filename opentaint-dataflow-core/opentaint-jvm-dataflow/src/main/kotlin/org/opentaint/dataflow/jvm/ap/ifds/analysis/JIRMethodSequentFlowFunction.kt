@@ -1,16 +1,5 @@
 package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
-import org.opentaint.ir.api.jvm.JIRType
-import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
-import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
-import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
-import org.opentaint.ir.api.jvm.cfg.JIRExpr
-import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
-import org.opentaint.ir.api.jvm.cfg.JIRImmediate
-import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
-import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
-import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
@@ -22,6 +11,7 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.Sequent
 import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
+import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionRewriter
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.accessPathBase
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.clearField
@@ -34,6 +24,17 @@ import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyRuleWithAssumpti
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FinalFactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintSourceActionEvaluator
+import org.opentaint.ir.api.jvm.JIRType
+import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
+import org.opentaint.ir.api.jvm.cfg.JIRExpr
+import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
+import org.opentaint.ir.api.jvm.cfg.JIRImmediate
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
+import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
+import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.util.onSome
 
 class JIRMethodSequentFlowFunction(
@@ -415,12 +416,14 @@ class JIRMethodSequentFlowFunction(
         val conditionFactReader = FinalFactReader(resultFact, apManager)
 
         val valueResolver = CalleePositionToJIRValueResolver(currentInst.location.method)
+        val conditionRewriter = JIRMarkAwareConditionRewriter(
+            valueResolver,
+            analysisContext.factTypeChecker
+        )
 
         sinkRules.applyRuleWithAssumptions(
-            apManager,
-            valueResolver,
+            apManager, conditionRewriter,
             listOf(conditionFactReader),
-            analysisContext.factTypeChecker,
             condition = { condition },
             storeAssumptions = { rule, facts ->
                 taintSinkTracker.addSinkRuleAssumptions(rule, currentInst, facts)

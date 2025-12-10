@@ -50,9 +50,14 @@ class TraceResolutionContext(
     ): CompletableDeferred<Unit> {
         vulnerabilities.mapTo(jobs) { vulnerability ->
             scope.launch(exceptionHandler) {
-                result.add(body(vulnerability))
-                processedVulnerabilities.add(vulnerability)
-                updatedProcessed()
+                try {
+                    result.add(body(vulnerability))
+                    processedVulnerabilities.add(vulnerability)
+                } catch (ex: Throwable) {
+                    logger.error(ex) { "Trace resolution failed" }
+                } finally {
+                    updatedProcessed()
+                }
             }
         }
         return completed

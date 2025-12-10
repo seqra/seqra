@@ -1,8 +1,5 @@
 package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.ext.toType
-import org.opentaint.util.onSome
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
@@ -12,12 +9,15 @@ import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.MethodStartFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodStartFlowFunction.StartFact
 import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
-import org.opentaint.dataflow.jvm.ap.ifds.JIRFactAwareConditionEvaluator
-import org.opentaint.dataflow.jvm.ap.ifds.JIRInstanceTypeMethodContext
+import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionRewriter
+import org.opentaint.dataflow.jvm.ap.ifds.JIRSimpleFactAwareConditionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyEntryPointConfig
 import org.opentaint.dataflow.jvm.ap.ifds.jIRDowncast
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintSourceActionEvaluator
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.ext.toType
+import org.opentaint.util.onSome
 
 class JIRMethodStartFlowFunction(
     private val apManager: ApManager,
@@ -31,7 +31,11 @@ class JIRMethodStartFlowFunction(
 
         val method = context.methodEntryPoint.method as JIRMethod
         val valueResolver = CalleePositionToJIRValueResolver(method)
-        val conditionEvaluator = JIRFactAwareConditionEvaluator(facts = emptyList(), valueResolver, context.factTypeChecker)
+        val conditionRewriter = JIRMarkAwareConditionRewriter(
+            valueResolver, context.factTypeChecker
+        )
+
+        val conditionEvaluator = JIRSimpleFactAwareConditionEvaluator(conditionRewriter, evaluator = null)
 
         val sourceEvaluator = TaintSourceActionEvaluator(
             apManager,
@@ -81,12 +85,15 @@ class JIRMethodStartFlowFunction(
         if (sinkRules.isEmpty()) return
 
         val valueResolver = CalleePositionToJIRValueResolver(method as JIRMethod)
-        val conditionEvaluator = JIRFactAwareConditionEvaluator(
-            emptyList(), valueResolver, context.factTypeChecker,
+        val conditionRewriter = JIRMarkAwareConditionRewriter(
+            valueResolver,
+            context.factTypeChecker
         )
 
+        val conditionEvaluator = JIRSimpleFactAwareConditionEvaluator(conditionRewriter, evaluator = null)
+
         for (rule in sinkRules) {
-            if (!conditionEvaluator.evalWithAssumptionsCheck(rule.condition)) {
+            if (!conditionEvaluator.eval(rule.condition)) {
                 continue
             }
 

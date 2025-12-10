@@ -76,7 +76,8 @@ class JIRAnalysisManager(
             null
         }
 
-        val localVariableReachability = JIRLocalVariableReachability(entryPointStatement.location.method, graph, this)
+        val method = entryPointStatement.location.method
+        val localVariableReachability = JIRLocalVariableReachability(method, graph, this)
         return JIRMethodAnalysisContext(
             methodEntryPoint,
             factTypeChecker,

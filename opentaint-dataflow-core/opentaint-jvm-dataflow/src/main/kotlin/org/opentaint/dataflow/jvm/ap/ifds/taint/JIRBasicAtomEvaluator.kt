@@ -1,13 +1,5 @@
 package org.opentaint.dataflow.jvm.ap.ifds.taint
 
-import org.opentaint.ir.api.common.cfg.CommonValue
-import org.opentaint.ir.api.jvm.JIRRefType
-import org.opentaint.ir.api.jvm.cfg.JIRBool
-import org.opentaint.ir.api.jvm.cfg.JIRConstant
-import org.opentaint.ir.api.jvm.cfg.JIRInt
-import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
-import org.opentaint.ir.api.jvm.cfg.JIRValue
-import org.opentaint.ir.api.jvm.ext.isAssignable
 import org.opentaint.dataflow.configuration.jvm.And
 import org.opentaint.dataflow.configuration.jvm.ConditionNameMatcher
 import org.opentaint.dataflow.configuration.jvm.ConditionVisitor
@@ -27,9 +19,17 @@ import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.PositionResolver
 import org.opentaint.dataflow.configuration.jvm.TypeMatches
 import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
+import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
+import org.opentaint.ir.api.common.cfg.CommonValue
+import org.opentaint.ir.api.jvm.JIRRefType
+import org.opentaint.ir.api.jvm.cfg.JIRBool
+import org.opentaint.ir.api.jvm.cfg.JIRConstant
+import org.opentaint.ir.api.jvm.cfg.JIRInt
+import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
+import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.ir.api.jvm.ext.isAssignable
 import org.opentaint.util.Maybe
 import org.opentaint.util.onSome
-import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
 
 class JIRBasicAtomEvaluator(
     private val negated: Boolean,
@@ -48,53 +48,55 @@ class JIRBasicAtomEvaluator(
         return true
     }
 
-    override fun visit(condition: IsConstant): Boolean{
+    override fun visit(condition: IsConstant): Boolean {
         positionResolver.resolve(condition.position).onSome {
             return isConstant(it)
         }
         return false
     }
 
-    override fun visit(condition: ConstantEq): Boolean   {
+    override fun visit(condition: ConstantEq): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
             return eqConstant(value, condition.value)
         }
         return false
     }
 
-    override fun visit(condition: ConstantLt): Boolean  {
+    override fun visit(condition: ConstantLt): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
             return ltConstant(value, condition.value)
         }
         return false
     }
 
-    override fun visit(condition: ConstantGt): Boolean  {
+    override fun visit(condition: ConstantGt): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
             return gtConstant(value, condition.value)
         }
         return false
     }
 
-    override fun visit(condition: ConstantMatches): Boolean   {
+    override fun visit(condition: ConstantMatches): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
             return matches(value, condition.pattern)
         }
         return false
     }
 
-    override fun visit(condition: TypeMatches): Boolean   {
+    override fun visit(condition: TypeMatches): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
             return typeMatches(value, condition)
         }
         return false
     }
 
-    override fun visit(condition: TypeMatchesPattern): Boolean   {
+    private val typeMatchesCache = hashMapOf<TypeMatchesPattern, Boolean>()
+
+    override fun visit(condition: TypeMatchesPattern): Boolean = typeMatchesCache.computeIfAbsent(condition) {
         positionResolver.resolve(condition.position).onSome { value ->
-            return typeMatchesPattern(value, condition)
+            return@computeIfAbsent typeMatchesPattern(value, condition)
         }
-        return false
+        return@computeIfAbsent false
     }
 
     private fun isConstant(value: JIRValue): Boolean {

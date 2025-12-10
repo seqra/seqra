@@ -1,8 +1,5 @@
 package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
-import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRImmediate
-import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
@@ -20,8 +17,10 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.SideEffect
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.Unchanged
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactAwareConditionEvaluator
+import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionRewriter
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodCallFactMapper
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodPositionBaseTypeResolver
+import org.opentaint.dataflow.jvm.ap.ifds.JIRSimpleFactAwareConditionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyCleaner
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyPassThrough
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyRuleWithAssumptions
@@ -35,6 +34,9 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintPassActionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintSourceActionEvaluator
 import org.opentaint.dataflow.jvm.util.callee
+import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRImmediate
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.util.onSome
 
 class JIRMethodCallFlowFunction(
@@ -48,9 +50,14 @@ class JIRMethodCallFlowFunction(
     private val sinkTracker get() = analysisContext.taint.taintSinkTracker
 
     override fun propagateZeroToZero() = buildSet {
-        applySinkRules(factReader = null)
+        val conditionRewriter = JIRMarkAwareConditionRewriter(
+            CallPositionToJIRValueResolver(callExpr, returnValue),
+            analysisContext.factTypeChecker
+        )
 
-        applySourceRules(factReader = null, exclusion = ExclusionSet.Universe).forEach {
+        applySinkRules(conditionRewriter, factReader = null)
+
+        applySourceRules(conditionRewriter, factReader = null, exclusion = ExclusionSet.Universe).forEach {
             this += CallToReturnZFact(factAp = it)
 
             analysisContext.aliasAnalysis?.forEachAliasAtStatement(statement, it) { aliased ->
@@ -118,11 +125,16 @@ class JIRMethodCallFlowFunction(
             return
         }
 
+        val conditionRewriter = JIRMarkAwareConditionRewriter(
+            CallPositionToJIRValueResolver(callExpr, returnValue),
+            analysisContext.factTypeChecker
+        )
+
         val factReader = FinalFactReader(factAp, apManager)
 
-        applySinkRules(factReader)
+        applySinkRules(conditionRewriter, factReader)
 
-        applySourceRules(factReader, exclusion).forEach {
+        applySourceRules(conditionRewriter, factReader, exclusion).forEach {
             addCallToReturn(factReader, it)
 
             analysisContext.aliasAnalysis?.forEachAliasAtStatement(statement, it) { aliased ->
@@ -137,6 +149,7 @@ class JIRMethodCallFlowFunction(
             analysisContext.factTypeChecker
         ) { callerFact, startFactBase ->
             applyPassRulesOrCallToStart(
+                conditionRewriter,
                 factReader, callerFact, startFactBase, addCallToReturn, addCallToStart
             )
         }
@@ -147,6 +160,7 @@ class JIRMethodCallFlowFunction(
     }
 
     private fun applyPassRulesOrCallToStart(
+        conditionRewriter: JIRMarkAwareConditionRewriter,
         originalFactReader: FinalFactReader,
         unmappedCallerFactAp: FinalFactAp,
         startFactBase: AccessPathBase,
@@ -159,10 +173,10 @@ class JIRMethodCallFlowFunction(
         val conditionFactReader = FinalFactReader(callerFact, apManager)
 
         val conditionEvaluator = JIRFactAwareConditionEvaluator(
-            listOf(conditionFactReader),
-            CallPositionToJIRValueResolver(callExpr, returnValue),
-            analysisContext.factTypeChecker,
+            listOf(conditionFactReader)
         )
+
+        val simpleConditionEvaluator = JIRSimpleFactAwareConditionEvaluator(conditionRewriter, conditionEvaluator)
 
         val cleaner = TaintCleanActionEvaluator()
 
@@ -172,7 +186,7 @@ class JIRMethodCallFlowFunction(
             method,
             statement,
             factReaderBeforeCleaner,
-            conditionEvaluator,
+            simpleConditionEvaluator,
             cleaner
         ) ?: return
 
@@ -185,7 +199,7 @@ class JIRMethodCallFlowFunction(
             config,
             method,
             statement,
-            conditionEvaluator,
+            simpleConditionEvaluator,
             passEvaluator
         )
 
@@ -220,7 +234,10 @@ class JIRMethodCallFlowFunction(
         addCallToStart(originalFactReader, unmappedFact, startFactBase)
     }
 
-    private fun applySinkRules(factReader: FinalFactReader?) {
+    private fun applySinkRules(
+        conditionRewriter: JIRMarkAwareConditionRewriter,
+        factReader: FinalFactReader?,
+    ) {
         val sinkRules = sinkRules(config, callExpr.callee, statement).toList()
         if (sinkRules.isEmpty()) return
 
@@ -230,11 +247,11 @@ class JIRMethodCallFlowFunction(
 
         val conditionFactReaders = normalConditionFactReaders + arrayElementFactReaders
 
-        val valueResolver = CallPositionToJIRValueResolver(callExpr, returnValue = null)
-
         sinkRules.applyRuleWithAssumptions(
             apManager,
-            valueResolver, conditionFactReaders, analysisContext.factTypeChecker, condition = { condition },
+            conditionRewriter,
+            conditionFactReaders,
+            condition = { condition },
             storeAssumptions = { rule, facts -> sinkTracker.addSinkRuleAssumptions(rule, statement, facts) },
             currentAssumptions = { rule -> sinkTracker.currentSinkRuleAssumptions(rule, statement) }
         ) { rule, evaluatedFacts ->
@@ -261,13 +278,15 @@ class JIRMethodCallFlowFunction(
         factReader?.updateRefinement(normalConditionFactReaders)
     }
 
-    private fun applySourceRules(factReader: FinalFactReader?, exclusion: ExclusionSet): List<FinalFactAp> {
+    private fun applySourceRules(
+        conditionRewriter: JIRMarkAwareConditionRewriter,
+        factReader: FinalFactReader?,
+        exclusion: ExclusionSet
+    ): List<FinalFactAp> {
         val method = callExpr.method.method
         val sourceRules = config.sourceRulesForMethod(method, statement).toList()
 
         if (sourceRules.isEmpty()) return emptyList()
-
-        val valueResolver = CallPositionToJIRValueResolver(callExpr, returnValue)
 
         val conditionFactReaders = factReader?.toConditionFactReaders().orEmpty()
 
@@ -279,7 +298,8 @@ class JIRMethodCallFlowFunction(
 
         sourceRules.applyRuleWithAssumptions(
             apManager,
-            valueResolver, conditionFactReaders, analysisContext.factTypeChecker,
+            conditionRewriter,
+            conditionFactReaders,
             condition = { condition },
             storeAssumptions = { rule, facts -> sinkTracker.addSourceRuleAssumptions(rule, statement, facts) },
             currentAssumptions = { rule -> sinkTracker.currentSourceRuleAssumptions(rule, statement) }

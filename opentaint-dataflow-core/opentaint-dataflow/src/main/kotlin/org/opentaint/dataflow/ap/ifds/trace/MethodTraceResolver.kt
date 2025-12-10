@@ -3,11 +3,6 @@ package org.opentaint.dataflow.ap.ifds.trace
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
-import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.cfg.CommonAssignInst
-import org.opentaint.ir.api.common.cfg.CommonCallExpr
-import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.AnalysisRunner
 import org.opentaint.dataflow.ap.ifds.AnalysisUnitRunnerManager
@@ -18,13 +13,16 @@ import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.AnalysisManager
-import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
-import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFactMapper
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition.CallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition.CallPreconditionFact
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition.SequentPrecondition
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.PartiallyResolvedMergedCallAction.MergedPrimaryAction
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.PartiallyResolvedMergedCallAction.MergedRuleAction
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction.OtherAction
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction.PrimaryAction
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction.SourceOtherAction
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction.TraceSummaryEdge
+import org.opentaint.dataflow.ap.ifds.trace.TaintRulePrecondition.PassRuleCondition
 import org.opentaint.dataflow.configuration.CommonTaintAction
 import org.opentaint.dataflow.configuration.CommonTaintAssignAction
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationItem
@@ -34,6 +32,11 @@ import org.opentaint.dataflow.util.bitSetOf
 import org.opentaint.dataflow.util.cartesianProductMapTo
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.toBitSet
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonAssignInst
+import org.opentaint.ir.api.common.cfg.CommonCallExpr
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.util.analysis.ApplicationGraph
 import java.util.BitSet
 import java.util.LinkedList
@@ -98,7 +101,7 @@ class MethodTraceResolver(
 
         sealed interface CallRuleAction : CallAction {
             val rule: CommonTaintConfigurationItem
-            val action: CommonTaintAction
+            val action: Set<CommonTaintAction>
         }
 
         sealed interface SourceAction : TraceEntryAction {
@@ -116,20 +119,20 @@ class MethodTraceResolver(
         data class CallSourceRule(
             override val edges: Set<TraceEdge.SourceTraceEdge>,
             override val rule: CommonTaintConfigurationSource,
-            override val action: CommonTaintAssignAction
+            override val action: Set<CommonTaintAssignAction>
         ) : SourceOtherAction, CallRuleAction
 
         data class EntryPointSourceRule(
             override val edges: Set<TraceEdge.SourceTraceEdge>,
             val entryPoint: MethodEntryPoint,
             override val rule: CommonTaintConfigurationSource,
-            override val action: CommonTaintAssignAction
+            override val action: Set<CommonTaintAssignAction>
         ) : SourceOtherAction, CallRuleAction
 
         data class CallRule(
             override val edges: Set<TraceEdge>,
             override val rule: CommonTaintConfigurationItem,
-            override val action: CommonTaintAction
+            override val action: Set<CommonTaintAction>
         ) :  CallRuleAction, OtherAction
 
         sealed interface TraceSummaryEdge {
@@ -171,8 +174,8 @@ class MethodTraceResolver(
         val statement: CommonInst
 
         data class Action(
-            val primaryAction: TraceEntryAction.PrimaryAction?,
-            val otherActions: Set<TraceEntryAction.OtherAction>,
+            val primaryAction: PrimaryAction?,
+            val otherActions: Set<OtherAction>,
             val unchanged: Set<TraceEdge>,
             override val statement: CommonInst,
         ) : TraceEntry {
@@ -593,7 +596,7 @@ class MethodTraceResolver(
             )
 
             val unchangedEdges = hashSetOf<TraceEdge>()
-            val callEdges = mutableListOf<List<TraceEntryAction.CallAction>>()
+            val callEdges = mutableListOf<List<PartiallyResolvedCallAction>>()
 
             for (edge in entry.edges) {
                 val precondition = preconditionFunction.factPrecondition(edge.fact)
@@ -604,7 +607,7 @@ class MethodTraceResolver(
                     }
 
                     is CallPrecondition.Facts -> {
-                        val callActions = mutableListOf<TraceEntryAction.CallAction>()
+                        val callActions = mutableListOf<PartiallyResolvedCallAction>()
                         precondition.facts.forEach {
                             val initialEdge = edge.replaceFact(it.initialFact)
                             if (!skipFactCheck && !containsEntryEdge(entry.statement, initialEdge)) {
@@ -630,7 +633,9 @@ class MethodTraceResolver(
             }
 
             val callActions = mergeCallActionsCombinations(callEdges)
-            for ((callActionPrimary, callActionOther) in callActions) {
+            val resolvedCallActions = resolveCallRuleActions(preconditionFunction, statement, callActions)
+
+            for ((callActionPrimary, callActionOther) in resolvedCallActions) {
                 val action = TraceEntry.Action(callActionPrimary, callActionOther, unchangedEdges, statement)
                 addPredecessorAction(entry, action)
             }
@@ -715,10 +720,10 @@ class MethodTraceResolver(
     }
 
     private fun mergeCallActionsCombinations(
-        callActions: List<List<TraceEntryAction.CallAction>>,
-    ): List<Pair<TraceEntryAction.PrimaryAction?, Set<TraceEntryAction.OtherAction>>> {
+        callActions: List<List<PartiallyResolvedCallAction>>,
+    ): MutableList<Pair<MergedPrimaryAction?, Set<MergedRuleAction>>> {
         // todo: check call summary method here
-        val result = mutableListOf<Pair<TraceEntryAction.PrimaryAction?, Set<TraceEntryAction.OtherAction>>>()
+        val result = mutableListOf<Pair<MergedPrimaryAction?, Set<MergedRuleAction>>>()
         callActions.cartesianProductMapTo { actions ->
             val mergedActions = mergeCallActions(actions) ?: return@cartesianProductMapTo
             result.add(mergedActions)
@@ -726,21 +731,20 @@ class MethodTraceResolver(
         return result
     }
 
-    private fun mergeCallActions(callActions: Array<TraceEntryAction.CallAction>): Pair<TraceEntryAction.PrimaryAction?, Set<TraceEntryAction.OtherAction>>? {
-        val other = hashSetOf<TraceEntryAction.OtherAction>()
+    private fun mergeCallActions(callActions: Array<PartiallyResolvedCallAction>): Pair<MergedPrimaryAction?, Set<MergedRuleAction>>? {
+        val rules = hashSetOf<PartiallyResolvedCallAction.CallRule>()
         val unresolved = mutableListOf<TraceEntryAction.UnresolvedCallSkip>()
         val summary = mutableListOf<TraceEntryAction.CallSummary>()
 
         for (action in callActions) {
             when (action) {
-                is TraceEntryAction.CallRule -> other.add(action)
-                is TraceEntryAction.CallSourceRule -> other.add(action)
-                is TraceEntryAction.UnresolvedCallSkip -> unresolved.add(action)
-                is TraceEntryAction.CallSummary -> summary.add(action)
-                is TraceEntryAction.CallSourceSummary,
-                is TraceEntryAction.EntryPointSourceRule -> error("Unexpected action")
+                is PartiallyResolvedCallAction.CallRule -> rules.add(action)
+                is PartiallyResolvedCallAction.CallSummary -> summary.add(action.summary)
+                is PartiallyResolvedCallAction.Skip -> unresolved.add(action.action)
             }
         }
+
+        val mergedRules = mergeCallRules(rules)
 
         if (unresolved.isNotEmpty()) {
             check(summary.isEmpty()) {
@@ -751,18 +755,55 @@ class MethodTraceResolver(
                 unresolved.flatMapTo(hashSetOf()) { it.edges }
             )
 
-            return mergedUnresolved to other
+            return MergedPrimaryAction(mergedUnresolved) to mergedRules
         }
 
         if (summary.isEmpty()) {
-            return null to other
+            return null to mergedRules
         }
 
         val mergedCallSummaries = mergeCallSummaries(summary) ?: return null
-        return mergedCallSummaries to other
+        return MergedPrimaryAction(mergedCallSummaries) to mergedRules
     }
 
-    private fun mergeCallSummaries(callSummaries: List<TraceEntryAction.CallSummary>): TraceEntryAction.PrimaryAction? {
+    private fun mergeCallRules(callRules: HashSet<PartiallyResolvedCallAction.CallRule>): Set<MergedRuleAction> {
+        if (callRules.isEmpty()) return emptySet()
+
+        val sourceRules = hashMapOf<CommonTaintConfigurationSource, MutableSet<Pair<CommonTaintAssignAction, TraceEdge>>>()
+        val passRules = hashMapOf<CommonTaintConfigurationItem, MutableMap<PassRuleCondition, MutableSet<Pair<CommonTaintAction, TraceEdge>>>>()
+
+        for (unresolvedRule in callRules) {
+            when (val rule = unresolvedRule.rule) {
+                is TaintRulePrecondition.Pass -> passRules
+                    .getOrPut(rule.rule, ::hashMapOf)
+                    .getOrPut(rule.condition, ::hashSetOf)
+                    .addAll(rule.action.map { it to unresolvedRule.currentEdge })
+
+                is TaintRulePrecondition.Source -> sourceRules
+                    .getOrPut(rule.rule, ::hashSetOf)
+                    .addAll(rule.action.map { it to unresolvedRule.currentEdge })
+            }
+        }
+
+        val result = hashSetOf<MergedRuleAction>()
+        for ((rule, actionWithEdge) in sourceRules) {
+            val action = actionWithEdge.mapTo(hashSetOf()) { it.first }
+            val edges = actionWithEdge.mapTo(hashSetOf()) { it.second }
+            result += MergedRuleAction(edges, TaintRulePrecondition.Source(rule, action))
+        }
+
+        for ((rule, conditionedActions) in passRules) {
+            for ((condition, actionWithEdge) in conditionedActions) {
+                val action = actionWithEdge.mapTo(hashSetOf()) { it.first }
+                val edges = actionWithEdge.mapTo(hashSetOf()) { it.second }
+                result += MergedRuleAction(edges, TaintRulePrecondition.Pass(rule, action, condition))
+            }
+        }
+
+        return result
+    }
+
+    private fun mergeCallSummaries(callSummaries: List<TraceEntryAction.CallSummary>): PrimaryAction? {
         check(callSummaries.all { it.summaryTrace.traceKind == TraceKind.SummaryTrace })
 
         val callee = callSummaries.first().summaryTrace.method
@@ -817,7 +858,28 @@ class MethodTraceResolver(
         }
     }
 
-    private fun MutableList<TraceEntryAction.CallAction>.propagateCall(
+    private sealed interface PartiallyResolvedCallAction {
+        data class Skip(
+            val action: TraceEntryAction.UnresolvedCallSkip
+        ) : PartiallyResolvedCallAction
+
+        data class CallRule(
+            val currentEdge: TraceEdge,
+            val rule: TaintRulePrecondition
+        ) : PartiallyResolvedCallAction
+
+        data class CallSummary(val summary: TraceEntryAction.CallSummary): PartiallyResolvedCallAction
+    }
+
+    private sealed interface PartiallyResolvedMergedCallAction {
+        data class MergedPrimaryAction(val action: PrimaryAction) : PartiallyResolvedMergedCallAction
+        data class MergedRuleAction(
+            val currentEdges: Set<TraceEdge>,
+            val rule: TaintRulePrecondition
+        ) : PartiallyResolvedMergedCallAction
+    }
+
+    private fun MutableList<PartiallyResolvedCallAction>.propagateCall(
         currentEdge: TraceEdge,
         preconditionFacts: List<CallPreconditionFact>,
         statement: CommonInst,
@@ -828,19 +890,12 @@ class MethodTraceResolver(
         for (fact in preconditionFacts) {
             when (fact) {
                 is CallPreconditionFact.CallToReturnTaintRule -> {
-                    val preconditionAction = when (val p = fact.precondition) {
-                        is TaintRulePrecondition.Source -> {
-                            val edge = TraceEdge.SourceTraceEdge(currentEdge.fact)
-                            TraceEntryAction.CallSourceRule(setOf(edge), p.rule, p.action)
-                        }
-
-                        is TaintRulePrecondition.Pass -> {
-                            val edge = currentEdge.replaceFact(p.fact)
-                            TraceEntryAction.CallRule(setOf(edge), p.rule, p.action)
-                        }
+                    if (fact.precondition is TaintRulePrecondition.Source && currentEdge !is TraceEdge.SourceTraceEdge) {
+                        // We search for pass-rule, not source rule
+                        continue
                     }
 
-                    this += preconditionAction
+                    this += PartiallyResolvedCallAction.CallRule(currentEdge, fact.precondition)
                 }
 
                 is CallPreconditionFact.CallToStart -> {
@@ -855,16 +910,134 @@ class MethodTraceResolver(
         if (callees.isEmpty()) {
             // Drop fact if it is mapped to the method return value
             if (callToStart.any { it.startFactBase != AccessPathBase.Return }) {
-                this += TraceEntryAction.UnresolvedCallSkip(setOf(currentEdge))
+                this += PartiallyResolvedCallAction.Skip(
+                    TraceEntryAction.UnresolvedCallSkip(setOf(currentEdge))
+                )
             }
 
             return
         }
 
-        resolveCallSummary(statement, currentEdge, callees, callToStart)
+        val callSummaries = buildList {
+            resolveCallSummary(statement, currentEdge, callees, callToStart)
+        }
+        callSummaries.mapTo(this) { PartiallyResolvedCallAction.CallSummary(it) }
     }
 
-    private fun MutableList<TraceEntryAction.CallAction>.resolveCallSummary(
+    private fun resolveCallRuleActions(
+        preconditionFunction: MethodCallPrecondition,
+        statement: CommonInst,
+        callActions: List<Pair<MergedPrimaryAction?, Set<MergedRuleAction>>>,
+    ): List<Pair<PrimaryAction?, Set<OtherAction>>> {
+        val result = mutableListOf<Pair<PrimaryAction?, Set<OtherAction>>>()
+        for ((primaryAction, ruleActions) in callActions) {
+            if (ruleActions.isEmpty()) {
+                result.add(primaryAction?.action to emptySet())
+                continue
+            }
+
+            val resolvedRuleActions = ruleActions.map {
+                resolveCallRule(it.currentEdges, it.rule, preconditionFunction, statement)
+            }
+
+            resolvedRuleActions.cartesianProductMapTo { ruleActionGroup ->
+                result.add(primaryAction?.action to ruleActionGroup.toHashSet())
+            }
+        }
+        return result
+    }
+
+    private fun resolveCallRule(
+        currentEdges: Set<TraceEdge>,
+        rule: TaintRulePrecondition,
+        preconditionFunction: MethodCallPrecondition,
+        statement: CommonInst,
+    ): List<OtherAction> {
+        when (rule) {
+            is TaintRulePrecondition.Source -> {
+                val sourceEdges = currentEdges.filterIsInstanceTo<TraceEdge.SourceTraceEdge, _>(hashSetOf())
+                check(sourceEdges.size == currentEdges.size) {
+                    "Unexpected non-source edge"
+                }
+
+                return listOf(TraceEntryAction.CallSourceRule(sourceEdges, rule.rule, rule.action))
+            }
+
+            is TaintRulePrecondition.Pass -> {
+                val conditionFacts = preconditionFunction.resolvePassRuleCondition(rule.condition)
+                return conditionFacts.flatMap {
+                    resolvePassCallRulePrecondition(currentEdges, statement, rule, it.facts)
+                }
+            }
+        }
+    }
+
+    private fun resolvePassCallRulePrecondition(
+        currentEdges: Set<TraceEdge>,
+        statement: CommonInst,
+        rule: TaintRulePrecondition.Pass,
+        facts: List<InitialFactAp>,
+    ): List<TraceEntryAction.CallRule> {
+        when (facts.size) {
+            0 -> error("impossible")
+            1 -> {
+                val initialFacts = currentEdges.map {
+                    (it as? TraceEdge.MethodTraceEdge)?.initialFact
+                }.distinct()
+
+                if (initialFacts.size != 1) {
+                    // unxpected different initial facts
+                    return emptyList()
+                }
+
+                val initialFact = initialFacts.first()
+                val edge = if (initialFact == null) {
+                    TraceEdge.SourceTraceEdge(facts.first())
+                } else {
+                    TraceEdge.MethodTraceEdge(initialFact, facts.first())
+                }
+
+                return listOf(
+                    TraceEntryAction.CallRule(setOf(edge), rule.rule, rule.action)
+                )
+            }
+
+            else -> {
+                val result = mutableListOf<TraceEntryAction.CallRule>()
+
+                val allFactEdges = facts.map {
+                    resolveIntraProceduralTraceEdge(statement, it)
+                }
+
+                allFactEdges.cartesianProductMapTo { edgeGroup ->
+                    val unmatchedCurrentEdges = LinkedList(currentEdges)
+
+                    for (edge in edgeGroup) {
+                        val iter = unmatchedCurrentEdges.iterator()
+                        while (iter.hasNext()) {
+                            val currentEdge = iter.next()
+                            if (edge.edgeInitialMatch(currentEdge)) {
+                                iter.remove()
+                            }
+                        }
+                    }
+
+                    if (unmatchedCurrentEdges.isNotEmpty()) return@cartesianProductMapTo
+
+                    result += TraceEntryAction.CallRule(edgeGroup.toHashSet(), rule.rule, rule.action)
+                }
+
+                return result
+            }
+        }
+    }
+
+    private fun TraceEdge.edgeInitialMatch(other: TraceEdge): Boolean = when (other) {
+        is TraceEdge.SourceTraceEdge -> this is TraceEdge.SourceTraceEdge
+        is TraceEdge.MethodTraceEdge -> this is TraceEdge.MethodTraceEdge && other.initialFact == this.initialFact
+    }
+
+    private fun MutableList<TraceEntryAction.CallSummary>.resolveCallSummary(
         statement: CommonInst,
         currentEdge: TraceEdge,
         callees: List<MethodWithContext>,
@@ -879,7 +1052,7 @@ class MethodTraceResolver(
         resolveCallPassSummary(currentEdge, calleeEntryPoints, startFacts, statement)
     }
 
-    private fun MutableList<TraceEntryAction.CallAction>.resolveCallPassSummary(
+    private fun MutableList<TraceEntryAction.CallSummary>.resolveCallPassSummary(
         currentEdge: TraceEdge,
         calleeEntryPoints: List<MethodEntryPoint>,
         startFacts: List<CallPreconditionFact.CallToStart>,
@@ -930,7 +1103,7 @@ class MethodTraceResolver(
         this += weakestCallSummaries
     }
 
-    private fun MutableList<TraceEntryAction.CallAction>.resolveCallSourceSummary(
+    private fun MutableList<TraceEntryAction.CallSummary>.resolveCallSourceSummary(
         currentEdge: TraceEdge.SourceTraceEdge,
         calleeEntryPoints: List<MethodEntryPoint>,
         startFacts: List<CallPreconditionFact.CallToStart>
