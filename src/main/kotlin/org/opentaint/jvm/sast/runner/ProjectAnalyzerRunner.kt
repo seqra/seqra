@@ -57,6 +57,6 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
 
     companion object {
         @JvmStatic
-        fun main(args: Array<String>) = org.opentaint.jvm.sast.runner.ProjectAnalyzerRunner().main(args)
+        fun main(args: Array<String>) = ProjectAnalyzerRunner().main(args)
     }
 }

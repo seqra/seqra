@@ -294,7 +294,7 @@ private fun Predicate.prettyPrint(): String{
 }
 
 private fun MethodSignature.prettyPrint(): String =
-    "${enclosingClassName.name ?: "*"}.${methodName.name ?: "*"}"
+    "${enclosingClassName.name}.${methodName.name}"
 
 private fun MethodConstraint.prettyPrint(): String = when (this) {
     is ClassModifierConstraint -> "C@($modifier)"
@@ -305,7 +305,7 @@ private fun MethodConstraint.prettyPrint(): String = when (this) {
 
 private fun ParamConstraint.prettyPrint(): String {
     val position = when (position) {
-        is Position.Argument -> "Arg(${position.index?.toString() ?: "*"})"
+        is Position.Argument -> "Arg(${position.index.toString()})"
         Position.Object -> "Object"
         Position.Result -> "Result"
     }

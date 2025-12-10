@@ -106,7 +106,7 @@ private fun transformSemgrepRuleToAutomata(
                 a1 = addDummyMethodEnter(a1)
             }
             brzozowskiAlgorithm(metaVarInfo,
-                org.opentaint.semgrep.pattern.conversion.automata.operations.intersection(a1, a2, metaVarInfo)
+                intersection(a1, a2, metaVarInfo)
             )
         }
 
@@ -165,7 +165,7 @@ private fun addPositivePattern(
 ): SemgrepRuleAutomata {
     val actionListAutomata = convertActionListToAutomata(formulaManager, actionList)
     return brzozowskiAlgorithm(metaVarInfo,
-        org.opentaint.semgrep.pattern.conversion.automata.operations.intersection(
+        intersection(
             curAutomata,
             actionListAutomata,
             metaVarInfo
@@ -193,7 +193,7 @@ private fun addNegativePattern(
     }
     complement(actionListAutomata)
 
-    val intersect = org.opentaint.semgrep.pattern.conversion.automata.operations.intersection(
+    val intersect = intersection(
         curAutomata,
         actionListAutomata,
         metaVarInfo
@@ -228,7 +228,7 @@ private fun addPatternInside(
     val actionListAutomata = convertActionListToAutomata(formulaManager, actionList)
     addPatternStartAndEndOnEveryNode(actionListAutomata)
     return brzozowskiAlgorithm(metaVarInfo,
-        org.opentaint.semgrep.pattern.conversion.automata.operations.intersection(
+        intersection(
             actionListAutomata,
             curAutomata,
             metaVarInfo
@@ -298,7 +298,7 @@ private fun addPatternNotInside(
     complement(automataNotInside)
 
     return brzozowskiAlgorithm(metaVarInfo,
-        org.opentaint.semgrep.pattern.conversion.automata.operations.intersection(
+        intersection(
             mainAutomata,
             automataNotInside,
             metaVarInfo

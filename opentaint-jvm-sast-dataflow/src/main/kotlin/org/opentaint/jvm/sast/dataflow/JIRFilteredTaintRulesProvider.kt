@@ -8,7 +8,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 
 class JIRFilteredTaintRulesProvider(
     private val provider: TaintRulesProvider,
-    private val filter: org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRuleFilter
+    private val filter: TaintRuleFilter
 ) : TaintRulesProvider {
     override fun entryPointRulesForMethod(method: CommonMethod) =
         provider.entryPointRulesForMethod(method)

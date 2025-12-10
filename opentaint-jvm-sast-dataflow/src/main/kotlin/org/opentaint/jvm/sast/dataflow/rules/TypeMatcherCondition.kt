@@ -60,7 +60,7 @@ fun SerializedNameMatcher.toConditionNameMatcher(patternManager: PatternManager)
     }
 }
 
-private fun createPattern(pattern: String, patternManager: PatternManager): ConditionNameMatcher? {
+private fun createPattern(pattern: String, patternManager: PatternManager): ConditionNameMatcher {
     if (pattern.startsWith(".*")) {
         val suffix = pattern.removePrefix(".*")
         val concreteSuffix = tryConcretizePattern(suffix)
