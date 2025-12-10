@@ -67,7 +67,7 @@ func handleRegularFile(tr *tar.Reader, target string, hdr *tar.Header) error {
 		return fmt.Errorf("failed to create parent dir for file %s: %w", target, err)
 	}
 
-	outFile, err := os.Create(target)
+	outFile, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(hdr.Mode))
 	if err != nil {
 		return fmt.Errorf("failed to create file %s: %w", target, err)
 	}

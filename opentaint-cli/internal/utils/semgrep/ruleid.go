@@ -24,20 +24,13 @@ func GetRuleIdPathStart(userRulesPath string) string {
 }
 
 func GetSemgrepRuleId(seqraRuleId, absRulesPath, ruleStart string) string {
-	newRuleId, isCut := strings.CutPrefix(seqraRuleId, absRulesPath)
-	if isCut {
-		newRuleId = ruleStart + newRuleId
-	} else {
-		logrus.Errorf("Can't convert to semgrep RuleId format. '%s' not start with waited path '%s'", seqraRuleId, absRulesPath)
-		return seqraRuleId
-	}
-	idStart := strings.LastIndex(newRuleId, ":")
+	idStart := strings.LastIndex(seqraRuleId, ":")
 	if idStart == -1 {
 		logrus.Errorf("Can't convert to semgrep RuleId format. RuleId '%s' doesn't contain ':'", seqraRuleId)
 		return seqraRuleId
 	}
-	rulePath := newRuleId[:idStart]
-	justId := newRuleId[idStart+1:]
+	rulePath := seqraRuleId[:idStart]
+	justId := seqraRuleId[idStart+1:]
 	re := regexp.MustCompile(`\s+`)
 	cleanedRulePath := re.ReplaceAllString(rulePath, "")
 	ruleDirs := strings.Split(cleanedRulePath, string(os.PathSeparator))
