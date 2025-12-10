@@ -11,7 +11,7 @@ interface TaintAnalysisManager : AnalysisManager {
     override fun getMethodAnalysisContext(
         methodEntryPoint: MethodEntryPoint,
         graph: ApplicationGraph<CommonMethod, CommonInst>
-    ): org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext {
+    ): MethodAnalysisContext {
         error("Taint context required")
     }
 
@@ -19,5 +19,5 @@ interface TaintAnalysisManager : AnalysisManager {
         methodEntryPoint: MethodEntryPoint,
         graph: ApplicationGraph<CommonMethod, CommonInst>,
         taintAnalysisContext: TaintAnalysisContext,
-    ): org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
+    ): MethodAnalysisContext
 }

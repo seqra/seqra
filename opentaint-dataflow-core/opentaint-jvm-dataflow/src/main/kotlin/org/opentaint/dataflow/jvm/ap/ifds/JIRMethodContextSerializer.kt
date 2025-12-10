@@ -14,7 +14,7 @@ class JIRMethodContextSerializer(private val cp: JIRClasspath) : MethodContextSe
     override fun DataOutputStream.writeMethodContext(methodContext: MethodContext) {
         when (methodContext) {
             EmptyMethodContext -> writeEnum(ContextType.EMPTY)
-            is org.opentaint.dataflow.jvm.ap.ifds.JIRInstanceTypeMethodContext -> {
+            is JIRInstanceTypeMethodContext -> {
                 writeEnum(ContextType.JIR_INSTANCE_TYPE)
                 writeUTF(methodContext.type.name)
             }
@@ -28,7 +28,7 @@ class JIRMethodContextSerializer(private val cp: JIRClasspath) : MethodContextSe
             ContextType.EMPTY -> EmptyMethodContext
             ContextType.JIR_INSTANCE_TYPE -> {
                 val typeName = readUTF()
-                org.opentaint.dataflow.jvm.ap.ifds.JIRInstanceTypeMethodContext(cp.findClass(typeName))
+                JIRInstanceTypeMethodContext(cp.findClass(typeName))
             }
         }
     }

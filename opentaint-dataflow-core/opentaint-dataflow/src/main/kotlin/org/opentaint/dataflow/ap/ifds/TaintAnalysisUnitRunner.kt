@@ -66,8 +66,8 @@ class TaintAnalysisUnitRunner(
     private val eventPriorityQueue = PriorityQueue(EventComparator)
     private val workList: Channel<Any> = Channel(Channel.UNLIMITED)
 
-    private val analyzers = mutableListOf<org.opentaint.dataflow.ap.ifds.MethodAnalyzerStorage>()
-    private val methodAnalyzers = hashMapOf<CommonMethod, org.opentaint.dataflow.ap.ifds.MethodAnalyzerStorage>()
+    private val analyzers = mutableListOf<MethodAnalyzerStorage>()
+    private val methodAnalyzers = hashMapOf<CommonMethod, MethodAnalyzerStorage>()
     private val loadedSummaries = hashMapOf<MethodEntryPoint, Pair<List<Edge>, List<InitialFactAp>>>()
 
     private val internalMethodSummarySubscriptions = SummaryEdgeSubscriptionManager(manager, this)
@@ -223,12 +223,12 @@ class TaintAnalysisUnitRunner(
         body(analyzer)
     }
 
-    private fun methodAnalyzers(methodEntryPoint: MethodEntryPoint): org.opentaint.dataflow.ap.ifds.MethodAnalyzerStorage =
+    private fun methodAnalyzers(methodEntryPoint: MethodEntryPoint): MethodAnalyzerStorage =
         methodAnalyzers(methodEntryPoint.method)
 
-    private fun methodAnalyzers(method: CommonMethod): org.opentaint.dataflow.ap.ifds.MethodAnalyzerStorage =
+    private fun methodAnalyzers(method: CommonMethod): MethodAnalyzerStorage =
         methodAnalyzers.computeIfAbsent(method) {
-            org.opentaint.dataflow.ap.ifds.MethodAnalyzerStorage(analysisManager, taintRulesStatsSamplingPeriod).also {
+            MethodAnalyzerStorage(analysisManager, taintRulesStatsSamplingPeriod).also {
                 analyzers.add(it)
             }
         }

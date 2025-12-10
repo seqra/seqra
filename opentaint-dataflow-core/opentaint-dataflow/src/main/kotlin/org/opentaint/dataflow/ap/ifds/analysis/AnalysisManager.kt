@@ -21,7 +21,7 @@ interface AnalysisManager: LanguageManager {
     fun getMethodAnalysisContext(
         methodEntryPoint: MethodEntryPoint,
         graph: ApplicationGraph<CommonMethod, CommonInst>
-    ): org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
+    ): MethodAnalysisContext
 
     fun getMethodCallResolver(
         graph: ApplicationGraph<CommonMethod, CommonInst>,
@@ -31,29 +31,29 @@ interface AnalysisManager: LanguageManager {
 
     fun getMethodStartFlowFunction(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
+        analysisContext: MethodAnalysisContext,
     ): MethodStartFlowFunction
 
     fun getMethodStartPrecondition(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
+        analysisContext: MethodAnalysisContext,
     ): MethodStartPrecondition
 
     fun getMethodSequentPrecondition(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
+        analysisContext: MethodAnalysisContext,
         currentInst: CommonInst
     ): MethodSequentPrecondition
 
     fun getMethodSequentFlowFunction(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
+        analysisContext: MethodAnalysisContext,
         currentInst: CommonInst
     ): MethodSequentFlowFunction
 
     fun getMethodCallFlowFunction(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
+        analysisContext: MethodAnalysisContext,
         returnValue: CommonValue?,
         callExpr: CommonCallExpr,
         statement: CommonInst,
@@ -61,7 +61,7 @@ interface AnalysisManager: LanguageManager {
 
     fun getMethodCallPrecondition(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
+        analysisContext: MethodAnalysisContext,
         returnValue: CommonValue?,
         callExpr: CommonCallExpr,
         statement: CommonInst,
@@ -69,20 +69,20 @@ interface AnalysisManager: LanguageManager {
 
     fun getMethodCallSummaryHandler(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
+        analysisContext: MethodAnalysisContext,
         statement: CommonInst,
     ): MethodCallSummaryHandler
 
     fun isReachable(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
+        analysisContext: MethodAnalysisContext,
         base: AccessPathBase,
         statement: CommonInst
     ): Boolean
 
     fun isValidMethodExitFact(
         apManager: ApManager,
-        analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
+        analysisContext: MethodAnalysisContext,
         fact: FinalFactAp,
     ): Boolean
 
