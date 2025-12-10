@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.configuration.jvm
 
 import org.opentaint.ir.api.jvm.JIRType
+import java.util.Objects
 
 interface ConditionVisitor<out R> {
     fun visit(condition: ConstantTrue): R
@@ -78,11 +79,15 @@ data class ConstantMatches(
     override fun <R> accept(conditionVisitor: ConditionVisitor<R>): R = conditionVisitor.visit(this)
 }
 
+@Suppress("EqualsOrHashCode")
 data class ContainsMark(
     val position: Position,
     val mark: TaintMark,
 ) : Condition {
     override fun <R> accept(conditionVisitor: ConditionVisitor<R>): R = conditionVisitor.visit(this)
+
+    private val hash = Objects.hash(position, mark)
+    override fun hashCode(): Int = hash
 }
 
 data class TypeMatches(
