@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/docker/docker/api/types/container"
@@ -14,6 +13,7 @@ import (
 	"github.com/seqra/seqra/internal/container_run"
 	"github.com/seqra/seqra/internal/globals"
 	"github.com/seqra/seqra/internal/utils"
+	"github.com/seqra/seqra/internal/utils/java"
 	"github.com/seqra/seqra/internal/utils/log"
 )
 
@@ -90,7 +90,20 @@ func compile(absProjectRoot, absOutputProjectModelPath, compileType string) {
 	}
 
 	if _, err := os.Stat(absOutputProjectModelPath); err != nil {
-		logrus.Fatalf("There was a problem during the compile step, check the full logs: %s", globals.LogPath)
+		logrus.Errorf("There was a problem during the compile step, check the full logs: %s", globals.LogPath)
+		if ProjectPath != "" {
+			// Called from compile command - show suggestion
+			logrus.Info("")
+			logrus.Info("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based compilation:")
+			logrus.Infof("   %s", buildCompileCommandWithDocker(ProjectPath, OutputProjectModelPath))
+		}
+		return
+	}
+
+	if ProjectPath != "" {
+		logrus.Info("")
+		logrus.Info("Compilation successful! Next step: run security scan")
+		logrus.Infof("   %s", buildScanCommandFromCompile(ProjectPath, absOutputProjectModelPath))
 	}
 }
 
@@ -122,18 +135,22 @@ func compileWithDocker(absOutputProjectModelPath, absProjectRoot string, appendF
 }
 
 func compileWithNative(absOutputProjectModelPath, absProjectRoot string, appendFlags []string) {
+	// Get the path to the autobuilder JAR
 	autobuilderJarPath, err := utils.GetAutobuilderJarPath(globals.Config.Autobuilder.Version)
 	if err != nil {
-		logrus.Fatalf("Unexpected error occurred while trying to construct path to the autobuilder: %s", err)
+		logrus.Fatalf("Failed to construct path to the autobuilder: %s", err)
 	}
 
-	if _, err := os.Stat(autobuilderJarPath); errors.Is(err, os.ErrNotExist) {
-		err := utils.DownloadGithubReleaseAsset(globals.RepoOwner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token)
-		if err != nil {
-			logrus.Fatalf("Unexpected error occurred while trying to download autobuilder: %s", err)
+	// Download the autobuilder JAR if it doesn't exist
+	if _, err = os.Stat(autobuilderJarPath); errors.Is(err, os.ErrNotExist) {
+		logrus.Infof("Downloading autobuilder version %s", globals.Config.Autobuilder.Version)
+		if err = utils.DownloadGithubReleaseAsset(globals.RepoOwner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token); err != nil {
+			logrus.Fatalf("Failed to download autobuilder: %s", err)
 		}
+		logrus.Infof("Successfully downloaded autobuilder to %s", autobuilderJarPath)
 	}
 
+	// Build the command with all necessary arguments
 	autobuilderCommand := []string{
 		"-Xmx1G",
 		"-jar",
@@ -144,16 +161,19 @@ func compileWithNative(absOutputProjectModelPath, absProjectRoot string, appendF
 	}
 	autobuilderCommand = append(autobuilderCommand, appendFlags...)
 
-	cmd := exec.Command("java", autobuilderCommand...)
-	out, err := cmd.CombinedOutput()
-	logrus.Debugf("Autobuilder output:\n%s", string(out))
+	javaRunner := java.NewJavaRunner().TrySystem().TrySpecificVersion(java.DefaultJavaVersion).TrySpecificVersion(java.LegacyJavaVersion)
 
-	if err != nil {
-		logrus.Errorf("Autobuilder failed: %v", err)
+	commandSucceeded := func(_ error) bool {
+		if _, err = os.Stat(absOutputProjectModelPath); err != nil {
+			logrus.Errorf("Output project model path does not exist after autobuilder execution: %s", absOutputProjectModelPath)
+			logrus.Error("Autobuilder failed to compile the project")
+			return false
+		}
+		return true
 	}
-
-	exitCode := cmd.ProcessState.ExitCode()
-	if exitCode != 0 {
-		logrus.Errorf("Autobuilder exited with code %d", exitCode)
+	// Execute the command using JavaRunner
+	_, err = javaRunner.ExecuteJavaCommand(autobuilderCommand, commandSucceeded)
+	if err != nil {
+		logrus.Errorf("Native compilation has failed: %s", err)
 	}
 }

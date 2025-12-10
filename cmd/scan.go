@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -20,7 +19,9 @@ import (
 	"github.com/seqra/seqra/internal/load_errors"
 	"github.com/seqra/seqra/internal/sarif"
 	"github.com/seqra/seqra/internal/utils"
+	"github.com/seqra/seqra/internal/utils/java"
 	"github.com/seqra/seqra/internal/utils/log"
+	"github.com/seqra/seqra/internal/utils/project"
 )
 
 var UserProjectPath string
@@ -113,6 +114,15 @@ func scan() {
 		logrus.Infof("Temporary project model: %s", absProjectModelPath)
 	} else {
 		logrus.Infof("Project model: %s", absProjectModelPath)
+	}
+
+	var sourceRoot string
+	if !tempProjectModel {
+		if parsedSourceRoot, err := project.GetSourceRoot(absProjectModelPath); err != nil {
+			logrus.Fatalf("Failed to parse sourceRoot from project.yaml: %v", err)
+		} else {
+			sourceRoot = parsedSourceRoot
+		}
 	}
 
 	var resultbase = defaultDataPath
@@ -210,6 +220,22 @@ func scan() {
 
 	if tempProjectModel {
 		compile(absUserProjectRoot, tempProjectModelPath, globals.Config.Compile.Type)
+		// Check if compilation succeeded
+		if _, err := os.Stat(tempProjectModelPath); err != nil {
+			// Compilation failed, provide scan-specific suggestion
+			logrus.Info("")
+			logrus.Info("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based compilation:")
+			logrus.Infof("   %s", buildScanCommandWithDocker(
+				UserProjectPath,
+				SarifReportPath,
+				globals.Config.Scan.Ruleset,
+				RuleSetLoadErrorsPath,
+				globals.Config.Scan.Timeout,
+				SemgrepCompatibilitySarif,
+				globals.Config.Scan.Type,
+			))
+			return
+		}
 	}
 
 	logrus.Infof("Scan mode: %s", globals.Config.Scan.Type)
@@ -237,13 +263,10 @@ func scan() {
 	} else {
 		logrus.Info()
 		logrus.Infof("Full report: %s", absSarifReportPath)
-		logrus.Infof("You can view findings by run: seqra summary --show-findings %s", absSarifReportPath)
+		logrus.Infof("You can view findings by run:")
+		logrus.Infof("   seqra summary --show-findings %s", absSarifReportPath)
 
-		if tempProjectModel {
-			report.UpdateURIInfo(absUserProjectRoot + "/")
-		} else {
-			report.UpdateURIInfo(absProjectModelPath + "/sources/")
-		}
+        report.UpdateURIInfo(sourceRoot + "/")
 
 		if SemgrepCompatibilitySarif {
 			report.UpdateRuleId(absRuleSetPath, userRuleSetPath)
@@ -293,52 +316,25 @@ func scanWithDocker(analyzerFlags []string, envCont []string, hostConfig *contai
 }
 
 func scanWithNative(absProjectModelPath, absSarifReportPath, absRuleSetPath, absRulesetLoadErrorsPath string, analyzerFlags []string) {
-	// Check if Java 17+ is available
-	javaVersion, err := utils.CheckJavaVersion()
-	if err != nil {
-		logrus.Fatalf("Analyzer requires Java 17+: %s", err)
-	}
-	logrus.Infof("Using Java version: %d", javaVersion)
-
+	// Get the path to the analyzer JAR
 	analyzerJarPath, err := utils.GetAnalyzerJarPath(globals.Config.Analyzer.Version)
 	if err != nil {
-		logrus.Fatalf("Unexpected error occurred while trying to construct path to the analyzer: %s", err)
+		logrus.Fatalf("Failed to construct path to the analyzer: %s", err)
 	}
 
+	// Download the analyzer JAR if it doesn't exist
 	if _, err := os.Stat(analyzerJarPath); errors.Is(err, os.ErrNotExist) {
-		err := utils.DownloadGithubReleaseAsset(globals.RepoOwner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token)
-		if err != nil {
-			logrus.Fatalf("Unexpected error occurred while trying to download analyzer: %s", err)
+		logrus.Infof("Downloading analyzer version %s", globals.Config.Analyzer.Version)
+		if err := utils.DownloadGithubReleaseAsset(globals.RepoOwner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token); err != nil {
+			logrus.Fatalf("Failed to download analyzer: %s", err)
 		}
+		logrus.Infof("Successfully downloaded analyzer to %s", analyzerJarPath)
 	}
 
 	// Convert Docker paths to native paths for analyzer flags
-	nativeAnalyzerFlags := make([]string, 0, len(analyzerFlags))
-	for i := 0; i < len(analyzerFlags); i++ {
-		flag := analyzerFlags[i]
-		switch flag {
-		case "--project":
-			nativeAnalyzerFlags = append(nativeAnalyzerFlags, "--project", filepath.Join(absProjectModelPath, "project.yaml"))
-			i++ // Skip the next argument as it's the Docker path
-		case "--output-dir":
-			outputDir := filepath.Dir(absSarifReportPath)
-			nativeAnalyzerFlags = append(nativeAnalyzerFlags, "--output-dir", outputDir)
-			i++ // Skip the next argument as it's the Docker path
-		case "--semgrep-rule-set":
-			if absRuleSetPath != "" {
-				nativeAnalyzerFlags = append(nativeAnalyzerFlags, "--semgrep-rule-set", absRuleSetPath)
-			}
-			i++ // Skip the next argument as it's the Docker path
-		case "--semgrep-rule-load-errors":
-			if absRulesetLoadErrorsPath != "" {
-				nativeAnalyzerFlags = append(nativeAnalyzerFlags, "--semgrep-rule-load-errors", absRulesetLoadErrorsPath)
-			}
-			i++ // Skip the next argument as it's the Docker path
-		default:
-			nativeAnalyzerFlags = append(nativeAnalyzerFlags, flag)
-		}
-	}
+	nativeAnalyzerFlags := convertDockerFlagsToNative(analyzerFlags, absProjectModelPath, absSarifReportPath, absRuleSetPath, absRulesetLoadErrorsPath)
 
+	// Build the command with all necessary arguments
 	analyzerCommand := []string{
 		"-Xmx8G",
 		"-Dorg.seqra.ir.impl.storage.defaultBatchSize=2000",
@@ -348,31 +344,66 @@ func scanWithNative(absProjectModelPath, absSarifReportPath, absRuleSetPath, abs
 	}
 	analyzerCommand = append(analyzerCommand, nativeAnalyzerFlags...)
 
-	cmd := exec.Command("java", analyzerCommand...)
-	out, err := cmd.CombinedOutput()
-	logrus.Debugf("Analyzer output:\n%s", string(out))
+	javaRunner := java.NewJavaRunner().TrySpecificVersion(java.DefaultJavaVersion)
+
+	commandSucceeded := func(err error) bool {
+		if err != nil {
+			logrus.Errorf("Analyzer failed: %v", err)
+			return false
+		}
+		return true
+	}
+	// Execute the command using JavaRunner
+	_, err = javaRunner.ExecuteJavaCommand(analyzerCommand, commandSucceeded)
 
 	if err != nil {
-		logrus.Errorf("Analyzer failed: %v", err)
+		logrus.Errorf("Native scan has failed: %s", err)
+	} else {
+		renameSarifReport(absSarifReportPath)
 	}
+}
 
-	exitCode := cmd.ProcessState.ExitCode()
-	if exitCode != 0 {
-		logrus.Errorf("Analyzer exited with code %d", exitCode)
+func convertDockerFlagsToNative(analyzerFlags []string, absProjectModelPath, absSarifReportPath, absRuleSetPath, absRulesetLoadErrorsPath string) []string {
+	nativeFlags := make([]string, 0, len(analyzerFlags))
+	for i := 0; i < len(analyzerFlags); i++ {
+		flag := analyzerFlags[i]
+		switch flag {
+		case "--project":
+			nativeFlags = append(nativeFlags, "--project", filepath.Join(absProjectModelPath, "project.yaml"))
+			i++ // Skip the next argument (Docker path)
+		case "--output-dir":
+			outputDir := filepath.Dir(absSarifReportPath)
+			nativeFlags = append(nativeFlags, "--output-dir", outputDir)
+			i++ // Skip the next argument (Docker path)
+		case "--semgrep-rule-set":
+			if absRuleSetPath != "" {
+				nativeFlags = append(nativeFlags, "--semgrep-rule-set", absRuleSetPath)
+			}
+			i++ // Skip the next argument (Docker path)
+		case "--semgrep-rule-load-errors":
+			if absRulesetLoadErrorsPath != "" {
+				nativeFlags = append(nativeFlags, "--semgrep-rule-load-errors", absRulesetLoadErrorsPath)
+			}
+			i++ // Skip the next argument (Docker path)
+		default:
+			nativeFlags = append(nativeFlags, flag)
+		}
 	}
+	return nativeFlags
+}
 
-	// Rename the generated SARIF report from outputDir/report-ifds.sarif to absSarifReportPath
+func renameSarifReport(absSarifReportPath string) {
 	outputDir := filepath.Dir(absSarifReportPath)
 	generatedSarifPath := filepath.Join(outputDir, "report-ifds.sarif")
 	if _, err := os.Stat(generatedSarifPath); err == nil {
 		if generatedSarifPath != absSarifReportPath {
 			if err := os.Rename(generatedSarifPath, absSarifReportPath); err != nil {
-				logrus.Errorf("Failed to rename SARIF report from %s to %s: %v", generatedSarifPath, absSarifReportPath, err)
+				logrus.Debugf("Failed to rename SARIF report from %s to %s: %v", generatedSarifPath, absSarifReportPath, err)
 			} else {
 				logrus.Debugf("Successfully renamed SARIF report from %s to %s", generatedSarifPath, absSarifReportPath)
 			}
 		}
 	} else {
-		logrus.Warnf("Generated SARIF report not found at %s", generatedSarifPath)
+		logrus.Debugf("Generated SARIF report not found at %s", generatedSarifPath)
 	}
 }

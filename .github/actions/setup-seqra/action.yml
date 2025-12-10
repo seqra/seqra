@@ -1,0 +1,23 @@
+name: 'Setup Seqra'
+description: 'Fix git safe directory, setup Go, and build seqra'
+
+inputs:
+  go-version:
+    description: 'Go version to use'
+    required: false
+    default: '^1.13.1'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Fix git safe directory
+      uses: ./.github/actions/fix-git-safe-directory
+
+    - uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go-version }}
+
+    - name: Build
+      shell: bash
+      run: |
+        go build

@@ -1,3 +1,40 @@
+## v1.6.0
+### feat: Add `project` command, rework compilation, update README
+- feat: Add `project` command
+- docs: Update README.md
+- feat: Rework native compilation logic
+#### seqra-jvm-sast
+- Use dependencies from infra
+- Update project model
+- Consider project package
+- Test project analyzer
+- Update core
+- AST-based column resolver
+- Add dependencies version on CI
+- Fix ci container
+- Publish with dependencies image
+- Publish workflow dispatch
+- Dependencies image
+- Fix tree any accessor
+- Fix rule ids
+- More on annotations & is-null 
+- Spring annotation inheritance & minor fixes
+- Update core
+- Remove absolute paths from rule ids
+- Rewrite taint mark name generation
+- Minor fixes
+- Add lambda captures resolution
+- Add apache FilenameUtils
+- Support join with taint rules
+- Initial join rules support
+#### seqra-jvm-autobuilder
+- Login to ghcr with seqra token
+- Use infra dependencies
+- Support subdir copy
+- Use push instead of load
+- Dependencies docker
+- Downgrade `logback` to be compatible with Java 8
+- Add Maven executable search list
 ## v1.5.2
 ### fix: Bump version
 ## v1.5.1

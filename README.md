@@ -31,6 +31,7 @@ https://github.com/user-attachments/assets/ddaa55de-8623-4f1a-be3e-f66d34b7336d
   * [CI/CD Integration](#cicd-integration)
 - [Features](#features)
   * [Spring Boot Endpoint Extraction](docs/spring-boot-endpoints.md)
+  * [Precompiled Classes and JARs Analysis](docs/classes-and-jars-analysis.md)
 - [Troubleshooting](#troubleshooting)
   * [Docker not running](#docker-not-running)
   * [Build Issues](#build-issues)
@@ -50,6 +51,12 @@ The [core analysis engine](https://github.com/seqra/seqra-jvm-sast) is source-av
 Seqra automatically extracts URL path information from Spring Boot applications and includes controller-to-endpoint mappings in SARIF reports. This feature helps identify the web attack surface of your application by mapping security findings to specific HTTP endpoints.
 
 [Learn more about Spring Boot endpoint extraction](docs/spring-boot-endpoints.md)
+
+## Precompiled Classes and JARs Analysis
+
+Seqra supports analyzing precompiled classes and JARs through a `project.yaml` configuration file. This enables security analysis when you cannot compile the project due to missing sources or unavailable build environment.
+
+[Learn more about precompiled classes and JARs analysis](docs/classes-and-jars-analysis.md)
 
 # Install Seqra
 
@@ -85,7 +92,7 @@ sudo ln -s $(pwd)/seqra /usr/local/bin/seqra
 
 ## Install via Go (Linux/macOS)
 
-**Prerequisites:** Go 1.19+ is required. If you don't have Go installed:
+**Prerequisites:** Go 1.24+ is required. If you don't have Go installed:
 - **Linux:** Follow the [official Go installation guide](https://golang.org/doc/install) or use your package manager (e.g., `sudo apt install golang-go` on Ubuntu)
 - **macOS:** Install via [Homebrew](https://brew.sh/): `brew install go` or download from [golang.org](https://golang.org/dl/)
 

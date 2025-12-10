@@ -18,17 +18,47 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Workaround for escape error `fatal: detected dubious ownership in repository at`
-      # https://github.com/actions/checkout/issues/1048#issuecomment-2768908874
-      - name: Fix repo for release
-        run: |
-          git status || git config --global --add safe.directory $GITHUB_WORKSPACE
+      - name: Fix git safe directory
+        uses: ./.github/actions/fix-git-safe-directory
 
       - name: Build and lint
         uses: ./.github/actions/build-and-lint
         with:
           GO_VERSION: ${{ env.GO_VERSION }}
           GOLANGCI_LINT_VERSION: ${{ env.GOLANGCI_LINT_VERSION }}
+
+      - name: Run all tests
+        run: |
+          go test ./... -v -count=1
+
+  run-on-petclinic-without-installed-java-17:
+    runs-on: ubuntu-latest
+    container: golang:1.24
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup seqra
+        uses: ./.github/actions/setup-seqra
+        with:
+          go-version: '^1.13.1'
+
+      - uses: actions/checkout@v4
+        with:
+          repository: spring-projects/spring-petclinic
+          path: project-root-java-11
+          ref: a5cbb8505a1df3c348c06607933a07fc8c87c222
+          fetch-depth: 0
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Run seqra scan in native environment when user can build project but has no java 17+
+        run: |
+          ./seqra scan --compile-type native --scan-type native --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output report.sarif project-root-java-11 --verbosity debug
 
   run-on-petclinic:
     runs-on: ubuntu-latest
@@ -37,25 +67,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Workaround for escape error `fatal: detected dubious ownership in repository at`
-      # https://github.com/actions/checkout/issues/1048#issuecomment-2768908874
-      - name: Fix repo for release
-        run: |
-          git status || git config --global --add safe.directory $GITHUB_WORKSPACE
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '^1.13.1' # The Go version to download (if necessary) and use.
-
-      - name: Build
-        run: |
-          go build
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
+      - name: Setup seqra
+        uses: ./.github/actions/setup-seqra
 
       - uses: actions/checkout@v4
         with:
@@ -64,10 +77,16 @@ jobs:
           ref: 30aab0ae764ad845b5eedd76028756835fec771f
           fetch-depth: 0
 
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
       - name: Run seqra separate compile and scan
         run: |
-          ./seqra compile --quiet --compile-type docker --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output portable-project project-root
-          ./seqra scan --quiet --scan-type docker --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output report.sarif portable-project
+          ./seqra compile --quiet --compile-type docker --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output portable-project project-root --verbosity debug
+          ./seqra scan --quiet --scan-type docker --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output report.sarif portable-project --verbosity debug
 
       - name: Run seqra scan in native enviroment
         run: |

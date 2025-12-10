@@ -1,0 +1,12 @@
+name: 'Fix Git Safe Directory'
+description: 'Workaround for fatal: detected dubious ownership in repository'
+
+runs:
+  using: 'composite'
+  steps:
+    # Workaround for escape error `fatal: detected dubious ownership in repository at`
+    # https://github.com/actions/checkout/issues/1048#issuecomment-2768908874
+    - name: Fix repo for release
+      shell: bash
+      run: |
+        git status || git config --global --add safe.directory $GITHUB_WORKSPACE

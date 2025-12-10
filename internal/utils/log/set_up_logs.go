@@ -51,13 +51,37 @@ type colorMessageFormatter struct {
 }
 
 func (f *colorMessageFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	// Build fields string if any exist
+	var fieldsStr string
+	if len(entry.Data) > 0 {
+		// Stable ordering for fields
+		keys := make([]string, 0, len(entry.Data))
+		for k := range entry.Data {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		var parts []string
+		for _, k := range keys {
+			parts = append(parts, fmt.Sprintf("%s=%v", k, entry.Data[k]))
+		}
+		fieldsStr = " " + strings.Join(parts, " ")
+	}
+
+	var message string
+	if fieldsStr != "" {
+		message = fieldsStr + " " + entry.Message
+	} else {
+		message = entry.Message
+	}
+
 	if !f.Enabled {
-		return []byte(entry.Message + "\n"), nil
+		return []byte(message + "\n"), nil
 	}
 
 	color := levelColor(entry.Level)
 	reset := "\x1b[0m"
-	return []byte(color + entry.Message + reset + "\n"), nil
+	return []byte(color + message + reset + "\n"), nil
 }
 
 func levelColor(lvl logrus.Level) string {
