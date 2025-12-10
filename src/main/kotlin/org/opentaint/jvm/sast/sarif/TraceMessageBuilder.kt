@@ -170,7 +170,10 @@ class TraceMessageBuilder(
         // filtering Call trace entries that contain unexpected Remove actions
         if (primaryAction == null) {
             if (node.entry.otherActions.all {
-                    it is TraceEntryAction.CallRuleAction && (it.action is RemoveMark || it.action is RemoveAllMarks)
+                    if (it !is TraceEntryAction.CallRuleAction) return@all true
+
+                    val action = it.action.first() // todo: action.first
+                    (action is RemoveMark || action is RemoveAllMarks)
                 }) {
                 logger.warn {
                     "Trace entry on line ${traits.lineNumber(node.statement)} because of unexpected Remove action!"
@@ -655,12 +658,14 @@ class TraceMessageBuilder(
     }
 
     private fun TraceEntryAction.EntryPointSourceRule.createMessage(node: TracePathNode): String {
+        val action = this.action.first() // todo: action.first
         val pos = action.getTainted(node)
         val mark = getMarkVarName(action, "tainted") ?: "tainted"
         return "Potential $mark data at $pos of the method"
     }
 
     private fun TraceEntryAction.CallRule.createMessage(node: TracePathNode): String {
+        val action = this.action.first() // todo: action.first
         if (action is CopyMark || action is CopyAllMarks) {
             val taintSource = action.getTainted(node)
             val taintFollow = action.getPropagated(node)
@@ -681,6 +686,8 @@ class TraceMessageBuilder(
 
     private fun TraceEntryAction.CallSourceRule.createMessage(node: TracePathNode): String {
         val neutralMark = printMarks(collectDataflow(edges.toList()).follows)
+
+        val action = this.action.first() // todo: action.first
         return createMethodCallTaintCreationMessage(node, action, neutralMark)
     }
 
