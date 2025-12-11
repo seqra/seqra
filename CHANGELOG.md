@@ -1,3 +1,7 @@
+## v1.6.1
+### fix: Revert project cmd, update prerelease, add pre-release gen
+- fix: Revert `project` command
+- chore: Add pre-release generation for every `release/**` branch
 ## v1.6.0
 ### feat: Add `project` command, rework compilation, update README
 - feat: Add `project` command
