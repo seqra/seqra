@@ -2,8 +2,8 @@
   "branches": [
     "main",
     {
-      "name": "release*",
-      "prerelease": true
+      "name": "release/**",
+      "prerelease": "${name.split('/').slice(0, 2).join('-').toLowerCase()}"
     }
   ],
   "ci": false,

@@ -17,3 +17,6 @@ archives:
 checksum:
   name_template: 'checksums.txt'
   algorithm: sha256
+
+release:
+  prerelease: auto
