@@ -9,11 +9,11 @@ const GithubDockerHost = "ghcr.io"
 const RepoOwner = "seqra"
 
 const AnalyzerDocker = GithubDockerHost + "/" + RepoOwner + "/seqra-jvm-sast/sast-analyzer"
-const AnalyzerBindVersion = "2025.12.11.a1a1dd8"
+const AnalyzerBindVersion = "2025.12.11.cc19ed0"
 
 const AutobuilderRepoName = "seqra-jvm-autobuilder"
 const AutobuilderDocker = GithubDockerHost + "/" + RepoOwner + "/" + AutobuilderRepoName + "/sast-autobuilder"
-const AutobuilderBindVersion = "2025.12.11.779210a"
+const AutobuilderBindVersion = "2025.12.11.030dad4"
 const AutobuilderAssetName = "seqra-project-auto-builder.jar"
 
 const AnalyzerRepoName = "seqra-jvm-sast"

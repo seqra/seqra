@@ -52,12 +52,6 @@ Seqra automatically extracts URL path information from Spring Boot applications 
 
 [Learn more about Spring Boot endpoint extraction](docs/spring-boot-endpoints.md)
 
-## Precompiled Classes and JARs Analysis
-
-Seqra supports analyzing precompiled classes and JARs through a `project.yaml` configuration file. This enables security analysis when you cannot compile the project due to missing sources or unavailable build environment.
-
-[Learn more about precompiled classes and JARs analysis](docs/classes-and-jars-analysis.md)
-
 # Install Seqra
 
 ### Prerequisites:
