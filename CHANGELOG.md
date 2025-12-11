@@ -1,3 +1,6 @@
+## v1.6.2
+### fix: Bump version
+- docs: Revert `project` docs
 ## v1.6.1
 ### fix: Revert project cmd, update prerelease, add pre-release gen
 - fix: Revert `project` command
