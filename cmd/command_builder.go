@@ -144,7 +144,7 @@ func buildScanCommandWithDocker(projectPath, sarifReportPath, rulesetPath, rules
 // suggesting the next step with the compiled project model.
 func buildScanCommandFromCompile(projectPath, projectModelPath string) string {
 	// Suggest output path based on project path
-	outputPath := fmt.Sprintf("%s.sarif", projectPath)
+	outputPath := fmt.Sprintf("%s/seqra.sarif", projectPath)
 
 	return NewScanCommand(projectModelPath).
 		WithOutput(outputPath).

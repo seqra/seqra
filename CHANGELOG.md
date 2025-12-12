@@ -1,3 +1,6 @@
+## v1.7.0
+### feat: Add `project` command
+- feat: Add `project` command
 ## v1.6.2
 ### fix: Bump version
 - docs: Revert `project` docs
