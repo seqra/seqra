@@ -104,7 +104,7 @@ The project command intelligently handles path resolution:
 #### Single Module Project
 
 ```bash
-seqra project --output . --source-root . \
+seqra project --output project-model --source-root sources \
   --classpath target/classes \
   --package com.example.myapp
 ```
@@ -112,7 +112,7 @@ seqra project --output . --source-root . \
 #### Multi-Module Project with Dependencies
 
 ```bash
-seqra project --output . --source-root . \
+seqra project --output project-model --source-root sources \
   --dependency lib/spring-boot-starter-web-3.2.0.jar \
   --dependency lib/jackson-core-2.15.2.jar \
   --classpath module-core/target/classes \
@@ -157,7 +157,7 @@ The scan command automatically detects whether the provided path contains a `pro
 
 ### Maven Project
 ```bash
-seqra project --output . --source-root . \
+seqra project --output project-model --source-root sources \
   --classpath target/classes \
   --package com.example.app \
   --dependency ~/.m2/repository/org/springframework/spring-core/6.0.0/spring-core-6.0.0.jar
@@ -165,7 +165,7 @@ seqra project --output . --source-root . \
 
 ### Gradle Project
 ```bash
-seqra project --output . --source-root . \
+seqra project --output project-model --source-root sources \
   --classpath build/classes/java/main \
   --package com.example.app \
   --dependency build/libs/dependencies/guava-32.1.2-jre.jar
@@ -173,7 +173,7 @@ seqra project --output . --source-root . \
 
 ### Legacy Project with Multiple JARs
 ```bash
-seqra project --output . --source-root src \
+seqra project --output project-model --source-root sources \
   --classpath dist/app.jar \
   --classpath dist/utils.jar \
   --package com.legacy.app \
