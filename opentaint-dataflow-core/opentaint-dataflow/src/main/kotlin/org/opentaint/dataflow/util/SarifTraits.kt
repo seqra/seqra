@@ -12,6 +12,7 @@ interface SarifTraits<out Method, out Statement>
 
     fun getCallee(callExpr: CommonCallExpr): Method
     fun getCalleeClassName(callExpr: CommonCallExpr): String
+    fun getMethodClassName(md: @UnsafeVariance Method): String
     fun getCallExpr(statement: @UnsafeVariance Statement): CommonCallExpr?
     fun getAssign(statement: @UnsafeVariance Statement): CommonAssignInst?
     fun getReadableValue(statement: @UnsafeVariance Statement, expr: CommonExpr): String?
@@ -21,7 +22,8 @@ interface SarifTraits<out Method, out Statement>
     fun getLocals(expr: CommonExpr): List<LocalInfo>
     fun isRegister(name: String): Boolean
     fun getLocalName(md: @UnsafeVariance Method, index: Int): String?
-    fun printArgument(index: Int): String
+    fun printArgumentNth(index: Int): String
+    fun printArgument(statement: @UnsafeVariance Statement, index: Int): String
     fun printThis(statement: @UnsafeVariance Statement): String
 
     fun lineNumber(statement: @UnsafeVariance Statement): Int

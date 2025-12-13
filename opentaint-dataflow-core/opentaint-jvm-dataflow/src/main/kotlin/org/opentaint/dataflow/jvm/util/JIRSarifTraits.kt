@@ -16,6 +16,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
 import org.opentaint.ir.api.jvm.cfg.values
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.ir.api.jvm.ext.toType
@@ -61,11 +62,31 @@ class JIRSarifTraits(
         return "$i$suffix"
     }
 
-    override fun printThis(statement: JIRInst) =
-        if (getCallExpr(statement)?.let { getCallee(it).name } == "<init>") "the created object" else "the calling object"
+    private fun getReadableInstance(statement: JIRInst) =
+        if (statement !is JIRInstanceCallExpr)
+            null
+        else
+            getReadableValue(statement, statement.instance)
 
-    override fun printArgument(index: Int) =
+    override fun printThis(statement: JIRInst) =
+        if (getCallExpr(statement)?.let { getCallee(it).name } == "<init>") {
+            "the created object"
+        }
+        else {
+            getReadableInstance(statement) ?: "the calling object"
+        }
+
+    override fun printArgumentNth(index: Int) =
         "the ${getOrdinal(index + 1)} argument"
+
+    override fun printArgument(statement: JIRInst, index: Int): String {
+        if (statement is JIRCallExpr && index <= statement.args.size) {
+            val readableArg = tryGetReadableValue(statement, statement.args[index])
+            if (readableArg is ReadableValue.Value)
+                return readableArg.string
+        }
+        return printArgumentNth(index)
+    }
 
     override fun getCallee(callExpr: CommonCallExpr): JIRMethod {
         check(callExpr is JIRCallExpr)
@@ -77,39 +98,63 @@ class JIRSarifTraits(
         return callExpr.callee.enclosingClass.simpleName
     }
 
+    override fun getMethodClassName(md: JIRMethod): String {
+        return md.enclosingClass.simpleName
+    }
+
     override fun getCallExpr(statement: JIRInst): JIRCallExpr? {
         return statement.callExpr
     }
 
-    override fun getReadableValue(statement: JIRInst, expr: CommonExpr): String? {
+    sealed interface ReadableValue {
+        data class Value(val string: String) : ReadableValue {
+            override fun toString() =
+                string
+        }
+
+        data object UnparsedArrayAccess : ReadableValue
+
+        data object UnparsedLocalVar : ReadableValue
+    }
+
+    private fun tryGetReadableValue(statement: JIRInst, expr: CommonExpr): ReadableValue? {
         if (expr !is JIRValue) return null
         return when (expr) {
-            is JIRFieldRef -> "\"${expr.instance ?: expr.field.enclosingType.jIRClass.simpleName}.${expr.field.name}\""
-            is JIRArgument -> printArgument(expr.index)
+            is JIRFieldRef -> ReadableValue.Value("\"${expr.instance ?: expr.field.enclosingType.jIRClass.simpleName}.${expr.field.name}\"")
+            is JIRArgument -> ReadableValue.Value(printArgument(statement, expr.index))
             is JIRArrayAccess -> {
-                val arrName = getReadableValue(statement, expr.array)
-                val elemName = getReadableValue(statement, expr.index)
-                if (arrName == null || isRegister(arrName))
-                    "an element of array"
-                else
-                    if (elemName == null || isRegister(elemName))
-                        "an element of \"$arrName\""
+                val arrName = tryGetReadableValue(statement, expr.array)
+                val elemName = tryGetReadableValue(statement, expr.index)
+                if (arrName is ReadableValue.Value)
+                    if (elemName is ReadableValue.Value)
+                        ReadableValue.Value("\"$arrName[$elemName]\"")
                     else
-                        "\"$arrName[$elemName]\""
+                        ReadableValue.Value("an element of \"$arrName\"")
+                else
+                    ReadableValue.UnparsedArrayAccess
             }
             is JIRLocalVar -> {
                 if (!isRegister(expr.name))
-                    "\"${expr.name}\""
+                    ReadableValue.Value("\"${expr.name}\"")
                 else {
                     val name = getLocalName(statement.enclosingMethod, expr.index)
                     if (name == null || isRegister(name))
-                        "a local variable"
+                        ReadableValue.UnparsedLocalVar
                     else
-                        "\"name\""
+                        ReadableValue.Value("\"name\"")
                 }
             }
-            is JIRThis -> printThis(statement)
-            else -> expr.toString()
+            is JIRThis -> ReadableValue.Value(printThis(statement))
+            else -> ReadableValue.Value(expr.toString())
+        }
+    }
+
+    override fun getReadableValue(statement: JIRInst, expr: CommonExpr): String? {
+        val value = tryGetReadableValue(statement, expr) ?: return null
+        return when (value) {
+            is ReadableValue.Value -> value.string
+            is ReadableValue.UnparsedLocalVar -> "a local variable"
+            is ReadableValue.UnparsedArrayAccess -> "an element of array"
         }
     }
 
