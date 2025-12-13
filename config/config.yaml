@@ -9,6 +9,18 @@ passThrough:
   copy:
   - from: this
     to: result
+- function: org.springframework.web.util.HtmlUtils#htmlEscape
+  copy:
+    - from: arg(0)
+      to: result
+- function: org.springframework.web.util.HtmlUtils#htmlEscapeDecimal
+  copy:
+    - from: arg(0)
+      to: result
+- function: org.springframework.web.util.HtmlUtils#htmlEscapeHex
+  copy:
+    - from: arg(0)
+      to: result
 - function: java.io.BufferedReader#lines
   signature: () java.util.stream.Stream
   copy:

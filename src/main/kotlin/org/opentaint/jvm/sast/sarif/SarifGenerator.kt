@@ -188,10 +188,7 @@ class SarifGenerator(
         val flowLocations = groupsWithMsges.mapIndexed { idx, groupNode ->
             val insnLoc =
                 if (groupNode.node.entry is MethodTraceResolver.TraceEntry.MethodEntry
-
-                    // todo
-                    /*|| groupNode.node.entry is MethodTraceResolver.TraceEntry.EntryPointSourceRule*/
-
+                    || with (messageBuilder) { groupNode.node.entry.isPureEntryPoint() }
                     ) {
                     // this is an attempt to highlight the method signature instead of its first bytecode instruction
                     // for the MethodEntry traces
