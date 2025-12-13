@@ -22,6 +22,7 @@ import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
 import org.opentaint.dataflow.util.SarifTraits
+import org.opentaint.semgrep.pattern.RuleMetadata
 import java.io.OutputStream
 
 class SarifGenerator(
@@ -44,11 +45,12 @@ class SarifGenerator(
     @OptIn(ExperimentalSerializationApi::class)
     fun generateSarif(
         output: OutputStream,
-        traces: Sequence<VulnerabilityWithTrace>
+        traces: Sequence<VulnerabilityWithTrace>,
+        metadatas: List<RuleMetadata>
     ) {
         val sarifResults = traces.map { generateSarifResult(it.vulnerability, it.trace) }
         val run = LazyToolRunReport(
-            tool = generateSarifAnalyzerToolDescription(),
+            tool = generateSarifAnalyzerToolDescription(metadatas),
             results = sarifResults,
         )
 

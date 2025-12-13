@@ -30,6 +30,7 @@ import org.opentaint.semgrep.pattern.SemgrepFileErrors
 import org.opentaint.semgrep.pattern.SemgrepRuleLoader
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import org.opentaint.semgrep.pattern.createTaintConfig
+import org.opentaint.semgrep.pattern.RuleMetadata
 import java.io.OutputStream
 import java.nio.file.Path
 import kotlin.io.path.div
@@ -57,6 +58,8 @@ class ProjectAnalyzer(
     private val storeSummaries: Boolean,
     private val debugOptions: DebugOptions
 ) {
+    private val ruleMetadatas = mutableListOf<RuleMetadata>()
+
     fun analyze() {
         val projectAnalysisContext = initializeProjectAnalysisContext(
             project, projectPackage, projectKind,
@@ -141,11 +144,13 @@ class ProjectAnalyzer(
 
             val semgrepFileErrors = SemgrepFileErrors(ruleName.toString())
             semgrepFilesError += semgrepFileErrors
-            rules += loader.loadRuleSet(
+            val (loadedRules, loadedMetadatas) = loader.loadRuleSet(
                 ruleText,
                 ruleName.toString(),
                 semgrepFileErrors
-            )
+            ).unzip()
+            rules += loadedRules
+            ruleMetadatas += loadedMetadatas
         }
         return rules
     }
@@ -205,7 +210,7 @@ class ProjectAnalyzer(
         traces: List<VulnerabilityWithTrace>
     ) {
         val generator = SarifGenerator(sourceFileResolver, JIRSarifTraits(cp))
-        generator.generateSarif(output, traces.asSequence())
+        generator.generateSarif(output, traces.asSequence(), ruleMetadatas)
         logger.info { "Sarif trace generation stats: ${generator.traceGenerationStats}" }
     }
 

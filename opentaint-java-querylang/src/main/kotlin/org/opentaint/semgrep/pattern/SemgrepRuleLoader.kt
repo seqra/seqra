@@ -2,6 +2,7 @@ package org.opentaint.semgrep.pattern
 
 import com.charleskorn.kaml.AnchorsAndAliases
 import com.charleskorn.kaml.Yaml
+import com.charleskorn.kaml.YamlMap
 import com.charleskorn.kaml.YamlConfiguration
 import com.charleskorn.kaml.YamlList
 import com.charleskorn.kaml.YamlScalar
@@ -14,6 +15,21 @@ import org.opentaint.semgrep.pattern.conversion.ActionListBuilder
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
 import org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
 import org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
+
+data class RuleMetadata(val ruleId: String, val message: String, val severity: CommonTaintConfigurationSinkMeta.Severity, val metadata: YamlMap?)
+
+fun YamlMap.readStrings(key: String): List<String>? {
+    val entry = entries.entries.find { it.key.content.lowercase() == key } ?: return null
+    return when (val value = entry.value) {
+        is YamlScalar -> {
+            listOf(value.content)
+        }
+        is YamlList -> {
+            value.items.mapNotNull { (it as? YamlScalar)?.content }
+        }
+        else -> null
+    }
+}
 
 class SemgrepRuleLoader {
     private val parser = SemgrepPatternParser.create().cached()
@@ -30,7 +46,7 @@ class SemgrepRuleLoader {
         ruleSetText: String,
         ruleSetName: String,
         semgrepFileErrors: SemgrepFileErrors
-    ): List<TaintRuleFromSemgrep> {
+    ): List<Pair<TaintRuleFromSemgrep, RuleMetadata>> {
         val ruleSet = runCatching {
             yaml.decodeFromString<SemgrepYamlRuleSet>(ruleSetText)
         }.onFailure { ex ->
@@ -62,7 +78,7 @@ class SemgrepRuleLoader {
             }
         }
 
-        val rules = javaRules.mapNotNull {
+        val rulesAndMetadata = javaRules.mapNotNull {
             val semgrepRuleErrors = SemgrepRuleErrors(
                 it.id,
                 ruleSetName = ruleSetName
@@ -70,14 +86,14 @@ class SemgrepRuleLoader {
             semgrepFileErrors += semgrepRuleErrors
             loadRule(it, ruleSetName, semgrepRuleErrors)
         }
-        logger.info { "Load ${rules.size} rules from $ruleSetName" }
-        return rules
+        logger.info { "Load ${rulesAndMetadata.size} rules from $ruleSetName" }
+        return rulesAndMetadata
     }
 
     private fun loadRule(
         rule: SemgrepYamlRule, ruleSetName: String,
         semgrepRuleErrors: SemgrepRuleErrors
-    ): TaintRuleFromSemgrep? {
+    ): Pair<TaintRuleFromSemgrep, RuleMetadata>? {
         val ruleId = SemgrepRuleUtils.getRuleId(ruleSetName, rule.id)
 
         val ruleAutomataBuilder = SemgrepRuleAutomataBuilder(parser, converter)
@@ -104,19 +120,22 @@ class SemgrepRuleLoader {
         }
 
         val ruleCwe = rule.cweInfo()
+        val severity = when (rule.severity.lowercase()) {
+            "high", "critical" -> CommonTaintConfigurationSinkMeta.Severity.Error
+            "medium" -> CommonTaintConfigurationSinkMeta.Severity.Warning
+            else -> CommonTaintConfigurationSinkMeta.Severity.Note
+        }
 
         val sinkMeta = SinkMetaData(
             cwe = ruleCwe,
             note = rule.message,
-            severity = when (rule.severity.lowercase()) {
-                "high", "critical" -> CommonTaintConfigurationSinkMeta.Severity.Error
-                "medium" -> CommonTaintConfigurationSinkMeta.Severity.Warning
-                else -> CommonTaintConfigurationSinkMeta.Severity.Note
-            }
+            severity = severity
         )
 
+        val metadata = RuleMetadata(rule.id, rule.message, severity, rule.metadata)
+
         return runCatching {
-            convertToTaintRules(ruleAutomata, ruleId, sinkMeta, semgrepRuleErrors)
+            convertToTaintRules(ruleAutomata, ruleId, sinkMeta, semgrepRuleErrors) to metadata
         }.onFailure { ex ->
             semgrepRuleErrors += SemgrepError(
                 SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
@@ -133,20 +152,9 @@ class SemgrepRuleLoader {
     }
 
     private fun SemgrepYamlRule.cweInfo(): List<Int>? {
-        val metadata = metadata ?: return null
-        val cweEntry = metadata.entries.entries.find { it.key.content.lowercase() == "cwe" } ?: return null
-        val cweValue = cweEntry.value
-        when (cweValue) {
-            is YamlScalar -> {
-                val cwe = parseCwe(cweValue.content) ?: return null
-                return listOf(cwe)
-            }
-            is YamlList -> {
-                val cwe = cweValue.items.mapNotNull { (it as? YamlScalar)?.content?.let { s -> parseCwe(s) } }
-                return cwe.ifEmpty { null }
-            }
-            else -> return null
-        }
+        val rawCwes = metadata?.readStrings("cwe") ?: return null
+        val cwes = rawCwes.mapNotNull { s -> parseCwe(s) }
+        return cwes.ifEmpty { null }
     }
 
     private fun parseCwe(str: String): Int? {
