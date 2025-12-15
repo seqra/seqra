@@ -132,7 +132,7 @@ class SemgrepRuleLoader {
             severity = severity
         )
 
-        val metadata = RuleMetadata(rule.id, rule.message, severity, rule.metadata)
+        val metadata = RuleMetadata(ruleId, rule.message, severity, rule.metadata)
 
         return runCatching {
             convertToTaintRules(ruleAutomata, ruleId, sinkMeta, semgrepRuleErrors) to metadata

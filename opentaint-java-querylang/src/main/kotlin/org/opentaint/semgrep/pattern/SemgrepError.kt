@@ -62,7 +62,7 @@ data class SemgrepRuleErrors(
         ruleIdInFile: String,
         errors: MutableList<AbstractSemgrepError> = arrayListOf(),
         ruleSetName: String
-    ) : this(SemgrepRuleUtils.getRuleId(ruleSetName, ruleIdInFile), ruleSetName, errors)
+    ) : this(SemgrepRuleUtils.getRuleId(ruleSetName, ruleIdInFile), ruleIdInFile, errors)
 
     fun handlePhase(
         failureCount: Int,

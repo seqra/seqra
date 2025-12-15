@@ -33,12 +33,12 @@ import org.opentaint.semgrep.pattern.createTaintConfig
 import org.opentaint.semgrep.pattern.RuleMetadata
 import java.io.OutputStream
 import java.nio.file.Path
+import kotlin.io.path.absolutePathString
 import kotlin.io.path.div
 import kotlin.io.path.extension
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 import kotlin.io.path.readText
-import kotlin.io.path.relativeTo
 import kotlin.io.path.walk
 import kotlin.time.Duration
 
@@ -134,19 +134,15 @@ class ProjectAnalyzer(
         val loader = SemgrepRuleLoader()
         val ruleExtensions = arrayOf("yaml", "yml")
         semgrepRulesPath.walk().filter { it.extension in ruleExtensions }.forEach { rulePath ->
-            val ruleName =
-                if (semgrepRulesPath.isAbsolute)
-                    semgrepRulesPath.resolve(rulePath).relativeTo(semgrepRulesPath.root)
-                else
-                    rulePath.relativeTo(semgrepRulesPath)
+            val ruleName = semgrepRulesPath.resolve(rulePath).absolutePathString()
 
             val ruleText = rulePath.readText()
 
-            val semgrepFileErrors = SemgrepFileErrors(ruleName.toString())
+            val semgrepFileErrors = SemgrepFileErrors(ruleName)
             semgrepFilesError += semgrepFileErrors
             val (loadedRules, loadedMetadatas) = loader.loadRuleSet(
                 ruleText,
-                ruleName.toString(),
+                ruleName,
                 semgrepFileErrors
             ).unzip()
             rules += loadedRules

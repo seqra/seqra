@@ -13,7 +13,7 @@ data class LazySarifReport(
 ) {
     companion object {
         private const val SARIF_SCHEMA =
-            "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
+            "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json"
 
         fun fromRuns(runs: List<LazyToolRunReport>): LazySarifReport =
             LazySarifReport(SARIF_SCHEMA, Version.The210, runs)
