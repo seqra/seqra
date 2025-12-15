@@ -1,10 +1,9 @@
 package org.opentaint.jvm.sast.sarif
 
 import mu.KLogging
-import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.common.cfg.CommonReturnInst
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEdge
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction
@@ -21,10 +20,10 @@ import org.opentaint.dataflow.configuration.jvm.RemoveAllMarks
 import org.opentaint.dataflow.configuration.jvm.RemoveMark
 import org.opentaint.dataflow.configuration.jvm.Result
 import org.opentaint.dataflow.configuration.jvm.This
-import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
-import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.configuration.CommonTaintAssignAction
 import org.opentaint.dataflow.util.SarifTraits
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.common.cfg.CommonReturnInst
 
 const val ArtificialMetavarName = "<ARTIFICIAL>"
 const val ArtificialStateName = "__<STATE>__"
@@ -178,8 +177,13 @@ class TraceMessageBuilder(
         // filtering Call trace entries that contain unexpected Remove actions
         if (primaryAction == null) {
             if (node.entry.otherActions.all {
-                    if (it !is TraceEntryAction.CallRuleAction) return@all true
-                    it.action.all { mark -> (mark is RemoveMark || mark is RemoveAllMarks) }
+                    when (it) {
+                        is TraceEntryAction.CallRuleAction -> {
+                            it.action.all { mark -> (mark is RemoveMark || mark is RemoveAllMarks) }
+                        }
+
+                        is TraceEntryAction.SequentialSourceRule -> false
+                    }
                 }) {
                 logger.warn {
                     "Trace entry on line ${traits.lineNumber(node.statement)} because of unexpected Remove action!"
@@ -318,6 +322,7 @@ class TraceMessageBuilder(
                             is TraceEntryAction.CallRule -> otherAction.createMessage(node)
                             is TraceEntryAction.CallSourceRule -> otherAction.createMessage(node)
                             is TraceEntryAction.EntryPointSourceRule -> otherAction.createMessage(node)
+                            is TraceEntryAction.SequentialSourceRule -> otherAction.createMessage(node)
                         }
                     }
                 }
@@ -339,6 +344,7 @@ class TraceMessageBuilder(
                         when (val otherAction = entry.sourceOtherActions.first()) {
                             is TraceEntryAction.CallSourceRule -> otherAction.createMessage(node)
                             is TraceEntryAction.EntryPointSourceRule -> otherAction.createMessage(node)
+                            is TraceEntryAction.SequentialSourceRule -> otherAction.createMessage(node)
                         }
                     }
                 }
@@ -769,6 +775,12 @@ class TraceMessageBuilder(
         }
         val taintsJoin = taints.joinToString(", ")
         return "Potential $taintsJoin at the start of the method"
+    }
+
+    private fun TraceEntryAction.SequentialSourceRule.createMessage(node: TracePathNode): String {
+        val taints = this.collectTaintPropagationInfo(node, action).map { "${it.taint} data at ${it.to}" }
+        val taintsJoin = taints.joinToString(", ")
+        return "Value with $taintsJoin"
     }
 
     private fun TraceEntryAction.CallRule.createMessage(node: TracePathNode): String {

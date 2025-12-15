@@ -31,6 +31,8 @@ dependencies {
     antlr(Libs.antlr)
     implementation(Libs.antlr_runtime)
 
+    testRuntimeOnly(Libs.logback)
+
     testCompileOnly(project("samples"))
     testImplementation("org.opentaint.sast:dataflow")
 }

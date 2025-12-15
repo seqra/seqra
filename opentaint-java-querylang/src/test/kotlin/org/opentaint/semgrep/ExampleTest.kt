@@ -13,6 +13,9 @@ class ExampleTest : SampleBasedTest() {
     fun `test rule`() = runTest<example.Rule>()
 
     @Test
+    fun `test nd rule`() = runTest<example.NDRule>()
+
+    @Test
     fun `test rule with pattern-inside`() = runTest<example.RuleWithPatternInside>()
 
     @Test

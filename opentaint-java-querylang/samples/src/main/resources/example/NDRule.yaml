@@ -1,0 +1,15 @@
+rules:
+  - id: example-NDRule
+    languages:
+      - java
+    severity: ERROR
+    message: match example/NDRule
+    patterns:
+      - pattern: |-
+          $A = src();
+          ...
+          $B = src();
+          ...
+          $C = pass($A, $B);
+          ...
+          sink($C);

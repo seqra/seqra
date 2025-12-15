@@ -1,16 +1,10 @@
 package org.opentaint.semgrep.util
 
 import kotlinx.coroutines.runBlocking
-import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.jvm.JIRClasspath
-import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.impl.features.classpaths.UnknownClasses
-import org.opentaint.ir.impl.features.usagesExt
-import org.opentaint.ir.util.io.inputStream
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.access.ApMode
-import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
+import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
+import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
 import org.opentaint.dataflow.ifds.SingletonUnit
@@ -24,6 +18,13 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.applyAnalysisEndSinksForEntryPoints
 import org.opentaint.dataflow.jvm.graph.MethodReturnInstNormalizerFeature
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.impl.features.classpaths.UnknownClasses
+import org.opentaint.ir.impl.features.usagesExt
+import org.opentaint.ir.util.io.inputStream
 import org.opentaint.jvm.graph.JApplicationGraphImpl
 import org.opentaint.jvm.sast.dataflow.DummySerializationContext
 import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
@@ -87,7 +88,7 @@ class TestAnalysisRunner(
         config: SerializedTaintConfig,
         configurationPath: Path?,
         samples: Set<String>
-    ): Map<String, List<TaintSinkTracker.TaintVulnerability>> =
+    ): Map<String, List<VulnerabilityWithTrace>> =
         samples.associate { sample ->
             val cls = cp.findClassOrNull(sample) ?: error("No sample in CP")
             val ep = cls.declaredMethods.singleOrNull { it.name == "entrypoint" }
@@ -96,7 +97,17 @@ class TestAnalysisRunner(
             val rulesProvider = rulesProvider(config, configurationPath, hashSetOf(ep))
             setupEngine(rulesProvider).use { engine ->
                 engine.runAnalysis(listOf(ep), timeout = 1.minutes, cancellationTimeout = 10.seconds)
-                sample to engine.getVulnerabilities()
+
+                val vulnerabilities = engine.getVulnerabilities()
+                val traces = engine.resolveVulnerabilityTraces(
+                    setOf(ep), vulnerabilities,
+                    resolverParams = TraceResolver.Params(),
+                    timeout = 1.minutes, cancellationTimeout = 10.seconds
+                ).mapNotNull { trace ->
+                    trace.takeIf { it.trace?.sourceToSinkTrace?.startNodes?.isNotEmpty() ?: false }
+                }
+                
+                sample to traces
             }
         }
 
