@@ -9,13 +9,15 @@ interface MethodCallFlowFunction {
 
     sealed interface FactCallFact
 
-    data object Unchanged : ZeroCallFact, FactCallFact
+    sealed interface NDFactCallFact
+
+    data object Unchanged : ZeroCallFact, FactCallFact, NDFactCallFact
 
     data object CallToReturnZeroFact: ZeroCallFact
 
     data object CallToStartZeroFact : ZeroCallFact
 
-    data class CallToReturnFFact(val initialFactAp: InitialFactAp, val factAp: FinalFactAp) : FactCallFact
+    data class CallToReturnFFact(val initialFactAp: InitialFactAp, val factAp: FinalFactAp) : FactCallFact, ZeroCallFact
 
     data class CallToStartFFact(
         val initialFactAp: InitialFactAp,
@@ -29,7 +31,19 @@ interface MethodCallFlowFunction {
 
     data class SideEffectRequirement(val initialFactAp: InitialFactAp) : FactCallFact
 
+    data class CallToReturnNonDistributiveFact(
+        val initialFacts: Set<InitialFactAp>,
+        val factAp: FinalFactAp,
+    ) : FactCallFact, ZeroCallFact, NDFactCallFact
+
+    data class CallToStartNDFFact(
+        val initialFacts: Set<InitialFactAp>,
+        val callerFactAp: FinalFactAp,
+        val startFactBase: AccessPathBase
+    ) : NDFactCallFact
+
     fun propagateZeroToZero(): Set<ZeroCallFact>
     fun propagateZeroToFact(currentFactAp: FinalFactAp): Set<ZeroCallFact>
     fun propagateFactToFact(initialFactAp: InitialFactAp, currentFactAp: FinalFactAp): Set<FactCallFact>
+    fun propagateNDFactToFact(initialFacts: Set<InitialFactAp>, currentFactAp: FinalFactAp): Set<NDFactCallFact>
 }

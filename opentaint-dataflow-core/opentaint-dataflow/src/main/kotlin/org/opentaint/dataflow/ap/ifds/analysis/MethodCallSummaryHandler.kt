@@ -50,6 +50,23 @@ interface MethodCallSummaryHandler {
         Sequent.FactToFact(initialFactAp.refine(initialFactRefinement), summaryFactAp)
     }
 
+    fun handleNDFactToFact(
+        initialFacts: Set<InitialFactAp>,
+        currentFactAp: FinalFactAp,
+        summaryEffect: SummaryEdgeApplication,
+        summaryFact: FinalFactAp
+    ): Set<Sequent> = handleSummary(
+        currentFactAp,
+        summaryEffect,
+        summaryFact
+    ) { initialFactRefinement: ExclusionSet?, summaryFactAp: FinalFactAp ->
+        check(initialFactRefinement == null || initialFactRefinement is ExclusionSet.Universe) {
+            "Incorrect refinement"
+        }
+
+        Sequent.NDFactToFact(initialFacts, summaryFactAp)
+    }
+
     fun InitialFactAp.refine(exclusionSet: ExclusionSet?) =
         if (exclusionSet == null) this else replaceExclusions(exclusionSet)
 

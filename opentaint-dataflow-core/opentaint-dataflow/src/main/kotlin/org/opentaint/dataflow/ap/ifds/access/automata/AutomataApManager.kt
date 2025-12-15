@@ -1,6 +1,5 @@
 package org.opentaint.dataflow.ap.ifds.access.automata
 
-import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
@@ -14,11 +13,14 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.MethodAccessPathSubscription
 import org.opentaint.dataflow.ap.ifds.access.MethodEdgesFinalApSet
 import org.opentaint.dataflow.ap.ifds.access.MethodEdgesInitialToFinalApSet
+import org.opentaint.dataflow.ap.ifds.access.MethodEdgesNDInitialToFinalApSet
 import org.opentaint.dataflow.ap.ifds.access.MethodFinalApSummariesStorage
 import org.opentaint.dataflow.ap.ifds.access.MethodInitialToFinalApSummariesStorage
+import org.opentaint.dataflow.ap.ifds.access.MethodNDInitialToFinalApSummariesStorage
 import org.opentaint.dataflow.ap.ifds.access.SideEffectRequirementApStorage
 import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
+import org.opentaint.ir.api.common.cfg.CommonInst
 
 class AutomataApManager : ApManager {
     private val interner = AccessorInterner()
@@ -55,6 +57,13 @@ class AutomataApManager : ApManager {
     ): MethodEdgesInitialToFinalApSet =
         MethodEdgesInitialToFinalAutomataApSet(methodInitialStatement, maxInstIdx, languageManager)
 
+    override fun methodEdgesNDInitialToFinalApSet(
+        methodInitialStatement: CommonInst,
+        maxInstIdx: Int,
+        languageManager: LanguageManager
+    ): MethodEdgesNDInitialToFinalApSet =
+        MethodEdgesNDInitialToFinalAutomataApSet(methodInitialStatement, languageManager, maxInstIdx)
+
     override fun accessPathSubscription(): MethodAccessPathSubscription = MethodAutomataAccessPathSubscription()
 
     override fun sideEffectRequirementApStorage(): SideEffectRequirementApStorage =
@@ -65,6 +74,9 @@ class AutomataApManager : ApManager {
 
     override fun methodInitialToFinalApSummariesStorage(methodInitialStatement: CommonInst): MethodInitialToFinalApSummariesStorage =
         MethodInitialToFinalAutomataApSummariesStorage(methodInitialStatement)
+
+    override fun methodNDInitialToFinalApSummariesStorage(methodInitialStatement: CommonInst): MethodNDInitialToFinalApSummariesStorage =
+        MethodNDInitialToFinalAutomataApSummariesStorage(methodInitialStatement)
 
     override fun mostAbstractInitialAp(base: AccessPathBase): InitialFactAp =
         AccessGraphInitialFactAp(base, emptyGraph, ExclusionSet.Empty)

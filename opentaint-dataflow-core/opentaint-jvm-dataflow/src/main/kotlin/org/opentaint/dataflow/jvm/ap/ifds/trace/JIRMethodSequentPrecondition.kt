@@ -1,5 +1,23 @@
 package org.opentaint.dataflow.jvm.ap.ifds.trace
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.ElementAccessor
+import org.opentaint.dataflow.ap.ifds.access.ApManager
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
+import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition.PreconditionFactsForInitialFact
+import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition.SequentPrecondition
+import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition.SequentPreconditionFacts
+import org.opentaint.dataflow.ap.ifds.trace.TaintRulePrecondition
+import org.opentaint.dataflow.configuration.jvm.ConstantTrue
+import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
+import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.accessPathBase
+import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
+import org.opentaint.dataflow.jvm.ap.ifds.analysis.forEachPossibleAliasAtStatement
+import org.opentaint.dataflow.jvm.ap.ifds.taint.InitialFactReader
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintSourceActionPreconditionEvaluator
 import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
@@ -10,18 +28,10 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
 import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 import org.opentaint.ir.api.jvm.cfg.JIRValue
-import org.opentaint.dataflow.ap.ifds.AccessPathBase
-import org.opentaint.dataflow.ap.ifds.Accessor
-import org.opentaint.dataflow.ap.ifds.ElementAccessor
-import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
-import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition.PreconditionFactsForInitialFact
-import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition.SequentPrecondition
-import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
-import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
-import org.opentaint.dataflow.jvm.ap.ifds.analysis.forEachPossibleAliasAtStatement
+import org.opentaint.util.maybeFlatMap
 
 class JIRMethodSequentPrecondition(
+    private val apManager: ApManager,
     private val currentInst: JIRInst,
     private val analysisContext: JIRMethodAnalysisContext
 ) : MethodSequentPrecondition {
@@ -29,16 +39,20 @@ class JIRMethodSequentPrecondition(
     override fun factPrecondition(
         fact: InitialFactAp
     ): SequentPrecondition {
-        val results = mutableListOf<PreconditionFactsForInitialFact>()
+        val results = mutableListOf<SequentPreconditionFacts>()
 
         preconditionForFact(fact)?.let {
             results += PreconditionFactsForInitialFact(fact, it)
         }
 
+        results.unconditionalSourcesPrecondition(fact)
+
         analysisContext.aliasAnalysis?.forEachPossibleAliasAtStatement(currentInst, fact) { aliasedFact ->
             preconditionForFact(aliasedFact)?.let {
                 results += PreconditionFactsForInitialFact(aliasedFact, it)
             }
+
+            results.unconditionalSourcesPrecondition(aliasedFact)
         }
 
         return if (results.isEmpty()) {
@@ -177,5 +191,42 @@ class JIRMethodSequentPrecondition(
         }
 
         return facts
+    }
+
+    private fun MutableList<SequentPreconditionFacts>.unconditionalSourcesPrecondition(fact: InitialFactAp) {
+        if (currentInst !is JIRAssignInst) return
+
+        val rhvFieldRef = currentInst.rhv as? JIRFieldRef ?: return
+        val field = rhvFieldRef.field.field
+        if (!field.isStatic) return
+
+        val lhv = accessPathBase(currentInst.lhv) ?: return
+        if (fact.base != lhv) return
+
+        val config = analysisContext.taint.taintConfig as TaintRulesProvider
+        val sourceRules = config.sourceRulesForStaticField(field, currentInst).toList()
+        if (sourceRules.isEmpty()) return
+
+        val entryFactReader = InitialFactReader(fact.rebase(AccessPathBase.Return), apManager)
+        val sourcePreconditionEvaluator = TaintSourceActionPreconditionEvaluator(
+            entryFactReader, analysisContext.factTypeChecker, returnValueType = null
+        )
+
+        for (sourceRule in sourceRules) {
+            if (sourceRule.condition !is ConstantTrue) {
+                TODO("Field source with complex condition")
+            }
+
+            val assignedMarks = sourceRule.actionsAfter.maybeFlatMap {
+                sourcePreconditionEvaluator.evaluate(sourceRule, it)
+            }
+            if (assignedMarks.isNone) continue
+
+            val sourceActions = assignedMarks.getOrThrow().mapTo(hashSetOf()) { it.second }
+
+            this += MethodSequentPrecondition.SequentSource(
+                fact, TaintRulePrecondition.Source(sourceRule, sourceActions)
+            )
+        }
     }
 }

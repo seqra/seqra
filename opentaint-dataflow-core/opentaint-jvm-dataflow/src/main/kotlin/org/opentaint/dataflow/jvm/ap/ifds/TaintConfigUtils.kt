@@ -1,7 +1,9 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
+import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.FactWithPreconditions
 import org.opentaint.dataflow.configuration.jvm.Action
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.Condition
@@ -96,9 +98,39 @@ object TaintConfigUtils {
         conditionRewriter: JIRMarkAwareConditionRewriter,
         conditionFactReaders: List<FactReader>,
         condition: T.() -> Condition,
-        storeAssumptions: (T, Set<InitialFactAp>) -> Unit,
+        storeAssumptions: (T, Map<InitialFactAp, Set<InitialFactAp>>) -> Unit,
         currentAssumptions: (T) -> Set<InitialFactAp>,
         applyRule: (T, List<InitialFactAp>) -> Unit,
+    ) {
+        applyRuleWithAssumptions(
+            apManager = apManager,
+            conditionRewriter = conditionRewriter,
+            initialFacts = emptySet(),
+            conditionFactReaders = conditionFactReaders,
+            condition = condition,
+            storeAssumptions = storeAssumptions,
+            currentAssumptions = currentAssumptions,
+            currentAssumptionPreconditions = { _, facts ->
+                facts.map { FactWithPreconditions(it, emptyList()) }
+            },
+            applyRule = applyRule,
+            applyRuleWithAssumptions = { rule, facts ->
+                applyRule(rule, facts.map { it.fact })
+            }
+        )
+    }
+
+    inline fun <T : TaintConfigurationItem> List<T>.applyRuleWithAssumptions(
+        apManager: ApManager,
+        conditionRewriter: JIRMarkAwareConditionRewriter,
+        initialFacts: Set<InitialFactAp>,
+        conditionFactReaders: List<FactReader>,
+        condition: T.() -> Condition,
+        storeAssumptions: (T, Map<InitialFactAp, Set<InitialFactAp>>) -> Unit,
+        currentAssumptions: (T) -> Set<InitialFactAp>,
+        currentAssumptionPreconditions: (T, List<InitialFactAp>) -> List<FactWithPreconditions>,
+        applyRule: (T, List<InitialFactAp>) -> Unit,
+        applyRuleWithAssumptions: (T, List<FactWithPreconditions>) -> Unit
     ) {
         val conditionEvaluator = JIRFactAwareConditionEvaluator(conditionFactReaders)
 
@@ -123,23 +155,69 @@ object TaintConfigUtils {
             }
 
             // no evaluated taint marks
-            if (!conditionEvaluator.assumptionsPossible()) continue
+            val assumptionExpr = conditionEvaluator.assumptionExpr() ?: continue
 
             val facts = conditionEvaluator.facts()
-            storeAssumptions(rule, facts.toSet())
+            val factPrecondition = initialFacts.mapTo(hashSetOf()) {
+                it.replaceExclusions(ExclusionSet.Universe)
+            }.ifEmpty { emptySet() }
+
+            val newAssumptions = facts.associateWith { factPrecondition }
+            storeAssumptions(rule, newAssumptions)
 
             val assumptions = currentAssumptions(rule)
             val assumptionReaders = assumptions.map { InitialFactReader(it, apManager) }
 
-            val conditionEvaluatorWithAssumptions = JIRFactAwareConditionEvaluator(
-                assumptionReaders
-            )
-
-            if (!conditionEvaluatorWithAssumptions.evalWithAssumptionsCheck(conditionExpr)) {
+            val conditionEvaluatorWithAssumptions = JIRFactAwareConditionEvaluator(assumptionReaders)
+            if (!conditionEvaluatorWithAssumptions.evalWithAssumptionsCheck(assumptionExpr)) {
                 continue
             }
 
-            applyRule(rule, conditionEvaluatorWithAssumptions.facts())
+            val currentFactPreconditions = facts.map { FactWithPreconditions(it, listOf(factPrecondition)) }
+
+            val assumedFacts = conditionEvaluatorWithAssumptions.facts()
+
+            if (assumedFacts.size == 1) {
+                addRuleWithAssumption(
+                    currentAssumptionPreconditions,
+                    applyRuleWithAssumptions,
+                    rule,
+                    assumedFacts,
+                    currentFactPreconditions
+                )
+                continue
+            }
+
+            check(assumedFacts.size > 1) { "Multiple assumptions expected" }
+
+            val assumptionExprDnf = assumptionExpr.explodeToDNF().distinct()
+            for (cube in assumptionExprDnf) {
+                val expr = JIRMarkAwareConditionExpr.And(cube.literals.toTypedArray())
+                if (!conditionEvaluatorWithAssumptions.evalWithAssumptionsCheck(expr)) {
+                    continue
+                }
+
+                val cubeAssumedFacts = conditionEvaluatorWithAssumptions.facts()
+                addRuleWithAssumption(
+                    currentAssumptionPreconditions,
+                    applyRuleWithAssumptions,
+                    rule,
+                    cubeAssumedFacts,
+                    currentFactPreconditions
+                )
+            }
         }
+    }
+
+    inline fun <T : TaintConfigurationItem> addRuleWithAssumption(
+        currentAssumptionPreconditions: (T, List<InitialFactAp>) -> List<FactWithPreconditions>,
+        applyRuleWithAssumptions: (T, List<FactWithPreconditions>) -> Unit,
+        rule: T,
+        assumedFacts: List<InitialFactAp>,
+        currentFactPreconditions: List<FactWithPreconditions>,
+    ) {
+        val assumedFactsPreconditions = currentAssumptionPreconditions(rule, assumedFacts)
+        val allFacts = assumedFactsPreconditions + currentFactPreconditions
+        applyRuleWithAssumptions(rule, allFacts)
     }
 }

@@ -1,155 +1,18 @@
 package org.opentaint.dataflow.ap.ifds.access.cactus
 
 import kotlinx.collections.immutable.persistentHashMapOf
-import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.dataflow.ap.ifds.AccessPathBase
-import org.opentaint.dataflow.ap.ifds.Edge
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
-import org.opentaint.dataflow.ap.ifds.FactToFactEdgeBuilder
-import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgesForExitPoint
-import org.opentaint.dataflow.ap.ifds.SummaryFactStorage
-import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
-import org.opentaint.dataflow.ap.ifds.access.MethodInitialToFinalApSummariesStorage
-import org.opentaint.dataflow.util.collectToListWithPostProcess
+import org.opentaint.dataflow.ap.ifds.access.common.CommonF2FSummary
+import org.opentaint.dataflow.ap.ifds.access.common.CommonF2FSummary.F2FBBuilder
+import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.access.cactus.AccessCactus.AccessNode as AccessCactusNode
 
 class MethodInitialToFinalApSummaries(
-    methodInitialStatement: CommonInst
-) : MethodInitialToFinalApSummariesStorage {
-    private val storage = MethodTaintedSummariesStorage(methodInitialStatement)
-
-    override fun add(edges: List<Edge.FactToFact>, added: MutableList<FactToFactEdgeBuilder>) {
-        storage.add(edges, added)
-    }
-
-    override fun filterEdgesTo(
-        dst: MutableList<FactToFactEdgeBuilder>,
-        pattern: FinalFactAp?,
-        finalFactBase: AccessPathBase?
-    ) {
-        storage.filterEdgesTo(dst, EdgeStoragePattern(pattern as? AccessCactus, finalFactBase))
-    }
-
-    override fun collectAllEdgesTo(dst: MutableList<FactToFactEdgeBuilder>) {
-        storage.collectAllEdgesTo(dst)
-    }
-}
-
-private class EdgeStoragePattern(
-    val initialFactPattern: AccessCactus?,
-    val finalFactBase: AccessPathBase?
-)
-
-private class MethodTaintedSummariesStorage(methodEntryPoint: CommonInst) :
-    MethodSummaryEdgesForExitPoint<Edge.FactToFact, FactToFactEdgeBuilder, MethodFactToFactSummaries, EdgeStoragePattern>(
-        methodEntryPoint
-    ) {
-
-    override fun createStorage(): MethodFactToFactSummaries =
-        MethodFactToFactSummaries(methodEntryPoint)
-
-    override fun storageAdd(
-        storage: MethodFactToFactSummaries,
-        edges: List<Edge.FactToFact>,
-        added: MutableList<FactToFactEdgeBuilder>
-    ) = storage.add(edges, added)
-
-    override fun storageCollectAllEdgesTo(dst: MutableList<FactToFactEdgeBuilder>, storage: MethodFactToFactSummaries) {
-        storage.collectAllEdgesTo(dst)
-    }
-
-    override fun storageFilterEdgesTo(
-        dst: MutableList<FactToFactEdgeBuilder>,
-        storage: MethodFactToFactSummaries,
-        containsPattern: EdgeStoragePattern
-    ) {
-        storage.filterEdgesTo(dst, containsPattern)
-    }
-}
-
-private class MethodFactToFactSummaries(
-    private val methodEntryPoint: CommonInst
-) : SummaryFactStorage<MethodTaintedSummariesGroupedByFact>(methodEntryPoint) {
-    override fun createStorage() = MethodTaintedSummariesGroupedByFact(methodEntryPoint)
-
-    fun add(edges: List<Edge.FactToFact>, added: MutableList<FactToFactEdgeBuilder>) {
-        val sameInitialBaseEdges = edges.groupBy { it.initialFactAp.base }
-        for ((initialBase, sameBaseEdges) in sameInitialBaseEdges) {
-            val baseAdded = mutableListOf<FactToFactEdgeBuilderBuilder>()
-            getOrCreate(initialBase).add(sameBaseEdges, baseAdded)
-            baseAdded.mapTo(added) { it.setInitialFactBase(initialBase).build() }
-        }
-    }
-
-    fun filterEdgesTo(dst: MutableList<FactToFactEdgeBuilder>, pattern: EdgeStoragePattern) {
-        val initialBase = pattern.initialFactPattern?.base
-        if (initialBase != null) {
-            val storage = find(initialBase) ?: return
-            filterEdgesTo(dst, storage, initialBase, pattern.finalFactBase)
-        } else {
-            forEachValue { base, storage ->
-                filterEdgesTo(dst, storage, base, pattern.finalFactBase)
-            }
-        }
-    }
-
-    fun collectAllEdgesTo(dst: MutableList<FactToFactEdgeBuilder>) {
-        forEachValue { base, storage ->
-            filterEdgesTo(dst, storage, base, finalFactBase = null)
-        }
-    }
-
-    private fun filterEdgesTo(
-        dst: MutableList<FactToFactEdgeBuilder>,
-        storage: MethodTaintedSummariesGroupedByFact,
-        initialBase: AccessPathBase,
-        finalFactBase: AccessPathBase?
-    ) {
-        collectToListWithPostProcess(dst, {
-            if (finalFactBase == null) {
-                storage.collectAllEdgesTo(it)
-            } else {
-                storage.filterTo(it, finalFactBase)
-            }
-        }, {
-            it.setInitialFactBase(initialBase).build()
-        })
-    }
-}
-
-
-private class MethodTaintedSummariesGroupedByFact(methodEntryPoint: CommonInst) :
-    SummaryFactStorage<MethodTaintedSummariesGroupedByFactStorage>(methodEntryPoint) {
-    override fun createStorage() = MethodTaintedSummariesGroupedByFactStorage()
-
-    fun add(edges: List<Edge.FactToFact>, added: MutableList<FactToFactEdgeBuilderBuilder>) {
-        val sameExitBaseEdges = edges.groupBy { it.factAp.base }
-        for ((exitBase, sameBaseEdges) in sameExitBaseEdges) {
-
-            val baseAdded = mutableListOf<FactToFactEdgeBuilderBuilder>()
-            getOrCreate(exitBase).add(sameBaseEdges, baseAdded)
-            baseAdded.mapTo(added) { it.setExitFactBase(exitBase) }
-        }
-    }
-
-    fun collectAllEdgesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>) {
-        forEachValue { base, storage ->
-            collectToListWithPostProcess(dst, {
-                storage.collectAllSummariesTo(it)
-            }, {
-                it.setExitFactBase(base)
-            })
-        }
-    }
-
-    fun filterTo(dst: MutableList<FactToFactEdgeBuilderBuilder>, finalFactBase: AccessPathBase) {
-        val storage = find(finalFactBase) ?: return
-        collectToListWithPostProcess(dst, {
-            storage.collectAllSummariesTo(it)
-        }, {
-            it.setExitFactBase(finalFactBase)
-        })
-    }
+    methodInitialStatement: CommonInst,
+) : CommonF2FSummary<AccessPathWithCycles.AccessNode?, AccessCactusNode>(methodInitialStatement),
+    CactusInitialApAccess, CactusFinalApAccess {
+    override fun createStorage(): Storage<AccessPathWithCycles.AccessNode?, AccessCactus.AccessNode> =
+        MethodTaintedSummariesGroupedByFactStorage()
 }
 
 private class MethodTaintedSummariesInitialApStorage {
@@ -163,35 +26,32 @@ private class MethodTaintedSummariesInitialApStorage {
             }
         }
 
-    fun collectAllSummaries(dst: MutableList<FactToFactEdgeBuilderBuilder>) {
+    fun collectAllSummaries(dst: MutableList<F2FBBuilder<AccessPathWithCycles.AccessNode?, AccessCactus.AccessNode>>) {
         initialAccessToStorage.values.forEach { storage ->
             storage.summaries()?.let { dst.add(it) }
         }
     }
 }
 
-private class MethodTaintedSummariesGroupedByFactStorage {
+private class MethodTaintedSummariesGroupedByFactStorage
+    : CommonF2FSummary.Storage<AccessPathWithCycles.AccessNode?, AccessCactus.AccessNode> {
     private val nonUniverseAccessPath = MethodTaintedSummariesInitialApStorage()
 
-    fun add(edges: List<Edge.FactToFact>, added: MutableList<FactToFactEdgeBuilderBuilder>) {
+    override fun add(
+        edges: List<CommonF2FSummary.StorageEdge<AccessPathWithCycles.AccessNode?, AccessCactus.AccessNode>>,
+        added: MutableList<F2FBBuilder<AccessPathWithCycles.AccessNode?, AccessCactus.AccessNode>>
+    ) {
         addNonUniverseEdges(edges, added)
     }
 
     private fun addNonUniverseEdges(
-        edges: List<Edge.FactToFact>,
-        added: MutableList<FactToFactEdgeBuilderBuilder>
+        edges: List<CommonF2FSummary.StorageEdge<AccessPathWithCycles.AccessNode?, AccessCactus.AccessNode>>,
+        added: MutableList<F2FBBuilder<AccessPathWithCycles.AccessNode?, AccessCactus.AccessNode>>
     ) {
         val modifiedStorages = mutableListOf<MethodTaintedSummariesMergingStorage>()
 
         for (edge in edges) {
-            // edges here are already separated by marks, statements and bases
-            val initialAccess = (edge.initialFactAp as AccessPathWithCycles).access
-            val exitAccess = (edge.factAp as AccessCactus).access
-
-            val exclusion = edge.initialFactAp.exclusions
-            check(exclusion == edge.factAp.exclusions) { "Edge invariant" }
-
-            addNonUniverseEdge(initialAccess, exitAccess, exclusion, modifiedStorages)
+            addNonUniverseEdge(edge.initial, edge.final, edge.exclusion, modifiedStorages)
         }
 
         modifiedStorages.flatMapTo(added) { it.getAndResetDelta() }
@@ -211,7 +71,10 @@ private class MethodTaintedSummariesGroupedByFactStorage {
         }
     }
 
-    fun collectAllSummariesTo(dst: MutableList<FactToFactEdgeBuilderBuilder>) {
+    override fun collectSummariesTo(
+        dst: MutableList<F2FBBuilder<AccessPathWithCycles.AccessNode?, AccessCactus.AccessNode>>,
+        initialFactPatter: AccessCactus.AccessNode?
+    ) {
         nonUniverseAccessPath.collectAllSummaries(dst)
     }
 }
@@ -249,7 +112,7 @@ private class MethodTaintedSummariesMergingStorage(val initialAccess: AccessPath
         return true
     }
 
-    fun getAndResetDelta(): Sequence<FactToFactEdgeBuilderBuilder> {
+    fun getAndResetDelta(): Sequence<F2FBBuilder<AccessPathWithCycles.AccessNode?, AccessCactus.AccessNode>> {
         val delta = edgesDelta ?: return emptySequence()
         edgesDelta = null
 
@@ -260,7 +123,7 @@ private class MethodTaintedSummariesMergingStorage(val initialAccess: AccessPath
             .let { sequenceOf(it) }
     }
 
-    fun summaries(): FactToFactEdgeBuilderBuilder? {
+    fun summaries(): F2FBBuilder<AccessPathWithCycles.AccessNode?, AccessCactus.AccessNode>? {
         val exclusion = this.exclusion ?: return null
         val edges = this.edges!!
         return FactToFactEdgeBuilderBuilder()
@@ -270,34 +133,8 @@ private class MethodTaintedSummariesMergingStorage(val initialAccess: AccessPath
     }
 }
 
-private data class FactToFactEdgeBuilderBuilder(
-    private var initialBase: AccessPathBase? = null,
-    private var exitBase: AccessPathBase? = null,
-    private var exclusion: ExclusionSet? = null,
-    private var initialAp: AccessPathWithCycles.AccessNode? = null,
-    private var exitAp: AccessCactusNode? = null,
-) {
-    fun build(): FactToFactEdgeBuilder = FactToFactEdgeBuilder()
-        .setInitialAp(AccessPathWithCycles(initialBase!!, initialAp, exclusion!!))
-        .setExitAp(AccessCactus(exitBase!!, exitAp!!, exclusion!!))
-
-    fun setInitialFactBase(base: AccessPathBase) = this.also {
-        initialBase = base
-    }
-
-    fun setExitFactBase(base: AccessPathBase) = this.also {
-        exitBase = base
-    }
-
-    fun setExclusion(exclusion: ExclusionSet) = this.also {
-        this.exclusion = exclusion
-    }
-
-    fun setInitialAp(ap: AccessPathWithCycles.AccessNode?) = this.also {
-        initialAp = ap
-    }
-
-    fun setExitAp(ap: AccessCactusNode) = this.also {
-        exitAp = ap
-    }
+private class FactToFactEdgeBuilderBuilder :
+    F2FBBuilder<AccessPathWithCycles.AccessNode?, AccessCactusNode>(),
+    CactusInitialApAccess, CactusFinalApAccess {
+    override fun nonNullIAP(iap: AccessPathWithCycles.AccessNode?): AccessPathWithCycles.AccessNode? = iap
 }

@@ -30,6 +30,7 @@ internal class EdgeSerializer(
             is Edge.FactToFact -> EdgeType.FACT_TO_FACT
             is Edge.ZeroToFact -> EdgeType.ZERO_TO_FACT
             is Edge.ZeroToZero -> EdgeType.ZERO_TO_ZERO
+            is Edge.NDFactToFact -> EdgeType.ND_FACT_TO_FACT
         }
 
         writeEnum(edgeType)
@@ -38,14 +39,23 @@ internal class EdgeSerializer(
             writeInst(edge.statement)
         }
 
-        if (edge is Edge.ZeroToFact) {
-            with (apSerializer) {
+        when (edge) {
+            is Edge.ZeroToZero -> {
+                // do nothing
+            }
+
+            is Edge.ZeroToFact -> with (apSerializer) {
                 writeFinalAp(edge.factAp)
             }
-        }
-        if (edge is Edge.FactToFact) {
-            with (apSerializer) {
+
+            is Edge.FactToFact -> with (apSerializer) {
                 writeInitialAp(edge.initialFactAp)
+                writeFinalAp(edge.factAp)
+            }
+
+            is Edge.NDFactToFact -> with(apSerializer) {
+                writeInt(edge.initialFacts.size)
+                edge.initialFacts.forEach { writeInitialAp(it) }
                 writeFinalAp(edge.factAp)
             }
         }
@@ -72,20 +82,29 @@ internal class EdgeSerializer(
             EdgeType.ZERO_TO_ZERO -> {
                 return Edge.ZeroToZero(methodEntryPoint, statement)
             }
-            EdgeType.ZERO_TO_FACT -> {
-                val factAp = with (apSerializer) {
-                    readFinalAp()
-                }
+
+            EdgeType.ZERO_TO_FACT -> with(apSerializer) {
+                val factAp = readFinalAp()
+
                 return Edge.ZeroToFact(methodEntryPoint, statement, factAp)
             }
-            EdgeType.FACT_TO_FACT -> {
-                val initialFactAp = with (apSerializer) {
+
+            EdgeType.FACT_TO_FACT -> with(apSerializer) {
+                val initialFactAp = readInitialAp()
+                val factAp = readFinalAp()
+
+                return Edge.FactToFact(methodEntryPoint, initialFactAp, statement, factAp)
+            }
+
+            EdgeType.ND_FACT_TO_FACT -> with (apSerializer) {
+                val initialFactSize = readInt()
+                val initialFacts = List(initialFactSize) {
                     readInitialAp()
                 }
-                val factAp = with (apSerializer) {
-                    readFinalAp()
-                }
-                return Edge.FactToFact(methodEntryPoint, initialFactAp, statement, factAp)
+
+                val factAp = readFinalAp()
+
+                return Edge.NDFactToFact(methodEntryPoint, initialFacts.toHashSet(), statement, factAp)
             }
         }
     }
@@ -93,6 +112,7 @@ internal class EdgeSerializer(
     private enum class EdgeType {
         ZERO_TO_ZERO,
         ZERO_TO_FACT,
-        FACT_TO_FACT
+        FACT_TO_FACT,
+        ND_FACT_TO_FACT,
     }
 }

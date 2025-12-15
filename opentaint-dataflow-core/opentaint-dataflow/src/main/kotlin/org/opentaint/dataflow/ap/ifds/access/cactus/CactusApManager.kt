@@ -1,6 +1,5 @@
 package org.opentaint.dataflow.ap.ifds.access.cactus
 
-import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.ExclusionSet.Empty
@@ -13,12 +12,15 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.MethodAccessPathSubscription
 import org.opentaint.dataflow.ap.ifds.access.MethodEdgesFinalApSet
 import org.opentaint.dataflow.ap.ifds.access.MethodEdgesInitialToFinalApSet
+import org.opentaint.dataflow.ap.ifds.access.MethodEdgesNDInitialToFinalApSet
 import org.opentaint.dataflow.ap.ifds.access.MethodFinalApSummariesStorage
 import org.opentaint.dataflow.ap.ifds.access.MethodInitialToFinalApSummariesStorage
+import org.opentaint.dataflow.ap.ifds.access.MethodNDInitialToFinalApSummariesStorage
 import org.opentaint.dataflow.ap.ifds.access.SideEffectRequirementApStorage
 import org.opentaint.dataflow.ap.ifds.access.cactus.AccessCactus.AccessNode
 import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
+import org.opentaint.ir.api.common.cfg.CommonInst
 
 object CactusApManager : ApManager {
     override fun initialFactAbstraction(methodInitialStatement: CommonInst): InitialFactAbstraction =
@@ -38,6 +40,13 @@ object CactusApManager : ApManager {
     ): MethodEdgesInitialToFinalApSet =
         MethodEdgesInitialToFinalCactusApSet(methodInitialStatement, maxInstIdx, languageManager)
 
+    override fun methodEdgesNDInitialToFinalApSet(
+        methodInitialStatement: CommonInst,
+        maxInstIdx: Int,
+        languageManager: LanguageManager
+    ): MethodEdgesNDInitialToFinalApSet =
+        MethodEdgesNDInitialToFinalCactusApSet(methodInitialStatement, languageManager, maxInstIdx)
+
     override fun accessPathSubscription(): MethodAccessPathSubscription =
         MethodCactusAccessPathSubscription()
 
@@ -49,6 +58,9 @@ object CactusApManager : ApManager {
 
     override fun methodInitialToFinalApSummariesStorage(methodInitialStatement: CommonInst): MethodInitialToFinalApSummariesStorage =
         MethodInitialToFinalApSummaries(methodInitialStatement)
+
+    override fun methodNDInitialToFinalApSummariesStorage(methodInitialStatement: CommonInst): MethodNDInitialToFinalApSummariesStorage =
+        MethodNDInitialToFinalCactusApSummariesStorage(methodInitialStatement)
 
     override fun mostAbstractInitialAp(base: AccessPathBase): InitialFactAp =
         AccessPathWithCycles(base, access = null, exclusions = Empty)

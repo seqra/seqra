@@ -40,12 +40,8 @@ interface ConditionEvaluator<T> {
 
 interface FactAwareConditionEvaluator {
     fun evalWithAssumptionsCheck(condition: JIRMarkAwareConditionExpr): Boolean
-    fun assumptionsPossible(): Boolean
+    fun assumptionExpr(): JIRMarkAwareConditionExpr?
     fun facts(): List<InitialFactAp>
-
-    enum class EvaluationResult {
-        True, False, Unknown
-    }
 }
 
 interface PassActionEvaluator<T> {

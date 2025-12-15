@@ -1,130 +1,42 @@
 package org.opentaint.dataflow.ap.ifds.access.cactus
 
+import org.opentaint.dataflow.ap.ifds.access.common.CommonZ2FSummary
 import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgesForExitPoint
-import org.opentaint.dataflow.ap.ifds.SummaryFactStorage
-import org.opentaint.dataflow.ap.ifds.ZeroToFactEdgeBuilder
-import org.opentaint.dataflow.ap.ifds.AccessPathBase
-import org.opentaint.dataflow.ap.ifds.Edge
-import org.opentaint.dataflow.ap.ifds.ExclusionSet
-import org.opentaint.dataflow.ap.ifds.access.MethodFinalApSummariesStorage
 
 class MethodFinalTreeApSummariesStorage(
-    methodInitialStatement: CommonInst
-) : MethodFinalApSummariesStorage {
-    private val storage = MethodZeroToFactSummariesStorage(methodInitialStatement)
-    override fun add(edges: List<Edge.ZeroToFact>, addedEdges: MutableList<ZeroToFactEdgeBuilder>) {
-        storage.add(edges, addedEdges)
-    }
+    methodInitialStatement: CommonInst,
+) : CommonZ2FSummary<AccessCactus.AccessNode>(methodInitialStatement),
+    CactusFinalApAccess {
+    override fun createStorage(): Storage<AccessCactus.AccessNode> = MethodZeroToFactSummaryEdgeStorage()
 
-    override fun collectAllEdgesTo(dst: MutableList<ZeroToFactEdgeBuilder>) {
-        storage.collectAllEdgesTo(dst)
-    }
+    private class MethodZeroToFactSummaryEdgeStorage : Storage<AccessCactus.AccessNode> {
+        private var summaryEdgeAccess: AccessCactus.AccessNode? = null
 
-    override fun filterEdgesTo(dst: MutableList<ZeroToFactEdgeBuilder>, finalFactBase: AccessPathBase) {
-        storage.filterEdgesTo(dst, finalFactBase)
-    }
-}
+        override fun add(
+            edges: List<AccessCactus.AccessNode>,
+            added: MutableList<Z2FBBuilder<AccessCactus.AccessNode>>,
+        ) {
+            edges.mapNotNullTo(added) { add(it) }
+        }
 
-private class MethodZeroToFactSummariesStorage(methodEntryPoint: CommonInst) :
-    MethodSummaryEdgesForExitPoint<Edge.ZeroToFact, ZeroToFactEdgeBuilder, MethodZeroToFactSummaries, AccessPathBase>(
-        methodEntryPoint
-    ) {
-
-    override fun createStorage(): MethodZeroToFactSummaries = MethodZeroToFactSummaries(methodEntryPoint)
-
-    override fun storageAdd(
-        storage: MethodZeroToFactSummaries,
-        edges: List<Edge.ZeroToFact>,
-        added: MutableList<ZeroToFactEdgeBuilder>
-    ) = storage.add(edges, added)
-
-    override fun storageCollectAllEdgesTo(dst: MutableList<ZeroToFactEdgeBuilder>, storage: MethodZeroToFactSummaries) {
-        storage.collectAllEdgesTo(dst)
-    }
-
-    override fun storageFilterEdgesTo(
-        dst: MutableList<ZeroToFactEdgeBuilder>,
-        storage: MethodZeroToFactSummaries,
-        containsPattern: AccessPathBase
-    ) {
-        storage.filterTo(dst, containsPattern)
-    }
-}
-
-private class MethodZeroToFactSummaries(methodEntryPoint: CommonInst) :
-    SummaryFactStorage<MethodZeroToFactSummaryEdgeStorage>(methodEntryPoint) {
-    override fun createStorage() = MethodZeroToFactSummaryEdgeStorage()
-
-    fun add(edges: List<Edge.ZeroToFact>, added: MutableList<ZeroToFactEdgeBuilder>) {
-        val sameExitBaseEdges = edges.groupBy { it.factAp.base }
-        for ((exitBase, sameBaseEdges) in sameExitBaseEdges) {
-            val storage = getOrCreate(exitBase)
-
-            val addedEdge = sameBaseEdges.fold(null as ZeroEdgeBuilderBuilder?) { addedEdge, edge ->
-                storage.add((edge.factAp as AccessCactus).access) ?: addedEdge
+        private fun add(edgeAccess: AccessCactus.AccessNode): Z2FBBuilder<AccessCactus.AccessNode>? {
+            val summaryAccess = summaryEdgeAccess
+            if (summaryAccess == null) {
+                summaryEdgeAccess = edgeAccess
+                return ZeroEdgeBuilderBuilder().setNode(edgeAccess)
             }
 
-            if (addedEdge != null) {
-                added.add(addedEdge.setBase(exitBase).build())
-            }
+            val mergedAccess = summaryAccess.mergeAdd(edgeAccess)
+            if (summaryAccess === mergedAccess) return null
+
+            summaryEdgeAccess = mergedAccess
+            return ZeroEdgeBuilderBuilder().setNode(mergedAccess)
+        }
+
+        override fun collectEdges(dst: MutableList<Z2FBBuilder<AccessCactus.AccessNode>>) {
+            summaryEdgeAccess?.let { dst += ZeroEdgeBuilderBuilder().setNode(it) }
         }
     }
 
-    fun collectAllEdgesTo(dst: MutableList<ZeroToFactEdgeBuilder>) {
-        forEachValue { base, storage ->
-            storage.collectTo(dst, base)
-        }
-    }
-
-    fun filterTo(dst: MutableList<ZeroToFactEdgeBuilder>, finalFactBase: AccessPathBase) {
-        val storage = find(finalFactBase) ?: return
-        storage.collectTo(dst, finalFactBase)
-    }
-
-    private fun MethodZeroToFactSummaryEdgeStorage.collectTo(
-        dst: MutableList<ZeroToFactEdgeBuilder>,
-        base: AccessPathBase
-    ) {
-        val edge = summaryEdge() ?: return
-        dst.add(edge.setBase(base).build())
-    }
-}
-
-private class MethodZeroToFactSummaryEdgeStorage {
-    private var summaryEdgeAccess: AccessCactus.AccessNode? = null
-
-    fun add(edgeAccess: AccessCactus.AccessNode): ZeroEdgeBuilderBuilder? {
-        val summaryAccess = summaryEdgeAccess
-        if (summaryAccess == null) {
-            summaryEdgeAccess = edgeAccess
-            return ZeroEdgeBuilderBuilder().setNode(edgeAccess)
-        }
-
-        val mergedAccess = summaryAccess.mergeAdd(edgeAccess)
-        if (summaryAccess === mergedAccess) return null
-
-        summaryEdgeAccess = mergedAccess
-        return ZeroEdgeBuilderBuilder().setNode(mergedAccess)
-    }
-
-    fun summaryEdge(): ZeroEdgeBuilderBuilder? = summaryEdgeAccess?.let {
-        ZeroEdgeBuilderBuilder().setNode(it)
-    }
-}
-
-private data class ZeroEdgeBuilderBuilder(
-    private var base: AccessPathBase? = null,
-    private var node: AccessCactus.AccessNode? = null,
-) {
-    fun build(): ZeroToFactEdgeBuilder = ZeroToFactEdgeBuilder()
-        .setExitAp(AccessCactus(base!!, node!!, ExclusionSet.Universe))
-
-    fun setBase(base: AccessPathBase) = this.also {
-        this.base = base
-    }
-
-    fun setNode(node: AccessCactus.AccessNode) = this.also {
-        this.node = node
-    }
+    private class ZeroEdgeBuilderBuilder : Z2FBBuilder<AccessCactus.AccessNode>(), CactusFinalApAccess
 }

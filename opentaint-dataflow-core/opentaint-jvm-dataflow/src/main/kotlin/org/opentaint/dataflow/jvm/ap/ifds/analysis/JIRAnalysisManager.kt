@@ -111,7 +111,7 @@ class JIRAnalysisManager(
         jIRDowncast<JIRInst>(currentInst)
         jIRDowncast<JIRMethodAnalysisContext>(analysisContext)
 
-        return JIRMethodSequentPrecondition(currentInst, analysisContext)
+        return JIRMethodSequentPrecondition(apManager, currentInst, analysisContext)
     }
 
     override fun getMethodSequentFlowFunction(

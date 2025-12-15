@@ -1,7 +1,5 @@
 package org.opentaint.dataflow.ap.ifds.trace
 
-import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager.MethodEntryPointCaller
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner
@@ -11,6 +9,8 @@ import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerability
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.MethodEntry
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.SourceStartEntry
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonInst
 
 class TraceResolver(
     private val entryPointMethods: Set<CommonMethod>,
@@ -108,7 +108,11 @@ class TraceResolver(
                     val traces = resolveIntraProceduralTraceSummary(
                         vulnerability.methodEntryPoint,
                         vulnerability.statement,
-                        vulnerability.factAp
+                        vulnerability.factAp,
+                        includeStatement = when (vulnerability.vulnerabilityTriggerPosition) {
+                            TaintSinkTracker.VulnerabilityTriggerPosition.BEFORE_INST -> false
+                            TaintSinkTracker.VulnerabilityTriggerPosition.AFTER_INST -> true
+                        }
                     )
 
                     for (trace in traces) {

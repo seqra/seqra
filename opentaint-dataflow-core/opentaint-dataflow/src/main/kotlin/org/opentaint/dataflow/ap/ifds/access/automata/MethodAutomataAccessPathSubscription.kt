@@ -1,214 +1,161 @@
 package org.opentaint.dataflow.ap.ifds.access.automata
 
-import org.opentaint.dataflow.ap.ifds.AccessPathBase
-import org.opentaint.dataflow.ap.ifds.ExclusionSet
-import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager.FactEdgeSummarySubscription
-import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager.ZeroEdgeSummarySubscription
-import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.ap.ifds.access.MethodAccessPathSubscription
-import org.opentaint.dataflow.util.collectToListWithPostProcess
+import org.opentaint.dataflow.ap.ifds.access.common.CommonAPSub
+import org.opentaint.dataflow.ap.ifds.access.common.CommonFactEdgeSubBuilder
+import org.opentaint.dataflow.ap.ifds.access.common.CommonFactNDEdgeSubBuilder
+import org.opentaint.dataflow.ap.ifds.access.common.CommonZeroEdgeSubBuilder
+import org.opentaint.dataflow.ap.ifds.access.common.ndf2f.DefaultNDF2FSubStorageWithAp
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.getOrCreateIndex
 import org.opentaint.dataflow.util.object2IntMap
+import org.opentaint.ir.api.common.cfg.CommonInst
+import java.util.BitSet
 
-class MethodAutomataAccessPathSubscription : MethodAccessPathSubscription {
-    private val zeroFacts = hashMapOf<AccessPathBase, ZeroFactSubscriptionStorage>()
-    private val factToFact = hashMapOf<AccessPathBase, FactToFactSubscriptionStorage>()
+class MethodAutomataAccessPathSubscription : CommonAPSub<AccessGraph, AccessGraph>(),
+    AutomataInitialApAccess, AutomataFinalApAccess {
 
-    override fun addZeroToFact(
-        calleeInitialFactBase: AccessPathBase,
-        callerFactAp: FinalFactAp
-    ): ZeroEdgeSummarySubscription? {
-        val basedFacts = zeroFacts.getOrPut(calleeInitialFactBase, ::ZeroFactSubscriptionStorage)
-        return basedFacts.add(callerFactAp as AccessGraphFinalFactAp)
-            ?.setCalleeBase(calleeInitialFactBase)
-    }
+    override fun createZ2FSubStorage(callerEp: CommonInst): Z2FSubStorage<AccessGraph, AccessGraph> = Z2FFactGraphs()
 
-    override fun addFactToFact(
-        calleeInitialBase: AccessPathBase,
-        callerInitialAp: InitialFactAp,
-        callerExitAp: FinalFactAp
-    ): FactEdgeSummarySubscription? {
-        val basedFacts = factToFact.getOrPut(calleeInitialBase, ::FactToFactSubscriptionStorage)
-        return basedFacts
-            .add(callerInitialAp as AccessGraphInitialFactAp, callerExitAp as AccessGraphFinalFactAp)
-            ?.setCalleeBase(calleeInitialBase)
-    }
+    override fun createF2FSubStorage(callerEp: CommonInst): F2FSubStorage<AccessGraph, AccessGraph> = F2FFactGraphs()
 
-    override fun collectFactEdge(
-        collection: MutableList<FactEdgeSummarySubscription>,
-        summaryInitialFactAp: InitialFactAp,
-        emptyDeltaRequired: Boolean
-    ) {
-        val edges = factToFact[summaryInitialFactAp.base] ?: return
-        collectToListWithPostProcess(
-            collection,
-            { edges.collect(it, (summaryInitialFactAp as AccessGraphInitialFactAp).access, emptyDeltaRequired) },
-            { it.setCalleeBase(summaryInitialFactAp.base) }
-        )
-    }
+    override fun createNDF2FSubStorage(callerEp: CommonInst): NDF2FSubStorage<AccessGraph, AccessGraph> = NdF2f(callerEp)
 
-    override fun collectZeroEdge(
-        collection: MutableList<ZeroEdgeSummarySubscription>,
-        summaryInitialFactAp: InitialFactAp
-    ) {
-        val edges = zeroFacts[summaryInitialFactAp.base] ?: return
-        collectToListWithPostProcess(
-            collection,
-            { edges.collect(it, (summaryInitialFactAp as AccessGraphInitialFactAp).access) },
-            { it.setCalleeBase(summaryInitialFactAp.base) }
-        )
-    }
+    private class Z2FFactGraphs : Z2FSubStorage<AccessGraph, AccessGraph> {
+        private val facts = hashSetOf<AccessGraph>()
 
-    private class ZeroFactSubscriptionStorage {
-        private val edgeFacts = hashMapOf<AccessPathBase, FactGraphs>()
-
-        fun add(fact: AccessGraphFinalFactAp): ZeroEdgeSummarySubscription? {
-            check(fact.exclusions is ExclusionSet.Universe)
-
-            val factGraphs = edgeFacts.getOrPut(fact.base, ::FactGraphs)
-
-            return factGraphs.add(fact.access)?.let {
-                val ap = AccessGraphFinalFactAp(fact.base, it, ExclusionSet.Universe)
-                ZeroEdgeSummarySubscription()
-                    .setCallerPathEdgeAp(ap)
-            }
+        override fun add(callerExitAp: AccessGraph): CommonZeroEdgeSubBuilder<AccessGraph>? {
+            if (!facts.add(callerExitAp)) return null
+            return ZeroEdgeSubBuilder().setNode(callerExitAp)
         }
 
-        fun collect(
-            collection: MutableList<ZeroEdgeSummarySubscription>,
-            summaryInitialFactAp: AccessGraph
+        override fun find(
+            dst: MutableList<CommonZeroEdgeSubBuilder<AccessGraph>>,
+            summaryInitialFact: AccessGraph,
         ) {
-            for ((base, graphs) in edgeFacts) {
-                collectToListWithPostProcess(
-                    collection,
-                    { graphs.collect(it, summaryInitialFactAp) },
-                    {
-                        val ap = AccessGraphFinalFactAp(base, it, ExclusionSet.Universe)
-                        ZeroEdgeSummarySubscription()
-                            .setCallerPathEdgeAp(ap)
-                    }
-                )
+            facts.mapNotNullTo(dst) {
+                val delta = it.delta(summaryInitialFact)
+                if (delta.isEmpty()) return@mapNotNullTo null
+
+                ZeroEdgeSubBuilder().setNode(it)
             }
         }
+    }
 
-        private class FactGraphs {
-            private val facts = hashSetOf<AccessGraph>()
+    private class F2FFactGraphs : F2FSubStorage<AccessGraph, AccessGraph> {
+        private val edgeIndex = object2IntMap<Pair<AccessGraphInitialFactAp, AccessGraph>>()
+        private val edges = arrayListOf<Pair<AccessGraphInitialFactAp, AccessGraph>>()
 
-            fun add(fact: AccessGraph): AccessGraph? {
-                if (!facts.add(fact)) return null
-                return fact
+        private val graphIndex = GraphIndex()
+
+        override fun add(
+            callerInitialAp: InitialFactAp,
+            callerExitAp: AccessGraph,
+        ): CommonFactEdgeSubBuilder<AccessGraph>? {
+            callerInitialAp as AccessGraphInitialFactAp
+
+            val entry = Pair(callerInitialAp, callerExitAp)
+            edgeIndex.getOrCreateIndex(entry) { newIndex ->
+                edges.add(entry)
+
+                updateGraphIndex(entry.second, newIndex)
+
+                return FactEdgeSubBuilder()
+                    .setCallerNode(callerExitAp)
+                    .setCallerInitialAp(callerInitialAp)
+                    .setCallerExclusion(callerInitialAp.exclusions)
             }
 
-            fun collect(
-                collection: MutableList<AccessGraph>,
-                summaryInitialFactAp: AccessGraph
-            ) {
-                facts.mapNotNullTo(collection) {
-                    val delta = it.delta(summaryInitialFactAp)
-                    if (delta.isEmpty()) return@mapNotNullTo null
+            return null
+        }
 
-                    it
+        private fun updateGraphIndex(graph: AccessGraph, idx: Int) {
+            graphIndex.add(graph, idx)
+        }
+
+        override fun find(
+            dst: MutableList<CommonFactEdgeSubBuilder<AccessGraph>>,
+            summaryInitialFact: AccessGraph,
+            emptyDeltaRequired: Boolean,
+        ) {
+            if (!emptyDeltaRequired) {
+                graphIndex.localizeIndexedGraphHasDeltaWithGraph(summaryInitialFact).forEach { edgeIdx ->
+                    val (initialAp, final) = edges[edgeIdx]
+
+                    val delta = final.delta(summaryInitialFact)
+                    if (delta.isEmpty()) return@forEach
+
+                    dst += FactEdgeSubBuilder()
+                        .setCallerInitialAp(initialAp)
+                        .setCallerNode(final)
+                        .setCallerExclusion(initialAp.exclusions)
                 }
+            } else {
+                collectEmptyDelta(dst, summaryInitialFact)
+            }
+        }
+
+        private fun collectEmptyDelta(
+            collection: MutableList<CommonFactEdgeSubBuilder<AccessGraph>>,
+            summaryInitialFactAp: AccessGraph,
+        ) {
+            graphIndex.localizeIndexedGraphContainsAllGraph(summaryInitialFactAp).forEach { edgeIdx ->
+                val (initialAp, final) = edges[edgeIdx]
+
+                if (!final.containsAll(summaryInitialFactAp)) {
+                    return@forEach
+                }
+
+                collection += FactEdgeSubBuilder()
+                    .setCallerInitialAp(initialAp)
+                    .setCallerNode(final)
+                    .setCallerExclusion(initialAp.exclusions)
             }
         }
     }
 
-    private class FactToFactSubscriptionStorage {
-        private val finalBaseEdges = hashMapOf<AccessPathBase, FactGraphs>()
+    private class NdF2f(callerEp: CommonInst) :
+        DefaultNDF2FSubStorageWithAp<AccessGraph, AccessGraph>(callerEp), AutomataInitialApAccess {
+        private val graphIndex = GraphIndex()
 
-        fun add(initial: AccessGraphInitialFactAp, final: AccessGraphFinalFactAp): FactEdgeSummarySubscription? {
-            check(final.exclusions == initial.exclusions) { "Edge invariant" }
+        override fun createBuilder(): CommonFactNDEdgeSubBuilder<AccessGraph> = FactNDEdgeSubBuilder()
 
-            val factGraphs = finalBaseEdges.getOrPut(final.base, ::FactGraphs)
+        private inner class FactStorage(
+            private val storageIdx: Int,
+        ) : Storage<AccessGraph, AccessGraph> {
+            private val graphs = object2IntMap<AccessGraph>()
+            private val graphList = arrayListOf<AccessGraph>()
 
-            return factGraphs.add(initial, final.access)?.let { (initialAp, finalAccess) ->
-                val ap = AccessGraphFinalFactAp(final.base, finalAccess, initialAp.exclusions)
-                FactEdgeSummarySubscription()
-                    .setCallerAp(ap)
-                    .setCallerInitialAp(initialAp)
-            }
-        }
-
-        fun collect(
-            collection: MutableList<FactEdgeSummarySubscription>,
-            summaryInitialFactAp: AccessGraph,
-            emptyDeltaRequired: Boolean
-        ) {
-            for ((finalBase, graphs) in finalBaseEdges) {
-                collectToListWithPostProcess(
-                    collection,
-                    { graphs.collect(it, summaryInitialFactAp, emptyDeltaRequired) },
-                    { (initialAp, finalAccess) ->
-                        val ap = AccessGraphFinalFactAp(finalBase, finalAccess, initialAp.exclusions)
-                        FactEdgeSummarySubscription()
-                            .setCallerAp(ap)
-                            .setCallerInitialAp(initialAp)
-                    }
-                )
-            }
-        }
-        
-        private class FactGraphs {
-            private val edgeIndex = object2IntMap<Pair<AccessGraphInitialFactAp, AccessGraph>>()
-            private val edges = arrayListOf<Pair<AccessGraphInitialFactAp, AccessGraph>>()
-
-            private val graphIndex = GraphIndex()
-
-            fun add(
-                initial: AccessGraphInitialFactAp,
-                final: AccessGraph
-            ): Pair<AccessGraphInitialFactAp, AccessGraph>? {
-                val entry = Pair(initial, final)
-                edgeIndex.getOrCreateIndex(entry) { newIndex ->
-                    edges.add(entry)
-
-                    updateGraphIndex(entry.second, newIndex)
-
-                    return entry
+            override fun add(element: AccessGraph): AccessGraph? {
+                graphs.getOrCreateIndex(element) {
+                    graphList.add(element)
+                    graphIndex.add(element, storageIdx)
+                    return element
                 }
 
                 return null
             }
 
-            private fun updateGraphIndex(graph: AccessGraph, idx: Int) {
-                graphIndex.add(graph, idx)
+            override fun collect(dst: MutableList<AccessGraph>) {
+                dst.addAll(graphList)
             }
 
-            fun collect(
-                collection: MutableList<Pair<AccessGraphInitialFactAp, AccessGraph>>,
-                summaryInitialFactAp: AccessGraph,
-                emptyDeltaRequired: Boolean,
-            ) {
-                if (!emptyDeltaRequired) {
-                    graphIndex.localizeIndexedGraphHasDeltaWithGraph(summaryInitialFactAp).forEach { edgeIdx ->
-                        val (initialAp, final) = edges[edgeIdx]
-
-                        val delta = final.delta(summaryInitialFactAp)
-                        if (delta.isEmpty()) return@forEach
-
-                        collection.add(initialAp to final)
+            override fun collect(dst: MutableList<AccessGraph>, summaryInitialFact: AccessGraph) {
+                for (graph in graphList) {
+                    if (graph.containsAll(summaryInitialFact)) {
+                        dst.add(graph)
                     }
-                } else {
-                    collectEmptyDelta(collection, summaryInitialFactAp)
-                }
-            }
-
-            private fun collectEmptyDelta(
-                collection: MutableList<Pair<AccessGraphInitialFactAp, AccessGraph>>,
-                summaryInitialFactAp: AccessGraph,
-            ) {
-                graphIndex.localizeIndexedGraphContainsAllGraph(summaryInitialFactAp).forEach { edgeIdx ->
-                    val (initialAp, final) = edges[edgeIdx]
-
-                    if (!final.containsAll(summaryInitialFactAp)) {
-                        return@forEach
-                    }
-
-                    collection.add(initialAp to final)
                 }
             }
         }
+
+        override fun createStorage(idx: Int): Storage<AccessGraph, AccessGraph> = FactStorage(idx)
+
+        override fun relevantStorageIndices(summaryInitialFact: AccessGraph): BitSet =
+            graphIndex.localizeIndexedGraphContainsAllGraph(summaryInitialFact)
     }
 }
+
+private class ZeroEdgeSubBuilder : CommonZeroEdgeSubBuilder<AccessGraph>(), AutomataFinalApAccess
+private class FactEdgeSubBuilder : CommonFactEdgeSubBuilder<AccessGraph>(), AutomataFinalApAccess
+private class FactNDEdgeSubBuilder : CommonFactNDEdgeSubBuilder<AccessGraph>(), AutomataFinalApAccess

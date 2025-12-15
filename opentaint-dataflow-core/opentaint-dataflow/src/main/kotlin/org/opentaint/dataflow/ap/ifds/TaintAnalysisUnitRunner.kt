@@ -272,6 +272,17 @@ class TaintAnalysisUnitRunner(
         submitCrossUnitFact = { handleCrossUnitFactCall(unit, methodEntryPoint, edge.factAp.rebase(methodFactBase)) }
     )
 
+    override fun subscribeOnMethodSummaries(
+        edge: Edge.NDFactToFact,
+        methodEntryPoint: MethodEntryPoint,
+        methodFactBase: AccessPathBase
+    ) = subscribeOnMethodSummaries(
+        methodEntryPoint = methodEntryPoint,
+        subscribe = { subscribeOnMethodSummary(methodEntryPoint, methodFactBase, edge) },
+        submitThisUnitFact = { submitMethodInitialFact(methodEntryPoint, edge.factAp.rebase(methodFactBase)) },
+        submitCrossUnitFact = { handleCrossUnitFactCall(unit, methodEntryPoint, edge.factAp.rebase(methodFactBase)) }
+    )
+
     private inline fun subscribeOnMethodSummaries(
         methodEntryPoint: MethodEntryPoint,
         subscribe: SummaryEdgeSubscriptionManager.() -> Boolean,
@@ -346,11 +357,12 @@ class TaintAnalysisUnitRunner(
     fun resolveIntraProceduralTraceSummary(
         methodEntryPoint: MethodEntryPoint,
         statement: CommonInst,
-        facts: Set<InitialFactAp>
+        facts: Set<InitialFactAp>,
+        includeStatement: Boolean = false,
     ): List<MethodTraceResolver.SummaryTrace> {
         val methodRunners = methodAnalyzers(methodEntryPoint)
         val runner = methodRunners.getAnalyzer(methodEntryPoint)
-        return runner.resolveIntraProceduralTraceSummary(statement, facts)
+        return runner.resolveIntraProceduralTraceSummary(statement, facts, includeStatement)
     }
 
     fun resolveIntraProceduralTraceSummaryFromCall(

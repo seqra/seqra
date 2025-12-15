@@ -25,6 +25,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodCallFactMapper
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.forEachPossibleAliasAtStatement
+import org.opentaint.dataflow.jvm.ap.ifds.removeTrueLiterals
 import org.opentaint.dataflow.jvm.ap.ifds.taint.InitialFactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.PositionAccess
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintPassActionPreconditionEvaluator
@@ -211,26 +212,7 @@ class JIRMethodCallPrecondition(
         }
     }
 
-    private fun JIRMarkAwareConditionExpr.removeNegated(): JIRMarkAwareConditionExpr? {
-        return when (this) {
-            is JIRMarkAwareConditionExpr.Literal -> takeIf { !it.negated }
-            is JIRMarkAwareConditionExpr.And -> removeNegated(args, JIRMarkAwareConditionExpr::And) { it }
-            is JIRMarkAwareConditionExpr.Or -> removeNegated(args, JIRMarkAwareConditionExpr::Or) { it ?: return null }
-        }
-    }
-
-    private inline fun removeNegated(
-        args: Array<JIRMarkAwareConditionExpr>,
-        create: (Array<JIRMarkAwareConditionExpr>) -> JIRMarkAwareConditionExpr,
-        handleElement: (JIRMarkAwareConditionExpr?) -> JIRMarkAwareConditionExpr?,
-    ): JIRMarkAwareConditionExpr? {
-        val result = args.mapNotNull { handleElement(it.removeNegated()) }
-        return when (result.size) {
-            0 -> null
-            1 -> result.first()
-            else -> create(result.toTypedArray())
-        }
-    }
+    private fun JIRMarkAwareConditionExpr.removeNegated() = removeTrueLiterals { it.negated }
 
     override fun resolvePassRuleCondition(precondition: PassRuleCondition): List<PassRuleConditionFacts> {
         precondition as JIRPassRuleCondition

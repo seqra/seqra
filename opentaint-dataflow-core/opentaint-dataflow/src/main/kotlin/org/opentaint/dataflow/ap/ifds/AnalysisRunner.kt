@@ -23,6 +23,7 @@ interface AnalysisRunner {
     fun subscribeOnMethodSummaries(edge: Edge.ZeroToZero, methodEntryPoint: MethodEntryPoint)
     fun subscribeOnMethodSummaries(edge: Edge.ZeroToFact, methodEntryPoint: MethodEntryPoint, methodFactBase: AccessPathBase)
     fun subscribeOnMethodSummaries(edge: Edge.FactToFact, methodEntryPoint: MethodEntryPoint, methodFactBase: AccessPathBase)
+    fun subscribeOnMethodSummaries(edge: Edge.NDFactToFact, methodEntryPoint: MethodEntryPoint, methodFactBase: AccessPathBase)
     fun submitExternalInitialZeroFact(methodEntryPoint: MethodEntryPoint)
     fun submitExternalInitialFact(methodEntryPoint: MethodEntryPoint, factAp: FinalFactAp)
 }

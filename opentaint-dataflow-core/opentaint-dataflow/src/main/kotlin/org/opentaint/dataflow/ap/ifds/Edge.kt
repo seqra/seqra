@@ -1,8 +1,8 @@
 package org.opentaint.dataflow.ap.ifds
 
-import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.ir.api.common.cfg.CommonInst
 
 sealed interface Edge {
     val methodEntryPoint: MethodEntryPoint
@@ -113,6 +113,53 @@ sealed interface Edge {
         override fun hashCode(): Int {
             var result = methodEntryPoint.hashCode()
             result = 31 * result + initialFactAp.hashCode()
+            result = 31 * result + statement.hashCode()
+            result = 31 * result + factAp.hashCode()
+            return result
+        }
+    }
+
+    class NDFactToFact(
+        override val methodEntryPoint: MethodEntryPoint,
+        val initialFacts: Set<InitialFactAp>,
+        override val statement: CommonInst,
+        val factAp: FinalFactAp,
+    ) : Edge {
+        init {
+            check(initialFacts.size > 1) {
+                "Distributive edge"
+            }
+
+            check(initialFacts.all { it.exclusions is ExclusionSet.Universe }) {
+                "Incorrect NDFactToFact edge exclusion: $initialFacts"
+            }
+
+            check(factAp.exclusions is ExclusionSet.Universe) {
+                "Incorrect NDFactToFact edge exclusion: $factAp"
+            }
+        }
+
+        override fun replaceStatement(newStatement: CommonInst) =
+            NDFactToFact(methodEntryPoint, initialFacts, newStatement, factAp)
+
+        override fun toString(): String =
+            "(${initialFacts} -> $factAp)[$methodEntryPoint -> $statement]"
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is NDFactToFact) return false
+
+            if (methodEntryPoint != other.methodEntryPoint) return false
+            if (initialFacts != other.initialFacts) return false
+            if (statement != other.statement) return false
+            if (factAp != other.factAp) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = methodEntryPoint.hashCode()
+            result = 31 * result + initialFacts.hashCode()
             result = 31 * result + statement.hashCode()
             result = 31 * result + factAp.hashCode()
             return result

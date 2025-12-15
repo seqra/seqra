@@ -9,6 +9,7 @@ import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.Sequent
+import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.VulnerabilityTriggerPosition
 import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionRewriter
@@ -77,6 +78,22 @@ class JIRMethodSequentFlowFunction(
                 val refinedInitial = initialFactAp.excludeField(accessor)
                 val refinedFact = fact.excludeField(accessor)
                 add(Sequent.FactToFact(refinedInitial, refinedFact))
+            }
+        )
+    }
+
+    override fun propagateNDFactToFact(
+        initialFacts: Set<InitialFactAp>,
+        currentFactAp: FinalFactAp
+    ) = buildSet {
+        propagate(
+            factAp = currentFactAp,
+            unchanged = { add(Sequent.Unchanged) },
+            propagateFact = { fact ->
+                add(Sequent.NDFactToFact(initialFacts, fact))
+            },
+            propagateFactWithAccessorExclude = { _, _ ->
+                error("NDF2F edge can't be refined: $currentFactAp")
             }
         )
     }
@@ -433,7 +450,8 @@ class JIRMethodSequentFlowFunction(
             }
         ) { rule, evaluatedFacts ->
             taintSinkTracker.addVulnerability(
-                analysisContext.methodEntryPoint, evaluatedFacts.toHashSet(), currentInst, rule
+                analysisContext.methodEntryPoint, evaluatedFacts.toHashSet(), currentInst, rule,
+                vulnerabilityTriggerPosition = VulnerabilityTriggerPosition.AFTER_INST
             )
         }
     }

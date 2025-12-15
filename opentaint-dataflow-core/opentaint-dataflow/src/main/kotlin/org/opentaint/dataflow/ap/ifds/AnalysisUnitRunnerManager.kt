@@ -73,6 +73,12 @@ interface AnalysisUnitRunnerManager {
         return storage.methodFactSummaries(methodEntryPoint, initialFactAp)
     }
 
+    fun findFactNDSummaryEdges(methodEntryPoint: MethodEntryPoint, initialFactAp: FinalFactAp): List<Edge.NDFactToFact> {
+        val unit = unitResolver.resolve(methodEntryPoint.method)
+        val storage = getOrCreateUnitStorage(unit) ?: return emptyList()
+        return storage.methodFactNDSummaries(methodEntryPoint, initialFactAp)
+    }
+
     fun findFactToFactSummaryEdges(
         methodEntryPoint: MethodEntryPoint,
         finalFactBase: AccessPathBase
@@ -80,6 +86,15 @@ interface AnalysisUnitRunnerManager {
         val unit = unitResolver.resolve(methodEntryPoint.method)
         val storage = getOrCreateUnitStorage(unit) ?: return emptyList()
         return storage.methodFactToFactSummaryEdges(methodEntryPoint, finalFactBase)
+    }
+
+    fun findFactNDSummaryEdges(
+        methodEntryPoint: MethodEntryPoint,
+        finalFactBase: AccessPathBase
+    ): List<Edge.NDFactToFact> {
+        val unit = unitResolver.resolve(methodEntryPoint.method)
+        val storage = getOrCreateUnitStorage(unit) ?: return emptyList()
+        return storage.methodFactNDSummaries(methodEntryPoint, finalFactBase)
     }
 
     fun findSideEffectRequirements(

@@ -1,28 +1,32 @@
 package org.opentaint.dataflow.ap.ifds
 
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
-import org.opentaint.ir.api.common.CommonMethod
-import org.opentaint.ir.api.common.cfg.CommonAssignInst
-import org.opentaint.ir.api.common.cfg.CommonCallExpr
-import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.dataflow.ap.ifds.Edge.FactToFact
+import org.opentaint.dataflow.ap.ifds.Edge.NDFactToFact
 import org.opentaint.dataflow.ap.ifds.Edge.ZeroInitialEdge
 import org.opentaint.dataflow.ap.ifds.Edge.ZeroToFact
 import org.opentaint.dataflow.ap.ifds.Edge.ZeroToZero
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzer.MethodCallHandler
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzer.MethodCallResolutionFailureHandler
 import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication
+import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryExclusionRefinement
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.ZeroCallFact
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallSummaryHandler
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.Sequent
 import org.opentaint.dataflow.ap.ifds.analysis.MethodStartFlowFunction.StartFact
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolverCancellation
 import org.opentaint.dataflow.graph.MethodInstGraph
+import org.opentaint.dataflow.util.cartesianProductMapTo
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonAssignInst
+import org.opentaint.ir.api.common.cfg.CommonCallExpr
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.common.cfg.CommonValue
 
 interface MethodAnalyzer {
     fun addInitialZeroFact()
@@ -39,8 +43,22 @@ interface MethodAnalyzer {
 
     fun handleFactToFactMethodSummaryEdge(summarySubs: List<FactToFactSub>, methodSummaries: List<FactToFact>)
 
+    fun handleNDFactToFactMethodSummaryEdge(summarySubs: List<NDFactToFactSub>, methodSummaries: List<FactToFact>)
+
+    fun handleZeroToFactMethodNDSummaryEdge(summarySubs: List<ZeroToFactSub>, methodSummaries: List<NDFactToFact>)
+
+    fun handleFactToFactMethodNDSummaryEdge(summarySubs: List<FactToFactSub>, methodSummaries: List<NDFactToFact>)
+
+    fun handleNDFactToFactMethodNDSummaryEdge(summarySubs: List<NDFactToFactSub>, methodSummaries: List<NDFactToFact>)
+
     fun handleMethodSideEffectRequirement(
         currentEdge: FactToFact,
+        methodInitialFactBase: AccessPathBase,
+        methodSideEffectRequirements: List<InitialFactAp>
+    )
+
+    fun handleMethodSideEffectRequirement(
+        currentEdge: NDFactToFact,
         methodInitialFactBase: AccessPathBase,
         methodSideEffectRequirements: List<InitialFactAp>
     )
@@ -59,6 +77,11 @@ interface MethodAnalyzer {
         val methodInitialFactBase: AccessPathBase
     )
 
+    data class NDFactToFactSub(
+        val currentEdge: NDFactToFact,
+        val methodInitialFactBase: AccessPathBase
+    )
+
     fun handleResolvedMethodCall(method: MethodWithContext, handler: MethodCallHandler)
 
     fun handleMethodCallResolutionFailure(
@@ -68,7 +91,8 @@ interface MethodAnalyzer {
 
     fun resolveIntraProceduralTraceSummary(
         statement: CommonInst,
-        facts: Set<InitialFactAp>
+        facts: Set<InitialFactAp>,
+        includeStatement: Boolean = false,
     ): List<MethodTraceResolver.SummaryTrace>
 
     fun resolveIntraProceduralTraceSummaryFromCall(
@@ -85,12 +109,14 @@ interface MethodAnalyzer {
         data class ZeroToZeroHandler(val currentEdge: ZeroToZero) : MethodCallHandler
         data class ZeroToFactHandler(val currentEdge: ZeroToFact, val startFactBase: AccessPathBase) : MethodCallHandler
         data class FactToFactHandler(val currentEdge: FactToFact, val startFactBase: AccessPathBase) : MethodCallHandler
+        data class NDFactToFactHandler(val currentEdge: NDFactToFact, val startFactBase: AccessPathBase) : MethodCallHandler
     }
 
     sealed interface MethodCallResolutionFailureHandler {
         data class ZeroToZeroHandler(val edge: ZeroToZero) : MethodCallResolutionFailureHandler
         data class ZeroToFactHandler(val edge: ZeroInitialEdge, val callerFactAp: FinalFactAp) : MethodCallResolutionFailureHandler
         data class FactToFactHandler(val callerEdge: FactToFact, val callerFactAp: FinalFactAp): MethodCallResolutionFailureHandler
+        data class NDFactToFactHandler(val callerEdge: NDFactToFact, val callerFactAp: FinalFactAp): MethodCallResolutionFailureHandler
     }
 }
 
@@ -139,6 +165,9 @@ class NormalMethodAnalyzer(
                     is FactToFact -> initialFacts.registerNewInitialFact(edge.initialFactAp)
                     is ZeroToFact -> zeroInitialFactProcessed = true
                     is ZeroToZero -> zeroInitialFactProcessed = true
+                    is NDFactToFact -> edge.initialFacts.forEach {
+                        initialFacts.registerNewInitialFact(it)
+                    }
                 }
             }
         }
@@ -190,6 +219,7 @@ class NormalMethodAnalyzer(
             is ZeroToZero -> null
             is ZeroToFact -> edge.factAp
             is FactToFact -> edge.factAp
+            is NDFactToFact -> edge.factAp
         }
 
         val edgeFactBase = finalEdgeFact?.base
@@ -228,6 +258,7 @@ class NormalMethodAnalyzer(
             is ZeroToZero -> flowFunction.propagateZeroToZero()
             is ZeroToFact -> flowFunction.propagateZeroToFact(edge.factAp)
             is FactToFact -> flowFunction.propagateFactToFact(edge.initialFactAp, edge.factAp)
+            is NDFactToFact -> flowFunction.propagateNDFactToFact(edge.initialFacts, edge.factAp)
         }
 
         handleSequentFact(edge, sequentialFacts)
@@ -245,6 +276,7 @@ class NormalMethodAnalyzer(
             Sequent.ZeroToZero -> ZeroToZero(methodEntryPoint, edge.statement)
             is Sequent.ZeroToFact -> ZeroToFact(methodEntryPoint, edge.statement, sf.factAp)
             is Sequent.FactToFact -> FactToFact(methodEntryPoint, sf.initialFactAp, edge.statement, sf.factAp)
+            is Sequent.NDFactToFact -> NDFactToFact(methodEntryPoint, sf.initialFacts, edge.statement, sf.factAp)
             is Sequent.SideEffectRequirement -> {
                 check(edge is FactToFact) { "Initial fact required for side effect" }
                 addSideEffectRequirement(edge, sf.initialFactAp)
@@ -281,6 +313,10 @@ class NormalMethodAnalyzer(
             is FactToFact -> flowFunction.propagateFactToFact(edge.initialFactAp, edge.factAp).forEach {
                 propagateFactCallFact(callExpr, edge, it)
             }
+
+            is NDFactToFact -> flowFunction.propagateNDFactToFact(edge.initialFacts, edge.factAp).forEach {
+                propagateNDFactCallFact(callExpr, edge, it)
+            }
         }
     }
 
@@ -316,6 +352,18 @@ class NormalMethodAnalyzer(
                 val failureHandler = MethodCallResolutionFailureHandler.ZeroToFactHandler(edge, fact.callerFactAp)
                 resolveMethodCall(callExpr, edge.statement, handler, failureHandler)
             }
+
+            is MethodCallFlowFunction.CallToReturnFFact -> {
+                val edgeAfterStatement = FactToFact(methodEntryPoint, fact.initialFactAp, edge.statement, fact.factAp)
+                handleStatementEdge(edge, edgeAfterStatement)
+            }
+
+            is MethodCallFlowFunction.CallToReturnNonDistributiveFact -> {
+                val edgeAfterStatement = NDFactToFact(
+                    methodEntryPoint, fact.initialFacts, edge.statement, fact.factAp
+                )
+                handleStatementEdge(edge, edgeAfterStatement)
+            }
         }
     }
 
@@ -346,6 +394,40 @@ class NormalMethodAnalyzer(
 
             is MethodCallFlowFunction.SideEffectRequirement -> {
                 addSideEffectRequirement(edge, fact.initialFactAp)
+            }
+
+            is MethodCallFlowFunction.CallToReturnNonDistributiveFact -> {
+                val edgeAfterStatement = NDFactToFact(
+                    methodEntryPoint, fact.initialFacts, edge.statement, fact.factAp
+                )
+                handleStatementEdge(edge, edgeAfterStatement)
+            }
+        }
+    }
+
+    private fun propagateNDFactCallFact(
+        callExpr: CommonCallExpr,
+        edge: NDFactToFact,
+        fact: MethodCallFlowFunction.NDFactCallFact,
+    ) {
+        when (fact) {
+            MethodCallFlowFunction.Unchanged -> {
+                handleUnchangedStatementEdge(edge)
+            }
+
+            is MethodCallFlowFunction.CallToReturnNonDistributiveFact -> {
+                val edgeAfterStatement = NDFactToFact(
+                    methodEntryPoint, fact.initialFacts, edge.statement, fact.factAp
+                )
+                handleStatementEdge(edge, edgeAfterStatement)
+            }
+
+            is MethodCallFlowFunction.CallToStartNDFFact -> {
+                val callerEdge = NDFactToFact(methodEntryPoint, fact.initialFacts, edge.statement, fact.callerFactAp)
+
+                val handler = MethodCallHandler.NDFactToFactHandler(callerEdge, fact.startFactBase)
+                val failureHandler = MethodCallResolutionFailureHandler.NDFactToFactHandler(callerEdge, fact.callerFactAp)
+                resolveMethodCall(callExpr, edge.statement, handler, failureHandler)
             }
         }
     }
@@ -421,6 +503,7 @@ class NormalMethodAnalyzer(
             is ZeroToZero -> true
             is ZeroToFact -> analysisManager.isValidMethodExitFact(apManager, analysisContext, edge.factAp)
             is FactToFact -> analysisManager.isValidMethodExitFact(apManager, analysisContext, edge.factAp)
+            is NDFactToFact -> analysisManager.isValidMethodExitFact(apManager, analysisContext, edge.factAp)
         }
 
         if (isValidSummaryEdge) {
@@ -476,6 +559,9 @@ class NormalMethodAnalyzer(
 
         is MethodCallHandler.FactToFactHandler ->
             runner.subscribeOnMethodSummaries(handler.currentEdge, ep, handler.startFactBase)
+
+        is MethodCallHandler.NDFactToFactHandler ->
+            runner.subscribeOnMethodSummaries(handler.currentEdge, ep, handler.startFactBase)
     }
 
     override fun handleMethodCallResolutionFailure(
@@ -497,6 +583,12 @@ class NormalMethodAnalyzer(
             // If no callees resolved propagate as call-to-return
             val stubFact = MethodCallFlowFunction.CallToReturnFFact(handler.callerEdge.initialFactAp, handler.callerFactAp)
             propagateFactCallFact(callExpr, handler.callerEdge, stubFact)
+        }
+
+        is MethodCallResolutionFailureHandler.NDFactToFactHandler -> {
+            // If no callees resolved propagate as call-to-return
+            val stubFact = MethodCallFlowFunction.CallToReturnNonDistributiveFact(handler.callerEdge.initialFacts, handler.callerFactAp)
+            propagateNDFactCallFact(callExpr, handler.callerEdge, stubFact)
         }
     }
 
@@ -535,6 +627,14 @@ class NormalMethodAnalyzer(
             val requirement = currentEdge.initialFactAp.replaceExclusions(sinkRequirementExclusion)
             addSideEffectRequirement(currentEdge, requirement)
         }
+    }
+
+    override fun handleMethodSideEffectRequirement(
+        currentEdge: NDFactToFact,
+        methodInitialFactBase: AccessPathBase,
+        methodSideEffectRequirements: List<InitialFactAp>,
+    ) {
+        TODO("ND-side effect requirement is not supported")
     }
 
     private fun addSideEffectRequirement(currentEdge: FactToFact, sideEffectRequirement: InitialFactAp) {
@@ -590,6 +690,16 @@ class NormalMethodAnalyzer(
         }
     }
 
+    override fun handleZeroToFactMethodNDSummaryEdge(
+        summarySubs: List<MethodAnalyzer.ZeroToFactSub>,
+        methodSummaries: List<NDFactToFact>,
+    ) {
+        handleMethodNDSummariesSub(
+            summarySubs, methodSummaries,
+            { currentEdge }, { currentEdge.factAp }, { methodInitialFactBase }
+        )
+    }
+
     override fun handleFactToFactMethodSummaryEdge(
         summarySubs: List<MethodAnalyzer.FactToFactSub>,
         methodSummaries: List<FactToFact>
@@ -615,6 +725,51 @@ class NormalMethodAnalyzer(
         }
     }
 
+    override fun handleFactToFactMethodNDSummaryEdge(
+        summarySubs: List<MethodAnalyzer.FactToFactSub>,
+        methodSummaries: List<NDFactToFact>,
+    ) {
+        handleMethodNDSummariesSub(
+            summarySubs, methodSummaries,
+            { currentEdge }, { currentEdge.factAp }, { methodInitialFactBase }
+        )
+    }
+
+    override fun handleNDFactToFactMethodSummaryEdge(
+        summarySubs: List<MethodAnalyzer.NDFactToFactSub>,
+        methodSummaries: List<FactToFact>,
+    ) {
+        summaryEdgesHandled++
+
+        val applicableSummaries = methodSummaries.filter { isApplicableExitToReturnEdge(it) }
+
+        for (sub in summarySubs) {
+            val handler = analysisManager.getMethodCallSummaryHandler(
+                apManager, analysisContext, sub.currentEdge.statement
+            )
+
+            applyMethodSummaries(
+                currentEdge = sub.currentEdge,
+                currentEdgeFactAp = sub.currentEdge.factAp,
+                methodInitialFactBase = sub.methodInitialFactBase,
+                methodSummaries = applicableSummaries,
+                handleSummaryEdge = { currentFactAp: FinalFactAp, summaryEffect: SummaryEdgeApplication, summaryFact: FinalFactAp ->
+                    handler.handleNDFactToFact(sub.currentEdge.initialFacts, currentFactAp, summaryEffect, summaryFact)
+                }
+            )
+        }
+    }
+
+    override fun handleNDFactToFactMethodNDSummaryEdge(
+        summarySubs: List<MethodAnalyzer.NDFactToFactSub>,
+        methodSummaries: List<NDFactToFact>,
+    ) {
+        handleMethodNDSummariesSub(
+            summarySubs, methodSummaries,
+            { currentEdge }, { currentEdge.factAp }, { methodInitialFactBase }
+        )
+    }
+
     private fun applyMethodSummaries(
         currentEdge: Edge,
         currentEdgeFactAp: FinalFactAp,
@@ -622,9 +777,10 @@ class NormalMethodAnalyzer(
         methodSummaries: List<FactToFact>,
         handleSummaryEdge: (currentFactAp: FinalFactAp, summaryEffect: SummaryEdgeApplication, summaryFact: FinalFactAp) -> Set<Sequent>
     ) {
+        val methodInitialFact = currentEdgeFactAp.rebase(methodInitialFactBase)
+
         val summaries = methodSummaries.groupByTo(hashMapOf()) { it.initialFactAp }
         for ((summaryInitialFact, summaryEdges) in summaries) {
-            val methodInitialFact = currentEdgeFactAp.rebase(methodInitialFactBase)
             val summaryEdgeEffects = MethodSummaryEdgeApplicationUtils.tryApplySummaryEdge(
                 methodInitialFact, summaryInitialFact
             )
@@ -638,19 +794,176 @@ class NormalMethodAnalyzer(
         }
     }
 
+    private inline fun <Sub> handleMethodNDSummariesSub(
+        summarySubs: List<Sub>,
+        methodSummaries: List<NDFactToFact>,
+        subEdge: Sub.() -> Edge,
+        subFact: Sub.() -> FinalFactAp,
+        subInitialFactBase: Sub.() -> AccessPathBase,
+    ) {
+        summaryEdgesHandled++
+
+        val applicableSummaries = methodSummaries.filter { isApplicableExitToReturnEdge(it) }
+
+        for (sub in summarySubs) {
+            val currentEdge = sub.subEdge()
+
+            val handler = analysisManager.getMethodCallSummaryHandler(
+                apManager, analysisContext, currentEdge.statement
+            )
+
+            applyMethodNDSummaries(
+                summaryHandler = handler,
+                currentEdge = currentEdge,
+                currentEdgeFactAp = sub.subFact(),
+                methodInitialFactBase = sub.subInitialFactBase(),
+                methodSummaries = applicableSummaries,
+            )
+        }
+    }
+
+    private fun applyMethodNDSummaries(
+        summaryHandler: MethodCallSummaryHandler,
+        currentEdge: Edge,
+        currentEdgeFactAp: FinalFactAp,
+        methodInitialFactBase: AccessPathBase,
+        methodSummaries: List<NDFactToFact>,
+    ) {
+        val methodInitialFact = currentEdgeFactAp.rebase(methodInitialFactBase)
+
+        nextSummary@for (summaryEdge in methodSummaries) {
+            val requiredFacts = mutableListOf<InitialFactAp>()
+            for (summaryInitialFact in summaryEdge.initialFacts) {
+                if (!methodInitialFact.matchNDInitial(summaryInitialFact)) {
+                    requiredFacts.add(summaryInitialFact)
+                }
+            }
+
+            if (requiredFacts.size == summaryEdge.initialFacts.size) continue
+
+            val requiredInitials = mutableListOf<List<Set<InitialFactAp>>>()
+            for (requiredFact in requiredFacts) {
+                val searcher = object : MethodAnalyzerEdgeSearcher(
+                    edges, apManager, analysisManager, analysisContext, methodInstGraph
+                ) {
+                    override fun matchFact(factAtStatement: FinalFactAp, targetFactPattern: InitialFactAp): Boolean =
+                        factAtStatement.rebase(requiredFact.base).matchNDInitial(requiredFact)
+                }
+
+                val mappedRequiredFacts = analysisContext.methodCallFactMapper.mapMethodExitToReturnFlowFact(
+                    currentEdge.statement, requiredFact
+                )
+
+                val factInitials = mappedRequiredFacts.flatMapTo(hashSetOf()) {
+                    searcher.findMatchingEdgesInitialFacts(currentEdge.statement, it)
+                }
+
+                if (factInitials.isEmpty()) {
+                    continue@nextSummary
+                }
+
+                requiredInitials.add(factInitials.toList())
+            }
+
+            requiredInitials.cartesianProductMapTo { initialFactGroup ->
+                val ndSummaryInitial = initialFactGroup.flatMapTo(hashSetOf()) { it }
+
+                val sf = when (currentEdge) {
+                    is ZeroToZero -> error("Impossible")
+
+                    is ZeroToFact -> when {
+                        ndSummaryInitial.isEmpty() -> {
+                            summaryHandler.handleZeroToFact(
+                                currentEdgeFactAp,
+                                SummaryExclusionRefinement(ExclusionSet.Universe),
+                                summaryEdge.factAp
+                            )
+                        }
+
+                        ndSummaryInitial.size == 1 -> {
+                            val initialFact = ndSummaryInitial.first()
+                            summaryHandler.handleFactToFact(
+                                initialFact,
+                                currentEdgeFactAp,
+                                SummaryExclusionRefinement(initialFact.exclusions),
+                                summaryEdge.factAp
+                            )
+                        }
+
+                        else -> {
+                            summaryHandler.handleNDFactToFact(
+                                ndSummaryInitial,
+                                currentEdgeFactAp,
+                                SummaryExclusionRefinement(ExclusionSet.Universe),
+                                summaryEdge.factAp
+                            )
+                        }
+                    }
+
+                    is FactToFact -> {
+                        ndSummaryInitial.add(currentEdge.initialFactAp)
+
+                        when (ndSummaryInitial.size) {
+                            1 -> {
+                                summaryHandler.handleFactToFact(
+                                    currentEdge.initialFactAp,
+                                    currentEdgeFactAp,
+                                    SummaryExclusionRefinement(currentEdge.initialFactAp.exclusions),
+                                    summaryEdge.factAp
+                                )
+                            }
+
+                            else -> {
+                                summaryHandler.handleNDFactToFact(
+                                    ndSummaryInitial,
+                                    currentEdgeFactAp,
+                                    SummaryExclusionRefinement(ExclusionSet.Universe),
+                                    summaryEdge.factAp
+                                )
+                            }
+                        }
+                    }
+
+                    is NDFactToFact -> {
+                        summaryHandler.handleNDFactToFact(
+                            ndSummaryInitial + currentEdge.initialFacts,
+                            currentEdgeFactAp,
+                            SummaryExclusionRefinement(ExclusionSet.Universe),
+                            summaryEdge.factAp
+                        )
+                    }
+                }
+
+                handleSequentFact(currentEdge, sf)
+            }
+        }
+    }
+
+    private fun FinalFactAp.matchNDInitial(initialFactAp: InitialFactAp): Boolean {
+        val exclusion = MethodSummaryEdgeApplicationUtils.emptyDeltaExclusionRefinementOrNull(this, initialFactAp)
+            ?: return false
+
+        check(exclusion is ExclusionSet.Universe) {
+            "ND-summary with non-universe exclusion"
+        }
+
+        return true
+    }
+
     override fun resolveIntraProceduralTraceSummary(
         statement: CommonInst,
-        facts: Set<InitialFactAp>
+        facts: Set<InitialFactAp>,
+        includeStatement: Boolean
     ): List<MethodTraceResolver.SummaryTrace> {
-        val resolver = MethodTraceResolver(runner, analysisContext, edges)
-        return resolver.resolveIntraProceduralTrace(statement, facts)
+        val resolver = MethodTraceResolver(runner, analysisContext, edges, methodInstGraph)
+        return resolver.resolveIntraProceduralTrace(statement, facts, includeStatement)
     }
 
     override fun resolveIntraProceduralTraceSummaryFromCall(
         statement: CommonInst,
         calleeEntry: MethodTraceResolver.TraceEntry.MethodEntry
     ): List<MethodTraceResolver.SummaryTrace> {
-        val resolver = MethodTraceResolver(runner, analysisContext, edges)
+        val resolver = MethodTraceResolver(runner, analysisContext, edges, methodInstGraph)
         return resolver.resolveIntraProceduralTraceFromCall(statement, calleeEntry)
     }
 
@@ -658,7 +971,7 @@ class NormalMethodAnalyzer(
         summaryTrace: MethodTraceResolver.SummaryTrace,
         cancellation: TraceResolverCancellation
     ): List<MethodTraceResolver.FullTrace> {
-        val resolver = MethodTraceResolver(runner, analysisContext, edges)
+        val resolver = MethodTraceResolver(runner, analysisContext, edges, methodInstGraph)
         return resolver.resolveIntraProceduralFullTrace(summaryTrace, cancellation)
     }
 
@@ -746,12 +1059,48 @@ class EmptyMethodAnalyzer(
         error("Empty method should not receive summary edges")
     }
 
+    override fun handleNDFactToFactMethodSummaryEdge(
+        summarySubs: List<MethodAnalyzer.NDFactToFactSub>,
+        methodSummaries: List<FactToFact>,
+    ) {
+        error("Empty method should not receive summary edges")
+    }
+
+    override fun handleZeroToFactMethodNDSummaryEdge(
+        summarySubs: List<MethodAnalyzer.ZeroToFactSub>,
+        methodSummaries: List<NDFactToFact>,
+    ) {
+        error("Empty method should not receive summary edges")
+    }
+
+    override fun handleFactToFactMethodNDSummaryEdge(
+        summarySubs: List<MethodAnalyzer.FactToFactSub>,
+        methodSummaries: List<NDFactToFact>,
+    ) {
+        error("Empty method should not receive summary edges")
+    }
+
+    override fun handleNDFactToFactMethodNDSummaryEdge(
+        summarySubs: List<MethodAnalyzer.NDFactToFactSub>,
+        methodSummaries: List<NDFactToFact>,
+    ) {
+        error("Empty method should not receive summary edges")
+    }
+
     override fun handleMethodSideEffectRequirement(
         currentEdge: FactToFact,
         methodInitialFactBase: AccessPathBase,
         methodSideEffectRequirements: List<InitialFactAp>
     ) {
-        error("Empty method should not receive sink requirements")
+        error("Empty method should not receive side effect requirements")
+    }
+
+    override fun handleMethodSideEffectRequirement(
+        currentEdge: NDFactToFact,
+        methodInitialFactBase: AccessPathBase,
+        methodSideEffectRequirements: List<InitialFactAp>,
+    ) {
+        error("Empty method should not receive side effect requirements")
     }
 
     override fun handleResolvedMethodCall(method: MethodWithContext, handler: MethodCallHandler) {
@@ -762,7 +1111,11 @@ class EmptyMethodAnalyzer(
         error("Empty method should not method resolution results")
     }
 
-    override fun resolveIntraProceduralTraceSummary(statement: CommonInst, facts: Set<InitialFactAp>): List<MethodTraceResolver.SummaryTrace> {
+    override fun resolveIntraProceduralTraceSummary(
+        statement: CommonInst,
+        facts: Set<InitialFactAp>,
+        includeStatement: Boolean
+    ): List<MethodTraceResolver.SummaryTrace> {
         TODO("Not yet implemented")
     }
 

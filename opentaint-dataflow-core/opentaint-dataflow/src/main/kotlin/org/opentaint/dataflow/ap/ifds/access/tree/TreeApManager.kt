@@ -13,8 +13,10 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.MethodAccessPathSubscription
 import org.opentaint.dataflow.ap.ifds.access.MethodEdgesFinalApSet
 import org.opentaint.dataflow.ap.ifds.access.MethodEdgesInitialToFinalApSet
+import org.opentaint.dataflow.ap.ifds.access.MethodEdgesNDInitialToFinalApSet
 import org.opentaint.dataflow.ap.ifds.access.MethodFinalApSummariesStorage
 import org.opentaint.dataflow.ap.ifds.access.MethodInitialToFinalApSummariesStorage
+import org.opentaint.dataflow.ap.ifds.access.MethodNDInitialToFinalApSummariesStorage
 import org.opentaint.dataflow.ap.ifds.access.SideEffectRequirementApStorage
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode
 import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
@@ -37,6 +39,13 @@ object TreeApManager : ApManager {
         languageManager: LanguageManager
     ): MethodEdgesInitialToFinalApSet = MethodEdgesInitialToFinalTreeApSet(methodInitialStatement, maxInstIdx, languageManager)
 
+    override fun methodEdgesNDInitialToFinalApSet(
+        methodInitialStatement: CommonInst,
+        maxInstIdx: Int,
+        languageManager: LanguageManager
+    ): MethodEdgesNDInitialToFinalApSet =
+        MethodEdgesNDInitialToFinalTreeApSet(methodInitialStatement, maxInstIdx, languageManager)
+
     override fun accessPathSubscription(): MethodAccessPathSubscription =
         MethodTreeAccessPathSubscription()
 
@@ -48,6 +57,9 @@ object TreeApManager : ApManager {
 
     override fun methodInitialToFinalApSummariesStorage(methodInitialStatement: CommonInst): MethodInitialToFinalApSummariesStorage =
         MethodInitialToFinalApSummaries(methodInitialStatement)
+
+    override fun methodNDInitialToFinalApSummariesStorage(methodInitialStatement: CommonInst): MethodNDInitialToFinalApSummariesStorage =
+        MethodNDInitialToFinalApSummaries(methodInitialStatement)
 
     override fun mostAbstractInitialAp(base: AccessPathBase): InitialFactAp =
         AccessPath(base, access = null, exclusions = Empty)

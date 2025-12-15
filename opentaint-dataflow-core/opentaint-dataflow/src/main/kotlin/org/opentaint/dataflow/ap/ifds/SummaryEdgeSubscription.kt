@@ -2,7 +2,10 @@ package org.opentaint.dataflow.ap.ifds
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
-import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.dataflow.ap.ifds.Edge.FactToFact
+import org.opentaint.dataflow.ap.ifds.MethodAnalyzer.FactToFactSub
+import org.opentaint.dataflow.ap.ifds.MethodAnalyzer.NDFactToFactSub
+import org.opentaint.dataflow.ap.ifds.MethodAnalyzer.ZeroToFactSub
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
@@ -11,6 +14,7 @@ import org.opentaint.dataflow.ap.ifds.serialization.MethodEntryPointSummaries
 import org.opentaint.dataflow.util.collectToListWithPostProcess
 import org.opentaint.dataflow.util.concurrentReadSafeForEach
 import org.opentaint.dataflow.util.concurrentReadSafeMapIndexed
+import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -68,13 +72,15 @@ class SummaryEdgeSubscriptionManager(
         val calleeInitialFactAp = addedSubscription.callerPathEdge.factAp.rebase(addedSubscription.calleeInitialFactBase)
         val summaries = manager.findFactSummaryEdges(methodEntryPoint, calleeInitialFactAp)
 
-        if (summaries.isNotEmpty()) {
-            val sub = MethodAnalyzer.ZeroToFactSub(
-                addedSubscription.callerPathEdge,
-                addedSubscription.calleeInitialFactBase
-            )
+        val sub = ZeroToFactSub(addedSubscription.callerPathEdge, addedSubscription.calleeInitialFactBase)
 
+        if (summaries.isNotEmpty()) {
             callerAnalyzer.handleZeroToFactMethodSummaryEdge(listOf(sub), summaries)
+        }
+
+        val ndSummaries = manager.findFactNDSummaryEdges(methodEntryPoint, calleeInitialFactAp)
+        if (ndSummaries.isNotEmpty()) {
+            callerAnalyzer.handleZeroToFactMethodNDSummaryEdge(listOf(sub), ndSummaries)
         }
 
         return true
@@ -83,7 +89,7 @@ class SummaryEdgeSubscriptionManager(
     fun subscribeOnMethodSummary(
         methodEntryPoint: MethodEntryPoint,
         calleeInitialFactBase: AccessPathBase,
-        callerPathEdge: Edge.FactToFact
+        callerPathEdge: FactToFact
     ): Boolean {
         val methodSubscriptions = methodSubscriptions(methodEntryPoint)
 
@@ -93,12 +99,51 @@ class SummaryEdgeSubscriptionManager(
         val calleeInitialFactAp = addedSubscription.callerPathEdge.factAp.rebase(addedSubscription.calleeInitialFactBase)
         val summaries = manager.findFactSummaryEdges(methodEntryPoint, calleeInitialFactAp)
 
+        val sub = FactToFactSub(addedSubscription.callerPathEdge, addedSubscription.calleeInitialFactBase)
+
         if (summaries.isNotEmpty()) {
-            val sub = MethodAnalyzer.FactToFactSub(
-                addedSubscription.callerPathEdge,
-                addedSubscription.calleeInitialFactBase
-            )
             callerAnalyzer.handleFactToFactMethodSummaryEdge(listOf(sub), summaries)
+        }
+
+        val ndSummaries = manager.findFactNDSummaryEdges(methodEntryPoint, calleeInitialFactAp)
+        if (ndSummaries.isNotEmpty()) {
+            callerAnalyzer.handleFactToFactMethodNDSummaryEdge(listOf(sub), ndSummaries)
+        }
+
+        val sideEffectRequirements = manager.findSideEffectRequirements(methodEntryPoint, calleeInitialFactAp)
+        if (sideEffectRequirements.isNotEmpty()) {
+            callerAnalyzer.handleMethodSideEffectRequirement(
+                addedSubscription.callerPathEdge,
+                addedSubscription.calleeInitialFactBase,
+                sideEffectRequirements
+            )
+        }
+
+        return true
+    }
+
+    fun subscribeOnMethodSummary(
+        methodEntryPoint: MethodEntryPoint,
+        calleeInitialFactBase: AccessPathBase,
+        callerPathEdge: Edge.NDFactToFact,
+    ): Boolean {
+        val methodSubscriptions = methodSubscriptions(methodEntryPoint)
+
+        val addedSubscription = methodSubscriptions.addNDFactToFact(calleeInitialFactBase, callerPathEdge) ?: return false
+        val callerAnalyzer = processingCtx.getMethodAnalyzer(callerPathEdge.methodEntryPoint)
+
+        val calleeInitialFactAp = addedSubscription.callerPathEdge.factAp.rebase(addedSubscription.calleeInitialFactBase)
+        val summaries = manager.findFactSummaryEdges(methodEntryPoint, calleeInitialFactAp)
+
+        val sub = NDFactToFactSub(addedSubscription.callerPathEdge, addedSubscription.calleeInitialFactBase)
+
+        if (summaries.isNotEmpty()) {
+            callerAnalyzer.handleNDFactToFactMethodSummaryEdge(listOf(sub), summaries)
+        }
+
+        val ndSummaries = manager.findFactNDSummaryEdges(methodEntryPoint, calleeInitialFactAp)
+        if (ndSummaries.isNotEmpty()) {
+            callerAnalyzer.handleNDFactToFactMethodNDSummaryEdge(listOf(sub), ndSummaries)
         }
 
         val sideEffectRequirements = manager.findSideEffectRequirements(methodEntryPoint, calleeInitialFactAp)
@@ -124,10 +169,17 @@ class SummaryEdgeSubscriptionManager(
 
         fun addFactToFact(
             calleeInitialFactBase: AccessPathBase,
-            callerPathEdge: Edge.FactToFact
+            callerPathEdge: FactToFact
         ): FactEdgeSummarySubscription? =
             taintedFactSubscriptions
                 .addFactToFact(calleeInitialFactBase, callerPathEdge)
+
+        fun addNDFactToFact(
+            calleeInitialFactBase: AccessPathBase,
+            callerPathEdge: Edge.NDFactToFact
+        ): FactNDEdgeSummarySubscription? =
+            taintedFactSubscriptions
+                .addNDFactToFact(calleeInitialFactBase, callerPathEdge)
 
         fun addZeroToFact(
             calleeInitialFactBase: AccessPathBase,
@@ -157,6 +209,15 @@ class SummaryEdgeSubscriptionManager(
         ): List<Pair<MethodEntryPoint, List<ZeroEdgeSummarySubscription>>> {
             val result = mutableListOf<Pair<MethodEntryPoint, List<ZeroEdgeSummarySubscription>>>()
             taintedFactSubscriptions.collectZeroEdge(result, summaryInitialFactAp)
+            return result
+        }
+
+        fun findFactNDEdgeSub(
+            summaryInitialFactAp: InitialFactAp,
+            emptyDeltaRequired: Boolean = false,
+        ): List<Pair<MethodEntryPoint, List<FactNDEdgeSummarySubscription>>> {
+            val result = mutableListOf<Pair<MethodEntryPoint, List<FactNDEdgeSummarySubscription>>>()
+            taintedFactSubscriptions.collectFactNDEdge(result, summaryInitialFactAp, emptyDeltaRequired)
             return result
         }
 
@@ -202,19 +263,34 @@ class SummaryEdgeSubscriptionManager(
                 Object2ObjectOpenHashMap()
             }.getOrPut(callerExitStatement) {
                 apManager.accessPathSubscription()
-            }.addZeroToFact(calleeInitialFactBase, callerFactAp)
+            }.addZeroToFact(callerEntryPoint.statement, calleeInitialFactBase, callerFactAp)
                 ?.setStatements(callerEntryPoint, callerExitStatement)
 
         fun addFactToFact(
             calleeInitialFactBase: AccessPathBase,
-            callerPathEdge: Edge.FactToFact
+            callerPathEdge: FactToFact
         ): FactEdgeSummarySubscription? =
             subscriptions.getOrPut(callerPathEdge.methodEntryPoint) {
                 Object2ObjectOpenHashMap()
             }.getOrPut(callerPathEdge.statement) {
                 apManager.accessPathSubscription()
-            }.addFactToFact(calleeInitialFactBase, callerPathEdge.initialFactAp, callerPathEdge.factAp)
-                ?.setStatements(callerPathEdge.methodEntryPoint, callerPathEdge.statement)
+            }.addFactToFact(
+                callerPathEdge.methodEntryPoint.statement,
+                calleeInitialFactBase, callerPathEdge.initialFactAp, callerPathEdge.factAp
+            )?.setStatements(callerPathEdge.methodEntryPoint, callerPathEdge.statement)
+
+        fun addNDFactToFact(
+            calleeInitialFactBase: AccessPathBase,
+            callerPathEdge: Edge.NDFactToFact,
+        ): FactNDEdgeSummarySubscription? =
+            subscriptions.getOrPut(callerPathEdge.methodEntryPoint) {
+                Object2ObjectOpenHashMap()
+            }.getOrPut(callerPathEdge.statement) {
+                apManager.accessPathSubscription()
+            }.addNDFactToFact(
+                callerPathEdge.methodEntryPoint.statement,
+                calleeInitialFactBase, callerPathEdge.initialFacts, callerPathEdge.factAp
+            )?.setStatements(callerPathEdge.methodEntryPoint, callerPathEdge.statement)
 
         fun collectFactEdge(
             collection: MutableList<Pair<MethodEntryPoint, List<FactEdgeSummarySubscription>>>,
@@ -227,6 +303,27 @@ class SummaryEdgeSubscriptionManager(
                     collectToListWithPostProcess(
                         collectedSubs,
                         { subs.collectFactEdge(it, summaryInitialFactAp, emptyDeltaRequired) },
+                        { it.setStatements(initialStmt, exitStmt) }
+                    )
+                }
+
+                if (collectedSubs.isNotEmpty()) {
+                    collection += initialStmt to collectedSubs
+                }
+            }
+        }
+
+        fun collectFactNDEdge(
+            collection: MutableList<Pair<MethodEntryPoint, List<FactNDEdgeSummarySubscription>>>,
+            summaryInitialFactAp: InitialFactAp,
+            emptyDeltaRequired: Boolean,
+        ) {
+            for ((initialStmt, storage) in subscriptions) {
+                val collectedSubs = mutableListOf<FactNDEdgeSummarySubscription>()
+                for ((exitStmt, subs) in storage) {
+                    collectToListWithPostProcess(
+                        collectedSubs,
+                        { subs.collectFactNDEdge(it, summaryInitialFactAp, emptyDeltaRequired) },
                         { it.setStatements(initialStmt, exitStmt) }
                     )
                 }
@@ -271,8 +368,8 @@ class SummaryEdgeSubscriptionManager(
         val calleeInitialFactBase: AccessPathBase
             get() = calleeInitialFactApBase!!
 
-        val callerPathEdge: Edge.FactToFact
-            get() = Edge.FactToFact(
+        val callerPathEdge: FactToFact
+            get() = FactToFact(
                 callerEntryPoint!!,
                 callerInitialFactAp!!,
                 callerStatement!!,
@@ -285,6 +382,42 @@ class SummaryEdgeSubscriptionManager(
 
         fun setCallerInitialAp(ap: InitialFactAp) = this.also {
             callerInitialFactAp = ap
+        }
+
+        fun setCallerAp(ap: FinalFactAp) = this.also {
+            callerFactAp = ap
+        }
+
+        fun setStatements(callerEntryPoint: MethodEntryPoint, callerExitStmt: CommonInst) = this.also {
+            this.callerEntryPoint = callerEntryPoint
+            callerStatement = callerExitStmt
+        }
+    }
+
+    data class FactNDEdgeSummarySubscription(
+        private var calleeInitialFactApBase: AccessPathBase? = null,
+        private var callerEntryPoint: MethodEntryPoint? = null,
+        private var callerInitialFact: Set<InitialFactAp>? = null,
+        private var callerStatement: CommonInst? = null,
+        private var callerFactAp: FinalFactAp? = null,
+    ) {
+        val calleeInitialFactBase: AccessPathBase
+            get() = calleeInitialFactApBase!!
+
+        val callerPathEdge: Edge.NDFactToFact
+            get() = Edge.NDFactToFact(
+                callerEntryPoint!!,
+                callerInitialFact!!,
+                callerStatement!!,
+                callerFactAp!!
+            )
+
+        fun setCalleeBase(base: AccessPathBase) = this.also {
+            calleeInitialFactApBase = base
+        }
+
+        fun setCallerInitial(ap: Set<InitialFactAp>) = this.also {
+            callerInitialFact = ap
         }
 
         fun setCallerAp(ap: FinalFactAp) = this.also {
@@ -341,8 +474,17 @@ class SummaryEdgeSubscriptionManager(
         }
 
         fun processMethodSummary(subscriptions: MethodSummarySubscription, summaryEdges: List<Edge>) {
-            val zeroEdges = summaryEdges.filterIsInstance<Edge.ZeroInitialEdge>()
-            val factEdges = summaryEdges.filterIsInstance<Edge.FactToFact>()
+            val zeroEdges = mutableListOf<Edge.ZeroInitialEdge>()
+            val factEdges = mutableListOf<FactToFact>()
+            val ndFactEdges = mutableListOf<Edge.NDFactToFact>()
+
+            for (edge in summaryEdges) {
+                when (edge) {
+                    is Edge.ZeroInitialEdge -> zeroEdges.add(edge)
+                    is FactToFact -> factEdges.add(edge)
+                    is Edge.NDFactToFact -> ndFactEdges.add(edge)
+                }
+            }
 
             if (zeroEdges.isNotEmpty()) {
                 processMethodZeroSummary(subscriptions, zeroEdges)
@@ -350,6 +492,10 @@ class SummaryEdgeSubscriptionManager(
 
             if (factEdges.isNotEmpty()) {
                 processMethodFactSummary(subscriptions, factEdges)
+            }
+
+            if (ndFactEdges.isNotEmpty()) {
+                processMethodFactNDSummary(subscriptions, ndFactEdges)
             }
         }
 
@@ -367,31 +513,79 @@ class SummaryEdgeSubscriptionManager(
 
         fun processMethodFactSummary(
             subscriptionStorage: MethodSummarySubscription,
-            summaryEdges: List<Edge.FactToFact>
+            summaryEdges: List<FactToFact>
         ) {
             val sameInitialFactEdges = summaryEdges.groupBy { it.initialFactAp }
             for ((summaryInitialFact, summaries) in sameInitialFactEdges) {
-                subscriptionStorage.findFactEdgeSub(summaryInitialFact).forEach { (ep, subscriptions) ->
-                    val summarySubs = subscriptions.mapTo(mutableListOf()) {
-                        MethodAnalyzer.FactToFactSub(it.callerPathEdge, it.calleeInitialFactBase)
-                    }
+                applySummaries(
+                    subscriptionStorage, summaryInitialFact, summaries,
+                    MethodAnalyzer::handleFactToFactMethodSummaryEdge,
+                    MethodAnalyzer::handleZeroToFactMethodSummaryEdge,
+                    MethodAnalyzer::handleNDFactToFactMethodSummaryEdge
+                )
+            }
+        }
 
-                    if (summarySubs.isEmpty()) return@forEach
-
-                    val analyzer = processingCtx.getMethodAnalyzer(ep)
-                    analyzer.handleFactToFactMethodSummaryEdge(summarySubs, summaries)
+        private inline fun <S : Edge> applySummaries(
+            subscriptionStorage: MethodSummarySubscription,
+            summaryInitialFact: InitialFactAp,
+            summaries: List<S>,
+            handleF2F: MethodAnalyzer.(List<FactToFactSub>, List<S>) -> Unit,
+            handleZ2F: MethodAnalyzer.(List<ZeroToFactSub>, List<S>) -> Unit,
+            handleND2F: MethodAnalyzer.(List<NDFactToFactSub>, List<S>) -> Unit,
+        ) {
+            subscriptionStorage.findFactEdgeSub(summaryInitialFact).forEach { (ep, subscriptions) ->
+                val summarySubs = subscriptions.mapTo(mutableListOf()) {
+                    FactToFactSub(it.callerPathEdge, it.calleeInitialFactBase)
                 }
 
-                subscriptionStorage.findZeroEdgeSub(summaryInitialFact).forEach { (ep, subscriptions) ->
-                    val summarySubs = subscriptions.mapTo(mutableListOf()) {
-                        MethodAnalyzer.ZeroToFactSub(it.callerPathEdge, it.calleeInitialFactBase)
-                    }
+                if (summarySubs.isEmpty()) return@forEach
 
-                    if (summarySubs.isEmpty()) return@forEach
+                val analyzer = processingCtx.getMethodAnalyzer(ep)
+                analyzer.handleF2F(summarySubs, summaries)
+            }
 
-                    val analyzer = processingCtx.getMethodAnalyzer(ep)
-                    analyzer.handleZeroToFactMethodSummaryEdge(summarySubs, summaries)
+            subscriptionStorage.findZeroEdgeSub(summaryInitialFact).forEach { (ep, subscriptions) ->
+                val summarySubs = subscriptions.mapTo(mutableListOf()) {
+                    ZeroToFactSub(it.callerPathEdge, it.calleeInitialFactBase)
                 }
+
+                if (summarySubs.isEmpty()) return@forEach
+
+                val analyzer = processingCtx.getMethodAnalyzer(ep)
+                analyzer.handleZ2F(summarySubs, summaries)
+            }
+
+            subscriptionStorage.findFactNDEdgeSub(summaryInitialFact).forEach { (ep, subscriptions) ->
+                val summarySubs = subscriptions.mapTo(mutableListOf()) {
+                    NDFactToFactSub(it.callerPathEdge, it.calleeInitialFactBase)
+                }
+
+                if (summarySubs.isEmpty()) return@forEach
+
+                val analyzer = processingCtx.getMethodAnalyzer(ep)
+                analyzer.handleND2F(summarySubs, summaries)
+            }
+        }
+
+        fun processMethodFactNDSummary(
+            subscriptionStorage: MethodSummarySubscription,
+            summaryEdges: List<Edge.NDFactToFact>,
+        ) {
+            val sameInitialFactEdges = hashMapOf<InitialFactAp, MutableList<Edge.NDFactToFact>>()
+            summaryEdges.forEach { edge ->
+                edge.initialFacts.forEach { f ->
+                    sameInitialFactEdges.getOrPut(f, ::mutableListOf).add(edge)
+                }
+            }
+
+            for ((summaryInitialFact, summaries) in sameInitialFactEdges) {
+                applySummaries(
+                    subscriptionStorage, summaryInitialFact, summaries,
+                    MethodAnalyzer::handleFactToFactMethodNDSummaryEdge,
+                    MethodAnalyzer::handleZeroToFactMethodNDSummaryEdge,
+                    MethodAnalyzer::handleNDFactToFactMethodNDSummaryEdge,
+                )
             }
         }
     }
@@ -449,16 +643,28 @@ class SummaryEdgeStorageWithSubscribers(
     private val zeroToZeroSummaryEdges = ArrayList<CommonInst>()
     private val zeroToFactSummaryEdges = apManager.methodFinalApSummariesStorage(methodEntryPoint.statement)
     private val taintedFactSummaryEdges = apManager.methodInitialToFinalApSummariesStorage(methodEntryPoint.statement)
+    private val ndF2FSummaryEdges = apManager.methodNDInitialToFinalApSummariesStorage(methodEntryPoint.statement)
 
     fun addEdges(edges: List<Edge>) {
         val addedEdges = mutableListOf<Edge>()
-        val zeroToZeroEdges = edges.filterIsInstance<Edge.ZeroToZero>()
-        val zeroToFactEdges = edges.filterIsInstance<Edge.ZeroToFact>()
-        val factToFactEdges = edges.filterIsInstance<Edge.FactToFact>()
+        val zeroToZeroEdges = mutableListOf<Edge.ZeroToZero>()
+        val zeroToFactEdges = mutableListOf<Edge.ZeroToFact>()
+        val factToFactEdges = mutableListOf<FactToFact>()
+        val ndFactToFactEdges = mutableListOf<Edge.NDFactToFact>()
+
+        for (edge in edges) {
+            when (edge) {
+                is Edge.ZeroToZero -> zeroToZeroEdges.add(edge)
+                is Edge.ZeroToFact -> zeroToFactEdges.add(edge)
+                is FactToFact -> factToFactEdges.add(edge)
+                is Edge.NDFactToFact -> ndFactToFactEdges.add(edge)
+            }
+        }
 
         addZeroToZeroEdges(zeroToZeroEdges, addedEdges)
         addZeroToFactEdges(zeroToFactEdges, addedEdges)
         addFactToFactEdges(factToFactEdges, addedEdges)
+        addNDFactToFactEdges(ndFactToFactEdges, addedEdges)
 
         for (subscriber in subscribers) {
             subscriber.newSummaryEdges(addedEdges)
@@ -503,13 +709,27 @@ class SummaryEdgeStorageWithSubscribers(
         }
     }
 
-    private fun addFactToFactEdges(edges: List<Edge.FactToFact>, added: MutableList<Edge>) {
+    private fun addFactToFactEdges(edges: List<FactToFact>, added: MutableList<Edge>) {
         if (edges.isEmpty()) return
 
         val summariesStorage = taintedFactSummaryEdges
 
         synchronized(summariesStorage) {
             val addedEdgeBuilders = mutableListOf<FactToFactEdgeBuilder>()
+            summariesStorage.add(edges, addedEdgeBuilders)
+            addedEdgeBuilders.mapTo(added) {
+                it.setEntryPoint(methodEntryPoint).build()
+            }
+        }
+    }
+
+    private fun addNDFactToFactEdges(edges: List<Edge.NDFactToFact>, added: MutableList<Edge>) {
+        if (edges.isEmpty()) return
+
+        val summariesStorage = ndF2FSummaryEdges
+
+        synchronized(summariesStorage) {
+            val addedEdgeBuilders = mutableListOf<NDFactToFactEdgeBuilder>()
             summariesStorage.add(edges, addedEdgeBuilders)
             addedEdgeBuilders.mapTo(added) {
                 it.setEntryPoint(methodEntryPoint).build()
@@ -543,31 +763,45 @@ class SummaryEdgeStorageWithSubscribers(
 
     private fun collectAllZeroToFactSummariesTo(dst: MutableList<in Edge.ZeroInitialEdge>) {
         collectToListWithPostProcess(dst, {
-            zeroToFactSummaryEdges.collectAllEdgesTo(it)
+            zeroToFactSummaryEdges.filterEdgesTo(it, finalFactBase = null)
         }, {
             it.setEntryPoint(methodEntryPoint).build()
         })
     }
 
-    fun factEdges(initialFactAp: FinalFactAp): List<Edge.FactToFact> =
+    fun factEdges(initialFactAp: FinalFactAp): List<FactToFact> =
         collectToListWithPostProcess(mutableListOf(), {
             taintedFactSummaryEdges.filterEdgesTo(it, initialFactAp, finalFactBase = null)
         }, {
             it.setEntryPoint(methodEntryPoint).build()
         })
 
-    fun factToFactEdges(
-        finalFactBase: AccessPathBase
-    ): List<Edge.FactToFact> =
+    fun factNDEdges(initialFactAp: FinalFactAp): List<Edge.NDFactToFact> =
         collectToListWithPostProcess(mutableListOf(), {
-            taintedFactSummaryEdges.filterEdgesTo(it, pattern = null, finalFactBase)
+            ndF2FSummaryEdges.filterEdgesTo(it, initialFactAp, finalFactBase = null)
         }, {
             it.setEntryPoint(methodEntryPoint).build()
         })
 
-    private fun collectAllFactToFactSummariesTo(dst: MutableList<in Edge.FactToFact>) {
+    fun factToFactEdges(
+        finalFactBase: AccessPathBase
+    ): List<FactToFact> =
+        collectToListWithPostProcess(mutableListOf(), {
+            taintedFactSummaryEdges.filterEdgesTo(it, initialFactPattern = null, finalFactBase)
+        }, {
+            it.setEntryPoint(methodEntryPoint).build()
+        })
+
+    fun factNDEdges(finalFactBase: AccessPathBase): List<Edge.NDFactToFact> =
+        collectToListWithPostProcess(mutableListOf(), {
+            ndF2FSummaryEdges.filterEdgesTo(it, initialFactPattern = null, finalFactBase)
+        }, {
+            it.setEntryPoint(methodEntryPoint).build()
+        })
+
+    private fun collectAllFactToFactSummariesTo(dst: MutableList<in FactToFact>) {
         collectToListWithPostProcess(dst, {
-            taintedFactSummaryEdges.collectAllEdgesTo(it)
+            taintedFactSummaryEdges.filterEdgesTo(it, initialFactPattern = null, finalFactBase = null)
         }, {
             it.setEntryPoint(methodEntryPoint).build()
         })
@@ -584,7 +818,7 @@ class SummaryEdgeStorageWithSubscribers(
         collectAllZeroToFactSummariesTo(sourceEdges)
         val sourceSummaries = sourceEdges.sumOf { (it as? Edge.ZeroToFact)?.factAp?.size ?: 0 }
 
-        val passEdges = mutableListOf<Edge.FactToFact>()
+        val passEdges = mutableListOf<FactToFact>()
         collectAllFactToFactSummariesTo(passEdges)
         val passSummaries = passEdges.sumOf { it.factAp.size }
 
@@ -627,7 +861,7 @@ data class FactToFactEdgeBuilder(
     private var initialAp: InitialFactAp? = null,
     private var exitAp: FinalFactAp? = null,
 ) : EdgeBuilder<FactToFactEdgeBuilder> {
-    fun build(): Edge.FactToFact = Edge.FactToFact(
+    fun build(): FactToFact = FactToFact(
         entryPoint!!,
         initialAp!!,
         exitStatement!!,
@@ -644,6 +878,36 @@ data class FactToFactEdgeBuilder(
 
     fun setInitialAp(ap: InitialFactAp) = this.also {
         initialAp = ap
+    }
+
+    fun setExitAp(ap: FinalFactAp) = this.also {
+        exitAp = ap
+    }
+}
+
+data class NDFactToFactEdgeBuilder(
+    private var entryPoint: MethodEntryPoint? = null,
+    private var exitStatement: CommonInst? = null,
+    private var initial: Set<InitialFactAp>? = null,
+    private var exitAp: FinalFactAp? = null,
+) : EdgeBuilder<NDFactToFactEdgeBuilder> {
+    fun build(): Edge.NDFactToFact = Edge.NDFactToFact(
+        entryPoint!!,
+        initial!!,
+        exitStatement!!,
+        exitAp!!
+    )
+
+    override fun setEntryPoint(entryPoint: MethodEntryPoint) = this.also {
+        this.entryPoint = entryPoint
+    }
+
+    override fun setExitStatement(statement: CommonInst) = this.also {
+        exitStatement = statement
+    }
+
+    fun setInitial(ap: Set<InitialFactAp>) = this.also {
+        initial = ap
     }
 
     fun setExitAp(ap: FinalFactAp) = this.also {
@@ -704,15 +968,13 @@ typealias MethodSummaryZeroEdgesForExitPoint<Storage, Pattern> =
         MethodSummaryEdgesForExitPoint<Edge.ZeroToFact, ZeroToFactEdgeBuilder, Storage, Pattern>
 
 typealias MethodSummaryFactEdgesForExitPoint<Storage, Pattern> =
-        MethodSummaryEdgesForExitPoint<Edge.FactToFact, FactToFactEdgeBuilder, Storage, Pattern>
+        MethodSummaryEdgesForExitPoint<FactToFact, FactToFactEdgeBuilder, Storage, Pattern>
 
 abstract class MethodSummaryEdgesForExitPoint<E : Edge, B : EdgeBuilder<B>, Storage, Pattern>(
     val methodEntryPoint: CommonInst
 ) {
     abstract fun createStorage(): Storage
     abstract fun storageAdd(storage: Storage, edges: List<E>, added: MutableList<B>)
-
-    abstract fun storageCollectAllEdgesTo(dst: MutableList<B>, storage: Storage)
 
     abstract fun storageFilterEdgesTo(dst: MutableList<B>, storage: Storage, containsPattern: Pattern)
 
@@ -736,12 +998,6 @@ abstract class MethodSummaryEdgesForExitPoint<E : Edge, B : EdgeBuilder<B>, Stor
             val storageAdded = mutableListOf<B>()
             storageAdd(storage, exitPointEdges, storageAdded)
             storageAdded.mapTo(added) { it.setExitStatement(exitPoint) }
-        }
-    }
-
-    fun collectAllEdgesTo(dst: MutableList<B>) {
-        processStorageEdges(dst) { storage, result ->
-            storageCollectAllEdgesTo(result, storage)
         }
     }
 

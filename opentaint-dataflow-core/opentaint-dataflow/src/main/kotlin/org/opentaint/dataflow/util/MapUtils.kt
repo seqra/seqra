@@ -43,3 +43,10 @@ inline fun <K> ConcurrentReadSafeObject2IntMap<K>.getOrCreateIndex(key: K, onNew
     if (currentIndex != ConcurrentReadSafeObject2IntMap.NO_VALUE) return currentIndex
     onNewIndex(newIndex)
 }
+
+inline fun <K> ConcurrentReadSafeObject2IntMap<K>.getOrCreateIndexWithEffect(key: K, effect: (Int) -> Unit): Int {
+    return getOrCreateIndex(key) {
+        effect(it)
+        return it
+    }
+}

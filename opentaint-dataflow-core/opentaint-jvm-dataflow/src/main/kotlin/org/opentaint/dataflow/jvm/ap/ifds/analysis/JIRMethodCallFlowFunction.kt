@@ -8,6 +8,7 @@ import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToReturnFFact
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToReturnNonDistributiveFact
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToReturnZFact
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToReturnZeroFact
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToStartFFact
@@ -15,6 +16,7 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToStar
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToStartZeroFact
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.SideEffectRequirement
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.Unchanged
+import org.opentaint.dataflow.configuration.jvm.TaintMethodSource
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactAwareConditionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionRewriter
@@ -34,6 +36,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintPassActionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintSourceActionEvaluator
 import org.opentaint.dataflow.jvm.util.callee
+import org.opentaint.dataflow.util.cartesianProductMapTo
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
@@ -57,13 +60,18 @@ class JIRMethodCallFlowFunction(
 
         applySinkRules(conditionRewriter, factReader = null)
 
-        applySourceRules(conditionRewriter, factReader = null, exclusion = ExclusionSet.Universe).forEach {
-            this += CallToReturnZFact(factAp = it)
-
-            analysisContext.aliasAnalysis?.forEachAliasAtStatement(statement, it) { aliased ->
-                this += CallToReturnZFact(aliased)
+        applySourceRules(
+            initialFacts = emptySet(), conditionRewriter, factReader = null, exclusion = ExclusionSet.Universe,
+            createFinalFact = { fact ->
+                fact.forEachFactWithAliases { this += CallToReturnZFact(factAp = it) }
+            },
+            createEdge = { initial, final ->
+                final.forEachFactWithAliases { this += CallToReturnFFact(initial, it) }
+            },
+            createNDEdge = { initial, final ->
+                final.forEachFactWithAliases { this += CallToReturnNonDistributiveFact(initial, it) }
             }
-        }
+        )
 
         this += CallToReturnZeroFact
         this += CallToStartZeroFact
@@ -71,6 +79,7 @@ class JIRMethodCallFlowFunction(
 
     override fun propagateZeroToFact(currentFactAp: FinalFactAp) = buildSet {
         propagateFact(
+            initialFacts = emptySet(),
             exclusion = ExclusionSet.Universe,
             factAp = currentFactAp,
             skipCall = { this += Unchanged },
@@ -84,7 +93,9 @@ class JIRMethodCallFlowFunction(
             addCallToStart = { factReader, callerFactAp, startFactBase ->
                 check(!factReader.hasRefinement) { "Can't refine Zero fact" }
                 this += CallToStartZFact(callerFactAp, startFactBase)
-            }
+            },
+            addCallToReturnF2F = { this += it },
+            addCallToReturnND = { this += it }
         )
     }
 
@@ -93,6 +104,7 @@ class JIRMethodCallFlowFunction(
         currentFactAp: FinalFactAp
     ) = buildSet {
         propagateFact(
+            initialFacts = setOf(initialFactAp),
             exclusion = initialFactAp.exclusions,
             factAp = currentFactAp,
             skipCall = { this += Unchanged },
@@ -108,17 +120,47 @@ class JIRMethodCallFlowFunction(
                     factReader.refineFact(callerFactAp),
                     startFactBase
                 )
-            }
+            },
+            addCallToReturnF2F = { this += it },
+            addCallToReturnND = { this += it }
+        )
+    }
+
+    override fun propagateNDFactToFact(
+        initialFacts: Set<InitialFactAp>,
+        currentFactAp: FinalFactAp
+    ): Set<MethodCallFlowFunction.NDFactCallFact> = buildSet {
+        propagateFact(
+            initialFacts = initialFacts,
+            exclusion = ExclusionSet.Universe,
+            factAp = currentFactAp,
+            skipCall = { this += Unchanged },
+            addSideEffectRequirement = { factReader ->
+                check(!factReader.hasRefinement) { "Can't refine NDF2F edge" }
+            },
+            addCallToReturn = { factReader, factAp ->
+                check(!factReader.hasRefinement) { "Can't refine NDF2F edge" }
+                this += CallToReturnNonDistributiveFact(initialFacts, factAp)
+            },
+            addCallToStart = { factReader, callerFactAp, startFactBase ->
+                check(!factReader.hasRefinement) { "Can't refine NDF2F edge" }
+                this += MethodCallFlowFunction.CallToStartNDFFact(initialFacts, callerFactAp, startFactBase)
+            },
+            addCallToReturnF2F = { error("Unexpected") },
+            addCallToReturnND = { this += it }
         )
     }
 
     private fun propagateFact(
+        initialFacts: Set<InitialFactAp>,
         exclusion: ExclusionSet,
         factAp: FinalFactAp,
         skipCall: () -> Unit,
         addSideEffectRequirement: (FinalFactReader) -> Unit,
         addCallToReturn: (FinalFactReader, FinalFactAp) -> Unit,
         addCallToStart: (factReader: FinalFactReader, callerFact: FinalFactAp, startFactBase: AccessPathBase) -> Unit,
+        addCallToReturnF2F: (CallToReturnFFact) -> Unit,
+        addCallToReturnND: (CallToReturnNonDistributiveFact) -> Unit
     ) {
         if (!JIRMethodCallFactMapper.factIsRelevantToMethodCall(returnValue, callExpr, factAp)) {
             skipCall()
@@ -134,13 +176,22 @@ class JIRMethodCallFlowFunction(
 
         applySinkRules(conditionRewriter, factReader)
 
-        applySourceRules(conditionRewriter, factReader, exclusion).forEach {
-            addCallToReturn(factReader, it)
-
-            analysisContext.aliasAnalysis?.forEachAliasAtStatement(statement, it) { aliased ->
-                addCallToReturn(factReader, aliased)
+        applySourceRules(
+            initialFacts, conditionRewriter, factReader, exclusion,
+            createFinalFact = { fact ->
+                fact.forEachFactWithAliases { addCallToReturn(factReader, it) }
+            },
+            createEdge = { initial, final ->
+                final.forEachFactWithAliases {
+                    addCallToReturnF2F(CallToReturnFFact(initial, it))
+                }
+            },
+            createNDEdge = { initial, final ->
+                final.forEachFactWithAliases {
+                    addCallToReturnND(CallToReturnNonDistributiveFact(initial, it))
+                }
             }
-        }
+        )
 
         JIRMethodCallFactMapper.mapMethodCallToStartFlowFact(
             callExpr.callee,
@@ -279,18 +330,20 @@ class JIRMethodCallFlowFunction(
     }
 
     private fun applySourceRules(
+        initialFacts: Set<InitialFactAp>,
         conditionRewriter: JIRMarkAwareConditionRewriter,
         factReader: FinalFactReader?,
-        exclusion: ExclusionSet
-    ): List<FinalFactAp> {
+        exclusion: ExclusionSet,
+        createFinalFact: (FinalFactAp) -> Unit,
+        createEdge: (InitialFactAp, FinalFactAp) -> Unit,
+        createNDEdge: (Set<InitialFactAp>, FinalFactAp) -> Unit,
+    ) {
         val method = callExpr.method.method
         val sourceRules = config.sourceRulesForMethod(method, statement).toList()
 
-        if (sourceRules.isEmpty()) return emptyList()
+        if (sourceRules.isEmpty()) return
 
         val conditionFactReaders = factReader?.toConditionFactReaders().orEmpty()
-
-        val result = mutableListOf<FinalFactAp>()
 
         val sourceEvaluator = TaintSourceActionEvaluator(
             apManager, exclusion, analysisContext.factTypeChecker, returnValueType = callExpr.method.returnType,
@@ -299,27 +352,92 @@ class JIRMethodCallFlowFunction(
         sourceRules.applyRuleWithAssumptions(
             apManager,
             conditionRewriter,
+            initialFacts,
             conditionFactReaders,
             condition = { condition },
             storeAssumptions = { rule, facts -> sinkTracker.addSourceRuleAssumptions(rule, statement, facts) },
-            currentAssumptions = { rule -> sinkTracker.currentSourceRuleAssumptions(rule, statement) }
-        ) { rule, evaluatedFacts ->
-            // unconditional sources handled with zero fact
-            if (evaluatedFacts.isEmpty() && factReader != null) return@applyRuleWithAssumptions
+            currentAssumptions = { rule -> sinkTracker.currentSourceRuleAssumptions(rule, statement) },
+            currentAssumptionPreconditions = { rule, facts ->
+                sinkTracker.currentSourceRuleAssumptionsPreconditions(rule, statement, facts)
+            },
+            applyRule = { rule, evaluatedFacts ->
+                // unconditional sources handled with zero fact
+                if (evaluatedFacts.isEmpty() && factReader != null) return@applyRuleWithAssumptions
 
-            val actions = rule.actionsAfter
-            check(actions.size == rule.actionsAfter.size) { "Unexpected source action: ${rule.actionsAfter}" }
+                applySourceAction(rule, sourceEvaluator, createFinalFact)
+            },
+            applyRuleWithAssumptions = { rule, factsWithPreconditions ->
+                val factPreconditions = factsWithPreconditions.map { it.preconditions }
+                factPreconditions.cartesianProductMapTo { preconditions ->
+                    val nonZeroPreconditions = hashSetOf<InitialFactAp>()
+                    for (precondition in preconditions) {
+                        if (precondition.isEmpty()) continue
 
-            for (action in actions) {
-                sourceEvaluator.evaluate(rule, action).onSome { facts ->
-                    facts.mapNotNullTo(result) { it.mapExitToReturnFact() }
+                        nonZeroPreconditions.addAll(precondition)
+                    }
+
+                    if (nonZeroPreconditions.isEmpty()) {
+                        check(initialFacts.isEmpty()) {
+                            "Unexpected zero precondition"
+                        }
+
+                        applySourceAction(rule, sourceEvaluator, createFinalFact)
+                        return@cartesianProductMapTo
+                    }
+
+                    if (nonZeroPreconditions.size == 1) {
+                        val precondition = nonZeroPreconditions.first()
+
+                        if (initialFacts.isEmpty()) {
+                            // Here initial fact ends with taint mark and exclusion can be ignored
+                            val newInitial = precondition.replaceExclusions(ExclusionSet.Empty)
+                            applySourceAction(rule, sourceEvaluator) { fact ->
+                                createEdge(newInitial, fact.replaceExclusions(ExclusionSet.Empty))
+                            }
+
+                            return@cartesianProductMapTo
+                        }
+
+                        if (initialFacts.size == 1) {
+                            val initialFact = initialFacts.first()
+
+                            check(precondition == initialFact.replaceExclusions(ExclusionSet.Universe)) {
+                                "Unexpected fact precondition"
+                            }
+
+                            applySourceAction(rule, sourceEvaluator, createFinalFact)
+                            return@cartesianProductMapTo
+                        }
+
+                        error("Multiple initial facts not expected here")
+                    }
+
+                    applySourceAction(rule, sourceEvaluator) { fact ->
+                        createNDEdge(
+                            nonZeroPreconditions,
+                            fact.replaceExclusions(ExclusionSet.Universe)
+                        )
+                    }
                 }
             }
-        }
+        )
 
         factReader?.updateRefinement(conditionFactReaders)
+    }
 
-        return result
+    private inline fun applySourceAction(
+        rule: TaintMethodSource,
+        sourceEvaluator: TaintSourceActionEvaluator,
+        createFinalFact: (FinalFactAp) -> Unit,
+    ) {
+        val actions = rule.actionsAfter
+        check(actions.size == rule.actionsAfter.size) { "Unexpected source action: ${rule.actionsAfter}" }
+
+        for (action in actions) {
+            sourceEvaluator.evaluate(rule, action).onSome { facts ->
+                facts.forEach { it.mapExitToReturnFact()?.let(createFinalFact) }
+            }
+        }
     }
 
     private fun FinalFactAp.mapExitToReturnFact(): FinalFactAp? =
@@ -360,4 +478,12 @@ class JIRMethodCallFlowFunction(
 
             FinalFactReaderWithPrefix(it, ElementAccessor)
         }
+
+    private inline fun FinalFactAp.forEachFactWithAliases(crossinline body: (FinalFactAp) -> Unit) {
+        body(this)
+
+        analysisContext.aliasAnalysis?.forEachAliasAtStatement(statement, this) { aliased ->
+            body(aliased)
+        }
+    }
 }

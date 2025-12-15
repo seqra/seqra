@@ -7,55 +7,68 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.AnalysisRunner
 import org.opentaint.dataflow.ap.ifds.AnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.Edge.FactToFact
+import org.opentaint.dataflow.ap.ifds.ExclusionSet
+import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdgeSearcher
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.access.ApManager
+import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.AnalysisManager
+import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFactMapper
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition.CallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition.CallPreconditionFact
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition.SequentPrecondition
-import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.PartiallyResolvedMergedCallAction.MergedPrimaryAction
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.PartiallyResolvedMergedCallAction.MergedPrimaryCall2StartAction
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.PartiallyResolvedMergedCallAction.MergedPrimaryUnresolvedCallSkip
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.PartiallyResolvedMergedCallAction.MergedRuleAction
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.PartiallyResolvedMergedCallAction.PartiallyResolvedMergedPrimaryCallAction
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction.CallSummary
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction.OtherAction
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction.PrimaryAction
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction.SequentialAction
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction.SourceOtherAction
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction.TraceSummaryEdge
+import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction.UnresolvedCallSkip
 import org.opentaint.dataflow.ap.ifds.trace.TaintRulePrecondition.PassRuleCondition
 import org.opentaint.dataflow.configuration.CommonTaintAction
 import org.opentaint.dataflow.configuration.CommonTaintAssignAction
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationItem
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSource
+import org.opentaint.dataflow.graph.MethodInstGraph
+import org.opentaint.dataflow.util.ConcurrentReadSafeObject2IntMap.NO_VALUE
 import org.opentaint.dataflow.util.add
 import org.opentaint.dataflow.util.bitSetOf
 import org.opentaint.dataflow.util.cartesianProductMapTo
 import org.opentaint.dataflow.util.forEach
+import org.opentaint.dataflow.util.getOrCreateIndex
+import org.opentaint.dataflow.util.object2IntMap
 import org.opentaint.dataflow.util.toBitSet
-import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
-import org.opentaint.util.analysis.ApplicationGraph
 import java.util.BitSet
 import java.util.LinkedList
 import java.util.Objects
 
 class MethodTraceResolver(
     private val runner: AnalysisRunner,
-    private val analysisContext: org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext,
-    private val edges: MethodAnalyzerEdges
+    private val analysisContext: MethodAnalysisContext,
+    private val edges: MethodAnalyzerEdges,
+    private val graph: MethodInstGraph,
 ) {
     private val methodEntryPoint: MethodEntryPoint = analysisContext.methodEntryPoint
-    private val graph: ApplicationGraph<CommonMethod, CommonInst> get() = runner.graph
     private val analysisManager: AnalysisManager get() = runner.analysisManager
     private val manager: AnalysisUnitRunnerManager get() = runner.manager
-    private val methodCallFactMapper: org.opentaint.dataflow.ap.ifds.analysis.MethodCallFactMapper get() = analysisContext.methodCallFactMapper
+    private val methodCallFactMapper: MethodCallFactMapper get() = analysisContext.methodCallFactMapper
     private val apManager: ApManager get() = runner.apManager
 
     enum class TraceKind {
         TraceToFact, // Trace ends within the method
+        TraceToFactAfterStatement, // Trace ends within the method, but the fact is after the statement
         SummaryTrace, // Trace summarizes method behaviour
     }
 
@@ -88,6 +101,10 @@ class MethodTraceResolver(
         data class MethodTraceEdge(val initialFact: InitialFactAp, override val fact: InitialFactAp) : TraceEdge {
             override fun replaceFact(newFact: InitialFactAp): MethodTraceEdge = copy(fact = newFact)
         }
+
+        data class MethodTraceNDEdge(val initialFacts: Set<InitialFactAp>, override val fact: InitialFactAp) : TraceEdge {
+            override fun replaceFact(newFact: InitialFactAp): MethodTraceNDEdge = copy(fact = newFact)
+        }
     }
 
     sealed interface TraceEntryAction {
@@ -112,9 +129,17 @@ class MethodTraceResolver(
 
         sealed interface SourceOtherAction : SourceAction, OtherAction
 
+        sealed interface SequentialAction: TraceEntryAction
+
         data class Sequential(
             override val edges: Set<TraceEdge>,
-        ) : TraceEntryAction, PrimaryAction
+        ) : SequentialAction, PrimaryAction
+
+        data class SequentialSourceRule(
+            override val edges: Set<TraceEdge.SourceTraceEdge>,
+            val rule: CommonTaintConfigurationSource,
+            val action: Set<CommonTaintAssignAction>,
+        ) : SequentialAction, SourceOtherAction
 
         data class CallSourceRule(
             override val edges: Set<TraceEdge.SourceTraceEdge>,
@@ -179,6 +204,12 @@ class MethodTraceResolver(
             val unchanged: Set<TraceEdge>,
             override val statement: CommonInst,
         ) : TraceEntry {
+            init {
+                check(primaryAction != null || otherActions.isNotEmpty()) {
+                    "Entry is unchanged"
+                }
+            }
+
             override val edges: Set<TraceEdge> get() = buildSet {
                 addAll(unchanged)
                 primaryAction?.let { addAll(it.edges) }
@@ -282,77 +313,92 @@ class MethodTraceResolver(
         }
     }
 
-    fun resolveIntraProceduralTrace(statement: CommonInst, facts: Set<InitialFactAp>): List<SummaryTrace> {
-        val edges = facts.map { resolveIntraProceduralTraceEdge(statement, it) }
-        return edges.traceToFactSummaryEdges(statement)
+    fun resolveIntraProceduralTrace(
+        statement: CommonInst,
+        facts: Set<InitialFactAp>,
+        includeStatement: Boolean = false,
+    ): List<SummaryTrace> {
+        val edges = facts.map { resolveIntraProceduralTraceEdge(statement, it, includeStatement) }
+        return edges.traceToFactSummaryEdges(statement, includeStatement)
     }
 
-    private fun List<List<TraceEdge>>.traceToFactSummaryEdges(statement: CommonInst): List<SummaryTrace> {
+    private fun List<List<TraceEdge>>.traceToFactSummaryEdges(
+        statement: CommonInst,
+        includeStatement: Boolean
+    ): List<SummaryTrace> {
+        val traceKind = if (includeStatement) TraceKind.TraceToFactAfterStatement else TraceKind.TraceToFact
+
         val result = mutableListOf<SummaryTrace>()
         this.cartesianProductMapTo {
             val finalEntry = TraceEntry.Final(it.toHashSet(), statement)
-            result += SummaryTrace(methodEntryPoint, finalEntry, traceKind = TraceKind.TraceToFact)
+            result += SummaryTrace(methodEntryPoint, finalEntry, traceKind)
         }
         return result
     }
 
-    private fun resolveIntraProceduralTraceEdge(statement: CommonInst, fact: InitialFactAp): List<TraceEdge> {
-        val matchingInitialFacts = hashSetOf<InitialFactAp?>()
-
-        val visitedStatements = hashSetOf<CommonInst>()
-        val unprocessedStatements = mutableListOf(statement)
-
-        while (unprocessedStatements.isNotEmpty()) {
-            val stmt = unprocessedStatements.removeLast()
-            if (!visitedStatements.add(stmt)) continue
-
-            factsStoredAtStatement(unprocessedStatements, stmt, fact).forEach { storedFact ->
-                if (edges.allZeroToFactFactsAtStatement(stmt, storedFact).any { it.contains(storedFact) }) {
-                    matchingInitialFacts.add(null)
-                }
-
-                edges.allFactToFactFactsAtStatement(stmt, storedFact).forEach { (initialFact, finalFact) ->
-                    if (finalFact.contains(storedFact)) {
-                        matchingInitialFacts.add(initialFact)
-                    }
-                }
-            }
-        }
-
-        return matchingInitialFacts.map { initialFact ->
-            if (initialFact != null) {
-                TraceEdge.MethodTraceEdge(initialFact, fact)
-            } else {
-                TraceEdge.SourceTraceEdge(fact)
-            }
-        }
-    }
-
-    private fun factsStoredAtStatement(
-        unprocessed: MutableList<CommonInst>,
+    private fun resolveIntraProceduralTraceEdge(
         statement: CommonInst,
         fact: InitialFactAp,
-    ): List<InitialFactAp> {
-        var predecessorsIsEmpty = true
-        val result = mutableListOf<InitialFactAp>()
+        includeStatement: Boolean
+    ): List<TraceEdge> {
+        val searcher = object : MethodAnalyzerEdgeSearcher(edges, apManager, analysisManager, analysisContext, graph) {
+            override fun matchFact(factAtStatement: FinalFactAp, targetFactPattern: InitialFactAp): Boolean =
+                factAtStatement.contains(targetFactPattern)
+        }
 
-        for (predecessor in graph.predecessors(statement)) {
-            predecessorsIsEmpty = false
+        val matchingInitialFacts = searcher.searchInitialFacts(statement, fact, includeStatement)
 
-            result.addAll(
-                factsForPrecondition(predecessor, fact).also {
-                    if (it.isEmpty()) {
-                        unprocessed.add(predecessor)
-                    }
-                }
+        return matchingInitialFacts.map { initialFacts ->
+            when (initialFacts.size) {
+                0 -> TraceEdge.SourceTraceEdge(fact)
+                1 -> TraceEdge.MethodTraceEdge(initialFacts.first(), fact)
+                else -> TraceEdge.MethodTraceNDEdge(initialFacts, fact)
+            }
+        }
+    }
+
+    private fun MethodAnalyzerEdgeSearcher.searchInitialFacts(
+        statement: CommonInst,
+        fact: InitialFactAp,
+        includeStatement: Boolean,
+    ): Set<Set<InitialFactAp>> {
+        if (!includeStatement) {
+            return findMatchingEdgesInitialFacts(statement, fact)
+        }
+
+        val statementCall = analysisManager.getCallExpr(statement)
+        if (statementCall != null) {
+            // todo
+            return emptySet()
+        } else {
+            val preconditionFunction = analysisManager.getMethodSequentPrecondition(
+                apManager, analysisContext, statement
             )
-        }
+            val precondition = preconditionFunction.factPrecondition(fact)
+            when (precondition) {
+                SequentPrecondition.Unchanged -> {
+                    return findMatchingEdgesInitialFacts(statement, fact)
+                }
 
-        if (predecessorsIsEmpty) {
-            result.add(fact)
-        }
+                is SequentPrecondition.Facts -> {
+                    val result = hashSetOf<Set<InitialFactAp>>()
+                    for (preFact in precondition.facts) {
+                        when (preFact) {
+                            is MethodSequentPrecondition.SequentSource -> {
+                                // todo
+                            }
 
-        return result
+                            is MethodSequentPrecondition.PreconditionFactsForInitialFact -> {
+                                preFact.preconditionFacts.forEach {
+                                    result += findMatchingEdgesInitialFacts(statement, it)
+                                }
+                            }
+                        }
+                    }
+                    return result
+                }
+            }
+        }
     }
 
     fun resolveIntraProceduralTraceFromCall(
@@ -361,10 +407,10 @@ class MethodTraceResolver(
     ): List<SummaryTrace> {
         val traceEdges = calleeEntry.facts.flatMap { fact ->
             val mappedFacts = methodCallFactMapper.mapMethodExitToReturnFlowFact(statement, fact)
-            mappedFacts.map { resolveIntraProceduralTraceEdge(statement, it) }
+            mappedFacts.map { resolveIntraProceduralTraceEdge(statement, it, includeStatement = false) }
         }
 
-        return traceEdges.traceToFactSummaryEdges(statement)
+        return traceEdges.traceToFactSummaryEdges(statement, includeStatement = false)
     }
 
     fun resolveIntraProceduralFullTrace(
@@ -514,6 +560,7 @@ class MethodTraceResolver(
                     // We have fact BEFORE entry.statement, no need to propagate
                 }
 
+                TraceKind.TraceToFactAfterStatement,
                 TraceKind.SummaryTrace -> {
                     // We have fact AFTER entry.statement
                     propagateEntryNew(entry.statement, entry, skipFactCheck = true)
@@ -527,7 +574,7 @@ class MethodTraceResolver(
             return
         }
 
-        graph.predecessors(entry.statement).forEach {
+        graph.forEachPredecessor(entry.statement) {
             propagateEntryNew(it, entry)
         }
     }
@@ -535,7 +582,7 @@ class MethodTraceResolver(
     private fun TraceBuilder.propagateEntryToMethodEntryPoint(
         entry: TraceEntry
     ) {
-        val entryEdges = hashSetOf<TraceEdge.MethodTraceEdge>()
+        val entryEdges = hashSetOf<TraceEdge>()
         val sources = hashSetOf<SourceOtherAction>()
 
         for (edge in entry.edges) {
@@ -544,6 +591,10 @@ class MethodTraceResolver(
 
             when (edge) {
                 is TraceEdge.MethodTraceEdge -> {
+                    entryEdges.add(edge)
+                }
+
+                is TraceEdge.MethodTraceNDEdge -> {
                     entryEdges.add(edge)
                 }
 
@@ -574,10 +625,15 @@ class MethodTraceResolver(
                 entry
             }
 
-            val startEntry = TraceEntry.MethodEntry(
-                entryEdges.mapTo(hashSetOf()) { it.initialFact },
-                methodEntryPoint
-            )
+            val entryFacts = entryEdges.flatMapTo(hashSetOf()) {
+                when (it) {
+                    is TraceEdge.MethodTraceEdge -> listOf(it.initialFact)
+                    is TraceEdge.MethodTraceNDEdge -> it.initialFacts
+                    is TraceEdge.SourceTraceEdge -> error("impossible")
+                }
+            }
+
+            val startEntry = TraceEntry.MethodEntry(entryFacts, methodEntryPoint)
             addPredecessor(preStartEntry, startEntry)
         }
     }
@@ -614,7 +670,7 @@ class MethodTraceResolver(
                                 return@forEach
                             }
 
-                            callActions.propagateCall(edge, it.preconditionFacts, statement, statementCall)
+                            callActions.propagateCall(edge, it.preconditionFacts)
                         }
 
                         if (callActions.isEmpty()) {
@@ -632,8 +688,8 @@ class MethodTraceResolver(
                 return
             }
 
-            val callActions = mergeCallActionsCombinations(callEdges)
-            val resolvedCallActions = resolveCallRuleActions(preconditionFunction, statement, callActions)
+            val callActions = mergeCallActionsCombinations(callEdges, statement, statementCall)
+            val resolvedCallActions = resolveCallActions(preconditionFunction, statement, callActions)
 
             for ((callActionPrimary, callActionOther) in resolvedCallActions) {
                 val action = TraceEntry.Action(callActionPrimary, callActionOther, unchangedEdges, statement)
@@ -648,7 +704,7 @@ class MethodTraceResolver(
                 val precondition = preconditionFunction.factPrecondition(edge.fact)
 
                 val unchangedEdges = hashSetOf<TraceEdge>()
-                val sequentEdges = mutableListOf<List<TraceEdge>>()
+                val sequentActions = mutableListOf<List<SequentialAction>>()
 
                 when (precondition) {
                     SequentPrecondition.Unchanged -> {
@@ -656,38 +712,50 @@ class MethodTraceResolver(
                     }
 
                     is SequentPrecondition.Facts -> {
-                        val edges = mutableListOf<TraceEdge>()
+                        val actions = mutableListOf<SequentialAction>()
 
                         precondition.facts.forEach {
-                            val initialEdge = edge.replaceFact(it.initialFact)
+                            val initialEdge = edge.replaceFact(it.fact)
                             if (!skipFactCheck && !containsEntryEdge(entry.statement, initialEdge)) {
                                 return@forEach
                             }
 
-                            it.preconditionFacts.forEach { fact ->
-                                edges.add(edge.replaceFact(fact))
+                            when (it) {
+                                is MethodSequentPrecondition.PreconditionFactsForInitialFact -> {
+                                    it.preconditionFacts.mapTo(actions) { fact ->
+                                        TraceEntryAction.Sequential(setOf(edge.replaceFact(fact)))
+                                    }
+                                }
+
+                                is MethodSequentPrecondition.SequentSource -> {
+                                    if (initialEdge is TraceEdge.SourceTraceEdge) {
+                                        actions += TraceEntryAction.SequentialSourceRule(
+                                            setOf(initialEdge), it.rule.rule, it.rule.action
+                                        )
+                                    }
+                                }
                             }
                         }
 
-                        if (edges.isEmpty()) {
+                        if (actions.isEmpty()) {
                             // fact has no preconditions
                             return
                         }
 
-                        sequentEdges.add(edges)
+                        sequentActions.add(actions)
                     }
                 }
 
-                if (sequentEdges.isEmpty()) {
+                if (sequentActions.isEmpty()) {
                     addPredecessor(entry, TraceEntry.Unchanged(unchangedEdges, statement))
                     return
                 }
 
-                val sequentActionsCombination = mergeSequentEdgeCombinations(sequentEdges)
-                for (action in sequentActionsCombination) {
+                val sequentActionsCombination = mergeSequentEdgeCombinations(sequentActions)
+                for ((primaryAction, otherActions) in sequentActionsCombination) {
                     addPredecessorAction(
                         entry,
-                        TraceEntry.Action(action, otherActions = emptySet(), unchangedEdges, statement)
+                        TraceEntry.Action(primaryAction, otherActions, unchangedEdges, statement)
                     )
                 }
             }
@@ -711,59 +779,67 @@ class MethodTraceResolver(
         return TraceEntry.SourceStartEntry(primary, sourceOther, action.statement)
     }
 
-    private fun mergeSequentEdgeCombinations(edges: List<List<TraceEdge>>): List<TraceEntryAction.Sequential> {
-        val result = mutableListOf<TraceEntryAction.Sequential>()
-        edges.cartesianProductMapTo { edgeCombination ->
-            result += TraceEntryAction.Sequential(edgeCombination.toHashSet())
+    private fun mergeSequentEdgeCombinations(actions: List<List<SequentialAction>>): List<Pair<PrimaryAction?, Set<OtherAction>>> {
+        val result = mutableListOf<Pair<PrimaryAction?, Set<OtherAction>>>()
+        actions.cartesianProductMapTo { actionCombination ->
+            val sequential = hashSetOf<TraceEdge>()
+            val rules = hashSetOf<TraceEntryAction.SequentialSourceRule>()
+
+            for (action in actionCombination) {
+                when (action) {
+                    is TraceEntryAction.Sequential -> sequential.addAll(action.edges)
+                    is TraceEntryAction.SequentialSourceRule -> rules.add(action)
+                }
+            }
+
+            val primaryAction = sequential.takeIf { it.isNotEmpty() }?.let { TraceEntryAction.Sequential(it) }
+            result += primaryAction to rules
         }
         return result
     }
 
     private fun mergeCallActionsCombinations(
         callActions: List<List<PartiallyResolvedCallAction>>,
-    ): MutableList<Pair<MergedPrimaryAction?, Set<MergedRuleAction>>> {
-        // todo: check call summary method here
-        val result = mutableListOf<Pair<MergedPrimaryAction?, Set<MergedRuleAction>>>()
+        statement: CommonInst,
+        statementCall: CommonCallExpr
+    ): MutableList<Pair<PartiallyResolvedMergedPrimaryCallAction?, Set<MergedRuleAction>>> {
+        val callees by lazy {
+            runner.methodCallResolver.resolvedMethodCalls(methodEntryPoint, statementCall, statement)
+                .flatMap { methodEntryPoints(it) }
+        }
+
+        val result = mutableListOf<Pair<PartiallyResolvedMergedPrimaryCallAction?, Set<MergedRuleAction>>>()
         callActions.cartesianProductMapTo { actions ->
-            val mergedActions = mergeCallActions(actions) ?: return@cartesianProductMapTo
-            result.add(mergedActions)
+            val mergedActions = mergeCallActions(actions) { callees }
+            result.addAll(mergedActions)
         }
         return result
     }
 
-    private fun mergeCallActions(callActions: Array<PartiallyResolvedCallAction>): Pair<MergedPrimaryAction?, Set<MergedRuleAction>>? {
+    private fun mergeCallActions(
+        callActions: Array<PartiallyResolvedCallAction>,
+        resolveMethodCallees: () -> List<MethodEntryPoint>
+    ): List<Pair<PartiallyResolvedMergedPrimaryCallAction?, Set<MergedRuleAction>>> {
         val rules = hashSetOf<PartiallyResolvedCallAction.CallRule>()
-        val unresolved = mutableListOf<TraceEntryAction.UnresolvedCallSkip>()
-        val summary = mutableListOf<TraceEntryAction.CallSummary>()
+        val summary = hashSetOf<PartiallyResolvedCallAction.Call2Start>()
 
         for (action in callActions) {
             when (action) {
                 is PartiallyResolvedCallAction.CallRule -> rules.add(action)
-                is PartiallyResolvedCallAction.CallSummary -> summary.add(action.summary)
-                is PartiallyResolvedCallAction.Skip -> unresolved.add(action.action)
+                is PartiallyResolvedCallAction.Call2Start -> summary.add(action)
             }
         }
 
         val mergedRules = mergeCallRules(rules)
 
-        if (unresolved.isNotEmpty()) {
-            check(summary.isEmpty()) {
-                "call is resolved and unresolved at the same time"
-            }
-
-            val mergedUnresolved = TraceEntryAction.UnresolvedCallSkip(
-                unresolved.flatMapTo(hashSetOf()) { it.edges }
-            )
-
-            return MergedPrimaryAction(mergedUnresolved) to mergedRules
-        }
-
         if (summary.isEmpty()) {
-            return null to mergedRules
+            return listOf(null to mergedRules)
         }
 
-        val mergedCallSummaries = mergeCallSummaries(summary) ?: return null
-        return MergedPrimaryAction(mergedCallSummaries) to mergedRules
+        val mergedCallSummaries = mergeCallSummaries(summary, resolveMethodCallees())
+            ?: return listOf(null to mergedRules)
+
+        return mergedCallSummaries.map { it to mergedRules }
     }
 
     private fun mergeCallRules(callRules: HashSet<PartiallyResolvedCallAction.CallRule>): Set<MergedRuleAction> {
@@ -803,11 +879,146 @@ class MethodTraceResolver(
         return result
     }
 
-    private fun mergeCallSummaries(callSummaries: List<TraceEntryAction.CallSummary>): PrimaryAction? {
+    private fun mergeCallSummaries(
+        callSummaries: Set<PartiallyResolvedCallAction.Call2Start>,
+        callees: List<MethodEntryPoint>
+    ): Set<PartiallyResolvedMergedPrimaryCallAction>? {
+        if (callees.isEmpty()) {
+            // Drop fact if it is mapped to the method return value
+            val nonReturnSummaries = callSummaries.filter { it.call2Start.startFactBase != AccessPathBase.Return }
+            if (nonReturnSummaries.isEmpty()) return null
+
+            val nonReturnEdges = nonReturnSummaries.mapTo(hashSetOf()) { it.currentEdge }
+            return setOf(MergedPrimaryUnresolvedCallSkip(UnresolvedCallSkip(nonReturnEdges)))
+
+        }
+
+        return callees.mapTo(hashSetOf()) {
+            MergedPrimaryCall2StartAction(it, callSummaries)
+        }
+    }
+
+    private sealed interface PartiallyResolvedCallAction {
+        data class CallRule(
+            val currentEdge: TraceEdge,
+            val rule: TaintRulePrecondition
+        ) : PartiallyResolvedCallAction
+
+        data class Call2Start(
+            val currentEdge: TraceEdge,
+            val call2Start: CallPreconditionFact.CallToStart,
+        ): PartiallyResolvedCallAction
+    }
+
+    private sealed interface PartiallyResolvedMergedCallAction {
+        sealed interface PartiallyResolvedMergedPrimaryCallAction: PartiallyResolvedMergedCallAction
+
+        data class MergedPrimaryCall2StartAction(
+            val calleeEntryPoint: MethodEntryPoint,
+            val call2Start: Set<PartiallyResolvedCallAction.Call2Start>,
+        ) : PartiallyResolvedMergedPrimaryCallAction
+
+        data class MergedPrimaryUnresolvedCallSkip(
+            val action: UnresolvedCallSkip
+        ) : PartiallyResolvedMergedPrimaryCallAction
+
+        data class MergedRuleAction(
+            val currentEdges: Set<TraceEdge>,
+            val rule: TaintRulePrecondition
+        ) : PartiallyResolvedMergedCallAction
+    }
+
+    private fun MutableList<PartiallyResolvedCallAction>.propagateCall(
+        currentEdge: TraceEdge,
+        preconditionFacts: List<CallPreconditionFact>
+    ) {
+        for (fact in preconditionFacts) {
+            when (fact) {
+                is CallPreconditionFact.CallToReturnTaintRule -> {
+                    if (fact.precondition is TaintRulePrecondition.Source && currentEdge !is TraceEdge.SourceTraceEdge) {
+                        // We search for pass-rule, not source rule
+                        continue
+                    }
+
+                    this += PartiallyResolvedCallAction.CallRule(currentEdge, fact.precondition)
+                }
+
+                is CallPreconditionFact.CallToStart -> {
+                    this += PartiallyResolvedCallAction.Call2Start(currentEdge, fact)
+                }
+            }
+        }
+    }
+
+    private fun resolveCallActions(
+        preconditionFunction: MethodCallPrecondition,
+        statement: CommonInst,
+        callActions: List<Pair<PartiallyResolvedMergedPrimaryCallAction?, Set<MergedRuleAction>>>,
+    ): List<Pair<PrimaryAction?, Set<OtherAction>>> {
+        val result = mutableListOf<Pair<PrimaryAction?, Set<OtherAction>>>()
+        for ((primaryAction, ruleActions) in callActions) {
+            val resolvedPrimaryAction = when (primaryAction) {
+                null -> null
+                is MergedPrimaryUnresolvedCallSkip -> listOf(primaryAction.action)
+                is MergedPrimaryCall2StartAction -> {
+                    resolveCallSummary(statement, primaryAction.calleeEntryPoint, primaryAction.call2Start)
+                }
+            }
+
+            if (ruleActions.isEmpty()) {
+                resolvedPrimaryAction?.mapTo(result) { it to emptySet() }
+                continue
+            }
+
+            val resolvedRuleActions = ruleActions.map {
+                resolveCallRule(it.currentEdges, it.rule, preconditionFunction, statement)
+            }
+
+            resolvedRuleActions.cartesianProductMapTo { ruleActionGroup ->
+                val ruleActionSet = ruleActionGroup.toHashSet()
+
+                if (resolvedPrimaryAction == null) {
+                    result.add(null to ruleActionSet)
+                } else {
+                    resolvedPrimaryAction.mapTo(result) { it to ruleActionSet }
+                }
+            }
+        }
+        return result
+    }
+
+    private fun resolveCallSummary(
+        statement: CommonInst,
+        callee: MethodEntryPoint,
+        call2Start: Set<PartiallyResolvedCallAction.Call2Start>,
+    ): List<PrimaryAction> {
+        val resultSummaries = mutableListOf<List<CallSummary>>()
+        for (action in call2Start) {
+            val edgeSummaries = mutableListOf<CallSummary>()
+
+            val currentEdge = action.currentEdge
+            if (currentEdge is TraceEdge.SourceTraceEdge) {
+                edgeSummaries.resolveCallSourceSummary(currentEdge, callee, action.call2Start)
+            }
+
+            edgeSummaries.resolveCallPassSummary(currentEdge, callee, action.call2Start, statement)
+
+            if (edgeSummaries.isEmpty()) return emptyList()
+
+            resultSummaries.add(edgeSummaries)
+        }
+
+        val resultActions = mutableListOf<PrimaryAction>()
+        resultSummaries.cartesianProductMapTo { summaryGroup ->
+            resultActions += mergeCallSummary(summaryGroup) ?: return@cartesianProductMapTo
+        }
+        return resultActions
+    }
+
+    private fun mergeCallSummary(callSummaries: Array<CallSummary>): PrimaryAction? {
         check(callSummaries.all { it.summaryTrace.traceKind == TraceKind.SummaryTrace })
 
         val callee = callSummaries.first().summaryTrace.method
-        if (callSummaries.any { it.summaryTrace.method != callee }) return null
 
         val exitStatement = callSummaries.first().summaryTrace.final.statement
         if (callSummaries.any { it.summaryTrace.final.statement != exitStatement }) return null
@@ -827,124 +1038,10 @@ class MethodTraceResolver(
         val summaryAction = if (sourceSummaryEdges.size == summaryEdges.size) {
             TraceEntryAction.CallSourceSummary(sourceSummaryEdges, summaryTrace)
         } else {
-            TraceEntryAction.CallSummary(summaryEdges, summaryTrace)
+            CallSummary(summaryEdges, summaryTrace)
         }
 
         return summaryAction
-    }
-
-    private fun factsForPrecondition(statement: CommonInst, fact: InitialFactAp): List<InitialFactAp> {
-        val statementCall = analysisManager.getCallExpr(statement)
-        if (statementCall != null) {
-            val returnValue: CommonValue? = (statement as? CommonAssignInst)?.lhv
-
-            val preconditionFunction = analysisManager.getMethodCallPrecondition(
-                apManager, analysisContext, returnValue, statementCall, statement
-            )
-            val precondition = preconditionFunction.factPrecondition(fact)
-            return when (precondition) {
-                is CallPrecondition.Facts -> precondition.facts.map { it.initialFact }
-                CallPrecondition.Unchanged -> emptyList()
-            }
-        } else {
-            val preconditionFunction = analysisManager.getMethodSequentPrecondition(
-                apManager, analysisContext, statement
-            )
-            val precondition = preconditionFunction.factPrecondition(fact)
-            return when (precondition) {
-                is SequentPrecondition.Facts -> precondition.facts.map { it.initialFact }
-                SequentPrecondition.Unchanged -> emptyList()
-            }
-        }
-    }
-
-    private sealed interface PartiallyResolvedCallAction {
-        data class Skip(
-            val action: TraceEntryAction.UnresolvedCallSkip
-        ) : PartiallyResolvedCallAction
-
-        data class CallRule(
-            val currentEdge: TraceEdge,
-            val rule: TaintRulePrecondition
-        ) : PartiallyResolvedCallAction
-
-        data class CallSummary(val summary: TraceEntryAction.CallSummary): PartiallyResolvedCallAction
-    }
-
-    private sealed interface PartiallyResolvedMergedCallAction {
-        data class MergedPrimaryAction(val action: PrimaryAction) : PartiallyResolvedMergedCallAction
-        data class MergedRuleAction(
-            val currentEdges: Set<TraceEdge>,
-            val rule: TaintRulePrecondition
-        ) : PartiallyResolvedMergedCallAction
-    }
-
-    private fun MutableList<PartiallyResolvedCallAction>.propagateCall(
-        currentEdge: TraceEdge,
-        preconditionFacts: List<CallPreconditionFact>,
-        statement: CommonInst,
-        statementCall: CommonCallExpr
-    ) {
-        val callToStart = mutableListOf<CallPreconditionFact.CallToStart>()
-
-        for (fact in preconditionFacts) {
-            when (fact) {
-                is CallPreconditionFact.CallToReturnTaintRule -> {
-                    if (fact.precondition is TaintRulePrecondition.Source && currentEdge !is TraceEdge.SourceTraceEdge) {
-                        // We search for pass-rule, not source rule
-                        continue
-                    }
-
-                    this += PartiallyResolvedCallAction.CallRule(currentEdge, fact.precondition)
-                }
-
-                is CallPreconditionFact.CallToStart -> {
-                    callToStart.add(fact)
-                }
-            }
-        }
-
-        if (callToStart.isEmpty()) return
-
-        val callees = runner.methodCallResolver.resolvedMethodCalls(methodEntryPoint, statementCall, statement)
-        if (callees.isEmpty()) {
-            // Drop fact if it is mapped to the method return value
-            if (callToStart.any { it.startFactBase != AccessPathBase.Return }) {
-                this += PartiallyResolvedCallAction.Skip(
-                    TraceEntryAction.UnresolvedCallSkip(setOf(currentEdge))
-                )
-            }
-
-            return
-        }
-
-        val callSummaries = buildList {
-            resolveCallSummary(statement, currentEdge, callees, callToStart)
-        }
-        callSummaries.mapTo(this) { PartiallyResolvedCallAction.CallSummary(it) }
-    }
-
-    private fun resolveCallRuleActions(
-        preconditionFunction: MethodCallPrecondition,
-        statement: CommonInst,
-        callActions: List<Pair<MergedPrimaryAction?, Set<MergedRuleAction>>>,
-    ): List<Pair<PrimaryAction?, Set<OtherAction>>> {
-        val result = mutableListOf<Pair<PrimaryAction?, Set<OtherAction>>>()
-        for ((primaryAction, ruleActions) in callActions) {
-            if (ruleActions.isEmpty()) {
-                result.add(primaryAction?.action to emptySet())
-                continue
-            }
-
-            val resolvedRuleActions = ruleActions.map {
-                resolveCallRule(it.currentEdges, it.rule, preconditionFunction, statement)
-            }
-
-            resolvedRuleActions.cartesianProductMapTo { ruleActionGroup ->
-                result.add(primaryAction?.action to ruleActionGroup.toHashSet())
-            }
-        }
-        return result
     }
 
     private fun resolveCallRule(
@@ -981,8 +1078,12 @@ class MethodTraceResolver(
         when (facts.size) {
             0 -> error("impossible")
             1 -> {
-                val initialFacts = currentEdges.map {
-                    (it as? TraceEdge.MethodTraceEdge)?.initialFact
+                val initialFacts = currentEdges.flatMap {
+                    when (it) {
+                        is TraceEdge.SourceTraceEdge -> listOf(null)
+                        is TraceEdge.MethodTraceEdge -> listOf(it.initialFact)
+                        is TraceEdge.MethodTraceNDEdge -> it.initialFacts
+                    }
                 }.distinct()
 
                 if (initialFacts.size != 1) {
@@ -1006,23 +1107,60 @@ class MethodTraceResolver(
                 val result = mutableListOf<TraceEntryAction.CallRule>()
 
                 val allFactEdges = facts.map {
-                    resolveIntraProceduralTraceEdge(statement, it)
+                    resolveIntraProceduralTraceEdge(statement, it, includeStatement = false)
+                }
+
+                val currentInitialFacts = object2IntMap<InitialFactAp?>()
+                currentEdges.forEach { edge ->
+                    when (edge) {
+                        is TraceEdge.SourceTraceEdge -> {
+                            currentInitialFacts.getOrCreateIndex(null) { return@forEach }
+                        }
+
+                        is TraceEdge.MethodTraceEdge -> {
+                            currentInitialFacts.getOrCreateIndex(edge.initialFact.replaceExclusions(ExclusionSet.Universe)) { return@forEach }
+                        }
+
+                        is TraceEdge.MethodTraceNDEdge -> edge.initialFacts.forEachIndexed { _, it ->
+                            currentInitialFacts.getOrCreateIndex(it.replaceExclusions(ExclusionSet.Universe)) { return@forEachIndexed }
+                        }
+                    }
                 }
 
                 allFactEdges.cartesianProductMapTo { edgeGroup ->
-                    val unmatchedCurrentEdges = LinkedList(currentEdges)
+                    val unmatchedInitials = BitSet(currentInitialFacts.size)
+                    unmatchedInitials.set(0, currentInitialFacts.size)
 
                     for (edge in edgeGroup) {
-                        val iter = unmatchedCurrentEdges.iterator()
-                        while (iter.hasNext()) {
-                            val currentEdge = iter.next()
-                            if (edge.edgeInitialMatch(currentEdge)) {
-                                iter.remove()
+                        when (edge) {
+                            is TraceEdge.SourceTraceEdge -> {
+                                val idx = currentInitialFacts.getInt(null)
+                                if (idx != NO_VALUE) {
+                                    unmatchedInitials.clear(idx)
+                                }
+                            }
+
+                            is TraceEdge.MethodTraceEdge -> {
+                                val idx = currentInitialFacts.getInt(edge.initialFact.replaceExclusions(ExclusionSet.Universe))
+                                if (idx != NO_VALUE) {
+                                    unmatchedInitials.clear(idx)
+                                }
+                            }
+
+                            is TraceEdge.MethodTraceNDEdge -> {
+                                edge.initialFacts.forEach {
+                                    val idx = currentInitialFacts.getInt(it.replaceExclusions(ExclusionSet.Universe))
+                                    if (idx != NO_VALUE) {
+                                        unmatchedInitials.clear(idx)
+                                    }
+                                }
                             }
                         }
                     }
 
-                    if (unmatchedCurrentEdges.isNotEmpty()) return@cartesianProductMapTo
+                    if (!unmatchedInitials.isEmpty) {
+                        return@cartesianProductMapTo
+                    }
 
                     result += TraceEntryAction.CallRule(edgeGroup.toHashSet(), rule.rule, rule.action)
                 }
@@ -1032,112 +1170,126 @@ class MethodTraceResolver(
         }
     }
 
-    private fun TraceEdge.edgeInitialMatch(other: TraceEdge): Boolean = when (other) {
-        is TraceEdge.SourceTraceEdge -> this is TraceEdge.SourceTraceEdge
-        is TraceEdge.MethodTraceEdge -> this is TraceEdge.MethodTraceEdge && other.initialFact == this.initialFact
-    }
-
-    private fun MutableList<TraceEntryAction.CallSummary>.resolveCallSummary(
-        statement: CommonInst,
+    private fun MutableList<CallSummary>.resolveCallPassSummary(
         currentEdge: TraceEdge,
-        callees: List<MethodWithContext>,
-        startFacts: List<CallPreconditionFact.CallToStart>,
-    ) {
-        val calleeEntryPoints = callees.flatMap { methodEntryPoints(it) }
-
-        if (currentEdge is TraceEdge.SourceTraceEdge) {
-            resolveCallSourceSummary(currentEdge, calleeEntryPoints, startFacts)
-        }
-
-        resolveCallPassSummary(currentEdge, calleeEntryPoints, startFacts, statement)
-    }
-
-    private fun MutableList<TraceEntryAction.CallSummary>.resolveCallPassSummary(
-        currentEdge: TraceEdge,
-        calleeEntryPoints: List<MethodEntryPoint>,
-        startFacts: List<CallPreconditionFact.CallToStart>,
+        callee: MethodEntryPoint,
+        startFact: CallPreconditionFact.CallToStart,
         statement: CommonInst
     ) {
-        val resolvedCallSummaries = mutableListOf<TraceEntryAction.CallSummary>()
+        val resolvedCallSummaries = mutableListOf<CallSummary>()
 
-        for (callee in calleeEntryPoints) {
-            for (startFact in startFacts) {
-                val methodSummaries = manager.findFactToFactSummaryEdges(callee, startFact.startFactBase)
+        val methodSummaries = manager.findFactToFactSummaryEdges(callee, startFact.startFactBase)
+        val callerFact = startFact.callerFact
+        for (summaryEdge in methodSummaries) {
+            val mappedSummaryFact = summaryEdge.factAp.rebase(callerFact.base)
+            val deltas = callerFact.splitDelta(mappedSummaryFact)
 
-                val callerFact = startFact.callerFact
-                for (summaryEdge in methodSummaries) {
-                    val mappedSummaryFact = summaryEdge.factAp.rebase(callerFact.base)
-                    val deltas = callerFact.splitDelta(mappedSummaryFact)
+            if (deltas.isEmpty()) continue
 
-                    if (deltas.isEmpty()) continue
+            // it is ok to map call arguments via exit2return
+            val mappedSummaryInitial = methodCallFactMapper.mapMethodExitToReturnFlowFact(
+                statement, summaryEdge.initialFactAp
+            )
 
-                    // it is ok to map call arguments via exit2return
-                    val mappedSummaryInitial = methodCallFactMapper.mapMethodExitToReturnFlowFact(
-                        statement, summaryEdge.initialFactAp
+            for ((matchedEntryFact, delta) in deltas) {
+                // todo: remove this check?
+                if (!mappedSummaryFact.contains(matchedEntryFact)) continue
+
+                for (mappedSummaryInitialFact in mappedSummaryInitial) {
+                    val precondition = mappedSummaryInitialFact
+                        .concat(delta)
+                        .replaceExclusions(callerFact.exclusions)
+
+                    resolvedCallSummaries.addCallSummaryEntry(
+                        currentTraceEdge = currentEdge,
+                        precondition = precondition,
+                        preconditionDelta = delta,
+                        callee = callee,
+                        summaryFinalFact = matchedEntryFact,
+                        summaryEdge = summaryEdge,
                     )
-
-                    for ((matchedEntryFact, delta) in deltas) {
-                        // todo: remove this check?
-                        if (!mappedSummaryFact.contains(matchedEntryFact)) continue
-
-                        for (mappedSummaryInitialFact in mappedSummaryInitial) {
-                            val precondition = mappedSummaryInitialFact
-                                .concat(delta)
-                                .replaceExclusions(callerFact.exclusions)
-
-                            resolvedCallSummaries.addCallSummaryEntry(
-                                currentTraceEdge = currentEdge,
-                                precondition = precondition,
-                                preconditionDelta = delta,
-                                callee = callee,
-                                summaryFinalFact = matchedEntryFact,
-                                summaryEdge = summaryEdge,
-                            )
-                        }
-                    }
                 }
             }
         }
 
         val weakestCallSummaries = selectWeakestEntries(resolvedCallSummaries)
         this += weakestCallSummaries
-    }
 
-    private fun MutableList<TraceEntryAction.CallSummary>.resolveCallSourceSummary(
-        currentEdge: TraceEdge.SourceTraceEdge,
-        calleeEntryPoints: List<MethodEntryPoint>,
-        startFacts: List<CallPreconditionFact.CallToStart>
-    ) {
-        for (callee in calleeEntryPoints) {
-            for (fact in startFacts) {
-                val relevantSummaryEdges = manager.findZeroToFactSummaryEdges(callee, fact.startFactBase)
-                for (summaryEdge in relevantSummaryEdges) {
-                    val mappedSummaryFact = summaryEdge.factAp.rebase(fact.callerFact.base)
-                    if (!mappedSummaryFact.contains(fact.callerFact)) continue
+        val methodNdSummaries = manager.findFactNDSummaryEdges(callee, startFact.startFactBase)
+        for (summaryEdge in methodNdSummaries) {
+            val mappedSummaryFact = summaryEdge.factAp.rebase(callerFact.base)
 
-                    val summaryEdgeTrace = TraceEdge.SourceTraceEdge(fact.callerFact.rebase(fact.startFactBase))
-                    val summaryTrace = SummaryTrace(
-                        method = callee,
-                        final = TraceEntry.Final(setOf(summaryEdgeTrace), summaryEdge.statement),
-                        traceKind = TraceKind.SummaryTrace
-                    )
+            if (!mappedSummaryFact.contains(callerFact)) continue
 
-                    val callSummary = TraceSummaryEdge.SourceSummary(currentEdge)
-                    this += TraceEntryAction.CallSummary(setOf(callSummary), summaryTrace)
+            val mappedSummaryInitialFacts = summaryEdge.initialFacts.map {
+                methodCallFactMapper.mapMethodExitToReturnFlowFact(statement, it)
+            }
+
+            mappedSummaryInitialFacts.cartesianProductMapTo { mappedFactGroup ->
+                val preconditions = mappedFactGroup.toHashSet()
+
+                val mappedFinalFact = callerFact
+                    .rebase(summaryEdge.factAp.base)
+                    .replaceExclusions(summaryEdge.factAp.exclusions)
+
+                val traceSummaryEdge = TraceEdge.MethodTraceNDEdge(summaryEdge.initialFacts, mappedFinalFact)
+                val calleeTrace = SummaryTrace(
+                    final = TraceEntry.Final(setOf(traceSummaryEdge), summaryEdge.statement),
+                    method = callee,
+                    traceKind = TraceKind.SummaryTrace,
+                )
+
+                val callSummaries = preconditions.mapTo(hashSetOf()) {
+                    TraceSummaryEdge.MethodSummary(currentEdge.replaceFact(it), emptyDelta)
                 }
+
+                this += CallSummary(callSummaries, calleeTrace)
             }
         }
     }
 
-    private fun selectWeakestEntries(entries: List<TraceEntryAction.CallSummary>): List<TraceEntryAction.CallSummary> {
-        val selectedEntries = LinkedList<TraceEntryAction.CallSummary>()
+    private val emptyDelta by lazy { apManager.emptyDelta() }
+
+    private fun ApManager.emptyDelta(): InitialFactAp.Delta {
+        val fap = mostAbstractFinalAp(AccessPathBase.This)
+        val iap = mostAbstractInitialAp(AccessPathBase.This)
+        return iap.splitDelta(fap)
+            .map { it.second }
+            .firstOrNull { it.isEmpty }
+            ?: error("Empty delta expected")
+    }
+
+    private fun MutableList<CallSummary>.resolveCallSourceSummary(
+        currentEdge: TraceEdge.SourceTraceEdge,
+        callee: MethodEntryPoint,
+        startFact: CallPreconditionFact.CallToStart
+    ) {
+        val relevantSummaryEdges = manager.findZeroToFactSummaryEdges(callee, startFact.startFactBase)
+        for (summaryEdge in relevantSummaryEdges) {
+            val mappedSummaryFact = summaryEdge.factAp.rebase(startFact.callerFact.base)
+            if (!mappedSummaryFact.contains(startFact.callerFact)) continue
+
+            val summaryEdgeTrace = TraceEdge.SourceTraceEdge(startFact.callerFact.rebase(startFact.startFactBase))
+            val summaryTrace = SummaryTrace(
+                method = callee,
+                final = TraceEntry.Final(setOf(summaryEdgeTrace), summaryEdge.statement),
+                traceKind = TraceKind.SummaryTrace
+            )
+
+            val callSummary = TraceSummaryEdge.SourceSummary(currentEdge)
+            this += CallSummary(setOf(callSummary), summaryTrace)
+        }
+    }
+
+    private fun selectWeakestEntries(entries: List<CallSummary>): List<CallSummary> {
+        val selectedEntries = LinkedList<CallSummary>()
         for (summary in entries) {
             addWeakestEntry(summary, selectedEntries)
         }
         return selectedEntries
     }
 
-    private fun addWeakestEntry(entry: TraceEntryAction.CallSummary, selectedEntries: LinkedList<TraceEntryAction.CallSummary>) {
+    private fun addWeakestEntry(entry: CallSummary, selectedEntries: LinkedList<CallSummary>) {
         val entryFact = entry.edges.single().fact
         val iter = selectedEntries.listIterator()
 
@@ -1159,7 +1311,7 @@ class MethodTraceResolver(
         selectedEntries.add(entry)
     }
 
-    private fun MutableList<TraceEntryAction.CallSummary>.addCallSummaryEntry(
+    private fun MutableList<CallSummary>.addCallSummaryEntry(
         currentTraceEdge: TraceEdge,
         precondition: InitialFactAp,
         preconditionDelta: InitialFactAp.Delta,
@@ -1183,11 +1335,11 @@ class MethodTraceResolver(
             preconditionDelta
         )
 
-        this += TraceEntryAction.CallSummary(setOf(callSummary), calleeTrace)
+        this += CallSummary(setOf(callSummary), calleeTrace)
     }
 
     private fun methodEntryPoints(method: MethodWithContext): Sequence<MethodEntryPoint> =
-        graph.entryPoints(method.method).map { MethodEntryPoint(method.ctx, it) }
+        runner.graph.entryPoints(method.method).map { MethodEntryPoint(method.ctx, it) }
 
     private fun containsEntryEdge(entryStatement: CommonInst, entryEdge: TraceEdge): Boolean {
         when (entryEdge) {
@@ -1195,8 +1347,14 @@ class MethodTraceResolver(
                 val entryFacts = edges.allZeroToFactFactsAtStatement(entryStatement, entryEdge.fact)
                 return entryFacts.any { statementFact -> statementFact.contains(entryEdge.fact) }
             }
+
             is TraceEdge.MethodTraceEdge -> {
                 val entryFacts = edges.allFactToFactFactsAtStatement(entryStatement, entryEdge.initialFact, entryEdge.fact)
+                return entryFacts.any { statementFact -> statementFact.contains(entryEdge.fact) }
+            }
+
+            is TraceEdge.MethodTraceNDEdge -> {
+                val entryFacts = edges.allNDFactToFactFactsAtStatement(entryStatement, entryEdge.initialFacts, entryEdge.fact)
                 return entryFacts.any { statementFact -> statementFact.contains(entryEdge.fact) }
             }
         }

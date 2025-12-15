@@ -2,10 +2,10 @@ package org.opentaint.dataflow.ap.ifds
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
-import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.BitSet
 
 class MethodAnalyzerEdges(
@@ -18,6 +18,7 @@ class MethodAnalyzerEdges(
     private val zeroToZeroEdges = SameInitialZeroFactEdges(maxInstIdx, languageManager)
     private val zeroToFactEdges = apManager.methodEdgesFinalApSet(methodEntryPoint.statement, maxInstIdx, languageManager)
     private val taintedToFactEdges = apManager.methodEdgesInitialToFinalApSet(methodEntryPoint.statement, maxInstIdx, languageManager)
+    private val ndFactToFactEdges = apManager.methodEdgesNDInitialToFinalApSet(methodEntryPoint.statement, maxInstIdx, languageManager)
 
     fun add(edge: Edge): List<Edge> {
         check(edge.methodEntryPoint == methodEntryPoint)
@@ -47,6 +48,22 @@ class MethodAnalyzerEdges(
 
             is Edge.FactToFact -> {
                 return addTaintedFactEdge(edge)
+            }
+
+            is Edge.NDFactToFact -> {
+                val initial = edge.initialFacts
+                val finalAp = edge.factAp
+
+                val (addedInitial, addedFinal) = ndFactToFactEdges.add(edge.statement, initial, finalAp) ?: return emptyList()
+
+                return listOf(
+                    Edge.NDFactToFact(
+                        methodEntryPoint = edge.methodEntryPoint,
+                        initialFacts = addedInitial,
+                        statement = edge.statement,
+                        factAp = addedFinal
+                    )
+                )
             }
         }
     }
@@ -81,9 +98,21 @@ class MethodAnalyzerEdges(
         return result
     }
 
+    fun allNDFactToFactFactsAtStatement(statement: CommonInst, finalFactPattern: InitialFactAp): List<Pair<Set<InitialFactAp>, FinalFactAp>> {
+        val result = mutableListOf<Pair<Set<InitialFactAp>, FinalFactAp>>()
+        ndFactToFactEdges.collectApAtStatement(result, statement, finalFactPattern)
+        return result
+    }
+
     fun allFactToFactFactsAtStatement(statement: CommonInst, initialFactAp: InitialFactAp, finalFactPattern: InitialFactAp): List<FinalFactAp> {
         val result = mutableListOf<FinalFactAp>()
         taintedToFactEdges.collectApAtStatement(result, statement, initialFactAp, finalFactPattern)
+        return result
+    }
+
+    fun allNDFactToFactFactsAtStatement(statement: CommonInst, initialFacts: Set<InitialFactAp>, finalFactPattern: InitialFactAp): List<FinalFactAp> {
+        val result = mutableListOf<FinalFactAp>()
+        ndFactToFactEdges.collectApAtStatement(result, statement, initialFacts, finalFactPattern)
         return result
     }
 
