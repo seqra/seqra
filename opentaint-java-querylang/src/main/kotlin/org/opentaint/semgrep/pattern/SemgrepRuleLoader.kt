@@ -121,8 +121,8 @@ class SemgrepRuleLoader {
 
         val ruleCwe = rule.cweInfo()
         val severity = when (rule.severity.lowercase()) {
-            "high", "critical" -> CommonTaintConfigurationSinkMeta.Severity.Error
-            "medium" -> CommonTaintConfigurationSinkMeta.Severity.Warning
+            "high", "critical", "error" -> CommonTaintConfigurationSinkMeta.Severity.Error
+            "medium", "warning" -> CommonTaintConfigurationSinkMeta.Severity.Warning
             else -> CommonTaintConfigurationSinkMeta.Severity.Note
         }
 
