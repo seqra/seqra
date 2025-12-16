@@ -6,6 +6,7 @@ import issues.issue84
 import issues.issue85
 import issues.issue86
 import issues.issue87
+import issues.issue88
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
@@ -60,6 +61,10 @@ class IssuesTest : SampleBasedTest() {
 
     @Test
     fun `issue 87`() = runTest<issue87>()
+
+    @Test
+    @Disabled // todo: `pattern-not` for types
+    fun `issue 88`() = runTest<issue88>()
 
     @AfterAll
     fun close() {

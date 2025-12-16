@@ -1,0 +1,16 @@
+rules:
+  - id: i88
+    message: 'message'
+    severity: ERROR
+    languages:
+      - java
+    patterns:
+    - pattern: |
+        $R = new $RAND();
+        ...
+        $R.nextInt(...);
+    - metavariable-pattern:
+        metavariable: $RAND
+        patterns:
+          - pattern: java.util.Random
+          - pattern-not: java.security.SecureRandom
