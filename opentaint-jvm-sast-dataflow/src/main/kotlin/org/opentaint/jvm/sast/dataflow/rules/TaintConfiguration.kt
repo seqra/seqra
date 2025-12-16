@@ -390,6 +390,7 @@ class TaintConfiguration(cp: JIRClasspath) {
         is SerializedCondition.ClassAnnotated,
         is SerializedCondition.MethodAnnotated,
         is SerializedCondition.MethodNameMatches,
+        is SerializedCondition.ClassNameMatches,
         is SerializedCondition.NumberOfArgs,
         SerializedCondition.True,
         null -> {
@@ -477,6 +478,10 @@ class TaintConfiguration(cp: JIRClasspath) {
 
         is SerializedCondition.MethodNameMatches -> {
             patternManager.matchPattern(nameMatches, method.name).asCondition()
+        }
+
+        is SerializedCondition.ClassNameMatches -> {
+            nameMatcher.match(method.enclosingClass.name).asCondition()
         }
     }
 

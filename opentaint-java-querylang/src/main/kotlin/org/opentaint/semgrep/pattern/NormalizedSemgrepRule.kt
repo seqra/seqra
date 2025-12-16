@@ -34,10 +34,14 @@ fun <C, R> MetaVarConstraintFormula<C>.transform(mapper: (C) -> R): MetaVarConst
     is MetaVarConstraintFormula.And -> MetaVarConstraintFormula.mkAnd(args.mapTo(hashSetOf()) { it.transform(mapper) })
 }
 
+sealed interface RawMetaVarConstraint {
+    data class RegExp(val regex: String) : RawMetaVarConstraint
+    data class Pattern(val value: String) : RawMetaVarConstraint
+}
+
 data class RawMetaVarInfo(
     val focusMetaVars: Set<String>,
-    val metaVariableRegex: Map<String, MetaVarConstraintFormula<String>>,
-    val metaVariablePatterns: Map<String, MetaVarConstraintFormula<String>>,
+    val metaVariableConstraints: Map<String, MetaVarConstraintFormula<RawMetaVarConstraint>>,
 )
 
 sealed interface MetaVarConstraint {

@@ -1,7 +1,6 @@
 package org.opentaint.semgrep.pattern.conversion.automata.operations
 
-import org.opentaint.semgrep.pattern.conversion.automata.operations.unifyMetavars
-import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
+import org.opentaint.semgrep.pattern.conversion.automata.AutomataBuilderCtx
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
@@ -91,14 +90,14 @@ private fun reverse(automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
     )
 }
 
-fun brzozowskiAlgorithm(metaVarInfo: ResolvedMetaVarInfo, automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
+fun AutomataBuilderCtx.brzozowskiAlgorithm(automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
     if (automata.isDeterministic) {
         return automata
     }
 
     val reversedNfa = reverse(automata)
-    val reversedDfa = determinize(reversedNfa, metaVarInfo)
+    val reversedDfa = determinize(reversedNfa)
     val newNfa = reverse(reversedDfa)
-    val result = determinize(newNfa, metaVarInfo, simplifyAutomata = true)
-    return unifyMetavars(result, metaVarInfo)
+    val result = determinize(newNfa, simplifyAutomata = true)
+    return unifyMetavars(result)
 }

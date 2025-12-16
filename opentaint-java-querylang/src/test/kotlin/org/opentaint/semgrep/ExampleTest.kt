@@ -66,6 +66,9 @@ class ExampleTest : SampleBasedTest() {
     @Test
     fun `test rule with static field`() = runTest<example.RuleWithStaticField>()
 
+    @Test
+    fun `test rule with state`() = runTest<example.RuleWithState>()
+
     @AfterAll
     fun close(){
         closeRunner()

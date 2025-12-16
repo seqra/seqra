@@ -26,6 +26,9 @@ class TaintTest : SampleBasedTest() {
     @Test
     fun `test complex source-sink no focus`() = runTest<taint.RuleComplexSourceSinkNoFocus>()
 
+    @Test
+    fun `test rule with inside`() = runTest<taint.RuleWithInside>()
+
     @AfterAll
     fun close() {
         closeRunner()

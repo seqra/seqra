@@ -257,7 +257,7 @@ private fun MethodFormula.Literal.prettyPrint(manager: MethodFormulaManager): St
     return if (negated) "Not($predicateStr)" else predicateStr
 }
 
-private fun Cube.prettyPrint(
+fun Cube.prettyPrint(
     manager: MethodFormulaManager,
     currentIndent: String = "",
     lineLengthLimit: Int = 40

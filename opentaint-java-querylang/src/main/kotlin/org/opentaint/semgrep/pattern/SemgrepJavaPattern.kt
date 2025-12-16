@@ -36,6 +36,10 @@ data class PatternSequence(val first: SemgrepJavaPattern, val second: SemgrepJav
     override val children: List<SemgrepJavaPattern> = listOf(first, second)
 }
 
+data class ArrayAccess(val obj: SemgrepJavaPattern, val arrayIndex: SemgrepJavaPattern) : SemgrepJavaPattern {
+    override val children: List<SemgrepJavaPattern> get() = listOf(arrayIndex, obj)
+}
+
 data class FieldAccess(val fieldName: Name, val obj: Object) : SemgrepJavaPattern {
     override val children: List<SemgrepJavaPattern> = when (obj) {
         is ObjectPattern -> listOf(obj.pattern)

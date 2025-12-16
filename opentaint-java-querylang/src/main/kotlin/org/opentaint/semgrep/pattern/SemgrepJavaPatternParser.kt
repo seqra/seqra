@@ -43,6 +43,7 @@ import org.opentaint.semgrep.pattern.antlr.JavaParser.ObjectCreationExpressionCo
 import org.opentaint.semgrep.pattern.antlr.JavaParser.PatternsContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.PrimitiveTypeContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.QualifiedNameContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.SquareBracketExpressionContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeArgumentContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeDeclSemgrepPatternContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeDeclarationContext
@@ -373,8 +374,16 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
         unreachable()
     }
 
-    override fun visitSquareBracketExpression(ctx: JavaParser.SquareBracketExpressionContext): SemgrepJavaPattern =
-        ctx.todo()
+    override fun visitSquareBracketExpression(ctx: SquareBracketExpressionContext): SemgrepJavaPattern = ctx.withRule {
+        val expressions = value(SquareBracketExpressionContext::expression).map { it.parse() }
+        if (expressions.size != 2) {
+            ctx.todo()
+        }
+
+        val (arrayRef, arrayIndex) = expressions
+
+        ArrayAccess(arrayRef, arrayIndex)
+    }
 
     override fun visitObjectCreationExpression(ctx: ObjectCreationExpressionContext): ObjectCreation {
         val creator = ctx.creator()

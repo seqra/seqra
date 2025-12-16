@@ -27,6 +27,7 @@ import org.opentaint.dataflow.util.PersistentBitSet.Companion.emptyPersistentBit
 import org.opentaint.dataflow.util.contains
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.toBitSet
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
@@ -71,9 +72,11 @@ import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.MethodPredicate
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.State
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.StateRegister
+import org.opentaint.semgrep.pattern.transform
 import org.slf4j.event.Level
 import java.util.BitSet
 import java.util.IdentityHashMap
+import kotlin.time.Duration.Companion.seconds
 
 fun convertToTaintRules(
     rule: SemgrepRule<RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>>,
@@ -81,19 +84,24 @@ fun convertToTaintRules(
     meta: SinkMetaData,
     semgrepRuleErrors: SemgrepRuleErrors
 ): TaintRuleFromSemgrep = when (rule) {
-    is SemgrepMatchingRule -> convertMatchingRuleToTaintRules(rule, ruleId, meta, semgrepRuleErrors)
-    is SemgrepTaintRule -> convertTaintRuleToTaintRules(rule, ruleId, meta, semgrepRuleErrors)
+    is SemgrepMatchingRule -> RuleConversionCtx(ruleId, meta, semgrepRuleErrors).convertMatchingRuleToTaintRules(rule)
+    is SemgrepTaintRule -> RuleConversionCtx(ruleId, meta, semgrepRuleErrors).convertTaintRuleToTaintRules(rule)
 }
 
-private fun safeConvertToTaintRules(
+private class RuleConversionCtx(
+    val ruleId: String,
+    val meta: SinkMetaData,
+    val semgrepRuleErrors: SemgrepRuleErrors
+)
+
+private fun RuleConversionCtx.safeConvertToTaintRules(
     name: String,
-    errors: SemgrepRuleErrors,
     convertToTaintRules: () -> List<SerializedItem>,
 ): List<SerializedItem>? =
     runCatching {
         convertToTaintRules()
     }.onFailure { ex ->
-        errors += SemgrepError(
+        semgrepRuleErrors += SemgrepError(
             SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
             "Failed to convert to taint rule for $name: ${ex.message}",
             Level.ERROR,
@@ -101,11 +109,8 @@ private fun safeConvertToTaintRules(
         )
     }.getOrNull()
 
-private fun convertMatchingRuleToTaintRules(
+private fun RuleConversionCtx.convertMatchingRuleToTaintRules(
     rule: SemgrepMatchingRule<RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>>,
-    ruleId: String,
-    meta: SinkMetaData,
-    semgrepRuleErrors: SemgrepRuleErrors,
 ): TaintRuleFromSemgrep {
     if (rule.rules.isEmpty()) {
         error("No SemgrepRuleAutomatas received")
@@ -114,8 +119,8 @@ private fun convertMatchingRuleToTaintRules(
     val ruleGroups = rule.rules.mapIndexedNotNull { idx, r ->
         val automataId = "$ruleId#$idx"
 
-        val rules = safeConvertToTaintRules(automataId, semgrepRuleErrors) {
-            convertAutomataToTaintRules(r.metaVarInfo, r.rule, automataId, ruleId, meta, semgrepRuleErrors)
+        val rules = safeConvertToTaintRules(automataId) {
+            convertAutomataToTaintRules(r.metaVarInfo, r.rule, automataId)
         }
 
         rules?.let(TaintRuleFromSemgrep::TaintRuleGroup)
@@ -127,11 +132,8 @@ private fun convertMatchingRuleToTaintRules(
     return TaintRuleFromSemgrep(ruleId, ruleGroups)
 }
 
-private fun convertTaintRuleToTaintRules(
+private fun RuleConversionCtx.convertTaintRuleToTaintRules(
     rule: SemgrepTaintRule<RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>>,
-    ruleId: String,
-    meta: SinkMetaData,
-    semgrepRuleErrors: SemgrepRuleErrors,
 ): TaintRuleFromSemgrep {
     val taintMarkName = "$ruleId#taint"
     val generatedRules = mutableListOf<SerializedItem>()
@@ -145,8 +147,8 @@ private fun convertTaintRuleToTaintRules(
             logger.warn { "Rule $ruleId: source requires ignored" }
         }
 
-        generatedRules += safeConvertToTaintRules("$ruleId: source #$i", semgrepRuleErrors) {
-            val sourceCtx = convertTaintSourceRule(ruleId, i, source.pattern)
+        generatedRules += safeConvertToTaintRules("$ruleId: source #$i") {
+            val sourceCtx = convertTaintSourceRule(i, source.pattern)
             sourceCtx.flatMap { (ctx, stateVars) ->
                 ctx.generateTaintSourceRules(stateVars, taintMarkName, semgrepRuleErrors)
             }
@@ -158,8 +160,8 @@ private fun convertTaintRuleToTaintRules(
             logger.warn { "Rule $ruleId: sink requires ignored" }
         }
 
-        generatedRules += safeConvertToTaintRules("$ruleId: sink #$i", semgrepRuleErrors) {
-            val sinkContexts =  convertTaintSinkRule(ruleId, i, sink.pattern)
+        generatedRules += safeConvertToTaintRules("$ruleId: sink #$i") {
+            val sinkContexts = convertTaintSinkRule(i, sink.pattern)
 
             sinkContexts.flatMap { (ctx, stateVars, stateId) ->
                 val sinkCtx = SinkRuleGenerationCtx(stateVars, stateId, taintMarkName, ctx)
@@ -181,11 +183,11 @@ private fun convertTaintRuleToTaintRules(
     }
 
     for ((i, pass) in rule.propagators.withIndex()) {
-        generatedRules += safeConvertToTaintRules("$ruleId: pass #$i", semgrepRuleErrors) {
+        generatedRules += safeConvertToTaintRules("$ruleId: pass #$i") {
             val fromVar = MetavarAtom.create(pass.from)
             val toVar = MetavarAtom.create(pass.to)
 
-            val passCtx = generatePassRule(ruleId, i, pass.pattern, fromVar, toVar)
+            val passCtx = generatePassRule(i, pass.pattern, fromVar, toVar)
             passCtx.flatMap { (ctx, stateId) ->
                 val sinkCtx = SinkRuleGenerationCtx(setOf(fromVar), stateId, taintMarkName, ctx)
                 sinkCtx.generateTaintPassRules(fromVar, toVar, taintMarkName, semgrepRuleErrors)
@@ -207,8 +209,7 @@ private fun convertTaintRuleToTaintRules(
     return TaintRuleFromSemgrep(ruleId, listOf(ruleGroup))
 }
 
-private fun generatePassRule(
-    ruleId: String,
+private fun RuleConversionCtx.generatePassRule(
     passIdx: Int,
     rule: RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>,
     fromMetaVar: MetavarAtom,
@@ -237,8 +238,7 @@ private fun generatePassRule(
 }
 
 // todo: check sink behaviour with multiple focus meta vars
-private fun convertTaintSinkRule(
-    ruleId: String,
+private fun RuleConversionCtx.convertTaintSinkRule(
     sinkIdx: Int,
     rule: RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>
 ): List<Triple<TaintRuleGenerationCtx, Set<MetavarAtom>, Int>> {
@@ -269,8 +269,7 @@ private fun convertTaintSinkRule(
     }
 }
 
-private fun convertTaintSourceRule(
-    ruleId: String,
+private fun RuleConversionCtx.convertTaintSourceRule(
     sourceIdx: Int,
     rule: RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>
 ): List<Pair<TaintRuleGenerationCtx, Set<MetavarAtom>>> {
@@ -499,12 +498,10 @@ private fun TaintRegisterStateAutomata.replaceInitialState(newInitial: State): T
     return TaintRegisterStateAutomata(formulaManager, newInitial, newFinal, successors, nodeIndex)
 }
 
-private fun convertAutomataToTaintRules(
+private fun RuleConversionCtx.convertAutomataToTaintRules(
     metaVarInfo: ResolvedMetaVarInfo,
     automata: SemgrepRuleAutomata,
     automataId: String,
-    id: String, meta: SinkMetaData,
-    semgrepRuleErrors: SemgrepRuleErrors,
 ): List<SerializedItem> {
     check(automata.isDeterministic) { "NFA not supported" }
 
@@ -517,11 +514,11 @@ private fun convertAutomataToTaintRules(
             taintAutomata, metaVarInfo, automataId, acceptStateVars = emptySet()
         )
 
-        ctx.generateTaintSinkRules(id, meta, semgrepRuleErrors) { function, cond ->
+        ctx.generateTaintSinkRules(ruleId, meta, semgrepRuleErrors) { function, cond ->
             if (function.matchAnything() && cond is SerializedCondition.True) {
                 semgrepRuleErrors += SemgrepError(
                     SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
-                    "Rule $id match anything",
+                    "Rule $ruleId match anything",
                     Level.WARN,
                     SemgrepError.Reason.WARNING,
                 )
@@ -557,7 +554,7 @@ private fun createAutomataWithEdgeElimination(
     }
 }
 
-private fun generateAutomataWithTaintEdges(
+private fun RuleConversionCtx.generateAutomataWithTaintEdges(
     automata: TaintRegisterStateAutomata,
     metaVarInfo: ResolvedMetaVarInfo,
     automataId: String,
@@ -694,11 +691,15 @@ private fun TaintRegisterStateAutomata.allStates(): Set<State> {
     return states
 }
 
+private val automataCreationTimeout = 1.seconds
+
 private fun createAutomata(
     formulaManager: MethodFormulaManager,
     metaVarInfo: ResolvedMetaVarInfo,
     initialNode: AutomataNode
 ): List<TaintRegisterStateAutomata> {
+    val cancelation = OperationCancelation(automataCreationTimeout)
+
     val result = TaintRegisterStateAutomataBuilder()
 
     fun nodeId(node: AutomataNode): Int = result.nodeIndex.getOrPut(node) { result.nodeIndex.size }
@@ -724,7 +725,7 @@ private fun createAutomata(
         }
 
         for ((edgeCondition, dstNode) in state.node.outEdges) {
-            for (simplifiedEdge in simplifyEdgeCondition(formulaManager, metaVarInfo, edgeCondition)) {
+            for (simplifiedEdge in simplifyEdgeCondition(formulaManager, metaVarInfo, cancelation, edgeCondition)) {
                 val nextState = State(dstNode, emptyRegister)
 
                 if (simplifiedEdge.isEpsilonTransition()) {
@@ -1532,7 +1533,7 @@ private fun MethodSignature.isGeneratedStringConcat(): Boolean {
     return name.name == generatedStringConcatMethodName
 }
 
-private fun generateTaintEdges(
+private fun RuleConversionCtx.generateTaintEdges(
     automata: TaintRegisterStateAutomata,
     metaVarInfo: ResolvedMetaVarInfo,
     uniqueRuleId: String
@@ -1562,13 +1563,14 @@ private fun generateTaintEdges(
             val globalVarRequired = when {
                 state == automata.initial -> false
                 edge is Edge.AnalysisEnd -> true
+                stateVars.isEmpty() -> true
                 else -> {
                     val writeVars = when (edge) {
                         Edge.AnalysisEnd -> emptySet()
                         is Edge.MethodCall -> edge.effect.assignMetaVar.keys
                         is Edge.MethodEnter -> edge.effect.assignMetaVar.keys
                     }
-                    state.register.assignedVars.isNotEmpty() && stateVars.all { it.key !in writeVars }
+                    stateVars.all { it.key !in writeVars }
                 }
             }
 
@@ -1578,7 +1580,9 @@ private fun generateTaintEdges(
                         globalStateAssignStates.add(state)
                     }
 
-                    val taintEdge = edge.ensurePositiveCondition()
+                    val taintEdge = edge.ensurePositiveCondition(this)
+                        ?: continue
+
                     finalEdges += TaintRuleEdge(state, dstState, taintEdge, globalVarRequired)
                 }
 
@@ -1594,8 +1598,34 @@ private fun generateTaintEdges(
                 globalStateAssignStates.add(state)
             }
 
-            val taintEdge = edge.ensurePositiveCondition()
+            val taintEdge = edge.ensurePositiveCondition(this)
+                ?: continue
+
             taintRuleEdges += TaintRuleEdge(state, dstState, taintEdge, globalVarRequired)
+        }
+    }
+
+    val initialStateWithGlobalAssign = hashSetOf<State>()
+    for (state in globalStateAssignStates) {
+        if (taintRuleEdges.any { it.stateTo == state }) continue
+        if (finalEdges.any { it.stateTo == state }) continue
+
+        initialStateWithGlobalAssign.add(state)
+    }
+
+    if (initialStateWithGlobalAssign.isNotEmpty()) {
+        globalStateAssignStates.removeAll(initialStateWithGlobalAssign)
+
+        for ((i, edge) in taintRuleEdges.withIndex()) {
+            if (edge.stateFrom in initialStateWithGlobalAssign) {
+                taintRuleEdges[i] = edge.copy(checkGlobalState = false)
+            }
+        }
+
+        for ((i, edge) in finalEdges.withIndex()) {
+            if (edge.stateFrom in initialStateWithGlobalAssign) {
+                finalEdges[i] = edge.copy(checkGlobalState = false)
+            }
         }
     }
 
@@ -1766,13 +1796,13 @@ private fun MetaVarCtx.typeNameMetaVars(typeName: TypeNamePattern, metaVars: Bit
     }
 }
 
-private fun Edge.ensurePositiveCondition(): Edge = when (this) {
+private fun Edge.ensurePositiveCondition(ctx: RuleConversionCtx): Edge? = when (this) {
     Edge.AnalysisEnd -> this
-    is Edge.MethodCall -> copy(condition = condition.ensurePositiveCondition())
-    is Edge.MethodEnter -> copy(condition = condition.ensurePositiveCondition())
+    is Edge.MethodCall -> condition.ensurePositiveCondition(ctx)?.let { copy(condition = it) }
+    is Edge.MethodEnter -> condition.ensurePositiveCondition(ctx)?.let { copy(condition = it) }
 }
 
-private fun EdgeCondition.ensurePositiveCondition(): EdgeCondition {
+private fun EdgeCondition.ensurePositiveCondition(ctx: RuleConversionCtx): EdgeCondition? {
     if (containsPositivePredicate()) return this
 
     val signatures = hashSetOf<MethodSignature>()
@@ -1787,7 +1817,14 @@ private fun EdgeCondition.ensurePositiveCondition(): EdgeCondition {
         return copy(other = otherPredicates)
     }
 
-    TODO("Edge without positive predicate")
+    ctx.semgrepRuleErrors += SemgrepError(
+        SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
+        "Edge without positive predicate",
+        Level.ERROR,
+        SemgrepError.Reason.ERROR
+    )
+
+    return null
 }
 
 private fun EdgeCondition.findPositivePredicate(): Predicate? =
@@ -1799,8 +1836,8 @@ private fun EdgeCondition.containsPositivePredicate(): Boolean =
 
 private fun Edge.canAssignStateVar(): Boolean = when (this) {
     Edge.AnalysisEnd -> false
-    is Edge.MethodCall -> effect.assignMetaVar.isNotEmpty()
-    is Edge.MethodEnter -> effect.assignMetaVar.isNotEmpty()
+    is Edge.MethodCall -> true
+    is Edge.MethodEnter -> true
 }
 
 private data class RegisterVarPosition(val varName: MetavarAtom, val positions: MutableSet<PositionBase>)
@@ -1873,6 +1910,7 @@ private fun SerializedCondition.rewriteAsEndCondition(): SerializedCondition = w
     is SerializedCondition.ClassAnnotated -> this
     is SerializedCondition.MethodAnnotated -> this
     is SerializedCondition.MethodNameMatches -> this
+    is SerializedCondition.ClassNameMatches -> this
     is SerializedCondition.AnnotationType -> copy(pos = pos.rewriteAsEndPosition())
     is SerializedCondition.ConstantCmp -> copy(pos = pos.rewriteAsEndPosition())
     is SerializedCondition.ConstantEq -> copy(pos = pos.rewriteAsEndPosition())
@@ -2225,9 +2263,15 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
     val methodName = signature.methodName.name
     builder.methodName = evaluateFormulaSignatureMethodName(methodName, builder.conditions)
 
-    val classSignatureMatcher = typeMatcher(signature.enclosingClassName.name)
+    val classSignatureMatcherFormula = typeMatcher(signature.enclosingClassName.name)
+    if (classSignatureMatcherFormula == null) return signature
+
+    if (classSignatureMatcherFormula !is MetaVarConstraintFormula.Constraint) {
+        TODO("Complex class signature matcher")
+    }
+
+    val classSignatureMatcher = classSignatureMatcherFormula.constraint
     when (classSignatureMatcher) {
-        null -> {}
         is SerializedNameMatcher.ClassPattern -> {
             builder.enclosingClassPackage = classSignatureMatcher.`package`
             builder.enclosingClassName = classSignatureMatcher.`class`
@@ -2351,8 +2395,8 @@ private fun TaintRuleGenerationCtx.evaluateMethodSignatureCondition(
     conditions: MutableSet<SerializedCondition>,
 ) {
     val classType = typeMatcher(signature.enclosingClassName.name)
-    if (classType != null) {
-        TODO("Evaluate method signature: class condition")
+    conditions += classType.toSerializedCondition { typeMatcher, _ ->
+        SerializedCondition.ClassNameMatches(typeMatcher)
     }
 
     val methodName = evaluateFormulaSignatureMethodName(signature.methodName.name, conditions)
@@ -2370,61 +2414,63 @@ private fun findMetaVarPosition(
     findMetaVarPosition(constraint, varPositions)
 }
 
-private fun TaintRuleGenerationCtx.typeMatcher(typeName: TypeNamePattern): SerializedNameMatcher? {
+private fun TaintRuleGenerationCtx.typeMatcher(typeName: TypeNamePattern): MetaVarConstraintFormula<SerializedNameMatcher>? {
     return when (typeName) {
-        is TypeNamePattern.ClassName -> SerializedNameMatcher.ClassPattern(
-            `package` = anyName(),
-            `class` = SerializedNameMatcher.Simple(typeName.name)
+        is TypeNamePattern.ClassName -> MetaVarConstraintFormula.Constraint(
+            SerializedNameMatcher.ClassPattern(
+                `package` = anyName(),
+                `class` = SerializedNameMatcher.Simple(typeName.name)
+            )
         )
 
         is TypeNamePattern.FullyQualified -> {
-            SerializedNameMatcher.Simple(typeName.name)
+            MetaVarConstraintFormula.Constraint(
+                SerializedNameMatcher.Simple(typeName.name)
+            )
         }
 
         is TypeNamePattern.PrimitiveName -> {
-            SerializedNameMatcher.Simple(typeName.name)
+            MetaVarConstraintFormula.Constraint(
+                SerializedNameMatcher.Simple(typeName.name)
+            )
         }
 
         TypeNamePattern.AnyType -> return null
 
         is TypeNamePattern.MetaVar -> {
             val constraint = metaVarInfo.metaVarConstraints[typeName.metaVar]?.constraint ?: return null
-            if (constraint !is MetaVarConstraintFormula.Constraint) {
-                TODO("Typename metavar complex constraints")
-            }
-
-            val value = constraint.constraint
-
-            // todo hack: here we assume that if name contains '.' then name is fqn
-            when (value) {
-                is MetaVarConstraint.Concrete -> {
-                    if (value.value.contains('.')) {
-                        SerializedNameMatcher.Simple(value.value)
-                    } else {
-                        SerializedNameMatcher.ClassPattern(
-                            `package` = anyName(),
-                            `class` = SerializedNameMatcher.Simple(value.value)
-                        )
-                    }
-                }
-
-                is MetaVarConstraint.RegExp -> {
-                    val pkgPattern = value.regex.substringBeforeLast("\\.", missingDelimiterValue = "")
-                    if (pkgPattern.isNotEmpty()) {
-                        val clsPattern = value.regex.substringAfterLast("\\.")
-                        if (clsPattern.patternCanMatchDot()){
-                            SerializedNameMatcher.Pattern(value.regex)
+            constraint.transform { value ->
+                // todo hack: here we assume that if name contains '.' then name is fqn
+                when (value) {
+                    is MetaVarConstraint.Concrete -> {
+                        if (value.value.contains('.')) {
+                            SerializedNameMatcher.Simple(value.value)
                         } else {
                             SerializedNameMatcher.ClassPattern(
-                                `package` = SerializedNameMatcher.Pattern(pkgPattern),
-                                `class` = SerializedNameMatcher.Pattern(clsPattern)
+                                `package` = anyName(),
+                                `class` = SerializedNameMatcher.Simple(value.value)
                             )
                         }
-                    } else {
-                        SerializedNameMatcher.ClassPattern(
-                            `package` = anyName(),
-                            `class` = SerializedNameMatcher.Pattern(value.regex)
-                        )
+                    }
+
+                    is MetaVarConstraint.RegExp -> {
+                        val pkgPattern = value.regex.substringBeforeLast("\\.", missingDelimiterValue = "")
+                        if (pkgPattern.isNotEmpty()) {
+                            val clsPattern = value.regex.substringAfterLast("\\.")
+                            if (clsPattern.patternCanMatchDot()){
+                                SerializedNameMatcher.Pattern(value.regex)
+                            } else {
+                                SerializedNameMatcher.ClassPattern(
+                                    `package` = SerializedNameMatcher.Pattern(pkgPattern),
+                                    `class` = SerializedNameMatcher.Pattern(clsPattern)
+                                )
+                            }
+                        } else {
+                            SerializedNameMatcher.ClassPattern(
+                                `package` = anyName(),
+                                `class` = SerializedNameMatcher.Pattern(value.regex)
+                            )
+                        }
                     }
                 }
             }
@@ -2438,7 +2484,13 @@ private fun String.patternCanMatchDot(): Boolean =
 private fun TaintRuleGenerationCtx.signatureModifierConstraint(
     modifier: SignatureModifier
 ): SerializedCondition.AnnotationConstraint {
-    val type = typeMatcher(modifier.type) ?: anyName()
+    val typeMatcherFormula = typeMatcher(modifier.type)
+
+    val type = when (typeMatcherFormula) {
+        null -> anyName()
+        is MetaVarConstraintFormula.Constraint -> typeMatcherFormula.constraint
+        else -> TODO("Complex annotation type")
+    }
 
     val params = when (val v = modifier.value) {
         SignatureModifierValue.AnyValue -> null
@@ -2550,14 +2602,20 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
         }
 
         is ParamCondition.TypeIs -> {
-            val typeNameMatcher = typeMatcher(condition.typeName)
-                ?: return SerializedCondition.True
-
-            return SerializedCondition.IsType(typeNameMatcher, position)
+            return typeMatcher(condition.typeName).toSerializedCondition { typeNameMatcher, _ ->
+                SerializedCondition.IsType(typeNameMatcher, position)
+            }
         }
 
         is ParamCondition.SpecificStaticFieldValue -> {
-            val enclosingClassMatcher = typeMatcher(condition.fieldClass) ?: anyName()
+            val enclosingClassMatcherFormula = typeMatcher(condition.fieldClass)
+
+            val enclosingClassMatcher = when (enclosingClassMatcherFormula) {
+                null -> anyName()
+                is MetaVarConstraintFormula.Constraint -> enclosingClassMatcherFormula.constraint
+                else -> TODO("Complex static field type")
+            }
+
             val mark = valueMarkName(
                 MetavarAtom.create("__STATIC_FIELD_VALUE__${condition.fieldName}")
             )
@@ -2624,14 +2682,19 @@ private fun simulateCondition(
 private fun simplifyEdgeCondition(
     formulaManager: MethodFormulaManager,
     metaVarInfo: ResolvedMetaVarInfo,
+    cancelation: OperationCancelation,
     edge: AutomataEdgeType
 ) = when (edge) {
-    is AutomataEdgeType.MethodCall -> simplifyMethodFormula(formulaManager, edge.formula, metaVarInfo).map {
+    is AutomataEdgeType.MethodCall -> simplifyMethodFormula(
+        formulaManager, edge.formula, metaVarInfo, cancelation, applyNotEquivalentTransformations = true
+    ).map {
         val (effect, cond) = edgeEffectAndCondition(it, formulaManager)
         Edge.MethodCall(cond, effect)
     }
 
-    is AutomataEdgeType.MethodEnter -> simplifyMethodFormula(formulaManager, edge.formula, metaVarInfo).map {
+    is AutomataEdgeType.MethodEnter -> simplifyMethodFormula(
+        formulaManager, edge.formula, metaVarInfo, cancelation, applyNotEquivalentTransformations = true
+    ).map {
         val (effect, cond) = edgeEffectAndCondition(it, formulaManager)
         Edge.MethodEnter(cond, effect)
     }
@@ -2734,16 +2797,16 @@ private fun serializedConditionOr(args: List<SerializedCondition>): SerializedCo
     }
 }
 
-private fun MetaVarConstraintFormula<MetaVarConstraint>?.toSerializedCondition(
-    transform: (MetaVarConstraint, Boolean) -> SerializedCondition,
+private fun <T> MetaVarConstraintFormula<T>?.toSerializedCondition(
+    transform: (T, Boolean) -> SerializedCondition,
 ): SerializedCondition {
     if (this == null) return SerializedCondition.True
     return toSerializedConditionUtil(negated = false, transform)
 }
 
-private fun MetaVarConstraintFormula<MetaVarConstraint>.toSerializedConditionUtil(
+private fun <T> MetaVarConstraintFormula<T>.toSerializedConditionUtil(
     negated: Boolean,
-    transform: (MetaVarConstraint, Boolean) -> SerializedCondition,
+    transform: (T, Boolean) -> SerializedCondition,
 ): SerializedCondition = when (this) {
     is MetaVarConstraintFormula.Constraint -> {
         transform(constraint, negated)

@@ -2,6 +2,7 @@ package org.opentaint.semgrep.pattern.conversion.taint
 
 import org.opentaint.dataflow.util.filter
 import org.opentaint.dataflow.util.forEach
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
 import org.opentaint.semgrep.pattern.MetaVarConstraints
@@ -30,18 +31,20 @@ import java.util.BitSet
 fun simplifyMethodFormulaAnd(
     manager: MethodFormulaManager,
     formulas: List<MethodFormula>,
-    metaVarInfo: ResolvedMetaVarInfo
+    metaVarInfo: ResolvedMetaVarInfo,
+    cancelation: OperationCancelation
 ): MethodFormula {
-    return manager.mkOr(simplifyMethodFormula(manager, manager.mkAnd(formulas), metaVarInfo))
+    return manager.mkOr(simplifyMethodFormula(manager, manager.mkAnd(formulas), metaVarInfo, cancelation))
 }
 
 fun simplifyMethodFormulaOr(
     manager: MethodFormulaManager,
     formulas: List<MethodFormula>,
     metaVarInfo: ResolvedMetaVarInfo,
+    cancelation: OperationCancelation,
 ): MethodFormula {
     val simplifiedCubes = formulas.flatMap { formula ->
-        manager.formulaSimplifiedCubes(formula, metaVarInfo)
+        manager.formulaSimplifiedCubes(formula, metaVarInfo, cancelation, applyNotEquivalentTransformations = false)
     }
 
     val result = manager.simplifyUnion(simplifiedCubes.toList())
@@ -51,9 +54,10 @@ fun simplifyMethodFormulaOr(
 fun trySimplifyMethodFormula(
     manager: MethodFormulaManager,
     formula: MethodFormula,
-    metaVarInfo: ResolvedMetaVarInfo
+    metaVarInfo: ResolvedMetaVarInfo,
+    cancelation: OperationCancelation,
 ): MethodFormula {
-    val cubes = simplifyMethodFormula(manager, formula, metaVarInfo)
+    val cubes = simplifyMethodFormula(manager, formula, metaVarInfo, cancelation)
 
     if (cubes.size > 100) {
         // todo: avoid formula size explosion
@@ -66,9 +70,11 @@ fun trySimplifyMethodFormula(
 fun simplifyMethodFormula(
     manager: MethodFormulaManager,
     formula: MethodFormula,
-    metaVarInfo: ResolvedMetaVarInfo
+    metaVarInfo: ResolvedMetaVarInfo,
+    cancelation: OperationCancelation,
+    applyNotEquivalentTransformations: Boolean = false
 ): List<Cube> {
-    val simplifiedCubes = manager.formulaSimplifiedCubes(formula, metaVarInfo)
+    val simplifiedCubes = manager.formulaSimplifiedCubes(formula, metaVarInfo, cancelation, applyNotEquivalentTransformations)
     val result = manager.simplifyUnion(simplifiedCubes.toList())
     return result.map { Cube(it, negated = false) }
 }
@@ -76,33 +82,40 @@ fun simplifyMethodFormula(
 fun methodFormulaSat(
     manager: MethodFormulaManager,
     formula: MethodFormula,
-    metaVarInfo: ResolvedMetaVarInfo
+    metaVarInfo: ResolvedMetaVarInfo,
+    cancelation: OperationCancelation,
 ): Boolean {
     val simplifiedCubes = formula.tryFindSimplifiedCubes()
     if (simplifiedCubes != null) return true
 
-    return methodFormulaCheckSat(formula) { model ->
-        val simplifiedCube = manager.simplifyMethodFormulaCube(model, metaVarInfo)
+    return methodFormulaCheckSat(formula, cancelation) { model ->
+        val simplifiedCube = manager.simplifyMethodFormulaCube(
+            model, metaVarInfo, applyNotEquivalentTransformations = false
+        )
         simplifiedCube != null
     }
 }
 
 private fun MethodFormulaManager.formulaSimplifiedCubes(
     formula: MethodFormula,
-    metaVarInfo: ResolvedMetaVarInfo
+    metaVarInfo: ResolvedMetaVarInfo,
+    cancelation: OperationCancelation,
+    applyNotEquivalentTransformations: Boolean
 ): List<MethodFormulaCubeCompact> {
-    val simplifiedCubes = formula.tryFindSimplifiedCubes()
-    if (simplifiedCubes != null) {
-        return simplifiedCubes
+    if (!applyNotEquivalentTransformations) {
+        val simplifiedCubes = formula.tryFindSimplifiedCubes()
+        if (simplifiedCubes != null) {
+            return simplifiedCubes
+        }
     }
 
     val dnf = when (formula) {
         MethodFormula.True -> return listOf(MethodFormulaCubeCompact())
         MethodFormula.False -> return emptyList()
-        else -> methodFormulaDNF(formula)
+        else -> methodFormulaDNF(formula, cancelation)
     }
 
-    return dnf.mapNotNull { simplifyMethodFormulaCube(it, metaVarInfo) }
+    return dnf.mapNotNull { simplifyMethodFormulaCube(it, metaVarInfo, applyNotEquivalentTransformations) }
 }
 
 private fun MethodFormula.tryFindSimplifiedCubes(): List<MethodFormulaCubeCompact>? {
@@ -132,8 +145,9 @@ private fun MethodFormula.tryFindSimplifiedCubes(): List<MethodFormulaCubeCompac
 private fun MethodFormulaManager.simplifyMethodFormulaCube(
     cube: MethodFormulaCubeCompact,
     metaVarInfo: ResolvedMetaVarInfo,
+    applyNotEquivalentTransformations: Boolean,
 ): MethodFormulaCubeCompact? {
-    var solver = MethodFormulaSolver(metaVarInfo)
+    var solver = MethodFormulaSolver(metaVarInfo, applyNotEquivalentTransformations)
 
     cube.positiveLiterals.forEach {
         solver = solver.addPositivePredicate(predicate(it)) ?: return null
@@ -242,6 +256,7 @@ private class SolverConstraints(
 
 private class MethodFormulaSolver(
     private val metaVarInfo: ResolvedMetaVarInfo,
+    private val applyNotEquivalentTransformations: Boolean,
     private val positive: SolverConstraints = SolverConstraints(signature = null),
     private val negated: MutableMap<MethodSignature, MutableList<SolverConstraints>> = hashMapOf()
 ) {
@@ -288,11 +303,15 @@ private class MethodFormulaSolver(
 
         if (signature == positive.signature) {
             val param = predicate.constraint ?: return null
-            if (param is ParamConstraint && param.position is Position.Result) {
-                // Position.Result holds effect but implies no constraint on condition
-                //  => same case as when predicate.constraint == null
-                return null
+
+            if (applyNotEquivalentTransformations) {
+                if (param is ParamConstraint && param.position is Position.Result) {
+                    // Position.Result holds effect but implies no constraint on condition
+                    //  => same case as when predicate.constraint == null
+                    return null
+                }
             }
+
             positive.constraints.addNegative(param) ?: return null
             return this
         }

@@ -279,8 +279,7 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
     val patternNots = mutableListOf<String>()
     val patternInsides = mutableListOf<String>()
     val patternNotInsides = mutableListOf<String>()
-    val metaVariablePatterns = hashMapOf<String, MutableSet<MetaVarConstraintFormula<String>>>()
-    val metaVariableRegex = hashMapOf<String, MutableSet<MetaVarConstraintFormula<String>>>()
+    val metaVariableConstraints = hashMapOf<String, MutableSet<MetaVarConstraintFormula<RawMetaVarConstraint>>>()
     val focusMetaVars = hashSetOf<String>()
 
     for (literal in literals) {
@@ -345,17 +344,18 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
                     metaVarConstraint = MetaVarConstraintFormula.mkNot(metaVarConstraint)
                 }
 
-                metaVariablePatterns.getOrPut(f.name, ::hashSetOf).add(metaVarConstraint)
+                metaVariableConstraints.getOrPut(f.name, ::hashSetOf).add(metaVarConstraint)
             }
 
             is Formula.MetavarRegex -> {
-                var metaVarConstraint: MetaVarConstraintFormula<String> = MetaVarConstraintFormula.Constraint(f.regex)
+                val regexConstraint = RawMetaVarConstraint.RegExp(f.regex)
+                var metaVarConstraint: MetaVarConstraintFormula<RawMetaVarConstraint> = MetaVarConstraintFormula.Constraint(regexConstraint)
 
                 if (literal.negated) {
                     metaVarConstraint = MetaVarConstraintFormula.mkNot(metaVarConstraint)
                 }
 
-                metaVariableRegex.getOrPut(f.name, ::hashSetOf).add(metaVarConstraint)
+                metaVariableConstraints.getOrPut(f.name, ::hashSetOf).add(metaVarConstraint)
             }
 
             is Formula.Regex -> {
@@ -381,19 +381,17 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
         ),
         RawMetaVarInfo(
             focusMetaVars,
-            metaVariableRegex.mapValues { (_, constraints) ->
-                MetaVarConstraintFormula.mkAnd(constraints)
-            },
-            metaVariablePatterns.mapValues { (_, constraints) ->
+            metaVariableConstraints.mapValues { (_, constraints) ->
                 MetaVarConstraintFormula.mkAnd(constraints)
             },
         )
     )
 }
 
-private fun Formula.toMetaVarPatternConstraint(): MetaVarConstraintFormula<String>? {
+private fun Formula.toMetaVarPatternConstraint(): MetaVarConstraintFormula<RawMetaVarConstraint>? {
     return when (this) {
-        is Formula.LeafPattern -> MetaVarConstraintFormula.Constraint(pattern)
+        is Formula.LeafPattern -> MetaVarConstraintFormula.Constraint(RawMetaVarConstraint.Pattern(pattern))
+        is Formula.Regex -> MetaVarConstraintFormula.Constraint(RawMetaVarConstraint.RegExp(pattern))
         is Formula.Not -> child.toMetaVarPatternConstraint()?.let { MetaVarConstraintFormula.mkNot(it) }
         is Formula.And -> children.mapTo(hashSetOf()) { it.toMetaVarPatternConstraint() ?: return null }
             .let { MetaVarConstraintFormula.mkAnd(it) }

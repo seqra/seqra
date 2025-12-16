@@ -2,6 +2,7 @@ package org.opentaint.semgrep.simplifier
 
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.toSet
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaCubeCompact
 import org.opentaint.semgrep.pattern.conversion.automata.isTrue
@@ -11,6 +12,7 @@ import org.opentaint.semgrep.pattern.conversion.taint.methodFormulaModels
 import java.util.BitSet
 import kotlin.random.Random
 import kotlin.test.Test
+import kotlin.time.Duration.Companion.seconds
 
 class MethodFormulaSimplifierTest {
     private val reduce = false
@@ -98,7 +100,7 @@ class MethodFormulaSimplifierTest {
         formula: MethodFormula
     ): Boolean {
         val groundTruth = groundTruthFormulaModels(formula)
-        val actualModels = methodFormulaModels(formula)
+        val actualModels = methodFormulaModels(formula, OperationCancelation(1.seconds))
         val completeActualModels = actualModels.flatMapTo(hashSetOf()) {
             completeModel(it)
         }

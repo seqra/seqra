@@ -6,9 +6,17 @@ sealed interface SemgrepPatternAction {
     fun setResultCondition(condition: ParamCondition): SemgrepPatternAction
 
     sealed interface SignatureName {
-        data class Concrete(val name: String) : SignatureName
-        data class MetaVar(val metaVar: String) : SignatureName
-        data object AnyName : SignatureName
+        data class Concrete(val name: String) : SignatureName {
+            override fun toString(): String = name
+        }
+
+        data class MetaVar(val metaVar: String) : SignatureName {
+            override fun toString(): String = metaVar
+        }
+
+        data object AnyName : SignatureName {
+            override fun toString(): String = "*"
+        }
     }
 
     data class MethodCall(

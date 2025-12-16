@@ -3,9 +3,9 @@ package org.opentaint.semgrep.pattern.conversion
 import org.opentaint.semgrep.pattern.AbstractSemgrepError
 import org.opentaint.semgrep.pattern.ActionListSemgrepRule
 import org.opentaint.semgrep.pattern.MetaVarConstraint
-import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
 import org.opentaint.semgrep.pattern.MetaVarConstraints
 import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
+import org.opentaint.semgrep.pattern.RawMetaVarConstraint
 import org.opentaint.semgrep.pattern.RawMetaVarInfo
 import org.opentaint.semgrep.pattern.RawSemgrepRule
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
@@ -23,6 +23,7 @@ import org.opentaint.semgrep.pattern.convertToRawRule
 import org.opentaint.semgrep.pattern.parseSemgrepRule
 import org.opentaint.semgrep.pattern.transform
 import org.slf4j.event.Level
+import kotlin.time.Duration.Companion.seconds
 
 class SemgrepRuleAutomataBuilder(
     private val parser: SemgrepPatternParser = SemgrepPatternParser.create(),
@@ -140,7 +141,7 @@ class SemgrepRuleAutomataBuilder(
         val automataFailures = mutableListOf<SemgrepError>()
         val ruleAutomata = ruleActionListWithoutDuplicates.flatMap { r ->
             val automata = runCatching {
-                transformSemgrepRuleToAutomata(r.rule, r.metaVarInfo)
+                transformSemgrepRuleToAutomata(r.rule, r.metaVarInfo, automataBuildTimeout)
             }.onFailure {
                 automataFailures += SemgrepError(
                     SemgrepError.Step.BUILD_TRANSFORM_TO_AUTOMATA,
@@ -258,33 +259,32 @@ class SemgrepRuleAutomataBuilder(
         info: RawMetaVarInfo,
         semgrepError: AbstractSemgrepError
     ): ResolvedMetaVarInfo? {
-        if (info.metaVariableRegex.isEmpty() && info.metaVariablePatterns.isEmpty()) {
+        if (info.metaVariableConstraints.isEmpty()) {
             return ResolvedMetaVarInfo(info.focusMetaVars, emptyMap())
-        }
-
-        val metaVarConstraints = hashMapOf<String, MutableSet<MetaVarConstraintFormula<MetaVarConstraint>>>()
-        for ((metaVar, regex) in info.metaVariableRegex) {
-            val constraints = metaVarConstraints.getOrPut(metaVar, ::hashSetOf)
-            constraints += regex.transform { MetaVarConstraint.RegExp(it) }
         }
 
         class PatternConstraintFailure : Exception() {
             override fun fillInStackTrace(): Throwable = this
         }
 
-        for ((metaVar, patterns) in info.metaVariablePatterns) {
-            val constraints = metaVarConstraints.getOrPut(metaVar, ::hashSetOf)
-            try {
-                constraints += patterns.transform {
-                    patternConstraintValue(it, semgrepError) ?: throw PatternConstraintFailure()
+        val constraints = info.metaVariableConstraints.mapValues { (_, constraint) ->
+            val formula = try {
+                constraint.transform {
+                    when (it) {
+                        is RawMetaVarConstraint.Pattern -> {
+                            patternConstraintValue(it.value, semgrepError) ?: throw PatternConstraintFailure()
+                        }
+
+                        is RawMetaVarConstraint.RegExp -> {
+                            MetaVarConstraint.RegExp(it.regex)
+                        }
+                    }
                 }
             } catch (e: PatternConstraintFailure) {
                 return null
             }
-        }
 
-        val constraints = metaVarConstraints.mapValues { (_, v) ->
-            MetaVarConstraints(MetaVarConstraintFormula.mkAnd(v))
+            MetaVarConstraints(formula)
         }
 
         return ResolvedMetaVarInfo(info.focusMetaVars, constraints)
@@ -300,5 +300,9 @@ class SemgrepRuleAutomataBuilder(
         val patternConcreteValue = tryExtractPatternDotSeparatedParts(parsed) ?: return null
         val patternConcreteNames = tryExtractConcreteNames(patternConcreteValue) ?: return null
         return MetaVarConstraint.Concrete(patternConcreteNames.joinToString(separator = "."))
+    }
+
+    companion object {
+        private val automataBuildTimeout = 1.seconds
     }
 }

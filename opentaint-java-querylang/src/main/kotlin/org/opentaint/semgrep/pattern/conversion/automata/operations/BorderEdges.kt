@@ -1,6 +1,6 @@
 package org.opentaint.semgrep.pattern.conversion.automata.operations
 
-import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
+import org.opentaint.semgrep.pattern.conversion.automata.AutomataBuilderCtx
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
@@ -54,7 +54,7 @@ fun addDummyMethodEnter(automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
     )
 }
 
-fun addPatternStartAndEnd(automata: SemgrepRuleAutomata, metaVarInfo: ResolvedMetaVarInfo): SemgrepRuleAutomata {
+fun AutomataBuilderCtx.addPatternStartAndEnd(automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
     check(!automata.hasMethodEnter && !automata.hasEndEdges)
 
     automata.initialNode.outEdges.add(AutomataEdgeType.PatternStart to automata.initialNode)
@@ -66,8 +66,7 @@ fun addPatternStartAndEnd(automata: SemgrepRuleAutomata, metaVarInfo: ResolvedMe
 
     return intersection(
         automata,
-        patternBordersAutomata(automata.formulaManager),
-        metaVarInfo
+        patternBordersAutomata(automata.formulaManager)
     )
 }
 

@@ -4,6 +4,7 @@ import org.slf4j.event.Level
 import org.opentaint.semgrep.pattern.AbstractSemgrepError
 import org.opentaint.semgrep.pattern.AddExpr
 import org.opentaint.semgrep.pattern.Annotation
+import org.opentaint.semgrep.pattern.ArrayAccess
 import org.opentaint.semgrep.pattern.BoolConstant
 import org.opentaint.semgrep.pattern.CatchStatement
 import org.opentaint.semgrep.pattern.ClassDeclaration
@@ -94,6 +95,7 @@ class PatternToActionListConverter: ActionListBuilder {
             is BoolConstant,
             EmptyPatternSequence,
             is FieldAccess,
+            is ArrayAccess,
             is StaticFieldAccess,
             is FormalArgument,
             is Identifier,
@@ -169,6 +171,7 @@ class PatternToActionListConverter: ActionListBuilder {
             is EllipsisMethodInvocations,
             EmptyPatternSequence,
             is FieldAccess,
+            is ArrayAccess,
             is FormalArgument,
             is Identifier,
             is MethodArguments,

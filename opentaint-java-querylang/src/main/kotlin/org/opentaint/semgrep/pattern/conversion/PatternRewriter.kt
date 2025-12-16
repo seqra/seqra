@@ -2,6 +2,7 @@ package org.opentaint.semgrep.pattern.conversion
 
 import org.opentaint.semgrep.pattern.AddExpr
 import org.opentaint.semgrep.pattern.Annotation
+import org.opentaint.semgrep.pattern.ArrayAccess
 import org.opentaint.semgrep.pattern.BoolConstant
 import org.opentaint.semgrep.pattern.CatchStatement
 import org.opentaint.semgrep.pattern.ClassDeclaration
@@ -38,7 +39,6 @@ import org.opentaint.semgrep.pattern.ThisExpr
 import org.opentaint.semgrep.pattern.TypeName
 import org.opentaint.semgrep.pattern.TypedMetavar
 import org.opentaint.semgrep.pattern.VariableAssignment
-import org.opentaint.semgrep.pattern.conversion.cartesianProductMapTo
 
 interface PatternRewriter {
     fun SemgrepJavaPattern.rewrite(): List<SemgrepJavaPattern> = when (this) {
@@ -54,6 +54,7 @@ interface PatternRewriter {
 
         is EllipsisMethodInvocations -> rewriteEllipsisMethodInvocations()
         is FieldAccess -> rewriteFieldAccess()
+        is ArrayAccess -> rewriteArrayAccess()
         is StaticFieldAccess -> rewriteStaticFieldAccess()
         is FormalArgument -> rewriteFormalArgument()
         is NamedValue -> rewriteNamedValue()
@@ -162,6 +163,16 @@ interface PatternRewriter {
         }
     }
 
+    fun ArrayAccess.rewriteArrayAccess(): List<SemgrepJavaPattern> {
+        val newObj = obj.rewrite()
+        val newIndex = arrayIndex.rewrite()
+
+        return newObj.flatMap { obj ->
+            newIndex.flatMap { idx ->
+                createArrayAccess(obj, idx)
+            }
+        }
+    }
 
     fun StaticFieldAccess.rewriteStaticFieldAccess(): List<SemgrepJavaPattern> =
         createStaticFieldAccess(fieldName.rewriteName(), classTypeName.rewriteTypeName())
@@ -270,6 +281,9 @@ interface PatternRewriter {
 
     fun createFieldAccess(fieldName: Name, obj: FieldAccess.Object): List<SemgrepJavaPattern> =
         listOf(FieldAccess(fieldName, obj))
+
+    fun createArrayAccess(obj: SemgrepJavaPattern, idx: SemgrepJavaPattern): List<SemgrepJavaPattern> =
+        listOf(ArrayAccess(obj, idx))
 
     fun createFormalArgument(name: Name, type: TypeName, modifiers: List<Modifier>): List<SemgrepJavaPattern> =
         listOf(FormalArgument(name, type, modifiers))

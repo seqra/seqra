@@ -1,24 +1,19 @@
 package org.opentaint.semgrep.pattern.conversion.automata.operations
 
-import org.opentaint.semgrep.pattern.conversion.automata.operations.unifyMetavars
-import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
+import org.opentaint.semgrep.pattern.conversion.automata.AutomataBuilderCtx
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
-import org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaManager
 import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 import org.opentaint.semgrep.pattern.conversion.taint.methodFormulaSat
 
-fun intersection(
+fun AutomataBuilderCtx.intersection(
     a1: SemgrepRuleAutomata,
-    a2: SemgrepRuleAutomata,
-    metaVarInfo: ResolvedMetaVarInfo
+    a2: SemgrepRuleAutomata
 ): SemgrepRuleAutomata {
-    val manager = a1.formulaManager
     check(a1.formulaManager === a2.formulaManager)
 
-    val root =
-        createNewNode(a1.initialNode, a2.initialNode)
+    val root = createNewNode(a1.initialNode, a2.initialNode)
 
     val newNodes = mutableMapOf<Pair<AutomataNode, AutomataNode>, AutomataNode>()
     newNodes[a1.initialNode to a2.initialNode] = root
@@ -40,25 +35,14 @@ fun intersection(
 
                 val edgeType = if (outType1 == outType2 && outType1 !is AutomataEdgeType.AutomataEdgeTypeWithFormula) {
                     outType1
-
                 } else if (outType1 is AutomataEdgeType.MethodCall && outType2 is AutomataEdgeType.MethodCall) {
-                    val formula = intersectMethodFormula(
-                        manager,
-                        metaVarInfo,
-                        outType1.formula,
-                        outType2.formula
-                    )
+                    val formula = intersectMethodFormula(outType1.formula, outType2.formula)
                         ?: return@inner
 
                     AutomataEdgeType.MethodCall(formula)
 
                 } else if (outType1 is AutomataEdgeType.MethodEnter && outType2 is AutomataEdgeType.MethodEnter) {
-                    val formula = intersectMethodFormula(
-                        manager,
-                        metaVarInfo,
-                        outType1.formula,
-                        outType2.formula
-                    )
+                    val formula = intersectMethodFormula(outType1.formula, outType2.formula)
                         ?: return@inner
 
                     AutomataEdgeType.MethodEnter(formula)
@@ -80,7 +64,7 @@ fun intersection(
         hasEndEdges = a1.hasEndEdges && a2.hasEndEdges,
     )
 
-    val unified = unifyMetavars(intersection, metaVarInfo)
+    val unified = unifyMetavars(intersection)
     return unified.also {
         removeDeadNodes(it)
     }
@@ -91,13 +75,12 @@ private fun createNewNode(n1: AutomataNode, n2: AutomataNode): AutomataNode =
         it.accept = n1.accept && n2.accept
     }
 
-private fun intersectMethodFormula(
-    formulaManager: MethodFormulaManager,
-    metaVarInfo: ResolvedMetaVarInfo,
-    f1: MethodFormula, f2: MethodFormula
+private fun AutomataBuilderCtx.intersectMethodFormula(
+    f1: MethodFormula,
+    f2: MethodFormula
 ): MethodFormula? {
     val result = formulaManager.mkAnd(listOf(f1, f2))
-    if (!methodFormulaSat(formulaManager, result, metaVarInfo)) {
+    if (!methodFormulaSat(formulaManager, result, metaVarInfo, cancelation)) {
         return null
     }
 

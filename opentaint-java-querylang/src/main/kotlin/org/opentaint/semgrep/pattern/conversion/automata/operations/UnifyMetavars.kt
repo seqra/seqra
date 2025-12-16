@@ -3,10 +3,10 @@ package org.opentaint.semgrep.pattern.conversion.automata.operations
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.map
 import org.opentaint.dataflow.util.toSet
-import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.conversion.IsMetavar
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
 import org.opentaint.semgrep.pattern.conversion.ParamCondition.StringValueMetaVar
+import org.opentaint.semgrep.pattern.conversion.automata.AutomataBuilderCtx
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
@@ -17,8 +17,6 @@ import org.opentaint.semgrep.pattern.conversion.automata.Position
 import org.opentaint.semgrep.pattern.conversion.automata.Predicate
 import org.opentaint.semgrep.pattern.conversion.automata.PredicateId
 import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
-import org.opentaint.semgrep.pattern.conversion.automata.operations.methodCallEdgeToDeadNode
-import org.opentaint.semgrep.pattern.conversion.automata.operations.methodEnterEdgeToDeadNode
 import org.opentaint.semgrep.pattern.conversion.taint.methodFormulaSat
 import org.opentaint.semgrep.pattern.conversion.taint.simplifyMethodFormula
 import java.util.BitSet
@@ -90,7 +88,7 @@ private data class MetavarUnificationContext private constructor(
     }
 }
 
-fun unifyMetavars(automata: SemgrepRuleAutomata, metavarInfo: ResolvedMetaVarInfo): SemgrepRuleAutomata {
+fun AutomataBuilderCtx.unifyMetavars(automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
     val newInitialNode = AutomataNode()
     val initialContext = MetavarUnificationContext.EMPTY
 
@@ -100,6 +98,8 @@ fun unifyMetavars(automata: SemgrepRuleAutomata, metavarInfo: ResolvedMetaVarInf
     nodeQueue.add(automata.initialNode to initialContext)
 
     while (nodeQueue.isNotEmpty()) {
+        cancelation.check()
+
         val (prevNode, ctx) = nodeQueue.poll()
         val newNode = nodeMapping[prevNode to ctx] ?: error("Expected non-null node")
 
@@ -108,7 +108,7 @@ fun unifyMetavars(automata: SemgrepRuleAutomata, metavarInfo: ResolvedMetaVarInf
         var anyEdgeChanged = false
 
         prevNode.outEdges.forEach { (prevEdge, prevDst) ->
-            val (newEdge, newCtx) = transformEdge(prevEdge, automata.formulaManager, metavarInfo, ctx) ?: run {
+            val (newEdge, newCtx) = transformEdge(prevEdge, ctx) ?: run {
                 return@forEach
             }
 
@@ -125,13 +125,13 @@ fun unifyMetavars(automata: SemgrepRuleAutomata, metavarInfo: ResolvedMetaVarInf
         }
 
         if (anyEdgeChanged) {
-            val methodCallToDeadNode = methodCallEdgeToDeadNode(metavarInfo, automata, prevNode)
+            val methodCallToDeadNode = methodCallEdgeToDeadNode(automata, prevNode)
             if (methodCallToDeadNode != null) {
                 newNode.outEdges.add(methodCallToDeadNode to automata.deadNode)
             }
 
             if (automata.hasMethodEnter) {
-                val methodEnterToDeadNode = methodEnterEdgeToDeadNode(metavarInfo, automata, prevNode)
+                val methodEnterToDeadNode = methodEnterEdgeToDeadNode(automata, prevNode)
                 if (methodEnterToDeadNode != null) {
                     newNode.outEdges.add(methodEnterToDeadNode to automata.deadNode)
                 }
@@ -148,24 +148,22 @@ fun unifyMetavars(automata: SemgrepRuleAutomata, metavarInfo: ResolvedMetaVarInf
     )
 }
 
-private fun transformEdge(
+private fun AutomataBuilderCtx.transformEdge(
     edge: AutomataEdgeType,
-    formulaManager: MethodFormulaManager,
-    metavarInfo: ResolvedMetaVarInfo,
     context: MetavarUnificationContext
 ): Pair<AutomataEdgeType, MetavarUnificationContext>? {
     if (edge !is AutomataEdgeType.AutomataEdgeTypeWithFormula) {
         return edge to context
     }
 
-    val newContext = context.extendByFormula(edge.formula, formulaManager, metavarInfo)
+    val newContext = context.extendByFormula(edge.formula, this)
     val newFormula = edge.formula.transform(formulaManager, newContext)
 
     if (newFormula == edge.formula && newContext == context) {
         return edge to context
     }
 
-    if (!methodFormulaSat(formulaManager, newFormula, metavarInfo)) {
+    if (!methodFormulaSat(formulaManager, newFormula, metaVarInfo, cancelation)) {
         return null
     }
 
@@ -239,19 +237,18 @@ private fun Predicate.transform(context: MetavarUnificationContext): Predicate {
 
 private fun MetavarUnificationContext.extendByFormula(
     formula: MethodFormula,
-    formulaManager: MethodFormulaManager,
-    metavarInfo: ResolvedMetaVarInfo
+    automataCtx: AutomataBuilderCtx
 ): MetavarUnificationContext {
     val (positive, negative) = formula.getAllPredicates()
     val allMetavars = (positive + negative)
-        .map(formulaManager::predicate)
+        .map(automataCtx.formulaManager::predicate)
         .mapNotNull { it.metavarWithPosition()?.first }
         .distinct()
 
     val extendedBySeenMetavars = allMetavars.fold(initial = this, MetavarUnificationContext::addMetavar)
 
     val positivesByPosition = positive
-        .map(formulaManager::predicate)
+        .map(automataCtx.formulaManager::predicate)
         .mapNotNull { it.metavarWithPosition() }
         .groupBy({ it.second }) { it.first }
 
@@ -260,19 +257,18 @@ private fun MetavarUnificationContext.extendByFormula(
         return extendedBySeenMetavars
     }
 
-    return extendedBySeenMetavars.extendByFormulaPositivePredicates(formula, formulaManager, metavarInfo)
+    return extendedBySeenMetavars.extendByFormulaPositivePredicates(formula, automataCtx)
 }
 
 private fun MetavarUnificationContext.extendByFormulaPositivePredicates(
     formula: MethodFormula,
-    formulaManager: MethodFormulaManager,
-    metavarInfo: ResolvedMetaVarInfo
+    automataCtx: AutomataBuilderCtx
 ): MetavarUnificationContext {
-    val cubes = simplifyMethodFormula(formulaManager, formula, metavarInfo)
+    val cubes = simplifyMethodFormula(automataCtx.formulaManager, formula, automataCtx.metaVarInfo, automataCtx.cancelation)
 
     val cubeContexts = cubes.map {
         val positivePredicates = it.cube.positiveLiterals.toSet()
-        extendByPositivePredicates(positivePredicates, formulaManager)
+        extendByPositivePredicates(positivePredicates, automataCtx)
     }
 
     return cubeContexts.reduce(MetavarUnificationContext::intersect).also {
@@ -284,10 +280,10 @@ private fun MetavarUnificationContext.extendByFormulaPositivePredicates(
 
 private fun MetavarUnificationContext.extendByPositivePredicates(
     predicates: Iterable<PredicateId>,
-    formulaManager: MethodFormulaManager
+    automataCtx: AutomataBuilderCtx
 ): MetavarUnificationContext {
     val metavarsToUnify = predicates
-        .map(formulaManager::predicate)
+        .map(automataCtx.formulaManager::predicate)
         .mapNotNull { it.metavarWithPosition() }
         .groupBy({ it.second }) { it.first }
 

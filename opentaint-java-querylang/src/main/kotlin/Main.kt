@@ -178,12 +178,16 @@ private fun YamlNode.containsBadMultiLine(siblings: List<YamlNode?>): Boolean {
 }
 
 private fun minimizeConfig(path: Path) {
-    val allRules = collectAllRules(path)
+    val rulePath = mutableListOf<String>()
+    val rulesSets = mutableListOf<String>()
+    val parsedRules = mutableListOf<PartialRule>()
 
-    val rulePath = allRules.map { it.path }
-    val rulesSets = allRules.map { it.rule }
-
-    val parsedRules = rulesSets.map { yaml.decodeFromString<PartialRule>(it) }
+    for (rule in collectAllRules(path)) {
+        val parsed = runCatching { yaml.decodeFromString<PartialRule>(rule.rule) }.getOrNull() ?: continue
+        rulePath.add(rule.path)
+        rulesSets.add(rule.rule)
+        parsedRules.add(parsed)
+    }
 
     val ruleIndex = parsedRules.map { ruleSet ->
         val index = hashMapOf<NormalizedRuleWrapper, MutableList<Int>>()

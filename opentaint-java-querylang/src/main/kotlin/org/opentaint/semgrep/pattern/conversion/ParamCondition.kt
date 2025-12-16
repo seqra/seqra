@@ -3,11 +3,25 @@ package org.opentaint.semgrep.pattern.conversion
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
 
 sealed interface TypeNamePattern {
-    data class FullyQualified(val name: String) : TypeNamePattern
-    data class ClassName(val name: String) : TypeNamePattern
-    data class PrimitiveName(val name: String) : TypeNamePattern
-    data class MetaVar(val metaVar: String) : TypeNamePattern
-    data object AnyType : TypeNamePattern
+    data class FullyQualified(val name: String) : TypeNamePattern {
+        override fun toString(): String = name
+    }
+
+    data class ClassName(val name: String) : TypeNamePattern {
+        override fun toString(): String = "*.$name"
+    }
+
+    data class PrimitiveName(val name: String) : TypeNamePattern{
+        override fun toString(): String = name
+    }
+
+    data class MetaVar(val metaVar: String) : TypeNamePattern {
+        override fun toString(): String = metaVar
+    }
+
+    data object AnyType : TypeNamePattern {
+        override fun toString(): String = "*"
+    }
 }
 
 sealed interface ParamPosition {

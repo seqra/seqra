@@ -3,7 +3,7 @@ package org.opentaint.semgrep.pattern.conversion.automata.operations
 import org.opentaint.dataflow.util.any
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.toBitSet
-import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
+import org.opentaint.semgrep.pattern.conversion.automata.AutomataBuilderCtx
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
@@ -15,9 +15,8 @@ import java.util.BitSet
 import java.util.Collections
 import java.util.IdentityHashMap
 
-fun determinize(
+fun AutomataBuilderCtx.determinize(
     automata: SemgrepRuleAutomata,
-    metaVarInfo: ResolvedMetaVarInfo,
     simplifyAutomata: Boolean = false
 ): SemgrepRuleAutomata {
     if (automata.isDeterministic) {
@@ -25,10 +24,8 @@ fun determinize(
     }
 
     if (simplifyAutomata) {
-        simplifyAutomata(automata, metaVarInfo)
+        simplifyAutomata(automata)
     }
-
-    val formulaManager = automata.formulaManager
 
     val nodeIndex = IdentityHashMap<AutomataNode, Int>()
     val nodeByIdx = arrayListOf<AutomataNode>()
@@ -56,6 +53,8 @@ fun determinize(
     val root = getOrCreateNewNode(initialNodeSet)
 
     while (queue.isNotEmpty()) {
+        cancelation.check()
+
         val s = queue.removeFirst()
         val newNode = getOrCreateNewNode(s)
 
@@ -73,13 +72,13 @@ fun determinize(
         }
 
         determinizeSpecificEdgeType<AutomataEdgeType.MethodCall>(
-            formulaManager, metaVarInfo, initialEdges, newNode, AutomataNode::nodeId, ::getOrCreateNewNode
+            initialEdges, newNode, AutomataNode::nodeId, ::getOrCreateNewNode
         ) {
             AutomataEdgeType.MethodCall(it)
         }
 
         determinizeSpecificEdgeType<AutomataEdgeType.MethodEnter>(
-            formulaManager, metaVarInfo, initialEdges, newNode, AutomataNode::nodeId, ::getOrCreateNewNode
+            initialEdges, newNode, AutomataNode::nodeId, ::getOrCreateNewNode
         ) {
             hasMethodEnter = true
             AutomataEdgeType.MethodEnter(it)
@@ -87,7 +86,7 @@ fun determinize(
     }
 
     return SemgrepRuleAutomata(
-        formulaManager,
+        automata.formulaManager,
         initialNodes = setOf(root),
         isDeterministic = true,
         hasMethodEnter = hasMethodEnter,
@@ -97,9 +96,7 @@ fun determinize(
     }
 }
 
-private inline fun <reified Type : AutomataEdgeType.AutomataEdgeTypeWithFormula> determinizeSpecificEdgeType(
-    formulaManager: MethodFormulaManager,
-    metaVarInfo: ResolvedMetaVarInfo,
+private inline fun <reified Type : AutomataEdgeType.AutomataEdgeTypeWithFormula> AutomataBuilderCtx.determinizeSpecificEdgeType(
     initialEdges: List<Pair<AutomataEdgeType, AutomataNode>>,
     newNode: AutomataNode,
     nodeId: AutomataNode.() -> Int,
@@ -140,6 +137,8 @@ private inline fun <reified Type : AutomataEdgeType.AutomataEdgeTypeWithFormula>
     out.entries.forEach { (toSet, masks) ->
         val formulas = mutableListOf<MethodFormula>()
         masks.forEach inner@{ mask ->
+            cancelation.check()
+
             val formulaLits = edgesOfThisType.mapIndexed { index, (formula, _) ->
                 val takeNegation = (mask and (1 shl index)) == 0
                 if (takeNegation) {
@@ -151,7 +150,7 @@ private inline fun <reified Type : AutomataEdgeType.AutomataEdgeTypeWithFormula>
 
             val formula = formulaManager.mkAnd(formulaLits)
 
-            if (!methodFormulaSat(formulaManager, formula, metaVarInfo)) {
+            if (!methodFormulaSat(formulaManager, formula, metaVarInfo, cancelation)) {
                 return@inner
             }
 
@@ -169,7 +168,7 @@ private inline fun <reified Type : AutomataEdgeType.AutomataEdgeTypeWithFormula>
     }
 }
 
-private fun simplifyAutomata(automata: SemgrepRuleAutomata, metaVarInfo: ResolvedMetaVarInfo) {
+private fun AutomataBuilderCtx.simplifyAutomata(automata: SemgrepRuleAutomata) {
     val visited = Collections.newSetFromMap<AutomataNode>(IdentityHashMap())
 
     val unprocessed = mutableListOf<AutomataNode>()
@@ -184,20 +183,19 @@ private fun simplifyAutomata(automata: SemgrepRuleAutomata, metaVarInfo: Resolve
             val (edge, nextState) = iter.next()
             unprocessed.add(nextState)
 
-            val simplifiedEdge = simplifyEdge(automata.formulaManager, edge, metaVarInfo)
+            val simplifiedEdge = simplifyEdge(automata.formulaManager, edge)
             iter.set(simplifiedEdge to nextState)
         }
     }
 }
 
-private fun simplifyEdge(
+private fun AutomataBuilderCtx.simplifyEdge(
     manager: MethodFormulaManager,
-    edge: AutomataEdgeType,
-    metaVarInfo: ResolvedMetaVarInfo
+    edge: AutomataEdgeType
 ): AutomataEdgeType {
     if (edge !is AutomataEdgeType.AutomataEdgeTypeWithFormula) return edge
 
-    val simplifiedFormula = trySimplifyMethodFormula(manager, edge.formula, metaVarInfo)
+    val simplifiedFormula = trySimplifyMethodFormula(manager, edge.formula, metaVarInfo, cancelation)
 
     return when (edge) {
         is AutomataEdgeType.MethodCall -> AutomataEdgeType.MethodCall(simplifiedFormula)

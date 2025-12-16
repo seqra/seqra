@@ -1,0 +1,16 @@
+rules:
+  - id: rule/rule
+    languages:
+      - "java"
+    mode: "taint"
+    pattern-sources:
+      - pattern: src();
+    pattern-sinks:
+      - patterns:
+          - pattern-inside: |
+              $R = $X.getRequestDispatcher(...);
+              ...
+          - pattern-either:
+              - pattern: $R.include($FST, $SND)
+    message: message
+    severity: "ERROR"

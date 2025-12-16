@@ -5,6 +5,7 @@ import org.opentaint.dataflow.util.containsAll
 import org.opentaint.dataflow.util.copy
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.removeFirst
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
 import org.opentaint.semgrep.pattern.conversion.automata.FalseValue
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaCubeCompact
@@ -16,12 +17,13 @@ import org.opentaint.semgrep.pattern.conversion.automata.isTrue
 import org.opentaint.semgrep.pattern.conversion.automata.negated
 import java.util.BitSet
 
-fun methodFormulaDNF(formula: MethodFormula): List<MethodFormulaCubeCompact> {
-    return methodFormulaModels(formula)
+fun methodFormulaDNF(formula: MethodFormula, cancelation: OperationCancelation): List<MethodFormulaCubeCompact> {
+    return methodFormulaModels(formula, cancelation)
 }
 
 fun methodFormulaCheckSat(
     formula: MethodFormula,
+    cancelation: OperationCancelation,
     verifyModel: (MethodFormulaCubeCompact) -> Boolean
 ): Boolean {
     val checkSatStorage = object : FormulaModelsStorage {
@@ -43,7 +45,7 @@ fun methodFormulaCheckSat(
     }
 
     try {
-        methodFormulaModels(formula, checkSatStorage)
+        methodFormulaModels(formula, cancelation, checkSatStorage)
     } catch (isSat: FormulaSatResult) {
         return true
     }
@@ -235,10 +237,12 @@ private class IterationModelsCollector(
     }
 }
 
-fun methodFormulaModels(formula: MethodFormula) = methodFormulaModels(formula, FormulaModels(formula))
+fun methodFormulaModels(formula: MethodFormula, cancelation: OperationCancelation) =
+    methodFormulaModels(formula, cancelation, FormulaModels(formula))
 
 private fun methodFormulaModels(
     formula: MethodFormula,
+    cancelation: OperationCancelation,
     models: FormulaModelsStorage,
 ): List<MethodFormulaCubeCompact> {
     val startModels = startModels(formula)
@@ -257,7 +261,7 @@ private fun methodFormulaModels(
             }
 
             val iterationModels = IterationModelsCollector(models, startModel)
-            val status = deepSearchModel(decisionVar = 0, iterationFormula, startModel, iterationModels)
+            val status = deepSearchModel(decisionVar = 0, iterationFormula, startModel, iterationModels, cancelation)
 
             if (!status) {
                 break
@@ -324,14 +328,15 @@ private fun searchModel(
     decisionVar: Int,
     formula: MethodFormula,
     currentModel: MethodFormulaCubeCompact,
-    resultModels: IterationModelsCollector
+    resultModels: IterationModelsCollector,
+    cancelation: OperationCancelation
 ): Boolean {
     currentModel.positiveLiterals.set(decisionVar)
-    val positiveSat = deepSearchModel(decisionVar, formula, currentModel, resultModels)
+    val positiveSat = deepSearchModel(decisionVar, formula, currentModel, resultModels, cancelation)
     currentModel.positiveLiterals.clear(decisionVar)
 
     currentModel.negativeLiterals.set(decisionVar)
-    val negativeSat = deepSearchModel(decisionVar, formula, currentModel, resultModels)
+    val negativeSat = deepSearchModel(decisionVar, formula, currentModel, resultModels, cancelation)
     currentModel.negativeLiterals.clear(decisionVar)
 
     return positiveSat or negativeSat
@@ -341,8 +346,11 @@ private fun deepSearchModel(
     decisionVar: Int,
     formula: MethodFormula,
     currentModel: MethodFormulaCubeCompact,
-    resultModels: IterationModelsCollector
+    resultModels: IterationModelsCollector,
+    cancelation: OperationCancelation
 ): Boolean {
+    cancelation.check()
+
     val simplificationResult = simplifyWrtModel(formula, currentModel)
     return simplificationResult.handle(
         failed = { false },
@@ -360,7 +368,7 @@ private fun deepSearchModel(
             val nextVar = it.requiredVars.nextSetBit(decisionVar + 1)
             check(nextVar > 0) { "Simplification failed" }
 
-            searchModel(nextVar, it.formula, nextModel, resultModels)
+            searchModel(nextVar, it.formula, nextModel, resultModels, cancelation)
         }
     )
 }

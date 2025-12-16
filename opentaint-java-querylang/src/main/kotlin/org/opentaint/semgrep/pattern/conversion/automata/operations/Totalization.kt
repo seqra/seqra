@@ -1,50 +1,49 @@
 package org.opentaint.semgrep.pattern.conversion.automata.operations
 
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
+import org.opentaint.semgrep.pattern.conversion.automata.AutomataBuilderCtx
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
-import org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaManager
 import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 import org.opentaint.semgrep.pattern.conversion.taint.methodFormulaSat
 
-fun totalizeMethodCalls(
-    metaVarInfo: ResolvedMetaVarInfo,
+fun AutomataBuilderCtx.totalizeMethodCalls(
     automata: SemgrepRuleAutomata,
 ) {
     totalize(automata) { node ->
-        methodCallEdgeToDeadNode(metaVarInfo, automata, node)
+        methodCallEdgeToDeadNode(automata, node)
     }
 }
 
-fun methodCallEdgeToDeadNode(
-    metaVarInfo: ResolvedMetaVarInfo,
+fun AutomataBuilderCtx.methodCallEdgeToDeadNode(
     automata: SemgrepRuleAutomata,
     node: AutomataNode
 ): AutomataEdgeType? {
+    cancelation.check()
+
     if (node.outEdges.any { it.first is AutomataEdgeType.MethodCall && it.second == automata.deadNode }) {
         // Edge to dead node already exists
         return null
     }
 
-    val negationFormula = getNodeNegation<AutomataEdgeType.MethodCall>(automata.formulaManager, metaVarInfo, node)
+    val negationFormula = getNodeNegation<AutomataEdgeType.MethodCall>(node)
         ?: return null
 
     return AutomataEdgeType.MethodCall(negationFormula)
 }
 
-fun totalizeMethodEnters(
+fun AutomataBuilderCtx.totalizeMethodEnters(
     metaVarInfo: ResolvedMetaVarInfo,
     automata: SemgrepRuleAutomata,
 ) {
     automata.hasMethodEnter = true
     totalize(automata) { node ->
-       methodEnterEdgeToDeadNode(metaVarInfo, automata, node)
+       methodEnterEdgeToDeadNode(automata, node)
     }
 }
 
-fun methodEnterEdgeToDeadNode(
-    metaVarInfo: ResolvedMetaVarInfo,
+fun AutomataBuilderCtx.methodEnterEdgeToDeadNode(
     automata: SemgrepRuleAutomata,
     node: AutomataNode
 ): AutomataEdgeType? {
@@ -60,7 +59,7 @@ fun methodEnterEdgeToDeadNode(
         return null
     }
 
-    val negationFormula = getNodeNegation<AutomataEdgeType.MethodEnter>(automata.formulaManager, metaVarInfo, node)
+    val negationFormula = getNodeNegation<AutomataEdgeType.MethodEnter>(node)
         ?: return null
 
     return AutomataEdgeType.MethodEnter(negationFormula)
@@ -86,15 +85,13 @@ private fun totalize(
     }
 }
 
-private inline fun <reified EdgeType : AutomataEdgeType.AutomataEdgeTypeWithFormula> getNodeNegation(
-    formulaManager: MethodFormulaManager,
-    metaVarInfo: ResolvedMetaVarInfo,
+private inline fun <reified EdgeType : AutomataEdgeType.AutomataEdgeTypeWithFormula> AutomataBuilderCtx.getNodeNegation(
     node: AutomataNode,
 ): MethodFormula? {
     val formulas = node.outEdges.mapNotNull { (it.first as? EdgeType)?.formula?.complement() }
 
     val result = formulaManager.mkAnd(formulas)
-    if (!methodFormulaSat(formulaManager, result, metaVarInfo)) {
+    if (!methodFormulaSat(formulaManager, result, metaVarInfo, cancelation)) {
         return null
     }
 
