@@ -65,7 +65,7 @@ class IssuesTest : SampleBasedTest() {
     fun `issue 87`() = runTest<issue87>()
 
     @Test
-    @Disabled // todo: `pattern-not` for types
+    @Disabled // todo: type complex pattern
     fun `issue 88`() = runTest<issue88>()
 
     @Test

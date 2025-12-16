@@ -9,8 +9,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.builtins.serializer
-import org.slf4j.event.Level
 import org.opentaint.semgrep.pattern.conversion.cartesianProductMapTo
+import org.slf4j.event.Level
 import java.util.Optional
 import kotlin.jvm.optionals.getOrNull
 
@@ -279,8 +279,8 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
     val patternNots = mutableListOf<String>()
     val patternInsides = mutableListOf<String>()
     val patternNotInsides = mutableListOf<String>()
-    val metaVariablePatterns = hashMapOf<String, MutableSet<String>>()
-    val metaVariableRegex = hashMapOf<String, MutableSet<String>>()
+    val metaVariablePatterns = hashMapOf<String, MutableSet<MetaVarConstraintFormula<String>>>()
+    val metaVariableRegex = hashMapOf<String, MutableSet<MetaVarConstraintFormula<String>>>()
     val focusMetaVars = hashSetOf<String>()
 
     for (literal in literals) {
@@ -329,45 +329,35 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
             }
 
             is Formula.MetavarPattern -> {
-                if (literal.negated) {
+                var metaVarConstraint = f.formula.toMetaVarPatternConstraint()
+                if (metaVarConstraint == null) {
                     semgrepError += SemgrepError(
                         SemgrepError.Step.BUILD_CONVERT_TO_RAW_RULE,
-                        "Not implemented negated MetavarPattern",
+                        "Not implemented complex MetavarPattern",
                         Level.TRACE,
                         SemgrepError.Reason.NOT_IMPLEMENTED
                     )
                     // todo
                     return null
-                } else {
-                    if (f.formula is Formula.LeafPattern) {
-                        metaVariablePatterns.getOrPut(f.name, ::hashSetOf).add(f.formula.pattern)
-                    } else {
-                        semgrepError += SemgrepError(
-                            SemgrepError.Step.BUILD_CONVERT_TO_RAW_RULE,
-                            "Not implemented non LeafPattern in MetavarPattern",
-                            Level.TRACE,
-                            SemgrepError.Reason.NOT_IMPLEMENTED
-                        )
-                        // todo
-                        return null
-                    }
                 }
+
+                if (literal.negated) {
+                    metaVarConstraint = MetaVarConstraintFormula.mkNot(metaVarConstraint)
+                }
+
+                metaVariablePatterns.getOrPut(f.name, ::hashSetOf).add(metaVarConstraint)
             }
 
             is Formula.MetavarRegex -> {
+                var metaVarConstraint: MetaVarConstraintFormula<String> = MetaVarConstraintFormula.Constraint(f.regex)
+
                 if (literal.negated) {
-                    semgrepError += SemgrepError(
-                        SemgrepError.Step.BUILD_CONVERT_TO_RAW_RULE,
-                        "Not implemented negated MetavarRegex",
-                        Level.TRACE,
-                        SemgrepError.Reason.NOT_IMPLEMENTED
-                    )
-                    // todo
-                    return null
-                } else {
-                    metaVariableRegex.getOrPut(f.name, ::hashSetOf).add(f.regex)
+                    metaVarConstraint = MetaVarConstraintFormula.mkNot(metaVarConstraint)
                 }
+
+                metaVariableRegex.getOrPut(f.name, ::hashSetOf).add(metaVarConstraint)
             }
+
             is Formula.Regex -> {
                 semgrepError += SemgrepError(
                     SemgrepError.Step.BUILD_CONVERT_TO_RAW_RULE,
@@ -390,9 +380,26 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
             patterns, patternNots, patternInsides, patternNotInsides
         ),
         RawMetaVarInfo(
-            focusMetaVars, metaVariableRegex, metaVariablePatterns
+            focusMetaVars,
+            metaVariableRegex.mapValues { (_, constraints) ->
+                MetaVarConstraintFormula.mkAnd(constraints)
+            },
+            metaVariablePatterns.mapValues { (_, constraints) ->
+                MetaVarConstraintFormula.mkAnd(constraints)
+            },
         )
     )
+}
+
+private fun Formula.toMetaVarPatternConstraint(): MetaVarConstraintFormula<String>? {
+    return when (this) {
+        is Formula.LeafPattern -> MetaVarConstraintFormula.Constraint(pattern)
+        is Formula.Not -> child.toMetaVarPatternConstraint()?.let { MetaVarConstraintFormula.mkNot(it) }
+        is Formula.And -> children.mapTo(hashSetOf()) { it.toMetaVarPatternConstraint() ?: return null }
+            .let { MetaVarConstraintFormula.mkAnd(it) }
+
+        else -> null
+    }
 }
 
 private sealed interface NormalizedFormula {

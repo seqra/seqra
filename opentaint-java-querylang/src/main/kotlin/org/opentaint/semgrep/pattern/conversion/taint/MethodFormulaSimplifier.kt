@@ -3,6 +3,7 @@ package org.opentaint.semgrep.pattern.conversion.taint
 import org.opentaint.dataflow.util.filter
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.semgrep.pattern.MetaVarConstraint
+import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
 import org.opentaint.semgrep.pattern.MetaVarConstraints
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.conversion.IsMetavar
@@ -669,7 +670,13 @@ private fun MethodEnclosingClassName.unify(
 
 private fun stringMatches(name: String, constraints: MetaVarConstraints?): Boolean {
     if (constraints == null) return true
-    return constraints.constraints.all { stringMatches(name, it) }
+    return constraints.constraint.stringMatches(name)
+}
+
+private fun MetaVarConstraintFormula<MetaVarConstraint>.stringMatches(name: String): Boolean = when (this) {
+    is MetaVarConstraintFormula.Constraint -> stringMatches(name, constraint)
+    is MetaVarConstraintFormula.Not -> !negated.stringMatches(name)
+    is MetaVarConstraintFormula.And -> args.all { it.stringMatches(name) }
 }
 
 private fun stringMatches(name: String, constraint: MetaVarConstraint): Boolean = when (constraint) {

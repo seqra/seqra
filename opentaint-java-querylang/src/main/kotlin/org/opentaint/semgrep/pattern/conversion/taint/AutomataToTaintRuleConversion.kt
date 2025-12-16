@@ -28,6 +28,7 @@ import org.opentaint.dataflow.util.contains
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.toBitSet
 import org.opentaint.semgrep.pattern.MetaVarConstraint
+import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.RuleWithMetaVars
 import org.opentaint.semgrep.pattern.SemgrepError
@@ -2113,24 +2114,22 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignatureMethodName(
         is SignatureName.MetaVar -> {
             val constraint = metaVarInfo.metaVarConstraints[methodName.metaVar] ?: return null
             val concrete = mutableListOf<String>()
-            val matches = mutableListOf<String>()
-            for (c in constraint.constraints) {
+            conditions += constraint.constraint.toSerializedCondition { c, negated ->
                 when (c) {
                     is MetaVarConstraint.Concrete -> {
-                        concrete.add(c.value)
+                        if (!negated) {
+                            concrete.add(c.value)
+                            SerializedCondition.True
+                        } else {
+                            TODO("Negated concrete constraint")
+                        }
                     }
-                    is MetaVarConstraint.RegExp -> {
-                        matches.add(c.regex)
-                    }
+
+                    is MetaVarConstraint.RegExp -> SerializedCondition.MethodNameMatches(c.regex)
                 }
             }
 
             check(concrete.size <= 1) { "Multiple concrete names" }
-
-            matches.mapTo(conditions) {
-                SerializedCondition.MethodNameMatches(it)
-            }
-
             concrete.firstOrNull()?.let { SerializedNameMatcher.Simple(it) }
         }
     }
@@ -2246,9 +2245,12 @@ private fun TaintRuleGenerationCtx.typeMatcher(typeName: TypeNamePattern): Seria
         TypeNamePattern.AnyType -> return null
 
         is TypeNamePattern.MetaVar -> {
-            val constraint = metaVarInfo.metaVarConstraints[typeName.metaVar] ?: return null
-            val value = constraint.constraints.singleOrNull()
-                ?: TODO("Typename metavar multiple constraints")
+            val constraint = metaVarInfo.metaVarConstraints[typeName.metaVar]?.constraint ?: return null
+            if (constraint !is MetaVarConstraintFormula.Constraint) {
+                TODO("Typename metavar complex constraints")
+            }
+
+            val value = constraint.constraint
 
             // todo hack: here we assume that if name contains '.' then name is fqn
             when (value) {
@@ -2307,13 +2309,21 @@ private fun TaintRuleGenerationCtx.signatureModifierConstraint(
         )
 
         is SignatureModifierValue.MetaVar -> {
-            val constraints = metaVarInfo.metaVarConstraints[v.metaVar]?.constraints.orEmpty()
-            constraints.map { c ->
-                when (c) {
+            val constraints = metaVarInfo.metaVarConstraints[v.metaVar]?.constraint
+            val paramMatchers = mutableListOf<SerializedCondition.AnnotationParamMatcher>()
+            constraints.toSerializedCondition { c, negated ->
+                if (negated) {
+                    TODO("Negated annotation param condition")
+                }
+
+                paramMatchers += when (c) {
                     is MetaVarConstraint.Concrete -> AnnotationParamStringMatcher(v.paramName, c.value)
                     is MetaVarConstraint.RegExp -> AnnotationParamPatternMatcher(v.paramName, c.regex)
                 }
+
+                SerializedCondition.True
             }
+            paramMatchers
         }
     }
 
@@ -2436,8 +2446,8 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
         }
 
         is StringValueMetaVar -> {
-            val constraints = metaVarInfo.metaVarConstraints[condition.metaVar.toString()]?.constraints.orEmpty()
-            val conditions = constraints.map { c ->
+            val constraints = metaVarInfo.metaVarConstraints[condition.metaVar.toString()]?.constraint
+            return constraints.toSerializedCondition { c, _ ->
                 when (c) {
                     is MetaVarConstraint.Concrete -> {
                         val value = ConstantValue(ConstantType.Str, c.value)
@@ -2449,8 +2459,6 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
                     }
                 }
             }
-
-            return SerializedCondition.and(conditions)
         }
 
         is ParamCondition.ParamModifier -> {
@@ -2580,6 +2588,30 @@ private fun serializedConditionOr(args: List<SerializedCondition>): SerializedCo
         0 -> mkFalse()
         1 -> result.single()
         else -> SerializedCondition.Or(result)
+    }
+}
+
+private fun MetaVarConstraintFormula<MetaVarConstraint>?.toSerializedCondition(
+    transform: (MetaVarConstraint, Boolean) -> SerializedCondition,
+): SerializedCondition {
+    if (this == null) return SerializedCondition.True
+    return toSerializedConditionUtil(negated = false, transform)
+}
+
+private fun MetaVarConstraintFormula<MetaVarConstraint>.toSerializedConditionUtil(
+    negated: Boolean,
+    transform: (MetaVarConstraint, Boolean) -> SerializedCondition,
+): SerializedCondition = when (this) {
+    is MetaVarConstraintFormula.Constraint -> {
+        transform(constraint, negated)
+    }
+
+    is MetaVarConstraintFormula.Not -> {
+        SerializedCondition.not(this.negated.toSerializedConditionUtil(!negated, transform))
+    }
+
+    is MetaVarConstraintFormula.And -> {
+        SerializedCondition.and(args.map { it.toSerializedConditionUtil(negated, transform) })
     }
 }
 

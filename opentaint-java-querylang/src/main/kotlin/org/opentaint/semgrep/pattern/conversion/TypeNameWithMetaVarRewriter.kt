@@ -1,9 +1,8 @@
 package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.semgrep.pattern.conversion.PatternRewriter
-import org.opentaint.semgrep.pattern.conversion.safeRewrite
 import org.opentaint.semgrep.pattern.ConcreteName
 import org.opentaint.semgrep.pattern.MetaVarConstraint
+import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
 import org.opentaint.semgrep.pattern.MetaVarConstraints
 import org.opentaint.semgrep.pattern.MetavarName
 import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
@@ -48,9 +47,12 @@ fun rewriteTypeNameWithMetaVar(
                         continue
                     }
 
-                    val constraint = currentConstraints.constraints.singleOrNull()
-                        ?: TODO("TypeName metavar with multiple constraints")
+                    val constraintFormula = currentConstraints.constraint
+                    if (constraintFormula !is MetaVarConstraintFormula.Constraint) {
+                        TODO("TypeName metavar with multiple constraints")
+                    }
 
+                    val constraint = constraintFormula.constraint
                     when (constraint) {
                         is MetaVarConstraint.Concrete -> constraintParts.add(constraint.value)
                         is MetaVarConstraint.RegExp -> {
@@ -67,7 +69,9 @@ fun rewriteTypeNameWithMetaVar(
         }
 
         val pattern = constraintParts.joinToString("\\.")
-        constraints[generatedMetaVar] = MetaVarConstraints(setOf(MetaVarConstraint.RegExp(pattern)))
+        constraints[generatedMetaVar] = MetaVarConstraints(
+            MetaVarConstraintFormula.Constraint(MetaVarConstraint.RegExp(pattern))
+        )
     }
 
     return modifierRule to ResolvedMetaVarInfo(metaVarInfo.focusMetaVars, constraints)

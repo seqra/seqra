@@ -81,6 +81,18 @@ data class SemgrepRuleErrors(
             )
         }
     }
+
+    fun handlePhase(errors: List<SemgrepError>) {
+        for ((err, cnt) in errors.groupingBy { it }.eachCount()) {
+            if (cnt < 2) {
+                this += err
+                continue
+            }
+
+            val newMessage = err.message + ": $cnt times"
+            this += err.copy(message = newMessage)
+        }
+    }
 }
 
 @Serializable

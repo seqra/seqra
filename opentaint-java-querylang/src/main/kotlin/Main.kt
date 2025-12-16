@@ -16,7 +16,6 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.semgrep.pattern.AbstractSemgrepError
 import org.opentaint.semgrep.pattern.SemgrepError
@@ -316,7 +315,7 @@ private fun collectParsingStats(path: Path): List<Pair<SemgrepJavaPattern, Strin
     val parserOtherFailures = mutableListOf<Pair<Throwable, String>>()
     val parserFailures = hashMapOf<Pair<String, String>, MutableList<String>>()
 
-    val semgrepFilesErrors: MutableList<AbstractSemgrepError> = arrayListOf()
+    val semgrepFilesErrors = arrayListOf<SemgrepFileErrors>()
 
     val parser = SemgrepJavaPatternParser()
     val converter = PatternToActionListConverter()
@@ -407,7 +406,7 @@ private fun collectParsingStats(path: Path): List<Pair<SemgrepJavaPattern, Strin
                 semgrepFileErrors += SemgrepError(
                     SemgrepError.Step.LOAD_RULESET,
                     "Failed parsing yaml: ${file.path}",
-                            Level.ERROR,
+                    Level.ERROR,
                     SemgrepError.Reason.ERROR
                 )
 
@@ -509,12 +508,71 @@ private fun collectParsingStats(path: Path): List<Pair<SemgrepJavaPattern, Strin
         println("$key: $value")
     }
 
-    val prettyJson = Json {
-        prettyPrint = true
-    }
-    println(prettyJson.encodeToString(semgrepFilesErrors))
+    analyzeErrors(semgrepFilesErrors)
 
     return allPatterns
+}
+
+private fun analyzeErrors(fileErrors: List<SemgrepFileErrors>) {
+    val directFileErrors = mutableListOf<SemgrepError>()
+    val ruleErrors = mutableListOf<SemgrepRuleErrors>()
+
+    for (fileError in fileErrors) {
+        for (error in fileError.errors) {
+            when (error) {
+                is SemgrepFileErrors -> error("unexpected")
+                is SemgrepError -> directFileErrors.add(error)
+                is SemgrepRuleErrors -> ruleErrors.add(error)
+            }
+        }
+    }
+
+    val allErrors = mutableListOf<SemgrepError>()
+    for (ruleError in ruleErrors) {
+        for (error in ruleError.errors) {
+            when (error) {
+                is SemgrepError -> allErrors += error.flatten()
+                is SemgrepFileErrors,
+                is SemgrepRuleErrors -> error("unexpected")
+            }
+        }
+    }
+
+    val errorKinds = allErrors.map { it.ruleKind() }
+    val sortedErrors = errorKinds.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }
+
+    println()
+    println("Error kinds")
+    sortedErrors.forEach { (key, value) ->
+        println("$key: $value")
+    }
+}
+
+private fun SemgrepError.ruleKind(): String {
+    if (message.startsWith("Pattern parse failure:")) {
+        return "Pattern parse failure"
+    }
+
+    if (message.startsWith("Failed transformation to ActionList:")) {
+        return "Failed transformation to ActionList"
+    }
+
+    val notImplemented = message.indexOf("An operation is not implemented:")
+    if (notImplemented != -1) {
+        return message.substring(notImplemented)
+    }
+
+    var normalizedMessage = message
+    normalizedMessage = normalizedMessage.replace(Regex("""\d+ times"""), "XX times")
+    normalizedMessage = normalizedMessage.replace(Regex("""^Rule.*?:"""), "Rule XXX:")
+
+    return normalizedMessage
+}
+
+private fun SemgrepError.flatten(): List<SemgrepError> {
+    val result = mutableListOf(this)
+    errors.flatMapTo(result) { (it as SemgrepError).flatten() }
+    return result
 }
 
 private fun SemgrepRuleAutomataBuilder.Stats.add(other: SemgrepRuleAutomataBuilder.Stats) {
