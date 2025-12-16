@@ -165,7 +165,6 @@ func (c *JavaAutobuilderConfig) buildAutobuilderCommand(autobuilderJarPath strin
 		autobuilderJarPath,
 		"--project-root-dir", c.sourceRoot,
 		"--result-dir", c.outputDir,
-		"--build-dir", c.outputDir,
 		"--build", "portable",
 	}
 
