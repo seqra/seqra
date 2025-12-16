@@ -108,8 +108,6 @@ class MethodTraceResolver(
     }
 
     sealed interface TraceEntryAction {
-        val edges: Set<TraceEdge>
-
         sealed interface PrimaryAction : TraceEntryAction
 
         sealed interface OtherAction : TraceEntryAction
@@ -121,8 +119,12 @@ class MethodTraceResolver(
             val action: Set<CommonTaintAction>
         }
 
+        sealed interface PassAction : TraceEntryAction {
+            val edges: Set<TraceEdge>
+        }
+
         sealed interface SourceAction : TraceEntryAction {
-            override val edges: Set<TraceEdge.SourceTraceEdge>
+            val sourceEdges: Set<TraceEdge.SourceTraceEdge>
         }
 
         sealed interface SourcePrimaryAction : SourceAction, PrimaryAction
@@ -133,22 +135,22 @@ class MethodTraceResolver(
 
         data class Sequential(
             override val edges: Set<TraceEdge>,
-        ) : SequentialAction, PrimaryAction
+        ) : SequentialAction, PrimaryAction, PassAction
 
         data class SequentialSourceRule(
-            override val edges: Set<TraceEdge.SourceTraceEdge>,
+            override val sourceEdges: Set<TraceEdge.SourceTraceEdge>,
             val rule: CommonTaintConfigurationSource,
             val action: Set<CommonTaintAssignAction>,
         ) : SequentialAction, SourceOtherAction
 
         data class CallSourceRule(
-            override val edges: Set<TraceEdge.SourceTraceEdge>,
+            override val sourceEdges: Set<TraceEdge.SourceTraceEdge>,
             override val rule: CommonTaintConfigurationSource,
             override val action: Set<CommonTaintAssignAction>
         ) : SourceOtherAction, CallRuleAction
 
         data class EntryPointSourceRule(
-            override val edges: Set<TraceEdge.SourceTraceEdge>,
+            override val sourceEdges: Set<TraceEdge.SourceTraceEdge>,
             val entryPoint: MethodEntryPoint,
             override val rule: CommonTaintConfigurationSource,
             override val action: Set<CommonTaintAssignAction>
@@ -158,7 +160,7 @@ class MethodTraceResolver(
             override val edges: Set<TraceEdge>,
             override val rule: CommonTaintConfigurationItem,
             override val action: Set<CommonTaintAction>
-        ) :  CallRuleAction, OtherAction
+        ) :  CallRuleAction, OtherAction, PassAction
 
         sealed interface TraceSummaryEdge {
             val edge: TraceEdge
@@ -176,7 +178,7 @@ class MethodTraceResolver(
         data class CallSummary(
             val summaryEdges: Set<TraceSummaryEdge>,
             val summaryTrace: SummaryTrace,
-        ) : CallAction, PrimaryAction {
+        ) : CallAction, PrimaryAction, PassAction {
             override val edges: Set<TraceEdge>
                 get() = summaryEdges.mapTo(hashSetOf()) { it.edge }
         }
@@ -185,13 +187,13 @@ class MethodTraceResolver(
             val summaryEdges: Set<TraceSummaryEdge.SourceSummary>,
             val summaryTrace: SummaryTrace,
         ) : CallAction, SourcePrimaryAction {
-            override val edges: Set<TraceEdge.SourceTraceEdge>
+            override val sourceEdges: Set<TraceEdge.SourceTraceEdge>
                 get() = summaryEdges.mapTo(hashSetOf()) { it.edge }
         }
 
         data class UnresolvedCallSkip(
             override val edges: Set<TraceEdge>,
-        ) : CallAction, PrimaryAction
+        ) : CallAction, PrimaryAction, PassAction
     }
 
     sealed interface TraceEntry {
@@ -212,8 +214,16 @@ class MethodTraceResolver(
 
             override val edges: Set<TraceEdge> get() = buildSet {
                 addAll(unchanged)
-                primaryAction?.let { addAll(it.edges) }
-                otherActions.forEach { addAll(it.edges) }
+
+                if (primaryAction is TraceEntryAction.PassAction) {
+                    addAll(primaryAction.edges)
+                }
+
+                for (otherAction in otherActions) {
+                    if (otherAction is TraceEntryAction.PassAction) {
+                        addAll(otherAction.edges)
+                    }
+                }
             }
         }
 
@@ -247,8 +257,8 @@ class MethodTraceResolver(
             override val statement: CommonInst,
         ) : StartTraceEntry {
             override val edges: Set<TraceEdge.SourceTraceEdge> get() = buildSet {
-                sourcePrimaryAction?.let { addAll(it.edges) }
-                sourceOtherActions.forEach { addAll(it.edges) }
+                sourcePrimaryAction?.let { addAll(it.sourceEdges) }
+                sourceOtherActions.forEach { addAll(it.sourceEdges) }
             }
         }
     }
