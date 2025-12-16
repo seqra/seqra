@@ -1,0 +1,11 @@
+rules:
+  - id: i89
+    message: 'message'
+    severity: ERROR
+    languages:
+      - java
+    patterns:
+      - pattern: AlgoChooser.getAlgo($ALG);
+      - metavariable-regex:
+          metavariable: $ALG
+          regex: ^BadAlgo

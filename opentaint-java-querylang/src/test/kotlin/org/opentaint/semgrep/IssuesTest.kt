@@ -7,6 +7,8 @@ import issues.issue85
 import issues.issue86
 import issues.issue87
 import issues.issue88
+import issues.issue89
+import issues.issue90
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
@@ -65,6 +67,14 @@ class IssuesTest : SampleBasedTest() {
     @Test
     @Disabled // todo: `pattern-not` for types
     fun `issue 88`() = runTest<issue88>()
+
+    @Test
+    @Disabled // todo: assume metavariable can be a plain string
+    fun `issue 89`() = runTest<issue89>()
+
+    @Test
+    @Disabled // todo: ignored pattern-not-inside
+    fun `issue 90`() = runTest<issue90>()
 
     @AfterAll
     fun close() {

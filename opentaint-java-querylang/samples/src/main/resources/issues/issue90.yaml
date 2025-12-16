@@ -1,0 +1,9 @@
+rules:
+  - id: i90
+    message: "message"
+    severity: ERROR
+    languages:
+      - java
+    patterns:
+      - pattern-not-inside: $COOKIE.setSecure(...); ...
+      - pattern: $EATER.addCookie($COOKIE);
