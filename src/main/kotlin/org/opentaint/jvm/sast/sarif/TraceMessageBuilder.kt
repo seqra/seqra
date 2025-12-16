@@ -765,7 +765,8 @@ class TraceMessageBuilder(
 
     private fun TraceEntryAction.collectTaintPropagationInfo(node: TracePathNode, actions: Iterable<CommonTaintAction>): List<TaintPropagationInfo> {
         val neutralMark = printMarks(collectDataflow(edges.toList()).follows)
-        return actions.mapNotNull { getTaintPropagationInfo(node, it, neutralMark) }
+        // note: we can have multiple marks with the same name since we discard mark artificial suffix
+        return actions.mapNotNull { getTaintPropagationInfo(node, it, neutralMark) }.distinct()
     }
 
     private fun TraceEntryAction.EntryPointSourceRule.createMessage(node: TracePathNode): String {

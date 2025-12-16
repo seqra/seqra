@@ -22,7 +22,6 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssign
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
-import org.slf4j.event.Level
 import org.opentaint.dataflow.util.PersistentBitSet
 import org.opentaint.dataflow.util.PersistentBitSet.Companion.emptyPersistentBitSet
 import org.opentaint.dataflow.util.contains
@@ -62,15 +61,16 @@ import org.opentaint.semgrep.pattern.conversion.automata.ParamConstraint
 import org.opentaint.semgrep.pattern.conversion.automata.Position
 import org.opentaint.semgrep.pattern.conversion.automata.Predicate
 import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
+import org.opentaint.semgrep.pattern.conversion.generatedAnyValueGeneratorMethodName
+import org.opentaint.semgrep.pattern.conversion.generatedReturnValueMethod
+import org.opentaint.semgrep.pattern.conversion.generatedStringConcatMethodName
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.Edge
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.EdgeCondition
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.EdgeEffect
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.MethodPredicate
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.State
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.StateRegister
-import org.opentaint.semgrep.pattern.conversion.generatedAnyValueGeneratorMethodName
-import org.opentaint.semgrep.pattern.conversion.generatedReturnValueMethod
-import org.opentaint.semgrep.pattern.conversion.generatedStringConcatMethodName
+import org.slf4j.event.Level
 import java.util.BitSet
 import java.util.IdentityHashMap
 
@@ -158,7 +158,19 @@ private fun convertTaintRuleToTaintRules(
         generatedRules += safeConvertToTaintRules("$ruleId: sink #$i", semgrepRuleErrors) {
             val (ctx, stateVars, stateId) = convertTaintSinkRule(ruleId, i, sink.pattern)
             val sinkCtx = SinkRuleGenerationCtx(stateVars, stateId, taintMarkName, ctx)
-            sinkCtx.generateTaintSinkRules(ruleId, meta, semgrepRuleErrors)
+            sinkCtx.generateTaintSinkRules(ruleId, meta, semgrepRuleErrors) { _, cond ->
+                if (cond is SerializedCondition.True) {
+                    semgrepRuleErrors += SemgrepError(
+                        SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
+                        "Taint rule $ruleId match anything",
+                        Level.WARN,
+                        SemgrepError.Reason.WARNING,
+                    )
+                    return@generateTaintSinkRules false
+                }
+
+                true
+            }
         }.orEmpty()
     }
 
@@ -406,7 +418,19 @@ private fun convertAutomataToTaintRules(
         automata.formulaManager, metaVarInfo, automata.initialNode
     )
     val ctx = generateAutomataWithTaintEdges(taintAutomata, metaVarInfo, automataId, acceptStateVars = emptySet())
-    return ctx.generateTaintSinkRules(id, meta, semgrepRuleErrors)
+    return ctx.generateTaintSinkRules(id, meta, semgrepRuleErrors) { function, cond ->
+        if (function.matchAnything() && cond is SerializedCondition.True) {
+            semgrepRuleErrors += SemgrepError(
+                SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
+                "Rule $id match anything",
+                Level.WARN,
+                SemgrepError.Reason.WARNING,
+            )
+            return@generateTaintSinkRules false
+        }
+
+        true
+    }
 }
 
 private fun createAutomataWithEdgeElimination(
@@ -1653,15 +1677,10 @@ private data class EvaluatedEdgeCondition(
 private fun TaintRuleGenerationCtx.generateTaintSinkRules(
     id: String, meta: SinkMetaData,
     semgrepRuleErrors: SemgrepRuleErrors,
+    checkRule: (SerializedFunctionNameMatcher, SerializedCondition) -> Boolean
 ) =
     generateTaintRules({ currentRules, ruleEdge, _, function, cond ->
-        if (function.matchAnything() && cond is SerializedCondition.True) {
-            semgrepRuleErrors += SemgrepError(
-                SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
-                "Rule $id match anything",
-                Level.WARN,
-                SemgrepError.Reason.WARNING,
-            )
+        if (!checkRule(function, cond)) {
             return@generateTaintRules emptyList()
         }
 
