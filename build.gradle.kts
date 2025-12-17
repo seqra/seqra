@@ -46,6 +46,7 @@ dependencies {
     testImplementation(Libs.mockk)
     testImplementation(JunitDependencies.Libs.junit_jupiter_params)
     implementation(Libs.logback)
+    implementation(Libs.jdot)
 }
 
 val projectAnalyzerJar = tasks.register<ShadowJar>("projectAnalyzerJar") {

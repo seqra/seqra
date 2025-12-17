@@ -147,7 +147,7 @@ private fun <GNode, EdgeLabel> PrintableGraph<GNode, EdgeLabel>.toFile(dotCmd: S
 
     fun mkNode(node: GNode): Node = nodes.getOrPut(node) {
         val index = nodes.size
-        val label = nodeLabel(node)
+        val label = nodeLabel(node).split("\n").joinToString("\\\n") { line -> "${line.replace("\"", "\\\"")}\\l" }
         val nd = Node("$index")
             .setShape(Shape.box)
             .setLabel(label)
