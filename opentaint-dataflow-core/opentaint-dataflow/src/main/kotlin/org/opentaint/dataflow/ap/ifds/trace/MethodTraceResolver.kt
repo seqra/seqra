@@ -710,11 +710,11 @@ class MethodTraceResolver(
                 apManager, analysisContext, statement
             )
 
+            val unchangedEdges = hashSetOf<TraceEdge>()
+            val sequentActions = mutableListOf<List<SequentialAction>>()
+
             for (edge in entry.edges) {
                 val precondition = preconditionFunction.factPrecondition(edge.fact)
-
-                val unchangedEdges = hashSetOf<TraceEdge>()
-                val sequentActions = mutableListOf<List<SequentialAction>>()
 
                 when (precondition) {
                     SequentPrecondition.Unchanged -> {
@@ -755,19 +755,18 @@ class MethodTraceResolver(
                         sequentActions.add(actions)
                     }
                 }
+            }
 
-                if (sequentActions.isEmpty()) {
-                    addPredecessor(entry, TraceEntry.Unchanged(unchangedEdges, statement))
-                    return
-                }
+            if (sequentActions.isEmpty()) {
+                addPredecessor(entry, TraceEntry.Unchanged(unchangedEdges, statement))
+                return
+            }
 
-                val sequentActionsCombination = mergeSequentEdgeCombinations(sequentActions)
-                for ((primaryAction, otherActions) in sequentActionsCombination) {
-                    addPredecessorAction(
-                        entry,
-                        TraceEntry.Action(primaryAction, otherActions, unchangedEdges, statement)
-                    )
-                }
+            val sequentActionsCombination = mergeSequentEdgeCombinations(sequentActions)
+            for ((primaryAction, otherActions) in sequentActionsCombination) {
+                addPredecessorAction(
+                    entry, TraceEntry.Action(primaryAction, otherActions, unchangedEdges, statement)
+                )
             }
         }
     }
