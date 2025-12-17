@@ -255,7 +255,6 @@ func scan() {
 	}
 	report.SetToolDriver()
 	report.KeepOnlyOneCodeFlowElement()
-	report.KeepOnlyFileLocations()
 
 	logrus.Infof("Log file: %s", globals.LogPath)
 	if SarifReportPath == "" {
@@ -266,7 +265,7 @@ func scan() {
 		logrus.Infof("You can view findings by run:")
 		logrus.Infof("   seqra summary --show-findings %s", absSarifReportPath)
 
-        report.UpdateURIInfo(sourceRoot + "/")
+		report.UpdateURIInfo(sourceRoot + "/")
 
 		if SemgrepCompatibilitySarif {
 			report.UpdateRuleId(absRuleSetPath, userRuleSetPath)

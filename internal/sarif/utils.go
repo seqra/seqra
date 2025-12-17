@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"unicode"
 
@@ -13,16 +12,6 @@ import (
 	"github.com/seqra/seqra/internal/version"
 	"github.com/sirupsen/logrus"
 )
-
-// isJavaFile checks if the given URI represents a Java file
-func isJavaFile(uri *string) bool {
-	return filepath.Ext(*uri) == ".java"
-}
-
-// isKotlinkFile checks if the given URI represents a Kotlin file
-func isKotlinFile(uri *string) bool {
-	return filepath.Ext(*uri) == ".kt"
-}
 
 func updateLocation(location *Location) {
 	srcRoot := "%SRCROOT%"
@@ -42,42 +31,6 @@ func (report *Report) SetToolDriver() {
 
 		localSemanticVersion := version.GetVersion()
 		run.Tool.Driver.SemanticVersion = &localSemanticVersion
-	}
-}
-
-func (report *Report) KeepOnlyFileLocations() {
-	for iRun := range report.Runs {
-		run := &report.Runs[iRun]
-		// Update artifact locations in results
-		for jResult := range run.Results {
-			result := &run.Results[jResult]
-
-			// Update locations in the main result
-			var filteredLocations []Location
-			for _, location := range result.Locations {
-				uri := location.PhysicalLocation.ArtifactLocation.URI
-				if location.PhysicalLocation != nil && (isJavaFile(uri) || isKotlinFile(uri)) {
-					filteredLocations = append(filteredLocations, location)
-				}
-			}
-			result.Locations = filteredLocations
-
-			// Update locations in code flows
-			for _, codeFlow := range result.CodeFlows {
-				for l := range codeFlow.ThreadFlows {
-					threadFlow := &codeFlow.ThreadFlows[l]
-					var filteredThreadFlowLocations []ThreadFlowLocation
-					for m := range threadFlow.Locations {
-						location := threadFlow.Locations[m].Location
-						uri := location.PhysicalLocation.ArtifactLocation.URI
-						if location.PhysicalLocation != nil && (isJavaFile(uri) || isKotlinFile(uri)) {
-							filteredThreadFlowLocations = append(filteredThreadFlowLocations, threadFlow.Locations[m])
-						}
-					}
-					threadFlow.Locations = filteredThreadFlowLocations
-				}
-			}
-		}
 	}
 }
 
