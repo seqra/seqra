@@ -1,0 +1,10 @@
+rules:
+  - id: strconcat
+    languages:
+      - java
+    severity: ERROR
+    message: match
+    patterns:
+      - pattern-either:
+          - pattern: |-
+              sink($A + $B, ...);

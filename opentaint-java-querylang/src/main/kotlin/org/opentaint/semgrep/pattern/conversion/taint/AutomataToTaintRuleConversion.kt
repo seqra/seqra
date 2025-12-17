@@ -1417,16 +1417,25 @@ private data class StringConcatCtx(
     }
 
     private fun transform(condition: ParamCondition.Atom): List<ParamCondition.Atom> {
-        if (condition is IsMetavar) {
-            val newMetavars = metavarMapping.getOrElse(condition.metavar) { setOf(condition.metavar) }
-            return newMetavars.map(::IsMetavar)
-        }
+        return when (condition) {
+            is IsMetavar -> {
+                val newMetavars = metavarMapping[condition.metavar] ?: return listOf(condition)
+                val modified = newMetavars.map(::IsMetavar)
 
-        if (condition is StringValueMetaVar) {
-            val newMetavars = metavarMapping.getOrElse(condition.metaVar) { setOf(condition.metaVar) }
-            return newMetavars.map(ParamCondition::StringValueMetaVar)
+                if (condition.metavar !in newMetavars || newMetavars.size > 1) {
+                    return modified + ParamCondition.TypeIs(TypeNamePattern.FullyQualified("java.lang.String"))
+                } else {
+                    return modified
+                }
+            }
+
+            is StringValueMetaVar -> {
+                val newMetavars = metavarMapping[condition.metaVar] ?: return listOf(condition)
+                return newMetavars.map(::StringValueMetaVar)
+            }
+
+            else -> listOf(condition)
         }
-        return listOf(condition)
     }
 
     companion object {

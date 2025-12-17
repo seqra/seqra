@@ -25,6 +25,9 @@ class StrConcatTest : SampleBasedTest(configurationRequired = true) {
     @Test
     fun `test rule with multiple metavar concat`() = runTest<strconcat.RuleWithMultipleMetavarConcat>()
 
+    @Test
+    fun `test rule with unbound concat`() = runTest<strconcat.RuleWithUnboundConcat>()
+
     @AfterAll
     fun close() {
         closeRunner()
