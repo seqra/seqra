@@ -37,6 +37,7 @@ class SemgrepRuleLoader {
 
     private val yaml = Yaml(
         configuration = YamlConfiguration(
+            codePointLimit = Int.MAX_VALUE,
             strictMode = false,
             anchorsAndAliases = AnchorsAndAliases.Permitted()
         )

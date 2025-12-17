@@ -316,13 +316,7 @@ class TaintConfiguration(cp: JIRClasspath) {
         cwe = meta?.cwe
     )
 
-    private fun SinkMetaData.message(): String? {
-        if (cwe == null && note == null) return null
-
-        val cweStr = cwe?.let { "CWE $it " }.orEmpty()
-        val noteStr = note.orEmpty()
-        return cweStr + noteStr
-    }
+    private fun SinkMetaData.message(): String? = note
 
     private fun taintMark(name: String): TaintMark = taintMarks.getOrPut(name) { TaintMark(name) }
 

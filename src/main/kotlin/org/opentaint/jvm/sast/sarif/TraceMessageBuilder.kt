@@ -764,6 +764,8 @@ class TraceMessageBuilder(
     }
 
     private fun TraceEntryAction.collectTaintPropagationInfo(node: TracePathNode, actions: Iterable<CommonTaintAction>): List<TaintPropagationInfo> {
+        if (this !is TraceEntryAction.PassAction) return emptyList()
+
         val neutralMark = printMarks(collectDataflow(edges.toList()).follows)
         // note: we can have multiple marks with the same name since we discard mark artificial suffix
         return actions.mapNotNull { getTaintPropagationInfo(node, it, neutralMark) }.distinct()
@@ -799,7 +801,7 @@ class TraceMessageBuilder(
     }
 
     private fun TraceEntryAction.CallSourceSummary.createMessage(node: TracePathNode): String {
-        return createMethodCallTaintCreationMessageWithTaints(node, edges.toList())
+        return createMethodCallTaintCreationMessageWithTaints(node, sourceEdges.toList())
     }
 
     private fun TraceEntryAction.Sequential.createMessage(node: TracePathNode): String {

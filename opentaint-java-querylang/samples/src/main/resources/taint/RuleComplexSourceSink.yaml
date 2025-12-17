@@ -1,0 +1,19 @@
+rules:
+  - id: taint-Rule
+    languages:
+      - java
+    severity: ERROR
+    message: match taint/Rule
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - focus-metavariable: $X
+          - pattern: |
+              $A = srcInit();
+              $X = src($A);
+    pattern-sinks:
+      - patterns:
+          - pattern: |
+              $B = sinkInit();
+              sink($B, $Y);
+          - focus-metavariable: $Y

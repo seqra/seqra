@@ -20,6 +20,12 @@ class TaintTest : SampleBasedTest() {
     @Test
     fun `test with pass`() = runTest<taint.RuleWithPass>()
 
+    @Test
+    fun `test complex source-sink`() = runTest<taint.RuleComplexSourceSink>()
+
+    @Test
+    fun `test complex source-sink no focus`() = runTest<taint.RuleComplexSourceSinkNoFocus>()
+
     @AfterAll
     fun close() {
         closeRunner()
