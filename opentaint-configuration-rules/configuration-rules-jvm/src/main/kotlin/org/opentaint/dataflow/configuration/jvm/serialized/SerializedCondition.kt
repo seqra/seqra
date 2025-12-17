@@ -152,6 +152,9 @@ sealed interface SerializedCondition {
 
     @Serializable
     data class MethodNameMatches(val nameMatches: String) : SerializedCondition
+
+    @Serializable
+    data class ClassNameMatches(val nameMatcher: SerializedNameMatcher) : SerializedCondition
 }
 
 class TrueConditionSerializer : KSerializer<SerializedCondition.True> {
