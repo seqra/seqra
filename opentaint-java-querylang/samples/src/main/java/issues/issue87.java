@@ -5,7 +5,6 @@ import base.RuleSet;
 import issues.i87.BenchmarkTest01241_min;
 
 import javax.servlet.http.HttpServletRequest;
-import java.io.InputStream;
 
 @RuleSet("issues/issue87.yaml")
 public abstract class issue87 implements RuleSample {
@@ -13,17 +12,7 @@ public abstract class issue87 implements RuleSample {
         @Override
         public void entrypoint() {
             BenchmarkTest01241_min t = new BenchmarkTest01241_min();
-            t.doPost(new HttpServletRequest() {
-                @Override
-                public InputStream getInputStream() {
-                    return null;
-                }
-
-                @Override
-                public String getParameter(String name) {
-                    return "";
-                }
-            });
+            t.doPost(new HttpServletRequest.Impl());
         }
     }
 }

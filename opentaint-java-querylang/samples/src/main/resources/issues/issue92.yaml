@@ -1,0 +1,13 @@
+rules:
+  - id: tainted-session-from-http-request
+    message: "message"
+    languages: [java]
+    severity: WARNING
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: (Creator $CR)
+    pattern-sinks:
+      - patterns:
+          - pattern: |
+              (Searcher $IDC).search(...)

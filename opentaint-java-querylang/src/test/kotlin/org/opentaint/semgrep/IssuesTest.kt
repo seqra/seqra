@@ -9,6 +9,8 @@ import issues.issue87
 import issues.issue88
 import issues.issue89
 import issues.issue90
+import issues.issue91
+import issues.issue92
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
@@ -75,6 +77,14 @@ class IssuesTest : SampleBasedTest() {
     @Test
     @Disabled // todo: ignored pattern-not-inside
     fun `issue 90`() = runTest<issue90>()
+
+    @Test
+    @Disabled // todo: `focus-metavariable` distracts the engine from the other source of tainted data
+    fun `issue 91`() = runTest<issue91>()
+
+    @Test
+    @Disabled // todo: shorthand source objects
+    fun `issue 92`() = runTest<issue92>()
 
     @AfterAll
     fun close() {
