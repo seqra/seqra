@@ -79,7 +79,6 @@ class IssuesTest : SampleBasedTest() {
     fun `issue 90`() = runTest<issue90>()
 
     @Test
-    @Disabled // todo: `focus-metavariable` distracts the engine from the other source of tainted data
     fun `issue 91`() = runTest<issue91>()
 
     @Test

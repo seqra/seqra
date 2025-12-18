@@ -8,6 +8,6 @@ public class BenchmarkTest01082_min {
         if (request.getHeader("BenchmarkTest01082") != null) {
             param = request.getHeader("BenchmarkTest01082");
         }
-        request.getSession().setAttribute(param, "10340");
+        request.getSession().setAttribute("10340", param);
     }
 }
