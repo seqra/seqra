@@ -30,6 +30,7 @@ import org.opentaint.dataflow.util.toBitSet
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
+import org.opentaint.semgrep.pattern.MetaVarConstraints
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.RuleWithMetaVars
 import org.opentaint.semgrep.pattern.SemgrepError
@@ -613,15 +614,19 @@ data class TaintRuleEdge(
     val checkGlobalState: Boolean,
 )
 
-data class MetaVarPlaceHolders(
-    val placeHolderRequiredMetaVars: Set<String>
+sealed interface MetaVarConstraintOrPlaceHolder {
+    data class Constraint(val constraint: MetaVarConstraints) : MetaVarConstraintOrPlaceHolder
+    data class PlaceHolder(val constraint: MetaVarConstraints?) : MetaVarConstraintOrPlaceHolder
+}
+
+data class TaintRuleGenerationMetaVarInfo(
+    val constraints: Map<String, MetaVarConstraintOrPlaceHolder>
 )
 
 open class TaintRuleGenerationCtx(
     val uniqueRuleId: String,
     val automata: TaintRegisterStateAutomata,
-    val metaVarInfo: ResolvedMetaVarInfo,
-    val placeHolders: MetaVarPlaceHolders,
+    val metaVarInfo: TaintRuleGenerationMetaVarInfo,
     val globalStateAssignStates: Set<State>,
     val edges: List<TaintRuleEdge>,
     val finalEdges: List<TaintRuleEdge>,
@@ -650,13 +655,12 @@ private class SinkRuleGenerationCtx(
     val taintMarkName: String,
     uniqueRuleId: String,
     automata: TaintRegisterStateAutomata,
-    metaVarInfo: ResolvedMetaVarInfo,
-    placeHolders: MetaVarPlaceHolders,
+    metaVarInfo: TaintRuleGenerationMetaVarInfo,
     globalStateAssignStates: Set<State>,
     edges: List<TaintRuleEdge>,
     finalEdges: List<TaintRuleEdge>
 ) : TaintRuleGenerationCtx(
-    uniqueRuleId, automata, metaVarInfo, placeHolders,
+    uniqueRuleId, automata, metaVarInfo,
     globalStateAssignStates, edges, finalEdges
 ) {
     constructor(
@@ -664,7 +668,7 @@ private class SinkRuleGenerationCtx(
         ctx: TaintRuleGenerationCtx
     ) : this(
         initialStateVars, initialVarValue, taintMarkName,
-        ctx.uniqueRuleId, ctx.automata, ctx.metaVarInfo, ctx.placeHolders,
+        ctx.uniqueRuleId, ctx.automata, ctx.metaVarInfo,
         ctx.globalStateAssignStates, ctx.edges, ctx.finalEdges
     )
 
@@ -1638,9 +1642,22 @@ private fun RuleConversionCtx.generateTaintEdges(
         }
     }
 
+    val metVarConstraints = hashMapOf<String, MetaVarConstraintOrPlaceHolder>()
+
     val placeHolders = computePlaceHolders(taintRuleEdges, finalEdges)
+    placeHolders.placeHolderRequiredMetaVars.forEach {
+        metVarConstraints[it] = MetaVarConstraintOrPlaceHolder.PlaceHolder(metaVarInfo.metaVarConstraints[it])
+    }
+
+    metaVarInfo.metaVarConstraints.forEach { (mv, c) ->
+        if (mv !in metVarConstraints) {
+            metVarConstraints[mv] = MetaVarConstraintOrPlaceHolder.Constraint(c)
+        }
+    }
+
+
     return TaintRuleGenerationCtx(
-        uniqueRuleId, automata, metaVarInfo, placeHolders,
+        uniqueRuleId, automata, TaintRuleGenerationMetaVarInfo(metVarConstraints),
         globalStateAssignStates, taintRuleEdges, finalEdges
     )
 }
@@ -1654,6 +1671,10 @@ private class MetaVarCtx {
         metaVarIdx.size
     }
 }
+
+private data class MetaVarPlaceHolders(
+    val placeHolderRequiredMetaVars: Set<String>,
+)
 
 private fun computePlaceHolders(
     taintRuleEdges: List<TaintRuleEdge>,
@@ -2181,14 +2202,10 @@ private fun TaintRuleGenerationCtx.evaluateMethodConditionAndEffect(
     state: State,
     semgrepRuleErrors: SemgrepRuleErrors,
 ): EvaluatedEdgeCondition {
-    if (placeHolders.placeHolderRequiredMetaVars.isNotEmpty()) {
-        TODO("Placeholders")
-    }
-
     val ruleBuilder = RuleConditionBuilder()
     val additionalFieldRules = mutableListOf<SerializedFieldRule>()
 
-    val evaluatedSignature = evaluateConditionAndEffectSignatures(effect, condition, ruleBuilder)
+    val evaluatedSignature = evaluateConditionAndEffectSignatures(effect, condition, ruleBuilder, semgrepRuleErrors)
 
     condition.readMetaVar.values.flatten().forEach {
         val signature = it.predicate.signature.notEvaluatedSignature(evaluatedSignature)
@@ -2231,7 +2248,8 @@ private fun MethodSignature.notEvaluatedSignature(evaluated: MethodSignature): M
 private fun TaintRuleGenerationCtx.evaluateConditionAndEffectSignatures(
     effect: EdgeEffect,
     condition: EdgeCondition,
-    ruleBuilder: RuleConditionBuilder
+    ruleBuilder: RuleConditionBuilder,
+    semgrepRuleErrors: SemgrepRuleErrors,
 ): MethodSignature {
     val signatures = mutableListOf<MethodSignature>()
 
@@ -2252,12 +2270,13 @@ private fun TaintRuleGenerationCtx.evaluateConditionAndEffectSignatures(
         }
     }
 
-    return evaluateFormulaSignature(signatures, ruleBuilder)
+    return evaluateFormulaSignature(signatures, ruleBuilder, semgrepRuleErrors)
 }
 
 private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
     signatures: List<MethodSignature>,
     builder: RuleConditionBuilder,
+    semgrepRuleErrors: SemgrepRuleErrors,
 ): MethodSignature {
     val signature = signatures.first()
 
@@ -2270,7 +2289,7 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
     }
 
     val methodName = signature.methodName.name
-    builder.methodName = evaluateFormulaSignatureMethodName(methodName, builder.conditions)
+    builder.methodName = evaluateFormulaSignatureMethodName(methodName, builder.conditions, semgrepRuleErrors)
 
     val classSignatureMatcherFormula = typeMatcher(signature.enclosingClassName.name)
     if (classSignatureMatcherFormula == null) return signature
@@ -2303,14 +2322,28 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
 private fun TaintRuleGenerationCtx.evaluateFormulaSignatureMethodName(
     methodName: SignatureName,
     conditions: MutableSet<SerializedCondition>,
+    semgrepRuleErrors: SemgrepRuleErrors,
 ): SerializedNameMatcher.Simple? {
     return when (methodName) {
         SignatureName.AnyName -> null
         is SignatureName.Concrete -> SerializedNameMatcher.Simple(methodName.name)
         is SignatureName.MetaVar -> {
-            val constraint = metaVarInfo.metaVarConstraints[methodName.metaVar] ?: return null
+            val constraint = when (val constraints = metaVarInfo.constraints[methodName.metaVar]) {
+                null -> null
+                is MetaVarConstraintOrPlaceHolder.Constraint -> constraints.constraint
+                is MetaVarConstraintOrPlaceHolder.PlaceHolder -> {
+                    semgrepRuleErrors += SemgrepError(
+                        SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
+                        "Placeholder: method name",
+                        Level.ERROR,
+                        SemgrepError.Reason.NOT_IMPLEMENTED
+                    )
+                    constraints.constraint
+                }
+            }
+
             val concrete = mutableListOf<String>()
-            conditions += constraint.constraint.toSerializedCondition { c, negated ->
+            conditions += constraint?.constraint.toSerializedCondition { c, negated ->
                 when (c) {
                     is MetaVarConstraint.Concrete -> {
                         if (!negated) {
@@ -2372,7 +2405,7 @@ private fun TaintRuleGenerationCtx.evaluateMethodConstraints(
     semgrepRuleErrors: SemgrepRuleErrors,
 ) {
     if (signature != null) {
-        evaluateMethodSignatureCondition(signature, conditions)
+        evaluateMethodSignatureCondition(signature, conditions, semgrepRuleErrors)
     }
 
     when (constraint) {
@@ -2402,13 +2435,14 @@ private fun TaintRuleGenerationCtx.evaluateMethodConstraints(
 private fun TaintRuleGenerationCtx.evaluateMethodSignatureCondition(
     signature: MethodSignature,
     conditions: MutableSet<SerializedCondition>,
+    semgrepRuleErrors: SemgrepRuleErrors,
 ) {
     val classType = typeMatcher(signature.enclosingClassName.name)
     conditions += classType.toSerializedCondition { typeMatcher, _ ->
         SerializedCondition.ClassNameMatches(typeMatcher)
     }
 
-    val methodName = evaluateFormulaSignatureMethodName(signature.methodName.name, conditions)
+    val methodName = evaluateFormulaSignatureMethodName(signature.methodName.name, conditions, semgrepRuleErrors)
     if (methodName != null) {
         val methodNameRegex = "^${methodName.value}\$"
         conditions += SerializedCondition.MethodNameMatches(methodNameRegex)
@@ -2423,7 +2457,9 @@ private fun findMetaVarPosition(
     findMetaVarPosition(constraint, varPositions)
 }
 
-private fun TaintRuleGenerationCtx.typeMatcher(typeName: TypeNamePattern): MetaVarConstraintFormula<SerializedNameMatcher>? {
+private fun TaintRuleGenerationCtx.typeMatcher(
+    typeName: TypeNamePattern
+): MetaVarConstraintFormula<SerializedNameMatcher>? {
     return when (typeName) {
         is TypeNamePattern.ClassName -> MetaVarConstraintFormula.Constraint(
             SerializedNameMatcher.ClassPattern(
@@ -2447,7 +2483,13 @@ private fun TaintRuleGenerationCtx.typeMatcher(typeName: TypeNamePattern): MetaV
         TypeNamePattern.AnyType -> return null
 
         is TypeNamePattern.MetaVar -> {
-            val constraint = metaVarInfo.metaVarConstraints[typeName.metaVar]?.constraint ?: return null
+            val constraints = metaVarInfo.constraints[typeName.metaVar] ?: return null
+
+            val constraint = when (constraints) {
+                is MetaVarConstraintOrPlaceHolder.Constraint -> constraints.constraint.constraint
+                is MetaVarConstraintOrPlaceHolder.PlaceHolder -> TODO("Placeholder: type name")
+            }
+
             constraint.transform { value ->
                 // todo hack: here we assume that if name contains '.' then name is fqn
                 when (value) {
@@ -2513,9 +2555,16 @@ private fun TaintRuleGenerationCtx.signatureModifierConstraint(
         )
 
         is SignatureModifierValue.MetaVar -> {
-            val constraints = metaVarInfo.metaVarConstraints[v.metaVar]?.constraint
             val paramMatchers = mutableListOf<SerializedCondition.AnnotationParamMatcher>()
-            constraints.toSerializedCondition { c, negated ->
+
+            val constraints = metaVarInfo.constraints[v.metaVar]
+            val constraint = when (constraints) {
+                null -> null
+                is MetaVarConstraintOrPlaceHolder.Constraint -> constraints.constraint.constraint
+                is MetaVarConstraintOrPlaceHolder.PlaceHolder -> TODO("Placeholder: annotation")
+            }
+
+            constraint.toSerializedCondition { c, negated ->
                 if (negated) {
                     TODO("Negated annotation param condition")
                 }
@@ -2584,7 +2633,7 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
 ): SerializedCondition {
     when (condition) {
         is IsMetavar -> {
-            val constraints = metaVarInfo.metaVarConstraints[condition.metavar.toString()]
+            val constraints = metaVarInfo.constraints[condition.metavar.toString()]
             if (constraints != null) {
                 // todo: semantic metavar constraint
                 semgrepRuleErrors += SemgrepError(
@@ -2656,8 +2705,13 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
         }
 
         is StringValueMetaVar -> {
-            val constraints = metaVarInfo.metaVarConstraints[condition.metaVar.toString()]?.constraint
-            return constraints.toSerializedCondition { c, _ ->
+            val constraints = metaVarInfo.constraints[condition.metaVar.toString()]
+            val constraint = when (constraints) {
+                null -> null
+                is MetaVarConstraintOrPlaceHolder.Constraint -> constraints.constraint.constraint
+                is MetaVarConstraintOrPlaceHolder.PlaceHolder -> TODO("Placeholder: string value")
+            }
+            return constraint.toSerializedCondition { c, _ ->
                 when (c) {
                     is MetaVarConstraint.Concrete -> {
                         val value = ConstantValue(ConstantType.Str, c.value)
