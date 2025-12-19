@@ -22,7 +22,7 @@ interface Condition {
     fun <R> accept(conditionVisitor: ConditionVisitor<R>): R
 }
 
-object ConstantTrue : Condition {
+data object ConstantTrue : Condition {
     override fun <R> accept(conditionVisitor: ConditionVisitor<R>): R = conditionVisitor.visit(this)
     override fun toString(): String = javaClass.simpleName
 }

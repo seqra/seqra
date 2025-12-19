@@ -8,22 +8,22 @@ sealed interface Position
 
 data class Argument(val index: Int) : Position
 
-object This : Position {
+data object This : Position {
     override fun toString(): String = javaClass.simpleName
 }
 
-object Result : Position {
+data object Result : Position {
     override fun toString(): String = javaClass.simpleName
 }
 
 data class ClassStatic(val className: String) : Position
 
 sealed interface PositionAccessor {
-    object ElementAccessor : PositionAccessor {
+    data object ElementAccessor : PositionAccessor {
         override fun toString(): String = javaClass.simpleName
     }
 
-    object AnyFieldAccessor : PositionAccessor {
+    data object AnyFieldAccessor : PositionAccessor {
         override fun toString(): String = javaClass.simpleName
     }
 
