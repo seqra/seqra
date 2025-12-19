@@ -11,6 +11,7 @@ import issues.issue89
 import issues.issue90
 import issues.issue91
 import issues.issue92
+import issues.issue93
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
@@ -84,6 +85,10 @@ class IssuesTest : SampleBasedTest() {
     @Test
     @Disabled // todo: shorthand source objects
     fun `issue 92`() = runTest<issue92>()
+
+    @Test
+    @Disabled // todo: rule expects an argument at sink, but none also triggers the condition
+    fun `issue 93`() = runTest<issue93>()
 
     @AfterAll
     fun close() {

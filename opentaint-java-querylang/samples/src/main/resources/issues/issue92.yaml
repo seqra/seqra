@@ -1,5 +1,5 @@
 rules:
-  - id: tainted-session-from-http-request
+  - id: i92
     message: "message"
     languages: [java]
     severity: WARNING

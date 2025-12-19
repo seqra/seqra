@@ -1,0 +1,7 @@
+rules:
+  - id: i93
+    message: "message"
+    languages: [java]
+    severity: WARNING
+    patterns:
+      - pattern: $P.executeQuery($SQL,...)
