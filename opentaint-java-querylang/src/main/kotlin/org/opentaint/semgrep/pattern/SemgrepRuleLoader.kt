@@ -16,10 +16,16 @@ import org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
 import org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
 import org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
 
-data class RuleMetadata(val ruleId: String, val message: String, val severity: CommonTaintConfigurationSinkMeta.Severity, val metadata: YamlMap?)
+data class RuleMetadata(
+    val path: String,
+    val ruleId: String,
+    val message: String,
+    val severity: CommonTaintConfigurationSinkMeta.Severity,
+    val metadata: YamlMap?
+)
 
 fun YamlMap.readStrings(key: String): List<String>? {
-    val entry = entries.entries.find { it.key.content.lowercase() == key } ?: return null
+    val entry = entries.entries.find { it.key.content.lowercase() == key.lowercase() } ?: return null
     return when (val value = entry.value) {
         is YamlScalar -> {
             listOf(value.content)
@@ -133,7 +139,7 @@ class SemgrepRuleLoader {
             severity = severity
         )
 
-        val metadata = RuleMetadata(ruleId, rule.message, severity, rule.metadata)
+        val metadata = RuleMetadata(ruleId, rule.id, rule.message, severity, rule.metadata)
 
         return runCatching {
             convertToTaintRules(ruleAutomata, ruleId, sinkMeta, semgrepRuleErrors) to metadata
