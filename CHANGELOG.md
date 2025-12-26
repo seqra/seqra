@@ -1,3 +1,7 @@
+## v2.0.0
+### feat!: Add max-memory option, bump major version, and clean unused option
+- feat: Add max-memory option
+- feat!: Bump major version
 ## v1.6.2
 ### fix: Bump version
 - docs: Revert `project` docs
