@@ -8,22 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func GetRuleIdPathStart(userRulesPath string) string {
-	workDir, err := os.Getwd()
-	if err != nil {
-		logrus.Error(err)
-	}
-	var ruleStart string
-	if userRulesPath != "" {
-		ruleStart = strings.TrimPrefix(userRulesPath, workDir)
-	} else {
-		ruleStart = ""
-	}
-
-	return strings.TrimSuffix(ruleStart, string(os.PathSeparator))
-}
-
-func GetSemgrepRuleId(seqraRuleId, absRulesPath, ruleStart string) string {
+func GetSemgrepRuleId(seqraRuleId string) string {
 	idStart := strings.LastIndex(seqraRuleId, ":")
 	if idStart == -1 {
 		logrus.Errorf("Can't convert to semgrep RuleId format. RuleId '%s' doesn't contain ':'", seqraRuleId)

@@ -2,151 +2,375 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
-	"time"
+	"os"
+	"path/filepath"
+
+	"github.com/seqra/seqra/v2/internal/globals"
 )
 
-// Default values for command flags
-const (
-	defaultCompileType = "docker"
-	defaultScanType    = "docker"
-	defaultTimeout     = 900 * time.Second
-)
-
-// CommandBuilder provides a fluent API for building seqra CLI commands.
-// It handles common flag logic and ensures consistent command formatting.
-type CommandBuilder struct {
-	command   string
-	args      []string
-	flags     map[string]string
-	boolFlags map[string]bool
+type CommandBuilder interface {
+	SetVerbosity(verbosity string) CommandBuilder
+	BuildDockerFlags() []string
+	BuildNativeCommand() []string
 }
 
-// NewCompileCommand creates a new CommandBuilder for the compile command.
-func NewCompileCommand(projectPath string) *CommandBuilder {
-	return &CommandBuilder{
-		command:   "seqra compile",
-		args:      []string{projectPath},
-		flags:     make(map[string]string),
-		boolFlags: make(map[string]bool),
+type BaseCommandBuilder struct {
+	verbosity string
+}
+
+func (b *BaseCommandBuilder) SetVerbosity(verbosity string) {
+	b.verbosity = verbosity
+}
+
+func (b *BaseCommandBuilder) appendVerbosityFlag(flags []string) []string {
+	switch b.verbosity {
+	case "info":
+		return append(flags, "--verbosity=info")
+	case "debug":
+		return append(flags, "--verbosity=debug")
+	default:
+		return flags
 	}
 }
 
-// NewScanCommand creates a new CommandBuilder for the scan command.
-func NewScanCommand(projectPath string) *CommandBuilder {
-	return &CommandBuilder{
-		command:   "seqra scan",
-		args:      []string{projectPath},
-		flags:     make(map[string]string),
-		boolFlags: make(map[string]bool),
+func NewAnalyzerBuilder() *AnalyzerBuilder {
+	return &AnalyzerBuilder{
+		BaseCommandBuilder: &BaseCommandBuilder{
+			verbosity: globals.Config.Log.Verbosity,
+		},
+		maxMemory: "-Xmx8G",
 	}
 }
 
-// WithOutput sets the output path flag.
-func (cb *CommandBuilder) WithOutput(path string) *CommandBuilder {
-	if path != "" {
-		cb.flags["output"] = path
+func NewAutobuilderBuilder() *AutobuilderBuilder {
+	return &AutobuilderBuilder{
+		BaseCommandBuilder: &BaseCommandBuilder{
+			verbosity: globals.Config.Log.Verbosity,
+		},
+		maxMemory: "-Xmx1G",
 	}
-	return cb
 }
 
-// WithCompileType sets the compile-type flag.
-func (cb *CommandBuilder) WithCompileType(compileType string) *CommandBuilder {
-	if compileType != "" && compileType != defaultCompileType {
-		cb.flags["compile-type"] = compileType
+type AnalyzerBuilder struct {
+	*BaseCommandBuilder
+	projectPath              string
+	outputDir                string
+	logsFile                 string
+	sarifFileName            string
+	sarifThreadFlowLimit     string
+	sarifToolVersion         string
+	sarifToolSemanticVersion string
+	sarifUriBase             string
+	semgrepCompatibility     bool
+	ifdsAnalysisTimeout      int64
+	severities               []string
+	ruleSetPaths             []string
+	ruleLoadTracePath        string
+	jarPath                  string
+	maxMemory                string
+}
+
+func (a *AnalyzerBuilder) SetProject(projectPath string) *AnalyzerBuilder {
+	a.projectPath = projectPath
+	return a
+}
+
+func (a *AnalyzerBuilder) SetOutputDir(outputDir string) *AnalyzerBuilder {
+	a.outputDir = outputDir
+	return a
+}
+
+func (a *AnalyzerBuilder) SetLogsFile(logsFile string) *AnalyzerBuilder {
+	a.logsFile = logsFile
+	return a
+}
+
+func (a *AnalyzerBuilder) SetSarifFileName(fileName string) *AnalyzerBuilder {
+	a.sarifFileName = fileName
+	return a
+}
+
+func (a *AnalyzerBuilder) SetSarifThreadFlowLimit(limit string) *AnalyzerBuilder {
+	a.sarifThreadFlowLimit = limit
+	return a
+}
+
+func (a *AnalyzerBuilder) SetSarifToolVersion(version string) *AnalyzerBuilder {
+	a.sarifToolVersion = version
+	return a
+}
+
+func (a *AnalyzerBuilder) SetSarifToolSemanticVersion(version string) *AnalyzerBuilder {
+	a.sarifToolSemanticVersion = version
+	return a
+}
+
+func (a *AnalyzerBuilder) SetSarifUriBase(uriBase string) *AnalyzerBuilder {
+	a.sarifUriBase = uriBase
+	return a
+}
+
+func (a *AnalyzerBuilder) EnableSemgrepCompatibility() *AnalyzerBuilder {
+	a.semgrepCompatibility = true
+	return a
+}
+
+func (a *AnalyzerBuilder) SetIfdsAnalysisTimeout(timeout int64) *AnalyzerBuilder {
+	a.ifdsAnalysisTimeout = timeout
+	return a
+}
+
+func (a *AnalyzerBuilder) AddSeverity(severity string) *AnalyzerBuilder {
+	a.severities = append(a.severities, severity)
+	return a
+}
+
+func (a *AnalyzerBuilder) AddRuleSet(ruleSetPath string) *AnalyzerBuilder {
+	a.ruleSetPaths = append(a.ruleSetPaths, ruleSetPath)
+	return a
+}
+
+func (a *AnalyzerBuilder) SetRuleLoadTracePath(tracePath string) *AnalyzerBuilder {
+	a.ruleLoadTracePath = tracePath
+	return a
+}
+
+func (a *AnalyzerBuilder) SetJarPath(jarPath string) *AnalyzerBuilder {
+	a.jarPath = jarPath
+	return a
+}
+
+func (a *AnalyzerBuilder) SetMaxMemory(maxMemory string) *AnalyzerBuilder {
+	a.maxMemory = maxMemory
+	return a
+}
+
+func (a *AnalyzerBuilder) SetVerbosity(verbosity string) CommandBuilder {
+	a.BaseCommandBuilder.SetVerbosity(verbosity)
+	return a
+}
+
+func (a *AnalyzerBuilder) BuildDockerFlags() []string {
+	flags := []string{
+		"--project", a.projectPath,
+		"--output-dir", a.outputDir,
+		"--logs-file", a.logsFile,
+		"--sarif-file-name", a.sarifFileName,
 	}
-	return cb
-}
 
-// WithScanType sets the scan-type flag if it differs from the default.
-func (cb *CommandBuilder) WithScanType(scanType string) *CommandBuilder {
-	if scanType != "" && scanType != defaultScanType {
-		cb.flags["scan-type"] = scanType
-	}
-	return cb
-}
-
-// WithTimeout sets the timeout flag if it differs from the default.
-func (cb *CommandBuilder) WithTimeout(timeout time.Duration) *CommandBuilder {
-	if timeout != defaultTimeout {
-		cb.flags["timeout"] = timeout.String()
-	}
-	return cb
-}
-
-// WithRuleset sets the ruleset path flag.
-func (cb *CommandBuilder) WithRuleset(path string) *CommandBuilder {
-	if path != "" {
-		cb.flags["ruleset"] = path
-	}
-	return cb
-}
-
-// WithRulesetLoadErrors sets the ruleset-load-errors path flag.
-func (cb *CommandBuilder) WithRulesetLoadErrors(path string) *CommandBuilder {
-	if path != "" {
-		cb.flags["ruleset-load-errors"] = path
-	}
-	return cb
-}
-
-// WithSemgrepCompatibility sets the semgrep-compatibility-sarif flag.
-func (cb *CommandBuilder) WithSemgrepCompatibility(enabled bool) *CommandBuilder {
-	if !enabled {
-		cb.boolFlags["semgrep-compatibility-sarif"] = false
-	}
-	return cb
-}
-
-// Build constructs the final command string.
-func (cb *CommandBuilder) Build() string {
-	parts := []string{cb.command}
-	parts = append(parts, cb.args...)
-
-	// Add regular flags
-	for flag, value := range cb.flags {
-		parts = append(parts, fmt.Sprintf("--%s", flag), value)
+	if a.sarifThreadFlowLimit != "" {
+		flags = append(flags, "--sarif-thread-flow-limit="+a.sarifThreadFlowLimit)
 	}
 
-	// Add boolean flags
-	for flag, value := range cb.boolFlags {
-		parts = append(parts, fmt.Sprintf("--%s=%t", flag, value))
+	if a.sarifToolVersion != "" {
+		flags = append(flags, "--sarif-tool-version", a.sarifToolVersion)
 	}
 
-	return strings.Join(parts, " ")
+	if a.sarifToolSemanticVersion != "" {
+		flags = append(flags, "--sarif-tool-semantic-version", a.sarifToolSemanticVersion)
+	}
+
+	if a.sarifUriBase != "" {
+		flags = append(flags, "--sarif-uri-base", a.sarifUriBase)
+	}
+
+	if a.semgrepCompatibility {
+		flags = append(flags, "--sarif-semgrep-style-id")
+	}
+
+	flags = a.appendVerbosityFlag(flags)
+
+	for _, severity := range a.severities {
+		flags = append(flags, fmt.Sprintf("--semgrep-rule-severity=%s", severity))
+	}
+
+	if a.ifdsAnalysisTimeout > 0 {
+		flags = append(flags, fmt.Sprintf("--ifds-analysis-timeout=%d", a.ifdsAnalysisTimeout))
+	}
+
+	for _, ruleSetPath := range a.ruleSetPaths {
+		flags = append(flags, "--semgrep-rule-set", ruleSetPath)
+	}
+
+	if a.ruleLoadTracePath != "" {
+		flags = append(flags, "--semgrep-rule-load-trace", a.ruleLoadTracePath)
+	}
+
+	return flags
 }
 
-// buildCompileCommandWithDocker builds a compile command string with --compile-type docker
-// preserving all other options from the original command.
-func buildCompileCommandWithDocker(projectPath, outputPath string) string {
-	return NewCompileCommand(projectPath).
-		WithOutput(outputPath).
-		WithCompileType("docker").
-		Build()
+func (a *AnalyzerBuilder) BuildNativeCommand() []string {
+	// For native execution, create a temporary logs directory
+	tempLogsDir, err := os.MkdirTemp("", "seqra-*")
+	if err != nil {
+		return []string{}
+	}
+	tempLogsFile := filepath.Join(tempLogsDir, "analyzer.log")
+
+	command := []string{
+		a.maxMemory,
+		"-Dorg.seqra.ir.impl.storage.defaultBatchSize=2000",
+		"-Djdk.util.jar.enableMultiRelease=false",
+		"-jar",
+	}
+
+	// Add jar path if it's set
+	if a.jarPath != "" {
+		command = append(command, a.jarPath)
+	}
+
+	flags := []string{
+		"--project", a.projectPath,
+		"--output-dir", a.outputDir,
+		"--logs-file", tempLogsFile,
+		"--sarif-file-name", a.sarifFileName,
+	}
+
+	if a.sarifThreadFlowLimit != "" {
+		flags = append(flags, "--sarif-thread-flow-limit="+a.sarifThreadFlowLimit)
+	}
+
+	if a.sarifToolVersion != "" {
+		flags = append(flags, "--sarif-tool-version", a.sarifToolVersion)
+	}
+
+	if a.sarifToolSemanticVersion != "" {
+		flags = append(flags, "--sarif-tool-semantic-version", a.sarifToolSemanticVersion)
+	}
+
+	if a.sarifUriBase != "" {
+		flags = append(flags, "--sarif-uri-base", a.sarifUriBase)
+	}
+
+	if a.semgrepCompatibility {
+		flags = append(flags, "--sarif-semgrep-style-id")
+	}
+
+	flags = a.appendVerbosityFlag(flags)
+
+	for _, severity := range a.severities {
+		flags = append(flags, fmt.Sprintf("--semgrep-rule-severity=%s", severity))
+	}
+
+	if a.ifdsAnalysisTimeout > 0 {
+		flags = append(flags, fmt.Sprintf("--ifds-analysis-timeout=%d", a.ifdsAnalysisTimeout))
+	}
+
+	for _, ruleSetPath := range a.ruleSetPaths {
+		flags = append(flags, "--semgrep-rule-set", ruleSetPath)
+	}
+
+	if a.ruleLoadTracePath != "" {
+		flags = append(flags, "--semgrep-rule-load-trace", a.ruleLoadTracePath)
+	}
+
+	return append(command, flags...)
 }
 
-// buildScanCommandWithDocker builds a scan command string with --compile-type docker
-// preserving all other options from the original command.
-func buildScanCommandWithDocker(projectPath, sarifReportPath, rulesetPath, rulesetLoadErrorsPath string,
-	timeout time.Duration, semgrepCompatibility bool, scanType string) string {
-	return NewScanCommand(projectPath).
-		WithOutput(sarifReportPath).
-		WithTimeout(timeout).
-		WithRuleset(rulesetPath).
-		WithRulesetLoadErrors(rulesetLoadErrorsPath).
-		WithSemgrepCompatibility(semgrepCompatibility).
-		WithScanType(scanType).
-		WithCompileType("docker").
-		Build()
+type AutobuilderBuilder struct {
+	*BaseCommandBuilder
+	projectRootDir string
+	resultDir      string
+	logsFile       string
+	buildType      string
+	buildMode      string
+	classpaths     []string
+	packages       []string
+	maxMemory      string
+	jarPath        string
 }
 
-// buildScanCommandFromCompile builds a scan command string for use after compile,
-// suggesting the next step with the compiled project model.
-func buildScanCommandFromCompile(projectPath, projectModelPath string) string {
-	// Suggest output path based on project path
-	outputPath := fmt.Sprintf("%s.sarif", projectPath)
+func (a *AutobuilderBuilder) SetProjectRootDir(projectRootDir string) *AutobuilderBuilder {
+	a.projectRootDir = projectRootDir
+	return a
+}
 
-	return NewScanCommand(projectModelPath).
-		WithOutput(outputPath).
-		Build()
+func (a *AutobuilderBuilder) SetResultDir(resultDir string) *AutobuilderBuilder {
+	a.resultDir = resultDir
+	return a
+}
+
+func (a *AutobuilderBuilder) SetLogsFile(logsFile string) *AutobuilderBuilder {
+	a.logsFile = logsFile
+	return a
+}
+
+func (a *AutobuilderBuilder) SetBuildType(buildType string) *AutobuilderBuilder {
+	a.buildType = buildType
+	return a
+}
+
+func (a *AutobuilderBuilder) SetBuildMode(buildMode string) *AutobuilderBuilder {
+	a.buildMode = buildMode
+	return a
+}
+
+func (a *AutobuilderBuilder) AddClasspath(classpath string) *AutobuilderBuilder {
+	a.classpaths = append(a.classpaths, classpath)
+	return a
+}
+
+func (a *AutobuilderBuilder) AddPackage(pkg string) *AutobuilderBuilder {
+	a.packages = append(a.packages, pkg)
+	return a
+}
+
+func (a *AutobuilderBuilder) SetMaxMemory(maxMemory string) *AutobuilderBuilder {
+	a.maxMemory = maxMemory
+	return a
+}
+
+func (a *AutobuilderBuilder) SetJarPath(jarPath string) *AutobuilderBuilder {
+	a.jarPath = jarPath
+	return a
+}
+
+func (a *AutobuilderBuilder) SetVerbosity(verbosity string) CommandBuilder {
+	a.BaseCommandBuilder.SetVerbosity(verbosity)
+	return a
+}
+
+func (a *AutobuilderBuilder) BuildDockerFlags() []string {
+	flags := []string{
+		"--project-root-dir", a.projectRootDir,
+		"--result-dir", a.resultDir,
+	}
+
+	if a.buildMode != "" {
+		flags = append(flags, "--build", a.buildMode)
+	}
+
+	if a.logsFile != "" {
+		flags = append(flags, "--logs-file", a.logsFile)
+	}
+
+	flags = a.appendVerbosityFlag(flags)
+
+	if a.buildType != "" {
+		flags = append(flags, "--build-type", a.buildType)
+		for _, cp := range a.classpaths {
+			flags = append(flags, "--cp", cp)
+		}
+		for _, pkg := range a.packages {
+			flags = append(flags, "--pkg", pkg)
+		}
+	}
+
+	return flags
+}
+
+func (a *AutobuilderBuilder) BuildNativeCommand() []string {
+	flags := a.BuildDockerFlags()
+
+	command := []string{
+		a.maxMemory,
+		"-jar",
+	}
+
+	// Add jar path if it's set
+	if a.jarPath != "" {
+		command = append(command, a.jarPath)
+	}
+
+	return append(command, flags...)
 }

@@ -11,9 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seqra/seqra/internal/utils"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
 
@@ -25,9 +23,7 @@ var (
 // It creates the directory structure if it doesn't exist.
 // The file handle is stored in a global variable and can be closed with CloseLogFile().
 func OpenLogFile() (*os.File, string, error) {
-	seqraHomePath, err := utils.GetSeqraHome()
-	cobra.CheckErr(err)
-	logDir := filepath.Join(seqraHomePath, "logs")
+	logDir := filepath.Join(os.TempDir(), "seqra", "logs")
 	// Create log file with timestamp
 	logPath := filepath.Join(logDir, time.Now().Format("2006-01-02_15-04-05.log"))
 
@@ -37,6 +33,7 @@ func OpenLogFile() (*os.File, string, error) {
 	}
 
 	// Open or create the log file
+	var err error
 	logFile, err = os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		return nil, "", err
@@ -51,13 +48,23 @@ type colorMessageFormatter struct {
 }
 
 func (f *colorMessageFormatter) Format(entry *logrus.Entry) ([]byte, error) {
-	// Build fields string if any exist
+	// Check for explicit color field
+	var explicitColor string
+	if colorValue, exists := entry.Data["color"]; exists {
+		if colorStr, ok := colorValue.(string); ok {
+			explicitColor = colorStr
+		}
+	}
+
+	// Build fields string if any exist (excluding color field)
 	var fieldsStr string
 	if len(entry.Data) > 0 {
 		// Stable ordering for fields
 		keys := make([]string, 0, len(entry.Data))
 		for k := range entry.Data {
-			keys = append(keys, k)
+			if k != "color" {
+				keys = append(keys, k)
+			}
 		}
 		sort.Strings(keys)
 
@@ -65,7 +72,9 @@ func (f *colorMessageFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 		for _, k := range keys {
 			parts = append(parts, fmt.Sprintf("%s=%v", k, entry.Data[k]))
 		}
-		fieldsStr = " " + strings.Join(parts, " ")
+		if len(parts) > 0 {
+			fieldsStr = " " + strings.Join(parts, " ")
+		}
 	}
 
 	var message string
@@ -79,7 +88,13 @@ func (f *colorMessageFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 		return []byte(message + "\n"), nil
 	}
 
-	color := levelColor(entry.Level)
+	var color string
+	if explicitColor != "" {
+		color = getColorCode(explicitColor)
+	} else {
+		color = levelColor(entry.Level)
+	}
+
 	reset := "\x1b[0m"
 	return []byte(color + message + reset + "\n"), nil
 }
@@ -95,6 +110,27 @@ func levelColor(lvl logrus.Level) string {
 		return "\x1b[36m" // cyan
 	case logrus.TraceLevel:
 		return "\x1b[35m" // magenta
+	default:
+		return "" // no color
+	}
+}
+
+func getColorCode(colorName string) string {
+	switch strings.ToLower(colorName) {
+	case "red":
+		return "\x1b[31m"
+	case "green":
+		return "\x1b[32m"
+	case "yellow":
+		return "\x1b[33m"
+	case "blue":
+		return "\x1b[34m"
+	case "magenta":
+		return "\x1b[35m"
+	case "cyan":
+		return "\x1b[36m"
+	case "white":
+		return "\x1b[37m"
 	default:
 		return "" // no color
 	}

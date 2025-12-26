@@ -23,20 +23,35 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/moby/go-archive"
 	"github.com/moby/sys/user"
+	"github.com/seqra/seqra/v2/internal/utils/formatters"
 	"github.com/sirupsen/logrus"
 
-	"github.com/seqra/seqra/internal/globals"
-	"github.com/seqra/seqra/internal/utils"
-	"github.com/seqra/seqra/internal/utils/log"
+	"github.com/seqra/seqra/v2/internal/globals"
+	"github.com/seqra/seqra/v2/internal/utils"
+	"github.com/seqra/seqra/v2/internal/utils/log"
 )
+
+// logWriter implements io.Writer and forwards all writes to a channel
+// for processing by the logrus logger
+type logWriter struct {
+	ch chan<- string
+}
+
+func (w *logWriter) Write(p []byte) (n int, err error) {
+	// Remove trailing newline if present
+	line := string(p)
+	if len(line) > 0 && line[len(line)-1] == '\n' {
+		line = line[:len(line)-1]
+	}
+	w.ch <- line
+	return len(p), nil
+}
 
 // Default username for ghcr.io
 // https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-with-a-personal-access-token-classic
 const ghcrUsername = "USERNAME"
 
 func RunGhcrContainer(taskName, imageLink string, flags []string, envCont []string, hostConfig *container.HostConfig, copyToContainer map[string]string, copyFromContainer map[string]string) {
-	logrus.Info("")
-	logrus.Infof("=== %s ===", taskName)
 
 	// Container configuration (equivalent to the docker run command options)
 	config := &container.Config{
@@ -147,7 +162,7 @@ func RunGhcrContainer(taskName, imageLink string, flags []string, envCont []stri
 
 	logrus.Debugf("Container created ID: %s", resp.ID)
 
-	logrus.Infof("Start processing: %s", taskName)
+	logrus.Debugf("Start processing: %s", taskName)
 
 	for copyFrom, copyTo := range copyToContainer {
 		logrus.Debugf("Copy \"%v\" to container \"%v\"", copyFrom, copyTo)
@@ -159,6 +174,29 @@ func RunGhcrContainer(taskName, imageLink string, flags []string, envCont []stri
 	}
 	logrus.Debugf("Files copied to container: %v", len(copyToContainer))
 
+	// Attach to container output streams before starting
+	out, err := cli.ContainerAttach(ctx, resp.ID, container.AttachOptions{
+		Stream: true,
+		Stdout: true,
+		Stderr: true,
+	})
+	if err != nil {
+		logrus.Fatalf("Failed to attach to container: %v", err)
+	}
+	defer out.Close()
+
+	// Start a goroutine to stream logs in real-time
+	logStream := make(chan string, 100)
+	go func() {
+		// Use stdcopy to properly demultiplex stdout and stderr
+		_, _ = stdcopy.StdCopy(
+			&logWriter{logStream}, // stdout
+			&logWriter{logStream}, // stderr - same channel for both streams
+			out.Reader,
+		)
+		close(logStream)
+	}()
+
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		logrus.Fatalf("Unexpected error occurred while trying to start container: %s", err)
 	}
@@ -166,6 +204,11 @@ func RunGhcrContainer(taskName, imageLink string, flags []string, envCont []stri
 	defer func() {
 		_ = cli.ContainerKill(ctx, resp.ID, "SIGKILL")
 	}()
+
+	// Print logs in real-time at Debug level
+	for line := range logStream {
+		logrus.Debug(line)
+	}
 
 	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
 	select {
@@ -191,8 +234,10 @@ func RunGhcrContainer(taskName, imageLink string, flags []string, envCont []stri
 
 		duration := endTime.Sub(startTime)
 
-		logrus.Debugf("End processing")
-		logrus.Infof("Processing time: %vs", duration.Seconds())
+		if globals.Config.Quiet {
+			logrus.Debugf("End processing")
+			logrus.Debugf("Processing time: %s", formatters.FormatDuration(duration))
+		}
 
 		// Get container logs and log them line by line at debug level
 		out, err := cli.ContainerLogs(ctx, resp.ID, container.LogsOptions{
@@ -204,7 +249,7 @@ func RunGhcrContainer(taskName, imageLink string, flags []string, envCont []stri
 			err = out.Close()
 		}()
 		if err != nil {
-			logrus.Debugf("Failed to get container logs: %v", err)
+			logrus.Warnf("Failed to get container logs: %v", err)
 			return
 		} else {
 			var sourceBuffer bytes.Buffer

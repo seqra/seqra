@@ -56,16 +56,13 @@ Seqra automatically extracts URL path information from Spring Boot applications 
 
 ### Prerequisites:
 
-**For Docker-based scanning (default):**
-- [Install Docker](https://docs.docker.com/get-started/get-docker/)
-- **For Apple Silicon Mac**: you need [Enable x86_64/amd64 emulation in Docker Desktop](https://docs.docker.com/desktop/settings/mac/#general)
-
-**For native compiling (optional):**
-- Java untime environment and Maven or Gradle installed and configured
+**For native compilation and scanning (default):**
+- Java runtime environment and Maven or Gradle installed and configured
 - Project dependencies available in local environment
 
-**For native scanning (optional):**
-- Java 17+ runtime environment
+**For Docker-based scanning (optional):**
+- [Install Docker](https://docs.docker.com/get-started/get-docker/)
+- **For Apple Silicon Mac**: you need [Enable x86_64/amd64 emulation in Docker Desktop](https://docs.docker.com/desktop/settings/mac/#general)
 
 ## Download and Install Precompiled Binaries (Linux)
 
@@ -86,12 +83,12 @@ sudo ln -s $(pwd)/seqra /usr/local/bin/seqra
 
 ## Install via Go (Linux/macOS)
 
-**Prerequisites:** Go 1.24+ is required. If you don't have Go installed:
+**Prerequisites:** Go 1.25+ is required. If you don't have Go installed:
 - **Linux:** Follow the [official Go installation guide](https://golang.org/doc/install) or use your package manager (e.g., `sudo apt install golang-go` on Ubuntu)
 - **macOS:** Install via [Homebrew](https://brew.sh/): `brew install go` or download from [golang.org](https://golang.org/dl/)
 
 ```bash
-go install github.com/seqra/seqra@latest
+go install github.com/seqra/seqra/v2@latest
 ```
 
 > **Optional:** Add `GOPATH` to path
@@ -118,23 +115,23 @@ go install github.com/seqra/seqra@latest
   seqra scan --output results.sarif /path/to/your/java/project
   ```
 
-### Native Environment Scanning
+### Docker Environment Scanning
 
-  For environments where Docker is not available or when you prefer to use your local Java toolchain, Seqra supports native execution:
+  For environments where you prefer to use Docker containers instead of your local Java toolchain, Seqra supports Docker execution:
 
-#### Use native compilation (requires local Maven/Gradle)
+#### Use Docker compilation
 ```bash
-  seqra scan --compile-type native --output results.sarif /path/to/your/java/project
+  seqra scan --compile-type docker --output results.sarif /path/to/your/java/project
 ```
 
-#### Use native scanning (requires local Java 17+ runtime)
+#### Use Docker scanning
 ```bash
-  seqra scan --scan-type native --output results.sarif /path/to/your/java/project
+  seqra scan --scan-type docker --output results.sarif /path/to/your/java/project
 ```
 
-#### Use both native compilation and scanning
+#### Use both Docker compilation and scanning
 ```bash
-  seqra scan --compile-type native --scan-type native --output results.sarif /path/to/your/java/project
+  seqra scan --compile-type docker --scan-type docker --output results.sarif /path/to/your/java/project
 ```
 
 ## View and Analyze Results
@@ -180,14 +177,14 @@ For seamless integration with your CI/CD pipelines, check out our dedicated inte
 
   > **Note:** **only Maven and Gradle projects are supported**
   * Verify that your project builds successfully with `Maven` or `Gradle`
-  * If the Docker image is missing required dependencies, try native compilation:
-    ```bash
-    seqra scan --compile-type native --output results.sarif /path/to/your/java/project
-    ```
-  * For native compilation issues:
+  * For native compilation issues (default):
     - Ensure Java runtime is installed and accessible via `java -version`
     - Verify Maven/Gradle can build your project locally
     - Check that all project dependencies are available in your local environment
+  * If local dependencies are missing, try Docker compilation:
+    ```bash
+    seqra scan --compile-type docker --output results.sarif /path/to/your/java/project
+    ```
 
 ### Logs and Debugging
 

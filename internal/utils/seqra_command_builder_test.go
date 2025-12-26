@@ -1,4 +1,4 @@
-package cmd
+package utils
 
 import (
 	"testing"
@@ -42,7 +42,7 @@ func TestNewScanCommand(t *testing.T) {
 		projectPath          string
 		outputPath           string
 		timeout              time.Duration
-		rulesetPath          string
+		rulesetPath          []string
 		rulesetLoadErrors    string
 		semgrepCompatibility bool
 		scanType             string
@@ -57,8 +57,8 @@ func TestNewScanCommand(t *testing.T) {
 			outputPath:           "/path/to/output.sarif",
 			timeout:              defaultTimeout,
 			semgrepCompatibility: true,
-			scanType:             "docker",
-			compileType:          "docker",
+			scanType:             "native",
+			compileType:          "native",
 			expectTimeout:        false,
 			expectScanType:       false,
 			expectSemgrep:        false,
@@ -69,8 +69,8 @@ func TestNewScanCommand(t *testing.T) {
 			outputPath:           "/path/to/output.sarif",
 			timeout:              1200 * time.Second,
 			semgrepCompatibility: true,
-			scanType:             "docker",
-			compileType:          "docker",
+			scanType:             "native",
+			compileType:          "native",
 			expectTimeout:        true,
 			expectScanType:       false,
 			expectSemgrep:        false,
@@ -80,10 +80,10 @@ func TestNewScanCommand(t *testing.T) {
 			projectPath:          "/path/to/project",
 			outputPath:           "/path/to/output.sarif",
 			timeout:              defaultTimeout,
-			rulesetPath:          "/path/to/ruleset",
+			rulesetPath:          []string{"/path/to/ruleset"},
 			rulesetLoadErrors:    "/path/to/errors.json",
 			semgrepCompatibility: false,
-			scanType:             "native",
+			scanType:             "docker",
 			compileType:          "docker",
 			expectTimeout:        false,
 			expectScanType:       true,

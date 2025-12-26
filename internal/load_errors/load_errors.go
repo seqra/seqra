@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/seqra/seqra/internal/utils/semgrep"
+	"github.com/seqra/seqra/v2/internal/utils/semgrep"
 )
 
 // ----- Shared enums -----
@@ -147,19 +147,18 @@ func UnmarshalErrorArray(b []byte) (*ErrorsList, error) {
 	return &list, err
 }
 
-func (semgrepLoadErrors ErrorsList) UpdateRuleId(absRulesPath, userRulesPath string) {
-	ruleStart := semgrep.GetRuleIdPathStart(userRulesPath)
+func (semgrepLoadErrors ErrorsList) UpdateRuleId() {
 	for _, loadError := range semgrepLoadErrors {
 		switch v := loadError.AbstractSemgrepError.(type) {
 		case *SemgrepRuleErrors:
-			*v.RuleID = semgrep.GetSemgrepRuleId(*v.RuleID, absRulesPath, ruleStart)
+			*v.RuleID = semgrep.GetSemgrepRuleId(*v.RuleID)
 		case *SemgrepError:
 			if v.Errors != nil {
-				v.Errors.UpdateRuleId(absRulesPath, userRulesPath)
+				v.Errors.UpdateRuleId()
 			}
 		case *SemgrepFileErrors:
 			if v.Errors != nil {
-				v.Errors.UpdateRuleId(absRulesPath, userRulesPath)
+				v.Errors.UpdateRuleId()
 			}
 		}
 	}

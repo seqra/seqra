@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/seqra/seqra/internal/utils"
+	"github.com/seqra/seqra/v2/internal/utils"
 	"github.com/sirupsen/logrus"
 )
 
@@ -152,6 +152,10 @@ func ensureDownloaded(url, dest string) error {
 		return nil
 	}
 	logrus.Infof("Downloading Temurin Java from %s", url)
+	err := downloadFile(url, dest)
+	if err == nil {
+		logrus.Infof("Successfully downloaded Temurin Java to %s", dest)
+	}
 	return downloadFile(url, dest)
 }
 

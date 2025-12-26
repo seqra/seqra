@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/seqra/seqra/internal/globals"
-	"github.com/seqra/seqra/internal/utils/log"
-	"github.com/seqra/seqra/internal/version"
+	"github.com/seqra/seqra/v2/internal/globals"
+	"github.com/seqra/seqra/v2/internal/utils/formatters"
+	"github.com/seqra/seqra/v2/internal/utils/log"
+	"github.com/seqra/seqra/v2/internal/version"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -21,6 +22,20 @@ var rootCmd = &cobra.Command{
 	Long:  `Seqra is a CLI tool that analyzes Java projects to find vulnerabilities`,
 
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		switch cmd.Name() {
+		case "scan":
+			if globals.Config.Compile.Type != "docker" && globals.Config.Compile.Type != "native" {
+				return fmt.Errorf("invalid --compile-type %q: must be one of \"docker\", \"native\"", globals.Config.Compile.Type)
+			}
+			if globals.Config.Scan.Type != "docker" && globals.Config.Scan.Type != "native" {
+				return fmt.Errorf("invalid --scan-type %q: must be one of \"docker\", \"native\"", globals.Config.Scan.Type)
+			}
+		case "compile":
+			if globals.Config.Compile.Type != "docker" && globals.Config.Compile.Type != "native" {
+				return fmt.Errorf("invalid --compile-type %q: must be one of \"docker\", \"native\"", globals.Config.Compile.Type)
+			}
+		}
+
 		// Set up logging to both console and file
 		logFile, logPath, err := log.OpenLogFile()
 		globals.LogPath = logPath
@@ -28,15 +43,6 @@ var rootCmd = &cobra.Command{
 
 		if err := log.SetUpLogs(logFile, globals.Config.Log.Verbosity); err != nil {
 			return fmt.Errorf("failed to set up logging: %w", err)
-		}
-
-		if cmd.Annotations != nil && cmd.Annotations["PrintConfig"] == "true" {
-			logrus.Infof("=== Config ===")
-			logrus.Infof("Log level: %s", globals.Config.Log.Verbosity)
-			if viper.ConfigFileUsed() != "" {
-				logrus.Infof("Using config file: %v", viper.ConfigFileUsed())
-			}
-			logrus.Infof("Log file: %s", globals.LogPath)
 		}
 
 		return nil
@@ -110,4 +116,14 @@ func bindCompileTypeFlag(cmd *cobra.Command) {
 
 func bindScanTypeFlag(cmd *cobra.Command) {
 	_ = viper.BindPFlag("scan.type", cmd.Flags().Lookup("scan-type"))
+}
+
+func printConfig(cmd *cobra.Command, printer *formatters.TreePrinter) {
+	if cmd.Annotations != nil && cmd.Annotations["PrintConfig"] == "true" {
+		printer.AddNode("Log level: " + globals.Config.Log.Verbosity)
+		if viper.ConfigFileUsed() != "" {
+			printer.AddNode("Using config file: " + viper.ConfigFileUsed())
+		}
+		printer.AddNode("Log file: " + globals.LogPath)
+	}
 }

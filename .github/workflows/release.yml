@@ -60,7 +60,7 @@ jobs:
         if: ${{ steps.release_version.outputs.status == 'succeeded' }}
         uses: actions/setup-go@v5
         with:
-          go-version: '>=1.24.0'
+          go-version: '>=1.25.0'
       -
         name: Run GoReleaser
         if: ${{ steps.release_version.outputs.status == 'succeeded' }}

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/seqra/seqra/cmd"
-	"github.com/seqra/seqra/internal/utils/log"
+	"github.com/seqra/seqra/v2/cmd"
+	"github.com/seqra/seqra/v2/internal/utils/log"
 	"github.com/sirupsen/logrus"
 )
 

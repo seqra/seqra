@@ -4,11 +4,11 @@ inputs:
   GO_VERSION:
     description: 'Go version'
     required: false
-    default: '1.24.x'
+    default: '1.25.x'
   GOLANGCI_LINT_VERSION:
     description: '`golangci-lint` version'
     required: false
-    default: 'v2.0'
+    default: 'v2.7'
 
 runs:
   using: 'composite'

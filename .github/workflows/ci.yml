@@ -7,8 +7,8 @@ on:
     branches: [ main]
 
 env:
-  GO_VERSION: '1.24.x'
-  GOLANGCI_LINT_VERSION: v2.0
+  GO_VERSION: '1.25.x'
+  GOLANGCI_LINT_VERSION: v2.7
 
 jobs:
   build-and-lint:
@@ -33,7 +33,7 @@ jobs:
 
   run-on-petclinic-without-installed-java-17:
     runs-on: ubuntu-latest
-    container: golang:1.24
+    container: golang:1.25
 
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +41,7 @@ jobs:
       - name: Setup seqra
         uses: ./.github/actions/setup-seqra
         with:
-          go-version: '^1.13.1'
+          go-version: '1.25.x'
 
       - uses: actions/checkout@v4
         with:

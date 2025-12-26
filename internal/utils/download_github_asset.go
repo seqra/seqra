@@ -51,8 +51,7 @@ func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetP
 				return err
 			}
 			defer func() {
-				err = tmpFile.Close()
-				_ = os.Remove(tmpFile.Name())
+				_ = tmpFile.Close()
 			}()
 
 			written, err := io.Copy(tmpFile, rc)
@@ -64,15 +63,20 @@ func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetP
 				return fmt.Errorf("file size mismatch: expected %d bytes, got %d bytes", expectedSize, written)
 			}
 
+			if err := tmpFile.Close(); err != nil {
+				return err
+			}
+
 			logrus.Debugf("Move asset to: %s", assetPath)
 			if err := os.Rename(tmpFile.Name(), assetPath); err != nil {
+				_ = os.Remove(tmpFile.Name())
 				return err
 			}
 
 			return nil
 		}
 	}
-	return errors.New("can't find artifact in release assets")
+	return errors.New("failed to find artifact in release assets")
 }
 
 func DownloadAndUnpackGithubReleaseArchive(owner, repository, releaseTag, assetPath, token string) error {
@@ -177,4 +181,98 @@ func DownloadAndUnpackGithubReleaseArchive(owner, repository, releaseTag, assetP
 	}
 
 	return nil
+}
+
+func DownloadAndUnpackGithubReleaseAsset(owner, repository, releaseTag, assetName, destPath, token string) error {
+	var client *github.Client
+	if token == "" {
+		client = github.NewClient(nil)
+	} else {
+		client = github.NewClient(nil).WithAuthToken(token)
+	}
+
+	ctx := context.Background()
+	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repository, releaseTag)
+	if err != nil {
+		return err
+	}
+
+	assets := release.Assets
+
+	for assetId := range assets {
+		if *assets[assetId].Name == assetName {
+			asset := assets[assetId]
+			expectedSize := int64(asset.GetSize())
+			rc, _, err := client.Repositories.DownloadReleaseAsset(ctx, owner, repository, asset.GetID(), client.Client())
+			if err != nil {
+				return err
+			}
+			defer func() {
+				_ = rc.Close()
+			}()
+
+			tmpPath := destPath + ".temp"
+
+			logrus.Debugf("Download asset to: %s", tmpPath)
+			tmpFile, err := os.Create(tmpPath)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				_ = tmpFile.Close()
+				_ = os.Remove(tmpPath)
+			}()
+
+			written, err := io.Copy(tmpFile, rc)
+			if err != nil {
+				return err
+			}
+
+			if written != expectedSize {
+				return fmt.Errorf("file size mismatch: expected %d bytes, got %d bytes", expectedSize, written)
+			}
+
+			if err := tmpFile.Close(); err != nil {
+				return err
+			}
+
+			return extractAsset(tmpPath, assetName, destPath)
+		}
+	}
+	return errors.New("failed to find artifact in release assets")
+}
+
+func extractAsset(tmpPath, assetName, destPath string) error {
+	logrus.Debugf("Extract asset %s to: %s", assetName, destPath)
+
+	if err := os.MkdirAll(destPath, 0755); err != nil {
+		return err
+	}
+
+	f, err := os.Open(tmpPath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	lowerName := strings.ToLower(assetName)
+	if strings.HasSuffix(lowerName, ".tar.gz") || strings.HasSuffix(lowerName, ".tgz") {
+		return extractTarGz(f, destPath)
+	}
+	return fmt.Errorf("unsupported archive format: %s", assetName)
+}
+
+func extractTarGz(f *os.File, destPath string) error {
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = gz.Close()
+	}()
+
+	tr := tar.NewReader(gz)
+	return ExtractTar(tr, "", destPath, true)
 }

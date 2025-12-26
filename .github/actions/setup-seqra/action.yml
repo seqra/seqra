@@ -5,7 +5,7 @@ inputs:
   go-version:
     description: 'Go version to use'
     required: false
-    default: '^1.13.1'
+    default: '1.25.x'
 
 runs:
   using: 'composite'
