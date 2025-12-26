@@ -204,7 +204,7 @@ func scan(cmd *cobra.Command) {
 				SemgrepCompatibilitySarif,
 				globals.Config.Scan.Type,
 			))
-			return
+			logrus.Fatal()
 		}
 	}
 

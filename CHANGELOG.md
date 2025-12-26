@@ -1,3 +1,6 @@
+## v2.0.1
+### fix: Correct exit code on compile failure
+- fix: Fix exit code on failed compile
 ## v2.0.0
 ### feat!: Add max-memory option, bump major version, and clean unused option
 - feat: Add max-memory option
