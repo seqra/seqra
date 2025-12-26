@@ -140,7 +140,7 @@ rules:
           - pattern: (java.util.Formatter $F).format((java.util.Locale $LOCALE), $FORMAT_STR, ...);
           - pattern: (java.io.PrintStream $F).printf($FORMAT_STR, ...);
           - pattern: (java.io.PrintStream $F).printf((java.util.Locale $LOCALE), $FORMAT_STR, ...);
-          - pattern: (java.io.PrintStream $F).format($FORMAT_STR, ...);"
+          - pattern: (java.io.PrintStream $F).format($FORMAT_STR, ...);
           - pattern: (java.io.PrintStream $F).format((java.util.Locale $LOCALE), $FORMAT_STR, ...);
           - pattern: System.out.printf($FORMAT_STR, ...);
           - pattern: System.out.printf((java.util.Locale $LOCALE), $FORMAT_STR, ...);

@@ -42,14 +42,6 @@ rules:
                       - pattern: PostMapping
                       - pattern: PutMapping
           - pattern: (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
-          - pattern: new ResponseEntity($UNTRUSTED, ...)
-          - pattern: ResponseEntity. ... .body($UNTRUSTED)
-          - patterns:
-              - pattern: |
-                  ResponseEntity.$RESPFUNC($UNTRUSTED). ...
-              - metavariable-regex:
-                  metavariable: $RESPFUNC
-                  regex: ^(ok|of)$
           - pattern: |
               (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
           - pattern: |

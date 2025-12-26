@@ -36,7 +36,7 @@ rules:
               - pattern: (java.io.File $FILE).setReadable(...)
               - pattern: (java.io.File $FILE).setWritable(...)
 
-              - pattern: java.nio.file.Files.copy(..., $FILE, ...)
+              - pattern: java.nio.file.Files.copy(..., (java.nio.file.Path $FILE), ...)
               - pattern: java.nio.file.Files.createDirectories($FILE, ...)
               - pattern: java.nio.file.Files.createDirectory($FILE, ...)
               - pattern: java.nio.file.Files.createFile($FILE, ...)
