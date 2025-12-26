@@ -1,7 +1,9 @@
 package java
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -18,7 +20,7 @@ type JavaRunner interface {
 	TrySystem() JavaRunner
 	TrySpecificVersion(version int) JavaRunner
 	GetJavaResolutions() []JavaResolution
-	ExecuteJavaCommand(args []string, commandSucceeded func(error) bool) ([]byte, error)
+	ExecuteJavaCommand(args []string, commandSucceeded func(error) bool) error
 }
 
 type strategyType int
@@ -70,7 +72,7 @@ func (j *javaRunner) GetJavaResolutions() []JavaResolution {
 				logrus.Debugf("Trying system Java resolution (strategy %d)", strategyIndex)
 				if javaPath := j.findSystemJava(); javaPath != "" {
 					j.javaPath = javaPath
-					logrus.Infof("Detected system Java (%s)", javaPath)
+					logrus.Debugf("Detected system Java (%s)", javaPath)
 					return javaPath, nil
 				}
 				return "", fmt.Errorf("no suitable system Java found")
@@ -81,7 +83,7 @@ func (j *javaRunner) GetJavaResolutions() []JavaResolution {
 				javaPath, err := j.ensureSpecificVersion(strategy.version)
 				if err == nil {
 					j.javaPath = javaPath
-					logrus.Infof("Detected Java %d (%s)", strategy.version, javaPath)
+					logrus.Debugf("Detected Java %d (%s)", strategy.version, javaPath)
 					return javaPath, nil
 				}
 				logrus.Warnf("Failed to detect Java %d: %v", strategy.version, err)
@@ -93,9 +95,9 @@ func (j *javaRunner) GetJavaResolutions() []JavaResolution {
 	return resolutionStrategies
 }
 
-func (j *javaRunner) ExecuteJavaCommand(args []string, commandSucceeded func(error) bool) ([]byte, error) {
+func (j *javaRunner) ExecuteJavaCommand(args []string, commandSucceeded func(error) bool) error {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("no Java command arguments provided")
+		return fmt.Errorf("no Java command arguments provided")
 	}
 
 	resolutionStrategies := j.GetJavaResolutions()
@@ -111,19 +113,59 @@ func (j *javaRunner) ExecuteJavaCommand(args []string, commandSucceeded func(err
 
 		logrus.Debugf("Executing Java command (attempt %d): %s %v (full: %s)", i+1, javaPath, args, strings.Join(cmdArgs, " "))
 
-		output, cmdErr := cmd.CombinedOutput()
-
-		logrus.Debugf("Java command completed (attempt %d): output_size=%d, exit_code=%d", i+1, len(output), cmd.ProcessState.ExitCode())
-
-		logrus.Debugf("Command output:\n%s", string(output))
-		if commandSucceeded(err) {
-			return output, nil
+		// Create pipes for stdout and stderr
+		stdoutPipe, err := cmd.StdoutPipe()
+		if err != nil {
+			logrus.Fatalf("Failed to create stdout pipe: %v", err)
 		}
 
-		logrus.Debugf("Java command failed (attempt %d): exit_code=%d, error=%v, trying next resolution", i+1, cmd.ProcessState.ExitCode(), cmdErr)
+		stderrPipe, err := cmd.StderrPipe()
+		if err != nil {
+			logrus.Fatalf("Failed to create stderr pipe: %v", err)
+		}
+
+		// Start the command
+		if err := cmd.Start(); err != nil {
+			logrus.Fatalf("Failed to start autobuilder: %v", err)
+		}
+
+		// Function to read from a reader and log each line
+		logOutput := func(pipe io.Reader) {
+			scanner := bufio.NewScanner(pipe)
+			for scanner.Scan() {
+				logrus.Debug(scanner.Text())
+			}
+			if err := scanner.Err(); err != nil {
+				logrus.Debugf("Error reading autobuilder output: %v", err)
+			}
+		}
+
+		// Start goroutines to read and log stdout and stderr
+		go logOutput(stdoutPipe)
+		go logOutput(stderrPipe)
+
+		// Wait for the command to finish
+		err = cmd.Wait()
+
+		// Log any errors
+		if err != nil {
+			exitCode := 1
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				exitCode = exitErr.ExitCode()
+			}
+			logrus.Errorf("Autobuilder exited with code %d: %v", exitCode, err)
+		}
+
+		logrus.Debugf("Java command completed (attempt %d): exit_code=%d", i+1, cmd.ProcessState.ExitCode())
+
+		if commandSucceeded(err) {
+			return nil
+		}
+
+		logrus.Debugf("Java command failed (attempt %d): exit_code=%d, trying next resolution", i+1, cmd.ProcessState.ExitCode())
 	}
 
-	return nil, fmt.Errorf("all Java resolution attempts failed")
+	return fmt.Errorf("all Java resolution attempts failed")
 }
 
 func (j *javaRunner) TrySpecificVersion(version int) JavaRunner {

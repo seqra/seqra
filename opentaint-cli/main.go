@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/seqra/opentaint/cmd"
-	"github.com/seqra/opentaint/internal/utils/log"
+	"github.com/seqra/opentaint/v2/cmd"
+	"github.com/seqra/opentaint/v2/internal/utils/log"
 	"github.com/sirupsen/logrus"
 )
 

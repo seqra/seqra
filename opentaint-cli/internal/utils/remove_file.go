@@ -20,6 +20,6 @@ func RemoveIfExists(path string) error {
 func RemoveIfExistsOrExit(path string) {
 	err := RemoveIfExists(path)
 	if err != nil {
-		logrus.Fatalf("Can't delete '%s': %s", path, err)
+		logrus.Fatalf("Failed to remove '%s': %s", path, err)
 	}
 }
