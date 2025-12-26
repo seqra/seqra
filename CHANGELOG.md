@@ -1,3 +1,5 @@
+## v2.0.2
+### fix: Bump version
 ## v2.0.1
 ### fix: Correct exit code on compile failure
 - fix: Fix exit code on failed compile
