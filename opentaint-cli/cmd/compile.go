@@ -64,6 +64,8 @@ Arguments:
 
 		if err := compile(absProjectRoot, absOutputProjectModelPath, globals.Config.Compile.Type, External); err == nil {
 			suggest("To scan project run", utils.BuildScanCommandFromCompile(projectRoot, absOutputProjectModelPath))
+		} else {
+			logrus.Fatal()
 		}
 	},
 }
