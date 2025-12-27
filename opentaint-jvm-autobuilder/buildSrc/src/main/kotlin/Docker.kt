@@ -41,14 +41,22 @@ fun Task.buildDockerImage(
         )
     )
 
+    val platform = project.findProperty("dockerPlatform")
+    val platformName = platform?.toString()?.replace('/', '-')
+    val imageTag = "$imageName-$nameSuffix${platformName?.let { "-$it" }.orEmpty()}:$analyzerVersion"
+
+    val dockerBuildCmd = buildList {
+        addAll(listOf("docker", "buildx", "build", "--load"))
+        if (platform != null) {
+            addAll(listOf("--platform", platform))
+        }
+
+        addAll(listOf("-f", resolvedDockerFile.asFile.name, "-t", imageTag, "."))
+    }
+
     project.exec {
         workingDir = dockerBuildBaseDir.asFile
-        commandLine(
-            "docker", "build",
-            "-f", resolvedDockerFile.asFile.name,
-            "-t", "$imageName-$nameSuffix:$analyzerVersion",
-            "."
-        )
+        commandLine(dockerBuildCmd)
     }
 }
 
