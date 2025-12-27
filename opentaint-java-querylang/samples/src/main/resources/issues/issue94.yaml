@@ -1,0 +1,15 @@
+rules:
+  - id: i94
+    message: "message"
+    languages: [java]
+    severity: WARNING
+    mode: taint
+    pattern-sources:
+      - patterns:
+        - pattern-inside: |
+            $RET $MD(..., SpecificData $INPUT, ...) {
+              ...
+            }
+        - focus-metavariable: $INPUT
+    pattern-sinks:
+      - pattern: User.sink(...)

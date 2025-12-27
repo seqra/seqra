@@ -375,6 +375,11 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
         }
     }
 
+    if (patterns.isEmpty() && patternInsides.isNotEmpty()) {
+        // note: semgrep allows pattern-inside signature rules without pattern
+        patterns.add("...")
+    }
+
     return RuleWithMetaVars(
         RawSemgrepRule(
             patterns, patternNots, patternInsides, patternNotInsides

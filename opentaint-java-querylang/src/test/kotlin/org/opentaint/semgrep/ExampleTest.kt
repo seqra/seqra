@@ -69,6 +69,12 @@ class ExampleTest : SampleBasedTest() {
     @Test
     fun `test rule with state`() = runTest<example.RuleWithState>()
 
+    @Test
+    fun `test rule with any pattern`() = runTest<example.RuleWithAnyPattern>()
+
+    @Test
+    fun `test rule without pattern`() = runTest<example.RuleWithoutPattern>()
+
     @AfterAll
     fun close(){
         closeRunner()
