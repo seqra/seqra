@@ -9,7 +9,6 @@ import org.opentaint.util.analysis.ApplicationGraph
 import java.util.BitSet
 
 class MethodInstGraph(
-    val languageManager: LanguageManager,
     val instructions: Array<CommonInst>,
     val successors: IntArray,
     val multipleSuccessors: Array<BitSet?>,
@@ -17,7 +16,7 @@ class MethodInstGraph(
     val multiplePredecessors: Array<BitSet?>,
     val exitPoints: BitSet,
 ) {
-    inline fun forEachSuccessor(inst: CommonInst, body: (CommonInst) -> Unit) {
+    inline fun forEachSuccessor(languageManager: LanguageManager, inst: CommonInst, body: (CommonInst) -> Unit) {
         val instIdx = languageManager.getInstIndex(inst)
         val instSuccessors = successors[instIdx]
 
@@ -33,7 +32,7 @@ class MethodInstGraph(
         }
     }
 
-    inline fun forEachPredecessor(inst: CommonInst, body: (CommonInst) -> Unit) {
+    inline fun forEachPredecessor(languageManager: LanguageManager, inst: CommonInst, body: (CommonInst) -> Unit) {
         val instIdx = languageManager.getInstIndex(inst)
         val instPredecessors = predecessors[instIdx]
 
@@ -49,7 +48,7 @@ class MethodInstGraph(
         }
     }
 
-    fun isExitPoint(inst: CommonInst): Boolean =
+    fun isExitPoint(languageManager: LanguageManager, inst: CommonInst): Boolean =
         exitPoints.get(languageManager.getInstIndex(inst))
 
     companion object {
@@ -106,10 +105,9 @@ class MethodInstGraph(
             val exitPoints = graph.exitPoints(method).toList().toBitSet { languageManager.getInstIndex(it) }
 
             return MethodInstGraph(
-                languageManager, instructions,
-                successors, multipleSuccessors,
-                predecessors, multiplePredecessors,
-                exitPoints
+                instructions, successors,
+                multipleSuccessors, predecessors,
+                multiplePredecessors, exitPoints
             )
         }
     }

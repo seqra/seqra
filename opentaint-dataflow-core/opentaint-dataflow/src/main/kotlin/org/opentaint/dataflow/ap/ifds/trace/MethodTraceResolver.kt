@@ -584,7 +584,7 @@ class MethodTraceResolver(
             return
         }
 
-        graph.forEachPredecessor(entry.statement) {
+        graph.forEachPredecessor(analysisManager, entry.statement) {
             propagateEntryNew(it, entry)
         }
     }

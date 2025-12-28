@@ -29,7 +29,7 @@ class JIRMarkAwareConditionRewriter(
     }
 
     private fun rewriteAndCondition(condition: And): ExprOrConstant {
-        return rewriteList(condition.args, JIRMarkAwareConditionExpr::And) {
+        return rewriteList(condition.args, trueExpr, JIRMarkAwareConditionExpr::And) {
             when {
                 it.isTrue -> null
                 it.isFalse -> return falseExpr
@@ -39,7 +39,7 @@ class JIRMarkAwareConditionRewriter(
     }
 
     private fun rewriteOrCondition(condition: Or): ExprOrConstant {
-        return rewriteList(condition.args, JIRMarkAwareConditionExpr::Or) {
+        return rewriteList(condition.args, falseExpr, JIRMarkAwareConditionExpr::Or) {
             when {
                 it.isTrue -> return trueExpr
                 it.isFalse -> null
@@ -68,6 +68,7 @@ class JIRMarkAwareConditionRewriter(
 
     private inline fun rewriteList(
         elements: List<Condition>,
+        default: ExprOrConstant,
         create: (Array<JIRMarkAwareConditionExpr>) -> JIRMarkAwareConditionExpr,
         processElement: (ExprOrConstant) -> JIRMarkAwareConditionExpr?,
     ): ExprOrConstant {
@@ -77,6 +78,10 @@ class JIRMarkAwareConditionRewriter(
             val elementResult = rewriteCondition(elements[i])
             val elementExpr = processElement(elementResult) ?: continue
             result[size++] = elementExpr
+        }
+
+        if (size == 0) {
+            return default
         }
 
         if (size == 1) {

@@ -170,7 +170,9 @@ class JIRCallResolver(
         location: JIRInst,
         context: MethodContext,
     ): Set<JIRClassOrInterface>? = valueCache.computeIfAbsent(Triple(value, location, context)) {
-        resolveValueClass(value, location, context, hashSetOf()).let { Optional.ofNullable(it) }
+        resolveValueClass(value, location, context, hashSetOf())
+            ?.filterNotTo(hashSetOf()) { it.isInterface }
+            .let { Optional.ofNullable(it) }
     }.getOrNull()
 
     private fun resolveValueClass(

@@ -484,7 +484,7 @@ class NormalMethodAnalyzer(
     }
 
     private fun propagateEdgeToSuccessors(edge: Edge, edgeUnchanged: Boolean) {
-        methodInstGraph.forEachSuccessor(edge.statement) {
+        methodInstGraph.forEachSuccessor(analysisManager, edge.statement) {
             val nextEdge = edge.replaceStatement(it)
             if (!edgeUnchanged) {
                 addSequentialEdge(nextEdge)
@@ -497,7 +497,7 @@ class NormalMethodAnalyzer(
     }
 
     private fun tryEmmitSummaryEdge(edge: Edge) {
-        if (!methodInstGraph.isExitPoint(edge.statement)) return
+        if (!methodInstGraph.isExitPoint(analysisManager, edge.statement)) return
 
         val isValidSummaryEdge = when (edge) {
             is ZeroToZero -> true

@@ -69,7 +69,7 @@ abstract class MethodAnalyzerEdgeSearcher(
         var predecessorsIsEmpty = true
         val result = mutableListOf<InitialFactAp>()
 
-        graph.forEachPredecessor(statement) { predecessor ->
+        graph.forEachPredecessor(analysisManager, statement) { predecessor ->
             predecessorsIsEmpty = false
 
             val facts = factsForPrecondition(predecessor, fact)
