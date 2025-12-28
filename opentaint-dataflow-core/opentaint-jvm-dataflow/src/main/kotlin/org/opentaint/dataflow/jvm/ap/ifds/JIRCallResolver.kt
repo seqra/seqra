@@ -153,7 +153,7 @@ class JIRCallResolver(
 
         val instanceTypes = resolveValueClass(call.instance, location, context)
         if (instanceTypes.isNullOrEmpty()) {
-            return methods.flatMap { attachContext(call, location, baseMethod, instanceTypes) }
+            return methods.flatMap { attachContext(call, location, it, instanceTypes) }
         }
 
         return methods.filter { method ->
