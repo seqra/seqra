@@ -24,6 +24,7 @@ import org.opentaint.dataflow.util.SarifTraits
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonReturnInst
+import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 
 const val ArtificialMetavarName = "<ARTIFICIAL>"
 const val ArtificialStateName = "__<STATE>__"
@@ -740,6 +741,8 @@ class TraceMessageBuilder(
             val suffix = if (starts.isEmpty()) "" else " with ${printTaints(node, starts)}"
             if (callExpr != null)
                 return "Calling ${getMethodCalleeNameInPrint(node)}$suffix"
+            if (node.statement is JIRThrowInst)
+                return "Exception thrown"
             return badOutput("unknown final")
         }
         return createDefaultMessage(node)

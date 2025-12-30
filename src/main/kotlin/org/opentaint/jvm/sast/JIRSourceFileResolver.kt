@@ -12,6 +12,14 @@ import kotlin.io.path.extension
 import kotlin.io.path.relativeTo
 import kotlin.io.path.walk
 
+fun JIRClassOrInterface.mostOuterClass(): JIRClassOrInterface {
+    var result = this
+    while (true) {
+        result = result.outerClass ?: break
+    }
+    return result
+}
+
 class JIRSourceFileResolver(
     private val projectSourceRoot: Path,
     private val projectLocationsSourceRoots: Map<RegisteredLocation, Path>
@@ -25,7 +33,7 @@ class JIRSourceFileResolver(
         }
     }
 
-    override fun resolve(inst: CommonInst): String? {
+    override fun resolveByName(inst: CommonInst, pkg: String, name: String): String? {
         check(inst is JIRInst) { "Expected inst to be JIRInst" }
         val instLocationCls = inst.location.method.enclosingClass
 
@@ -34,7 +42,27 @@ class JIRSourceFileResolver(
 
         val sources = locationSources[location] ?: return null
 
-        val locationCls = mostOuterClass(instLocationCls)
+        val relatedSourceFiles = sources[name] ?: return null
+        val sourceFilesWithCorrectPackage = relatedSourceFiles.filter { packageMatches(it, pkg) }
+
+        if (sourceFilesWithCorrectPackage.size != 1) {
+            logger.warn { "Source file was not resolved for: $name" }
+            return null
+        }
+
+        return sourceFilesWithCorrectPackage[0].relativeTo(projectSourceRoot).toString()
+    }
+
+    override fun resolveByInst(inst: CommonInst): String? {
+        check(inst is JIRInst) { "Expected inst to be JIRInst" }
+        val instLocationCls = inst.location.method.enclosingClass
+
+        val location = instLocationCls.declaration.location
+        if (location.isRuntime) return null
+
+        val sources = locationSources[location] ?: return null
+
+        val locationCls = instLocationCls.mostOuterClass()
         val clsName = locationCls.simpleName
         val sourceFileNameVariants = mutableListOf<String>()
 
@@ -64,21 +92,18 @@ class JIRSourceFileResolver(
         return sourceFilesWithCorrectPackage.singleOrNull()
     }
 
-    private fun mostOuterClass(cls: JIRClassOrInterface): JIRClassOrInterface {
-        var result = cls
-        while (true) {
-            result = result.outerClass ?: break
-        }
-        return result
-    }
+    private fun packageMatches(sourceFile: Path, cls: JIRClassOrInterface) =
+        packageMatches(sourceFile, cls.packageName.split(".").reversed())
 
-    private fun packageMatches(sourceFile: Path, cls: JIRClassOrInterface): Boolean {
-        val packageParts = cls.packageName.split(".").reversed()
+    private fun packageMatches(sourceFile: Path, pkg: String) =
+        packageMatches(sourceFile, pkg.split("/").reversed().drop(1))
+
+    private fun packageMatches(sourceFile: Path, parts: List<String>): Boolean {
         val filePathParts = sourceFile.toList().reversed().drop(1)
 
-        if (filePathParts.size < packageParts.size) return false
+        if (filePathParts.size < parts.size) return false
 
-        return packageParts.zip(filePathParts).all { it.first == it.second.toString() }
+        return parts.zip(filePathParts).all { it.first == it.second.toString() }
     }
 
     companion object {

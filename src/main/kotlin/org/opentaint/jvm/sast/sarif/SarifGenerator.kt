@@ -1,16 +1,11 @@
 package org.opentaint.jvm.sast.sarif
 
-import io.github.detekt.sarif4k.ArtifactLocation
 import io.github.detekt.sarif4k.CodeFlow
 import io.github.detekt.sarif4k.Level
 import io.github.detekt.sarif4k.Location
-import io.github.detekt.sarif4k.LogicalLocation
 import io.github.detekt.sarif4k.Message
-import io.github.detekt.sarif4k.PhysicalLocation
-import io.github.detekt.sarif4k.Region
 import io.github.detekt.sarif4k.Result
 import io.github.detekt.sarif4k.ThreadFlow
-import io.github.detekt.sarif4k.ThreadFlowLocation
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
@@ -21,14 +16,19 @@ import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
+import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.dataflow.util.SarifTraits
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRRawLineNumberInst
 import org.opentaint.semgrep.pattern.RuleMetadata
 import java.io.OutputStream
 
 class SarifGenerator(
-    private val sourceFileResolver: org.opentaint.dataflow.sarif.SourceFileResolver<CommonInst>,
+    sourceFileResolver: SourceFileResolver<CommonInst>,
     private val traits: SarifTraits<CommonMethod, CommonInst>
 ) {
+    private val locationResolver = LocationResolver(sourceFileResolver, traits)
+
     private val json = Json {
         prettyPrint = true
     }
@@ -115,13 +115,9 @@ class SarifGenerator(
     }
 
     private fun areTracesRelative(a: TracePathNode, b: TracePathNode): Boolean {
-        val aSource = getCachedSourceLocation(a.statement, sourceFileResolver)
-        val bSource = getCachedSourceLocation(b.statement, sourceFileResolver)
-        if (aSource == null || bSource == null) return false
         // indexes are also an important part of being relative
         // it's checked in groupRelativeTraces by only comparing neighbouring traces
-        return traits.lineNumber(a.statement) == traits.lineNumber(b.statement)
-                && aSource == bSource
+        return locationResolver.statementsLocationsAreRelative(a.statement, b.statement)
     }
 
     private fun groupRelativeTraces(traces: List<TracePathNode>): List<List<TracePathNode>> {
@@ -176,6 +172,9 @@ class SarifGenerator(
         return result.reversed()
     }
 
+    private fun JIRMethod.getFirstLine(): Int? =
+        rawInstList.firstOrNull { it is JIRRawLineNumberInst } ?.let { (it as JIRRawLineNumberInst).lineNumber }
+
     private fun generateThreadFlow(path: List<TracePathNode>, sinkMessage: String, ruleId: String): ThreadFlow {
         val messageBuilder = TraceMessageBuilder(traits, sinkMessage, ruleId)
         val filteredLocations = path.filter { messageBuilder.isGoodTrace(it) }
@@ -187,65 +186,47 @@ class SarifGenerator(
 
             messageBuilder.createGroupTraceMessage(group)
         }
-        val flowLocations = groupsWithMsges.mapIndexed { idx, groupNode ->
-            val insnLoc =
+        val flowLocations = groupsWithMsges.map { groupNode ->
+            val inst = groupNode.node.statement
+            val offset =
                 if (groupNode.node.entry is MethodTraceResolver.TraceEntry.MethodEntry
                     || with (messageBuilder) { groupNode.node.entry.isPureEntryPoint() }
                     ) {
                     // this is an attempt to highlight the method signature instead of its first bytecode instruction
                     // for the MethodEntry traces
-                    // will fail if the source has extra lines between method declaration and its body
+                    // will be wrong if the source has extra lines between method declaration and its body
                     // (i.e. blank lines, extra parameter indentation, or comments)
-                    val firstInsn = groupNode.node.statement.location.method.flowGraph().entries.firstOrNull()
-                    checkNotNull(firstInsn)
-                    instToSarifLocation(firstInsn, -1)
+                    (groupNode.node.statement.location.method as JIRMethod).getFirstLine()!! - 1
                 }
-                else instToSarifLocation(groupNode.node.statement, 0)
+                else null
 
-            ThreadFlowLocation(
-                index = idx.toLong(),
-                executionOrder = idx.toLong(),
-                kinds = listOf(groupNode.kind),
-                location = insnLoc.copy(message = Message(text = groupNode.message)),
+            IntermediateLocation(
+                inst = inst,
+                info = getInstructionInfo(inst, offset),
+                kind = groupNode.kind,
+                message = groupNode.message,
             )
         }
 
-        return ThreadFlow(locations = flowLocations)
+        return ThreadFlow(locations = locationResolver.resolve(flowLocations))
     }
 
-    private fun statementLocation(statement: CommonInst, message: String? = null): Location =
-        instToSarifLocation(statement)
-            .copy(message = message?.let { Message(text = it )})
-
-    private val locationsCache = hashMapOf<CommonInst, String?>()
-    private fun <Statement : CommonInst> getCachedSourceLocation(
-        inst: Statement,
-        sourceFileResolver: org.opentaint.dataflow.sarif.SourceFileResolver<Statement>,
-    ): String? =
-        locationsCache.computeIfAbsent(inst) {
-            sourceFileResolver.resolve(inst)
-        }
-
-    private fun <Statement : CommonInst> instToSarifLocation(
-        inst: Statement,
-        offset: Int = 0
-    ): Location = with(traits) {
-        val sourceLocation = getCachedSourceLocation(inst, sourceFileResolver)
-        return Location(
-            physicalLocation = sourceLocation?.let {
-                PhysicalLocation(
-                    artifactLocation = ArtifactLocation(uri = it),
-                    region = Region(
-                        startLine = lineNumber(inst).toLong() + offset
-                    )
-                )
-            },
-            logicalLocations = listOf(
-                LogicalLocation(
-                    fullyQualifiedName = locationFQN(inst),
-                    decoratedName = locationMachineName(inst)
-                )
-            ),
+    private fun getInstructionInfo(statement: CommonInst, rewriteLine: Int? = null): InstructionInfo = with(traits) {
+        InstructionInfo(
+            fullyQualified = locationFQN(statement),
+            machineName = locationMachineName(statement),
+            lineNumber = rewriteLine ?: lineNumber(statement),
+            noExtraResolve = rewriteLine != null
         )
+    }
+
+    private fun statementLocation(statement: CommonInst): Location {
+        val loc = IntermediateLocation(
+            inst = statement,
+            info = getInstructionInfo(statement),
+            kind = "",
+            message = null
+        )
+        return locationResolver.generateSarifLocation(loc)
     }
 }

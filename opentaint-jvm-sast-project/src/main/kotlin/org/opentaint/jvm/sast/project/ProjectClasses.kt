@@ -4,6 +4,7 @@ import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.RegisteredLocation
+import org.opentaint.ir.api.jvm.cfg.JIRRawLineNumberInst
 import org.opentaint.ir.impl.features.classpaths.JIRUnknownClass
 import org.opentaint.project.ProjectModuleClasses
 import java.io.File
@@ -66,6 +67,11 @@ fun JIRClassOrInterface.publicAndProtectedMethods(): Sequence<JIRMethod> =
 
         // todo: hack to avoid problems with Juliet benchmark
         .filterNot { it.isJulietGeneratedRunner() }
+
+fun JIRClassOrInterface.getMethodFromLineNumber(lineNumber: Int): JIRMethod? =
+    declaredMethods.firstOrNull { md ->
+        md.rawInstList.filterIsInstance<JIRRawLineNumberInst>().any { it.lineNumber == lineNumber }
+    }
 
 private fun JIRMethod.isJulietGeneratedRunner(): Boolean {
     if (!isStatic || name != "main") return false
