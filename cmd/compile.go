@@ -31,9 +31,9 @@ var ProjectPath string
 // compileCmd represents the compile command
 var compileCmd = &cobra.Command{
 	Use:   "compile project",
-	Short: "Compile your Java project",
+	Short: "Compile your Java or Kotlin project",
 	Args:  cobra.ExactArgs(1), // require exactly one argument
-	Long: `This command takes a required path to the project, automatically detects Java build system, modules and dependencies and compiles project model.
+	Long: `This command takes a required path to the project, automatically detects Java/Kotlin build system, modules and dependencies and compiles project model.
 
 Arguments:
   project  - Path to a project to compile (required)

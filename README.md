@@ -1,6 +1,6 @@
 [![GitHub release](https://img.shields.io/github/release/seqra/seqra.svg)](https://github.com/seqra/seqra/releases)
 
-# Seqra — security-focused static analyzer for Java
+# Seqra — security-focused static analyzer for Java and Kotlin
 
 [Issues](https://github.com/seqra/seqra/issues) | [Blog](https://seqra.dev/blog) | [FAQ](docs/faq.md) | [Discord](https://discord.gg/6BXDfbP4p9) | [seqradev@gmail.com](mailto:seqradev@gmail.com)
 
@@ -57,7 +57,7 @@ Seqra automatically extracts URL path information from Spring Boot applications 
 ### Prerequisites:
 
 **For native compilation and scanning (default):**
-- Java runtime environment and Maven or Gradle installed and configured
+- Java/Kotlin runtime environment and Maven or Gradle installed and configured
 - Project dependencies available in local environment
 
 **For Docker-based scanning (optional):**
@@ -109,29 +109,29 @@ go install github.com/seqra/seqra/v2@latest
 
 ## Scan
 
-  Scan a Java project and generate SARIF report
+  Scan a Java or Kotlin project and generate SARIF report
 
   ```bash
-  seqra scan --output results.sarif /path/to/your/java/project
+  seqra scan --output results.sarif /path/to/your/java/kotlin/project
   ```
 
 ### Docker Environment Scanning
 
-  For environments where you prefer to use Docker containers instead of your local Java toolchain, Seqra supports Docker execution:
+  For environments where you prefer to use Docker containers instead of your local Java/Kotlin toolchain, Seqra supports Docker execution:
 
 #### Use Docker compilation
 ```bash
-  seqra scan --compile-type docker --output results.sarif /path/to/your/java/project
+  seqra scan --compile-type docker --output results.sarif /path/to/your/java/kotlin/project
 ```
 
 #### Use Docker scanning
 ```bash
-  seqra scan --scan-type docker --output results.sarif /path/to/your/java/project
+  seqra scan --scan-type docker --output results.sarif /path/to/your/java/kotlin/project
 ```
 
 #### Use both Docker compilation and scanning
 ```bash
-  seqra scan --compile-type docker --scan-type docker --output results.sarif /path/to/your/java/project
+  seqra scan --compile-type docker --scan-type docker --output results.sarif /path/to/your/java/kotlin/project
 ```
 
 ## View and Analyze Results
@@ -175,15 +175,15 @@ For seamless integration with your CI/CD pipelines, check out our dedicated inte
 
 ### Build Issues
 
-  > **Note:** **only Maven and Gradle projects are supported**
+  > **Note:** **only Maven and Gradle projects are supported** (for both Java and Kotlin)
   * Verify that your project builds successfully with `Maven` or `Gradle`
   * For native compilation issues (default):
-    - Ensure Java runtime is installed and accessible via `java -version`
+    - Ensure Java/Kotlin runtime is installed and accessible via `java -version` or `kotlin -version`
     - Verify Maven/Gradle can build your project locally
     - Check that all project dependencies are available in your local environment
   * If local dependencies are missing, try Docker compilation:
     ```bash
-    seqra scan --compile-type docker --output results.sarif /path/to/your/java/project
+    seqra scan --compile-type docker --output results.sarif /path/to/your/java/kotlin/project
     ```
 
 ### Logs and Debugging
