@@ -99,6 +99,19 @@ class JIRRawLabelInst(
     override fun <T> accept(visitor: JIRRawInstVisitor<T>): T {
         return visitor.visitJIRRawLabelInst(this)
     }
+
+    fun isOriginal(): Boolean =
+        name.isNotEmpty() && name[0] == ORIGINAL_MARK
+
+    fun getOriginalLabelIndex(): Int? =
+        name.slice(1 until name.length).toIntOrNull()
+
+    companion object {
+        private const val ORIGINAL_MARK = '@'
+
+        fun createOriginalLabel(method: JIRMethod, originalIndex: Int): JIRRawLabelInst =
+            JIRRawLabelInst(method, "$ORIGINAL_MARK$originalIndex")
+    }
 }
 
 class JIRRawReturnInst(

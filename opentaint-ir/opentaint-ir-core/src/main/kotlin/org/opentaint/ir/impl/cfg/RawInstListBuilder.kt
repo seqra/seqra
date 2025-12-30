@@ -995,7 +995,7 @@ class RawInstListBuilder(
         }
         for (insn in instructions) {
             if (insn is LabelNode) {
-                labels[insn] = generateFreshLabel()
+                labels[insn] = JIRRawLabelInst.createOriginalLabel(method, insn.index)
             }
 
             if (insn is JumpInsnNode) {
