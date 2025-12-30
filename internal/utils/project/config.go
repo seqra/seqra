@@ -11,6 +11,7 @@ import (
 type Config struct {
 	SourceRoot      string   `yaml:"sourceRoot"`
 	JavaToolchain   string   `yaml:"javaToolchain,omitempty"`
+	KotlinToolchain string   `yaml:"kotlinToolchain,omitempty"`
 	Modules         []Module `yaml:"modules"`
 	Dependencies    []string `yaml:"dependencies,omitempty"`
 }

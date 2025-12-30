@@ -2,7 +2,7 @@
 
 **What languages are supported?**
 
-Java is supported today, with **experimental** Kotlin support. Broader language support is planned.
+Java and Kotlin are supported. Broader language support is planned.
 
 **How does Seqra compare to Semgrep?**
 
