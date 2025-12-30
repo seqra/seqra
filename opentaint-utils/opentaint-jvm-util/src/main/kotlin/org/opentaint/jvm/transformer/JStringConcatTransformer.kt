@@ -108,7 +108,7 @@ object JStringConcatTransformer : JIRInstExtFeature {
     ): JIRValue = when (element) {
         is StringConcatElement.StringElement -> element.value
         is StringConcatElement.OtherElement -> {
-            val value = nextLocalVar("str_val", stringType)
+            val value = nextLocalVar("%str_val", stringType)
             val methodRef = element.toStringTransformer.staticMethodRef()
             val callExpr = JIRStaticCallExpr(methodRef, listOf(element.value))
             addInstruction { loc ->
@@ -124,7 +124,7 @@ object JStringConcatTransformer : JIRInstExtFeature {
         first: JIRValue,
         second: JIRValue
     ): JIRValue {
-        val value = nextLocalVar("str", stringType)
+        val value = nextLocalVar("%str", stringType)
         val methodRef = stringConcatMethod.virtualMethodRef(stringType)
         val callExpr = JIRVirtualCallExpr(methodRef, first, listOf(second))
         addInstruction { loc ->

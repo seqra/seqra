@@ -96,7 +96,7 @@ object JMultiDimArrayAllocationTransformer : JIRInstExtFeature {
         dimensionIdx: Int
     ): JIRValue {
         val dimension = dimensions[dimensionIdx]
-        val arrayVar = nextLocalVar("a_${originalLocation.index}_$dimensionIdx", type)
+        val arrayVar = nextLocalVar("%a_${originalLocation.index}_$dimensionIdx", type)
 
         addInstruction { loc ->
             JIRAssignInst(loc, arrayVar, JIRNewArrayExpr(type, listOf(dimension)))
@@ -104,7 +104,7 @@ object JMultiDimArrayAllocationTransformer : JIRInstExtFeature {
 
         if (dimensionIdx == dimensions.lastIndex) return arrayVar
 
-        val initializerIdxVar = nextLocalVar("i_${originalLocation.index}_$dimensionIdx", cp.int)
+        val initializerIdxVar = nextLocalVar("%i_${originalLocation.index}_$dimensionIdx", cp.int)
         addInstruction { loc ->
             JIRAssignInst(loc, initializerIdxVar, JIRInt(0, cp.int))
         }
