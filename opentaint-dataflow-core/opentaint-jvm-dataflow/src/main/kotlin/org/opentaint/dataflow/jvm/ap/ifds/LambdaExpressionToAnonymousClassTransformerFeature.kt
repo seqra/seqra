@@ -60,7 +60,7 @@ class LambdaExpressionToAnonymousClassTransformerFeature(
                         lambdaConstructor.returnType
                     )
 
-                    val lambdaClassVar = nextLocalVar("lambda%${location.index}", lambdaType)
+                    val lambdaClassVar = nextLocalVar("%lambda%${location.index}", lambdaType)
 
                     val generatedLocations = mutableListOf<JIRInstLocation>()
 

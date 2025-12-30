@@ -45,7 +45,7 @@ object MethodReturnInstNormalizerFeature : JIRInstExtFeature {
         val returnValueType = method.enclosingClass.classpath.findTypeOrNull(method.returnType)
             ?: return list
 
-        val singleReturnValue = JIRLocalVar(returnValueLocalVarIndex, "ret", returnValueType)
+        val singleReturnValue = JIRLocalVar(returnValueLocalVarIndex, "%ret", returnValueType)
 
         val singleReturnLocation = JIRInstLocationImpl(method, instructions.size, firstReturn.lineNumber)
         instructions += JIRReturnInst(singleReturnLocation, singleReturnValue)
