@@ -409,6 +409,10 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
         }
     }
 
+    override fun visitArrayInitializer(ctx: JavaParser.ArrayInitializerContext): SemgrepJavaPattern? {
+        ctx.todo()
+    }
+
     override fun visitMethodDeclaration(ctx: MethodDeclarationContext): MethodDeclaration = ctx.withRule {
         val returnType = value(MethodDeclarationContext::typeTypeOrVoid).accept(typenameParser)
         val name = value(MethodDeclarationContext::identifier).parseName()

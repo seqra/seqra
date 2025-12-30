@@ -196,14 +196,13 @@ private fun RuleConversionCtx.convertTaintRuleToTaintRules(
         }.orEmpty()
     }
 
-    if (rule.sanitizers.isNotEmpty()) {
-        // todo: sanitizers (cleans any argument as for sinks)
-        semgrepRuleErrors += SemgrepError(
-            SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
-            "Rule $ruleId: sanitizers are not supported yet",
-            Level.WARN,
-            SemgrepError.Reason.NOT_IMPLEMENTED,
-        )
+    for ((i, sanitizer) in rule.sanitizers.withIndex()) {
+        generatedRules += safeConvertToTaintRules("$ruleId: sanitizer #$i") {
+            val sanitizerCtx = convertTaintSourceRule(i, sanitizer)
+            sanitizerCtx.flatMap { (ctx, _) ->
+                ctx.generateTaintSanitizerRules(taintMarkName, semgrepRuleErrors)
+            }
+        }.orEmpty()
     }
 
     val ruleGroup = TaintRuleFromSemgrep.TaintRuleGroup(generatedRules)
@@ -1888,30 +1887,49 @@ private data class EvaluatedEdgeCondition(
 private fun TaintRuleGenerationCtx.generateTaintSinkRules(
     id: String, meta: SinkMetaData,
     semgrepRuleErrors: SemgrepRuleErrors,
-    checkRule: (SerializedFunctionNameMatcher, SerializedCondition) -> Boolean
-) =
-    generateTaintRules({ currentRules, ruleEdge, _, function, cond ->
-        if (!checkRule(function, cond)) {
-            return@generateTaintRules emptyList()
-        }
+    checkRule: (SerializedFunctionNameMatcher, SerializedCondition) -> Boolean,
+) = generateTaintRules({ currentRules, ruleEdge, _, function, cond ->
+    if (!checkRule(function, cond)) {
+        return@generateTaintRules emptyList()
+    }
 
-        if (function.isGeneratedReturnValue()) {
-            return@generateTaintRules generateEndSink(currentRules, cond, id, meta)
-        }
+    if (function.isGeneratedReturnValue()) {
+        return@generateTaintRules generateEndSink(currentRules, cond, id, meta)
+    }
 
-        val rule = when (ruleEdge.edge) {
-            is Edge.MethodEnter -> SerializedRule.MethodEntrySink(
-                function, signature = null, overrides = false, cond, id, meta = meta
-            )
+    val rule = when (ruleEdge.edge) {
+        is Edge.MethodEnter -> SerializedRule.MethodEntrySink(
+            function, signature = null, overrides = false, cond, id, meta = meta
+        )
 
-            is Edge.MethodCall -> SerializedRule.Sink(
-                function, signature = null, overrides = true, cond, id, meta = meta
-            )
+        is Edge.MethodCall -> SerializedRule.Sink(
+            function, signature = null, overrides = true, cond, id, meta = meta
+        )
 
-            Edge.AnalysisEnd -> return@generateTaintRules generateEndSink(currentRules, cond, id, meta)
-        }
-        listOf(rule)
-    }, semgrepRuleErrors)
+        Edge.AnalysisEnd -> return@generateTaintRules generateEndSink(currentRules, cond, id, meta)
+    }
+    listOf(rule)
+}, semgrepRuleErrors)
+
+private fun TaintRuleGenerationCtx.generateTaintSanitizerRules(
+    taintMarkName: String,
+    semgrepRuleErrors: SemgrepRuleErrors,
+) = generateTaintRules({ _, ruleEdge, _, function, cond ->
+    if (ruleEdge.edge !is Edge.MethodCall) {
+        semgrepRuleErrors += SemgrepError(
+            SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
+            "Non method call cleaner",
+            Level.WARN,
+            SemgrepError.Reason.NOT_IMPLEMENTED
+        )
+    }
+
+    val cleanerPos = PositionBase.AnyArgument(classifier = "tainted")
+    val action = SerializedTaintCleanAction(taintMarkName, PositionBaseWithModifiers.BaseOnly(cleanerPos))
+    val rule = SerializedRule.Cleaner(function, signature = null, overrides = true, cond, listOf(action))
+
+    listOf(rule)
+}, semgrepRuleErrors)
 
 private fun generateEndSink(
     currentRules: List<SerializedItem>,

@@ -75,6 +75,12 @@ class ExampleTest : SampleBasedTest() {
     @Test
     fun `test rule without pattern`() = runTest<example.RuleWithoutPattern>()
 
+    @Test
+    fun `test rule with type`() = runTest<example.RuleWithType>()
+
+    @Test
+    fun `test rule with interface type`() = runTest<example.RuleWithInterfaceType>()
+
     @AfterAll
     fun close(){
         closeRunner()

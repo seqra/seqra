@@ -1,0 +1,11 @@
+rules:
+  - id: example-Rule
+    languages:
+      - java
+    severity: ERROR
+    message: match example/Rule
+    patterns:
+      - pattern: |-
+          (example.util.SimpleType $O).bar();
+      - pattern-not: |-
+          (example.util.OtherType $O).bar();
