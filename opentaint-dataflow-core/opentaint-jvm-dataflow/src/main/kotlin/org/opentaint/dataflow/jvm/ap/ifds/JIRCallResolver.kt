@@ -49,7 +49,7 @@ class JIRCallResolver(
         }
 
     sealed interface MethodResolutionResult {
-        object MethodResolutionFailed : MethodResolutionResult
+        data object MethodResolutionFailed : MethodResolutionResult
         data class ConcreteMethod(val method: MethodWithContext) : MethodResolutionResult
         data class Lambda(val instance: JIRVirtualCallExpr, val method: JIRMethod) : MethodResolutionResult
     }

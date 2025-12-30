@@ -3,7 +3,7 @@ package org.opentaint.dataflow.ap.ifds
 sealed interface AccessPathBase {
     override fun toString(): String
 
-    object This : AccessPathBase {
+    data object This : AccessPathBase {
         override fun toString(): String = "<this>"
     }
 
@@ -23,11 +23,11 @@ sealed interface AccessPathBase {
         override fun toString(): String = "<static>($typeName)"
     }
 
-    object Return : AccessPathBase {
+    data object Return : AccessPathBase {
         override fun toString(): String = "ret"
     }
 
-    object Exception : AccessPathBase {
+    data object Exception : AccessPathBase {
         override fun toString(): String = "exception"
     }
 }
@@ -89,21 +89,21 @@ data class FieldAccessor(
     }
 }
 
-object ElementAccessor : Accessor() {
+data object ElementAccessor : Accessor() {
     override fun toSuffix(): String = "[*]"
     override fun toString(): String = "*"
 
     override val accessorClassId: Int = 0
 }
 
-object FinalAccessor : Accessor() {
+data object FinalAccessor : Accessor() {
     override fun toSuffix(): String = ".\$"
     override fun toString(): String = "\$"
 
     override val accessorClassId: Int = 1
 }
 
-object AnyAccessor : Accessor() {
+data object AnyAccessor : Accessor() {
     override fun toString(): String = "[any]"
     override fun toSuffix(): String = ".[any]"
 

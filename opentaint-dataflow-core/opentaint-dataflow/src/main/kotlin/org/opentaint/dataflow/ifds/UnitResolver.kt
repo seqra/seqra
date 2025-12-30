@@ -2,11 +2,11 @@ package org.opentaint.dataflow.ifds
 
 interface UnitType
 
-object SingletonUnit : UnitType {
+data object SingletonUnit : UnitType {
     override fun toString(): String = javaClass.simpleName
 }
 
-object UnknownUnit : UnitType {
+data object UnknownUnit : UnitType {
     override fun toString(): String = javaClass.simpleName
 }
 

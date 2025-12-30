@@ -81,16 +81,28 @@ class TraceResolver(
             get() = trace.method
     }
 
+    // Enum can give non-determinacy as its entries have new hash code on every JVM run.
+    // Override hashcode() and equals() when using enum as a field in classes whose objects
+    // can be stored in sets etc.
     enum class CallKind {
         CallToSource, CallToSink
     }
 
+    @Suppress("EqualsOrHashCode")
     data class InterProceduralCall(
         val kind: CallKind,
         val statement: CommonInst,
         val summary: MethodTraceResolver.SummaryTrace,
         val node: InterProceduralTraceNode
-    )
+    ) {
+        override fun hashCode(): Int {
+            var result = kind.ordinal.hashCode()
+            result = 31 * result + statement.hashCode()
+            result = 31 * result + summary.hashCode()
+            result = 31 * result + node.hashCode()
+            return result
+        }
+    }
 
     fun resolveTrace(vulnerability: TaintVulnerability): Trace {
         when (vulnerability) {
@@ -133,12 +145,21 @@ class TraceResolver(
         return EntryPointToStartTraceBuilder().build(startNodes)
     }
 
+    @Suppress("EqualsOrHashCode")
     private data class BuilderUnprocessedTrace(
         val trace: MethodTraceResolver.SummaryTrace,
         val kind: CallKind,
         val predecessor: InterProceduralCall? = null,
         val successor: InterProceduralCall? = null
-    )
+    ) {
+        override fun hashCode(): Int {
+            var result = trace.hashCode()
+            result = 31 * result + kind.ordinal.hashCode()
+            result = 31 * result + (predecessor?.hashCode() ?: 0)
+            result = 31 * result + (successor?.hashCode() ?: 0)
+            return result
+        }
+    }
 
     private inner class InterProceduralTraceGraphBuilder {
         val fullNodes =

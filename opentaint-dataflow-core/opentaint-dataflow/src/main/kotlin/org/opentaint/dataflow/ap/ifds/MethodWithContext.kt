@@ -5,7 +5,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 
 interface MethodContext
 
-object EmptyMethodContext : MethodContext {
+data object EmptyMethodContext : MethodContext {
     override fun toString(): String = "{}"
 }
 

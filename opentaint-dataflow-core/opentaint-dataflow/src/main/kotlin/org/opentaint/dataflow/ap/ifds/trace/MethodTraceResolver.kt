@@ -66,6 +66,9 @@ class MethodTraceResolver(
     private val methodCallFactMapper: MethodCallFactMapper get() = analysisContext.methodCallFactMapper
     private val apManager: ApManager get() = runner.apManager
 
+    // Enum can give non-determinacy as its entries have new hash code on every JVM run.
+    // Override hashcode() and equals() when using enum as a field in classes whose objects
+    // can be stored in sets etc.
     enum class TraceKind {
         TraceToFact, // Trace ends within the method
         TraceToFactAfterStatement, // Trace ends within the method, but the fact is after the statement
@@ -83,11 +86,19 @@ class MethodTraceResolver(
         override fun hashCode(): Int = Objects.hash(method, final)
     }
 
+    @Suppress("EqualsOrHashCode")
     data class SummaryTrace(
         val method: MethodEntryPoint,
         val final: TraceEntry.Final,
         val traceKind: TraceKind,
-    )
+    ) {
+        override fun hashCode(): Int {
+            var result = method.hashCode()
+            result = 31 * result + final.hashCode()
+            result = 31 * result + traceKind.ordinal.hashCode()
+            return result
+        }
+    }
 
     sealed interface TraceEdge {
         val fact: InitialFactAp

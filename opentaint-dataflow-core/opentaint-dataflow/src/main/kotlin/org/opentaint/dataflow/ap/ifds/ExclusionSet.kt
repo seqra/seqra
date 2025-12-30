@@ -11,7 +11,7 @@ sealed interface ExclusionSet {
 
     fun contains(other: ExclusionSet): Boolean
 
-    object Empty : ExclusionSet {
+    data object Empty : ExclusionSet {
         override fun contains(accessor: Accessor): Boolean = false
         override fun add(accessor: Accessor): ExclusionSet = Concrete(accessor)
         override fun union(other: ExclusionSet): ExclusionSet = other
@@ -21,7 +21,7 @@ sealed interface ExclusionSet {
         override fun toString(): String = "{}"
     }
 
-    object Universe : ExclusionSet {
+    data object Universe : ExclusionSet {
         override fun contains(accessor: Accessor): Boolean = true
         override fun add(accessor: Accessor): ExclusionSet = this
         override fun union(other: ExclusionSet): ExclusionSet = this
