@@ -7905,6 +7905,11 @@ passThrough:
     to:
     - this
     - .java.net.URI#<rule-storage>#java.lang.Object
+- function: java.net.URI#create
+  signature: (java.lang.String) java.net.URI
+  copy:
+  - from: arg(0)
+    to: result
 - function: java.net.URI#<init>
   signature: (java.lang.String) void
   copy:
