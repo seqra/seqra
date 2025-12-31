@@ -329,6 +329,8 @@ class TaintAnalysisUnitRunnerManager(
         return methodStats
     }
 
+    fun allUnits(): Set<UnitType> = runnerForUnit.keys
+
     private fun reportRunnerProgress() {
         val stats = runnerForUnit.mapValues { it.value.stats() }
 

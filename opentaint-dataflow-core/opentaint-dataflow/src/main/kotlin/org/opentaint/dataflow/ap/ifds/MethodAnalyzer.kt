@@ -29,6 +29,8 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 
 interface MethodAnalyzer {
+    val methodEntryPoint: MethodEntryPoint
+
     fun addInitialZeroFact()
 
     fun addInitialFact(factAp: FinalFactAp)
@@ -105,6 +107,8 @@ interface MethodAnalyzer {
         cancellation: TraceResolverCancellation
     ): List<MethodTraceResolver.FullTrace>
 
+    fun allIntraProceduralFacts(): Map<CommonInst, Set<FinalFactAp>>
+
     sealed interface MethodCallHandler {
         data class ZeroToZeroHandler(val currentEdge: ZeroToZero) : MethodCallHandler
         data class ZeroToFactHandler(val currentEdge: ZeroToFact, val startFactBase: AccessPathBase) : MethodCallHandler
@@ -122,7 +126,7 @@ interface MethodAnalyzer {
 
 class NormalMethodAnalyzer(
     private val runner: AnalysisRunner,
-    private val methodEntryPoint: MethodEntryPoint,
+    override val methodEntryPoint: MethodEntryPoint,
     private val taintRulesStatsSamplingPeriod: Int?
 ) : MethodAnalyzer {
     private val apManager: ApManager get() = runner.apManager
@@ -186,6 +190,9 @@ class NormalMethodAnalyzer(
             }
         }
     }
+
+    override fun allIntraProceduralFacts(): Map<CommonInst, Set<FinalFactAp>> =
+        edges.reachedStatementsWithFact(analysisManager)
 
     override fun addInitialZeroFact() {
         if (!zeroInitialFactProcessed) {
@@ -993,7 +1000,7 @@ class NormalMethodAnalyzer(
 
 class EmptyMethodAnalyzer(
     private val runner: AnalysisRunner,
-    private val methodEntryPoint: MethodEntryPoint
+    override val methodEntryPoint: MethodEntryPoint
 ) : MethodAnalyzer {
     private var zeroInitialFactProcessed: Boolean = false
     private val taintedInitialFacts = hashSetOf<AccessPathBase>()
@@ -1132,6 +1139,8 @@ class EmptyMethodAnalyzer(
     ): List<MethodTraceResolver.SummaryTrace> {
         error("Empty method have no calls")
     }
+
+    override fun allIntraProceduralFacts(): Map<CommonInst, Set<FinalFactAp>> = emptyMap()
 }
 
 private fun FinalFactAp.collectTaintMarks(): Set<String> {

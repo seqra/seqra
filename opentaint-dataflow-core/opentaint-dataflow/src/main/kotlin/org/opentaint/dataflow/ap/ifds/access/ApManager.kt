@@ -82,17 +82,20 @@ interface MethodAccessPathSubscription {
 
 interface MethodEdgesFinalApSet {
     fun add(statement: CommonInst, ap: FinalFactAp): FinalFactAp?
+    fun collectApAtStatement(collection: MutableList<FinalFactAp>, statement: CommonInst)
     fun collectApAtStatement(collection: MutableList<FinalFactAp>, statement: CommonInst, finalFactPattern: InitialFactAp)
 }
 
 interface MethodEdgesInitialToFinalApSet {
     fun add(statement: CommonInst, initialAp: InitialFactAp, finalAp: FinalFactAp): Pair<InitialFactAp, FinalFactAp>?
+    fun collectApAtStatement(collection: MutableList<Pair<InitialFactAp, FinalFactAp>>, statement: CommonInst)
     fun collectApAtStatement(collection: MutableList<Pair<InitialFactAp, FinalFactAp>>, statement: CommonInst, finalFactPattern: InitialFactAp)
     fun collectApAtStatement(collection: MutableList<FinalFactAp>, statement: CommonInst, initialAp: InitialFactAp, finalFactPattern: InitialFactAp)
 }
 
 interface MethodEdgesNDInitialToFinalApSet {
     fun add(statement: CommonInst, initial: Set<InitialFactAp>, finalAp: FinalFactAp): Pair<Set<InitialFactAp>, FinalFactAp>?
+    fun collectApAtStatement(collection: MutableList<Pair<Set<InitialFactAp>, FinalFactAp>>, statement: CommonInst)
     fun collectApAtStatement(collection: MutableList<Pair<Set<InitialFactAp>, FinalFactAp>>, statement: CommonInst, finalFactPattern: InitialFactAp)
     fun collectApAtStatement(collection: MutableList<FinalFactAp>, statement: CommonInst, initial: Set<InitialFactAp>, finalFactPattern: InitialFactAp)
 }

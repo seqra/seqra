@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.ap.ifds.access.cactus
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.LanguageManager
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges
@@ -16,6 +17,8 @@ class MethodEdgesInitialToFinalCactusApSet(
     CactusInitialApAccess, CactusFinalApAccess {
     override fun createApStorage(): ApStorage<AccessPathWithCycles.AccessNode?, AccessCactus.AccessNode> =
         TaintedFactAccessEdgeStorage()
+
+    override fun mostAbstractPattern(base: AccessPathBase): AccessPathWithCycles.AccessNode? = null
 
     private inner class TaintedFactAccessEdgeStorage :
         ApStorage<AccessPathWithCycles.AccessNode?, AccessCactus.AccessNode> {

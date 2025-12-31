@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.ap.ifds.access.common
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.EdgeStorage
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
@@ -48,6 +49,17 @@ abstract class CommonF2FSet<IAP, FAP>(
         return newInitialAp to newExitAp
     }
 
+    abstract fun mostAbstractPattern(base: AccessPathBase): IAP
+
+    override fun collectApAtStatement(
+        collection: MutableList<Pair<InitialFactAp, FinalFactAp>>,
+        statement: CommonInst
+    ) {
+        storage.forEachValue { finalFactBase, finalStorage ->
+            finalStorage.collect(collection, statement, finalFactPattern = null, finalFactBase)
+        }
+    }
+
     override fun collectApAtStatement(
         collection: MutableList<Pair<InitialFactAp, FinalFactAp>>,
         statement: CommonInst,
@@ -56,10 +68,22 @@ abstract class CommonF2FSet<IAP, FAP>(
         val finalFactBase = finalFactPattern.base
         val finalStorage = storage.find(finalFactBase) ?: return
 
-        finalStorage.forEachValue { initialBase, storage ->
+        finalStorage.collect(collection, statement, finalFactPattern, finalFactBase)
+    }
+
+    private fun InitialFactBaseStorage.collect(
+        collection: MutableList<Pair<InitialFactAp, FinalFactAp>>,
+        statement: CommonInst,
+        finalFactPattern: InitialFactAp?,
+        finalFactBase: AccessPathBase,
+    ) {
+        val pattern = finalFactPattern?.let { getInitialAccess(it) }
+            ?: mostAbstractPattern(finalFactBase)
+
+        forEachValue { initialBase, storage ->
             collectToListWithPostProcess(
                 collection,
-                { storage.filter(it, statement, getInitialAccess(finalFactPattern)) },
+                { storage.filter(it, statement, pattern) },
                 {
                     val initialAp = createInitial(initialBase, it.first, it.second.exclusion)
                     val finalAp = createFinal(finalFactBase, it.second.access, it.second.exclusion)

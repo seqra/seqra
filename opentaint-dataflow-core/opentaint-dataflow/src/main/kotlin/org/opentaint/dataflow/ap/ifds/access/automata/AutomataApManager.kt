@@ -62,7 +62,7 @@ class AutomataApManager : ApManager {
         maxInstIdx: Int,
         languageManager: LanguageManager
     ): MethodEdgesNDInitialToFinalApSet =
-        MethodEdgesNDInitialToFinalAutomataApSet(methodInitialStatement, languageManager, maxInstIdx)
+        MethodEdgesNDInitialToFinalAutomataApSet(this, methodInitialStatement, languageManager, maxInstIdx)
 
     override fun accessPathSubscription(): MethodAccessPathSubscription = MethodAutomataAccessPathSubscription()
 

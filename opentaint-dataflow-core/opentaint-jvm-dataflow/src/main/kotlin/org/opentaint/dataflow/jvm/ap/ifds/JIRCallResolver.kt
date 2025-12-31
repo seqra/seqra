@@ -127,7 +127,7 @@ class JIRCallResolver(
         instanceTypes: Set<JIRClassOrInterface>?
     ): List<MethodWithContext> {
         if (instanceTypes.isNullOrEmpty()) {
-            logger.warn { "No instance type for $call at ${location.location.method}" }
+//            logger.warn { "No instance type for $call at ${location.location.method}" }
             return listOf(MethodWithContext(method, EmptyMethodContext))
         }
 

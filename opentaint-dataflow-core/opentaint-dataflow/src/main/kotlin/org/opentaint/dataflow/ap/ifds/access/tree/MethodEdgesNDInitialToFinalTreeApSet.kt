@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.ap.ifds.access.tree
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.LanguageManager
 import org.opentaint.dataflow.ap.ifds.access.common.CommonNDF2FSet
 import org.opentaint.dataflow.ap.ifds.access.common.ndf2f.DefaultNDF2FSetStorage
@@ -15,6 +16,8 @@ class MethodEdgesNDInitialToFinalTreeApSet(
     override fun createApStorage() = object : DefaultNDF2FSetStorage<AccessPath.AccessNode?, AccessTree.AccessNode>() {
         override fun createStorage(): Storage<AccessTree.AccessNode> = DefaultStorage()
     }
+
+    override fun mostAbstractPattern(base: AccessPathBase): AccessPath.AccessNode? = null
 
     private class DefaultStorage : DefaultNDF2FSetStorage.Storage<AccessTree.AccessNode> {
         private var current: AccessTree.AccessNode? = null

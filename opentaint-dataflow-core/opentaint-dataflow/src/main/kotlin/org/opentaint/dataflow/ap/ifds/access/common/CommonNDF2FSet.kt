@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.ap.ifds.access.common
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.LanguageManager
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionStorageSize
@@ -37,6 +38,17 @@ abstract class CommonNDF2FSet<IAP, FAP>(
         return initial to newExitAp
     }
 
+    abstract fun mostAbstractPattern(base: AccessPathBase): IAP
+
+    override fun collectApAtStatement(
+        collection: MutableList<Pair<Set<InitialFactAp>, FinalFactAp>>,
+        statement: CommonInst
+    ) {
+        storage.forEachValue { finalFactBase, finalStorage ->
+            finalStorage.collect(collection, statement, finalFactPattern = null, finalFactBase)
+        }
+    }
+
     override fun collectApAtStatement(
         collection: MutableList<Pair<Set<InitialFactAp>, FinalFactAp>>,
         statement: CommonInst,
@@ -45,9 +57,21 @@ abstract class CommonNDF2FSet<IAP, FAP>(
         val finalFactBase = finalFactPattern.base
         val finalStorage = storage.find(finalFactBase) ?: return
 
+        finalStorage.collect(collection, statement, finalFactPattern, finalFactBase)
+    }
+
+    private fun StatementStorage.collect(
+        collection: MutableList<Pair<Set<InitialFactAp>, FinalFactAp>>,
+        statement: CommonInst,
+        finalFactPattern: InitialFactAp?,
+        finalFactBase: AccessPathBase,
+    ) {
+        val pattern = finalFactPattern?.let { getInitialAccess(it) }
+            ?: mostAbstractPattern(finalFactBase)
+
         collectToListWithPostProcess(
             collection,
-            { finalStorage.collectApAtStatement(it, statement, getInitialAccess(finalFactPattern)) },
+            { collectApAtStatement(it, statement, pattern) },
             {
                 val finalAp = createFinal(finalFactBase, it.second, ExclusionSet.Universe)
                 it.first to finalAp

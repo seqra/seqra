@@ -1,11 +1,13 @@
 package org.opentaint.dataflow.ap.ifds.access.automata
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.LanguageManager
 import org.opentaint.dataflow.ap.ifds.access.common.CommonNDF2FSet
 import org.opentaint.dataflow.ap.ifds.access.common.ndf2f.DefaultNDF2FSetStorage
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 class MethodEdgesNDInitialToFinalAutomataApSet(
+    val apManager: AutomataApManager,
     initialStatement: CommonInst,
     languageManager: LanguageManager,
     maxInstIdx: Int,
@@ -14,6 +16,8 @@ class MethodEdgesNDInitialToFinalAutomataApSet(
     override fun createApStorage() = object : DefaultNDF2FSetStorage<AccessGraph, AccessGraph>() {
         override fun createStorage(): Storage<AccessGraph> = DefaultStorage()
     }
+
+    override fun mostAbstractPattern(base: AccessPathBase): AccessGraph = apManager.emptyGraph()
 
     private class DefaultStorage : DefaultNDF2FSetStorage.Storage<AccessGraph> {
         private val storage = hashSetOf<AccessGraph>()

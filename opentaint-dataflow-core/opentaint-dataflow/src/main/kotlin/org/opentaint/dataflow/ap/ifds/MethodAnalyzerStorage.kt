@@ -36,9 +36,9 @@ class MethodAnalyzerStorage(
         return analyzers[epIdx]
     }
 
-    fun collectStats(stats: MethodStats) {
+    fun forEachAnalyzer(body: (MethodAnalyzer) -> Unit) {
         analyzers.concurrentReadSafeForEach { _, methodAnalyzer ->
-            methodAnalyzer.collectStats(stats)
+            body(methodAnalyzer)
         }
     }
 }

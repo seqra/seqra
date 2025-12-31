@@ -86,7 +86,17 @@ class TaintAnalysisUnitRunner(
 
     fun collectMethodStats(stats: MethodStats) {
         analyzers.concurrentReadSafeForEach { _, methodAnalyzerStorage ->
-            methodAnalyzerStorage.collectStats(stats)
+            methodAnalyzerStorage.forEachAnalyzer {
+                it.collectStats(stats)
+            }
+        }
+    }
+
+    fun collectAllIntraProceduralFacts(collection: MutableMap<MethodEntryPoint, Map<CommonInst, Set<FinalFactAp>>>) {
+        analyzers.concurrentReadSafeForEach { _, methodAnalyzerStorage ->
+            methodAnalyzerStorage.forEachAnalyzer {
+                collection[it.methodEntryPoint] = it.allIntraProceduralFacts()
+            }
         }
     }
 

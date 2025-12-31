@@ -28,6 +28,30 @@ class MethodAnalyzerEdges(
 
     fun reachedStatements() = zeroToZeroEdges.reachedStatements()
 
+    fun reachedStatementsWithFact(languageManager: LanguageManager): Map<CommonInst, Set<FinalFactAp>> {
+        val result = hashMapOf<CommonInst, Set<FinalFactAp>>()
+        for (instIdx in 0 until maxInstIdx + 1) {
+            val stmt = languageManager.getInstByIndex(methodEntryPoint.method, instIdx)
+            val z2f = mutableListOf<FinalFactAp>()
+            val f2f = mutableListOf<Pair<InitialFactAp, FinalFactAp>>()
+            val ndf2f = mutableListOf<Pair<Set<InitialFactAp>, FinalFactAp>>()
+
+            zeroToFactEdges.collectApAtStatement(z2f, stmt)
+            taintedToFactEdges.collectApAtStatement(f2f, stmt)
+            ndFactToFactEdges.collectApAtStatement(ndf2f, stmt)
+
+            val facts = hashSetOf<FinalFactAp>()
+            facts.addAll(z2f)
+            f2f.mapTo(facts) { it.second }
+            ndf2f.mapTo(facts) { it.second }
+
+            if (facts.isNotEmpty()) {
+                result[stmt] = facts
+            }
+        }
+        return result
+    }
+
     private fun addEdge(edge: Edge): List<Edge> {
         when (edge) {
             is Edge.ZeroToZero -> {

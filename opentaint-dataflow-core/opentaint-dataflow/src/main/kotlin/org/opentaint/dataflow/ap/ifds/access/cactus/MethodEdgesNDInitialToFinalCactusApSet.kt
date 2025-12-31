@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.ap.ifds.access.cactus
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.LanguageManager
 import org.opentaint.dataflow.ap.ifds.access.common.CommonNDF2FSet
 import org.opentaint.dataflow.ap.ifds.access.common.ndf2f.DefaultNDF2FSetStorage
@@ -16,6 +17,8 @@ class MethodEdgesNDInitialToFinalCactusApSet(
         object : DefaultNDF2FSetStorage<AccessPathWithCycles.AccessNode?, AccessCactus.AccessNode>() {
             override fun createStorage(): Storage<AccessCactus.AccessNode> = DefaultStorage()
         }
+
+    override fun mostAbstractPattern(base: AccessPathBase): AccessPathWithCycles.AccessNode? = null
 
     private class DefaultStorage : DefaultNDF2FSetStorage.Storage<AccessCactus.AccessNode> {
         private var current: AccessCactus.AccessNode? = null

@@ -29,8 +29,23 @@ class MethodEdgesInitialToFinalAutomataApSet(
 
     override fun collectApAtStatement(
         collection: MutableList<Pair<InitialFactAp, FinalFactAp>>,
+        statement: CommonInst
+    ) {
+        collectApAtStatementInternal(collection, statement, finalFactPattern = null)
+    }
+
+    override fun collectApAtStatement(
+        collection: MutableList<Pair<InitialFactAp, FinalFactAp>>,
         statement: CommonInst,
         finalFactPattern: InitialFactAp
+    ) {
+        collectApAtStatementInternal(collection, statement, finalFactPattern)
+    }
+
+    private fun collectApAtStatementInternal(
+        collection: MutableList<Pair<InitialFactAp, FinalFactAp>>,
+        statement: CommonInst,
+        finalFactPattern: InitialFactAp?
     ) {
         storage.forEachValue { initialBase, initialFactStorage ->
             initialFactStorage.storage.forEach { (initialAg, storage) ->
@@ -118,14 +133,28 @@ class MethodEdgesInitialToFinalAutomataApSet(
             )
         }
 
-        fun collectTo(collection: MutableList<FinalFactAp>, statement: CommonInst, finalFactPattern: InitialFactAp) {
-            val base = finalFactPattern.base
-            val storage = factStorage.find(base) ?: return
-            val exclusion = storage.exclusion(statement) ?: return
+        fun collectTo(collection: MutableList<FinalFactAp>, statement: CommonInst, finalFactPattern: InitialFactAp?) {
+            if (finalFactPattern != null) {
+                val base = finalFactPattern.base
+                val storage = factStorage.find(base) ?: return
+                storage.collect(collection, statement, base)
+            } else {
+                factStorage.forEachValue { base, storage ->
+                    storage.collect(collection, statement, base)
+                }
+            }
+        }
+
+        private fun InstructionFactStorage.collect(
+            collection: MutableList<FinalFactAp>,
+            statement: CommonInst,
+            base: AccessPathBase,
+        ) {
+            val exclusion = exclusion(statement) ?: return
 
             collectToListWithPostProcess(
                 collection,
-                { storage.collectTo(it, statement) },
+                { collectTo(it, statement) },
                 { AccessGraphFinalFactAp(base, it, exclusion) }
             )
         }
