@@ -2,8 +2,10 @@ package org.opentaint.jvm.sast.dataflow
 
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
+import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.access.ApMode
+import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
@@ -52,7 +54,8 @@ class JIRTaintAnalyzer(
 ): AutoCloseable {
     data class DebugOptions(
         val taintRulesStatsSamplingPeriod: Int?,
-        val enableIfdsCoverage: Boolean
+        val enableIfdsCoverage: Boolean,
+        val factReachabilitySarif: Boolean,
     )
 
     private val ifdsAnalysisGraph by lazy {
@@ -196,6 +199,22 @@ class JIRTaintAnalyzer(
 
                 appendLine("-".repeat(20))
             }
+    }
+
+    fun statementsWithFacts(): Map<CommonInst, Set<FinalFactAp>> {
+        val statementFacts = hashMapOf<CommonInst, MutableSet<FinalFactAp>>()
+        ifdsEngine.allUnits().forEach { unit ->
+            val unitRunner = ifdsEngine.findUnitRunner(unit) ?: return@forEach
+
+            val runnerFacts = hashMapOf<MethodEntryPoint, Map<CommonInst, Set<FinalFactAp>>>()
+            unitRunner.collectAllIntraProceduralFacts(runnerFacts)
+            runnerFacts.values.forEach { stmtFacts ->
+                stmtFacts.forEach { (stmt, facts) ->
+                    statementFacts.getOrPut(stmt, ::hashSetOf).addAll(facts)
+                }
+            }
+        }
+        return statementFacts
     }
 
     override fun close() {

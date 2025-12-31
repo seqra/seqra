@@ -5,6 +5,7 @@ import kotlinx.serialization.json.Json
 import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.access.ApMode
+import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
@@ -12,6 +13,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRSummarySerializationContext
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.applyAnalysisEndSinksForEntryPoints
 import org.opentaint.dataflow.jvm.util.JIRSarifTraits
+import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -21,6 +23,7 @@ import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer.DebugOptions
 import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
 import org.opentaint.jvm.sast.dataflow.rules.TaintConfiguration
+import org.opentaint.jvm.sast.sarif.DebugFactReachabilitySarifGenerator
 import org.opentaint.jvm.sast.sarif.SarifGenerator
 import org.opentaint.jvm.sast.se.api.SastSeAnalyzer
 import org.opentaint.jvm.sast.util.loadDefaultConfig
@@ -178,6 +181,13 @@ class ProjectAnalyzer(
                 generateSarifReportFromTraces(it, sourcesResolver, traces)
             }
 
+            if (debugOptions.factReachabilitySarif) {
+                val stmtsWithFact = analyzer.statementsWithFacts()
+                (resultDir / "debug-ifds-fact-reachability.sarif").outputStream().use {
+                    generateFactReachabilityReport(it, sourcesResolver, stmtsWithFact)
+                }
+            }
+
             logger.info { "Finish IFDS analysis report for project: ${project.sourceRoot}" }
 
             if (!useSymbolicExecution) return
@@ -202,12 +212,21 @@ class ProjectAnalyzer(
 
     private fun ProjectAnalysisContext.generateSarifReportFromTraces(
         output: OutputStream,
-        sourceFileResolver: org.opentaint.dataflow.sarif.SourceFileResolver<CommonInst>,
+        sourceFileResolver: SourceFileResolver<CommonInst>,
         traces: List<VulnerabilityWithTrace>
     ) {
         val generator = SarifGenerator(sourceFileResolver, JIRSarifTraits(cp))
         generator.generateSarif(output, traces.asSequence(), ruleMetadatas)
         logger.info { "Sarif trace generation stats: ${generator.traceGenerationStats}" }
+    }
+
+    private fun ProjectAnalysisContext.generateFactReachabilityReport(
+        output: OutputStream,
+        sourceFileResolver: SourceFileResolver<CommonInst>,
+        reachableFacts: Map<CommonInst, Set<FinalFactAp>>,
+    ) {
+        val generator = DebugFactReachabilitySarifGenerator(sourceFileResolver, JIRSarifTraits(cp))
+        generator.generateSarif(output, reachableFacts)
     }
 
     companion object {

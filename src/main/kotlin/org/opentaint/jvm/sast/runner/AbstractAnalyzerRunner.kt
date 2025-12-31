@@ -37,6 +37,9 @@ abstract class AbstractAnalyzerRunner : CliWithLogger() {
     private val debugIfdsCoverage: Boolean by option(help = "Enable coverage report by ifds engine")
         .flag(default = false)
 
+    private val debugFactReachabilitySarif: Boolean by option(help = "Generate SARIF with fact reachability info")
+        .flag(default = false)
+
     private val project: Path by option(help = "Project configuration (yaml)")
         .file()
         .required()
@@ -52,7 +55,8 @@ abstract class AbstractAnalyzerRunner : CliWithLogger() {
     private val debugOptions by lazy {
         DebugOptions(
             taintRulesStatsSamplingPeriod = debugTaintRulesStatsSamplingPeriod.takeIf { debugTaintRulesStats },
-            enableIfdsCoverage = debugIfdsCoverage
+            enableIfdsCoverage = debugIfdsCoverage,
+            factReachabilitySarif = debugFactReachabilitySarif,
         )
     }
 
