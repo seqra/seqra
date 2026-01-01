@@ -8,39 +8,66 @@ sealed interface SemgrepRule<PatternsRepr> {
 data class SemgrepTaintPropagator<PatternsRepr>(
     val from: String,
     val to: String,
+    val bySideEffect: Boolean?,
     val pattern: PatternsRepr,
-)
+) {
+    fun <NP> updatePattern(pattern: NP) = SemgrepTaintPropagator(from, to, bySideEffect, pattern)
+}
+
+data class SemgrepTaintSanitizer<PatternsRepr>(
+    val exact: Boolean?,
+    val bySideEffect: Boolean?,
+    val pattern: PatternsRepr,
+) {
+    fun <NP> updatePattern(pattern: NP) = SemgrepTaintSanitizer(exact, bySideEffect, pattern)
+}
 
 data class SemgrepTaintSource<PatternsRepr>(
-    val label: String?,
-    val requires: String?,
+    val exact: Boolean?,
+    val control: Boolean?,
+    val bySideEffect: Boolean?,
+    val label: SemgrepTaintLabel?,
+    val requires: SemgrepTaintRequires?,
     val pattern: PatternsRepr,
-)
+) {
+    fun <NP> updatePattern(pattern: NP) = SemgrepTaintSource(exact, control, bySideEffect, label, requires, pattern)
+}
 
 data class SemgrepTaintSink<PatternsRepr>(
-    val requires: String?,
+    val requires: SemgrepSinkTaintRequirement?,
     val pattern: PatternsRepr,
-)
+) {
+    fun <NP> updatePattern(pattern: NP) = SemgrepTaintSink(requires, pattern)
+}
+
+sealed interface SemgrepTaintRequires
+
+data class SemgrepTaintLabel(val label: String): SemgrepTaintRequires
+
+sealed interface SemgrepSinkTaintRequirement {
+    data class Simple(val requirement: SemgrepTaintRequires) : SemgrepSinkTaintRequirement
+    data class MetaVarRequirement(val requirement: Map<String, SemgrepTaintRequires>) : SemgrepSinkTaintRequirement
+}
 
 data class SemgrepTaintRule<PatternsRepr>(
     val sources: List<SemgrepTaintSource<PatternsRepr>>,
     val sinks: List<SemgrepTaintSink<PatternsRepr>>,
     val propagators: List<SemgrepTaintPropagator<PatternsRepr>>,
-    val sanitizers: List<PatternsRepr>,
+    val sanitizers: List<SemgrepTaintSanitizer<PatternsRepr>>,
 ) : SemgrepRule<PatternsRepr> {
     override fun <NewRepr> transform(block: (PatternsRepr) -> NewRepr) =
         SemgrepTaintRule(
-            sources = sources.map { SemgrepTaintSource(it.label, it.requires, block(it.pattern)) },
-            sinks = sinks.map { SemgrepTaintSink(it.requires, block(it.pattern)) },
-            propagators = propagators.map { SemgrepTaintPropagator(it.from, it.to, block(it.pattern)) },
-            sanitizers = sanitizers.map(block),
+            sources = sources.map { it.updatePattern(block(it.pattern)) },
+            sinks = sinks.map { it.updatePattern(block(it.pattern)) },
+            propagators = propagators.map { it.updatePattern(block(it.pattern)) },
+            sanitizers = sanitizers.map { it.updatePattern(block(it.pattern)) },
         )
 
     override fun <NewRepr> flatMap(block: (PatternsRepr) -> List<NewRepr>) = SemgrepTaintRule(
-        sources = sources.flatMap { p -> block(p.pattern).map { SemgrepTaintSource(p.label, p.requires, it) } },
-        sinks = sinks.flatMap { p -> block(p.pattern).map { SemgrepTaintSink(p.requires, it) } },
-        propagators = propagators.flatMap { p -> block(p.pattern).map { SemgrepTaintPropagator(p.from, p.to, it) } },
-        sanitizers = sanitizers.flatMap(block),
+        sources = sources.flatMap { p -> block(p.pattern).map { p.updatePattern(it) } },
+        sinks = sinks.flatMap { p -> block(p.pattern).map { p.updatePattern(it) } },
+        propagators = propagators.flatMap { p -> block(p.pattern).map { p.updatePattern(it) } },
+        sanitizers = sanitizers.flatMap { p -> block(p.pattern).map { p.updatePattern(it) } },
     )
 }
 

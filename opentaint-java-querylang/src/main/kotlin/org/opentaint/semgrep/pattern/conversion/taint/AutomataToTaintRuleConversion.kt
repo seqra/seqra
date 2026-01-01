@@ -36,6 +36,8 @@ import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
 import org.opentaint.semgrep.pattern.SemgrepMatchingRule
 import org.opentaint.semgrep.pattern.SemgrepRule
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
+import org.opentaint.semgrep.pattern.SemgrepSinkTaintRequirement
+import org.opentaint.semgrep.pattern.SemgrepTaintLabel
 import org.opentaint.semgrep.pattern.SemgrepTaintRule
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import org.opentaint.semgrep.pattern.conversion.IsMetavar
@@ -150,46 +152,63 @@ private fun RuleConversionCtx.convertMatchingRuleToTaintRules(
 private fun RuleConversionCtx.convertTaintRuleToTaintRules(
     rule: SemgrepTaintRule<RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>>,
 ): TaintRuleFromSemgrep {
-    val taintMarkName = "$ruleId#taint"
+    val taintMarks = mutableSetOf<String>()
     val generatedRules = mutableListOf<SerializedItem>()
 
-    for ((i, source) in rule.sources.withIndex()) {
-        if (source.label != null) {
-            semgrepRuleTrace.error("Rule $ruleId: source label ignored", Reason.WARNING)
-        }
+    fun taintMark(label: SemgrepTaintLabel?): String {
+        val labelSuffix = label?.label?.let { "_$it" } ?: ""
+        return "$ruleId#taint$labelSuffix"
+    }
 
-        if (source.requires != null) {
-            semgrepRuleTrace.error("Rule $ruleId: source requires ignored", Reason.WARNING)
+    for ((i, source) in rule.sources.withIndex()) {
+        val taintMarkName = taintMark(source.label).also { taintMarks.add(it) }
+
+        val requiresVarName = when (val r = source.requires) {
+            null -> "dummy_unused_name"
+            is SemgrepTaintLabel -> taintMark(r)
         }
 
         generatedRules += safeConvertToTaintRules("$ruleId: source #$i", source.pattern) { pattern ->
-            val sourceCtx = convertTaintSourceRule(i, pattern)
-            sourceCtx.flatMap { (ctx, stateVars) ->
-                ctx.generateTaintSourceRules(stateVars, taintMarkName, semgrepRuleTrace)
+            val sourceCtx = convertTaintSourceRule(i, pattern, generateRequires = source.requires != null)
+
+            sourceCtx.flatMap {
+                val ctx = SinkRuleGenerationCtx(it.requirementVars, it.requirementStateId, requiresVarName, it.ctx)
+                ctx.generateTaintSourceRules(it.stateVars, taintMarkName, semgrepRuleTrace)
             }
         }.orEmpty()
     }
 
     for ((i, sink) in rule.sinks.withIndex()) {
-        if (sink.requires != null) {
-            semgrepRuleTrace.error("Rule $ruleId: sink requires ignored", Reason.WARNING)
+        val sinkRequiresMarks = when (sink.requires) {
+            null -> taintMarks
+
+            is SemgrepSinkTaintRequirement.Simple -> when (val r = sink.requires.requirement) {
+                is SemgrepTaintLabel -> listOf(taintMark(r))
+            }
+
+            is SemgrepSinkTaintRequirement.MetaVarRequirement -> {
+                semgrepRuleTrace.error("Rule $ruleId: sink requires ignored", Reason.NOT_IMPLEMENTED)
+                taintMarks
+            }
         }
 
         generatedRules += safeConvertToTaintRules("$ruleId: sink #$i", sink.pattern) { pattern ->
             val sinkContexts = convertTaintSinkRule(i, pattern)
 
             sinkContexts.flatMap { (ctx, stateVars, stateId) ->
-                val sinkCtx = SinkRuleGenerationCtx(stateVars, stateId, taintMarkName, ctx)
-                sinkCtx.generateTaintSinkRules(ruleId, meta, semgrepRuleTrace) { _, cond ->
-                    if (cond is SerializedCondition.True) {
-                        semgrepRuleTrace.error(
-                            "Taint rule $ruleId match anything",
-                            Reason.WARNING,
-                        )
-                        return@generateTaintSinkRules false
-                    }
+                sinkRequiresMarks.flatMap { taintMarkName ->
+                    val sinkCtx = SinkRuleGenerationCtx(stateVars, stateId, taintMarkName, ctx)
+                    sinkCtx.generateTaintSinkRules(ruleId, meta, semgrepRuleTrace) { _, cond ->
+                        if (cond is SerializedCondition.True) {
+                            semgrepRuleTrace.error(
+                                "Taint rule $ruleId match anything",
+                                Reason.WARNING,
+                            )
+                            return@generateTaintSinkRules false
+                        }
 
-                    true
+                        true
+                    }
                 }
             }
         }.orEmpty()
@@ -202,17 +221,23 @@ private fun RuleConversionCtx.convertTaintRuleToTaintRules(
 
             val passCtx = generatePassRule(i, pattern, fromVar, toVar)
             passCtx.flatMap { (ctx, stateId) ->
-                val sinkCtx = SinkRuleGenerationCtx(setOf(fromVar), stateId, taintMarkName, ctx)
-                sinkCtx.generateTaintPassRules(fromVar, toVar, taintMarkName, semgrepRuleTrace)
+                taintMarks.flatMap { taintMarkName ->
+                    val sinkCtx = SinkRuleGenerationCtx(setOf(fromVar), stateId, taintMarkName, ctx)
+                    sinkCtx.generateTaintPassRules(fromVar, toVar, taintMarkName, semgrepRuleTrace)
+                }
             }
         }.orEmpty()
     }
 
     for ((i, sanitizer) in rule.sanitizers.withIndex()) {
-        generatedRules += safeConvertToTaintRules("$ruleId: sanitizer #$i", sanitizer) {
-            val sanitizerCtx = convertTaintSourceRule(i, sanitizer)
-            sanitizerCtx.flatMap { (ctx, _) ->
-                ctx.generateTaintSanitizerRules(taintMarkName, semgrepRuleTrace)
+        // todo: sanitizer by side effect
+        // todo: sanitizer focus metavar
+        generatedRules += safeConvertToTaintRules("$ruleId: sanitizer #$i", sanitizer.pattern) {
+            val sanitizerCtx = convertTaintSourceRule(i, sanitizer.pattern, generateRequires = false)
+            sanitizerCtx.flatMap {
+                taintMarks.flatMap { taintMarkName ->
+                    it.ctx.generateTaintSanitizerRules(taintMarkName, semgrepRuleTrace)
+                }
             }
         }.orEmpty()
     }
@@ -279,10 +304,18 @@ private fun RuleConversionCtx.convertTaintSinkRule(
     }
 }
 
+private data class SourceRuleGenerationCtx(
+    val ctx: TaintRuleGenerationCtx,
+    val stateVars: Set<MetavarAtom>,
+    val requirementVars: Set<MetavarAtom>,
+    val requirementStateId: Int
+)
+
 private fun RuleConversionCtx.convertTaintSourceRule(
     sourceIdx: Int,
-    rule: RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>
-): List<Pair<TaintRuleGenerationCtx, Set<MetavarAtom>>> {
+    rule: RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>,
+    generateRequires: Boolean
+): List<SourceRuleGenerationCtx> {
     val automata = rule.rule
 
     val taintAutomatas = createAutomataWithEdgeElimination(
@@ -290,10 +323,22 @@ private fun RuleConversionCtx.convertTaintSourceRule(
     )
 
     return taintAutomatas.map { taintAutomata ->
-        val (sourceAutomata, stateMetaVars) = ensureSourceStateVars(
+        val (rawSourceAutomata, stateMetaVars) = ensureSourceStateVars(
             taintAutomata,
             rule.metaVarInfo.focusMetaVars.map { MetavarAtom.create(it) }.toSet()
         )
+
+        val (sourceAutomata, requirementVars, requirementStateId) = if (generateRequires) {
+            val (sourceAutomataWithReq, requirementVars) = ensureSinkStateVars(rawSourceAutomata, emptySet())
+
+            val initialStateId = sourceAutomataWithReq.stateId(sourceAutomataWithReq.initial)
+            val initialRegister = StateRegister(requirementVars.associateWith { initialStateId })
+            val newInitial = State(sourceAutomataWithReq.initial.node, initialRegister)
+            val sourceAutomataWithState = sourceAutomataWithReq.replaceInitialState(newInitial)
+            Triple(sourceAutomataWithState, requirementVars, initialStateId)
+        } else {
+            Triple(rawSourceAutomata, emptySet(), -1)
+        }
 
         val taintEdges = generateAutomataWithTaintEdges(
             sourceAutomata, rule.metaVarInfo,
@@ -304,7 +349,7 @@ private fun RuleConversionCtx.convertTaintSourceRule(
         val assignedStateVars = finalAcceptEdges.flatMapTo(hashSetOf()) { it.stateTo.register.assignedVars.keys }
         assignedStateVars.retainAll(stateMetaVars)
 
-        taintEdges to assignedStateVars
+        SourceRuleGenerationCtx(taintEdges, assignedStateVars, requirementVars, requirementStateId)
     }
 }
 
@@ -349,6 +394,11 @@ private fun ensureSinkStateVars(
 
     val currentStateSucc = current.successors[state] ?: return null
 
+    val argumentIndex = Position.ArgumentIndex.Any(paramClassifier = "tainted")
+    val expandPositions = listOf(
+        Position.Argument(argumentIndex), Position.Object
+    )
+
     val newSucc = hashSetOf<Pair<Edge, State>>()
     for ((edge, dst) in currentStateSucc) {
         ensureSinkStateVars(taintVar, dst, processedStates.toMutableSet(), current, newAutomata)?.let { newDst ->
@@ -360,21 +410,19 @@ private fun ensureSinkStateVars(
                 val positivePredicate = edge.condition.findPositivePredicate()
                     ?: continue
 
-                val conditionVars = edge.condition.readMetaVar.toMutableMap()
-                val argumentIndex = Position.ArgumentIndex.Any(paramClassifier = "tainted")
-                val condition = ParamConstraint(
-                    Position.Argument(argumentIndex),
-                    IsMetavar(taintVar)
-                )
-                val predicate = Predicate(positivePredicate.signature, condition)
+                for (pos in expandPositions) {
+                    val conditionVars = edge.condition.readMetaVar.toMutableMap()
+                    val condition = ParamConstraint(pos, IsMetavar(taintVar))
+                    val predicate = Predicate(positivePredicate.signature, condition)
 
-                conditionVars[taintVar] = listOf(MethodPredicate(predicate, negated = false))
-                val edgeCondition = EdgeCondition(conditionVars, edge.condition.other)
+                    conditionVars[taintVar] = listOf(MethodPredicate(predicate, negated = false))
+                    val edgeCondition = EdgeCondition(conditionVars, edge.condition.other)
 
-                val modifiedEdge = Edge.MethodCall(edgeCondition, edge.effect)
-                val dstWithTaint = forkState(dst, current, hashMapOf(), newAutomata)
+                    val modifiedEdge = Edge.MethodCall(edgeCondition, edge.effect)
+                    val dstWithTaint = forkState(dst, current, hashMapOf(), newAutomata)
 
-                newSucc.add(modifiedEdge to dstWithTaint)
+                    newSucc.add(modifiedEdge to dstWithTaint)
+                }
             }
 
             Edge.AnalysisEnd,

@@ -37,7 +37,7 @@ data class SemgrepYamlRule(
     @SerialName("pattern-propagators")
     val patternPropagators: List<PatternPropagator> = emptyList(),
     @SerialName("pattern-sanitizers")
-    val patternSanitizers: List<ComplexPattern> = emptyList(),
+    val patternSanitizers: List<PatternSanitizer> = emptyList(),
 )
 
 @Serializable
@@ -120,25 +120,68 @@ data class MetavariablePatternInfo(
     val metaVariablePattern: ComplexPattern,
 )
 
+@Serializable(PatternSanitizerSerializer::class)
+data class PatternSanitizer(
+    val exact: Boolean? = null,
+    @SerialName("by-side-effect")
+    val bySideEffect: Boolean? = null,
+    val sanitizerPattern: ComplexPattern,
+)
+
 @Serializable(PatternPropagatorSerializer::class)
 data class PatternPropagator(
     val from: String,
     val to: String,
+    @SerialName("by-side-effect")
+    val bySideEffect: Boolean? = null,
     val propagatorPattern: ComplexPattern,
 )
 
 @Serializable(PatternSourceSerializer::class)
 data class PatternSource(
-    val label: String? = null,
-    val requires: String? = null,
+    val exact: Boolean? = null,
+    val control: Boolean? = null,
+    @SerialName("by-side-effect")
+    val bySideEffect: Boolean? = null,
+    @SerialName("label")
+    val rawLabel: String? = null,
+    @SerialName("requires")
+    val rawRequires: String? = null,
     val sourcePattern: ComplexPattern,
-)
+) {
+    @Transient
+    val requires: SemgrepTaintRequires? = rawRequires?.decodeRequires()
+    @Transient
+    val label: SemgrepTaintLabel? = rawLabel?.let { SemgrepTaintLabel(it) }
+}
 
 @Serializable(PatternSinkSerializer::class)
 data class PatternSink(
-    val requires: String? = null,
+    @SerialName("requires")
+    val rawRequires: YamlNode? = null,
     val sinkPattern: ComplexPattern,
-)
+) {
+    @Transient
+    val requires: SemgrepSinkTaintRequirement? = rawRequires?.decodeSinkRequires()
+}
+
+private fun YamlNode.decodeSinkRequires(): SemgrepSinkTaintRequirement {
+    if (this is YamlScalar) {
+        return SemgrepSinkTaintRequirement.Simple(content.decodeRequires())
+    }
+
+    TODO("Sink requirement with metavars")
+}
+
+private fun String.decodeRequires(): SemgrepTaintRequires {
+    val words = split("\\s+".toRegex())
+    if (words.size == 1) {
+        val identifier = words.single()
+        return SemgrepTaintLabel(identifier)
+    }
+
+    TODO("Complex requires")
+}
 
 private const val metaVariableField = "metavariable"
 
@@ -154,6 +197,7 @@ private object MetaVariablePatternInfoSerializer
     }
 }
 
+private const val bySideEffect = "by-side-effect"
 private const val fromField = "from"
 private const val toField = "to"
 
@@ -166,10 +210,13 @@ private object PatternPropagatorSerializer
     override fun deserialize(obj: ComplexPattern, fields: Map<String, Optional<Any>>): PatternPropagator {
         val fromValue = fields[fromField]?.map { it as String }?.getOrNull() ?: error("deserialization failed")
         val toValue = fields[toField]?.map { it as String }?.getOrNull() ?: error("deserialization failed")
-        return PatternPropagator(fromValue, toValue, obj)
+        val bySf = fields[bySideEffect]?.map { it as Boolean }?.getOrNull()
+        return PatternPropagator(fromValue, toValue, bySf, obj)
     }
 }
 
+private const val exactField = "exact"
+private const val controlField = "control"
 private const val labelField = "label"
 private const val requiresField = "requires"
 
@@ -181,7 +228,10 @@ private object PatternSourceSerializer : InlineCompositeObjectSerializer<Pattern
     override fun deserialize(obj: ComplexPattern, fields: Map<String, Optional<Any>>): PatternSource {
         val label = fields[labelField]?.map { it as String }?.getOrNull()
         val requires = fields[requiresField]?.map { it as String }?.getOrNull()
-        return PatternSource(label, requires, obj)
+        val bySf = fields[bySideEffect]?.map { it as Boolean }?.getOrNull()
+        val exact = fields[exactField]?.map { it as Boolean }?.getOrNull()
+        val control = fields[controlField]?.map { it as Boolean }?.getOrNull()
+        return PatternSource(exact, control, bySf, label, requires, obj)
     }
 }
 
@@ -191,8 +241,21 @@ private object PatternSinkSerializer : InlineCompositeObjectSerializer<PatternSi
     inlinedFields = listOf(requiresField to String.serializer()),
 ) {
     override fun deserialize(obj: ComplexPattern, fields: Map<String, Optional<Any>>): PatternSink {
-        val requires = fields[requiresField]?.map { it as String }?.getOrNull()
+        val requires = fields[requiresField]?.map { it as YamlNode }?.getOrNull()
         return PatternSink(requires, obj)
+    }
+}
+
+private object PatternSanitizerSerializer
+    : InlineCompositeObjectSerializer<PatternSanitizer, ComplexPattern>(
+    name = "pattern-sanitizer",
+    objSerializer = ComplexPattern.serializer(),
+    inlinedFields = listOf(fromField to String.serializer(), toField to String.serializer()),
+) {
+    override fun deserialize(obj: ComplexPattern, fields: Map<String, Optional<Any>>): PatternSanitizer {
+        val exact = fields[exactField]?.map { it as Boolean }?.getOrNull()
+        val bySf = fields[bySideEffect]?.map { it as Boolean }?.getOrNull()
+        return PatternSanitizer(exact, bySf, obj)
     }
 }
 
@@ -235,15 +298,17 @@ fun parseSemgrepRule(rule: SemgrepYamlRule): SemgrepRule<Formula> =
 private fun parseTaintRule(rule: SemgrepYamlRule): SemgrepTaintRule<Formula> =
     SemgrepTaintRule(
         sources = rule.patternSources.map {
-            SemgrepTaintSource(it.label, it.requires, complexPatternToFormula(it.sourcePattern))
+            SemgrepTaintSource(it.exact, it.control, it.bySideEffect, it.label, it.requires, complexPatternToFormula(it.sourcePattern))
         },
         sinks = rule.patternSinks.map {
             SemgrepTaintSink(it.requires, complexPatternToFormula(it.sinkPattern))
         },
         propagators = rule.patternPropagators.map {
-            SemgrepTaintPropagator(it.from, it.to, complexPatternToFormula(it.propagatorPattern))
+            SemgrepTaintPropagator(it.from, it.to, it.bySideEffect, complexPatternToFormula(it.propagatorPattern))
         },
-        sanitizers = rule.patternSanitizers.map { complexPatternToFormula(it) }
+        sanitizers = rule.patternSanitizers.map {
+            SemgrepTaintSanitizer(it.exact, it.bySideEffect, complexPatternToFormula(it.sanitizerPattern))
+        }
     )
 
 // TODO The case in which two or more of them are simultaneously contained has not been considered.

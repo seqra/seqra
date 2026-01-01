@@ -96,7 +96,6 @@ class IssuesTest : SampleBasedTest() {
     fun `issue 94`() = runTest<issue94>()
 
     @Test
-    @Disabled // todo: support `label` & `requires`: https://semgrep.dev/docs/writing-rules/data-flow/taint-mode#taint-labels-pro-
     fun `issue 95`() = runTest<issue95>()
 
     @AfterAll
