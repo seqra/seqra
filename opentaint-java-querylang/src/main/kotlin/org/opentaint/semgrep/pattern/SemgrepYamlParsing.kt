@@ -10,7 +10,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.builtins.serializer
 import org.opentaint.semgrep.pattern.conversion.cartesianProductMapTo
-import org.slf4j.event.Level
 import java.util.Optional
 import kotlin.jvm.optionals.getOrNull
 
@@ -262,19 +261,19 @@ private fun parseMatchingRuleFormula(rule: SemgrepYamlRule): Formula =
     }
 
 fun convertToRawRule(rule: SemgrepRule<Formula>,
-                     semgrepError : AbstractSemgrepError): SemgrepRule<RuleWithMetaVars<RawSemgrepRule, RawMetaVarInfo>> {
-    return rule.flatMap { convertToRawRule(it, semgrepError) }
+                     semgrepTrace : SemgrepRuleLoadStepTrace): SemgrepRule<RuleWithMetaVars<RawSemgrepRule, RawMetaVarInfo>> {
+    return rule.flatMap { convertToRawRule(it, semgrepTrace) }
 }
 
 fun convertToRawRule(formula: Formula,
-                     semgrepError : AbstractSemgrepError
+                     semgrepTrace : SemgrepRuleLoadStepTrace
 ): List<RuleWithMetaVars<RawSemgrepRule, RawMetaVarInfo>> {
     val formulaDnf = formula.normalizeToNNF(negated = false).toDNF()
-    return formulaDnf.mapNotNull { convertToNormalizedRule(it.literals, semgrepError) }
+    return formulaDnf.mapNotNull { convertToNormalizedRule(it.literals, semgrepTrace) }
 }
 
 private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
-                                    semgrepError : AbstractSemgrepError): RuleWithMetaVars<RawSemgrepRule, RawMetaVarInfo>? {
+                                    semgrepTrace : SemgrepRuleLoadStepTrace): RuleWithMetaVars<RawSemgrepRule, RawMetaVarInfo>? {
     val patterns = mutableListOf<String>()
     val patternNots = mutableListOf<String>()
     val patternInsides = mutableListOf<String>()
@@ -304,11 +303,9 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
             is Formula.MetavarFocus -> {
                 // todo
                 if (literal.negated)  {
-                    semgrepError += SemgrepError(
-                        SemgrepError.Step.BUILD_CONVERT_TO_RAW_RULE,
+                    semgrepTrace.error(
                         "Not implemented negated MetavarFocus",
-                        Level.TRACE,
-                        SemgrepError.Reason.NOT_IMPLEMENTED,
+                        SemgrepErrorEntry.Reason.NOT_IMPLEMENTED,
                     )
                     return null
                 }
@@ -317,11 +314,9 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
             }
 
             is Formula.MetavarCond -> {
-                semgrepError += SemgrepError(
-                    SemgrepError.Step.BUILD_CONVERT_TO_RAW_RULE,
+                semgrepTrace.error(
                     "Not implemented MetavarCond",
-                    Level.TRACE,
-                    SemgrepError.Reason.NOT_IMPLEMENTED
+                    SemgrepErrorEntry.Reason.NOT_IMPLEMENTED
                 )
                 // todo
                 return null
@@ -330,11 +325,9 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
             is Formula.MetavarPattern -> {
                 var metaVarConstraint = f.formula.toMetaVarPatternConstraint()
                 if (metaVarConstraint == null) {
-                    semgrepError += SemgrepError(
-                        SemgrepError.Step.BUILD_CONVERT_TO_RAW_RULE,
+                    semgrepTrace.error(
                         "Not implemented complex MetavarPattern",
-                        Level.TRACE,
-                        SemgrepError.Reason.NOT_IMPLEMENTED
+                        SemgrepErrorEntry.Reason.NOT_IMPLEMENTED
                     )
                     // todo
                     return null
@@ -359,11 +352,9 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
             }
 
             is Formula.Regex -> {
-                semgrepError += SemgrepError(
-                    SemgrepError.Step.BUILD_CONVERT_TO_RAW_RULE,
+                semgrepTrace.error(
                     "Not implemented Regex",
-                    Level.TRACE,
-                    SemgrepError.Reason.NOT_IMPLEMENTED
+                    SemgrepErrorEntry.Reason.NOT_IMPLEMENTED
                 )
                 // todo
                 return null

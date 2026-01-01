@@ -277,7 +277,7 @@ fun Cube.prettyPrint(
     return wrapMultiline(prefix = "", cubeStr, suffix = "", currentIndent, lineLengthLimit)
 }
 
-private fun MethodFormulaCubeCompact.prettyPrint(manager: MethodFormulaManager): List<String> {
+fun MethodFormulaCubeCompact.prettyPrint(manager: MethodFormulaManager): List<String> {
     val result = mutableListOf<String>()
     positiveLiterals.forEach { litVar ->
         result += manager.predicate(litVar).prettyPrint()

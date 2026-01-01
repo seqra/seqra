@@ -112,7 +112,12 @@ fun removePatternStartAndEnd(automata: SemgrepRuleAutomata) {
         node.outEdges.remove(edgeToRedirect)
 
         edgeToRedirect.second.outEdges.forEach { edge ->
-            node.outEdges.add(edge)
+            if (edge.second == edgeToRedirect.second) {
+                // Special handling for loops
+                node.outEdges.add(edge.first to node)
+            } else {
+                node.outEdges.add(edge)
+            }
         }
     }
 

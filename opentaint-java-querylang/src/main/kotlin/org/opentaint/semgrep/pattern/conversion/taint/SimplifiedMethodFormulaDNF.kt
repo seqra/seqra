@@ -17,14 +17,18 @@ import org.opentaint.semgrep.pattern.conversion.automata.isTrue
 import org.opentaint.semgrep.pattern.conversion.automata.negated
 import java.util.BitSet
 
-fun methodFormulaDNF(formula: MethodFormula, cancelation: OperationCancelation): List<MethodFormulaCubeCompact> {
-    return methodFormulaModels(formula, cancelation)
+fun methodFormulaDNF(
+    formula: MethodFormula,
+    cancelation: OperationCancelation,
+    decisionVarSelector: DecisionVarSelector
+): List<MethodFormulaCubeCompact> {
+    return methodFormulaModels(formula, cancelation, decisionVarSelector)
 }
 
 fun methodFormulaCheckSat(
     formula: MethodFormula,
     cancelation: OperationCancelation,
-    verifyModel: (MethodFormulaCubeCompact) -> Boolean
+    verifyModel: (MethodFormulaCubeCompact) -> Boolean,
 ): Boolean {
     val checkSatStorage = object : FormulaModelsStorage {
         private val models = mutableListOf<MethodFormulaCubeCompact>()
@@ -45,7 +49,7 @@ fun methodFormulaCheckSat(
     }
 
     try {
-        methodFormulaModels(formula, cancelation, checkSatStorage)
+        methodFormulaModels(formula, cancelation, checkSatStorage, SequentialDecisionVarSelector.INITIAL)
     } catch (isSat: FormulaSatResult) {
         return true
     }
@@ -92,7 +96,7 @@ private class ModelStorage {
     }
 }
 
-private interface FormulaModelsStorage {
+interface FormulaModelsStorage {
     val isEmpty: Boolean
     fun addModel(model: MethodFormulaCubeCompact, startModel: MethodFormulaCubeCompact)
 
@@ -237,13 +241,14 @@ private class IterationModelsCollector(
     }
 }
 
-fun methodFormulaModels(formula: MethodFormula, cancelation: OperationCancelation) =
-    methodFormulaModels(formula, cancelation, FormulaModels(formula))
+fun methodFormulaModels(formula: MethodFormula, cancelation: OperationCancelation, decisionVarSelector: DecisionVarSelector) =
+    methodFormulaModels(formula, cancelation, FormulaModels(formula), decisionVarSelector)
 
 private fun methodFormulaModels(
     formula: MethodFormula,
     cancelation: OperationCancelation,
     models: FormulaModelsStorage,
+    decisionVarSelector: DecisionVarSelector,
 ): List<MethodFormulaCubeCompact> {
     val startModels = startModels(formula)
     for (startModel in startModels) {
@@ -261,7 +266,7 @@ private fun methodFormulaModels(
             }
 
             val iterationModels = IterationModelsCollector(models, startModel)
-            val status = deepSearchModel(decisionVar = 0, iterationFormula, startModel, iterationModels, cancelation)
+            val status = deepSearchModel(decisionVarSelector, iterationFormula, startModel, iterationModels, cancelation)
 
             if (!status) {
                 break
@@ -326,24 +331,45 @@ private inline fun simplifiedTrue(model: MethodFormulaCubeCompact): Simplificati
 
 private fun searchModel(
     decisionVar: Int,
+    decisionVarSelector: DecisionVarSelector,
     formula: MethodFormula,
     currentModel: MethodFormulaCubeCompact,
     resultModels: IterationModelsCollector,
     cancelation: OperationCancelation
 ): Boolean {
     currentModel.positiveLiterals.set(decisionVar)
-    val positiveSat = deepSearchModel(decisionVar, formula, currentModel, resultModels, cancelation)
+    val positiveSat = deepSearchModel(decisionVarSelector, formula, currentModel, resultModels, cancelation)
     currentModel.positiveLiterals.clear(decisionVar)
 
     currentModel.negativeLiterals.set(decisionVar)
-    val negativeSat = deepSearchModel(decisionVar, formula, currentModel, resultModels, cancelation)
+    val negativeSat = deepSearchModel(decisionVarSelector, formula, currentModel, resultModels, cancelation)
     currentModel.negativeLiterals.clear(decisionVar)
 
     return positiveSat or negativeSat
 }
 
+fun interface DecisionVarSelector {
+    fun nextDecisionVar(options: BitSet): Pair<Int, DecisionVarSelector>?
+}
+
+data class SequentialDecisionVarSelector private constructor(
+    private val decisionVar: Int
+) : DecisionVarSelector {
+    override fun nextDecisionVar(options: BitSet): Pair<Int, DecisionVarSelector>? {
+        val nextVar = options.nextSetBit(decisionVar + 1)
+        if (nextVar == -1) {
+            return null
+        }
+        return nextVar to SequentialDecisionVarSelector(nextVar)
+    }
+
+    companion object {
+        val INITIAL = SequentialDecisionVarSelector(0)
+    }
+}
+
 private fun deepSearchModel(
-    decisionVar: Int,
+    decisionVarSelector: DecisionVarSelector,
     formula: MethodFormula,
     currentModel: MethodFormulaCubeCompact,
     resultModels: IterationModelsCollector,
@@ -365,10 +391,10 @@ private fun deepSearchModel(
             val nextModel = currentModel.add(it.requiredModel)
             check(!nextModel.hasConflict()) { "Simplification failed" }
 
-            val nextVar = it.requiredVars.nextSetBit(decisionVar + 1)
-            check(nextVar > 0) { "Simplification failed" }
+            val (nextVar, nextDecisionVarSelector) = decisionVarSelector.nextDecisionVar(it.requiredVars)
+                ?: error("Simplification failed")
 
-            searchModel(nextVar, it.formula, nextModel, resultModels, cancelation)
+            searchModel(nextVar, nextDecisionVarSelector, it.formula, nextModel, resultModels, cancelation)
         }
     )
 }
@@ -692,10 +718,9 @@ private fun removeFreeVariables(
     usedVars: BitSet,
     startModel: MethodFormulaCubeCompact,
 ) {
-    // TODO: rewrite cube simplifier
-//    val possiblyFreePos = model.positiveLiterals.copy()
-//    possiblyFreePos.andNot(startModel.positiveLiterals)
-//    removeVariablesFromModel(model.positiveLiterals, possiblyFreePos, model, formula, usedVars)
+    val possiblyFreePos = model.positiveLiterals.copy()
+    possiblyFreePos.andNot(startModel.positiveLiterals)
+    removeVariablesFromModel(model.positiveLiterals, possiblyFreePos, model, formula, usedVars)
 
     val possiblyFreeNeg = model.negativeLiterals.copy()
     possiblyFreeNeg.andNot(startModel.negativeLiterals)

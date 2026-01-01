@@ -56,6 +56,7 @@ class JIRTaintAnalyzer(
         val taintRulesStatsSamplingPeriod: Int?,
         val enableIfdsCoverage: Boolean,
         val factReachabilitySarif: Boolean,
+        val enableVulnSummary: Boolean,
     )
 
     private val ifdsAnalysisGraph by lazy {
@@ -103,6 +104,12 @@ class JIRTaintAnalyzer(
 
         var vulnerabilities = ifdsEngine.getVulnerabilities()
         logger.info { "Total vulnerabilities: ${vulnerabilities.size}" }
+
+        if (debugOptions.enableVulnSummary) {
+            logger.info {
+                printVulnSummary(vulnerabilities)
+            }
+        }
 
         if (analysisCwe != null) {
             vulnerabilities = vulnerabilities.filter {
@@ -219,6 +226,42 @@ class JIRTaintAnalyzer(
 
     override fun close() {
         ifdsEngine.close()
+    }
+
+    private fun printVulnSummary(
+        vulnerabilities: List<TaintSinkTracker.TaintVulnerability>
+    ): String = buildString {
+        data class VulnInfo(val location: String, val ruleId: String, val kind: String)
+
+        val info = mutableListOf<VulnInfo>()
+
+        for (v in vulnerabilities) {
+            when (v) {
+                is TaintSinkTracker.TaintVulnerabilityUnconditional -> {
+                    info += VulnInfo("${v.statement.location}|${v.statement}", v.rule.id, "unconditional")
+                }
+
+                is TaintSinkTracker.TaintVulnerabilityWithFact -> {
+                    info += VulnInfo("${v.statement.location}|${v.statement}", v.rule.id, "fact")
+                }
+            }
+        }
+
+        info.sortWith(compareBy<VulnInfo> { it.kind }.thenBy { it.ruleId }.thenBy { it.location })
+
+        appendLine("VULNERABILITIES:")
+        appendLine("#".repeat(50))
+        for ((kind, sameKindVuln) in info.groupBy { it.kind }) {
+            appendLine(kind)
+            appendLine("-".repeat(50))
+            for ((rule, sameRuleVuln) in sameKindVuln.groupBy { it.ruleId }) {
+                appendLine(rule)
+                for (vuln in sameRuleVuln) {
+                    appendLine("\t\t${vuln.location}")
+                }
+            }
+        }
+        appendLine("#".repeat(50))
     }
 
     companion object {

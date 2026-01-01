@@ -25,3 +25,9 @@ fun SemgrepRuleAutomata.containsAcceptState(): Boolean {
     traverse(this) { if (it.accept) result = true }
     return result
 }
+
+fun countStates(automata: SemgrepRuleAutomata): Int {
+    var states = 0
+    traverse(automata) { states++ }
+    return states
+}

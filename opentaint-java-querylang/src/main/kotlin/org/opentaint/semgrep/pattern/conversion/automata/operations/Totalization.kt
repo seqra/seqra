@@ -69,9 +69,6 @@ private fun totalize(
     automata: SemgrepRuleAutomata,
     edgeToDeadNode: (AutomataNode) -> AutomataEdgeType?,
 ) {
-    check(automata.isDeterministic) {
-        "Cannot totalize NFA"
-    }
 
     traverse(automata) { node ->
         if (node == automata.deadNode) {

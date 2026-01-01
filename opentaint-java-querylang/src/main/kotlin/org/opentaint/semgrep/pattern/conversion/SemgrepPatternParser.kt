@@ -1,12 +1,10 @@
 package org.opentaint.semgrep.pattern.conversion
 
-import mu.KotlinLogging
-import org.slf4j.event.Level
-import org.opentaint.semgrep.pattern.AbstractSemgrepError
-import org.opentaint.semgrep.pattern.SemgrepError
+import org.opentaint.semgrep.pattern.SemgrepErrorEntry
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
-import org.opentaint.semgrep.pattern.SemgrepJavaPatternParsingResult
 import org.opentaint.semgrep.pattern.SemgrepJavaPatternParser
+import org.opentaint.semgrep.pattern.SemgrepJavaPatternParsingResult
+import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import java.util.Optional
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.jvm.optionals.getOrNull
@@ -14,8 +12,7 @@ import kotlin.jvm.optionals.getOrNull
 interface SemgrepPatternParser {
     fun parseOrNull(
         pattern: String,
-        semgrepError: AbstractSemgrepError,
-        semgrepStep: SemgrepError.Step,
+        semgrepTrace: SemgrepRuleLoadStepTrace,
     ): SemgrepJavaPattern?
 
     fun cached() = CachedSemgrepPatternParser(this)
@@ -30,16 +27,13 @@ class DefaultSemgrepPatternParser(
 ) : SemgrepPatternParser {
     override fun parseOrNull(
         pattern: String,
-        semgrepError: AbstractSemgrepError,
-        semgrepStep: SemgrepError.Step,
+        semgrepTrace: SemgrepRuleLoadStepTrace,
     ): SemgrepJavaPattern? {
         return when (val result = parser.parseSemgrepJavaPattern(pattern)) {
             is SemgrepJavaPatternParsingResult.FailedASTParsing -> {
-                semgrepError += SemgrepError(
-                    semgrepStep,
+                semgrepTrace.error(
                     "Pattern parsing AST failed with errors:\n${result.errorMessages.joinToString("\n")}",
-                    Level.ERROR,
-                    SemgrepError.Reason.ERROR,
+                    SemgrepErrorEntry.Reason.ERROR,
                 )
                 null
             }
@@ -49,21 +43,17 @@ class DefaultSemgrepPatternParser(
             }
 
             is SemgrepJavaPatternParsingResult.ParserFailure -> {
-                semgrepError += SemgrepError(
-                    semgrepStep,
+                semgrepTrace.error(
                     "Pattern parsing failed: ${result.exception.message}, ${result.exception.element.text}",
-                    Level.ERROR,
-                    SemgrepError.Reason.ERROR,
+                    SemgrepErrorEntry.Reason.ERROR,
                 )
                 null
             }
 
             is SemgrepJavaPatternParsingResult.OtherFailure -> {
-                semgrepError += SemgrepError(
-                    semgrepStep,
+                semgrepTrace.error(
                     "Pattern parsing failed: ${result.exception.message}",
-                    Level.ERROR,
-                    SemgrepError.Reason.ERROR,
+                    SemgrepErrorEntry.Reason.ERROR,
                 )
                 null
             }
@@ -78,12 +68,9 @@ class CachedSemgrepPatternParser(
 
     override fun parseOrNull(
         pattern: String,
-        semgrepError: AbstractSemgrepError,
-        semgrepStep: SemgrepError.Step,
+        semgrepTrace: SemgrepRuleLoadStepTrace,
     ): SemgrepJavaPattern? =
         cache.computeIfAbsent(pattern) {
-            Optional.ofNullable(parser.parseOrNull(pattern, semgrepError, semgrepStep))
+            Optional.ofNullable(parser.parseOrNull(pattern, semgrepTrace))
         }.getOrNull()
 }
-
-private val logger = KotlinLogging.logger {}

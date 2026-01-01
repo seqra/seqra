@@ -33,24 +33,7 @@ fun AutomataBuilderCtx.intersection(
                     createNewNode(to1, to2)
                 }
 
-                val edgeType = if (outType1 == outType2 && outType1 !is AutomataEdgeType.AutomataEdgeTypeWithFormula) {
-                    outType1
-                } else if (outType1 is AutomataEdgeType.MethodCall && outType2 is AutomataEdgeType.MethodCall) {
-                    val formula = intersectMethodFormula(outType1.formula, outType2.formula)
-                        ?: return@inner
-
-                    AutomataEdgeType.MethodCall(formula)
-
-                } else if (outType1 is AutomataEdgeType.MethodEnter && outType2 is AutomataEdgeType.MethodEnter) {
-                    val formula = intersectMethodFormula(outType1.formula, outType2.formula)
-                        ?: return@inner
-
-                    AutomataEdgeType.MethodEnter(formula)
-
-                } else {
-                    return@inner
-                }
-
+                val edgeType = intersectEdges(outType1, outType2) ?: return@inner
                 node.outEdges.add(edgeType to to)
             }
         }
@@ -67,6 +50,25 @@ fun AutomataBuilderCtx.intersection(
     val unified = unifyMetavars(intersection)
     return unified.also {
         removeDeadNodes(it)
+    }
+}
+
+internal fun AutomataBuilderCtx.intersectEdges(outType1: AutomataEdgeType, outType2: AutomataEdgeType): AutomataEdgeType? {
+    return if (outType1 == outType2 && outType1 !is AutomataEdgeType.AutomataEdgeTypeWithFormula) {
+        outType1
+    } else if (outType1 is AutomataEdgeType.MethodCall && outType2 is AutomataEdgeType.MethodCall) {
+        val formula = intersectMethodFormula(outType1.formula, outType2.formula)
+            ?: return null
+
+        AutomataEdgeType.MethodCall(formula)
+
+    } else if (outType1 is AutomataEdgeType.MethodEnter && outType2 is AutomataEdgeType.MethodEnter) {
+        val formula = intersectMethodFormula(outType1.formula, outType2.formula)
+            ?: return null
+
+        AutomataEdgeType.MethodEnter(formula)
+    } else {
+        null
     }
 }
 

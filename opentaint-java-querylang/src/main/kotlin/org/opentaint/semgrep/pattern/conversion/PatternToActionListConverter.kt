@@ -1,7 +1,5 @@
 package org.opentaint.semgrep.pattern.conversion
 
-import org.slf4j.event.Level
-import org.opentaint.semgrep.pattern.AbstractSemgrepError
 import org.opentaint.semgrep.pattern.AddExpr
 import org.opentaint.semgrep.pattern.Annotation
 import org.opentaint.semgrep.pattern.ArrayAccess
@@ -33,8 +31,9 @@ import org.opentaint.semgrep.pattern.ObjectCreation
 import org.opentaint.semgrep.pattern.PatternArgumentPrefix
 import org.opentaint.semgrep.pattern.PatternSequence
 import org.opentaint.semgrep.pattern.ReturnStmt
-import org.opentaint.semgrep.pattern.SemgrepError
+import org.opentaint.semgrep.pattern.SemgrepErrorEntry
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
+import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import org.opentaint.semgrep.pattern.StaticFieldAccess
 import org.opentaint.semgrep.pattern.StringEllipsis
 import org.opentaint.semgrep.pattern.StringLiteral
@@ -62,7 +61,7 @@ class PatternToActionListConverter: ActionListBuilder {
 
     override fun createActionList(
         pattern: SemgrepJavaPattern,
-        semgrepError: AbstractSemgrepError,
+        semgrepTrace: SemgrepRuleLoadStepTrace,
     ): SemgrepPatternActionList? = try {
         transformPatternToActionList(pattern, isRootPattern = true)
     } catch (ex: TransformationFailed) {
@@ -70,11 +69,9 @@ class PatternToActionListConverter: ActionListBuilder {
         val oldValue = failedTransformations.getOrDefault(reason, 0)
         failedTransformations[reason] = oldValue + 1
 
-        semgrepError += SemgrepError(
-            SemgrepError.Step.BUILD_ACTION_LIST_CONVERSION,
+        semgrepTrace.error(
             "Failed transformation to ActionList: ${ex.message}",
-            Level.TRACE,
-            SemgrepError.Reason.ERROR
+            SemgrepErrorEntry.Reason.ERROR
         )
         null
     }

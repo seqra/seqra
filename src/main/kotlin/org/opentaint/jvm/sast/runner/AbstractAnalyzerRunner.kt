@@ -57,6 +57,7 @@ abstract class AbstractAnalyzerRunner : CliWithLogger() {
             taintRulesStatsSamplingPeriod = debugTaintRulesStatsSamplingPeriod.takeIf { debugTaintRulesStats },
             enableIfdsCoverage = debugIfdsCoverage,
             factReachabilitySarif = debugFactReachabilitySarif,
+            enableVulnSummary = false,
         )
     }
 

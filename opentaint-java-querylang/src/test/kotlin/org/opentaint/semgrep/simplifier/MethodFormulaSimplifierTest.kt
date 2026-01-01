@@ -7,6 +7,7 @@ import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaCubeCompact
 import org.opentaint.semgrep.pattern.conversion.automata.isTrue
 import org.opentaint.semgrep.pattern.conversion.automata.isUnknown
+import org.opentaint.semgrep.pattern.conversion.taint.SequentialDecisionVarSelector
 import org.opentaint.semgrep.pattern.conversion.taint.eval
 import org.opentaint.semgrep.pattern.conversion.taint.methodFormulaModels
 import java.util.BitSet
@@ -100,7 +101,7 @@ class MethodFormulaSimplifierTest {
         formula: MethodFormula
     ): Boolean {
         val groundTruth = groundTruthFormulaModels(formula)
-        val actualModels = methodFormulaModels(formula, OperationCancelation(1.seconds))
+        val actualModels = methodFormulaModels(formula, OperationCancelation(1.seconds), SequentialDecisionVarSelector.INITIAL)
         val completeActualModels = actualModels.flatMapTo(hashSetOf()) {
             completeModel(it)
         }

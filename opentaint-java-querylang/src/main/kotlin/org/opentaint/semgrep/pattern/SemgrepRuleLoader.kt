@@ -2,15 +2,14 @@ package org.opentaint.semgrep.pattern
 
 import com.charleskorn.kaml.AnchorsAndAliases
 import com.charleskorn.kaml.Yaml
-import com.charleskorn.kaml.YamlMap
 import com.charleskorn.kaml.YamlConfiguration
 import com.charleskorn.kaml.YamlList
+import com.charleskorn.kaml.YamlMap
 import com.charleskorn.kaml.YamlScalar
 import kotlinx.serialization.decodeFromString
-import mu.KLogging
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
-import org.slf4j.event.Level
+import org.opentaint.semgrep.pattern.SemgrepTraceEntry.Step
 import org.opentaint.semgrep.pattern.conversion.ActionListBuilder
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
 import org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
@@ -52,77 +51,64 @@ class SemgrepRuleLoader {
     fun loadRuleSet(
         ruleSetText: String,
         ruleSetName: String,
-        semgrepFileErrors: SemgrepFileErrors
+        semgrepFileTrace: SemgrepFileLoadTrace
     ): List<Pair<TaintRuleFromSemgrep, RuleMetadata>> {
         val ruleSet = runCatching {
             yaml.decodeFromString<SemgrepYamlRuleSet>(ruleSetText)
         }.onFailure { ex ->
-            semgrepFileErrors += SemgrepError(
-                SemgrepError.Step.LOAD_RULESET,
+            semgrepFileTrace.error(
+                Step.LOAD_RULESET,
                 "Failed to load rule set from yaml \"$ruleSetName\": ${ex.message}",
-                Level.ERROR,
-                SemgrepError.Reason.ERROR,
+                SemgrepErrorEntry.Reason.ERROR,
             )
             return emptyList()
         }.getOrThrow()
 
         val (javaRules, otherRules) = ruleSet.rules.partition { it.isJavaRule() }
-        logger.info { "Found ${javaRules.size} java rules in $ruleSetName" }
+        semgrepFileTrace.info("Found ${javaRules.size} java rules in $ruleSetName")
 
-        if (otherRules.isNotEmpty()) {
-            logger.warn { "Found ${otherRules.size} unsupported rules in $ruleSetName" }
-            otherRules.forEach { it ->
-                semgrepFileErrors += SemgrepRuleErrors(
-                    it.id,
-                    arrayListOf(SemgrepError(
-                        SemgrepError.Step.LOAD_RULESET,
-                        "Unsupported rule",
-                        Level.TRACE,
-                        SemgrepError.Reason.ERROR
-                    )),
-                    ruleSetName
+        otherRules.forEach {
+            val ruleId = SemgrepRuleUtils.getRuleId(ruleSetName, it.id)
+            semgrepFileTrace
+                .ruleTrace(ruleId, it.id)
+                .error(
+                    Step.LOAD_RULESET,
+                    "Unsupported rule",
+                    SemgrepErrorEntry.Reason.ERROR
                 )
-            }
         }
 
         val rulesAndMetadata = javaRules.mapNotNull {
-            val semgrepRuleErrors = SemgrepRuleErrors(
-                it.id,
-                ruleSetName = ruleSetName
-            )
-            semgrepFileErrors += semgrepRuleErrors
-            loadRule(it, ruleSetName, semgrepRuleErrors)
+            val ruleId = SemgrepRuleUtils.getRuleId(ruleSetName, it.id)
+            loadRule(ruleId, it, semgrepFileTrace.ruleTrace(ruleId, it.id))
         }
-        logger.info { "Load ${rulesAndMetadata.size} rules from $ruleSetName" }
+        semgrepFileTrace.info("Load ${rulesAndMetadata.size} rules from $ruleSetName")
         return rulesAndMetadata
     }
 
     private fun loadRule(
-        rule: SemgrepYamlRule, ruleSetName: String,
-        semgrepRuleErrors: SemgrepRuleErrors
+        ruleId: String,
+        rule: SemgrepYamlRule,
+        semgrepRuleTrace: SemgrepRuleLoadTrace
     ): Pair<TaintRuleFromSemgrep, RuleMetadata>? {
-        val ruleId = SemgrepRuleUtils.getRuleId(ruleSetName, rule.id)
-
         val ruleAutomataBuilder = SemgrepRuleAutomataBuilder(parser, converter)
         val ruleAutomata = runCatching {
-            ruleAutomataBuilder.build(rule, semgrepRuleErrors)
-        }.onFailure { ex ->
-            semgrepRuleErrors += SemgrepError(
-                SemgrepError.Step.LOAD_RULESET,
+            ruleAutomataBuilder.build(rule, semgrepRuleTrace)
+        }.onFailure {
+            semgrepRuleTrace.error(
+                Step.LOAD_RULESET,
                 "Failed to build rule automata: $ruleId",
-                Level.ERROR,
-                SemgrepError.Reason.ERROR
+                SemgrepErrorEntry.Reason.ERROR
             )
             return null
         }.getOrThrow()
 
         val stats = ruleAutomataBuilder.stats
         if (stats.isFailure) {
-            semgrepRuleErrors += SemgrepError(
-                SemgrepError.Step.LOAD_RULESET,
+            semgrepRuleTrace.error(
+                Step.LOAD_RULESET,
                 "Rule $ruleId automata build issues: $stats",
-                Level.TRACE,
-                SemgrepError.Reason.ERROR
+                SemgrepErrorEntry.Reason.ERROR
             )
         }
 
@@ -142,16 +128,20 @@ class SemgrepRuleLoader {
         val metadata = RuleMetadata(ruleId, rule.id, rule.message, severity, rule.metadata)
 
         return runCatching {
-            convertToTaintRules(ruleAutomata, ruleId, sinkMeta, semgrepRuleErrors) to metadata
-        }.onFailure { ex ->
-            semgrepRuleErrors += SemgrepError(
-                SemgrepError.Step.AUTOMATA_TO_TAINT_RULE,
+            convertToTaintRules(
+                ruleAutomata, ruleId, sinkMeta,
+                semgrepRuleTrace.stepTrace(Step.AUTOMATA_TO_TAINT_RULE)
+            ) to metadata
+        }.onFailure {
+            semgrepRuleTrace.error(
+                Step.AUTOMATA_TO_TAINT_RULE,
                 "Failed to create taint rules: $ruleId",
-                Level.ERROR,
-                SemgrepError.Reason.ERROR
+                SemgrepErrorEntry.Reason.ERROR
             )
             return null
-        }.getOrThrow()
+        }.getOrThrow().also {
+            semgrepRuleTrace.info("Generate ${it.first.size} rules from ${it.first.ruleId}")
+        }
     }
 
     private fun SemgrepYamlRule.isJavaRule(): Boolean = languages.any {
@@ -170,7 +160,6 @@ class SemgrepRuleLoader {
     }
 
     companion object {
-        private val logger = object : KLogging() {}.logger
         private val cweRegex = Regex("CWE-(\\d+).*", RegexOption.IGNORE_CASE)
     }
 }

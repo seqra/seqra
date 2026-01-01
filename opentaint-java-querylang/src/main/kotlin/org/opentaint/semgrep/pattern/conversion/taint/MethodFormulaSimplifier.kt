@@ -1,8 +1,13 @@
 package org.opentaint.semgrep.pattern.conversion.taint
 
+import org.opentaint.dataflow.util.copy
 import org.opentaint.dataflow.util.filter
 import org.opentaint.dataflow.util.forEach
+import org.opentaint.dataflow.util.map
+import org.opentaint.dataflow.util.toSet
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.FormulaManagerAwareDecisionVarSelector
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.SemanticPredicateOrderer
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
 import org.opentaint.semgrep.pattern.MetaVarConstraints
@@ -28,29 +33,6 @@ import org.opentaint.semgrep.pattern.conversion.automata.Position
 import org.opentaint.semgrep.pattern.conversion.automata.Predicate
 import java.util.BitSet
 
-fun simplifyMethodFormulaAnd(
-    manager: MethodFormulaManager,
-    formulas: List<MethodFormula>,
-    metaVarInfo: ResolvedMetaVarInfo,
-    cancelation: OperationCancelation
-): MethodFormula {
-    return manager.mkOr(simplifyMethodFormula(manager, manager.mkAnd(formulas), metaVarInfo, cancelation))
-}
-
-fun simplifyMethodFormulaOr(
-    manager: MethodFormulaManager,
-    formulas: List<MethodFormula>,
-    metaVarInfo: ResolvedMetaVarInfo,
-    cancelation: OperationCancelation,
-): MethodFormula {
-    val simplifiedCubes = formulas.flatMap { formula ->
-        manager.formulaSimplifiedCubes(formula, metaVarInfo, cancelation, applyNotEquivalentTransformations = false)
-    }
-
-    val result = manager.simplifyUnion(simplifiedCubes.toList())
-    return manager.mkOr(result.map { manager.mkCube(it) })
-}
-
 fun trySimplifyMethodFormula(
     manager: MethodFormulaManager,
     formula: MethodFormula,
@@ -75,7 +57,7 @@ fun simplifyMethodFormula(
     applyNotEquivalentTransformations: Boolean = false
 ): List<Cube> {
     val simplifiedCubes = manager.formulaSimplifiedCubes(formula, metaVarInfo, cancelation, applyNotEquivalentTransformations)
-    val result = manager.simplifyUnion(simplifiedCubes.toList())
+    val result = manager.simplifyUnion(simplifiedCubes.toList(), applyNotEquivalentTransformations)
     return result.map { Cube(it, negated = false) }
 }
 
@@ -96,6 +78,117 @@ fun methodFormulaSat(
     }
 }
 
+private class MethodFormulaCubeCompactComparator(
+    formulaManager: MethodFormulaManager
+) : Comparator<MethodFormulaCubeCompact> {
+    private val orderer = SemanticPredicateOrderer(formulaManager)
+
+    private fun compareSets(o1: BitSet, o2: BitSet): Int {
+        val o1Mapped = o1.map(orderer::stablePredicateId)
+        val o2Mapped = o2.map(orderer::stablePredicateId)
+
+        return o1Mapped.compareTo(o2Mapped)
+    }
+
+    override fun compare(o1: MethodFormulaCubeCompact, o2: MethodFormulaCubeCompact): Int {
+        return compareSets(o1.positiveLiterals, o2.positiveLiterals).takeIf { it != 0 }
+            ?: compareSets(o1.negativeLiterals, o2.negativeLiterals)
+    }
+
+    private fun BitSet.compareTo(other: BitSet): Int {
+        val diff = copy()
+        diff.xor(other)
+
+        val firstDiffPosition = diff.nextSetBit(0)
+        return when {
+            firstDiffPosition == -1 -> 0
+            get(firstDiffPosition)  -> 1
+            else                    -> -1
+        }
+    }
+}
+
+private fun MethodFormulaManager.reduceCubes(
+    cubes: List<MethodFormulaCubeCompact>,
+    metaVarInfo: ResolvedMetaVarInfo,
+    applyNotEquivalentTransformations: Boolean
+): List<MethodFormulaCubeCompact> {
+    val cmp = MethodFormulaCubeCompactComparator(this)
+    val resultCubes = cubes.toMutableList().sortedWith(cmp).toMutableList()
+
+    var i = 0
+    var j = 0
+    while (true) {
+        var foundSimplification = false
+
+        while (i < resultCubes.size) {
+            while (j < resultCubes.size) {
+                if (i == j) {
+                    j++
+                    continue
+                }
+
+                if (resultCubes[i].positiveLiterals.intersects(resultCubes[j].negativeLiterals)) {
+                    j++
+                    continue
+                }
+
+                if (resultCubes[i].negativeLiterals.intersects(resultCubes[j].positiveLiterals)) {
+                    j++
+                    continue
+                }
+
+                val iLiterals = resultCubes[i].negativeLiterals.copy()
+                iLiterals.or(resultCubes[i].positiveLiterals)
+
+                val jLiterals = resultCubes[j].negativeLiterals.copy()
+                jLiterals.or(resultCubes[j].positiveLiterals)
+
+                iLiterals.andNot(jLiterals)
+                val refiningLiteral = iLiterals.toSet().singleOrNull()
+                if (refiningLiteral == null) {
+                    j++
+                    continue
+                }
+
+                val refinedJCube = if (resultCubes[i].negativeLiterals.get(refiningLiteral)) {
+                    val newPositive = resultCubes[j].positiveLiterals.copy()
+                    newPositive.set(refiningLiteral)
+                    MethodFormulaCubeCompact(newPositive, resultCubes[j].negativeLiterals.copy())
+                } else {
+                    check(resultCubes[i].positiveLiterals.get(refiningLiteral))
+
+                    val newNegative = resultCubes[j].negativeLiterals.copy()
+                    newNegative.set(refiningLiteral)
+                    MethodFormulaCubeCompact(resultCubes[j].positiveLiterals.copy(), newNegative)
+                }
+
+                val simplifiedJCube = simplifyMethodFormulaCube(refinedJCube, metaVarInfo, applyNotEquivalentTransformations)
+                if (simplifiedJCube == null) {
+                    resultCubes.removeAt(j)
+                    foundSimplification = true
+                    if (i > j) {
+                        i--
+                    }
+                    break
+                }
+                j++
+            }
+
+            if (foundSimplification) {
+                break
+            }
+            j = 0
+            i++
+        }
+        if (!foundSimplification) {
+            break
+        }
+    }
+
+    return resultCubes
+}
+
 private fun MethodFormulaManager.formulaSimplifiedCubes(
     formula: MethodFormula,
     metaVarInfo: ResolvedMetaVarInfo,
@@ -112,10 +205,14 @@ private fun MethodFormulaManager.formulaSimplifiedCubes(
     val dnf = when (formula) {
         MethodFormula.True -> return listOf(MethodFormulaCubeCompact())
         MethodFormula.False -> return emptyList()
-        else -> methodFormulaDNF(formula, cancelation)
+        else -> methodFormulaDNF(formula, cancelation, FormulaManagerAwareDecisionVarSelector(this))
     }
 
-    return dnf.mapNotNull { simplifyMethodFormulaCube(it, metaVarInfo, applyNotEquivalentTransformations) }
+    val cubes = dnf
+        .mapNotNull { simplifyMethodFormulaCube(it, metaVarInfo, applyNotEquivalentTransformations) }
+        .toMutableList()
+
+    return reduceCubes(cubes, metaVarInfo, applyNotEquivalentTransformations)
 }
 
 private fun MethodFormula.tryFindSimplifiedCubes(): List<MethodFormulaCubeCompact>? {
@@ -150,11 +247,17 @@ private fun MethodFormulaManager.simplifyMethodFormulaCube(
     var solver = MethodFormulaSolver(metaVarInfo, applyNotEquivalentTransformations)
 
     cube.positiveLiterals.forEach {
-        solver = solver.addPositivePredicate(predicate(it)) ?: return null
+        solver = solver.addPositivePredicate(predicate(it))
+            ?: return null
     }
 
     cube.negativeLiterals.forEach {
-        solver = solver.addNegativePredicate(predicate(it)) ?: return null
+        solver = solver.addNegativePredicate(predicate(it))
+            ?: return null
+    }
+
+    if (!applyNotEquivalentTransformations) {
+        return cube
     }
 
     val solution = solver.solution()
@@ -289,6 +392,16 @@ private class MethodFormulaSolver(
     }
 
     fun addNegativePredicate(predicate: Predicate): MethodFormulaSolver? {
+        if (applyNotEquivalentTransformations) {
+            val param = predicate.constraint
+            if (param is ParamConstraint && param.position is Position.Result) {
+                // Position.Result holds effect but implies no constraint on condition
+                //  => same case as when predicate.constraint == null
+                val simplifiedPredicate = Predicate(predicate.signature, constraint = null)
+                return addNegativePredicate(simplifiedPredicate)
+            }
+        }
+
         if (!checkMetavars(predicate)) {
             return null
         }
@@ -301,25 +414,19 @@ private class MethodFormulaSolver(
             // todo: better handling of such signatures
         }
 
-        if (signature == positive.signature) {
-            val param = predicate.constraint ?: return null
+        if (predicate.signature == positive.signature || (applyNotEquivalentTransformations && signature == positive.signature)) {
+            val param = predicate.constraint
+                ?: return null
 
-            if (applyNotEquivalentTransformations) {
-                if (param is ParamConstraint && param.position is Position.Result) {
-                    // Position.Result holds effect but implies no constraint on condition
-                    //  => same case as when predicate.constraint == null
-                    return null
-                }
-            }
-
-            positive.constraints.addNegative(param) ?: return null
+            positive.constraints.addNegative(param)
+                ?: return null
             return this
         }
 
         val constraints = SolverConstraints(predicate.signature)
         predicate.constraint?.let { constraint ->
             // Can skip constraint if it is ensured by positive
-            if (!positive.constraints.hasPositiveConstraint(constraint)) {
+            if (!applyNotEquivalentTransformations || !positive.constraints.hasPositiveConstraint(constraint)) {
                 constraints.constraints.addPositive(constraint) ?: error("impossible")
             }
         }
@@ -372,8 +479,14 @@ private class MethodFormulaSolver(
 }
 
 private fun MethodFormulaManager.simplifyUnion(
-    cubes: List<MethodFormulaCubeCompact>
+    cubes: List<MethodFormulaCubeCompact>,
+    applyNotEquivalentTransformations: Boolean = false
 ): List<MethodFormulaCubeCompact> {
+    if (!applyNotEquivalentTransformations) {
+        // todo: temporary disabled. looks like union contains non-equivalent transformations
+        return cubes
+    }
+
     if (cubes.size < 2) return cubes
 
     var mutableCubes = cubes.toMutableList()

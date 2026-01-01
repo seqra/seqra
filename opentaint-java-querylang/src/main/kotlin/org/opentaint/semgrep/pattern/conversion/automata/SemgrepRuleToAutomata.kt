@@ -11,8 +11,8 @@ import org.opentaint.semgrep.pattern.conversion.automata.operations.addDummyMeth
 import org.opentaint.semgrep.pattern.conversion.automata.operations.addEndEdges
 import org.opentaint.semgrep.pattern.conversion.automata.operations.addPatternStartAndEnd
 import org.opentaint.semgrep.pattern.conversion.automata.operations.addPatternStartAndEndOnEveryNode
-import org.opentaint.semgrep.pattern.conversion.automata.operations.brzozowskiAlgorithm
 import org.opentaint.semgrep.pattern.conversion.automata.operations.complement
+import org.opentaint.semgrep.pattern.conversion.automata.operations.hopcroftAlgorithhm
 import org.opentaint.semgrep.pattern.conversion.automata.operations.intersection
 import org.opentaint.semgrep.pattern.conversion.automata.operations.removePatternStartAndEnd
 import org.opentaint.semgrep.pattern.conversion.automata.operations.totalizeMethodCalls
@@ -43,7 +43,7 @@ private fun AutomataBuilderCtx.transformSemgrepRuleToAutomata(
 
     val resultNfa = transformSemgrepRuleToAutomata(newRule, startingAutomata)
 
-    val resultDfa = brzozowskiAlgorithm(resultNfa)
+    val resultDfa = hopcroftAlgorithhm(resultNfa)
     acceptIfCurrentAutomataAcceptsPrefix(resultDfa)
 
     totalizeMethodCalls(resultDfa)
@@ -114,7 +114,7 @@ private fun AutomataBuilderCtx.transformSemgrepRuleToAutomata(
             if (!a1.hasMethodEnter && a2.hasMethodEnter) {
                 a1 = addDummyMethodEnter(a1)
             }
-            brzozowskiAlgorithm(
+            hopcroftAlgorithhm(
                 intersection(a1, a2)
             )
         }
@@ -165,7 +165,7 @@ private fun AutomataBuilderCtx.addPositivePattern(
     actionList: SemgrepPatternActionList,
 ): SemgrepRuleAutomata {
     val actionListAutomata = convertActionListToAutomata(formulaManager, actionList)
-    return brzozowskiAlgorithm(
+    return hopcroftAlgorithhm(
         intersection(
             curAutomata,
             actionListAutomata
@@ -196,7 +196,7 @@ private fun AutomataBuilderCtx.addNegativePattern(
         actionListAutomata
     )
 
-    return brzozowskiAlgorithm(intersect)
+    return hopcroftAlgorithhm(intersect)
 }
 
 private fun AutomataBuilderCtx.addPatternInside(
@@ -222,7 +222,7 @@ private fun AutomataBuilderCtx.addPatternInside(
 
     val actionListAutomata = convertActionListToAutomata(formulaManager, actionList)
     addPatternStartAndEndOnEveryNode(actionListAutomata)
-    return brzozowskiAlgorithm(
+    return hopcroftAlgorithhm(
         intersection(
             actionListAutomata,
             curAutomata
@@ -289,7 +289,7 @@ private fun AutomataBuilderCtx.addPatternNotInside(
     }
     complement(automataNotInside)
 
-    return brzozowskiAlgorithm(
+    return hopcroftAlgorithhm(
         intersection(
             mainAutomata,
             automataNotInside

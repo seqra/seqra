@@ -27,13 +27,13 @@ import org.opentaint.jvm.sast.sarif.DebugFactReachabilitySarifGenerator
 import org.opentaint.jvm.sast.sarif.SarifGenerator
 import org.opentaint.jvm.sast.se.api.SastSeAnalyzer
 import org.opentaint.jvm.sast.util.loadDefaultConfig
+import org.opentaint.org.opentaint.semgrep.pattern.convertToOldErrorsFormat
 import org.opentaint.project.Project
-import org.opentaint.semgrep.pattern.AbstractSemgrepError
-import org.opentaint.semgrep.pattern.SemgrepFileErrors
+import org.opentaint.semgrep.pattern.RuleMetadata
+import org.opentaint.semgrep.pattern.SemgrepLoadTrace
 import org.opentaint.semgrep.pattern.SemgrepRuleLoader
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import org.opentaint.semgrep.pattern.createTaintConfig
-import org.opentaint.semgrep.pattern.RuleMetadata
 import java.io.OutputStream
 import java.nio.file.Path
 import kotlin.io.path.absolutePathString
@@ -52,6 +52,7 @@ class ProjectAnalyzer(
     private val customConfig: Path?,
     private val semgrepRuleSet: Path?,
     private val semgrepRuleLoadErrors: Path?,
+    private val semgrepRuleLoadTrace: Path?,
     private val cwe: List<Int>,
     private val useSymbolicExecution: Boolean,
     private val symbolicExecutionTimeout: Duration,
@@ -78,7 +79,7 @@ class ProjectAnalyzer(
     private fun loadTaintConfig(cp: JIRClasspath): TaintRulesProvider {
         if (semgrepRuleSet != null) {
             check(customConfig == null) { "Unsupported custom config" }
-            return loadSemgrepRules(cp, semgrepRuleSet, semgrepRuleLoadErrors)
+            return loadSemgrepRules(cp, semgrepRuleSet, semgrepRuleLoadErrors, semgrepRuleLoadTrace)
         }
 
         val defaultConfig = TaintConfiguration(cp)
@@ -100,23 +101,41 @@ class ProjectAnalyzer(
     private fun loadSemgrepRules(
         cp: JIRClasspath,
         semgrepRulesPath: Path,
-        semgrepRuleLoadErrors: Path?
+        semgrepRuleLoadErrors: Path?,
+        semgrepRuleLoadTrace: Path?,
     ): TaintRulesProvider {
-        val semgrepFilesErrors: ArrayList<AbstractSemgrepError> = arrayListOf()
-        val semgrepRules = parseSemgrepRules(semgrepRulesPath, semgrepFilesErrors)
-        if (semgrepRuleLoadErrors != null) {
+        val trace = SemgrepLoadTrace()
+        val semgrepRules = parseSemgrepRules(semgrepRulesPath, trace)
+
+        val compressedTrace by lazy { trace.compressed() }
+        if (semgrepRuleLoadTrace != null) {
             runCatching {
                 val prettyJson = Json {
                     prettyPrint = true
                 }
+                semgrepRuleLoadTrace.outputStream().bufferedWriter().use { writer ->
+                    writer.write(prettyJson.encodeToString(compressedTrace))
+                }
+                logger.info { "Wrote semgrep load trace to $semgrepRuleLoadTrace" }
+            }.onFailure { ex ->
+                logger.error(ex) { "Failed to write semgrep load trace to $semgrepRuleLoadTrace: ${ex.message}" }
+            }
+        }
+
+        // todo: remove after opentaint-cli update
+        if (semgrepRuleLoadErrors != null) {
+            runCatching {
+                val oldErrorsFormat = compressedTrace.convertToOldErrorsFormat()
+                val prettyJson = Json {
+                    prettyPrint = true
+                }
                 semgrepRuleLoadErrors.outputStream().bufferedWriter().use { writer ->
-                    writer.write(prettyJson.encodeToString(semgrepFilesErrors))
+                    writer.write(prettyJson.encodeToString(oldErrorsFormat))
                 }
                 logger.info { "Wrote semgrep load errors to $semgrepRuleLoadErrors" }
             }.onFailure { ex ->
                 logger.error(ex) { "Failed to write semgrep load errors to $semgrepRuleLoadErrors: ${ex.message}" }
             }
-
         }
 
         val defaultRules = loadDefaultConfig()
@@ -131,7 +150,7 @@ class ProjectAnalyzer(
 
     private fun parseSemgrepRules(
         semgrepRulesPath: Path,
-        semgrepFilesError: ArrayList<AbstractSemgrepError>
+        semgrepTrace: SemgrepLoadTrace
     ): List<TaintRuleFromSemgrep> {
         val rules = mutableListOf<TaintRuleFromSemgrep>()
         val loader = SemgrepRuleLoader()
@@ -141,16 +160,17 @@ class ProjectAnalyzer(
 
             val ruleText = rulePath.readText()
 
-            val semgrepFileErrors = SemgrepFileErrors(ruleName)
-            semgrepFilesError += semgrepFileErrors
             val (loadedRules, loadedMetadatas) = loader.loadRuleSet(
                 ruleText,
                 ruleName,
-                semgrepFileErrors
+                semgrepTrace.fileTrace(ruleName)
             ).unzip()
             rules += loadedRules
             ruleMetadatas += loadedMetadatas
         }
+
+        logger.info { "Total loaded ${rules.sumOf { it.size }} rules" }
+
         return rules
     }
 

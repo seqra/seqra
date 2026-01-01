@@ -9,6 +9,9 @@ class MethodFormulaManager {
     private val predicateIds = hashMapOf<Predicate, Int>()
     private val predicates = arrayListOf<Predicate>()
 
+    val allPredicateIds: List<PredicateId>
+        get() = (1..predicates.size).toList()
+
     fun predicateId(predicate: Predicate): PredicateId = predicateIds.getOrPut(predicate) {
         val id = predicates.size
         predicates.add(predicate)

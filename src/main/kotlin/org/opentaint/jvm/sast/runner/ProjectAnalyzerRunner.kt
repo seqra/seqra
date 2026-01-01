@@ -34,6 +34,9 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
     private val semgrepRuleLoadErrors: Path? by option(help = "Output file for errors encountered while loading Semgrep rules")
         .newFile()
 
+    private val semgrepRuleLoadTrace: Path? by option(help = "Output file for Semgrep rules loader trace")
+        .newFile()
+
     override fun analyzeProject(project: Project, analyzerOutputDir: Path, debugOptions: DebugOptions) {
         val projectAnalyzer = ProjectAnalyzer(
             project = project,
@@ -49,6 +52,7 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
             customConfig = config,
             semgrepRuleSet = semgrepRuleSet,
             semgrepRuleLoadErrors = semgrepRuleLoadErrors,
+            semgrepRuleLoadTrace = semgrepRuleLoadTrace,
             debugOptions = debugOptions
         )
 

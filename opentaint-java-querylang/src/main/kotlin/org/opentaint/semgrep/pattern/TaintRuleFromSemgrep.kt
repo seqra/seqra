@@ -10,7 +10,11 @@ data class TaintRuleFromSemgrep(
     val ruleId: String,
     val taintRules: List<TaintRuleGroup>
 ) {
-    data class TaintRuleGroup(val rules: List<SerializedItem>)
+    val size: Int get() = taintRules.sumOf { it.size }
+
+    data class TaintRuleGroup(val rules: List<SerializedItem>) {
+        val size: Int get() = rules.size
+    }
 }
 
 fun TaintRuleFromSemgrep.createTaintConfig(): SerializedTaintConfig {
