@@ -248,7 +248,7 @@ class LocationResolver(
                 decoratedName = location.info.machineName
             )
         ),
-        message = location.message?.let { Message(text = it) }
+        message = location.message?.let { Message(text = it.capitalize()) }
     )
 
     private fun generateThreadFlowLocation(

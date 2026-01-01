@@ -1,6 +1,8 @@
 FROM ubuntu:24.04
 
-RUN apt-get update && apt-get install -y -q --no-install-recommends ca-certificates curl wget apt-transport-https gpg unzip
+RUN apt-get update && apt-get install -y -q --no-install-recommends ca-certificates curl wget apt-transport-https gpg unzip language-pack-en \
+    && update-locale LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
 
 # Java 17
 RUN wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor | tee /etc/apt/trusted.gpg.d/adoptium.gpg > /dev/null \
