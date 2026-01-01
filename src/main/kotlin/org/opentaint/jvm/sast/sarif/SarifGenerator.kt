@@ -9,6 +9,7 @@ import io.github.detekt.sarif4k.ThreadFlow
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
+import mu.KLogging
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
@@ -188,7 +189,7 @@ class SarifGenerator(
         }
         val flowLocations = groupsWithMsges.map { groupNode ->
             val inst = groupNode.node.statement
-            val offset =
+            val rewriteLine =
                 if (groupNode.node.entry is MethodTraceResolver.TraceEntry.MethodEntry
                     || with (messageBuilder) { groupNode.node.entry.isPureEntryPoint() }
                     ) {
@@ -196,13 +197,20 @@ class SarifGenerator(
                     // for the MethodEntry traces
                     // will be wrong if the source has extra lines between method declaration and its body
                     // (i.e. blank lines, extra parameter indentation, or comments)
-                    (groupNode.node.statement.location.method as JIRMethod).getFirstLine()!! - 1
+                    val firstLine = (groupNode.node.statement.location.method as JIRMethod).getFirstLine()
+                    if (firstLine == null) {
+                        logger.warn { "Could not find first raw line number for method ${inst.location.method.name}!" }
+                        traits.lineNumber(inst)
+                    }
+                    else {
+                        firstLine - 1
+                    }
                 }
                 else null
 
             IntermediateLocation(
                 inst = inst,
-                info = getInstructionInfo(inst, offset),
+                info = getInstructionInfo(inst, rewriteLine),
                 kind = groupNode.kind,
                 message = groupNode.message,
             )
@@ -228,5 +236,9 @@ class SarifGenerator(
             message = null
         )
         return locationResolver.generateSarifLocation(loc)
+    }
+
+    companion object {
+        val logger = object : KLogging() {}.logger
     }
 }
