@@ -1,0 +1,19 @@
+rules:
+  - id: i95
+    message: "message"
+    languages: [java]
+    severity: WARNING
+    mode: taint
+    pattern-sources:
+      - patterns:
+        - pattern-inside: |
+            $METHODNAME(..., SpecificData $SOURCE,...) {
+              ...
+            }
+        - focus-metavariable: $SOURCE
+        label: INPUT
+      - patterns:
+        - pattern: $SOURCE.getData()
+        requires: INPUT
+    pattern-sinks:
+      - pattern: User.sink(...)

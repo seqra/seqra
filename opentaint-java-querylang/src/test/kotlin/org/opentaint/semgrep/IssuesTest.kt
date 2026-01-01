@@ -13,6 +13,7 @@ import issues.issue91
 import issues.issue92
 import issues.issue93
 import issues.issue94
+import issues.issue95
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
@@ -93,6 +94,10 @@ class IssuesTest : SampleBasedTest() {
 
     @Test
     fun `issue 94`() = runTest<issue94>()
+
+    @Test
+    @Disabled // todo: support `label` & `requires`: https://semgrep.dev/docs/writing-rules/data-flow/taint-mode#taint-labels-pro-
+    fun `issue 95`() = runTest<issue95>()
 
     @AfterAll
     fun close() {
