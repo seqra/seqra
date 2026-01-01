@@ -567,8 +567,9 @@ private fun RuleConversionCtx.generateAutomataWithTaintEdges(
     val simulated = simulateAutomata(automata)
     val cleaned = removeUnreachabeStates(simulated)
     val liveAutomata = eliminateDeadVariables(cleaned, acceptStateVars)
-    val automataWithoutEnd = tryRemoveEndEdge(liveAutomata)
-    return generateTaintEdges(automataWithoutEnd, metaVarInfo, automataId)
+    val cleanAutomata = cleanupAutomata(liveAutomata, metaVarInfo)
+    val generatedEdges =  generateTaintEdges(cleanAutomata, metaVarInfo, automataId)
+    return cleanupAutomata(generatedEdges)
 }
 
 data class TaintRegisterStateAutomata(
@@ -1088,6 +1089,11 @@ private fun eliminateDeadVariables(
     )
 }
 
+private fun cleanupAutomata(automata: TaintRegisterStateAutomata, metaVarInfo: ResolvedMetaVarInfo): TaintRegisterStateAutomata {
+    val result = tryRemoveEndEdge(automata)
+    return tryRemoveDummyMethodEntry(result, metaVarInfo)
+}
+
 private fun tryRemoveEndEdge(automata: TaintRegisterStateAutomata): TaintRegisterStateAutomata {
     val predecessors = automataPredecessors(automata)
     val finalReplacement = mutableListOf<Pair<State, State>>()
@@ -1126,6 +1132,101 @@ private fun tryRemoveEndEdge(automata: TaintRegisterStateAutomata): TaintRegiste
         automata.initial,
         final, successors,
         automata.nodeIndex
+    )
+}
+
+private fun tryRemoveDummyMethodEntry(
+    automata: TaintRegisterStateAutomata,
+    metaVarInfo: ResolvedMetaVarInfo,
+): TaintRegisterStateAutomata {
+    val initialSuccessors = automata.successors[automata.initial].orEmpty()
+    val dummyMethodEnters = mutableListOf<Pair<Edge.MethodEnter, State>>()
+    for ((edge, state) in initialSuccessors) {
+        if (edge !is Edge.MethodEnter) continue
+        if (edge.effect.assignMetaVar.isNotEmpty()) continue
+        if (!edge.condition.isDummyCondition(metaVarInfo)) continue
+
+        dummyMethodEnters.add(edge to state)
+    }
+
+    if (dummyMethodEnters.isEmpty()) return automata
+
+    val mutableSuccessors = hashMapOf<State, MutableSet<Pair<Edge, State>>>()
+    automata.successors.forEach { (s, edges) -> mutableSuccessors[s] = edges.toMutableSet() }
+
+    val initialSucc = mutableSuccessors[automata.initial]!!
+
+    for ((edge, state) in dummyMethodEnters) {
+        val nextEdges = mutableSuccessors[state]
+        initialSucc.remove(edge to state)
+        nextEdges?.forEach { (e, s) ->
+            initialSucc.add(e to s)
+        }
+
+        // todo: may be incorrect
+        mutableSuccessors.remove(state)
+    }
+
+    return TaintRegisterStateAutomata(
+        automata.formulaManager, automata.initial, automata.final,
+        mutableSuccessors, automata.nodeIndex
+    )
+}
+
+private fun EdgeCondition.isDummyCondition(metaVarInfo: ResolvedMetaVarInfo): Boolean {
+    for (cond in other) {
+        if (cond.predicate.constraint != null) return false
+        val sig = cond.predicate.signature
+
+        when (val mn = sig.methodName.name) {
+            is SignatureName.Concrete -> return false
+            SignatureName.AnyName -> {}
+            is SignatureName.MetaVar -> {
+                if (metaVarInfo.metaVarConstraints[mn.metaVar] != null) {
+                    return false
+                }
+            }
+        }
+
+        when (val cn = sig.enclosingClassName.name) {
+            TypeNamePattern.AnyType -> {}
+            is TypeNamePattern.MetaVar -> {
+                if (metaVarInfo.metaVarConstraints[cn.metaVar] != null) {
+                    return false
+                }
+            }
+            is TypeNamePattern.ClassName,
+            is TypeNamePattern.FullyQualified,
+            is TypeNamePattern.PrimitiveName -> return false
+        }
+    }
+
+    return true
+}
+
+private fun cleanupAutomata(automata: TaintRuleGenerationCtx): TaintRuleGenerationCtx {
+    return tryRemoveEndEdge(automata)
+}
+
+private fun tryRemoveEndEdge(automata: TaintRuleGenerationCtx): TaintRuleGenerationCtx {
+    if (automata.finalEdges.size > 1) return automata
+
+    val finalEdge = automata.finalEdges.singleOrNull() ?: return automata
+
+    if (finalEdge.edge !is Edge.AnalysisEnd) return automata
+
+    val preFinalEdges = automata.edges.filterTo(hashSetOf()) { it.stateTo == finalEdge.stateFrom }
+    if (preFinalEdges.isEmpty()) return automata
+
+    preFinalEdges.forEach {
+        it.stateTo.node.accept = finalEdge.stateTo.node.accept
+    }
+
+    return TaintRuleGenerationCtx(
+        automata.uniqueRuleId, automata.automata, automata.metaVarInfo,
+        automata.globalStateAssignStates.minus(finalEdge.stateFrom),
+        automata.edges.minus(preFinalEdges),
+        preFinalEdges.toList()
     )
 }
 
