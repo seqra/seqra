@@ -452,13 +452,22 @@ class AccessTree(
         }
 
         fun filterAccessNode(filter: FactTypeChecker.FactApFilter): AccessNode? {
-            val result = transformAccessors { accessor, accessNode ->
+            var result = transformAccessors { accessor, accessNode ->
                 when (val status = filter.check(accessor)) {
                     FactTypeChecker.FilterResult.Accept -> accessNode
                     FactTypeChecker.FilterResult.Reject -> null
                     is FactTypeChecker.FilterResult.FilterNext -> accessNode.filterAccessNode(status.filter)
                 }
             }
+
+            if (result.isFinal) {
+                result = when (filter.check(FinalAccessor)) {
+                    FactTypeChecker.FilterResult.Accept -> result
+                    is FactTypeChecker.FilterResult.FilterNext -> result
+                    FactTypeChecker.FilterResult.Reject -> result.clearChild(FinalAccessor)
+                }
+            }
+
             return result.takeIf { !it.isEmpty }
         }
 
