@@ -7,6 +7,7 @@ import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker.FilterResult
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
+import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
@@ -56,6 +57,7 @@ class JIRMethodSequentFlowFunction(
 
     override fun propagateZeroToFact(currentFactAp: FinalFactAp) = buildSet {
         propagate(
+            initialFactIsZero = true,
             factAp = currentFactAp,
             unchanged = { add(Sequent.Unchanged) },
             propagateFact = { fact ->
@@ -72,6 +74,7 @@ class JIRMethodSequentFlowFunction(
         currentFactAp: FinalFactAp
     ) = buildSet {
         propagate(
+            initialFactIsZero = false,
             factAp = currentFactAp,
             unchanged = { add(Sequent.Unchanged) },
             propagateFact = { fact ->
@@ -90,6 +93,7 @@ class JIRMethodSequentFlowFunction(
         currentFactAp: FinalFactAp
     ) = buildSet {
         propagate(
+            initialFactIsZero = false,
             factAp = currentFactAp,
             unchanged = { add(Sequent.Unchanged) },
             propagateFact = { fact ->
@@ -102,6 +106,7 @@ class JIRMethodSequentFlowFunction(
     }
 
     private fun propagate(
+        initialFactIsZero: Boolean,
         factAp: FinalFactAp,
         unchanged: () -> Unit,
         propagateFact: (FinalFactAp) -> Unit,
@@ -117,12 +122,18 @@ class JIRMethodSequentFlowFunction(
 
             is JIRReturnInst -> {
                 val access = currentInst.returnValue?.let { accessPathBase(it) }
-                propagateExitFact(AccessPathBase.Return, access, factAp, unchanged, propagateFact)
+                propagateExitFact(
+                    initialFactIsZero, AccessPathBase.Return,
+                    access, factAp, unchanged, propagateFact
+                )
             }
 
             is JIRThrowInst -> {
                 val access = accessPathBase(currentInst.throwable)
-                propagateExitFact(AccessPathBase.Exception, access, factAp, unchanged, propagateFact)
+                propagateExitFact(
+                    initialFactIsZero, AccessPathBase.Exception,
+                    access, factAp, unchanged, propagateFact
+                )
             }
 
             else -> {
@@ -132,15 +143,14 @@ class JIRMethodSequentFlowFunction(
     }
 
     private fun propagateExitFact(
+        initialFactIsZero: Boolean,
         exitBase: AccessPathBase,
         access: AccessPathBase?,
         factAp: FinalFactAp,
         unchanged: () -> Unit,
         propagateFact: (FinalFactAp) -> Unit,
     ) {
-        if (access == factAp.base) {
-            unchanged()
-
+        val propagatedFact = if (access == factAp.base) {
             val resultFact = factAp.rebase(exitBase)
             propagateFact(resultFact)
 
@@ -149,17 +159,19 @@ class JIRMethodSequentFlowFunction(
                 TODO("Unexpected fact drop")
             }
 
+            factAp.dropArgumentsLocalTaintMarks(initialFactIsZero)
         } else {
             val factsToDrop = applyMethodExitSinkRules(exitBase, factAp)
-            val modifiedFact = factAp.dropFinalFacts(factsToDrop)
-            if (modifiedFact == factAp) {
-                unchanged()
-                return
-            }
+            factAp.dropFinalFacts(factsToDrop)?.dropArgumentsLocalTaintMarks(initialFactIsZero)
+        }
 
-            if (modifiedFact != null) {
-                propagateFact(modifiedFact)
-            }
+        if (propagatedFact == factAp) {
+            unchanged()
+            return
+        }
+
+        if (propagatedFact != null) {
+            propagateFact(propagatedFact)
         }
     }
 
@@ -542,6 +554,20 @@ class JIRMethodSequentFlowFunction(
         override fun check(accessor: Accessor): FilterResult {
             if (accessor is FinalAccessor) return FilterResult.Reject
             return FilterResult.Accept
+        }
+    }
+
+    // drop argument facts with tainted bases
+    private fun FinalFactAp.dropArgumentsLocalTaintMarks(initialFactIsZero: Boolean): FinalFactAp? {
+        if (!initialFactIsZero) return this
+        if (base !is AccessPathBase.Argument && base !is AccessPathBase.This) return this
+        return filterFact(TaintMarkRemover)
+    }
+
+    private object TaintMarkRemover : FactTypeChecker.FactApFilter {
+        override fun check(accessor: Accessor): FilterResult {
+            if (accessor !is TaintMarkAccessor) return FilterResult.Accept
+            return FilterResult.Reject
         }
     }
 }
