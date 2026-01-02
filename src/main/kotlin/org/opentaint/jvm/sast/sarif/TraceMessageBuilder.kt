@@ -29,6 +29,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 const val ArtificialMetavarName = "<ARTIFICIAL>"
 const val ArtificialStateName = "__<STATE>__"
 const val GeneralTaintName = "taint"
+const val GeneralTaintLabelPrefix = "taint_"
 
 data class TracePathNodeWithMsg(
     val node: TracePathNode,
@@ -455,6 +456,8 @@ class TraceMessageBuilder(
             return Mark.StateMark
         if (noRuleId.contains(ArtificialMetavarName))
             return Mark.ArtificialMark
+        if (noRuleId.startsWith(GeneralTaintLabelPrefix))
+            return Mark.StringMark(noRuleId.substringAfter(GeneralTaintLabelPrefix))
         val split = noRuleId.split("|")
         check(split.size >= 2) { "mark must contain at least two parts!" }
         return Mark.StringMark(split[1])

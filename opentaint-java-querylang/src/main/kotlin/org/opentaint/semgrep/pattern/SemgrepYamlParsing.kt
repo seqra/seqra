@@ -205,7 +205,11 @@ private object PatternPropagatorSerializer
     : InlineCompositeObjectSerializer<PatternPropagator, ComplexPattern>(
     name = "pattern-propagator",
     objSerializer = ComplexPattern.serializer(),
-    inlinedFields = listOf(fromField to String.serializer(), toField to String.serializer()),
+    inlinedFields = listOf(
+        fromField to String.serializer(),
+        toField to String.serializer(),
+        bySideEffect to Boolean.serializer(),
+    ),
 ) {
     override fun deserialize(obj: ComplexPattern, fields: Map<String, Optional<Any>>): PatternPropagator {
         val fromValue = fields[fromField]?.map { it as String }?.getOrNull() ?: error("deserialization failed")
@@ -223,7 +227,13 @@ private const val requiresField = "requires"
 private object PatternSourceSerializer : InlineCompositeObjectSerializer<PatternSource, ComplexPattern>(
     name = "pattern-source",
     objSerializer = ComplexPattern.serializer(),
-    inlinedFields = listOf(labelField to String.serializer(), requiresField to String.serializer()),
+    inlinedFields = listOf(
+        labelField to String.serializer(),
+        requiresField to String.serializer(),
+        bySideEffect to Boolean.serializer(),
+        exactField to Boolean.serializer(),
+        controlField to Boolean.serializer(),
+    ),
 ) {
     override fun deserialize(obj: ComplexPattern, fields: Map<String, Optional<Any>>): PatternSource {
         val label = fields[labelField]?.map { it as String }?.getOrNull()
@@ -238,7 +248,7 @@ private object PatternSourceSerializer : InlineCompositeObjectSerializer<Pattern
 private object PatternSinkSerializer : InlineCompositeObjectSerializer<PatternSink, ComplexPattern>(
     name = "pattern-sink",
     objSerializer = ComplexPattern.serializer(),
-    inlinedFields = listOf(requiresField to String.serializer()),
+    inlinedFields = listOf(requiresField to YamlNode.serializer()),
 ) {
     override fun deserialize(obj: ComplexPattern, fields: Map<String, Optional<Any>>): PatternSink {
         val requires = fields[requiresField]?.map { it as YamlNode }?.getOrNull()
@@ -250,7 +260,7 @@ private object PatternSanitizerSerializer
     : InlineCompositeObjectSerializer<PatternSanitizer, ComplexPattern>(
     name = "pattern-sanitizer",
     objSerializer = ComplexPattern.serializer(),
-    inlinedFields = listOf(fromField to String.serializer(), toField to String.serializer()),
+    inlinedFields = listOf(exactField to Boolean.serializer(), bySideEffect to Boolean.serializer()),
 ) {
     override fun deserialize(obj: ComplexPattern, fields: Map<String, Optional<Any>>): PatternSanitizer {
         val exact = fields[exactField]?.map { it as Boolean }?.getOrNull()
@@ -322,7 +332,7 @@ private fun parseMatchingRuleFormula(rule: SemgrepYamlRule): Formula =
         val children = rule.patternEither.map { complexPatternToFormula(it) }
         Formula.Or(children)
     } else {
-        TODO()
+        TODO("Unecpected pattern")
     }
 
 fun convertToRawRule(rule: SemgrepRule<Formula>,
@@ -357,7 +367,7 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
             is Formula.Inside -> {
                 val inside = f.child
                 val insideAsLeaf = inside as? Formula.LeafPattern
-                    ?: TODO()
+                    ?: TODO("Pattern inside is not a leaf")
                 if (literal.negated) {
                     patternNotInsides.add(insideAsLeaf.pattern)
                 } else {
@@ -567,7 +577,7 @@ private fun complexPatternToFormula(pattern: ComplexPattern): Formula {
         val focusVars = pattern.focusMetaVariables.map { Formula.MetavarFocus(it) }
         return Formula.And(focusVars)
     } else {
-        TODO()
+        TODO("Unexpected complex pattern")
     }
 }
 

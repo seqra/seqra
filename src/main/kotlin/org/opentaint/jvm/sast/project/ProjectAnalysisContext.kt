@@ -82,10 +82,10 @@ fun initializeProjectAnalysisContext(
 
         val lambdaAnonymousClass = LambdaAnonymousClassFeature()
         val lambdaTransformer = LambdaExpressionToAnonymousClassTransformerFeature(lambdaAnonymousClass)
-        val methodNormalizer = MethodReturnInstNormalizerFeature
+//        val methodNormalizer = MethodReturnInstNormalizerFeature
 
         val features = mutableListOf(
-            UnknownClasses, lambdaAnonymousClass, lambdaTransformer, methodNormalizer,
+            UnknownClasses, lambdaAnonymousClass, lambdaTransformer, /*methodNormalizer,*/
             JStringConcatTransformer, JMultiDimArrayAllocationTransformer,
             classPathExtensionFeature
         )
