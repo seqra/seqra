@@ -485,8 +485,12 @@ private fun ensureSourceStateVars(
     val edgeReplacement = mutableListOf<EdgeReplacement>()
 
     val predecessors = automataPredecessors(automata)
-    val acceptStates = automata.finalAcceptStates
-    for (dstState in acceptStates) {
+
+    val unprocessedStates = mutableListOf<State>()
+    unprocessedStates += automata.finalAcceptStates
+
+    while (unprocessedStates.isNotEmpty()) {
+        val dstState = unprocessedStates.removeLast()
         for ((edge, srcState) in predecessors[dstState].orEmpty()) {
             when (edge) {
                 is Edge.MethodCall -> {
@@ -503,8 +507,25 @@ private fun ensureSourceStateVars(
                     edgeReplacement += EdgeReplacement(srcState, dstState, edge, modifiedEdge)
                 }
 
-                Edge.AnalysisEnd,
-                is Edge.MethodEnter -> continue
+                is Edge.MethodEnter -> {
+                    val positivePredicate = edge.condition.findPositivePredicate() ?: continue
+                    val effectVars = edge.effect.assignMetaVar.toMutableMap()
+
+                    val condition = ParamConstraint(
+                        Position.Argument(Position.ArgumentIndex.Any("tainted")),
+                        IsMetavar(freshVar)
+                    )
+                    val predicate = Predicate(positivePredicate.signature, condition)
+                    effectVars[freshVar] = listOf(MethodPredicate(predicate, negated = false))
+                    val effect = EdgeEffect(effectVars)
+                    val modifiedEdge = Edge.MethodEnter(edge.condition, effect)
+
+                    edgeReplacement += EdgeReplacement(srcState, dstState, edge, modifiedEdge)
+                }
+
+                Edge.AnalysisEnd -> {
+                    unprocessedStates.add(srcState)
+                }
             }
         }
     }
@@ -785,7 +806,7 @@ private fun createAutomata(
 
     val emptyRegister = StateRegister(emptyMap())
     val startState = State(initialNode, emptyRegister)
-    val initialStates = mutableListOf(startState)
+    val initialStates = mutableSetOf(startState)
 
     val processedStates = hashSetOf<State>()
     val unprocessed = mutableListOf<Pair<State, Pair<State, Edge>?>>(startState to null)
@@ -2659,7 +2680,7 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignatureMethodName(
                             concrete.add(c.value)
                             SerializedCondition.True
                         } else {
-                            TODO("Negated concrete constraint")
+                            methodNameMatcherCondition(c.value)
                         }
                     }
 
@@ -2671,6 +2692,28 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignatureMethodName(
             concrete.firstOrNull()?.let { SerializedNameMatcher.Simple(it) }
         }
     }
+}
+
+private fun methodNameMatcherCondition(methodNameConstraint: String): SerializedCondition {
+    val methodName = methodNameConstraint.substringAfterLast('.')
+    val className = methodNameConstraint.substringBeforeLast('.', "")
+
+    val methodNameMatcher = SerializedCondition.MethodNameMatches(methodName)
+    val classNameMatcher: SerializedCondition.ClassNameMatches? =
+        className.takeIf { it.isNotEmpty() }?.let {
+            SerializedCondition.ClassNameMatches(classNameMatcherFromConcreteString(it))
+        }
+
+    return SerializedCondition.and(listOfNotNull(methodNameMatcher, classNameMatcher))
+}
+
+private fun classNameMatcherFromConcreteString(name: String): SerializedNameMatcher {
+    val parts = name.split(".")
+    val packageName = parts.dropLast(1).joinToString(separator = ".")
+    return SerializedNameMatcher.ClassPattern(
+        SerializedNameMatcher.Simple(packageName),
+        SerializedNameMatcher.Simple(parts.last())
+    )
 }
 
 private fun TaintRuleGenerationCtx.evaluateEdgePredicateConstraint(

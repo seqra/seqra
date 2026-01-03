@@ -6,12 +6,12 @@ rules:
     mode: taint
     pattern-sources:
       - patterns:
-        - pattern-inside: |
-            $METHODNAME(..., SpecificData $SOURCE,...) {
-              ...
-            }
-        - focus-metavariable: $SOURCE
-      - patterns:
-        - pattern: $SOURCE.getData()
+          - patterns:
+              - pattern-inside: |
+                  $METHODNAME(..., SpecificData $SOURCE,...) {
+                    ...
+                  }
+          - patterns:
+              - pattern: $SOURCE.getData()
     pattern-sinks:
       - pattern: User.sink(...)

@@ -100,7 +100,6 @@ class IssuesTest : SampleBasedTest() {
     fun `issue 95`() = runTest<issue95>()
 
     @Test
-    @Disabled // todo: parallel `patterns` are treated as if they are under `pattern-either`
     fun `issue 96`() = runTest<issue96>()
 
     @AfterAll
