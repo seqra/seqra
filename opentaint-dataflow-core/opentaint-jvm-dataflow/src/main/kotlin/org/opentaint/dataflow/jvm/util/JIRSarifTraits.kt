@@ -76,16 +76,15 @@ class JIRSarifTraits(
             getReadableInstance(statement) ?: "the calling object"
         }
 
-    override fun printArgumentNth(index: Int) =
-        "the ${getOrdinal(index + 1)} argument"
+    override fun printArgumentNth(index: Int, methodName: String?): String {
+        val ofMethod = methodName?.let { " of \"$it\"" } ?: ""
+        return "the ${getOrdinal(index + 1)} argument$ofMethod"
+    }
 
     override fun printArgument(statement: JIRInst, index: Int): String {
-        if (statement is JIRCallExpr && index <= statement.args.size) {
-            val readableArg = tryGetReadableValue(statement, statement.args[index])
-            if (readableArg is ReadableValue.Value)
-                return readableArg.string
-        }
-        return printArgumentNth(index)
+        val methodName = statement.location.method.name
+        val paramName = statement.location.method.parameters.getOrNull(index)?.name ?: return printArgumentNth(index, methodName)
+        return "\"$paramName\""
     }
 
     override fun getCallee(callExpr: CommonCallExpr): JIRMethod {
