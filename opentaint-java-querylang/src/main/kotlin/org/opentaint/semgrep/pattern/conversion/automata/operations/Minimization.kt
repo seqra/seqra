@@ -101,6 +101,7 @@ private class EdgeBuilder(private val formulaManager: MethodFormulaManager) {
 
     private val methodCallFormulas = mutableListOf<MethodFormula>()
     private val methodEnterFormulas = mutableListOf<MethodFormula>()
+    private val methodLoopFormulas = mutableListOf<MethodFormula>()
 
     fun addEdge(edge: AutomataEdgeType) {
         when (edge) {
@@ -109,6 +110,7 @@ private class EdgeBuilder(private val formulaManager: MethodFormulaManager) {
             AutomataEdgeType.PatternStart -> hasPatternStart = true
             is AutomataEdgeType.MethodCall -> methodCallFormulas.add(edge.formula)
             is AutomataEdgeType.MethodEnter -> methodEnterFormulas.add(edge.formula)
+            is AutomataEdgeType.InitialLoopMethodCall -> methodLoopFormulas.add(edge.formula)
         }
     }
 
@@ -127,6 +129,9 @@ private class EdgeBuilder(private val formulaManager: MethodFormulaManager) {
         }
         if (methodEnterFormulas.isNotEmpty()) {
             add(AutomataEdgeType.MethodEnter(formulaManager.mkOr(methodEnterFormulas)))
+        }
+        if (methodLoopFormulas.isNotEmpty()) {
+            add(AutomataEdgeType.InitialLoopMethodCall(formulaManager.mkOr(methodLoopFormulas)))
         }
     }
 }

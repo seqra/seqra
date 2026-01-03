@@ -2281,7 +2281,8 @@ private fun TaintRuleGenerationCtx.generateTaintSourceRules(
     if (actions.isEmpty()) return@generateTaintRules emptyList()
 
     if (function.isGeneratedReturnValue()) {
-        TODO("Eliminate generated return value")
+        semgrepRuleTrace.error("Eliminate generated return value", Reason.NOT_IMPLEMENTED)
+        return@generateTaintRules emptyList()
     }
 
     val rule = when (ruleEdge.edge) {
@@ -2293,7 +2294,10 @@ private fun TaintRuleGenerationCtx.generateTaintSourceRules(
             function, signature = null, overrides = false, cond, actions
         )
 
-        Edge.AnalysisEnd -> TODO("Analysis end in generate taint source")
+        Edge.AnalysisEnd -> {
+            semgrepRuleTrace.error("Analysis end in generate taint source", Reason.NOT_IMPLEMENTED)
+            return@generateTaintRules emptyList()
+        }
     }
 
     listOf(rule)
@@ -2358,10 +2362,11 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
         if (actions.isNotEmpty()) {
             rules += generateRules(condition.ruleCondition) { function, cond ->
                 if (function.isGeneratedReturnValue()) {
-                    TODO("Eliminate generated return value")
+                    semgrepRuleTrace.error("Eliminate generated return value", Reason.NOT_IMPLEMENTED)
+                    return@generateRules emptyList()
                 }
 
-                when (edge) {
+                val rule = when (edge) {
                     is Edge.MethodCall -> SerializedRule.Source(
                         function, signature = null, overrides = true, cond, actions
                     )
@@ -2370,8 +2375,12 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
                         function, signature = null, overrides = false, cond, actions
                     )
 
-                    Edge.AnalysisEnd -> TODO("Analysis end in generate taint rules")
+                    Edge.AnalysisEnd -> {
+                        semgrepRuleTrace.error("Analysis end in generate taint rules", Reason.NOT_IMPLEMENTED)
+                        return@generateRules emptyList()
+                    }
                 }
+                listOf(rule)
             }
         }
     }
@@ -2420,10 +2429,13 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
 
             rules += generateRules(condition.ruleCondition) { function, cond ->
                 if (function.isGeneratedReturnValue()) {
-                    TODO("Eliminate generated return value")
+                    semgrepRuleTrace.error("Eliminate generated return value", Reason.NOT_IMPLEMENTED)
+                    return@generateRules emptyList()
                 }
 
-                SerializedRule.Cleaner(function, signature = null, overrides = true, cond, actions)
+                listOf(
+                    SerializedRule.Cleaner(function, signature = null, overrides = true, cond, actions)
+                )
             }
         }
     }
@@ -3042,18 +3054,18 @@ private fun simplifyEdgeCondition(
     cancelation: OperationCancelation,
     edge: AutomataEdgeType
 ) = when (edge) {
-    is AutomataEdgeType.MethodCall -> simplifyMethodFormula(
-        formulaManager, edge.formula, metaVarInfo, cancelation, applyNotEquivalentTransformations = true
-    ).map {
-        val (effect, cond) = edgeEffectAndCondition(it, formulaManager)
-        Edge.MethodCall(cond, effect)
-    }
+    is AutomataEdgeType.AutomataEdgeTypeWithFormula -> {
+        simplifyMethodFormula(
+            formulaManager, edge.formula, metaVarInfo, cancelation, applyNotEquivalentTransformations = true
+        ).map {
+            val (effect, cond) = edgeEffectAndCondition(it, formulaManager)
 
-    is AutomataEdgeType.MethodEnter -> simplifyMethodFormula(
-        formulaManager, edge.formula, metaVarInfo, cancelation, applyNotEquivalentTransformations = true
-    ).map {
-        val (effect, cond) = edgeEffectAndCondition(it, formulaManager)
-        Edge.MethodEnter(cond, effect)
+            when (edge) {
+                is AutomataEdgeType.InitialLoopMethodCall -> Edge.MethodCall(cond, effect)
+                is AutomataEdgeType.MethodCall -> Edge.MethodCall(cond, effect)
+                is AutomataEdgeType.MethodEnter -> Edge.MethodEnter(cond, effect)
+            }
+        }
     }
 
     AutomataEdgeType.End -> listOf(Edge.AnalysisEnd)

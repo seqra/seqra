@@ -18,7 +18,8 @@ fun AutomataBuilderCtx.intersection(
     val newNodes = mutableMapOf<Pair<AutomataNode, AutomataNode>, AutomataNode>()
     newNodes[a1.initialNode to a2.initialNode] = root
 
-    val queue = mutableListOf(a1.initialNode to a2.initialNode)
+    val queue = ArrayDeque<Pair<AutomataNode, AutomataNode>>()
+    queue.add(a1.initialNode to a2.initialNode)
 
     while (queue.isNotEmpty()) {
         val (n1, n2) = queue.removeFirst()
@@ -26,14 +27,16 @@ fun AutomataBuilderCtx.intersection(
             createNewNode(n1, n2)
         }
 
-        n1.outEdges.forEach { (outType1, to1) ->
-            n2.outEdges.forEach inner@{ (outType2, to2) ->
+        for ((outType1, to1) in n1.outEdges) {
+            for ((outType2, to2) in n2.outEdges) {
                 val to = newNodes.getOrPut(to1 to to2) {
                     queue.add(to1 to to2)
                     createNewNode(to1, to2)
                 }
 
-                val edgeType = intersectEdges(outType1, outType2) ?: return@inner
+                val edgeType = intersectEdges(outType1, outType2)
+                    ?: continue
+
                 node.outEdges.add(edgeType to to)
             }
         }
@@ -53,22 +56,69 @@ fun AutomataBuilderCtx.intersection(
     }
 }
 
-internal fun AutomataBuilderCtx.intersectEdges(outType1: AutomataEdgeType, outType2: AutomataEdgeType): AutomataEdgeType? {
-    return if (outType1 == outType2 && outType1 !is AutomataEdgeType.AutomataEdgeTypeWithFormula) {
-        outType1
-    } else if (outType1 is AutomataEdgeType.MethodCall && outType2 is AutomataEdgeType.MethodCall) {
-        val formula = intersectMethodFormula(outType1.formula, outType2.formula)
-            ?: return null
+internal fun AutomataBuilderCtx.intersectEdges(
+    outType1: AutomataEdgeType,
+    outType2: AutomataEdgeType,
+): AutomataEdgeType? {
+    if (outType1 !is AutomataEdgeType.AutomataEdgeTypeWithFormula) {
+        if (outType1 == outType2) return outType1
 
-        AutomataEdgeType.MethodCall(formula)
+        return null
+    }
 
-    } else if (outType1 is AutomataEdgeType.MethodEnter && outType2 is AutomataEdgeType.MethodEnter) {
-        val formula = intersectMethodFormula(outType1.formula, outType2.formula)
-            ?: return null
+    return when (outType2) {
+        AutomataEdgeType.End,
+        AutomataEdgeType.PatternEnd,
+        AutomataEdgeType.PatternStart,
+            -> return null
 
-        AutomataEdgeType.MethodEnter(formula)
-    } else {
-        null
+        is AutomataEdgeType.MethodCall -> when (outType1) {
+            is AutomataEdgeType.MethodCall -> {
+                val formula = intersectMethodFormula(outType1.formula, outType2.formula)
+                    ?: return null
+
+                AutomataEdgeType.MethodCall(formula)
+            }
+
+            is AutomataEdgeType.MethodEnter -> {
+                return null
+            }
+
+            is AutomataEdgeType.InitialLoopMethodCall -> {
+                val formula = intersectMethodFormula(outType1.formula, outType2.formula)
+                    ?: return null
+
+                AutomataEdgeType.MethodCall(formula)
+            }
+        }
+
+        is AutomataEdgeType.MethodEnter -> when (outType1) {
+            is AutomataEdgeType.MethodEnter -> {
+                val formula = intersectMethodFormula(outType1.formula, outType2.formula)
+                    ?: return null
+
+                AutomataEdgeType.MethodEnter(formula)
+            }
+
+            is AutomataEdgeType.MethodCall -> {
+                return null
+            }
+
+            is AutomataEdgeType.InitialLoopMethodCall -> {
+                return outType2
+            }
+        }
+
+        is AutomataEdgeType.InitialLoopMethodCall -> when (outType1) {
+            is AutomataEdgeType.MethodCall -> return intersectEdges(outType2, outType1)
+            is AutomataEdgeType.MethodEnter -> return intersectEdges(outType2, outType1)
+            is AutomataEdgeType.InitialLoopMethodCall -> {
+                val formula = intersectMethodFormula(outType1.formula, outType2.formula)
+                    ?: return null
+
+                return AutomataEdgeType.InitialLoopMethodCall(formula)
+            }
+        }
     }
 }
 

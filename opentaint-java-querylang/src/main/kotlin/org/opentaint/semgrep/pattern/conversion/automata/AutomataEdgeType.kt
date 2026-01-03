@@ -7,6 +7,8 @@ sealed interface AutomataEdgeType {
 
     data class MethodEnter(override val formula: MethodFormula) : AutomataEdgeTypeWithFormula
     data class MethodCall(override val formula: MethodFormula) : AutomataEdgeTypeWithFormula
+    data class InitialLoopMethodCall(override val formula: MethodFormula) : AutomataEdgeTypeWithFormula
+
     data object End : AutomataEdgeType
     data object PatternStart : AutomataEdgeType
     data object PatternEnd : AutomataEdgeType

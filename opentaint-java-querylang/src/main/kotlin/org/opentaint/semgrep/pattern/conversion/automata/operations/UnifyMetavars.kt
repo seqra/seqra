@@ -170,6 +170,7 @@ private fun AutomataBuilderCtx.transformEdge(
     val newEdge = when (edge) {
         is AutomataEdgeType.MethodCall -> AutomataEdgeType.MethodCall(newFormula)
         is AutomataEdgeType.MethodEnter -> AutomataEdgeType.MethodEnter(newFormula)
+        is AutomataEdgeType.InitialLoopMethodCall -> AutomataEdgeType.InitialLoopMethodCall(newFormula)
     }
 
     return newEdge to newContext

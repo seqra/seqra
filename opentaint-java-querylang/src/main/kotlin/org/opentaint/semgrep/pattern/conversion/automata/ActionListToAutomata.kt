@@ -26,7 +26,9 @@ fun convertActionListToAutomata(
 
         val firstAction = actions.removeFirst()
         check(firstAction is SemgrepPatternAction.MethodSignature)
-        check(!actionList.hasEllipsisInTheBeginning)
+        check(!actionList.hasEllipsisInTheBeginning) {
+            "Ellipsis before signature"
+        }
 
         val edgeFormula = constructSignatureFormula(formulaManager, firstAction)
 
@@ -43,10 +45,14 @@ fun convertActionListToAutomata(
 
         val edgeFormula = constructFormula(formulaManager, action)
 
-        // always add loop in middle nodes
-        if (last != root || actionList.hasEllipsisInTheBeginning) {
+        if (last != root) {
+            // always add loop in middle nodes
             val loopFormula = edgeFormula.complement()
             last.outEdges.add(AutomataEdgeType.MethodCall(loopFormula) to last)
+            loopOccurred = true
+        } else if (actionList.hasEllipsisInTheBeginning) {
+            val loopFormula = edgeFormula.complement()
+            last.outEdges.add(AutomataEdgeType.InitialLoopMethodCall(loopFormula) to last)
             loopOccurred = true
         }
 

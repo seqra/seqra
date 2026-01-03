@@ -44,6 +44,7 @@ class PrintableSemgrepRuleAutomata(val automata: SemgrepRuleAutomata) : Printabl
             when (edge) {
                 is AutomataEdgeType.MethodCall -> "CALL($formula)"
                 is AutomataEdgeType.MethodEnter -> "ENTER($formula)"
+                is AutomataEdgeType.InitialLoopMethodCall -> "ILOOP($formula)"
             }
         }
 

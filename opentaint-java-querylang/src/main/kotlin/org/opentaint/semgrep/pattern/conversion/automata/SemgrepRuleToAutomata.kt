@@ -165,12 +165,8 @@ private fun AutomataBuilderCtx.addPositivePattern(
     actionList: SemgrepPatternActionList,
 ): SemgrepRuleAutomata {
     val actionListAutomata = convertActionListToAutomata(formulaManager, actionList)
-    return hopcroftAlgorithhm(
-        intersection(
-            curAutomata,
-            actionListAutomata
-        )
-    )
+    val automataIntersection = intersection(curAutomata, actionListAutomata)
+    return hopcroftAlgorithhm(automataIntersection)
 }
 
 private fun AutomataBuilderCtx.addNegativePattern(
@@ -209,25 +205,22 @@ private fun AutomataBuilderCtx.addPatternInside(
 
     val addPrefixEllipsis = actionList.actions.firstOrNull() is SemgrepPatternAction.MethodSignature ||
             actionList.hasEllipsisInTheEnd || !actionList.hasEllipsisInTheBeginning
+
     val addSuffixEllipsis = actionList.actions.firstOrNull() is SemgrepPatternAction.MethodSignature ||
             actionList.hasEllipsisInTheBeginning || !actionList.hasEllipsisInTheEnd
 
     if (addSuffixEllipsis) {
         acceptIfCurrentAutomataAcceptsPrefix(curAutomata)
     }
+
     if (addPrefixEllipsis) {
         acceptIfCurrentAutomataAcceptsSuffix(curAutomata)
-        curAutomata.initialNode.outEdges.add(AutomataEdgeType.MethodEnter(MethodFormula.True) to curAutomata.initialNode)
     }
 
     val actionListAutomata = convertActionListToAutomata(formulaManager, actionList)
     addPatternStartAndEndOnEveryNode(actionListAutomata)
-    return hopcroftAlgorithhm(
-        intersection(
-            actionListAutomata,
-            curAutomata
-        )
-    )
+    val automataIntersection = intersection(actionListAutomata, curAutomata)
+    return hopcroftAlgorithhm(automataIntersection)
 }
 
 private fun AutomataBuilderCtx.addEllipsisInTheBeginning(actionList: SemgrepPatternActionList): SemgrepPatternActionList {
