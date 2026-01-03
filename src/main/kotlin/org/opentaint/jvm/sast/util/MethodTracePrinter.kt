@@ -23,5 +23,21 @@ private class PrintableFullTrace(
     override fun successors(node: TraceEntry): List<Pair<Pair<TraceEntry, TraceEntry>, TraceEntry>> =
         trace.successors[node].orEmpty().map { (node to it) to it }
 
-    override fun nodeLabel(node: TraceEntry): String = node.toString()
+    override fun nodeLabel(node: TraceEntry): String = when (node) {
+        is TraceEntry.Action -> "Action{${node.statement}}(${node.nodeEdgesStr()})[${node.actionStr()}]"
+        is TraceEntry.Final -> "Final{${node.statement}}(${node.nodeEdgesStr()})"
+        is TraceEntry.MethodEntry -> "Entry{${node.statement}}(${node.nodeEdgesStr()})"
+        is TraceEntry.SourceStartEntry -> "SourceStart{${node.statement}}(${node.nodeEdgesStr()})"
+        is TraceEntry.Unchanged -> "Unchanged{${node.statement}}(${node.nodeEdgesStr()})"
+    }
+
+    private fun TraceEntry.nodeEdgesStr(): String {
+        val facts = edges.map { it.fact }.map { it.toString() }
+        if (facts.size == 1) return facts.first()
+        return facts.joinToString("\n")
+    }
+
+    private fun TraceEntry.Action.actionStr(): String {
+        return this.toString()
+    }
 }
