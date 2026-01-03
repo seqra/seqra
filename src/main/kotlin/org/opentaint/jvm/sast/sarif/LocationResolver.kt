@@ -305,6 +305,10 @@ class LocationResolver(
         val debugRange = debugInfo?.findRange(location.info.lineNumber)
         if (debugRange == null || location.info.noExtraResolve) {
             val source = getCachedSourceLocation(location.inst)
+            if (source == null) {
+                logger.warn { "Source file for ${location.info.fullyQualified} not found!" }
+                return emptyList()
+            }
             return listOf(generateThreadFlowLocation(location, source, startIdx))
         }
         val actualPosition = debugRange.mapDestToSource(location.info.lineNumber)
