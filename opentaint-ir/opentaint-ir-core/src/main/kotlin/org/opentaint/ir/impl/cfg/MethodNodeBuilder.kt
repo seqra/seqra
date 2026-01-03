@@ -251,7 +251,7 @@ class MethodNodeBuilder(
     }
 
     override fun visitJIRRawThrowInst(inst: JIRRawThrowInst) {
-        currentInsnList.add(loadValue(inst.throwable))
+        inst.throwable.accept(this)
         currentInsnList.add(InsnNode(Opcodes.ATHROW))
         updateStackInfo(-stackSize)
     }
