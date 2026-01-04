@@ -150,20 +150,17 @@ class JIRMethodSequentFlowFunction(
         unchanged: () -> Unit,
         propagateFact: (FinalFactAp) -> Unit,
     ) {
-        val propagatedFact = if (access == factAp.base) {
+        val factsToDrop = if (access == factAp.base) {
             val resultFact = factAp.rebase(exitBase)
             propagateFact(resultFact)
 
-            val factsToDrop = applyMethodExitSinkRules(exitBase, resultFact)
-            if (factsToDrop.isNotEmpty()) {
-                TODO("Unexpected fact drop")
-            }
-
-            factAp.dropArgumentsLocalTaintMarks(initialFactIsZero)
+            applyMethodExitSinkRules(exitBase, resultFact)
         } else {
-            val factsToDrop = applyMethodExitSinkRules(exitBase, factAp)
-            factAp.dropFinalFacts(factsToDrop)?.dropArgumentsLocalTaintMarks(initialFactIsZero)
+            applyMethodExitSinkRules(exitBase, factAp)
         }
+
+        val propagatedFact = factAp.dropFinalFacts(factsToDrop)
+            ?.dropArgumentsLocalTaintMarks(initialFactIsZero)
 
         if (propagatedFact == factAp) {
             unchanged()
