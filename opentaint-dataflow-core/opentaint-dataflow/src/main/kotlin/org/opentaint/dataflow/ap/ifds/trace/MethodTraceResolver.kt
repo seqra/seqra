@@ -132,6 +132,7 @@ class MethodTraceResolver(
 
         sealed interface PassAction : TraceEntryAction {
             val edges: Set<TraceEdge>
+            val edgesAfter: Set<TraceEdge>
         }
 
         sealed interface SourceAction : TraceEntryAction {
@@ -146,6 +147,7 @@ class MethodTraceResolver(
 
         data class Sequential(
             override val edges: Set<TraceEdge>,
+            override val edgesAfter: Set<TraceEdge>,
         ) : SequentialAction, PrimaryAction, PassAction
 
         data class SequentialSourceRule(
@@ -169,19 +171,23 @@ class MethodTraceResolver(
 
         data class CallRule(
             override val edges: Set<TraceEdge>,
+            override val edgesAfter: Set<TraceEdge>,
             override val rule: CommonTaintConfigurationItem,
             override val action: Set<CommonTaintAction>
         ) :  CallRuleAction, OtherAction, PassAction
 
         sealed interface TraceSummaryEdge {
             val edge: TraceEdge
+            val edgeAfter: TraceEdge
 
             data class SourceSummary(
-                override val edge: TraceEdge.SourceTraceEdge
+                override val edge: TraceEdge.SourceTraceEdge,
+                override val edgeAfter: TraceEdge,
             ) : TraceSummaryEdge
 
             data class MethodSummary(
                 override val edge: TraceEdge,
+                override val edgeAfter: TraceEdge,
                 val delta: InitialFactAp.Delta
             ) : TraceSummaryEdge
         }
@@ -192,6 +198,9 @@ class MethodTraceResolver(
         ) : CallAction, PrimaryAction, PassAction {
             override val edges: Set<TraceEdge>
                 get() = summaryEdges.mapTo(hashSetOf()) { it.edge }
+
+            override val edgesAfter: Set<TraceEdge>
+                get() = summaryEdges.mapTo(hashSetOf()) { it.edgeAfter }
         }
 
         data class CallSourceSummary(
@@ -204,6 +213,7 @@ class MethodTraceResolver(
 
         data class UnresolvedCallSkip(
             override val edges: Set<TraceEdge>,
+            override val edgesAfter: Set<TraceEdge>,
         ) : CallAction, PrimaryAction, PassAction
     }
 
@@ -744,7 +754,7 @@ class MethodTraceResolver(
                             when (it) {
                                 is MethodSequentPrecondition.PreconditionFactsForInitialFact -> {
                                     it.preconditionFacts.mapTo(actions) { fact ->
-                                        TraceEntryAction.Sequential(setOf(edge.replaceFact(fact)))
+                                        TraceEntryAction.Sequential(setOf(edge.replaceFact(fact)), setOf(edge))
                                     }
                                 }
 
@@ -803,16 +813,21 @@ class MethodTraceResolver(
         val result = mutableListOf<Pair<PrimaryAction?, Set<OtherAction>>>()
         actions.cartesianProductMapTo { actionCombination ->
             val sequential = hashSetOf<TraceEdge>()
+            val sequentialAfter = hashSetOf<TraceEdge>()
+
             val rules = hashSetOf<TraceEntryAction.SequentialSourceRule>()
 
             for (action in actionCombination) {
                 when (action) {
-                    is TraceEntryAction.Sequential -> sequential.addAll(action.edges)
+                    is TraceEntryAction.Sequential -> {
+                        sequential.addAll(action.edges)
+                        sequentialAfter.addAll(action.edgesAfter)
+                    }
                     is TraceEntryAction.SequentialSourceRule -> rules.add(action)
                 }
             }
 
-            val primaryAction = sequential.takeIf { it.isNotEmpty() }?.let { TraceEntryAction.Sequential(it) }
+            val primaryAction = sequential.takeIf { it.isNotEmpty() }?.let { TraceEntryAction.Sequential(it, sequentialAfter) }
             result += primaryAction to rules
         }
         return result
@@ -909,8 +924,7 @@ class MethodTraceResolver(
             if (nonReturnSummaries.isEmpty()) return null
 
             val nonReturnEdges = nonReturnSummaries.mapTo(hashSetOf()) { it.currentEdge }
-            return setOf(MergedPrimaryUnresolvedCallSkip(UnresolvedCallSkip(nonReturnEdges)))
-
+            return setOf(MergedPrimaryUnresolvedCallSkip(UnresolvedCallSkip(nonReturnEdges, nonReturnEdges)))
         }
 
         return callees.mapTo(hashSetOf()) {
@@ -1119,7 +1133,7 @@ class MethodTraceResolver(
                 }
 
                 return listOf(
-                    TraceEntryAction.CallRule(setOf(edge), rule.rule, rule.action)
+                    TraceEntryAction.CallRule(setOf(edge), currentEdges, rule.rule, rule.action)
                 )
             }
 
@@ -1182,7 +1196,7 @@ class MethodTraceResolver(
                         return@cartesianProductMapTo
                     }
 
-                    result += TraceEntryAction.CallRule(edgeGroup.toHashSet(), rule.rule, rule.action)
+                    result += TraceEntryAction.CallRule(edgeGroup.toHashSet(), currentEdges, rule.rule, rule.action)
                 }
 
                 return result
@@ -1260,7 +1274,7 @@ class MethodTraceResolver(
                 )
 
                 val callSummaries = preconditions.mapTo(hashSetOf()) {
-                    TraceSummaryEdge.MethodSummary(currentEdge.replaceFact(it), emptyDelta)
+                    TraceSummaryEdge.MethodSummary(currentEdge.replaceFact(it), currentEdge, emptyDelta)
                 }
 
                 this += CallSummary(callSummaries, calleeTrace)
@@ -1296,7 +1310,7 @@ class MethodTraceResolver(
                 traceKind = TraceKind.SummaryTrace
             )
 
-            val callSummary = TraceSummaryEdge.SourceSummary(currentEdge)
+            val callSummary = TraceSummaryEdge.SourceSummary(currentEdge, currentEdge)
             this += CallSummary(setOf(callSummary), summaryTrace)
         }
     }
@@ -1352,6 +1366,7 @@ class MethodTraceResolver(
 
         val callSummary = TraceSummaryEdge.MethodSummary(
             currentTraceEdge.replaceFact(precondition),
+            currentTraceEdge,
             preconditionDelta
         )
 

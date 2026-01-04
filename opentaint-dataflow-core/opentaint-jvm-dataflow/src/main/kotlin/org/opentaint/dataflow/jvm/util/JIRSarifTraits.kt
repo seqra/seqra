@@ -81,9 +81,9 @@ class JIRSarifTraits(
         return "the ${getOrdinal(index + 1)} argument$ofMethod"
     }
 
-    override fun printArgument(statement: JIRInst, index: Int): String {
-        val methodName = statement.location.method.name
-        val paramName = statement.location.method.parameters.getOrNull(index)?.name ?: return printArgumentNth(index, methodName)
+    override fun printArgument(method: JIRMethod, index: Int): String {
+        val methodName = method.name
+        val paramName = method.parameters.getOrNull(index)?.name ?: return printArgumentNth(index, methodName)
         return "\"$paramName\""
     }
 
@@ -120,7 +120,7 @@ class JIRSarifTraits(
         if (expr !is JIRValue) return null
         return when (expr) {
             is JIRFieldRef -> ReadableValue.Value("\"${expr.instance ?: expr.field.enclosingType.jIRClass.simpleName}.${expr.field.name}\"")
-            is JIRArgument -> ReadableValue.Value(printArgument(statement, expr.index))
+            is JIRArgument -> ReadableValue.Value(printArgument(statement.location.method, expr.index))
             is JIRArrayAccess -> {
                 val arrName = tryGetReadableValue(statement, expr.array)
                 val elemName = tryGetReadableValue(statement, expr.index)
