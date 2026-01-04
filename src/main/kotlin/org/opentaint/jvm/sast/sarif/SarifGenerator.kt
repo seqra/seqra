@@ -143,7 +143,7 @@ class SarifGenerator(
     private fun isRepetitionOfAssign(a: List<TracePathNode>, b: List<TracePathNode>): Boolean {
         if (a.size != 1 || b.size != 1) return false
         val aNode = a[0]
-        val bNode = a[0]
+        val bNode = b[0]
         if (aNode.entry !is MethodTraceResolver.TraceEntry.Action
             || bNode.entry !is MethodTraceResolver.TraceEntry.Action)
             return false

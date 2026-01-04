@@ -27,7 +27,7 @@ private fun generateSarifRuleDescription(metadata: RuleMetadata): ReportingDescr
     }
 
     val shortDescription =
-        metadata.metadata!!.readStrings("shortDescription")?.firstOrNull() ?: "Opentaint Finding: ${metadata.ruleId}"
+        metadata.metadata?.readStrings("shortDescription")?.firstOrNull() ?: "Opentaint Finding: ${metadata.ruleId}"
 
     return ReportingDescriptor(
         id = metadata.path,
