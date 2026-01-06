@@ -41,6 +41,5 @@ private fun AutomataBuilderCtx.simplifyEdge(
     return when (edge) {
         is AutomataEdgeType.MethodCall -> AutomataEdgeType.MethodCall(simplifiedFormula)
         is AutomataEdgeType.MethodEnter -> AutomataEdgeType.MethodEnter(simplifiedFormula)
-        is AutomataEdgeType.InitialLoopMethodCall -> AutomataEdgeType.InitialLoopMethodCall(simplifiedFormula)
     }
 }

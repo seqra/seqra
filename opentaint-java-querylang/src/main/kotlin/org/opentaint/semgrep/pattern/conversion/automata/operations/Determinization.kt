@@ -58,10 +58,6 @@ fun AutomataBuilderCtx.determinize(
         val initialEdges = mutableListOf<Pair<AutomataEdgeType, AutomataNode>>()
         s.forEach { initialEdges.addAll(it.node().outEdges) }
 
-        if (initialEdges.any { it.first is AutomataEdgeType.InitialLoopMethodCall }) {
-            error("Initial loop must be eliminated")
-        }
-
         for (type in listOf(AutomataEdgeType.End, AutomataEdgeType.PatternStart, AutomataEdgeType.PatternEnd)) {
             val edgesWithoutFormula = initialEdges.filter { it.first == type }
             if (edgesWithoutFormula.isNotEmpty()) {

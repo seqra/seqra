@@ -83,13 +83,6 @@ internal fun AutomataBuilderCtx.intersectEdges(
             is AutomataEdgeType.MethodEnter -> {
                 return null
             }
-
-            is AutomataEdgeType.InitialLoopMethodCall -> {
-                val formula = intersectMethodFormula(outType1.formula, outType2.formula)
-                    ?: return null
-
-                AutomataEdgeType.MethodCall(formula)
-            }
         }
 
         is AutomataEdgeType.MethodEnter -> when (outType1) {
@@ -102,21 +95,6 @@ internal fun AutomataBuilderCtx.intersectEdges(
 
             is AutomataEdgeType.MethodCall -> {
                 return null
-            }
-
-            is AutomataEdgeType.InitialLoopMethodCall -> {
-                return outType2
-            }
-        }
-
-        is AutomataEdgeType.InitialLoopMethodCall -> when (outType1) {
-            is AutomataEdgeType.MethodCall -> return intersectEdges(outType2, outType1)
-            is AutomataEdgeType.MethodEnter -> return intersectEdges(outType2, outType1)
-            is AutomataEdgeType.InitialLoopMethodCall -> {
-                val formula = intersectMethodFormula(outType1.formula, outType2.formula)
-                    ?: return null
-
-                return AutomataEdgeType.InitialLoopMethodCall(formula)
             }
         }
     }

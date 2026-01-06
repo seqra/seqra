@@ -41,18 +41,19 @@ fun convertActionListToAutomata(
         hasMethodEnter = true
     }
 
+    if (actionList.hasEllipsisInTheBeginning) {
+        last.outEdges.add(AutomataEdgeType.MethodEnter(MethodFormula.True) to last)
+        hasMethodEnter = true
+    }
+
     actions.forEach { action ->
 
         val edgeFormula = constructFormula(formulaManager, action)
 
-        if (last != root) {
+        if (last != root || actionList.hasEllipsisInTheBeginning) {
             // always add loop in middle nodes
             val loopFormula = edgeFormula.complement()
             last.outEdges.add(AutomataEdgeType.MethodCall(loopFormula) to last)
-            loopOccurred = true
-        } else if (actionList.hasEllipsisInTheBeginning) {
-            val loopFormula = edgeFormula.complement()
-            last.outEdges.add(AutomataEdgeType.InitialLoopMethodCall(loopFormula) to last)
             loopOccurred = true
         }
 

@@ -1,0 +1,31 @@
+rules:
+  - id: java.spring.xss.precise
+    languages:
+      - java
+    severity: ERROR
+    message: Return a untrusted file path
+    metadata:
+      cwe: CWE-79
+      license: MIT
+      shortDescription: Return a untrusted file path
+    patterns:
+      - pattern: |
+          MultipartFile $FILE = $SOURCE.$MD();
+          ...
+          String $PAYLOAD = $FILE.getOriginalFilename();
+          ...
+          $SINK = ResponseEntity. ... .body($PAYLOAD);
+      - pattern-not-inside: |
+          MultipartFile $FILE = $SOURCE.$MD();
+          ...
+          String $PAYLOAD = $FILE.getOriginalFilename();
+          ...
+          String $SANITIZED = htmlEscape($PAYLOAD);
+          ...
+          $SINK = ResponseEntity. ... .body($SANITIZED);
+      - pattern-inside: |
+          @$ANNOTATION(...)
+          $RETURNTYPE $METHOD(..., $TYPE $SOURCE,...) {
+            ...
+            return $SINK;
+          }

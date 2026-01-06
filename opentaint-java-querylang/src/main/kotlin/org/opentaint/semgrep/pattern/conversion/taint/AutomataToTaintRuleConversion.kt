@@ -3123,7 +3123,6 @@ private fun simplifyEdgeCondition(
             val (effect, cond) = edgeEffectAndCondition(it, formulaManager)
 
             when (edge) {
-                is AutomataEdgeType.InitialLoopMethodCall -> Edge.MethodCall(cond, effect)
                 is AutomataEdgeType.MethodCall -> Edge.MethodCall(cond, effect)
                 is AutomataEdgeType.MethodEnter -> Edge.MethodEnter(cond, effect)
             }

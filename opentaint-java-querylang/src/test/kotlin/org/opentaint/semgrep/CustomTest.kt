@@ -33,6 +33,13 @@ class CustomTest : SampleBasedTest(configurationRequired = true) {
     @Disabled
     fun `test log injection rule`() = runTest<custom.springLogInjection>()
 
+    @Test
+    @Disabled
+    fun `test xss with sanitizer rule`() = runTest<custom.springXssSanitized>()
+
+    @Test
+    fun `test xss with sanitizer rule min`() = runTest<custom.springXssSanitizedMin>()
+
     @AfterAll
     fun close(){
         closeRunner()

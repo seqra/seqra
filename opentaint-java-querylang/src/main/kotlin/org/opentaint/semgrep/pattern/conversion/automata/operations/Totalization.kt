@@ -3,6 +3,7 @@ package org.opentaint.semgrep.pattern.conversion.automata.operations
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataBuilderCtx
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
+import org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType.AutomataEdgeTypeWithFormula
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
 import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
@@ -13,26 +14,6 @@ fun AutomataBuilderCtx.totalizeMethodCalls(
 ) {
     totalize(automata) { node ->
         methodCallEdgeToDeadNode(automata, node)
-    }
-}
-
-fun eliminateInitialLoop(automata: SemgrepRuleAutomata) {
-    val visited = hashSetOf<AutomataNode>()
-    val unprocessed = mutableListOf(automata.initialNode)
-    while (unprocessed.isNotEmpty()) {
-        val node = unprocessed.removeLast()
-        if (!visited.add(node)) continue
-
-        val edgeIter = node.outEdges.listIterator()
-        while (edgeIter.hasNext()) {
-            val (edge, nextNode) = edgeIter.next()
-            unprocessed.add(nextNode)
-
-            if (edge !is AutomataEdgeType.InitialLoopMethodCall) continue
-
-            val methodCall = AutomataEdgeType.MethodCall(edge.formula)
-            edgeIter.set(methodCall to nextNode)
-        }
     }
 }
 
@@ -102,7 +83,7 @@ private fun totalize(
     }
 }
 
-private inline fun <reified EdgeType : AutomataEdgeType.AutomataEdgeTypeWithFormula> AutomataBuilderCtx.getNodeNegation(
+private inline fun <reified EdgeType : AutomataEdgeTypeWithFormula> AutomataBuilderCtx.getNodeNegation(
     node: AutomataNode,
 ): MethodFormula? {
     val formulas = node.outEdges.mapNotNull { (it.first as? EdgeType)?.formula?.complement() }

@@ -7,6 +7,6 @@ import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 fun acceptIfCurrentAutomataAcceptsSuffix(automata: SemgrepRuleAutomata) {
     check(!automata.hasMethodEnter)
 
-    automata.initialNode.outEdges.add(AutomataEdgeType.InitialLoopMethodCall(MethodFormula.True) to automata.initialNode)
+    automata.initialNode.outEdges.add(AutomataEdgeType.MethodCall(MethodFormula.True) to automata.initialNode)
     automata.isDeterministic = false
 }

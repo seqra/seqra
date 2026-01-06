@@ -12,7 +12,6 @@ import org.opentaint.semgrep.pattern.conversion.automata.operations.addEndEdges
 import org.opentaint.semgrep.pattern.conversion.automata.operations.addPatternStartAndEnd
 import org.opentaint.semgrep.pattern.conversion.automata.operations.addPatternStartAndEndOnEveryNode
 import org.opentaint.semgrep.pattern.conversion.automata.operations.complement
-import org.opentaint.semgrep.pattern.conversion.automata.operations.eliminateInitialLoop
 import org.opentaint.semgrep.pattern.conversion.automata.operations.hopcroftAlgorithhm
 import org.opentaint.semgrep.pattern.conversion.automata.operations.intersection
 import org.opentaint.semgrep.pattern.conversion.automata.operations.removePatternStartAndEnd
@@ -43,8 +42,6 @@ private fun AutomataBuilderCtx.transformSemgrepRuleToAutomata(
     val (newRule, startingAutomata) = buildStartingAutomata(rule)
 
     val resultNfa = transformSemgrepRuleToAutomata(newRule, startingAutomata)
-
-    eliminateInitialLoop(resultNfa)
 
     val resultDfa = hopcroftAlgorithhm(resultNfa)
     acceptIfCurrentAutomataAcceptsPrefix(resultDfa)
@@ -111,15 +108,17 @@ private fun AutomataBuilderCtx.transformSemgrepRuleToAutomata(
         val result = automatas.reduce { acc, automata ->
             var a1 = acc
             var a2 = automata
+
             if (a1.hasMethodEnter && !a2.hasMethodEnter) {
                 a2 = addDummyMethodEnter(a2)
             }
+
             if (!a1.hasMethodEnter && a2.hasMethodEnter) {
                 a1 = addDummyMethodEnter(a1)
             }
-            hopcroftAlgorithhm(
-                intersection(a1, a2)
-            )
+
+            val a1a2 = intersection(a1, a2)
+            hopcroftAlgorithhm(a1a2)
         }
 
         removePatternStartAndEnd(result)
@@ -218,6 +217,7 @@ private fun AutomataBuilderCtx.addPatternInside(
 
     if (addPrefixEllipsis) {
         acceptIfCurrentAutomataAcceptsSuffix(curAutomata)
+        curAutomata.initialNode.outEdges.add(AutomataEdgeType.MethodEnter(MethodFormula.True) to curAutomata.initialNode)
     }
 
     val actionListAutomata = convertActionListToAutomata(formulaManager, actionList)
