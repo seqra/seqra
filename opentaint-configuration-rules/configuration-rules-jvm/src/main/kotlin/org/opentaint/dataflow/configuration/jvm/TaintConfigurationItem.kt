@@ -26,6 +26,12 @@ data class TaintMethodSource(
     override val actionsAfter: List<AssignMark>,
 ) : TaintConfigurationSource
 
+data class TaintMethodExitSource(
+    val method: CommonMethod,
+    override val condition: Condition,
+    override val actionsAfter: List<AssignMark>,
+) : TaintConfigurationSource
+
 data class TaintStaticFieldSource(
     val field: JIRField,
     override val condition: Condition,

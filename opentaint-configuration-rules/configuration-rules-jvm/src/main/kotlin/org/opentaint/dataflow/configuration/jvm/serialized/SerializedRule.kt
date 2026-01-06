@@ -99,6 +99,15 @@ sealed interface SerializedRule: SerializedItem {
         private val note: String? = null,
         override val meta: SinkMetaData? = SinkMetaData(cwe, note),
     ) : SinkRule, SerializedRule
+
+    @Serializable
+    data class MethodExitSource(
+        override val function: SerializedFunctionNameMatcher,
+        override val signature: SerializedSignatureMatcher? = null,
+        override val overrides: Boolean = true,
+        override val condition: SerializedCondition? = null,
+        override val taint: List<SerializedTaintAssignAction>
+    ) : SourceRule, SerializedRule
 }
 
 sealed interface SerializedFieldRule: SerializedItem {
@@ -128,6 +137,7 @@ inline fun <S : SerializedRule> S.modifyCondition(mapper: (SerializedCondition?)
     return when (this) {
         is SerializedRule.Cleaner -> copy(condition = mapper(condition))
         is SerializedRule.EntryPoint -> copy(condition = mapper(condition))
+        is SerializedRule.MethodExitSource -> copy(condition = mapper(condition))
         is SerializedRule.MethodEntrySink -> copy(condition = mapper(condition))
         is SerializedRule.MethodExitSink -> copy(condition = mapper(condition))
         is SerializedRule.PassThrough -> copy(condition = mapper(condition))
