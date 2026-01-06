@@ -195,9 +195,7 @@ class TraceResolver(
                 for (resolved in resolvedNodes) {
                     event.predecessor?.let { predecessor ->
                         val predSucc = successors.getOrPut(predecessor.node, ::hashSetOf)
-                        predSucc.add(
-                            InterProceduralCall(predecessor.kind, predecessor.statement, predecessor.summary, resolved)
-                        )
+                        predSucc.add(predecessor.copy(node = resolved))
                     }
 
                     event.successor?.let { successor ->
@@ -241,7 +239,7 @@ class TraceResolver(
                             unprocessed += BuilderUnprocessedTrace(
                                 trace = callerTrace,
                                 kind = CallKind.CallToSink,
-                                successor = InterProceduralCall(kind, callerStatement, callerTrace, node)
+                                successor = InterProceduralCall(kind, callerStatement, trace, node)
                             )
                         }
                     }
