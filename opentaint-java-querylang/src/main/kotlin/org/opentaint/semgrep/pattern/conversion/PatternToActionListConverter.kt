@@ -63,7 +63,9 @@ class PatternToActionListConverter: ActionListBuilder {
         pattern: SemgrepJavaPattern,
         semgrepTrace: SemgrepRuleLoadStepTrace,
     ): SemgrepPatternActionList? = try {
-        transformPatternToActionList(pattern, isRootPattern = true)
+        withTrace(semgrepTrace) {
+            transformPatternToActionList(pattern, isRootPattern = true)
+        }
     } catch (ex: TransformationFailed) {
         val reason = ex.message
         val oldValue = failedTransformations.getOrDefault(reason, 0)
@@ -74,6 +76,14 @@ class PatternToActionListConverter: ActionListBuilder {
             SemgrepErrorEntry.Reason.ERROR
         )
         null
+    }
+
+    private var semgrepTrace: SemgrepRuleLoadStepTrace? = null
+    private fun <T> withTrace(trace: SemgrepRuleLoadStepTrace, body: () -> T): T = try {
+        semgrepTrace = trace
+        body()
+    } finally {
+        semgrepTrace = null
     }
 
     private fun transformPatternToActionList(
@@ -198,7 +208,7 @@ class PatternToActionListConverter: ActionListBuilder {
 
     private fun transformTypeName(typeName: TypeName): TypeNamePattern {
         if (typeName.typeArgs.isNotEmpty()) {
-            transformationFailed("TypeName_with_type_args")
+            semgrepTrace?.error("Type arguments ignored", SemgrepErrorEntry.Reason.WARNING)
         }
 
         if (typeName.dotSeparatedParts.size == 1) {
@@ -245,9 +255,9 @@ class PatternToActionListConverter: ActionListBuilder {
             return null
         }
 
-        val objIRondition = transformPatternIntoParamCondition(pattern)
-        if (objIRondition != null) {
-            return emptyList<SemgrepPatternAction>() to objIRondition
+        val objCondition = transformPatternIntoParamCondition(pattern)
+        if (objCondition != null) {
+            return emptyList<SemgrepPatternAction>() to objCondition
         }
         val objActionList = transformPatternToActionList(pattern)
         if (objActionList.actions.isEmpty()) {
@@ -293,7 +303,7 @@ class PatternToActionListConverter: ActionListBuilder {
 
         val className = pattern.obj?.let { tryConvertPatternIntoTypeName(it) }
 
-        val objIRondition = pattern.obj?.let { objPattern ->
+        val objCondition = pattern.obj?.let { objPattern ->
             val (actions, cond) = transformPatternIntoParamConditionWithActions(objPattern)
                 ?: transformationFailed("MethodInvocation_obj: ${objPattern::class.simpleName}")
 
@@ -309,7 +319,7 @@ class PatternToActionListConverter: ActionListBuilder {
             methodName = methodName,
             result = null,
             params = argsConditions,
-            obj = objIRondition,
+            obj = objCondition,
             enclosingClassName = className,
         )
         actionList += methodInvocationAction
@@ -321,7 +331,7 @@ class PatternToActionListConverter: ActionListBuilder {
 
         val className = tryConvertPatternIntoTypeName(pattern.obj)
 
-        val (actions, objIRondition) = transformPatternIntoParamConditionWithActions(pattern.obj)
+        val (actions, objCondition) = transformPatternIntoParamConditionWithActions(pattern.obj)
                 ?: transformationFailed("MethodInvocation_obj: ${pattern.obj::class.simpleName}")
         actionList += actions
 
@@ -329,7 +339,7 @@ class PatternToActionListConverter: ActionListBuilder {
             methodName = SignatureName.AnyName,
             result = null,
             params = ParamConstraint.Partial(emptyList()),
-            obj = objIRondition,
+            obj = objCondition,
             enclosingClassName = className ?: TypeNamePattern.AnyType,
         )
         actionList += methodInvocationAction

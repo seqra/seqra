@@ -1,14 +1,12 @@
 package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.semgrep.pattern.ConcreteName
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.generateMethodInvocation
 import org.opentaint.semgrep.pattern.Ellipsis
-import org.opentaint.semgrep.pattern.MethodInvocation
-import org.opentaint.semgrep.pattern.NoArgs
 import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
 import org.opentaint.semgrep.pattern.TypeName
 
-const val generatedAnyValueGeneratorMethodName = "__genAnyValue__"
+const val generatedAnyValueGeneratorMethodName = "__anyValue__"
 
 fun rewriteAssignEllipsis(rule: NormalizedSemgrepRule): List<NormalizedSemgrepRule> {
     val rewriter = object : PatternRewriter {
@@ -31,5 +29,5 @@ fun rewriteAssignEllipsis(rule: NormalizedSemgrepRule): List<NormalizedSemgrepRu
 }
 
 private val anyValueCall by lazy {
-    MethodInvocation(ConcreteName(generatedAnyValueGeneratorMethodName), obj = null, NoArgs)
+    generateMethodInvocation(generatedAnyValueGeneratorMethodName, emptyList())
 }

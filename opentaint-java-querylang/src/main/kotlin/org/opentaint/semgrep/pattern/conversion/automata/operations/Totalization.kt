@@ -16,6 +16,26 @@ fun AutomataBuilderCtx.totalizeMethodCalls(
     }
 }
 
+fun eliminateInitialLoop(automata: SemgrepRuleAutomata) {
+    val visited = hashSetOf<AutomataNode>()
+    val unprocessed = mutableListOf(automata.initialNode)
+    while (unprocessed.isNotEmpty()) {
+        val node = unprocessed.removeLast()
+        if (!visited.add(node)) continue
+
+        val edgeIter = node.outEdges.listIterator()
+        while (edgeIter.hasNext()) {
+            val (edge, nextNode) = edgeIter.next()
+            unprocessed.add(nextNode)
+
+            if (edge !is AutomataEdgeType.InitialLoopMethodCall) continue
+
+            val methodCall = AutomataEdgeType.MethodCall(edge.formula)
+            edgeIter.set(methodCall to nextNode)
+        }
+    }
+}
+
 fun AutomataBuilderCtx.methodCallEdgeToDeadNode(
     automata: SemgrepRuleAutomata,
     node: AutomataNode

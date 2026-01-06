@@ -5,7 +5,7 @@ import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry
 import org.opentaint.semgrep.pattern.conversion.automata.PrintableGraph
 
 fun FullTrace.view() {
-    PrintableFullTrace(this).view()
+    PrintableFullTrace(this).view(name = "")
 }
 
 private class PrintableFullTrace(

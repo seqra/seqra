@@ -62,13 +62,19 @@ private fun acceptIsReachable(
     return acceptIsReachable
 }
 
+private data class EdgeInfo(
+    val type: AutomataEdgeType,
+    val startNode: AutomataNode,
+    val endNode: AutomataNode,
+)
+
 private fun reverse(automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
     val allNodes = mutableListOf<AutomataNode>()
     traverse(automata) {
         allNodes.add(it)
     }
     val initialNodes = mutableSetOf<AutomataNode>()
-    val newEdges = mutableListOf<Pair<AutomataEdgeType, Pair<AutomataNode, AutomataNode>>>()
+    val newEdges = mutableListOf<EdgeInfo>()
     allNodes.forEach {
         if (it.accept) {
             initialNodes.add(it)
@@ -76,13 +82,12 @@ private fun reverse(automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
         it.accept = it in automata.initialNodes
         it.outEdges.forEach { edge ->
             val (type, to) = edge
-            newEdges.add(type to (to to it))
+            newEdges.add(EdgeInfo(type, startNode = to, endNode = it))
         }
         it.outEdges.clear()
     }
-    newEdges.forEach { (type, edge) ->
-        val (from, to) = edge
-        from.outEdges.add(type to to)
+    newEdges.forEach {
+        it.startNode.outEdges.add(it.type to it.endNode)
     }
 
     return SemgrepRuleAutomata(
@@ -254,11 +259,12 @@ fun AutomataBuilderCtx.hopcroftAlgorithhm(automata: SemgrepRuleAutomata): Semgre
     }
 }
 
-fun AutomataBuilderCtx.brzozowskiAlgorithm(automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
-    if (automata.isDeterministic) {
-        return automata
+fun AutomataBuilderCtx.brzozowskiAlgorithm(startAutomata: SemgrepRuleAutomata): SemgrepRuleAutomata {
+    if (startAutomata.isDeterministic) {
+        return startAutomata
     }
 
+    val automata = startAutomata.deepCopy()
     val reversedNfa = reverse(automata)
     val reversedDfa = determinize(reversedNfa)
     val newNfa = reverse(reversedDfa)

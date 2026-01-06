@@ -378,6 +378,12 @@ private class TaintRegisterStateAutomataBuilder {
     val deadStates = hashSetOf<State>()
     val nodeIndex = hashMapOf<AutomataNode, Int>()
 
+    fun newState(): State {
+        val node = AutomataNode()
+        nodeIndex[node] = nodeIndex.size
+        return State(node, StateRegister(emptyMap()))
+    }
+
     fun build(manager: MethodFormulaManager, initial: State) =
         TaintRegisterStateAutomata(manager, initial, acceptStates, deadStates, successors, nodeIndex)
 }
@@ -909,7 +915,7 @@ data class SimulationState(
 
 private class LoopAssignVarsException : RuntimeException("Loop assign vars")
 
-private fun simulateAutomata(automata: TaintRegisterStateAutomata): TaintRegisterStateAutomata {
+private fun RuleConversionCtx.simulateAutomata(automata: TaintRegisterStateAutomata): TaintRegisterStateAutomata {
     val initialSimulationState = SimulationState(
         automata.initial, automata.initial,
         persistentHashMapOf(automata.initial to automata.initial)
@@ -942,7 +948,9 @@ private fun simulateAutomata(automata: TaintRegisterStateAutomata): TaintRegiste
                     continue
                 }
 
-                throw LoopAssignVarsException()
+//                throw LoopAssignVarsException()
+                semgrepRuleTrace.error("Loop var assign", Reason.ERROR)
+                continue
             }
 
             val dstStateId = automata.stateId(dstState)
@@ -983,47 +991,47 @@ private inline fun rewriteEdgeWrtComplexMetavars(
     register: StateRegister,
     rebuildEdge: (EdgeEffect, EdgeCondition) -> Edge
 ): Edge {
-    val newReadMetavar = mutableMapOf<MetavarAtom, List<MethodPredicate>>()
+    val effectWriteVars = mutableMapOf<MetavarAtom, MutableSet<MethodPredicate>>()
+    val newReadMetavar = mutableMapOf<MetavarAtom, MutableSet<MethodPredicate>>()
+    val newOther = condition.other.toMutableList()
 
-    condition.readMetaVar.forEach { (metavar, preds) ->
-        if (metavar.basics.size == 1 || register.assignedVars.containsKey(metavar)) {
-            // Nothing to do
-            newReadMetavar[metavar] = preds
-            return@forEach
-        }
-
-        val basics = metavar.basics
-
+    for ((metavar, preds) in condition.readMetaVar) {
+        val uncheckedBasics = metavar.basics.toMutableSet()
         val inputMetavars = hashSetOf<MetavarAtom>()
-        register.assignedVars.keys.forEach inner@{ inputMetavar ->
-            val thisBasics = inputMetavar.basics
-            if (inputMetavar.basics.intersect(metavar.basics).isEmpty()) {
-                return@inner
-            }
+        while (uncheckedBasics.isNotEmpty()) {
+            val metaVarBasicIntersections = register.assignedVars.keys
+                .map { it to it.basics.intersect(uncheckedBasics) }
 
-            if (!thisBasics.all { basics.contains(it) }) {
-                error("Metavar $inputMetavar from register overlaps with metavar $metavar from condition")
-            }
+            val assignedMetaVar = metaVarBasicIntersections.maxByOrNull { it.second.size }
+            if (assignedMetaVar == null || assignedMetaVar.second.isEmpty()) break
 
-            if (inputMetavars.any { it.basics.intersect(thisBasics).isNotEmpty() }) {
-                error("Register contains overlapping metavars")
-            }
-
-            inputMetavars.add(inputMetavar)
+            inputMetavars.add(assignedMetaVar.first)
+            uncheckedBasics.removeAll(assignedMetaVar.second)
         }
 
         if (inputMetavars.isEmpty()) {
-            // TODO: is this needed?
-            newReadMetavar[metavar] = preds
-            return@forEach
+            preds.mapTo(newOther) { pred ->
+                pred.replaceMetavar {
+                    check(it == metavar) { "Unexpected metavar" }
+                    null
+                }
+            }
+        } else {
+            inputMetavars.forEach { inputMetavar ->
+                val newPreds = newReadMetavar.getOrPut(inputMetavar, ::mutableSetOf)
+                preds.mapTo(newPreds) { pred ->
+                    pred.replaceMetavar {
+                        check(it == metavar) { "Unexpected metavar" }
+                        inputMetavar
+                    }
+                }
+            }
         }
 
-        if (inputMetavars.isNotEmpty() && inputMetavars.sumOf { it.basics.size } != basics.size) {
-            error("Can't create metavar $metavar from metavars in register")
-        }
-
+        val writePreds = effect.assignMetaVar[metavar] ?: continue
         inputMetavars.forEach { inputMetavar ->
-            newReadMetavar[inputMetavar] = preds.map { pred ->
+            val newPreds = effectWriteVars.getOrPut(inputMetavar, ::mutableSetOf)
+            writePreds.mapTo(newPreds) { pred ->
                 pred.replaceMetavar {
                     check(it == metavar) { "Unexpected metavar" }
                     inputMetavar
@@ -1032,11 +1040,27 @@ private inline fun rewriteEdgeWrtComplexMetavars(
         }
     }
 
-    val newCondition = EdgeCondition(newReadMetavar, condition.other)
-    return rebuildEdge(effect, newCondition)
+
+    effect.assignMetaVar.forEach { (metaVar, preds) ->
+        effectWriteVars.getOrPut(metaVar, ::mutableSetOf).addAll(preds)
+        if (metaVar.basics.size > 1) {
+            metaVar.basics.forEach { basicMv ->
+                effectWriteVars.getOrPut(basicMv, ::mutableSetOf) += preds.map { pred ->
+                    pred.replaceMetavar {
+                        check(it == metaVar) { "Unexpected metavar" }
+                        basicMv
+                    }
+                }
+            }
+        }
+    }
+
+    val newCondition = EdgeCondition(newReadMetavar.mapValues { it.value.toList() }, newOther)
+    val newEffect = EdgeEffect(effectWriteVars.mapValues { it.value.toList() })
+    return rebuildEdge(newEffect, newCondition)
 }
 
-private fun MethodPredicate.replaceMetavar(replace: (MetavarAtom) -> MetavarAtom): MethodPredicate {
+private fun MethodPredicate.replaceMetavar(replace: (MetavarAtom) -> MetavarAtom?): MethodPredicate {
     val constraint = predicate.constraint ?: return this
     val newConstraint = constraint.replaceMetavar(replace)
 
@@ -1049,14 +1073,14 @@ private fun MethodPredicate.replaceMetavar(replace: (MetavarAtom) -> MetavarAtom
     )
 }
 
-private fun MethodConstraint.replaceMetavar(replace: (MetavarAtom) -> MetavarAtom): MethodConstraint {
+private fun MethodConstraint.replaceMetavar(replace: (MetavarAtom) -> MetavarAtom?): MethodConstraint? {
     if (this !is ParamConstraint) {
         return this
     }
 
     val newCondition = when (condition) {
-        is IsMetavar -> IsMetavar(replace(condition.metavar))
-        is StringValueMetaVar -> StringValueMetaVar(replace(condition.metaVar))
+        is IsMetavar -> IsMetavar(replace(condition.metavar) ?: return null)
+        is StringValueMetaVar -> StringValueMetaVar(replace(condition.metaVar) ?: return null)
         else -> return this
     }
 
@@ -1229,31 +1253,22 @@ private fun cleanupAutomata(automata: TaintRegisterStateAutomata, metaVarInfo: R
 
 private fun tryRemoveEndEdge(automata: TaintRegisterStateAutomata): TaintRegisterStateAutomata {
     val predecessors = automataPredecessors(automata)
-    val finalAcceptReplacement = mutableListOf<Pair<State, State>>()
-    val finalDeadReplacement = mutableListOf<Pair<State, State>>()
+    val finalAcceptReplacement = mutableListOf<Pair<State, List<State>>>()
+    val finalDeadReplacement = mutableListOf<Pair<State, List<State>>>()
+
+    fun Pair<Edge, State>.canEliminate(): Boolean =
+        first is Edge.AnalysisEnd && automata.successors[second].orEmpty().size == 1
 
     for (finalState in automata.finalAcceptStates) {
         val preFinalEdges = predecessors[finalState] ?: continue
-        if (preFinalEdges.size != 1) continue
-
-        val (edge, predecessor) = preFinalEdges.single()
-        if (edge !is Edge.AnalysisEnd) continue
-
-        if (automata.successors[predecessor].orEmpty().size != 1) continue
-
-        finalAcceptReplacement.add(finalState to predecessor)
+        if (preFinalEdges.any { !it.canEliminate() }) continue
+        finalAcceptReplacement.add(finalState to preFinalEdges.map { it.second })
     }
 
     for (finalState in automata.finalDeadStates) {
         val preFinalEdges = predecessors[finalState] ?: continue
-        if (preFinalEdges.size != 1) continue
-
-        val (edge, predecessor) = preFinalEdges.single()
-        if (edge !is Edge.AnalysisEnd) continue
-
-        if (automata.successors[predecessor].orEmpty().size != 1) continue
-
-        finalDeadReplacement.add(finalState to predecessor)
+        if (preFinalEdges.any { !it.canEliminate() }) continue
+        finalDeadReplacement.add(finalState to preFinalEdges.map { it.second })
     }
 
     if (finalAcceptReplacement.isEmpty() && finalDeadReplacement.isEmpty()) return automata
@@ -1262,20 +1277,20 @@ private fun tryRemoveEndEdge(automata: TaintRegisterStateAutomata): TaintRegiste
     val finalAccept = automata.finalAcceptStates.toHashSet()
     val finalDead = automata.finalDeadStates.toHashSet()
 
-    for ((oldState, newState) in finalAcceptReplacement) {
+    for ((oldState, newStates) in finalAcceptReplacement) {
         successors.remove(oldState)
-        successors[newState] = emptySet()
+        newStates.forEach { successors[it] = emptySet() }
 
         finalAccept.remove(oldState)
-        finalAccept.add(newState)
+        finalAccept.addAll(newStates)
     }
 
-    for ((oldState, newState) in finalDeadReplacement) {
+    for ((oldState, newStates) in finalDeadReplacement) {
         successors.remove(oldState)
-        successors[newState] = emptySet()
+        newStates.forEach { successors[it] = emptySet() }
 
         finalDead.remove(oldState)
-        finalDead.add(newState)
+        finalDead.addAll(newStates)
     }
 
     return TaintRegisterStateAutomata(
@@ -1621,6 +1636,15 @@ private fun MethodSignature.isGeneratedAnyValueGenerator(): Boolean {
     return name.name == generatedAnyValueGeneratorMethodName
 }
 
+private fun MethodPredicate.isGeneratedReturnValue(): Boolean =
+    predicate.signature.isGeneratedReturnValue()
+
+private fun MethodSignature.isGeneratedReturnValue(): Boolean {
+    val name = methodName.name
+    if (name !is SignatureName.Concrete) return false
+    return name.name == generatedReturnValueMethod
+}
+
 private data class StringConcatCtx(
     val metavarMapping: Map<MetavarAtom, Set<MetavarAtom>>
 ) {
@@ -1895,12 +1919,12 @@ private fun RuleConversionCtx.generateTaintEdges(
                 edge is Edge.AnalysisEnd -> true
                 stateVars.isEmpty() -> true
                 else -> {
-                    val writeVars = when (edge) {
+                    val readVars = when (edge) {
                         Edge.AnalysisEnd -> emptySet()
-                        is Edge.MethodCall -> edge.effect.assignMetaVar.keys
-                        is Edge.MethodEnter -> edge.effect.assignMetaVar.keys
+                        is Edge.MethodCall -> edge.condition.readMetaVar.keys
+                        is Edge.MethodEnter -> edge.condition.readMetaVar.keys
                     }
-                    stateVars.all { it.key !in writeVars }
+                    stateVars.all { it.key !in readVars }
                 }
             }
 
@@ -3135,7 +3159,9 @@ private fun edgeEffectAndCondition(cube: Cube, formulaManager: MethodFormulaMana
         val metaVar = mp.findMetaVarConstraint()
 
         if (!mp.negated && metaVar != null) {
-            metaVarWrite.getOrPut(metaVar, ::mutableListOf).add(mp)
+            if (!mp.isGeneratedReturnValue()) {
+                metaVarWrite.getOrPut(metaVar, ::mutableListOf).add(mp)
+            }
         }
 
         if (metaVar != null) {

@@ -6,6 +6,7 @@ import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.map
 import org.opentaint.dataflow.util.toSet
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.generatedMethodClassName
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.FormulaManagerAwareDecisionVarSelector
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.SemanticPredicateOrderer
 import org.opentaint.semgrep.pattern.MetaVarConstraint
@@ -31,6 +32,9 @@ import org.opentaint.semgrep.pattern.conversion.automata.NumberOfArgsConstraint
 import org.opentaint.semgrep.pattern.conversion.automata.ParamConstraint
 import org.opentaint.semgrep.pattern.conversion.automata.Position
 import org.opentaint.semgrep.pattern.conversion.automata.Predicate
+import org.opentaint.semgrep.pattern.conversion.generatedAnyValueGeneratorMethodName
+import org.opentaint.semgrep.pattern.conversion.generatedReturnValueMethod
+import org.opentaint.semgrep.pattern.conversion.generatedStringConcatMethodName
 import java.util.BitSet
 
 fun trySimplifyMethodFormula(
@@ -275,6 +279,7 @@ private fun MethodFormulaManager.simplifyMethodFormulaCube(
 }
 
 private class MethodConstraintsSolver {
+    private val positiveMetaVars = hashMapOf<Position, MutableSet<MetavarAtom.Basic>>()
     private val positiveParams = hashMapOf<Position, MutableSet<Atom>>()
     private var positiveNumberOfArgs: NumberOfArgsConstraint? = null
     private val positiveMethodModifiers = hashSetOf<MethodModifierConstraint>()
@@ -295,6 +300,11 @@ private class MethodConstraintsSolver {
         when (constraint) {
             is ParamConstraint -> {
                 positiveParams.getOrPut(constraint.position, ::hashSetOf).add(constraint.condition)
+
+                if (constraint.condition is IsMetavar) {
+                    positiveMetaVars.getOrPut(constraint.position, ::hashSetOf)
+                        .addAll(constraint.condition.metavar.basics)
+                }
             }
 
             is NumberOfArgsConstraint -> {
@@ -319,8 +329,13 @@ private class MethodConstraintsSolver {
     fun addNegative(constraint: MethodConstraint): Unit? {
         when (constraint) {
             is ParamConstraint -> {
-                val currentPositive = positiveParams[constraint.position].orEmpty() // TODO: support unified metavars
+                val currentPositive = positiveParams[constraint.position].orEmpty()
                 if (constraint.condition in currentPositive) return null
+
+                if (constraint.condition is IsMetavar) {
+                    val posMetaVars = positiveMetaVars[constraint.position].orEmpty()
+                    if (constraint.condition.metavar.basics.any { it in posMetaVars }) return null
+                }
             }
 
             is NumberOfArgsConstraint -> {
@@ -363,29 +378,7 @@ private class MethodFormulaSolver(
     private val positive: SolverConstraints = SolverConstraints(signature = null),
     private val negated: MutableMap<MethodSignature, MutableList<SolverConstraints>> = hashMapOf()
 ) {
-    private val metavarsSeen: MutableSet<MetavarAtom> = hashSetOf()
-
-    private fun checkMetavars(predicate: Predicate): Boolean {
-        val constraint = predicate.constraint as? ParamConstraint ?: return true
-        val metavar = (constraint.condition as? IsMetavar)?.metavar ?: return true
-
-        if (metavarsSeen.add(metavar)) {
-            val newBasic = metavar.basics
-            return metavarsSeen.all {
-                val prevBasic = it.basics
-                (prevBasic == newBasic) || (prevBasic.intersect(newBasic).isEmpty())
-            }
-        }
-
-        return true
-    }
-
-
     fun addPositivePredicate(predicate: Predicate): MethodFormulaSolver? {
-        if (!checkMetavars(predicate)) {
-            return null
-        }
-
         positive.signature = positive.signature.unify(predicate.signature, metaVarInfo) ?: return null
         predicate.constraint?.let { positive.constraints.addPositive(it) ?: return null }
         return this
@@ -400,10 +393,6 @@ private class MethodFormulaSolver(
                 val simplifiedPredicate = Predicate(predicate.signature, constraint = null)
                 return addNegativePredicate(simplifiedPredicate)
             }
-        }
-
-        if (!checkMetavars(predicate)) {
-            return null
         }
 
         val signature = positive.signature.unify(predicate.signature, metaVarInfo)
@@ -693,6 +682,12 @@ private fun MethodSignature?.unify(
     )
 }
 
+private val generatedMethodNames = setOf(
+    generatedReturnValueMethod,
+    generatedAnyValueGeneratorMethodName,
+    generatedStringConcatMethodName,
+)
+
 private fun MethodName.unify(
     other: MethodName,
     metaVarInfo: ResolvedMetaVarInfo,
@@ -709,6 +704,7 @@ private fun MethodName.unify(
             }
 
             is SignatureName.MetaVar -> {
+                if (this.name.name in generatedMethodNames) return null
                 if (!stringMatches(this.name.name, metaVarInfo.metaVarConstraints[other.name.metaVar])) return null
                 return this
             }
@@ -717,6 +713,7 @@ private fun MethodName.unify(
         is SignatureName.MetaVar -> when (other.name) {
             SignatureName.AnyName -> return this
             is SignatureName.Concrete -> {
+                if (other.name.name in generatedMethodNames) return null
                 if (!stringMatches(other.name.name, metaVarInfo.metaVarConstraints[this.name.metaVar])) return null
                 return other
             }
@@ -771,6 +768,7 @@ private fun MethodEnclosingClassName.unify(
             is TypeNamePattern.FullyQualified -> return null
 
             is TypeNamePattern.MetaVar -> {
+                if (this.name.name == generatedMethodClassName) return null
                 if (!stringMatches(this.name.name, metaVarInfo.metaVarConstraints[other.name.metaVar])) return null
                 return this
             }
@@ -787,6 +785,7 @@ private fun MethodEnclosingClassName.unify(
             }
 
             is TypeNamePattern.FullyQualified -> {
+                if (other.name.name == generatedMethodClassName) return null
                 if (!stringMatches(other.name.name, metaVarInfo.metaVarConstraints[this.name.metaVar])) return null
                 return other
             }

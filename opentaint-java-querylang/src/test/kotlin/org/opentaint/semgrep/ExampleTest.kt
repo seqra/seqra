@@ -87,6 +87,15 @@ class ExampleTest : SampleBasedTest() {
     @Test
     fun `test patterns signature`() = runTest<example.RuleWithPatternsSignature>()
 
+    @Test
+    fun `test rule with multiple patterns`() = runTest<example.RuleWithMultiplePatterns>()
+
+    @Test
+    fun `test rule with multiple patterns unification`() = runTest<example.RuleWithMultiplePatternsUnification>()
+
+    @Test
+    fun `test rule with multiple patterns ellipsis unification`() = runTest<example.RuleWithMultiplePatternsEllipsisUnification>()
+
     @AfterAll
     fun close(){
         closeRunner()

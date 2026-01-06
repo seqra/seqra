@@ -58,6 +58,10 @@ fun AutomataBuilderCtx.determinize(
         val initialEdges = mutableListOf<Pair<AutomataEdgeType, AutomataNode>>()
         s.forEach { initialEdges.addAll(it.node().outEdges) }
 
+        if (initialEdges.any { it.first is AutomataEdgeType.InitialLoopMethodCall }) {
+            error("Initial loop must be eliminated")
+        }
+
         for (type in listOf(AutomataEdgeType.End, AutomataEdgeType.PatternStart, AutomataEdgeType.PatternEnd)) {
             val edgesWithoutFormula = initialEdges.filter { it.first == type }
             if (edgesWithoutFormula.isNotEmpty()) {
@@ -121,14 +125,15 @@ private inline fun <reified Type : AutomataEdgeType.AutomataEdgeTypeWithFormula>
         edges.toBitSet { it.second.nodeId() }
     }
 
-    for (i in 1..<(1 shl n)) {
+    for (mask in 1..<(1 shl n)) {
         val toSet = BitSet()
         edgeNodeSets.forEachIndexed { index, nodeSet ->
-            val take = (i and (1 shl index)) != 0
-            if (!take) return@forEachIndexed
-            toSet.or(nodeSet)
+            val take = (mask and (1 shl index)) != 0
+            if (take) {
+                toSet.or(nodeSet)
+            }
         }
-        out.getOrPut(toSet, ::mutableListOf).add(i)
+        out.getOrPut(toSet, ::mutableListOf).add(mask)
     }
 
     out.entries.forEach { (toSet, masks) ->

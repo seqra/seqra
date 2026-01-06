@@ -12,6 +12,7 @@ import org.opentaint.semgrep.pattern.conversion.automata.operations.addEndEdges
 import org.opentaint.semgrep.pattern.conversion.automata.operations.addPatternStartAndEnd
 import org.opentaint.semgrep.pattern.conversion.automata.operations.addPatternStartAndEndOnEveryNode
 import org.opentaint.semgrep.pattern.conversion.automata.operations.complement
+import org.opentaint.semgrep.pattern.conversion.automata.operations.eliminateInitialLoop
 import org.opentaint.semgrep.pattern.conversion.automata.operations.hopcroftAlgorithhm
 import org.opentaint.semgrep.pattern.conversion.automata.operations.intersection
 import org.opentaint.semgrep.pattern.conversion.automata.operations.removePatternStartAndEnd
@@ -42,6 +43,8 @@ private fun AutomataBuilderCtx.transformSemgrepRuleToAutomata(
     val (newRule, startingAutomata) = buildStartingAutomata(rule)
 
     val resultNfa = transformSemgrepRuleToAutomata(newRule, startingAutomata)
+
+    eliminateInitialLoop(resultNfa)
 
     val resultDfa = hopcroftAlgorithhm(resultNfa)
     acceptIfCurrentAutomataAcceptsPrefix(resultDfa)

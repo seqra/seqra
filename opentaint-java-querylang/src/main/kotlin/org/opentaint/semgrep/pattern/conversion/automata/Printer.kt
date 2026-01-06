@@ -19,8 +19,8 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 
-fun SemgrepRuleAutomata.view() {
-    PrintableSemgrepRuleAutomata(this).view()
+fun SemgrepRuleAutomata.view(name: String = "") {
+    PrintableSemgrepRuleAutomata(this).view(name)
 }
 
 class PrintableSemgrepRuleAutomata(val automata: SemgrepRuleAutomata) : PrintableGraph<AutomataNode, AutomataEdgeType> {
@@ -68,8 +68,8 @@ class TaintRegisterStateAutomataView(
         automataEdgeLabel(edge)
 }
 
-fun TaintRegisterStateAutomata.view() {
-    TaintRegisterStateAutomataView(this).view()
+fun TaintRegisterStateAutomata.view(name: String = "") {
+    TaintRegisterStateAutomataView(this).view(name)
 }
 
 class TaintRuleGenerationContextView(
@@ -119,8 +119,8 @@ class TaintRuleGenerationContextView(
     }
 }
 
-fun TaintRuleGenerationCtx.view() {
-    TaintRuleGenerationContextView(this).view()
+fun TaintRuleGenerationCtx.view(name: String = "") {
+    TaintRuleGenerationContextView(this).view(name)
 }
 
 private fun automataEdgeLabel(edge: TaintRegisterStateAutomata.Edge): String = when (edge) {
@@ -135,13 +135,13 @@ interface PrintableGraph<Node, EdgeLabel> {
     fun successors(node: Node): List<Pair<EdgeLabel, Node>>
     fun edgeLabel(edge: EdgeLabel): String
 
-    fun view() {
-        val path = toFile("dot")
+    fun view(name: String) {
+        val path = toFile(name, "dot")
         Util.sh(arrayOf("xdg-open", "file://$path"))
     }
 }
 
-private fun <GNode, EdgeLabel> PrintableGraph<GNode, EdgeLabel>.toFile(dotCmd: String): Path {
+private fun <GNode, EdgeLabel> PrintableGraph<GNode, EdgeLabel>.toFile(fileName: String, dotCmd: String): Path {
     Graph.setDefaultCmd(dotCmd)
 
     val graph = Graph("automata")
@@ -180,7 +180,7 @@ private fun <GNode, EdgeLabel> PrintableGraph<GNode, EdgeLabel>.toFile(dotCmd: S
     }
 
     val outFile = graph.dot2file("svg")
-    val newFile = "${outFile.removeSuffix("out")}svg"
+    val newFile = "${outFile.removeSuffix(".out")}$fileName.svg"
     val resultingFile = File(newFile).toPath()
     Files.move(File(outFile).toPath(), resultingFile)
     return resultingFile
