@@ -63,10 +63,10 @@ class JIRSarifTraits(
     }
 
     private fun getReadableInstance(statement: JIRInst) =
-        if (statement !is JIRInstanceCallExpr)
-            null
+        if (statement is JIRAssignInst && statement.rhv is JIRInstanceCallExpr)
+            getReadableValue(statement, (statement.rhv as JIRInstanceCallExpr).instance)
         else
-            getReadableValue(statement, statement.instance)
+            null
 
     override fun printThis(statement: JIRInst) =
         if (getCallExpr(statement)?.let { getCallee(it).name } == "<init>") {
