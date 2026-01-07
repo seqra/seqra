@@ -8,6 +8,7 @@ import org.opentaint.dataflow.configuration.jvm.TaintCleaner
 import org.opentaint.dataflow.configuration.jvm.TaintEntryPointSource
 import org.opentaint.dataflow.configuration.jvm.TaintMethodEntrySink
 import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSink
+import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSource
 import org.opentaint.dataflow.configuration.jvm.TaintMethodSink
 import org.opentaint.dataflow.configuration.jvm.TaintMethodSource
 import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
@@ -16,6 +17,7 @@ import org.opentaint.dataflow.configuration.jvm.TaintStaticFieldSource
 interface TaintRulesProvider : CommonTaintRulesProvider {
     fun entryPointRulesForMethod(method: CommonMethod): Iterable<TaintEntryPointSource>
     fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst): Iterable<TaintMethodSource>
+    fun exitSourceRulesForMethod(method: CommonMethod, statement: CommonInst): Iterable<TaintMethodExitSource>
     fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst): Iterable<TaintMethodSink>
     fun sinkRulesForMethodEntry(method: CommonMethod): Iterable<TaintMethodEntrySink>
     fun sinkRulesForMethodExit(method: CommonMethod, statement: CommonInst): Iterable<TaintMethodExitSink>

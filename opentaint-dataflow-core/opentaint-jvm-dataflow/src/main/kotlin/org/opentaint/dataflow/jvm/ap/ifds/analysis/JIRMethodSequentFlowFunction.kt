@@ -150,25 +150,26 @@ class JIRMethodSequentFlowFunction(
         unchanged: () -> Unit,
         propagateFact: (FinalFactAp) -> Unit,
     ) {
-        val factsToDrop = if (access == factAp.base) {
-            val resultFact = factAp.rebase(exitBase)
-            propagateFact(resultFact)
-
-            applyMethodExitSinkRules(exitBase, resultFact)
+        val currentFact = if (access == factAp.base) {
+            factAp.rebase(exitBase).also(propagateFact)
         } else {
-            applyMethodExitSinkRules(exitBase, factAp)
+            factAp
         }
 
-        val propagatedFact = factAp.dropFinalFacts(factsToDrop)
-            ?.dropArgumentsLocalTaintMarks(initialFactIsZero)
+        val resultFacts = mutableListOf(currentFact)
+        resultFacts += applyMethodExitSourceRules(exitBase, currentFact)
 
-        if (propagatedFact == factAp) {
-            unchanged()
-            return
-        }
+        for (resultFact in resultFacts) {
+            val factsToDrop = applyMethodExitSinkRules(exitBase, resultFact)
 
-        if (propagatedFact != null) {
-            propagateFact(propagatedFact)
+            val propagatedFact = resultFact.dropFinalFacts(factsToDrop)
+                ?.dropArgumentsLocalTaintMarks(initialFactIsZero)
+
+            if (propagatedFact == factAp) {
+                unchanged()
+            } else if (propagatedFact != null) {
+                propagateFact(propagatedFact)
+            }
         }
     }
 
@@ -489,7 +490,67 @@ class JIRMethodSequentFlowFunction(
         return allEvaluatedFacts.filter { it.base is AccessPathBase.ClassStatic }
     }
 
+    private fun applyMethodExitSourceRules(
+        methodResult: AccessPathBase, fact: FinalFactAp?,
+    ): List<FinalFactAp> {
+        val config = analysisContext.taint.taintConfig as TaintRulesProvider
+        val sourceRules = config.exitSourceRulesForMethod(currentInst.location.method, currentInst).toList()
+        if (sourceRules.isEmpty()) return emptyList()
+
+        val conditionFactReaders = if (fact != null) {
+            val resultFact = if (fact.base == methodResult) fact.rebase(AccessPathBase.Return) else fact
+            val conditionFactReader = FinalFactReader(resultFact, apManager)
+            listOf(conditionFactReader)
+        } else {
+            emptyList()
+        }
+
+        val valueResolver = CalleePositionToJIRValueResolver(currentInst.location.method)
+        val conditionRewriter = JIRMarkAwareConditionRewriter(
+            valueResolver,
+            analysisContext.factTypeChecker
+        )
+
+        val exclusion = fact?.exclusions ?: ExclusionSet.Universe
+        val sourceEvaluator = TaintSourceActionEvaluator(
+            apManager, exclusion, analysisContext.factTypeChecker, returnValueType = null,
+        )
+
+        val result = mutableListOf<FinalFactAp>()
+
+        // todo: fact refinement
+        sourceRules.applyRuleWithAssumptions(
+            apManager,
+            conditionRewriter,
+            emptySet(),
+            conditionFactReaders,
+            condition = { condition },
+            storeAssumptions = { _, _ ->  },
+            currentAssumptions = { emptySet() },
+            currentAssumptionPreconditions = { _, _ -> emptyList() },
+            applyRule = { rule, evaluatedFacts ->
+                // unconditional sources handled with zero fact
+                if (evaluatedFacts.isEmpty() && fact != null) return@applyRuleWithAssumptions
+
+                for (action in rule.actionsAfter) {
+                    sourceEvaluator.evaluate(rule, action).onSome { facts ->
+                        result.addAll(facts)
+                    }
+                }
+            },
+            applyRuleWithAssumptions = { _, _ -> TODO("Assumptions impossible here") }
+        )
+
+        return result
+    }
+
     private fun MutableSet<Sequent>.applyUnconditionalSources() {
+        if (currentInst is JIRReturnInst) {
+            applyMethodExitSourceRules(AccessPathBase.Return, fact = null).forEach { it ->
+                this += Sequent.ZeroToFact(it)
+            }
+        }
+
         if (currentInst !is JIRAssignInst) return
 
         val rhvFieldRef = currentInst.rhv as? JIRFieldRef ?: return
