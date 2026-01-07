@@ -64,7 +64,6 @@ class IssuesTest : SampleBasedTest() {
     fun `issue 85`() = runTest<issue85>()
 
     @Test
-    @Disabled // todo: loop assign vars
     fun `issue 86`() = runTest<issue86>()
 
     @Test
