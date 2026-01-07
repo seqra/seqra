@@ -2,22 +2,16 @@ package custom;
 
 import base.RuleSample;
 import base.RuleSet;
-import custom.stirling.ConvertEmlToPDF;
-import custom.stirling.EmlToPdfRequest;
 import example.util.CustomType1;
 import example.util.CustomType2;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.nio.charset.StandardCharsets;
-
-@RuleSet("custom/springXssSanitizedMin.yaml")
-public abstract class springXssSanitizedMin implements RuleSample {
+@RuleSet("custom/springXssSanitizedMinNoPatternEllipsis.yaml")
+public abstract class springXssSanitizedMinNoPatternEllipsis implements RuleSample {
     CustomType2 sanitize(CustomType2 data) {
         return data;
     }
 
-    static class PositiveConvertEmlToPDF1 extends springXssSanitizedMin {
+    static class PositiveConvertEmlToPDF1 extends springXssSanitizedMinNoPatternEllipsis {
         @Override
         public void entrypoint() {
             method(new CustomType1());
@@ -28,7 +22,7 @@ public abstract class springXssSanitizedMin implements RuleSample {
         }
     }
 
-    static class PositiveConvertEmlToPDF2 extends springXssSanitizedMin {
+    static class PositiveConvertEmlToPDF2 extends springXssSanitizedMinNoPatternEllipsis {
         @Override
         public void entrypoint() {
             method(new CustomType1());
@@ -41,7 +35,7 @@ public abstract class springXssSanitizedMin implements RuleSample {
         }
     }
 
-    static class NegativeConvertEmlToPDF extends springXssSanitizedMin {
+    static class NegativeConvertEmlToPDF extends springXssSanitizedMinNoPatternEllipsis {
         @Override
         public void entrypoint() {
             method(new CustomType1());

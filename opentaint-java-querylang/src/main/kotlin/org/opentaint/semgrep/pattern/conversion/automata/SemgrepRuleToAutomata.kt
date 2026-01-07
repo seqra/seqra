@@ -218,6 +218,7 @@ private fun AutomataBuilderCtx.addPatternInside(
     if (addPrefixEllipsis) {
         acceptIfCurrentAutomataAcceptsSuffix(curAutomata)
         curAutomata.initialNode.outEdges.add(AutomataEdgeType.MethodEnter(MethodFormula.True) to curAutomata.initialNode)
+        curAutomata.hasMethodEnter = true
     }
 
     val actionListAutomata = convertActionListToAutomata(formulaManager, actionList)

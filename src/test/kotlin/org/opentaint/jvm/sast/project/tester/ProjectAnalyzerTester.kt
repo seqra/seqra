@@ -13,6 +13,7 @@ import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
 import org.opentaint.dataflow.configuration.jvm.TaintMark
 import org.opentaint.dataflow.configuration.jvm.TaintMethodEntrySink
 import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSink
+import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSource
 import org.opentaint.dataflow.configuration.jvm.TaintMethodSink
 import org.opentaint.dataflow.configuration.jvm.TaintMethodSource
 import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
@@ -180,6 +181,13 @@ private fun createTestConfig(
 
     override fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {
         emptyList<TaintCleaner>()
+    }
+
+    override fun exitSourceRulesForMethod(
+        method: CommonMethod,
+        statement: CommonInst
+    ): Iterable<TaintMethodExitSource> {
+        return emptyList()
     }
 
     override fun sourceRulesForStaticField(

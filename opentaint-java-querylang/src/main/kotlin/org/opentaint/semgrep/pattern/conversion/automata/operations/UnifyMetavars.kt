@@ -157,6 +157,8 @@ private fun AutomataBuilderCtx.transformEdge(
     }
 
     val newContext = context.extendByFormula(edge.formula, this)
+        ?: return null
+
     val newFormula = edge.formula.transform(formulaManager, newContext)
 
     if (newFormula == edge.formula && newContext == context) {
@@ -238,7 +240,7 @@ private fun Predicate.transform(context: MetavarUnificationContext): Predicate {
 private fun MetavarUnificationContext.extendByFormula(
     formula: MethodFormula,
     automataCtx: AutomataBuilderCtx
-): MetavarUnificationContext {
+): MetavarUnificationContext? {
     val (positive, negative) = formula.getAllPredicates()
     val allMetavars = (positive + negative)
         .map(automataCtx.formulaManager::predicate)
@@ -263,7 +265,7 @@ private fun MetavarUnificationContext.extendByFormula(
 private fun MetavarUnificationContext.extendByFormulaPositivePredicates(
     formula: MethodFormula,
     automataCtx: AutomataBuilderCtx
-): MetavarUnificationContext {
+): MetavarUnificationContext? {
     val cubes = simplifyMethodFormula(automataCtx.formulaManager, formula, automataCtx.metaVarInfo, automataCtx.cancelation)
 
     val cubeContexts = cubes.map {
@@ -271,7 +273,7 @@ private fun MetavarUnificationContext.extendByFormulaPositivePredicates(
         extendByPositivePredicates(positivePredicates, automataCtx)
     }
 
-    return cubeContexts.reduce(MetavarUnificationContext::intersect).also {
+    return cubeContexts.reduceOrNull(MetavarUnificationContext::intersect)?.also {
         check(it.intersect(this) == this) {
             "Resulting context expected to at least contain initial context"
         }

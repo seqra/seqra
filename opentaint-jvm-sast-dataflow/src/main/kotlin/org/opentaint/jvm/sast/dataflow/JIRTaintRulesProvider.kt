@@ -1,11 +1,11 @@
 package org.opentaint.jvm.sast.dataflow
 
+import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
-import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.jvm.sast.dataflow.rules.TaintConfiguration
 
 class JIRTaintRulesProvider(
@@ -17,6 +17,10 @@ class JIRTaintRulesProvider(
 
     override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {
         taintConfiguration.sourceForMethod(it)
+    }
+
+    override fun exitSourceRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {
+        taintConfiguration.exitSourceForMethod(it)
     }
 
     override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {

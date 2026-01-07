@@ -22,6 +22,7 @@ fun TaintRuleFromSemgrep.createTaintConfig(): SerializedTaintConfig {
     return SerializedTaintConfig(
         entryPoint = rules.filterIsInstance<SerializedRule.EntryPoint>(),
         source = rules.filterIsInstance<SerializedRule.Source>(),
+        methodExitSource = rules.filterIsInstance<SerializedRule.MethodExitSource>(),
         sink = rules.filterIsInstance<SerializedRule.Sink>(),
         passThrough = rules.filterIsInstance<SerializedRule.PassThrough>(),
         cleaner = rules.filterIsInstance<SerializedRule.Cleaner>(),

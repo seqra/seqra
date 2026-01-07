@@ -2277,18 +2277,36 @@ private fun generateEndSink(
     currentRules: List<SerializedItem>,
     cond: SerializedCondition,
     id: String,
-    meta: SinkMetaData
-): List<SinkRule> {
+    meta: SinkMetaData,
+): List<SinkRule> = generateMethodEndRule(
+    currentRules = currentRules,
+    cond = cond,
+    generateWithoutMatchedEp = { endCondition -> listOf(AnalysisEndSink(endCondition, id, meta = meta)) },
+    generateWithEp = { ep, endCondition ->
+        listOf(
+            SerializedRule.MethodExitSink(
+                ep.function, ep.signature, ep.overrides, endCondition, id, meta = meta
+            )
+        )
+    }
+)
+
+private inline fun <R: SerializedItem> generateMethodEndRule(
+    currentRules: List<SerializedItem>,
+    cond: SerializedCondition,
+    generateWithoutMatchedEp: (SerializedCondition) -> List<R>,
+    generateWithEp: (SerializedRule.EntryPoint, SerializedCondition) -> List<R>,
+): List<R> {
     val endCondition = cond.rewriteAsEndCondition()
     val entryPointRules = currentRules.filterIsInstance<SerializedRule.EntryPoint>()
 
     if (entryPointRules.isEmpty()) {
-        return listOf(AnalysisEndSink(endCondition, id, meta = meta))
+        return generateWithoutMatchedEp(endCondition)
     }
 
-    return entryPointRules.map { rule ->
-        val sinkCond = SerializedCondition.and(listOf(rule.condition ?: SerializedCondition.True, endCondition))
-        SerializedRule.MethodExitSink(rule.function, rule.signature, rule.overrides, sinkCond, id, meta = meta)
+    return entryPointRules.flatMap { rule ->
+        val generatedCond = SerializedCondition.and(listOf(rule.condition ?: SerializedCondition.True, endCondition))
+        generateWithEp(rule, generatedCond)
     }
 }
 
@@ -2332,10 +2350,36 @@ private fun PositionBase.rewriteAsEndPosition(): PositionBase = when (this) {
     PositionBase.This -> this
 }
 
+private fun generateMethodEndSource(
+    currentRules: List<SerializedItem>,
+    cond: SerializedCondition,
+    actions: List<SerializedTaintAssignAction>,
+): List<SerializedRule.MethodExitSource> {
+    val endActions = actions.map { it.copy(pos = it.pos.rewriteAsEndPosition()) }
+    return generateMethodEndRule(
+        currentRules = currentRules,
+        cond = cond,
+        generateWithoutMatchedEp = { endCond ->
+            listOf(
+                SerializedRule.MethodExitSource(
+                    anyFunction(), signature = null, overrides = false, endCond, endActions
+                )
+            )
+        },
+        generateWithEp = { ep, endCond ->
+            listOf(
+                SerializedRule.MethodExitSource(
+                    ep.function, ep.signature, ep.overrides, endCond, endActions
+                )
+            )
+        }
+    )
+}
+
 private fun TaintRuleGenerationCtx.generateTaintSourceRules(
     stateVars: Set<MetavarAtom>, taintMarkName: String,
     semgrepRuleTrace: SemgrepRuleLoadStepTrace,
-) = generateTaintRules({ _, ruleEdge, condition, function, cond ->
+) = generateTaintRules({ currentRules, ruleEdge, condition, function, cond ->
     val actions = stateVars.flatMapTo(mutableListOf()) { varName ->
         val varPosition = condition.accessedVarPosition[varName] ?: return@flatMapTo emptyList()
         varPosition.positions.map {
@@ -2346,8 +2390,7 @@ private fun TaintRuleGenerationCtx.generateTaintSourceRules(
     if (actions.isEmpty()) return@generateTaintRules emptyList()
 
     if (function.isGeneratedReturnValue()) {
-        semgrepRuleTrace.error("Eliminate generated return value", Reason.NOT_IMPLEMENTED)
-        return@generateTaintRules emptyList()
+        return@generateTaintRules generateMethodEndSource(currentRules, cond, actions)
     }
 
     val rule = when (ruleEdge.edge) {
@@ -2421,8 +2464,7 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
         if (actions.isNotEmpty()) {
             rules += generateRules(condition.ruleCondition) { function, cond ->
                 if (function.isGeneratedReturnValue()) {
-                    semgrepRuleTrace.error("Eliminate generated return value", Reason.NOT_IMPLEMENTED)
-                    return@generateRules emptyList()
+                    return@generateRules generateMethodEndSource(rules, cond, actions)
                 }
 
                 val rule = when (edge) {
@@ -2479,7 +2521,8 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
 
         if (actions.isNotEmpty()) {
             if (edge !is Edge.MethodCall) {
-                TODO("Non method call cleaner")
+                semgrepRuleTrace.error("Non method call cleaner", Reason.NOT_IMPLEMENTED)
+                continue
             }
 
             rules += generateRules(condition.ruleCondition) { function, cond ->
@@ -3202,6 +3245,8 @@ private fun simulateEdgeEffect(
 }
 
 private fun anyName() = SerializedNameMatcher.Pattern(".*")
+
+private fun anyFunction() = SerializedFunctionNameMatcher.Complex(anyName(), anyName(), anyName())
 
 private fun SerializedFunctionNameMatcher.matchAnything(): Boolean =
     `class` == anyName() && `package` == anyName() && name == anyName()

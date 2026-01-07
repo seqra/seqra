@@ -33,6 +33,7 @@ import org.opentaint.dataflow.configuration.jvm.TaintEntryPointSource
 import org.opentaint.dataflow.configuration.jvm.TaintMark
 import org.opentaint.dataflow.configuration.jvm.TaintMethodEntrySink
 import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSink
+import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSource
 import org.opentaint.dataflow.configuration.jvm.TaintMethodSink
 import org.opentaint.dataflow.configuration.jvm.TaintMethodSource
 import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
@@ -67,6 +68,7 @@ class TaintConfiguration(cp: JIRClasspath) {
 
     private val entryPointConfig = TaintRulesStorage<SerializedRule.EntryPoint, TaintEntryPointSource>()
     private val sourceConfig = TaintRulesStorage<SerializedRule.Source, TaintMethodSource>()
+    private val exitSourceConfig = TaintRulesStorage<SerializedRule.MethodExitSource, TaintMethodExitSource>()
     private val sinkConfig = TaintRulesStorage<SerializedRule.Sink, TaintMethodSink>()
     private val passThroughConfig = TaintRulesStorage<SerializedRule.PassThrough, TaintPassThrough>()
     private val cleanerConfig = TaintRulesStorage<SerializedRule.Cleaner, TaintCleaner>()
@@ -81,6 +83,7 @@ class TaintConfiguration(cp: JIRClasspath) {
     fun loadConfig(config: SerializedTaintConfig) {
         config.entryPoint?.let { entryPointConfig.addRules(it) }
         config.source?.let { sourceConfig.addRules(it) }
+        config.methodExitSource?.let { exitSourceConfig.addRules(it) }
         config.sink?.let { sinkConfig.addRules(it) }
         config.passThrough?.let { passThroughConfig.addRules(it) }
         config.cleaner?.let { cleanerConfig.addRules(it) }
@@ -102,6 +105,7 @@ class TaintConfiguration(cp: JIRClasspath) {
 
     fun entryPointForMethod(method: JIRMethod): List<TaintEntryPointSource> = entryPointConfig.getConfigForMethod(method)
     fun sourceForMethod(method: JIRMethod): List<TaintMethodSource> = sourceConfig.getConfigForMethod(method)
+    fun exitSourceForMethod(method: JIRMethod): List<TaintMethodExitSource> = exitSourceConfig.getConfigForMethod(method)
     fun sinkForMethod(method: JIRMethod): List<TaintMethodSink> = sinkConfig.getConfigForMethod(method)
     fun passThroughForMethod(method: JIRMethod): List<TaintPassThrough> = passThroughConfig.getConfigForMethod(method)
     fun cleanerForMethod(method: JIRMethod): List<TaintCleaner> = cleanerConfig.getConfigForMethod(method)
@@ -252,6 +256,7 @@ class TaintConfiguration(cp: JIRClasspath) {
         val actions = when (this) {
             is SerializedRule.Source -> taint
             is SerializedRule.EntryPoint -> taint
+            is SerializedRule.MethodExitSource -> taint
             is SerializedRule.Cleaner -> cleans
             is SerializedRule.PassThrough -> copy
             is SerializedRule.MethodEntrySink,
@@ -278,6 +283,10 @@ class TaintConfiguration(cp: JIRClasspath) {
 
             is SerializedRule.Source -> {
                 TaintMethodSource(method, condition, taint.flatMap { it.resolve(method, ctx) })
+            }
+
+            is SerializedRule.MethodExitSource -> {
+                TaintMethodExitSource(method, condition, taint.flatMap { it.resolve(method, ctx) })
             }
 
             is SerializedRule.Sink -> {

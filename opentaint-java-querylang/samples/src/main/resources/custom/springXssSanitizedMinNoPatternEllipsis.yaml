@@ -1,0 +1,22 @@
+rules:
+  - id: java.spring.xss.precise
+    languages:
+      - java
+    severity: ERROR
+    message: Return a untrusted file path
+    metadata:
+      cwe: CWE-79
+      license: MIT
+      shortDescription: Return a untrusted file path
+    patterns:
+      - pattern: |
+          $SINK = $SOURCE.mkType2();
+      - pattern-not-inside: |
+          $PAYLOAD = $SOURCE.mkType2();
+          ...
+          $SINK = sanitize($PAYLOAD);
+      - pattern-inside: |
+          $RETURNTYPE $METHOD(..., $TYPE $SOURCE,...) {
+            ...
+            return $SINK;
+          }
