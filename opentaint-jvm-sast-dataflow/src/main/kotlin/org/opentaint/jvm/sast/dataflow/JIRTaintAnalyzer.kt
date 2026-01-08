@@ -102,7 +102,20 @@ class JIRTaintAnalyzer(
             ifdsEngine.storeSummaries()
         }
 
-        var vulnerabilities = ifdsEngine.getVulnerabilities()
+        val allVulnerabilities = ifdsEngine.getVulnerabilities()
+
+        logger.info { "Start vulnerability confirmation" }
+        val vulnCheckTimeout = ifdsTimeout - analysisStart.elapsedNow()
+        var vulnerabilities = if (!vulnCheckTimeout.isPositive()) {
+            logger.warn { "No time remaining for vulnerability confirmation" }
+            allVulnerabilities
+        } else {
+            ifdsEngine.confirmVulnerabilities(
+                entryPoints.toHashSet(), allVulnerabilities,
+                vulnCheckTimeout, cancellationTimeout = 30.seconds
+            )
+        }
+
         logger.info { "Total vulnerabilities: ${vulnerabilities.size}" }
 
         if (debugOptions.enableVulnSummary) {
@@ -233,20 +246,21 @@ class JIRTaintAnalyzer(
     ): String = buildString {
         data class VulnInfo(val location: String, val ruleId: String, val kind: String)
 
-        val info = mutableListOf<VulnInfo>()
+        fun TaintSinkTracker.TaintVulnerability.vulnSummary(): VulnInfo = when (this) {
+            is TaintSinkTracker.TaintVulnerabilityWithEndFactRequirement -> {
+                vulnerability.vulnSummary().let { it.copy(kind = "end#${it.kind}") }
+            }
 
-        for (v in vulnerabilities) {
-            when (v) {
-                is TaintSinkTracker.TaintVulnerabilityUnconditional -> {
-                    info += VulnInfo("${v.statement.location}|${v.statement}", v.rule.id, "unconditional")
-                }
+            is TaintSinkTracker.TaintVulnerabilityUnconditional -> {
+                VulnInfo("${statement.location}|${statement}", rule.id, "unconditional")
+            }
 
-                is TaintSinkTracker.TaintVulnerabilityWithFact -> {
-                    info += VulnInfo("${v.statement.location}|${v.statement}", v.rule.id, "fact")
-                }
+            is TaintSinkTracker.TaintVulnerabilityWithFact -> {
+                VulnInfo("${statement.location}|${statement}", rule.id, "fact")
             }
         }
 
+        val info = vulnerabilities.mapTo(mutableListOf()) { it.vulnSummary() }
         info.sortWith(compareBy<VulnInfo> { it.kind }.thenBy { it.ruleId }.thenBy { it.location })
 
         appendLine("VULNERABILITIES:")

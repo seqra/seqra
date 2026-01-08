@@ -11,7 +11,6 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSummarySerializationContext
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
-import org.opentaint.dataflow.jvm.ap.ifds.taint.applyAnalysisEndSinksForEntryPoints
 import org.opentaint.dataflow.jvm.util.JIRSarifTraits
 import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -178,7 +177,7 @@ class ProjectAnalyzer(
         val summarySerializationContext = JIRSummarySerializationContext(cp)
 
         JIRTaintAnalyzer(
-            cp, loadTaintConfig(cp).applyAnalysisEndSinksForEntryPoints(entryPoints.toHashSet()),
+            cp, loadTaintConfig(cp),
             projectLocations = projectClasses.projectLocations,
             ifdsTimeout = ifdsAnalysisTimeout,
             ifdsApMode = ifdsApMode,

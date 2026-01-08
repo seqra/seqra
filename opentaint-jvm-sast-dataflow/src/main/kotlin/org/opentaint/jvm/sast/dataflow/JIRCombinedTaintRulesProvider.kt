@@ -1,10 +1,9 @@
 package org.opentaint.jvm.sast.dataflow
 
-import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSource
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
-import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 
 class JIRCombinedTaintRulesProvider(
     private val base: TaintRulesProvider,
@@ -37,9 +36,6 @@ class JIRCombinedTaintRulesProvider(
 
     override fun sinkRulesForMethodExit(method: CommonMethod, statement: CommonInst) =
         combine(combinationOptions.sink) { sinkRulesForMethodExit(method, statement) }
-
-    override fun sinkRulesForAnalysisEnd(method: CommonMethod, statement: CommonInst) =
-        combine(combinationOptions.sink) { sinkRulesForAnalysisEnd(method, statement) }
 
     override fun sinkRulesForMethodEntry(method: CommonMethod) =
         combine(combinationOptions.sink) { sinkRulesForMethodEntry(method) }

@@ -13,6 +13,8 @@ import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.Cube
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.True
 import org.opentaint.semgrep.pattern.conversion.automata.operations.traverse
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata
+import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.EdgeCondition
+import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.EdgeEffect
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRuleEdge
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRuleGenerationCtx
 import java.io.File
@@ -96,7 +98,7 @@ class TaintRuleGenerationContextView(
         successors[node]?.map { it to it.stateTo }.orEmpty()
 
     override fun edgeLabel(edge: TaintRuleEdge): String {
-        var label = automataEdgeLabel(edge.edge)
+        var label = automataEdgeLabel(edge.edgeKind, edge.edgeCondition, edge.edgeEffect)
         if (edge.checkGlobalState) {
             label = "STATE == ${ctx.automata.stateId(edge.stateFrom)}\n" + label
         }
@@ -126,6 +128,14 @@ private fun automataEdgeLabel(edge: TaintRegisterStateAutomata.Edge): String = w
     is TaintRegisterStateAutomata.Edge.MethodCall -> "CALL(${edge.condition.prettyPrint()}{${edge.effect.prettyPrint()}})"
     is TaintRegisterStateAutomata.Edge.MethodEnter -> "ENTER(${edge.condition.prettyPrint()}{${edge.effect.prettyPrint()}})"
     TaintRegisterStateAutomata.Edge.AnalysisEnd -> "END"
+}
+
+private fun automataEdgeLabel(kind: TaintRuleEdge.Kind, cond: EdgeCondition, effect: EdgeEffect): String {
+    val prefix = when (kind) {
+        TaintRuleEdge.Kind.MethodEnter -> "ENTER"
+        TaintRuleEdge.Kind.MethodCall -> "CALL"
+    }
+    return "$prefix(${cond.prettyPrint()}{${effect.prettyPrint()}})"
 }
 
 interface PrintableGraph<Node, EdgeLabel> {
@@ -230,13 +240,13 @@ fun MethodFormula.prettyPrint(manager: MethodFormulaManager, lineLengthLimit: In
     return formatNode(0)
 }
 
-private fun TaintRegisterStateAutomata.EdgeEffect.prettyPrint(lineLengthLimit: Int = 40): String {
+private fun EdgeEffect.prettyPrint(lineLengthLimit: Int = 40): String {
     val parts = mutableListOf<TaintRegisterStateAutomata.MethodPredicate>()
     assignMetaVar.values.flatMapTo(parts) { it }
     return parts.prettyPrint(lineLengthLimit)
 }
 
-private fun TaintRegisterStateAutomata.EdgeCondition.prettyPrint(lineLengthLimit: Int = 40): String {
+private fun EdgeCondition.prettyPrint(lineLengthLimit: Int = 40): String {
     val parts = mutableListOf<TaintRegisterStateAutomata.MethodPredicate>()
     readMetaVar.values.flatMapTo(parts) { it }
     parts.addAll(other)

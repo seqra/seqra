@@ -39,10 +39,6 @@ class JIRTaintRulesProvider(
         taintConfiguration.methodExitSinkForMethod(it)
     }
 
-    override fun sinkRulesForAnalysisEnd(method: CommonMethod, statement: CommonInst) = getRules(method) {
-        taintConfiguration.analysisEndSinkForMethod(it)
-    }
-
     override fun sinkRulesForMethodEntry(method: CommonMethod) = getRules(method) {
         taintConfiguration.methodEntrySinkForMethod(it)
     }

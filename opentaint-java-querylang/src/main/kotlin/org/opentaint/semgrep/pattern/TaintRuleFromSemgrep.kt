@@ -1,6 +1,5 @@
 package org.opentaint.semgrep.pattern
 
-import org.opentaint.dataflow.configuration.jvm.serialized.AnalysisEndSink
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFieldRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
@@ -27,7 +26,6 @@ fun TaintRuleFromSemgrep.createTaintConfig(): SerializedTaintConfig {
         passThrough = rules.filterIsInstance<SerializedRule.PassThrough>(),
         cleaner = rules.filterIsInstance<SerializedRule.Cleaner>(),
         methodExitSink = rules.filterIsInstance<SerializedRule.MethodExitSink>(),
-        analysisEndSink = rules.filterIsInstance<AnalysisEndSink>(),
         methodEntrySink = rules.filterIsInstance<SerializedRule.MethodEntrySink>(),
         staticFieldSource = rules.filterIsInstance<SerializedFieldRule.SerializedStaticFieldSource>(),
     )

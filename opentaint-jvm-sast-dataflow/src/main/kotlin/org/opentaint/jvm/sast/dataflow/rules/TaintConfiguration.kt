@@ -46,12 +46,27 @@ import org.opentaint.dataflow.configuration.jvm.mkAnd
 import org.opentaint.dataflow.configuration.jvm.mkFalse
 import org.opentaint.dataflow.configuration.jvm.mkOr
 import org.opentaint.dataflow.configuration.jvm.mkTrue
-import org.opentaint.dataflow.configuration.jvm.serialized.*
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionModifier
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedAction
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationConstraint
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationParamMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFieldRule
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.ClassPattern
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Pattern
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Simple
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSignatureMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintPassAction
+import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
+import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
+import org.opentaint.dataflow.configuration.jvm.serialized.SourceRule
 import org.opentaint.dataflow.configuration.jvm.simplify
 import org.opentaint.dataflow.jvm.util.JIRHierarchyInfo
 import org.opentaint.ir.api.jvm.JIRAnnotation
@@ -73,7 +88,6 @@ class TaintConfiguration(cp: JIRClasspath) {
     private val passThroughConfig = TaintRulesStorage<SerializedRule.PassThrough, TaintPassThrough>()
     private val cleanerConfig = TaintRulesStorage<SerializedRule.Cleaner, TaintCleaner>()
     private val methodExitSinkConfig = TaintRulesStorage<SerializedRule.MethodExitSink, TaintMethodExitSink>()
-    private val analysisEndSinkConfig = TaintRulesStorage<SerializedRule.MethodExitSink, TaintMethodExitSink>()
     private val methodEntrySinkConfig = TaintRulesStorage<SerializedRule.MethodEntrySink, TaintMethodEntrySink>()
 
     private val staticFieldSourceConfig = TaintFieldRulesStorage<SerializedFieldRule.SerializedStaticFieldSource, TaintStaticFieldSource>()
@@ -90,17 +104,6 @@ class TaintConfiguration(cp: JIRClasspath) {
         config.methodExitSink?.let { methodExitSinkConfig.addRules(it) }
         config.methodEntrySink?.let { methodEntrySinkConfig.addRules(it) }
         config.staticFieldSource?.let { staticFieldSourceConfig.addRules(it) }
-        config.analysisEndSink?.let { r -> analysisEndSinkConfig.addRules(r.map { it.asMethodExitSink() }) }
-    }
-
-    private val anyFunction by lazy {
-        SerializedFunctionNameMatcher.Complex(
-            anyNameMatcher(), anyNameMatcher(), anyNameMatcher()
-        )
-    }
-
-    private fun AnalysisEndSink.asMethodExitSink(): SerializedRule.MethodExitSink {
-        return SerializedRule.MethodExitSink(anyFunction, overrides = false, condition = condition, id = id, meta = meta)
     }
 
     fun entryPointForMethod(method: JIRMethod): List<TaintEntryPointSource> = entryPointConfig.getConfigForMethod(method)
@@ -110,7 +113,6 @@ class TaintConfiguration(cp: JIRClasspath) {
     fun passThroughForMethod(method: JIRMethod): List<TaintPassThrough> = passThroughConfig.getConfigForMethod(method)
     fun cleanerForMethod(method: JIRMethod): List<TaintCleaner> = cleanerConfig.getConfigForMethod(method)
     fun methodExitSinkForMethod(method: JIRMethod): List<TaintMethodExitSink> = methodExitSinkConfig.getConfigForMethod(method)
-    fun analysisEndSinkForMethod(method: JIRMethod): List<TaintMethodExitSink> = analysisEndSinkConfig.getConfigForMethod(method)
     fun methodEntrySinkForMethod(method: JIRMethod): List<TaintMethodEntrySink> = methodEntrySinkConfig.getConfigForMethod(method)
 
     fun sourceForStaticField(field: JIRField): List<TaintStaticFieldSource> {
@@ -290,15 +292,27 @@ class TaintConfiguration(cp: JIRClasspath) {
             }
 
             is SerializedRule.Sink -> {
-                TaintMethodSink(method, condition, ruleId(), meta())
+                TaintMethodSink(
+                    method, condition,
+                    trackFactsReachAnalysisEnd?.flatMap { it.resolve(method, ctx) }.orEmpty(),
+                    ruleId(), meta()
+                )
             }
 
             is SerializedRule.MethodExitSink -> {
-                TaintMethodExitSink(method, condition, ruleId(), meta())
+                TaintMethodExitSink(
+                    method, condition,
+                    trackFactsReachAnalysisEnd?.flatMap { it.resolve(method, ctx) }.orEmpty(),
+                    ruleId(), meta()
+                )
             }
 
             is SerializedRule.MethodEntrySink -> {
-                TaintMethodEntrySink(method, condition, ruleId(), meta())
+                TaintMethodEntrySink(
+                    method, condition,
+                    trackFactsReachAnalysisEnd?.flatMap { it.resolve(method, ctx) }.orEmpty(),
+                    ruleId(), meta()
+                )
             }
 
             is SerializedRule.PassThrough -> {

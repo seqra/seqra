@@ -53,16 +53,21 @@ abstract class SampleBasedTest(
 
         val results = runner.run(taintConfig, configPath, allSamples)
 
+        val missedPositive = hashSetOf<PositiveCase>()
         for (sample in data.positiveClasses) {
             val vulnerabilities = results[sample.className]
             assertNotNull(vulnerabilities, "No results for ${sample.className}")
 
-            assertTrue(
-                vulnerabilities.isNotEmpty(),
-                "Expected $sample to be positive, but no vulnerability was found."
-            )
+            if (vulnerabilities.isEmpty()) {
+                missedPositive.add(sample)
+            }
         }
+        assertTrue(
+            missedPositive.isEmpty(),
+            "Expected $missedPositive to be positive, but no vulnerability was found."
+        )
 
+        val falseNegative = hashSetOf<NegativeCase>()
         for (sample in data.negativeClasses) {
             val vulnerabilities = results[sample.className]
             assertNotNull(vulnerabilities, "No results for ${sample.className}")
@@ -74,11 +79,12 @@ abstract class SampleBasedTest(
                 continue
             }
 
-            assertTrue(
-                false,
-                "Expected $sample to be negative, but vulnerabilities were found: $vulnerabilities"
-            )
+            falseNegative.add(sample)
         }
+        assertTrue(
+            falseNegative.isEmpty(),
+            "Expected $falseNegative to be negative, but vulnerabilities were found."
+        )
     }
 
     private val samplesDb by lazy { samplesDb() }

@@ -147,6 +147,7 @@ private fun createTestConfig(
             TaintMethodSink(
                 method = method,
                 condition = ContainsMark(specializePosition(it, sink.position).single(), TaintMark(sink.mark)),
+                trackFactsReachAnalysisEnd = emptyList(),
                 id = sink.mark,
                 meta = meta,
             )
@@ -154,13 +155,6 @@ private fun createTestConfig(
     }
 
     override fun sinkRulesForMethodExit(
-        method: CommonMethod,
-        statement: CommonInst
-    ) = getRules(method) {
-        emptyList<TaintMethodExitSink>()
-    }
-
-    override fun sinkRulesForAnalysisEnd(
         method: CommonMethod,
         statement: CommonInst
     ) = getRules(method) {

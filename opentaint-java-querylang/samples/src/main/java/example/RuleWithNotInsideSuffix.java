@@ -1,6 +1,5 @@
 package example;
 
-import base.IFDSFalsePositive;
 import base.RuleSample;
 import base.RuleSet;
 
@@ -41,7 +40,6 @@ public abstract class RuleWithNotInsideSuffix implements RuleSample {
         }
     }
 
-    @IFDSFalsePositive("cleaner requires 2 facts: data & state")
     final static class NegativeCleanSecond extends RuleWithNotInsideSuffix {
         @Override
         public void entrypoint() {

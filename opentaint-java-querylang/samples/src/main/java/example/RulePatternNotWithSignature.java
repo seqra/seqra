@@ -1,6 +1,5 @@
 package example;
 
-import base.IFDSFalsePositive;
 import base.RuleSample;
 import base.RuleSet;
 import base.TaintRuleFalsePositive;
@@ -40,7 +39,6 @@ public abstract class RulePatternNotWithSignature implements RuleSample {
         }
     }
 
-    @IFDSFalsePositive("cleaner requires 2 facts: data & state")
     final static class NegativeCleanSecond extends RulePatternNotWithSignature {
         @Override
         public void entrypoint() {

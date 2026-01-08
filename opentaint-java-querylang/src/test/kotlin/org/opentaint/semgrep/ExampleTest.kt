@@ -92,6 +92,15 @@ class ExampleTest : SampleBasedTest() {
     @Test
     fun `test rule with multiple patterns ellipsis unification`() = runTest<example.RuleWithMultiplePatternsEllipsisUnification>()
 
+    @Test
+    fun `test cleaner after sink 0`() = runTest<example.CleanerAfterSink0>()
+
+    @Test
+    fun `test cleaner after sink 1`() = runTest<example.CleanerAfterSink1>()
+
+    @Test
+    fun `test cleaner after sink 2`() = runTest<example.CleanerAfterSink2>()
+
     @AfterAll
     fun close(){
         closeRunner()
