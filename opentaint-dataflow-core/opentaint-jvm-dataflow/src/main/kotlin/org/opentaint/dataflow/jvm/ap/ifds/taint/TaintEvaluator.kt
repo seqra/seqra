@@ -49,17 +49,27 @@ interface PassActionEvaluator<T> {
     fun evaluate(rule: TaintConfigurationItem, action: CopyMark): Maybe<List<T>>
 }
 
+data class EvaluatedPass(
+    val rule: TaintConfigurationItem,
+    val action: Action,
+    val fact: FinalFactAp,
+)
+
 class TaintPassActionEvaluator(
     private val apManager: ApManager,
     private val factTypeChecker: JIRFactTypeChecker,
     private val factReader: FinalFactReader,
     private val positionTypeResolver: PositionResolver<JIRType?>,
-) : PassActionEvaluator<FinalFactAp> {
-    override fun evaluate(rule: TaintConfigurationItem, action: CopyAllMarks): Maybe<List<FinalFactAp>> =
-        copyAllFacts(action.from, action.to, action.from.resolveAp(), action.to.resolveAp())
+) : PassActionEvaluator<EvaluatedPass> {
+    override fun evaluate(rule: TaintConfigurationItem, action: CopyAllMarks): Maybe<List<EvaluatedPass>> =
+        copyAllFacts(action.from, action.to, action.from.resolveAp(), action.to.resolveAp()).fmap { facts ->
+            facts.map { EvaluatedPass(rule, action, it) }
+        }
 
-    override fun evaluate(rule: TaintConfigurationItem, action: CopyMark): Maybe<List<FinalFactAp>> =
-        copyFinalFact(action.to, action.from.resolveAp(), action.to.resolveAp(), action.mark)
+    override fun evaluate(rule: TaintConfigurationItem, action: CopyMark): Maybe<List<EvaluatedPass>> =
+        copyFinalFact(action.to, action.from.resolveAp(), action.to.resolveAp(), action.mark).fmap { facts ->
+            facts.map { EvaluatedPass(rule, action, it) }
+        }
 
     private fun copyAllFacts(
         fromPos: Position,
@@ -115,47 +125,80 @@ class TaintPassActionEvaluator(
     }
 }
 
+data class EvaluatedCleanAction(
+    val fact: FinalFactReader?,
+    val action: ActionInfo?,
+    val prev: EvaluatedCleanAction?,
+) {
+    data class ActionInfo(
+        val rule: TaintConfigurationItem,
+        val action: Action,
+    )
+
+    companion object {
+        fun initial(fact: FinalFactReader) = EvaluatedCleanAction(
+            action = null, fact = fact, prev = null
+        )
+    }
+}
+
 class TaintCleanActionEvaluator {
-    fun evaluate(initialFact: FinalFactReader?, action: RemoveAllMarks): FinalFactReader? {
+    fun evaluate(
+        initialFact: EvaluatedCleanAction,
+        rule: TaintConfigurationItem,
+        action: RemoveAllMarks,
+    ): EvaluatedCleanAction {
         val variable = action.position.resolveAp()
-        return removeAllFacts(initialFact, variable)
+        return removeAllFacts(initialFact, variable, rule, action)
     }
 
-    fun evaluate(initialFact: FinalFactReader?, action: RemoveMark): FinalFactReader? {
+    fun evaluate(
+        initialFact: EvaluatedCleanAction,
+        rule: TaintConfigurationItem,
+        action: RemoveMark,
+    ): EvaluatedCleanAction {
         val variable = action.position.resolveAp()
-        return removeFinalFact(initialFact, variable, action.mark)
+        return removeFinalFact(initialFact, variable, action.mark, rule, action)
     }
 
     private fun removeAllFacts(
-        fact: FinalFactReader?,
+        evc: EvaluatedCleanAction,
         from: PositionAccess,
-    ): FinalFactReader? {
-        if (fact == null) return null
+        rule: TaintConfigurationItem,
+        action: RemoveAllMarks,
+    ): EvaluatedCleanAction {
+        val fact = evc.fact ?: return evc
 
-        if (!fact.containsPosition(from)) return fact
+        if (!fact.containsPosition(from)) return evc
 
         if (from !is PositionAccess.Simple) {
             TODO("Remove from complex: $from")
         }
 
-        return null
+        val actionInfo = EvaluatedCleanAction.ActionInfo(rule, action)
+        return EvaluatedCleanAction(fact = null, actionInfo, evc)
     }
 
     private fun removeFinalFact(
-        fact: FinalFactReader?,
+        evc: EvaluatedCleanAction,
         from: PositionAccess,
         markRestriction: TaintMark,
-    ): FinalFactReader? {
-        if (fact == null) return null
+        rule: TaintConfigurationItem,
+        action: RemoveMark,
+    ): EvaluatedCleanAction {
+        val fact = evc.fact ?: return evc
 
-        if (!fact.containsPositionWithTaintMark(from, markRestriction)) return fact
+        if (!fact.containsPositionWithTaintMark(from, markRestriction)) return evc
 
         if (from !is PositionAccess.Simple) {
             TODO("Remove from complex: $from")
         }
 
-        val factWithoutFinal = fact.factAp.clearAccessor(TaintMarkAccessor(markRestriction.name)) ?: return null
-        return fact.replaceFact(factWithoutFinal)
+        val factWithoutFinal = fact.factAp.clearAccessor(TaintMarkAccessor(markRestriction.name))
+        val resultFact = factWithoutFinal?.let { fact.replaceFact(it) }
+
+        val actionInfo = EvaluatedCleanAction.ActionInfo(rule, action)
+        return EvaluatedCleanAction(resultFact, actionInfo, evc)
     }
 }
 

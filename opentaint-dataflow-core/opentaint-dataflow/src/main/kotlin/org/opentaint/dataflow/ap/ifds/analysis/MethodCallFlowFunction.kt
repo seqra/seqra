@@ -3,8 +3,12 @@ package org.opentaint.dataflow.ap.ifds.analysis
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.configuration.CommonTaintAction
+import org.opentaint.dataflow.configuration.CommonTaintConfigurationItem
 
 interface MethodCallFlowFunction {
+    sealed interface Call2ReturnFact
+
     sealed interface ZeroCallFact
 
     sealed interface FactCallFact
@@ -13,34 +17,57 @@ interface MethodCallFlowFunction {
 
     data object Unchanged : ZeroCallFact, FactCallFact, NDFactCallFact
 
-    data object CallToReturnZeroFact: ZeroCallFact
+    data object CallToReturnZeroFact: ZeroCallFact, Call2ReturnFact
 
     data object CallToStartZeroFact : ZeroCallFact
 
-    data class CallToReturnFFact(val initialFactAp: InitialFactAp, val factAp: FinalFactAp) : FactCallFact, ZeroCallFact
+    data class CallToReturnFFact(
+        val initialFactAp: InitialFactAp,
+        val factAp: FinalFactAp,
+        val traceInfo: TraceInfo?,
+    ) : FactCallFact, ZeroCallFact, Call2ReturnFact
 
     data class CallToStartFFact(
         val initialFactAp: InitialFactAp,
         val callerFactAp: FinalFactAp,
-        val startFactBase: AccessPathBase
+        val startFactBase: AccessPathBase,
+        val traceInfo: TraceInfo?,
     ) : FactCallFact
 
-    data class CallToReturnZFact(val factAp: FinalFactAp) : ZeroCallFact
+    data class CallToReturnZFact(
+        val factAp: FinalFactAp,
+        val traceInfo: TraceInfo?,
+    ) : ZeroCallFact, FactCallFact, NDFactCallFact, Call2ReturnFact
 
-    data class CallToStartZFact(val callerFactAp: FinalFactAp, val startFactBase: AccessPathBase) : ZeroCallFact
-
-    data class SideEffectRequirement(val initialFactAp: InitialFactAp) : FactCallFact
+    data class CallToStartZFact(
+        val callerFactAp: FinalFactAp,
+        val startFactBase: AccessPathBase,
+        val traceInfo: TraceInfo?,
+    ) : ZeroCallFact
 
     data class CallToReturnNonDistributiveFact(
         val initialFacts: Set<InitialFactAp>,
         val factAp: FinalFactAp,
-    ) : FactCallFact, ZeroCallFact, NDFactCallFact
+        val traceInfo: TraceInfo?,
+    ) : FactCallFact, ZeroCallFact, NDFactCallFact, Call2ReturnFact
 
     data class CallToStartNDFFact(
         val initialFacts: Set<InitialFactAp>,
         val callerFactAp: FinalFactAp,
-        val startFactBase: AccessPathBase
+        val startFactBase: AccessPathBase,
+        val traceInfo: TraceInfo?,
     ) : NDFactCallFact
+
+    data class SideEffectRequirement(val initialFactAp: InitialFactAp) : FactCallFact
+
+    data class Drop(
+        val traceInfo: TraceInfo?,
+    ) : ZeroCallFact, FactCallFact, NDFactCallFact, Call2ReturnFact
+
+    sealed interface TraceInfo {
+        data object Flow : TraceInfo
+        data class Rule(val rule: CommonTaintConfigurationItem, val action: CommonTaintAction): TraceInfo
+    }
 
     fun propagateZeroToZero(): Set<ZeroCallFact>
     fun propagateZeroToFact(currentFactAp: FinalFactAp): Set<ZeroCallFact>

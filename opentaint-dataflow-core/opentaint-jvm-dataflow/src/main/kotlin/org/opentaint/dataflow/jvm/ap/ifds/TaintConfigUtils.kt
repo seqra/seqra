@@ -14,6 +14,7 @@ import org.opentaint.dataflow.configuration.jvm.RemoveMark
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
 import org.opentaint.dataflow.configuration.jvm.TaintEntryPointSource
 import org.opentaint.dataflow.jvm.ap.ifds.taint.ConditionEvaluator
+import org.opentaint.dataflow.jvm.ap.ifds.taint.EvaluatedCleanAction
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FinalFactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.InitialFactReader
@@ -77,17 +78,17 @@ object TaintConfigUtils {
         config: TaintRulesProvider,
         method: CommonMethod,
         statement: CommonInst,
-        initialFact: FinalFactReader?,
+        initialFact: FinalFactReader,
         conditionEvaluator: ConditionEvaluator<Boolean>,
         taintActionEvaluator: TaintCleanActionEvaluator
-    ): FinalFactReader? =
+    ): EvaluatedCleanAction =
         config.cleanerRulesForMethod(method, statement)
             .filter { conditionEvaluator.eval(it.condition) }
-            .fold(initialFact) { startFact, rule ->
+            .fold(EvaluatedCleanAction.initial(initialFact)) { startFact, rule ->
                 rule.actionsAfter.fold(startFact) { fact, action ->
                     when (action) {
-                        is RemoveMark -> taintActionEvaluator.evaluate(fact, action)
-                        is RemoveAllMarks -> taintActionEvaluator.evaluate(fact, action)
+                        is RemoveMark -> taintActionEvaluator.evaluate(fact, rule, action)
+                        is RemoveAllMarks -> taintActionEvaluator.evaluate(fact, rule, action)
                         else -> fact
                     }
                 }

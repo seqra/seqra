@@ -18,8 +18,11 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.ZeroCallFa
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallSummaryHandler
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.Sequent
 import org.opentaint.dataflow.ap.ifds.analysis.MethodStartFlowFunction.StartFact
+import org.opentaint.dataflow.ap.ifds.trace.MethodForwardTraceResolver
+import org.opentaint.dataflow.ap.ifds.trace.MethodForwardTraceResolver.RelevantFactFilter
+import org.opentaint.dataflow.ap.ifds.trace.MethodForwardTraceResolver.TraceGraph
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
-import org.opentaint.dataflow.ap.ifds.trace.TraceResolverCancellation
+import org.opentaint.dataflow.ap.ifds.trace.ProcessingCancellation
 import org.opentaint.dataflow.graph.MethodInstGraph
 import org.opentaint.dataflow.util.cartesianProductMapTo
 import org.opentaint.ir.api.common.CommonMethod
@@ -104,8 +107,20 @@ interface MethodAnalyzer {
 
     fun resolveIntraProceduralFullTrace(
         summaryTrace: MethodTraceResolver.SummaryTrace,
-        cancellation: TraceResolverCancellation
+        cancellation: ProcessingCancellation
     ): List<MethodTraceResolver.FullTrace>
+
+    fun resolveIntraProceduralForwardFullTrace(
+        statement: CommonInst,
+        fact: FinalFactAp,
+        includeStatement: Boolean = false,
+        relevantFactFilter: RelevantFactFilter,
+    ): TraceGraph
+
+    fun resolveCalleeFact(
+        statement: CommonInst,
+        factAp: FinalFactAp
+    ): Set<FinalFactAp>
 
     fun allIntraProceduralFacts(): Map<CommonInst, Set<FinalFactAp>>
 
@@ -303,6 +318,7 @@ class NormalMethodAnalyzer(
             returnValue,
             callExpr,
             edge.statement,
+            false,
         )
 
         when (edge) {
@@ -333,11 +349,15 @@ class NormalMethodAnalyzer(
         fact: ZeroCallFact
     ) {
         when (fact) {
-            MethodCallFlowFunction.Unchanged -> {
+            is MethodCallFlowFunction.Unchanged -> {
                 handleUnchangedStatementEdge(edge)
             }
 
-            MethodCallFlowFunction.CallToReturnZeroFact -> {
+            is MethodCallFlowFunction.Drop -> {
+                // do nothing
+            }
+
+            is MethodCallFlowFunction.CallToReturnZeroFact -> {
                 handleStatementEdge(edge, ZeroToZero(methodEntryPoint, edge.statement))
             }
 
@@ -380,12 +400,21 @@ class NormalMethodAnalyzer(
         fact: MethodCallFlowFunction.FactCallFact
     ) {
         when (fact) {
-            MethodCallFlowFunction.Unchanged -> {
+            is MethodCallFlowFunction.Unchanged -> {
                 handleUnchangedStatementEdge(edge)
+            }
+
+            is MethodCallFlowFunction.Drop -> {
+                // do nothing
             }
 
             is MethodCallFlowFunction.CallToReturnFFact -> {
                 val edgeAfterStatement = FactToFact(methodEntryPoint, fact.initialFactAp, edge.statement, fact.factAp)
+                handleStatementEdge(edge, edgeAfterStatement)
+            }
+
+            is MethodCallFlowFunction.CallToReturnZFact -> {
+                val edgeAfterStatement = ZeroToFact(methodEntryPoint, edge.statement, fact.factAp)
                 handleStatementEdge(edge, edgeAfterStatement)
             }
 
@@ -418,14 +447,23 @@ class NormalMethodAnalyzer(
         fact: MethodCallFlowFunction.NDFactCallFact,
     ) {
         when (fact) {
-            MethodCallFlowFunction.Unchanged -> {
+            is MethodCallFlowFunction.Unchanged -> {
                 handleUnchangedStatementEdge(edge)
+            }
+
+            is MethodCallFlowFunction.Drop -> {
+                // do nothing
             }
 
             is MethodCallFlowFunction.CallToReturnNonDistributiveFact -> {
                 val edgeAfterStatement = NDFactToFact(
                     methodEntryPoint, fact.initialFacts, edge.statement, fact.factAp
                 )
+                handleStatementEdge(edge, edgeAfterStatement)
+            }
+
+            is MethodCallFlowFunction.CallToReturnZFact -> {
+                val edgeAfterStatement = ZeroToFact(methodEntryPoint, edge.statement, fact.factAp)
                 handleStatementEdge(edge, edgeAfterStatement)
             }
 
@@ -582,19 +620,23 @@ class NormalMethodAnalyzer(
 
         is MethodCallResolutionFailureHandler.ZeroToFactHandler -> {
             // If no callees resolved propagate as call-to-return
-            val stubFact = MethodCallFlowFunction.CallToReturnZFact(handler.callerFactAp)
+            val stubFact = MethodCallFlowFunction.CallToReturnZFact(handler.callerFactAp, traceInfo = null)
             propagateZeroCallFact(callExpr, handler.edge, stubFact)
         }
 
         is MethodCallResolutionFailureHandler.FactToFactHandler -> {
             // If no callees resolved propagate as call-to-return
-            val stubFact = MethodCallFlowFunction.CallToReturnFFact(handler.callerEdge.initialFactAp, handler.callerFactAp)
+            val stubFact = MethodCallFlowFunction.CallToReturnFFact(
+                handler.callerEdge.initialFactAp, handler.callerFactAp, traceInfo = null
+            )
             propagateFactCallFact(callExpr, handler.callerEdge, stubFact)
         }
 
         is MethodCallResolutionFailureHandler.NDFactToFactHandler -> {
             // If no callees resolved propagate as call-to-return
-            val stubFact = MethodCallFlowFunction.CallToReturnNonDistributiveFact(handler.callerEdge.initialFacts, handler.callerFactAp)
+            val stubFact = MethodCallFlowFunction.CallToReturnNonDistributiveFact(
+                handler.callerEdge.initialFacts, handler.callerFactAp, traceInfo = null
+            )
             propagateNDFactCallFact(callExpr, handler.callerEdge, stubFact)
         }
     }
@@ -976,11 +1018,26 @@ class NormalMethodAnalyzer(
 
     override fun resolveIntraProceduralFullTrace(
         summaryTrace: MethodTraceResolver.SummaryTrace,
-        cancellation: TraceResolverCancellation
+        cancellation: ProcessingCancellation
     ): List<MethodTraceResolver.FullTrace> {
         val resolver = MethodTraceResolver(runner, analysisContext, edges, methodInstGraph)
         return resolver.resolveIntraProceduralFullTrace(summaryTrace, cancellation)
     }
+
+    override fun resolveIntraProceduralForwardFullTrace(
+        statement: CommonInst,
+        fact: FinalFactAp,
+        includeStatement: Boolean,
+        relevantFactFilter: RelevantFactFilter
+    ): TraceGraph {
+        val resolver = MethodForwardTraceResolver(runner, analysisContext, methodInstGraph)
+        return resolver.resolveForwardTrace(statement, fact, includeStatement, relevantFactFilter)
+    }
+
+    override fun resolveCalleeFact(statement: CommonInst, factAp: FinalFactAp): Set<FinalFactAp> =
+        analysisContext.methodCallFactMapper.mapMethodExitToReturnFlowFact(
+            statement, factAp, FactTypeChecker.Dummy
+        ).toSet()
 
     private fun updateTaintRulesStats(
         finalEdgeFact: FinalFactAp?,
@@ -1128,7 +1185,7 @@ class EmptyMethodAnalyzer(
 
     override fun resolveIntraProceduralFullTrace(
         summaryTrace: MethodTraceResolver.SummaryTrace,
-        cancellation: TraceResolverCancellation
+        cancellation: ProcessingCancellation
     ): List<MethodTraceResolver.FullTrace> {
         TODO("Not yet implemented")
     }
@@ -1138,6 +1195,19 @@ class EmptyMethodAnalyzer(
         calleeEntry: MethodTraceResolver.TraceEntry.MethodEntry
     ): List<MethodTraceResolver.SummaryTrace> {
         error("Empty method have no calls")
+    }
+
+    override fun resolveIntraProceduralForwardFullTrace(
+        statement: CommonInst,
+        fact: FinalFactAp,
+        includeStatement: Boolean,
+        relevantFactFilter: RelevantFactFilter
+    ): TraceGraph {
+        TODO("Not yet implemented")
+    }
+
+    override fun resolveCalleeFact(statement: CommonInst, factAp: FinalFactAp): Set<FinalFactAp> {
+        TODO("Not yet implemented")
     }
 
     override fun allIntraProceduralFacts(): Map<CommonInst, Set<FinalFactAp>> = emptyMap()

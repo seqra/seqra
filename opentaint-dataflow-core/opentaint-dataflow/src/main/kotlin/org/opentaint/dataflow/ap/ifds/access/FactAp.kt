@@ -19,7 +19,7 @@ interface InitialFactAp : FactAp {
     fun exclude(accessor: Accessor): InitialFactAp
     fun replaceExclusions(exclusions: ExclusionSet): InitialFactAp
 
-    fun getAllAccessors(): List<Accessor>
+    fun getAllAccessors(): Set<Accessor>
 
     fun readAccessor(accessor: Accessor): InitialFactAp?
     fun prependAccessor(accessor: Accessor): InitialFactAp
@@ -41,6 +41,8 @@ interface FinalFactAp : FactAp {
     fun rebase(newBase: AccessPathBase): FinalFactAp
     fun exclude(accessor: Accessor): FinalFactAp
     fun replaceExclusions(exclusions: ExclusionSet): FinalFactAp
+
+    fun getAllAccessors(): Set<Accessor>
 
     fun isAbstract(): Boolean
 

@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.ap.ifds.taint
 
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
+import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationItem
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSink
@@ -35,23 +36,32 @@ class TaintSinkTracker(
         val vulnerabilityTriggerPosition: VulnerabilityTriggerPosition,
     ): TaintVulnerability
 
-    private val uniqueUnconditionalVulnerabilities = ConcurrentHashMap<String, MutableSet<CommonInst>>()
+    data class TaintVulnerabilityWithEndFactRequirement(
+        val vulnerability: TaintVulnerability,
+        val endFactRequirement: Set<FinalFactAp>,
+    ) : TaintVulnerability by vulnerability
 
     fun addUnconditionalVulnerability(
         methodEntryPoint: MethodEntryPoint,
         statement: CommonInst,
-        rule: CommonTaintConfigurationSink
+        rule: CommonTaintConfigurationSink,
     ) {
-        val vulnerabilities = uniqueUnconditionalVulnerabilities.computeIfAbsent(rule.id) {
-            ConcurrentHashMap.newKeySet()
-        }
-
-        if (!vulnerabilities.add(statement)) return
-
-        storage.addVulnerability(TaintVulnerabilityUnconditional(rule, methodEntryPoint, statement))
+        addVulnerability(TaintVulnerabilityUnconditional(rule, methodEntryPoint, statement))
     }
 
-    private val reportedVulnerabilities = ConcurrentHashMap<String, MutableSet<CommonInst>>()
+    fun addUnconditionalVulnerabilityWithEndFactRequirement(
+        methodEntryPoint: MethodEntryPoint,
+        statement: CommonInst,
+        rule: CommonTaintConfigurationSink,
+        requiredEndFacts: Set<FinalFactAp>,
+    ) {
+        addVulnerability(
+            TaintVulnerabilityWithEndFactRequirement(
+                TaintVulnerabilityUnconditional(rule, methodEntryPoint, statement),
+                requiredEndFacts,
+            )
+        )
+    }
 
     fun addVulnerability(
         methodEntryPoint: MethodEntryPoint,
@@ -60,16 +70,38 @@ class TaintSinkTracker(
         rule: CommonTaintConfigurationSink,
         vulnerabilityTriggerPosition: VulnerabilityTriggerPosition = VulnerabilityTriggerPosition.BEFORE_INST,
     ) {
-        val reportedVulnerabilitiesFoRule = reportedVulnerabilities.computeIfAbsent(rule.id) {
+        addVulnerability(
+            TaintVulnerabilityWithFact(rule, methodEntryPoint, statement, facts, vulnerabilityTriggerPosition)
+        )
+    }
+
+    fun addVulnerabilityWithEndFactRequirement(
+        methodEntryPoint: MethodEntryPoint,
+        facts: Set<InitialFactAp>,
+        statement: CommonInst,
+        rule: CommonTaintConfigurationSink,
+        requiredEndFacts: Set<FinalFactAp>,
+        vulnerabilityTriggerPosition: VulnerabilityTriggerPosition = VulnerabilityTriggerPosition.BEFORE_INST,
+    ) {
+        addVulnerability(
+            TaintVulnerabilityWithEndFactRequirement(
+                TaintVulnerabilityWithFact(rule, methodEntryPoint, statement, facts, vulnerabilityTriggerPosition),
+                requiredEndFacts,
+            )
+        )
+    }
+
+    private val reportedVulnerabilities = ConcurrentHashMap<String, MutableSet<CommonInst>>()
+
+    private fun addVulnerability(vulnerability: TaintVulnerability) {
+        val reportedVulnerabilitiesFoRule = reportedVulnerabilities.computeIfAbsent(vulnerability.rule.id) {
             ConcurrentHashMap.newKeySet()
         }
 
         // todo: current deduplication is incompatible with traces
-        if (!reportedVulnerabilitiesFoRule.add(statement)) return
+        if (!reportedVulnerabilitiesFoRule.add(vulnerability.statement)) return
 
-        storage.addVulnerability(
-            TaintVulnerabilityWithFact(rule, methodEntryPoint, statement, facts, vulnerabilityTriggerPosition)
-        )
+        storage.addVulnerability(vulnerability)
     }
 
     data class FactWithPreconditions(val fact: InitialFactAp, val preconditions: List<Set<InitialFactAp>>)

@@ -14,8 +14,10 @@ import org.opentaint.dataflow.ap.ifds.analysis.AnalysisManager
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver
 import org.opentaint.dataflow.ap.ifds.serialization.MethodSummariesSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
+import org.opentaint.dataflow.ap.ifds.trace.MethodForwardTraceResolver
+import org.opentaint.dataflow.ap.ifds.trace.MethodForwardTraceResolver.RelevantFactFilter
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
-import org.opentaint.dataflow.ap.ifds.trace.TraceResolverCancellation
+import org.opentaint.dataflow.ap.ifds.trace.ProcessingCancellation
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.util.concurrentReadSafeForEach
@@ -388,10 +390,32 @@ class TaintAnalysisUnitRunner(
     fun resolveIntraProceduralFullTrace(
         methodEntryPoint: MethodEntryPoint,
         summaryTrace: MethodTraceResolver.SummaryTrace,
-        cancellation: TraceResolverCancellation
+        cancellation: ProcessingCancellation
     ): List<MethodTraceResolver.FullTrace> {
         val methodRunners = methodAnalyzers(methodEntryPoint)
         val runner = methodRunners.getAnalyzer(methodEntryPoint)
         return runner.resolveIntraProceduralFullTrace(summaryTrace, cancellation)
+    }
+
+    fun resolveIntraProceduralForwardFullTrace(
+        methodEntryPoint: MethodEntryPoint,
+        statement: CommonInst,
+        fact: FinalFactAp,
+        includeStatement: Boolean = false,
+        relevantFactFilter: RelevantFactFilter,
+    ): MethodForwardTraceResolver.TraceGraph {
+        val methodRunners = methodAnalyzers(methodEntryPoint)
+        val runner = methodRunners.getAnalyzer(methodEntryPoint)
+        return runner.resolveIntraProceduralForwardFullTrace(statement, fact, includeStatement, relevantFactFilter)
+    }
+
+    fun resolveCalleeFact(
+        methodEntryPoint: MethodEntryPoint,
+        statement: CommonInst,
+        factAp: FinalFactAp
+    ): Set<FinalFactAp> {
+        val methodRunners = methodAnalyzers(methodEntryPoint)
+        val runner = methodRunners.getAnalyzer(methodEntryPoint)
+        return runner.resolveCalleeFact(statement, factAp)
     }
 }

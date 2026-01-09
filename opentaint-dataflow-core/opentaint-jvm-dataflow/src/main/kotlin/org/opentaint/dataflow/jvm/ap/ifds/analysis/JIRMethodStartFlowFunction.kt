@@ -4,6 +4,7 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
+import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.MethodStartFlowFunction
@@ -27,7 +28,7 @@ class JIRMethodStartFlowFunction(
         val result = mutableListOf<StartFact>()
         result.add(StartFact.Zero)
 
-        applySinkRules()
+        applySinkRules().mapTo(result) { StartFact.Fact(it) }
 
         val method = context.methodEntryPoint.method as JIRMethod
         val valueResolver = CalleePositionToJIRValueResolver(method)
@@ -48,7 +49,12 @@ class JIRMethodStartFlowFunction(
             context.taint.taintConfig as TaintRulesProvider,
             method, conditionEvaluator, sourceEvaluator
         ).onSome { facts ->
-            facts.mapTo(result) { StartFact.Fact(it) }
+            facts.mapTo(result) {
+                it.getAllAccessors()
+                    .filterIsInstanceTo<TaintMarkAccessor, _>(context.taintMarksAssignedOnMethodEnter)
+
+                StartFact.Fact(it)
+            }
         }
 
         return result
@@ -76,13 +82,13 @@ class JIRMethodStartFlowFunction(
         return context.factTypeChecker.filterFactByLocalType(thisType, factAp)
     }
 
-    private fun applySinkRules() {
+    private fun applySinkRules(): List<FinalFactAp> {
         val config = context.taint.taintConfig as TaintRulesProvider
         val method = context.methodEntryPoint.method
         val statement = context.methodEntryPoint.statement
 
         val sinkRules = config.sinkRulesForMethodEntry(method).toList()
-        if (sinkRules.isEmpty()) return
+        if (sinkRules.isEmpty()) return emptyList()
 
         val valueResolver = CalleePositionToJIRValueResolver(method as JIRMethod)
         val conditionRewriter = JIRMarkAwareConditionRewriter(
@@ -92,14 +98,41 @@ class JIRMethodStartFlowFunction(
 
         val conditionEvaluator = JIRSimpleFactAwareConditionEvaluator(conditionRewriter, evaluator = null)
 
+        val sourceEvaluator = TaintSourceActionEvaluator(
+            apManager,
+            exclusion = ExclusionSet.Universe,
+            context.factTypeChecker,
+            returnValueType = null
+        )
+
+        val factsAfterSink = mutableListOf<FinalFactAp>()
         for (rule in sinkRules) {
             if (!conditionEvaluator.eval(rule.condition)) {
                 continue
             }
 
-            context.taint.taintSinkTracker.addUnconditionalVulnerability(
-                context.methodEntryPoint, statement, rule
+            if (rule.trackFactsReachAnalysisEnd.isEmpty()) {
+                context.taint.taintSinkTracker.addUnconditionalVulnerability(
+                    context.methodEntryPoint, statement, rule
+                )
+                continue
+            }
+
+            val requiredEndFacts = hashSetOf<FinalFactAp>()
+            rule.trackFactsReachAnalysisEnd.forEach { action ->
+                sourceEvaluator.evaluate(rule, action).onSome { facts ->
+                    facts.forEach { f ->
+                        requiredEndFacts += f
+                        factsAfterSink += f
+                    }
+                }
+            }
+
+            context.taint.taintSinkTracker.addUnconditionalVulnerabilityWithEndFactRequirement(
+                context.methodEntryPoint, statement, rule, requiredEndFacts
             )
         }
+
+        return factsAfterSink
     }
 }

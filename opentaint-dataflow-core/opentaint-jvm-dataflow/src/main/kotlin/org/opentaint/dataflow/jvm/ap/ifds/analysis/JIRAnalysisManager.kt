@@ -117,12 +117,13 @@ class JIRAnalysisManager(
     override fun getMethodSequentFlowFunction(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext,
-        currentInst: CommonInst
+        currentInst: CommonInst,
+        generateTrace: Boolean
     ): MethodSequentFlowFunction {
         jIRDowncast<JIRInst>(currentInst)
         jIRDowncast<JIRMethodAnalysisContext>(analysisContext)
 
-        return JIRMethodSequentFlowFunction(apManager, analysisContext, currentInst)
+        return JIRMethodSequentFlowFunction(apManager, analysisContext, currentInst, generateTrace)
     }
 
     override fun getMethodCallFlowFunction(
@@ -130,7 +131,8 @@ class JIRAnalysisManager(
         analysisContext: MethodAnalysisContext,
         returnValue: CommonValue?,
         callExpr: CommonCallExpr,
-        statement: CommonInst
+        statement: CommonInst,
+        generateTrace: Boolean
     ): MethodCallFlowFunction {
         jIRDowncast<JIRImmediate?>(returnValue)
         jIRDowncast<JIRCallExpr>(callExpr)
@@ -143,6 +145,7 @@ class JIRAnalysisManager(
             returnValue,
             callExpr,
             statement,
+            generateTrace
         )
     }
 

@@ -1,6 +1,6 @@
 package org.opentaint.dataflow.ap.ifds.trace
 
-class TraceResolverCancellation {
+class ProcessingCancellation {
     @Volatile
     var isActive: Boolean = true
 

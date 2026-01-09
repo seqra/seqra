@@ -8,6 +8,7 @@ import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryE
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.Sequent
+import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.TraceInfo
 
 interface MethodCallSummaryHandler {
     val factTypeChecker: FactTypeChecker
@@ -18,7 +19,9 @@ interface MethodCallSummaryHandler {
         if (summaryFact == null) return setOf(Sequent.ZeroToZero)
 
         val summaryExitFacts = mapMethodExitToReturnFlowFact(summaryFact)
-        return summaryExitFacts.mapTo(hashSetOf()) { Sequent.ZeroToFact(it) }
+        return summaryExitFacts.mapTo(hashSetOf()) {
+            Sequent.ZeroToFact(it, TraceInfo.ApplySummary)
+        }
     }
 
     fun handleZeroToFact(
@@ -34,7 +37,7 @@ interface MethodCallSummaryHandler {
             "Incorrect refinement"
         }
 
-        Sequent.ZeroToFact(summaryFactAp)
+        Sequent.ZeroToFact(summaryFactAp, TraceInfo.ApplySummary)
     }
 
     fun handleFactToFact(
@@ -47,7 +50,7 @@ interface MethodCallSummaryHandler {
         summaryEffect,
         summaryFact
     ) { initialFactRefinement: ExclusionSet?, summaryFactAp: FinalFactAp ->
-        Sequent.FactToFact(initialFactAp.refine(initialFactRefinement), summaryFactAp)
+        Sequent.FactToFact(initialFactAp.refine(initialFactRefinement), summaryFactAp, TraceInfo.ApplySummary)
     }
 
     fun handleNDFactToFact(
@@ -64,7 +67,7 @@ interface MethodCallSummaryHandler {
             "Incorrect refinement"
         }
 
-        Sequent.NDFactToFact(initialFacts, summaryFactAp)
+        Sequent.NDFactToFact(initialFacts, summaryFactAp, TraceInfo.ApplySummary)
     }
 
     fun InitialFactAp.refine(exclusionSet: ExclusionSet?) =

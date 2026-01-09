@@ -25,4 +25,9 @@ interface FactTypeChecker {
     object AlwaysRejectFilter : FactApFilter {
         override fun check(accessor: Accessor): FilterResult = FilterResult.Reject
     }
+
+    object Dummy : FactTypeChecker {
+        override fun filterFactByLocalType(actualType: CommonType?, factAp: FinalFactAp): FinalFactAp = factAp
+        override fun accessPathFilter(accessPath: List<Accessor>): FactApFilter = AlwaysAcceptFilter
+    }
 }

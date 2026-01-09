@@ -84,7 +84,7 @@ class AccessGraph(
     private val hash: Int by lazy(LazyThreadSafetyMode.PUBLICATION) { dfsHash() }
 
     fun getAllOwnAccessors() =
-        edges.keys.map {
+        edges.keys.mapTo(hashSetOf()) {
             with (manager) {
                 it.accessor
             }

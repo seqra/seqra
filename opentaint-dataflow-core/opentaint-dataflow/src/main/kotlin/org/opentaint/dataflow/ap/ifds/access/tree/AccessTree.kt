@@ -31,6 +31,12 @@ class AccessTree(
     override fun replaceExclusions(exclusions: ExclusionSet): FinalFactAp =
         AccessTree(base, access, exclusions)
 
+    override fun getAllAccessors(): Set<Accessor> {
+        val result = hashSetOf<Accessor>()
+        access.collectAccessorsTo(result)
+        return result
+    }
+
     override fun startsWithAccessor(accessor: Accessor): Boolean = access.contains(accessor)
 
     override fun isAbstract(): Boolean = access.isAbstract
@@ -349,6 +355,13 @@ class AccessTree(
             val accessorNodes = transformedAccessors?.second ?: accessorNodes
 
             return create(isAbstract, isFinal, accessors, accessorNodes)
+        }
+
+        fun collectAccessorsTo(dst: MutableSet<Accessor>) {
+            forEachAccessor { accessor, accessorNode ->
+                dst.add(accessor)
+                accessorNode.collectAccessorsTo(dst)
+            }
         }
 
         private fun bulkMergeAddAccessors(accessors: List<Pair<Accessor, AccessNode>>): AccessNode {

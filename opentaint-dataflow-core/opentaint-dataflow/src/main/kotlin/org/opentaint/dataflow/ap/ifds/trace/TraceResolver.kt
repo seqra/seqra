@@ -1,8 +1,6 @@
 package org.opentaint.dataflow.ap.ifds.trace
 
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
-import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager.MethodEntryPointCaller
-import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerability
@@ -16,7 +14,7 @@ class TraceResolver(
     private val entryPointMethods: Set<CommonMethod>,
     private val manager: TaintAnalysisUnitRunnerManager,
     private val params: Params,
-    private val cancellation: TraceResolverCancellation
+    private val cancellation: ProcessingCancellation
 ) {
     data class Params(
         val resolveEntryPointToStartTrace: Boolean = true,
@@ -106,6 +104,10 @@ class TraceResolver(
 
     fun resolveTrace(vulnerability: TaintVulnerability): Trace {
         when (vulnerability) {
+            is TaintSinkTracker.TaintVulnerabilityWithEndFactRequirement -> {
+                return resolveTrace(vulnerability.vulnerability)
+            }
+
             is TaintSinkTracker.TaintVulnerabilityUnconditional -> {
                 val node = SimpleTraceNode(vulnerability.statement, vulnerability.methodEntryPoint)
                 val entryPointToStart = resolveEntryPointToStartTrace(setOf(node))
@@ -116,7 +118,7 @@ class TraceResolver(
             is TaintSinkTracker.TaintVulnerabilityWithFact -> {
                 val builder = InterProceduralTraceGraphBuilder()
 
-                withMethodRunner(vulnerability.methodEntryPoint) {
+                manager.withMethodRunner(vulnerability.methodEntryPoint) {
                     val traces = resolveIntraProceduralTraceSummary(
                         vulnerability.methodEntryPoint,
                         vulnerability.statement,
@@ -212,7 +214,7 @@ class TraceResolver(
             val currentNode = traceNodes[cacheKey]
             if (currentNode != null) return currentNode
 
-            val fullTraces = withMethodRunner(trace.method) {
+            val fullTraces = manager.withMethodRunner(trace.method) {
                 resolveIntraProceduralFullTrace(trace.method, trace, cancellation)
             }
 
@@ -297,9 +299,9 @@ class TraceResolver(
         private fun resolveMethodEntry(
             methodEntry: MethodEntry
         ): List<Pair<CommonInst, MethodTraceResolver.SummaryTrace>> {
-            val callers = findMethodCallers(methodEntry.entryPoint)
+            val callers = manager.findMethodCallers(methodEntry.entryPoint)
             return callers.flatMap { caller ->
-                withMethodRunner(caller.callerEp) {
+                manager.withMethodRunner(caller.callerEp) {
                     resolveIntraProceduralTraceSummaryFromCall(caller.callerEp, caller.statement, methodEntry)
                 }.map { caller.statement to it }
             }
@@ -326,7 +328,7 @@ class TraceResolver(
                     nodeSuccessors.getOrPut(epNode, ::hashSetOf).add(methodCallNode)
                 }
 
-                val methodCallers = findMethodCallers(methodEp)
+                val methodCallers = manager.findMethodCallers(methodEp)
                 for (caller in methodCallers) {
                     val callNode = CallTraceNode(caller.statement, caller.callerEp)
                     nodeSuccessors.getOrPut(callNode, ::hashSetOf).add(methodCallNode)
@@ -336,30 +338,5 @@ class TraceResolver(
 
             return EntryPointToStartTrace(entryPointNodes, nodeSuccessors)
         }
-    }
-
-    private inline fun <T> withMethodRunner(
-        methodEntryPoint: MethodEntryPoint,
-        body: TaintAnalysisUnitRunner.() -> T
-    ): T {
-        val unit = manager.unitResolver.resolve(methodEntryPoint.method)
-        val runner = manager.findUnitRunner(unit) ?: error("No runner for unit: $unit")
-        return runner.body()
-    }
-
-    private fun findMethodCallers(methodEntryPoint: MethodEntryPoint): Set<MethodEntryPointCaller> {
-        val result = hashSetOf<MethodEntryPointCaller>()
-
-        withMethodRunner(methodEntryPoint) {
-            methodCallers(methodEntryPoint, collectZeroCallsOnly = true, result)
-        }
-
-        val callers = manager.methodCallers(methodEntryPoint.method)
-        for (callerUnit in callers) {
-            val runner = manager.findUnitRunner(callerUnit) ?: error("No runner for unit: $callerUnit")
-            runner.methodCallers(methodEntryPoint, collectZeroCallsOnly = true, result)
-        }
-
-        return result
     }
 }

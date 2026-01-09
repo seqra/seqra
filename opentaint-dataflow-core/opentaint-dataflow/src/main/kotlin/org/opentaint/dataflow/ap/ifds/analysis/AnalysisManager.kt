@@ -48,7 +48,8 @@ interface AnalysisManager: LanguageManager {
     fun getMethodSequentFlowFunction(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext,
-        currentInst: CommonInst
+        currentInst: CommonInst,
+        generateTrace: Boolean = false
     ): MethodSequentFlowFunction
 
     fun getMethodCallFlowFunction(
@@ -57,6 +58,7 @@ interface AnalysisManager: LanguageManager {
         returnValue: CommonValue?,
         callExpr: CommonCallExpr,
         statement: CommonInst,
+        generateTrace: Boolean,
     ): MethodCallFlowFunction
 
     fun getMethodCallPrecondition(

@@ -308,7 +308,7 @@ class MethodTraceResolver(
 
     private val entryManager = EntryManager()
 
-    private inner class TraceBuilder(val finalEntryId: Int, val cancellation: TraceResolverCancellation) {
+    private inner class TraceBuilder(val finalEntryId: Int, val cancellation: ProcessingCancellation) {
         val startEntryIds = BitSet()
         val processedEntryIds = BitSet().also { it.set(finalEntryId) }
         val unprocessedEntryIds = IntArrayList().also { it.add(finalEntryId) }
@@ -352,6 +352,18 @@ class MethodTraceResolver(
     ): List<SummaryTrace> {
         val edges = facts.map { resolveIntraProceduralTraceEdge(statement, it, includeStatement) }
         return edges.traceToFactSummaryEdges(statement, includeStatement)
+    }
+
+    fun resolveIntraProceduralTraceFromCall(
+        statement: CommonInst,
+        calleeEntry: TraceEntry.MethodEntry
+    ): List<SummaryTrace> {
+        val traceEdges = calleeEntry.facts.flatMap { fact ->
+            val mappedFacts = methodCallFactMapper.mapMethodExitToReturnFlowFact(statement, fact)
+            mappedFacts.map { resolveIntraProceduralTraceEdge(statement, it, includeStatement = false) }
+        }
+
+        return traceEdges.traceToFactSummaryEdges(statement, includeStatement = false)
     }
 
     private fun List<List<TraceEdge>>.traceToFactSummaryEdges(
@@ -433,21 +445,9 @@ class MethodTraceResolver(
         }
     }
 
-    fun resolveIntraProceduralTraceFromCall(
-        statement: CommonInst,
-        calleeEntry: TraceEntry.MethodEntry
-    ): List<SummaryTrace> {
-        val traceEdges = calleeEntry.facts.flatMap { fact ->
-            val mappedFacts = methodCallFactMapper.mapMethodExitToReturnFlowFact(statement, fact)
-            mappedFacts.map { resolveIntraProceduralTraceEdge(statement, it, includeStatement = false) }
-        }
-
-        return traceEdges.traceToFactSummaryEdges(statement, includeStatement = false)
-    }
-
     fun resolveIntraProceduralFullTrace(
         summaryTrace: SummaryTrace,
-        cancellation: TraceResolverCancellation
+        cancellation: ProcessingCancellation
     ): List<FullTrace> {
         check(summaryTrace.method == methodEntryPoint) { "Incorrect summary trace" }
 

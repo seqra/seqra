@@ -26,8 +26,8 @@ class AccessPath(
     override fun replaceExclusions(exclusions: ExclusionSet): InitialFactAp =
         AccessPath(base, access, exclusions)
 
-    override fun getAllAccessors(): List<Accessor> {
-        val result = mutableListOf<Accessor>()
+    override fun getAllAccessors(): Set<Accessor> {
+        val result = hashSetOf<Accessor>()
         var curNode = access
         while (curNode != null) {
             result.add(curNode.accessor)

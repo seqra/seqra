@@ -40,6 +40,12 @@ class AccessCactus(
     override fun replaceExclusions(exclusions: ExclusionSet): FinalFactAp =
         AccessCactus(base, access, exclusions)
 
+    override fun getAllAccessors(): Set<Accessor> {
+        val result = hashSetOf<Accessor>()
+        access.collectAccessorsTo(result)
+        return result
+    }
+
     override fun startsWithAccessor(accessor: Accessor): Boolean = access.contains(accessor)
 
     override fun isAbstract(): Boolean = access.isAbstract
@@ -520,6 +526,10 @@ class AccessCactus(
                 }
                 edge.node?.forAllNodesRecursively(body)
             }
+        }
+
+        fun collectAccessorsTo(dst: MutableSet<Accessor>) {
+            forAllNodesRecursively { it.allEdges.mapTo(dst) { it.accessor } }
         }
 
         // TODO: investigate performance boost from inlining here

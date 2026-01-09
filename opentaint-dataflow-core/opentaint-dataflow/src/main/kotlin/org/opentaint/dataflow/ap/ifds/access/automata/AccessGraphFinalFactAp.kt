@@ -32,6 +32,8 @@ data class AccessGraphFinalFactAp(
     override fun replaceExclusions(exclusions: ExclusionSet): FinalFactAp =
         AccessGraphFinalFactAp(base, access, exclusions)
 
+    override fun getAllAccessors(): Set<Accessor> = access.getAllOwnAccessors()
+
     override fun startsWithAccessor(accessor: Accessor): Boolean = with(access.manager) {
         access.startsWith(accessor.idx) || (access.startsWith(anyAccessorIdx) && AnyAccessor.containsAccessor(accessor))
     }
