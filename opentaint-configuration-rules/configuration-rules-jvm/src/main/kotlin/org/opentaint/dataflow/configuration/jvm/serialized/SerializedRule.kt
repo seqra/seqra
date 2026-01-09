@@ -10,8 +10,9 @@ sealed interface SourceRule: SerializedItem {
     val taint: List<SerializedTaintAssignAction>
 }
 
-sealed interface SinkRule: SerializedItem {
+sealed interface SinkRule : SerializedItem {
     val condition: SerializedCondition?
+    val trackFactsReachAnalysisEnd: List<SerializedTaintAssignAction>?
     val id: String?
     val meta: SinkMetaData?
 }
@@ -70,6 +71,7 @@ sealed interface SerializedRule: SerializedItem {
         override val signature: SerializedSignatureMatcher? = null,
         override val overrides: Boolean = true,
         override val condition: SerializedCondition? = null,
+        override val trackFactsReachAnalysisEnd: List<SerializedTaintAssignAction>? = null,
         override val id: String? = null,
         private val cwe: List<Int>? = null, // todo: remove
         private val note: String? = null,
@@ -82,6 +84,7 @@ sealed interface SerializedRule: SerializedItem {
         override val signature: SerializedSignatureMatcher? = null,
         override val overrides: Boolean = true,
         override val condition: SerializedCondition? = null,
+        override val trackFactsReachAnalysisEnd: List<SerializedTaintAssignAction>? = null,
         override val id: String? = null,
         private val cwe: List<Int>? = null, // todo: remove
         private val note: String? = null,
@@ -94,6 +97,7 @@ sealed interface SerializedRule: SerializedItem {
         override val signature: SerializedSignatureMatcher? = null,
         override val overrides: Boolean = true,
         override val condition: SerializedCondition? = null,
+        override val trackFactsReachAnalysisEnd: List<SerializedTaintAssignAction>? = null,
         override val id: String? = null,
         private val cwe: List<Int>? = null, // todo: remove
         private val note: String? = null,
@@ -122,15 +126,6 @@ sealed interface SerializedFieldRule: SerializedItem {
         override val taint: List<SerializedTaintAssignAction>
     ): SerializedFieldRule, SourceRule
 }
-
-@Serializable
-data class AnalysisEndSink(
-    override val condition: SerializedCondition? = null,
-    override val id: String? = null,
-    private val cwe: List<Int>? = null, // todo: remove
-    private val note: String? = null,
-    override val meta: SinkMetaData? = SinkMetaData(cwe, note),
-): SinkRule, SerializedItem
 
 @Suppress("UNCHECKED_CAST")
 inline fun <S : SerializedRule> S.modifyCondition(mapper: (SerializedCondition?) -> SerializedCondition?): S {

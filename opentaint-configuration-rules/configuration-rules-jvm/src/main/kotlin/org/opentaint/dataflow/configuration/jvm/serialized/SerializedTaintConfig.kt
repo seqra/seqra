@@ -15,7 +15,6 @@ data class SerializedTaintConfig(
     val passThrough: List<SerializedRule.PassThrough>? = null,
     val cleaner: List<SerializedRule.Cleaner>? = null,
     val methodExitSink: List<SerializedRule.MethodExitSink>? = null,
-    val analysisEndSink: List<AnalysisEndSink>? = null,
     val methodEntrySink: List<SerializedRule.MethodEntrySink>? = null,
     val staticFieldSource: List<SerializedFieldRule.SerializedStaticFieldSource>? = null,
 )

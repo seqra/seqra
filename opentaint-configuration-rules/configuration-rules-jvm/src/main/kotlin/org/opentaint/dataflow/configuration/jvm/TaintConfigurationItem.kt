@@ -40,6 +40,7 @@ data class TaintStaticFieldSource(
 
 sealed interface TaintConfigurationSink : TaintConfigurationItem, CommonTaintConfigurationSink {
     val condition: Condition
+    val trackFactsReachAnalysisEnd: List<AssignMark>
 }
 
 data class TaintSinkMeta(
@@ -51,6 +52,7 @@ data class TaintSinkMeta(
 data class TaintMethodSink(
     val method: CommonMethod,
     override val condition: Condition,
+    override val trackFactsReachAnalysisEnd: List<AssignMark>,
     override val id: String,
     override val meta: TaintSinkMeta,
 ) : TaintConfigurationSink
@@ -58,6 +60,7 @@ data class TaintMethodSink(
 data class TaintMethodExitSink(
     val method: CommonMethod,
     override val condition: Condition,
+    override val trackFactsReachAnalysisEnd: List<AssignMark>,
     override val id: String,
     override val meta: CommonTaintConfigurationSinkMeta,
 ) : TaintConfigurationSink
@@ -65,6 +68,7 @@ data class TaintMethodExitSink(
 data class TaintMethodEntrySink(
     val method: CommonMethod,
     override val condition: Condition,
+    override val trackFactsReachAnalysisEnd: List<AssignMark>,
     override val id: String,
     override val meta: CommonTaintConfigurationSinkMeta,
 ) : TaintConfigurationSink
