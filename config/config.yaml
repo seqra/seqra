@@ -2273,6 +2273,57 @@ passThrough:
     - this
     - .java.lang.String#<rule-storage>#java.lang.Object
     to: result
+- function:
+    package: java.lang
+    class: String
+    name:
+      pattern: replace.*
+  signature: (char, char) java.lang.String
+  copy:
+    - from: this
+      to: result
+    - from:
+        - this
+        - .java.lang.String#<rule-storage>#java.lang.Object
+      to: result
+- function:
+    package: java.lang
+    class: String
+    name:
+      pattern: replace.*
+  signature: (java.lang.String, java.lang.String) java.lang.String
+  copy:
+    - from: arg(1)
+      to: result
+    - from:
+        - arg(1)
+        - .java.lang.String#<rule-storage>#java.lang.Object
+      to: result
+    - from: this
+      to: result
+    - from:
+        - this
+        - .java.lang.String#<rule-storage>#java.lang.Object
+      to: result
+- function:
+    package: java.lang
+    class: String
+    name:
+      pattern: replace.*
+  signature: (java.lang.CharSequence, java.lang.CharSequence) java.lang.String
+  copy:
+    - from: arg(1)
+      to: result
+    - from:
+        - arg(1)
+        - .java.lang.CharSequence#<rule-storage>#java.lang.Object
+      to: result
+    - from: this
+      to: result
+    - from:
+        - this
+        - .java.lang.String#<rule-storage>#java.lang.Object
+      to: result
 - function: java.lang.String#toString
   signature: () java.lang.String
   overrides: false
