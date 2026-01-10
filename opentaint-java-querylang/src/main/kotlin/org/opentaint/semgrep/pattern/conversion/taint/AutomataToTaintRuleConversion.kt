@@ -857,6 +857,7 @@ private fun canClean(edge: Edge, from: State): Boolean {
     val condition = when (edge) {
         is Edge.MethodCall -> edge.condition
         is Edge.MethodEnter -> edge.condition
+        is Edge.MethodExit -> edge.condition
         is Edge.AnalysisEnd -> return true
     }
     val assigned = mutableSetOf<MetavarAtom>()
