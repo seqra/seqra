@@ -25,16 +25,19 @@ rules:
       - patterns:
           - pattern-either:
               - pattern: |
-                  (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(...)
+                  (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
               - pattern: |
-                  (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(...)
+                  (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
               - pattern: |
                   (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
               - pattern: |
-                  (java.io.PrintWriter $WRITER).$WRITE(...)
+                  (java.io.PrintWriter $WRITER).$WRITE(..., $UNTRUSTED, ...)
               - pattern: |
-                  (PrintWriter $WRITER).$WRITE(...)
+                  (PrintWriter $WRITER).$WRITE(..., $UNTRUSTED, ...)
               - pattern: |
-                  (javax.servlet.ServletOutputStream $WRITER).$WRITE(...)
+                  (javax.servlet.ServletOutputStream $WRITER).$WRITE(..., $UNTRUSTED, ...)
               - pattern: |
-                  (ServletOutputStream $WRITER).$WRITE(...)
+                  (ServletOutputStream $WRITER).$WRITE(..., $UNTRUSTED, ...)
+              - pattern: |
+                  (jakarta.servlet.jsp.JspWriter $WRITER).$WRITE(..., $UNTRUSTED, ...)
+          - focus-metavariable: $UNTRUSTED

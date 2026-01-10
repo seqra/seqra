@@ -21,6 +21,7 @@ rules:
                     - pattern: doPost
                     - pattern: doDelete
                     - pattern: doTrace
+                    - pattern: _jspService
           - pattern: |
               $UNTRUSTED = (MessageBodyReader $READER).readFrom(...);
           - pattern: |
