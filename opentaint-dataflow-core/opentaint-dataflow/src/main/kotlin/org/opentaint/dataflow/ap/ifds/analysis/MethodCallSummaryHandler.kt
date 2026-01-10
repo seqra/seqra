@@ -67,7 +67,11 @@ interface MethodCallSummaryHandler {
             "Incorrect refinement"
         }
 
-        Sequent.NDFactToFact(initialFacts, summaryFactAp, TraceInfo.ApplySummary)
+        Sequent.NDFactToFact(
+            initialFacts.mapTo(hashSetOf()) { it.refine(initialFactRefinement) },
+            summaryFactAp,
+            TraceInfo.ApplySummary
+        )
     }
 
     fun InitialFactAp.refine(exclusionSet: ExclusionSet?) =
