@@ -1,5 +1,7 @@
 package org.opentaint.semgrep
 
+import example.RuleRequiringCarefulCleaners
+import example.RuleRequiringCarefulCleanersInTaint
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
@@ -47,6 +49,13 @@ class ExampleTest : SampleBasedTest() {
 
     @Test
     fun `test rule with ellipsis method invocation and pattern not`() = runTest<example.RuleWithEllipsisInvocationAndPatternNot>()
+
+    @Test
+    fun `test rule requiring careful cleaners`() = runTest<RuleRequiringCarefulCleaners>()
+
+    @Test
+    @Disabled // todo: pattern-sanitizers?
+    fun `test rule requiring careful cleaners in taint`() = runTest<RuleRequiringCarefulCleanersInTaint>()
 
     @Test
     fun `test rule with artificial reverse pattern-inside sequence`() = runTest<example.RuleWithArtificialInsideSequenceReverse>()

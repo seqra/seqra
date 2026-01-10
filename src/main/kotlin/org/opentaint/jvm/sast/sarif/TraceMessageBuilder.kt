@@ -511,7 +511,7 @@ class TraceMessageBuilder(
     }
 
     private fun printArgument(node: TracePathNode, index: Int) =
-        if (node.kind != TracePathNodeKind.CALL && node.entry !is TraceEntry.Final) {
+        if (node.kind != TracePathNodeKind.CALL || node.entry is TraceEntry.Final) {
             traits.printArgument(node.statement.location.method, index)
         }
         else {
@@ -737,8 +737,11 @@ class TraceMessageBuilder(
     }
 
     private fun createEntryPointMessage(node: TracePathNode, taints: List<TaintInfo>): String {
-        val tainted = printTaints(node, taints)
-        return "Potential $tainted of the method"
+        var tainted = printTaints(node, taints)
+        if (tainted.isEmpty()) {
+            tainted = "tainted data"
+        }
+        return "Potential $tainted at the method entry"
     }
 
     private fun getTaintPropagationInfo(node: TracePathNode, action: CommonTaintAction, neutralMark: String): TaintPropagationInfo? {

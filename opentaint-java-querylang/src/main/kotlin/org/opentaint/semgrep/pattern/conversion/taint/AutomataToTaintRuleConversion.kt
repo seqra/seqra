@@ -664,7 +664,8 @@ private fun RuleConversionCtx.generateAutomataWithTaintEdges(
     val simulated = simulateAutomata(automata)
     val meaningFullAutomata = removeMeaningLessEdges(simulated)
     val cleaned = removeUnreachabeStates(meaningFullAutomata)
-    val liveAutomata = eliminateDeadVariables(cleaned, acceptStateVars)
+    val rewritten = rewriteEdges(cleaned)
+    val liveAutomata = eliminateDeadVariables(rewritten, acceptStateVars)
     val cleanAutomata = cleanupAutomata(liveAutomata, metaVarInfo)
     val generatedEdges =  generateTaintEdges(cleanAutomata, metaVarInfo, automataId)
     val resultAutomata = cleanupAutomata(generatedEdges)
@@ -852,6 +853,17 @@ data class SimulationState(
     val originalPath: PersistentMap<State, State>
 )
 
+private fun canClean(edge: Edge, from: State): Boolean {
+    val condition = when (edge) {
+        is Edge.MethodCall -> edge.condition
+        is Edge.MethodEnter -> edge.condition
+        is Edge.AnalysisEnd -> return true
+    }
+    val assigned = mutableSetOf<MetavarAtom>()
+    from.register.assignedVars.keys.forEach { assigned.addAll(it.basics) }
+    return condition.readMetaVar.keys.all { it.basics.all { basic -> basic in assigned } }
+}
+
 private class LoopAssignVarsException : RuntimeException("Loop assign vars")
 
 private fun RuleConversionCtx.simulateAutomata(automata: TaintRegisterStateAutomata): TaintRegisterStateAutomata {
@@ -897,7 +909,7 @@ private fun RuleConversionCtx.simulateAutomata(automata: TaintRegisterStateAutom
             val dstStateRegister = simulateCondition(updatedEdge, dstStateId, state.register)
 
             val nextState = dstState.copy(register = dstStateRegister)
-            successors.getOrPut(state, ::hashSetOf).add(updatedEdge to nextState)
+            successors.getOrPut(state, ::hashSetOf).add(simplifiedEdge to nextState)
 
             val nextPath = simulationState.originalPath.put(dstState, nextState)
             val nextSimulationState = SimulationState(dstState, nextState, nextPath)
@@ -909,6 +921,33 @@ private fun RuleConversionCtx.simulateAutomata(automata: TaintRegisterStateAutom
         automata.formulaManager, automata.initial,
         finalAcceptStates, finalDeadStates,
         successors, automata.nodeIndex
+    )
+}
+
+private fun rewriteEdges(automata: TaintRegisterStateAutomata): TaintRegisterStateAutomata {
+    val unprocessed = mutableListOf(automata.initial)
+    val visited = mutableSetOf<State>()
+    val newSuccessors = hashMapOf<State, MutableSet<Pair<Edge, State>>>()
+
+    while (unprocessed.isNotEmpty()) {
+        val srcState = unprocessed.removeLast()
+        if (!visited.add(srcState)) continue
+
+        for ((edge, dstState) in automata.successors[srcState].orEmpty()) {
+            if (dstState in automata.finalDeadStates && !canClean(edge, srcState)) {
+                // discarding the edge so it won't clean unassigned metavars
+                continue
+            }
+            val updatedEdge = rewriteEdgeWrtComplexMetavars(edge, srcState.register)
+            newSuccessors.getOrPut(srcState, ::hashSetOf).add(updatedEdge to dstState)
+            unprocessed.add(dstState)
+        }
+    }
+
+    return TaintRegisterStateAutomata(
+        automata.formulaManager, automata.initial,
+        automata.finalAcceptStates, automata.finalDeadStates.filter { it in visited }.toHashSet(),
+        newSuccessors, automata.nodeIndex
     )
 }
 

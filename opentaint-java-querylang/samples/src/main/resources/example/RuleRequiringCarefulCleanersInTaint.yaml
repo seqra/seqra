@@ -1,0 +1,19 @@
+rules:
+  - id: example-RuleRequiringCarefulCleanersInTaint
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleRequiringCarefulCleanersInTaint
+    mode: taint
+    pattern-sources:
+      - pattern: $A = src()
+    pattern-propagators:
+      - pattern: $B = $A.$MD()
+        from: $A
+        to: $B
+    pattern-sanitizers:
+      - patterns:
+          - pattern: $B = $A.getObjBad()
+          - focus-metavariable: $B
+    pattern-sinks:
+      - pattern: sink(...)

@@ -157,7 +157,15 @@ interface PrintableGraph<Node, EdgeLabel> {
 
     fun view(name: String) {
         val path = toFile(name, "dot")
-        Util.sh(arrayOf("xdg-open", "file://$path"))
+        Util.sh(arrayOf(viewer.value, "file://$path"))
+    }
+
+    companion object {
+        private val viewer = lazy {
+            val os = System.getProperty("os.name")
+            if (os.startsWith("Mac")) "open"
+            else "xdg-open"
+        }
     }
 }
 

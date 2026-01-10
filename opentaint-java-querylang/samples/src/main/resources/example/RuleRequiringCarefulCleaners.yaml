@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleRequiringCarefulCleaners
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleRequiringCarefulCleaners
+    patterns:
+      - pattern: |-
+          $A = src();
+          $B = $A.getObjGood();
+          sink($B)
+      - pattern-not: |-
+          $A = src();
+          $B = $A.getObjBad();
+          sink($B)
