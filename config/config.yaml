@@ -8448,6 +8448,26 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
+- function: java.util.Base64$Decoder#decode
+  signature: (java.lang.String) byte[]
+  copy:
+    - from: arg(0)
+      to: result
+- function: java.util.Base64$Decoder#decode
+  signature: (byte[], byte[]) int
+  copy:
+    - from: arg(0)
+      to: arg(1)
+- function: java.util.Base64$Decoder#decode
+  signature: (byte[]) byte[]
+  copy:
+    - from: arg(0)
+      to: result
+- function: java.util.Base64$Decoder#decode
+  signature: (java.nio.ByteBuffer) java.nio.ByteBuffer
+  copy:
+    - from: arg(0)
+      to: result
 - function: java.nio.ByteBuffer#array
   signature: () byte[]
   copy:
@@ -22883,6 +22903,18 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
+- function: java.io.ByteArrayInputStream#<init>
+  copy:
+    - from: arg(0)
+      to: this
+    - from: arg(0)
+      to:
+        - this
+        - .java.io.ByteArrayInputStream#<rule-storage>#java.lang.Object
+    - from: arg(0)
+      to:
+        - this
+        - .java.io.InputStream#<rule-storage>#java.lang.Object
 - function: javax.json.Json#createParser
   signature: (java.io.InputStream) javax.json.stream.JsonParser
   condition:
