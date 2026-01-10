@@ -1,0 +1,20 @@
+rules:
+  - id: java.return.conditional
+    languages:
+      - java
+    severity: ERROR
+    message: Return of source or derived value
+    metadata:
+      cwe: CWE-79
+      license: MIT
+      shortDescription: Return source or derived value
+    patterns:
+      - pattern: |
+          ...
+          $RET = $SOURCE.mkType2();
+          ...
+      - pattern-inside: |
+          $RETURNTYPE $METHOD(..., CustomType1 $SOURCE,...) {
+            ...
+            return $RET;
+          }

@@ -8,11 +8,11 @@ import org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaManager
 import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 
 fun addEndEdges(automata: SemgrepRuleAutomata) {
-    if (automata.hasEndEdges) {
+    if (automata.params.hasEndEdges) {
         return
     }
 
-    automata.hasEndEdges = true
+    automata.params = automata.params.copy(hasEndEdges = true)
 
     val newAcceptNode = AutomataNode().also {
         it.accept = true
@@ -35,27 +35,28 @@ fun addEndEdges(automata: SemgrepRuleAutomata) {
             node.outEdges.add(AutomataEdgeType.End to newRejectNode)
         }
     }
+
+    automata.deadNode.outEdges.add(AutomataEdgeType.End to newRejectNode)
 }
 
 fun addDummyMethodEnter(automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
-    check(!automata.hasMethodEnter) {
+    check(!automata.params.hasMethodEnter) {
         "Shouldn't add method enter if it is already present"
     }
 
     val newRoot = AutomataNode()
     newRoot.outEdges.add(AutomataEdgeType.MethodEnter(MethodFormula.True) to automata.initialNode)
 
+    val params = automata.params.copy(hasMethodEnter = true)
     return SemgrepRuleAutomata(
         automata.formulaManager,
         initialNodes = setOf(newRoot),
-        hasMethodEnter = true,
-        isDeterministic = automata.isDeterministic,
-        hasEndEdges = automata.hasEndEdges,
+        params
     )
 }
 
 fun AutomataBuilderCtx.addPatternStartAndEnd(automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
-    check(!automata.hasMethodEnter && !automata.hasEndEdges)
+    check(!automata.params.hasMethodEnter && !automata.params.hasEndEdges)
 
     automata.initialNode.outEdges.add(AutomataEdgeType.PatternStart to automata.initialNode)
     traverse(automata) {
@@ -64,10 +65,8 @@ fun AutomataBuilderCtx.addPatternStartAndEnd(automata: SemgrepRuleAutomata): Sem
         }
     }
 
-    return intersection(
-        automata,
-        patternBordersAutomata(automata.formulaManager)
-    )
+    val bordersAutomata = patternBordersAutomata(automata.formulaManager)
+    return intersection(automata, bordersAutomata)
 }
 
 fun addPatternStartAndEndOnEveryNode(automata: SemgrepRuleAutomata) {
@@ -84,29 +83,35 @@ private fun patternBordersAutomata(formulaManager: MethodFormulaManager): Semgre
 
     root.outEdges.add(AutomataEdgeType.PatternStart to middleNode)
     middleNode.outEdges.add(AutomataEdgeType.MethodCall(MethodFormula.True) to middleNode)
+    middleNode.outEdges.add(AutomataEdgeType.MethodExit(MethodFormula.True) to middleNode)
     middleNode.outEdges.add(AutomataEdgeType.PatternEnd to terminalNode)
     terminalNode.accept = true
 
-    return SemgrepRuleAutomata(
-        formulaManager,
-        initialNodes = setOf(root),
+    val params = SemgrepRuleAutomata.Params(
         isDeterministic = true,
         hasMethodEnter = false,
         hasEndEdges = false,
+        hasMethodExit = true,
+    )
+    return SemgrepRuleAutomata(
+        formulaManager,
+        initialNodes = setOf(root),
+        params,
     )
 }
 
 // TODO: optimize?
 fun removePatternStartAndEnd(automata: SemgrepRuleAutomata) {
+    val edgeTypeToRedirect = setOf(AutomataEdgeType.PatternStart, AutomataEdgeType.PatternEnd)
+
     var redirectedSomething = false
     traverse(automata) { node ->
         if (redirectedSomething) {
             return@traverse
         }
 
-        val edgeToRedirect = node.outEdges.firstOrNull {
-            it.first in setOf(AutomataEdgeType.PatternStart, AutomataEdgeType.PatternEnd)
-        } ?: return@traverse
+        val edgeToRedirect = node.outEdges.firstOrNull { it.first in edgeTypeToRedirect }
+            ?: return@traverse
 
         redirectedSomething = true
         node.outEdges.remove(edgeToRedirect)
@@ -123,7 +128,7 @@ fun removePatternStartAndEnd(automata: SemgrepRuleAutomata) {
 
     // try to do this one more time
     if (redirectedSomething) {
-        automata.isDeterministic = false
+        automata.params = automata.params.copy(isDeterministic = false)
         removePatternStartAndEnd(automata)
         return
     }

@@ -16,12 +16,10 @@ fun traverse(automata: SemgrepRuleAutomata, action: (AutomataNode) -> Unit) {
 }
 
 private fun traverse(node: AutomataNode, visited: MutableSet<AutomataNode>, action: (AutomataNode) -> Unit) {
-    visited.add(node)
+    if (!visited.add(node)) return
     action(node)
     node.outEdges.forEach { (_, to) ->
-        if (to !in visited) {
-            traverse(to, visited, action)
-        }
+        traverse(to, visited, action)
     }
 }
 

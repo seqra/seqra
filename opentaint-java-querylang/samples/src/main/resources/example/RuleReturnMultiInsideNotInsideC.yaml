@@ -1,0 +1,26 @@
+rules:
+  - id: java.return.multi.inside.notinside.c
+    languages:
+      - java
+    severity: ERROR
+    message: Return where intermediate was transformed but not sanitized
+    metadata:
+      cwe: CWE-79
+      license: MIT
+      shortDescription: intermediate transformed + not-inside
+    patterns:
+      - pattern: |
+          $T1 = $SOURCE.mkType2();
+          ...
+          $SINK = $T1.mkType3();
+      - pattern-not-inside: |
+          ...
+          sanitizeC($T1);
+      - pattern-not-inside: |
+          ...
+          sanitizeC($SINK);
+      - pattern-inside: |
+          $RETURNTYPE $METHOD(..., CustomType1 $SOURCE,...) {
+            ...
+            return $SINK;
+          }

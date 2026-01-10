@@ -1,6 +1,7 @@
 package org.opentaint.semgrep
 
 import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
 import org.opentaint.semgrep.util.SampleBasedTest
@@ -93,6 +94,34 @@ class ExampleTest : SampleBasedTest() {
     fun `test rule with multiple patterns ellipsis unification`() = runTest<example.RuleWithMultiplePatternsEllipsisUnification>()
 
     @Test
+    fun `test rule return simple`() = runTest<example.RuleReturnSimple>()
+
+    @Test
+    fun `test rule return chained`() = runTest<example.RuleReturnChained>()
+
+    @Test
+    fun `test rule return conditional`() = runTest<example.RuleReturnConditional>()
+
+    @Test
+    fun `test rule return 1`() = runTest<example.RuleReturn1>()
+
+    @Test
+    fun `test rule return 2`() = runTest<example.RuleReturn2>()
+
+    @Test
+    @Disabled // todo: unconditional exit sink
+    fun `test rule return 3`() = runTest<example.RuleReturn3>()
+
+    @Test
+    fun `test rule return 4`() = runTest<example.RuleReturn4>()
+
+    @Test
+    fun `test rule return 5`() = runTest<example.RuleReturn5>()
+
+    @Test
+    fun `test rule return 6`() = runTest<example.RuleReturn6>()
+
+    @Test
     fun `test cleaner after sink 0`() = runTest<example.CleanerAfterSink0>()
 
     @Test
@@ -101,8 +130,42 @@ class ExampleTest : SampleBasedTest() {
     @Test
     fun `test cleaner after sink 2`() = runTest<example.CleanerAfterSink2>()
 
+    @Test
+    fun `test rule return not inside`() = runTest<example.RuleReturnNotInside>()
+
+    @Test
+    fun `test rule return not inside prefix`() = runTest<example.RuleReturnNotInsidePrefix>()
+
+    @Test
+    fun `test rule return multi A`() = runTest<example.RuleReturnMultiInsideNotInsideA>()
+
+    @Test
+    fun `test rule return multi C`() = runTest<example.RuleReturnMultiInsideNotInsideC>()
+
+    @Test
+    fun `test not-inside signature`() = runTest<example.RulePatternNotInsideWithSignature>()
+
+    @Test
+    fun `test return inside signature`() = runTest<example.RuleReturnInsideSignature>()
+
+    @Test
+    fun `test return inside signature 2`() = runTest<example.RuleReturnInsideSignature2>()
+
+    @Test
+    @Disabled // todo: incorrect pattern-inside processing
+    fun `test r1`() = runTest<example.R1>()
+
+    @Test
+    fun `test r2`() = runTest<example.R2>()
+
+    @Test
+    fun `test r3`() = runTest<example.R3>()
+
+    @Test
+    fun `test RuleReturnWithNotInsideSignature`() = runTest<example.RuleReturnWithNotInsideSignature>()
+
     @AfterAll
-    fun close(){
+    fun close() {
         closeRunner()
     }
 }

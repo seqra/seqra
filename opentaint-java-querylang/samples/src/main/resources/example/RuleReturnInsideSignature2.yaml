@@ -1,0 +1,18 @@
+rules:
+  - id: java.return.chained
+    languages:
+      - java
+    severity: ERROR
+    message: Return
+    patterns:
+      - pattern: |
+          $X = src($F);
+          ...
+          return $X;
+      - pattern-inside: |
+          $RET $METHOD(String $ARG) {
+            ...
+          }
+      - pattern-inside: |
+          $F = pass($ARG);
+          ...

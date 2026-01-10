@@ -46,6 +46,7 @@ class PrintableSemgrepRuleAutomata(val automata: SemgrepRuleAutomata) : Printabl
             when (edge) {
                 is AutomataEdgeType.MethodCall -> "CALL($formula)"
                 is AutomataEdgeType.MethodEnter -> "ENTER($formula)"
+                is AutomataEdgeType.MethodExit -> "EXIT($formula)"
             }
         }
 
@@ -62,8 +63,16 @@ class TaintRegisterStateAutomataView(
     override fun successors(node: TaintRegisterStateAutomata.State): List<Pair<TaintRegisterStateAutomata.Edge, TaintRegisterStateAutomata.State>> =
         automata.successors[node]?.toList() ?: emptyList()
 
-    override fun nodeLabel(node: TaintRegisterStateAutomata.State): String =
-        "${automata.stateId(node)}${if (node in automata.finalAcceptStates) " ACCEPT " else ""}(${node.register.assignedVars})"
+    override fun nodeLabel(node: TaintRegisterStateAutomata.State): String {
+        var label = ""
+        if (node in automata.finalAcceptStates) {
+            label = "$label ACCEPT "
+        }
+        if (node in automata.finalDeadStates) {
+            label = "$label CLEAN "
+        }
+        return "${automata.stateId(node)}${label}(${node.register.assignedVars})"
+    }
 
     override fun edgeLabel(edge: TaintRegisterStateAutomata.Edge): String =
         automataEdgeLabel(edge)
@@ -127,6 +136,7 @@ fun TaintRuleGenerationCtx.view(name: String = "") {
 private fun automataEdgeLabel(edge: TaintRegisterStateAutomata.Edge): String = when (edge) {
     is TaintRegisterStateAutomata.Edge.MethodCall -> "CALL(${edge.condition.prettyPrint()}{${edge.effect.prettyPrint()}})"
     is TaintRegisterStateAutomata.Edge.MethodEnter -> "ENTER(${edge.condition.prettyPrint()}{${edge.effect.prettyPrint()}})"
+    is TaintRegisterStateAutomata.Edge.MethodExit -> "EXIT(${edge.condition.prettyPrint()}{${edge.effect.prettyPrint()}})"
     TaintRegisterStateAutomata.Edge.AnalysisEnd -> "END"
 }
 
@@ -134,6 +144,7 @@ private fun automataEdgeLabel(kind: TaintRuleEdge.Kind, cond: EdgeCondition, eff
     val prefix = when (kind) {
         TaintRuleEdge.Kind.MethodEnter -> "ENTER"
         TaintRuleEdge.Kind.MethodCall -> "CALL"
+        TaintRuleEdge.Kind.MethodExit -> "EXIT"
     }
     return "$prefix(${cond.prettyPrint()}{${effect.prettyPrint()}})"
 }

@@ -1,0 +1,12 @@
+rules:
+  - id: java.return.chained
+    languages:
+      - java
+    severity: ERROR
+    message: Return
+    patterns:
+      - pattern: |
+          return $X;
+      - pattern-inside: |
+          $X = src();
+          ...

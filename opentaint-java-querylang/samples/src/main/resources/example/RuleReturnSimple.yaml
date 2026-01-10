@@ -1,0 +1,16 @@
+rules:
+  - id: java.return.simple
+    languages:
+      - java
+    severity: ERROR
+    message: Return of untrusted value
+    metadata:
+      cwe: CWE-79
+      license: MIT
+      shortDescription: Return untrusted source directly
+    patterns:
+      - pattern: |
+          $RETURNTYPE $METHOD(..., CustomType1 $SOURCE,...) {
+            ...
+            return $SOURCE;
+          }

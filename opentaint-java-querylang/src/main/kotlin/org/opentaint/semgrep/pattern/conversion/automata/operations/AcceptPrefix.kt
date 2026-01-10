@@ -9,6 +9,7 @@ fun acceptIfCurrentAutomataAcceptsPrefix(automata: SemgrepRuleAutomata) {
     val newAcceptNode = AutomataNode().also {
         it.accept = true
         it.outEdges.add(AutomataEdgeType.MethodCall(MethodFormula.True) to it)
+        it.outEdges.add(AutomataEdgeType.MethodExit(MethodFormula.True) to it)
     }
 
     traverse(automata) { node ->

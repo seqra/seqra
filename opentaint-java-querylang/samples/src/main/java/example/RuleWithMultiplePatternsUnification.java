@@ -8,7 +8,7 @@ import example.util.CustomType3;
 
 @RuleSet("example/RuleWithMultiplePatternsUnification.yaml")
 public abstract class RuleWithMultiplePatternsUnification implements RuleSample {
-    static class PositiveSimple extends RuleWithMultiplePatternsUnification {
+    static class NegativeSimple extends RuleWithMultiplePatternsUnification {
         @Override
         public void entrypoint() {
             simple(new CustomType1());

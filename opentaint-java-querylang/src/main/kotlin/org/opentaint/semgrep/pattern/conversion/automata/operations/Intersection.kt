@@ -45,9 +45,7 @@ fun AutomataBuilderCtx.intersection(
     val intersection = SemgrepRuleAutomata(
         a1.formulaManager,
         setOf(root),
-        isDeterministic = a1.isDeterministic && a2.isDeterministic,
-        hasMethodEnter = a1.hasMethodEnter && a2.hasMethodEnter,
-        hasEndEdges = a1.hasEndEdges && a2.hasEndEdges,
+        params = a1.params.intersect(a2.params)
     )
 
     val unified = unifyMetavars(intersection)
@@ -55,6 +53,14 @@ fun AutomataBuilderCtx.intersection(
         removeDeadNodes(it)
     }
 }
+
+private fun SemgrepRuleAutomata.Params.intersect(a2: SemgrepRuleAutomata.Params) =
+    SemgrepRuleAutomata.Params(
+        isDeterministic = this.isDeterministic && a2.isDeterministic,
+        hasMethodEnter = this.hasMethodEnter && a2.hasMethodEnter,
+        hasMethodExit = this.hasMethodExit && a2.hasMethodExit,
+        hasEndEdges = this.hasEndEdges && a2.hasEndEdges,
+    )
 
 internal fun AutomataBuilderCtx.intersectEdges(
     outType1: AutomataEdgeType,
@@ -69,8 +75,7 @@ internal fun AutomataBuilderCtx.intersectEdges(
     return when (outType2) {
         AutomataEdgeType.End,
         AutomataEdgeType.PatternEnd,
-        AutomataEdgeType.PatternStart,
-            -> return null
+        AutomataEdgeType.PatternStart -> return null
 
         is AutomataEdgeType.MethodCall -> when (outType1) {
             is AutomataEdgeType.MethodCall -> {
@@ -80,9 +85,8 @@ internal fun AutomataBuilderCtx.intersectEdges(
                 AutomataEdgeType.MethodCall(formula)
             }
 
-            is AutomataEdgeType.MethodEnter -> {
-                return null
-            }
+            is AutomataEdgeType.MethodEnter,
+            is AutomataEdgeType.MethodExit -> return null
         }
 
         is AutomataEdgeType.MethodEnter -> when (outType1) {
@@ -93,9 +97,20 @@ internal fun AutomataBuilderCtx.intersectEdges(
                 AutomataEdgeType.MethodEnter(formula)
             }
 
-            is AutomataEdgeType.MethodCall -> {
-                return null
+            is AutomataEdgeType.MethodCall,
+            is AutomataEdgeType.MethodExit -> return null
+        }
+
+        is AutomataEdgeType.MethodExit -> when (outType1) {
+            is AutomataEdgeType.MethodExit -> {
+                val formula = intersectMethodFormula(outType1.formula, outType2.formula)
+                    ?: return null
+
+                AutomataEdgeType.MethodExit(formula)
             }
+
+            is AutomataEdgeType.MethodCall,
+            is AutomataEdgeType.MethodEnter -> return null
         }
     }
 }

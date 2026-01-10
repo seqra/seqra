@@ -9,14 +9,14 @@ import org.opentaint.semgrep.pattern.conversion.automata.operations.acceptIfCurr
 import org.opentaint.semgrep.pattern.conversion.automata.operations.acceptIfCurrentAutomataAcceptsSuffix
 import org.opentaint.semgrep.pattern.conversion.automata.operations.addDummyMethodEnter
 import org.opentaint.semgrep.pattern.conversion.automata.operations.addEndEdges
+import org.opentaint.semgrep.pattern.conversion.automata.operations.addMethodEntryLoop
 import org.opentaint.semgrep.pattern.conversion.automata.operations.addPatternStartAndEnd
 import org.opentaint.semgrep.pattern.conversion.automata.operations.addPatternStartAndEndOnEveryNode
 import org.opentaint.semgrep.pattern.conversion.automata.operations.complement
 import org.opentaint.semgrep.pattern.conversion.automata.operations.hopcroftAlgorithhm
 import org.opentaint.semgrep.pattern.conversion.automata.operations.intersection
 import org.opentaint.semgrep.pattern.conversion.automata.operations.removePatternStartAndEnd
-import org.opentaint.semgrep.pattern.conversion.automata.operations.totalizeMethodCalls
-import org.opentaint.semgrep.pattern.conversion.automata.operations.totalizeMethodEnters
+import org.opentaint.semgrep.pattern.conversion.automata.operations.totalizeAutomata
 import kotlin.time.Duration
 
 fun transformSemgrepRuleToAutomata(
@@ -43,15 +43,10 @@ private fun AutomataBuilderCtx.transformSemgrepRuleToAutomata(
 
     val resultNfa = transformSemgrepRuleToAutomata(newRule, startingAutomata)
 
-    val resultDfa = hopcroftAlgorithhm(resultNfa)
-    acceptIfCurrentAutomataAcceptsPrefix(resultDfa)
+    val resultAutomata = hopcroftAlgorithhm(resultNfa)
+    totalizeAutomata(resultAutomata)
 
-    totalizeMethodCalls(resultDfa)
-    if (resultDfa.hasMethodEnter) {
-        totalizeMethodEnters(metaVarInfo, resultDfa)
-    }
-
-    return resultDfa
+    return resultAutomata
 }
 
 private fun AutomataBuilderCtx.buildStartingAutomata(
@@ -67,99 +62,35 @@ private fun AutomataBuilderCtx.buildStartingAutomata(
 
 private fun AutomataBuilderCtx.transformSemgrepRuleToAutomata(
     rule: ActionListSemgrepRule,
-    curAutomata: SemgrepRuleAutomata
+    initialAutomata: SemgrepRuleAutomata
 ): SemgrepRuleAutomata {
-    if (rule.patterns.isNotEmpty()) {
-        val newRule = rule.modify(patterns = rule.patterns.dropLast(1))
-        val newAutomata = addPositivePattern(curAutomata, rule.patterns.last())
-        return transformSemgrepRuleToAutomata(newRule, newAutomata)
+    var curAutomata = rule.patterns.fold(initialAutomata) { automata, pattern ->
+        addPositivePattern(automata, pattern)
+    }
 
-    } else if (rule.patternNots.isNotEmpty()) {
-        val newRule = rule.modify(patternNots = rule.patternNots.dropLast(1))
-        val newAutomata = addNegativePattern(curAutomata, rule.patternNots.last())
-        return transformSemgrepRuleToAutomata(newRule, newAutomata)
+    curAutomata = rule.patternNots.fold(curAutomata) { automata, pattern ->
+        addNegativePattern(automata, pattern)
+    }
 
-    } else if (rule.patternNotInsides.isNotEmpty() || rule.patternInsides.isNotEmpty()) {
-        if (curAutomata.hasMethodEnter) {
-            val newRule = ActionListSemgrepRule(
-                patterns = rule.patternInsides,
-                patternNots = rule.patternNotInsides,
-                patternInsides = emptyList(),
-                patternNotInsides = emptyList()
-            )
-            return transformSemgrepRuleToAutomata(newRule, curAutomata)
-        }
-
-        check(!curAutomata.hasEndEdges)
-
-        val curAutomataWithBorders = addPatternStartAndEnd(curAutomata)
-        val automatasWithPatternInsides = addPatternInsides(rule, curAutomataWithBorders)
-        val automatasWithPatternNotInsides = addPatternNotInsides(rule, curAutomataWithBorders)
-        val automatas = automatasWithPatternInsides + automatasWithPatternNotInsides
-        automatas.forEach  {
-            if (!it.hasMethodEnter) {
-                acceptIfCurrentAutomataAcceptsSuffix(it)
-            }
-            acceptIfCurrentAutomataAcceptsPrefix(it)
-            if (!it.hasEndEdges) {
-                addEndEdges(it)
-            }
-        }
-        val result = automatas.reduce { acc, automata ->
-            var a1 = acc
-            var a2 = automata
-
-            if (a1.hasMethodEnter && !a2.hasMethodEnter) {
-                a2 = addDummyMethodEnter(a2)
-            }
-
-            if (!a1.hasMethodEnter && a2.hasMethodEnter) {
-                a1 = addDummyMethodEnter(a1)
-            }
-
-            val a1a2 = intersection(a1, a2)
-            hopcroftAlgorithhm(a1a2)
-        }
-
-        removePatternStartAndEnd(result)
-
-        return result
-
-    } else {
+    if (rule.patternNotInsides.isEmpty() && rule.patternInsides.isEmpty()) {
         return curAutomata
     }
-}
 
-private fun AutomataBuilderCtx.addPatternNotInsides(
-    rule: ActionListSemgrepRule,
-    curAutomata: SemgrepRuleAutomata,
-): List<SemgrepRuleAutomata> {
-    if (rule.patternNotInsides.isEmpty()) {
-        return emptyList()
+    if (curAutomata.params.hasMethodEnter) {
+        val newRule = ActionListSemgrepRule(
+            patterns = rule.patternInsides,
+            patternNots = rule.patternNotInsides,
+            patternInsides = emptyList(),
+            patternNotInsides = emptyList()
+        )
+        return transformSemgrepRuleToAutomata(newRule, curAutomata)
     }
 
-    val newRule = rule.modify(patternNotInsides = rule.patternNotInsides.dropLast(1))
-    val newAutomata = addPatternNotInside(
-        curAutomata.deepCopy(), rule.patternNotInsides.last()
-    )
-
-    return addPatternNotInsides(newRule, curAutomata) + newAutomata
-}
-
-private fun AutomataBuilderCtx.addPatternInsides(
-    rule: ActionListSemgrepRule,
-    curAutomata: SemgrepRuleAutomata,
-): List<SemgrepRuleAutomata> {
-    if (rule.patternInsides.isEmpty()) {
-        return emptyList()
+    check(!curAutomata.params.hasEndEdges) {
+        "Automata without method enter contains end edges"
     }
 
-    val newRule = rule.modify(patternInsides = rule.patternInsides.dropLast(1))
-    val newAutomata = addPatternInside(
-        curAutomata.deepCopy(), rule.patternInsides.last()
-    )
-
-    return addPatternInsides(newRule, curAutomata) + newAutomata
+    return addInsidePatterns(curAutomata, rule.patternInsides, rule.patternNotInsides)
 }
 
 private fun AutomataBuilderCtx.addPositivePattern(
@@ -176,40 +107,94 @@ private fun AutomataBuilderCtx.addNegativePattern(
     actionList: SemgrepPatternActionList,
 ): SemgrepRuleAutomata {
     val actionListAutomata = convertActionListToAutomata(formulaManager, actionList)
-    if (actionListAutomata.hasMethodEnter != curAutomata.hasMethodEnter) {
+
+    if (actionListAutomata.params.hasMethodEnter != curAutomata.params.hasMethodEnter) {
         // they can never be matched simultaneously
         return curAutomata
     }
 
-    totalizeMethodCalls(actionListAutomata)
-    if (actionListAutomata.hasMethodEnter) {
-        totalizeMethodEnters(metaVarInfo, actionListAutomata,)
+    totalizeAutomata(actionListAutomata, keepTrivialEdges = true)
+
+    if (actionListAutomata.params.hasMethodEnter) {
+        /**
+         * If automata has method enter then we have signature pattern like
+         * $RET $FUN($ARGS) {
+         *    ...
+         * }
+         * Due to the closing `}` we must add end edge
+         */
+
         addEndEdges(actionListAutomata)
         addEndEdges(curAutomata)
     }
+
     complement(actionListAutomata)
 
-    val intersect = intersection(
-        curAutomata,
-        actionListAutomata
-    )
-
+    val intersect = intersection(curAutomata, actionListAutomata)
     return hopcroftAlgorithhm(intersect)
+}
+
+private fun AutomataBuilderCtx.addInsidePatterns(
+    curAutomata: SemgrepRuleAutomata,
+    patternInsides: List<SemgrepPatternActionList>,
+    patternNotInsides: List<SemgrepPatternActionList>
+): SemgrepRuleAutomata {
+    val curAutomataWithBorders = addPatternStartAndEnd(curAutomata)
+
+    val automatasWithPatternInsides = patternInsides.map { pattern ->
+        addPatternInside(curAutomataWithBorders.deepCopy(), pattern)
+    }
+
+    val automatasWithPatternNotInsides = patternNotInsides.map { pattern ->
+        addPatternNotInside(curAutomataWithBorders.deepCopy(), pattern)
+    }
+
+    val automatas = automatasWithPatternInsides + automatasWithPatternNotInsides
+
+    automatas.forEach {
+        if (!it.params.hasMethodEnter) {
+            acceptIfCurrentAutomataAcceptsSuffix(it)
+        }
+
+        acceptIfCurrentAutomataAcceptsPrefix(it)
+        if (!it.params.hasEndEdges) {
+            addEndEdges(it)
+        }
+    }
+
+    val result = automatas.reduce { acc, automata ->
+        var a1 = acc
+        var a2 = automata
+
+        if (a1.params.hasMethodEnter && !a2.params.hasMethodEnter) {
+            a2 = addDummyMethodEnter(a2)
+        }
+
+        if (!a1.params.hasMethodEnter && a2.params.hasMethodEnter) {
+            a1 = addDummyMethodEnter(a1)
+        }
+
+        val a1a2 = intersection(a1, a2)
+        hopcroftAlgorithhm(a1a2)
+    }
+
+    removePatternStartAndEnd(result)
+
+    return result
 }
 
 private fun AutomataBuilderCtx.addPatternInside(
     curAutomata: SemgrepRuleAutomata,
     actionList: SemgrepPatternActionList,
 ): SemgrepRuleAutomata {
-    if (curAutomata.hasMethodEnter) {
-        return addPositivePattern(curAutomata, actionList)
+    check(!curAutomata.params.hasMethodEnter) {
+        "Pattern with method enter is not expected here"
     }
 
-    val addPrefixEllipsis = actionList.actions.firstOrNull() is SemgrepPatternAction.MethodSignature ||
-            actionList.hasEllipsisInTheEnd || !actionList.hasEllipsisInTheBeginning
+    val patternContainsMethodSignature = actionList.actions.firstOrNull() is SemgrepPatternAction.MethodSignature
 
-    val addSuffixEllipsis = actionList.actions.firstOrNull() is SemgrepPatternAction.MethodSignature ||
-            actionList.hasEllipsisInTheBeginning || !actionList.hasEllipsisInTheEnd
+    val addPrefixEllipsis = patternContainsMethodSignature || actionList.hasEllipsisInTheEnd || !actionList.hasEllipsisInTheBeginning
+    val addSuffixEllipsis = patternContainsMethodSignature || actionList.hasEllipsisInTheBeginning || !actionList.hasEllipsisInTheEnd
 
     if (addSuffixEllipsis) {
         acceptIfCurrentAutomataAcceptsPrefix(curAutomata)
@@ -217,17 +202,64 @@ private fun AutomataBuilderCtx.addPatternInside(
 
     if (addPrefixEllipsis) {
         acceptIfCurrentAutomataAcceptsSuffix(curAutomata)
-        curAutomata.initialNode.outEdges.add(AutomataEdgeType.MethodEnter(MethodFormula.True) to curAutomata.initialNode)
-        curAutomata.hasMethodEnter = true
+        addMethodEntryLoop(curAutomata)
     }
 
     val actionListAutomata = convertActionListToAutomata(formulaManager, actionList)
     addPatternStartAndEndOnEveryNode(actionListAutomata)
+
     val automataIntersection = intersection(actionListAutomata, curAutomata)
     return hopcroftAlgorithhm(automataIntersection)
 }
 
-private fun AutomataBuilderCtx.addEllipsisInTheBeginning(actionList: SemgrepPatternActionList): SemgrepPatternActionList {
+private fun AutomataBuilderCtx.addPatternNotInside(
+    curAutomata: SemgrepRuleAutomata,
+    actionList: SemgrepPatternActionList,
+): SemgrepRuleAutomata {
+    check(!curAutomata.params.hasMethodEnter) {
+        "Pattern with method enter is not expected here"
+    }
+
+    val patternContainsMethodSignature = actionList.actions.firstOrNull() is SemgrepPatternAction.MethodSignature
+
+    val addPrefixEllipsis = patternContainsMethodSignature || actionList.hasEllipsisInTheEnd || !actionList.hasEllipsisInTheBeginning
+    val addSuffixEllipsis = patternContainsMethodSignature || actionList.hasEllipsisInTheBeginning || !actionList.hasEllipsisInTheEnd
+
+    var actionListForAutomata = actionList
+    if (!patternContainsMethodSignature && addPrefixEllipsis) {
+        // because we will add MethodEnter. Do this here to avoid extra determinization
+        actionListForAutomata = addEllipsisInTheBeginning(actionListForAutomata)
+    }
+    val actionListAutomata = convertActionListToAutomata(formulaManager, actionListForAutomata)
+
+    if (addPrefixEllipsis) {
+        acceptIfCurrentAutomataAcceptsSuffix(curAutomata)
+        addMethodEntryLoop(curAutomata)
+
+        if (!actionListAutomata.params.hasMethodEnter) {
+            addMethodEntryLoop(actionListAutomata)
+        }
+    }
+
+    if (addSuffixEllipsis) {
+        acceptIfCurrentAutomataAcceptsPrefix(curAutomata)
+        addEndEdges(curAutomata)
+
+        acceptIfCurrentAutomataAcceptsPrefix(actionListAutomata)
+        addEndEdges(actionListAutomata)
+    }
+
+    totalizeAutomata(actionListAutomata, keepTrivialEdges = true)
+
+    addPatternStartAndEndOnEveryNode(actionListAutomata)
+
+    complement(actionListAutomata)
+
+    val resultAutomata = intersection(curAutomata, actionListAutomata)
+    return hopcroftAlgorithhm(resultAutomata)
+}
+
+private fun addEllipsisInTheBeginning(actionList: SemgrepPatternActionList): SemgrepPatternActionList {
     check(actionList.actions.firstOrNull() !is SemgrepPatternAction.MethodSignature) {
         "Cannot add ellipsis in the beginning of action list with signature"
     }
@@ -236,60 +268,5 @@ private fun AutomataBuilderCtx.addEllipsisInTheBeginning(actionList: SemgrepPatt
         actionList.actions,
         hasEllipsisInTheBeginning = true,
         hasEllipsisInTheEnd = actionList.hasEllipsisInTheEnd,
-    )
-}
-
-private fun AutomataBuilderCtx.addPatternNotInside(
-    curAutomata: SemgrepRuleAutomata,
-    actionList: SemgrepPatternActionList,
-): SemgrepRuleAutomata {
-    if (curAutomata.hasMethodEnter) {
-        return addNegativePattern(curAutomata, actionList)
-    }
-
-    val addPrefixEllipsis = actionList.actions.firstOrNull() is SemgrepPatternAction.MethodSignature ||
-        actionList.hasEllipsisInTheEnd || !actionList.hasEllipsisInTheBeginning
-    val addSuffixEllipsis = actionList.actions.firstOrNull() is SemgrepPatternAction.MethodSignature ||
-        actionList.hasEllipsisInTheBeginning || !actionList.hasEllipsisInTheEnd
-
-    val actionListForAutomata = if (actionList.actions.firstOrNull() is SemgrepPatternAction.MethodSignature || !addPrefixEllipsis) {
-        actionList
-    } else {
-        // because we will add MethodEnter. Do this here to avoid extra determinization
-        addEllipsisInTheBeginning(actionList)
-    }
-    val actionListAutomata = convertActionListToAutomata(formulaManager, actionListForAutomata)
-    addPatternStartAndEndOnEveryNode(actionListAutomata)
-
-    var mainAutomata = curAutomata
-    var automataNotInside = actionListAutomata
-
-    if (addPrefixEllipsis) {
-        acceptIfCurrentAutomataAcceptsSuffix(curAutomata)
-        mainAutomata = addDummyMethodEnter(curAutomata)
-        if (!actionListAutomata.hasMethodEnter) {
-            automataNotInside = addDummyMethodEnter(actionListAutomata)
-        }
-    }
-
-    if (addSuffixEllipsis) {
-        acceptIfCurrentAutomataAcceptsPrefix(curAutomata)
-        addEndEdges(curAutomata)
-
-        acceptIfCurrentAutomataAcceptsPrefix(automataNotInside)
-        addEndEdges(automataNotInside)
-    }
-
-    totalizeMethodCalls(automataNotInside)
-    if (automataNotInside.hasMethodEnter) {
-        totalizeMethodEnters(metaVarInfo, automataNotInside)
-    }
-    complement(automataNotInside)
-
-    return hopcroftAlgorithhm(
-        intersection(
-            mainAutomata,
-            automataNotInside
-        )
     )
 }

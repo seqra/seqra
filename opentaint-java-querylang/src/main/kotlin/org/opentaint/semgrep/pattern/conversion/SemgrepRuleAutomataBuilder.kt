@@ -207,7 +207,6 @@ class SemgrepRuleAutomataBuilder(
         resultRules = resultRules.flatMap(::rewriteAssignEllipsis)
         resultRules = resultRules.flatMap(::rewriteMethodInvocationObj)
         resultRules = resultRules.flatMap(::rewriteStaticFieldAccess)
-        resultRules = resultRules.flatMap(::rewriteReturnStatement)
         resultRules = resultRules.flatMap(::rewriteEllipsisMethodInvocations)
 
         return resultRules.flatMap { resultRule ->

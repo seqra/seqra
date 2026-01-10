@@ -3,11 +3,16 @@ package org.opentaint.semgrep.pattern.conversion.automata
 class SemgrepRuleAutomata(
     val formulaManager: MethodFormulaManager,
     val initialNodes: Set<AutomataNode>,
-    var isDeterministic: Boolean,
-    var hasMethodEnter: Boolean,
-    var hasEndEdges: Boolean,
+    var params: Params,
     var deadNode: AutomataNode = createDeadNode()
 ) {
+    data class Params(
+        val isDeterministic: Boolean,
+        val hasMethodEnter: Boolean,
+        val hasMethodExit: Boolean,
+        val hasEndEdges: Boolean,
+    )
+
     val initialNode: AutomataNode
         get() = initialNodes.single()
 
@@ -18,9 +23,7 @@ class SemgrepRuleAutomata(
         return SemgrepRuleAutomata(
             formulaManager,
             initialNodes = setOf(newRoot),
-            isDeterministic,
-            hasMethodEnter,
-            hasEndEdges,
+            params = params,
             deadNode = newDeadNode
         )
     }
@@ -28,6 +31,7 @@ class SemgrepRuleAutomata(
     companion object {
         fun createDeadNode(): AutomataNode = AutomataNode().also {
             it.outEdges.add(AutomataEdgeType.MethodCall(MethodFormula.True) to it)
+            it.outEdges.add(AutomataEdgeType.MethodExit(MethodFormula.True) to it)
         }
     }
 }

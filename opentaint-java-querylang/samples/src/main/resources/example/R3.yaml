@@ -1,0 +1,17 @@
+rules:
+  - id: example-Rule
+    languages:
+      - java
+    severity: ERROR
+    message: match example/Rule
+    patterns:
+      - pattern:
+          $RET = bar($X);
+          ...
+      - pattern-not: |-
+          $X = $F($ARG);
+          ...
+      - pattern-inside: |-
+          ...
+          $X = foo($ARG);
+          ...

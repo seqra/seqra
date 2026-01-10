@@ -125,15 +125,17 @@ fun AutomataBuilderCtx.unifyMetavars(automata: SemgrepRuleAutomata): SemgrepRule
         }
 
         if (anyEdgeChanged) {
-            val methodCallToDeadNode = methodCallEdgeToDeadNode(automata, prevNode)
-            if (methodCallToDeadNode != null) {
-                newNode.outEdges.add(methodCallToDeadNode to automata.deadNode)
+            methodCallEdgeToDeadNode(automata, prevNode, keepTrivialEdges = false)?.also {
+                newNode.outEdges.add(it to automata.deadNode)
             }
 
-            if (automata.hasMethodEnter) {
-                val methodEnterToDeadNode = methodEnterEdgeToDeadNode(automata, prevNode)
-                if (methodEnterToDeadNode != null) {
-                    newNode.outEdges.add(methodEnterToDeadNode to automata.deadNode)
+            methodExitEdgeToDeadNode(automata, prevNode, keepTrivialEdges = false)?.also {
+                newNode.outEdges.add(it to automata.deadNode)
+            }
+
+            if (automata.params.hasMethodEnter) {
+                methodEnterEdgeToDeadNode(automata, prevNode, keepTrivialEdges = false)?.also {
+                    newNode.outEdges.add(it to automata.deadNode)
                 }
             }
         }
@@ -142,9 +144,7 @@ fun AutomataBuilderCtx.unifyMetavars(automata: SemgrepRuleAutomata): SemgrepRule
     return SemgrepRuleAutomata(
         formulaManager = automata.formulaManager,
         initialNodes = setOf(newInitialNode),
-        isDeterministic = automata.isDeterministic,
-        hasMethodEnter = automata.hasMethodEnter,
-        hasEndEdges = automata.hasEndEdges
+        automata.params
     )
 }
 
@@ -172,6 +172,7 @@ private fun AutomataBuilderCtx.transformEdge(
     val newEdge = when (edge) {
         is AutomataEdgeType.MethodCall -> AutomataEdgeType.MethodCall(newFormula)
         is AutomataEdgeType.MethodEnter -> AutomataEdgeType.MethodEnter(newFormula)
+        is AutomataEdgeType.MethodExit -> AutomataEdgeType.MethodExit(newFormula)
     }
 
     return newEdge to newContext

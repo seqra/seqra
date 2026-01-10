@@ -1,0 +1,20 @@
+rules:
+  - id: example-Rule
+    languages:
+      - java
+    severity: ERROR
+    message: match example/Rule
+    patterns:
+      - pattern: |-
+          ...
+          return $X;
+
+      - pattern-inside: |-
+          $X = foo($ARG);
+          return $X;
+
+      - pattern-not-inside: |-
+          $RT $FUN(Object $ARG) {
+            $X = foo($ARG);
+            ...
+          }

@@ -1,0 +1,21 @@
+rules:
+  - id: java.return.not-inside.prefix
+    languages:
+      - java
+    severity: ERROR
+    message: Return of derived value not allowed when prefix exists
+    metadata:
+      cwe: CWE-79
+      license: MIT
+      shortDescription: Return when prefix method was called
+    patterns:
+      - pattern: |
+          $S = $SOURCE.mkType2();
+      - pattern-not-inside: |
+          ...
+          $S.clean();
+      - pattern-inside: |
+          $RETURNTYPE $METHOD(..., CustomType1 $SOURCE,...) {
+            ...
+            return $S.mkType3().mkType1();
+          }

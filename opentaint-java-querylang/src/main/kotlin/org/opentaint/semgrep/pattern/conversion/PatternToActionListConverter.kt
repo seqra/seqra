@@ -90,7 +90,8 @@ class PatternToActionListConverter: ActionListBuilder {
         pattern: SemgrepJavaPattern,
         isRootPattern: Boolean = false
     ): SemgrepPatternActionList = when (pattern) {
-            Ellipsis -> SemgrepPatternActionList(emptyList(), hasEllipsisInTheEnd = true, hasEllipsisInTheBeginning = true)
+            is Ellipsis -> SemgrepPatternActionList(emptyList(), hasEllipsisInTheEnd = true, hasEllipsisInTheBeginning = true)
+            is EmptyPatternSequence -> SemgrepPatternActionList(emptyList(), hasEllipsisInTheEnd = false , hasEllipsisInTheBeginning = false)
             is PatternSequence -> transformPatternSequence(pattern)
             is MethodInvocation -> transformMethodInvocation(pattern)
             is ObjectCreation -> transformObjectCreation(pattern)
@@ -98,6 +99,7 @@ class PatternToActionListConverter: ActionListBuilder {
             is MethodDeclaration -> transformMethodDeclaration(pattern)
             is ClassDeclaration -> transformClassDeclaration(pattern)
             is EllipsisMethodInvocations -> transformEllipsisMethodInvocations(pattern)
+            is ReturnStmt -> transformReturnStmt(pattern)
             is AddExpr,
             is BoolConstant,
             EmptyPatternSequence,
@@ -108,7 +110,6 @@ class PatternToActionListConverter: ActionListBuilder {
             is Identifier,
             is Metavar,
             is MethodArguments,
-            is ReturnStmt,
             StringEllipsis,
             is StringLiteral,
             ThisExpr,
@@ -241,9 +242,17 @@ class PatternToActionListConverter: ActionListBuilder {
     private fun transformPatternSequence(pattern: PatternSequence): SemgrepPatternActionList {
         val first = transformPatternToActionList(pattern.first)
         val second = transformPatternToActionList(pattern.second)
+
+        var endEllipsis = second.hasEllipsisInTheEnd
+        if (endEllipsis) {
+            if (second.actions.isEmpty() && first.actions.lastOrNull() is SemgrepPatternAction.MethodExit) {
+                endEllipsis = false
+            }
+        }
+
         return SemgrepPatternActionList(
             first.actions + second.actions,
-            hasEllipsisInTheEnd = second.hasEllipsisInTheEnd,
+            hasEllipsisInTheEnd = endEllipsis,
             hasEllipsisInTheBeginning = first.hasEllipsisInTheBeginning,
         )
     }
@@ -486,6 +495,24 @@ class PatternToActionListConverter: ActionListBuilder {
             listOf(methodSignature),
             hasEllipsisInTheEnd = true,
             hasEllipsisInTheBeginning = false
+        )
+    }
+
+    private fun transformReturnStmt(pattern: ReturnStmt): SemgrepPatternActionList {
+        val retValue = pattern.value
+        val (actions, cond) = if (retValue == null) {
+            emptyList<SemgrepPatternAction>() to null
+        } else {
+            transformPatternIntoParamConditionWithActions(retValue)
+                ?: transformationFailed("Return value: ${retValue::class.simpleName}")
+        }
+
+        val methodExit = SemgrepPatternAction.MethodExit(cond ?: ParamCondition.True)
+
+        return SemgrepPatternActionList(
+            actions + listOf(methodExit),
+            hasEllipsisInTheBeginning = false,
+            hasEllipsisInTheEnd = false
         )
     }
 

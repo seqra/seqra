@@ -33,7 +33,6 @@ import org.opentaint.semgrep.pattern.conversion.automata.ParamConstraint
 import org.opentaint.semgrep.pattern.conversion.automata.Position
 import org.opentaint.semgrep.pattern.conversion.automata.Predicate
 import org.opentaint.semgrep.pattern.conversion.generatedAnyValueGeneratorMethodName
-import org.opentaint.semgrep.pattern.conversion.generatedReturnValueMethod
 import org.opentaint.semgrep.pattern.conversion.generatedStringConcatMethodName
 import java.util.BitSet
 
@@ -683,7 +682,6 @@ private fun MethodSignature?.unify(
 }
 
 private val generatedMethodNames = setOf(
-    generatedReturnValueMethod,
     generatedAnyValueGeneratorMethodName,
     generatedStringConcatMethodName,
 )

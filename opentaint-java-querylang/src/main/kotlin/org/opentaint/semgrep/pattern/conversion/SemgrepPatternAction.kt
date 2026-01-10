@@ -100,4 +100,19 @@ sealed interface SemgrepPatternAction {
             error("Unsupported operation?")
         }
     }
+
+    data class MethodExit(val retVal: ParamCondition) : SemgrepPatternAction {
+        override val metavars: List<MetavarAtom>
+            get() {
+                val metavars = mutableSetOf<MetavarAtom>()
+                retVal.collectMetavarTo(metavars)
+                return metavars.toList()
+            }
+
+        override val result: ParamCondition? = null
+
+        override fun setResultCondition(condition: ParamCondition): SemgrepPatternAction {
+            error("Unsupported operation?")
+        }
+    }
 }

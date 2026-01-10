@@ -90,12 +90,11 @@ private fun reverse(automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
         it.startNode.outEdges.add(it.type to it.endNode)
     }
 
+    val params = automata.params.copy(isDeterministic = false)
     return SemgrepRuleAutomata(
         automata.formulaManager,
         initialNodes,
-        isDeterministic = false,
-        hasMethodEnter = automata.hasMethodEnter,
-        hasEndEdges = automata.hasEndEdges,
+        params
     )
 }
 
@@ -106,6 +105,7 @@ private class EdgeBuilder(private val formulaManager: MethodFormulaManager) {
 
     private val methodCallFormulas = mutableListOf<MethodFormula>()
     private val methodEnterFormulas = mutableListOf<MethodFormula>()
+    private val methodExitFormulas = mutableListOf<MethodFormula>()
 
     fun addEdge(edge: AutomataEdgeType) {
         when (edge) {
@@ -114,6 +114,7 @@ private class EdgeBuilder(private val formulaManager: MethodFormulaManager) {
             AutomataEdgeType.PatternStart -> hasPatternStart = true
             is AutomataEdgeType.MethodCall -> methodCallFormulas.add(edge.formula)
             is AutomataEdgeType.MethodEnter -> methodEnterFormulas.add(edge.formula)
+            is AutomataEdgeType.MethodExit -> methodExitFormulas.add(edge.formula)
         }
     }
 
@@ -133,14 +134,14 @@ private class EdgeBuilder(private val formulaManager: MethodFormulaManager) {
         if (methodEnterFormulas.isNotEmpty()) {
             add(AutomataEdgeType.MethodEnter(formulaManager.mkOr(methodEnterFormulas)))
         }
+        if (methodExitFormulas.isNotEmpty()) {
+            add(AutomataEdgeType.MethodExit(formulaManager.mkOr(methodExitFormulas)))
+        }
     }
 }
 
 fun AutomataBuilderCtx.hopcroftAlgorithhm(automata: SemgrepRuleAutomata): SemgrepRuleAutomata {
-    totalizeMethodCalls(automata)
-    if (automata.hasMethodEnter) {
-        totalizeMethodEnters(metaVarInfo, automata)
-    }
+    totalizeAutomata(automata)
 
     val nodes = mutableListOf<AutomataNode>()
     val node2class = mutableMapOf<AutomataNode, Int>()
@@ -245,9 +246,7 @@ fun AutomataBuilderCtx.hopcroftAlgorithhm(automata: SemgrepRuleAutomata): Semgre
     return SemgrepRuleAutomata(
         formulaManager = formulaManager,
         initialNodes = setOf(newInitialNode),
-        isDeterministic = automata.isDeterministic,
-        hasMethodEnter = automata.hasMethodEnter,
-        hasEndEdges = automata.hasEndEdges,
+        automata.params,
     ).also {
         simplifyAutomata(it)
         removeDeadNodes(it)
@@ -255,7 +254,7 @@ fun AutomataBuilderCtx.hopcroftAlgorithhm(automata: SemgrepRuleAutomata): Semgre
 }
 
 fun AutomataBuilderCtx.brzozowskiAlgorithm(startAutomata: SemgrepRuleAutomata): SemgrepRuleAutomata {
-    if (startAutomata.isDeterministic) {
+    if (startAutomata.params.isDeterministic) {
         return startAutomata
     }
 

@@ -1,0 +1,17 @@
+rules:
+  - id: pattern.xss
+    languages:
+      - java
+    severity: ERROR
+    message: Return an untrusted file path
+    patterns:
+      - pattern: |
+          $RETURNTYPE $METHOD(Object $PARAM) {
+            ...
+            return $PARAM;
+          }
+      - pattern-not-inside: |
+          $RETURNTYPE $METHOD(Object $PARAM) {
+            ...
+            return clean($PARAM);
+          }

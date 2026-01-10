@@ -17,11 +17,14 @@ fun convertActionListToAutomata(
     var beforeLast: AutomataNode? = null
     var lastFormula: MethodFormula? = null
     var hasMethodEnter = false
+    var hasMethodExit = false
     var loopOccurred = false
 
     val actions = actionList.actions.toMutableList()
     val signaturePatterns = actions.filterIsInstance<SemgrepPatternAction.MethodSignature>()
-    if (signaturePatterns.isNotEmpty()) {
+    val exitPatterns = actions.filterIsInstance<SemgrepPatternAction.MethodExit>()
+
+    val signaturePattern = if (signaturePatterns.isEmpty()) null else {
         check(signaturePatterns.size == 1)
 
         val firstAction = actions.removeFirst()
@@ -30,7 +33,23 @@ fun convertActionListToAutomata(
             "Ellipsis before signature"
         }
 
-        val edgeFormula = constructSignatureFormula(formulaManager, firstAction)
+        firstAction
+    }
+
+    val exitPattern = if (exitPatterns.isEmpty()) null else {
+        check(exitPatterns.size == 1)
+
+        val lastAction = actions.removeLast()
+        check(lastAction is SemgrepPatternAction.MethodExit)
+        check(!actionList.hasEllipsisInTheEnd) {
+            "Ellipsis after exit"
+        }
+
+        lastAction
+    }
+
+    if (signaturePattern != null) {
+        val edgeFormula = constructSignatureFormula(formulaManager, signaturePattern)
 
         val newNode = AutomataNode()
 
@@ -65,15 +84,36 @@ fun convertActionListToAutomata(
         last = newNode
     }
 
-    last.accept = true
-    if (actionList.hasEllipsisInTheEnd) {
+    if (exitPattern != null) {
         last.outEdges.add(AutomataEdgeType.MethodCall(MethodFormula.True) to last)
+        loopOccurred = true
+
+        val edgeFormula = constructExitFormula(formulaManager, exitPattern)
+        val newNode = AutomataNode()
+
+        last.outEdges.add(AutomataEdgeType.MethodExit(edgeFormula) to newNode)
+        beforeLast = last
+        lastFormula = edgeFormula
+        last = newNode
+        hasMethodExit = true
+    } else if (actionList.hasEllipsisInTheEnd) {
+        last.outEdges.add(AutomataEdgeType.MethodCall(MethodFormula.True) to last)
+        last.outEdges.add(AutomataEdgeType.MethodExit(MethodFormula.True) to last)
+        hasMethodExit = true
     } else if (lastFormula != null && loopOccurred) {
         last.outEdges.add(AutomataEdgeType.MethodCall(lastFormula!!) to last)
         last.outEdges.add(AutomataEdgeType.MethodCall(lastFormula!!.complement()) to beforeLast!!)
     }
 
-    return SemgrepRuleAutomata(formulaManager, setOf(root), isDeterministic = true, hasMethodEnter, hasEndEdges = false)
+    last.accept = true
+
+    val params = SemgrepRuleAutomata.Params(
+        isDeterministic = true,
+        hasMethodEnter = hasMethodEnter,
+        hasMethodExit = hasMethodExit,
+        hasEndEdges = false
+    )
+    return SemgrepRuleAutomata(formulaManager, setOf(root), params)
 }
 
 private fun constructFormula(formulaManager: MethodFormulaManager, action: SemgrepPatternAction): MethodFormula =
@@ -81,6 +121,7 @@ private fun constructFormula(formulaManager: MethodFormulaManager, action: Semgr
         is SemgrepPatternAction.MethodCall -> constructFormula(formulaManager, action)
         is SemgrepPatternAction.ConstructorCall -> constructFormula(formulaManager, action)
         is SemgrepPatternAction.MethodSignature -> error("Unexpected signature action")
+        is SemgrepPatternAction.MethodExit -> error("Unexpected exit action")
     }
 
 private class MethodFormulaBuilder(
@@ -208,6 +249,23 @@ private fun constructSignatureFormula(
 
     val signature = MethodSignature(
         methodName = methodName,
+        enclosingClassName = MethodEnclosingClassName.anyClassName,
+    )
+    builder.addSignature(signature)
+
+    return builder.build()
+}
+
+private fun constructExitFormula(
+    formulaManager: MethodFormulaManager,
+    action: SemgrepPatternAction.MethodExit
+): MethodFormula {
+    val builder = MethodFormulaBuilder(formulaManager)
+    val idx = Position.ArgumentIndex.Concrete(0)
+    builder.addParamConstraint(Position.Argument(idx), action.retVal)
+
+    val signature = MethodSignature(
+        methodName = MethodName(SemgrepPatternAction.SignatureName.AnyName),
         enclosingClassName = MethodEnclosingClassName.anyClassName,
     )
     builder.addSignature(signature)

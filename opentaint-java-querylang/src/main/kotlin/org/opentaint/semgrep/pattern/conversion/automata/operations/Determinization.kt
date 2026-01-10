@@ -16,7 +16,7 @@ fun AutomataBuilderCtx.determinize(
     automata: SemgrepRuleAutomata,
     simplifyAutomata: Boolean = false
 ): SemgrepRuleAutomata {
-    if (automata.isDeterministic) {
+    if (automata.params.isDeterministic) {
         return automata
     }
 
@@ -34,6 +34,7 @@ fun AutomataBuilderCtx.determinize(
     }
 
     var hasMethodEnter = false
+    var hasMethodExit = false
     var hasEndEdges = false
 
     val queue = mutableListOf<BitSet>()
@@ -80,14 +81,25 @@ fun AutomataBuilderCtx.determinize(
             hasMethodEnter = true
             AutomataEdgeType.MethodEnter(it)
         }
+
+        determinizeSpecificEdgeType<AutomataEdgeType.MethodExit>(
+            initialEdges, newNode, AutomataNode::nodeId, ::getOrCreateNewNode
+        ) {
+            hasMethodExit = true
+            AutomataEdgeType.MethodExit(it)
+        }
     }
 
-    return SemgrepRuleAutomata(
-        automata.formulaManager,
-        initialNodes = setOf(root),
+    val params = SemgrepRuleAutomata.Params(
         isDeterministic = true,
         hasMethodEnter = hasMethodEnter,
         hasEndEdges = hasEndEdges,
+        hasMethodExit = hasMethodExit,
+    )
+    return SemgrepRuleAutomata(
+        automata.formulaManager,
+        initialNodes = setOf(root),
+        params
     ).also {
         removeDeadNodes(it)
     }

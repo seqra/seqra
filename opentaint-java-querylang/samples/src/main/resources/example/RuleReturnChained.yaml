@@ -1,0 +1,23 @@
+rules:
+  - id: java.return.chained
+    languages:
+      - java
+    severity: ERROR
+    message: Return of value obtained through chained calls from source
+    metadata:
+      cwe: CWE-79
+      license: MIT
+      shortDescription: Return value from chained method calls on source
+    patterns:
+      - pattern: |
+          $V = $SOURCE.mkType2().mkType3();
+          ...
+      - pattern: |
+          ...
+          $SINK = $V.mkType1();
+          ...
+      - pattern-inside: |
+          $RETURNTYPE $METHOD(..., CustomType1 $SOURCE,...) {
+            ...
+            return $SINK;
+          }
