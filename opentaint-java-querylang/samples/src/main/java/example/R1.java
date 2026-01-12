@@ -2,6 +2,7 @@ package example;
 
 import base.RuleSample;
 import base.RuleSet;
+import base.TaintRuleFalsePositive;
 
 @RuleSet("example/R1.yaml")
 public abstract class R1 implements RuleSample {
@@ -21,6 +22,7 @@ public abstract class R1 implements RuleSample {
         }
     }
 
+    @TaintRuleFalsePositive("Cleaner captures data before sink")
     static class Negative extends R1 {
         @Override
         public void entrypoint() {

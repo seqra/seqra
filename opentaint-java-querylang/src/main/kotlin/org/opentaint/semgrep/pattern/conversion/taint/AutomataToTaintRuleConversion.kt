@@ -654,7 +654,6 @@ private fun TaintRuleGenerationCtx.generateTaintSinkRules(
 ): List<SerializedItem> {
     class SinkRuleGen : AcceptStateRuleGenerator {
         override fun generateAcceptStateRules(
-            currentRules: List<SerializedItem>,
             ruleEdge: TaintRuleEdge,
             condition: EvaluatedEdgeCondition,
             function: SerializedFunctionNameMatcher,
@@ -684,7 +683,7 @@ private fun TaintRuleGenerationCtx.generateTaintSinkRules(
                 )
 
                 TaintRuleEdge.Kind.MethodExit -> {
-                    generateEndSink(currentRules, cond, afterSinkActions, id, meta)
+                    generateEndSink(cond, afterSinkActions, id, meta)
                 }
             }
         }
@@ -699,7 +698,6 @@ private fun TaintRuleGenerationCtx.generateTaintSanitizerRules(
 ): List<SerializedItem> {
     class SanitizerRuleGen : AcceptStateRuleGenerator {
         override fun generateAcceptStateRules(
-            currentRules: List<SerializedItem>,
             ruleEdge: TaintRuleEdge,
             condition: EvaluatedEdgeCondition,
             function: SerializedFunctionNameMatcher,
@@ -725,7 +723,6 @@ private fun TaintRuleGenerationCtx.generateTaintSanitizerRules(
 }
 
 private fun generateEndSink(
-    currentRules: List<SerializedItem>,
     cond: SerializedCondition,
     afterSinkActions: List<SerializedTaintAssignAction>,
     id: String,
@@ -733,21 +730,11 @@ private fun generateEndSink(
 ): List<SinkRule> {
     val endActions = afterSinkActions.map { it.copy(pos = it.pos.rewriteAsEndPosition()) }
     return generateMethodEndRule(
-        currentRules = currentRules,
         cond = cond,
-        generateWithoutMatchedEp = { endCondition ->
+        generateWithoutMatchedEp = { f, endCondition ->
             listOf(
                 SerializedRule.MethodExitSink(
-                    anyFunction(), signature = null, overrides = false, endCondition,
-                    trackFactsReachAnalysisEnd = endActions,
-                    id, meta = meta
-                )
-            )
-        },
-        generateWithEp = { ep, endCondition ->
-            listOf(
-                SerializedRule.MethodExitSink(
-                    ep.function, ep.signature, ep.overrides, endCondition,
+                    f, signature = null, overrides = false, endCondition,
                     trackFactsReachAnalysisEnd = endActions,
                     id, meta = meta
                 )
@@ -757,22 +744,11 @@ private fun generateEndSink(
 }
 
 private inline fun <R: SerializedItem> generateMethodEndRule(
-    currentRules: List<SerializedItem>,
     cond: SerializedCondition,
-    generateWithoutMatchedEp: (SerializedCondition) -> List<R>,
-    generateWithEp: (SerializedRule.EntryPoint, SerializedCondition) -> List<R>,
+    generateWithoutMatchedEp: (SerializedFunctionNameMatcher, SerializedCondition) -> List<R>,
 ): List<R> {
     val endCondition = cond.rewriteAsEndCondition()
-    val entryPointRules = currentRules.filterIsInstance<SerializedRule.EntryPoint>()
-
-    if (entryPointRules.isEmpty()) {
-        return generateWithoutMatchedEp(endCondition)
-    }
-
-    return entryPointRules.flatMap { rule ->
-        val generatedCond = SerializedCondition.and(listOf(rule.condition ?: SerializedCondition.True, endCondition))
-        generateWithEp(rule, generatedCond)
-    }
+    return generateWithoutMatchedEp(anyFunction(),  endCondition)
 }
 
 private fun SerializedCondition.rewriteAsEndCondition(): SerializedCondition = when (this) {
@@ -816,25 +792,16 @@ private fun PositionBase.rewriteAsEndPosition(): PositionBase = when (this) {
 }
 
 private fun generateMethodEndSource(
-    currentRules: List<SerializedItem>,
     cond: SerializedCondition,
     actions: List<SerializedTaintAssignAction>,
 ): List<SerializedRule.MethodExitSource> {
     val endActions = actions.map { it.copy(pos = it.pos.rewriteAsEndPosition()) }
     return generateMethodEndRule(
-        currentRules = currentRules,
         cond = cond,
-        generateWithoutMatchedEp = { endCond ->
+        generateWithoutMatchedEp = { f, endCond ->
             listOf(
                 SerializedRule.MethodExitSource(
-                    anyFunction(), signature = null, overrides = false, endCond, endActions
-                )
-            )
-        },
-        generateWithEp = { ep, endCond ->
-            listOf(
-                SerializedRule.MethodExitSource(
-                    ep.function, ep.signature, ep.overrides, endCond, endActions
+                    f, signature = null, overrides = false, endCond, endActions
                 )
             )
         }
@@ -847,7 +814,6 @@ private fun TaintRuleGenerationCtx.generateTaintSourceRules(
 ): List<SerializedItem> {
     class TaintSourceAcceptStateGen : AcceptStateRuleGenerator {
         override fun generateAcceptStateRules(
-            currentRules: List<SerializedItem>,
             ruleEdge: TaintRuleEdge,
             condition: EvaluatedEdgeCondition,
             function: SerializedFunctionNameMatcher,
@@ -881,7 +847,7 @@ private fun TaintRuleGenerationCtx.generateTaintSourceRules(
                 )
 
                 TaintRuleEdge.Kind.MethodExit -> {
-                    generateMethodEndSource(currentRules, cond, actions)
+                    generateMethodEndSource(cond, actions)
                 }
             }
         }
@@ -900,7 +866,6 @@ private fun SinkRuleGenerationCtx.generateTaintPassRules(
 
 private interface AcceptStateRuleGenerator {
     fun generateAcceptStateRules(
-        currentRules: List<SerializedItem>,
         ruleEdge: TaintRuleEdge,
         condition: EvaluatedEdgeCondition,
         function: SerializedFunctionNameMatcher,
@@ -945,7 +910,7 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
                     )
 
                     TaintRuleEdge.Kind.MethodExit -> {
-                        generateMethodEndSource(rules, cond, actions)
+                        generateMethodEndSource(cond, actions)
                     }
                 }
             }
@@ -959,7 +924,7 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
         rules += condition.additionalFieldRules
 
         rules += generateRules(condition.ruleCondition) { function, cond ->
-            acceptStateRuleGen.generateAcceptStateRules(rules, ruleEdge, condition, function, cond)
+            acceptStateRuleGen.generateAcceptStateRules(ruleEdge, condition, function, cond)
         }
     }
 
