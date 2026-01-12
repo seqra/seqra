@@ -6,6 +6,12 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintPassAction
+import org.opentaint.semgrep.pattern.conversion.taint.anyFunction
+import org.opentaint.semgrep.pattern.conversion.taint.base
 import org.opentaint.semgrep.util.SampleBasedTest
 import kotlin.test.Test
 
@@ -172,6 +178,17 @@ class ExampleTest : SampleBasedTest() {
 
     @Test
     fun `test RuleReturnWithNotInsideSignature`() = runTest<example.RuleReturnWithNotInsideSignature>()
+
+    @Test
+    fun `test RuleReturnWithNotInsideSignature with pass`() =
+        runTest<example.RuleReturnWithNotInsideSignatureWithPass> { cfg ->
+            val function = anyFunction().copy(name = SerializedNameMatcher.Simple("clean"))
+            val action = SerializedTaintPassAction(
+                from = PositionBase.Argument(0).base(), to = PositionBase.Result.base()
+            )
+            val rule = SerializedRule.PassThrough(function, copy = listOf(action))
+            cfg.copy(passThrough = cfg.passThrough.orEmpty() + rule)
+        }
 
     @AfterAll
     fun close() {

@@ -6,11 +6,13 @@ rules:
     message: Return an untrusted file path
     patterns:
       - pattern: |
+          @EntryPoint
           $RETURNTYPE $METHOD(Object $PARAM) {
             ...
             return $PARAM;
           }
       - pattern-not-inside: |
+          @EntryPoint
           $RETURNTYPE $METHOD(Object $PARAM) {
             ...
             return clean($PARAM);

@@ -5,7 +5,6 @@ import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModif
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationParamPatternMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationParamStringMatcher
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.Companion.mkFalse
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.ConstantCmpType
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.ConstantType
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.ConstantValue
@@ -715,7 +714,7 @@ private fun TaintRuleGenerationCtx.generateTaintSanitizerRules(
             }
 
             val cleanerPos = PositionBase.AnyArgument(classifier = "tainted")
-            val action = SerializedTaintCleanAction(taintMarkName, PositionBaseWithModifiers.BaseOnly(cleanerPos))
+            val action = SerializedTaintCleanAction(taintMarkName, cleanerPos.base())
             val rule = SerializedRule.Cleaner(function, signature = null, overrides = true, cond, listOf(action))
 
             return listOf(rule)
@@ -862,7 +861,7 @@ private fun TaintRuleGenerationCtx.generateTaintSourceRules(
             val actions = stateVars.flatMapTo(mutableListOf()) { varName ->
                 val varPosition = condition.accessedVarPosition[varName] ?: return@flatMapTo emptyList()
                 varPosition.positions.map {
-                    SerializedTaintAssignAction(taintMarkName, pos = PositionBaseWithModifiers.BaseOnly(it))
+                    SerializedTaintAssignAction(taintMarkName, pos = it.base())
                 }
             }
 
@@ -975,8 +974,7 @@ private fun TaintRuleGenerationCtx.generateTaintRules(
             val stateMark = stateMarkName(varPosition.varName, value)
 
             varPosition.positions.flatMap {
-                val pos = PositionBaseWithModifiers.BaseOnly(it)
-                listOf(SerializedTaintCleanAction(stateMark, pos = pos))
+                listOf(SerializedTaintCleanAction(stateMark, pos = it.base()))
             }
         }
 
@@ -1017,8 +1015,7 @@ private fun TaintRuleGenerationCtx.buildStateAssignAction(
         val stateMark = stateMarkName(varPosition.varName, stateId)
 
         varPosition.positions.map {
-            val pos = PositionBaseWithModifiers.BaseOnly(it)
-            SerializedTaintAssignAction(stateMark, pos = pos)
+            SerializedTaintAssignAction(stateMark, pos = it.base())
         }
     }
 
@@ -1042,8 +1039,7 @@ private fun EvaluatedEdgeCondition.addStateCheck(
             val markName = ctx.stateMarkName(metaVar, value)
 
             for (pos in accessedVarPosition[metaVar]?.positions.orEmpty()) {
-                val position = PositionBaseWithModifiers.BaseOnly(pos)
-                stateChecks += SerializedCondition.ContainsMark(markName, position)
+                stateChecks += SerializedCondition.ContainsMark(markName, pos.base())
             }
         }
     }
@@ -1541,9 +1537,8 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
                 )
             }
 
-            val pos = PositionBaseWithModifiers.BaseOnly(position)
             val conditions = allMarkValues(condition.metavar).map {
-                SerializedCondition.ContainsMark(it, pos)
+                SerializedCondition.ContainsMark(it, position.base())
             }
             return serializedConditionOr(conditions)
         }
@@ -1569,15 +1564,13 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
             )
 
             val action = SerializedTaintAssignAction(
-                mark, pos = PositionBaseWithModifiers.BaseOnly(PositionBase.Result)
+                mark, pos = PositionBase.Result.base()
             )
             additionalFieldRules += SerializedFieldRule.SerializedStaticFieldSource(
                 enclosingClassMatcher, condition.fieldName, condition = null, listOf(action)
             )
 
-            return SerializedCondition.ContainsMark(
-                mark, PositionBaseWithModifiers.BaseOnly(position)
-            )
+            return SerializedCondition.ContainsMark(mark, position.base())
         }
 
         ParamCondition.AnyStringLiteral -> {
@@ -1619,35 +1612,6 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
             val annotation = signatureModifierConstraint(condition.modifier)
             return SerializedCondition.ParamAnnotated(position, annotation)
         }
-    }
-}
-
-private fun anyName() = SerializedNameMatcher.Pattern(".*")
-
-private fun anyFunction() = SerializedFunctionNameMatcher.Complex(anyName(), anyName(), anyName())
-
-private fun SerializedFunctionNameMatcher.matchAnything(): Boolean =
-    `class` == anyName() && `package` == anyName() && name == anyName()
-
-private fun serializedConditionOr(args: List<SerializedCondition>): SerializedCondition {
-    val result = mutableListOf<SerializedCondition>()
-    for (arg in args) {
-        if (arg is SerializedCondition.Or) {
-            result.addAll(arg.anyOf)
-            continue
-        }
-
-        if (arg is SerializedCondition.True) return SerializedCondition.True
-
-        if (arg.isFalse()) continue
-
-        result.add(arg)
-    }
-
-    return when (result.size) {
-        0 -> mkFalse()
-        1 -> result.single()
-        else -> SerializedCondition.Or(result)
     }
 }
 

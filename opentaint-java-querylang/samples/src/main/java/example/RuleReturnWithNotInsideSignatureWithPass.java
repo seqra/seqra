@@ -5,12 +5,12 @@ import base.RuleSample;
 import base.RuleSet;
 
 @RuleSet("example/RuleReturnWithNotInsideSignature.yaml")
-public abstract class RuleReturnWithNotInsideSignature implements RuleSample {
+public abstract class RuleReturnWithNotInsideSignatureWithPass implements RuleSample {
     public Object clean(Object o) {
-        return o;
+        return new Object();
     }
 
-    public static class Positive extends RuleReturnWithNotInsideSignature {
+    public static class Positive extends RuleReturnWithNotInsideSignatureWithPass {
 
         @Override
         public void entrypoint() {
@@ -23,7 +23,7 @@ public abstract class RuleReturnWithNotInsideSignature implements RuleSample {
         }
     }
 
-    public static class Negative extends RuleReturnWithNotInsideSignature {
+    public static class Negative extends RuleReturnWithNotInsideSignatureWithPass {
 
         @Override
         public void entrypoint() {

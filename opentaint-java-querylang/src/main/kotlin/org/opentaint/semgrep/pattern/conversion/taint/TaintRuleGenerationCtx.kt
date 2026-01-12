@@ -1,10 +1,9 @@
 package org.opentaint.semgrep.pattern.conversion.taint
 
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
-import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
+import org.opentaint.org.opentaint.semgrep.pattern.Mark
 import org.opentaint.semgrep.pattern.MetaVarConstraints
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
-import org.opentaint.org.opentaint.semgrep.pattern.Mark
 
 data class TaintRuleEdge(
     val stateFrom: TaintRegisterStateAutomata.State,
@@ -71,8 +70,6 @@ open class TaintRuleGenerationCtx(
     }
 
     val stateVarPosition by lazy {
-        PositionBaseWithModifiers.BaseOnly(
-            PositionBase.ClassStatic("${uniqueRuleId}${Mark.ArtificialStateName}")
-        )
+        PositionBase.ClassStatic("${uniqueRuleId}${Mark.ArtificialStateName}").base()
     }
 }

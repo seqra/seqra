@@ -2,7 +2,6 @@ package org.opentaint.semgrep.util
 
 import base.RuleSample
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
@@ -24,10 +23,16 @@ import kotlin.test.fail
 abstract class SampleBasedTest(
     private val configurationRequired: Boolean = false
 ) {
-    inline fun <reified T : RuleSample> runTest(expectStateVar: Boolean = false) =
-        runClassTest(getFullyQualifiedClassName<T>(), expectStateVar)
+    inline fun <reified T : RuleSample> runTest(
+        expectStateVar: Boolean = false,
+        noinline provideAdditionalRules: (SerializedTaintConfig) -> SerializedTaintConfig = { it }
+    ) = runClassTest(getFullyQualifiedClassName<T>(), expectStateVar, provideAdditionalRules)
 
-    fun runClassTest(sampleClassName: String, expectStateVar: Boolean) {
+    fun runClassTest(
+        sampleClassName: String,
+        expectStateVar: Boolean,
+        provideAdditionalRules: (SerializedTaintConfig) -> SerializedTaintConfig
+    ) {
         val data = sampleData[sampleClassName] ?: error("No sample data for $sampleClassName")
 
         val ruleYaml = parseSemgrepYaml(data.rule)
@@ -68,7 +73,9 @@ abstract class SampleBasedTest(
             null
         }
 
-        val results = runner.run(taintConfig, configPath, allSamples)
+        val configWithExtraRules = provideAdditionalRules(taintConfig)
+
+        val results = runner.run(configWithExtraRules, configPath, allSamples)
 
         val missedPositive = hashSetOf<PositiveCase>()
         for (sample in data.positiveClasses) {
