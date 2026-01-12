@@ -15,7 +15,7 @@ class ExampleTest : SampleBasedTest() {
     fun `test rule`() = runTest<example.Rule>()
 
     @Test
-    fun `test nd rule`() = runTest<example.NDRule>()
+    fun `test nd rule`() = runTest<example.NDRule>(EXPECT_STATE_VAR)
 
     @Test
     fun `test rule with pattern-inside`() = runTest<example.RuleWithPatternInside>()
@@ -48,7 +48,7 @@ class ExampleTest : SampleBasedTest() {
     fun `test rule with ellipsis method invocation`() = runTest<example.RuleWithEllipsisMethodInvocation>()
 
     @Test
-    fun `test rule with ellipsis method invocation and pattern not`() = runTest<example.RuleWithEllipsisInvocationAndPatternNot>()
+    fun `test rule with ellipsis method invocation and pattern not`() = runTest<example.RuleWithEllipsisInvocationAndPatternNot>(EXPECT_STATE_VAR)
 
     @Test
     fun `test rule requiring careful cleaners`() = runTest<RuleRequiringCarefulCleaners>()
@@ -61,7 +61,7 @@ class ExampleTest : SampleBasedTest() {
     fun `test rule with artificial reverse pattern-inside sequence`() = runTest<example.RuleWithArtificialInsideSequenceReverse>()
 
     @Test
-    fun `test simple pass`() = runTest<example.RuleWithSimplePass>()
+    fun `test simple pass`() = runTest<example.RuleWithSimplePass>(EXPECT_STATE_VAR)
 
     @Test
     fun `test rule with several suffix cleaners`() = runTest<example.RuleWithSeveralSuffixCleaners>()
@@ -73,7 +73,7 @@ class ExampleTest : SampleBasedTest() {
     fun `test rule with static field`() = runTest<example.RuleWithStaticField>()
 
     @Test
-    fun `test rule with state`() = runTest<example.RuleWithState>()
+    fun `test rule with state`() = runTest<example.RuleWithState>(EXPECT_STATE_VAR)
 
     @Test
     fun `test rule with any pattern`() = runTest<example.RuleWithAnyPattern>()
@@ -94,19 +94,19 @@ class ExampleTest : SampleBasedTest() {
     fun `test patterns signature`() = runTest<example.RuleWithPatternsSignature>()
 
     @Test
-    fun `test rule with multiple patterns`() = runTest<example.RuleWithMultiplePatterns>()
+    fun `test rule with multiple patterns`() = runTest<example.RuleWithMultiplePatterns>(EXPECT_STATE_VAR)
 
     @Test
-    fun `test rule with multiple patterns unification`() = runTest<example.RuleWithMultiplePatternsUnification>()
+    fun `test rule with multiple patterns unification`() = runTest<example.RuleWithMultiplePatternsUnification>(EXPECT_STATE_VAR)
 
     @Test
-    fun `test rule with multiple patterns ellipsis unification`() = runTest<example.RuleWithMultiplePatternsEllipsisUnification>()
+    fun `test rule with multiple patterns ellipsis unification`() = runTest<example.RuleWithMultiplePatternsEllipsisUnification>(EXPECT_STATE_VAR)
 
     @Test
     fun `test rule return simple`() = runTest<example.RuleReturnSimple>()
 
     @Test
-    fun `test rule return chained`() = runTest<example.RuleReturnChained>()
+    fun `test rule return chained`() = runTest<example.RuleReturnChained>(EXPECT_STATE_VAR)
 
     @Test
     fun `test rule return conditional`() = runTest<example.RuleReturnConditional>()
@@ -131,7 +131,7 @@ class ExampleTest : SampleBasedTest() {
     fun `test rule return 6`() = runTest<example.RuleReturn6>()
 
     @Test
-    fun `test cleaner after sink 0`() = runTest<example.CleanerAfterSink0>()
+    fun `test cleaner after sink 0`() = runTest<example.CleanerAfterSink0>(EXPECT_STATE_VAR)
 
     @Test
     fun `test cleaner after sink 1`() = runTest<example.CleanerAfterSink1>()
@@ -143,7 +143,7 @@ class ExampleTest : SampleBasedTest() {
     fun `test rule return not inside`() = runTest<example.RuleReturnNotInside>()
 
     @Test
-    fun `test rule return not inside prefix`() = runTest<example.RuleReturnNotInsidePrefix>()
+    fun `test rule return not inside prefix`() = runTest<example.RuleReturnNotInsidePrefix>(EXPECT_STATE_VAR)
 
     @Test
     fun `test rule return multi A`() = runTest<example.RuleReturnMultiInsideNotInsideA>()
@@ -152,7 +152,7 @@ class ExampleTest : SampleBasedTest() {
     fun `test rule return multi C`() = runTest<example.RuleReturnMultiInsideNotInsideC>()
 
     @Test
-    fun `test not-inside signature`() = runTest<example.RulePatternNotInsideWithSignature>()
+    fun `test not-inside signature`() = runTest<example.RulePatternNotInsideWithSignature>(EXPECT_STATE_VAR)
 
     @Test
     fun `test return inside signature`() = runTest<example.RuleReturnInsideSignature>()

@@ -1,5 +1,6 @@
 package org.opentaint.semgrep.pattern.conversion
 
+import org.opentaint.org.opentaint.semgrep.pattern.Mark
 import org.opentaint.semgrep.pattern.AddExpr
 import org.opentaint.semgrep.pattern.Annotation
 import org.opentaint.semgrep.pattern.ArrayAccess
@@ -50,7 +51,7 @@ class PatternToActionListConverter: ActionListBuilder {
     private var nextArtificialMetavarId = 0
 
     private fun provideArtificialMetavar(): String {
-        return "\$<ARTIFICIAL>_${nextArtificialMetavarId++}"
+        return "\$${Mark.ArtificialMetavarName}_${nextArtificialMetavarId++}"
     }
 
     val failedTransformations = mutableMapOf<String, Int>()

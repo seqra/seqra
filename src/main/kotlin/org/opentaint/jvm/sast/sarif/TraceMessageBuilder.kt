@@ -27,27 +27,13 @@ import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonReturnInst
 import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
-
-const val ArtificialMetavarName = "<ARTIFICIAL>"
-const val ArtificialStateName = "__<STATE>__"
-const val GeneralTaintName = "taint"
-const val GeneralTaintLabelPrefix = "taint_"
+import org.opentaint.org.opentaint.semgrep.pattern.Mark
 
 data class TracePathNodeWithMsg(
     val node: TracePathNode,
     val kind: String,
     val message: String,
 )
-
-sealed interface Mark {
-    data class StringMark(val mark: String) : Mark
-
-    data object ArtificialMark : Mark
-
-    data object StateMark : Mark
-
-    data object TaintMark : Mark
-}
 
 class TraceMessageBuilder(
     private val traits: SarifTraits<CommonMethod, CommonInst>,
@@ -187,7 +173,7 @@ class TraceMessageBuilder(
         if (taintMarks.isEmpty()) {
             return Mark.TaintMark
         }
-        return getMarkFromString(taintMarks.first().mark)
+        return Mark.getMarkFromString(taintMarks.first().mark, ruleId)
     }
 
     data class TaintInfo(val mark: Mark, val pos: AccessPathBase)
@@ -425,32 +411,6 @@ class TraceMessageBuilder(
         return result
     }
 
-    private fun getMarkFromString(rawMark: String): Mark {
-        if (!rawMark.contains('#'))
-            // running with config
-            return Mark.StringMark(rawMark)
-        val ruleLength = ruleId.length
-        if (!(rawMark.length > ruleLength && rawMark[ruleLength] == '#')) {
-            logger.error { "expected ruleId at the start of mark!" }
-            return Mark.TaintMark
-        }
-        val noRuleId = rawMark.substring(ruleLength + 1)
-        if (noRuleId == GeneralTaintName)
-            return Mark.TaintMark
-        if (noRuleId.contains(ArtificialStateName))
-            return Mark.StateMark
-        if (noRuleId.contains(ArtificialMetavarName))
-            return Mark.ArtificialMark
-        if (noRuleId.startsWith(GeneralTaintLabelPrefix))
-            return Mark.StringMark(noRuleId.substringAfter(GeneralTaintLabelPrefix))
-        val split = noRuleId.split("|")
-        if (split.size < 2) {
-            logger.error { "mark must contain at least two parts!" }
-            return Mark.TaintMark
-        }
-        return Mark.StringMark(split[1])
-    }
-
     private fun getMarkVarName(action: CommonTaintAction, neutralMark: String): Mark? {
         val name = when (action) {
             is AssignMark -> action.mark.name
@@ -458,7 +418,7 @@ class TraceMessageBuilder(
             is CopyAllMarks -> return Mark.StringMark(neutralMark)
             else -> return null
         }
-        return getMarkFromString(name)
+        return Mark.getMarkFromString(name, ruleId)
     }
 
     private fun getAssignTaintOut(entry: TraceEntry?) = when (entry?.statement) {

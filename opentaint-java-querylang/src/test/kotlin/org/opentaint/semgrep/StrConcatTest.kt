@@ -10,23 +10,23 @@ import kotlin.test.Test
 @TestInstance(PER_CLASS)
 class StrConcatTest : SampleBasedTest(configurationRequired = true) {
     @Test
-    fun `test rule with ellipsis string concat`() = runTest<strconcat.RuleWithEllipsisStringConcat>()
+    fun `test rule with ellipsis string concat`() = runTest<strconcat.RuleWithEllipsisStringConcat>(EXPECT_STATE_VAR)
 
     @Test
-    fun `test rule with ellipsis concat`() = runTest<strconcat.RuleWithEllipsisConcat>()
+    fun `test rule with ellipsis concat`() = runTest<strconcat.RuleWithEllipsisConcat>(EXPECT_STATE_VAR)
 
     @Test
     @Disabled // TODO: support string concat with concrete string
     fun `test rule with concrete string concat`() = runTest<strconcat.RuleWithConcreteStringConcat>()
 
     @Test
-    fun `test rule with metavar concat`() = runTest<strconcat.RuleWithMetavarConcat>()
+    fun `test rule with metavar concat`() = runTest<strconcat.RuleWithMetavarConcat>(EXPECT_STATE_VAR)
 
     @Test
-    fun `test rule with multiple metavar concat`() = runTest<strconcat.RuleWithMultipleMetavarConcat>()
+    fun `test rule with multiple metavar concat`() = runTest<strconcat.RuleWithMultipleMetavarConcat>(EXPECT_STATE_VAR)
 
     @Test
-    fun `test rule with unbound concat`() = runTest<strconcat.RuleWithUnboundConcat>()
+    fun `test rule with unbound concat`() = runTest<strconcat.RuleWithUnboundConcat>(EXPECT_STATE_VAR)
 
     @AfterAll
     fun close() {

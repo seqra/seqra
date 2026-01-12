@@ -18,6 +18,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssign
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
+import org.opentaint.org.opentaint.semgrep.pattern.Mark
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
@@ -136,7 +137,7 @@ private fun RuleConversionCtx.convertTaintRuleToTaintRules(
 
     fun taintMark(label: SemgrepTaintLabel?): String {
         val labelSuffix = label?.label?.let { "_$it" } ?: ""
-        return "$ruleId#taint$labelSuffix"
+        return "$ruleId#${Mark.GeneralTaintName}$labelSuffix"
     }
 
     for ((i, source) in rule.sources.withIndex()) {

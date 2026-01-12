@@ -33,7 +33,7 @@ fun RuleConversionCtx.generateAutomataWithTaintEdges(
 ): TaintRuleGenerationCtx {
     val simulated = simulateAutomata(automata)
     val meaningFullAutomata = removeMeaningLessEdges(simulated)
-    val cleaned = removeUnreachabeStates(meaningFullAutomata)
+    val cleaned = removeUnreachableStates(meaningFullAutomata)
     val rewritten = rewriteEdges(cleaned)
     val liveAutomata = eliminateDeadVariables(rewritten, acceptStateVars)
     val cleanAutomata = cleanupAutomata(liveAutomata, metaVarInfo)
@@ -362,7 +362,7 @@ private fun EdgeCondition.ensurePositiveCondition(ctx: RuleConversionCtx): EdgeC
     return null
 }
 
-private fun removeUnreachabeStates(
+private fun removeUnreachableStates(
     automata: TaintRegisterStateAutomata
 ): TaintRegisterStateAutomata {
     val predecessors = automataPredecessors(automata)
@@ -433,7 +433,7 @@ private fun eliminateDeadVariables(
     automata: TaintRegisterStateAutomata,
     acceptStateLiveVars: Set<MetavarAtom>
 ): TaintRegisterStateAutomata {
-    // TODO: to we need to specially handle complex variables here?
+    // TODO: do we need to specially handle complex variables here?
     val predecessors = automataPredecessors(automata)
 
     val variableIdx = hashMapOf<MetavarAtom, Int>()

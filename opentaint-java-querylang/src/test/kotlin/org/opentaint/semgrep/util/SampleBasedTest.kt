@@ -1,7 +1,14 @@
 package org.opentaint.semgrep.util
 
 import base.RuleSample
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
+import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
+import org.opentaint.dataflow.configuration.jvm.serialized.SourceRule
+import org.opentaint.org.opentaint.semgrep.pattern.Mark
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadTrace
 import org.opentaint.semgrep.pattern.SemgrepTraceEntry
 import org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
@@ -12,14 +19,15 @@ import kotlin.io.path.Path
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 abstract class SampleBasedTest(
     private val configurationRequired: Boolean = false
 ) {
-    inline fun <reified T : RuleSample> runTest() =
-        runClassTest(getFullyQualifiedClassName<T>())
+    inline fun <reified T : RuleSample> runTest(expectStateVar: Boolean = false) =
+        runClassTest(getFullyQualifiedClassName<T>(), expectStateVar)
 
-    fun runClassTest(sampleClassName: String) {
+    fun runClassTest(sampleClassName: String, expectStateVar: Boolean) {
         val data = sampleData[sampleClassName] ?: error("No sample data for $sampleClassName")
 
         val ruleYaml = parseSemgrepYaml(data.rule)
@@ -38,6 +46,15 @@ abstract class SampleBasedTest(
         )
 
         val taintConfig = rules.createTaintConfig()
+
+        val stateVarExists = doesCreateStateVar(taintConfig, rule.id)
+        if (!expectStateVar && stateVarExists) {
+            fail("Taint config has AssignAction that creates a state var, but `expectStateVar` was set to `false`!")
+        }
+        if (expectStateVar && !stateVarExists) {
+            fail("Taint config does not create any state var, but `expectStateVar` was set to `true`.\n" +
+                    "Consider changing the test or removing the flag.")
+        }
 
         val allSamples = hashSetOf<String>()
         data.positiveClasses.mapTo(allSamples) { it.className }
@@ -87,6 +104,26 @@ abstract class SampleBasedTest(
         )
     }
 
+    private fun List<SerializedItem?>?.getAssigns(): List<SerializedTaintAssignAction> =
+        this?.mapNotNull { rule ->
+            when (rule) {
+                is SourceRule -> rule.taint
+                is SinkRule -> rule.trackFactsReachAnalysisEnd
+                else -> emptyList()
+            }
+        }?.flatten()
+            ?: emptyList()
+
+    private fun doesCreateStateVar(taintConfig: SerializedTaintConfig, ruleId: String): Boolean {
+        val allAssignActions = taintConfig.source.getAssigns() +
+                taintConfig.entryPoint.getAssigns() +
+                taintConfig.staticFieldSource.getAssigns() +
+                taintConfig.methodEntrySink.getAssigns() +
+                taintConfig.methodExitSink.getAssigns() +
+                taintConfig.sink.getAssigns()
+        return allAssignActions.any { Mark.getMarkFromString(it.kind, ruleId) is Mark.StateMark }
+    }
+
     private val samplesDb by lazy { samplesDb() }
 
     private val sampleData by lazy { samplesDb.loadSampleData() }
@@ -103,4 +140,9 @@ abstract class SampleBasedTest(
     } catch (e: NoClassDefFoundError) {
         e.message?.replace('/', '.')
     } ?: error("No class name")
+
+    companion object {
+        @JvmStatic
+        protected val EXPECT_STATE_VAR = true
+    }
 }
