@@ -180,7 +180,9 @@ class JIRTaintAnalyzer(
             return TaintPassThrough(
                 method = method,
                 condition = ConstantTrue,
-                actionsAfter = possibleArgs.map { CopyAllMarks(from = it, to = Result) })
+                actionsAfter = possibleArgs.map { CopyAllMarks(from = it, to = Result) },
+                info = null
+            )
         }
 
         override fun passTroughRulesForMethod(method: CommonMethod, statement: CommonInst): Iterable<TaintPassThrough> {

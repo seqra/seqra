@@ -1,0 +1,19 @@
+rules:
+  - id: xss
+    languages:
+      - java
+    severity: ERROR
+    message: Return an untrusted data from a file
+    patterns:
+      - patterns:
+          - pattern: |- 
+              String $SINK = src();
+          - pattern-not-inside: |-
+              String $NAME = src();
+              ...
+              $SINK = clean($NAME);
+      - pattern-inside: |
+          $RETURNTYPE $METHOD(...) {
+            ...
+            return $SINK;
+          }

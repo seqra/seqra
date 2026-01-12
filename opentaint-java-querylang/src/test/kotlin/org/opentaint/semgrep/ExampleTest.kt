@@ -189,6 +189,9 @@ class ExampleTest : SampleBasedTest() {
             cfg.copy(passThrough = cfg.passThrough.orEmpty() + rule)
         }
 
+    @Test
+    fun `test tricky pattern not`() = runTest<example.TrickyPatterNot>(EXPECT_STATE_VAR)
+
     @AfterAll
     fun close() {
         closeRunner()

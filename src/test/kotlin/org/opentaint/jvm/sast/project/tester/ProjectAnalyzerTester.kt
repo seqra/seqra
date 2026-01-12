@@ -131,7 +131,8 @@ private fun createTestConfig(
             TaintMethodSource(
                 method = method,
                 condition = ConstantTrue,
-                actionsAfter = listOf(AssignMark(mark, specializePosition(it, source.position).single()))
+                actionsAfter = listOf(AssignMark(mark, specializePosition(it, source.position).single())),
+                info = null
             )
         }
     }
@@ -150,6 +151,7 @@ private fun createTestConfig(
                 trackFactsReachAnalysisEnd = emptyList(),
                 id = sink.mark,
                 meta = meta,
+                info = null
             )
         }
     }

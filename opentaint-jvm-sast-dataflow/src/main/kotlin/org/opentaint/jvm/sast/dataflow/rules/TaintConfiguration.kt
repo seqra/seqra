@@ -242,7 +242,7 @@ class TaintConfiguration(cp: JIRClasspath) {
                     }
                     actions += AssignMark(taintMark(action.kind), Result)
                 }
-                return listOf(TaintStaticFieldSource(field, ConstantTrue, actions))
+                return listOf(TaintStaticFieldSource(field, ConstantTrue, actions, info))
             }
         }
     }
@@ -280,22 +280,22 @@ class TaintConfiguration(cp: JIRClasspath) {
 
         return when (this) {
             is SerializedRule.EntryPoint -> {
-                TaintEntryPointSource(method, condition, taint.flatMap { it.resolve(method, ctx) })
+                TaintEntryPointSource(method, condition, taint.flatMap { it.resolve(method, ctx) }, info)
             }
 
             is SerializedRule.Source -> {
-                TaintMethodSource(method, condition, taint.flatMap { it.resolve(method, ctx) })
+                TaintMethodSource(method, condition, taint.flatMap { it.resolve(method, ctx) }, info)
             }
 
             is SerializedRule.MethodExitSource -> {
-                TaintMethodExitSource(method, condition, taint.flatMap { it.resolve(method, ctx) })
+                TaintMethodExitSource(method, condition, taint.flatMap { it.resolve(method, ctx) }, info)
             }
 
             is SerializedRule.Sink -> {
                 TaintMethodSink(
                     method, condition,
                     trackFactsReachAnalysisEnd?.flatMap { it.resolve(method, ctx) }.orEmpty(),
-                    ruleId(), meta()
+                    ruleId(), meta(), info
                 )
             }
 
@@ -303,7 +303,7 @@ class TaintConfiguration(cp: JIRClasspath) {
                 TaintMethodExitSink(
                     method, condition,
                     trackFactsReachAnalysisEnd?.flatMap { it.resolve(method, ctx) }.orEmpty(),
-                    ruleId(), meta()
+                    ruleId(), meta(), info
                 )
             }
 
@@ -311,16 +311,16 @@ class TaintConfiguration(cp: JIRClasspath) {
                 TaintMethodEntrySink(
                     method, condition,
                     trackFactsReachAnalysisEnd?.flatMap { it.resolve(method, ctx) }.orEmpty(),
-                    ruleId(), meta()
+                    ruleId(), meta(), info
                 )
             }
 
             is SerializedRule.PassThrough -> {
-                TaintPassThrough(method, condition, copy.flatMap { it.resolve(method, ctx) })
+                TaintPassThrough(method, condition, copy.flatMap { it.resolve(method, ctx) }, info)
             }
 
             is SerializedRule.Cleaner -> {
-                TaintCleaner(method, condition, cleans.flatMap { it.resolve(method, ctx) })
+                TaintCleaner(method, condition, cleans.flatMap { it.resolve(method, ctx) }, info)
             }
         }
     }
