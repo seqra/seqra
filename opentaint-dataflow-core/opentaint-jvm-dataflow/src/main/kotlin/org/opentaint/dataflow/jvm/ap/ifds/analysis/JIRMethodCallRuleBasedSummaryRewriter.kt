@@ -1,17 +1,19 @@
 package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
-import mu.KotlinLogging
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
+import org.opentaint.dataflow.configuration.jvm.RemoveMark
+import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionExpr
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionRewriter
 import org.opentaint.dataflow.jvm.ap.ifds.removeTrueLiterals
+import org.opentaint.dataflow.jvm.ap.ifds.taint.EvaluatedCleanAction
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FinalFactReader
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintCleanActionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
-import org.opentaint.dataflow.jvm.ap.ifds.taint.resolveAp
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
@@ -37,12 +39,12 @@ class JIRMethodCallRuleBasedSummaryRewriter(
         )
     }
 
-    private val conditionedActions: List<Pair<List<AssignMark>, JIRMarkAwareConditionExpr?>> by lazy {
+    private val conditionedActions: List<Triple<TaintConfigurationItem, List<AssignMark>, JIRMarkAwareConditionExpr?>> by lazy {
         val method = callExpr.method.method
         val sourceRules = config.sourceRulesForMethod(method, statement).toList()
         if (sourceRules.isEmpty()) return@lazy emptyList()
 
-        val conditionedActions = mutableListOf<Pair<List<AssignMark>, JIRMarkAwareConditionExpr?>>()
+        val conditionedActions = mutableListOf<Triple<TaintConfigurationItem, List<AssignMark>, JIRMarkAwareConditionExpr?>>()
 
         for (rule in sourceRules) {
             val ruleCondition = rule.condition
@@ -53,15 +55,19 @@ class JIRMethodCallRuleBasedSummaryRewriter(
                 else -> simplifiedCondition.expr
             }
 
-            conditionedActions.add(rule.actionsAfter to conditionExpr)
+            conditionedActions.add(Triple(rule, rule.actionsAfter, conditionExpr))
         }
 
         conditionedActions
     }
 
     fun rewriteSummaryFact(fact: FinalFactAp): Pair<FinalFactAp, FinalFactReader>? {
-        val factReader = FinalFactReader(fact, apManager)
-        for ((actions, cond) in conditionedActions) {
+        val startFactReader = FinalFactReader(fact, apManager)
+
+        val cleanEvaluator = TaintCleanActionEvaluator()
+        var cleanedFact = EvaluatedCleanAction.initial(startFactReader)
+
+        for ((rule, actions, cond) in conditionedActions) {
             val relevantPositiveConditions = hashSetOf<ContainsMark>()
             cond?.removeTrueLiterals {
                 if (!it.negated) {
@@ -76,22 +82,14 @@ class JIRMethodCallRuleBasedSummaryRewriter(
                 val markToExclude = allRelevantMarks.toHashSet()
                 markToExclude.remove(action.mark)
 
-                val pos = action.position.resolveAp()
                 for (mark in markToExclude) {
-                    if (!factReader.containsPositionWithTaintMark(pos, mark)) {
-                        continue
-                    }
-
-                    logger.error("Summary fact handled unproperly due to conflict with rule")
-                    return null
+                    val removeAction = RemoveMark(mark, action.position)
+                    cleanedFact = cleanEvaluator.evaluate(cleanedFact, rule, removeAction)
                 }
             }
         }
 
-        return fact to factReader
-    }
-
-    companion object {
-        private val logger = KotlinLogging.logger {}
+        val resultFact = cleanedFact.fact ?: return null
+        return resultFact.factAp to resultFact
     }
 }

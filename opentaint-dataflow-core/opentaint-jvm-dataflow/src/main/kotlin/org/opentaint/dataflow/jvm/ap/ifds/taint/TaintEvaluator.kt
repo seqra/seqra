@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.jvm.ap.ifds.taint
 
+import mu.KotlinLogging
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
@@ -172,7 +173,8 @@ class TaintCleanActionEvaluator {
         if (!fact.containsPosition(from)) return evc
 
         if (from !is PositionAccess.Simple) {
-            TODO("Remove from complex: $from")
+            logger.error("Unsupported Remove from complex: $from")
+            return evc
         }
 
         val actionInfo = EvaluatedCleanAction.ActionInfo(rule, action)
@@ -191,7 +193,8 @@ class TaintCleanActionEvaluator {
         if (!fact.containsPositionWithTaintMark(from, markRestriction)) return evc
 
         if (from !is PositionAccess.Simple) {
-            TODO("Remove from complex: $from")
+            logger.error("Unsupported Remove from complex: $from")
+            return evc
         }
 
         val factWithoutFinal = fact.factAp.clearAccessor(TaintMarkAccessor(markRestriction.name))
@@ -199,6 +202,10 @@ class TaintCleanActionEvaluator {
 
         val actionInfo = EvaluatedCleanAction.ActionInfo(rule, action)
         return EvaluatedCleanAction(resultFact, actionInfo, evc)
+    }
+
+    companion object {
+        private val logger = KotlinLogging.logger {}
     }
 }
 
