@@ -392,6 +392,12 @@ private class MethodFormulaSolver(
                 val simplifiedPredicate = Predicate(predicate.signature, constraint = null)
                 return addNegativePredicate(simplifiedPredicate)
             }
+
+            if (param is NumberOfArgsConstraint) {
+                if (predicate.signature.isGeneratedStringConcat() || predicate.signature.isGeneratedAnyValueGenerator()) {
+                    return null
+                }
+            }
         }
 
         val signature = positive.signature.unify(predicate.signature, metaVarInfo)

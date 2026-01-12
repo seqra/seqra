@@ -1,6 +1,7 @@
 package org.opentaint.semgrep.pattern.conversion
 
 import org.opentaint.org.opentaint.semgrep.pattern.Mark
+import org.opentaint.org.opentaint.semgrep.pattern.conversion.parseMethodArgs
 import org.opentaint.semgrep.pattern.AddExpr
 import org.opentaint.semgrep.pattern.Annotation
 import org.opentaint.semgrep.pattern.ArrayAccess
@@ -26,10 +27,8 @@ import org.opentaint.semgrep.pattern.MethodDeclaration
 import org.opentaint.semgrep.pattern.MethodInvocation
 import org.opentaint.semgrep.pattern.Modifier
 import org.opentaint.semgrep.pattern.NamedValue
-import org.opentaint.semgrep.pattern.NoArgs
 import org.opentaint.semgrep.pattern.NullLiteral
 import org.opentaint.semgrep.pattern.ObjectCreation
-import org.opentaint.semgrep.pattern.PatternArgumentPrefix
 import org.opentaint.semgrep.pattern.PatternSequence
 import org.opentaint.semgrep.pattern.ReturnStmt
 import org.opentaint.semgrep.pattern.SemgrepErrorEntry
@@ -282,21 +281,8 @@ class PatternToActionListConverter: ActionListBuilder {
         return result to IsMetavar(MetavarAtom.create(metavar))
     }
 
-    private fun methodArgumentsToPatternList(pattern: MethodArguments): List<SemgrepJavaPattern> {
-        return when (pattern) {
-            is NoArgs -> {
-                emptyList()
-            }
-            is EllipsisArgumentPrefix -> {
-                val rest = methodArgumentsToPatternList(pattern.rest)
-                listOf(pattern) + rest
-            }
-            is PatternArgumentPrefix -> {
-                val rest = methodArgumentsToPatternList(pattern.rest)
-                listOf(pattern.argument) + rest
-            }
-        }
-    }
+    private fun methodArgumentsToPatternList(pattern: MethodArguments): List<SemgrepJavaPattern> =
+        parseMethodArgs(pattern)
 
     private fun tryConvertPatternIntoTypeName(pattern: SemgrepJavaPattern): TypeNamePattern? {
         if (pattern !is TypedMetavar) return null

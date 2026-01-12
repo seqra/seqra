@@ -1170,6 +1170,10 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
         TODO("Eliminate generated method")
     }
 
+    if (signature.isGeneratedStringConcat()) {
+        TODO("Eliminate generated string concat")
+    }
+
     val methodName = signature.methodName.name
     builder.methodName = evaluateFormulaSignatureMethodName(methodName, builder.conditions, semgrepRuleTrace)
 

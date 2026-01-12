@@ -1,0 +1,19 @@
+rules:
+  - id: pattern.xss
+    languages:
+      - java
+    severity: ERROR
+    message: Return an untrusted file path
+    patterns:
+      - pattern: |
+          @EntryPoint
+          $RETURNTYPE $METHOD(String $PARAM) {
+            ...
+            return "..." + $PARAM + "...";
+          }
+      - pattern-not-inside: |
+          @EntryPoint
+          $RETURNTYPE $METHOD(String $PARAM) {
+            ...
+            return "..." + clean($PARAM) + "...";
+          }

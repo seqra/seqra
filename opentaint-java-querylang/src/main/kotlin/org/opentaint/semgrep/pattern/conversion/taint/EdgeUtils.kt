@@ -45,3 +45,8 @@ fun MethodPredicate.findMetaVarConstraint(): MetavarAtom? {
     val constraint = predicate.constraint
     return ((constraint as? ParamConstraint)?.condition as? IsMetavar)?.metavar
 }
+
+fun EdgeCondition.containsPredicate(pred: (MethodPredicate) -> Boolean): Boolean {
+    if (other.any(pred)) return true
+    return readMetaVar.values.any { it.any(pred) }
+}

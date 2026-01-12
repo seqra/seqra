@@ -45,6 +45,9 @@ class CustomTest : SampleBasedTest(configurationRequired = true) {
     @Disabled // todo: fix totalization, then fix negative case
     fun `test xss with sanitizer rule min no pattern ellipsis`() = runTest<custom.springXssSanitizedMinNoPatternEllipsis>()
 
+    @Test
+    fun `test RuleReturnWithNotInsideSignature str concat`() = runTest<custom.RuleReturnWithNotInsideSignatureStrConcat>(EXPECT_STATE_VAR)
+
     @AfterAll
     fun close(){
         closeRunner()

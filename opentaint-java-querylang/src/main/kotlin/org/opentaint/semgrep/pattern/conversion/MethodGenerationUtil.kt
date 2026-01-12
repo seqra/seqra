@@ -1,10 +1,7 @@
 package org.opentaint.org.opentaint.semgrep.pattern.conversion
 
 import org.opentaint.semgrep.pattern.ConcreteName
-import org.opentaint.semgrep.pattern.MethodArguments
 import org.opentaint.semgrep.pattern.MethodInvocation
-import org.opentaint.semgrep.pattern.NoArgs
-import org.opentaint.semgrep.pattern.PatternArgumentPrefix
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
 import org.opentaint.semgrep.pattern.TypeName
 import org.opentaint.semgrep.pattern.TypedMetavar
@@ -16,8 +13,7 @@ private var genCnt = 0
 private val generatedMethodClassType by lazy { TypeName(generatedMethodClassName.split('.').map { ConcreteName(it) }) }
 
 fun generateMethodInvocation(methodName: String, args: List<SemgrepJavaPattern>): MethodInvocation {
-    val argsPattern = args.foldRight(NoArgs as MethodArguments) { p, res -> PatternArgumentPrefix(p, res) }
-
+    val argsPattern = createMethodArgs(args)
     val obj = TypedMetavar(mkGeneratedMethodInvocationObjMetaVar(genCnt++), generatedMethodClassType)
     return MethodInvocation(ConcreteName(methodName), obj, argsPattern)
 }

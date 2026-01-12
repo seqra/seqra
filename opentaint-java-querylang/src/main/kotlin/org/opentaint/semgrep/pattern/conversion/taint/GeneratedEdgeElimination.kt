@@ -297,7 +297,11 @@ data class StringConcatCtx(
                     if (it is Position.Argument) {
                         val index = it.index
                         check(index is Position.ArgumentIndex.Concrete) { "Expected concrete argument index" }
-                        check(index.idx in 0 until 2) { "Invalid index for string concat" }
+
+                        if (index.idx !in 0 until 2) {
+                            TODO("Eliminate n-ary string concat")
+                        }
+
                         if (index.idx == 0) {
                             Position.Object
                         } else {
@@ -347,7 +351,7 @@ data class StringConcatCtx(
                 val modified = newMetavars.map(::IsMetavar)
 
                 if (condition.metavar !in newMetavars || newMetavars.size > 1) {
-                    return modified + ParamCondition.TypeIs(TypeNamePattern.FullyQualified("java.lang.String"))
+                    return modified + ParamCondition.TypeIs(stringType)
                 } else {
                     return modified
                 }
@@ -365,10 +369,14 @@ data class StringConcatCtx(
     companion object {
         val EMPTY: StringConcatCtx = StringConcatCtx(emptyMap())
 
+        val stringType by lazy {
+            TypeNamePattern.FullyQualified("java.lang.String")
+        }
+
         val stringConcatMethodSignature by lazy {
             MethodSignature(
                 MethodName(SignatureName.Concrete("concat")),
-                MethodEnclosingClassName(TypeNamePattern.FullyQualified("java.lang.String"))
+                MethodEnclosingClassName(stringType)
             )
         }
     }
@@ -380,6 +388,10 @@ fun eliminateStringConcat(
     ctx: StringConcatCtx,
     rebuildEdge: (EdgeEffect, EdgeCondition) -> Edge,
 ): EdgeEliminationResult<StringConcatCtx> {
+    if (!condition.containsPredicate { it.predicate.signature.isGeneratedStringConcat() }) {
+        return ctx.transformEdge(effect, condition, rebuildEdge)
+    }
+
     // TODO: rollback renaming of metavar when necessary (?)
     val generatedByConcatHelperMetavars = effect.assignMetaVar.mapNotNull { (metavar, preds) ->
         val isResultOfConcatHelper = preds.any {
@@ -392,10 +404,6 @@ fun eliminateStringConcat(
 
         metavar.takeIf { isResultOfConcatHelper }
     }.toSet()
-
-    if (generatedByConcatHelperMetavars.isEmpty()) {
-        return ctx.transformEdge(effect, condition, rebuildEdge)
-    }
 
     val metavarArguments = condition.readMetaVar.flatMap { (metavar, preds) ->
         val isArgumentOfConcatHelper = preds.any {
@@ -417,7 +425,7 @@ fun eliminateStringConcat(
         it.asConditionOnStringConcat<Position.Argument>()
     }
 
-    if (otherArguments.isEmpty() || otherArguments.singleOrNull() == ParamCondition.AnyStringLiteral) {
+    if (otherArguments.all { it is ParamCondition.AnyStringLiteral }) {
         val newCtx = if (metavarArguments.size == 1 && metavarArguments == generatedByConcatHelperMetavars) {
             ctx
         } else {
