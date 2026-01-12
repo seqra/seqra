@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.ap.ifds.analysis
 
+import org.opentaint.dataflow.ap.ifds.Edge
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication
@@ -53,6 +54,8 @@ interface MethodCallSummaryHandler {
         Sequent.FactToFact(initialFactAp.refine(initialFactRefinement), summaryFactAp, TraceInfo.ApplySummary)
     }
 
+    fun prepareFactToFactSummary(summaryEdge: Edge.FactToFact): Edge.FactToFact? = summaryEdge
+
     fun handleNDFactToFact(
         initialFacts: Set<InitialFactAp>,
         currentFactAp: FinalFactAp,
@@ -73,6 +76,8 @@ interface MethodCallSummaryHandler {
             TraceInfo.ApplySummary
         )
     }
+
+    fun prepareNDFactToFactSummary(summaryEdge: Edge.NDFactToFact): Edge.NDFactToFact? = summaryEdge
 
     fun InitialFactAp.refine(exclusionSet: ExclusionSet?) =
         if (exclusionSet == null) this else replaceExclusions(exclusionSet)

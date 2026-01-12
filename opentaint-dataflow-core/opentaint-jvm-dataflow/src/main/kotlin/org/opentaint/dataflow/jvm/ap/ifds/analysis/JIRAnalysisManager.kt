@@ -157,7 +157,7 @@ class JIRAnalysisManager(
         jIRDowncast<JIRInst>(statement)
         jIRDowncast<JIRMethodAnalysisContext>(analysisContext)
 
-        return JIRMethodCallSummaryHandler(statement, analysisContext)
+        return JIRMethodCallSummaryHandler(statement, analysisContext, apManager)
     }
 
     override fun getMethodCallPrecondition(

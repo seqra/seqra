@@ -729,11 +729,13 @@ class NormalMethodAnalyzer(
                 apManager, analysisContext, sub.currentEdge.statement
             )
 
+            val summariesToApply = applicableSummaries.mapNotNull { handler.prepareFactToFactSummary(it) }
+
             applyMethodSummaries(
                 currentEdge = sub.currentEdge,
                 currentEdgeFactAp = sub.currentEdge.factAp,
                 methodInitialFactBase = sub.methodInitialFactBase,
-                methodSummaries = applicableSummaries,
+                methodSummaries = summariesToApply,
                 handleSummaryEdge = handler::handleZeroToFact
             )
         }
@@ -861,12 +863,14 @@ class NormalMethodAnalyzer(
                 apManager, analysisContext, currentEdge.statement
             )
 
+            val summariesToApply = applicableSummaries.mapNotNull { handler.prepareNDFactToFactSummary(it) }
+
             applyMethodNDSummaries(
                 summaryHandler = handler,
                 currentEdge = currentEdge,
                 currentEdgeFactAp = sub.subFact(),
                 methodInitialFactBase = sub.subInitialFactBase(),
-                methodSummaries = applicableSummaries,
+                methodSummaries = summariesToApply,
             )
         }
     }

@@ -56,6 +56,10 @@ class JIRMethodCallFlowFunction(
     private val config get() = analysisContext.taint.taintConfig as TaintRulesProvider
     private val sinkTracker get() = analysisContext.taint.taintSinkTracker
 
+    private val summaryRewriter by lazy {
+        JIRMethodCallRuleBasedSummaryRewriter(statement, analysisContext, apManager)
+    }
+
     override fun propagateZeroToZero() = buildSet {
         val conditionRewriter = JIRMarkAwareConditionRewriter(
             CallPositionToJIRValueResolver(callExpr, returnValue),
@@ -290,7 +294,13 @@ class JIRMethodCallFlowFunction(
 
         passThroughFacts.onSome { evaluatedPass ->
             evaluatedPass.forEach { evp ->
-                val mappedFact = evp.fact.mapExitToReturnFact() ?: return@forEach
+                val (unrefinedFact, factRefinement) = summaryRewriter.rewriteSummaryFact(evp.fact)
+                    ?: return@forEach
+
+                val fact = factRefinement.refineFact(unrefinedFact)
+                factReaderAfterCleaner.updateRefinement(factRefinement)
+
+                val mappedFact = fact.mapExitToReturnFact() ?: return@forEach
 
                 val trace = TraceInfo.Rule(evp.rule, evp.action)
 

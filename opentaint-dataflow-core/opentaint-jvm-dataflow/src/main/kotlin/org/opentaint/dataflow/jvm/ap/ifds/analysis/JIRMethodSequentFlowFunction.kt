@@ -166,7 +166,7 @@ class JIRMethodSequentFlowFunction(
         while (resultFacts.isNotEmpty()) {
             val (resultFact, factTrace) = resultFacts.removeLast()
 
-            val (factsToDrop, newSources) = applyMethodExitSinkRules(exitBase, resultFact)
+            val (factsToDrop, newSources) = applyMethodExitSinkRules(exitBase, resultFact, initialFactIsZero)
             resultFacts.addAll(newSources)
 
             val propagatedFact = resultFact.dropFinalFacts(factsToDrop)
@@ -458,8 +458,10 @@ class JIRMethodSequentFlowFunction(
     }
 
     private fun applyMethodExitSinkRules(
-        methodResult: AccessPathBase, fact: FinalFactAp
+        methodResult: AccessPathBase, fact: FinalFactAp, initialFactIsZero: Boolean
     ): Pair<List<InitialFactAp>, List<Pair<FinalFactAp, TraceInfo>>> = with(analysisContext.taint) {
+        if (!initialFactIsZero) return emptyList<InitialFactAp>() to emptyList()
+
         val config = taintConfig as TaintRulesProvider
         val sinkRules = config.sinkRulesForMethodExit(currentInst.location.method, currentInst).toList()
         if (sinkRules.isEmpty()) return emptyList<InitialFactAp>() to emptyList()
