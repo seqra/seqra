@@ -33,8 +33,9 @@ fun generateTracePath(trace: TraceResolver.Trace): TracePathGenerationResult {
 
         val resolvedPaths = startNodes.mapNotNull {
             val node = it as? InterProceduralTraceNode ?: return@mapNotNull null
-            generateSourceToSinkPath(sourceToSinkTrace, node)
-        }
+            val path = generateSourceToSinkPath(sourceToSinkTrace, node) ?: return@mapNotNull null
+            node to path
+        }.distinctBy { it.first.methodEntryPoint }.map { it.second }
 
         if (resolvedPaths.isEmpty()) return TracePathGenerationResult.Failure
 

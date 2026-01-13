@@ -111,8 +111,8 @@ class SarifGenerator(
             }
         }
 
-        // create a better choosing algorithm
-        return paths.firstOrNull()?.let { CodeFlow(threadFlows = listOf(generateThreadFlow(it, sinkMessage, ruleId))) }
+        val threadFlows = paths.map { generateThreadFlow(it, sinkMessage, ruleId) }
+        return CodeFlow(threadFlows = threadFlows)
     }
 
     private fun areTracesRelative(a: TracePathNode, b: TracePathNode): Boolean {
