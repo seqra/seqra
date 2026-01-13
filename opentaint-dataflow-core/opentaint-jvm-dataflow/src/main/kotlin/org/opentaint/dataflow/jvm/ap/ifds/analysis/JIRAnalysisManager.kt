@@ -44,7 +44,7 @@ import org.opentaint.util.analysis.ApplicationGraph
 
 class JIRAnalysisManager(
     cp: JIRClasspath,
-    private val applyAliasInfo: Boolean = false,
+    private val applyAliasInfo: Boolean = true,
 ) : JIRLanguageManager(cp), TaintAnalysisManager {
     private val lambdaTracker = JIRLambdaTracker()
     private val factTypeChecker = JIRFactTypeChecker(cp)

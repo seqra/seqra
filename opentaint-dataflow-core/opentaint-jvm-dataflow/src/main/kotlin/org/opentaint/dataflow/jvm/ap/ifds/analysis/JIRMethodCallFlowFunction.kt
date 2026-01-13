@@ -310,9 +310,6 @@ class JIRMethodCallFlowFunction(
                     addCallToReturn(factReaderAfterCleaner, aliased, trace)
                 }
             }
-
-            // Skip method invocation
-            return
         }
 
         val cleanedFact = factReaderAfterCleaner.factAp

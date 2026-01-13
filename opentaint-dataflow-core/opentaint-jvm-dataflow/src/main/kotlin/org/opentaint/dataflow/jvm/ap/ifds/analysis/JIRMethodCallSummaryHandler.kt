@@ -29,6 +29,7 @@ class JIRMethodCallSummaryHandler(
         currentFactAp: FinalFactAp,
         summaryEffect: MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication,
         summaryFact: FinalFactAp,
+        createSideEffectRequirement: (refinement: ExclusionSet) -> Sequent?,
         handleSummaryEdge: (initialFactRefinement: ExclusionSet?, summaryFactAp: FinalFactAp) -> Sequent
     ): Set<Sequent> {
         val result = hashSetOf<Sequent>()
@@ -36,8 +37,13 @@ class JIRMethodCallSummaryHandler(
         result += super.handleSummary(
             currentFactAp,
             summaryEffect,
-            summaryFact
+            summaryFact,
+            createSideEffectRequirement,
         ) { initialFactRefinement: ExclusionSet?, summaryFactAp: FinalFactAp ->
+            if (initialFactRefinement != null) {
+                createSideEffectRequirement(initialFactRefinement)?.also { result.add(it) }
+            }
+
             analysisContext.aliasAnalysis?.forEachAliasAfterStatement(statement, summaryFactAp) { aliased ->
                 handleSummaryEdge(initialFactRefinement, aliased)
             }

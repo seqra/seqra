@@ -32,7 +32,11 @@ interface MethodCallSummaryHandler {
     ): Set<Sequent> = handleSummary(
         currentFactAp,
         summaryEffect,
-        summaryFact
+        summaryFact,
+        createSideEffectRequirement = {
+            check(it is ExclusionSet.Universe) { "Incorrect refinement" }
+            null
+        }
     ) { initialFactRefinement: ExclusionSet?, summaryFactAp ->
         check(initialFactRefinement == null || initialFactRefinement is ExclusionSet.Universe) {
             "Incorrect refinement"
@@ -49,7 +53,10 @@ interface MethodCallSummaryHandler {
     ): Set<Sequent> = handleSummary(
         currentFactAp,
         summaryEffect,
-        summaryFact
+        summaryFact,
+        createSideEffectRequirement = { refinement ->
+            Sequent.SideEffectRequirement(initialFactAp.refine(refinement))
+        }
     ) { initialFactRefinement: ExclusionSet?, summaryFactAp: FinalFactAp ->
         Sequent.FactToFact(initialFactAp.refine(initialFactRefinement), summaryFactAp, TraceInfo.ApplySummary)
     }
@@ -64,7 +71,11 @@ interface MethodCallSummaryHandler {
     ): Set<Sequent> = handleSummary(
         currentFactAp,
         summaryEffect,
-        summaryFact
+        summaryFact,
+        createSideEffectRequirement = {
+            check(it is ExclusionSet.Universe) { "Incorrect refinement" }
+            null
+        }
     ) { initialFactRefinement: ExclusionSet?, summaryFactAp: FinalFactAp ->
         check(initialFactRefinement == null || initialFactRefinement is ExclusionSet.Universe) {
             "Incorrect refinement"
@@ -86,6 +97,7 @@ interface MethodCallSummaryHandler {
         currentFactAp: FinalFactAp,
         summaryEffect: SummaryEdgeApplication,
         summaryFact: FinalFactAp,
+        createSideEffectRequirement: (refinement: ExclusionSet) -> Sequent?,
         handleSummaryEdge: (initialFactRefinement: ExclusionSet?, summaryFactAp: FinalFactAp) -> Sequent
     ): Set<Sequent> {
         val mappedSummaryFacts = mapMethodExitToReturnFlowFact(summaryFact)
