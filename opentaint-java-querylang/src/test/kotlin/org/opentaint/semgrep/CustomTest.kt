@@ -48,6 +48,9 @@ class CustomTest : SampleBasedTest(configurationRequired = true) {
     @Test
     fun `test RuleReturnWithNotInsideSignature str concat`() = runTest<custom.RuleReturnWithNotInsideSignatureStrConcat>(EXPECT_STATE_VAR)
 
+    @Test
+    fun `test sample with alias`() = runTest<custom.SampleWithAlias>()
+
     @AfterAll
     fun close(){
         closeRunner()
