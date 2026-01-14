@@ -61,9 +61,9 @@ func (m ScanMode) String() string {
 // scanCmd represents the scan command
 var scanCmd = &cobra.Command{
 	Use:   "scan project",
-	Short: "Scan your Java project",
+	Short: "Scan your Java or Kotlin project",
 	Args:  cobra.ExactArgs(1), // require exactly one argument
-	Long: `This command automatically detects Java build system, build project and analyze it
+	Long: `This command automatically detects Java/Kotlin build systems, build project and analyze it
 
 Arguments:
   project  - Path to a project or a project model (required)
