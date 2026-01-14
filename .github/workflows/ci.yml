@@ -43,6 +43,15 @@ jobs:
         with:
           go-version: '1.25.x'
 
+      - name: Set GitHub token arg
+        id: github-token
+        run: |
+          TOKEN_ARG=""
+          if [ -n "${{ secrets.SEQRA_GITHUB_TOKEN }}" ]; then
+            TOKEN_ARG="--github-token ${{ secrets.SEQRA_GITHUB_TOKEN }}"
+          fi
+          echo "arg=$TOKEN_ARG" >> $GITHUB_OUTPUT
+
       - uses: actions/checkout@v4
         with:
           repository: spring-projects/spring-petclinic
@@ -58,7 +67,7 @@ jobs:
 
       - name: Run seqra scan in native environment when user can build project but has no java 17+
         run: |
-          ./seqra scan --compile-type native --scan-type native --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output report.sarif project-root-java-11 --verbosity debug
+          ./seqra scan --compile-type native --scan-type native ${{ steps.github-token.outputs.arg }} --output report.sarif project-root-java-11 --verbosity debug
 
   run-on-petclinic:
     runs-on: ubuntu-latest
@@ -69,6 +78,15 @@ jobs:
 
       - name: Setup seqra
         uses: ./.github/actions/setup-seqra
+
+      - name: Set GitHub token arg
+        id: github-token
+        run: |
+          TOKEN_ARG=""
+          if [ -n "${{ secrets.SEQRA_GITHUB_TOKEN }}" ]; then
+            TOKEN_ARG="--github-token ${{ secrets.SEQRA_GITHUB_TOKEN }}"
+          fi
+          echo "arg=$TOKEN_ARG" >> $GITHUB_OUTPUT
 
       - uses: actions/checkout@v4
         with:
@@ -85,9 +103,9 @@ jobs:
 
       - name: Run seqra separate compile and scan
         run: |
-          ./seqra compile --quiet --compile-type docker --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output portable-project project-root --verbosity debug
-          ./seqra scan --quiet --scan-type docker --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output report.sarif portable-project --verbosity debug
+          ./seqra compile --quiet --compile-type docker ${{ steps.github-token.outputs.arg }} --output portable-project project-root --verbosity debug
+          ./seqra scan --quiet --scan-type docker ${{ steps.github-token.outputs.arg }} --output report.sarif portable-project --verbosity debug
 
       - name: Run seqra scan in native enviroment
         run: |
-          ./seqra scan --quiet --compile-type native --scan-type native --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output report.sarif project-root
+          ./seqra scan --quiet --compile-type native --scan-type native ${{ steps.github-token.outputs.arg }} --output report.sarif project-root
