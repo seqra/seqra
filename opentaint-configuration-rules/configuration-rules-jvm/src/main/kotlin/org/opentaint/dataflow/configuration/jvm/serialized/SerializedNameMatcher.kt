@@ -26,6 +26,9 @@ sealed interface SerializedNameMatcher {
 
     @Serializable(with = SimpleNameMatcherSerializer::class)
     data class Simple(val value: String) : SerializedNameMatcher
+
+    @Serializable
+    data class Array(val element: SerializedNameMatcher) : SerializedNameMatcher
 }
 
 class SerializedNameMatcherSerializer :
@@ -34,8 +37,12 @@ class SerializedNameMatcherSerializer :
         is YamlScalar -> SerializedNameMatcher.Simple.serializer()
         is YamlMap -> {
             val patternProperty = node.getKey("pattern")
+            val elementProperty = node.getKey("element")
+
             if (patternProperty != null) {
                 SerializedNameMatcher.Pattern.serializer()
+            } else if (elementProperty != null) {
+                SerializedNameMatcher.Array.serializer()
             } else {
                 SerializedNameMatcher.ClassPattern.serializer()
             }
