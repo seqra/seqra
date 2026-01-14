@@ -19,7 +19,7 @@ var toolVersion bool
 var rootCmd = &cobra.Command{
 	Use:   "opentaint",
 	Short: "OpenTaint Analyzer",
-	Long:  `OpenTaint is a CLI tool that analyzes Java projects to find vulnerabilities`,
+	Long:  `OpenTaint is a CLI tool that analyzes Java and Kotlin projects to find vulnerabilities`,
 
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		switch cmd.Name() {
