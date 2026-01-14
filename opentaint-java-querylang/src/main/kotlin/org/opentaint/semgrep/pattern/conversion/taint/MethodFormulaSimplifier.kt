@@ -734,71 +734,97 @@ private fun MethodName.unify(
 private fun MethodEnclosingClassName.unify(
     other: MethodEnclosingClassName,
     metaVarInfo: ResolvedMetaVarInfo,
-): MethodEnclosingClassName? {
-    if (this.name == other.name) return this
+): MethodEnclosingClassName? =
+    unifyTypeName(this.name, other.name, metaVarInfo)
+        ?.let { MethodEnclosingClassName(it) }
 
-    when (this.name) {
-        TypeNamePattern.AnyType -> return other
+private fun unifyTypeName(
+    left: TypeNamePattern,
+    right: TypeNamePattern,
+    metaVarInfo: ResolvedMetaVarInfo
+): TypeNamePattern? {
+    if (left == right) return left
+
+    when (left) {
+        TypeNamePattern.AnyType -> return right
 
         is TypeNamePattern.PrimitiveName -> return null
 
-        is TypeNamePattern.ClassName -> when (other.name) {
-            TypeNamePattern.AnyType -> return this
+        is TypeNamePattern.ClassName -> when (right) {
+            TypeNamePattern.AnyType -> return left
 
+            is TypeNamePattern.ArrayType,
             is TypeNamePattern.ClassName,
             is TypeNamePattern.PrimitiveName -> return null
 
             is TypeNamePattern.FullyQualified -> {
-                if (other.name.name.endsWith(this.name.name)) return other
+                if (right.name.endsWith(left.name)) return right
                 return null
             }
 
             is TypeNamePattern.MetaVar -> {
-                if (!stringMatches(this.name.name, metaVarInfo.metaVarConstraints[other.name.metaVar])) return null
-                return this
+                if (!stringMatches(left.name, metaVarInfo.metaVarConstraints[right.metaVar])) return null
+                return left
             }
         }
 
-        is TypeNamePattern.FullyQualified -> when (other.name) {
-            TypeNamePattern.AnyType -> return this
+        is TypeNamePattern.FullyQualified -> when (right) {
+            TypeNamePattern.AnyType -> return left
 
+            is TypeNamePattern.ArrayType,
             is TypeNamePattern.PrimitiveName -> return null
 
             is TypeNamePattern.ClassName -> {
-                if (this.name.name.endsWith(other.name.name)) return this
+                if (left.name.endsWith(right.name)) return left
                 return null
             }
 
             is TypeNamePattern.FullyQualified -> return null
 
             is TypeNamePattern.MetaVar -> {
-                if (this.name.name == generatedMethodClassName) return null
-                if (!stringMatches(this.name.name, metaVarInfo.metaVarConstraints[other.name.metaVar])) return null
-                return this
+                if (left.name == generatedMethodClassName) return null
+                if (!stringMatches(left.name, metaVarInfo.metaVarConstraints[right.metaVar])) return null
+                return left
             }
         }
 
-        is TypeNamePattern.MetaVar -> when (other.name) {
-            TypeNamePattern.AnyType -> return this
+        is TypeNamePattern.MetaVar -> when (right) {
+            TypeNamePattern.AnyType -> return left
 
+            is TypeNamePattern.ArrayType,
             is TypeNamePattern.PrimitiveName -> return null
 
             is TypeNamePattern.ClassName -> {
-                if (!stringMatches(other.name.name, metaVarInfo.metaVarConstraints[this.name.metaVar])) return null
-                return other
+                if (!stringMatches(right.name, metaVarInfo.metaVarConstraints[left.metaVar])) return null
+                return right
             }
 
             is TypeNamePattern.FullyQualified -> {
-                if (other.name.name == generatedMethodClassName) return null
-                if (!stringMatches(other.name.name, metaVarInfo.metaVarConstraints[this.name.metaVar])) return null
-                return other
+                if (right.name == generatedMethodClassName) return null
+                if (!stringMatches(right.name, metaVarInfo.metaVarConstraints[left.metaVar])) return null
+                return right
             }
 
             is TypeNamePattern.MetaVar -> {
-                val thisConstraints = metaVarInfo.metaVarConstraints[this.name.metaVar] ?: return other
-                val otherConstraints = metaVarInfo.metaVarConstraints[other.name.metaVar] ?: return this
+                val thisConstraints = metaVarInfo.metaVarConstraints[left.metaVar] ?: return right
+                val otherConstraints = metaVarInfo.metaVarConstraints[right.metaVar] ?: return left
                 TODO("Type metavar constraints intersection")
             }
+        }
+
+        is TypeNamePattern.ArrayType -> when (right) {
+            is TypeNamePattern.AnyType -> return left
+
+            is TypeNamePattern.ArrayType -> {
+                val unifiedElement = unifyTypeName(left.element, right.element, metaVarInfo)
+                    ?: return null
+                return TypeNamePattern.ArrayType(unifiedElement)
+            }
+
+            is TypeNamePattern.ClassName,
+            is TypeNamePattern.FullyQualified,
+            is TypeNamePattern.MetaVar,
+            is TypeNamePattern.PrimitiveName -> return null
         }
     }
 }

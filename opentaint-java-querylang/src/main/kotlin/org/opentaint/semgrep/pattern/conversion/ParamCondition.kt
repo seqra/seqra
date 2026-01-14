@@ -22,6 +22,10 @@ sealed interface TypeNamePattern {
     data object AnyType : TypeNamePattern {
         override fun toString(): String = "*"
     }
+
+    data class ArrayType(val element: TypeNamePattern) : TypeNamePattern {
+        override fun toString(): String = "${element}[]"
+    }
 }
 
 sealed interface ParamPosition {

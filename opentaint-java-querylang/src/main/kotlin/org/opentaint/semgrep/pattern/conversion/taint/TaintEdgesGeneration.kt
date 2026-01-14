@@ -351,6 +351,10 @@ private fun MetaVarCtx.typeNameMetaVars(typeName: TypeNamePattern, metaVars: Bit
             metaVars.set(typeName.metaVar.idx())
         }
 
+        is TypeNamePattern.ArrayType -> {
+            typeNameMetaVars(typeName.element, metaVars)
+        }
+
         TypeNamePattern.AnyType,
         is TypeNamePattern.ClassName,
         is TypeNamePattern.PrimitiveName,

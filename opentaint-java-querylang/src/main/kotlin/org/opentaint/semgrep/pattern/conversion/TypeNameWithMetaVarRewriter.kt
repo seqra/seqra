@@ -13,10 +13,10 @@ fun rewriteTypeNameWithMetaVar(
     rule: NormalizedSemgrepRule,
     metaVarInfo: ResolvedMetaVarInfo
 ): Pair<List<NormalizedSemgrepRule>, ResolvedMetaVarInfo> {
-    val generatedMetaVars = hashMapOf<TypeName, String>()
+    val generatedMetaVars = hashMapOf<TypeName.SimpleTypeName, String>()
 
     val rewriter = object : PatternRewriter {
-        override fun TypeName.rewriteTypeName(): TypeName {
+        override fun TypeName.SimpleTypeName.rewriteSimpleTypeName(): TypeName.SimpleTypeName {
             if (dotSeparatedParts.size < 2) return this
             if (dotSeparatedParts.all { it !is MetavarName }) return this
 
@@ -24,7 +24,7 @@ fun rewriteTypeNameWithMetaVar(
                 "__TYPE#${generatedMetaVars.size}__"
             }
 
-            return TypeName(listOf(MetavarName(metaVar)), typeArgs)
+            return TypeName.SimpleTypeName(listOf(MetavarName(metaVar)), typeArgs)
         }
     }
 

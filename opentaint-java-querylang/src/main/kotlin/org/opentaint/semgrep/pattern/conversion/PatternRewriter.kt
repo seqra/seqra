@@ -259,12 +259,19 @@ interface PatternRewriter {
     fun rewriteThisExpr(): List<SemgrepJavaPattern> = listOf(ThisExpr)
     fun rewriteEmptyPatternSequence(): List<SemgrepJavaPattern> = listOf(EmptyPatternSequence)
 
-    fun TypeName.rewriteTypeName(): TypeName =
-        TypeName(
+    fun TypeName.rewriteTypeName(): TypeName = when (this) {
+        is TypeName.SimpleTypeName -> rewriteSimpleTypeName()
+        is TypeName.ArrayTypeName -> rewriteArrayTypeName()
+    }
+
+    fun TypeName.SimpleTypeName.rewriteSimpleTypeName(): TypeName.SimpleTypeName =
+        TypeName.SimpleTypeName(
             dotSeparatedParts = dotSeparatedParts.map { it.rewriteName() },
             typeArgs = typeArgs.map { it.rewriteTypeName() }
         )
 
+    fun TypeName.ArrayTypeName.rewriteArrayTypeName(): TypeName.ArrayTypeName =
+        TypeName.ArrayTypeName(elementType.rewriteTypeName())
 
     fun Name.rewriteName(): Name = this
 

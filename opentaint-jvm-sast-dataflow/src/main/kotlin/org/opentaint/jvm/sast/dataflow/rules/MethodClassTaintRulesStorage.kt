@@ -2,6 +2,7 @@ package org.opentaint.jvm.sast.dataflow.rules
 
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.ClassPattern
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Pattern
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Simple
@@ -66,6 +67,7 @@ class MethodTaintRulesStorage<S : SerializedRule> private constructor(
 
             for (rule in rules) {
                 when (val fName = rule.function.name.normalizeAnyName()) {
+                    is SerializedNameMatcher.Array,
                     is ClassPattern -> error("impossible")
                     is Simple -> {
                         concreteMethodNameRules.getOrPut(fName.value) {
@@ -252,8 +254,10 @@ private class MethodClassTaintRulesStorage<S : SerializedRule> private construct
                 val cls = rule.function.`class`.normalizeAnyName()
 
                 when (pkg) {
+                    is SerializedNameMatcher.Array,
                     is ClassPattern -> error("impossible")
                     is Simple -> when (cls) {
+                        is SerializedNameMatcher.Array,
                         is ClassPattern -> error("impossible")
                         is Simple -> {
                             addConcreteClassRule(joinClassName(pkg.value, cls.value), rule)
@@ -265,6 +269,7 @@ private class MethodClassTaintRulesStorage<S : SerializedRule> private construct
                     }
 
                     is Pattern -> when (cls) {
+                        is SerializedNameMatcher.Array,
                         is ClassPattern -> error("impossible")
                         is Simple -> addPatternPackageConcreteClassRule(pkg, cls.value, rule)
                         is Pattern -> addPatternPackagePatternClassRule(pkg, cls, rule)

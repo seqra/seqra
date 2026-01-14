@@ -10,7 +10,7 @@ import org.opentaint.semgrep.pattern.conversion.mkGeneratedMethodInvocationObjMe
 const val generatedMethodClassName = "__.gen.__"
 
 private var genCnt = 0
-private val generatedMethodClassType by lazy { TypeName(generatedMethodClassName.split('.').map { ConcreteName(it) }) }
+private val generatedMethodClassType by lazy { TypeName.SimpleTypeName(generatedMethodClassName.split('.').map { ConcreteName(it) }) }
 
 fun generateMethodInvocation(methodName: String, args: List<SemgrepJavaPattern>): MethodInvocation {
     val argsPattern = createMethodArgs(args)

@@ -5,20 +5,20 @@ import base.RuleSet;
 
 @RuleSet("example/CleanerAfterSink1.yaml")
 public abstract class CleanerAfterSink1 implements RuleSample {
-    Object src() {
-        return new Object();
+    String src() {
+        return "tainted";
     }
 
-    void sink(Object o) {
+    void sink(String o) {
     }
 
-    void clean(Object o) {
+    void clean(String o) {
     }
 
     static class PositiveSimple extends CleanerAfterSink1 {
         @Override
         public void entrypoint() {
-            Object o = src();
+            String o = src();
             sink(o);
         }
     }
@@ -26,7 +26,7 @@ public abstract class CleanerAfterSink1 implements RuleSample {
     static class NegativeSimple extends CleanerAfterSink1 {
         @Override
         public void entrypoint() {
-            Object o = src();
+            String o = src();
             sink(o);
             clean(o);
         }
@@ -35,15 +35,15 @@ public abstract class CleanerAfterSink1 implements RuleSample {
     static class PositiveMultipleFunctions extends CleanerAfterSink1 {
         @Override
         public void entrypoint() {
-            Object o = nestedSrc();
+            String o = nestedSrc();
             nestedSink(o);
         }
 
-        Object nestedSrc() {
+        String nestedSrc() {
             return src();
         }
 
-        void nestedSink(Object o) {
+        void nestedSink(String o) {
             sink(o);
         }
     }
@@ -51,20 +51,20 @@ public abstract class CleanerAfterSink1 implements RuleSample {
     static class NegativeMultipleFunctions extends CleanerAfterSink1 {
         @Override
         public void entrypoint() {
-            Object o = nestedSrc();
+            String o = nestedSrc();
             nestedSink(o);
             nestedClean(o);
         }
 
-        Object nestedSrc() {
+        String nestedSrc() {
             return src();
         }
 
-        void nestedSink(Object o) {
+        void nestedSink(String o) {
             sink(o);
         }
 
-        void nestedClean(Object o) {
+        void nestedClean(String o) {
             clean(o);
         }
     }
@@ -74,20 +74,20 @@ public abstract class CleanerAfterSink1 implements RuleSample {
 
         @Override
         public void entrypoint() {
-            Object o = nestedSrc();
+            String o = nestedSrc();
             nestedSink(o);
             nestedClean(o);
         }
 
-        Object nestedSrc() {
+        String nestedSrc() {
             return src();
         }
 
-        void nestedSink(Object o) {
+        void nestedSink(String o) {
             sink(o);
         }
 
-        void nestedClean(Object o) {
+        void nestedClean(String o) {
             if (applyClean) {
                 clean(o);
             }
@@ -99,20 +99,20 @@ public abstract class CleanerAfterSink1 implements RuleSample {
 
         @Override
         public void entrypoint() {
-            Object o = nestedSrc();
+            String o = nestedSrc();
             nestedSink(o);
             nestedClean(o);
         }
 
-        Object nestedSrc() {
+        String nestedSrc() {
             return src();
         }
 
-        void nestedSink(Object o) {
+        void nestedSink(String o) {
             sink(o);
         }
 
-        void nestedClean(Object o) {
+        void nestedClean(String o) {
             if (applyClean) {
                 clean(o);
             } else {
@@ -120,7 +120,7 @@ public abstract class CleanerAfterSink1 implements RuleSample {
             }
         }
 
-        void otherClean(Object o) {
+        void otherClean(String o) {
             clean(o);
         }
     }

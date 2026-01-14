@@ -1,7 +1,5 @@
 package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.semgrep.pattern.conversion.PatternRewriter
-import org.opentaint.semgrep.pattern.conversion.safeRewrite
 import org.opentaint.semgrep.pattern.ConcreteName
 import org.opentaint.semgrep.pattern.FieldAccess
 import org.opentaint.semgrep.pattern.Name
@@ -25,7 +23,7 @@ fun rewriteStaticFieldAccess(rule: NormalizedSemgrepRule): List<NormalizedSemgre
                 return listOf(this)
             }
 
-            return listOf(StaticFieldAccess(fieldName, TypeName(objPatternParts)))
+            return listOf(StaticFieldAccess(fieldName, TypeName.SimpleTypeName(objPatternParts)))
         }
 
         private fun probablyStaticField(fieldName: Name, obj: List<Name>): Boolean {

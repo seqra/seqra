@@ -1187,6 +1187,10 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
             builder.enclosingClassName = SerializedNameMatcher.Simple(parts.last())
         }
 
+        is SerializedNameMatcher.Array -> {
+            TODO("Signature class is array")
+        }
+
         is SerializedNameMatcher.Pattern -> {
             TODO("Signature class name pattern")
         }
@@ -1368,6 +1372,12 @@ private fun TaintRuleGenerationCtx.typeMatcher(
             MetaVarConstraintFormula.Constraint(
                 SerializedNameMatcher.Simple(typeName.name)
             )
+        }
+
+        is TypeNamePattern.ArrayType -> {
+            typeMatcher(typeName.element)?.transform { matcher ->
+                SerializedNameMatcher.Array(matcher)
+            }
         }
 
         TypeNamePattern.AnyType -> return null

@@ -9,6 +9,7 @@ import org.antlr.v4.runtime.RecognitionException
 import org.antlr.v4.runtime.Recognizer
 import org.antlr.v4.runtime.tree.ParseTree
 import org.antlr.v4.runtime.tree.RuleNode
+import org.opentaint.semgrep.pattern.TypeName.SimpleTypeName
 import org.opentaint.semgrep.pattern.antlr.JavaLexer
 import org.opentaint.semgrep.pattern.antlr.JavaParser
 import org.opentaint.semgrep.pattern.antlr.JavaParser.AltAnnotationQualifiedNameContext
@@ -48,6 +49,8 @@ import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeArgumentContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeDeclSemgrepPatternContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeDeclarationContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeIdentifierContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeTypeBodyContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeTypeBodySimpleContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeTypeContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.TypeTypeOrVoidContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.TypedVariableExpressionContext
@@ -148,26 +151,41 @@ private class TypenameParserVisitor : JavaParserBaseVisitor<TypeName>() {
             }
 
             val parsedTypeArgs = parseTypeArgs(ctx, typeArgs.typeArgument())
-            return TypeName(dotSeparatedParts, parsedTypeArgs)
+            return SimpleTypeName(dotSeparatedParts, parsedTypeArgs)
         }
 
-        return TypeName(dotSeparatedParts)
+        return SimpleTypeName(dotSeparatedParts)
     }
 
     override fun visitTypeTypeOrVoid(ctx: TypeTypeOrVoidContext): TypeName = ctx.withRule {
-        tryRule(TypeTypeOrVoidContext::VOID) { return TypeName(listOf(ConcreteName(it.text))) }
+        tryRule(TypeTypeOrVoidContext::VOID) { return SimpleTypeName(listOf(ConcreteName(it.text))) }
         tryRule(TypeTypeOrVoidContext::typeType) { return it.accept(this@TypenameParserVisitor) }
         unreachable()
     }
 
     override fun visitTypeType(ctx: TypeTypeContext): TypeName = ctx.withRule {
-        tryRule(TypeTypeContext::primitiveType) { return it.accept(this@TypenameParserVisitor) }
-        tryRule(TypeTypeContext::classOrInterfaceType) { return it.accept(this@TypenameParserVisitor) }
+        value(TypeTypeContext::typeTypeBody).accept(this@TypenameParserVisitor)
+    }
+
+    override fun visitTypeTypeBody(ctx: TypeTypeBodyContext): TypeName = ctx.withRule {
+        val simpleType = value(TypeTypeBodyContext::typeTypeBodySimple).accept(this@TypenameParserVisitor)
+
+        val arrayModifier = value(TypeTypeBodyContext::typeTypeBodyArrayModifier)
+        val arrayDimensions = arrayModifier.LBRACK().size
+
+        var result: TypeName = simpleType
+        repeat(arrayDimensions) { result = TypeName.ArrayTypeName(result) }
+        result
+    }
+
+    override fun visitTypeTypeBodySimple(ctx: TypeTypeBodySimpleContext): TypeName = ctx.withRule {
+        tryRule(TypeTypeBodySimpleContext::primitiveType) { return it.accept(this@TypenameParserVisitor) }
+        tryRule(TypeTypeBodySimpleContext::classOrInterfaceType) { return it.accept(this@TypenameParserVisitor) }
         unreachable()
     }
 
     override fun visitPrimitiveType(ctx: PrimitiveTypeContext): TypeName =
-        TypeName(listOf(ConcreteName(ctx.text)))
+        SimpleTypeName(listOf(ConcreteName(ctx.text)))
 
     override fun visitClassOrInterfaceType(ctx: ClassOrInterfaceTypeContext): TypeName = ctx.withRule {
         val prefix = value(ClassOrInterfaceTypeContext::identifier).map { it.parseName() }
@@ -179,10 +197,10 @@ private class TypenameParserVisitor : JavaParserBaseVisitor<TypeName>() {
         }
 
         val typeTypeArguments = get(ClassOrInterfaceTypeContext::typeIdentifierTypeArguments)
-            ?: return TypeName(prefix + final)
+            ?: return SimpleTypeName(prefix + final)
 
         val typeArgs = parseTypeArgs(ctx, typeTypeArguments.typeArguments().typeArgument())
-        return TypeName(prefix + final, typeArgs)
+        return SimpleTypeName(prefix + final, typeArgs)
     }
 
     private fun parseTypeArgs(ctx: ParserRuleContext, args: List<TypeArgumentContext>): List<TypeName> {
@@ -212,12 +230,12 @@ private class TypenameParserVisitor : JavaParserBaseVisitor<TypeName>() {
 
     override fun visitQualifiedName(ctx: QualifiedNameContext): TypeName = ctx.withRule {
         val parts = value(QualifiedNameContext::identifier).map { it.parseName() }
-        return TypeName(parts)
+        return SimpleTypeName(parts)
     }
 
     override fun visitAltAnnotationQualifiedName(ctx: AltAnnotationQualifiedNameContext): TypeName = ctx.withRule {
         val parts = value(AltAnnotationQualifiedNameContext::identifier).map { it.parseName() }
-        return TypeName(parts)
+        return SimpleTypeName(parts)
     }
 }
 

@@ -1,0 +1,39 @@
+rules:
+  - id: example-Rule
+    languages:
+      - java
+    severity: ERROR
+    message: match example/Rule
+    patterns:
+      - pattern-either:
+          - pattern: |-
+              @EntryPoint
+              $RETURNTYPE $METHOD(String[] $PARAM) {
+                  arraySink($PARAM);
+              }
+
+# todo: array access
+#          - pattern: |-
+#              @EntryPoint
+#              $RETURNTYPE $METHOD(String[] $PARAM) {
+#                  elementSink($PARAM[...]);
+#              }
+
+          - pattern: |-
+              @EntryPoint
+              $RETURNTYPE $METHOD(String[] $PARAM) {
+                  otherElementSink($PARAM);
+              }
+
+          - pattern: |-
+              $PARAM = src();
+              arraySink($PARAM);
+
+# todo: array access
+#          - pattern: |-
+#              $PARAM = src();
+#              elementSink($PARAM[...]);
+
+          - pattern: |-
+              $PARAM = src();
+              otherElementSink($PARAM);

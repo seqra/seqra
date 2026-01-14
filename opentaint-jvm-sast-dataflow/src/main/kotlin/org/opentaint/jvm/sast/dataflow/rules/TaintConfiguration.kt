@@ -74,12 +74,17 @@ import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
+import org.opentaint.ir.api.jvm.TypeName
+import org.opentaint.ir.api.jvm.ext.objectClass
+import org.opentaint.ir.impl.cfg.util.isArray
 import org.opentaint.ir.impl.util.adjustEmptyList
+import org.opentaint.jvm.util.typename
 import java.util.concurrent.atomic.AtomicInteger
 
 class TaintConfiguration(cp: JIRClasspath) {
     private val patternManager = PatternManager()
     private val hierarchyInfo = JIRHierarchyInfo(cp)
+    private val objectTypeName = cp.objectClass.typename
 
     private val entryPointConfig = TaintRulesStorage<SerializedRule.EntryPoint, TaintEntryPointSource>()
     private val sourceConfig = TaintRulesStorage<SerializedRule.Source, TaintMethodSource>()
@@ -197,6 +202,11 @@ class TaintConfiguration(cp: JIRClasspath) {
             val (pkgName, clsName) = splitClassName(name)
             `package`.match(pkgName) && `class`.match(clsName)
         }
+
+        is SerializedNameMatcher.Array -> {
+            val nameWithoutArrayModifier = name.removeSuffix("[]")
+            name != nameWithoutArrayModifier && element.match(nameWithoutArrayModifier)
+        }
     }
 
     private fun SerializedSignatureMatcher.matchFunctionSignature(method: JIRMethod): Boolean {
@@ -280,21 +290,21 @@ class TaintConfiguration(cp: JIRClasspath) {
 
         return when (this) {
             is SerializedRule.EntryPoint -> {
-                TaintEntryPointSource(method, condition, taint.flatMap { it.resolve(method, ctx) }, info)
+                TaintEntryPointSource(method, condition, taint.flatMap { it.resolveWithArray(method, ctx) }, info)
             }
 
             is SerializedRule.Source -> {
-                TaintMethodSource(method, condition, taint.flatMap { it.resolve(method, ctx) }, info)
+                TaintMethodSource(method, condition, taint.flatMap { it.resolveWithArray(method, ctx) }, info)
             }
 
             is SerializedRule.MethodExitSource -> {
-                TaintMethodExitSource(method, condition, taint.flatMap { it.resolve(method, ctx) }, info)
+                TaintMethodExitSource(method, condition, taint.flatMap { it.resolveWithArray(method, ctx) }, info)
             }
 
             is SerializedRule.Sink -> {
                 TaintMethodSink(
                     method, condition,
-                    trackFactsReachAnalysisEnd?.flatMap { it.resolve(method, ctx) }.orEmpty(),
+                    trackFactsReachAnalysisEnd?.flatMap { it.resolveNoArray(method, ctx) }.orEmpty(),
                     ruleId(), meta(), info
                 )
             }
@@ -302,7 +312,7 @@ class TaintConfiguration(cp: JIRClasspath) {
             is SerializedRule.MethodExitSink -> {
                 TaintMethodExitSink(
                     method, condition,
-                    trackFactsReachAnalysisEnd?.flatMap { it.resolve(method, ctx) }.orEmpty(),
+                    trackFactsReachAnalysisEnd?.flatMap { it.resolveNoArray(method, ctx) }.orEmpty(),
                     ruleId(), meta(), info
                 )
             }
@@ -310,7 +320,7 @@ class TaintConfiguration(cp: JIRClasspath) {
             is SerializedRule.MethodEntrySink -> {
                 TaintMethodEntrySink(
                     method, condition,
-                    trackFactsReachAnalysisEnd?.flatMap { it.resolve(method, ctx) }.orEmpty(),
+                    trackFactsReachAnalysisEnd?.flatMap { it.resolveNoArray(method, ctx) }.orEmpty(),
                     ruleId(), meta(), info
                 )
             }
@@ -478,7 +488,10 @@ class TaintConfiguration(cp: JIRClasspath) {
         is SerializedCondition.IsConstant -> mkOr(isConstant.resolve(method, ctx).map { IsConstant(it) })
 
         is SerializedCondition.ContainsMark -> mkOr(
-            pos.resolvePosition(method, ctx).map { ContainsMark(it, taintMark(tainted)) })
+            pos.resolvePosition(method, ctx)
+                .flatMap { it.resolveArrayPosition(method) }
+                .map { ContainsMark(it, taintMark(tainted)) }
+        )
 
         is SerializedCondition.IsType -> resolveIsType(method, ctx)
 
@@ -533,9 +546,33 @@ class TaintConfiguration(cp: JIRClasspath) {
         return mkOr(position.map { TypeMatchesPattern(it, matcher) })
     }
 
-    private fun SerializedTaintAssignAction.resolve(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignMark> =
+    private fun SerializedTaintAssignAction.resolveWithArray(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignMark> =
         pos.resolvePositionWithAnnotationConstraint(method, ctx, annotatedWith?.asAnnotationConstraint())
+            .flatMap { it.resolveArrayPosition(method) }
             .map { AssignMark(taintMark(kind), it) }
+
+    private fun SerializedTaintAssignAction.resolveNoArray(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignMark> =
+        pos.resolvePositionWithAnnotationConstraint(method, ctx, annotatedWith?.asAnnotationConstraint())
+            .flatMap { it.resolveArrayPosition(method) }
+            .map { AssignMark(taintMark(kind), it) }
+
+    private fun Position.resolveArrayPosition(method: JIRMethod): List<Position> = when (this) {
+        is ClassStatic -> listOf(this)
+        is PositionWithAccess -> base.resolveArrayPosition(method).map { PositionWithAccess(it, access) }
+        is This -> listOf(this)
+        is Argument -> resolveArrayPosition(this, method.parameters.getOrNull(index)?.type)
+        is Result -> resolveArrayPosition(this, method.returnType)
+    }
+
+    private fun resolveArrayPosition(position: Position, positionType: TypeName?): List<Position> {
+        if (positionType == null) return listOf(position)
+
+        if (!positionType.isArray && positionType != objectTypeName) {
+            return listOf(position)
+        }
+
+        return listOf(position, PositionWithAccess(position, PositionAccessor.ElementAccessor))
+    }
 
     private fun SerializedTaintPassAction.resolve(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<Action> =
         from.resolvePosition(method, ctx).flatMap { fromPos ->
@@ -550,14 +587,15 @@ class TaintConfiguration(cp: JIRClasspath) {
         }
 
     private fun SerializedTaintCleanAction.resolve(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<Action> =
-        pos.resolvePosition(method, ctx).map { pos ->
-            val taintKind = taintKind
-            if (taintKind == null) {
-                RemoveAllMarks(pos)
-            } else {
-                RemoveMark(taintMark(taintKind), pos)
+        pos.resolvePosition(method, ctx)
+            .map { pos ->
+                val taintKind = taintKind
+                if (taintKind == null) {
+                    RemoveAllMarks(pos)
+                } else {
+                    RemoveMark(taintMark(taintKind), pos)
+                }
             }
-        }
 
     private fun PositionBaseWithModifiers.resolvePosition(
         method: JIRMethod,

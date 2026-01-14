@@ -17,45 +17,75 @@ fun SerializedNameMatcher.toConditionNameMatcher(patternManager: PatternManager)
 
         is ClassPattern -> {
             when (val pkgMatcher = `package`) {
+                is SerializedNameMatcher.Array,
                 is ClassPattern -> error("impossible")
 
-                is Simple -> when (val clsMatcher = `class`) {
-                    is ClassPattern -> error("impossible")
-
-                    is Simple -> {
-                        val name = "${pkgMatcher.value}.${clsMatcher.value}"
-                        ConditionNameMatcher.Concrete(name)
-                    }
-
-                    is Pattern -> {
-                        if (clsMatcher.isAny()) {
-                           return ConditionNameMatcher.PatternStartsWith(pkgMatcher.value)
-                        }
-
-                        val pkgPattern = nameToPattern(pkgMatcher.value)
-                        val pattern = classNamePattern(pkgPattern, clsMatcher.pattern)
-                        createPattern(pattern, patternManager)
-                    }
-                }
-
-                is Pattern -> when (val clsMatcher = `class`) {
-                    is ClassPattern -> error("impossible")
-                    is Simple -> {
-                        if (pkgMatcher.isAny()) {
-                            return ConditionNameMatcher.PatternEndsWith(clsMatcher.value)
-                        }
-
-                        val clsPattern = nameToPattern(clsMatcher.value)
-                        val pattern = classNamePattern(pkgMatcher.pattern, clsPattern)
-                        createPattern(pattern, patternManager)
-                    }
-
-                    is Pattern -> {
-                        val pattern = classNamePattern(pkgMatcher.pattern, clsMatcher.pattern)
-                        createPattern(pattern, patternManager)
-                    }
-                }
+                is Simple -> conditionNameMatcherWithSimplePackage(patternManager, `class`, pkgMatcher)
+                is Pattern -> conditionNameMatcherWithPatternPackage(patternManager, `class`, pkgMatcher)
             }
+        }
+
+        is SerializedNameMatcher.Array -> {
+            element.toConditionNameMatcher(patternManager)?.addSuffix("[]", patternManager)
+        }
+    }
+}
+
+private fun conditionNameMatcherWithSimplePackage(
+    patternManager: PatternManager,
+    clsMatcher: SerializedNameMatcher,
+    pkgMatcher: Simple
+): ConditionNameMatcher {
+    return when (clsMatcher) {
+        is ClassPattern -> error("impossible")
+
+        is Simple -> {
+            val name = "${pkgMatcher.value}.${clsMatcher.value}"
+            ConditionNameMatcher.Concrete(name)
+        }
+
+        is Pattern -> {
+            if (clsMatcher.isAny()) {
+                return ConditionNameMatcher.PatternStartsWith(pkgMatcher.value)
+            }
+
+            val pkgPattern = nameToPattern(pkgMatcher.value)
+            val pattern = classNamePattern(pkgPattern, clsMatcher.pattern)
+            createPattern(pattern, patternManager)
+        }
+
+        is SerializedNameMatcher.Array -> {
+            val elementCond = conditionNameMatcherWithSimplePackage(patternManager, clsMatcher.element, pkgMatcher)
+            elementCond.addSuffix("[]", patternManager)
+        }
+    }
+}
+
+private fun conditionNameMatcherWithPatternPackage(
+    patternManager: PatternManager,
+    clsMatcher: SerializedNameMatcher,
+    pkgMatcher: Pattern
+): ConditionNameMatcher {
+    return when (clsMatcher) {
+        is ClassPattern -> error("impossible")
+        is Simple -> {
+            if (pkgMatcher.isAny()) {
+                return ConditionNameMatcher.PatternEndsWith(clsMatcher.value)
+            }
+
+            val clsPattern = nameToPattern(clsMatcher.value)
+            val pattern = classNamePattern(pkgMatcher.pattern, clsPattern)
+            createPattern(pattern, patternManager)
+        }
+
+        is Pattern -> {
+            val pattern = classNamePattern(pkgMatcher.pattern, clsMatcher.pattern)
+            createPattern(pattern, patternManager)
+        }
+
+        is SerializedNameMatcher.Array -> {
+            val elementCond = conditionNameMatcherWithPatternPackage(patternManager, clsMatcher.element, pkgMatcher)
+            elementCond.addSuffix("[]", patternManager)
         }
     }
 }
@@ -106,4 +136,26 @@ private fun tryConcretizePattern(pattern: String): String? {
     }
 
     return unescapedStr.toString()
+}
+
+private fun ConditionNameMatcher.addSuffix(
+    suffix: String,
+    patternManager: PatternManager,
+): ConditionNameMatcher = when (this) {
+    is ConditionNameMatcher.Concrete -> ConditionNameMatcher.Concrete(name + suffix)
+    is ConditionNameMatcher.PatternEndsWith -> ConditionNameMatcher.PatternEndsWith(this.suffix + suffix)
+    is ConditionNameMatcher.PatternStartsWith -> {
+        ConditionNameMatcher.Pattern(patternManager.compilePattern("${prefix}.*$suffix"))
+    }
+
+    is ConditionNameMatcher.Pattern -> {
+        val pattern = this.pattern.pattern
+        val patternWithSuffix = if (!pattern.endsWith('$')) {
+            "${pattern}.*$suffix"
+        } else {
+            val beforeDollar = pattern.removeSuffix("$")
+            "${beforeDollar}.*$suffix$"
+        }
+        ConditionNameMatcher.Pattern(patternManager.compilePattern(patternWithSuffix))
+    }
 }

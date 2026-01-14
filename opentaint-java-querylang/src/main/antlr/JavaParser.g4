@@ -865,7 +865,19 @@ typeList
     ;
 
 typeType
-    : annotation* (classOrInterfaceType | primitiveType) (annotation* '[' ']')*
+    : annotation* typeTypeBody
+    ;
+
+typeTypeBody
+    : typeTypeBodySimple typeTypeBodyArrayModifier
+    ;
+
+typeTypeBodyArrayModifier
+    : (annotation* '[' ']')*
+    ;
+
+typeTypeBodySimple
+    : (classOrInterfaceType | primitiveType)
     ;
 
 primitiveType

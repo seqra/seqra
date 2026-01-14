@@ -16,6 +16,7 @@ fun SerializedNameMatcher.normalizeAnyName(): SerializedNameMatcher = when (this
 
     is Pattern -> this
     is Simple -> if (value == "*") anyNameMatcher() else this
+    is SerializedNameMatcher.Array -> SerializedNameMatcher.Array(element.normalizeAnyName())
 }
 
 fun nameToPattern(name: String): String = name.replace(DOT_DELIMITER, "\\.")

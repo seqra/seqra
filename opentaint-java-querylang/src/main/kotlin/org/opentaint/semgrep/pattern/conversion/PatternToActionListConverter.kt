@@ -207,7 +207,15 @@ class PatternToActionListConverter: ActionListBuilder {
         hashSetOf("byte", "short", "char", "int", "long", "float", "double", "boolean")
     }
 
-    private fun transformTypeName(typeName: TypeName): TypeNamePattern {
+    private fun transformTypeName(typeName: TypeName): TypeNamePattern = when (typeName) {
+        is TypeName.SimpleTypeName -> transformSimpleTypeName(typeName)
+        is TypeName.ArrayTypeName -> {
+            val elementTypePattern = transformTypeName(typeName.elementType)
+            TypeNamePattern.ArrayType(elementTypePattern)
+        }
+    }
+
+    private fun transformSimpleTypeName(typeName: TypeName.SimpleTypeName): TypeNamePattern {
         if (typeName.typeArgs.isNotEmpty()) {
             semgrepTrace?.error("Type arguments ignored", SemgrepErrorEntry.Reason.WARNING)
         }
@@ -511,6 +519,10 @@ class PatternToActionListConverter: ActionListBuilder {
 
         val retType = pattern.returnType
         val returnTypeName = if (retType != null) {
+            if (retType !is TypeName.SimpleTypeName) {
+                transformationFailed("MethodDeclaration_return_type_is_array")
+            }
+
             if (retType.typeArgs.isNotEmpty()) {
                 transformationFailed("MethodDeclaration_return_type_with_type_args")
             }

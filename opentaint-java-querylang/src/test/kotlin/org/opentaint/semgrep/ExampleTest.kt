@@ -192,6 +192,9 @@ class ExampleTest : SampleBasedTest() {
     @Test
     fun `test tricky pattern not`() = runTest<example.TrickyPatterNot>(EXPECT_STATE_VAR)
 
+    @Test
+    fun `test array example`() = runTest<example.ArrayExample>()
+
     @AfterAll
     fun close() {
         closeRunner()

@@ -32,7 +32,7 @@ class SemgrepJavaPatternMatcher(
 ) {
     private val constructorMethodName = "<init>"
     private val stringBuilderFullName = "java.lang.StringBuilder"
-    private val stringBuilderFullNameAsTypeName = TypeName(
+    private val stringBuilderFullNameAsTypeName = TypeName.SimpleTypeName(
         stringBuilderFullName.split('.').map { ConcreteName(it) }
     )
     private val stringBuilderAppend = "append"
@@ -404,6 +404,7 @@ class SemgrepJavaPatternMatcher(
 
     private fun matchTypeName(patternName: TypeName, typeName: String): SemgrepMatchingResult {
         val metavarGroups = mutableMapOf<String, Int>()
+        patternName as TypeName.SimpleTypeName
         val regexPattern = "(?:.*\\.)?" + patternName.dotSeparatedParts.fold("") { acc, name ->
             val cur = when (name) {
                 is ConcreteName -> {
@@ -609,20 +610,20 @@ class SemgrepJavaPatternMatcher(
         return mergeLocalVarVariantMatches(strategy, variants)
     }
 
-    private fun convertFieldObjectPatternIntoTypeName(pattern: SemgrepJavaPattern): TypeName? =
+    private fun convertFieldObjectPatternIntoTypeName(pattern: SemgrepJavaPattern): TypeName.SimpleTypeName? =
         when (pattern) {
             is Identifier -> {
-                TypeName(listOf(ConcreteName(pattern.name)))
+                TypeName.SimpleTypeName(listOf(ConcreteName(pattern.name)))
             }
             is Metavar -> {
-                TypeName(listOf(MetavarName(pattern.name)))
+                TypeName.SimpleTypeName(listOf(MetavarName(pattern.name)))
             }
             is FieldAccess -> {
                 val name = pattern.fieldName
                 (pattern.obj as? FieldAccess.ObjectPattern)?.let {
                     convertFieldObjectPatternIntoTypeName(it.pattern)?.dotSeparatedParts
                 }?.let { prefix ->
-                    TypeName(prefix + name)
+                    TypeName.SimpleTypeName(prefix + name)
                 }
             }
             else -> {

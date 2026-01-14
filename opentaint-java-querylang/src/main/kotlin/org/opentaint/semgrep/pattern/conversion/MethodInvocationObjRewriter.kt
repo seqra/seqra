@@ -49,7 +49,7 @@ fun rewriteMethodInvocationObj(rule: NormalizedSemgrepRule): List<NormalizedSemg
                 mkGeneratedMethodInvocationObjMetaVar(nameMetaVars.size)
             }
 
-            val type = TypeName(parts)
+            val type = TypeName.SimpleTypeName(parts)
             val newObj = TypedMetavar(freshMetaVar, type)
             return newObj
         }
