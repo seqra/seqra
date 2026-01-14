@@ -1,6 +1,6 @@
 [![GitHub release](https://img.shields.io/github/release/seqra/opentaint.svg)](https://github.com/seqra/opentaint/releases)
 
-# Opentaint — security-focused static analyzer for Java
+# Opentaint — security-focused static analyzer for Java and Kotlin
 
 [Issues](https://github.com/seqra/opentaint/issues) | [Blog](https://opentaint.org/blog) | [FAQ](docs/faq.md) | [Discord](https://discord.gg/6BXDfbP4p9) | [seqradev@gmail.com](mailto:seqradev@gmail.com)
 
@@ -55,7 +55,7 @@ Opentaint automatically extracts URL path information from Spring Boot applicati
 ### Prerequisites:
 
 **For native compilation and scanning (default):**
-- Java runtime environment and Maven or Gradle installed and configured
+- Java/Kotlin runtime environment and Maven or Gradle installed and configured
 - Project dependencies available in local environment
 
 **For Docker-based scanning (optional):**
@@ -107,29 +107,29 @@ go install github.com/seqra/opentaint/v2@latest
 
 ## Scan
 
-  Scan a Java project and generate SARIF report
+  Scan a Java or Kotlin project and generate SARIF report
 
   ```bash
-  opentaint scan --output results.sarif /path/to/your/java/project
+  opentaint scan --output results.sarif /path/to/your/java/kotlin/project
   ```
 
 ### Docker Environment Scanning
 
-  For environments where you prefer to use Docker containers instead of your local Java toolchain, Opentaint supports Docker execution:
+  For environments where you prefer to use Docker containers instead of your local Java/Kotlin toolchain, Opentaint supports Docker execution:
 
 #### Use Docker compilation
 ```bash
-  opentaint scan --compile-type docker --output results.sarif /path/to/your/java/project
+  opentaint scan --compile-type docker --output results.sarif /path/to/your/java/kotlin/project
 ```
 
 #### Use Docker scanning
 ```bash
-  opentaint scan --scan-type docker --output results.sarif /path/to/your/java/project
+  opentaint scan --scan-type docker --output results.sarif /path/to/your/java/kotlin/project
 ```
 
 #### Use both Docker compilation and scanning
 ```bash
-  opentaint scan --compile-type docker --scan-type docker --output results.sarif /path/to/your/java/project
+  opentaint scan --compile-type docker --scan-type docker --output results.sarif /path/to/your/java/kotlin/project
 ```
 
 ## View and Analyze Results
@@ -173,15 +173,15 @@ For seamless integration with your CI/CD pipelines, check out our dedicated inte
 
 ### Build Issues
 
-  > **Note:** **only Maven and Gradle projects are supported**
+  > **Note:** **only Maven and Gradle projects are supported** (for both Java and Kotlin)
   * Verify that your project builds successfully with `Maven` or `Gradle`
   * For native compilation issues (default):
-    - Ensure Java runtime is installed and accessible via `java -version`
+    - Ensure Java/Kotlin runtime is installed and accessible via `java -version` or `kotlin -version`
     - Verify Maven/Gradle can build your project locally
     - Check that all project dependencies are available in your local environment
   * If local dependencies are missing, try Docker compilation:
     ```bash
-    opentaint scan --compile-type docker --output results.sarif /path/to/your/java/project
+    opentaint scan --compile-type docker --output results.sarif /path/to/your/java/kotlin/project
     ```
 
 ### Logs and Debugging
