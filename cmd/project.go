@@ -153,7 +153,7 @@ func (c *JavaAutobuilderConfig) runAutobuilder() error {
 
 	autobuilderCommand := builder.BuildNativeCommand()
 
-	javaRunner := java.NewJavaRunner().TrySystem().TrySpecificVersion(java.DefaultJavaVersion).TrySpecificVersion(java.LegacyJavaVersion)
+	javaRunner := java.NewJavaRunner().TrySpecificVersion(java.DefaultJavaVersion)
 
 	commandSucceeded := func(_ error) bool {
 		if _, err = os.Stat(c.outputDir); err != nil {
@@ -171,8 +171,6 @@ func (c *JavaAutobuilderConfig) runAutobuilder() error {
 
 	return c.printProjectSummary()
 }
-
-
 
 func (c *JavaAutobuilderConfig) printProjectSummary() error {
 	projectYamlPath := filepath.Join(c.outputDir, "project.yaml")

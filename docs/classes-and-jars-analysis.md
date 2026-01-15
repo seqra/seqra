@@ -58,21 +58,6 @@ seqra compile /path/to/java/project --output ./project-model
 
 This generates a complete project model in an output directory with the correct `project.yaml` configuration.
 
-#### Compile Environment Options
-
-Both `compile` and `scan` commands support the `--compile-type` flag to specify the compilation environment:
-
-- `--compile-type docker` (default): Uses Docker containers for compilation
-- `--compile-type native`: Uses the native system environment for compilation
-
-```bash
-# Using Docker (default)
-seqra compile /path/to/java/project --output ./project-model
-
-# Using native environment
-seqra compile /path/to/java/project --output ./project-model --compile-type native
-```
-
 ### Manual Creation for Pre-compiled Projects
 
 If you already have compiled classes or JARs, use the `project` command to create `project.yaml`:
@@ -133,14 +118,10 @@ seqra project --output . --source-root src \
 
 ## Usage with Scan Command
 
-Once you have a `project.yaml` file, you can scan your project:
+Once you have a `project.yaml` file, you can scan your project. The scan command will use `project.yaml` if it exists, or compile the project first:
 
 ```bash
-# Scan project directory if project.yaml exists there, or compile the project first, then scan
-seqra scan /path/to/project
-
-# Use native environment for compilation if needed
-seqra scan /path/to/project --compile-type native
+seqra scan /path/to/project --output results.sarif
 ```
 
 The scan command automatically detects whether the provided path contains a `project.yaml` file:

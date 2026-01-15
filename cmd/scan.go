@@ -17,9 +17,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/docker/docker/api/types/container"
-
-	"github.com/seqra/seqra/v2/internal/container_run"
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/sarif"
 	"github.com/seqra/seqra/v2/internal/utils"
@@ -88,8 +85,6 @@ func init() {
 	scanCmd.Flags().StringArrayVar(&Ruleset, "ruleset", []string{"builtin"}, "YAML rules file, directory of YAML rules files ending in .yml or .yaml, or `builtin` to scan with built-in rules")
 	_ = viper.BindPFlag("scan.ruleset", scanCmd.Flags().Lookup("ruleset"))
 
-	scanCmd.Flags().StringVar(&globals.Config.Compile.Type, "compile-type", "native", "Environment for run compile command (native, docker)")
-	scanCmd.Flags().StringVar(&globals.Config.Scan.Type, "scan-type", "native", "Environment for run scan command (native, docker)")
 	scanCmd.Flags().BoolVar(&SemgrepCompatibilitySarif, "semgrep-compatibility-sarif", true, "Use Semgrep compatible ruleId")
 	scanCmd.Flags().StringVarP(&SarifReportPath, "output", "o", "", "Path to the SARIF-report output file")
 	_ = scanCmd.MarkFlagRequired("output")
@@ -97,8 +92,6 @@ func init() {
 	scanCmd.Flags().StringVar(&globals.Config.Scan.MaxMemory, "max-memory", "8G", "Maximum memory for the analyzer (e.g., 1024m, 8G, 81920k, 83886080)")
 	_ = viper.BindPFlag("scan.max_memory", scanCmd.Flags().Lookup("max-memory"))
 }
-
-const defaultDataPath = "/seqra/data"
 
 func scan(cmd *cobra.Command) {
 	var absProjectModelPath string
@@ -119,7 +112,7 @@ func scan(cmd *cobra.Command) {
 	// Resolve project type
 	var scanMode ScanMode
 	logrus.Debugf("Trying to define %v is a project model or a project", absUserProjectRoot)
-	if _, err := os.Stat(absUserProjectRoot + "/project.yaml"); err == nil {
+	if _, err := os.Stat(filepath.Join(absUserProjectRoot, "project.yaml")); err == nil {
 		scanMode = Scan
 		absProjectModelPath = absUserProjectRoot
 	} else if errors.Is(err, os.ErrNotExist) {
@@ -129,7 +122,7 @@ func scan(cmd *cobra.Command) {
 		if err != nil {
 			logrus.Fatalf("Failed to create temporary directory: %s", err)
 		}
-		tempProjectModelPath = tempLogsDir + "/project-model"
+		tempProjectModelPath = filepath.Join(tempLogsDir, "project-model")
 		absProjectModelPath = tempProjectModelPath
 	} else {
 		logrus.Fatalf("Unexpected error occurred while checking the project: %s", err)
@@ -141,14 +134,14 @@ func scan(cmd *cobra.Command) {
 	for _, ruleset := range userRuleSetPath {
 		switch ruleset {
 		case "builtin":
-			rulesPath, err := utils.GetRulesPath(globals.RulesBindVersion)
+			rulesPath, err := utils.GetRulesPath(globals.Config.Rules.Version)
 			if err != nil {
 				logrus.Fatalf("Unexpected error occurred while trying to construct path to the ruleset: %s", err)
 			}
 
 			if _, err := os.Stat(rulesPath); errors.Is(err, os.ErrNotExist) {
 				logrus.Info("Downloading seqra-rules")
-				err := utils.DownloadAndUnpackGithubReleaseAsset(globals.RepoOwner, globals.RulesRepoName, globals.RulesBindVersion, globals.RulesAssetName, rulesPath, globals.Config.Github.Token)
+				err := utils.DownloadAndUnpackGithubReleaseAsset(globals.RepoOwner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, rulesPath, globals.Config.Github.Token)
 				if err != nil {
 					logrus.Fatalf("Unexpected error occurred while trying to download ruleset: %s", err)
 				}
@@ -187,7 +180,7 @@ func scan(cmd *cobra.Command) {
 		sourceRoot = absUserProjectRoot
 	}
 
-	uriBase := fmt.Sprintf("%s/", sourceRoot)
+	uriBase := fmt.Sprintf("%s%s", sourceRoot, string(filepath.Separator))
 
 	absSemgrepRuleLoadTracePath := setupSemgrepRuleLoadTrace()
 
@@ -195,15 +188,8 @@ func scan(cmd *cobra.Command) {
 	printScanInfo(cmd, scanMode, absProjectModelPath, absRuleSetPaths, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot)
 
 	if tempProjectModel {
-		if err := compile(absUserProjectRoot, tempProjectModelPath, globals.Config.Compile.Type, Internal); err != nil {
-			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based compilation:", utils.BuildScanCommandWithDocker(
-				UserProjectPath,
-				SarifReportPath,
-				Ruleset,
-				globals.Config.Scan.Timeout,
-				SemgrepCompatibilitySarif,
-				globals.Config.Scan.Type,
-			))
+		if err := compile(absUserProjectRoot, tempProjectModelPath, Internal); err != nil {
+			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based compilation:", "")
 			logrus.Fatal()
 		}
 	}
@@ -217,103 +203,38 @@ func scan(cmd *cobra.Command) {
 		maxMemory = parsedMaxMemory
 	}
 
-	switch globals.Config.Scan.Type {
-	case "docker":
-		var resultbase = defaultDataPath
-		dockerProjectPath := resultbase + "/project"
-		dockerProjectYamlPath := dockerProjectPath + "/project.yaml"
-		dockerOutputDir := resultbase + "/reports"
-		dockerLogsFile := dockerOutputDir + "/analyzer.log"
-		dockerSarif := dockerOutputDir + "/" + sarifReportName
-		dockerSemgrepRuleLoadTrace := dockerOutputDir + "/semgrep-rule-load-trace.json"
-
-		hostConfig := &container.HostConfig{}
-
-		// Get the current user's UID and GID
-		containerUID := fmt.Sprintf("%d", os.Getuid())
-		containerGID := fmt.Sprintf("%d", os.Getgid())
-
-		envCont := []string{"CONTAINER_UID=" + containerUID, "CONTAINER_GID=" + containerGID}
-		analyzerBuilder := NewAnalyzerBuilder().
-			SetProject(dockerProjectYamlPath).
-			SetOutputDir(dockerOutputDir).
-			SetLogsFile(dockerLogsFile).
-			SetSarifFileName(sarifReportName).
-			SetSarifThreadFlowLimit("1").
-			SetSarifToolVersion(localVersion).
-			SetSarifToolSemanticVersion(localSemanticVersion).
-			SetSarifUriBase(uriBase).
-			SetIfdsAnalysisTimeout(int64(globals.Config.Scan.Timeout / time.Second))
-
-		if SemgrepCompatibilitySarif {
-			analyzerBuilder.EnableSemgrepCompatibility()
-		}
-
-		for _, severity := range Severity {
-			switch severity {
-			case "error", "warning", "note":
-				analyzerBuilder.AddSeverity(severity)
-			default:
-				logrus.Fatalf(`The each "severity" flag should be one of note, warning, or error.`)
-			}
-		}
-
-		var copyToContainer = make(map[string]string)
-
-		copyToContainer[absProjectModelPath] = dockerProjectPath
-
-		var copyFromContainer = make(map[string]string)
-
-		copyFromContainer[dockerSarif] = absSarifReportPath
-		utils.RemoveIfExistsOrExit(absSarifReportPath)
-
-		for _, absRuleSetPath := range absRuleSetPaths {
-			analyzerBuilder.AddRuleSet(absRuleSetPath.Path)
-			copyToContainer[absRuleSetPath.Path] = absRuleSetPath.Path
-		}
-		if maxMemory != "" {
-			analyzerBuilder.SetMaxMemory(maxMemory)
-		}
-
-		analyzerBuilder.SetRuleLoadTracePath(dockerSemgrepRuleLoadTrace)
-		copyFromContainer[dockerSemgrepRuleLoadTrace] = absSemgrepRuleLoadTracePath
-
-		scanWithDocker(analyzerBuilder.BuildDockerFlags(), envCont, hostConfig, copyToContainer, copyFromContainer)
-	case "native":
-		// Update builder with native paths for native execution
-		nativeProjectPath := filepath.Join(absProjectModelPath, "project.yaml")
-		nativeOutputDir := filepath.Dir(absSarifReportPath)
-		nativeBuilder := NewAnalyzerBuilder().
-			SetProject(nativeProjectPath).
-			SetOutputDir(nativeOutputDir).
-			SetSarifFileName(sarifReportName).
-			SetSarifThreadFlowLimit("1").
-			SetSarifToolVersion(localVersion).
-			SetSarifToolSemanticVersion(localSemanticVersion).
-			SetSarifUriBase(uriBase).
-			SetIfdsAnalysisTimeout(int64(globals.Config.Scan.Timeout / time.Second)).
-			SetRuleLoadTracePath(absSemgrepRuleLoadTracePath)
-		if SemgrepCompatibilitySarif {
-			nativeBuilder.EnableSemgrepCompatibility()
-		}
-		for _, severity := range Severity {
-			switch severity {
-			case "error", "warning", "note":
-				nativeBuilder.AddSeverity(severity)
-			default:
-				logrus.Fatalf(`The each "severity" flag should be one of note, warning, or error.`)
-			}
-		}
-		for _, absRuleSetPath := range absRuleSetPaths {
-			nativeBuilder.AddRuleSet(absRuleSetPath.Path)
-		}
-		if maxMemory != "" {
-			nativeBuilder.SetMaxMemory(maxMemory)
-		}
-		scanWithNative(nativeBuilder)
-	default:
-		logrus.Fatalf("scan-type must be one of \"docker\", \"native\"")
+	// Update builder with native paths for native execution
+	nativeProjectPath := filepath.Join(absProjectModelPath, "project.yaml")
+	nativeOutputDir := filepath.Dir(absSarifReportPath)
+	nativeBuilder := NewAnalyzerBuilder().
+		SetProject(nativeProjectPath).
+		SetOutputDir(nativeOutputDir).
+		SetSarifFileName(sarifReportName).
+		SetSarifThreadFlowLimit("1").
+		SetSarifToolVersion(localVersion).
+		SetSarifToolSemanticVersion(localSemanticVersion).
+		SetSarifUriBase(uriBase).
+		SetIfdsAnalysisTimeout(int64(globals.Config.Scan.Timeout / time.Second)).
+		SetRuleLoadTracePath(absSemgrepRuleLoadTracePath).
+		EnablePartialFingerprints()
+	if SemgrepCompatibilitySarif {
+		nativeBuilder.EnableSemgrepCompatibility()
 	}
+	for _, severity := range Severity {
+		switch severity {
+		case "error", "warning", "note":
+			nativeBuilder.AddSeverity(severity)
+		default:
+			logrus.Fatalf(`The each "severity" flag should be one of note, warning, or error.`)
+		}
+	}
+	for _, absRuleSetPath := range absRuleSetPaths {
+		nativeBuilder.AddRuleSet(absRuleSetPath.Path)
+	}
+	if maxMemory != "" {
+		nativeBuilder.SetMaxMemory(maxMemory)
+	}
+	scanProject(nativeBuilder)
 
 	if _, err := os.Stat(absSarifReportPath); err != nil {
 		logrus.Fatalf("There was a problem during the scan step, check the full logs: %s", globals.LogPath)
@@ -378,16 +299,7 @@ func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string
 		}
 	}
 	printer.AddNode("Rule load trace: " + absSemgrepRuleLoadTracePath)
-	printer.AddNode("")
 
-	switch mode {
-	case Scan:
-		printer.AddNode("Scan mode: " + globals.Config.Scan.Type)
-	case CompileAndScan:
-		printer.AddNode("Compile mode: " + globals.Config.Compile.Type)
-		printer.AddNode("Scan mode: " + globals.Config.Scan.Type)
-	default:
-	}
 	printer.Print()
 }
 
@@ -420,12 +332,7 @@ func deserializeSemgrepRuleLoadTrace(absSemgrepRuleLoadTracePath string) *load_t
 	return &el
 }
 
-func scanWithDocker(analyzerFlags []string, envCont []string, hostConfig *container.HostConfig, copyToContainer map[string]string, copyFromContainer map[string]string) {
-	analyzerImageLink := utils.GetImageLink(globals.Config.Analyzer.Version, globals.AnalyzerDocker)
-	container_run.RunGhcrContainer("Scan", analyzerImageLink, analyzerFlags, envCont, hostConfig, copyToContainer, copyFromContainer)
-}
-
-func scanWithNative(analyzerBuilder *AnalyzerBuilder) {
+func scanProject(analyzerBuilder *AnalyzerBuilder) {
 	// Get the path to the analyzer JAR
 	analyzerJarPath, err := utils.GetAnalyzerJarPath(globals.Config.Analyzer.Version)
 	if err != nil {

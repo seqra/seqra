@@ -1,17 +1,20 @@
-name: Semantic release
+name: Release
 
 on:
   push:
     branches:
       - main
       - 'release/**'
-
-permissions: write-all
+env:
+  SEQRA_DEPENDENCIES_VERSION: 2026.01.15.c87912f
 
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
-    container: buildpack-deps:jammy-scm
+    container: ghcr.io/catthehacker/ubuntu:act-latest
+    permissions:
+      contents: write
+      packages: write
     steps:
       -
         name: 'Install and Configure applications'
@@ -56,11 +59,37 @@ jobs:
           fi
           rm -f release_version.txt
       -
+        name: Login to GitHub Container Registry
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.SEQRA_GITHUB_ACTOR }}
+          password: ${{ secrets.SEQRA_GITHUB_TOKEN }}
+      -
+        name: Set up QEMU
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        uses: docker/setup-qemu-action@v3
+      -
+        name: Set up Docker Buildx
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        uses: docker/setup-buildx-action@v3
+      -
         name: Set up Go
         if: ${{ steps.release_version.outputs.status == 'succeeded' }}
         uses: actions/setup-go@v5
         with:
           go-version: '>=1.25.0'
+      -
+        name: Docker meta
+        id: meta
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.release_version.outputs.RELEASE_VERSION }}
       -
         name: Run GoReleaser
         if: ${{ steps.release_version.outputs.status == 'succeeded' }}
@@ -71,5 +100,24 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      -
+        name: Build and push
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          build-contexts: |
+            seqra-dependencies:latest=docker-image://ghcr.io/${{ github.repository_owner }}/seqra-infra-dependencies/seqra-dependencies:${{ env.SEQRA_DEPENDENCIES_VERSION }}
+          platforms: linux/amd64, linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          secrets: |
+            github_token=${{ secrets.SEQRA_GITHUB_TOKEN }}
+          build-args: |
+            SEQRA_BUILD_FLAGS=-s -w -X github.com/seqra/seqra/v2/internal/version.Version=${{ steps.release_version.outputs.RELEASE_VERSION }}
+
     outputs:
       release_version: ${{ steps.release_version.outputs.RELEASE_VERSION }}
