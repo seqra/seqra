@@ -15,6 +15,7 @@ import org.opentaint.semgrep.pattern.conversion.automata.operations.traverse
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.EdgeCondition
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.EdgeEffect
+import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.State
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRuleEdge
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRuleGenerationCtx
 import java.io.File
@@ -56,14 +57,20 @@ class PrintableSemgrepRuleAutomata(val automata: SemgrepRuleAutomata) : Printabl
 }
 
 class TaintRegisterStateAutomataView(
-    val automata: TaintRegisterStateAutomata
-) : PrintableGraph<TaintRegisterStateAutomata.State, TaintRegisterStateAutomata.Edge> {
+    val automata: TaintRegisterStateAutomata,
+    additionalEdges: List<Triple<State, TaintRegisterStateAutomata.Edge, State>>,
+) : PrintableGraph<State, TaintRegisterStateAutomataView.PrintableEdge> {
     override fun allNodes() = automata.successors.keys.toList()
 
-    override fun successors(node: TaintRegisterStateAutomata.State): List<Pair<TaintRegisterStateAutomata.Edge, TaintRegisterStateAutomata.State>> =
-        automata.successors[node]?.toList() ?: emptyList()
+    private val additionalSuccessors = additionalEdges.groupBy { it.first }
 
-    override fun nodeLabel(node: TaintRegisterStateAutomata.State): String {
+    override fun successors(node: State): List<Pair<PrintableEdge, State>> {
+        val original = automata.successors[node].orEmpty().map { PrintableEdge.Original(it.first) to it.second }
+        val additional = additionalSuccessors[node].orEmpty().map { PrintableEdge.Additional(it.second) to it.third }
+        return original + additional
+    }
+
+    override fun nodeLabel(node: State): String {
         var label = ""
         if (node in automata.finalAcceptStates) {
             label = "$label ACCEPT "
@@ -74,19 +81,32 @@ class TaintRegisterStateAutomataView(
         return "${automata.stateId(node)}${label}(${node.register.assignedVars})"
     }
 
-    override fun edgeLabel(edge: TaintRegisterStateAutomata.Edge): String =
-        automataEdgeLabel(edge)
+    override fun edgeLabel(edge: PrintableEdge): String {
+        val label = automataEdgeLabel(edge.edge)
+        return when (edge) {
+            is PrintableEdge.Original -> label
+            is PrintableEdge.Additional -> "ADDITIONAL: $label"
+        }
+    }
+
+    sealed class PrintableEdge(val edge: TaintRegisterStateAutomata.Edge) {
+        class Original(edge: TaintRegisterStateAutomata.Edge) : PrintableEdge(edge)
+        class Additional(edge: TaintRegisterStateAutomata.Edge) : PrintableEdge(edge)
+    }
 }
 
-fun TaintRegisterStateAutomata.view(name: String = "") {
-    TaintRegisterStateAutomataView(this).view(name)
+fun TaintRegisterStateAutomata.view(
+    additionalEdges: List<Triple<State, TaintRegisterStateAutomata.Edge, State>> = emptyList(),
+    name: String = ""
+) {
+    TaintRegisterStateAutomataView(this, additionalEdges).view(name)
 }
 
 class TaintRuleGenerationContextView(
     val ctx: TaintRuleGenerationCtx
-) : PrintableGraph<TaintRegisterStateAutomata.State, TaintRuleEdge> {
-    private fun buildSuccessors(): Map<TaintRegisterStateAutomata.State, Set<TaintRuleEdge>> {
-        val successors = hashMapOf<TaintRegisterStateAutomata.State, MutableSet<TaintRuleEdge>>()
+) : PrintableGraph<State, TaintRuleEdge> {
+    private fun buildSuccessors(): Map<State, Set<TaintRuleEdge>> {
+        val successors = hashMapOf<State, MutableSet<TaintRuleEdge>>()
         for (edge in ctx.edgesToFinalAccept) {
             successors.getOrPut(edge.stateFrom, ::hashSetOf).add(edge)
         }
@@ -103,7 +123,7 @@ class TaintRuleGenerationContextView(
 
     override fun allNodes() = successors.keys.toList()
 
-    override fun successors(node: TaintRegisterStateAutomata.State) =
+    override fun successors(node: State) =
         successors[node]?.map { it to it.stateTo }.orEmpty()
 
     override fun edgeLabel(edge: TaintRuleEdge): String {
@@ -114,7 +134,7 @@ class TaintRuleGenerationContextView(
         return label
     }
 
-    override fun nodeLabel(node: TaintRegisterStateAutomata.State): String {
+    override fun nodeLabel(node: State): String {
         val stateId = ctx.automata.stateId(node)
         val assignedVars = node.register.assignedVars
         val stateVar = if (node in ctx.globalStateAssignStates) "[STATE = $stateId]" else ""

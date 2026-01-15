@@ -71,6 +71,8 @@ private fun RuleConversionCtx.simulateAutomata(automata: TaintRegisterStateAutom
     val finalDeadStates = hashSetOf<State>()
     val successors = hashMapOf<State, MutableSet<Pair<Edge, State>>>()
 
+    val unprocessedLoopBackEdges = mutableListOf<Triple<State, Edge, State>>()
+
     while (unprocessed.isNotEmpty()) {
         val simulationState = unprocessed.removeLast()
         val state = simulationState.state
@@ -93,8 +95,7 @@ private fun RuleConversionCtx.simulateAutomata(automata: TaintRegisterStateAutom
                     continue
                 }
 
-//                throw LoopAssignVarsException()
-                semgrepRuleTrace.error("Loop var assign", Reason.ERROR)
+                unprocessedLoopBackEdges += Triple(state, simplifiedEdge, loopStartState)
                 continue
             }
 
@@ -111,11 +112,44 @@ private fun RuleConversionCtx.simulateAutomata(automata: TaintRegisterStateAutom
         }
     }
 
-    return TaintRegisterStateAutomata(
+    val result = TaintRegisterStateAutomata(
         automata.formulaManager, automata.initial,
         finalAcceptStates, finalDeadStates,
         successors, automata.nodeIndex
     )
+
+    val resultWithLoopsResolved = resolveLoopBackEdges(result, unprocessedLoopBackEdges)
+    return resultWithLoopsResolved
+}
+
+private fun RuleConversionCtx.resolveLoopBackEdges(
+    automata: TaintRegisterStateAutomata,
+    loopBackEdges: List<Triple<State, Edge, State>>
+): TaintRegisterStateAutomata {
+    if (loopBackEdges.isEmpty()) return automata
+
+    val acceptReachableFromStates = stateReachesAccept(automata)
+
+    fun loopEdgeRequired(stateFrom: State, edge: Edge, stateTo: State): Boolean {
+        if (stateTo !in acceptReachableFromStates) return false
+        if (stateFrom !in acceptReachableFromStates) return true
+
+        val edgeHasNoEffect = when (edge) {
+            is Edge.AnalysisEnd -> false
+            is Edge.EdgeWithEffect -> edge.effect.hasNoEffect()
+        }
+
+        return !edgeHasNoEffect
+    }
+
+    val requiredLoops = loopBackEdges.filter { (stateFrom, edge, stateTo) ->
+        loopEdgeRequired(stateFrom, edge, stateTo)
+    }
+
+    if (requiredLoops.isEmpty()) return automata
+
+    semgrepRuleTrace.error("Loop var assign", Reason.ERROR)
+    return automata
 }
 
 private fun simulateCondition(
@@ -365,30 +399,17 @@ private fun EdgeCondition.ensurePositiveCondition(ctx: RuleConversionCtx): EdgeC
 private fun removeUnreachableStates(
     automata: TaintRegisterStateAutomata
 ): TaintRegisterStateAutomata {
-    val predecessors = automataPredecessors(automata)
-
-    val reachableStates = hashSetOf<State>()
-    val unprocessed = automata.finalAcceptStates.toMutableList()
-
-    while (unprocessed.isNotEmpty()) {
-        val stateId = unprocessed.removeLast()
-        if (!reachableStates.add(stateId)) continue
-
-        val predStates = predecessors[stateId] ?: continue
-        for ((_, predState) in predStates) {
-            unprocessed.add(predState)
-        }
-    }
+    val reachableStates = stateReachesAccept(automata)
 
     check(automata.initial in reachableStates) {
         "Initial state is unreachable"
     }
 
     var cleanerStateReachable = false
-    val cleanerState =
-        State(AutomataNode(), StateRegister(emptyMap()))
+    val cleanerState = State(AutomataNode(), StateRegister(emptyMap()))
     val reachableSuccessors = hashMapOf<State, MutableSet<Pair<Edge, State>>>()
 
+    val unprocessed = mutableListOf<State>()
     unprocessed.add(automata.initial)
     while (unprocessed.isNotEmpty()) {
         val state = unprocessed.removeLast()
@@ -427,6 +448,24 @@ private fun removeUnreachableStates(
         automata.finalAcceptStates, finalDeadNodes,
         reachableSuccessors, nodeIndex
     )
+}
+
+private fun stateReachesAccept(automata: TaintRegisterStateAutomata): Set<State> {
+    val predecessors = automataPredecessors(automata)
+
+    val reachableStates = hashSetOf<State>()
+    val unprocessed = automata.finalAcceptStates.toMutableList()
+
+    while (unprocessed.isNotEmpty()) {
+        val stateId = unprocessed.removeLast()
+        if (!reachableStates.add(stateId)) continue
+
+        val predStates = predecessors[stateId] ?: continue
+        for ((_, predState) in predStates) {
+            unprocessed.add(predState)
+        }
+    }
+    return reachableStates
 }
 
 private fun eliminateDeadVariables(
