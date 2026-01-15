@@ -194,8 +194,7 @@ Automatically detects Maven/Gradle projects, builds them, and performs security 
 **Basic scan:**
 ```bash
 seqra scan --output results.sarif /path/to/your/java/kotlin/project
-``
-
+```
 
 **Scan with custom memory allocation:**
 ```bash
