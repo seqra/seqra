@@ -33,9 +33,9 @@ type SemgrepLoadTrace struct {
 
 // SemgrepFileLoadTrace represents trace information for a single file
 type SemgrepFileLoadTrace struct {
-	Path       string                   `json:"path"`
+	Path       string                  `json:"path"`
 	RuleTraces []*SemgrepRuleLoadTrace `json:"ruleTraces"`
-	Entries    []TraceEntry             `json:"entries"`
+	Entries    []TraceEntry            `json:"entries"`
 }
 
 // SemgrepRuleLoadTrace represents trace information for a single rule

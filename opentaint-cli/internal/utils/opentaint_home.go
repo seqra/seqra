@@ -2,6 +2,7 @@ package utils
 
 import (
 	"os"
+	"path/filepath"
 )
 
 func GetOpentaintHome() (string, error) {
@@ -12,7 +13,7 @@ func GetOpentaintHome() (string, error) {
 	}
 
 	// Search config in home directory with name ".opentaint" (without extension).
-	path := home + "/.opentaint"
+	path := filepath.Join(home, ".opentaint")
 	merr := os.MkdirAll(path, os.ModePerm)
 	if merr != nil {
 		return "", merr
@@ -26,7 +27,7 @@ func GetAutobuilderJarPath(version string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	autobuilderJar := opentaintHomePath + "/autobuilder_" + version + ".jar"
+	autobuilderJar := filepath.Join(opentaintHomePath, "autobuilder_"+version+".jar")
 	return autobuilderJar, nil
 }
 
@@ -35,7 +36,7 @@ func GetAnalyzerJarPath(version string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	analyzerJar := opentaintHomePath + "/analyzer_" + version + ".jar"
+	analyzerJar := filepath.Join(opentaintHomePath, "analyzer_"+version+".jar")
 	return analyzerJar, nil
 }
 
@@ -44,6 +45,6 @@ func GetRulesPath(version string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	rulesPath := opentaintHomePath + "/rules_" + version
+	rulesPath := filepath.Join(opentaintHomePath, "rules_"+version)
 	return rulesPath, nil
 }

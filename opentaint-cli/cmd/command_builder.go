@@ -62,6 +62,7 @@ type AnalyzerBuilder struct {
 	sarifToolSemanticVersion string
 	sarifUriBase             string
 	semgrepCompatibility     bool
+	partialFingerprints      bool
 	ifdsAnalysisTimeout      int64
 	severities               []string
 	ruleSetPaths             []string
@@ -112,6 +113,11 @@ func (a *AnalyzerBuilder) SetSarifUriBase(uriBase string) *AnalyzerBuilder {
 
 func (a *AnalyzerBuilder) EnableSemgrepCompatibility() *AnalyzerBuilder {
 	a.semgrepCompatibility = true
+	return a
+}
+
+func (a *AnalyzerBuilder) EnablePartialFingerprints() *AnalyzerBuilder {
+	a.partialFingerprints = true
 	return a
 }
 
@@ -176,6 +182,10 @@ func (a *AnalyzerBuilder) BuildDockerFlags() []string {
 
 	if a.semgrepCompatibility {
 		flags = append(flags, "--sarif-semgrep-style-id")
+	}
+
+	if a.partialFingerprints {
+		flags = append(flags, "--sarif-generate-fingerprint")
 	}
 
 	flags = a.appendVerbosityFlag(flags)

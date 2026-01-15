@@ -41,6 +41,7 @@ func init() {
 
 	summaryCmd.Flags().BoolVar(&showFindings, "show-findings", false, "Show all issues from Sarif file")
 	summaryCmd.Flags().BoolVar(&showCodeSnippets, "show-code-snippets", false, "Show finding related code snippets")
+	_ = summaryCmd.PersistentFlags().MarkHidden("show-code-snippets")
 }
 
 func printSarifSummary(report *sarif.Report, absSarifPath string) {
