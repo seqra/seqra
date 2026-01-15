@@ -11,7 +11,7 @@ Pull the image and scan a project:
 docker pull ghcr.io/seqra/seqra:latest
 
 docker run --rm \
-  -v /path/to/your/project:/project:ro \
+  -v /path/to/your/project:/project \
   -v /path/to/output:/output \
   ghcr.io/seqra/seqra:latest \
   seqra scan --output /output/results.sarif /project
@@ -43,14 +43,14 @@ Mount your project directory and an output directory, then run the scan:
 
 ```bash
 docker run --rm \
-  -v /path/to/your/project:/project:ro \
+  -v /path/to/your/project:/project \
   -v /path/to/output:/output \
   ghcr.io/seqra/seqra:latest \
   seqra scan --output /output/results.sarif /project
 ```
 
 **Volume mounts explained:**
-- `/path/to/your/project:/project:ro` - Mounts your Java project as read-only
+- `/path/to/your/project:/project` - Mounts your Java project as read-only
 - `/path/to/output:/output` - Mounts a directory for the SARIF output file
 
 ### Scan with Custom Ruleset
@@ -59,9 +59,9 @@ To use a custom ruleset, mount it as an additional volume:
 
 ```bash
 docker run --rm \
-  -v /path/to/your/project:/project:ro \
+  -v /path/to/your/project:/project \
   -v /path/to/output:/output \
-  -v /path/to/rules:/rules:ro \
+  -v /path/to/rules:/rules \
   ghcr.io/seqra/seqra:latest \
   seqra scan --ruleset /rules/custom-rules.yaml --output /output/results.sarif /project
 ```
@@ -72,7 +72,7 @@ For large projects, increase the analyzer memory:
 
 ```bash
 docker run --rm \
-  -v /path/to/your/project:/project:ro \
+  -v /path/to/your/project:/project \
   -v /path/to/output:/output \
   ghcr.io/seqra/seqra:latest \
   seqra scan --max-memory 16G --output /output/results.sarif /project
@@ -84,9 +84,9 @@ Mount a configuration file to customize behavior:
 
 ```bash
 docker run --rm \
-  -v /path/to/your/project:/project:ro \
+  -v /path/to/your/project:/project \
   -v /path/to/output:/output \
-  -v /path/to/config.yaml:/config/seqra.yaml:ro \
+  -v /path/to/config.yaml:/config/seqra.yaml \
   ghcr.io/seqra/seqra:latest \
   seqra scan --config /config/seqra.yaml --output /output/results.sarif /project
 ```
@@ -102,7 +102,7 @@ For more control over the analysis process, you can separate the compilation and
 
 ```bash
 docker run --rm \
-  -v /path/to/your/project:/project:ro \
+  -v /path/to/your/project:/project \
   -v /path/to/database:/database \
   ghcr.io/seqra/seqra:latest \
   seqra compile --output /database /project
@@ -112,7 +112,7 @@ docker run --rm \
 
 ```bash
 docker run --rm \
-  -v /path/to/database:/database:ro \
+  -v /path/to/database:/database \
   -v /path/to/output:/output \
   ghcr.io/seqra/seqra:latest \
   seqra scan --output /output/results.sarif /database
@@ -124,7 +124,7 @@ After the scan completes, the SARIF file will be available in your output direct
 
 ```bash
 docker run --rm \
-  -v /path/to/output:/output:ro \
+  -v /path/to/output:/output \
   ghcr.io/seqra/seqra:latest \
   seqra summary --show-findings /output/results.sarif
 ```
@@ -193,7 +193,7 @@ If you encounter permission errors when writing output files, ensure the output 
 ```bash
 mkdir -p /path/to/output
 docker run --rm \
-  -v /path/to/your/project:/project:ro \
+  -v /path/to/your/project:/project \
   -v /path/to/output:/output \
   ghcr.io/seqra/seqra:latest \
   seqra scan --output /output/results.sarif /project
@@ -205,7 +205,7 @@ Enable debug logging to troubleshoot issues:
 
 ```bash
 docker run --rm \
-  -v /path/to/your/project:/project:ro \
+  -v /path/to/your/project:/project \
   -v /path/to/output:/output \
   ghcr.io/seqra/seqra:latest \
   seqra scan --verbosity debug --output /output/results.sarif /project

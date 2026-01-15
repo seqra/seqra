@@ -161,7 +161,7 @@ Run Seqra using Docker without installing any dependencies locally:
 
 ```bash
 docker run --rm \
-  -v /path/to/project:/project:ro \
+  -v /path/to/project:/project \
   -v $(pwd):/output \
   ghcr.io/seqra/seqra:latest \
   seqra scan --output /output/results.sarif /project
