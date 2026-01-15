@@ -6,12 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/docker/docker/api/types/container"
 	"github.com/seqra/seqra/v2/internal/utils/formatters"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/seqra/seqra/v2/internal/container_run"
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/utils"
 	"github.com/seqra/seqra/v2/internal/utils/java"
@@ -57,12 +55,10 @@ Arguments:
 		printer.AddNode("")
 		printer.AddNode("Project: " + absProjectRoot)
 		printer.AddNode("Output project model: " + absOutputProjectModelPath)
-		printer.AddNode("")
-		printer.AddNode("Compile mode: " + globals.Config.Compile.Type)
 		printer.Print()
 		logrus.Info()
 
-		if err := compile(absProjectRoot, absOutputProjectModelPath, globals.Config.Compile.Type, External); err == nil {
+		if err := compile(absProjectRoot, absOutputProjectModelPath, External); err == nil {
 			suggest("To scan project run", utils.BuildScanCommandFromCompile(projectRoot, absOutputProjectModelPath))
 		} else {
 			logrus.Fatal()
@@ -75,11 +71,9 @@ func init() {
 
 	compileCmd.Flags().StringVarP(&OutputProjectModelPath, "output", "o", "", `Path to the result project model`)
 	_ = compileCmd.MarkFlagRequired("output")
-
-	compileCmd.Flags().StringVar(&globals.Config.Compile.Type, "compile-type", "native", "Environment for run compile command (native, docker)")
 }
 
-func compile(absProjectRoot, absOutputProjectModelPath, compileType string, caller CompileCaller) error {
+func compile(absProjectRoot, absOutputProjectModelPath string, caller CompileCaller) error {
 	if _, err := os.Stat(absOutputProjectModelPath); err == nil {
 		logrus.Fatalf("Output directory already exists: %s", absOutputProjectModelPath)
 	}
@@ -88,14 +82,7 @@ func compile(absProjectRoot, absOutputProjectModelPath, compileType string, call
 		logrus.Fatalf("Unsupported architecture found: %s! Only arm64 and amd64 are supported.", utils.GetArch())
 	}
 
-	switch compileType {
-	case "docker":
-		compileWithDocker(absOutputProjectModelPath, absProjectRoot)
-	case "native":
-		compileWithNative(absOutputProjectModelPath, absProjectRoot)
-	default:
-		logrus.Fatalf("compile-type must be one of \"docker\", \"native\"")
-	}
+	compileProject(absOutputProjectModelPath, absProjectRoot)
 
 	if _, err := os.Stat(absOutputProjectModelPath); err != nil {
 		err := fmt.Errorf("there was a problem during the compile step, check the full logs: %s", globals.LogPath)
@@ -114,40 +101,7 @@ func compile(absProjectRoot, absOutputProjectModelPath, compileType string, call
 	return nil
 }
 
-func compileWithDocker(absOutputProjectModelPath, absProjectRoot string) {
-	resultbase := defaultDataPath
-	dockerProjectPath := resultbase + "/project"
-	dockerOutputDir := resultbase + "/reports"
-	dockerLogsFile := dockerOutputDir + "/autobuild.log"
-	dockerResultDir := resultbase + "/build"
-
-	builder := NewAutobuilderBuilder().
-		SetProjectRootDir(dockerProjectPath).
-		SetBuildMode("portable").
-		SetResultDir(dockerResultDir).
-		SetLogsFile(dockerLogsFile)
-
-	autobuilderFlags := builder.BuildDockerFlags()
-
-	hostConfig := &container.HostConfig{}
-
-	// Get the current user's UID and GID
-	containerUID := fmt.Sprintf("%d", os.Getuid())
-	containerGID := fmt.Sprintf("%d", os.Getgid())
-
-	envCont := []string{"CONTAINER_UID=" + containerUID, "CONTAINER_GID=" + containerGID}
-
-	var copyToContainer = make(map[string]string)
-	copyToContainer[absProjectRoot] = dockerProjectPath
-
-	var copyFromContainer = make(map[string]string)
-	copyFromContainer[dockerResultDir] = absOutputProjectModelPath
-
-	autobuilderImageLink := utils.GetImageLink(globals.Config.Autobuilder.Version, globals.AutobuilderDocker)
-	container_run.RunGhcrContainer("Compile", autobuilderImageLink, autobuilderFlags, envCont, hostConfig, copyToContainer, copyFromContainer)
-}
-
-func compileWithNative(absOutputProjectModelPath, absProjectRoot string) {
+func compileProject(absOutputProjectModelPath, absProjectRoot string) {
 
 	autobuilderJarPath, err := utils.GetAutobuilderJarPath(globals.Config.Autobuilder.Version)
 	if err != nil {
@@ -179,7 +133,7 @@ func compileWithNative(absOutputProjectModelPath, absProjectRoot string) {
 
 	autobuilderCommand := builder.BuildNativeCommand()
 
-	javaRunner := java.NewJavaRunner().TrySystem().TrySpecificVersion(java.DefaultJavaVersion).TrySpecificVersion(java.LegacyJavaVersion)
+	javaRunner := java.NewJavaRunner().TrySystem().TrySpecificVersion(globals.Config.Java.Version)
 
 	commandSucceeded := func(_ error) bool {
 		if _, err = os.Stat(absOutputProjectModelPath); err != nil {

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -16,6 +17,14 @@ const (
 	LegacyJavaVersion  = 8
 )
 
+type ResolutionStrategy int
+
+const (
+	System ResolutionStrategy = iota
+	Specific
+	None
+)
+
 type JavaRunner interface {
 	TrySystem() JavaRunner
 	TrySpecificVersion(version int) JavaRunner
@@ -23,73 +32,75 @@ type JavaRunner interface {
 	ExecuteJavaCommand(args []string, commandSucceeded func(error) bool) error
 }
 
-type strategyType int
-
-const (
-	strategySystem strategyType = iota
-	strategySpecificVersion
-)
-
-type strategy struct {
-	strategyType strategyType
-	version      int
-}
-
 type javaRunner struct {
-	strategies []strategy
-	javaPath   string
+	trySystemStrategy bool
+	specificStrategy  *int
 }
 
-type JavaResolution func() (string, error)
+type JavaResolution func() (string, ResolutionStrategy, error)
 
 func (j *javaRunner) GetJavaResolutions() []JavaResolution {
-	if j.javaPath != "" {
+	if !j.trySystemStrategy && j.specificStrategy == nil {
 		return []JavaResolution{
-			func() (string, error) {
-				logrus.Debugf("Using cached Java path: %s", j.javaPath)
-				return j.javaPath, nil
+			func() (string, ResolutionStrategy, error) {
+				return "", None, fmt.Errorf("no Java resolution strategies configured")
 			},
 		}
 	}
 
-	if len(j.strategies) == 0 {
+	// Implement fallback behavior when both strategies are configured
+	if j.trySystemStrategy && j.specificStrategy != nil {
+		version := *j.specificStrategy
+		logrus.Debugf("Starting Java resolution with system first, fallback to Java %d", version)
 		return []JavaResolution{
-			func() (string, error) {
-				return "", fmt.Errorf("no Java resolution strategies configured")
-			},
-		}
-	}
-
-	logrus.Debugf("Starting Java resolution with %d strategies", len(j.strategies))
-
-	var resolutionStrategies []JavaResolution
-	for i, s := range j.strategies {
-		strategyIndex := i + 1
-		strategy := s
-		switch strategy.strategyType {
-		case strategySystem:
-			resolutionStrategies = append(resolutionStrategies, func() (string, error) {
-				logrus.Debugf("Trying system Java resolution (strategy %d)", strategyIndex)
+			func() (string, ResolutionStrategy, error) {
+				logrus.Debugf("Trying system Java first (fallback strategy)")
 				if javaPath := j.findSystemJava(); javaPath != "" {
-					j.javaPath = javaPath
-					logrus.Debugf("Detected system Java (%s)", javaPath)
-					return javaPath, nil
+					logrus.Debugf("System Java found (%s), using it", javaPath)
+					return javaPath, System, nil
 				}
-				return "", fmt.Errorf("no suitable system Java found")
-			})
-		case strategySpecificVersion:
-			resolutionStrategies = append(resolutionStrategies, func() (string, error) {
-				logrus.Debugf("Trying specific Java version resolution (strategy %d): Java %d", strategyIndex, strategy.version)
-				javaPath, err := j.ensureSpecificVersion(strategy.version)
+
+				logrus.Debugf("System Java not found, falling back to Java %d", version)
+				javaPath, err := j.ensureSpecificVersion(version)
 				if err == nil {
-					j.javaPath = javaPath
-					logrus.Debugf("Detected Java %d (%s)", strategy.version, javaPath)
-					return javaPath, nil
+					logrus.Debugf("Fallback Java %d found (%s)", version, javaPath)
+					return javaPath, Specific, nil
 				}
-				logrus.Warnf("Failed to detect Java %d: %v", strategy.version, err)
-				return "", fmt.Errorf("failed to detect Java %d: %w", strategy.version, err)
-			})
+
+				logrus.Warnf("Both system Java and Java %d failed: %v", version, err)
+				return "", None, fmt.Errorf("failed to find system Java or Java %d: %w", version, err)
+			},
 		}
+	}
+
+	// Single strategy cases
+	var resolutionStrategies []JavaResolution
+
+	if j.trySystemStrategy {
+		logrus.Debugf("Starting Java resolution with system strategy only")
+		resolutionStrategies = append(resolutionStrategies, func() (string, ResolutionStrategy, error) {
+			logrus.Debugf("Trying system Java resolution")
+			if javaPath := j.findSystemJava(); javaPath != "" {
+				logrus.Debugf("Detected system Java (%s)", javaPath)
+				return javaPath, System, nil
+			}
+			return "", None, fmt.Errorf("no suitable system Java found")
+		})
+	}
+
+	if j.specificStrategy != nil {
+		version := *j.specificStrategy
+		logrus.Debugf("Starting Java resolution with specific version strategy only: Java %d", version)
+		resolutionStrategies = append(resolutionStrategies, func() (string, ResolutionStrategy, error) {
+			logrus.Debugf("Trying specific Java version resolution: Java %d", version)
+			javaPath, err := j.ensureSpecificVersion(version)
+			if err == nil {
+				logrus.Debugf("Detected Java %d (%s)", version, javaPath)
+				return javaPath, Specific, nil
+			}
+			logrus.Warnf("Failed to detect Java %d: %v", version, err)
+			return "", None, fmt.Errorf("failed to detect Java %d: %w", version, err)
+		})
 	}
 
 	return resolutionStrategies
@@ -102,7 +113,7 @@ func (j *javaRunner) ExecuteJavaCommand(args []string, commandSucceeded func(err
 
 	resolutionStrategies := j.GetJavaResolutions()
 	for i, resolutionStrategy := range resolutionStrategies {
-		javaPath, err := resolutionStrategy()
+		javaPath, resolutionStrategy, err := resolutionStrategy()
 		if err != nil {
 			logrus.Debugf("Java resolution attempt %d failed: %v", i+1, err)
 			continue
@@ -110,6 +121,12 @@ func (j *javaRunner) ExecuteJavaCommand(args []string, commandSucceeded func(err
 
 		cmdArgs := append([]string{javaPath}, args...)
 		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+
+		// Set clean environment for specific version strategy
+		if resolutionStrategy == Specific {
+			cmd.Env = j.getCleanEnvironment()
+			logrus.Debug("Using clean environment for specific Java version strategy")
+		}
 
 		logrus.Debugf("Executing Java command (attempt %d): %s %v (full: %s)", i+1, javaPath, args, strings.Join(cmdArgs, " "))
 
@@ -169,23 +186,73 @@ func (j *javaRunner) ExecuteJavaCommand(args []string, commandSucceeded func(err
 }
 
 func (j *javaRunner) TrySpecificVersion(version int) JavaRunner {
-	j.strategies = append(j.strategies, strategy{
-		strategyType: strategySpecificVersion,
-		version:      version,
-	})
+	j.specificStrategy = &version
 	return j
 }
 
 func (j *javaRunner) TrySystem() JavaRunner {
-	j.strategies = append(j.strategies, strategy{
-		strategyType: strategySystem,
-	})
+	j.trySystemStrategy = true
 	return j
+}
+
+// unsetJavaEnvironmentVariables unsets Java-related environment variables
+// to ensure a clean environment when using specific Java versions
+func unsetJavaEnvironmentVariables() {
+	javaEnvVars := []string{
+		"JAVA_HOME",
+		"JAVA_8_HOME",
+		"JAVA_11_HOME",
+		"JAVA_17_HOME",
+		"JAVA_LATEST_HOME",
+	}
+
+	logrus.Debug("Unsetting Java environment variables for clean environment")
+
+	for _, envVar := range javaEnvVars {
+		if value := os.Getenv(envVar); value != "" {
+			logrus.Debugf("Unsetting %s (was: %s)", envVar, value)
+			if err := os.Unsetenv(envVar); err != nil {
+				logrus.Warnf("Failed to unset %s: %v", envVar, err)
+			}
+		} else {
+			logrus.Debugf("%s not set, skipping", envVar)
+		}
+	}
+
+	logrus.Debug("Java environment variables unset for clean environment")
+}
+
+// getCleanEnvironment returns environment variables with Java-related variables excluded
+// for use in command execution with specific Java versions
+func (j *javaRunner) getCleanEnvironment() []string {
+	javaEnvVars := map[string]bool{
+		"JAVA_HOME":        true,
+		"JAVA_8_HOME":      true,
+		"JAVA_11_HOME":     true,
+		"JAVA_17_HOME":     true,
+		"JAVA_LATEST_HOME": true,
+	}
+
+	var cleanEnv []string
+	for _, env := range os.Environ() {
+		parts := strings.SplitN(env, "=", 2)
+		if len(parts) == 2 {
+			if !javaEnvVars[parts[0]] {
+				cleanEnv = append(cleanEnv, env)
+			} else {
+				logrus.Debugf("Excluding %s from command environment", parts[0])
+			}
+		}
+	}
+
+	logrus.Debugf("Created clean environment with %d variables (excluded Java variables)", len(cleanEnv))
+	return cleanEnv
 }
 
 func NewJavaRunner() JavaRunner {
 	return &javaRunner{
-		strategies: make([]strategy, 0),
+		trySystemStrategy: false,
+		specificStrategy:  nil,
 	}
 }
 
@@ -204,5 +271,9 @@ func (j *javaRunner) ensureSpecificVersion(version int) (string, error) {
 	if version < 8 || version > 25 {
 		return "", fmt.Errorf("unsupported Java version: %d (supported range: 8-25)", version)
 	}
+
+	// Unset Java environment variables for clean environment when using specific version
+	unsetJavaEnvironmentVariables()
+
 	return ensureLocalRuntime(version, AdoptiumImageJDK, runtime.GOOS, runtime.GOARCH)
 }

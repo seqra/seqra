@@ -67,7 +67,7 @@ jobs:
 
       - name: Run seqra scan in native environment when user can build project but has no java 17+
         run: |
-          ./seqra scan --compile-type native --scan-type native ${{ steps.github-token.outputs.arg }} --output report.sarif project-root-java-11 --verbosity debug
+          ./seqra scan ${{ steps.github-token.outputs.arg }} --output report.sarif project-root-java-11 --verbosity debug
 
   run-on-petclinic:
     runs-on: ubuntu-latest
@@ -103,9 +103,9 @@ jobs:
 
       - name: Run seqra separate compile and scan
         run: |
-          ./seqra compile --quiet --compile-type docker ${{ steps.github-token.outputs.arg }} --output portable-project project-root --verbosity debug
-          ./seqra scan --quiet --scan-type docker ${{ steps.github-token.outputs.arg }} --output report.sarif portable-project --verbosity debug
+          ./seqra compile --quiet ${{ steps.github-token.outputs.arg }} --output portable-project project-root --verbosity debug
+          ./seqra scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif portable-project --verbosity debug
 
-      - name: Run seqra scan in native enviroment
+      - name: Run seqra scan
         run: |
-          ./seqra scan --quiet --compile-type native --scan-type native ${{ steps.github-token.outputs.arg }} --output report.sarif project-root
+          ./seqra scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif project-root
