@@ -2,6 +2,8 @@ package utils
 
 import (
 	"fmt"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -111,14 +113,36 @@ func (cb *SeqraCommandBuilder) Build() string {
 	parts := []string{cb.command}
 	parts = append(parts, cb.args...)
 
-	// Add regular flags
-	for flag, value := range cb.flags {
-		parts = append(parts, fmt.Sprintf("--%s", flag), value)
+	// Add regular flags in sorted order for consistency
+	var flagNames []string
+	for flag := range cb.flags {
+		flagNames = append(flagNames, flag)
+	}
+	sort.Strings(flagNames)
+	for _, flag := range flagNames {
+		parts = append(parts, fmt.Sprintf("--%s", flag), cb.flags[flag])
 	}
 
-	// Add boolean flags
-	for flag, value := range cb.boolFlags {
-		parts = append(parts, fmt.Sprintf("--%s=%t", flag, value))
+	// Add array flags in sorted order
+	var arrayFlagNames []string
+	for flag := range cb.arrayFlags {
+		arrayFlagNames = append(arrayFlagNames, flag)
+	}
+	sort.Strings(arrayFlagNames)
+	for _, flag := range arrayFlagNames {
+		for _, value := range cb.arrayFlags[flag] {
+			parts = append(parts, fmt.Sprintf("--%s", flag), value)
+		}
+	}
+
+	// Add boolean flags in sorted order
+	var boolFlagNames []string
+	for flag := range cb.boolFlags {
+		boolFlagNames = append(boolFlagNames, flag)
+	}
+	sort.Strings(boolFlagNames)
+	for _, flag := range boolFlagNames {
+		parts = append(parts, fmt.Sprintf("--%s=%t", flag, cb.boolFlags[flag]))
 	}
 
 	return strings.Join(parts, " ")
@@ -151,7 +175,7 @@ func BuildScanCommandWithDocker(projectPath, sarifReportPath string, rulesetPath
 // suggesting the next step with the compiled project model.
 func BuildScanCommandFromCompile(projectPath, projectModelPath string) string {
 	// Suggest output path based on project path
-	outputPath := fmt.Sprintf("%s/seqra.sarif", projectPath)
+	outputPath := filepath.Join(projectPath, "seqra.sarif")
 
 	return NewScanCommand(projectModelPath).
 		WithOutput(outputPath).

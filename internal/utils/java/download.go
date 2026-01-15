@@ -54,6 +54,11 @@ const (
 	AdoptiumArchRISCV64 AdoptiumArch = "riscv64"
 )
 
+// EnsureLocalRuntime downloads and unpacks Temurin runtime if not present and returns bin/java path
+func EnsureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, aoArch string) (string, error) {
+	return ensureLocalRuntime(requiredJavaVersion, imageType, goOs, aoArch)
+}
+
 // ensureLocalRuntime downloads and unpacks Temurin runtime if not present and returns bin/java path
 func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, aoArch string) (string, error) {
 	seqraHome, err := utils.GetSeqraHome()
@@ -61,13 +66,18 @@ func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, go
 		return "", err
 	}
 
-	adoptiumOS, adoptiumArch, err := mapPlatformToAdoptium(goOs, aoArch)
+	adoptiumOS, adoptiumArch, err := MapPlatformToAdoptium(goOs, aoArch)
+	if err != nil {
+		return "", err
+	}
+
+	javaBinary, err := mapOSToJavaBinary(goOs)
 	if err != nil {
 		return "", err
 	}
 
 	artefactRoot := filepath.Join(seqraHome, string(imageType), fmt.Sprintf("temurin-%d-%s-%s-%s", requiredJavaVersion, imageType, adoptiumOS, adoptiumArch))
-	javaPath := filepath.Join(artefactRoot, "bin", "java")
+	javaPath := filepath.Join(artefactRoot, "bin", javaBinary)
 
 	if fileExists(javaPath) {
 		logrus.Debugf("Using installed Java: %s", javaPath)
@@ -81,7 +91,7 @@ func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, go
 		requiredJavaVersion, adoptiumOS, adoptiumArch, imageType,
 	)
 
-	artefactTar := string(imageType) + ".tar.gz"
+	artefactTar := string(imageType)
 
 	return withTmpDir(artefactRoot+"-tmp", func(tmpDir string) (string, error) {
 		tmpArchive := filepath.Join(tmpDir, artefactTar)
@@ -91,7 +101,7 @@ func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, go
 		if err := unpack(tmpArchive, tmpDir); err != nil {
 			return "", err
 		}
-		javaPath, err := finalizeJavaInstall(tmpDir, artefactRoot, requiredJavaVersion)
+		javaPath, err := finalizeJavaInstall(tmpDir, artefactRoot, javaBinary, requiredJavaVersion)
 		if err != nil {
 			return "", err
 		}
@@ -100,14 +110,16 @@ func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, go
 	})
 }
 
-// mapPlatformToAdoptium converts Go OS/arch to Adoptium naming.
-func mapPlatformToAdoptium(osName, arch string) (AdoptiumOS, AdoptiumArch, error) {
+// MapPlatformToAdoptium converts Go OS/arch to Adoptium naming.
+func MapPlatformToAdoptium(osName, arch string) (AdoptiumOS, AdoptiumArch, error) {
 	var adoptiumOS AdoptiumOS
 	switch osName {
 	case "darwin":
 		adoptiumOS = AdoptiumOSMac
 	case "linux":
 		adoptiumOS = AdoptiumOSLinux
+	case "windows":
+		adoptiumOS = AdoptiumOSWindows
 	default:
 		return "", "", fmt.Errorf("unsupported OS for java runtime bootstrap: %s", osName)
 	}
@@ -123,6 +135,22 @@ func mapPlatformToAdoptium(osName, arch string) (AdoptiumOS, AdoptiumArch, error
 	}
 
 	return adoptiumOS, adoptiumArch, nil
+}
+
+func mapOSToJavaBinary(osName string) (string, error) {
+	var javaBinary string
+	switch osName {
+	case "darwin":
+		javaBinary = "java"
+	case "linux":
+		javaBinary = "java"
+	case "windows":
+		javaBinary = "java.exe"
+	default:
+		return "", fmt.Errorf("unsupported OS for java runtime bootstrap: %s", osName)
+	}
+
+	return javaBinary, nil
 }
 
 // withTmpDir manages a temporary directory lifecycle and cleanup.
@@ -167,24 +195,42 @@ func unpack(archivePath, targetDir string) error {
 	}
 	defer func() { _ = f.Close() }()
 
-	gz, err := gzip.NewReader(f)
-	if err != nil {
-		return err
+	buff := make([]byte, 512)
+	if _, err = f.Read(buff); err != nil {
+		logrus.Fatal(err)
 	}
-	defer func() { _ = gz.Close() }()
+	fileType := http.DetectContentType(buff)
 
-	tr := tar.NewReader(gz)
-	return utils.ExtractTar(tr, "", targetDir, true)
+	switch fileType {
+	case "application/x-gzip":
+		file, err := os.Open(archivePath)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = file.Close() }()
+		gz, err := gzip.NewReader(file)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = gz.Close() }()
+
+		tr := tar.NewReader(gz)
+		return utils.ExtractTar(tr, "", targetDir, true)
+	case "application/zip":
+		return utils.ExtractZip(archivePath, targetDir)
+	default:
+		logrus.Fatalf("Failed to unpack an archive with unsupported format: %s", fileType)
+		return fmt.Errorf("unsupported archive format: %s", fileType)
+	}
 }
 
-// finalizeJavaInstall validates the extracted archive, relocates it into jreRoot, and returns bin/java.
-func finalizeJavaInstall(tmpDir, jreRoot string, javaVersion int) (string, error) {
-	javaBinary, err := findJavaBinary(tmpDir)
+func finalizeJavaInstall(tmpDir, jreRoot, javaBinary string, javaVersion int) (string, error) {
+	javaBinaryPath, err := findJavaBinary(tmpDir, javaBinary)
 	if err != nil {
 		return "", err
 	}
 
-	javaHome, javaBinaryName, err := validateJavaBinaryLocation(javaBinary, tmpDir)
+	javaHome, javaBinaryName, err := validateJavaBinaryLocation(javaBinaryPath, tmpDir)
 	if err != nil {
 		return "", err
 	}
@@ -206,14 +252,14 @@ func finalizeJavaInstall(tmpDir, jreRoot string, javaVersion int) (string, error
 	return finalJavaPath, nil
 }
 
-func validateJavaBinaryLocation(javaBinary, tmpDir string) (javaHome, javaBinaryName string, err error) {
-	binDir := filepath.Dir(javaBinary)
+func validateJavaBinaryLocation(javaBinaryPath, tmpDir string) (javaHome, javaBinaryName string, err error) {
+	binDir := filepath.Dir(javaBinaryPath)
 	if filepath.Base(binDir) != "bin" {
-		return "", "", fmt.Errorf("java binary located outside bin directory: %s", javaBinary)
+		return "", "", fmt.Errorf("java binary located outside bin directory: %s", javaBinaryPath)
 	}
 
 	javaHome = filepath.Dir(binDir)
-	javaBinaryName = filepath.Base(javaBinary)
+	javaBinaryName = filepath.Base(javaBinaryPath)
 
 	rel, err := filepath.Rel(tmpDir, javaHome)
 	if err != nil {
@@ -236,14 +282,14 @@ func relocateJava(javaHome, jreRoot string) error {
 	return os.Rename(javaHome, jreRoot)
 }
 
-func findJavaBinary(root string) (string, error) {
+func findJavaBinary(root, javaBinary string) (string, error) {
 	var javaPath string
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if d.Type().IsRegular() && filepath.Base(path) == "java" && filepath.Base(filepath.Dir(path)) == "bin" {
+		if d.Type().IsRegular() && filepath.Base(path) == javaBinary && filepath.Base(filepath.Dir(path)) == "bin" {
 			javaPath = path
 			return errJavaFound
 		}

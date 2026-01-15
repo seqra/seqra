@@ -12,6 +12,8 @@ func suggest(theme, command string) {
 	printer := formatters.NewTreePrinter()
 
 	printer.AddNode(theme)
-	printer.AddNodeAtLevel(command, 1, color.Default, false)
+	if command != "" {
+		printer.AddNodeAtLevel(command, 1, color.Default, false)
+	}
 	printer.Print()
 }

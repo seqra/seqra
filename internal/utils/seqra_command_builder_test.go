@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -18,6 +19,13 @@ func TestNewCompileCommand(t *testing.T) {
 			projectPath: "/path/to/project",
 			outputPath:  "/path/to/output",
 			compileType: "docker",
+			expected:    "seqra compile /path/to/project --compile-type docker --output /path/to/output",
+		},
+		{
+			name:        "native compile command",
+			projectPath: "/path/to/project",
+			outputPath:  "/path/to/output",
+			compileType: "native",
 			expected:    "seqra compile /path/to/project --output /path/to/output",
 		},
 	}
@@ -30,7 +38,7 @@ func TestNewCompileCommand(t *testing.T) {
 				Build()
 
 			if !contains(cmd, tt.expected) {
-				t.Errorf("NewCompileCommand() = %v, want %v", cmd, tt.expected)
+				t.Errorf("NewCompileCommand() = %q, want it to contain %q", cmd, tt.expected)
 			}
 		})
 	}
@@ -130,14 +138,5 @@ func TestNewScanCommand(t *testing.T) {
 
 // Helper function to check if a string contains a substring
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && containsSubstring(s, substr))
-}
-
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(s, substr)
 }

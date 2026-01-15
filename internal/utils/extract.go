@@ -2,6 +2,7 @@ package utils
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"fmt"
 	"io"
 	"os"
@@ -52,6 +53,54 @@ func ExtractTar(tr *tar.Reader, basePath, destPath string, isSourceDir bool) err
 			logrus.Warnf("Skipping unsupported type %c: %s", hdr.Typeflag, hdr.Name)
 		}
 	}
+	return nil
+}
+
+// ExtractZip extracts the contents of a ZIP file to the specified destination directory.
+func ExtractZip(src, dest string) error {
+	zr, err := zip.OpenReader(src)
+	if err != nil {
+		return fmt.Errorf("failed to open zip file: %w", err)
+	}
+	defer func() { _ = zr.Close() }()
+
+	for _, f := range zr.File {
+		path := filepath.Join(dest, f.Name)
+		if !strings.HasPrefix(path, filepath.Clean(dest)+string(os.PathSeparator)) {
+			return fmt.Errorf("invalid file path: %s", f.Name)
+		}
+
+		if f.FileInfo().IsDir() {
+			if err := os.MkdirAll(path, f.FileInfo().Mode()); err != nil {
+				return fmt.Errorf("failed to create directory: %w", err)
+			}
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return fmt.Errorf("failed to create parent directory: %w", err)
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			return fmt.Errorf("failed to open file in zip: %w", err)
+		}
+
+		outFile, err := os.Create(path)
+		if err != nil {
+			_ = rc.Close()
+			return fmt.Errorf("failed to create output file: %w", err)
+		}
+
+		_, err = io.Copy(outFile, rc)
+		_ = outFile.Close()
+		_ = rc.Close()
+
+		if err != nil {
+			return fmt.Errorf("failed to extract file: %w", err)
+		}
+	}
+
 	return nil
 }
 

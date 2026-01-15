@@ -6,6 +6,7 @@ import (
 
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/utils/formatters"
+	"github.com/seqra/seqra/v2/internal/utils/java"
 	"github.com/seqra/seqra/v2/internal/utils/log"
 	"github.com/seqra/seqra/v2/internal/version"
 	"github.com/sirupsen/logrus"
@@ -22,20 +23,6 @@ var rootCmd = &cobra.Command{
 	Long:  `Seqra is a CLI tool that analyzes Java and Kotlin projects to find vulnerabilities`,
 
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		switch cmd.Name() {
-		case "scan":
-			if globals.Config.Compile.Type != "docker" && globals.Config.Compile.Type != "native" {
-				return fmt.Errorf("invalid --compile-type %q: must be one of \"docker\", \"native\"", globals.Config.Compile.Type)
-			}
-			if globals.Config.Scan.Type != "docker" && globals.Config.Scan.Type != "native" {
-				return fmt.Errorf("invalid --scan-type %q: must be one of \"docker\", \"native\"", globals.Config.Scan.Type)
-			}
-		case "compile":
-			if globals.Config.Compile.Type != "docker" && globals.Config.Compile.Type != "native" {
-				return fmt.Errorf("invalid --compile-type %q: must be one of \"docker\", \"native\"", globals.Config.Compile.Type)
-			}
-		}
-
 		// Set up logging to both console and file
 		logFile, logPath, err := log.OpenLogFile()
 		globals.LogPath = logPath
@@ -89,6 +76,13 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&globals.Config.Autobuilder.Version, "autobuilder-version", globals.AutobuilderBindVersion, "Version of seqra autobuilder")
 	_ = rootCmd.PersistentFlags().MarkHidden("autobuilder-version")
 	_ = viper.BindPFlag("autobuilder.version", rootCmd.PersistentFlags().Lookup("autobuilder-version"))
+
+	rootCmd.PersistentFlags().StringVar(&globals.Config.Rules.Version, "rules-version", globals.RulesBindVersion, "Version of seqra rules")
+	_ = rootCmd.PersistentFlags().MarkHidden("rules-version")
+	_ = viper.BindPFlag("rules.version", rootCmd.PersistentFlags().Lookup("rules-version"))
+
+	rootCmd.PersistentFlags().IntVar(&globals.Config.Java.Version, "java-version", java.DefaultJavaVersion, "Java version to use for running analyzer")
+	_ = viper.BindPFlag("java.version", rootCmd.PersistentFlags().Lookup("java-version"))
 
 	rootCmd.PersistentFlags().StringVar(&globals.Config.Github.Token, "github-token", "", "Token for docker image pull from ghcr.io")
 	_ = rootCmd.PersistentFlags().MarkHidden("github-token")

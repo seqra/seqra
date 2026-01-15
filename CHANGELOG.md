@@ -1,3 +1,23 @@
+## v2.1.0
+### feat: Add Docker support, Windows compatibility, and update docs
+- docs: Update README.md
+- feat: Add Dockefile and documentation about using the seqra Docker image
+- feat: Add docker image
+- feat: Support Windows
+- feat: Add `partialFingerprints` in SARIF
+#### seqra-jvm-sast
+- Fix kotlin suspend spring controllers handling
+- Improve span resolution for assignments
+- Remove docker
+- Skip inlined locations with no source
+- Update ir
+- Better kotlin support
+- Use package name in class name resolver
+- Add option to generate sarif fingerprints
+- Fix Sarif tool description messages
+- Fix method summaries selector in trace resolver
+#### seqra-rules
+- feat: Add jsp source and sink
 ## v2.0.2
 ### fix: Bump version
 ## v2.0.1

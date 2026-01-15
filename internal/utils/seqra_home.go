@@ -2,6 +2,7 @@ package utils
 
 import (
 	"os"
+	"path/filepath"
 )
 
 func GetSeqraHome() (string, error) {
@@ -12,7 +13,7 @@ func GetSeqraHome() (string, error) {
 	}
 
 	// Search config in home directory with name ".seqra" (without extension).
-	path := home + "/.seqra"
+	path := filepath.Join(home, ".seqra")
 	merr := os.MkdirAll(path, os.ModePerm)
 	if merr != nil {
 		return "", merr
@@ -26,7 +27,7 @@ func GetAutobuilderJarPath(version string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	autobuilderJar := seqraHomePath + "/autobuilder_" + version + ".jar"
+	autobuilderJar := filepath.Join(seqraHomePath, "autobuilder_"+version+".jar")
 	return autobuilderJar, nil
 }
 
@@ -35,7 +36,7 @@ func GetAnalyzerJarPath(version string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	analyzerJar := seqraHomePath + "/analyzer_" + version + ".jar"
+	analyzerJar := filepath.Join(seqraHomePath, "analyzer_"+version+".jar")
 	return analyzerJar, nil
 }
 
@@ -44,6 +45,6 @@ func GetRulesPath(version string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	rulesPath := seqraHomePath + "/rules_" + version
+	rulesPath := filepath.Join(seqraHomePath, "rules_"+version)
 	return rulesPath, nil
 }
