@@ -42,6 +42,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Build analyzer jar
+        run: ./gradlew :projectAnalyzerJar -PanalyzerVersion=${{ steps.version.outputs.version }}
+
       - name: Build analyzer docker amd64 image
         run: ./gradlew :buildProjectAnalyzerDocker -PanalyzerVersion=${{ steps.version.outputs.version }} -PdockerPlatform=linux/amd64
 
@@ -69,6 +72,15 @@ jobs:
         run: |
           docker push ${{ env.ANALYZER_IMAGE_AMD }}
           docker push ${{ env.ANALYZER_IMAGE_ARM }}
+
+      - name: Upload analyzer jar
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.version.outputs.version }}
+          tag_name: ${{ steps.version.outputs.version }}
+          prerelease: true
+          files: build/libs/opentaint-project-analyzer.jar
+          make_latests: false
 
   publish-autobuilder:
     needs: publish
