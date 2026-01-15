@@ -181,12 +181,7 @@ class SarifGenerator(
         val filteredLocations = path.filter { messageBuilder.isGoodTrace(it) }
         val groupedLocations = groupRelativeTraces(filteredLocations)
         val filteredGroups = removeRepetitiveAssigns(groupedLocations)
-        val groupsWithMsges = filteredGroups.flatMap { group ->
-            if (group.isEmpty())
-                return@flatMap listOf<TracePathNodeWithMsg>()
-
-            messageBuilder.createGroupTraceMessage(group)
-        }
+        val groupsWithMsges = messageBuilder.createGroupTraceMessages(filteredGroups)
         val flowLocations = groupsWithMsges.map { groupNode ->
             val inst = groupNode.node.statement
             val rewriteLine =

@@ -233,18 +233,20 @@ class LocationResolver(
         return methodEnters.filterNotNull()
     }
 
+    private fun fallbackPhysicalLocation(location: IntermediateLocation) =
+        location.info.fullyQualified.split('#').firstOrNull()?.replace('.', '/')
+            ?: "<#[unresolved]#>"
+
     private fun generateSarifLocation(
         location: IntermediateLocation,
         sourceFile: String?
     ): Location = Location(
-        physicalLocation = sourceFile?.let {
-            PhysicalLocation(
-                artifactLocation = ArtifactLocation(uri = it),
-                region = Region(
-                    startLine = location.info.lineNumber.toLong()
-                )
+        physicalLocation = PhysicalLocation(
+            artifactLocation = ArtifactLocation(uri = sourceFile ?: fallbackPhysicalLocation(location)),
+            region = Region(
+                startLine = location.info.lineNumber.toLong()
             )
-        },
+        ),
         logicalLocations = listOf(
             LogicalLocation(
                 fullyQualifiedName = location.info.fullyQualified,
@@ -307,7 +309,7 @@ class LocationResolver(
             val source = getCachedSourceLocation(location.inst)
             if (source == null) {
                 logger.warn { "Source file for ${location.info.fullyQualified} not found!" }
-                return emptyList()
+//                return emptyList()
             }
             return listOf(generateThreadFlowLocation(location, source, startIdx))
         }

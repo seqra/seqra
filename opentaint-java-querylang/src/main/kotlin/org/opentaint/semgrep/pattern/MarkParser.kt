@@ -11,6 +11,15 @@ sealed interface Mark {
 
     data object TaintMark : Mark
 
+    fun isRuleDefined() = when (this) {
+        is StringMark,
+            is TaintMark -> true
+        is ArtificialMark,
+            is StateMark -> false
+    }
+
+    fun isInternallyDefined() = !isRuleDefined()
+
     companion object {
         const val ArtificialMetavarName = "<ARTIFICIAL>"
         const val ArtificialStateName = "__<STATE>__"

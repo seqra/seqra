@@ -45,6 +45,9 @@ class TraceMessageBuilder(
     private val classInitializerSuffix = "class initializer"
     private val defaultTaintMark = "marked"
 
+    private fun TracePathNode.getMethod() =
+        this.statement.location.method
+
     private fun getMethodCalleeName(node: TracePathNode): String? {
         val callExpr = traits.getCallExpr(node.statement)
         return callExpr?.let { traits.getCallee(it).name }
@@ -99,7 +102,7 @@ class TraceMessageBuilder(
         val primaryAction = entry.primaryAction
 
         // filtering CallSummary traces where tainted data ends up where it started
-        if (primaryAction is TraceEntryAction.CallSummary) {
+        if (primaryAction is TraceEntryAction.CallSummary && entry.otherActions.isEmpty()) {
             val summaryTraceFacts = primaryAction.summaryTrace.final.edges
             if (summaryTraceFacts.all { it is TraceEdge.MethodTraceEdge && it.initialFact.base == it.fact.base }) {
                 logger.debug {
@@ -238,33 +241,35 @@ class TraceMessageBuilder(
             return EdgesInfo(emptyList(), emptyList())
         }
 
-        val starts = if (this !is TraceEntryAction.SourceAction) {
-            mapToTaintInfos(relevantEdges())
-        } else emptyList()
+        val starts = this.collectStarts()
+        val follows = this.collectFollows() - starts.toSet()
 
-        fun getActionEdges(action: TraceEntryAction?) =
-            when (action) {
-                is TraceEntryAction.PassAction -> mapToTaintInfos(action.edgesAfter)
+        return EdgesInfo(starts, follows)
+    }
 
-                is TraceEntryAction.SourceAction -> mapToTaintInfos(action.sourceEdges)
+    private fun getActionEdges(action: TraceEntryAction?) =
+        when (action) {
+            is TraceEntryAction.PassAction -> mapToTaintInfos(action.edgesAfter)
 
-                else -> emptyList()
-            }
-
-        val follows = when(this) {
-            is TraceEntry.Action -> otherActions.flatMap { getActionEdges(it) } + getActionEdges(primaryAction)
+            is TraceEntryAction.SourceAction -> mapToTaintInfos(action.sourceEdges)
 
             else -> emptyList()
         }
 
-        return EdgesInfo(starts.distinct(), follows.distinct())
-    }
-
     private fun TraceEntry?.collectStarts() =
-        this?.collectDataflow()?.starts ?: emptyList()
+        if (this != null && this !is TraceEntry.SourceStartEntry) {
+            mapToTaintInfos(relevantEdges()).distinct()
+        } else emptyList()
 
     private fun TraceEntry?.collectFollows() =
-        this?.collectDataflow()?.follows ?: emptyList()
+        when (this) {
+            is TraceEntry.Action -> otherActions.flatMap { getActionEdges(it) } + getActionEdges(primaryAction)
+
+            is TraceEntry.SourceStartEntry ->
+                sourceOtherActions.flatMap { getActionEdges(it) } + getActionEdges(sourcePrimaryAction)
+
+            else -> emptyList()
+        }.distinct()
 
     private fun createTraceEntryMessage(node: TracePathNode): String {
         return when (val entry = node.entry) {
@@ -443,7 +448,15 @@ class TraceMessageBuilder(
         return "$markSource $condition and ends up with $results"
     }
 
-    fun createGroupTraceMessage(group: List<TracePathNode>): List<TracePathNodeWithMsg> =
+    fun createGroupTraceMessages(locs: List<List<TracePathNode>>) =
+        locs.flatMap { group ->
+            if (group.isEmpty())
+                return@flatMap listOf<TracePathNodeWithMsg>()
+
+            createGroupTraceMessage(group)
+        }
+
+    private fun createGroupTraceMessage(group: List<TracePathNode>): List<TracePathNodeWithMsg> =
         groupPrintableTraces(group).map { printableGroup ->
             if (printableGroup.size == 1) {
                 val node = printableGroup.first()
@@ -454,7 +467,7 @@ class TraceMessageBuilder(
                 val lastNode = printableGroup.last()
                 val firstNode = printableGroup.first()
                 val starts = firstNode.entry.collectStarts()
-                val follows = lastNode.entry.collectFollows()
+                val follows = lastNode.entry.collectFollows() - starts.toSet()
                 val message = getGroupTraceMessage(
                     TaintsWithOwner(firstNode, starts),
                     TaintsWithOwner(lastNode, follows),
@@ -541,13 +554,15 @@ class TraceMessageBuilder(
         else -> badOutput("!UnknownMark")
     }
 
-    data class TaintPropagationInfo(val taint: String, val from: String?, val to: String)
+    data class TaintPropagationInfo(val taint: String, val from: String?, val to: String?)
 
-    private fun getCallAction(node: TracePathNode): String {
+    private fun getCallAction(node: TracePathNode, method: String): String {
         if (node.kind == TracePathNodeKind.OTHER) {
-            return "Method"
+            if (method.endsWith(initializerSuffix))
+                return method
+            return "Method $method"
         }
-        return "Call to"
+        return "Call to $method"
     }
 
     private fun createMethodCallTaintPropagationMessage(
@@ -555,29 +570,39 @@ class TraceMessageBuilder(
         taints: List<TaintPropagationInfo>
     ): String {
         val calleeName = getMethodCalleeNameInPrint(node)
-        val callAction = getCallAction(node)
+        val callAction = getCallAction(node, calleeName)
         if (calleeName == stringBuilderAppendName) {
             val taint = taints.joinToString(", ") { it.taint }
             return "Concatenated String contains $taint data"
         }
         val propagated = mutableListOf<TaintPropagationInfo>()
         val created = mutableListOf<TaintPropagationInfo>()
+        val source = mutableListOf<TaintPropagationInfo>()
         for (taint in taints) {
-            if (taint.from == null)
+            if (taint.to == null)
+                source.add(taint)
+            else if (taint.from == null)
                 created.add(taint)
             else
                 propagated.add(taint)
         }
-        val propagatedJoin = propagated.joinToString(", ") { "${it.taint} data from ${it.from} to ${it.to}" }
-        val createdJoin = created.joinToString(", ") { "${it.taint} data to ${it.to}" }
-        val joiner = if (propagatedJoin.isNotEmpty() and createdJoin.isNotEmpty()) " and " else ""
+        val propagatedJoin = propagated.joinToString("; ") { "${it.taint} data from ${it.from} to ${it.to}" }
+        val createdJoin = created.joinToString("; ") { "${it.taint} data to ${it.to}" }
+        val sourceJoin = source.joinToString("; ") { "${it.taint} at ${it.from}" }
+        val joiner1 =
+            if (sourceJoin.isNotEmpty() and (propagatedJoin.isNotEmpty() or createdJoin.isNotEmpty()))
+                ", then"
+            else
+                ""
+        val joiner2 = if (propagatedJoin.isNotEmpty() and createdJoin.isNotEmpty()) " and" else ""
         val propagatedText = if (propagatedJoin.isNotEmpty()) " propagates $propagatedJoin" else ""
         val createdText = if (createdJoin.isNotEmpty()) " puts $createdJoin" else ""
-        val taintChanges = "$propagatedText$joiner$createdText"
+        val sourceText = if (source.isNotEmpty()) " starts with $sourceJoin" else ""
+        val taintChanges = "$sourceText$joiner1$propagatedText$joiner2$createdText"
         if (taintChanges.isEmpty() && node.kind == TracePathNodeKind.SOURCE) {
-            return "Call to $calleeName creates a mark"
+            return "$callAction creates a mark"
         }
-        return "$callAction $calleeName$taintChanges"
+        return "$callAction$taintChanges"
     }
 
     private fun isOneMark(infos: EdgesInfo): Boolean {
@@ -674,8 +699,7 @@ class TraceMessageBuilder(
             if (node.kind == TracePathNodeKind.SOURCE) {
                 return "Call to $calleeName creates a mark"
             }
-            val callAction = getCallAction(node)
-            return "$callAction $calleeName"
+            return getCallAction(node, calleeName)
         }
         return "Call to $calleeName puts $taint"
     }
@@ -704,47 +728,48 @@ class TraceMessageBuilder(
         return "Potential $tainted at the method entry"
     }
 
-    private fun getTaintPropagationInfo(node: TracePathNode, action: CommonTaintAction, neutralMark: String): TaintPropagationInfo? {
-        if (action is RemoveMark || action is RemoveAllMarks)
-            return null
-        val mark = getMarkVarName(action, neutralMark)
-        if (mark is Mark.StateMark) {
-            return null
+    private fun TracePathNode.collectTaintPropagationInfo(): List<TaintPropagationInfo> {
+        val dataflow = this.entry.collectDataflow()
+        val markFollows = hashMapOf<Mark, HashSet<String>>()
+        val markStarts = hashMapOf<Mark, HashSet<String>>()
+        dataflow.follows.filter { it.mark !is Mark.StateMark }.forEach {
+            markFollows.getOrPut(it.mark, ::hashSetOf).add(it.pos.inMessage(this))
         }
-        val markReadable = mark?.inMessage() ?: defaultTaintMark
-        val initial = if (action is AssignMark) null else action.getInitial(node)
-        val follow = action.getTainted(node)
-        return TaintPropagationInfo(markReadable, initial, follow)
-    }
-
-    private fun TraceEntryAction.collectTaintPropagationInfo(node: TracePathNode, actions: Iterable<CommonTaintAction>): List<TaintPropagationInfo> {
-        if (this !is TraceEntryAction.PassAction) return emptyList()
-
-        val neutralMark = printMarks(node.entry.collectFollows())
-        // note: we may have multiple marks with the same name since we discard mark artificial suffix
-        return actions.mapNotNull { getTaintPropagationInfo(node, it, neutralMark) }.distinct()
+        dataflow.starts.filter { it.mark !is Mark.StateMark }.forEach {
+            markStarts.getOrPut(it.mark, ::hashSetOf).add(it.pos.inMessage(this))
+        }
+        val propagations = mutableListOf<TaintPropagationInfo>()
+        markFollows.forEach { (mark, positions) ->
+            val starts = markStarts.getOrDefault(mark, hashSetOf()).joinToString(", ")
+            val follows = positions.joinToString(", ")
+            propagations.add(TaintPropagationInfo(mark.inMessage(), starts.ifEmpty { null }, follows))
+        }
+        markStarts.filter { (mark, _) -> !markFollows.containsKey(mark) }.forEach { (mark, positions) ->
+            propagations.add(TaintPropagationInfo(mark.inMessage(), positions.joinToString(", "), null))
+        }
+        return propagations
     }
 
     private fun TraceEntryAction.EntryPointSourceRule.createMessage(node: TracePathNode): String {
-        val taints = this.collectTaintPropagationInfo(node, action).map { "${it.to} as ${it.taint}" }
+        val taints = node.collectTaintPropagationInfo().filter { it.to != null }
+            .joinToString("; ") { "${it.to} as ${it.taint}" }
         if (taints.isEmpty()) {
             return "Marked data at method entry"
         }
-        val taintsJoin = taints.joinToString(", ")
-        return "Method entry marks $taintsJoin"
+        return "Method entry marks $taints"
     }
 
     private fun TraceEntryAction.SequentialSourceRule.createMessage(node: TracePathNode): String {
-        val taints = this.collectTaintPropagationInfo(node, action).map { "${it.taint} data at ${it.to}" }
+        val taints = node.collectTaintPropagationInfo().filter { it.to != null }.map { "${it.taint} data at ${it.to}" }
         if (taints.isEmpty()) {
             return "Value with marked data"
         }
-        val taintsJoin = taints.joinToString(", ")
+        val taintsJoin = taints.joinToString("; ")
         return "Value with $taintsJoin"
     }
 
     private fun TraceEntryAction.CallRule.createMessage(node: TracePathNode): String {
-        val taintInfos = this.collectTaintPropagationInfo(node, action)
+        val taintInfos = node.collectTaintPropagationInfo()
         return createMethodCallTaintPropagationMessage(node, taintInfos)
     }
 
@@ -753,7 +778,7 @@ class TraceMessageBuilder(
     }
 
     private fun TraceEntryAction.CallSourceRule.createMessage(node: TracePathNode): String {
-        val taintInfos = this.collectTaintPropagationInfo(node, action)
+        val taintInfos = node.collectTaintPropagationInfo()
         return createMethodCallTaintPropagationMessage(node, taintInfos)
     }
 
