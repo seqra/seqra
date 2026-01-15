@@ -6,7 +6,7 @@ on:
       - main
       - 'release/**'
 env:
-  SEQRA_DEPENDENCIES_VERSION: 
+  SEQRA_DEPENDENCIES_VERSION: 2026.01.15.c87912f
 
 jobs:
   goreleaser:
