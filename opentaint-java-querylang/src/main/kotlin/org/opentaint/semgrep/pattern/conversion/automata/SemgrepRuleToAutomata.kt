@@ -224,9 +224,10 @@ private fun AutomataBuilderCtx.addInsidePatterns(
 }
 
 private fun AutomataBuilderCtx.addPatternInside(
-    curAutomata: SemgrepRuleAutomata,
+    initialCurAutomata: SemgrepRuleAutomata,
     actionList: SemgrepPatternActionList,
 ): SemgrepRuleAutomata {
+    var curAutomata = initialCurAutomata
     check(!curAutomata.params.hasMethodEnter) {
         "Pattern with method enter is not expected here"
     }
@@ -242,7 +243,7 @@ private fun AutomataBuilderCtx.addPatternInside(
 
     if (addPrefixEllipsis) {
         acceptIfCurrentAutomataAcceptsSuffix(curAutomata)
-        addMethodEntryLoop(curAutomata)
+        curAutomata = addMethodEntryLoop(curAutomata)
     }
 
     val actionListAutomata = convertActionListToAutomata(formulaManager, actionList)
@@ -253,9 +254,10 @@ private fun AutomataBuilderCtx.addPatternInside(
 }
 
 private fun AutomataBuilderCtx.addPatternNotInside(
-    curAutomata: SemgrepRuleAutomata,
+    initialCurAutomata: SemgrepRuleAutomata,
     actionList: SemgrepPatternActionList,
 ): SemgrepRuleAutomata {
+    var curAutomata = initialCurAutomata
     check(!curAutomata.params.hasMethodEnter) {
         "Pattern with method enter is not expected here"
     }
@@ -270,14 +272,14 @@ private fun AutomataBuilderCtx.addPatternNotInside(
         // because we will add MethodEnter. Do this here to avoid extra determinization
         actionListForAutomata = addEllipsisInTheBeginning(actionListForAutomata)
     }
-    val actionListAutomata = convertActionListToAutomata(formulaManager, actionListForAutomata)
+    var actionListAutomata = convertActionListToAutomata(formulaManager, actionListForAutomata)
 
     if (addPrefixEllipsis) {
         acceptIfCurrentAutomataAcceptsSuffix(curAutomata)
-        addMethodEntryLoop(curAutomata)
+        curAutomata = addMethodEntryLoop(curAutomata)
 
         if (!actionListAutomata.params.hasMethodEnter) {
-            addMethodEntryLoop(actionListAutomata)
+            actionListAutomata = addMethodEntryLoop(actionListAutomata)
         }
     }
 

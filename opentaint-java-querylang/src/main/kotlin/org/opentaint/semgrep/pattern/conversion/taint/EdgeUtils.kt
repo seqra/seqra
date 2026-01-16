@@ -3,6 +3,8 @@ package org.opentaint.semgrep.pattern.conversion.taint
 import org.opentaint.semgrep.pattern.conversion.IsMetavar
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureName
+import org.opentaint.semgrep.pattern.conversion.automata.MethodEnclosingClassName
+import org.opentaint.semgrep.pattern.conversion.automata.MethodName
 import org.opentaint.semgrep.pattern.conversion.automata.MethodSignature
 import org.opentaint.semgrep.pattern.conversion.automata.ParamConstraint
 import org.opentaint.semgrep.pattern.conversion.automata.Predicate
@@ -33,6 +35,9 @@ fun MethodSignature.isGeneratedStringConcat(): Boolean {
     if (name !is SignatureName.Concrete) return false
     return name.name == generatedStringConcatMethodName
 }
+
+fun anyMethodSignature(): MethodSignature =
+    MethodSignature(MethodName(SignatureName.AnyName), MethodEnclosingClassName.anyClassName)
 
 fun EdgeCondition.findPositivePredicate(): Predicate? =
     other.find { !it.negated }?.predicate

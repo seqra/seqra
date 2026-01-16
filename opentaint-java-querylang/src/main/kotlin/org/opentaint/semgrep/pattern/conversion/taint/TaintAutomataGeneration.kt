@@ -16,7 +16,6 @@ import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction
 import org.opentaint.semgrep.pattern.conversion.TypeNamePattern
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.semgrep.pattern.conversion.automata.MethodConstraint
-import org.opentaint.semgrep.pattern.conversion.automata.MethodSignature
 import org.opentaint.semgrep.pattern.conversion.automata.ParamConstraint
 import org.opentaint.semgrep.pattern.conversion.automata.Position
 import org.opentaint.semgrep.pattern.conversion.automata.Predicate
@@ -468,22 +467,17 @@ private fun RuleConversionCtx.removeMeaningLessEdges(
 
 private fun Edge.ensurePositiveCondition(ctx: RuleConversionCtx): Edge? = when (this) {
     is Edge.AnalysisEnd -> this
-    is Edge.MethodCall -> condition.ensurePositiveCondition(ctx)?.let { copy(condition = it) }
-    is Edge.MethodEnter -> condition.ensurePositiveCondition(ctx)?.let { copy(condition = it) }
-    is Edge.MethodExit -> condition.ensurePositiveCondition(ctx)?.let { copy(condition = it) }
+    is Edge.MethodCall -> condition.ensurePositiveCondition(ctx, this)?.let { copy(condition = it) }
+    is Edge.MethodEnter -> condition.ensurePositiveCondition(ctx, this)?.let { copy(condition = it) }
+    is Edge.MethodExit -> condition.ensurePositiveCondition(ctx, this)?.let { copy(condition = it) }
 }
 
-private fun EdgeCondition.ensurePositiveCondition(ctx: RuleConversionCtx): EdgeCondition? {
+private fun EdgeCondition.ensurePositiveCondition(ctx: RuleConversionCtx, edge: Edge): EdgeCondition? {
     if (containsPositivePredicate()) return this
 
-    val signatures = hashSetOf<MethodSignature>()
-    other.mapTo(signatures) { it.predicate.signature }
-    readMetaVar.values.forEach { predicates -> predicates.mapTo(signatures) { it.predicate.signature } }
-
-    if (signatures.size == 1) {
-        // !f(a) /\ !f(b) -> f(*) /\ !f(a) /\ !f(b)
-        val commonSignature = signatures.single()
-        val positivePredicate = Predicate(commonSignature, constraint = null)
+    if (edge is Edge.MethodEnter) {
+        // todo: remove this tricky hack
+        val positivePredicate = Predicate(anyMethodSignature(), constraint = null)
         val otherPredicates = other + MethodPredicate(positivePredicate, negated = false)
         return copy(other = otherPredicates)
     }

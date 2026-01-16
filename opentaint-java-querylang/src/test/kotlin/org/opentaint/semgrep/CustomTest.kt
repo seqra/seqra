@@ -46,7 +46,7 @@ class CustomTest : SampleBasedTest(configurationRequired = true) {
     fun `test xss with sanitizer rule min no pattern ellipsis`() = runTest<custom.springXssSanitizedMinNoPatternEllipsis>()
 
     @Test
-    fun `test RuleReturnWithNotInsideSignature str concat`() = runTest<custom.RuleReturnWithNotInsideSignatureStrConcat>(EXPECT_STATE_VAR)
+    fun `test RuleReturnWithNotInsideSignature str concat`() = runTest<custom.RuleReturnWithNotInsideSignatureStrConcat>()
 
     @Test
     fun `test sample with alias`() = runTest<custom.SampleWithAlias>()

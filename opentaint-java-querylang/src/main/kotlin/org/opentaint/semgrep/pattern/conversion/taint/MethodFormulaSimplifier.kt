@@ -113,8 +113,7 @@ private class MethodFormulaCubeCompactComparator(
 
 private fun MethodFormulaManager.reduceCubes(
     cubes: List<MethodFormulaCubeCompact>,
-    metaVarInfo: ResolvedMetaVarInfo,
-    applyNotEquivalentTransformations: Boolean
+    metaVarInfo: ResolvedMetaVarInfo
 ): List<MethodFormulaCubeCompact> {
     val cmp = MethodFormulaCubeCompactComparator(this)
     val resultCubes = cubes.toMutableList().sortedWith(cmp).toMutableList()
@@ -154,6 +153,25 @@ private fun MethodFormulaManager.reduceCubes(
                     continue
                 }
 
+                /**
+                 * (assert (not (and (not x) Z Y)))             ; (refinedJCube -> False)
+                 *
+                 * (assert (= c1 (or (and x Y) (and Z Y))))     ; rc_i \/ rc_j
+                 * (assert (= c2 (and x Y)))                    ; rc_i
+                 * (assert (not (= c1 c2)))
+                 * UNSAT
+                 *
+                 * rc_i := x /\ Y
+                 * rc_j := Z /\ Y
+                 *
+                 * rc_i \/ rc_j
+                 * ------------- (rewrite)
+                 * (x /\ Y) \/ (Z /\ Y)
+                 * ----------------------- (by x \/ !x)
+                 * (x /\ Y) \/ (x /\ Z /\ Y) \/ (!x /\ Z /\ Y)
+                 *
+                 * refinedJCube := (!x /\ Z /\ Y)
+                 * */
                 val refinedJCube = if (resultCubes[i].negativeLiterals.get(refiningLiteral)) {
                     val newPositive = resultCubes[j].positiveLiterals.copy()
                     newPositive.set(refiningLiteral)
@@ -166,8 +184,15 @@ private fun MethodFormulaManager.reduceCubes(
                     MethodFormulaCubeCompact(resultCubes[j].positiveLiterals.copy(), newNegative)
                 }
 
-                val simplifiedJCube = simplifyMethodFormulaCube(refinedJCube, metaVarInfo, applyNotEquivalentTransformations)
+                val simplifiedJCube = simplifyMethodFormulaCube(refinedJCube, metaVarInfo, applyNotEquivalentTransformations = false)
                 if (simplifiedJCube == null) {
+                    /**
+                     * (x /\ Y) \/ (x /\ Z /\ Y) \/ (!x /\ Z /\ Y)
+                     * ------------------------------------------- (refinedJCube -> False)
+                     * (x /\ Y) \/ (x /\ Z /\ Y)     (x /\ Z /\ Y) -> (x /\ Y)
+                     * -------------------------------------------------------
+                     * (x /\ Y)
+                     * */
                     resultCubes.removeAt(j)
                     foundSimplification = true
                     if (i > j) {
@@ -215,7 +240,7 @@ private fun MethodFormulaManager.formulaSimplifiedCubes(
         .mapNotNull { simplifyMethodFormulaCube(it, metaVarInfo, applyNotEquivalentTransformations) }
         .toMutableList()
 
-    return reduceCubes(cubes, metaVarInfo, applyNotEquivalentTransformations)
+    return reduceCubes(cubes, metaVarInfo)
 }
 
 private fun MethodFormula.tryFindSimplifiedCubes(): List<MethodFormulaCubeCompact>? {
@@ -455,9 +480,10 @@ private class MethodFormulaSolver(
     ) {
         val (posParams, negParams) = solution()
 
-        if (posParams.isEmpty() && negParams.isEmpty()) {
-            result += Lit(Predicate(signature, constraint = null), negated)
-            return
+        if (posParams.isEmpty()) {
+            if (negParams.isEmpty() || !negated) {
+                result += Lit(Predicate(signature, constraint = null), negated)
+            }
         }
 
         posParams.mapTo(result) {

@@ -7,19 +7,17 @@ import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternActionList
 
+private class AutomataGenerationState(val formulaManager: MethodFormulaManager) {
+    var root = AutomataNode()
+    var last = root
+    var hasMethodEnter = false
+    var hasMethodExit = false
+}
+
 fun convertActionListToAutomata(
     formulaManager: MethodFormulaManager,
     actionList: SemgrepPatternActionList
 ): SemgrepRuleAutomata {
-    val root = AutomataNode()
-
-    var last = root
-    var beforeLast: AutomataNode? = null
-    var lastFormula: MethodFormula? = null
-    var hasMethodEnter = false
-    var hasMethodExit = false
-    var loopOccurred = false
-
     val actions = actionList.actions.toMutableList()
     val signaturePatterns = actions.filterIsInstance<SemgrepPatternAction.MethodSignature>()
     val exitPatterns = actions.filterIsInstance<SemgrepPatternAction.MethodExit>()
@@ -48,28 +46,87 @@ fun convertActionListToAutomata(
         lastAction
     }
 
-    if (signaturePattern != null) {
-        val edgeFormula = constructSignatureFormula(formulaManager, signaturePattern)
+    val generationState = AutomataGenerationState(formulaManager)
+    generationState.generateCallActions(
+        actions,
+        loopBeforeCalls = actionList.hasEllipsisInTheBeginning || signaturePattern != null,
+        loopAfterCalls = actionList.hasEllipsisInTheEnd || exitPattern != null,
+    )
 
+    generationState.generateMethodEnter(signaturePattern, actionList.hasEllipsisInTheBeginning)
+    generationState.generateMethodExitAndMarkAccept(exitPattern, actionList.hasEllipsisInTheEnd)
+
+    with(generationState) {
+        val params = SemgrepRuleAutomata.Params(
+            isDeterministic = true,
+            hasMethodEnter = hasMethodEnter,
+            hasMethodExit = hasMethodExit,
+            hasEndEdges = false
+        )
+        return SemgrepRuleAutomata(formulaManager, setOf(root), params)
+    }
+}
+
+private fun AutomataGenerationState.generateMethodExitAndMarkAccept(
+    exitPattern: SemgrepPatternAction.MethodExit?,
+    hasEllipsisInTheEnd: Boolean,
+) {
+    if (exitPattern != null) {
         val newNode = AutomataNode()
-
-        last.outEdges.add(AutomataEdgeType.MethodEnter(edgeFormula) to newNode)
-        beforeLast = last
-        lastFormula = edgeFormula
+        val edgeFormula = constructExitFormula(formulaManager, exitPattern)
+        last.outEdges.add(AutomataEdgeType.MethodExit(edgeFormula) to newNode)
+        hasMethodExit = true
         last = newNode
-        hasMethodEnter = true
+    } else if (hasEllipsisInTheEnd) {
+        val newNode = AutomataNode()
+        last.outEdges.add(AutomataEdgeType.MethodExit(MethodFormula.True) to newNode)
+        last.accept = true
+        hasMethodExit = true
+        last = newNode
     }
 
-    if (actionList.hasEllipsisInTheBeginning) {
-        last.outEdges.add(AutomataEdgeType.MethodEnter(MethodFormula.True) to last)
+    last.accept = true
+}
+
+private fun AutomataGenerationState.generateMethodEnter(
+    signaturePattern: SemgrepPatternAction.MethodSignature?,
+    hasEllipsisInTheBeginning: Boolean
+) {
+    if (signaturePattern != null) {
+        val newRoot = AutomataNode()
+        val edgeFormula = constructSignatureFormula(formulaManager, signaturePattern)
+        newRoot.outEdges.add(AutomataEdgeType.MethodEnter(edgeFormula) to root)
         hasMethodEnter = true
+        root = newRoot
+    } else if (hasEllipsisInTheBeginning) {
+        val newRoot = AutomataNode()
+        newRoot.outEdges.add(AutomataEdgeType.MethodEnter(MethodFormula.True) to root)
+        newRoot.outEdges.addAll(root.outEdges)
+        hasMethodEnter = true
+        root = newRoot
     }
+}
+
+private fun AutomataGenerationState.generateCallActions(
+    actions: List<SemgrepPatternAction>,
+    loopBeforeCalls: Boolean,
+    loopAfterCalls: Boolean,
+) {
+    if (actions.isEmpty()) {
+        if (loopBeforeCalls || loopAfterCalls) {
+            last.outEdges.add(AutomataEdgeType.MethodCall(MethodFormula.True) to last)
+        }
+        return
+    }
+
+    var loopOccurred = false
+    var stateBeforeLast: AutomataNode? = null
+    var lastFormula: MethodFormula? = null
 
     actions.forEach { action ->
-
         val edgeFormula = constructFormula(formulaManager, action)
 
-        if (last != root || actionList.hasEllipsisInTheBeginning) {
+        if (last != root || loopBeforeCalls) {
             // always add loop in middle nodes
             val loopFormula = edgeFormula.complement()
             last.outEdges.add(AutomataEdgeType.MethodCall(loopFormula) to last)
@@ -79,41 +136,17 @@ fun convertActionListToAutomata(
         val newNode = AutomataNode()
 
         last.outEdges.add(AutomataEdgeType.MethodCall(edgeFormula) to newNode)
-        beforeLast = last
+        stateBeforeLast = last
         lastFormula = edgeFormula
         last = newNode
     }
 
-    if (exitPattern != null) {
+    if (loopAfterCalls) {
         last.outEdges.add(AutomataEdgeType.MethodCall(MethodFormula.True) to last)
-        loopOccurred = true
-
-        val edgeFormula = constructExitFormula(formulaManager, exitPattern)
-        val newNode = AutomataNode()
-
-        last.outEdges.add(AutomataEdgeType.MethodExit(edgeFormula) to newNode)
-        beforeLast = last
-        lastFormula = edgeFormula
-        last = newNode
-        hasMethodExit = true
-    } else if (actionList.hasEllipsisInTheEnd) {
-        last.outEdges.add(AutomataEdgeType.MethodCall(MethodFormula.True) to last)
-        last.outEdges.add(AutomataEdgeType.MethodExit(MethodFormula.True) to last)
-        hasMethodExit = true
     } else if (lastFormula != null && loopOccurred) {
         last.outEdges.add(AutomataEdgeType.MethodCall(lastFormula!!) to last)
-        last.outEdges.add(AutomataEdgeType.MethodCall(lastFormula!!.complement()) to beforeLast!!)
+        last.outEdges.add(AutomataEdgeType.MethodCall(lastFormula!!.complement()) to stateBeforeLast!!)
     }
-
-    last.accept = true
-
-    val params = SemgrepRuleAutomata.Params(
-        isDeterministic = true,
-        hasMethodEnter = hasMethodEnter,
-        hasMethodExit = hasMethodExit,
-        hasEndEdges = false
-    )
-    return SemgrepRuleAutomata(formulaManager, setOf(root), params)
 }
 
 private fun constructFormula(formulaManager: MethodFormulaManager, action: SemgrepPatternAction): MethodFormula =

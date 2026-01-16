@@ -79,12 +79,14 @@ fun addPatternStartAndEndOnEveryNode(automata: SemgrepRuleAutomata) {
 private fun patternBordersAutomata(formulaManager: MethodFormulaManager): SemgrepRuleAutomata {
     val root = AutomataNode()
     val middleNode = AutomataNode()
+    val middleExitNode = AutomataNode()
     val terminalNode = AutomataNode()
 
     root.outEdges.add(AutomataEdgeType.PatternStart to middleNode)
     middleNode.outEdges.add(AutomataEdgeType.MethodCall(MethodFormula.True) to middleNode)
-    middleNode.outEdges.add(AutomataEdgeType.MethodExit(MethodFormula.True) to middleNode)
+    middleNode.outEdges.add(AutomataEdgeType.MethodExit(MethodFormula.True) to middleExitNode)
     middleNode.outEdges.add(AutomataEdgeType.PatternEnd to terminalNode)
+    middleExitNode.outEdges.add(AutomataEdgeType.PatternEnd to terminalNode)
     terminalNode.accept = true
 
     val params = SemgrepRuleAutomata.Params(
