@@ -22,10 +22,10 @@ jobs:
           token: ${{  secrets.SEQRA_GITHUB_TOKEN }}
           latest: true
           fileName: seqra_linux_amd64.tar.gz
-          out-file-path: seqra-cli
+          out-file-path: cli
 
       - run: |
-          cd seqra-cli
+          cd cli
           tar -xzf seqra_linux_amd64.tar.gz
 
       - uses: robinraju/release-downloader@v1.12
@@ -58,7 +58,7 @@ jobs:
 
       - name: Seqra compile test project
         run: |
-          seqra-cli/seqra compile test --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --compile-type native --output ./seqra-project --verbosity debug
+          cli/seqra compile test --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output ./seqra-project --verbosity debug
 
       - name: Run Seqra analyzer
         run: |
