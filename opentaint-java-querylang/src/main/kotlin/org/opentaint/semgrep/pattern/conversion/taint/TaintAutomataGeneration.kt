@@ -448,10 +448,11 @@ private fun MethodConstraint.replaceMetavar(replace: (MetavarAtom) -> MetavarAto
 private fun RuleConversionCtx.removeMeaningLessEdges(
     automata: TaintRegisterStateAutomata
 ): TaintRegisterStateAutomata {
+    val removedEdges = mutableListOf<Edge>()
     val successors = automata.successors.mapValues { (srcState, edges) ->
         val resultEdges = hashSetOf<Pair<Edge, State>>()
         for ((edge, dstState) in edges) {
-            val positiveEdge = edge.ensurePositiveCondition(this)
+            val positiveEdge = edge.ensurePositiveCondition(removedEdges)
             if (positiveEdge == null) {
                 check(srcState.register == dstState.register) { "State register modified with non-positive edge" }
                 continue
@@ -462,17 +463,24 @@ private fun RuleConversionCtx.removeMeaningLessEdges(
         resultEdges
     }
 
+    if (removedEdges.isNotEmpty()) {
+        semgrepRuleTrace.error(
+            "Edges without positive predicate: ${removedEdges.size}",
+            Reason.ERROR
+        )
+    }
+
     return automata.copy(successors = successors)
 }
 
-private fun Edge.ensurePositiveCondition(ctx: RuleConversionCtx): Edge? = when (this) {
+private fun Edge.ensurePositiveCondition(removedEdges: MutableList<Edge>): Edge? = when (this) {
     is Edge.AnalysisEnd -> this
-    is Edge.MethodCall -> condition.ensurePositiveCondition(ctx, this)?.let { copy(condition = it) }
-    is Edge.MethodEnter -> condition.ensurePositiveCondition(ctx, this)?.let { copy(condition = it) }
-    is Edge.MethodExit -> condition.ensurePositiveCondition(ctx, this)?.let { copy(condition = it) }
+    is Edge.MethodCall -> condition.ensurePositiveCondition(removedEdges, this)?.let { copy(condition = it) }
+    is Edge.MethodEnter -> condition.ensurePositiveCondition(removedEdges, this)?.let { copy(condition = it) }
+    is Edge.MethodExit -> condition.ensurePositiveCondition(removedEdges, this)?.let { copy(condition = it) }
 }
 
-private fun EdgeCondition.ensurePositiveCondition(ctx: RuleConversionCtx, edge: Edge): EdgeCondition? {
+private fun EdgeCondition.ensurePositiveCondition(removedEdges: MutableList<Edge>, edge: Edge): EdgeCondition? {
     if (containsPositivePredicate()) return this
 
     if (edge is Edge.MethodEnter) {
@@ -482,10 +490,7 @@ private fun EdgeCondition.ensurePositiveCondition(ctx: RuleConversionCtx, edge: 
         return copy(other = otherPredicates)
     }
 
-    ctx.semgrepRuleTrace.error(
-        "Edge without positive predicate",
-        Reason.ERROR
-    )
+    removedEdges.add(edge)
 
     return null
 }
