@@ -437,33 +437,33 @@ class JIRLocalAliasAnalysis(
                         localVarSimpleAlias(lhvAp, operand.accessPathBase(), state)
                     }
 
-                    is JIRRef -> {
-                        when (rhv) {
-                            is JIRFieldRef -> {
-                                val instance = rhv.instance?.accessPathBase()
-                                    ?: AccessPathBase.ClassStatic(rhv.field.enclosingType.typeName)
+                    is JIRRef -> when (rhv) {
+                        is JIRFieldRef -> {
+                            val instance = rhv.instance?.accessPathBase()
+                                ?: AccessPathBase.ClassStatic(rhv.field.enclosingType.typeName)
 
-                                val base = state.currentValue(instance)
-                                val alias = AssignedValue.HeapLocation.Field(base, rhv.field)
-                                return state.updateLocal(lhvAp, alias)
-                            }
-
-                            is JIRArrayAccess -> {
-                                val base = state.currentValue(rhv.array.accessPathBase())
-                                val index = rhv.index.accessPathBase()
-                                val alias = AssignedValue.HeapLocation.Array(base, index)
-                                return state.updateLocal(lhvAp, alias)
-                            }
-
-                            else -> error("Unsupported ref: $rhv")
+                            val base = state.currentValue(instance)
+                            val alias = AssignedValue.HeapLocation.Field(base, rhv.field)
+                            return state.updateLocal(lhvAp, alias)
                         }
+
+                        is JIRArrayAccess -> {
+                            val base = state.currentValue(rhv.array.accessPathBase())
+                            val index = rhv.index.accessPathBase()
+                            val alias = AssignedValue.HeapLocation.Array(base, index)
+                            return state.updateLocal(lhvAp, alias)
+                        }
+
+                        else -> error("Unsupported ref: $rhv")
                     }
 
                     else -> state
                 }
             }
 
-            is JIRRef -> return state.resetHeapAlias(mutatedRef = lhv)
+            is JIRRef -> {
+                return state.resetHeapAlias(mutatedRef = lhv)
+            }
 
             else -> error("Unsupported assign lhv: $lhv")
         }
