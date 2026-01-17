@@ -68,22 +68,7 @@ class JIRLocalAliasAnalysis(
             }
             beforeInst[instIdx] = state
 
-            val nextState = when (inst) {
-                is JIRAssignInst -> {
-                    handleAssign(state, inst)
-                }
-
-                is JIRCallInst -> {
-                    handleCall(state)
-                }
-
-                is JIRCatchInst -> {
-                    val local = inst.throwable as? JIRLocalVar
-                    if (local != null) state.resetLocalAlias(local) else state
-                }
-
-                else -> state
-            }
+            val nextState = evalInst(inst, state)
 
             afterInst[instIdx] = nextState
 
@@ -396,8 +381,31 @@ class JIRLocalAliasAnalysis(
         }
     }
 
-    private fun handleCall(state: State): State {
+    private fun evalInst(inst: JIRInst, state: State): State = when (inst) {
+        is JIRAssignInst -> {
+            handleAssign(state, inst)
+        }
+
+        is JIRCallInst -> {
+            handleCall(state, inst.callExpr)
+        }
+
+        is JIRCatchInst -> {
+            val local = inst.throwable as? JIRLocalVar
+            if (local != null) state.resetLocalAlias(local) else state
+        }
+
+        else -> state
+    }
+
+    private fun handleCall(state: State, call: JIRCallExpr): State {
+        if (call.cantMutateAliasedHeap()) return state
         return state.resetHeapAlias(mutatedRef = null)
+    }
+
+    private fun JIRCallExpr.cantMutateAliasedHeap(): Boolean {
+        if (args.isNotEmpty()) return false
+        return method.isStatic || method.method.isConstructor
     }
 
     private fun handleAssign(initialState: State, assign: JIRAssignInst): State {
@@ -421,7 +429,7 @@ class JIRLocalAliasAnalysis(
                     }
 
                     is JIRCallExpr -> {
-                        handleCall(state)
+                        handleCall(state, rhv)
                     }
 
                     is JIRCastExpr -> {
