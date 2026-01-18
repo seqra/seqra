@@ -1,5 +1,9 @@
 package org.opentaint.jvm.sast.project
 
+import io.github.detekt.sarif4k.Location
+import io.github.detekt.sarif4k.LogicalLocation
+import io.github.detekt.sarif4k.Message
+import io.github.detekt.sarif4k.Result
 import mu.KLogging
 import org.opentaint.ir.api.jvm.JIRAnnotated
 import org.opentaint.ir.api.jvm.JIRAnnotation
@@ -56,9 +60,14 @@ import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualMethod
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualMethodImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualParameter
 import org.objectweb.asm.Opcodes
+import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
+import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.jvm.util.JIRInstListBuilder
 import org.opentaint.dataflow.jvm.util.typeName
+import org.opentaint.ir.api.common.CommonMethod
 import java.util.Objects
+import kotlin.io.path.Path
+import kotlin.io.path.absolutePathString
 
 private val logger = object : KLogging() {}.logger
 
@@ -69,14 +78,18 @@ private val springControllerClassAnnotations = setOf(
     "org.springframework.web.bind.annotation.RestController",
 )
 
-private val springControllerMethodAnnotations = setOf(
-    "org.springframework.web.bind.annotation.RequestMapping",
+private const val springControllerRequestMapping = "org.springframework.web.bind.annotation.RequestMapping"
+
+private val springControllerMethodMappingAnnotations = setOf(
     "org.springframework.web.bind.annotation.GetMapping",
     "org.springframework.web.bind.annotation.PostMapping",
     "org.springframework.web.bind.annotation.PutMapping",
     "org.springframework.web.bind.annotation.DeleteMapping",
     "org.springframework.web.bind.annotation.PatchMapping",
 )
+
+private val springControllerMethodAnnotations =
+    springControllerMethodMappingAnnotations + springControllerRequestMapping
 
 private const val SpringModelAttribute = "org.springframework.web.bind.annotation.ModelAttribute"
 private const val SpringPathVariable = "org.springframework.web.bind.annotation.PathVariable"
@@ -117,8 +130,181 @@ fun ProjectClasses.springWebProjectEntryPoints(cp: JIRClasspath): List<JIRMethod
     return springEntryPoints
 }
 
+private data class SpringControllerPath(
+    val path: String,
+    val method: String?
+)
+
+fun annotateSarifWithSpringRelatedInformation(
+    result: Result,
+    vulnerability: TaintSinkTracker.TaintVulnerability,
+    trace: TraceResolver.Trace?,
+    generateStatementLocation: (JIRInst) -> Location,
+): Result {
+    val relevantMethods = vulnRelevantMethods(vulnerability, trace)
+    val relevantControllers = relevantMethods
+        .filterIsInstance<JIRMethod>()
+        .filter { it.isSpringControllerMethod() }
+
+    if (relevantControllers.isEmpty()) return result
+
+    val relatedLocations = result.relatedLocations.orEmpty().toMutableList()
+    for (controller in relevantControllers) {
+        val firstInst = controller.instList.firstOrNull() ?: continue
+        val paths = controller.extractSpringPath()
+
+        val logicalLoc = paths.mapIndexed { i, path ->
+            LogicalLocation(
+                fullyQualifiedName = "${path.method} ${path.path}",
+                index = i.toLong(),
+                name = "Spring controller",
+                kind = "declaration"
+            )
+        }
+
+        val loc = generateStatementLocation(firstInst)
+        relatedLocations += Location(
+            logicalLocations = logicalLoc,
+            physicalLocation = loc.physicalLocation,
+            message = Message(text = "Related Spring controller")
+        )
+    }
+    return result.copy(relatedLocations = relatedLocations)
+}
+
+private fun JIRMethod.extractSpringPath(): List<SpringControllerPath> {
+    val classRequestMapping = enclosingClass.collectSpringRequestMappingAnnotation()?.firstOrNull()
+
+    val methodAnnotations = collectSpringControllerAnnotations()
+    val methodRequestMapping = methodAnnotations?.firstOrNull { it.jIRClass?.name == springControllerRequestMapping }
+    val methodMethodMapping = methodAnnotations?.firstOrNull { it.jIRClass?.name in springControllerMethodMappingAnnotations }
+
+    val classPaths = classRequestMapping?.let { extractPathsFromRequestMapping(it) }
+    val classMethods = classRequestMapping?.let { extractMethodsFromRequestMapping(it) }
+
+    val methodPaths = when {
+        methodRequestMapping != null -> extractPathsFromRequestMapping(methodRequestMapping)
+        methodMethodMapping != null -> extractPathsFromMethodMapping(methodMethodMapping)
+        else -> null
+    }
+
+    val methodMethods = when {
+        methodRequestMapping != null -> extractMethodsFromRequestMapping(methodRequestMapping)
+        methodMethodMapping != null -> extractMethodsFromMethodMapping(methodMethodMapping)
+        else -> null
+    }
+
+    if (classPaths == null) {
+        val mp = methodPaths ?: return emptyList()
+        val mm = methodMethods ?: classMethods ?: setOf(null)
+        return mp.flatMap { p -> mm.map { m -> SpringControllerPath(p, m) } }
+    }
+
+    if (methodPaths == null) {
+        val mm = classMethods ?: setOf(null)
+        return classPaths.flatMap { p -> mm.map { m -> SpringControllerPath(p, m) } }
+    }
+
+    val paths = classPaths.flatMap { cp ->
+        methodPaths.map { mp -> concatSpringPath(cp, mp) }
+    }
+
+    val mm = methodMethods ?: classMethods ?: setOf(null)
+    return paths.flatMap { p -> mm.map { m -> SpringControllerPath(p, m) } }
+}
+
+@Suppress("UNCHECKED_CAST")
+private fun extractPathsFromRequestMapping(rm: JIRAnnotation): Set<String>? {
+    val value = rm.values["value"] as? List<String> ?: return null
+    return value.toSet()
+}
+
+@Suppress("UNCHECKED_CAST")
+private fun extractPathsFromMethodMapping(mm: JIRAnnotation): Set<String>? {
+    val value = mm.values["value"] as? List<String> ?: return null
+    return value.toSet()
+}
+
+private fun extractMethodsFromRequestMapping(rm: JIRAnnotation): Set<String>? {
+    val method = rm.values["method"] ?: return null
+    // todo: extract method from RequestMapping
+    return null
+}
+
+private fun extractMethodsFromMethodMapping(mm: JIRAnnotation): Set<String>? {
+    val method = mm.jIRClass?.simpleName?.removeSuffix("Mapping")?.uppercase() ?: return null
+    return setOf(method)
+}
+
+private fun concatSpringPath(base: String, other: String): String =
+    Path(base.ensurePrefix("/")).resolve(other.removePrefix("/")).absolutePathString()
+
+private fun String.ensurePrefix(prefix: String): String =
+    if (startsWith(prefix)) this else "$prefix$this"
+
+private fun vulnRelevantMethods(
+    vulnerability: TaintSinkTracker.TaintVulnerability,
+    trace: TraceResolver.Trace?
+): Set<CommonMethod> {
+    val methods = hashSetOf<CommonMethod>()
+    methods.add(vulnerability.statement.location.method)
+    methods.add(vulnerability.methodEntryPoint.method)
+
+    trace?.sourceToSinkTrace?.let { collectRelevantMethods(it, methods) }
+    trace?.entryPointToStart?.let { collectRelevantMethods(it, methods) }
+
+    return methods
+}
+
+private fun collectRelevantMethods(e2sTrace: TraceResolver.EntryPointToStartTrace, methods: MutableSet<CommonMethod>) {
+    e2sTrace.entryPoints.forEach { collectRelevantMethod(it, methods) }
+    e2sTrace.successors.forEach { (k, v) ->
+        collectRelevantMethod(k, methods)
+        v.forEach { collectRelevantMethod(it, methods) }
+    }
+}
+
+private fun collectRelevantMethods(s2sTrace: TraceResolver.SourceToSinkTrace, methods: MutableSet<CommonMethod>) {
+    s2sTrace.startNodes.forEach { collectRelevantMethod(it, methods) }
+    s2sTrace.sinkNodes.forEach { collectRelevantMethod(it, methods) }
+    s2sTrace.successors.keys.forEach { collectRelevantMethod(it, methods) }
+}
+
+private fun collectRelevantMethod(node: TraceResolver.TraceNode, methods: MutableSet<CommonMethod>) {
+    methods += when (node) {
+        is TraceResolver.CallTraceNode -> node.methodEntryPoint.method
+        is TraceResolver.EntryPointTraceNode -> node.method
+        is TraceResolver.SourceToSinkTraceNode -> node.methodEntryPoint.method
+    }
+}
+
 fun JIRAnnotation.isSpringAutowiredAnnotation(): Boolean =
     jIRClass?.name == "org.springframework.beans.factory.annotation.Autowired"
+
+private fun JIRClassOrInterface.collectSpringRequestMappingAnnotation(): List<JIRAnnotation>? {
+    classSpringRequestMappingAnnotation()?.let { return it }
+    return allSuperHierarchySequence.firstNotNullOfOrNull { it.classSpringRequestMappingAnnotation()  }
+}
+
+private fun JIRMethod.collectSpringControllerAnnotations(): List<JIRAnnotation>? {
+    methodSpringControllerAnnotations()?.let { return it }
+
+    return enclosingClass.allSuperHierarchySequence
+        .mapNotNull { it.findMethodOrNull(name, description) }
+        .firstNotNullOfOrNull { m -> m.methodSpringControllerAnnotations()  }
+}
+
+private fun JIRClassOrInterface.classSpringRequestMappingAnnotation(): List<JIRAnnotation>? {
+    val thisAnnotations = annotations.filter { it.jIRClass?.name == springControllerRequestMapping }
+    if (thisAnnotations.isNotEmpty()) return thisAnnotations
+    return null
+}
+
+private fun JIRMethod.methodSpringControllerAnnotations(): List<JIRAnnotation>? {
+    val thisAnnotations = annotations.filter { it.jIRClass?.name in springControllerMethodAnnotations }
+    if (thisAnnotations.isNotEmpty()) return thisAnnotations
+    return null
+}
 
 private fun JIRMethod.isSpringControllerMethod(): Boolean {
     if (annotations.any { it.jIRClass?.name in springControllerMethodAnnotations }) return true
