@@ -495,7 +495,11 @@ class JIRMethodSequentFlowFunction(
             currentAssumptions = { rule ->
                 taintSinkTracker.currentSinkRuleAssumptions(rule, currentInst)
             }
-        ) { rule, evaluatedFacts ->
+        ) { rule, rawEvaluatedFacts ->
+            val evaluatedFacts = rawEvaluatedFacts.map {
+                if (it.base == AccessPathBase.Return) it.rebase(methodResult) else it
+            }
+
             allEvaluatedFacts += evaluatedFacts
 
             if (rule.trackFactsReachAnalysisEnd.isEmpty()) {
