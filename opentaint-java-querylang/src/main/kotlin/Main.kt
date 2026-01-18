@@ -411,18 +411,7 @@ private fun collectParsingStats(path: Path): List<Pair<SemgrepJavaPattern, Strin
             val content = file.readText()
 
             val semgrepFileTrace = semgrepTrace.fileTrace(file.path.toString())
-            val rules = try {
-                yamlToSemgrepRule(content)
-            } catch (e: Throwable) {
-                semgrepFileTrace.error(
-                    SemgrepTraceEntry.Step.LOAD_RULESET,
-                    "Failed parsing yaml: ${file.path}",
-                    SemgrepErrorEntry.Reason.ERROR
-                )
-
-                e.printStackTrace()
-                return@forEach
-            }
+            val rules = yamlToSemgrepRule(content, semgrepFileTrace)
 
             if (rules.isEmpty()) {  // not java rules
                 return@forEach
@@ -538,7 +527,7 @@ private fun analyzeErrors(trace: SemgrepLoadTrace) {
         ruleError.steps.forEach { it.entries.filterIsInstanceTo<SemgrepErrorEntry, _>(allErrors) }
     }
 
-    val errorKinds = allErrors.map { it.ruleKind() }
+    val errorKinds = (allErrors + directFileErrors).map { it.ruleKind() }
     val sortedErrors = errorKinds.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }
 
     println()

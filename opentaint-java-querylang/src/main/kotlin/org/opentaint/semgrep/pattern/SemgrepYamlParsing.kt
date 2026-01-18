@@ -1,5 +1,6 @@
 package org.opentaint.semgrep.pattern
 
+import com.charleskorn.kaml.AnchorsAndAliases
 import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlConfiguration
 import com.charleskorn.kaml.YamlMap
@@ -9,6 +10,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.builtins.serializer
+import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason.NOT_IMPLEMENTED
+import org.opentaint.semgrep.pattern.SemgrepTraceEntry.Step
 import org.opentaint.semgrep.pattern.conversion.cartesianProductMapTo
 import java.util.Optional
 import kotlin.jvm.optionals.getOrNull
@@ -165,22 +168,24 @@ data class PatternSink(
     val requires: SemgrepSinkTaintRequirement? = rawRequires?.decodeSinkRequires()
 }
 
-private fun YamlNode.decodeSinkRequires(): SemgrepSinkTaintRequirement {
+private fun YamlNode.decodeSinkRequires(): SemgrepSinkTaintRequirement? {
     if (this is YamlScalar) {
-        return SemgrepSinkTaintRequirement.Simple(content.decodeRequires())
+        return SemgrepSinkTaintRequirement.Simple(content.decodeRequires() ?: return null)
     }
 
-    TODO("Sink requirement with metavars")
+    currentLoadTrace?.error(Step.LOAD_RULESET, "Sink requirement with metavars", NOT_IMPLEMENTED)
+    return null
 }
 
-private fun String.decodeRequires(): SemgrepTaintRequires {
+private fun String.decodeRequires(): SemgrepTaintRequires? {
     val words = split("\\s+".toRegex())
     if (words.size == 1) {
         val identifier = words.single()
         return SemgrepTaintLabel(identifier)
     }
 
-    TODO("Complex requires")
+    currentLoadTrace?.error(Step.LOAD_RULESET, "Complex requires", NOT_IMPLEMENTED)
+    return null
 }
 
 private const val metaVariableField = "metavariable"
@@ -284,55 +289,84 @@ sealed interface Formula {
 
 private val yaml = Yaml(
     configuration = YamlConfiguration(
+        codePointLimit = Int.MAX_VALUE,
         strictMode = false,
+        anchorsAndAliases = AnchorsAndAliases.Permitted()
     )
 )
 
-fun parseSemgrepYaml(yml: String): SemgrepYamlRuleSet =
-    yaml.decodeFromString(SemgrepYamlRuleSet.serializer(), yml)
+private var currentLoadTrace: SemgrepFileLoadTrace? = null
 
-fun yamlToSemgrepRule(yml: String): List<SemgrepYamlRule> {
-    val ruleSet = parseSemgrepYaml(yml)
+fun parseSemgrepYaml(yml: String, trace: SemgrepFileLoadTrace): SemgrepYamlRuleSet? =
+    try {
+        currentLoadTrace = trace
+        yaml.decodeFromString(SemgrepYamlRuleSet.serializer(), yml)
+    } catch (ex: Throwable) {
+        trace.error(
+            Step.LOAD_RULESET,
+            "Failed to load rule set from yaml: ${ex.message}",
+            SemgrepErrorEntry.Reason.ERROR,
+        )
+        null
+    } finally {
+        currentLoadTrace = null
+    }
+
+fun yamlToSemgrepRule(yml: String, trace: SemgrepFileLoadTrace): List<SemgrepYamlRule> {
+    val ruleSet = parseSemgrepYaml(yml, trace) ?: return emptyList()
     return ruleSet.rules.filter { rule ->
         "java" in rule.languages.map { it.lowercase() }
     }
 }
 
-fun parseSemgrepRule(rule: SemgrepYamlRule): SemgrepRule<Formula> =
+fun parseSemgrepRule(rule: SemgrepYamlRule, trace: SemgrepRuleLoadStepTrace): SemgrepRule<Formula> =
     if (rule.mode == "taint") {
-        parseTaintRule(rule)
+        parseTaintRule(rule, trace)
     } else {
-        SemgrepMatchingRule(listOf(parseMatchingRuleFormula(rule)))
+        SemgrepMatchingRule(listOfNotNull(parseMatchingRuleFormula(rule, trace)))
     }
 
-private fun parseTaintRule(rule: SemgrepYamlRule): SemgrepTaintRule<Formula> =
+private fun parseTaintRule(rule: SemgrepYamlRule, trace: SemgrepRuleLoadStepTrace): SemgrepTaintRule<Formula> =
     SemgrepTaintRule(
-        sources = rule.patternSources.map {
-            SemgrepTaintSource(it.exact, it.control, it.bySideEffect, it.label, it.requires, complexPatternToFormula(it.sourcePattern))
+        sources = rule.patternSources.mapNotNull {
+            SemgrepTaintSource(
+                it.exact, it.control, it.bySideEffect, it.label, it.requires,
+                complexPatternToFormula(it.sourcePattern, trace) ?: return@mapNotNull null
+            )
         },
-        sinks = rule.patternSinks.map {
-            SemgrepTaintSink(it.requires, complexPatternToFormula(it.sinkPattern))
+        sinks = rule.patternSinks.mapNotNull {
+            SemgrepTaintSink(
+                it.requires,
+                complexPatternToFormula(it.sinkPattern, trace) ?: return@mapNotNull null
+            )
         },
-        propagators = rule.patternPropagators.map {
-            SemgrepTaintPropagator(it.from, it.to, it.bySideEffect, complexPatternToFormula(it.propagatorPattern))
+        propagators = rule.patternPropagators.mapNotNull {
+            SemgrepTaintPropagator(
+                it.from, it.to, it.bySideEffect,
+                complexPatternToFormula(it.propagatorPattern, trace) ?: return@mapNotNull null
+            )
         },
-        sanitizers = rule.patternSanitizers.map {
-            SemgrepTaintSanitizer(it.exact, it.bySideEffect, complexPatternToFormula(it.sanitizerPattern))
+        sanitizers = rule.patternSanitizers.mapNotNull {
+            SemgrepTaintSanitizer(
+                it.exact, it.bySideEffect,
+                complexPatternToFormula(it.sanitizerPattern, trace) ?: return@mapNotNull null
+            )
         }
     )
 
 // TODO The case in which two or more of them are simultaneously contained has not been considered.
-private fun parseMatchingRuleFormula(rule: SemgrepYamlRule): Formula =
+private fun parseMatchingRuleFormula(rule: SemgrepYamlRule, trace: SemgrepRuleLoadStepTrace): Formula? =
     if (rule.pattern != null) {
         Formula.LeafPattern(rule.pattern)
     } else if (rule.patterns.isNotEmpty()) {
-        val children = rule.patterns.map { complexPatternToFormula(it) }
+        val children = rule.patterns.map { complexPatternToFormula(it, trace) ?: return null }
         Formula.And(children)
     } else if (rule.patternEither.isNotEmpty()) {
-        val children = rule.patternEither.map { complexPatternToFormula(it) }
+        val children = rule.patternEither.map { complexPatternToFormula(it, trace) ?: return null }
         Formula.Or(children)
     } else {
-        TODO("Unecpected pattern")
+        trace.error("Unsupported pattern", NOT_IMPLEMENTED)
+        null
     }
 
 fun convertToRawRule(rule: SemgrepRule<Formula>,
@@ -367,7 +401,10 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
             is Formula.Inside -> {
                 val inside = f.child
                 val insideAsLeaf = inside as? Formula.LeafPattern
-                    ?: TODO("Pattern inside is not a leaf")
+                    ?: run {
+                        semgrepTrace.error("Pattern inside is not a leaf", NOT_IMPLEMENTED)
+                        return null
+                    }
                 if (literal.negated) {
                     patternNotInsides.add(insideAsLeaf.pattern)
                 } else {
@@ -378,10 +415,7 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
             is Formula.MetavarFocus -> {
                 // todo
                 if (literal.negated)  {
-                    semgrepTrace.error(
-                        "Not implemented negated MetavarFocus",
-                        SemgrepErrorEntry.Reason.NOT_IMPLEMENTED,
-                    )
+                    semgrepTrace.error("Not implemented negated MetavarFocus", NOT_IMPLEMENTED)
                     return null
                 }
 
@@ -389,22 +423,16 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
             }
 
             is Formula.MetavarCond -> {
-                semgrepTrace.error(
-                    "Not implemented MetavarCond",
-                    SemgrepErrorEntry.Reason.NOT_IMPLEMENTED
-                )
                 // todo
+                semgrepTrace.error("Not implemented MetavarCond", NOT_IMPLEMENTED)
                 return null
             }
 
             is Formula.MetavarPattern -> {
                 var metaVarConstraint = f.formula.toMetaVarPatternConstraint()
                 if (metaVarConstraint == null) {
-                    semgrepTrace.error(
-                        "Not implemented complex MetavarPattern",
-                        SemgrepErrorEntry.Reason.NOT_IMPLEMENTED
-                    )
                     // todo
+                    semgrepTrace.error("Not implemented complex MetavarPattern", NOT_IMPLEMENTED)
                     return null
                 }
 
@@ -427,11 +455,8 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
             }
 
             is Formula.Regex -> {
-                semgrepTrace.error(
-                    "Not implemented Regex",
-                    SemgrepErrorEntry.Reason.NOT_IMPLEMENTED
-                )
                 // todo
+                semgrepTrace.error("Not implemented Regex", NOT_IMPLEMENTED)
                 return null
             }
 
@@ -538,32 +563,32 @@ private fun NormalizedFormula.toDNF(): List<NormalizedFormulaCube> = when (this)
     }
 }
 
-private fun complexPatternToFormula(pattern: ComplexPattern): Formula {
+private fun complexPatternToFormula(pattern: ComplexPattern, trace: SemgrepRuleLoadStepTrace): Formula? {
     return if (pattern.patternEither.isNotEmpty()) {
-        val children = pattern.patternEither.map { complexPatternToFormula(it) }
+        val children = pattern.patternEither.map { complexPatternToFormula(it, trace) ?: return null }
         Formula.Or(children)
     } else if (pattern.pattern != null) {
         Formula.LeafPattern(pattern.pattern)
     } else if (pattern.patterns.isNotEmpty()) {
-        val children = pattern.patterns.map { complexPatternToFormula(it) }
+        val children = pattern.patterns.map { complexPatternToFormula(it, trace) ?: return null }
         Formula.And(children)
     } else if (pattern.patternInside != null) {
         Formula.Inside(
-            complexPatternToFormula(pattern.patternInside)
+            complexPatternToFormula(pattern.patternInside, trace) ?: return null
         )
     } else if (pattern.patternNot != null) {
         Formula.Not(
-            complexPatternToFormula(pattern.patternNot)
+            complexPatternToFormula(pattern.patternNot, trace) ?: return null
         )
     } else if (pattern.patternNotInside != null) {
         Formula.Not(
             Formula.Inside(
-                complexPatternToFormula(pattern.patternNotInside)
+                complexPatternToFormula(pattern.patternNotInside, trace) ?: return null
             )
         )
     } else if (pattern.metaVariablePattern != null) {
         val nested = pattern.metaVariablePattern.metaVariablePattern
-        val nestedFormula = complexPatternToFormula(nested)
+        val nestedFormula = complexPatternToFormula(nested, trace) ?: return null
         Formula.MetavarPattern(pattern.metaVariablePattern.metavariable, nestedFormula)
     } else if (pattern.metavariableRegex != null) {
         Formula.MetavarRegex(pattern.metavariableRegex.metavariable, pattern.metavariableRegex.regex)
@@ -577,11 +602,13 @@ private fun complexPatternToFormula(pattern: ComplexPattern): Formula {
         val focusVars = pattern.focusMetaVariables.map { Formula.MetavarFocus(it) }
         return Formula.And(focusVars)
     } else {
-        TODO("Unexpected complex pattern")
+        trace.error("Unexpected complex pattern: $pattern", NOT_IMPLEMENTED)
+        return null
     }
 }
 
-private fun complexPatternToFormula(pattern: SimpleOrComplexPattern): Formula = when (pattern) {
-    is SimpleOrComplexPattern.Simple -> Formula.LeafPattern(pattern.pattern)
-    is SimpleOrComplexPattern.Complex -> complexPatternToFormula(pattern.pattern)
-}
+private fun complexPatternToFormula(pattern: SimpleOrComplexPattern, trace: SemgrepRuleLoadStepTrace): Formula? =
+    when (pattern) {
+        is SimpleOrComplexPattern.Simple -> Formula.LeafPattern(pattern.pattern)
+        is SimpleOrComplexPattern.Complex -> complexPatternToFormula(pattern.pattern, trace)
+    }

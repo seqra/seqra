@@ -1,12 +1,8 @@
 package org.opentaint.semgrep.pattern
 
-import com.charleskorn.kaml.AnchorsAndAliases
-import com.charleskorn.kaml.Yaml
-import com.charleskorn.kaml.YamlConfiguration
 import com.charleskorn.kaml.YamlList
 import com.charleskorn.kaml.YamlMap
 import com.charleskorn.kaml.YamlScalar
-import kotlinx.serialization.decodeFromString
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.semgrep.pattern.SemgrepTraceEntry.Step
@@ -40,29 +36,13 @@ class SemgrepRuleLoader {
     private val parser = SemgrepPatternParser.create().cached()
     private val converter = ActionListBuilder.create().cached()
 
-    private val yaml = Yaml(
-        configuration = YamlConfiguration(
-            codePointLimit = Int.MAX_VALUE,
-            strictMode = false,
-            anchorsAndAliases = AnchorsAndAliases.Permitted()
-        )
-    )
-
     fun loadRuleSet(
         ruleSetText: String,
         ruleSetName: String,
         semgrepFileTrace: SemgrepFileLoadTrace
     ): List<Pair<TaintRuleFromSemgrep, RuleMetadata>> {
-        val ruleSet = runCatching {
-            yaml.decodeFromString<SemgrepYamlRuleSet>(ruleSetText)
-        }.onFailure { ex ->
-            semgrepFileTrace.error(
-                Step.LOAD_RULESET,
-                "Failed to load rule set from yaml \"$ruleSetName\": ${ex.message}",
-                SemgrepErrorEntry.Reason.ERROR,
-            )
-            return emptyList()
-        }.getOrThrow()
+        val ruleSet = parseSemgrepYaml(ruleSetText, semgrepFileTrace)
+            ?: return emptyList()
 
         val (javaRules, otherRules) = ruleSet.rules.partition { it.isJavaRule() }
         semgrepFileTrace.info("Found ${javaRules.size} java rules in $ruleSetName")

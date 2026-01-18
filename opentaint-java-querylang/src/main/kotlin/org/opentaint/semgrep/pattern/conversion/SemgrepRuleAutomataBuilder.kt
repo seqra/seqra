@@ -46,7 +46,7 @@ class SemgrepRuleAutomataBuilder(
         yamlRule: SemgrepYamlRule,
         semgrepRuleTrace: SemgrepRuleLoadTrace
     ): SemgrepRule<RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>> {
-        val semgrepRule = parseSemgrepRule(yamlRule)
+        val semgrepRule = parseSemgrepRule(yamlRule, semgrepRuleTrace.stepTrace(Step.LOAD_RULESET))
         val rawRules = convertToRawRule(semgrepRule, semgrepRuleTrace.stepTrace(Step.BUILD_CONVERT_TO_RAW_RULE))
 
         var ruleWithoutPattern = 0
