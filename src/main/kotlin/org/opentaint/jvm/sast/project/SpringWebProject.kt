@@ -5,12 +5,19 @@ import io.github.detekt.sarif4k.LogicalLocation
 import io.github.detekt.sarif4k.Message
 import io.github.detekt.sarif4k.Result
 import mu.KLogging
+import org.objectweb.asm.Opcodes
+import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
+import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
+import org.opentaint.dataflow.jvm.util.JIRInstListBuilder
+import org.opentaint.dataflow.jvm.util.typeName
+import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.jvm.JIRAnnotated
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDeclaration
+import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRPrimitiveType
 import org.opentaint.ir.api.jvm.JIRRefType
@@ -59,12 +66,6 @@ import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualClassImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualMethod
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualMethodImpl
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualParameter
-import org.objectweb.asm.Opcodes
-import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
-import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
-import org.opentaint.dataflow.jvm.util.JIRInstListBuilder
-import org.opentaint.dataflow.jvm.util.typeName
-import org.opentaint.ir.api.common.CommonMethod
 import java.util.Objects
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
@@ -155,7 +156,7 @@ fun annotateSarifWithSpringRelatedInformation(
 
         val logicalLoc = paths.mapIndexed { i, path ->
             LogicalLocation(
-                fullyQualifiedName = "${path.method} ${path.path}",
+                fullyQualifiedName = "${path.method?.let { "$it " } ?: ""}${path.path}",
                 index = i.toLong(),
                 name = "${controller.enclosingClass.name}#${controller.name}",
                 kind = "function"
@@ -194,41 +195,34 @@ private fun JIRMethod.extractSpringPath(): List<SpringControllerPath> {
         else -> null
     }
 
-    if (classPaths == null) {
-        val mp = methodPaths ?: return emptyList()
-        val mm = methodMethods ?: classMethods ?: setOf(null)
-        return mp.flatMap { p -> mm.map { m -> SpringControllerPath(p, m) } }
+    val methods = methodMethods ?: classMethods ?: setOf(null)
+    val paths = when {
+        classPaths == null -> methodPaths ?: emptyList()
+        methodPaths == null -> classPaths
+        else -> classPaths.flatMap { cp ->
+            methodPaths.map { mp -> concatSpringPath(cp, mp) }
+        }
     }
 
-    if (methodPaths == null) {
-        val mm = classMethods ?: setOf(null)
-        return classPaths.flatMap { p -> mm.map { m -> SpringControllerPath(p, m) } }
-    }
-
-    val paths = classPaths.flatMap { cp ->
-        methodPaths.map { mp -> concatSpringPath(cp, mp) }
-    }
-
-    val mm = methodMethods ?: classMethods ?: setOf(null)
-    return paths.flatMap { p -> mm.map { m -> SpringControllerPath(p, m) } }
+    return paths.flatMap { p -> methods.map { m -> SpringControllerPath(p, m) } }
 }
 
 @Suppress("UNCHECKED_CAST")
 private fun extractPathsFromRequestMapping(rm: JIRAnnotation): Set<String>? {
-    val value = rm.values["value"] as? List<String> ?: return null
-    return value.toSet()
+    val value = rm.values["value"] as? List<String>
+    val path = rm.values["path"] as? List<String>
+
+    val paths = listOfNotNull(value, path).flatMapTo(hashSetOf()) { it }
+    return paths.takeIf { it.isNotEmpty() }
 }
 
-@Suppress("UNCHECKED_CAST")
-private fun extractPathsFromMethodMapping(mm: JIRAnnotation): Set<String>? {
-    val value = mm.values["value"] as? List<String> ?: return null
-    return value.toSet()
-}
+// note: @(Post/Get/...)Mapping is an alias for @RequestMapping
+private fun extractPathsFromMethodMapping(mm: JIRAnnotation): Set<String>? =
+    extractPathsFromRequestMapping(mm)
 
 private fun extractMethodsFromRequestMapping(rm: JIRAnnotation): Set<String>? {
     val method = rm.values["method"] ?: return null
-    // todo: extract method from RequestMapping
-    return null
+    return (method as? List<*>)?.mapNotNullTo(hashSetOf()) { (it as? JIRField)?.name }?.takeIf { it.isNotEmpty() }
 }
 
 private fun extractMethodsFromMethodMapping(mm: JIRAnnotation): Set<String>? {
