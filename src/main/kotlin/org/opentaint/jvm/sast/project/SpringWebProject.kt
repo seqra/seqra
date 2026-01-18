@@ -157,8 +157,8 @@ fun annotateSarifWithSpringRelatedInformation(
             LogicalLocation(
                 fullyQualifiedName = "${path.method} ${path.path}",
                 index = i.toLong(),
-                name = "Spring controller",
-                kind = "declaration"
+                name = "${controller.enclosingClass.name}#${controller.name}",
+                kind = "function"
             )
         }
 
