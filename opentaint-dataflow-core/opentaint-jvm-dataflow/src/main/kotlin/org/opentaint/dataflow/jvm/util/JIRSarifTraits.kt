@@ -62,18 +62,20 @@ class JIRSarifTraits(
         return "$i$suffix"
     }
 
-    private fun getReadableInstance(statement: JIRInst) =
-        if (statement is JIRAssignInst && statement.rhv is JIRInstanceCallExpr)
-            getReadableValue(statement, (statement.rhv as JIRInstanceCallExpr).instance)
-        else
-            null
+    private fun getReadableInstance(statement: JIRInst): String? {
+        val callExpr = statement.callExpr ?: return null
+        val instanceCall = callExpr as? JIRInstanceCallExpr ?: return null
+        return getReadableValue(statement, instanceCall.instance)
+    }
 
-    override fun printThis(statement: JIRInst) =
-        if (getCallExpr(statement)?.let { getCallee(it).name } == "<init>") {
+    override fun printThis(statement: JIRInst): String =
+        printThis(statement) { getReadableInstance(it) }
+
+    private inline fun printThis(statement: JIRInst, parseStatement: (JIRInst) -> String?): String =
+        if (statement.callExpr?.callee?.isConstructor == true) {
             "the created object"
-        }
-        else {
-            getReadableInstance(statement) ?: "the calling object"
+        } else {
+            parseStatement(statement) ?: "the calling object"
         }
 
     override fun printArgumentNth(index: Int, methodName: String?): String {
@@ -143,7 +145,13 @@ class JIRSarifTraits(
                         ReadableValue.Value("\"name\"")
                 }
             }
-            is JIRThis -> ReadableValue.Value(printThis(statement))
+            is JIRThis -> {
+                val printed = printThis(statement) {
+                    // do not parse statement again
+                    null
+                }
+                ReadableValue.Value(printed)
+            }
             else -> ReadableValue.Value(expr.toString())
         }
     }
