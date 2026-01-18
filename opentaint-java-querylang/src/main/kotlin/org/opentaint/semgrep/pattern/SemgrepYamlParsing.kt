@@ -178,14 +178,11 @@ private fun YamlNode.decodeSinkRequires(): SemgrepSinkTaintRequirement? {
 }
 
 private fun String.decodeRequires(): SemgrepTaintRequires? {
-    val words = split("\\s+".toRegex())
-    if (words.size == 1) {
-        val identifier = words.single()
-        return SemgrepTaintLabel(identifier)
+    val result = parseRequires(this)
+    if (result == null) {
+        currentLoadTrace?.error(Step.LOAD_RULESET, "Requires parse failed: $this", NOT_IMPLEMENTED)
     }
-
-    currentLoadTrace?.error(Step.LOAD_RULESET, "Complex requires", NOT_IMPLEMENTED)
-    return null
+    return result
 }
 
 private const val metaVariableField = "metavariable"

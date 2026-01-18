@@ -29,7 +29,11 @@ import org.opentaint.semgrep.pattern.SemgrepMatchingRule
 import org.opentaint.semgrep.pattern.SemgrepRule
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import org.opentaint.semgrep.pattern.SemgrepSinkTaintRequirement
+import org.opentaint.semgrep.pattern.SemgrepTaintAnd
 import org.opentaint.semgrep.pattern.SemgrepTaintLabel
+import org.opentaint.semgrep.pattern.SemgrepTaintNot
+import org.opentaint.semgrep.pattern.SemgrepTaintOr
+import org.opentaint.semgrep.pattern.SemgrepTaintRequires
 import org.opentaint.semgrep.pattern.SemgrepTaintRule
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import org.opentaint.semgrep.pattern.conversion.IsMetavar
@@ -129,24 +133,65 @@ private fun RuleConversionCtx.convertMatchingRuleToTaintRules(
     return TaintRuleFromSemgrep(ruleId, ruleGroups)
 }
 
+sealed interface TaintMarkCheckBuilder {
+    fun build(position: PositionBaseWithModifiers): SerializedCondition
+}
+
+private data class TaintMarkLabelCheckBuilder(val label: String) : TaintMarkCheckBuilder {
+    override fun build(position: PositionBaseWithModifiers): SerializedCondition =
+        SerializedCondition.ContainsMark(label, position)
+}
+
+private data class TaintMarkNotCheckBuilder(val arg: TaintMarkCheckBuilder): TaintMarkCheckBuilder {
+    override fun build(position: PositionBaseWithModifiers): SerializedCondition =
+        SerializedCondition.not(arg.build(position))
+}
+
+private data class TaintMarkAndCheckBuilder(
+    val l: TaintMarkCheckBuilder,
+    val r: TaintMarkCheckBuilder
+) : TaintMarkCheckBuilder {
+    override fun build(position: PositionBaseWithModifiers): SerializedCondition =
+        SerializedCondition.and(listOf(l.build(position), r.build(position)))
+}
+
+private data class TaintMarkOrCheckBuilder(
+    val l: TaintMarkCheckBuilder,
+    val r: TaintMarkCheckBuilder
+) : TaintMarkCheckBuilder {
+    override fun build(position: PositionBaseWithModifiers): SerializedCondition =
+        serializedConditionOr(listOf(l.build(position), r.build(position)))
+}
+
+private data object TaintMarkCheckNotExpected : TaintMarkCheckBuilder {
+    override fun build(position: PositionBaseWithModifiers): SerializedCondition = SerializedCondition.True
+}
+
 private fun RuleConversionCtx.convertTaintRuleToTaintRules(
     rule: SemgrepTaintRule<RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>>,
 ): TaintRuleFromSemgrep {
-    val taintMarks = mutableSetOf<String>()
+    val taintLabels = mutableSetOf<SemgrepTaintLabel>()
     val generatedRules = mutableListOf<SerializedItem>()
 
-    fun taintMark(label: SemgrepTaintLabel?): String {
-        val labelSuffix = label?.label?.let { "_$it" } ?: ""
+    fun taintMark(label: SemgrepTaintLabel): String {
+        var labelSuffix = label.label
+        if (labelSuffix.isNotBlank()) {
+            labelSuffix = "_$labelSuffix"
+        }
         return "$ruleId#${Mark.GeneralTaintName}$labelSuffix"
     }
 
-    for ((i, source) in rule.sources.withIndex()) {
-        val taintMarkName = taintMark(source.label).also { taintMarks.add(it) }
+    if (rule.sources.isEmpty()) {
+        semgrepRuleTrace.error("Taint rule without sources", Reason.ERROR)
+    }
 
-        val requiresVarName = when (val r = source.requires) {
-            null -> "dummy_unused_name"
-            is SemgrepTaintLabel -> taintMark(r)
-        }
+    for ((i, source) in rule.sources.withIndex()) {
+        val label = source.label ?: SemgrepTaintLabel("")
+        taintLabels += label
+
+        val taintMarkName = taintMark(label)
+        val requiresCheck = source.requires?.let { createTaintMarkCheckBuilder(it, ::taintMark) }
+            ?: TaintMarkCheckNotExpected
 
         generatedRules += safeConvertToTaintRules("$ruleId: source #$i", source.pattern) { pattern ->
             val sourceCtx = convertTaintSourceRule(i, pattern, generateRequires = source.requires != null)
@@ -154,43 +199,41 @@ private fun RuleConversionCtx.convertTaintRuleToTaintRules(
 
             val ctx = SinkRuleGenerationCtx(
                 sourceCtx.requirementVars, sourceCtx.requirementStateId,
-                requiresVarName, sourceCtx.ctx
+                requiresCheck, sourceCtx.ctx
             )
             ctx.generateTaintSourceRules(sourceCtx.stateVars, taintMarkName, semgrepRuleTrace)
         }.orEmpty()
     }
 
     for ((i, sink) in rule.sinks.withIndex()) {
-        val sinkRequiresMarks = when (sink.requires) {
-            null -> taintMarks
-
-            is SemgrepSinkTaintRequirement.Simple -> when (val r = sink.requires.requirement) {
-                is SemgrepTaintLabel -> listOf(taintMark(r))
-            }
+        val sinkRequiresExpr = when (sink.requires) {
+            null -> taintMarkOr(taintLabels)
+            is SemgrepSinkTaintRequirement.Simple -> sink.requires.requirement
 
             is SemgrepSinkTaintRequirement.MetaVarRequirement -> {
                 semgrepRuleTrace.error("Rule $ruleId: sink requires ignored", Reason.NOT_IMPLEMENTED)
-                taintMarks
+                taintMarkOr(taintLabels)
             }
         }
+
+        val sinkRequiresCheck = sinkRequiresExpr?.let { createTaintMarkCheckBuilder(it, ::taintMark) }
+            ?: TaintMarkCheckNotExpected
 
         generatedRules += safeConvertToTaintRules("$ruleId: sink #$i", sink.pattern) { pattern ->
             val (ctx, stateVars, stateId) = convertTaintSinkRule(i, pattern)
                 ?: return@safeConvertToTaintRules emptyList()
 
-            sinkRequiresMarks.flatMap { taintMarkName ->
-                val sinkCtx = SinkRuleGenerationCtx(stateVars, stateId, taintMarkName, ctx)
-                sinkCtx.generateTaintSinkRules(ruleId, meta, semgrepRuleTrace) { _, cond ->
-                    if (cond is SerializedCondition.True) {
-                        semgrepRuleTrace.error(
-                            "Taint rule $ruleId match anything",
-                            Reason.WARNING,
-                        )
-                        return@generateTaintSinkRules false
-                    }
-
-                    true
+            val sinkCtx = SinkRuleGenerationCtx(stateVars, stateId, sinkRequiresCheck, ctx)
+            sinkCtx.generateTaintSinkRules(ruleId, meta, semgrepRuleTrace) { _, cond ->
+                if (cond is SerializedCondition.True) {
+                    semgrepRuleTrace.error(
+                        "Taint rule $ruleId match anything",
+                        Reason.WARNING,
+                    )
+                    return@generateTaintSinkRules false
                 }
+
+                true
             }
         }.orEmpty()
     }
@@ -203,8 +246,11 @@ private fun RuleConversionCtx.convertTaintRuleToTaintRules(
             val (ctx, stateId) = generatePassRule(i, pattern, fromVar, toVar)
                 ?: return@safeConvertToTaintRules emptyList()
 
-            taintMarks.flatMap { taintMarkName ->
-                val sinkCtx = SinkRuleGenerationCtx(setOf(fromVar), stateId, taintMarkName, ctx)
+            taintLabels.flatMap { taintLabel ->
+                val taintLabelCheck = createTaintMarkCheckBuilder(taintLabel, ::taintMark)
+                val sinkCtx = SinkRuleGenerationCtx(setOf(fromVar), stateId, taintLabelCheck, ctx)
+
+                val taintMarkName = taintMark(taintLabel)
                 sinkCtx.generateTaintPassRules(fromVar, toVar, taintMarkName, semgrepRuleTrace)
             }
         }.orEmpty()
@@ -217,7 +263,8 @@ private fun RuleConversionCtx.convertTaintRuleToTaintRules(
             val sanitizerCtx = convertTaintSourceRule(i, sanitizer.pattern, generateRequires = false)
                 ?: return@safeConvertToTaintRules emptyList()
 
-            taintMarks.flatMap { taintMarkName ->
+            taintLabels.flatMap { taintLabel ->
+                val taintMarkName = taintMark(taintLabel)
                 sanitizerCtx.ctx.generateTaintSanitizerRules(taintMarkName, semgrepRuleTrace)
             }
         }.orEmpty()
@@ -225,6 +272,35 @@ private fun RuleConversionCtx.convertTaintRuleToTaintRules(
 
     val ruleGroup = TaintRuleFromSemgrep.TaintRuleGroup(generatedRules)
     return TaintRuleFromSemgrep(ruleId, listOf(ruleGroup))
+}
+
+private fun taintMarkOr(labels: Set<SemgrepTaintLabel>): SemgrepTaintRequires? {
+    if (labels.isEmpty()) {
+        return null
+    }
+
+    return labels.reduce<SemgrepTaintRequires, _> { acc, label -> SemgrepTaintOr(acc, label) }
+}
+
+private fun createTaintMarkCheckBuilder(
+    requires: SemgrepTaintRequires,
+    createTaineMark: (SemgrepTaintLabel) -> String,
+): TaintMarkCheckBuilder = when (requires) {
+    is SemgrepTaintLabel -> TaintMarkLabelCheckBuilder(createTaineMark(requires))
+
+    is SemgrepTaintNot -> TaintMarkNotCheckBuilder(
+        createTaintMarkCheckBuilder(requires.child, createTaineMark)
+    )
+
+    is SemgrepTaintAnd -> TaintMarkAndCheckBuilder(
+        createTaintMarkCheckBuilder(requires.left, createTaineMark),
+        createTaintMarkCheckBuilder(requires.right, createTaineMark),
+    )
+
+    is SemgrepTaintOr -> TaintMarkOrCheckBuilder(
+        createTaintMarkCheckBuilder(requires.left, createTaineMark),
+        createTaintMarkCheckBuilder(requires.right, createTaineMark),
+    )
 }
 
 private fun RuleConversionCtx.generatePassRule(
@@ -595,7 +671,7 @@ private fun RuleConversionCtx.convertAutomataToTaintRules(
 private class SinkRuleGenerationCtx(
     val initialStateVars: Set<MetavarAtom>,
     val initialVarValue: Int,
-    val taintMarkName: String,
+    val taintMarkCheckBuilder: TaintMarkCheckBuilder,
     uniqueRuleId: String,
     automata: TaintRegisterStateAutomata,
     metaVarInfo: TaintRuleGenerationMetaVarInfo,
@@ -609,27 +685,72 @@ private class SinkRuleGenerationCtx(
     edgesToFinalAccept, edgesToFinalDead
 ) {
     constructor(
-        initialStateVars: Set<MetavarAtom>, initialVarValue: Int, taintMarkName: String,
+        initialStateVars: Set<MetavarAtom>, initialVarValue: Int,
+        taintMarkCheckBuilder: TaintMarkCheckBuilder,
         ctx: TaintRuleGenerationCtx
     ) : this(
-        initialStateVars, initialVarValue, taintMarkName,
+        initialStateVars, initialVarValue, taintMarkCheckBuilder,
         ctx.uniqueRuleId, ctx.automata, ctx.metaVarInfo,
         ctx.globalStateAssignStates, ctx.edges,
         ctx.edgesToFinalAccept, ctx.edgesToFinalDead
     )
 
-    override fun allMarkValues(varName: MetavarAtom): List<String> {
+    override fun containsAnyMarkValueCondition(
+        varName: MetavarAtom,
+        position: PositionBaseWithModifiers
+    ): SerializedCondition {
         if (varName in initialStateVars) {
-            return listOf(taintMarkName)
+            return taintMarkCheckBuilder.build(position)
         }
-        return super.allMarkValues(varName)
+        return super.containsAnyMarkValueCondition(varName, position)
     }
 
     override fun stateMarkName(varName: MetavarAtom, varValue: Int): String {
         if (varName in initialStateVars && varValue == initialVarValue) {
-            return taintMarkName
+            TODO("Try to use taint mark for unexpected purposes")
         }
         return super.stateMarkName(varName, varValue)
+    }
+
+    override fun stateAccessedMarks(varName: MetavarAtom, varValue: Int): Set<String> {
+        if (varName in initialStateVars && varValue == initialVarValue) {
+            val result = hashSetOf<String>()
+            taintMarkCheckBuilder.collectLabels(result)
+            return result
+        }
+        return super.stateAccessedMarks(varName, varValue)
+    }
+
+    private fun TaintMarkCheckBuilder.collectLabels(dst: MutableSet<String>) {
+        when (this) {
+            is TaintMarkCheckNotExpected -> {
+                // no labels
+            }
+
+            is TaintMarkLabelCheckBuilder -> dst.add(label)
+            is TaintMarkNotCheckBuilder -> arg.collectLabels(dst)
+
+            is TaintMarkAndCheckBuilder -> {
+                l.collectLabels(dst)
+                r.collectLabels(dst)
+            }
+
+            is TaintMarkOrCheckBuilder -> {
+                l.collectLabels(dst)
+                r.collectLabels(dst)
+            }
+        }
+    }
+
+    override fun containsStateMarkWithValue(
+        varName: MetavarAtom,
+        varValue: Int,
+        position: PositionBaseWithModifiers
+    ): SerializedCondition {
+        if (varName in initialStateVars && varValue == initialVarValue) {
+            return taintMarkCheckBuilder.build(position)
+        }
+        return super.containsStateMarkWithValue(varName, varValue, position)
     }
 }
 
@@ -1002,7 +1123,7 @@ private fun TaintRuleGenerationCtx.buildStateAssignAction(
 }
 
 private fun TaintRuleGenerationCtx.usedTaintMarks(state: State): Set<String> =
-    state.register.assignedVars.mapTo(hashSetOf()) { stateMarkName(it.key, it.value) }
+    state.register.assignedVars.flatMapTo(hashSetOf()) { stateAccessedMarks(it.key, it.value) }
 
 private fun TaintRuleGenerationCtx.createRuleInfo(edge: TaintRuleEdge): UserRuleFromSemgrepInfo {
     val relevantTaintMarks = hashSetOf<String>()
@@ -1020,15 +1141,13 @@ private fun EvaluatedEdgeCondition.addStateCheck(
     checkGlobalState: Boolean,
     state: State
 ): EvaluatedEdgeCondition {
-    val stateChecks = mutableListOf<SerializedCondition.ContainsMark>()
+    val stateChecks = mutableListOf<SerializedCondition>()
     if (checkGlobalState) {
         stateChecks += SerializedCondition.ContainsMark(ctx.globalStateMarkName(state), ctx.stateVarPosition)
     } else {
         for ((metaVar, value) in state.register.assignedVars) {
-            val markName = ctx.stateMarkName(metaVar, value)
-
             for (pos in accessedVarPosition[metaVar]?.positions.orEmpty()) {
-                stateChecks += SerializedCondition.ContainsMark(markName, pos.base())
+                stateChecks += ctx.containsStateMarkWithValue(metaVar, value, pos.base())
             }
         }
     }
@@ -1540,10 +1659,7 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
                 )
             }
 
-            val conditions = allMarkValues(condition.metavar).map {
-                SerializedCondition.ContainsMark(it, position.base())
-            }
-            return serializedConditionOr(conditions)
+            return containsAnyMarkValueCondition(condition.metavar, position.base())
         }
 
         is ParamCondition.TypeIs -> {

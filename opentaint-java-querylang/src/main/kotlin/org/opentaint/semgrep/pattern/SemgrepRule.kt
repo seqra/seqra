@@ -44,6 +44,12 @@ sealed interface SemgrepTaintRequires
 
 data class SemgrepTaintLabel(val label: String): SemgrepTaintRequires
 
+data class SemgrepTaintAnd(val left: SemgrepTaintRequires, val right: SemgrepTaintRequires): SemgrepTaintRequires
+
+data class SemgrepTaintOr(val left: SemgrepTaintRequires, val right: SemgrepTaintRequires): SemgrepTaintRequires
+
+data class SemgrepTaintNot(val child: SemgrepTaintRequires): SemgrepTaintRequires
+
 sealed interface SemgrepSinkTaintRequirement {
     data class Simple(val requirement: SemgrepTaintRequires) : SemgrepSinkTaintRequirement
     data class MetaVarRequirement(val requirement: Map<String, SemgrepTaintRequires>) : SemgrepSinkTaintRequirement
