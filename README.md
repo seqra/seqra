@@ -17,8 +17,7 @@
 
 ### Demo
 
-https://github.com/user-attachments/assets/ddaa55de-8623-4f1a-be3e-f66d34b7336d
-
+https://github.com/user-attachments/assets/aba3733b-2959-4470-be0c-605d259e97b6
 
 ### Table of Contents
 - [License](#license)
