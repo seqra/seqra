@@ -10,11 +10,6 @@ import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
-import org.opentaint.dataflow.configuration.jvm.Argument
-import org.opentaint.dataflow.configuration.jvm.ConstantTrue
-import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
-import org.opentaint.dataflow.configuration.jvm.Result
-import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
 import org.opentaint.dataflow.configuration.jvm.TaintSinkMeta
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
@@ -165,36 +160,6 @@ class JIRTaintAnalyzer(
 
     private val taintConfig: TaintRulesProvider by lazy {
         StringConcatRuleProvider(taintConfiguration)
-    }
-
-    private class StringConcatRuleProvider(private val base: TaintRulesProvider) : TaintRulesProvider by base {
-        private var stringConcatPassThrough: TaintPassThrough? = null
-
-        private fun stringConcatPassThrough(method: JIRMethod): TaintPassThrough =
-            stringConcatPassThrough ?: generateRule(method).also { stringConcatPassThrough = it }
-
-        private fun generateRule(method: JIRMethod): TaintPassThrough {
-            // todo: string concat hack
-            val possibleArgs = (0..20).map { Argument(it) }
-
-            return TaintPassThrough(
-                method = method,
-                condition = ConstantTrue,
-                actionsAfter = possibleArgs.map { CopyAllMarks(from = it, to = Result) },
-                info = null
-            )
-        }
-
-        override fun passTroughRulesForMethod(method: CommonMethod, statement: CommonInst): Iterable<TaintPassThrough> {
-            check(method is JIRMethod) { "Expected method to be JIRMethod" }
-            val baseRules = base.passTroughRulesForMethod(method, statement)
-
-            if (method.name == "makeConcatWithConstants" && method.enclosingClass.name == "java.lang.invoke.StringConcatFactory") {
-                return (sequenceOf(stringConcatPassThrough(method)) + baseRules).asIterable()
-            }
-
-            return baseRules
-        }
     }
 
     private fun TaintAnalysisUnitRunnerManager.reportCoverage() = buildString {

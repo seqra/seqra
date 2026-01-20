@@ -21,7 +21,7 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRRawLineNumberInst
-import org.opentaint.jvm.sast.project.annotateSarifWithSpringRelatedInformation
+import org.opentaint.jvm.sast.project.spring.annotateSarifWithSpringRelatedInformation
 import org.opentaint.semgrep.pattern.RuleMetadata
 import java.io.OutputStream
 

@@ -1,5 +1,8 @@
 package org.opentaint.jvm.sast.dataflow
 
+import org.opentaint.dataflow.ap.ifds.access.FactAp
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSink
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -22,32 +25,32 @@ class JIRCombinedTaintRulesProvider(
         val cleaner: CombinationMode = CombinationMode.EXTEND,
     )
 
-    override fun entryPointRulesForMethod(method: CommonMethod) =
-        combine(combinationOptions.entryPoint) { entryPointRulesForMethod(method) }
+    override fun entryPointRulesForMethod(method: CommonMethod, fact: FactAp?) =
+        combine(combinationOptions.entryPoint) { entryPointRulesForMethod(method, fact) }
 
-    override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst) =
-        combine(combinationOptions.source) { sourceRulesForMethod(method, statement) }
+    override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) =
+        combine(combinationOptions.source) { sourceRulesForMethod(method, statement, fact) }
 
-    override fun exitSourceRulesForMethod(method: CommonMethod, statement: CommonInst) =
-        combine(combinationOptions.source) { exitSourceRulesForMethod(method, statement) }
+    override fun exitSourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) =
+        combine(combinationOptions.source) { exitSourceRulesForMethod(method, statement, fact) }
 
-    override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst) =
-        combine(combinationOptions.sink) { sinkRulesForMethod(method, statement) }
+    override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) =
+        combine(combinationOptions.sink) { sinkRulesForMethod(method, statement, fact) }
 
-    override fun sinkRulesForMethodExit(method: CommonMethod, statement: CommonInst) =
-        combine(combinationOptions.sink) { sinkRulesForMethodExit(method, statement) }
+    override fun sinkRulesForMethodExit(method: CommonMethod, statement: CommonInst, fact: FactAp?, initialFacts: Set<InitialFactAp>?): Iterable<TaintMethodExitSink> =
+        combine(combinationOptions.sink) { sinkRulesForMethodExit(method, statement, fact, initialFacts) }
 
-    override fun sinkRulesForMethodEntry(method: CommonMethod) =
-        combine(combinationOptions.sink) { sinkRulesForMethodEntry(method) }
+    override fun sinkRulesForMethodEntry(method: CommonMethod, fact: FactAp?) =
+        combine(combinationOptions.sink) { sinkRulesForMethodEntry(method, fact) }
 
-    override fun passTroughRulesForMethod(method: CommonMethod, statement: CommonInst) =
-        combine(combinationOptions.passThrough) { passTroughRulesForMethod(method, statement) }
+    override fun passTroughRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) =
+        combine(combinationOptions.passThrough) { passTroughRulesForMethod(method, statement, fact) }
 
-    override fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst) =
-        combine(combinationOptions.cleaner) { cleanerRulesForMethod(method, statement) }
+    override fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) =
+        combine(combinationOptions.cleaner) { cleanerRulesForMethod(method, statement, fact) }
 
-    override fun sourceRulesForStaticField(field: JIRField, statement: CommonInst) =
-        combine(combinationOptions.source) { sourceRulesForStaticField(field, statement) }
+    override fun sourceRulesForStaticField(field: JIRField, statement: CommonInst, fact: FactAp?) =
+        combine(combinationOptions.source) { sourceRulesForStaticField(field, statement, fact) }
 
     private inline fun <T> combine(
         mode: CombinationMode,

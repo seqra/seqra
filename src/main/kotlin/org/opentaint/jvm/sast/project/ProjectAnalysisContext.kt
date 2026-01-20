@@ -2,6 +2,10 @@ package org.opentaint.jvm.sast.project
 
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
+import org.opentaint.dataflow.ap.ifds.access.ApMode
+import org.opentaint.dataflow.jvm.ap.ifds.JIRSummariesFeature
+import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
+import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.approximation.Approximations
@@ -10,11 +14,8 @@ import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.opentaintIrDb
-import org.opentaint.dataflow.ap.ifds.access.ApMode
-import org.opentaint.dataflow.jvm.ap.ifds.JIRSummariesFeature
-import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
-import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
-import org.opentaint.dataflow.jvm.graph.MethodReturnInstNormalizerFeature
+import org.opentaint.jvm.sast.project.spring.SpringWebProjectContext
+import org.opentaint.jvm.sast.project.spring.createSpringProjectContext
 import org.opentaint.jvm.transformer.JMultiDimArrayAllocationTransformer
 import org.opentaint.jvm.transformer.JStringConcatTransformer
 import org.opentaint.jvm.util.classpathWithApproximations
@@ -90,10 +91,8 @@ fun initializeProjectAnalysisContext(
             classPathExtensionFeature
         )
 
-        if (projectKind == ProjectKind.SPRING_WEB) {
-            features.add(SpringReactorOperatorsTransformer)
-            features.add(SpringAutowiredFieldInitializerTransformer())
-        }
+//        note: reactor operators special handling has no reasons for now
+//        features.add(SpringReactorOperatorsTransformer)
 
         cp = db.classpathWithApproximations(allCpFiles, features)
             ?: run {
@@ -107,12 +106,6 @@ fun initializeProjectAnalysisContext(
         projectClasses = ProjectClasses(cp, projectPackage, projectModulesFiles)
         projectClasses.loadProjectClasses()
 
-        if (projectKind == ProjectKind.SPRING_WEB) {
-            cp.features?.filterIsInstance<SpringAutowiredFieldInitializerTransformer>()?.forEach {
-                it.init(projectClasses)
-            }
-        }
-
         val missedModules = project.modules.toSet() - projectClasses.locationProjectModules.values.toSet()
         if (missedModules.isNotEmpty()) {
             logger.warn {
@@ -121,9 +114,11 @@ fun initializeProjectAnalysisContext(
         }
     }
 
+    val springContext = projectClasses.createSpringProjectContext()
+
     return ProjectAnalysisContext(
         project, projectPackage, projectKind,
-        db, cp, projectClasses
+        db, cp, projectClasses, springContext
     )
 }
 
@@ -134,6 +129,7 @@ class ProjectAnalysisContext(
     val db: JIRDatabase,
     val cp: JIRClasspath,
     val projectClasses: ProjectClasses,
+    val springWebProjectContext: SpringWebProjectContext?
 ): AutoCloseable {
     override fun close() {
         cp.close()

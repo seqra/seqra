@@ -3,6 +3,8 @@ package org.opentaint.jvm.sast.project.tester
 import kotlinx.serialization.json.Json
 import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.access.ApMode
+import org.opentaint.dataflow.ap.ifds.access.FactAp
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.jvm.AssignMark
@@ -119,10 +121,10 @@ private fun createTestConfig(
     mainConfig: TaintRulesProvider,
     visitedAtSourceMarks: MutableSet<TaintMark>
 ): TaintRulesProvider = object : TaintRulesProvider {
-    override fun entryPointRulesForMethod(method: CommonMethod) =
-        mainConfig.entryPointRulesForMethod(method)
+    override fun entryPointRulesForMethod(method: CommonMethod, fact: FactAp?) =
+        mainConfig.entryPointRulesForMethod(method, fact)
 
-    override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {
+    override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) = getRules(method) {
         testData.testDataBySourceInst[statement].orEmpty().map { trace ->
             val source = trace.source
             val mark = TaintMark(source.mark)
@@ -137,7 +139,7 @@ private fun createTestConfig(
         }
     }
 
-    override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {
+    override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) = getRules(method) {
         testData.testDataBySinkInst[statement].orEmpty().map { trace ->
             val sink = trace.sink
             val meta = TaintSinkMeta(
@@ -158,37 +160,41 @@ private fun createTestConfig(
 
     override fun sinkRulesForMethodExit(
         method: CommonMethod,
-        statement: CommonInst
-    ) = getRules(method) {
+        statement: CommonInst,
+        fact: FactAp?,
+        initialFacts: Set<InitialFactAp>?
+    ): Iterable<TaintMethodExitSink> = getRules(method) {
         emptyList<TaintMethodExitSink>()
     }
 
-    override fun sinkRulesForMethodEntry(method: CommonMethod) = getRules(method) {
+    override fun sinkRulesForMethodEntry(method: CommonMethod, fact: FactAp?) = getRules(method) {
         emptyList<TaintMethodEntrySink>()
     }
 
-    override fun passTroughRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {
+    override fun passTroughRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) = getRules(method) {
         if (it.enclosingClass.declaration.location.isRuntime) {
-            return@getRules mainConfig.passTroughRulesForMethod(it, statement)
+            return@getRules mainConfig.passTroughRulesForMethod(it, statement, fact)
         }
 
         emptyList<TaintPassThrough>()
     }
 
-    override fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst) = getRules(method) {
+    override fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) = getRules(method) {
         emptyList<TaintCleaner>()
     }
 
     override fun exitSourceRulesForMethod(
         method: CommonMethod,
-        statement: CommonInst
+        statement: CommonInst,
+        fact: FactAp?
     ): Iterable<TaintMethodExitSource> {
         return emptyList()
     }
 
     override fun sourceRulesForStaticField(
         field: JIRField,
-        statement: CommonInst
+        statement: CommonInst,
+        fact: FactAp?
     ): Iterable<TaintStaticFieldSource> = emptyList()
 
     private inline fun <T : TaintConfigurationItem> getRules(

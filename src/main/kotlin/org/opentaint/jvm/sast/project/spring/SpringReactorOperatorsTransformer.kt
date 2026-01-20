@@ -1,4 +1,4 @@
-package org.opentaint.jvm.sast.project
+package org.opentaint.jvm.sast.project.spring
 
 import mu.KLogging
 import org.opentaint.ir.api.jvm.JIRClassType

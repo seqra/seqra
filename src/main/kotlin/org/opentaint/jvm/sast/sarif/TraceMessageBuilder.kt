@@ -27,6 +27,7 @@ import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonReturnInst
 import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
+import org.opentaint.jvm.sast.project.spring.SpringGeneratedMethod
 import org.opentaint.org.opentaint.semgrep.pattern.Mark
 
 data class TracePathNodeWithMsg(
@@ -97,6 +98,10 @@ class TraceMessageBuilder(
             return false
         }
 
+        if (isGeneratedLocation(node.statement)) {
+            return false
+        }
+
         val entry = node.entry as? TraceEntry.Action ?: return true
 
         val primaryAction = entry.primaryAction
@@ -144,6 +149,12 @@ class TraceMessageBuilder(
         }
 
         return true
+    }
+
+    private fun isGeneratedLocation(stmt: CommonInst): Boolean {
+        val locationMethod = stmt.location.method
+        if (locationMethod is SpringGeneratedMethod) return true
+        return false
     }
 
     fun TraceEntry?.isPureEntryPoint() =

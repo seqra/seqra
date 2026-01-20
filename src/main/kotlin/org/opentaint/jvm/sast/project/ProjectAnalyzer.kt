@@ -18,10 +18,13 @@ import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.jvm.sast.JIRSourceFileResolver
 import org.opentaint.jvm.sast.dataflow.JIRCombinedTaintRulesProvider
+import org.opentaint.jvm.sast.dataflow.JIRMethodExitRuleProvider
+import org.opentaint.jvm.sast.dataflow.JIRMethodGetDefaultProvider
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer.DebugOptions
 import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
 import org.opentaint.jvm.sast.dataflow.rules.TaintConfiguration
+import org.opentaint.jvm.sast.project.spring.SpringRuleProvider
 import org.opentaint.jvm.sast.sarif.DebugFactReachabilitySarifGenerator
 import org.opentaint.jvm.sast.sarif.SarifGenerator
 import org.opentaint.jvm.sast.se.api.SastSeAnalyzer
@@ -176,8 +179,15 @@ class ProjectAnalyzer(
     private fun ProjectAnalysisContext.runAnalyzer(entryPoints: List<JIRMethod>) {
         val summarySerializationContext = JIRSummarySerializationContext(cp)
 
+        var config = loadTaintConfig(cp)
+        config = JIRMethodExitRuleProvider(config)
+        config = JIRMethodGetDefaultProvider(config, projectClasses.projectLocations)
+        if (springWebProjectContext != null) {
+            config = SpringRuleProvider(config, springWebProjectContext)
+        }
+
         JIRTaintAnalyzer(
-            cp, loadTaintConfig(cp),
+            cp, config,
             projectLocations = projectClasses.projectLocations,
             ifdsTimeout = ifdsAnalysisTimeout,
             ifdsApMode = ifdsApMode,
