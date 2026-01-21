@@ -321,7 +321,7 @@ rules:
               javax.crypto.Cipher.getInstance($PROP, ...);
       - metavariable-regex:
           metavariable: $ALG
-          regex: .*ECB.*
+          regex: (?i).*ECB.*
 
   - id: gcm-detection
     severity: NOTE
@@ -346,10 +346,14 @@ rules:
       - java
       - kt
     patterns:
-      - pattern-either:
-          - pattern: javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
-          - pattern: (javax.crypto.Cipher $CIPHER).getInstance("AES/GCM/NoPadding")
-          - pattern: new GCMParameterSpec(...);
+      - patterns:
+          - metavariable-regex:
+              metavariable: $ALGO
+              regex: (?i)AES/GCM/NoPadding
+          - pattern-either:
+              - pattern: javax.crypto.Cipher.getInstance("$ALGO", ...)
+              - pattern: (javax.crypto.Cipher $CIPHER).getInstance("$ALGO", ...)
+              - pattern: new GCMParameterSpec(...);
 
   - id: gcm-nonce-reuse
     severity: WARNING
@@ -442,7 +446,7 @@ rules:
               javax.crypto.Cipher.getInstance($PROP, ...);
       - metavariable-regex:
           metavariable: $ALG
-          regex: /?RSA/[Nn][Oo][Nn][Ee]/NoPadding/?
+          regex: (?i)RSA/NONE/NoPadding/?
 
   - id: cbc-padding-oracle
     severity: WARNING
@@ -464,10 +468,10 @@ rules:
       - java
       - kt
     patterns:
-      - pattern: javax.crypto.Cipher.getInstance("$MODE")
+      - pattern: javax.crypto.Cipher.getInstance("$MODE", ...)
       - metavariable-regex:
           metavariable: $MODE
-          regex: .*/CBC/PKCS5Padding/?
+          regex: (?i).*/CBC/PKCS5Padding/?
 
   - id: use-of-blowfish
     severity: WARNING
@@ -487,8 +491,8 @@ rules:
       - java
       - kt
     pattern-either:
-      - pattern: javax.crypto.Cipher.getInstance("Blowfish")
-      - pattern: (javax.crypto.Cipher $CIPHER).getInstance("Blowfish")
+      - pattern: javax.crypto.Cipher.getInstance("Blowfish", ...)
+      - pattern: (javax.crypto.Cipher $CIPHER).getInstance("Blowfish", ...)
 
   - id: use-of-default-aes
     severity: WARNING
@@ -508,8 +512,8 @@ rules:
       - java
       - kt
     pattern-either:
-      - pattern: javax.crypto.Cipher.getInstance("AES")
-      - pattern: (javax.crypto.Cipher $CIPHER).getInstance("AES")
+      - pattern: javax.crypto.Cipher.getInstance("AES", ...)
+      - pattern: (javax.crypto.Cipher $CIPHER).getInstance("AES", ...)
 
   - id: aes-hardcoded-key
     severity: WARNING
@@ -573,7 +577,7 @@ rules:
     languages:
       - java
       - kt
-    pattern: $CIPHER.getInstance("RC2")
+    pattern: $CIPHER.getInstance("RC2", ...)
 
   - id: use-of-rc4
     severity: WARNING
@@ -593,7 +597,7 @@ rules:
     languages:
       - java
       - kt
-    pattern: $CIPHER.getInstance("RC4")
+    pattern: $CIPHER.getInstance("RC4", ...)
 
   - id: use-of-sha1
     severity: WARNING

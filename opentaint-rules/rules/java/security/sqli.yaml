@@ -92,7 +92,7 @@ rules:
       refs:
         - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
           as: untrusted-data
-        - rule: java/lib/generic/servlet-sqli-sinks.yaml#java-servlet-sqli-sink
+        - rule: java/lib/spring/jdbc-sqli-sinks.yaml#spring-sqli-sink
           as: sink
       on:
         - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'

@@ -6,7 +6,8 @@ rules:
       This ensures that the cookie is sent only over HTTPS to prevent cross-site scripting attacks.
     metadata:
       cwe:
-        - CWE-319:
+        - CWE-319
+        - CWE-614
       short-description: Cleartext transmission of sensitive cookie value
       references:
         - https://docs.oracle.com/javaee/6/api/javax/servlet/http/Cookie.html#setSecure(boolean)
@@ -19,7 +20,7 @@ rules:
       - pattern-not-inside: |
           $COOKIE = new Cookie(...);
           ...
-          $COOKIE.setSecure(...);
+          $COOKIE.setSecure(true);
       - pattern-not-inside: |
           $COOKIE.setValue("");
 
