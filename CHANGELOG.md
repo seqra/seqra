@@ -1,3 +1,11 @@
+## v2.1.1
+### fix: Revise README structure, fix formatting, update Docker docs, bump version
+- docs: Restructure README
+#### seqra-jvm-sast
+- Fix trace resolver
+- Update ir: add support for newer jdk
+- Support model attribute controller params
+- Fix config types
 ## v2.1.0
 ### feat: Add Docker support, Windows compatibility, and update docs
 - docs: Update README.md

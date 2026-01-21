@@ -1,8 +1,16 @@
 ## FAQ
 
+**Why is Seqra a great choice for Spring applications?**
+
+Seqra is purpose-built for Spring. It understands Spring annotations (`@GetMapping`, `@PostMapping`, etc.), Spring data access patterns (JdbcTemplate, JPA, Spring Data), and Spring-specific sanitizers like `HtmlUtils.htmlEscape()`. Every finding is automatically mapped to its HTTP endpoint, so you know exactly which APIs are affected.
+
+**What Spring vulnerabilities does Seqra detect?**
+
+Seqra detects 20+ vulnerability types including SQL injection (via JdbcTemplate, JPA, Hibernate), XSS in controllers, SSRF via RestTemplate/WebClient, SpEL injection, open redirects, path traversal, command injection, and more. Each rule includes Spring-specific detection patterns and remediation guidance.
+
 **What languages are supported?**
 
-Java and Kotlin are supported. Broader language support is planned.
+Java and Kotlin are supported, with full support for Spring Boot, Spring MVC, and plain Java/Kotlin projects. Broader language support is planned.
 
 **How does Seqra compare to Semgrep?**
 
