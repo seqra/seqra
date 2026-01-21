@@ -18,6 +18,7 @@ import org.opentaint.dataflow.ap.ifds.access.MethodFinalApSummariesStorage
 import org.opentaint.dataflow.ap.ifds.access.MethodInitialToFinalApSummariesStorage
 import org.opentaint.dataflow.ap.ifds.access.MethodNDInitialToFinalApSummariesStorage
 import org.opentaint.dataflow.ap.ifds.access.SideEffectRequirementApStorage
+import org.opentaint.dataflow.ap.ifds.access.FactSideEffectSummariesApStorage
 import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -77,6 +78,9 @@ class AutomataApManager : ApManager {
 
     override fun methodNDInitialToFinalApSummariesStorage(methodInitialStatement: CommonInst): MethodNDInitialToFinalApSummariesStorage =
         MethodNDInitialToFinalAutomataApSummariesStorage(methodInitialStatement)
+
+    override fun factSideEffectSummariesApStorage(methodInitialStatement: CommonInst): FactSideEffectSummariesApStorage =
+        FactSESummariesAutomataStorage(methodInitialStatement)
 
     override fun mostAbstractInitialAp(base: AccessPathBase): InitialFactAp =
         AccessGraphInitialFactAp(base, emptyGraph, ExclusionSet.Empty)

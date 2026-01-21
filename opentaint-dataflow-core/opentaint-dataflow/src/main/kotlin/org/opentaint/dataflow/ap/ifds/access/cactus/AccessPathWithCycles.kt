@@ -38,6 +38,9 @@ class AccessPathWithCycles(
         return access.accessor == accessor
     }
 
+    override fun getStartAccessors(): Set<Accessor> =
+        access?.let { setOf(it.accessor) } ?: emptySet()
+
     // todo: rewrite stub implementation
     override fun readAccessor(accessor: Accessor): InitialFactAp? {
         if (access == null) return null

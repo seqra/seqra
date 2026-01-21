@@ -14,13 +14,13 @@ interface FactReader {
     val base: AccessPathBase
 
     fun containsPosition(position: PositionAccess): Boolean
+    fun containsAnyPosition(position: PositionAccess): PositionAccess?
     fun createInitialFactWithTaintMark(position: PositionAccess, mark: TaintMark): InitialFactAp
 
-    fun containsPositionWithTaintMark(position: PositionAccess, mark: TaintMark): Boolean {
-        val positionWithMark = PositionAccess.Complex(position, TaintMarkAccessor(mark.name))
-        val finalPositionWithMark = PositionAccess.Complex(positionWithMark, FinalAccessor)
-        return containsPosition(finalPositionWithMark)
-    }
+    fun containsPositionWithTaintMark(position: PositionAccess, mark: TaintMark): Boolean =
+        containsPosition(position.withSuffix(taintedPosSuffix(mark)))
+
+    private fun taintedPosSuffix(mark: TaintMark) = listOf(TaintMarkAccessor(mark.name), FinalAccessor)
 }
 
 class FinalFactReader(
@@ -67,6 +67,11 @@ class FinalFactReader(
     fun updateRefinement(other: FinalFactReader) {
         refinement = refinement.union(other.refinement)
     }
+
+    fun getRefinement(): ExclusionSet = refinement
+
+    override fun containsAnyPosition(position: PositionAccess): PositionAccess? =
+        readAnyPosition(factAp, position)
 }
 
 class FinalFactReaderWithPrefix(
@@ -77,6 +82,9 @@ class FinalFactReaderWithPrefix(
 
     override fun containsPosition(position: PositionAccess): Boolean =
         reader.containsPosition(position.withPrefix(prefix))
+
+    override fun containsAnyPosition(position: PositionAccess): PositionAccess? =
+        reader.containsAnyPosition(position.withPrefix(prefix))?.removePrefix(prefix)
 
     override fun createInitialFactWithTaintMark(position: PositionAccess, mark: TaintMark): InitialFactAp =
         reader.createInitialFactWithTaintMark(position.withPrefix(prefix), mark)
@@ -97,4 +105,7 @@ class InitialFactReader(val fact: InitialFactAp, val apManager: ApManager): Fact
         val positionWithMark = PositionAccess.Complex(position, TaintMarkAccessor(mark.name))
         return apManager.mkInitialAccessPath(positionWithMark, ExclusionSet.Universe)
     }
+
+    override fun containsAnyPosition(position: PositionAccess): PositionAccess? =
+        readAnyPosition(fact, position)
 }

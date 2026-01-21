@@ -412,3 +412,36 @@ fun PositionAccess.withPrefix(prefix: Accessor): PositionAccess = when (this) {
     is PositionAccess.Complex -> PositionAccess.Complex(base.withPrefix(prefix), accessor)
     is PositionAccess.Simple -> PositionAccess.Complex(this, prefix)
 }
+
+fun PositionAccess.withPrefix(prefix: List<Accessor>): PositionAccess = when (this) {
+    is PositionAccess.Complex -> PositionAccess.Complex(base.withPrefix(prefix), accessor)
+    is PositionAccess.Simple -> prefix.fold(this as PositionAccess) { res, ac ->
+        PositionAccess.Complex(res, ac)
+    }
+}
+
+fun PositionAccess.withSuffix(suffix: List<Accessor>): PositionAccess =
+    suffix.fold(this) { res, ac -> PositionAccess.Complex(res, ac) }
+
+fun PositionAccess.removeSuffix(suffix: List<Accessor>): PositionAccess {
+    var result = this
+    for (ac in suffix.asReversed()) {
+        check(result is PositionAccess.Complex && result.accessor == ac) {
+            "Suffix mismatch"
+        }
+        result = result.base
+    }
+    return result
+}
+
+fun PositionAccess.removePrefix(prefix: Accessor): PositionAccess = when (this) {
+    is PositionAccess.Complex -> when (base) {
+        is PositionAccess.Complex -> PositionAccess.Complex(base.removePrefix(prefix), accessor)
+        is PositionAccess.Simple -> {
+            check(accessor == prefix) { "Prefix mismatch" }
+            base
+        }
+    }
+
+    is PositionAccess.Simple -> error("Prefix mismatch")
+}

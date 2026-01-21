@@ -47,7 +47,7 @@ class JIRMethodStartFlowFunction(
 
         applyEntryPointConfig(
             context.taint.taintConfig as TaintRulesProvider,
-            method, conditionEvaluator, sourceEvaluator
+            method, fact = null, conditionEvaluator, sourceEvaluator
         ).onSome { facts ->
             facts.mapTo(result) {
                 it.getAllAccessors()
@@ -87,7 +87,7 @@ class JIRMethodStartFlowFunction(
         val method = context.methodEntryPoint.method
         val statement = context.methodEntryPoint.statement
 
-        val sinkRules = config.sinkRulesForMethodEntry(method).toList()
+        val sinkRules = config.sinkRulesForMethodEntry(method, fact = null).toList()
         if (sinkRules.isEmpty()) return emptyList()
 
         val valueResolver = CalleePositionToJIRValueResolver(method as JIRMethod)

@@ -82,9 +82,13 @@ fun JIRMarkAwareConditionExpr.preconditionDnf(
     apManager: ApManager,
     mapFacts: (InitialFactAp) -> List<InitialFactAp>,
 ): List<PreconditionCube> = when (this) {
-    is JIRMarkAwareConditionExpr.Literal -> {
+    is JIRMarkAwareConditionExpr.ContainsMarkLiteral -> {
         val preconditionFact = condition.preconditionFact(apManager)
         mapFacts(preconditionFact).map { PreconditionCube(setOf(it)) }
+    }
+
+    is JIRMarkAwareConditionExpr.ContainsMarkOnAnyFieldLiteral -> {
+        TODO("ContainsMarkOnAnyField is not supported for non-sink rule preconditions")
     }
 
     is JIRMarkAwareConditionExpr.Or -> args.flatMap { it.preconditionDnf(apManager, mapFacts) }

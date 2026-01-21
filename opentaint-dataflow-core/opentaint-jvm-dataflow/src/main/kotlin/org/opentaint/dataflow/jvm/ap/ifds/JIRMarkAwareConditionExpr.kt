@@ -4,6 +4,7 @@ import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionExpr.And
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionExpr.Literal
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionExpr.Or
+import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.dataflow.util.cartesianProductMapTo
 
 sealed interface JIRMarkAwareConditionExpr {
@@ -31,7 +32,18 @@ sealed interface JIRMarkAwareConditionExpr {
         override fun hashCode(): Int = args.contentHashCode()
     }
 
-    data class Literal(val condition: ContainsMark, val negated: Boolean) : JIRMarkAwareConditionExpr
+    sealed interface Literal : JIRMarkAwareConditionExpr {
+        val negated: Boolean
+        fun negate(): Literal
+    }
+
+    data class ContainsMarkLiteral(val condition: ContainsMark, override val negated: Boolean) : Literal {
+        override fun negate() = copy(negated = !negated)
+    }
+
+    data class ContainsMarkOnAnyFieldLiteral(val condition: ContainsMarkOnAnyField, override val negated: Boolean) : Literal {
+        override fun negate() = copy(negated = !negated)
+    }
 }
 
 fun JIRMarkAwareConditionExpr.removeTrueLiterals(

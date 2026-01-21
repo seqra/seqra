@@ -73,14 +73,30 @@ class AccessCactus(
     override fun contains(factAp: InitialFactAp): Boolean =
         this.delta(factAp).any { it.isEmpty }
 
+    override fun getStartAccessors(): Set<Accessor> =
+        access.allEdges.mapTo(hashSetOf()) { it.accessor }
+
     private sealed interface Delta : FinalFactAp.Delta
 
     data object EmptyDelta : Delta {
         override val isEmpty: Boolean get() = true
+        override fun startsWithAccessor(accessor: Accessor): Boolean = false
+        override fun getStartAccessors(): Set<Accessor> = emptySet()
+        override fun getAllAccessors(): Set<Accessor> = emptySet()
+        override fun readAccessor(accessor: Accessor): FinalFactAp.Delta? = null
     }
 
     data class NodeDelta(val node: AccessNode) : Delta {
         override val isEmpty: Boolean get() = false
+        override fun startsWithAccessor(accessor: Accessor): Boolean = node.contains(accessor)
+        override fun getStartAccessors(): Set<Accessor> = node.allEdges.mapTo(hashSetOf()) { it.accessor }
+        override fun getAllAccessors(): Set<Accessor> {
+            val s = hashSetOf<Accessor>()
+            node.collectAccessorsTo(s)
+            return s
+        }
+        override fun readAccessor(accessor: Accessor): FinalFactAp.Delta? =
+            node.getChild(accessor)?.let { NodeDelta(it) }
     }
 
     override fun delta(other: InitialFactAp): List<FinalFactAp.Delta> {

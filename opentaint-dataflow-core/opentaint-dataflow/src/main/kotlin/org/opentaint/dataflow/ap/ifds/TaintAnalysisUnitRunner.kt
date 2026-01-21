@@ -129,12 +129,19 @@ class TaintAnalysisUnitRunner(
         addUnprocessedEvent(ExternalInputFact.InputFact(methodEntryPoint, factAp))
     }
 
+    override fun triggerSideEffectRequirement(methodEntryPoint: MethodEntryPoint, initialFactAp: InitialFactAp) {
+        addUnprocessedEvent(ExternalInputFact.SideEffectReq(methodEntryPoint, initialFactAp))
+    }
+
     sealed interface ExternalInputFact {
         val methodEntryPoint: MethodEntryPoint
 
         data class InputZero(override val methodEntryPoint: MethodEntryPoint) : ExternalInputFact
 
         data class InputFact(override val methodEntryPoint: MethodEntryPoint, val factAp: FinalFactAp) :
+            ExternalInputFact
+
+        data class SideEffectReq(override val methodEntryPoint: MethodEntryPoint, val sre: InitialFactAp) :
             ExternalInputFact
     }
 
@@ -212,6 +219,7 @@ class TaintAnalysisUnitRunner(
         when (event) {
             is ExternalInputFact.InputFact -> submitMethodInitialFact(event.methodEntryPoint, event.factAp)
             is ExternalInputFact.InputZero -> submitMethodInitialZeroFact(event.methodEntryPoint)
+            is ExternalInputFact.SideEffectReq -> triggerMethodSideEffectReq(event.methodEntryPoint, event.sre)
         }
     }
 
@@ -224,6 +232,12 @@ class TaintAnalysisUnitRunner(
     private fun submitMethodInitialFact(methodEntryPoint: MethodEntryPoint, factAp: FinalFactAp) {
         submitMethodInitialFact(methodEntryPoint) {
             it.addInitialFact(factAp)
+        }
+    }
+
+    private fun triggerMethodSideEffectReq(methodEntryPoint: MethodEntryPoint, sfr: InitialFactAp) {
+        submitMethodInitialFact(methodEntryPoint) {
+            it.triggerSideEffectRequirement(sfr)
         }
     }
 
@@ -338,6 +352,13 @@ class TaintAnalysisUnitRunner(
 
     override fun addNewSideEffectRequirement(methodEntryPoint: MethodEntryPoint, requirements: List<InitialFactAp>) {
         manager.newSideEffectRequirement(methodEntryPoint, requirements)
+    }
+
+    override fun addNewSideEffectSummaries(
+        methodEntryPoint: MethodEntryPoint,
+        sideEffects: List<SideEffectSummary>
+    ) {
+        manager.newSideEffectSummaries(methodEntryPoint, sideEffects)
     }
 
     override fun getMethodAnalyzer(methodEntryPoint: MethodEntryPoint): MethodAnalyzer =

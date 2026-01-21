@@ -37,7 +37,7 @@ class JIRMethodStartPrecondition(
 
         val result = TaintConfigUtils.applyEntryPointConfig(
             context.taint.taintConfig as TaintRulesProvider,
-            method, conditionEvaluator, sourcePreconditionEvaluator
+            method, fact = null, conditionEvaluator, sourcePreconditionEvaluator
         )
 
         result.onSome { sourceActions ->

@@ -14,21 +14,34 @@ interface AnalysisUnitRunnerManager {
     fun registerMethodCallFromUnit(method: CommonMethod, unit: UnitType)
 
     fun handleCrossUnitZeroCall(callerUnit: UnitType, methodEntryPoint: MethodEntryPoint) {
-        val unit = unitResolver.resolve(methodEntryPoint.method)
-        val runner = getOrCreateUnitRunner(unit) ?: return
-
-        registerMethodCallFromUnit(methodEntryPoint.method, callerUnit)
-
-        runner.submitExternalInitialZeroFact(methodEntryPoint)
+        handleCrossUnitAction(callerUnit, methodEntryPoint) {
+            submitExternalInitialZeroFact(methodEntryPoint)
+        }
     }
 
     fun handleCrossUnitFactCall(callerUnit: UnitType, methodEntryPoint: MethodEntryPoint, methodFactAp: FinalFactAp) {
+        handleCrossUnitAction(callerUnit, methodEntryPoint) {
+            submitExternalInitialFact(methodEntryPoint, methodFactAp)
+        }
+    }
+
+    fun handleCrossUnitSideEffectReq(methodEntryPoint: MethodEntryPoint, sideEffectReq: InitialFactAp) {
+        handleCrossUnitAction(callerUnit = null, methodEntryPoint) {
+            triggerSideEffectRequirement(methodEntryPoint, sideEffectReq)
+        }
+    }
+
+    private inline fun handleCrossUnitAction(
+        callerUnit: UnitType?,
+        methodEntryPoint: MethodEntryPoint,
+        body: AnalysisRunner.() -> Unit
+    ) {
         val unit = unitResolver.resolve(methodEntryPoint.method)
         val runner = getOrCreateUnitRunner(unit) ?: return
 
-        registerMethodCallFromUnit(methodEntryPoint.method, callerUnit)
+        callerUnit?.let { registerMethodCallFromUnit(methodEntryPoint.method, it) }
 
-        runner.submitExternalInitialFact(methodEntryPoint, methodFactAp)
+        runner.body()
     }
 
     fun newSummaryEdges(methodEntryPoint: MethodEntryPoint, edges: List<Edge>) {
@@ -41,6 +54,12 @@ interface AnalysisUnitRunnerManager {
         val unit = unitResolver.resolve(methodEntryPoint.method)
         val storage = getOrCreateUnitStorage(unit) ?: return
         storage.addSideEffectRequirement(methodEntryPoint, requirements)
+    }
+
+    fun newSideEffectSummaries(methodEntryPoint: MethodEntryPoint, sideEffects: List<SideEffectSummary>) {
+        val unit = unitResolver.resolve(methodEntryPoint.method)
+        val storage = getOrCreateUnitStorage(unit) ?: return
+        storage.addSideEffectSummaries(methodEntryPoint, sideEffects)
     }
 
     fun subscribeOnMethodEntryPointSummaries(
@@ -104,5 +123,22 @@ interface AnalysisUnitRunnerManager {
         val unit = unitResolver.resolve(methodEntryPoint.method)
         val storage = getOrCreateUnitStorage(unit) ?: return emptyList()
         return storage.methodSideEffectRequirements(methodEntryPoint, initialFactAp)
+    }
+
+    fun findZeroSideEffectSummaries(
+        methodEntryPoint: MethodEntryPoint,
+    ): List<SideEffectSummary.ZeroSideEffectSummary> {
+        val unit = unitResolver.resolve(methodEntryPoint.method)
+        val storage = getOrCreateUnitStorage(unit) ?: return emptyList()
+        return storage.methodZeroSideEffectSummaries(methodEntryPoint)
+    }
+
+    fun findFactSideEffectSummaries(
+        methodEntryPoint: MethodEntryPoint,
+        initialFactAp: FinalFactAp
+    ): List<SideEffectSummary.FactSideEffectSummary> {
+        val unit = unitResolver.resolve(methodEntryPoint.method)
+        val storage = getOrCreateUnitStorage(unit) ?: return emptyList()
+        return storage.methodFactSideEffectSummaries(methodEntryPoint, initialFactAp)
     }
 }

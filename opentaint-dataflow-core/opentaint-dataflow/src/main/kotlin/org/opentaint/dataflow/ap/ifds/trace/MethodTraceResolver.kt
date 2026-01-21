@@ -601,13 +601,13 @@ class MethodTraceResolver(
             }
         }
 
+        graph.forEachPredecessor(analysisManager, entry.statement) {
+            propagateEntryNew(it, entry)
+        }
+
         if (entry.statement == methodEntryPoint.statement) {
             propagateEntryToMethodEntryPoint(entry)
             return
-        }
-
-        graph.forEachPredecessor(analysisManager, entry.statement) {
-            propagateEntryNew(it, entry)
         }
     }
 

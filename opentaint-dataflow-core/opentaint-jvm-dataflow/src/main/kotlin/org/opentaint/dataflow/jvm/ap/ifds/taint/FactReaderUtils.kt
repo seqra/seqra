@@ -57,3 +57,49 @@ inline fun <F: FactAp, R> readPosition(
 
     return matchedNode(result)
 }
+
+fun readAnyPosition(
+    ap: FinalFactAp,
+    position: PositionAccess,
+): PositionAccess? = readAnyPosition(ap, position, mutableListOf(), hashSetOf(), { readAccessor(it) })
+
+fun readAnyPosition(
+    ap: InitialFactAp,
+    position: PositionAccess,
+): PositionAccess? = readAnyPosition(ap, position, mutableListOf(), hashSetOf(), { readAccessor(it) })
+
+fun <F : FactAp> readAnyPosition(
+    ap: F,
+    position: PositionAccess,
+    accessors: MutableList<Accessor>,
+    visited: MutableSet<F>,
+    readAccessor: F.(Accessor) -> F?,
+): PositionAccess? {
+    readPosition(
+        ap,
+        position,
+        readAccessor = readAccessor,
+        onMismatch = { _, _ -> },
+        matchedNode = { _ ->
+            return position.withPrefix(accessors)
+        }
+    )
+
+    val allAccessors = ap.getStartAccessors()
+    val nextFacts = allAccessors.mapNotNull { accessor ->
+        ap.readAccessor(accessor)?.let { accessor to it }
+    }
+
+    for ((accessor, fact) in nextFacts) {
+        if (!visited.add(fact)) continue
+
+        accessors.add(accessor)
+        val posAtFact = readAnyPosition(fact, position, accessors, visited, readAccessor)
+        if (posAtFact != null) return posAtFact
+
+        visited.remove(fact)
+        accessors.removeLast()
+    }
+
+    return null
+}

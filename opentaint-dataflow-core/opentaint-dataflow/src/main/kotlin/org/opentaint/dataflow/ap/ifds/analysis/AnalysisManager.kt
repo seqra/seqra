@@ -7,6 +7,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.util.analysis.ApplicationGraph
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.AnalysisRunner
 import org.opentaint.dataflow.ap.ifds.LanguageManager
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner
@@ -74,6 +75,13 @@ interface AnalysisManager: LanguageManager {
         analysisContext: MethodAnalysisContext,
         statement: CommonInst,
     ): MethodCallSummaryHandler
+
+    fun getMethodSideEffectSummaryHandler(
+        apManager: ApManager,
+        analysisContext: MethodAnalysisContext,
+        statement: CommonInst,
+        runner: AnalysisRunner
+    ): MethodSideEffectSummaryHandler
 
     fun isReachable(
         apManager: ApManager,

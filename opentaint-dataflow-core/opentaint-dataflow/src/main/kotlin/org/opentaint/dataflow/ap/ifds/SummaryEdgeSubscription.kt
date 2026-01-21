@@ -6,6 +6,8 @@ import org.opentaint.dataflow.ap.ifds.Edge.FactToFact
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzer.FactToFactSub
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzer.NDFactToFactSub
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzer.ZeroToFactSub
+import org.opentaint.dataflow.ap.ifds.SideEffectSummary.FactSideEffectSummary
+import org.opentaint.dataflow.ap.ifds.SideEffectSummary.ZeroSideEffectSummary
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
@@ -56,6 +58,14 @@ class SummaryEdgeSubscriptionManager(
             callerAnalyzer.handleZeroToZeroMethodSummaryEdge(callerPathEdge, summaries)
         }
 
+        val sideEffectSummaries = manager.findZeroSideEffectSummaries(methodEntryPoint)
+        if (sideEffectSummaries.isNotEmpty()) {
+            callerAnalyzer.handleZeroToZeroMethodSideEffectSummary(
+                callerPathEdge,
+                sideEffectSummaries
+            )
+        }
+
         return true
     }
 
@@ -81,6 +91,14 @@ class SummaryEdgeSubscriptionManager(
         val ndSummaries = manager.findFactNDSummaryEdges(methodEntryPoint, calleeInitialFactAp)
         if (ndSummaries.isNotEmpty()) {
             callerAnalyzer.handleZeroToFactMethodNDSummaryEdge(listOf(sub), ndSummaries)
+        }
+
+        val sideEffectSummaries = manager.findFactSideEffectSummaries(methodEntryPoint, calleeInitialFactAp)
+        if (sideEffectSummaries.isNotEmpty()) {
+            callerAnalyzer.handleZeroToFactMethodSideEffectSummary(
+                listOf(sub),
+                sideEffectSummaries
+            )
         }
 
         return true
@@ -116,6 +134,14 @@ class SummaryEdgeSubscriptionManager(
                 addedSubscription.callerPathEdge,
                 addedSubscription.calleeInitialFactBase,
                 sideEffectRequirements
+            )
+        }
+
+        val sideEffectSummaries = manager.findFactSideEffectSummaries(methodEntryPoint, calleeInitialFactAp)
+        if (sideEffectSummaries.isNotEmpty()) {
+            callerAnalyzer.handleFactToFactMethodSideEffectSummary(
+                listOf(sub),
+                sideEffectSummaries
             )
         }
 
@@ -611,6 +637,80 @@ class SummaryEdgeSubscriptionManager(
         }
     }
 
+    private inner class NewSideEffectSummaryEvent(
+        private val methodEntryPoint: MethodEntryPoint,
+        private val sideEffects: List<SideEffectSummary>,
+    ) : SummaryEvent {
+        override fun processMethodSummary() {
+            val methodSubscriptions = methodSummarySubscriptions[methodEntryPoint] ?: return
+
+            val zeroSideEffects = mutableListOf<ZeroSideEffectSummary>()
+            val factSideEffects = mutableListOf<FactSideEffectSummary>()
+
+            sideEffects.forEach { sideEffect ->
+                when (sideEffect) {
+                    is FactSideEffectSummary -> factSideEffects += sideEffect
+                    is ZeroSideEffectSummary -> zeroSideEffects += sideEffect
+                }
+            }
+
+            if (zeroSideEffects.isNotEmpty()) {
+                processZeroSideEffectSummaries(methodSubscriptions, zeroSideEffects)
+            }
+
+            if (factSideEffects.isNotEmpty()) {
+                processFactSideEffectSummaries(methodSubscriptions, factSideEffects)
+            }
+        }
+
+        private fun processZeroSideEffectSummaries(subscriptions: MethodSummarySubscription, sideEffects: List<ZeroSideEffectSummary>) {
+            subscriptions.zeroFactSubscriptions().forEach { (ep, callerPathEdges) ->
+                val analyzer = processingCtx.getMethodAnalyzer(ep)
+                for (callerPathEdge in callerPathEdges) {
+                    analyzer.handleZeroToZeroMethodSideEffectSummary(callerPathEdge, sideEffects)
+                }
+            }
+        }
+
+        fun processFactSideEffectSummaries(
+            subscriptionStorage: MethodSummarySubscription,
+            sideEffects: List<FactSideEffectSummary>
+        ) {
+            val sameInitialFactSideEffects = sideEffects.groupBy { it.initialFactAp }
+            for ((summaryInitialFact, summaries) in sameInitialFactSideEffects) {
+                applyFactSideEffects(subscriptionStorage, summaryInitialFact, summaries)
+            }
+        }
+
+        private fun applyFactSideEffects(
+            subscriptionStorage: MethodSummarySubscription,
+            seInitialFact: InitialFactAp,
+            sideEffects: List<FactSideEffectSummary>,
+        ) {
+            subscriptionStorage.findFactEdgeSub(seInitialFact).forEach { (ep, subscriptions) ->
+                val summarySubs = subscriptions.mapTo(mutableListOf()) {
+                    FactToFactSub(it.callerPathEdge, it.calleeInitialFactBase)
+                }
+
+                if (summarySubs.isEmpty()) return@forEach
+
+                val analyzer = processingCtx.getMethodAnalyzer(ep)
+                analyzer.handleFactToFactMethodSideEffectSummary(summarySubs, sideEffects)
+            }
+
+            subscriptionStorage.findZeroEdgeSub(seInitialFact).forEach { (ep, subscriptions) ->
+                val summarySubs = subscriptions.mapTo(mutableListOf()) {
+                    ZeroToFactSub(it.callerPathEdge, it.calleeInitialFactBase)
+                }
+
+                if (summarySubs.isEmpty()) return@forEach
+
+                val analyzer = processingCtx.getMethodAnalyzer(ep)
+                analyzer.handleZeroToFactMethodSideEffectSummary(summarySubs, sideEffects)
+            }
+        }
+    }
+
     interface SummaryEdgeProcessingCtx {
         fun addSummaryEdgeEvent(event: SummaryEvent)
         fun getMethodAnalyzer(methodEntryPoint: MethodEntryPoint): MethodAnalyzer
@@ -626,16 +726,21 @@ class SummaryEdgeSubscriptionManager(
         override fun newSideEffectRequirement(methodEntryPoint: MethodEntryPoint, requirements: List<InitialFactAp>) {
             processingCtx.addSummaryEdgeEvent(NewSideEffectRequirementEvent(methodEntryPoint, requirements))
         }
+
+        override fun newSideEffectSummaries(methodEntryPoint: MethodEntryPoint, sideEffects: List<SideEffectSummary>) {
+            processingCtx.addSummaryEdgeEvent(NewSideEffectSummaryEvent(methodEntryPoint, sideEffects))
+        }
     }
 }
 
 class SummaryEdgeStorageWithSubscribers(
-    apManager: ApManager,
+    private val apManager: ApManager,
     private val methodEntryPoint: MethodEntryPoint,
 ) {
     interface Subscriber {
         fun newSummaryEdges(edges: List<Edge>)
         fun newSideEffectRequirement(methodEntryPoint: MethodEntryPoint, requirements: List<InitialFactAp>)
+        fun newSideEffectSummaries(methodEntryPoint: MethodEntryPoint, sideEffects: List<SideEffectSummary>)
     }
 
     private val subscribers = ConcurrentLinkedQueue<Subscriber>()
@@ -644,6 +749,14 @@ class SummaryEdgeStorageWithSubscribers(
     private val zeroToFactSummaryEdges = apManager.methodFinalApSummariesStorage(methodEntryPoint.statement)
     private val taintedFactSummaryEdges = apManager.methodInitialToFinalApSummariesStorage(methodEntryPoint.statement)
     private val ndF2FSummaryEdges = apManager.methodNDInitialToFinalApSummariesStorage(methodEntryPoint.statement)
+
+    private val zeroSideEffectSummariesStorage by lazy {
+        ConcurrentHashMap.newKeySet<SideEffectKind>()
+    }
+
+    private val factSideEffectSummariesStorage by lazy {
+        apManager.factSideEffectSummariesApStorage(methodEntryPoint.statement)
+    }
 
     fun addEdges(edges: List<Edge>) {
         val addedEdges = mutableListOf<Edge>()
@@ -680,7 +793,19 @@ class SummaryEdgeStorageWithSubscribers(
         val requirements = mutableListOf<InitialFactAp>()
         sideEffectRequirement.collectAllRequirementsTo(requirements)
 
-        return MethodEntryPointSummaries(methodEntryPoint, edges, requirements)
+        val sideEffects = mutableListOf<SideEffectSummary>()
+        collectToListWithPostProcess(
+            sideEffects,
+            { dst -> zeroSideEffectSummariesStorage.mapTo(dst) { ZeroSideEffectSummary(it) } },
+            { it }
+        )
+        collectToListWithPostProcess(
+            sideEffects,
+            { factSideEffectSummariesStorage.filterTaintedTo(it, pattern = null) },
+            { it }
+        )
+
+        return MethodEntryPointSummaries(methodEntryPoint, edges, requirements, sideEffects)
     }
 
     private val sideEffectRequirement = apManager.sideEffectRequirementApStorage()
@@ -690,6 +815,34 @@ class SummaryEdgeStorageWithSubscribers(
 
         for (subscriber in subscribers) {
             subscriber.newSideEffectRequirement(methodEntryPoint, addedRequirements)
+        }
+    }
+
+    fun addSideEffectSummaries(sideEffects: List<SideEffectSummary>) {
+        val zeroSideEffects = mutableListOf<ZeroSideEffectSummary>()
+        val taintedSideEffects = mutableListOf<FactSideEffectSummary>()
+        val addedZeroSideEffects = mutableListOf<ZeroSideEffectSummary>()
+        val addedFactSideEffects = mutableListOf<FactSideEffectSummary>()
+
+        sideEffects.forEach { sideEffect ->
+            when (sideEffect) {
+                is ZeroSideEffectSummary -> zeroSideEffects += sideEffect
+                is FactSideEffectSummary -> taintedSideEffects += sideEffect
+            }
+        }
+
+        zeroSideEffects.filterTo(addedZeroSideEffects) {
+            zeroSideEffectSummariesStorage.add(it.kind)
+        }
+
+        synchronized(factSideEffectSummariesStorage) {
+            factSideEffectSummariesStorage.add(taintedSideEffects, addedFactSideEffects)
+        }
+
+        val addedSideEffects = addedZeroSideEffects + addedFactSideEffects
+
+        for (subscriber in subscribers) {
+            subscriber.newSideEffectSummaries(methodEntryPoint, addedSideEffects)
         }
     }
 
@@ -812,6 +965,14 @@ class SummaryEdgeStorageWithSubscribers(
         sideEffectRequirement.filterTo(result, initialFactAp)
         return result
     }
+
+    fun zeroSideEffectSummaries(): List<ZeroSideEffectSummary> =
+        zeroSideEffectSummariesStorage.map { ZeroSideEffectSummary(it) }
+
+    fun factSideEffectSummaries(initialFactAp: FinalFactAp): List<FactSideEffectSummary> =
+        mutableListOf<FactSideEffectSummary>().also {
+            factSideEffectSummariesStorage.filterTaintedTo(it, initialFactAp)
+        }
 
     fun collectStats(stats: MethodStats) {
         val sourceEdges = mutableListOf<Edge.ZeroInitialEdge>()

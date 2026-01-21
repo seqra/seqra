@@ -222,7 +222,7 @@ class JIRMethodSequentPrecondition(
         if (fact.base != lhv) return
 
         val config = analysisContext.taint.taintConfig as TaintRulesProvider
-        val sourceRules = config.sourceRulesForStaticField(field, currentInst).toList()
+        val sourceRules = config.sourceRulesForStaticField(field, currentInst, fact = null).toList()
         if (sourceRules.isEmpty()) return
 
         val entryFactReader = InitialFactReader(fact.rebase(AccessPathBase.Return), apManager)
@@ -250,7 +250,7 @@ class JIRMethodSequentPrecondition(
 
     private fun MutableList<SequentPreconditionFacts>.methodExitSourcePrecondition(fact: InitialFactAp) {
         val config = analysisContext.taint.taintConfig as TaintRulesProvider
-        val sourceRules = config.exitSourceRulesForMethod(currentInst.location.method, currentInst).toList()
+        val sourceRules = config.exitSourceRulesForMethod(currentInst.location.method, currentInst, fact = null).toList()
         if (sourceRules.isEmpty()) return
 
         val entryFactReader = InitialFactReader(fact, apManager)

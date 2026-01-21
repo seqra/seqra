@@ -90,6 +90,12 @@ class AccessGraph(
             }
         }
 
+    fun getInitialSuccessorsAccessors() = buildSet {
+        stateSuccessors(initial).forEach { accessorIdx ->
+            with(manager) { add(accessorIdx.accessor) }
+        }
+    }
+
     private fun dfsHash(): Int {
         var hash = 0
         val visited = BitSet()

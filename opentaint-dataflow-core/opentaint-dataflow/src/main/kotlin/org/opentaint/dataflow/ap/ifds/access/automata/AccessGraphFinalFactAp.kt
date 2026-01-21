@@ -34,6 +34,8 @@ data class AccessGraphFinalFactAp(
 
     override fun getAllAccessors(): Set<Accessor> = access.getAllOwnAccessors()
 
+    override fun getStartAccessors(): Set<Accessor> = access.getInitialSuccessorsAccessors()
+
     override fun startsWithAccessor(accessor: Accessor): Boolean = with(access.manager) {
         access.startsWith(accessor.idx) || (access.startsWith(anyAccessorIdx) && AnyAccessor.containsAccessor(accessor))
     }
@@ -69,6 +71,23 @@ data class AccessGraphFinalFactAp(
 
     data class Delta(val graph: AccessGraph) : FinalFactAp.Delta {
         override val isEmpty: Boolean get() = graph.isEmpty()
+
+        override fun getAllAccessors(): Set<Accessor> = graph.getAllOwnAccessors()
+
+        override fun getStartAccessors(): Set<Accessor> =
+            graph.getInitialSuccessorsAccessors()
+
+        override fun startsWithAccessor(accessor: Accessor): Boolean = with(graph.manager) {
+            graph.startsWith(accessor.idx)
+                    || (graph.startsWith(anyAccessorIdx) && AnyAccessor.containsAccessor(accessor))
+        }
+
+        override fun readAccessor(accessor: Accessor): FinalFactAp.Delta? = with(graph.manager) {
+            val newGraph = graph.read(accessor.idx)
+                ?: tryAnyAccessorOrNull(accessor) { graph.read(anyAccessorIdx) }
+
+            return newGraph?.let { Delta(it) }
+        }
     }
 
     override fun delta(other: InitialFactAp): List<FinalFactAp.Delta> {

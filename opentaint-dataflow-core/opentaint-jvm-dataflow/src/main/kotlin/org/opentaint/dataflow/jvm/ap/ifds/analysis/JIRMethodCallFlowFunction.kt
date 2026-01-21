@@ -33,6 +33,8 @@ import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.sinkRules
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FinalFactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FinalFactReaderWithPrefix
+import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRFactWithMarkAfterAnyFieldResolver
+import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRFactWithMarkAfterAnyFieldResolver.Companion.createMarkAfterFieldsResolver
 import org.opentaint.dataflow.jvm.ap.ifds.taint.PositionAccess
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintCleanActionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintPassActionEvaluator
@@ -66,7 +68,10 @@ class JIRMethodCallFlowFunction(
             analysisContext.factTypeChecker
         )
 
-        applySinkRules(conditionRewriter, factReader = null).forEach { (fact, trace) ->
+        applySinkRules(
+            conditionRewriter, factReader = null,
+            markAfterAnyFieldResolver = null
+        ).forEach { (fact, trace) ->
             fact.forEachFactWithAliases { this += CallToReturnZFact(factAp = it, trace) }
         }
 
@@ -104,7 +109,7 @@ class JIRMethodCallFlowFunction(
                 check(!factReader.hasRefinement) { "Can't refine Zero fact" }
                 this += CallToStartZFact(callerFactAp, startFactBase, trace)
             },
-            addCallToReturnUnchecked = {
+            addUnchecked = {
                 check(it is MethodCallFlowFunction.ZeroCallFact) { "unexpected" }
                 this += it
             },
@@ -137,7 +142,7 @@ class JIRMethodCallFlowFunction(
                     startFactBase, trace
                 )
             },
-            addCallToReturnUnchecked = {
+            addUnchecked = {
                 check(it is MethodCallFlowFunction.FactCallFact) { "unexpected" }
                 this += it
             },
@@ -167,7 +172,7 @@ class JIRMethodCallFlowFunction(
                     startFactBase, trace
                 )
             },
-            addCallToReturnUnchecked = {
+            addUnchecked = {
                 check(it is MethodCallFlowFunction.NDFactCallFact) { "unexpected" }
                 this += it
             },
@@ -182,7 +187,7 @@ class JIRMethodCallFlowFunction(
         addSideEffectRequirement: (FinalFactReader) -> Unit,
         addCallToReturn: (FinalFactReader, FinalFactAp, TraceInfo) -> Unit,
         addCallToStart: (factReader: FinalFactReader, callerFact: FinalFactAp, startFactBase: AccessPathBase, TraceInfo) -> Unit,
-        addCallToReturnUnchecked: (MethodCallFlowFunction.Call2ReturnFact) -> Unit,
+        addUnchecked: (MethodCallFlowFunction.CallFact) -> Unit,
     ) {
         if (!JIRMethodCallFactMapper.factIsRelevantToMethodCall(returnValue, callExpr, factAp)) {
             skipCall()
@@ -196,9 +201,15 @@ class JIRMethodCallFlowFunction(
 
         val factReader = FinalFactReader(factAp, apManager)
 
-        applySinkRules(conditionRewriter, factReader).forEach { (fact, trace) ->
+        val markAfterAnyFieldResolver = createMarkAfterFieldsResolver(
+            analysisContext.methodEntryPoint, initialFacts
+        ) { i, k ->
+            addUnchecked(MethodCallFlowFunction.FactSideEffect(i, k))
+        }
+
+        applySinkRules(conditionRewriter, factReader, markAfterAnyFieldResolver).forEach { (fact, trace) ->
             fact.forEachFactWithAliases {
-                addCallToReturnUnchecked(CallToReturnZFact(it, trace))
+                addUnchecked(CallToReturnZFact(it, trace))
             }
         }
 
@@ -209,12 +220,12 @@ class JIRMethodCallFlowFunction(
             },
             createEdge = { initial, final, trace ->
                 final.forEachFactWithAliases {
-                    addCallToReturnUnchecked(CallToReturnFFact(initial, it, trace))
+                    addUnchecked(CallToReturnFFact(initial, it, trace))
                 }
             },
             createNDEdge = { initial, final, trace ->
                 final.forEachFactWithAliases {
-                    addCallToReturnUnchecked(CallToReturnNonDistributiveFact(initial, it, trace))
+                    addUnchecked(CallToReturnNonDistributiveFact(initial, it, trace))
                 }
             }
         )
@@ -228,7 +239,7 @@ class JIRMethodCallFlowFunction(
             applyPassRulesOrCallToStart(
                 conditionRewriter,
                 factReader, callerFact, startFactBase,
-                addCallToReturn, addCallToStart, addCallToReturnUnchecked
+                addCallToReturn, addCallToStart, addUnchecked
             )
         }
 
@@ -244,7 +255,7 @@ class JIRMethodCallFlowFunction(
         startFactBase: AccessPathBase,
         addCallToReturn: (FinalFactReader, FinalFactAp, TraceInfo) -> Unit,
         addCallToStart: (factReader: FinalFactReader, callerFactAp: FinalFactAp, startFactBase: AccessPathBase, TraceInfo) -> Unit,
-        addCallToReturnUnchecked: (MethodCallFlowFunction.Call2ReturnFact) -> Unit,
+        addCallToReturnUnchecked: (MethodCallFlowFunction.CallFact) -> Unit,
     ) {
         val method = callExpr.callee
 
@@ -252,7 +263,8 @@ class JIRMethodCallFlowFunction(
         val conditionFactReader = FinalFactReader(callerFact, apManager)
 
         val conditionEvaluator = JIRFactAwareConditionEvaluator(
-            listOf(conditionFactReader)
+            listOf(conditionFactReader),
+            markAfterAnyFieldResolver = null // we don't expect such marks in pass rules
         )
 
         val simpleConditionEvaluator = JIRSimpleFactAwareConditionEvaluator(conditionRewriter, conditionEvaluator)
@@ -285,6 +297,7 @@ class JIRMethodCallFlowFunction(
             config,
             method,
             statement,
+            fact = factReaderAfterCleaner.factAp,
             simpleConditionEvaluator,
             passEvaluator
         )
@@ -328,8 +341,9 @@ class JIRMethodCallFlowFunction(
     private fun applySinkRules(
         conditionRewriter: JIRMarkAwareConditionRewriter,
         factReader: FinalFactReader?,
+        markAfterAnyFieldResolver: JIRFactWithMarkAfterAnyFieldResolver?,
     ): List<Pair<FinalFactAp, TraceInfo>> {
-        val sinkRules = sinkRules(config, callExpr.callee, statement).toList()
+        val sinkRules = sinkRules(config, callExpr.callee, statement, factReader?.factAp).toList()
         if (sinkRules.isEmpty()) return emptyList()
 
         val normalConditionFactReaders = factReader?.toConditionFactReaders().orEmpty()
@@ -352,6 +366,7 @@ class JIRMethodCallFlowFunction(
             apManager,
             conditionRewriter,
             conditionFactReaders,
+            markAfterAnyFieldResolver,
             condition = { condition },
             storeAssumptions = { rule, facts ->
                 storeInfo {
@@ -436,7 +451,7 @@ class JIRMethodCallFlowFunction(
         createNDEdge: (Set<InitialFactAp>, FinalFactAp, TraceInfo) -> Unit,
     ) {
         val method = callExpr.method.method
-        val sourceRules = config.sourceRulesForMethod(method, statement).toList()
+        val sourceRules = config.sourceRulesForMethod(method, statement, factReader?.factAp).toList()
 
         if (sourceRules.isEmpty()) return
 
@@ -451,6 +466,7 @@ class JIRMethodCallFlowFunction(
             conditionRewriter,
             initialFacts,
             conditionFactReaders,
+            markAfterAnyFieldResolver = null, // we don't expect such marks in source rules
             condition = { condition },
             storeAssumptions = { rule, facts ->
                 storeInfo { sinkTracker.addSourceRuleAssumptions(rule, statement, facts) }

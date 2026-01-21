@@ -7,6 +7,7 @@ import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.PositionResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionExpr.Literal
+import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRBasicAtomEvaluator
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.util.Maybe
@@ -53,7 +54,11 @@ class JIRMarkAwareConditionRewriter(
 
     private fun rewriteAtom(atom: Condition, evaluator: JIRBasicAtomEvaluator): ExprOrConstant {
         if (atom is ContainsMark) {
-            return ExprOrConstant(Literal(atom, negated = false))
+            return ExprOrConstant(JIRMarkAwareConditionExpr.ContainsMarkLiteral(atom, negated = false))
+        }
+
+        if (atom is ContainsMarkOnAnyField) {
+            return ExprOrConstant(JIRMarkAwareConditionExpr.ContainsMarkOnAnyFieldLiteral(atom, negated = false))
         }
 
         val result = atom.accept(evaluator)
@@ -61,7 +66,7 @@ class JIRMarkAwareConditionRewriter(
     }
 
     private fun JIRMarkAwareConditionExpr.negate(): JIRMarkAwareConditionExpr = when (this) {
-        is Literal -> Literal(condition, negated = !negated)
+        is Literal -> negate()
         is JIRMarkAwareConditionExpr.And,
         is JIRMarkAwareConditionExpr.Or -> error("Unexpected formula structure")
     }

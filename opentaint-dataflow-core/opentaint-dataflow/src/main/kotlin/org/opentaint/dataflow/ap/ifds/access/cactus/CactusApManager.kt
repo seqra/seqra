@@ -17,6 +17,7 @@ import org.opentaint.dataflow.ap.ifds.access.MethodFinalApSummariesStorage
 import org.opentaint.dataflow.ap.ifds.access.MethodInitialToFinalApSummariesStorage
 import org.opentaint.dataflow.ap.ifds.access.MethodNDInitialToFinalApSummariesStorage
 import org.opentaint.dataflow.ap.ifds.access.SideEffectRequirementApStorage
+import org.opentaint.dataflow.ap.ifds.access.FactSideEffectSummariesApStorage
 import org.opentaint.dataflow.ap.ifds.access.cactus.AccessCactus.AccessNode
 import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
@@ -61,6 +62,9 @@ object CactusApManager : ApManager {
 
     override fun methodNDInitialToFinalApSummariesStorage(methodInitialStatement: CommonInst): MethodNDInitialToFinalApSummariesStorage =
         MethodNDInitialToFinalCactusApSummariesStorage(methodInitialStatement)
+
+    override fun factSideEffectSummariesApStorage(methodInitialStatement: CommonInst): FactSideEffectSummariesApStorage =
+        FactSESummariesCactusStorage(methodInitialStatement)
 
     override fun mostAbstractInitialAp(base: AccessPathBase): InitialFactAp =
         AccessPathWithCycles(base, access = null, exclusions = Empty)

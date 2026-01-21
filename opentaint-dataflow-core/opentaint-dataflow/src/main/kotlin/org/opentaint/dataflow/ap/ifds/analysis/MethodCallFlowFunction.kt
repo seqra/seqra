@@ -1,19 +1,22 @@
 package org.opentaint.dataflow.ap.ifds.analysis
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.SideEffectKind
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.CommonTaintAction
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationItem
 
 interface MethodCallFlowFunction {
+    sealed interface CallFact
+
     sealed interface Call2ReturnFact
 
-    sealed interface ZeroCallFact
+    sealed interface ZeroCallFact: CallFact
 
-    sealed interface FactCallFact
+    sealed interface FactCallFact: CallFact
 
-    sealed interface NDFactCallFact
+    sealed interface NDFactCallFact: CallFact
 
     data object Unchanged : ZeroCallFact, FactCallFact, NDFactCallFact
 
@@ -59,6 +62,9 @@ interface MethodCallFlowFunction {
     ) : NDFactCallFact
 
     data class SideEffectRequirement(val initialFactAp: InitialFactAp) : FactCallFact
+
+    data class ZeroSideEffect(val kind: SideEffectKind) : ZeroCallFact
+    data class FactSideEffect(val initialFactAp: InitialFactAp, val kind: SideEffectKind) : FactCallFact
 
     data class Drop(
         val traceInfo: TraceInfo?,

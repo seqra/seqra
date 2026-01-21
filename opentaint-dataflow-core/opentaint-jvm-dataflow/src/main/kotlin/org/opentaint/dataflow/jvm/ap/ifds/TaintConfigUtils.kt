@@ -2,6 +2,7 @@ package org.opentaint.dataflow.jvm.ap.ifds
 
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.access.ApManager
+import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.FactWithPreconditions
 import org.opentaint.dataflow.configuration.jvm.Action
@@ -18,6 +19,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.EvaluatedCleanAction
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FinalFactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.InitialFactReader
+import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRFactWithMarkAfterAnyFieldResolver
 import org.opentaint.dataflow.jvm.ap.ifds.taint.PassActionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.SourceActionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintCleanActionEvaluator
@@ -28,16 +30,17 @@ import org.opentaint.util.Maybe
 import org.opentaint.util.maybeFlatMap
 
 object TaintConfigUtils {
-    fun sinkRules(config: TaintRulesProvider, method: CommonMethod, statement: CommonInst) =
-        config.sinkRulesForMethod(method, statement)
+    fun sinkRules(config: TaintRulesProvider, method: CommonMethod, statement: CommonInst, fact: FactAp?) =
+        config.sinkRulesForMethod(method, statement, fact)
 
     fun <T> applyEntryPointConfig(
         config: TaintRulesProvider,
         method: CommonMethod,
+        fact: FactAp?,
         conditionEvaluator: ConditionEvaluator<Boolean>,
         taintActionEvaluator: SourceActionEvaluator<T>
     ) = applyAssignMark<TaintEntryPointSource, T>(
-        config.entryPointRulesForMethod(method), conditionEvaluator, taintActionEvaluator,
+        config.entryPointRulesForMethod(method, fact), conditionEvaluator, taintActionEvaluator,
         TaintEntryPointSource::condition, TaintEntryPointSource::actionsAfter
     )
 
@@ -59,10 +62,11 @@ object TaintConfigUtils {
         config: TaintRulesProvider,
         method: CommonMethod,
         statement: CommonInst,
+        fact: FactAp?,
         conditionEvaluator: ConditionEvaluator<Boolean>,
         taintActionEvaluator: PassActionEvaluator<T>
     ): Maybe<List<T>> =
-        config.passTroughRulesForMethod(method, statement)
+        config.passTroughRulesForMethod(method, statement, fact)
             .filter { conditionEvaluator.eval(it.condition) }
             .maybeFlatMap { item ->
                 item.actionsAfter.maybeFlatMap {
@@ -82,7 +86,7 @@ object TaintConfigUtils {
         conditionEvaluator: ConditionEvaluator<Boolean>,
         taintActionEvaluator: TaintCleanActionEvaluator
     ): EvaluatedCleanAction =
-        config.cleanerRulesForMethod(method, statement)
+        config.cleanerRulesForMethod(method, statement, initialFact.factAp)
             .filter { conditionEvaluator.eval(it.condition) }
             .fold(EvaluatedCleanAction.initial(initialFact)) { startFact, rule ->
                 rule.actionsAfter.fold(startFact) { fact, action ->
@@ -98,6 +102,7 @@ object TaintConfigUtils {
         apManager: ApManager,
         conditionRewriter: JIRMarkAwareConditionRewriter,
         conditionFactReaders: List<FactReader>,
+        markAfterAnyFieldResolver: JIRFactWithMarkAfterAnyFieldResolver?,
         condition: T.() -> Condition,
         storeAssumptions: (T, Map<InitialFactAp, Set<InitialFactAp>>) -> Unit,
         currentAssumptions: (T) -> Set<InitialFactAp>,
@@ -108,6 +113,7 @@ object TaintConfigUtils {
             conditionRewriter = conditionRewriter,
             initialFacts = emptySet(),
             conditionFactReaders = conditionFactReaders,
+            markAfterAnyFieldResolver = markAfterAnyFieldResolver,
             condition = condition,
             storeAssumptions = storeAssumptions,
             currentAssumptions = currentAssumptions,
@@ -126,6 +132,7 @@ object TaintConfigUtils {
         conditionRewriter: JIRMarkAwareConditionRewriter,
         initialFacts: Set<InitialFactAp>,
         conditionFactReaders: List<FactReader>,
+        markAfterAnyFieldResolver: JIRFactWithMarkAfterAnyFieldResolver?,
         condition: T.() -> Condition,
         storeAssumptions: (T, Map<InitialFactAp, Set<InitialFactAp>>) -> Unit,
         currentAssumptions: (T) -> Set<InitialFactAp>,
@@ -133,7 +140,7 @@ object TaintConfigUtils {
         applyRule: (T, List<InitialFactAp>) -> Unit,
         applyRuleWithAssumptions: (T, List<FactWithPreconditions>) -> Unit
     ) {
-        val conditionEvaluator = JIRFactAwareConditionEvaluator(conditionFactReaders)
+        val conditionEvaluator = JIRFactAwareConditionEvaluator(conditionFactReaders, markAfterAnyFieldResolver)
 
         for (rule in this) {
             val ruleCondition = rule.condition()
@@ -169,7 +176,10 @@ object TaintConfigUtils {
             val assumptions = currentAssumptions(rule)
             val assumptionReaders = assumptions.map { InitialFactReader(it, apManager) }
 
-            val conditionEvaluatorWithAssumptions = JIRFactAwareConditionEvaluator(assumptionReaders)
+            val conditionEvaluatorWithAssumptions = JIRFactAwareConditionEvaluator(
+                assumptionReaders,
+                markAfterAnyFieldResolver = null // note: mark resolved on first eval
+            )
             if (!conditionEvaluatorWithAssumptions.evalWithAssumptionsCheck(assumptionExpr)) {
                 continue
             }

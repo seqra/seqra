@@ -5,27 +5,32 @@ import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 
-interface FactAp {
+interface AccessorList {
+    fun startsWithAccessor(accessor: Accessor): Boolean
+    fun getStartAccessors(): Set<Accessor>
+    fun getAllAccessors(): Set<Accessor>
+}
+
+interface ReadableAccessorList<T : Any> : AccessorList {
+    fun readAccessor(accessor: Accessor): T?
+}
+
+interface FactAp: AccessorList {
     val base: AccessPathBase
     val exclusions: ExclusionSet
 
     val size: Int
-
-    fun startsWithAccessor(accessor: Accessor): Boolean
 }
 
-interface InitialFactAp : FactAp {
+interface InitialFactAp : FactAp, ReadableAccessorList<InitialFactAp> {
     fun rebase(newBase: AccessPathBase): InitialFactAp
     fun exclude(accessor: Accessor): InitialFactAp
     fun replaceExclusions(exclusions: ExclusionSet): InitialFactAp
 
-    fun getAllAccessors(): Set<Accessor>
-
-    fun readAccessor(accessor: Accessor): InitialFactAp?
     fun prependAccessor(accessor: Accessor): InitialFactAp
     fun clearAccessor(accessor: Accessor): InitialFactAp?
 
-    interface Delta {
+    interface Delta: ReadableAccessorList<Delta> {
         val isEmpty: Boolean
 
         fun concat(other: Delta): Delta
@@ -37,21 +42,18 @@ interface InitialFactAp : FactAp {
     fun contains(factAp: InitialFactAp): Boolean
 }
 
-interface FinalFactAp : FactAp {
+interface FinalFactAp : FactAp, ReadableAccessorList<FinalFactAp> {
     fun rebase(newBase: AccessPathBase): FinalFactAp
     fun exclude(accessor: Accessor): FinalFactAp
     fun replaceExclusions(exclusions: ExclusionSet): FinalFactAp
 
-    fun getAllAccessors(): Set<Accessor>
-
     fun isAbstract(): Boolean
 
-    fun readAccessor(accessor: Accessor): FinalFactAp?
     fun prependAccessor(accessor: Accessor): FinalFactAp
     fun clearAccessor(accessor: Accessor): FinalFactAp?
     fun removeAbstraction(): FinalFactAp?
 
-    interface Delta {
+    interface Delta: ReadableAccessorList<Delta> {
         val isEmpty: Boolean
     }
 

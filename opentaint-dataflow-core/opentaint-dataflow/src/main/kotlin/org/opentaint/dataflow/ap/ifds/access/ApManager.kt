@@ -6,6 +6,7 @@ import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactToFactEdgeBuilder
 import org.opentaint.dataflow.ap.ifds.LanguageManager
 import org.opentaint.dataflow.ap.ifds.NDFactToFactEdgeBuilder
+import org.opentaint.dataflow.ap.ifds.SideEffectSummary.FactSideEffectSummary
 import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager.FactEdgeSummarySubscription
 import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager.FactNDEdgeSummarySubscription
 import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager.ZeroEdgeSummarySubscription
@@ -27,6 +28,7 @@ interface ApManager {
     fun methodFinalApSummariesStorage(methodInitialStatement: CommonInst): MethodFinalApSummariesStorage
     fun methodInitialToFinalApSummariesStorage(methodInitialStatement: CommonInst): MethodInitialToFinalApSummariesStorage
     fun methodNDInitialToFinalApSummariesStorage(methodInitialStatement: CommonInst): MethodNDInitialToFinalApSummariesStorage
+    fun factSideEffectSummariesApStorage(methodInitialStatement: CommonInst): FactSideEffectSummariesApStorage
 
     fun mostAbstractInitialAp(base: AccessPathBase): InitialFactAp
     fun mostAbstractFinalAp(base: AccessPathBase): FinalFactAp
@@ -104,6 +106,11 @@ interface SideEffectRequirementApStorage {
     fun add(requirements: List<InitialFactAp>): List<InitialFactAp>
     fun filterTo(dst: MutableList<InitialFactAp>, fact: FinalFactAp)
     fun collectAllRequirementsTo(dst: MutableList<InitialFactAp>)
+}
+
+interface FactSideEffectSummariesApStorage {
+    fun add(sideEffects: List<FactSideEffectSummary>, added: MutableList<FactSideEffectSummary>)
+    fun filterTaintedTo(dst: MutableList<FactSideEffectSummary>, pattern: FinalFactAp?)
 }
 
 interface MethodFinalApSummariesStorage {

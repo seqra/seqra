@@ -52,6 +52,7 @@ class TraceResolver(
 
     data class CallTraceNode(val statement: CommonInst, val methodEntryPoint: MethodEntryPoint) :
         EntryPointToStartTraceNode
+
     data class EntryPointTraceNode(val method: CommonMethod) : EntryPointToStartTraceNode
 
     sealed interface SourceToSinkTraceNode : TraceNode {

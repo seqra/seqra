@@ -10,6 +10,9 @@ import org.opentaint.ir.api.jvm.cfg.locals
 import org.opentaint.ir.impl.cfg.JIRInstLocationImpl
 import org.opentaint.ir.impl.cfg.JIRMutableInstListImpl
 import org.opentaint.ir.impl.types.TypeNameImpl
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.InvocationKind
+import kotlin.contracts.contract
 
 class JIRInstListBuilder(
     private val mutableInstructions: MutableList<JIRInst> = mutableListOf()
@@ -36,16 +39,24 @@ class JIRInstListBuilder(
 
     fun nextLocalVarIdx(): Int = localVarIdx++
 
+    @OptIn(ExperimentalContracts::class)
     fun addInst(buildInst: (Int) -> JIRInst) {
+        contract { callsInPlace(buildInst, InvocationKind.EXACTLY_ONCE) }
+
         val idx = mutableInstructions.size
         val inst = buildInst(idx)
         check(mutableInstructions.size == idx)
         mutableInstructions += inst
     }
 
-    fun addInstWithLocation(method: JIRMethod, buildInst: (JIRInstLocation) -> JIRInst) = addInst { idx ->
-        val location = JIRInstLocationImpl(method, idx, lineNumber = -1)
-        buildInst(location)
+    @OptIn(ExperimentalContracts::class)
+    fun addInstWithLocation(method: JIRMethod, buildInst: (JIRInstLocation) -> JIRInst) {
+        contract { callsInPlace(buildInst, InvocationKind.EXACTLY_ONCE) }
+
+        addInst { idx ->
+            val location = JIRInstLocationImpl(method, idx, lineNumber = -1)
+            buildInst(location)
+        }
     }
 
     override fun toString(): String = mutableInstructions.joinToString(separator = "\n") { "  $it" }

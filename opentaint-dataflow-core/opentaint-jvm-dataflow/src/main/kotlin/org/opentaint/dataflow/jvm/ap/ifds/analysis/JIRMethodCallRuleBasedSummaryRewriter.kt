@@ -48,7 +48,7 @@ class JIRMethodCallRuleBasedSummaryRewriter(
         val method = callExpr.method.method
 
         val result = mutableListOf<UserRuleDefinedAction>()
-        for (sourceRule in config.sourceRulesForMethod(method, statement)) {
+        for (sourceRule in config.sourceRulesForMethod(method, statement, fact = null)) {
             val ruleInfo = sourceRule.info as? UserDefinedRuleInfo ?: continue
 
             val simplifiedCondition = conditionRewriter.rewrite(sourceRule.condition)
@@ -58,7 +58,7 @@ class JIRMethodCallRuleBasedSummaryRewriter(
             result += UserRuleDefinedAction(sourceRule, positions, ruleInfo.relevantTaintMarks)
         }
 
-        for (cleanRule in config.cleanerRulesForMethod(method, statement)) {
+        for (cleanRule in config.cleanerRulesForMethod(method, statement, fact = null)) {
             val ruleInfo = cleanRule.info as? UserDefinedRuleInfo ?: continue
 
             val simplifiedCondition = conditionRewriter.rewrite(cleanRule.condition)

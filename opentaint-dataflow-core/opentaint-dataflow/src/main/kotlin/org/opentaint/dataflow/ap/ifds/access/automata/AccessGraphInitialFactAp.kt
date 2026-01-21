@@ -28,6 +28,9 @@ data class AccessGraphInitialFactAp(
     override fun getAllAccessors() =
         access.getAllOwnAccessors()
 
+    override fun getStartAccessors(): Set<Accessor> =
+        access.getInitialSuccessorsAccessors()
+
     override fun startsWithAccessor(accessor: Accessor): Boolean = with(access.manager) {
         check(accessor !is AnyAccessor)
         return access.startsWith(accessor.idx)
@@ -55,6 +58,19 @@ data class AccessGraphInitialFactAp(
             other as Delta
 
             return Delta(graph.concat(other.graph))
+        }
+
+        override fun getAllAccessors(): Set<Accessor> = graph.getAllOwnAccessors()
+
+        override fun getStartAccessors(): Set<Accessor> = graph.getInitialSuccessorsAccessors()
+
+        override fun startsWithAccessor(accessor: Accessor): Boolean = with(graph.manager) {
+            graph.startsWith(accessor.idx)
+        }
+
+        override fun readAccessor(accessor: Accessor): InitialFactAp.Delta? = with(graph.manager) {
+            val newGraph = graph.read(accessor.idx) ?: return@with null
+            return Delta(newGraph)
         }
     }
 

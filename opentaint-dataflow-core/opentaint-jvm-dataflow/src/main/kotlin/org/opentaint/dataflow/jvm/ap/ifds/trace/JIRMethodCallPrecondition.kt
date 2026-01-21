@@ -118,7 +118,7 @@ class JIRMethodCallPrecondition(
             analysisContext.factTypeChecker
         )
 
-        for (rule in taintConfig.sourceRulesForMethod(method, statement)) {
+        for (rule in taintConfig.sourceRulesForMethod(method, statement, fact = null)) {
             evaluateSourceRulePrecondition(rule, sourcePreconditionEvaluator, conditionRewriter)
         }
     }
@@ -141,7 +141,7 @@ class JIRMethodCallPrecondition(
         fact: InitialFactAp,
         startBase: AccessPathBase,
     ) {
-        val passRules = taintConfig.passTroughRulesForMethod(method, statement).toList()
+        val passRules = taintConfig.passTroughRulesForMethod(method, statement, fact = null).toList()
         if (passRules.isEmpty()) return
 
         val entryFactReader = InitialFactReader(fact.rebase(startBase), apManager)

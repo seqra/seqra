@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.ap.ifds.analysis
 
+import org.opentaint.dataflow.ap.ifds.SideEffectKind
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.CommonTaintAction
@@ -15,6 +16,10 @@ interface MethodSequentFlowFunction {
         data class NDFactToFact(val initialFacts: Set<InitialFactAp>, val factAp: FinalFactAp, val traceInfo: TraceInfo?) : Sequent
 
         data class SideEffectRequirement(val initialFactAp: InitialFactAp) : Sequent
+
+        sealed interface SideEffect : Sequent
+        data class ZeroSideEffect(val kind: SideEffectKind) : SideEffect
+        data class FactSideEffect(val initialFactAp: InitialFactAp, val kind: SideEffectKind) : SideEffect
     }
 
     sealed interface TraceInfo {

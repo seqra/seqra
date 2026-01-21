@@ -160,6 +160,7 @@ class MethodForwardTraceResolver(
             is Sequent.ZeroToZero,
             is Sequent.FactToFact,
             is Sequent.NDFactToFact,
+            is Sequent.SideEffect,
             is Sequent.SideEffectRequirement -> {
                 // ignore
             }
@@ -210,6 +211,7 @@ class MethodForwardTraceResolver(
             is MethodCallFlowFunction.CallToReturnZeroFact,
             is MethodCallFlowFunction.CallToStartZeroFact,
             is MethodCallFlowFunction.CallToReturnFFact,
+            is MethodCallFlowFunction.ZeroSideEffect,
             is MethodCallFlowFunction.CallToReturnNonDistributiveFact -> {
                 // ignore
             }

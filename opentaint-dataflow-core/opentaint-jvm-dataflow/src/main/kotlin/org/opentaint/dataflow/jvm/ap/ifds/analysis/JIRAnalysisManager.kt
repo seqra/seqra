@@ -2,6 +2,7 @@ package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
 import mu.KLogger
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.AnalysisRunner
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisManager
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner
@@ -11,6 +12,7 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallSummaryHandler
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction
+import org.opentaint.dataflow.ap.ifds.analysis.MethodSideEffectSummaryHandler
 import org.opentaint.dataflow.ap.ifds.analysis.MethodStartFlowFunction
 import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisContext
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
@@ -158,6 +160,18 @@ class JIRAnalysisManager(
         jIRDowncast<JIRMethodAnalysisContext>(analysisContext)
 
         return JIRMethodCallSummaryHandler(statement, analysisContext, apManager)
+    }
+
+    override fun getMethodSideEffectSummaryHandler(
+        apManager: ApManager,
+        analysisContext: MethodAnalysisContext,
+        statement: CommonInst,
+        runner: AnalysisRunner
+    ): MethodSideEffectSummaryHandler {
+        jIRDowncast<JIRInst>(statement)
+        jIRDowncast<JIRMethodAnalysisContext>(analysisContext)
+
+        return JIRMethodSideEffectHandler(runner)
     }
 
     override fun getMethodCallPrecondition(

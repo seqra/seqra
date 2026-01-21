@@ -95,10 +95,30 @@ open class MethodSummariesUnitStorage(
         methodStorage.sideEffectRequirement(requirements)
     }
 
+    fun addSideEffectSummaries(initialStatement: MethodEntryPoint, sideEffects: List<SideEffectSummary>) {
+        val methodStorage = methodSummaryEdges(initialStatement)
+        methodStorage.addSideEffectSummaries(sideEffects)
+    }
+
     private fun methodSummaryEdges(methodEntryPoint: MethodEntryPoint) =
         methodSummaries.computeIfAbsent(methodEntryPoint) {
             SummaryEdgeStorageWithSubscribers(apManager, methodEntryPoint)
         }
+
+    fun methodZeroSideEffectSummaries(
+        initialStatement: MethodEntryPoint,
+    ): List<SideEffectSummary.ZeroSideEffectSummary> {
+        val methodStorage = methodSummaryEdges(initialStatement)
+        return methodStorage.zeroSideEffectSummaries()
+    }
+
+    fun methodFactSideEffectSummaries(
+        initialStatement: MethodEntryPoint,
+        initialFactAp: FinalFactAp
+    ): List<SideEffectSummary.FactSideEffectSummary> {
+        val methodStorage = methodSummaryEdges(initialStatement)
+        return methodStorage.factSideEffectSummaries(initialFactAp)
+    }
 
     fun collectMethodStats(stats: MethodStats) {
         methodSummaries.elements().iterator().forEach { it.collectStats(stats) }

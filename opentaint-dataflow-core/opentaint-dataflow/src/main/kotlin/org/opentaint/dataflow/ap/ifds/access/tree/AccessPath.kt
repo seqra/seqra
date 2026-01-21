@@ -41,6 +41,9 @@ class AccessPath(
         return access.accessor == accessor
     }
 
+    override fun getStartAccessors(): Set<Accessor> =
+        access?.let { setOf(it.accessor) } ?: emptySet()
+
     override fun readAccessor(accessor: Accessor): AccessPath? {
         if (access == null) return null
         if (access.accessor != accessor) return null
@@ -65,10 +68,21 @@ class AccessPath(
     sealed interface AccessPathDelta : InitialFactAp.Delta {
         data object Empty : AccessPathDelta {
             override val isEmpty: Boolean get() = true
+            override fun startsWithAccessor(accessor: Accessor): Boolean = false
+            override fun getStartAccessors(): Set<Accessor> = emptySet()
+            override fun getAllAccessors(): Set<Accessor> = emptySet()
+            override fun readAccessor(accessor: Accessor): InitialFactAp.Delta? = null
         }
 
         data class Delta(val node: AccessNode) : AccessPathDelta {
             override val isEmpty: Boolean get() = false
+            override fun startsWithAccessor(accessor: Accessor): Boolean = node.accessor == accessor
+            override fun getStartAccessors(): Set<Accessor> = setOf(node.accessor)
+            override fun getAllAccessors(): Set<Accessor> = node.mapTo(hashSetOf()) { it }
+            override fun readAccessor(accessor: Accessor): InitialFactAp.Delta? {
+                if (node.accessor == accessor) return node.next?.let { Delta(it) }
+                return null
+            }
         }
 
         override fun concat(other: InitialFactAp.Delta): InitialFactAp.Delta {
