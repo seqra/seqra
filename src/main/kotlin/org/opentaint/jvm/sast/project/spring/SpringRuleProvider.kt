@@ -4,6 +4,7 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.jvm.Argument
+import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
 import org.opentaint.dataflow.configuration.jvm.Condition
 import org.opentaint.dataflow.configuration.jvm.ConstantTrue
@@ -27,18 +28,56 @@ import org.opentaint.dataflow.configuration.jvm.This
 import org.opentaint.dataflow.jvm.ap.ifds.taint.ConditionRewriter
 import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
+import org.opentaint.dataflow.jvm.ap.ifds.taint.resolveBaseAp
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.impl.cfg.util.isClass
+import org.opentaint.jvm.sast.project.ProjectClasses
 
 class SpringRuleProvider(
     private val base: TaintRulesProvider,
+    private val projectClasses: ProjectClasses,
     private val springCtx: SpringWebProjectContext,
 ) : TaintRulesProvider by base {
     override fun entryPointRulesForMethod(method: CommonMethod, fact: FactAp?): Iterable<TaintEntryPointSource> {
         if (method is SpringGeneratedMethod) return emptyList()
-        return base.entryPointRulesForMethod(method, fact)
+
+        val baseRules =  base.entryPointRulesForMethod(method, fact)
+        if (method !is JIRMethod || !method.isSpringControllerMethod()) {
+            return baseRules
+        }
+
+        return baseRules.map { taintObjectFields(method, it) }
+    }
+
+    private fun taintObjectFields(method: JIRMethod, rule: TaintEntryPointSource): TaintEntryPointSource {
+        val actions = rule.actionsAfter.flatMap { taintObjectFields(method, it) }
+        return rule.copy(actionsAfter = actions)
+    }
+
+    private fun taintObjectFields(method: JIRMethod, assign: AssignMark): List<AssignMark> {
+        val base = assign.position.resolveBaseAp()
+        if (base !is AccessPathBase.Argument) return listOf(assign)
+
+        val paramTypeName = method.parameters.getOrNull(base.idx)?.type
+            ?: return emptyList()
+
+        if (!paramTypeName.isClass) return listOf(assign)
+
+        val cls = method.enclosingClass.classpath
+            .findClassOrNull(paramTypeName.typeName)
+            ?: return listOf(assign)
+
+        if (cls.declaration.location !in projectClasses.projectLocations) {
+            return listOf(assign)
+        }
+
+        val allFieldsPosition = PositionWithAccess(assign.position, PositionAccessor.AnyFieldAccessor)
+        val allFieldsAssign = AssignMark(assign.mark, allFieldsPosition)
+
+        return listOf(assign, allFieldsAssign)
     }
 
     override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?): Iterable<TaintMethodSource> {

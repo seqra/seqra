@@ -2,10 +2,20 @@ package org.opentaint.jvm.sast.dataflow
 
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
+import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.AnyAccessor
+import org.opentaint.dataflow.ap.ifds.ElementAccessor
+import org.opentaint.dataflow.ap.ifds.FieldAccessor
+import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
+import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.ap.ifds.access.automata.AutomataApManager
+import org.opentaint.dataflow.ap.ifds.access.cactus.CactusApManager
+import org.opentaint.dataflow.ap.ifds.access.tree.TreeApManager
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
@@ -66,6 +76,24 @@ class JIRTaintAnalyzer(
         return analyzeTaintWithIfdsEngine(entryPoints)
     }
 
+    private object UnrollStrategy : AnyAccessorUnrollStrategy {
+        override fun unrollAccessor(accessor: Accessor): Boolean = when (accessor) {
+            is ElementAccessor -> true
+            is FieldAccessor -> accessor.fieldName != "<rule-storage>"
+            is AnyAccessor,
+            is FinalAccessor,
+            is TaintMarkAccessor -> false
+        }
+    }
+
+    private val apManager by lazy {
+        when (ifdsApMode) {
+            ApMode.Tree -> TreeApManager(UnrollStrategy)
+            ApMode.Cactus -> CactusApManager(UnrollStrategy)
+            ApMode.Automata -> AutomataApManager(UnrollStrategy)
+        }
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun createIfdsEngine() = TaintAnalysisUnitRunnerManager(
         JIRAnalysisManager(cp),
@@ -73,7 +101,7 @@ class JIRTaintAnalyzer(
         analysisUnit as UnitResolver<CommonMethod>,
         taintConfig,
         summarySerializationContext,
-        ifdsApMode,
+        apManager,
         debugOptions.taintRulesStatsSamplingPeriod
     )
 

@@ -2,7 +2,8 @@ package org.opentaint.semgrep.util
 
 import kotlinx.coroutines.runBlocking
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
-import org.opentaint.dataflow.ap.ifds.access.ApMode
+import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
+import org.opentaint.dataflow.ap.ifds.access.tree.TreeApManager
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
@@ -77,7 +78,7 @@ class TestAnalysisRunner(
             unitResolver = JIRUnitResolver {
                 if (it.enclosingClass.declaration.location.isRuntime) UnknownUnit else SingletonUnit
             } as UnitResolver<CommonMethod>,
-            apMode = ApMode.Tree,
+            apManager = TreeApManager(anyAccessorUnrollStrategy = AnyAccessorUnrollStrategy.AnyAccessorDisabled),
             summarySerializationContext = DummySerializationContext,
             taintConfig = configProvider,
             taintRulesStatsSamplingPeriod = null,
