@@ -6,6 +6,7 @@ import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.LanguageManager
+import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAbstraction
@@ -23,7 +24,9 @@ import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.ir.api.common.cfg.CommonInst
 
-class AutomataApManager : ApManager {
+class AutomataApManager(
+    override val anyAccessorUnrollStrategy: AnyAccessorUnrollStrategy
+) : ApManager {
     private val interner = AccessorInterner()
 
     val Accessor.idx: AccessorIdx

@@ -65,12 +65,6 @@ interface MethodAnalyzer {
         methodSideEffectRequirements: List<InitialFactAp>
     )
 
-    fun handleMethodSideEffectRequirement(
-        currentEdge: NDFactToFact,
-        methodInitialFactBase: AccessPathBase,
-        methodSideEffectRequirements: List<InitialFactAp>
-    )
-
     fun handleZeroToZeroMethodSideEffectSummary(
         currentEdge: ZeroToZero,
         sideEffectSummaries: List<SideEffectSummary.ZeroSideEffectSummary>
@@ -731,14 +725,6 @@ class NormalMethodAnalyzer(
         }
     }
 
-    override fun handleMethodSideEffectRequirement(
-        currentEdge: NDFactToFact,
-        methodInitialFactBase: AccessPathBase,
-        methodSideEffectRequirements: List<InitialFactAp>,
-    ) {
-        TODO("ND-side effect requirement is not supported")
-    }
-
     override fun handleZeroToZeroMethodSideEffectSummary(
         currentEdge: ZeroToZero,
         sideEffectSummaries: List<SideEffectSummary.ZeroSideEffectSummary>
@@ -1346,14 +1332,6 @@ class EmptyMethodAnalyzer(
         currentEdge: FactToFact,
         methodInitialFactBase: AccessPathBase,
         methodSideEffectRequirements: List<InitialFactAp>
-    ) {
-        error("Empty method should not receive side effect requirements")
-    }
-
-    override fun handleMethodSideEffectRequirement(
-        currentEdge: NDFactToFact,
-        methodInitialFactBase: AccessPathBase,
-        methodSideEffectRequirements: List<InitialFactAp>,
     ) {
         error("Empty method should not receive side effect requirements")
     }

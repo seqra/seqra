@@ -10,6 +10,7 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 
 internal class TreeSerializer(
+    private val apManager: TreeApManager,
     private val context: SummarySerializationContext
 ) : ApSerializer {
     private val accessNodeSerializer = AccessTree.AccessNode.Serializer(context)
@@ -54,7 +55,7 @@ internal class TreeSerializer(
         val access = with (accessNodeSerializer) {
             readAccessNode()
         }
-        return AccessTree(base, access, exclusions)
+        return AccessTree(apManager, base, access, exclusions)
     }
 
     override fun DataInputStream.readInitialAp(): InitialFactAp {
@@ -70,6 +71,6 @@ internal class TreeSerializer(
             context.getAccessorById(readLong())
         }
         val accessNode = AccessPath.AccessNode.createNodeFromAccessors(accessors)
-        return AccessPath(base, accessNode, exclusions)
+        return AccessPath(apManager, base, accessNode, exclusions)
     }
 }

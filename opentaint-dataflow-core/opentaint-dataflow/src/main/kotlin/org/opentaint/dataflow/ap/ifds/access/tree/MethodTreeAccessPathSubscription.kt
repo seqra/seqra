@@ -15,21 +15,23 @@ import org.opentaint.dataflow.util.object2IntMap
 import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.BitSet
 
-class MethodTreeAccessPathSubscription :
-    CommonAPSub<AccessPath.AccessNode?, AccessTree.AccessNode>(),
+class MethodTreeAccessPathSubscription(
+    override val apManager: TreeApManager,
+) : CommonAPSub<AccessPath.AccessNode?, AccessTree.AccessNode>(),
     TreeInitialApAccess, TreeFinalApAccess {
     override fun createZ2FSubStorage(callerEp: CommonInst): Z2FSubStorage<AccessPath.AccessNode?, AccessTree.AccessNode> =
-        SummaryEdgeFactTreeSubscriptionStorage()
+        SummaryEdgeFactTreeSubscriptionStorage(apManager)
 
     override fun createF2FSubStorage(callerEp: CommonInst): F2FSubStorage<AccessPath.AccessNode?, AccessTree.AccessNode> =
-        SummaryEdgeFactAbstractTreeSubscriptionStorage()
+        SummaryEdgeFactAbstractTreeSubscriptionStorage(apManager)
 
     override fun createNDF2FSubStorage(callerEp: CommonInst): NDF2FSubStorage<AccessPath.AccessNode?, AccessTree.AccessNode> =
-        SummaryEdgeNDFactSubStorage(callerEp)
+        SummaryEdgeNDFactSubStorage(callerEp, apManager)
 }
 
 private class SummaryEdgeNDFactSubStorage(
-    initialStatement: CommonInst
+    initialStatement: CommonInst,
+    val apManager: TreeApManager,
 ): DefaultNDF2FSubStorage<AccessPath.AccessNode?, AccessTree.AccessNode>(){
     private var maxIdx = 0
     private val edgeIndex = AccessTreeIndex()
@@ -46,7 +48,7 @@ private class SummaryEdgeNDFactSubStorage(
 
     override fun getInitialApByIdx(idx: Int): InitialFactAp = initialAp[idx]
 
-    override fun createBuilder() = FactNDEdgeSubBuilder()
+    override fun createBuilder() = FactNDEdgeSubBuilder(apManager)
 
     private inner class FactStorage(
         val storageIdx: Int
@@ -75,7 +77,7 @@ private class SummaryEdgeNDFactSubStorage(
         }
 
         override fun collect(dst: MutableList<AccessTree.AccessNode>, summaryInitialFact: AccessPath.AccessNode?) {
-            val filteredExitAp = current?.filterStartsWith(summaryInitialFact) ?: return
+            val filteredExitAp = current?.filterStartsWith(apManager, summaryInitialFact) ?: return
             dst.add(filteredExitAp)
         }
 
@@ -99,8 +101,9 @@ private class SummaryEdgeNDFactSubStorage(
     }
 }
 
-private class SummaryEdgeFactAbstractTreeSubscriptionStorage :
-    CommonAPSub.F2FSubStorage<AccessPath.AccessNode?, AccessTree.AccessNode> {
+private class SummaryEdgeFactAbstractTreeSubscriptionStorage(
+    val apManager: TreeApManager,
+) : CommonAPSub.F2FSubStorage<AccessPath.AccessNode?, AccessTree.AccessNode> {
     private val edgeIndex = AccessTreeIndex()
 
     private val initialApIndex = object2IntMap<AccessPath>()
@@ -117,7 +120,7 @@ private class SummaryEdgeFactAbstractTreeSubscriptionStorage :
 
             updateIndex(callerExitAp, newIndex)
 
-            return FactEdgeSubBuilder()
+            return FactEdgeSubBuilder(apManager)
                 .setCallerNode(callerExitAp)
                 .setCallerInitialAp(callerInitialAp)
                 .setCallerExclusion(callerInitialAp.exclusions)
@@ -131,7 +134,7 @@ private class SummaryEdgeFactAbstractTreeSubscriptionStorage :
 
         updateIndex(delta, currentIndex)
 
-        return FactEdgeSubBuilder()
+        return FactEdgeSubBuilder(apManager)
             .setCallerNode(delta)
             .setCallerInitialAp(callerInitialAp)
             .setCallerExclusion(callerInitialAp.exclusions)
@@ -155,7 +158,7 @@ private class SummaryEdgeFactAbstractTreeSubscriptionStorage :
             relevantIndices?.forEach { storageIdx ->
                 val (callerInitialAp, callerExitAp) = storage[storageIdx]
 
-                val filteredExitAp = callerExitAp.filterStartsWith(summaryInitialFact)
+                val filteredExitAp = callerExitAp.filterStartsWith(apManager, summaryInitialFact)
                     ?: error("Tree index mismatch")
 
                 dst.add(filteredExitAp, callerInitialAp)
@@ -167,7 +170,7 @@ private class SummaryEdgeFactAbstractTreeSubscriptionStorage :
         exitAp: AccessTree.AccessNode,
         initial: AccessPath,
     ) {
-        this += FactEdgeSubBuilder()
+        this += FactEdgeSubBuilder(apManager)
             .setCallerNode(exitAp)
             .setCallerInitialAp(initial)
             .setCallerExclusion(initial.exclusions)
@@ -220,14 +223,15 @@ private class AccessTreeIndex {
     }
 }
 
-private class SummaryEdgeFactTreeSubscriptionStorage :
-    CommonAPSub.Z2FSubStorage<AccessPath.AccessNode?, AccessTree.AccessNode> {
+private class SummaryEdgeFactTreeSubscriptionStorage(
+    val apManager: TreeApManager,
+) : CommonAPSub.Z2FSubStorage<AccessPath.AccessNode?, AccessTree.AccessNode> {
     private var callerPathEdgeFactAp: AccessTree.AccessNode? = null
 
     override fun add(callerExitAp: AccessTree.AccessNode): CommonZeroEdgeSubBuilder<AccessTree.AccessNode>? {
         if (callerPathEdgeFactAp == null) {
             callerPathEdgeFactAp = callerExitAp
-            return ZeroEdgeSubBuilder().setNode(callerExitAp)
+            return ZeroEdgeSubBuilder(apManager).setNode(callerExitAp)
         }
 
         val (mergedAccess, mergeAccessDelta) = callerPathEdgeFactAp!!.mergeAddDelta(callerExitAp)
@@ -235,19 +239,27 @@ private class SummaryEdgeFactTreeSubscriptionStorage :
 
         callerPathEdgeFactAp = mergedAccess
 
-        return ZeroEdgeSubBuilder().setNode(mergeAccessDelta)
+        return ZeroEdgeSubBuilder(apManager).setNode(mergeAccessDelta)
     }
 
     override fun find(
         dst: MutableList<CommonZeroEdgeSubBuilder<AccessTree.AccessNode>>,
         summaryInitialFact: AccessPath.AccessNode?,
     ) {
-        callerPathEdgeFactAp?.filterStartsWith(summaryInitialFact)?.let {
-            dst += ZeroEdgeSubBuilder().setNode(it)
+        callerPathEdgeFactAp?.filterStartsWith(apManager, summaryInitialFact)?.let {
+            dst += ZeroEdgeSubBuilder(apManager).setNode(it)
         }
     }
 }
 
-private class ZeroEdgeSubBuilder : CommonZeroEdgeSubBuilder<AccessTree.AccessNode>(), TreeFinalApAccess
-private class FactEdgeSubBuilder : CommonFactEdgeSubBuilder<AccessTree.AccessNode>(), TreeFinalApAccess
-private class FactNDEdgeSubBuilder : CommonFactNDEdgeSubBuilder<AccessTree.AccessNode>(), TreeFinalApAccess
+private class ZeroEdgeSubBuilder(
+    override val apManager: TreeApManager,
+) : CommonZeroEdgeSubBuilder<AccessTree.AccessNode>(), TreeFinalApAccess
+
+private class FactEdgeSubBuilder(
+    override val apManager: TreeApManager,
+) : CommonFactEdgeSubBuilder<AccessTree.AccessNode>(), TreeFinalApAccess
+
+private class FactNDEdgeSubBuilder(
+    override val apManager: TreeApManager,
+) : CommonFactNDEdgeSubBuilder<AccessTree.AccessNode>(), TreeFinalApAccess

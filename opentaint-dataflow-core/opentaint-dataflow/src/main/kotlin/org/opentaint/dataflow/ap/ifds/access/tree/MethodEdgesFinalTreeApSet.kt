@@ -11,6 +11,7 @@ class MethodEdgesFinalTreeApSet(
     methodInitialStatement: CommonInst,
     private val maxInstIdx: Int,
     private val languageManager: LanguageManager,
+    override val apManager: TreeApManager,
 ) : CommonZ2FSet<AccessTreeNode>(methodInitialStatement), TreeFinalApAccess {
     override fun createApStorage(): ApStorage<AccessTree.AccessNode> =
         ZeroInitialFactEdges(maxInstIdx, languageManager)

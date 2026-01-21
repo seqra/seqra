@@ -13,6 +13,7 @@ class MethodEdgesInitialToFinalTreeApSet(
     methodInitialStatement: CommonInst,
     private val maxInstIdx: Int,
     private val languageManager: LanguageManager,
+    override val apManager: TreeApManager,
 ) : CommonF2FSet<AccessPath.AccessNode?, AccessTree.AccessNode>(methodInitialStatement),
     TreeInitialApAccess, TreeFinalApAccess {
 

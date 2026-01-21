@@ -10,6 +10,7 @@ class MethodEdgesNDInitialToFinalTreeApSet(
     methodInitialStatement: CommonInst,
     maxInstIdx: Int,
     languageManager: LanguageManager,
+    override val apManager: TreeApManager,
 ) : CommonNDF2FSet<AccessPath.AccessNode?, AccessTree.AccessNode>(methodInitialStatement, languageManager, maxInstIdx),
     TreeInitialApAccess, TreeFinalApAccess {
 

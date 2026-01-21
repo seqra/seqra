@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.ap.ifds.access
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.Edge
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactToFactEdgeBuilder
@@ -16,6 +17,8 @@ import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 interface ApManager {
+    val anyAccessorUnrollStrategy: AnyAccessorUnrollStrategy
+
     fun initialFactAbstraction(methodInitialStatement: CommonInst): InitialFactAbstraction
 
     fun methodEdgesFinalApSet(methodInitialStatement: CommonInst, maxInstIdx: Int, languageManager: LanguageManager): MethodEdgesFinalApSet
@@ -39,6 +42,16 @@ interface ApManager {
     fun createFinalInitialAp(base: AccessPathBase, exclusions: ExclusionSet): InitialFactAp
 
     fun createSerializer(context: SummarySerializationContext): ApSerializer
+}
+
+interface AnyAccessorUnrollStrategy {
+    fun unrollAccessor(accessor: Accessor): Boolean
+
+    object AnyAccessorDisabled : AnyAccessorUnrollStrategy {
+        override fun unrollAccessor(accessor: Accessor): Boolean {
+            error("Any accessors disabled")
+        }
+    }
 }
 
 interface InitialFactAbstraction {

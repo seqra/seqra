@@ -11,9 +11,12 @@ import java.util.BitSet
 
 class MethodNDInitialToFinalApSummaries(
     private val methodInitialStatement: CommonInst,
+    override val apManager: TreeApManager,
 ) : CommonNDF2FSummary<AccessNode>(methodInitialStatement),
     TreeFinalApAccess {
-    private class NDFactToFactEdgeBuilderBuilder : NDF2FBBuilder<AccessNode>(), TreeFinalApAccess
+    private class NDFactToFactEdgeBuilderBuilder(
+        override val apManager: TreeApManager,
+    ) : NDF2FBBuilder<AccessNode>(), TreeFinalApAccess
 
     override fun createStorage(): Storage<AccessNode> = object :
         DefaultNDF2FSummaryStorage<AccessPath.AccessNode?, AccessNode>() {
@@ -30,7 +33,7 @@ class MethodNDInitialToFinalApSummaries(
         override fun getInitialApByIdx(idx: Int): InitialFactAp = initialAp[idx]
 
         override fun createBuilder(): NDF2FBBuilder<AccessNode> =
-            NDFactToFactEdgeBuilderBuilder()
+            NDFactToFactEdgeBuilderBuilder(apManager)
 
         override fun relevantInitialAp(summaryInitialFactPattern: FinalFactAp): BitSet =
             initialApIndex.findBaseIndices(summaryInitialFactPattern.base) ?: emptyPersistentBitSet()

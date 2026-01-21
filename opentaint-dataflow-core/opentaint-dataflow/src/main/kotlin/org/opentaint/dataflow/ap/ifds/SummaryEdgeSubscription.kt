@@ -172,15 +172,6 @@ class SummaryEdgeSubscriptionManager(
             callerAnalyzer.handleNDFactToFactMethodNDSummaryEdge(listOf(sub), ndSummaries)
         }
 
-        val sideEffectRequirements = manager.findSideEffectRequirements(methodEntryPoint, calleeInitialFactAp)
-        if (sideEffectRequirements.isNotEmpty()) {
-            callerAnalyzer.handleMethodSideEffectRequirement(
-                addedSubscription.callerPathEdge,
-                addedSubscription.calleeInitialFactBase,
-                sideEffectRequirements
-            )
-        }
-
         return true
     }
 

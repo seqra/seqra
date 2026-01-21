@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.ap.ifds.access.automata
 
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
+import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import kotlin.random.Random
 
 class RandomGraphGenerator(
@@ -8,7 +9,7 @@ class RandomGraphGenerator(
     val accessorsSize: Int = 10,
     val operationsLimit: Int = 10,
 ) {
-    val manager = AutomataApManager()
+    val manager = AutomataApManager(AnyAccessorUnrollStrategy.AnyAccessorDisabled)
 
     init {
         with(manager) {

@@ -8,17 +8,19 @@ import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode as Acces
 
 class MethodInitialToFinalApSummaries(
     methodInitialStatement: CommonInst,
+    override val apManager: TreeApManager,
 ) : CommonF2FSummary<AccessPath.AccessNode?, AccessTreeNode>(methodInitialStatement),
     TreeInitialApAccess, TreeFinalApAccess {
     override fun createStorage(): Storage<AccessPath.AccessNode?, AccessTree.AccessNode> =
-        MethodTaintedSummariesGroupedByFactStorage()
+        MethodTaintedSummariesGroupedByFactStorage(apManager)
 }
 
-private class MethodTaintedSummariesInitialApStorage :
-    AccessBasedStorage<MethodTaintedSummariesInitialApStorage>() {
+private class MethodTaintedSummariesInitialApStorage(
+    val apManager: TreeApManager,
+) : AccessBasedStorage<MethodTaintedSummariesInitialApStorage>() {
     private var current: MethodTaintedSummariesMergingStorage? = null
 
-    override fun createStorage() = MethodTaintedSummariesInitialApStorage()
+    override fun createStorage() = MethodTaintedSummariesInitialApStorage(apManager)
 
     fun getOrCreate(initialAccess: AccessPath.AccessNode?): MethodTaintedSummariesMergingStorage =
         getOrCreateNode(initialAccess).getOrCreateCurrent(initialAccess)
@@ -36,12 +38,13 @@ private class MethodTaintedSummariesInitialApStorage :
     }
 
     private fun getOrCreateCurrent(access: AccessPath.AccessNode?) =
-        current ?: MethodTaintedSummariesMergingStorage(access).also { current = it }
+        current ?: MethodTaintedSummariesMergingStorage(apManager, access).also { current = it }
 }
 
-private class MethodTaintedSummariesGroupedByFactStorage :
-    CommonF2FSummary.Storage<AccessPath.AccessNode?, AccessTreeNode> {
-    private val nonUniverseAccessPath = MethodTaintedSummariesInitialApStorage()
+private class MethodTaintedSummariesGroupedByFactStorage(
+    apManager: TreeApManager,
+) : CommonF2FSummary.Storage<AccessPath.AccessNode?, AccessTreeNode> {
+    private val nonUniverseAccessPath = MethodTaintedSummariesInitialApStorage(apManager)
 
     override fun add(
         edges: List<CommonF2FSummary.StorageEdge<AccessPath.AccessNode?, AccessTree.AccessNode>>,
@@ -97,7 +100,10 @@ private class MethodTaintedSummariesGroupedByFactStorage :
     }
 }
 
-private class MethodTaintedSummariesMergingStorage(val initialAccess: AccessPath.AccessNode?) {
+private class MethodTaintedSummariesMergingStorage(
+    val apManager: TreeApManager,
+    val initialAccess: AccessPath.AccessNode?
+) {
     private var exclusion: ExclusionSet? = null
     private var edges: AccessTreeNode? = null
     private var edgesDelta: AccessTreeNode? = null
@@ -134,7 +140,7 @@ private class MethodTaintedSummariesMergingStorage(val initialAccess: AccessPath
         val delta = edgesDelta ?: return emptySequence()
         edgesDelta = null
 
-        return FactToFactEdgeBuilderBuilder()
+        return FactToFactEdgeBuilderBuilder(apManager)
             .setInitialAp(initialAccess)
             .setExitAp(delta)
             .setExclusion(exclusion!!)
@@ -144,14 +150,16 @@ private class MethodTaintedSummariesMergingStorage(val initialAccess: AccessPath
     fun summaries(): F2FBBuilder<AccessPath.AccessNode?, AccessTree.AccessNode>? {
         val exclusion = this.exclusion ?: return null
         val edges = this.edges!!
-        return FactToFactEdgeBuilderBuilder()
+        return FactToFactEdgeBuilderBuilder(apManager)
             .setInitialAp(initialAccess)
             .setExitAp(edges)
             .setExclusion(exclusion)
     }
 }
 
-private class FactToFactEdgeBuilderBuilder: F2FBBuilder<AccessPath.AccessNode?, AccessTreeNode>(),
-        TreeInitialApAccess, TreeFinalApAccess {
+private class FactToFactEdgeBuilderBuilder(
+    override val apManager: TreeApManager,
+) : F2FBBuilder<AccessPath.AccessNode?, AccessTreeNode>(),
+    TreeInitialApAccess, TreeFinalApAccess {
     override fun nonNullIAP(iap: AccessPath.AccessNode?): AccessPath.AccessNode? = iap
 }

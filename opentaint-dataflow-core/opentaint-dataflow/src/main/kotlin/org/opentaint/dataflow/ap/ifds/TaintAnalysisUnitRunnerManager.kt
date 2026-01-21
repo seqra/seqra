@@ -17,10 +17,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import mu.KotlinLogging
 import org.opentaint.dataflow.ap.ifds.access.ApManager
-import org.opentaint.dataflow.ap.ifds.access.ApMode
-import org.opentaint.dataflow.ap.ifds.access.automata.AutomataApManager
-import org.opentaint.dataflow.ap.ifds.access.cactus.CactusApManager
-import org.opentaint.dataflow.ap.ifds.access.tree.TreeApManager
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisContext
@@ -58,15 +54,9 @@ class TaintAnalysisUnitRunnerManager(
     override val unitResolver: UnitResolver<CommonMethod>,
     private val taintConfig: CommonTaintRulesProvider,
     private val summarySerializationContext: SummarySerializationContext,
-    apMode: ApMode = ApMode.Cactus,
+    val apManager: ApManager,
     private val taintRulesStatsSamplingPeriod: Int?
 ): AnalysisUnitRunnerManager, AutoCloseable {
-    val apManager: ApManager = when (apMode) {
-        ApMode.Tree -> TreeApManager
-        ApMode.Cactus -> CactusApManager
-        ApMode.Automata -> AutomataApManager()
-    }
-
     private val runnerForUnit = ConcurrentHashMap<UnitType, TaintAnalysisUnitRunner>()
     private val unitStorage = ConcurrentHashMap<UnitType, TaintAnalysisUnitStorage>()
     private val methodDependencies = ConcurrentHashMap<CommonMethod, MutableSet<UnitType>>()

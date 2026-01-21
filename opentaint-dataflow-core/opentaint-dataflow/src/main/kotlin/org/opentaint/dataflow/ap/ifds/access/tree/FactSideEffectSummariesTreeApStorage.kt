@@ -9,18 +9,19 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode as AccessTreeNode
 
 class FactSideEffectSummariesTreeApStorage(
-    methodInitialStatement: CommonInst
+    methodInitialStatement: CommonInst,
+    override val apManager: TreeApManager
 ) : CommonFactSideEffectSummary<AccessPath.AccessNode?, AccessTreeNode>(methodInitialStatement),
     TreeInitialApAccess, TreeFinalApAccess {
     override fun createStorage(): Storage<AccessPath.AccessNode?, AccessTreeNode> =
-        TaintedSESummariesGroupedByFactStorage()
+        TaintedSESummariesGroupedByFactStorage(apManager)
 }
 
-private class TaintedSESummariesInitialApStorage :
+private class TaintedSESummariesInitialApStorage(val apManager: TreeApManager) :
     AccessBasedStorage<TaintedSESummariesInitialApStorage>() {
     private var current: TaintedSESummariesMergingStorage? = null
 
-    override fun createStorage() = TaintedSESummariesInitialApStorage()
+    override fun createStorage() = TaintedSESummariesInitialApStorage(apManager)
 
     fun getOrCreate(initialAccess: AccessPath.AccessNode?): TaintedSESummariesMergingStorage =
         getOrCreateNode(initialAccess).getOrCreateCurrent(initialAccess)
@@ -38,12 +39,13 @@ private class TaintedSESummariesInitialApStorage :
     }
 
     private fun getOrCreateCurrent(access: AccessPath.AccessNode?) =
-        current ?: TaintedSESummariesMergingStorage(access).also { current = it }
+        current ?: TaintedSESummariesMergingStorage(apManager, access).also { current = it }
 }
 
-private class TaintedSESummariesGroupedByFactStorage :
-    CommonFactSideEffectSummary.Storage<AccessPath.AccessNode?, AccessTreeNode> {
-    private val storageRoot = TaintedSESummariesInitialApStorage()
+private class TaintedSESummariesGroupedByFactStorage(
+    private val apManager: TreeApManager
+) : CommonFactSideEffectSummary.Storage<AccessPath.AccessNode?, AccessTreeNode> {
+    private val storageRoot = TaintedSESummariesInitialApStorage(apManager)
 
     override fun add(
         iap: AccessPath.AccessNode?,
@@ -76,12 +78,16 @@ private class TaintedSESummariesGroupedByFactStorage :
     }
 }
 
-private class TaintedSESummariesMergingStorage(val initialAccess: AccessPath.AccessNode?):
-    SideEffectExclusionMergingStorage<AccessPath.AccessNode?>() {
-    override fun createBuilder() = FactSETreeApBuilder().setInitialAp(initialAccess)
+private class TaintedSESummariesMergingStorage(
+    val apManager: TreeApManager,
+    val initialAccess: AccessPath.AccessNode?
+): SideEffectExclusionMergingStorage<AccessPath.AccessNode?>() {
+    override fun createBuilder() = FactSETreeApBuilder(apManager).setInitialAp(initialAccess)
 }
 
-private class FactSETreeApBuilder: FactSEBuilder<AccessPath.AccessNode?>(),
+private class FactSETreeApBuilder(
+    override val apManager: TreeApManager
+): FactSEBuilder<AccessPath.AccessNode?>(),
     TreeInitialApAccess, TreeFinalApAccess {
     override fun nonNullIAP(iap: AccessPath.AccessNode?): AccessPath.AccessNode? = iap
 }

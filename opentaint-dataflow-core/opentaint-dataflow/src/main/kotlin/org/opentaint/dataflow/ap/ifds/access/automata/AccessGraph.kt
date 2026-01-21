@@ -8,10 +8,10 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import it.unimi.dsi.fastutil.objects.ObjectIterator
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 import org.opentaint.dataflow.ap.ifds.Accessor
-import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
+import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
 import org.opentaint.dataflow.util.PersistentArrayBuilder
 import org.opentaint.dataflow.util.PersistentBitSet
 import org.opentaint.dataflow.util.PersistentBitSet.Companion.emptyPersistentBitSet
@@ -84,14 +84,14 @@ class AccessGraph(
     private val hash: Int by lazy(LazyThreadSafetyMode.PUBLICATION) { dfsHash() }
 
     fun getAllOwnAccessors() =
-        edges.keys.mapTo(hashSetOf()) {
-            with (manager) {
-                it.accessor
-            }
+        edges.keys.mapNotNullTo(hashSetOf()) {
+            if (it == manager.anyAccessorIdx) return@mapNotNullTo null
+            with (manager) { it.accessor }
         }
 
     fun getInitialSuccessorsAccessors() = buildSet {
         stateSuccessors(initial).forEach { accessorIdx ->
+            if (accessorIdx == manager.anyAccessorIdx) return@forEach
             with(manager) { add(accessorIdx.accessor) }
         }
     }
@@ -372,9 +372,9 @@ class AccessGraph(
                     if (anySuccessor == NO_NODE) return NO_NODE
 
                     val accessorObj = with(manager) { accessor.accessor }
-                    if (!AnyAccessor.containsAccessor(accessorObj)) return NO_NODE
-
-                    thisSuccessor = anySuccessor
+                    manager.tryAnyAccessorOrNull(accessorObj) {
+                        thisSuccessor = anySuccessor
+                    } ?: return NO_NODE
                 }
 
                 val otherSuccessor = other.getStateSuccessor(otherNode, accessor)

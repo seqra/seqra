@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.ap.ifds
 
+import org.opentaint.dataflow.ap.ifds.access.ApManager
+
 sealed interface AccessPathBase {
     override fun toString(): String
 
@@ -112,7 +114,8 @@ data object AnyAccessor : Accessor() {
     fun containsAccessor(accessor: Accessor): Boolean = accessor is FieldAccessor || accessor is ElementAccessor
 }
 
-inline fun <T : Any> tryAnyAccessorOrNull(accessor: Accessor, body: () -> T?): T? {
+inline fun <T : Any> ApManager.tryAnyAccessorOrNull(accessor: Accessor, body: () -> T?): T? {
     if (!AnyAccessor.containsAccessor(accessor)) return null
+    if (!anyAccessorUnrollStrategy.unrollAccessor(accessor)) return null
     return body()
 }

@@ -7,7 +7,9 @@ import org.opentaint.dataflow.ap.ifds.access.SideEffectRequirementApStorage
 import java.util.IdentityHashMap
 import java.util.concurrent.ConcurrentHashMap
 
-class SideEffectRequirementTreeApStorage : SideEffectRequirementApStorage {
+class SideEffectRequirementTreeApStorage(
+    val apManager: TreeApManager
+) : SideEffectRequirementApStorage {
     private val based = ConcurrentHashMap<AccessPathBase, SideEffectRequirementStorage>()
 
     override fun add(requirements: List<InitialFactAp>): List<InitialFactAp> {
@@ -18,7 +20,7 @@ class SideEffectRequirementTreeApStorage : SideEffectRequirementApStorage {
             requirement as AccessPath
 
             val baseRequirements = based.computeIfAbsent(requirement.base) {
-                SideEffectRequirementStorage()
+                SideEffectRequirementStorage(apManager)
             }
 
             val node = baseRequirements.mergeAdd(requirement) ?: continue
@@ -43,10 +45,12 @@ class SideEffectRequirementTreeApStorage : SideEffectRequirementApStorage {
     }
 }
 
-private class SideEffectRequirementStorage : AccessBasedStorage<SideEffectRequirementStorage>() {
+private class SideEffectRequirementStorage(
+    val apManager: TreeApManager,
+) : AccessBasedStorage<SideEffectRequirementStorage>() {
     var requirement: AccessPath? = null
 
-    override fun createStorage() = SideEffectRequirementStorage()
+    override fun createStorage() = SideEffectRequirementStorage(apManager)
 
     fun mergeAdd(requirement: AccessPath): SideEffectRequirementStorage? =
         getOrCreateNode(requirement.access).mergeAddCurrent(requirement)
@@ -67,7 +71,7 @@ private class SideEffectRequirementStorage : AccessBasedStorage<SideEffectRequir
         if (mergedExclusion === currentExclusion) return null
 
         val mergedAp = with(requirement) {
-            AccessPath(base, access, mergedExclusion)
+            AccessPath(apManager, base, access, mergedExclusion)
         }
 
         this.requirement = mergedAp
