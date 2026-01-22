@@ -9,7 +9,7 @@
 <h1 align="center"> Security-focused static analyzer for Java and Kotlin web applications</h1>
 
 <p align="center">
-  Seqra analyzes bytecode of Java and Kotlin web applications (with first-class Spring support) using Semgrep-style YAML rules with CodeQL-grade dataflow to find vulnerabilities that source-only scanners miss.
+  Seqra analyzes bytecode of Java and Kotlin web applications (with growing Spring support) using Semgrep-style YAML rules with CodeQL-grade dataflow to find vulnerabilities that source-only scanners miss.
 </p>
 
 <p align="center">
