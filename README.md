@@ -35,7 +35,7 @@
 
 ## Key Features
 
-- **Spring-aware dataflow** — Models Spring annotations, persistence layer, and cross-controller paths. Catches second-order injections where data written by one endpoint is exploited through another.
+- **Spring-aware dataflow** — Models Spring annotations, persistence layer, and cross-controller paths. Catches stored injections where data written by one endpoint is exploited through another.
 
 - **Java and Kotlin** — Analyzes compiled bytecode to precisely understand inheritance, generics, and library interactions and finds vulnerabilities that source-only scanners miss.
 
