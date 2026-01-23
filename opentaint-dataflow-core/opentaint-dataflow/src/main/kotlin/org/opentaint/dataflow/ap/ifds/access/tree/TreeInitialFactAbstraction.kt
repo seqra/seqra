@@ -25,7 +25,7 @@ class TreeInitialFactAbstraction(
         val addedFact = facts.addInitialFact(factAp.access) ?: return emptyList()
 
         val abstractFacts = mutableListOf<Pair<InitialFactAp, FinalFactAp>>()
-        addAbstractInitialFact(facts, factAp.base, addedFact, facts, abstractFacts)
+        addAbstractInitialFact(facts, factAp.base, addedFact, abstractFacts)
         return abstractFacts
     }
 
@@ -43,7 +43,7 @@ class TreeInitialFactAbstraction(
         if (!facts.addAnalyzedInitialFact(factAp.access, excludedAccessors)) return emptyList()
 
         val abstractFacts = mutableListOf<Pair<InitialFactAp, FinalFactAp>>()
-        addAbstractInitialFact(facts, factAp.base, facts.allAddedFacts(), facts, abstractFacts)
+        addAbstractInitialFact(facts, factAp.base, facts.allAddedFacts(), abstractFacts)
         return abstractFacts
     }
 
@@ -51,7 +51,6 @@ class TreeInitialFactAbstraction(
         facts: MethodSameBaseInitialFact,
         concreteFactBase: AccessPathBase,
         initialConcreteFact: AccessTree.AccessNode,
-        concreteFactStorage: MethodSameBaseInitialFact,
         abstractFacts: MutableList<Pair<InitialFactAp, FinalFactAp>>
     ) {
         var concreteFactAccess = initialConcreteFact
@@ -69,7 +68,7 @@ class TreeInitialFactAbstraction(
                 abstractFacts.add(initialAbstractAp to ap)
             }
 
-            concreteFactAccess = concreteFactStorage.unrollAnyAccessors(unrollRequests)
+            concreteFactAccess = facts.unrollAnyAccessors(unrollRequests)
                 ?: break
         }
     }
