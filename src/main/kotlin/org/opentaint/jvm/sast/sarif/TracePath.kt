@@ -2,6 +2,7 @@ package org.opentaint.jvm.sast.sarif
 
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
+import mu.KLogging
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry
@@ -13,6 +14,8 @@ import org.opentaint.dataflow.ap.ifds.trace.TraceResolver.CallKind.CallToSource
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver.InterProceduralTraceNode
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver.SourceToSinkTrace
 
+private val logger = object : KLogging() {}.logger
+
 sealed interface TracePathGenerationResult {
     data class Path(val path: List<List<TracePathNode>>) : TracePathGenerationResult
     data object Simple : TracePathGenerationResult
@@ -23,7 +26,10 @@ fun generateTracePath(trace: TraceResolver.Trace): TracePathGenerationResult {
     try {
         val sourceToSinkTrace = trace.sourceToSinkTrace
         val startNodes = sourceToSinkTrace.startNodes
-        if (startNodes.isEmpty()) return TracePathGenerationResult.Failure
+        if (startNodes.isEmpty()) {
+            logger.error { "Trace has no start nodes" }
+            return TracePathGenerationResult.Failure
+        }
 
         val singleNode = startNodes.singleOrNull()
         if (singleNode != null && singleNode is TraceResolver.SimpleTraceNode) {
@@ -37,10 +43,14 @@ fun generateTracePath(trace: TraceResolver.Trace): TracePathGenerationResult {
             node to path
         }.distinctBy { it.first.methodEntryPoint }.map { it.second }
 
-        if (resolvedPaths.isEmpty()) return TracePathGenerationResult.Failure
+        if (resolvedPaths.isEmpty()) {
+            logger.error { "Trace has no resolved paths" }
+            return TracePathGenerationResult.Failure
+        }
 
         return TracePathGenerationResult.Path(resolvedPaths)
     } catch (ex: Throwable) {
+        logger.error(ex) { "Failed to generate trace path" }
         return TracePathGenerationResult.Failure
     }
 }

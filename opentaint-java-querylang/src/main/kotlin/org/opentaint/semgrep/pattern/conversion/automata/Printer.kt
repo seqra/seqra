@@ -1,13 +1,7 @@
 package org.opentaint.semgrep.pattern.conversion.automata
 
-import info.leadinglight.jdot.Edge
-import info.leadinglight.jdot.Graph
-import info.leadinglight.jdot.Node
-import info.leadinglight.jdot.enums.Color
-import info.leadinglight.jdot.enums.Shape
-import info.leadinglight.jdot.enums.Style
-import info.leadinglight.jdot.impl.Util
 import org.opentaint.dataflow.util.forEach
+import org.opentaint.dataflow.util.printer.PrintableGraph
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.And
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.Cube
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.True
@@ -18,9 +12,6 @@ import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.State
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRuleEdge
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRuleGenerationCtx
-import java.io.File
-import java.nio.file.Files
-import java.nio.file.Path
 
 fun SemgrepRuleAutomata.view(name: String = "") {
     PrintableSemgrepRuleAutomata(this).view(name)
@@ -169,71 +160,6 @@ private fun automataEdgeLabel(kind: TaintRuleEdge.Kind, cond: EdgeCondition, eff
     return "$prefix(${cond.prettyPrint()}{${effect.prettyPrint()}})"
 }
 
-interface PrintableGraph<Node, EdgeLabel> {
-    fun allNodes(): List<Node>
-    fun nodeLabel(node: Node): String
-    fun successors(node: Node): List<Pair<EdgeLabel, Node>>
-    fun edgeLabel(edge: EdgeLabel): String
-
-    fun view(name: String) {
-        val path = toFile(name, "dot")
-        Util.sh(arrayOf(viewer.value, "file://$path"))
-    }
-
-    companion object {
-        private val viewer = lazy {
-            val os = System.getProperty("os.name")
-            if (os.startsWith("Mac")) "open"
-            else "xdg-open"
-        }
-    }
-}
-
-private fun <GNode, EdgeLabel> PrintableGraph<GNode, EdgeLabel>.toFile(fileName: String, dotCmd: String): Path {
-    Graph.setDefaultCmd(dotCmd)
-
-    val graph = Graph("automata")
-
-    graph.setBgColor(Color.X11.transparent)
-    graph.setFontSize(12.0)
-    graph.setFontName("Fira Mono")
-
-    val nodes = mutableMapOf<GNode, Node>()
-
-    fun mkNode(node: GNode): Node = nodes.getOrPut(node) {
-        val index = nodes.size
-        val label = nodeLabel(node).split("\n").joinToString("\\\n") { line -> "${line.replace("\"", "\\\"")}\\l" }
-        val nd = Node("$index")
-            .setShape(Shape.box)
-            .setLabel(label)
-            .setFontSize(12.0)
-        graph.addNode(nd)
-        nd
-    }
-
-    for (state in allNodes()) {
-        val stateNode = mkNode(state)
-
-        for ((edgeT, dstState) in successors(state)) {
-            val dstNode = mkNode(dstState)
-
-            val edgeLabel = edgeLabel(edgeT)
-
-            graph.addEdge(Edge(stateNode.name, dstNode.name).also {
-                val label = edgeLabel.split("\n").joinToString("\\\n") { line -> "${line.replace("\"", "\\\"")}\\l" }
-                it.setLabel(label)
-                it.setStyle(Style.Edge.solid)
-            })
-        }
-    }
-
-    val outFile = graph.dot2file("svg")
-    val newFile = "${outFile.removeSuffix(".out")}$fileName.svg"
-    val resultingFile = File(newFile).toPath()
-    Files.move(File(outFile).toPath(), resultingFile)
-    return resultingFile
-}
-
 fun MethodFormula.prettyPrint(manager: MethodFormulaManager, lineLengthLimit: Int): String {
     fun MethodFormula.formatNode(indent: Int): String {
         val currentIndent = " ".repeat(indent)
@@ -360,7 +286,7 @@ private fun MethodConstraint.prettyPrint(): String = when (this) {
 
 private fun ParamConstraint.prettyPrint(): String {
     val position = when (position) {
-        is Position.Argument -> "Arg(${position.index.toString()})"
+        is Position.Argument -> "Arg(${position.index})"
         Position.Object -> "Object"
         Position.Result -> "Result"
     }
