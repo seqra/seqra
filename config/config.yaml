@@ -32376,6 +32376,10 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
+  - from:
+      - arg(0)
+      - .java.lang.String#<serialized-value>#java.lang.Object
+    to: result
 - function: com.fasterxml.jackson.databind.ObjectMapper#readValue
   signature:
     params:
@@ -32398,6 +32402,10 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
+  - from:
+      - arg(0)
+      - .java.lang.String#<serialized-value>#java.lang.Object
+    to: result
 - function: com.fasterxml.jackson.databind.ObjectMapper#readValue
   signature:
     params:
@@ -32409,6 +32417,10 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
+  - from:
+      - arg(0)
+      - .java.lang.String#<serialized-value>#java.lang.Object
+    to: result
 - function: com.fasterxml.jackson.databind.ObjectMapper#readValue
   signature:
     params:
@@ -32416,6 +32428,10 @@ passThrough:
       type: java.lang.String
   copy:
   - from: arg(0)
+    to: result
+  - from:
+      - arg(0)
+      - .java.lang.String#<serialized-value>#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.databind.ObjectMapper#readValues
   signature:
@@ -32425,6 +32441,12 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
+  - from:
+      - arg(0)
+      - .java.lang.String#<serialized-value>#java.lang.Object
+    to:
+      - result
+      - .java.lang.Object#Element#java.lang.Object
 - function: com.fasterxml.jackson.databind.ObjectMapper#readValues
   signature:
     params:
@@ -32433,6 +32455,12 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
+  - from:
+      - arg(0)
+      - .java.lang.String#<serialized-value>#java.lang.Object
+    to:
+      - result
+      - .java.lang.Object#Element#java.lang.Object
 - function: com.fasterxml.jackson.databind.ObjectMapper#readValues
   signature:
     params:
@@ -32447,6 +32475,12 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
+  - from:
+      - arg(0)
+      - .java.lang.String#<serialized-value>#java.lang.Object
+    to:
+      - result
+      - .java.lang.Object#Element#java.lang.Object
 - function: com.fasterxml.jackson.databind.ObjectMapper#readValues
   signature:
     params:
@@ -32458,6 +32492,12 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
+  - from:
+      - arg(0)
+      - .java.lang.String#<serialized-value>#java.lang.Object
+    to:
+      - result
+      - .java.lang.Object#Element#java.lang.Object
 - function: com.fasterxml.jackson.databind.ObjectMapper#readValues
   signature:
     params:
@@ -32466,6 +32506,12 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
+  - from:
+      - arg(0)
+      - .java.lang.String#<serialized-value>#java.lang.Object
+    to:
+      - result
+      - .java.lang.Object#Element#java.lang.Object
 - function: com.fasterxml.jackson.databind.ObjectMapper#treeAsTokens
   copy:
   - from: arg(0)
@@ -32555,6 +32601,10 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
+  - from:
+      - arg(0)
+      - .java.lang.String#<serialized-value>#java.lang.Object
+    to: result
 - function: com.fasterxml.jackson.databind.ObjectReader#readValue
   signature:
     params:
@@ -32562,6 +32612,10 @@ passThrough:
       type: com.fasterxml.jackson.core.JsonParser
   copy:
   - from: arg(0)
+    to: result
+  - from:
+      - arg(0)
+      - .java.lang.String#<serialized-value>#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.databind.ObjectReader#readValue
   signature:
@@ -32577,6 +32631,10 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
+  - from:
+      - arg(0)
+      - .java.lang.String#<serialized-value>#java.lang.Object
+    to: result
 - function: com.fasterxml.jackson.databind.ObjectReader#readValue
   signature:
     params:
@@ -32587,6 +32645,10 @@ passThrough:
     pos: arg(0)
   copy:
   - from: arg(0)
+    to: result
+  - from:
+      - arg(0)
+      - .java.lang.String#<serialized-value>#java.lang.Object
     to: result
 - function: com.fasterxml.jackson.databind.ObjectReader#readValue
   signature:
@@ -32604,6 +32666,12 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
+  - from:
+      - arg(0)
+      - .java.lang.String#<serialized-value>#java.lang.Object
+    to:
+      - result
+      - .java.lang.Object#Element#java.lang.Object
 - function: com.fasterxml.jackson.databind.ObjectReader#readValues
   signature:
     params:

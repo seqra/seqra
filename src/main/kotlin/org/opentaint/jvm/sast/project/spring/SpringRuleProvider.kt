@@ -34,11 +34,9 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.impl.cfg.util.isClass
-import org.opentaint.jvm.sast.project.ProjectClasses
 
 class SpringRuleProvider(
     private val base: TaintRulesProvider,
-    private val projectClasses: ProjectClasses,
     private val springCtx: SpringWebProjectContext,
 ) : TaintRulesProvider by base {
     override fun entryPointRulesForMethod(method: CommonMethod, fact: FactAp?): Iterable<TaintEntryPointSource> {
@@ -65,14 +63,6 @@ class SpringRuleProvider(
             ?: return emptyList()
 
         if (!paramTypeName.isClass) return listOf(assign)
-
-        val cls = method.enclosingClass.classpath
-            .findClassOrNull(paramTypeName.typeName)
-            ?: return listOf(assign)
-
-        if (cls.declaration.location !in projectClasses.projectLocations) {
-            return listOf(assign)
-        }
 
         val allFieldsPosition = PositionWithAccess(assign.position, PositionAccessor.AnyFieldAccessor)
         val allFieldsAssign = AssignMark(assign.mark, allFieldsPosition)

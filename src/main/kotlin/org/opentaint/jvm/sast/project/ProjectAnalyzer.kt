@@ -183,7 +183,7 @@ class ProjectAnalyzer(
         config = JIRMethodExitRuleProvider(config)
         config = JIRMethodGetDefaultProvider(config, projectClasses.projectLocations)
         if (springWebProjectContext != null) {
-            config = SpringRuleProvider(config, projectClasses, springWebProjectContext)
+            config = SpringRuleProvider(config, springWebProjectContext)
         }
 
         JIRTaintAnalyzer(
