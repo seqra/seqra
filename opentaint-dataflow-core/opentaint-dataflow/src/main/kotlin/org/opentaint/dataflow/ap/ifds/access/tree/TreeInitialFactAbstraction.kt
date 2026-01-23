@@ -111,7 +111,7 @@ class TreeInitialFactAbstraction(
     data class AnyAccessorUnrollRequest(
         val currentAp: ReversedApNode?,
         val node: AccessTreeNode,
-        val accessors: Set<Accessor>,
+        val accessors: List<Accessor>,
     )
 
     private inline fun abstractAccessPath(
@@ -133,7 +133,10 @@ class TreeInitialFactAbstraction(
             }
 
             if (state.added.isAnyAccessor) {
-                unrollRequests += AnyAccessorUnrollRequest(state.currentAp, state.added, currentLevelExclusions)
+                val unrollAccessors = state.analyzedTrieRoot.unrollAccessors(currentLevelExclusions)
+                if (unrollAccessors.isNotEmpty()) {
+                    unrollRequests += AnyAccessorUnrollRequest(state.currentAp, state.added, unrollAccessors)
+                }
             }
 
             if (state.added.isFinal) {
@@ -213,6 +216,7 @@ class TreeInitialFactAbstraction(
     class AccessPathTrieNode {
         private var children: MutableMap<Accessor, AccessPathTrieNode>? = null
         private var terminals: MutableSet<Accessor>? = null
+        private var unrolled: MutableSet<Accessor>? = null
 
         fun exclusions(): MutableSet<Accessor>? = terminals
 
@@ -224,6 +228,11 @@ class TreeInitialFactAbstraction(
 
         private fun getChildren(): MutableMap<Accessor, AccessPathTrieNode> =
             children ?: hashMapOf<Accessor, AccessPathTrieNode>().also { children = it }
+
+        fun unrollAccessors(accessors: Set<Accessor>): List<Accessor> {
+            val current = unrolled ?: hashSetOf<Accessor>().also { unrolled = it }
+            return accessors.filter { current.add(it) }
+        }
 
         companion object {
             fun empty() = AccessPathTrieNode()
