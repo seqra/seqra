@@ -5,6 +5,7 @@ import org.opentaint.common.dep
 object Versions {
     const val sarif4k = "0.5.0"
     const val fastutil = "8.5.13"
+    const val jdot = "1.0"
 }
 
 object Libs {
@@ -19,5 +20,11 @@ object Libs {
         group = "it.unimi.dsi",
         name = "fastutil-core",
         version = Versions.fastutil,
+    )
+
+    val jdot = dep(
+        group = "info.leadinglight",
+        name = "jdot",
+        version = Versions.jdot
     )
 }

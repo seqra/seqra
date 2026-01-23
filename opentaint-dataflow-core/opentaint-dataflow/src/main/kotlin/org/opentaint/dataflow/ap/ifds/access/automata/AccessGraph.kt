@@ -270,7 +270,12 @@ class AccessGraph(
 
     fun prepend(accessor: AccessorIdx): AccessGraph {
         val mutableCopy = mutable()
-        val mutableResult = mutableCopy.prepend(accessor)
+        var mutableResult = mutableCopy.prepend(accessor)
+
+        if (accessor == manager.anyAccessorIdx) {
+            // force loop in graph
+            mutableResult = mutableResult.prepend(accessor)
+        }
 
         if (mutableResult === mutableCopy) return this
 

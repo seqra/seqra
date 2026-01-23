@@ -181,14 +181,25 @@ class JIRMethodSequentFlowFunction(
     ) {
         val refiner = FactRefiner()
 
-        val currentFact = if (access == factAp.base) {
-            factAp.rebase(exitBase).also { propagateFactWithRefinement(refiner, it, TraceInfo.Flow) }
-        } else {
-            factAp
-        }
+        val currentFacts = mutableListOf<FinalFactAp>()
 
-        val resultFacts = mutableListOf<Pair<FinalFactAp, TraceInfo>>(currentFact to TraceInfo.Flow)
-        resultFacts += applyMethodExitSourceRules(exitBase, currentFact, refiner)
+        simpleAssign(
+            exitBase, access, factAp,
+            unchanged = {
+                currentFacts += it
+            },
+            propagateFact = {
+                propagateFactWithRefinement(refiner, it, TraceInfo.Flow)
+                currentFacts += it
+            }
+        )
+
+        val resultFacts = mutableListOf<Pair<FinalFactAp, TraceInfo>>()
+
+        currentFacts.forEach { currentFact ->
+            resultFacts += currentFact to TraceInfo.Flow
+            resultFacts += applyMethodExitSourceRules(exitBase, currentFact, refiner)
+        }
 
         while (resultFacts.isNotEmpty()) {
             val (resultFact, factTrace) = resultFacts.removeLast()

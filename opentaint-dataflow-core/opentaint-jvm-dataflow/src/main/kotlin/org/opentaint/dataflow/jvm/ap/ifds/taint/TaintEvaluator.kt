@@ -359,14 +359,7 @@ fun Position.resolveAp(baseAp: AccessPathBase): PositionAccess {
             val accessor = when (val a = access) {
                 PositionAccessor.ElementAccessor -> ElementAccessor
                 is PositionAccessor.FieldAccessor -> FieldAccessor(a.className, a.fieldName, a.fieldType)
-                PositionAccessor.AnyFieldAccessor -> {
-                    // force loop in access path
-                    val loopedPosition = PositionAccess.Complex(
-                        PositionAccess.Complex(resolvedBaseAp, AnyAccessor),
-                        AnyAccessor
-                    )
-                    return loopedPosition
-                }
+                PositionAccessor.AnyFieldAccessor -> AnyAccessor
             }
 
             PositionAccess.Complex(resolvedBaseAp, accessor)
