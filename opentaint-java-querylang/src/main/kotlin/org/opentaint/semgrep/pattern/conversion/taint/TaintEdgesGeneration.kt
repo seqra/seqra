@@ -184,7 +184,7 @@ private data class TaintEdgeDescriptor(
 
 private fun RuleConversionCtx.edgeDescriptor(edge: Edge): TaintEdgeDescriptor? = when (edge) {
     is Edge.AnalysisEnd -> {
-        semgrepRuleTrace.error("Unexpected analysis end edge", Reason.ERROR)
+        trace.error("Unexpected analysis end edge", Reason.ERROR)
         null
     }
 

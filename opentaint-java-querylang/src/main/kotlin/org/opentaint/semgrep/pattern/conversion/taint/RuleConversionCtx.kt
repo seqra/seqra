@@ -6,5 +6,5 @@ import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 class RuleConversionCtx(
     val ruleId: String,
     val meta: SinkMetaData,
-    val semgrepRuleTrace: SemgrepRuleLoadStepTrace
+    val trace: SemgrepRuleLoadStepTrace
 )

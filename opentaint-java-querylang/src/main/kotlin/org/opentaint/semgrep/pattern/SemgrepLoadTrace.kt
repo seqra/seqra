@@ -3,6 +3,7 @@ package org.opentaint.semgrep.pattern
 import kotlinx.serialization.Polymorphic
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import mu.KLogging
 import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
 import org.opentaint.semgrep.pattern.SemgrepTraceEntry.Step
@@ -23,18 +24,20 @@ data class SemgrepLoadTrace(
 sealed interface SemgrepTraceLogger {
     fun addEntry(entry: SemgrepTraceEntry)
 
+    val logMessagePrefix: String
+
     fun info(message: String) {
         addEntry(SemgrepInfoEntry(message))
-        logger.info { message }
+        logger.info { "$logMessagePrefix | $message" }
     }
 
     fun error(step: Step, message: String, reason: Reason) {
         addEntry(SemgrepErrorEntry(step, message, reason))
 
         when (reason) {
-            Reason.WARNING -> logger.warn { message }
+            Reason.WARNING -> logger.warn { "$logMessagePrefix | $message" }
             Reason.ERROR,
-            Reason.NOT_IMPLEMENTED -> logger.error { message }
+            Reason.NOT_IMPLEMENTED -> logger.error { "$logMessagePrefix | $message" }
         }
     }
 
@@ -49,12 +52,15 @@ data class SemgrepFileLoadTrace(
     val ruleTraces: MutableList<SemgrepRuleLoadTrace> = mutableListOf(),
     val entries: MutableList<SemgrepTraceEntry> = mutableListOf(),
 ) : SemgrepTraceLogger {
+    override val logMessagePrefix: String
+        get() = path.substringAfterLast('/')
+
     override fun addEntry(entry: SemgrepTraceEntry) {
         entries += entry
     }
 
     fun ruleTrace(ruleId: String, ruleIdInFile: String): SemgrepRuleLoadTrace =
-        SemgrepRuleLoadTrace(ruleId, ruleIdInFile).also { ruleTraces.add(it) }
+        SemgrepRuleLoadTrace(ruleId, ruleIdInFile, logMessagePrefix).also { ruleTraces.add(it) }
 
     fun compressed(): SemgrepFileLoadTrace {
         val compressedRuleTraces = ruleTraces.mapTo(mutableListOf()) { it.compressed() }
@@ -66,15 +72,19 @@ data class SemgrepFileLoadTrace(
 data class SemgrepRuleLoadTrace(
     val ruleId: String,
     val ruleIdInFile: String,
+    @Transient val parentLogMessagePrefix: String = "",
     val steps: MutableList<SemgrepRuleLoadStepTrace> = mutableListOf(),
     val entries: MutableList<SemgrepTraceEntry> = mutableListOf(),
 ) : SemgrepTraceLogger {
+    override val logMessagePrefix: String
+        get() = "$parentLogMessagePrefix/$ruleIdInFile"
+
     override fun addEntry(entry: SemgrepTraceEntry) {
         entries += entry
     }
 
     fun stepTrace(step: Step): SemgrepRuleLoadStepTrace =
-        SemgrepRuleLoadStepTrace(step).also { steps.add(it) }
+        SemgrepRuleLoadStepTrace(step, logMessagePrefix).also { steps.add(it) }
 
     fun compressed(): SemgrepRuleLoadTrace {
         val compressedSteps = steps.mapNotNullTo(mutableListOf()) { it.compressed() }
@@ -85,8 +95,12 @@ data class SemgrepRuleLoadTrace(
 @Serializable
 data class SemgrepRuleLoadStepTrace(
     val step: Step,
+    @Transient val parentLogMessagePrefix: String = "",
     val entries: MutableList<SemgrepTraceEntry> = mutableListOf(),
 ) : SemgrepTraceLogger {
+    override val logMessagePrefix: String
+        get() = "$parentLogMessagePrefix/${step.name.lowercase().replace('_', '-')}"
+
     override fun addEntry(entry: SemgrepTraceEntry) {
         entries += entry
     }
@@ -107,6 +121,7 @@ sealed class SemgrepTraceEntry {
         BUILD_META_VAR_RESOLVING,
         BUILD_ACTION_LIST_CONVERSION,
         BUILD_TRANSFORM_TO_AUTOMATA,
+        BUILD_TAINT_AUTOMATA,
         AUTOMATA_TO_TAINT_RULE,
     }
 }

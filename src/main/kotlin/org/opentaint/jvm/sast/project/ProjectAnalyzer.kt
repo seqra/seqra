@@ -38,7 +38,6 @@ import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import org.opentaint.semgrep.pattern.createTaintConfig
 import java.io.OutputStream
 import java.nio.file.Path
-import kotlin.io.path.absolutePathString
 import kotlin.io.path.div
 import kotlin.io.path.extension
 import kotlin.io.path.inputStream
@@ -158,8 +157,7 @@ class ProjectAnalyzer(
 
         val ruleExtensions = arrayOf("yaml", "yml")
         semgrepRulesPath.walk().filter { it.extension in ruleExtensions }.forEach { rulePath ->
-            val ruleName = semgrepRulesPath.resolve(rulePath).absolutePathString()
-            loader.registerRuleSet(rulePath.readText(), ruleName, semgrepTrace.fileTrace(ruleName))
+            loader.registerRuleSet(rulePath.readText(), rulePath, semgrepRulesPath, semgrepTrace)
         }
 
         val (rules, loadedMetadatas) = loader.loadRules().unzip()

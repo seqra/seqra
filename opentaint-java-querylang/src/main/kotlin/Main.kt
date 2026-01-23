@@ -29,16 +29,15 @@ import org.opentaint.semgrep.pattern.conversion.PatternToActionListConverter
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
 import java.nio.file.Path
 import kotlin.io.path.Path
-import kotlin.io.path.absolutePathString
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.extension
 import kotlin.io.path.pathString
 import kotlin.io.path.readText
+import kotlin.io.path.relativeTo
 import kotlin.io.path.walk
 import kotlin.io.path.writeText
 import kotlin.random.Random
 import kotlin.system.measureTimeMillis
-import kotlin.time.Duration
 import kotlin.time.measureTime
 
 fun main() {
@@ -379,7 +378,7 @@ private fun collectParsingStats(path: Path): List<Pair<SemgrepJavaPattern, Strin
         }
     }
 
-    val ruleBuildTime = hashMapOf<String, Duration>()
+    val loader = SemgrepRuleLoader(patternParser, converter)
 
     val rootDir = path.toFile()
     rootDir.walk().filter { it.isFile }.forEach { file ->
@@ -393,13 +392,11 @@ private fun collectParsingStats(path: Path): List<Pair<SemgrepJavaPattern, Strin
 
         println("Reading $file")
         val content = file.readText()
-        val semgrepFileTrace = semgrepTrace.fileTrace(file.path)
-        val time = measureTime {
-            val loader = SemgrepRuleLoader(patternParser, converter)
-            loader.registerRuleSet(content, file.path, semgrepFileTrace)
-            loader.loadRules()
-        }
-        ruleBuildTime[file.path] = time
+        loader.registerRuleSet(content, file.toPath().relativeTo(path), path, semgrepTrace)
+    }
+
+    val time = measureTime {
+        loader.loadRules()
     }
 
     println("Pattern statistics:")
@@ -418,10 +415,7 @@ private fun collectParsingStats(path: Path): List<Pair<SemgrepJavaPattern, Strin
     }
 
     println()
-    println("Build time")
-    ruleBuildTime.entries.sortedByDescending { it.value }.take(10).forEach { (key, value) ->
-        println("$key: $value")
-    }
+    println("Build time: $time")
 
     analyzeErrors(semgrepTrace)
 
@@ -517,8 +511,7 @@ private fun collectRuleSetStat(semgrepRulesPath: Path, allRules: List<Path>): Ha
     val loader = SemgrepRuleLoader()
     val trace = SemgrepLoadTrace()
     for (rulePath in allRules) {
-        val ruleName = semgrepRulesPath.resolve(rulePath).absolutePathString()
-        loader.registerRuleSet(rulePath.readText(), ruleName, trace.fileTrace(ruleName))
+        loader.registerRuleSet(rulePath.readText(), rulePath, semgrepRulesPath, trace)
         val (loadedRules, _) = loader.loadRules().unzip()
         loadedRules.forEach {
             stats[it.ruleId] = it.stats()

@@ -48,7 +48,6 @@ import org.opentaint.semgrep.pattern.conversion.automata.MethodSignature
 import org.opentaint.semgrep.pattern.conversion.automata.NumberOfArgsConstraint
 import org.opentaint.semgrep.pattern.conversion.automata.ParamConstraint
 import org.opentaint.semgrep.pattern.conversion.automata.Position
-import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.EdgeCondition
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.EdgeEffect
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.State
@@ -56,31 +55,21 @@ import org.opentaint.semgrep.pattern.flatMap
 import org.opentaint.semgrep.pattern.toDNF
 import org.opentaint.semgrep.pattern.transform
 
-fun convertToTaintRules(
-    rule: SemgrepRule<RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>>,
-    ruleId: String,
-    meta: SinkMetaData,
-    semgrepRuleTrace: SemgrepRuleLoadStepTrace
-): TaintRuleFromSemgrep {
-    val taintAutomataRule = createTaintAutomata(rule, semgrepRuleTrace)
-    return convertTaintAutomataToTaintRules(taintAutomataRule, ruleId, meta, semgrepRuleTrace)
-}
-
-private fun convertTaintAutomataToTaintRules(
+fun convertTaintAutomataToTaintRules(
     rule: SemgrepRule<RuleWithMetaVars<TaintRegisterStateAutomata, ResolvedMetaVarInfo>>,
     ruleId: String,
     meta: SinkMetaData,
-    semgrepRuleTrace: SemgrepRuleLoadStepTrace
+    trace: SemgrepRuleLoadStepTrace
 ): TaintRuleFromSemgrep = when (rule) {
-    is SemgrepMatchingRule -> RuleConversionCtx(ruleId, meta, semgrepRuleTrace).convertMatchingRuleToTaintRules(rule)
-    is SemgrepTaintRule -> RuleConversionCtx(ruleId, meta, semgrepRuleTrace).convertTaintRuleToTaintRules(rule)
+    is SemgrepMatchingRule -> RuleConversionCtx(ruleId, meta, trace).convertMatchingRuleToTaintRules(rule)
+    is SemgrepTaintRule -> RuleConversionCtx(ruleId, meta, trace).convertTaintRuleToTaintRules(rule)
 }
 
 fun <R> RuleConversionCtx.safeConvertToTaintRules(body: () -> R): R? =
     runCatching {
         body()
     }.onFailure { ex ->
-        semgrepRuleTrace.error("Failed to convert to taint rule for: ${ex.message}", Reason.ERROR)
+        trace.error("Failed to convert to taint rule for: ${ex.message}", Reason.ERROR)
     }.getOrNull()
 
 private fun RuleConversionCtx.convertMatchingRuleToTaintRules(
@@ -117,7 +106,7 @@ private fun RuleConversionCtx.convertAutomataToTaintRules(
     val taintEdges = generateTaintAutomataEdges(automataWithVars, metaVarInfo)
     val ctx = TaintRuleGenerationCtx(automataId, taintEdges, compositionStrategy = null)
 
-    val rules = ctx.generateTaintRules(ruleId, meta, semgrepRuleTrace)
+    val rules = ctx.generateTaintRules(ruleId, meta, trace)
     val filteredRules = rules.filter { r ->
         if (r !is SinkRule) return@filter true
         if (r.condition != null && r.condition !is SerializedCondition.True) return@filter true
@@ -130,7 +119,7 @@ private fun RuleConversionCtx.convertAutomataToTaintRules(
 
         if (!function.matchAnything()) return@filter true
 
-        semgrepRuleTrace.error("Taint rule match anything", Reason.WARNING)
+        trace.error("Taint rule match anything", Reason.WARNING)
         false
     }
 

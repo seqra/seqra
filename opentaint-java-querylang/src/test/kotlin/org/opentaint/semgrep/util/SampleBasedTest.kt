@@ -7,7 +7,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SourceRule
 import org.opentaint.org.opentaint.semgrep.pattern.Mark
-import org.opentaint.semgrep.pattern.SemgrepFileLoadTrace
+import org.opentaint.semgrep.pattern.SemgrepLoadTrace
 import org.opentaint.semgrep.pattern.SemgrepRuleLoader
 import org.opentaint.semgrep.pattern.createTaintConfig
 import kotlin.io.path.Path
@@ -30,9 +30,9 @@ abstract class SampleBasedTest(
     ) {
         val data = sampleData[sampleClassName] ?: error("No sample data for $sampleClassName")
 
-        val trace = SemgrepFileLoadTrace(data.rulePath)
+        val trace = SemgrepLoadTrace()
         val loader = SemgrepRuleLoader()
-        loader.registerRuleSet(ruleSetText = data.rule, ruleSetName = data.rulePath, trace)
+        loader.registerRuleSet(ruleSetText = data.rule, ruleRelativePath = Path(data.rulePath), rulesRoot = Path("."), trace)
 
         val loadedRules = loader.loadRules()
         val (rule, ruleMeta) = loadedRules.singleOrNull()

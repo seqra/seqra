@@ -1,6 +1,7 @@
 package org.opentaint.semgrep.pattern.conversion
 
 import org.opentaint.semgrep.pattern.ActionListSemgrepRule
+import org.opentaint.semgrep.pattern.Formula
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraints
 import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
@@ -16,12 +17,10 @@ import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadTrace
 import org.opentaint.semgrep.pattern.SemgrepTaintRule
 import org.opentaint.semgrep.pattern.SemgrepTraceEntry.Step
-import org.opentaint.semgrep.pattern.SemgrepYamlRule
 import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 import org.opentaint.semgrep.pattern.conversion.automata.operations.containsAcceptState
 import org.opentaint.semgrep.pattern.conversion.automata.transformSemgrepRuleToAutomata
 import org.opentaint.semgrep.pattern.convertToRawRule
-import org.opentaint.semgrep.pattern.parseSemgrepRule
 import org.opentaint.semgrep.pattern.transform
 import kotlin.time.Duration.Companion.seconds
 
@@ -43,11 +42,9 @@ class SemgrepRuleAutomataBuilder(
     val stats = Stats()
 
     fun build(
-        yamlRule: SemgrepYamlRule,
+        semgrepRule: SemgrepRule<Formula>,
         semgrepRuleTrace: SemgrepRuleLoadTrace
     ): SemgrepRule<RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>> {
-        val semgrepRule = parseSemgrepRule(yamlRule, semgrepRuleTrace.stepTrace(Step.LOAD_RULESET))
-
         val c2rrTrace = semgrepRuleTrace.stepTrace(Step.BUILD_CONVERT_TO_RAW_RULE)
         val rawRules = convertToRawRule(semgrepRule, c2rrTrace)
 

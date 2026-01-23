@@ -183,7 +183,7 @@ private fun RuleConversionCtx.resolveLoopBackEdges(
 
     if (requiredLoops.isEmpty()) return automata
 
-    semgrepRuleTrace.error("Loop var assign", Reason.ERROR)
+    trace.error("Loop var assign", Reason.ERROR)
     return automata
 }
 
@@ -482,10 +482,7 @@ private fun RuleConversionCtx.removeMeaningLessEdges(
     }
 
     if (removedEdges.isNotEmpty()) {
-        semgrepRuleTrace.error(
-            "Edges without positive predicate: ${removedEdges.size}",
-            Reason.ERROR
-        )
+        trace.error("Edges without positive predicate: ${removedEdges.size}", Reason.ERROR)
     }
 
     return automata.copy(successors = successors)
