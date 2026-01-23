@@ -2,6 +2,8 @@ package org.opentaint.dataflow.ap.ifds.trace
 
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
+import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerability
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.MethodEntry
@@ -84,7 +86,7 @@ class TraceResolver(
     // Override hashcode() and equals() when using enum as a field in classes whose objects
     // can be stored in sets etc.
     enum class CallKind {
-        CallToSource, CallToSink
+        CallToSource, CallToSink, CallInnerTrace
     }
 
     @Suppress("EqualsOrHashCode")
@@ -222,13 +224,14 @@ class TraceResolver(
             val resultNodes = mutableListOf<InterProceduralTraceNode>()
 
             for (fullTrace in fullTraces) {
+                addInnerTraces(fullTrace)
                 when (val start = fullTrace.startEntry) {
                     is SourceStartEntry -> {
                         resultNodes += resolveNode(fullTrace, kind)
                     }
 
                     is MethodEntry -> {
-                        check(kind == CallKind.CallToSink) { "Unexpected trace: $trace" }
+                        check(kind != CallKind.CallToSource) { "Unexpected trace: $trace" }
 
                         val node = InterProceduralFullTraceNode(fullTrace)
                         resultNodes += node
@@ -241,7 +244,7 @@ class TraceResolver(
 
                             unprocessed += BuilderUnprocessedTrace(
                                 trace = callerTrace,
-                                kind = CallKind.CallToSink,
+                                kind = kind,
                                 successor = InterProceduralCall(kind, callerStatement, trace, node)
                             )
                         }
@@ -294,6 +297,49 @@ class TraceResolver(
 
                     return node
                 }
+            }
+        }
+
+        fun InitialFactAp.getMark(): String? {
+            val taintMarks = getAllAccessors().filterIsInstance<TaintMarkAccessor>()
+            if (taintMarks.isEmpty()) {
+                return null
+            }
+            return taintMarks.first().mark
+        }
+
+        private fun TraceEntryAction.CallSummary.isMarkUpdated(): Boolean {
+            val before = this.edges.mapNotNull { it.fact.getMark() }.toSet()
+            val after = this.edgesAfter.mapNotNull { it.fact.getMark() }
+            return (after - before).isNotEmpty()
+        }
+
+        private fun addInnerTraces(trace: MethodTraceResolver.FullTrace) {
+            val entries = mutableListOf<MethodTraceResolver.TraceEntry>(trace.startEntry)
+            val visited = hashSetOf<MethodTraceResolver.TraceEntry>()
+            val node = InterProceduralFullTraceNode(trace)
+            while (entries.isNotEmpty()) {
+                val entry = entries.removeFirst()
+                if (!visited.add(entry)) {
+                    continue
+                }
+                if (entry is MethodTraceResolver.TraceEntry.Action) {
+                    val action = entry.primaryAction
+                    if (action is TraceEntryAction.CallSummary && action.isMarkUpdated()) {
+                        val summary = action.summaryTrace
+                        unprocessed += BuilderUnprocessedTrace(
+                            trace = summary,
+                            kind = CallKind.CallInnerTrace,
+                            predecessor = InterProceduralCall(
+                                CallKind.CallInnerTrace,
+                                entry.statement,
+                                summary,
+                                node
+                            )
+                        )
+                    }
+                }
+                entries.addAll(trace.successors[entry].orEmpty())
             }
         }
 

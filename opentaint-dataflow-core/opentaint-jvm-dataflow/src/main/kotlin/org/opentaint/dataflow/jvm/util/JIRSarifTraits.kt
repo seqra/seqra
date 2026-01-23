@@ -32,6 +32,9 @@ class JIRSarifTraits(
         return name[0] == registerStart
     }
 
+    private fun isDefaultArgName(name: String) =
+        name.isEmpty() || name.startsWith("arg|")
+
     private fun loadLocalNames(md: JIRMethod) {
         if (methodCache.contains(md)) return
         val mdLocals = hashMapOf<Int, String>()
@@ -122,7 +125,13 @@ class JIRSarifTraits(
         if (expr !is JIRValue) return null
         return when (expr) {
             is JIRFieldRef -> ReadableValue.Value("\"${expr.instance ?: expr.field.enclosingType.jIRClass.simpleName}.${expr.field.name}\"")
-            is JIRArgument -> ReadableValue.Value(printArgument(statement.location.method, expr.index))
+            is JIRArgument -> {
+                val name = expr.name
+                if (!isDefaultArgName(name))
+                    return ReadableValue.Value("\"$name\"")
+                else
+                    ReadableValue.Value(printArgument(statement.location.method, expr.index))
+            }
             is JIRArrayAccess -> {
                 val arrName = tryGetReadableValue(statement, expr.array)
                 val elemName = tryGetReadableValue(statement, expr.index)

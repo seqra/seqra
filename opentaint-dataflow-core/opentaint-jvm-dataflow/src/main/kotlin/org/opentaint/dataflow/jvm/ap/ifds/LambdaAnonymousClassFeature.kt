@@ -162,7 +162,7 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
         }
 
         method.parameters.mapTo(args) {
-            JIRArgument(it.index, it.name ?: "arg_${it.index}", lambdaClass.classpath.findType(it.type.typeName))
+            JIRArgument(it.index, it.name ?: "arg|${it.index}", lambdaClass.classpath.findType(it.type.typeName))
         }
 
         val expectedArgTypes = mutableListOf<JIRType>()
@@ -268,7 +268,7 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
 
         for ((idx, field) in fields.withIndex()) {
             constructorInstructions.addInstWithLocation(constructorMethod) { loc ->
-                val rhs = JIRArgument(idx, "arg_$idx", field.type)
+                val rhs = JIRArgument(idx, "arg|$idx", field.type)
                 val lhs = JIRFieldRef(JIRThis(lambdaType), field)
                 JIRAssignInst(loc, lhs, rhs)
             }
