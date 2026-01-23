@@ -862,8 +862,9 @@ private fun stringMatches(name: String, constraints: MetaVarConstraints?): Boole
 
 private fun MetaVarConstraintFormula<MetaVarConstraint>.stringMatches(name: String): Boolean = when (this) {
     is MetaVarConstraintFormula.Constraint -> stringMatches(name, constraint)
-    is MetaVarConstraintFormula.Not -> !negated.stringMatches(name)
+    is MetaVarConstraintFormula.NegatedConstraint -> !stringMatches(name, constraint)
     is MetaVarConstraintFormula.And -> args.all { it.stringMatches(name) }
+    is MetaVarConstraintFormula.Or -> args.any { it.stringMatches(name) }
 }
 
 private fun stringMatches(name: String, constraint: MetaVarConstraint): Boolean = when (constraint) {

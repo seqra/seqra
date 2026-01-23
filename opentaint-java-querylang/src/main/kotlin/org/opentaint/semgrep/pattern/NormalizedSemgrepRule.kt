@@ -14,26 +14,6 @@ data class RawSemgrepRule(
     val patternNotInsides: List<String>,
 )
 
-sealed interface MetaVarConstraintFormula<C> {
-    data class Constraint<C>(val constraint: C) : MetaVarConstraintFormula<C>
-    data class Not<C>(val negated: MetaVarConstraintFormula<C>) : MetaVarConstraintFormula<C>
-    data class And<C>(val args: Set<MetaVarConstraintFormula<C>>) : MetaVarConstraintFormula<C>
-
-    companion object {
-        fun <C> mkNot(c: MetaVarConstraintFormula<C>) = if (c is Not<C>) c.negated else Not(c)
-        fun <C> mkAnd(c: Set<MetaVarConstraintFormula<C>>) = when (c.size) {
-            1 -> c.first()
-            else -> And(c)
-        }
-    }
-}
-
-fun <C, R> MetaVarConstraintFormula<C>.transform(mapper: (C) -> R): MetaVarConstraintFormula<R> = when (this) {
-    is MetaVarConstraintFormula.Constraint -> MetaVarConstraintFormula.Constraint(mapper(constraint))
-    is MetaVarConstraintFormula.Not -> MetaVarConstraintFormula.mkNot(negated.transform(mapper))
-    is MetaVarConstraintFormula.And -> MetaVarConstraintFormula.mkAnd(args.mapTo(hashSetOf()) { it.transform(mapper) })
-}
-
 sealed interface RawMetaVarConstraint {
     data class RegExp(val regex: String) : RawMetaVarConstraint
     data class Pattern(val value: String) : RawMetaVarConstraint

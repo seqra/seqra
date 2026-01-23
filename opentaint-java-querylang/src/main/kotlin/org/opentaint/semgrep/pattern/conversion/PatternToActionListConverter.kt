@@ -372,7 +372,13 @@ class PatternToActionListConverter: ActionListBuilder {
             val position = if (paramIdxConcrete) {
                 ParamPosition.Concrete(i)
             } else {
-                ParamPosition.Any(paramClassifier = "*-$i")
+                val classifier = when (arg) {
+                    is Metavar -> arg.name
+                    is TypedMetavar -> arg.name
+                    else -> "*->$i"
+                }
+
+                ParamPosition.Any(paramClassifier = classifier)
             }
 
             val condition = cond ?: ParamCondition.True
@@ -541,19 +547,19 @@ class PatternToActionListConverter: ActionListBuilder {
         for ((i, param) in params.withIndex()) {
             when (param) {
                 is FormalArgument -> {
+                    val paramName = (param.name as? MetavarName)?.metavarName
+                        ?: transformationFailed("MethodDeclaration_param_name_not_metavar")
+
                     val position = if (idxIsConcrete) {
                         ParamPosition.Concrete(i)
                     } else {
-                        ParamPosition.Any(paramClassifier = "*-$i")
+                        ParamPosition.Any(paramClassifier = paramName)
                     }
 
                     val paramModifiers = param.modifiers.map { transformModifier(it) }
                     paramModifiers.mapTo(paramConditions) { modifier ->
                         ParamPattern(position, ParamCondition.ParamModifier(modifier))
                     }
-
-                    val paramName = (param.name as? MetavarName)?.metavarName
-                        ?: transformationFailed("MethodDeclaration_param_name_not_metavar")
 
                     paramConditions += ParamPattern(position, IsMetavar(MetavarAtom.create(paramName)))
 
