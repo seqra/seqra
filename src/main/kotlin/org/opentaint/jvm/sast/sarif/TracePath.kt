@@ -9,6 +9,7 @@ import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.SourceStartEntry
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
+import org.opentaint.dataflow.ap.ifds.trace.TraceResolver.CallKind.CallInnerTrace
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver.CallKind.CallToSink
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver.CallKind.CallToSource
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver.InterProceduralTraceNode
@@ -113,9 +114,7 @@ private fun generateSourceToSinkPath(
             callPath = callPath.drop(1)
         }
 
-        for (node in callPath) {
-            path += TracePathNode(node.statement, TracePathNodeKind.OTHER, node)
-        }
+        path += resolveCallPath(trace, call.node, callPath)
 
         if (idx == callToSinkTrace.lastIndex) {
             val sinkNode = callPath.lastOrNull() ?: return null
@@ -128,9 +127,34 @@ private fun generateSourceToSinkPath(
     return path
 }
 
+private fun resolveCallPath(
+    trace: SourceToSinkTrace,
+    traceNode: InterProceduralTraceNode,
+    callPath: List<TraceEntry>,
+    stack: HashSet<CommonInst> = hashSetOf(),
+): List<TracePathNode> {
+    val path = mutableListOf<TracePathNode>()
+    for (node in callPath) {
+        if (node is TraceEntry.Action && node.primaryAction is TraceEntryAction.CallSummary && node.statement !in stack) {
+            val innerTrace = trace.findSuccessors(traceNode, CallInnerTrace, node.statement)
+                .map { it.node }.filterIsInstance<TraceResolver.InterProceduralFullTraceNode>().firstOrNull()
+            if (innerTrace != null) {
+                path += TracePathNode(node.statement, TracePathNodeKind.CALL, node)
+                val innerPath = generateIntraProceduralPath(innerTrace.trace).orEmpty()
+                val newStack = HashSet<CommonInst>(stack)
+                newStack.add(node.statement)
+                path += resolveCallPath(trace, innerTrace, innerPath, newStack)
+            }
+        }
+        path += TracePathNode(node.statement, TracePathNodeKind.OTHER, node)
+    }
+    return path
+}
+
 data class CallTrace(
     val callStatement: CommonInst,
-    val trace: List<TraceEntry>
+    val trace: List<TraceEntry>,
+    val node: InterProceduralTraceNode,
 )
 
 private fun resolveStartToSource(
@@ -150,7 +174,7 @@ private fun resolveStartToSource(
         when (node) {
             is TraceResolver.InterProceduralFullTraceNode -> {
                 val path = generateIntraProceduralPath(node.trace) ?: return callTrace
-                callTrace += CallTrace(statement, path)
+                callTrace += CallTrace(statement, path, node)
 
                 val pathStart = path.firstOrNull() ?: return callTrace
 
@@ -205,7 +229,7 @@ private fun resolveStartToSink(
                 }
             }
 
-            val nextTraceNode = CallTrace(callNode.statement, path)
+            val nextTraceNode = CallTrace(callNode.statement, path, callNode.node)
             unprocessed += StartToSinkResolverState(
                 callTrace.add(nextTraceNode),
                 callNode.node,
@@ -220,7 +244,6 @@ private fun resolveStartToSink(
 private fun generateIntraProceduralPath(
     trace: MethodTraceResolver.FullTrace
 ): PersistentList<TraceEntry>? {
-
     val unprocessed = mutableListOf<Pair<TraceEntry, PersistentList<TraceEntry>>>(trace.startEntry to persistentListOf<TraceEntry>(trace.startEntry))
     val visited = hashSetOf<TraceEntry>()
 

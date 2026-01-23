@@ -19356,6 +19356,19 @@ passThrough:
     - this
     - .java.util.Iterator#<rule-storage>#java.lang.Object
     to: result
+- function: java.util.Scanner#next
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+    to: result
 - function: java.util.Scanner#reset
   signature: () java.util.Scanner
   copy:

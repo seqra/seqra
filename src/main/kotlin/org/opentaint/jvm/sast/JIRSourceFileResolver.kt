@@ -63,7 +63,8 @@ class JIRSourceFileResolver(
         val sources = locationSources[location] ?: return null
 
         val locationCls = instLocationCls.mostOuterClass()
-        val clsName = locationCls.simpleName
+        // using split for abstract/virtual classes, where continuation after the symbol specifies exact nameless class
+        val clsName = locationCls.simpleName.split('$').first()
         val sourceFileNameVariants = mutableListOf<String>()
 
         if (clsName.endsWith("Kt")) {

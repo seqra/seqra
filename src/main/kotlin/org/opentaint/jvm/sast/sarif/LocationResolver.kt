@@ -20,6 +20,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRInstList
 import org.opentaint.ir.api.jvm.cfg.JIRRawInst
 import org.opentaint.ir.api.jvm.cfg.JIRRawLabelInst
 import org.opentaint.ir.api.jvm.cfg.JIRRawLineNumberInst
+import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualClass
 import org.opentaint.jvm.sast.mostOuterClass
 import org.opentaint.jvm.sast.util.DebugInfo
 import org.opentaint.jvm.sast.util.DebugInfoParser
@@ -94,6 +95,7 @@ class LocationResolver(
     private fun getCachedDebugInfo(location: IntermediateLocation): DebugInfo? {
         val method = location.inst.location.method
         check(method is JIRMethod)
+        if (method.enclosingClass is JIRVirtualClass) return null
         return getCachedDebugInfo(method.enclosingClass)
     }
 

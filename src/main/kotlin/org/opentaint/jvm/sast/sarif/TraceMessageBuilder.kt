@@ -2,7 +2,6 @@ package org.opentaint.jvm.sast.sarif
 
 import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
-import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEdge
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry
@@ -29,6 +28,7 @@ import org.opentaint.ir.api.common.cfg.CommonReturnInst
 import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 import org.opentaint.jvm.sast.project.spring.SpringGeneratedMethod
 import org.opentaint.org.opentaint.semgrep.pattern.Mark
+import org.opentaint.org.opentaint.semgrep.pattern.Mark.Companion.getMark
 
 data class TracePathNodeWithMsg(
     val node: TracePathNode,
@@ -179,17 +179,6 @@ class TraceMessageBuilder(
         return "Exiting ${getMethodCalleeNameInPrint(name, className)}"
     }
 
-    private fun InitialFactAp.getMark(): Mark {
-        val taintMarks = getAllAccessors().filterIsInstance<TaintMarkAccessor>()
-        if (taintMarks.size != 1) {
-            logger.error { "Expected exactly one taint mark but got ${taintMarks.size}!" }
-        }
-        if (taintMarks.isEmpty()) {
-            return Mark.TaintMark
-        }
-        return Mark.getMarkFromString(taintMarks.first().mark, ruleId)
-    }
-
     data class TaintInfo(val mark: Mark, val pos: AccessPathBase)
 
     private fun Mark?.inMessage(): String {
@@ -237,7 +226,7 @@ class TraceMessageBuilder(
     }
 
     private fun factToTaintInfo(fact: InitialFactAp): TaintInfo? {
-        val mark = fact.getMark()
+        val mark = fact.getMark(ruleId)
         if (mark is Mark.StateMark) return null
         return TaintInfo(mark, fact.base)
     }
@@ -398,6 +387,10 @@ class TraceMessageBuilder(
         }
 
         for (trace in traces) {
+            if (trace.kind == TracePathNodeKind.CALL) {
+                addAsSingle(trace)
+                continue
+            }
             when (val entry = trace.entry) {
                 is TraceEntry.SourceStartEntry -> {
                     if (entry.isPureEntryPoint()) {
@@ -425,16 +418,6 @@ class TraceMessageBuilder(
         }
         addCurListAndClean()
         return result
-    }
-
-    private fun getMarkVarName(action: CommonTaintAction, neutralMark: String): Mark? {
-        val name = when (action) {
-            is AssignMark -> action.mark.name
-            is CopyMark -> action.mark.name
-            is CopyAllMarks -> return Mark.StringMark(neutralMark)
-            else -> return null
-        }
-        return Mark.getMarkFromString(name, ruleId)
     }
 
     private fun getAssignTaintOut(entry: TraceEntry?) = when (entry?.statement) {
@@ -518,51 +501,6 @@ class TraceMessageBuilder(
         is AccessPathBase.Return -> printReturnedValue(node)
         is AccessPathBase.Constant -> "a const value"
         else -> badOutput("unresolved base")
-    }
-
-    private fun Position.inMessage(node: TracePathNode): String = when (this) {
-        is This -> traits.printThis(node.statement)
-        is Argument -> printArgument(node, index)
-        is Result -> printReturnedValue(node)
-        is PositionWithAccess -> when (this.access) {
-            is PositionAccessor.ElementAccessor -> "an element of ${base.inMessage(node)}"
-            is PositionAccessor.AnyFieldAccessor -> base.inMessage(node)
-            is PositionAccessor.FieldAccessor ->
-                (this.access as PositionAccessor.FieldAccessor).inMessage()?.let {
-                    "$it of ${base.inMessage(node)}"
-                } ?: base.inMessage(node)
-        }
-        is ClassStatic -> "\"$className\" static"
-    }
-
-    private fun PositionAccessor.FieldAccessor.inMessage(): String? {
-        if (className.startsWith("java.lang.Object")) {
-            if (fieldName == "Element")
-                return "an element"
-            if (fieldName == "MapValue")
-                return "a map value"
-            if (fieldName == "MapKey")
-                return "a map key"
-        }
-        return null
-    }
-
-    private fun CommonTaintAction.getTainted(node: TracePathNode) = when (this) {
-        is CopyMark -> to.inMessage(node)
-        is CopyAllMarks -> to.inMessage(node)
-        is AssignMark -> position.inMessage(node)
-        is RemoveMark -> badOutput("!Unmarked")
-        is RemoveAllMarks -> badOutput("!Unmarked")
-        else -> badOutput("!UnknownMark")
-    }
-
-    private fun CommonTaintAction.getInitial(node: TracePathNode) = when (this) {
-        is CopyMark -> from.inMessage(node)
-        is CopyAllMarks -> from.inMessage(node)
-        is AssignMark -> badOutput("!Unknown")
-        is RemoveMark -> badOutput("!Unmarked")
-        is RemoveAllMarks -> badOutput("!Unmarked")
-        else -> badOutput("!UnknownMark")
     }
 
     data class TaintPropagationInfo(val taint: String, val from: String?, val to: String?)
@@ -785,6 +723,13 @@ class TraceMessageBuilder(
     }
 
     private fun TraceEntryAction.CallSummary.createMessage(node: TracePathNode): String {
+        if (node.kind == TracePathNodeKind.CALL) {
+            val calleeName = getMethodCalleeNameInPrint(node)
+            // this is a call that updates marks;
+            // we will need its follows on its return, which is marked as TracePathNodeKind.OTHER
+            val starts = node.entry.collectStarts()
+            return createPropagationMessageFromTaints("Calling $calleeName", node, EdgesInfo(starts, emptyList()))
+        }
         return createMethodCallTaintPropagationMessageWithTaints(node)
     }
 
