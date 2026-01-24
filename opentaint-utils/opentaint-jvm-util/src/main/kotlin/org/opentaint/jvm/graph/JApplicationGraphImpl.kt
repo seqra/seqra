@@ -10,18 +10,29 @@ open class JApplicationGraphImpl(
     override val cp: JIRClasspath,
     private val usages: SyncUsagesExtension,
 ) : JApplicationGraph {
-    override fun predecessors(node: JIRInst): Sequence<JIRInst> {
-        val graph = node.location.method.flowGraph()
-        val predecessors = graph.predecessors(node)
-        val throwers = graph.throwers(node)
-        return predecessors.asSequence() + throwers.asSequence()
-    }
+    open class JMethodGraphImpl(
+        override val applicationGraph: JApplicationGraph,
+        override val method: JIRMethod
+    ) : JApplicationGraph.JMethodGraph {
+        private val flowGraph by lazy { method.flowGraph() }
 
-    override fun successors(node: JIRInst): Sequence<JIRInst> {
-        val graph = node.location.method.flowGraph()
-        val successors = graph.successors(node)
-        val catchers = graph.catchers(node)
-        return successors.asSequence() + catchers.asSequence()
+        override fun predecessors(node: JIRInst): Sequence<JIRInst> {
+            val predecessors = flowGraph.predecessors(node)
+            val throwers = flowGraph.throwers(node)
+            return predecessors.asSequence() + throwers.asSequence()
+        }
+
+        override fun successors(node: JIRInst): Sequence<JIRInst> {
+            val successors = flowGraph.successors(node)
+            val catchers = flowGraph.catchers(node)
+            return successors.asSequence() + catchers.asSequence()
+        }
+
+        override fun entryPoints(): Sequence<JIRInst> = flowGraph.entries.asSequence()
+
+        override fun exitPoints(): Sequence<JIRInst> = flowGraph.exits.asSequence()
+
+        override fun statements(): Sequence<JIRInst> = method.instList.asSequence()
     }
 
     override fun callees(node: JIRInst): Sequence<JIRMethod> {
@@ -38,19 +49,10 @@ open class JApplicationGraphImpl(
         }
     }
 
-    override fun entryPoints(method: JIRMethod): Sequence<JIRInst> {
-        return method.flowGraph().entries.asSequence()
-    }
-
-    override fun exitPoints(method: JIRMethod): Sequence<JIRInst> {
-        return method.flowGraph().exits.asSequence()
-    }
-
     override fun methodOf(node: JIRInst): JIRMethod {
         return node.location.method
     }
 
-    override fun statementsOf(method: JIRMethod): Sequence<JIRInst> {
-        return method.instList.asSequence()
-    }
+    override fun methodGraph(method: JIRMethod): JApplicationGraph.JMethodGraph =
+        JMethodGraphImpl(this, method)
 }

@@ -7,4 +7,6 @@ import org.opentaint.util.analysis.ApplicationGraph
 
 interface JApplicationGraph : ApplicationGraph<JIRMethod, JIRInst> {
     val cp: JIRClasspath
+
+    interface JMethodGraph : ApplicationGraph.MethodGraph<JIRMethod, JIRInst>
 }
