@@ -576,7 +576,8 @@ class SemgrepJavaPatternMatcher(
                 expandLocalVar(ExprPosition(curInst, isLValue = false), value, visited)
             }
         }
-        val prevInsts = graph.predecessors(curInst)
+
+        val prevInsts = graph.methodGraph(graph.methodOf(curInst)).predecessors(curInst)
         return prevInsts.flatMap { expandLocalVar(ExprPosition(it, isLValue = true), expr, visited) }.toSet()
     }
 

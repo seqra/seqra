@@ -11,6 +11,11 @@ plugins {
     antlr
 }
 
+// workaround to remove antlr grammar generation dependencies from runtime classpath
+configurations.api.get().let { config ->
+    config.setExtendsFrom(config.extendsFrom.filterNot { it == configurations.antlr.get() })
+}
+
 dependencies {
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-dataflow")
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-jvm-dataflow")

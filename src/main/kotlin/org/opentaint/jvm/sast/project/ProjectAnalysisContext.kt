@@ -8,10 +8,13 @@ import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
+import org.opentaint.ir.api.jvm.JIRSettings
+import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
 import org.opentaint.ir.approximation.Approximations
 import org.opentaint.ir.impl.JIRRamErsSettings
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
+import org.opentaint.ir.impl.features.classpaths.JIRUnknownClass
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.opentaintIrDb
 import org.opentaint.jvm.sast.project.spring.SpringWebProjectContext
@@ -55,7 +58,7 @@ fun initializeProjectAnalysisContext(
         allCpFiles.addAll(projectModulesFiles.keys)
         allCpFiles.addAll(dependencyFiles)
 
-        db = opentaintIrDb {
+        val settings = JIRSettings().apply {
             val toolchain = project.javaToolchain
             if (toolchain != null) {
                 useJavaRuntime(toolchain.toFile())
@@ -78,6 +81,8 @@ fun initializeProjectAnalysisContext(
 
             loadByteCode(allCpFiles)
         }
+
+        db = opentaintIrDb(settings)
 
         db.awaitBackgroundJobs()
 
@@ -103,6 +108,8 @@ fun initializeProjectAnalysisContext(
             }
 //        cp = db.classpath(allCpFiles, features)
 
+        cp.validate(settings)
+
         projectClasses = ProjectClasses(cp, projectPackage, projectModulesFiles)
         projectClasses.loadProjectClasses()
 
@@ -120,6 +127,13 @@ fun initializeProjectAnalysisContext(
         project, projectPackage, projectKind,
         db, cp, projectClasses, springContext
     )
+}
+
+private fun JIRClasspath.validate(settings: JIRSettings) {
+    val objectCls = findClassOrNull(JAVA_OBJECT)
+    if (objectCls == null || objectCls is JIRUnknownClass) {
+        logger.error { "Invalid JDK ${settings.jre}. Analysis result may be incorrect" }
+    }
 }
 
 class ProjectAnalysisContext(
