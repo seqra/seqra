@@ -82,7 +82,12 @@ class JIRSarifTraits(
         }
 
     override fun printArgumentNth(index: Int, methodName: String?): String {
-        val ofMethod = methodName?.let { " of \"$it\"" } ?: ""
+        val ofMethod = methodName?.let {
+            if (it.startsWith("lambda$"))
+                " of lambda"
+            else
+                " of \"$it\""
+        } ?: ""
         return "the ${getOrdinal(index + 1)} argument$ofMethod"
     }
 

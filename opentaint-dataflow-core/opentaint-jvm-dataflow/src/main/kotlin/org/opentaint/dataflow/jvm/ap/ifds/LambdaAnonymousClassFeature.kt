@@ -335,7 +335,7 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
         }
     }
 
-    private class JIRLambdaMethod(
+    class JIRLambdaMethod(
         name: String,
         returnType: TypeName,
         description: String,
