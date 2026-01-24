@@ -57074,6 +57074,81 @@ passThrough:
   copy:
   - from: this
     to: result
+
+- function: org.apache.commons.io.FilenameUtils#concat
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+
+- function: org.apache.commons.io.FilenameUtils#getFullPath
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: org.apache.commons.io.FilenameUtils#getFullPathNoEndSeparator
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: org.apache.commons.io.FilenameUtils#getPath
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: org.apache.commons.io.FilenameUtils#getPathNoEndSeparator
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: org.apache.commons.io.FilenameUtils#normalize
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: org.apache.commons.io.FilenameUtils#normalizeNoEndSeparator
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: org.apache.commons.io.FilenameUtils#normalizeNoEndSeparator
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: org.apache.commons.io.FilenameUtils#removeExtension
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: org.apache.commons.io.FilenameUtils#separatorsToSystem
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: org.apache.commons.io.FilenameUtils#separatorsToUnix
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: org.apache.commons.io.FilenameUtils#separatorsToWindows
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+
 - function: org.apache.ecs.Attributes#setAttributeFilter
   copy:
   - from: arg(*)
