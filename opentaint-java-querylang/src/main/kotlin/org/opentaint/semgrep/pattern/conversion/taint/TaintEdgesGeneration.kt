@@ -29,9 +29,8 @@ import java.util.BitSet
 
 fun RuleConversionCtx.generateTaintEdges(
     automata: TaintRegisterStateAutomata,
-    metaVarInfo: ResolvedMetaVarInfo,
-    uniqueRuleId: String
-): TaintRuleGenerationCtx {
+    metaVarInfo: ResolvedMetaVarInfo
+): TaintAutomataEdges {
     val globalStateAssignStates = hashSetOf<State>()
     val taintRuleEdges = mutableListOf<TaintRuleEdge>()
     val finalAcceptEdges = mutableListOf<TaintRuleEdge>()
@@ -164,8 +163,8 @@ fun RuleConversionCtx.generateTaintEdges(
         }
     }
 
-    return TaintRuleGenerationCtx(
-        uniqueRuleId, automata, TaintRuleGenerationMetaVarInfo(metVarConstraints),
+    return TaintAutomataEdges(
+        automata, TaintRuleGenerationMetaVarInfo(metVarConstraints),
         globalStateAssignStates, taintRuleEdges, finalAcceptEdges, finalDeadEdges
     )
 }

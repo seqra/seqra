@@ -42,6 +42,8 @@ data class SemgrepTaintSink<PatternsRepr>(
 
 sealed interface SemgrepTaintRequires
 
+data object NoRequirement: SemgrepTaintRequires
+
 data class SemgrepTaintLabel(val label: String): SemgrepTaintRequires
 
 data class SemgrepTaintAnd(val left: SemgrepTaintRequires, val right: SemgrepTaintRequires): SemgrepTaintRequires

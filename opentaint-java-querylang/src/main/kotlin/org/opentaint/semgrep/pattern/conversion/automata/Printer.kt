@@ -11,7 +11,7 @@ import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.EdgeEffect
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.State
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRuleEdge
-import org.opentaint.semgrep.pattern.conversion.taint.TaintRuleGenerationCtx
+import org.opentaint.semgrep.pattern.conversion.taint.TaintAutomataEdges
 
 fun SemgrepRuleAutomata.view(name: String = "") {
     PrintableSemgrepRuleAutomata(this).view(name)
@@ -94,7 +94,7 @@ fun TaintRegisterStateAutomata.view(
 }
 
 class TaintRuleGenerationContextView(
-    val ctx: TaintRuleGenerationCtx
+    val ctx: TaintAutomataEdges
 ) : PrintableGraph<State, TaintRuleEdge> {
     private fun buildSuccessors(): Map<State, Set<TaintRuleEdge>> {
         val successors = hashMapOf<State, MutableSet<TaintRuleEdge>>()
@@ -140,7 +140,7 @@ class TaintRuleGenerationContextView(
     }
 }
 
-fun TaintRuleGenerationCtx.view(name: String = "") {
+fun TaintAutomataEdges.view(name: String = "") {
     TaintRuleGenerationContextView(this).view(name)
 }
 

@@ -9,13 +9,13 @@ import org.opentaint.semgrep.pattern.RawMetaVarInfo
 import org.opentaint.semgrep.pattern.RawSemgrepRule
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.RuleWithMetaVars
-import org.opentaint.semgrep.pattern.SemgrepErrorEntry
-import org.opentaint.semgrep.pattern.SemgrepTraceEntry.Step
+import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
 import org.opentaint.semgrep.pattern.SemgrepMatchingRule
 import org.opentaint.semgrep.pattern.SemgrepRule
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadTrace
 import org.opentaint.semgrep.pattern.SemgrepTaintRule
+import org.opentaint.semgrep.pattern.SemgrepTraceEntry.Step
 import org.opentaint.semgrep.pattern.SemgrepYamlRule
 import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 import org.opentaint.semgrep.pattern.conversion.automata.operations.containsAcceptState
@@ -47,7 +47,9 @@ class SemgrepRuleAutomataBuilder(
         semgrepRuleTrace: SemgrepRuleLoadTrace
     ): SemgrepRule<RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>> {
         val semgrepRule = parseSemgrepRule(yamlRule, semgrepRuleTrace.stepTrace(Step.LOAD_RULESET))
-        val rawRules = convertToRawRule(semgrepRule, semgrepRuleTrace.stepTrace(Step.BUILD_CONVERT_TO_RAW_RULE))
+
+        val c2rrTrace = semgrepRuleTrace.stepTrace(Step.BUILD_CONVERT_TO_RAW_RULE)
+        val rawRules = convertToRawRule(semgrepRule, c2rrTrace)
 
         var ruleWithoutPattern = 0
         val normalRules = rawRules.fFlatMap { r ->
@@ -59,17 +61,14 @@ class SemgrepRuleAutomataBuilder(
             }
         }
         stats.ruleWithoutPattern += ruleWithoutPattern
-        semgrepRuleTrace.phaseError(ruleWithoutPattern) {
-            error(
-                Step.BUILD_CONVERT_TO_RAW_RULE,
-                "Empty patterns after convertToRawRule: $ruleWithoutPattern times",
-                SemgrepErrorEntry.Reason.WARNING,
-            )
+        c2rrTrace.phaseError(ruleWithoutPattern) {
+            error("Empty patterns after convertToRawRule: $ruleWithoutPattern times", Reason.WARNING)
         }
 
+        val psrTrace = semgrepRuleTrace.stepTrace(Step.BUILD_PARSE_SEMGREP_RULE)
         var ruleParsingFailure = 0
         val parsedRules = normalRules.fFlatMap { r ->
-            parseSemgrepRule(r, semgrepRuleTrace.stepTrace(Step.BUILD_PARSE_SEMGREP_RULE))
+            parseSemgrepRule(r, psrTrace)
                 ?.let { listOf(it) }
                 ?: run {
                     ruleParsingFailure++
@@ -77,17 +76,14 @@ class SemgrepRuleAutomataBuilder(
                 }
         }
         stats.ruleParsingFailure += ruleParsingFailure
-        semgrepRuleTrace.phaseError(ruleParsingFailure) {
-            error(
-                Step.BUILD_PARSE_SEMGREP_RULE,
-                "Failed parse normalized rule: $ruleParsingFailure times",
-                SemgrepErrorEntry.Reason.WARNING
-            )
+        psrTrace.phaseError(ruleParsingFailure) {
+            error("Failed parse normalized rule: $ruleParsingFailure times", Reason.WARNING)
         }
 
+        val mvrTrace = semgrepRuleTrace.stepTrace(Step.BUILD_META_VAR_RESOLVING)
         var metaVarResolvingFailure = 0
         val rulesWithResolvedMetaVar = parsedRules.flatMap { r ->
-            r.resolveMetaVarInfo(semgrepRuleTrace.stepTrace(Step.BUILD_META_VAR_RESOLVING))
+            r.resolveMetaVarInfo(mvrTrace)
                 ?.let { listOf(it) }
                 ?: run {
                     metaVarResolvingFailure++
@@ -95,19 +91,16 @@ class SemgrepRuleAutomataBuilder(
                 }
         }
         stats.metaVarResolvingFailure += metaVarResolvingFailure
-        semgrepRuleTrace.phaseError(metaVarResolvingFailure) {
-            error(
-                Step.BUILD_META_VAR_RESOLVING,
-                "Failed resolve MetaVar",
-                SemgrepErrorEntry.Reason.WARNING,
-            )
+        mvrTrace.phaseError(metaVarResolvingFailure) {
+            error("Failed resolve MetaVar", Reason.WARNING)
         }
 
         val ruleAfterRewrite = rulesWithResolvedMetaVar.flatMap { rewriteRule(it) }
 
+        val alcTrace = semgrepRuleTrace.stepTrace(Step.BUILD_ACTION_LIST_CONVERSION)
         var actionListConversionFailure = 0
         val ruleActionList = ruleAfterRewrite.fFlatMap { r ->
-            convertToActionList(r, semgrepRuleTrace.stepTrace(Step.BUILD_ACTION_LIST_CONVERSION))
+            convertToActionList(r, alcTrace)
                 ?.let { listOf(it) }
                 ?: run {
                     actionListConversionFailure++
@@ -115,26 +108,19 @@ class SemgrepRuleAutomataBuilder(
                 }
         }
         stats.actionListConversionFailure += actionListConversionFailure
-        semgrepRuleTrace.phaseError(actionListConversionFailure) {
-            error(
-                Step.BUILD_ACTION_LIST_CONVERSION,
-                "Failed to convert to action list",
-                SemgrepErrorEntry.Reason.WARNING,
-            )
+        alcTrace.phaseError(actionListConversionFailure) {
+            error("Failed to convert to action list", Reason.WARNING)
         }
 
         val ruleActionListWithoutDuplicates = ruleActionList.removeDuplicateRules()
 
+        val t2aTrace = semgrepRuleTrace.stepTrace(Step.BUILD_TRANSFORM_TO_AUTOMATA)
         var emptyAutomataFailure = 0
         val ruleAutomata = ruleActionListWithoutDuplicates.flatMap { r ->
             val automata = runCatching {
                 transformSemgrepRuleToAutomata(r.rule, r.metaVarInfo, automataBuildTimeout)
             }.onFailure {
-                semgrepRuleTrace.error(
-                    Step.BUILD_TRANSFORM_TO_AUTOMATA,
-                    it.message ?: "",
-                    SemgrepErrorEntry.Reason.ERROR,
-                )
+                t2aTrace.error(it.message ?: "", Reason.ERROR)
                 return@flatMap emptyList()
             }.getOrThrow()
 
@@ -147,12 +133,8 @@ class SemgrepRuleAutomataBuilder(
         }
 
         stats.emptyAutomata += emptyAutomataFailure
-        semgrepRuleTrace.phaseError(emptyAutomataFailure) {
-            error(
-                Step.BUILD_TRANSFORM_TO_AUTOMATA,
-                "Empty accepting state",
-                SemgrepErrorEntry.Reason.WARNING,
-            )
+        t2aTrace.phaseError(emptyAutomataFailure) {
+            error("Empty accepting state", Reason.WARNING)
         }
 
         return ruleAutomata
@@ -283,7 +265,7 @@ class SemgrepRuleAutomataBuilder(
         return MetaVarConstraint.Concrete(patternConcreteNames.joinToString(separator = "."))
     }
 
-    private fun SemgrepRuleLoadTrace.phaseError(failureCount: Int, body: SemgrepRuleLoadTrace.() -> Unit) {
+    private fun SemgrepRuleLoadStepTrace.phaseError(failureCount: Int, body: SemgrepRuleLoadStepTrace.() -> Unit) {
         if (failureCount > 0) {
             body()
         }

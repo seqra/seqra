@@ -3,96 +3,134 @@ package org.opentaint.semgrep.pattern.conversion.taint
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
 import org.opentaint.org.opentaint.semgrep.pattern.Mark
-import org.opentaint.semgrep.pattern.MetaVarConstraints
+import org.opentaint.org.opentaint.semgrep.pattern.UserRuleFromSemgrepInfo
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
+import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.State
 
-data class TaintRuleEdge(
-    val stateFrom: TaintRegisterStateAutomata.State,
-    val stateTo: TaintRegisterStateAutomata.State,
-    val checkGlobalState: Boolean,
-    val edgeCondition: TaintRegisterStateAutomata.EdgeCondition,
-    val edgeEffect: TaintRegisterStateAutomata.EdgeEffect,
-    val edgeKind: Kind,
+class TaintRuleGenerationCtx(
+    private val uniqueRuleId: String,
+    private val automataEdges: TaintAutomataEdges,
+    private val compositionStrategy: CompositionStrategy?
 ) {
-    enum class Kind {
-        MethodEnter,
-        MethodCall,
-        MethodExit,
+    val automata: TaintRegisterStateAutomata get() = automataEdges.automata
+    val metaVarInfo: TaintRuleGenerationMetaVarInfo get() = automataEdges.metaVarInfo
+    val globalStateAssignStates: Set<State> get() = automataEdges.globalStateAssignStates
+    val edges: List<TaintRuleEdge> get() = automataEdges.edges
+    val edgesToFinalAccept: List<TaintRuleEdge> get() = automataEdges.edgesToFinalAccept
+    val edgesToFinalDead: List<TaintRuleEdge> get() = automataEdges.edgesToFinalDead
+
+    interface CompositionStrategy {
+        fun stateContains(state: State, varName: MetavarAtom, pos: PositionBaseWithModifiers): SerializedCondition? = null
+        fun stateAssign(state: State, varName: MetavarAtom, pos: PositionBaseWithModifiers): List<SerializedTaintAssignAction>? = null
+        fun stateClean(state: State, varName: MetavarAtom?, pos: PositionBaseWithModifiers?): List<SerializedTaintCleanAction>? = null
+        fun stateAccessedMarks(state: State, varName: MetavarAtom): Set<String>? = null
     }
-}
 
-sealed interface MetaVarConstraintOrPlaceHolder {
-    data class Constraint(val constraint: MetaVarConstraints) : MetaVarConstraintOrPlaceHolder
-    data class PlaceHolder(val constraint: MetaVarConstraints?) : MetaVarConstraintOrPlaceHolder
-}
+    fun globalStateMarkName(state: State): String {
+        val stateId = automata.stateId(state)
+        return "${uniqueRuleId}${Mark.ArtificialStateName}$stateId"
+    }
 
-data class TaintRuleGenerationMetaVarInfo(
-    val constraints: Map<String, MetaVarConstraintOrPlaceHolder>
-)
+    fun artificialMarkName(name: String): String {
+        return "${uniqueRuleId}${Mark.ArtificialMetavarName}$name"
+    }
 
-open class TaintRuleGenerationCtx(
-    val uniqueRuleId: String,
-    val automata: TaintRegisterStateAutomata,
-    val metaVarInfo: TaintRuleGenerationMetaVarInfo,
-    val globalStateAssignStates: Set<TaintRegisterStateAutomata.State>,
-    val edges: List<TaintRuleEdge>,
-    val edgesToFinalAccept: List<TaintRuleEdge>,
-    val edgesToFinalDead: List<TaintRuleEdge>,
-) {
-    private fun allStates(): List<TaintRegisterStateAutomata.State> {
-        val result = mutableListOf<TaintRegisterStateAutomata.State>()
+    val stateVarPosition by lazy {
+        PositionBase.ClassStatic("${uniqueRuleId}${Mark.ArtificialStateName}").base()
+    }
+
+    fun stateAssignMark(
+        varName: MetavarAtom,
+        state: State,
+        position: PositionBaseWithModifiers
+    ): List<SerializedTaintAssignAction> {
+        compositionStrategy?.stateAssign(state, varName, position)?.let { return it }
+
+        val markName = stateMarkName(varName, state)
+            ?: return emptyList()
+
+        return listOf(SerializedTaintAssignAction(markName, pos = position))
+    }
+
+    fun stateCleanMark(
+        varName: MetavarAtom?,
+        state: State,
+        position: PositionBaseWithModifiers?
+    ): List<SerializedTaintCleanAction> {
+        compositionStrategy?.stateClean(state, varName, position)?.let { return it }
+
+        if (varName == null || position == null) return emptyList()
+
+        val markName = stateMarkName(varName, state)
+            ?: return emptyList()
+
+        return listOf(SerializedTaintCleanAction(markName, pos = position))
+    }
+
+    fun containsStateMark(
+        varName: MetavarAtom,
+        state: State,
+        position: PositionBaseWithModifiers
+    ): SerializedCondition {
+        compositionStrategy?.stateContains(state, varName, position)?.let { return it }
+
+        val markName = stateMarkName(varName, state)
+            ?: return SerializedCondition.mkFalse()
+
+        return SerializedCondition.ContainsMark(markName, position)
+    }
+
+    private fun usedTaintMarks(state: State): Set<String> =
+        state.register.assignedVars.keys.flatMapTo(hashSetOf()) { mv ->
+            compositionStrategy?.stateAccessedMarks(state, mv)?.let { return@flatMapTo it }
+            setOfNotNull(stateMarkName(mv, state))
+        }
+
+    fun edgeRuleInfo(edge: TaintRuleEdge): UserRuleFromSemgrepInfo {
+        val relevantTaintMarks = hashSetOf<String>()
+        relevantTaintMarks += usedTaintMarks(edge.stateFrom)
+        relevantTaintMarks += usedTaintMarks(edge.stateTo)
+        if (edge.checkGlobalState || edge.stateTo in globalStateAssignStates) {
+            relevantTaintMarks += globalStateMarkName(edge.stateTo)
+        }
+
+        return UserRuleFromSemgrepInfo(uniqueRuleId, relevantTaintMarks)
+    }
+
+    private fun allStates(): List<State> {
+        val result = mutableListOf<State>()
         edges.flatMapTo(result) { listOf(it.stateFrom, it.stateTo) }
         edgesToFinalAccept.flatMapTo(result) { listOf(it.stateFrom, it.stateTo) }
         edgesToFinalDead.flatMapTo(result) { listOf(it.stateFrom, it.stateTo) }
         return result
     }
 
-    private val metaVarValues by lazy {
-        val result = hashMapOf<MetavarAtom, MutableSet<Int>>()
-        allStates().forEach {
-            it.register.assignedVars.forEach { (mv, value) ->
-                result.getOrPut(mv, ::hashSetOf).add(value)
+    private val metaVarStates by lazy {
+        val result = hashMapOf<MetavarAtom, MutableSet<State>>()
+        allStates().forEach { state ->
+            state.register.assignedVars.keys.forEach { mv ->
+                result.getOrPut(mv, ::hashSetOf).add(state)
             }
         }
         result
     }
 
-    private fun allMarkValues(varName: MetavarAtom): List<String> {
-        val varValues = metaVarValues[varName] ?: error("MetaVar is not assigned")
-        return varValues.map { stateMarkName(varName, it) }
-    }
-
-    open fun containsAnyMarkValueCondition(
+    fun containsMarkWithAnyState(
         varName: MetavarAtom,
         position: PositionBaseWithModifiers
     ): SerializedCondition {
-        val conditions = allMarkValues(varName).map { SerializedCondition.ContainsMark(it, position) }
+        val varStates = metaVarStates[varName] ?: error("MetaVar is not assigned")
+        val conditions = varStates.map { containsStateMark(varName, it, position) }
         return serializedConditionOr(conditions)
     }
 
-    open fun stateMarkName(varName: MetavarAtom, varValue: Int): String =
-        "${uniqueRuleId}${Mark.MarkSeparator}${varName}${Mark.MarkSeparator}$varValue"
+    private fun stateMarkName(varName: MetavarAtom, state: State): String? =
+        state.register.assignedVars[varName]?.let { stateMarkName(varName, it) }
 
-    open fun stateAccessedMarks(varName: MetavarAtom, varValue: Int): Set<String> {
-        return setOf(stateMarkName(varName, varValue))
-    }
-
-    open fun containsStateMarkWithValue(
-        varName: MetavarAtom,
-        varValue: Int,
-        position: PositionBaseWithModifiers
-    ): SerializedCondition {
-        val markName = stateMarkName(varName, varValue)
-        return SerializedCondition.ContainsMark(markName, position)
-    }
-
-    fun globalStateMarkName(state: TaintRegisterStateAutomata.State): String {
-        val stateId = automata.stateId(state)
-        return "${uniqueRuleId}${Mark.ArtificialStateName}$stateId"
-    }
-
-    val stateVarPosition by lazy {
-        PositionBase.ClassStatic("${uniqueRuleId}${Mark.ArtificialStateName}").base()
+    private fun stateMarkName(varName: MetavarAtom, varValue: Int): String {
+        return "${uniqueRuleId}${Mark.MarkSeparator}${varName}${Mark.MarkSeparator}$varValue"
     }
 }

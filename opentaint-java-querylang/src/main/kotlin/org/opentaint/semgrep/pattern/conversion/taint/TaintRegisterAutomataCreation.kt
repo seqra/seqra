@@ -3,26 +3,63 @@ package org.opentaint.semgrep.pattern.conversion.taint
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
+import org.opentaint.semgrep.pattern.RuleWithMetaVars
 import org.opentaint.semgrep.pattern.SemgrepErrorEntry
+import org.opentaint.semgrep.pattern.SemgrepRule
+import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataEdgeType
 import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.Cube
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaManager
+import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.Edge
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.EdgeCondition
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.EdgeEffect
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.MethodPredicate
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.State
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
-fun RuleConversionCtx.createAutomataWithEdgeElimination(
+data class TaintAutomataConversionCtx(
+    val semgrepRuleTrace: SemgrepRuleLoadStepTrace,
+    val operationTimeout: Duration
+)
+
+private val automataCreationTimeout = 2.seconds
+
+fun createTaintAutomata(
+    rule: SemgrepRule<RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>>,
+    semgrepRuleTrace: SemgrepRuleLoadStepTrace
+): SemgrepRule<RuleWithMetaVars<TaintRegisterStateAutomata, ResolvedMetaVarInfo>> {
+    val ctx = TaintAutomataConversionCtx(semgrepRuleTrace, automataCreationTimeout)
+    return rule.flatMap {
+        val taintAutomata = ctx.createAutomataWithEdgeElimination(
+            it.rule.formulaManager, it.metaVarInfo, it.rule.initialNode
+        )
+        if (taintAutomata == null) return@flatMap emptyList()
+
+        listOf(RuleWithMetaVars(taintAutomata, it.metaVarInfo))
+    }
+}
+
+private fun TaintAutomataConversionCtx.createAutomataWithEdgeElimination(
     formulaManager: MethodFormulaManager,
     metaVarInfo: ResolvedMetaVarInfo,
     initialNode: AutomataNode,
-    automataCreationTimeout: Duration,
+): TaintRegisterStateAutomata? =
+    runCatching {
+        createAutomataWithEdgeEliminationUnsafe(formulaManager, metaVarInfo, initialNode)
+    }.onFailure { ex ->
+        semgrepRuleTrace.error("Taint automata creation failure: ${ex.message}", SemgrepErrorEntry.Reason.ERROR)
+    }.getOrNull()
+
+private fun TaintAutomataConversionCtx.createAutomataWithEdgeEliminationUnsafe(
+    formulaManager: MethodFormulaManager,
+    metaVarInfo: ResolvedMetaVarInfo,
+    initialNode: AutomataNode,
 ): TaintRegisterStateAutomata? {
-    val automata = createAutomata(formulaManager, metaVarInfo, initialNode, automataCreationTimeout)
+    val automata = createAutomata(formulaManager, metaVarInfo, initialNode, operationTimeout)
 
     val anyValueGeneratorEdgeEliminator = edgeTypePreservingEdgeEliminator(::eliminateAnyValueGenerator)
     val automataWithoutGeneratedEdges = eliminateEdges(

@@ -101,6 +101,7 @@ data class SemgrepRuleLoadStepTrace(
 sealed class SemgrepTraceEntry {
     enum class Step {
         LOAD_RULESET,
+        BUILD,
         BUILD_CONVERT_TO_RAW_RULE,
         BUILD_PARSE_SEMGREP_RULE,
         BUILD_META_VAR_RESOLVING,

@@ -5,10 +5,12 @@ import com.charleskorn.kaml.YamlMap
 import com.charleskorn.kaml.YamlScalar
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
+import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
 import org.opentaint.semgrep.pattern.SemgrepTraceEntry.Step
 import org.opentaint.semgrep.pattern.conversion.ActionListBuilder
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
 import org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
+import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 import org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
 
 data class RuleMetadata(
@@ -32,17 +34,26 @@ fun YamlMap.readStrings(key: String): List<String>? {
     }
 }
 
-class SemgrepRuleLoader {
-    private val parser = SemgrepPatternParser.create().cached()
-    private val converter = ActionListBuilder.create().cached()
+private typealias BuiltRule = RuleWithMetaVars<SemgrepRuleAutomata, ResolvedMetaVarInfo>
 
-    fun loadRuleSet(
+class SemgrepRuleLoader(
+    private val parser: SemgrepPatternParser = SemgrepPatternParser.create().cached(),
+    private val converter: ActionListBuilder = ActionListBuilder.create().cached()
+) {
+    data class RegisteredRule(
+        val ruleId: String,
+        val rule: SemgrepYamlRule,
+        val semgrepRuleTrace: SemgrepRuleLoadTrace
+    )
+
+    private val registeredRules = hashMapOf<String, RegisteredRule>()
+
+    fun registerRuleSet(
         ruleSetText: String,
         ruleSetName: String,
         semgrepFileTrace: SemgrepFileLoadTrace
-    ): List<Pair<TaintRuleFromSemgrep, RuleMetadata>> {
-        val ruleSet = parseSemgrepYaml(ruleSetText, semgrepFileTrace)
-            ?: return emptyList()
+    ) {
+        val ruleSet = parseSemgrepYaml(ruleSetText, semgrepFileTrace) ?: return
 
         val (javaRules, otherRules) = ruleSet.rules.partition { it.isJavaRule() }
         semgrepFileTrace.info("Found ${javaRules.size} java rules in $ruleSetName")
@@ -51,45 +62,53 @@ class SemgrepRuleLoader {
             val ruleId = SemgrepRuleUtils.getRuleId(ruleSetName, it.id)
             semgrepFileTrace
                 .ruleTrace(ruleId, it.id)
-                .error(
-                    Step.LOAD_RULESET,
-                    "Unsupported rule",
-                    SemgrepErrorEntry.Reason.ERROR
-                )
+                .error(Step.LOAD_RULESET, "Unsupported rule", Reason.ERROR)
         }
 
-        val rulesAndMetadata = javaRules.mapNotNull {
+        javaRules.forEach {
             val ruleId = SemgrepRuleUtils.getRuleId(ruleSetName, it.id)
-            loadRule(ruleId, it, semgrepFileTrace.ruleTrace(ruleId, it.id))
+            registeredRules[ruleId] = RegisteredRule(ruleId, it, semgrepFileTrace.ruleTrace(ruleId, it.id))
         }
-        semgrepFileTrace.info("Load ${rulesAndMetadata.size} rules from $ruleSetName")
-        return rulesAndMetadata
+
+        semgrepFileTrace.info("Register ${javaRules.size} rules from $ruleSetName")
     }
 
-    private fun loadRule(
-        ruleId: String,
-        rule: SemgrepYamlRule,
-        semgrepRuleTrace: SemgrepRuleLoadTrace
-    ): Pair<TaintRuleFromSemgrep, RuleMetadata>? {
+    fun loadRules(): List<Pair<TaintRuleFromSemgrep, RuleMetadata>> {
+        registeredRules.values.forEach { buildRule(it) }
+
+        val loaded = mutableListOf<Pair<TaintRuleFromSemgrep, RuleMetadata>>()
+        patternRules.values.mapNotNullTo(loaded) { loadRule(it) }
+        taintRules.values.mapNotNullTo(loaded) { loadRule(it) }
+        return loaded
+    }
+
+    private data class PreparedRule<P, R : SemgrepRule<P>>(
+        val ruleId: String,
+        val rule: R,
+        val metadata: RuleMetadata,
+        val sinkMeta: SinkMetaData,
+        val semgrepRuleTrace: SemgrepRuleLoadTrace,
+    )
+
+    private val patternRules = hashMapOf<String, PreparedRule<BuiltRule, SemgrepMatchingRule<BuiltRule>>>()
+    private val taintRules = hashMapOf<String, PreparedRule<BuiltRule, SemgrepTaintRule<BuiltRule>>>()
+
+    private fun buildRule(registeredRule: RegisteredRule) {
+        val ruleId = registeredRule.ruleId
+        val rule = registeredRule.rule
+        val semgrepRuleTrace = registeredRule.semgrepRuleTrace
+
         val ruleAutomataBuilder = SemgrepRuleAutomataBuilder(parser, converter)
         val ruleAutomata = runCatching {
             ruleAutomataBuilder.build(rule, semgrepRuleTrace)
         }.onFailure {
-            semgrepRuleTrace.error(
-                Step.LOAD_RULESET,
-                "Failed to build rule automata: $ruleId",
-                SemgrepErrorEntry.Reason.ERROR
-            )
-            return null
+            semgrepRuleTrace.stepTrace(Step.BUILD).error("Failed to build rule automata", Reason.ERROR)
+            return
         }.getOrThrow()
 
         val stats = ruleAutomataBuilder.stats
         if (stats.isFailure) {
-            semgrepRuleTrace.error(
-                Step.LOAD_RULESET,
-                "Rule $ruleId automata build issues: $stats",
-                SemgrepErrorEntry.Reason.ERROR
-            )
+            semgrepRuleTrace.stepTrace(Step.BUILD).error("Automata build issues", Reason.ERROR)
         }
 
         val ruleCwe = rule.cweInfo()
@@ -107,17 +126,29 @@ class SemgrepRuleLoader {
 
         val metadata = RuleMetadata(ruleId, rule.id, rule.message, severity, rule.metadata)
 
+        when (ruleAutomata) {
+            is SemgrepMatchingRule<BuiltRule> -> {
+                val preparedRule = PreparedRule(ruleId, ruleAutomata, metadata, sinkMeta, semgrepRuleTrace)
+                patternRules[ruleId] = preparedRule
+            }
+
+            is SemgrepTaintRule<BuiltRule> -> {
+                val preparedRule = PreparedRule(ruleId, ruleAutomata, metadata, sinkMeta, semgrepRuleTrace)
+                taintRules[ruleId] = preparedRule
+            }
+        }
+    }
+
+    private fun <R : SemgrepRule<BuiltRule>> loadRule(
+        preparedRule: PreparedRule<BuiltRule, R>
+    ): Pair<TaintRuleFromSemgrep, RuleMetadata>? {
+        val semgrepRuleTrace = preparedRule.semgrepRuleTrace
+        val a2trTrace = semgrepRuleTrace.stepTrace(Step.AUTOMATA_TO_TAINT_RULE)
         return runCatching {
-            convertToTaintRules(
-                ruleAutomata, ruleId, sinkMeta,
-                semgrepRuleTrace.stepTrace(Step.AUTOMATA_TO_TAINT_RULE)
-            ) to metadata
+            val rules = convertToTaintRules(preparedRule.rule, preparedRule.ruleId, preparedRule.sinkMeta, a2trTrace)
+            rules to preparedRule.metadata
         }.onFailure {
-            semgrepRuleTrace.error(
-                Step.AUTOMATA_TO_TAINT_RULE,
-                "Failed to create taint rules: $ruleId",
-                SemgrepErrorEntry.Reason.ERROR
-            )
+            a2trTrace.error("Failed to create taint rules", Reason.ERROR)
             return null
         }.getOrThrow().also {
             semgrepRuleTrace.info("Generate ${it.first.size} rules from ${it.first.ruleId}")

@@ -27,21 +27,33 @@ import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.StateRegister
 import java.util.IdentityHashMap
 
-fun RuleConversionCtx.generateAutomataWithTaintEdges(
-    automata: TaintRegisterStateAutomata,
+data class TaintRegisterStateAutomataWithStateVars(
+    val automata: TaintRegisterStateAutomata,
+    val initialStateVars: Set<MetavarAtom>,
+    val acceptStateVars: Set<MetavarAtom>
+)
+
+fun RuleConversionCtx.generateTaintAutomataEdges(
+    automata: TaintRegisterStateAutomataWithStateVars,
     metaVarInfo: ResolvedMetaVarInfo,
-    automataId: String,
-    acceptStateVars: Set<MetavarAtom>
-): TaintRuleGenerationCtx {
-    val simulated = simulateAutomata(automata)
+): TaintAutomataEdges {
+    val cleanAutomata = generateCleanAutomata(automata, metaVarInfo)
+    val generatedEdges = generateTaintEdges(cleanAutomata.automata, metaVarInfo)
+    val resultAutomata = cleanupAutomata(generatedEdges)
+    return resultAutomata
+}
+
+private fun RuleConversionCtx.generateCleanAutomata(
+    automata: TaintRegisterStateAutomataWithStateVars,
+    metaVarInfo: ResolvedMetaVarInfo,
+): TaintRegisterStateAutomataWithStateVars {
+    val simulated = simulateAutomata(automata.automata, automata.initialStateVars)
     val meaningFullAutomata = removeMeaningLessEdges(simulated)
     val cleaned = removeUnreachableStates(meaningFullAutomata)
     val rewritten = rewriteEdges(cleaned)
-    val liveAutomata = eliminateDeadVariables(rewritten, acceptStateVars)
+    val liveAutomata = eliminateDeadVariables(rewritten, automata.acceptStateVars)
     val cleanAutomata = cleanupAutomata(liveAutomata, metaVarInfo)
-    val generatedEdges =  generateTaintEdges(cleanAutomata, metaVarInfo, automataId)
-    val resultAutomata = cleanupAutomata(generatedEdges)
-    return resultAutomata
+    return automata.copy(automata = cleanAutomata)
 }
 
 private fun canClean(edge: Edge, from: State): Boolean {
@@ -62,10 +74,17 @@ private data class SimulationState(
     val originalPath: PersistentMap<State, State>
 )
 
-private fun RuleConversionCtx.simulateAutomata(automata: TaintRegisterStateAutomata): TaintRegisterStateAutomata {
+private fun RuleConversionCtx.simulateAutomata(
+    automata: TaintRegisterStateAutomata,
+    initialStateVars: Set<MetavarAtom>,
+): TaintRegisterStateAutomata {
+    val initialStateId = automata.stateId(automata.initial)
+    val initialStateRegister = StateRegister(initialStateVars.associateWith { initialStateId })
+    val initialState = automata.initial.copy(register = initialStateRegister)
+
     val initialSimulationState = SimulationState(
-        automata.initial, automata.initial,
-        persistentHashMapOf(automata.initial to automata.initial)
+        original = automata.initial, state = initialState,
+        originalPath = persistentHashMapOf(automata.initial to initialState)
     )
     val unprocessed = mutableListOf(initialSimulationState)
 
@@ -115,7 +134,7 @@ private fun RuleConversionCtx.simulateAutomata(automata: TaintRegisterStateAutom
     }
 
     val result = TaintRegisterStateAutomata(
-        automata.formulaManager, automata.initial,
+        automata.formulaManager, initialState,
         finalAcceptStates, finalDeadStates,
         successors, automata.nodeIndex
     )
@@ -410,8 +429,7 @@ private inline fun rewriteEdgeWrtComplexMetavars(
         }
     }
 
-    val newCondition =
-        EdgeCondition(newReadMetavar.mapValues { it.value.toList() }, newOther)
+    val newCondition = EdgeCondition(newReadMetavar.mapValues { it.value.toList() }, newOther)
     val newEffect = EdgeEffect(effectWriteVars.mapValues { it.value.toList() })
     return rebuildEdge(newEffect, newCondition)
 }
@@ -833,16 +851,16 @@ private fun EdgeCondition.isDummyCondition(metaVarInfo: ResolvedMetaVarInfo): Bo
     return true
 }
 
-private fun cleanupAutomata(automata: TaintRuleGenerationCtx): TaintRuleGenerationCtx {
+private fun cleanupAutomata(automata: TaintAutomataEdges): TaintAutomataEdges {
     return dropUnassignedMarkChecks(automata)
 }
 
-private fun dropUnassignedMarkChecks(automata: TaintRuleGenerationCtx): TaintRuleGenerationCtx {
+private fun dropUnassignedMarkChecks(automata: TaintAutomataEdges): TaintAutomataEdges {
     val edges = automata.edges.map { it.copy(edgeCondition = it.edgeCondition.dropUnassignedMarkChecks(it.stateFrom)) }
     val edgesToFinalAccept = automata.edgesToFinalAccept.map { it.copy(edgeCondition = it.edgeCondition.dropUnassignedMarkChecks(it.stateFrom)) }
     val edgesToFinalDead = automata.edgesToFinalDead.map { it.copy(edgeCondition = it.edgeCondition.dropUnassignedMarkChecks(it.stateFrom)) }
-    return TaintRuleGenerationCtx(
-        automata.uniqueRuleId, automata.automata, automata.metaVarInfo, automata.globalStateAssignStates,
+    return TaintAutomataEdges(
+        automata.automata, automata.metaVarInfo, automata.globalStateAssignStates,
         edges, edgesToFinalAccept, edgesToFinalDead
     )
 }

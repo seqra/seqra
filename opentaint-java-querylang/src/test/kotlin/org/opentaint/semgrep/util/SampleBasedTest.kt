@@ -4,18 +4,13 @@ import base.RuleSample
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
-import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SourceRule
 import org.opentaint.org.opentaint.semgrep.pattern.Mark
 import org.opentaint.semgrep.pattern.SemgrepFileLoadTrace
-import org.opentaint.semgrep.pattern.SemgrepTraceEntry
-import org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
-import org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
+import org.opentaint.semgrep.pattern.SemgrepRuleLoader
 import org.opentaint.semgrep.pattern.createTaintConfig
-import org.opentaint.semgrep.pattern.parseSemgrepYaml
 import kotlin.io.path.Path
-import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -36,24 +31,16 @@ abstract class SampleBasedTest(
         val data = sampleData[sampleClassName] ?: error("No sample data for $sampleClassName")
 
         val trace = SemgrepFileLoadTrace(data.rulePath)
-        val ruleYaml = parseSemgrepYaml(data.rule, trace)
-        val rule = ruleYaml?.rules?.singleOrNull() ?: error("Not a single rule for ${data.rulePath}")
-        check(rule.languages.contains("java"))
+        val loader = SemgrepRuleLoader()
+        loader.registerRuleSet(ruleSetText = data.rule, ruleSetName = data.rulePath, trace)
 
-        val semgrepRuleTrace = trace.ruleTrace(rule.id, rule.id)
-        val builder = SemgrepRuleAutomataBuilder()
-        val ruleAutomata = builder.build(rule, semgrepRuleTrace)
-        assertFalse(builder.stats.isFailure, "Could not convert rule to Automata: ${builder.stats}")
-//        ruleAutomata.forEach { it.view() }
+        val loadedRules = loader.loadRules()
+        val (rule, ruleMeta) = loadedRules.singleOrNull()
+            ?: error("Not a single rule for ${data.rulePath}")
 
-        val rules = convertToTaintRules(
-            ruleAutomata, rule.id, SinkMetaData(),
-            semgrepRuleTrace.stepTrace(SemgrepTraceEntry.Step.AUTOMATA_TO_TAINT_RULE)
-        )
+        val taintConfig = rule.createTaintConfig()
 
-        val taintConfig = rules.createTaintConfig()
-
-        val stateVarExists = doesCreateStateVar(taintConfig, rule.id)
+        val stateVarExists = doesCreateStateVar(taintConfig, ruleMeta.path)
         if (!expectStateVar && stateVarExists) {
             fail("Taint config has AssignAction that creates a state var, but `expectStateVar` was set to `false`!")
         }

@@ -309,13 +309,6 @@ fun parseSemgrepYaml(yml: String, trace: SemgrepFileLoadTrace): SemgrepYamlRuleS
         currentLoadTrace = null
     }
 
-fun yamlToSemgrepRule(yml: String, trace: SemgrepFileLoadTrace): List<SemgrepYamlRule> {
-    val ruleSet = parseSemgrepYaml(yml, trace) ?: return emptyList()
-    return ruleSet.rules.filter { rule ->
-        "java" in rule.languages.map { it.lowercase() }
-    }
-}
-
 fun parseSemgrepRule(rule: SemgrepYamlRule, trace: SemgrepRuleLoadStepTrace): SemgrepRule<Formula> =
     if (rule.mode == "taint") {
         parseTaintRule(rule, trace)

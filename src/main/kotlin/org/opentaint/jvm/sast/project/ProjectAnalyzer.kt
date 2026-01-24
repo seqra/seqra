@@ -154,22 +154,16 @@ class ProjectAnalyzer(
         semgrepRulesPath: Path,
         semgrepTrace: SemgrepLoadTrace
     ): List<TaintRuleFromSemgrep> {
-        val rules = mutableListOf<TaintRuleFromSemgrep>()
         val loader = SemgrepRuleLoader()
+
         val ruleExtensions = arrayOf("yaml", "yml")
         semgrepRulesPath.walk().filter { it.extension in ruleExtensions }.forEach { rulePath ->
             val ruleName = semgrepRulesPath.resolve(rulePath).absolutePathString()
-
-            val ruleText = rulePath.readText()
-
-            val (loadedRules, loadedMetadatas) = loader.loadRuleSet(
-                ruleText,
-                ruleName,
-                semgrepTrace.fileTrace(ruleName)
-            ).unzip()
-            rules += loadedRules
-            ruleMetadatas += loadedMetadatas
+            loader.registerRuleSet(rulePath.readText(), ruleName, semgrepTrace.fileTrace(ruleName))
         }
+
+        val (rules, loadedMetadatas) = loader.loadRules().unzip()
+        ruleMetadatas += loadedMetadatas
 
         logger.info { "Total loaded ${rules.sumOf { it.size }} rules" }
 

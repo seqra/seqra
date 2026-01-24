@@ -16,7 +16,6 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
-import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.semgrep.pattern.SemgrepErrorEntry
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
 import org.opentaint.semgrep.pattern.SemgrepJavaPatternParser
@@ -25,16 +24,10 @@ import org.opentaint.semgrep.pattern.SemgrepLoadTrace
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadTrace
 import org.opentaint.semgrep.pattern.SemgrepRuleLoader
-import org.opentaint.semgrep.pattern.SemgrepRuleUtils
-import org.opentaint.semgrep.pattern.SemgrepTraceEntry
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import org.opentaint.semgrep.pattern.conversion.PatternToActionListConverter
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternParser
-import org.opentaint.semgrep.pattern.conversion.SemgrepRuleAutomataBuilder
-import org.opentaint.semgrep.pattern.conversion.taint.convertToTaintRules
-import org.opentaint.semgrep.pattern.yamlToSemgrepRule
 import java.nio.file.Path
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.deleteExisting
@@ -46,7 +39,7 @@ import kotlin.io.path.writeText
 import kotlin.random.Random
 import kotlin.system.measureTimeMillis
 import kotlin.time.Duration
-import kotlin.time.measureTimedValue
+import kotlin.time.measureTime
 
 fun main() {
     val path = Path(System.getProperty("user.home")).resolve("data/opentaint-rules")
@@ -386,97 +379,28 @@ private fun collectParsingStats(path: Path): List<Pair<SemgrepJavaPattern, Strin
         }
     }
 
-    var converted = 0
-    var all = 0
-    var exceptionWhileBuildingAutomata = 0
-    var taintRuleGenerationException = 0
-    var successTaintRules = 0
-    val taintRuleGenerationExceptions = hashMapOf<String, AtomicInteger>()
-    val automataBuildExceptions = hashMapOf<String, AtomicInteger>()
     val ruleBuildTime = hashMapOf<String, Duration>()
 
-    val ruleBuilderStats = SemgrepRuleAutomataBuilder.Stats()
-
     val rootDir = path.toFile()
-    rootDir.walk()
-        .filter { it.isFile }.forEach { file ->
-            if (file.extension !in setOf("yml", "yaml")) {
-                return@forEach
-            }
-
-            if (file.name in ignoreFiles) {
-                return@forEach
-            }
-            println("Reading $file")
-            val content = file.readText()
-
-            val semgrepFileTrace = semgrepTrace.fileTrace(file.path.toString())
-            val rules = yamlToSemgrepRule(content, semgrepFileTrace)
-
-            if (rules.isEmpty()) {  // not java rules
-                return@forEach
-            }
-            all++
-
-            for ((i, rule) in rules.withIndex()) {
-                val semgrepRuleTrace = semgrepFileTrace.ruleTrace(
-                    SemgrepRuleUtils.getRuleId(file.toString(), rule.id),
-                    rule.id
-                )
-
-                val ruleBuilder = SemgrepRuleAutomataBuilder(patternParser.cached(), converter.cached())
-                val automata = measureTimedValue {
-                    runCatching {
-                        ruleBuilder.build(rule, semgrepRuleTrace)
-                    }.getOrElse { e ->
-                        semgrepFileTrace.error(
-                            SemgrepTraceEntry.Step.LOAD_RULESET,
-                            "Exception build rule: $e",
-                            SemgrepErrorEntry.Reason.ERROR,
-                        )
-                        automataBuildExceptions.getOrPut(e.toString(), ::AtomicInteger).incrementAndGet()
-                        exceptionWhileBuildingAutomata += 1
-                        null
-                    }
-                }.also {
-                    val rulePath = file.relativeTo(rootDir).toString()
-                    val ruleFqn = "$rulePath#$i"
-                    ruleBuildTime[ruleFqn] = it.duration
-                }.value
-
-                ruleBuilderStats.add(ruleBuilder.stats)
-
-                if (automata == null) continue
-
-                converted++
-                println("converted")
-
-                runCatching {
-                    convertToTaintRules(
-                        automata, "test", SinkMetaData(),
-                        semgrepRuleTrace.stepTrace(SemgrepTraceEntry.Step.AUTOMATA_TO_TAINT_RULE)
-                    )
-                }.onFailure { e ->
-                    semgrepRuleTrace.error(
-                        SemgrepTraceEntry.Step.AUTOMATA_TO_TAINT_RULE,
-                        "Exception convert ruleAutomata to TaintRules: $e",
-                        SemgrepErrorEntry.Reason.ERROR,
-                    )
-
-                    taintRuleGenerationExceptions.getOrPut(e.toString(), ::AtomicInteger).incrementAndGet()
-                    taintRuleGenerationException++
-                }.onSuccess { successTaintRules++ }
-            }
+    rootDir.walk().filter { it.isFile }.forEach { file ->
+        if (file.extension !in setOf("yml", "yaml")) {
+            return@forEach
         }
 
-    println("Converted into automata $converted/$all")
-    println("Exceptions while building automata: $exceptionWhileBuildingAutomata")
-    automataBuildExceptions.entries.sortedByDescending { it.value.get() }.forEach { (key, value) ->
-        println("$key: $value")
+        if (file.name in ignoreFiles) {
+            return@forEach
+        }
+
+        println("Reading $file")
+        val content = file.readText()
+        val semgrepFileTrace = semgrepTrace.fileTrace(file.path)
+        val time = measureTime {
+            val loader = SemgrepRuleLoader(patternParser, converter)
+            loader.registerRuleSet(content, file.path, semgrepFileTrace)
+            loader.loadRules()
+        }
+        ruleBuildTime[file.path] = time
     }
-    println()
-    println(ruleBuilderStats)
-    println()
 
     println("Pattern statistics:")
     println("Success: $successful")
@@ -490,14 +414,6 @@ private fun collectParsingStats(path: Path): List<Pair<SemgrepJavaPattern, Strin
     println()
     println("PatternToActionListConverter errors:")
     converter.failedTransformations.entries.sortedByDescending { it.value }.forEach { (key, value) ->
-        println("$key: $value")
-    }
-
-    println()
-    println("Taint rules")
-    println("Success: $successTaintRules")
-    println("Failures: $taintRuleGenerationException")
-    taintRuleGenerationExceptions.entries.sortedByDescending { it.value.get() }.forEach { (key, value) ->
         println("$key: $value")
     }
 
@@ -558,14 +474,6 @@ private fun SemgrepErrorEntry.ruleKind(): String {
     return normalizedMessage
 }
 
-private fun SemgrepRuleAutomataBuilder.Stats.add(other: SemgrepRuleAutomataBuilder.Stats) {
-    this.ruleParsingFailure += other.ruleParsingFailure
-    this.ruleWithoutPattern += other.ruleWithoutPattern
-    this.actionListConversionFailure += other.actionListConversionFailure
-    this.metaVarResolvingFailure += other.metaVarResolvingFailure
-    this.emptyAutomata += other.emptyAutomata
-}
-
 private fun testStability(path: Path, nIterations: Int = 100) {
     val rng = Random(943)
     val ruleExtensions = arrayOf("yaml", "yml")
@@ -610,11 +518,8 @@ private fun collectRuleSetStat(semgrepRulesPath: Path, allRules: List<Path>): Ha
     val trace = SemgrepLoadTrace()
     for (rulePath in allRules) {
         val ruleName = semgrepRulesPath.resolve(rulePath).absolutePathString()
-        val (loadedRules, _) = loader.loadRuleSet(
-            rulePath.readText(),
-            ruleName,
-            trace.fileTrace(ruleName)
-        ).unzip()
+        loader.registerRuleSet(rulePath.readText(), ruleName, trace.fileTrace(ruleName))
+        val (loadedRules, _) = loader.loadRules().unzip()
         loadedRules.forEach {
             stats[it.ruleId] = it.stats()
         }
