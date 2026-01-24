@@ -60,6 +60,7 @@ class MethodInstGraph(
             graph: ApplicationGraph<CommonMethod, CommonInst>,
             method: CommonMethod
         ): MethodInstGraph {
+            val methodGraph = graph.methodGraph(method)
             val graphSize = languageManager.getMaxInstIndex(method) + 1
 
             val successors = IntArray(graphSize)
@@ -75,7 +76,7 @@ class MethodInstGraph(
             for (i in 0 until graphSize) {
                 val inst = instructions[i]
 
-                val instSuccessors = graph.successors(inst).toList()
+                val instSuccessors = methodGraph.successors(inst).toList()
                 when (instSuccessors.size) {
                     0 -> successors[i] = EMPTY
                     1 -> {
@@ -88,7 +89,7 @@ class MethodInstGraph(
                     }
                 }
 
-                val instPredecessors = graph.predecessors(inst).toList()
+                val instPredecessors = methodGraph.predecessors(inst).toList()
                 when (instPredecessors.size) {
                     0 -> predecessors[i] = EMPTY
                     1 -> {
@@ -102,7 +103,7 @@ class MethodInstGraph(
                 }
             }
 
-            val exitPoints = graph.exitPoints(method).toList().toBitSet { languageManager.getInstIndex(it) }
+            val exitPoints = methodGraph.exitPoints().toList().toBitSet { languageManager.getInstIndex(it) }
 
             return MethodInstGraph(
                 instructions, successors,

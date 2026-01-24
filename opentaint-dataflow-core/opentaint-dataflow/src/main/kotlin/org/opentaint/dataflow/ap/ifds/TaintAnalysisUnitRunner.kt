@@ -206,7 +206,7 @@ class TaintAnalysisUnitRunner(
     }
 
     private fun handleStartMethodEvent(method: CommonMethod) {
-        for (start in graph.entryPoints(method)) {
+        for (start in graph.methodGraph(method).entryPoints()) {
             val methodEntryPoint = MethodEntryPoint(EmptyMethodContext, start)
             val methodAnalyzers = methodAnalyzers(methodEntryPoint)
             methodAnalyzers.add(this, methodEntryPoint)

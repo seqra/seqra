@@ -17,7 +17,7 @@ class MethodAnalyzerStorage(
             val analyzer = if (!languageManager.isEmpty(methodEntryPoint.method)) {
                 NormalMethodAnalyzer(runner, methodEntryPoint, taintRulesStatsSamplingPeriod)
             } else {
-                val methodExitPoints = runner.graph.exitPoints(methodEntryPoint.method).toList()
+                val methodExitPoints = runner.graph.methodGraph(methodEntryPoint.method).exitPoints().toList()
 
                 check(methodExitPoints.isEmpty() || methodEntryPoint.statement in methodExitPoints) {
                     "Empty method entry point not in exit points"

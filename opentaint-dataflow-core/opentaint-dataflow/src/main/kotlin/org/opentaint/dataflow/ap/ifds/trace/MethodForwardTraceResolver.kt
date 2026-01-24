@@ -245,7 +245,7 @@ class MethodForwardTraceResolver(
 
     private fun methodEntryPoints(method: MethodWithContext): List<MethodEntryPoint> {
         val methodEntryPoints = methodEntryPointsCache.getOrPut(method.method) {
-            runner.graph.entryPoints(method.method).toList().toTypedArray()
+            runner.graph.methodGraph(method.method).entryPoints().toList().toTypedArray()
         }
         return methodEntryPoints.map { MethodEntryPoint(method.ctx, it) }
     }

@@ -32,8 +32,10 @@ class JIRLocalVariableReachability(
     }
 
     private fun computeReachability(): Array<BitSet?> {
+        val methodGraph = graph.methodGraph(method)
+
         val statementReachability = arrayOfNulls<BitSet?>(instructionStorageSize(maxInstIdx))
-        val unprocessed = graph.exitPoints(method).mapTo(mutableListOf()) { it to BitSet() }
+        val unprocessed = methodGraph.exitPoints().mapTo(mutableListOf()) { it to BitSet() }
 
         while (unprocessed.isNotEmpty()) {
             val (statement, prevReachability) = unprocessed.removeLast()
@@ -66,7 +68,7 @@ class JIRLocalVariableReachability(
                 reachableLocalsAtStatement
             }
 
-            graph.predecessors(statement).forEach { unprocessed.add(it to nextReachable) }
+            methodGraph.predecessors(statement).forEach { unprocessed.add(it to nextReachable) }
         }
 
         return statementReachability

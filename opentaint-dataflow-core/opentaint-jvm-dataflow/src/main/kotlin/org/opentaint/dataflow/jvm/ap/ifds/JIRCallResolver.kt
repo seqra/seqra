@@ -254,7 +254,10 @@ class JIRCallResolver(
     ): Pair<List<JIRAssignInst>, List<JIRCatchInst>> {
         val visitedStatements = hashSetOf<JIRInst>()
         val unprocessedStatements = mutableListOf<JIRInst>()
-        unprocessedStatements.addAll(graph.predecessors(initialLocation))
+
+        val method = graph.methodOf(initialLocation)
+        val methodGraph = graph.methodGraph(method)
+        unprocessedStatements.addAll(methodGraph.predecessors(initialLocation))
 
         val assignments = mutableListOf<JIRAssignInst>()
         val catchers = mutableListOf<JIRCatchInst>()
@@ -273,7 +276,7 @@ class JIRCallResolver(
                 continue
             }
 
-            unprocessedStatements.addAll(graph.predecessors(stmt))
+            unprocessedStatements.addAll(methodGraph.predecessors(stmt))
         }
 
         return assignments to catchers

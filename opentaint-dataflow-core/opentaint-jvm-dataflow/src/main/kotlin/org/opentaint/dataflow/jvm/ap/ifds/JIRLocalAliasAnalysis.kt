@@ -51,6 +51,8 @@ class JIRLocalAliasAnalysis(
     }
 
     private fun compute(): MethodAliasInfo {
+        val methodGraph = graph.methodGraph(graph.methodOf(entryPoint))
+
         val beforeInst = arrayOfNulls<State>(languageManager.getMaxInstIndex(entryPoint.location.method) + 1)
         val afterInst = arrayOfNulls<State>(languageManager.getMaxInstIndex(entryPoint.location.method) + 1)
         val unprocessed = mutableListOf<Pair<JIRInst, State>>()
@@ -72,7 +74,7 @@ class JIRLocalAliasAnalysis(
 
             afterInst[instIdx] = nextState
 
-            graph.successors(inst).forEach { successor ->
+            methodGraph.successors(inst).forEach { successor ->
                 unprocessed.add(successor to nextState)
             }
         }

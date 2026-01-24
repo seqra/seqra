@@ -1379,7 +1379,7 @@ class MethodTraceResolver(
     }
 
     private fun methodEntryPoints(method: MethodWithContext): Sequence<MethodEntryPoint> =
-        runner.graph.entryPoints(method.method).map { MethodEntryPoint(method.ctx, it) }
+        runner.graph.methodGraph(method.method).entryPoints().map { MethodEntryPoint(method.ctx, it) }
 
     private fun containsEntryEdge(entryStatement: CommonInst, entryEdge: TraceEdge): Boolean {
         when (entryEdge) {
