@@ -29,19 +29,26 @@ sealed interface Mark {
         const val GeneralTaintLabelPrefix = "taint_"
         const val MarkSeparator = '|'
         const val SquishedSeparator = '&'
+        const val RuleIdSeparator = '#'
 
         val logger = object : KLogging() {}.logger
 
+        fun markNamePrefix(shortRuleId: String, prefix: String) =
+            "$shortRuleId${RuleIdSeparator}$prefix"
+
         fun getMarkFromString(rawMark: String, ruleId: String): Mark {
-            if (!rawMark.contains('#'))
-            // running with config
+            val markRuleId = rawMark.substringBefore(RuleIdSeparator, missingDelimiterValue = "")
+            if (markRuleId.isBlank()) {
+                // running with config
                 return StringMark(rawMark)
-            val ruleLength = ruleId.length
-            if (!(rawMark.length > ruleLength && rawMark[ruleLength] == '#')) {
+            }
+
+            if (!ruleId.endsWith(markRuleId)) {
                 logger.error { "expected ruleId at the start of mark!" }
                 return TaintMark
             }
-            val noRuleId = rawMark.substring(ruleLength + 1)
+
+            val noRuleId = rawMark.substringAfter(RuleIdSeparator)
             if (noRuleId.startsWith(GeneralTaintLabelPrefix))
                 return StringMark(noRuleId.substringAfter(GeneralTaintLabelPrefix))
             if (noRuleId == GeneralTaintName)

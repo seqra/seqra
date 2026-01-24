@@ -466,10 +466,14 @@ private fun MethodConstraint.replaceMetavar(replace: (MetavarAtom) -> MetavarAto
 private fun RuleConversionCtx.removeMeaningLessEdges(
     automata: TaintRegisterStateAutomata
 ): TaintRegisterStateAutomata {
-    val removedEdges = mutableListOf<Edge>()
+    val removedEdgesToAccept = mutableListOf<Edge>()
+    val removedEdgesToUnreachable = mutableListOf<Edge>()
+    val reachableStates = stateReachesAccept(automata)
+
     val successors = automata.successors.mapValues { (srcState, edges) ->
         val resultEdges = hashSetOf<Pair<Edge, State>>()
         for ((edge, dstState) in edges) {
+            val removedEdges = if (dstState in reachableStates) removedEdgesToAccept else removedEdgesToUnreachable
             val positiveEdge = edge.ensurePositiveCondition(removedEdges)
             if (positiveEdge == null) {
                 check(srcState.register == dstState.register) { "State register modified with non-positive edge" }
@@ -481,8 +485,8 @@ private fun RuleConversionCtx.removeMeaningLessEdges(
         resultEdges
     }
 
-    if (removedEdges.isNotEmpty()) {
-        trace.error("Edges without positive predicate: ${removedEdges.size}", Reason.ERROR)
+    if (removedEdgesToAccept.isNotEmpty()) {
+        trace.error("Edges without positive predicate: ${removedEdgesToAccept.size}", Reason.ERROR)
     }
 
     return automata.copy(successors = successors)

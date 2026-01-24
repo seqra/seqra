@@ -18,6 +18,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssign
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
+import org.opentaint.org.opentaint.semgrep.pattern.Mark.Companion.markNamePrefix
 import org.opentaint.org.opentaint.semgrep.pattern.UserRuleFromSemgrepInfo
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
@@ -55,14 +56,11 @@ import org.opentaint.semgrep.pattern.flatMap
 import org.opentaint.semgrep.pattern.toDNF
 import org.opentaint.semgrep.pattern.transform
 
-fun convertTaintAutomataToTaintRules(
+fun RuleConversionCtx.convertTaintAutomataToTaintRules(
     rule: SemgrepRule<RuleWithMetaVars<TaintRegisterStateAutomata, ResolvedMetaVarInfo>>,
-    ruleId: String,
-    meta: SinkMetaData,
-    trace: SemgrepRuleLoadStepTrace
 ): TaintRuleFromSemgrep = when (rule) {
-    is SemgrepMatchingRule -> RuleConversionCtx(ruleId, meta, trace).convertMatchingRuleToTaintRules(rule)
-    is SemgrepTaintRule -> RuleConversionCtx(ruleId, meta, trace).convertTaintRuleToTaintRules(rule)
+    is SemgrepMatchingRule -> convertMatchingRuleToTaintRules(rule)
+    is SemgrepTaintRule -> convertTaintRuleToTaintRules(rule)
 }
 
 fun <R> RuleConversionCtx.safeConvertToTaintRules(body: () -> R): R? =
@@ -81,7 +79,7 @@ private fun RuleConversionCtx.convertMatchingRuleToTaintRules(
 
     val ruleGroups = rule.rules.mapIndexedNotNull { idx, r ->
         val rules = safeConvertToTaintRules {
-            convertAutomataToTaintRules(r.metaVarInfo, r.rule, automataId = "$ruleId#$idx")
+            convertAutomataToTaintRules(r.metaVarInfo, r.rule, markNamePrefix(shortRuleId, "$idx"))
         }
 
         rules?.let(TaintRuleFromSemgrep::TaintRuleGroup)
@@ -90,7 +88,7 @@ private fun RuleConversionCtx.convertMatchingRuleToTaintRules(
     if (ruleGroups.isEmpty()) {
         error("Failed to generate any taintRuleGroup")
     }
-    return TaintRuleFromSemgrep(ruleId, ruleGroups)
+    return TaintRuleFromSemgrep(fullRuleId, ruleGroups)
 }
 
 private fun RuleConversionCtx.convertAutomataToTaintRules(
@@ -106,7 +104,7 @@ private fun RuleConversionCtx.convertAutomataToTaintRules(
     val taintEdges = generateTaintAutomataEdges(automataWithVars, metaVarInfo)
     val ctx = TaintRuleGenerationCtx(automataId, taintEdges, compositionStrategy = null)
 
-    val rules = ctx.generateTaintRules(ruleId, meta, trace)
+    val rules = ctx.generateTaintRules(this)
     val filteredRules = rules.filter { r ->
         if (r !is SinkRule) return@filter true
         if (r.condition != null && r.condition !is SerializedCondition.True) return@filter true
@@ -228,17 +226,14 @@ private fun generateMethodEndSource(
     )
 }
 
-fun TaintRuleGenerationCtx.generateTaintRules(
-    id: String, meta: SinkMetaData,
-    semgrepRuleTrace: SemgrepRuleLoadStepTrace
-): List<SerializedItem> {
+fun TaintRuleGenerationCtx.generateTaintRules(ctx: RuleConversionCtx): List<SerializedItem> {
     val rules = mutableListOf<SerializedItem>()
 
     val evaluatedConditions = hashMapOf<TaintRuleEdge, List<EvaluatedEdgeCondition>>()
 
     fun evaluate(edge: TaintRuleEdge): List<EvaluatedEdgeCondition> =
         evaluatedConditions.getOrPut(edge) {
-            evaluateMethodConditionAndEffect(edge.edgeCondition, edge.edgeEffect, semgrepRuleTrace)
+            evaluateMethodConditionAndEffect(edge.edgeCondition, edge.edgeEffect, ctx.trace)
         }
 
     fun evaluateWithStateCheck(edge: TaintRuleEdge, state: State): List<EvaluatedEdgeCondition> =
@@ -251,26 +246,25 @@ fun TaintRuleGenerationCtx.generateTaintRules(
             rules += condition.additionalFieldRules
 
             val actions = buildStateAssignAction(ruleEdge.stateTo, condition)
+            if (actions.isEmpty()) continue
 
-            if (actions.isNotEmpty()) {
-                val info = edgeRuleInfo(ruleEdge)
-                rules += generateRules(condition.ruleCondition) { function, cond ->
-                    when (ruleEdge.edgeKind) {
-                        TaintRuleEdge.Kind.MethodCall -> listOf(
-                            SerializedRule.Source(
-                                function, signature = null, overrides = true, cond, actions, info = info,
-                            )
+            val info = edgeRuleInfo(ruleEdge)
+            rules += generateRules(condition.ruleCondition) { function, cond ->
+                when (ruleEdge.edgeKind) {
+                    TaintRuleEdge.Kind.MethodCall -> listOf(
+                        SerializedRule.Source(
+                            function, signature = null, overrides = true, cond, actions, info = info,
                         )
+                    )
 
-                        TaintRuleEdge.Kind.MethodEnter -> listOf(
-                            SerializedRule.EntryPoint(
-                                function, signature = null, overrides = false, cond, actions, info = info,
-                            )
+                    TaintRuleEdge.Kind.MethodEnter -> listOf(
+                        SerializedRule.EntryPoint(
+                            function, signature = null, overrides = false, cond, actions, info = info,
                         )
+                    )
 
-                        TaintRuleEdge.Kind.MethodExit -> {
-                            generateMethodEndSource(cond, actions, info)
-                        }
+                    TaintRuleEdge.Kind.MethodExit -> {
+                        generateMethodEndSource(cond, actions, info)
                     }
                 }
             }
@@ -291,7 +285,7 @@ fun TaintRuleGenerationCtx.generateTaintRules(
                         SerializedRule.MethodEntrySink(
                             function, signature = null, overrides = false, cond,
                             trackFactsReachAnalysisEnd = afterSinkActions,
-                            id, meta = meta
+                            ctx.fullRuleId, meta = ctx.meta
                         )
                     )
 
@@ -299,12 +293,12 @@ fun TaintRuleGenerationCtx.generateTaintRules(
                         SerializedRule.Sink(
                             function, signature = null, overrides = true, cond,
                             trackFactsReachAnalysisEnd = afterSinkActions,
-                            id, meta = meta
+                            ctx.fullRuleId, meta = ctx.meta
                         )
                     )
 
                     TaintRuleEdge.Kind.MethodExit -> {
-                        generateEndSink(cond, afterSinkActions, id, meta)
+                        generateEndSink(cond, afterSinkActions, ctx.fullRuleId, ctx.meta)
                     }
                 }
             }
@@ -317,34 +311,23 @@ fun TaintRuleGenerationCtx.generateTaintRules(
         for (condition in evaluateWithStateCheck(ruleEdge, state)) {
             rules += condition.additionalFieldRules
 
-            val actions = condition.accessedVarPosition.values.flatMapTo(mutableListOf()) { varPosition ->
-                varPosition.positions.flatMap {
-                    stateCleanMark(varPosition.varName, state, it.base())
+            val actions = buildStateCleanAction(ruleEdge.stateTo, state, condition)
+            if (actions.isEmpty()) continue
+
+            when (ruleEdge.edgeKind) {
+                TaintRuleEdge.Kind.MethodEnter, TaintRuleEdge.Kind.MethodExit -> {
+                    ctx.trace.error("Non method call cleaner", Reason.NOT_IMPLEMENTED)
+                    continue
                 }
-            }
 
-            actions += stateCleanMark(varName = null, state, position = null)
-
-            if (state in globalStateAssignStates) {
-                actions += SerializedTaintCleanAction(globalStateMarkName(state), stateVarPosition)
-            }
-
-            if (actions.isNotEmpty()) {
-                when (ruleEdge.edgeKind) {
-                    TaintRuleEdge.Kind.MethodEnter, TaintRuleEdge.Kind.MethodExit -> {
-                        semgrepRuleTrace.error("Non method call cleaner", Reason.NOT_IMPLEMENTED)
-                        continue
-                    }
-
-                    TaintRuleEdge.Kind.MethodCall -> {
-                        rules += generateRules(condition.ruleCondition) { function, cond ->
-                            listOf(
-                                SerializedRule.Cleaner(
-                                    function, signature = null, overrides = true, cond, actions,
-                                    info = edgeRuleInfo(ruleEdge)
-                                )
+                TaintRuleEdge.Kind.MethodCall -> {
+                    rules += generateRules(condition.ruleCondition) { function, cond ->
+                        listOf(
+                            SerializedRule.Cleaner(
+                                function, signature = null, overrides = true, cond, actions,
+                                info = edgeRuleInfo(ruleEdge)
                             )
-                        }
+                        )
                     }
                 }
             }
@@ -368,6 +351,26 @@ private fun TaintRuleGenerationCtx.buildStateAssignAction(
 
     if (state in globalStateAssignStates) {
         result += SerializedTaintAssignAction(globalStateMarkName(state), pos = stateVarPosition)
+    }
+
+    return result
+}
+
+private fun TaintRuleGenerationCtx.buildStateCleanAction(
+    state: State,
+    stateBefore: State,
+    edgeCondition: EvaluatedEdgeCondition
+): List<SerializedTaintCleanAction> {
+    val result = edgeCondition.accessedVarPosition.values.flatMapTo(mutableListOf()) { varPosition ->
+        varPosition.positions.flatMap {
+            stateCleanMark(varPosition.varName, state, stateBefore, it.base())
+        }
+    }
+
+    result += stateCleanMark(varName = null, state, stateBefore, position = null)
+
+    if (stateBefore in globalStateAssignStates) {
+        result += SerializedTaintCleanAction(globalStateMarkName(stateBefore), stateVarPosition)
     }
 
     return result

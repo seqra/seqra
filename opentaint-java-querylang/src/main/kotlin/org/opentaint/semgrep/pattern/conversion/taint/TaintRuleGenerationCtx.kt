@@ -25,7 +25,7 @@ class TaintRuleGenerationCtx(
     interface CompositionStrategy {
         fun stateContains(state: State, varName: MetavarAtom, pos: PositionBaseWithModifiers): SerializedCondition? = null
         fun stateAssign(state: State, varName: MetavarAtom, pos: PositionBaseWithModifiers): List<SerializedTaintAssignAction>? = null
-        fun stateClean(state: State, varName: MetavarAtom?, pos: PositionBaseWithModifiers?): List<SerializedTaintCleanAction>? = null
+        fun stateClean(state: State, stateBefore: State, varName: MetavarAtom?, pos: PositionBaseWithModifiers?): List<SerializedTaintCleanAction>? = null
         fun stateAccessedMarks(state: State, varName: MetavarAtom): Set<String>? = null
     }
 
@@ -58,13 +58,14 @@ class TaintRuleGenerationCtx(
     fun stateCleanMark(
         varName: MetavarAtom?,
         state: State,
+        stateBefore: State,
         position: PositionBaseWithModifiers?
     ): List<SerializedTaintCleanAction> {
-        compositionStrategy?.stateClean(state, varName, position)?.let { return it }
+        compositionStrategy?.stateClean(state, stateBefore, varName, position)?.let { return it }
 
         if (varName == null || position == null) return emptyList()
 
-        val markName = stateMarkName(varName, state)
+        val markName = stateMarkName(varName, stateBefore)
             ?: return emptyList()
 
         return listOf(SerializedTaintCleanAction(markName, pos = position))
