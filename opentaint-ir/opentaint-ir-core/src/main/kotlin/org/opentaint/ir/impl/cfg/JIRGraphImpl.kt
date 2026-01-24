@@ -1,6 +1,5 @@
 package org.opentaint.ir.impl.cfg
 
-import kotlinx.collections.immutable.toPersistentSet
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -12,7 +11,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRInstRef
 import org.opentaint.ir.api.jvm.cfg.JIRInstVisitor
 import org.opentaint.ir.api.jvm.cfg.JIRTerminatingInst
 import org.opentaint.ir.api.jvm.ext.isSubClassOf
-import java.util.Collections.singleton
+import java.util.BitSet
 
 class JIRGraphImpl(
     override val method: JIRMethod,
@@ -21,12 +20,12 @@ class JIRGraphImpl(
 
     override val classpath: JIRClasspath get() = method.enclosingClass.classpath
 
-    private val predecessorMap = hashMapOf<JIRInst, Set<JIRInst>>()
-    private val successorMap = hashMapOf<JIRInst, Set<JIRInst>>()
+    private val predecessorMap = arrayOfNulls<BitSet>(instructions.size)
+    private val successorMap = arrayOfNulls<BitSet>(instructions.size)
 
-    private val throwPredecessors = hashMapOf<JIRCatchInst, Set<JIRInst>>()
-    private val throwSuccessors = hashMapOf<JIRInst, Set<JIRCatchInst>>()
-    private val _throwExits = hashMapOf<JIRClassType, Set<JIRInstRef>>()
+    private val throwPredecessors = hashMapOf<JIRCatchInst, BitSet>()
+    private val throwSuccessors = arrayOfNulls<BitSet>(instructions.size)
+    private val _throwExits = hashMapOf<JIRClassType, BitSet>()
 
     private val exceptionResolver = JIRExceptionResolver(classpath)
 
@@ -40,26 +39,31 @@ class JIRGraphImpl(
      */
     override val throwExits: Map<JIRClassType, List<JIRInst>>
         get() = _throwExits.mapValues { (_, refs) ->
-            refs.map { instructions[it.index] }
+            val exits = mutableListOf<JIRInst>()
+            refs.forEach { exits.add(instructions[it]) }
+            exits
         }
 
     init {
         for (inst in instructions) {
             val successors = when (inst) {
-                is JIRTerminatingInst -> emptySet()
-                is JIRBranchingInst -> inst.successors.map { instructions[it.index] }.toSet()
-                else -> setOf(next(inst))
+                is JIRTerminatingInst -> BitSet()
+                is JIRBranchingInst ->  inst.successors.toBitSet { it.index }
+                else -> BitSet().also { it.set(index(next(inst))) }
             }
-            successorMap[inst] = successors
 
-            for (successor in successors) {
-                predecessorMap.add(successor, inst)
+            val instIdx = index(inst)
+            successorMap[instIdx] = successors
+
+            successors.forEach {
+                predecessorMap.add(it, instIdx)
             }
 
             if (inst is JIRCatchInst) {
-                throwPredecessors[inst] = inst.throwers.map { instructions[it.index] }.toPersistentSet()
-                inst.throwers.forEach {
-                    throwSuccessors.add(inst(it), inst)
+                val throwers = inst.throwers.toBitSet { it.index }
+                throwPredecessors[inst] = throwers
+                throwers.forEach {
+                    throwSuccessors.add(it, instIdx)
                 }
             }
         }
@@ -67,18 +71,13 @@ class JIRGraphImpl(
         for (inst in instructions) {
             for (throwableType in inst.accept(exceptionResolver)) {
                 if (!catchers(inst).any { throwableType.jIRClass isSubClassOf (it.throwable.type as JIRClassType).jIRClass }) {
-                    _throwExits.add(throwableType, ref(inst))
+                    _throwExits.add(throwableType, index(inst))
                 }
             }
         }
     }
 
-    override fun index(inst: JIRInst): Int {
-        if (instructions.contains(inst)) {
-            return inst.location.index
-        }
-        return -1
-    }
+    override fun index(inst: JIRInst): Int = inst.location.index
 
     override fun ref(inst: JIRInst): JIRInstRef = JIRInstRef(index(inst))
     override fun inst(ref: JIRInstRef): JIRInst = instructions[ref.index]
@@ -89,15 +88,21 @@ class JIRGraphImpl(
     /**
      * `successors` and `predecessors` represent normal control flow
      */
-    override fun successors(node: JIRInst): Set<JIRInst> = successorMap[node] ?: emptySet()
-    override fun predecessors(node: JIRInst): Set<JIRInst> = predecessorMap[node] ?: emptySet()
+    override fun successors(node: JIRInst): Set<JIRInst> =
+        successorMap[index(node)]?.toSet { instructions[it] } ?: emptySet()
+
+    override fun predecessors(node: JIRInst): Set<JIRInst> =
+        predecessorMap[index(node)]?.toSet { instructions[it] } ?: emptySet()
 
     /**
      * `throwers` and `catchers` represent control flow when an exception occurs
      * `throwers` returns an empty set for every instruction except `JIRCatchInst`
      */
-    override fun throwers(node: JIRInst): Set<JIRInst> = throwPredecessors[node] ?: emptySet()
-    override fun catchers(node: JIRInst): Set<JIRCatchInst> = throwSuccessors[node] ?: emptySet()
+    override fun throwers(node: JIRInst): Set<JIRInst> =
+        throwPredecessors[node]?.toSet { instructions[it] } ?: emptySet()
+
+    override fun catchers(node: JIRInst): Set<JIRCatchInst> =
+        throwSuccessors[index(node)]?.toSet { instructions[it] as JIRCatchInst } ?: emptySet()
 
     override fun previous(inst: JIRInstRef): JIRInst = previous(inst(inst))
     override fun next(inst: JIRInstRef): JIRInst = next(inst(inst))
@@ -121,13 +126,31 @@ class JIRGraphImpl(
 
     override fun toString(): String = instructions.joinToString("\n")
 
-    private fun <KEY, VALUE> MutableMap<KEY, Set<VALUE>>.add(key: KEY, value: VALUE) {
-        val current = this[key]
-        if (current == null) {
-            this[key] = singleton(value)
-        } else {
-            this[key] = current + value
+    private fun <KEY> MutableMap<KEY, BitSet>.add(key: KEY, value: Int) {
+        val valueSet = getOrPut(key, ::BitSet)
+        valueSet.set(value)
+    }
+
+    private fun Array<BitSet?>.add(key: Int, value: Int) {
+        val valueSet = this[key] ?: BitSet().also { this[key] = it }
+        valueSet.set(value)
+    }
+
+    private inline fun BitSet.forEach(body: (Int) -> Unit) {
+        var node = nextSetBit(0)
+        while (node >= 0) {
+            body(node)
+            node = nextSetBit(node + 1)
         }
+    }
+
+    private inline fun <T> Iterable<T>.toBitSet(map: (T) -> Int): BitSet =
+        BitSet().also { s -> forEach { s.set(map(it)) } }
+
+    private inline fun <T> BitSet.toSet(map: (Int) -> T): Set<T> {
+        val result = hashSetOf<T>()
+        forEach { result.add(map(it)) }
+        return result
     }
 }
 
