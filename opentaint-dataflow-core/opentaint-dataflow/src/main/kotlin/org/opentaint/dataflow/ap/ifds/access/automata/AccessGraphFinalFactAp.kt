@@ -16,9 +16,9 @@ import org.opentaint.dataflow.util.forEach
 
 data class AccessGraphFinalFactAp(
     override val base: AccessPathBase,
-    val access: AccessGraph,
+    override val access: AccessGraph,
     override val exclusions: ExclusionSet
-) : FinalFactAp {
+) : FinalFactAp, AccessGraphAccessorList {
     override val size: Int get() = access.size
 
     override fun rebase(newBase: AccessPathBase): FinalFactAp =
@@ -31,14 +31,6 @@ data class AccessGraphFinalFactAp(
 
     override fun replaceExclusions(exclusions: ExclusionSet): FinalFactAp =
         AccessGraphFinalFactAp(base, access, exclusions)
-
-    override fun getAllAccessors(): Set<Accessor> = access.getAllOwnAccessors()
-
-    override fun getStartAccessors(): Set<Accessor> = access.getInitialSuccessorsAccessors()
-
-    override fun startsWithAccessor(accessor: Accessor): Boolean = with(access.manager) {
-        access.startsWith(accessor.idx) || (access.startsWith(anyAccessorIdx) && AnyAccessor.containsAccessor(accessor))
-    }
 
     override fun isAbstract(): Boolean =
         exclusions !is ExclusionSet.Universe && access.initialNodeIsFinal()
@@ -69,22 +61,12 @@ data class AccessGraphFinalFactAp(
         return null
     }
 
-    data class Delta(val graph: AccessGraph) : FinalFactAp.Delta {
-        override val isEmpty: Boolean get() = graph.isEmpty()
+    data class Delta(override val access: AccessGraph) : FinalFactAp.Delta, AccessGraphAccessorList {
+        override val isEmpty: Boolean get() = access.isEmpty()
 
-        override fun getAllAccessors(): Set<Accessor> = graph.getAllOwnAccessors()
-
-        override fun getStartAccessors(): Set<Accessor> =
-            graph.getInitialSuccessorsAccessors()
-
-        override fun startsWithAccessor(accessor: Accessor): Boolean = with(graph.manager) {
-            graph.startsWith(accessor.idx)
-                    || (graph.startsWith(anyAccessorIdx) && AnyAccessor.containsAccessor(accessor))
-        }
-
-        override fun readAccessor(accessor: Accessor): FinalFactAp.Delta? = with(graph.manager) {
-            val newGraph = graph.read(accessor.idx)
-                ?: tryAnyAccessorOrNull(accessor) { graph.read(anyAccessorIdx) }
+        override fun readAccessor(accessor: Accessor): FinalFactAp.Delta? = with(access.manager) {
+            val newGraph = access.read(accessor.idx)
+                ?: tryAnyAccessorOrNull(accessor) { access.read(anyAccessorIdx) }
 
             return newGraph?.let { Delta(it) }
         }
@@ -112,7 +94,7 @@ data class AccessGraphFinalFactAp(
         delta as Delta
 
         val filter = access.createFilter(typeChecker)
-        val filteredDelta = delta.graph.filter(filter) ?: return null
+        val filteredDelta = delta.access.filter(filter) ?: return null
 
         if (access.isEmpty()) {
             return AccessGraphFinalFactAp(base, filteredDelta, exclusions)

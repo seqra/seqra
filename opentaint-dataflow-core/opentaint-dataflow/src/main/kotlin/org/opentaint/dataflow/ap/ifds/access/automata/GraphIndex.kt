@@ -11,6 +11,7 @@ class GraphIndex {
     private val emptyGraphs = BitSet()
     private val initialIsFinalGraphs = BitSet()
     private val accessorIndex = int2ObjectMap<AccessorIndex>()
+    private val graphsWithAnyAccessors = BitSet()
 
     fun add(graph: AccessGraph, idx: Int) {
         size = maxOf(size, idx + 1)
@@ -27,6 +28,10 @@ class GraphIndex {
         for (edgeWithAccessor in graph.iterateEdges()) {
             val accessor = edgeWithAccessor.intKey
             val edge = edgeWithAccessor.longValue
+
+            if (accessor == graph.manager.anyAccessorIdx) {
+                graphsWithAnyAccessors.set(idx)
+            }
 
             val index = accessorIndex.getOrPut(accessor) { AccessorIndex() }
             index.containsAccessor.set(idx)
@@ -76,6 +81,8 @@ class GraphIndex {
                 }
             }
         }
+
+        relevantGraphs.or(graphsWithAnyAccessors)
 
         return relevantGraphs
     }
@@ -130,7 +137,9 @@ class GraphIndex {
             val accessor = edgeWithAccessor.intKey
             val edge = edgeWithAccessor.longValue
 
-            val index = accessorIndex.get(accessor) ?: return empty()
+            val index = accessorIndex.get(accessor)
+                ?: return graphsWithAnyAccessors
+
             result.and(index.containsAccessor)
 
             if (graph.getEdgeFrom(edge) == graph.initial) {
@@ -138,10 +147,15 @@ class GraphIndex {
             }
 
             graph.nodeSuccessors(graph.getEdgeTo(edge)).forEach { successor ->
-                val successorIdx = index.successors.get(successor) ?: return empty()
+                val successorIdx = index.successors.get(successor)
+                    ?: return graphsWithAnyAccessors
+
                 result.and(successorIdx)
             }
         }
+
+        result.or(graphsWithAnyAccessors)
+
         return result
     }
 
@@ -193,6 +207,7 @@ class GraphIndex {
             val index = accessorIndex.get(accessor) ?: return@forEach
             result.or(index.containsAccessor)
         }
+        result.or(graphsWithAnyAccessors)
         return result
     }
 

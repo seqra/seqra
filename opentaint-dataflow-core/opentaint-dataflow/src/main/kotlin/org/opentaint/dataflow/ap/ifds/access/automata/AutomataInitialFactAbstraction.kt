@@ -6,6 +6,7 @@ import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAbstraction
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
 import org.opentaint.dataflow.util.contains
 import org.opentaint.dataflow.util.filter
 import org.opentaint.dataflow.util.forEach
@@ -157,12 +158,15 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
                 if (delta.isEmpty()) continue
 
                 exclusion.forEach { accessor ->
-                    if (delta.startsWith(accessor)) {
-                        val singleAccessorGraph = emptyGraph().prepend(accessor)
-                        val newGraph = analyzedGraph.concat(singleAccessorGraph)
-
-                        newAnalyzedGraphs.add(newGraph)
+                    if (!delta.startsWith(accessor)) {
+                        if (!delta.startsWith(anyAccessorIdx)) return@forEach
+                        if (tryAnyAccessorOrNull(accessor.accessor) { true } != true) return@forEach
                     }
+
+                    val singleAccessorGraph = emptyGraph().prepend(accessor)
+                    val newGraph = analyzedGraph.concat(singleAccessorGraph)
+
+                    newAnalyzedGraphs.add(newGraph)
                 }
             }
         }

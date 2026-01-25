@@ -9,9 +9,9 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 
 data class AccessGraphInitialFactAp(
     override val base: AccessPathBase,
-    val access: AccessGraph,
+    override val access: AccessGraph,
     override val exclusions: ExclusionSet,
-) : InitialFactAp {
+) : InitialFactAp, AccessGraphAccessorList {
     override val size: Int get() = access.size
 
     override fun rebase(newBase: AccessPathBase): InitialFactAp =
@@ -24,17 +24,6 @@ data class AccessGraphInitialFactAp(
 
     override fun replaceExclusions(exclusions: ExclusionSet): InitialFactAp =
         AccessGraphInitialFactAp(base, access, exclusions)
-
-    override fun getAllAccessors() =
-        access.getAllOwnAccessors()
-
-    override fun getStartAccessors(): Set<Accessor> =
-        access.getInitialSuccessorsAccessors()
-
-    override fun startsWithAccessor(accessor: Accessor): Boolean = with(access.manager) {
-        check(accessor !is AnyAccessor)
-        return access.startsWith(accessor.idx)
-    }
 
     override fun readAccessor(accessor: Accessor): InitialFactAp? = with(access.manager) {
         check(accessor !is AnyAccessor)
@@ -51,25 +40,17 @@ data class AccessGraphInitialFactAp(
         return access.clear(accessor.idx)?.let { AccessGraphInitialFactAp(base, it, exclusions) }
     }
 
-    data class Delta(val graph: AccessGraph) : InitialFactAp.Delta {
-        override val isEmpty: Boolean get() = graph.isEmpty()
+    data class Delta(override val access: AccessGraph) : InitialFactAp.Delta, AccessGraphAccessorList {
+        override val isEmpty: Boolean get() = access.isEmpty()
 
         override fun concat(other: InitialFactAp.Delta): InitialFactAp.Delta {
             other as Delta
 
-            return Delta(graph.concat(other.graph))
+            return Delta(access.concat(other.access))
         }
 
-        override fun getAllAccessors(): Set<Accessor> = graph.getAllOwnAccessors()
-
-        override fun getStartAccessors(): Set<Accessor> = graph.getInitialSuccessorsAccessors()
-
-        override fun startsWithAccessor(accessor: Accessor): Boolean = with(graph.manager) {
-            graph.startsWith(accessor.idx)
-        }
-
-        override fun readAccessor(accessor: Accessor): InitialFactAp.Delta? = with(graph.manager) {
-            val newGraph = graph.read(accessor.idx) ?: return@with null
+        override fun readAccessor(accessor: Accessor): InitialFactAp.Delta? = with(access.manager) {
+            val newGraph = access.read(accessor.idx) ?: return@with null
             return Delta(newGraph)
         }
     }
@@ -97,7 +78,7 @@ data class AccessGraphInitialFactAp(
         if (delta.isEmpty) return this
         delta as Delta
 
-        val concatenatedGraph = access.concat(delta.graph)
+        val concatenatedGraph = access.concat(delta.access)
         return AccessGraphInitialFactAp(base, concatenatedGraph, exclusions)
     }
 
