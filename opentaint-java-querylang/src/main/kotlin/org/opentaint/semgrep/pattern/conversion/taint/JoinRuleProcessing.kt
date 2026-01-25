@@ -24,8 +24,7 @@ data class TaintAutomataJoinRule(
 )
 
 data class TaintAutomataJoinRuleItem(
-    val ruleFullId: String,
-    val ruleShortId: String,
+    val ruleId: String,
     val rule: SemgrepRule<RuleWithMetaVars<TaintRegisterStateAutomata, ResolvedMetaVarInfo>>,
 )
 
@@ -85,7 +84,7 @@ private fun RuleConversionCtx.convertSingleCompositionJoinRule(
         ) ?: return null
     }
 
-    return TaintRuleFromSemgrep(fullRuleId, leftRules + rightRules)
+    return TaintRuleFromSemgrep(ruleId, leftRules + rightRules)
 }
 
 private fun RuleConversionCtx.convertCompositionLeftMatchingRule(
@@ -108,7 +107,7 @@ private fun RuleConversionCtx.convertCompositionLeftMatchingRule(
             edgesToFinalAccept = emptyList()
         )
         TaintRuleGenerationCtx(
-            RuleUniqueMarkPrefix(item.ruleShortId, idx),
+            RuleUniqueMarkPrefix(item.ruleId, idx),
             taintEdgesWithAssign, compositionStrategy = null
         )
     }
@@ -177,7 +176,7 @@ private fun RuleConversionCtx.convertCompositionRightMatchingRule(
             }
         }
 
-        TaintRuleGenerationCtx(RuleUniqueMarkPrefix(shortRuleId, idx), r, composition)
+        TaintRuleGenerationCtx(RuleUniqueMarkPrefix(ruleId, idx), r, composition)
     }
 
     val rightRules = rightCtx.mapNotNull {

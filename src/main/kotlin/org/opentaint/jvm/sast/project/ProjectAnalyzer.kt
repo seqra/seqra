@@ -51,7 +51,7 @@ class ProjectAnalyzer(
     private val projectPackage: String?,
     private val resultDir: Path,
     private val customConfig: Path?,
-    private val semgrepRuleSet: Path?,
+    private val semgrepRuleSet: List<Path>,
     private val semgrepRuleLoadErrors: Path?,
     private val semgrepRuleLoadTrace: Path?,
     private val cwe: List<Int>,
@@ -78,7 +78,7 @@ class ProjectAnalyzer(
     }
 
     private fun loadTaintConfig(cp: JIRClasspath): TaintRulesProvider {
-        if (semgrepRuleSet != null) {
+        if (semgrepRuleSet.isNotEmpty()) {
             check(customConfig == null) { "Unsupported custom config" }
             return loadSemgrepRules(cp, semgrepRuleSet, semgrepRuleLoadErrors, semgrepRuleLoadTrace)
         }
@@ -101,7 +101,7 @@ class ProjectAnalyzer(
 
     private fun loadSemgrepRules(
         cp: JIRClasspath,
-        semgrepRulesPath: Path,
+        semgrepRulesPath: List<Path>,
         semgrepRuleLoadErrors: Path?,
         semgrepRuleLoadTrace: Path?,
     ): TaintRulesProvider {
@@ -150,14 +150,16 @@ class ProjectAnalyzer(
     }
 
     private fun parseSemgrepRules(
-        semgrepRulesPath: Path,
+        semgrepRulesPath: List<Path>,
         semgrepTrace: SemgrepLoadTrace
     ): List<TaintRuleFromSemgrep> {
         val loader = SemgrepRuleLoader()
 
         val ruleExtensions = arrayOf("yaml", "yml")
-        semgrepRulesPath.walk().filter { it.extension in ruleExtensions }.forEach { rulePath ->
-            loader.registerRuleSet(rulePath.readText(), rulePath, semgrepRulesPath, semgrepTrace)
+        for (rulesRoot in semgrepRulesPath) {
+            rulesRoot.walk().filter { it.extension in ruleExtensions }.forEach { rulePath ->
+                loader.registerRuleSet(rulePath.readText(), rulePath, rulesRoot, semgrepTrace)
+            }
         }
 
         val (rules, loadedMetadatas) = loader.loadRules().unzip()

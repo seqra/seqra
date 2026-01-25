@@ -4,8 +4,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 
 class RuleConversionCtx(
-    val fullRuleId: String,
-    val shortRuleId: String,
+    val ruleId: String,
     val meta: SinkMetaData,
     val trace: SemgrepRuleLoadStepTrace
 )

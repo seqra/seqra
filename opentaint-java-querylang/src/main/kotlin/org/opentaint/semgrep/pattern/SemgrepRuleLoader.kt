@@ -1,8 +1,6 @@
 package org.opentaint.semgrep.pattern
 
-import com.charleskorn.kaml.YamlList
 import com.charleskorn.kaml.YamlMap
-import com.charleskorn.kaml.YamlScalar
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
@@ -22,7 +20,6 @@ import org.opentaint.semgrep.pattern.conversion.taint.convertTaintAutomataToTain
 import org.opentaint.semgrep.pattern.conversion.taint.createTaintAutomata
 import java.nio.file.Path
 import kotlin.io.path.Path
-import kotlin.io.path.absolutePathString
 
 data class RuleMetadata(
     val path: String,
@@ -31,19 +28,6 @@ data class RuleMetadata(
     val severity: CommonTaintConfigurationSinkMeta.Severity,
     val metadata: YamlMap?
 )
-
-fun YamlMap.readStrings(key: String): List<String>? {
-    val entry = entries.entries.find { it.key.content.lowercase() == key.lowercase() } ?: return null
-    return when (val value = entry.value) {
-        is YamlScalar -> {
-            listOf(value.content)
-        }
-        is YamlList -> {
-            value.items.mapNotNull { (it as? YamlScalar)?.content }
-        }
-        else -> null
-    }
-}
 
 private typealias BuiltRule = RuleWithMetaVars<TaintRegisterStateAutomata, ResolvedMetaVarInfo>
 
@@ -96,30 +80,39 @@ class SemgrepRuleLoader(
 
         supportedRules.forEach {
             val ruleId = SemgrepRuleUtils.getRuleId(ruleSetName, it.id)
-            registeredRules[ruleId] = RegisteredRule(ruleId, it, pathInfo, semgrepFileTrace.ruleTrace(ruleId, it.id))
+            val trace = semgrepFileTrace.ruleTrace(ruleId, it.id)
+            registerRule(RegisteredRule(ruleId, it, pathInfo, trace))
         }
 
         semgrepFileTrace.info("Register ${supportedRules.size} rules")
     }
 
-    fun loadRules(): List<Pair<TaintRuleFromSemgrep, RuleMetadata>> {
-        registeredRules.values
-            .forEach { parseRule(it, forceLibraryMode = false) }
+    private fun registerRule(rule: RegisteredRule) {
+        if (rule.ruleId in registeredRules) {
+            rule.ruleTrace.stepTrace(Step.LOAD_RULESET)
+                .error("Duplicate rule", Reason.ERROR)
+            return
+        }
 
-        generateShortIds()
+        registeredRules[rule.ruleId] = rule
+    }
+
+    fun loadRules(): List<Pair<TaintRuleFromSemgrep, RuleMetadata>> {
+        registeredRules.values.toList()
+            .forEach { parseRule(it, forceLibraryMode = false) }
 
         parsedRules.values
             .filterIsInstance<NormalRule<Formula>>()
             .forEach { buildNormalRule(it) }
 
         val loaded = mutableListOf<Pair<TaintRuleFromSemgrep, RuleMetadata>>()
-        builtNormalRules.values.filterNot { it.info.isLibraryRule }.forEach {
+        builtNormalRules.values.filterNot { it.info.disabled }.forEach {
             loaded += loadNormalRule(it) ?: return@forEach
         }
 
         parsedRules.values
             .filterIsInstance<JoinRule<*>>()
-            .filterNot { it.info.isLibraryRule }
+            .filterNot { it.info.disabled }
             .forEach {
                 loaded += loadJoinRule(it) ?: return@forEach
             }
@@ -131,11 +124,14 @@ class SemgrepRuleLoader(
         val ruleId: String,
         val shortRuleId: String,
         val isLibraryRule: Boolean,
+        val isDisabled: Boolean,
         val metadata: RuleMetadata,
         val sinkMeta: SinkMetaData,
         val ruleTrace: SemgrepRuleLoadTrace,
         val pathInfo: RuleSetPathInfo,
-    )
+    ) {
+        val disabled: Boolean get() = isDisabled || isLibraryRule
+    }
 
     private sealed interface Rule<P> {
         val info: RuleInfo
@@ -162,24 +158,12 @@ class SemgrepRuleLoader(
         when (rule.mode) {
             null, "search" -> {
                 val parsed = parseMatchingRule(rule, loadTrace) ?: return
-
-                if (parsed.isEmpty) {
-                    loadTrace.error("Empty rule after parse", Reason.ERROR)
-                    return
-                }
-
-                parsedRules[ruleInfo.ruleId] = NormalRule(parsed, ruleInfo)
+                addParsedRule(ruleInfo, NormalRule(parsed, ruleInfo), loadTrace)
             }
 
             "taint" -> {
                 val parsed = parseTaintRule(rule, loadTrace)
-
-                if (parsed.isEmpty) {
-                    loadTrace.error("Empty rule after parse", Reason.ERROR)
-                    return
-                }
-
-                parsedRules[ruleInfo.ruleId] = NormalRule(parsed, ruleInfo)
+                addParsedRule(ruleInfo, NormalRule(parsed, ruleInfo), loadTrace)
             }
             "join" -> {
                 val joinRule = rule.join ?: run {
@@ -198,13 +182,14 @@ class SemgrepRuleLoader(
                     val nestedRegistered = RegisteredRule(
                         nestedRuleId, nestedRule, registeredRule.pathInfo, ruleInfo.ruleTrace
                     )
+                    registerRule(nestedRegistered)
                     parseRule(nestedRegistered, forceLibraryMode = true)
 
-                    ref.copy(rule = nestedRuleId)
+                    ref.copy(rule = nestedRule.id)
                 }
 
                 val parsedJoin = JoinRule<Formula>(refs, parsed.on, ruleInfo)
-                parsedRules[ruleInfo.ruleId] = parsedJoin
+                addParsedRule(ruleInfo, parsedJoin, loadTrace)
             }
 
             else -> {
@@ -214,17 +199,19 @@ class SemgrepRuleLoader(
         }
     }
 
-    private val shortIds = hashMapOf<String, String>()
-    private fun generateShortIds() {
-        val ruleIds = parsedRules.values.groupBy({ it.info.shortRuleId }, { it.info.ruleId })
-        for ((short, fullIds) in ruleIds) {
-            if (fullIds.size == 1) {
-                shortIds[fullIds.first()] = short
-                continue
-            }
-
-            fullIds.forEach { shortIds[it] = it }
+    private fun addParsedRule(ruleInfo: RuleInfo, rule: Rule<Formula>, trace: SemgrepRuleLoadStepTrace) {
+        if (rule is NormalRule && rule.rule.isEmpty) {
+            trace.error("Empty rule after parse", Reason.ERROR)
+            return
         }
+
+        val id = ruleInfo.ruleId
+        if (id in parsedRules) {
+            trace.error("Duplicate rule", Reason.ERROR)
+            return
+        }
+
+        parsedRules[id] = rule
     }
 
     private val builtNormalRules = hashMapOf<String, NormalRule<BuiltRule>>()
@@ -261,8 +248,7 @@ class SemgrepRuleLoader(
 
         val a2trTrace = trace.stepTrace(Step.AUTOMATA_TO_TAINT_RULE)
         return runCatching {
-            val shortId = shortIds.getValue(rule.info.ruleId)
-            val ctx = RuleConversionCtx(rule.info.ruleId, shortId, rule.info.sinkMeta, a2trTrace)
+            val ctx = RuleConversionCtx(rule.info.ruleId, rule.info.sinkMeta, a2trTrace)
             val rules = ctx.convertTaintAutomataToTaintRules(rule.rule)
             rules to rule.info.metadata
         }.onFailure { ex ->
@@ -281,8 +267,7 @@ class SemgrepRuleLoader(
 
         val a2trTrace = trace.stepTrace(Step.AUTOMATA_TO_TAINT_RULE)
         return runCatching {
-            val shortId = shortIds.getValue(rule.info.ruleId)
-            val ctx = RuleConversionCtx(rule.info.ruleId, shortId, rule.info.sinkMeta, a2trTrace)
+            val ctx = RuleConversionCtx(rule.info.ruleId, rule.info.sinkMeta, a2trTrace)
             val rules = ctx.convertTaintAutomataJoinToTaintRules(taintAutomata)
                 ?: return null
             rules to rule.info.metadata
@@ -318,8 +303,7 @@ class SemgrepRuleLoader(
                 Pair(from, to)
             }
 
-            val itemShortId = shortIds.getValue(itemAutomata.info.ruleId)
-            items[ref.`as`] = TaintAutomataJoinRuleItem(itemAutomata.info.ruleId, itemShortId, itemAutomata.rule)
+            items[ref.`as`] = TaintAutomataJoinRuleItem(itemAutomata.info.ruleId, itemAutomata.rule)
             itemRenames[ref.`as`] = renames
         }
 
@@ -382,6 +366,7 @@ class SemgrepRuleLoader(
         return RuleInfo(
             rule.ruleId, semgrepRule.id,
             isLibraryRule = forceLibraryMode || semgrepRule.isLibraryRule(),
+            isDisabled = semgrepRule.isDisabled(),
             metadata, sinkMeta, rule.ruleTrace, rule.pathInfo
         )
     }
@@ -393,7 +378,10 @@ class SemgrepRuleLoader(
         mode?.equals("join", ignoreCase = true) ?: false
 
     private fun SemgrepYamlRule.isLibraryRule(): Boolean =
-        (options?.get("lib") as? YamlScalar)?.content?.lowercase() == "true"
+        options?.getBoolKeyOrFalse("lib") ?: false
+
+    private fun SemgrepYamlRule.isDisabled(): Boolean =
+        options?.getBoolKeyOrFalse("disabled") ?: false
 
     private fun SemgrepYamlRule.cweInfo(): List<Int>? {
         val rawCwes = metadata?.readStrings("cwe") ?: return null
@@ -406,14 +394,14 @@ class SemgrepRuleLoader(
         return match.groupValues[1].toInt()
     }
 
-    private fun RuleSetPathInfo.ruleSetName(): String =
-        rulesRoot.resolve(ruleRelativePath).absolutePathString()
+    private fun RuleSetPathInfo.ruleSetName(): String = ruleRelativePath.toString()
 
     private fun resolveRefRuleId(refRule: String, ruleInfo: RuleInfo): String {
         val refRuleId = refRule.substringAfter('#')
 
         val refRulePath = refRule.substringBefore('#', missingDelimiterValue = "")
             .takeIf { it.isNotBlank() }
+            ?.removePrefix("/")
             ?.let { Path(it) }
 
         val refRulePathInfo = RuleSetPathInfo(

@@ -28,8 +28,9 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
     private val config: Path? by option(help = "User defined analysis configuration")
         .file()
 
-    private val semgrepRuleSet: Path? by option(help = "Semgrep YAML rule file or directory containing YAML rules")
+    private val semgrepRuleSet: List<Path> by option(help = "Semgrep YAML rule file or directory containing YAML rules")
         .path()
+        .multiple()
 
     private val semgrepRuleLoadErrors: Path? by option(help = "Output file for errors encountered while loading Semgrep rules")
         .newFile()

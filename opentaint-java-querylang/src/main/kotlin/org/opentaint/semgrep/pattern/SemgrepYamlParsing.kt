@@ -5,6 +5,7 @@ import com.charleskorn.kaml.UnknownPropertyException
 import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlConfiguration
 import com.charleskorn.kaml.YamlException
+import com.charleskorn.kaml.YamlList
 import com.charleskorn.kaml.YamlMap
 import com.charleskorn.kaml.YamlNode
 import com.charleskorn.kaml.YamlScalar
@@ -130,6 +131,22 @@ private fun YamlNode.decodeFocusMetaVariables(): List<String> {
     }
 
     return yaml.decodeFromYamlNode<List<String>>(this)
+}
+
+fun YamlMap.getBoolKeyOrFalse(key: String): Boolean =
+    (get(key) as? YamlScalar)?.content?.lowercase() == "true"
+
+fun YamlMap.readStrings(key: String): List<String>? {
+    val entry = entries.entries.find { it.key.content.lowercase() == key.lowercase() } ?: return null
+    return when (val value = entry.value) {
+        is YamlScalar -> {
+            listOf(value.content)
+        }
+        is YamlList -> {
+            value.items.mapNotNull { (it as? YamlScalar)?.content }
+        }
+        else -> null
+    }
 }
 
 @Serializable

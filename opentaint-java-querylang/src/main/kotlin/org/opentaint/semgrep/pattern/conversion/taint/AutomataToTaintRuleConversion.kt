@@ -75,7 +75,7 @@ private fun RuleConversionCtx.convertMatchingRuleToTaintRules(
 ): TaintRuleFromSemgrep {
     val ruleGroups = rule.rules.mapIndexedNotNull { idx, r ->
         val rules = safeConvertToTaintRules {
-            convertAutomataToTaintRules(r.metaVarInfo, r.rule, RuleUniqueMarkPrefix(shortRuleId, idx))
+            convertAutomataToTaintRules(r.metaVarInfo, r.rule, RuleUniqueMarkPrefix(ruleId, idx))
         }
 
         rules?.let(TaintRuleFromSemgrep::TaintRuleGroup)
@@ -85,7 +85,7 @@ private fun RuleConversionCtx.convertMatchingRuleToTaintRules(
         error("Failed to generate any taintRuleGroup")
     }
 
-    return TaintRuleFromSemgrep(fullRuleId, ruleGroups)
+    return TaintRuleFromSemgrep(ruleId, ruleGroups)
 }
 
 private fun RuleConversionCtx.convertAutomataToTaintRules(
@@ -282,7 +282,7 @@ fun TaintRuleGenerationCtx.generateTaintRules(ctx: RuleConversionCtx): List<Seri
                         SerializedRule.MethodEntrySink(
                             function, signature = null, overrides = false, cond,
                             trackFactsReachAnalysisEnd = afterSinkActions,
-                            ctx.fullRuleId, meta = ctx.meta
+                            ctx.ruleId, meta = ctx.meta
                         )
                     )
 
@@ -290,12 +290,12 @@ fun TaintRuleGenerationCtx.generateTaintRules(ctx: RuleConversionCtx): List<Seri
                         SerializedRule.Sink(
                             function, signature = null, overrides = true, cond,
                             trackFactsReachAnalysisEnd = afterSinkActions,
-                            ctx.fullRuleId, meta = ctx.meta
+                            ctx.ruleId, meta = ctx.meta
                         )
                     )
 
                     TaintRuleEdge.Kind.MethodExit -> {
-                        generateEndSink(cond, afterSinkActions, ctx.fullRuleId, ctx.meta)
+                        generateEndSink(cond, afterSinkActions, ctx.ruleId, ctx.meta)
                     }
                 }
             }
