@@ -44,7 +44,7 @@ class LocationResolver(
 ) {
     fun resolve(locations: List<IntermediateLocation>): List<ThreadFlowLocation> {
         var currentIdx = 0
-        return locations.map { loc -> resolveLocation(loc, currentIdx).also { currentIdx += it.size } }.flatten()
+        return locations.flatMap { loc -> resolveLocation(loc, currentIdx).also { currentIdx += it.size } }
     }
 
     fun statementsLocationsAreRelative(a: CommonInst, b: CommonInst): Boolean {

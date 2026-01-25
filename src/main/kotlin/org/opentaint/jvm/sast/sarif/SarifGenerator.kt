@@ -181,8 +181,12 @@ class SarifGenerator(
     private fun JIRMethod.getFirstLine(): Int? =
         rawInstList.firstOrNull { it is JIRRawLineNumberInst } ?.let { (it as JIRRawLineNumberInst).lineNumber }
 
+    private fun TracePathNode.isRewriteAllowed(builder: TraceMessageBuilder) = with (builder) {
+        !isInsideLambda() && (entry is MethodTraceResolver.TraceEntry.MethodEntry || entry.isPureEntryPoint())
+    }
+
     private fun generateThreadFlow(path: List<TracePathNode>, sinkMessage: String, ruleId: String): ThreadFlow {
-        val messageBuilder = TraceMessageBuilder(traits, sinkMessage, ruleId)
+        val messageBuilder = TraceMessageBuilder(traits, sinkMessage, ruleId, path)
         val filteredLocations = path.filter { messageBuilder.isGoodTrace(it) }
         val groupedLocations = groupRelativeTraces(filteredLocations)
         val filteredGroups = removeRepetitiveAssigns(groupedLocations)
@@ -190,9 +194,7 @@ class SarifGenerator(
         val flowLocations = groupsWithMsges.map { groupNode ->
             val inst = groupNode.node.statement
             val rewriteLine =
-                if (groupNode.node.entry is MethodTraceResolver.TraceEntry.MethodEntry
-                    || with (messageBuilder) { groupNode.node.entry.isPureEntryPoint() }
-                    ) {
+                if (groupNode.node.isRewriteAllowed(messageBuilder)) {
                     // this is an attempt to highlight the method signature instead of its first bytecode instruction
                     // for the MethodEntry traces
                     // will be wrong if the source has extra lines between method declaration and its body

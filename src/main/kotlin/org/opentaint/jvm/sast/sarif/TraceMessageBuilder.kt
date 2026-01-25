@@ -6,25 +6,19 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEdge
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction
-import org.opentaint.dataflow.configuration.CommonTaintAction
-import org.opentaint.dataflow.configuration.jvm.Argument
-import org.opentaint.dataflow.configuration.jvm.AssignMark
-import org.opentaint.dataflow.configuration.jvm.ClassStatic
-import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
-import org.opentaint.dataflow.configuration.jvm.CopyMark
-import org.opentaint.dataflow.configuration.jvm.Position
-import org.opentaint.dataflow.configuration.jvm.PositionAccessor
-import org.opentaint.dataflow.configuration.jvm.PositionWithAccess
 import org.opentaint.dataflow.configuration.jvm.RemoveAllMarks
 import org.opentaint.dataflow.configuration.jvm.RemoveMark
-import org.opentaint.dataflow.configuration.jvm.Result
-import org.opentaint.dataflow.configuration.jvm.This
+import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature.JIRLambdaMethod
 import org.opentaint.dataflow.util.SarifTraits
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonReturnInst
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRCallInst
+import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 import org.opentaint.jvm.sast.project.spring.SpringGeneratedMethod
 import org.opentaint.org.opentaint.semgrep.pattern.Mark
@@ -40,14 +34,84 @@ class TraceMessageBuilder(
     private val traits: SarifTraits<CommonMethod, CommonInst>,
     private val sinkMessage: String,
     private val ruleId: String,
+    fullPath: List<TracePathNode>,
 ) {
-    private val stringBuilderAppendName = "String concatenation"
-    private val initializerSuffix = "initializer"
-    private val classInitializerSuffix = "class initializer"
-    private val defaultTaintMark = "marked"
+    private val memoizedMethods = hashSetOf<CommonMethod>()
+    private val lambdaCapturedVars = hashMapOf<String, List<String>>()
+    private val lambdaToArtificialClass = hashMapOf<CommonMethod, String>()
+
+    private fun memoizeLambdaCaptures(method: JIRMethod) {
+        for (inst in method.instList) {
+            if (inst.isLambdaCreation()) {
+                val call = inst as? JIRCallInst
+                if (call == null) {
+                    logger.error { "Lambda created on non-call instruction! $inst" }
+                    return
+                }
+
+                val expr = call.callExpr
+                // skip `this` as the first argument as it is not used in lambda's call
+                val captureStart = if (expr.args.isNotEmpty() && expr.args[0] is JIRThis) 1 else 0
+                val lambdaCapture = expr.args.drop(captureStart).map { param ->
+                    traits.getReadableValue(call, param) ?: badOutput("unresolved lambda capture")
+                }
+                val artificialClassName = expr.method.enclosingType.typeName
+                if (lambdaCapturedVars.containsKey(artificialClassName)) {
+                    if (lambdaCapturedVars[artificialClassName] != lambdaCapture) {
+                        logger.error { "Lambda is re-created with different values captured! $artificialClassName" }
+                    }
+                }
+                lambdaCapturedVars[artificialClassName] = lambdaCapture
+            }
+        }
+    }
+
+    init {
+        for ((idx, node) in fullPath.withIndex()) {
+            val method = node.getMethod()
+            if (method !is JIRMethod) {
+                logger.error { "Unexpected CommonMethod! Only JIRMethod's are supported!" }
+                continue
+            }
+            if (memoizedMethods.add(method)) {
+                memoizeLambdaCaptures(method)
+            }
+            if (node.isLambdaEntry()) {
+                val artificialMethod = fullPath.getOrNull(idx - 1)?.getMethod() as? JIRMethod
+                val artificialClassName = artificialMethod?.enclosingClass?.name
+                val actualMethod = node.getMethod()
+                if (artificialClassName == null || !artificialClassName.contains(artificialLambdaClassMark)) {
+                    logger.error { "Lambda entered, but did not find call from artificial method!" }
+                    continue
+                }
+                if (!lambdaCapturedVars.containsKey(artificialClassName)) {
+                    logger.error { "lambda entered, but could not find its captured variables!" }
+                    continue
+                }
+                if (lambdaToArtificialClass.containsKey(actualMethod)) {
+                    if (lambdaToArtificialClass[actualMethod] != artificialClassName) {
+                        logger.error { "Artificial lambda class changed upon next lambda call for \"${actualMethod.name}\"!" }
+                    }
+                }
+                lambdaToArtificialClass[actualMethod] = artificialClassName
+            }
+        }
+    }
 
     private fun TracePathNode.getMethod() =
         this.statement.location.method
+
+    private fun CommonInst.isLambdaCreation() =
+        this is JIRCallInst && this.callExpr.method.method is JIRLambdaMethod
+
+    private fun TracePathNode.isLambdaCreation() =
+        this.statement.isLambdaCreation()
+
+    private fun TracePathNode.isLambdaEntry() =
+        this.entry is TraceEntry.MethodEntry && this.entry.entryPoint.method.name.startsWith(lambdaMark)
+
+    fun TracePathNode.isInsideLambda() =
+        lambdaToArtificialClass.containsKey(this.getMethod())
 
     private fun getMethodCalleeName(node: TracePathNode): String? {
         val callExpr = traits.getCallExpr(node.statement)
@@ -64,6 +128,8 @@ class TraceMessageBuilder(
             return "\"$className\" $classInitializerSuffix"
         if (className == "StringBuilder" && method == "append")
             return stringBuilderAppendName
+        if (method.startsWith(lambdaMark))
+            return "lambda"
         return "\"$method\""
     }
 
@@ -102,9 +168,25 @@ class TraceMessageBuilder(
             return false
         }
 
+        // filtering calls to toString methods
+        if (node.kind != TracePathNodeKind.SOURCE && node.kind != TracePathNodeKind.SINK) {
+            val name = getMethodCalleeName(node)
+            if (name == "toString")
+                return false
+        }
+
+        // filtering instructions inserted for lambda invocations
+        if (node.getMethod() is JIRLambdaMethod)
+            return false
+
         val entry = node.entry as? TraceEntry.Action ?: return true
 
         val primaryAction = entry.primaryAction
+
+        // filtering nodes that became unimportant
+        if (primaryAction is TraceEntryAction.UnresolvedCallSkip) {
+            return false
+        }
 
         // filtering CallSummary traces where tainted data ends up where it started
         if (primaryAction is TraceEntryAction.CallSummary && entry.otherActions.isEmpty()) {
@@ -116,11 +198,6 @@ class TraceMessageBuilder(
                 }
                 return false
             }
-        }
-
-        // filtering nodes that became unimportant
-        if (primaryAction is TraceEntryAction.UnresolvedCallSkip) {
-            return false
         }
 
         // filtering Call trace entries that contain unexpected Remove actions
@@ -139,13 +216,6 @@ class TraceMessageBuilder(
                 }
                 return false
             }
-        }
-
-        // filtering calls to toString methods
-        if (node.kind != TracePathNodeKind.SOURCE && node.kind != TracePathNodeKind.SINK) {
-            val name = getMethodCalleeName(node)
-            if (name == "toString")
-                return false
         }
 
         return true
@@ -174,8 +244,9 @@ class TraceMessageBuilder(
         "Inside of ${getMethodCalleeNameInPrint(node)}"
 
     private fun createExitMessage(node: TracePathNode): String {
-        val name = node.statement.location.method.name
-        val className = traits.getMethodClassName(node.statement.location.method)
+        val method = node.getMethod()
+        val name = method.name
+        val className = traits.getMethodClassName(method)
         return "Exiting ${getMethodCalleeNameInPrint(name, className)}"
     }
 
@@ -272,14 +343,16 @@ class TraceMessageBuilder(
         }.distinct()
 
     private fun createTraceEntryMessage(node: TracePathNode): String {
+        if (node.isLambdaCreation())
+            return createLambdaCreationMessage(node)
         return when (val entry = node.entry) {
             is TraceEntry.Final -> entry.createMessage(node)
 
             is TraceEntry.MethodEntry -> {
-                val methodName = entry.entryPoint.method.name
+                val methodName = getMethodCalleeNameInPrint(entry.entryPoint.method.name, className = "")
                 val taints = printTaints(node, entry.collectStarts())
                 val withTaints = if (taints.isEmpty()) "" else " with $taints"
-                "Entering \"$methodName\"$withTaints"
+                "Entering $methodName$withTaints"
             }
 
             is TraceEntry.Action -> {
@@ -372,6 +445,7 @@ class TraceMessageBuilder(
     private fun groupPrintableTraces(traces: List<TracePathNode>): List<List<TracePathNode>> {
         val result = mutableListOf<List<TracePathNode>>()
         var curList = mutableListOf<TracePathNode>()
+        var skipLambdaAssign = false
 
         fun addCurListAndClean() {
             if (curList.isNotEmpty()) {
@@ -387,7 +461,17 @@ class TraceMessageBuilder(
         }
 
         for (trace in traces) {
+            if (skipLambdaAssign) {
+                skipLambdaAssign = false
+                if (trace.statement is JIRAssignInst)
+                    continue
+            }
             if (trace.kind == TracePathNodeKind.CALL) {
+                addAsSingle(trace)
+                continue
+            }
+            if (trace.isLambdaCreation()) {
+                skipLambdaAssign = true
                 addAsSingle(trace)
                 continue
             }
@@ -477,11 +561,23 @@ class TraceMessageBuilder(
         return "$assignee"
     }
 
-    private fun printArgument(node: TracePathNode, index: Int) =
-        if (node.kind != TracePathNodeKind.CALL || node.entry is TraceEntry.Final) {
-            traits.printArgument(node.statement.location.method, index)
+    private fun printLambdaArgument(node: TracePathNode, index: Int): String {
+        if (!node.isInsideLambda()) {
+            logger.error { "Called outside of lambda!" }
+            return badOutput("No lambdas present")
         }
-        else {
+        val captured = lambdaCapturedVars[lambdaToArtificialClass[node.getMethod()]]
+        if (captured == null) {
+            logger.error { "No captured variables present while being inside lambda! \"${node.getMethod().name}\"" }
+            return badOutput("Unresolved lambda arg")
+        }
+        if (index < captured.size)
+            return captured[index]
+        return traits.printArgument(node.getMethod(), index - captured.size)
+    }
+
+    private fun printArgument(node: TracePathNode, index: Int): String =
+        if (node.kind == TracePathNodeKind.CALL && node.entry !is TraceEntry.Final) {
             val stmt = node.statement as? CommonAssignInst
             val call = stmt?.let { it.rhv as? CommonCallExpr }
             val default = traits.printArgumentNth(index, call?.let { traits.getCallee(it).name })
@@ -489,6 +585,12 @@ class TraceMessageBuilder(
                 it.args.getOrNull(index)?.let { arg -> traits.getReadableValue(node.statement, arg) }
             }
             argument ?: default
+        }
+        else if (node.isInsideLambda()) {
+            printLambdaArgument(node, index)
+        }
+        else {
+            traits.printArgument(node.getMethod(), index)
         }
 
     private fun AccessPathBase.inMessage(node: TracePathNode) = when (this) {
@@ -559,11 +661,13 @@ class TraceMessageBuilder(
         if (all.isEmpty())
             return true
         val mark = all[0].mark
-        for (info in all) {
-            if (mark != info.mark)
-                return false
-        }
-        return true
+        return all.all { it.mark == mark }
+    }
+
+    private fun createLambdaCreationMessage(node: TracePathNode): String {
+        val starts = node.entry.collectStarts()
+        val suffix = if (starts.isEmpty()) "" else " with captured ${printTaints(node, starts)}"
+        return "Lambda created$suffix"
     }
 
     private fun createMethodCallTaintPropagationMessageWithTaints(
@@ -754,6 +858,13 @@ class TraceMessageBuilder(
     }
 
     companion object {
+        private val stringBuilderAppendName = "String concatenation"
+        private val initializerSuffix = "initializer"
+        private val classInitializerSuffix = "class initializer"
+        private val defaultTaintMark = "marked"
+        private val lambdaMark = "lambda$"
+        private val artificialLambdaClassMark = "jIR_lambda$"
+
         val logger = object : KLogging() {}.logger
     }
 }
