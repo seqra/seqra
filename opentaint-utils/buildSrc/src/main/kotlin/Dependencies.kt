@@ -4,7 +4,7 @@ import org.opentaint.common.dep
 
 object Versions {
     const val clikt = "5.0.0"
-    const val logback = "1.4.8"
+    const val logback = "1.3.16" // Latest 1.3.x series requires JDK 8
 }
 
 object Libs {
