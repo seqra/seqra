@@ -131,7 +131,7 @@ class SemgrepRuleAutomataBuilder(
 
         stats.emptyAutomata += emptyAutomataFailure
         t2aTrace.phaseError(emptyAutomataFailure) {
-            error("Empty accepting state", Reason.WARNING)
+            error("Empty accepting state", Reason.ERROR)
         }
 
         return ruleAutomata
@@ -232,7 +232,8 @@ class SemgrepRuleAutomataBuilder(
                 constraint.transform {
                     when (it) {
                         is RawMetaVarConstraint.Pattern -> {
-                            patternConstraintValue(it.value, semgrepTrace) ?: throw PatternConstraintFailure()
+                            patternConstraintValue(it.value, semgrepTrace)
+                                ?: throw PatternConstraintFailure()
                         }
 
                         is RawMetaVarConstraint.RegExp -> {
@@ -241,6 +242,7 @@ class SemgrepRuleAutomataBuilder(
                     }
                 }
             } catch (e: PatternConstraintFailure) {
+                semgrepTrace.error("Metavar constraint parsing failure", Reason.NOT_IMPLEMENTED)
                 return null
             }
 

@@ -1,8 +1,10 @@
 package org.opentaint.semgrep.pattern
 
 import com.charleskorn.kaml.AnchorsAndAliases
+import com.charleskorn.kaml.UnknownPropertyException
 import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlConfiguration
+import com.charleskorn.kaml.YamlException
 import com.charleskorn.kaml.YamlMap
 import com.charleskorn.kaml.YamlNode
 import com.charleskorn.kaml.YamlScalar
@@ -12,6 +14,7 @@ import kotlinx.serialization.Transient
 import kotlinx.serialization.builtins.serializer
 import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason.ERROR
 import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason.NOT_IMPLEMENTED
+import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason.WARNING
 import org.opentaint.semgrep.pattern.SemgrepTraceEntry.Step
 import org.opentaint.semgrep.pattern.conversion.cartesianProductMapTo
 import java.util.Optional
@@ -308,30 +311,45 @@ sealed interface Formula {
     data class Regex(val pattern: String) : Formula
 }
 
-private val yaml = Yaml(
-    configuration = YamlConfiguration(
-        codePointLimit = Int.MAX_VALUE,
-        strictMode = false,
-        anchorsAndAliases = AnchorsAndAliases.Permitted()
-    )
+private val yamlConfig = YamlConfiguration(
+    codePointLimit = Int.MAX_VALUE,
+    strictMode = false,
+    anchorsAndAliases = AnchorsAndAliases.Permitted()
 )
+
+private val yaml = Yaml(configuration = yamlConfig)
+private val strictYaml = Yaml(configuration = yamlConfig.copy(strictMode = true))
 
 private var currentLoadTrace: SemgrepFileLoadTrace? = null
 
 fun parseSemgrepYaml(yml: String, trace: SemgrepFileLoadTrace): SemgrepYamlRuleSet? =
     try {
         currentLoadTrace = trace
-        yaml.decodeFromString(SemgrepYamlRuleSet.serializer(), yml)
+        tryParseRuleSetYaml(yml)
     } catch (ex: Throwable) {
-        trace.error(
-            Step.LOAD_RULESET,
-            "Failed to load rule set from yaml: ${ex.message}",
-            SemgrepErrorEntry.Reason.ERROR,
-        )
+        trace.error(Step.LOAD_RULESET, "Failed to load rule set from yaml: ${ex.message}", ERROR)
         null
     } finally {
         currentLoadTrace = null
     }
+
+private fun tryParseRuleSetYaml(yml: String): SemgrepYamlRuleSet = try {
+    strictYaml.decodeFromString(SemgrepYamlRuleSet.serializer(), yml)
+} catch (ex: YamlException) {
+    val rootCause = ex.rootCause()
+    if (rootCause !is UnknownPropertyException) throw ex
+
+    currentLoadTrace?.error(Step.LOAD_RULESET, "Unknown property ${rootCause.propertyName}", WARNING)
+
+    yaml.decodeFromString(SemgrepYamlRuleSet.serializer(), yml)
+}
+
+private fun YamlException.rootCause(): Throwable {
+    var result: Throwable = this
+    while (true) {
+        result = result.cause ?: return result
+    }
+}
 
 fun parseMatchingRule(rule: SemgrepYamlRule, trace: SemgrepRuleLoadStepTrace): SemgrepMatchingRule<Formula>? {
     val parsed = parseMatchingRuleFormula(rule, trace) ?: return null
@@ -526,6 +544,10 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
     if (patterns.isEmpty() && patternInsides.isNotEmpty()) {
         // note: semgrep allows pattern-inside signature rules without pattern
         patterns.add("...")
+    }
+
+    if (patterns.isEmpty()) {
+        semgrepTrace.error("Rule has no patterns", ERROR)
     }
 
     return RuleWithMetaVars(

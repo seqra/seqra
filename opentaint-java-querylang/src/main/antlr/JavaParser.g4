@@ -123,7 +123,7 @@ enumBodyDeclarations
     ;
 
 interfaceDeclaration
-    : INTERFACE identifier typeParameters? (EXTENDS typeList)? (PERMITS typeList)? interfaceBody
+    : INTERFACE identifier typeParameters? (EXTENDS interfaceExtends=typeList)? (PERMITS typeList)? interfaceBody
     ;
 
 classBody
@@ -160,7 +160,7 @@ memberDeclaration
    for invalid return type after parsing.
  */
 methodDeclaration
-    : typeTypeOrVoid identifier formalParameters ('[' ']')* (THROWS qualifiedNameList)? methodBody?
+    : typeTypeOrVoid identifier formalParameters ('[' ']')* (THROWS throwsList=qualifiedNameList)? methodBody?
     ;
 
 methodBody
@@ -241,7 +241,7 @@ genericInterfaceMethodDeclaration
     ;
 
 interfaceCommonBodyDeclaration
-    : annotation* typeTypeOrVoid identifier formalParameters ('[' ']')* (THROWS qualifiedNameList)? methodBody
+    : annotation* typeTypeOrVoid identifier formalParameters ('[' ']')* (THROWS throwsList=qualifiedNameList)? methodBody
     ;
 
 variableDeclarators

@@ -197,15 +197,6 @@ fun eliminateAnyValueGenerator(
         return EdgeEliminationResult.Eliminate(nextCtx)
     }
 
-    val valueGenEffect = hashMapOf<MetavarAtom, MutableList<MethodPredicate>>()
-    for ((metaVar, preds) in effect.assignMetaVar) {
-        for (pred in preds) {
-            if (pred.anyValueGeneratorUsed()) {
-                valueGenEffect.getOrPut(metaVar, ::mutableListOf).add(pred)
-            }
-        }
-    }
-
     var resultCondition = condition
     val resultConstraint = ctx.valueConstraint.toMutableMap()
     val constraintIter = resultConstraint.iterator()

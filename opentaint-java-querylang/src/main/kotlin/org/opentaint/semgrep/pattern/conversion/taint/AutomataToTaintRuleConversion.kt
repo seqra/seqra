@@ -73,10 +73,6 @@ fun <R> RuleConversionCtx.safeConvertToTaintRules(body: () -> R): R? =
 private fun RuleConversionCtx.convertMatchingRuleToTaintRules(
     rule: SemgrepMatchingRule<RuleWithMetaVars<TaintRegisterStateAutomata, ResolvedMetaVarInfo>>,
 ): TaintRuleFromSemgrep {
-    if (rule.rules.isEmpty()) {
-        error("No SemgrepRuleAutomatas received")
-    }
-
     val ruleGroups = rule.rules.mapIndexedNotNull { idx, r ->
         val rules = safeConvertToTaintRules {
             convertAutomataToTaintRules(r.metaVarInfo, r.rule, markNamePrefix(shortRuleId, "$idx"))
@@ -88,6 +84,7 @@ private fun RuleConversionCtx.convertMatchingRuleToTaintRules(
     if (ruleGroups.isEmpty()) {
         error("Failed to generate any taintRuleGroup")
     }
+
     return TaintRuleFromSemgrep(fullRuleId, ruleGroups)
 }
 
@@ -822,8 +819,16 @@ private fun TaintRuleGenerationCtx.typeMatcher(
                         val pkgPattern = value.regex.substringBeforeLast("\\.", missingDelimiterValue = "")
                         if (pkgPattern.isNotEmpty()) {
                             val clsPattern = value.regex.substringAfterLast("\\.")
-                            if (clsPattern.patternCanMatchDot()){
-                                SerializedNameMatcher.Pattern(value.regex)
+                            if (clsPattern.patternCanMatchDot()) {
+                                if (value.regex.endsWith('*') && value.regex.let { it.lowercase() == it }) {
+                                    // consider pattern as package pattern
+                                    SerializedNameMatcher.ClassPattern(
+                                        `package` = SerializedNameMatcher.Pattern(value.regex),
+                                        `class` = anyName()
+                                    )
+                                } else {
+                                    SerializedNameMatcher.Pattern(value.regex)
+                                }
                             } else {
                                 SerializedNameMatcher.ClassPattern(
                                     `package` = SerializedNameMatcher.Pattern(pkgPattern),

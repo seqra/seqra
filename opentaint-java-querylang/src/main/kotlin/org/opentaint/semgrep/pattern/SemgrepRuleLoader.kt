@@ -162,11 +162,23 @@ class SemgrepRuleLoader(
         when (rule.mode) {
             null, "search" -> {
                 val parsed = parseMatchingRule(rule, loadTrace) ?: return
+
+                if (parsed.isEmpty) {
+                    loadTrace.error("Empty rule after parse", Reason.ERROR)
+                    return
+                }
+
                 parsedRules[ruleInfo.ruleId] = NormalRule(parsed, ruleInfo)
             }
 
             "taint" -> {
                 val parsed = parseTaintRule(rule, loadTrace)
+
+                if (parsed.isEmpty) {
+                    loadTrace.error("Empty rule after parse", Reason.ERROR)
+                    return
+                }
+
                 parsedRules[ruleInfo.ruleId] = NormalRule(parsed, ruleInfo)
             }
             "join" -> {
@@ -230,11 +242,16 @@ class SemgrepRuleLoader(
 
         val stats = ruleAutomataBuilder.stats
         if (stats.isFailure) {
-            trace.stepTrace(Step.BUILD).error("Automata build issues", Reason.ERROR)
+            trace.stepTrace(Step.BUILD).error("Automata build issues", Reason.WARNING)
         }
 
         val btaTrace = trace.stepTrace(Step.BUILD_TAINT_AUTOMATA)
         val taintAutomata = createTaintAutomata(ruleAutomata, btaTrace)
+
+        if (taintAutomata.isEmpty) {
+            trace.stepTrace(Step.BUILD).error("Empty rule after build", Reason.ERROR)
+            return
+        }
 
         builtNormalRules[rule.info.ruleId] = NormalRule(taintAutomata, rule.info)
     }

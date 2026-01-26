@@ -78,7 +78,7 @@ fun main() {
         collectParsingStats(path)
 //        testStability(path) // May need to increase automataBuildTimeout to pass
     }
-    println("Time is ${tm * 0.001}s")
+//    println("Time is ${tm * 0.001}s")
 
 //    val s = "int1|12char|4567"
 //    println(checkIfRegexIsSimpleEnumeration(s))
@@ -423,28 +423,37 @@ private fun collectParsingStats(path: Path): List<Pair<SemgrepJavaPattern, Strin
 }
 
 private fun analyzeErrors(trace: SemgrepLoadTrace) {
-    val directFileErrors = mutableListOf<SemgrepErrorEntry>()
+    val allErrors = hashMapOf<SemgrepErrorEntry.Reason, MutableList<SemgrepErrorEntry>>()
     val ruleErrors = mutableListOf<SemgrepRuleLoadTrace>()
 
     for (fileError in trace.fileTraces) {
-        fileError.entries.filterIsInstanceTo<SemgrepErrorEntry, _>(directFileErrors)
+        allErrors.addErrors(fileError.entries.filterIsInstance<SemgrepErrorEntry>())
         ruleErrors.addAll(fileError.ruleTraces)
     }
 
-    val allErrors = mutableListOf<SemgrepErrorEntry>()
     for (ruleError in ruleErrors) {
-        ruleError.entries.filterIsInstanceTo<SemgrepErrorEntry, _>(allErrors)
-        ruleError.steps.forEach { it.entries.filterIsInstanceTo<SemgrepErrorEntry, _>(allErrors) }
+        allErrors.addErrors(ruleError.entries.filterIsInstance<SemgrepErrorEntry>())
+        ruleError.steps.forEach {
+            allErrors.addErrors(it.entries.filterIsInstance<SemgrepErrorEntry>())
+        }
     }
 
-    val errorKinds = (allErrors + directFileErrors).map { it.ruleKind() }
-    val sortedErrors = errorKinds.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }
+    for ((groupKind, groupErrors) in allErrors.entries.sortedBy { it.key.toString() }) {
+        println("-".repeat(20))
+        println("Trace $groupKind")
 
-    println()
-    println("Error kinds")
-    sortedErrors.forEach { (key, value) ->
-        println("$key: $value")
+        val errorKinds = groupErrors.map { it.ruleKind() }
+        val sortedErrors = errorKinds.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }
+        sortedErrors.forEach { (key, value) ->
+            println("$key: $value")
+        }
     }
+}
+
+private fun MutableMap<SemgrepErrorEntry.Reason, MutableList<SemgrepErrorEntry>>.addErrors(
+    errors: Iterable<SemgrepErrorEntry>
+) = errors.forEach {
+    this.getOrPut(it.reason, ::mutableListOf).add(it)
 }
 
 private fun SemgrepErrorEntry.ruleKind(): String {

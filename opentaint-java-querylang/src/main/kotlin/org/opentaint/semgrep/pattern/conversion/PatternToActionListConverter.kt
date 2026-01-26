@@ -174,12 +174,23 @@ class PatternToActionListConverter: ActionListBuilder {
                 }
             }
 
+            is ArrayAccess -> {
+                if (pattern.arrayIndex !is Ellipsis) {
+                    transformationFailed("Array access index is not ellipsis")
+                }
+
+                when (pattern.obj) {
+                    is Metavar,
+                    is TypedMetavar -> transformationFailed("Array access with metavar")
+                    else -> transformationFailed("Array access object is not metavar")
+                }
+            }
+
             Ellipsis,
             is AddExpr,
             is EllipsisMethodInvocations,
             EmptyPatternSequence,
             is FieldAccess,
-            is ArrayAccess,
             is FormalArgument,
             is Identifier,
             is MethodArguments,
@@ -465,11 +476,6 @@ class PatternToActionListConverter: ActionListBuilder {
     }
 
     private fun transformClassDeclaration(pattern: ClassDeclaration): SemgrepPatternActionList {
-        if (pattern.body != Ellipsis) {
-            // TODO
-            transformationFailed("ClassDeclaration_non-empty_class_declaration")
-        }
-
         if (pattern.extends != null) {
             transformationFailed("ClassDeclaration_non-null_extends")
         }
@@ -483,18 +489,36 @@ class PatternToActionListConverter: ActionListBuilder {
 
         val classModifiers = pattern.modifiers.map { transformModifier(it) }
 
-        val methodSignature = SemgrepPatternAction.MethodSignature(
-            methodName = SignatureName.AnyName,
-            methodReturnTypeMetavar = null,
-            ParamConstraint.Partial(emptyList()),
-            modifiers = emptyList(),
+        val bodyActionList = transformPatternToActionList(pattern.body)
+        if (bodyActionList.actions.isEmpty()) {
+            val methodSignature = SemgrepPatternAction.MethodSignature(
+                methodName = SignatureName.AnyName,
+                methodReturnTypeMetavar = null,
+                ParamConstraint.Partial(emptyList()),
+                modifiers = emptyList(),
+                enclosingClassMetavar = nameMetavar,
+                enclosingClassModifiers = classModifiers,
+            )
+
+            return SemgrepPatternActionList(
+                listOf(methodSignature),
+                hasEllipsisInTheEnd = true,
+                hasEllipsisInTheBeginning = false
+            )
+        }
+
+        val firstAction = bodyActionList.actions.first()
+        if (firstAction !is SemgrepPatternAction.MethodSignature) {
+            transformationFailed("Class declaration has body without method signature")
+        }
+
+        val signatureWithClass = firstAction.copy(
             enclosingClassMetavar = nameMetavar,
             enclosingClassModifiers = classModifiers,
         )
 
-        return SemgrepPatternActionList(
-            listOf(methodSignature),
-            hasEllipsisInTheEnd = true,
+        return bodyActionList.copy(
+            actions = listOf(signatureWithClass) + bodyActionList.actions.drop(1),
             hasEllipsisInTheBeginning = false
         )
     }
@@ -603,27 +627,29 @@ class PatternToActionListConverter: ActionListBuilder {
     private fun transformAnnotation(annotation: Annotation): SignatureModifier {
         val annotationType = transformTypeName(annotation.name)
         val args = methodArgumentsToPatternList(annotation.args)
-        val annotationValue = when (args.size) {
-            0 -> SignatureModifierValue.NoValue
-            1 -> when (val arg = args.single()) {
-                is NamedValue -> {
-                    val paramName = (arg.name as? ConcreteName)?.name
-                        ?: transformationFailed("Annotation_argument_parameter_is_not_concrete")
+        val annotationValue = transformAnnotationValue(args)
+        return SignatureModifier(annotationType, annotationValue)
+    }
 
-                    tryExtractAnnotationParamValue(arg.value, paramName)
-                }
+    private fun transformAnnotationValue(args: List<SemgrepJavaPattern>): SignatureModifierValue {
+        if (args.isEmpty()) return SignatureModifierValue.NoValue
 
-                is EllipsisArgumentPrefix -> SignatureModifierValue.AnyValue
+        val nonEllipsisArgs = args.filterNot { it is EllipsisArgumentPrefix }
+        if (nonEllipsisArgs.isEmpty()) return SignatureModifierValue.AnyValue
 
-                else -> tryExtractAnnotationParamValue(arg, paramName = "value")
-            }
-
-            else -> {
-                transformationFailed("Annotation_multiple_args")
-            }
+        if (nonEllipsisArgs.size > 1) {
+            transformationFailed("Annotation_multiple_args")
         }
 
-        return SignatureModifier(annotationType, annotationValue)
+        val arg = nonEllipsisArgs.first()
+        if (arg !is NamedValue) {
+            return tryExtractAnnotationParamValue(arg, paramName = "value")
+        }
+
+        val paramName = (arg.name as? ConcreteName)?.name
+            ?: transformationFailed("Annotation_argument_parameter_is_not_concrete")
+
+        return tryExtractAnnotationParamValue(arg.value, paramName)
     }
 
     private fun tryExtractAnnotationParamValue(
