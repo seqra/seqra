@@ -70,6 +70,9 @@ sealed interface SerializedCondition {
     data class IsConstant(val isConstant: PositionBase) : SerializedCondition
 
     @Serializable
+    data class IsNull(val isNull: PositionBase) : SerializedCondition
+
+    @Serializable
     data class ConstantMatches(val constantMatches: String, val pos: PositionBase) : SerializedCondition
 
     @Serializable
@@ -200,6 +203,7 @@ class SerializedConditionSerializer :
             "typeIs" to SerializedCondition.IsType.serializer(),
             "annotatedWith" to SerializedCondition.AnnotationType.serializer(),
             "isConstant" to SerializedCondition.IsConstant.serializer(),
+            "isNull" to SerializedCondition.IsNull.serializer(),
             "constantMatches" to SerializedCondition.ConstantMatches.serializer(),
             "constantEq" to SerializedCondition.ConstantEq.serializer(),
             "constantGt" to SerializedCondition.ConstantGt.serializer(),
