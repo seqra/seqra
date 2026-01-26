@@ -2,14 +2,15 @@ package org.opentaint.semgrep.pattern.conversion.taint
 
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
+import org.opentaint.semgrep.pattern.Mark.GeneratedMark
 
 sealed interface TaintMarkCheckBuilder {
     fun build(position: PositionBaseWithModifiers): SerializedCondition
 }
 
-data class TaintMarkLabelCheckBuilder(val label: String) : TaintMarkCheckBuilder {
+data class TaintMarkLabelCheckBuilder(val label: GeneratedMark) : TaintMarkCheckBuilder {
     override fun build(position: PositionBaseWithModifiers): SerializedCondition =
-        SerializedCondition.ContainsMark(label, position)
+        label.mkContainsMark(position)
 }
 
 data class TaintMarkNotCheckBuilder(val arg: TaintMarkCheckBuilder): TaintMarkCheckBuilder {
@@ -37,7 +38,7 @@ data object TaintMarkCheckNotRequiredBuilder : TaintMarkCheckBuilder {
     override fun build(position: PositionBaseWithModifiers): SerializedCondition = SerializedCondition.True
 }
 
-fun TaintMarkCheckBuilder.collectLabels(dst: MutableSet<String>): Set<String> {
+fun TaintMarkCheckBuilder.collectLabels(dst: MutableSet<GeneratedMark>): Set<GeneratedMark> {
     when (this) {
         is TaintMarkCheckNotRequiredBuilder -> {
             // no labels

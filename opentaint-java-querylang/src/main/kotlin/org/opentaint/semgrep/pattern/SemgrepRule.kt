@@ -48,7 +48,7 @@ data object NoRequirement: SemgrepTaintRequires
 
 data class SemgrepTaintLabel(val label: String): SemgrepTaintRequires
 
-data class GeneratedTaintMark(val mark: String): SemgrepTaintRequires
+data class GeneratedTaintMark(val mark: Mark.GeneratedMark): SemgrepTaintRequires
 
 data class SemgrepTaintAnd(val left: SemgrepTaintRequires, val right: SemgrepTaintRequires): SemgrepTaintRequires
 

@@ -75,7 +75,7 @@ class SarifGenerator(
 
         val sinkLocation = statementLocation(vulnerability.statement)
 
-        val codeFlow = generateCodeFlow(trace, vulnerabilityRule.meta.message, ruleId)
+        val codeFlow = generateCodeFlow(trace, vulnerabilityRule.meta.message)
 
         var result = Result(
             ruleID = ruleId,
@@ -90,7 +90,7 @@ class SarifGenerator(
         return result
     }
 
-    private fun generateCodeFlow(trace: TraceResolver.Trace?, sinkMessage: String, ruleId: String): CodeFlow? {
+    private fun generateCodeFlow(trace: TraceResolver.Trace?, sinkMessage: String): CodeFlow? {
         traceGenerationStats.total++
 
         if (trace == null) {
@@ -116,7 +116,7 @@ class SarifGenerator(
             }
         }
 
-        val threadFlows = paths.map { generateThreadFlow(it, sinkMessage, ruleId) }
+        val threadFlows = paths.map { generateThreadFlow(it, sinkMessage) }
         return CodeFlow(threadFlows = threadFlows)
     }
 
@@ -185,8 +185,8 @@ class SarifGenerator(
         !isInsideLambda() && (entry is MethodTraceResolver.TraceEntry.MethodEntry || entry.isPureEntryPoint())
     }
 
-    private fun generateThreadFlow(path: List<TracePathNode>, sinkMessage: String, ruleId: String): ThreadFlow {
-        val messageBuilder = TraceMessageBuilder(traits, sinkMessage, ruleId, path)
+    private fun generateThreadFlow(path: List<TracePathNode>, sinkMessage: String): ThreadFlow {
+        val messageBuilder = TraceMessageBuilder(traits, sinkMessage, path)
         val filteredLocations = path.filter { messageBuilder.isGoodTrace(it) }
         val groupedLocations = groupRelativeTraces(filteredLocations)
         val filteredGroups = removeRepetitiveAssigns(groupedLocations)

@@ -1,8 +1,9 @@
-package org.opentaint.org.opentaint.semgrep.pattern
+package org.opentaint.semgrep.pattern
 
 import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.semgrep.pattern.conversion.MetavarAtom
 
 sealed interface Mark {
     data class StringMark(val mark: String) : Mark
@@ -13,59 +14,85 @@ sealed interface Mark {
 
     data object TaintMark : Mark
 
-    fun isRuleDefined() = when (this) {
-        is StringMark,
-            is TaintMark -> true
-        is ArtificialMark,
-            is StateMark -> false
+    data class RuleUniqueMarkPrefix(
+        val ruleId: String,
+        val idx: Int,
+        val classifier: String? = null,
+    ) {
+        private val classifierPrefix = classifier?.let { "${classifier}_" }.orEmpty()
+        private val ruleClassifier = "${classifierPrefix}_$idx"
+
+        fun metaVarState(metaVar: MetavarAtom, state: Int): GeneratedMark =
+            GeneratedMark(ruleId, ruleClassifier, metaVarStr(metaVar), "$state")
+
+        fun artificialState(state: String): GeneratedMark =
+            GeneratedMark(ruleId, ruleClassifier, StateName, state)
+
+        fun createTaintMark(label: String): GeneratedMark =
+            GeneratedMark(ruleId, ruleClassifier, TaintName, label)
     }
 
-    fun isInternallyDefined() = !isRuleDefined()
+    data class GeneratedMark(
+        val ruleId: String,
+        val ruleClassifier: String,
+        val variablesStr: String,
+        val value: String,
+    ) {
+        fun taintMarkStr(): String = markToStr(this)
+    }
 
     companion object {
-        const val ArtificialMetavarName = "<ARTIFICIAL>"
-        const val ArtificialStateName = "__<STATE>__"
-        const val GeneralTaintName = "taint"
-        const val GeneralTaintLabelPrefix = "taint_"
-        const val MarkSeparator = '|'
-        const val SquishedSeparator = '&'
-        const val RuleIdSeparator = '#'
+        private const val StateName = "_<S>_"
+        private const val TaintName = "_<T>_"
+        private const val MetaVarSeparator = "_&_"
+        private const val GeneratedMarkPartSeparator = ";"
 
-        val logger = object : KLogging() {}.logger
+        private fun metaVarStr(metaVar: MetavarAtom): String =
+            metaVar.basics.joinToString(MetaVarSeparator)
 
-        fun markNamePrefix(shortRuleId: String, prefix: String) =
-            "$shortRuleId${RuleIdSeparator}$prefix"
+        private fun parseMetaVarStr(str: String): MetavarAtom =
+            MetavarAtom.create(str.split(MetaVarSeparator).map { MetavarAtom.create(it) })
 
-        fun getMarkFromString(rawMark: String, ruleId: String): Mark {
-            val markRuleId = rawMark.substringBefore(RuleIdSeparator, missingDelimiterValue = "")
-            if (markRuleId.isBlank()) {
-                // running with config
-                return StringMark(rawMark)
-            }
+        private fun markToStr(mark: GeneratedMark): String =
+            listOf(mark.ruleId, mark.ruleClassifier, mark.variablesStr, mark.value)
+                .joinToString(GeneratedMarkPartSeparator)
 
-            if (!ruleId.endsWith(markRuleId)) {
-                logger.error { "expected ruleId at the start of mark!" }
-                return TaintMark
-            }
+        fun parseMark(markStr: String): GeneratedMark =
+            tryParseMark(markStr)
+                ?: error("Mark is not generated: $markStr")
 
-            val noRuleId = rawMark.substringAfter(RuleIdSeparator)
-            if (noRuleId.startsWith(GeneralTaintLabelPrefix))
-                return StringMark(noRuleId.substringAfter(GeneralTaintLabelPrefix))
-            if (noRuleId == GeneralTaintName)
-                return TaintMark
-            if (noRuleId.contains(ArtificialStateName))
-                return StateMark
-            if (noRuleId.contains(ArtificialMetavarName))
-                return ArtificialMark
-            val split = noRuleId.split(MarkSeparator)
-            if (split.size < 2) {
-                logger.error { "mark must contain at least two parts!" }
-                return TaintMark
-            }
-            return StringMark(split[1].split(SquishedSeparator).joinToString(" or "))
+        private fun tryParseMark(markStr: String): GeneratedMark? {
+            val parts = markStr.split(GeneratedMarkPartSeparator)
+            if (parts.size != 4) return null
+            val (rid, rc, vs, v) = parts
+            return GeneratedMark(rid, rc, vs, v)
         }
 
-        fun InitialFactAp.getMark(ruleId: String): Mark {
+        private val logger = object : KLogging() {}.logger
+
+        fun getMarkFromString(rawMark: String): Mark {
+            val mark = tryParseMark(rawMark)
+                ?: return StringMark(rawMark) // running with config
+
+            if (mark.variablesStr == StateName) {
+                return StateMark
+            }
+
+            if (mark.variablesStr == TaintName) {
+                if (mark.value.isBlank()) return TaintMark
+                return StringMark(mark.value)
+            }
+
+            val metaVars = parseMetaVarStr(mark.variablesStr)
+            if (metaVars.basics.any { it.isArtificial }) {
+                return ArtificialMark
+            }
+
+            val metaVarsName = metaVars.basics.joinToString(" or ")
+            return StringMark(metaVarsName)
+        }
+
+        fun InitialFactAp.getMark(): Mark {
             val taintMarks = getAllAccessors().filterIsInstance<TaintMarkAccessor>()
             if (taintMarks.size != 1) {
                 logger.error { "Expected exactly one taint mark but got ${taintMarks.size}!" }
@@ -73,7 +100,7 @@ sealed interface Mark {
             if (taintMarks.isEmpty()) {
                 return TaintMark
             }
-            return getMarkFromString(taintMarks.first().mark, ruleId)
+            return getMarkFromString(taintMarks.first().mark)
         }
     }
 }

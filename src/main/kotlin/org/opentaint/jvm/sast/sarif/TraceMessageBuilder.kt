@@ -21,8 +21,8 @@ import org.opentaint.ir.api.jvm.cfg.JIRCallInst
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 import org.opentaint.jvm.sast.project.spring.SpringGeneratedMethod
-import org.opentaint.org.opentaint.semgrep.pattern.Mark
-import org.opentaint.org.opentaint.semgrep.pattern.Mark.Companion.getMark
+import org.opentaint.semgrep.pattern.Mark
+import org.opentaint.semgrep.pattern.Mark.Companion.getMark
 
 data class TracePathNodeWithMsg(
     val node: TracePathNode,
@@ -33,7 +33,6 @@ data class TracePathNodeWithMsg(
 class TraceMessageBuilder(
     private val traits: SarifTraits<CommonMethod, CommonInst>,
     private val sinkMessage: String,
-    private val ruleId: String,
     fullPath: List<TracePathNode>,
 ) {
     private val memoizedMethods = hashSetOf<CommonMethod>()
@@ -297,7 +296,7 @@ class TraceMessageBuilder(
     }
 
     private fun factToTaintInfo(fact: InitialFactAp): TaintInfo? {
-        val mark = fact.getMark(ruleId)
+        val mark = fact.getMark()
         if (mark is Mark.StateMark) return null
         return TaintInfo(mark, fact.base)
     }

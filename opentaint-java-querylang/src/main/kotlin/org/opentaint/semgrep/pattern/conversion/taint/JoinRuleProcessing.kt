@@ -4,8 +4,10 @@ import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
-import org.opentaint.org.opentaint.semgrep.pattern.Mark.Companion.markNamePrefix
 import org.opentaint.semgrep.pattern.GeneratedTaintMark
+import org.opentaint.semgrep.pattern.Mark
+import org.opentaint.semgrep.pattern.Mark.GeneratedMark
+import org.opentaint.semgrep.pattern.Mark.RuleUniqueMarkPrefix
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.RuleWithMetaVars
 import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
@@ -89,7 +91,7 @@ private fun RuleConversionCtx.convertSingleCompositionJoinRule(
 private fun RuleConversionCtx.convertCompositionLeftMatchingRule(
     automata: SemgrepMatchingRule<RuleWithMetaVars<TaintRegisterStateAutomata, ResolvedMetaVarInfo>>,
     item: TaintAutomataJoinRuleItem, finalVar: MetavarAtom,
-): Pair<List<TaintRuleFromSemgrep.TaintRuleGroup>, Set<String>> {
+): Pair<List<TaintRuleFromSemgrep.TaintRuleGroup>, Set<GeneratedMark>> {
     val leftEdges = automata.flatMap { r ->
         val automataWithVars = TaintRegisterStateAutomataWithStateVars(
             r.rule, initialStateVars = emptySet(), acceptStateVars = setOf(finalVar)
@@ -106,7 +108,7 @@ private fun RuleConversionCtx.convertCompositionLeftMatchingRule(
             edgesToFinalAccept = emptyList()
         )
         TaintRuleGenerationCtx(
-            markNamePrefix(item.ruleShortId, "$idx"),
+            RuleUniqueMarkPrefix(item.ruleShortId, idx),
             taintEdgesWithAssign, compositionStrategy = null
         )
     }
@@ -118,11 +120,11 @@ private fun RuleConversionCtx.convertCompositionLeftMatchingRule(
         }
     }
 
-    val leftFinalMarks = hashSetOf<String>()
+    val leftFinalMarks = hashSetOf<GeneratedMark>()
     leftCtx.forEach { ctx ->
         ctx.automata.finalAcceptStates.forEach { s ->
             ctx.stateAssignMark(finalVar, s, PositionBase.Result.base()).forEach { assign ->
-                leftFinalMarks.add(assign.kind)
+                leftFinalMarks.add(Mark.parseMark(assign.kind))
             }
         }
     }
@@ -133,7 +135,7 @@ private fun RuleConversionCtx.convertCompositionLeftMatchingRule(
 private fun RuleConversionCtx.convertCompositionRightMatchingRule(
     automata: SemgrepMatchingRule<RuleWithMetaVars<TaintRegisterStateAutomata, ResolvedMetaVarInfo>>,
     initialVar: MetavarAtom,
-    leftFinalMarks: Set<String>,
+    leftFinalMarks: Set<GeneratedMark>,
 ): List<TaintRuleFromSemgrep.TaintRuleGroup> {
     val rightEdges = automata.flatMap { r ->
         val automataWithVars = TaintRegisterStateAutomataWithStateVars(
@@ -158,14 +160,16 @@ private fun RuleConversionCtx.convertCompositionRightMatchingRule(
                 if (value != initialStateId) return null
 
                 return serializedConditionOr(
-                    leftFinalMarks.map { SerializedCondition.ContainsMark(it, pos) }
+                    leftFinalMarks.map {
+                        it.mkContainsMark(pos)
+                    }
                 )
             }
 
             override fun stateAccessedMarks(
                 state: TaintRegisterStateAutomata.State,
                 varName: MetavarAtom
-            ): Set<String>? {
+            ): Set<GeneratedMark>? {
                 if (varName != initialVar) return null
                 val value = state.register.assignedVars[varName]
                 if (value != initialStateId) return null
@@ -173,7 +177,7 @@ private fun RuleConversionCtx.convertCompositionRightMatchingRule(
             }
         }
 
-        TaintRuleGenerationCtx(markNamePrefix(shortRuleId, "$idx"), r, composition)
+        TaintRuleGenerationCtx(RuleUniqueMarkPrefix(shortRuleId, idx), r, composition)
     }
 
     val rightRules = rightCtx.mapNotNull {
@@ -196,7 +200,7 @@ private fun RuleConversionCtx.convertCompositionRightMatchingRule(
 private fun RuleConversionCtx.convertCompositionRightTaintRule(
     automata: SemgrepTaintRule<RuleWithMetaVars<TaintRegisterStateAutomata, ResolvedMetaVarInfo>>,
     @Suppress("UNUSED_PARAMETER") initialVar: MetavarAtom,
-    leftFinalMarks: Set<String>,
+    leftFinalMarks: Set<GeneratedMark>,
 ): List<TaintRuleFromSemgrep.TaintRuleGroup>? {
     if (automata.sources.isNotEmpty()) {
         trace.error("Join on taint rule with non-empty sources", Reason.NOT_IMPLEMENTED)
@@ -209,7 +213,7 @@ private fun RuleConversionCtx.convertCompositionRightTaintRule(
 
 private fun RuleConversionCtx.convertCompositionRightTaintRule(
     automata: SemgrepTaintRule<RuleWithMetaVars<TaintRegisterStateAutomata, ResolvedMetaVarInfo>>,
-    sourceMarks: Set<String>,
+    sourceMarks: Set<GeneratedMark>,
 ): List<TaintRuleFromSemgrep.TaintRuleGroup> {
     val preparedRules = prepareTaintNonSourceRules(
         automata,

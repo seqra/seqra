@@ -1,6 +1,5 @@
 package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.org.opentaint.semgrep.pattern.Mark
 import org.opentaint.org.opentaint.semgrep.pattern.conversion.parseMethodArgs
 import org.opentaint.semgrep.pattern.AddExpr
 import org.opentaint.semgrep.pattern.Annotation
@@ -49,8 +48,8 @@ import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureNa
 class PatternToActionListConverter: ActionListBuilder {
     private var nextArtificialMetavarId = 0
 
-    private fun provideArtificialMetavar(): String {
-        return "\$${Mark.ArtificialMetavarName}_${nextArtificialMetavarId++}"
+    private fun provideArtificialMetavar(): MetavarAtom {
+        return MetavarAtom.createArtificial("${nextArtificialMetavarId++}")
     }
 
     val failedTransformations = mutableMapOf<String, Int>()
@@ -295,9 +294,9 @@ class PatternToActionListConverter: ActionListBuilder {
         result.removeLast()
         val lastAction = objActionList.actions.last()
         val metavar = provideArtificialMetavar()
-        val newLastAction = lastAction.setResultCondition(IsMetavar(MetavarAtom.create(metavar)))
+        val newLastAction = lastAction.setResultCondition(IsMetavar(metavar))
         result += newLastAction
-        return result to IsMetavar(MetavarAtom.create(metavar))
+        return result to IsMetavar(metavar)
     }
 
     private fun methodArgumentsToPatternList(pattern: MethodArguments): List<SemgrepJavaPattern> =

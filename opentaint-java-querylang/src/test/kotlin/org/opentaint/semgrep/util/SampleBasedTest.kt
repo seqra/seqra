@@ -6,7 +6,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssign
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SourceRule
-import org.opentaint.org.opentaint.semgrep.pattern.Mark
+import org.opentaint.semgrep.pattern.Mark
 import org.opentaint.semgrep.pattern.SemgrepLoadTrace
 import org.opentaint.semgrep.pattern.SemgrepRuleLoader
 import org.opentaint.semgrep.pattern.createTaintConfig
@@ -35,12 +35,12 @@ abstract class SampleBasedTest(
         loader.registerRuleSet(ruleSetText = data.rule, ruleRelativePath = Path(data.rulePath), rulesRoot = Path("."), trace)
 
         val loadedRules = loader.loadRules()
-        val (rule, ruleMeta) = loadedRules.singleOrNull()
+        val (rule, _) = loadedRules.singleOrNull()
             ?: error("Not a single rule for ${data.rulePath}")
 
         val taintConfig = rule.createTaintConfig()
 
-        val stateVarExists = doesCreateStateVar(taintConfig, ruleMeta.path)
+        val stateVarExists = doesCreateStateVar(taintConfig)
         if (!expectStateVar && stateVarExists) {
             fail("Taint config has AssignAction that creates a state var, but `expectStateVar` was set to `false`!")
         }
@@ -109,14 +109,14 @@ abstract class SampleBasedTest(
         }?.flatten()
             ?: emptyList()
 
-    private fun doesCreateStateVar(taintConfig: SerializedTaintConfig, ruleId: String): Boolean {
+    private fun doesCreateStateVar(taintConfig: SerializedTaintConfig): Boolean {
         val allAssignActions = taintConfig.source.getAssigns() +
                 taintConfig.entryPoint.getAssigns() +
                 taintConfig.staticFieldSource.getAssigns() +
                 taintConfig.methodEntrySink.getAssigns() +
                 taintConfig.methodExitSink.getAssigns() +
                 taintConfig.sink.getAssigns()
-        return allAssignActions.any { Mark.getMarkFromString(it.kind, ruleId) is Mark.StateMark }
+        return allAssignActions.any { Mark.getMarkFromString(it.kind) is Mark.StateMark }
     }
 
     private val samplesDb by lazy { samplesDb() }

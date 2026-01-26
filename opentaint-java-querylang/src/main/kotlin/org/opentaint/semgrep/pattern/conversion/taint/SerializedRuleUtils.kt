@@ -6,6 +6,9 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.Companion.mkFalse
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFunctionNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
+import org.opentaint.semgrep.pattern.Mark.GeneratedMark
 
 fun PositionBase.base(): PositionBaseWithModifiers =
     PositionBaseWithModifiers.BaseOnly(this)
@@ -38,3 +41,12 @@ fun serializedConditionOr(args: List<SerializedCondition>): SerializedCondition 
         else -> SerializedCondition.Or(result.toList())
     }
 }
+
+fun GeneratedMark.mkContainsMark(pos: PositionBaseWithModifiers) =
+    SerializedCondition.ContainsMark(taintMarkStr(), pos)
+
+fun GeneratedMark.mkAssignMark(pos: PositionBaseWithModifiers) =
+    SerializedTaintAssignAction(taintMarkStr(), pos = pos)
+
+fun GeneratedMark.mkCleanMark(pos: PositionBaseWithModifiers) =
+    SerializedTaintCleanAction(taintMarkStr(), pos = pos)

@@ -63,8 +63,9 @@ sealed interface MetavarAtom {
     data class Basic(val name: String): MetavarAtom {
         override fun toString(): String = name
 
-        override val basics: Set<Basic>
-            get() = setOf(this)
+        override val basics: Set<Basic> get() = setOf(this)
+
+        val isArtificial: Boolean get() = name.startsWith(ArtificialMetaVarName)
     }
 
     data class Complex(override val basics: Set<Basic>): MetavarAtom {
@@ -79,6 +80,11 @@ sealed interface MetavarAtom {
         fun create(metavar: String): Basic {
             return Basic(metavar)
         }
+
+        private const val ArtificialMetaVarName = "\$<ARTIFICIAL>"
+
+        fun createArtificial(classifier: String): MetavarAtom =
+            create("${ArtificialMetaVarName}_$classifier")
 
         fun create(metavars: Collection<Basic>): MetavarAtom {
             if (metavars.isEmpty()) {

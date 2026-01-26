@@ -18,8 +18,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssign
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
-import org.opentaint.org.opentaint.semgrep.pattern.Mark.Companion.markNamePrefix
-import org.opentaint.org.opentaint.semgrep.pattern.UserRuleFromSemgrepInfo
+import org.opentaint.semgrep.pattern.Mark.RuleUniqueMarkPrefix
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
@@ -30,6 +29,7 @@ import org.opentaint.semgrep.pattern.SemgrepRule
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import org.opentaint.semgrep.pattern.SemgrepTaintRule
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
+import org.opentaint.semgrep.pattern.UserRuleFromSemgrepInfo
 import org.opentaint.semgrep.pattern.conversion.IsMetavar
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
 import org.opentaint.semgrep.pattern.conversion.ParamCondition
@@ -75,7 +75,7 @@ private fun RuleConversionCtx.convertMatchingRuleToTaintRules(
 ): TaintRuleFromSemgrep {
     val ruleGroups = rule.rules.mapIndexedNotNull { idx, r ->
         val rules = safeConvertToTaintRules {
-            convertAutomataToTaintRules(r.metaVarInfo, r.rule, markNamePrefix(shortRuleId, "$idx"))
+            convertAutomataToTaintRules(r.metaVarInfo, r.rule, RuleUniqueMarkPrefix(shortRuleId, idx))
         }
 
         rules?.let(TaintRuleFromSemgrep::TaintRuleGroup)
@@ -91,7 +91,7 @@ private fun RuleConversionCtx.convertMatchingRuleToTaintRules(
 private fun RuleConversionCtx.convertAutomataToTaintRules(
     metaVarInfo: ResolvedMetaVarInfo,
     taintAutomata: TaintRegisterStateAutomata,
-    automataId: String,
+    markPrefix: RuleUniqueMarkPrefix,
 ): List<SerializedItem> {
     val automataWithVars = TaintRegisterStateAutomataWithStateVars(
         taintAutomata,
@@ -99,7 +99,7 @@ private fun RuleConversionCtx.convertAutomataToTaintRules(
         acceptStateVars = emptySet()
     )
     val taintEdges = generateTaintAutomataEdges(automataWithVars, metaVarInfo)
-    val ctx = TaintRuleGenerationCtx(automataId, taintEdges, compositionStrategy = null)
+    val ctx = TaintRuleGenerationCtx(markPrefix, taintEdges, compositionStrategy = null)
 
     val rules = ctx.generateTaintRules(this)
     val filteredRules = rules.filter { r ->
@@ -347,7 +347,7 @@ private fun TaintRuleGenerationCtx.buildStateAssignAction(
     }
 
     if (state in globalStateAssignStates) {
-        result += SerializedTaintAssignAction(globalStateMarkName(state), pos = stateVarPosition)
+        result += globalStateMarkName(state).mkAssignMark(stateVarPosition)
     }
 
     return result
@@ -367,7 +367,7 @@ private fun TaintRuleGenerationCtx.buildStateCleanAction(
     result += stateCleanMark(varName = null, state, stateBefore, position = null)
 
     if (stateBefore in globalStateAssignStates) {
-        result += SerializedTaintCleanAction(globalStateMarkName(stateBefore), stateVarPosition)
+        result += globalStateMarkName(stateBefore).mkCleanMark(stateVarPosition)
     }
 
     return result
@@ -380,7 +380,7 @@ private fun EvaluatedEdgeCondition.addStateCheck(
 ): EvaluatedEdgeCondition {
     val stateChecks = mutableListOf<SerializedCondition>()
     if (checkGlobalState) {
-        stateChecks += SerializedCondition.ContainsMark(ctx.globalStateMarkName(state), ctx.stateVarPosition)
+        stateChecks += ctx.globalStateMarkName(state).mkContainsMark(ctx.stateVarPosition)
     } else {
         for (metaVar in state.register.assignedVars.keys) {
             for (pos in accessedVarPosition[metaVar]?.positions.orEmpty()) {
@@ -1000,16 +1000,15 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
                 else -> TODO("Complex static field type")
             }
 
-            val mark = artificialMarkName("__STATIC_FIELD_VALUE__${condition.fieldName}")
+            val metaVar = MetavarAtom.createArtificial("__STATIC_FIELD_VALUE__${condition.fieldName}")
+            val mark = prefix.metaVarState(metaVar, state = 0)
 
-            val action = SerializedTaintAssignAction(
-                mark, pos = PositionBase.Result.base()
-            )
+            val action = mark.mkAssignMark(PositionBase.Result.base())
             additionalFieldRules += SerializedFieldRule.SerializedStaticFieldSource(
                 enclosingClassMatcher, condition.fieldName, condition = null, listOf(action)
             )
 
-            return SerializedCondition.ContainsMark(mark, position.base())
+            return mark.mkContainsMark(position.base())
         }
 
         ParamCondition.AnyStringLiteral -> {
