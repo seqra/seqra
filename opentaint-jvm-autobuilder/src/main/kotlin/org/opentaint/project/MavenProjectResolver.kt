@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
 import org.opentaint.project.ProjectResolver.Companion.logger
 import org.opentaint.project.ProjectResolver.Companion.tryJavaToolchains
+import org.zeroturnaround.exec.ProcessExecutor
 import java.nio.file.FileVisitResult
 import java.nio.file.Path
 import kotlin.io.path.ExperimentalPathApi
@@ -14,6 +15,8 @@ import kotlin.io.path.div
 import kotlin.io.path.exists
 import kotlin.io.path.extension
 import kotlin.io.path.isDirectory
+import kotlin.io.path.isExecutable
+import kotlin.io.path.pathString
 import kotlin.io.path.readText
 import kotlin.io.path.useLines
 import kotlin.io.path.visitFileTree
@@ -26,9 +29,29 @@ class MavenProjectResolver(
     private val resolvedProjectDependencies = mutableListOf<Path>()
     private val resolvedModules = mutableListOf<ProjectModuleClasses>()
 
+    private var executableFound = true
+    private val projectMavenExecutable = getProjectMaven()
+
+    private fun getProjectMaven(): String {
+        val mvnwPath = (projectSourceRoot / "mvnw").toAbsolutePath()
+        if (mvnwPath.isExecutable())
+            return mvnwPath.pathString
+        if (MAVEN_EXECUTABLE_NAME != null)
+            return MAVEN_EXECUTABLE_NAME!!
+        executableFound = false
+        // setting as default so possible execution errors are concise
+        return DEFAULT_MAVEN_NAME
+    }
+
     private lateinit var javaToolchain: JavaToolchain
 
     override fun resolveProject(): Project? {
+        if (!executableFound) {
+            logger.error { "Could not find Maven executable!" }
+            return null
+        }
+
+        logger.info { "Maven builder in use: $projectMavenExecutable" }
         logger.info { "Maven build start for: $projectSourceRoot" }
         if (!buildProject()) {
             logger.error { "Maven build failed for: $projectSourceRoot" }
@@ -51,7 +74,7 @@ class MavenProjectResolver(
 
     @OptIn(ExperimentalPathApi::class)
     private fun buildProject(): Boolean {
-        val args = listOf(MAVEN_EXECUTABLE_NAME) + listOf("clean", "package") + mavenCommandFlags
+        val args = listOf(projectMavenExecutable) + listOf("clean", "package") + mavenCommandFlags
 
         javaToolchain = tryJavaToolchains { ProjectResolver.runCommand(projectSourceRoot, args, it) } ?: return false
 
@@ -74,7 +97,7 @@ class MavenProjectResolver(
 
     private fun resolveDependencies(): Boolean {
         val depGraphOutFolder = resolverDir.resolve("dg-out")
-        val args = listOf(MAVEN_EXECUTABLE_NAME) + mavenCommandFlags + listOf(
+        val args = listOf(projectMavenExecutable) + mavenCommandFlags + listOf(
             DEPGRAPH_PLUGIN_ID,
             "-DclasspathScopes=compile",
             "-DoutputDirectory=${depGraphOutFolder.absolutePathString()}",
@@ -180,6 +203,30 @@ class MavenProjectResolver(
         fun isMavenProjectRoot(directory: Path): Boolean =
             directory.resolve(POM_FILE_NAME).exists()
 
+        private fun checkExecutable(name: String): Boolean {
+            return try {
+                ProcessExecutor()
+                    .command(listOf(name, "--version"))
+                    .timeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                    .execute().exitValue == 0
+            } catch (e: Exception) {
+                false
+            }
+        }
+
+        private fun getDefaultMaven(): String? {
+            if (checkExecutable(DEFAULT_MAVEN_NAME))
+                return DEFAULT_MAVEN_NAME
+            return null
+        }
+
+        private fun findMavenExecutable(): String? {
+            for (exe in MAVEN_LOOKUP_PATHS) {
+                if (Path(exe).isExecutable())
+                    return exe
+            }
+            return getDefaultMaven()
+        }
 
         private val mavenLocalRepoPath by lazy {
             Path(System.getProperty("user.home")) / ".m2" / "repository"
@@ -187,7 +234,16 @@ class MavenProjectResolver(
 
         private const val DEPGRAPH_PLUGIN_ID = "com.github.ferstl:depgraph-maven-plugin:4.0.2:graph"
 
-        private const val MAVEN_EXECUTABLE_NAME = "/usr/bin/mvn"
+        private val MAVEN_LOOKUP_PATHS = listOf(
+            "/usr/bin/mvn",
+            "/usr/local/bin/mvn",
+        )
+
+        private const val DEFAULT_MAVEN_NAME = "mvn"
+
+        private val MAVEN_EXECUTABLE_NAME by lazy {
+            findMavenExecutable()
+        }
 
         private val mavenCommandFlags = listOf(
             "-f",
