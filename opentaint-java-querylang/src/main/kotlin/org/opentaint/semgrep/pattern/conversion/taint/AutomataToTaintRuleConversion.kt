@@ -34,10 +34,13 @@ import org.opentaint.semgrep.pattern.conversion.IsMetavar
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
 import org.opentaint.semgrep.pattern.conversion.ParamCondition
 import org.opentaint.semgrep.pattern.conversion.ParamCondition.StringValueMetaVar
+import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.ClassConstraint
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifierValue
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureName
 import org.opentaint.semgrep.pattern.conversion.SpecificBoolValue
+import org.opentaint.semgrep.pattern.conversion.SpecificIntValue
+import org.opentaint.semgrep.pattern.conversion.SpecificNullValue
 import org.opentaint.semgrep.pattern.conversion.SpecificStringValue
 import org.opentaint.semgrep.pattern.conversion.TypeNamePattern
 import org.opentaint.semgrep.pattern.conversion.automata.ClassModifierConstraint
@@ -701,9 +704,17 @@ private fun TaintRuleGenerationCtx.evaluateMethodConstraints(
         null -> {}
 
         is ClassModifierConstraint -> {
-            val annotations = signatureModifierConstraint(constraint.modifier, semgrepRuleTrace)
-            conditions += annotations.toSerializedCondition { annotation ->
-                SerializedCondition.ClassAnnotated(annotation)
+            when (val c = constraint.constraint) {
+                is ClassConstraint.Signature -> {
+                    val annotations = signatureModifierConstraint(c.modifier, semgrepRuleTrace)
+                    conditions += annotations.toSerializedCondition { annotation ->
+                        SerializedCondition.ClassAnnotated(annotation)
+                    }
+                }
+
+                is ClassConstraint.TypeConstraint -> {
+                    TODO("Class type constraint")
+                }
             }
         }
 
@@ -1020,9 +1031,18 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
             return SerializedCondition.ConstantCmp(position, value, ConstantCmpType.Eq)
         }
 
+        is SpecificIntValue -> {
+            val value = ConstantValue(ConstantType.Int, condition.value.toString())
+            return SerializedCondition.ConstantCmp(position, value, ConstantCmpType.Eq)
+        }
+
         is SpecificStringValue -> {
             val value = ConstantValue(ConstantType.Str, condition.value)
             return SerializedCondition.ConstantCmp(position, value, ConstantCmpType.Eq)
+        }
+
+        is SpecificNullValue -> {
+            TODO("Constant null")
         }
 
         is StringValueMetaVar -> {

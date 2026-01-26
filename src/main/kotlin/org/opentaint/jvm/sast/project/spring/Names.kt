@@ -17,9 +17,6 @@ val springControllerMethodMappingAnnotations = setOf(
     "$SpringPackage.web.bind.annotation.PatchMapping",
 )
 
-val springControllerMethodAnnotations =
-    springControllerMethodMappingAnnotations + springControllerRequestMapping
-
 const val SpringModelAttribute = "$SpringPackage.web.bind.annotation.ModelAttribute"
 const val SpringPathVariable = "$SpringPackage.web.bind.annotation.PathVariable"
 

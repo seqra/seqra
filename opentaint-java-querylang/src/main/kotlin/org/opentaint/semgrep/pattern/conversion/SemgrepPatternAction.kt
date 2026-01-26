@@ -74,6 +74,11 @@ sealed interface SemgrepPatternAction {
         data class MetaVar(val paramName: String, val metaVar: String) : SignatureModifierValue
     }
 
+    sealed interface ClassConstraint {
+        data class Signature(val modifier: SignatureModifier) : ClassConstraint
+        data class TypeConstraint(val superType: TypeNamePattern) : ClassConstraint
+    }
+
     data class SignatureModifier(
         val type: TypeNamePattern,
         val value: SignatureModifierValue
@@ -81,11 +86,10 @@ sealed interface SemgrepPatternAction {
 
     data class MethodSignature(
         val methodName: SignatureName,
-        val methodReturnTypeMetavar: String?,
         val params: ParamConstraint.Partial,
         val modifiers: List<SignatureModifier>,
         val enclosingClassMetavar: String?,
-        val enclosingClassModifiers: List<SignatureModifier>,
+        val enclosingClassConstraints: List<ClassConstraint>,
     ): SemgrepPatternAction {
         override val metavars: List<MetavarAtom>
             get() {

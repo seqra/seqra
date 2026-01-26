@@ -8,10 +8,12 @@ import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
 import org.opentaint.semgrep.pattern.conversion.IsMetavar
 import org.opentaint.semgrep.pattern.conversion.ParamCondition
 import org.opentaint.semgrep.pattern.conversion.ParamCondition.StringValueMetaVar
+import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.ClassConstraint
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifierValue
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureName
 import org.opentaint.semgrep.pattern.conversion.SpecificBoolValue
+import org.opentaint.semgrep.pattern.conversion.SpecificConstantValue
 import org.opentaint.semgrep.pattern.conversion.SpecificStringValue
 import org.opentaint.semgrep.pattern.conversion.TypeNamePattern
 import org.opentaint.semgrep.pattern.conversion.automata.ClassModifierConstraint
@@ -300,10 +302,17 @@ private fun MetaVarCtx.methodSignatureMetaVars(signature: MethodSignature, metaV
 
 private fun MetaVarCtx.methodConstraintMetaVars(signature: MethodConstraint, metaVars: BitSet) {
     when (signature) {
-        is ClassModifierConstraint -> signatureModifierMetaVars(signature.modifier, metaVars)
+        is ClassModifierConstraint -> classConstraintMetaVars(signature.constraint, metaVars)
         is MethodModifierConstraint -> signatureModifierMetaVars(signature.modifier, metaVars)
         is NumberOfArgsConstraint -> {}
         is ParamConstraint -> paramConditionMetaVars(signature.condition, metaVars)
+    }
+}
+
+private fun MetaVarCtx.classConstraintMetaVars(signature: ClassConstraint, metaVars: BitSet) {
+    when (signature) {
+        is ClassConstraint.Signature -> signatureModifierMetaVars(signature.modifier, metaVars)
+        is ClassConstraint.TypeConstraint -> typeNameMetaVars(signature.superType, metaVars)
     }
 }
 
@@ -337,8 +346,7 @@ private fun MetaVarCtx.paramConditionMetaVars(pc: ParamCondition.Atom, metaVars:
         }
 
         ParamCondition.AnyStringLiteral,
-        is SpecificBoolValue,
-        is SpecificStringValue -> {
+        is SpecificConstantValue -> {
             // do nothing, no metavars
         }
     }

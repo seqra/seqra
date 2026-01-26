@@ -51,9 +51,12 @@ sealed interface ParamCondition {
     data class SpecificStaticFieldValue(val fieldName: String, val fieldClass: TypeNamePattern) : Atom
 }
 
-data class SpecificBoolValue(val value: Boolean) : ParamCondition.Atom
+sealed interface SpecificConstantValue: ParamCondition.Atom
 
-data class SpecificStringValue(val value: String) : ParamCondition.Atom
+data class SpecificBoolValue(val value: Boolean) : SpecificConstantValue
+data class SpecificIntValue(val value: Int) : SpecificConstantValue
+data class SpecificStringValue(val value: String) : SpecificConstantValue
+data object SpecificNullValue : SpecificConstantValue
 
 data class IsMetavar(val metavar: MetavarAtom) : ParamCondition.Atom
 

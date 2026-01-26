@@ -106,7 +106,7 @@ data class StringLiteral(val content: Name) : SemgrepJavaPattern {
     override val children: List<SemgrepJavaPattern> = emptyList()
 }
 
-data class IntLiteral(val value: String) : SemgrepJavaPattern {
+data class IntLiteral(val value: Int) : SemgrepJavaPattern {
     override val children: List<SemgrepJavaPattern> = emptyList()
 }
 

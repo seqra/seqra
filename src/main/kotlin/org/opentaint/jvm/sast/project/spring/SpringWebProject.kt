@@ -77,7 +77,7 @@ const val GeneratedSpringControllerDispatcherSelectMethod = "__select__"
 
 fun ProjectClasses.createSpringProjectContext(): SpringWebProjectContext? {
     val springControllerMethods = allProjectClasses()
-        .filter { cls -> cls.annotations.any { it.jIRClass?.name in springControllerClassAnnotations } }
+        .filter { cls -> cls.annotations.any { it.isSpringControllerClassAnnotation() } }
         .flatMap { it.publicAndProtectedMethods() }
         .filterTo(mutableSetOf()) { it.isSpringControllerMethod() }
 

@@ -60,8 +60,8 @@ private fun JIRMethod.extractSpringPath(): List<SpringControllerPath> {
     val classRequestMapping = enclosingClass.collectSpringRequestMappingAnnotation()?.firstOrNull()
 
     val methodAnnotations = collectSpringControllerAnnotations()
-    val methodRequestMapping = methodAnnotations?.firstOrNull { it.jIRClass?.name == springControllerRequestMapping }
-    val methodMethodMapping = methodAnnotations?.firstOrNull { it.jIRClass?.name in springControllerMethodMappingAnnotations }
+    val methodRequestMapping = methodAnnotations?.firstOrNull { it.isSpringRequestMappingAnnotation() }
+    val methodMethodMapping = methodAnnotations?.firstOrNull { it.isSpringMethodAnnotation() }
 
     val classPaths = classRequestMapping?.let { extractPathsFromRequestMapping(it) }
     val classMethods = classRequestMapping?.let { extractMethodsFromRequestMapping(it) }

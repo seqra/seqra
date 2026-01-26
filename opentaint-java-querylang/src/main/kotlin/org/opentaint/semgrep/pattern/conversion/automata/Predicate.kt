@@ -1,6 +1,7 @@
 package org.opentaint.semgrep.pattern.conversion.automata
 
 import org.opentaint.semgrep.pattern.conversion.ParamCondition
+import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.ClassConstraint
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureName
 import org.opentaint.semgrep.pattern.conversion.TypeNamePattern
@@ -26,7 +27,7 @@ data class ParamConstraint(
 
 data class NumberOfArgsConstraint(val num: Int) : MethodConstraint
 
-data class ClassModifierConstraint(val modifier: SignatureModifier) : MethodConstraint
+data class ClassModifierConstraint(val constraint: ClassConstraint) : MethodConstraint
 
 data class MethodModifierConstraint(val modifier: SignatureModifier) : MethodConstraint
 

@@ -31,6 +31,7 @@ import org.opentaint.semgrep.pattern.ObjectCreation
 import org.opentaint.semgrep.pattern.PatternSequence
 import org.opentaint.semgrep.pattern.ReturnStmt
 import org.opentaint.semgrep.pattern.SemgrepErrorEntry
+import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason.NOT_IMPLEMENTED
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import org.opentaint.semgrep.pattern.StaticFieldAccess
@@ -41,6 +42,7 @@ import org.opentaint.semgrep.pattern.TypeName
 import org.opentaint.semgrep.pattern.TypedMetavar
 import org.opentaint.semgrep.pattern.VariableAssignment
 import org.opentaint.semgrep.pattern.conversion.ParamCondition.StringValueMetaVar
+import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.ClassConstraint
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifierValue
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureName
@@ -101,7 +103,6 @@ class PatternToActionListConverter: ActionListBuilder {
             is ReturnStmt -> transformReturnStmt(pattern)
             is AddExpr,
             is BoolConstant,
-            EmptyPatternSequence,
             is FieldAccess,
             is ArrayAccess,
             is StaticFieldAccess,
@@ -109,9 +110,9 @@ class PatternToActionListConverter: ActionListBuilder {
             is Identifier,
             is Metavar,
             is MethodArguments,
-            StringEllipsis,
+            is StringEllipsis,
             is StringLiteral,
-            ThisExpr,
+            is ThisExpr,
             is TypedMetavar,
             is Annotation,
             is NamedValue,
@@ -128,9 +129,9 @@ class PatternToActionListConverter: ActionListBuilder {
 
     private fun transformPatternIntoParamCondition(pattern: SemgrepJavaPattern): ParamCondition? {
         return when (pattern) {
-            is BoolConstant -> {
-                SpecificBoolValue(pattern.value)
-            }
+            is BoolConstant -> SpecificBoolValue(pattern.value)
+            is IntLiteral -> SpecificIntValue(pattern.value)
+            is NullLiteral -> SpecificNullValue
 
             is StringLiteral -> when (val value = pattern.content) {
                 is ConcreteName -> SpecificStringValue(value.name)
@@ -185,10 +186,10 @@ class PatternToActionListConverter: ActionListBuilder {
                 }
             }
 
-            Ellipsis,
+            is Ellipsis,
             is AddExpr,
             is EllipsisMethodInvocations,
-            EmptyPatternSequence,
+            is EmptyPatternSequence,
             is FieldAccess,
             is FormalArgument,
             is Identifier,
@@ -198,18 +199,15 @@ class PatternToActionListConverter: ActionListBuilder {
             is ObjectCreation,
             is PatternSequence,
             is ReturnStmt,
-            StringEllipsis,
-            ThisExpr,
+            is ThisExpr,
             is VariableAssignment,
             is Annotation,
             is ClassDeclaration,
             is NamedValue,
-            is NullLiteral,
             is ImportStatement,
             is CatchStatement,
             is DeepExpr,
-            is EllipsisMetavar,
-            is IntLiteral -> null
+            is EllipsisMetavar -> null
         }
     }
 
@@ -475,28 +473,32 @@ class PatternToActionListConverter: ActionListBuilder {
     }
 
     private fun transformClassDeclaration(pattern: ClassDeclaration): SemgrepPatternActionList {
-        if (pattern.extends != null) {
-            transformationFailed("ClassDeclaration_non-null_extends")
-        }
-
-        if (pattern.implements.isNotEmpty()) {
-            transformationFailed("ClassDeclaration_non-empty_implements")
-        }
-
         val nameMetavar = (pattern.name as? MetavarName)?.metavarName
             ?: transformationFailed("ClassDeclaration_name_is_not_metavar")
 
-        val classModifiers = pattern.modifiers.map { transformModifier(it) }
+        val classConstraints = mutableListOf<ClassConstraint>()
+
+        if (pattern.extends != null) {
+            classConstraints += ClassConstraint.TypeConstraint(transformTypeName(pattern.extends))
+        }
+
+        if (pattern.implements.isNotEmpty()) {
+            pattern.implements.mapTo(classConstraints) {
+                ClassConstraint.TypeConstraint(transformTypeName(it))
+            }
+        }
+
+        pattern.modifiers.map { transformModifier(it) }
+            .mapTo(classConstraints) { ClassConstraint.Signature(it) }
 
         val bodyActionList = transformPatternToActionList(pattern.body)
         if (bodyActionList.actions.isEmpty()) {
             val methodSignature = SemgrepPatternAction.MethodSignature(
                 methodName = SignatureName.AnyName,
-                methodReturnTypeMetavar = null,
                 ParamConstraint.Partial(emptyList()),
                 modifiers = emptyList(),
                 enclosingClassMetavar = nameMetavar,
-                enclosingClassModifiers = classModifiers,
+                enclosingClassConstraints = classConstraints,
             )
 
             return SemgrepPatternActionList(
@@ -513,7 +515,7 @@ class PatternToActionListConverter: ActionListBuilder {
 
         val signatureWithClass = firstAction.copy(
             enclosingClassMetavar = nameMetavar,
-            enclosingClassModifiers = classModifiers,
+            enclosingClassConstraints = classConstraints,
         )
 
         return bodyActionList.copy(
@@ -543,25 +545,29 @@ class PatternToActionListConverter: ActionListBuilder {
     private fun transformMethodDeclaration(pattern: MethodDeclaration): SemgrepPatternActionList {
         val bodyPattern = transformPatternToActionList(pattern.body)
         val params = methodArgumentsToPatternList(pattern.args)
-        val methodName = (pattern.name as? MetavarName)?.metavarName
-            ?: transformationFailed("MethodDeclaration_name_not_metavar")
+
+        val methodName = when (val name = pattern.name) {
+            is ConcreteName -> SignatureName.Concrete(name.name)
+            is MetavarName -> SignatureName.MetaVar(name.metavarName)
+        }
 
         val retType = pattern.returnType
-        val returnTypeName = if (retType != null) {
-            if (retType !is TypeName.SimpleTypeName) {
-                transformationFailed("MethodDeclaration_return_type_is_array")
+        if (retType != null) {
+            run {
+                if (retType !is TypeName.SimpleTypeName) {
+                    semgrepTrace?.error("Method declaration return type is array", NOT_IMPLEMENTED)
+                    return@run
+                }
+
+                val retTypeMetaVar = retType.dotSeparatedParts.singleOrNull() as? MetavarName
+                if (retTypeMetaVar == null) {
+                    semgrepTrace?.error("Method declaration return type is not meta var", NOT_IMPLEMENTED)
+                }
+
+                if (retType.typeArgs.isNotEmpty()) {
+                    semgrepTrace?.error("Method declaration return type has type args", NOT_IMPLEMENTED)
+                }
             }
-
-            if (retType.typeArgs.isNotEmpty()) {
-                transformationFailed("MethodDeclaration_return_type_with_type_args")
-            }
-
-            val retTypeMetaVar = (retType.dotSeparatedParts.singleOrNull() as? MetavarName)?.metavarName
-                ?: transformationFailed("MethodDeclaration_return_type_not_metavar")
-
-            retTypeMetaVar
-        } else {
-            null
         }
 
         val paramConditions = mutableListOf<ParamPattern>()
@@ -604,12 +610,10 @@ class PatternToActionListConverter: ActionListBuilder {
         val modifiers = pattern.modifiers.map { transformModifier(it) }
 
         val signature = SemgrepPatternAction.MethodSignature(
-            SignatureName.MetaVar(methodName),
-            returnTypeName,
-            ParamConstraint.Partial(paramConditions),
+            methodName, ParamConstraint.Partial(paramConditions),
             modifiers = modifiers,
             enclosingClassMetavar = null,
-            enclosingClassModifiers = emptyList(),
+            enclosingClassConstraints = emptyList(),
         )
 
         return SemgrepPatternActionList(

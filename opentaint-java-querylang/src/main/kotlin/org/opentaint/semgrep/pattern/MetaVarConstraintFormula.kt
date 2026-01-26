@@ -34,26 +34,33 @@ sealed interface MetaVarConstraintFormula<C> {
     }
 }
 
-fun <C, R> MetaVarConstraintFormula<C>.transform(
-    mapper: (C) -> R
-): MetaVarConstraintFormula<R> = transformLiteral { mapper(it.constraint) }
+fun <C, R : Any> MetaVarConstraintFormula<C>.transform(mapper: (C) -> R): MetaVarConstraintFormula<R> =
+    transformOrIgnore(mapper) ?: error("Impossible")
 
-fun <C, R> MetaVarConstraintFormula<C>.transformLiteral(
-    mapper: (MetaVarConstraintFormula.Literal<C>) -> R
-): MetaVarConstraintFormula<R> = flatMap {
-    when (it) {
-        is Constraint<C> -> Constraint(mapper(it))
-        is NegatedConstraint<C> -> NegatedConstraint(mapper(it))
+fun <C, R: Any> MetaVarConstraintFormula<C>.flatMap(
+    mapper: (MetaVarConstraintFormula.Literal<C>) -> MetaVarConstraintFormula<R>
+): MetaVarConstraintFormula<R> = flatMapOrIgnore(mapper) ?: error("Impossible")
+
+fun <C, R: Any> MetaVarConstraintFormula<C>.transformOrIgnore(
+    mapper: (C) -> R?
+): MetaVarConstraintFormula<R>? = transformLiteralOrIgnore { mapper(it.constraint) }
+
+fun <C, R : Any> MetaVarConstraintFormula<C>.transformLiteralOrIgnore(
+    mapper: (MetaVarConstraintFormula.Literal<C>) -> R?
+): MetaVarConstraintFormula<R>? = flatMapOrIgnore { c ->
+    when (c) {
+        is Constraint<C> -> mapper(c)?.let { Constraint(it) }
+        is NegatedConstraint<C> -> mapper(c)?.let { NegatedConstraint(it) }
     }
 }
 
-fun <C, R> MetaVarConstraintFormula<C>.flatMap(
-    mapper: (MetaVarConstraintFormula.Literal<C>) -> MetaVarConstraintFormula<R>
-): MetaVarConstraintFormula<R> = when (this) {
+fun <C, R : Any> MetaVarConstraintFormula<C>.flatMapOrIgnore(
+    mapper: (MetaVarConstraintFormula.Literal<C>) -> MetaVarConstraintFormula<R>?
+): MetaVarConstraintFormula<R>? = when (this) {
     is Constraint -> mapper(this)
     is NegatedConstraint -> mapper(this)
-    is And -> mkAnd(args.mapTo(hashSetOf()) { it.flatMap(mapper) })
-    is Or -> mkOr(args.mapTo(hashSetOf()) { it.flatMap(mapper) })
+    is And -> mkAnd(args.mapTo(hashSetOf()) { it.flatMapOrIgnore(mapper) ?: return null })
+    is Or -> mkOr(args.mapNotNullTo(hashSetOf()) { it.flatMapOrIgnore(mapper) })
 }
 
 data class MetaVarConstraintFormulaCube<C>(

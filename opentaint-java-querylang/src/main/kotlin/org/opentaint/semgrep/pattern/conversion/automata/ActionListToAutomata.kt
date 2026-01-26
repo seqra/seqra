@@ -4,6 +4,7 @@ import org.opentaint.semgrep.pattern.conversion.ParamCondition
 import org.opentaint.semgrep.pattern.conversion.ParamConstraint
 import org.opentaint.semgrep.pattern.conversion.ParamPosition
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction
+import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.ClassConstraint
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternActionList
 
@@ -164,7 +165,7 @@ private class MethodFormulaBuilder(
     private var signature: MethodSignature? = null
     private var numberOfArgs: NumberOfArgsConstraint? = null
     private val methodModifiers = mutableListOf<SignatureModifier>()
-    private val classModifiers = mutableListOf<SignatureModifier>()
+    private val classConstraints = mutableListOf<ClassConstraint>()
 
     fun addSignature(signature: MethodSignature) {
         this.signature = signature
@@ -178,8 +179,8 @@ private class MethodFormulaBuilder(
         this.methodModifiers += methodModifiers
     }
 
-    fun addClassModifier(classModifiers: List<SignatureModifier>) {
-        this.classModifiers += classModifiers
+    fun addClassConstraints(classConstraints: List<ClassConstraint>) {
+        this.classConstraints += classConstraints
     }
 
     fun addParamConstraint(position: Position, condition: ParamCondition) {
@@ -203,7 +204,7 @@ private class MethodFormulaBuilder(
         params.mapTo(constraints) { ParamConstraint(it.first, it.second) }
         numberOfArgs?.let { constraints.add(it) }
         methodModifiers.mapTo(constraints) { MethodModifierConstraint(it) }
-        classModifiers.mapTo(constraints) { ClassModifierConstraint(it) }
+        classConstraints.mapTo(constraints) { ClassModifierConstraint(it) }
 
         if (constraints.isEmpty()) {
             val predicate = Predicate(signature, constraint = null)
@@ -276,7 +277,7 @@ private fun constructSignatureFormula(
     collectParameterConstraints(builder, action.params)
 
     builder.addMethodModifier(action.modifiers)
-    builder.addClassModifier(action.enclosingClassModifiers)
+    builder.addClassConstraints(action.enclosingClassConstraints)
 
     val methodName = MethodName(action.methodName)
 

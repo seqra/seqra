@@ -652,7 +652,11 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
         tryRule(LiteralContext::ELLIPSIS_LITERAL) { return StringEllipsis }
         tryRule(LiteralContext::STRING_LITERAL) { return StringLiteral(ConcreteName(it.text.stringLiteralValue())) }
         tryRule(LiteralContext::NULL_LITERAL) { return NullLiteral }
-        tryRule(LiteralContext::integerLiteral) { return IntLiteral(it.text) }
+        tryRule(LiteralContext::integerLiteral) {
+            val intValue = it.text.toIntOrNull()
+                ?: ctx.parsingFailed("Unknown int literal")
+            return IntLiteral(intValue)
+        }
         tryRule(LiteralContext::BOOL_LITERAL) {
             return when (it.text) {
                 "true" -> BoolConstant(true)

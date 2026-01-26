@@ -1,6 +1,7 @@
 package org.opentaint.semgrep.pattern.conversion
 
 import org.opentaint.semgrep.pattern.ActionListSemgrepRule
+import org.opentaint.semgrep.pattern.ConcreteName
 import org.opentaint.semgrep.pattern.Formula
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraints
@@ -17,11 +18,12 @@ import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadTrace
 import org.opentaint.semgrep.pattern.SemgrepTaintRule
 import org.opentaint.semgrep.pattern.SemgrepTraceEntry.Step
+import org.opentaint.semgrep.pattern.StringLiteral
 import org.opentaint.semgrep.pattern.conversion.automata.SemgrepRuleAutomata
 import org.opentaint.semgrep.pattern.conversion.automata.operations.containsAcceptState
 import org.opentaint.semgrep.pattern.conversion.automata.transformSemgrepRuleToAutomata
 import org.opentaint.semgrep.pattern.convertToRawRule
-import org.opentaint.semgrep.pattern.transform
+import org.opentaint.semgrep.pattern.transformOrIgnore
 import kotlin.time.Duration.Companion.seconds
 
 class SemgrepRuleAutomataBuilder(
@@ -182,6 +184,7 @@ class SemgrepRuleAutomataBuilder(
     ): List<RuleWithMetaVars<NormalizedSemgrepRule, ResolvedMetaVarInfo>> {
         var resultRules = listOf(rule.rule)
 
+        resultRules = resultRules.flatMap(::rewriteCatchStatement)
         resultRules = resultRules.flatMap(::rewriteAddExpr)
         resultRules = resultRules.flatMap(::rewriteAssignEllipsis)
         resultRules = resultRules.flatMap(::rewriteMethodInvocationObj)
@@ -223,28 +226,21 @@ class SemgrepRuleAutomataBuilder(
             return ResolvedMetaVarInfo(info.focusMetaVars, emptyMap())
         }
 
-        class PatternConstraintFailure : Exception() {
-            override fun fillInStackTrace(): Throwable = this
-        }
-
         val constraints = info.metaVariableConstraints.mapValues { (_, constraint) ->
-            val formula = try {
-                constraint.transform {
-                    when (it) {
-                        is RawMetaVarConstraint.Pattern -> {
-                            patternConstraintValue(it.value, semgrepTrace)
-                                ?: throw PatternConstraintFailure()
-                        }
-
-                        is RawMetaVarConstraint.RegExp -> {
-                            MetaVarConstraint.RegExp(it.regex)
+            val formula = constraint.transformOrIgnore {
+                when (it) {
+                    is RawMetaVarConstraint.Pattern -> {
+                        patternConstraintValue(it.value, semgrepTrace) ?: run {
+                            semgrepTrace.error("Metavar constraint parsing failure", Reason.NOT_IMPLEMENTED)
+                            null
                         }
                     }
+
+                    is RawMetaVarConstraint.RegExp -> {
+                        MetaVarConstraint.RegExp(it.regex)
+                    }
                 }
-            } catch (e: PatternConstraintFailure) {
-                semgrepTrace.error("Metavar constraint parsing failure", Reason.NOT_IMPLEMENTED)
-                return null
-            }
+            } ?: return null
 
             MetaVarConstraints(formula)
         }
@@ -258,6 +254,10 @@ class SemgrepRuleAutomataBuilder(
     ): MetaVarConstraint? {
         val parsed = parser.parseOrNull(pattern, semgrepTrace)
             ?: return null
+
+        if (parsed is StringLiteral && parsed.content is ConcreteName) {
+            return MetaVarConstraint.Concrete(parsed.content.name)
+        }
 
         val patternConcreteValue = tryExtractPatternDotSeparatedParts(parsed) ?: return null
         val patternConcreteNames = tryExtractConcreteNames(patternConcreteValue) ?: return null
