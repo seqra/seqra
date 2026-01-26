@@ -7,7 +7,7 @@ import org.opentaint.common.id
 
 object Versions {
     const val shadow = "8.3.3"
-    const val logback = "1.4.8"
+    const val logback = "1.3.16" // Latest 1.3.x series requires JDK 8
     const val slf4j = "1.6.1"
     const val zt_exec = "1.12"
 }
