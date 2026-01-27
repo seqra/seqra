@@ -190,7 +190,6 @@ class AccessTree(
     class AccessNode private constructor(
         val isAbstract: Boolean,
         val isFinal: Boolean,
-        val isAnyAccessor: Boolean,
         val accessors: Array<Accessor>?,
         val accessorNodes: Array<AccessNode>?,
     ) {
@@ -216,9 +215,8 @@ class AccessTree(
                 depth = accessorNodes.maxOf { it.maxDepth } + 1
             }
 
-            if (isAnyAccessor) {
-                depth = 10_000
-                hash *= 31
+            if (containsAnyAccessor()) {
+                depth += 10_000
             }
 
             this.hash = hash
@@ -241,7 +239,6 @@ class AccessTree(
 
             if (hash != other.hash) return false
             if (isAbstract != other.isAbstract || isFinal != other.isFinal) return false
-            if (isAnyAccessor != other.isAnyAccessor) return false
 
             if (!accessors.contentEquals(other.accessors)) return false
             return accessorNodes.contentEquals(other.accessorNodes)
@@ -260,11 +257,6 @@ class AccessTree(
                 }
             }
 
-            if (isAnyAccessor) {
-                append(prefix)
-                appendLine(AnyAccessor.toSuffix())
-            }
-
             forEachAccessor { field, child ->
                 child.print(builder, prefix + field.toSuffix())
             }
@@ -279,7 +271,7 @@ class AccessTree(
         }
 
         val isEmpty: Boolean
-            get() = !isAbstract && !isFinal && !isAnyAccessor && accessors == null
+            get() = !isAbstract && !isFinal && accessors == null
 
         private fun accessorIndex(accessor: Accessor): Int {
             if (accessors == null) return -1
@@ -289,17 +281,17 @@ class AccessTree(
         private fun getNodeByAccessor(accessor: Accessor): AccessNode? =
             accessorNodes?.getOrNull(accessorIndex(accessor))
 
+        fun containsAnyAccessor(): Boolean =
+            accessorIndex(AnyAccessor) >= 0
+
         fun contains(apManager: TreeApManager, accessor: Accessor): Boolean {
             if (accessor is FinalAccessor) return isFinal
 
             val accessorIdx = accessorIndex(accessor)
             if (accessorIdx >= 0) return true
 
-            if (isAnyAccessor) {
-                return apManager.anyAccessorUnrollStrategy.unrollAccessor(accessor)
-            }
-
-            return false
+            if (!containsAnyAccessor()) return false
+            return apManager.anyAccessorUnrollStrategy.unrollAccessor(accessor)
         }
 
         fun getChild(apManager: TreeApManager, accessor: Accessor): AccessNode? {
@@ -308,11 +300,14 @@ class AccessTree(
             val node = getNodeByAccessor(accessor)
             if (node != null) return node
 
-            if (isAnyAccessor) {
-                if (apManager.anyAccessorUnrollStrategy.unrollAccessor(accessor)) return this
-            }
+            val anyAccessorNode = getNodeByAccessor(AnyAccessor)
+                ?: return null
 
-            return null
+            if (!apManager.anyAccessorUnrollStrategy.unrollAccessor(accessor)) return null
+
+            val childWithAny = anyAccessorNode.addParentIfPossible(AnyAccessor)
+            val unrolled = childWithAny?.mergeAdd(anyAccessorNode) ?: anyAccessorNode
+            return unrolled
         }
 
         fun addParentIfPossible(accessor: Accessor): AccessNode? = when (accessor) {
@@ -328,7 +323,7 @@ class AccessTree(
                 }
             }
 
-            is AnyAccessor -> create(isAbstract, isFinal, isAnyAccessor = true, accessors, accessorNodes)
+            is AnyAccessor -> prependAnyAccessor()
         }
 
         fun addParent(accessor: Accessor): AccessNode =
@@ -336,7 +331,17 @@ class AccessTree(
                 ?: error("Impossible accessor")
 
         fun removeAbstraction(): AccessNode =
-            create(isAbstract = false, isFinal, isAnyAccessor, accessors, accessorNodes)
+            create(isAbstract = false, isFinal, accessors, accessorNodes)
+
+        private fun prependAnyAccessor(): AccessNode {
+            val anyNode = getNodeByAccessor(AnyAccessor)
+            val nextNode = if (anyNode == null) {
+                this
+            } else {
+                removeSingleAccessor(AnyAccessor).mergeAdd(anyNode)
+            }
+            return create(AnyAccessor, nextNode)
+        }
 
         private fun limitElementAccess(limit: Int): AccessNode {
             if (limit > 0) {
@@ -393,7 +398,7 @@ class AccessTree(
         }
 
         fun clearChild(accessor: Accessor): AccessNode = when (accessor) {
-            FinalAccessor -> create(isAbstract, isFinal = false, isAnyAccessor, accessors, accessorNodes)
+            FinalAccessor -> create(isAbstract, isFinal = false, accessors, accessorNodes)
             else -> removeSingleAccessor(accessor)
         }
 
@@ -411,17 +416,20 @@ class AccessTree(
             val accessors = transformedAccessors?.first ?: accessors
             val accessorNodes = transformedAccessors?.second ?: accessorNodes
 
-            return create(isAbstract, isFinal, isAnyAccessor, accessors, accessorNodes)
+            return create(isAbstract, isFinal, accessors, accessorNodes)
         }
 
         fun collectAccessorsTo(dst: MutableSet<Accessor>) {
-            // note: always ignore any accessor
-
             if (isFinal) {
                 dst.add(FinalAccessor)
             }
 
             forEachAccessor { accessor, accessorNode ->
+                if (accessor is AnyAccessor) {
+                    // note: always ignore any accessor
+                    return@forEachAccessor
+                }
+
                 dst.add(accessor)
                 accessorNode.collectAccessorsTo(dst)
             }
@@ -450,15 +458,15 @@ class AccessTree(
 
             if (mergedAccessors == null) return this
 
-            return create(isAbstract, isFinal, isAnyAccessor, mergedAccessors.first, mergedAccessors.second)
+            return create(isAbstract, isFinal, mergedAccessors.first, mergedAccessors.second)
         }
 
         fun mergeAdd(other: AccessNode): AccessNode {
             if (this === other) return this
 
             val isAbstract = this.isAbstract || other.isAbstract
+
             val isFinal = this.isFinal || other.isFinal
-            val isAny = this.isAnyAccessor || other.isAnyAccessor
 
             val mergedAccessors = mergeAccessors(
                 other.accessors, other.accessorNodes, onOtherNode = { _, _ -> }
@@ -468,7 +476,6 @@ class AccessTree(
             if (
                 isAbstract == this.isAbstract
                 && isFinal == this.isFinal
-                && isAny == this.isAnyAccessor
                 && mergedAccessors == null
             ) {
                 return this
@@ -477,7 +484,7 @@ class AccessTree(
             val accessors = mergedAccessors?.first ?: accessors
             val accessorNodes = mergedAccessors?.second ?: accessorNodes
 
-            return create(isAbstract, isFinal, isAny, accessors, accessorNodes)
+            return create(isAbstract, isFinal, accessors, accessorNodes)
         }
 
         fun mergeAddDelta(other: AccessNode): Pair<AccessNode, AccessNode?> {
@@ -488,9 +495,6 @@ class AccessTree(
 
             val isAbstract = this.isAbstract || other.isAbstract
             val isAbstractDelta = !this.isAbstract && other.isAbstract
-
-            val isAny = this.isAnyAccessor || other.isAnyAccessor
-            val isAnyDelta = !this.isAnyAccessor && other.isAnyAccessor
 
             val deltaAccessors = arrayListOf<Accessor>()
             val deltaAccessorNodes = arrayListOf<AccessNode>()
@@ -515,21 +519,20 @@ class AccessTree(
             if (
                 isAbstract == this.isAbstract
                 && isFinal == this.isFinal
-                && isAny == this.isAnyAccessor
                 && mergedAccessors == null
             ) {
                 return this to null
             }
 
             val delta = create(
-                isAbstractDelta, isFinalDelta, isAnyDelta,
+                isAbstractDelta, isFinalDelta,
                 deltaAccessors.toTypedArray(), deltaAccessorNodes.toTypedArray(),
             ).takeIf { !it.isEmpty }
 
             val accessors = mergedAccessors?.first ?: accessors
             val accessorNodes = mergedAccessors?.second ?: accessorNodes
 
-            return create(isAbstract, isFinal, isAny, accessors, accessorNodes) to delta
+            return create(isAbstract, isFinal, accessors, accessorNodes) to delta
         }
 
         fun filterAccessNode(filter: FactTypeChecker.FactApFilter): AccessNode? {
@@ -595,7 +598,7 @@ class AccessTree(
                 }
             }
 
-            val resultNode = create(isAbstract = false, isFinal, isAnyAccessor, accessors = null, accessorNodes = null)
+            val resultNode = create(isAbstract = false, isFinal, accessors = null, accessorNodes = null)
                 .bulkMergeAddAccessors(nestedAccessors)
 
             val concatenatedNode = concatNode?.let { resultNode.mergeAdd(it) } ?: resultNode
@@ -626,16 +629,7 @@ class AccessTree(
                     }
 
                     else -> {
-                        var nextNode = filteredTreeNode.getNodeByAccessor(accessor)
-                        if (nextNode == null) {
-                            if (filteredTreeNode.isAnyAccessor) {
-                                if (apManager.anyAccessorUnrollStrategy.unrollAccessor(accessor)) {
-                                    nextNode = filteredTreeNode
-                                }
-                            }
-                        }
-
-                        nextNode
+                        filteredTreeNode.getChild(apManager, accessor)
                             ?.also { parentAccessors.add(accessor) }
                             ?: return null
                     }
@@ -745,25 +739,22 @@ class AccessTree(
             transformer: (Accessor, AccessNode) -> AccessNode?
         ): AccessNode {
             val newAccessors = transformAccessors(accessors, accessorNodes, transformer) ?: return this
-            return create(isAbstract, isFinal, isAnyAccessor, newAccessors.first, newAccessors.second)
+            return create(isAbstract, isFinal, newAccessors.first, newAccessors.second)
         }
 
         private fun removeSingleAccessor(accessor: Accessor): AccessNode {
             val newAccessors = removeSingleAccessor(accessor, accessors, accessorNodes) ?: return this
-            return create(isAbstract, isFinal, isAnyAccessor, newAccessors.first, newAccessors.second)
+            return create(isAbstract, isFinal, newAccessors.first, newAccessors.second)
         }
 
         internal class Serializer(private val context: SummarySerializationContext) {
             fun DataOutputStream.writeAccessNode(node: AccessNode) {
                 var mask = 0
                 if (node.isFinal) {
-                    mask = mask or FINAL_MASK
+                    mask += 1
                 }
                 if (node.isAbstract) {
-                    mask = mask or ABSTRACT_MASK
-                }
-                if (node.isAnyAccessor) {
-                    mask = mask or ANY_MASK
+                    mask += 2
                 }
                 write(mask)
 
@@ -780,13 +771,12 @@ class AccessTree(
 
             fun DataInputStream.readAccessNode(): AccessNode {
                 val mask = read()
-                val isFinal = mask.and(FINAL_MASK) != 0
-                val isAbstract = mask.and(ABSTRACT_MASK) != 0
-                val isAny = mask.and(ANY_MASK) != 0
+                val isFinal = mask.and(1) > 0
+                val isAbstract = mask.and(2) > 0
 
                 val accessorsSize = readInt()
                 if (accessorsSize == 0) {
-                    return AccessNode(isAbstract, isFinal, isAny, null, null)
+                    return AccessNode(isAbstract, isFinal, null, null)
                 }
 
                 val accessors = Array(accessorsSize) {
@@ -797,34 +787,30 @@ class AccessTree(
                     readAccessNode()
                 }
 
-                return AccessNode(isAbstract, isFinal, isAny, accessors, accessNodes)
+                return AccessNode(isAbstract, isFinal, accessors, accessNodes)
             }
         }
 
         companion object {
-            private const val FINAL_MASK = 0x01
-            private const val ABSTRACT_MASK = 0x02
-            private const val ANY_MASK = 0x04
-
             const val SUBSEQUENT_ARRAY_ELEMENTS_LIMIT = 2
 
             private val emptyNode = AccessNode(
-                isAbstract = false, isFinal = false, isAnyAccessor = false,
+                isAbstract = false, isFinal = false,
                 accessors = null, accessorNodes = null
             )
 
             private val abstractNode = AccessNode(
-                isAbstract = true, isFinal = false, isAnyAccessor = false,
+                isAbstract = true, isFinal = false,
                 accessors = null, accessorNodes = null
             )
 
             private val finalNode = AccessNode(
-                isAbstract = false, isFinal = true, isAnyAccessor = false,
+                isAbstract = false, isFinal = true,
                 accessors = null, accessorNodes = null
             )
 
             private val abstractFinalNode = AccessNode(
-                isAbstract = true, isFinal = true, isAnyAccessor = false,
+                isAbstract = true, isFinal = true,
                 accessors = null, accessorNodes = null
             )
 
@@ -956,29 +942,13 @@ class AccessTree(
             @JvmStatic
             private fun create(accessor: Accessor, node: AccessNode): AccessNode =
                 AccessNode(
-                    isAbstract = false, isFinal = false, isAnyAccessor = false,
+                    isAbstract = false, isFinal = false,
                     accessors = arrayOf(accessor),
                     accessorNodes = arrayOf(node)
                 )
 
             @JvmStatic
             private fun create(
-                isAbstract: Boolean,
-                isFinal: Boolean,
-                isAnyAccessor: Boolean,
-                accessors: Array<Accessor>?,
-                accessorNodes: Array<AccessNode>?
-            ): AccessNode {
-                val default = createDefault(isAbstract, isFinal, accessors, accessorNodes)
-                if (!isAnyAccessor) return default
-
-                return AccessNode(
-                    default.isAbstract, default.isFinal, isAnyAccessor, default.accessors, default.accessorNodes
-                )
-            }
-
-            @JvmStatic
-            private fun createDefault(
                 isAbstract: Boolean,
                 isFinal: Boolean,
                 accessors: Array<Accessor>?,
@@ -1012,7 +982,6 @@ class AccessTree(
                     AccessNode(
                         isAbstract = base.isAbstract,
                         isFinal = base.isFinal,
-                        isAnyAccessor = false,
                         accessors = nonEmptyAccessors,
                         accessorNodes = nonEmptyAccessorNodes
                     )

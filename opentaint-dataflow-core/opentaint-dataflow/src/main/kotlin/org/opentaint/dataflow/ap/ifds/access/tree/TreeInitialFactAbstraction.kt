@@ -132,7 +132,7 @@ class TreeInitialFactAbstraction(
                 continue
             }
 
-            if (state.added.isAnyAccessor) {
+            if (state.added.containsAnyAccessor()) {
                 val unrollAccessors = state.analyzedTrieRoot.unrollAccessors(currentLevelExclusions)
                 if (unrollAccessors.isNotEmpty()) {
                     unrollRequests += AnyAccessorUnrollRequest(state.currentAp, state.added, unrollAccessors)
