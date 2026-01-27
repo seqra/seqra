@@ -20,6 +20,7 @@ import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
 import org.opentaint.dataflow.configuration.jvm.CopyMark
 import org.opentaint.dataflow.configuration.jvm.IsConstant
+import org.opentaint.dataflow.configuration.jvm.IsNull
 import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Position
 import org.opentaint.dataflow.configuration.jvm.PositionAccessor
@@ -69,6 +70,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SourceRule
 import org.opentaint.dataflow.configuration.jvm.simplify
 import org.opentaint.dataflow.jvm.util.JIRHierarchyInfo
+import org.opentaint.ir.api.jvm.JIRAnnotated
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRField
@@ -78,6 +80,7 @@ import org.opentaint.ir.api.jvm.TypeName
 import org.opentaint.ir.api.jvm.ext.objectClass
 import org.opentaint.ir.impl.cfg.util.isArray
 import org.opentaint.ir.impl.util.adjustEmptyList
+import org.opentaint.jvm.sast.dataflow.matchedAnnotations
 import org.opentaint.jvm.util.typename
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -418,6 +421,7 @@ class TaintConfiguration(cp: JIRClasspath) {
         is SerializedCondition.ConstantMatches -> pos.collectAnyArgumentClassifiers(classifiers)
         is SerializedCondition.ContainsMark -> pos.collectAnyArgumentClassifiers(classifiers)
         is SerializedCondition.IsConstant -> isConstant.collectAnyArgumentClassifiers(classifiers)
+        is SerializedCondition.IsNull -> isNull.collectAnyArgumentClassifiers(classifiers)
         is SerializedCondition.IsType -> pos.collectAnyArgumentClassifiers(classifiers)
         is SerializedCondition.ParamAnnotated -> pos.collectAnyArgumentClassifiers(classifiers)
         is SerializedCondition.ClassAnnotated,
@@ -448,7 +452,7 @@ class TaintConfiguration(cp: JIRClasspath) {
         is SerializedCondition.Not -> Not(not.resolve(method, ctx))
         is SerializedCondition.And -> mkAnd(allOf.map { it.resolve(method, ctx) })
         is SerializedCondition.Or -> mkOr(anyOf.map { it.resolve(method, ctx) })
-        SerializedCondition.True -> ConstantTrue
+        is SerializedCondition.True -> ConstantTrue
         is SerializedCondition.AnnotationType -> {
             val containsAnnotation = pos.resolveWithAnnotationConstraint(
                 method, ctx,
@@ -487,6 +491,8 @@ class TaintConfiguration(cp: JIRClasspath) {
 
         is SerializedCondition.IsConstant -> mkOr(isConstant.resolve(method, ctx).map { IsConstant(it) })
 
+        is SerializedCondition.IsNull -> mkOr(isNull.resolve(method, ctx).map { IsNull(it) })
+
         is SerializedCondition.ContainsMark -> mkOr(
             pos.resolvePosition(method, ctx)
                 .flatMap { it.resolveArrayPosition(method) }
@@ -500,11 +506,11 @@ class TaintConfiguration(cp: JIRClasspath) {
         }
 
         is SerializedCondition.ClassAnnotated -> {
-            method.enclosingClass.annotations.matched(annotation).asCondition()
+            method.enclosingClass.matched(annotation).asCondition()
         }
 
         is SerializedCondition.MethodAnnotated -> {
-            method.annotations.matched(annotation).asCondition()
+            method.matched(annotation).asCondition()
         }
 
         is SerializedCondition.ParamAnnotated -> {
@@ -692,7 +698,7 @@ class TaintConfiguration(cp: JIRClasspath) {
 
         return arguments.mapNotNull { arg ->
             val param = method.parameters.getOrNull(arg.index) ?: return@mapNotNull null
-            if (!param.annotations.matched(annotation)) return@mapNotNull null
+            if (!param.matched(annotation)) return@mapNotNull null
 
             arg
         }
@@ -701,11 +707,11 @@ class TaintConfiguration(cp: JIRClasspath) {
     private fun SerializedNameMatcher.asAnnotationConstraint(): AnnotationConstraint =
         AnnotationConstraint(this, params = null)
 
-    private fun List<JIRAnnotation>.matched(constraint: AnnotationConstraint): Boolean = any { it.matched(constraint) }
+    private fun JIRAnnotated.matched(constraint: AnnotationConstraint): Boolean =
+        matchedAnnotations { constraint.type.match(it) }
+            .any { it.paramsMatched(constraint) }
 
-    private fun JIRAnnotation.matched(constraint: AnnotationConstraint): Boolean {
-        if (!constraint.type.match(name)) return false
-
+    private fun JIRAnnotation.paramsMatched(constraint: AnnotationConstraint): Boolean {
         val paramMatchers = constraint.params ?: return true
         return paramMatchers.all { matched(it) }
     }

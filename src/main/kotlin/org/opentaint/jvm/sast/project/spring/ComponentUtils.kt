@@ -5,41 +5,28 @@ import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.ext.allSuperHierarchySequence
 import org.opentaint.ir.api.jvm.ext.findMethodOrNull
+import org.opentaint.jvm.sast.dataflow.matchedAnnotations
 
-fun JIRMethod.isSpringControllerMethod(): Boolean {
-    if (annotations.any { it.isSpringControllerAnnotation() }) return true
+fun JIRMethod.isSpringControllerMethod(): Boolean =
+    collectSpringControllerAnnotations() != null
 
-    return enclosingClass.allSuperHierarchySequence
-        .mapNotNull { it.findMethodOrNull(name, description) }
-        .any { m -> m.annotations.any { it.isSpringControllerAnnotation() } }
-}
+fun String.isSpringMethodAnnotation(): Boolean =
+    this in springControllerMethodMappingAnnotations
 
-fun JIRAnnotation.isSpringMethodAnnotation(): Boolean =
-    matchAnnotationType { it in springControllerMethodMappingAnnotations }
+fun String.isSpringRequestMappingAnnotation(): Boolean =
+    this == springControllerRequestMapping
 
-fun JIRAnnotation.isSpringRequestMappingAnnotation(): Boolean =
-    matchAnnotationType { it == springControllerRequestMapping }
-
-fun JIRAnnotation.isSpringControllerAnnotation(): Boolean =
+fun String.isSpringControllerAnnotation(): Boolean =
     isSpringRequestMappingAnnotation() || isSpringMethodAnnotation()
 
-fun JIRAnnotation.isSpringControllerClassAnnotation(): Boolean =
-    matchAnnotationType { it in springControllerClassAnnotations }
+fun String.isSpringControllerClassAnnotation(): Boolean =
+    this in springControllerClassAnnotations
 
-fun JIRAnnotation.isSpringAutowiredAnnotation(): Boolean =
-    matchAnnotationType { it == SpringAutowired }
-
-fun JIRAnnotation.isSpringValidated(): Boolean =
-    matchAnnotationType { it == JakartaValid }
-
-fun JIRAnnotation.isSpringPathVariable(): Boolean =
-    matchAnnotationType { it == SpringPathVariable }
-
-fun JIRAnnotation.isSpringModelAttribute(): Boolean =
-    matchAnnotationType { it == SpringModelAttribute }
-
-fun JIRAnnotation.isJakartaConstraint(): Boolean =
-    matchAnnotationType { it == JakartaConstraint }
+fun String.isSpringAutowiredAnnotation(): Boolean = this == SpringAutowired
+fun String.isSpringValidated(): Boolean = this == JakartaValid
+fun String.isSpringPathVariable(): Boolean = this == SpringPathVariable
+fun String.isSpringModelAttribute(): Boolean = this == SpringModelAttribute
+fun String.isJakartaConstraint(): Boolean = this == JakartaConstraint
 
 fun JIRClassOrInterface.collectSpringRequestMappingAnnotation(): List<JIRAnnotation>? {
     classSpringRequestMappingAnnotation()?.let { return it }
@@ -54,33 +41,8 @@ fun JIRMethod.collectSpringControllerAnnotations(): List<JIRAnnotation>? {
         .firstNotNullOfOrNull { m -> m.methodSpringControllerAnnotations()  }
 }
 
-fun JIRClassOrInterface.classSpringRequestMappingAnnotation(): List<JIRAnnotation>? {
-    val thisAnnotations = annotations.filter { it.isSpringRequestMappingAnnotation() }
-    if (thisAnnotations.isNotEmpty()) return thisAnnotations
-    return null
-}
+fun JIRClassOrInterface.classSpringRequestMappingAnnotation(): List<JIRAnnotation>? =
+    matchedAnnotations(String::isSpringRequestMappingAnnotation).takeIf { it.isNotEmpty() }
 
-fun JIRMethod.methodSpringControllerAnnotations(): List<JIRAnnotation>? {
-    val thisAnnotations = annotations.filter { it.isSpringControllerAnnotation() }
-    if (thisAnnotations.isNotEmpty()) return thisAnnotations
-    return null
-}
-
-private fun JIRAnnotation.matchAnnotationType(predicate: (String) -> Boolean): Boolean {
-    val unprocessed = mutableListOf(this)
-    val visited = hashSetOf<String>()
-
-    while (unprocessed.isNotEmpty()) {
-        val annotation = unprocessed.removeLast()
-        val cls = annotation.jIRClass ?: continue
-
-        val annotationType = cls.name
-        if (!visited.add(annotationType)) continue
-
-        if (predicate(annotationType)) return true
-
-        unprocessed += cls.annotations
-    }
-
-    return false
-}
+fun JIRMethod.methodSpringControllerAnnotations(): List<JIRAnnotation>? =
+    matchedAnnotations(String::isSpringControllerAnnotation).takeIf { it.isNotEmpty() }

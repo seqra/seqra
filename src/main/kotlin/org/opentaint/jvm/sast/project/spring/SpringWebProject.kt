@@ -4,7 +4,6 @@ import mu.KLogging
 import org.opentaint.dataflow.jvm.util.JIRInstListBuilder
 import org.opentaint.dataflow.jvm.util.typeName
 import org.opentaint.ir.api.jvm.JIRAnnotated
-import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClasspath
@@ -61,6 +60,7 @@ import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualField
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualMethod
 import org.opentaint.ir.impl.types.JIRTypedFieldImpl
 import org.opentaint.ir.impl.types.substition.JIRSubstitutorImpl
+import org.opentaint.jvm.sast.dataflow.matchedAnnotations
 import org.opentaint.jvm.sast.project.ProjectClassPathExtensionFeature
 import org.opentaint.jvm.sast.project.ProjectClasses
 import org.opentaint.jvm.sast.project.allProjectClasses
@@ -77,7 +77,7 @@ const val GeneratedSpringControllerDispatcherSelectMethod = "__select__"
 
 fun ProjectClasses.createSpringProjectContext(): SpringWebProjectContext? {
     val springControllerMethods = allProjectClasses()
-        .filter { cls -> cls.annotations.any { it.isSpringControllerClassAnnotation() } }
+        .filter { it.matchedAnnotations(String::isSpringControllerClassAnnotation).isNotEmpty() }
         .flatMap { it.publicAndProtectedMethods() }
         .filterTo(mutableSetOf()) { it.isSpringControllerMethod() }
 
@@ -356,20 +356,14 @@ private class SpringControllerEntryPointGenerator(
         }
     }
 
-    private val JIRAnnotated.jakartaConstraints: List<Pair<JIRAnnotation, List<JIRClassOrInterface>>>
+    private val JIRAnnotated.jakartaConstraintValidators: List<JIRClassOrInterface>
         get() {
-            return annotations
-                .mapNotNull { annotation ->
-                    val constraintAnnotation = annotation.jIRClass
-                        ?.annotations
-                        ?.singleOrNull { it.isJakartaConstraint() }
-                        ?: return@mapNotNull null
+            return matchedAnnotations(String::isJakartaConstraint).flatMap { constraintAnnotation ->
+                val validatedBy = constraintAnnotation.values["validatedBy"] as? List<*>
+                    ?: return@flatMap emptyList()
 
-                    val validatedBy = constraintAnnotation.values["validatedBy"] as? List<*>
-                        ?: return@mapNotNull null
-
-                    annotation to validatedBy.filterIsInstance<JIRClassOrInterface>()
-                }
+                validatedBy.filterIsInstance<JIRClassOrInterface>()
+            }
         }
 
     // According to https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/ModelAttribute.html
@@ -565,8 +559,8 @@ private class SpringControllerEntryPointGenerator(
             val param = typedMethod.parameters[index]
             val jIRParam = typedMethod.method.parameters[index]
 
-            val pathVariable = jIRParam.annotations
-                .singleOrNull { it.isSpringPathVariable() }
+            val pathVariable = jIRParam.matchedAnnotations(String::isSpringPathVariable)
+                .singleOrNull()
                 ?.let { pathVariableAnnotation ->
                     pathVariableAnnotation.values["value"] as? String ?: jIRParam.name
                 }
@@ -575,8 +569,9 @@ private class SpringControllerEntryPointGenerator(
                 pathVariables[pathVariable]?.let { return it }
             }
 
-            val modelAttribute = jIRParam.annotations
-                .singleOrNull { it.isSpringModelAttribute() }
+            val modelAttribute = jIRParam
+                .matchedAnnotations(String::isSpringModelAttribute)
+                .singleOrNull()
                 ?.let { modelAttributeAnnotation ->
                     modelAttributeAnnotation.values["value"] as? String
                         ?: defaultModelAttributeNameForType(param.type)
@@ -603,40 +598,40 @@ private class SpringControllerEntryPointGenerator(
                 }
             }
 
-            if (jIRParam.annotations.any { it.isSpringValidated() }) {
-                val constraints = (param.type as? JIRClassType)?.jIRClass?.jakartaConstraints.orEmpty()
+            val isValidated = jIRParam.matchedAnnotations(String::isSpringValidated).any()
+            if (isValidated) {
+                // TODO: pass annotation to validator.initialize somehow?
+                val validators = (param.type as? JIRClassType)?.jIRClass?.jakartaConstraintValidators.orEmpty()
 
-                for ((_, validators) in constraints) { // TODO: pass annotation to validator.initialize somehow?
-                    for (validator in validators) {
-                        val validatorType = validator.toType()
-                        val initializeMethod = validatorType.methods.firstOrNull {
-                            it.name == "initialize" && it.parameters.size == 1
-                        } ?: continue
-                        val isValidMethod = validatorType.methods.firstOrNull {
-                            it.name == "isValid" && it.parameters.size == 2
-                        } ?: continue
+                for (validator in validators) {
+                    val validatorType = validator.toType()
+                    val initializeMethod = validatorType.methods.firstOrNull {
+                        it.name == "initialize" && it.parameters.size == 1
+                    } ?: continue
+                    val isValidMethod = validatorType.methods.firstOrNull {
+                        it.name == "isValid" && it.parameters.size == 2
+                    } ?: continue
 
-                        val validatorInstance = instructions.loadSpringComponent(
-                            ctx, validator, "validator"
-                        )
+                    val validatorInstance = instructions.loadSpringComponent(
+                        ctx, validator, "validator"
+                    )
 
-                        val initializeMethodRef = VirtualMethodRefImpl.of(validatorType, initializeMethod)
-                        val initializeMethodCall = JIRVirtualCallExpr(
-                            initializeMethodRef, validatorInstance,
-                            listOf(getOrCreateNewArgument(initializeMethod, 0))
-                        )
-                        instructions.addInstWithLocation(entryPointMethod) { loc ->
-                            JIRCallInst(loc, initializeMethodCall)
-                        }
+                    val initializeMethodRef = VirtualMethodRefImpl.of(validatorType, initializeMethod)
+                    val initializeMethodCall = JIRVirtualCallExpr(
+                        initializeMethodRef, validatorInstance,
+                        listOf(getOrCreateNewArgument(initializeMethod, 0))
+                    )
+                    instructions.addInstWithLocation(entryPointMethod) { loc ->
+                        JIRCallInst(loc, initializeMethodCall)
+                    }
 
-                        val isValidMethodRef = VirtualMethodRefImpl.of(validatorType, isValidMethod)
-                        val isValidMethodCall = JIRVirtualCallExpr(
-                            isValidMethodRef, validatorInstance,
-                            listOf(paramValue, getOrCreateNewArgument(isValidMethod, 1))
-                        )
-                        instructions.addInstWithLocation(entryPointMethod) { loc ->
-                            JIRCallInst(loc, isValidMethodCall)
-                        }
+                    val isValidMethodRef = VirtualMethodRefImpl.of(validatorType, isValidMethod)
+                    val isValidMethodCall = JIRVirtualCallExpr(
+                        isValidMethodRef, validatorInstance,
+                        listOf(paramValue, getOrCreateNewArgument(isValidMethod, 1))
+                    )
+                    instructions.addInstWithLocation(entryPointMethod) { loc ->
+                        JIRCallInst(loc, isValidMethodCall)
                     }
                 }
 
@@ -704,7 +699,7 @@ private class SpringControllerEntryPointGenerator(
             // Adding calls to methods annotated with @ModelAttribute
             // TODO: call these methods in proper order
             //  (https://github.com/spring-projects/spring-framework/commit/56a82c1cbe8276408f9fff06cfb1ac9da7961a80)
-            val modelAttributeAnnotation = method.method.annotations.singleOrNull { it.isSpringModelAttribute() }
+            val modelAttributeAnnotation = method.method.matchedAnnotations(String::isSpringModelAttribute).singleOrNull()
                 ?: return@forEach
 
             val modelAttributeName = modelAttributeAnnotation.values["value"] as? String
@@ -820,7 +815,7 @@ private fun JIRClasspath.resolveComponentConstructorParam(ctor: JIRMethod, param
     findClassOrNull(ctor.parameters[paramIdx].type.typeName)
 
 private fun JIRClassOrInterface.autowiredFields(): List<JIRField> =
-    declaredFields.filter { field -> field.annotations.any { it.isSpringAutowiredAnnotation() } }
+    declaredFields.filter { field -> field.matchedAnnotations { it.isSpringAutowiredAnnotation() }.any() }
 
 private fun JIRClasspath.resolveAutowiredField(field: JIRField): JIRClassOrInterface? =
     findClassOrNull(field.type.typeName)

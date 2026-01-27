@@ -172,7 +172,7 @@ private fun SerializedCondition.rewriteAsEndCondition(): SerializedCondition = w
     is SerializedCondition.And -> SerializedCondition.and(allOf.map { it.rewriteAsEndCondition() })
     is SerializedCondition.Or -> SerializedCondition.Or(anyOf.map { it.rewriteAsEndCondition() })
     is SerializedCondition.Not -> SerializedCondition.not(not.rewriteAsEndCondition())
-    SerializedCondition.True -> this
+    is SerializedCondition.True -> this
     is SerializedCondition.ClassAnnotated -> this
     is SerializedCondition.MethodAnnotated -> this
     is SerializedCondition.MethodNameMatches -> this
@@ -182,6 +182,7 @@ private fun SerializedCondition.rewriteAsEndCondition(): SerializedCondition = w
     is SerializedCondition.ConstantEq -> copy(pos = pos.rewriteAsEndPosition())
     is SerializedCondition.ConstantGt -> copy(pos = pos.rewriteAsEndPosition())
     is SerializedCondition.ConstantLt -> copy(pos = pos.rewriteAsEndPosition())
+    is SerializedCondition.IsNull -> copy(isNull = isNull.rewriteAsEndPosition())
     is SerializedCondition.ConstantMatches -> copy(pos = pos.rewriteAsEndPosition())
     is SerializedCondition.ContainsMark -> copy(pos = pos.rewriteAsEndPosition())
     is SerializedCondition.IsConstant -> copy(isConstant = isConstant.rewriteAsEndPosition())
@@ -713,7 +714,10 @@ private fun TaintRuleGenerationCtx.evaluateMethodConstraints(
                 }
 
                 is ClassConstraint.TypeConstraint -> {
-                    TODO("Class type constraint")
+                    // note: class type constraint is meaningful only for instance methods
+                    conditions += typeMatcher(c.superType, semgrepRuleTrace).toSerializedCondition { typeNameMatcher ->
+                        SerializedCondition.IsType(typeNameMatcher, PositionBase.This)
+                    }
                 }
             }
         }
@@ -1042,7 +1046,7 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
         }
 
         is SpecificNullValue -> {
-            TODO("Constant null")
+            return SerializedCondition.IsNull(position)
         }
 
         is StringValueMetaVar -> {
