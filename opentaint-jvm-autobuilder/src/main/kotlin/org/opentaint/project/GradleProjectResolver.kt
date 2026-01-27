@@ -1,17 +1,14 @@
 package org.opentaint.project
 
 import kotlinx.serialization.SerialName
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import org.opentaint.project.ProjectResolver.Companion.logger
 import org.opentaint.project.ProjectResolver.Companion.tryJavaToolchains
 import java.nio.file.FileVisitResult
 import java.nio.file.Path
-import kotlin.io.path.ExperimentalPathApi
-import kotlin.io.path.OnErrorResult
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
-import kotlin.io.path.copyToRecursively
 import kotlin.io.path.createDirectories
 import kotlin.io.path.div
 import kotlin.io.path.exists
@@ -57,7 +54,6 @@ class GradleProjectResolver(
         return Project(projectSourceRoot, javaToolchain.path(), resolvedModules, resolvedProjectDependencies)
     }
 
-    @OptIn(ExperimentalPathApi::class)
     private fun buildProject(): Boolean {
         val gradleExecutable = resolveGradleExecutable(projectSourceRoot)
 
@@ -83,15 +79,7 @@ class GradleProjectResolver(
                                     val snapshotDestination = snapshotDir.resolve(configurationName)
 
                                     snapshotDestination.createDirectories()
-                                    configurationClasses.copyToRecursively(
-                                        snapshotDestination,
-                                        onError = { src, _, ex ->
-                                            logger.error(ex) { "Failed to create classes snapshot for $src" }
-                                            OnErrorResult.SKIP_SUBTREE
-                                        },
-                                        followLinks = false,
-                                        overwrite = false
-                                    )
+                                    configurationClasses.copyDirRecursivelyTo(snapshotDestination)
 
                                     snapshotDestination
                                 }

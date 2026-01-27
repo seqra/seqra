@@ -1,16 +1,14 @@
 package org.opentaint.project
 
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import org.opentaint.project.ProjectResolver.Companion.logger
 import org.opentaint.project.ProjectResolver.Companion.tryJavaToolchains
 import org.zeroturnaround.exec.ProcessExecutor
 import java.nio.file.FileVisitResult
 import java.nio.file.Path
-import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
-import kotlin.io.path.copyToRecursively
 import kotlin.io.path.div
 import kotlin.io.path.exists
 import kotlin.io.path.extension
@@ -72,7 +70,6 @@ class MavenProjectResolver(
         resolvedModules += ProjectModuleClasses(moduleRoot, listOf(classesDir))
     }
 
-    @OptIn(ExperimentalPathApi::class)
     private fun buildProject(): Boolean {
         val args = listOf(projectMavenExecutable) + listOf("clean", "package") + mavenCommandFlags
 
@@ -84,7 +81,7 @@ class MavenProjectResolver(
                     val classes = directory.resolve("target").resolve("classes")
                     if (classes.isDirectory()) {
                         registerModule(directory) { classesSnapshotDir ->
-                            classes.copyToRecursively(classesSnapshotDir, followLinks = false, overwrite = false)
+                            classes.copyDirRecursivelyTo(classesSnapshotDir)
                         }
                     }
                 }
@@ -116,7 +113,6 @@ class MavenProjectResolver(
         return true
     }
 
-    @OptIn(ExperimentalPathApi::class)
     private fun resolveDependenciesFromGraph(graphLocation: Path) {
         val json = Json {
             ignoreUnknownKeys = true
