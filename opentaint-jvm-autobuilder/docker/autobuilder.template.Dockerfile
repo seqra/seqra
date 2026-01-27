@@ -1,4 +1,4 @@
-FROM opentaint-jvm-autobuilder/sast-autobuilder-dependencies:latest
+FROM sast-autobuilder-dependencies:latest
 
 RUN useradd -ms /bin/bash auto-builder
 WORKDIR /home/auto-builder
