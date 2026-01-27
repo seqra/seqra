@@ -10,6 +10,7 @@ import org.opentaint.dataflow.configuration.jvm.ConstantMatches
 import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.configuration.jvm.IsConstant
+import org.opentaint.dataflow.configuration.jvm.IsNull
 import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.TypeMatches
@@ -22,6 +23,7 @@ interface ConditionRewriter : ConditionVisitor<Condition> {
 
     override fun visit(condition: ConstantTrue): Condition = condition
     override fun visit(condition: IsConstant): Condition = condition
+    override fun visit(condition: IsNull): Condition = condition
     override fun visit(condition: ConstantEq): Condition = condition
     override fun visit(condition: ConstantLt): Condition = condition
     override fun visit(condition: ConstantGt): Condition = condition

@@ -14,6 +14,7 @@ import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.configuration.jvm.ConstantValue
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.configuration.jvm.IsConstant
+import org.opentaint.dataflow.configuration.jvm.IsNull
 import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.PositionResolver
@@ -25,6 +26,7 @@ import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.cfg.JIRBool
 import org.opentaint.ir.api.jvm.cfg.JIRConstant
 import org.opentaint.ir.api.jvm.cfg.JIRInt
+import org.opentaint.ir.api.jvm.cfg.JIRNullConstant
 import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.isAssignable
@@ -51,6 +53,13 @@ class JIRBasicAtomEvaluator(
     override fun visit(condition: IsConstant): Boolean {
         positionResolver.resolve(condition.position).onSome {
             return isConstant(it)
+        }
+        return false
+    }
+
+    override fun visit(condition: IsNull): Boolean {
+        positionResolver.resolve(condition.position).onSome {
+            return isNull(it)
         }
         return false
     }
@@ -101,6 +110,10 @@ class JIRBasicAtomEvaluator(
 
     private fun isConstant(value: JIRValue): Boolean {
         return value is JIRConstant
+    }
+
+    private fun isNull(value: JIRValue): Boolean {
+        return value is JIRNullConstant
     }
 
     private fun eqConstant(value: JIRValue, constant: ConstantValue): Boolean {
