@@ -9,6 +9,7 @@ interface ConditionVisitor<out R> {
     fun visit(condition: And): R
     fun visit(condition: Or): R
     fun visit(condition: IsConstant): R
+    fun visit(condition: IsNull): R
     fun visit(condition: ConstantEq): R
     fun visit(condition: ConstantLt): R
     fun visit(condition: ConstantGt): R
@@ -46,6 +47,12 @@ data class Or(
 }
 
 data class IsConstant(
+    val position: Position,
+) : Condition {
+    override fun <R> accept(conditionVisitor: ConditionVisitor<R>): R = conditionVisitor.visit(this)
+}
+
+data class IsNull(
     val position: Position,
 ) : Condition {
     override fun <R> accept(conditionVisitor: ConditionVisitor<R>): R = conditionVisitor.visit(this)

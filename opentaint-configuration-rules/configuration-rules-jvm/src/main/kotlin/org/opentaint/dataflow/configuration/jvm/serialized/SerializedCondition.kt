@@ -31,25 +31,50 @@ sealed interface SerializedCondition {
 
         fun not(arg: SerializedCondition) = if (arg is Not) arg.not else Not(arg)
 
-        fun and(args: List<SerializedCondition>): SerializedCondition {
-            val result = mutableListOf<SerializedCondition>()
+        fun and(args: List<SerializedCondition>): SerializedCondition =
+            mkFlatOp(
+                args, And::allOf, ::And,
+                isNeutral = { it is True },
+                mkNeutral = { True },
+                isZero = { it.isFalse() },
+                mkZero = { mkFalse() },
+            )
+
+        fun or(args: List<SerializedCondition>): SerializedCondition =
+            mkFlatOp(
+                args, Or::anyOf, ::Or,
+                isNeutral = { it.isFalse() },
+                mkNeutral = { mkFalse() },
+                isZero = { it is True },
+                mkZero = { True }
+            )
+
+        private inline fun <reified Op : SerializedCondition> mkFlatOp(
+            args: List<SerializedCondition>,
+            opArgs: Op.() -> List<SerializedCondition>,
+            mkOp: (List<SerializedCondition>) -> Op,
+            isNeutral: (SerializedCondition) -> Boolean,
+            mkNeutral: () -> SerializedCondition,
+            isZero: (SerializedCondition) -> Boolean,
+            mkZero: () -> SerializedCondition,
+        ): SerializedCondition {
+            val result = mutableSetOf<SerializedCondition>()
             for (arg in args) {
-                if (arg is And) {
-                    result.addAll(arg.allOf)
+                if (arg is Op) {
+                    result.addAll(opArgs(arg))
                     continue
                 }
 
-                if (arg is True) continue
-
-                if (arg.isFalse()) return mkFalse()
+                if (isNeutral(arg)) continue
+                if (isZero(arg)) return mkZero()
 
                 result.add(arg)
             }
 
             return when (result.size) {
-                0 -> True
+                0 -> mkNeutral()
                 1 -> result.single()
-                else -> And(result)
+                else -> mkOp(result.toList())
             }
         }
     }

@@ -48,6 +48,7 @@ object ConditionSimplifier : ConditionVisitor<Condition> {
     }
 
     override fun visit(condition: IsConstant): Condition = condition
+    override fun visit(condition: IsNull): Condition = condition
     override fun visit(condition: ConstantEq): Condition = condition
     override fun visit(condition: ConstantLt): Condition = condition
     override fun visit(condition: ConstantGt): Condition = condition
