@@ -290,7 +290,10 @@ class AccessTree(
             val accessorIdx = accessorIndex(accessor)
             if (accessorIdx >= 0) return true
 
-            if (!containsAnyAccessor()) return false
+            val anyAccessorNode = getNodeByAccessor(AnyAccessor)
+                ?: return false
+
+            if (anyAccessorNode.contains(apManager, accessor)) return true
             return apManager.anyAccessorUnrollStrategy.unrollAccessor(accessor)
         }
 
@@ -302,6 +305,9 @@ class AccessTree(
 
             val anyAccessorNode = getNodeByAccessor(AnyAccessor)
                 ?: return null
+
+            val anyChild = anyAccessorNode.getNodeByAccessor(accessor)
+            if (anyChild != null) return anyChild
 
             if (!apManager.anyAccessorUnrollStrategy.unrollAccessor(accessor)) return null
 
