@@ -20,7 +20,7 @@ sealed interface Mark {
         val classifier: String? = null,
     ) {
         private val classifierPrefix = classifier?.let { "${classifier}_" }.orEmpty()
-        private val ruleClassifier = "${classifierPrefix}_$idx"
+        private val ruleClassifier = "${classifierPrefix}$idx"
 
         fun metaVarState(metaVar: MetavarAtom, state: Int): GeneratedMark =
             GeneratedMark(ruleId, ruleClassifier, metaVarStr(metaVar), "$state")

@@ -42,6 +42,7 @@ dependencies {
     implementation(Libs.sarif4k)
     implementation(Libs.clikt)
     implementation(Libs.zt_exec)
+    implementation(Libs.antlr_runtime)
 
     testImplementation(Libs.mockk)
     testImplementation(JunitDependencies.Libs.junit_jupiter_params)

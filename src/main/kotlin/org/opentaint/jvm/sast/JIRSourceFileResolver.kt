@@ -1,12 +1,12 @@
 package org.opentaint.jvm.sast
 
 import mu.KLogging
+import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.packageName
-import org.opentaint.dataflow.sarif.SourceFileResolver
 import java.nio.file.Path
 import kotlin.io.path.extension
 import kotlin.io.path.relativeTo
@@ -33,7 +33,10 @@ class JIRSourceFileResolver(
         }
     }
 
-    override fun resolveByName(inst: CommonInst, pkg: String, name: String): String? {
+    override fun relativeToRoot(path: Path): String =
+        path.relativeTo(projectSourceRoot).toString()
+
+    override fun resolveByName(inst: CommonInst, pkg: String, name: String): Path? {
         check(inst is JIRInst) { "Expected inst to be JIRInst" }
         val instLocationCls = inst.location.method.enclosingClass
 
@@ -50,10 +53,10 @@ class JIRSourceFileResolver(
             return null
         }
 
-        return sourceFilesWithCorrectPackage[0].relativeTo(projectSourceRoot).toString()
+        return sourceFilesWithCorrectPackage[0]
     }
 
-    override fun resolveByInst(inst: CommonInst): String? {
+    override fun resolveByInst(inst: CommonInst): Path? {
         check(inst is JIRInst) { "Expected inst to be JIRInst" }
         val instLocationCls = inst.location.method.enclosingClass
 
@@ -75,8 +78,7 @@ class JIRSourceFileResolver(
         sourceFileNameVariants += "$clsName.$KOTLIN_EXTENSION"
 
         for (sourceFileName in sourceFileNameVariants) {
-            val resolved = tryResolveSourceFile(sources, locationCls, sourceFileName) ?: continue
-            return resolved.relativeTo(projectSourceRoot).toString()
+            return tryResolveSourceFile(sources, locationCls, sourceFileName) ?: continue
         }
 
         logger.warn { "Source file was not resolved for: ${instLocationCls.name}" }

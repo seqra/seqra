@@ -16,15 +16,25 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstList
 import org.opentaint.ir.api.jvm.cfg.JIRRawInst
 import org.opentaint.ir.api.jvm.cfg.JIRRawLabelInst
 import org.opentaint.ir.api.jvm.cfg.JIRRawLineNumberInst
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualClass
+import org.opentaint.jvm.sast.ast.JavaAstSpanResolver
 import org.opentaint.jvm.sast.mostOuterClass
 import org.opentaint.jvm.sast.util.DebugInfo
 import org.opentaint.jvm.sast.util.DebugInfoParser
 import org.opentaint.jvm.sast.util.SourcePosition
+import java.nio.file.Path
+
+data class LocationSpan(
+    val startLine: Int,
+    val startColumn: Int?,
+    val endLine: Int?,
+    val endColumn: Int?,
+)
 
 data class InstructionInfo(
     val fullyQualified: String, val machineName: String, var lineNumber: Int,
@@ -36,12 +46,15 @@ data class IntermediateLocation(
     val info: InstructionInfo,
     val kind: String,
     val message: String?,
+    val span: LocationSpan? = null,
 )
 
 class LocationResolver(
     private val sourceFileResolver: SourceFileResolver<CommonInst>,
     private val traits: SarifTraits<CommonMethod, CommonInst>
 ) {
+    private val spanResolver = JavaAstSpanResolver()
+
     fun resolve(locations: List<IntermediateLocation>): List<ThreadFlowLocation> {
         var currentIdx = 0
         return locations.flatMap { loc -> resolveLocation(loc, currentIdx).also { currentIdx += it.size } }
@@ -67,18 +80,18 @@ class LocationResolver(
         return generateSarifLocation(location, source)
     }
 
-    private val locationsCache = hashMapOf<CommonInst, String?>()
+    private val locationsCache = hashMapOf<CommonInst, Path?>()
     private fun <Statement : CommonInst> getCachedSourceLocation(
         inst: Statement
-    ): String? =
+    ): Path? =
         locationsCache.computeIfAbsent(inst) {
             sourceFileResolver.resolveByInst(inst)
         }
 
-    private val sourcesCache = hashMapOf<Pair<String, String>, String?>()
+    private val sourcesCache = hashMapOf<Pair<String, String>, Path?>()
     private fun <Statement : CommonInst> getCachedSourceLocation(
         inst: Statement, pkg: String, name: String
-    ): String? =
+    ): Path? =
         sourcesCache.computeIfAbsent(pkg to name) {
             sourceFileResolver.resolveByName(inst, pkg, name)
         }
@@ -136,7 +149,7 @@ class LocationResolver(
     private fun JIRRawInst.isLabelOrLine(): Boolean =
         this is JIRRawLabelInst || this is JIRRawLineNumberInst
 
-    private data class FileLocation(val lineNumber: Int, val sourceFile: String)
+    private data class FileLocation(val lineNumber: Int, val sourceFile: Path)
 
     private data class ResolvedInlineCall(
         val callLocation: FileLocation,
@@ -239,31 +252,54 @@ class LocationResolver(
         location.info.fullyQualified.split('#').firstOrNull()?.replace('.', '/')
             ?: "<#[unresolved]#>"
 
+    private fun computeSpan(inst: CommonInst, lineNumber: Int, sourceFile: Path): LocationSpan? {
+        if (inst !is JIRInst) return null
+        return spanResolver.computeSpan(sourceFile, lineNumber, inst)
+    }
+
     private fun generateSarifLocation(
         location: IntermediateLocation,
-        sourceFile: String?
-    ): Location = Location(
-        physicalLocation = PhysicalLocation(
-            artifactLocation = ArtifactLocation(uri = sourceFile ?: fallbackPhysicalLocation(location)),
-            region = Region(
+        sourceFile: Path?
+    ): Location {
+        val span = location.span ?: sourceFile?.let { src ->
+            computeSpan(location.inst, location.info.lineNumber, src)
+        }
+        val region = if (span != null) {
+            Region(
+                startLine = span.startLine.toLong(),
+                startColumn = span.startColumn?.toLong(),
+                endLine = (span.endLine ?: span.startLine).toLong(),
+                endColumn = span.endColumn?.toLong(),
+            )
+        } else {
+            Region(
                 startLine = location.info.lineNumber.toLong()
             )
-        ),
-        logicalLocations = listOf(
-            LogicalLocation(
-                fullyQualifiedName = location.info.fullyQualified,
-                decoratedName = location.info.machineName
-            )
-        ),
-        message = location.message?.let { Message(text = it.capitalize()) }
-    )
+        }
+
+        val fileLocation = sourceFile?.let { sourceFileResolver.relativeToRoot(it) }
+            ?: fallbackPhysicalLocation(location)
+
+        return Location(
+            physicalLocation = PhysicalLocation(
+                artifactLocation = ArtifactLocation(uri = fileLocation),
+                region = region
+            ),
+            logicalLocations = listOf(
+                LogicalLocation(
+                    fullyQualifiedName = location.info.fullyQualified,
+                    decoratedName = location.info.machineName
+                )
+            ),
+            message = location.message?.let { Message(text = it.capitalize()) }
+        )
+    }
 
     private fun generateThreadFlowLocation(
         location: IntermediateLocation,
-        sourceFile: String?,
+        sourceFile: Path?,
         idx: Int,
     ): ThreadFlowLocation = ThreadFlowLocation(
-        index = idx.toLong(),
         executionOrder = idx.toLong(),
         kinds = listOf(location.kind),
         location = generateSarifLocation(location, sourceFile)
