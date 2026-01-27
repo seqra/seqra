@@ -23,7 +23,7 @@ class JIRMethodGetDefaultProvider(
     ): Iterable<TaintPassThrough> {
         val baseRules = base.passTroughRulesForMethod(method, statement, fact)
 
-        if (method !is JIRMethod) return baseRules
+        if (method !is JIRMethod || method.isStatic) return baseRules
 
         if (!method.name.startsWith("get")) return baseRules
 

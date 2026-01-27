@@ -191,7 +191,7 @@ class TraceMessageBuilder(
         if (primaryAction is TraceEntryAction.CallSummary && entry.otherActions.isEmpty()) {
             val summaryTraceFacts = primaryAction.summaryTrace.final.edges
             if (summaryTraceFacts.all { it is TraceEdge.MethodTraceEdge && it.initialFact.base == it.fact.base }) {
-                logger.debug {
+                logger.trace {
                     "Skipping trace entry on line ${traits.lineNumber(node.statement)} " +
                             "because initial and final places are the same"
                 }
