@@ -43,6 +43,7 @@ import kotlin.io.path.extension
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 import kotlin.io.path.readText
+import kotlin.io.path.relativeTo
 import kotlin.io.path.walk
 import kotlin.time.Duration
 
@@ -158,7 +159,8 @@ class ProjectAnalyzer(
         val ruleExtensions = arrayOf("yaml", "yml")
         for (rulesRoot in semgrepRulesPath) {
             rulesRoot.walk().filter { it.extension in ruleExtensions }.forEach { rulePath ->
-                loader.registerRuleSet(rulePath.readText(), rulePath, rulesRoot, semgrepTrace)
+                val relativePath = rulePath.relativeTo(rulesRoot)
+                loader.registerRuleSet(rulePath.readText(), relativePath, rulesRoot, semgrepTrace)
             }
         }
 
