@@ -19,14 +19,14 @@ import kotlin.io.path.relativeTo
 
 @Serializable
 data class Project(
-    val sourceRoot: @Serializable(with = PathAsStringSerializer::class) Path,
+    val sourceRoot: @Serializable(with = PathAsStringSerializer::class) Path? = null,
     val javaToolchain: @Serializable(with = PathAsStringSerializer::class) Path? = null,
-    val modules: List<ProjectModuleClasses>,
+    val modules: List<ProjectModuleClasses> = emptyList(),
     val dependencies: List<@Serializable(with = PathAsStringSerializer::class) Path> = emptyList(),
     val subProjects: List<Project> = emptyList(),
 ) {
     fun relativeTo(path: Path): Project = Project(
-        sourceRoot.relativeTo(path),
+        sourceRoot?.relativeTo(path),
         javaToolchain?.relativeTo(path),
         modules.map { it.relativeTo(path) },
         dependencies.map { it.relativeTo(path) },
@@ -34,7 +34,7 @@ data class Project(
     )
 
     fun resolve(base: Path): Project = Project(
-        base.resolve(sourceRoot),
+        sourceRoot?.let { base.resolve(it) },
         javaToolchain?.let { base.resolve(it) },
         modules.map { it.resolve(base) },
         dependencies.map { base.resolve(it) },
@@ -64,16 +64,19 @@ data class Project(
 
 @Serializable
 data class ProjectModuleClasses(
-    val moduleSourceRoot: @Serializable(with = PathAsStringSerializer::class) Path,
-    val moduleClasses: List<@Serializable(with = PathAsStringSerializer::class) Path>
+    val moduleSourceRoot: @Serializable(with = PathAsStringSerializer::class) Path? = null,
+    val packages: List<String> = emptyList(),
+    val moduleClasses: List<@Serializable(with = PathAsStringSerializer::class) Path> = emptyList()
 ) {
     fun relativeTo(path: Path): ProjectModuleClasses = ProjectModuleClasses(
-        moduleSourceRoot.relativeTo(path),
+        moduleSourceRoot?.relativeTo(path),
+        packages,
         moduleClasses.map { it.relativeTo(path) }
     )
 
     fun resolve(base: Path): ProjectModuleClasses = ProjectModuleClasses(
-        base.resolve(moduleSourceRoot),
+        moduleSourceRoot?.let { base.resolve(it) },
+        packages,
         moduleClasses.map { base.resolve(it) }
     )
 }
