@@ -4,6 +4,7 @@ import OpentaintIrDependency.opentaint_ir_core
 import OpentaintIrDependency.opentaint_ir_approximations
 import OpentaintIrDependency.opentaint_ir_api_storage
 import OpentaintIrDependency.opentaint_ir_storage
+import OpentaintTestUtilDependency.opentaintSastTestUtil
 
 plugins {
     id("kotlin-conventions")
@@ -40,6 +41,7 @@ dependencies {
 
     testCompileOnly(project("samples"))
     testImplementation("org.opentaint.sast:dataflow")
+    testImplementation(opentaintSastTestUtil)
 }
 
 val testSamples by configurations.creating

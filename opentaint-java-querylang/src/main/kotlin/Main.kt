@@ -16,6 +16,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
+import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
 import org.opentaint.semgrep.pattern.SemgrepErrorEntry
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
 import org.opentaint.semgrep.pattern.SemgrepJavaPatternParser
@@ -396,7 +397,7 @@ private fun collectParsingStats(path: Path): List<Pair<SemgrepJavaPattern, Strin
     }
 
     val time = measureTime {
-        loader.loadRules()
+        loader.loadRules(Severity.Note)
     }
 
     println("Pattern statistics:")
@@ -521,7 +522,7 @@ private fun collectRuleSetStat(semgrepRulesPath: Path, allRules: List<Path>): Ha
     val trace = SemgrepLoadTrace()
     for (rulePath in allRules) {
         loader.registerRuleSet(rulePath.readText(), rulePath, semgrepRulesPath, trace)
-        val (loadedRules, _) = loader.loadRules().unzip()
+        val (loadedRules, _) = loader.loadRules(Severity.Note).unzip()
         loadedRules.forEach {
             stats[it.ruleId] = it.stats()
         }

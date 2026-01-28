@@ -28,11 +28,14 @@ import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.findMethodOrNull
+import org.opentaint.jvm.sast.dataflow.DebugOptions
 import org.opentaint.jvm.sast.dataflow.DummySerializationContext
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
+import org.opentaint.jvm.sast.dataflow.TaintAnalyzerOptions
 import org.opentaint.jvm.sast.dataflow.rules.TaintConfiguration
 import org.opentaint.jvm.sast.project.ProjectAnalysisContext
+import org.opentaint.jvm.sast.project.ProjectAnalysisOptions
 import org.opentaint.jvm.sast.project.ProjectKind
 import org.opentaint.jvm.sast.project.initializeProjectAnalysisContext
 import org.opentaint.jvm.sast.project.selectProjectEntryPoints
@@ -52,13 +55,14 @@ fun testProjectAnalyzerOnTraces(
     ifdsApMode: ApMode,
     projectKind: ProjectKind,
     testDataJsonPath: Path,
-    debugOptions: JIRTaintAnalyzer.DebugOptions
+    debugOptions: DebugOptions
 ) {
     val testDataTaintConfig: List<TracePair> = Json.decodeFromString(
         testDataJsonPath.readText()
     )
 
-    val analysisContext = initializeProjectAnalysisContext(project, projectPackage, projectKind)
+    val options = ProjectAnalysisOptions(projectPackage = projectPackage, projectKind = projectKind)
+    val analysisContext = initializeProjectAnalysisContext(project, options)
 
     val mainConfig = JIRTaintRulesProvider(
         TaintConfiguration(analysisContext.cp).also { it.loadConfig(loadDefaultConfig()) }
@@ -211,18 +215,21 @@ private fun ProjectAnalysisContext.analyze(
     entryPoints: List<JIRMethod>,
     ifdsAnalysisTimeout: Duration,
     ifdsApMode: ApMode,
-    debugOptions: JIRTaintAnalyzer.DebugOptions
+    debugOptions: DebugOptions
 ): List<VulnerabilityWithTrace> {
-    JIRTaintAnalyzer(
-        cp, config,
-        projectLocations = projectClasses.projectLocations,
+    val options = TaintAnalyzerOptions(
         ifdsTimeout = ifdsAnalysisTimeout,
         ifdsApMode = ifdsApMode,
         symbolicExecutionEnabled = false,
         analysisCwe = null,
-        summarySerializationContext = DummySerializationContext,
         storeSummaries = false,
         debugOptions = debugOptions
+    )
+    JIRTaintAnalyzer(
+        cp, config,
+        projectLocations = projectClasses.projectLocations,
+        options = options,
+        summarySerializationContext = DummySerializationContext,
     ).use { analyzer ->
         return analyzer.analyzeWithIfds(entryPoints)
     }

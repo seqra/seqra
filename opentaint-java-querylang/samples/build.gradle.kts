@@ -1,3 +1,5 @@
+import OpentaintTestUtilDependency.opentaintSastTestUtil
+
 plugins {
     java
 }
@@ -7,4 +9,8 @@ tasks {
         sourceCompatibility = JavaVersion.VERSION_1_8.toString()
         targetCompatibility = JavaVersion.VERSION_1_8.toString()
     }
+}
+
+dependencies {
+    compileOnly(opentaintSastTestUtil)
 }

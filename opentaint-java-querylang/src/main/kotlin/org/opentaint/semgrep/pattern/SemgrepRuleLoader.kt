@@ -1,7 +1,7 @@
 package org.opentaint.semgrep.pattern
 
 import com.charleskorn.kaml.YamlMap
-import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
+import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
 import org.opentaint.semgrep.pattern.SemgrepTraceEntry.Step
@@ -25,7 +25,7 @@ data class RuleMetadata(
     val path: String,
     val ruleId: String,
     val message: String,
-    val severity: CommonTaintConfigurationSinkMeta.Severity,
+    val severity: Severity,
     val metadata: YamlMap?
 )
 
@@ -97,7 +97,7 @@ class SemgrepRuleLoader(
         registeredRules[rule.ruleId] = rule
     }
 
-    fun loadRules(): List<Pair<TaintRuleFromSemgrep, RuleMetadata>> {
+    fun loadRules(minSeverity: Severity): List<Pair<TaintRuleFromSemgrep, RuleMetadata>> {
         registeredRules.values.toList()
             .forEach { parseRule(it, forceLibraryMode = false) }
 
@@ -106,13 +106,17 @@ class SemgrepRuleLoader(
             .forEach { buildNormalRule(it) }
 
         val loaded = mutableListOf<Pair<TaintRuleFromSemgrep, RuleMetadata>>()
-        builtNormalRules.values.filterNot { it.info.disabled }.forEach {
-            loaded += loadNormalRule(it) ?: return@forEach
-        }
+        builtNormalRules.values
+            .filterNot { it.info.disabled }
+            .filter { ruleSeverityGreaterOrEqual(it, minSeverity) }
+            .forEach {
+                loaded += loadNormalRule(it) ?: return@forEach
+            }
 
         parsedRules.values
             .filterIsInstance<JoinRule<*>>()
             .filterNot { it.info.disabled }
+            .filter { ruleSeverityGreaterOrEqual(it, minSeverity) }
             .forEach {
                 loaded += loadJoinRule(it) ?: return@forEach
             }
@@ -356,9 +360,9 @@ class SemgrepRuleLoader(
         val semgrepRule = rule.rule
         val ruleCwe = semgrepRule.cweInfo()
         val severity = when (semgrepRule.severity.lowercase()) {
-            "high", "critical", "error" -> CommonTaintConfigurationSinkMeta.Severity.Error
-            "medium", "warning" -> CommonTaintConfigurationSinkMeta.Severity.Warning
-            else -> CommonTaintConfigurationSinkMeta.Severity.Note
+            "high", "critical", "error" -> Severity.Error
+            "medium", "warning" -> Severity.Warning
+            else -> Severity.Note
         }
 
         val sinkMeta = SinkMetaData(ruleCwe, semgrepRule.message, severity)
@@ -411,6 +415,9 @@ class SemgrepRuleLoader(
         val refRuleSetName = refRulePathInfo.ruleSetName()
         return SemgrepRuleUtils.getRuleId(refRuleSetName, refRuleId)
     }
+
+    private fun ruleSeverityGreaterOrEqual(rule: Rule<*>, severity: Severity): Boolean =
+        rule.info.metadata.severity.ordinal >= severity.ordinal
 
     companion object {
         private val cweRegex = Regex("CWE-(\\d+).*", RegexOption.IGNORE_CASE)

@@ -5,10 +5,14 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.boolean
+import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
-import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer.DebugOptions
+import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
+import org.opentaint.jvm.sast.dataflow.DebugOptions
+import org.opentaint.jvm.sast.project.ProjectAnalysisOptions
 import org.opentaint.jvm.sast.project.ProjectAnalyzer
+import org.opentaint.jvm.sast.project.TestProjectAnalyzer
 import org.opentaint.jvm.sast.util.file
 import org.opentaint.project.Project
 import org.opentaint.util.newFile
@@ -32,6 +36,10 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
         .path()
         .multiple()
 
+    private val semgrepRuleMinSeverity: Severity by option(help = "Minimal rule severity")
+        .choice(Severity.entries.associateBy { it.name.lowercase() })
+        .default(Severity.Note)
+
     private val semgrepRuleLoadErrors: Path? by option(help = "Output file for errors encountered while loading Semgrep rules")
         .newFile()
 
@@ -39,25 +47,30 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
         .newFile()
 
     override fun analyzeProject(project: Project, analyzerOutputDir: Path, debugOptions: DebugOptions) {
-        val projectAnalyzer = ProjectAnalyzer(
-            project = project,
+        val options = ProjectAnalysisOptions(
             projectPackage = null,
-            resultDir = analyzerOutputDir,
+            customConfig = config,
+            semgrepRuleSet = semgrepRuleSet,
+            semgrepMinSeverity = semgrepRuleMinSeverity,
+            semgrepRuleLoadErrors = semgrepRuleLoadErrors,
+            semgrepRuleLoadTrace = semgrepRuleLoadTrace,
             cwe = cwe,
             useSymbolicExecution = useSymbolicExecution,
             symbolicExecutionTimeout = symbolicExecutionTimeout.seconds,
             ifdsAnalysisTimeout = ifdsAnalysisTimeout.seconds,
             ifdsApMode = ifdsApMode,
-            storeSummaries = true,
             projectKind = projectKind,
-            customConfig = config,
-            semgrepRuleSet = semgrepRuleSet,
-            semgrepRuleLoadErrors = semgrepRuleLoadErrors,
-            semgrepRuleLoadTrace = semgrepRuleLoadTrace,
+            storeSummaries = true,
             debugOptions = debugOptions
         )
 
-        projectAnalyzer.analyze()
+        if (!debugOptions.runRuleTests) {
+            val projectAnalyzer = ProjectAnalyzer(project, analyzerOutputDir, options)
+            projectAnalyzer.analyze()
+        } else {
+            val testAnalyzer = TestProjectAnalyzer(project, analyzerOutputDir, options)
+            testAnalyzer.analyze()
+        }
     }
 
     companion object {

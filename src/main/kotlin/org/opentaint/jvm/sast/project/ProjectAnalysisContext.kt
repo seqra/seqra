@@ -2,7 +2,6 @@ package org.opentaint.jvm.sast.project
 
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
-import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSummariesFeature
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
@@ -31,9 +30,7 @@ private val logger = object : KLogging() {}.logger
 
 fun initializeProjectAnalysisContext(
     project: Project,
-    projectPackage: String?,
-    projectKind: ProjectKind,
-    summariesApMode: ApMode? = null,
+    options: ProjectAnalysisOptions
 ): ProjectAnalysisContext {
     val dependencyFiles by lazy { project.dependencies.map { it.toFile() } }
     val projectModulesFiles by lazy {
@@ -75,8 +72,9 @@ fun initializeProjectAnalysisContext(
             installFeatures(Approximations(emptyList()))
 
             installClassScorer()
-            if (summariesApMode != null) {
-                installFeatures(JIRSummariesFeature(summariesApMode))
+
+            options.summariesApMode?.let {
+                installFeatures(JIRSummariesFeature(it))
             }
 
             loadByteCode(allCpFiles)
@@ -110,7 +108,7 @@ fun initializeProjectAnalysisContext(
 
         cp.validate(settings)
 
-        projectClasses = ProjectClasses(cp, projectPackage, projectModulesFiles)
+        projectClasses = ProjectClasses(cp, options.projectPackage, projectModulesFiles)
         projectClasses.loadProjectClasses()
 
         val missedModules = project.modules.toSet() - projectClasses.locationProjectModules.values.toSet()
@@ -124,7 +122,7 @@ fun initializeProjectAnalysisContext(
     val springContext = projectClasses.createSpringProjectContext()
 
     return ProjectAnalysisContext(
-        project, projectPackage, projectKind,
+        project, options.projectPackage, options.projectKind,
         db, cp, projectClasses, springContext
     )
 }

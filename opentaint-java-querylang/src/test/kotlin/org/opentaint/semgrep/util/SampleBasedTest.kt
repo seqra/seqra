@@ -1,6 +1,7 @@
 package org.opentaint.semgrep.util
 
 import base.RuleSample
+import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
@@ -34,7 +35,7 @@ abstract class SampleBasedTest(
         val loader = SemgrepRuleLoader()
         loader.registerRuleSet(ruleSetText = data.rule, ruleRelativePath = Path(data.rulePath), rulesRoot = Path("."), trace)
 
-        val loadedRules = loader.loadRules()
+        val loadedRules = loader.loadRules(Severity.Note)
         val (rule, _) = loadedRules.singleOrNull()
             ?: error("Not a single rule for ${data.rulePath}")
 
