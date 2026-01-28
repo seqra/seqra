@@ -50,7 +50,6 @@ private val logger = object : KLogging() {}.logger
 @Suppress("unused")
 fun testProjectAnalyzerOnTraces(
     project: Project,
-    projectPackage: String?,
     ifdsAnalysisTimeout: Duration,
     ifdsApMode: ApMode,
     projectKind: ProjectKind,
@@ -61,7 +60,7 @@ fun testProjectAnalyzerOnTraces(
         testDataJsonPath.readText()
     )
 
-    val options = ProjectAnalysisOptions(projectPackage = projectPackage, projectKind = projectKind)
+    val options = ProjectAnalysisOptions(projectKind = projectKind)
     val analysisContext = initializeProjectAnalysisContext(project, options)
 
     val mainConfig = JIRTaintRulesProvider(

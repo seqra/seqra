@@ -108,7 +108,7 @@ fun initializeProjectAnalysisContext(
 
         cp.validate(settings)
 
-        projectClasses = ProjectClasses(cp, options.projectPackage, projectModulesFiles)
+        projectClasses = ProjectClasses(cp, projectModulesFiles)
         projectClasses.loadProjectClasses()
 
         val missedModules = project.modules.toSet() - projectClasses.locationProjectModules.values.toSet()
@@ -122,8 +122,8 @@ fun initializeProjectAnalysisContext(
     val springContext = projectClasses.createSpringProjectContext()
 
     return ProjectAnalysisContext(
-        project, options.projectPackage, options.projectKind,
-        db, cp, projectClasses, springContext
+        project, options.projectKind, db,
+        cp, projectClasses, springContext
     )
 }
 
@@ -136,7 +136,6 @@ private fun JIRClasspath.validate(settings: JIRSettings) {
 
 class ProjectAnalysisContext(
     val project: Project,
-    val projectPackage: String?,
     val projectKind: ProjectKind,
     val db: JIRDatabase,
     val cp: JIRClasspath,

@@ -8,7 +8,6 @@ import java.nio.file.Path
 import kotlin.time.Duration
 
 data class ProjectAnalysisOptions(
-    val projectPackage: String? = null,
     val customConfig: Path? = null,
     val semgrepRuleSet: List<Path> = emptyList(),
     val semgrepRuleLoadErrors: Path? = null,

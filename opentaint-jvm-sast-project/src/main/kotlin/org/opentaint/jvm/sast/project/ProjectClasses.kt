@@ -11,7 +11,6 @@ import java.io.File
 
 class ProjectClasses(
     val cp: JIRClasspath,
-    private val projectPackage: String?,
     private val projectModulesFiles: Map<File, ProjectModuleClasses>
 ) {
     val locationProjectModules = hashMapOf<RegisteredLocation, ProjectModuleClasses>()
@@ -21,8 +20,8 @@ class ProjectClasses(
         get() = projectClasses.keys
 
     fun isProjectClass(cls: JIRClassOrInterface): Boolean {
-        val classes = projectClasses[cls.declaration.location] ?: return false
-        return cls.name in classes
+        val module = locationProjectModules[cls.declaration.location] ?: return false
+        return isModuleClass(cls.name, module)
     }
 
     fun loadProjectClasses() {
@@ -40,12 +39,15 @@ class ProjectClasses(
         for (classSource in classSources) {
             val className = classSource.className
 
-            if (projectPackage != null && !className.startsWith(projectPackage)) {
-                continue
-            }
+            if (!isModuleClass(className, projectModule)) continue
 
             classes.add(className)
         }
+    }
+
+    private fun isModuleClass(className: String, module: ProjectModuleClasses): Boolean {
+        if (module.packages.isEmpty()) return true
+        return module.packages.any { className.startsWith(it) }
     }
 }
 

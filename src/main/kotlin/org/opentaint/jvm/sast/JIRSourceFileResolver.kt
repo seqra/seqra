@@ -21,7 +21,7 @@ fun JIRClassOrInterface.mostOuterClass(): JIRClassOrInterface {
 }
 
 class JIRSourceFileResolver(
-    private val projectSourceRoot: Path,
+    private val projectSourceRoot: Path?,
     private val projectLocationsSourceRoots: Map<RegisteredLocation, Path>
 ) : SourceFileResolver<CommonInst> {
     private val locationSources: Map<RegisteredLocation, Map<String, List<Path>>> by lazy {
@@ -34,7 +34,7 @@ class JIRSourceFileResolver(
     }
 
     override fun relativeToRoot(path: Path): String =
-        path.relativeTo(projectSourceRoot).toString()
+        (projectSourceRoot?.let { path.relativeTo(it) } ?: path).toString()
 
     override fun resolveByName(inst: CommonInst, pkg: String, name: String): Path? {
         check(inst is JIRInst) { "Expected inst to be JIRInst" }

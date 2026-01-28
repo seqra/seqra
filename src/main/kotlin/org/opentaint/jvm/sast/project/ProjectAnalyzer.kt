@@ -12,7 +12,6 @@ import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.jvm.sast.JIRSourceFileResolver
 import org.opentaint.jvm.sast.dataflow.JIRCombinedTaintRulesProvider
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
@@ -88,10 +87,7 @@ class ProjectAnalyzer(
             options = options.taintAnalyzerOptions(),
             summarySerializationContext = summarySerializationContext,
         ).use { analyzer ->
-            val sourcesResolver = JIRSourceFileResolver(
-                project.sourceRoot,
-                projectClasses.locationProjectModules.mapValues { (_, module) -> module.moduleSourceRoot }
-            )
+            val sourcesResolver = project.sourceResolver(projectClasses)
 
             logger.info { "Start IFDS analysis for project: ${project.sourceRoot}" }
             val traces = analyzer.analyzeWithIfds(entryPoints)

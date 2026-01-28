@@ -47,8 +47,11 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
         .newFile()
 
     override fun analyzeProject(project: Project, analyzerOutputDir: Path, debugOptions: DebugOptions) {
+        if (project.modules.isEmpty()) {
+            return
+        }
+
         val options = ProjectAnalysisOptions(
-            projectPackage = null,
             customConfig = config,
             semgrepRuleSet = semgrepRuleSet,
             semgrepMinSeverity = semgrepRuleMinSeverity,

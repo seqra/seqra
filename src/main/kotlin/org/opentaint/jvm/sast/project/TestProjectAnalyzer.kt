@@ -9,7 +9,6 @@ import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.jvm.util.JIRSarifTraits
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.jvm.sast.JIRSourceFileResolver
 import org.opentaint.jvm.sast.dataflow.DummySerializationContext
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.jvm.sast.project.rules.analysisConfig
@@ -173,10 +172,7 @@ class TestProjectAnalyzer(
     }
 
     private fun ProjectAnalysisContext.generateSarif(traces: List<VulnerabilityWithTrace>) {
-        val sourcesResolver = JIRSourceFileResolver(
-            project.sourceRoot,
-            projectClasses.locationProjectModules.mapValues { (_, module) -> module.moduleSourceRoot }
-        )
+        val sourcesResolver = project.sourceResolver(projectClasses)
         val generator = SarifGenerator(sourcesResolver, JIRSarifTraits(cp))
         (resultDir / "report-ifds.sarif").outputStream().use { out ->
             generator.generateSarif(out, traces.asSequence(), rulesWithMetadata.second)
