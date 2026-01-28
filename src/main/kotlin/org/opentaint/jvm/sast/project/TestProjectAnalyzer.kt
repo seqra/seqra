@@ -129,7 +129,7 @@ class TestProjectAnalyzer(
 
         JIRTaintAnalyzer(
             cp, config,
-            projectLocations = projectClasses.projectLocations,
+            projectClasses = { projectClasses.isProjectClass(it) },
             options = options.taintAnalyzerOptions(),
             summarySerializationContext = DummySerializationContext,
         ).use { analyzer ->

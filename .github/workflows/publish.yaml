@@ -87,9 +87,8 @@ jobs:
         with:
           name: ${{ steps.version.outputs.version }}
           tag_name: ${{ steps.version.outputs.version }}
-          prerelease: true
           files: build/libs/opentaint-project-analyzer.jar
-          make_latests: false
+          make_latest: true
 
   publish-autobuilder:
     needs: publish

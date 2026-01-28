@@ -84,7 +84,7 @@ class ProjectAnalyzer(
 
         JIRTaintAnalyzer(
             cp, config,
-            projectLocations = projectClasses.projectLocations,
+            projectClasses = { projectClasses.isProjectClass(it) },
             options = options.taintAnalyzerOptions(),
             summarySerializationContext = summarySerializationContext,
         ).use { analyzer ->
@@ -117,7 +117,7 @@ class ProjectAnalyzer(
 
             logger.info { "Start SE for project: ${project.sourceRoot}" }
             val verifiedTraces = seAnalyzer.analyzeTraces(
-                cp, projectClasses.projectLocations, analyzer.ifdsEngine,
+                cp, projectClasses.projectLocationsUnsafe, analyzer.ifdsEngine,
                 traces, options.symbolicExecutionTimeout
             )
             logger.info { "Finish SE for project: ${project.sourceRoot}" }

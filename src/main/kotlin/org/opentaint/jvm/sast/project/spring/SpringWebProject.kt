@@ -324,7 +324,7 @@ private fun SpringWebProjectContext.registerComponent(
         registerComponent(projectClasses, cp, dependency)
     }
 
-    if (cls.declaration.location !in projectClasses.projectLocations) return
+    if (!projectClasses.isProjectClass(cls)) return
 
     val componentCtor = cls.findComponentConstructor()
     if (componentCtor != null) {
@@ -518,7 +518,7 @@ private class SpringControllerEntryPointGenerator(
                 when {
                     paramCls.name.startsWith("java.lang") -> generateStubValue(type)
                     paramCls.isSubClassOf(bindingResultCls) -> bindingResultInstance
-                    paramCls.declaration.location in projectClasses.projectLocations -> {
+                    projectClasses.isProjectClass(paramCls) -> {
                         instructions.addInstWithLocation(entryPointMethod) { loc ->
                             JIRAssignInst(loc, paramValue, JIRNewExpr(type))
                         }

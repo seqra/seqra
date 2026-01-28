@@ -227,7 +227,7 @@ private fun ProjectAnalysisContext.analyze(
     )
     JIRTaintAnalyzer(
         cp, config,
-        projectLocations = projectClasses.projectLocations,
+        projectClasses = { projectClasses.isProjectClass(it) },
         options = options,
         summarySerializationContext = DummySerializationContext,
     ).use { analyzer ->

@@ -10,11 +10,10 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.RegisteredLocation
 
 class JIRMethodGetDefaultProvider(
     val base: TaintRulesProvider,
-    private val projectLocations: Set<RegisteredLocation>,
+    private val projectClasses: ClassLocationChecker,
 ) : TaintRulesProvider by base {
     override fun passTroughRulesForMethod(
         method: CommonMethod,
@@ -27,8 +26,7 @@ class JIRMethodGetDefaultProvider(
 
         if (!method.name.startsWith("get")) return baseRules
 
-        val location = method.enclosingClass.declaration.location
-        if (location in projectLocations) return baseRules
+        if (projectClasses.isProjectClass(method.enclosingClass)) return baseRules
 
         val getDefaultRule = TaintPassThrough(method, ConstantTrue, getDefaultActions, info = null)
         return baseRules + getDefaultRule

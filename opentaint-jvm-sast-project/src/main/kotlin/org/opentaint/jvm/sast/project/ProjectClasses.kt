@@ -17,11 +17,13 @@ class ProjectClasses(
     val locationProjectModules = hashMapOf<RegisteredLocation, ProjectModuleClasses>()
     val projectClasses = hashMapOf<RegisteredLocation, MutableSet<String>>()
 
-    val projectLocations: Set<RegisteredLocation>
+    val projectLocationsUnsafe: Set<RegisteredLocation>
         get() = projectClasses.keys
 
-    val dependenciesLocations: Set<RegisteredLocation>
-        get() = cp.registeredLocations.toHashSet() - projectLocations
+    fun isProjectClass(cls: JIRClassOrInterface): Boolean {
+        val classes = projectClasses[cls.declaration.location] ?: return false
+        return cls.name in classes
+    }
 
     fun loadProjectClasses() {
         cp.registeredLocations.forEach { loadProjectClassesFromLocation(it) }

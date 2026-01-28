@@ -35,7 +35,6 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.jvm.graph.JApplicationGraphImpl
@@ -47,10 +46,10 @@ import kotlin.time.TimeSource
 class JIRTaintAnalyzer(
     val cp: JIRClasspath,
     val taintConfiguration: TaintRulesProvider,
-    val projectLocations: Set<RegisteredLocation>,
+    val projectClasses: ClassLocationChecker,
     val options: TaintAnalyzerOptions,
     val summarySerializationContext: SummarySerializationContext,
-    val analysisUnit: JIRUnitResolver = PackageUnitResolver(projectLocations = projectLocations),
+    val analysisUnit: JIRUnitResolver = PackageUnitResolver(projectClasses),
 ): AutoCloseable {
 
     private val ifdsAnalysisGraph by lazy {
@@ -184,7 +183,7 @@ class JIRTaintAnalyzer(
         val projectClassCoverage = methodStats.stats.entries
             .groupBy({ (it.key as JIRMethod).enclosingClass }, { it.key as JIRMethod to it.value })
             .filterKeys { it !is LambdaAnonymousClassFeature.JIRLambdaClass }
-            .filterKeys { it.declaration.location in projectLocations }
+            .filterKeys { projectClasses.isProjectClass(it) }
 
         appendLine("Project class coverage")
         projectClassCoverage.entries
@@ -265,9 +264,9 @@ class JIRTaintAnalyzer(
     companion object {
         private val logger = object : KLogging() {}.logger
 
-        class PackageUnitResolver(private val projectLocations: Set<RegisteredLocation>) : JIRUnitResolver {
+        class PackageUnitResolver(private val projectLocations: ClassLocationChecker) : JIRUnitResolver {
             override fun resolve(method: JIRMethod): UnitType {
-                if (method.enclosingClass.declaration.location !in projectLocations) {
+                if (!projectLocations.isProjectClass(method.enclosingClass)) {
                     return UnknownUnit
                 }
 

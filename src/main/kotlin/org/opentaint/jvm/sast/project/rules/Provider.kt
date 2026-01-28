@@ -29,7 +29,7 @@ fun List<TaintRuleFromSemgrep>.semgrepRulesWithDefaultConfig(
 fun ProjectAnalysisContext.analysisConfig(initialConfig: TaintRulesProvider): TaintRulesProvider {
     var config = initialConfig
     config = JIRMethodExitRuleProvider(config)
-    config = JIRMethodGetDefaultProvider(config, projectClasses.projectLocations)
+    config = JIRMethodGetDefaultProvider(config) { projectClasses.isProjectClass(it) }
     if (springWebProjectContext != null) {
         config = SpringRuleProvider(config, springWebProjectContext)
     }

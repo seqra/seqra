@@ -113,7 +113,7 @@ private fun findRepositoryMethod(
         return RepositoryMethod.SpringDefault(method)
     }
 
-    if (method.enclosingClass.declaration.location in projectClasses.projectLocations) {
+    if (projectClasses.isProjectClass(method.enclosingClass)) {
         return RepositoryMethod.ProjectDefined(method)
     }
 
