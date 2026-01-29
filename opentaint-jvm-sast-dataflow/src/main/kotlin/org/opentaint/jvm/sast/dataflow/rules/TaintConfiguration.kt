@@ -77,6 +77,7 @@ import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
 import org.opentaint.ir.api.jvm.TypeName
+import org.opentaint.ir.api.jvm.ext.allSuperHierarchySequence
 import org.opentaint.ir.api.jvm.ext.objectClass
 import org.opentaint.ir.impl.cfg.util.isArray
 import org.opentaint.ir.impl.util.adjustEmptyList
@@ -544,6 +545,12 @@ class TaintConfiguration(cp: JIRClasspath) {
             }
 
             if (normalizedTypeIs.match(posTypeName)) return mkTrue()
+
+            if (pos is This) {
+                if (method.enclosingClass.allSuperHierarchySequence.any { normalizedTypeIs.match(it.name) }) {
+                    return mkTrue()
+                }
+            }
         }
 
         val matcher = normalizedTypeIs.toConditionNameMatcher(patternManager)

@@ -551,12 +551,18 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
 
     val classSignatureMatcherDnf = classSignatureMatcherFormula.toDNF()
     for (cube in classSignatureMatcherDnf) {
-        if (cube.negative.isNotEmpty()) {
-            TODO("Negative class signature matcher")
+        val builders = buildersWithMethodName.map { it.copy() }
+
+        cube.negative.forEach { c ->
+            builders.forEach { builder ->
+                builder.conditions += SerializedCondition.not(
+                    SerializedCondition.ClassNameMatches(c.constraint)
+                )
+            }
         }
 
         if (cube.positive.isEmpty()) {
-            buildersWithClass.addAll(buildersWithMethodName)
+            buildersWithClass.addAll(builders)
             continue
         }
 
@@ -585,7 +591,7 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
             }
         }
 
-        buildersWithMethodName.mapTo(buildersWithClass) { builder ->
+        builders.mapTo(buildersWithClass) { builder ->
             builder.copy().apply {
                 enclosingClassPackage = cp
                 enclosingClassName = cn

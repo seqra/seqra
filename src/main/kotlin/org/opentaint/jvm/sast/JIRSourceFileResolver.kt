@@ -7,7 +7,12 @@ import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.packageName
+import java.io.IOException
+import java.nio.file.FileVisitResult
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.SimpleFileVisitor
+import java.nio.file.attribute.BasicFileAttributes
 import kotlin.io.path.extension
 import kotlin.io.path.relativeTo
 import kotlin.io.path.walk
@@ -26,11 +31,35 @@ class JIRSourceFileResolver(
 ) : SourceFileResolver<CommonInst> {
     private val locationSources: Map<RegisteredLocation, Map<String, List<Path>>> by lazy {
         projectLocationsSourceRoots.mapValues { (_, sourcesRoot) ->
-            val allJavaAndKotlinFiles = sourcesRoot.walk().filter { file ->
-                file.extension.let { it == JAVA_EXTENSION || it == KOTLIN_EXTENSION }
-            }
-            allJavaAndKotlinFiles.toList().groupBy { it.fileName.toString() }
+            collectAllSources(sourcesRoot)
         }
+    }
+
+    private fun collectAllSources(root: Path): Map<String, List<Path>> {
+        val collected = mutableListOf<Path>()
+        Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
+            override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
+                val ext = file.extension
+                if (ext == JAVA_EXTENSION || ext == KOTLIN_EXTENSION) {
+                    collected.add(file)
+                }
+                return FileVisitResult.CONTINUE
+            }
+
+            override fun visitFileFailed(file: Path, exc: IOException): FileVisitResult {
+                logger.warn { "Skipping inaccessible path: $file (${exc.javaClass.simpleName}: ${exc.message})" }
+                return FileVisitResult.SKIP_SUBTREE
+            }
+
+            override fun postVisitDirectory(dir: Path?, exc: IOException?): FileVisitResult {
+                if (exc != null) {
+                    logger.warn { "Skipping inaccessible path: $dir (${exc.javaClass.simpleName}: ${exc.message})" }
+                    return FileVisitResult.CONTINUE
+                }
+                return super.postVisitDirectory(dir, exc)
+            }
+        })
+        return collected.groupBy { it.fileName.toString() }
     }
 
     override fun relativeToRoot(path: Path): String =
