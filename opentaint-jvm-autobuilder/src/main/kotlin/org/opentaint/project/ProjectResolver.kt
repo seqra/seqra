@@ -22,7 +22,9 @@ sealed interface ProjectResolver {
         private val JAVA_11_HOME: String? by lazy { System.getenv("JAVA_11_HOME") }
         private val JAVA_17_HOME: String? by lazy { System.getenv("JAVA_17_HOME") }
         private val JAVA_LATEST_HOME: String? by lazy { System.getenv("JAVA_LATEST_HOME") }
-        private val JAVA_CURRENT_HOME: String? by lazy { System.getProperty("java.home") }
+        private val JAVA_CURRENT_HOME: String? by lazy {
+            JavaToolchain.getRunningJvmJavaHome()
+        }
 
         private val availableJavaToolchains: List<JavaToolchain> by lazy {
             listOfNotNull(
