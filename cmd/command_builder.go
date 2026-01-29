@@ -10,7 +10,6 @@ import (
 
 type CommandBuilder interface {
 	SetVerbosity(verbosity string) CommandBuilder
-	BuildDockerFlags() []string
 	BuildNativeCommand() []string
 }
 
@@ -156,59 +155,6 @@ func (a *AnalyzerBuilder) SetVerbosity(verbosity string) CommandBuilder {
 	return a
 }
 
-func (a *AnalyzerBuilder) BuildDockerFlags() []string {
-	flags := []string{
-		"--project", a.projectPath,
-		"--output-dir", a.outputDir,
-		"--logs-file", a.logsFile,
-		"--sarif-file-name", a.sarifFileName,
-	}
-
-	if a.sarifThreadFlowLimit != "" {
-		flags = append(flags, "--sarif-thread-flow-limit="+a.sarifThreadFlowLimit)
-	}
-
-	if a.sarifToolVersion != "" {
-		flags = append(flags, "--sarif-tool-version", a.sarifToolVersion)
-	}
-
-	if a.sarifToolSemanticVersion != "" {
-		flags = append(flags, "--sarif-tool-semantic-version", a.sarifToolSemanticVersion)
-	}
-
-	if a.sarifUriBase != "" {
-		flags = append(flags, "--sarif-uri-base", a.sarifUriBase)
-	}
-
-	if a.semgrepCompatibility {
-		flags = append(flags, "--sarif-semgrep-style-id")
-	}
-
-	if a.partialFingerprints {
-		flags = append(flags, "--sarif-generate-fingerprint")
-	}
-
-	flags = a.appendVerbosityFlag(flags)
-
-	for _, severity := range a.severities {
-		flags = append(flags, fmt.Sprintf("--semgrep-rule-severity=%s", severity))
-	}
-
-	if a.ifdsAnalysisTimeout > 0 {
-		flags = append(flags, fmt.Sprintf("--ifds-analysis-timeout=%d", a.ifdsAnalysisTimeout))
-	}
-
-	for _, ruleSetPath := range a.ruleSetPaths {
-		flags = append(flags, "--semgrep-rule-set", ruleSetPath)
-	}
-
-	if a.ruleLoadTracePath != "" {
-		flags = append(flags, "--semgrep-rule-load-trace", a.ruleLoadTracePath)
-	}
-
-	return flags
-}
-
 func (a *AnalyzerBuilder) BuildNativeCommand() []string {
 	// For native execution, create a temporary logs directory
 	tempLogsDir, err := os.MkdirTemp("", "seqra-*")
@@ -254,6 +200,10 @@ func (a *AnalyzerBuilder) BuildNativeCommand() []string {
 
 	if a.semgrepCompatibility {
 		flags = append(flags, "--sarif-semgrep-style-id")
+	}
+
+	if a.partialFingerprints {
+		flags = append(flags, "--sarif-generate-fingerprint")
 	}
 
 	flags = a.appendVerbosityFlag(flags)
@@ -370,7 +320,31 @@ func (a *AutobuilderBuilder) BuildDockerFlags() []string {
 }
 
 func (a *AutobuilderBuilder) BuildNativeCommand() []string {
-	flags := a.BuildDockerFlags()
+
+	flags := []string{
+		"--project-root-dir", a.projectRootDir,
+		"--result-dir", a.resultDir,
+	}
+
+	if a.buildMode != "" {
+		flags = append(flags, "--build", a.buildMode)
+	}
+
+	if a.logsFile != "" {
+		flags = append(flags, "--logs-file", a.logsFile)
+	}
+
+	flags = a.appendVerbosityFlag(flags)
+
+	if a.buildType != "" {
+		flags = append(flags, "--build-type", a.buildType)
+		for _, cp := range a.classpaths {
+			flags = append(flags, "--cp", cp)
+		}
+		for _, pkg := range a.packages {
+			flags = append(flags, "--pkg", pkg)
+		}
+	}
 
 	command := []string{
 		a.maxMemory,
