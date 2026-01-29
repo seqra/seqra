@@ -80,7 +80,7 @@ class PortableProjectCreator(
             toolchain = portableProjectPath.resolve("toolchain").createDirectories()
         )
 
-        copyDirectory(rootProject.sourceRoot, ctx.sources)
+        rootProject.sourceRoot?.let { copyDirectory(it, ctx.sources) }
 
         val portableProject = create(ctx, rootProject)
         val relativeProject = portableProject.relativeTo(portableProjectPath)
@@ -89,7 +89,7 @@ class PortableProjectCreator(
     }
 
     private fun create(ctx: ProjectPortContext, project: Project): Project = Project(
-        sourceRoot = copySources(ctx, project.sourceRoot),
+        sourceRoot = project.sourceRoot?.let { copySources(ctx, it) },
         javaToolchain = project.javaToolchain?.let { copyToolchain(ctx, it) },
         modules = project.modules.map { create(ctx, it) },
         dependencies = project.dependencies.map { copyDependency(ctx, it) },
@@ -97,12 +97,12 @@ class PortableProjectCreator(
     )
 
     private fun create(ctx: ProjectPortContext, module: ProjectModuleClasses) = ProjectModuleClasses(
-        moduleSourceRoot = copySources(ctx, module.moduleSourceRoot),
+        moduleSourceRoot = module.moduleSourceRoot?.let { copySources(ctx, it) },
         moduleClasses = module.moduleClasses.map { copyClasses(ctx, it) }
     )
 
     private fun copySources(ctx: ProjectPortContext, source: Path): Path {
-        val relativeOriginal = source.relativeTo(rootProject.sourceRoot)
+        val relativeOriginal = rootProject.sourceRoot?.let { source.relativeTo(it) } ?: source
         return ctx.sources.resolve(relativeOriginal)
     }
 

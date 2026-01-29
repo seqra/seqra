@@ -34,7 +34,7 @@ class GradleProjectResolver(
     private fun registerModule(moduleRoot: Path, snapshotLibs: (Path) -> List<Path>) {
         val snapshotDir = resolverDir.resolve("modules_${resolvedModules.size}").createDirectories()
         val libs = snapshotLibs(snapshotDir)
-        resolvedModules += ProjectModuleClasses(moduleRoot, libs)
+        resolvedModules += ProjectModuleClasses(moduleRoot, moduleClasses = libs)
     }
 
     private lateinit var javaToolchain: JavaToolchain

@@ -67,7 +67,7 @@ class MavenProjectResolver(
     private fun registerModule(moduleRoot: Path, processModuleContent: (Path) -> Unit) {
         val classesDir = resolverDir.resolve("classes_${resolvedModules.size}")
         processModuleContent(classesDir.createParentDirectories())
-        resolvedModules += ProjectModuleClasses(moduleRoot, listOf(classesDir))
+        resolvedModules += ProjectModuleClasses(moduleRoot, moduleClasses = listOf(classesDir))
     }
 
     private fun buildProject(): Boolean {
