@@ -92,7 +92,12 @@ class JIRSourceFileResolver(
     ): Path? {
         val relatedSourceFiles = sources[sourceFileName] ?: return null
         val sourceFilesWithCorrectPackage = relatedSourceFiles.filter { packageMatches(it, locationCls) }
-        return sourceFilesWithCorrectPackage.singleOrNull()
+
+        if (sourceFilesWithCorrectPackage.size > 1) {
+            logger.warn { "Ambiguous source file for class ${locationCls.name}: $sourceFilesWithCorrectPackage" }
+        }
+
+        return sourceFilesWithCorrectPackage.firstOrNull()
     }
 
     private fun packageMatches(sourceFile: Path, cls: JIRClassOrInterface) =
