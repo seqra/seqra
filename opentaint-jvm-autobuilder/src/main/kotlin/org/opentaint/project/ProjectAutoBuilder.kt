@@ -48,7 +48,7 @@ class ProjectAutoBuilder : CliWithLogger() {
 
         when (val b = build) {
             is SimpleProjectBuild -> {
-                resolvedProject.dump(b.result)
+                resolvedProject.dump(b.result.createParentDirectories())
             }
 
             is PortableProjectBuild -> {
