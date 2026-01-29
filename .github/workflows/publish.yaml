@@ -10,7 +10,7 @@ on:
       - completed
 
 env:
-  DEPENDENCIES_VERSION: 2025.12.09.ac4f86b
+  ANALYZER_DEPENDENCIES_VERSION: 2025.12.09.ac4f86b
 
 jobs:
   publish:
@@ -52,7 +52,7 @@ jobs:
 
       - name: Dependencies version
         run: |
-          echo "DEPENDENCY_CONTEXT=sast-analyzer-dependencies:latest=docker-image://ghcr.io/${{ github.repository_owner }}/opentaint-infra-analyzer-dependencies/sast-analyzer-dependencies:${{ env.DEPENDENCIES_VERSION }}" >> $GITHUB_ENV
+          echo "DEPENDENCY_CONTEXT=sast-analyzer-dependencies:latest=docker-image://ghcr.io/${{ github.repository_owner }}/opentaint-infra-analyzer-dependencies/sast-analyzer-dependencies:${{ env.ANALYZER_DEPENDENCIES_VERSION }}" >> $GITHUB_ENV
 
       - name: Build analyzer docker amd64 image
         run: ./gradlew :buildProjectAnalyzerDocker -PanalyzerVersion=${{ steps.version.outputs.version }} -PdockerPlatform=linux/amd64 -PdockerBuildContext="${{ env.DEPENDENCY_CONTEXT }}"
