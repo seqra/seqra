@@ -32,7 +32,7 @@ class PortableProjectCreator(
         private val portedDependencies = hashMapOf<String, Path>()
         private val portedToolchain = hashMapOf<String, Path>()
 
-        fun nextClassesPath(): Path = classes.resolve("c${classesCounter++}")
+        fun nextClassesPath(suffix: String): Path = classes.resolve("c${classesCounter++}_$suffix")
 
         fun nextDependencyPath(dependency: Path): PortAction =
             copyWithoutDuplicates(dependency, portedDependencies, dependencies) {
@@ -97,6 +97,7 @@ class PortableProjectCreator(
     )
 
     private fun create(ctx: ProjectPortContext, module: ProjectModuleClasses) = ProjectModuleClasses(
+        packages = module.packages,
         moduleSourceRoot = module.moduleSourceRoot?.let { copySources(ctx, it) },
         moduleClasses = module.moduleClasses.map { copyClasses(ctx, it) }
     )
@@ -107,7 +108,7 @@ class PortableProjectCreator(
     }
 
     private fun copyClasses(ctx: ProjectPortContext, classes: Path): Path {
-        val portedClasses = ctx.nextClassesPath()
+        val portedClasses = ctx.nextClassesPath(classes.name)
         copy(classes, portedClasses)
         return portedClasses
     }

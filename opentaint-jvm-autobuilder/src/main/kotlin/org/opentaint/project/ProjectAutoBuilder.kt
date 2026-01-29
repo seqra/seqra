@@ -20,7 +20,12 @@ class ProjectAutoBuilder : CliWithLogger() {
         .directory()
         .required()
 
-    private val build by option().groupChoice(
+    private val buildType: ProjectBuildType by option().groupChoice(
+        "build" to BuildProject(),
+        "cp" to ProjectFromCP()
+    ).defaultByName("build")
+
+    private val build: ProjectBuildOptions by option().groupChoice(
         "portable" to PortableProjectBuild(),
         "simple" to SimpleProjectBuild(),
     ).defaultByName("simple")
@@ -30,8 +35,16 @@ class ProjectAutoBuilder : CliWithLogger() {
 
         val resolverWorkDir = buildDir ?: createTempDirectory("resolver")
 
-        val resolvedProject = ProjectResolver.resolveProject(projectRootDir, resolverWorkDir)
-            ?: return
+        val resolvedProject = when (val b = buildType) {
+            is BuildProject -> {
+                ProjectResolver.resolveProject(projectRootDir, resolverWorkDir)
+                    ?: return
+            }
+
+            is ProjectFromCP -> {
+                ProjectFromCPResolver().resolveProject(projectRootDir, resolverWorkDir, b)
+            }
+        }
 
         when (val b = build) {
             is SimpleProjectBuild -> {
