@@ -918,7 +918,10 @@ private fun annotationParamMatchers(
                 }
             }
 
-            if (constraint == null) return MetaVarConstraintFormula.Constraint(null)
+            if (constraint == null) {
+                val anyValue = AnnotationParamPatternMatcher(v.paramName, ".*")
+                return MetaVarConstraintFormula.Constraint(listOf(anyValue))
+            }
 
             val constraintCubes = constraint.toDNF()
             val paramMatcherCubes = mutableSetOf<MetaVarConstraintFormula<List<AnnotationParamMatcher>?>>()

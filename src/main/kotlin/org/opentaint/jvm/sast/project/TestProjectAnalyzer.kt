@@ -7,7 +7,9 @@ import kotlinx.serialization.json.encodeToStream
 import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.jvm.util.JIRSarifTraits
+import org.opentaint.ir.api.jvm.JIRAnnotated
 import org.opentaint.ir.api.jvm.JIRAnnotation
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.jvm.sast.dataflow.DummySerializationContext
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
@@ -37,7 +39,7 @@ class TestProjectAnalyzer(
     @Serializable
     data class TestSampleInfo(
         val className: String,
-        val methodName: String,
+        val methodName: String?,
         val rule: RuleInfo
     )
 
@@ -56,14 +58,25 @@ class TestProjectAnalyzer(
         }
     }
 
-    private fun ProjectAnalysisContext.allProjectTestSamples(): List<TestSample> =
-        projectClasses.allProjectClasses()
-            .filterNot { it.isAbstract || it.isInterface || it.isAnonymous }
-            .flatMapTo(mutableListOf()) { it.declaredMethods }
-            .mapNotNull {
-                val sample = it.findSampleAnnotation() ?: return@mapNotNull null
-                TestSample(it, sample)
+    private fun ProjectAnalysisContext.allProjectTestSamples(): List<TestSample> {
+        val samples = mutableListOf<TestSample>()
+
+        val classes = projectClasses.allProjectClasses()
+            .filterNotTo(mutableListOf()) { it.isAbstract || it.isInterface || it.isAnonymous }
+
+        classes.mapNotNullTo(samples) { cls ->
+            val sample = cls.findSampleAnnotation() ?: return@mapNotNullTo null
+            ClassTestSample(cls, cls.declaredMethods, sample)
+        }
+
+        classes.flatMapTo(mutableListOf()) { it.declaredMethods }
+            .mapNotNullTo(samples) {
+                val sample = it.findSampleAnnotation() ?: return@mapNotNullTo null
+                MethodTestSample(it, sample)
             }
+
+        return samples
+    }
 
     private fun ProjectAnalysisContext.analyzeTestSamples(testSamples: List<TestSample>) {
         val skipped = mutableListOf<TestSample>()
@@ -133,7 +146,7 @@ class TestProjectAnalyzer(
             summarySerializationContext = DummySerializationContext,
         ).use { analyzer ->
             logger.info { "Start IFDS analysis for test: $sample" }
-            val traces = analyzer.analyzeWithIfds(listOf(sample.method))
+            val traces = analyzer.analyzeWithIfds(sample.methods)
             logger.info { "Finish IFDS analysis for test: $sample" }
             return traces
         }
@@ -193,18 +206,35 @@ class TestProjectAnalyzer(
 
     private data class SampleInfo(val kind: SampleKind, val rule: RuleInfo)
 
-    private data class TestSample(val method: JIRMethod, val info: SampleInfo) {
-        fun toTestInfo(): TestSampleInfo = TestSampleInfo(
+    private sealed interface TestSample {
+        val info: SampleInfo
+        val methods: List<JIRMethod>
+
+        fun toTestInfo(): TestSampleInfo
+    }
+
+    private data class MethodTestSample(val method: JIRMethod, override val info: SampleInfo) : TestSample {
+        override val methods: List<JIRMethod> get() = listOf(method)
+
+        override fun toTestInfo(): TestSampleInfo = TestSampleInfo(
             method.enclosingClass.name, method.name, info.rule
         )
     }
 
-    private fun JIRMethod.findSampleAnnotation(): SampleInfo? {
+    private data class ClassTestSample(
+        val cls: JIRClassOrInterface,
+        override val methods: List<JIRMethod>,
+        override val info: SampleInfo
+    ) : TestSample {
+        override fun toTestInfo(): TestSampleInfo = TestSampleInfo(
+            cls.name, methodName = null, info.rule
+        )
+    }
+
+    private fun JIRAnnotated.findSampleAnnotation(): SampleInfo? {
         val positive = annotations.filter { it.name == POSITIVE_SAMPLE_ANNOTATION_NAME }
         val negative = annotations.filter { it.name == NEGATIVE_SAMPLE_ANNOTATION_NAME }
-        val classPositive = enclosingClass.annotations.filter { it.name == POSITIVE_SAMPLE_ANNOTATION_NAME }
-        val classNegative = enclosingClass.annotations.filter { it.name == NEGATIVE_SAMPLE_ANNOTATION_NAME }
-        val sampleAnnotations = positive + negative + classPositive + classNegative
+        val sampleAnnotations = positive + negative
         if (sampleAnnotations.isEmpty()) return null
         if (sampleAnnotations.size > 1) {
             logger.error { "Multiple sample annotations: $this" }

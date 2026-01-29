@@ -29275,6 +29275,18 @@ passThrough:
   copy:
   - from: this
     to: result
+- function: org.xml.sax.InputSource#<init>
+  copy:
+    - from: arg(0)
+      to: result
+- function: org.xml.sax.InputSource#setCharactedStream
+  copy:
+    - from: arg(0)
+      to: result
+- function: org.xml.sax.InputSource#setByteStream
+  copy:
+    - from: arg(0)
+      to: result
 - function: javax.xml.parsers.DocumentBuilder#parse
   signature: (org.xml.sax.InputSource) org.w3c.dom.Document
   copy:

@@ -717,17 +717,23 @@ class TaintConfiguration(cp: JIRClasspath) {
     }
 
     private fun JIRAnnotation.matched(param: AnnotationParamMatcher): Boolean {
-        val paramValue = this.values[param.name] ?: return false
-        val paramValueStr = paramValue.toString()
+        val rawParamValue = this.values[param.name] ?: return false
+        val flatParamValues = rawParamValue.flatAnnotationValues()
+        return flatParamValues.any { paramValue ->
+            val paramValueStr = paramValue.toString()
 
-        return when (param) {
-            is SerializedCondition.AnnotationParamPatternMatcher -> {
-                patternManager.matchPattern(param.pattern, paramValueStr)
-            }
+            when (param) {
+                is SerializedCondition.AnnotationParamPatternMatcher -> {
+                    patternManager.matchPattern(param.pattern, paramValueStr)
+                }
 
-            is SerializedCondition.AnnotationParamStringMatcher -> {
-                paramValueStr == param.value
+                is SerializedCondition.AnnotationParamStringMatcher -> {
+                    paramValueStr == param.value
+                }
             }
         }
     }
+
+    private fun Any.flatAnnotationValues(): List<Any> =
+        if (this !is List<*>) listOf(this) else flatMap { it?.flatAnnotationValues().orEmpty() }
 }
