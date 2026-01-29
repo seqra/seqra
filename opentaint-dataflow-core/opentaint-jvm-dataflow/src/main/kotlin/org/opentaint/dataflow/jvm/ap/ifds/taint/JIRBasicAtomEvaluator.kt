@@ -158,7 +158,7 @@ class JIRBasicAtomEvaluator(
     }
 
     private fun matches(value: JIRValue, pattern: Regex): Boolean {
-        val s = value.toString()
+        val s = if (value is JIRStringConstant) value.value else value.toString()
         return pattern.matches(s)
     }
 
