@@ -70,9 +70,9 @@ class ProjectAnalyzer(
     }
 
     private fun loadConfigFromSemgrepRules(cp: JIRClasspath): TaintRulesProvider {
-        val (semgrepRules, semgrepRulesMeta) = options.loadSemgrepRules()
-        ruleMetadatas += semgrepRulesMeta
-        return semgrepRules.semgrepRulesWithDefaultConfig(cp)
+        val loadedRules = options.loadSemgrepRules()
+        ruleMetadatas += loadedRules.rulesWithMeta.map { it.second }
+        return loadedRules.rulesWithMeta.map { it.first }.semgrepRulesWithDefaultConfig(cp)
     }
 
     private fun ProjectAnalysisContext.runAnalyzer(entryPoints: List<JIRMethod>) {

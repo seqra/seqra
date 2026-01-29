@@ -31,7 +31,7 @@ class TestProjectAnalyzer(
 ) {
     private val options = providedOptions.copy(storeSummaries = false)
     private val projectAnalysisContext = initializeProjectAnalysisContext(project, options)
-    private val rulesWithMetadata = options.loadSemgrepRules()
+    private val loadedRules = options.loadSemgrepRules()
 
     @Serializable
     data class RuleInfo(val rulePath: String, val ruleId: String?)
@@ -49,6 +49,7 @@ class TestProjectAnalyzer(
         val falseNegative: List<TestSampleInfo>,
         val falsePositive: List<TestSampleInfo>,
         val skipped: List<TestSampleInfo>,
+        val disabled: List<TestSampleInfo>,
     )
 
     fun analyze() {
@@ -80,16 +81,24 @@ class TestProjectAnalyzer(
 
     private fun ProjectAnalysisContext.analyzeTestSamples(testSamples: List<TestSample>) {
         val skipped = mutableListOf<TestSample>()
+        val disabled = mutableListOf<TestSample>()
 
         logger.info { "Select test analysis rules" }
 
         val testWithRule = mutableListOf<Pair<TestSample, List<TaintRuleFromSemgrep>>>()
         val testGroups = testSamples.groupBy { it.info.rule }
         for ((ruleInfo, testGroup) in testGroups) {
-            val rules = selectRules(ruleInfo)
-            if (rules.isEmpty()) {
-                skipped += testGroup
-                continue
+            val rules = when (val result = selectRules(ruleInfo)) {
+                RuleSelectResult.MultipleRules,
+                RuleSelectResult.NoRules -> {
+                    skipped += testGroup
+                    continue
+                }
+                RuleSelectResult.RuleDisabled -> {
+                    disabled += testGroup
+                    continue
+                }
+                is RuleSelectResult.Rules -> result.rules
             }
 
             testGroup.mapTo(testWithRule) { it to rules }
@@ -105,29 +114,46 @@ class TestProjectAnalyzer(
 
         generateSarif(results.flatMap { it.second })
 
-        val testResult = generateTestResult(skipped, results)
+        val testResult = generateTestResult(skipped, disabled, results)
         writeTestResult(testResult)
     }
 
-    private fun selectRules(info: RuleInfo): List<TaintRuleFromSemgrep> {
-        val ruleId = SemgrepRuleUtils.getRuleId(info.rulePath, info.ruleId ?: "")
-        val relevantRules = if (info.ruleId != null) {
-            rulesWithMetadata.first.filter { it.ruleId == ruleId }
+    private sealed interface RuleSelectResult {
+        data class Rules(val rules: List<TaintRuleFromSemgrep>): RuleSelectResult
+        data object MultipleRules: RuleSelectResult
+        data object NoRules: RuleSelectResult
+        data object RuleDisabled: RuleSelectResult
+    }
+
+    private fun RuleInfo.ruleIdMatcher(): (String) -> Boolean {
+        val ruleId = SemgrepRuleUtils.getRuleId(rulePath, ruleId ?: "")
+        if (this.ruleId != null) {
+            return { s: String -> s == ruleId }
         } else {
-            rulesWithMetadata.first.filter { it.ruleId.startsWith(ruleId) }
+            return { s: String -> s.startsWith(ruleId) }
         }
+    }
+
+    private fun selectRules(info: RuleInfo): RuleSelectResult {
+        val ruleIdMatcher = info.ruleIdMatcher()
+        val relevantRules = loadedRules.rulesWithMeta.filter { ruleIdMatcher(it.first.ruleId) }
 
         return when (relevantRules.size) {
-            1 -> relevantRules
+            1 -> RuleSelectResult.Rules(relevantRules.map { it.first })
 
             0 -> {
+                if (loadedRules.disabledRules.any { ruleIdMatcher(it) }){
+                    logger.info { "Rule $info disabled" }
+                    return RuleSelectResult.RuleDisabled
+                }
+
                 logger.error { "No rules found for $info" }
-                emptyList()
+                RuleSelectResult.NoRules
             }
 
             else -> {
                 logger.error { "Multiple rules found for $info" }
-                emptyList()
+                RuleSelectResult.MultipleRules
             }
         }
     }
@@ -153,7 +179,7 @@ class TestProjectAnalyzer(
     }
 
     private fun generateTestResult(
-        skipped: List<TestSample>,
+        skipped: List<TestSample>, disabled: List<TestSample>,
         results: List<Pair<TestSample, List<VulnerabilityWithTrace>>>
     ): TestResult {
         val success = mutableListOf<TestSample>()
@@ -181,6 +207,7 @@ class TestProjectAnalyzer(
             falseNegative = falseNegative.map(TestSample::toTestInfo),
             falsePositive = falsePositive.map(TestSample::toTestInfo),
             skipped = skipped.map(TestSample::toTestInfo),
+            disabled = disabled.map(TestSample::toTestInfo),
         )
     }
 
@@ -188,7 +215,7 @@ class TestProjectAnalyzer(
         val sourcesResolver = project.sourceResolver(projectClasses)
         val generator = SarifGenerator(sourcesResolver, JIRSarifTraits(cp))
         (resultDir / "report-ifds.sarif").outputStream().use { out ->
-            generator.generateSarif(out, traces.asSequence(), rulesWithMetadata.second)
+            generator.generateSarif(out, traces.asSequence(), loadedRules.rulesWithMeta.map { it.second })
         }
     }
 

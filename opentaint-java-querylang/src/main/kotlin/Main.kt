@@ -522,7 +522,7 @@ private fun collectRuleSetStat(semgrepRulesPath: Path, allRules: List<Path>): Ha
     val trace = SemgrepLoadTrace()
     for (rulePath in allRules) {
         loader.registerRuleSet(rulePath.readText(), rulePath, semgrepRulesPath, trace)
-        val (loadedRules, _) = loader.loadRules(Severity.Note).unzip()
+        val (loadedRules, _) = loader.loadRules(Severity.Note).rulesWithMeta.unzip()
         loadedRules.forEach {
             stats[it.ruleId] = it.stats()
         }

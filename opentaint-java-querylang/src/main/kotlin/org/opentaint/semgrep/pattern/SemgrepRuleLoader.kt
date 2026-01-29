@@ -97,7 +97,15 @@ class SemgrepRuleLoader(
         registeredRules[rule.ruleId] = rule
     }
 
-    fun loadRules(minSeverity: Severity): List<Pair<TaintRuleFromSemgrep, RuleMetadata>> {
+    data class RuleLoadResult(
+        val rulesWithMeta: List<Pair<TaintRuleFromSemgrep, RuleMetadata>>,
+        val disabledRules: Set<String>,
+    )
+
+    fun loadRules(minSeverity: Severity): RuleLoadResult {
+        fun Rule<*>.skip(): Boolean =
+            info.isDisabled || info.isLibraryRule || !ruleSeverityGreaterOrEqual(this, minSeverity)
+
         registeredRules.values.toList()
             .forEach { parseRule(it, forceLibraryMode = false) }
 
@@ -107,21 +115,19 @@ class SemgrepRuleLoader(
 
         val loaded = mutableListOf<Pair<TaintRuleFromSemgrep, RuleMetadata>>()
         builtNormalRules.values
-            .filterNot { it.info.disabled }
-            .filter { ruleSeverityGreaterOrEqual(it, minSeverity) }
+            .filterNot { it.skip() }
             .forEach {
                 loaded += loadNormalRule(it) ?: return@forEach
             }
 
         parsedRules.values
             .filterIsInstance<JoinRule<*>>()
-            .filterNot { it.info.disabled }
-            .filter { ruleSeverityGreaterOrEqual(it, minSeverity) }
+            .filterNot { it.skip() }
             .forEach {
                 loaded += loadJoinRule(it) ?: return@forEach
             }
 
-        return loaded
+        return RuleLoadResult(loaded, disabledRules)
     }
 
     private data class RuleInfo(
@@ -133,9 +139,7 @@ class SemgrepRuleLoader(
         val sinkMeta: SinkMetaData,
         val ruleTrace: SemgrepRuleLoadTrace,
         val pathInfo: RuleSetPathInfo,
-    ) {
-        val disabled: Boolean get() = isDisabled || isLibraryRule
-    }
+    )
 
     private sealed interface Rule<P> {
         val info: RuleInfo
@@ -154,9 +158,17 @@ class SemgrepRuleLoader(
 
     private val parsedRules = hashMapOf<String, Rule<Formula>>()
 
+    private val disabledRules = hashSetOf<String>()
+
     private fun parseRule(registeredRule: RegisteredRule, forceLibraryMode: Boolean) {
         val ruleInfo = parseRuleInfo(registeredRule, forceLibraryMode)
         val loadTrace = ruleInfo.ruleTrace.stepTrace(Step.LOAD_RULESET)
+
+        if (ruleInfo.isDisabled) {
+            disabledRules.add(ruleInfo.ruleId)
+            loadTrace.info("Skip disabled rule")
+            return
+        }
 
         val rule = registeredRule.rule
         when (rule.mode) {
@@ -385,7 +397,7 @@ class SemgrepRuleLoader(
         options?.getBoolKeyOrFalse("lib") ?: false
 
     private fun SemgrepYamlRule.isDisabled(): Boolean =
-        options?.getBoolKeyOrFalse("disabled") ?: false
+        options?.getKey("disabled") != null
 
     private fun SemgrepYamlRule.cweInfo(): List<Int>? {
         val rawCwes = metadata?.readStrings("cwe") ?: return null

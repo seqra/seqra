@@ -6,10 +6,8 @@ import mu.KLogging
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
 import org.opentaint.jvm.sast.project.ProjectAnalysisOptions
 import org.opentaint.org.opentaint.semgrep.pattern.convertToOldErrorsFormat
-import org.opentaint.semgrep.pattern.RuleMetadata
 import org.opentaint.semgrep.pattern.SemgrepLoadTrace
 import org.opentaint.semgrep.pattern.SemgrepRuleLoader
-import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import java.nio.file.Path
 import kotlin.io.path.extension
 import kotlin.io.path.outputStream
@@ -19,7 +17,7 @@ import kotlin.io.path.walk
 
 private val logger = object : KLogging() {}.logger
 
-fun ProjectAnalysisOptions.loadSemgrepRules(): Pair<List<TaintRuleFromSemgrep>, List<RuleMetadata>> {
+fun ProjectAnalysisOptions.loadSemgrepRules(): SemgrepRuleLoader.RuleLoadResult {
     val trace = SemgrepLoadTrace()
     val semgrepRules = parseSemgrepRules(semgrepRuleSet, semgrepMinSeverity, trace)
 
@@ -61,7 +59,7 @@ private fun parseSemgrepRules(
     semgrepRulesPath: List<Path>,
     semgrepMinSeverity: Severity,
     semgrepTrace: SemgrepLoadTrace
-): Pair<List<TaintRuleFromSemgrep>, List<RuleMetadata>> {
+): SemgrepRuleLoader.RuleLoadResult {
     val loader = SemgrepRuleLoader()
 
     val ruleExtensions = arrayOf("yaml", "yml")
@@ -72,9 +70,9 @@ private fun parseSemgrepRules(
         }
     }
 
-    val rulesWithMetaData = loader.loadRules(semgrepMinSeverity).unzip()
+    val loadedRules = loader.loadRules(semgrepMinSeverity)
 
-    logger.info { "Total loaded ${rulesWithMetaData.first.sumOf { it.size }} rules" }
+    logger.info { "Total loaded ${loadedRules.rulesWithMeta.sumOf { it.first.size }} rules" }
 
-    return rulesWithMetaData
+    return loadedRules
 }

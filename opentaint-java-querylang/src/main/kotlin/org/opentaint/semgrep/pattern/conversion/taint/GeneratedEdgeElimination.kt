@@ -284,6 +284,10 @@ data class StringConcatCtx(
         if (predicate.signature.isGeneratedStringConcat()) {
             // Replacing with String.concat()
             val newConstraints = predicate.constraint?.let { constraint ->
+                if (constraint is NumberOfArgsConstraint) {
+                    return@let null
+                }
+
                 transform(constraint) {
                     if (it is Position.Argument) {
                         val index = it.index
