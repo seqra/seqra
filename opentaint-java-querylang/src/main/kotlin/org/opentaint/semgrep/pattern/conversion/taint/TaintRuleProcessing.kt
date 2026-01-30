@@ -106,10 +106,11 @@ data class ProcessedTaintPassRule<R>(
 
 data class ProcessedTaintCleanRule<R>(
     val rule: R,
+    val bySideEffect: Boolean,
     val cleans: Set<Mark.GeneratedMark>
 ) {
     fun <T> flatMap(body: (R) -> List<T>): List<ProcessedTaintCleanRule<T>> =
-        body(rule).map { ProcessedTaintCleanRule(it, cleans) }
+        body(rule).map { ProcessedTaintCleanRule(it, bySideEffect, cleans) }
 }
 
 data class ProcessedTaintRule<R>(
@@ -240,8 +241,13 @@ private fun ProcessedTaintCleanRule<TaintAutomataEdges>.compositionStrategy() =
         ): List<SerializedTaintCleanAction>? {
             if (state !in rule.automata.finalAcceptStates) return null
 
-            val cleanerPos = PositionBase.AnyArgument(classifier = "tainted").base()
-            return cleans.map { it.mkCleanMark(cleanerPos) }
+            val cleanerPos = mutableListOf(PositionBase.Result.base())
+            if (bySideEffect) {
+                cleanerPos += PositionBase.AnyArgument(classifier = "tainted").base()
+                cleanerPos += PositionBase.This.base()
+            }
+
+            return cleans.flatMap { c -> cleanerPos.map { c.mkCleanMark(it) } }
         }
 
         override fun stateAccessedMarks(state: State, varName: MetavarAtom): Set<Mark.GeneratedMark>? {
@@ -413,7 +419,11 @@ fun RuleConversionCtx.prepareTaintNonSourceRules(
             )
         }
 
-        ProcessedTaintCleanRule(cleanAutomata, taintMarks.mapTo(hashSetOf()) { it.mark })
+        ProcessedTaintCleanRule(
+            cleanAutomata,
+            clean.bySideEffect == true,
+            taintMarks.mapTo(hashSetOf()) { it.mark }
+        )
     }
 
     return ProcessedTaintRule(sources, sinks, pass, cleaners)
