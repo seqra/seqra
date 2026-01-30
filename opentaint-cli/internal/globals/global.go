@@ -52,6 +52,14 @@ type Java struct {
 	Version int `mapstructure:"version"`
 }
 
+// GetRepoOwner returns the configured organization owner, or the default RepoOwner if not set.
+func GetRepoOwner() string {
+	if Config.Owner != "" {
+		return Config.Owner
+	}
+	return RepoOwner
+}
+
 type ConfigType struct {
 	Scan        Scan        `mapstructure:"scan"`
 	Log         Log         `mapstructure:"log"`
@@ -60,6 +68,7 @@ type ConfigType struct {
 	Autobuilder Autobuilder `mapstructure:"autobuilder"`
 	Rules       Rules       `mapstructure:"rules"`
 	Java        Java        `mapstructure:"java"`
+	Owner       string      `mapstructure:"owner"`
 	Quiet       bool        `mapstructure:"quiet"`
 }
 

@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	DefaultJavaVersion = 23
+	DefaultJavaVersion = 21
 	LegacyJavaVersion  = 8
 )
 

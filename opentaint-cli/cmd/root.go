@@ -87,6 +87,10 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&globals.Config.Github.Token, "github-token", "", "Token for docker image pull from ghcr.io")
 	_ = rootCmd.PersistentFlags().MarkHidden("github-token")
 	_ = viper.BindPFlag("github.token", rootCmd.PersistentFlags().Lookup("github-token"))
+
+	rootCmd.PersistentFlags().StringVar(&globals.Config.Owner, "owner", "", "Organization owner for GitHub repositories")
+	_ = rootCmd.PersistentFlags().MarkHidden("owner")
+	_ = viper.BindPFlag("owner", rootCmd.PersistentFlags().Lookup("owner"))
 }
 
 // initConfig reads in config file and ENV variables if set.

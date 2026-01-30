@@ -68,7 +68,7 @@ func downloadAutobuilder(printer *formatters.TreePrinter) error {
 	}
 
 	logrus.Infof("Downloading autobuilder %s...", globals.Config.Autobuilder.Version)
-	if err = utils.DownloadGithubReleaseAsset(globals.RepoOwner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token); err != nil {
+	if err = utils.DownloadGithubReleaseAsset(globals.GetRepoOwner(), globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token); err != nil {
 		return err
 	}
 	printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", autobuilderJarPath), 1)
@@ -88,7 +88,7 @@ func downloadAnalyzer(printer *formatters.TreePrinter) error {
 	}
 
 	logrus.Infof("Downloading analyzer %s...", globals.Config.Analyzer.Version)
-	if err = utils.DownloadGithubReleaseAsset(globals.RepoOwner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token); err != nil {
+	if err = utils.DownloadGithubReleaseAsset(globals.GetRepoOwner(), globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token); err != nil {
 		return err
 	}
 	printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", analyzerJarPath), 1)
@@ -108,7 +108,7 @@ func downloadRules(printer *formatters.TreePrinter) error {
 	}
 
 	logrus.Infof("Downloading rules %s...", globals.Config.Rules.Version)
-	err = utils.DownloadAndUnpackGithubReleaseAsset(globals.RepoOwner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, rulesPath, globals.Config.Github.Token)
+	err = utils.DownloadAndUnpackGithubReleaseAsset(globals.GetRepoOwner(), globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, rulesPath, globals.Config.Github.Token)
 	if err != nil {
 		return err
 	}
