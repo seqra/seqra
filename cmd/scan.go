@@ -141,7 +141,7 @@ func scan(cmd *cobra.Command) {
 
 			if _, err := os.Stat(rulesPath); errors.Is(err, os.ErrNotExist) {
 				logrus.Info("Downloading seqra-rules")
-				err := utils.DownloadAndUnpackGithubReleaseAsset(globals.RepoOwner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, rulesPath, globals.Config.Github.Token)
+				err := utils.DownloadAndUnpackGithubReleaseAsset(globals.GetRepoOwner(), globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, rulesPath, globals.Config.Github.Token)
 				if err != nil {
 					logrus.Fatalf("Unexpected error occurred while trying to download ruleset: %s", err)
 				}
@@ -343,7 +343,7 @@ func scanProject(analyzerBuilder *AnalyzerBuilder) {
 	if _, err := os.Stat(analyzerJarPath); errors.Is(err, os.ErrNotExist) {
 		logrus.Info()
 		logrus.Infof("Downloading analyzer version %s", globals.Config.Analyzer.Version)
-		if err := utils.DownloadGithubReleaseAsset(globals.RepoOwner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token); err != nil {
+		if err := utils.DownloadGithubReleaseAsset(globals.GetRepoOwner(), globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token); err != nil {
 			logrus.Fatalf("Failed to download analyzer: %s", err)
 		}
 		logrus.Infof("Successfully downloaded analyzer to %s", analyzerJarPath)
