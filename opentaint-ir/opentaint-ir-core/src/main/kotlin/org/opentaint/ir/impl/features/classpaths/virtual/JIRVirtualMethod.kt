@@ -52,7 +52,6 @@ open class JIRVirtualParameter(
     fun bind(method: JIRVirtualMethod) {
         this.method = method
     }
-
 }
 
 open class JIRVirtualMethodImpl(
@@ -86,5 +85,24 @@ open class JIRVirtualMethodImpl(
 
     override fun toString(): String {
         return "virtual ${enclosingClass}#$name(${parameters.joinToString { it.type.typeName }})"
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) {
+            return true
+        }
+
+        if (other !is JIRVirtualMethodImpl) return false
+        if (name != other.name) return false
+        if (description != other.description) return false
+
+        return enclosingClass == other.enclosingClass
+    }
+
+    override fun hashCode(): Int {
+        var result = enclosingClass.hashCode()
+        result = result * 31 + name.hashCode()
+        result = result * 31 + description.hashCode()
+        return result
     }
 }

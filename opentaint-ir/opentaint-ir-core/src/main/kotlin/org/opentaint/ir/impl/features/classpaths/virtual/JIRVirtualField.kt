@@ -35,4 +35,17 @@ open class JIRVirtualFieldImpl(
     override fun toString(): String {
         return "virtual $enclosingClass#$name"
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) {
+            return true
+        }
+
+        if (other !is JIRVirtualFieldImpl) return false
+        if (name != other.name) return false
+
+        return enclosingClass == other.enclosingClass
+    }
+
+    override fun hashCode(): Int = enclosingClass.hashCode() * 31 + name.hashCode()
 }

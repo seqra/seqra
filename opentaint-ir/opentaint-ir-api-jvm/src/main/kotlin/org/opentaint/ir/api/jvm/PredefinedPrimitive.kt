@@ -54,6 +54,8 @@ class PredefinedPrimitive(override val classpath: JIRClasspath, override val typ
         return typeName.hashCode()
     }
 
+    override fun toString(): String = typeName
+
     override fun copyWithAnnotations(annotations: List<JIRAnnotation>): JIRType =
         PredefinedPrimitive(classpath, typeName, annotations)
 }

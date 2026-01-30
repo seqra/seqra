@@ -42,6 +42,8 @@ class JIRArrayTypeImpl(
         return elementType.hashCode()
     }
 
+    override fun toString(): String = typeName
+
     override fun copyWithAnnotations(annotations: List<JIRAnnotation>): JIRType {
         return JIRArrayTypeImpl(elementType, nullable, annotations)
     }

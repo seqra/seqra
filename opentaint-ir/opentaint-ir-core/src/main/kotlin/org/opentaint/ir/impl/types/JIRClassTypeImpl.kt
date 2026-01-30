@@ -165,6 +165,8 @@ class JIRClassTypeImpl(
         return 31 * result + name.hashCode()
     }
 
+    override fun toString(): String = typeName
+
     private fun typedMethods(
         allMethods: Boolean,
         fromSuperTypes: Boolean,

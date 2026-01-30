@@ -91,4 +91,16 @@ open class JIRVirtualClassImpl(
         this.virtualLocation = virtualLocation
     }
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) {
+            return true
+        }
+
+        if (other !is JIRVirtualClassImpl) return false
+        if (name != other.name) return false
+
+        return declaration == other.declaration
+    }
+
+    override fun hashCode(): Int = name.hashCode()
 }

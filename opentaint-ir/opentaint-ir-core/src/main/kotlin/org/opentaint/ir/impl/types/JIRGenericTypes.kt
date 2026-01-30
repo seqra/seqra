@@ -27,6 +27,8 @@ class JIRUnboundWildcardImpl(override val classpath: JIRClasspath) :
             error("Attempting to make wildcard not-nullable, which are always nullable by convention")
         return this
     }
+
+    override fun toString(): String = typeName
 }
 
 class JIRBoundedWildcardImpl(
@@ -49,6 +51,8 @@ class JIRBoundedWildcardImpl(
             }
             return "? $name ${bounds.joinToString(" & ") { it.typeName }}"
         }
+
+    override fun toString(): String = typeName
 
     override val jIRClass: JIRClassOrInterface by lazy(PUBLICATION) {
         val obj = classpath.objectClass
@@ -88,4 +92,6 @@ class JIRTypeVariableImpl(
 
     override fun copyWithAnnotations(annotations: List<JIRAnnotation>): JIRType =
         JIRTypeVariableImpl(classpath, declaration, nullable, annotations)
+
+    override fun toString(): String = typeName
 }

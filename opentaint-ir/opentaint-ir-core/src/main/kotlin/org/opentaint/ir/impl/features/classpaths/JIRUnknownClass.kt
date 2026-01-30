@@ -57,7 +57,6 @@ class JIRUnknownMethod(
     parameters = params.mapIndexed { index, typeName -> JIRVirtualParameter(index, typeName) },
     description = description
 ) {
-
     companion object {
 
         fun method(type: JIRClassOrInterface, name: String, access: Int, description: String): JIRMethod {
@@ -84,17 +83,27 @@ class JIRUnknownMethod(
         if (this === other) {
             return true
         }
-        return other is JIRUnknownMethod && description == other.description
+
+        if (other !is JIRUnknownMethod) return false
+
+        if (name != other.name) return false
+        if (description != other.description) return false
+
+        return enclosingClass == other.enclosingClass
     }
 
-    override fun hashCode(): Int = description.hashCode()
+    override fun hashCode(): Int {
+        var result = enclosingClass.hashCode()
+        result = 31 * result + description.hashCode()
+        result = 31 * result + name.hashCode()
+        return result
+    }
 }
 
 class JIRUnknownField(enclosingClass: JIRClassOrInterface, name: String, access: Int, type: TypeName) :
     JIRVirtualFieldImpl(name, access, type = type) {
 
     companion object {
-
         fun typedField(type: JIRClassType, name: String, access: Int, fieldType: TypeName): JIRTypedField {
             return JIRTypedFieldImpl(
                 type,
@@ -102,7 +111,6 @@ class JIRUnknownField(enclosingClass: JIRClassOrInterface, name: String, access:
                 JIRSubstitutorImpl.empty
             )
         }
-
     }
 
     init {
@@ -117,7 +125,6 @@ class JIRUnknownField(enclosingClass: JIRClassOrInterface, name: String, access:
     }
 
     override fun hashCode(): Int = enclosingClass.hashCode() * 31 + name.hashCode()
-
 }
 
 /**
@@ -228,4 +235,3 @@ private object TrivialLookup : JIRLookup<JIRField, JIRMethod> {
 
     override fun specialMethod(name: String, description: String): JIRMethod? = null
 }
-

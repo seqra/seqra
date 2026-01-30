@@ -50,6 +50,8 @@ class JIRUnknownType(
     }
 
     override fun hashCode(): Int = name.hashCode()
+
+    override fun toString(): String = typeName
 }
 
 open class JIRUnknownClassLookup(val clazz: JIRClassOrInterface) : JIRLookup<JIRField, JIRMethod> {
