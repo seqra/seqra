@@ -210,6 +210,17 @@ class TaintCleanActionEvaluator {
         val head = accessors.first()
         val tail = accessors.drop(1)
         if (tail.isEmpty()) {
+            if (fact.startsWithAccessor(AnyAccessor)) {
+                val clearedAny = fact.readAccessor(AnyAccessor)
+                    ?.clearAccessor(head)
+                    ?.prependAccessor(AnyAccessor)
+
+                val clearedFact = fact.clearAccessor(AnyAccessor)
+                    ?.clearAccessor(head)
+
+                return listOfNotNull(clearedAny, clearedFact)
+            }
+
             return listOfNotNull(fact.clearAccessor(head))
         }
 
