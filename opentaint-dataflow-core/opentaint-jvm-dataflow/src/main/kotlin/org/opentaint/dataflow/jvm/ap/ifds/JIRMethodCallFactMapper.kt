@@ -238,7 +238,7 @@ object JIRMethodCallFactMapper : MethodCallFactMapper {
     private fun factIsRelevantToMethodCall(returnValue: JIRImmediate?, callExpr: JIRCallExpr, factAp: FactAp): Boolean =
         factIsRelevantToMethodCall(returnValue, callExpr, factAp.base)
 
-    private fun factIsRelevantToMethodCall(
+    fun factIsRelevantToMethodCall(
         returnValue: JIRImmediate?,
         callExpr: JIRCallExpr,
         factBase: AccessPathBase

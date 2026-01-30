@@ -1,7 +1,6 @@
 package org.opentaint.dataflow.graph
 
 import org.opentaint.dataflow.ap.ifds.LanguageManager
-import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.toBitSet
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -10,51 +9,19 @@ import java.util.BitSet
 
 class MethodInstGraph(
     val instructions: Array<CommonInst>,
-    val successors: IntArray,
-    val multipleSuccessors: Array<BitSet?>,
-    val predecessors: IntArray,
-    val multiplePredecessors: Array<BitSet?>,
+    val graph: CompactGraph,
     val exitPoints: BitSet,
 ) {
-    inline fun forEachSuccessor(languageManager: LanguageManager, inst: CommonInst, body: (CommonInst) -> Unit) {
-        val instIdx = languageManager.getInstIndex(inst)
-        val instSuccessors = successors[instIdx]
+    inline fun forEachSuccessor(languageManager: LanguageManager, inst: CommonInst, body: (CommonInst) -> Unit) =
+        graph.forEachSuccessor(languageManager.getInstIndex(inst)) { body(instructions[it]) }
 
-        if (instSuccessors == EMPTY) return
-
-        if (instSuccessors != MULTIPLE) {
-            body(instructions[instSuccessors])
-            return
-        }
-
-        multipleSuccessors[instIdx]?.forEach {
-            body(instructions[it])
-        }
-    }
-
-    inline fun forEachPredecessor(languageManager: LanguageManager, inst: CommonInst, body: (CommonInst) -> Unit) {
-        val instIdx = languageManager.getInstIndex(inst)
-        val instPredecessors = predecessors[instIdx]
-
-        if (instPredecessors == EMPTY) return
-
-        if (instPredecessors != MULTIPLE) {
-            body(instructions[instPredecessors])
-            return
-        }
-
-        multiplePredecessors[instIdx]?.forEach {
-            body(instructions[it])
-        }
-    }
+    inline fun forEachPredecessor(languageManager: LanguageManager, inst: CommonInst, body: (CommonInst) -> Unit) =
+        graph.forEachPredecessor(languageManager.getInstIndex(inst)) { body(instructions[it]) }
 
     fun isExitPoint(languageManager: LanguageManager, inst: CommonInst): Boolean =
         exitPoints.get(languageManager.getInstIndex(inst))
 
     companion object {
-        const val EMPTY = -1
-        const val MULTIPLE = -2
-
         fun build(
             languageManager: LanguageManager,
             graph: ApplicationGraph<CommonMethod, CommonInst>,
@@ -62,54 +29,18 @@ class MethodInstGraph(
         ): MethodInstGraph {
             val methodGraph = graph.methodGraph(method)
             val graphSize = languageManager.getMaxInstIndex(method) + 1
+            val instructions = Array(graphSize) { languageManager.getInstByIndex(method, it) }
 
-            val successors = IntArray(graphSize)
-            val multipleSuccessors = arrayOfNulls<BitSet>(graphSize)
-
-            val predecessors = IntArray(graphSize)
-            val multiplePredecessors = arrayOfNulls<BitSet>(graphSize)
-
-            val instructions = Array(graphSize) {
-                languageManager.getInstByIndex(method, it)
-            }
-
-            for (i in 0 until graphSize) {
-                val inst = instructions[i]
-
-                val instSuccessors = methodGraph.successors(inst).toList()
-                when (instSuccessors.size) {
-                    0 -> successors[i] = EMPTY
-                    1 -> {
-                        successors[i] = languageManager.getInstIndex(instSuccessors.single())
-                    }
-
-                    else -> {
-                        multipleSuccessors[i] = instSuccessors.toBitSet { languageManager.getInstIndex(it) }
-                        successors[i] = MULTIPLE
-                    }
+            val resultGraph = CompactGraph.build(
+                graphSize = graphSize,
+                getInstSuccessors = { s ->
+                    methodGraph.successors(instructions[s]).asIterable()
+                        .toBitSet { languageManager.getInstIndex(it) }
                 }
-
-                val instPredecessors = methodGraph.predecessors(inst).toList()
-                when (instPredecessors.size) {
-                    0 -> predecessors[i] = EMPTY
-                    1 -> {
-                        predecessors[i] = languageManager.getInstIndex(instPredecessors.single())
-                    }
-
-                    else -> {
-                        multiplePredecessors[i] = instPredecessors.toBitSet { languageManager.getInstIndex(it) }
-                        predecessors[i] = MULTIPLE
-                    }
-                }
-            }
+            )
 
             val exitPoints = methodGraph.exitPoints().toList().toBitSet { languageManager.getInstIndex(it) }
-
-            return MethodInstGraph(
-                instructions, successors,
-                multipleSuccessors, predecessors,
-                multiplePredecessors, exitPoints
-            )
+            return MethodInstGraph(instructions, resultGraph, exitPoints)
         }
     }
 }

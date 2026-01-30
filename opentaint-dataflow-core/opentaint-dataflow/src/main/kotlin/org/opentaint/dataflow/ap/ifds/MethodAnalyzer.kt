@@ -1156,7 +1156,8 @@ class NormalMethodAnalyzer(
                     }
                 }
 
-                handleSequentFact(currentEdge, sf)
+                val applicableSf = sf.filter { it !is Sequent.SideEffectRequirement }
+                handleSequentFact(currentEdge, applicableSf)
             }
         }
     }

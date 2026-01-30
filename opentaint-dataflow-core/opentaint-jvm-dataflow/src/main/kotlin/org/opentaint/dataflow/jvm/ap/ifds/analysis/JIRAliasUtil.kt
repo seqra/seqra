@@ -15,18 +15,16 @@ import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
 
 fun JIRLocalAliasAnalysis.forEachAliasAtStatement(statement: JIRInst, fact: FinalFactAp, body: (FinalFactAp) -> Unit) {
     val base = fact.base as? AccessPathBase.LocalVar ?: return
-    val alias = findAlias(base, statement) ?: return
-    if (alias.base is AccessPathBase.Constant) return
-
-    applyAlias(fact, alias, body)
+    val aliases = findAlias(base, statement) ?: return
+    aliases.filterNot { alias -> alias.base is AccessPathBase.Constant }
+        .forEach { alias -> applyAlias(fact, alias, body) }
 }
 
 fun JIRLocalAliasAnalysis.forEachAliasAfterStatement(statement: JIRInst, fact: FinalFactAp, body: (FinalFactAp) -> Unit) {
     val base = fact.base as? AccessPathBase.LocalVar ?: return
-    val alias = findAliasAfterStatement(base, statement) ?: return
-    if (alias.base is AccessPathBase.Constant) return
-
-    applyAlias(fact, alias, body)
+    val aliases = findAliasAfterStatement(base, statement) ?: return
+    aliases.filterNot { alias -> alias.base is AccessPathBase.Constant }
+        .forEach { alias -> applyAlias(fact, alias, body) }
 }
 
 private fun applyAlias(fact: FinalFactAp, alias: AliasInfo, body: (FinalFactAp) -> Unit) {
@@ -57,10 +55,9 @@ fun JIRLocalAliasAnalysis.forEachAliasAtStatementAmongBases(
     body: (InitialFactAp) -> Unit
 ) {
     bases.forEach { base ->
-        val alias = findAlias(base, statement) ?: return@forEach
-        if (alias.base is AccessPathBase.Constant) return@forEach
-
-        applyAlias(fact, base, alias, body)
+        val aliases = findAlias(base, statement) ?: return@forEach
+        aliases.filterNot { alias -> alias.base is AccessPathBase.Constant }
+            .forEach { alias -> applyAlias(fact, base, alias, body) }
     }
 }
 
