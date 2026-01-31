@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.ap.ifds.trace
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
@@ -20,6 +21,7 @@ class TraceResolver(
         val resolveEntryPointToStartTrace: Boolean = true,
         val startToSourceTraceResolutionLimit: Int? = null,
         val startToSinkTraceResolutionLimit: Int? = null,
+        val sourceToSinkInnerTraceResolutionLimit: Int? = null
     )
 
     data class Trace(
@@ -152,6 +154,7 @@ class TraceResolver(
     private data class BuilderUnprocessedTrace(
         val trace: MethodTraceResolver.SummaryTrace,
         val kind: CallKind,
+        val depth: Int,
         val predecessor: InterProceduralCall? = null,
         val successor: InterProceduralCall? = null
     ) {
@@ -174,13 +177,15 @@ class TraceResolver(
         val rootNodes = hashSetOf<InterProceduralTraceNode>()
         val successors = hashMapOf<InterProceduralTraceNode, MutableSet<InterProceduralCall>>()
 
-        val unprocessed = mutableListOf<BuilderUnprocessedTrace>()
+        val unprocessedCall2Source = mutableListOf<BuilderUnprocessedTrace>()
+        val unprocessedCall2Sink = mutableListOf<BuilderUnprocessedTrace>()
+        val unprocessedInner = mutableListOf<BuilderUnprocessedTrace>()
 
         private var startToSourceTraceResolutionStat = 0
         private var startToSinkTraceResolutionStat = 0
 
         fun createSinkNode(trace: MethodTraceResolver.SummaryTrace) {
-            val nodes = resolveNode(trace, CallKind.CallToSink)
+            val nodes = resolveNode(trace, CallKind.CallToSink, depth = 0)
             sinkNodes.addAll(nodes)
         }
 
@@ -190,10 +195,24 @@ class TraceResolver(
             return SourceToSinkTrace(rootNodes, sinkNodes, successors)
         }
 
+        private fun pollUnprocessedEvent(): BuilderUnprocessedTrace? {
+            unprocessedCall2Sink.removeLastOrNull()?.let { return it }
+            unprocessedCall2Source.removeLastOrNull()?.let { return it }
+            return unprocessedInner.removeLastOrNull()
+        }
+
+        private fun addUnprocessedEvent(event: BuilderUnprocessedTrace) {
+            when (event.kind) {
+                CallKind.CallToSource -> unprocessedCall2Source.add(event)
+                CallKind.CallToSink -> unprocessedCall2Sink.add(event)
+                CallKind.CallInnerTrace -> unprocessedInner.add(event)
+            }
+        }
+
         private fun process() {
-            while (unprocessed.isNotEmpty() && cancellation.isActive) {
-                val event = unprocessed.removeLast()
-                val resolvedNodes = resolveNode(event.trace, event.kind)
+            while (cancellation.isActive) {
+                val event = pollUnprocessedEvent() ?: break
+                val resolvedNodes = resolveNode(event.trace, event.kind, event.depth)
 
                 for (resolved in resolvedNodes) {
                     event.predecessor?.let { predecessor ->
@@ -209,7 +228,11 @@ class TraceResolver(
             }
         }
 
-        private fun resolveNode(trace: MethodTraceResolver.SummaryTrace, kind: CallKind): List<InterProceduralTraceNode> {
+        private fun resolveNode(
+            trace: MethodTraceResolver.SummaryTrace,
+            kind: CallKind,
+            depth: Int
+        ): List<InterProceduralTraceNode> {
             val traceNodes = summaryNodes.getOrPut(trace.method, ::hashMapOf)
             val cacheKey = trace to kind
             val currentNode = traceNodes[cacheKey]
@@ -222,10 +245,16 @@ class TraceResolver(
             val resultNodes = mutableListOf<InterProceduralTraceNode>()
 
             for (fullTrace in fullTraces) {
-                addInnerTraces(fullTrace)
+                val innerDepth = when (kind) {
+                    CallKind.CallToSource,
+                    CallKind.CallToSink -> 0
+                    CallKind.CallInnerTrace -> depth
+                }
+
+                addInnerTraces(fullTrace, innerDepth)
                 when (val start = fullTrace.startEntry) {
                     is SourceStartEntry -> {
-                        resultNodes += resolveNode(fullTrace, kind)
+                        resultNodes += resolveNode(fullTrace, kind, depth)
                     }
 
                     is MethodEntry -> {
@@ -240,10 +269,13 @@ class TraceResolver(
                                 if (startToSinkTraceResolutionStat++ > params.startToSinkTraceResolutionLimit) continue
                             }
 
-                            unprocessed += BuilderUnprocessedTrace(
-                                trace = callerTrace,
-                                kind = kind,
-                                successor = InterProceduralCall(kind, callerStatement, trace, node)
+                            addUnprocessedEvent(
+                                BuilderUnprocessedTrace(
+                                    trace = callerTrace,
+                                    kind = kind,
+                                    depth = depth + 1,
+                                    successor = InterProceduralCall(kind, callerStatement, trace, node)
+                                )
                             )
                         }
                     }
@@ -254,7 +286,7 @@ class TraceResolver(
             return resultNodes
         }
 
-        private fun resolveNode(trace: MethodTraceResolver.FullTrace, kind: CallKind): InterProceduralTraceNode {
+        private fun resolveNode(trace: MethodTraceResolver.FullTrace, kind: CallKind, depth: Int): InterProceduralTraceNode {
             val traceNodes = fullNodes.getOrPut(trace.method, ::hashMapOf)
             val cacheKey = trace to kind
             val currentNode = traceNodes[cacheKey]
@@ -281,14 +313,17 @@ class TraceResolver(
                             }
                         }
 
-                        unprocessed += BuilderUnprocessedTrace(
-                            trace = callSummary.summaryTrace,
-                            kind = CallKind.CallToSource,
-                            predecessor = InterProceduralCall(
-                                CallKind.CallToSource,
-                                start.statement,
-                                callSummary.summaryTrace,
-                                node
+                        addUnprocessedEvent(
+                            BuilderUnprocessedTrace(
+                                trace = callSummary.summaryTrace,
+                                kind = CallKind.CallToSource,
+                                depth = depth + 1,
+                                predecessor = InterProceduralCall(
+                                    CallKind.CallToSource,
+                                    start.statement,
+                                    callSummary.summaryTrace,
+                                    node
+                                )
                             )
                         )
                     }
@@ -299,38 +334,46 @@ class TraceResolver(
         }
 
         private fun TraceEntryAction.CallSummary.isRelevantCall(): Boolean = summaryEdges.any {
+            if (it.edge.fact.base is AccessPathBase.ClassStatic) return@any false
+
             when (it) {
                 is TraceEntryAction.TraceSummaryEdge.SourceSummary -> true
                 is TraceEntryAction.TraceSummaryEdge.MethodSummary -> it.edge.fact != it.edgeAfter.fact
             }
         }
 
-        private fun addInnerTraces(trace: MethodTraceResolver.FullTrace) {
-            val entries = mutableListOf<MethodTraceResolver.TraceEntry>(trace.startEntry)
-            val visited = hashSetOf<MethodTraceResolver.TraceEntry>()
+        private fun addInnerTraces(trace: MethodTraceResolver.FullTrace, depth: Int) {
+            if (params.sourceToSinkInnerTraceResolutionLimit != null) {
+                if (depth > params.sourceToSinkInnerTraceResolutionLimit) {
+                    return
+                }
+            }
+
             val node = InterProceduralFullTraceNode(trace)
-            while (entries.isNotEmpty()) {
-                val entry = entries.removeFirst()
-                if (!visited.add(entry)) {
-                    continue
-                }
-                if (entry is MethodTraceResolver.TraceEntry.Action) {
-                    val action = entry.primaryAction
-                    if (action is TraceEntryAction.CallSummary && action.isRelevantCall()) {
-                        val summary = action.summaryTrace
-                        unprocessed += BuilderUnprocessedTrace(
-                            trace = summary,
-                            kind = CallKind.CallInnerTrace,
-                            predecessor = InterProceduralCall(
-                                CallKind.CallInnerTrace,
-                                entry.statement,
-                                summary,
-                                node
-                            )
+            val allActions = trace.successors.keys
+                .filterIsInstance<MethodTraceResolver.TraceEntry.Action>()
+
+            for (entry in allActions) {
+                if (!cancellation.isActive) return
+
+                val action = entry.primaryAction
+                if (action !is TraceEntryAction.CallSummary) continue
+                if (!action.isRelevantCall()) continue
+
+                val summary = action.summaryTrace
+                addUnprocessedEvent(
+                    BuilderUnprocessedTrace(
+                        trace = summary,
+                        kind = CallKind.CallInnerTrace,
+                        depth = depth + 1,
+                        predecessor = InterProceduralCall(
+                            CallKind.CallInnerTrace,
+                            entry.statement,
+                            summary,
+                            node
                         )
-                    }
-                }
-                entries.addAll(trace.successors[entry].orEmpty())
+                    )
+                )
             }
         }
 
