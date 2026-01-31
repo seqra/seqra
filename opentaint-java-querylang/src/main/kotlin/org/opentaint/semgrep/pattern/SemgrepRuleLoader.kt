@@ -102,9 +102,9 @@ class SemgrepRuleLoader(
         val disabledRules: Set<String>,
     )
 
-    fun loadRules(minSeverity: Severity): RuleLoadResult {
+    fun loadRules(severity: List<Severity> = emptyList()): RuleLoadResult {
         fun Rule<*>.skip(): Boolean =
-            info.isDisabled || info.isLibraryRule || !ruleSeverityGreaterOrEqual(this, minSeverity)
+            info.isDisabled || info.isLibraryRule || !ruleSeverityAllow(this, severity)
 
         registeredRules.values.toList()
             .forEach { parseRule(it, forceLibraryMode = false) }
@@ -428,8 +428,8 @@ class SemgrepRuleLoader(
         return SemgrepRuleUtils.getRuleId(refRuleSetName, refRuleId)
     }
 
-    private fun ruleSeverityGreaterOrEqual(rule: Rule<*>, severity: Severity): Boolean =
-        rule.info.metadata.severity.ordinal >= severity.ordinal
+    private fun ruleSeverityAllow(rule: Rule<*>, severity: List<Severity>): Boolean =
+        severity.isEmpty() || severity.contains(rule.info.metadata.severity)
 
     companion object {
         private val cweRegex = Regex("CWE-(\\d+).*", RegexOption.IGNORE_CASE)

@@ -35,7 +35,7 @@ abstract class SampleBasedTest(
         val loader = SemgrepRuleLoader()
         loader.registerRuleSet(ruleSetText = data.rule, ruleRelativePath = Path(data.rulePath), rulesRoot = Path("."), trace)
 
-        val loadedRules = loader.loadRules(Severity.Note).rulesWithMeta
+        val loadedRules = loader.loadRules().rulesWithMeta
         val (rule, _) = loadedRules.singleOrNull()
             ?: error("Not a single rule for ${data.rulePath}")
 

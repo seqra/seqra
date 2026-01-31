@@ -397,7 +397,7 @@ private fun collectParsingStats(path: Path): List<Pair<SemgrepJavaPattern, Strin
     }
 
     val time = measureTime {
-        loader.loadRules(Severity.Note)
+        loader.loadRules()
     }
 
     println("Pattern statistics:")
@@ -522,7 +522,7 @@ private fun collectRuleSetStat(semgrepRulesPath: Path, allRules: List<Path>): Ha
     val trace = SemgrepLoadTrace()
     for (rulePath in allRules) {
         loader.registerRuleSet(rulePath.readText(), rulePath, semgrepRulesPath, trace)
-        val (loadedRules, _) = loader.loadRules(Severity.Note).rulesWithMeta.unzip()
+        val (loadedRules, _) = loader.loadRules().rulesWithMeta.unzip()
         loadedRules.forEach {
             stats[it.ruleId] = it.stats()
         }

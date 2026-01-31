@@ -36,9 +36,8 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
         .path()
         .multiple()
 
-    private val semgrepRuleMinSeverity: Severity by option(help = "Minimal rule severity")
-        .choice(Severity.entries.associateBy { it.name.lowercase() })
-        .default(Severity.Note)
+    private val semgrepRuleSeverity: List<Severity> by option(help = "Rule severity")
+        .choice(Severity.entries.associateBy { it.name.lowercase() }).multiple()
 
     private val semgrepRuleLoadErrors: Path? by option(help = "Output file for errors encountered while loading Semgrep rules")
         .newFile()
@@ -54,7 +53,7 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
         val options = ProjectAnalysisOptions(
             customConfig = config,
             semgrepRuleSet = semgrepRuleSet,
-            semgrepMinSeverity = semgrepRuleMinSeverity,
+            semgrepSeverity = semgrepRuleSeverity,
             semgrepRuleLoadErrors = semgrepRuleLoadErrors,
             semgrepRuleLoadTrace = semgrepRuleLoadTrace,
             cwe = cwe,
