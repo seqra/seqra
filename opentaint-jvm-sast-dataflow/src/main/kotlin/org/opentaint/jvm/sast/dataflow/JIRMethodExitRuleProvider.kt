@@ -12,11 +12,12 @@ class JIRMethodExitRuleProvider(val base: TaintRulesProvider) : TaintRulesProvid
         method: CommonMethod,
         statement: CommonInst,
         fact: FactAp?,
-        initialFacts: Set<InitialFactAp>?
+        initialFacts: Set<InitialFactAp>?,
+        allRelevant: Boolean
     ): Iterable<TaintMethodExitSink> {
         // Apply method exit rules on Z2F edges only
         if (!initialFacts.isNullOrEmpty()) return emptyList()
 
-        return base.sinkRulesForMethodExit(method, statement, fact, initialFacts)
+        return base.sinkRulesForMethodExit(method, statement, fact, initialFacts, allRelevant)
     }
 }

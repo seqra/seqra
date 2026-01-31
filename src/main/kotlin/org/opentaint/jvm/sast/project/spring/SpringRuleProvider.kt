@@ -39,10 +39,10 @@ class SpringRuleProvider(
     private val base: TaintRulesProvider,
     private val springCtx: SpringWebProjectContext,
 ) : TaintRulesProvider by base {
-    override fun entryPointRulesForMethod(method: CommonMethod, fact: FactAp?): Iterable<TaintEntryPointSource> {
+    override fun entryPointRulesForMethod(method: CommonMethod, fact: FactAp?, allRelevant: Boolean): Iterable<TaintEntryPointSource> {
         if (method is SpringGeneratedMethod) return emptyList()
 
-        val baseRules =  base.entryPointRulesForMethod(method, fact)
+        val baseRules =  base.entryPointRulesForMethod(method, fact, allRelevant)
         if (method !is JIRMethod || !method.isSpringControllerMethod()) {
             return baseRules
         }
@@ -70,34 +70,36 @@ class SpringRuleProvider(
         return listOf(assign, allFieldsAssign)
     }
 
-    override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?): Iterable<TaintMethodSource> {
+    override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean): Iterable<TaintMethodSource> {
         if (method is SpringGeneratedMethod) return emptyList()
-        return base.sourceRulesForMethod(method, statement, fact)
+        return base.sourceRulesForMethod(method, statement, fact, allRelevant)
     }
 
     override fun exitSourceRulesForMethod(
         method: CommonMethod,
         statement: CommonInst,
-        fact: FactAp?
+        fact: FactAp?,
+        allRelevant: Boolean
     ): Iterable<TaintMethodExitSource> {
         if (method is SpringGeneratedMethod) return emptyList()
-        return base.exitSourceRulesForMethod(method, statement, fact)
+        return base.exitSourceRulesForMethod(method, statement, fact, allRelevant)
     }
 
-    override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?): Iterable<TaintMethodSink> {
+    override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean): Iterable<TaintMethodSink> {
         if (method is SpringGeneratedMethod) return emptyList()
-        return base.sinkRulesForMethod(method, statement, fact)
+        return base.sinkRulesForMethod(method, statement, fact, allRelevant)
     }
 
-    override fun sinkRulesForMethodEntry(method: CommonMethod, fact: FactAp?): Iterable<TaintMethodEntrySink> {
+    override fun sinkRulesForMethodEntry(method: CommonMethod, fact: FactAp?, allRelevant: Boolean): Iterable<TaintMethodEntrySink> {
         if (method is SpringGeneratedMethod) return emptyList()
-        return base.sinkRulesForMethodEntry(method, fact)
+        return base.sinkRulesForMethodEntry(method, fact, allRelevant)
     }
 
     override fun cleanerRulesForMethod(
         method: CommonMethod,
         statement: CommonInst,
-        fact: FactAp?
+        fact: FactAp?,
+        allRelevant: Boolean
     ): Iterable<TaintCleaner> {
         if (method is SpringGeneratedMethod) {
             if (method.name != GeneratedSpringControllerDispatcherCleanupMethod) {
@@ -116,7 +118,7 @@ class SpringRuleProvider(
             return listOf(cleaner)
         }
 
-        return base.cleanerRulesForMethod(method, statement, fact)
+        return base.cleanerRulesForMethod(method, statement, fact, allRelevant)
     }
 
     private fun AccessPathBase.cleanupPosition(): Position? {
@@ -135,18 +137,19 @@ class SpringRuleProvider(
         is AccessPathBase.This -> This
     }
 
-    override fun sourceRulesForStaticField(field: JIRField, statement: CommonInst, fact: FactAp?): Iterable<TaintStaticFieldSource> {
+    override fun sourceRulesForStaticField(field: JIRField, statement: CommonInst, fact: FactAp?, allRelevant: Boolean): Iterable<TaintStaticFieldSource> {
         if (field is SpringGeneratedField) return emptyList()
-        return base.sourceRulesForStaticField(field, statement, fact)
+        return base.sourceRulesForStaticField(field, statement, fact, allRelevant)
     }
 
     override fun passTroughRulesForMethod(
         method: CommonMethod,
         statement: CommonInst,
-        fact: FactAp?
+        fact: FactAp?,
+        allRelevant: Boolean
     ): Iterable<TaintPassThrough> {
         if (method is SpringGeneratedMethod) return emptyList()
-        val rules = base.passTroughRulesForMethod(method, statement, fact).toList()
+        val rules = base.passTroughRulesForMethod(method, statement, fact, allRelevant).toList()
 
         val springRepoMethodInfo = springCtx.springRepositoryMethods[method]
             ?: return rules
@@ -223,13 +226,14 @@ class SpringRuleProvider(
         method: CommonMethod,
         statement: CommonInst,
         fact: FactAp?,
-        initialFacts: Set<InitialFactAp>?
+        initialFacts: Set<InitialFactAp>?,
+        allRelevant: Boolean
     ): Iterable<TaintMethodExitSink> {
         if (method !is JIRMethod || !method.isSpringControllerMethod()) {
-            return base.sinkRulesForMethodExit(method, statement, fact, initialFacts)
+            return base.sinkRulesForMethodExit(method, statement, fact, initialFacts, allRelevant)
         }
 
-        val allBaseRules = base.sinkRulesForMethodExit(method, statement, fact, initialFacts = null)
+        val allBaseRules = base.sinkRulesForMethodExit(method, statement, fact, initialFacts = null, allRelevant)
         return allBaseRules.map { unfoldSpringExitObject(it) }
     }
 

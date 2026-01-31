@@ -29,9 +29,14 @@ class StringConcatRuleProvider(private val base: TaintRulesProvider) : TaintRule
         )
     }
 
-    override fun passTroughRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?): Iterable<TaintPassThrough> {
+    override fun passTroughRulesForMethod(
+        method: CommonMethod,
+        statement: CommonInst,
+        fact: FactAp?,
+        allRelevant: Boolean
+    ): Iterable<TaintPassThrough> {
         check(method is JIRMethod) { "Expected method to be JIRMethod" }
-        val baseRules = base.passTroughRulesForMethod(method, statement, fact)
+        val baseRules = base.passTroughRulesForMethod(method, statement, fact, allRelevant)
 
         if (method.name == "makeConcatWithConstants" && method.enclosingClass.name == "java.lang.invoke.StringConcatFactory") {
             return (sequenceOf(stringConcatPassThrough(method)) + baseRules).asIterable()

@@ -18,9 +18,10 @@ class JIRMethodGetDefaultProvider(
     override fun passTroughRulesForMethod(
         method: CommonMethod,
         statement: CommonInst,
-        fact: FactAp?
+        fact: FactAp?,
+        allRelevant: Boolean
     ): Iterable<TaintPassThrough> {
-        val baseRules = base.passTroughRulesForMethod(method, statement, fact)
+        val baseRules = base.passTroughRulesForMethod(method, statement, fact, allRelevant)
 
         if (method !is JIRMethod || method.isStatic) return baseRules
 

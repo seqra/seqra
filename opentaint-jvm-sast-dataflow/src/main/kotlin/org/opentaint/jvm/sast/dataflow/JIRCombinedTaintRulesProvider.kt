@@ -25,32 +25,46 @@ class JIRCombinedTaintRulesProvider(
         val cleaner: CombinationMode = CombinationMode.EXTEND,
     )
 
-    override fun entryPointRulesForMethod(method: CommonMethod, fact: FactAp?) =
-        combine(combinationOptions.entryPoint) { entryPointRulesForMethod(method, fact) }
+    override fun entryPointRulesForMethod(method: CommonMethod, fact: FactAp?, allRelevant: Boolean) =
+        combine(combinationOptions.entryPoint) { entryPointRulesForMethod(method, fact, allRelevant) }
 
-    override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) =
-        combine(combinationOptions.source) { sourceRulesForMethod(method, statement, fact) }
+    override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) =
+        combine(combinationOptions.source) { sourceRulesForMethod(method, statement, fact, allRelevant) }
 
-    override fun exitSourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) =
-        combine(combinationOptions.source) { exitSourceRulesForMethod(method, statement, fact) }
+    override fun exitSourceRulesForMethod(
+        method: CommonMethod,
+        statement: CommonInst,
+        fact: FactAp?,
+        allRelevant: Boolean
+    ) = combine(combinationOptions.source) { exitSourceRulesForMethod(method, statement, fact, allRelevant) }
 
-    override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) =
-        combine(combinationOptions.sink) { sinkRulesForMethod(method, statement, fact) }
+    override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) =
+        combine(combinationOptions.sink) { sinkRulesForMethod(method, statement, fact, allRelevant) }
 
-    override fun sinkRulesForMethodExit(method: CommonMethod, statement: CommonInst, fact: FactAp?, initialFacts: Set<InitialFactAp>?): Iterable<TaintMethodExitSink> =
-        combine(combinationOptions.sink) { sinkRulesForMethodExit(method, statement, fact, initialFacts) }
+    override fun sinkRulesForMethodExit(
+        method: CommonMethod,
+        statement: CommonInst,
+        fact: FactAp?,
+        initialFacts: Set<InitialFactAp>?,
+        allRelevant: Boolean
+    ): Iterable<TaintMethodExitSink> =
+        combine(combinationOptions.sink) { sinkRulesForMethodExit(method, statement, fact, initialFacts, allRelevant) }
 
-    override fun sinkRulesForMethodEntry(method: CommonMethod, fact: FactAp?) =
-        combine(combinationOptions.sink) { sinkRulesForMethodEntry(method, fact) }
+    override fun sinkRulesForMethodEntry(method: CommonMethod, fact: FactAp?, allRelevant: Boolean) =
+        combine(combinationOptions.sink) { sinkRulesForMethodEntry(method, fact, allRelevant) }
 
-    override fun passTroughRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) =
-        combine(combinationOptions.passThrough) { passTroughRulesForMethod(method, statement, fact) }
+    override fun passTroughRulesForMethod(
+        method: CommonMethod,
+        statement: CommonInst,
+        fact: FactAp?,
+        allRelevant: Boolean
+    ) = combine(combinationOptions.passThrough) { passTroughRulesForMethod(method, statement, fact, allRelevant) }
 
-    override fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) =
-        combine(combinationOptions.cleaner) { cleanerRulesForMethod(method, statement, fact) }
+    override fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) =
+        combine(combinationOptions.cleaner) { cleanerRulesForMethod(method, statement, fact, allRelevant) }
 
-    override fun sourceRulesForStaticField(field: JIRField, statement: CommonInst, fact: FactAp?) =
-        combine(combinationOptions.source) { sourceRulesForStaticField(field, statement, fact) }
+    override fun sourceRulesForStaticField(field: JIRField, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) =
+        combine(combinationOptions.source) { sourceRulesForStaticField(field, statement, fact, allRelevant) }
 
     private inline fun <T> combine(
         mode: CombinationMode,

@@ -14,39 +14,55 @@ import org.opentaint.jvm.sast.dataflow.rules.TaintConfiguration
 class JIRTaintRulesProvider(
     private val taintConfiguration: TaintConfiguration
 ) : TaintRulesProvider {
-    override fun entryPointRulesForMethod(method: CommonMethod, fact: FactAp?) = getRules(method) {
-        taintConfiguration.entryPointForMethod(it)
+    override fun entryPointRulesForMethod(method: CommonMethod, fact: FactAp?, allRelevant: Boolean) = getRules(method) {
+        taintConfiguration.entryPointForMethod(it, allRelevant)
     }
 
-    override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) = getRules(method) {
-        taintConfiguration.sourceForMethod(it)
+    override fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) = getRules(method) {
+        taintConfiguration.sourceForMethod(it, allRelevant)
     }
 
-    override fun exitSourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) = getRules(method) {
-        taintConfiguration.exitSourceForMethod(it)
+    override fun exitSourceRulesForMethod(
+        method: CommonMethod,
+        statement: CommonInst,
+        fact: FactAp?,
+        allRelevant: Boolean
+    ) = getRules(method) {
+        taintConfiguration.exitSourceForMethod(it, allRelevant)
     }
 
-    override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) = getRules(method) {
-        taintConfiguration.sinkForMethod(it)
+    override fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) = getRules(method) {
+        taintConfiguration.sinkForMethod(it, allRelevant)
     }
 
-    override fun passTroughRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) = getRules(method) {
-        taintConfiguration.passThroughForMethod(it)
+    override fun passTroughRulesForMethod(
+        method: CommonMethod,
+        statement: CommonInst,
+        fact: FactAp?,
+        allRelevant: Boolean
+    ) = getRules(method) {
+        taintConfiguration.passThroughForMethod(it, allRelevant)
     }
 
-    override fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?) = getRules(method) {
-        taintConfiguration.cleanerForMethod(it)
+    override fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) = getRules(method) {
+        taintConfiguration.cleanerForMethod(it, allRelevant)
     }
 
-    override fun sinkRulesForMethodExit(method: CommonMethod, statement: CommonInst, fact: FactAp?, initialFacts: Set<InitialFactAp>?): Iterable<TaintMethodExitSink> = getRules(method) {
-        taintConfiguration.methodExitSinkForMethod(it)
+    override fun sinkRulesForMethodExit(
+        method: CommonMethod,
+        statement: CommonInst,
+        fact: FactAp?,
+        initialFacts: Set<InitialFactAp>?,
+        allRelevant: Boolean
+    ): Iterable<TaintMethodExitSink> = getRules(method) {
+        taintConfiguration.methodExitSinkForMethod(it, allRelevant)
     }
 
-    override fun sinkRulesForMethodEntry(method: CommonMethod, fact: FactAp?) = getRules(method) {
-        taintConfiguration.methodEntrySinkForMethod(it)
+    override fun sinkRulesForMethodEntry(method: CommonMethod, fact: FactAp?, allRelevant: Boolean) = getRules(method) {
+        taintConfiguration.methodEntrySinkForMethod(it, allRelevant)
     }
 
-    override fun sourceRulesForStaticField(field: JIRField, statement: CommonInst, fact: FactAp?) =
+    override fun sourceRulesForStaticField(field: JIRField, statement: CommonInst, fact: FactAp?, allRelevant: Boolean) =
         taintConfiguration.sourceForStaticField(field)
 
     private inline fun <T : TaintConfigurationItem> getRules(
