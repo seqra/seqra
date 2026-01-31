@@ -181,7 +181,10 @@ class PatternToActionListConverter: ActionListBuilder {
 
                 when (pattern.obj) {
                     is Metavar,
-                    is TypedMetavar -> transformationFailed("Array access with metavar")
+                    is TypedMetavar -> {
+                        // todo: dirty hack. We can ignore array access here due to the `hackResultArray` in taint configuration
+                        return transformPatternIntoParamCondition(pattern.obj)
+                    }
                     else -> transformationFailed("Array access object is not metavar")
                 }
             }

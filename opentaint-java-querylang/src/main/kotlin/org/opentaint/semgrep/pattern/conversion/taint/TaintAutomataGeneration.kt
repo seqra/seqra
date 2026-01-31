@@ -486,7 +486,7 @@ private fun RuleConversionCtx.removeMeaningLessEdges(
     }
 
     if (removedEdgesToAccept.isNotEmpty()) {
-        trace.error("Edges without positive predicate: ${removedEdgesToAccept.size}", Reason.ERROR)
+        trace.error("Edges without positive predicate: ${removedEdgesToAccept.size}", Reason.WARNING)
     }
 
     return automata.copy(successors = successors)
