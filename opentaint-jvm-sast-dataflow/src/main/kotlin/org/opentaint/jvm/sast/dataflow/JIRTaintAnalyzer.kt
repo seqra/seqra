@@ -168,6 +168,7 @@ class JIRTaintAnalyzer(
                 resolveEntryPointToStartTrace = options.symbolicExecutionEnabled,
                 startToSourceTraceResolutionLimit = 100,
                 startToSinkTraceResolutionLimit = 100,
+                sourceToSinkInnerTraceResolutionLimit = 5,
             ),
             timeout = timeout,
             cancellationTimeout = 30.seconds
