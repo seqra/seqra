@@ -17,13 +17,13 @@ import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
 import org.opentaint.dataflow.configuration.jvm.TaintStaticFieldSource
 
 interface TaintRulesProvider : CommonTaintRulesProvider {
-    fun entryPointRulesForMethod(method: CommonMethod, fact: FactAp?): Iterable<TaintEntryPointSource>
-    fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?): Iterable<TaintMethodSource>
-    fun exitSourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?): Iterable<TaintMethodExitSource>
-    fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?): Iterable<TaintMethodSink>
-    fun sinkRulesForMethodEntry(method: CommonMethod, fact: FactAp?): Iterable<TaintMethodEntrySink>
-    fun sinkRulesForMethodExit(method: CommonMethod, statement: CommonInst, fact: FactAp?, initialFacts: Set<InitialFactAp>?): Iterable<TaintMethodExitSink>
-    fun passTroughRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?): Iterable<TaintPassThrough>
-    fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?): Iterable<TaintCleaner>
-    fun sourceRulesForStaticField(field: JIRField, statement: CommonInst, fact: FactAp?): Iterable<TaintStaticFieldSource>
+    fun entryPointRulesForMethod(method: CommonMethod, fact: FactAp?, allRelevant: Boolean = false): Iterable<TaintEntryPointSource>
+    fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean = false): Iterable<TaintMethodSource>
+    fun exitSourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean = false): Iterable<TaintMethodExitSource>
+    fun sinkRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean = false): Iterable<TaintMethodSink>
+    fun sinkRulesForMethodEntry(method: CommonMethod, fact: FactAp?, allRelevant: Boolean = false): Iterable<TaintMethodEntrySink>
+    fun sinkRulesForMethodExit(method: CommonMethod, statement: CommonInst, fact: FactAp?, initialFacts: Set<InitialFactAp>?, allRelevant: Boolean = false): Iterable<TaintMethodExitSink>
+    fun passTroughRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean = false): Iterable<TaintPassThrough>
+    fun cleanerRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean = false): Iterable<TaintCleaner>
+    fun sourceRulesForStaticField(field: JIRField, statement: CommonInst, fact: FactAp?, allRelevant: Boolean = false): Iterable<TaintStaticFieldSource>
 }
