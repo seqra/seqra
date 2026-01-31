@@ -66,17 +66,11 @@ private fun JIRMethod.extractSpringPath(): List<SpringControllerPath> {
     val classPaths = classRequestMapping?.let { extractPathsFromRequestMapping(it) }
     val classMethods = classRequestMapping?.let { extractMethodsFromRequestMapping(it) }
 
-    val methodPaths = when {
-        methodRequestMapping != null -> extractPathsFromRequestMapping(methodRequestMapping)
-        methodMethodMapping != null -> extractPathsFromMethodMapping(methodMethodMapping)
-        else -> null
-    }
+    val methodPaths = methodMethodMapping?.let { extractPathsFromMethodMapping(it) }
+        ?: methodRequestMapping?.let { extractPathsFromRequestMapping(it) }
 
-    val methodMethods = when {
-        methodRequestMapping != null -> extractMethodsFromRequestMapping(methodRequestMapping)
-        methodMethodMapping != null -> extractMethodsFromMethodMapping(methodMethodMapping)
-        else -> null
-    }
+    val methodMethods = methodMethodMapping?.let { extractMethodsFromMethodMapping(it) }
+        ?: methodRequestMapping?.let { extractMethodsFromRequestMapping(it) }
 
     val methods = methodMethods ?: classMethods ?: setOf(null)
     val paths = when {
