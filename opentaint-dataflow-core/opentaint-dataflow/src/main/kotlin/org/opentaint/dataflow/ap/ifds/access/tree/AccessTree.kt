@@ -375,7 +375,7 @@ class AccessTree(
 
         private fun addParentFieldAccess(newRootField: FieldAccessor): AccessNode {
             val filteredNodes = mutableListOf<Pair<FieldAccessor, AccessNode>>()
-            val limitedThis = limitFieldAccess(newRootField.className, filteredNodes)
+            val limitedThis = limitFieldAccess(newRootField, filteredNodes)
 
             val resultNode = if (limitedThis != null) {
                 create(newRootField, limitedThis)
@@ -388,15 +388,15 @@ class AccessTree(
         }
 
         private fun limitFieldAccess(
-            newRootFieldClassName: String,
+            newRootField: FieldAccessor,
             filteredNodes: MutableList<in Pair<FieldAccessor, AccessNode>>
         ): AccessNode? {
             val limitedNode = transformAccessors { accessor, node ->
-                if (accessor is FieldAccessor && accessor.className == newRootFieldClassName) {
+                if (accessor is FieldAccessor && accessor == newRootField) {
                     filteredNodes += accessor to node
                     null
                 } else {
-                    node.limitFieldAccess(newRootFieldClassName, filteredNodes)
+                    node.limitFieldAccess(newRootField, filteredNodes)
                 }
             }
 
@@ -582,7 +582,7 @@ class AccessTree(
 
             forEachAccessor { accessor, node ->
                 val filteredOther = if (accessor is FieldAccessor) {
-                    other?.limitFieldAccess(accessor.className, nestedAccessors)
+                    other?.limitFieldAccess(accessor, nestedAccessors)
                 } else {
                     other
                 }

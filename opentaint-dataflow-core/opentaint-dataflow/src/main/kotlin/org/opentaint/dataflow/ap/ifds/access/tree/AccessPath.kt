@@ -283,7 +283,7 @@ class AccessPath(
             var node = this
             while (true) {
                 val accessor = node.accessor
-                if (accessor is FieldAccessor && accessor.className == newRootField.className) return node.next
+                if (accessor is FieldAccessor && accessor == newRootField) return node.next
                 node = node.next ?: return this
             }
         }

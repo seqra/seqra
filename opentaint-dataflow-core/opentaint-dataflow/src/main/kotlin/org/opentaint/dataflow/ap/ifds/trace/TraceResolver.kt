@@ -309,9 +309,8 @@ class TraceResolver(
         }
 
         private fun TraceEntryAction.CallSummary.isMarkUpdated(): Boolean {
-            val before = this.edges.mapNotNull { it.fact.getMark() }.toSet()
             val after = this.edgesAfter.mapNotNull { it.fact.getMark() }
-            return (after - before).isNotEmpty()
+            return after.isNotEmpty()
         }
 
         private fun addInnerTraces(trace: MethodTraceResolver.FullTrace) {
