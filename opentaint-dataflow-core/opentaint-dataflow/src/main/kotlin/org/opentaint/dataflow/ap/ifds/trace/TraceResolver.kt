@@ -298,8 +298,11 @@ class TraceResolver(
             }
         }
 
-        private fun TraceEntryAction.CallSummary.isRelevantCall(): Boolean {
-            return summaryEdges.any { it.edge.fact != it.edgeAfter.fact }
+        private fun TraceEntryAction.CallSummary.isRelevantCall(): Boolean = summaryEdges.any {
+            when (it) {
+                is TraceEntryAction.TraceSummaryEdge.SourceSummary -> true
+                is TraceEntryAction.TraceSummaryEdge.MethodSummary -> it.edge.fact != it.edgeAfter.fact
+            }
         }
 
         private fun addInnerTraces(trace: MethodTraceResolver.FullTrace) {
