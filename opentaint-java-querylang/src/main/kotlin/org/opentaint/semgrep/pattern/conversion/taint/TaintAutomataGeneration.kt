@@ -672,9 +672,30 @@ private fun cleanupAutomata(
     metaVarInfo: ResolvedMetaVarInfo,
 ): TaintRegisterStateAutomata {
     val withoutRedundantEnd = removeEndEdge(automata)
-    val withoutDummyEntry = tryRemoveDummyMethodEntry(withoutRedundantEnd, metaVarInfo)
+    val withAcceptFixed = removeTransitiveAccept(withoutRedundantEnd)
+    val withoutDummyEntry = tryRemoveDummyMethodEntry(withAcceptFixed, metaVarInfo)
     val withoutDummyCleaners = removeDummyCleaner(withoutDummyEntry)
     return withoutDummyCleaners
+}
+
+private fun removeTransitiveAccept(automata: TaintRegisterStateAutomata): TaintRegisterStateAutomata {
+    val predecessors = automataPredecessors(automata)
+
+    val fixedAccept = hashSetOf<State>()
+    for (state in automata.finalAcceptStates) {
+        val statePredecessors = predecessors[state]
+        if (statePredecessors.isNullOrEmpty()) {
+            fixedAccept.add(state)
+            continue
+        }
+
+        if (statePredecessors.any { it.second !in automata.finalAcceptStates }) {
+            fixedAccept.add(state)
+            continue
+        }
+    }
+
+    return automata.copy(finalAcceptStates = fixedAccept)
 }
 
 private fun removeEndEdge(automata: TaintRegisterStateAutomata): TaintRegisterStateAutomata {
