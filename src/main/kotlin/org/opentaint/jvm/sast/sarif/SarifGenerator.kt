@@ -18,9 +18,14 @@ import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Sev
 import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.dataflow.util.SarifTraits
 import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
+import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import org.opentaint.ir.api.jvm.cfg.JIRRawLineNumberInst
+import org.opentaint.ir.api.jvm.cfg.JIRRef
+import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.jvm.sast.project.spring.annotateSarifWithSpringRelatedInformation
 import org.opentaint.semgrep.pattern.RuleMetadata
 import java.io.OutputStream
@@ -145,16 +150,51 @@ class SarifGenerator(
         return result
     }
 
+    private fun MethodTraceResolver.TraceEntry?.isSimpleAssign(): Boolean =
+        this is MethodTraceResolver.TraceEntry.Action
+                && primaryAction is MethodTraceResolver.TraceEntryAction.Sequential
+                && otherActions.isEmpty()
+
     private fun isRepetitionOfAssign(a: List<TracePathNode>, b: List<TracePathNode>): Boolean {
         if (a.size != 1 || b.size != 1) return false
         val aNode = a[0]
         val bNode = b[0]
-        if (aNode.entry !is MethodTraceResolver.TraceEntry.Action
-            || bNode.entry !is MethodTraceResolver.TraceEntry.Action)
+
+        if (!aNode.entry.isSimpleAssign() || !bNode.entry.isSimpleAssign())
             return false
-        val aAssignee = traits.getReadableAssignee(aNode.statement)
-        val bAssignee = traits.getReadableAssignee(bNode.statement)
+
+        val aAssignee = traits.getReadableAssignee(aNode.statement) ?: return false
+        val bAssignee = traits.getReadableAssignee(bNode.statement) ?: return false
         return aAssignee == bAssignee
+    }
+
+    private fun isFieldReassign(fst: TracePathNode, snd: TracePathNode): Boolean {
+        if (!fst.entry.isSimpleAssign() || !snd.entry.isSimpleAssign())
+            return false
+        if (fst.statement !is CommonAssignInst || snd.statement !is CommonAssignInst)
+            return false
+        val base = fst.statement.lhv
+        val field = snd.statement.rhv
+        if (base !is JIRValue || field !is JIRRef)
+            return false
+        return when (field) {
+            is JIRFieldRef -> base == field.instance
+            is JIRArrayAccess -> base == field.array
+            else -> false
+        }
+    }
+
+    private fun removeFieldReassigns(group: List<TracePathNode>): List<TracePathNode> {
+        if (group.size < 2) return group
+        val result = mutableListOf<TracePathNode>()
+        var prev = group[0]
+        for (cur in group.drop(1)) {
+            if (!isFieldReassign(prev, cur))
+                result.add(prev)
+            prev = cur
+        }
+        result.add(prev)
+        return result
     }
 
     private fun removeRepetitiveAssigns(groups: List<List<TracePathNode>>): List<List<TracePathNode>> {
@@ -189,7 +229,8 @@ class SarifGenerator(
         val messageBuilder = TraceMessageBuilder(traits, sinkMessage, path)
         val filteredLocations = path.filter { messageBuilder.isGoodTrace(it) }
         val groupedLocations = groupRelativeTraces(filteredLocations)
-        val filteredGroups = removeRepetitiveAssigns(groupedLocations)
+        val noReassigns = groupedLocations.map { removeFieldReassigns(it) }
+        val filteredGroups = removeRepetitiveAssigns(noReassigns)
         val groupsWithMsges = messageBuilder.createGroupTraceMessages(filteredGroups)
         val flowLocations = groupsWithMsges.map { groupNode ->
             val inst = groupNode.node.statement

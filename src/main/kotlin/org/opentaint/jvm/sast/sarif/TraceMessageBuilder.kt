@@ -17,7 +17,9 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonReturnInst
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRCallInst
+import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 import org.opentaint.jvm.sast.project.spring.SpringGeneratedMethod
@@ -441,6 +443,9 @@ class TraceMessageBuilder(
         return kind
     }
 
+    private fun TraceEntryAction.Sequential.isAssignReturn(): Boolean =
+        edgesAfter.size == 1 && edgesAfter.first().fact.base == AccessPathBase.Return
+
     private fun groupPrintableTraces(traces: List<TracePathNode>): List<List<TracePathNode>> {
         val result = mutableListOf<List<TracePathNode>>()
         var curList = mutableListOf<TracePathNode>()
@@ -451,6 +456,12 @@ class TraceMessageBuilder(
                 result.add(curList)
                 curList = mutableListOf()
             }
+        }
+
+        fun addToPrevList() {
+            val newList = if (result.isEmpty()) emptyList() else result.removeLast()
+            result.add(newList + curList)
+            curList = mutableListOf()
         }
 
         fun addAsSingle(trace: TracePathNode) {
@@ -485,9 +496,15 @@ class TraceMessageBuilder(
                 }
 
                 is TraceEntry.Action -> {
-                    if (entry.primaryAction is TraceEntryAction.Sequential) {
+                    val primary = entry.primaryAction
+                    if (primary is TraceEntryAction.Sequential) {
                         curList.add(trace)
-                        addCurListAndClean()
+                        if (entry.otherActions.isEmpty() && primary.isAssignReturn()) {
+                            addToPrevList()
+                        }
+                        else {
+                            addCurListAndClean()
+                        }
                     } else if (entry.primaryAction is TraceEntryAction.CallAction || entry.otherActions.any { it is TraceEntryAction.CallAction }) {
                         curList.add(trace)
                     }
@@ -533,31 +550,52 @@ class TraceMessageBuilder(
             createGroupTraceMessage(group)
         }
 
+    private fun isReassignReturn(group: List<TracePathNode>): Boolean {
+        if (group.size != 2) return false
+        val entry = group[1].entry
+        if (entry !is TraceEntry.Action) return false
+        val primary = entry.primaryAction
+        if (primary !is TraceEntryAction.Sequential ||
+            entry.otherActions.isNotEmpty() || !primary.isAssignReturn())
+            return false
+        val fst = group[0].statement
+        val snd = group[1].statement
+        if (fst !is JIRAssignInst || snd !is JIRReturnInst) return false
+        return fst.lhv == snd.returnValue
+    }
+
     private fun createGroupTraceMessage(group: List<TracePathNode>): List<TracePathNodeWithMsg> =
         groupPrintableTraces(group).map { printableGroup ->
-            if (printableGroup.size == 1) {
-                val node = printableGroup.first()
-                TracePathNodeWithMsg(node, getSarifKind(node), createTraceEntryMessage(node))
-            }
-            else {
-                val groupKind = getGroupKind(printableGroup)
-                val lastNode = printableGroup.last()
-                val firstNode = printableGroup.first()
-                val starts = firstNode.entry.collectStarts()
-                val follows = lastNode.entry.collectFollows() - starts.toSet()
-                val message = getGroupTraceMessage(
-                    TaintsWithOwner(firstNode, starts),
-                    TaintsWithOwner(lastNode, follows),
-                    printableGroup.any { it.kind == TracePathNodeKind.SOURCE },
-                )
-                TracePathNodeWithMsg(lastNode, groupKind, message)
+            when {
+                isReassignReturn(printableGroup) -> {
+                    val groupKind = getGroupKind(printableGroup)
+                    val msg = createReturnAssignMessage(printableGroup[0], printableGroup[1])
+                    TracePathNodeWithMsg(printableGroup[1], groupKind, msg)
+                }
+                printableGroup.size == 1 -> {
+                    val node = printableGroup.first()
+                    TracePathNodeWithMsg(node, getSarifKind(node), createTraceEntryMessage(node))
+                }
+                else -> {
+                    val groupKind = getGroupKind(printableGroup)
+                    val lastNode = printableGroup.last()
+                    val firstNode = printableGroup.first()
+                    val starts = firstNode.entry.collectStarts()
+                    val follows = lastNode.entry.collectFollows() - starts.toSet()
+                    val message = getGroupTraceMessage(
+                        TaintsWithOwner(firstNode, starts),
+                        TaintsWithOwner(lastNode, follows),
+                        printableGroup.any { it.kind == TracePathNodeKind.SOURCE },
+                    )
+                    TracePathNodeWithMsg(lastNode, groupKind, message)
+                }
             }
         }
 
     private fun printReturnedValue(node: TracePathNode): String {
         val assignee = traits.getReadableAssignee(node.statement)
         if (assignee == null || traits.isRegister(assignee)) return "the returned value"
-        return "$assignee"
+        return assignee
     }
 
     private fun printLambdaArgument(node: TracePathNode, index: Int): String {
@@ -667,6 +705,16 @@ class TraceMessageBuilder(
         val starts = node.entry.collectStarts()
         val suffix = if (starts.isEmpty()) "" else " with captured ${printTaints(node, starts)}"
         return "Lambda created$suffix"
+    }
+
+    private fun createReturnAssignMessage(valueNode: TracePathNode, retNode: TracePathNode): String {
+        check(valueNode.statement is JIRAssignInst && retNode.statement is JIRReturnInst)
+        val value = valueNode.statement.rhv
+        val retMark = printMarks(retNode.entry.collectFollows())
+        val assignedFrom = if (value is JIRCallExpr) {
+            "${getMethodCalleeNameInPrint(valueNode)} call"
+        } else traits.getReadableValue(valueNode.statement, valueNode.statement.lhv)
+        return "The returning value is assigned $retMark data from $assignedFrom"
     }
 
     private fun createMethodCallTaintPropagationMessageWithTaints(
