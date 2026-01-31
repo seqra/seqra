@@ -1036,7 +1036,12 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
         }
 
         ParamCondition.AnyStringLiteral -> {
-            return SerializedCondition.IsConstant(position)
+            return SerializedCondition.and(
+                listOf(
+                    SerializedCondition.IsType(StringTypeName, position),
+                    SerializedCondition.IsConstant(position)
+                )
+            )
         }
 
         is SpecificBoolValue -> {
@@ -1077,7 +1082,12 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
                     }
 
                     is MetaVarConstraint.RegExp -> {
-                        SerializedCondition.ConstantMatches(c.regex, position)
+                        SerializedCondition.and(
+                            listOf(
+                                SerializedCondition.IsType(StringTypeName, position),
+                                SerializedCondition.ConstantMatches(c.regex, position)
+                            )
+                        )
                     }
                 }
             }
@@ -1147,3 +1157,5 @@ private fun <T, R> MetaVarConstraintFormula<T>.toSerializedConditionCubes(
 
 private fun <T> List<T>.toSerializedOr(transformer: (T) -> SerializedCondition): SerializedCondition =
     serializedConditionOr(map(transformer))
+
+private val StringTypeName = SerializedNameMatcher.Simple("java.lang.String")
