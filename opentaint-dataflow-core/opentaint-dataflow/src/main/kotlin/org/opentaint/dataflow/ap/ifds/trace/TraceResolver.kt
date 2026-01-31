@@ -2,8 +2,6 @@ package org.opentaint.dataflow.ap.ifds.trace
 
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
-import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
-import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerability
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.MethodEntry
@@ -300,17 +298,8 @@ class TraceResolver(
             }
         }
 
-        fun InitialFactAp.getMark(): String? {
-            val taintMarks = getAllAccessors().filterIsInstance<TaintMarkAccessor>()
-            if (taintMarks.isEmpty()) {
-                return null
-            }
-            return taintMarks.first().mark
-        }
-
-        private fun TraceEntryAction.CallSummary.isMarkUpdated(): Boolean {
-            val after = this.edgesAfter.mapNotNull { it.fact.getMark() }
-            return after.isNotEmpty()
+        private fun TraceEntryAction.CallSummary.isRelevantCall(): Boolean {
+            return summaryEdges.any { it.edge.fact != it.edgeAfter.fact }
         }
 
         private fun addInnerTraces(trace: MethodTraceResolver.FullTrace) {
@@ -324,7 +313,7 @@ class TraceResolver(
                 }
                 if (entry is MethodTraceResolver.TraceEntry.Action) {
                     val action = entry.primaryAction
-                    if (action is TraceEntryAction.CallSummary && action.isMarkUpdated()) {
+                    if (action is TraceEntryAction.CallSummary && action.isRelevantCall()) {
                         val summary = action.summaryTrace
                         unprocessed += BuilderUnprocessedTrace(
                             trace = summary,
