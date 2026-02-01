@@ -156,6 +156,16 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
         return InstructionKind.ASSIGNMENT
     }
 
+    private fun ParserRuleContext?.findParentType(type: Class<out ParserRuleContext>): ParserRuleContext? {
+        if (this == null || parent == null) return null
+        var cur = this
+        while (cur != null && !type.isInstance(cur) && cur !is JavaParser.BlockStatementContext) {
+            cur = cur.parent as ParserRuleContext?
+        }
+        if (cur is JavaParser.BlockStatementContext) return null
+        return cur
+    }
+
     private fun ParserRuleContext?.findChildType(type: Class<out ParserRuleContext>): ParserRuleContext? {
         if (this == null || children == null) return null
         return children.find { type.isInstance(it) } as ParserRuleContext?
@@ -268,6 +278,7 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
 
     private fun checkCreatedType(expr: ParserRuleContext, typeName: String): Boolean {
         if (expr is JavaParser.MethodCallContext && checkMethodName("super", expr)) return true
+        if (expr !is JavaParser.ObjectCreationExpressionContext) return false
         val ctx = expr.findChildType(JavaParser.CreatorContext::class.java)
             .findChildType(JavaParser.CreatedNameContext::class.java)
             .findChildType(JavaParser.IdentifierWithTypeArgsContext::class.java)
@@ -296,6 +307,14 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
         return curParent
     }
 
+    private fun checkArrayInitializerName(ctx: JavaParser.ArrayInitializerContext, name: String?): Boolean {
+        val arrayName = ctx.findParentType(JavaParser.VariableDeclaratorContext::class.java)
+            .findChildType(JavaParser.VariableDeclaratorIdContext::class.java)
+            .findChildType(JavaParser.IdentifierContext::class.java)
+            ?: return false
+        return name == arrayName.text
+    }
+
     private fun checkArrayName(ctx: SquareBracketExpressionContext, name: String?): Boolean {
         if (ctx.childCount < 1 || name == null) return false
         return ctx.children[0].text == name
@@ -303,7 +322,8 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
 
     private fun findArrayAccessNode(root: ParseTree, line: Int, inst: JIRInst): ParserRuleContext? {
         val arrayName = inst.getArrayName()
-        val arrayAccess = mutableListOf<SquareBracketExpressionContext>()
+        val arrayAccess = mutableListOf<ParserRuleContext>()
+        val arrayInit = mutableListOf<ParserRuleContext>()
         val collector = object : LineBasedVisitor(line) {
             override fun visitSquareBracketExpression(ctx: SquareBracketExpressionContext)  {
                 if (coversLine(ctx, line) && checkArrayName(ctx, arrayName)) {
@@ -311,13 +331,26 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
                 }
                 super.visitSquareBracketExpression(ctx)
             }
+
+            override fun visitArrayInitializer(ctx: JavaParser.ArrayInitializerContext) {
+                if (coversLine(ctx, line) && checkArrayInitializerName(ctx, arrayName)) {
+                    arrayInit.add(ctx)
+                }
+                super.visitArrayInitializer(ctx)
+            }
         }
         root.accept(collector)
-        if (arrayAccess.isEmpty()) return findSmallestOfTypes(
-            root, line,
-            SquareBracketExpressionContext::class.java
-        )
-        return adjustForAssignment(arrayAccess.minByOrNull { spanLen(it) }, line)
+
+        val access =
+            if (arrayAccess.isNotEmpty()) arrayAccess.minBy { spanLen(it) }
+            else if (arrayInit.isNotEmpty()) arrayInit.minBy { spanLen(it) }
+            else findSmallestOfTypes(
+                root, line,
+                SquareBracketExpressionContext::class.java,
+                JavaParser.ArrayInitializerContext::class.java,
+            )
+
+        return adjustForAssignment(access, line)
     }
 
     private fun findReturnNode(root: ParseTree, line: Int): ParserRuleContext? =
@@ -349,7 +382,7 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
 
     private fun JIRInst?.getArrayName(): String? {
         val value = this?.getArrayValue() ?: return null
-        return traits.getReadableValue(this, value)
+        return traits.getReadableValue(this, value)?.replace("\"", "")
     }
 
     private fun JIRInst?.getFieldName(): String? {

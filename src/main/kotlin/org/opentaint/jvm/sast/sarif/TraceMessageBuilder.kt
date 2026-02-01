@@ -18,10 +18,12 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonReturnInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRArgument
 import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRCallInst
+import org.opentaint.ir.api.jvm.cfg.JIRGraph
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
@@ -51,6 +53,44 @@ fun TraceEntry?.isPureEntryPoint() =
 
         else -> false
     }
+
+private fun JIRInst.isSimpleAssign(): Boolean {
+    return this is JIRAssignInst && lhv is JIRLocalVar && (rhv is JIRLocalVar || rhv is JIRArgument)
+}
+
+private fun JIRInst.isAssignToLocal(idx: Int): Boolean {
+    return this is JIRAssignInst && lhv is JIRLocalVar && (lhv as JIRLocalVar).index == idx
+}
+
+private fun isIdxInSimpleAssign(inst: JIRInst, graph: JIRGraph, idx: Int): Boolean {
+    var curr = inst
+    var pred = graph.predecessors(curr)
+    while (curr.isSimpleAssign()) {
+        if (curr.isAssignToLocal(idx)) return true
+        if (pred.size != 1) return false
+        curr = pred.first()
+        pred = graph.predecessors(curr)
+    }
+    return false
+}
+
+private fun isPhiAssign(inst: JIRAssignInst): Boolean {
+    if (!inst.isSimpleAssign()) return false
+    if (inst.lhv !is JIRLocalVar) return false
+    val idx = (inst.lhv as JIRLocalVar).index
+    val method = inst.location.method
+    val graph = method.flowGraph()
+    var curr: JIRInst = inst
+    var succ = graph.successors(curr)
+    var pred: Set<JIRInst>
+    do {
+        if (succ.size != 1) return false
+        curr = succ.first()
+        pred = graph.predecessors(curr)
+        succ = graph.successors(curr)
+    } while (pred.size == 1)
+    return pred.isNotEmpty() && pred.all { isIdxInSimpleAssign(it, graph, idx) }
+}
 
 class TraceMessageBuilder(
     private val traits: SarifTraits<CommonMethod, CommonInst>,
@@ -108,7 +148,7 @@ class TraceMessageBuilder(
             }
             inst.getCallVararg()?.let { varargs.add(it as JIRValue) }
         }
-        varargArrays[method] = varargs
+        if (varargs.isNotEmpty()) varargArrays[method] = varargs
     }
 
     init {
@@ -227,6 +267,16 @@ class TraceMessageBuilder(
         val entry = node.entry as? TraceEntry.Action ?: return true
 
         val primaryAction = entry.primaryAction
+
+        // filtering generated assigns
+        val stmt = node.statement
+        if (stmt is JIRAssignInst) {
+            val lhv = traits.getReadableValue(stmt, stmt.lhv)
+            val rhv = traits.getReadableValue(stmt, stmt.rhv)
+            if (lhv == rhv || isPhiAssign(stmt)) {
+                return false
+            }
+        }
 
         // filtering nodes that became unimportant
         if (primaryAction is TraceEntryAction.UnresolvedCallSkip) {
@@ -491,11 +541,15 @@ class TraceMessageBuilder(
         return access.array
     }
 
-    private fun TraceEntryAction.Sequential.isVarargAssign(node: TracePathNode): Boolean {
-        val stmt = node.statement as JIRInst
-        val varargs = varargArrays[stmt.location.method] ?: return false
-        val array = stmt.getLhvArray() ?: return false
+    private fun JIRInst.isVarargAssign(): Boolean {
+        val varargs = varargArrays[location.method] ?: return false
+        val array = getLhvArray() ?: return false
         return varargs.contains(array)
+    }
+
+    private fun JIRInst.isArrayAssign(): Boolean {
+        if (this !is JIRAssignInst) return false
+        return lhv is JIRArrayAccess
     }
 
     private fun TraceEntryAction.Sequential.isSameAssign(): Boolean =
@@ -508,6 +562,7 @@ class TraceMessageBuilder(
         val result = mutableListOf<List<TracePathNode>>()
         var curList = mutableListOf<TracePathNode>()
         var skipLambdaAssign = false
+        var prevArray: JIRValue? = null
 
         fun addCurListAndClean() {
             if (curList.isNotEmpty()) {
@@ -556,12 +611,18 @@ class TraceMessageBuilder(
                 is TraceEntry.Action -> {
                     val primary = entry.primaryAction
                     if (primary is TraceEntryAction.Sequential) {
-                        if (primary.isVarargAssign(trace)) {
-                            if (!primary.isSameAssign()) {
-                                val array = (trace.statement as JIRInst).getLhvArray()
-                                if (array != null) {
+                        val inst = trace.statement as JIRInst
+                        if (inst.isArrayAssign()) {
+                            val array = inst.getLhvArray()!!
+                            if (inst.isVarargAssign()) {
+                                if (!primary.isSameAssign()) {
                                     markedVararg.getOrPut(array, ::hashSetOf).addAll(primary.edges)
                                 }
+                            }
+                            else if (array != prevArray || !primary.isSameAssign()) {
+                                prevArray = array
+                                curList.add(trace)
+                                addCurListAndClean()
                             }
                             continue
                         }
@@ -583,6 +644,7 @@ class TraceMessageBuilder(
 
                 else -> addAsSingle(trace)
             }
+            prevArray = null
         }
         addCurListAndClean()
         return result

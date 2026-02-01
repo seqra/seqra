@@ -1,0 +1,11 @@
+rules:
+  - id: i97
+    languages:
+      - java
+    severity: ERROR
+    message: badMethod
+    patterns:
+      - pattern: |
+          $A = source();
+          ...
+          return $A;
