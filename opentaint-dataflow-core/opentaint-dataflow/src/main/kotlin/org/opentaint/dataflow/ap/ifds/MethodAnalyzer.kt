@@ -188,6 +188,7 @@ class NormalMethodAnalyzer(
     private val stepsForTaintMark: MutableMap<String, Long> = hashMapOf()
 
     private var summaryEdgesHandled: Long = 0
+    private var traceResolverSteps: Long = 0
 
     init {
         loadSummariesFromRunner()
@@ -214,6 +215,7 @@ class NormalMethodAnalyzer(
         stats.stats(methodEntryPoint.method).apply {
             steps += analyzerSteps
             handledSummaries += summaryEdgesHandled
+            traceResolverSteps += this@NormalMethodAnalyzer.traceResolverSteps
             unprocessedEdges += this@NormalMethodAnalyzer.unprocessedEdges.size
             coveredInstructions.or(edges.reachedStatements())
             this@NormalMethodAnalyzer.stepsForTaintMark.forEach { (mark, count) ->
@@ -1195,7 +1197,9 @@ class NormalMethodAnalyzer(
         cancellation: ProcessingCancellation
     ): List<MethodTraceResolver.FullTrace> {
         val resolver = MethodTraceResolver(runner, analysisContext, edges, methodInstGraph)
-        return resolver.resolveIntraProceduralFullTrace(summaryTrace, cancellation)
+        val (fullTrace, steps) = resolver.resolveIntraProceduralFullTrace(summaryTrace, cancellation)
+        traceResolverSteps += steps
+        return fullTrace
     }
 
     override fun resolveIntraProceduralForwardFullTrace(

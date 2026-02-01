@@ -324,6 +324,7 @@ class MethodTraceResolver(
         val unprocessedEntryIds = IntArrayList().also { it.add(finalEntryId) }
         val predecessors = Int2ObjectOpenHashMap<BitSet>()
         val successors = Int2ObjectOpenHashMap<BitSet>()
+        var steps = 0
 
         fun addPredecessor(current: TraceEntry, predecessor: TraceEntry, enqueue: Boolean = true) {
             val currentId = entryManager.entryId(current)
@@ -458,14 +459,15 @@ class MethodTraceResolver(
     fun resolveIntraProceduralFullTrace(
         summaryTrace: SummaryTrace,
         cancellation: ProcessingCancellation
-    ): List<FullTrace> {
+    ): Pair<List<FullTrace>, Int> {
         check(summaryTrace.method == methodEntryPoint) { "Incorrect summary trace" }
 
         val builder = TraceBuilder(entryManager.entryId(summaryTrace.final), cancellation)
         builder.resolveTrace(summaryTrace.traceKind)
         builder.removeUnreachableNodes()
         builder.collapseUnchangedNodes()
-        return builder.fullTrace(summaryTrace.traceKind)
+        val fullTrace = builder.fullTrace(summaryTrace.traceKind)
+        return fullTrace to builder.steps
     }
 
     private fun TraceBuilder.removeUnreachableNodes() {
@@ -505,6 +507,8 @@ class MethodTraceResolver(
         initial.forEach { unprocessedEntryIds.add(it) }
 
         while (unprocessedEntryIds.isNotEmpty()) {
+            steps++
+
             val entryId = unprocessedEntryIds.removeInt(unprocessedEntryIds.lastIndex)
 
             if (!reachable.add(entryId)) continue

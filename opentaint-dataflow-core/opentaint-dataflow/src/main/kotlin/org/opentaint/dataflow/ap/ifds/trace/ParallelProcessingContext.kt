@@ -26,6 +26,9 @@ abstract class ParallelProcessingContext<T, R : Any>(
 ) {
     abstract fun createUnprocessed(item: T): R
 
+    open fun reportStats() {
+    }
+
     fun processingResults(): List<R> {
         val processingRes = mutableListOf<R>()
         processingRes.addAll(result)
@@ -85,6 +88,7 @@ abstract class ParallelProcessingContext<T, R : Any>(
             while (isActive) {
                 delay(10.seconds)
                 logger.info { "${name}: processed ${processed}/${data.size} items" }
+                reportStats()
             }
         }
 
