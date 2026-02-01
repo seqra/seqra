@@ -9,11 +9,11 @@ const GithubDockerHost = "ghcr.io"
 const RepoOwner = "seqra"
 
 const AnalyzerDocker = GithubDockerHost + "/" + RepoOwner + "/seqra-jvm-sast/sast-analyzer"
-const AnalyzerBindVersion = "2026.01.21.6af3364"
+const AnalyzerBindVersion = "2026.02.01.b93888b"
 
 const AutobuilderRepoName = "seqra-jvm-autobuilder"
 const AutobuilderDocker = GithubDockerHost + "/" + RepoOwner + "/" + AutobuilderRepoName + "/sast-autobuilder"
-const AutobuilderBindVersion = "2026.01.21.21ec640"
+const AutobuilderBindVersion = "2026.02.01.88f8c5e"
 const AutobuilderAssetName = "seqra-project-auto-builder.jar"
 
 const AnalyzerRepoName = "seqra-jvm-sast"
@@ -50,14 +50,6 @@ type Rules struct {
 
 type Java struct {
 	Version int `mapstructure:"version"`
-}
-
-// GetRepoOwner returns the configured organization owner, or the default RepoOwner if not set.
-func GetRepoOwner() string {
-	if Config.Owner != "" {
-		return Config.Owner
-	}
-	return RepoOwner
 }
 
 type ConfigType struct {

@@ -112,7 +112,7 @@ func compileProject(absOutputProjectModelPath, absProjectRoot string) {
 	if _, err = os.Stat(autobuilderJarPath); errors.Is(err, os.ErrNotExist) {
 		logrus.Info()
 		logrus.Infof("Downloading autobuilder version %s", globals.Config.Autobuilder.Version)
-		if err = utils.DownloadGithubReleaseAsset(globals.GetRepoOwner(), globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token); err != nil {
+		if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token); err != nil {
 			logrus.Fatalf("Failed to download autobuilder: %s", err)
 		}
 		logrus.Infof("Successfully downloaded autobuilder to %s", autobuilderJarPath)
