@@ -42,7 +42,11 @@ import kotlin.jvm.optionals.getOrNull
 class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
     fun computeSpan(sourceLocation: Path, location: IntermediateLocation): LocationSpan? = runCatching {
         val ast = getJavaAst(sourceLocation) ?: return@runCatching null
+        val targetLine = location.info.lineNumber
+        // if failed, let's highlight the entire line
         computeSpan(ast, location)
+            ?: findBroadestSpan(ast, targetLine)
+            ?: findSmallestSpan(ast, targetLine)
     }.onFailure { ex ->
         logger.error(ex) { "Span resolution failure" }
     }.getOrNull()
@@ -413,6 +417,13 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
         root.accept(collector)
 
         return adjustForAssignment(memberRefs.maxByOrNull { spanLen(it) }, line)
+    }
+
+    private fun findSmallestSpan(root: ParseTree, line: Int): LocationSpan? {
+        // coversLine is already called inside `collectContexts`
+        val lineContexts = collectContexts(root, line) { true }
+        val broadest = lineContexts.minByOrNull { spanLen(it) } ?: return null
+        return createLocationSpan(broadest.start, broadest.stop)
     }
 
     private fun findBroadestSpan(root: ParseTree, line: Int): LocationSpan? {
