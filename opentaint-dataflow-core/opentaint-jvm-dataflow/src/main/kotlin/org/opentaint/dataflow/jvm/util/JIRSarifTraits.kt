@@ -48,7 +48,7 @@ class JIRSarifTraits(
                 if (local is JIRLocalVar && assign.rhv is JIRValue) {
                     if (!mdLocals.containsKey(local.index)) {
                         val value = tryGetReadableValue(assign as JIRInst, assign.rhv)
-                        if (value is ReadableValue) {
+                        if (value is ReadableValue.Value) {
                             mdLocals[local.index] = value.toString()
                         }
                     }
