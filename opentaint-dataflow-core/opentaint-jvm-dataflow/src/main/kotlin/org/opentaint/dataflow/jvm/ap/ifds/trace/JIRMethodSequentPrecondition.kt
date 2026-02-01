@@ -9,7 +9,6 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition.PreconditionFactsForInitialFact
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition.SequentPrecondition
-import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition.SequentPreconditionFacts
 import org.opentaint.dataflow.ap.ifds.trace.TaintRulePrecondition
 import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
@@ -41,43 +40,40 @@ class JIRMethodSequentPrecondition(
 
     override fun factPrecondition(
         fact: InitialFactAp,
-    ): SequentPrecondition {
-        val results = mutableListOf<SequentPreconditionFacts>()
-
+    ): Set<SequentPrecondition> {
+        val results = mutableSetOf<SequentPrecondition>()
         results.computeFactPrecondition(fact, applyExitSourceRules = true)
-
-        return if (results.isEmpty()) {
-            SequentPrecondition.Unchanged
-        } else {
-            SequentPrecondition.Facts(results)
-        }
+        return results
     }
 
-    private fun MutableList<SequentPreconditionFacts>.computeFactPrecondition(
+    private fun MutableSet<SequentPrecondition>.computeFactPrecondition(
         fact: InitialFactAp,
         applyExitSourceRules: Boolean
     ) {
-        preconditionForFact(fact)?.let {
-            this += PreconditionFactsForInitialFact(fact, it)
-        }
-
-        unconditionalSourcesPrecondition(fact)
-
-        if (applyExitSourceRules) {
-            methodExitSourcePrecondition(fact)
-        }
+        val factPrecondition = computePrecondition(fact, applyExitSourceRules)
+        this += factPrecondition.ifEmpty { setOf(SequentPrecondition.Unchanged) }
 
         analysisContext.aliasAnalysis?.forEachPossibleAliasAtStatement(currentInst, fact) { aliasedFact ->
-            preconditionForFact(aliasedFact)?.let {
-                this += PreconditionFactsForInitialFact(aliasedFact, it)
-            }
-
-            unconditionalSourcesPrecondition(aliasedFact)
-
-            if (applyExitSourceRules) {
-                methodExitSourcePrecondition(aliasedFact)
-            }
+            this += computePrecondition(aliasedFact, applyExitSourceRules)
         }
+    }
+
+    private fun computePrecondition(
+        aliasedFact: InitialFactAp,
+        applyExitSourceRules: Boolean
+    ): Set<SequentPrecondition> {
+        val precondition = mutableSetOf<SequentPrecondition>()
+        preconditionForFact(aliasedFact)?.let {
+            precondition += PreconditionFactsForInitialFact(aliasedFact, it)
+        }
+
+        precondition.unconditionalSourcesPrecondition(aliasedFact)
+
+        if (applyExitSourceRules) {
+            precondition.methodExitSourcePrecondition(aliasedFact)
+        }
+
+        return precondition
     }
 
     private fun preconditionForFact(fact: InitialFactAp): List<InitialFactAp>? {
@@ -211,7 +207,7 @@ class JIRMethodSequentPrecondition(
         return facts
     }
 
-    private fun MutableList<SequentPreconditionFacts>.unconditionalSourcesPrecondition(fact: InitialFactAp) {
+    private fun MutableSet<SequentPrecondition>.unconditionalSourcesPrecondition(fact: InitialFactAp) {
         if (currentInst !is JIRAssignInst) return
 
         val rhvFieldRef = currentInst.rhv as? JIRFieldRef ?: return
@@ -248,7 +244,7 @@ class JIRMethodSequentPrecondition(
         }
     }
 
-    private fun MutableList<SequentPreconditionFacts>.methodExitSourcePrecondition(fact: InitialFactAp) {
+    private fun MutableSet<SequentPrecondition>.methodExitSourcePrecondition(fact: InitialFactAp) {
         val config = analysisContext.taint.taintConfig as TaintRulesProvider
         val sourceRules = config.exitSourceRulesForMethod(currentInst.location.method, currentInst, fact = null).toList()
         if (sourceRules.isEmpty()) return

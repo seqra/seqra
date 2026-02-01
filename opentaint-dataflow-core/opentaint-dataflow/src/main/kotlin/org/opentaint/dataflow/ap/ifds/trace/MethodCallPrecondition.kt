@@ -7,20 +7,19 @@ import org.opentaint.dataflow.ap.ifds.trace.TaintRulePrecondition.PassRuleCondit
 interface MethodCallPrecondition {
     sealed interface CallPrecondition {
         data object Unchanged : CallPrecondition
-        data class Facts(val facts: List<PreconditionFactsForInitialFact>) : CallPrecondition
     }
 
     data class PreconditionFactsForInitialFact(
         val initialFact: InitialFactAp,
         val preconditionFacts: List<CallPreconditionFact>,
-    )
+    ): CallPrecondition
 
     sealed interface CallPreconditionFact {
         data class CallToReturnTaintRule(val precondition: TaintRulePrecondition) : CallPreconditionFact
         data class CallToStart(val callerFact: InitialFactAp, val startFactBase: AccessPathBase) : CallPreconditionFact
     }
 
-    fun factPrecondition(fact: InitialFactAp): CallPrecondition
+    fun factPrecondition(fact: InitialFactAp): List<CallPrecondition>
 
     data class PassRuleConditionFacts(val facts: List<InitialFactAp>)
 

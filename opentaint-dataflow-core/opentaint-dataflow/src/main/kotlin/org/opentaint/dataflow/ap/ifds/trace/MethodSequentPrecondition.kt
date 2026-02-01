@@ -5,10 +5,9 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 interface MethodSequentPrecondition {
     sealed interface SequentPrecondition {
         data object Unchanged : SequentPrecondition
-        data class Facts(val facts: List<SequentPreconditionFacts>) : SequentPrecondition
     }
 
-    sealed interface SequentPreconditionFacts {
+    sealed interface SequentPreconditionFacts: SequentPrecondition {
         val fact: InitialFactAp
     }
 
@@ -22,5 +21,5 @@ interface MethodSequentPrecondition {
         val rule: TaintRulePrecondition.Source
     ): SequentPreconditionFacts
 
-    fun factPrecondition(fact: InitialFactAp): SequentPrecondition
+    fun factPrecondition(fact: InitialFactAp): Set<SequentPrecondition>
 }

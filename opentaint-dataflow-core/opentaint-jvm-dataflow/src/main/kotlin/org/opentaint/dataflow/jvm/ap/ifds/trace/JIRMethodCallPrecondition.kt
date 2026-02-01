@@ -46,24 +46,17 @@ class JIRMethodCallPrecondition(
 
     private val taintConfig get() = analysisContext.taint.taintConfig as TaintRulesProvider
 
-    override fun factPrecondition(fact: InitialFactAp): CallPrecondition {
-        val results = mutableListOf<PreconditionFactsForInitialFact>()
+    override fun factPrecondition(fact: InitialFactAp): List<CallPrecondition> {
+        val results = mutableListOf<CallPrecondition>()
 
-        preconditionForFact(fact)?.let {
-            results.add(PreconditionFactsForInitialFact(fact, it))
-        }
+        results += preconditionForFact(fact)?.let { PreconditionFactsForInitialFact(fact, it) }
+            ?: CallPrecondition.Unchanged
 
         analysisContext.aliasAnalysis?.forEachPossibleAliasAtStatement(statement, fact) { aliasedFact ->
-            preconditionForFact(aliasedFact)?.let {
-                results.add(PreconditionFactsForInitialFact(aliasedFact, it))
-            }
+            preconditionForFact(aliasedFact)?.let { results += PreconditionFactsForInitialFact(aliasedFact, it) }
         }
 
-        return if (results.isEmpty()) {
-            CallPrecondition.Unchanged
-        } else {
-            CallPrecondition.Facts(results)
-        }
+        return results
     }
 
     private fun preconditionForFact(fact: InitialFactAp): List<CallPreconditionFact>? {

@@ -5,7 +5,9 @@ import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.AnalysisManager
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
+import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition.CallPrecondition
+import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition.SequentPrecondition
 import org.opentaint.dataflow.graph.MethodInstGraph
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
@@ -96,22 +98,44 @@ abstract class MethodAnalyzerEdgeSearcher(
             val preconditionFunction = analysisManager.getMethodCallPrecondition(
                 apManager, analysisContext, returnValue, statementCall, statement
             )
-            val precondition = preconditionFunction.factPrecondition(fact)
-            return when (precondition) {
-                // todo: use provided fact instead of this list?
-                is CallPrecondition.Facts -> precondition.facts.map { it.initialFact }
-                CallPrecondition.Unchanged -> null
+            val preconditions = preconditionFunction.factPrecondition(fact)
+            val facts = mutableListOf<InitialFactAp>()
+            for (precondition in preconditions) {
+                when (precondition) {
+                    is CallPrecondition.Unchanged -> {
+                        // todo: handle unchanged + facts at the same statement
+                        return null
+                    }
+
+                    is MethodCallPrecondition.PreconditionFactsForInitialFact -> {
+                        // todo: use provided fact instead of this list?
+                        facts += precondition.initialFact
+                    }
+                }
             }
+
+            return facts
         } else {
             val preconditionFunction = analysisManager.getMethodSequentPrecondition(
                 apManager, analysisContext, statement
             )
-            val precondition = preconditionFunction.factPrecondition(fact)
-            return when (precondition) {
-                // todo: use provided fact instead of this list?
-                is SequentPrecondition.Facts -> precondition.facts.map { it.fact }
-                SequentPrecondition.Unchanged -> null
+            val preconditions = preconditionFunction.factPrecondition(fact)
+            val facts = mutableListOf<InitialFactAp>()
+            for (precondition in preconditions) {
+                when (precondition) {
+                    is SequentPrecondition.Unchanged -> {
+                        // todo: handle unchanged + facts at the same statement
+                        return null
+                    }
+
+                    is MethodSequentPrecondition.SequentPreconditionFacts -> {
+                        // todo: use provided fact instead of this list?
+                        facts += precondition.fact
+                    }
+                }
             }
+
+            return facts
         }
     }
 }
