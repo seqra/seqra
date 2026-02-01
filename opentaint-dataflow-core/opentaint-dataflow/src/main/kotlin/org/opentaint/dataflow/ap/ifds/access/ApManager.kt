@@ -5,6 +5,7 @@ import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.Edge
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactToFactEdgeBuilder
+import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.LanguageManager
 import org.opentaint.dataflow.ap.ifds.NDFactToFactEdgeBuilder
 import org.opentaint.dataflow.ap.ifds.SideEffectSummary.FactSideEffectSummary
@@ -55,8 +56,8 @@ interface AnyAccessorUnrollStrategy {
 }
 
 interface InitialFactAbstraction {
-    fun addAbstractedInitialFact(factAp: FinalFactAp): List<Pair<InitialFactAp, FinalFactAp>>
-    fun registerNewInitialFact(factAp: InitialFactAp): List<Pair<InitialFactAp, FinalFactAp>>
+    fun addAbstractedInitialFact(factAp: FinalFactAp, typeChecker: FactTypeChecker): List<Pair<InitialFactAp, FinalFactAp>>
+    fun registerNewInitialFact(factAp: InitialFactAp, typeChecker: FactTypeChecker): List<Pair<InitialFactAp, FinalFactAp>>
 }
 
 interface MethodAccessPathSubscription {

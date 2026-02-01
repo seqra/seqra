@@ -49,7 +49,7 @@ class JIRAnalysisManager(
     private val applyAliasInfo: Boolean = true,
 ) : JIRLanguageManager(cp), TaintAnalysisManager {
     private val lambdaTracker = JIRLambdaTracker()
-    private val factTypeChecker = JIRFactTypeChecker(cp)
+    override val factTypeChecker = JIRFactTypeChecker(cp)
 
     override fun getMethodCallResolver(
         graph: ApplicationGraph<CommonMethod, CommonInst>,

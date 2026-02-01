@@ -199,11 +199,11 @@ class NormalMethodAnalyzer(
             runner.addNewSideEffectRequirement(methodEntryPoint, requirements)
             summaryEdges.forEach { edge ->
                 when (edge) {
-                    is FactToFact -> initialFacts.registerNewInitialFact(edge.initialFactAp)
+                    is FactToFact -> initialFacts.registerNewInitialFact(edge.initialFactAp, analysisManager.factTypeChecker)
                     is ZeroToFact -> zeroInitialFactProcessed = true
                     is ZeroToZero -> zeroInitialFactProcessed = true
                     is NDFactToFact -> edge.initialFacts.forEach {
-                        initialFacts.registerNewInitialFact(it)
+                        initialFacts.registerNewInitialFact(it, analysisManager.factTypeChecker)
                     }
                 }
             }
@@ -244,7 +244,7 @@ class NormalMethodAnalyzer(
         val flowFunction = analysisManager.getMethodStartFlowFunction(apManager, analysisContext)
         val startFacts = flowFunction.propagateFact(factAp)
         startFacts.forEach { startFact ->
-            initialFacts.addAbstractedInitialFact(startFact.fact).forEach { (initialFact, finalFact) ->
+            initialFacts.addAbstractedInitialFact(startFact.fact, analysisManager.factTypeChecker).forEach { (initialFact, finalFact) ->
                 addInitialEdge(initialFact, finalFact)
             }
         }
@@ -549,7 +549,7 @@ class NormalMethodAnalyzer(
 
     private fun handleInputFactChange(originalInputFactAp: InitialFactAp, newInputFactAp: InitialFactAp) {
         if (originalInputFactAp == newInputFactAp) return
-        initialFacts.registerNewInitialFact(newInputFactAp).forEach { (initialFact, finalFact) ->
+        initialFacts.registerNewInitialFact(newInputFactAp, analysisManager.factTypeChecker).forEach { (initialFact, finalFact) ->
             addInitialEdge(initialFact, finalFact)
         }
     }

@@ -2,6 +2,7 @@ package org.opentaint.dataflow.ap.ifds.access.automata
 
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
+import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAbstraction
@@ -20,15 +21,24 @@ import java.util.BitSet
 class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFactAbstraction {
     private val addedFacts = AccessGraphBasedStorage(initialStatement)
 
-    override fun addAbstractedInitialFact(factAp: FinalFactAp): List<Pair<InitialFactAp, FinalFactAp>> =
-        addAbstractedInitialFact(factAp as AccessGraphFinalFactAp)
+    override fun addAbstractedInitialFact(
+        factAp: FinalFactAp,
+        typeChecker: FactTypeChecker
+    ): List<Pair<InitialFactAp, FinalFactAp>> =
+        addAbstractedInitialFact(factAp as AccessGraphFinalFactAp, typeChecker)
 
-    override fun registerNewInitialFact(factAp: InitialFactAp): List<Pair<InitialFactAp, FinalFactAp>> =
-        registerNewInitialFact(factAp as AccessGraphInitialFactAp)
+    override fun registerNewInitialFact(
+        factAp: InitialFactAp,
+        typeChecker: FactTypeChecker
+    ): List<Pair<InitialFactAp, FinalFactAp>> =
+        registerNewInitialFact(factAp as AccessGraphInitialFactAp, typeChecker)
 
-    private fun addAbstractedInitialFact(fact: AccessGraphFinalFactAp): List<Pair<InitialFactAp, FinalFactAp>> {
+    private fun addAbstractedInitialFact(
+        fact: AccessGraphFinalFactAp,
+        typeChecker: FactTypeChecker
+    ): List<Pair<InitialFactAp, FinalFactAp>> {
         val basedFacts = addedFacts.getOrCreate(fact.base)
-        return basedFacts.addAndAbstract(fact.access).map {
+        return basedFacts.addAndAbstract(fact.access, typeChecker).map {
             Pair(
                 AccessGraphInitialFactAp(fact.base, it, ExclusionSet.Empty),
                 AccessGraphFinalFactAp(fact.base, it, ExclusionSet.Empty)
@@ -36,9 +46,12 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
         }
     }
 
-    private fun registerNewInitialFact(fact: AccessGraphInitialFactAp): List<Pair<InitialFactAp, FinalFactAp>> {
+    private fun registerNewInitialFact(
+        fact: AccessGraphInitialFactAp,
+        typeChecker: FactTypeChecker
+    ): List<Pair<InitialFactAp, FinalFactAp>> {
         val addedBasedFacts = addedFacts.find(fact.base) ?: return emptyList()
-        return addedBasedFacts.registerNew(fact.access, fact.exclusions).map {
+        return addedBasedFacts.registerNew(fact.access, fact.exclusions, typeChecker).map {
             Pair(
                 AccessGraphInitialFactAp(fact.base, it, ExclusionSet.Empty),
                 AccessGraphFinalFactAp(fact.base, it, ExclusionSet.Empty)
@@ -63,7 +76,7 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
         private val analyzedExclusion = arrayListOf<BitSet>()
         private val analyzedExclusionIndex = int2ObjectMap<BitSet>()
 
-        fun addAndAbstract(graph: AccessGraph): List<AccessGraph> = with(graph.manager) {
+        fun addAndAbstract(graph: AccessGraph, typeChecker: FactTypeChecker): List<AccessGraph> = with(graph.manager) {
             if (added.isEmpty()) {
                 added.put(graph, 0)
                 addedGraphs.add(graph)
@@ -81,13 +94,17 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
                 check(addedGraphs.size == addedGraphIdx)
                 addedGraphs.add(graph)
                 addedIndex.add(graph, addedGraphIdx)
-                return abstractAdded(graph)
+                return abstractAdded(graph, typeChecker)
             }
 
             return emptyList()
         }
 
-        fun registerNew(graph: AccessGraph, exclusion: ExclusionSet): List<AccessGraph> = with(graph.manager) {
+        fun registerNew(
+            graph: AccessGraph,
+            exclusion: ExclusionSet,
+            typeChecker: FactTypeChecker,
+        ): List<AccessGraph> = with(graph.manager) {
             if (exclusion !is ExclusionSet.Concrete) return emptyList()
 
             val analyzedGraphIdx = analyzed.getValue(graph)
@@ -101,10 +118,13 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
                 analyzedExclusionIndex.getOrPut(accessor, ::BitSet).set(analyzedGraphIdx)
             }
 
-            return abstractAnalyzed(graph, newAccessors)
+            return abstractAnalyzed(graph, newAccessors, typeChecker)
         }
 
-        private fun AutomataApManager.abstractAdded(addedGraph: AccessGraph): List<AccessGraph> {
+        private fun AutomataApManager.abstractAdded(
+            addedGraph: AccessGraph,
+            typeChecker: FactTypeChecker,
+        ): List<AccessGraph> {
             val relevantAnalyzedGraphIndices = BitSet()
             addedGraph.accessors().forEach { accessor ->
                 val graphsWithAccessorExcluded = analyzedExclusionIndex.get(accessor) ?: return@forEach
@@ -121,7 +141,7 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
 
                 abstractGraph(
                     newAnalyzedGraphs,
-                    analyzedGraph, addedGraph, exclusion
+                    analyzedGraph, addedGraph, exclusion, typeChecker
                 )
             }
 
@@ -131,6 +151,7 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
         private fun AutomataApManager.abstractAnalyzed(
             analyzedGraph: AccessGraph,
             exclusion: BitSet,
+            typeChecker: FactTypeChecker,
         ): List<AccessGraph> {
             val relevantAddedGraphsIndices = addedIndex.localizeGraphsWithAccessors(exclusion)
             val addedGraphsWithDelta = addedIndex.localizeIndexedGraphHasDeltaWithGraph(analyzedGraph)
@@ -141,7 +162,7 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
                 val addedGraph = addedGraphs[addedGraphIdx]
                 abstractGraph(
                     newAnalyzedGraphs,
-                    analyzedGraph, addedGraph, exclusion
+                    analyzedGraph, addedGraph, exclusion, typeChecker
                 )
             }
 
@@ -152,7 +173,8 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
             newAnalyzedGraphs: MutableList<AccessGraph>,
             analyzedGraph: AccessGraph,
             addedGraph: AccessGraph,
-            exclusion: BitSet
+            exclusion: BitSet,
+            typeChecker: FactTypeChecker,
         ) {
             for (delta in addedGraph.delta(analyzedGraph)) {
                 if (delta.isEmpty()) continue
@@ -161,6 +183,17 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
                     if (!delta.startsWith(accessor)) {
                         if (!delta.startsWith(anyAccessorIdx)) return@forEach
                         if (tryAnyAccessorOrNull(accessor.accessor) { true } != true) return@forEach
+
+                        val accessFilter = createFilter(analyzedGraph, typeChecker)
+                        val accessStatus = accessFilter.check(accessor.accessor)
+                        when (accessStatus) {
+                            is FactTypeChecker.FilterResult.Accept,
+                            is FactTypeChecker.FilterResult.FilterNext -> {
+                                // accept
+                            }
+
+                            is FactTypeChecker.FilterResult.Reject -> return@forEach
+                        }
                     }
 
                     val singleAccessorGraph = emptyGraph().prepend(accessor)

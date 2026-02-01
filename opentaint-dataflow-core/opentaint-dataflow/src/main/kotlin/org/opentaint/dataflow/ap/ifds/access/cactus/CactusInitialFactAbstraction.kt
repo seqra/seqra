@@ -4,6 +4,7 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.ExclusionSet.Empty
+import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAbstraction
@@ -13,7 +14,10 @@ import org.opentaint.dataflow.ap.ifds.access.cactus.AccessCactus.AccessNode as A
 class CactusInitialFactAbstraction: InitialFactAbstraction {
     private val initialFacts = MethodSameMarkInitialFact(hashMapOf())
 
-    override fun addAbstractedInitialFact(factAp: FinalFactAp): List<Pair<InitialFactAp, FinalFactAp>> {
+    override fun addAbstractedInitialFact(
+        factAp: FinalFactAp,
+        typeChecker: FactTypeChecker
+    ): List<Pair<InitialFactAp, FinalFactAp>> {
         factAp as AccessCactus
 
         // note: we can ignore fact exclusions here
@@ -25,7 +29,10 @@ class CactusInitialFactAbstraction: InitialFactAbstraction {
         return abstractFacts
     }
 
-    override fun registerNewInitialFact(factAp: InitialFactAp): List<Pair<InitialFactAp, FinalFactAp>> {
+    override fun registerNewInitialFact(
+        factAp: InitialFactAp,
+        typeChecker: FactTypeChecker
+    ): List<Pair<InitialFactAp, FinalFactAp>> {
         factAp as AccessPathWithCycles
 
         val facts = initialFacts.getOrPut(factAp.base)
