@@ -8,6 +8,7 @@ import org.opentaint.ir.impl.cfg.util.typeNameFromJvmName
 import org.opentaint.ir.impl.softLazy
 import org.opentaint.ir.impl.weakLazy
 import org.objectweb.asm.Type
+import org.opentaint.ir.impl.features.classpaths.JIRUnknownMethod
 
 abstract class MethodSignatureRef(
         val type: JIRClassType,
@@ -150,7 +151,7 @@ class VirtualMethodRefImpl(
     }
 
     override val method: JIRTypedMethod by softLazy {
-        actualType.lookup.method(name, description) ?: declaredMethod
+        actualType.lookup.method(name, description)?.takeIf { it.method !is JIRUnknownMethod } ?: declaredMethod
     }
 
     override val declaredMethod: JIRTypedMethod by softLazy {
