@@ -256,6 +256,7 @@ class SarifGenerator(
                 info = getInstructionInfo(inst, rewriteLine),
                 kind = groupNode.kind,
                 message = groupNode.message,
+                node = if (!groupNode.isMultiple) groupNode.node else null,
             )
         }
 

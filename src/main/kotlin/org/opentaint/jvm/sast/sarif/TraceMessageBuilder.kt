@@ -1,5 +1,6 @@
 package org.opentaint.jvm.sast.sarif
 
+import org.objectweb.asm.Opcodes
 import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
@@ -15,13 +16,18 @@ import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonReturnInst
+import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRCallInst
+import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
+import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.jvm.sast.project.spring.SpringGeneratedMethod
 import org.opentaint.semgrep.pattern.Mark
 import org.opentaint.semgrep.pattern.Mark.Companion.getMark
@@ -30,6 +36,7 @@ data class TracePathNodeWithMsg(
     val node: TracePathNode,
     val kind: String,
     val message: String,
+    val isMultiple: Boolean,
 )
 
 class TraceMessageBuilder(
@@ -41,30 +48,54 @@ class TraceMessageBuilder(
     private val lambdaCapturedVars = hashMapOf<String, List<String>>()
     private val lambdaToArtificialClass = hashMapOf<CommonMethod, String>()
 
-    private fun memoizeLambdaCaptures(method: JIRMethod) {
-        for (inst in method.instList) {
-            if (inst.isLambdaCreation()) {
-                val call = inst as? JIRCallInst
-                if (call == null) {
-                    logger.error { "Lambda created on non-call instruction! $inst" }
-                    return
-                }
+    private val varargArrays = hashMapOf<CommonMethod, Set<CommonValue>>()
+    private val markedVararg = hashMapOf<CommonValue, HashSet<TraceEdge>>()
 
-                val expr = call.callExpr
-                // skip `this` as the first argument as it is not used in lambda's call
-                val captureStart = if (expr.args.isNotEmpty() && expr.args[0] is JIRThis) 1 else 0
-                val lambdaCapture = expr.args.drop(captureStart).map { param ->
-                    traits.getReadableValue(call, param) ?: badOutput("unresolved lambda capture")
-                }
-                val artificialClassName = expr.method.enclosingType.typeName
-                if (lambdaCapturedVars.containsKey(artificialClassName)) {
-                    if (lambdaCapturedVars[artificialClassName] != lambdaCapture) {
-                        logger.error { "Lambda is re-created with different values captured! $artificialClassName" }
-                    }
-                }
-                lambdaCapturedVars[artificialClassName] = lambdaCapture
+    private fun JIRCallExpr.isVararg(): Boolean =
+        method.method.access and Opcodes.ACC_VARARGS != 0
+
+    private fun JIRInst.getCallVararg(): CommonValue? {
+        val call = (traits.getCallExpr(this) as JIRCallExpr?) ?: return null
+        if (!call.isVararg() || call.args.isEmpty()) return null
+        return call.args.last()
+    }
+
+    private fun JIRInst.getVarargMarks(): List<TraceEdge> {
+        val vararg = getCallVararg() ?: return emptyList()
+        return markedVararg.getOrDefault(vararg, hashSetOf()).toList()
+    }
+
+    private fun memoizeLambdaCapture(inst: JIRInst) {
+        val call = inst as? JIRCallInst
+        if (call == null) {
+            logger.error { "Lambda created on non-call instruction! $inst" }
+            return
+        }
+
+        val expr = call.callExpr
+        // skip `this` as the first argument as it is not used in lambda's call
+        val captureStart = if (expr.args.isNotEmpty() && expr.args[0] is JIRThis) 1 else 0
+        val lambdaCapture = expr.args.drop(captureStart).map { param ->
+            traits.getReadableValue(call, param) ?: badOutput("unresolved lambda capture")
+        }
+        val artificialClassName = expr.method.enclosingType.typeName
+        if (lambdaCapturedVars.containsKey(artificialClassName)) {
+            if (lambdaCapturedVars[artificialClassName] != lambdaCapture) {
+                logger.error { "Lambda is re-created with different values captured! $artificialClassName" }
             }
         }
+        lambdaCapturedVars[artificialClassName] = lambdaCapture
+    }
+
+    private fun memoizeMethod(method: JIRMethod) {
+        val varargs = hashSetOf<JIRValue>()
+        for (inst in method.instList) {
+            if (inst.isLambdaCreation()) {
+                memoizeLambdaCapture(inst)
+            }
+            inst.getCallVararg()?.let { varargs.add(it as JIRValue) }
+        }
+        varargArrays[method] = varargs
     }
 
     init {
@@ -75,7 +106,7 @@ class TraceMessageBuilder(
                 continue
             }
             if (memoizedMethods.add(method)) {
-                memoizeLambdaCaptures(method)
+                memoizeMethod(method)
             }
             if (node.isLambdaEntry()) {
                 val artificialMethod = fullPath.getOrNull(idx - 1)?.getMethod() as? JIRMethod
@@ -328,10 +359,19 @@ class TraceMessageBuilder(
             else -> emptyList()
         }
 
-    private fun TraceEntry?.collectStarts() =
-        if (this != null && this !is TraceEntry.SourceStartEntry) {
-            mapToTaintInfos(relevantEdges()).distinct()
-        } else emptyList()
+    private fun TraceEntry?.collectStarts(): List<TaintInfo> {
+        if (this == null) return emptyList()
+        val inst = statement as JIRInst
+        val taints = inst.getVarargMarks().toMutableList()
+        if (this !is TraceEntry.SourceStartEntry) {
+            taints += relevantEdges()
+        }
+        val varargVarIndex = (inst.getCallVararg() as? JIRLocalVar)?.index ?: -1
+        val filterVarargVar = mapToTaintInfos(taints).filterNot {
+            it.pos is AccessPathBase.LocalVar && it.pos.idx == varargVarIndex
+        }
+        return filterVarargVar.distinct()
+    }
 
     private fun TraceEntry?.collectFollows() =
         when (this) {
@@ -443,6 +483,23 @@ class TraceMessageBuilder(
         return kind
     }
 
+    private fun JIRInst.getLhvArray(): JIRValue? {
+        if (this !is JIRAssignInst) return null
+        val access = this.lhv
+        if (access !is JIRArrayAccess) return null
+        return access.array
+    }
+
+    private fun TraceEntryAction.Sequential.isVarargAssign(node: TracePathNode): Boolean {
+        val stmt = node.statement as JIRInst
+        val varargs = varargArrays[stmt.location.method] ?: return false
+        val array = stmt.getLhvArray() ?: return false
+        return varargs.contains(array)
+    }
+
+    private fun TraceEntryAction.Sequential.isSameAssign(): Boolean =
+        edgesAfter == edges
+
     private fun TraceEntryAction.Sequential.isAssignReturn(): Boolean =
         edgesAfter.size == 1 && edgesAfter.first().fact.base == AccessPathBase.Return
 
@@ -498,6 +555,16 @@ class TraceMessageBuilder(
                 is TraceEntry.Action -> {
                     val primary = entry.primaryAction
                     if (primary is TraceEntryAction.Sequential) {
+                        if (primary.isVarargAssign(trace)) {
+                            if (!primary.isSameAssign()) {
+                                val array = (trace.statement as JIRInst).getLhvArray()
+                                if (array != null) {
+                                    markedVararg.getOrPut(array, ::hashSetOf).addAll(primary.edges)
+                                }
+                            }
+                            continue
+                        }
+
                         curList.add(trace)
                         if (entry.otherActions.isEmpty() && primary.isAssignReturn()) {
                             addToPrevList()
@@ -570,11 +637,11 @@ class TraceMessageBuilder(
                 isReassignReturn(printableGroup) -> {
                     val groupKind = getGroupKind(printableGroup)
                     val msg = createReturnAssignMessage(printableGroup[0], printableGroup[1])
-                    TracePathNodeWithMsg(printableGroup[1], groupKind, msg)
+                    TracePathNodeWithMsg(printableGroup[1], groupKind, msg, false)
                 }
                 printableGroup.size == 1 -> {
                     val node = printableGroup.first()
-                    TracePathNodeWithMsg(node, getSarifKind(node), createTraceEntryMessage(node))
+                    TracePathNodeWithMsg(node, getSarifKind(node), createTraceEntryMessage(node), false)
                 }
                 else -> {
                     val groupKind = getGroupKind(printableGroup)
@@ -587,7 +654,7 @@ class TraceMessageBuilder(
                         TaintsWithOwner(lastNode, follows),
                         printableGroup.any { it.kind == TracePathNodeKind.SOURCE },
                     )
-                    TracePathNodeWithMsg(lastNode, groupKind, message)
+                    TracePathNodeWithMsg(lastNode, groupKind, message, true)
                 }
             }
         }

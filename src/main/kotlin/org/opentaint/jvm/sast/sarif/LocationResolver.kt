@@ -10,6 +10,7 @@ import io.github.detekt.sarif4k.ThreadFlowLocation
 import mu.KLogging
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
+import org.opentaint.dataflow.jvm.util.JIRSarifTraits
 import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.dataflow.util.SarifTraits
 import org.opentaint.ir.api.common.CommonMethod
@@ -47,13 +48,14 @@ data class IntermediateLocation(
     val kind: String,
     val message: String?,
     val span: LocationSpan? = null,
+    val node: TracePathNode? = null,
 )
 
 class LocationResolver(
     private val sourceFileResolver: SourceFileResolver<CommonInst>,
     private val traits: SarifTraits<CommonMethod, CommonInst>
 ) {
-    private val spanResolver = JavaAstSpanResolver()
+    private val spanResolver = JavaAstSpanResolver(traits as JIRSarifTraits)
 
     fun resolve(locations: List<IntermediateLocation>): List<ThreadFlowLocation> {
         var currentIdx = 0
@@ -252,9 +254,9 @@ class LocationResolver(
         location.info.fullyQualified.split('#').firstOrNull()?.replace('.', '/')
             ?: "<#[unresolved]#>"
 
-    private fun computeSpan(inst: CommonInst, lineNumber: Int, sourceFile: Path): LocationSpan? {
-        if (inst !is JIRInst) return null
-        return spanResolver.computeSpan(sourceFile, lineNumber, inst)
+    private fun computeSpan(location: IntermediateLocation, sourceFile: Path): LocationSpan? {
+        if (location.inst !is JIRInst) return null
+        return spanResolver.computeSpan(sourceFile, location.info.lineNumber, location.inst, location.node)
     }
 
     private fun generateSarifLocation(
@@ -262,7 +264,7 @@ class LocationResolver(
         sourceFile: Path?
     ): Location {
         val span = location.span ?: sourceFile?.let { src ->
-            computeSpan(location.inst, location.info.lineNumber, src)
+            computeSpan(location, src)
         }
         val region = if (span != null) {
             Region(
