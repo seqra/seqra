@@ -32,4 +32,4 @@ const val ReactorFlux = "reactor.core.publisher.Flux"
 const val JakartaConstraint = "jakarta.validation.Constraint"
 const val JakartaValid = "jakarta.validation.Valid"
 
-const val SpringRepository = "org.springframework.data.repository.Repository"
+const val SpringRepository = "$SpringPackage.data.repository.Repository"
