@@ -234,22 +234,7 @@ class SarifGenerator(
         val groupsWithMsges = messageBuilder.createGroupTraceMessages(filteredGroups)
         val flowLocations = groupsWithMsges.map { groupNode ->
             val inst = groupNode.node.statement
-            val rewriteLine =
-                if (groupNode.node.isRewriteAllowed(messageBuilder)) {
-                    // this is an attempt to highlight the method signature instead of its first bytecode instruction
-                    // for the MethodEntry traces
-                    // will be wrong if the source has extra lines between method declaration and its body
-                    // (i.e. blank lines, extra parameter indentation, or comments)
-                    val firstLine = (groupNode.node.statement.location.method as JIRMethod).getFirstLine()
-                    if (firstLine == null) {
-                        logger.warn { "Could not find first raw line number for method ${inst.location.method.name}!" }
-                        traits.lineNumber(inst)
-                    }
-                    else {
-                        firstLine - 1
-                    }
-                }
-                else null
+            val rewriteLine = groupNode.node.isRewriteAllowed(messageBuilder)
 
             IntermediateLocation(
                 inst = inst,
@@ -263,12 +248,12 @@ class SarifGenerator(
         return ThreadFlow(locations = locationResolver.resolve(flowLocations))
     }
 
-    private fun getInstructionInfo(statement: CommonInst, rewriteLine: Int? = null): InstructionInfo = with(traits) {
+    private fun getInstructionInfo(statement: CommonInst, rewriteLine: Boolean = false): InstructionInfo = with(traits) {
         InstructionInfo(
             fullyQualified = locationFQN(statement),
             machineName = locationMachineName(statement),
-            lineNumber = rewriteLine ?: lineNumber(statement),
-            noExtraResolve = rewriteLine != null
+            lineNumber = lineNumber(statement),
+            noExtraResolve = rewriteLine
         )
     }
 

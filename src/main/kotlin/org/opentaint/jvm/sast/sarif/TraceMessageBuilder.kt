@@ -39,6 +39,19 @@ data class TracePathNodeWithMsg(
     val isMultiple: Boolean,
 )
 
+fun TraceEntry?.isPureEntryPoint() =
+    when (this) {
+        is TraceEntry.SourceStartEntry -> {
+            (sourcePrimaryAction == null && sourceOtherActions.all { it is TraceEntryAction.EntryPointSourceRule })
+        }
+
+        is TraceEntry.Action -> {
+            (primaryAction == null && otherActions.all { it is TraceEntryAction.EntryPointSourceRule })
+        }
+
+        else -> false
+    }
+
 class TraceMessageBuilder(
     private val traits: SarifTraits<CommonMethod, CommonInst>,
     private val sinkMessage: String,
@@ -258,19 +271,6 @@ class TraceMessageBuilder(
         if (locationMethod is SpringGeneratedMethod) return true
         return false
     }
-
-    fun TraceEntry?.isPureEntryPoint() =
-        when (this) {
-            is TraceEntry.SourceStartEntry -> {
-                (sourcePrimaryAction == null && sourceOtherActions.all { it is TraceEntryAction.EntryPointSourceRule })
-            }
-
-            is TraceEntry.Action -> {
-                (primaryAction == null && otherActions.all { it is TraceEntryAction.EntryPointSourceRule })
-            }
-
-            else -> false
-        }
 
     private fun createEntryMessage(node: TracePathNode) =
         "Inside of ${getMethodCalleeNameInPrint(node)}"
