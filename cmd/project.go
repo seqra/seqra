@@ -130,7 +130,7 @@ func (c *JavaAutobuilderConfig) runAutobuilder() error {
 	if _, err = os.Stat(autobuilderJarPath); errors.Is(err, os.ErrNotExist) {
 		logrus.Info()
 		logrus.Infof("Downloading autobuilder version %s", globals.Config.Autobuilder.Version)
-		if err = utils.DownloadGithubReleaseAsset(globals.GetRepoOwner(), globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token); err != nil {
+		if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token); err != nil {
 			return fmt.Errorf("failed to download autobuilder: %w", err)
 		}
 		logrus.Infof("Successfully downloaded autobuilder to %s", autobuilderJarPath)
