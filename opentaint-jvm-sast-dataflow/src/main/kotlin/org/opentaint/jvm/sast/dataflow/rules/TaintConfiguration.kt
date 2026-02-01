@@ -55,6 +55,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationConstraint
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationParamMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFieldRule
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFunctionNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.ClassPattern
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Pattern
@@ -211,6 +212,7 @@ class TaintConfiguration(cp: JIRClasspath) {
             val rules = mutableListOf<S>()
             storage().findRules(rules, method)
 
+            rules.removeAll { !it.function.matchFunctionName(method) }
             rules.removeAll { it.signature?.matchFunctionSignature(method) == false }
 
             return rules.flatMap { resolveItem(it, method) }
@@ -230,6 +232,23 @@ class TaintConfiguration(cp: JIRClasspath) {
         is SerializedNameMatcher.Array -> {
             val nameWithoutArrayModifier = name.removeSuffix("[]")
             name != nameWithoutArrayModifier && element.match(nameWithoutArrayModifier)
+        }
+    }
+
+    private fun SerializedFunctionNameMatcher.matchFunctionName(method: JIRMethod): Boolean {
+        if (!method.isConstructor && !method.isFinal && !method.isStatic) {
+            // storage().findRules is ok
+            return true
+        }
+
+        // method name matches, but class name may be not
+        val classMatcher = ClassPattern(`package`, `class`)
+        if (classMatcher.match(method.enclosingClass.name)) return true
+
+        if (method.isStatic) return false
+
+        return method.enclosingClass.allSuperHierarchySequence.any {
+            classMatcher.match(it.name)
         }
     }
 
@@ -609,6 +628,8 @@ class TaintConfiguration(cp: JIRClasspath) {
         val position = pos.resolve(method, ctx)
         if (position.isEmpty()) return mkFalse()
 
+        val falsePositions = hashSetOf<Position>()
+
         val normalizedTypeIs = typeIs.normalizeAnyName()
         for (pos in position) {
             val posTypeName = when (pos) {
@@ -625,13 +646,18 @@ class TaintConfiguration(cp: JIRClasspath) {
                 if (method.enclosingClass.allSuperHierarchySequence.any { normalizedTypeIs.match(it.name) }) {
                     return mkTrue()
                 }
+
+                if (method.isConstructor || method.isFinal) {
+                    falsePositions.add(pos)
+                }
             }
         }
 
         val matcher = normalizedTypeIs.toConditionNameMatcher(patternManager)
             ?: return mkTrue()
 
-        return mkOr(position.map { TypeMatchesPattern(it, matcher) })
+        val nonFalsePositions = position.filter { it !in falsePositions }
+        return mkOr(nonFalsePositions.map { TypeMatchesPattern(it, matcher) })
     }
 
     private fun SerializedTaintAssignAction.resolveWithArray(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignMark> =
