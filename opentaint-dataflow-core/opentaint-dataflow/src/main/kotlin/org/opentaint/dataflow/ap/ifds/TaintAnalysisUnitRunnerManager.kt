@@ -202,6 +202,8 @@ class TaintAnalysisUnitRunnerManager(
             override fun createUnprocessed(item: TaintVulnerability) =
                 VulnerabilityWithTrace(item, trace = null)
 
+            private var prevStats: MethodStats? = null
+
             override fun reportStats() {
                 logger.info { reportMemoryUsage() }
 
@@ -209,9 +211,19 @@ class TaintAnalysisUnitRunnerManager(
                     val methodStats = collectMethodStats()
                     val mostTRMethods = methodStats.stats.values.sortedByDescending { it.traceResolverSteps }
 
+                    val delta = prevStats?.let { methodStats.subtract(it) }
+                    val mostTrDelta = delta?.let { d -> d.stats.values.sortedByDescending { it.traceResolverSteps } }
+
+                    prevStats = methodStats
+
                     buildString {
                         appendLine("Steps")
                         mostTRMethods.take(5).forEach { appendLine(it) }
+
+                        if (mostTrDelta != null) {
+                            appendLine("Delta")
+                            mostTrDelta.take(5).forEach { appendLine(it) }
+                        }
                     }
                 }
             }
