@@ -120,12 +120,6 @@ class JIRSourceFileResolver(
         return sourceFilesWithCorrectPackage[0]
     }
 
-    private data class ClassSourceResolveQuery(
-        val cls: JIRClassOrInterface,
-        val simpleName: String,
-        val isKotlin: Boolean,
-    )
-
     override fun resolveByInst(inst: CommonInst): Path? {
         check(inst is JIRInst) { "Expected inst to be JIRInst" }
         val instLocationCls = inst.location.method.enclosingClass
@@ -137,16 +131,33 @@ class JIRSourceFileResolver(
 
         val mostOuterCls = instLocationCls.mostOuterClass()
 
-        val queries = setOf(
-            ClassSourceResolveQuery(instLocationCls, instLocationCls.simpleName, isKotlin = false),
-            ClassSourceResolveQuery(instLocationCls, instLocationCls.simpleName, isKotlin = true),
-            ClassSourceResolveQuery(instLocationCls, instLocationCls.simpleName.removeSuffix("Kt"), isKotlin = true),
-            ClassSourceResolveQuery(mostOuterCls, mostOuterCls.simpleName, isKotlin = false),
-            ClassSourceResolveQuery(mostOuterCls, mostOuterCls.simpleName, isKotlin = true),
-            ClassSourceResolveQuery(mostOuterCls, mostOuterCls.simpleName.removeSuffix("Kt"), isKotlin = true)
+        val outerClsPath = sources.tryResolveSourceFileQuery(
+            mostOuterCls.simpleName, mostOuterCls, isKotlin = false
         )
+        val sourceLocations = when (outerClsPath.size) {
+            1 -> outerClsPath
+            0 -> {
+                val kotlinClsPath = sources.tryResolveSourceFileQuery(
+                    mostOuterCls.simpleName, mostOuterCls, isKotlin = true
+                )
 
-        val sourceLocations = queries.flatMap { tryResolveSourceFileQuery(sources, it) }
+                when (kotlinClsPath.size) {
+                    0 -> sources.tryResolveSourceFileQuery(
+                        mostOuterCls.simpleName.removeSuffix("Kt"), mostOuterCls, isKotlin = true
+                    )
+
+                    else -> kotlinClsPath
+                }
+            }
+
+            else -> {
+                val innerClassFiles = sources.tryResolveSourceFileQuery(
+                    instLocationCls.simpleName, instLocationCls, isKotlin = false
+                )
+                val intersect = innerClassFiles.filter { it in outerClsPath }
+                if (intersect.isEmpty()) outerClsPath else intersect
+            }
+        }
 
         if (sourceLocations.isEmpty()) {
             logger.warn { "Source file was not resolved for: ${instLocationCls.name}" }
@@ -160,14 +171,18 @@ class JIRSourceFileResolver(
         return sourceLocations.firstOrNull()
     }
 
-    private fun tryResolveSourceFileQuery(sources: SourceLocations, query: ClassSourceResolveQuery): List<Path> {
-        val paths = if (!query.isKotlin) {
-            sources.javaLocations[query.simpleName]
+    private fun SourceLocations.tryResolveSourceFileQuery(
+        className: String,
+        cls: JIRClassOrInterface,
+        isKotlin: Boolean
+    ): List<Path> {
+        val paths = if (!isKotlin) {
+            javaLocations[className]
         } else {
-            sources.kotlinLocations[query.simpleName]
+            kotlinLocations[className]
         }
 
-        return paths?.filter { packageMatches(it, query.cls) }.orEmpty()
+        return paths?.filter { packageMatches(it, cls) }.orEmpty()
     }
 
     private fun packageMatches(sourceFile: Path, cls: JIRClassOrInterface) =

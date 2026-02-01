@@ -213,8 +213,11 @@ class TestProjectAnalyzer(
 
     private fun ProjectAnalysisContext.generateSarif(traces: List<VulnerabilityWithTrace>) {
         val sourcesResolver = project.sourceResolver(projectClasses)
-        val generator = SarifGenerator(sourcesResolver, JIRSarifTraits(cp))
-        (resultDir / "report-ifds.sarif").outputStream().use { out ->
+        val generator = SarifGenerator(
+            options.sarifGenerationOptions, project.sourceRoot,
+            sourcesResolver, JIRSarifTraits(cp)
+        )
+        (resultDir / options.sarifGenerationOptions.sarifFileName).outputStream().use { out ->
             generator.generateSarif(out, traces.asSequence(), loadedRules.rulesWithMeta.map { it.second })
         }
     }

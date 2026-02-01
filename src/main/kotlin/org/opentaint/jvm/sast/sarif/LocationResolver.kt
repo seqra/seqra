@@ -25,6 +25,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRRawLineNumberInst
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualClass
 import org.opentaint.jvm.sast.ast.JavaAstSpanResolver
 import org.opentaint.jvm.sast.mostOuterClass
+import org.opentaint.jvm.sast.project.SarifGenerationOptions
 import org.opentaint.jvm.sast.util.DebugInfo
 import org.opentaint.jvm.sast.util.DebugInfoParser
 import org.opentaint.jvm.sast.util.SourcePosition
@@ -284,7 +285,10 @@ class LocationResolver(
 
         return Location(
             physicalLocation = PhysicalLocation(
-                artifactLocation = ArtifactLocation(uri = fileLocation),
+                artifactLocation = ArtifactLocation(
+                    uri = fileLocation,
+                    uriBaseID = SarifGenerationOptions.LOCATION_URI
+                ),
                 region = region
             ),
             logicalLocations = listOf(

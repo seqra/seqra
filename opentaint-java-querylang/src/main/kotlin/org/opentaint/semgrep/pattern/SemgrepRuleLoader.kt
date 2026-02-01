@@ -22,8 +22,8 @@ import java.nio.file.Path
 import kotlin.io.path.Path
 
 data class RuleMetadata(
-    val path: String,
     val ruleId: String,
+    val shortRuleId: String,
     val message: String,
     val severity: Severity,
     val metadata: YamlMap?

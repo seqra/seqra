@@ -10,9 +10,11 @@ import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.dataflow.util.SarifTraits
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.jvm.sast.project.SarifGenerationOptions
 import java.io.OutputStream
 
 class DebugFactReachabilitySarifGenerator(
+    private val options: SarifGenerationOptions,
     sourceFileResolver: SourceFileResolver<CommonInst>,
     private val traits: SarifTraits<CommonMethod, CommonInst>,
 ) {
@@ -37,7 +39,7 @@ class DebugFactReachabilitySarifGenerator(
         }
 
         val run = LazyToolRunReport(
-            tool = generateSarifAnalyzerToolDescription(metadatas = emptyList()),
+            tool = generateSarifAnalyzerToolDescription(metadatas = emptyList(), options),
             results = results,
         )
 

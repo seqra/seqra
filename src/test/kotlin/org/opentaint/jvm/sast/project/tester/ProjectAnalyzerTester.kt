@@ -37,6 +37,7 @@ import org.opentaint.jvm.sast.dataflow.rules.TaintConfiguration
 import org.opentaint.jvm.sast.project.ProjectAnalysisContext
 import org.opentaint.jvm.sast.project.ProjectAnalysisOptions
 import org.opentaint.jvm.sast.project.ProjectKind
+import org.opentaint.jvm.sast.project.SarifGenerationOptions
 import org.opentaint.jvm.sast.project.initializeProjectAnalysisContext
 import org.opentaint.jvm.sast.project.selectProjectEntryPoints
 import org.opentaint.jvm.sast.util.loadDefaultConfig
@@ -60,7 +61,8 @@ fun testProjectAnalyzerOnTraces(
         testDataJsonPath.readText()
     )
 
-    val options = ProjectAnalysisOptions(projectKind = projectKind)
+    val sarifOptions = SarifGenerationOptions()
+    val options = ProjectAnalysisOptions(projectKind = projectKind, sarifGenerationOptions = sarifOptions)
     val analysisContext = initializeProjectAnalysisContext(project, options)
 
     val mainConfig = JIRTaintRulesProvider(

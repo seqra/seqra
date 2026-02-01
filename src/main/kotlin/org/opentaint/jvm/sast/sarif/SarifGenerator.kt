@@ -1,5 +1,6 @@
 package org.opentaint.jvm.sast.sarif
 
+import io.github.detekt.sarif4k.ArtifactLocation
 import io.github.detekt.sarif4k.CodeFlow
 import io.github.detekt.sarif4k.Level
 import io.github.detekt.sarif4k.Location
@@ -26,11 +27,16 @@ import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import org.opentaint.ir.api.jvm.cfg.JIRRawLineNumberInst
 import org.opentaint.ir.api.jvm.cfg.JIRRef
 import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.jvm.sast.project.SarifGenerationOptions
 import org.opentaint.jvm.sast.project.spring.annotateSarifWithSpringRelatedInformation
 import org.opentaint.semgrep.pattern.RuleMetadata
 import java.io.OutputStream
+import java.nio.file.Path
+import kotlin.io.path.absolutePathString
 
 class SarifGenerator(
+    private val options: SarifGenerationOptions,
+    private val sourceRoot: Path?,
     sourceFileResolver: SourceFileResolver<CommonInst>,
     private val traits: SarifTraits<CommonMethod, CommonInst>
 ) {
@@ -56,8 +62,14 @@ class SarifGenerator(
         metadatas: List<RuleMetadata>
     ) {
         val sarifResults = traces.map { generateSarifResult(it.vulnerability, it.trace) }
+        val sourceUri = sourceRoot?.let {
+            val loc = ArtifactLocation(uri = it.absolutePathString())
+            mapOf(SarifGenerationOptions.LOCATION_URI to loc)
+        }
+
         val run = LazyToolRunReport(
-            tool = generateSarifAnalyzerToolDescription(metadatas),
+            tool = generateSarifAnalyzerToolDescription(metadatas, options),
+            originalURIBaseIDS = sourceUri,
             results = sarifResults,
         )
 
@@ -83,7 +95,7 @@ class SarifGenerator(
         val codeFlow = generateCodeFlow(trace, vulnerabilityRule.meta.message)
 
         var result = Result(
-            ruleID = ruleId,
+            ruleID = options.formatRuleId(ruleId),
             message = ruleMessage,
             level = level,
             locations = listOfNotNull(sinkLocation),
@@ -122,7 +134,13 @@ class SarifGenerator(
         }
 
         val threadFlows = paths.map { generateThreadFlow(it, sinkMessage) }
-        return CodeFlow(threadFlows = threadFlows)
+
+        var limitedThreadFlow = threadFlows
+        if (options.sarifThreadFlowLimit != null) {
+            limitedThreadFlow = limitedThreadFlow.take(options.sarifThreadFlowLimit)
+        }
+
+        return CodeFlow(threadFlows = limitedThreadFlow)
     }
 
     private fun areTracesRelative(a: TracePathNode, b: TracePathNode): Boolean {

@@ -155,13 +155,7 @@ tasks.withType<ProcessResources> {
 
 fun analyzerEnvironment(): Map<String, Any> {
     val analyzerEnv = mutableMapOf<String, Any>()
-
-    val analyzerVersion = project.findProperty("analyzerVersion") ?: "latest"
-    analyzerEnv["SARIF_ORGANIZATION"] = "Opentaint"
-    analyzerEnv["SARIF_VERSION"] = "$analyzerVersion"
-
     setupOpentaintSeEnvironment(analyzerEnv)
-
     return analyzerEnv
 }
 

@@ -10,7 +10,6 @@ import kotlin.time.Duration
 data class ProjectAnalysisOptions(
     val customConfig: Path? = null,
     val semgrepRuleSet: List<Path> = emptyList(),
-    val semgrepRuleLoadErrors: Path? = null,
     val semgrepRuleLoadTrace: Path? = null,
     val semgrepSeverity: List<Severity> = emptyList(),
     val cwe: List<Int> = emptyList(),
@@ -21,6 +20,7 @@ data class ProjectAnalysisOptions(
     val projectKind: ProjectKind = ProjectKind.UNKNOWN,
     val storeSummaries: Boolean = false,
     val debugOptions: DebugOptions? = null,
+    val sarifGenerationOptions: SarifGenerationOptions
 ) {
     val summariesApMode get() = ifdsApMode.takeIf { storeSummaries }
 

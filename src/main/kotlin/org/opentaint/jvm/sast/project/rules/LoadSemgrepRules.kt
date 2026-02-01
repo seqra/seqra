@@ -5,7 +5,6 @@ import kotlinx.serialization.json.Json
 import mu.KLogging
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
 import org.opentaint.jvm.sast.project.ProjectAnalysisOptions
-import org.opentaint.org.opentaint.semgrep.pattern.convertToOldErrorsFormat
 import org.opentaint.semgrep.pattern.SemgrepLoadTrace
 import org.opentaint.semgrep.pattern.SemgrepRuleLoader
 import java.nio.file.Path
@@ -33,22 +32,6 @@ fun ProjectAnalysisOptions.loadSemgrepRules(): SemgrepRuleLoader.RuleLoadResult 
             logger.info { "Wrote semgrep load trace to $traceFile" }
         }.onFailure { ex ->
             logger.error(ex) { "Failed to write semgrep load trace to $traceFile: ${ex.message}" }
-        }
-    }
-
-    // todo: remove after opentaint-cli update
-    semgrepRuleLoadErrors?.let { traceFile ->
-        runCatching {
-            val oldErrorsFormat = compressedTrace.convertToOldErrorsFormat()
-            val prettyJson = Json {
-                prettyPrint = true
-            }
-            traceFile.outputStream().bufferedWriter().use { writer ->
-                writer.write(prettyJson.encodeToString(oldErrorsFormat))
-            }
-            logger.info { "Wrote semgrep load errors to $traceFile" }
-        }.onFailure { ex ->
-            logger.error(ex) { "Failed to write semgrep load errors to $traceFile: ${ex.message}" }
         }
     }
 

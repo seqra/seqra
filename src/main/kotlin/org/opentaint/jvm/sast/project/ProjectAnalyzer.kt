@@ -93,7 +93,7 @@ class ProjectAnalyzer(
             val traces = analyzer.analyzeWithIfds(entryPoints)
             logger.info { "Finish IFDS analysis for project: ${project.sourceRoot}" }
 
-            (resultDir / "report-ifds.sarif").outputStream().use {
+            (resultDir / options.sarifGenerationOptions.sarifFileName).outputStream().use {
                 generateSarifReportFromTraces(it, sourcesResolver, traces)
             }
 
@@ -131,7 +131,10 @@ class ProjectAnalyzer(
         sourceFileResolver: SourceFileResolver<CommonInst>,
         traces: List<VulnerabilityWithTrace>
     ) {
-        val generator = SarifGenerator(sourceFileResolver, JIRSarifTraits(cp))
+        val generator = SarifGenerator(
+            options.sarifGenerationOptions, project.sourceRoot,
+            sourceFileResolver, JIRSarifTraits(cp)
+        )
         generator.generateSarif(output, traces.asSequence(), ruleMetadatas)
         logger.info { "Sarif trace generation stats: ${generator.traceGenerationStats}" }
     }
@@ -141,7 +144,10 @@ class ProjectAnalyzer(
         sourceFileResolver: SourceFileResolver<CommonInst>,
         reachableFacts: Map<CommonInst, Set<FinalFactAp>>,
     ) {
-        val generator = DebugFactReachabilitySarifGenerator(sourceFileResolver, JIRSarifTraits(cp))
+        val generator = DebugFactReachabilitySarifGenerator(
+            options.sarifGenerationOptions,
+            sourceFileResolver, JIRSarifTraits(cp)
+        )
         generator.generateSarif(output, reachableFacts)
     }
 
