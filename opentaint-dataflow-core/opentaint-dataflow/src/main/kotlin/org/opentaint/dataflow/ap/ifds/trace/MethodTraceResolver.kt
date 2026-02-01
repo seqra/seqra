@@ -810,14 +810,39 @@ class MethodTraceResolver(
         statement: CommonInst
     ) {
         for (sequent in actionsCombination) {
-            if (sequent.primary == null && sequent.other.isEmpty()) {
-                addPredecessor(entry, TraceEntry.Unchanged(sequent.unchanged, statement))
-                continue
+            if (sequent.other.isEmpty()) {
+                if (sequent.primary == null) {
+                    addPredecessor(entry, TraceEntry.Unchanged(sequent.unchanged, statement))
+                    continue
+                }
+
+                val primaryUnchanged = sequent.primary.canBeTreatedAsUnchanged()
+                if (primaryUnchanged != null) {
+                    addPredecessor(entry, TraceEntry.Unchanged(sequent.unchanged + primaryUnchanged, statement))
+                    continue
+                }
             }
 
             val action = TraceEntry.Action(sequent.primary, sequent.other, sequent.unchanged, statement)
             addPredecessorAction(entry, action)
         }
+    }
+
+    private fun PrimaryAction.canBeTreatedAsUnchanged(): Set<TraceEdge>? {
+        if (this !is TraceEntryAction.PassAction) return null
+        if (this !is CallSummary && this !is TraceEntryAction.Sequential) return null
+
+        if (edges.size != 1) return null
+
+        val edge = edges.first()
+
+        // note: for now we drop calls only with single mark on a static field
+        if (edge.fact.base !is AccessPathBase.ClassStatic) return null
+
+        val after = edgesAfter.singleOrNull() ?: return null
+        if (edge != after) return null
+
+        return setOf(edge)
     }
 
     private fun List<List<ActionOrUnchanged<*>>>.allUnchanged(): Set<TraceEdge>? {
