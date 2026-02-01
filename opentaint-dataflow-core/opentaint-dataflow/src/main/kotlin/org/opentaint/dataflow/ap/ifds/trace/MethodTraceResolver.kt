@@ -76,7 +76,6 @@ class MethodTraceResolver(
         SummaryTrace, // Trace summarizes method behaviour
     }
 
-    @Suppress("EqualsOrHashCode")
     data class FullTrace(
         val method: MethodEntryPoint,
         val startEntry: TraceEntry.StartTraceEntry,
@@ -85,6 +84,17 @@ class MethodTraceResolver(
         val traceKind: TraceKind,
     ) {
         override fun hashCode(): Int = Objects.hash(method, final)
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is FullTrace) return false
+
+            // note: FullTrace is uniquely defined by its start end final entries
+            if (method != other.method) return false
+            if (traceKind != other.traceKind) return false
+            if (final != other.final) return false
+            return startEntry == other.startEntry
+        }
     }
 
     @Suppress("EqualsOrHashCode")
