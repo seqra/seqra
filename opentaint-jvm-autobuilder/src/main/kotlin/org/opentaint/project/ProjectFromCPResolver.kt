@@ -57,6 +57,8 @@ class ProjectFromCPResolver {
                     return listOf(path)
                 }
 
+                logger.info { "Start web archive unpacking: $path" }
+
                 val unpackDir = resolverWorkDir.resolve("unpack_${unpackId++}").createDirectories()
                 val classesDir = unpackDir.resolve("classes").createDirectories()
                 val libDir = unpackDir.resolve("lib").createDirectories()

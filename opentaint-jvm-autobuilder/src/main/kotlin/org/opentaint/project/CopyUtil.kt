@@ -15,6 +15,8 @@ private val logger = object : KLogging() {}.logger
 
 @OptIn(ExperimentalPathApi::class)
 fun Path.copyDirRecursivelyTo(dst: Path) {
+    logger.info { "Copy $this to $dst" }
+
     if (!copyTargetIsSubdirectory(dst)) {
         copyDirRecursively(this, dst)
         return

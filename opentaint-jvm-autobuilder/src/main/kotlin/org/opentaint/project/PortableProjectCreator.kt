@@ -64,6 +64,8 @@ class PortableProjectCreator(
     }
 
     fun create() {
+        logger.info { "Start portable project creation" }
+
         if (portableProjectPath.exists()) {
             if (!portableProjectPath.isDirectory() || portableProjectPath.isNotEmpty()) {
                 logger.error { "Portable project path exists" }
