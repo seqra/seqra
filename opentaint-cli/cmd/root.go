@@ -88,7 +88,7 @@ func init() {
 	_ = rootCmd.PersistentFlags().MarkHidden("github-token")
 	_ = viper.BindPFlag("github.token", rootCmd.PersistentFlags().Lookup("github-token"))
 
-	rootCmd.PersistentFlags().StringVar(&globals.Config.Owner, "owner", "", "Organization owner for GitHub repositories")
+	rootCmd.PersistentFlags().StringVar(&globals.Config.Owner, "owner", globals.RepoOwner, "Organization owner for GitHub repositories")
 	_ = rootCmd.PersistentFlags().MarkHidden("owner")
 	_ = viper.BindPFlag("owner", rootCmd.PersistentFlags().Lookup("owner"))
 }
