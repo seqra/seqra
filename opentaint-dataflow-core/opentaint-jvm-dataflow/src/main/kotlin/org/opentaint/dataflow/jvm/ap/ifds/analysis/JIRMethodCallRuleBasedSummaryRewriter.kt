@@ -8,6 +8,7 @@ import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
 import org.opentaint.dataflow.configuration.jvm.TaintMark
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionRewriter
+import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyCleanerActions
 import org.opentaint.dataflow.jvm.ap.ifds.taint.EvaluatedCleanAction
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FinalFactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintCleanActionEvaluator
@@ -71,23 +72,26 @@ class JIRMethodCallRuleBasedSummaryRewriter(
         result
     }
 
-    fun rewriteSummaryFact(fact: FinalFactAp): Pair<FinalFactAp, FinalFactReader>? {
+    fun rewriteSummaryFact(fact: FinalFactAp): List<Pair<FinalFactAp, FinalFactReader>> {
         val startFactReader = FinalFactReader(fact, apManager)
 
         val cleanEvaluator = TaintCleanActionEvaluator()
-        var cleanedFact = EvaluatedCleanAction.initial(startFactReader)
 
-        for (ruleDefinedAction in userRuleDefinedActions) {
-            val markToExclude = ruleDefinedAction.controlledMarks.map { TaintMark(it) }
-            for (mark in markToExclude) {
-                for (pos in ruleDefinedAction.positions) {
-                    val removeAction = RemoveMark(mark, pos)
-                    cleanedFact = cleanEvaluator.evaluate(cleanedFact, ruleDefinedAction.rule, removeAction)
+        val cleanedFact = userRuleDefinedActions.applyCleanerActions(
+            evaluator = cleanEvaluator,
+            itemRule = { it.rule },
+            itemActions = { ruleDefinedAction ->
+                val markToExclude = ruleDefinedAction.controlledMarks.map { TaintMark(it) }
+                markToExclude.flatMap { mark ->
+                    ruleDefinedAction.positions.map { RemoveMark(mark, it) }
                 }
-            }
-        }
+            },
+            initial = EvaluatedCleanAction.initial(startFactReader)
+        )
 
-        val resultFact = cleanedFact.fact ?: return null
-        return resultFact.factAp to resultFact
+        return cleanedFact.mapNotNull {
+            val resultFact = it.fact ?: return@mapNotNull null
+            resultFact.factAp to resultFact
+        }
     }
 }

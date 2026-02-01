@@ -61,7 +61,7 @@ interface MethodCallSummaryHandler {
         Sequent.FactToFact(initialFactAp.refine(initialFactRefinement), summaryFactAp, TraceInfo.ApplySummary)
     }
 
-    fun prepareFactToFactSummary(summaryEdge: Edge.FactToFact): Edge.FactToFact? = summaryEdge
+    fun prepareFactToFactSummary(summaryEdge: Edge.FactToFact): List<Edge.FactToFact> = listOf(summaryEdge)
 
     fun handleNDFactToFact(
         initialFacts: Set<InitialFactAp>,
@@ -88,7 +88,7 @@ interface MethodCallSummaryHandler {
         )
     }
 
-    fun prepareNDFactToFactSummary(summaryEdge: Edge.NDFactToFact): Edge.NDFactToFact? = summaryEdge
+    fun prepareNDFactToFactSummary(summaryEdge: Edge.NDFactToFact): List<Edge.NDFactToFact> = listOf(summaryEdge)
 
     fun InitialFactAp.refine(exclusionSet: ExclusionSet?) =
         if (exclusionSet == null) this else replaceExclusions(exclusionSet)

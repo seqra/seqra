@@ -54,24 +54,24 @@ class JIRMethodCallSummaryHandler(
         return result
     }
 
-    override fun prepareFactToFactSummary(summaryEdge: Edge.FactToFact): Edge.FactToFact? {
-        val (resultFact, refinement) = summaryRewriter.rewriteSummaryFact(summaryEdge.factAp) ?: return null
-        return Edge.FactToFact(
-            summaryEdge.methodEntryPoint,
-            refinement.refineFact(summaryEdge.initialFactAp),
-            summaryEdge.statement,
-            refinement.refineFact(resultFact)
-        )
-    }
+    override fun prepareFactToFactSummary(summaryEdge: Edge.FactToFact): List<Edge.FactToFact> =
+        summaryRewriter.rewriteSummaryFact(summaryEdge.factAp).map { (resultFact, refinement) ->
+            Edge.FactToFact(
+                summaryEdge.methodEntryPoint,
+                refinement.refineFact(summaryEdge.initialFactAp),
+                summaryEdge.statement,
+                refinement.refineFact(resultFact)
+            )
+        }
 
-    override fun prepareNDFactToFactSummary(summaryEdge: Edge.NDFactToFact): Edge.NDFactToFact? {
-        val (resultFact, refinement) = summaryRewriter.rewriteSummaryFact(summaryEdge.factAp) ?: return null
-        check(!refinement.hasRefinement) { "Can't refine NDF2F edge" }
-        return Edge.NDFactToFact(
-            summaryEdge.methodEntryPoint,
-            summaryEdge.initialFacts,
-            summaryEdge.statement,
-            resultFact,
-        )
-    }
+    override fun prepareNDFactToFactSummary(summaryEdge: Edge.NDFactToFact): List<Edge.NDFactToFact> =
+        summaryRewriter.rewriteSummaryFact(summaryEdge.factAp).map { (resultFact, refinement) ->
+            check(!refinement.hasRefinement) { "Can't refine NDF2F edge" }
+            Edge.NDFactToFact(
+                summaryEdge.methodEntryPoint,
+                summaryEdge.initialFacts,
+                summaryEdge.statement,
+                resultFact,
+            )
+        }
 }

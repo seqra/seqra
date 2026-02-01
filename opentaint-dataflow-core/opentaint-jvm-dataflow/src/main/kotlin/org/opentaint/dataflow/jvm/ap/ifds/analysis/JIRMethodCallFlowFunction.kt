@@ -42,6 +42,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintSourceActionEvaluator
 import org.opentaint.dataflow.jvm.util.callee
 import org.opentaint.dataflow.util.cartesianProductMapTo
+import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
@@ -272,7 +273,7 @@ class JIRMethodCallFlowFunction(
         val cleaner = TaintCleanActionEvaluator()
 
         val factReaderBeforeCleaner = FinalFactReader(callerFact, apManager)
-        val cleanerResult = applyCleaner(
+        val cleanerResults = applyCleaner(
             config,
             method,
             statement,
@@ -281,13 +282,37 @@ class JIRMethodCallFlowFunction(
             cleaner
         )
 
-        val factReaderAfterCleaner = cleanerResult.fact
-        if (factReaderAfterCleaner == null) {
-            val trace = cleanerResult.action?.let { TraceInfo.Rule(it.rule, it.action) }
-            addCallToReturnUnchecked(MethodCallFlowFunction.Drop(trace))
-            return
-        }
+        for (cleanerResult in cleanerResults) {
+            val factReaderAfterCleaner = cleanerResult.fact
+            if (factReaderAfterCleaner == null) {
+                val trace = cleanerResult.action?.let { TraceInfo.Rule(it.rule, it.action) }
+                addCallToReturnUnchecked(MethodCallFlowFunction.Drop(trace))
+                continue
+            }
 
+            propagateCleanedFact(
+                method,
+                factReaderAfterCleaner,
+                simpleConditionEvaluator,
+                originalFactReader,
+                conditionFactReader,
+                addCallToReturn,
+                startFactBase,
+                addCallToStart
+            )
+        }
+    }
+
+    private fun propagateCleanedFact(
+        method: JIRMethod,
+        factReaderAfterCleaner: FinalFactReader,
+        simpleConditionEvaluator: JIRSimpleFactAwareConditionEvaluator,
+        originalFactReader: FinalFactReader,
+        conditionFactReader: FinalFactReader,
+        addCallToReturn: (FinalFactReader, FinalFactAp, TraceInfo) -> Unit,
+        startFactBase: AccessPathBase,
+        addCallToStart: (factReader: FinalFactReader, callerFactAp: FinalFactAp, startFactBase: AccessPathBase, TraceInfo) -> Unit
+    ) {
         val typeResolver = JIRMethodPositionBaseTypeResolver(method)
         val passEvaluator = TaintPassActionEvaluator(
             apManager, analysisContext.factTypeChecker, factReaderAfterCleaner, typeResolver
@@ -307,20 +332,20 @@ class JIRMethodCallFlowFunction(
 
         passThroughFacts.onSome { evaluatedPass ->
             evaluatedPass.forEach { evp ->
-                val (unrefinedFact, factRefinement) = summaryRewriter.rewriteSummaryFact(evp.fact)
-                    ?: return@forEach
+                val rewrittenFacts = summaryRewriter.rewriteSummaryFact(evp.fact)
+                for ((unrefinedFact, factRefinement) in rewrittenFacts) {
+                    val fact = factRefinement.refineFact(unrefinedFact)
+                    factReaderAfterCleaner.updateRefinement(factRefinement)
 
-                val fact = factRefinement.refineFact(unrefinedFact)
-                factReaderAfterCleaner.updateRefinement(factRefinement)
+                    val mappedFact = fact.mapExitToReturnFact() ?: continue
 
-                val mappedFact = fact.mapExitToReturnFact() ?: return@forEach
+                    val trace = TraceInfo.Rule(evp.rule, evp.action)
 
-                val trace = TraceInfo.Rule(evp.rule, evp.action)
+                    addCallToReturn(factReaderAfterCleaner, mappedFact, trace)
 
-                addCallToReturn(factReaderAfterCleaner, mappedFact, trace)
-
-                analysisContext.aliasAnalysis?.forEachAliasAtStatement(statement, mappedFact) { aliased ->
-                    addCallToReturn(factReaderAfterCleaner, aliased, trace)
+                    analysisContext.aliasAnalysis?.forEachAliasAtStatement(statement, mappedFact) { aliased ->
+                        addCallToReturn(factReaderAfterCleaner, aliased, trace)
+                    }
                 }
             }
         }

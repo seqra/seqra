@@ -85,18 +85,67 @@ object TaintConfigUtils {
         initialFact: FinalFactReader,
         conditionEvaluator: ConditionEvaluator<Boolean>,
         taintActionEvaluator: TaintCleanActionEvaluator
-    ): EvaluatedCleanAction =
-        config.cleanerRulesForMethod(method, statement, initialFact.factAp)
+    ): List<EvaluatedCleanAction> {
+        val rules = config.cleanerRulesForMethod(method, statement, initialFact.factAp)
             .filter { conditionEvaluator.eval(it.condition) }
-            .fold(EvaluatedCleanAction.initial(initialFact)) { startFact, rule ->
-                rule.actionsAfter.fold(startFact) { fact, action ->
-                    when (action) {
-                        is RemoveMark -> taintActionEvaluator.evaluate(fact, rule, action)
-                        is RemoveAllMarks -> taintActionEvaluator.evaluate(fact, rule, action)
-                        else -> fact
-                    }
-                }
+
+        return rules.applyCleanerActions(
+            evaluator = taintActionEvaluator,
+            itemRule = { it },
+            itemActions = { it.actionsAfter },
+            initial = EvaluatedCleanAction.initial(initialFact)
+        )
+    }
+
+    inline fun <T> List<T>.applyCleanerActions(
+        evaluator: TaintCleanActionEvaluator,
+        itemRule: (T) -> TaintConfigurationItem,
+        itemActions: (T) -> List<Action>,
+        initial: EvaluatedCleanAction
+    ): List<EvaluatedCleanAction> {
+        val resultFacts = mutableListOf<EvaluatedCleanAction>()
+        var unprocessedFacts = listOf(initial)
+        for (item in this) {
+            if (unprocessedFacts.isEmpty()) continue
+
+            val rule = itemRule(item)
+            val actions = itemActions(item)
+            for (action in actions) {
+                if (unprocessedFacts.isEmpty()) continue
+
+                unprocessedFacts = unprocessedFacts.evaluatedCleanAction(evaluator, rule, action, resultFacts)
             }
+        }
+
+        resultFacts.addAll(unprocessedFacts)
+        return resultFacts
+    }
+
+    fun List<EvaluatedCleanAction>.evaluatedCleanAction(
+        evaluator: TaintCleanActionEvaluator,
+        rule: TaintConfigurationItem,
+        action: Action,
+        resultFacts: MutableList<EvaluatedCleanAction>
+    ): List<EvaluatedCleanAction> {
+        val nextIterationFacts = mutableListOf<EvaluatedCleanAction>()
+
+        for (fact in this) {
+            val updatedFacts = when (action) {
+                is RemoveMark -> evaluator.evaluate(fact, rule, action)
+                is RemoveAllMarks -> evaluator.evaluate(fact, rule, action)
+                else -> listOf(fact)
+            }
+
+            for (updatedFact in updatedFacts) {
+                if (updatedFact.fact == null) {
+                    resultFacts.add(updatedFact)
+                    continue
+                }
+                nextIterationFacts.add(updatedFact)
+            }
+        }
+        return nextIterationFacts
+    }
 
     inline fun <T : TaintConfigurationItem> List<T>.applyRuleWithAssumptions(
         apManager: ApManager,
