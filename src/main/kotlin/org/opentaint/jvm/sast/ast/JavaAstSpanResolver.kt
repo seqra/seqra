@@ -11,6 +11,7 @@ import org.antlr.v4.runtime.tree.TerminalNode
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
 import org.opentaint.dataflow.jvm.util.JIRSarifTraits
 import org.opentaint.dataflow.jvm.util.callee
+import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
@@ -19,6 +20,9 @@ import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRNewExpr
 import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
+import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.ir.api.jvm.ext.cfg.callExpr
+import org.opentaint.jvm.sast.sarif.IntermediateLocation
 import org.opentaint.jvm.sast.sarif.LocationSpan
 import org.opentaint.jvm.sast.sarif.TracePathNode
 import org.opentaint.jvm.sast.sarif.TracePathNodeKind
@@ -28,6 +32,7 @@ import org.opentaint.semgrep.pattern.antlr.JavaParser
 import org.opentaint.semgrep.pattern.antlr.JavaParser.BinaryOperatorExpressionContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.CompilationUnitContext
 import org.opentaint.semgrep.pattern.antlr.JavaParser.MemberReferenceExpressionContext
+import org.opentaint.semgrep.pattern.antlr.JavaParser.SquareBracketExpressionContext
 import org.opentaint.semgrep.pattern.antlr.JavaParserBaseVisitor
 import java.nio.file.Path
 import java.util.Optional
@@ -35,9 +40,9 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.jvm.optionals.getOrNull
 
 class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
-    fun computeSpan(sourceLocation: Path, targetLine: Int, inst: JIRInst, trace: TracePathNode?): LocationSpan? = runCatching {
+    fun computeSpan(sourceLocation: Path, location: IntermediateLocation): LocationSpan? = runCatching {
         val ast = getJavaAst(sourceLocation) ?: return@runCatching null
-        computeSpan(ast, targetLine, inst, trace)
+        computeSpan(ast, location)
     }.onFailure { ex ->
         logger.error(ex) { "Span resolution failure" }
     }.getOrNull()
@@ -67,7 +72,6 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
                 && statement is JIRReturnInst
     }
 
-
     private fun createLocationSpan(start: Token?, stop: Token?): LocationSpan? {
         if (start == null || stop == null) return null
 
@@ -83,7 +87,14 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
         )
     }
 
-    private fun computeSpan(ast: CompilationUnitContext, targetLine: Int, inst: JIRInst, trace: TracePathNode?): LocationSpan? {
+    private fun computeSpan(ast: CompilationUnitContext, location: IntermediateLocation): LocationSpan? {
+        val trace = location.node
+        val targetLine = location.info.lineNumber
+        val inst = location.inst as JIRInst
+
+        if (location.isMultiple) {
+            return findBroadestSpan(ast, targetLine)
+        }
         if (trace.isMethodEntry()) {
             return findMethodDeclaration(ast, targetLine, inst)
         }
@@ -94,9 +105,9 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
         val kind = inferKind(inst)
         val node = when (kind) {
             InstructionKind.METHOD_CALL -> findMethodCallNode(ast, targetLine, inst)
-            InstructionKind.OBJECT_CREATION -> findObjectCreationNode(ast, targetLine)
+            InstructionKind.OBJECT_CREATION -> findObjectCreationNode(ast, targetLine, inst)
             InstructionKind.FIELD_ACCESS -> findFieldAccessNode(ast, targetLine, inst)
-            InstructionKind.ARRAY_ACCESS -> findArrayAccessNode(ast, targetLine)
+            InstructionKind.ARRAY_ACCESS -> findArrayAccessNode(ast, targetLine, inst)
             InstructionKind.RETURN -> findReturnNode(ast, targetLine)
             InstructionKind.ASSIGNMENT -> findAssignmentNode(ast, targetLine)
             InstructionKind.UNKNOWN -> null
@@ -145,6 +156,11 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
         return InstructionKind.ASSIGNMENT
     }
 
+    private fun ParserRuleContext?.findChildType(type: Class<out ParserRuleContext>): ParserRuleContext? {
+        if (this == null || children == null) return null
+        return children.find { type.isInstance(it) } as ParserRuleContext?
+    }
+
     private fun checkMethodName(name: String, node: JavaParser.MethodCallContext): Boolean {
         val identifier = node.methodIdentifier() ?: return false
         return identifier.text == name
@@ -166,8 +182,19 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
         }
     }
 
-    private fun findMethodDeclarationContext(root: ParseTree, line: Int, inst: JIRInst): JavaParser.MethodDeclarationContext? {
-        val methodName = inst.location.method.name
+    private fun findConstructorDeclarationContext(root: ParseTree, line: Int): ParserRuleContext? {
+        val declarations = collectContexts(root, line) {
+            it is JavaParser.ConstructorDeclarationContext && coversLine(it, line)
+        }
+        return declarations.maxByOrNull { spanLen(it) }
+    }
+
+    private fun findMethodDeclarationContext(root: ParseTree, line: Int, method: JIRMethod): ParserRuleContext? {
+        if (method.isConstructor) {
+            return findConstructorDeclarationContext(root, line)
+        }
+
+        val methodName = method.name
 
         val declarations = mutableListOf<JavaParser.MethodDeclarationContext>()
         val collector = object : LineBasedVisitor(line) {
@@ -184,17 +211,20 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
     }
 
     private fun findMethodDeclaration(root: ParseTree, line: Int, inst: JIRInst): LocationSpan? {
-        val declaration = findMethodDeclarationContext(root, line, inst) ?: return null
-        // expecting modifiers, identifier and arguments for declaration; skipping method body
-        if (declaration.children.size < 3) return null
+        val method = inst.location.method
+        val declaration = findMethodDeclarationContext(root, line, method) ?: return null
+        // expecting return type, identifier and arguments for declaration; skipping method body
+        // no return type for constructors
+        val paramsIndex = if (method.isConstructor) 1 else 2
+        if (declaration.children == null || declaration.children.size <= paramsIndex) return null
         val childStart = declaration.children[0] as ParserRuleContext
-        val childStop = declaration.children[2] as ParserRuleContext
+        val childStop = declaration.children[paramsIndex] as ParserRuleContext
         return createLocationSpan(childStart.start, childStop.stop)
     }
 
     private fun findMethodEnd(root: ParseTree, line: Int, inst: JIRInst): LocationSpan? {
-        val declaration = findMethodDeclarationContext(root, line, inst) ?: return null
-        val endToken = declaration.stop
+        val declaration = findMethodDeclarationContext(root, line, inst.location.method) ?: return null
+        val endToken = declaration.stop ?: return null
         return createLocationSpan(endToken, endToken)
     }
 
@@ -204,6 +234,7 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
         val callee = call.callee.name
 
         val withInstance = mutableListOf<ParserRuleContext>()
+        val simpleCall = mutableListOf<ParserRuleContext>()
         val collector = object : LineBasedVisitor(line) {
             override fun visitMemberReferenceExpression(ctx: MemberReferenceExpressionContext) {
                 if (checkMethodName(callee, ctx) && coversLine(ctx, line)) {
@@ -214,14 +245,16 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
 
             override fun visitMethodCall(ctx: JavaParser.MethodCallContext) {
                 if (checkMethodName(callee, ctx) && coversLine(ctx, line)) {
-                    withInstance.add(ctx)
+                    simpleCall.add(ctx)
                 }
                 super.visitMethodCall(ctx)
             }
         }
         root.accept(collector)
+        val filtered = withInstance.filter { exactLine(it, line) }
+        if (filtered.isEmpty()) return adjustForAssignment(simpleCall.minByOrNull { spanLen(it) }, line)
 
-        return adjustForAssignment(withInstance.maxByOrNull { spanLen(it) })
+        return adjustForAssignment(filtered.maxByOrNull { spanLen(it) }, line)
     }
 
     private fun oldFindMethodCallNode(root: ParseTree, line: Int): ParserRuleContext? =
@@ -233,29 +266,59 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
             MemberReferenceExpressionContext::class.java,
         )
 
-    private fun findObjectCreationNode(root: ParseTree, line: Int): ParserRuleContext? =
-        findSmallestOfTypes(root, line,
-            JavaParser.ObjectCreationExpressionContext::class.java,
-            JavaParser.ClassCreatorRestContext::class.java
-        )
+    private fun checkCreatedType(expr: ParserRuleContext, typeName: String): Boolean {
+        if (expr is JavaParser.MethodCallContext && checkMethodName("super", expr)) return true
+        val ctx = expr.findChildType(JavaParser.CreatorContext::class.java)
+            .findChildType(JavaParser.CreatedNameContext::class.java)
+            .findChildType(JavaParser.IdentifierWithTypeArgsContext::class.java)
+            .findChildType(JavaParser.IdentifierContext::class.java)
+            ?: return false
+        return ctx.text == typeName
+    }
 
-    private fun adjustForAssignment(node: ParserRuleContext?): ParserRuleContext? {
+    private fun findObjectCreationNode(root: ParseTree, line: Int, inst: JIRInst): ParserRuleContext? {
+        val callExpr = inst.callExpr ?: return null
+        val typeName = callExpr.method.method.enclosingClass.simpleName
+        val creations = collectContexts(root, line) { checkCreatedType(it, typeName) }
+        return creations.maxByOrNull { spanLen(it) }
+    }
+
+    private fun adjustForAssignment(node: ParserRuleContext?, line: Int): ParserRuleContext? {
         if (node == null) return null
         var curParent = node.parent as? ParserRuleContext
         while (
             curParent !is BinaryOperatorExpressionContext && curParent !is JavaParser.LocalVariableDeclarationContext
-            && curParent !is JavaParser.BlockStatementContext && curParent != null
+            && curParent !is JavaParser.BlockStatementContext && curParent != null && exactLine(curParent, line)
         ) {
             curParent = curParent.parent as? ParserRuleContext
         }
-        if (curParent == null || curParent is JavaParser.BlockStatementContext) return node
+        if (curParent == null || curParent is JavaParser.BlockStatementContext || !exactLine(curParent, line)) return node
         return curParent
     }
 
-    private fun findArrayAccessNode(root: ParseTree, line: Int): ParserRuleContext? =
-        findSmallestOfTypes(root, line,
-            JavaParser.SquareBracketExpressionContext::class.java
+    private fun checkArrayName(ctx: SquareBracketExpressionContext, name: String?): Boolean {
+        if (ctx.childCount < 1 || name == null) return false
+        return ctx.children[0].text == name
+    }
+
+    private fun findArrayAccessNode(root: ParseTree, line: Int, inst: JIRInst): ParserRuleContext? {
+        val arrayName = inst.getArrayName()
+        val arrayAccess = mutableListOf<SquareBracketExpressionContext>()
+        val collector = object : LineBasedVisitor(line) {
+            override fun visitSquareBracketExpression(ctx: SquareBracketExpressionContext)  {
+                if (coversLine(ctx, line) && checkArrayName(ctx, arrayName)) {
+                    arrayAccess.add(ctx)
+                }
+                super.visitSquareBracketExpression(ctx)
+            }
+        }
+        root.accept(collector)
+        if (arrayAccess.isEmpty()) return findSmallestOfTypes(
+            root, line,
+            SquareBracketExpressionContext::class.java
         )
+        return adjustForAssignment(arrayAccess.minByOrNull { spanLen(it) }, line)
+    }
 
     private fun findReturnNode(root: ParseTree, line: Int): ParserRuleContext? =
         findSmallestOfTypes(root, line,
@@ -275,6 +338,18 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
         root.accept(collector)
 
         return candidates.minByOrNull { spanLen(it) }
+    }
+
+    private fun JIRInst.getArrayValue(): JIRValue? {
+        if (this !is JIRAssignInst) return null
+        if (lhv is JIRArrayAccess) return (lhv as JIRArrayAccess).array
+        if (rhv is JIRArrayAccess) return (rhv as JIRArrayAccess).array
+        return null
+    }
+
+    private fun JIRInst?.getArrayName(): String? {
+        val value = this?.getArrayValue() ?: return null
+        return traits.getReadableValue(this, value)
     }
 
     private fun JIRInst?.getFieldName(): String? {
@@ -304,7 +379,13 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
         }
         root.accept(collector)
 
-        return adjustForAssignment(memberRefs.maxByOrNull { spanLen(it) })
+        return adjustForAssignment(memberRefs.maxByOrNull { spanLen(it) }, line)
+    }
+
+    private fun findBroadestSpan(root: ParseTree, line: Int): LocationSpan? {
+        val lineContexts = collectContexts(root, line) { exactLine(it, line) }
+        val broadest = lineContexts.maxByOrNull { spanLen(it) } ?: return null
+        return createLocationSpan(broadest.start, broadest.stop)
     }
 
     private fun spanLen(ctx: ParserRuleContext): Int {
@@ -335,7 +416,7 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
         vararg types: Class<out ParserRuleContext>
     ): ParserRuleContext? {
         val set = types.toSet()
-        val candidates = collectContexts(root, line) { ctx -> set.any { it.isInstance(ctx) } && coversLine(ctx, line) }
+        val candidates = collectContexts(root, line) { ctx -> set.any { it.isInstance(ctx) } }
         return candidates.minByOrNull { spanLen(it) }
     }
 
@@ -385,6 +466,11 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
 
     companion object {
         private val logger = object : KLogging() {}.logger
+
+        private fun exactLine(ctx: ParserRuleContext, line: Int): Boolean {
+            val stop = ctx.stop ?: return false
+            return ctx.start.line == line && line == stop.line
+        }
 
         private fun coversLine(ctx: ParserRuleContext, line: Int): Boolean {
             val stop = ctx.stop ?: return false

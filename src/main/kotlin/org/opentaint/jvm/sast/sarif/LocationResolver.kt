@@ -48,6 +48,7 @@ data class IntermediateLocation(
     val info: InstructionInfo,
     val kind: String,
     val message: String?,
+    val isMultiple: Boolean = false,
     val span: LocationSpan? = null,
     val node: TracePathNode? = null,
 )
@@ -257,7 +258,7 @@ class LocationResolver(
 
     private fun computeSpan(location: IntermediateLocation, sourceFile: Path): LocationSpan? {
         if (location.inst !is JIRInst) return null
-        return spanResolver.computeSpan(sourceFile, location.info.lineNumber, location.inst, location.node)
+        return spanResolver.computeSpan(sourceFile, location)
     }
 
     private fun generateSarifLocation(
@@ -353,7 +354,6 @@ class LocationResolver(
             val source = getCachedSourceLocation(location.inst)
             if (source == null) {
                 logger.warn { "Source file for ${location.info.fullyQualified} not found!" }
-//                return emptyList()
             }
             return listOf(generateThreadFlowLocation(location, source, startIdx))
         }

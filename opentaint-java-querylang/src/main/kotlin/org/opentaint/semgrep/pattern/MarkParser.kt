@@ -94,9 +94,6 @@ sealed interface Mark {
 
         fun InitialFactAp.getMark(): Mark {
             val taintMarks = getAllAccessors().filterIsInstance<TaintMarkAccessor>()
-            if (taintMarks.size != 1) {
-                logger.trace { "Expected exactly one taint mark but got ${taintMarks.size}!" }
-            }
             if (taintMarks.isEmpty()) {
                 return TaintMark
             }

@@ -236,9 +236,6 @@ class SarifGenerator(
         return result.reversed()
     }
 
-    private fun JIRMethod.getFirstLine(): Int? =
-        rawInstList.firstOrNull { it is JIRRawLineNumberInst } ?.let { (it as JIRRawLineNumberInst).lineNumber }
-
     private fun TracePathNode.isRewriteAllowed(builder: TraceMessageBuilder) = with (builder) {
         !isInsideLambda() && (entry is MethodTraceResolver.TraceEntry.MethodEntry || entry.isPureEntryPoint())
     }
@@ -258,6 +255,7 @@ class SarifGenerator(
                 inst = inst,
                 info = getInstructionInfo(inst, rewriteLine),
                 kind = groupNode.kind,
+                isMultiple = groupNode.isMultiple,
                 message = groupNode.message,
                 node = if (!groupNode.isMultiple) groupNode.node else null,
             )
@@ -280,6 +278,7 @@ class SarifGenerator(
             inst = statement,
             info = getInstructionInfo(statement),
             kind = "",
+            isMultiple = false,
             message = null
         )
         return locationResolver.generateSarifLocation(loc)

@@ -390,7 +390,8 @@ class TraceMessageBuilder(
             is TraceEntry.Final -> entry.createMessage(node)
 
             is TraceEntry.MethodEntry -> {
-                val methodName = getMethodCalleeNameInPrint(entry.entryPoint.method.name, className = "")
+                val className = traits.getMethodClassName(entry.entryPoint.method)
+                val methodName = getMethodCalleeNameInPrint(entry.entryPoint.method.name, className)
                 val taints = printTaints(node, entry.collectStarts())
                 val withTaints = if (taints.isEmpty()) "" else " with $taints"
                 "Entering $methodName$withTaints"
@@ -706,7 +707,7 @@ class TraceMessageBuilder(
         }
         is AccessPathBase.Return -> printReturnedValue(node)
         is AccessPathBase.Constant -> "a const value"
-        else -> badOutput("unresolved base")
+        is AccessPathBase.Exception -> "thrown exception value"
     }
 
     data class TaintPropagationInfo(val taint: String, val from: String?, val to: String?)
