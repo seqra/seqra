@@ -38,6 +38,7 @@ import org.opentaint.dataflow.configuration.CommonTaintAssignAction
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationItem
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSource
 import org.opentaint.dataflow.graph.MethodInstGraph
+import org.opentaint.dataflow.util.CompactIntSet
 import org.opentaint.dataflow.util.ConcurrentReadSafeObject2IntMap
 import org.opentaint.dataflow.util.ConcurrentReadSafeObject2IntMap.NO_VALUE
 import org.opentaint.dataflow.util.add
@@ -321,10 +322,10 @@ class MethodTraceResolver(
 
     private inner class TraceBuilder(val finalEntryId: Int, val cancellation: ProcessingCancellation) {
         val startEntryIds = BitSet()
-        val processedEntryIds = BitSet().also { it.set(finalEntryId) }
+        var processedEntryIds = CompactIntSet().also { it.add(finalEntryId) }
         val unprocessedEntryIds = IntArrayList().also { it.add(finalEntryId) }
-        val predecessors = Int2ObjectOpenHashMap<BitSet>()
-        val successors = Int2ObjectOpenHashMap<BitSet>()
+        val predecessors = Int2ObjectOpenHashMap<CompactIntSet>()
+        val successors = Int2ObjectOpenHashMap<CompactIntSet>()
         var steps = 0
 
         fun addPredecessor(current: TraceEntry, predecessor: TraceEntry, enqueue: Boolean = true) {
@@ -333,18 +334,18 @@ class MethodTraceResolver(
 
             var currentPredecessors = predecessors.get(currentId)
             if (currentPredecessors == null) {
-                currentPredecessors = BitSet().also { predecessors.put(currentId, it) }
+                currentPredecessors = CompactIntSet().also { predecessors.put(currentId, it) }
             }
-            currentPredecessors.set(predecessorId)
+            currentPredecessors.add(predecessorId)
 
             var currentSuccessors = successors.get(predecessorId)
             if (currentSuccessors == null) {
-                currentSuccessors = BitSet().also { successors.put(predecessorId, it) }
+                currentSuccessors = CompactIntSet().also { successors.put(predecessorId, it) }
             }
-            currentSuccessors.set(currentId)
+            currentSuccessors.add(currentId)
 
-            if (!processedEntryIds.get(predecessorId)) {
-                processedEntryIds.set(predecessorId)
+            if (!processedEntryIds.contains(predecessorId)) {
+                processedEntryIds.add(predecessorId)
 
                 if (enqueue) {
                     unprocessedEntryIds.add(predecessorId)
@@ -353,7 +354,7 @@ class MethodTraceResolver(
         }
 
         fun addStartEntry(entry: TraceEntry) {
-            startEntryIds.set(entryManager.entryId(entry))
+            startEntryIds.add(entryManager.entryId(entry))
         }
     }
 
@@ -473,8 +474,8 @@ class MethodTraceResolver(
         val reachableFromStart = BitSet()
         val reachableFromFinish = BitSet()
 
-        traverseReachableNodes(reachableFromStart, startEntryIds) { successors.get(it) ?: BitSet() }
-        traverseReachableNodes(reachableFromFinish, bitSetOf(finalEntryId)) { predecessors.get(it) ?: BitSet() }
+        traverseReachableNodes(reachableFromStart, startEntryIds) { successors.get(it) ?: CompactIntSet() }
+        traverseReachableNodes(reachableFromFinish, bitSetOf(finalEntryId)) { predecessors.get(it) ?: CompactIntSet() }
 
         val reachableNodes = reachableFromStart
         reachableNodes.and(reachableFromFinish)
@@ -488,21 +489,21 @@ class MethodTraceResolver(
     }
 
     private fun TraceBuilder.removeUnreachableEntry(entryId: Int) {
-        val entryPredecessorIds = predecessors.remove(entryId) ?: BitSet()
-        val entrySuccessorIds = successors.remove(entryId) ?: BitSet()
-        entryPredecessorIds.clear(entryId)
-        entrySuccessorIds.clear(entryId)
+        val entryPredecessorIds = predecessors.remove(entryId) ?: CompactIntSet()
+        val entrySuccessorIds = successors.remove(entryId) ?: CompactIntSet()
+        entryPredecessorIds.remove(entryId)
+        entrySuccessorIds.remove(entryId)
 
         entryPredecessorIds.forEach { predecessorId: Int ->
-            successors.get(predecessorId)?.clear(entryId)
+            successors.get(predecessorId)?.remove(entryId)
         }
 
         entrySuccessorIds.forEach { successorId: Int ->
-            predecessors.get(successorId)?.clear(entryId)
+            predecessors.get(successorId)?.remove(entryId)
         }
     }
 
-    private inline fun TraceBuilder.traverseReachableNodes(reachable: BitSet, initial: BitSet, next: (Int) -> BitSet) {
+    private inline fun TraceBuilder.traverseReachableNodes(reachable: BitSet, initial: BitSet, next: (Int) -> CompactIntSet) {
         initial.forEach { unprocessedEntryIds.add(it) }
 
         while (unprocessedEntryIds.isNotEmpty()) {
@@ -517,13 +518,14 @@ class MethodTraceResolver(
     }
 
     private fun TraceBuilder.collapseUnchangedNodes() {
-        processedEntryIds.clear()
+        processedEntryIds = CompactIntSet()
         unprocessedEntryIds.add(finalEntryId)
 
         while (unprocessedEntryIds.isNotEmpty()) {
             val entryId = unprocessedEntryIds.removeInt(unprocessedEntryIds.lastIndex)
 
-            if (!processedEntryIds.add(entryId)) continue
+            if (processedEntryIds.contains(entryId)) continue
+            processedEntryIds.add(entryId)
 
             if (startEntryIds.get(entryId)) continue
 
@@ -532,21 +534,21 @@ class MethodTraceResolver(
             val entry = entryManager.entryById(entryId)
             if (entry is TraceEntry.Unchanged) {
                 predecessors.remove(entryId)
-                entryPredecessorIds.clear(entryId)
+                entryPredecessorIds.remove(entryId)
 
-                val entrySuccessorIds = successors.remove(entryId) ?: BitSet()
-                entrySuccessorIds.clear(entryId)
+                val entrySuccessorIds = successors.remove(entryId) ?: CompactIntSet()
+                entrySuccessorIds.remove(entryId)
 
                 entryPredecessorIds.forEach { predecessorId: Int ->
                     val predSuccessors = successors.get(predecessorId)
-                    predSuccessors?.clear(entryId)
-                    predSuccessors?.or(entrySuccessorIds)
+                    predSuccessors?.remove(entryId)
+                    predSuccessors?.addAll(entrySuccessorIds)
                 }
 
                 entrySuccessorIds.forEach { successorId: Int ->
                     val succPredecessors = predecessors.get(successorId)
-                    succPredecessors?.clear(entryId)
-                    succPredecessors?.or(entryPredecessorIds)
+                    succPredecessors?.remove(entryId)
+                    succPredecessors?.addAll(entryPredecessorIds)
                 }
             }
 
@@ -1505,9 +1507,12 @@ class MethodTraceResolver(
         val startSuccessors = hashSetOf<TraceEntry>().also { additionalSuccessors[fakeStartEntry] = it }
 
         val allEntries = predecessors.keys.toBitSet { it }
-        predecessors.values.forEach { allEntries.or(it) }
+        predecessors.values.forEach { pred ->
+            pred.forEach { allEntries.set(it) }
+        }
+
         allEntries.forEach { entryId ->
-            if (predecessors[entryId]?.isEmpty == false) return@forEach
+            if (predecessors[entryId]?.let { it.size == 0 } == false) return@forEach
 
             val entry = entryManager.entryById(entryId)
             graph.forEachPredecessor(analysisManager, entry.statement) { p ->
