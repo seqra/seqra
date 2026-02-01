@@ -35,7 +35,7 @@ class JIRSarifTraits(
     private fun isDefaultArgName(name: String) =
         name.isEmpty() || name.startsWith("arg|")
 
-    private fun loadLocalNames(md: JIRMethod, cnt: Int = 0) {
+    private fun loadLocalNames(md: JIRMethod) {
         if (methodCache.contains(md)) return
         val mdLocals = hashMapOf<Int, String>()
         methodCache[md] = mdLocals
@@ -47,7 +47,7 @@ class JIRSarifTraits(
                 val local = assign.lhv
                 if (local is JIRLocalVar && assign.rhv is JIRValue) {
                     if (!mdLocals.containsKey(local.index)) {
-                        val value = tryGetReadableValue(assign as JIRInst, assign.rhv, cnt)
+                        val value = tryGetReadableValue(assign as JIRInst, assign.rhv)
                         if (value is ReadableValue) {
                             mdLocals[local.index] = value.toString()
                         }
@@ -135,7 +135,7 @@ class JIRSarifTraits(
         data object UnparsedLocalVar : ReadableValue
     }
 
-    private fun tryGetReadableValue(statement: JIRInst, expr: CommonExpr, cnt: Int = 0): ReadableValue? {
+    private fun tryGetReadableValue(statement: JIRInst, expr: CommonExpr): ReadableValue? {
         if (expr !is JIRValue) return null
         return when (expr) {
             is JIRFieldRef -> {
@@ -178,11 +178,7 @@ class JIRSarifTraits(
                 }
             }
             is JIRThis -> {
-                val printed = printThis(statement) {
-                    // do not parse statement again
-                    null
-                }
-                ReadableValue.Value(printed)
+                ReadableValue.Value("this")
             }
             else -> ReadableValue.Value(expr.toString())
         }
