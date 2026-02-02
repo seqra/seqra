@@ -63,7 +63,7 @@ fun SarifGenerationOptions.formatRuleId(ruleId: String): String {
     val (rulePath, rawRuleId) = SemgrepRuleUtils.extractRuleSetNameAndId(ruleId)
         ?: return ruleId
 
-    val idParts = rulePath.split(File.pathSeparatorChar)
+    val idParts = rulePath.split(File.separatorChar)
         .dropLast(1) + listOf(rawRuleId)
 
     return idParts.joinToString(separator = ".") { it.trim() }
