@@ -16,15 +16,14 @@ import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
+import org.opentaint.dataflow.configuration.jvm.TaintMethodEntrySink
 import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.dataflow.util.SarifTraits
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
-import org.opentaint.ir.api.jvm.cfg.JIRRawLineNumberInst
 import org.opentaint.ir.api.jvm.cfg.JIRRef
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.jvm.sast.project.SarifGenerationOptions
@@ -90,7 +89,8 @@ class SarifGenerator(
             Severity.Error -> Level.Error
         }
 
-        val sinkLocation = statementLocation(vulnerability.statement)
+        val sinkType = if (vulnerabilityRule is TaintMethodEntrySink) LocationType.RuleMethodEntry else LocationType.Simple
+        val sinkLocation = statementLocation(vulnerability.statement, sinkType)
 
         val codeFlow = generateCodeFlow(trace, vulnerabilityRule.meta.message)
 
@@ -102,7 +102,7 @@ class SarifGenerator(
             codeFlows = listOfNotNull(codeFlow)
         )
         result = annotateSarifWithSpringRelatedInformation(result, vulnerability, trace) { s ->
-            statementLocation(s)
+            statementLocation(s, LocationType.SpringRelated)
         }
         return result
     }
@@ -255,7 +255,7 @@ class SarifGenerator(
                 inst = inst,
                 info = getInstructionInfo(inst, rewriteLine),
                 kind = groupNode.kind,
-                isMultiple = groupNode.isMultiple,
+                type = if (groupNode.isMultiple) LocationType.Multiple else LocationType.Simple,
                 message = groupNode.message,
                 node = if (!groupNode.isMultiple) groupNode.node else null,
             )
@@ -273,13 +273,13 @@ class SarifGenerator(
         )
     }
 
-    private fun statementLocation(statement: CommonInst): Location {
+    private fun statementLocation(statement: CommonInst, type: LocationType): Location {
         val loc = IntermediateLocation(
             inst = statement,
             info = getInstructionInfo(statement),
             kind = "",
-            isMultiple = false,
-            message = null
+            message = null,
+            type = type,
         )
         return locationResolver.generateSarifLocation(loc)
     }

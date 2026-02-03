@@ -43,12 +43,16 @@ data class InstructionInfo(
     val noExtraResolve: Boolean = false
 )
 
+enum class LocationType {
+    Simple, Multiple, RuleMethodEntry, SpringRelated,
+}
+
 data class IntermediateLocation(
     val inst: CommonInst,
     val info: InstructionInfo,
     val kind: String,
     val message: String?,
-    val isMultiple: Boolean = false,
+    val type: LocationType,
     val span: LocationSpan? = null,
     val node: TracePathNode? = null,
 )
@@ -257,7 +261,7 @@ class LocationResolver(
             ?: "<#[unresolved]#>"
 
     private fun computeSpan(location: IntermediateLocation, sourceFile: Path): LocationSpan? {
-        if (location.inst !is JIRInst) return null
+        if (location.inst !is JIRInst || location.type == LocationType.SpringRelated) return null
         return spanResolver.computeSpan(sourceFile, location)
     }
 
@@ -333,7 +337,8 @@ class LocationResolver(
             inst = initialLocation.inst,
             info = initialLocation.info.copy(lineNumber = call.callLocation.lineNumber),
             kind = "call",
-            message = "Inline ${call.methodName} inserted"
+            message = "Inline ${call.methodName} inserted",
+            type = LocationType.Simple,
         ).let { generateThreadFlowLocation(it, call.callLocation.sourceFile, idx) }
         // if it's lambda, keep the original line; otherwise, try to highlight method declaration,
         // just as with MethodEntry case
@@ -342,7 +347,8 @@ class LocationResolver(
             inst = initialLocation.inst,
             info = initialLocation.info.copy(lineNumber = call.methodLocation.lineNumber + methodStartLineFix),
             kind = "unknown",
-            message = "Inlined body of ${call.methodName} entered"
+            message = "Inlined body of ${call.methodName} entered",
+            type = LocationType.Simple,
         ).let { generateThreadFlowLocation(it, call.methodLocation.sourceFile, idx + 1)}
         return listOf(callFlow, methodFlow)
     }

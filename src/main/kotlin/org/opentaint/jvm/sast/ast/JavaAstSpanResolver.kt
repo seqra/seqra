@@ -24,7 +24,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.jvm.sast.sarif.IntermediateLocation
 import org.opentaint.jvm.sast.sarif.LocationSpan
-import org.opentaint.jvm.sast.sarif.TracePathNode
+import org.opentaint.jvm.sast.sarif.LocationType
 import org.opentaint.jvm.sast.sarif.TracePathNodeKind
 import org.opentaint.jvm.sast.sarif.isPureEntryPoint
 import org.opentaint.semgrep.pattern.antlr.JavaLexer
@@ -65,15 +65,15 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
         logger.error(ex) { "File parsing failure" }
     }.getOrNull()
 
-    private fun TracePathNode?.isMethodEntry(): Boolean {
-        if (this == null) return false
-        return entry is MethodTraceResolver.TraceEntry.MethodEntry || entry.isPureEntryPoint()
+    private fun IntermediateLocation.isMethodEntry(): Boolean {
+        val entry = this.node?.entry
+        return entry is MethodTraceResolver.TraceEntry.MethodEntry || entry.isPureEntryPoint() || type == LocationType.RuleMethodEntry
     }
 
-    private fun TracePathNode?.isMethodExit(): Boolean {
-        if (this == null) return false
-        return kind != TracePathNodeKind.SINK && entry is MethodTraceResolver.TraceEntry.Final
-                && statement is JIRReturnInst
+    private fun IntermediateLocation.isMethodExit(): Boolean {
+        if (node == null) return false
+        return node.kind != TracePathNodeKind.SINK && node.entry is MethodTraceResolver.TraceEntry.Final
+                && node.statement is JIRReturnInst
     }
 
     private fun createLocationSpan(start: Token?, stop: Token?): LocationSpan? {
@@ -92,17 +92,16 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
     }
 
     private fun computeSpan(ast: CompilationUnitContext, location: IntermediateLocation): LocationSpan? {
-        val trace = location.node
         val targetLine = location.info.lineNumber
         val inst = location.inst as JIRInst
 
-        if (location.isMultiple) {
+        if (location.type == LocationType.Multiple) {
             return findBroadestSpan(ast, targetLine)
         }
-        if (trace.isMethodEntry()) {
+        if (location.isMethodEntry()) {
             return findMethodDeclaration(ast, targetLine, inst)
         }
-        if (trace.isMethodExit()) {
+        if (location.isMethodExit()) {
             return findMethodEnd(ast, targetLine, inst)
         }
 

@@ -53,21 +53,21 @@ class DebugFactReachabilitySarifGenerator(
         for ((stmt, facts) in statementFacts) {
             result += IntermediateLocation(
                 inst = stmt,
-                info = getInstructionInfo(stmt, rewriteLine = null),
+                info = getInstructionInfo(stmt),
                 kind = "unknown",
                 message = "$facts",
+                type = LocationType.Simple
             )
         }
 
         return result
     }
 
-    private fun getInstructionInfo(statement: CommonInst, rewriteLine: Int? = null): InstructionInfo = with(traits) {
+    private fun getInstructionInfo(statement: CommonInst): InstructionInfo = with(traits) {
         InstructionInfo(
             fullyQualified = locationFQN(statement),
             machineName = locationMachineName(statement),
-            lineNumber = rewriteLine ?: lineNumber(statement),
-            noExtraResolve = rewriteLine != null
+            lineNumber = lineNumber(statement),
         )
     }
 }

@@ -244,11 +244,12 @@ private fun resolveStartToSink(
 private fun generateIntraProceduralPath(
     trace: MethodTraceResolver.FullTrace
 ): PersistentList<TraceEntry>? {
-    val unprocessed = mutableListOf<Pair<TraceEntry, PersistentList<TraceEntry>>>(trace.startEntry to persistentListOf<TraceEntry>(trace.startEntry))
+    val unprocessed = ArrayDeque<Pair<TraceEntry, PersistentList<TraceEntry>>>()
+    unprocessed.addFirst(trace.startEntry to persistentListOf<TraceEntry>(trace.startEntry))
     val visited = hashSetOf<TraceEntry>()
 
     while (unprocessed.isNotEmpty()) {
-        val (entry, path) = unprocessed.removeLast()
+        val (entry, path) = unprocessed.removeFirst()
 
         if (entry == trace.final) {
             return path
@@ -257,7 +258,7 @@ private fun generateIntraProceduralPath(
         if (!visited.add(entry)) continue
 
         trace.successors[entry]?.forEach {
-            unprocessed.add(it to path.add(it))
+            unprocessed.addLast(it to path.add(it))
         }
     }
 
