@@ -1,6 +1,5 @@
 package org.opentaint.semgrep.pattern
 
-import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
@@ -67,8 +66,6 @@ sealed interface Mark {
             val (rid, rc, vs, v) = parts
             return GeneratedMark(rid, rc, vs, v)
         }
-
-        private val logger = object : KLogging() {}.logger
 
         fun getMarkFromString(rawMark: String): Mark {
             val mark = tryParseMark(rawMark)

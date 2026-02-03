@@ -68,8 +68,10 @@ private fun RuleConversionCtx.convertSingleCompositionJoinRule(
         return null
     }
 
-    val (leftRules, leftFinalMarks) = convertCompositionLeftMatchingRule(
-        leftAutomata, leftItem, composition.lhs.metaVar
+    // todo: reuse similar left rules between several join
+    val leftCtx = RuleConversionCtx("$ruleId#${composition.lhs.itemId}", meta, trace)
+    val (leftRules, leftFinalMarks) = leftCtx.convertCompositionLeftMatchingRule(
+        leftAutomata, composition.lhs.metaVar
     )
 
     val rightItem = rule.items.getValue(composition.rhs.itemId)
@@ -89,7 +91,7 @@ private fun RuleConversionCtx.convertSingleCompositionJoinRule(
 
 private fun RuleConversionCtx.convertCompositionLeftMatchingRule(
     automata: SemgrepMatchingRule<RuleWithMetaVars<TaintRegisterStateAutomata, ResolvedMetaVarInfo>>,
-    item: TaintAutomataJoinRuleItem, finalVar: MetavarAtom,
+    finalVar: MetavarAtom,
 ): Pair<List<TaintRuleFromSemgrep.TaintRuleGroup>, Set<GeneratedMark>> {
     val leftEdges = automata.flatMap { r ->
         val automataWithVars = TaintRegisterStateAutomataWithStateVars(
@@ -107,7 +109,7 @@ private fun RuleConversionCtx.convertCompositionLeftMatchingRule(
             edgesToFinalAccept = emptyList()
         )
         TaintRuleGenerationCtx(
-            RuleUniqueMarkPrefix(item.ruleId, idx),
+            RuleUniqueMarkPrefix(ruleId, idx),
             taintEdgesWithAssign, compositionStrategy = null
         )
     }
