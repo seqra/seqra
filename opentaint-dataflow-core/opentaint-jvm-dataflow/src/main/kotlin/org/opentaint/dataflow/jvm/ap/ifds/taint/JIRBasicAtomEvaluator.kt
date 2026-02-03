@@ -85,6 +85,7 @@ class JIRBasicAtomEvaluator(
         return false
     }
 
+    // note: ConstantMatches means StringConstantMatches
     override fun visit(condition: ConstantMatches): Boolean {
         positionResolver.resolve(condition.position).onSome { value ->
             return matches(value, condition.pattern)
@@ -158,8 +159,8 @@ class JIRBasicAtomEvaluator(
     }
 
     private fun matches(value: JIRValue, pattern: Regex): Boolean {
-        val s = if (value is JIRStringConstant) value.value else value.toString()
-        return pattern.matches(s)
+        if (value !is JIRStringConstant) return false
+        return pattern.matches(value.value)
     }
 
     private fun typeMatches(value: CommonValue, condition: TypeMatches): Boolean {
