@@ -174,8 +174,11 @@ class TraceResolver(
             hashMapOf<MethodEntryPoint, MutableMap<Pair<MethodTraceResolver.SummaryTrace, CallKind>, List<InterProceduralTraceNode>>>()
 
         val sinkNodes = hashSetOf<InterProceduralTraceNode>()
+        val sourceNodes = hashSetOf<InterProceduralTraceNode>()
         val rootNodes = hashSetOf<InterProceduralTraceNode>()
         val successors = hashMapOf<InterProceduralTraceNode, MutableSet<InterProceduralCall>>()
+
+        val requestedInnerTraces = hashSetOf<InterProceduralCall>()
 
         val unprocessedCall2Source = mutableListOf<BuilderUnprocessedTrace>()
         val unprocessedCall2Sink = mutableListOf<BuilderUnprocessedTrace>()
@@ -191,8 +194,8 @@ class TraceResolver(
 
         fun build(): SourceToSinkTrace {
             process()
-
-            return SourceToSinkTrace(rootNodes, sinkNodes, successors)
+            removeUnresolvedInnerCalls()
+            return createSource2SinkTrace()
         }
 
         private fun pollUnprocessedEvent(): BuilderUnprocessedTrace? {
@@ -205,7 +208,10 @@ class TraceResolver(
             when (event.kind) {
                 CallKind.CallToSource -> unprocessedCall2Source.add(event)
                 CallKind.CallToSink -> unprocessedCall2Sink.add(event)
-                CallKind.CallInnerTrace -> unprocessedInner.add(event)
+                CallKind.CallInnerTrace -> {
+                    event.predecessor?.let { requestedInnerTraces.add(it) }
+                    unprocessedInner.add(event)
+                }
             }
         }
 
@@ -226,6 +232,101 @@ class TraceResolver(
                     }
                 }
             }
+        }
+
+        private fun createSource2SinkTrace(): SourceToSinkTrace {
+            val finalNodes = mutableListOf<InterProceduralTraceNode>()
+            finalNodes.addAll(sinkNodes)
+            finalNodes.addAll(sourceNodes)
+            val resultSuccessors = removeUnreachableEntries(successors, rootNodes.toList(), finalNodes) { it.node }
+
+            val validStartNodes = rootNodes.filterTo(hashSetOf()) {
+                it in sinkNodes || !resultSuccessors[it].isNullOrEmpty()
+            }
+            return SourceToSinkTrace(validStartNodes, sinkNodes, resultSuccessors)
+        }
+
+        private fun removeUnresolvedInnerCalls() {
+            while (cancellation.isActive) {
+                val unresolvedNodes = hashMapOf<InterProceduralFullTraceNode, MutableList<InterProceduralCall>>()
+
+                for (r in requestedInnerTraces) {
+                    val node = r.node
+                    if (node !is InterProceduralFullTraceNode) continue
+
+                    val callResolved = successors[node].orEmpty()
+                        .any { it.kind == r.kind && it.statement == r.statement && it.summary == r.summary }
+
+                    if (callResolved) continue
+
+                    unresolvedNodes.getOrPut(node, ::mutableListOf).add(r)
+                }
+
+                if (unresolvedNodes.isEmpty()) return
+
+                for ((node, calls) in unresolvedNodes) {
+                    removeUnresolvedCallsFromNode(node, calls)
+                }
+            }
+        }
+
+        private fun removeUnresolvedCallsFromNode(
+            node: InterProceduralFullTraceNode,
+            calls: List<InterProceduralCall>
+        ) {
+            val actions = calls.map { it.statement to it.summary }
+            calls.forEach { requestedInnerTraces.remove(it) }
+
+            val filteredTrace = removeCallActions(node.trace, actions)
+            val nodeReplacement = filteredTrace?.let { InterProceduralFullTraceNode(it) }
+
+            replaceNode(node, nodeReplacement)
+        }
+
+        private fun replaceNode(node: InterProceduralFullTraceNode, replacement: InterProceduralFullTraceNode?) {
+            if (sinkNodes.remove(node)) {
+                replacement?.let { sinkNodes.add(it) }
+            }
+
+            if (rootNodes.remove(node)) {
+                replacement?.let { rootNodes.add(it) }
+            }
+
+            successors.remove(node)?.let { s -> replacement?.let { successors[it] = s } }
+
+            for (nodeSuccessors in successors.values) {
+                val dependentSuccessors = nodeSuccessors.filterTo(hashSetOf()) { it.node == node }
+                val successorsReplacement = replacement?.let {
+                    dependentSuccessors.map { s -> s.copy(node = it) }
+                }
+
+                nodeSuccessors.removeAll(dependentSuccessors)
+                successorsReplacement?.let { nodeSuccessors.addAll(it) }
+            }
+
+            val dependentRequests = requestedInnerTraces.filterTo(hashSetOf()) { it.node == node }
+            val requestsReplacement = replacement?.let {
+                dependentRequests.map { s -> s.copy(node = it) }
+            }
+
+            requestedInnerTraces.removeAll(dependentRequests)
+            requestsReplacement?.let { requestedInnerTraces.addAll(it) }
+        }
+
+        private fun removeCallActions(
+            trace: MethodTraceResolver.FullTrace,
+            calls: List<Pair<CommonInst, MethodTraceResolver.SummaryTrace>>
+        ): MethodTraceResolver.FullTrace? = trace.filter { entry ->
+            if (entry !is MethodTraceResolver.TraceEntry.Action) return@filter true
+
+            val action = entry.primaryAction
+            if (action !is TraceEntryAction.CallSummary) return@filter true
+
+            val entryContainsCall = calls.any { call ->
+                entry.statement == call.first && action.summaryTrace == call.second
+            }
+
+            !entryContainsCall
         }
 
         private fun resolveNode(
@@ -306,27 +407,31 @@ class TraceResolver(
                     }
 
                     val callSummary = start.sourcePrimaryAction as? TraceEntryAction.CallSourceSummary
-                    if (callSummary != null) {
-                        if (params.startToSourceTraceResolutionLimit != null) {
-                            if (startToSourceTraceResolutionStat++ > params.startToSourceTraceResolutionLimit) {
-                                return node
-                            }
-                        }
+                    if (callSummary == null) {
+                        sourceNodes.add(node)
+                        return node
+                    }
 
-                        addUnprocessedEvent(
-                            BuilderUnprocessedTrace(
-                                trace = callSummary.summaryTrace,
-                                kind = CallKind.CallToSource,
-                                depth = depth + 1,
-                                predecessor = InterProceduralCall(
-                                    CallKind.CallToSource,
-                                    start.statement,
-                                    callSummary.summaryTrace,
-                                    node
-                                )
+                    if (params.startToSourceTraceResolutionLimit != null) {
+                        if (startToSourceTraceResolutionStat++ > params.startToSourceTraceResolutionLimit) {
+                            sourceNodes.add(node)
+                            return node
+                        }
+                    }
+
+                    addUnprocessedEvent(
+                        BuilderUnprocessedTrace(
+                            trace = callSummary.summaryTrace,
+                            kind = CallKind.CallToSource,
+                            depth = depth + 1,
+                            predecessor = InterProceduralCall(
+                                CallKind.CallToSource,
+                                start.statement,
+                                callSummary.summaryTrace,
+                                node
                             )
                         )
-                    }
+                    )
 
                     return node
                 }

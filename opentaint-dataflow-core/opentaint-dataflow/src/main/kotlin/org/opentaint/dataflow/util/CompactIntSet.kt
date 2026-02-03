@@ -73,6 +73,8 @@ class CompactIntSet {
     }
 
     fun addAll(other: CompactIntSet) {
+        if (this === other) return
+
         val otherOffsets = other.offsets ?: return
         val thisOffsets = this.offsets
         if (thisOffsets == null) {
