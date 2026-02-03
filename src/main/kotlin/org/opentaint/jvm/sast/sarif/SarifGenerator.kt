@@ -61,9 +61,10 @@ class SarifGenerator(
         metadatas: List<RuleMetadata>
     ) {
         val sarifResults = traces.map { generateSarifResult(it.vulnerability, it.trace) }
-        val sourceUri = sourceRoot?.let {
-            val loc = ArtifactLocation(uri = it.absolutePathString())
-            mapOf(SarifGenerationOptions.LOCATION_URI to loc)
+
+        val uriBase = options.uriBase ?: sourceRoot?.absolutePathString()
+        val sourceUri = uriBase?.let {
+            mapOf(SarifGenerationOptions.LOCATION_URI to ArtifactLocation(uri = it))
         }
 
         val run = LazyToolRunReport(

@@ -6,6 +6,7 @@ data class SarifGenerationOptions(
     val useSemgrepStyleId: Boolean = false,
     val toolVersion: String = DEFAULT_VERSION,
     val toolSemanticVersion: String = DEFAULT_SEMANTIC_VERSION,
+    val uriBase: String? = null,
 ) {
     companion object {
         const val DEFAULT_FILE_NAME = "report-ifds.sarif"

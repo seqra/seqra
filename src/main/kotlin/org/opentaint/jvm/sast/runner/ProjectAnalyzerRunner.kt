@@ -57,6 +57,8 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
     private val sarifToolSemanticVersion: String by option(help = "Tool semantic version")
         .default(SarifGenerationOptions.DEFAULT_SEMANTIC_VERSION)
 
+    private val sarifUriBase: String? by option(help = "Sarif sources root uri")
+
     override fun analyzeProject(project: Project, analyzerOutputDir: Path, debugOptions: DebugOptions) {
         if (project.modules.isEmpty()) {
             return
@@ -68,6 +70,7 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
             useSemgrepStyleId = sarifSemgrepStyleId,
             toolVersion = sarifToolVersion,
             toolSemanticVersion = sarifToolSemanticVersion,
+            uriBase = sarifUriBase,
         )
 
         val options = ProjectAnalysisOptions(
