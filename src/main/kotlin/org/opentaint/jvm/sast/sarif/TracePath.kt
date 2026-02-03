@@ -135,20 +135,37 @@ private fun resolveCallPath(
 ): List<TracePathNode> {
     val path = mutableListOf<TracePathNode>()
     for (node in callPath) {
-        if (node is TraceEntry.Action && node.primaryAction is TraceEntryAction.CallSummary && node.statement !in stack) {
-            val innerTrace = trace.findSuccessors(traceNode, CallInnerTrace, node.statement)
-                .map { it.node }.filterIsInstance<TraceResolver.InterProceduralFullTraceNode>().firstOrNull()
-            if (innerTrace != null) {
-                path += TracePathNode(node.statement, TracePathNodeKind.CALL, node)
-                val innerPath = generateIntraProceduralPath(innerTrace.trace).orEmpty()
-                val newStack = HashSet<CommonInst>(stack)
-                newStack.add(node.statement)
-                path += resolveCallPath(trace, innerTrace, innerPath, newStack)
+        if (node.statement !in stack) {
+            val innerTraces = trace.findInnerCallEntries(traceNode, node)
+            if (innerTraces != null) {
+                val innerTrace = innerTraces.map { it.node }
+                    .filterIsInstance<TraceResolver.InterProceduralFullTraceNode>()
+                    .firstOrNull()
+
+                if (innerTrace != null) {
+                    path += TracePathNode(node.statement, TracePathNodeKind.CALL, node)
+                    val innerPath = generateIntraProceduralPath(innerTrace.trace).orEmpty()
+                    val newStack = HashSet<CommonInst>(stack)
+                    newStack.add(node.statement)
+                    path += resolveCallPath(trace, innerTrace, innerPath, newStack)
+                }
             }
         }
         path += TracePathNode(node.statement, TracePathNodeKind.OTHER, node)
     }
     return path
+}
+
+private fun SourceToSinkTrace.findInnerCallEntries(
+    traceNode: InterProceduralTraceNode,
+    node: TraceEntry
+): List<TraceResolver.InterProceduralCall>? {
+    if (node !is TraceEntry.Action) return null
+
+    val action = node.primaryAction
+    if (action !is TraceEntryAction.CallSummary) return null
+
+    return findSuccessors(traceNode, CallInnerTrace, node.statement, action.summaryTrace)
 }
 
 data class CallTrace(

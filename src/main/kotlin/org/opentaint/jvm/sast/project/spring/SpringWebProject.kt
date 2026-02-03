@@ -389,6 +389,10 @@ private class SpringControllerEntryPointGenerator(
         val generatedValue = ctx.generatedComponents[component]
         if (generatedValue != null) return generatedValue
 
+        val idx = nextLocalVarIdx()
+        val componentValue = JIRLocalVar(idx, name = "%${name}_$idx", component.toType())
+        ctx.generatedComponents[component] = componentValue
+
         springCtx.registerComponent(projectClasses, cp, component)
 
         val accessibleComponentDependencies = springCtx.componentDependencies.getValue(component).mapNotNull { dep ->
@@ -399,8 +403,6 @@ private class SpringControllerEntryPointGenerator(
             field to loadSpringComponent(ctx, dep.componentType)
         }
 
-        val idx = nextLocalVarIdx()
-        val componentValue = JIRLocalVar(idx, name = "%${name}_$idx", component.toType())
         val componentField = springCtx.componentRegistryField.getValue(component)
         addInstWithLocation(ctx.controller) { loc ->
             JIRAssignInst(loc, componentValue, JIRFieldRef(instance = null, componentField))
@@ -446,7 +448,7 @@ private class SpringControllerEntryPointGenerator(
         componentValue: JIRValue,
         flushed: MutableSet<JIRClassOrInterface>
     ) {
-        flushed.add(component)
+        if (!flushed.add(component)) return
 
         addInstWithLocation(ctx.controller) { loc ->
             val componentInstance = springCtx.componentRegistryField.getValue(component)
