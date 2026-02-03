@@ -1039,7 +1039,7 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
             return SerializedCondition.and(
                 listOf(
                     SerializedCondition.IsType(StringTypeName, position),
-                    SerializedCondition.IsConstant(position)
+                    SerializedCondition.ConstantMatches(constantMatches = ".*", position)
                 )
             )
         }
