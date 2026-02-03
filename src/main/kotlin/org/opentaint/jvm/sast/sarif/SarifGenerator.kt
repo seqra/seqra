@@ -17,6 +17,7 @@ import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
 import org.opentaint.dataflow.configuration.jvm.TaintMethodEntrySink
+import org.opentaint.dataflow.jvm.util.JIRSarifTraits
 import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.dataflow.util.SarifTraits
 import org.opentaint.ir.api.common.CommonMethod
@@ -26,8 +27,10 @@ import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import org.opentaint.ir.api.jvm.cfg.JIRRef
 import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.jvm.sast.JIRSourceFileResolver
+import org.opentaint.jvm.sast.ast.JavaAstSpanResolver
 import org.opentaint.jvm.sast.project.SarifGenerationOptions
-import org.opentaint.jvm.sast.project.spring.annotateSarifWithSpringRelatedInformation
+import org.opentaint.jvm.sast.project.spring.SpringAnnotator
 import org.opentaint.semgrep.pattern.RuleMetadata
 import java.io.OutputStream
 import java.nio.file.Path
@@ -39,7 +42,9 @@ class SarifGenerator(
     sourceFileResolver: SourceFileResolver<CommonInst>,
     private val traits: SarifTraits<CommonMethod, CommonInst>
 ) {
-    private val locationResolver = LocationResolver(sourceFileResolver, traits)
+    private val spanResolver = JavaAstSpanResolver(traits as JIRSarifTraits)
+    private val locationResolver = LocationResolver(sourceFileResolver, traits, spanResolver)
+    private val springAnnotator = SpringAnnotator(sourceFileResolver as JIRSourceFileResolver, spanResolver)
 
     private val json = Json {
         prettyPrint = true
@@ -93,22 +98,24 @@ class SarifGenerator(
         val sinkType = if (vulnerabilityRule is TaintMethodEntrySink) LocationType.RuleMethodEntry else LocationType.Simple
         val sinkLocation = statementLocation(vulnerability.statement, sinkType)
 
-        val codeFlow = generateCodeFlow(trace, vulnerabilityRule.meta.message)
+        val tracePaths = generateTracePaths(trace).orEmpty()
+
+        val threadFlows = tracePaths.map { generateThreadFlow(it, vulnerabilityRule.meta.message) }
 
         var result = Result(
             ruleID = options.formatRuleId(ruleId),
             message = ruleMessage,
             level = level,
             locations = listOfNotNull(sinkLocation),
-            codeFlows = listOfNotNull(codeFlow)
+            codeFlows = listOfNotNull(CodeFlow(threadFlows = threadFlows))
         )
-        result = annotateSarifWithSpringRelatedInformation(result, vulnerability, trace) { s ->
+        result = springAnnotator.annotateSarifWithSpringRelatedInformation(result, vulnerability, trace, tracePaths) { s ->
             statementLocation(s, LocationType.SpringRelated)
         }
         return result
     }
 
-    private fun generateCodeFlow(trace: TraceResolver.Trace?, sinkMessage: String): CodeFlow? {
+    private fun generateTracePaths(trace: TraceResolver.Trace?): List<List<TracePathNode>>? {
         traceGenerationStats.total++
 
         if (trace == null) {
@@ -134,14 +141,12 @@ class SarifGenerator(
             }
         }
 
-        val threadFlows = paths.map { generateThreadFlow(it, sinkMessage) }
-
-        var limitedThreadFlow = threadFlows
+        var limitedTracePaths = paths
         if (options.sarifThreadFlowLimit != null) {
-            limitedThreadFlow = limitedThreadFlow.take(options.sarifThreadFlowLimit)
+            limitedTracePaths = paths.take(options.sarifThreadFlowLimit)
         }
 
-        return CodeFlow(threadFlows = limitedThreadFlow)
+        return limitedTracePaths
     }
 
     private fun areTracesRelative(a: TracePathNode, b: TracePathNode): Boolean {

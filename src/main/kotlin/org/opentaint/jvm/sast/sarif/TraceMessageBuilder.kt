@@ -54,6 +54,9 @@ fun TraceEntry?.isPureEntryPoint() =
         else -> false
     }
 
+fun TracePathNode.getMethod() =
+    this.statement.location.method
+
 private fun JIRInst.isSimpleAssign(): Boolean {
     return this is JIRAssignInst && lhv is JIRLocalVar && (rhv is JIRLocalVar || rhv is JIRArgument)
 }
@@ -182,9 +185,6 @@ class TraceMessageBuilder(
             }
         }
     }
-
-    private fun TracePathNode.getMethod() =
-        this.statement.location.method
 
     private fun CommonInst.isLambdaCreation() =
         this is JIRCallInst && this.callExpr.method.method is JIRLambdaMethod

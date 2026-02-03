@@ -3,6 +3,7 @@ package org.opentaint.jvm.sast.project.spring
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRParameter
 import org.opentaint.ir.api.jvm.ext.allSuperHierarchySequence
 import org.opentaint.ir.api.jvm.ext.findMethodOrNull
 import org.opentaint.jvm.sast.dataflow.matchedAnnotations
@@ -26,6 +27,8 @@ fun String.isSpringAutowiredAnnotation(): Boolean = this == SpringAutowired
 fun String.isSpringValidated(): Boolean = this == JakartaValid
 fun String.isSpringPathVariable(): Boolean = this == SpringPathVariable
 fun String.isSpringModelAttribute(): Boolean = this == SpringModelAttribute
+fun String.isSpringRequestParam(): Boolean = this == SpringRequestParam
+fun String.isSpringRequestBody(): Boolean = this == SpringRequestBody
 fun String.isJakartaConstraint(): Boolean = this == JakartaConstraint
 
 fun JIRClassOrInterface.collectSpringRequestMappingAnnotation(): List<JIRAnnotation>? {

@@ -100,7 +100,13 @@ class JIRSourceFileResolver(
     override fun relativeToRoot(path: Path): String =
         (projectSourceRoot?.let { path.relativeTo(it) } ?: path).toString()
 
-    override fun resolveByName(inst: CommonInst, pkg: String, name: String): Path? {
+    private val sourcesCache = hashMapOf<Pair<String, String>, Path?>()
+    override fun resolveByName(inst: CommonInst, pkg: String, name: String): Path? =
+        sourcesCache.computeIfAbsent(pkg to name) {
+            computeByName(inst, pkg, name)
+        }
+
+    private fun computeByName(inst: CommonInst, pkg: String, name: String): Path? {
         check(inst is JIRInst) { "Expected inst to be JIRInst" }
         val instLocationCls = inst.location.method.enclosingClass
 
@@ -120,7 +126,13 @@ class JIRSourceFileResolver(
         return sourceFilesWithCorrectPackage[0]
     }
 
-    override fun resolveByInst(inst: CommonInst): Path? {
+    private val locationsCache = hashMapOf<CommonInst, Path?>()
+    override fun resolveByInst(inst: CommonInst): Path? =
+        locationsCache.computeIfAbsent(inst) {
+            computeByInst(inst)
+        }
+
+    private fun computeByInst(inst: CommonInst): Path? {
         check(inst is JIRInst) { "Expected inst to be JIRInst" }
         val instLocationCls = inst.location.method.enclosingClass
 

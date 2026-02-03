@@ -6,10 +6,12 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.jvm.util.JIRSarifTraits
 import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.dataflow.util.SarifTraits
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.jvm.sast.ast.JavaAstSpanResolver
 import org.opentaint.jvm.sast.project.SarifGenerationOptions
 import java.io.OutputStream
 
@@ -18,7 +20,8 @@ class DebugFactReachabilitySarifGenerator(
     sourceFileResolver: SourceFileResolver<CommonInst>,
     private val traits: SarifTraits<CommonMethod, CommonInst>,
 ) {
-    private val locationResolver = LocationResolver(sourceFileResolver, traits)
+    private val spanResolver = JavaAstSpanResolver(traits as JIRSarifTraits)
+    private val locationResolver = LocationResolver(sourceFileResolver, traits, spanResolver)
 
     private val json = Json {
         prettyPrint = true

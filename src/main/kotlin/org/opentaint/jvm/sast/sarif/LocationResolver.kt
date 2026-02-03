@@ -59,10 +59,9 @@ data class IntermediateLocation(
 
 class LocationResolver(
     private val sourceFileResolver: SourceFileResolver<CommonInst>,
-    private val traits: SarifTraits<CommonMethod, CommonInst>
+    private val traits: SarifTraits<CommonMethod, CommonInst>,
+    private val spanResolver: JavaAstSpanResolver
 ) {
-    private val spanResolver = JavaAstSpanResolver(traits as JIRSarifTraits)
-
     fun resolve(locations: List<IntermediateLocation>): List<ThreadFlowLocation> {
         var currentIdx = 0
         return locations.flatMap { loc -> resolveLocation(loc, currentIdx).also { currentIdx += it.size } }

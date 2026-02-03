@@ -51,6 +51,27 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
         logger.error(ex) { "Span resolution failure" }
     }.getOrNull()
 
+    fun getParameterName(sourceLocation: Path, inst: JIRInst, paramIdx: Int): String? = runCatching {
+        val ast = getJavaAst(sourceLocation) ?: return@runCatching null
+
+        val method = inst.location.method
+        val line = inst.lineNumber
+        val declaration = findMethodDeclarationContext(ast, line, method) ?: return@runCatching null
+
+        val paramsContexts = declaration.findChildType(JavaParser.FormalParametersContext::class.java)
+            .findChildType(JavaParser.FormalParameterListContext::class.java)
+            ?.children?.filterIsInstance<JavaParser.FormalParameterContext>() ?: return@runCatching null
+
+        if (paramIdx >= paramsContexts.size) return@runCatching null
+
+        paramsContexts[paramIdx]
+            .findChildType(JavaParser.VariableDeclaratorIdContext::class.java)
+            .findChildType(JavaParser.IdentifierContext::class.java)
+            ?.text
+    }.onFailure {
+        logger.error { "Argument name resolution failure" }
+    }.getOrNull()
+
     private val parsedFiles = ConcurrentHashMap<Path, Optional<CompilationUnitContext>>()
 
     private fun getJavaAst(path: Path): CompilationUnitContext? =
