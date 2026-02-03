@@ -235,15 +235,7 @@ class TraceResolver(
         }
 
         private fun createSource2SinkTrace(): SourceToSinkTrace {
-            val finalNodes = mutableListOf<InterProceduralTraceNode>()
-            finalNodes.addAll(sinkNodes)
-            finalNodes.addAll(sourceNodes)
-            val resultSuccessors = removeUnreachableEntries(successors, rootNodes.toList(), finalNodes) { it.node }
-
-            val validStartNodes = rootNodes.filterTo(hashSetOf()) {
-                it in sinkNodes || !resultSuccessors[it].isNullOrEmpty()
-            }
-            return SourceToSinkTrace(validStartNodes, sinkNodes, resultSuccessors)
+            return SourceToSinkTrace(rootNodes, sinkNodes, successors)
         }
 
         private fun removeUnresolvedInnerCalls() {
