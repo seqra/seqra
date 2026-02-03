@@ -149,7 +149,7 @@ private class MethodTaintedSummariesMergingStorage(
 
     fun summaries(): F2FBBuilder<AccessPath.AccessNode?, AccessTree.AccessNode>? {
         val exclusion = this.exclusion ?: return null
-        val edges = this.edges!!
+        val edges = this.edges ?: return null
         return FactToFactEdgeBuilderBuilder(apManager)
             .setInitialAp(initialAccess)
             .setExitAp(edges)
