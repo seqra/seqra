@@ -1516,24 +1516,8 @@ passThrough:
 - function: java.lang.Object#clone
   signature: () java.lang.Object
   copy:
-  - from:
-    - this
-    - .java.lang.Object#MapKey#java.lang.Object
-    to:
-    - result
-    - .java.lang.Object#MapKey#java.lang.Object
-  - from:
-    - this
-    - .java.lang.Object#MapValue#java.lang.Object
-    to:
-    - result
-    - .java.lang.Object#MapValue#java.lang.Object
-  - from:
-    - this
-    - .java.lang.Object#Element#java.lang.Object
-    to:
-    - result
-    - .java.lang.Object#Element#java.lang.Object
+  - from: this
+    to: result
 - function: java.lang.Object#toString
   signature: () java.lang.String
   overrides: false
@@ -1675,7 +1659,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
   - from:
     - arg(0)
     - '[*]'
@@ -1688,7 +1672,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
   - from:
     - arg(0)
     - '[*]'
@@ -1711,7 +1695,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
   - from:
     - arg(0)
     - '[*]'
@@ -1724,7 +1708,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
   - from:
     - arg(0)
     - '[*]'
@@ -1737,7 +1721,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
   - from:
     - arg(0)
     - '[*]'
@@ -1750,7 +1734,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
   - from:
     - arg(0)
     - '[*]'
@@ -1768,7 +1752,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
   - from:
     - arg(0)
     - '[*]'
@@ -1781,7 +1765,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
   - from:
     - arg(0)
     - '[*]'
@@ -1794,7 +1778,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
   - from:
     - arg(0)
     - '[*]'
@@ -1807,7 +1791,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
   - from:
     - arg(0)
     - '[*]'
@@ -1820,7 +1804,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
   - from:
     - arg(0)
     - '[*]'
@@ -1833,7 +1817,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
   - from:
     - arg(0)
     - '[*]'
@@ -1846,7 +1830,7 @@ passThrough:
   - from: arg(0)
     to:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
   - from:
     - arg(0)
     - '[*]'
@@ -1860,7 +1844,7 @@ passThrough:
     to: result
   - from:
       - this
-      - .java.lang.String#<string-bytes>#java.lang.Object
+      - .java.lang.String#<string-bytes>#byte[]
     to: result
 - function: java.lang.String#concat
   signature: (java.lang.String) java.lang.String
@@ -1880,7 +1864,7 @@ passThrough:
   - from: arg(0)
     to:
       - result
-      - .java.lang.String#<string-bytes>#java.lang.Object
+      - .java.lang.String#<string-bytes>#byte[]
 
 - function: java.lang.String#copyValueOf
   signature: (char[], int, int) java.lang.String
@@ -1890,7 +1874,7 @@ passThrough:
   - from: arg(0)
     to:
       - result
-      - .java.lang.String#<string-bytes>#java.lang.Object
+      - .java.lang.String#<string-bytes>#byte[]
 
 - function: java.lang.String#format
   signature: (java.lang.String, java.lang.Object[]) java.lang.String
@@ -1968,7 +1952,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
     to: result
 - function: java.lang.String#getBytes
   signature: (java.lang.String) byte[]
@@ -1977,7 +1961,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
     to: result
 - function: java.lang.String#getBytes
   signature: (java.nio.charset.Charset) byte[]
@@ -1986,7 +1970,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
     to: result
 - function: java.lang.String#getBytes
   signature: (byte[], int, byte) void
@@ -1995,7 +1979,7 @@ passThrough:
     to: arg(0)
   - from:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
     to: arg(0)
 - function: java.lang.String#getBytes
   signature: (int, int, byte[], int) void
@@ -2004,7 +1988,7 @@ passThrough:
     to: arg(2)
   - from:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
     to: arg(2)
 - function: java.lang.String#getBytes
   signature: (byte[], int, int, byte, int) void
@@ -2013,7 +1997,7 @@ passThrough:
     to: arg(0)
   - from:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
     to: arg(0)
 - function: java.lang.String#getBytes
   signature:
@@ -2029,7 +2013,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
     to: arg(2)
   - from: this
     to: arg(2)
@@ -2047,7 +2031,7 @@ passThrough:
   copy:
   - from:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
     to: arg(2)
   - from: this
     to: arg(2)
@@ -2108,7 +2092,7 @@ passThrough:
     to: result
   - from:
     - this
-    - .java.lang.String#<string-bytes>#java.lang.Object
+    - .java.lang.String#<string-bytes>#byte[]
     to: result
 - function: java.lang.String#toLowerCase
   signature: () java.lang.String
