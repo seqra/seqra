@@ -77,6 +77,20 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
                         return FilterResult.Reject
                     }
 
+                    if (accessor == badMapKeyAccessor) {
+                        if (mapKeyAccessors.any { checkAccessor(it) is FilterResult.Accept }) {
+                            return FilterResult.Accept
+                        }
+                        return FilterResult.Reject
+                    }
+
+                    if (accessor == badMapValueAccessor) {
+                        if (mapValueAccessors.any { checkAccessor(it) is FilterResult.Accept }) {
+                            return FilterResult.Accept
+                        }
+                        return FilterResult.Reject
+                    }
+
                     val factType = fieldClassType(accessor) ?: return FilterResult.Accept
                     if (!typeMayHaveSubtypeOf(actualType, factType)) return FilterResult.Reject
                     return FilterResult.Accept
@@ -265,5 +279,17 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
     private val elementAccessors = listOf(
         FieldAccessor("java.lang.Iterable", "Element", "java.lang.Object"),
         FieldAccessor("java.util.Iterator", "Element", "java.lang.Object"),
+    )
+
+    private val badMapKeyAccessor = FieldAccessor("java.lang.Object", "MapKey", "java.lang.Object")
+    private val mapKeyAccessors = listOf(
+        FieldAccessor("java.util.Map", "MapKey", "java.lang.Object"),
+        FieldAccessor("java.util.Map\$Entry", "MapKey", "java.lang.Object"),
+    )
+
+    private val badMapValueAccessor = FieldAccessor("java.lang.Object", "MapValue", "java.lang.Object")
+    private val mapValueAccessors = listOf(
+        FieldAccessor("java.util.Map", "MapValue", "java.lang.Object"),
+        FieldAccessor("java.util.Map\$Entry", "MapValue", "java.lang.Object"),
     )
 }
