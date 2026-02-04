@@ -78,9 +78,9 @@ class JavaAstSpanResolver(private val traits: JIRSarifTraits) {
         parsedFiles.computeIfAbsent(path) { Optional.ofNullable(parseJavaFile(path)) }.getOrNull()
 
     private fun parseJavaFile(path: Path): CompilationUnitContext? = runCatching {
-        val lexer = JavaLexer(CharStreams.fromPath(path))
+        val lexer = JavaLexer(CharStreams.fromPath(path)).apply { removeErrorListeners() }
         val tokenStream = CommonTokenStream(lexer)
-        val parser = JavaParser(tokenStream).also { it.removeErrorListeners() }
+        val parser = JavaParser(tokenStream).apply { removeErrorListeners() }
         parser.compilationUnit()
     }.onFailure { ex ->
         logger.error(ex) { "File parsing failure" }

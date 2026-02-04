@@ -19,7 +19,7 @@ object JavaClassNameExtractor {
     }
 
     private fun extractClassNamesFromSource(path: Path): List<String> {
-        val lexer = JavaLexer(CharStreams.fromPath(path))
+        val lexer = JavaLexer(CharStreams.fromPath(path)).apply { removeErrorListeners() }
         val stream = CommonTokenStream(lexer)
 
         val classNames = mutableListOf<String>()

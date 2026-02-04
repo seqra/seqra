@@ -74,28 +74,12 @@ class SemgrepJavaPatternParser {
     private val visitor = SemgrepJavaPatternParserVisitor()
 
     fun parseSemgrepJavaPattern(pattern: String): SemgrepJavaPatternParsingResult {
-        val lexer = JavaLexer(CharStreams.fromString(pattern))
+        val errors = mutableListOf<String>()
+
+        val lexer = JavaLexer(CharStreams.fromString(pattern)).apply { configureErrorListener(errors) }
         val tokens = CommonTokenStream(lexer)
 
-        val errors = mutableListOf<String>()
-        val parser = JavaParser(tokens).also {
-            // Suppress writing errors to stderr
-            it.removeErrorListener(ConsoleErrorListener.INSTANCE)
-
-            // Accumulate errors to report via FailedAstParsing
-            it.addErrorListener(object : BaseErrorListener() {
-                override fun syntaxError(
-                    recognizer: Recognizer<*, *>?,
-                    offendingSymbol: Any?,
-                    line: Int,
-                    charPositionInLine: Int,
-                    msg: String,
-                    e: RecognitionException?
-                ) {
-                    errors.add("line $line:$charPositionInLine $msg")
-                }
-            })
-        }
+        val parser = JavaParser(tokens).apply { configureErrorListener(errors) }
 
         val tree = parser.semgrepPattern()
         if (errors.isNotEmpty()) {
@@ -113,6 +97,27 @@ class SemgrepJavaPatternParser {
 
             SemgrepJavaPatternParsingResult.OtherFailure(it)
         }
+    }
+
+    private fun Recognizer<*, *>.configureErrorListener(
+        errors: MutableList<String>
+    ) {
+        // Suppress writing errors to stderr
+        removeErrorListener(ConsoleErrorListener.INSTANCE)
+
+        // Accumulate errors to report via FailedAstParsing
+        addErrorListener(object : BaseErrorListener() {
+            override fun syntaxError(
+                recognizer: Recognizer<*, *>?,
+                offendingSymbol: Any?,
+                line: Int,
+                charPositionInLine: Int,
+                msg: String,
+                e: RecognitionException?
+            ) {
+                errors.add("line $line:$charPositionInLine $msg")
+            }
+        })
     }
 }
 
