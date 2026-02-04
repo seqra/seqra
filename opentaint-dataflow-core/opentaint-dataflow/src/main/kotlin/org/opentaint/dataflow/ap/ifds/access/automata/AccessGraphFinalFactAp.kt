@@ -42,7 +42,6 @@ data class AccessGraphFinalFactAp(
     }
 
     override fun clearAccessor(accessor: Accessor): FinalFactAp? = with(access.manager) {
-        check(accessor !is AnyAccessor)
         return access.clear(accessor.idx)?.let { AccessGraphFinalFactAp(base, it, exclusions) }
     }
 
