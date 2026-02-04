@@ -98,18 +98,18 @@ class SarifGenerator(
         val sinkType = if (vulnerabilityRule is TaintMethodEntrySink) LocationType.RuleMethodEntry else LocationType.Simple
         val sinkLocation = statementLocation(vulnerability.statement, sinkType)
 
-        val tracePaths = generateTracePaths(trace).orEmpty()
+        val tracePaths = generateTracePaths(trace)
 
-        val threadFlows = tracePaths.map { generateThreadFlow(it, vulnerabilityRule.meta.message) }
+        val threadFlows = tracePaths?.map { generateThreadFlow(it, vulnerabilityRule.meta.message) }
 
         var result = Result(
             ruleID = options.formatRuleId(ruleId),
             message = ruleMessage,
             level = level,
             locations = listOfNotNull(sinkLocation),
-            codeFlows = listOfNotNull(CodeFlow(threadFlows = threadFlows))
+            codeFlows = listOfNotNull(threadFlows?.let { CodeFlow(threadFlows = it) })
         )
-        result = springAnnotator.annotateSarifWithSpringRelatedInformation(result, vulnerability, trace, tracePaths) { s ->
+        result = springAnnotator.annotateSarifWithSpringRelatedInformation(result, vulnerability, trace, tracePaths.orEmpty()) { s ->
             statementLocation(s, LocationType.SpringRelated)
         }
         return result
