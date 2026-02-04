@@ -69,6 +69,14 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
                 is TaintMarkAccessor, FinalAccessor, AnyAccessor -> return FilterResult.Accept
                 is FieldAccessor -> {
                     if (actualType !is JIRRefType) return FilterResult.Reject
+
+                    if (accessor == badElementAccessor) {
+                        if (elementAccessors.any { checkAccessor(it) is FilterResult.Accept }) {
+                            return FilterResult.Accept
+                        }
+                        return FilterResult.Reject
+                    }
+
                     val factType = fieldClassType(accessor) ?: return FilterResult.Accept
                     if (!typeMayHaveSubtypeOf(actualType, factType)) return FilterResult.Reject
                     return FilterResult.Accept
@@ -251,4 +259,11 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
         }
         return false
     }
+
+    // todo: fix config
+    private val badElementAccessor = FieldAccessor("java.lang.Object", "Element", "java.lang.Object")
+    private val elementAccessors = listOf(
+        FieldAccessor("java.lang.Iterable", "Element", "java.lang.Object"),
+        FieldAccessor("java.util.Iterator", "Element", "java.lang.Object"),
+    )
 }
