@@ -235,7 +235,21 @@ class TraceResolver(
         }
 
         private fun createSource2SinkTrace(): SourceToSinkTrace {
-            return SourceToSinkTrace(rootNodes, sinkNodes, successors)
+            val rootsWithReachableSources = rootNodes.filter { node ->
+                entriesReachableFrom(successors, node, sourceNodes) { edge ->
+                    edge.takeIf { it.kind == CallKind.CallToSource }?.node
+                }
+            }
+
+            val rootsWithReachableSinks = rootsWithReachableSources.filterTo(hashSetOf()) { node ->
+                entriesReachableFrom(successors, node, sinkNodes) { edge ->
+                    edge.takeIf { it.kind == CallKind.CallToSink }?.node
+                }
+            }
+
+            if (rootsWithReachableSinks.isEmpty()) return SourceToSinkTrace(emptySet(), emptySet(), emptyMap())
+
+            return SourceToSinkTrace(rootsWithReachableSinks, sinkNodes, successors)
         }
 
         private fun removeUnresolvedInnerCalls() {
