@@ -31,7 +31,8 @@ class MavenProjectResolver(
     private val projectMavenExecutable = getProjectMaven()
 
     private fun getProjectMaven(): String {
-        val mvnwPath = (projectSourceRoot / "mvnw").toAbsolutePath()
+        val mwnwName = selectExecutableName(win = "mvnw.cmd", other = "mvnw")
+        val mvnwPath = (projectSourceRoot / mwnwName).toAbsolutePath()
         if (mvnwPath.isExecutable())
             return mvnwPath.pathString
         if (MAVEN_EXECUTABLE_NAME != null)

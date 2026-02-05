@@ -253,7 +253,7 @@ class GradleProjectResolver(
         private const val GRADLE_SYSTEM_EXECUTABLE = "/usr/bin/gradle"
 
         private val gradleWrapper by lazy {
-            if (!osIsWindows()) "gradlew" else "gradlew.bat"
+            selectExecutableName(win = "gradlew.bat", other = "gradlew")
         }
 
         private fun resolveGradleExecutable(directory: Path): String {
@@ -311,7 +311,5 @@ class GradleProjectResolver(
                 "-DGITHUB_DEPENDENCY_GRAPH_WORKSPACE=${workDir.absolutePathString()}",
                 "-DDEPENDENCY_GRAPH_REPORT_DIR=${reportDir.absolutePathString()}"
             )
-
-        private fun osIsWindows() = System.getProperty("os.name").lowercase().contains("win")
     }
 }
