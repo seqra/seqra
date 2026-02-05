@@ -251,10 +251,13 @@ class GradleProjectResolver(
             gradleProjectFiles.any { directory.resolve(it).exists() }
 
         private const val GRADLE_SYSTEM_EXECUTABLE = "/usr/bin/gradle"
-        private const val GRADLE_WRAPPER = "gradlew"
+
+        private val gradleWrapper by lazy {
+            if (!osIsWindows()) "gradlew" else "gradlew.bat"
+        }
 
         private fun resolveGradleExecutable(directory: Path): String {
-            val gradlew = directory.resolve(GRADLE_WRAPPER)
+            val gradlew = directory.resolve(gradleWrapper)
             if (!gradlew.isExecutable()) return GRADLE_SYSTEM_EXECUTABLE
 
             val wrapperDir = directory.resolve("gradle").resolve("wrapper")
@@ -308,5 +311,7 @@ class GradleProjectResolver(
                 "-DGITHUB_DEPENDENCY_GRAPH_WORKSPACE=${workDir.absolutePathString()}",
                 "-DDEPENDENCY_GRAPH_REPORT_DIR=${reportDir.absolutePathString()}"
             )
+
+        private fun osIsWindows() = System.getProperty("os.name").lowercase().contains("win")
     }
 }
