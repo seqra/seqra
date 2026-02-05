@@ -6,6 +6,7 @@ import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.AnalysisRunner
 import org.opentaint.dataflow.ap.ifds.AnalysisUnitRunnerManager
+import org.opentaint.dataflow.ap.ifds.Edge
 import org.opentaint.dataflow.ap.ifds.Edge.FactToFact
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdgeSearcher
@@ -1316,8 +1317,10 @@ class MethodTraceResolver(
         val resolvedCallSummaries = mutableListOf<CallSummary>()
 
         val methodSummaries = manager.findFactToFactSummaryEdges(callee, startFact.startFactBase)
+        val applicableMethodSummaries = methodSummaries.filter { isApplicableExitToReturnEdge(it) }
+
         val callerFact = startFact.callerFact
-        for (summaryEdge in methodSummaries) {
+        for (summaryEdge in applicableMethodSummaries) {
             val mappedSummaryFact = summaryEdge.factAp.rebase(callerFact.base)
             val deltas = callerFact.splitDelta(mappedSummaryFact)
 
@@ -1353,7 +1356,9 @@ class MethodTraceResolver(
         this += weakestCallSummaries
 
         val methodNdSummaries = manager.findFactNDSummaryEdges(callee, startFact.startFactBase)
-        for (summaryEdge in methodNdSummaries) {
+        val applicableNDSummaries = methodNdSummaries.filter { isApplicableExitToReturnEdge(it) }
+
+        for (summaryEdge in applicableNDSummaries) {
             val mappedSummaryFact = summaryEdge.factAp.rebase(callerFact.base)
 
             if (!mappedSummaryFact.contains(callerFact)) continue
@@ -1402,7 +1407,9 @@ class MethodTraceResolver(
         startFact: CallPreconditionFact.CallToStart
     ) {
         val relevantSummaryEdges = manager.findZeroToFactSummaryEdges(callee, startFact.startFactBase)
-        for (summaryEdge in relevantSummaryEdges) {
+        val applicableSummaryEdges = relevantSummaryEdges.filter { isApplicableExitToReturnEdge(it) }
+
+        for (summaryEdge in applicableSummaryEdges) {
             val mappedSummaryFact = summaryEdge.factAp.rebase(startFact.callerFact.base)
             if (!mappedSummaryFact.contains(startFact.callerFact)) continue
 
@@ -1418,12 +1425,22 @@ class MethodTraceResolver(
         }
     }
 
-    private fun selectWeakestEntries(entries: List<CallSummary>): List<CallSummary> {
-        val selectedEntries = LinkedList<CallSummary>()
-        for (summary in entries) {
-            addWeakestEntry(summary, selectedEntries)
-        }
-        return selectedEntries
+    private fun isApplicableExitToReturnEdge(edge: Edge): Boolean {
+        return !analysisManager.producesExceptionalControlFlow(edge.statement)
+    }
+
+    private fun selectWeakestEntries(allSummaries: List<CallSummary>): List<CallSummary> {
+        val result = mutableListOf<CallSummary>()
+        allSummaries
+            .groupBy { it.summaryTrace.final.statement }
+            .values.forEach { entries ->
+                val selectedEntries = LinkedList<CallSummary>()
+                for (summary in entries) {
+                    addWeakestEntry(summary, selectedEntries)
+                }
+                result += selectedEntries
+            }
+        return result
     }
 
     private fun addWeakestEntry(entry: CallSummary, selectedEntries: LinkedList<CallSummary>) {
