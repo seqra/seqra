@@ -29,16 +29,18 @@ private fun generateSarifRuleDescription(metadata: RuleMetadata, options: SarifG
         cwes + owasps + confidence + category
     }
 
-    val shortDescription = metadata.metadata?.readStrings("shortDescription")?.firstOrNull()
+    val shortDescription = metadata.metadata?.readStrings("short-description")?.firstOrNull()
         ?: "Opentaint Finding: ${options.formatRuleId(metadata.ruleId)}"
+
+    val fullDescription = metadata.metadata?.readStrings("full-description")?.firstOrNull()
+        ?: metadata.message
 
     return ReportingDescriptor(
         id = options.formatRuleId(metadata.ruleId),
         name = options.formatRuleId(metadata.ruleId),
         defaultConfiguration = ReportingConfiguration(level = level),
-        fullDescription = MultiformatMessageString(text = metadata.message),
+        fullDescription = MultiformatMessageString(markdown = fullDescription, text = fullDescription),
         shortDescription = MultiformatMessageString(text = shortDescription),
-        help = MultiformatMessageString(text = metadata.message),
         properties = PropertyBag(tags)
     )
 }
