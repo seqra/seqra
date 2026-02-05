@@ -57,6 +57,9 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
     private val sarifToolSemanticVersion: String by option(help = "Tool semantic version")
         .default(SarifGenerationOptions.DEFAULT_SEMANTIC_VERSION)
 
+    private val sarifGenerateFingerprint: Boolean by option(help = "Generate partial fingerprints")
+        .flag()
+
     private val sarifUriBase: String? by option(help = "Sarif sources root uri")
 
     override fun analyzeProject(project: Project, analyzerOutputDir: Path, debugOptions: DebugOptions) {
@@ -71,6 +74,7 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
             toolVersion = sarifToolVersion,
             toolSemanticVersion = sarifToolSemanticVersion,
             uriBase = sarifUriBase,
+            generateFingerprint = sarifGenerateFingerprint,
         )
 
         val options = ProjectAnalysisOptions(

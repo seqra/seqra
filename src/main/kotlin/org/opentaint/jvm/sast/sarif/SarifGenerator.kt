@@ -3,7 +3,6 @@ package org.opentaint.jvm.sast.sarif
 import io.github.detekt.sarif4k.ArtifactLocation
 import io.github.detekt.sarif4k.CodeFlow
 import io.github.detekt.sarif4k.Level
-import io.github.detekt.sarif4k.Location
 import io.github.detekt.sarif4k.Message
 import io.github.detekt.sarif4k.Result
 import io.github.detekt.sarif4k.ThreadFlow
@@ -25,6 +24,7 @@ import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
+import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
 import org.opentaint.ir.api.jvm.cfg.JIRRef
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.jvm.sast.JIRSourceFileResolver
@@ -34,6 +34,9 @@ import org.opentaint.jvm.sast.project.spring.SpringAnnotator
 import org.opentaint.semgrep.pattern.RuleMetadata
 import java.io.OutputStream
 import java.nio.file.Path
+import java.security.MessageDigest
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.io.path.absolutePathString
 
 class SarifGenerator(
@@ -99,20 +102,58 @@ class SarifGenerator(
         val sinkLocation = statementLocation(vulnerability.statement, sinkType)
 
         val tracePaths = generateTracePaths(trace)
-
         val threadFlows = tracePaths?.map { generateThreadFlow(it, vulnerabilityRule.meta.message) }
+
+        var partialFingerPrints: Map<String, String>? = null
+
+        if (options.generateFingerprint) {
+            val fingerprint = computeFingerprint(ruleId, sinkLocation, threadFlows)
+            partialFingerPrints = mapOf(
+                "vulnerabilityWithTraceHash/v1" to fingerprint
+            )
+        }
+
+        val resolvedSinkLocation = locationResolver.generateSarifLocation(sinkLocation)
+        val resolvedThreadFlows = threadFlows?.map {
+            ThreadFlow(locations = locationResolver.resolve(it))
+        }
 
         var result = Result(
             ruleID = options.formatRuleId(ruleId),
             message = ruleMessage,
             level = level,
-            locations = listOfNotNull(sinkLocation),
-            codeFlows = listOfNotNull(threadFlows?.let { CodeFlow(threadFlows = it) })
+            partialFingerprints = partialFingerPrints,
+            locations = listOf(resolvedSinkLocation),
+            codeFlows = listOfNotNull(resolvedThreadFlows?.let { CodeFlow(threadFlows = it) })
         )
         result = springAnnotator.annotateSarifWithSpringRelatedInformation(result, vulnerability, trace, tracePaths.orEmpty()) { s ->
-            statementLocation(s, LocationType.SpringRelated)
+            val loc = statementLocation(s, LocationType.SpringRelated)
+            locationResolver.generateSarifLocation(loc)
         }
         return result
+    }
+
+    @OptIn(ExperimentalEncodingApi::class)
+    private fun computeFingerprint(
+        ruleId: String,
+        vulnerabilityLocation: IntermediateLocation,
+        traces: List<List<IntermediateLocation>>?
+    ): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        digest.update(ruleId.toByteArray())
+        digest.addLocationFingerprint(vulnerabilityLocation)
+        traces?.forEach { trace ->
+            trace.forEach { digest.addLocationFingerprint(it) }
+        }
+        val digestData = digest.digest()
+        return Base64.encode(digestData)
+    }
+
+    private fun MessageDigest.addLocationFingerprint(loc: IntermediateLocation) {
+        val instLoc = loc.inst.location as? JIRInstLocation ?: return
+        update(instLoc.method.enclosingClass.name.toByteArray())
+        update(instLoc.method.name.toByteArray())
+        update(instLoc.index.toString().toByteArray())
     }
 
     private fun generateTracePaths(trace: TraceResolver.Trace?): List<List<TracePathNode>>? {
@@ -246,7 +287,7 @@ class SarifGenerator(
         !isInsideLambda() && (entry is MethodTraceResolver.TraceEntry.MethodEntry || entry.isPureEntryPoint())
     }
 
-    private fun generateThreadFlow(path: List<TracePathNode>, sinkMessage: String): ThreadFlow {
+    private fun generateThreadFlow(path: List<TracePathNode>, sinkMessage: String): List<IntermediateLocation> {
         val messageBuilder = TraceMessageBuilder(traits, sinkMessage, path)
         val filteredLocations = path.filter { messageBuilder.isGoodTrace(it) }
         val groupedLocations = groupRelativeTraces(filteredLocations)
@@ -266,8 +307,7 @@ class SarifGenerator(
                 node = if (!groupNode.isMultiple) groupNode.node else null,
             )
         }
-
-        return ThreadFlow(locations = locationResolver.resolve(flowLocations))
+        return flowLocations
     }
 
     private fun getInstructionInfo(statement: CommonInst, rewriteLine: Boolean = false): InstructionInfo = with(traits) {
@@ -279,16 +319,14 @@ class SarifGenerator(
         )
     }
 
-    private fun statementLocation(statement: CommonInst, type: LocationType): Location {
-        val loc = IntermediateLocation(
+    private fun statementLocation(statement: CommonInst, type: LocationType): IntermediateLocation =
+        IntermediateLocation(
             inst = statement,
             info = getInstructionInfo(statement),
             kind = "",
             message = null,
             type = type,
         )
-        return locationResolver.generateSarifLocation(loc)
-    }
 
     companion object {
         val logger = object : KLogging() {}.logger

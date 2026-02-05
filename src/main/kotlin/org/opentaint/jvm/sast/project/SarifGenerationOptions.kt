@@ -7,6 +7,7 @@ data class SarifGenerationOptions(
     val toolVersion: String = DEFAULT_VERSION,
     val toolSemanticVersion: String = DEFAULT_SEMANTIC_VERSION,
     val uriBase: String? = null,
+    val generateFingerprint: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_FILE_NAME = "report-ifds.sarif"
