@@ -1,3 +1,17 @@
+## v2.3.0
+### feat: Support servlet controllers annotation (@WebServlet)
+#### seqra-jvm-sast
+- Fix inner calls resolving
+- Fix SpringRuleProvider and several config rules
+- Annotate Servlet controllers
+- Handle vulnerabilities with generated locations
+- Fix tree summary storage with Any accessor
+#### seqra-rules
+- fix: Add a sanitizer for `unvalidated-redirect` and clean sources
+## v2.1.3
+### fix: Set Java 21 as a default version for the analyzer
+## v2.1.2
+### fix: Fix passing partial fingerprints generation option
 ## v2.1.1
 ### fix: Revise README structure, fix formatting, update Docker docs, bump version
 - docs: Restructure README
