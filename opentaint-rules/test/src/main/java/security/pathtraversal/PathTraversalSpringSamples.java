@@ -85,6 +85,26 @@ public class PathTraversalSpringSamples {
 
             return streamPathUnchecked(path);
         }
+
+        /**
+         * SAFE: @PathVariable without wildcard in URL pattern cannot contain slashes,
+         * so path traversal sequences like "../" are not possible.
+         */
+        @GetMapping("/safe-pathvar/{fileName}")
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-spring-app")
+        public ResponseEntity<ByteArrayResource> safeNonWildcardPathVariable(@PathVariable String fileName) {
+
+            // Without a wildcard in the URL pattern (e.g., {*fileName}),
+            // the path variable cannot contain "/" characters,
+            // preventing path traversal attacks
+            Path path = Paths.get(BASE_DIR + fileName);
+
+            if (!Files.exists(path) || !Files.isRegularFile(path)) {
+                return ResponseEntity.notFound().build();
+            }
+
+            return streamPathUnchecked(path);
+        }
     }
 
     @RestController

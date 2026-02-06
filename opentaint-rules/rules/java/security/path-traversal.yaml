@@ -265,7 +265,7 @@ rules:
     mode: join
     join:
       refs:
-        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+        - rule: java/lib/spring/untrusted-path-source.yaml#spring-untrusted-path-source
           as: untrusted-data
         - rule: java/lib/generic/path-traversal-sinks.yaml#java-path-traversal-sinks
           as: sink

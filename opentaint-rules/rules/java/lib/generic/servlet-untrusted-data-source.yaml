@@ -19,15 +19,11 @@ rules:
                     - pattern: doDelete
                     - pattern: doGet
                     - pattern: doPost
-                    - pattern: doDelete
+                    - pattern: doPut
                     - pattern: doTrace
                     - pattern: _jspService
           - pattern: |
               $UNTRUSTED = (MessageBodyReader $READER).readFrom(...);
-          - pattern: |
-              (javax.servlet.http.Cookie[] $COOKIES) = (HttpServletRequest $REQ).getCookies();
-              ...
-              $UNTRUSTED = $COOKIES[...].getValue();
           - patterns:
             - pattern: |
                 $FILES = ($FILE_UPLOAD_TYPE $SFU).parseRequest((HttpServletRequest $REQ));

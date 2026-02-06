@@ -7,6 +7,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -14,6 +15,9 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.fileupload.servlet.ServletFileUpload;
 
 import org.seqra.sast.test.util.NegativeRuleSample;
 import org.seqra.sast.test.util.PositiveRuleSample;
@@ -248,6 +252,38 @@ public class PathTraversalServletSamples {
             }
 
             streamFile(response, target);
+        }
+    }
+
+    /**
+     * VULNERABLE: uses filename from Apache Commons FileUpload directly in path construction.
+     */
+    @WebServlet("/pathtraversal/unsafe-fileupload")
+    public static class UnsafeFileUploadServlet extends HttpServlet {
+
+        private static final String UPLOAD_DIR = "/var/www/uploads/";
+
+        @Override
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        protected void doPost(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+
+            ServletFileUpload upload = new ServletFileUpload();
+            try {
+                // Parse file upload request - untrusted source
+                List<FileItem> files = upload.parseRequest(request);
+
+                for (FileItem file : files) {
+                    String fileName = file.getName();
+
+                    // Path traversal vulnerability: attacker can upload file with name like "../../etc/passwd"
+                    File targetFile = new File(UPLOAD_DIR + fileName);
+
+                    streamFile(response, targetFile);
+                }
+            } catch (Exception e) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
         }
     }
 

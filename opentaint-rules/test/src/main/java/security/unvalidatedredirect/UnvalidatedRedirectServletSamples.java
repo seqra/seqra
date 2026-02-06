@@ -10,6 +10,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.seqra.sast.test.util.NegativeRuleSample;
 import org.seqra.sast.test.util.PositiveRuleSample;
 
 /**
@@ -66,6 +67,22 @@ public class UnvalidatedRedirectServletSamples {
                 // Invalid URL; redirect to safe internal page
                 response.sendRedirect(request.getContextPath() + "/home.jsp");
             }
+        }
+    }
+
+    /**
+     * SAFE: redirect URL is from getContextPath() which is a sanitized source
+     * (not user-controlled, comes from server configuration).
+     */
+    public static class SafeContextPathRedirectServlet extends HttpServlet {
+
+        @Override
+        @NegativeRuleSample(value = "java/security/unvalidated-redirect.yaml", id = "unvalidated-redirect-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            // SAFE: getContextPath() returns the server-configured context path, not user input
+            String url = request.getContextPath();
+            response.sendRedirect(url + "/home.jsp");
         }
     }
 }

@@ -8,6 +8,11 @@ rules:
       provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/endpoint/rule-UnvalidatedRedirect.yml
     languages:
       - java
-    pattern-either:
+    mode: taint
+    pattern-sinks:
       - pattern: (HttpServletResponse $RES).sendRedirect($URL);
       - pattern: (HttpServletResponse $RES).addHeader("Location", $URL);
+    pattern-sanitizers:
+      - patterns:
+        - pattern: $URL = (HttpServletRequest $REQ).getContextPath();
+        - focus-metavariable: $URL

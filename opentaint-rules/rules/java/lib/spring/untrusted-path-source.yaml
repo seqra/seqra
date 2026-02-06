@@ -1,5 +1,5 @@
 rules:
-  - id: spring-untrusted-data-source
+  - id: spring-untrusted-path-source
     options:
       lib: true
     severity: NOTE
@@ -9,11 +9,26 @@ rules:
     patterns:
       - pattern-either:
           - patterns:
-              - pattern: |
-                  @$ANNOTATION(...)
-                  $RETURNTYPE $METHODNAME(..., $TYPE $UNTRUSTED,...) {
-                    ...
-                  }
+              - pattern-either:
+                    - pattern: |
+                        @$ANNOTATION($URL)
+                        $RETURNTYPE $METHODNAME(..., @PathVariable $TYPE $UNTRUSTED,...) {
+                          ...
+                        }
+                    - patterns:
+                        - pattern: |
+                            @$ANNOTATION(...)
+                            $RETURNTYPE $METHODNAME(..., $TYPE $UNTRUSTED,...) {
+                              ...
+                            }
+                        - pattern-not: |
+                            @$ANNOTATION(...)
+                            $RETURNTYPE $METHODNAME(..., @PathVariable $TYPE $UNTRUSTED,...) {
+                              ...
+                            }
+              - metavariable-regex:
+                  metavariable: $URL
+                  regex: .*\*.*
               - metavariable-regex:
                   metavariable: $TYPE
                   regex: ^(?!(Integer|Long|Float|Double|Char|Boolean|int|long|float|double|char|boolean|BindingResult|HttpMethod|java.util.TimeZone|java.util.Locale|java.util.ZoneId))

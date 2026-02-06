@@ -62,6 +62,9 @@ dependencies {
     implementation("org.apache.commons:commons-email:1.6.0")
     implementation("org.apache.httpcomponents:httpclient:4.5.14")
 
+    // Apache Commons FileUpload for file upload samples
+    implementation("commons-fileupload:commons-fileupload:1.5")
+
     // Apache Commons BeanUtils & Codec for bean/introspection & digest samples
     implementation("commons-beanutils:commons-beanutils:1.9.4")
     implementation("commons-codec:commons-codec:1.16.0")
