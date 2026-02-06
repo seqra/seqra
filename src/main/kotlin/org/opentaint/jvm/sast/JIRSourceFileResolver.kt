@@ -143,19 +143,17 @@ class JIRSourceFileResolver(
 
         val mostOuterCls = instLocationCls.mostOuterClass()
 
-        val outerClsPath = sources.tryResolveSourceFileQuery(
-            mostOuterCls.simpleName, mostOuterCls, isKotlin = false
-        )
+        val outerClsPath = sources.javaLocations[mostOuterCls.name].orEmpty()
         val sourceLocations = when (outerClsPath.size) {
             1 -> outerClsPath
             0 -> {
-                val kotlinClsPath = sources.tryResolveSourceFileQuery(
-                    mostOuterCls.simpleName, mostOuterCls, isKotlin = true
+                val kotlinClsPath = sources.tryResolveKotlinSourceFile(
+                    mostOuterCls.simpleName, mostOuterCls
                 )
 
                 when (kotlinClsPath.size) {
-                    0 -> sources.tryResolveSourceFileQuery(
-                        mostOuterCls.simpleName.removeSuffix("Kt"), mostOuterCls, isKotlin = true
+                    0 -> sources.tryResolveKotlinSourceFile(
+                        mostOuterCls.simpleName.removeSuffix("Kt"), mostOuterCls
                     )
 
                     else -> kotlinClsPath
@@ -163,9 +161,9 @@ class JIRSourceFileResolver(
             }
 
             else -> {
-                val innerClassFiles = sources.tryResolveSourceFileQuery(
-                    instLocationCls.simpleName, instLocationCls, isKotlin = false
-                )
+                // note: try to find inner class name
+                val classQueryName = "${mostOuterCls.packageName}.${instLocationCls.simpleName}"
+                val innerClassFiles = sources.javaLocations[classQueryName].orEmpty()
                 val intersect = innerClassFiles.filter { it in outerClsPath }
                 if (intersect.isEmpty()) outerClsPath else intersect
             }
@@ -183,17 +181,11 @@ class JIRSourceFileResolver(
         return sourceLocations.firstOrNull()
     }
 
-    private fun SourceLocations.tryResolveSourceFileQuery(
+    private fun SourceLocations.tryResolveKotlinSourceFile(
         className: String,
         cls: JIRClassOrInterface,
-        isKotlin: Boolean
     ): List<Path> {
-        val paths = if (!isKotlin) {
-            javaLocations[className]
-        } else {
-            kotlinLocations[className]
-        }
-
+        val paths = kotlinLocations[className]
         return paths?.filter { packageMatches(it, cls) }.orEmpty()
     }
 
