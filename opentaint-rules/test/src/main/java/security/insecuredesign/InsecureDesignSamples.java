@@ -8,10 +8,12 @@ import javax.servlet.http.HttpServletResponse;
 import org.seqra.sast.test.util.NegativeRuleSample;
 import org.seqra.sast.test.util.PositiveRuleSample;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.util.CookieGenerator;
 
 /**
  * Samples for rules in java/security/insecure-design.yaml.
@@ -76,6 +78,53 @@ public class InsecureDesignSamples {
         Cookie sessionCookie = new Cookie("SESSION", "secret-token");
         sessionCookie.setHttpOnly(true);
         response.addCookie(sessionCookie);
+    }
+
+    @PositiveRuleSample(value = "java/security/insecure-design.yaml", id = "cookie-missing-httponly")
+    public void explicitSetHttpOnlyFalse(HttpServletResponse response) {
+        Cookie cookie = new Cookie("SESSION", "secret-token");
+        // VULNERABLE: explicitly setting HttpOnly to false
+        cookie.setHttpOnly(false);
+        response.addCookie(cookie);
+    }
+
+    @PositiveRuleSample(value = "java/security/insecure-design.yaml", id = "cookie-missing-httponly")
+    public void springResponseCookieHttpOnlyFalse() {
+        // VULNERABLE: explicitly setting httpOnly(false) on ResponseCookie builder
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from("SESSION", "value");
+        builder.httpOnly(false);
+    }
+
+    @NegativeRuleSample(value = "java/security/insecure-design.yaml", id = "cookie-missing-httponly")
+    public void springResponseCookieHttpOnlyTrue() {
+        // SAFE: setting httpOnly(true) on ResponseCookie builder
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from("SESSION", "value");
+        builder.httpOnly(true);
+    }
+
+    @PositiveRuleSample(value = "java/security/insecure-design.yaml", id = "cookie-missing-httponly")
+    public void cookieGeneratorWithoutHttpOnly(HttpServletResponse response) {
+        // VULNERABLE: CookieGenerator without setCookieHttpOnly(true)
+        CookieGenerator gen = new CookieGenerator();
+        gen.setCookieName("SESSION");
+        gen.addCookie(response, "value");
+    }
+
+    @NegativeRuleSample(value = "java/security/insecure-design.yaml", id = "cookie-missing-httponly")
+    public void cookieGeneratorWithHttpOnly(HttpServletResponse response) {
+        // SAFE: CookieGenerator with setCookieHttpOnly(true)
+        CookieGenerator gen = new CookieGenerator();
+        gen.setCookieName("SESSION");
+        gen.setCookieHttpOnly(true);
+        gen.addCookie(response, "value");
+    }
+
+    @PositiveRuleSample(value = "java/security/insecure-design.yaml", id = "cookie-missing-httponly")
+    public void cookieGeneratorExplicitHttpOnlyFalse(HttpServletResponse response) {
+        // VULNERABLE: explicitly setting setCookieHttpOnly(false)
+        CookieGenerator gen = new CookieGenerator();
+        gen.setCookieHttpOnly(false);
+        gen.addCookie(response, "value");
     }
 
     // === persistent-cookie ===

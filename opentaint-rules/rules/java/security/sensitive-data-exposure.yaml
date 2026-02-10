@@ -15,14 +15,39 @@ rules:
       provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/servlets/security/cookie-issecure-false.yaml
     languages:
       - java
-    patterns:
-      - pattern: $COOKIE = new Cookie(...);
-      - pattern-not-inside: |
-          $COOKIE = new Cookie(...);
-          ...
-          $COOKIE.setSecure(true);
-      - pattern-not-inside: |
-          $COOKIE.setValue("");
+    pattern-either:
+      - patterns:
+          - pattern: |
+              ($X.servlet.http.Cookie $COOKIE) = new Cookie(...);
+              ...
+              ($X.servlet.http.HttpServletResponse $RESPONSE).addCookie($COOKIE)
+          - pattern-not-inside: |
+              ($X.servlet.http.Cookie $COOKIE) = new Cookie(...);
+              ...
+              $COOKIE.setSecure(true);
+          - pattern-not-inside: |
+              ($X.servlet.http.Cookie $COOKIE) = new Cookie(...);
+              ...
+              $COOKIE.setValue("");
+      - pattern: ($X.servlet.http.Cookie $C).setSecure(false);
+      - pattern: (org.springframework.http.ResponseCookie.ResponseCookieBuilder $B).secure(false);
+      - patterns:
+          - pattern: |
+              $G = new org.springframework.web.util.CookieGenerator();
+              ...
+              $G.addCookie($RESP, $VAL);
+          - pattern-not-inside: |
+              $G = new org.springframework.web.util.CookieGenerator();
+              ...
+              $G.setCookieSecure(true);
+      - pattern: (org.springframework.web.util.CookieGenerator $G).setCookieSecure(false);
+      - patterns:
+          - pattern-either:
+              - pattern: ($X.servlet.http.HttpServletResponse $R).addHeader("Set-Cookie", "$VAL");
+              - pattern: ($X.servlet.http.HttpServletResponse $R).setHeader("Set-Cookie", "$VAL");
+          - metavariable-regex:
+              metavariable: $VAL
+              regex: ^(?!.*Secure).*$
 
   - id: unencrypted-socket
     severity: NOTE

@@ -13,6 +13,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.ServerSocket;
+import org.springframework.http.ResponseCookie;
+import org.springframework.web.util.CookieGenerator;
 
 /**
  * Samples for sensitive-data-exposure rules.
@@ -21,19 +23,89 @@ public class SensitiveDataExposureSamples {
 
     // cookie-issecure-false
 
+    @org.springframework.web.bind.annotation.GetMapping("/insecureCookie")
     @PositiveRuleSample(value = "java/security/sensitive-data-exposure.yaml", id = "cookie-issecure-false")
-    public Cookie insecureSessionCookie() {
+    public void insecureSessionCookie(HttpServletResponse response) {
         // VULNERABLE: create a cookie without setting Secure, allowing cleartext transport
         Cookie session = new Cookie("SESSIONID", "sensitive-session-id");
-        return session;
+        response.addCookie(session);
     }
 
+    @org.springframework.web.bind.annotation.GetMapping("/secureCookie")
     @NegativeRuleSample(value = "java/security/sensitive-data-exposure.yaml", id = "cookie-issecure-false")
-    public Cookie secureSessionCookie() {
+    public void secureSessionCookie(HttpServletResponse response) {
         Cookie session = new Cookie("SESSIONID", "sensitive-session-id");
         // SAFE: explicitly mark cookie as Secure (and typically HttpOnly, but rule focuses on Secure)
         session.setSecure(true);
-        return session;
+        response.addCookie(session);
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/secureEmptyCookie")
+    @NegativeRuleSample(value = "java/security/sensitive-data-exposure.yaml", id = "cookie-issecure-false")
+    public void secureEmptySessionCookie(HttpServletResponse response) {
+        Cookie session = new Cookie("SESSIONID", "sensitive-session-id");
+        // SAFE: cookie value is empty, no sensitive data to expose
+        session.setValue("");
+        response.addCookie(session);
+    }
+
+    @PositiveRuleSample(value = "java/security/sensitive-data-exposure.yaml", id = "cookie-issecure-false")
+    public void explicitSetSecureFalse(HttpServletResponse response) {
+        Cookie cookie = new Cookie("TOKEN", "value");
+        // VULNERABLE: explicitly setting Secure to false
+        cookie.setSecure(false);
+        response.addCookie(cookie);
+    }
+
+    @PositiveRuleSample(value = "java/security/sensitive-data-exposure.yaml", id = "cookie-issecure-false")
+    public void springResponseCookieSecureFalse() {
+        // VULNERABLE: explicitly setting secure(false) on ResponseCookie builder
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from("TOKEN", "value");
+        builder.secure(false);
+    }
+
+    @NegativeRuleSample(value = "java/security/sensitive-data-exposure.yaml", id = "cookie-issecure-false")
+    public void springResponseCookieSecureTrue() {
+        // SAFE: setting secure(true) on ResponseCookie builder
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from("TOKEN", "value");
+        builder.secure(true);
+    }
+
+    @PositiveRuleSample(value = "java/security/sensitive-data-exposure.yaml", id = "cookie-issecure-false")
+    public void cookieGeneratorWithoutSecure(HttpServletResponse response) {
+        // VULNERABLE: CookieGenerator without setCookieSecure(true)
+        CookieGenerator gen = new CookieGenerator();
+        gen.setCookieName("TOKEN");
+        gen.addCookie(response, "value");
+    }
+
+    @NegativeRuleSample(value = "java/security/sensitive-data-exposure.yaml", id = "cookie-issecure-false")
+    public void cookieGeneratorWithSecure(HttpServletResponse response) {
+        // SAFE: CookieGenerator with setCookieSecure(true)
+        CookieGenerator gen = new CookieGenerator();
+        gen.setCookieName("TOKEN");
+        gen.setCookieSecure(true);
+        gen.addCookie(response, "value");
+    }
+
+    @PositiveRuleSample(value = "java/security/sensitive-data-exposure.yaml", id = "cookie-issecure-false")
+    public void cookieGeneratorExplicitSecureFalse(HttpServletResponse response) {
+        // VULNERABLE: explicitly setting setCookieSecure(false)
+        CookieGenerator gen = new CookieGenerator();
+        gen.setCookieSecure(false);
+        gen.addCookie(response, "value");
+    }
+
+    @PositiveRuleSample(value = "java/security/sensitive-data-exposure.yaml", id = "cookie-issecure-false")
+    public void rawSetCookieHeaderWithoutSecure(HttpServletResponse response) {
+        // VULNERABLE: raw Set-Cookie header without Secure flag
+        response.addHeader("Set-Cookie", "TOKEN=value; HttpOnly; Path=/");
+    }
+
+    @NegativeRuleSample(value = "java/security/sensitive-data-exposure.yaml", id = "cookie-issecure-false")
+    public void rawSetCookieHeaderWithSecure(HttpServletResponse response) {
+        // SAFE: raw Set-Cookie header with Secure flag
+        response.addHeader("Set-Cookie", "TOKEN=value; HttpOnly; Secure; Path=/");
     }
 
     // unencrypted-socket
