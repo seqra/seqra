@@ -14,6 +14,22 @@ rules:
               (ProcessBuilder $PB).command(..., $UNTRUSTED, ...);
           - pattern:
               new ProcessBuilder(..., $UNTRUSTED, ...);
+          - pattern:
+              (java.util.List $ARGS).add($UNTRUSTED);
+              ...
+              new ProcessBuilder(..., $ARGS, ...);
+          - pattern:
+              (java.util.List $ARGS) = List.of(..., $UNTRUSTED, ...);
+              ...
+              new ProcessBuilder(..., $ARGS, ...);
+          - pattern:
+              (java.util.List $ARGS).add($UNTRUSTED);
+              ...
+              (ProcessBuilder $PB).command($ARGS);
+          - pattern:
+              (java.util.List $ARGS) = List.of(..., $UNTRUSTED, ...);
+              ...
+              (ProcessBuilder $PB).command($ARGS);
           - patterns:
               - pattern: |
                   (ProcessBuilder $PB).command().$ADD(..., $UNTRUSTED, ...);
