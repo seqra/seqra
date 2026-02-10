@@ -18,8 +18,8 @@ func TestNewCompileCommand(t *testing.T) {
 			name:        "basic compile command",
 			projectPath: "/path/to/project",
 			outputPath:  "/path/to/output",
-			compileType: "docker",
-			expected:    "seqra compile /path/to/project --compile-type docker --output /path/to/output",
+			compileType: "native",
+			expected:    "seqra compile /path/to/project --output /path/to/output",
 		},
 		{
 			name:        "native compile command",
@@ -133,6 +133,22 @@ func TestNewScanCommand(t *testing.T) {
 				t.Errorf("Command should contain --semgrep-compatibility-sarif=false")
 			}
 		})
+	}
+}
+
+func TestBuildCompileCommandWithDocker(t *testing.T) {
+	cmd := BuildCompileCommandWithDocker("/path/to/project", "/path/to/output")
+	expected := "docker run --rm -v /path/to/project:/project -v /path/to:/database ghcr.io/seqra/seqra:latest seqra compile --output /database/output /project"
+	if cmd != expected {
+		t.Errorf("BuildCompileCommandWithDocker() = %q, want %q", cmd, expected)
+	}
+}
+
+func TestBuildScanCommandWithDocker(t *testing.T) {
+	cmd := BuildScanCommandWithDocker("/path/to/project", "/path/to/output/results.sarif")
+	expected := "docker run --rm -v /path/to/project:/project -v /path/to/output:/output ghcr.io/seqra/seqra:latest seqra scan --output /output/results.sarif /project"
+	if cmd != expected {
+		t.Errorf("BuildScanCommandWithDocker() = %q, want %q", cmd, expected)
 	}
 }
 

@@ -103,16 +103,16 @@ For more control over the analysis process, you can separate the compilation and
 ```bash
 docker run --rm \
   -v /path/to/your/project:/project \
-  -v /path/to/database:/database \
+  -v /path/to:/database \
   ghcr.io/seqra/seqra:latest \
-  seqra compile --output /database /project
+  seqra compile --output /database/project-model /project
 ```
 
 **Step 2: Scan the compiled database**
 
 ```bash
 docker run --rm \
-  -v /path/to/database:/database \
+  -v /path/to/project-model:/database \
   -v /path/to/output:/output \
   ghcr.io/seqra/seqra:latest \
   seqra scan --output /output/results.sarif /database

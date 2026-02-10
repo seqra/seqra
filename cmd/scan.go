@@ -189,7 +189,7 @@ func scan(cmd *cobra.Command) {
 
 	if tempProjectModel {
 		if err := compile(absUserProjectRoot, tempProjectModelPath, Internal); err != nil {
-			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based compilation:", "")
+			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath))
 			logrus.Fatal()
 		}
 	}

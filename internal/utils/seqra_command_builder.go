@@ -148,27 +148,26 @@ func (cb *SeqraCommandBuilder) Build() string {
 	return strings.Join(parts, " ")
 }
 
-// BuildCompileCommandWithDocker builds a compile command string with --compile-type docker
-// preserving all other options from the original command.
+// BuildCompileCommandWithDocker builds a docker run command string for compiling a project
+// using the seqra Docker image.
 func BuildCompileCommandWithDocker(projectPath, outputPath string) string {
-	return NewCompileCommand(projectPath).
-		WithOutput(outputPath).
-		WithCompileType("docker").
-		Build()
+	absProjectPath, _ := filepath.Abs(projectPath)
+	absOutputPath, _ := filepath.Abs(outputPath)
+	outputDir := filepath.Dir(absOutputPath)
+	outputName := filepath.Base(absOutputPath)
+	return fmt.Sprintf("docker run --rm -v %s:/project -v %s:/database ghcr.io/seqra/seqra:latest seqra compile --output /database/%s /project",
+		absProjectPath, outputDir, outputName)
 }
 
-// BuildScanCommandWithDocker builds a scan command string with --compile-type docker
-// preserving all other options from the original command.
-func BuildScanCommandWithDocker(projectPath, sarifReportPath string, rulesetPath []string,
-	timeout time.Duration, semgrepCompatibility bool, scanType string) string {
-	return NewScanCommand(projectPath).
-		WithOutput(sarifReportPath).
-		WithTimeout(timeout).
-		WithRuleset(rulesetPath).
-		WithSemgrepCompatibility(semgrepCompatibility).
-		WithScanType(scanType).
-		WithCompileType("docker").
-		Build()
+// BuildScanCommandWithDocker builds a docker run command string for scanning a project
+// using the seqra Docker image.
+func BuildScanCommandWithDocker(projectPath, sarifReportPath string) string {
+	absProjectPath, _ := filepath.Abs(projectPath)
+	absSarifReportPath, _ := filepath.Abs(sarifReportPath)
+	outputDir := filepath.Dir(absSarifReportPath)
+	sarifName := filepath.Base(absSarifReportPath)
+	return fmt.Sprintf("docker run --rm -v %s:/project -v %s:/output ghcr.io/seqra/seqra:latest seqra scan --output /output/%s /project",
+		absProjectPath, outputDir, sarifName)
 }
 
 // BuildScanCommandFromCompile builds a scan command string for use after compile,
