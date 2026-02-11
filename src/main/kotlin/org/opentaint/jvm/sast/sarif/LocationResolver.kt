@@ -8,9 +8,6 @@ import io.github.detekt.sarif4k.PhysicalLocation
 import io.github.detekt.sarif4k.Region
 import io.github.detekt.sarif4k.ThreadFlowLocation
 import mu.KLogging
-import org.objectweb.asm.MethodVisitor
-import org.objectweb.asm.Opcodes
-import org.opentaint.dataflow.jvm.util.JIRSarifTraits
 import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.dataflow.util.SarifTraits
 import org.opentaint.ir.api.common.CommonMethod
@@ -18,13 +15,17 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.cfg.JIRInstList
 import org.opentaint.ir.api.jvm.cfg.JIRRawInst
-import org.opentaint.ir.api.jvm.cfg.JIRRawLabelInst
 import org.opentaint.ir.api.jvm.cfg.JIRRawLineNumberInst
+import org.opentaint.ir.impl.cfg.graphs.GraphDominators
 import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualClass
 import org.opentaint.jvm.sast.ast.JavaAstSpanResolver
 import org.opentaint.jvm.sast.mostOuterClass
+import org.opentaint.jvm.sast.project.KotlinInlineFunctionScopeTransformer
+import org.opentaint.jvm.sast.project.KotlinInlineFunctionScopeTransformer.LAMBDA_MARKER
+import org.opentaint.jvm.sast.project.KotlinInlineFunctionScopeTransformer.ScopeDescriptor
+import org.opentaint.jvm.sast.project.KotlinInlineFunctionScopeTransformer.ScopeManageEvent
+import org.opentaint.jvm.sast.project.KotlinInlineFunctionScopeTransformer.ScopeManageType
 import org.opentaint.jvm.sast.project.SarifGenerationOptions
 import org.opentaint.jvm.sast.util.DebugInfo
 import org.opentaint.jvm.sast.util.DebugInfoParser
@@ -64,12 +65,33 @@ class LocationResolver(
 ) {
     fun resolve(locations: List<IntermediateLocation>): List<ThreadFlowLocation> {
         var currentIdx = 0
-        return locations.flatMap { loc -> resolveLocation(loc, currentIdx).also { currentIdx += it.size } }
+        var prevInlineStack: List<ScopeDescriptor> = emptyList()
+        var prevMethod: CommonMethod? = null
+        val result = mutableListOf<ThreadFlowLocation>()
+
+        locations.forEach { loc ->
+            val curMethod = loc.inst.location.method
+
+            if (prevMethod != curMethod) {
+                // if method was changed, the inline stack must've been reset
+                prevInlineStack = emptyList()
+            }
+
+            val locResult = resolveLocation(loc, currentIdx, prevInlineStack)
+
+            prevInlineStack = locResult.inlineStack
+            currentIdx += locResult.flowLocations.size
+            prevMethod = curMethod
+
+            result.addAll(locResult.flowLocations)
+        }
+
+        return result
     }
 
     fun statementsLocationsAreRelative(a: CommonInst, b: CommonInst): Boolean {
-        val aSource = getCachedSourceLocation(a)
-        val bSource = getCachedSourceLocation(b)
+        val aSource = sourceFileResolver.resolveByInst(a)
+        val bSource = sourceFileResolver.resolveByInst(b)
         if (aSource == null || bSource == null) return false
 
         return traits.lineNumber(a) == traits.lineNumber(b) && aSource == bSource
@@ -79,29 +101,13 @@ class LocationResolver(
         val realPosition = getCachedDebugInfo(location)?.findRealPosition(location.info.lineNumber)
         val source = if (realPosition != null) {
             location.info.lineNumber = realPosition.line
-            getCachedSourceLocation(location.inst, realPosition.path, realPosition.file)
+            sourceFileResolver.resolveByName(location.inst, realPosition.path, realPosition.file)
         }
         else {
-            getCachedSourceLocation(location.inst)
+            sourceFileResolver.resolveByInst(location.inst)
         }
         return generateSarifLocation(location, source)
     }
-
-    private val locationsCache = hashMapOf<CommonInst, Path?>()
-    private fun <Statement : CommonInst> getCachedSourceLocation(
-        inst: Statement
-    ): Path? =
-        locationsCache.computeIfAbsent(inst) {
-            sourceFileResolver.resolveByInst(inst)
-        }
-
-    private val sourcesCache = hashMapOf<Pair<String, String>, Path?>()
-    private fun <Statement : CommonInst> getCachedSourceLocation(
-        inst: Statement, pkg: String, name: String
-    ): Path? =
-        sourcesCache.computeIfAbsent(pkg to name) {
-            sourceFileResolver.resolveByName(inst, pkg, name)
-        }
 
     private val debugInfoCache = hashMapOf<JIRClassOrInterface, DebugInfo?>()
     private fun getCachedDebugInfo(cls: JIRClassOrInterface): DebugInfo? =
@@ -119,43 +125,6 @@ class LocationResolver(
         return getCachedDebugInfo(method.enclosingClass)
     }
 
-    private data class InlineLocal(val insnStart: Int, val insnEnd: Int, val methodName: String)
-
-    private fun isInlineOrLambda(name: String) =
-        name.startsWith(INLINE_LOCAL_PREFIX) || name.startsWith(LAMBDA_LOCAL_PREFIX)
-
-    private fun getInlinedName(name: String): String {
-        if (name.startsWith(INLINE_LOCAL_PREFIX)) {
-            return "method \"${name.drop(INLINE_LOCAL_PREFIX.length)}\""
-        }
-        return LAMBDA_MARKER
-    }
-
-    private val methodInfoCache = hashMapOf<JIRMethod, List<InlineLocal>>()
-
-    private class BaseMethodVisitor : MethodVisitor(Opcodes.ASM9)
-    private val mVisitor = BaseMethodVisitor()
-
-    private fun getCachedMethodInfo(method: JIRMethod): List<InlineLocal> =
-        methodInfoCache.computeIfAbsent(method) {
-            method.withAsmNode { md ->
-                val insts = md.instructions
-                insts.accept(mVisitor)
-                // filtering local variables responsible for inlined method's ranges
-                val inlines = md.localVariables.filter { isInlineOrLambda(it.name) }
-                inlines.map {
-                    InlineLocal(
-                        insts.indexOf(it.start),
-                        insts.indexOf(it.end),
-                        getInlinedName(it.name)
-                    )
-                }.sortedBy { it.insnStart }
-            }
-        }
-
-    private fun JIRRawInst.isLabelOrLine(): Boolean =
-        this is JIRRawLabelInst || this is JIRRawLineNumberInst
-
     private data class FileLocation(val lineNumber: Int, val sourceFile: Path)
 
     private data class ResolvedInlineCall(
@@ -169,24 +138,20 @@ class LocationResolver(
         return range.mapDestToSource(lineNumber)
     }
 
-    private fun findNextLine(rawInstList: JIRInstList<JIRRawInst>, startId: Int): Int? {
-        var currentId = startId
-        while (currentId < rawInstList.size && rawInstList[currentId] !is JIRRawLineNumberInst)
-            currentId++
-        if (currentId == rawInstList.size)
-            return null
-        return (rawInstList[currentId] as JIRRawLineNumberInst).lineNumber
-    }
-
     private fun getFileLocation(inst: CommonInst, sourcePosition: SourcePosition): FileLocation? {
-        val sourceFile = getCachedSourceLocation(inst, sourcePosition.path, sourcePosition.file) ?: return null
+        val sourceFile = sourceFileResolver.resolveByName(inst, sourcePosition.path, sourcePosition.file) ?: return null
         return FileLocation(
             sourcePosition.line,
             sourceFile
         )
     }
 
-    private data class InlineEntry(val callLine: Int, val firstInlineLine: Int, val methodName: String)
+    private data class InlineEntry(
+        val callLine: Int,
+        val firstInlineLine: Int,
+        val methodName: String,
+        val descriptor: ScopeDescriptor,
+    )
 
     private fun resolveInlineEntry(inst: CommonInst, debugInfo: DebugInfo, entry: InlineEntry): ResolvedInlineCall? {
         val callPosition = debugInfo.findRealPosition(entry.callLine) ?: return null
@@ -200,59 +165,69 @@ class LocationResolver(
         )
     }
 
-    private fun restoreInlineCalls(inst: CommonInst): List<InlineEntry>? {
-        val methodEnters = mutableListOf<InlineEntry?>()
+    private fun restoreInlineCalls(inst: CommonInst): List<InlineEntry> {
+        inst as JIRInst
 
-        var lastLineNumber: Int = -1
-        var rawInstId = -1
-        var instId = -1
+        val method = inst.location.method
+        val methodGraph = method.flowGraph()
+        val methodDominators = GraphDominators(methodGraph).apply { find() }
 
-        val method = inst.location.method as JIRMethod
-        val inlines = getCachedMethodInfo(method)
-        var inlineId = 0
-        val inlineEnds = inlines.map { it.insnEnd }.toSet()
+        val instDominators = methodDominators.dominators(inst)
+        val inlineEvents = instDominators.mapNotNull { i ->
+            KotlinInlineFunctionScopeTransformer.findInlineFunctionScopeManageInst(i)?.let { i to it }
+        }
 
-        val rawInsts = method.rawInstList
-        val insts = method.instList
-        do {
-            instId++
-            rawInstId++
-            while (rawInstId < rawInsts.size && rawInsts[rawInstId].isLabelOrLine()) {
-                val rawInst = rawInsts[rawInstId]
-                if (rawInst is JIRRawLineNumberInst) {
-                    lastLineNumber = rawInst.lineNumber
+        val stack = mutableListOf<Pair<JIRInst, ScopeDescriptor>>()
+        for ((i, event) in inlineEvents) {
+            when (event.type) {
+                ScopeManageType.START -> {
+                    stack.add(i to event.scope)
                 }
-                if (rawInst is JIRRawLabelInst && rawInst.isOriginal()) {
-                    val originalLabelIndex = rawInst.getOriginalLabelIndex()!!
-                    // code of a new inlined method is about to start;
-                    // taking last line number label appeared as a place where the "call" happens
-                    if (inlineId < inlines.size && originalLabelIndex == inlines[inlineId].insnStart) {
-                        val firstMethodLine = findNextLine(rawInsts, rawInstId)
-                        if (firstMethodLine != null) {
-                            methodEnters.add(
-                                InlineEntry(
-                                    lastLineNumber,
-                                    firstMethodLine,
-                                    inlines[inlineId].methodName
-                                )
-                            )
-                        } else {
-                            methodEnters.add(null)
-                        }
-                        inlineId++
-                    }
-                    // end of inline reached; popping the last entry
-                    if (originalLabelIndex in inlineEnds) {
-                        methodEnters.removeLast()
+
+                ScopeManageType.END -> {
+                    if (event.scope == stack.lastOrNull()?.second) {
+                        stack.removeLast()
                     }
                 }
-                rawInstId++
             }
-            if (rawInstId == rawInsts.size) return null
-        } while (instId < insts.size && insts[instId] != inst)
-        if (instId == insts.size) return null
+        }
 
-        return methodEnters.filterNotNull()
+        val rawInstList = method.rawInstList.toList()
+        val result = stack.map { (i, descriptor) ->
+            val event = ScopeManageEvent(ScopeManageType.START, descriptor)
+            val scopeEnterIdx = rawInstList.indexOfFirst {
+                KotlinInlineFunctionScopeTransformer.isInlineFunctionScopeEvent(it, event)
+            }
+
+            /*
+            * usual instruction layout:
+            * -2. label
+            * -1. line number
+            *  0. scope descriptor
+            * */
+            val prevLineNumber = findPrevLineNumber(scopeEnterIdx - 2, rawInstList)
+
+            val methodName = KotlinInlineFunctionScopeTransformer.inlinedMethodName(descriptor)
+
+            InlineEntry(
+                callLine = prevLineNumber ?: -1,
+                firstInlineLine = i.lineNumber,
+                methodName = methodName,
+                descriptor,
+            )
+        }
+
+        return result
+    }
+
+    private fun findPrevLineNumber(startIdx: Int, instList: List<JIRRawInst>): Int? {
+        var idx = startIdx
+        while (idx >= 0) {
+            val inst = instList[idx]
+            idx--
+            if (inst is JIRRawLineNumberInst) return inst.lineNumber
+        }
+        return null
     }
 
     private fun fallbackPhysicalLocation(location: IntermediateLocation) =
@@ -320,7 +295,7 @@ class LocationResolver(
         initialLocation: IntermediateLocation,
         idx: Int
     ): ThreadFlowLocation {
-        val callSource = getCachedSourceLocation(initialLocation.inst, position.path, position.file)
+        val callSource = sourceFileResolver.resolveByName(initialLocation.inst, position.path, position.file)
         val callLocation = initialLocation.copy(
             info = initialLocation.info.copy(lineNumber = position.line),
         )
@@ -352,38 +327,60 @@ class LocationResolver(
         return listOf(callFlow, methodFlow)
     }
 
-    private fun resolveLocation(location: IntermediateLocation, startIdx: Int): List<ThreadFlowLocation> {
+    private fun removeSamePrefix(prevStack: List<ScopeDescriptor>, curStack: List<InlineEntry>): List<InlineEntry> {
+        var prevIdx = 0
+        var curIdx = 0
+        val prevSize = prevStack.size
+        val curSize = curStack.size
+        while (prevIdx < prevSize && curIdx < curSize && prevStack[prevIdx] == curStack[curIdx].descriptor) {
+            prevIdx++
+            curIdx++
+        }
+        return curStack.drop(curIdx)
+    }
+
+    private data class LocationResolutionResult(
+        val flowLocations: List<ThreadFlowLocation>,
+        val inlineStack: List<ScopeDescriptor>,
+    )
+
+    private fun resolveLocation(
+        location: IntermediateLocation,
+        startIdx: Int,
+        prevInlineStack: List<ScopeDescriptor>
+    ): LocationResolutionResult {
         val debugInfo = getCachedDebugInfo(location)
         val debugRange = debugInfo?.findRange(location.info.lineNumber)
+
         if (debugRange == null || location.info.noExtraResolve) {
-            val source = getCachedSourceLocation(location.inst)
+            val source = sourceFileResolver.resolveByInst(location.inst)
             if (source == null) {
                 logger.warn { "Source file for ${location.info.fullyQualified} not found!" }
             }
-            return listOf(generateThreadFlowLocation(location, source, startIdx))
+            return LocationResolutionResult(
+                listOf(generateThreadFlowLocation(location, source, startIdx)),
+                emptyList(),
+            )
         }
-        val actualPosition = debugRange.mapDestToSource(location.info.lineNumber)
+
+        val restoredInlines = restoreInlineCalls(location.inst)
+        val curStack = restoredInlines.map { it.descriptor }
+        val updatedInlines = removeSamePrefix(prevInlineStack, restoredInlines)
+
         val flowLocations = mutableListOf<ThreadFlowLocation>()
         var currentIdx = startIdx
-        val restoredInlines = restoreInlineCalls(location.inst)
-        if (restoredInlines == null) {
-            logger.warn { "Inline restore failed for ${location.info} at ${getCachedSourceLocation(location.inst)}!" }
+        for (inlineCall in updatedInlines.mapNotNull { resolveInlineEntry(location.inst, debugInfo, it) }) {
+            flowLocations.addAll(generateInlineCallLocation(inlineCall, location, currentIdx))
+            currentIdx += 2
         }
-        else {
-            for (inlineCall in restoredInlines.mapNotNull { resolveInlineEntry(location.inst, debugInfo, it) }) {
-                flowLocations.addAll(generateInlineCallLocation(inlineCall, location, currentIdx))
-                currentIdx += 2
-            }
-        }
+
+        val actualPosition = debugRange.mapDestToSource(location.info.lineNumber)
         flowLocations.add(generateLocationFromPosition(actualPosition, location, currentIdx))
-        return flowLocations
+
+        return LocationResolutionResult(flowLocations, curStack)
     }
 
     companion object {
-        private const val INLINE_LOCAL_PREFIX = "\$i\$f\$"
-        private const val LAMBDA_LOCAL_PREFIX = "\$i\$a\$"
-        private const val LAMBDA_MARKER = "lambda"
-
         private val logger = object : KLogging() {}.logger
     }
 }

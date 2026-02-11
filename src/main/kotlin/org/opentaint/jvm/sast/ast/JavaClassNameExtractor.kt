@@ -11,14 +11,14 @@ import kotlin.io.path.nameWithoutExtension
 object JavaClassNameExtractor {
     private val logger = object : KLogging() {}.logger
 
-    fun extractClassNames(path: Path): List<String> = try {
-        extractClassNamesFromSource(path)
+    fun extractClassNames(path: Path, isKotlin: Boolean): List<String> = try {
+        extractClassNamesFromSource(path, isKotlin)
     } catch (ex: Throwable) {
         logger.error(ex) { "Error extracting Java classes from $path" }
         listOf(path.nameWithoutExtension)
     }
 
-    private fun extractClassNamesFromSource(path: Path): List<String> {
+    private fun extractClassNamesFromSource(path: Path, isKotlin: Boolean): List<String> {
         val lexer = JavaLexer(CharStreams.fromPath(path)).apply { removeErrorListeners() }
         val stream = CommonTokenStream(lexer)
 
@@ -32,7 +32,7 @@ object JavaClassNameExtractor {
 
                 JavaLexer.PACKAGE -> {
                     stream.consume()
-                    packageName = parseQualifiedName(stream) ?: continue
+                    packageName = parseQualifiedName(stream, isKotlin) ?: continue
                 }
 
                 JavaLexer.CLASS, JavaLexer.INTERFACE, JavaLexer.RECORD, JavaLexer.ENUM -> {
@@ -52,7 +52,8 @@ object JavaClassNameExtractor {
         return classNames
     }
 
-    private fun parseQualifiedName(stream: CommonTokenStream): String? {
+    private fun parseQualifiedName(stream: CommonTokenStream, isKotlin: Boolean): String? {
+        var prevIdentifier: Token? = null
         val parts = mutableListOf<String>()
         while (true) {
             val tkId = stream.LA(1)
@@ -70,8 +71,13 @@ object JavaClassNameExtractor {
                 }
 
                 else -> {
-                    val tokenText = parseIdentifier(stream) ?: return null
-                    parts += tokenText
+                    val identifierToken = stream.LT(1) ?: return null
+                    if (isKotlin && prevIdentifier != null && identifierToken.line != prevIdentifier.line) {
+                        return parts.joinToString(DOT_SEPARATOR)
+                    }
+                    prevIdentifier = identifierToken
+
+                    parts += parseIdentifier(stream) ?: return null
                     stream.consume()
                     continue
                 }

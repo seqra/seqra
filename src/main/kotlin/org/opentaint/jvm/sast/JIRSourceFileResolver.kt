@@ -33,7 +33,8 @@ class JIRSourceFileResolver(
     private class SourceLocations(
         val allSourceByFileName: Map<String, List<Path>>,
         val javaLocations: Map<String, List<Path>>,
-        val kotlinLocations: Map<String, List<Path>>
+        val kotlinFileLocations: Map<String, List<Path>>,
+        val kotlinClassLocations: Map<String, List<Path>>,
     )
 
     private val locationSources: Map<RegisteredLocation, SourceLocations> by lazy {
@@ -67,7 +68,7 @@ class JIRSourceFileResolver(
                 return FileVisitResult.SKIP_SUBTREE
             }
 
-            override fun postVisitDirectory(dir: Path?, exc: IOException?): FileVisitResult {
+            override fun postVisitDirectory(dir: Path, exc: IOException?): FileVisitResult {
                 if (exc != null) {
                     logger.warn { "Skipping inaccessible path: $dir (${exc.javaClass.simpleName}: ${exc.message})" }
                     return FileVisitResult.CONTINUE
@@ -78,22 +79,32 @@ class JIRSourceFileResolver(
 
         val javaLocations = hashMapOf<String, MutableList<Path>>()
         for (jFile in collectedJava) {
-            val classNames = JavaClassNameExtractor.extractClassNames(jFile)
+            val classNames = JavaClassNameExtractor.extractClassNames(jFile, isKotlin = false)
             classNames.forEach {
                 javaLocations.getOrPut(it, ::mutableListOf).add(jFile)
             }
         }
 
-        val kotlinLocations = collectedKotlin.groupBy { it.nameWithoutExtension }
+        val kotlinClassLocations = hashMapOf<String, MutableList<Path>>()
+        val kotlinFileLocations = hashMapOf<String, MutableList<Path>>()
 
-        val allSourcesByFileName = collectedJava.groupByTo(hashMapOf()) { it.fileName }
-        collectedKotlin.groupByTo(allSourcesByFileName) { it.fileName }
+        for (kFile in collectedKotlin) {
+            kotlinFileLocations.getOrPut(kFile.nameWithoutExtension, ::mutableListOf).add(kFile)
 
-        @Suppress("UNCHECKED_CAST")
+            val classNames = JavaClassNameExtractor.extractClassNames(kFile, isKotlin = true)
+            classNames.forEach {
+                kotlinClassLocations.getOrPut(it, ::mutableListOf).add(kFile)
+            }
+        }
+
+        val allSourcesByFileName = collectedJava.groupByTo(hashMapOf()) { it.fileName.toString() }
+        collectedKotlin.groupByTo(allSourcesByFileName) { it.fileName.toString() }
+
         return SourceLocations(
-            allSourcesByFileName as Map<String, List<Path>>,
+            allSourcesByFileName,
             javaLocations,
-            kotlinLocations
+            kotlinFileLocations,
+            kotlinClassLocations
         )
     }
 
@@ -147,17 +158,14 @@ class JIRSourceFileResolver(
         val sourceLocations = when (outerClsPath.size) {
             1 -> outerClsPath
             0 -> {
-                val kotlinClsPath = sources.tryResolveKotlinSourceFile(
-                    mostOuterCls.simpleName, mostOuterCls
-                )
-
-                when (kotlinClsPath.size) {
-                    0 -> sources.tryResolveKotlinSourceFile(
-                        mostOuterCls.simpleName.removeSuffix("Kt"), mostOuterCls
-                    )
-
-                    else -> kotlinClsPath
+                var kotlinClsPath = sources.kotlinClassLocations[mostOuterCls.name].orEmpty()
+                if (kotlinClsPath.isEmpty()) {
+                    kotlinClsPath = sources.kotlinFileLocations[mostOuterCls.simpleName].orEmpty()
                 }
+                if (kotlinClsPath.isEmpty()) {
+                    kotlinClsPath = sources.kotlinFileLocations[mostOuterCls.simpleName.removeSuffix("Kt")].orEmpty()
+                }
+                kotlinClsPath
             }
 
             else -> {
@@ -180,17 +188,6 @@ class JIRSourceFileResolver(
 
         return sourceLocations.firstOrNull()
     }
-
-    private fun SourceLocations.tryResolveKotlinSourceFile(
-        className: String,
-        cls: JIRClassOrInterface,
-    ): List<Path> {
-        val paths = kotlinLocations[className]
-        return paths?.filter { packageMatches(it, cls) }.orEmpty()
-    }
-
-    private fun packageMatches(sourceFile: Path, cls: JIRClassOrInterface) =
-        packageMatches(sourceFile, cls.packageName.split(".").reversed())
 
     private fun packageMatches(sourceFile: Path, pkg: String) =
         packageMatches(sourceFile, pkg.split("/").reversed().drop(1))

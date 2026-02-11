@@ -89,6 +89,7 @@ fun initializeProjectAnalysisContext(
 //        val methodNormalizer = MethodReturnInstNormalizerFeature
 
         val features = mutableListOf(
+            KotlinInlineFunctionScopeTransformer,
             UnknownClasses, lambdaAnonymousClass, lambdaTransformer, /*methodNormalizer,*/
             JStringConcatTransformer, JMultiDimArrayAllocationTransformer,
             classPathExtensionFeature
