@@ -3,7 +3,7 @@
 import org.opentaint.common.dep
 
 object Versions {
-    const val asm = "9.7.1"
+    const val asm = "9.9.1"
     const val guava = "31.1-jre"
 
     // hikaricp version compatible with Java 8
