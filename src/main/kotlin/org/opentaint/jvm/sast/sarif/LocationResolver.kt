@@ -290,18 +290,6 @@ class LocationResolver(
         location = generateSarifLocation(location, sourceFile)
     )
 
-    private fun generateLocationFromPosition(
-        position: SourcePosition,
-        initialLocation: IntermediateLocation,
-        idx: Int
-    ): ThreadFlowLocation {
-        val callSource = sourceFileResolver.resolveByName(initialLocation.inst, position.path, position.file)
-        val callLocation = initialLocation.copy(
-            info = initialLocation.info.copy(lineNumber = position.line),
-        )
-        return generateThreadFlowLocation(callLocation, callSource, idx)
-    }
-
     private fun generateInlineCallLocation(
         call: ResolvedInlineCall,
         initialLocation: IntermediateLocation,
@@ -367,6 +355,11 @@ class LocationResolver(
         val curStack = restoredInlines.map { it.descriptor }
         val updatedInlines = removeSamePrefix(prevInlineStack, restoredInlines)
 
+        val actualPosition = debugRange.mapDestToSource(location.info.lineNumber)
+        val callSource = sourceFileResolver.resolveByName(location.inst, actualPosition.path, actualPosition.file)
+        // cannot find source of inlined code: skipping the location as we have nothing to bind it to
+            ?: return LocationResolutionResult(emptyList(), curStack)
+
         val flowLocations = mutableListOf<ThreadFlowLocation>()
         var currentIdx = startIdx
         for (inlineCall in updatedInlines.mapNotNull { resolveInlineEntry(location.inst, debugInfo, it) }) {
@@ -374,8 +367,11 @@ class LocationResolver(
             currentIdx += 2
         }
 
-        val actualPosition = debugRange.mapDestToSource(location.info.lineNumber)
-        flowLocations.add(generateLocationFromPosition(actualPosition, location, currentIdx))
+        val callLocation = location.copy(
+            info = location.info.copy(lineNumber = actualPosition.line),
+        )
+        val remappedLoc = generateThreadFlowLocation(callLocation, callSource, currentIdx)
+        flowLocations.add(remappedLoc)
 
         return LocationResolutionResult(flowLocations, curStack)
     }
