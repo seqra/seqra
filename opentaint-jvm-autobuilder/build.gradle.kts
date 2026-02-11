@@ -45,29 +45,6 @@ tasks.register<JavaExec>("runAutoBuilder") {
     jvmArgs = listOf("-Xmx8g")
 }
 
-tasks.register("buildProjectAutoBuilderDocker") {
-    dependsOn(projectAutoBuilderJar)
-    autoBuilderDockerImage(nameSuffix = "private") {
-        projectAutoBuilderJar.get().outputs.files.singleFile
-    }
-}
-
-fun Task.autoBuilderDockerImage(
-    nameSuffix: String,
-    autoBuilderJarProvider: () -> File,
-) = doLast {
-    val autoBuilderJar = autoBuilderJarProvider()
-
-    buildDockerImage(
-        imageName = "autobuilder",
-        nameSuffix = nameSuffix,
-        imageContentFiles = listOf(autoBuilderJar),
-        entryPointVars = mapOf(
-            "AUTOBUILDER_JAR_NAME" to autoBuilderJar.name
-        )
-    )
-}
-
 fun ShadowJar.jarWithDependencies(name: String, mainClass: String) {
     duplicatesStrategy = DuplicatesStrategy.WARN
     archiveBaseName.set(name)
